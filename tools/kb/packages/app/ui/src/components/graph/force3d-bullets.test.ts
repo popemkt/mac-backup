@@ -1,18 +1,19 @@
 /**
- * The bullet theme's node layer: one atlas cell per distinct bullet, each
- * node sampling its own cell, picked and labelled by as far as its bullet
+ * The bullet theme's node layer: each node sampling its own atlas cell
+ * (`lib/bullet-atlas`), picked and labelled by as far as its bullet
  * shows, restyled in place when a bullet changes (a collapse), and giving
  * its atlas back when it is replaced.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
-import { Color } from "three/webgpu";
+import { CanvasTexture, Color } from "three/webgpu";
 import { uniform } from "three/tsl";
 import { BULLET_GEOMETRY, bulletAppearance, bulletExtent } from "@/lib/bullet-mode";
 import { EmphasisFade } from "@/lib/graph-fade";
 import type { LensNode } from "@/lib/graph-lens";
 import { topologyOf } from "./force3d-emphasis";
-import { BulletAtlas, bulletLayer } from "./force3d-bullets";
+import { BulletAtlas } from "@/lib/bullet-atlas";
+import { bulletLayer } from "./force3d-bullets";
 import { GRAPH_THEMES } from "./graph-themes";
 
 const bullet = (hasChildren: boolean, collapsed: boolean, tagColors: string[] = []) =>
@@ -67,21 +68,6 @@ describe("the 3D bullet layer", () => {
     }
   });
 
-  it("paints each distinct bullet once, and each node samples its own cell", () => {
-    const parent = bullet(true, true, ["red"]);
-    const atlas = new BulletAtlas([node("a"), node("b", parent), node("c"), node("d", parent)]);
-    expect(atlas.cells).toBe(2);
-    expect([...atlas.cellOf]).toEqual([0, 1, 0, 1]);
-    // Cell 0 is the canvas's top-left: the texture's top (v runs up).
-    const [u0, v0, du, dv] = atlas.rect(0);
-    const [u1, v1] = atlas.rect(1);
-    expect(u0).toBeGreaterThan(0);
-    expect(v0 + dv).toBeLessThan(1);
-    expect(v0 + dv).toBeGreaterThan(0.5);
-    expect(u1).toBeGreaterThan(u0 + du);
-    expect(v1).toBe(v0);
-  });
-
   it("is picked by as far as each bullet shows, and follows a collapse in place", () => {
     const leaf = node("leaf");
     const open = node("parent", bullet(true, false));
@@ -117,8 +103,7 @@ describe("the 3D bullet layer", () => {
     expect(paint.mock.calls.length).toBe(painted);
     layer.restyle([node("a"), node("b", bullet(true, false))]);
     expect(paint.mock.calls.length).toBe(painted + 1);
-    const texture = Object.getPrototypeOf(new BulletAtlas([]).texture) as { dispose(): void };
-    const dispose = vi.spyOn(texture, "dispose");
+    const dispose = vi.spyOn(CanvasTexture.prototype, "dispose");
     layer.dispose();
     expect(dispose).toHaveBeenCalledTimes(1);
     paint.mockRestore();

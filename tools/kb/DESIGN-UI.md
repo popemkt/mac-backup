@@ -336,10 +336,13 @@ reference:
   `data-node-id` forks the one row↔node identity that instance keys, both
   keymaps, optimistic mutations and undo are all built on.
 - **The bullet reuses the existing reference treatment** (dashed ring). Only the
-  bullet: `NodeBlock`'s `isRef` *prop* still means "this row renders a node
-  whose home is elsewhere" and keeps suppressing nested query results and the
-  create-child strip, because a contextual reference's children **are** its own
-  and creating them is the whole point. `bulletIsRef = isRef || isContextualRef(node)`.
+  bullet: a *query-result* row — read from its instance key by
+  `isQueryResultInstance` (`lib/instance-key.ts`), never passed as a flag —
+  keeps suppressing nested query results, the create-child strip and the
+  structural chords, because its place under the query is computed rather than
+  a child edge. A contextual reference is a real child whose children **are**
+  its own, and creating them is the whole point.
+  `bulletIsRef = isQueryResult || isContextualRef(node)`.
 
 **Contextual children belong to the location, not the target** — the
 Tana-faithful default, and the one question the owner did not answer. Visiting
@@ -593,13 +596,18 @@ like themselves (P5).
 - **Graph themes (3D)** are data: a perspective's `lens.theme` is one of
   its option nodes (children of the field, like the renderers), picked in
   the settings panel and persisted as a ref prop. A theme is a whole scene,
-  not a material: `graph-themes.ts` states each one once, as a record the
-  scene, the layers and the tests read — which tokens fill the ground and
-  its edge, the backdrop's pool, warmth and haze, the fog,
-  the starfield, the grain, the bloom (and so whether any light may cross
-  white at all), the node surface, how links take their colour and
-  gradient, and the label's face, weight, case, halo and placement. What
-  the themes are, and why, is below. Switching one redraws what it shapes
+  not a material: `graph-themes.ts` states each one once, as one record in
+  two parts. The parts any renderer draws — what a node is drawn as (its
+  `form`), how links take their colour and gradient, and the label's
+  face, weight, case, halo and placement — are the theme's, and each
+  renderer realises them in its own terms; the label is painted by one
+  canvas painter wherever it is drawn (`lib/graph-label-paint.ts`), and a
+  bullet from one atlas (`lib/bullet-atlas.ts`). The 3D scene's dress —
+  which tokens fill the ground and its edge, the backdrop's pool, warmth
+  and haze, the fog, the starfield, the grain, the bloom (and so whether
+  any light may cross white at all) and the node surface — is its
+  `scene`, which only the 3D graph has. What the themes are, and why, is
+  below. Switching one redraws what it shapes
   in place: the palette eases across like a theme change, the stage's
   knobs move, the nodes and labels are redrawn; nothing moves, lays out or
   arrives again, and the link layer's motion is carried on.

@@ -3,7 +3,7 @@ import { DatascriptIndex, type KbIndex } from "@/ds";
 import { loadExpandedIds, resolveProps, saveExpandedIds, wireToOutlineMap } from "@/lib/graph-view";
 import { resolveVisibleProps } from "@/lib/field-visibility";
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
-import { outlineInstanceKey } from "@/lib/instance-key";
+import { isInsideQueryResults, outlineInstanceKey } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
 import { schemaOf, type SchemaIndex } from "@/lib/schema";
@@ -575,9 +575,8 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       // Reference instances are projected by query components, so their exact
       // visibility is only knowable once that component mounts. The mounted-host
       // half of the registry below validates them after React commits.
-      const isReferenceInstance = key.startsWith("ref:");
       if (
-        !isReferenceInstance &&
+        !isInsideQueryResults(key) &&
         !revealed.getVisibleInstances().some((item) => item.instanceKey === key)
       ) {
         if (import.meta.env.DEV) logWarn(`kb: refused unreachable focus target: ${key}`);

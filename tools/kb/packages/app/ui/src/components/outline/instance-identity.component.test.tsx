@@ -81,7 +81,7 @@ describe("instance identity (component)", () => {
       root.render(
         <div>
           <NodeBlock nodeId="n.root-a" instanceKey={treeKey} depth={0} />
-          <NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />
+          <NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} />
         </div>,
       );
     });
@@ -100,7 +100,7 @@ describe("instance identity (component)", () => {
       root.render(
         <div>
           <NodeBlock nodeId="n.root-a" instanceKey={treeKey} depth={0} />
-          <NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />
+          <NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} />
         </div>,
       );
     });
@@ -180,7 +180,7 @@ describe("instance identity (component)", () => {
     });
 
     await act(async () => {
-      root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />);
+      root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} />);
     });
 
     const parentBullet = container.querySelector(

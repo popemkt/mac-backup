@@ -18,8 +18,12 @@ import type { VerticalNavDecision } from "@/lib/caret";
 
 /** What the row looks like to the keymap. Offsets are SERIALIZED offsets. */
 export interface EditingKeyContext {
-  /** A reference instance: its text is the target's, so it edits nothing. */
-  readonly isRef: boolean;
+  /**
+   * The row is a query result (`isQueryResultInstance`): its place under the
+   * query is computed, so there is no child edge for a structural chord to
+   * move, split or merge.
+   */
+  readonly isQueryResult: boolean;
   readonly nodeId: string;
   readonly instanceKey: string;
   readonly cursor: number;
@@ -77,7 +81,7 @@ interface EditingBinding {
   readonly toIntent: (ctx: EditingKeyContext, key: string) => EditingIntent | null;
 }
 
-interface RefGuardBinding {
+interface ResultGuardBinding {
   readonly chord: Chord;
   /** Second half of the row's condition, for rows that read the caret. */
   readonly when?: (ctx: EditingKeyContext) => boolean;
@@ -86,15 +90,15 @@ interface RefGuardBinding {
 const ARROWS = ["ArrowUp", "ArrowDown"] as const;
 
 /**
- * The chords a reference instance swallows.
+ * The chords a query-result row swallows.
  *
- * A reference displays the target's text, so a structural edit on it would
- * either edit an invisible second string or restructure the wrong row. Note
- * the modifier: ⌘⇧↑ is listed while ⌃⇧↑ is not, because only the Command
- * spelling reorders — the Control spelling means "collapse", which a
- * reference may do.
+ * A result's place under the query is computed, not a child edge, so a
+ * structural edit would restructure the node's real home — rows the user is
+ * not looking at. Note the modifier: ⌘⇧↑ is listed while ⌃⇧↑ is not, because
+ * only the Command spelling reorders — the Control spelling means "collapse",
+ * which a result may do.
  */
-const REF_STRUCTURAL: readonly RefGuardBinding[] = [
+const RESULT_STRUCTURAL: readonly ResultGuardBinding[] = [
   { chord: { key: "Tab" } },
   { chord: { key: "Enter", shift: false } },
   { chord: { key: ["Backspace", "Delete"], mod: true } },
@@ -243,8 +247,8 @@ const EDITING_KEYMAP: readonly EditingBinding[] = [
  */
 export function mapEditingKey(ev: KeyChordEvent, ctx: EditingKeyContext): EditingIntent | null {
   if (
-    ctx.isRef &&
-    lookupChord(ev, REF_STRUCTURAL, (binding) => binding.when?.(ctx) ?? true) !== undefined
+    ctx.isQueryResult &&
+    lookupChord(ev, RESULT_STRUCTURAL, (binding) => binding.when?.(ctx) ?? true) !== undefined
   ) {
     return { type: "claim" };
   }

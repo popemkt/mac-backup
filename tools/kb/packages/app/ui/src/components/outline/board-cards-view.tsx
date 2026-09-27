@@ -1,7 +1,12 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
 import { formatPropValue } from "@/lib/graph-view";
-import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
+import {
+  childInstanceKey,
+  isQueryResultInstance,
+  outlineInstanceKey,
+  queryResultInstanceKey,
+} from "@/lib/instance-key";
 import { emptyValueForType, isValueMismatch, resolveFieldTypeById } from "@/lib/field-type";
 import { cn } from "@/lib/cn";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
@@ -174,7 +179,6 @@ export function BoardCardsView({
               instanceKey={instanceKeyFor(child.id)}
               displayCols={displayCols}
               context={context}
-              isRef={isQuerySource}
               draggable={false}
             />
           ))}
@@ -208,7 +212,6 @@ export function BoardCardsView({
                     instanceKey={instanceKeyFor(child.id)}
                     displayCols={displayCols}
                     context={context}
-                    isRef={isQuerySource}
                     draggable={!isQuerySource && groupFieldId !== null}
                     onDragStart={handleCardDragStart}
                     onDragEnd={handleCardDragEnd}
@@ -228,7 +231,6 @@ const ViewCard = memo(function ViewCard({
   instanceKey,
   displayCols,
   context,
-  isRef,
   draggable,
   onDragStart,
   onDragEnd,
@@ -238,7 +240,6 @@ const ViewCard = memo(function ViewCard({
   displayCols: Array<{ fieldId: string; label: string }>;
   /** What the card's field values resolve against (`fieldContextOf`). */
   context: FieldContext;
-  isRef: boolean;
   draggable: boolean;
   onDragStart?: (id: string) => void;
   onDragEnd?: () => void;
@@ -254,11 +255,8 @@ const ViewCard = memo(function ViewCard({
   const activateNode = useOutlineStore((s) => s.activateNode);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
 
-  const handleKeyDown = useNodeKeyDown({
-    nodeId: child.id,
-    instanceKey,
-    isRef,
-  });
+  const isRef = isQueryResultInstance(instanceKey);
+  const handleKeyDown = useNodeKeyDown({ nodeId: child.id, instanceKey });
 
   return (
     <div

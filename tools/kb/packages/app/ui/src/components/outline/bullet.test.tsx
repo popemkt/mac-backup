@@ -224,7 +224,7 @@ describe("reference-row bullet click parity", () => {
 
   async function renderRefRow(): Promise<HTMLElement> {
     await act(async () => {
-      root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />);
+      root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} />);
     });
     const bullet = container.querySelector(
       `[data-instance-key="${refKey}"] [data-bullet-ref="true"]`,

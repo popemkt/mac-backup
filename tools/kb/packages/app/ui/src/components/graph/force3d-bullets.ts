@@ -27,26 +27,13 @@ import {
 } from "three/webgpu";
 import { float, instancedDynamicBufferAttribute, texture, uv, vec3 } from "three/tsl";
 import type { ScenePalette } from "@/scene/palette";
-import {
-  bulletAppearance,
-  bulletExtent,
-  BULLET_GEOMETRY,
-  BULLET_GLYPH,
-  type BulletAppearance,
-} from "@/lib/bullet-mode";
-import { bulletPaintKey, paintBullet, type BulletPage } from "@/lib/bullet-paint";
-import { graphLabelFont } from "@/lib/graph-label";
+import { bulletExtent, BULLET_GEOMETRY } from "@/lib/bullet-mode";
+import { BulletAtlas, bulletAtlasKey, PLAIN_BULLET, readBulletPage } from "@/lib/bullet-atlas";
 import { NODE_OPS } from "@/scene/gpu/tsl";
 import type { Force3dTopology } from "./force3d-emphasis";
 import { shadeNode } from "./force3d-light";
 import { baseRadius, nodeRadius, type NodeLayer, type NodeLayerInit } from "./force3d-nodes";
 
-/** Canvas pixels a bullet's box is painted at, and the clear margin round it (mip bleed). */
-const CELL = 128;
-const PAD = 16;
-const COLUMNS = 16;
-/** The widest atlas a GPU is sure to take. */
-const MAX_SIDE = 4096;
 /** A bullet's halo radius, px of its box (the box is 24px, the halo 18px across). */
 const HALO_PX = BULLET_GEOMETRY.box / 2 - BULLET_GEOMETRY.haloInset;
 /** A bullet's box, as a multiple of its halo's radius. */
@@ -57,102 +44,26 @@ const BOX_PER_HALO = BULLET_GEOMETRY.box / HALO_PX;
  * the bullet stands larger than a sphere for its dot to read.
  */
 const HALO_PER_SPHERE = 2;
-/** How a node with no bullet of its own is drawn: a plain leaf. */
-const PLAIN = bulletAppearance({
-  hasChildren: false,
-  typeRefs: [],
-  tagNames: [],
-  isSys: false,
-  collapsed: false,
-  childCount: 0,
-});
 
 /** The page a bullet is painted on, read from the palette and the design system. */
-function pageOf(palette: ScenePalette): BulletPage {
-  const size =
-    typeof document === "undefined"
-      ? Number.NaN
-      : Number.parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue(BULLET_GLYPH.size),
-        );
-  return {
-    ink: palette.ink,
-    ground: palette.ground,
-    face: graphLabelFont("ui"),
-    glyphSize: Number.isFinite(size) ? size : 11,
-  };
+const pageOf = (palette: ScenePalette) => readBulletPage(palette.ink, palette.ground);
+
+const bulletsOf = (nodes: Force3dTopology["nodes"]) => nodes.map((node) => node.bullet);
+
+/** An atlas as a texture: its canvas, sampled with v running up. */
+function atlasTexture(atlas: BulletAtlas): CanvasTexture {
+  const map = new CanvasTexture(atlas.canvas);
+  map.colorSpace = SRGBColorSpace;
+  map.minFilter = LinearMipmapLinearFilter;
+  map.magFilter = LinearFilter;
+  return map;
 }
 
-/** What a node is drawn as: its own bullet, or a plain leaf. */
-const bulletOf = (node: Force3dTopology["nodes"][number]) => node.bullet ?? PLAIN;
-
-/** Every node's paint, in order: two graphs with the same key paint the same atlas. */
-function atlasKey(nodes: Force3dTopology["nodes"]): string {
-  return nodes.map((node) => bulletPaintKey(bulletOf(node))).join("\n");
-}
-
-/** Each distinct bullet of a graph, painted once into one texture. */
-export class BulletAtlas {
-  readonly canvas = document.createElement("canvas");
-  readonly texture = new CanvasTexture(this.canvas);
-  /** Each node's cell. */
-  readonly cellOf: Uint16Array;
-  private readonly bullets: BulletAppearance[] = [];
-
-  /** How many distinct bullets it holds. */
-  get cells(): number {
-    return this.bullets.length;
-  }
-
-  constructor(nodes: Force3dTopology["nodes"]) {
-    const keys = new Map<string, number>();
-    const capacity = COLUMNS * Math.floor(MAX_SIDE / (CELL + PAD * 2));
-    this.cellOf = new Uint16Array(nodes.length);
-    nodes.forEach((node, i) => {
-      const bullet = bulletOf(node);
-      const key = bulletPaintKey(bullet);
-      let cell = keys.get(key);
-      if (cell === undefined && this.bullets.length < capacity) {
-        cell = this.bullets.length;
-        keys.set(key, cell);
-        this.bullets.push(bullet);
-      }
-      // GAP [[01M3FNF3PFQA9J4XM76G3K7P9A]] — past the atlas's capacity a bullet shares the first cell.
-      this.cellOf[i] = cell ?? 0;
-    });
-    const side = CELL + PAD * 2;
-    this.canvas.width = COLUMNS * side;
-    this.canvas.height = Math.max(1, Math.ceil(Math.max(1, this.bullets.length) / COLUMNS)) * side;
-    this.texture.colorSpace = SRGBColorSpace;
-    this.texture.minFilter = LinearMipmapLinearFilter;
-    this.texture.magFilter = LinearFilter;
-  }
-
-  /** Where cell `c` is in the texture, as u, v of its corner and its width and height. */
-  rect(c: number): [number, number, number, number] {
-    const side = CELL + PAD * 2;
-    const { width, height } = this.canvas;
-    const col = c % COLUMNS;
-    const row = Math.floor(c / COLUMNS);
-    const u = (col * side + PAD) / width;
-    // The canvas's rows run down; a texture's v runs up.
-    const v = 1 - (row * side + PAD + CELL) / height;
-    return [u, v, CELL / width, CELL / height];
-  }
-
-  /** Paint every bullet for this page. */
-  paint(page: BulletPage): void {
-    const ctx = this.canvas.getContext("2d");
-    if (ctx === null) return;
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    const side = CELL + PAD * 2;
-    this.bullets.forEach((bullet, c) => {
-      const x = (c % COLUMNS) * side + PAD;
-      const y = Math.floor(c / COLUMNS) * side + PAD;
-      paintBullet(ctx, bullet, { x, y, size: CELL }, page);
-    });
-    this.texture.needsUpdate = true;
-  }
+/** Where cell `c` is in the texture, as u, v of its corner and its width and height. */
+function textureRect(atlas: BulletAtlas, c: number): [number, number, number, number] {
+  const [x, y, w, h] = atlas.cell(c);
+  // The canvas's rows run down; a texture's v runs up.
+  return [x, 1 - y - h, w, h];
 }
 
 export function bulletLayer(init: NodeLayerInit): NodeLayer {
@@ -168,6 +79,7 @@ export function bulletLayer(init: NodeLayerInit): NodeLayer {
   const extent = new Float32Array(n);
   // Painted by the first restyle, below.
   let atlas = new BulletAtlas([]);
+  let map = atlasTexture(atlas);
   let key: string | null = null;
 
   const material = new SpriteNodeMaterial();
@@ -176,11 +88,11 @@ export function bulletLayer(init: NodeLayerInit): NodeLayer {
   const present = instancedDynamicBufferAttribute(presence, "float");
   material.positionNode = at.xyz;
   material.scaleNode = at.w;
-  const map = texture(atlas.texture, rect.xy.add(uv().mul(rect.zw)));
+  const sample = texture(map, rect.xy.add(uv().mul(rect.zw)));
   material.colorNode = shadeNode(
     NODE_OPS,
     {
-      hue: vec3(map.rgb),
+      hue: vec3(sample.rgb),
       ground: vec3(colors.ground),
       ink: vec3(colors.ink),
       key: float(1),
@@ -189,30 +101,35 @@ export function bulletLayer(init: NodeLayerInit): NodeLayer {
       glow: float(0),
       lift: float(0),
     },
-    theme.surface,
-    theme.bloom !== null,
+    theme.scene.surface,
+    theme.scene.bloom !== null,
   );
-  material.opacityNode = map.a;
+  material.opacityNode = sample.a;
   material.alphaTest = 0.5;
   material.alphaToCoverage = true;
   const sprite = new Sprite(material);
   sprite.count = topology.nodes.length;
   sprite.frustumCulled = false;
 
-  const paint = () => atlas.paint(pageOf(palette));
+  const paint = () => {
+    atlas.paint(pageOf(palette));
+    map.needsUpdate = true;
+  };
   const restyle = (nodes: Force3dTopology["nodes"]) => {
     nodes.forEach((node, i) => {
       base[i] = baseRadius(node.size);
-      extent[i] = bulletExtent(bulletOf(node)) / HALO_PX;
+      extent[i] = bulletExtent(node.bullet ?? PLAIN_BULLET) / HALO_PX;
     });
     // The atlas is painted again only when some bullet's paint changed.
-    const next = atlasKey(nodes);
+    const bullets = bulletsOf(nodes);
+    const next = bulletAtlasKey(bullets);
     if (next === key) return;
     key = next;
-    atlas.texture.dispose();
-    atlas = new BulletAtlas(nodes);
-    map.value = atlas.texture;
-    nodes.forEach((_, i) => cell.setXYZW(i, ...atlas.rect(atlas.cellOf[i] ?? 0)));
+    map.dispose();
+    atlas = new BulletAtlas(bullets);
+    map = atlasTexture(atlas);
+    sample.value = map;
+    nodes.forEach((_, i) => cell.setXYZW(i, ...textureRect(atlas, atlas.cellOf[i] ?? 0)));
     cell.needsUpdate = true;
     paint();
   };
@@ -232,7 +149,7 @@ export function bulletLayer(init: NodeLayerInit): NodeLayer {
       palette = next;
       paint();
     },
-    dispose: () => atlas.texture.dispose(),
+    dispose: () => map.dispose(),
     update: (positions) => {
       const p = place.array;
       const e = presence.array;

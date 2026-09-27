@@ -7,9 +7,10 @@
  * proves which branch ran. It is the gate for the refactor, so it must pass
  * unchanged on both sides of it.
  *
- * The host is a bare contenteditable rather than `NodeBlock`: `isRef` and the
- * caret are inputs to the keymap, and driving them directly is what makes the
- * ref-instance rows reachable at all.
+ * The host is a bare contenteditable rather than `NodeBlock`: the instance key
+ * (which says whether the row is a query result) and the caret are inputs to
+ * the keymap, and driving them directly is what makes the result rows
+ * reachable at all.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -18,7 +19,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { outlineInstanceKey } from "@/lib/instance-key";
+import { outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { renderEditableContent, setCaretSerializedOffset } from "@/lib/md-edit";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -34,18 +35,10 @@ interface Mods {
   altKey?: boolean;
 }
 
-function Host({
-  nodeId,
-  instanceKey,
-  isRef,
-}: {
-  nodeId: string;
-  instanceKey: string;
-  isRef: boolean;
-}) {
+function Host({ nodeId, instanceKey }: { nodeId: string; instanceKey: string }) {
   // Subscribed so the host re-renders as the store changes, the way a row does.
   useOutlineStore((s) => s.nodes.get(nodeId));
-  const onKeyDown = useNodeKeyDown({ nodeId, instanceKey, isRef });
+  const onKeyDown = useNodeKeyDown({ nodeId, instanceKey });
   return <div data-editor="true" contentEditable onKeyDown={onKeyDown} />;
 }
 
@@ -120,13 +113,13 @@ describe("outline editing keymap (characterization)", () => {
    * `cursor`. The row is activated because that is the only state this handler
    * runs in: an outline row that is being edited.
    */
-  function mount(nodeId: string, cursor: number, isRef = false): HTMLElement {
-    const instanceKey = keyOf(nodeId);
+  function mount(nodeId: string, cursor: number, isQueryResult = false): HTMLElement {
+    const instanceKey = isQueryResult ? queryResultInstanceKey("n.q", nodeId) : keyOf(nodeId);
     act(() => {
       useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey);
     });
     act(() => {
-      root.render(<Host nodeId={nodeId} instanceKey={instanceKey} isRef={isRef} />);
+      root.render(<Host nodeId={nodeId} instanceKey={instanceKey} />);
     });
     const el = present(
       container.querySelector<HTMLElement>('[data-editor="true"]'),

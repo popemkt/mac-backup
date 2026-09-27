@@ -37,11 +37,11 @@ import {
 } from "./force3d-links";
 import { bulletLayer } from "./force3d-bullets";
 import { nodeLayer, type NodeLayer, type NodeLayerInit } from "./force3d-nodes";
-import { GRAPH_THEMES, type GraphTheme } from "./graph-themes";
+import { GRAPH_THEMES, type NodeForm } from "./graph-themes";
 import type { PickField } from "./force3d-pick";
 
 /** Each form a theme can draw nodes in, and the layer that draws it. */
-const NODE_FORMS: Record<GraphTheme["form"], (init: NodeLayerInit) => NodeLayer> = {
+const NODE_FORMS: Record<NodeForm, (init: NodeLayerInit) => NodeLayer> = {
   sphere: nodeLayer,
   bullet: bulletLayer,
 };

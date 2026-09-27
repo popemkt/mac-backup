@@ -8,7 +8,12 @@
 import type { SchemaIndex } from "@/lib/schema";
 import type { KbIndex } from "@/ds";
 import { runQuery } from "@/ds";
-import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
+import {
+  childInstanceKey,
+  isQueryResultInstance,
+  outlineInstanceKey,
+  queryResultInstanceKey,
+} from "@/lib/instance-key";
 import { frameListChildren, frameRows } from "@/lib/frame-rows";
 import { isQueryNode, queryDefOf, resultNodeIds } from "@/lib/query-node";
 import type { NodeMap } from "@/lib/types";
@@ -52,12 +57,7 @@ function emitProjectedRows(
   }
 }
 
-function walkVisibleInstances(
-  ctx: WalkContext,
-  nodeId: string,
-  instanceKey: string,
-  isRef: boolean,
-): void {
+function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: string): void {
   const { nodes, queryDb, out } = ctx;
   const node = nodes.get(nodeId);
   if (!node) return;
@@ -67,8 +67,9 @@ function walkVisibleInstances(
   const viewConfig = getViewConfig(node.props);
   const projected = isProjectedViewMode(viewConfig.mode);
 
-  // Query results — list walks refs; projected modes emit flat result rows.
-  if (!isRef && isQueryNode(node)) {
+  // Query results — list walks refs; projected modes emit flat result rows. A
+  // result row does not re-run its own query (`resolveRowChrome` agrees).
+  if (!isQueryResultInstance(instanceKey) && isQueryNode(node)) {
     const def = queryDefOf(node);
     if (hasText(def?.edn) && queryDb) {
       try {
@@ -84,7 +85,7 @@ function walkVisibleInstances(
         }
 
         for (const id of ids) {
-          walkVisibleInstances(ctx, id, queryResultInstanceKey(nodeId, id), true);
+          walkVisibleInstances(ctx, id, queryResultInstanceKey(nodeId, id));
         }
       } catch {
         // Broken EDN: skip results
@@ -100,7 +101,7 @@ function walkVisibleInstances(
   }
 
   for (const child of frameListChildren(nodeId, nodes, ctx.schema)) {
-    walkVisibleInstances(ctx, child.id, childInstanceKey(instanceKey, child.id), false);
+    walkVisibleInstances(ctx, child.id, childInstanceKey(instanceKey, child.id));
   }
 }
 
@@ -122,7 +123,7 @@ export function collectVisibleInstances(
   }
 
   for (const child of frameListChildren(rootNodeId, nodes, schema)) {
-    walkVisibleInstances(ctx, child.id, outlineInstanceKey(child.id, nodes), false);
+    walkVisibleInstances(ctx, child.id, outlineInstanceKey(child.id, nodes));
   }
   return out;
 }

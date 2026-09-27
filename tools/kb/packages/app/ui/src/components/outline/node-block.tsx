@@ -2,7 +2,7 @@ import { memo, useCallback, useMemo } from "react";
 import { contextualTargetOf, rowText } from "@/lib/contextual-ref";
 import { cn } from "@/lib/cn";
 import { guideLineStyle, indentStyle } from "@/lib/indent";
-import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
+import { childInstanceKey, isQueryResultInstance, outlineInstanceKey } from "@/lib/instance-key";
 import { resolveRowChrome } from "@/lib/row-chrome";
 import { useUiStore } from "@/stores/ui.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
@@ -23,17 +23,17 @@ import { ViewToolbar } from "./view-toolbar";
 interface NodeBlockProps {
   nodeId: string;
   depth: number;
-  /** Stable render-instance id (parent-path or ref-container + nodeId). */
+  /**
+   * Stable render-instance id (parent-path or ref-container + nodeId). Whether
+   * the row is a query result is read from it (`isQueryResultInstance`).
+   */
   instanceKey?: string;
-  /** Reference-row state for query results / embeds (dashed bullet ring). */
-  isRef?: boolean;
 }
 
 export const NodeBlock = memo(function NodeBlock({
   nodeId,
   depth,
   instanceKey: instanceKeyProp,
-  isRef = false,
 }: NodeBlockProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
@@ -103,11 +103,7 @@ export const NodeBlock = memo(function NodeBlock({
     void mutations.createTransientNode(nodeId, lastChild);
   }, [nodeId, node]);
 
-  const handleKeyDown = useNodeKeyDown({
-    nodeId,
-    instanceKey,
-    isRef,
-  });
+  const handleKeyDown = useNodeKeyDown({ nodeId, instanceKey });
 
   const viewConfig = getViewConfig(node?.props);
 
@@ -126,7 +122,13 @@ export const NodeBlock = memo(function NodeBlock({
     nodePaletteOpen &&
     ((selectedNodeId === nodeId && selectedInstanceKey === instanceKey) ||
       (activeNodeId === nodeId && activeInstanceKey === instanceKey));
-  const chrome = resolveRowChrome({ node, schema, viewConfig, isRef, showDebugFields });
+  const chrome = resolveRowChrome({
+    node,
+    schema,
+    viewConfig,
+    isQueryResult: isQueryResultInstance(instanceKey),
+    showDebugFields,
+  });
 
   return (
     <div
@@ -198,18 +200,12 @@ export const NodeBlock = memo(function NodeBlock({
               depth={depth}
               viewMode={viewConfig.mode}
               frameInstanceKey={instanceKey}
-              renderNode={({
-                nodeId: rid,
-                instanceKey: rInstanceKey,
-                depth: rDepth,
-                isRef: rIsRef,
-              }) => (
+              renderNode={({ nodeId: rid, instanceKey: rInstanceKey, depth: rDepth }) => (
                 <NodeBlock
                   key={rInstanceKey}
                   nodeId={rid}
                   instanceKey={rInstanceKey}
                   depth={rDepth}
-                  isRef={rIsRef}
                 />
               )}
             />

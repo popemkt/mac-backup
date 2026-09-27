@@ -1,15 +1,17 @@
 /**
- * The 3D graph's themes (`lens.theme`), each stated once as the whole scene
- * it dresses: which tokens fill the ground and its edge, the backdrop's pool,
- * the fog, the stars, the grain, the bloom, the node surface, the links'
- * tone and the labels. The scene, the layers and the tests read this record; nothing
- * else decides how a theme looks (DESIGN-UI → Graph → Graph themes).
+ * The graph's themes (`lens.theme`), each stated once as one record every
+ * renderer that draws the graph reads: what a node is drawn as, how the
+ * links take their colour and how the labels are set — which each renderer
+ * realises in its own terms — and the 3D scene's dress (the ground and its
+ * edge, the backdrop's pool, the fog, the stars, the grain, the bloom, the
+ * node surface), which only the 3D graph has. Nothing else decides how a
+ * theme looks (DESIGN-UI → Graph → Graph themes).
  *
  * Values only, and only tokens for colour (Lab principle L1), so every theme
  * looks like itself in each design system, light and dark (P5). No three.
  */
 import type { ColorToken } from "@/lib/css-color";
-import type { GraphLabelFace } from "@/lib/graph-label";
+import type { GraphLabelStyle } from "@/lib/graph-label-paint";
 import type { LensTheme } from "@/lib/graph-lens";
 import type { NodeSurface } from "./force3d-light";
 
@@ -17,19 +19,6 @@ import type { NodeSurface } from "./force3d-light";
 export interface Variants<T> {
   readonly light: T;
   readonly dark: T;
-}
-
-/** How a theme sets its labels. */
-export interface LabelStyle {
-  readonly face: GraphLabelFace;
-  readonly weight: number;
-  /** Set in capitals, and tracked this many CSS pixels apart. */
-  readonly upper: boolean;
-  readonly tracking: number;
-  /** What keeps a label legible over the scene behind it. */
-  readonly halo: "soft" | "stroke" | "plate" | "frost";
-  /** Above its node's silhouette, or right of it, as a row's text stands beside its bullet. */
-  readonly placement: "above" | "right";
 }
 
 /** How a theme draws its links, over `--graph-edge` (the resting colour and alpha). */
@@ -42,7 +31,14 @@ export interface LinkTone {
   readonly accent: number;
 }
 
-export interface GraphTheme {
+/**
+ * What a node is drawn as: a lit sphere, or the outline's bullet, painted
+ * from its one definition (`lib/bullet-mode`, `lib/bullet-atlas`).
+ */
+export type NodeForm = "sphere" | "bullet";
+
+/** The 3D scene a theme dresses: the stage the 3D graph stands on, and its light. */
+export interface SceneDress {
   /** The palette's ground (the backdrop at the focal point) and edge (at the frame). */
   readonly ground: Variants<ColorToken>;
   readonly edge: Variants<ColorToken>;
@@ -62,15 +58,15 @@ export interface GraphTheme {
    * node light then folds into lift, so no fragment of it passes white.
    */
   readonly bloom: Variants<number> | null;
-  /**
-   * What a node is drawn as: a lit sphere, or the outline's bullet, painted
-   * from its one definition (`lib/bullet-mode`, `force3d-bullets`).
-   */
-  readonly form: "sphere" | "bullet";
   /** How a node's surface takes the light (`force3d-light`). */
   readonly surface: NodeSurface;
+}
+
+export interface GraphTheme {
+  readonly form: NodeForm;
   readonly links: LinkTone;
-  readonly labels: LabelStyle;
+  readonly labels: GraphLabelStyle;
+  readonly scene: SceneDress;
 }
 
 /**
@@ -80,15 +76,7 @@ export interface GraphTheme {
  * The quiet default the others are measured against.
  */
 const MATTE: GraphTheme = {
-  ground: { light: "--card", dark: "--card" },
-  edge: { light: "--muted", dark: "--background" },
-  backdrop: { warmth: 0, haze: 0 },
-  fog: { near: 0.55, far: 2.6 },
-  stars: { light: 0.1, dark: 0.3 },
-  grain: { light: 3, dark: 1 },
-  bloom: { light: 0.4, dark: 1.15 },
   form: "sphere",
-  surface: "matte",
   links: { strength: 1, source: 0.3, accent: 0 },
   labels: {
     face: "graph",
@@ -98,6 +86,16 @@ const MATTE: GraphTheme = {
     halo: "soft",
     placement: "above",
   },
+  scene: {
+    ground: { light: "--card", dark: "--card" },
+    edge: { light: "--muted", dark: "--background" },
+    backdrop: { warmth: 0, haze: 0 },
+    fog: { near: 0.55, far: 2.6 },
+    stars: { light: 0.1, dark: 0.3 },
+    grain: { light: 3, dark: 1 },
+    bloom: { light: 0.4, dark: 1.15 },
+    surface: "matte",
+  },
 };
 
 /**
@@ -106,15 +104,7 @@ const MATTE: GraphTheme = {
  * labels on a ruled plate. A print does not glow: no bloom.
  */
 const CEL: GraphTheme = {
-  ground: { light: "--background", dark: "--background" },
-  edge: { light: "--background", dark: "--background" },
-  backdrop: { warmth: 0, haze: 0 },
-  fog: null,
-  stars: { light: 0, dark: 0 },
-  grain: { light: 0, dark: 0 },
-  bloom: null,
   form: "sphere",
-  surface: "cel",
   links: { strength: 1.9, source: 1, accent: 0 },
   labels: {
     face: "graph",
@@ -123,6 +113,16 @@ const CEL: GraphTheme = {
     tracking: 0,
     halo: "plate",
     placement: "above",
+  },
+  scene: {
+    ground: { light: "--background", dark: "--background" },
+    edge: { light: "--background", dark: "--background" },
+    backdrop: { warmth: 0, haze: 0 },
+    fog: null,
+    stars: { light: 0, dark: 0 },
+    grain: { light: 0, dark: 0 },
+    bloom: null,
+    surface: "cel",
   },
 };
 
@@ -133,15 +133,7 @@ const CEL: GraphTheme = {
  * set in the monospace face in tracked capitals, and the strongest bloom.
  */
 const FRESNEL: GraphTheme = {
-  ground: { light: "--background", dark: "--card" },
-  edge: { light: "--muted", dark: "--background" },
-  backdrop: { warmth: 0, haze: 0.45 },
-  fog: { near: 0.45, far: 2.2 },
-  stars: { light: 0.2, dark: 0.6 },
-  grain: { light: 3, dark: 1 },
-  bloom: { light: 0.7, dark: 1.7 },
   form: "sphere",
-  surface: "fresnel",
   links: { strength: 1.25, source: 0.15, accent: 0.45 },
   labels: {
     face: "mono",
@@ -151,6 +143,16 @@ const FRESNEL: GraphTheme = {
     halo: "soft",
     placement: "above",
   },
+  scene: {
+    ground: { light: "--background", dark: "--card" },
+    edge: { light: "--muted", dark: "--background" },
+    backdrop: { warmth: 0, haze: 0.45 },
+    fog: { near: 0.45, far: 2.2 },
+    stars: { light: 0.2, dark: 0.6 },
+    grain: { light: 3, dark: 1 },
+    bloom: { light: 0.7, dark: 1.7 },
+    surface: "fresnel",
+  },
 };
 
 /**
@@ -159,15 +161,7 @@ const FRESNEL: GraphTheme = {
  * body with a tight glint, faint links, light labels on a frosted chip.
  */
 const GLASS: GraphTheme = {
-  ground: { light: "--card", dark: "--card" },
-  edge: { light: "--muted", dark: "--background" },
-  backdrop: { warmth: 0.22, haze: 0.25 },
-  fog: { near: 0.5, far: 2.4 },
-  stars: { light: 0, dark: 0 },
-  grain: { light: 2, dark: 1 },
-  bloom: { light: 0.35, dark: 1.25 },
   form: "sphere",
-  surface: "glass",
   links: { strength: 0.65, source: 0.2, accent: 0.2 },
   labels: {
     face: "graph",
@@ -176,6 +170,16 @@ const GLASS: GraphTheme = {
     tracking: 0,
     halo: "frost",
     placement: "above",
+  },
+  scene: {
+    ground: { light: "--card", dark: "--card" },
+    edge: { light: "--muted", dark: "--background" },
+    backdrop: { warmth: 0.22, haze: 0.25 },
+    fog: { near: 0.5, far: 2.4 },
+    stars: { light: 0, dark: 0 },
+    grain: { light: 2, dark: 1 },
+    bloom: { light: 0.35, dark: 1.25 },
+    surface: "glass",
   },
 };
 
@@ -187,15 +191,7 @@ const GLASS: GraphTheme = {
  * orbitable 3D scene.
  */
 const BULLET: GraphTheme = {
-  ground: { light: "--background", dark: "--background" },
-  edge: { light: "--background", dark: "--background" },
-  backdrop: { warmth: 0, haze: 0 },
-  fog: null,
-  stars: { light: 0, dark: 0 },
-  grain: { light: 0, dark: 0 },
-  bloom: null,
   form: "bullet",
-  surface: "flat",
   links: { strength: 0.75, source: 1, accent: 0 },
   labels: {
     face: "ui",
@@ -204,6 +200,16 @@ const BULLET: GraphTheme = {
     tracking: 0,
     halo: "stroke",
     placement: "right",
+  },
+  scene: {
+    ground: { light: "--background", dark: "--background" },
+    edge: { light: "--background", dark: "--background" },
+    backdrop: { warmth: 0, haze: 0 },
+    fog: null,
+    stars: { light: 0, dark: 0 },
+    grain: { light: 0, dark: 0 },
+    bloom: null,
+    surface: "flat",
   },
 };
 

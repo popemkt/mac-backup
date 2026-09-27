@@ -21,8 +21,15 @@ import {
   type PerspectiveCamera,
 } from "three/webgpu";
 import { texture, uniform } from "three/tsl";
-import { fitGraphLabel, graphLabelFont } from "@/lib/graph-label";
-import type { LabelStyle } from "./graph-themes";
+import { fitGraphLabel } from "@/lib/graph-label";
+import {
+  GRAPH_LABEL_HEIGHT,
+  GRAPH_LABEL_PAD,
+  graphLabelText,
+  paintGraphLabel,
+  setGraphLabelType,
+  type GraphLabelStyle,
+} from "@/lib/graph-label-paint";
 import { labelArrived } from "@/lib/graph-arrival";
 import { byLabelPriority, reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
 import type { ScenePalette } from "@/scene/palette";
@@ -30,8 +37,7 @@ import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
 import { pixelsPerUnit, toScreen, type ScreenPoint } from "@/scene/gpu/screen";
 
 const FONT_SIZE = 12;
-const PAD_X = 6;
-const HEIGHT = 24;
+const HEIGHT = GRAPH_LABEL_HEIGHT;
 /** Canvas pixels per CSS pixel, before the device ratio. */
 const OVERSAMPLE = 2;
 
@@ -44,69 +50,22 @@ interface Label {
   dispose(): void;
 }
 
-/** What keeps a label legible over the links and nodes behind it. */
-const HALOS: Record<
-  LabelStyle["halo"],
-  (ctx: CanvasRenderingContext2D, label: string, width: number, palette: ScenePalette) => void
-> = {
-  // The ground, drawn wide and soft under the text.
-  soft: (ctx, label, _width, palette) => {
-    ctx.strokeStyle = palette.ground;
-    ctx.lineWidth = 4;
-    ctx.shadowColor = palette.ground;
-    ctx.shadowBlur = 6;
-    ctx.strokeText(label, PAD_X, HEIGHT / 2);
-    ctx.shadowBlur = 0;
-  },
-  // A crisp, thin line of the ground: a row's text needs no more.
-  stroke: (ctx, label, _width, palette) => {
-    ctx.strokeStyle = palette.ground;
-    ctx.lineWidth = 3;
-    ctx.strokeText(label, PAD_X, HEIGHT / 2);
-  },
-  // A solid plate of the ground under an ink rule: a printed caption.
-  plate: (ctx, _label, width, palette) => {
-    ctx.fillStyle = palette.ground;
-    ctx.strokeStyle = palette.ink;
-    ctx.lineWidth = 1.25;
-    ctx.beginPath();
-    ctx.roundRect(1.5, 3.5, width - 3, HEIGHT - 7, 2);
-    ctx.fill();
-    ctx.stroke();
-  },
-  // A rounded chip of the ground, translucent: frosted glass.
-  frost: (ctx, _label, width, palette) => {
-    ctx.globalAlpha = 0.72;
-    ctx.fillStyle = palette.ground;
-    ctx.beginPath();
-    ctx.roundRect(1, 3, width - 2, HEIGHT - 6, (HEIGHT - 6) / 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  },
-};
-
-function paint(text: string, palette: ScenePalette, style: LabelStyle) {
+function paint(text: string, palette: ScenePalette, style: GraphLabelStyle) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (ctx === null) throw new Error("Canvas 2D context unavailable");
   const scale = OVERSAMPLE * Math.min(window.devicePixelRatio || 1, 2);
-  const font = `${style.weight} ${FONT_SIZE}px ${graphLabelFont(style.face)}`;
-  const tracking = `${style.tracking}px`;
-  const shown = style.upper ? text.toUpperCase() : text;
-  ctx.font = font;
-  ctx.letterSpacing = tracking;
-  const label = fitGraphLabel(shown, (t) => ctx.measureText(t).width);
-  const width = Math.ceil(ctx.measureText(label).width) + PAD_X * 2;
+  setGraphLabelType(ctx, style, FONT_SIZE);
+  const label = fitGraphLabel(graphLabelText(text, style), (t) => ctx.measureText(t).width);
+  const width = Math.ceil(ctx.measureText(label).width) + GRAPH_LABEL_PAD * 2;
   canvas.width = width * scale;
   canvas.height = HEIGHT * scale;
   ctx.scale(scale, scale);
-  ctx.font = font;
-  ctx.letterSpacing = tracking;
-  ctx.textBaseline = "middle";
-  ctx.lineJoin = "round";
-  HALOS[style.halo](ctx, label, width, palette);
-  ctx.fillStyle = palette.ink;
-  ctx.fillText(label, PAD_X, HEIGHT / 2);
+  setGraphLabelType(ctx, style, FONT_SIZE);
+  paintGraphLabel(ctx, label, { x: GRAPH_LABEL_PAD, y: HEIGHT / 2, width }, style, {
+    text: palette.ink,
+    ground: palette.ground,
+  });
   const map = new CanvasTexture(canvas);
   map.colorSpace = SRGBColorSpace;
   return { map, width };
@@ -177,9 +136,14 @@ export class LabelLayer {
   private readonly group: Group;
   private topology: Force3dTopology;
   private palette: ScenePalette;
-  private style: LabelStyle;
+  private style: GraphLabelStyle;
 
-  constructor(group: Group, topology: Force3dTopology, palette: ScenePalette, style: LabelStyle) {
+  constructor(
+    group: Group,
+    topology: Force3dTopology,
+    palette: ScenePalette,
+    style: GraphLabelStyle,
+  ) {
     this.group = group;
     this.topology = topology;
     this.palette = palette;
@@ -289,7 +253,11 @@ export class LabelLayer {
   }
 
   /** A new palette, graph or style: every texture is repainted on next want. */
-  reset(topology: Force3dTopology, palette: ScenePalette, style: LabelStyle = this.style): void {
+  reset(
+    topology: Force3dTopology,
+    palette: ScenePalette,
+    style: GraphLabelStyle = this.style,
+  ): void {
     this.dispose();
     this.topology = topology;
     this.palette = palette;

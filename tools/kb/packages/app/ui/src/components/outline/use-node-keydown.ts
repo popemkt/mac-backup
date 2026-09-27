@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { isQueryResultInstance } from "@/lib/instance-key";
 import { getCaretSerializedOffset } from "@/lib/md-edit";
 import { useOutlineStore } from "@/stores/outline.store";
 import { readCaretGeometry, verticalArrowDecision, type VerticalNavDecision } from "@/lib/caret";
@@ -8,23 +9,21 @@ import { mapEditingKey, type EditingKeyContext } from "./editing-keymap";
 export interface UseNodeKeyDownArgs {
   nodeId: string;
   instanceKey: string;
-  isRef?: boolean;
 }
 
 /** The row as the keymap needs to see it, read from the store and the DOM. */
 function readEditingContext(args: {
   nodeId: string;
   instanceKey: string;
-  isRef: boolean;
   editable: HTMLElement;
 }): EditingKeyContext {
-  const { nodeId, instanceKey, isRef, editable } = args;
+  const { nodeId, instanceKey, editable } = args;
   const store = useOutlineStore.getState();
   const live = store.nodes.get(nodeId);
   const parentId = live?.parentId ?? null;
   const parent = parentId === null ? undefined : store.nodes.get(parentId);
   return {
-    isRef,
+    isQueryResult: isQueryResultInstance(instanceKey),
     nodeId,
     instanceKey,
     // Serialized caret offset — robust across element boundaries and atomic
@@ -55,7 +54,7 @@ function readEditingContext(args: {
  * ({@link ./editing-intents}). Vertical navigation reads visual-line geometry,
  * never naive extremes, and an intent always claims the key.
  */
-export function useNodeKeyDown({ nodeId, instanceKey, isRef = false }: UseNodeKeyDownArgs) {
+export function useNodeKeyDown({ nodeId, instanceKey }: UseNodeKeyDownArgs) {
   return useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const editable = e.currentTarget;
@@ -67,12 +66,12 @@ export function useNodeKeyDown({ nodeId, instanceKey, isRef = false }: UseNodeKe
           shiftKey: e.shiftKey,
           altKey: e.altKey,
         },
-        readEditingContext({ nodeId, instanceKey, isRef, editable }),
+        readEditingContext({ nodeId, instanceKey, editable }),
       );
       if (intent === null) return;
       e.preventDefault();
       applyEditingIntent(intent, editable);
     },
-    [nodeId, isRef, instanceKey],
+    [nodeId, instanceKey],
   );
 }

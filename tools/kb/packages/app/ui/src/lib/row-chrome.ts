@@ -21,11 +21,11 @@ import { isProjectedViewMode, type ViewConfig } from "@/lib/view-config";
 export interface RowChrome {
   /**
    * A contextual reference row IS a reference, so it takes the dashed ref ring
-   * the outline already uses for reference rows. It is only the *bullet* that
-   * is shared: the `isRef` prop means "this row renders a node whose home is
-   * elsewhere", which suppresses nested results and the create-child strip. A
-   * contextual reference's children are its own, so those gates keep reading
-   * the prop, not this.
+   * the outline already uses for query-result rows. It is only the *bullet*
+   * that is shared: a query-result row's place is computed rather than a child
+   * edge, which suppresses nested results and the create-child strip. A
+   * contextual reference is a real child with children of its own, so those
+   * gates keep reading `isQueryResult`, not this.
    */
   bulletIsRef: boolean;
   hasFields: boolean;
@@ -50,8 +50,8 @@ export interface RowChromeInput {
   /** Where field definitions are read from: the whole graph (`lib/schema.ts`). */
   schema: SchemaIndex;
   viewConfig: ViewConfig;
-  /** This render instance stands for a node whose home is elsewhere. */
-  isRef: boolean;
+  /** This render instance is a query result (`isQueryResultInstance`). */
+  isQueryResult: boolean;
   showDebugFields: boolean;
 }
 
@@ -59,14 +59,14 @@ export function resolveRowChrome({
   node,
   schema,
   viewConfig,
-  isRef,
+  isQueryResult,
   showDebugFields,
 }: RowChromeInput): RowChrome {
   const hasChildren = node.children.length > 0;
   const isQuery = isQueryNode(node);
-  // A query node projects results instead of children, and a reference row
-  // does not re-run a nested query.
-  const showsQueryResults = isQuery && !isRef;
+  // A query node projects results instead of children, and a result row does
+  // not re-run a nested query.
+  const showsQueryResults = isQuery && !isQueryResult;
   const showsChildren = !isQuery && hasChildren;
   const hasFrameRows = showsChildren || showsQueryResults;
   const hasFields = resolveProps(node, schema, { showDebugFields }).length > 0;
@@ -74,7 +74,7 @@ export function resolveRowChrome({
   const projected = isProjectedViewMode(viewConfig.mode);
 
   return {
-    bulletIsRef: isRef || isContextualRef(node),
+    bulletIsRef: isQueryResult || isContextualRef(node),
     hasFields,
     showsQueryResults,
     showsChildren,
@@ -82,7 +82,7 @@ export function resolveRowChrome({
     isExpandable,
     showToolbar: hasFrameRows && !node.collapsed && viewConfig.mode !== "list",
     projected,
-    showsCreateChild: !isRef && !projected,
+    showsCreateChild: !isQueryResult && !projected,
     showsChildContainer: isExpandable && !node.collapsed,
   };
 }

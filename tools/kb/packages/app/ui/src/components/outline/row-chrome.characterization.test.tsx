@@ -96,16 +96,9 @@ describe("row chrome", () => {
     container.remove();
   });
 
-  async function render(nodeId: string, opts: { isRef?: boolean; instanceKey?: string } = {}) {
+  async function render(nodeId: string, opts: { instanceKey?: string } = {}) {
     await act(async () => {
-      root.render(
-        <NodeBlock
-          nodeId={nodeId}
-          depth={0}
-          isRef={opts.isRef ?? false}
-          instanceKey={opts.instanceKey}
-        />,
-      );
+      root.render(<NodeBlock nodeId={nodeId} depth={0} instanceKey={opts.instanceKey} />);
     });
   }
 
@@ -157,10 +150,7 @@ describe("row chrome", () => {
 
   it("a query node rendered as a reference does not re-run its query", async () => {
     await expand("n.query");
-    await render("n.query", {
-      isRef: true,
-      instanceKey: queryResultInstanceKey("n.other", "n.query"),
-    });
+    await render("n.query", { instanceKey: queryResultInstanceKey("n.other", "n.query") });
     expect(has('[data-query-results-for="n.query"]')).toBe(false);
     // …and a reference row is never offered the create-child strip.
     expect(has('[data-create-child-zone="n.query"]')).toBe(false);
@@ -185,7 +175,7 @@ describe("row chrome", () => {
   });
 
   it("a reference row's bullet takes the dashed ring", async () => {
-    await render("n.parent", { isRef: true, instanceKey: "ref:n.parent" });
+    await render("n.parent", { instanceKey: queryResultInstanceKey("n.other", "n.parent") });
     expect(has('[data-bullet-ref="true"]')).toBe(true);
   });
 

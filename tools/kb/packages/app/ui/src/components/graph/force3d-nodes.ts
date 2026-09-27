@@ -131,8 +131,8 @@ export function nodeLayer({
       glow: emphasis.y,
       lift: emphasis.z,
     },
-    theme.surface,
-    theme.bloom !== null,
+    theme.scene.surface,
+    theme.scene.bloom !== null,
   );
 
   const segments = topology.nodes.length > DENSE ? [12, 8] : [24, 16];

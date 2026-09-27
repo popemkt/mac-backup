@@ -33,7 +33,7 @@ import type { GraphCameraControls } from "./graph-camera-controls";
 import { GraphCamera } from "./force3d-camera";
 import { GraphLayers, type Force3dSettings } from "./force3d-layers";
 import { GraphPick } from "./force3d-pick";
-import { GRAPH_THEMES, variant, type GraphTheme } from "./graph-themes";
+import { GRAPH_THEMES, variant, type SceneDress } from "./graph-themes";
 
 export type { Force3dSettings };
 
@@ -105,7 +105,7 @@ export async function mountForce3d(
       timing: init.timing,
       reducedMotion: init.reducedMotion,
       bloom: {
-        strength: bloomOf(GRAPH_THEMES[init.settings.theme], init.dark),
+        strength: bloomOf(GRAPH_THEMES[init.settings.theme].scene, init.dark),
         radius: BLOOM_RADIUS,
       },
       vignette: 0,
@@ -115,8 +115,8 @@ export async function mountForce3d(
   return { ...handle, ...parts.api };
 }
 
-const bloomOf = (theme: GraphTheme, dark: boolean) =>
-  theme.bloom === null ? 0 : variant(theme.bloom, dark);
+const bloomOf = ({ bloom }: SceneDress, dark: boolean) =>
+  bloom === null ? 0 : variant(bloom, dark);
 
 /**
  * The stage dressed for the graph: backdrop, fog, stars, the orbit — each as
@@ -133,9 +133,9 @@ function dressStage(stage: SceneStage, init: Force3dSceneInit) {
     size: 95,
     opacity: 0,
   });
-  let dressed: GraphTheme | null = null;
-  let theme = GRAPH_THEMES[init.settings.theme];
-  const dress = (next: GraphTheme, dark: boolean) => {
+  let dressed: SceneDress | null = null;
+  let theme = GRAPH_THEMES[init.settings.theme].scene;
+  const dress = (next: SceneDress, dark: boolean) => {
     theme = next;
     if (next !== dressed) stage.backdrop(next.backdrop);
     dressed = next;
@@ -203,7 +203,7 @@ function graphScene(stage: SceneStage, init: Force3dSceneInit) {
     setGraph: (nodes: readonly LensNode[], edges: readonly LensEdge[]) =>
       layers.setGraph(nodes, edges),
     setSettings: (next: Force3dSettings) => {
-      dress(GRAPH_THEMES[next.theme], dark);
+      dress(GRAPH_THEMES[next.theme].scene, dark);
       layers.setSettings(next);
     },
     setEmphasis: (next: GraphEmphasis) => {
@@ -216,7 +216,7 @@ function graphScene(stage: SceneStage, init: Force3dSceneInit) {
     setPalette: (next: ScenePalette, link: string, nextDark: boolean) => {
       dark = nextDark;
       stage.setPalette(next);
-      dress(GRAPH_THEMES[layers.settings.theme], dark);
+      dress(GRAPH_THEMES[layers.settings.theme].scene, dark);
       layers.setPalette(next, link);
     },
     inspect: (): Force3dInspection => inspection(stage, layers, view),

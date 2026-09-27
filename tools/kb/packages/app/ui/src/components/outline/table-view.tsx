@@ -1,7 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
-import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
+import {
+  childInstanceKey,
+  isQueryResultInstance,
+  outlineInstanceKey,
+  queryResultInstanceKey,
+} from "@/lib/instance-key";
 import { emptyValueForType, isValueMismatch, resolveFieldTypeById } from "@/lib/field-type";
 import { textOr } from "@/lib/text";
 import { cn } from "@/lib/cn";
@@ -208,7 +213,6 @@ export function TableView({
                 childKey={childKey}
                 columns={columns}
                 context={context}
-                isRef={isQuerySource}
               />
             );
           })}
@@ -235,14 +239,13 @@ const TableRow = memo(function TableRow({
   childKey,
   columns,
   context,
-  isRef = false,
 }: {
   child: OutlineNode;
   childKey: string;
   columns: TableColumnSpec[];
   context: FieldContext;
-  isRef?: boolean;
 }) {
+  const isRef = isQueryResultInstance(childKey);
   const isActive = useOutlineStore(
     (s) => s.activeNodeId === child.id && s.activeInstanceKey === childKey,
   );
@@ -255,11 +258,7 @@ const TableRow = memo(function TableRow({
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const rowDebug = useDebugFields(child.id);
 
-  const handleKeyDown = useNodeKeyDown({
-    nodeId: child.id,
-    instanceKey: childKey,
-    isRef,
-  });
+  const handleKeyDown = useNodeKeyDown({ nodeId: child.id, instanceKey: childKey });
 
   const isQuery = isQueryNode(child);
   // A row's own field rows follow the row's own flag — the frame's debug

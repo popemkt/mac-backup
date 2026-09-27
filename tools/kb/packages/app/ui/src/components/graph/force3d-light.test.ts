@@ -56,7 +56,7 @@ const appearances = (theme: LensTheme) =>
     (["light", "dark"] as const).map((variant) => ({
       name: `${id} ${variant}`,
       ink: tokenRgb(id, variant, "--foreground"),
-      ground: tokenRgb(id, variant, GRAPH_THEMES[theme].ground[variant]),
+      ground: tokenRgb(id, variant, GRAPH_THEMES[theme].scene.ground[variant]),
     })),
   );
 
@@ -77,12 +77,12 @@ const LIFTS = [GLOW.rising, GLOW.neighbour, 0.5, 1, 4];
 const lightings = (theme: LensTheme): (NodeLighting & { name: string })[] =>
   appearances(theme).map((a) => ({
     ...a,
-    surface: GRAPH_THEMES[theme].surface,
-    glows: GRAPH_THEMES[theme].bloom !== null,
+    surface: GRAPH_THEMES[theme].scene.surface,
+    glows: GRAPH_THEMES[theme].scene.bloom !== null,
   }));
 
 describe.each(LENS_THEMES)("3D light over every storable colour, %s theme", (theme) => {
-  const blooms = GRAPH_THEMES[theme].bloom !== null;
+  const blooms = GRAPH_THEMES[theme].scene.bloom !== null;
   for (const lighting of lightings(theme)) {
     it(`keeps a resting node, and any lift, at or under white in ${lighting.name}`, () => {
       for (const colour of COLOURS) {

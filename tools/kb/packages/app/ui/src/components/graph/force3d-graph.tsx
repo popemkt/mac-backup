@@ -57,7 +57,7 @@ export interface Force3dGraphProps extends GraphEmphasis {
  * light one, so a light stage has a ground too); ink and accent as the UI's.
  */
 function readGraphPalette(theme: LensTheme, dark: boolean) {
-  const { ground, edge } = GRAPH_THEMES[theme];
+  const { ground, edge } = GRAPH_THEMES[theme].scene;
   return readScenePalette({
     ground: variant(ground, dark),
     edge: variant(edge, dark),

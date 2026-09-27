@@ -19,7 +19,6 @@ interface QueryResultItem {
   nodeId: string;
   instanceKey: string;
   depth: number;
-  isRef: boolean;
 }
 
 interface QueryResultsSectionProps {
@@ -117,7 +116,6 @@ export function QueryResultsSection({
             nodeId: id,
             instanceKey: key,
             depth: depth + 1,
-            isRef: true,
           });
         })
       )}
