@@ -11,6 +11,7 @@ import {
   todayLocal,
   weekdayInitials,
 } from "@/lib/date-display";
+import { IconButton } from "@/components/ui/icon-button";
 import { useAnchoredPosition } from "@/components/ui/use-anchored-position";
 
 export interface DateEditorProps {
@@ -146,12 +147,18 @@ function CalendarMonth({
       <div className="mb-1 flex items-center justify-between px-1">
         <span className="text-ui font-medium text-foreground/75">{monthLabel(month)}</span>
         <span className="flex gap-0.5">
-          <MonthButton label="Previous month" onClick={() => onPage(-1)}>
-            <CaretLeftIcon size={12} weight="bold" />
-          </MonthButton>
-          <MonthButton label="Next month" onClick={() => onPage(1)}>
-            <CaretRightIcon size={12} weight="bold" />
-          </MonthButton>
+          <IconButton
+            label="Previous month"
+            icon={CaretLeftIcon}
+            tabIndex={-1}
+            onClick={() => onPage(-1)}
+          />
+          <IconButton
+            label="Next month"
+            icon={CaretRightIcon}
+            tabIndex={-1}
+            onClick={() => onPage(1)}
+          />
         </span>
       </div>
       <div role="grid" aria-label={monthLabel(month)} className="grid grid-cols-7 gap-px">
@@ -192,28 +199,5 @@ function CalendarMonth({
           })}
       </div>
     </>
-  );
-}
-
-function MonthButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      tabIndex={-1}
-      aria-label={label}
-      title={label}
-      className="flex h-5 w-5 items-center justify-center rounded-sm text-foreground/40 hover:bg-foreground/[0.06] hover:text-foreground/70"
-      onClick={onClick}
-    >
-      {children}
-    </button>
   );
 }

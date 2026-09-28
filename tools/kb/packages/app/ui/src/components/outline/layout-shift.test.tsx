@@ -9,7 +9,6 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TagChip } from "./tag-chip";
-import { FieldRow } from "./field-row";
 
 const outlineDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -52,21 +51,6 @@ describe("layout-shift regressions (i10)", () => {
     const src = readFileSync(path.join(outlineDir, "tag-chip.tsx"), "utf8");
     expect(src).toContain("absolute inset-0");
     expect(src).not.toMatch(/hidden[\s\S]*group-hover\/tag:flex/);
-  });
-
-  it("FieldRow remove button reserves width via opacity (not display)", () => {
-    const html = renderToStaticMarkup(
-      createElement(FieldRow, {
-        depth: 0,
-        label: "status",
-        onRemove: () => undefined,
-        children: createElement("span", null, "doing"),
-      }),
-    );
-    expect(html).toContain("opacity-0");
-    expect(html).toContain("group-hover/field:opacity-100");
-    expect(html).toContain("w-5");
-    expect(html).not.toMatch(/hidden[\s\S]*group-hover\/field/);
   });
 
   it("CommandPalette shell keeps fixed max width empty and matched", () => {

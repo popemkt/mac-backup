@@ -1,4 +1,4 @@
-import { WarningIcon, XIcon } from "@phosphor-icons/react";
+import { WarningIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { FieldType } from "@/lib/field-type";
 import { indentStyle } from "@/lib/indent";
@@ -20,8 +20,6 @@ export interface FieldRowProps {
   mismatch?: boolean;
   /** Table cells: keep FieldRow shell, hide icon/label chrome (value slot only). */
   valueOnly?: boolean;
-  onIconClick?: (e: React.MouseEvent) => void;
-  onRemove?: () => void;
   children: React.ReactNode;
   className?: string;
 }
@@ -40,21 +38,14 @@ function FieldLabel({
   label,
   labelTitle,
   debug,
-  onIconClick,
-}: Pick<
-  FieldRowProps,
-  "icon" | "fieldType" | "fieldId" | "label" | "labelTitle" | "debug" | "onIconClick"
-> & { fieldType: FieldType; debug: boolean }) {
+}: Pick<FieldRowProps, "icon" | "fieldType" | "fieldId" | "label" | "labelTitle" | "debug"> & {
+  fieldType: FieldType;
+  debug: boolean;
+}) {
   const Glyph = icon;
   return (
     <>
-      <span
-        className={cn(
-          "flex h-6 w-6 shrink-0 items-center justify-center self-start text-foreground/25",
-          onIconClick && "cursor-pointer transition-opacity hover:opacity-70",
-        )}
-        onClick={onIconClick}
-      >
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center self-start text-foreground/25">
         {/* The glyph is the field's editor's glyph: the registry answers "which
             editor" and "which icon" together, so a row cannot show one type's
             glyph over another type's editor. An explicit `icon` overrides it —
@@ -94,29 +85,6 @@ function MismatchWarning() {
   );
 }
 
-/** Hover-revealed "drop this field". Width is reserved, so revealing it cannot shift the row. */
-function RemoveFieldButton({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "ml-1 flex h-6 w-5 shrink-0 items-center justify-center self-start rounded-sm",
-        "text-foreground/20 opacity-0 transition-opacity",
-        "group-hover/field:opacity-100 hover:bg-foreground/8 hover:text-foreground/50",
-        "focus:opacity-100",
-      )}
-      onClick={(e) => {
-        e.stopPropagation();
-        onRemove();
-      }}
-      title={`Remove ${label}`}
-      aria-label={`Remove ${label}`}
-    >
-      <XIcon size={11} weight="bold" />
-    </button>
-  );
-}
-
 /** DESIGN-RESKIN §1.4 — the one field row everywhere (outline, prefs, …).
  * Single source of alignment: label col top-aligned to first value line.
  * Icon + label slots use h-6 baseline; value slot is first-line-flex via items-start.
@@ -131,8 +99,6 @@ export function FieldRow({
   debug = false,
   mismatch = false,
   valueOnly = false,
-  onIconClick,
-  onRemove,
   children,
   className,
 }: FieldRowProps) {
@@ -162,15 +128,12 @@ export function FieldRow({
           label={label}
           labelTitle={labelTitle}
           debug={debug}
-          onIconClick={onIconClick}
         />
       )}
 
       {mismatch && <MismatchWarning />}
 
       <div className={cn("min-w-0 flex-1 self-start", valueOnly ? "px-0" : "px-1")}>{children}</div>
-
-      {!valueOnly && onRemove && <RemoveFieldButton label={label} onRemove={onRemove} />}
     </div>
   );
 }

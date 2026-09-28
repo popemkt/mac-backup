@@ -130,41 +130,6 @@ describe("Field value placeholder (D17, §5.2)", () => {
   });
 });
 
-describe("Field row alignment (D18, §5.2)", () => {
-  const base = {
-    depth: 1,
-    fieldType: "text",
-    fieldId: "f.value",
-    label: "status",
-  } as const;
-
-  function markup(onRemove?: () => void): string {
-    return renderToStaticMarkup(
-      createElement(FieldRow, {
-        ...base,
-        onRemove,
-        children: createElement("span", null, "value"),
-      }),
-    );
-  }
-
-  it("value column starts at identical x whether onRemove exists", () => {
-    const withBtn = markup(() => {});
-    const withoutBtn = markup(undefined);
-    // Identical prefix up to and including the opening of the value slot.
-    const marker = 'class="min-w-0 flex-1';
-    const iWith = withBtn.indexOf(marker);
-    const iWithout = withoutBtn.indexOf(marker);
-    expect(iWith).toBeGreaterThan(0);
-    expect(iWith).toBe(iWithout);
-    // Remove button renders AFTER the value slot (trailing edge).
-    const btnIdx = withBtn.indexOf("aria-label=");
-    expect(btnIdx).toBeGreaterThan(iWith);
-    // And the button no longer sits between label and value.
-    expect(withBtn.indexOf(btnIdx >= 0 ? "aria-label" : "")).toBeGreaterThan(iWith);
-  });
-});
-
 /**
  * Indent gutter ownership.
  *

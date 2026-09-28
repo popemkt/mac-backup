@@ -1,6 +1,7 @@
 import { ArrowUUpLeftIcon, PushPinIcon, PushPinSlashIcon, XIcon } from "@phosphor-icons/react";
 import { describeReason } from "@kb/model";
 import { cn } from "@/lib/cn";
+import { IconButton } from "@/components/ui/icon-button";
 import { MdView } from "@/components/ui/md-view";
 import type { MemberRowModel } from "@/lib/ontology-scope";
 import { useFollow } from "@/stores/follow";
@@ -90,9 +91,11 @@ export function MemberRow({
 
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-100 group-hover/member:opacity-100 focus-within:opacity-100">
         {excluded ? (
-          <IconButton label={`Restore ${row.label}`} onClick={() => onRestore?.(row.id)}>
-            <ArrowUUpLeftIcon size={12} weight="bold" />
-          </IconButton>
+          <IconButton
+            label={`Restore ${row.label}`}
+            onClick={() => onRestore?.(row.id)}
+            icon={ArrowUUpLeftIcon}
+          />
         ) : (
           <>
             {row.pinned ? (
@@ -100,17 +103,15 @@ export function MemberRow({
                 label={`Unpin ${row.label}`}
                 title="Pinned explicitly — unpin to keep only derived membership"
                 onClick={() => onUnpin?.(row.id)}
-              >
-                <PushPinSlashIcon size={12} weight="bold" />
-              </IconButton>
+                icon={PushPinSlashIcon}
+              />
             ) : (
               <IconButton
                 label={`Pin ${row.label}`}
                 title="Pin: stay a member even if the tag is removed"
                 onClick={() => onPin?.(row.id)}
-              >
-                <PushPinIcon size={12} weight="bold" />
-              </IconButton>
+                icon={PushPinIcon}
+              />
             )}
             <IconButton
               label={`Exclude ${row.label}`}
@@ -120,9 +121,8 @@ export function MemberRow({
                   : "Exclude from this ontology"
               }
               onClick={() => onExclude?.(row.id)}
-            >
-              <XIcon size={12} weight="bold" />
-            </IconButton>
+              icon={XIcon}
+            />
           </>
         )}
       </div>
@@ -137,29 +137,5 @@ export function MemberRow({
         </span>
       ) : null}
     </div>
-  );
-}
-
-function IconButton({
-  label,
-  title,
-  onClick,
-  children,
-}: {
-  label: string;
-  title?: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={title ?? label}
-      className="flex h-5 w-5 items-center justify-center rounded-sm text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
-      onClick={onClick}
-    >
-      {children}
-    </button>
   );
 }
