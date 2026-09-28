@@ -8,6 +8,9 @@ import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { isSysPrefixed } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import type { Follow } from "@/lib/follow";
+import { useFollow } from "@/stores/follow";
+import { IconButton } from "@/components/ui/icon-button";
 import { FieldRow } from "./field-row";
 import { resolveTagFields, type TagFieldRef } from "./tag-fields";
 
@@ -19,7 +22,8 @@ export interface TagFieldsConfigViewProps {
   readOnly: boolean;
   onAdd: (name: string) => void;
   onRemove: (fieldId: string) => void;
-  onOpen: (fieldId: string) => void;
+  /** Carry out a follow (`useFollow`): a field's glyph opens the field. */
+  onFollow: Follow;
 }
 
 /**
@@ -40,7 +44,7 @@ export function TagFieldsConfigView({
   readOnly,
   onAdd,
   onRemove,
-  onOpen,
+  onFollow,
 }: TagFieldsConfigViewProps) {
   const [draft, setDraft] = useState("");
   const [picking, setPicking] = useState(false);
@@ -84,30 +88,23 @@ export function TagFieldsConfigView({
       )}
 
       {template.map((field) => (
-        <FieldRow key={field.id} depth={-1} label={field.name} fieldId={field.id}>
-          <div className="flex min-w-0 flex-1 items-center gap-1">
-            <button
-              type="button"
-              className="ml-auto text-label text-foreground/40 underline-offset-2 hover:text-foreground/70 hover:underline"
-              onClick={() => onOpen(field.id)}
-            >
-              open
-            </button>
+        // The row's glyph opens the field (FieldRow), where it is configured.
+        <FieldRow
+          key={field.id}
+          depth={-1}
+          label={field.name}
+          fieldId={field.id}
+          onFollow={onFollow}
+        >
+          <div className="flex min-w-0 flex-1 items-center justify-end">
             {!readOnly && (
-              <button
-                type="button"
-                className={cn(
-                  "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm",
-                  "opacity-0 transition-opacity group-hover/node:opacity-60",
-                  "hover:!opacity-100 focus-visible:opacity-100",
-                  "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",
-                )}
+              <IconButton
+                label={`Remove field ${field.name} from this tag`}
                 title={`Remove ${field.name} from this tag`}
-                aria-label={`Remove field ${field.name} from this tag`}
+                icon={XIcon}
+                className="opacity-0 group-hover/field:opacity-100 focus-visible:opacity-100"
                 onClick={() => onRemove(field.id)}
-              >
-                <XIcon size={9} weight="bold" aria-hidden />
-              </button>
+              />
             )}
           </div>
         </FieldRow>
@@ -156,7 +153,7 @@ export function TagFieldsConfigView({
 
 export function TagFieldsConfig({ tagId }: { tagId: string }) {
   const schema = useOutlineStore(schemaOf);
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const follow = useFollow();
 
   const { template, suggestions, all } = useMemo(
     () => resolveTagFields(schema, tagId),
@@ -168,7 +165,7 @@ export function TagFieldsConfig({ tagId }: { tagId: string }) {
       template={template}
       suggestions={suggestions}
       readOnly={isSysPrefixed(tagId)}
-      onOpen={zoomTo}
+      onFollow={follow}
       onRemove={(fieldId) => void mutations.removeTagField(tagId, fieldId)}
       onAdd={(name) => {
         void (async () => {

@@ -54,7 +54,7 @@ function pointerAt(el: Element | null): PointerHit | null {
 }
 
 /** A modifier-click reveals where a plain click opens. */
-function followHowOf(e: { metaKey: boolean; ctrlKey: boolean }): FollowHow {
+export function followHowOf(e: { metaKey: boolean; ctrlKey: boolean }): FollowHow {
   return e.metaKey || e.ctrlKey ? "reveal" : "open";
 }
 

@@ -17,25 +17,6 @@ import type { EditHandle, RejectedInput } from "./field-value";
 import type { FieldHandle } from "./field-picker";
 import { VALUE_VIEWS } from "./value-views";
 
-/**
- * The type glyph for a field — the icon half of its kind's row.
- *
- * `FieldRow` renders this rather than looking the row up itself, so the glyph
- * and the surface can never come from different rows.
- */
-export function FieldTypeIcon({
-  fieldType,
-  fieldId,
-  size = 13,
-}: {
-  fieldType: FieldType;
-  fieldId?: string;
-  size?: number;
-}) {
-  const { icon: Glyph } = VALUE_VIEWS[valueKindOf(fieldType, fieldId)];
-  return <Glyph size={size} />;
-}
-
 export interface ValueSlotProps {
   /** The stored value, or null for a slot that holds none yet. */
   value: PropValue | null;

@@ -421,6 +421,7 @@ export function NodeField({
       label={label}
       debug={debug}
       mismatch={values.some((v) => isValueMismatch(fieldType, v))}
+      onFollow={follow}
     >
       <FieldValueStack
         nodeId={nodeId}

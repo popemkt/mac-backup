@@ -1,9 +1,10 @@
 import { WarningIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { FieldType } from "@/lib/field-type";
+import { followHowOf, nodeTarget, type Follow } from "@/lib/follow";
 import { indentStyle } from "@/lib/indent";
-import { FieldTypeIcon } from "./value-slot";
-import type { FieldGlyph } from "./value-views";
+import { IconButton } from "@/components/ui/icon-button";
+import { fieldGlyphOf, type FieldGlyph } from "./value-views";
 
 export const FIELD_LABEL_WIDTH = 120;
 
@@ -21,6 +22,12 @@ export interface FieldRowProps {
   mismatch?: boolean;
   /** Table cells: keep FieldRow shell, hide icon/label chrome (value slot only). */
   valueOnly?: boolean;
+  /**
+   * Carry out a follow (`useFollow`). Given with a `fieldId`, the glyph is
+   * the field's own button: the field is a node, and its page is where it is
+   * configured, so the glyph opens it (⌘/Ctrl-click reveals it in place).
+   */
+  onFollow?: Follow;
   children: React.ReactNode;
   className?: string;
 }
@@ -39,20 +46,38 @@ function FieldLabel({
   label,
   labelTitle,
   debug,
-}: Pick<FieldRowProps, "icon" | "fieldType" | "fieldId" | "label" | "labelTitle" | "debug"> & {
+  onFollow,
+}: Pick<
+  FieldRowProps,
+  "icon" | "fieldType" | "fieldId" | "label" | "labelTitle" | "debug" | "onFollow"
+> & {
   fieldType: FieldType;
   debug: boolean;
 }) {
-  const Glyph = icon;
+  // The glyph is the field's editor's glyph: the registry answers "which
+  // editor" and "which icon" together, so a row cannot show one type's glyph
+  // over another type's editor. An explicit `icon` overrides it — that is
+  // what a preferences row passes.
+  const Glyph = icon ?? fieldGlyphOf(fieldType, fieldId);
   return (
     <>
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center self-start text-foreground/25">
-        {/* The glyph is the field's editor's glyph: the registry answers "which
-            editor" and "which icon" together, so a row cannot show one type's
-            glyph over another type's editor. An explicit `icon` overrides it —
-            that is what a preferences row passes. */}
-        {Glyph ? <Glyph size={13} /> : <FieldTypeIcon fieldType={fieldType} fieldId={fieldId} />}
-      </span>
+      {fieldId !== undefined && onFollow !== undefined ? (
+        <IconButton
+          size="md"
+          weight="regular"
+          icon={Glyph}
+          label={`Configure field ${label}`}
+          className="self-start"
+          data-field-configure={fieldId}
+          onClick={(e) => {
+            e.stopPropagation();
+            onFollow(nodeTarget(fieldId), followHowOf(e));
+          }}
+        />
+      ) : (
+        // A row that stands for no field node (a preference) has nothing to open.
+        <InertGlyph icon={Glyph} />
+      )}
 
       <span
         className={cn(
@@ -70,6 +95,15 @@ function FieldLabel({
         )}
       </span>
     </>
+  );
+}
+
+/** The glyph of a row with no field node behind it: the icon button's box, drawn still. */
+function InertGlyph({ icon: Glyph }: { icon: FieldGlyph }) {
+  return (
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center self-start text-foreground/25">
+      <Glyph size={13} aria-hidden />
+    </span>
   );
 }
 
@@ -100,6 +134,7 @@ export function FieldRow({
   debug = false,
   mismatch = false,
   valueOnly = false,
+  onFollow,
   children,
   className,
 }: FieldRowProps) {
@@ -129,6 +164,7 @@ export function FieldRow({
           label={label}
           labelTitle={labelTitle}
           debug={debug}
+          onFollow={onFollow}
         />
       )}
 

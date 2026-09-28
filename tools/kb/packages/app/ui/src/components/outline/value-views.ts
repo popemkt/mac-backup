@@ -7,7 +7,8 @@ import {
   CheckSquareIcon,
   type Icon,
 } from "@phosphor-icons/react";
-import type { ValueKind } from "@/lib/value-kind";
+import type { FieldType } from "@/lib/field-type";
+import { valueKindOf, type ValueKind } from "@/lib/value-kind";
 import {
   CheckboxSurface,
   ColorSurface,
@@ -55,3 +56,13 @@ export const VALUE_VIEWS: Readonly<Record<ValueKind, ValueView>> = {
 
 /** The glyph a field's row wears. */
 export type FieldGlyph = Icon;
+
+/**
+ * The type glyph for a field — the icon half of its kind's row.
+ *
+ * `FieldRow` draws this rather than looking the row up itself, so the glyph
+ * and the surface can never come from different rows.
+ */
+export function fieldGlyphOf(fieldType: FieldType, fieldId?: string): FieldGlyph {
+  return VALUE_VIEWS[valueKindOf(fieldType, fieldId)].icon;
+}

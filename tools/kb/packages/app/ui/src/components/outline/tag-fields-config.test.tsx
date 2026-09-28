@@ -79,7 +79,7 @@ const view = (over: Partial<Parameters<typeof TagFieldsConfigView>[0]> = {}) =>
       readOnly: false,
       onAdd: () => undefined,
       onRemove: () => undefined,
-      onOpen: () => undefined,
+      onFollow: () => undefined,
       ...over,
     }),
   );
@@ -145,7 +145,7 @@ describe("TagFieldsConfigView", () => {
             readOnly: false,
             onAdd: () => undefined,
             onRemove: () => undefined,
-            onOpen: () => undefined,
+            onFollow: () => undefined,
           }),
         );
       });
