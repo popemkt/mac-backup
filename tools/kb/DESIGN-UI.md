@@ -318,7 +318,9 @@ its own — its label is its own spelling, so it rebuilds byte for byte, and
 `www.` gains its scheme in the href only (`@kb/model`'s `normalizeUrl`, the url
 field's form) — so it renders, edits and follows exactly like a markdown link,
 in node text and text field values alike. Segments are flat, so a url inside
-code, emphasis or a link's label stays what that segment makes it.
+code, emphasis or a link's label stays what that segment makes it. A url or a
+number *value* is not markdown: its editor is its plain string, so the url
+field's own text is never autolinked while it is typed.
 
 **Links are two kinds, told apart at a glance** (Tana's). A reference
 (`[[id|label]]`) stays in the graph: it wears no mark, and its label is drawn in

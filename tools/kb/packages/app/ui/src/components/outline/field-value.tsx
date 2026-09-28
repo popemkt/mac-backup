@@ -149,7 +149,7 @@ function CaretValue({
     const el = editRef.current;
     if (!editing || el === null) return;
     const start = seed ?? text;
-    renderInlineMarkdown(el, start, ink);
+    renderCaretText(el, start, shownAs, ink);
     el.focus();
     setCaretSerializedOffset(
       el,
@@ -191,7 +191,7 @@ function CaretValue({
           editRef={editRef}
           placeholder={placeholder}
           className={cn(textClass, "editable")}
-          ink={ink}
+          ink={shownAs === "markdown" ? ink : null}
           onFinish={finish}
           onPaste={(e) => {
             // A link pasted into an empty url slot is the whole gesture.
@@ -222,6 +222,16 @@ function CaretValue({
   );
 }
 
+/**
+ * Build a caret editor's tree: text is its inline markdown, and a url or a
+ * number its plain string — a url's `_`, `*` or bare `https://` is its own,
+ * not markup, and a number has none.
+ */
+function renderCaretText(el: HTMLElement, text: string, shownAs: CaretDisplay, ink: RefInk): void {
+  if (shownAs === "markdown") renderInlineMarkdown(el, text, ink);
+  else el.textContent = text;
+}
+
 /** A caret value's side of the slot's keymap (`EditHandle`), over its two elements. */
 function useCaretHandle({
   handleRef,
@@ -243,7 +253,7 @@ function useCaretHandle({
     () => ({
       commit: () => editRef.current?.blur(),
       cancel: () => {
-        if (editRef.current) renderInlineMarkdown(editRef.current, stored, ink);
+        if (editRef.current) renderCaretText(editRef.current, stored, shownAs, ink);
         editRef.current?.blur();
       },
       softBreak: () => {
@@ -294,7 +304,8 @@ function CaretEditor({
   editRef: React.RefObject<HTMLDivElement | null>;
   placeholder: string | undefined;
   className: string;
-  ink: RefInk;
+  /** Text's references' ink; null for a plain editor, which has no tree to re-form. */
+  ink: RefInk | null;
   onFinish: () => void;
   onPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
 }) {
@@ -310,14 +321,16 @@ function CaretEditor({
       data-editable-text="true"
       data-placeholder={placeholder}
       onInput={() => {
-        if (editRef.current && !composing.current) readInlineInput(editRef.current, ink);
+        if (editRef.current && ink !== null && !composing.current) {
+          readInlineInput(editRef.current, ink);
+        }
       }}
       onCompositionStart={() => {
         composing.current = true;
       }}
       onCompositionEnd={() => {
         composing.current = false;
-        if (editRef.current) readInlineInput(editRef.current, ink);
+        if (editRef.current && ink !== null) readInlineInput(editRef.current, ink);
       }}
       onBlur={onFinish}
       onPaste={onPaste}
