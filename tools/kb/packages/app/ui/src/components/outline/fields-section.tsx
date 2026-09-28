@@ -13,6 +13,7 @@ import { useFollow } from "@/stores/follow";
 import { rowTextOf } from "@/lib/contextual-ref";
 import { arriveAt, slotAt } from "@/lib/value-slot-nav";
 import type { Follow } from "@/lib/follow";
+import { IconButton } from "@/components/ui/icon-button";
 import { FieldRow } from "./field-row";
 import { ValueSlot } from "./value-slot";
 import { FieldPicker, type FieldHandle } from "./field-picker";
@@ -266,76 +267,108 @@ function ValueItem({
   onAdd: (() => void) | null;
   children: React.ReactNode;
 }) {
-  const remove =
-    onRemove === null ? null : (
-      <button
-        type="button"
-        // The keyboard's remove is Backspace on the value; this is the mouse's.
-        tabIndex={-1}
-        className={cn(
-          "flex shrink-0 items-center justify-center",
-          "opacity-0 transition-opacity group-hover/value:opacity-100 focus-visible:opacity-100",
-          "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",
-          layout === "inline"
-            ? // Over the chip's corner, so chips sit as close as tags do.
-              "absolute -right-1 -top-0.5 h-3.5 w-3.5 rounded-full border border-foreground/10 bg-popover text-foreground/40 hover:text-foreground/70"
-            : "mt-0.5 h-4 w-4 rounded-sm text-foreground/20 hover:bg-foreground/8 hover:text-foreground/50",
-        )}
-        title="Remove this value"
-        aria-label="Remove this value"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-      >
-        <XIcon size={layout === "inline" ? 7 : 9} weight="bold" aria-hidden />
-      </button>
-    );
+  const inline = layout === "inline";
   return (
     <div
       className={cn(
         "group/value flex min-w-0 items-start",
-        layout === "inline" ? "relative max-w-full" : "gap-1",
+        inline ? "relative max-w-full gap-0.5" : "gap-1",
       )}
       data-field-value="true"
     >
-      <div className={cn("min-w-0", layout === "stack" && "flex-1")}>{children}</div>
-      {remove}
+      <div className={cn("min-w-0", !inline && "flex-1")}>{children}</div>
+      {onRemove !== null &&
+        (inline ? (
+          <ChipRemoveButton onRemove={onRemove} />
+        ) : (
+          <ValueAction>
+            <IconButton
+              label="Remove this value"
+              icon={XIcon}
+              // The keyboard's remove is Backspace on the value; this is the mouse's.
+              tabIndex={-1}
+              className="opacity-0 group-hover/value:opacity-100 focus-visible:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+            />
+          </ValueAction>
+        ))}
       {onAdd !== null && <AddValueButton onAdd={onAdd} />}
     </div>
   );
 }
 
 /**
+ * The slot a value's trailing action sits in: one text line tall (the `h-6`
+ * the label column is aligned to), its button centred on it. Remove and add
+ * both sit in it, so they share a line whichever of them a value shows.
+ */
+function ValueAction({
+  zeroWidth = false,
+  children,
+}: {
+  zeroWidth?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className={cn("flex h-6 shrink-0 items-center", zeroWidth && "w-0")}>{children}</span>
+  );
+}
+
+/**
+ * A chip's remove: a badge over its corner, so chips sit as close as tags do.
+ * It is part of the chip's anatomy, as a tag chip's "×" over its mark is,
+ * rather than a button in the value's trailing space.
+ */
+function ChipRemoveButton({ onRemove }: { onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      className={cn(
+        "absolute -right-1 -top-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center",
+        "rounded-full border border-foreground/10 bg-popover text-foreground/40 hover:text-foreground/70",
+        "opacity-0 transition-opacity group-hover/value:opacity-100 focus-visible:opacity-100",
+        "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",
+      )}
+      title="Remove this value"
+      aria-label="Remove this value"
+      onClick={(e) => {
+        e.stopPropagation();
+        onRemove();
+      }}
+    >
+      <XIcon size={7} weight="bold" aria-hidden />
+    </button>
+  );
+}
+
+/**
  * The mouse's way to add a value: a "+" in the trailing space of the last
- * value, shown while the field is hovered or holds the focus. It sits in a
- * zero-width box, so it costs no line and no width — adding is Enter at the
- * end of a value, or the picker, for the keyboard.
+ * value, shown while the field is hovered or holds the focus. Its slot is
+ * zero-width, so it costs no line and no width — adding is Enter at the end
+ * of a value, or the picker, for the keyboard.
  */
 function AddValueButton({ onAdd }: { onAdd: () => void }) {
   return (
-    <span className="relative w-0 shrink-0 self-stretch">
-      <button
-        type="button"
-        className={cn(
-          "absolute left-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-sm",
-          "text-foreground/30 opacity-0 transition-opacity",
-          "group-hover/field:opacity-100 group-focus-within/field:opacity-100 focus-visible:opacity-100",
-          "hover:bg-foreground/[0.06] hover:text-foreground/60",
-          "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",
-        )}
+    <ValueAction zeroWidth>
+      <IconButton
+        label="Add a value"
+        icon={PlusIcon}
         tabIndex={-1}
-        title="Add a value"
-        aria-label="Add a value"
+        className={cn(
+          "opacity-0 group-hover/field:opacity-100 group-focus-within/field:opacity-100",
+          "focus-visible:opacity-100",
+        )}
         data-add-value="true"
         onClick={(e) => {
           e.stopPropagation();
           onAdd();
         }}
-      >
-        <PlusIcon size={10} weight="bold" aria-hidden />
-      </button>
-    </span>
+      />
+    </ValueAction>
   );
 }
 

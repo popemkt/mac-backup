@@ -7,6 +7,7 @@ import type { KbIndex } from "@/ds";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
 import { systemSeedNodes } from "@kb/model";
 import { FieldValueStack } from "@/components/outline/fields-section";
@@ -65,6 +66,30 @@ describe("field value stack", () => {
     // One "+", in the last value's trailing space — never a line of its own.
     expect(html.match(/data-add-value="true"/g)?.length).toBe(1);
     expect(html.lastIndexOf('data-add-value="true"')).toBeGreaterThan(html.indexOf(">two<"));
+  });
+
+  it("draws remove and add as one icon button, in one line-tall slot", () => {
+    // They used to be two hand-rolled buttons — a 16px box with a 9px glyph
+    // beside a 20px box with a 10px glyph, offset two ways — so the "×" and
+    // the "+" sat at different heights and sizes on the same line.
+    const html = render([
+      { t: "str", v: "one" },
+      { t: "str", v: "two" },
+    ]);
+    // A bare happy-dom window to read the markup: nothing is mounted.
+    const doc = new Window().document;
+    doc.body.innerHTML = html;
+    const last = [...doc.querySelectorAll('[data-field-value="true"]')].at(-1);
+    const remove = last?.querySelector('[aria-label="Remove this value"]');
+    const add = last?.querySelector('[data-add-value="true"]');
+    for (const button of [remove, add]) {
+      expect(button?.getAttribute("data-icon-button")).toBe("sm");
+      expect(button?.parentElement?.className).toContain("h-6");
+      expect(button?.parentElement?.className).toContain("items-center");
+    }
+    const removeGlyph = remove?.querySelector("svg")?.getAttribute("width");
+    expect(removeGlyph).toBeDefined();
+    expect(add?.querySelector("svg")?.getAttribute("width")).toBe(removeGlyph);
   });
 
   it("a single-valued field offers no second slot", () => {
