@@ -12,6 +12,8 @@
 import { mutations } from "@/actions/mutations";
 import { rowTextOf } from "@/lib/contextual-ref";
 import { renderInlineMarkdown, serializeEditable, setCaretSerializedOffset } from "@/lib/md-edit";
+import { schemaOf } from "@/lib/schema";
+import { refInkOf } from "@/lib/tag-color";
 import { useOutlineStore } from "@/stores/outline.store";
 import { enterFields } from "@/lib/value-slot-nav";
 import type { EditingIntent } from "./editing-keymap";
@@ -36,7 +38,7 @@ function softBreak(
   const { textNodeId } = rowTextOf(store, nodeId);
   const text = serializeEditable(editable);
   const next = `${text.slice(0, cursor)}\n${text.slice(cursor)}`;
-  renderInlineMarkdown(editable, next);
+  renderInlineMarkdown(editable, next, refInkOf(schemaOf(store)));
   setCaretSerializedOffset(editable, cursor + 1);
   const view = editable.ownerDocument.defaultView;
   if (view) editable.dispatchEvent(new view.Event("input", { bubbles: true }));

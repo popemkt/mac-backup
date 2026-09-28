@@ -12,6 +12,7 @@ import {
   revealMarkupAtSelection,
   serializeEditable,
   setCaretSerializedOffset,
+  type RefInk,
 } from "@/lib/md-edit";
 import { offsetFromPoint } from "@/lib/caret";
 import { InlineMarkdown } from "@/components/ui/md-view";
@@ -22,7 +23,7 @@ import { parseDateInput, parseDay, type ParsedValue } from "@kb/model";
 import { longDateLabel, relativeDateLabel } from "@/lib/date-display";
 import { DateEditor } from "@/components/ui/date-editor";
 import { CheckIcon, WarningIcon } from "@phosphor-icons/react";
-import { optionColorOf, TAG_PALETTE } from "@/lib/tag-color";
+import { optionColorOf, refInkOf, TAG_PALETTE } from "@/lib/tag-color";
 import { asInstance } from "@/lib/dom";
 import { bulletClickIntent, nodeTarget, type Follow, type FollowTarget } from "@/lib/follow";
 import type { ValueKindSpec } from "@/lib/value-kind";
@@ -134,8 +135,11 @@ function CaretValue({
   onEnd,
   handleRef,
   placeholder,
+  context,
   display: shownAs,
 }: Omit<ValueSurfaceProps, "display"> & { display: CaretDisplay }) {
+  // A text value's references are inked like node text's (`RefInk`).
+  const ink = refInkOf(context.schema);
   const viewRef = useRef<HTMLDivElement>(null);
   const editRef = useRef<HTMLDivElement>(null);
   const stored = spec.text(value);
@@ -145,7 +149,7 @@ function CaretValue({
     const el = editRef.current;
     if (!editing || el === null) return;
     const start = seed ?? text;
-    renderInlineMarkdown(el, start);
+    renderInlineMarkdown(el, start, ink);
     el.focus();
     setCaretSerializedOffset(
       el,
@@ -159,7 +163,7 @@ function CaretValue({
 
   useRevealMarkup(editRef, editing);
 
-  useCaretHandle({ handleRef, editRef, viewRef, stored, shownAs });
+  useCaretHandle({ handleRef, editRef, viewRef, stored, shownAs, ink });
 
   const finish = () => {
     const next = editRef.current === null ? text : serializeEditable(editRef.current);
@@ -187,6 +191,7 @@ function CaretValue({
           editRef={editRef}
           placeholder={placeholder}
           className={cn(textClass, "editable")}
+          ink={ink}
           onFinish={finish}
           onPaste={(e) => {
             // A link pasted into an empty url slot is the whole gesture.
@@ -209,6 +214,7 @@ function CaretValue({
           }
           href={shownAs === "link" && rejected === null ? spec.follow(value) : null}
           markdown={shownAs === "markdown" && rejected === null}
+          ink={ink}
           rejected={rejected}
         />
       )}
@@ -223,19 +229,21 @@ function useCaretHandle({
   viewRef,
   stored,
   shownAs,
+  ink,
 }: {
   handleRef: React.Ref<EditHandle>;
   editRef: React.RefObject<HTMLDivElement | null>;
   viewRef: React.RefObject<HTMLDivElement | null>;
   stored: string;
   shownAs: CaretDisplay;
+  ink: RefInk;
 }) {
   useImperativeHandle(
     handleRef,
     () => ({
       commit: () => editRef.current?.blur(),
       cancel: () => {
-        if (editRef.current) renderInlineMarkdown(editRef.current, stored);
+        if (editRef.current) renderInlineMarkdown(editRef.current, stored, ink);
         editRef.current?.blur();
       },
       softBreak: () => {
@@ -243,7 +251,7 @@ function useCaretHandle({
         if (el === null || shownAs !== "markdown") return;
         const current = serializeEditable(el);
         const at = getCaretSerializedOffset(el);
-        renderInlineMarkdown(el, `${current.slice(0, at)}\n${current.slice(at)}`);
+        renderInlineMarkdown(el, `${current.slice(0, at)}\n${current.slice(at)}`, ink);
         setCaretSerializedOffset(el, at + 1);
         revealMarkupAtSelection(el);
       },
@@ -267,7 +275,7 @@ function useCaretHandle({
         return offsetFromPoint(el, x, y) ?? "end";
       },
     }),
-    [editRef, viewRef, stored, shownAs],
+    [editRef, viewRef, stored, shownAs, ink],
   );
 }
 
@@ -279,12 +287,14 @@ function CaretEditor({
   editRef,
   placeholder,
   className,
+  ink,
   onFinish,
   onPaste,
 }: {
   editRef: React.RefObject<HTMLDivElement | null>;
   placeholder: string | undefined;
   className: string;
+  ink: RefInk;
   onFinish: () => void;
   onPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
 }) {
@@ -300,14 +310,14 @@ function CaretEditor({
       data-editable-text="true"
       data-placeholder={placeholder}
       onInput={() => {
-        if (editRef.current && !composing.current) readInlineInput(editRef.current);
+        if (editRef.current && !composing.current) readInlineInput(editRef.current, ink);
       }}
       onCompositionStart={() => {
         composing.current = true;
       }}
       onCompositionEnd={() => {
         composing.current = false;
-        if (editRef.current) readInlineInput(editRef.current);
+        if (editRef.current) readInlineInput(editRef.current, ink);
       }}
       onBlur={onFinish}
       onPaste={onPaste}
@@ -325,6 +335,7 @@ function CaretRest({
   text,
   href,
   markdown,
+  ink,
   rejected,
 }: {
   viewRef: React.Ref<HTMLDivElement>;
@@ -333,6 +344,7 @@ function CaretRest({
   text: string | null;
   href: FollowTarget | null;
   markdown: boolean;
+  ink: RefInk;
   rejected: RejectedInput | null;
 }) {
   return (
@@ -352,7 +364,7 @@ function CaretRest({
         {text === null ? null : href?.kind === "href" ? (
           <UrlLink href={href.href} />
         ) : markdown ? (
-          <InlineMarkdown text={text} />
+          <InlineMarkdown text={text} ink={ink} />
         ) : (
           text
         )}

@@ -15,6 +15,7 @@ import { insertRefAtCursor, nodeCandidates, openRefQuery } from "@/lib/refs";
 import { pickerRows } from "@/lib/picker";
 import { usePickerKeys } from "@/lib/use-picker";
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
+import { refInkOf } from "@/lib/tag-color";
 import type { SchemaIndex } from "@/lib/schema";
 import type { NodeMap, TagBadge } from "@/lib/types";
 import { InlineMarkdown } from "@/components/ui/md-view";
@@ -141,6 +142,8 @@ export function NodeTextHost({
   const [acDismissed, setAcDismissed] = useState(false);
   const [cursor, setCursor] = useState(0);
   const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId), schema);
+  /** How the text's references are inked, from the graph they point into. */
+  const ink = refInkOf(schema);
   const readOnly = readOnlyReason !== null;
   const editing = isActive && !readOnly;
   /** Every write this editor makes goes through here (see `pendingEcho`). */
@@ -189,7 +192,7 @@ export function NodeTextHost({
       // own — a merge wrote this row — never from a `content` that has not
       // caught up with this editor's own writes yet.
       const movedOnItsOwn = pendingEcho.current === null && serializeEditable(el) !== content;
-      if (!wasActive.current || movedOnItsOwn) renderInlineMarkdown(el, content);
+      if (!wasActive.current || movedOnItsOwn) renderInlineMarkdown(el, content, ink);
       wasActive.current = true;
 
       el.focus();
@@ -202,7 +205,7 @@ export function NodeTextHost({
       wasActive.current = false;
       pendingEcho.current = null;
     }
-  }, [editing, isActive, content, initialCaret, instanceKey, pendingCaret, consumeCaret]);
+  }, [editing, isActive, content, initialCaret, instanceKey, pendingCaret, consumeCaret, ink]);
 
   const restoreText = useCallback(
     (state: { text: string; caret: number }) => {
@@ -215,6 +218,7 @@ export function NodeTextHost({
     editorRef,
     editing,
     content,
+    ink,
     onRestore: restoreText,
   });
 
@@ -227,14 +231,14 @@ export function NodeTextHost({
       if (!inserted) return;
       emit(inserted.text);
       if (editorRef.current) {
-        renderInlineMarkdown(editorRef.current, inserted.text);
+        renderInlineMarkdown(editorRef.current, inserted.text, ink);
         setCaretSerializedOffset(editorRef.current, inserted.cursor);
         revealMarkupAtSelection(editorRef.current);
       }
       setCursor(inserted.cursor);
       if (instanceKey !== undefined) placeCaret(instanceKey, inserted.cursor);
     },
-    [content, cursor, instanceKey, emit, placeCaret],
+    [content, cursor, instanceKey, emit, placeCaret, ink],
   );
 
   /**
@@ -245,12 +249,12 @@ export function NodeTextHost({
     if (!editorRef.current) return;
     const next = content.slice(0, cursor) + "]]" + content.slice(cursor);
     emit(next);
-    renderInlineMarkdown(editorRef.current, next);
+    renderInlineMarkdown(editorRef.current, next, ink);
     setCaretSerializedOffset(editorRef.current, cursor + 2);
     revealMarkupAtSelection(editorRef.current);
     setCursor(cursor + 2);
     if (instanceKey !== undefined) placeCaret(instanceKey, cursor + 2);
-  }, [content, cursor, instanceKey, emit, placeCaret]);
+  }, [content, cursor, instanceKey, emit, placeCaret, ink]);
 
   // The `[[` completion is the one node picker; its keys run before the row's.
   const picker = usePickerKeys({
@@ -270,13 +274,13 @@ export function NodeTextHost({
   const handleInput = useCallback(() => {
     const el = editorRef.current;
     if (el && !isComposing.current) {
-      const { text, caret } = readInlineInput(el);
+      const { text, caret } = readInlineInput(el, ink);
       setCursor(caret);
       acDismissedQuery.current = null;
       setAcDismissed(false);
       emit(text);
     }
-  }, [emit]);
+  }, [emit, ink]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -446,7 +450,7 @@ export function NodeTextHost({
         ) : (
           // The same element and tree, owned by React while nothing edits it.
           <div ref={editorRef} key="view" className={textClass} role="presentation">
-            {content ? <InlineMarkdown text={content} /> : "\u200B"}
+            {content ? <InlineMarkdown text={content} ink={ink} /> : "\u200B"}
           </div>
         )}
 

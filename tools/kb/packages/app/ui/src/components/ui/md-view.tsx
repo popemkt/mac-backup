@@ -1,7 +1,7 @@
 import { createElement, memo, useMemo, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { routePointerClick, type Follow } from "@/lib/follow";
-import { inlineNodes, type InlineNode } from "@/lib/md-edit";
+import { inlineNodes, type InlineNode, type RefInk } from "@/lib/md-edit";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
 
 /** DOM attribute names whose React prop is spelled differently. */
@@ -16,6 +16,8 @@ function toReact(node: InlineNode, key: number): ReactNode {
   for (const [name, value] of Object.entries(node.attrs)) {
     props[REACT_PROP[name] ?? name] = name === "controls" ? true : value;
   }
+  // Set through the style object, as the DOM build sets them one by one.
+  if (node.vars !== undefined) props["style"] = node.vars;
   if ("contenteditable" in node.attrs) props["suppressContentEditableWarning"] = true;
   const children = node.children.map(toReact);
   return createElement(node.tag, props, ...children);
@@ -26,8 +28,15 @@ function toReact(node: InlineNode, key: number): ReactNode {
  * `renderInlineMarkdown` builds as DOM (`inlineNodes`), with the markup
  * present and hidden. Clicks are the surface's: see `routePointerClick`.
  */
-export const InlineMarkdown = memo(function InlineMarkdown({ text }: { text: string }) {
-  const nodes = useMemo(() => inlineNodes(text), [text]);
+export const InlineMarkdown = memo(function InlineMarkdown({
+  text,
+  ink,
+}: {
+  text: string;
+  /** How a reference is inked (`RefInk`); the surface reads the graph. */
+  ink: RefInk;
+}) {
+  const nodes = useMemo(() => inlineNodes(text, ink), [text, ink]);
   return <>{nodes.map(toReact)}</>;
 });
 
@@ -41,10 +50,12 @@ interface MdViewProps {
    * handler every caller uses.
    */
   onFollow: Follow;
+  /** How a reference is inked (`RefInk`), for the same reason. */
+  ink: RefInk;
 }
 
-/** Read-only inline markdown: accent refs, tinted code, media. */
-export const MdView = memo(function MdView({ text, className, clamp, onFollow }: MdViewProps) {
+/** Read-only inline markdown: inked refs, marked links, tinted code, media. */
+export const MdView = memo(function MdView({ text, className, clamp, onFollow, ink }: MdViewProps) {
   if (!text) {
     return (
       <div
@@ -74,7 +85,7 @@ export const MdView = memo(function MdView({ text, className, clamp, onFollow }:
         routePointerClick(e, onFollow);
       }}
     >
-      <InlineMarkdown text={text} />
+      <InlineMarkdown text={text} ink={ink} />
     </div>
   );
 });

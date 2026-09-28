@@ -320,6 +320,23 @@ field's form) — so it renders, edits and follows exactly like a markdown link,
 in node text and text field values alike. Segments are flat, so a url inside
 code, emphasis or a link's label stays what that segment makes it.
 
+**Links are two kinds, told apart at a glance** (Tana's). A reference
+(`[[id|label]]`) stays in the graph: it wears no mark, and its label is drawn in
+its target's first tag colour, inked the way a tag chip's text is (`refInkOf`
+and `tagInk` in `lib/tag-color.ts`), or in the link colour when the target is
+untagged. A link — `[label](url)`, a bare url, a url field's value — leaves
+the graph and wears the external-link mark before its label
+(`.kb-md-link::before` in `tokens.css`: a pseudo-element, so it is never text
+the editor serializes or a caret offset counts). The kind is decided once, in
+the inline tree: `inlineNodes(text, ink)` takes a `RefInk` — how a reference's
+target is inked — from the surface, because `lib/md-edit.ts` knows no graph,
+and carries it on the reference as the `--kb-ref-ink` custom property. Every
+surface passes one (`useRefInk` for the read-only `MdView` surfaces, the
+schema they already hold for node text and text values); a missing one is a
+compile error, not an uncoloured reference. Tana also shows a target's own
+icon or emoji before its label; kb's model has no node icon, so there is none
+to show.
+
 **The bullet is one definition.** `lib/bullet-mode.ts` decides everything a
 bullet shows — its kind and shape, its glyph, whether it has a halo, the
 paints of its halo, dot and ring (a node's tag colours, or the ink at a

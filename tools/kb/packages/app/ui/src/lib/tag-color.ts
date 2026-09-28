@@ -11,12 +11,16 @@
  *    as a scalar (`tags[0]?.color`) is what made a many-tagged bullet paint one
  *    tag; the reduction is gone from every call site.
  * 3. **How a tag color is weakened, divided or inked** (`tagColorAlpha`,
- *    `tagColorFill`, `tagChipColors`) — because an explicit `sys.f.color` prop comes back from
+ *    `tagColorFill`, `tagInk`, `tagChipColors`) — because an explicit `sys.f.color` prop comes back from
  *    `tagColorOf` verbatim, so the value may be `red`, `#f00` or
  *    `oklch(…)`, and appending hex-alpha digits to those produces garbage.
+ * 4. **Which ink a reference to a node wears in text** (`refInkOf`): its
+ *    target's first tag colour, inked as a chip's text is.
  */
 import type { WireNode } from "@kb/contracts";
 import { present, typeRefsOf } from "@kb/model";
+import type { RefInk } from "@/lib/md-edit";
+import type { SchemaIndex } from "@/lib/schema";
 import { hasText } from "@/lib/text";
 import { SYSTEM_IDS, type TagBadge } from "@/lib/types";
 
@@ -190,10 +194,35 @@ const TAG_CHIP_TINT = 10;
  * whole palette at 4.5:1 or better (`lib/design-systems.test.ts`).
  */
 export function tagChipColors(color: string): { backgroundColor: string; color: string } {
-  return {
-    backgroundColor: tagColorAlpha(color, TAG_CHIP_TINT),
-    color: `color-mix(in oklab, ${color}, var(--foreground) var(--tag-ink-mix))`,
+  return { backgroundColor: tagColorAlpha(color, TAG_CHIP_TINT), color: tagInk(color) };
+}
+
+/**
+ * A tag colour as text: moved toward `--foreground` by `--tag-ink-mix`, the
+ * amount each design system sets so the palette reads at 4.5:1 or better
+ * (see `tagChipColors`, whose ink this is).
+ */
+function tagInk(color: string): string {
+  return `color-mix(in oklab, ${color}, var(--foreground) var(--tag-ink-mix))`;
+}
+
+const refInks = new WeakMap<SchemaIndex, RefInk>();
+
+/**
+ * How references into `schema` are inked in text (`RefInk`): a reference to
+ * a tagged node wears its first tag's colour (Tana's), and one to an
+ * untagged or missing node the default link colour. One function per schema,
+ * so a memo keyed on it survives until the graph changes.
+ */
+export function refInkOf(schema: SchemaIndex): RefInk {
+  const cached = refInks.get(schema);
+  if (cached !== undefined) return cached;
+  const ink: RefInk = (id) => {
+    const [color] = nodeTagColors(schema.get(id));
+    return color === undefined ? null : tagInk(color);
   };
+  refInks.set(schema, ink);
+  return ink;
 }
 
 /** Trim float noise out of generated gradient stops (100/3 → `33.333%`). */

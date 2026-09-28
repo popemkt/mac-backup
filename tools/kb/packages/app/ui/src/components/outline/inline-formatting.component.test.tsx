@@ -62,6 +62,7 @@ describe("inline formatting while editing", () => {
           wire("n.fmt", TEXT),
           wire("n.typed", "x **y*"),
           wire("n.url", "pipeline https://ex.test/graph"),
+          wire("n.plain-ref", "see [[n.child-a1|Load]]"),
         ],
         fixtureGraph.rev,
         "fixtures",
@@ -225,6 +226,21 @@ describe("inline formatting while editing", () => {
     });
     expect(useOutlineStore.getState().nodes.get("n.url")?.text).toBe(`${text}s`);
     expect(edit.querySelector("a.kb-md-link")?.getAttribute("href")).toBe("https://ex.test/graphs");
+  });
+
+  it("a reference wears its target's tag ink, read and edited; an untagged one the link colour", async () => {
+    const key = await render("n.fmt");
+    const inked = () =>
+      present(view(key).querySelector("a.kb-md-ref"), "ref").getAttribute("style") ?? "";
+    // n.root-a is a #todo.
+    expect(inked()).toContain("--kb-ref-ink");
+    await activate("n.fmt", key, 0);
+    const editing = present(editor(key).querySelector("a.kb-md-ref"), "editing ref");
+    expect(editing.getAttribute("style")).toContain("--kb-ref-ink");
+
+    const plainKey = await render("n.plain-ref");
+    const plain = present(view(plainKey).querySelector("a.kb-md-ref"), "untagged ref");
+    expect(plain.hasAttribute("style")).toBe(false);
   });
 
   it("a reference clicked while editing navigates, like one clicked while reading", async () => {

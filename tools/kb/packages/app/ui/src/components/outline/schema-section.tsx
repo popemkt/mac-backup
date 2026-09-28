@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
+import { useRefInk } from "@/stores/ref-ink";
 import {
   queryFieldCarriers,
   queryTaggedInstances,
@@ -77,6 +78,7 @@ function SchemaInstanceRow({
 }) {
   const nodes = useOutlineStore((s) => s.nodes);
   const follow = useFollow();
+  const ink = useRefInk();
   const node = nodes.get(hit.id);
   const tags = node?.tags ?? [];
 
@@ -115,6 +117,7 @@ function SchemaInstanceRow({
               text={hit.text || "(empty)"}
               className="min-w-0 flex-1 text-foreground/85"
               onFollow={follow}
+              ink={ink}
             />
             {tags.length > 0 && (
               <TagChipGroup

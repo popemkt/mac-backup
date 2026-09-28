@@ -9,6 +9,9 @@ import {
 } from "@/lib/follow";
 import { renderInlineMarkdown } from "@/lib/md-edit";
 
+/** No graph behind the text: every reference keeps the default link colour. */
+const PLAIN_INK = (): string | null => null;
+
 describe("the one bullet rule", () => {
   const plain = { metaKey: false, ctrlKey: false };
   it("a plain click toggles a bullet that can toggle", () => {
@@ -42,7 +45,7 @@ function click(target: Element, mod = false) {
 
 function render(text: string): HTMLElement {
   const host = document.createElement("div");
-  renderInlineMarkdown(host, text);
+  renderInlineMarkdown(host, text, PLAIN_INK);
   return host;
 }
 

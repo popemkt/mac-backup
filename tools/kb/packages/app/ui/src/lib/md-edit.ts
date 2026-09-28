@@ -24,6 +24,20 @@ export const KB_REF_ATTR = "data-kb-ref";
 export const KB_REF_ID_ATTR = "data-kb-ref-id";
 
 /**
+ * The ink a reference's label is drawn in, by the id it points at, or null
+ * for the default link colour. Links come in two kinds and the tree tells
+ * them apart: a reference is a place in this graph and wears its target's
+ * colour, while a link leaves the graph and wears the external-link mark
+ * (`.kb-md-link`, tokens.css). The graph is the surface's to read — this
+ * module knows none — so every surface hands its ink in (`refInkOf`,
+ * lib/tag-color.ts); a missing one is a compile error, not an uncoloured ref.
+ */
+export type RefInk = (id: string) => string | null;
+
+/** The custom property a reference's ink is carried in (`.kb-md-ref`, tokens.css). */
+const REF_INK_VAR = "--kb-ref-ink";
+
+/**
  * The classes inline markdown paints text with. Exported so the contrast
  * guard measures the classes actually written (`design-systems.test.ts`).
  */
@@ -49,7 +63,13 @@ const INLINE_SEG_CLASS = "kb-md-seg";
  */
 export type InlineNode =
   | string
-  | { tag: string; attrs: Readonly<Record<string, string>>; children: readonly InlineNode[] };
+  | {
+      tag: string;
+      attrs: Readonly<Record<string, string>>;
+      /** CSS custom properties set on the element (a reference's ink). */
+      vars?: Readonly<Record<string, string>>;
+      children: readonly InlineNode[];
+    };
 
 function h(
   tag: string,
@@ -115,14 +135,15 @@ function contentNode(seg: Exclude<InlineSeg, { t: "text" } | { t: "ref" }>): Inl
   }
 }
 
-function spanNode(span: InlineSpan): InlineNode {
+function spanNode(span: InlineSpan, ink: RefInk): InlineNode {
   const { seg } = span;
   if (seg.t === "text") return seg.v;
   if (seg.t === "ref") {
+    const color = ink(seg.id);
     // Atomic: the caret never enters it, and it reads back as its token.
-    return h(
-      "a",
-      {
+    return {
+      tag: "a",
+      attrs: {
         class: INLINE_TEXT_CLASSES.ref,
         href: `#${seg.id}`,
         title: seg.id,
@@ -130,8 +151,9 @@ function spanNode(span: InlineSpan): InlineNode {
         [KB_REF_ATTR]: span.open,
         [KB_REF_ID_ATTR]: seg.id,
       },
-      seg.label,
-    );
+      ...(color === null ? {} : { vars: { [REF_INK_VAR]: color } }),
+      children: [seg.label],
+    };
   }
   return h(
     "span",
@@ -143,10 +165,10 @@ function spanNode(span: InlineSpan): InlineNode {
 }
 
 /** `text`'s inline element tree: every source character is in it (see the module doc). */
-export function inlineNodes(text: string): InlineNode[] {
+export function inlineNodes(text: string, ink: RefInk): InlineNode[] {
   const nodes = parseInlineSource(text)
     .filter((span) => inlineSpanSource(span) !== "")
-    .map(spanNode);
+    .map((span) => spanNode(span, ink));
   // A trailing line break opens a line only if something follows it; this
   // gives that line its box, so a caret after the break has a place to be.
   return text.endsWith("\n") ? [...nodes, h("br", { [TRAILING_BREAK_ATTR]: "" })] : nodes;
@@ -156,6 +178,9 @@ function toDom(node: InlineNode): Node {
   if (typeof node === "string") return document.createTextNode(node);
   const element = document.createElement(node.tag);
   for (const [name, value] of Object.entries(node.attrs)) element.setAttribute(name, value);
+  for (const [name, value] of Object.entries(node.vars ?? {})) {
+    element.style.setProperty(name, value);
+  }
   for (const child of node.children) element.appendChild(toDom(child));
   return element;
 }
@@ -164,8 +189,8 @@ function toDom(node: InlineNode): Node {
  * Build `text`'s inline DOM into `el`, replacing what is there. Idempotent,
  * and the inverse of {@link serializeEditable}.
  */
-export function renderInlineMarkdown(target: HTMLElement, text: string): void {
-  target.replaceChildren(...inlineNodes(text).map(toDom));
+export function renderInlineMarkdown(target: HTMLElement, text: string, ink: RefInk): void {
+  target.replaceChildren(...inlineNodes(text, ink).map(toDom));
 }
 
 /** Set on a segment's wrapper while the selection touches it: its markup shows. */
@@ -203,9 +228,9 @@ function sameTree(a: Node, b: Node): boolean {
  * `text`. Typing inside a segment keeps it; typing that opens or closes one
  * (the second `*` of `**`) does not, and the editor rebuilds.
  */
-export function isCanonicalInline(el: HTMLElement, text: string): boolean {
+export function isCanonicalInline(el: HTMLElement, text: string, ink: RefInk): boolean {
   const probe = document.createElement("div");
-  renderInlineMarkdown(probe, text);
+  renderInlineMarkdown(probe, text, ink);
   // The host element is the surface's; only what is inside it is the text.
   return sameChildren(el, probe);
 }
@@ -220,11 +245,11 @@ export function isCanonicalInline(el: HTMLElement, text: string): boolean {
  * The one input step of every live-preview surface: node text and a text
  * field's value read typing through this, so they format the same way.
  */
-export function readInlineInput(el: HTMLElement): { text: string; caret: number } {
+export function readInlineInput(el: HTMLElement, ink: RefInk): { text: string; caret: number } {
   const text = serializeEditable(el);
   const caret = getCaretSerializedOffset(el);
-  if (!isCanonicalInline(el, text)) {
-    renderInlineMarkdown(el, text);
+  if (!isCanonicalInline(el, text, ink)) {
+    renderInlineMarkdown(el, text, ink);
     setCaretSerializedOffset(el, caret);
   }
   revealMarkupAtSelection(el);

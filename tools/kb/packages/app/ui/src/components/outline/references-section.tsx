@@ -4,6 +4,7 @@ import { MdView } from "@/components/ui/md-view";
 import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
+import { useRefInk } from "@/stores/ref-ink";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
@@ -49,6 +50,7 @@ export function ReferencesView({
 function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const follow = useFollow();
+  const ink = useRefInk();
   const nodes = useOutlineStore((s) => s.nodes);
   const node = nodes.get(row.id);
 
@@ -82,7 +84,12 @@ function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
       }
       content={
         <>
-          <MdView text={row.text} className="min-w-0 flex-1 text-foreground/85" onFollow={follow} />
+          <MdView
+            text={row.text}
+            className="min-w-0 flex-1 text-foreground/85"
+            onFollow={follow}
+            ink={ink}
+          />
           {row.tags.length > 0 && (
             <TagChipGroup
               tags={row.tags}

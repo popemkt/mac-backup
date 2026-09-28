@@ -20,6 +20,19 @@ import {
 } from "@/lib/md-edit";
 import { InlineMarkdown } from "@/components/ui/md-view";
 
+/** No graph behind the text: every reference keeps the default link colour. */
+const PLAIN_INK = (): string | null => null;
+
+/** One tagged target, `n.tagged`, inked red. */
+const TAGGED_RED = (id: string): string | null => (id === "n.tagged" ? "red" : null);
+
+/** The ink each reference under `root` carries, in order. */
+function refInks(root: HTMLElement): string[] {
+  return [...root.querySelectorAll<HTMLElement>("a.kb-md-ref")].map((a) =>
+    a.style.getPropertyValue("--kb-ref-ink"),
+  );
+}
+
 beforeAll(() => {
   const dom = new Window();
   const g = globalThis as Record<string, unknown>;
@@ -48,14 +61,14 @@ function selectAt(_el: HTMLElement, node: Node, offset: number): void {
 describe("md-edit serialization", () => {
   it("round-trips plain text", () => {
     const el = makeEl();
-    renderInlineMarkdown(el, "hello world");
+    renderInlineMarkdown(el, "hello world", PLAIN_INK);
     expect(serializeEditable(el)).toBe("hello world");
   });
 
   it("renders refs as atomic pills and serializes back exactly", () => {
     const el = makeEl();
     const text = "see [[n.root-a|Ship kb]] and [[n.root-b]] end";
-    renderInlineMarkdown(el, text);
+    renderInlineMarkdown(el, text, PLAIN_INK);
     // Pills are non-editable links carrying the full token.
     const pills = el.querySelectorAll("[data-kb-ref]");
     expect(pills.length).toBe(2);
@@ -70,7 +83,7 @@ describe("md-edit serialization", () => {
 describe("md-edit caret offsets", () => {
   it("counts pill tokens at full serialized length (D06)", () => {
     const el = makeEl();
-    renderInlineMarkdown(el, "[[n.root-a|Ship kb]] tail");
+    renderInlineMarkdown(el, "[[n.root-a|Ship kb]] tail", PLAIN_INK);
     const pill = present(el.querySelector("[data-kb-ref]"), "ref pill");
     const tail = present(pill.nextSibling, "pill tail");
     selectAt(el, tail, 3); // mid "tail" → after token
@@ -80,7 +93,7 @@ describe("md-edit caret offsets", () => {
   it("places the caret by serialized offset skipping over pills", () => {
     const el = makeEl();
     const text = "pre [[n.a|L]] post";
-    renderInlineMarkdown(el, text);
+    renderInlineMarkdown(el, text, PLAIN_INK);
     setCaretSerializedOffset(el, text.length);
     const sel = present(window.getSelection(), "selection");
     expect(sel.rangeCount).toBe(1);
@@ -89,7 +102,7 @@ describe("md-edit caret offsets", () => {
 
   it("clamps offsets past the end of content", () => {
     const el = makeEl();
-    renderInlineMarkdown(el, "abc");
+    renderInlineMarkdown(el, "abc", PLAIN_INK);
     setCaretSerializedOffset(el, 99);
     expect(getCaretSerializedOffset(el)).toBe(3);
   });
@@ -120,14 +133,14 @@ describe("renderInlineMarkdown — one DOM for reading and editing", () => {
   it("reads every text back byte for byte", () => {
     for (const text of corpus) {
       const el = makeEl();
-      renderInlineMarkdown(el, text);
+      renderInlineMarkdown(el, text, PLAIN_INK);
       expect(serializeEditable(el)).toBe(text);
     }
   });
 
   it("keeps a segment's markup beside its formatted element, hidden by class", () => {
     const el = makeEl();
-    renderInlineMarkdown(el, "a **b** [x](https://ex.test)");
+    renderInlineMarkdown(el, "a **b** [x](https://ex.test)", PLAIN_INK);
     const seg = present(el.querySelector(".kb-md-seg"), "bold segment");
     expect([...seg.childNodes].map((n) => n.textContent)).toEqual(["**", "b", "**"]);
     expect(present(seg.querySelector("strong"), "strong").textContent).toBe("b");
@@ -142,7 +155,7 @@ describe("renderInlineMarkdown — one DOM for reading and editing", () => {
 
   it("renders a reference as one atomic link carrying its token", () => {
     const el = makeEl();
-    renderInlineMarkdown(el, "`[[n.a|in code]]` [[n.b|Ship]]");
+    renderInlineMarkdown(el, "`[[n.a|in code]]` [[n.b|Ship]]", PLAIN_INK);
     const refs = el.querySelectorAll("a.kb-md-ref");
     // The one grammar: a ref inside code is code, not a ref.
     expect(refs.length).toBe(1);
@@ -156,11 +169,33 @@ describe("renderInlineMarkdown — one DOM for reading and editing", () => {
   it("builds the same tree React renders (InlineMarkdown)", () => {
     for (const text of corpus) {
       const el = makeEl();
-      renderInlineMarkdown(el, text);
+      renderInlineMarkdown(el, text, PLAIN_INK);
       const probe = makeEl();
-      probe.innerHTML = renderToStaticMarkup(createElement(InlineMarkdown, { text }));
+      probe.innerHTML = renderToStaticMarkup(
+        createElement(InlineMarkdown, { text, ink: PLAIN_INK }),
+      );
       expect(el.innerHTML).toBe(probe.innerHTML);
     }
+  });
+
+  it("inks a reference by its target, on both builds alike, and leaves links alone", () => {
+    const ink = TAGGED_RED;
+    const text = "[[n.tagged|Tagged]] [[n.plain|Plain]] [x](https://ex.test) https://ex.test";
+    const el = makeEl();
+    renderInlineMarkdown(el, text, ink);
+    const [tagged, plain] = [...el.querySelectorAll("a.kb-md-ref")];
+    expect((tagged as HTMLElement | undefined)?.style.getPropertyValue("--kb-ref-ink")).toBe("red");
+    expect(plain?.hasAttribute("style")).toBe(false);
+    expect([...el.querySelectorAll("a.kb-md-link")].map((a) => a.hasAttribute("style"))).toEqual([
+      false,
+      false,
+    ]);
+    // Inking is part of the tree, so it reads back as the same text.
+    expect(serializeEditable(el)).toBe(text);
+    expect(isCanonicalInline(el, text, ink)).toBe(true);
+    const probe = makeEl();
+    probe.innerHTML = renderToStaticMarkup(createElement(InlineMarkdown, { text, ink }));
+    expect(refInks(probe)).toEqual(refInks(el));
   });
 });
 
@@ -177,7 +212,7 @@ describe("editing in place", () => {
   function mounted(text: string): HTMLDivElement {
     const el = makeEl();
     document.body.appendChild(el);
-    renderInlineMarkdown(el, text);
+    renderInlineMarkdown(el, text, PLAIN_INK);
     return el;
   }
 
@@ -219,12 +254,12 @@ describe("editing in place", () => {
     // The browser types into the text node it holds the caret in.
     if (isTextNode(tail)) tail.data += "**";
     expect(serializeEditable(el)).toBe("a **b**");
-    expect(isCanonicalInline(el, "a **b**")).toBe(false);
-    renderInlineMarkdown(el, "a **b**");
-    expect(isCanonicalInline(el, "a **b**")).toBe(true);
+    expect(isCanonicalInline(el, "a **b**", PLAIN_INK)).toBe(false);
+    renderInlineMarkdown(el, "a **b**", PLAIN_INK);
+    expect(isCanonicalInline(el, "a **b**", PLAIN_INK)).toBe(true);
     const strong = present(el.querySelector("strong")?.firstChild, "bold text");
     if (isTextNode(strong)) strong.data = "bc";
-    expect(isCanonicalInline(el, serializeEditable(el))).toBe(true);
+    expect(isCanonicalInline(el, serializeEditable(el), PLAIN_INK)).toBe(true);
     el.remove();
   });
 
@@ -235,13 +270,13 @@ describe("editing in place", () => {
     setCaretSerializedOffset(el, 7);
     expect(el.querySelector("strong")).toBeNull();
     // Closing the `**` changed what the text means: the tree follows it.
-    expect(readInlineInput(el)).toEqual({ text: "a **b**", caret: 7 });
+    expect(readInlineInput(el, PLAIN_INK)).toEqual({ text: "a **b**", caret: 7 });
     expect(el.querySelector("strong")?.textContent).toBe("b");
     // Typing inside the segment does not: the browser's own nodes stay.
     const strong = present(el.querySelector("strong"), "bold");
     const inner = present(strong.firstChild, "bold text");
     if (isTextNode(inner)) inner.data = "bc";
-    expect(readInlineInput(el).text).toBe("a **bc**");
+    expect(readInlineInput(el, PLAIN_INK).text).toBe("a **bc**");
     expect(el.querySelector("strong")).toBe(strong);
     el.remove();
   });
@@ -253,7 +288,7 @@ describe("editing in place", () => {
     setCaretSerializedOffset(el, 1);
     revealMarkupAtSelection(el);
     expect(revealed(el)).toEqual(["**b**"]);
-    expect(isCanonicalInline(el, "**b**")).toBe(true);
+    expect(isCanonicalInline(el, "**b**", PLAIN_INK)).toBe(true);
     el.remove();
   });
 

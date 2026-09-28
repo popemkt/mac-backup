@@ -30,6 +30,9 @@ import { installDomGlobals } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useNodeKeyDown } from "./use-node-keydown";
 
+/** No graph behind the text: every reference keeps the default link colour. */
+const PLAIN_INK = (): string | null => null;
+
 interface Mods {
   metaKey?: boolean;
   ctrlKey?: boolean;
@@ -152,7 +155,7 @@ describe("outline editing keymap (characterization)", () => {
     );
     // What the row shows — for a contextual reference, its target's text.
     const { text } = rowTextOf(useOutlineStore.getState(), nodeId);
-    renderInlineMarkdown(el, text);
+    renderInlineMarkdown(el, text, PLAIN_INK);
     setCaretSerializedOffset(el, cursor);
     return el;
   }

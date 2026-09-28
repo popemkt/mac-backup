@@ -121,6 +121,31 @@
   cursor: pointer;
 }
 
+/*
+ * Two kinds of link, told apart the Tana way (DESIGN-UI → Links are two
+ * kinds). A reference stays in the graph: no mark, and its target's tag ink
+ * when it has one (`--kb-ref-ink`, set per reference by `RefInk`). A link
+ * leaves it: the external-link mark before its label, drawn in the link's
+ * own colour. The mark is a pseudo-element, so it is never text — the
+ * editor's serialized string and caret offsets cannot see it.
+ */
+.kb-md-ref {
+  color: var(--kb-ref-ink, var(--primary));
+}
+
+.kb-md-link::before {
+  content: "";
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-inline-end: 0.2em;
+  vertical-align: -0.05em;
+  background-color: currentColor;
+  /* Phosphor's arrow-square-out, the outward mark the app's icons already use. */
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M224,104a8,8,0,0,1-16,0V59.32l-66.33,66.34a8,8,0,0,1-11.32-11.32L196.68,48H152a8,8,0,0,1,0-16h64a8,8,0,0,1,8,8Zm-40,24a8,8,0,0,0-8,8v72H48V80h72a8,8,0,0,0,0-16H48A16,16,0,0,0,32,80V208a16,16,0,0,0,16,16H176a16,16,0,0,0,16-16V136A8,8,0,0,0,184,128Z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+
 .kb-md-ref:hover,
 .kb-md-link:hover {
   text-decoration: underline;
