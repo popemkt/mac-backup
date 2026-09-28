@@ -2,7 +2,8 @@ import { WarningIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { FieldType } from "@/lib/field-type";
 import { indentStyle } from "@/lib/indent";
-import { FieldTypeIcon, type FieldGlyph } from "./value-slot";
+import { FieldTypeIcon } from "./value-slot";
+import type { FieldGlyph } from "./value-views";
 
 export const FIELD_LABEL_WIDTH = 120;
 

@@ -108,7 +108,7 @@ const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
  * What a caret surface shows at rest: text's inline markdown, a url's link,
  * or a number grouped in the locale's separators.
  */
-export type CaretDisplay = "markdown" | "link" | "number";
+type CaretDisplay = "markdown" | "link" | "number";
 
 /**
  * A value that is text, edited in place by the same live preview node text
@@ -123,7 +123,7 @@ export type CaretDisplay = "markdown" | "link" | "number";
  * Text the kind cannot read is never dropped: the slot keeps it (`rejected`),
  * this shows it marked with the reason, and the next edit starts from it.
  */
-export function CaretValue({
+function CaretValue({
   value,
   blank,
   editing,
@@ -392,6 +392,21 @@ function UrlLink({ href }: { href: string }) {
       {urlLabel(href)}
     </a>
   );
+}
+
+/** Text: inline markdown at rest, the live preview while edited. */
+export function TextSurface(props: ValueSurfaceProps) {
+  return <CaretValue {...props} display="markdown" />;
+}
+
+/** A url: a link at rest, labelled short. */
+export function UrlSurface(props: ValueSurfaceProps) {
+  return <CaretValue {...props} display="link" />;
+}
+
+/** A number: grouped in the locale's separators at rest. */
+export function NumberSurface(props: ValueSurfaceProps) {
+  return <CaretValue {...props} display="number" />;
 }
 
 /**
