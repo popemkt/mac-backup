@@ -1,8 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
 import { shownNodeId } from "@/lib/contextual-ref";
-import { isReferenceRow } from "@/lib/row-chrome";
-import { resolveProps } from "@/lib/graph-view";
+import { resolveRowChrome } from "@/lib/row-chrome";
 import {
   childInstanceKey,
   isQueryResultInstance,
@@ -10,7 +9,6 @@ import {
   queryResultInstanceKey,
 } from "@/lib/instance-key";
 import { cn } from "@/lib/cn";
-import { isQueryNode } from "@/lib/query-node";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
 import {
@@ -260,11 +258,15 @@ const TableRow = memo(function TableRow({
 
   const handleKeyDown = useNodeKeyDown({ nodeId: child.id, instanceKey: childKey });
 
-  const isQuery = isQueryNode(child);
   // A row's own field rows follow the row's own flag — the frame's debug
   // columns say nothing about whether this node reveals its sys.* props.
-  const hasFields = resolveProps(child, context.schema, { showDebugFields: rowDebug }).length > 0;
-  const isExpandable = child.children.length > 0 || isQuery || hasFields;
+  const chrome = resolveRowChrome({
+    node: child,
+    schema: context.schema,
+    viewConfig: getViewConfig(child.props),
+    isQueryResult: isQueryResultInstance(childKey),
+    showDebugFields: rowDebug,
+  });
 
   return (
     <tr
@@ -283,8 +285,8 @@ const TableRow = memo(function TableRow({
           bullet={
             <Bullet
               node={child}
-              collapsible={isExpandable}
-              isRef={isReferenceRow(child, isQueryResultInstance(childKey))}
+              collapsible={chrome.isExpandable}
+              isRef={chrome.bulletIsRef}
               onClick={(e) => {
                 if (bulletClickIntent(e, true) === "follow") {
                   follow(nodeTarget(shownNodeId(child)), "open");

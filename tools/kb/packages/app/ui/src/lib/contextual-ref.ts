@@ -70,6 +70,19 @@ export function shownNodeId(node: OutlineNode): string {
 }
 
 /**
+ * The node a row shows, as a node: the target of a contextual reference, the
+ * row itself otherwise — and the row itself for a dangling reference, which
+ * has nothing else to show.
+ *
+ * Read from the schema, the whole graph, so a reference to a node outside the
+ * current scope still shows it.
+ */
+function shownNode(node: OutlineNode, schema: SchemaIndex): OutlineNode {
+  const shownId = shownNodeId(node);
+  return shownId === node.id ? node : (schema.get(shownId) ?? node);
+}
+
+/**
  * The markdown a row renders. Ordinary nodes render their own text; a
  * contextual reference renders its target's, resolved on every render.
  *
@@ -79,13 +92,10 @@ export function shownNodeId(node: OutlineNode): string {
  */
 export function rowText(node: OutlineNode, schema: SchemaIndex): string {
   const shownId = shownNodeId(node);
-  if (shownId === node.id) return node.text;
-  // The target's label is schema: resolved against the whole graph, so a
-  // reference to a node outside the current scope still shows its text.
-  const target = schema.get(shownId);
   // A dangling reference renders the way every other dangling ref in this app
   // renders — as the `[[id]]` token — rather than as a blank row.
-  return target ? target.text : `[[${shownId}]]`;
+  if (shownId !== node.id && schema.get(shownId) === undefined) return `[[${shownId}]]`;
+  return shownNode(node, schema).text;
 }
 
 /**
