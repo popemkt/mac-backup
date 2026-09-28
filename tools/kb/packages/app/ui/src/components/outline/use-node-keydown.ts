@@ -1,5 +1,6 @@
 import { useCallback } from "react";
-import { rowTextOf } from "@/lib/contextual-ref";
+import { rowTextOf, shownNode } from "@/lib/contextual-ref";
+import { schemaOf } from "@/lib/schema";
 import { isQueryResultInstance } from "@/lib/instance-key";
 import { getCaretSerializedOffset } from "@/lib/md-edit";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -23,6 +24,8 @@ function readEditingContext(args: {
   const store = useOutlineStore.getState();
   const live = store.nodes.get(nodeId);
   const shown = rowTextOf(store, nodeId);
+  // What the row reveals is its shown node's; open or closed is the row's.
+  const content = live ? shownNode(live, schemaOf(store)) : undefined;
   const parentId = live?.parentId ?? null;
   const parent = parentId === null ? undefined : store.nodes.get(parentId);
   return {
@@ -33,9 +36,9 @@ function readEditingContext(args: {
     // ref pills (D06).
     cursor: getCaretSerializedOffset(editable),
     text: shown.text,
-    childCount: live?.children.length ?? 0,
+    childCount: content?.children.length ?? 0,
     collapsed: live?.collapsed ?? false,
-    tagCount: live?.tags.length ?? 0,
+    tagCount: content?.tags.length ?? 0,
     parentId,
     siblingIndex: parent ? parent.children.indexOf(nodeId) : -1,
     previousInstance: store.getPreviousVisibleInstance(instanceKey),

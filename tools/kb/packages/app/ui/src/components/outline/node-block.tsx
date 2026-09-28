@@ -1,12 +1,13 @@
 import { memo, useCallback, useMemo } from "react";
-import { shownNodeId } from "@/lib/contextual-ref";
+import { shownNode } from "@/lib/contextual-ref";
 import { cn } from "@/lib/cn";
 import { guideLineStyle, indentStyle } from "@/lib/indent";
-import { childInstanceKey, isQueryResultInstance, outlineInstanceKey } from "@/lib/instance-key";
+import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
 import { resolveRowChrome } from "@/lib/row-chrome";
 import { useUiStore } from "@/stores/ui.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
-import { schemaOf } from "@/lib/schema";
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import type { OutlineNode } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { bulletClickIntent, nodeTarget } from "@/lib/follow";
@@ -32,6 +33,17 @@ interface NodeBlockProps {
   instanceKey?: string;
 }
 
+/** The node a row shows (`shownNode`), and its id even before the row's node loads. */
+function rowShows(
+  nodeId: string,
+  node: OutlineNode | undefined,
+  schema: SchemaIndex,
+): { shown: OutlineNode | undefined; shownId: string } {
+  if (!node) return { shown: undefined, shownId: nodeId };
+  const shown = shownNode(node, schema);
+  return { shown, shownId: shown.id };
+}
+
 export const NodeBlock = memo(function NodeBlock({
   nodeId,
   depth,
@@ -48,9 +60,13 @@ export const NodeBlock = memo(function NodeBlock({
   const selectNode = useOutlineStore((s) => s.selectNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
   const follow = useFollow();
-  const showDebugFields = useDebugFields(nodeId);
+  // Everything the row draws is its shown node's: for a contextual reference,
+  // the target (`lib/contextual-ref`). Its place — selection, collapse, the
+  // instance key, the keymaps — stays `nodeId`.
+  const { shown, shownId } = rowShows(nodeId, node, schema);
+  const showDebugFields = useDebugFields(shownId);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
-  const filterOpen = useUiStore((s) => s.filterPopoverFrameId === nodeId);
+  const filterOpen = useUiStore((s) => s.filterPopoverFrameId === shownId);
 
   const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, nodes);
 
@@ -60,12 +76,12 @@ export const NodeBlock = memo(function NodeBlock({
   const handleBulletClick = useCallback(
     (e: React.MouseEvent) => {
       if (bulletClickIntent(e, true) === "follow") {
-        follow(nodeTarget(node ? shownNodeId(node) : nodeId), "open");
+        follow(nodeTarget(shownId), "open");
       } else {
         toggleCollapse(nodeId);
       }
     },
-    [toggleCollapse, follow, node, nodeId],
+    [toggleCollapse, follow, shownId, nodeId],
   );
 
   const handleActivate = useCallback(
@@ -84,24 +100,18 @@ export const NodeBlock = memo(function NodeBlock({
     [selectNode, nodeId, instanceKey],
   );
 
-  /** Tana whitespace-create: mint a transient child under this parent. */
-  const handleCreateChild = useCallback(() => {
-    const lastChild = node?.children[node.children.length - 1] ?? null;
-    void mutations.createTransientNode(nodeId, lastChild);
-  }, [nodeId, node]);
-
   const handleKeyDown = useNodeKeyDown({ nodeId, instanceKey });
 
-  const viewConfig = getViewConfig(node?.props);
+  const viewConfig = getViewConfig(shown?.props);
 
   // Shared owner: the same rows the visible-instance walk will offer to
-  // keyboard navigation.
+  // keyboard navigation. The frame is the shown node.
   const listChildren = useMemo(
-    () => (isProjectedViewMode(viewConfig.mode) ? [] : frameListChildren(nodeId, nodes, schema)),
-    [nodeId, nodes, schema, viewConfig.mode],
+    () => (isProjectedViewMode(viewConfig.mode) ? [] : frameListChildren(shownId, nodes, schema)),
+    [shownId, nodes, schema, viewConfig.mode],
   );
 
-  if (!node) return null;
+  if (!node || !shown) return null;
 
   const isActive = activeNodeId === nodeId && activeInstanceKey === instanceKey;
   const isSelected = selectedNodeId === nodeId && selectedInstanceKey === instanceKey;
@@ -113,7 +123,7 @@ export const NodeBlock = memo(function NodeBlock({
     node,
     schema,
     viewConfig,
-    isQueryResult: isQueryResultInstance(instanceKey),
+    instanceKey,
     showDebugFields,
   });
 
@@ -135,7 +145,8 @@ export const NodeBlock = memo(function NodeBlock({
             onRowClick={handleRowSelect}
             bullet={
               <Bullet
-                node={node}
+                node={shown}
+                collapsed={node.collapsed}
                 collapsible={chrome.isExpandable}
                 isRef={chrome.bulletIsRef}
                 onClick={handleBulletClick}
@@ -146,7 +157,7 @@ export const NodeBlock = memo(function NodeBlock({
                 node={node}
                 instanceKey={instanceKey}
                 isActive={isActive}
-                tags={node.tags}
+                tags={shown.tags}
                 onActivate={handleActivate}
                 onKeyDown={handleKeyDown}
               />
@@ -162,7 +173,7 @@ export const NodeBlock = memo(function NodeBlock({
                 : "opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100",
             )}
           >
-            <ViewToolbar frameId={nodeId} mode={viewConfig.mode} />
+            <ViewToolbar frameId={shownId} mode={viewConfig.mode} />
           </div>
         )}
       </div>
@@ -177,11 +188,11 @@ export const NodeBlock = memo(function NodeBlock({
             <div className="absolute left-[9px] top-0 bottom-0 w-px bg-foreground/[0.06] group-hover/line:bg-foreground/15 transition-colors duration-200" />
           </div>
 
-          <FieldsSection nodeId={nodeId} depth={depth} instanceKey={instanceKey} />
+          <FieldsSection nodeId={shownId} depth={depth} instanceKey={instanceKey} />
 
           {chrome.showsQueryResults && (
             <QueryResultsSection
-              nodeId={nodeId}
+              nodeId={shownId}
               depth={depth}
               viewMode={viewConfig.mode}
               frameInstanceKey={instanceKey}
@@ -199,7 +210,7 @@ export const NodeBlock = memo(function NodeBlock({
           {chrome.showsChildren &&
             (chrome.projected ? (
               <div style={indentStyle(depth + 1)}>
-                <FrameChildrenView frameId={nodeId} frameInstanceKey={instanceKey} />
+                <FrameChildrenView frameId={shownId} frameInstanceKey={instanceKey} />
               </div>
             ) : (
               listChildren.map((child) => {
@@ -215,36 +226,50 @@ export const NodeBlock = memo(function NodeBlock({
               })
             ))}
 
-          {chrome.showsCreateChild && (
-            <div
-              data-create-child-zone={nodeId}
-              role="button"
-              tabIndex={0}
-              aria-label="New child node"
-              className={cn(
-                "group/create relative flex h-6 cursor-pointer items-center rounded-sm",
-                "outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-              )}
-              style={indentStyle(depth + 1)}
-              onClick={handleCreateChild}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleCreateChild();
-                }
-              }}
-              title="New child node"
-            >
-              <span
-                className="flex h-6 w-6 items-center justify-center text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25"
-                aria-hidden
-              >
-                +
-              </span>
-            </div>
-          )}
+          {chrome.showsCreateChild && <CreateChildStrip parentId={shownId} depth={depth} />}
         </div>
       )}
     </div>
   );
 });
+
+/**
+ * Tana whitespace-create: the strip under a row's children mints a transient
+ * child, last, under `parentId` — the node the row shows.
+ */
+function CreateChildStrip({ parentId, depth }: { parentId: string; depth: number }) {
+  const handleCreateChild = useCallback(() => {
+    const parent = useOutlineStore.getState().nodes.get(parentId);
+    const lastChild = parent?.children.at(-1) ?? null;
+    void mutations.createTransientNode(parentId, lastChild);
+  }, [parentId]);
+
+  return (
+    <div
+      data-create-child-zone={parentId}
+      role="button"
+      tabIndex={0}
+      aria-label="New child node"
+      className={cn(
+        "group/create relative flex h-6 cursor-pointer items-center rounded-sm",
+        "outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+      )}
+      style={indentStyle(depth + 1)}
+      onClick={handleCreateChild}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleCreateChild();
+        }
+      }}
+      title="New child node"
+    >
+      <span
+        className="flex h-6 w-6 items-center justify-center text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25"
+        aria-hidden
+      >
+        +
+      </span>
+    </div>
+  );
+}

@@ -596,16 +596,15 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   Optional Logseq-style `:node/path-refs` (ancestor mentions) is backlog —
   add only when a real query needs hierarchy-scoped reach.
 
-- **Contextual references** (Tana "contextual content") are the node kind built
+- **Contextual references** (Tana references) are the node kind built
   on that relation: an ordinary node carrying `sys.f.ref.target`, a ref prop
   naming a target. The field is the whole declaration — there is no `#ref` tag,
   because a node with no target is not a reference at all (see
-  [Kinds, roles and options](#kinds-roles-and-options)). It renders the
-  target's _current_ text verbatim (so the target's markdown still renders);
-  its own children are content local to that location and stay on the
-  reference, so the original shows them only through References/backlinks — a
-  new node _kind_, not a new node _type_, exactly like a query node. Anatomy
-  and the rendering and editing rules are in
+  [Kinds, roles and options](#kinds-roles-and-options)). Its row shows the
+  target — current text, tags, fields and children — at the reference's place;
+  the reference node owns only that place — a new node _kind_, not a new node
+  _type_, exactly like a query node. Anatomy and the rendering and editing
+  rules are in
   [DESIGN-UI.md → Contextual references](./DESIGN-UI.md#contextual-references-2026-08-27).
   Creating one needs no new action:
 

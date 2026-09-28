@@ -15,8 +15,9 @@ import { useNodeTextHostBinding } from "@/stores/node-text-host-binding";
  * text shown is `rowText`, and every write — typing, `[[` completion, a
  * dropped file — goes to `shownNodeId`, the node that text belongs to. For an
  * ordinary row that is the row itself; for a contextual reference it is the
- * target, which is what makes a reference edit the original in place. Tags
- * are the row's own, so removing one stays on the row.
+ * target, which is what makes a reference edit the original in place. The
+ * tag chips are the shown node's too (the surface passes `shownNode(…).tags`),
+ * so removing one removes it from the node it is drawn on.
  */
 export function NodeContent({
   node,
@@ -41,7 +42,7 @@ export function NodeContent({
         void mutations.attachFileToNode(textNodeId, file);
       }}
       onRemoveTag={(tagId) => {
-        void mutations.removeTag(node.id, tagId);
+        void mutations.removeTag(textNodeId, tagId);
       }}
     />
   );

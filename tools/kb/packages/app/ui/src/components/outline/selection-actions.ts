@@ -11,7 +11,9 @@
  * branch.
  */
 import { mutations } from "@/actions/mutations";
-import { rowTextOf, shownNodeId } from "@/lib/contextual-ref";
+import { rowTextOf, shownNode, shownNodeId } from "@/lib/contextual-ref";
+import { childInstanceKey } from "@/lib/instance-key";
+import { schemaOf } from "@/lib/schema";
 import type { SelectionKeyAction } from "@/lib/selection-keymap";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -39,18 +41,28 @@ function selectParent({ nodeId }: ActionOf<"selectParent">): void {
   scrollRowIntoView(parent);
 }
 
-function selectFirstChild({ nodeId }: ActionOf<"selectFirstChild">): void {
+/** The children a row shows — its shown node's (`lib/contextual-ref`). */
+function shownChildren(nodeId: string): readonly string[] {
   const store = useOutlineStore.getState();
-  const first = store.nodes.get(nodeId)?.children[0];
-  if (first !== undefined) store.selectNode(first);
+  const node = store.nodes.get(nodeId);
+  return node ? shownNode(node, schemaOf(store)).children : [];
+}
+
+/** The first child as drawn under this row instance, not at its own place. */
+function selectFirstChild({ nodeId, instanceKey }: ActionOf<"selectFirstChild">): void {
+  const first = shownChildren(nodeId)[0];
+  if (first !== undefined) {
+    useOutlineStore.getState().selectNode(first, childInstanceKey(instanceKey, first));
+  }
 }
 
 /** 'o': directly below = first child when expanded, else next sibling (D07). */
 function createAfter({ nodeId }: ActionOf<"createAfter">): void {
   const node = useOutlineStore.getState().nodes.get(nodeId);
-  const expanded = Boolean(node && !node.collapsed && node.children.length > 0);
-  if (expanded) {
-    void mutations.createTransientNode(nodeId, null);
+  const expanded = Boolean(node && !node.collapsed && shownChildren(nodeId).length > 0);
+  if (node && expanded) {
+    // Under the node the row shows: a reference's first child is its target's.
+    void mutations.createTransientNode(shownNodeId(node), null);
     return;
   }
   void mutations.createTransientNode(node?.parentId ?? WORKSPACE_ROOT_ID, nodeId);

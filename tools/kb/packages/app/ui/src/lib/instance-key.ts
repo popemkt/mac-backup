@@ -58,3 +58,15 @@ export function isQueryResultInstance(instanceKey: string): boolean {
   // `ref:query:<queryId>/<resultId>` — one separator; a descendant adds more.
   return instanceKey.slice(QUERY_RESULT_PREFIX.length).split("/").length === 2;
 }
+
+/**
+ * The node ids of the rows an instance is drawn under, outermost first — the
+ * query node for a projected row, then every row on the path down to (not
+ * including) the instance itself.
+ */
+export function instanceAncestorIds(instanceKey: string): string[] {
+  const path = instanceKey.startsWith(QUERY_RESULT_PREFIX)
+    ? instanceKey.slice(QUERY_RESULT_PREFIX.length)
+    : instanceKey.slice(instanceKey.indexOf("/") + 1);
+  return path.split("/").slice(0, -1);
+}

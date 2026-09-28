@@ -257,7 +257,7 @@ describe("mapSelectionKey chord table (characterization)", () => {
       "ArrowRight on an expanded parent",
       key("ArrowRight"),
       "b",
-      { type: "selectFirstChild", nodeId: "b" },
+      { type: "selectFirstChild", nodeId: "b", instanceKey: "tree/b" },
     ],
     ["ArrowRight on a leaf", key("ArrowRight"), "c", null],
     ["ArrowRight on an unknown node", key("ArrowRight"), "unknown", null],

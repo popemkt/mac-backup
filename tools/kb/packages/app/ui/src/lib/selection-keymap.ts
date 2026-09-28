@@ -16,7 +16,7 @@ export type SelectionKeyAction =
   | { type: "collapse"; nodeId: string }
   | { type: "expand"; nodeId: string }
   | { type: "selectParent"; nodeId: string }
-  | { type: "selectFirstChild"; nodeId: string }
+  | { type: "selectFirstChild"; nodeId: string; instanceKey: string }
   | { type: "indent"; nodeId: string }
   | { type: "outdent"; nodeId: string }
   | { type: "moveUp"; nodeId: string }
@@ -106,10 +106,10 @@ function closeOrClimb({ nodeId, info }: SelectionTarget): SelectionKeyAction | n
 }
 
 /** ArrowRight: open what is closed, else descend into the first child. */
-function openOrDescend({ nodeId, info }: SelectionTarget): SelectionKeyAction | null {
+function openOrDescend({ nodeId, instanceKey, info }: SelectionTarget): SelectionKeyAction | null {
   if (!info) return null;
   if (info.collapsed && info.childIds.length > 0) return { type: "expand", nodeId };
-  return info.childIds.length > 0 ? { type: "selectFirstChild", nodeId } : null;
+  return info.childIds.length > 0 ? { type: "selectFirstChild", nodeId, instanceKey } : null;
 }
 
 /**

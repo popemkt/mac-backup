@@ -358,6 +358,11 @@ export interface OutlineBulletOptions {
   readonly collapsible?: boolean;
   /** Reference-row state (query result / embedded ref) — dashed ring. */
   readonly isRef?: boolean;
+  /**
+   * Whether the row is closed, when the row is not the node it draws: a
+   * reference row draws its target, but is open or closed on its own.
+   */
+  readonly collapsed?: boolean;
   /** W6 stubs: force media/canvas glyph before those tags exist. */
   readonly kindOverride?: BulletKindOverride | null;
 }
@@ -379,7 +384,7 @@ export function outlineBulletAppearance(
     isSys: isSysPrefixed(node.id),
     text: node.text,
     kindOverride: options.kindOverride ?? null,
-    collapsed: node.collapsed,
+    collapsed: options.collapsed ?? node.collapsed,
     childCount: node.children.length,
     isRef: options.isRef ?? false,
     ...(options.collapsible === undefined ? {} : { collapsible: options.collapsible }),

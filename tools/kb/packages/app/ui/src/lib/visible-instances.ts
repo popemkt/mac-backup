@@ -19,6 +19,7 @@ import { isQueryNode, queryDefOf, resultNodeIds } from "@/lib/query-node";
 import type { NodeMap } from "@/lib/types";
 import { getViewConfig, isProjectedViewMode } from "@/lib/view-config";
 import { hasText } from "@/lib/text";
+import { shownNode, showsAncestor } from "@/lib/contextual-ref";
 
 export type VisibleInstance = {
   nodeId: string;
@@ -58,34 +59,38 @@ function emitProjectedRows(
 }
 
 function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: string): void {
-  const { nodes, queryDb, out } = ctx;
+  const { nodes, schema, queryDb, out } = ctx;
   const node = nodes.get(nodeId);
   if (!node) return;
   out.push({ nodeId, instanceKey });
-  if (node.collapsed) return;
+  // Open or closed is the row's own; what is under it is its shown node's
+  // (`lib/contextual-ref`), unless that node is already shown above it.
+  if (node.collapsed || showsAncestor(instanceKey, node, schema)) return;
+  const frame = shownNode(node, schema);
+  const frameId = frame.id;
 
-  const viewConfig = getViewConfig(node.props);
+  const viewConfig = getViewConfig(frame.props);
   const projected = isProjectedViewMode(viewConfig.mode);
 
   // Query results — list walks refs; projected modes emit flat result rows. A
   // result row does not re-run its own query (`resolveRowChrome` agrees).
-  if (!isQueryResultInstance(instanceKey) && isQueryNode(node)) {
-    const def = queryDefOf(node);
+  if (!isQueryResultInstance(instanceKey) && isQueryNode(frame)) {
+    const def = queryDefOf(frame);
     if (hasText(def?.edn) && queryDb) {
       try {
         const rows = runQuery(queryDb, def.edn);
         const ids = resultNodeIds(rows, nodes, {
           limit: def.limit,
-          excludeId: nodeId,
+          excludeId: frameId,
         });
 
         if (projected) {
-          emitProjectedRows(ctx, nodeId, ids, (id) => queryResultInstanceKey(nodeId, id));
+          emitProjectedRows(ctx, frameId, ids, (id) => queryResultInstanceKey(frameId, id));
           return;
         }
 
         for (const id of ids) {
-          walkVisibleInstances(ctx, id, queryResultInstanceKey(nodeId, id));
+          walkVisibleInstances(ctx, id, queryResultInstanceKey(frameId, id));
         }
       } catch {
         // Broken EDN: skip results
@@ -95,12 +100,12 @@ function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: str
   }
 
   if (projected) {
-    if (isQueryNode(node)) return;
-    emitProjectedRows(ctx, nodeId, undefined, (id) => childInstanceKey(instanceKey, id));
+    if (isQueryNode(frame)) return;
+    emitProjectedRows(ctx, frameId, undefined, (id) => childInstanceKey(instanceKey, id));
     return;
   }
 
-  for (const child of frameListChildren(nodeId, nodes, ctx.schema)) {
+  for (const child of frameListChildren(frameId, nodes, schema)) {
     walkVisibleInstances(ctx, child.id, childInstanceKey(instanceKey, child.id));
   }
 }

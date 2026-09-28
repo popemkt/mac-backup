@@ -1,11 +1,11 @@
 /**
  * Contextual references — the render half.
  *
- * The reference row shows the target's content and edits it in place, its
- * children belong to the reference (not the target), and it is an ordinary
- * outline row everywhere else: same click, same bullet gestures, same
- * instance-key owner, same keyboard walk, same dashed ref bullet already used
- * for query-result rows.
+ * The reference row reads exactly like its target as an ordinary row — text,
+ * tag chips, field rows, children — and edits it in place; its place is its
+ * own: same click, same bullet gestures, same instance-key owner, same
+ * keyboard walk, and the dashed ref bullet already used for query-result rows
+ * is the one difference.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -96,18 +96,49 @@ describe("contextual reference row", () => {
     expect(block.querySelector("[data-bullet-ref-ring]")).toBeTruthy();
   });
 
-  it("its children are its own and never appear under the target", async () => {
+  it("draws the target's tag chips and field rows, as the target's row would", async () => {
+    useOutlineStore.getState().toggleCollapse("n.ctx");
+    const key = await render("n.ctx");
+    const block = present(container.querySelector(`[data-instance-key="${key}"]`), "block");
+    expect(block.querySelector("[data-node-trailing]")?.textContent).toContain("todo");
+    expect(block.querySelector('[data-fields-for="n.root-a"]')?.textContent).toContain("doing");
+  });
+
+  it("expands into the target's children, under the reference's own instance", async () => {
     useOutlineStore.getState().toggleCollapse("n.ctx");
     const refKey = await render("n.ctx");
-    const childKey = childInstanceKey(refKey, "n.ctx-child");
-    expect(container.querySelector(`[data-instance-key="${childKey}"]`)).toBeTruthy();
-
-    // The original, rendered directly, knows nothing about the local child.
-    const target = present(useOutlineStore.getState().nodes.get("n.root-a"), "n.root-a");
-    expect(target.children).not.toContain("n.ctx-child");
-    useOutlineStore.getState().toggleCollapse("n.root-a");
-    await render("n.root-a");
+    for (const child of ["n.child-a1", "n.child-a2"]) {
+      expect(
+        container.querySelector(`[data-instance-key="${childInstanceKey(refKey, child)}"]`),
+      ).toBeTruthy();
+    }
+    // The reference's own children are not what it shows.
     expect(container.querySelector('[data-node-id="n.ctx-child"]')).toBeNull();
+  });
+
+  it("a reference inside its own target is a leaf, not an endless expansion", async () => {
+    seed([
+      ...REF_SEED_WIRES,
+      {
+        id: "n.loop",
+        text: "Loop",
+        props: {},
+        children: ["n.loop-ref"],
+        createdAt: ISO,
+        updatedAt: ISO,
+      },
+      ctxRefWire("n.loop-ref", "n.loop"),
+    ]);
+    useOutlineStore.getState().toggleCollapse("n.loop");
+    useOutlineStore.getState().toggleCollapse("n.loop-ref");
+    const key = await render("n.loop");
+    const refKey = childInstanceKey(key, "n.loop-ref");
+    expect(container.querySelector(`[data-instance-key="${refKey}"]`)).toBeTruthy();
+    expect(container.querySelectorAll('[data-node-block][data-node-id="n.loop-ref"]')).toHaveLength(
+      1,
+    );
+    const walk = useOutlineStore.getState().getVisibleInstances();
+    expect(walk.filter((i) => i.nodeId === "n.loop-ref")).toHaveLength(1);
   });
 
   it("is an ordinary row for instance keys and keyboard navigation", () => {
@@ -117,7 +148,7 @@ describe("contextual reference row", () => {
     const instances = useOutlineStore.getState().getVisibleInstances();
     expect(instances.some((i) => i.instanceKey === refKey)).toBe(true);
     const next = useOutlineStore.getState().getNextVisibleInstance(refKey);
-    expect(next?.instanceKey).toBe(childInstanceKey(refKey, "n.ctx-child"));
+    expect(next?.instanceKey).toBe(childInstanceKey(refKey, "n.child-a1"));
   });
 
   function textOf(key: string): Element {
@@ -165,7 +196,7 @@ describe("contextual reference row", () => {
     expect(rowTextOf(s, "n.ctx").text).toBe("Ship kb ui shell!");
   });
 
-  it("the bullet: click toggles its own children, ⌘-click opens the original", async () => {
+  it("the bullet: click opens or closes the row itself, ⌘-click opens the original", async () => {
     const key = await render("n.ctx");
     const bullet = () =>
       present(

@@ -326,17 +326,16 @@ padlock instead of failing on write.
 
 ### Contextual references (2026-08-27)
 
-Tana's *contextual content*, expressed with no new storage shape and no new
+Tana's *reference*, expressed with no new storage shape and no new
 widget: a **contextual reference is an ordinary node** carrying its target on
 the `sys.f.ref.target` ref field. The field is the whole declaration — no tag —
 because a node with no target is not a reference (DESIGN.md → [Kinds, roles and
 options](./DESIGN.md#kinds-roles-and-options)). Same anatomy as a query node
-(`sys.f.query`), so children, tags, fields, collapse state, instance keys, both
-keymaps, undo and the transient rules are the ordinary ones — nothing in
-`visible-instances.ts`, `instance-key.ts` or `frame-rows.ts` changed to
-accommodate it.
+(`sys.f.query`), so collapse state, instance keys, both keymaps, undo and the
+transient rules are the ordinary ones, and `frame-rows.ts` did not change:
+a reference row's frame is simply its target.
 
-`packages/app/ui/src/lib/contextual-ref.ts` owns the three rules that make it read as a
+`packages/app/ui/src/lib/contextual-ref.ts` owns the rules that make it read as a
 reference:
 
 - **Display is the target's text, verbatim.** `rowText(node, nodes)` returns
@@ -351,30 +350,48 @@ reference:
   a referrer whose own text is empty is not a blank line in a backlinks list.
   What a ref *prop* buys over a hand-typed `[[id|label]]`: the hand-typed label
   freezes at insert time, this resolves every render.
-- **The row shows, edits and opens its target; its structure is its own.**
-  `shownNodeId(node)` names the node whose text the row carries — the target
-  for a reference, the row itself otherwise — and it is the one text channel:
-  `NodeContent` renders `rowText` and sends every write (typing, `[[`
-  completion, a dropped file) to it, the selection-mode append and the
-  soft-break intent read and write through `rowTextOf`, and the bullet's
-  ⌘-click, a card's bullet and the selection keymap's zoom open it. So a
-  reference is clicked, typed into and navigated exactly like any row, and
-  editing it edits the original in place, as in Tana. Everything structural —
-  the row's place, children, collapse, tags, selection, instance key, Tab,
-  moves, delete — stays on the reference node, so the one row↔node identity
-  that instance keys, both keymaps, optimistic mutations and undo are built on
-  is not forked; only the text is routed. The keymap's `ownsText` is the one
-  place that difference shows: Enter on a reference opens the next row
+- **The row shows its target; its place is its own.** `shownNode(node,
+  schema)` is the one answer to "which node does this row show" — the target
+  for a reference, the row itself otherwise (and for a dangling reference) —
+  and every content read of a row goes through it, on every surface (list row,
+  table row, card) and in the keyboard walk: the text (`rowText`, the one text
+  channel `NodeContent` renders and writes), the tag chips, the bullet's
+  paint, the field rows and table/card cells, the children and query results
+  under the row, its view, what the reveal chords and ←/→ count as its
+  children, where `o` and the create-child strip mint a child, and the page
+  ⌘-click and the zoom chord open. So a reference row reads exactly like its
+  target as an ordinary row, and every write it makes lands on the target, as
+  in Tana. What stays on the reference node is its **place** — the parent
+  edge, sibling order, selection, instance key, collapse, Tab, moves and
+  delete — so the one row↔node identity that instance keys, both keymaps,
+  optimistic mutations and undo are built on is not forked, and deleting the
+  row deletes the reference, never the original. Children of the target drawn
+  under a reference get instance keys under the *reference's* key
+  (`tree/…/ref/child`), so the same node shows at two places with two
+  identities, exactly like a query result. The keymap's `ownsText` is the one
+  place the text difference shows: Enter on a reference opens the next row
   instead of cutting the original's text (`planSplit(…, "end")`), and the
   text-joining chords (Backspace at offset 0 merging up, Delete at the end
   merging the next row in) are claimed inert when either string is not its
   row's own, because there is no string of the row's to join.
+- **A reference never expands into itself.** Showing the target's children
+  makes the outline a graph walk, so a reference under its own target (or two
+  references pointing into each other's subtrees) would recurse forever.
+  `showsAncestor(instanceKey, node, schema)` is the stop — the row's shown node
+  is already shown by a row on its instance path (`instanceAncestorIds` in
+  `lib/instance-key.ts` reads the path) — and `resolveRowChrome` and the
+  visible-instance walk both read it, so such a row is a leaf in the render
+  and in keyboard navigation alike.
   `rowTextReadOnlyReason(id, node, schema)` owns what cannot be written: `sys.*`
   text (whether the row is the sys node or a reference to it, r1 D20) and a
   reference whose target is missing; it supplies the padlock's wording.
   *History:* until 2026-09-27 the reference's text was read-only and a click
   opened the original; that was rejected on the grounds that it made a
-  reference a different kind of row to click and type into.
+  reference a different kind of row to click and type into. Until 2026-09-28
+  only the text was routed — tags, fields and children were the reference
+  node's own ("contextual content") — which made a reference to a tagged node
+  render as bare text; the owner's rule since is that a reference row renders
+  exactly as its target would, the dashed bullet being the only difference.
 - **The bullet reuses the existing reference treatment** (dashed ring). Only the
   bullet: a *query-result* row — read from its instance key by
   `isQueryResultInstance` (`lib/instance-key.ts`), never passed as a flag —
@@ -387,14 +404,10 @@ reference:
   result row is clicked like any row in every view: a row click selects, a
   text click edits, a bullet click toggles and ⌘-click opens the node.
 
-**Contextual children belong to the location, not the target** — the
-Tana-faithful default, and the one question the owner did not answer. Visiting
-the original shows only its own children; the contextual ones surface there
-through References/backlinks (which see the reference because `:node/mentions`
-counts ref props — see [DESIGN.md → Refs](./DESIGN.md#data-model--everything-is-a-node)).
-To change the default, the union goes in exactly one place:
-`frameListChildren` / `frameRows` in `packages/app/ui/src/lib/frame-rows.ts`, the declared
-single owner of "which rows does this frame show".
+**A reference shows its target's children, not its own.** The reference
+node's own children, if it has any, are not drawn anywhere: nothing creates
+them any more (the create-child gestures under a reference mint under the
+target), and a store written before 2026-09-28 holds none.
 
 **Creation** is a node-⌘K step, next to *Turn into query*: **Turn into
 reference…** opens the picker, which is the same picker `Add tag` and `Add field`
@@ -406,19 +419,19 @@ picker was added. The gesture itself is `mutations.addTag` +
 `mutations.updateProp`, i.e. plain `node.update` — no new registry action, and
 the CLI/MCP form is in DESIGN.md.
 
-**Named gaps.** The target is repointable only with debug fields on for that row
-(node ⌘K → *Show debug fields*), because `sys.f.*` props are hidden from field
-rows by default — the identical
-limitation `#query`'s EDN prop has, deliberately not widened here. The
-References list shows a reference by its rendered target text rather than by the
-ancestor context it sits in, so on the original's own page a reference row reads
-as a copy of the original's text; a context breadcrumb (and rendering the
-contextual children inline under the backlink row) is the obvious next step and
-is not built. There is no global ⌘K entry: a contextual reference needs both a
-host row and a target, and the global palette has no two-step for that. Since
-zoom opens the shown node, no row gesture zooms into the reference node
-itself; its contextual children are reached by expanding it in place, and its
-own props through *Show debug fields*.
+**Named gaps.** The reference node's own props — its target among them — are
+not drawn by its row, since every field row is the target's; the target is
+repointable only from the CLI or MCP (`node.update`), and *Turn into
+reference…* is withheld from a row that already is one. View filters, sort and
+board grouping read a row's own props, so a reference inside a table or board
+sorts and groups as an empty node. Enter at the end of an expanded reference
+opens a sibling, where an expanded ordinary row opens its first child, because
+`planSplit` reads the row's own children. The References list shows a
+reference by its rendered target text rather than by the ancestor context it
+sits in, so on the original's own page a reference row reads as a copy of the
+original's text; a context breadcrumb is the obvious next step and is not
+built. There is no global ⌘K entry: a contextual reference needs both a host
+row and a target, and the global palette has no two-step for that.
 
 ### Field values: one slot grammar
 
@@ -434,6 +447,13 @@ together) and a row in the slot's view registry (its glyph and its surface).
 The surfaces in `field-value.tsx` draw and edit; none has a click or key
 handler of its own. A new type is two rows, never a component deciding its
 own clicks.
+
+**The label column belongs to the field, not to its values.** The type glyph
+is the field's own button (`FieldRow`, labelled "Configure field <name>"). A
+field is a node and its page is where it is configured — its type, its
+target, its values' kinds — so the glyph follows the field the way a bullet
+follows its node: a plain click opens it, ⌘/Ctrl-click reveals it. A row that
+stands for no field node (a preference) draws the glyph inert.
 
 **Three verbs, the same on every kind.**
 

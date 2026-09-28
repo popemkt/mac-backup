@@ -1,13 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
-import { shownNodeId } from "@/lib/contextual-ref";
+import { shownNode, shownNodeId } from "@/lib/contextual-ref";
 import { resolveRowChrome } from "@/lib/row-chrome";
-import {
-  childInstanceKey,
-  isQueryResultInstance,
-  outlineInstanceKey,
-  queryResultInstanceKey,
-} from "@/lib/instance-key";
+import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { cn } from "@/lib/cn";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
@@ -254,7 +249,9 @@ const TableRow = memo(function TableRow({
   const activateNode = useOutlineStore((s) => s.activateNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
   const follow = useFollow();
-  const rowDebug = useDebugFields(child.id);
+  // The cells are the shown node's (`lib/contextual-ref`); the row is `child`.
+  const shown = shownNode(child, context.schema);
+  const rowDebug = useDebugFields(shown.id);
 
   const handleKeyDown = useNodeKeyDown({ nodeId: child.id, instanceKey: childKey });
 
@@ -263,8 +260,8 @@ const TableRow = memo(function TableRow({
   const chrome = resolveRowChrome({
     node: child,
     schema: context.schema,
-    viewConfig: getViewConfig(child.props),
-    isQueryResult: isQueryResultInstance(childKey),
+    viewConfig: getViewConfig(shown.props),
+    instanceKey: childKey,
     showDebugFields: rowDebug,
   });
 
@@ -284,7 +281,8 @@ const TableRow = memo(function TableRow({
           onRowClick={() => selectNode(child.id, childKey)}
           bullet={
             <Bullet
-              node={child}
+              node={shown}
+              collapsed={child.collapsed}
               collapsible={chrome.isExpandable}
               isRef={chrome.bulletIsRef}
               onClick={(e) => {
@@ -299,7 +297,7 @@ const TableRow = memo(function TableRow({
               node={child}
               instanceKey={childKey}
               isActive={isActive}
-              tags={child.tags}
+              tags={shown.tags}
               onActivate={(pos) => activateNode(child.id, pos, childKey)}
               onKeyDown={handleKeyDown}
             />
@@ -312,10 +310,10 @@ const TableRow = memo(function TableRow({
           <NodeField
             valueOnly
             instanceKey={childKey}
-            nodeId={child.id}
+            nodeId={shown.id}
             fieldId={col.fieldId}
             label={col.label}
-            values={child.props[col.fieldId] ?? []}
+            values={shown.props[col.fieldId] ?? []}
             context={context}
           />
         </td>

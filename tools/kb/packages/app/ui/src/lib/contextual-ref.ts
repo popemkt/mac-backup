@@ -1,40 +1,40 @@
 /**
- * Contextual references (Tana "contextual content").
+ * Contextual references: a node shown at a second place (Tana's reference).
  *
  * A contextual reference is an ordinary node carrying its target on the
  * `sys.f.ref.target` ref field — the same anatomy as a query node
  * (`sys.f.query`). The field is the whole declaration: strip it and the node is
  * not a reference, it is a plain node, so there is no `#ref` supertag to carry
- * the same distinction twice (DESIGN.md → Kinds, roles and options). It
- * displays the *target's* text; its
- * own children are the local, contextual content and belong to this location,
- * not to the target. Nothing else about the row is special: children, tags,
- * fields, collapse state, instance keys and both keymaps are the ordinary ones.
+ * the same distinction twice (DESIGN.md → Kinds, roles and options).
  *
- * Two consequences worth stating, because they are what make it a node and not
- * a widget:
+ * **The row shows its target; its place is its own.** `shownNode` is the one
+ * answer to "which node does this row show", and every content read of a row
+ * goes through it: the text, the tag chips, the bullet's paint, the field
+ * rows, the children and query results under it, its view, and the page its
+ * zoom opens. So a reference row reads exactly like its target as an ordinary
+ * row, and every write it makes — typing, a tag removed, a field value, a
+ * child created under it — lands on the target, which is Tana's behaviour.
+ * What stays on the reference node is its *place*: the parent edge, sibling
+ * order, selection, instance key, collapse state, indent, moves and delete —
+ * so the one row↔node identity every keymap, optimistic mutation and undo
+ * entry is built on is not forked, and deleting the row deletes the
+ * reference, never the original. The dashed bullet ring is the only thing
+ * that marks the row as a reference.
  *
- * - **Display is the target's text, verbatim.** `rowText` hands the *target's*
- *   markdown to the row, so it renders through exactly the path every other row
- *   uses — bold, code, inline refs and `assets/` media all render as content.
- *   Rendering it as a `[[id|label]]` token instead was tried and looked wrong:
- *   a ref label is terminal in the inline grammar, so `**markdown**` showed up
- *   literally and the whole row went link-coloured. The dashed bullet ring is
- *   what marks the row as a reference.
+ * Display is the target's text, verbatim: `rowText` hands the *target's*
+ * markdown to the row, so it renders through exactly the path every other row
+ * uses. Rendering it as a `[[id|label]]` token instead was tried and looked
+ * wrong: a ref label is terminal in the inline grammar, so `**markdown**`
+ * showed up literally and the whole row went link-coloured. A ref *prop* also
+ * buys what a hand-typed `[[id|label]]` cannot: the label resolves on every
+ * render instead of freezing at insert time.
  *
- *   Note what a ref *prop* buys over typing `[[id|label]]` by hand: the label
- *   in a hand-written token freezes at insert time, while this resolves on every
- *   render.
- * - **The row shows, edits and opens its target; its structure is its own.**
- *   `shownNodeId` names the node whose text the row renders and writes, and
- *   whose page the row's zoom gesture opens. Everything structural — the row's
- *   place, its children, collapse, tags, selection, instance key, indent,
- *   moves and delete — stays on the reference node, so the one row↔node
- *   identity every keymap, optimistic mutation and undo entry is built on is
- *   not forked: only the text channel is routed. Clicking the text edits the
- *   original in place (Tana's behaviour); deleting the row deletes the
- *   reference, never the original.
+ * Showing the target's children makes the outline a graph walk, not a tree
+ * walk — a reference under its own target would expand into itself forever.
+ * `showsAncestor` is the stop: a row whose shown node is already shown above
+ * it on its instance path renders as a leaf.
  */
+import { instanceAncestorIds } from "@/lib/instance-key";
 import { schemaOf, type SchemaIndex, type SchemaSource } from "@/lib/schema";
 import type { OutlineNode } from "@/lib/types";
 import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
@@ -77,9 +77,26 @@ export function shownNodeId(node: OutlineNode): string {
  * Read from the schema, the whole graph, so a reference to a node outside the
  * current scope still shows it.
  */
-function shownNode(node: OutlineNode, schema: SchemaIndex): OutlineNode {
+export function shownNode(node: OutlineNode, schema: SchemaIndex): OutlineNode {
   const shownId = shownNodeId(node);
   return shownId === node.id ? node : (schema.get(shownId) ?? node);
+}
+
+/**
+ * The row's shown node is already shown by a row above it on its instance
+ * path (`tree/a/b/…`, `ref:query:<q>/…`), so expanding it would repeat that
+ * row's rows inside themselves. Such a row is a leaf.
+ */
+export function showsAncestor(
+  instanceKey: string,
+  node: OutlineNode,
+  schema: SchemaIndex,
+): boolean {
+  const shownId = shownNodeId(node);
+  return instanceAncestorIds(instanceKey).some((id) => {
+    const ancestor = schema.get(id);
+    return ancestor !== undefined && shownNodeId(ancestor) === shownId;
+  });
 }
 
 /**

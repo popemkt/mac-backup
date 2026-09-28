@@ -16,7 +16,9 @@ import {
   rowText,
   rowTextOf,
   rowTextReadOnlyReason,
+  shownNode,
   shownNodeId,
+  showsAncestor,
 } from "@/lib/contextual-ref";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { SYSTEM_IDS, type NodeMap } from "@/lib/types";
@@ -147,6 +149,29 @@ describe("contextual reference model", () => {
       "Reference target is missing",
     );
     expect(rowTextReadOnlyReason("n.root-a", nodes.get("n.root-a"), schema)).toBeNull();
+  });
+});
+
+describe("the shown node", () => {
+  it("is the target for a reference, the row itself otherwise and when dangling", () => {
+    const nodes = mapWith([ctxRefWire("n.ctx", "n.root-a"), ctxRefWire("n.dangling", "n.gone")]);
+    const schema = schemaFor(nodes);
+    const at = (id: string) => shownNode(present(nodes.get(id), id), schema).id;
+    expect(at("n.ctx")).toBe("n.root-a");
+    expect(at("n.root-a")).toBe("n.root-a");
+    expect(at("n.dangling")).toBe("n.dangling");
+  });
+
+  it("repeats an ancestor when a row above already shows its node, on any key form", () => {
+    const nodes = mapWith([ctxRefWire("n.ctx", "n.root-a")]);
+    const schema = schemaFor(nodes);
+    const ref = present(nodes.get("n.ctx"), "n.ctx");
+    expect(showsAncestor("tree/n.root-a/n.ctx", ref, schema)).toBe(true);
+    expect(showsAncestor("ref:query:n.root-a/n.ctx", ref, schema)).toBe(true);
+    // Another reference to the same target above it counts: it shows that node too.
+    expect(showsAncestor("tree/n.ctx/n.child-a1/n.ctx", ref, schema)).toBe(true);
+    expect(showsAncestor("tree/n.ctx", ref, schema)).toBe(false);
+    expect(showsAncestor("tree/n.root-b/n.ctx", ref, schema)).toBe(false);
   });
 });
 

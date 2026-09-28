@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
-import { shownNodeId } from "@/lib/contextual-ref";
+import { shownNode, shownNodeId } from "@/lib/contextual-ref";
 import { isReferenceRow } from "@/lib/row-chrome";
 import {
   childInstanceKey,
@@ -254,6 +254,8 @@ const ViewCard = memo(function ViewCard({
   const selectNode = useOutlineStore((s) => s.selectNode);
   const activateNode = useOutlineStore((s) => s.activateNode);
   const follow = useFollow();
+  // The card's content is the shown node's (`lib/contextual-ref`); the card is `child`.
+  const shown = shownNode(child, context.schema);
 
   const handleKeyDown = useNodeKeyDown({ nodeId: child.id, instanceKey });
 
@@ -284,7 +286,8 @@ const ViewCard = memo(function ViewCard({
         onRowClick={() => selectNode(child.id, instanceKey)}
         bullet={
           <Bullet
-            node={child}
+            node={shown}
+            collapsed={child.collapsed}
             collapsible={false}
             isRef={isReferenceRow(child, isQueryResultInstance(instanceKey))}
             onClick={(e) => {
@@ -307,10 +310,10 @@ const ViewCard = memo(function ViewCard({
           />
         }
       />
-      {child.tags.length > 0 && (
+      {shown.tags.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-0.5 pl-1">
           <TagChipGroup
-            tags={child.tags}
+            tags={shown.tags}
             onTagClick={(tag, e) => {
               e.stopPropagation();
               follow(nodeTarget(tag.id), "open");
@@ -325,10 +328,10 @@ const ViewCard = memo(function ViewCard({
               key={col.fieldId}
               depth={-1}
               instanceKey={instanceKey}
-              nodeId={child.id}
+              nodeId={shown.id}
               fieldId={col.fieldId}
               label={col.label}
-              values={child.props[col.fieldId] ?? []}
+              values={shown.props[col.fieldId] ?? []}
               context={context}
             />
           ))}

@@ -12,8 +12,9 @@
  * why it is derived from them rather than asked separately.
  */
 import type { SchemaIndex } from "@/lib/schema";
-import { isContextualRef } from "@/lib/contextual-ref";
+import { isContextualRef, shownNode, showsAncestor } from "@/lib/contextual-ref";
 import { resolveProps } from "@/lib/graph-view";
+import { isQueryResultInstance } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import type { OutlineNode } from "@/lib/types";
 import { isProjectedViewMode, type ViewConfig } from "@/lib/view-config";
@@ -55,30 +56,45 @@ export function isReferenceRow(node: OutlineNode, isQueryResult: boolean): boole
 }
 
 export interface RowChromeInput {
+  /** The row's node — for a contextual reference, the reference itself. */
   node: OutlineNode;
   /** Where field definitions are read from: the whole graph (`lib/schema.ts`). */
   schema: SchemaIndex;
+  /** The view of the node the row shows. */
   viewConfig: ViewConfig;
-  /** This render instance is a query result (`isQueryResultInstance`). */
-  isQueryResult: boolean;
+  /**
+   * This render instance. Whether the row is a query result
+   * (`isQueryResultInstance`) and whether it repeats a row above it
+   * (`showsAncestor`) are read from it.
+   */
+  instanceKey: string;
   showDebugFields: boolean;
 }
 
+/**
+ * What the row draws is its shown node's (`shownNode`): children, query,
+ * fields. Whether it is open is the row's own (`node.collapsed`), and so is
+ * the reference ring.
+ */
 export function resolveRowChrome({
   node,
   schema,
   viewConfig,
-  isQueryResult,
+  instanceKey,
   showDebugFields,
 }: RowChromeInput): RowChrome {
-  const hasChildren = node.children.length > 0;
-  const isQuery = isQueryNode(node);
+  const shown = shownNode(node, schema);
+  const isQueryResult = isQueryResultInstance(instanceKey);
+  // A row that repeats one above it draws no rows under it (`showsAncestor`).
+  const repeats = showsAncestor(instanceKey, node, schema);
+  const hasChildren = shown.children.length > 0 && !repeats;
+  const isQuery = isQueryNode(shown);
   // A query node projects results instead of children, and a result row does
   // not re-run a nested query.
-  const showsQueryResults = isQuery && !isQueryResult;
+  const showsQueryResults = isQuery && !isQueryResult && !repeats;
   const showsChildren = !isQuery && hasChildren;
   const hasFrameRows = showsChildren || showsQueryResults;
-  const hasFields = resolveProps(node, schema, { showDebugFields }).length > 0;
+  const hasFields = resolveProps(shown, schema, { showDebugFields }).length > 0;
   const isExpandable = hasFrameRows || hasFields;
   const projected = isProjectedViewMode(viewConfig.mode);
 
