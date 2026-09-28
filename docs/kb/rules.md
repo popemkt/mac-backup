@@ -56,15 +56,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
-### GAP: a date value has two carriers, {t:str} and {t:date}
-
-- **expected** — One carrier per declared type: a date field's values are one PropValue kind, and the accepted-kinds table in @kb/model (FIELD_VALUE_KINDS in field-type.ts) lists exactly one kind for date, as it does for every other type.
-- **current** — The UI date editor and the example seed write {t:"str"} ISO strings, while PropValue keeps a {t:"date"} variant that older writes used. So the table accepts both kinds for date - the only type with two.
-- **impact** — Two representations of one value. A query, sort or filter over a date field has to match both kinds, and nothing stops one store holding a mix of them.
-- **closes** — Choose one carrier (the date variant, since PropValue already names it, or drop the variant), migrate stored values on open the way migrateFieldTypeValues does for type values, and list one kind for date.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M39X7NQV187BDQVGH81997M5`
-
 ### GAP: a number prop that equals a live eid reads as a ref to that node
 
 - **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
@@ -72,6 +63,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
 - **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
 - **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
+
+### GAP: a ref value's bullet follows instead of expanding the target inline
+
+- **expected** — A ref value's bullet expands the target's children inline under the field, the way a reference row's bullet expands its target.
+- **current** — A plain click on a ref value's bullet follows the target (lib/follow bullet rule); the value has no instance-keyed children of its own to expand.
+- **impact** — Reading a referenced node's content from a field means leaving the page; the outline's expand gesture does not apply to values.
+- **closes** — An instance key for a value slot so the target's children can render under it, then the bullet toggles expansion like a row bullet.
+- **node** — `01M3KA38YPZZFKQRZM9ZP6C99F`
+
+### GAP: a reference's target cannot be changed from the UI
+
+- **expected** — A reference row can be repointed from the UI.
+- **current** — Every field row a reference draws is its target's, so its own props (sys.f.ref.target) are not shown; Turn into reference... is withheld from a row that already is one. Repointing is CLI/MCP node.update only.
+- **impact** — A wrongly picked reference must be deleted and recreated in the UI.
+- **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
+- **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
 
 ### GAP: a store's release is not on the port; selectStore drops it
 
@@ -140,6 +147,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — lib.dom removes @deprecated from caretRangeFromPoint, or caretPositionFromPoint is the only probe and Chrome implements it everywhere this app runs.
 - **node** — `01M1P2R0XMSK1MRVQ8P2JH5V0Z`
 
+### GAP: chip remove controls are two bespoke badges
+
+- **expected** — One remove control for chips.
+- **current** — An option chip's corner x (ChipRemoveButton in fields-section.tsx) and a tag chip's x over its # mark are separate hand-built controls.
+- **impact** — Two remove gestures that look different for the same kind of thing.
+- **closes** — A shared chip-remove primitive, or a decision that it is part of the chip, stated once in DESIGN-UI.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M3KA3ASYV7KP522KAD24ZT6S`
+
 ### GAP: CLI pays full cold start on every invocation
 
 - **expected** — Interactive commands reach a running kb ui process instead of rebuilding the world per invocation.
@@ -164,6 +180,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A WebGL2-expressible grid (a counting sort in several transform-feedback passes, or a fixed-slot grid written without atomics), or three's WebGL backend gaining storage atomics; plus a render-lane run with WebGPU disabled.
 - **rule** — Lab principles
 - **node** — `01M3A95XAEE6FGT8ZVDRHYBDF5`
+
+### GAP: Enter on an expanded reference opens a sibling, not the target's first child
+
+- **expected** — Enter at the end of an expanded reference opens the target's first child, as on any expanded row.
+- **current** — planSplit in actions/plan.ts counts the reference's own children, which are none.
+- **impact** — One row kind breaks the outline's Enter rule.
+- **closes** — planSplit counts the shown node's children.
+- **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
 
 ### GAP: extension SDK mirror is not bidirectionally typed
 
@@ -207,6 +231,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Reuse the forest builder tree-graph already has and leave this function as placement only.
 - **node** — `01M1MGCR50QEXX7R4JDJ51HQFY`
 
+### GAP: icon-only buttons are hand-rolled outside IconButton
+
+- **expected** — Every icon-only control draws the shared IconButton.
+- **current** — About 12 sites build their own box (App header, sidebar-toggle, lab-page, graph-page, graph/canvas toolbars, view-toolbar, view-filter-popover, ontology-page chip x, canvas-ports), mostly h-6/h-7 rounded-md against the primitive's rounded-sm.
+- **impact** — Size, hover and focus ring drift per site - the bug the field row's x/+ just had.
+- **closes** — An IconButton option for the header radius (or one radius), migrate each site, then a lint rule against hand-built icon-only buttons.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M3KA3AM9KQZCX6N73YKV3HB5`
+
 ### GAP: KbIndex is DataScript in memory on both stores; sqlite holds nodes but answers no queries
 
 - **expected** — A KbIndex backed by the sqlite store — queries compiled from the query IR to SQL and answered by the database that already holds the nodes, so a sqlite root does not rebuild a whole DataScript db on every open.
@@ -232,6 +265,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Admission gate
 - **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
 
+### GAP: no [[ completion while editing a text field value
+
+- **expected** — Typing [[ in a text value opens the same node picker node text does.
+- **current** — Text values share the live-markdown input step but not the label still counts as a mention.
+- **impact** — Linking from a text value needs the id by hand.
+- **closes** — Wire the shared picker's [[ trigger into the text value editor (one trigger, both surfaces).
+- **node** — `01M3KA394XS9DCGY9RHS151G6F`
+
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
 - **expected** — A malformed config prop is visible where the config is: a badge or bar beside the graph / view frame, the way resolveOntology's warnings surface through ontology-scope-bar and ontology-page.
@@ -239,6 +280,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The policy is honest in code and invisible in the product: the one audience who could fix a malformed prop is the one who cannot see it. Repeat renders also re-log the same warning, because getViewConfig runs per node per render.
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
+
+### GAP: nodes have no icon, so refs cannot show one
+
+- **expected** — A node can carry an icon or emoji (as a field, a node like any other) and a ref shows it before its label, as Tana does.
+- **current** — The model has no icon field; refInkOf only picks a tag colour.
+- **impact** — Special nodes (inboxes, sys nodes) read the same as any other link.
+- **closes** — A seeded sys icon field and refInkOf reading it.
+- **node** — `01M3KA3BHNPNB8VX34HD8P2JCB`
 
 ### GAP: orbit controls stand in the lab kit, not the scene kit
 
@@ -264,6 +313,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Replace the ad hoc resolved* options with one registry the executors fill per channel (npm-global.nix is part of this; it had uncommitted user edits when this was filed), then add an executor-contract flake check over channels.nix and point the drift audit at the same registry.
 - **rule** — One contract, every implementation
 - **node** — `01M3E9V4VV52HJPW181Y74AR0J`
+
+### GAP: pasting several lines into a many-valued field is one value
+
+- **expected** — A multi-line paste into a many-valued field becomes one value per line.
+- **current** — The pasted text lands as a single value.
+- **impact** — Bulk entry of options or refs takes one edit per value.
+- **closes** — The value stack's paste handler splits on newlines for many-valued fields and appends one slot per line.
+- **node** — `01M3KA39GQ7Q8HSD0JKB46VCC5`
+
+### GAP: PropValue still carries the legacy {t:"date"} variant
+
+- **expected** — PropValue has one carrier per value; dates are {t:"str"} only.
+- **current** — Opening a store rewrites {t:"date"} to {t:"str"} (migrateDateValues), but model.ts and node-schema.ts keep the variant so old stores still decode.
+- **impact** — A dead variant every exhaustive switch must still handle.
+- **closes** — Once all stores have been opened under the migration, drop the variant from PropValue and the schema.
+- **node** — `01M3KA3A2Q317N5EHFEF6TYVDE`
 
 ### GAP: reach is recognised only inside the query subset parseEdn models
 
@@ -323,14 +388,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
 
-### GAP: six React lists key by array index because the index is the identity
-
-- **expected** — Every keyed list keys by a stable domain id, so react/no-array-index-key holds with no exception.
-- **current** — Four multi-value field lists (board-cards-view, fields-section x2, table-view) and the two canvas snap-guide branches key by index behind // oxlint-disable-next-line react/no-array-index-key.
-- **impact** — Six pinpoint disables of a rule that is error everywhere else. If any of these lists later gains a real id, the disable will read as blessed rather than as a question.
-- **closes** — A node prop is an ordered multi-value: slot 2 is slot 2, and two slots can hold equal values, so position is the only identity available and a content key would collide and remount live editors. Snap guides are a transient two-element overlay with no domain object at all. Close it by giving multi-values an id in the data model (Track 2 KbNode/prop schema work), then key on that.
-- **node** — `01M1MFP33RDP5MVB4827DR5RE7`
-
 ### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
 
 - **expected** — A logged transaction re-evaluates only the subscriptions it can affect, and evaluates each distinct query once for all the clients holding it.
@@ -339,13 +396,30 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
 - **node** — `01M1QZNM17MTGGPE517NVZYJT0`
 
-### GAP: the 3D bullet atlas has a fixed capacity
+### GAP: sys.f.color keeps an always-open swatch row
 
-- **expected** — Every distinct bullet in a 3D graph drawn in the bullet theme has its own painted cell, however many distinct tag-colour combinations the graph holds.
-- **current** — The atlas holds 16 columns by as many rows as fit a 4096px texture (400 cells); a bullet past that shares the first cell and is drawn as it.
-- **impact** — A graph with more than 400 distinct bullets (many multi-tag colour sets) draws the overflow as the wrong bullet in the bullet theme.
-- **closes** — A second atlas page (a texture array) or painting overflow cells on demand, with a test that a graph past the capacity draws every bullet from its own cell.
-- **node** — `01M3FNF3PFQA9J4XM76G3K7P9A`
+- **expected** — A colour value is a chip that opens a picker on demand, like every other option-shaped value.
+- **current** — sys.f.color renders its swatch row permanently open.
+- **impact** — One value kind has its own editing surface and takes extra vertical space.
+- **closes** — Draw colour as a value kind in VALUE_KINDS with a swatch picker opened from the slot.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M3KA39WTMVDWE004ZQA59FQ5`
+
+### GAP: table and board cells are not in the arrow-key path
+
+- **expected** — Arrow keys move through table and board cells' values the way they move through an outline row's values.
+- **current** — Keyboard nav into field values reads outline DOM order only; table and board cells are skipped.
+- **impact** — Tables and boards need the mouse to reach a value.
+- **closes** — Give table/board cells the same slot navigation order the outline uses.
+- **node** — `01M3KA3A8JZN1GH9DXK2SNZ1N1`
+
+### GAP: tables and boards sort, filter and group references by their own empty props
+
+- **expected** — A reference in a table or board sorts, filters and groups by its target's fields, as it renders them.
+- **current** — frame-rows.ts reads the row node's own props, so a reference sorts and groups as an empty node.
+- **impact** — References land in the wrong group or order in every view but the outline.
+- **closes** — Those steps read shownNode while still returning row ids.
+- **node** — `01M3KA3B5V5K7GYYPAYK7G6KHG`
 
 ### GAP: the action registry is build-once per process though the kernel can unload
 
@@ -371,6 +445,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Either ds/ exports the index layer the session runtime builds, or the seam moves to session/ and ds/ becomes its caller — one of the two, decided when the browser store's ownership settles.
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
+
+### GAP: the CLI has no relative dates (today, next fri)
+
+- **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
+- **current** — The UI parses phrases like today / next fri; the CLI and MCP take absolute YYYY-MM-DD only.
+- **impact** — Two date grammars depending on surface.
+- **closes** — Move the phrase parser into @kb/model next to parseTypedValue and call it from CLI/MCP.
+- **node** — `01M3KA3AEEFG0E200V4D63G5SN`
+
+### GAP: the date editor's Enter and Tab skip the value keymap
+
+- **expected** — Enter at the end of a date value opens the next value and Tab moves on, as in every other value kind.
+- **current** — DateEditor's Enter commits without opening a next value; its Tab does not move to the next slot.
+- **impact** — Dates are the one value kind that breaks the slot keyboard grammar.
+- **closes** — DateEditor delegates Enter/Tab to the ValueSlot keymap instead of handling them itself.
+- **node** — `01M3KA39ATBBJHPY4AWP7VKX8G`
 
 ### GAP: the graph legend overlays a renderer that cannot pan
 
@@ -420,6 +510,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Compile through the post chain (PostProcessing.renderAsync on a hidden frame, or a compileAsync that takes the pass's render target and the shadow pass) once three supports it, then drop the condition.
 - **rule** — Lab principles
 - **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
+
+### GAP: the node palette has no "Add value to <field>" command
+
+- **expected** — The node's ⌘K menu offers "Add value to <field>" for each field the node shows, reaching the same picker the + does.
+- **current** — Adding a value is only Enter or the inline + on the field row.
+- **impact** — Keyboard-only users cannot add a value to a field whose row is off screen or collapsed.
+- **closes** — A palette step per shown field that opens the field's value picker.
+- **node** — `01M3KA39PQAJZJ6C6ZY4RV1SPZ`
 
 ### GAP: the npm executor special-cases @openai/codex and aborts activation on a failed install
 
@@ -581,6 +679,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Fast consecutive edits on one node flicker. A field row can unmount mid-gesture, which drops its pending + value slot and sends the next keystrokes into another editor. palette.e2e.ts 'Add field' failed about 1 run in 4 under parallel load: later was appended to high (a highlater value), or typed into the node title.
 - **closes** — Track the nodes each in-flight local invocation touched, from its local StoreTx. Hold remote upserts for those nodes, then apply the newest held node once the node's last write is confirmed. Or tag tx frames with origin and invocation id, and rebase unconfirmed invocations on ingest. Then fold pendingContent in, and remove both halves of the workaround: the palette spec's settle wait, and the test-render data-kb-rev hook in outline.store.ts. Pin the behaviour with a spec that delays pushes.
 - **node** — `01M3A6NB33CT1EMM418HBN8GTT`
+
+### GAP: a date value has two carriers, {t:str} and {t:date}
+
+- **expected** — One carrier per declared type: a date field's values are one PropValue kind, and the accepted-kinds table in @kb/model (FIELD_VALUE_KINDS in field-type.ts) lists exactly one kind for date, as it does for every other type.
+- **current** — Closed: date values have one carrier, {t:str} holding a local YYYY-MM-DD day; opening a store rewrites legacy {t:date} values, and the accepted-kinds table lists one kind for date. The leftover variant in the PropValue type is GAP 01M3KA3A2Q317N5EHFEF6TYVDE.
+- **impact** — Two representations of one value. A query, sort or filter over a date field has to match both kinds, and nothing stops one store holding a mix of them.
+- **closes** — Choose one carrier (the date variant, since PropValue already names it, or drop the variant), migrate stored values on open the way migrateFieldTypeValues does for type values, and list one kind for date.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M39X7NQV187BDQVGH81997M5`
 
 ### GAP: a UI test gates on wall-clock time and fails under machine load
 
@@ -910,6 +1017,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Recompute x and y after the ratio lock from the final w and h; add a shiftKey case to the resize reducer test.
 - **node** — `01M1TAE8V1GDX971M2A6NC4DS1`
 
+### GAP: six React lists key by array index because the index is the identity
+
+- **expected** — Every keyed list keys by a stable domain id, so react/no-array-index-key holds with no exception.
+- **current** — Closed: no list keys by index behind a disable any more. Field value lists key by content, the snap-guide branches are gone, and the one remaining disable (date-editor weekday columns) is a fixed seven-column header whose position is its identity.
+- **impact** — Six pinpoint disables of a rule that is error everywhere else. If any of these lists later gains a real id, the disable will read as blessed rather than as a question.
+- **closes** — A node prop is an ordered multi-value: slot 2 is slot 2, and two slots can hold equal values, so position is the only identity available and a content key would collide and remount live editors. Snap guides are a transient two-element overlay with no domain object at all. Close it by giving multi-values an id in the data model (Track 2 KbNode/prop schema work), then key on that.
+- **node** — `01M1MFP33RDP5MVB4827DR5RE7`
+
 ### GAP: store staleness is size+mtime, not a fingerprint
 
 - **expected** — The session knows whether its index reflects the store from a content fingerprint the store computes as it writes (p1 Phase 3), so no external write can be missed.
@@ -926,6 +1041,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Rewrite every listed directive to the oxlint grammar, then unskip suppression-grammar.test.ts.
 - **rule** — Lint scope coverage
 - **node** — `01M1PHTZDZCKMXYP6HW109M3DT`
+
+### GAP: the 3D bullet atlas has a fixed capacity
+
+- **expected** — Every distinct bullet in a 3D graph drawn in the bullet theme has its own painted cell, however many distinct tag-colour combinations the graph holds.
+- **current** — Closed: there is no atlas. Bullets are signed-distance shapes drawn per pixel from one table (lib/bullet-mode.ts, lib/bullet-gpu.ts), so any number of distinct bullets draw from their own description and stay sharp at every zoom.
+- **impact** — A graph with more than 400 distinct bullets (many multi-tag colour sets) draws the overflow as the wrong bullet in the bullet theme.
+- **closes** — A second atlas page (a texture array) or painting overflow cells on demand, with a test that a graph past the capacity draws every bullet from its own cell.
+- **node** — `01M3FNF3PFQA9J4XM76G3K7P9A`
 
 ### GAP: the canvas keydown effect is a 66-branch handler
 
