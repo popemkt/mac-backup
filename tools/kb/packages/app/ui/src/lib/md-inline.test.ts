@@ -32,6 +32,46 @@ describe("parseInlineMd", () => {
     ]);
   });
 
+  it("autolinks a bare url, GFM style, and rebuilds its source exactly", () => {
+    const text = "graph pipeline https://github.com/statelyai/graph";
+    expect(parseInlineMd(text)).toEqual([
+      { t: "text", v: "graph pipeline " },
+      {
+        t: "link",
+        href: "https://github.com/statelyai/graph",
+        label: "https://github.com/statelyai/graph",
+      },
+    ]);
+    expect(parseInlineSource(text).map(inlineSpanSource).join("")).toBe(text);
+  });
+
+  it("an autolink leaves sentence punctuation and an unopened paren outside", () => {
+    expect(parseInlineMd("(see https://ex.test/a_(b)).")).toEqual([
+      { t: "text", v: "(see " },
+      { t: "link", href: "https://ex.test/a_(b)", label: "https://ex.test/a_(b)" },
+      { t: "text", v: ")." },
+    ]);
+    expect(parseInlineMd("go to www.ex.test, now")).toEqual([
+      { t: "text", v: "go to " },
+      { t: "link", href: "https://www.ex.test", label: "www.ex.test" },
+      { t: "text", v: ", now" },
+    ]);
+  });
+
+  it("autolinks only at a word's start, and never inside other markup", () => {
+    literal("xhttps://ex.test");
+    literal("https://");
+    literal("javascript:alert(1)");
+    expect(parseInlineMd("[docs](https://ex.test)")).toEqual([
+      { t: "link", href: "https://ex.test", label: "docs" },
+    ]);
+    expect(parseInlineMd("`https://ex.test`")).toEqual([{ t: "code", v: "https://ex.test" }]);
+    // A url's own underscores are not emphasis.
+    expect(parseInlineMd("https://ex.test/a_b_c")).toEqual([
+      { t: "link", href: "https://ex.test/a_b_c", label: "https://ex.test/a_b_c" },
+    ]);
+  });
+
   it("parses [[id|label]] and bare [[id]] refs", () => {
     expect(parseInlineMd("see [[n.root-a|Ship]] ok")).toEqual([
       { t: "text", v: "see " },

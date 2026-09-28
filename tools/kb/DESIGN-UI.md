@@ -309,6 +309,17 @@ markdown. The caret rests beside a pill (in its parent), never inside it. A
 click on it navigates whether the row is being read or edited
 (`routeInlineClick`).
 
+**A bare url is a link.** The inline grammar (`lib/md-inline.ts`) autolinks a
+bare `http://`, `https://` or `www.` url the way GFM's extended autolink does:
+it starts at the text's start, a space or one of `*_~(`, runs to whitespace or
+`<`, and leaves trailing sentence punctuation and a `)` it did not open
+outside it. It is the same link segment `[label](url)` makes, with no markup of
+its own — its label is its own spelling, so it rebuilds byte for byte, and
+`www.` gains its scheme in the href only (`@kb/model`'s `normalizeUrl`, the url
+field's form) — so it renders, edits and follows exactly like a markdown link,
+in node text and text field values alike. Segments are flat, so a url inside
+code, emphasis or a link's label stays what that segment makes it.
+
 **The bullet is one definition.** `lib/bullet-mode.ts` decides everything a
 bullet shows — its kind and shape, its glyph, whether it has a halo, the
 paints of its halo, dot and ring (a node's tag colours, or the ink at a

@@ -57,7 +57,12 @@ describe("inline formatting while editing", () => {
     useOutlineStore
       .getState()
       .hydrateFromWire(
-        [...fixtureGraph.nodes, wire("n.fmt", TEXT), wire("n.typed", "x **y*")],
+        [
+          ...fixtureGraph.nodes,
+          wire("n.fmt", TEXT),
+          wire("n.typed", "x **y*"),
+          wire("n.url", "pipeline https://ex.test/graph"),
+        ],
         fixtureGraph.rev,
         "fixtures",
       );
@@ -201,6 +206,25 @@ describe("inline formatting while editing", () => {
     expect(useOutlineStore.getState().nodes.get("n.fmt")?.text).toContain("**bolder**");
     // Same node: not rebuilt, so native editing state survives.
     expect(edit.querySelector("strong")?.firstChild).toBe(boldText);
+  });
+
+  it("a bare url is a link, read and edited, and typing extends it", async () => {
+    const key = await render("n.url");
+    const link = present(view(key).querySelector("a.kb-md-link"), "link");
+    expect(link.getAttribute("href")).toBe("https://ex.test/graph");
+    expect(link.textContent).toBe("https://ex.test/graph");
+    const text = "pipeline https://ex.test/graph";
+    await activate("n.url", key, text.length);
+    const edit = editor(key);
+    const anchor = present(edit.querySelector("a.kb-md-link"), "editing link");
+    await act(async () => {
+      const inner = present(anchor.firstChild, "url text");
+      if (isTextNode(inner)) inner.data += "s";
+      setCaretSerializedOffset(edit, text.length + 1);
+      edit.dispatchEvent(new dom.Event("input", { bubbles: true }) as unknown as Event);
+    });
+    expect(useOutlineStore.getState().nodes.get("n.url")?.text).toBe(`${text}s`);
+    expect(edit.querySelector("a.kb-md-link")?.getAttribute("href")).toBe("https://ex.test/graphs");
   });
 
   it("a reference clicked while editing navigates, like one clicked while reading", async () => {

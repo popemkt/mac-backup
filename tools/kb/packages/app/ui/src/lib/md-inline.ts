@@ -1,12 +1,14 @@
 /**
  * Inline markdown subset for node text (DESIGN-UI → Outline editor; W2/W6a).
- * bold / italic / code / links / [[id|label]] refs / ![alt](assets/…) media.
+ * bold / italic / code / links / bare-url autolinks / [[id|label]] refs /
+ * ![alt](assets/…) media.
  *
  * One parser, two readings of its result: {@link parseInlineSource} keeps the
  * markup each segment was written with, so the source can be rebuilt byte for
  * byte, and {@link parseInlineMd} is that result with the markup dropped, for
  * readers that only want the meaning (a graph label).
  */
+import { normalizeUrl } from "@kb/model";
 
 /** Shared type-scale class: edit + view must use this for equal line-height. */
 export const KB_TEXT_CLASS = "kb-text";
@@ -245,6 +247,53 @@ function emphasisAt(
   };
 }
 
+/** Where a GFM autolink may start: the text's start, a space, or `*_~(`. */
+const AUTOLINK_AFTER = /[\s*_~(]/u;
+const AUTOLINK_START = /^(?:https?:\/\/|www\.)[^\s<]/i;
+/** Punctuation a sentence ends with, never the url's own last character. */
+const AUTOLINK_TRAILING = /[?!.,:;*_~'"]/u;
+
+function unbalancedClose(url: string): boolean {
+  if (!url.endsWith(")")) return false;
+  const opens = url.split("(").length - 1;
+  const closes = url.split(")").length - 1;
+  return closes > opens;
+}
+
+/**
+ * A bare url at `at` (GFM's extended autolink): `http://`, `https://` or
+ * `www.`, up to whitespace or `<`, minus the sentence punctuation after it
+ * and a closing paren it did not open — so `(see https://x.test).` links
+ * `https://x.test`. Returns the url's end, or -1.
+ */
+function autolinkEnd(text: string, at: number): number {
+  const first = text.charAt(at).toLowerCase();
+  if (first !== "h" && first !== "w") return -1;
+  const before = text[at - 1];
+  if (before !== undefined && !AUTOLINK_AFTER.test(before)) return -1;
+  if (!AUTOLINK_START.test(text.slice(at, at + 9))) return -1;
+  let end = at;
+  while (end < text.length && !/[\s<]/u.test(text.charAt(end))) end++;
+  let url = text.slice(at, end);
+  for (;;) {
+    if (AUTOLINK_TRAILING.test(url.slice(-1))) url = url.slice(0, -1);
+    else if (unbalancedClose(url)) url = url.slice(0, -1);
+    else break;
+  }
+  return /^(?:https?:\/\/|www\.)[^\s<]/i.test(url) ? at + url.length : -1;
+}
+
+/**
+ * The link segment of a bare url: written as nothing but itself, so it
+ * shows its own spelling and rebuilds byte for byte; `www.` gains a scheme
+ * in its href only (`normalizeUrl`).
+ */
+function autolinkSpan(url: string): InlineSpan | null {
+  const href = normalizeUrl(url);
+  if (href === null || href === "" || !isSafeHref(href)) return null;
+  return { seg: { t: "link", href, label: url }, open: "", close: "" };
+}
+
 // oxlint-disable-next-line complexity -- GAP [[01M1MGCM9RWXE3CYANZK5K4KC0]]
 function parseOnce(text: string): InlineSpan[] {
   const out: InlineSpan[] = [];
@@ -329,6 +378,16 @@ function parseOnce(text: string): InlineSpan[] {
           continue;
         }
       }
+    }
+
+    // A bare url — before emphasis, so a url's own `_` or `*` is not markup.
+    const autolink = autolinkEnd(text, i);
+    const autolinked = autolink > i ? autolinkSpan(text.slice(i, autolink)) : null;
+    if (autolinked) {
+      flush();
+      out.push(autolinked);
+      i = autolink;
+      continue;
     }
 
     // **bold**, __bold__, *italic*, _italic_ — one delimiter run at a time
