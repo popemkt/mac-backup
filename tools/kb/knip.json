@@ -35,8 +35,10 @@
       ]
     }
   },
+  "ignore": [
+    "packages/contract/ext-sdk/src/surface.ts"
+  ],
   "ignoreFiles": [
-    "packages/contract/ext-sdk/src/surface.ts",
     "packages/app/ui/src/api/queries.ts",
     "packages/app/ui/src/components/canvas/index.tsx"
   ],

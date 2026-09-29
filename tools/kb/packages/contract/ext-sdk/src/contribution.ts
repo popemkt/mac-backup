@@ -14,13 +14,15 @@
  * stores exactly what comes out of here.
  */
 import { Predicate, Result, Schema } from "effect";
-import type {
-  ActionEffectHandler,
-  ExtensionAction,
-  ExtensionContribution,
-  ExtensionPromiseHandler,
-  ExtensionTemplate,
-  TemplateFn,
+import {
+  isActionMode,
+  type ActionEffectHandler,
+  type ActionMode,
+  type ExtensionAction,
+  type ExtensionContribution,
+  type ExtensionPromiseHandler,
+  type ExtensionTemplate,
+  type TemplateFn,
 } from "@kb/contracts";
 import { isActionSchema, type ActionSchema } from "@kb/model";
 
@@ -68,11 +70,17 @@ const ActionSchemaField = Schema.declare<ActionSchema>(isActionSchema, {
   message: "must be a Standard Schema v1 or zod schema",
 });
 
+/** The contracts' one statement of the mode vocabulary, not a restatement of it. */
+const ActionModeField = Schema.declare<ActionMode>(isActionMode, {
+  title: "ActionMode",
+  message: "must be an ActionMode (kb-ext-sdk)",
+});
+
 const ActionFields = {
   id: LocalId,
   title: Schema.String,
   description: Schema.String,
-  mode: Schema.Literals(["read", "apply"]),
+  mode: ActionModeField,
   inputSchema: ActionSchemaField,
   outputSchema: ActionSchemaField,
   aliases: Aliases,

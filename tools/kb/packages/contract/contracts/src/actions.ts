@@ -14,8 +14,18 @@ import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
 import type { Assets, SavedQueries, Views } from "./workspace.ts";
 
+/**
+ * What invoking an action does to the graph, declared once on its definition
+ * and read by every surface. The extension loader decodes a contribution's
+ * mode through {@link isActionMode}; the SDK's `ActionMode` restates it for
+ * authors and a type-level test holds the two equal.
+ */
 const ActionModeSchema = z.enum(["read", "apply"]);
-type ActionMode = z.infer<typeof ActionModeSchema>;
+export type ActionMode = z.infer<typeof ActionModeSchema>;
+
+export function isActionMode(value: unknown): value is ActionMode {
+  return ActionModeSchema.safeParse(value).success;
+}
 
 /**
  * Services a native action handler may require. Provided as one merged Layer

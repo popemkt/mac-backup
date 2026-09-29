@@ -5,12 +5,14 @@ export {
   ManifestEntrySchema,
   actionToManifestEntry,
   failed,
+  isActionMode,
   succeeded,
 } from "./actions.ts";
 export type {
   ActionDefinition,
   ActionEffectHandler,
   ActionHandlerEnv,
+  ActionMode,
   IsomorphicActionEnv,
   ActionInvocation,
   ActionReceipt,

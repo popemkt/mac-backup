@@ -4,7 +4,9 @@
  * Self-contained (no Effect/zod imports) so `scripts/gen-ext-sdk.ts` can emit
  * a standalone ambient `declare module "kb-ext-sdk"` that travels inside the
  * CLI bundle. Internal runtime types must stay assignable to these shapes —
- * see `tests/ext-sdk-fresh.test.ts`.
+ * `tests/surface-bridge.test.ts` holds the shared vocabularies equal at the
+ * type level, and the CLI's `tests/ext-sdk-fresh.test.ts` compiles an author
+ * fixture against the emitted module.
  *
  * Authors: `kb ext sdk --write`, then
  * `import type { ExtensionAction, ExtensionTemplate } from "kb-ext-sdk"`.
