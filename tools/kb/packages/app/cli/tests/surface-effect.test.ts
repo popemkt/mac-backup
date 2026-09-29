@@ -9,6 +9,7 @@ import {
   openKb,
   openKbEffect,
   invokeReceiptEffect,
+  manifest,
   resetRegistryCache,
   resolveRootEffect,
   RootNotFoundError,
@@ -31,6 +32,15 @@ import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-surface-effect-"));
+}
+
+/** The tool map `createMcpServer` builds, from the root's registry. */
+async function registryTools(root: string): Promise<McpToolContext> {
+  const actions = await Effect.runPromise(manifest(root).pipe(Effect.provide(bunFileSystemLayer)));
+  return {
+    actions,
+    byToolName: new Map(actions.map((entry) => [entry.id.replaceAll(".", "_"), entry])),
+  };
 }
 
 /** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
@@ -156,11 +166,11 @@ describe("MCP Effect surface", () => {
     expect(failedBody.code).toBe("not_found");
   });
 
-  test("callToolEffect Schema-decodes render_view args", async () => {
+  test("render_view is render.view: its input schema decodes the args", async () => {
     root = await tempRoot();
     const ctx = await openKb(root);
-    const tools: McpToolContext = { actions: [], byToolName: new Map() };
-    const bad = await Effect.runPromise(callToolEffect(ctx, "render_view", { view: 1 }, tools));
+    const tools = await registryTools(root);
+    const bad = await Effect.runPromise(callToolEffect(ctx, "render_view", { name: 1 }, tools));
     expect(bad.isError).toBe(true);
     const body = JSON.parse(
       present(
@@ -168,9 +178,9 @@ describe("MCP Effect surface", () => {
         "expected (bad.content as { text: string }[])[0]",
       ).text,
     ) as {
-      message: string;
+      code: string;
     };
-    expect(body.message).toContain("expected {view: string");
+    expect(body.code).toBe("invalid_input");
   });
 
   test("render_view format:null defaults to html like base MCP clients", async () => {
@@ -186,15 +196,19 @@ describe("MCP Effect surface", () => {
       }),
     );
     const ctx = await openKb(root);
-    const tools: McpToolContext = { actions: [], byToolName: new Map() };
+    const tools = await registryTools(root);
     const rendered = await Effect.runPromise(
-      callToolEffect(ctx, "render_view", { view: "todos", format: null }, tools),
+      callToolEffect(ctx, "render_view", { name: "todos", format: null }, tools),
     );
     expect(rendered.isError).toBeFalsy();
-    const text = present(
-      (rendered.content as { text: string }[])[0],
-      "expected (rendered.content as { text: string }[])[0]",
-    ).text;
+    const text = (
+      JSON.parse(
+        present(
+          (rendered.content as { text: string }[])[0],
+          "expected (rendered.content as { text: string }[])[0]",
+        ).text,
+      ) as { content: string }
+    ).content;
     expect(text).toContain("<h1>Todos</h1>");
     expect(text).not.toMatch(/^# Todos/m);
   });
@@ -321,7 +335,7 @@ export default [{
       }
     ).properties?.format;
     expect(present(renders[0], "expected renders[0]").inputSchema).toMatchObject({
-      required: ["view"],
+      required: ["name"],
     });
     expect(format?.default).toBe("html");
     expect(JSON.stringify(format)).toContain('"null"');

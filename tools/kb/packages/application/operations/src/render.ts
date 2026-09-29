@@ -117,7 +117,8 @@ export const renderViewDef = {
   mode: "read" as const,
   inputSchema: z.object({
     name: z.string().min(1),
-    format: z.enum(["html", "md"]).default("html"),
+    // Absent or null is html: some MCP clients send an omitted optional as null.
+    format: z.enum(["html", "md"]).nullable().default("html"),
   }),
   outputSchema: z.object({
     name: z.string(),
@@ -138,7 +139,7 @@ export const renderViewsDef = {
 export const renderViewActionEffect = Effect.fn("render.view")(function* (
   input: z.infer<typeof renderViewDef.inputSchema>,
 ): Effect.fn.Return<RenderedView, RenderError, RenderEnv> {
-  return yield* renderNamedViewEffect(input.name, input.format);
+  return yield* renderNamedViewEffect(input.name, input.format ?? "html");
 });
 
 export const renderViewsActionEffect = Effect.fn("render.views")(function* (): Effect.fn.Return<

@@ -1753,8 +1753,9 @@ New module `packages/application/operations/src/render.ts`: `render(queryRows, t
 — pure functions, no deps. Consumed by three surfaces from day 1:
 1. md materializer (existing templates migrate onto it),
 2. web UI's rendered-view panel (saved query → html block),
-3. kb MCP registers `ui://kb/view/<name>` resources + a `render_view` tool
-   returning the html (MCP Apps extension shape).
+3. kb MCP registers `ui://kb/view/<name>` resources (MCP Apps extension
+   shape); the `render_view` tool is the `render.view` registry action,
+   projected like every other action.
 Later "apps" = new template + query pair, registered by name. On-the-fly
 generative UI (model writes the template at answer time) also lands on this
 API — the client just passes a template string instead of a name.

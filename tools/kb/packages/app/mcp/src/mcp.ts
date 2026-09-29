@@ -10,7 +10,7 @@ import {
   type CallToolResult,
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { Cause, Effect, Exit, Predicate, Schema } from "effect";
+import { Cause, Effect, Exit, Predicate } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import type { KbContext, ActionInvocation } from "@kb/contracts";
 import { type DomainError, domainError, ensureDomainError } from "@kb/model";
@@ -28,14 +28,7 @@ import {
 } from "@kb/runtime";
 
 const MANIFEST_TOOL = "kb_manifest";
-const RENDER_TOOL = "render_view";
 const VIEW_URI_PREFIX = "ui://kb/view/";
-
-const RenderViewArgs = Schema.Struct({
-  view: Schema.String,
-  // null/absent → html (base MCP client behavior); optionalKey alone rejects null.
-  format: Schema.optionalKey(Schema.NullOr(Schema.Literals(["html", "md"]))),
-});
 
 function actionIdToToolName(actionId: string): string {
   return actionId.replaceAll(".", "_");
@@ -124,21 +117,6 @@ export function callToolEffect(
         return jsonResult(tools.actions);
       }
 
-      if (name === RENDER_TOOL) {
-        const decoded = yield* Schema.decodeUnknownEffect(RenderViewArgs)(args ?? {}).pipe(
-          Effect.orElseSucceed(() => null),
-        );
-        if (!decoded) {
-          return errorResult("invalid_input", "expected {view: string, format?: 'html'|'md'}");
-        }
-        const format = decoded.format ?? "html";
-        yield* reloadEffect(ctx);
-        const rendered = yield* renderNamedViewEffect(decoded.view, format);
-        return {
-          content: [{ type: "text" as const, text: rendered.content }],
-        } satisfies CallToolResult;
-      }
-
       const action = tools.byToolName.get(name);
       if (!action) {
         return errorResult("unknown_action", `unknown tool: ${name}`);
@@ -213,12 +191,11 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
   const byToolName = new Map(actions.map((a) => [actionIdToToolName(a.id), a] as const));
   const toolsCtx: McpToolContext = { actions, byToolName };
 
-  // Dedicated MCP tools own these names; skip colliding registry actions so the
-  // advertised inputSchema matches callToolEffect (format:null → html).
-  const reservedToolNames = new Set([MANIFEST_TOOL, RENDER_TOOL]);
+  // The dedicated manifest tool owns its name; skip a colliding registry action
+  // so the advertised tool is the one callToolEffect answers.
   const tools: Tool[] = [
     ...actions
-      .filter((a) => !reservedToolNames.has(actionIdToToolName(a.id)))
+      .filter((a) => actionIdToToolName(a.id) !== MANIFEST_TOOL)
       .map(
         (a): Tool => ({
           name: actionIdToToolName(a.id),
@@ -239,31 +216,6 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
       inputSchema: { type: "object" as const, properties: {} },
       annotations: {
         title: "KB action manifest",
-        readOnlyHint: true,
-        destructiveHint: false,
-      },
-    },
-    {
-      name: RENDER_TOOL,
-      title: "Render a kb view",
-      description:
-        "Render a saved view (.kb/views/<name>.json) as html or md. " +
-        `The same content is exposed as ${VIEW_URI_PREFIX}<name> resources.`,
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          view: { type: "string", description: "view name" },
-          // Advertised shape matches runtime: null/absent → html (see RenderViewArgs).
-          format: {
-            anyOf: [{ type: "string", enum: ["html", "md"] }, { type: "null" }],
-            default: "html",
-            description: "html or md; null or omitted defaults to html",
-          },
-        },
-        required: ["view"],
-      },
-      annotations: {
-        title: "Render a kb view",
         readOnlyHint: true,
         destructiveHint: false,
       },

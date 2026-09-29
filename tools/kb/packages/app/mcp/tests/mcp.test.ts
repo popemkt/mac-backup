@@ -184,13 +184,13 @@ describe("MCP surface", () => {
 
     const rendered = await client.callTool({
       name: "render_view",
-      arguments: { view: "todos", format: "md" },
+      arguments: { name: "todos", format: "md" },
     });
     const text = present(
       (rendered.content as Array<{ text: string }>)[0],
       "expected (rendered.content as Array<{ text: string }>)[0]",
     ).text;
-    expect(text).toContain("# Todos");
+    expect((JSON.parse(text) as { content: string }).content).toContain("# Todos");
 
     await client.close();
     await server.close();
