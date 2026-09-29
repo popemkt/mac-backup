@@ -18,14 +18,14 @@ import {
   syncUiPlugins,
   useContributions,
   viewKey,
-  type NoParams,
+  NoParams,
 } from "./plugins";
 
 const Nothing = () => null;
 
 /** A plugin contributing one view, the route to it at `/<name>`, and one sidebar section. */
 function pagePlugin(name: string): Plugin {
-  const view = viewKey<NoParams>()(`${name}.page`);
+  const view = viewKey(`${name}.page`, NoParams);
   return definePlugin({
     name,
     apply: (ctx) =>

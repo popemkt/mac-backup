@@ -7,7 +7,15 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { definePlugin, makeKernel } from "@kb/plugin";
 import { GearIcon } from "@phosphor-icons/react";
-import { RoutePoint, SidebarSectionPoint, ViewPoint, findView, matchRoute } from "@/lib/plugins";
+import {
+  NoParams,
+  RoutePoint,
+  SidebarSectionPoint,
+  ViewPoint,
+  findView,
+  matchRoute,
+  viewKey,
+} from "@/lib/plugins";
 import { ontologyPath, type OntologyView } from "@/lib/router";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS, uiPluginsFor } from "@/ui-plugins";
 
@@ -82,7 +90,7 @@ describe("built-in routes", () => {
       const matched = matchRoute(kernel.contributions(RoutePoint), path);
       expect(matched, path).not.toBeNull();
       expect(
-        findView(views, matched?.view ?? { kind: "view", id: "none.none" })?.placements,
+        findView(views, matched?.view ?? viewKey("none.none", NoParams))?.placements,
       ).toContain("page");
     }
   });

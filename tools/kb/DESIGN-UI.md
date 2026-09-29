@@ -1112,10 +1112,14 @@ a separate point that only points at it.
   view embeds the graph and outline views, each in a page-placed slot inside
   the shell's page slot. The slot owns the depth guard (promise 5).
 
-**Keys.** A `ViewKey<P>` is made once, by `viewKey<P>()("<namespace>.<local>")`,
+**Keys.** A `ViewKey<P>` is made once, by `viewKey("<namespace>.<local>", params)`,
 and is compared **by identity**, like `Service`, `Event` and `Point` keys. A
-key with the same id that was created somewhere else is a different key. `P`
-is a phantom that only the compiler sees. `provideView(key, view)` builds the
+key with the same id that was created somewhere else is a different key.
+`params` is an Effect `Schema` decoder of `P`: the view's settings, stated
+once. It is what types `P` for the compiler, and it is read at run time: the
+contract decodes each view's `sample` with it. A view that renders from the
+store alone declares `NoParams`.
+`provideView(key, view)` builds the
 contribution under the key's local id, and `provideRoute(route)` builds a
 route under its view's local id. A plugin's namespace is therefore the key's
 namespace, and a view contributed under any other id cannot be found by its
@@ -1166,7 +1170,7 @@ component. That is how the ontology embeds the graph and the outline
 **The contract.** `src/view-contract.test.tsx` runs over every view that the
 built-in and optional UI plugins contribute. A new view joins it by being
 registered. For each view, in each placement it offers, the view must: be
-found by its key; mount in a slot with its `sample` and show neither the
+found by its key; have a `sample` that its key's `params` decodes; mount in a slot with its `sample` and show neither the
 fallback nor the slot's error; show the fallback while its owner is unloaded
 and come back when the owner reloads; have a throw from a provider under its
 key contained by the slot; stop at `MAX_VIEW_DEPTH` when a provider under
@@ -1198,9 +1202,9 @@ questions. Each one can be overridden.
    contained by its slot's error boundary and its fallback. R1 has no iframe
    and no sandbox.
 
-**Not in R1.** View params are passed from code and checked by `tsc`. The
-runtime `params` schema and the `sys.view.*` option node on a key arrive in
-A1, together with view config held as nodes. The outline's view modes and
+**Not in R1.** A code caller's params are checked by `tsc`; nothing decodes
+them at the slot. The `sys.view.*` option node on a key arrives in A1,
+together with view config held as nodes. The outline's view modes and
 `GRAPH_RENDERERS` are still local registries
 (GAP [[01M3EZRFJ9RYFJJ4MW322RQ28S]]). These points live in `@kb/ui`, not in
 `@kb/ui-sdk`; moving them is R2 (GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]).

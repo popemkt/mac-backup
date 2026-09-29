@@ -46,7 +46,9 @@ export function graphPath(perspectiveId?: string | null): string {
   return "/graph";
 }
 
-export type OntologyView = "page" | "outline" | "graph";
+/** The projections of one ontology's scope, each a path under `/o/<id>`. */
+export const ONTOLOGY_VIEWS = ["page", "outline", "graph"] as const;
+export type OntologyView = (typeof ONTOLOGY_VIEWS)[number];
 
 /** `/o/<id>` (page) · `/o/<id>/outline` · `/o/<id>/graph`. */
 export function ontologyPath(id: string, view: OntologyView = "page"): string {

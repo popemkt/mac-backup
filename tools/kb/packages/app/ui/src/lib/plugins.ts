@@ -21,7 +21,7 @@ import {
   type ReactElement,
 } from "react";
 import type { Icon } from "@phosphor-icons/react";
-import { Cause, Effect, Exit } from "effect";
+import { Cause, Effect, Exit, Schema } from "effect";
 import {
   Point,
   makeKernel,
@@ -42,21 +42,27 @@ export type Placement = "page";
 /**
  * A view's name and the params it renders from. Made once by the plugin that
  * owns the view and compared by identity, like `Service`/`Point` keys: a key
- * spelled alike but created elsewhere is a different key. `~params` is never
- * set; it carries `P` for the compiler.
+ * spelled alike but created elsewhere is a different key.
  */
 export interface ViewKey<P> {
   readonly kind: "view";
   /** `<namespace>.<local id>`: the owning plugin's namespace, then the view's id. */
   readonly id: `${string}.${string}`;
-  readonly "~params"?: P;
+  /**
+   * What a legal `P` is: the view's settings, as an Effect `Schema`. It is the
+   * one statement of them — a host decodes stored config through it, a picker
+   * asks it which settings the view reads, and the contract decodes the
+   * view's `sample` with it. It also carries `P` for the compiler.
+   */
+  readonly params: Schema.Decoder<P>;
 }
 
 /** The params of a view that renders from nothing but the store (the outline, a list). */
-export type NoParams = Readonly<Record<never, never>>;
+export const NoParams = Schema.Struct({});
+export type NoParams = typeof NoParams.Type;
 
-export function viewKey<P>(): (id: `${string}.${string}`) => ViewKey<P> {
-  return (id) => ({ kind: "view", id });
+export function viewKey<P>(id: `${string}.${string}`, params: Schema.Decoder<P>): ViewKey<P> {
+  return { kind: "view", id, params };
 }
 
 /** What a host guarantees a view: never a store, never `ctx`. */

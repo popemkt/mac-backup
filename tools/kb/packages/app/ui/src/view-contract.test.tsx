@@ -3,7 +3,8 @@
  * every view the built-in and optional UI plugins contribute. A view joins
  * by being registered; a promise one view breaks turns this suite red.
  *
- * R1 checks what a page-placed view must keep: it is found by its key, it
+ * R1 checks what a page-placed view must keep: it is found by its key, its
+ * sample is a legal value of the settings its key declares, it
  * mounts in a slot, the slot falls back while its owner is unloaded and
  * brings it back on reload, a throw under its key stays inside the slot, a
  * provider that embeds its own key stops at MAX_VIEW_DEPTH, and unmounting
@@ -12,7 +13,7 @@
  */
 import { Suspense, act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Effect } from "effect";
+import { Effect, Result, Schema } from "effect";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { definePlugin, makeKernel, type Plugin } from "@kb/plugin";
 import { MAX_VIEW_DEPTH, ViewSlot } from "@/components/ui/view-slot";
@@ -149,6 +150,11 @@ describe("view contract", () => {
     ({ owner, view }) => {
       it("is found by its own key", () => {
         expect(findView(VIEWS, view.key)).toBe(view);
+      });
+
+      it("declares its settings, and its sample is a legal value of them", () => {
+        const decoded = Schema.decodeUnknownResult(view.key.params)(view.sample);
+        expect(Result.isSuccess(decoded) ? null : decoded.failure.message).toBeNull();
       });
 
       it.each(view.placements)(
