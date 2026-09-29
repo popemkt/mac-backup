@@ -1309,6 +1309,15 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   `tools/list`, which is derived from the mode in one predicate. A call by
   its tool name still reaches the invoke core and gets `approval_required`,
   and `kb_manifest` still lists it.
+  `approved` is something the caller declares, not a security boundary.
+  kb has no way to check that a person really approved the call. The gate
+  means only that a caller must say so deliberately and cannot end up
+  approving by accident. Anyone who can reach a surface that carries the
+  flag can set it. Two such gaps are known:
+  - `POST /api/action` has no Origin check, so any web page open in a local
+    browser can post to it (`GAP-ACTION-ORIGIN`).
+  - The browser UI does not yet send approval at all (`GAP-BROWSER-APPROVAL`).
+    The step 5 sidebar's approval prompt closes that.
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
 - **One contract, every surface.** The CLI (`action-invoke`), MCP and HTTP
   each list the registry's action ids with their declared modes, from their
