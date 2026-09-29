@@ -16,26 +16,26 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.3.20";
+    version = "8.0.4";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.3.20/CLIProxyAPI_7.3.20_darwin_aarch64.tar.gz";
-      sha256 = "sha256-NCcYteuiAURomdA/Vl6Cla90pBNvSavJkje1yvbZ/dc=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.4/CLIProxyAPI_8.0.4_darwin_aarch64.tar.gz";
+      sha256 = "sha256-LwbE4Hhsth8VSE6vIu+ntjJOwgZ5uRE8+puVzPdac/E=";
     };
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.09.26-dd393fe";
+    version = "2026.09.28-64d2043";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.09.26-dd393fe/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-U4gn2Wp3m6uFSoZcjkKFno6H2zS19pdwJhuQ/Iz/8ZE=";
+      url = "https://downloads.cursor.com/lab/2026.09.28-64d2043/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-wNfpzS5iQ4YQuIbTQ5kH3B+YwpI7B7OkFBbMkZqvU8c=";
     };
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.10.1467";
+    version = "0.11.0";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.10.1467/GenOffice-0.10.1467-arm64.dmg";
-      sha256 = "sha256-8pDrslTqEnLnE0M8hnPdbjUC5FL5W4oZAlnCsgh4O88=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.11.0/GenOffice-0.11.0-arm64.dmg";
+      sha256 = "sha256-sUb1bVNfUdIUGE+Sb6FQQSKizgRfKVgbSdyGVVWzdWo=";
     };
   };
   logseq-nightly = {
@@ -48,10 +48,10 @@
   };
   vite-plus = {
     pname = "vite-plus";
-    version = "1.0.0-rc.1";
+    version = "1.0.0";
     src = fetchurl {
-      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.0.0-rc.1/vp-aarch64-apple-darwin.tar.gz";
-      sha256 = "sha256-YjSiWGa+AlzeHBmhS3tJI4Zubow5qecHRUDefz47zUE=";
+      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.0.0/vp-aarch64-apple-darwin.tar.gz";
+      sha256 = "sha256-MJ1CVQNIqhVuNKmi626eixxYhhJrFM2aiPQtFYqUSzU=";
     };
   };
 }
