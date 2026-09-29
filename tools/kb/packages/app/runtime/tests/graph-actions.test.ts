@@ -188,13 +188,13 @@ describe("graph.run / graph.search surface availability", () => {
       m.find((a) => a.id === "graph.run"),
       'expected m.find((a) => a.id === "graph.run")',
     );
-    expect(run.mode).toBe("read");
+    expect(run.mode).toEqual({ kind: "read" });
     expect(run.inputSchema).toBeTruthy();
     const search = present(
       m.find((a) => a.id === "graph.search"),
       'expected m.find((a) => a.id === "graph.search")',
     );
-    expect(search.mode).toBe("read");
+    expect(search.mode).toEqual({ kind: "read" });
     expect(search.inputSchema).toBeTruthy();
   });
 

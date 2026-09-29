@@ -114,7 +114,7 @@ export const renderViewDef = {
   id: "render.view",
   title: "Render view",
   description: "Render a saved view (.kb/views/<name>.json) to html or md and return the content",
-  mode: "read" as const,
+  mode: { kind: "read" } as const,
   inputSchema: z.object({
     name: z.string().min(1),
     // Absent or null is html: some MCP clients send an omitted optional as null.
@@ -131,7 +131,7 @@ export const renderViewsDef = {
   id: "render.views",
   title: "List views",
   description: "List saved view names available to render.view",
-  mode: "read" as const,
+  mode: { kind: "read" } as const,
   inputSchema: z.object({}),
   outputSchema: z.object({ views: z.array(z.string()) }),
 } satisfies ActionDefinition;

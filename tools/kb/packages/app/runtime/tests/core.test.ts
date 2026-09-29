@@ -203,7 +203,7 @@ describe("registry + operations", () => {
       'expected m.find((a) => a.id === "graph.query")',
     );
     expect(add.inputSchema).toBeTruthy();
-    expect(add.mode).toBe("read");
+    expect(add.mode).toEqual({ kind: "read" });
   });
 
   test("invoke happy path: field, tag, node, query refs", async () => {

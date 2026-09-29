@@ -141,7 +141,7 @@ describe("MCP Effect surface", () => {
       id: "node.get",
       title: "Get",
       description: "get",
-      mode: "read",
+      mode: { kind: "read" },
       inputSchema: { type: "object" },
       outputSchema: { type: "object" },
     };
@@ -279,7 +279,7 @@ export default [{
   id: "reject",
   title: "Reject",
   description: "test rejecting handler",
-  mode: "read",
+  mode: { kind: "read" },
   inputSchema: z.object({}),
   outputSchema: z.unknown(),
   handler: async () => { throw new Error("injected-handler-reject"); },

@@ -14,7 +14,15 @@
  * but Effect v4 remains an internal/bundled concern.
  */
 
-export type ActionMode = "read" | "apply";
+/**
+ * What invoking the action does. A `read` changes nothing. A `write` may
+ * change the graph or the workspace, and `approval: "required"` means a
+ * person must approve each call. kb refuses an unapproved call with
+ * `approval_required`.
+ */
+export type ActionMode =
+  | { readonly kind: "read" }
+  | { readonly kind: "write"; readonly approval?: "required" };
 
 export type FailureCode =
   | "not_found"
@@ -24,7 +32,8 @@ export type FailureCode =
   | "invalid_move"
   | "forbidden"
   | "internal"
-  | "unknown_action";
+  | "unknown_action"
+  | "approval_required";
 
 /** Node identity: ULID, or reserved `sys.*` system ids. */
 export type NodeId = string;

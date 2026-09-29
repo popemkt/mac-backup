@@ -56,7 +56,7 @@ export const nodeAddDef = {
   title: "Add node",
   description:
     "Create a node with optional props, parent, position (index in its sibling group; the end when omitted), and tags",
-  mode: "apply" as const,
+  mode: { kind: "write" } as const,
   inputSchema: z.object({
     text: z.string(),
     props: z.array(PropInputSchema).optional(),
@@ -77,7 +77,7 @@ export const nodeUpdateDef = {
   id: "node.update",
   title: "Update node",
   description: "Edit text, set/unset props, move, or delete a node",
-  mode: "apply" as const,
+  mode: { kind: "write" } as const,
   inputSchema: z.object({
     id: z.string(),
     text: z.string().optional(),
@@ -104,7 +104,7 @@ export const nodeGetDef = {
   id: "node.get",
   title: "Get node",
   description: "Pull a node subtree to depth N",
-  mode: "read" as const,
+  mode: { kind: "read" } as const,
   inputSchema: z.object({
     id: z.string(),
     depth: z.number().int().nonnegative().default(1),
@@ -118,7 +118,7 @@ export const fieldDefineDef = {
   id: "field.define",
   title: "Define field",
   description: "Mint a field node (typed sys.field)",
-  mode: "apply" as const,
+  mode: { kind: "write" } as const,
   inputSchema: z.object({
     name: z.string(),
     id: z.string().optional(),
@@ -130,7 +130,7 @@ export const tagDefineDef = {
   id: "tag.define",
   title: "Define tag",
   description: "Mint a tag node (typed sys.tag) with optional templated fields",
-  mode: "apply" as const,
+  mode: { kind: "write" } as const,
   inputSchema: z.object({
     name: z.string(),
     id: z.string().optional(),
@@ -143,7 +143,7 @@ export const graphQueryDef = {
   id: "graph.query",
   title: "Query graph",
   description: "Run a raw EDN datalog query → JSON rows",
-  mode: "read" as const,
+  mode: { kind: "read" } as const,
   inputSchema: z.object({
     query: z.string(),
     inputs: z.array(z.unknown()).optional(),
@@ -157,7 +157,7 @@ export const graphRunDef = {
   id: "graph.run",
   title: "Run saved query",
   description: "Execute a saved query from .kb/queries/<name>.edn",
-  mode: "read" as const,
+  mode: { kind: "read" } as const,
   inputSchema: z.object({
     name: z.string(),
     inputs: z.array(z.unknown()).optional(),
@@ -173,7 +173,7 @@ export const graphSearchDef = {
   id: "graph.search",
   title: "Search nodes",
   description: "Case-insensitive substring search over node text (id + text rows)",
-  mode: "read" as const,
+  mode: { kind: "read" } as const,
   inputSchema: z.object({
     text: z.string(),
     limit: z.number().int().nonnegative().optional(),

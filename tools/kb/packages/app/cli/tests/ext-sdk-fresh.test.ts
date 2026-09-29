@@ -47,9 +47,11 @@ async function runCli(args: string[]): Promise<{ code: number; out: string }> {
 
 describe("extension SDK surface", () => {
   test("ActionMode + FailureCode from SDK match runtime contracts", () => {
-    // Belt-and-braces: ambient module must declare the same string unions.
-    expect(KB_SDK_DTS).toContain('"read" | "apply"');
-    expect(KB_SDK_DTS).toContain('"unknown_action"');
+    // Belt-and-braces over the emitted text; the type-level equality is
+    // ext-sdk's surface-bridge test.
+    expect(KB_SDK_DTS).toContain('kind: "write"');
+    expect(KB_SDK_DTS).toContain('approval?: "required"');
+    expect(KB_SDK_DTS).toContain('"approval_required"');
     expect(KB_SDK_DTS).toContain("export type ExtensionAction");
     expect(KB_SDK_DTS).toContain('declare module "kb-ext-sdk"');
   });
@@ -106,7 +108,7 @@ const actions: ExtensionAction[] = [
     id: "greet",
     title: "Greet",
     description: "scratch SDK author fixture",
-    mode: "read",
+    mode: { kind: "read" },
     inputSchema,
     outputSchema,
     handler: async (_ctx, input) => {
@@ -121,7 +123,7 @@ export default actions;
     await writeFile(join(extDir, "greet.ts"), greet, "utf8");
 
     // Bad mode must fail typecheck against the ambient SDK.
-    const bad = greet.replace('mode: "read"', 'mode: "reed"');
+    const bad = greet.replace('kind: "read"', 'kind: "reed"');
     await writeFile(join(extDir, "bad-mode.ts"), bad, "utf8");
 
     const tsc = join(import.meta.dir, "../../../../node_modules/.bin/tsc");

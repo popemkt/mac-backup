@@ -14,7 +14,7 @@ function action(overrides: Record<string, unknown> = {}): unknown {
     id: "greet",
     title: "Greet",
     description: "fixture",
-    mode: "read",
+    mode: { kind: "read" },
     inputSchema: schema,
     outputSchema: schema,
     handler: () => Promise.resolve({}),
@@ -62,8 +62,14 @@ describe("decodeContribution", () => {
     expect(failureOf({ id: "bad id", template: () => "" })).toContain("must match");
   });
 
-  test("mode is read or apply", () => {
-    expect(failureOf(action({ mode: "reed" }))).toContain("mode");
+  test("mode is a read, or a write that may require approval", () => {
+    for (const mode of [{ kind: "write" }, { kind: "write", approval: "required" }]) {
+      expect(Result.isSuccess(decodeContribution(action({ mode })))).toBe(true);
+    }
+    expect(failureOf(action({ mode: "read" }))).toContain("mode");
+    expect(failureOf(action({ mode: { kind: "reed" } }))).toContain("mode");
+    expect(failureOf(action({ mode: { kind: "read", approval: "required" } }))).toContain("mode");
+    expect(failureOf(action({ mode: { kind: "write", approval: "maybe" } }))).toContain("mode");
   });
 
   test("schemas must be Standard Schema v1 or zod", () => {

@@ -1,6 +1,11 @@
 import { Predicate } from "effect";
-import type { ActionReceipt } from "@kb/contracts";
+import { requiresApproval, type ActionMode, type ActionReceipt } from "@kb/contracts";
 import { isSysPrefixed } from "@kb/model";
+
+/** An action's declared mode as one word, or two when it needs approval. */
+export function formatMode(mode: ActionMode): string {
+  return requiresApproval(mode) ? `${mode.kind}, approval required` : mode.kind;
+}
 
 export function formatReceipt(
   receipt: ActionReceipt,

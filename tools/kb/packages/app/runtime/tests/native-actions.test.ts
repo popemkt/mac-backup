@@ -73,7 +73,7 @@ const actions = [
     id: "native",
     title: "Native liar",
     description: "effect handler whose result breaks its contract",
-    mode: "read",
+    mode: { kind: "read" },
     inputSchema: z.object({}),
     outputSchema: z.object({ count: z.number() }),
     effect: () => Effect.succeed({ count: "not a number" }),
@@ -82,7 +82,7 @@ const actions = [
     id: "promise",
     title: "Promise liar",
     description: "promise handler whose result breaks its contract",
-    mode: "read",
+    mode: { kind: "read" },
     inputSchema: z.object({}),
     outputSchema: z.object({ count: z.number() }),
     handler: async () => ({ count: "not a number" }),
@@ -117,7 +117,7 @@ const actions = [
     id: "surplus",
     title: "Surplus",
     description: "returns more than it declares",
-    mode: "read",
+    mode: { kind: "read" },
     inputSchema: z.object({}),
     outputSchema: z.object({ kept: z.string() }),
     effect: () => Effect.succeed({ kept: "yes", undeclared: "no" }),
@@ -148,7 +148,7 @@ const actions = [
     id: "ok",
     title: "Ok",
     description: "promise success",
-    mode: "read",
+    mode: { kind: "read" },
     inputSchema: z.object({ name: z.string().default("world") }),
     outputSchema: z.object({ message: z.string() }),
     handler: async (_ctx, input) => ({ message: \`hi \${input.name}\` }),
@@ -157,7 +157,7 @@ const actions = [
     id: "boom",
     title: "Boom",
     description: "promise typed failure",
-    mode: "read",
+    mode: { kind: "read" },
     inputSchema: z.object({}),
     outputSchema: z.object({}),
     handler: async () => {
@@ -266,7 +266,7 @@ const actions = [
     id: "sleep",
     title: "Sleep",
     description: "long interruptible native handler",
-    mode: "apply",
+    mode: { kind: "write" },
     inputSchema: z.object({
       marker: z.string(),
       late: z.string(),
@@ -304,5 +304,46 @@ export default actions;
     const markerBody = await Bun.file(marker).text();
     expect(markerBody).toBe("finalized");
     expect(await Bun.file(late).exists()).toBe(false);
+  });
+
+  test("an approval-required write runs only when its invocation is approved", async () => {
+    const root = await makeRoot();
+    const dir = join(root, ".kb", "extensions");
+    await mkdir(dir, { recursive: true });
+    const ran = join(root, "ran.marker");
+    await writeFile(
+      join(dir, "gate.ts"),
+      `import { writeFile } from "node:fs/promises";
+import { z } from "zod";
+export default [
+  {
+    id: "stamp",
+    title: "Stamp",
+    description: "a write a person must approve",
+    mode: { kind: "write", approval: "required" },
+    inputSchema: z.object({ path: z.string() }),
+    outputSchema: z.object({ ok: z.boolean() }),
+    handler: async (_ctx, input) => {
+      await writeFile(input.path, "ran");
+      return { ok: true };
+    },
+  },
+];
+`,
+      "utf8",
+    );
+
+    const ctx = await openKb(root);
+    const refused = await invoke(ctx, { id: "ext.gate.stamp", input: { path: ran } });
+    expect(refused).toMatchObject({ status: "failed", code: "approval_required" });
+    expect(await Bun.file(ran).exists()).toBe(false);
+
+    const approved = await invoke(ctx, {
+      id: "ext.gate.stamp",
+      input: { path: ran },
+      approved: true,
+    });
+    expect(approved).toEqual({ status: "succeeded", id: "ext.gate.stamp", output: { ok: true } });
+    expect(await Bun.file(ran).text()).toBe("ran");
   });
 });

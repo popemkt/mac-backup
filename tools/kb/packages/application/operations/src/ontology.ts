@@ -33,7 +33,7 @@ export const ontologyMembersDef = {
   title: "Resolve ontology members",
   description:
     "Resolve an #ontology node's membership (tags + pins + query + extends, minus excludes)",
-  mode: "read" as const,
+  mode: { kind: "read" } as const,
   inputSchema: z.object({
     id: z.string(),
     /** Include per-member provenance ("why am I here?"). */

@@ -28,7 +28,7 @@ const actions = [
     id: "greet",
     title: "Greet",
     description: "test extension action",
-    mode: "read",
+    mode: { kind: "read" },
     inputSchema: z.object({ name: z.string().default("world") }),
     outputSchema: z.object({ message: z.string() }),
     handler: async (_ctx, input) => ({ message: \`hello \${input.name}\` }),

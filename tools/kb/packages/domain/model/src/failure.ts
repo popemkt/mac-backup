@@ -14,6 +14,9 @@ export const FailureCodeSchema = z.enum([
   "forbidden",
   "internal",
   "unknown_action",
+  // The action requires a person's approval and the call carried none; the
+  // same call with `approved: true` on its envelope may succeed.
+  "approval_required",
 ]);
 export type FailureCode = z.infer<typeof FailureCodeSchema>;
 

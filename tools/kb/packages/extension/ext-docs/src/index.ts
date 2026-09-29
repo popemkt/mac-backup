@@ -106,7 +106,7 @@ const actions: ExtensionAction[] = [
     id: "materialize",
     title: "Materialize docs",
     description: "Run view specs from .kb/views (all, or one by name) and write generated markdown",
-    mode: "apply",
+    mode: { kind: "write" },
     inputSchema: viewInput,
     outputSchema: materializeOutput,
     aliases: ["docs.materialize"],
@@ -117,7 +117,7 @@ const actions: ExtensionAction[] = [
     title: "Check docs",
     description:
       "Materialize views to memory and diff against disk; report clean/stale/missing per view",
-    mode: "read",
+    mode: { kind: "read" },
     inputSchema: viewInput,
     outputSchema: checkOutput,
     aliases: ["docs.check"],

@@ -9,10 +9,11 @@ import {
   ReadResourceRequestSchema,
   type CallToolResult,
   type Tool,
+  type ToolAnnotations,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Cause, Effect, Exit, Predicate } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import type { ActionInvocation, KbContext, ManifestEntry } from "@kb/contracts";
+import type { ActionInvocation, ActionMode, KbContext, ManifestEntry } from "@kb/contracts";
 import { type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect, listViewNamesEffect, renderNamedViewEffect } from "@kb/operations";
 import {
@@ -30,6 +31,20 @@ const VIEW_URI_PREFIX = "ui://kb/view/";
 
 function actionIdToToolName(actionId: string): string {
   return actionId.replaceAll(".", "_");
+}
+
+/**
+ * MCP's behaviour hints, taken only from the declared mode. A read is
+ * read-only and idempotent. A write is treated as possibly destructive and
+ * not idempotent, because the mode claims neither. MCP has no hint for
+ * approval, so an approval-required write is just a write here, and the
+ * invoke core refuses the call (the MCP envelope cannot carry approval).
+ */
+function modeHints(
+  mode: ActionMode,
+): Pick<ToolAnnotations, "readOnlyHint" | "destructiveHint" | "idempotentHint"> {
+  const reads = mode.kind === "read";
+  return { readOnlyHint: reads, destructiveHint: !reads, idempotentHint: reads };
 }
 
 function asObjectSchema(schema: unknown): Tool["inputSchema"] {
@@ -189,11 +204,7 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
       title: a.title,
       description: a.description,
       inputSchema: asObjectSchema(a.inputSchema),
-      annotations: {
-        title: a.title,
-        readOnlyHint: a.mode === "read",
-        destructiveHint: a.mode === "apply",
-      },
+      annotations: { title: a.title, ...modeHints(a.mode) },
     }),
   );
 

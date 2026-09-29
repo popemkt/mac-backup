@@ -1282,7 +1282,22 @@ scope.
 
 Harman-lite (zod) + Effect-native handlers for owned actions:
 
-- `ActionDefinition { id, title, description, mode: "read"|"apply", inputSchema, outputSchema, effect? }` — JSON Schemas via `z.toJSONSchema`, never hand-written. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
+- `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas via `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
+- **Mode**: every action states once, as a required field, what invoking it does.
+  `{kind: "read"}` changes nothing. `{kind: "write", approval?: "required"}`
+  may change the graph or the workspace. Approval can only be declared on a
+  write, so there is no read-with-approval state. The manifest publishes the
+  mode, and each surface derives its behaviour from it and keeps no list of
+  its own:
+  - MCP: a read is `readOnlyHint` and `idempotentHint`; a write is `destructiveHint`.
+  - `kb ext list` prints the mode.
+- **Approval** is checked in one place, the invoke core (`invokeWith`). An
+  approval-required action whose `ActionInvocation` does not carry
+  `approved: true` gets a failed receipt with code `approval_required`. The
+  flag goes on the invocation envelope, not in the input, so a surface can
+  carry approval only if its wire format has an envelope. `POST /api/action`
+  and `kb action-invoke` do. An MCP tool call does not, because its arguments
+  are the input, so every approval-required action is refused over MCP.
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
 - `registryFor(root)` builds a handler table per kb root (cached for the
   process); `manifest(root)` + `invoke(ctx, invocation)` / `invokeReceiptEffect` dispatch through it.
@@ -1355,21 +1370,21 @@ from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surf
 
 | Action                                            | Mode  | Does                                                                                                         |
 | ------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------ |
-| `node.add`                                        | apply | create (text, props by field name/id, parent, position, tags)                                                |
-| `node.update`                                     | apply | edit text / set-unset props / move / delete                                                                  |
+| `node.add`                                        | write | create (text, props by field name/id, parent, position, tags)                                                |
+| `node.update`                                     | write | edit text / set-unset props / move / delete                                                                  |
 | `node.get`                                        | read  | pull subtree to depth N                                                                                      |
-| `field.define` / `tag.define`                     | apply | mint field/tag nodes (sugar over node.add)                                                                   |
+| `field.define` / `tag.define`                     | write | mint field/tag nodes (sugar over node.add)                                                                   |
 | `graph.query`                                     | read  | raw datalog → JSON rows                                                                                      |
 | `graph.run`                                       | read  | execute saved query from `.kb/queries/`                                                                      |
 | `graph.search`                                    | read  | text/prop filter convenience                                                                                 |
 | `ontology.members`                                | read  | resolve an `#ontology` node's membership, with provenance ([Ontologies](#ontologies--a-lens-over-the-graph)) |
-| `asset.upload`                                    | apply | write opaque bytes to `.kb/assets/<ulid>.<ext>`; returns the `assets/…` markdown path                        |
+| `asset.upload`                                    | write | write opaque bytes to `.kb/assets/<ulid>.<ext>`; returns the `assets/…` markdown path                        |
 | `render.view`                                     | read  | render a saved view (`.kb/views/<name>.json`) to html or md                                                  |
 | `render.views`                                    | read  | list saved view names available to `render.view`                                                             |
 | `kb.manifest`                                     | read  | list every registered action as its manifest entry (MCP's `kb_manifest`)                                     |
-| `ext.docs.materialize` (alias `docs.materialize`) | apply | run view specs → write md (bundled extension)                                                                |
+| `ext.docs.materialize` (alias `docs.materialize`) | write | run view specs → write md (bundled extension)                                                                |
 | `ext.docs.check` (alias `docs.check`)             | read  | materialize to memory, diff vs disk (bundled extension)                                                      |
-| `ext.canvas.tx.apply`                             | apply | apply a JSON Canvas transaction to a `#canvas` node (bundled extension)                                      |
+| `ext.canvas.tx.apply`                             | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension)                                      |
 
 ## Materialization
 
@@ -1387,7 +1402,7 @@ from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surf
 
 - **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere. Internal command orchestration is Effect (`resolveRootEffect` → `openKbEffect` → `runPlanEffect` / `invokeReceiptEffect`) with an `Effect.runPromise` + exit-code boundary at each Commander surface action (not a claim that the whole process has a single runPromise). Commander itself stays the argv contract.
 - **MCP** (`kb mcp`, `@modelcontextprotocol/sdk` stdio): loop manifest → one
-  tool per action → Effect handler (`callToolEffect` / resource Effects via `reloadEffect` + `invokeReceiptEffect`); `readOnlyHint` from mode. SDK request handlers remain Promise-returning; CallTool maps Fail/Die to `isError`, resource Fail/Die to JSON-RPC `-32603`.
+  tool per action → Effect handler (`callToolEffect` / resource Effects via `reloadEffect` + `invokeReceiptEffect`); tool hints from the mode ([Action registry](#action-registry)). SDK request handlers remain Promise-returning; CallTool maps Fail/Die to `isError`, resource Fail/Die to JSON-RPC `-32603`.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 

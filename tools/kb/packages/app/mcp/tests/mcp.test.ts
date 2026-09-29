@@ -44,9 +44,12 @@ describe("MCP surface", () => {
     const nodeAddTool = listed.tools.find((t) => t.name === "node_add");
     expect(nodeAddTool?.annotations?.destructiveHint).toBe(true);
     expect(nodeAddTool?.annotations?.readOnlyHint).toBe(false);
+    expect(nodeAddTool?.annotations?.idempotentHint).toBe(false);
 
     const graphQueryTool = listed.tools.find((t) => t.name === "graph_query");
     expect(graphQueryTool?.annotations?.readOnlyHint).toBe(true);
+    expect(graphQueryTool?.annotations?.destructiveHint).toBe(false);
+    expect(graphQueryTool?.annotations?.idempotentHint).toBe(true);
 
     const add = await client.callTool({
       name: "node_add",

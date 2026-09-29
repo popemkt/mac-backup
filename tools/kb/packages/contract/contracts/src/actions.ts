@@ -15,16 +15,32 @@ import type { TemplateRegistry } from "./template.ts";
 import type { Assets, SavedQueries, Views } from "./workspace.ts";
 
 /**
- * What invoking an action does to the graph, declared once on its definition
- * and read by every surface. The extension loader decodes a contribution's
- * mode through {@link isActionMode}; the SDK's `ActionMode` restates it for
- * authors and a type-level test holds the two equal.
+ * What invoking an action does, declared once on its definition and read by
+ * every surface: a `read` changes nothing, and a `write` may change the graph
+ * or the workspace. A write can also require approval, meaning a person must
+ * have approved the call. The invoke core refuses an unapproved call to such
+ * an action ({@link requiresApproval}), so no surface can skip the check.
+ * Approval exists only on a write, so it is part of the write arm and not a
+ * flag beside the mode.
+ *
+ * The extension loader decodes a contribution's mode through
+ * {@link isActionMode}. The SDK's `ActionMode` restates it for authors, and a
+ * type-level test keeps the two equal.
  */
-const ActionModeSchema = z.enum(["read", "apply"]);
+const ActionModeSchema = z.discriminatedUnion("kind", [
+  // Strict, so a read that claims an approval is rejected, not stripped.
+  z.strictObject({ kind: z.literal("read") }),
+  z.strictObject({ kind: z.literal("write"), approval: z.literal("required").optional() }),
+]);
 export type ActionMode = z.infer<typeof ActionModeSchema>;
 
 export function isActionMode(value: unknown): value is ActionMode {
   return ActionModeSchema.safeParse(value).success;
+}
+
+/** True when invoking an action with this mode needs a person's approval. */
+export function requiresApproval(mode: ActionMode): boolean {
+  return mode.kind === "write" && mode.approval === "required";
 }
 
 /**
@@ -108,6 +124,13 @@ export interface ActionDefinition<
  * `kb action-invoke`. A surface that builds invocations itself (MCP maps a
  * tool call, the CLI's verbs plan one) constructs this same shape. An absent
  * or `null` input is the empty input.
+ *
+ * `approved` is the caller's statement that a person approved this call. It
+ * sits on the envelope, not in the input, because it is about the call and
+ * not an argument to the action. A surface can pass approval only if its wire
+ * format has an envelope around the input. HTTP and `action-invoke` do. An
+ * MCP tool call does not: its arguments are the input. So through MCP, an
+ * action whose mode requires approval gets an `approval_required` receipt.
  */
 export const ActionInvocationSchema = z.object({
   id: z.string().min(1),
@@ -115,6 +138,7 @@ export const ActionInvocationSchema = z.object({
     .unknown()
     .optional()
     .transform((input): unknown => input ?? {}),
+  approved: z.boolean().optional(),
 });
 export type ActionInvocation = z.output<typeof ActionInvocationSchema>;
 

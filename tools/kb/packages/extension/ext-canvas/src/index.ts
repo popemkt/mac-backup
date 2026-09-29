@@ -221,7 +221,7 @@ const actions: ExtensionAction[] = [
     id: "tx.apply",
     title: "Apply canvas transaction",
     description: "Atomically write a canvas JSON document and optional relationship prop set/unset",
-    mode: "apply",
+    mode: { kind: "write" },
     inputSchema: applyInput,
     outputSchema: applyOutput,
     effect: canvasTxApplyEffect,

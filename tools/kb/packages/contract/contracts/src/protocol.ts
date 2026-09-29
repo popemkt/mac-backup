@@ -8,7 +8,7 @@ import { FailedReceiptSchema, SucceededReceiptSchema } from "./actions.ts";
  *
  * HTTP surface (all JSON, served on 127.0.0.1:<port>):
  *   GET  /api/graph     -> GraphSnapshot        (full node set + rev)
- *   GET  /api/manifest  -> ActionDefinition[]   (from registry.manifest())
+ *   GET  /api/manifest  -> ManifestEntry[]      (from registry.manifest())
  *   GET  /api/queries   -> SavedQuery[]         (.kb/queries/*.edn)
  *   POST /api/action    <- ActionInvocation     -> ActionResponse (registry.invoke)
  *   GET  /ws            -> upgrade to WebSocket (messages below)

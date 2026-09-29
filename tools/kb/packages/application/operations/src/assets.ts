@@ -77,7 +77,7 @@ export const assetUploadDef = {
   id: "asset.upload",
   title: "Upload asset",
   description: "Write opaque bytes to .kb/assets/<ulid>.<ext>; returns assets/… path for markdown",
-  mode: "apply" as const,
+  mode: { kind: "write" } as const,
   inputSchema: z.object({
     /** File contents as base64 (default) or utf8. */
     bytes: z.string().min(1),

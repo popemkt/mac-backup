@@ -6,6 +6,7 @@ export {
   actionToManifestEntry,
   failed,
   isActionMode,
+  requiresApproval,
   succeeded,
 } from "./actions.ts";
 export type {

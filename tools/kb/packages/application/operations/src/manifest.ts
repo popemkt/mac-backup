@@ -15,7 +15,7 @@ export const kbManifestDef = {
   id: "kb.manifest",
   title: "KB action manifest",
   description: "Return the full kb action registry manifest",
-  mode: "read" as const,
+  mode: { kind: "read" } as const,
   inputSchema: z.object({}),
   outputSchema: z.object({ actions: z.array(ManifestEntrySchema) }),
 } satisfies ActionDefinition;

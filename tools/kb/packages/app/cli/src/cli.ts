@@ -37,7 +37,7 @@ import {
   resolveTagId,
 } from "@kb/model";
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
-import { formatReceipt } from "./format.ts";
+import { formatMode, formatReceipt } from "./format.ts";
 import {
   fieldsNeedingCreate,
   mapActionInvoke,
@@ -752,7 +752,7 @@ function buildProgram(): Command {
             lines.push(`${e.name} (${e.source})`);
             for (const a of e.actions) {
               const alias = a.aliases.length > 0 ? ` (alias: ${a.aliases.join(", ")})` : "";
-              lines.push(`  ${a.def.id}${alias} — ${a.def.title} [${a.def.mode}]`);
+              lines.push(`  ${a.def.id}${alias} — ${a.def.title} [${formatMode(a.def.mode)}]`);
             }
           }
           for (const f of registry.failures) {

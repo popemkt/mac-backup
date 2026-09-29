@@ -7,6 +7,7 @@ import {
   type ActionInvocation,
   type ActionReceipt,
   failed,
+  requiresApproval,
   succeeded,
   type ExtensionPromiseHandler,
   type KbContext,
@@ -194,6 +195,10 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   const { id, input } = invocation;
   const entry = actions.get(id);
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
+  // Approval is checked here, on invoke itself, so no surface can skip it.
+  if (requiresApproval(entry.def.mode) && invocation.approved !== true) {
+    return failed(id, "approval_required", `action ${id} requires approval; this call has none`);
+  }
 
   const parsed = yield* parseBySchema(entry.def.inputSchema, input);
   const run = dispatch(entry, ctx, parsed);
