@@ -91,10 +91,21 @@ export interface ActionDefinition<
   effect?: ActionEffectHandler;
 }
 
-export interface ActionInvocation {
-  id: string;
-  input: unknown;
-}
+/**
+ * The invocation envelope every surface that receives one as data decodes
+ * through: the HTTP body of `POST /api/action` and the JSON of
+ * `kb action-invoke`. A surface that builds invocations itself (MCP maps a
+ * tool call, the CLI's verbs plan one) constructs this same shape. An absent
+ * or `null` input is the empty input.
+ */
+export const ActionInvocationSchema = z.object({
+  id: z.string().min(1),
+  input: z
+    .unknown()
+    .optional()
+    .transform((input): unknown => input ?? {}),
+});
+export type ActionInvocation = z.output<typeof ActionInvocationSchema>;
 
 export const SucceededReceiptSchema = z.object({
   status: z.literal("succeeded"),

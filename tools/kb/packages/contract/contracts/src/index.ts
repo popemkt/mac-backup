@@ -1,4 +1,10 @@
-export { ActionReceiptSchema, actionToManifestEntry, failed, succeeded } from "./actions.ts";
+export {
+  ActionInvocationSchema,
+  ActionReceiptSchema,
+  actionToManifestEntry,
+  failed,
+  succeeded,
+} from "./actions.ts";
 export type {
   ActionDefinition,
   ActionEffectHandler,

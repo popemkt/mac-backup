@@ -1,8 +1,12 @@
 import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
-import { z } from "zod";
-import { TxOrigin, type ActionResponse, type KbContext } from "@kb/contracts";
+import {
+  ActionInvocationSchema,
+  TxOrigin,
+  type ActionResponse,
+  type KbContext,
+} from "@kb/contracts";
 import { reloadEffect } from "@kb/operations";
 import { type ActionHandlerEnv, invokeReceiptEffect, kbRuntimeLayer, manifest } from "@kb/runtime";
 import * as assets from "./assets.ts";
@@ -11,11 +15,6 @@ import type { SubscriptionHub } from "./session.ts";
 
 /** Match Bun/Web `Response.json` Content-Type exactly. */
 const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
-
-const ActionInvocationSchema = z.object({
-  id: z.string().min(1),
-  input: z.unknown().optional(),
-});
 
 export interface UiHttpDeps {
   root: string;
@@ -94,10 +93,9 @@ const handleHttpRequestEffect = (
       // the hub is already subscribed to: persist → log → hub, with no second
       // path from here and nothing to wait for fs.watch to notice.
       yield* reloadEffect(ctx);
-      const receipt = yield* invokeReceiptEffect(ctx, {
-        id: parsed.data.id,
-        input: parsed.data.input ?? {},
-      }).pipe(Effect.provideService(TxOrigin, req.headers.get("x-kb-origin") ?? undefined));
+      const receipt = yield* invokeReceiptEffect(ctx, parsed.data).pipe(
+        Effect.provideService(TxOrigin, req.headers.get("x-kb-origin") ?? undefined),
+      );
       // The head once the invocation has committed: the rev a client waits
       // for before it lets the server's image replace its own (protocol.ts →
       // ActionResponseSchema).

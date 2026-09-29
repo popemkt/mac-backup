@@ -1,5 +1,5 @@
 import { Predicate, Schema } from "effect";
-import { isValidWorkspaceName, type ActionInvocation } from "@kb/contracts";
+import { ActionInvocationSchema, isValidWorkspaceName, type ActionInvocation } from "@kb/contracts";
 import { LIST_FIELDS_QUERY, LIST_TAGS_QUERY, backlinksQuery } from "@kb/query";
 import {
   FIELD_TYPES,
@@ -357,12 +357,13 @@ export function mapChildren(id: string): PlannedAction {
 }
 
 export function mapActionInvoke(raw: unknown): ActionInvocation {
-  if (typeof raw !== "object" || raw === null || !("id" in raw) || typeof raw.id !== "string") {
+  const parsed = ActionInvocationSchema.safeParse(raw);
+  if (!parsed.success) {
     throw new UsageError({
       message: 'action-invoke expects JSON object with string "id" and optional "input"',
     });
   }
-  return { id: raw.id, input: "input" in raw ? (raw.input ?? {}) : {} };
+  return parsed.data;
 }
 
 /** Fields referenced by a planned apply that may need --create minting. */
