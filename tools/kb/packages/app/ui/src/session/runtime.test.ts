@@ -33,6 +33,17 @@ describe("browser action runtime", () => {
     });
   });
 
+  it("answers a local read from the replica and pushes nothing", async () => {
+    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const post = vi.fn();
+    setPostAction(post);
+
+    const receipt = await invoke("node.get", { id: "n.root-a", depth: 0 });
+    expect(receipt).toMatchObject({ status: "succeeded", output: { node: { id: "n.root-a" } } });
+    await waitForBrowserPushes();
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it("refuses a local write its field cannot hold, before anything is pushed", async () => {
     useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
     const post = vi.fn();

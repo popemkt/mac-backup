@@ -11,7 +11,7 @@ import {
 import type { KbNode, StoreTx } from "@kb/model";
 import { KbIndexService, type KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { StoreTxLog } from "@kb/tx-log";
-import { invokeReceiptWith, isomorphicActions, noteStoreSynced, portActions } from "@kb/operations";
+import { invokeReceiptWith, isomorphicActions, noteStoreSynced } from "@kb/operations";
 import { postAction, type ActionResponse } from "@/api/action";
 import { toast } from "@/lib/toast";
 import { BrowserStore } from "./browser-store";
@@ -36,7 +36,11 @@ let session: BrowserSession | null = null;
 let link: ReplicaLink | null = null;
 let pushTail = Promise.resolve();
 
-const remoteOnlyActions = new Set(portActions.map((action) => action.def.id));
+/**
+ * Where an action can run is decided by what its handler needs, not by its
+ * mode: `isomorphicActions` are those whose handlers need only the store and
+ * index (`IsomorphicActionEnv`), whether they read or write.
+ */
 const localActions = new Map(isomorphicActions.map((action) => [action.def.id, action]));
 
 function noteBrowserStoreSynced(current: BrowserSession): void {
@@ -186,9 +190,17 @@ function surfacePushFailure(receipt: ActionReceipt): void {
   if (receipt.status === "failed") toast(receipt.message);
 }
 
+/**
+ * Run an action where it can run. An action whose handler needs only the
+ * store and index runs locally first. A local read is then done, because it
+ * has nothing to replicate. A local write is pushed so the server commits it
+ * too. Any other action goes to the server.
+ */
 export async function invoke(id: string, input: unknown): Promise<ActionReceipt> {
   const invocation: ActionInvocation = { id, input };
-  if (remoteOnlyActions.has(id) || !localActions.has(id)) return pushInvocation(invocation);
+  const local = localActions.get(id);
+  if (local === undefined) return pushInvocation(invocation);
+  if (local.def.mode.kind === "read") return invokeLocal(invocation);
   const { receipt, hold } = await writeLocal(invocation);
   if (receipt.status === "failed") return receipt;
   void pushInvocation(invocation, hold).then(surfacePushFailure, (error: unknown) => {

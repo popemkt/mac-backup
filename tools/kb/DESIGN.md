@@ -1291,6 +1291,9 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   its own:
   - MCP: a read is `readOnlyHint` and `idempotentHint`; a write is `destructiveHint`.
   - `kb ext list` prints the mode.
+  - The browser answers a local read without pushing it (DESIGN-UI.md →
+    Architecture, Mutations). Where an action runs, locally or on the
+    server, depends on what its handler needs, not on its mode.
 - **Approval** is checked in one place, the invoke core (`invokeWith`). An
   approval-required action whose `ActionInvocation` does not carry
   `approved: true` gets a failed receipt with code `approval_required`. The

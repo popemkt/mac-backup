@@ -64,7 +64,6 @@ export { noteStoreSynced, persistEffect, reloadEffect } from "./session.ts";
 export {
   coreActions,
   isomorphicActions,
-  portActions,
   invokeReceiptWith,
   invokeWith,
   isEffectNativeAction,

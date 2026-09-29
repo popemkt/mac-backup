@@ -97,7 +97,7 @@ export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[]
  * provide: a workspace port (saved queries, views, assets) or the registry's
  * own catalog.
  */
-export const portActions: readonly RegisteredAction[] = [
+const portActions: readonly RegisteredAction[] = [
   coreNative(graphRunDef, graphRunEffect),
   coreNative(assetUploadDef, assetUploadEffect),
   coreNative(renderViewDef, renderViewActionEffect),

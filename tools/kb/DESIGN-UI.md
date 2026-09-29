@@ -58,7 +58,9 @@ implementation modules under `packages/app/server/src/` split by concern:
   browser's `BrowserStore` and existing DataScript index first, then sends the
   same invocation through one ordered `POST /api/action` push lane. The local
   write stays visible until its receipt is confirmed, under the hold rules of
-  [Replica sync](#replica-sync). Port-only actions remain server-owned.
+  [Replica sync](#replica-sync). An isomorphic action whose declared mode is
+  a read is answered from the replica and never pushed, since it has nothing
+  to replicate. Port-only actions remain server-owned.
   Cold-boot `loadGraph` may fall back to fixtures; `hydrateFromWire` is
   boot-only — live resync uses `refreshFromWire` so `loadSource` stays `api`.
   No temp-id dance (nxus's pain): client mints final ULIDs, server accepts
