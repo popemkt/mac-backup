@@ -108,10 +108,17 @@ export const parseBySchema = Effect.fn("kb.parseBySchema")(function* (
   return yield* Effect.try({ try: () => schema.parse(input), catch: schemaFailure });
 });
 
+/**
+ * Which side of a schema a JSON Schema describes. A schema with defaults or
+ * transforms accepts one shape and produces another: an action's input is
+ * published as what a caller may send, its output as what it returns.
+ */
+type SchemaSide = "input" | "output";
+
 /** JSON Schema for manifests — zod via z.toJSONSchema; else a permissive object. */
-export function schemaToJsonSchema(schema: ActionSchema): unknown {
+export function schemaToJsonSchema(schema: ActionSchema, side: SchemaSide): unknown {
   if (isZodType(schema)) {
-    return z.toJSONSchema(schema);
+    return z.toJSONSchema(schema, { io: side });
   }
   return { type: "object" };
 }

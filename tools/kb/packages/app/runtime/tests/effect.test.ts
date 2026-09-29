@@ -227,7 +227,13 @@ describe("Standard Schema v1 seam", () => {
     expect(isActionSchema(schema)).toBe(true);
     const value = await Effect.runPromise(parseBySchema(schema, { name: "kb" }));
     expect(value).toEqual({ name: "kb" });
-    expect(schemaToJsonSchema(schema)).toMatchObject({ type: "object" });
+    expect(schemaToJsonSchema(schema, "input")).toMatchObject({ type: "object" });
+  });
+
+  test("a defaulted field is optional to send and present in what comes out", () => {
+    const schema = z.object({ name: z.string(), format: z.enum(["html", "md"]).default("html") });
+    expect(schemaToJsonSchema(schema, "input")).toMatchObject({ required: ["name"] });
+    expect(schemaToJsonSchema(schema, "output")).toMatchObject({ required: ["name", "format"] });
   });
 
   test("pure Standard Schema v1 (no zod) is accepted", async () => {
@@ -251,7 +257,7 @@ describe("Standard Schema v1 seam", () => {
     expect(await Effect.runPromise(parseBySchema(schema, { n: 1 }))).toEqual({ n: 1 });
     expect(Effect.runPromise(parseBySchema(schema, { n: "x" }))).rejects.toThrow(/expected/);
     // Non-zod vendors emit a permissive JSON Schema for manifests.
-    expect(schemaToJsonSchema(schema)).toEqual({ type: "object" });
+    expect(schemaToJsonSchema(schema, "input")).toEqual({ type: "object" });
   });
 
   test("parse-only (legacy) schemas still work", async () => {

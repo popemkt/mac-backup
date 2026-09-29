@@ -146,7 +146,7 @@ export function actionToManifestEntry(def: ActionDefinition) {
     title: def.title,
     description: def.description,
     mode: def.mode,
-    inputSchema: schemaToJsonSchema(def.inputSchema),
-    outputSchema: schemaToJsonSchema(def.outputSchema),
+    inputSchema: schemaToJsonSchema(def.inputSchema, "input"),
+    outputSchema: schemaToJsonSchema(def.outputSchema, "output"),
   };
 }
