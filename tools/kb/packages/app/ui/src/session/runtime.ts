@@ -161,7 +161,9 @@ export function invokeLocal(invocation: ActionInvocation): Promise<ActionReceipt
   return Effect.runPromise(
     invokeReceiptWith(localActions, current.ctx, invocation).pipe(Effect.provide(current.layer)),
   ).then((receipt) => {
-    if (receipt.status === "succeeded") current.onLocalCommit();
+    // Only a write commits; a read leaves the outline store nothing to project.
+    const writes = localActions.get(invocation.id)?.def.mode.kind === "write";
+    if (writes && receipt.status === "succeeded") current.onLocalCommit();
     return receipt;
   });
 }

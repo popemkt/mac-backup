@@ -38,8 +38,11 @@ describe("browser action runtime", () => {
     const post = vi.fn();
     setPostAction(post);
 
+    const projected = useOutlineStore.getState().wireNodes;
     const receipt = await invoke("node.get", { id: "n.root-a", depth: 0 });
     expect(receipt).toMatchObject({ status: "succeeded", output: { node: { id: "n.root-a" } } });
+    // A read commits nothing, so the outline is not re-projected.
+    expect(useOutlineStore.getState().wireNodes).toBe(projected);
     await waitForBrowserPushes();
     expect(post).not.toHaveBeenCalled();
   });
