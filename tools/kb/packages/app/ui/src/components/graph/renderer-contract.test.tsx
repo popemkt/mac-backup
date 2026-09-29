@@ -1,7 +1,8 @@
 /**
  * The graph renderer contract (DESIGN-UI.md → Graph → Look and motion): what
- * every renderer in `GRAPH_RENDERERS` promises, proved over each one that the
- * unit run can mount.
+ * every renderer view the graph plugin provides promises, proved over each
+ * one that the unit run can mount — through a `ViewSlot` inside a graph
+ * frame, the way the graph page draws it.
  *
  * - **dispose on switch**: another renderer taking the frame leaves nothing of
  *   this one behind — no DOM, no observer, no scene;
@@ -11,14 +12,16 @@
  * - **selection beats hover**: with a node selected, hovering another one
  *   does not move the focus — the one rule, `graphFocus`.
  *
- * A new renderer joins by its registration: the registry and this table must
- * list the same renderers. The 2D renderers draw through sigma, which needs
+ * A new renderer joins by its registration: the provided renderer views and
+ * this table must list the same renderers. The 2D renderers draw through sigma, which needs
  * a WebGL2 context happy-dom lacks; their rows are todo, named by a gap.
  */
-import { act, createElement } from "react";
+import { Suspense, act, useMemo, type ReactElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
+import { Effect, Result } from "effect";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { makeKernel } from "@kb/plugin";
 import { EmphasisFade } from "@/lib/graph-fade";
 import {
   buildTreeForest,
@@ -30,6 +33,7 @@ import {
 } from "@/lib/graph-lens";
 import type { Appearance } from "@/stores/prefs.store";
 import type { Force3dScene } from "./force3d-scene";
+import type { GraphFrame } from "./graph-frame";
 import type * as CssColor from "@/lib/css-color";
 
 const probes = vi.hoisted(() => ({
@@ -75,7 +79,11 @@ vi.mock("./force3d-scene", () => ({
   },
 }));
 
-const { GRAPH_RENDERERS } = await import("./graph-renderers");
+const { graphUiPlugin } = await import("./plugin");
+const { ViewSlot } = await import("@/components/ui/view-slot");
+const { GraphFrameContext } = await import("./graph-frame");
+const { TreemapView, isRendererKey } = await import("./views");
+const { ViewPoint, localIdOf, paramsFrom, syncUiPlugins } = await import("@/lib/plugins");
 const { setEmphasisTargets, topologyOf } = await import("./force3d-emphasis");
 
 // --- a graph with two separate neighbourhoods: A–C and B–D -----------------
@@ -118,7 +126,16 @@ const PERSPECTIVE: LensPerspective = {
 const LIGHT: Appearance = { designSystem: "kb", dark: false, key: "kb:light" };
 const DARK: Appearance = { designSystem: "kb", dark: true, key: "kb:dark" };
 
-type RendererKey = keyof typeof GRAPH_RENDERERS;
+/** Every renderer view the graph plugin provides, by its name in `lens.renderer`. */
+const RENDERERS = (() => {
+  const kernel = makeKernel();
+  Effect.runSync(kernel.load(graphUiPlugin));
+  const keys = kernel
+    .contributions(ViewPoint)
+    .map((view) => view.value.key)
+    .filter(isRendererKey);
+  return new Map(keys.map((key) => [localIdOf(key), key]));
+})();
 
 /** Each renderer's row: how the suite reaches it, and what it copies out of the tokens. */
 interface ContractRow {
@@ -157,35 +174,71 @@ async function until(ready: () => boolean, ms = 5000): Promise<void> {
   await settle();
 }
 
+/** A graph host holding the contract graph, painted in `appearance`. */
+function ContractHost({
+  appearance,
+  selected,
+  children,
+}: {
+  readonly appearance: Appearance;
+  readonly selected: string | null;
+  readonly children: ReactNode;
+}) {
+  const frame = useMemo(
+    (): GraphFrame => ({
+      lensGraph: { nodes: NODES, edges: EDGES, dropped: 0, queryError: null },
+      forest: buildTreeForest(NODES, EDGES, null),
+      layoutKey: PERSPECTIVE.id,
+      viewKey: "contract",
+      appearance,
+      searchHighlight: null,
+      filterIds: null,
+      selection:
+        selected === null ? null : { nodeId: selected, label: selected, tags: [], degree: 1 },
+      setSelection: () => {},
+      setControls: () => {},
+      onNodeOpen: () => {},
+    }),
+    [appearance, selected],
+  );
+  return <GraphFrameContext.Provider value={frame}>{children}</GraphFrameContext.Provider>;
+}
+
+/** The renderer named `name`, drawn in a slot inside a graph frame, as the page draws it. */
 function adapter(
-  key: RendererKey,
+  name: string,
   appearance: Appearance,
   selected: string | null = null,
   theme: LensTheme = PERSPECTIVE.theme,
-) {
-  const definition = GRAPH_RENDERERS[key];
-  if (definition === undefined) throw new Error(key);
-  return createElement(definition.Component, {
-    lensGraph: { nodes: NODES, edges: EDGES, dropped: 0, queryError: null },
-    active: { ...PERSPECTIVE, renderer: key, theme },
-    forest: buildTreeForest(NODES, EDGES, null),
-    viewKey: "contract",
-    appearance,
-    searchHighlight: null,
-    filterIds: null,
-    selection:
-      selected === null ? null : { nodeId: selected, label: selected, tags: [], degree: 1 },
-    setSelection: () => {},
-    setControls: () => {},
-    onNodeOpen: () => {},
-  });
+): ReactElement {
+  const key = RENDERERS.get(name);
+  if (key === undefined) throw new Error(name);
+  const settings = paramsFrom(key, { ...PERSPECTIVE, renderer: name, theme });
+  if (Result.isFailure(settings)) throw new Error(settings.failure);
+  return (
+    <ContractHost appearance={appearance} selected={selected}>
+      <Suspense fallback={<p data-renderer-loading="true" />}>
+        <ViewSlot
+          view={key}
+          params={settings.success}
+          placement="page"
+          fallback={<p data-renderer-missing="true" />}
+        />
+      </Suspense>
+    </ContractHost>
+  );
 }
+
+/** The renderer's chunk has arrived and it is on screen. */
+const shownWhen = (ready: () => boolean) => () =>
+  container.querySelector("[data-renderer-loading]") === null && ready();
 
 describe("graph renderer contract", () => {
   const g = globalThis as Record<string, unknown>;
   const saved = new Map<string, unknown>();
 
   beforeAll(() => {
+    syncUiPlugins([graphUiPlugin]);
     dom = new Window();
     const globals: Record<string, unknown> = {
       window: dom,
@@ -212,6 +265,7 @@ describe("graph renderer contract", () => {
   });
 
   afterAll(() => {
+    syncUiPlugins([]);
     for (const [key, value] of saved) {
       if (value === undefined) delete g[key];
       else g[key] = value;
@@ -229,7 +283,7 @@ describe("graph renderer contract", () => {
   });
 
   it("lists every registered renderer", () => {
-    expect(Object.keys(CONTRACT).toSorted()).toEqual(Object.keys(GRAPH_RENDERERS).toSorted());
+    expect(Object.keys(CONTRACT).toSorted()).toEqual([...RENDERERS.keys()].toSorted());
   });
 
   describe.each(Object.keys(CONTRACT))("%s", (key) => {
@@ -242,8 +296,8 @@ describe("graph renderer contract", () => {
 
     it("leaves nothing behind when another renderer takes the frame", async () => {
       await act(async () => root.render(adapter(key, LIGHT)));
-      await until(row.ready);
-      await act(async () => root.render(createElement("div", { "data-testid": "next" })));
+      await until(shownWhen(row.ready));
+      await act(async () => root.render(<div data-testid="next" />));
       await settle();
       expect(container.querySelectorAll("svg, canvas, [data-node-id]")).toHaveLength(0);
       expect(observers.live).toBe(0);
@@ -257,7 +311,7 @@ describe("graph renderer contract", () => {
         : "copies no token values (it paints live CSS variables)",
       async () => {
         await act(async () => root.render(adapter(key, LIGHT)));
-        await until(row.ready);
+        await until(shownWhen(row.ready));
         const reads = probes.tokenReads + probes.scenes.palettes;
         await act(async () => root.render(adapter(key, DARK)));
         await settle();
@@ -274,7 +328,7 @@ describe("graph renderer contract", () => {
   describe.each(LENS_THEMES)("force3d in the %s theme", (theme) => {
     it("reads its tokens again for a new appearance and a new theme", async () => {
       await act(async () => root.render(adapter("force3d", LIGHT, null, theme)));
-      await until(() => probes.scenes.live > 0);
+      await until(shownWhen(() => probes.scenes.live > 0));
       const first = probes.scenes.palettes;
       await act(async () => root.render(adapter("force3d", DARK, null, theme)));
       await settle();
@@ -290,7 +344,7 @@ describe("graph renderer contract", () => {
 
   it("tree: a hover does not move the focus off a selection", async () => {
     await act(async () => root.render(adapter("tree", LIGHT, "B")));
-    await settle();
+    await until(shownWhen(drawn));
     const hovered = container.querySelector('[data-node-id="A"]');
     expect(hovered).not.toBeNull();
     await act(async () => {
@@ -322,6 +376,6 @@ describe("graph renderer contract", () => {
   });
 
   it("treemap: has no hover focus to move (selection is its only emphasis)", () => {
-    expect(GRAPH_RENDERERS.treemap?.capabilities.selection).toBe(true);
+    expect(TreemapView.renderer.capabilities.selection).toBe(true);
   });
 });

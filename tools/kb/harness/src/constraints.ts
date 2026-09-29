@@ -346,6 +346,7 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "fixtures",
     "lib",
     "primitives",
+    "view-keys",
     "components/canvas",
     "components/graph",
     "components/ontology",

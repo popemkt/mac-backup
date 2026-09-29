@@ -1,5 +1,5 @@
-import { GRAPH_RENDERERS, graphViewKey } from "./graph-renderers";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Result } from "effect";
 import { WarningIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -27,6 +27,10 @@ import { selectionFromNode, type GraphSelection } from "@/components/graph/graph
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { ThemeIcon } from "@/components/ui/theme-icon";
 import { WorkspaceState } from "@/components/ui/workspace-state";
+import { ViewSlot } from "@/components/ui/view-slot";
+import { paramsFrom } from "@/lib/plugins";
+import { GraphFrameContext, graphViewKey, type GraphFrame } from "./graph-frame";
+import { useRenderer } from "./use-renderers";
 
 // GAP [[01M3EH8SRZ2NN7QZJY88CGY0T3]]
 const SYS_STORAGE_KEY = "kb-graph-include-sys";
@@ -146,8 +150,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   );
 
   const renderer = active?.renderer ?? "force2d";
-
-  const Adapter = GRAPH_RENDERERS[renderer]?.Component;
+  const rendererKey = useRenderer(renderer);
 
   // Graph interaction state — selection + camera live on the frame, not per-renderer.
   const [controls, setControls] = useState<GraphCameraControls | null>(null);
@@ -166,6 +169,49 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   }, [lensGraph.nodes, selectedId]);
 
   const clearSelection = useCallback(() => setSelectedId(null), []);
+
+  // What the renderer view draws from, beside the settings it decodes from the perspective.
+  const layoutKey = active?.id ?? "";
+  const focus = active?.focus ?? null;
+  const frame = useMemo(
+    (): GraphFrame => ({
+      lensGraph,
+      forest,
+      layoutKey,
+      viewKey: graphViewKey({ ...extracted.view, focus }, extracted.view),
+      appearance,
+      searchHighlight,
+      filterIds,
+      selection,
+      setSelection,
+      setControls,
+      onNodeOpen,
+    }),
+    [
+      lensGraph,
+      forest,
+      layoutKey,
+      extracted.view,
+      focus,
+      appearance,
+      searchHighlight,
+      filterIds,
+      selection,
+      setSelection,
+      onNodeOpen,
+    ],
+  );
+  const settings = rendererKey !== null && active ? paramsFrom(rendererKey, active) : null;
+  const unavailable = (
+    <WorkspaceState
+      title="Visualization unavailable"
+      description={
+        settings !== null && Result.isFailure(settings)
+          ? `${renderer} cannot read this perspective: ${settings.failure}`
+          : `No renderer is registered for ${renderer}. Choose another visualization above.`
+      }
+    />
+  );
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -263,7 +309,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         ) : (
           <GraphCanvasFrame
             nodes={lensGraph.nodes}
-            renderer={renderer}
+            renderer={rendererKey}
             controls={controls}
             selectedNodeId={selection?.nodeId ?? null}
             selection={selection}
@@ -272,7 +318,6 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
             onSearchChange={setSearchHighlight}
             onFilterChange={setFilterIds}
             queryError={lensGraph.queryError}
-            resetKey={`${renderer}:${active.id}`}
             perspective={active}
           >
             {lensGraph.nodes.length === 0 && !hasText(lensGraph.queryError) ? (
@@ -280,25 +325,17 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
                 title="No nodes in view"
                 description="Broaden the node query in Graph settings."
               />
-            ) : Adapter ? (
-              <Adapter
-                lensGraph={lensGraph}
-                active={active}
-                forest={forest}
-                viewKey={graphViewKey({ ...extracted.view, focus: active.focus }, extracted.view)}
-                appearance={appearance}
-                selection={selection}
-                setSelection={setSelection}
-                setControls={setControls}
-                onNodeOpen={onNodeOpen}
-                searchHighlight={searchHighlight}
-                filterIds={filterIds}
-              />
+            ) : rendererKey !== null && settings !== null && Result.isSuccess(settings) ? (
+              <GraphFrameContext.Provider value={frame}>
+                <ViewSlot
+                  view={rendererKey}
+                  params={settings.success}
+                  placement="page"
+                  fallback={unavailable}
+                />
+              </GraphFrameContext.Provider>
             ) : (
-              <WorkspaceState
-                title="Visualization unavailable"
-                description={`No renderer is registered for ${renderer}. Choose another visualization above.`}
-              />
+              unavailable
             )}
           </GraphCanvasFrame>
         )}

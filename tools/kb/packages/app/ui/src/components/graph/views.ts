@@ -1,5 +1,7 @@
 import { Schema } from "effect";
-import { viewKey } from "@/lib/plugins";
+import { GRAPH_RENDERER_VALUES } from "@kb/model";
+import { LENS_SETTINGS } from "@/lib/graph-lens";
+import { viewKey, type ViewKey } from "@/lib/plugins";
 
 /** The graph plugin's namespace and view keys: what a host imports, never the components. */
 export const GRAPH_NAMESPACE = "graph";
@@ -14,3 +16,142 @@ export type GraphParams = typeof GraphParams.Type;
 
 /** The graph: its page at `/graph[/<perspective>]`, and what an ontology's graph view embeds. */
 export const GraphView = viewKey(`${GRAPH_NAMESPACE}.page`, GraphParams);
+
+/**
+ * What the shared frame chrome may drive for a renderer.
+ * Unsupported controls must render disabled with a reason — never look live
+ * and no-op (r10 §3.2 / i13 Task 0).
+ */
+export interface RendererCapabilities {
+  fit: boolean;
+  zoom: boolean;
+  reset: boolean;
+  focus: boolean;
+  search: boolean;
+  selection: boolean;
+  dim: boolean;
+  drag: boolean;
+}
+
+/** An encoding the settings panel offers a renderer: the edge kinds, or one mapping. */
+export type GraphChannel = "relationships" | "color" | "size" | "group" | "label";
+
+/** What a renderer is to the graph frame around it, beyond the settings it reads. */
+export interface RendererTraits {
+  readonly label: string;
+  readonly capabilities: RendererCapabilities;
+  readonly channels: readonly GraphChannel[];
+  /** Whether it can move a link (a flowing link style's dashes); others draw the style's shape, still. */
+  readonly linkMotion?: true;
+}
+
+/**
+ * A graph renderer's key: a view of the graph a host extracted, whose params
+ * are the lens settings it reads — a `Schema.Struct` of `LENS_SETTINGS`
+ * entries, so asking which settings it reads is asking its params. Its local
+ * id is the renderer's name in `lens.renderer`.
+ */
+export interface RendererKey<P> extends ViewKey<P> {
+  readonly params: Schema.Decoder<P> & { readonly fields: Schema.Struct.Fields };
+  readonly renderer: RendererTraits;
+}
+
+/** Whether a view's key is a graph renderer's: what a renderer picker lists. */
+export function isRendererKey(key: ViewKey<unknown>): key is RendererKey<unknown> {
+  return "renderer" in key;
+}
+
+type RendererName = keyof typeof GRAPH_RENDERER_VALUES;
+
+function rendererKey<P>(
+  name: RendererName,
+  params: RendererKey<P>["params"],
+  traits: Omit<RendererTraits, "label">,
+): RendererKey<P> {
+  return {
+    ...viewKey(`${GRAPH_NAMESPACE}.${name}`, params),
+    params,
+    renderer: { label: GRAPH_RENDERER_VALUES[name].label, ...traits },
+  };
+}
+
+const standard: RendererCapabilities = {
+  fit: true,
+  zoom: true,
+  reset: true,
+  focus: true,
+  search: true,
+  selection: true,
+  dim: true,
+  drag: false,
+};
+
+/** Force-directed 2D, on sigma. */
+export const Force2dView = rendererKey(
+  "force2d",
+  Schema.Struct({
+    layout: LENS_SETTINGS.layout,
+    labelDensity: LENS_SETTINGS.labelDensity,
+    showLabels: LENS_SETTINGS.showLabels,
+    theme: LENS_SETTINGS.theme,
+    linkStyle: LENS_SETTINGS.linkStyle,
+  }),
+  {
+    capabilities: { ...standard, drag: true },
+    channels: ["relationships", "color", "label", "size"],
+  },
+);
+
+/** A spanning tree of the chosen edges. */
+export const TreeView = rendererKey(
+  "tree",
+  Schema.Struct({ showLabels: LENS_SETTINGS.showLabels }),
+  {
+    capabilities: { ...standard, drag: false },
+    channels: ["relationships", "color", "label"],
+  },
+);
+
+/** The 2D force layout, grouped into hulls. */
+export const ClusterView = rendererKey(
+  "cluster",
+  Schema.Struct({
+    labelDensity: LENS_SETTINGS.labelDensity,
+    showLabels: LENS_SETTINGS.showLabels,
+    theme: LENS_SETTINGS.theme,
+    linkStyle: LENS_SETTINGS.linkStyle,
+  }),
+  {
+    capabilities: { ...standard, drag: true },
+    channels: ["relationships", "color", "label", "size", "group"],
+  },
+);
+
+/** Force-directed 3D, on the scene kit. */
+export const Force3dView = rendererKey(
+  "force3d",
+  Schema.Struct({
+    spread: LENS_SETTINGS.spread,
+    linkDistance: LENS_SETTINGS.linkDistance,
+    labelDensity: LENS_SETTINGS.labelDensity,
+    showLabels: LENS_SETTINGS.showLabels,
+    autorotate: LENS_SETTINGS.autorotate,
+    theme: LENS_SETTINGS.theme,
+    linkStyle: LENS_SETTINGS.linkStyle,
+  }),
+  {
+    capabilities: { ...standard, drag: false },
+    linkMotion: true,
+    channels: ["relationships", "color", "label", "size"],
+  },
+);
+
+/** Area by the size encoding, boxed by the group encoding. */
+export const TreemapView = rendererKey(
+  "treemap",
+  Schema.Struct({ showLabels: LENS_SETTINGS.showLabels }),
+  {
+    capabilities: { ...standard, fit: false, zoom: false, reset: false, focus: false },
+    channels: ["color", "size", "group", "label"],
+  },
+);

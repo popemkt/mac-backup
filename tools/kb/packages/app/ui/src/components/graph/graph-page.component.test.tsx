@@ -4,7 +4,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { SYSTEM_IDS } from "@/lib/types";
@@ -45,13 +45,15 @@ vi.mock("./graph-adapters", async (importOriginal) => {
   return {
     ...real,
     Force2dAdapter: (props: Parameters<typeof real.Force2dAdapter>[0]) => {
-      handed.push({ viewKey: props.viewKey, nodes: props.lensGraph.nodes.length });
+      handed.push({ viewKey: props.frame.viewKey, nodes: props.frame.lensGraph.nodes.length });
       return real.Force2dAdapter(props);
     },
   };
 });
 
 import GraphPage from "./graph-page";
+import { graphUiPlugin } from "./plugin";
+import { syncUiPlugins } from "@/lib/plugins";
 
 /**
  * Let the page settle: lazy renderer chunks resolve and effects commit, each
@@ -95,6 +97,12 @@ describe("GraphPage (smoke)", () => {
       unobserve() {}
       disconnect() {}
     };
+    // The page draws through the renderer views the graph plugin provides.
+    syncUiPlugins([graphUiPlugin]);
+  });
+
+  afterAll(() => {
+    syncUiPlugins([]);
   });
 
   beforeEach(() => {

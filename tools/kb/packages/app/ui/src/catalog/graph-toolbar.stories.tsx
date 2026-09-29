@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { GraphToolbar } from "@/components/graph/graph-toolbar";
-import { capabilitiesFor } from "@/components/graph/graph-capabilities";
+import { Force2dView, TreeView } from "@/components/graph/views";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
 
-const FORCE2D = capabilitiesFor("force2d");
-const TREE = capabilitiesFor("tree");
+const FORCE2D = Force2dView.renderer.capabilities;
+const TREE = TreeView.renderer.capabilities;
 
 const noopControls: GraphCameraControls = {
   fit: () => {},

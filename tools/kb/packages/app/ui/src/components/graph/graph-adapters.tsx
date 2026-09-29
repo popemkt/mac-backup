@@ -1,39 +1,49 @@
 import { lazy, useMemo } from "react";
 import { outlineBulletAppearance } from "@/lib/bullet-mode";
 import type { LensNode, LensTheme } from "@/lib/graph-lens";
+import type { ParamsOf } from "@/lib/plugins";
 import { GRAPH_THEMES } from "./graph-themes";
 import { useOutlineStore } from "@/stores/outline.store";
 import { SigmaGraph } from "./sigma-graph";
 import { ClusterGraph } from "./cluster-graph";
 import { TreeGraph } from "./tree-graph";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
+import type { GraphFrame } from "./graph-frame";
+import type { ClusterView, Force2dView, Force3dView, TreeView } from "./views";
 const Force3dGraph = lazy(() => import("./force3d-graph"));
 
-import type { GraphAdapterProps } from "./graph-renderers";
+/** What a renderer draws from: the settings it reads, and the frame its host extracted. */
+export interface RendererProps<P> {
+  readonly settings: P;
+  readonly frame: GraphFrame;
+}
 
 export function Force2dAdapter({
-  lensGraph,
-  active,
-  appearance,
-  searchHighlight,
-  filterIds,
-  selection,
-  setSelection,
-  setControls,
-  onNodeOpen,
-}: GraphAdapterProps) {
-  const nodes = useOutlineBullets(lensGraph.nodes, active.theme);
+  settings,
+  frame: {
+    lensGraph,
+    layoutKey,
+    appearance,
+    searchHighlight,
+    filterIds,
+    selection,
+    setSelection,
+    setControls,
+    onNodeOpen,
+  },
+}: RendererProps<ParamsOf<typeof Force2dView>>) {
+  const nodes = useOutlineBullets(lensGraph.nodes, settings.theme);
   return (
     <SigmaGraph
       nodes={nodes}
       edges={lensGraph.edges}
-      layoutKey={active.id}
+      layoutKey={layoutKey}
       appearance={appearance}
-      layout={active.layout}
-      showLabels={active.showLabels}
-      labelDensity={active.labelDensity}
-      linkStyle={active.linkStyle}
-      theme={active.theme}
+      layout={settings.layout}
+      showLabels={settings.showLabels}
+      labelDensity={settings.labelDensity}
+      linkStyle={settings.linkStyle}
+      theme={settings.theme}
       onNodeOpen={onNodeOpen}
       onSelectionChange={setSelection}
       selectedNodeId={selection?.nodeId ?? null}
@@ -45,23 +55,25 @@ export function Force2dAdapter({
 }
 
 export function TreeAdapter({
-  lensGraph,
-  active,
-  forest,
-  viewKey,
-  appearance,
-  searchHighlight,
-  filterIds,
-  selection,
-  setSelection,
-  setControls,
-}: GraphAdapterProps) {
+  settings,
+  frame: {
+    lensGraph,
+    forest,
+    viewKey,
+    appearance,
+    searchHighlight,
+    filterIds,
+    selection,
+    setSelection,
+    setControls,
+  },
+}: RendererProps<ParamsOf<typeof TreeView>>) {
   return (
     <TreeGraph
       forest={forest}
       viewKey={viewKey}
       edges={lensGraph.edges}
-      showLabels={active.showLabels}
+      showLabels={settings.showLabels}
       highlightIds={searchHighlight ?? undefined}
       filterIds={filterIds ?? undefined}
       appearance={appearance}
@@ -73,32 +85,35 @@ export function TreeAdapter({
 }
 
 export function ClusterAdapter({
-  lensGraph,
-  active,
-  appearance,
-  searchHighlight,
-  filterIds,
-  selection,
-  setSelection,
-  setControls,
-  onNodeOpen,
-}: GraphAdapterProps) {
-  const nodes = useOutlineBullets(lensGraph.nodes, active.theme);
+  settings,
+  frame: {
+    lensGraph,
+    layoutKey,
+    appearance,
+    searchHighlight,
+    filterIds,
+    selection,
+    setSelection,
+    setControls,
+    onNodeOpen,
+  },
+}: RendererProps<ParamsOf<typeof ClusterView>>) {
+  const nodes = useOutlineBullets(lensGraph.nodes, settings.theme);
   return (
     <ClusterGraph
       nodes={nodes}
       edges={lensGraph.edges}
-      layoutKey={active.id}
+      layoutKey={layoutKey}
       appearance={appearance}
       onNodeClick={onNodeOpen}
       selectedNodeId={selection?.nodeId ?? null}
       onSelectionChange={setSelection}
       highlightIds={searchHighlight ?? undefined}
       filterIds={filterIds ?? undefined}
-      showLabels={active.showLabels}
-      labelDensity={active.labelDensity}
-      linkStyle={active.linkStyle}
-      theme={active.theme}
+      showLabels={settings.showLabels}
+      labelDensity={settings.labelDensity}
+      linkStyle={settings.linkStyle}
+      theme={settings.theme}
       onControlsReady={setControls}
     />
   );
@@ -126,23 +141,26 @@ function useOutlineBullets(nodes: LensNode[], theme: LensTheme): LensNode[] {
 }
 
 export function Force3dAdapter({
-  lensGraph,
-  active,
-  appearance,
-  searchHighlight,
-  filterIds,
-  selection,
-  setSelection,
-  setControls,
-  onNodeOpen,
-}: GraphAdapterProps) {
-  const nodes = useOutlineBullets(lensGraph.nodes, active.theme);
+  settings,
+  frame: {
+    lensGraph,
+    layoutKey,
+    appearance,
+    searchHighlight,
+    filterIds,
+    selection,
+    setSelection,
+    setControls,
+    onNodeOpen,
+  },
+}: RendererProps<ParamsOf<typeof Force3dView>>) {
+  const nodes = useOutlineBullets(lensGraph.nodes, settings.theme);
   return (
     <WorkspaceBoundary title="Opening the third dimension…">
       <Force3dGraph
         nodes={nodes}
         edges={lensGraph.edges}
-        layoutKey={active.id}
+        layoutKey={layoutKey}
         appearance={appearance}
         onSelectionChange={setSelection}
         onNodeOpen={onNodeOpen}
@@ -150,13 +168,15 @@ export function Force3dAdapter({
         onControlsReady={setControls}
         highlightIds={searchHighlight ?? undefined}
         filterIds={filterIds ?? undefined}
-        spread={active.spread}
-        linkDistance={active.linkDistance}
-        autorotate={active.autorotate}
-        showLabels={active.showLabels}
-        theme={active.theme}
-        linkStyle={active.linkStyle}
-        labelTopN={active.labelDensity === "low" ? 12 : active.labelDensity === "high" ? 48 : 24}
+        spread={settings.spread}
+        linkDistance={settings.linkDistance}
+        autorotate={settings.autorotate}
+        showLabels={settings.showLabels}
+        theme={settings.theme}
+        linkStyle={settings.linkStyle}
+        labelTopN={
+          settings.labelDensity === "low" ? 12 : settings.labelDensity === "high" ? 48 : 24
+        }
       />
     </WorkspaceBoundary>
   );

@@ -1,6 +1,7 @@
-import { GRAPH_RENDERERS } from "./graph-renderers";
 import { cn } from "@/lib/cn";
 import type { LensRenderer } from "@/lib/graph-lens";
+import { localIdOf } from "@/lib/plugins";
+import { useRenderers } from "./use-renderers";
 
 interface RendererSwitchProps {
   value: LensRenderer;
@@ -8,8 +9,12 @@ interface RendererSwitchProps {
   className?: string;
 }
 
-/** Pill group matching ViewToolbar anatomy (DESIGN-RESKIN §0). */
+/**
+ * Pill group matching ViewToolbar anatomy (DESIGN-RESKIN §0): one pill per
+ * renderer view provided, named in `lens.renderer` by its local id.
+ */
 export function RendererSwitch({ value, onChange, className }: RendererSwitchProps) {
+  const renderers = useRenderers();
   return (
     <div
       className={cn(
@@ -19,24 +24,27 @@ export function RendererSwitch({ value, onChange, className }: RendererSwitchPro
       data-renderer-switch="true"
       data-active-renderer={value}
     >
-      {Object.keys(GRAPH_RENDERERS).map((r) => (
-        <button
-          key={r}
-          type="button"
-          data-renderer-button={r}
-          className={cn(
-            "rounded-xs px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
-            value === r
-              ? "bg-background font-semibold text-foreground shadow-edge"
-              : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/80",
-          )}
-          onClick={() => {
-            if (r !== value) onChange(r);
-          }}
-        >
-          {GRAPH_RENDERERS[r]?.label ?? r}
-        </button>
-      ))}
+      {renderers.map((key) => {
+        const name = localIdOf(key);
+        return (
+          <button
+            key={name}
+            type="button"
+            data-renderer-button={name}
+            className={cn(
+              "rounded-xs px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
+              value === name
+                ? "bg-background font-semibold text-foreground shadow-edge"
+                : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/80",
+            )}
+            onClick={() => {
+              if (name !== value) onChange(name);
+            }}
+          >
+            {key.renderer.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

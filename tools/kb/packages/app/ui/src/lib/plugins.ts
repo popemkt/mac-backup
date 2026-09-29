@@ -21,7 +21,7 @@ import {
   type ReactElement,
 } from "react";
 import type { Icon } from "@phosphor-icons/react";
-import { Cause, Effect, Exit, Schema } from "effect";
+import { Cause, Effect, Exit, Result, Schema } from "effect";
 import {
   Point,
   makeKernel,
@@ -56,6 +56,9 @@ export interface ViewKey<P> {
    */
   readonly params: Schema.Decoder<P>;
 }
+
+/** The params a key's view renders from. */
+export type ParamsOf<K> = K extends ViewKey<infer P> ? P : never;
 
 /** The params of a view that renders from nothing but the store (the outline, a list). */
 export const NoParams = Schema.Struct({});
@@ -96,9 +99,25 @@ export interface ProvidedView {
 
 export const ViewPoint = Point<ProvidedView>()("ui.views");
 
-/** The local id a contribution under `key` takes: the key's id past its namespace. */
-function localIdOf(key: ViewKey<unknown>): string {
+/**
+ * The local id a contribution under `key` takes: the key's id past its
+ * namespace. It is also the name a view goes by in config stored as text
+ * (`sys.f.view.mode`, `lens.renderer`), so that name resolves to the key.
+ */
+export function localIdOf(key: ViewKey<unknown>): string {
   return key.id.slice(key.id.indexOf(".") + 1);
+}
+
+/**
+ * `input` read as `key`'s params: how a host turns stored config into the
+ * `P` it renders the view with. Only the settings the key declares are kept,
+ * and one it cannot read is the failure's message.
+ */
+export function paramsFrom<P>(key: ViewKey<P>, input: unknown): Result.Result<P, string> {
+  const decoded = Schema.decodeUnknownResult(key.params)(input);
+  return Result.isSuccess(decoded)
+    ? Result.succeed(decoded.success)
+    : Result.fail(decoded.failure.message);
 }
 
 /** The `ViewPoint` contribution for `key`, under the key's own local id. */

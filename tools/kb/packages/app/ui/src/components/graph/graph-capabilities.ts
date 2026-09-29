@@ -1,22 +1,6 @@
-import { GRAPH_RENDERERS } from "./graph-renderers";
-import type { LensLinkStyle, LensRenderer } from "@/lib/graph-lens";
+import type { LensLinkStyle, LensSetting } from "@/lib/graph-lens";
 import { LINK_STYLES } from "@/lib/graph-link-styles";
-
-/**
- * What the shared frame chrome may drive for a given renderer.
- * Unsupported controls must render disabled with a reason — never look live
- * and no-op (r10 §3.2 / i13 Task 0).
- */
-export interface RendererCapabilities {
-  fit: boolean;
-  zoom: boolean;
-  reset: boolean;
-  focus: boolean;
-  search: boolean;
-  selection: boolean;
-  dim: boolean;
-  drag: boolean;
-}
+import type { RendererCapabilities, RendererKey } from "./views";
 
 export type CapabilityKey = keyof RendererCapabilities;
 
@@ -31,40 +15,28 @@ export const CAPABILITY_REASONS: Record<CapabilityKey, string> = {
   drag: "Node drag is not available in this renderer",
 };
 
-/** Registry metadata is shared by the frame and adapter selection. */
-export const RENDERER_CAPABILITIES = Object.fromEntries(
-  Object.entries(GRAPH_RENDERERS).map(([key, definition]) => [key, definition.capabilities]),
-);
-export function capabilitiesFor(renderer: LensRenderer): RendererCapabilities {
-  return (
-    GRAPH_RENDERERS[renderer]?.capabilities ?? {
-      fit: false,
-      zoom: false,
-      reset: false,
-      focus: false,
-      search: false,
-      selection: false,
-      dim: false,
-      drag: false,
-    }
-  );
+const NONE: RendererCapabilities = {
+  fit: false,
+  zoom: false,
+  reset: false,
+  focus: false,
+  search: false,
+  selection: false,
+  dim: false,
+  drag: false,
+};
+
+/** What the frame may drive; a renderer no view is provided for drives nothing. */
+export function capabilitiesFor(renderer: RendererKey<unknown> | null): RendererCapabilities {
+  return renderer?.renderer.capabilities ?? NONE;
 }
 
-export type GraphSetting =
-  | "clusterBy"
-  | "layout"
-  | "spread"
-  | "linkDistance"
-  | "labelDensity"
-  | "showLabels"
-  | "autorotate"
-  | "theme"
-  | "linkStyle";
+/** Why a setting is off: the renderer's params do not declare it. */
 export function settingDisabledReason(
-  renderer: LensRenderer,
-  setting: GraphSetting,
+  renderer: RendererKey<unknown> | null,
+  setting: LensSetting,
 ): string | undefined {
-  return GRAPH_RENDERERS[renderer]?.settings.includes(setting) === true
+  return renderer !== null && Object.hasOwn(renderer.params.fields, setting)
     ? undefined
     : "This renderer does not support this setting";
 }
@@ -73,10 +45,13 @@ export function settingDisabledReason(
  * What a renderer that draws links but cannot move them says of a flowing
  * style: it draws the style's shape, still (`lib/graph-link-styles`).
  */
-export function linkStyleNote(renderer: LensRenderer, style: LensLinkStyle): string | undefined {
-  const definition = GRAPH_RENDERERS[renderer];
-  if (definition?.settings.includes("linkStyle") !== true) return undefined;
-  return LINK_STYLES[style].flowing && definition.linkMotion !== true
+export function linkStyleNote(
+  renderer: RendererKey<unknown> | null,
+  style: LensLinkStyle,
+): string | undefined {
+  if (renderer === null || settingDisabledReason(renderer, "linkStyle") !== undefined)
+    return undefined;
+  return LINK_STYLES[style].flowing && renderer.renderer.linkMotion !== true
     ? "Drawn still here: the dashes move in 3D"
     : undefined;
 }

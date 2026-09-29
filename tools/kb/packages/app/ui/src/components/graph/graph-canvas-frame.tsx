@@ -1,13 +1,14 @@
 import { useEffect, useEffectEvent, useMemo } from "react";
 import { isGraphShortcutTarget } from "@/lib/graph-interaction";
-import type { LensNode, LensPerspective, LensRenderer } from "@/lib/graph-lens";
+import type { LensNode, LensPerspective } from "@/lib/graph-lens";
 import { GraphLegend } from "./graph-legend";
 import { GraphToolbar } from "./graph-toolbar";
-import { GraphCanvasError, GraphCanvasErrorBoundary } from "./graph-canvas-error";
+import { GraphCanvasError } from "./graph-canvas-error";
 import { GraphSelectionCard } from "./graph-selection-card";
 import { capabilitiesFor } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
+import type { RendererKey } from "./views";
 import { hasText } from "@/lib/text";
 
 /** Shared graph chrome. Renderers only own pixels and renderer-specific input;
@@ -24,12 +25,12 @@ export function GraphCanvasFrame({
   onSearchChange,
   onFilterChange,
   queryError,
-  resetKey,
   perspective,
 }: {
   children: React.ReactNode;
   nodes: LensNode[];
-  renderer: LensRenderer;
+  /** The renderer drawing inside the frame; null while none is provided for the perspective's. */
+  renderer: RendererKey<unknown> | null;
   controls: GraphCameraControls | null;
   selectedNodeId: string | null;
   selection: GraphSelection | null;
@@ -39,7 +40,6 @@ export function GraphCanvasFrame({
   onFilterChange: (ids: Set<string> | null) => void;
   /** Surfaces resolveNodeSet failures inside the canvas (task 16c). */
   queryError?: string | null;
-  resetKey?: string;
   perspective?: LensPerspective | null;
 }) {
   const capabilities = capabilitiesFor(renderer);
@@ -62,9 +62,7 @@ export function GraphCanvasFrame({
       {hasText(queryError) ? (
         <GraphCanvasError title="Graph query error" message={queryError} />
       ) : (
-        <GraphCanvasErrorBoundary resetKey={resetKey ?? renderer}>
-          {children}
-        </GraphCanvasErrorBoundary>
+        children
       )}
       <GraphToolbar
         capabilities={capabilities}

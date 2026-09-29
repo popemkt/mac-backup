@@ -127,7 +127,7 @@ export const DEFAULT_SHOW_LABELS = true;
 export const DEFAULT_AUTOROTATE = false;
 export const DEFAULT_LABEL_DENSITY: LensLabelDensity = "medium";
 export const DEFAULT_THEME: LensTheme = "matte";
-const DEFAULT_LINK_STYLE: LensLinkStyle = "straight";
+export const DEFAULT_LINK_STYLE: LensLinkStyle = "straight";
 
 export const LENS_LAYOUTS: readonly LensLayout[] = ["force", "radial", "hierarchical", "grid"];
 export const LENS_LABEL_DENSITIES: readonly LensLabelDensity[] = ["low", "medium", "high"];
@@ -262,6 +262,27 @@ const DistanceSchema = Schema.Finite.check(Schema.isGreaterThan(0));
  */
 const SourceSchema = Schema.String;
 
+/**
+ * The lens fields a renderer draws with, each with its one schema: what the
+ * perspective's slots below validate against, and what a renderer view's
+ * params are made of (`components/graph/views.ts`), so a renderer declares
+ * the settings it reads by naming them here. The mappings (`colorBy`,
+ * `sizeBy`, `clusterBy`, `labelBy`), the query and the edge kinds are not
+ * among them: extraction reads those, for every renderer alike.
+ */
+export const LENS_SETTINGS = {
+  layout: Schema.Literals(LENS_LAYOUTS),
+  spread: DistanceSchema,
+  linkDistance: DistanceSchema,
+  showLabels: Schema.Boolean,
+  autorotate: Schema.Boolean,
+  labelDensity: Schema.Literals(LENS_LABEL_DENSITIES),
+  theme: Schema.Literals(LENS_THEMES),
+  linkStyle: Schema.Literals(LENS_LINK_STYLES),
+} satisfies { readonly [K in keyof LensPerspective]?: Schema.Decoder<LensPerspective[K]> };
+
+export type LensSetting = keyof typeof LENS_SETTINGS;
+
 /** Everything the node itself declares; `id` and `label` come from the node. */
 type LensProps = Omit<LensPerspective, "id" | "label">;
 
@@ -323,49 +344,49 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
   layout: oneOf({
     fields: [SYSTEM_IDS.lensLayoutField],
     read: firstStr(SYSTEM_IDS.lensLayoutField),
-    schema: Schema.Literals(LENS_LAYOUTS),
+    schema: LENS_SETTINGS.layout,
     fallback: DEFAULT_LAYOUT,
   }),
   spread: oneOf({
     fields: [SYSTEM_IDS.lensSpreadField],
     read: firstNum(SYSTEM_IDS.lensSpreadField),
-    schema: DistanceSchema,
+    schema: LENS_SETTINGS.spread,
     fallback: DEFAULT_SPREAD,
   }),
   linkDistance: oneOf({
     fields: [SYSTEM_IDS.lensLinkDistanceField],
     read: firstNum(SYSTEM_IDS.lensLinkDistanceField),
-    schema: DistanceSchema,
+    schema: LENS_SETTINGS.linkDistance,
     fallback: DEFAULT_LINK_DISTANCE,
   }),
   showLabels: oneOf({
     fields: [SYSTEM_IDS.lensShowLabelsField],
     read: firstBool(SYSTEM_IDS.lensShowLabelsField),
-    schema: Schema.Boolean,
+    schema: LENS_SETTINGS.showLabels,
     fallback: DEFAULT_SHOW_LABELS,
   }),
   autorotate: oneOf({
     fields: [SYSTEM_IDS.lensAutorotateField],
     read: firstBool(SYSTEM_IDS.lensAutorotateField),
-    schema: Schema.Boolean,
+    schema: LENS_SETTINGS.autorotate,
     fallback: DEFAULT_AUTOROTATE,
   }),
   labelDensity: oneOf({
     fields: [SYSTEM_IDS.lensLabelDensityField],
     read: firstStr(SYSTEM_IDS.lensLabelDensityField),
-    schema: Schema.Literals(LENS_LABEL_DENSITIES),
+    schema: LENS_SETTINGS.labelDensity,
     fallback: DEFAULT_LABEL_DENSITY,
   }),
   theme: oneOf({
     fields: [SYSTEM_IDS.lensThemeField],
     read: optionKey(SYSTEM_IDS.lensThemeField, GRAPH_THEME_VALUES),
-    schema: Schema.Literals(LENS_THEMES),
+    schema: LENS_SETTINGS.theme,
     fallback: DEFAULT_THEME,
   }),
   linkStyle: oneOf({
     fields: [SYSTEM_IDS.lensLinkStyleField],
     read: optionKey(SYSTEM_IDS.lensLinkStyleField, GRAPH_LINK_STYLE_VALUES),
-    schema: Schema.Literals(LENS_LINK_STYLES),
+    schema: LENS_SETTINGS.linkStyle,
     fallback: DEFAULT_LINK_STYLE,
   }),
 };

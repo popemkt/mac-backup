@@ -735,15 +735,16 @@ where each one lives. Everything below reads the tokens through
 `useAppearance()`, so the three design systems in both variants each look
 like themselves (P5).
 
-- **One renderer contract.** Every renderer in `GRAPH_RENDERERS` promises
-  the same things, and `renderer-contract.test.tsx` proves them over each
-  registered renderer: another renderer taking the frame leaves nothing of
+- **One renderer contract.** Every renderer view the graph plugin provides
+  promises the same things, and `renderer-contract.test.tsx` proves them over
+  each one, drawn through a slot inside a graph frame as the page draws it:
+  another renderer taking the frame leaves nothing of
   it behind; a renderer that copies token values out (a canvas, a GPU
   palette) reads them again when the appearance changes, while a DOM
   renderer paints live `var()`s and copies none; with a node selected, a
   hover never moves the focus — the one rule, `graphFocus` in
   `lib/graph-interaction.ts`, which every renderer asks. The suite's table
-  must list exactly the registry, so a new renderer joins it; the 2D
+  must list exactly the provided renderer views, so a new renderer joins it; the 2D
   renderers need WebGL, and their rows wait on a named gap.
 - **Emphasis eases, in every renderer.** What should be lit is one
   definition (`graph-interaction`, `graph-dim`); how it gets there is one
@@ -1116,9 +1117,11 @@ a separate point that only points at it.
 and is compared **by identity**, like `Service`, `Event` and `Point` keys. A
 key with the same id that was created somewhere else is a different key.
 `params` is an Effect `Schema` decoder of `P`: the view's settings, stated
-once. It is what types `P` for the compiler, and it is read at run time: the
-contract decodes each view's `sample` with it. A view that renders from the
-store alone declares `NoParams`.
+once. It is what types `P` for the compiler, and it is read at run time: a
+host decodes the view's stored config through it (`paramsFrom`, which keeps
+only the settings the key declares), a settings panel asks it which settings
+the view reads, and the contract decodes each view's `sample` with it. A view
+that renders from the store alone declares `NoParams`.
 `provideView(key, view)` builds the
 contribution under the key's local id, and `provideRoute(route)` builds a
 route under its view's local id. A plugin's namespace is therefore the key's
@@ -1167,6 +1170,25 @@ surface and the shell may import it. A host imports the key and never the
 component. That is how the ontology embeds the graph and the outline
 (`components/ontology/surfaces.tsx`) without importing either one.
 
+**Families of views.** Some views are alternatives a host chooses between by
+config, and each family's key extends `ViewKey` with what that host must know
+before it renders one. While config is text, a view goes by its key's local
+id (`localIdOf`), which is how the stored name resolves to the key.
+
+- *Graph renderers.* Each renderer is a view whose `RendererKey`
+  (`components/graph/views.ts`) adds its label, capabilities, encodings and
+  whether it moves links. Its params are a `Schema.Struct` of the
+  `LENS_SETTINGS` it draws with, so the settings panel enables exactly the
+  settings its params declare. `lens.renderer` names it; the renderer switch
+  lists the renderer views that are provided. The graph page decodes the
+  perspective through the renderer's params and draws it through a
+  `<ViewSlot>`. What the renderer draws from beyond its settings (the
+  extracted graph, selection, camera and search) is not config, so it
+  travels in the page's `GraphFrame` context, never in the params; a
+  renderer view outside a graph host says there is nothing to draw. The
+  renderers' components load in their own chunk, fetched with the graph
+  page's.
+
 **The contract.** `src/view-contract.test.tsx` runs over every view that the
 built-in and optional UI plugins contribute. A new view joins it by being
 registered. For each view, in each placement it offers, the view must: be
@@ -1204,9 +1226,8 @@ questions. Each one can be overridden.
 
 **Not in R1.** A code caller's params are checked by `tsc`; nothing decodes
 them at the slot. The `sys.view.*` option node on a key arrives in A1,
-together with view config held as nodes. The outline's view modes and
-`GRAPH_RENDERERS` are still local registries
-(GAP [[01M3EZRFJ9RYFJJ4MW322RQ28S]]). These points live in `@kb/ui`, not in
+together with view config held as nodes. The outline's view modes are still
+a local union (GAP [[01M3EZRFJ9RYFJJ4MW322RQ28S]]). These points live in `@kb/ui`, not in
 `@kb/ui-sdk`; moving them is R2 (GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]).
 
 ### Optional UI plugins
@@ -1867,10 +1888,13 @@ Legacy string settings remain readable and existing values are not rewritten by
 seeding. Search, selection, legend dimming and camera position are transient.
 Ontology membership remains a separate scope on the same projection.
 
-`packages/app/ui/src/components/graph/graph-renderers.ts` owns each renderer's
-adapter, supported encodings, settings and interaction capabilities. The shared
-frame disables unsupported camera operations with a reason. A new renderer
-registers that contract and consumes the same extracted nodes and edges. The
+Each renderer is a view in `ViewPoint` (UI points: routes and views →
+Families of views). Its key, in `components/graph/views.ts`, owns its settings
+(its `params`), its supported encodings and its interaction capabilities; the
+graph plugin provides its component. The shared frame disables unsupported
+camera operations with a reason, and the settings panel disables every
+setting the renderer's params do not declare. A new renderer contributes a
+view under such a key and draws the same extracted nodes and edges. The
 stable source/renderer vocabulary lives in `@kb/model`; browser components never
 reach into backend files through aliases.
 

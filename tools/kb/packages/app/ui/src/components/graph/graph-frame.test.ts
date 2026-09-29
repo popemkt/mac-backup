@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { graphViewKey } from "./graph-renderers";
+import { graphViewKey } from "./graph-frame";
 
 const view = { id: "lens.a", query: "", focus: null as string | null };
 const scope = { includeSystemNodes: false, ontologyId: null as string | null };

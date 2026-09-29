@@ -6,7 +6,8 @@ import { graphBindingOptions, type GraphBindingOption } from "@/lib/graph-bindin
 import { sourceValue, type LensPerspective } from "@/lib/graph-lens";
 import { GRAPH_SOURCE_FIELD_KINDS, type GraphSourceField, type GraphSourceKind } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { GRAPH_RENDERERS, type GraphChannel } from "./graph-renderers";
+import { useRenderer } from "./use-renderers";
+import type { GraphChannel } from "./views";
 
 /**
  * "Which options does this lens field accept?" — asked by field, because that
@@ -49,7 +50,7 @@ const CHANNELS: Record<
 export function GraphMappings({ perspective }: { perspective: LensPerspective }) {
   const nodes = useOutlineStore((s) => s.wireNodes);
   const optionsFor = useMemo(() => sourceOptionsByField(nodes), [nodes]);
-  const channels = GRAPH_RENDERERS[perspective.renderer]?.channels ?? [];
+  const channels = useRenderer(perspective.renderer)?.renderer.channels ?? [];
   return (
     <div className="mb-3 space-y-3 border-b border-foreground/10 pb-3">
       <p className="text-label text-foreground/45">

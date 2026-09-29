@@ -12,6 +12,7 @@ import {
   type LensPerspective,
 } from "@/lib/graph-lens";
 import { linkStyleNote, settingDisabledReason } from "./graph-capabilities";
+import { useRenderer } from "./use-renderers";
 import { cn } from "@/lib/cn";
 import { isOutside } from "@/lib/dom";
 
@@ -26,6 +27,7 @@ interface GraphSettingsProps {
 export function GraphSettings({ perspective }: GraphSettingsProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const renderer = useRenderer(perspective.renderer);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -78,7 +80,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
 
           <Choice
             label="Layout"
-            reason={settingDisabledReason(perspective.renderer, "layout")}
+            reason={settingDisabledReason(renderer, "layout")}
             options={LENS_LAYOUTS.map((layout) => ({ key: layout, label: layout }))}
             value={perspective.layout}
             onPick={(layout) => setStr(SYSTEM_IDS.lensLayoutField, layout)}
@@ -86,7 +88,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
 
           <Field
             label={`Spread (${Math.round(perspective.spread)})`}
-            reason={settingDisabledReason(perspective.renderer, "spread")}
+            reason={settingDisabledReason(renderer, "spread")}
           >
             <input
               type="range"
@@ -100,7 +102,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
 
           <Field
             label={`Links (${Math.round(perspective.linkDistance)})`}
-            reason={settingDisabledReason(perspective.renderer, "linkDistance")}
+            reason={settingDisabledReason(renderer, "linkDistance")}
           >
             <input
               type="range"
@@ -114,7 +116,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
 
           <Choice
             label="Label density"
-            reason={settingDisabledReason(perspective.renderer, "labelDensity")}
+            reason={settingDisabledReason(renderer, "labelDensity")}
             options={LENS_LABEL_DENSITIES.map((density) => ({ key: density, label: density }))}
             value={perspective.labelDensity}
             onPick={(density) => setStr(SYSTEM_IDS.lensLabelDensityField, density)}
@@ -122,7 +124,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
 
           <Choice
             label="Graph theme"
-            reason={settingDisabledReason(perspective.renderer, "theme")}
+            reason={settingDisabledReason(renderer, "theme")}
             options={LENS_THEMES.map((look) => ({
               key: look,
               label: GRAPH_THEME_VALUES[look].label,
@@ -133,8 +135,8 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
 
           <Choice
             label="Link style"
-            reason={settingDisabledReason(perspective.renderer, "linkStyle")}
-            note={linkStyleNote(perspective.renderer, perspective.linkStyle)}
+            reason={settingDisabledReason(renderer, "linkStyle")}
+            note={linkStyleNote(renderer, perspective.linkStyle)}
             options={LENS_LINK_STYLES.map((style) => ({
               key: style,
               label: GRAPH_LINK_STYLE_VALUES[style].label,
@@ -147,13 +149,13 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
 
           <Toggle
             label="Show labels"
-            reason={settingDisabledReason(perspective.renderer, "showLabels")}
+            reason={settingDisabledReason(renderer, "showLabels")}
             checked={perspective.showLabels}
             onChange={(v) => setBool(SYSTEM_IDS.lensShowLabelsField, v)}
           />
           <Toggle
             label="Auto-rotate (3D)"
-            reason={settingDisabledReason(perspective.renderer, "autorotate")}
+            reason={settingDisabledReason(renderer, "autorotate")}
             checked={perspective.autorotate}
             onChange={(v) => setBool(SYSTEM_IDS.lensAutorotateField, v)}
           />

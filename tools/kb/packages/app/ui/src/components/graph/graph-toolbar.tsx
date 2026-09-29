@@ -10,7 +10,8 @@ import { hasText } from "@/lib/text";
 import { isGraphShortcutTarget } from "@/lib/graph-interaction";
 import { cn } from "@/lib/cn";
 import type { LensPerspective } from "@/lib/graph-lens";
-import { CAPABILITY_REASONS, type RendererCapabilities } from "./graph-capabilities";
+import { CAPABILITY_REASONS } from "./graph-capabilities";
+import type { RendererCapabilities } from "./views";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import { GraphSettings } from "./graph-settings";
 

@@ -3,7 +3,9 @@ import { hierarchy, treemap } from "d3-hierarchy";
 import type { LensNode } from "@/lib/graph-lens";
 import { graphNodeAlpha } from "@/lib/graph-dim";
 import { selectionFromNode } from "./graph-selection";
-import type { GraphAdapterProps } from "./graph-renderers";
+import type { ParamsOf } from "@/lib/plugins";
+import type { RendererProps } from "./graph-adapters";
+import type { TreemapView } from "./views";
 
 interface AreaNode {
   label: string;
@@ -15,15 +17,17 @@ interface AreaNode {
 
 /** Area is an encoding, not a second data model. Zero measures have no area. */
 export function TreemapGraph({
-  lensGraph,
-  active,
-  selection,
-  setSelection,
-  setControls,
-  searchHighlight,
-  filterIds,
-  onNodeOpen,
-}: GraphAdapterProps) {
+  settings,
+  frame: {
+    lensGraph,
+    selection,
+    setSelection,
+    setControls,
+    searchHighlight,
+    filterIds,
+    onNodeOpen,
+  },
+}: RendererProps<ParamsOf<typeof TreemapView>>) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   useEffect(() => {
@@ -119,7 +123,7 @@ export function TreemapGraph({
               }}
               onDoubleClick={() => onNodeOpen(node.id)}
             >
-              {active.showLabels && width > 54 && height > 34 ? (
+              {settings.showLabels && width > 54 && height > 34 ? (
                 <span className="block truncate text-meta leading-4 font-medium">{node.label}</span>
               ) : null}
               {width > 70 && height > 60 ? (
