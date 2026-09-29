@@ -1305,6 +1305,15 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   and `kb action-invoke` do. An MCP tool call does not, because its arguments
   are the input, so every approval-required action is refused over MCP.
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
+- **One contract, every surface.** The CLI (`action-invoke`), MCP and HTTP
+  each list the registry's action ids with their declared modes, from their
+  own listing: `kb.manifest`, the MCP tool list's `_meta`, and
+  `GET /api/manifest`. For the same call, each returns the invoke core's
+  receipt. An approved call runs only through a surface whose wire carries
+  the approval. These are properties of `surfaceContract` in `@kb/test-kit`
+  (`surface-contract.ts`). They run over all surfaces at once, from
+  `packages/app/cli/tests/surface-contract.test.ts`, and a new surface joins
+  that map.
 - `registryFor(root)` builds a handler table per kb root (cached for the
   process); `manifest(root)` + `invoke(ctx, invocation)` / `invokeReceiptEffect` dispatch through it.
 - Dispatch prefers `effect` and composes it under `Effect.scoped` (finalizers / interrupt). Legacy Promise `handler`s (third-party `.kb/extensions`) are the only path lifted via `tryPromise`.

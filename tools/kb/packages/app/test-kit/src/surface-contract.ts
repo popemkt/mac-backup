@@ -1,0 +1,228 @@
+/**
+ * The surface contract: what every surface that projects the action registry
+ * promises. It is written once and run over all of the surfaces together.
+ *
+ * The registry is the source of truth. A surface (the CLI's
+ * `action-invoke`, the MCP server, the HTTP API) is a way to reach it and
+ * must add nothing and drop nothing. It lists the same ids with the same
+ * declared modes, and for the same call it returns the same receipt as the
+ * invoke core. A guarantee kept by one surface and broken by another is
+ * exactly what this suite catches, so it is not a per-adapter test.
+ *
+ * Every property runs against a fresh scratch root. That root holds one
+ * fixture extension whose action requires approval, so the approval path
+ * gets exercised even though no core action requires approval.
+ */
+import { describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Effect } from "effect";
+import type { ActionInvocation, ActionMode, ActionReceipt } from "@kb/contracts";
+import { bunFileSystemLayer, invoke, manifest, openKb } from "@kb/runtime";
+
+/** One listed action, as a surface's own listing states it. */
+export interface ListedAction {
+  id: string;
+  mode: ActionMode;
+}
+
+/** A surface under test, bound to one kb root and speaking its own protocol. */
+export interface ActionSurface {
+  /**
+   * The actions this surface lists, taken from its own listing (a tool list,
+   * a manifest route, a manifest call) and not from the registry.
+   */
+  list(): Promise<readonly ListedAction[]>;
+  /**
+   * The receipt this surface returns for the call, rebuilt from its wire
+   * form. A surface whose wire cannot carry `approved` drops it, just as a
+   * real caller of that surface would.
+   */
+  invoke(invocation: ActionInvocation): Promise<ActionReceipt>;
+  /** Whether this surface's wire format has an envelope that can carry `approved`. */
+  readonly carriesApproval: boolean;
+  close(): Promise<void>;
+}
+
+/** Open the surface over a root that already exists and has been opened once. */
+export type SurfaceFactory = (root: string) => Promise<ActionSurface>;
+
+const APPROVAL_ACTION = "ext.gated.stamp";
+
+/**
+ * An approval-required write with no side effect and a fixed output, so
+ * that receipts from different surfaces can be compared. Its schemas are
+ * bare `{parse}` objects, so the module imports nothing and loads from any
+ * scratch directory.
+ */
+const GATED_EXTENSION = `const passthrough = { parse: (input) => input ?? {} };
+export default [
+  {
+    id: "stamp",
+    title: "Stamp",
+    description: "an approval-required write for the surface contract",
+    mode: { kind: "write", approval: "required" },
+    inputSchema: passthrough,
+    outputSchema: passthrough,
+    handler: async () => ({ stamped: true }),
+  },
+];
+`;
+
+/**
+ * Calls whose receipts do not depend on when or where they run: reads, each
+ * kind of failure, the listing itself, and an unapproved call to the gated
+ * action.
+ */
+const CALLS: readonly ActionInvocation[] = [
+  { id: "kb.manifest", input: {} },
+  { id: "node.get", input: { id: "sys.tag", depth: 0 } },
+  { id: "node.get", input: { id: "n.surface-contract-missing" } },
+  { id: "node.get", input: {} },
+  {
+    id: "graph.query",
+    input: { query: '[:find ?id :where [?e :node/id "sys.tag"] [?e :node/id ?id]]' },
+  },
+  { id: "render.views", input: {} },
+  { id: APPROVAL_ACTION, input: {} },
+];
+
+/** A receipt as data on the wire: what any surface can faithfully return. */
+function wire(receipt: ActionReceipt): unknown {
+  return JSON.parse(JSON.stringify(receipt));
+}
+
+function byId(actions: readonly ListedAction[]): ListedAction[] {
+  return actions.map(({ id, mode }) => ({ id, mode })).toSorted((a, b) => a.id.localeCompare(b.id));
+}
+
+/** A scratch root holding the gated extension, removed when the scope closes. */
+const scratchRoot = Effect.acquireRelease(
+  Effect.gen(function* () {
+    const root = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "kb-surface-contract-")));
+    const extensions = join(root, ".kb", "extensions");
+    yield* Effect.promise(() => mkdir(extensions, { recursive: true }));
+    yield* Effect.promise(() => writeFile(join(extensions, "gated.ts"), GATED_EXTENSION, "utf8"));
+    return root;
+  }),
+  (root) => Effect.promise(() => rm(root, { recursive: true, force: true })),
+);
+
+/** One surface over the root, closed when the scope closes. */
+function openSurface(open: SurfaceFactory, root: string) {
+  return Effect.acquireRelease(
+    Effect.promise(() => open(root)),
+    (surface) => Effect.promise(() => surface.close()),
+  );
+}
+
+/** What one property checks against one surface. */
+interface SurfaceCase {
+  readonly name: string;
+  readonly surface: ActionSurface;
+  readonly root: string;
+  /** The invoke core's receipt for the call, on the same root. */
+  readonly core: (invocation: ActionInvocation) => Effect.Effect<ActionReceipt>;
+  /** The surface's receipt for the call. */
+  readonly via: (invocation: ActionInvocation) => Effect.Effect<ActionReceipt>;
+}
+
+/**
+ * Each surface in turn over one scratch root. The root is opened once first,
+ * so the system seed is written before any surface opens it, and every
+ * surface then reads the same store. The surfaces run one after another
+ * because each owns process-wide resources (stdout, a port).
+ */
+function overSurfaces(
+  surfaces: Readonly<Record<string, SurfaceFactory>>,
+  check: (c: SurfaceCase) => Effect.Effect<void>,
+): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        const ctx = yield* Effect.promise(() => openKb(root));
+        const core = (invocation: ActionInvocation) =>
+          Effect.promise(() => invoke(ctx, invocation));
+        yield* Effect.forEach(
+          Object.entries(surfaces),
+          ([name, open]) =>
+            Effect.scoped(
+              Effect.gen(function* () {
+                const surface = yield* openSurface(open, root);
+                const via = (invocation: ActionInvocation) =>
+                  Effect.promise(() => surface.invoke(invocation));
+                yield* check({ name, surface, root, core, via });
+              }),
+            ),
+          { discard: true },
+        );
+      }),
+    ),
+  );
+}
+
+const PROPERTIES: ReadonlyArray<
+  readonly [string, (surfaces: Readonly<Record<string, SurfaceFactory>>) => Promise<void>]
+> = [
+  [
+    "every surface lists the registry's action ids with their declared modes",
+    (surfaces) =>
+      overSurfaces(surfaces, ({ name, surface, root }) =>
+        Effect.gen(function* () {
+          const registry = yield* manifest(root).pipe(Effect.provide(bunFileSystemLayer));
+          expect(registry.some((entry) => entry.id === APPROVAL_ACTION)).toBe(true);
+          const listed = yield* Effect.promise(() => surface.list());
+          expect({ name, listed: byId(listed) }).toEqual({ name, listed: byId(registry) });
+        }),
+      ),
+  ],
+  [
+    "every surface returns the invoke core's receipt for the same call",
+    (surfaces) =>
+      overSurfaces(surfaces, ({ name, core, via }) =>
+        Effect.forEach(
+          CALLS,
+          (call) =>
+            Effect.gen(function* () {
+              const receipt = wire(yield* via(call));
+              expect({ name, call, receipt }).toEqual({
+                name,
+                call,
+                receipt: wire(yield* core(call)),
+              });
+            }),
+          { discard: true },
+        ),
+      ),
+  ],
+  [
+    "an approved call runs only through a surface whose wire carries the approval",
+    (surfaces) =>
+      overSurfaces(surfaces, ({ name, surface, core, via }) =>
+        Effect.gen(function* () {
+          const call: ActionInvocation = { id: APPROVAL_ACTION, input: {}, approved: true };
+          // Where the wire cannot carry approval, the call that arrives is the unapproved one.
+          const arrives = surface.carriesApproval ? call : { id: call.id, input: call.input };
+          const expected = yield* core(arrives);
+          expect(expected.status).toBe(surface.carriesApproval ? "succeeded" : "failed");
+          const receipt = wire(yield* via(call));
+          expect({ name, receipt }).toEqual({ name, receipt: wire(expected) });
+        }),
+      ),
+  ],
+];
+
+/**
+ * Run the contract over every surface at once.
+ *
+ * @param surfaces - each surface's factory by name. The map is the list of
+ *   surfaces, so adding a surface means adding an entry, and it then has to
+ *   meet every property here.
+ */
+export function surfaceContract(surfaces: Readonly<Record<string, SurfaceFactory>>): void {
+  describe(`action surfaces (${Object.keys(surfaces).join(", ")}) — one registry contract`, () => {
+    for (const [title, property] of PROPERTIES) test(title, () => property(surfaces));
+  });
+}

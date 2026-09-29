@@ -12,7 +12,6 @@
     "advisory": {},
     "knip": {
       "devDependencies:package.json:vite": 1,
-      "devDependencies:packages/app/cli/package.json:@kb/test-kit": 1,
       "devDependencies:packages/app/mcp/package.json:@kb/test-kit": 1,
       "devDependencies:packages/app/runtime/package.json:@kb/test-kit": 1,
       "devDependencies:packages/app/server/package.json:@kb/test-kit": 1,
