@@ -102,8 +102,9 @@ const mcp: SurfaceFactory = async (root) => {
     carriesApproval: false,
     list: async () => listed.map(({ action }) => action),
     invoke: async ({ id, input }) => {
-      const tool = listed.find(({ action }) => action.id === id)?.tool;
-      if (tool === undefined) throw new Error(`MCP lists no tool for ${id}`);
+      // An action MCP leaves out of tools/list is still called by its tool
+      // name: the id with `.` mangled to `_`, as a caller would guess it.
+      const tool = listed.find(({ action }) => action.id === id)?.tool ?? id.replaceAll(".", "_");
       const result = McpToolResultSchema.parse(
         await client.callTool({ name: tool, arguments: input as Record<string, unknown> }),
       );

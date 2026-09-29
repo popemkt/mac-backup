@@ -1305,11 +1305,16 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   carry approval only if its wire format has an envelope. `POST /api/action`
   and `kb action-invoke` do. An MCP tool call does not, because its arguments
   are the input, so every approval-required action is refused over MCP.
+  Because such an action could never succeed there, MCP leaves it out of
+  `tools/list`, which is derived from the mode in one predicate. A call by
+  its tool name still reaches the invoke core and gets `approval_required`,
+  and `kb_manifest` still lists it.
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
 - **One contract, every surface.** The CLI (`action-invoke`), MCP and HTTP
   each list the registry's action ids with their declared modes, from their
   own listing: `kb.manifest`, the MCP tool list's `_meta`, and
-  `GET /api/manifest`. For the same call, each returns the invoke core's
+  `GET /api/manifest`. A surface whose wire cannot carry approval leaves
+  approval-required actions out of its listing. For the same call, each returns the invoke core's
   receipt. An approved call runs only through a surface whose wire carries
   the approval. These are properties of `surfaceContract` in `@kb/test-kit`
   (`surface-contract.ts`). They run over all surfaces at once, from

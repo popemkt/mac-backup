@@ -18,7 +18,12 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import type { ActionInvocation, ActionMode, ActionReceipt } from "@kb/contracts";
+import {
+  requiresApproval,
+  type ActionInvocation,
+  type ActionMode,
+  type ActionReceipt,
+} from "@kb/contracts";
 import { bunFileSystemLayer, invoke, manifest, openKb } from "@kb/runtime";
 
 /** One listed action, as a surface's own listing states it. */
@@ -167,14 +172,18 @@ const PROPERTIES: ReadonlyArray<
   readonly [string, (surfaces: Readonly<Record<string, SurfaceFactory>>) => Promise<void>]
 > = [
   [
-    "every surface lists the registry's action ids with their declared modes",
+    "every surface lists the registry's action ids with their declared modes, " +
+      "leaving out only the actions its wire could never approve",
     (surfaces) =>
       overSurfaces(surfaces, ({ name, surface, root }) =>
         Effect.gen(function* () {
           const registry = yield* manifest(root).pipe(Effect.provide(bunFileSystemLayer));
           expect(registry.some((entry) => entry.id === APPROVAL_ACTION)).toBe(true);
+          const callable = registry.filter(
+            (entry) => surface.carriesApproval || !requiresApproval(entry.mode),
+          );
           const listed = yield* Effect.promise(() => surface.list());
-          expect({ name, listed: byId(listed) }).toEqual({ name, listed: byId(registry) });
+          expect({ name, listed: byId(listed) }).toEqual({ name, listed: byId(callable) });
         }),
       ),
   ],

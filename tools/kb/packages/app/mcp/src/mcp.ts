@@ -13,7 +13,13 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { Cause, Effect, Exit, Predicate } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import type { ActionInvocation, ActionMode, KbContext, ManifestEntry } from "@kb/contracts";
+import {
+  requiresApproval,
+  type ActionInvocation,
+  type ActionMode,
+  type KbContext,
+  type ManifestEntry,
+} from "@kb/contracts";
 import { type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect, listViewNamesEffect, renderNamedViewEffect } from "@kb/operations";
 import {
@@ -59,6 +65,18 @@ function modeHints(
     idempotentHint: reads,
     openWorldHint: false,
   };
+}
+
+/**
+ * Whether an action appears in `tools/list`. An MCP call cannot carry
+ * approval, so an approval-required action could never succeed here, and
+ * listing it would only advertise a tool that always fails. It is still
+ * reachable by its tool name, and the invoke core refuses that call with
+ * `approval_required`. `kb_manifest` still lists it.
+ */
+function listedOnMcp(entry: ManifestEntry): boolean {
+  // GAP [GAP-MCP-APPROVAL] (placeholder: mint the #gap node, then write it as [[id]])
+  return !requiresApproval(entry.mode);
 }
 
 function asObjectSchema(schema: unknown): Tool["inputSchema"] {
@@ -212,7 +230,7 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
   const ctx = yield* openKbEffect(root);
   const actions = (yield* registryFor(root)).manifestEntries;
   const byToolName = new Map(actions.map((a) => [actionIdToToolName(a.id), a] as const));
-  const tools = actions.map(
+  const tools = actions.filter(listedOnMcp).map(
     (a): Tool => ({
       name: actionIdToToolName(a.id),
       title: a.title,
