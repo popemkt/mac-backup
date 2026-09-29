@@ -1418,6 +1418,15 @@ from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surf
 - **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere. Internal command orchestration is Effect (`resolveRootEffect` → `openKbEffect` → `runPlanEffect` / `invokeReceiptEffect`) with an `Effect.runPromise` + exit-code boundary at each Commander surface action (not a claim that the whole process has a single runPromise). Commander itself stays the argv contract.
 - **MCP** (`kb mcp`, `@modelcontextprotocol/sdk` stdio): loop manifest → one
   tool per action → Effect handler (`callToolEffect` / resource Effects via `reloadEffect` + `invokeReceiptEffect`); tool hints from the mode ([Action registry](#action-registry)). SDK request handlers remain Promise-returning; CallTool maps Fail/Die to `isError`, resource Fail/Die to JSON-RPC `-32603`.
+  - **Breaking change (roadmap step 0), with no alias.** MCP no longer has
+    hand-written tools; every tool is a registry action.
+    - `render_view` is now `render.view`. Its argument is `name` (it was
+      `view`), and it returns the action's output `{name, format, content}`
+      as JSON, not the bare content.
+    - `kb_manifest` is now `kb.manifest` and returns `{actions}`, not a bare
+      array.
+    - A caller that used the old shapes has to switch to the new ones. The
+      tool list (`tools/list`) states the new input schemas.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 
