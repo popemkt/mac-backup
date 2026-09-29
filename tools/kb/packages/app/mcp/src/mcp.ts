@@ -29,6 +29,14 @@ import {
 
 const VIEW_URI_PREFIX = "ui://kb/view/";
 
+/**
+ * The `_meta` key under which every tool carries the action it projects:
+ * `{id, mode}`, exactly as the manifest has them. A tool name is the id with
+ * `.` mangled to `_`, so it cannot be mapped back, and the hints cannot say
+ * "requires approval". This key lets an MCP client see both anyway.
+ */
+export const ACTION_META_KEY = "kb/action";
+
 function actionIdToToolName(actionId: string): string {
   return actionId.replaceAll(".", "_");
 }
@@ -37,8 +45,9 @@ function actionIdToToolName(actionId: string): string {
  * MCP's behaviour hints, taken only from the declared mode. A read is
  * read-only and idempotent. A write is treated as possibly destructive and
  * not idempotent, because the mode claims neither. MCP has no hint for
- * approval, so an approval-required write is just a write here, and the
- * invoke core refuses the call (the MCP envelope cannot carry approval).
+ * approval, so an approval-required write is just a write in the hints. The
+ * full mode is under {@link ACTION_META_KEY}, and the invoke core refuses
+ * the call, because the MCP envelope cannot carry approval.
  */
 function modeHints(
   mode: ActionMode,
@@ -205,6 +214,7 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
       description: a.description,
       inputSchema: asObjectSchema(a.inputSchema),
       annotations: { title: a.title, ...modeHints(a.mode) },
+      _meta: { [ACTION_META_KEY]: { id: a.id, mode: a.mode } },
     }),
   );
 

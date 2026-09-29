@@ -1289,7 +1289,10 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   write, so there is no read-with-approval state. The manifest publishes the
   mode, and each surface derives its behaviour from it and keeps no list of
   its own:
-  - MCP: a read is `readOnlyHint` and `idempotentHint`; a write is `destructiveHint`.
+  - MCP: a read is `readOnlyHint` and `idempotentHint`; a write is
+    `destructiveHint`. Hints cannot express approval, and a tool name cannot
+    be mapped back to an id, so every tool also carries `{id, mode}` under
+    `_meta["kb/action"]`.
   - `kb ext list` prints the mode.
   - The browser answers a local read without pushing it (DESIGN-UI.md →
     Architecture, Mutations). Where an action runs, locally or on the

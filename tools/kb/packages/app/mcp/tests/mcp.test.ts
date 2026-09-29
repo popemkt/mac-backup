@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createMcpServer } from "../src/mcp.ts";
+import { ACTION_META_KEY, createMcpServer } from "../src/mcp.ts";
 import { Effect } from "effect";
 import { manifest, bunFileSystemLayer } from "@kb/runtime";
 
@@ -50,6 +50,10 @@ describe("MCP surface", () => {
     expect(graphQueryTool?.annotations?.readOnlyHint).toBe(true);
     expect(graphQueryTool?.annotations?.destructiveHint).toBe(false);
     expect(graphQueryTool?.annotations?.idempotentHint).toBe(true);
+    expect(graphQueryTool?._meta?.[ACTION_META_KEY]).toEqual({
+      id: "graph.query",
+      mode: { kind: "read" },
+    });
 
     const add = await client.callTool({
       name: "node_add",
