@@ -45,6 +45,7 @@ describe("MCP surface", () => {
     expect(nodeAddTool?.annotations?.destructiveHint).toBe(true);
     expect(nodeAddTool?.annotations?.readOnlyHint).toBe(false);
     expect(nodeAddTool?.annotations?.idempotentHint).toBe(false);
+    expect(nodeAddTool?.annotations?.openWorldHint).toBe(false);
 
     const graphQueryTool = listed.tools.find((t) => t.name === "graph_query");
     expect(graphQueryTool?.annotations?.readOnlyHint).toBe(true);

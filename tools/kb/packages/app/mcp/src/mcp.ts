@@ -44,16 +44,21 @@ function actionIdToToolName(actionId: string): string {
 /**
  * MCP's behaviour hints, taken only from the declared mode. A read is
  * read-only and idempotent. A write is treated as possibly destructive and
- * not idempotent, because the mode claims neither. MCP has no hint for
- * approval, so an approval-required write is just a write in the hints. The
- * full mode is under {@link ACTION_META_KEY}, and the invoke core refuses
- * the call, because the MCP envelope cannot carry approval.
+ * not idempotent, because the mode claims neither. Every action, read or
+ * write, touches only this kb root, never an open world of outside
+ * entities. MCP has no hint for approval; the full mode is under
+ * {@link ACTION_META_KEY}.
  */
 function modeHints(
   mode: ActionMode,
-): Pick<ToolAnnotations, "readOnlyHint" | "destructiveHint" | "idempotentHint"> {
+): Pick<ToolAnnotations, "readOnlyHint" | "destructiveHint" | "idempotentHint" | "openWorldHint"> {
   const reads = mode.kind === "read";
-  return { readOnlyHint: reads, destructiveHint: !reads, idempotentHint: reads };
+  return {
+    readOnlyHint: reads,
+    destructiveHint: !reads,
+    idempotentHint: reads,
+    openWorldHint: false,
+  };
 }
 
 function asObjectSchema(schema: unknown): Tool["inputSchema"] {

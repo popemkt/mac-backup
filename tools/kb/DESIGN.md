@@ -1290,7 +1290,8 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   mode, and each surface derives its behaviour from it and keeps no list of
   its own:
   - MCP: a read is `readOnlyHint` and `idempotentHint`; a write is
-    `destructiveHint`. Hints cannot express approval, and a tool name cannot
+    `destructiveHint`; every tool is `openWorldHint: false` (an action
+    touches only its kb root). Hints cannot express approval, and a tool name cannot
     be mapped back to an id, so every tool also carries `{id, mode}` under
     `_meta["kb/action"]`.
   - `kb ext list` prints the mode.
