@@ -321,7 +321,7 @@ function buildProgram(): Command {
   program
     .name("kb")
     .description("Repo-native outliner datastore")
-    .version("0.1.0")
+    .version(KB_SDK_VERSION)
     .option("--json", "machine-readable JSON output", false)
     .option("--root <path>", "repo root containing .kb/")
     .exitOverride()

@@ -1386,6 +1386,10 @@ from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surf
   committed string (freshness-tested). Prefer Promise `handler`s; schemas
   may be zod, Standard Schema v1, or a bare `{ parse }`. Helper siblings
   should `export default []` so discovery stays quiet.
+  **Migrating to kb 0.2.0:** replace `mode: "read"` with `mode: { kind: "read" }`
+  and `mode: "apply"` with `mode: { kind: "write" }` (add
+  `approval: "required"` if a person must approve each call). The loader
+  skips an extension that still uses the old strings.
 
 ## Operations (verticals)
 
