@@ -4,7 +4,7 @@ export { kbRuntimeLayer, openKbEffect } from "./layers.ts";
 export { writeErr, writeOut } from "./output.ts";
 export { bunFileSystemLayer } from "./platform.ts";
 export { invokeReceiptEffect, manifest, registryFor, resetRegistryCache } from "./registry.ts";
-export type { ActionHandlerEnv, ManifestEntry, RegisteredTemplate } from "./registry.ts";
+export type { ActionHandlerEnv, RegisteredTemplate } from "./registry.ts";
 export { RootNotFoundError, resolveRootEffect } from "./root.ts";
 export { STORE_BACKENDS, createStore, migrateStore, selectStore } from "./store-selection.ts";
 export type { StoreBackend, StoreMigration } from "./store-selection.ts";

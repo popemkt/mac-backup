@@ -42,6 +42,7 @@ import {
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
+import { kbManifestDef, kbManifestEffect } from "./manifest.ts";
 import { ontologyMembersDef, ontologyMembersEffect } from "./ontology.ts";
 import {
   renderViewActionEffect,
@@ -51,7 +52,7 @@ import {
 } from "./render.ts";
 
 /**
- * The invoke core: one registered-action shape, the twelve core actions
+ * The invoke core: one registered-action shape, the core actions
  * paired with their handlers beside the definitions that own them, and the
  * one place a parsed input meets a handler and a failure becomes a receipt.
  * Runtime (server, CLI, MCP) composes this over its discovered registry; the
@@ -90,12 +91,17 @@ export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[]
   coreNative(ontologyMembersDef, ontologyMembersEffect),
 ];
 
-/** The four actions that reach a workspace port (saved queries, views, assets). */
+/**
+ * The actions that reach a service only the invoke tip's composition root can
+ * provide: a workspace port (saved queries, views, assets) or the registry's
+ * own catalog.
+ */
 export const portActions: readonly RegisteredAction[] = [
   coreNative(graphRunDef, graphRunEffect),
   coreNative(assetUploadDef, assetUploadEffect),
   coreNative(renderViewDef, renderViewActionEffect),
   coreNative(renderViewsDef, renderViewsActionEffect),
+  coreNative(kbManifestDef, kbManifestEffect),
 ];
 
 export const coreActions: readonly RegisteredAction[] = [...isomorphicActions, ...portActions];

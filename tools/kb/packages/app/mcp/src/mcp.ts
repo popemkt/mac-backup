@@ -12,7 +12,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { Cause, Effect, Exit, Predicate } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import type { KbContext, ActionInvocation } from "@kb/contracts";
+import type { ActionInvocation, KbContext, ManifestEntry } from "@kb/contracts";
 import { type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect, listViewNamesEffect, renderNamedViewEffect } from "@kb/operations";
 import {
@@ -23,11 +23,9 @@ import {
   resolveRootEffect,
   type RootNotFoundError,
   writeErr,
-  type ManifestEntry,
   bunFileSystemLayer,
 } from "@kb/runtime";
 
-const MANIFEST_TOOL = "kb_manifest";
 const VIEW_URI_PREFIX = "ui://kb/view/";
 
 function actionIdToToolName(actionId: string): string {
@@ -95,9 +93,9 @@ export function mcpInternalError(cause: Cause.Cause<unknown>): McpError {
   return new McpError(ErrorCode.InternalError, causeMessage(cause));
 }
 
+/** Every tool this server lists is a registry action, found by its tool name. */
 export interface McpToolContext {
-  actions: readonly ManifestEntry[];
-  byToolName: Map<string, ManifestEntry>;
+  byToolName: ReadonlyMap<string, ManifestEntry>;
 }
 
 /**
@@ -113,10 +111,6 @@ export function callToolEffect(
 ): Effect.Effect<CallToolResult> {
   return containToolResult(
     Effect.gen(function* () {
-      if (name === MANIFEST_TOOL) {
-        return jsonResult(tools.actions);
-      }
-
       const action = tools.byToolName.get(name);
       if (!action) {
         return errorResult("unknown_action", `unknown tool: ${name}`);
@@ -189,40 +183,21 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
   const ctx = yield* openKbEffect(root);
   const actions = (yield* registryFor(root)).manifestEntries;
   const byToolName = new Map(actions.map((a) => [actionIdToToolName(a.id), a] as const));
-  const toolsCtx: McpToolContext = { actions, byToolName };
-
-  // The dedicated manifest tool owns its name; skip a colliding registry action
-  // so the advertised tool is the one callToolEffect answers.
-  const tools: Tool[] = [
-    ...actions
-      .filter((a) => actionIdToToolName(a.id) !== MANIFEST_TOOL)
-      .map(
-        (a): Tool => ({
-          name: actionIdToToolName(a.id),
-          title: a.title,
-          description: a.description,
-          inputSchema: asObjectSchema(a.inputSchema),
-          annotations: {
-            title: a.title,
-            readOnlyHint: a.mode === "read",
-            destructiveHint: a.mode === "apply",
-          },
-        }),
-      ),
-    {
-      name: MANIFEST_TOOL,
-      title: "KB action manifest",
-      description: "Return the full kb action registry manifest",
-      inputSchema: { type: "object" as const, properties: {} },
+  const tools = actions.map(
+    (a): Tool => ({
+      name: actionIdToToolName(a.id),
+      title: a.title,
+      description: a.description,
+      inputSchema: asObjectSchema(a.inputSchema),
       annotations: {
-        title: "KB action manifest",
-        readOnlyHint: true,
-        destructiveHint: false,
+        title: a.title,
+        readOnlyHint: a.mode === "read",
+        destructiveHint: a.mode === "apply",
       },
-    },
-  ];
+    }),
+  );
 
-  return bindMcpHandlers(ctx, tools, toolsCtx);
+  return bindMcpHandlers(ctx, tools, { byToolName });
 }, Effect.provide(bunFileSystemLayer));
 
 /**

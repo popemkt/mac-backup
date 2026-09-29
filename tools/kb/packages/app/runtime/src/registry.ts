@@ -6,12 +6,12 @@ import {
   actionToManifestEntry,
   extensionPlugin,
   type ActionContribution,
-  type ActionDefinition,
   type ActionHandlerEnv,
   type ActionInvocation,
   type ActionReceipt,
   type ExtensionFailure,
   type KbContext,
+  type ManifestEntry,
   type TemplateFn,
 } from "@kb/contracts";
 import type { ActionSchemaError, DomainError } from "@kb/model";
@@ -44,17 +44,6 @@ interface RegistryExtension {
   actions: readonly RegisteredAction[];
   /** Registered templates; ids carry the namespaced `ext.<name>.<id>`. */
   templates: readonly RegisteredTemplate[];
-}
-
-export interface ManifestEntry {
-  id: string;
-  title: string;
-  description: string;
-  mode: ActionDefinition["mode"];
-  inputSchema: unknown;
-  outputSchema: unknown;
-  /** Present when this id is a compat alias for another registered id. */
-  aliasOf?: string;
 }
 
 export interface Registry {

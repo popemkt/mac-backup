@@ -17,7 +17,7 @@ import {
 } from "@kb/runtime";
 import { runPlanEffect } from "../src/cli.ts";
 import { mapAdd, mapGet } from "@kb/operations";
-import type { ManifestEntry } from "@kb/runtime";
+import type { ManifestEntry } from "@kb/contracts";
 import {
   callToolEffect,
   containToolResult,
@@ -38,7 +38,6 @@ async function tempRoot(): Promise<string> {
 async function registryTools(root: string): Promise<McpToolContext> {
   const actions = await Effect.runPromise(manifest(root).pipe(Effect.provide(bunFileSystemLayer)));
   return {
-    actions,
     byToolName: new Map(actions.map((entry) => [entry.id.replaceAll(".", "_"), entry])),
   };
 }
@@ -113,7 +112,6 @@ describe("MCP Effect surface", () => {
       openKbEffect(root).pipe(Effect.provide(bunFileSystemLayer)),
     );
     const tools: McpToolContext = {
-      actions: [],
       byToolName: new Map(),
     };
     const unknown = await Effect.runPromise(callToolEffect(ctx, "no_such_tool", {}, tools));
@@ -148,7 +146,6 @@ describe("MCP Effect surface", () => {
       outputSchema: { type: "object" },
     };
     const toolsWithGet: McpToolContext = {
-      actions: [],
       byToolName: new Map([["node_get", nodeGetEntry]]),
     };
     const failed = await Effect.runPromise(

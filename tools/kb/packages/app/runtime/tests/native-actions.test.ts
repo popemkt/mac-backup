@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { Effect, Exit, Fiber, Layer, Stream } from "effect";
 import { kbRuntimeLayer, openKbEffect } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
-import { KbCtx, KbStore, templateRegistryLayer } from "@kb/contracts";
+import { ActionCatalog, KbCtx, KbStore, templateRegistryLayer } from "@kb/contracts";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { assetsLayer, savedQueriesLayer, viewsLayer } from "@kb/workspace-fs";
 import { KbIndexService } from "@kb/query";
@@ -230,6 +230,7 @@ export default actions;
           Layer.mergeAll(
             bunFileSystemLayer,
             templateRegistryLayer(new Map()),
+            Layer.succeed(ActionCatalog, []),
             savedQueriesLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             viewsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             assetsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),

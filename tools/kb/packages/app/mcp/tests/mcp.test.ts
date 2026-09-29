@@ -80,8 +80,9 @@ describe("MCP surface", () => {
       (man.content as { type: string; text: string }[])[0],
       "expected (man.content as { type: string; text: string }[])[0]",
     ).text;
-    const manBody = JSON.parse(manText) as { id: string }[];
-    expect(manBody.some((a) => a.id === "node.add")).toBe(true);
+    const manBody = JSON.parse(manText) as { actions: { id: string }[] };
+    expect(manBody.actions.some((a) => a.id === "node.add")).toBe(true);
+    expect(manBody.actions.some((a) => a.id === "kb.manifest")).toBe(true);
 
     await client.close();
     await server.close();

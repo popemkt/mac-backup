@@ -1,4 +1,4 @@
-import type { Effect } from "effect";
+import { Context, type Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import {
@@ -28,6 +28,7 @@ export type ActionHandlerEnv =
   | KbIndexService
   | FileSystem
   | TemplateRegistry
+  | ActionCatalog
   | SavedQueries
   | Views
   | Assets;
@@ -140,7 +141,23 @@ export function failed(
   return { status: "failed", id, code, message, details };
 }
 
-export function actionToManifestEntry(def: ActionDefinition) {
+/**
+ * One published action: its definition without the handlers, with both
+ * schemas as JSON Schema. Every surface lists actions as these entries.
+ */
+export const ManifestEntrySchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  mode: ActionModeSchema,
+  inputSchema: z.unknown(),
+  outputSchema: z.unknown(),
+  /** Present when this id is a compat alias for another registered id. */
+  aliasOf: z.string().optional(),
+});
+export type ManifestEntry = z.infer<typeof ManifestEntrySchema>;
+
+export function actionToManifestEntry(def: ActionDefinition): ManifestEntry {
   return {
     id: def.id,
     title: def.title,
@@ -150,3 +167,12 @@ export function actionToManifestEntry(def: ActionDefinition) {
     outputSchema: schemaToJsonSchema(def.outputSchema, "output"),
   };
 }
+
+/**
+ * The manifest of the registry an invocation runs in, provided at the invoke
+ * tip like the templates are. It is how `kb.manifest` lists the registry it is
+ * itself a member of, without an action reaching the registry.
+ */
+export class ActionCatalog extends Context.Service<ActionCatalog, readonly ManifestEntry[]>()(
+  "kb/ActionCatalog",
+) {}

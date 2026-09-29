@@ -1366,6 +1366,7 @@ from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surf
 | `asset.upload`                                    | apply | write opaque bytes to `.kb/assets/<ulid>.<ext>`; returns the `assets/…` markdown path                        |
 | `render.view`                                     | read  | render a saved view (`.kb/views/<name>.json`) to html or md                                                  |
 | `render.views`                                    | read  | list saved view names available to `render.view`                                                             |
+| `kb.manifest`                                     | read  | list every registered action as its manifest entry (MCP's `kb_manifest`)                                     |
 | `ext.docs.materialize` (alias `docs.materialize`) | apply | run view specs → write md (bundled extension)                                                                |
 | `ext.docs.check` (alias `docs.check`)             | read  | materialize to memory, diff vs disk (bundled extension)                                                      |
 | `ext.canvas.tx.apply`                             | apply | apply a JSON Canvas transaction to a `#canvas` node (bundled extension)                                      |

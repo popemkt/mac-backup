@@ -1,6 +1,8 @@
 export {
+  ActionCatalog,
   ActionInvocationSchema,
   ActionReceiptSchema,
+  ManifestEntrySchema,
   actionToManifestEntry,
   failed,
   succeeded,
@@ -12,6 +14,7 @@ export type {
   IsomorphicActionEnv,
   ActionInvocation,
   ActionReceipt,
+  ManifestEntry,
 } from "./actions.ts";
 export { ActionPoint, TemplatePoint, extensionPlugin } from "./extension.ts";
 export type {

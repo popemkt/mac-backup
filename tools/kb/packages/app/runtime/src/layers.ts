@@ -13,11 +13,9 @@ import {
 import { bunFileSystemLayer } from "./platform.ts";
 import { DatascriptIndex, KbIndexService } from "@kb/query";
 import {
-  type Assets,
-  type KbCtx,
+  ActionCatalog,
+  type ActionHandlerEnv,
   KbStore,
-  type SavedQueries,
-  type Views,
   kbCtxLayer,
   kbStoreLayer,
   type KbContext,
@@ -32,17 +30,15 @@ import { selectStore } from "./store-selection.ts";
 /**
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
  * the three workspace ports backed by `.kb/` on disk + the render templates
- * the registry resolved from core-bundled and `.kb/extensions` contributions.
+ * and the action catalog the registry resolved from core, bundled and
+ * `.kb/extensions` contributions.
  *
  * This is where "the actions run anywhere" is paid for: the actions ask for
  * {@link SavedQueries}, {@link Views} and {@link Assets}, and this composition
  * root is the only place that says those are directories under `ctx.root`.
  */
-export function kbRuntimeLayer(
-  ctx: KbContext,
-): Layer.Layer<
-  FileSystem | KbStore | KbCtx | KbIndexService | TemplateRegistry | SavedQueries | Views | Assets
-> {
+export function kbRuntimeLayer(ctx: KbContext): Layer.Layer<ActionHandlerEnv> {
+  const registry = registryFor(ctx.root).pipe(Effect.provide(bunFileSystemLayer));
   return Layer.mergeAll(
     bunFileSystemLayer,
     kbStoreLayer(ctx.store),
@@ -51,12 +47,10 @@ export function kbRuntimeLayer(
     savedQueriesLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     viewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
+    Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.effect(
-      TemplateRegistry,
-      registryFor(ctx.root).pipe(
-        Effect.map((registry) => registry.templates),
-        Effect.provide(bunFileSystemLayer),
-      ),
+      ActionCatalog,
+      registry.pipe(Effect.map(({ manifestEntries }) => manifestEntries)),
     ),
   );
 }
@@ -104,11 +98,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
 /** Run an Effect that needs KbCtx (+ Bun FileSystem) against a live session. */
 export function runWithKb<A, E>(
   ctx: KbContext,
-  effect: Effect.Effect<
-    A,
-    E,
-    KbCtx | KbIndexService | FileSystem | KbStore | TemplateRegistry | SavedQueries | Views | Assets
-  >,
+  effect: Effect.Effect<A, E, ActionHandlerEnv>,
 ): Promise<A> {
   return Effect.runPromise(effect.pipe(Effect.provide(kbRuntimeLayer(ctx))));
 }
