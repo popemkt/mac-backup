@@ -6,6 +6,7 @@ import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
+import { OutlineTableView } from "@/lib/view-config";
 import { resetOutlineStore } from "@/test-support/outline-store";
 
 const TODO_EDN = `[:find ?id ?text
@@ -80,7 +81,7 @@ describe("visible instances", () => {
     // Expand would show grandchild in list mode; table must stay flat.
     useOutlineStore.getState().toggleCollapse("n.child-a2");
 
-    await mutations.setViewMode("n.root-a", "table");
+    await mutations.setFrameView("n.root-a", OutlineTableView);
     await mutations.setViewSort("n.root-a", [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }]);
 
     const keys = useOutlineStore

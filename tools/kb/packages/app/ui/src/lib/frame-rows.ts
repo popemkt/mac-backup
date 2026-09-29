@@ -14,11 +14,10 @@ import type { NodeMap, OutlineNode } from "@/lib/types";
 import {
   applyViewFilters,
   flattenBoardOrder,
-  getViewConfig,
   groupChildrenForBoard,
   sortChildrenForTable,
   type BoardColumn,
-  type ViewMode,
+  type FrameView,
 } from "@/lib/view-config";
 
 export interface FrameRowsInput {
@@ -27,93 +26,80 @@ export interface FrameRowsInput {
   nodes: NodeMap;
   /** What their fields mean: labels to filter, sort and group by. */
   schema: SchemaIndex;
+  /** The view the frame shows its rows in, and the settings it reads (`frameViewOf`). */
+  view: FrameView;
   /** Explicit row ids (query results) — overrides structural children. */
-  rowIds?: string[];
-  /** Pages revealed in a paginating mode (1 = first page). Default 1. */
+  rowIds?: readonly string[];
+  /** Pages revealed in a paginating view (1 = first page). Default 1. */
   pages?: number;
 }
 
 export interface FrameRows {
-  mode: ViewMode;
   /** Filtered + sorted rows before pagination; board order is column-major. */
   ordered: OutlineNode[];
-  /** Board/cards grouping over the same ordered rows; empty otherwise. */
+  /** Column grouping over the same ordered rows; empty for a view without columns. */
   columns: BoardColumn[];
-  /** Field the rows are grouped by (board only; null for every other mode). */
+  /** Field the columns are grouped by (null when the view declares none, or none is set). */
   groupFieldId: string | null;
-  /** Rows actually rendered — pagination applied for paginating modes. */
+  /** Rows actually rendered — pagination applied for a paginating view. */
   rendered: OutlineNode[];
   hasMore: boolean;
-  pagesize: number;
-}
-
-/**
- * Modes that reveal rows incrementally. The distinction lives here rather than
- * as a slice at one call site, so nav and render agree by construction and
- * extending pagination to another mode is a one-line change.
- */
-export function modePaginates(mode: ViewMode): boolean {
-  return mode === "table";
 }
 
 function nodesByIds(ids: readonly string[], nodes: NodeMap): OutlineNode[] {
   return ids.map((id) => nodes.get(id)).filter((n): n is OutlineNode => n !== undefined);
 }
 
-/** List-mode structural children, view filters applied. */
-export function frameListChildren(
-  frameId: string,
-  nodes: NodeMap,
-  schema: SchemaIndex,
-): OutlineNode[] {
+/**
+ * A frame's rows, as its view lays them out. What happens to them follows from
+ * the settings the view's params declare, so nav and render agree by
+ * construction: every view filters; a view sorts when it declares `sort`,
+ * groups its columns by a field when it declares `groupFieldId`, and pages when
+ * it declares `pagesize`.
+ */
+export function frameRows({
+  frameId,
+  nodes,
+  schema,
+  view,
+  rowIds,
+  pages,
+}: FrameRowsInput): FrameRows {
   const frame = nodes.get(frameId);
-  if (!frame) return [];
-  const config = getViewConfig(frame.props);
-  return applyViewFilters(nodesByIds(frame.children, nodes), config.filters, schema);
-}
-
-export function frameRows({ frameId, nodes, schema, rowIds, pages }: FrameRowsInput): FrameRows {
-  const frame = nodes.get(frameId);
-  const config = getViewConfig(frame?.props);
   const empty: FrameRows = {
-    mode: config.mode,
     ordered: [],
     columns: [],
     groupFieldId: null,
     rendered: [],
     hasMore: false,
-    pagesize: config.pagesize,
   };
   if (!frame && !rowIds) return empty;
 
+  const { key, params } = view;
   const source = nodesByIds(rowIds ?? frame?.children ?? [], nodes);
-  const filtered = applyViewFilters(source, config.filters, schema);
-  const sorted = sortChildrenForTable(filtered, config.sort, schema);
+  const filtered = applyViewFilters(source, params.filters, schema);
+  const sorted = sortChildrenForTable(filtered, params.sort ?? [], schema);
 
-  const grouped = config.mode === "board" || config.mode === "cards";
-  // Only board groups by a field; cards is a single unlabelled column.
-  const groupFieldId = config.mode === "board" ? config.groupFieldId : null;
+  const grouped = key.rows === "columns";
+  const groupFieldId = params.groupFieldId ?? null;
   const columns = grouped ? groupChildrenForBoard(sorted, groupFieldId, schema) : [];
   const ordered = grouped ? flattenBoardOrder(columns) : sorted;
 
   // Pages, not an absolute row count: a pagesize change re-derives the limit
   // instead of leaving a stale reveal count behind.
-  const limit = config.pagesize * Math.max(1, pages ?? 1);
-  const paginates = modePaginates(config.mode);
-  const rendered = paginates ? ordered.slice(0, limit) : ordered;
+  const limit = params.pagesize === undefined ? null : params.pagesize * Math.max(1, pages ?? 1);
+  const rendered = limit === null ? ordered : ordered.slice(0, limit);
 
   return {
-    mode: config.mode,
     ordered,
     columns,
     groupFieldId,
     rendered,
-    hasMore: paginates && ordered.length > limit,
-    pagesize: config.pagesize,
+    hasMore: limit !== null && ordered.length > limit,
   };
 }
 
-/** Rows a projected frame renders, in render order. */
+/** Rows a frame renders, in render order. */
 export function frameRenderedRows(input: FrameRowsInput): OutlineNode[] {
   return frameRows(input).rendered;
 }

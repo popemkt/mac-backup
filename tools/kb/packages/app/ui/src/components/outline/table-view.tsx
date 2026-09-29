@@ -7,11 +7,13 @@ import { cn } from "@/lib/cn";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
 import {
-  getViewConfig,
+  OutlineTableView,
+  frameViewOf,
   resolveTableColumns,
   type SortSpec,
   type TableColumnSpec,
 } from "@/lib/view-config";
+import type { ParamsOf } from "@/lib/plugins";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -29,19 +31,22 @@ const NAME_COLUMN = SYSTEM_IDS.nodeTextField;
 
 interface TableViewProps {
   frameId: string;
-  frameInstanceKey?: string;
+  /** The settings the table reads, decoded from the frame (`frameViewOf`). */
+  settings: ParamsOf<typeof OutlineTableView>;
+  frameInstanceKey?: string | undefined;
   nodes?: NodeMap;
   /** What field values resolve against (`fieldContextOf`); the store's by default. */
   context?: FieldContext;
   /** Test/override hook — defaults to prefs store width. */
   widthPref?: "centered" | "full";
   /** Query-result row ids (overrides frame children). */
-  rowIds?: string[];
+  rowIds?: readonly string[] | undefined;
   isQuerySource?: boolean;
 }
 
 export function TableView({
   frameId,
+  settings,
   frameInstanceKey,
   nodes: nodesProp,
   context: contextProp,
@@ -60,8 +65,6 @@ export function TableView({
 
   const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes);
 
-  const viewConfig = useMemo(() => getViewConfig(frameNode?.props), [frameNode?.props]);
-
   const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
   const revealMorePages = useOutlineStore((s) => s.revealMorePages);
 
@@ -74,12 +77,20 @@ export function TableView({
   // Row order and pagination come from the shared owner, so the rows rendered
   // here are exactly the rows keyboard navigation can reach.
   const rows = useMemo(
-    () => frameRows({ frameId, nodes, schema, rowIds, pages }),
-    [frameId, nodes, schema, rowIds, pages],
+    () =>
+      frameRows({
+        frameId,
+        nodes,
+        schema,
+        view: { key: OutlineTableView, params: settings },
+        rowIds,
+        pages,
+      }),
+    [frameId, nodes, schema, settings, rowIds, pages],
   );
   const columns = useMemo(
-    () => resolveTableColumns(viewConfig, rows.ordered, schema, debugColumns),
-    [viewConfig, rows.ordered, schema, debugColumns],
+    () => resolveTableColumns(settings, rows.ordered, schema, debugColumns),
+    [settings, rows.ordered, schema, debugColumns],
   );
 
   const displayedChildren = rows.rendered;
@@ -90,9 +101,9 @@ export function TableView({
 
   useEffect(() => {
     if (resizing === null) {
-      setLocalColwidth(viewConfig.colwidth);
+      setLocalColwidth(settings.colwidth);
     }
-  }, [viewConfig.colwidth, resizing]);
+  }, [settings.colwidth, resizing]);
 
   const handleResizeStart = useCallback(
     (colId: string, initialWidth: number, e: React.MouseEvent) => {
@@ -150,7 +161,7 @@ export function TableView({
             <th
               className="group relative px-2 py-1.5 text-label font-medium text-foreground/35 select-none"
               style={{
-                width: `${localColwidth[NAME_COLUMN] ?? viewConfig.colwidth[NAME_COLUMN] ?? 220}px`,
+                width: `${localColwidth[NAME_COLUMN] ?? settings.colwidth[NAME_COLUMN] ?? 220}px`,
               }}
             >
               <div
@@ -158,13 +169,13 @@ export function TableView({
                 onClick={() => handleHeaderSortClick(NAME_COLUMN)}
               >
                 <span>Name</span>
-                <SortIndicator sort={viewConfig.sort} fieldId={NAME_COLUMN} />
+                <SortIndicator sort={settings.sort} fieldId={NAME_COLUMN} />
               </div>
               <ResizeHandle
                 onMouseDown={(e) =>
                   handleResizeStart(
                     NAME_COLUMN,
-                    localColwidth[NAME_COLUMN] ?? viewConfig.colwidth[NAME_COLUMN] ?? 220,
+                    localColwidth[NAME_COLUMN] ?? settings.colwidth[NAME_COLUMN] ?? 220,
                     e,
                   )
                 }
@@ -173,7 +184,7 @@ export function TableView({
 
             {columns.map((col) => {
               const currentWidth =
-                localColwidth[col.fieldId] ?? viewConfig.colwidth[col.fieldId] ?? 160;
+                localColwidth[col.fieldId] ?? settings.colwidth[col.fieldId] ?? 160;
               return (
                 <th
                   key={col.fieldId}
@@ -185,7 +196,7 @@ export function TableView({
                     onClick={() => handleHeaderSortClick(col.fieldId)}
                   >
                     <span className="truncate">{col.label}</span>
-                    <SortIndicator sort={viewConfig.sort} fieldId={col.fieldId} />
+                    <SortIndicator sort={settings.sort} fieldId={col.fieldId} />
                   </div>
                   <ResizeHandle
                     onMouseDown={(e) => handleResizeStart(col.fieldId, currentWidth, e)}
@@ -260,7 +271,7 @@ const TableRow = memo(function TableRow({
   const chrome = resolveRowChrome({
     node: child,
     schema: context.schema,
-    viewConfig: getViewConfig(shown.props),
+    view: frameViewOf(shown.props).key,
     instanceKey: childKey,
     showDebugFields: rowDebug,
   });
@@ -322,7 +333,7 @@ const TableRow = memo(function TableRow({
   );
 });
 
-function SortIndicator({ sort, fieldId }: { sort: SortSpec[]; fieldId: string }) {
+function SortIndicator({ sort, fieldId }: { sort: readonly SortSpec[]; fieldId: string }) {
   const spec = sort.find((s) => s.fieldId === fieldId);
   if (!spec) return null;
   return (

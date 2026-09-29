@@ -1105,13 +1105,16 @@ a separate point that only points at it.
   the first route that matches, then renders that route's view through a
   `<ViewSlot>` at placement `page`. A path that no route owns is not found.
 - **`ViewHost`** is what a host guarantees a view. It is never a store and
-  never `ctx`. In R1 it carries only `placement`, and `Placement` is only
-  `page`, because every view today fills a page box. The rest of the host
-  contract (size, appearance, reduced motion, and the other placements)
-  arrives with its first consumer (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]).
-  Nesting is separate from placement, and it is already live: the ontology's
-  view embeds the graph and outline views, each in a page-placed slot inside
-  the shell's page slot. The slot owns the depth guard (promise 5).
+  never `ctx`. It carries only `placement`, which is `page` (the view fills
+  the box its host gives it: the shell's page, the graph's canvas) or
+  `inline` (the view sits in the outline's flow, under the row of the frame
+  it shows). The rest of the host contract (size, appearance, reduced motion,
+  and the other placements) arrives with its first consumer
+  (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]). Nesting is separate from placement,
+  and it is already live: the ontology's view embeds the graph and outline
+  views, each in a page-placed slot inside the shell's page slot, and the
+  outline shows each frame's children in an inline slot. The slot owns the
+  depth guard (promise 5).
 
 **Keys.** A `ViewKey<P>` is made once, by `viewKey("<namespace>.<local>", params)`,
 and is compared **by identity**, like `Service`, `Event` and `Point` keys. A
@@ -1152,7 +1155,7 @@ embedding another's view.
    it stays up.
 4. It adds no DOM of its own, so the box is exactly what the host gives it.
 5. It counts how many slots enclose it, through a React context that only
-   the slot writes, and past `MAX_VIEW_DEPTH` (4) it renders `fallback`
+   the slot writes, and past `MAX_VIEW_DEPTH` (8) it renders `fallback`
    instead of the view. A view that embeds itself, directly or through
    another view, therefore stops instead of recursing. The depth is the
    slot's to count. It is not part of `ViewHost`, because no view reads it.
@@ -1188,12 +1191,36 @@ id (`localIdOf`), which is how the stored name resolves to the key.
   renderer view outside a graph host says there is nothing to draw. The
   renderers' components load in their own chunk, fetched with the graph
   page's.
+- *Frame views.* A frame's children are shown by one of the outline's four
+  frame views, list, table, board and cards, each a view at placement
+  `inline` that the outline plugin provides. `sys.f.view.mode` names it, and
+  `frameViewOf` (`lib/view-config.ts`) decodes the frame's props through that
+  view's params, so the view gets exactly the settings it reads. Their keys
+  live in `lib/view-config.ts`, not in the plugin's `views.ts`, because the
+  row walk that keyboard navigation follows (`visible-instances`, run by the
+  store) must resolve a frame's view with no component and no kernel. A
+  `FrameViewKey` adds how the view lays rows out (`outline`, nested; `rows`;
+  `columns`) and how a picker names it (label, the toolbar's glyph, the node
+  menu's icon, its `sys.command` node). What `frameRows` does with the rows
+  follows from the params: every view filters, and a view sorts, groups its
+  columns by a field, or pages exactly when its params declare `sort`,
+  `groupFieldId` or `pagesize`. The frame a view shows (its id, instance key,
+  query rows and depth) is not config, so it travels in the host's
+  `FrameSubject` context. Every outline host (the outline's root, a projected
+  frame's row, a query's results) renders a frame view through
+  `FrameViewSlot`, with one exception that is the list's own: a row of the
+  list whose frame is also a list continues that list instead of embedding
+  the list view again, because a list nests as deep as the outline does,
+  bounded by the tree, while the slot's depth budget is for one view
+  embedding another.
 
 **The contract.** `src/view-contract.test.tsx` runs over every view that the
 built-in and optional UI plugins contribute. A new view joins it by being
-registered. For each view, in each placement it offers, the view must: be
-found by its key; have a `sample` that its key's `params` decodes; mount in a slot with its `sample` and show neither the
-fallback nor the slot's error; show the fallback while its owner is unloaded
+registered. For each view the view must: be found by its key; have a
+`sample` that its key's `params` decodes; mount in a slot with its `sample`,
+in each placement it offers, and show neither the fallback nor the slot's
+error (a family's view outside its host shows its own empty state: no graph,
+or no frame); show the fallback while its owner is unloaded
 and come back when the owner reloads; have a throw from a provider under its
 key contained by the slot; stop at `MAX_VIEW_DEPTH` when a provider under
 its key embeds that key again; and, once settled, leave nothing behind in its
@@ -1210,11 +1237,12 @@ questions. Each one can be overridden.
 1. *Name.* The concept is called **view** (`ViewPoint`, `ViewKey`,
    `ViewSlot`). "Lens" already means a graph perspective, and "embed" names
    the consumer's act, not the thing. The overlap with the outline's
-   `sys.f.view.*` prefix is accepted, because those modes are meant to become
-   views (GAP [[01M3EZRFJ9RYFJJ4MW322RQ28S]]).
-2. *Where built-in keys live.* In the owning plugin's `views.ts`, as above.
-   After a package split, a key moves into that package's small contract
-   module.
+   `sys.f.view.*` prefix is accepted: those modes are views now
+   (Families of views).
+2. *Where built-in keys live.* In the owning plugin's `views.ts`, as above,
+   except the outline's frame views, whose keys `lib` holds (Families of
+   views). After a package split, a key moves into that package's small
+   contract module.
 3. *Which nodes get embeds.* Per-node refs, tag-level inheritance, or a
    workspace default. This is **open**, and it belongs to A1 (view config as
    nodes).
@@ -1226,8 +1254,10 @@ questions. Each one can be overridden.
 
 **Not in R1.** A code caller's params are checked by `tsc`; nothing decodes
 them at the slot. The `sys.view.*` option node on a key arrives in A1,
-together with view config held as nodes. The outline's view modes are still
-a local union (GAP [[01M3EZRFJ9RYFJJ4MW322RQ28S]]). These points live in `@kb/ui`, not in
+together with view config held as nodes; until then a family's view config
+is the text and props it was before (`sys.f.view.*` on a frame, the
+`#graph-perspective` props), decoded through the chosen view's params. These
+points live in `@kb/ui`, not in
 `@kb/ui-sdk`; moving them is R2 (GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]).
 
 ### Optional UI plugins

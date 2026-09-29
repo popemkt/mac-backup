@@ -19,13 +19,35 @@ import { ViewToolbar } from "./view-toolbar";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { listFilterFieldOptions } from "./view-filter-fields";
 import {
+  OutlineBoardView,
+  OutlineCardsView,
+  OutlineListView,
   applyViewFilters,
   flattenBoardOrder,
+  frameViewOf,
   getViewConfig,
   groupChildrenForBoard,
   parseViewFilterEdn,
 } from "@/lib/view-config";
+import { paramsFrom } from "@/lib/plugins";
+import { Result } from "effect";
 import { collectVisibleInstances } from "@/lib/visible-instances";
+
+/** frame1's view as its host resolves it (`frameViewOf`): board or cards, with the settings it reads. */
+function columnsView() {
+  const { key, params } = frameViewOf(useOutlineStore.getState().nodes.get("frame1")?.props);
+  if (key === OutlineCardsView)
+    return {
+      key: OutlineCardsView,
+      params: Result.getOrThrow(paramsFrom(OutlineCardsView, params)),
+    };
+  if (key === OutlineBoardView)
+    return {
+      key: OutlineBoardView,
+      params: Result.getOrThrow(paramsFrom(OutlineBoardView, params)),
+    };
+  throw new Error(`frame1 is shown in ${key.id}, not in columns`);
+}
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
@@ -112,7 +134,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
 
   it("ViewToolbar exposes list/table/board/cards mode buttons", () => {
     const html = renderToStaticMarkup(
-      createElement(ViewToolbar, { frameId: "frame1", mode: "list" }),
+      createElement(ViewToolbar, { frameId: "frame1", view: OutlineListView }),
     );
     expect(html).toContain('data-mode-button="list"');
     expect(html).toContain('data-mode-button="table"');
@@ -150,6 +172,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
+        view: columnsView(),
         nodes: useOutlineStore.getState().nodes,
         context: fieldContextOf(useOutlineStore.getState()),
         widthPref: "full",
@@ -180,6 +203,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
+        view: columnsView(),
         nodes: useOutlineStore.getState().nodes,
         context: fieldContextOf(useOutlineStore.getState()),
       }),
@@ -191,7 +215,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   });
 
   it("cards mode renders ungrouped CSS grid (no board columns)", () => {
-    // Mode is read from the frame, not passed in: one source of truth.
+    // The view is the frame's own, resolved the way its host resolves it.
     const asCards = mockWire.map((n) =>
       n.id === "frame1"
         ? {
@@ -207,6 +231,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
+        view: columnsView(),
         nodes: useOutlineStore.getState().nodes,
         context: fieldContextOf(useOutlineStore.getState()),
       }),
@@ -256,6 +281,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
+        view: columnsView(),
         nodes: useOutlineStore.getState().nodes,
         context: fieldContextOf(useOutlineStore.getState()),
         rowIds: ["c1", "c2"],
@@ -267,12 +293,12 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     expect(html).toContain(`data-instance-key="${queryResultInstanceKey("frame1", "c2")}"`);
   });
 
-  it("setViewMode board/cards persists on frame", async () => {
-    await mutations.setViewMode("frame1", "board");
+  it("setFrameView board/cards persists on frame", async () => {
+    await mutations.setFrameView("frame1", OutlineBoardView);
     expect(useOutlineStore.getState().nodes.get("frame1")?.props[SYSTEM_IDS.viewModeField]).toEqual(
       [{ t: "str", v: "board" }],
     );
-    await mutations.setViewMode("frame1", "cards");
+    await mutations.setFrameView("frame1", OutlineCardsView);
     expect(useOutlineStore.getState().nodes.get("frame1")?.props[SYSTEM_IDS.viewModeField]).toEqual(
       [{ t: "str", v: "cards" }],
     );

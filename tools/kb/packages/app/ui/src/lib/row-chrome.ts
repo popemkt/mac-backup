@@ -17,7 +17,7 @@ import { resolveProps } from "@/lib/graph-view";
 import { isQueryResultInstance } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import type { OutlineNode } from "@/lib/types";
-import { isProjectedViewMode, type ViewConfig } from "@/lib/view-config";
+import { projectsRows, type FrameViewKey } from "@/lib/view-config";
 
 export interface RowChrome {
   /**
@@ -36,9 +36,9 @@ export interface RowChrome {
   hasFrameRows: boolean;
   /** What the bullet's toggle affordance promises. */
   isExpandable: boolean;
-  /** Tana model: list = no chrome; toolbar only when mode ≠ list AND expanded. */
+  /** Tana model: list = no chrome; toolbar only when the view is not the list AND expanded. */
   showToolbar: boolean;
-  /** The mode renders a flat projection, so rows are the projection's business. */
+  /** The view renders a flat projection, so rows are the projection's business. */
   projected: boolean;
   /** Whether this row offers the whitespace-create strip under its children. */
   showsCreateChild: boolean;
@@ -60,8 +60,8 @@ export interface RowChromeInput {
   node: OutlineNode;
   /** Where field definitions are read from: the whole graph (`lib/schema.ts`). */
   schema: SchemaIndex;
-  /** The view of the node the row shows. */
-  viewConfig: ViewConfig;
+  /** The view the children of the node the row shows are shown in. */
+  view: FrameViewKey;
   /**
    * This render instance. Whether the row is a query result
    * (`isQueryResultInstance`) and whether it repeats a row above it
@@ -79,7 +79,7 @@ export interface RowChromeInput {
 export function resolveRowChrome({
   node,
   schema,
-  viewConfig,
+  view,
   instanceKey,
   showDebugFields,
 }: RowChromeInput): RowChrome {
@@ -96,7 +96,7 @@ export function resolveRowChrome({
   const hasFrameRows = showsChildren || showsQueryResults;
   const hasFields = resolveProps(shown, schema, { showDebugFields }).length > 0;
   const isExpandable = hasFrameRows || hasFields;
-  const projected = isProjectedViewMode(viewConfig.mode);
+  const projected = projectsRows(view);
 
   return {
     bulletIsRef: isReferenceRow(node, isQueryResult),
@@ -105,7 +105,7 @@ export function resolveRowChrome({
     showsChildren,
     hasFrameRows,
     isExpandable,
-    showToolbar: hasFrameRows && !node.collapsed && viewConfig.mode !== "list",
+    showToolbar: hasFrameRows && !node.collapsed && projected,
     projected,
     showsCreateChild: !isQueryResult && !projected,
     showsChildContainer: isExpandable && !node.collapsed,

@@ -6,10 +6,13 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { syncUiPlugins } from "@/lib/plugins";
+import { outlineUiPlugin } from "./plugin";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
 import { useOutlineStore } from "@/stores/outline.store";
+import { OutlineTableView } from "@/lib/view-config";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
 
@@ -26,6 +29,8 @@ describe("frame row parity (render vs nav)", () => {
   let root: Root;
 
   beforeAll(() => {
+    // A frame's children are shown by the views the outline plugin provides.
+    syncUiPlugins([outlineUiPlugin]);
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
     g.window = dom;
@@ -35,6 +40,10 @@ describe("frame row parity (render vs nav)", () => {
     g.MouseEvent = dom.MouseEvent;
     g.Node = dom.Node;
     g.CSS = { escape: (s: string) => s };
+  });
+
+  afterAll(() => {
+    syncUiPlugins([]);
   });
 
   beforeEach(() => {
@@ -54,7 +63,7 @@ describe("frame row parity (render vs nav)", () => {
     useOutlineStore.getState().zoomTo("n.root-a");
     useOutlineStore.getState().toggleCollapse("n.root-a");
 
-    await mutations.setViewMode("n.root-a", "table");
+    await mutations.setFrameView("n.root-a", OutlineTableView);
     await mutations.setViewPagesize("n.root-a", 1);
 
     await act(async () => {

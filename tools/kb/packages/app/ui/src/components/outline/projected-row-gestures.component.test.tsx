@@ -14,6 +14,9 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { fieldContextOf } from "@/lib/schema";
 import { SYSTEM_IDS } from "@/lib/types";
+import { OutlineCardsView, OutlineTableView, getViewConfig } from "@/lib/view-config";
+import { paramsFrom } from "@/lib/plugins";
+import { Result } from "effect";
 import { useOutlineStore } from "@/stores/outline.store";
 import { installDomGlobals } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -21,6 +24,12 @@ import { BoardCardsView } from "./board-cards-view";
 import { TableView } from "./table-view";
 
 const RESULTS = ["n.root-b", "n.root-c"];
+
+/** What the view named `key` reads of n.root-a's config, decoded the way its host decodes it. */
+function settingsOf<P>(key: Parameters<typeof paramsFrom<P>>[0]): P {
+  const props = useOutlineStore.getState().nodes.get("n.root-a")?.props;
+  return Result.getOrThrow(paramsFrom(key, getViewConfig(props)));
+}
 
 describe("projected query-result rows behave like owned rows", () => {
   let dom: Window;
@@ -68,6 +77,7 @@ describe("projected query-result rows behave like owned rows", () => {
       root.render(
         <TableView
           frameId="n.root-a"
+          settings={settingsOf(OutlineTableView)}
           rowIds={RESULTS}
           isQuerySource
           context={fieldContextOf(useOutlineStore.getState())}
@@ -114,6 +124,7 @@ describe("projected query-result rows behave like owned rows", () => {
       root.render(
         <BoardCardsView
           frameId="n.root-a"
+          view={{ key: OutlineCardsView, params: settingsOf(OutlineCardsView) }}
           rowIds={RESULTS}
           isQuerySource
           context={fieldContextOf(useOutlineStore.getState())}

@@ -1,20 +1,22 @@
 /**
  * A projected view under an ontology scope reads its schema from the whole
  * graph. The field, its options and the tag are not members; the frame and its
- * row are. Rendered through FrameChildrenView, the way the outline renders a
+ * row are. Rendered through FrameViewSlot, the way the outline renders a
  * table or board frame, with nothing handed in but the frame id — so every
  * schema read goes through the store's `schemaOf`, as in production.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { FrameChildrenView } from "./frame-children-view";
+import { syncUiPlugins } from "@/lib/plugins";
+import { FrameViewSlot } from "./frame-view-slot";
+import { outlineUiPlugin } from "./plugin";
 
 const ISO = "2026-09-26T00:00:00.000Z";
 const TAG = "t.svc";
@@ -99,6 +101,12 @@ describe("a projected view under an ontology scope", () => {
     g.FocusEvent = dom.FocusEvent;
     g.Node = dom.Node;
     g.CSS = { escape: (s: string) => s };
+    // The slot draws the frame's view from the ones the outline plugin provides.
+    syncUiPlugins([outlineUiPlugin]);
+  });
+
+  afterAll(() => {
+    syncUiPlugins([]);
   });
 
   beforeEach(() => {
@@ -122,7 +130,7 @@ describe("a projected view under an ontology scope", () => {
     expect(scoped.nodes.has("opt.done")).toBe(false);
     expect(scoped.nodes.has("frame")).toBe(true);
     await act(async () => {
-      root.render(<FrameChildrenView frameId="frame" />);
+      root.render(<FrameViewSlot frameId="frame" depth={0} />);
     });
   }
 

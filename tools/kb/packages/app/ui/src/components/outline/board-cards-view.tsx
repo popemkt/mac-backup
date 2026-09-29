@@ -13,10 +13,11 @@ import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
 import {
   EMPTY_GROUP_KEY,
-  getViewConfig,
+  OutlineBoardView,
+  OutlineCardsView,
   resolveTableColumns,
-  type ViewMode,
 } from "@/lib/view-config";
+import { localIdOf, type ParamsOf } from "@/lib/plugins";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
@@ -30,20 +31,32 @@ import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
 import { useNodeKeyDown } from "./use-node-keydown";
 
+/**
+ * The two column views over one component: the board groups its cards into a
+ * column per value of the field its params name, the cards view shows them
+ * all in one grid.
+ */
+type ColumnsView =
+  | { readonly key: typeof OutlineBoardView; readonly params: ParamsOf<typeof OutlineBoardView> }
+  | { readonly key: typeof OutlineCardsView; readonly params: ParamsOf<typeof OutlineCardsView> };
+
 interface BoardCardsViewProps {
   frameId: string;
-  frameInstanceKey?: string;
+  /** Which of the two views, with the settings it reads (`frameViewOf`). */
+  view: ColumnsView;
+  frameInstanceKey?: string | undefined;
   nodes?: NodeMap;
   /** What field values resolve against (`fieldContextOf`); the store's by default. */
   context?: FieldContext;
   /** Query-result row ids (overrides frame children). */
-  rowIds?: string[];
+  rowIds?: readonly string[] | undefined;
   isQuerySource?: boolean;
   widthPref?: "centered" | "full";
 }
 
 export function BoardCardsView({
   frameId,
+  view,
   frameInstanceKey,
   nodes: nodesProp,
   context: contextProp,
@@ -66,8 +79,6 @@ export function BoardCardsView({
 
   const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes);
 
-  const viewConfig = useMemo(() => getViewConfig(frameNode?.props), [frameNode?.props]);
-
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
   const storeContext = useOutlineStore(fieldContextOf);
@@ -77,17 +88,17 @@ export function BoardCardsView({
   // Grouping and order come from the shared owner: board columns and the flat
   // nav order are two views of one computation.
   const rows = useMemo(
-    () => frameRows({ frameId, nodes, schema, rowIds }),
-    [frameId, nodes, schema, rowIds],
+    () => frameRows({ frameId, nodes, schema, view, rowIds }),
+    [frameId, nodes, schema, view, rowIds],
   );
   const sorted = rows.ordered;
   const columns = rows.columns;
   const groupFieldId = rows.groupFieldId;
-  const mode = rows.mode;
+  const mode = localIdOf(view.key);
 
   const displayCols = useMemo(
-    () => resolveTableColumns(viewConfig, sorted, schema, debugColumns),
-    [viewConfig, sorted, schema, debugColumns],
+    () => resolveTableColumns(view.params, sorted, schema, debugColumns),
+    [view.params, sorted, schema, debugColumns],
   );
 
   const instanceKeyFor = useCallback(
@@ -123,11 +134,8 @@ export function BoardCardsView({
   );
 
   if (!frameNode && !rowIds) return null;
-  // The frame's stored view config is the only source of mode; a frame that is
-  // not board/cards is FrameChildrenView's business, not ours.
-  if (!isBoardOrCards(mode)) return null;
 
-  if (mode === "board" && groupFieldId === null) {
+  if (view.key === OutlineBoardView && groupFieldId === null) {
     return (
       <div
         className="board-cards-view my-2 rounded-md border border-dashed border-foreground/15 px-3 py-4 text-ui text-foreground/45"
@@ -143,7 +151,7 @@ export function BoardCardsView({
           type="button"
           className="mt-2 rounded-md bg-foreground/[0.06] px-2 py-1 text-meta font-medium text-foreground/70 hover:bg-foreground/[0.1]"
           data-switch-to-cards="true"
-          onClick={() => void mutations.setViewMode(frameId, "cards")}
+          onClick={() => void mutations.setFrameView(frameId, OutlineCardsView)}
         >
           Switch to cards
         </button>
@@ -151,13 +159,13 @@ export function BoardCardsView({
     );
   }
 
-  const breakout = mode === "board" && widthPref === "centered";
+  const breakout = view.key === OutlineBoardView && widthPref === "centered";
 
   return (
     <div
       className={cn(
         "board-cards-view my-2",
-        mode === "board" && "overflow-x-auto",
+        view.key === OutlineBoardView && "overflow-x-auto",
         breakout && "table-view-breakout",
       )}
       data-board-cards-view="true"
@@ -165,7 +173,7 @@ export function BoardCardsView({
       data-frame-id={frameId}
       data-breakout={breakout ? "centered" : undefined}
     >
-      {mode === "cards" ? (
+      {view.key === OutlineCardsView ? (
         <div
           className="grid gap-2"
           style={{
@@ -340,8 +348,3 @@ const ViewCard = memo(function ViewCard({
     </div>
   );
 });
-
-/** Helper for callers that only have a ViewMode. */
-function isBoardOrCards(mode: ViewMode): mode is "board" | "cards" {
-  return mode === "board" || mode === "cards";
-}

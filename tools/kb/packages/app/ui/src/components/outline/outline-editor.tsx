@@ -1,15 +1,11 @@
 import { useCallback, useEffect } from "react";
-import { outlineInstanceKey } from "@/lib/instance-key";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
-import { frameListChildren } from "@/lib/frame-rows";
-import { getViewConfig, isProjectedViewMode } from "@/lib/view-config";
-import { schemaOf } from "@/lib/schema";
+import { frameViewOf, projectsRows } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";
 import { Breadcrumbs } from "./breadcrumbs";
-import { FrameChildrenView } from "./frame-children-view";
-import { NodeBlock } from "./node-block";
+import { FrameViewSlot } from "./frame-view-slot";
 import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
@@ -25,8 +21,6 @@ import { useSelectionKeymap } from "./use-selection-keymap";
 export function OutlineEditor() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const root = useOutlineStore((s) => s.nodes.get(s.rootNodeId));
-  const nodes = useOutlineStore((s) => s.nodes);
-  const schema = useOutlineStore(schemaOf);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
   const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
   useSelectionKeymap();
@@ -57,18 +51,10 @@ export function OutlineEditor() {
     );
   }
 
-  // The root is a frame like any other: its rows come from the shared owner,
-  // whether it is the workspace root or a zoomed-in node.
-  const projected = isProjectedViewMode(getViewConfig(root.props).mode);
-  const listKids = projected ? [] : frameListChildren(rootNodeId, nodes, schema);
-  const rootRows = projected ? (
-    <FrameChildrenView frameId={rootNodeId} />
-  ) : (
-    listKids.map((child) => {
-      const key = outlineInstanceKey(child.id, nodes);
-      return <NodeBlock key={key} nodeId={child.id} instanceKey={key} depth={0} />;
-    })
-  );
+  // The root is a frame like any other: its view shows its rows, whether it is
+  // the workspace root or a zoomed-in node.
+  const projected = projectsRows(frameViewOf(root.props).key);
+  const rootRows = <FrameViewSlot frameId={rootNodeId} depth={0} />;
 
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
     return (

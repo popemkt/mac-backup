@@ -34,10 +34,12 @@ import { usePath } from "@/lib/router";
 import { toast } from "@/lib/toast";
 
 /**
- * Where a host renders a view. Only `page` exists while every view fills a
- * page box: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
+ * Where a host renders a view: `page` fills the box the host gives it (the
+ * shell's page, the graph's canvas); `inline` sits in the outline's flow,
+ * under the row of the frame it shows. The rest of the placements wait on
+ * their first host: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
  */
-export type Placement = "page";
+export type Placement = "page" | "inline";
 
 /**
  * A view's name and the params it renders from. Made once by the plugin that

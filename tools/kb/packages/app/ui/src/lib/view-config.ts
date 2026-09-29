@@ -1,5 +1,12 @@
 import type { SchemaIndex } from "@/lib/schema";
-import { Schema } from "effect";
+import { Result, Schema } from "effect";
+import {
+  ListBulletsIcon,
+  SquaresFourIcon,
+  TableIcon,
+  type Icon,
+  type IconWeight,
+} from "@phosphor-icons/react";
 import {
   decodeNodeConfig,
   firstStr,
@@ -11,10 +18,9 @@ import {
 import type { OutlineNode, PropValue } from "./types";
 import { isSysPrefixed, SYSTEM_IDS } from "./types";
 import { logWarn } from "@/lib/log";
+import { localIdOf, paramsFrom, viewKey, type ViewKey } from "@/lib/plugins";
 import { textOr } from "@/lib/text";
 
-// GAP [[01M3EZRFJ9RYFJJ4MW322RQ28S]] — each mode should be a ViewPoint view, not a local union
-export type ViewMode = "list" | "table" | "board" | "cards";
 export type SortDir = "asc" | "desc";
 
 export interface SortSpec {
@@ -27,8 +33,14 @@ export type ViewFilter =
   | { kind: "eq"; fieldId: string; value: string; raw: string }
   | { kind: "text"; text: string; raw: string };
 
+/**
+ * Everything a frame's `sys.f.view.*` props say, decoded: which view shows its
+ * children (`mode`, that view's name, see {@link frameViewNamed}) and every
+ * setting any frame view reads. A view reads only the ones its params declare
+ * ({@link frameViewOf}).
+ */
 export interface ViewConfig {
-  mode: ViewMode;
+  mode: string;
   sort: SortSpec[];
   display: string[];
   colwidth: Record<string, number>;
@@ -47,8 +59,6 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   groupFieldId: null,
   filters: [],
 };
-
-const VIEW_MODES: readonly ViewMode[] = ["list", "table", "board", "cards"];
 
 /** Serialize a filter back to the EDN string stored on the frame. */
 export function serializeViewFilter(filter: Exclude<ViewFilter, never> & { raw?: string }): string {
@@ -128,7 +138,7 @@ function matchesFilter(node: OutlineNode, filter: ViewFilter, schema: SchemaInde
 /** Apply view filters (AND). Empty filters = identity. */
 export function applyViewFilters(
   children: OutlineNode[],
-  filters: ViewFilter[],
+  filters: readonly ViewFilter[],
   schema: SchemaIndex,
 ): OutlineNode[] {
   if (filters.length === 0) return children;
@@ -257,11 +267,162 @@ const filterValues = (props: NodeProps): unknown[] | undefined =>
     return parseViewFilterEdn(value.v) ?? value.v;
   });
 
+/**
+ * The outline's frame views: the four ways a frame shows its children, each a
+ * view in `ViewPoint` that the outline plugin provides. Their keys live here,
+ * beside the settings they are made of, because the row walk that keyboard
+ * navigation follows (`visible-instances`, run by the store) must know a
+ * frame's view without a component or the kernel.
+ */
+
+/** The outline plugin's namespace: its page's key and its frame views' keys. */
+export const OUTLINE_NAMESPACE = "outline";
+
+/**
+ * Each setting a frame view may read, with its schema — built from the same
+ * element schemas the slots below validate the stored props with. A frame
+ * view's params are made of these, so a view declares the settings it reads
+ * by naming them here.
+ */
+const FRAME_SETTINGS = {
+  filters: Schema.Array(ViewFilterSchema),
+  sort: Schema.Array(SortSpecSchema),
+  display: Schema.Array(Schema.NonEmptyString),
+  colwidth: WidthsSchema,
+  pagesize: PositiveSchema,
+  groupFieldId: Schema.NullOr(Schema.NonEmptyString),
+};
+
+/** The settings any frame view's params may carry; filters are every view's. */
+export interface FrameViewParams {
+  readonly filters: readonly ViewFilter[];
+  readonly sort?: readonly SortSpec[];
+  readonly display?: readonly string[];
+  readonly colwidth?: Readonly<Record<string, number>>;
+  readonly pagesize?: number;
+  readonly groupFieldId?: string | null;
+}
+
+/**
+ * How a frame view lays out the frame's rows, which is what the navigation
+ * walk follows too. `outline` nests: each row hosts its own children in turn.
+ * `rows` is one flat run, and `columns` groups flat rows into columns.
+ */
+type FrameRowLayout = "outline" | "rows" | "columns";
+
+/**
+ * A frame view's key. What its rows do follows from its params: it sorts when
+ * it declares `sort`, pages when it declares `pagesize`, and groups its columns
+ * by a field when it declares `groupFieldId`. The rest is how a picker names
+ * it: the toolbar's glyph, the node menu's icon, and its `sys.command` node.
+ */
+export interface FrameViewKey<P extends FrameViewParams = FrameViewParams> extends ViewKey<P> {
+  readonly rows: FrameRowLayout;
+  readonly label: string;
+  readonly glyph: string;
+  readonly icon: Icon;
+  readonly iconWeight: IconWeight;
+  readonly command: string;
+}
+
+function frameView<P extends FrameViewParams>(
+  name: string,
+  params: Schema.Decoder<P>,
+  traits: Omit<FrameViewKey<P>, keyof ViewKey<P>>,
+): FrameViewKey<P> {
+  return { ...viewKey(`${OUTLINE_NAMESPACE}.${name}`, params), ...traits };
+}
+
+export const OutlineListView = frameView(
+  "list",
+  Schema.Struct({ filters: FRAME_SETTINGS.filters }),
+  {
+    rows: "outline",
+    label: "List",
+    glyph: "≡",
+    icon: ListBulletsIcon,
+    iconWeight: "regular",
+    command: SYSTEM_IDS.cmdViewAsList,
+  },
+);
+
+export const OutlineTableView = frameView(
+  "table",
+  Schema.Struct({
+    filters: FRAME_SETTINGS.filters,
+    sort: FRAME_SETTINGS.sort,
+    display: FRAME_SETTINGS.display,
+    colwidth: FRAME_SETTINGS.colwidth,
+    pagesize: FRAME_SETTINGS.pagesize,
+  }),
+  {
+    rows: "rows",
+    label: "Table",
+    glyph: "⊞",
+    icon: TableIcon,
+    iconWeight: "regular",
+    command: SYSTEM_IDS.cmdViewAsTable,
+  },
+);
+
+export const OutlineBoardView = frameView(
+  "board",
+  Schema.Struct({
+    filters: FRAME_SETTINGS.filters,
+    sort: FRAME_SETTINGS.sort,
+    display: FRAME_SETTINGS.display,
+    groupFieldId: FRAME_SETTINGS.groupFieldId,
+  }),
+  {
+    rows: "columns",
+    label: "Board",
+    glyph: "▥",
+    icon: SquaresFourIcon,
+    iconWeight: "regular",
+    command: SYSTEM_IDS.cmdViewAsBoard,
+  },
+);
+
+export const OutlineCardsView = frameView(
+  "cards",
+  Schema.Struct({
+    filters: FRAME_SETTINGS.filters,
+    sort: FRAME_SETTINGS.sort,
+    display: FRAME_SETTINGS.display,
+  }),
+  {
+    rows: "columns",
+    label: "Cards",
+    glyph: "▦",
+    icon: SquaresFourIcon,
+    iconWeight: "duotone",
+    command: SYSTEM_IDS.cmdViewAsCards,
+  },
+);
+
+/** Every frame view, in the order the toolbar and the node menu offer them. */
+export const FRAME_VIEWS: readonly FrameViewKey[] = [
+  OutlineListView,
+  OutlineTableView,
+  OutlineBoardView,
+  OutlineCardsView,
+];
+
+/** The frame view `sys.f.view.mode` names: its key's local id. Anything else is the list. */
+function frameViewNamed(name: string): FrameViewKey {
+  return FRAME_VIEWS.find((view) => localIdOf(view) === name) ?? OutlineListView;
+}
+
+/** Whether a view projects the frame's rows flat, instead of nesting them as the outline does. */
+export function projectsRows(view: FrameViewKey): boolean {
+  return view.rows !== "outline";
+}
+
 const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
   mode: oneOf({
     fields: [SYSTEM_IDS.viewModeField],
     read: firstStr(SYSTEM_IDS.viewModeField),
-    schema: Schema.Literals(VIEW_MODES),
+    schema: Schema.Literals(FRAME_VIEWS.map(localIdOf)),
     fallback: DEFAULT_VIEW_CONFIG.mode,
   }),
   sort: manyOf<SortSpec>({
@@ -325,6 +486,27 @@ export function getViewConfig(props?: Record<string, PropValue[]>): ViewConfig {
     groupFieldId: slot("groupFieldId"),
     filters: slot("filters"),
   };
+}
+
+/** A frame's view, resolved: which one, and the settings it renders from. */
+export interface FrameView {
+  readonly key: FrameViewKey;
+  readonly params: FrameViewParams;
+}
+
+/**
+ * The view a frame shows its children in, read off its props: the view its
+ * `sys.f.view.mode` names, with the frame's config decoded through that
+ * view's params, so it carries exactly the settings the view reads.
+ */
+export function frameViewOf(props?: Record<string, PropValue[]>): FrameView {
+  const config = getViewConfig(props);
+  const key = frameViewNamed(config.mode);
+  const params = paramsFrom(key, config);
+  if (Result.isSuccess(params)) return { key, params: params.success };
+  // Unreachable while every setting is decoded by the schema the params are made of.
+  logWarn(`[view-config] ${key.id} cannot read this frame: ${params.failure}`);
+  return { key: OutlineListView, params: { filters: config.filters } };
 }
 
 export interface TableColumnSpec {
@@ -402,7 +584,7 @@ function mergeColumns(
 }
 
 export function resolveTableColumns(
-  viewConfig: ViewConfig,
+  viewConfig: { readonly display: readonly string[] },
   children: OutlineNode[],
   schema: SchemaIndex,
   showDebugColumns = false,
@@ -503,7 +685,7 @@ function composeComparators(comparators: readonly RowComparator[]): RowComparato
 
 export function sortChildrenForTable(
   children: OutlineNode[],
-  sortSpecs: SortSpec[],
+  sortSpecs: readonly SortSpec[],
   schema: SchemaIndex,
 ): OutlineNode[] {
   if (sortSpecs.length === 0) return children;
@@ -586,9 +768,4 @@ export function flattenBoardOrder(columns: BoardColumn[]): OutlineNode[] {
     out.push(...col.nodes);
   }
   return out;
-}
-
-/** True when mode renders a flat projected view (not nested list). */
-export function isProjectedViewMode(mode: ViewMode): boolean {
-  return mode === "table" || mode === "board" || mode === "cards";
 }

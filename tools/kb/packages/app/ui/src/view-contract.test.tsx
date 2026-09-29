@@ -3,7 +3,8 @@
  * every view the built-in and optional UI plugins contribute. A view joins
  * by being registered; a promise one view breaks turns this suite red.
  *
- * R1 checks what a page-placed view must keep: it is found by its key, its
+ * It checks what a view must keep in each placement it offers (a view that
+ * offers one is mounted there): it is found by its key, its
  * sample is a legal value of the settings its key declares, it
  * mounts in a slot, the slot falls back while its owner is unloaded and
  * brings it back on reload, a throw under its key stays inside the slot, a
@@ -17,7 +18,14 @@ import { Effect, Result, Schema } from "effect";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { definePlugin, makeKernel, type Plugin } from "@kb/plugin";
 import { MAX_VIEW_DEPTH, ViewSlot } from "@/components/ui/view-slot";
-import { ViewPoint, findView, provideView, syncUiPlugins, type ProvidedView } from "@/lib/plugins";
+import {
+  ViewPoint,
+  findView,
+  provideView,
+  syncUiPlugins,
+  type Placement,
+  type ProvidedView,
+} from "@/lib/plugins";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS } from "@/ui-plugins";
 
@@ -55,7 +63,7 @@ function selfEmbeddingStandIn(owner: string, view: ProvidedView): Plugin {
       <ViewSlot
         view={view.key}
         params={view.sample}
-        placement="page"
+        placement={firstPlacement(view)}
         fallback={<p data-contract-depth-stop="true">stop</p>}
       />
     </div>
@@ -66,6 +74,13 @@ function selfEmbeddingStandIn(owner: string, view: ProvidedView): Plugin {
     apply: (ctx) =>
       ctx.contribute(ViewPoint, provideView(view.key, { ...view, Component: Embeds })),
   });
+}
+
+/** Where a property that holds whatever the placement is checks a view: the first it offers. */
+function firstPlacement(view: ProvidedView): Placement {
+  const [placement] = view.placements;
+  if (placement === undefined) throw new Error(`${view.key.id} offers no placement`);
+  return placement;
 }
 
 const FALLBACK = <p data-contract-fallback="true">fallback</p>;
@@ -107,11 +122,16 @@ describe("view contract", () => {
   });
 
   /** A host that stays up whatever its slot does, and the slot inside it. */
-  function mount(view: ProvidedView): void {
+  function mount(view: ProvidedView, placement: Placement = firstPlacement(view)): void {
     const host: ReactElement = (
       <section data-contract-host="true">
         <Suspense fallback={SUSPENDED}>
-          <ViewSlot view={view.key} params={view.sample} placement="page" fallback={FALLBACK} />
+          <ViewSlot
+            view={view.key}
+            params={view.sample}
+            placement={placement}
+            fallback={FALLBACK}
+          />
         </Suspense>
       </section>
     );
@@ -159,8 +179,8 @@ describe("view contract", () => {
 
       it.each(view.placements)(
         "mounts in a slot at %s, without the fallback or a crash",
-        async () => {
-          mount(view);
+        async (placement) => {
+          mount(view, placement);
           await settle();
           expectViewShown();
         },

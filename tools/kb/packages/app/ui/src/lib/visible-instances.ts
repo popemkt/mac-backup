@@ -2,8 +2,8 @@
  * Render-order visible outline instances (tree + query-result rows).
  *
  * Row order is not decided here — every frame's rows come from
- * {@link frameRows} / {@link frameListChildren}, the same functions the
- * renderers call. This walk only assigns instance keys and recurses.
+ * {@link frameRows}, the function the renderers call, as each frame's view
+ * ({@link frameViewOf}) lays them out. This walk only assigns instance keys and recurses.
  */
 import type { SchemaIndex } from "@/lib/schema";
 import type { KbIndex } from "@/ds";
@@ -14,10 +14,10 @@ import {
   outlineInstanceKey,
   queryResultInstanceKey,
 } from "@/lib/instance-key";
-import { frameListChildren, frameRows } from "@/lib/frame-rows";
+import { frameRows } from "@/lib/frame-rows";
 import { isQueryNode, queryDefOf, resultNodeIds } from "@/lib/query-node";
 import type { NodeMap } from "@/lib/types";
-import { getViewConfig, isProjectedViewMode } from "@/lib/view-config";
+import { frameViewOf, projectsRows, type FrameView } from "@/lib/view-config";
 import { hasText } from "@/lib/text";
 import { shownNode, showsAncestor } from "@/lib/contextual-ref";
 
@@ -42,6 +42,7 @@ interface WalkContext {
 function emitProjectedRows(
   ctx: WalkContext,
   frameId: string,
+  view: FrameView,
   rowIds: string[] | undefined,
   keyFor: (nodeId: string) => string,
 ): void {
@@ -50,6 +51,7 @@ function emitProjectedRows(
     frameId,
     nodes,
     schema,
+    view,
     rowIds,
     pages: pages[frameId],
   });
@@ -69,8 +71,8 @@ function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: str
   const frame = shownNode(node, schema);
   const frameId = frame.id;
 
-  const viewConfig = getViewConfig(frame.props);
-  const projected = isProjectedViewMode(viewConfig.mode);
+  const view = frameViewOf(frame.props);
+  const projected = projectsRows(view.key);
 
   // Query results — list walks refs; projected modes emit flat result rows. A
   // result row does not re-run its own query (`resolveRowChrome` agrees).
@@ -85,7 +87,7 @@ function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: str
         });
 
         if (projected) {
-          emitProjectedRows(ctx, frameId, ids, (id) => queryResultInstanceKey(frameId, id));
+          emitProjectedRows(ctx, frameId, view, ids, (id) => queryResultInstanceKey(frameId, id));
           return;
         }
 
@@ -101,11 +103,11 @@ function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: str
 
   if (projected) {
     if (isQueryNode(frame)) return;
-    emitProjectedRows(ctx, frameId, undefined, (id) => childInstanceKey(instanceKey, id));
+    emitProjectedRows(ctx, frameId, view, undefined, (id) => childInstanceKey(instanceKey, id));
     return;
   }
 
-  for (const child of frameListChildren(frameId, nodes, schema)) {
+  for (const child of frameRows({ frameId, nodes, schema, view }).rendered) {
     walkVisibleInstances(ctx, child.id, childInstanceKey(instanceKey, child.id));
   }
 }
@@ -122,12 +124,13 @@ export function collectVisibleInstances(
   if (!root) return out;
   const ctx: WalkContext = { nodes, schema, queryDb, pages, out };
 
-  if (isProjectedViewMode(getViewConfig(root.props).mode)) {
-    emitProjectedRows(ctx, rootNodeId, undefined, (id) => outlineInstanceKey(id, nodes));
+  const view = frameViewOf(root.props);
+  if (projectsRows(view.key)) {
+    emitProjectedRows(ctx, rootNodeId, view, undefined, (id) => outlineInstanceKey(id, nodes));
     return out;
   }
 
-  for (const child of frameListChildren(rootNodeId, nodes, schema)) {
+  for (const child of frameRows({ frameId: rootNodeId, nodes, schema, view }).rendered) {
     walkVisibleInstances(ctx, child.id, outlineInstanceKey(child.id, nodes));
   }
   return out;

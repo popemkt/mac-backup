@@ -6,7 +6,7 @@ import { schemaOf } from "@/lib/schema";
 import type { OutlineNode } from "@/lib/types";
 import { isSysPrefixed } from "@/lib/types";
 import { nodeTagColors, tagColorAlpha } from "@/lib/tag-color";
-import { getViewConfig } from "@/lib/view-config";
+import { frameViewOf, projectsRows } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FieldsSection } from "./fields-section";
 import { TagChipGroup } from "./tag-chip";
@@ -135,7 +135,8 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
   // Ambient wash, not an identity readout: one color is enough, but which
   // color and how it weakens both come from the tag-color owner.
   const washColor = nodeTagColors(node)[0] ?? null;
-  const viewConfig = getViewConfig(node.props);
+  const view = frameViewOf(node.props).key;
+  const isList = !projectsRows(view);
 
   return (
     <div
@@ -163,16 +164,12 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
           <span
             className={cn(
               "shrink-0 transition-opacity duration-100",
-              viewConfig.mode === "list" &&
+              isList &&
                 "opacity-0 focus-within:opacity-100 group-hover/header:opacity-100 has-[[data-view-toolbar]]:opacity-100",
             )}
             data-view-control="true"
           >
-            <ViewToolbar
-              frameId={node.id}
-              mode={viewConfig.mode}
-              tucked={viewConfig.mode === "list"}
-            />
+            <ViewToolbar frameId={node.id} view={view} tucked={isList} />
           </span>
         </div>
 

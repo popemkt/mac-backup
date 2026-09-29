@@ -1,18 +1,18 @@
 /**
  * Live results under an expanded query node (DESIGN-REFINE §2 W4).
- * List mode → NodeBlock refs. Table/board/cards → shared FrameChildrenView
- * with query-result instance keys (W7.1 / W8e).
+ * The list view → NodeBlock refs, continuing the list. Any other view → the
+ * frame's view in a slot, over the results, with query-result instance keys
+ * (W7.1 / W8e).
  */
 import type { ReactNode } from "react";
 import { indentStyle } from "@/lib/indent";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { queryDefOf, resultNodeIds } from "@/lib/query-node";
 import { useQueryNodeRows } from "@/lib/use-query-node-rows";
-import type { ViewMode } from "@/lib/view-config";
-import { isProjectedViewMode } from "@/lib/view-config";
+import { OutlineListView, projectsRows, type FrameViewKey } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
-import { FrameChildrenView } from "./frame-children-view";
+import { FrameViewSlot } from "./frame-view-slot";
 import { hasText } from "@/lib/text";
 
 interface QueryResultItem {
@@ -24,7 +24,8 @@ interface QueryResultItem {
 interface QueryResultsSectionProps {
   nodeId: string;
   depth: number;
-  viewMode?: ViewMode;
+  /** The view the query node shows its results in. */
+  view?: FrameViewKey;
   frameInstanceKey?: string;
   /** How to render one result node. Inverted from QueryResultsSection so the
    * recursive node <-> query-results pair is not a static import cycle. */
@@ -34,7 +35,7 @@ interface QueryResultsSectionProps {
 export function QueryResultsSection({
   nodeId,
   depth,
-  viewMode = "list",
+  view = OutlineListView,
   frameInstanceKey,
   renderNode,
 }: QueryResultsSectionProps) {
@@ -86,17 +87,18 @@ export function QueryResultsSection({
     );
   }
 
-  if (isProjectedViewMode(viewMode)) {
+  if (projectsRows(view)) {
     return (
       <div className="query-results" data-query-results-for={nodeId} style={indent}>
         {ids.length === 0 ? (
           <p className="px-1 py-0.5 text-meta text-foreground/50">No results yet</p>
         ) : (
-          <FrameChildrenView
+          <FrameViewSlot
             frameId={nodeId}
-            frameInstanceKey={frameInstanceKey}
+            instanceKey={frameInstanceKey}
             rowIds={ids}
             isQuerySource
+            depth={depth + 1}
           />
         )}
       </div>

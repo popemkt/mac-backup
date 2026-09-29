@@ -6,8 +6,11 @@ import { useView, type Placement, type ViewHost, type ViewKey } from "@/lib/plug
  * How many slots may nest. A view embeds others by key, and any of them may
  * embed it back (the ontology embeds the graph and the outline), so a cycle
  * is always one registration away; past this depth a slot shows its fallback.
+ * The deepest chain a view legitimately makes today is five: the shell's page,
+ * an ontology, its outline, the root frame's view, and a frame view nested in
+ * that list.
  */
-export const MAX_VIEW_DEPTH = 4;
+export const MAX_VIEW_DEPTH = 8;
 
 /** How many slots enclose this point of the tree; only `ViewSlot` writes it. */
 const ViewDepth = createContext(0);

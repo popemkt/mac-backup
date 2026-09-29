@@ -28,12 +28,9 @@ import {
   EyeSlashIcon,
   HashIcon,
   LinkSimpleIcon,
-  ListBulletsIcon,
   MagnifyingGlassIcon,
   PushPinIcon,
   PushPinSlashIcon,
-  SquaresFourIcon,
-  TableIcon,
   TextTIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
@@ -53,7 +50,8 @@ import {
 } from "@/lib/theme";
 import { toast } from "@/lib/toast";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, isSysPrefixed, type NodeMap } from "@/lib/types";
-import type { ViewMode } from "@/lib/view-config";
+import { localIdOf } from "@/lib/plugins";
+import { FRAME_VIEWS, type FrameViewKey } from "@/lib/view-config";
 
 /** The picker a node command can hand the palette to. */
 export type NodeCommandStep = "add-tag" | "add-field" | "add-ref";
@@ -188,8 +186,8 @@ function withFrame(ctx: CommandContext, body: (frameId: string) => void | Promis
   return body(frameId);
 }
 
-async function setGlobalViewMode(ctx: CommandContext, mode: ViewMode): Promise<void> {
-  await withFrame(ctx, (frameId) => mutations.setViewMode(frameId, mode));
+async function setGlobalFrameView(ctx: CommandContext, view: FrameViewKey): Promise<void> {
+  await withFrame(ctx, (frameId) => mutations.setFrameView(frameId, view));
 }
 
 /** The ontology to enter: the selected or zoomed one, else the first. */
@@ -205,42 +203,6 @@ function preferredOntologyId(ctx: CommandContext): string | null {
     ) ?? candidates[0]?.id;
   return preferred ?? null;
 }
-
-/** A global command's four view modes, as rows rather than a nested ternary. */
-const GLOBAL_VIEW_MODES: ReadonlyArray<{ id: string; mode: ViewMode }> = [
-  { id: SYSTEM_IDS.cmdViewAsList, mode: "list" },
-  { id: SYSTEM_IDS.cmdViewAsTable, mode: "table" },
-  { id: SYSTEM_IDS.cmdViewAsBoard, mode: "board" },
-  { id: SYSTEM_IDS.cmdViewAsCards, mode: "cards" },
-];
-
-/** A node command's four view modes: label, icon and mode, one row each. */
-const NODE_VIEW_MODES: ReadonlyArray<{
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  mode: ViewMode;
-}> = [
-  {
-    id: "view-as-list",
-    label: "View as: List",
-    icon: <ListBulletsIcon size={14} />,
-    mode: "list",
-  },
-  { id: "view-as-table", label: "View as: Table", icon: <TableIcon size={14} />, mode: "table" },
-  {
-    id: "view-as-board",
-    label: "View as: Board",
-    icon: <SquaresFourIcon size={14} />,
-    mode: "board",
-  },
-  {
-    id: "view-as-cards",
-    label: "View as: Cards",
-    icon: <SquaresFourIcon size={14} weight="duotone" />,
-    mode: "cards",
-  },
-];
 
 const GLOBAL_COMMANDS: readonly Command[] = [
   {
@@ -348,11 +310,12 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     scope: "global",
     run: (ctx) => ctx.outline.collapseAllInScope(),
   },
-  ...GLOBAL_VIEW_MODES.map(
-    ({ id, mode }): Command => ({
-      id,
+  // One per frame view, bound to the `sys.command` node its key names.
+  ...FRAME_VIEWS.map(
+    (view): Command => ({
+      id: view.command,
       scope: "global",
-      run: (ctx) => setGlobalViewMode(ctx, mode),
+      run: (ctx) => setGlobalFrameView(ctx, view),
     }),
   ),
   {
@@ -503,12 +466,16 @@ const NODE_COMMANDS: readonly Command[] = [
     chrome: () => ({ label: "Delete node", icon: <TrashIcon size={14} /> }),
     run: (ctx) => nodeAction(ctx, (nodeId) => void mutations.deleteNode(nodeId)),
   },
-  ...NODE_VIEW_MODES.map(
-    ({ id, label, icon, mode }): Command => ({
-      id,
+  // One per frame view, named and drawn as its key says.
+  ...FRAME_VIEWS.map(
+    (view): Command => ({
+      id: `view-as-${localIdOf(view)}`,
       scope: "node",
-      chrome: () => ({ label, icon }),
-      run: (ctx) => nodeAction(ctx, (nodeId) => void mutations.setViewMode(nodeId, mode)),
+      chrome: () => ({
+        label: `View as: ${view.label}`,
+        icon: <view.icon size={14} weight={view.iconWeight} />,
+      }),
+      run: (ctx) => nodeAction(ctx, (nodeId) => void mutations.setFrameView(nodeId, view)),
     }),
   ),
   {

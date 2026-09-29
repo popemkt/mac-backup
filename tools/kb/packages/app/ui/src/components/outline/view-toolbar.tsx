@@ -1,13 +1,15 @@
 import { useCallback, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
-import type { ViewMode } from "@/lib/view-config";
+import { FRAME_VIEWS, type FrameViewKey } from "@/lib/view-config";
+import { localIdOf } from "@/lib/plugins";
 import { mutations } from "@/actions/mutations";
 import { useUiStore } from "@/stores/ui.store";
 
 interface ViewToolbarProps {
   frameId: string;
-  mode: ViewMode;
+  /** The view the frame's children are shown in now. */
+  view: FrameViewKey;
   className?: string;
   /**
    * Zoomed-header mode: collapse modes+filter behind a single gear until
@@ -16,27 +18,21 @@ interface ViewToolbarProps {
   tucked?: boolean;
 }
 
-const MODES: Array<{ id: ViewMode; label: string; icon: string }> = [
-  { id: "list", label: "List", icon: "≡" },
-  { id: "table", label: "Table", icon: "⊞" },
-  { id: "board", label: "Board", icon: "▥" },
-  { id: "cards", label: "Cards", icon: "▦" },
-];
-
-export function ViewToolbar({ frameId, mode, className, tucked = false }: ViewToolbarProps) {
+/** One button per frame view, named by its key; the stored name is the key's local id. */
+export function ViewToolbar({ frameId, view, className, tucked = false }: ViewToolbarProps) {
   const filterOpen = useUiStore((s) => s.filterPopoverFrameId === frameId);
   const setFilterFrame = useUiStore((s) => s.setFilterPopoverFrameId);
   const [expanded, setExpanded] = useState(false);
   const showChrome = !tucked || expanded || filterOpen;
 
   const handleSelect = useCallback(
-    (newMode: ViewMode, e: React.MouseEvent) => {
+    (next: FrameViewKey, e: React.MouseEvent) => {
       e.stopPropagation();
-      if (newMode !== mode) {
-        void mutations.setViewMode(frameId, newMode);
+      if (next !== view) {
+        void mutations.setFrameView(frameId, next);
       }
     },
-    [frameId, mode],
+    [frameId, view],
   );
 
   if (!showChrome) {
@@ -69,24 +65,24 @@ export function ViewToolbar({ frameId, mode, className, tucked = false }: ViewTo
       )}
       data-view-toolbar="true"
       data-frame-id={frameId}
-      data-active-mode={mode}
+      data-active-mode={localIdOf(view)}
       data-tucked={tucked ? "true" : undefined}
     >
-      {MODES.map((m) => (
+      {FRAME_VIEWS.map((option) => (
         <button
-          key={m.id}
+          key={option.id}
           type="button"
           className={cn(
             "flex items-center gap-1 rounded-xs px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
-            mode === m.id
+            view === option
               ? "bg-background text-foreground shadow-edge font-semibold"
               : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/80",
           )}
-          data-mode-button={m.id}
-          onClick={(e) => handleSelect(m.id, e)}
+          data-mode-button={localIdOf(option)}
+          onClick={(e) => handleSelect(option, e)}
         >
-          <span>{m.icon}</span>
-          <span>{m.label}</span>
+          <span>{option.glyph}</span>
+          <span>{option.label}</span>
         </button>
       ))}
       <button

@@ -7,7 +7,9 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
-import { getViewConfig } from "@/lib/view-config";
+import { OutlineListView, OutlineTableView, getViewConfig } from "@/lib/view-config";
+import { paramsFrom } from "@/lib/plugins";
+import { Result } from "effect";
 import { fieldContextOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -85,6 +87,12 @@ const mockWireNodes: WireNode[] = [
   },
 ];
 
+/** The settings the table reads, decoded from frame1 the way its host decodes them. */
+function tableSettings() {
+  const props = useOutlineStore.getState().nodes.get("frame1")?.props;
+  return Result.getOrThrow(paramsFrom(OutlineTableView, getViewConfig(props)));
+}
+
 function getStoreNodes() {
   return useOutlineStore.getState().nodes;
 }
@@ -102,16 +110,16 @@ describe("W7 TableView & ViewToolbar", () => {
 
   it("ViewToolbar mode switch mutation updates frame node view.mode prop", async () => {
     const html = renderToStaticMarkup(
-      createElement(ViewToolbar, { frameId: "frame1", mode: "list" }),
+      createElement(ViewToolbar, { frameId: "frame1", view: OutlineListView }),
     );
     expect(html).toContain('data-mode-button="table"');
     expect(html).toContain('data-mode-button="list"');
 
-    await mutations.setViewMode("frame1", "table");
+    await mutations.setFrameView("frame1", OutlineTableView);
     const frame = useOutlineStore.getState().nodes.get("frame1");
     expect(frame?.props[SYSTEM_IDS.viewModeField]).toEqual([{ t: "str", v: "table" }]);
 
-    await mutations.setViewMode("frame1", "list");
+    await mutations.setFrameView("frame1", OutlineListView);
     const frameAfter = useOutlineStore.getState().nodes.get("frame1");
     expect(frameAfter?.props[SYSTEM_IDS.viewModeField]).toEqual([{ t: "str", v: "list" }]);
   });
@@ -120,6 +128,7 @@ describe("W7 TableView & ViewToolbar", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
         frameId: "frame1",
+        settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(useOutlineStore.getState()),
       }),
@@ -139,6 +148,7 @@ describe("W7 TableView & ViewToolbar", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
         frameId: "frame1",
+        settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(useOutlineStore.getState()),
       }),
@@ -151,6 +161,7 @@ describe("W7 TableView & ViewToolbar", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
         frameId: "frame1",
+        settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(useOutlineStore.getState()),
       }),
@@ -166,6 +177,7 @@ describe("W7 TableView & ViewToolbar", () => {
     const centered = renderToStaticMarkup(
       createElement(TableView, {
         frameId: "frame1",
+        settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(useOutlineStore.getState()),
         widthPref: "centered",
@@ -177,6 +189,7 @@ describe("W7 TableView & ViewToolbar", () => {
     const full = renderToStaticMarkup(
       createElement(TableView, {
         frameId: "frame1",
+        settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(useOutlineStore.getState()),
         widthPref: "full",
@@ -192,6 +205,7 @@ describe("W7 TableView & ViewToolbar", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
         frameId: "frame1",
+        settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(useOutlineStore.getState()),
       }),
@@ -213,6 +227,7 @@ describe("W7 TableView & ViewToolbar", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
         frameId: "frame1",
+        settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(useOutlineStore.getState()),
       }),

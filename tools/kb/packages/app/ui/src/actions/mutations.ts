@@ -5,7 +5,8 @@ import { ulid } from "ulid";
 import { z } from "zod";
 import type { LensPerspective } from "@/lib/graph-lens";
 import type { FieldType } from "@kb/model";
-import type { SortSpec, ViewMode } from "@/lib/view-config";
+import type { FrameViewKey, SortSpec } from "@/lib/view-config";
+import { localIdOf } from "@/lib/plugins";
 import { runOptimistic } from "@/actions/optimistic";
 import {
   planAddChild,
@@ -639,10 +640,11 @@ export const mutations = {
     await applyPlan(planOntologySetClosure(wire(), ontoId, mode));
   },
 
-  async setViewMode(frameId: string, mode: ViewMode): Promise<void> {
+  /** Show a frame's children in `view`: its name is what `sys.f.view.mode` stores. */
+  async setFrameView(frameId: string, view: FrameViewKey): Promise<void> {
     if (!guardSysWrite(frameId)) return;
     const { planSetViewMode } = await import("@/actions/plan");
-    await applyPlan(planSetViewMode(wire(), frameId, mode));
+    await applyPlan(planSetViewMode(wire(), frameId, localIdOf(view)));
   },
 
   async saveGraphPerspective(perspective: LensPerspective, name: string): Promise<string | null> {

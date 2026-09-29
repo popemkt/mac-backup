@@ -12,6 +12,8 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { syncUiPlugins } from "@/lib/plugins";
+import { outlineUiPlugin } from "./plugin";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { queryResultInstanceKey } from "@/lib/instance-key";
@@ -74,11 +76,14 @@ describe("row chrome", () => {
   let root: Root;
 
   beforeAll(() => {
+    // A frame's children are shown by the views the outline plugin provides.
+    syncUiPlugins([outlineUiPlugin]);
     dom = installDomGlobals();
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
   afterAll(() => {
+    syncUiPlugins([]);
     delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
     dom.restore();
   });

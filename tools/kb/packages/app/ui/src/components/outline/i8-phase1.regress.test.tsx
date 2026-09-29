@@ -7,7 +7,9 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import * as fs from "node:fs";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { syncUiPlugins } from "@/lib/plugins";
+import { outlineUiPlugin } from "./plugin";
 import { present } from "@kb/model";
 import { setPostAction } from "@/api/action";
 import { outlineInstanceKey } from "@/lib/instance-key";
@@ -37,6 +39,8 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
   let root: Root;
 
   beforeAll(() => {
+    // A frame's children are shown by the views the outline plugin provides.
+    syncUiPlugins([outlineUiPlugin]);
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
     g.window = dom;
@@ -50,6 +54,10 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
       g.NodeFilter = { SHOW_TEXT: 4 };
     }
     // jsdom-like caret APIs are absent in happy-dom — that's fine; code falls back.
+  });
+
+  afterAll(() => {
+    syncUiPlugins([]);
   });
 
   beforeEach(() => {
