@@ -125,7 +125,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setToolSticky,
     startMoveForSelection,
     startResize,
-    zoomToFit,
+    viewportControls,
   } = useCanvasGestures({
     docRef,
     pointerRef,
@@ -156,14 +156,13 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     schedulePersist,
     undoCanvasDoc,
     redoCanvasDoc,
-    zoomToFit,
     setSelection,
     setInspectorAnchor,
     setShapeInspectorAnchor,
     setPickerOpen,
     setSpaceDown,
     setToolState,
-    setZoom,
+    viewport: viewportControls,
   });
 
   const { onDeleteEdge, onFieldChange, onModeChange } = createCanvasEdgeActions({
@@ -252,7 +251,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           onPointerCancel={cancelPointer}
           onDoubleClickStage={onDoubleClickStage}
           handleCardPointerDown={(card, event, anchor) => {
-            onCardPointerDown(card, event, anchor, startMoveForSelection);
+            onCardPointerDown(card, event, anchor, () => startMoveForSelection(event, card.id));
           }}
           handleEdgeClick={onEdgeClick}
         />

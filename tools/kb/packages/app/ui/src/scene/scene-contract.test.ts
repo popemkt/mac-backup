@@ -10,9 +10,10 @@
  * - the device pixel ratio never exceeds 2, whatever the display's;
  * - a scene whose start fails gives its stage back.
  *
- * happy-dom has no GPU, so three's renderer and post chain are stand-ins that
- * count what they are asked to do; every other three class, every TSL node
- * graph and every scene's own code is the real thing.
+ * happy-dom has no GPU, so three's renderer and post chain are the stand-ins
+ * in `@/test-support/fake-gpu`, which count what they are asked to do; every
+ * other three class, every TSL node graph and every scene's own code is the
+ * real thing.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
@@ -22,70 +23,12 @@ import { LENS_THEMES, type LensEdge, type LensNode } from "@/lib/graph-lens";
 import { TIMING_FALLBACK } from "@/lib/timing";
 import type { SceneHandle } from "@/scene/host";
 import type { ScenePalette } from "@/scene/palette";
+import { fakeCanvasContexts, gpu, renders, type FakeRenderer } from "@/test-support/fake-gpu";
 import type * as ThreeWebGpu from "three/webgpu";
-
-const gpu = vi.hoisted(() => {
-  class FakePost {
-    renders = 0;
-    outputNode: unknown = null;
-    outputColorTransform = true;
-    needsUpdate = false;
-    constructor(renderer: { post?: FakePost }) {
-      renderer.post = this;
-    }
-    render() {
-      if (gpu.failRender) throw new Error("shader compile failed");
-      this.renders++;
-    }
-    dispose() {}
-  }
-  class FakeRenderer {
-    domElement: HTMLCanvasElement = document.createElement("canvas");
-    backend = { isWebGPUBackend: true };
-    shadowMap = { enabled: false, type: 0 };
-    toneMapping = 0;
-    pixelRatio = 1;
-    loop: ((now: number) => void) | null = null;
-    post?: FakePost;
-    constructor() {
-      gpu.live.add(this);
-      gpu.last = this;
-    }
-    init() {
-      return Promise.resolve(this);
-    }
-    setPixelRatio(ratio: number) {
-      this.pixelRatio = ratio;
-    }
-    getPixelRatio() {
-      return this.pixelRatio;
-    }
-    setSize() {}
-    setAnimationLoop(loop: ((now: number) => void) | null) {
-      this.loop = loop;
-      return Promise.resolve();
-    }
-    compileAsync() {
-      return Promise.resolve();
-    }
-    compute() {}
-    dispose() {
-      gpu.live.delete(this);
-    }
-  }
-  return {
-    FakeRenderer,
-    FakePost,
-    live: new Set<InstanceType<typeof FakeRenderer>>(),
-    last: null as InstanceType<typeof FakeRenderer> | null,
-    failRender: false,
-  };
-});
 
 vi.mock("three/webgpu", async (importOriginal) => ({
   ...(await importOriginal<typeof ThreeWebGpu>()),
-  WebGPURenderer: gpu.FakeRenderer,
-  PostProcessing: gpu.FakePost,
+  ...(await import("@/test-support/fake-gpu")).FAKE_WEBGPU,
 }));
 
 const palette: ScenePalette = {
@@ -185,45 +128,16 @@ function flushFrames(limit = 20): void {
   }
 }
 /** Step the animation loop, if one is running, `n` times. */
-function tickLoop(renderer: InstanceType<typeof gpu.FakeRenderer>, n: number): void {
+function tickLoop(renderer: FakeRenderer, n: number): void {
   for (let i = 0; i < n; i++) {
     clock += 16;
     renderer.loop?.(clock);
   }
 }
 /** The renderer the scene just mounted made. */
-function latest(): InstanceType<typeof gpu.FakeRenderer> {
+function latest(): FakeRenderer {
   if (gpu.last === null) throw new Error("no renderer was made");
   return gpu.last;
-}
-const renders = (renderer: InstanceType<typeof gpu.FakeRenderer>) => renderer.post?.renders ?? 0;
-
-function fake2d(canvas: HTMLCanvasElement) {
-  const gradient = { addColorStop: () => {} };
-  return new Proxy(
-    {
-      canvas,
-      measureText: (text: string) => ({ width: text.length * 6 }),
-      // A blank canvas's pixels (the bullet theme reads its glyphs back).
-      getImageData: (_x: number, _y: number, width: number, height: number) => ({
-        width,
-        height,
-        data: new Uint8ClampedArray(width * height * 4),
-      }),
-    },
-    {
-      get: (target, key) =>
-        key in target
-          ? target[key as keyof typeof target]
-          : key === "createRadialGradient" || key === "createLinearGradient"
-            ? () => gradient
-            : typeof key === "string" &&
-                /^[a-z]+[A-Z]|^(fill|stroke|scale|save|restore|translate|rotate|arc)/.test(key)
-              ? () => {}
-              : undefined,
-      set: () => true,
-    },
-  );
 }
 
 describe("scene contract", () => {
@@ -251,12 +165,7 @@ describe("scene contract", () => {
       saved.set(key, g[key]);
       g[key] = value;
     }
-    const canvasProto = dom.HTMLCanvasElement.prototype as unknown as {
-      getContext: (this: HTMLCanvasElement, kind: string) => unknown;
-    };
-    canvasProto.getContext = function getContext(kind: string) {
-      return kind === "2d" ? fake2d(this) : null;
-    };
+    fakeCanvasContexts(dom.HTMLCanvasElement.prototype);
   });
 
   afterAll(() => {

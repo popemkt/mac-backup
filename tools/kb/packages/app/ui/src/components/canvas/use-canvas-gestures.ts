@@ -25,6 +25,7 @@ import {
   hitTest,
   panOfView,
   viewOfPan,
+  type CanvasViewportControls,
 } from "@/lib/canvas-camera";
 
 interface CanvasGestureContext {
@@ -193,7 +194,13 @@ function useViewportControls({
       pan: { x: pan.x - e.deltaX, y: pan.y - e.deltaY },
     });
   };
-  return { cardAt, onWheel, screenToWorld, zoomToFit };
+  /** The face-on camera's answers to the keymap; a key zooms with the pan held, as it always has. */
+  const viewportControls: CanvasViewportControls = {
+    zoomBy: (factor) => setZoom((current) => clampZoom(current * factor)),
+    zoomTo: (next) => setZoom(clampZoom(next)),
+    fit: zoomToFit,
+  };
+  return { cardAt, onWheel, screenToWorld, viewportControls };
 }
 
 /**

@@ -128,7 +128,6 @@ function press(chord: Chord, selection: CanvasSelection = selectNode("a")): Reco
     },
     undoCanvasDoc: () => log.push("undo"),
     redoCanvasDoc: () => log.push("redo"),
-    zoomToFit: () => log.push("zoomToFit"),
     setSelection: (next: CanvasSelection | ((s: CanvasSelection) => CanvasSelection)) => {
       selRef.current = typeof next === "function" ? next(selRef.current) : next;
       log.push(`selection=${ids(selRef.current)}`);
@@ -141,9 +140,16 @@ function press(chord: Chord, selection: CanvasSelection = selectNode("a")): Reco
       toolState = typeof next === "function" ? next(toolState) : next;
       log.push(`tool=${toolState.tool}`);
     },
-    setZoom: (next: number | ((z: number) => number)) => {
-      zoom = typeof next === "function" ? next(zoom) : next;
-      log.push(`zoom=${Math.round(zoom * 1000) / 1000}`);
+    viewport: {
+      zoomBy: (factor: number) => {
+        zoom *= factor;
+        log.push(`zoom=${Math.round(zoom * 1000) / 1000}`);
+      },
+      zoomTo: (next: number) => {
+        zoom = next;
+        log.push(`zoom=${Math.round(zoom * 1000) / 1000}`);
+      },
+      fit: () => log.push("zoomToFit"),
     },
   };
 

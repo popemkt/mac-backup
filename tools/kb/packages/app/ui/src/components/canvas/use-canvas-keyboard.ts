@@ -12,7 +12,7 @@ import {
 } from "@/lib/canvas-selection";
 import { mapCanvasKey, type CanvasIntent } from "@/lib/canvas-keymap";
 import { reduceCanvasTool, type CanvasTool, type ToolState } from "@/lib/canvas-tool";
-import { clampZoom } from "@/lib/canvas-camera";
+import type { CanvasViewportControls } from "@/lib/canvas-camera";
 import { isTextEntry } from "@/lib/dom";
 
 /**
@@ -28,14 +28,14 @@ interface CanvasKeyboardContext {
   schedulePersist: (doc: CanvasDoc) => void;
   undoCanvasDoc: () => void;
   redoCanvasDoc: () => void;
-  zoomToFit: () => void;
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
   setInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setShapeInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setPickerOpen: Dispatch<SetStateAction<boolean>>;
   setSpaceDown: Dispatch<SetStateAction<boolean>>;
   setToolState: Dispatch<SetStateAction<ToolState>>;
-  setZoom: Dispatch<SetStateAction<number>>;
+  /** The camera of the projection that is showing. */
+  viewport: CanvasViewportControls;
 }
 
 /** Pasted and duplicated content lands this far from its origin. */
@@ -187,13 +187,13 @@ function applyCanvasIntent(context: CanvasKeyboardContext, intent: CanvasIntent)
       chooseTool(context, intent.tool);
       break;
     case "zoomBy":
-      context.setZoom((zoom) => clampZoom(zoom * intent.factor));
+      context.viewport.zoomBy(intent.factor);
       break;
     case "zoomTo":
-      context.setZoom(clampZoom(intent.zoom));
+      context.viewport.zoomTo(intent.zoom);
       break;
     case "zoomToFit":
-      context.zoomToFit();
+      context.viewport.fit();
       break;
     default:
       // `switch-exhaustiveness-check` turns a new intent without a case red.

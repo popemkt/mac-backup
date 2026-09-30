@@ -10,6 +10,9 @@ import {
   toggleNode,
 } from "@/lib/canvas-selection";
 
+/** The modifiers a card press carries; a DOM pointer event is one. */
+type CardPress = Pick<PointerEvent, "shiftKey" | "metaKey" | "ctrlKey">;
+
 export function useCanvasSelection(doc: CanvasDoc, byId: Map<string, CanvasNode>) {
   const [selection, setSelection] = useState<CanvasSelection>(EMPTY_SELECTION);
   const [inspectorAnchor, setInspectorAnchor] = useState<{ x: number; y: number } | null>(null);
@@ -34,14 +37,18 @@ export function useCanvasSelection(doc: CanvasDoc, byId: Map<string, CanvasNode>
           return node && isShapeNode(node) ? node : null;
         })();
 
+  /**
+   * A press on a card, in whichever projection drew it: a modifier toggles
+   * it in the selection, a plain press selects it and starts moving it.
+   */
   const onCardPointerDown = (
     card: CanvasNode,
-    event: React.PointerEvent,
+    press: CardPress,
     anchor: { x: number; y: number } | undefined,
-    startMove: (event: React.PointerEvent, cardId: string) => void,
+    startMove: () => void,
   ) => {
     const isSelected = selection.nodeIds.has(card.id);
-    if (event.shiftKey || event.metaKey || event.ctrlKey) {
+    if (press.shiftKey || press.metaKey || press.ctrlKey) {
       setSelection(toggleNode(selection, card.id));
       setInspectorAnchor(null);
       setShapeInspectorAnchor(null);
@@ -52,7 +59,7 @@ export function useCanvasSelection(doc: CanvasDoc, byId: Map<string, CanvasNode>
       setInspectorAnchor(null);
       setShapeInspectorAnchor(anchor ?? null);
     }
-    startMove(event, card.id);
+    startMove();
   };
 
   const onEdgeClick = (edge: CanvasEdge, event: React.MouseEvent) => {
