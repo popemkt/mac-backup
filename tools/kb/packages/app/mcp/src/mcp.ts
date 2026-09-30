@@ -75,7 +75,7 @@ function modeHints(
  * `approval_required`. `kb_manifest` still lists it.
  */
 function listedOnMcp(entry: ManifestEntry): boolean {
-  // GAP [GAP-MCP-APPROVAL] (placeholder: mint the #gap node, then write it as [[id]])
+  // GAP [[01M3R2KD6V1AZ9WS62ZVG9T4G2]]
   return !requiresApproval(entry.mode);
 }
 

@@ -48,6 +48,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ## Gaps
 
+### GAP: /api/action does not check Origin
+
+- **expected** — the server accepts action calls only from its own UI origin or local non-browser callers
+- **current** — any web page open in the browser can POST to 127.0.0.1:4321/api/action, including approved: true
+- **impact** — a malicious page can write to the local kb
+- **closes** — an Origin/Host check on /api/action and /ws, with an allow-list for local tools
+- **node** — `01M3R2KDKN1EFE87R1K8CG3NPE`
+
 ### GAP: 3D links are one pixel wide, so link weight is not drawn in 3D
 
 - **expected** — Every graph renderer encodes a relationship's weight the same way: stroke width grows as the square root of the weight, as sigma's 2D edges do, and a link touching the focus is wider as well as brighter.
@@ -121,6 +129,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Prompt and skill files accrete unreviewed; the load-bearing rules (do not compensate in prose for missing implementation; push determinism into code) are exactly the ones an agent breaks silently.
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
+
+### GAP: an approval-required action cannot be invoked over MCP
+
+- **expected** — an MCP caller can obtain approval and then invoke an approval-required write
+- **current** — MCP has no envelope for approved, so such actions are left out of tools/list and a call by name gets approval_required
+- **impact** — no agent can use approval-required actions through MCP
+- **closes** — sidebar approval (roadmap step 5) or MCP elicitation
+- **node** — `01M3R2KD6V1AZ9WS62ZVG9T4G2`
 
 ### GAP: api/live.ts writes straight into the outline and ui stores
 
@@ -461,6 +477,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Either ds/ exports the index layer the session runtime builds, or the seam moves to session/ and ds/ becomes its caller — one of the two, decided when the browser store's ownership settles.
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
+
+### GAP: the browser UI cannot carry approval for an action
+
+- **expected** — the UI asks the user and invokes with approved: true
+- **current** — postAction sends only {id, input}; an approval-required write from the UI always fails
+- **impact** — approval-required actions are unusable from the kb UI
+- **closes** — an approval prompt in the UI, shared with the sidebar agent (roadmap step 5)
+- **node** — `01M3R2KDDDPSB12NCJ6F6NJHMC`
 
 ### GAP: the CLI has no relative dates (today, next fri)
 

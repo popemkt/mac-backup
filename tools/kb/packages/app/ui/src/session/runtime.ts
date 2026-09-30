@@ -127,7 +127,7 @@ function requireSession(): BrowserSession {
 export function pushInvocation(invocation: ActionInvocation, hold?: Hold): Promise<ActionResponse> {
   // The UI has no approval prompt yet, so it never sends `approved`, and an
   // approval-required action is refused here. The step 5 sidebar closes this.
-  // GAP [GAP-BROWSER-APPROVAL] (placeholder: mint the #gap node, then write it as [[id]])
+  // GAP [[01M3R2KDDDPSB12NCJ6F6NJHMC]]
   const result = pushTail
     .catch(() => undefined)
     .then(() => postAction(invocation.id, invocation.input));
