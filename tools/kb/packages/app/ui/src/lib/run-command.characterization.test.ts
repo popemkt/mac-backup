@@ -9,7 +9,13 @@
  * to an argument.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { SYSTEM_IDS, systemSeedNodes } from "@kb/model";
+import {
+  SYSTEM_IDS,
+  defaultViewIdOf,
+  systemSeedNodes,
+  viewOptionId,
+  viewOptionOf,
+} from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
@@ -69,6 +75,12 @@ function toasts(): string[] {
 
 function node(id: string) {
   return useOutlineStore.getState().nodes.get(id);
+}
+
+/** The view a frame's default view node names. */
+function shownAs(frameId: string): string | null {
+  const viewId = defaultViewIdOf(node(frameId));
+  return viewId === null ? null : viewOptionOf(node(viewId));
 }
 
 describe("palette command routing (characterization)", () => {
@@ -228,7 +240,7 @@ describe("palette command routing (characterization)", () => {
     expect(node("n.root-a")?.collapsed).toBe(true);
   });
 
-  it("the four view-as commands write the mode onto the zoomed frame", async () => {
+  it("the four view-as commands write the view onto the zoomed frame's view node", async () => {
     useOutlineStore.setState({ rootNodeId: "n.root-a" });
     for (const [commandId, mode] of [
       [SYSTEM_IDS.cmdViewAsList, "list"],
@@ -237,14 +249,14 @@ describe("palette command routing (characterization)", () => {
       [SYSTEM_IDS.cmdViewAsCards, "cards"],
     ] as const) {
       await run(commandId);
-      expect(node("n.root-a")?.props[SYSTEM_IDS.viewModeField]).toEqual([{ t: "str", v: mode }]);
+      expect(shownAs("n.root-a")).toBe(viewOptionId(`outline.${mode}`));
     }
   });
 
   it("view-as falls back to a selected non-sys row", async () => {
     useOutlineStore.setState({ selectedNodeId: "n.root-b" });
     await run(SYSTEM_IDS.cmdViewAsTable);
-    expect(node("n.root-b")?.props[SYSTEM_IDS.viewModeField]).toEqual([{ t: "str", v: "table" }]);
+    expect(shownAs("n.root-b")).toBe(viewOptionId("outline.table"));
   });
 
   it("view-as with no frame toasts", async () => {

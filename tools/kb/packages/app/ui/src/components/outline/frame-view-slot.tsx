@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 import { ViewSlot } from "@/components/ui/view-slot";
-import { frameViewOf } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FrameSubjectContext, type FrameSubject } from "./frame-subject";
-import { useFrameViewKeys } from "./use-frame-views";
+import { useFrameView } from "./use-frame-views";
 
 const UNAVAILABLE = (
   <p className="px-1 py-0.5 text-meta text-foreground/50" data-frame-view-unavailable="true">
@@ -29,9 +28,8 @@ export function FrameViewSlot({
   readonly isQuerySource?: boolean;
   readonly depth: number;
 }) {
-  const props = useOutlineStore((s) => s.nodes.get(frameId)?.props);
-  const views = useFrameViewKeys();
-  const view = useMemo(() => frameViewOf(props, views), [props, views]);
+  const frame = useOutlineStore((s) => s.nodes.get(frameId));
+  const view = useFrameView(frame);
   const subject = useMemo(
     (): FrameSubject => ({
       frameId,

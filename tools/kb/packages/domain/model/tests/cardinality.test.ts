@@ -100,7 +100,7 @@ describe("cardinality: one", () => {
       SYSTEM_IDS.cardinalityField,
       SYSTEM_IDS.lensRendererField,
       SYSTEM_IDS.lensLinkDistanceField,
-      SYSTEM_IDS.viewModeField,
+      SYSTEM_IDS.viewField,
       SYSTEM_IDS.hiddenField,
       SYSTEM_IDS.refTargetField,
     ]) {

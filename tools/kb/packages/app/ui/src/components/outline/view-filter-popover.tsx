@@ -8,6 +8,7 @@ import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "@/components/ui/pref-field-row";
+import { useFrameViewNode } from "./use-frame-views";
 import { listFilterFieldOptions } from "./view-filter-fields";
 import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
 import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
@@ -63,7 +64,7 @@ export function ViewFilterPopoverHost() {
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
   }, [frameId, generation]);
 
-  const config = getViewConfig(frame?.props);
+  const config = getViewConfig(useFrameViewNode(frame)?.props);
 
   const [kind, setKind] = useState<FilterKind>("eq");
   const [fieldId, setFieldId] = useState("");

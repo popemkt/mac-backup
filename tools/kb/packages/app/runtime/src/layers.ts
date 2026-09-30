@@ -75,10 +75,10 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   const store = yield* selectStore(root);
   const loaded = yield* store.loadEffect;
   const at = yield* currentIso;
-  // Before the seed, so its fill-absent pass meets the migrated shape, not the old one.
-  const viewed = migrateToViewNodes(loaded);
-  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(viewed.nodes, at);
-  const typed = migrateFieldTypeValues(seeded);
+  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(loaded, at);
+  // After the seed, so the Views list a frame's new view node is filed in exists.
+  const viewed = migrateToViewNodes(seeded);
+  const typed = migrateFieldTypeValues(viewed.nodes);
   const dated = migrateDateValues(typed.nodes);
   let nodes = loaded;
   if (viewed.changed || didSeed || deletes.length > 0 || typed.changed || dated.changed) {

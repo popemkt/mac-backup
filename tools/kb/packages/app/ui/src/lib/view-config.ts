@@ -2,16 +2,21 @@ import type { SchemaIndex } from "@/lib/schema";
 import { Result, Schema } from "effect";
 import {
   decodeNodeConfig,
+  defaultViewIdOf,
   firstStr,
+  isViewNode,
   manyOf,
   oneOf,
+  viewOptionId,
+  viewOptionOf,
   type ConfigSlots,
   type NodeProps,
 } from "@kb/model";
 import type { OutlineNode, PropValue } from "./types";
 import { isSysPrefixed, SYSTEM_IDS } from "./types";
 import { logWarn } from "@/lib/log";
-import { localIdOf, paramsFromProps, type ViewKey } from "@/lib/view-key";
+import { paramsFromProps, type ViewKey } from "@/lib/view-key";
+import { viewKeyOfNode } from "@/lib/view-node";
 import { textOr } from "@/lib/text";
 
 export type SortDir = "asc" | "desc";
@@ -27,13 +32,11 @@ export type ViewFilter =
   | { kind: "text"; text: string; raw: string };
 
 /**
- * Everything a frame's `sys.f.view.*` props say, decoded: which view shows its
- * children (`mode`, the name that view's key goes by) and every setting any
- * frame view reads. A view reads only the ones its params declare
+ * Every setting any frame view reads, decoded from a frame's view node's
+ * `sys.f.view.*` props. A view reads only the ones its params declare
  * ({@link frameViewOf}).
  */
 export interface ViewConfig {
-  mode: string;
   sort: SortSpec[];
   display: string[];
   colwidth: Record<string, number>;
@@ -44,7 +47,6 @@ export interface ViewConfig {
 }
 
 export const DEFAULT_VIEW_CONFIG: ViewConfig = {
-  mode: "list",
   sort: [],
   display: [],
   colwidth: {},
@@ -319,13 +321,6 @@ export function projectsRows(view: FrameViewKey | null): boolean {
 }
 
 const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
-  mode: oneOf({
-    fields: [SYSTEM_IDS.viewModeField],
-    read: firstStr(SYSTEM_IDS.viewModeField),
-    // Any name: which names are views is the provided views' to say (`frameViewOf`).
-    schema: Schema.NonEmptyString,
-    fallback: DEFAULT_VIEW_CONFIG.mode,
-  }),
   sort: manyOf<SortSpec>({
     fields: [SYSTEM_IDS.viewSortField, SYSTEM_IDS.viewSortDirField],
     read: sortSpecValues,
@@ -379,7 +374,6 @@ export function getViewConfig(props?: NodeProps): ViewConfig {
     logWarn(`[view-config] ${warning}`),
   );
   return {
-    mode: slot("mode"),
     sort: slot("sort"),
     display: slot("display"),
     colwidth: slot("colwidth"),
@@ -395,27 +389,68 @@ export interface FrameView {
   readonly params: FrameViewParams;
 }
 
+/** A node as the frame-view readers need it: its id and props. */
+interface ViewCarrier {
+  readonly id: string;
+  readonly props: NodeProps;
+}
+
 /**
- * The view a frame shows its children in, read off its props, among the
- * frame views provided (`views`, as `ViewPoint` lists them): the one its
- * `sys.f.view.mode` names, else the list's, with the frame's config decoded
- * through that view's params so it carries exactly the settings the view
- * reads. Null while not even the list is provided.
+ * The view node a frame shows its children through: its default view, the
+ * first view node its `sys.f.views` names (DESIGN.md → View nodes). Null when
+ * it names none, or names a node that is not there or is no view node.
+ *
+ * It is read from the schema, the whole graph: how a frame is shown is what
+ * its content means, not content an ontology scope chooses, so a frame in a
+ * scope keeps a view node that is no member of it.
+ */
+function frameViewNodeOf(
+  frame: { readonly props: NodeProps } | undefined,
+  schema: SchemaIndex,
+): ViewCarrier | null {
+  const id = defaultViewIdOf(frame);
+  const node = id === null ? undefined : schema.get(id);
+  return node !== undefined && isViewNode(node) ? node : null;
+}
+
+/** Every frame setting a frame's view node holds, decoded (the defaults when it has none). */
+export function frameConfigOf(
+  frame: { readonly props: NodeProps } | undefined,
+  schema: SchemaIndex,
+): ViewConfig {
+  return getViewConfig(frameViewNodeOf(frame, schema)?.props);
+}
+
+/** What a frame is shown as while its view node names no frame view: the list. */
+const LIST_OPTION = viewOptionId("outline.list");
+
+/**
+ * The view a frame shows its children in, among the frame views provided
+ * (`views`, as `ViewPoint` lists them): the one its view node names, else the
+ * list's, with the view node's props decoded through that view's params for
+ * the frame, so it carries exactly the settings the view reads. Null while
+ * not even the list is provided.
  */
 export function frameViewOf(
-  props: Record<string, PropValue[]> | undefined,
+  frame: ViewCarrier | undefined,
+  schema: SchemaIndex,
   views: readonly FrameViewKey[],
 ): FrameView | null {
-  const config = getViewConfig(props);
-  const named = (name: string) => views.find((view) => localIdOf(view) === name);
-  const asked = named(config.mode);
-  if (asked === undefined && config.mode !== DEFAULT_VIEW_CONFIG.mode)
-    logWarn(
-      `[view-config] ${SYSTEM_IDS.viewModeField} ignored: no frame view is named "${config.mode}"`,
-    );
-  const key = asked ?? named(DEFAULT_VIEW_CONFIG.mode);
+  return frameViewThrough(frame, frameViewNodeOf(frame, schema), views);
+}
+
+/** {@link frameViewOf}, given the frame's view node (`frameViewNodeOf`) already looked up. */
+export function frameViewThrough(
+  frame: ViewCarrier | undefined,
+  node: ViewCarrier | null,
+  views: readonly FrameViewKey[],
+): FrameView | null {
+  const asked = viewKeyOfNode(node ?? undefined, views);
+  if (node !== null && asked === null)
+    logWarn(`[view-config] ${node.id} ignored: ${viewOptionOf(node)} is no frame view provided`);
+  const key = asked ?? views.find((view) => view.option === LIST_OPTION);
   if (key === undefined) return null;
-  const params = paramsFromProps(key, props ?? {}, null);
+  const params = paramsFromProps(key, node?.props ?? {}, frame?.id ?? null);
   if (Result.isSuccess(params)) return { key, params: params.success };
   // Unreachable while every setting is decoded by the schema the params are made of.
   logWarn(`[view-config] ${key.id} cannot read this frame: ${params.failure}`);

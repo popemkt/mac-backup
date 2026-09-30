@@ -18,6 +18,8 @@ import { outlineUiPlugin } from "@/components/outline/plugin";
 import { OutlineListView } from "@/components/outline/views";
 import { ViewPoint, familyViews } from "@/lib/plugins";
 import { frameViewOf, getViewConfig, isFrameViewKey } from "@/lib/view-config";
+import { wireToOutlineMap } from "@/lib/graph-view";
+import { schemaOf } from "@/lib/schema";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {
@@ -113,6 +115,10 @@ describe("parsePerspective reporting", () => {
   });
 });
 
+function node(id: string, props: WireNode["props"]): WireNode {
+  return { id, text: id, props, children: [], createdAt: "", updatedAt: "" };
+}
+
 describe("getViewConfig reporting", () => {
   it("says nothing about a frame that carries no view props", () => {
     getViewConfig({});
@@ -120,14 +126,17 @@ describe("getViewConfig reporting", () => {
     expect(warned).toEqual([]);
   });
 
-  it("reports a view mode no provided frame view goes by, and shows the list", () => {
-    const view = frameViewOf(
-      { [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "kanban" }] },
-      FRAME_VIEWS,
-    );
+  it("reports a view node whose view is no provided frame view, and shows the list", () => {
+    const viewNode = node("v.kanban", {
+      [SYSTEM_IDS.viewField]: [{ t: "ref", v: "sys.view.outline.kanban" }],
+    });
+    const frame = node("f", { [SYSTEM_IDS.viewsField]: [{ t: "ref", v: "v.kanban" }] });
+    const nodes = wireToOutlineMap([frame, viewNode], new Set());
+    const schema = schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+    const view = frameViewOf(frame, schema, FRAME_VIEWS);
     expect(view?.key).toBe(OutlineListView);
     expect(warned).toEqual([
-      `[view-config] ${SYSTEM_IDS.viewModeField} ignored: no frame view is named "kanban"`,
+      "[view-config] v.kanban ignored: sys.view.outline.kanban is no frame view provided",
     ]);
   });
 

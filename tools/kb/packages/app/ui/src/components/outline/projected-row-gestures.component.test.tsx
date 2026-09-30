@@ -12,15 +12,15 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { queryResultInstanceKey } from "@/lib/instance-key";
-import { fieldContextOf } from "@/lib/schema";
-import { SYSTEM_IDS } from "@/lib/types";
-import { getViewConfig } from "@/lib/view-config";
+import { fieldContextOf, schemaOf } from "@/lib/schema";
+import { frameConfigOf } from "@/lib/view-config";
 import { OutlineCardsView, OutlineTableView } from "@/components/outline/views";
 import { paramsFrom } from "@/lib/view-key";
 import { Result } from "effect";
 import { useOutlineStore } from "@/stores/outline.store";
 import { installDomGlobals } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { framedAs } from "@/fixtures/view-fields";
 import { BoardCardsView } from "./board-cards-view";
 import { TableView } from "./table-view";
 
@@ -28,8 +28,9 @@ const RESULTS = ["n.root-b", "n.root-c"];
 
 /** What the view named `key` reads of n.root-a's config, decoded the way its host decodes it. */
 function settingsOf<P>(key: Parameters<typeof paramsFrom<P>>[0]): P {
-  const props = useOutlineStore.getState().nodes.get("n.root-a")?.props;
-  return Result.getOrThrow(paramsFrom(key, getViewConfig(props)));
+  const { nodes } = useOutlineStore.getState();
+  const schema = schemaOf(useOutlineStore.getState());
+  return Result.getOrThrow(paramsFrom(key, frameConfigOf(nodes.get("n.root-a"), schema)));
 }
 
 describe("projected query-result rows behave like owned rows", () => {
@@ -112,13 +113,8 @@ describe("projected query-result rows behave like owned rows", () => {
   });
 
   it("cards: a row click selects the result, the bullet opens it", async () => {
-    const wires = structuredClone(fixtureGraph.nodes).map((w) =>
-      w.id === "n.root-a"
-        ? {
-            ...w,
-            props: { ...w.props, [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "cards" }] },
-          }
-        : w,
+    const wires = structuredClone(fixtureGraph.nodes).flatMap((w) =>
+      w.id === "n.root-a" ? framedAs(w, "cards") : [w],
     );
     useOutlineStore.getState().hydrateFromWire(wires, fixtureGraph.rev, "fixtures");
     await act(async () => {

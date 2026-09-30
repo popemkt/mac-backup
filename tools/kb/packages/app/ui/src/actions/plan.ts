@@ -1,5 +1,14 @@
 import type { ActionInvocation, WireNode } from "@kb/contracts";
-import { fieldTypeValue, siblingSlots, wouldCreateExtendsCycle, type FieldType } from "@kb/model";
+import {
+  defaultViewIdOf,
+  fieldTypeValue,
+  hostViewIds,
+  isViewNode,
+  siblingSlots,
+  viewOptionId,
+  wouldCreateExtendsCycle,
+  type FieldType,
+} from "@kb/model";
 import { forestRootIds } from "@/lib/graph-view";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
@@ -408,8 +417,6 @@ export function planSetFieldTargetQuery(n: WireNode[], id: string, edn: string |
   );
 }
 
-export const planSetViewMode = (n: WireNode[], id: string, mode: string) =>
-  planReplaceField(n, id, SYSTEM_IDS.viewModeField, [{ t: "str", v: mode }]);
 /** A graph view's renderer is its view: the option `sys.f.view` names. */
 export const planSetGraphRenderer = (n: WireNode[], id: string, renderer: string) =>
   planReplaceField(n, id, SYSTEM_IDS.viewField, [{ t: "ref", v: renderer }]);
@@ -435,47 +442,73 @@ export function planAddViewNode(
 }
 export const planSetLensProp = (n: WireNode[], id: string, field: string, value: PropValue) =>
   planReplaceField(n, id, field, [value]);
-export function planSetViewSort(
-  n: WireNode[],
-  id: string,
-  specs: Array<{ fieldId: string; dir: "asc" | "desc" }>,
-): PlannedMutation {
-  return replaceProps(n, id, [
-    {
-      field: SYSTEM_IDS.viewSortField,
-      values: specs.map((spec) => ({ t: "ref", v: spec.fieldId })),
-    },
-    {
-      field: SYSTEM_IDS.viewSortDirField,
-      values: specs.map((spec) => ({ t: "str", v: spec.dir })),
-    },
+/**
+ * What an edit of a frame's view writes: fields of its view node, each
+ * replaced whole. The view is one of them (`sys.f.view`), its settings the
+ * rest (DESIGN.md → Kinds, roles and options → View nodes).
+ */
+export type FrameViewEdit = ReadonlyArray<{ field: string; values: PropValue[] }>;
+
+const refTo = (v: string): PropValue => ({ t: "ref", v });
+
+export const frameViewIs = (option: string): FrameViewEdit => [
+  { field: SYSTEM_IDS.viewField, values: [refTo(option)] },
+];
+export const frameViewSort = (specs: Array<{ fieldId: string; dir: "asc" | "desc" }>) => [
+  { field: SYSTEM_IDS.viewSortField, values: specs.map((spec) => refTo(spec.fieldId)) },
+  {
+    field: SYSTEM_IDS.viewSortDirField,
+    values: specs.map((spec): PropValue => ({ t: "str", v: spec.dir })),
+  },
+];
+export const frameViewDisplay = (fields: string[]): FrameViewEdit => [
+  { field: SYSTEM_IDS.viewDisplayField, values: fields.map(refTo) },
+];
+export const frameViewColwidth = (widths: Record<string, number>): FrameViewEdit => [
+  { field: SYSTEM_IDS.viewColwidthField, values: [{ t: "str", v: JSON.stringify(widths) }] },
+];
+export const frameViewPagesize = (size: number): FrameViewEdit => [
+  { field: SYSTEM_IDS.viewPagesizeField, values: [{ t: "num", v: size }] },
+];
+export const frameViewGroup = (field: string | null): FrameViewEdit => [
+  { field: SYSTEM_IDS.viewGroupField, values: field !== null ? [refTo(field)] : [] },
+];
+export const frameViewFilters = (edn: string[]): FrameViewEdit => [
+  { field: SYSTEM_IDS.viewFilterField, values: edn.map((v): PropValue => ({ t: "str", v })) },
+];
+
+/** What a frame is shown as until it names a view node: the list. */
+const FRAME_LIST_OPTION = viewOptionId("outline.list");
+
+/**
+ * Edit a frame's view: its default view node's fields, replaced in one
+ * `node.update`. A frame that names no view node yet gets one — the list's,
+ * filed in the Views list under `newViewId`, carrying the edit — and names it
+ * first in `sys.f.views`, so it is the frame's default. Null when there is no
+ * Views list to file it in.
+ */
+export function planEditFrameView(
+  nodes: WireNode[],
+  frameId: string,
+  edit: FrameViewEdit,
+  newViewId: string,
+): PlannedMutation | null {
+  const frame = requireNode(nodes, frameId);
+  const viewId = defaultViewIdOf(frame);
+  const view = viewId === null ? undefined : wireById(nodes).get(viewId);
+  if (view !== undefined && isViewNode(view)) return replaceProps(nodes, view.id, [...edit]);
+  const props: WireNode["props"] = {
+    [SYSTEM_IDS.viewField]: [refTo(FRAME_LIST_OPTION)],
+    ...Object.fromEntries(edit.map(({ field, values }) => [field, values])),
+  };
+  const made = planAddViewNode(nodes, newViewId, "", props);
+  if (made === null) return null;
+  const views = [newViewId, ...hostViewIds(frame).filter((id) => id !== newViewId)];
+  const named = replaceProps(nodes, frameId, [
+    { field: SYSTEM_IDS.viewsField, values: views.map(refTo) },
   ]);
+  return { actions: [...made.actions, ...named.actions] };
 }
-export const planSetViewDisplay = (n: WireNode[], id: string, fields: string[]) =>
-  planReplaceField(
-    n,
-    id,
-    SYSTEM_IDS.viewDisplayField,
-    fields.map((v) => ({ t: "ref", v })),
-  );
-export const planSetViewColwidth = (n: WireNode[], id: string, widths: Record<string, number>) =>
-  planReplaceField(n, id, SYSTEM_IDS.viewColwidthField, [{ t: "str", v: JSON.stringify(widths) }]);
-export const planSetViewPagesize = (n: WireNode[], id: string, size: number) =>
-  planReplaceField(n, id, SYSTEM_IDS.viewPagesizeField, [{ t: "num", v: size }]);
-export const planSetViewGroup = (n: WireNode[], id: string, field: string | null) =>
-  planReplaceField(
-    n,
-    id,
-    SYSTEM_IDS.viewGroupField,
-    field !== null ? [{ t: "ref", v: field }] : [],
-  );
-export const planSetViewFilters = (n: WireNode[], id: string, edn: string[]) =>
-  planReplaceField(
-    n,
-    id,
-    SYSTEM_IDS.viewFilterField,
-    edn.map((v) => ({ t: "str", v })),
-  );
 export const planMoveBoardCard = (
   n: WireNode[],
   id: string,

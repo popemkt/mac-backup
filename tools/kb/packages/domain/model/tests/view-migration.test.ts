@@ -8,8 +8,13 @@ import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/model.ts";
 import { systemSeedNodes } from "../src/seed.ts";
-import { LEGACY_PERSPECTIVE_TAG, migrateToViewNodes } from "../src/view-migration.ts";
-import { viewOptionId } from "../src/view-node.ts";
+import {
+  LEGACY_PERSPECTIVE_TAG,
+  LEGACY_VIEW_MODE_FIELD,
+  frameViewNodeId,
+  migrateToViewNodes,
+} from "../src/view-migration.ts";
+import { defaultViewIdOf, viewOptionId } from "../src/view-node.ts";
 
 const AT = "2026-09-01T00:00:00.000Z";
 const ref = (v: string): PropValue => ({ t: "ref", v });
@@ -93,6 +98,18 @@ describe("graph perspectives become view nodes", () => {
       ]);
   });
 
+  test("a perspective's own renderer wins over the view the seed filled in beside it", () => {
+    // The seed runs first on open, and fills `sys.f.view` onto an old
+    // lens.all-mentions that lacked it; the tag says lens.renderer is the choice.
+    const filled = perspective("p.filled", {
+      [SYSTEM_IDS.viewField]: [ref(viewOptionId("graph.force2d"))],
+      [SYSTEM_IDS.lensRendererField]: [ref(legacyOption("tree"))],
+    });
+    expect(migrateToViewNodes([filled]).nodes[0]?.props[SYSTEM_IDS.viewField]).toEqual([
+      ref(viewOptionId("graph.tree")),
+    ]);
+  });
+
   test("the tag goes, and only the tag: a perspective's other tags stay", () => {
     expect(after.get("p.tree")?.props[SYSTEM_IDS.typeField]).toBeUndefined();
     expect(after.get("p.tagged")?.props[SYSTEM_IDS.typeField]).toEqual([ref("tag.todo")]);
@@ -114,6 +131,89 @@ describe("graph perspectives become view nodes", () => {
     const again = migrateToViewNodes(nodes);
     expect(again.changed).toBe(false);
     expect(again.nodes).toBe(nodes);
+  });
+});
+
+describe("a frame's view settings become its default view node", () => {
+  const MODE = LEGACY_VIEW_MODE_FIELD;
+  const sort = {
+    [SYSTEM_IDS.viewSortField]: [ref("f.a")],
+    [SYSTEM_IDS.viewSortDirField]: [str("desc")],
+  };
+  const before = [
+    node(MODE, { props: { [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.field)] } }),
+    node(SYSTEM_IDS.viewsList, { text: "Views", children: ["v.kept"] }),
+    node("v.kept", { props: { [SYSTEM_IDS.viewField]: [ref(viewOptionId("graph.tree"))] } }),
+    node("f.table", {
+      updatedAt: "2026-09-02T00:00:00.000Z",
+      props: { [MODE]: [str("table")], ...sort, "f.other": [str("kept")] },
+    }),
+    node("f.list", { props: { [MODE]: [str("list")] } }),
+    node("f.odd", { props: { [MODE]: [str("kanban")] } }),
+    node("f.settings-only", { props: { [SYSTEM_IDS.viewPagesizeField]: [{ t: "num", v: 5 }] } }),
+    node("f.named", {
+      props: { [MODE]: [str("cards")], [SYSTEM_IDS.viewsField]: [ref("v.kept")] },
+    }),
+    // A view node holds these props as its params: it is no frame to migrate.
+    node("v.params", {
+      props: { [SYSTEM_IDS.viewField]: [ref(viewOptionId("outline.table"))], ...sort },
+    }),
+  ];
+  const { nodes, changed } = migrateToViewNodes(before);
+  const after = byId(nodes);
+  const shownAs = (frame: string) =>
+    after.get(defaultViewIdOf(after.get(frame)) ?? "")?.props[SYSTEM_IDS.viewField];
+
+  test("the view its mode named is its view node's, and its settings are that node's params", () => {
+    expect(changed).toBe(true);
+    const view = after.get(frameViewNodeId("f.table"));
+    expect(view?.props).toEqual({
+      [SYSTEM_IDS.viewField]: [ref(viewOptionId("outline.table"))],
+      ...sort,
+    });
+    expect(view?.text).toBe("");
+    // Dated as the frame was last written, so two stores migrate it alike.
+    expect(view?.createdAt).toBe("2026-09-02T00:00:00.000Z");
+    expect(after.get("f.table")?.props).toEqual({
+      "f.other": [str("kept")],
+      [SYSTEM_IDS.viewsField]: [ref(frameViewNodeId("f.table"))],
+    });
+  });
+
+  test("a frame whose mode names no view kb knows, or that named none, is a list", () => {
+    for (const frame of ["f.list", "f.odd", "f.settings-only"])
+      expect(shownAs(frame), frame).toEqual([ref(viewOptionId("outline.list"))]);
+    expect(
+      after.get(frameViewNodeId("f.settings-only"))?.props[SYSTEM_IDS.viewPagesizeField],
+    ).toEqual([{ t: "num", v: 5 }]);
+  });
+
+  test("the new view node is the frame's default: named first, before the views it named", () => {
+    expect(after.get("f.named")?.props[SYSTEM_IDS.viewsField]).toEqual([
+      ref(frameViewNodeId("f.named")),
+      ref("v.kept"),
+    ]);
+  });
+
+  test("each is filed at the end of the Views list, and the mode field is retired", () => {
+    expect(after.get(SYSTEM_IDS.viewsList)?.children).toEqual([
+      "v.kept",
+      ...["f.table", "f.list", "f.odd", "f.settings-only", "f.named"].map(frameViewNodeId),
+    ]);
+    expect(after.has(MODE)).toBe(false);
+    expect(after.get("v.params")).toBe(before.find((n) => n.id === "v.params"));
+  });
+
+  test("a second run changes nothing", () => {
+    const again = migrateToViewNodes(nodes);
+    expect(again.changed).toBe(false);
+    expect(again.nodes).toBe(nodes);
+  });
+
+  test("without a Views list, a frame's view node is a root", () => {
+    const alone = migrateToViewNodes([node("f", { props: { [MODE]: [str("board")] } })]).nodes;
+    expect(alone.map((n) => n.id).toSorted()).toEqual(["f", frameViewNodeId("f")]);
+    expect(alone.every((n) => n.children.length === 0)).toBe(true);
   });
 });
 

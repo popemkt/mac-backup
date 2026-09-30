@@ -5,8 +5,7 @@ import { ulid } from "ulid";
 import { z } from "zod";
 import type { LensPerspective } from "@/lib/graph-lens";
 import type { FieldType } from "@kb/model";
-import type { FrameViewKey, SortSpec } from "@/lib/view-config";
-import { localIdOf } from "@/lib/view-key";
+import type { FrameViewKey, SortSpec, ViewConfig } from "@/lib/view-config";
 import { runOptimistic } from "@/actions/optimistic";
 import {
   planAddChild,
@@ -29,6 +28,7 @@ import {
   planSplit,
   planUnsetProp,
   planUpdateText,
+  type FrameViewEdit,
   type PlannedMutation,
 } from "@/actions/plan";
 import { pinnedRefIdsFor } from "@/lib/pinned";
@@ -86,6 +86,29 @@ async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
   const result = await runOptimistic(plan);
   if (result.ok) recordHistory(preWire, plan);
   return result.ok;
+}
+
+/**
+ * Write `edit` to a frame's default view node, making one (filed in the
+ * Views list) when the frame names none (`planEditFrameView`).
+ */
+async function editFrameView(frameId: string, edit: FrameViewEdit): Promise<void> {
+  if (!guardSysWrite(frameId)) return;
+  const { planEditFrameView } = await import("@/actions/plan");
+  const plan = planEditFrameView(wire(), frameId, edit, ulid());
+  if (plan === null) {
+    toast("There is no Views list to keep this frame's view in");
+    return;
+  }
+  await applyPlan(plan);
+}
+
+/** The frame settings a frame's view node holds now. */
+async function frameConfig(frameId: string): Promise<ViewConfig> {
+  const state = useOutlineStore.getState();
+  const { frameConfigOf } = await import("@/lib/view-config");
+  const { schemaOf } = await import("@/lib/schema");
+  return frameConfigOf(state.nodes.get(frameId), schemaOf(state));
 }
 
 /**
@@ -640,11 +663,10 @@ export const mutations = {
     await applyPlan(planOntologySetClosure(wire(), ontoId, mode));
   },
 
-  /** Show a frame's children in `view`: its name is what `sys.f.view.mode` stores. */
+  /** Show a frame's children in `view`: its default view node names the view's option. */
   async setFrameView(frameId: string, view: FrameViewKey): Promise<void> {
-    if (!guardSysWrite(frameId)) return;
-    const { planSetViewMode } = await import("@/actions/plan");
-    await applyPlan(planSetViewMode(wire(), frameId, localIdOf(view)));
+    const { frameViewIs } = await import("@/actions/plan");
+    await editFrameView(frameId, frameViewIs(view.option));
   },
 
   /** Save `perspective` as a new graph view node, filed in the Views list. */
@@ -684,19 +706,16 @@ export const mutations = {
     await applyPlan(planSetLensProp(wire(), perspectiveId, fieldId, value));
   },
 
+  // A frame's view settings are its default view node's params: each edit
+  // below writes that node (`editFrameView`), never the frame's own props.
+
   async setViewSort(frameId: string, sortSpecs: SortSpec[]): Promise<void> {
-    if (!guardSysWrite(frameId)) return;
-    const { planSetViewSort } = await import("@/actions/plan");
-    await applyPlan(planSetViewSort(wire(), frameId, sortSpecs));
+    const { frameViewSort } = await import("@/actions/plan");
+    await editFrameView(frameId, frameViewSort(sortSpecs));
   },
 
   async toggleViewSort(frameId: string, fieldId: string): Promise<void> {
-    if (!guardSysWrite(frameId)) return;
-    const store = useOutlineStore.getState();
-    const frameNode = store.nodes.get(frameId);
-    const { getViewConfig } = await import("@/lib/view-config");
-    const config = getViewConfig(frameNode?.props);
-    const current = config.sort;
+    const current = (await frameConfig(frameId)).sort;
     const existingIndex = current.findIndex((s) => s.fieldId === fieldId);
 
     let nextSort: SortSpec[];
@@ -708,76 +727,58 @@ export const mutations = {
       nextSort = current.filter((s) => s.fieldId !== fieldId);
     }
 
-    const { planSetViewSort } = await import("@/actions/plan");
-    await applyPlan(planSetViewSort(wire(), frameId, nextSort));
+    const { frameViewSort } = await import("@/actions/plan");
+    await editFrameView(frameId, frameViewSort(nextSort));
   },
 
   async setViewDisplay(frameId: string, displayFieldIds: string[]): Promise<void> {
-    if (!guardSysWrite(frameId)) return;
-    const { planSetViewDisplay } = await import("@/actions/plan");
-    await applyPlan(planSetViewDisplay(wire(), frameId, displayFieldIds));
+    const { frameViewDisplay } = await import("@/actions/plan");
+    await editFrameView(frameId, frameViewDisplay(displayFieldIds));
   },
 
   async setColumnWidth(frameId: string, fieldId: string, widthPx: number): Promise<void> {
-    if (!guardSysWrite(frameId)) return;
-    const store = useOutlineStore.getState();
-    const frameNode = store.nodes.get(frameId);
-    const { getViewConfig } = await import("@/lib/view-config");
-    const config = getViewConfig(frameNode?.props);
-    const nextColwidth = { ...config.colwidth, [fieldId]: widthPx };
-    const { planSetViewColwidth } = await import("@/actions/plan");
-    await applyPlan(planSetViewColwidth(wire(), frameId, nextColwidth));
+    const nextColwidth = { ...(await frameConfig(frameId)).colwidth, [fieldId]: widthPx };
+    const { frameViewColwidth } = await import("@/actions/plan");
+    await editFrameView(frameId, frameViewColwidth(nextColwidth));
   },
 
   async setViewPagesize(frameId: string, pagesize: number): Promise<void> {
-    if (!guardSysWrite(frameId)) return;
-    const { planSetViewPagesize } = await import("@/actions/plan");
-    await applyPlan(planSetViewPagesize(wire(), frameId, pagesize));
+    const { frameViewPagesize } = await import("@/actions/plan");
+    await editFrameView(frameId, frameViewPagesize(pagesize));
   },
 
   async setViewGroup(frameId: string, fieldId: string | null): Promise<void> {
-    if (!guardSysWrite(frameId)) return;
-    const { planSetViewGroup } = await import("@/actions/plan");
-    await applyPlan(planSetViewGroup(wire(), frameId, fieldId));
+    const { frameViewGroup } = await import("@/actions/plan");
+    await editFrameView(frameId, frameViewGroup(fieldId));
   },
 
   async setViewFilters(frameId: string, filterEdnList: string[]): Promise<void> {
-    if (!guardSysWrite(frameId)) return;
-    const { planSetViewFilters } = await import("@/actions/plan");
-    await applyPlan(planSetViewFilters(wire(), frameId, filterEdnList));
+    const { frameViewFilters } = await import("@/actions/plan");
+    await editFrameView(frameId, frameViewFilters(filterEdnList));
   },
 
   async addViewFilter(frameId: string, edn: string): Promise<void> {
-    if (!guardSysWrite(frameId)) return;
-    const store = useOutlineStore.getState();
-    const frame = store.nodes.get(frameId);
-    const { getViewConfig, serializeViewFilter, parseViewFilterEdn } =
-      await import("@/lib/view-config");
+    const { serializeViewFilter, parseViewFilterEdn } = await import("@/lib/view-config");
     const parsed = parseViewFilterEdn(edn);
     if (!parsed) {
       toast(`Bad filter EDN: ${edn}`);
       return;
     }
-    const config = getViewConfig(frame?.props);
     const next = [
-      ...config.filters.map((f) => f.raw || serializeViewFilter(f)),
+      ...(await frameConfig(frameId)).filters.map((f) => f.raw || serializeViewFilter(f)),
       serializeViewFilter(parsed),
     ];
-    const { planSetViewFilters } = await import("@/actions/plan");
-    await applyPlan(planSetViewFilters(wire(), frameId, next));
+    const { frameViewFilters } = await import("@/actions/plan");
+    await editFrameView(frameId, frameViewFilters(next));
   },
 
   async removeViewFilter(frameId: string, edn: string): Promise<void> {
-    if (!guardSysWrite(frameId)) return;
-    const store = useOutlineStore.getState();
-    const frame = store.nodes.get(frameId);
-    const { getViewConfig, serializeViewFilter } = await import("@/lib/view-config");
-    const config = getViewConfig(frame?.props);
-    const next = config.filters
+    const { serializeViewFilter } = await import("@/lib/view-config");
+    const next = (await frameConfig(frameId)).filters
       .map((f) => f.raw || serializeViewFilter(f))
       .filter((raw) => raw !== edn);
-    const { planSetViewFilters } = await import("@/actions/plan");
-    await applyPlan(planSetViewFilters(wire(), frameId, next));
+    const { frameViewFilters } = await import("@/actions/plan");
+    await editFrameView(frameId, frameViewFilters(next));
   },
 
   async moveBoardCard(

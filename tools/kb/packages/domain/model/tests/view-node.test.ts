@@ -16,7 +16,6 @@ import {
   defaultViewIdOf,
   hostViewIds,
   isViewNode,
-  storedPlacementOf,
   viewOptionId,
   viewOptionOf,
 } from "../src/view-node.ts";
@@ -77,13 +76,5 @@ describe("a view node and its host", () => {
       "v.2",
     );
     expect(defaultViewIdOf(carrying({}))).toBeNull();
-  });
-
-  test("a stored placement reads back as its option's name, and a stranger as none", () => {
-    const at = (v: string) =>
-      storedPlacementOf(carrying({ [SYSTEM_IDS.viewPlacementField]: [ref(v)] }));
-    expect(at("sys.view-placement.beside")).toBe("beside");
-    expect(at("sys.view-placement.card")).toBeNull();
-    expect(storedPlacementOf(carrying({}))).toBeNull();
   });
 });

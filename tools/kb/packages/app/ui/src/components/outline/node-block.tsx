@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback } from "react";
 import { shownNode } from "@/lib/contextual-ref";
 import { cn } from "@/lib/cn";
 import { guideLineStyle, indentStyle } from "@/lib/indent";
@@ -12,11 +12,11 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { bulletClickIntent, nodeTarget } from "@/lib/follow";
 import { mutations } from "@/actions/mutations";
-import { frameViewOf } from "@/lib/view-config";
+
 import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
 import { FrameViewSlot } from "./frame-view-slot";
-import { useFrameViewKeys } from "./use-frame-views";
+import { useFrameView } from "./use-frame-views";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { QueryResultsSection } from "./query-results";
@@ -103,11 +103,7 @@ export const NodeBlock = memo(function NodeBlock({
   const handleKeyDown = useNodeKeyDown({ nodeId, instanceKey });
 
   // The view the shown node's children are shown in: the frame is the shown node.
-  const frameViews = useFrameViewKeys();
-  const frameView = useMemo(
-    () => frameViewOf(shown?.props, frameViews),
-    [shown?.props, frameViews],
-  );
+  const frameView = useFrameView(shown);
   const frameViewKey = frameView?.key ?? null;
 
   if (!node || !shown) return null;

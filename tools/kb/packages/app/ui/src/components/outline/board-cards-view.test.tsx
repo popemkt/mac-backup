@@ -3,10 +3,10 @@ import type { NodeMap } from "@/lib/types";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { defaultViewIdOf, present, viewOptionOf } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { viewFieldNodes } from "@/fixtures/view-fields";
+import { framedAs, viewFieldNodes, type FrameViewName } from "@/fixtures/view-fields";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
@@ -46,7 +46,12 @@ function frameViewKeys() {
 
 /** frame1's view as its host resolves it (`frameViewOf`): board or cards, with the settings it reads. */
 function columnsView() {
-  const view = frameViewOf(useOutlineStore.getState().nodes.get("frame1")?.props, frameViewKeys());
+  const { nodes } = useOutlineStore.getState();
+  const view = frameViewOf(
+    nodes.get("frame1"),
+    schemaOf(useOutlineStore.getState()),
+    frameViewKeys(),
+  );
   if (view === null) throw new Error("no frame view is provided");
   const { key, params } = view;
   if (key === OutlineCardsView)
@@ -62,24 +67,38 @@ function columnsView() {
   throw new Error(`frame1 is shown in ${key.id}, not in columns`);
 }
 
+/** The view frame1's default view node names now. */
+function viewOf(): string | null {
+  const { nodes } = useOutlineStore.getState();
+  return viewOptionOf(nodes.get(defaultViewIdOf(nodes.get("frame1")) ?? ""));
+}
+
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
   return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
 }
 
+const FRAME1: WireNode = {
+  id: "frame1",
+  text: "Board Frame",
+  props: {},
+  children: ["c1", "c2", "c3"],
+  createdAt: "",
+  updatedAt: "",
+};
+const GROUPED = { [SYSTEM_IDS.viewGroupField]: [{ t: "ref" as const, v: "f_status" }] };
+
+/** The mock graph with frame1 shown as `view`, its view node carrying `settings`. */
+function withFrame1(view: FrameViewName, settings: WireNode["props"]): WireNode[] {
+  const shown = framedAs(FRAME1, view, settings);
+  return mockWire
+    .filter((n) => n.id !== shown[1].id)
+    .flatMap((n) => (n.id === FRAME1.id ? shown : [n]));
+}
+
 const mockWire: WireNode[] = [
   ...viewFieldNodes,
-  {
-    id: "frame1",
-    text: "Board Frame",
-    props: {
-      [SYSTEM_IDS.viewGroupField]: [{ t: "ref", v: "f_status" }],
-      [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "board" }],
-    },
-    children: ["c1", "c2", "c3"],
-    createdAt: "",
-    updatedAt: "",
-  },
+  ...framedAs(FRAME1, "board", GROUPED),
   {
     id: "c1",
     text: "Alpha",
@@ -157,22 +176,22 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   });
 
   it("zoomed-header shows the toolbar when mode ≠ list, and a quiet gear on list", () => {
-    const frame = present(useOutlineStore.getState().nodes.get("frame1"), "frame1");
-    expect(getViewConfig(frame.props).mode).toBe("board");
-    const html = renderToStaticMarkup(createElement(ZoomedRootHeader, { node: frame }));
+    const { nodes } = useOutlineStore.getState();
+    const frame = present(nodes.get("frame1"), "frame1");
+    expect(frameViewOf(frame, schemaFor(nodes), frameViewKeys())?.key).toBe(OutlineBoardView);
+    const html = renderToStaticMarkup(
+      createElement(ZoomedRootHeader, { node: frame, view: OutlineBoardView }),
+    );
     expect(html).toContain('data-view-toolbar="true"');
     expect(html).toContain('data-mode-button="board"');
     expect(html).not.toContain('data-view-toolbar-gear="true"');
     expect(html).toContain('data-zoomed-root-header="true"');
 
-    const listFrame = {
-      ...frame,
-      props: {
-        ...frame.props,
-        [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "list" }],
-      },
-    };
-    const listHtml = renderToStaticMarkup(createElement(ZoomedRootHeader, { node: listFrame }));
+    // A frame that names no view node is shown as a list.
+    const listFrame = { ...frame, props: {} };
+    const listHtml = renderToStaticMarkup(
+      createElement(ZoomedRootHeader, { node: listFrame, view: OutlineListView }),
+    );
     // P2-6: a list frame still reaches table/board/cards, through one gear
     // that stays invisible until the header is hovered or focused.
     expect(listHtml).not.toContain('data-view-toolbar="true"');
@@ -202,17 +221,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   });
 
   it("board with null group shows empty state + switch to cards", () => {
-    const bare = mockWire.map((n) =>
-      n.id === "frame1"
-        ? {
-            ...n,
-            props: {
-              [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "board" }],
-            },
-          }
-        : n,
-    );
-    useOutlineStore.getState().hydrateFromWire(bare, 2, "fixtures");
+    useOutlineStore.getState().hydrateFromWire(withFrame1("board", {}), 2, "fixtures");
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
@@ -229,18 +238,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
 
   it("cards mode renders ungrouped CSS grid (no board columns)", () => {
     // The view is the frame's own, resolved the way its host resolves it.
-    const asCards = mockWire.map((n) =>
-      n.id === "frame1"
-        ? {
-            ...n,
-            props: {
-              ...n.props,
-              [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "cards" }],
-            },
-          }
-        : n,
-    );
-    useOutlineStore.getState().hydrateFromWire(asCards, 3, "fixtures");
+    useOutlineStore.getState().hydrateFromWire(withFrame1("cards", GROUPED), 3, "fixtures");
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
@@ -306,15 +304,13 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     expect(html).toContain(`data-instance-key="${queryResultInstanceKey("frame1", "c2")}"`);
   });
 
-  it("setFrameView board/cards persists on frame", async () => {
-    await mutations.setFrameView("frame1", OutlineBoardView);
-    expect(useOutlineStore.getState().nodes.get("frame1")?.props[SYSTEM_IDS.viewModeField]).toEqual(
-      [{ t: "str", v: "board" }],
-    );
+  it("setFrameView board/cards persists on the frame's view node", async () => {
     await mutations.setFrameView("frame1", OutlineCardsView);
-    expect(useOutlineStore.getState().nodes.get("frame1")?.props[SYSTEM_IDS.viewModeField]).toEqual(
-      [{ t: "str", v: "cards" }],
-    );
+    expect(viewOf()).toBe(OutlineCardsView.option);
+    await mutations.setFrameView("frame1", OutlineBoardView);
+    expect(viewOf()).toBe(OutlineBoardView.option);
+    // The group setting the view node held is kept across the switch.
+    expect(columnsView().params).toMatchObject({ groupFieldId: "f_status" });
   });
 
   it("collectVisibleInstances board column order matches flattenBoardOrder", () => {

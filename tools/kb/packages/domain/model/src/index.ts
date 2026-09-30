@@ -125,7 +125,6 @@ export {
   familyViewNodesQuery,
   hostViewIds,
   isViewNode,
-  storedPlacementOf,
   viewFamilyTargetQuery,
   viewIdOfOption,
   viewOptionId,
@@ -133,4 +132,9 @@ export {
   viewValueEntries,
 } from "./view-node.ts";
 export type { StoredPlacement, ViewFamily, ViewId } from "./view-node.ts";
-export { LEGACY_PERSPECTIVE_TAG, migrateToViewNodes } from "./view-migration.ts";
+export {
+  LEGACY_PERSPECTIVE_TAG,
+  LEGACY_VIEW_MODE_FIELD,
+  frameViewNodeId,
+  migrateToViewNodes,
+} from "./view-migration.ts";

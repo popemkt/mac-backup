@@ -1,17 +1,17 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { defaultViewIdOf, present, viewOptionOf } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { viewFieldNodes } from "@/fixtures/view-fields";
+import { framedAs, viewFieldNodes } from "@/fixtures/view-fields";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
-import { getViewConfig } from "@/lib/view-config";
+import { frameConfigOf, getViewConfig } from "@/lib/view-config";
 import { OutlineListView, OutlineTableView } from "@/components/outline/views";
 import { paramsFrom } from "@/lib/view-key";
 import { Result } from "effect";
-import { fieldContextOf } from "@/lib/schema";
+import { fieldContextOf, schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import type { WireNode } from "@kb/contracts";
@@ -97,8 +97,10 @@ const mockWireNodes: WireNode[] = [
 
 /** The settings the table reads, decoded from frame1 the way its host decodes them. */
 function tableSettings() {
-  const props = useOutlineStore.getState().nodes.get("frame1")?.props;
-  return Result.getOrThrow(paramsFrom(OutlineTableView, getViewConfig(props)));
+  const state = useOutlineStore.getState();
+  return Result.getOrThrow(
+    paramsFrom(OutlineTableView, frameConfigOf(state.nodes.get("frame1"), schemaOf(state))),
+  );
 }
 
 function getStoreNodes() {
@@ -123,13 +125,22 @@ describe("W7 TableView & ViewToolbar", () => {
     expect(html).toContain('data-mode-button="table"');
     expect(html).toContain('data-mode-button="list"');
 
+    // The frame names no view yet, so the first switch makes its view node:
+    // filed in the Views list, and named first by the frame.
     await mutations.setFrameView("frame1", OutlineTableView);
-    const frame = useOutlineStore.getState().nodes.get("frame1");
-    expect(frame?.props[SYSTEM_IDS.viewModeField]).toEqual([{ t: "str", v: "table" }]);
 
+    const viewId = present(defaultViewIdOf(getStoreNodes().get("frame1")), "the frame's view node");
+    expect(getStoreNodes().get(SYSTEM_IDS.viewsList)?.children).toEqual([viewId]);
+    expect(viewOptionOf(getStoreNodes().get(viewId))).toBe(OutlineTableView.option);
+    expect(Object.keys(getStoreNodes().get("frame1")?.props ?? {})).toEqual([
+      SYSTEM_IDS.viewsField,
+    ]);
+
+    // The next switch edits that node; it makes no second one.
     await mutations.setFrameView("frame1", OutlineListView);
-    const frameAfter = useOutlineStore.getState().nodes.get("frame1");
-    expect(frameAfter?.props[SYSTEM_IDS.viewModeField]).toEqual([{ t: "str", v: "list" }]);
+    expect(defaultViewIdOf(getStoreNodes().get("frame1"))).toBe(viewId);
+    expect(viewOptionOf(getStoreNodes().get(viewId))).toBe(OutlineListView.option);
+    expect(getStoreNodes().get(SYSTEM_IDS.viewsList)?.children).toEqual([viewId]);
   });
 
   it("renders TableView with fallback columns from tag fields and asserts NodeRow reuse via data-instance-key", () => {
@@ -281,26 +292,24 @@ describe("W7 TableView & ViewToolbar", () => {
   });
 
   it("the next sort or width write drops a Name setting saved as __name__", async () => {
-    const legacy = mockWireNodes.map((n) =>
+    const legacy = mockWireNodes.flatMap((n) =>
       n.id === "frame1"
-        ? {
-            ...n,
-            props: {
-              [SYSTEM_IDS.viewSortField]: [{ t: "ref" as const, v: "__name__" }],
-              [SYSTEM_IDS.viewSortDirField]: [{ t: "str" as const, v: "desc" }],
-              [SYSTEM_IDS.viewColwidthField]: [
-                { t: "str" as const, v: JSON.stringify({ __name__: 240 }) },
-              ],
-            },
-          }
-        : n,
+        ? framedAs(n, "table", {
+            [SYSTEM_IDS.viewSortField]: [{ t: "ref" as const, v: "__name__" }],
+            [SYSTEM_IDS.viewSortDirField]: [{ t: "str" as const, v: "desc" }],
+            [SYSTEM_IDS.viewColwidthField]: [
+              { t: "str" as const, v: JSON.stringify({ __name__: 240 }) },
+            ],
+          })
+        : [n],
     );
     useOutlineStore.getState().hydrateFromWire(legacy, 1, "fixtures");
 
     await mutations.toggleViewSort("frame1", "f_score");
     await mutations.setColumnWidth("frame1", "f_score", 120);
 
-    const props = present(useOutlineStore.getState().nodes.get("frame1"), "frame1").props;
+    // The settings are the frame's view node's.
+    const props = present(useOutlineStore.getState().nodes.get("view.frame1"), "view").props;
     expect(props[SYSTEM_IDS.viewSortField]).toEqual([
       { t: "ref", v: "f_score" },
       { t: "ref", v: SYSTEM_IDS.nodeTextField },

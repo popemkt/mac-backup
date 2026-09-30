@@ -1,13 +1,13 @@
 import { useCallback, useEffect } from "react";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
-import { frameViewOf, projectsRows } from "@/lib/view-config";
+import { projectsRows } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";
 import { Breadcrumbs } from "./breadcrumbs";
 import { FrameViewSlot } from "./frame-view-slot";
 import { useSlotChain } from "@/components/ui/slot-chain";
-import { useFrameViewKeys } from "./use-frame-views";
+import { useFrameView } from "./use-frame-views";
 import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
@@ -23,7 +23,7 @@ import { useSelectionKeymap } from "./use-selection-keymap";
 export function OutlineEditor() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const root = useOutlineStore((s) => s.nodes.get(s.rootNodeId));
-  const frameViews = useFrameViewKeys();
+  const rootView = useFrameView(root);
   // The keyboard walk starts where the root frame's slot does.
   const slotChain = useSlotChain();
   const setSlotChain = useOutlineStore((s) => s.setSlotChain);
@@ -60,14 +60,14 @@ export function OutlineEditor() {
 
   // The root is a frame like any other: its view shows its rows, whether it is
   // the workspace root or a zoomed-in node.
-  const projected = projectsRows(frameViewOf(root.props, frameViews)?.key ?? null);
+  const projected = projectsRows(rootView?.key ?? null);
   const rootRows = <FrameViewSlot frameId={rootNodeId} depth={0} />;
 
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
     return (
       <div className="outline-editor px-2 pb-40">
         <Breadcrumbs />
-        <ZoomedRootHeader node={root} />
+        <ZoomedRootHeader node={root} view={rootView?.key ?? null} />
 
         {rootRows}
 

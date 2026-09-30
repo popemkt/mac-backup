@@ -124,14 +124,6 @@ export function defaultViewIdOf(node: Carrier | undefined): NodeId | null {
   return hostViewIds(node)[0] ?? null;
 }
 
-/** The placement a view node asks for (`sys.f.view.placement`), or null when it asks none. */
-export function storedPlacementOf(node: Carrier | undefined): StoredPlacement | null {
-  const option = firstRefOf(node, SYSTEM_IDS.viewPlacementField);
-  return (
-    STORED_PLACEMENTS.find((placement) => VIEW_PLACEMENT_VALUES[placement].id === option) ?? null
-  );
-}
-
 /** What `sys.f.view` may name: the option children of `sys.views`. */
 export const VIEW_OPTION_TARGET_QUERY = childrenTargetQuery(SYSTEM_IDS.viewsRoot);
 

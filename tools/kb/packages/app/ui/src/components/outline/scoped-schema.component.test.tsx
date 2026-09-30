@@ -17,6 +17,10 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncUiPlugins } from "@/lib/plugins";
 import { FrameViewSlot } from "./frame-view-slot";
 import { outlineUiPlugin } from "./plugin";
+import { framedAs, type FrameViewName } from "@/fixtures/view-fields";
+
+/** A frame view and the settings its view node carries. */
+type FramedView = readonly [FrameViewName, WireNode["props"]];
 
 const ISO = "2026-09-26T00:00:00.000Z";
 const TAG = "t.svc";
@@ -32,7 +36,7 @@ function node(
 
 const tagged = { [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: TAG }] };
 
-function wire(view: WireNode["props"]): WireNode[] {
+function wire([view, settings]: FramedView): WireNode[] {
   return [
     node(TAG, "service", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] }),
     node(
@@ -51,7 +55,7 @@ function wire(view: WireNode["props"]): WireNode[] {
       [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
       [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: SYSTEM_IDS.ftRef }],
     }),
-    node("frame", "Services", { ...tagged, ...view }, ["row"]),
+    ...framedAs(node("frame", "Services", tagged, ["row"]), view, settings),
     node("row", "alpha", { ...tagged, "f.status": [{ t: "ref", v: "opt.done" }] }),
     node("outsider", "outsider"),
     node("o.1", "Services ontology", {
@@ -61,22 +65,28 @@ function wire(view: WireNode["props"]): WireNode[] {
   ];
 }
 
-const TABLE = {
-  [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "table" }],
-  [SYSTEM_IDS.viewDisplayField]: [
-    { t: "ref" as const, v: "f.status" },
-    { t: "ref" as const, v: "f.link" },
-  ],
-};
-const BOARD = {
-  [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "board" }],
-  [SYSTEM_IDS.viewGroupField]: [{ t: "ref" as const, v: "f.status" }],
-  [SYSTEM_IDS.viewDisplayField]: [{ t: "ref" as const, v: "f.status" }],
-};
-const CARDS = {
-  [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "cards" }],
-  [SYSTEM_IDS.viewDisplayField]: [{ t: "ref" as const, v: "f.status" }],
-};
+const TABLE: FramedView = [
+  "table",
+  {
+    [SYSTEM_IDS.viewDisplayField]: [
+      { t: "ref" as const, v: "f.status" },
+      { t: "ref" as const, v: "f.link" },
+    ],
+  },
+];
+const BOARD: FramedView = [
+  "board",
+  {
+    [SYSTEM_IDS.viewGroupField]: [{ t: "ref" as const, v: "f.status" }],
+    [SYSTEM_IDS.viewDisplayField]: [{ t: "ref" as const, v: "f.status" }],
+  },
+];
+const CARDS: FramedView = [
+  "cards",
+  {
+    [SYSTEM_IDS.viewDisplayField]: [{ t: "ref" as const, v: "f.status" }],
+  },
+];
 
 /** Each option shows its label (and its id beside it): both non-members. */
 function expectTheOptionSet(offered: string[]): void {
@@ -120,7 +130,7 @@ describe("a projected view under an ontology scope", () => {
     container.remove();
   });
 
-  async function renderScoped(view: WireNode["props"]) {
+  async function renderScoped(view: FramedView) {
     resetOutlineStore();
     useOutlineStore.getState().hydrateFromWire(wire(view), 1, "fixtures");
     useOutlineStore.getState().setOntologyScope("o.1");

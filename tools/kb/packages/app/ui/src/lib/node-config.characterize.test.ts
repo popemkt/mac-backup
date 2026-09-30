@@ -288,7 +288,6 @@ describe("lensConfig — the renderer a graph view hosts (lens.renderer)", () =>
 
 /** Everything `getViewConfig` falls back to. */
 const VIEW_DEFAULTS: ViewConfig = {
-  mode: "list",
   sort: [],
   display: [],
   colwidth: {},
@@ -299,10 +298,8 @@ const VIEW_DEFAULTS: ViewConfig = {
 
 const VIEW_CASES: [string, Record<string, PropValue[]>, Partial<ViewConfig>][] = [
   ["no props", {}, {}],
-  ["mode table", { [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "table" }] }, { mode: "table" }],
-  // A name no view goes by is kept; resolving it to the list is frameViewOf's.
-  ["mode unknown", { [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "kanban" }] }, { mode: "kanban" }],
-  ["mode non-str", { [SYSTEM_IDS.viewModeField]: [{ t: "ref", v: "table" }] }, { mode: "list" }],
+  // Which view a frame shows is its view node's `sys.f.view`, not a setting.
+  ["the view is not a setting", { [SYSTEM_IDS.viewField]: [{ t: "ref", v: "sys.view.x" }] }, {}],
   [
     "sort pairs refs with dirs and defaults a missing dir to asc",
     {

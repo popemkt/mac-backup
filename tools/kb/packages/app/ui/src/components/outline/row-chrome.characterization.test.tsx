@@ -20,6 +20,7 @@ import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { framedAs } from "@/fixtures/view-fields";
 import { NodeBlock } from "./node-block";
 
 const ISO = "2026-08-08T05:00:00.000Z";
@@ -60,12 +61,7 @@ function graph(): WireNode[] {
         ],
       },
     }),
-    wire({
-      id: "n.table",
-      text: "Table frame",
-      children: ["n.row"],
-      props: { [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "table" }] },
-    }),
+    ...framedAs(wire({ id: "n.table", text: "Table frame", children: ["n.row"] }), "table"),
     wire({ id: "n.row", text: "Row" }),
   ];
 }

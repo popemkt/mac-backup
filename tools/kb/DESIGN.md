@@ -815,7 +815,9 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   kept in step with the list by hand — a mirror.
 - **Placement is a field with option children.** `sys.f.view.placement`
   (ref, one) takes `inline`, `beside` or `float`; `card` and `hover` are
-  set by a host and never stored.
+  set by a host and never stored. It is declared data: no host reads a
+  stored placement yet, so each view is shown at the placement its host
+  offers, until the hosts of phase A2 (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]).
 - **A neighbourhood is a lens narrowed to a focus and a hop bound.**
   `sys.f.lens.hops` (number, one) bounds it, `lens.focus` roots it, and
   `lens.edge-kinds` says along what. Its nodes are the union of both
@@ -836,18 +838,38 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   user-editable like the Pinned list, because every new view writes a child
   into it). Being a view node is its `sys.f.view`, never membership in that
   list; a view node filed anywhere else is as much one.
+- **A frame's view is its default view node.** Which of the frame views
+  (list, table, board, cards) shows a frame's children, and with which
+  settings (`sys.f.view.sort`, `…display`, `…colwidth`, `…pagesize`,
+  `…group`, `…filter`), is the frame's default view node: its `sys.f.view`
+  and its params. A frame that names none is a list. The view node is read
+  from the schema (the whole graph), not from an ontology's projection: how
+  a frame is shown is what it means, so a scoped frame keeps a view node
+  that is no member. The first edit of a frame with no view node (a view-as
+  command, a sort, a filter) makes one — the list's, carrying the edit,
+  filed in the Views list — and names it first; every later edit writes
+  that node. Its text is empty: it is found from its frame and in the Views
+  list, and a text naming its view or its frame would go stale.
 - **A store written before view nodes is migrated on open**
-  (`migrateToViewNodes`, run by `openKbEffect` before the seed, so the
-  seed's fill-absent pass meets the new shape). A `#graph-perspective` node
+  (`migrateToViewNodes`, run by `openKbEffect` after the seed, so the Views
+  list a frame's view node is filed in exists). A `#graph-perspective` node
   becomes a view node: the renderer it named (an option ref or its name as
   text; none, or one kb does not know, was drawn in 2D and still is) becomes
-  its `sys.f.view`, the tag goes and its other tags stay, and every other
-  lens prop stays as a param. The tag and `lens.renderer`'s old option
-  children are retired, and a `lens.renderer` ref to one of them elsewhere
-  names that renderer's view. The migration is a pure function of the node
-  set — no clock, no fresh ids — so two stores migrated apart write the same
-  nodes and merge cleanly, and it is idempotent. It runs over the store
-  port, so the store contract holds it for every backend.
+  its `sys.f.view` — the tag marks the old shape, so that renderer wins over
+  a view the seed's fill-absent pass put beside it — the tag goes and its
+  other tags stay, and every other lens prop stays as a param. A node with
+  the old `sys.f.view.*` frame props (and no `sys.f.view` of its own) gets a
+  view node, `view.<frame id>`: the view its `sys.f.view.mode` named (the
+  list for none, or one kb does not know), carrying its other settings as
+  stored and dated as the frame was last written, filed at the end of the
+  Views list (at the forest root when a store has none), and named first in
+  the frame's `sys.f.views`; a frame whose `view.<id>` is taken is left as it
+  was. The tag, `sys.f.view.mode` and `lens.renderer`'s old option children
+  are retired, and a `lens.renderer` ref to one of them elsewhere names that
+  renderer's view. The migration is a pure function of the node set — no
+  clock, no fresh ids — so two stores migrated apart write the same nodes
+  and merge cleanly, and it is idempotent. It runs over the store port, so
+  the store contract holds it for every backend.
 - **Transient views stay out of the graph.** A hover card or a selection
   preview passes its params from code, which the compiler checks; only a
   view someone chose is stored.

@@ -6,6 +6,9 @@ import type { NodeMap, OutlineNode } from "./types";
 import {
   applyViewFilters,
   DEFAULT_VIEW_CONFIG,
+  frameConfigOf,
+  frameViewOf,
+  isFrameViewKey,
   getViewConfig,
   groupChildrenForBoard,
   parseViewFilterEdn,
@@ -16,9 +19,16 @@ import {
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { OutlineListView } from "@/components/outline/views";
+import {
+  OutlineBoardView,
+  OutlineCardsView,
+  OutlineListView,
+  OutlineTableView,
+} from "@/components/outline/views";
 import { ViewPoint, familyViews } from "@/lib/plugins";
-import { frameViewOf, isFrameViewKey } from "@/lib/view-config";
+import type { WireNode } from "@kb/contracts";
+import { framedAs } from "@/fixtures/view-fields";
+import { wireToOutlineMap } from "@/lib/graph-view";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {
@@ -32,6 +42,11 @@ function schemaFor(nodes: NodeMap): SchemaIndex {
   return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
 }
 
+/** The schema of a graph given as wire nodes. */
+function schemaOfWires(wires: WireNode[]): SchemaIndex {
+  return schemaFor(wireToOutlineMap(wires, new Set()));
+}
+
 describe("view-config", () => {
   it("returns default view config when props are empty or undefined", () => {
     expect(getViewConfig(undefined)).toEqual(DEFAULT_VIEW_CONFIG);
@@ -40,25 +55,48 @@ describe("view-config", () => {
     expect(DEFAULT_VIEW_CONFIG.filters).toEqual([]);
   });
 
-  it("reads view mode (list|table|board|cards), and a name no view goes by shows the list", () => {
-    expect(
-      getViewConfig({
-        [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "table" }],
-      }).mode,
-    ).toBe("table");
-    expect(
-      getViewConfig({
-        [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "board" }],
-      }).mode,
-    ).toBe("board");
-    expect(
-      getViewConfig({
-        [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "cards" }],
-      }).mode,
-    ).toBe("cards");
-    expect(
-      frameViewOf({ [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "kanban" }] }, FRAME_VIEWS)?.key,
-    ).toBe(OutlineListView);
+  it("shows a frame in the view its default view node names, and the list when it names none", () => {
+    const frame = { id: "f", text: "f", props: {}, children: [], createdAt: "", updatedAt: "" };
+    const shownAs = (...nodes: WireNode[]) =>
+      frameViewOf(nodes[0], schemaOfWires(nodes), FRAME_VIEWS)?.key;
+    for (const [name, key] of [
+      ["table", OutlineTableView],
+      ["board", OutlineBoardView],
+      ["cards", OutlineCardsView],
+      ["list", OutlineListView],
+    ] as const)
+      expect(shownAs(...framedAs(frame, name)), name).toBe(key);
+    expect(shownAs(frame)).toBe(OutlineListView);
+    // A view node naming a view that is no frame view is ignored for the list.
+    const [host, view] = framedAs(frame, "table");
+    const graph = {
+      ...view,
+      props: { [SYSTEM_IDS.viewField]: [{ t: "ref" as const, v: "sys.view.graph.tree" }] },
+    };
+    expect(shownAs(host, graph)).toBe(OutlineListView);
+    // The first view node a frame names is its default.
+    const second = { ...view, id: "v.second" };
+    const both = {
+      ...host,
+      props: {
+        [SYSTEM_IDS.viewsField]: [
+          { t: "ref" as const, v: view.id },
+          { t: "ref" as const, v: second.id },
+        ],
+      },
+    };
+    const cards = framedAs(frame, "cards")[1];
+    expect(shownAs(both, { ...cards, id: view.id }, second)).toBe(OutlineCardsView);
+  });
+
+  it("decodes a frame's settings from its view node, not from its own props", () => {
+    const sort = { [SYSTEM_IDS.viewPagesizeField]: [{ t: "num" as const, v: 7 }] };
+    const frame = { id: "f", text: "f", props: sort, children: [], createdAt: "", updatedAt: "" };
+    expect(frameConfigOf(frame, schemaOfWires([frame])).pagesize).toBe(
+      DEFAULT_VIEW_CONFIG.pagesize,
+    );
+    const [host, view] = framedAs({ ...frame, props: {} }, "table", sort);
+    expect(frameConfigOf(host, schemaOfWires([host, view])).pagesize).toBe(7);
   });
 
   it("pairs sort refs and sort dirs correctly", () => {

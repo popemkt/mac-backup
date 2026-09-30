@@ -92,7 +92,7 @@ function walkVisibleInstances(
   const frameId = frame.id;
 
   // A frame whose view is not provided shows no rows, so it offers none.
-  const view = frameViewOf(frame.props, ctx.views);
+  const view = frameViewOf(frame, schema, ctx.views);
   if (view === null) return;
   const projected = projectsRows(view.key);
 
@@ -154,7 +154,7 @@ export function collectVisibleInstances(rootNodeId: string, source: WalkSource):
   const ctx: WalkContext = { ...source, out };
 
   // The root's rows sit in the root frame's slot, inside the outline's.
-  const view = frameViewOf(root.props, views);
+  const view = frameViewOf(root, schema, views);
   if (view === null) return out;
   const inner = underSlot(source.chain, view, rootNodeId);
   if (inner === null) return out;

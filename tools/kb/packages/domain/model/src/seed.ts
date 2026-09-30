@@ -173,9 +173,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const queryField = singleField(SYSTEM_IDS.queryField, "query", "text");
   const queryLimitField = singleField(SYSTEM_IDS.queryLimitField, "limit", "number");
 
-  // View configuration field nodes (W7.0). The sort, display and group slots
+  // A frame view's settings (W7.0), held by its view node. The sort, display and group slots
   // name field nodes; colwidth is a JSON object held as one string.
-  const viewModeField = singleField(SYSTEM_IDS.viewModeField, "view.mode", "text");
   const viewSortField = typedField(SYSTEM_IDS.viewSortField, "view.sort", "ref");
   const viewSortDirField = typedField(SYSTEM_IDS.viewSortDirField, "view.sort.dir", "text");
   const viewDisplayField = typedField(SYSTEM_IDS.viewDisplayField, "view.display", "ref");
@@ -212,6 +211,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...mk(SYSTEM_IDS.viewsRoot, "View types"),
     children: viewOptions.map((option) => option.id),
   };
+  // Declared data: no host reads a stored placement yet, so each view node is
+  // shown at the placement its host offers. GAP [[01M3EZR20H0CDF5MD01M2S26C5]]
   const placementOptions = STORED_PLACEMENTS.map((placement) =>
     mk(VIEW_PLACEMENT_VALUES[placement].id, VIEW_PLACEMENT_VALUES[placement].label),
   );
@@ -427,7 +428,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...commands,
     queryField,
     queryLimitField,
-    viewModeField,
     viewSortField,
     viewSortDirField,
     viewDisplayField,

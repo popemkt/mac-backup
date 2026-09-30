@@ -4,7 +4,7 @@
  * component so the popover file exports components only.
  */
 import type { SchemaIndex } from "@/lib/schema";
-import { getViewConfig, resolveTableColumns } from "@/lib/view-config";
+import { frameConfigOf, resolveTableColumns } from "@/lib/view-config";
 import type { NodeMap, OutlineNode } from "@/lib/types";
 
 /** `nodes` is the projection the frame's rows come from; `schema` names their fields. */
@@ -18,7 +18,7 @@ export function listFilterFieldOptions(
   const children = frame.children
     .map((id) => nodes.get(id))
     .filter((n): n is OutlineNode => n !== undefined);
-  const config = getViewConfig(frame.props);
+  const config = frameConfigOf(frame, schema);
   return resolveTableColumns(config, children, schema, true).map((c) => ({
     id: c.fieldId,
     text: c.label,

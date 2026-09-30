@@ -124,8 +124,7 @@ export const SYSTEM_IDS = {
    * does not have (cf. `sys.f.onto.member`, unconstrained for the same reason).
    */
   refTargetField: "sys.f.ref.target",
-  /** View configuration field nodes (W7.0). */
-  viewModeField: "sys.f.view.mode",
+  /** A frame view's settings (W7.0): the params of the view node a frame names. */
   viewSortField: "sys.f.view.sort",
   viewSortDirField: "sys.f.view.sort.dir",
   viewDisplayField: "sys.f.view.display",

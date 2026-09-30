@@ -1314,14 +1314,21 @@ how the stored name resolves to the key among them.
   `inline` that the outline plugin provides. Their keys
   (`components/outline/views.ts`) carry the one trait the row walk needs
   beside the params: how the view lays rows out (`outline`, nested; `rows`;
-  `columns`). `sys.f.view.mode` names the view, and `frameViewOf`
-  (`lib/view-config.ts`) resolves it among the frame views provided, falling
-  back to the list's, and decodes the frame's props through that view's
-  params, so the view gets exactly the settings it reads. What `frameRows`
-  does with the rows follows from the params: every view filters, and a view
-  sorts, groups its columns by a field, or pages exactly when its params
-  declare `sort`, `groupFieldId` or `pagesize`. The toolbar, the node menu
-  and the `view-as` commands list the provided frame views by their pickers.
+  `columns`). The frame's default view node (DESIGN.md → View nodes) names
+  the view, and `frameViewOf` (`lib/view-config.ts`) looks that node up in
+  the schema, resolves its view among the frame views provided, falling
+  back to the list's, and decodes the view node's props through that
+  view's params, so the view gets exactly the settings it reads; a host
+  that already selected the view node from the store (`useFrameView`) hands
+  it to `frameViewThrough`, the same resolution without the lookup. What
+  `frameRows` does with the rows follows from the params: every view
+  filters, and a view sorts, groups its columns by a field, or pages exactly
+  when its params declare `sort`, `groupFieldId` or `pagesize`. The
+  toolbar, the node menu and the `view-as` commands list the provided frame
+  views by their pickers, and every one of them, the toolbar's settings
+  included, writes the frame's view node (`planEditFrameView`), making it on
+  the first edit; none writes the frame's own props. A view node is edited
+  as a row with fields, like any node, where it is filed.
   The store's row walk (`visible-instances`) and the command registry read
   the same enumeration through a port (`stores/frame-views`) that the
   outline plugin wires to `ViewPoint` while it is loaded, so the store never

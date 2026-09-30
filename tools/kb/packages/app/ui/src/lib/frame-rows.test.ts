@@ -12,6 +12,7 @@ import { ViewPoint, familyViews } from "@/lib/plugins";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { OutlineTableView } from "@/components/outline/views";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
+import { framedAs, type FrameViewName } from "@/fixtures/view-fields";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
@@ -27,7 +28,7 @@ const VIEWS = (() => {
 
 /** A frame's rows input, in the view its props name, as every host resolves it. */
 function input(nodes: NodeMap, frameId = "frame"): FrameRowsInput {
-  const view = frameViewOf(nodes.get(frameId)?.props, VIEWS);
+  const view = frameViewOf(nodes.get(frameId), schemaFor(nodes), VIEWS);
   if (view === null) throw new Error("the outline plugin provides no list view");
   return { frameId, nodes, schema: schemaFor(nodes), view };
 }
@@ -65,7 +66,8 @@ function node(
   };
 }
 
-function graph(frameProps: OutlineNode["props"], rowCount = 5): NodeMap {
+/** A frame of `rowCount` rows shown as `view`, whose view node carries `settings`. */
+function graph(view: FrameViewName, settings: OutlineNode["props"], rowCount = 5): NodeMap {
   const map: NodeMap = new Map();
   const ids: string[] = [];
   for (let i = 0; i < rowCount; i++) {
@@ -73,15 +75,14 @@ function graph(frameProps: OutlineNode["props"], rowCount = 5): NodeMap {
     ids.push(id);
     map.set(id, node(id, `row ${i}`, { f_status: [{ t: "str", v: `s${i % 2}` }] }));
   }
-  map.set("frame", node("frame", "Frame", frameProps, ids));
+  const [frame, viewNode] = framedAs(node("frame", "Frame", {}, ids), view, settings);
+  map.set(frame.id, frame);
+  map.set(viewNode.id, node(viewNode.id, "", viewNode.props));
   return map;
 }
 
-const asTable = (pagesize?: number): OutlineNode["props"] => ({
-  [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "table" }],
-  ...(pagesize === undefined
-    ? {}
-    : { [SYSTEM_IDS.viewPagesizeField]: [{ t: "num", v: pagesize }] }),
+const pagesize = (size: number): OutlineNode["props"] => ({
+  [SYSTEM_IDS.viewPagesizeField]: [{ t: "num", v: size }],
 });
 
 describe("which views paginate", () => {
@@ -95,7 +96,7 @@ describe("which views paginate", () => {
 
 describe("frameRows pagination", () => {
   it("renders the first page and reports the rest as more", () => {
-    const nodes = graph(asTable(2));
+    const nodes = graph("table", pagesize(2));
     const rows = frameRows(input(nodes));
     expect(rows.ordered).toHaveLength(5);
     expect(rows.rendered.map((n) => n.id)).toEqual(["r0", "r1"]);
@@ -103,7 +104,7 @@ describe("frameRows pagination", () => {
   });
 
   it("reveals one further page per revealed page", () => {
-    const nodes = graph(asTable(2));
+    const nodes = graph("table", pagesize(2));
     expect(frameRows({ ...input(nodes), pages: 2 }).rendered.map((n) => n.id)).toEqual([
       "r0",
       "r1",
@@ -118,15 +119,14 @@ describe("frameRows pagination", () => {
   it("tracks pages, not an absolute count, so pagesize changes re-derive", () => {
     // Same revealed page count against a larger pagesize shows more rows —
     // an absolute reveal count would have stayed stale at the old limit.
-    const small = rowsOf(graph(asTable(2)));
-    const large = rowsOf(graph(asTable(4)));
+    const small = rowsOf(graph("table", pagesize(2)));
+    const large = rowsOf(graph("table", pagesize(4)));
     expect(small.rendered).toHaveLength(2);
     expect(large.rendered).toHaveLength(4);
   });
 
   it("does not paginate non-paginating modes", () => {
-    const nodes = graph({
-      [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "cards" }],
+    const nodes = graph("cards", {
       [SYSTEM_IDS.viewPagesizeField]: [{ t: "num", v: 2 }],
     });
     const rows = frameRows(input(nodes));
@@ -137,8 +137,7 @@ describe("frameRows pagination", () => {
 
 describe("frameRows grouping", () => {
   it("board order is its columns flattened, and names the group field", () => {
-    const nodes = graph({
-      [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "board" }],
+    const nodes = graph("board", {
       [SYSTEM_IDS.viewGroupField]: [{ t: "ref", v: "f_status" }],
     });
     const rows = frameRows(input(nodes));
@@ -150,8 +149,7 @@ describe("frameRows grouping", () => {
   });
 
   it("cards is a single ungrouped column", () => {
-    const nodes = graph({
-      [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "cards" }],
+    const nodes = graph("cards", {
       [SYSTEM_IDS.viewGroupField]: [{ t: "ref", v: "f_status" }],
     });
     const rows = frameRows(input(nodes));
@@ -163,7 +161,7 @@ describe("frameRows grouping", () => {
 
 describe("frameRows sources", () => {
   it("explicit rowIds override the frame's own children", () => {
-    const nodes = graph(asTable(10));
+    const nodes = graph("table", pagesize(10));
     const rows = frameRows({
       ...input(nodes),
       rowIds: ["r3", "r1"],
@@ -172,7 +170,7 @@ describe("frameRows sources", () => {
   });
 
   it("drops row ids that are not in the graph", () => {
-    const nodes = graph(asTable(10));
+    const nodes = graph("table", pagesize(10));
     const rows = frameRows({
       ...input(nodes),
       rowIds: ["r0", "ghost"],
@@ -189,14 +187,14 @@ describe("frameRows sources", () => {
 
 describe("frameRows in the list view", () => {
   it("applies the frame's view filters", () => {
-    const nodes = graph({
+    const nodes = graph("list", {
       [SYSTEM_IDS.viewFilterField]: [{ t: "str", v: `{:field f_status :eq "s0"}` }],
     });
     expect(rowsOf(nodes).rendered.map((n) => n.id)).toEqual(["r0", "r2", "r4"]);
   });
 
   it("keeps the children's order: the list declares no sort", () => {
-    const nodes = graph({
+    const nodes = graph("list", {
       [SYSTEM_IDS.viewSortField]: [{ t: "ref", v: SYSTEM_IDS.nodeTextField }],
       [SYSTEM_IDS.viewSortDirField]: [{ t: "str", v: "desc" }],
     });

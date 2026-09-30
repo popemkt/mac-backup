@@ -9,7 +9,9 @@ import { expect } from "bun:test";
 import { Effect } from "effect";
 import {
   LEGACY_PERSPECTIVE_TAG,
+  LEGACY_VIEW_MODE_FIELD,
   SYSTEM_IDS,
+  frameViewNodeId,
   present,
   viewOptionId,
   type KbNode,
@@ -51,6 +53,13 @@ function legacyShape(lensRenderer: KbNode): KbNode[] {
         [SYSTEM_IDS.lensMaxNodesField]: [num(40)],
       },
     }),
+    node(LEGACY_VIEW_MODE_FIELD, { props: { [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.field)] } }),
+    node("f.old", {
+      props: {
+        [LEGACY_VIEW_MODE_FIELD]: [{ t: "str", v: "table" }],
+        [SYSTEM_IDS.viewPagesizeField]: [num(7)],
+      },
+    }),
   ];
 }
 
@@ -79,6 +88,16 @@ export function openingMigratesToViewNodes(makeStore: StoreFactory): Promise<voi
           [SYSTEM_IDS.viewField]: [ref(viewOptionId("graph.tree"))],
           [SYSTEM_IDS.lensMaxNodesField]: [num(40)],
         });
+        const frameView = frameViewNodeId("f.old");
+        expect(migrated.has(LEGACY_VIEW_MODE_FIELD)).toBe(false);
+        expect(migrated.get("f.old")?.props).toEqual({
+          [SYSTEM_IDS.viewsField]: [ref(frameView)],
+        });
+        expect(migrated.get(frameView)?.props).toEqual({
+          [SYSTEM_IDS.viewField]: [ref(viewOptionId("outline.table"))],
+          [SYSTEM_IDS.viewPagesizeField]: [num(7)],
+        });
+        expect(migrated.get(SYSTEM_IDS.viewsList)?.children).toContain(frameView);
 
         const settled = yield* stateOf(makeStore(root));
         yield* openSession(root);
