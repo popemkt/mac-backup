@@ -1,38 +1,18 @@
 /**
  * The 3D canvas's React host: it mounts the scene (`canvas-scene`, the only
  * part that touches three) through the scene host (`@/scene/host`), keeps it
- * given the document, the selection and the look, and turns pointer input
- * into the same gestures the 2D canvas makes (DESIGN-UI.md → Canvas →
- * Projections):
- *
- * - on a card: a press selects it (a modifier toggles it) and a drag carries
- *   it on its own plane; with Alt, a drag lifts it toward the viewer or
- *   presses it away. Both go through the canvas pointer reducer, so the
- *   result is the same history step and the same `ext.canvas.tx.apply` write
- *   as a 2D drag;
- * - on empty canvas: a drag orbits, a tap places the current tool (or clears
- *   the selection);
- * - the right or middle button, or Space, pans; the wheel pans and a pinch
- *   (or Ctrl/⌘ + wheel) zooms about the cursor, as in 2D.
- *
- * Every screen point becomes a canvas point through the one camera model, so
- * what is hit and where a card goes are the model's answers. This module is
- * the lazy chunk the canvas page imports.
+ * given the document, the selection and the look, and feeds pointer input to
+ * the scene's gestures (`canvas-scene-gestures`); the wheel pans and a pinch
+ * (or Ctrl/⌘ + wheel) zooms about the cursor, as in 2D. This module is the
+ * lazy chunk the canvas page imports.
  */
-import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { canvasDepth, paintOrder, type CanvasDoc, type CanvasNode } from "@kb/canvas";
-import {
-  hitTest,
-  screenToPlane,
-  type CanvasPoint,
-  type CanvasPoint3,
-  type ViewSize,
-} from "@/lib/canvas-camera";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
+import type { CanvasDoc, CanvasNode } from "@kb/canvas";
+import type { CanvasPoint, CanvasPoint3, ViewSize } from "@/lib/canvas-camera";
 import type { CanvasCameraRig } from "@/lib/canvas-camera-rig";
 import type { CanvasPointerEvent } from "@/lib/canvas-pointer";
 import type { CanvasSelection } from "@/lib/canvas-selection";
 import { useReducedMotion } from "@/lib/motion";
-import { pastSlop } from "@/lib/pointer-slop";
 import { readTiming } from "@/lib/timing";
 import type { OutlineNode } from "@/lib/types";
 import { attachScene } from "@/scene/host";
@@ -40,12 +20,7 @@ import { readScenePalette } from "@/scene/palette";
 import type { Appearance } from "@/stores/prefs.store";
 import { readCardLook } from "./canvas-card-face";
 import { mountCanvasScene, type CanvasScene } from "./canvas-scene";
-
-/** A press: where it was, and the modifiers it carried. */
-type Press = Pick<
-  PointerEvent,
-  "clientX" | "clientY" | "shiftKey" | "metaKey" | "ctrlKey" | "altKey"
->;
+import { SceneGestures, type SceneGestureHost, type ScenePress } from "./canvas-scene-gestures";
 
 export interface Canvas3dStageProps {
   readonly doc: CanvasDoc;
@@ -59,10 +34,10 @@ export interface Canvas3dStageProps {
   /** The scene could not start; the page stays in 2D. */
   readonly onError: (error: Error) => void;
   /** A press on a card: select or toggle it, then `startMove` to carry it. */
-  readonly onCardPress: (card: CanvasNode, press: Press, startMove: () => void) => void;
+  readonly onCardPress: (card: CanvasNode, press: ScenePress, startMove: () => void) => void;
   readonly dispatchPointer: (event: CanvasPointerEvent) => void;
   /** A tap on empty canvas, at the canvas-plane point under it (null when edge-on). */
-  readonly onTapEmpty: (world: CanvasPoint3 | null, press: Press) => void;
+  readonly onTapEmpty: (world: CanvasPoint3 | null, press: ScenePress) => void;
   /** An orbit, a pan or a zoom came to rest. */
   readonly onViewSettled: () => void;
 }
@@ -85,17 +60,6 @@ function readCanvasPalette() {
 /** How long a wheel must be still before the view counts as settled, ms. */
 const WHEEL_SETTLE_MS = 260;
 
-type Gesture =
-  | { kind: "card"; z: number; pointerId: number }
-  | {
-      kind: "orbit" | "pan";
-      x: number;
-      y: number;
-      startX: number;
-      startY: number;
-      pointerId: number;
-    };
-
 function sizeOf(el: HTMLElement): ViewSize {
   return { width: el.clientWidth || 1, height: el.clientHeight || 1 };
 }
@@ -105,81 +69,37 @@ function localOf(el: HTMLElement, event: { clientX: number; clientY: number }): 
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
 
-/** Pointer and wheel input over the host, as canvas gestures. */
+function pressOf(el: HTMLElement, event: PointerEvent): ScenePress {
+  return {
+    local: localOf(el, event),
+    clientX: event.clientX,
+    clientY: event.clientY,
+    button: event.button,
+    shiftKey: event.shiftKey,
+    metaKey: event.metaKey,
+    ctrlKey: event.ctrlKey,
+    altKey: event.altKey,
+  };
+}
+
+/** Pointer and wheel input over the host, as the scene's gestures. */
 function useSceneGestures(host: React.RefObject<HTMLDivElement | null>, props: Canvas3dStageProps) {
-  const gesture = useRef<Gesture | null>(null);
-  const cardAt = useEffectEvent((el: HTMLElement, local: CanvasPoint) =>
-    hitTest(paintOrder(props.doc.nodes), props.rig.view, sizeOf(el), local),
-  );
-  const cardById = useEffectEvent((id: string) => props.doc.nodes.find((n) => n.id === id));
-  const planeAt = useEffectEvent((el: HTMLElement, local: CanvasPoint, z: number) =>
-    screenToPlane(props.rig.view, sizeOf(el), local, z),
-  );
-  const down = useEffectEvent((el: HTMLElement, event: PointerEvent) => {
-    const local = localOf(el, event);
-    const screen = { x: event.clientX, y: event.clientY };
-    const pans = event.button === 1 || event.button === 2 || props.spaceDown;
-    if (!pans && event.button !== 0) return;
-    const id = pans ? null : cardAt(el, local);
-    const card = id === null ? undefined : cardById(id);
-    if (card !== undefined) {
-      const z = canvasDepth(card);
-      const world = planeAt(el, local, z);
-      gesture.current = { kind: "card", z, pointerId: event.pointerId };
-      props.onCardPress(card, event, () => {
-        if (world === null) return;
-        const type = event.altKey ? "lift/start" : "move/start";
-        props.dispatchPointer({ type, id: card.id, screen, world });
-      });
-    } else {
-      const kind = pans ? "pan" : "orbit";
-      const at = { x: event.clientX, y: event.clientY };
-      gesture.current = { kind, ...at, startX: at.x, startY: at.y, pointerId: event.pointerId };
-    }
-    el.setPointerCapture(event.pointerId);
-  });
-  const move = useEffectEvent((el: HTMLElement, event: PointerEvent) => {
-    const g = gesture.current;
-    if (g === null) {
-      el.style.cursor = cardAt(el, localOf(el, event)) === null ? "" : "grab";
-      return;
-    }
-    if (g.kind === "card") {
-      const world = planeAt(el, localOf(el, event), g.z);
-      if (world === null) return;
-      const screen = { x: event.clientX, y: event.clientY };
-      props.dispatchPointer({ type: "pointer/move", screen, world, shiftKey: event.shiftKey });
-      return;
-    }
-    const dx = event.clientX - g.x;
-    const dy = event.clientY - g.y;
-    g.x = event.clientX;
-    g.y = event.clientY;
-    if (g.kind === "orbit") props.rig.orbitBy(dx, dy);
-    else props.rig.panBy(dx, dy);
-    el.style.cursor = "grabbing";
-  });
-  const up = useEffectEvent((el: HTMLElement, event: PointerEvent, cancelled: boolean) => {
-    const g = gesture.current;
-    gesture.current = null;
-    el.style.cursor = "";
-    if (g === null) return;
-    if (g.kind === "card") {
-      if (cancelled) props.dispatchPointer({ type: "pointer/cancel" });
-      else {
-        const local = localOf(el, event);
-        const world = planeAt(el, local, g.z) ?? { x: 0, y: 0, z: g.z };
-        const screen = { x: event.clientX, y: event.clientY };
-        props.dispatchPointer({ type: "pointer/end", screen, world, shiftKey: event.shiftKey });
-      }
-      return;
-    }
-    const tap = !pastSlop(event.clientX - g.startX, event.clientY - g.startY);
-    if (g.kind === "orbit" && tap && !cancelled) {
-      props.onTapEmpty(planeAt(el, localOf(el, event), 0), event);
-      return;
-    }
-    props.onViewSettled();
+  const [gestures] = useState(() => new SceneGestures(IDLE));
+  // The gestures read the page as it last committed.
+  useLayoutEffect(() => {
+    const el = host.current;
+    gestures.bind({
+      view: () => props.rig.view,
+      size: () => (el === null ? { width: 1, height: 1 } : sizeOf(el)),
+      items: () => props.doc.nodes,
+      spaceDown: () => props.spaceDown,
+      cardPress: props.onCardPress,
+      dispatch: props.dispatchPointer,
+      orbit: (dx, dy) => props.rig.orbitBy(dx, dy),
+      pan: (dx, dy) => props.rig.panBy(dx, dy),
+      tapEmpty: props.onTapEmpty,
+      settled: props.onViewSettled,
+    });
   });
   const wheel = useEffectEvent((el: HTMLElement, event: WheelEvent) => {
     event.preventDefault();
@@ -193,10 +113,18 @@ function useSceneGestures(host: React.RefObject<HTMLDivElement | null>, props: C
     const el = host.current;
     if (el === null) return undefined;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const onDown = (e: PointerEvent) => down(el, e);
-    const onMove = (e: PointerEvent) => move(el, e);
-    const onUp = (e: PointerEvent) => up(el, e, false);
-    const onCancel = (e: PointerEvent) => up(el, e, true);
+    const onDown = (e: PointerEvent) => {
+      if (gestures.down(pressOf(el, e))) el.setPointerCapture(e.pointerId);
+    };
+    const onMove = (e: PointerEvent) => {
+      el.style.cursor = gestures.move(pressOf(el, e));
+    };
+    const end = (e: PointerEvent, cancelled: boolean) => {
+      gestures.up(pressOf(el, e), cancelled);
+      el.style.cursor = "";
+    };
+    const onUp = (e: PointerEvent) => end(e, false);
+    const onCancel = (e: PointerEvent) => end(e, true);
     const onWheel = (e: WheelEvent) => {
       wheel(el, e);
       if (timer !== null) clearTimeout(timer);
@@ -218,8 +146,22 @@ function useSceneGestures(host: React.RefObject<HTMLDivElement | null>, props: C
       el.removeEventListener("wheel", onWheel);
       el.removeEventListener("contextmenu", onMenu);
     };
-  }, [host]);
+  }, [host, gestures]);
 }
+
+/** Before the host has committed there is nothing to hit or tell. */
+const IDLE: SceneGestureHost = {
+  view: () => ({ x: 0, y: 0, z: 0, zoom: 1, yaw: 0, pitch: 0, fov: 0 }),
+  size: () => ({ width: 1, height: 1 }),
+  items: () => [],
+  spaceDown: () => false,
+  cardPress: () => {},
+  dispatch: () => {},
+  orbit: () => {},
+  pan: () => {},
+  tapEmpty: () => {},
+  settled: () => {},
+};
 
 type InspectableHost = HTMLDivElement & { __kbCanvas3d?: CanvasScene };
 
