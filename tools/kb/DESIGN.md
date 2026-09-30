@@ -1497,11 +1497,16 @@ that view's settings (`camera.ts`, `GAP [GAP-CANVAS-CAMERA-VIEW]`).
     context reaches no agent without a browser extension or relay beside it.
   - One tool per action `kb.manifest` lists, less what `listedOn` leaves out
     for `WEBMCP_WIRE`. The name is the action id (dotted ids are legal WebMCP
-    names), the title, description and `inputSchema` are the manifest's, and
-    the hints come from the mode ([Action registry](#action-registry)).
+    names), the title and description are the manifest's, the `inputSchema` is
+    the same object schema MCP publishes (`asObjectSchema`), and the hints
+    come from the mode ([Action registry](#action-registry)).
   - `execute` runs through the browser's one invoke path, which decides
     whether the call runs on the local replica or on the server
-    (DESIGN-UI.md → Architecture). It returns the receipt, never throws.
+    (DESIGN-UI.md → Architecture). WebMCP reads a throw as the tool's error, so
+    `execute` returns the receipt when it succeeded and otherwise throws
+    `ToolCallFailed`, whose message is the receipt's and which carries the whole
+    receipt. In the UI a local write answers only once the server has, so a
+    write the server rejects is never reported as done.
   - Every tool of one listing shares one `AbortSignal`. Aborting it is how
     tools unregister: when the listing differs after the live socket opens
     again (the registry is cached per server process), when the page is

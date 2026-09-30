@@ -5,6 +5,7 @@ import {
   type KbContext,
   type KbCtx,
   type KbStore,
+  failed,
   kbCtxLayer,
   kbStoreLayer,
 } from "@kb/contracts";
@@ -195,21 +196,52 @@ function surfacePushFailure(receipt: ActionReceipt): void {
   if (receipt.status === "failed") toast(receipt.message);
 }
 
+/** An action's outcome: what the caller can act on now, and what became of it on the server. */
+export interface Invoked {
+  /** The receipt of the lane the action ran on first (the local replica for a local write). */
+  readonly receipt: ActionReceipt;
+  /**
+   * The receipt once the server has answered. It is `receipt` itself for a
+   * call that was never optimistic, and it never rejects: a push that could
+   * not reach the server settles as an `internal` failure.
+   */
+  readonly settled: Promise<ActionReceipt>;
+}
+
+const done = (receipt: ActionReceipt): Invoked => ({
+  receipt,
+  settled: Promise.resolve(receipt),
+});
+
 /**
  * Run an action where it can run. An action whose handler needs only the
  * store and index runs locally first. A local read is then done, because it
  * has nothing to replicate. A local write is pushed so the server commits it
- * too. Any other action goes to the server.
+ * too: its `receipt` is the local commit, its `settled` is the server's
+ * answer. Any other action goes to the server.
  */
-export async function invoke(id: string, input: unknown): Promise<ActionReceipt> {
+export async function invokeSettled(id: string, input: unknown): Promise<Invoked> {
   const invocation: ActionInvocation = { id, input };
   const local = localActions.get(id);
-  if (local === undefined) return pushInvocation(invocation);
-  if (local.def.mode.kind === "read") return invokeLocal(invocation);
+  if (local === undefined) return done(await pushInvocation(invocation));
+  if (local.def.mode.kind === "read") return done(await invokeLocal(invocation));
   const { receipt, hold } = await writeLocal(invocation);
-  if (receipt.status === "failed") return receipt;
-  void pushInvocation(invocation, hold).then(surfacePushFailure, (error: unknown) => {
-    toast(error instanceof Error ? error.message : String(error));
-  });
-  return receipt;
+  if (receipt.status === "failed") return done(receipt);
+  const settled = pushInvocation(invocation, hold).then(
+    (response): ActionReceipt => {
+      surfacePushFailure(response);
+      return response;
+    },
+    (error: unknown): ActionReceipt => {
+      const message = error instanceof Error ? error.message : String(error);
+      toast(message);
+      return failed(id, "internal", message);
+    },
+  );
+  return { receipt, settled };
+}
+
+/** {@link invokeSettled} for a caller that acts on the first receipt and lets a rejected push surface as a toast. */
+export async function invoke(id: string, input: unknown): Promise<ActionReceipt> {
+  return (await invokeSettled(id, input)).receipt;
 }

@@ -12,12 +12,17 @@
  */
 import { modelContextOf, webMcpPlugin } from "@kb/webmcp";
 import { logWarn } from "@/lib/log";
-import { invoke } from "@/session/runtime";
+import { invokeSettled } from "@/session/runtime";
 import { useUiStore } from "@/stores/ui.store";
 
 function whenManifestMayChange(listener: () => void): () => void {
+  // The adapter lists the registry once when it starts, so the first time the
+  // socket opens is not news; every later open is a server that may have restarted.
+  let opened = useUiStore.getState().wsStatus === "open";
   const offSocket = useUiStore.subscribe((next, previous) => {
-    if (next.wsStatus === "open" && previous.wsStatus !== "open") listener();
+    if (next.wsStatus !== "open" || previous.wsStatus === "open") return;
+    if (opened) listener();
+    opened = true;
   });
   const onShow = (event: PageTransitionEvent): void => {
     if (event.persisted) listener();
@@ -36,7 +41,9 @@ function whenPageHides(listener: () => void): () => void {
 
 export const webMcpUiPlugin = webMcpPlugin({
   modelContext: () => modelContextOf(globalThis.document),
-  invoke: ({ id, input }) => invoke(id, input),
+  // A local write answers at once and is pushed after; a tool call reports
+  // the server's answer, so an agent never hears success for a rejected write.
+  invoke: async ({ id, input }) => (await invokeSettled(id, input)).settled,
   whenManifestMayChange,
   whenPageHides,
   report: (message) => logWarn(`[kb/webmcp] ${message}`),

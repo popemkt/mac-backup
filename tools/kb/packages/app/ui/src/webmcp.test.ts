@@ -9,7 +9,7 @@ import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionInvocation, ActionResponse, ManifestEntry } from "@kb/contracts";
 import { makeKernel } from "@kb/plugin";
-import type { ModelContextTool } from "@kb/webmcp";
+import { ToolCallFailed, type ModelContextTool } from "@kb/webmcp";
 import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { setBrowserLink, waitForBrowserPushes } from "@/session/runtime";
@@ -27,6 +27,8 @@ const MANIFEST = [
   entry("render.views", { kind: "read" }),
   entry("ext.gated.stamp", { kind: "write", approval: "required" }),
 ];
+
+const MANIFEST_WITH_WRITE = [...MANIFEST, entry("node.update", { kind: "write" })];
 
 /** The page's model context: the tools registered now, each leaving when its signal aborts. */
 function installModelContext(): Map<string, ModelContextTool> {
@@ -107,18 +109,57 @@ describe("the page's WebMCP plugin", () => {
     Effect.runSync(kernel.unload("webmcp"));
   });
 
-  it("lists again when the live socket opens", async () => {
+  it("lists again when a live socket reopens, but not when it first opens", async () => {
     installModelContext();
     const post = serverAnswering();
     setPostAction(post);
-    useUiStore.getState().setWsStatus("closed");
+    useUiStore.getState().setWsStatus("connecting");
     const kernel = makeKernel();
     Effect.runSync(kernel.load(webMcpUiPlugin));
     await settle();
     post.mockClear();
     useUiStore.getState().setWsStatus("open");
     await settle();
+    expect(post).not.toHaveBeenCalled();
+    useUiStore.getState().setWsStatus("closed");
+    useUiStore.getState().setWsStatus("open");
+    await settle();
     expect(post).toHaveBeenCalledWith({ id: "kb.manifest", input: {} });
+    Effect.runSync(kernel.unload("webmcp"));
+  });
+
+  it("reports a local write as failed when the server rejects it after the local commit", async () => {
+    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const tools = installModelContext();
+    setPostAction(
+      vi.fn(
+        (invocation: ActionInvocation): Promise<ActionResponse> =>
+          Promise.resolve(
+            invocation.id === "kb.manifest"
+              ? {
+                  status: "succeeded",
+                  id: invocation.id,
+                  output: { actions: MANIFEST_WITH_WRITE },
+                  rev: 1,
+                }
+              : {
+                  status: "failed",
+                  id: invocation.id,
+                  code: "conflict",
+                  message: "server said no",
+                },
+          ),
+      ),
+    );
+    const kernel = makeKernel();
+    Effect.runSync(kernel.load(webMcpUiPlugin));
+    await settle();
+    const error = await tools
+      .get("node.update")
+      ?.execute({ id: "n.root-a", text: "optimistic" })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ToolCallFailed);
+    expect((error as ToolCallFailed).message).toBe("server said no");
     Effect.runSync(kernel.unload("webmcp"));
   });
 
