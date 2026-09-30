@@ -220,6 +220,7 @@ export type UiZone =
   | "test-support"
   | "catalog"
   | "view-keys"
+  | "components/canvas/3d"
   | `components/${UiSurface}`;
 
 /**
@@ -250,6 +251,13 @@ const UI_PRIMITIVES: readonly string[] = [
 const UI_VIEW_KEYS = /^components\/[^/]+\/views\.ts$/;
 
 /**
+ * The canvas's 3D projection: the scene, its layers and the stage that hosts
+ * it, lifted out of the canvas folder's zone so that only these files may
+ * reach the scene kit. The 2D canvas cannot import three by accident.
+ */
+const UI_CANVAS_3D = /^components\/canvas\/canvas-(?:scene(?:-cards|-edges)?\.ts|3d-stage\.tsx)$/;
+
+/**
  * A file's zone, from its path relative to {@link UI_SRC}.
  *
  * `main.tsx` and `components/App.tsx` are the composition root, so they are
@@ -261,6 +269,7 @@ const UI_VIEW_KEYS = /^components\/[^/]+\/views\.ts$/;
 export function uiZoneOf(file: string): UiZone {
   if (!file.includes("/") || file === "components/App.tsx") return "shell";
   if (UI_VIEW_KEYS.test(file)) return "view-keys";
+  if (UI_CANVAS_3D.test(file)) return "components/canvas/3d";
   if (UI_PRIMITIVES.some((prefix) => file.startsWith(prefix))) return "primitives";
   const [head, next] = file.split("/");
   if (head === "components") {
@@ -355,13 +364,24 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "components/prefs",
     "components/sidebar",
   ],
+  // The page loads the 3D projection (lazily); only the projection reaches the scene kit.
   "components/canvas": [
+    "components/canvas",
+    "components/canvas/3d",
+    "primitives",
+    "stores",
+    "actions",
+    "lib",
+    "view-keys",
+  ],
+  // The 3D projection stands on the scene kit, as the 3D graph does.
+  "components/canvas/3d": [
+    "components/canvas/3d",
     "components/canvas",
     "primitives",
     "stores",
     "actions",
     "lib",
-    // The 3D projection stands on the scene kit, as the 3D graph does.
     "scene",
     "view-keys",
   ],
