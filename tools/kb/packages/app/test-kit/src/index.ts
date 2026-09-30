@@ -1,3 +1,4 @@
+export { addDocsView } from "./docs-views.ts";
 export {
   COMMITTED_SEEDS,
   DANGLING_REF_DECISION,

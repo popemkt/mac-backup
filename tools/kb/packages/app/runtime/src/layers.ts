@@ -23,19 +23,19 @@ import {
   TemplateRegistry,
 } from "@kb/contracts";
 import { StoreTxLog } from "@kb/tx-log";
-import { assetsLayer, savedQueriesLayer, viewsLayer } from "@kb/workspace-fs";
+import { assetsLayer, readLegacyDocsViews, savedQueriesLayer } from "@kb/workspace-fs";
 import { noteStoreSynced } from "@kb/operations";
 import { registryFor } from "./registry.ts";
 import { selectStore } from "./store-selection.ts";
 
 /**
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
- * the three workspace ports backed by `.kb/` on disk + the render templates
+ * the two workspace ports backed by `.kb/` on disk + the render templates
  * and the action catalog the registry resolved from core, bundled and
  * `.kb/extensions` contributions.
  *
  * This is where "the actions run anywhere" is paid for: the actions ask for
- * {@link SavedQueries}, {@link Views} and {@link Assets}, and this composition
+ * {@link SavedQueries} and {@link Assets}, and this composition
  * root is the only place that says those are directories under `ctx.root`.
  */
 export function kbRuntimeLayer(ctx: KbContext): Layer.Layer<ActionHandlerEnv> {
@@ -46,7 +46,6 @@ export function kbRuntimeLayer(ctx: KbContext): Layer.Layer<ActionHandlerEnv> {
     kbCtxLayer(ctx),
     Layer.succeed(KbIndexService, ctx.index),
     savedQueriesLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
-    viewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.effect(
@@ -77,7 +76,8 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   const at = yield* currentIso;
   const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(loaded, at);
   // After the seed, so the Views list a frame's new view node is filed in exists.
-  const viewed = migrateToViewNodes(seeded);
+  const docs = yield* readLegacyDocsViews(root);
+  const viewed = migrateToViewNodes(seeded, { docs, at });
   const typed = migrateFieldTypeValues(viewed.nodes);
   const dated = migrateDateValues(typed.nodes);
   let nodes = loaded;

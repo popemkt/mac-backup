@@ -141,8 +141,8 @@ export type ExtensionAction = ActionDefinition & {
   );
 
 /**
- * Render templates: named functions (query rows -> markdown) that a view
- * spec (`.kb/views/<name>.json`) references by id. Contributed exactly like
+ * Render templates: named functions (query rows -> markdown) that a docs
+ * view node (`sys.f.view.template`) references by id. Contributed exactly like
  * an action — same default-exported array, same `ext.<file>.<id>`
  * namespacing, same optional bare-id `aliases`. Must be deterministic.
  */

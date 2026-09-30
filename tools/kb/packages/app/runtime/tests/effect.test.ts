@@ -1,5 +1,5 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -194,9 +194,6 @@ describe("render DomainError path", () => {
     const root = await tempRoot();
     try {
       const ctx = await openKb(root);
-      await mkdir(join(root, ".kb", "views"), { recursive: true });
-      // Ensure views dir exists but the named view does not.
-      await writeFile(join(root, ".kb", "views", ".keep"), "");
       const receipt = await invoke(ctx, {
         id: "render.view",
         input: { name: "no-such-view", format: "html" },

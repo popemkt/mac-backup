@@ -247,6 +247,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // The view a node is (one option), and the view nodes a host names (many, in order).
   const viewField = refQueryField(SYSTEM_IDS.viewField, "view", VIEW_OPTION_TARGET_QUERY, one);
   const viewsField = refQueryField(SYSTEM_IDS.viewsField, "views", VIEW_NODE_TARGET_QUERY);
+  // A docs view's params beside its subject (`lens.query`): which template, written where.
+  const viewTemplateField = singleField(SYSTEM_IDS.viewTemplateField, "view.template", "text");
+  const viewOutputField = singleField(SYSTEM_IDS.viewOutputField, "view.output", "text");
 
   /*
    * Graph vocabulary. Sources are an option *set*, declared by parenting
@@ -438,6 +441,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     nodeTextField,
     viewField,
     viewsField,
+    viewTemplateField,
+    viewOutputField,
     viewFamilyField,
     ...viewFamilyOptions,
     viewsRoot,

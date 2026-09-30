@@ -11,10 +11,11 @@ import { systemSeedNodes } from "../src/seed.ts";
 import {
   LEGACY_PERSPECTIVE_TAG,
   LEGACY_VIEW_MODE_FIELD,
+  docsViewNodeId,
   frameViewNodeId,
   migrateToViewNodes,
 } from "../src/view-migration.ts";
-import { defaultViewIdOf, viewOptionId } from "../src/view-node.ts";
+import { defaultViewIdOf, docsViewProps, viewOptionId } from "../src/view-node.ts";
 
 const AT = "2026-09-01T00:00:00.000Z";
 const ref = (v: string): PropValue => ({ t: "ref", v });
@@ -214,6 +215,40 @@ describe("a frame's view settings become its default view node", () => {
     const alone = migrateToViewNodes([node("f", { props: { [MODE]: [str("board")] } })]).nodes;
     expect(alone.map((n) => n.id).toSorted()).toEqual(["f", frameViewNodeId("f")]);
     expect(alone.every((n) => n.children.length === 0)).toBe(true);
+  });
+});
+
+describe("a root's .kb/views specs become docs view nodes", () => {
+  const spec = {
+    output: "docs/kb/rules.md",
+    query: "[:find ?id :where [?n :node/id ?id]]",
+    template: "rules",
+  };
+  const list = node(SYSTEM_IDS.viewsList, { text: "Views" });
+
+  test("each is a view node named by its name, its spec its params, filed in the Views list", () => {
+    const { nodes, changed } = migrateToViewNodes([list], {
+      docs: [{ name: "rules", spec }],
+      at: AT,
+    });
+    const after = byId(nodes);
+    expect(changed).toBe(true);
+    expect(after.get(docsViewNodeId("rules"))).toMatchObject({
+      text: "rules",
+      props: docsViewProps(spec),
+      createdAt: AT,
+    });
+    expect(after.get(SYSTEM_IDS.viewsList)?.children).toEqual([docsViewNodeId("rules")]);
+  });
+
+  test("a spec whose view node is already there is not imported again", () => {
+    const once = migrateToViewNodes([list], { docs: [{ name: "rules", spec }], at: AT });
+    const again = migrateToViewNodes(once.nodes, {
+      docs: [{ name: "rules", spec: { ...spec, template: "other" } }],
+      at: "2027-01-01T00:00:00.000Z",
+    });
+    expect(again.changed).toBe(false);
+    expect(again.nodes).toBe(once.nodes);
   });
 });
 

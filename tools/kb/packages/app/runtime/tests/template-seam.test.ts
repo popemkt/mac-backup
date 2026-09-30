@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import type { KbContext } from "@kb/contracts";
+import { docsViewProps, type DocsViewSpec } from "@kb/model";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { invoke } from "../src/invoke.ts";
 import { registryFor, resetRegistryCache } from "../src/registry.ts";
@@ -58,6 +59,18 @@ const mustInvokeEffect = Effect.fn("test.mustInvoke")(function* (
   return receipt;
 });
 
+/** A docs view node named `name`: `node.add` with the view's props. */
+const addDocsViewEffect = Effect.fn("test.addDocsView")(function* (
+  ctx: KbContext,
+  name: string,
+  spec: DocsViewSpec,
+) {
+  const props = Object.entries(docsViewProps(spec)).flatMap(([field, values]) =>
+    values.map((value) => ({ field, value })),
+  );
+  yield* mustInvokeEffect(ctx, "node.add", { id: `docs.${name}`, text: name, props });
+});
+
 /** A kb root carrying one `.kb/extensions` template and a view that uses it. */
 const seedShoutRootEffect = Effect.fn("test.seedShoutRoot")(function* () {
   const root = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "kb-template-seam-")));
@@ -67,20 +80,12 @@ const seedShoutRootEffect = Effect.fn("test.seedShoutRoot")(function* () {
   yield* Effect.promise(() =>
     writeFile(join(root, ".kb", "extensions", "loud.ts"), SHOUT_EXTENSION, "utf8"),
   );
-  yield* Effect.promise(() => mkdir(join(root, ".kb", "views"), { recursive: true }));
-  yield* Effect.promise(() =>
-    writeFile(
-      join(root, ".kb", "views", "shout.json"),
-      JSON.stringify({
-        output: "docs/kb/shout.md",
-        query: SHOUT_QUERY,
-        template: "ext.loud.shout",
-      }),
-      "utf8",
-    ),
-  );
-
   const ctx = yield* Effect.promise(() => openKb(root));
+  yield* addDocsViewEffect(ctx, "shout", {
+    output: "docs/kb/shout.md",
+    query: SHOUT_QUERY,
+    template: "ext.loud.shout",
+  });
   yield* mustInvokeEffect(ctx, "tag.define", { name: "shoutable", id: TAG_ID });
   yield* mustInvokeEffect(ctx, "node.add", {
     id: NODE_ID,
@@ -137,14 +142,12 @@ describe("extension-contributed render templates", () => {
   test("an unknown template names the registered ids", () =>
     Effect.runPromise(
       Effect.gen(function* () {
-        const { root, ctx } = yield* seedShoutRootEffect();
-        yield* Effect.promise(() =>
-          writeFile(
-            join(root, ".kb", "views", "nope.json"),
-            JSON.stringify({ output: "docs/kb/nope.md", query: SHOUT_QUERY, template: "nope" }),
-            "utf8",
-          ),
-        );
+        const { ctx } = yield* seedShoutRootEffect();
+        yield* addDocsViewEffect(ctx, "nope", {
+          output: "docs/kb/nope.md",
+          query: SHOUT_QUERY,
+          template: "nope",
+        });
 
         const receipt = yield* Effect.promise(() =>
           invoke(ctx, { id: "docs.check", input: { view: "nope" } }),

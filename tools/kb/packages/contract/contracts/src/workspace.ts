@@ -3,13 +3,14 @@ import type { DomainError } from "@kb/model";
 import type { SavedQuery } from "./protocol.ts";
 
 /**
- * The three things kb keeps in the workspace beside the node store: the saved
- * queries under `.kb/queries`, the view specs under `.kb/views`, and the
- * opaque media under `.kb/assets`.
+ * The two things kb keeps in the workspace beside the node store: the saved
+ * queries under `.kb/queries` and the opaque media under `.kb/assets`. (A
+ * docs view is a view node in the store, not a file here: DESIGN.md → View
+ * nodes.)
  *
  * Each is a port because the *use case* is isomorphic and the *storage* is
- * not: `graph.run` reads a saved query, `render.view` loads a view spec, and
- * `asset.upload` writes bytes — none of that is filesystem work, but all of it
+ * not: `graph.run` reads a saved query and `asset.upload` writes bytes —
+ * none of that is filesystem work, but all of it
  * ended up importing `node:path` and `effect/FileSystem` because the only
  * implementation was on disk. The names here are the vocabulary; where the
  * bytes live is the adapter's business.
@@ -44,15 +45,6 @@ export interface SavedQueriesPort {
 export class SavedQueries extends Context.Service<SavedQueries, SavedQueriesPort>()(
   "kb/SavedQueries",
 ) {}
-
-export interface ViewsPort {
-  /** Every view name, sorted. */
-  readonly list: Effect.Effect<readonly string[], DomainError>;
-  /** The view spec's source text, or null when there is none by that name. */
-  load(name: string): Effect.Effect<string | null, DomainError>;
-}
-
-export class Views extends Context.Service<Views, ViewsPort>()("kb/Views") {}
 
 export interface AssetsPort {
   /**

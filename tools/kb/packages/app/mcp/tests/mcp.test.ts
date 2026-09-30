@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { present } from "@kb/model";
 import { mkdtemp, rm } from "node:fs/promises";
+import { addDocsView } from "@kb/test-kit";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -165,11 +166,8 @@ describe("MCP surface", () => {
   });
 
   test("views are ui:// resources and render_view returns html", async () => {
-    const { mkdir, writeFile } = await import("node:fs/promises");
-    await mkdir(join(root, ".kb", "views"), { recursive: true });
-    await writeFile(
-      join(root, ".kb", "views", "todos.json"),
-      JSON.stringify({
+    await Effect.runPromise(
+      addDocsView(root, "todos", {
         output: "docs/kb/todos.md",
         query:
           '[:find ?id :where [?n :f/sys.f.type ?tag] [?tag :node/text "todo"] [?n :node/id ?id]]',

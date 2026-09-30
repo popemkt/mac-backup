@@ -1,7 +1,14 @@
 import { Effect } from "effect";
-import { z } from "zod";
-import { Views, isValidWorkspaceName } from "@kb/contracts";
-import type { FailureCode } from "@kb/model";
+import { KbCtx } from "@kb/contracts";
+import {
+  DOCS_VIEW_OPTION,
+  SYSTEM_IDS,
+  firstStr,
+  viewOptionOf,
+  type DocsViewSpec,
+  type FailureCode,
+  type KbNode,
+} from "@kb/model";
 
 /** Typed failure for docs operations; registry maps it to a receipt. */
 export class DocsError extends Error {
@@ -17,31 +24,13 @@ export class DocsError extends Error {
 }
 
 /**
- * View spec: `.kb/views/<name>.json`.
- * `output` is a repo-relative markdown path; exactly one of `query`
- * (inline EDN datalog) or `savedQuery` (name under `.kb/queries/`) drives
- * the rows fed to the named template.
+ * A docs view: a view node naming `docs.markdown` (DESIGN.md → Kinds, roles
+ * and options → View nodes), by the name it goes by — its text — and the
+ * spec its params hold.
  */
-const ViewSpecSchema = z
-  .object({
-    output: z.string().min(1),
-    query: z.string().min(1).optional(),
-    savedQuery: z.string().min(1).optional(),
-    template: z.string().min(1),
-  })
-  .strict()
-  .refine((v) => (v.query === undefined) !== (v.savedQuery === undefined), {
-    message: "exactly one of query or savedQuery is required",
-  })
-  .refine((v) => isRepoRelative(v.output), {
-    message: "output must be a repo-relative path without ..",
-  });
-
-type ViewSpec = z.infer<typeof ViewSpecSchema>;
-
 export interface LoadedView {
   name: string;
-  spec: ViewSpec;
+  spec: DocsViewSpec;
 }
 
 /**
@@ -55,64 +44,55 @@ function isRepoRelative(output: string): boolean {
   return !output.split(/[\\/]/).includes("..");
 }
 
-function parseViewJson(name: string, raw: string): LoadedView {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    throw new DocsError(
-      "invalid_input",
-      `view ${name} is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
-      { name },
-    );
-  }
-  const result = ViewSpecSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new DocsError("invalid_input", `view ${name} is invalid`, {
+/** The docs view a view node is, or the param it cannot be read without. */
+function loadedView(node: KbNode): LoadedView | DocsError {
+  const name = node.text.trim();
+  const param = (field: string, label: string) => {
+    const value = firstStr(field)(node.props);
+    return value === undefined || value === ""
+      ? new DocsError("invalid_input", `view ${name} has no ${label}`, { name, field })
+      : value;
+  };
+  const query = param(SYSTEM_IDS.lensQueryField, "query");
+  if (query instanceof DocsError) return query;
+  const template = param(SYSTEM_IDS.viewTemplateField, "template");
+  if (template instanceof DocsError) return template;
+  const output = param(SYSTEM_IDS.viewOutputField, "output");
+  if (output instanceof DocsError) return output;
+  if (!isRepoRelative(output))
+    return new DocsError("invalid_input", `view ${name} is invalid`, {
       name,
-      issues: result.error.issues,
+      issues: ["output must be a repo-relative path without .."],
     });
-  }
-  return { name, spec: result.data };
+  return { name, spec: { query, template, output } };
 }
 
-const loadViewEffect = Effect.fn("docs.loadView")(function* (
-  name: string,
-): Effect.fn.Return<LoadedView, DocsError, Views> {
-  if (!isValidWorkspaceName(name)) {
-    return yield* Effect.fail(
-      new DocsError("invalid_input", `invalid view name: ${name}`, { name }),
-    );
-  }
-  const views = yield* Views;
-  const raw = yield* views
-    .load(name)
-    .pipe(Effect.mapError((err) => new DocsError("internal", err.message, { name })));
-  if (raw === null) {
-    return yield* Effect.fail(new DocsError("not_found", `view not found: ${name}`, { name }));
-  }
-  return yield* Effect.try({
-    try: () => parseViewJson(name, raw),
-    catch: (err) =>
-      err instanceof DocsError
-        ? err
-        : new DocsError("internal", err instanceof Error ? err.message : String(err), { name }),
-  });
-});
-
-/** Load one view by name, or every view sorted by name. */
+/**
+ * The docs views, one by name or every one sorted by name: the view nodes
+ * whose view is `docs.markdown`. A name two view nodes go by is ambiguous.
+ */
 export const loadViewsEffect = Effect.fn("docs.loadViews")(function* (
   name?: string,
-): Effect.fn.Return<LoadedView[], DocsError, Views> {
-  if (name !== undefined) return [yield* loadViewEffect(name)];
-
-  const port = yield* Views;
-  const names = yield* port.list.pipe(
-    Effect.mapError((err) => new DocsError("internal", err.message)),
-  );
+): Effect.fn.Return<LoadedView[], DocsError, KbCtx> {
+  const ctx = yield* KbCtx;
+  const nodes = ctx.nodes
+    .filter((node) => viewOptionOf(node) === DOCS_VIEW_OPTION)
+    .filter((node) => name === undefined || node.text.trim() === name)
+    .toSorted((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
+  if (name !== undefined && nodes.length === 0)
+    return yield* Effect.fail(new DocsError("not_found", `view not found: ${name}`, { name }));
+  if (name !== undefined && nodes.length > 1)
+    return yield* Effect.fail(
+      new DocsError("invalid_input", `view name is ambiguous: ${name}`, {
+        name,
+        ids: nodes.map((node) => node.id),
+      }),
+    );
   const views: LoadedView[] = [];
-  for (const n of names) {
-    views.push(yield* loadViewEffect(n));
+  for (const node of nodes) {
+    const view = loadedView(node);
+    if (view instanceof DocsError) return yield* Effect.fail(view);
+    views.push(view);
   }
   return views;
 });

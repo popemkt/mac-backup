@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { present } from "@kb/model";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { addDocsView } from "@kb/test-kit";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Cause, Effect, Exit, Fiber } from "effect";
@@ -182,10 +183,8 @@ describe("MCP Effect surface", () => {
 
   test("render_view format:null defaults to html like base MCP clients", async () => {
     root = await tempRoot();
-    await mkdir(join(root, ".kb", "views"), { recursive: true });
-    await writeFile(
-      join(root, ".kb", "views", "todos.json"),
-      JSON.stringify({
+    await Effect.runPromise(
+      addDocsView(root, "todos", {
         output: "docs/kb/todos.md",
         query:
           '[:find ?id :where [?n :f/sys.f.type ?tag] [?tag :node/text "todo"] [?n :node/id ?id]]',

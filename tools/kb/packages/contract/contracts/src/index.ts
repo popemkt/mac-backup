@@ -58,5 +58,5 @@ export { staleCommitError } from "./store.ts";
 export { STORE_CHANGES_POLL, directorySignals, fingerprintChanges } from "./store-changes.ts";
 export type { DirectoryWatcher, WatchDirectory } from "./store-changes.ts";
 export type { EffectStore, StoreCommit, StoreFingerprint } from "./store.ts";
-export { Assets, SavedQueries, Views, isValidWorkspaceName } from "./workspace.ts";
-export type { AssetsPort, SavedQueriesPort, ViewsPort } from "./workspace.ts";
+export { Assets, SavedQueries, isValidWorkspaceName } from "./workspace.ts";
+export type { AssetsPort, SavedQueriesPort } from "./workspace.ts";

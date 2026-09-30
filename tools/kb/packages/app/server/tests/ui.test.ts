@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { addDocsView } from "@kb/test-kit";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -181,10 +182,8 @@ describe("kb ui server", () => {
   });
 
   test("render.views + render.view serve html through /api/action", async () => {
-    await mkdir(join(root, ".kb", "views"), { recursive: true });
-    await writeFile(
-      join(root, ".kb", "views", "todos.json"),
-      JSON.stringify({
+    await Effect.runPromise(
+      addDocsView(root, "todos", {
         output: "docs/kb/todos.md",
         query: "[:find ?id :where [?e :node/id ?id]]",
         template: "todos",

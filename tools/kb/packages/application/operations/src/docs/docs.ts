@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { SYSTEM_IDS, present, type NodeId } from "@kb/model";
 
 import type { KbContext, TemplateContext } from "@kb/contracts";
-import { KbCtx, SavedQueries, TemplateRegistry } from "@kb/contracts";
+import { KbCtx, TemplateRegistry } from "@kb/contracts";
 import { DocsError, type LoadedView } from "./views.ts";
 
 export { DocsError, loadViewsEffect } from "./views.ts";
@@ -25,36 +25,10 @@ function templateContext(ctx: KbContext): TemplateContext {
   };
 }
 
-const viewEdnEffect = Effect.fn("docs.viewEdn")(function* (
-  view: LoadedView,
-): Effect.fn.Return<string, DocsError, SavedQueries> {
-  if (view.spec.query !== undefined) return view.spec.query;
-  const name = present(view.spec.savedQuery, `view ${view.name} savedQuery`);
-  const queries = yield* SavedQueries;
-  const edn = yield* queries.read(name).pipe(
-    Effect.mapError(
-      () =>
-        new DocsError("invalid_input", `invalid saved query name: ${name}`, {
-          view: view.name,
-          savedQuery: name,
-        }),
-    ),
-  );
-  if (edn === null) {
-    return yield* Effect.fail(
-      new DocsError("not_found", `saved query not found: ${name}`, {
-        view: view.name,
-        savedQuery: name,
-      }),
-    );
-  }
-  return edn;
-});
-
 /** Render one view to its final file content (header + template output). */
 export const renderViewEffect = Effect.fn("docs.renderView")(function* (
   view: LoadedView,
-): Effect.fn.Return<string, DocsError, KbCtx | SavedQueries | TemplateRegistry> {
+): Effect.fn.Return<string, DocsError, KbCtx | TemplateRegistry> {
   const ctx = yield* KbCtx;
   const templates = yield* TemplateRegistry;
   const template = templates.get(view.spec.template);
@@ -66,7 +40,7 @@ export const renderViewEffect = Effect.fn("docs.renderView")(function* (
       }),
     );
   }
-  const edn = yield* viewEdnEffect(view);
+  const edn = view.spec.query;
   const rows = yield* Effect.try({
     try: () => ctx.index.runDatalog(edn),
     catch: (err) =>

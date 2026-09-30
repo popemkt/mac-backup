@@ -116,12 +116,14 @@ export {
 export type { GraphSourceField, GraphSourceKind } from "./graph-schema.ts";
 export {
   STORED_PLACEMENTS,
+  DOCS_VIEW_OPTION,
   VIEW_FAMILY_VALUES,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
   VIEW_PLACEMENT_VALUES,
   VIEW_VALUES,
   defaultViewIdOf,
+  docsViewProps,
   familyViewNodesQuery,
   hostViewIds,
   isViewNode,
@@ -131,10 +133,12 @@ export {
   viewOptionOf,
   viewValueEntries,
 } from "./view-node.ts";
-export type { StoredPlacement, ViewFamily, ViewId } from "./view-node.ts";
+export type { DocsViewSpec, StoredPlacement, ViewFamily, ViewId } from "./view-node.ts";
 export {
   LEGACY_PERSPECTIVE_TAG,
   LEGACY_VIEW_MODE_FIELD,
+  docsViewNodeId,
   frameViewNodeId,
   migrateToViewNodes,
 } from "./view-migration.ts";
+export type { LegacyDocsView, LegacyViews } from "./view-migration.ts";

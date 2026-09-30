@@ -68,6 +68,7 @@ export const VIEW_VALUES = {
   "canvas.list": { label: "Canvases" },
   "canvas.page": { label: "Canvas" },
   "lab.page": { label: "Lab" },
+  "docs.markdown": { label: "Markdown document" },
 } as const satisfies Readonly<Record<string, ViewValue>>;
 export type ViewId = keyof typeof VIEW_VALUES;
 
@@ -122,6 +123,32 @@ export function hostViewIds(node: Carrier | undefined): NodeId[] {
  */
 export function defaultViewIdOf(node: Carrier | undefined): NodeId | null {
   return hostViewIds(node)[0] ?? null;
+}
+
+/**
+ * A docs view (`docs.markdown`): the rows of its subject query rendered
+ * through a template an extension registers, written to a repo path. It is a
+ * view node like any other; the server's render layer draws it.
+ */
+export interface DocsViewSpec {
+  /** Parameter-free EDN datalog whose rows the template renders (`lens.query`). */
+  readonly query: string;
+  readonly template: string;
+  /** Repo-relative markdown path. */
+  readonly output: string;
+}
+
+/** The option a docs view node names. */
+export const DOCS_VIEW_OPTION = viewOptionId("docs.markdown");
+
+/** A docs view node's props for `spec`: its view, then its params. */
+export function docsViewProps(spec: DocsViewSpec): Record<string, PropValue[]> {
+  return {
+    [SYSTEM_IDS.viewField]: [{ t: "ref", v: DOCS_VIEW_OPTION }],
+    [SYSTEM_IDS.lensQueryField]: [{ t: "str", v: spec.query }],
+    [SYSTEM_IDS.viewTemplateField]: [{ t: "str", v: spec.template }],
+    [SYSTEM_IDS.viewOutputField]: [{ t: "str", v: spec.output }],
+  };
 }
 
 /** What `sys.f.view` may name: the option children of `sys.views`. */

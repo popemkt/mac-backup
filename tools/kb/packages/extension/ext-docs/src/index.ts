@@ -3,13 +3,7 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { KbCtx, extensionPlugin } from "@kb/contracts";
-import type {
-  ExtensionAction,
-  ExtensionTemplate,
-  SavedQueries,
-  TemplateRegistry,
-  Views,
-} from "@kb/contracts";
+import type { ExtensionAction, ExtensionTemplate, TemplateRegistry } from "@kb/contracts";
 import { DocsError, loadViewsEffect, renderViewEffect } from "@kb/operations";
 import { rules } from "./rules.ts";
 import { todos } from "./todos.ts";
@@ -17,7 +11,7 @@ import { todos } from "./todos.ts";
 /**
  * Bundled example extension: repo-doc materialization policy.
  *
- * Core ships the mechanism (view specs, the render backbone, renderView);
+ * Core ships the mechanism (docs view nodes, the render backbone, renderView);
  * this extension ships the policy — the templates and which md files get
  * written where. It is the reference for `.kb/extensions/*.ts` modules:
  * same shape, same loading path, just registered from inside the package.
@@ -25,7 +19,7 @@ import { todos } from "./todos.ts";
  * Registered as `ext.docs.materialize` / `ext.docs.check` and the templates
  * `ext.docs.todos` / `ext.docs.rules`; the bare ids `docs.materialize`,
  * `docs.check`, `todos` and `rules` stay as aliases so pre-commit, existing
- * callers and existing view specs keep working.
+ * callers and existing docs views keep working.
  *
  * Handlers are Effect-native (`effect`) — no Promise nest under registry.
  */
@@ -49,7 +43,7 @@ export const checkOutput = z.object({
   ),
 });
 
-type DocsEnv = KbCtx | FileSystem | TemplateRegistry | SavedQueries | Views;
+type DocsEnv = KbCtx | FileSystem | TemplateRegistry;
 
 function mapDocsFs(err: unknown, message: string): DocsError {
   return new DocsError(
@@ -105,7 +99,7 @@ const actions: ExtensionAction[] = [
   {
     id: "materialize",
     title: "Materialize docs",
-    description: "Run view specs from .kb/views (all, or one by name) and write generated markdown",
+    description: "Render the docs views (all, or one by name) and write the generated markdown",
     mode: { kind: "write" },
     inputSchema: viewInput,
     outputSchema: materializeOutput,

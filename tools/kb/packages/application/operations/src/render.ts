@@ -1,11 +1,11 @@
 import { Effect } from "effect";
 import { z } from "zod";
-import type { ActionDefinition, KbCtx, SavedQueries, TemplateRegistry, Views } from "@kb/contracts";
+import type { ActionDefinition, KbCtx, TemplateRegistry } from "@kb/contracts";
 import { DomainError, domainError, present } from "@kb/model";
 import { DocsError, GENERATED_HEADER, loadViewsEffect, renderViewEffect } from "./docs/docs.ts";
 
 type RenderError = DomainError | DocsError;
-type RenderEnv = KbCtx | SavedQueries | TemplateRegistry | Views;
+type RenderEnv = KbCtx | TemplateRegistry;
 
 /** Map unknown render failures; DomainError must be a runtime import for instanceof. */
 export function mapRenderErr(err: unknown): RenderError {
@@ -71,7 +71,7 @@ const HTML_SHELL_STYLE =
   "font-family:system-ui,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem;line-height:1.5";
 
 /**
- * Render a saved view (.kb/views/<name>.json) as md (materializer bytes,
+ * Render a docs view (a view node naming docs.markdown, by its name) as md (materializer bytes,
  * including the generated header) or as a self-contained html page.
  */
 export const renderNamedViewEffect = Effect.fn("render.namedView")(function* (
@@ -113,7 +113,8 @@ export const listViewNamesEffect = Effect.fn("render.listViews")(function* (): E
 export const renderViewDef = {
   id: "render.view",
   title: "Render view",
-  description: "Render a saved view (.kb/views/<name>.json) to html or md and return the content",
+  description:
+    "Render a docs view (a docs.markdown view node, by name) to html or md and return the content",
   mode: { kind: "read" } as const,
   inputSchema: z.object({
     name: z.string().min(1),
@@ -130,7 +131,7 @@ export const renderViewDef = {
 export const renderViewsDef = {
   id: "render.views",
   title: "List views",
-  description: "List saved view names available to render.view",
+  description: "List the docs view names available to render.view",
   mode: { kind: "read" } as const,
   inputSchema: z.object({}),
   outputSchema: z.object({ views: z.array(z.string()) }),

@@ -3,7 +3,7 @@ import type { KbNode, NodeId } from "@kb/model";
 
 /**
  * Render templates: named functions (query rows → markdown). No
- * template-language dependency — a view spec (`.kb/views/<name>.json`)
+ * template-language dependency — a docs view node (`sys.f.view.template`)
  * references a template by id, and the registry resolves it.
  *
  * Templates are policy, so core ships none: they arrive through the

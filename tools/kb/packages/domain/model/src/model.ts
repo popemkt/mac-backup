@@ -156,6 +156,10 @@ export const SYSTEM_IDS = {
   viewsField: "sys.f.views",
   /** Where a view node asks to be shown for its host (ref to one of its option children). */
   viewPlacementField: "sys.f.view.placement",
+  /** A docs view's template: the name of a template an extension registers (text). */
+  viewTemplateField: "sys.f.view.template",
+  /** A docs view's output: the repo-relative markdown path it is written to (text). */
+  viewOutputField: "sys.f.view.output",
   cmdViewAsList: "sys.cmd.view-as-list",
   cmdViewAsTable: "sys.cmd.view-as-table",
   cmdViewAsBoard: "sys.cmd.view-as-board",

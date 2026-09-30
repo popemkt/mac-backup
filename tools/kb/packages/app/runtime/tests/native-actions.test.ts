@@ -7,7 +7,7 @@ import { kbRuntimeLayer, openKbEffect } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { ActionCatalog, KbCtx, KbStore, templateRegistryLayer } from "@kb/contracts";
 import { bunFileSystemLayer } from "../src/platform.ts";
-import { assetsLayer, savedQueriesLayer, viewsLayer } from "@kb/workspace-fs";
+import { assetsLayer, savedQueriesLayer } from "@kb/workspace-fs";
 import { KbIndexService } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 import {
@@ -232,7 +232,6 @@ export default actions;
             templateRegistryLayer(new Map()),
             Layer.succeed(ActionCatalog, []),
             savedQueriesLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
-            viewsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             assetsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
           ),
         ),

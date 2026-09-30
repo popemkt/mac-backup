@@ -23,5 +23,5 @@ for (const w of out.written) {
   writeOut(`kb docs: wrote ${w.output} (view: ${w.view})`);
 }
 if (out.written.length === 0) {
-  writeOut("kb docs: no views found under .kb/views");
+  writeOut("kb docs: no docs views (docs.markdown view nodes) found");
 }

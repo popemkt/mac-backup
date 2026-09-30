@@ -10,7 +10,13 @@
  * the new shape comes back as it was.
  */
 import { SYSTEM_IDS, type KbNode, type NodeId, type PropValue } from "./model.ts";
-import { hostViewIds, isViewNode, viewOptionId } from "./view-node.ts";
+import {
+  docsViewProps,
+  hostViewIds,
+  isViewNode,
+  viewOptionId,
+  type DocsViewSpec,
+} from "./view-node.ts";
 
 /** The supertag graph perspectives carried before they were view nodes. Retired. */
 export const LEGACY_PERSPECTIVE_TAG = "sys.tag.graph-perspective";
@@ -158,18 +164,61 @@ function withoutFrameSettings(frame: KbNode, viewId: NodeId): KbNode {
   return { ...frame, props: { ...props, [SYSTEM_IDS.viewsField]: views.map(ref) } };
 }
 
+/** A docs view spec a root kept as `.kb/views/<name>.json` before docs views were view nodes. */
+export interface LegacyDocsView {
+  readonly name: string;
+  readonly spec: DocsViewSpec;
+}
+
+/** What a store's root held beside the store before view nodes, and when it is imported. */
+export interface LegacyViews {
+  readonly docs: readonly LegacyDocsView[];
+  /** The stamp an imported node carries: nothing in a spec file says when it was written. */
+  readonly at: string;
+}
+
+const NO_LEGACY: LegacyViews = { docs: [], at: "" };
+
+/** The view node a legacy docs view spec becomes, derived from its name. */
+export function docsViewNodeId(name: string): NodeId {
+  return `docs.${name}`;
+}
+
+/** A legacy docs view spec as a docs view node: named by its text, its spec its params. */
+function docsViewNode(view: LegacyDocsView, at: string): KbNode {
+  return {
+    id: docsViewNodeId(view.name),
+    text: view.name,
+    props: docsViewProps(view.spec),
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+}
+
 /**
  * Rewrite a store to view nodes. Returns the nodes to keep — a retired node
  * is left out, which is how the caller's diff deletes it — and whether any
- * node changed. A frame's new view node is filed in the Views list, at the
- * forest root when the store has no such list, and a frame whose view node's
- * id is already taken is left as it was.
+ * node changed. A new view node is filed in the Views list (at the forest
+ * root when the store has no such list); a frame or docs view whose view
+ * node's id is already taken is left as it was.
  */
-export function migrateToViewNodes(nodes: KbNode[]): { nodes: KbNode[]; changed: boolean } {
+export function migrateToViewNodes(
+  nodes: KbNode[],
+  legacy: LegacyViews = NO_LEGACY,
+): { nodes: KbNode[]; changed: boolean } {
   const ids = new Set(nodes.map((node) => node.id));
   const out: KbNode[] = [];
   const filed: NodeId[] = [];
   let changed = false;
+  for (const view of legacy.docs) {
+    if (ids.has(docsViewNodeId(view.name))) continue;
+    const node = docsViewNode(view, legacy.at);
+    ids.add(node.id);
+    out.push(node);
+    filed.push(node.id);
+    changed = true;
+  }
   for (const node of nodes) {
     if (RETIRED.has(node.id)) {
       changed = true;

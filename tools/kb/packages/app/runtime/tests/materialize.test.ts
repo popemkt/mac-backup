@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { present } from "@kb/model";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { SYSTEM_IDS, docsViewProps, present, type DocsViewSpec, type KbNode } from "@kb/model";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKb } from "../src/session.ts";
@@ -8,7 +8,6 @@ import type { KbContext, TemplateContext } from "@kb/contracts";
 import { invoke } from "../src/invoke.ts";
 import { GENERATED_HEADER } from "@kb/operations";
 import { todos } from "@kb/ext-docs";
-import type { KbNode } from "@kb/model";
 
 const FIELD_ID = "01TESTFIELDSTATUS000000000";
 const TAG_ID = "01TESTTAGTODO0000000000000";
@@ -64,12 +63,24 @@ async function seedTodos(root: string): Promise<KbContext> {
     text: "Everything else",
     tags: ["todo"],
   });
-  await mkdir(join(root, ".kb", "views"), { recursive: true });
-  await writeFile(
-    join(root, ".kb", "views", "todos.json"),
-    JSON.stringify({ output: "docs/kb/todos.md", query: TODOS_QUERY, template: "todos" }, null, 2),
-  );
+  await addDocsView(ctx, "todos", {
+    output: "docs/kb/todos.md",
+    query: TODOS_QUERY,
+    template: "todos",
+  });
   return ctx;
+}
+
+/** A docs view node named `name`, as any caller makes one: `node.add` with its props. */
+async function addDocsView(
+  ctx: KbContext,
+  name: string,
+  spec: DocsViewSpec | Partial<DocsViewSpec>,
+) {
+  const props = Object.entries(docsViewProps({ output: "", query: "", template: "", ...spec }))
+    .filter(([, values]) => values.some((v) => v.v !== ""))
+    .flatMap(([field, values]) => values.map((value) => ({ field, value })));
+  await mustInvoke(ctx, "node.add", { id: `docs.${name}`, text: name, props });
 }
 
 describe("templates", () => {
@@ -236,47 +247,39 @@ describe("docs.materialize + docs.check", () => {
     expect(present(missing.views[0], "expected missing.views[0]").status).toBe("missing");
   });
 
-  test("savedQuery views resolve from .kb/queries", async () => {
+  test("a docs view is a view node: editing its query param changes what it renders", async () => {
     const ctx = await seedTodos(root);
-    await mkdir(join(root, ".kb", "queries"), { recursive: true });
-    await writeFile(join(root, ".kb", "queries", "todos.edn"), TODOS_QUERY);
-    await writeFile(
-      join(root, ".kb", "views", "todos.json"),
-      JSON.stringify(
-        { output: "docs/kb/todos.md", savedQuery: "todos", template: "todos" },
-        null,
-        2,
-      ),
-    );
     await mustInvoke(ctx, "docs.materialize", {});
-    const check = (await mustInvoke(ctx, "docs.check", {})) as { clean: boolean };
-    expect(check.clean).toBe(true);
+    const onlyShip = `[:find ?id :where [?n :node/id ?id] [?n :node/text "Ship M4"]]`;
+    await mustInvoke(ctx, "node.update", {
+      id: "docs.todos",
+      unsetProps: [{ field: SYSTEM_IDS.lensQueryField }],
+      setProps: [{ field: SYSTEM_IDS.lensQueryField, value: { t: "str", v: onlyShip } }],
+    });
+    const stale = (await mustInvoke(ctx, "docs.check", {})) as { clean: boolean };
+    expect(stale.clean).toBe(false);
+    await mustInvoke(ctx, "docs.materialize", {});
+    const content = await readFile(join(root, "docs/kb/todos.md"), "utf8");
+    expect(content).toContain("- Ship M4");
+    expect(content).not.toContain("Everything else");
   });
 
-  test("invalid view specs fail with typed receipts", async () => {
+  test("invalid docs views fail with typed receipts naming what is wrong", async () => {
     const ctx = await seedTodos(root);
 
-    await writeFile(
-      join(root, ".kb", "views", "bad.json"),
-      JSON.stringify({
-        output: "docs/kb/bad.md",
-        query: TODOS_QUERY,
-        savedQuery: "todos",
-        template: "todos",
-      }),
-    );
-    const both = await invoke(ctx, { id: "docs.check", input: { view: "bad" } });
-    expect(both.status).toBe("failed");
-    if (both.status === "failed") expect(both.code).toBe("invalid_input");
+    await addDocsView(ctx, "bare", { output: "docs/kb/bare.md", query: TODOS_QUERY });
+    const bare = await invoke(ctx, { id: "docs.check", input: { view: "bare" } });
+    expect(bare.status).toBe("failed");
+    if (bare.status === "failed") {
+      expect(bare.code).toBe("invalid_input");
+      expect(bare.message).toContain("template");
+    }
 
-    await writeFile(
-      join(root, ".kb", "views", "escape.json"),
-      JSON.stringify({
-        output: "../outside.md",
-        query: TODOS_QUERY,
-        template: "todos",
-      }),
-    );
+    await addDocsView(ctx, "escape", {
+      output: "../outside.md",
+      query: TODOS_QUERY,
+      template: "todos",
+    });
     const escape = await invoke(ctx, {
       id: "docs.check",
       input: { view: "escape" },
@@ -284,14 +287,11 @@ describe("docs.materialize + docs.check", () => {
     expect(escape.status).toBe("failed");
     if (escape.status === "failed") expect(escape.code).toBe("invalid_input");
 
-    await writeFile(
-      join(root, ".kb", "views", "untpl.json"),
-      JSON.stringify({
-        output: "docs/kb/untpl.md",
-        query: TODOS_QUERY,
-        template: "nope",
-      }),
-    );
+    await addDocsView(ctx, "untpl", {
+      output: "docs/kb/untpl.md",
+      query: TODOS_QUERY,
+      template: "nope",
+    });
     const untpl = await invoke(ctx, {
       id: "docs.check",
       input: { view: "untpl" },

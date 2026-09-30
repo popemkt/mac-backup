@@ -4,20 +4,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer, Result } from "effect";
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
-import { SavedQueries, Views, Assets, isValidWorkspaceName } from "@kb/contracts";
-import { assetsLayer, savedQueriesLayer, viewsLayer } from "../src/index.ts";
+import { SavedQueries, Assets, isValidWorkspaceName } from "@kb/contracts";
+import { assetsLayer, readLegacyDocsViews, savedQueriesLayer } from "../src/index.ts";
 import { resolveSavedQueryFile, resolveViewFile } from "../src/paths.ts";
 
 /**
- * The adapter half of the three workspace ports: a name is an id, a bad name
+ * The adapter half of the two workspace ports: a name is an id, a bad name
  * never becomes a path, and the ports behave the way the use cases assume.
  *
  * Red case: drop the `rel !== \`${name}${ext}\`` check in `resolveInDir` and
  * `foo/../bar` resolves to a real file again.
  */
 
-function run<A, E>(effect: Effect.Effect<A, E, SavedQueries | Views | Assets>, root: string) {
-  const layer = Layer.mergeAll(savedQueriesLayer(root), viewsLayer(root), assetsLayer(root)).pipe(
+function run<A, E>(effect: Effect.Effect<A, E, SavedQueries | Assets>, root: string) {
+  const layer = Layer.mergeAll(savedQueriesLayer(root), assetsLayer(root)).pipe(
     Layer.provide(BunFileSystem.layer),
   );
   return Effect.runPromise(effect.pipe(Effect.provide(layer)));
@@ -113,23 +113,33 @@ describe("SavedQueries port", () => {
   });
 });
 
-describe("Views port", () => {
-  test("list is sorted; load returns source text or null", async () => {
+/** The legacy docs view specs under `root`, as opening reads them. */
+function read(root: string) {
+  return Effect.runPromise(readLegacyDocsViews(root).pipe(Effect.provide(BunFileSystem.layer)));
+}
+
+describe("legacy docs view specs", () => {
+  test("the specs a root still keeps are read sorted; ones an import cannot carry are not", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-views-"));
     await mkdir(join(root, ".kb", "views"), { recursive: true });
-    await writeFile(join(root, ".kb", "views", "zed.json"), "{}");
-    await writeFile(join(root, ".kb", "views", "abc.json"), '{"a":1}');
-
-    const [names, abc, missing] = await run(
-      Effect.gen(function* () {
-        const views = yield* Views;
-        return [yield* views.list, yield* views.load("abc"), yield* views.load("nope")] as const;
-      }),
-      root,
+    const spec = {
+      output: "docs/x.md",
+      query: "[:find ?id :where [?n :node/id ?id]]",
+      template: "t",
+    };
+    await writeFile(join(root, ".kb", "views", "zed.json"), JSON.stringify(spec));
+    await writeFile(join(root, ".kb", "views", "abc.json"), JSON.stringify(spec));
+    await writeFile(
+      join(root, ".kb", "views", "saved.json"),
+      '{"output":"o","savedQuery":"q","template":"t"}',
     );
-    expect(names).toEqual(["abc", "zed"]);
-    expect(abc).toBe('{"a":1}');
-    expect(missing).toBeNull();
+    await writeFile(join(root, ".kb", "views", "broken.json"), "{");
+
+    expect(await read(root)).toEqual([
+      { name: "abc", spec },
+      { name: "zed", spec },
+    ]);
+    expect(await read(await mkdtemp(join(tmpdir(), "kb-no-views-")))).toEqual([]);
   });
 });
 
