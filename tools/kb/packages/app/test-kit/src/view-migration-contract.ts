@@ -1,8 +1,8 @@
 /**
- * The move to view nodes as a store contract property: a store written before
- * view nodes (DESIGN.md → Kinds, roles and options → View nodes) is rewritten
- * to them when it is opened, on every backend, and the next open is a read
- * again. `storeContract` lists it with the rest; it is a file of its own only
+ * The move to view nodes as a store contract property: opening a store
+ * written before view nodes (DESIGN.md → Kinds, roles and options → View
+ * nodes) leaves it as it is, the `views.migrate` action rewrites it to them on
+ * every backend, and a second run changes nothing. `storeContract` lists it with the rest; it is a file of its own only
  * because the contract's file is at its size cap.
  */
 import { expect } from "bun:test";
@@ -17,6 +17,8 @@ import {
   type KbNode,
   type PropValue,
 } from "@kb/model";
+import type { KbContext } from "@kb/contracts";
+import { invokeReceiptEffect, kbRuntimeLayer } from "@kb/runtime";
 import {
   CONTRACT_AT,
   backendRoot,
@@ -40,7 +42,7 @@ const node = (id: string, over: Partial<KbNode>): KbNode => ({
 /** The retired option `lens.renderer` held the tree renderer under. */
 const LEGACY_TREE = "sys.graph.renderer.tree";
 
-/** The old shape, written over a seeded store: what the open must rewrite. */
+/** The old shape, written over a seeded store: what `views.migrate` rewrites. */
 function legacyShape(lensRenderer: KbNode): KbNode[] {
   return [
     node(LEGACY_PERSPECTIVE_TAG, { props: { [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.tag)] } }),
@@ -63,7 +65,20 @@ function legacyShape(lensRenderer: KbNode): KbNode[] {
   ];
 }
 
-export function openingMigratesToViewNodes(makeStore: StoreFactory): Promise<void> {
+/** Run `views.migrate` on a session, the way any surface invokes an action: did it change anything. */
+const migrate = Effect.fn("storeContract.viewsMigrate")(function* (ctx: KbContext) {
+  const receipt = yield* invokeReceiptEffect(ctx, { id: "views.migrate", input: {} }).pipe(
+    Effect.provide(kbRuntimeLayer(ctx)),
+  );
+  expect(receipt.status).toBe("succeeded");
+  if (receipt.status !== "succeeded") throw new Error("views.migrate failed");
+  const output: unknown = receipt.output;
+  return typeof output === "object" && output !== null && "changed" in output
+    ? output.changed === true
+    : false;
+});
+
+export function viewsMigrateRewritesLegacyShapes(makeStore: StoreFactory): Promise<void> {
   return Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -79,7 +94,12 @@ export function openingMigratesToViewNodes(makeStore: StoreFactory): Promise<voi
           { at: CONTRACT_AT },
         );
 
-        yield* openSession(root);
+        // Opening only reports the old shape; it never rewrites it.
+        const legacy = yield* stateOf(makeStore(root));
+        const ctx = yield* openSession(root);
+        expect(yield* stateOf(makeStore(root))).toEqual(legacy);
+
+        expect(yield* migrate(ctx)).toBe(true);
         const migrated = new Map((yield* store.loadEffect).map((n) => [n.id, n]));
         expect(migrated.has(LEGACY_PERSPECTIVE_TAG)).toBe(false);
         expect(migrated.has(LEGACY_TREE)).toBe(false);
@@ -99,8 +119,10 @@ export function openingMigratesToViewNodes(makeStore: StoreFactory): Promise<voi
         });
         expect(migrated.get(SYSTEM_IDS.viewsList)?.children).toContain(frameView);
 
+        // A second run over a migrated store finds nothing to do, and opening
+        // it again is a read.
         const settled = yield* stateOf(makeStore(root));
-        yield* openSession(root);
+        expect(yield* migrate(yield* openSession(root))).toBe(false);
         expect(yield* stateOf(makeStore(root))).toEqual(settled);
       }),
     ),

@@ -50,7 +50,7 @@ import {
   stateOf,
   type StoreFactory,
 } from "./store-session.ts";
-import { openingMigratesToViewNodes } from "./view-migration-contract.ts";
+import { viewsMigrateRewritesLegacyShapes } from "./view-migration-contract.ts";
 
 export type { StoreFactory } from "./store-session.ts";
 
@@ -205,8 +205,8 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
   ],
   ["an opening migration commits exactly the nodes it changed", openingMigrationIsMinimal],
   [
-    "opening rewrites a store written before view nodes to them, and reopening is a read",
-    openingMigratesToViewNodes,
+    "opening leaves a store written before view nodes as it is; views.migrate rewrites it once",
+    viewsMigrateRewritesLegacyShapes,
   ],
   [
     "a cardinality-one field holds one value: set replaces in one transaction, two are refused",

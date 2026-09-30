@@ -1,20 +1,23 @@
 /**
  * The move to view nodes, as a store migration: what a store written before
  * view nodes held, rewritten to the shape DESIGN.md → Kinds, roles and options
- * → View nodes states. Run on open, after the seed and before the value
- * migrations (`openKbEffect`), so it runs over the store port and holds for
- * every adapter; the store contract proves that.
+ * → View nodes states. It is run by a person or an agent, through the
+ * `views.migrate` action, never by opening: opening only reports that a store
+ * still holds these shapes (`legacyViewShapes`).
  *
- * It is a pure function of the node set, so two stores migrated apart write
- * the same nodes (no clock, no fresh ids), and it is idempotent: a store in
- * the new shape comes back as it was.
+ * It is a pure function of the node set and what the caller passes (the
+ * legacy docs views and the stamp they are imported at), so two stores
+ * migrated apart with the same input write the same nodes (no clock, no fresh
+ * ids), and it is idempotent: a store in the new shape comes back as it was.
  */
 import { SYSTEM_IDS, type KbNode, type NodeId, type PropValue } from "./model.ts";
 import {
+  DOCS_VIEW_OPTION,
   docsViewProps,
   hostViewIds,
   isViewNode,
   viewOptionId,
+  viewOptionOf,
   type DocsViewSpec,
 } from "./view-node.ts";
 
@@ -52,11 +55,38 @@ const FRAME_SETTING_FIELDS: readonly NodeId[] = [
 ];
 const FRAME_FIELDS: readonly NodeId[] = [LEGACY_VIEW_MODE_FIELD, ...FRAME_SETTING_FIELDS];
 
+/**
+ * `sys.f.view.placement` and its options, seeded for a moment and withdrawn:
+ * nothing read them (the placements wait on A2's hosts). Retired.
+ */
+const RETIRED_PLACEMENT = [
+  "sys.f.view.placement",
+  "sys.view-placement.inline",
+  "sys.view-placement.beside",
+  "sys.view-placement.float",
+];
+
 const RETIRED: ReadonlySet<NodeId> = new Set([
   LEGACY_PERSPECTIVE_TAG,
   LEGACY_VIEW_MODE_FIELD,
   ...RENDERER_NAMES.map(LEGACY_RENDERER_OPTION),
+  ...RETIRED_PLACEMENT,
 ]);
+
+/**
+ * What of the old shape a store still holds, one line each, without changing
+ * it: what opening reports, so a person or agent knows to run `views.migrate`.
+ */
+export function legacyViewShapes(nodes: KbNode[]): string[] {
+  const retired = nodes.filter((node) => RETIRED.has(node.id)).map((node) => node.id);
+  const perspectives = nodes.filter(isPerspective).length;
+  const frames = nodes.filter(isLegacyFrame).length;
+  return [
+    ...(perspectives > 0 ? [`${perspectives} #graph-perspective node(s)`] : []),
+    ...(frames > 0 ? [`${frames} frame(s) holding sys.f.view.* props`] : []),
+    ...(retired.length > 0 ? [`retired node(s) ${retired.join(", ")}`] : []),
+  ];
+}
 
 /** The view node a migrated frame names: one per frame, derived from its id. */
 export function frameViewNodeId(frameId: NodeId): NodeId {
@@ -136,8 +166,9 @@ function isLegacyFrame(node: KbNode): boolean {
  * (`sys.f.view`, the list's when it named none kb knows), carrying the other
  * settings as they were stored, dated as the frame was last written. The
  * frame names it first in `sys.f.views`, so it is the frame's default.
+ * Nothing deletes it with its frame. GAP [GAP-ORPHAN-VIEW-NODES]
  */
-function frameViewNode(frame: KbNode): KbNode {
+function frameViewNode(frame: KbNode, id: NodeId): KbNode {
   const mode = frame.props[LEGACY_VIEW_MODE_FIELD]?.find((v) => v.t === "str")?.v.trim();
   const view = FRAME_MODES.find((candidate) => candidate === mode) ?? DEFAULT_FRAME_MODE;
   const settings = FRAME_SETTING_FIELDS.flatMap((field) => {
@@ -145,7 +176,7 @@ function frameViewNode(frame: KbNode): KbNode {
     return values === undefined ? [] : [[field, values] as const];
   });
   return {
-    id: frameViewNodeId(frame.id),
+    id,
     text: "",
     props: {
       [SYSTEM_IDS.viewField]: [ref(viewOptionId(`outline.${view}`))],
@@ -170,14 +201,32 @@ export interface LegacyDocsView {
   readonly spec: DocsViewSpec;
 }
 
-/** What a store's root held beside the store before view nodes, and when it is imported. */
+/**
+ * What a store's root held beside the store before view nodes, and the stamp
+ * an imported docs view carries: nothing in a spec file says when it was
+ * written, so the caller says, and the same `at` gives the same nodes.
+ */
 export interface LegacyViews {
   readonly docs: readonly LegacyDocsView[];
-  /** The stamp an imported node carries: nothing in a spec file says when it was written. */
   readonly at: string;
 }
 
-const NO_LEGACY: LegacyViews = { docs: [], at: "" };
+/** What a migration did beyond the nodes it returns. */
+export interface ViewMigration {
+  readonly nodes: KbNode[];
+  readonly changed: boolean;
+  /** The legacy docs views it imported, by name: their files have nothing left to say. */
+  readonly imported: readonly string[];
+  /** What it could not do as asked, one line each: a collision, a view it left alone. */
+  readonly warnings: readonly string[];
+}
+
+/** The first of `id`, `id.2`, `id.3`, … that `taken` does not hold. */
+function freeId(id: NodeId, taken: ReadonlySet<NodeId>): NodeId {
+  let candidate = id;
+  for (let n = 2; taken.has(candidate); n++) candidate = `${id}.${n}`;
+  return candidate;
+}
 
 /** The view node a legacy docs view spec becomes, derived from its name. */
 export function docsViewNodeId(name: string): NodeId {
@@ -197,36 +246,60 @@ function docsViewNode(view: LegacyDocsView, at: string): KbNode {
 }
 
 /**
- * Rewrite a store to view nodes. Returns the nodes to keep — a retired node
- * is left out, which is how the caller's diff deletes it — and whether any
- * node changed. A new view node is filed in the Views list (at the forest
- * root when the store has no such list); a frame or docs view whose view
- * node's id is already taken is left as it was.
+ * The legacy docs views to import, each as its node, and what to say about
+ * the ones left out: a name whose `docs.<name>` a docs view already holds is
+ * imported already, and one a node that is no docs view holds cannot be.
  */
-export function migrateToViewNodes(
-  nodes: KbNode[],
-  legacy: LegacyViews = NO_LEGACY,
-): { nodes: KbNode[]; changed: boolean } {
-  const ids = new Set(nodes.map((node) => node.id));
-  const out: KbNode[] = [];
-  const filed: NodeId[] = [];
-  let changed = false;
-  for (const view of legacy.docs) {
-    if (ids.has(docsViewNodeId(view.name))) continue;
-    const node = docsViewNode(view, legacy.at);
-    ids.add(node.id);
-    out.push(node);
-    filed.push(node.id);
-    changed = true;
-  }
+function docsImports(
+  legacy: LegacyViews,
+  byId: ReadonlyMap<NodeId, KbNode>,
+  warnings: string[],
+): KbNode[] {
+  return legacy.docs.flatMap((view) => {
+    const id = docsViewNodeId(view.name);
+    const holder = byId.get(id);
+    if (holder === undefined) return [docsViewNode(view, legacy.at)];
+    warnings.push(
+      viewOptionOf(holder) === DOCS_VIEW_OPTION
+        ? `docs view ${view.name} is already ${id}; its spec file was not imported again`
+        : `${id} is a node that is no docs view; docs view ${view.name} was not imported`,
+    );
+    return [];
+  });
+}
+
+/**
+ * Rewrite a store to view nodes. Returns the nodes to keep — a retired node
+ * is left out, which is how the caller's diff deletes it — whether any node
+ * changed, the legacy docs views it imported, and a warning for everything it
+ * could not do as asked. A new view node is filed in the Views list (at the
+ * forest root when the store has no such list). A frame whose `view.<id>` is
+ * taken gets the next free `view.<id>.<n>`, so no frame is left in the old
+ * shape.
+ */
+export function migrateToViewNodes(nodes: KbNode[], legacy: LegacyViews): ViewMigration {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const ids = new Set(byId.keys());
+  const warnings: string[] = [];
+  const out = docsImports(legacy, byId, warnings);
+  const imported = out.map((node) => node.text);
+  const filed = out.map((node) => node.id);
+  for (const id of filed) ids.add(id);
+  let changed = out.length > 0;
   for (const node of nodes) {
     if (RETIRED.has(node.id)) {
       changed = true;
       continue;
     }
     let migrated = migrateRendererRefs(isPerspective(node) ? migratePerspective(node) : node);
-    if (isLegacyFrame(migrated) && !ids.has(frameViewNodeId(migrated.id))) {
-      const view = frameViewNode(migrated);
+    if (isLegacyFrame(migrated)) {
+      const id = freeId(frameViewNodeId(migrated.id), ids);
+      if (id !== frameViewNodeId(migrated.id))
+        warnings.push(
+          `${frameViewNodeId(migrated.id)} is taken; frame ${migrated.id}'s view node is ${id}`,
+        );
+      ids.add(id);
+      const view = frameViewNode(migrated, id);
       out.push(view);
       filed.push(view.id);
       migrated = withoutFrameSettings(migrated, view.id);
@@ -236,10 +309,10 @@ export function migrateToViewNodes(
     if (migrated !== node) changed = true;
     out.push(migrated);
   }
-  if (!changed) return { nodes, changed };
+  if (!changed) return { nodes, changed, imported, warnings };
   const list = out.findIndex((node) => node.id === SYSTEM_IDS.viewsList);
   const views = out[list];
   if (views !== undefined && filed.length > 0)
     out[list] = { ...views, children: [...views.children, ...filed] };
-  return { nodes: out, changed };
+  return { nodes: out, changed, imported, warnings };
 }

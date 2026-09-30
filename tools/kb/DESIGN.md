@@ -658,13 +658,15 @@ current)` is the one derivation; it keeps a moved node's rank when it still
 - **A merge settles ranks like a commit.** `mergeNodeSets` ends with the same
   `rankTx`, so two branches that each appended a root from one read never
   merge into a tie ([Merge](#merge)).
-- **Opening is a read.** `openKb` writes only when a real migration runs (a
-  store written before view nodes is rewritten to them, the seed adds or
-  retires something, or a field-type value or a legacy `{t:"date"}` value is
-  rewritten), and
+- **Opening is a read.** `openKb` writes only when a real migration runs (the
+  seed adds or retires something, or a field-type value or a legacy
+  `{t:"date"}` value is rewritten), and
   then commits exactly the nodes it changed. A node without a rank is ordered
   in memory by `compareRootOrder` and ranked by the next commit that writes its
   group, so reopening a store leaves its bytes, fingerprint and tail alone.
+  A store written before view nodes is not one of those: opening only warns
+  that it holds the old shapes, and `views.migrate` rewrites them
+  ([View nodes](#view-nodes)).
 
 ### Merge
 
@@ -813,11 +815,10 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   explicit `default` ref was the alternative and is refused: it is a second
   field that can name a view the host does not list, and it would have to be
   kept in step with the list by hand — a mirror.
-- **Placement is a field with option children.** `sys.f.view.placement`
-  (ref, one) takes `inline`, `beside` or `float`; `card` and `hover` are
-  set by a host and never stored. It is declared data: no host reads a
-  stored placement yet, so each view is shown at the placement its host
-  offers, until the hosts of phase A2 (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]).
+- **Placement is not stored yet.** Each view is shown at the placement its
+  host offers. A stored placement arrives with the hosts that read it, in
+  phase A2 (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]); a field no host reads
+  would be a dead seam.
 - **A neighbourhood is a lens narrowed to a focus and a hop bound.**
   `sys.f.lens.hops` (number, one) bounds it, `lens.focus` roots it, and
   `lens.edge-kinds` says along what. Its nodes are the union of both
@@ -850,26 +851,36 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   filed in the Views list — and names it first; every later edit writes
   that node. Its text is empty: it is found from its frame and in the Views
   list, and a text naming its view or its frame would go stale.
-- **A store written before view nodes is migrated on open**
-  (`migrateToViewNodes`, run by `openKbEffect` after the seed, so the Views
-  list a frame's view node is filed in exists). A `#graph-perspective` node
-  becomes a view node: the renderer it named (an option ref or its name as
-  text; none, or one kb does not know, was drawn in 2D and still is) becomes
-  its `sys.f.view` — the tag marks the old shape, so that renderer wins over
-  a view the seed's fill-absent pass put beside it — the tag goes and its
-  other tags stay, and every other lens prop stays as a param. A node with
-  the old `sys.f.view.*` frame props (and no `sys.f.view` of its own) gets a
-  view node, `view.<frame id>`: the view its `sys.f.view.mode` named (the
-  list for none, or one kb does not know), carrying its other settings as
-  stored and dated as the frame was last written, filed at the end of the
-  Views list (at the forest root when a store has none), and named first in
-  the frame's `sys.f.views`; a frame whose `view.<id>` is taken is left as it
-  was. The tag, `sys.f.view.mode` and `lens.renderer`'s old option children
-  are retired, and a `lens.renderer` ref to one of them elsewhere names that
-  renderer's view. The migration is a pure function of the node set — no
-  clock, no fresh ids — so two stores migrated apart write the same nodes
-  and merge cleanly, and it is idempotent. It runs over the store port, so
-  the store contract holds it for every backend.
+- **A store written before view nodes is migrated on purpose**, by the
+  write action `views.migrate` (`migrateToViewNodes`), never by opening:
+  opening only warns that a root still holds the old
+  shapes (`legacyViewShapes`) or `.kb/views` files, and names the action. A
+  `#graph-perspective` node becomes a view node: the renderer it named (an
+  option ref or its name as text; none, or one kb does not know, was drawn
+  in 2D and still is) becomes its `sys.f.view` — the tag marks the old
+  shape, so that renderer wins over a view the seed's fill-absent pass put
+  beside it — the tag goes and its other tags stay, and every other lens
+  prop stays as a param. A node with the old `sys.f.view.*` frame props (and
+  no `sys.f.view` of its own) gets a view node, `view.<frame id>`: the view
+  its `sys.f.view.mode` named (the list for none, or one kb does not know),
+  carrying its other settings as stored and dated as the frame was last
+  written, filed at the end of the Views list (at the forest root when a
+  store has none), and named first in the frame's `sys.f.views`. When
+  `view.<frame id>` is taken, the frame's view node is the first free
+  `view.<frame id>.<n>` and the action warns, so no frame is left in the
+  old shape. The tag, `sys.f.view.mode`, the unread placement field and its
+  options, and `lens.renderer`'s old option children are retired, and a
+  `lens.renderer` ref to one of them elsewhere names that renderer's view.
+  The root's `.kb/views/*.json` specs are imported as docs views
+  ([Materialization](#materialization)) and their files removed once the
+  nodes are committed; a spec it cannot read, or whose `docs.<name>` a node
+  already holds, is named in a warning and its file stays. The migration is
+  a pure function of the node set and what the action passes in (the specs
+  and the one stamp an imported docs view is dated at) — no fresh ids — so
+  two stores migrated apart write the same nodes and merge cleanly, and a
+  second run changes nothing. It runs over the store port, so the store
+  contract holds it for every backend. A view node its host stops naming is
+  not deleted with it (GAP [GAP-ORPHAN-VIEW-NODES]).
 - **Transient views stay out of the graph.** A hover card or a selection
   preview passes its params from code, which the compiler checks; only a
   view someone chose is stored.
@@ -1559,6 +1570,7 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 | `asset.upload`                                    | write | write opaque bytes to `.kb/assets/<ulid>.<ext>`; returns the `assets/…` markdown path                        |
 | `render.view`                                     | read  | render a docs view (a `docs.markdown` view node, by name) to html or md                                      |
 | `render.views`                                    | read  | list the docs view names available to `render.view`                                                          |
+| `views.migrate`                                   | write | rewrite a store written before view nodes to them and import `.kb/views` ([View nodes](#view-nodes))         |
 | `kb.manifest`                                     | read  | list every registered action as its manifest entry (MCP's `kb_manifest`)                                     |
 | `ext.docs.materialize` (alias `docs.materialize`) | write | render the docs views → write md (bundled extension)                                                         |
 | `ext.docs.check` (alias `docs.check`)             | read  | materialize to memory, diff vs disk (bundled extension)                                                      |
@@ -1568,19 +1580,19 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 
 - **A docs view is a view node** (Kinds, roles and options → View nodes): its
   `sys.f.view` names `docs.markdown`, and its params are its subject query
-  (`lens.query`), its template (`sys.f.view.template`) and its repo-relative
-  output (`sys.f.view.output`). Its text is the name `render.view`,
+  — held (`lens.query`) or a saved query's name (`sys.f.view.saved-query`),
+  exactly one, the name resolved when it renders — its template
+  (`sys.f.view.template`) and its repo-relative output
+  (`sys.f.view.output`). Its text is the name `render.view`,
   `render.views`, `docs.materialize`/`docs.check` and MCP's `render_view` /
   `ui://kb/view/<name>` know it by, so those contracts keep their names; a
   name two docs views share is refused as ambiguous, and a missing param is
   named in the failure. The `.kb/views/*.json` specs were a second store of
   the same concept — a chosen projection: which rows, through which
   template, to where — so they are retired rather than kept beside the
-  nodes, and nothing reads them but the open-time import that turns a
-  root's leftover specs into docs view nodes (`docs.<name>`, filed in the
-  Views list; GAP [GAP-LEGACY-DOCS-VIEWS-IMPORT]). A spec that named a saved
-  query instead of holding its own is not imported: a docs view holds its
-  query, and none in this repo named one. Templates are named TS functions
+  nodes, and nothing reads them but `views.migrate`, which turns a root's
+  leftover specs into docs view nodes (`docs.<name>`, filed in the Views
+  list; GAP [GAP-LEGACY-DOCS-VIEWS-IMPORT]). Templates are named TS functions
   (rows → md), no template-lang dep. They are contributed by extensions
   (core registers none) and referenced by their namespaced id
   `ext.<file>.<template>` or by an alias the extension declares.

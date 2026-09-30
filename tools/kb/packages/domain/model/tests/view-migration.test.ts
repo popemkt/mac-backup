@@ -13,11 +13,14 @@ import {
   LEGACY_VIEW_MODE_FIELD,
   docsViewNodeId,
   frameViewNodeId,
+  legacyViewShapes,
   migrateToViewNodes,
 } from "../src/view-migration.ts";
 import { defaultViewIdOf, docsViewProps, viewOptionId } from "../src/view-node.ts";
 
 const AT = "2026-09-01T00:00:00.000Z";
+/** No legacy docs views: what a store alone migrates with. */
+const NONE = { docs: [], at: AT };
 const ref = (v: string): PropValue => ({ t: "ref", v });
 const str = (v: string): PropValue => ({ t: "str", v });
 
@@ -78,7 +81,7 @@ describe("graph perspectives become view nodes", () => {
       },
     }),
   ];
-  const { nodes, changed } = migrateToViewNodes(before);
+  const { nodes, changed } = migrateToViewNodes(before, NONE);
   const after = byId(nodes);
 
   test("the renderer a perspective named is its view, and its other lens props its params", () => {
@@ -106,7 +109,7 @@ describe("graph perspectives become view nodes", () => {
       [SYSTEM_IDS.viewField]: [ref(viewOptionId("graph.force2d"))],
       [SYSTEM_IDS.lensRendererField]: [ref(legacyOption("tree"))],
     });
-    expect(migrateToViewNodes([filled]).nodes[0]?.props[SYSTEM_IDS.viewField]).toEqual([
+    expect(migrateToViewNodes([filled], NONE).nodes[0]?.props[SYSTEM_IDS.viewField]).toEqual([
       ref(viewOptionId("graph.tree")),
     ]);
   });
@@ -129,7 +132,7 @@ describe("graph perspectives become view nodes", () => {
   });
 
   test("a second run changes nothing", () => {
-    const again = migrateToViewNodes(nodes);
+    const again = migrateToViewNodes(nodes, NONE);
     expect(again.changed).toBe(false);
     expect(again.nodes).toBe(nodes);
   });
@@ -160,7 +163,7 @@ describe("a frame's view settings become its default view node", () => {
       props: { [SYSTEM_IDS.viewField]: [ref(viewOptionId("outline.table"))], ...sort },
     }),
   ];
-  const { nodes, changed } = migrateToViewNodes(before);
+  const { nodes, changed } = migrateToViewNodes(before, NONE);
   const after = byId(nodes);
   const shownAs = (frame: string) =>
     after.get(defaultViewIdOf(after.get(frame)) ?? "")?.props[SYSTEM_IDS.viewField];
@@ -206,13 +209,16 @@ describe("a frame's view settings become its default view node", () => {
   });
 
   test("a second run changes nothing", () => {
-    const again = migrateToViewNodes(nodes);
+    const again = migrateToViewNodes(nodes, NONE);
     expect(again.changed).toBe(false);
     expect(again.nodes).toBe(nodes);
   });
 
   test("without a Views list, a frame's view node is a root", () => {
-    const alone = migrateToViewNodes([node("f", { props: { [MODE]: [str("board")] } })]).nodes;
+    const alone = migrateToViewNodes(
+      [node("f", { props: { [MODE]: [str("board")] } })],
+      NONE,
+    ).nodes;
     expect(alone.map((n) => n.id).toSorted()).toEqual(["f", frameViewNodeId("f")]);
     expect(alone.every((n) => n.children.length === 0)).toBe(true);
   });
@@ -252,13 +258,62 @@ describe("a root's .kb/views specs become docs view nodes", () => {
   });
 });
 
+describe("what the migration cannot do as asked, it says", () => {
+  const MODE = LEGACY_VIEW_MODE_FIELD;
+  const spec = {
+    output: "docs/x.md",
+    query: "[:find ?id :where [?n :node/id ?id]]",
+    template: "t",
+  };
+
+  test("a frame whose view.<id> is taken gets the next free id, and a warning, not the old shape", () => {
+    const taken = node(frameViewNodeId("f"), { text: "someone else's" });
+    const taken2 = node(`${frameViewNodeId("f")}.2`);
+    const result = migrateToViewNodes(
+      [taken, taken2, node("f", { props: { [MODE]: [str("table")] } })],
+      NONE,
+    );
+    const frame = byId(result.nodes).get("f");
+    expect(defaultViewIdOf(frame)).toBe(`${frameViewNodeId("f")}.3`);
+    expect(frame?.props[MODE]).toBeUndefined();
+    expect(result.warnings).toEqual([
+      `${frameViewNodeId("f")} is taken; frame f's view node is ${frameViewNodeId("f")}.3`,
+    ]);
+  });
+
+  test("a docs view whose docs.<name> a node already holds is not imported, and not silently", () => {
+    const other = node(docsViewNodeId("a"), { text: "a plain node" });
+    const done = node(docsViewNodeId("b"), { text: "b", props: docsViewProps(spec) });
+    const result = migrateToViewNodes([other, done], {
+      docs: [
+        { name: "a", spec },
+        { name: "b", spec },
+      ],
+      at: AT,
+    });
+    expect(result.changed).toBe(false);
+    expect(result.imported).toEqual([]);
+    expect(result.warnings).toEqual([
+      `${docsViewNodeId("a")} is a node that is no docs view; docs view a was not imported`,
+      `docs view b is already ${docsViewNodeId("b")}; its spec file was not imported again`,
+    ]);
+  });
+
+  test("the withdrawn placement field and its options are retired", () => {
+    const placement = node("sys.f.view.placement", { children: ["sys.view-placement.inline"] });
+    const result = migrateToViewNodes([placement, node("sys.view-placement.inline")], NONE);
+    expect(result.nodes).toEqual([]);
+    expect(legacyViewShapes([placement])).toEqual(["retired node(s) sys.f.view.placement"]);
+  });
+});
+
 describe("a store already in the new shape", () => {
   test("comes back as it was: the seed, and a view node", () => {
     const seeded = [
       ...systemSeedNodes(AT),
       node("v.1", { props: { [SYSTEM_IDS.viewField]: [ref(viewOptionId("graph.tree"))] } }),
     ];
-    const result = migrateToViewNodes(seeded);
+    const result = migrateToViewNodes(seeded, NONE);
     expect(result.changed).toBe(false);
     expect(result.nodes).toBe(seeded);
   });
@@ -298,8 +353,8 @@ describe("the migration, over any mix of legacy perspectives", () => {
             }),
           ),
         ];
-        const once = migrateToViewNodes(input);
-        const twice = migrateToViewNodes(once.nodes);
+        const once = migrateToViewNodes(input, NONE);
+        const twice = migrateToViewNodes(once.nodes, NONE);
         expect(twice.changed).toBe(false);
         const out = byId(once.nodes);
         for (const spec of specs) {

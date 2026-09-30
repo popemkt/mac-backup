@@ -83,19 +83,6 @@ export function viewIdOfOption(option: NodeId): string | null {
   return option.startsWith(VIEW_OPTION_PREFIX) ? option.slice(VIEW_OPTION_PREFIX.length) : null;
 }
 
-/**
- * Where a view node asks to be shown for its host: `sys.f.view.placement`'s
- * option children. `card` and `hover` are the host's to set, never stored.
- */
-export const VIEW_PLACEMENT_VALUES = {
-  inline: { id: "sys.view-placement.inline", label: "Inline" },
-  beside: { id: "sys.view-placement.beside", label: "Beside" },
-  float: { id: "sys.view-placement.float", label: "Float" },
-} as const;
-export type StoredPlacement = keyof typeof VIEW_PLACEMENT_VALUES;
-/** Declared order, which becomes the order the placement picker offers. */
-export const STORED_PLACEMENTS: readonly StoredPlacement[] = ["inline", "beside", "float"];
-
 function firstRefOf(node: Carrier | undefined, fieldId: string): NodeId | null {
   const value = node?.props[fieldId]?.find((v) => v.t === "ref");
   return value?.t === "ref" ? value.v : null;
@@ -130,24 +117,37 @@ export function defaultViewIdOf(node: Carrier | undefined): NodeId | null {
  * through a template an extension registers, written to a repo path. It is a
  * view node like any other; the server's render layer draws it.
  */
-export interface DocsViewSpec {
-  /** Parameter-free EDN datalog whose rows the template renders (`lens.query`). */
-  readonly query: string;
+export type DocsViewSpec = {
   readonly template: string;
   /** Repo-relative markdown path. */
   readonly output: string;
-}
+} & (
+  | {
+      /** Parameter-free EDN datalog whose rows the template renders (`lens.query`). */
+      readonly query: string;
+      readonly savedQuery?: undefined;
+    }
+  | {
+      /** A saved query's name, resolved when the view renders (`sys.f.view.saved-query`). */
+      readonly savedQuery: string;
+      readonly query?: undefined;
+    }
+);
 
 /** The option a docs view node names. */
 export const DOCS_VIEW_OPTION = viewOptionId("docs.markdown");
+
+const str = (v: string): PropValue[] => [{ t: "str", v }];
 
 /** A docs view node's props for `spec`: its view, then its params. */
 export function docsViewProps(spec: DocsViewSpec): Record<string, PropValue[]> {
   return {
     [SYSTEM_IDS.viewField]: [{ t: "ref", v: DOCS_VIEW_OPTION }],
-    [SYSTEM_IDS.lensQueryField]: [{ t: "str", v: spec.query }],
-    [SYSTEM_IDS.viewTemplateField]: [{ t: "str", v: spec.template }],
-    [SYSTEM_IDS.viewOutputField]: [{ t: "str", v: spec.output }],
+    ...(spec.query === undefined
+      ? { [SYSTEM_IDS.viewSavedQueryField]: str(spec.savedQuery) }
+      : { [SYSTEM_IDS.lensQueryField]: str(spec.query) }),
+    [SYSTEM_IDS.viewTemplateField]: str(spec.template),
+    [SYSTEM_IDS.viewOutputField]: str(spec.output),
   };
 }
 

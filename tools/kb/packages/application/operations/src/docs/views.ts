@@ -53,8 +53,6 @@ function loadedView(node: KbNode): LoadedView | DocsError {
       ? new DocsError("invalid_input", `view ${name} has no ${label}`, { name, field })
       : value;
   };
-  const query = param(SYSTEM_IDS.lensQueryField, "query");
-  if (query instanceof DocsError) return query;
   const template = param(SYSTEM_IDS.viewTemplateField, "template");
   if (template instanceof DocsError) return template;
   const output = param(SYSTEM_IDS.viewOutputField, "output");
@@ -64,7 +62,21 @@ function loadedView(node: KbNode): LoadedView | DocsError {
       name,
       issues: ["output must be a repo-relative path without .."],
     });
-  return { name, spec: { query, template, output } };
+  const optional = (field: string) => {
+    const value = firstStr(field)(node.props);
+    return value === "" ? undefined : value;
+  };
+  const query = optional(SYSTEM_IDS.lensQueryField);
+  const savedQuery = optional(SYSTEM_IDS.viewSavedQueryField);
+  if (query !== undefined && savedQuery === undefined)
+    return { name, spec: { query, template, output } };
+  if (savedQuery !== undefined && query === undefined)
+    return { name, spec: { savedQuery, template, output } };
+  return new DocsError(
+    "invalid_input",
+    `view ${name} needs exactly one of a query and a saved query`,
+    { name },
+  );
 }
 
 /**

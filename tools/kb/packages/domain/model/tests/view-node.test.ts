@@ -47,12 +47,8 @@ describe("view options", () => {
     expect(targetQueryOf(views)).toBe(VIEW_NODE_TARGET_QUERY);
   });
 
-  test("placement and family are option sets: their fields' own children", () => {
-    expect(seed.get(SYSTEM_IDS.viewPlacementField)?.children).toEqual([
-      "sys.view-placement.inline",
-      "sys.view-placement.beside",
-      "sys.view-placement.float",
-    ]);
+  test("family is an option set: its field's own children; no placement is seeded yet", () => {
+    expect(seed.has("sys.f.view.placement")).toBe(false);
     expect(seed.get(SYSTEM_IDS.viewFamilyField)?.children).toEqual(
       Object.values(VIEW_FAMILY_VALUES).map((family) => family.id),
     );

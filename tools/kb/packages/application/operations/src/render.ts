@@ -1,11 +1,11 @@
 import { Effect } from "effect";
 import { z } from "zod";
-import type { ActionDefinition, KbCtx, TemplateRegistry } from "@kb/contracts";
+import type { ActionDefinition, KbCtx, SavedQueries, TemplateRegistry } from "@kb/contracts";
 import { DomainError, domainError, present } from "@kb/model";
 import { DocsError, GENERATED_HEADER, loadViewsEffect, renderViewEffect } from "./docs/docs.ts";
 
 type RenderError = DomainError | DocsError;
-type RenderEnv = KbCtx | TemplateRegistry;
+type RenderEnv = KbCtx | SavedQueries | TemplateRegistry;
 
 /** Map unknown render failures; DomainError must be a runtime import for instanceof. */
 export function mapRenderErr(err: unknown): RenderError {

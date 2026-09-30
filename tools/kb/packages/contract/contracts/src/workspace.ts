@@ -1,5 +1,5 @@
 import { Context, type Effect } from "effect";
-import type { DomainError } from "@kb/model";
+import type { DomainError, LegacyDocsView } from "@kb/model";
 import type { SavedQuery } from "./protocol.ts";
 
 /**
@@ -21,19 +21,11 @@ import type { SavedQuery } from "./protocol.ts";
  */
 
 /**
- * The grammar of a workspace name: letters, digits, `_`, `.` and `-`, starting
- * on a word character. It is stated here, with the ports, because both sides
- * need it and neither owns it — a use case rejects a bad name before it calls
- * a port, and an adapter skips a directory entry it could never address.
- *
- * Rejects traversal, separators, spaces, control characters, leading dots and
- * dashes, and the empty string. Matches what `kb run` has always accepted.
+ * The grammar of a workspace name is the domain's (`@kb/model`'s
+ * `isValidWorkspaceName`): a use case rejects a bad name before it calls a
+ * port, and an adapter skips a directory entry it could never address.
  */
-const WORKSPACE_NAME_RE = /^[\w][\w.-]*$/;
-
-export function isValidWorkspaceName(name: string): boolean {
-  return typeof name === "string" && WORKSPACE_NAME_RE.test(name);
-}
+export { isValidWorkspaceName } from "@kb/model";
 
 export interface SavedQueriesPort {
   /** Every readable, well-named `.edn` under the queries directory, by name. */
@@ -44,6 +36,28 @@ export interface SavedQueriesPort {
 
 export class SavedQueries extends Context.Service<SavedQueries, SavedQueriesPort>()(
   "kb/SavedQueries",
+) {}
+
+/** What a root still keeps as `.kb/views/*.json`: the specs, and the ones that cannot be imported. */
+export interface LegacyDocsViewFiles {
+  readonly views: readonly LegacyDocsView[];
+  /** One line per spec file left out, naming it and why. */
+  readonly skipped: readonly string[];
+}
+
+/**
+ * The docs view specs a root kept before docs views were view nodes: what
+ * `views.migrate` imports, then retires. Nothing else reads them.
+ * GAP [GAP-LEGACY-DOCS-VIEWS-IMPORT]
+ */
+export interface LegacyDocsViewsPort {
+  readonly read: Effect.Effect<LegacyDocsViewFiles, DomainError>;
+  /** Remove the spec files of `names`, which an import has made view nodes of. */
+  retire(names: readonly string[]): Effect.Effect<void, DomainError>;
+}
+
+export class LegacyDocsViews extends Context.Service<LegacyDocsViews, LegacyDocsViewsPort>()(
+  "kb/LegacyDocsViews",
 ) {}
 
 export interface AssetsPort {

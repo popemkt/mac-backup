@@ -1,11 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Layer, Result } from "effect";
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
-import { SavedQueries, Assets, isValidWorkspaceName } from "@kb/contracts";
-import { assetsLayer, readLegacyDocsViews, savedQueriesLayer } from "../src/index.ts";
+import { SavedQueries, Assets, LegacyDocsViews, isValidWorkspaceName } from "@kb/contracts";
+import {
+  assetsLayer,
+  legacyDocsViewsLayer,
+  readLegacyDocsViews,
+  savedQueriesLayer,
+} from "../src/index.ts";
 import { resolveSavedQueryFile, resolveViewFile } from "../src/paths.ts";
 
 /**
@@ -119,7 +124,7 @@ function read(root: string) {
 }
 
 describe("legacy docs view specs", () => {
-  test("the specs a root still keeps are read sorted; ones an import cannot carry are not", async () => {
+  test("the specs a root keeps are read sorted, a saved query kept, and each one left out named", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-views-"));
     await mkdir(join(root, ".kb", "views"), { recursive: true });
     const spec = {
@@ -134,12 +139,46 @@ describe("legacy docs view specs", () => {
       '{"output":"o","savedQuery":"q","template":"t"}',
     );
     await writeFile(join(root, ".kb", "views", "broken.json"), "{");
+    await writeFile(
+      join(root, ".kb", "views", "both.json"),
+      '{"output":"o","query":"q","savedQuery":"q","template":"t"}',
+    );
 
-    expect(await read(root)).toEqual([
-      { name: "abc", spec },
-      { name: "zed", spec },
-    ]);
-    expect(await read(await mkdtemp(join(tmpdir(), "kb-no-views-")))).toEqual([]);
+    expect(await read(root)).toEqual({
+      views: [
+        { name: "abc", spec },
+        { name: "saved", spec: { output: "o", savedQuery: "q", template: "t" } },
+        { name: "zed", spec },
+      ],
+      skipped: [
+        ".kb/views/both.json was not imported: it names both a query and a saved query, or neither",
+        ".kb/views/broken.json was not imported: it is not a spec kb can read",
+      ],
+    });
+    expect(await read(await mkdtemp(join(tmpdir(), "kb-no-views-")))).toEqual({
+      views: [],
+      skipped: [],
+    });
+  });
+
+  test("retire removes the imported files, and the directory once it is empty", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-views-"));
+    await mkdir(join(root, ".kb", "views"), { recursive: true });
+    await writeFile(join(root, ".kb", "views", "a.json"), "{}");
+    await writeFile(join(root, ".kb", "views", "b.json"), "{}");
+    const retire = (names: string[]) =>
+      Effect.runPromise(
+        Effect.gen(function* () {
+          const legacy = yield* LegacyDocsViews;
+          yield* legacy.retire(names);
+        }).pipe(
+          Effect.provide(legacyDocsViewsLayer(root).pipe(Layer.provide(BunFileSystem.layer))),
+        ),
+      );
+    await retire(["a"]);
+    expect(await readdir(join(root, ".kb", "views"))).toEqual(["b.json"]);
+    await retire(["b"]);
+    expect(await readdir(join(root, ".kb"))).toEqual([]);
   });
 });
 

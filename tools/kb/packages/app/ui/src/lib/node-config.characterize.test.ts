@@ -45,7 +45,10 @@ function migratedPerspective(props: Record<string, PropValue[]>): WireNode {
     ...perspectiveNode({}),
     props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: LEGACY_PERSPECTIVE_TAG }], ...props },
   };
-  return present(migrateToViewNodes([legacy]).nodes[0], "the migrated perspective");
+  return present(
+    migrateToViewNodes([legacy], { docs: [], at: "" }).nodes[0],
+    "the migrated perspective",
+  );
 }
 
 /** Everything the decoder falls back to when a perspective carries no lens props. */

@@ -165,7 +165,6 @@ export const fixtureGraph: GraphSnapshot = {
     // View nodes: the fields, and the view options with their families.
     seedField("sys.f.view"),
     seedField("sys.f.views"),
-    seedField("sys.f.view.placement"),
     ...seedTree("sys.f.view.family"),
     ...seedTree("sys.views"),
     // A seeded supertag, so the offline graph holds both kinds of tag.

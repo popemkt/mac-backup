@@ -44,6 +44,7 @@ import {
   tagDefineEffect,
 } from "./actions.ts";
 import { kbManifestDef, kbManifestEffect } from "./manifest.ts";
+import { viewsMigrateDef, viewsMigrateEffect } from "./views-migrate.ts";
 import { ontologyMembersDef, ontologyMembersEffect } from "./ontology.ts";
 import {
   renderViewActionEffect,
@@ -103,6 +104,7 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(renderViewDef, renderViewActionEffect),
   coreNative(renderViewsDef, renderViewsActionEffect),
   coreNative(kbManifestDef, kbManifestEffect),
+  coreNative(viewsMigrateDef, viewsMigrateEffect),
 ];
 
 export const coreActions: readonly RegisteredAction[] = [...isomorphicActions, ...portActions];

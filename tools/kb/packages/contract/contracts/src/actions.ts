@@ -12,7 +12,7 @@ import {
 import type { KbIndexService } from "@kb/query";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
-import type { Assets, SavedQueries } from "./workspace.ts";
+import type { Assets, LegacyDocsViews, SavedQueries } from "./workspace.ts";
 
 /**
  * What invoking an action does, declared once on its definition and read by
@@ -91,6 +91,7 @@ export type ActionHandlerEnv =
   | TemplateRegistry
   | ActionCatalog
   | SavedQueries
+  | LegacyDocsViews
   | Assets;
 
 /**

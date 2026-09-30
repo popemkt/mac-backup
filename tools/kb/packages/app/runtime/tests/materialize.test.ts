@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { SYSTEM_IDS, docsViewProps, present, type DocsViewSpec, type KbNode } from "@kb/model";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { DOCS_VIEW_OPTION, SYSTEM_IDS, present, type KbNode } from "@kb/model";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKb } from "../src/session.ts";
@@ -75,11 +75,21 @@ async function seedTodos(root: string): Promise<KbContext> {
 async function addDocsView(
   ctx: KbContext,
   name: string,
-  spec: DocsViewSpec | Partial<DocsViewSpec>,
+  params: { output?: string; query?: string; savedQuery?: string; template?: string },
 ) {
-  const props = Object.entries(docsViewProps({ output: "", query: "", template: "", ...spec }))
-    .filter(([, values]) => values.some((v) => v.v !== ""))
-    .flatMap(([field, values]) => values.map((value) => ({ field, value })));
+  const field = {
+    output: SYSTEM_IDS.viewOutputField,
+    query: SYSTEM_IDS.lensQueryField,
+    savedQuery: SYSTEM_IDS.viewSavedQueryField,
+    template: SYSTEM_IDS.viewTemplateField,
+  } as const;
+  const props = [
+    { field: SYSTEM_IDS.viewField, value: { t: "ref" as const, v: DOCS_VIEW_OPTION } },
+    ...(["output", "query", "savedQuery", "template"] as const).flatMap((key) => {
+      const v = params[key];
+      return v === undefined ? [] : [{ field: field[key], value: { t: "str" as const, v } }];
+    }),
+  ];
   await mustInvoke(ctx, "node.add", { id: `docs.${name}`, text: name, props });
 }
 
@@ -305,5 +315,60 @@ describe("docs.materialize + docs.check", () => {
     });
     expect(gone.status).toBe("failed");
     if (gone.status === "failed") expect(gone.code).toBe("not_found");
+  });
+});
+
+describe("views.migrate", () => {
+  let root: string;
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), "kb-views-migrate-"));
+  });
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test("imports .kb/views specs, a saved query kept, names each one it skips, and retires the imported files", async () => {
+    const ctx = await seedTodos(root);
+    await mkdir(join(root, ".kb", "views"), { recursive: true });
+    await mkdir(join(root, ".kb", "queries"), { recursive: true });
+    await writeFile(join(root, ".kb", "queries", "all-todos.edn"), TODOS_QUERY);
+    const views = join(root, ".kb", "views");
+    await writeFile(
+      join(views, "saved.json"),
+      JSON.stringify({ output: "docs/kb/saved.md", savedQuery: "all-todos", template: "todos" }),
+    );
+    await writeFile(join(views, "broken.json"), "{");
+    await writeFile(
+      join(views, "todos.json"),
+      JSON.stringify({ output: "docs/kb/other.md", query: TODOS_QUERY, template: "todos" }),
+    );
+    await mustInvoke(ctx, "node.add", { id: "docs.taken", text: "not a docs view" });
+    await writeFile(
+      join(views, "taken.json"),
+      JSON.stringify({ output: "docs/kb/taken.md", query: TODOS_QUERY, template: "todos" }),
+    );
+
+    const first = (await mustInvoke(ctx, "views.migrate", {})) as {
+      changed: boolean;
+      imported: string[];
+      warnings: string[];
+    };
+    expect(first.changed).toBe(true);
+    expect(first.imported).toEqual(["saved"]);
+    expect(first.warnings).toEqual([
+      ".kb/views/broken.json was not imported: it is not a spec kb can read",
+      "docs.taken is a node that is no docs view; docs view taken was not imported",
+      "docs view todos is already docs.todos; its spec file was not imported again",
+    ]);
+    expect((await readdir(views)).toSorted()).toEqual(["broken.json", "taken.json", "todos.json"]);
+
+    const written = (await mustInvoke(ctx, "docs.materialize", { view: "saved" })) as {
+      written: { view: string; output: string }[];
+    };
+    expect(written.written).toEqual([{ view: "saved", output: "docs/kb/saved.md" }]);
+    expect(await readFile(join(root, "docs/kb/saved.md"), "utf8")).toContain("- Ship M4");
+
+    const again = (await mustInvoke(ctx, "views.migrate", {})) as { changed: boolean };
+    expect(again.changed).toBe(false);
   });
 });

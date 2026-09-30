@@ -18,11 +18,9 @@ import {
 } from "./field-type.ts";
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
 import {
-  STORED_PLACEMENTS,
   VIEW_FAMILY_VALUES,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
-  VIEW_PLACEMENT_VALUES,
   viewValueEntries,
   viewFamilyTargetQuery,
   viewOptionId,
@@ -211,15 +209,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...mk(SYSTEM_IDS.viewsRoot, "View types"),
     children: viewOptions.map((option) => option.id),
   };
-  // Declared data: no host reads a stored placement yet, so each view node is
-  // shown at the placement its host offers. GAP [[01M3EZR20H0CDF5MD01M2S26C5]]
-  const placementOptions = STORED_PLACEMENTS.map((placement) =>
-    mk(VIEW_PLACEMENT_VALUES[placement].id, VIEW_PLACEMENT_VALUES[placement].label),
-  );
-  const viewPlacementField: KbNode = {
-    ...singleField(SYSTEM_IDS.viewPlacementField, "view.placement", "ref"),
-    children: placementOptions.map((option) => option.id),
-  };
 
   const refField = (id: string, text: string, targetTag?: string, props: KbNode["props"] = {}) =>
     typedField(id, text, "ref", {
@@ -250,6 +239,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // A docs view's params beside its subject (`lens.query`): which template, written where.
   const viewTemplateField = singleField(SYSTEM_IDS.viewTemplateField, "view.template", "text");
   const viewOutputField = singleField(SYSTEM_IDS.viewOutputField, "view.output", "text");
+  const viewSavedQueryField = singleField(
+    SYSTEM_IDS.viewSavedQueryField,
+    "view.saved-query",
+    "text",
+  );
 
   /*
    * Graph vocabulary. Sources are an option *set*, declared by parenting
@@ -443,12 +437,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewsField,
     viewTemplateField,
     viewOutputField,
+    viewSavedQueryField,
     viewFamilyField,
     ...viewFamilyOptions,
     viewsRoot,
     ...viewOptions,
-    viewPlacementField,
-    ...placementOptions,
     lensQueryField,
     graphSourceKindField,
     ...sourceKindOptions,

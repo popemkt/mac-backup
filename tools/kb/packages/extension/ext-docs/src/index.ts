@@ -3,7 +3,12 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { KbCtx, extensionPlugin } from "@kb/contracts";
-import type { ExtensionAction, ExtensionTemplate, TemplateRegistry } from "@kb/contracts";
+import type {
+  ExtensionAction,
+  ExtensionTemplate,
+  SavedQueries,
+  TemplateRegistry,
+} from "@kb/contracts";
 import { DocsError, loadViewsEffect, renderViewEffect } from "@kb/operations";
 import { rules } from "./rules.ts";
 import { todos } from "./todos.ts";
@@ -43,7 +48,7 @@ export const checkOutput = z.object({
   ),
 });
 
-type DocsEnv = KbCtx | FileSystem | TemplateRegistry;
+type DocsEnv = KbCtx | FileSystem | TemplateRegistry | SavedQueries;
 
 function mapDocsFs(err: unknown, message: string): DocsError {
   return new DocsError(
