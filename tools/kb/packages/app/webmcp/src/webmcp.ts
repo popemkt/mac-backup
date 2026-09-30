@@ -59,7 +59,7 @@ export interface ModelContext {
  * confirm a write, but the page never learns whether it did.
  */
 export const WEBMCP_WIRE: SurfaceWire = {
-  // GAP [GAP-WEBMCP-APPROVAL]
+  // GAP [[01M3S5DDJ7MP2VZ4WJB007RRR5]]
   carriesApproval: false,
 };
 

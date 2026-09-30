@@ -9,7 +9,7 @@
  * not views yet; once view nodes exist it becomes that view's settings and
  * this module is what moves.
  */
-// GAP [GAP-CANVAS-CAMERA-VIEW]
+// GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]
 import { dropExtra } from "./extra.ts";
 
 /** How a canvas is drawn: face-on and orthographic, or in perspective. */

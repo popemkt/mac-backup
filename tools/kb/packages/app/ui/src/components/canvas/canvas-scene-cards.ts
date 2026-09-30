@@ -118,7 +118,7 @@ function faceDensity(width: number, height: number): number {
 const FACE_CANVASES = new WeakMap<CanvasTexture, HTMLCanvasElement>();
 
 function faceMap(canvas: HTMLCanvasElement): CanvasTexture {
-  // GAP [GAP-CANVAS-TEXTURE-BUDGET]
+  // GAP [[01M3S5DDC3JYX8871YMJ7C6PAN]]
   const map = new CanvasTexture(canvas);
   map.colorSpace = SRGBColorSpace;
   map.anisotropy = 8;

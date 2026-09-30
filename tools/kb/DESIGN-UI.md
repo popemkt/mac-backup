@@ -1075,7 +1075,7 @@ open view of that canvas.
   and a tap that moved no camera saves no pose; a pose equal to the saved one
   is not written again. Text is edited in 2D; edge labels and resize handles
   are 2D only. Texture memory and culling for very large canvases are not
-  built (`GAP [GAP-CANVAS-TEXTURE-BUDGET]`).
+  built (`GAP [[01M3S5DDC3JYX8871YMJ7C6PAN]]`).
 
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 real Clipboard-API copy/paste, snap guides during keyboard nudge, edge colour

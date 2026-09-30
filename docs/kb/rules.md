@@ -56,6 +56,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — an Origin/Host check on /api/action and /ws, with an allow-list for local tools
 - **node** — `01M3R2KDKN1EFE87R1K8CG3NPE`
 
+### GAP: 3D canvas card textures have no memory budget or culling
+
+- **expected** — card textures are budgeted and culled or LOD'd by visibility and screen size
+- **current** — every card keeps its own texture at devicePixelRatio x 1.5 (capped at 3), with no culling
+- **impact** — very large canvases can use a lot of GPU memory in 3D
+- **closes** — a texture budget with visibility culling and size-based LOD in canvas-scene-cards.ts
+- **node** — `01M3S5DDC3JYX8871YMJ7C6PAN`
+
 ### GAP: 3D links are one pixel wide, so link weight is not drawn in 3D
 
 - **expected** — Every graph renderer encodes a relationship's weight the same way: stroke width grows as the square root of the weight, as sigma's 2D edges do, and a link touching the focus is wider as well as brighter.
@@ -146,6 +154,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — sidebar approval (roadmap step 5) or MCP elicitation
 - **node** — `01M3R2KD6V1AZ9WS62ZVG9T4G2`
 
+### GAP: an approval-required action cannot be invoked over WebMCP
+
+- **expected** — a WebMCP agent can obtain approval and invoke an approval-required write
+- **current** — WEBMCP_WIRE cannot carry approval, so such actions are left out of the registered tools
+- **impact** — browser agents cannot use approval-required actions
+- **closes** — an in-page approval prompt shared with the sidebar agent (roadmap step 5)
+- **node** — `01M3S5DDJ7MP2VZ4WJB007RRR5`
+
 ### GAP: api/live.ts writes straight into the outline and ui stores
 
 - **expected** — api/ speaks to the server and hands results back. Applying a delta to a store is the caller's job — the session runtime or an action.
@@ -162,6 +178,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A page reload discards optimistic local state that has not reached the server.
 - **closes** — Implement an IndexedDB-backed EffectStore with the same generation fingerprint contract.
 - **node** — `01M1R6N8VC3W5P93KABEFZ8CTX`
+
+### GAP: canvas camera lives on the canvas document
+
+- **expected** — the projection (2d/3d) and saved pose are settings of the canvas's view node (roadmap decision 6)
+- **current** — camera {projection, pose} is a field of the JSON Canvas doc in sys.f.canvas (packages/extension/canvas/src/camera.ts)
+- **impact** — one camera per canvas, written together with its content
+- **closes** — view nodes (roadmap step 2), then canvas as a view type
+- **node** — `01M3S5DD5W4B3BSZMA6DE8ZVP8`
 
 ### GAP: canvas UI still lives in @kb/ui, not in a canvas browser plugin
 

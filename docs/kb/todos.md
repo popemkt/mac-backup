@@ -37,10 +37,8 @@
 - 10 · chart view type storing a Vega-Lite spec
 - 2 · view nodes per plugin-composition A1 (sys.f.view, sys.f.views, placement) + default view per host; migrate sys.f.view.* and #graph-perspective (restructure)
 - 3 · generative UI mode A: view.propose, catalog in kb_manifest, render_view by view id + md fallback, ui:// snapshots
-- 4 · WebMCP adapter over /api/action behind feature detection
 - 5 · screen state over /ws + ui.screen/ui.navigate/ui.select; agent packages (local Claude bridge, sidebar) outside core
 - 6 · layout view type (decision 12): mode B dashboards + panes (Tana panels → splits/tabs via dockview adapter), saved workspaces as nodes
-- 8 · canvas 3D: z/3D transforms, perspective camera on the WebGPU scene kit (three r186)
 - 9 · sandbox: one capability API + MCP Apps iframe bridge, QuickJS + Worker engines; #code-view, #script, promotion
 - canvas C2: media cards (assets) + frictionless quick-add — draw.io feel
 - Check out ideas from this, how did it handle transaction and stuff https://news.ycombinator.com/item?id=49440174
@@ -64,6 +62,8 @@
 
 - 0 · action mode (read/write + approval) on ActionDefinition, in manifest; contract: every surface same actions + same receipt
 - 1 · view types declare settings schemas; fold ViewMode + GRAPH_RENDERERS into ViewPoint (restructure)
+- 4 · WebMCP adapter over /api/action behind feature detection
+- 8 · canvas 3D: z/3D transforms, perspective camera on the WebGPU scene kit (three r186)
 - canvas simplify (Logseq model): edges are drawings only; native bind = one-shot prop write; bound-state computed at render (unbound tint); DELETE reconciler/persist-back/bindingId repair — supersedes broken-edge repair todo
 - graph: smart-elide system/editor-only nodes by default + toggle; universal graph button in header
 - kb refine W1: token system + row anatomy (bullet catalog, fields inline, selection keymap) — DESIGN-REFINE.md
@@ -83,6 +83,7 @@
 ### later
 
 - 7 · canvas as a view type: meaning = nodes, geometry = view settings; derived mentions; JSON Canvas import/export; canvas actions, describe, lints
+- canvas 3D: edge labels, resize handles and text editing are 2D-only
 - core: investigate tag inheritance (supertag extends) for Tana parity
 - Graph database engines and query language comparison catalog — https://gdb-engines.com/
 - kb refine V-wave: viz surfaces beyond nxus (2D sigma, 3D force, stacked/folder views, JSON Canvas) — DESIGN-REFINE.md + .research/kb-refine/viz/report.md

@@ -1439,7 +1439,7 @@ document.
 
 The camera is view state, not content: the undo history leaves it out. It
 sits on the document only until canvases become view nodes, and then moves to
-that view's settings (`camera.ts`, `GAP [GAP-CANVAS-CAMERA-VIEW]`).
+that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 
 ## Operations (verticals)
 
