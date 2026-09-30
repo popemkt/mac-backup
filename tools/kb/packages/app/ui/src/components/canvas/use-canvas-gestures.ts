@@ -11,9 +11,21 @@ import {
 } from "@/lib/canvas-tool";
 import { selectNode as selNode } from "@/lib/canvas-selection";
 import type { CanvasSelection } from "@/lib/canvas-selection";
-import type { CanvasPointerEvent, PointerResult, PointerState } from "@/lib/canvas-pointer";
-import { asElement, asInstance } from "@/lib/dom";
-import { clampZoom, clientToCanvas } from "@/lib/canvas-viewport";
+import type {
+  CanvasPointerEvent,
+  PointerResult,
+  PointerState,
+  ResizeCorner,
+} from "@/lib/canvas-pointer";
+import { asElement } from "@/lib/dom";
+import {
+  clampZoom,
+  clientToCanvas,
+  fitView,
+  hitTest,
+  panOfView,
+  viewOfPan,
+} from "@/lib/canvas-camera";
 
 interface CanvasGestureContext {
   docRef: RefObject<CanvasDoc>;
@@ -53,7 +65,14 @@ type ScreenToWorld = (
   element: HTMLElement,
 ) => { x: number; y: number };
 
-function createPointerEnd(context: StageGestureContext, screenToWorld: ScreenToWorld) {
+/** The card under a client point, as the camera sees it (`hitTest`). */
+type CardAt = (clientX: number, clientY: number, element: HTMLElement) => string | null;
+
+function createPointerEnd(
+  context: StageGestureContext,
+  screenToWorld: ScreenToWorld,
+  cardAt: CardAt,
+) {
   return (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = context.pointerRef.current.drag;
     if (drag?.kind === "marquee-pending") {
@@ -62,21 +81,14 @@ function createPointerEnd(context: StageGestureContext, screenToWorld: ScreenToW
     }
     const edgeTarget =
       drag?.kind === "edge"
-        ? asInstance(
-            document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-card-id]"),
-            HTMLElement,
-          )?.dataset.cardId
-        : undefined;
-    const edgeWorld =
-      drag?.kind === "edge"
-        ? screenToWorld(event.clientX, event.clientY, event.currentTarget)
+        ? (cardAt(event.clientX, event.clientY, event.currentTarget) ?? undefined)
         : undefined;
     const next = context.dispatchPointer({
       type: "pointer/end",
       shiftKey: event.shiftKey,
       screen: { x: event.clientX, y: event.clientY },
+      world: screenToWorld(event.clientX, event.clientY, event.currentTarget),
       edgeTargetId: edgeTarget,
-      edgeWorld,
       edgeId: drag?.kind === "edge" ? ulid() : undefined,
       edgeBindingId: drag?.kind === "edge" ? ulid() : undefined,
     });
@@ -128,39 +140,15 @@ function useViewportControls({
   zoom,
 }: Pick<CanvasGestureContext, "docRef" | "dispatchPointer" | "pan" | "setZoom" | "zoom">) {
   const zoomToFit = useCallback(() => {
-    const docNodes = docRef.current.nodes;
-    if (docNodes.length === 0) return;
     const stageEl = document.querySelector("[data-canvas-viewport]");
     if (!stageEl) return;
     const rect = stageEl.getBoundingClientRect();
-    const PAD = 40;
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const n of docNodes) {
-      minX = Math.min(minX, n.x);
-      minY = Math.min(minY, n.y);
-      maxX = Math.max(maxX, n.x + n.width);
-      maxY = Math.max(maxY, n.y + n.height);
-    }
-    const contentW = maxX - minX;
-    const contentH = maxY - minY;
-    if (contentW <= 0 || contentH <= 0) return;
-    const scaleX = (rect.width - PAD * 2) / contentW;
-    const scaleY = (rect.height - PAD * 2) / contentH;
-    const newZoom = clampZoom(Math.min(scaleX, scaleY, 1));
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    dispatchPointer({
-      type: "pan/set",
-      pan: {
-        x: rect.width / 2 - cx * newZoom,
-        y: rect.height / 2 - cy * newZoom,
-      },
-    });
-    setZoom(newZoom);
-  }, [dispatchPointer, docRef, setZoom]);
+    const fitted = fitView(docRef.current.nodes, rect, viewOfPan(pan, zoom, rect));
+    if (fitted === null) return;
+    const framed = panOfView(fitted, rect);
+    dispatchPointer({ type: "pan/set", pan: framed.pan });
+    setZoom(framed.zoom);
+  }, [dispatchPointer, docRef, pan, setZoom, zoom]);
 
   const screenToWorld = useCallback(
     (clientX: number, clientY: number, el: HTMLElement) => {
@@ -168,6 +156,15 @@ function useViewportControls({
       return clientToCanvas({ x: clientX, y: clientY }, rect, pan, zoom);
     },
     [pan, zoom],
+  );
+
+  const cardAt = useCallback(
+    (clientX: number, clientY: number, el: HTMLElement) => {
+      const rect = el.getBoundingClientRect();
+      const local = { x: clientX - rect.left, y: clientY - rect.top };
+      return hitTest(docRef.current.nodes, viewOfPan(pan, zoom, rect), rect, local);
+    },
+    [docRef, pan, zoom],
   );
 
   const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -196,7 +193,40 @@ function useViewportControls({
       pan: { x: pan.x - e.deltaX, y: pan.y - e.deltaY },
     });
   };
-  return { onWheel, screenToWorld, zoomToFit };
+  return { cardAt, onWheel, screenToWorld, zoomToFit };
+}
+
+/**
+ * A press on a card or its handle starts a gesture at the canvas point under
+ * it, read through the viewport the gesture is over.
+ */
+function createCardGestures(
+  dispatchPointer: CanvasGestureContext["dispatchPointer"],
+  screenToWorld: ScreenToWorld,
+) {
+  const worldAt = (clientX: number, clientY: number) => {
+    const stageEl = document.querySelector<HTMLElement>("[data-canvas-viewport]");
+    return stageEl ? screenToWorld(clientX, clientY, stageEl) : { x: clientX, y: clientY };
+  };
+  const startMoveForSelection = (e: React.PointerEvent, clickedId: string) => {
+    dispatchPointer({
+      type: "move/start",
+      id: clickedId,
+      screen: { x: e.clientX, y: e.clientY },
+      world: worldAt(e.clientX, e.clientY),
+    });
+    asElement(e.target)?.setPointerCapture(e.pointerId);
+  };
+  const startResize = (cardId: string, corner: ResizeCorner, screen: { x: number; y: number }) => {
+    dispatchPointer({
+      type: "resize/start",
+      id: cardId,
+      corner,
+      screen,
+      world: worldAt(screen.x, screen.y),
+    });
+  };
+  return { startMoveForSelection, startResize };
 }
 
 function createStageGestures(
@@ -213,16 +243,8 @@ function createStageGestures(
     toolState,
   }: StageGestureContext,
   screenToWorld: ScreenToWorld,
+  cardAt: CardAt,
 ) {
-  const startMoveForSelection = (e: React.PointerEvent, clickedId: string) => {
-    dispatchPointer({
-      type: "move/start",
-      id: clickedId,
-      screen: { x: e.clientX, y: e.clientY },
-    });
-    asElement(e.target)?.setPointerCapture(e.pointerId);
-  };
-
   const onPointerDownStage = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button === 1 || spaceDown || (e.button === 0 && e.altKey)) {
       dispatchPointer({ type: "pan/start", screen: { x: e.clientX, y: e.clientY } });
@@ -299,13 +321,13 @@ function createStageGestures(
       toolState,
     },
     screenToWorld,
+    cardAt,
   );
   return {
     onDoubleClickStage,
     onPointerDownStage,
     onPointerMove,
     onPointerUp,
-    startMoveForSelection,
   };
 }
 
@@ -340,8 +362,10 @@ function createAddKbNode({
 export function useCanvasGestures(context: CanvasGestureContext) {
   const toolControls = useToolControls(context);
   const viewport = useViewportControls(context);
-  const stage = createStageGestures(context, viewport.screenToWorld);
+  const stage = createStageGestures(context, viewport.screenToWorld, viewport.cardAt);
+  const cards = createCardGestures(context.dispatchPointer, viewport.screenToWorld);
   return {
+    ...cards,
     addKbNode: createAddKbNode(context),
     ...stage,
     ...toolControls,

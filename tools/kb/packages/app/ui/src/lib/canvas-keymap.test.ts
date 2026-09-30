@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { mapCanvasKey, type CanvasIntent, type CanvasKeyEvent } from "@/lib/canvas-keymap";
-import { ZOOM_STEP } from "@/lib/canvas-viewport";
+import { ZOOM_STEP } from "@/lib/canvas-camera";
 
 const withSelection = { selectionEmpty: false };
 const empty = { selectionEmpty: true };

@@ -12,7 +12,7 @@ import {
 } from "@/lib/canvas-selection";
 import { mapCanvasKey, type CanvasIntent } from "@/lib/canvas-keymap";
 import { reduceCanvasTool, type CanvasTool, type ToolState } from "@/lib/canvas-tool";
-import { clampZoom } from "@/lib/canvas-viewport";
+import { clampZoom } from "@/lib/canvas-camera";
 import { isTextEntry } from "@/lib/dom";
 
 /**

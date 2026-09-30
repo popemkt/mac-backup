@@ -6,7 +6,7 @@ import type { CanvasSelection } from "@/lib/canvas-selection";
 import type { PointerState } from "@/lib/canvas-pointer";
 import type { OutlineNode } from "@/lib/types";
 import { hasText } from "@/lib/text";
-import { clientToCanvas } from "@/lib/canvas-viewport";
+import { clientToCanvas } from "@/lib/canvas-camera";
 
 interface CanvasEdgeLayerProps {
   doc: CanvasDoc;

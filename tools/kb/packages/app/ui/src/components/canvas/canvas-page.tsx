@@ -124,6 +124,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setTool,
     setToolSticky,
     startMoveForSelection,
+    startResize,
     zoomToFit,
   } = useCanvasGestures({
     docRef,
@@ -235,9 +236,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             setShapeInspectorAnchor(anchor ?? null);
           }}
           onCardChange={(card) => schedulePersist(upsertCanvasNode(docRef.current, card))}
-          onResizeStart={(cardId, corner, screen) => {
-            dispatchPointer({ type: "resize/start", id: cardId, corner, screen });
-          }}
+          onResizeStart={startResize}
           onPortDown={(cardId, side, screen) => {
             dispatchPointer({
               type: "edge/start",

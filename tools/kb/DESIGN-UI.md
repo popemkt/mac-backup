@@ -992,6 +992,20 @@ manipulation feel professional rather than merely functional.
 - **Floating selection toolbar** with Delete / Bring-to-front / Send-to-back
   (z-order is array reorder in the JSON Canvas doc).
 
+#### Projections
+
+A canvas is drawn through one camera model, `lib/canvas-camera.ts`: a view
+is a focus point in canvas space, a zoom measured on the plane through that
+focus, an orbit (`yaw`, `pitch`) and a field of view, where `fov` 0 is
+orthographic. The DOM canvas is that camera face-on and orthographic, which
+is exactly its CSS `translate(pan) scale(zoom)`; `viewOfPan` and `panOfView`
+are the bridge, and zoom-to-fit, client-to-canvas conversion and the edge
+drop target (`hitTest`: the nearest item under the ray, the later-painted one
+at equal depth) all go through the camera rather than through pan
+arithmetic or `elementFromPoint`. A gesture reaches the pointer reducer as a
+screen point, which decides slop and panning, and the canvas point it stands
+for, which decides where a moved or resized card goes.
+
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 real Clipboard-API copy/paste, snap guides during keyboard nudge, edge colour
 on the stroke itself, edge endpoint re-routing, group cards translating their

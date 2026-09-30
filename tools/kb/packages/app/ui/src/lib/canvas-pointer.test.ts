@@ -61,6 +61,7 @@ describe("resize", () => {
       id: moving.id,
       corner,
       screen: { x: 0, y: 0 },
+      world: { x: 0, y: 0 },
     }).state;
     const active = reduce(started, {
       type: "pointer/move",
@@ -84,6 +85,7 @@ test("snapping only moves toward the guide", () => {
     type: "move/start",
     id: moving.id,
     screen: { x: 0, y: 0 },
+    world: { x: 0, y: 0 },
   }).state;
   const active = reduce(started, {
     type: "pointer/move",
@@ -117,7 +119,7 @@ test("an edge drag that ends off-port creates nothing", () => {
   ).state;
   const ended = reduce(
     started,
-    { type: "pointer/end", screen: { x: 500, y: 500 } },
+    { type: "pointer/end", screen: { x: 500, y: 500 }, world: { x: 500, y: 500 } },
     context(doc, EMPTY_SELECTION),
   );
   expect(ended.doc).toBeUndefined();
@@ -129,6 +131,7 @@ test("the release persists the snapped position the drag showed", () => {
     type: "move/start",
     id: moving.id,
     screen: { x: 0, y: 0 },
+    world: { x: 0, y: 0 },
   });
   const dragged = reduce(started.state, {
     type: "pointer/move",
@@ -142,7 +145,7 @@ test("the release persists the snapped position the drag showed", () => {
 
   const released = reduce(
     dragged.state,
-    { type: "pointer/end", screen: { x: 97, y: 10 } },
+    { type: "pointer/end", screen: { x: 97, y: 10 }, world: { x: 97, y: 10 } },
     context(dragged.doc),
   );
   const persisted = released.doc?.nodes.find((node) => node.id === moving.id);
@@ -168,6 +171,7 @@ describe("shift-locked resize", () => {
       id: moving.id,
       corner,
       screen: { x: 0, y: 0 },
+      world: { x: 0, y: 0 },
     });
     const resized = reduce(started.state, {
       type: "pointer/move",
@@ -191,6 +195,7 @@ describe("shift-locked resize", () => {
       id: moving.id,
       corner: "nw",
       screen: { x: 0, y: 0 },
+      world: { x: 0, y: 0 },
     });
     const active = reduce(started.state, {
       type: "pointer/move",
@@ -200,7 +205,12 @@ describe("shift-locked resize", () => {
     });
     const released = reduce(
       active.state,
-      { type: "pointer/end", screen: { x: -60, y: -40 }, shiftKey: true },
+      {
+        type: "pointer/end",
+        screen: { x: -60, y: -40 },
+        world: { x: -60, y: -40 },
+        shiftKey: true,
+      },
       context(active.doc),
     );
     const persisted = released.doc?.nodes.find((node) => node.id === moving.id);

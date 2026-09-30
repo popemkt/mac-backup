@@ -43,14 +43,15 @@ type Drag =
   | {
       kind: "move-pending";
       id: string;
+      /** Where the press went down: on screen (the slop), and in canvas space (the move). */
       startX: number;
       startY: number;
+      start: Point;
       origPositions: Map<string, Point>;
     }
   | {
       kind: "move";
-      startX: number;
-      startY: number;
+      start: Point;
       origPositions: Map<string, Point>;
     }
   | {
@@ -59,6 +60,7 @@ type Drag =
       corner: ResizeCorner;
       startX: number;
       startY: number;
+      start: Point;
       origX: number;
       origY: number;
       origW: number;
@@ -68,8 +70,7 @@ type Drag =
       kind: "resize";
       id: string;
       corner: ResizeCorner;
-      startX: number;
-      startY: number;
+      start: Point;
       origX: number;
       origY: number;
       origW: number;
@@ -107,21 +108,28 @@ export interface PointerState {
   snapGuides: SnapGuide[];
 }
 
+/**
+ * A gesture as the projection that saw it reports it. `screen` is where the
+ * pointer is on screen, which decides slop and panning; `world` is the canvas
+ * point it stands for, which decides where things go. How a screen point
+ * becomes a canvas point is the projection's (`lib/canvas-camera`): a card
+ * moves on the plane it lies in, whatever the camera.
+ */
 export type CanvasPointerEvent =
   | { type: "pointer/cancel" }
   | { type: "pan/set"; pan: Point }
   | { type: "pan/start"; screen: Point }
-  | { type: "move/start"; id: string; screen: Point }
-  | { type: "resize/start"; id: string; corner: ResizeCorner; screen: Point }
+  | { type: "move/start"; id: string; screen: Point; world: Point }
+  | { type: "resize/start"; id: string; corner: ResizeCorner; screen: Point; world: Point }
   | { type: "edge/start"; fromCardId: string; fromSide: CanvasSide; screen: Point }
   | { type: "marquee/start"; screen: Point; world: Point; additive: boolean }
   | { type: "pointer/move"; screen: Point; world: Point; shiftKey: boolean }
   | {
       type: "pointer/end";
       screen: Point;
+      world: Point;
       shiftKey?: boolean;
       edgeTargetId?: string;
-      edgeWorld?: Point;
       edgeId?: string;
       edgeBindingId?: string;
     };
@@ -172,6 +180,7 @@ function startMove(
       id: event.id,
       startX: event.screen.x,
       startY: event.screen.y,
+      start: event.world,
       origPositions,
     },
   });
@@ -192,6 +201,7 @@ function startResize(
       corner: event.corner,
       startX: event.screen.x,
       startY: event.screen.y,
+      start: event.world,
       origX: node.x,
       origY: node.y,
       origW: node.width,
@@ -225,12 +235,7 @@ function moveNodes(
   event: Extract<CanvasPointerEvent, { type: "pointer/move" }>,
   ctx: PointerContext,
 ): PointerResult {
-  const delta = snapMove(
-    drag,
-    (event.screen.x - drag.startX) / ctx.zoom,
-    (event.screen.y - drag.startY) / ctx.zoom,
-    ctx,
-  );
+  const delta = snapMove(drag, event.world.x - drag.start.x, event.world.y - drag.start.y, ctx);
   let doc = ctx.doc;
   for (const [id, orig] of drag.origPositions) {
     const node = ctx.byId.get(id);
@@ -247,10 +252,9 @@ function moveNodes(
 function resizedRect(
   drag: Extract<Drag, { kind: "resize" }>,
   event: Extract<CanvasPointerEvent, { type: "pointer/move" }>,
-  zoom: number,
 ): Rect {
-  const dx = (event.screen.x - drag.startX) / zoom;
-  const dy = (event.screen.y - drag.startY) / zoom;
+  const dx = event.world.x - drag.start.x;
+  const dy = event.world.y - drag.start.y;
   let x = drag.origX;
   let y = drag.origY;
   let w = drag.origW;
@@ -283,7 +287,7 @@ function resizeNode(
 ): PointerResult {
   const node = ctx.byId.get(drag.id);
   if (!node) return result(state);
-  const rect = resizedRect(drag, event, ctx.zoom);
+  const rect = resizedRect(drag, event);
   const doc = upsertCanvasNode(ctx.doc, {
     ...node,
     x: rect.x,
@@ -349,13 +353,22 @@ function reduceMove(
   }
   if (drag.kind === "move-pending") {
     if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
-    const active = { ...drag, kind: "move" as const };
+    const active = { kind: "move" as const, start: drag.start, origPositions: drag.origPositions };
     return moveNodes({ ...state, drag: active }, active, event, ctx);
   }
   if (drag.kind === "move") return moveNodes(state, drag, event, ctx);
   if (drag.kind === "resize-pending") {
     if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
-    const active = { ...drag, kind: "resize" as const };
+    const active = {
+      kind: "resize" as const,
+      id: drag.id,
+      corner: drag.corner,
+      start: drag.start,
+      origX: drag.origX,
+      origY: drag.origY,
+      origW: drag.origW,
+      origH: drag.origH,
+    };
     return resizeNode({ ...state, drag: active }, active, event, ctx);
   }
   if (drag.kind === "resize") return resizeNode(state, drag, event, ctx);
@@ -384,8 +397,8 @@ function finishMove(
 ): PointerResult {
   const { dx, dy } = snapMove(
     drag,
-    (event.screen.x - drag.startX) / ctx.zoom,
-    (event.screen.y - drag.startY) / ctx.zoom,
+    event.world.x - drag.start.x,
+    event.world.y - drag.start.y,
     ctx,
   );
   let doc = ctx.doc;
@@ -406,7 +419,6 @@ function finishEdge(
   if (
     event.edgeTargetId === undefined ||
     event.edgeTargetId === drag.fromCardId ||
-    event.edgeWorld === undefined ||
     event.edgeId === undefined ||
     event.edgeBindingId === undefined
   ) {
@@ -420,7 +432,7 @@ function finishEdge(
     fromNode: drag.fromCardId,
     toNode: event.edgeTargetId,
     fromSide: drag.fromSide,
-    toSide: closestPort(to, event.edgeWorld.x, event.edgeWorld.y),
+    toSide: closestPort(to, event.world.x, event.world.y),
     toEnd: "arrow",
     kbLink: {
       mode: "layout",
@@ -462,7 +474,7 @@ function reduceEnd(
       {
         type: "pointer/move",
         screen: event.screen,
-        world: event.screen,
+        world: event.world,
         shiftKey: event.shiftKey ?? false,
       },
       ctx,

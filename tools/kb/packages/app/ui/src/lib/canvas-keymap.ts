@@ -11,7 +11,7 @@
  * nudging.
  */
 import type { CanvasTool } from "@/lib/canvas-tool";
-import { ZOOM_STEP } from "@/lib/canvas-viewport";
+import { ZOOM_STEP } from "@/lib/canvas-camera";
 
 export interface CanvasKeyEvent {
   key: string;
