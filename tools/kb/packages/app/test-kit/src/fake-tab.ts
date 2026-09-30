@@ -39,6 +39,8 @@ export class FakeTab {
   readonly commands: ScreenCommand[] = [];
   /** How it answers the next command. */
   answer: FakeTabAnswer = SCREEN_APPLIED;
+  /** The tab ids the server refused this connection, in order. */
+  readonly refused: string[] = [];
   readonly #socket: WebSocket;
   readonly #waiters = new Set<(msg: ServerMessage) => void>();
 
@@ -48,6 +50,7 @@ export class FakeTab {
     socket.addEventListener("message", (event) => {
       const msg = ServerMessageSchema.parse(JSON.parse(String(event.data)));
       if (msg.op === "screen-command") this.#carryOut(msg.id, msg.command);
+      if (msg.op === "screen-refused") this.refused.push(msg.tab);
       for (const waiter of this.#waiters) waiter(msg);
     });
   }
@@ -55,9 +58,7 @@ export class FakeTab {
   /** Connect to the `kb ui` at `url` as the tab `id`, and publish `screen`. */
   static open(url: string, id: string, screen = FAKE_TAB_SCREEN): Effect.Effect<FakeTab> {
     return Effect.gen(function* () {
-      const socket = new WebSocket(
-        `${url.replace(/^http/, "ws")}/ws?origin=${encodeURIComponent(id)}`,
-      );
+      const socket = new WebSocket(`${url.replace(/^http/, "ws")}/ws`);
       const tab = new FakeTab(id, socket);
       yield* tab.#exchange(null, (msg) => msg.op === "hello");
       yield* tab.publish(screen);
@@ -65,11 +66,11 @@ export class FakeTab {
     });
   }
 
-  /** Publish `state`, and return once the server has taken it. */
+  /** Publish `state` as this tab, and return once the server has taken it or refused it. */
   publish(state: ScreenState): Effect.Effect<void> {
-    this.#send({ op: "screen", state });
+    this.#send({ op: "screen", tab: this.id, state });
     // The server handles one connection's frames in order, so its pong comes
-    // after it has taken the screen.
+    // after it has taken (or refused) the screen.
     return this.#exchange({ op: "ping" }, (msg) => msg.op === "pong").pipe(Effect.asVoid);
   }
 

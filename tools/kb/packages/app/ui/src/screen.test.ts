@@ -6,8 +6,8 @@
  * `packages/app/server/tests/screens.test.ts`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ScreenAck, ScreenState } from "@kb/contracts";
-import type { ScreenCommandHandler } from "@/api/live";
+import type { ScreenAck, ScreenCommand, ScreenState } from "@kb/contracts";
+import type { ScreenTab } from "@/api/live";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -20,19 +20,26 @@ import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals
 
 function tab(page: () => Window | null = () => window) {
   const published: ScreenState[] = [];
-  let handler: ScreenCommandHandler | null = null;
+  const ids: string[] = [];
+  let attached: ScreenTab | null = null;
   const plugin = screenPlugin({
     page,
-    publish: (state) => published.push(state),
-    handleCommands: (next) => {
-      handler = next;
+    tabId: () => "tab.first",
+    publish: (id, state) => {
+      ids.push(id);
+      published.push(state);
+    },
+    attach: (next) => {
+      attached = next;
     },
   });
-  const carryOut: ScreenCommandHandler = (command) => {
-    if (handler === null) throw new Error("no command handler installed");
-    return handler(command);
+  const side = (): ScreenTab => {
+    if (attached === null) throw new Error("no screen side attached");
+    return attached;
   };
-  return { plugin, published, carryOut, installed: () => handler !== null };
+  const carryOut = (command: ScreenCommand): ScreenAck => side().carryOut(command);
+  const refused = (id: string): void => side().refused(id);
+  return { plugin, published, ids, carryOut, refused, installed: () => attached !== null };
 }
 
 function report(select: PaneSelect = () => ({ outcome: "applied" })) {
@@ -157,6 +164,35 @@ describe("the tab's screen", () => {
     expect(carryOut({ kind: "navigate", pane: "right", to: { route: "/" } })).toEqual({
       outcome: "rejected",
       reason: "no pane right; this tab has one, main",
+    });
+  });
+
+  it("picks a fresh id and publishes again when its id is refused", () => {
+    const { plugin, ids, refused } = tab();
+    syncUiPlugins([outlineUiPlugin, plugin]);
+    expect(ids).toEqual(["tab.first"]);
+    // A refusal for an id it no longer uses changes nothing.
+    refused("tab.other");
+    expect(ids).toEqual(["tab.first"]);
+    refused("tab.first");
+    expect(ids).toHaveLength(2);
+    expect(ids[1]).not.toBe("tab.first");
+  });
+
+  it("retries a screen it could not read on the next tick, without another change", () => {
+    const { plugin, published } = tab();
+    syncUiPlugins([outlineUiPlugin, plugin]);
+    // A subject no record holds, as a view part-way through an update might report.
+    const midUpdate = { subject: "", focused: null, selection: [] };
+    useScreenStore.setState({ report: midUpdate, select: null, owner: Symbol("test view") });
+    vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
+    expect(published).toHaveLength(1);
+    // The view finishes without the store announcing anything: only a retry can see it.
+    midUpdate.subject = "n.root-a";
+    vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
+    expect(published.at(-1)?.panes[0]?.view).toEqual({
+      key: "outline.main",
+      subject: "n.root-a",
     });
   });
 

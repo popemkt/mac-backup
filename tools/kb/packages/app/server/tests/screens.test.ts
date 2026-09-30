@@ -124,19 +124,18 @@ describe("screen state", () => {
     expect((await screen(handle)).tabs.map((t) => t.tab)).toEqual(["tab.a", "tab.background"]);
   });
 
-  test("a tab that reconnects keeps its screen when the old connection closes late", async () => {
-    const first = await tab("tab.a");
-    const second = await tab("tab.a", on("/canvas"));
-    await run(first.close);
-    expect((await screen(handle)).tabs.map((t) => [t.tab, t.route])).toEqual([
-      ["tab.a", "/canvas"],
-    ]);
-    expect(await command(handle, "ui.navigate", { route: "/" })).toEqual({
+  test("a second connection naming a live tab's id is refused, and the owner keeps the tab", async () => {
+    const owner = await tab("tab.a");
+    const hijacker = await tab("tab.a", on("/canvas"));
+    expect(hijacker.refused).toEqual(["tab.a"]);
+    expect(owner.refused).toEqual([]);
+    expect((await screen(handle)).tabs.map((t) => [t.tab, t.route])).toEqual([["tab.a", "/"]]);
+    expect(await command(handle, "ui.navigate", { tab: "tab.a", route: "/graph" })).toEqual({
       outcome: "applied",
       tab: "tab.a",
     });
-    expect(second.commands).toHaveLength(1);
-    expect(first.commands).toEqual([]);
+    expect(owner.commands).toHaveLength(1);
+    expect(hijacker.commands).toEqual([]);
   });
 
   test("a connection that never publishes is not a tab", async () => {

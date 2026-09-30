@@ -228,15 +228,15 @@ describe("KbWsClient", () => {
       panes: [{ id: "main", view: null, focused: null, selection: [] }],
     };
     // Published before the socket is open: it goes out when the socket opens.
-    h.client.publishScreen({ ...state, route: "/canvas" });
-    h.client.publishScreen(state);
+    h.client.publishScreen("tab.a", { ...state, route: "/canvas" });
+    h.client.publishScreen("tab.a", state);
     h.client.connect();
     h.server.accept(0);
-    expect(h.server.received("screen")).toEqual([{ op: "screen", state }]);
+    expect(h.server.received("screen")).toEqual([{ op: "screen", tab: "tab.a", state }]);
     h.server.drop();
     vi.advanceTimersByTime(100);
     h.server.accept(0);
-    expect(h.server.received("screen")).toEqual([{ op: "screen", state }]);
+    expect(h.server.received("screen")).toEqual([{ op: "screen", tab: "tab.a", state }]);
   });
 
   it("hands a screen command to its handler and sends the answer back under its id", () => {
@@ -262,5 +262,20 @@ describe("KbWsClient", () => {
     expect(server.received("screen-ack")).toEqual([
       { op: "screen-ack", id: "c1", result: { outcome: "applied" } },
     ]);
+  });
+
+  it("hands a refused tab id to its handler", () => {
+    const refused: string[] = [];
+    const server = new MockServer();
+    const client = new KbWsClient({
+      url: "ws://test/ws",
+      makeSocket: server.makeSocket,
+      onGraph: () => {},
+      onScreenRefused: (tab) => refused.push(tab),
+    });
+    client.connect();
+    server.accept(0);
+    server.push({ op: "screen-refused", tab: "tab.a", code: "tab_in_use" });
+    expect(refused).toEqual(["tab.a"]);
   });
 });

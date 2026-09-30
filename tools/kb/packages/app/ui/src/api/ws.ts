@@ -67,6 +67,8 @@ export interface KbWsClientOptions {
    * with {@link KbWsClient.answerScreenCommand} under the same id.
    */
   onScreenCommand?: (id: string, command: ScreenCommand) => void;
+  /** The server refused a screen published as `tab`: another live connection owns that id. */
+  onScreenRefused?: (tab: string) => void;
   /** Backoff bounds in ms (initial doubles up to max). */
   backoffInitialMs?: number;
   backoffMaxMs?: number;
@@ -109,7 +111,7 @@ export class KbWsClient {
   private detachSocket: (() => void) | null = null;
   private subs = new Map<string, Subscription>();
   /** The screen this tab last published; sent again whenever the socket opens. */
-  private screen: ScreenState | null = null;
+  private screen: { tab: string; state: ScreenState } | null = null;
   private attempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private closedByUser = false;
@@ -159,10 +161,10 @@ export class KbWsClient {
     this.send({ op: "since", rev });
   }
 
-  /** This tab's whole screen now. Survives reconnect: the latest is sent on every open. */
-  publishScreen(state: ScreenState): void {
-    this.screen = state;
-    this.send({ op: "screen", state });
+  /** This tab's whole screen now, as the tab `tab`. Survives reconnect: the latest is sent on every open. */
+  publishScreen(tab: string, state: ScreenState): void {
+    this.screen = { tab, state };
+    this.send({ op: "screen", tab, state });
   }
 
   /** Answer the server's screen command `id`. */
@@ -204,7 +206,7 @@ export class KbWsClient {
       for (const [id, sub] of this.subs) {
         this.send({ op: "subscribe", id, query: sub.query });
       }
-      if (this.screen !== null) this.send({ op: "screen", state: this.screen });
+      if (this.screen !== null) this.send({ op: "screen", ...this.screen });
     };
     const onMessage = (event: { data: unknown }): void => {
       this.handleMessage(String(event.data));
@@ -287,6 +289,9 @@ export class KbWsClient {
       }
       case "screen-command":
         this.opts.onScreenCommand?.(msg.id, msg.command);
+        break;
+      case "screen-refused":
+        this.opts.onScreenRefused?.(msg.tab);
         break;
       case "pong":
         break;

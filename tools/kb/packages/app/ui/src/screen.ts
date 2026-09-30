@@ -19,7 +19,8 @@ import {
   type ScreenState,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
-import { getLiveClient, setScreenCommandHandler, type ScreenCommandHandler } from "@/api/live";
+import { getClientOrigin } from "@/api/action";
+import { getLiveClient, setScreenTab, type ScreenTab } from "@/api/live";
 import { logWarn } from "@/lib/log";
 import { RoutePoint, currentContributions, matchRoute } from "@/lib/plugins";
 import { getPath, navigate, subscribePath } from "@/lib/router";
@@ -117,41 +118,69 @@ function watchScreen(page: Window, listener: () => void): () => void {
 export interface ScreenPluginOptions {
   /** The tab's window; null where there is none (a test, a server render), and then the plugin does nothing. */
   readonly page: () => Window | null;
-  /** Send this tab's screen to the server. */
-  readonly publish: (state: ScreenState) => void;
-  /** Install (or, with null, remove) what carries out the server's commands. */
-  readonly handleCommands: (handler: ScreenCommandHandler | null) => void;
+  /** The id the tab first publishes as. */
+  readonly tabId: () => string;
+  /** Send this tab's screen to the server, as the tab `tab`. */
+  readonly publish: (tab: string, state: ScreenState) => void;
+  /** Install (or, with null, remove) the tab's side of what the server says. */
+  readonly attach: (tab: ScreenTab | null) => void;
+}
+
+interface Publisher {
+  readonly stop: () => void;
+  /** The server refused `taken`: when that is this tab's id, pick a fresh one and publish again. */
+  readonly refused: (taken: string) => void;
 }
 
 /**
  * Publish the screen now, then again after every change, at most once per
  * {@link SCREEN_PUBLISH_MS} and only when it differs from the last one sent.
  */
-function startPublishing(page: Window, publish: (state: ScreenState) => void): () => void {
+function startPublishing(
+  page: Window,
+  firstTab: string,
+  publish: (tab: string, state: ScreenState) => void,
+): Publisher {
+  let tab = firstTab;
   let last = "";
+  let lastProblem = "";
   let timer: ReturnType<typeof setTimeout> | null = null;
-  const flush = (): void => {
+  const schedule = (): void => {
+    timer ??= setTimeout(flush, SCREEN_PUBLISH_MS);
+  };
+  function flush(): void {
     timer = null;
     const read = readScreen(page.document);
-    // A view that reported something no screen can hold is a bug in that
-    // view; the tab says so and keeps the last screen it sent.
+    // A view part-way through an update can report what no screen holds.
+    // Try again on the next tick rather than wait for another change, and
+    // say so once per problem, not once per tick.
     if (!read.success) {
-      logWarn(`[kb/screen] not published: ${read.error.message}`);
+      if (read.error.message !== lastProblem) {
+        logWarn(`[kb/screen] not published yet: ${read.error.message}`);
+      }
+      lastProblem = read.error.message;
+      schedule();
       return;
     }
-    const state = read.data;
-    const text = JSON.stringify(state);
+    lastProblem = "";
+    const text = JSON.stringify(read.data);
     if (text === last) return;
     last = text;
-    publish(state);
-  };
-  const stop = watchScreen(page, () => {
-    timer ??= setTimeout(flush, SCREEN_PUBLISH_MS);
-  });
+    publish(tab, read.data);
+  }
+  const unwatch = watchScreen(page, schedule);
   flush();
-  return () => {
-    stop();
-    if (timer !== null) clearTimeout(timer);
+  return {
+    stop: () => {
+      unwatch();
+      if (timer !== null) clearTimeout(timer);
+    },
+    refused: (taken) => {
+      if (taken !== tab) return;
+      tab = crypto.randomUUID();
+      last = "";
+      flush();
+    },
   };
 }
 
@@ -164,11 +193,11 @@ export function screenPlugin(options: ScreenPluginOptions): Plugin {
           Effect.sync(() => {
             const page = options.page();
             if (page === null) return () => undefined;
-            options.handleCommands(carryOut);
-            const stopPublishing = startPublishing(page, options.publish);
+            const publisher = startPublishing(page, options.tabId(), options.publish);
+            options.attach({ carryOut, refused: publisher.refused });
             return () => {
-              stopPublishing();
-              options.handleCommands(null);
+              publisher.stop();
+              options.attach(null);
             };
           }),
           (stop) => Effect.sync(stop),
@@ -179,6 +208,8 @@ export function screenPlugin(options: ScreenPluginOptions): Plugin {
 
 export const screenUiPlugin = screenPlugin({
   page: () => (typeof window === "undefined" ? null : window),
-  publish: (state) => getLiveClient().publishScreen(state),
-  handleCommands: setScreenCommandHandler,
+  // The page's origin id: one per page load, so per tab, and the id its writes carry.
+  tabId: getClientOrigin,
+  publish: (tab, state) => getLiveClient().publishScreen(tab, state),
+  attach: setScreenTab,
 });

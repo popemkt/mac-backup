@@ -40,14 +40,15 @@ interface Pending {
  * The screens of the UI tabs connected to this `kb ui`: the one place they
  * are held (`DESIGN.md` → Screen state).
  *
- * A tab is known by the id its connection names, not by the connection: a
- * tab that reconnects is the same tab on a new connection, and the old
- * connection's close, however late it arrives, drops nothing the new one
- * published. A connection becomes a tab when it publishes a screen, and the
- * tab is forgotten when that connection closes. Only the latest record per
- * tab is kept, in memory; nothing reaches the store. A command goes to one
- * tab as a `screen-command` frame and waits for that connection's
- * `screen-ack` of the same id, up to its timeout.
+ * A tab is known by the id it publishes under, and that id belongs to the
+ * first live connection that publishes it: another connection naming a live
+ * tab's id is refused with `screen-refused` and must pick its own, so no
+ * connection can take over a tab, and a connection's close only ever
+ * forgets the tab it owns. A connection is one tab; publishing under a new
+ * id gives up the old one. Only the latest record per tab is kept, in
+ * memory; nothing reaches the store. A command goes to the owning
+ * connection as a `screen-command` frame and waits for its `screen-ack` of
+ * the same id, up to its timeout.
  *
  * The socket hub owns the connections and hands this hub what concerns
  * screens: a published record, an answer, a close.
@@ -57,17 +58,26 @@ export class ScreenHub {
   private readonly pending = new Map<string, Pending>();
   private clock = 0;
 
-  /** The tab `tab`, on `connection`, now shows `state`. */
+  /** `connection` publishes `state` as the tab `tab`; refused when another connection owns it. */
   publish(
     connection: string,
     tab: string,
     send: ClientSend,
     state: ScreenState,
   ): Effect.Effect<void> {
-    return Effect.sync(() => {
+    return Effect.suspend(() => {
+      const owner = this.tabs.get(tab);
+      if (owner !== undefined && owner.connection !== connection) {
+        const refused: ServerMessage = { op: "screen-refused", tab, code: "tab_in_use" };
+        return Effect.ignore(send(JSON.stringify(refused)));
+      }
+      for (const [held, { connection: by }] of this.tabs) {
+        if (by === connection && held !== tab) this.tabs.delete(held);
+      }
       // A tab the person is using moves to the front; one in the background keeps its place.
-      const activeAt = state.active ? ++this.clock : (this.tabs.get(tab)?.activeAt ?? 0);
+      const activeAt = state.active ? ++this.clock : (owner?.activeAt ?? 0);
       this.tabs.set(tab, { connection, send, state, activeAt });
+      return Effect.void;
     });
   }
 
@@ -80,7 +90,7 @@ export class ScreenHub {
     });
   }
 
-  /** `connection` closed: the tab on it is not live any more, and cannot answer. */
+  /** `connection` closed: the tab it owns is not live any more, and cannot answer. */
   drop(connection: string): Effect.Effect<void> {
     return Effect.suspend(() => {
       for (const [tab, held] of this.tabs) {
@@ -127,16 +137,16 @@ export class ScreenHub {
     const id = crypto.randomUUID();
     const answer = yield* Deferred.make<ScreenReceipt>();
     const frame: ServerMessage = { op: "screen-command", id, command };
-    const receipt = yield* Effect.sync(() =>
+    const timedOut: ScreenReceipt = { outcome: "timeout", tab: target, timeoutMs };
+    return yield* Effect.sync(() =>
       this.pending.set(id, { tab: target, connection: live.connection, answer }),
     ).pipe(
       Effect.andThen(live.send(JSON.stringify(frame))),
       Effect.andThen(Deferred.await(answer).pipe(Effect.timeoutOption(timeoutMs))),
+      Effect.map(Option.getOrElse(() => timedOut)),
+      // The socket did not take the command: the tab is gone, and waiting would not change that.
+      Effect.catchTag("Kb/ClientGone", () => Effect.succeed(noTabReceipt(target))),
       Effect.ensuring(Effect.sync(() => this.pending.delete(id))),
-    );
-    return Option.getOrElse(
-      receipt,
-      (): ScreenReceipt => ({ outcome: "timeout", tab: target, timeoutMs }),
     );
   });
 

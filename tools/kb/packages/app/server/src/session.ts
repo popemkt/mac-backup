@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import {
   type KbContext,
   ClientMessageSchema,
@@ -15,17 +15,23 @@ import { ScreenHub } from "./screens.ts";
 export type WsData = {
   /** This connection, and no other. */
   clientId: string;
-  /** The tab the connection says it is (its `?origin=`); a reconnecting tab names the same one. */
-  tab: string;
 };
 
-/** Outbound send handle for a live WS client. Failures are ignored by the hub. */
-export type ClientSend = (text: string) => Effect.Effect<void>;
+/** A frame could not be handed to the socket: the client has gone. */
+export class ClientGone extends Schema.TaggedError<ClientGone>()("Kb/ClientGone", {}) {}
+
+/**
+ * Outbound send handle for a live WS client. It fails when the socket did not
+ * take the frame; the hub's own frames ignore that, and a screen command
+ * reads it as a tab that is gone.
+ */
+export type ClientSend = (text: string) => Effect.Effect<void, ClientGone>;
 
 interface ClientState {
-  send: ClientSend;
-  /** The tab this connection belongs to, should it publish a screen. */
-  tab: string;
+  /** {@link ClientSend} with the failure ignored: what every hub frame goes through. */
+  send: (text: string) => Effect.Effect<void>;
+  /** The handle itself, for the screens, which need to know a frame was taken. */
+  deliver: ClientSend;
   watchTx: boolean;
   /** subscription id → { query, lastHash } */
   subs: Map<string, { query: string; lastHash: string }>;
@@ -113,8 +119,9 @@ export class SubscriptionHub {
   }
 
   /** Register a client and send the connection `hello`. */
-  addClient(clientId: string, send: ClientSend, tab = clientId): Effect.Effect<void> {
-    this.clients.set(clientId, { send, tab, watchTx: false, subs: new Map() });
+  addClient(clientId: string, deliver: ClientSend): Effect.Effect<void> {
+    const send = (text: string) => Effect.ignore(deliver(text));
+    this.clients.set(clientId, { send, deliver, watchTx: false, subs: new Map() });
     return send(JSON.stringify({ op: "hello", rev: this.ctx.log.head }));
   }
 
@@ -164,7 +171,7 @@ export class SubscriptionHub {
         client.subs.delete(msg.id);
         return Effect.void;
       case "screen":
-        return this.screens.publish(clientId, client.tab, client.send, msg.state);
+        return this.screens.publish(clientId, msg.tab, client.deliver, msg.state);
       case "screen-ack":
         return this.screens.ack(clientId, msg.id, msg.result);
       case "since": {

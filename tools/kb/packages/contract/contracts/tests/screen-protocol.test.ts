@@ -31,13 +31,14 @@ function overTheWire<T>(schema: { parse(value: unknown): T }, message: T): T {
 
 describe("screen messages on /ws", () => {
   test("a tab's screen survives the wire", () => {
-    const msg: ClientMessage = { op: "screen", state: outline };
+    const msg: ClientMessage = { op: "screen", tab: "tab.a", state: outline };
     expect(overTheWire(ClientMessageSchema, msg)).toEqual(msg);
   });
 
   test("a canvas pane carries its viewport and visible items", () => {
     const msg: ClientMessage = {
       op: "screen",
+      tab: "tab.a",
       state: {
         route: "/canvas/n.c",
         active: false,
@@ -65,29 +66,37 @@ describe("screen messages on /ws", () => {
         { id: "right", view: null, focused: null, selection: [] },
       ],
     };
-    expect(overTheWire(ClientMessageSchema, { op: "screen", state })).toEqual({
+    expect(overTheWire(ClientMessageSchema, { op: "screen", tab: "tab.a", state })).toEqual({
       op: "screen",
+      tab: "tab.a",
       state,
     });
   });
 
   test("a screen whose active pane is not one of its panes is refused", () => {
-    const bad = { op: "screen", state: { ...outline, activePane: "elsewhere" } };
+    const bad = { op: "screen", tab: "tab.a", state: { ...outline, activePane: "elsewhere" } };
     expect(ClientMessageSchema.safeParse(bad).success).toBe(false);
   });
 
   test("a screen with two panes of one id is refused", () => {
-    const bad = { op: "screen", state: { ...outline, panes: [pane, pane] } };
+    const bad = { op: "screen", tab: "tab.a", state: { ...outline, panes: [pane, pane] } };
     expect(ClientMessageSchema.safeParse(bad).success).toBe(false);
   });
 
   test("a screen with no pane, or a route that is not a path, is refused", () => {
     expect(
-      ClientMessageSchema.safeParse({ op: "screen", state: { ...outline, panes: [] } }).success,
+      ClientMessageSchema.safeParse({
+        op: "screen",
+        tab: "tab.a",
+        state: { ...outline, panes: [] },
+      }).success,
     ).toBe(false);
     expect(
-      ClientMessageSchema.safeParse({ op: "screen", state: { ...outline, route: "canvas" } })
-        .success,
+      ClientMessageSchema.safeParse({
+        op: "screen",
+        tab: "tab.a",
+        state: { ...outline, route: "canvas" },
+      }).success,
     ).toBe(false);
   });
 
@@ -111,6 +120,12 @@ describe("screen messages on /ws", () => {
       { op: "screen-ack", id: "c2", result: { outcome: "rejected", reason: "no such pane" } },
     ];
     for (const msg of answers) expect(overTheWire(ClientMessageSchema, msg)).toEqual(msg);
+  });
+
+  test("a screen names its tab, and a refusal names the tab it refused", () => {
+    expect(ClientMessageSchema.safeParse({ op: "screen", state: outline }).success).toBe(false);
+    const refused: ServerMessage = { op: "screen-refused", tab: "tab.a", code: "tab_in_use" };
+    expect(overTheWire(ServerMessageSchema, refused)).toEqual(refused);
   });
 
   test("a navigate to both a node and a route is refused", () => {

@@ -20,7 +20,7 @@ import { childProcessEnv, UI_DIST, UI_ROOT } from "./paths.ts";
 import { handleHttpRequest } from "./http.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
-import { SubscriptionHub, type ClientSend, type WsData } from "./session.ts";
+import { ClientGone, SubscriptionHub, type ClientSend, type WsData } from "./session.ts";
 
 /** The injectable build-ensure step, shared by both entry points. */
 export type EnsureUiBuilt = (
@@ -58,14 +58,16 @@ function openBrowser(url: string): void {
   });
 }
 
+/** Bun's `send` answers 0 when it dropped the frame, and throws on a closed socket. */
 function clientSend(ws: Bun.ServerWebSocket<WsData>): ClientSend {
   return (text) =>
-    Effect.sync(() => {
+    Effect.suspend(() => {
       try {
-        ws.send(text);
+        if (ws.send(text) !== 0) return Effect.void;
       } catch {
-        // client gone — ignore
+        // closed under us: the same as dropped
       }
+      return Effect.fail(new ClientGone());
     });
 }
 
@@ -162,12 +164,9 @@ function serveUi(deps: {
       const url = new URL(req.url);
 
       if (url.pathname === "/ws" && req.method === "GET") {
-        // Every connection is its own client; the origin names the tab it
-        // belongs to, which outlives a reconnect.
-        const origin = url.searchParams.get("origin");
-        const clientId = crypto.randomUUID();
-        const tab = origin !== null && origin !== "" ? origin : clientId;
-        const ok = srv.upgrade(req, { data: { clientId, tab } });
+        // Every connection is its own client. A tab names itself in the
+        // screens it publishes, which outlive a reconnect.
+        const ok = srv.upgrade(req, { data: { clientId: crypto.randomUUID() } });
         if (!ok) {
           return new Response("WebSocket upgrade failed", { status: 400 });
         }
@@ -178,7 +177,7 @@ function serveUi(deps: {
     },
     websocket: {
       open(ws) {
-        Effect.runFork(hub.addClient(ws.data.clientId, clientSend(ws), ws.data.tab));
+        Effect.runFork(hub.addClient(ws.data.clientId, clientSend(ws)));
       },
       message(ws, message) {
         const text = typeof message === "string" ? message : new TextDecoder().decode(message);

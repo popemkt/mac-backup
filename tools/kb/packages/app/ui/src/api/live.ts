@@ -2,10 +2,10 @@
  * Singleton live connection: carries the socket's graph stream into the
  * browser replica's sync machine (session/replica.ts), runs the network moves
  * it asks for (`since`, the /api/graph snapshot), wires the ui store
- * (status indicator, error toasts), and answers the server's screen commands
- * with whatever the tab has installed to carry them out (`src/screen.ts`).
+ * (status indicator, error toasts), and hands what the server says about this
+ * tab's screen to whatever the tab has installed for it (`src/screen.ts`).
  */
-import type { ScreenAck, ScreenCommand } from "@kb/contracts";
+import { screenRejected, type ScreenAck, type ScreenCommand } from "@kb/contracts";
 import { fetchGraphSnapshot } from "@/api/graph";
 import { KbWsClient, type KbWsClientOptions } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store"; // GAP [[01M1RXMQYDBWX4EWJPEFRDR05H]]
@@ -13,20 +13,25 @@ import { browserReplica, setBrowserLink } from "@/session/runtime";
 
 let client: KbWsClient | null = null;
 
-/** How this tab carries out the server's screen commands; null while nothing does. */
-export type ScreenCommandHandler = (command: ScreenCommand) => ScreenAck;
-let screenCommands: ScreenCommandHandler | null = null;
+/** What the server says about this tab's screen, and how the tab answers it. */
+export interface ScreenTab {
+  /** Carry out a command; the answer goes back to the server. */
+  readonly carryOut: (command: ScreenCommand) => ScreenAck;
+  /** A screen published as `tab` was refused: another live connection owns that id. */
+  readonly refused: (tab: string) => void;
+}
+let screenTab: ScreenTab | null = null;
 
-/** Install (or, with null, remove) what carries out the server's screen commands. */
-export function setScreenCommandHandler(handler: ScreenCommandHandler | null): void {
-  screenCommands = handler;
+/** Install (or, with null, remove) this tab's screen side. */
+export function setScreenTab(next: ScreenTab | null): void {
+  screenTab = next;
 }
 
 function answerScreenCommand(target: KbWsClient, id: string, command: ScreenCommand): void {
-  const answer: ScreenAck =
-    screenCommands === null
-      ? { outcome: "rejected", reason: "this tab carries out no screen commands" }
-      : screenCommands(command);
+  const answer =
+    screenTab === null
+      ? screenRejected("this tab carries out no screen commands")
+      : screenTab.carryOut(command);
   target.answerScreenCommand(id, answer);
 }
 
@@ -54,6 +59,7 @@ export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): Kb
     onServerError: (err) =>
       useUiStore.getState().pushToast("error", `ws ${err.code}: ${err.message}`),
     onScreenCommand: (id, command) => answerScreenCommand(next, id, command),
+    onScreenRefused: (tab) => screenTab?.refused(tab),
     ...overrides,
   });
   setBrowserLink({

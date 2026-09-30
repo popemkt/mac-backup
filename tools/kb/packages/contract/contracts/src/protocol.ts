@@ -87,11 +87,13 @@ export const ClientMessageSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("watch-tx"), enabled: z.boolean() }),
   z.object({ op: z.literal("ping") }),
   /**
-   * This connection is a UI tab, and this is its whole screen now
-   * (`screen.ts`). Sent on connect and whenever the screen changes; the
-   * server keeps the latest per connection and forgets it on close.
+   * This connection is the UI tab `tab`, and this is its whole screen now
+   * (`screen.ts`). Sent on connect and whenever the screen changes. The tab
+   * id belongs to the first live connection that publishes it; another
+   * connection naming it gets `screen-refused`. The server keeps the latest
+   * screen per tab and forgets it when the owning connection closes.
    */
-  z.object({ op: z.literal("screen"), state: ScreenStateSchema }),
+  z.object({ op: z.literal("screen"), tab: z.string().min(1), state: ScreenStateSchema }),
   /** The tab's answer to the `screen-command` with this `id`. */
   z.object({ op: z.literal("screen-ack"), id: z.string().min(1), result: ScreenAckSchema }),
 ]);
@@ -142,6 +144,11 @@ export const ServerMessageSchema = z.discriminatedUnion("op", [
     id: z.string().min(1),
     command: ScreenCommandSchema,
   }),
+  /**
+   * The screen published as `tab` was not taken: another live connection
+   * owns that tab id. The client picks a fresh id and publishes again.
+   */
+  z.object({ op: z.literal("screen-refused"), tab: z.string(), code: z.literal("tab_in_use") }),
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 

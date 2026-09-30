@@ -1693,12 +1693,15 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   has the person's attention (`active`), and its panes, each with the open
   view (its view key id and the node it is shown for), the focused node,
   the selection in the view's own ids, and for a canvas the 2D viewport and
-  the visible item ids. The tab id is the one its connection names
-  (`?origin=`), so a tab that reconnects is the same tab on a new
-  connection, and the old connection's late close drops nothing. The tab
-  sends its whole screen on connect and on every change, throttled
-  (`src/screen.ts` in the UI). The `kb ui` server (`ScreenHub`) keeps the
-  latest record per tab and forgets it when the tab's connection closes.
+  the visible item ids. The message names its tab id; the UI starts as its
+  page's origin id, which is minted per page load and so is per tab.
+  The id belongs to the first live connection that publishes it. Another
+  connection naming a live tab's id gets `screen-refused`, picks a fresh id
+  and publishes again, so no connection can take over another's tab. A
+  connection's close forgets only the tab it owns. The tab sends its whole
+  screen on connect and on every change, throttled (`src/screen.ts` in the
+  UI). The `kb ui` server (`ScreenHub`) keeps the latest record per tab and
+  forgets it when the owning connection closes.
   Nothing is written to the store, and a server restart forgets every tab
   until each republishes on reconnect.
 - **Panes are in the record from the start.** A tab has one pane today,
@@ -1716,7 +1719,8 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   tab's `{op: "screen-ack", id, result}`. The receipt is always a success
   whose output says what happened: `applied`, `rejected` with the tab's
   reason, `timeout`, or `no-tab` when no live tab could take the command,
-  including a tab that closes before it answers. `timeout` says only that
+  including a tab that closes before it answers or whose socket will not
+  take the command (answered at once, not after the wait). `timeout` says only that
   no answer came in time: the tab may still carry the command out, and its
   late answer is dropped. `ui.navigate` takes a
   `node` (opened in the outline, zoomed to it) or a `route`; `ui.select`
