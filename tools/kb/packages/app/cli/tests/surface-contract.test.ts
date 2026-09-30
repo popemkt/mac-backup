@@ -20,12 +20,13 @@ import {
 } from "@kb/contracts";
 import { ACTION_META_KEY, MCP_WIRE, createMcpServer } from "@kb/mcp";
 import { bunFileSystemLayer } from "@kb/runtime";
-import { HTTP_WIRE, startUi, type UiServerHandle } from "@kb/server";
+import { HTTP_WIRE, startUi } from "@kb/server";
 import {
   FakeModelContext,
   surfaceContract,
   type ActionSurface,
   type ListedAction,
+  type ServeUi,
   type SurfaceFactory,
 } from "@kb/test-kit";
 import { ToolCallFailed, WEBMCP_WIRE, startWebMcp, type ModelContextTool } from "@kb/webmcp";
@@ -121,18 +122,17 @@ const mcp: SurfaceFactory = async (root) => {
   } satisfies ActionSurface;
 };
 
-function startServer(root: string): Promise<UiServerHandle> {
-  return Effect.runPromise(
+/** The root's one `kb ui`, on an ephemeral port. */
+const serve: ServeUi = async (root) => {
+  const handle = await Effect.runPromise(
     startUi({ root, port: 0, openBrowser: false }).pipe(Effect.provide(bunFileSystemLayer)),
   );
-}
+  return { url: handle.url, stop: () => Effect.runPromise(handle.stop) };
+};
 
 /** `POST /api/action`, and the receipt from its response. */
-async function postAction(
-  handle: UiServerHandle,
-  invocation: ActionInvocation,
-): Promise<ActionReceipt> {
-  const res = await fetch(`${handle.url}/api/action`, {
+async function postAction(url: string, invocation: ActionInvocation): Promise<ActionReceipt> {
+  const res = await fetch(`${url}/api/action`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(invocation),
@@ -144,16 +144,13 @@ async function postAction(
 }
 
 /** HTTP: `GET /api/manifest` is the listing; `POST /api/action` carries the envelope. */
-const http: SurfaceFactory = async (root) => {
-  const handle = await startServer(root);
-  return {
-    wire: HTTP_WIRE,
-    list: async () =>
-      z.array(ListedActionSchema).parse(await (await fetch(`${handle.url}/api/manifest`)).json()),
-    invoke: (invocation) => postAction(handle, invocation),
-    close: () => Effect.runPromise(handle.stop),
-  } satisfies ActionSurface;
-};
+const http: SurfaceFactory = async (_root, ui) => ({
+  wire: HTTP_WIRE,
+  list: async () =>
+    z.array(ListedActionSchema).parse(await (await fetch(`${ui.url}/api/manifest`)).json()),
+  invoke: (invocation) => postAction(ui.url, invocation),
+  close: async () => undefined,
+});
 
 /** A tool's mode, read back from the hints alone, as a WebMCP agent sees it. */
 function modeOf(tool: ModelContextTool): ListedAction["mode"] {
@@ -170,12 +167,11 @@ function modeOf(tool: ModelContextTool): ListedAction["mode"] {
  * `postAction` sends it). A call to an action it registered no tool for
  * cannot be made at all.
  */
-const webmcp: SurfaceFactory = async (root) => {
-  const handle = await startServer(root);
+const webmcp: SurfaceFactory = async (_root, ui) => {
   const page = new FakeModelContext();
   const adapter = startWebMcp({
     modelContext: () => page,
-    invoke: (invocation) => postAction(handle, invocation),
+    invoke: (invocation) => postAction(ui.url, invocation),
     report: (message) => {
       throw new Error(message);
     },
@@ -197,9 +193,8 @@ const webmcp: SurfaceFactory = async (root) => {
     },
     close: async () => {
       adapter.stop();
-      await Effect.runPromise(handle.stop);
     },
   } satisfies ActionSurface;
 };
 
-surfaceContract({ cli, mcp, http, webmcp });
+surfaceContract({ serve, surfaces: { cli, mcp, http, webmcp } });

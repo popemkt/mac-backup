@@ -12,7 +12,10 @@
  *
  * Every property runs against a fresh scratch root. That root holds one
  * fixture extension whose action requires approval, so the approval path
- * gets exercised even though no core action requires approval.
+ * gets exercised even though no core action requires approval. One `kb ui`
+ * serves the root for the whole property, as one serves a real root: the
+ * surfaces that speak to a server (HTTP, the page's WebMCP) speak to that
+ * one, and none starts a second over the same root.
  */
 import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -57,8 +60,21 @@ export interface ActionSurface {
   close(): Promise<void>;
 }
 
-/** Open the surface over a root that already exists and has been opened once. */
-export type SurfaceFactory = (root: string) => Promise<ActionSurface>;
+/** The `kb ui` serving the root under test. */
+export interface LiveUi {
+  /** Where it listens, `http://host:port`. */
+  readonly url: string;
+  stop(): Promise<void>;
+}
+
+/** Start a `kb ui` over a root; the contract stops it when the property ends. */
+export type ServeUi = (root: string) => Promise<LiveUi>;
+
+/**
+ * Open the surface over a root that already exists, has been opened once, and
+ * that `ui` serves.
+ */
+export type SurfaceFactory = (root: string, ui: LiveUi) => Promise<ActionSurface>;
 
 const APPROVAL_ACTION = "ext.gated.stamp";
 
@@ -121,10 +137,18 @@ const scratchRoot = Effect.acquireRelease(
   (root) => Effect.promise(() => rm(root, { recursive: true, force: true })),
 );
 
-/** One surface over the root, closed when the scope closes. */
-function openSurface(open: SurfaceFactory, root: string) {
+/** The root's one `kb ui`, stopped when the scope closes. */
+function serveRoot(serve: ServeUi, root: string) {
   return Effect.acquireRelease(
-    Effect.promise(() => open(root)),
+    Effect.promise(() => serve(root)),
+    (ui) => Effect.promise(() => ui.stop()),
+  );
+}
+
+/** One surface over the root, closed when the scope closes. */
+function openSurface(open: SurfaceFactory, root: string, ui: LiveUi) {
+  return Effect.acquireRelease(
+    Effect.promise(() => open(root, ui)),
     (surface) => Effect.promise(() => surface.close()),
   );
 }
@@ -140,14 +164,21 @@ interface SurfaceCase {
   readonly via: (invocation: ActionInvocation) => Effect.Effect<ActionReceipt | null>;
 }
 
+/** What the contract runs over: how a root is served, and the surfaces by name. */
+export interface SurfaceSet {
+  readonly serve: ServeUi;
+  readonly surfaces: Readonly<Record<string, SurfaceFactory>>;
+}
+
 /**
  * Each surface in turn over one scratch root. The root is opened once first,
  * so the system seed is written before any surface opens it, and every
- * surface then reads the same store. The surfaces run one after another
- * because each owns process-wide resources (stdout, a port).
+ * surface then reads the same store; then its one `kb ui` starts. The
+ * surfaces run one after another because each owns process-wide resources
+ * (stdout, a port).
  */
 function overSurfaces(
-  surfaces: Readonly<Record<string, SurfaceFactory>>,
+  { serve, surfaces }: SurfaceSet,
   check: (c: SurfaceCase) => Effect.Effect<void>,
 ): Promise<void> {
   return Effect.runPromise(
@@ -155,6 +186,7 @@ function overSurfaces(
       Effect.gen(function* () {
         const root = yield* scratchRoot;
         const ctx = yield* Effect.promise(() => openKb(root));
+        const ui = yield* serveRoot(serve, root);
         const core = (invocation: ActionInvocation) =>
           Effect.promise(() => invoke(ctx, invocation));
         yield* Effect.forEach(
@@ -162,7 +194,7 @@ function overSurfaces(
           ([name, open]) =>
             Effect.scoped(
               Effect.gen(function* () {
-                const surface = yield* openSurface(open, root);
+                const surface = yield* openSurface(open, root, ui);
                 const via = (invocation: ActionInvocation) =>
                   Effect.promise(() => surface.invoke(invocation));
                 yield* check({ name, surface, root, core, via });
@@ -175,14 +207,12 @@ function overSurfaces(
   );
 }
 
-const PROPERTIES: ReadonlyArray<
-  readonly [string, (surfaces: Readonly<Record<string, SurfaceFactory>>) => Promise<void>]
-> = [
+const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<void>]> = [
   [
     "every surface lists the registry's action ids with their declared modes, " +
       "leaving out only the actions its wire could never approve",
-    (surfaces) =>
-      overSurfaces(surfaces, ({ name, surface, root }) =>
+    (set) =>
+      overSurfaces(set, ({ name, surface, root }) =>
         Effect.gen(function* () {
           const registry = yield* manifest(root).pipe(Effect.provide(bunFileSystemLayer));
           expect(registry.some((entry) => entry.id === APPROVAL_ACTION)).toBe(true);
@@ -195,8 +225,8 @@ const PROPERTIES: ReadonlyArray<
   [
     "every surface returns the invoke core's receipt for the same call, " +
       "or cannot make a call to an action it does not list",
-    (surfaces) =>
-      overSurfaces(surfaces, ({ name, surface, core, via }) =>
+    (set) =>
+      overSurfaces(set, ({ name, surface, core, via }) =>
         Effect.gen(function* () {
           const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
           yield* Effect.forEach(
@@ -225,8 +255,8 @@ const PROPERTIES: ReadonlyArray<
   ],
   [
     "an approved call runs only through a surface whose wire carries the approval",
-    (surfaces) =>
-      overSurfaces(surfaces, ({ name, surface, core, via }) =>
+    (set) =>
+      overSurfaces(set, ({ name, surface, core, via }) =>
         Effect.gen(function* () {
           const call: ActionInvocation = { id: APPROVAL_ACTION, input: {}, approved: true };
           // Where the wire cannot carry approval, the call that arrives is the unapproved one.
@@ -261,12 +291,13 @@ const PROPERTIES: ReadonlyArray<
 /**
  * Run the contract over every surface at once.
  *
- * @param surfaces - each surface's factory by name. The map is the list of
- *   surfaces, so adding a surface means adding an entry, and it then has to
- *   meet every property here.
+ * @param set - how a root is served, and each surface's factory by name. The
+ *   map is the list of surfaces, so adding a surface means adding an entry,
+ *   and it then has to meet every property here.
  */
-export function surfaceContract(surfaces: Readonly<Record<string, SurfaceFactory>>): void {
-  describe(`action surfaces (${Object.keys(surfaces).join(", ")}) — one registry contract`, () => {
-    for (const [title, property] of PROPERTIES) test(title, () => property(surfaces));
+export function surfaceContract(set: SurfaceSet): void {
+  const names = Object.keys(set.surfaces).join(", ");
+  describe(`action surfaces (${names}) — one registry contract`, () => {
+    for (const [title, property] of PROPERTIES) test(title, () => property(set));
   });
 }

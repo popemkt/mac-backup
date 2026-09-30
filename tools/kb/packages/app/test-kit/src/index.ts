@@ -15,5 +15,12 @@ export { storeContract } from "./store-contract.ts";
 export type { StoreFactory } from "./store-session.ts";
 export { storeBenchmark } from "./store-benchmark.ts";
 export { surfaceContract } from "./surface-contract.ts";
-export type { ActionSurface, ListedAction, SurfaceFactory } from "./surface-contract.ts";
+export type {
+  ActionSurface,
+  ListedAction,
+  LiveUi,
+  ServeUi,
+  SurfaceFactory,
+  SurfaceSet,
+} from "./surface-contract.ts";
 export { FakeModelContext } from "./fake-model-context.ts";
