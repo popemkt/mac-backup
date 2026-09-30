@@ -771,6 +771,61 @@ Two consequences the code depends on:
 particular field is filled in, and each templates a field set for its
 instances — which is the job a supertag has.
 
+#### View nodes
+
+**A view someone chose is a node.** A view is a projection of the graph
+rendered in a box its host owns (DESIGN-UI.md → UI points: routes and
+views); which view, with which settings, shown for which node, is data, so
+it persists, syncs, answers queries and outlives the plugin that draws it.
+The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
+`docs/kb/waves/2026-09-24/briefs/plugin-composition.md` §3, phase A1.
+
+- **The view is a field, not a tag.** A node carrying `sys.f.view` (ref, one)
+  is a _view node_; strip the field and it is a plain node, so there is no
+  `#view` supertag (the strip test above). Its other props are that view's
+  params: the view's key reads them (`ViewKey.config`) and its params schema
+  decodes them, so a prop the view cannot read is reported by the field it
+  names, never guessed around.
+- **Views are option nodes.** `sys.f.view` targets the children of the list
+  node `sys.views`, one option per view kb provides, with id
+  `sys.view.<view id>` — derived from the view's id, so a key and its option
+  cannot disagree. An option of a family (`graph.renderer`, `outline.frame`)
+  carries `sys.f.view.family`, a ref to one of that field's option children,
+  which is what a query partitions the options by: the graph sources' shape
+  (one list, several fields). The seed declares them (`VIEW_VALUES`), and the
+  view contract holds every provided view's key to a seeded option in its
+  own family. The brief has each plugin seed its own options; the store is
+  seeded on open while those plugins load in the browser, so the seed is
+  core's until plugins can contribute seeds (GAP [GAP-VIEW-OPTION-SEEDS]).
+  An unloaded plugin never deletes an option: the data outlives the code.
+- **A host names its views by ref.** `sys.f.views` (ref, many) on any node
+  targets every view node (`VIEW_NODE_TARGET_QUERY`). Scope is per node:
+  a view shown for every node of a tag would be a new model rule
+  (tag-level inheritance), which this does not add. Many hosts may name one
+  view node, which makes it a template: an empty focus means the node it is
+  shown for.
+- **One of a host's views is its default: the first it names.** Order in
+  `sys.f.views` is the one mechanism (`defaultViewIdOf`); making another view
+  the default is moving it first, in one replacement of the field. An
+  explicit `default` ref was the alternative and is refused: it is a second
+  field that can name a view the host does not list, and it would have to be
+  kept in step with the list by hand — a mirror.
+- **Placement is a field with option children.** `sys.f.view.placement`
+  (ref, one) takes `inline`, `beside` or `float`; `card` and `hover` are
+  set by a host and never stored.
+- **A neighbourhood is a lens narrowed to a focus and a hop bound.**
+  `sys.f.lens.hops` (number, one) bounds it, `lens.focus` roots it, and
+  `lens.edge-kinds` says along what. Its nodes are the union of both
+  directions: `reach` is directed, so the neighbourhood runs
+  `@kb/query`'s `neighbourhoodQuery` once per edge and direction and unions
+  the rows, because the union as one query needs `or`, which runs raw
+  (GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]). Even the union misses a path that
+  changes direction (a→b←c); a symmetric edge relation would be the true
+  undirected form.
+- **Transient views stay out of the graph.** A hover card or a selection
+  preview passes its params from code, which the compiler checks; only a
+  view someone chose is stored.
+
 ## Storage (horizontal)
 
 The port is `EffectStore` in `packages/contract/contracts/src/store.ts`; that

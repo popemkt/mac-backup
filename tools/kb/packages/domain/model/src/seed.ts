@@ -18,6 +18,15 @@ import {
   type FieldType,
 } from "./field-type.ts";
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
+import {
+  STORED_PLACEMENTS,
+  VIEW_FAMILY_VALUES,
+  VIEW_NODE_TARGET_QUERY,
+  VIEW_OPTION_TARGET_QUERY,
+  VIEW_PLACEMENT_VALUES,
+  VIEW_VALUES,
+  viewOptionId,
+} from "./view-node.ts";
 
 /**
  * Tags whose `sys.f.fields` template must stay in sync as fields are added to
@@ -180,6 +189,41 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const viewFilterField = typedField(SYSTEM_IDS.viewFilterField, "view.filter", "text");
   const nodeTextField = typedField(SYSTEM_IDS.nodeTextField, "node.text", "text");
 
+  /*
+   * View nodes (DESIGN → Kinds, roles and options → View nodes). The views
+   * are an option set read by more than one field (`sys.f.view` takes any of
+   * them, a renderer choice only the renderers), so they are children of a
+   * list node, and each carries its family, which is what a query partitions
+   * them by — the shape of the graph sources.
+   */
+  const viewFamilyOptions = Object.values(VIEW_FAMILY_VALUES).map((value) =>
+    mk(value.id, value.label),
+  );
+  const viewFamilyField: KbNode = {
+    ...singleField(SYSTEM_IDS.viewFamilyField, "view.family", "ref"),
+    children: viewFamilyOptions.map((option) => option.id),
+  };
+  const viewOptions = Object.entries(VIEW_VALUES).map(([viewId, value]) =>
+    mk(
+      viewOptionId(viewId),
+      value.label,
+      value.family === undefined
+        ? {}
+        : { [SYSTEM_IDS.viewFamilyField]: [{ t: "ref", v: VIEW_FAMILY_VALUES[value.family].id }] },
+    ),
+  );
+  const viewsRoot: KbNode = {
+    ...mk(SYSTEM_IDS.viewsRoot, "View types"),
+    children: viewOptions.map((option) => option.id),
+  };
+  const placementOptions = STORED_PLACEMENTS.map((placement) =>
+    mk(VIEW_PLACEMENT_VALUES[placement].id, VIEW_PLACEMENT_VALUES[placement].label),
+  );
+  const viewPlacementField: KbNode = {
+    ...singleField(SYSTEM_IDS.viewPlacementField, "view.placement", "ref"),
+    children: placementOptions.map((option) => option.id),
+  };
+
   const refField = (id: string, text: string, targetTag?: string, props: KbNode["props"] = {}) =>
     typedField(id, text, "ref", {
       ...props,
@@ -202,6 +246,10 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       ...props,
       [SYSTEM_IDS.targetQueryField]: [{ t: "str", v: edn }],
     });
+
+  // The view a node is (one option), and the view nodes a host names (many, in order).
+  const viewField = refQueryField(SYSTEM_IDS.viewField, "view", VIEW_OPTION_TARGET_QUERY, one);
+  const viewsField = refQueryField(SYSTEM_IDS.viewsField, "views", VIEW_NODE_TARGET_QUERY);
 
   /*
    * Graph vocabulary. Renderers and sources are option *sets*, so both are
@@ -268,6 +316,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const lensMaxNodesField = singleField(SYSTEM_IDS.lensMaxNodesField, "lens.max-nodes", "number");
   const lensClusterByField = sourceField(SYSTEM_IDS.lensClusterByField, "lens.cluster-by");
   const lensFocusField = singleField(SYSTEM_IDS.lensFocusField, "lens.focus", "ref");
+  const lensHopsField = singleField(SYSTEM_IDS.lensHopsField, "lens.hops", "number");
   const lensLayoutField = singleField(SYSTEM_IDS.lensLayoutField, "lens.layout", "text");
   const lensSpreadField = singleField(SYSTEM_IDS.lensSpreadField, "lens.spread", "number");
   const lensLinkDistanceField = singleField(
@@ -412,6 +461,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewGroupField,
     viewFilterField,
     nodeTextField,
+    viewField,
+    viewsField,
+    viewFamilyField,
+    ...viewFamilyOptions,
+    viewsRoot,
+    ...viewOptions,
+    viewPlacementField,
+    ...placementOptions,
     lensQueryField,
     graphSourceKindField,
     ...sourceKindOptions,
@@ -426,6 +483,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     lensMaxNodesField,
     lensClusterByField,
     lensFocusField,
+    lensHopsField,
     lensLayoutField,
     lensSpreadField,
     lensLinkDistanceField,

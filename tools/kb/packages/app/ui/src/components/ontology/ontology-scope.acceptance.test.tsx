@@ -221,6 +221,7 @@ describe("ontology scope (acceptance)", () => {
         maxNodes: 500,
         clusterBy: "none",
         focus: null,
+        hops: null,
         layout: "force",
         spread: 150,
         linkDistance: 60,

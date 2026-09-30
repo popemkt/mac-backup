@@ -114,6 +114,7 @@ function perspective(patch: Partial<LensPerspective> = {}): LensPerspective {
     maxNodes: DEFAULT_MAX_NODES,
     clusterBy: "none",
     focus: null,
+    hops: null,
     layout: "force",
     spread: 150,
     linkDistance: 60,

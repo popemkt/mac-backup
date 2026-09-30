@@ -95,3 +95,29 @@ export function backlinksQuery(id: string): string {
                       [?e :node/text ?text]
                       [?m :node/id ${JSON.stringify(id)}]]`;
 }
+
+/** Which way a neighbourhood walks an edge: along it (`out`) or against it (`in`). */
+export type NeighbourhoodDirection = "out" | "in";
+
+/**
+ * The nodes within `hops` steps of `root` along `edge`, walked one way: a
+ * `reach` over any node-valued attribute (`:node/mentions`, `:node/child`,
+ * `:f/<fieldId>`), bounded by the hop count. `root` itself is not a row.
+ *
+ * `reach` is directed, so an undirected neighbourhood is the union of the
+ * two directions, which a caller runs as two queries: written as one it
+ * needs `or`, which drops the query to `raw` (DESIGN.md → Query layer). Even
+ * the union misses a path that changes direction (a→b←c).
+ */
+export function neighbourhoodQuery(
+  root: string,
+  hops: number,
+  edge: string,
+  direction: NeighbourhoodDirection,
+): string {
+  if (!Number.isInteger(hops) || hops < 1)
+    throw new RangeError(`neighbourhoodQuery: hops must be a positive integer, got ${hops}`);
+  const walk =
+    direction === "out" ? `(reach ?r ${edge} ?n ${hops})` : `(reach ?n ${edge} ?r ${hops})`;
+  return `[:find ?id :where [?r :node/id ${JSON.stringify(root)}] ${walk} [?n :node/id ?id]]`;
+}

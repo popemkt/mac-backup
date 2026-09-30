@@ -13,9 +13,11 @@ import {
   OutlineBoardView,
   OutlineCardsView,
   OutlineListView,
+  OutlineSnippetView,
   OutlineTableView,
   OutlineView,
 } from "@/components/outline/views";
+import { OutlineSnippet } from "@/components/outline/outline-snippet";
 import {
   RoutePoint,
   SidebarSectionPoint,
@@ -118,6 +120,14 @@ export const outlineUiPlugin = definePlugin({
               iconWeight: "duotone",
               command: SYSTEM_IDS.cmdViewAsCards,
             },
+          }),
+        ),
+        ctx.contribute(
+          ViewPoint,
+          provideView(OutlineSnippetView, {
+            placements: ["inline"],
+            sample: { root: "n.root-a", depth: 1, maxRows: 6 },
+            Component: OutlineSnippet,
           }),
         ),
         ctx.contribute(

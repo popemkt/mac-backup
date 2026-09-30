@@ -45,6 +45,7 @@ const ALL_DEFAULTS: LensPerspective = {
   maxNodes: 500,
   clusterBy: "parent",
   focus: null,
+  hops: null,
   layout: "force",
   spread: 150,
   linkDistance: 60,

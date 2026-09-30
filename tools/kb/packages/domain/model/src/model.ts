@@ -142,6 +142,21 @@ export const SYSTEM_IDS = {
    * a node, the way every other sort key does.
    */
   nodeTextField: "sys.f.node.text",
+  /**
+   * View nodes (`view-node.ts`; DESIGN → Kinds, roles and options → View
+   * nodes). A node carrying `sys.f.view` — a ref to one of `sys.views`'
+   * option children — is a view node, and its other props are that view's
+   * params; the field is the kind, so there is no `#view` supertag.
+   */
+  viewField: "sys.f.view",
+  /** The list whose children are the view options, one per view kb provides. */
+  viewsRoot: "sys.views",
+  /** Which family a view option belongs to (ref to one of its option children). */
+  viewFamilyField: "sys.f.view.family",
+  /** The view nodes a host names, in order; the first is its default. */
+  viewsField: "sys.f.views",
+  /** Where a view node asks to be shown for its host (ref to one of its option children). */
+  viewPlacementField: "sys.f.view.placement",
   cmdViewAsList: "sys.cmd.view-as-list",
   cmdViewAsTable: "sys.cmd.view-as-table",
   cmdViewAsBoard: "sys.cmd.view-as-board",
@@ -162,6 +177,8 @@ export const SYSTEM_IDS = {
   /** Ego/tree root for tree + local lenses (ref, single). */
   lensFocusField: "sys.f.lens.focus",
   lensLabelByField: "sys.f.lens.label-by",
+  /** How many hops out from its focus a neighbourhood reaches (num). */
+  lensHopsField: "sys.f.lens.hops",
   /**
    * The shared graph source list. Its children are the ten source options, and
    * the five source-selecting lens fields each narrow them by `kind` through a

@@ -17,9 +17,11 @@ import {
   Force3dView,
   GRAPH_NAMESPACE,
   GraphView,
+  NeighbourhoodView,
   TreeView,
   TreemapView,
 } from "@/components/graph/views";
+import { NeighbourhoodGraph } from "@/components/graph/neighbourhood-view";
 import {
   DEFAULT_AUTOROTATE,
   DEFAULT_LABEL_DENSITY,
@@ -40,9 +42,10 @@ import {
 
 /**
  * The graph: its page, the route to it (whole column, no workspace header),
- * its section, and one view per renderer — each drawn in the box the page's
+ * its section, one view per renderer — each drawn in the box the page's
  * canvas gives it, from the settings its key declares, and offered by the
- * renderer switch in its picker's order.
+ * renderer switch in its picker's order — and a node's neighbourhood, which
+ * hosts a renderer in a box of its own.
  */
 export const graphUiPlugin = definePlugin({
   name: GRAPH_NAMESPACE,
@@ -115,6 +118,29 @@ export const graphUiPlugin = definePlugin({
             picker: { label: GRAPH_RENDERER_VALUES.treemap.label, order: 4 },
             sample: { showLabels: DEFAULT_SHOW_LABELS },
             Component: TreemapRendererView,
+          }),
+        ),
+        ctx.contribute(
+          ViewPoint,
+          provideView(NeighbourhoodView, {
+            placements: ["page", "inline"],
+            sample: {
+              root: "n.root-a",
+              hops: 1,
+              edges: ["mention", "child"],
+              renderer: "force2d",
+              settings: {
+                layout: DEFAULT_LAYOUT,
+                spread: DEFAULT_SPREAD,
+                linkDistance: DEFAULT_LINK_DISTANCE,
+                showLabels: DEFAULT_SHOW_LABELS,
+                autorotate: DEFAULT_AUTOROTATE,
+                labelDensity: DEFAULT_LABEL_DENSITY,
+                theme: DEFAULT_THEME,
+                linkStyle: DEFAULT_LINK_STYLE,
+              },
+            },
+            Component: NeighbourhoodGraph,
           }),
         ),
         ctx.contribute(

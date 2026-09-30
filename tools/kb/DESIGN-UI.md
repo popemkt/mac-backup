@@ -1303,7 +1303,8 @@ how the stored name resolves to the key among them.
   draws from beyond its settings (the extracted graph, selection, camera and
   search) is not config, so it travels in the page's `GraphFrame` context,
   never in the params; a renderer view outside a graph host says there is
-  nothing to draw. The renderers' components load in their own chunk,
+  nothing to draw. The graph page is one graph host, and a node's
+  neighbourhood (`graph.neighbourhood`, below) is another. The renderers' components load in their own chunk,
   prefetched when the graph page loads; a renderer view suspends in its own
   slot until the chunk arrives, and a failed load is tried again from that
   slot's error.
@@ -1366,22 +1367,35 @@ questions. Each one can be overridden.
    A key is data (`lib/view-key.ts`), so a key file never pulls in the
    kernel. After a package split, a key moves into that package's small
    contract module.
-3. *Which nodes get embeds.* Per-node refs, tag-level inheritance, or a
-   workspace default. This is **open**, and it belongs to A1 (view config as
-   nodes).
-4. *Neighbourhood direction.* Directed, a union of both directions, or truly
-   undirected. This is **open**, and it belongs to A1 (`neighbourhoodQuery`).
+3. *Which nodes get embeds.* Per-node refs only (`sys.f.views`), decided in
+   A1; DESIGN.md → Kinds, roles and options → View nodes.
+4. *Neighbourhood direction.* The union of both directions, decided in A1;
+   stated in the same section.
 5. *Isolation.* Views are trusted and run in the same realm. Each one is
-   contained by its slot's error boundary and its fallback. R1 has no iframe
-   and no sandbox.
+   contained by its slot's error boundary and its fallback. There is no
+   iframe and no sandbox; that transport stays a later option for untrusted
+   views.
 
-**Not in R1.** A code caller's params are checked by `tsc`; nothing decodes
-them at the slot. The `sys.view.*` option node on a key arrives in A1,
-together with view config held as nodes; until then a family's view config
-is the text and props it was before (`sys.f.view.*` on a frame, the
-`#graph-perspective` props), decoded through the chosen view's params. These
-points live in `@kb/ui`, not in
-`@kb/ui-sdk`; moving them is R2 (GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]).
+**View nodes (A1).** A view someone chose is a node (DESIGN.md → Kinds,
+roles and options → View nodes): its `sys.f.view` names the key whose
+`option` it is (`viewKeyOfNode`), and its props are that view's params for
+the node it is shown for (`paramsFromProps`). A code caller's params are
+checked by `tsc`; nothing decodes them at the slot.
+
+- *`graph.neighbourhood`* (graph plugin; `inline`, `page`) draws the
+  neighbourhood of `root` — the nodes within `hops` of it along `edges`,
+  either way — by hosting a renderer view the way the graph page does: it
+  extracts the graph (`extractNeighbourhood`, the page's extraction over
+  that node set), provides the `GraphFrame`, and draws the renderer named by
+  `renderer` with `settings` in a page-placed slot filling its box, for
+  `root`. Stored, its root is `lens.focus`, else the node it is shown for.
+- *`outline.snippet`* (outline plugin; `inline`) is a read-only glimpse of
+  the outline under `root`: its text, then descendants `depth` levels down,
+  at most `maxRows` rows. Stored, its root is `lens.focus`, else the node it
+  is shown for.
+
+These points live in `@kb/ui`, not in `@kb/ui-sdk`; moving them is R2
+(GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]).
 
 ### Optional UI plugins
 

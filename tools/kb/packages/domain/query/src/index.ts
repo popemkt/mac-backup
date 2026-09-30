@@ -17,4 +17,6 @@ export {
   LIST_TAGS_IR,
   LIST_TAGS_QUERY,
   backlinksQuery,
+  neighbourhoodQuery,
 } from "./queries.ts";
+export type { NeighbourhoodDirection } from "./queries.ts";

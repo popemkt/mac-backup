@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import type { GRAPH_RENDERER_VALUES } from "@kb/model";
-import { LENS_SETTINGS, lensConfig } from "@/lib/graph-lens";
+import { EdgeKindSchema, LENS_SETTINGS, lensConfig } from "@/lib/graph-lens";
 import { viewKey, type ViewKey } from "@/lib/view-key";
 
 /** The graph plugin's namespace and view keys: what a host imports, never the components. */
@@ -16,6 +16,43 @@ export type GraphParams = typeof GraphParams.Type;
 
 /** The graph: its page at `/graph[/<perspective>]`, and what an ontology's graph view embeds. */
 export const GraphView = viewKey(`${GRAPH_NAMESPACE}.page`, GraphParams);
+
+/**
+ * A node's neighbourhood: the nodes within `hops` of `root` along `edges`, in
+ * either direction, drawn by the renderer `renderer` names with `settings`. A
+ * graph perspective narrowed to a focus and a hop bound, so the same
+ * extraction the graph page runs, over a smaller node set.
+ */
+export const NeighbourhoodParams = Schema.Struct({
+  root: Schema.NonEmptyString,
+  hops: Schema.Literals([1, 2, 3, 4]),
+  edges: Schema.Array(EdgeKindSchema),
+  /** The renderer's local id (`force2d`, `tree`, …). */
+  renderer: Schema.String,
+  /** What the renderer draws with: the lens settings, each one's schema. */
+  settings: Schema.Struct(LENS_SETTINGS),
+});
+export type NeighbourhoodParams = typeof NeighbourhoodParams.Type;
+
+/**
+ * Stored, it is a view node's lens props: `lens.focus` is the root, and an
+ * empty focus means the node it is shown for; `lens.hops` (1 when absent),
+ * `lens.edge-kinds`, `lens.renderer` and the renderer's settings.
+ */
+export const NeighbourhoodView = viewKey(
+  `${GRAPH_NAMESPACE}.neighbourhood`,
+  NeighbourhoodParams,
+  (props, host) => {
+    const lens = lensConfig(props);
+    return {
+      root: lens.focus ?? host ?? undefined,
+      hops: lens.hops ?? 1,
+      edges: lens.edgeKinds,
+      renderer: lens.renderer,
+      settings: lens,
+    };
+  },
+);
 
 /**
  * What the shared frame chrome may drive for a renderer.

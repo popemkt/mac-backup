@@ -17,6 +17,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Effect, Result, Schema } from "effect";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { definePlugin, makeKernel, type Plugin, type ContributionEntry } from "@kb/plugin";
+import { SYSTEM_IDS, VIEW_FAMILY_VALUES, systemSeedNodes } from "@kb/model";
 import { ViewSlot } from "@/components/ui/view-slot";
 import { keptLoad } from "@/lib/kept-load";
 import {
@@ -43,6 +44,9 @@ const VIEWS = (() => {
   Effect.runSync(Effect.forEach(ALL_PLUGINS, (plugin) => kernel.load(plugin)));
   return kernel.contributions(ViewPoint);
 })();
+
+/** The seeded nodes, by id: where every view's option must be. */
+const SEED = new Map(systemSeedNodes().map((node) => [node.id, node]));
 
 const others = (owner: string) => ALL_PLUGINS.filter((plugin) => plugin.name !== owner);
 
@@ -193,6 +197,17 @@ describe("view contract", () => {
     ({ owner, view }) => {
       it("is found by its own key", () => {
         expect(findView(VIEWS, view.key)).toBe(view);
+      });
+
+      it("is named in data by a seeded option under sys.views, in its own family", () => {
+        const option = SEED.get(view.key.option);
+        expect(SEED.get(SYSTEM_IDS.viewsRoot)?.children).toContain(view.key.option);
+        const family = option?.props[SYSTEM_IDS.viewFamilyField]?.[0];
+        const expected = Object.entries(VIEW_FAMILY_VALUES).find(
+          ([name]) => name === view.key.family,
+        )?.[1].id;
+        if (view.key.family !== undefined) expect(expected).toBeDefined();
+        expect(family?.v).toBe(expected);
       });
 
       it("declares its settings, and its sample is a legal value of them", () => {

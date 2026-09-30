@@ -115,6 +115,7 @@ const PERSPECTIVE: LensPerspective = {
   maxNodes: 100,
   clusterBy: "none",
   focus: null,
+  hops: null,
   layout: "force",
   spread: 150,
   linkDistance: 60,

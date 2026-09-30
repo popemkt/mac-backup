@@ -117,4 +117,20 @@ export {
   graphRendererId,
 } from "./graph-schema.ts";
 export type { GraphSourceField, GraphSourceKind } from "./graph-schema.ts";
-export { viewOptionId } from "./view-node.ts";
+export {
+  STORED_PLACEMENTS,
+  VIEW_FAMILY_VALUES,
+  VIEW_NODE_TARGET_QUERY,
+  VIEW_OPTION_TARGET_QUERY,
+  VIEW_PLACEMENT_VALUES,
+  VIEW_VALUES,
+  defaultViewIdOf,
+  familyViewNodesQuery,
+  hostViewIds,
+  isViewNode,
+  storedPlacementOf,
+  viewFamilyTargetQuery,
+  viewOptionId,
+  viewOptionOf,
+} from "./view-node.ts";
+export type { StoredPlacement, ViewFamily } from "./view-node.ts";

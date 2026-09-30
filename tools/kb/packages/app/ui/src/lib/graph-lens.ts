@@ -64,6 +64,8 @@ export interface LensPerspective {
   clusterBy: string;
   /** Tree / ego root node id when set. */
   focus: string | null;
+  /** How far a neighbourhood reaches from its focus (`lens.hops`); null when unbounded. */
+  hops: number | null;
   layout: LensLayout;
   spread: number;
   linkDistance: number;
@@ -235,7 +237,7 @@ const edgeKindValues = (props: NodeProps): unknown[] | undefined =>
     return key === NO_EDGE_KIND ? null : key;
   });
 
-const EdgeKindSchema = Schema.Union([
+export const EdgeKindSchema = Schema.Union([
   Schema.Literals(["mention", "child", "ref-prop"]),
   Schema.String.pipe(
     Schema.refine((key): key is `prop:${string}` => key.startsWith("prop:"), {
@@ -341,6 +343,12 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
     schema: Schema.String,
     fallback: null,
   }),
+  hops: oneOf<number | null>({
+    fields: [SYSTEM_IDS.lensHopsField],
+    read: firstNum(SYSTEM_IDS.lensHopsField),
+    schema: NodeCountSchema,
+    fallback: null,
+  }),
   layout: oneOf({
     fields: [SYSTEM_IDS.lensLayoutField],
     read: firstStr(SYSTEM_IDS.lensLayoutField),
@@ -425,6 +433,7 @@ export function lensConfig(props: NodeProps, subject = ""): LensProps {
     edgeKinds: slot("edgeKinds"),
     maxNodes: slot("maxNodes"),
     focus: slot("focus"),
+    hops: slot("hops"),
     layout: slot("layout"),
     spread: slot("spread"),
     linkDistance: slot("linkDistance"),
@@ -864,6 +873,7 @@ export function perspectiveProps(p: LensPerspective): WireNode["props"] {
     ...(p.focus !== null
       ? { [SYSTEM_IDS.lensFocusField]: [{ t: "ref" as const, v: p.focus }] }
       : {}),
+    ...(p.hops !== null ? { [SYSTEM_IDS.lensHopsField]: [{ t: "num" as const, v: p.hops }] } : {}),
     [SYSTEM_IDS.lensMaxNodesField]: [{ t: "num", v: p.maxNodes }],
     [SYSTEM_IDS.lensLayoutField]: [{ t: "str", v: p.layout }],
     [SYSTEM_IDS.lensSpreadField]: [{ t: "num", v: p.spread }],
