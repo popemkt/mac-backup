@@ -577,9 +577,11 @@ test("force2d draws the bullet theme sharp however near the camera is", async ({
   // changing over about a pixel, as a vector's does. A bullet painted at a
   // fixed resolution never settles; one caught mid-transition to the theme
   // does, so the poll waits the transition out rather than grading its frame.
+  // A frame whose root the layout still has outside the page cannot be
+  // clipped; it is not graded either, and the next one is.
   await expect
     .poll(async () => {
-      pixels = await column();
+      pixels = await column().catch((): number[] => []);
       const distinct = colorDistance(pixels.slice(half * 4, half * 4 + 3), pixels.slice(0, 3)) > 40;
       return distinct ? changingPixels(pixels) : Number.POSITIVE_INFINITY;
     }, PAGE_READY)
