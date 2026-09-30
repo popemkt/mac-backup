@@ -1,4 +1,4 @@
-import { Context, type Effect } from "effect";
+import { Context, Predicate, type Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import {
@@ -61,6 +61,21 @@ export interface SurfaceWire {
  */
 export function listedOn(wire: SurfaceWire, mode: ActionMode): boolean {
   return wire.carriesApproval || !requiresApproval(mode);
+}
+
+/**
+ * The input schema a surface publishes for a tool. MCP and WebMCP both need a
+ * JSON Schema whose root is an object, so an action whose schema is anything
+ * else is published as an object that takes no properties. One rule, so every
+ * surface shows an agent the same schema for the same action.
+ */
+export function asObjectSchema(
+  schema: unknown,
+): { readonly type: "object" } & Record<string, unknown> {
+  if (Predicate.isObject(schema) && schema.type === "object") {
+    return { ...schema, type: "object" as const };
+  }
+  return { type: "object" as const, properties: {} };
 }
 
 /**

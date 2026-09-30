@@ -4,6 +4,7 @@ export {
   ActionReceiptSchema,
   ManifestEntrySchema,
   actionToManifestEntry,
+  asObjectSchema,
   failed,
   isActionMode,
   listedOn,

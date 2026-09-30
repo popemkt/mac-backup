@@ -11,9 +11,10 @@ import {
   type Tool,
   type ToolAnnotations,
 } from "@modelcontextprotocol/sdk/types.js";
-import { Cause, Effect, Exit, Predicate } from "effect";
+import { Cause, Effect, Exit } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
+  asObjectSchema,
   listedOn,
   type ActionInvocation,
   type ActionMode,
@@ -79,13 +80,6 @@ export const MCP_WIRE: SurfaceWire = {
   // GAP [[01M3R2KD6V1AZ9WS62ZVG9T4G2]]
   carriesApproval: false,
 };
-
-function asObjectSchema(schema: unknown): Tool["inputSchema"] {
-  if (Predicate.isObject(schema) && schema.type === "object") {
-    return { ...schema, type: "object" as const };
-  }
-  return { type: "object" as const, properties: {} };
-}
 
 function jsonResult(value: unknown): CallToolResult {
   return {

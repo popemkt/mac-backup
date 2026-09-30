@@ -14,6 +14,7 @@ import { Effect, Predicate } from "effect";
 import { z } from "zod";
 import {
   ManifestEntrySchema,
+  asObjectSchema,
   failed,
   listedOn,
   type ActionInvocation,
@@ -120,7 +121,7 @@ export function webMcpTool(entry: ManifestEntry, invoke: InvokeAction): ModelCon
     name: entry.id,
     title: entry.title,
     description: entry.description,
-    ...(Predicate.isObject(entry.inputSchema) ? { inputSchema: entry.inputSchema } : {}),
+    inputSchema: asObjectSchema(entry.inputSchema),
     annotations: { readOnlyHint: reads, consequentialHint: !reads },
     execute: (input) => Effect.runPromise(receiptFor(invoke, { id: entry.id, input: input ?? {} })),
   };
