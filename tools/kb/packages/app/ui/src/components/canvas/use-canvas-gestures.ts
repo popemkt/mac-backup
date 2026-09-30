@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
 import type { CanvasDoc } from "@kb/canvas";
-import { isShapeNode, upsertCanvasNode } from "@kb/canvas";
+import { isShapeNode, paintOrder, upsertCanvasNode } from "@kb/canvas";
 import {
   placeWithTool,
   reduceCanvasTool,
@@ -162,7 +162,7 @@ function useViewportControls({
     (clientX: number, clientY: number, el: HTMLElement) => {
       const rect = el.getBoundingClientRect();
       const local = { x: clientX - rect.left, y: clientY - rect.top };
-      return hitTest(docRef.current.nodes, viewOfPan(pan, zoom, rect), rect, local);
+      return hitTest(paintOrder(docRef.current.nodes), viewOfPan(pan, zoom, rect), rect, local);
     },
     [docRef, pan, zoom],
   );

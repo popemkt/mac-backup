@@ -2,8 +2,12 @@
  * JSON Canvas 1.0 document helpers + kbLink edge bindings.
  * Spec: https://jsoncanvas.org/spec/1.0/
  *
- * Unknown node types and extra fields round-trip (forward compatible).
+ * Unknown node types and extra fields round-trip (forward compatible). kb's
+ * own extension fields are typed here: `nodeId`, `shape` and `z` on an item,
+ * `kbLink` on an edge, and `camera` on the document (`./camera.ts`). The
+ * format, as agents write it, is DESIGN.md → Canvas documents.
  */
+import { emitCanvasCamera, parseCanvasCamera, type CanvasCamera } from "./camera.ts";
 
 export type CanvasSide = "top" | "right" | "bottom" | "left";
 type CanvasEdgeEnd = "none" | "arrow";
@@ -27,6 +31,12 @@ interface CanvasNodeBase {
   y: number;
   width: number;
   height: number;
+  /**
+   * Depth, toward the viewer, in the same units as x and y. Absent is 0, the
+   * canvas plane. In 3D it is a real axis; face-on it only orders painting
+   * (`paintOrder`).
+   */
+  z?: number;
   color?: string;
   /** Unrecognized fields preserved for round-trip. */
   extra?: Record<string, unknown>;
@@ -117,6 +127,8 @@ export interface CanvasEdge {
 export interface CanvasDoc {
   nodes: CanvasNode[];
   edges: CanvasEdge[];
+  /** How the canvas is looked at; absent is 2D. View state, not content (`./camera.ts`). */
+  camera?: CanvasCamera;
   extra?: Record<string, unknown>;
 }
 
@@ -134,6 +146,7 @@ const KNOWN_NODE_KEYS = new Set([
   "y",
   "width",
   "height",
+  "z",
   "color",
   "text",
   "label",
@@ -207,6 +220,7 @@ function parseNode(raw: unknown): CanvasNode | null {
     y: asNum(raw.y),
     width: asNum(raw.width, 240),
     height: asNum(raw.height, 80),
+    ...(typeof raw.z === "number" && Number.isFinite(raw.z) ? { z: raw.z } : {}),
     ...(typeof raw.color === "string" ? { color: raw.color } : {}),
     ...(extra ? { extra } : {}),
   };
@@ -280,6 +294,7 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
     width: n.width,
     height: n.height,
   };
+  if (n.z !== undefined) out.z = n.z;
   if (n.color !== undefined) out.color = n.color;
   // `CanvasUnknownNode.type` is `string`, so `type === "text"` does not
   // discriminate the union — the guards this module already exports do.
@@ -332,8 +347,15 @@ export function parseCanvasDoc(input: unknown): CanvasDoc {
       if (parsed) edges.push(parsed);
     }
   }
-  const extra = collectExtra(raw, KNOWN_DOC_KEYS);
-  return extra ? { nodes, edges, extra } : { nodes, edges };
+  const camera = parseCanvasCamera(raw.camera);
+  // A camera this version cannot read stays an unknown field, untouched.
+  const extra = collectExtra(raw, camera ? new Set([...KNOWN_DOC_KEYS, "camera"]) : KNOWN_DOC_KEYS);
+  return {
+    nodes,
+    edges,
+    ...(camera ? { camera } : {}),
+    ...(extra ? { extra } : {}),
+  };
 }
 
 export function stringifyCanvasDoc(doc: CanvasDoc): string {
@@ -342,7 +364,50 @@ export function stringifyCanvasDoc(doc: CanvasDoc): string {
     edges: doc.edges.map(emitEdge),
   };
   if (doc.extra) Object.assign(out, doc.extra);
+  if (doc.camera) out.camera = emitCanvasCamera(doc.camera);
   return JSON.stringify(out);
+}
+
+/** An item's depth: 0, the canvas plane, when it has none. */
+export function canvasDepth(node: CanvasNode): number {
+  return node.z ?? 0;
+}
+
+/**
+ * `node` at depth `z`. Depth 0 is written as no depth at all, so an item
+ * that comes back to the plane leaves the document as it was before 3D.
+ */
+export function withDepth<N extends CanvasNode>(node: N, z: number): N {
+  const next = { ...node };
+  if (z === 0) delete next.z;
+  else next.z = z;
+  return next;
+}
+
+/**
+ * Items back to front: by depth, and at one depth in document order, which
+ * bring-to-front and send-to-back rearrange. Every projection paints and
+ * hit-tests in this order, so face-on a raised item covers a lower one.
+ */
+export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
+  return nodes
+    .map((node, index) => ({ node, index }))
+    .toSorted((a, b) => canvasDepth(a.node) - canvasDepth(b.node) || a.index - b.index)
+    .map(({ node }) => node);
+}
+
+/** `doc` looked at through `camera` (view state only; no item changes). */
+export function withCanvasCamera(doc: CanvasDoc, camera: CanvasCamera | undefined): CanvasDoc {
+  const next: CanvasDoc = { ...doc };
+  if (camera === undefined) delete next.camera;
+  else next.camera = camera;
+  // A camera this version could not read gives way to the one set here.
+  if (next.extra && "camera" in next.extra) {
+    const rest = Object.fromEntries(Object.entries(next.extra).filter(([k]) => k !== "camera"));
+    if (Object.keys(rest).length > 0) next.extra = rest;
+    else delete next.extra;
+  }
+  return next;
 }
 
 /** Immutable patch helpers. */

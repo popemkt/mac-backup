@@ -1,5 +1,5 @@
 import type { CanvasDoc, CanvasNode, CanvasSide } from "@kb/canvas";
-import { isGroupNode, isKbNode, isShapeNode, isTextNode } from "@kb/canvas";
+import { isGroupNode, isKbNode, isShapeNode, isTextNode, paintOrder } from "@kb/canvas";
 import { KbNodeCard, TextCard } from "@/components/canvas/canvas-card";
 import { ShapeCard } from "@/components/canvas/shape-card";
 import type { CanvasSelection } from "@/lib/canvas-selection";
@@ -169,7 +169,7 @@ function CanvasCardView({
 export function CanvasCardLayer(props: CanvasCardLayerProps) {
   return (
     <div data-canvas-stage className="contents">
-      {props.doc.nodes.map((card) => (
+      {paintOrder(props.doc.nodes).map((card) => (
         <CanvasCardView key={card.id} {...props} card={card} />
       ))}
     </div>

@@ -220,7 +220,10 @@ const actions: ExtensionAction[] = [
   {
     id: "tx.apply",
     title: "Apply canvas transaction",
-    description: "Atomically write a canvas JSON document and optional relationship prop set/unset",
+    description:
+      "Atomically write a canvas JSON document and optional relationship prop set/unset. " +
+      "Items may carry z (depth toward the viewer; absent is 0) and the document a camera " +
+      "({ projection: 2d | 3d, pose? }); see DESIGN.md, Canvas documents",
     mode: { kind: "write" },
     inputSchema: applyInput,
     outputSchema: applyOutput,

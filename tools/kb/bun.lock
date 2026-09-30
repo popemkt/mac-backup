@@ -283,6 +283,7 @@
       "version": "0.0.0",
       "devDependencies": {
         "@types/bun": "catalog:",
+        "fast-check": "catalog:",
       },
     },
     "packages/extension/ext-canvas": {

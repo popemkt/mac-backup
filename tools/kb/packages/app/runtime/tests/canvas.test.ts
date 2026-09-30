@@ -362,6 +362,37 @@ describe("ext.canvas.tx.apply", () => {
     expect(source.props["f.related"]).toEqual([{ t: "ref", v: "n.target" }]);
   });
 
+  test("an agent sets depth and the camera through the same action", async () => {
+    const root = await tempRoot();
+    const ctx = await openKb(root);
+    await invoke(ctx, {
+      id: "node.add",
+      input: { text: "Board", id: "n.canvas", tags: ["canvas"] },
+    });
+    // What an agent sends: plain JSON, depth on the item, the camera on the document.
+    const doc = {
+      nodes: [
+        { id: "near", type: "text", text: "raised", x: 0, y: 0, width: 200, height: 80, z: 160 },
+        { id: "flat", type: "text", text: "plane", x: 40, y: 20, width: 200, height: 80 },
+      ],
+      edges: [],
+      camera: {
+        projection: "3d",
+        pose: { x: 100, y: 40, z: 0, zoom: 0.9, yaw: -0.4, pitch: 0.55 },
+      },
+    };
+    const receipt = await invoke(ctx, {
+      id: "ext.canvas.tx.apply",
+      input: { canvasId: "n.canvas", doc },
+    });
+    expect(receipt.status).toBe("succeeded");
+    const stored = present(
+      ctx.nodes.find((n) => n.id === "n.canvas"),
+      "canvas",
+    ).props[SYSTEM_IDS.canvasField]?.[0];
+    expect(JSON.parse(String(present(stored, "stored doc").v))).toEqual(doc);
+  });
+
   test("invalid doc fails without writing props", async () => {
     const root = await tempRoot();
     const ctx = await openKb(root);

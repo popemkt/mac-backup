@@ -1400,6 +1400,37 @@ from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surf
   `approval: "required"` if a person must approve each call). The loader
   skips an extension that still uses the old strings.
 
+### Canvas documents
+
+A `#canvas` node keeps its layout as one [JSON Canvas 1.0](https://jsoncanvas.org/spec/1.0/)
+document in `sys.f.canvas`, and `ext.canvas.tx.apply` is its one write path:
+the UI, the CLI and an agent all send the whole document after their change.
+`@kb/canvas` (`packages/extension/canvas/src/doc.ts`) parses and writes it;
+item types and fields it does not know survive a round trip untouched.
+
+Canvas space is x to the right, y down, and z out of the page toward the
+viewer, all in the same units. kb's extension fields:
+
+| On       | Field    | Meaning                                                                                                   |
+| -------- | -------- | --------------------------------------------------------------------------------------------------------- |
+| item     | `nodeId` | a `kb-node` card's store node; its text and tags render live from the store                               |
+| item     | `shape`  | a `shape` item's outline: `rect`, `ellipse` or `diamond`                                                  |
+| item     | `z`      | depth toward the viewer. Absent is 0, the canvas plane, and 0 is written as absent                        |
+| edge     | `kbLink` | the one-shot native bind of a drawn edge ([INSPIRATIONS](INSPIRATIONS.md): edges are drawings)            |
+| document | `camera` | `{ projection: "2d" \| "3d", pose? }`: which projection the canvas opens in, and its last 3D pose; absent is 2D |
+
+A `pose` is `{ x, y, z, zoom, yaw, pitch }`: the point looked at, screen
+pixels per canvas unit on the plane through it, and the orbit about it in
+radians (yaw turns about the vertical axis; pitch tips the bottom edge toward
+the eye). In 3D, `z` is a real axis; face-on, items paint by depth and then in
+document order, which bring-to-front and send-to-back rearrange. An agent
+sets depth the way it moves a card: it writes `z` on the item and applies the
+document.
+
+The camera is view state, not content: the undo history leaves it out. It
+sits on the document only until canvases become view nodes, and then moves to
+that view's settings (`camera.ts`, `GAP [GAP-CANVAS-CAMERA-VIEW]`).
+
 ## Operations (verticals)
 
 | Action                                            | Mode  | Does                                                                                                         |

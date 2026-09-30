@@ -989,8 +989,9 @@ manipulation feel professional rather than merely functional.
   stroke, per-colour SVG arrowhead markers, and mid-path labels editable by
   double-click. `EdgeInspector` toggles arrowheads per end and picks JSON Canvas
   colours 1–6.
-- **Floating selection toolbar** with Delete / Bring-to-front / Send-to-back
-  (z-order is array reorder in the JSON Canvas doc).
+- **Floating selection toolbar** with Delete / Bring-to-front / Send-to-back.
+  Items paint by depth (`z`), then in document order, and the two buttons
+  reorder the document (`paintOrder`, DESIGN.md → Canvas documents).
 
 #### Projections
 
