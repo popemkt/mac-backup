@@ -2,6 +2,7 @@ import type { ActionInvocation, WireNode } from "@kb/contracts";
 import {
   familyViewIdOf,
   fieldTypeValue,
+  hostViewIds,
   viewsWithDefault,
   siblingSlots,
   viewOptionId,
@@ -477,6 +478,23 @@ export const frameViewGroup = (field: string | null): FrameViewEdit => [
 export const frameViewFilters = (edn: string[]): FrameViewEdit => [
   { field: SYSTEM_IDS.viewFilterField, values: edn.map((v): PropValue => ({ t: "str", v })) },
 ];
+
+/**
+ * Make `viewId` `hostId`'s default view: move it first in the host's
+ * `sys.f.views`, one replacement of the field (DESIGN.md → View nodes). Null
+ * when the host does not name it.
+ */
+export function planMakeDefaultView(
+  nodes: WireNode[],
+  hostId: string,
+  viewId: string,
+): PlannedMutation | null {
+  const host = requireNode(nodes, hostId);
+  if (!hostViewIds(host).includes(viewId)) return null;
+  return replaceProps(nodes, hostId, [
+    { field: SYSTEM_IDS.viewsField, values: viewsWithDefault(host, viewId).map(refTo) },
+  ]);
+}
 
 /** What a frame is shown as until it names a frame view node: the list. */
 const FRAME_LIST_OPTION = viewOptionId("outline.list");

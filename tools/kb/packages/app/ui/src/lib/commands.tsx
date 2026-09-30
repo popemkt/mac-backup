@@ -31,10 +31,11 @@ import {
   MagnifyingGlassIcon,
   PushPinIcon,
   PushPinSlashIcon,
+  StarIcon,
   TextTIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
-import { present, typeRefsOf } from "@kb/model";
+import { hostViewIds, isViewNode, present, typeRefsOf, viewOptionOf } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { mutations } from "@/actions/mutations";
 import { isContextualRef } from "@/lib/contextual-ref";
@@ -504,7 +505,57 @@ function frameViewCommands(ctx: CommandContext): {
   };
 }
 
-/** Every command, in order: the static ones, with the frame views' where they sit. */
+/** What a menu calls a view node: its text, else the label of the view it names. */
+function viewLabel(byId: ReadonlyMap<string, WireNode>, viewId: string): string {
+  const view = byId.get(viewId);
+  const text = view?.text.trim() ?? "";
+  if (text !== "") return text;
+  const option = viewOptionOf(view);
+  return (option === null ? undefined : byId.get(option)?.text) ?? viewId;
+}
+
+/**
+ * "Make default view" for the target (DESIGN.md → View nodes): on a host, a
+ * row for each view it names after its default; on a view node, a row for
+ * each host that names it after another view. Each moves the view first in
+ * that host's `sys.f.views`.
+ */
+function defaultViewCommands(ctx: CommandContext): readonly Command[] {
+  const targetId = ctx.target.nodeId;
+  if (targetId === null) return [];
+  const wires = ctx.outline.wireNodes;
+  const byId = new Map(wires.map((n) => [n.id, n]));
+  const target = byId.get(targetId);
+  const ofHost = hostViewIds(target)
+    .slice(1)
+    .map((viewId) => ({
+      hostId: targetId,
+      viewId,
+      label: `Make default view: ${viewLabel(byId, viewId)}`,
+    }));
+  const ofView = isViewNode(target)
+    ? wires
+        .filter((host) => hostViewIds(host).indexOf(targetId) > 0)
+        .map((host) => ({
+          hostId: host.id,
+          viewId: targetId,
+          label: `Make default view of ${host.text.trim() || host.id}`,
+        }))
+    : [];
+  return [...ofHost, ...ofView].map(
+    ({ hostId, viewId, label }): Command => ({
+      id: `make-default-view:${hostId}:${viewId}`,
+      scope: "node",
+      chrome: () => ({ label, icon: <StarIcon size={14} /> }),
+      run: async (c) => {
+        c.palette.close();
+        await mutations.makeDefaultView(hostId, viewId);
+      },
+    }),
+  );
+}
+
+/** Every command, in order: the static ones, with the views' where they sit. */
 function commandsFor(ctx: CommandContext): readonly Command[] {
   const views = frameViewCommands(ctx);
   return [
@@ -512,6 +563,7 @@ function commandsFor(ctx: CommandContext): readonly Command[] {
     ...views.global,
     ...NODE_COMMANDS,
     ...views.node,
+    ...defaultViewCommands(ctx),
     ...NODE_COMMANDS_AFTER_VIEWS,
   ];
 }

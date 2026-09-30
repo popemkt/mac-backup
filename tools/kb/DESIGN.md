@@ -811,7 +811,10 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   shown for.
 - **One of a host's views is its default: the first it names.** Order in
   `sys.f.views` is the one mechanism (`defaultViewIdOf`); making another view
-  the default is moving it first, in one replacement of the field. An
+  the default is moving it first, in one replacement of the field
+  (`viewsWithDefault`; the node menu's "Make default view", offered on a
+  host for each later view and on a view node for each host naming it
+  later). An
   explicit `default` ref was the alternative and is refused: it is a second
   field that can name a view the host does not list, and it would have to be
   kept in step with the list by hand — a mirror.

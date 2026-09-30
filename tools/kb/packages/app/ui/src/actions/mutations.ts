@@ -663,6 +663,13 @@ export const mutations = {
     await applyPlan(planOntologySetClosure(wire(), ontoId, mode));
   },
 
+  /** Make `viewId` `hostId`'s default view: move it first in the host's `sys.f.views`. */
+  async makeDefaultView(hostId: string, viewId: string): Promise<void> {
+    if (!guardSysWrite(hostId)) return;
+    const { planMakeDefaultView } = await import("@/actions/plan");
+    await applyPlan(planMakeDefaultView(wire(), hostId, viewId));
+  },
+
   /** Show a frame's children in `view`: its frame view node names the view's option. */
   async setFrameView(frameId: string, view: FrameViewKey): Promise<void> {
     const { frameViewIs } = await import("@/actions/plan");
