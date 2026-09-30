@@ -219,10 +219,33 @@ export interface CanvasHitItem {
   readonly z?: number;
 }
 
+/** How far apart cards at one depth stand in paint order, canvas units: a hair, but never a tie. */
+const TIER_STEP = 0.08;
+
+/**
+ * Each item with the plane it is drawn on and hit at: its depth, raised a
+ * hair for every earlier item at that depth, so items at one depth are
+ * ordered by paint order from the front and never share a plane. `items`
+ * are in paint order, back to front. Every projection draws and hit-tests
+ * on these planes, so what is under a point is what is drawn there, from
+ * any side.
+ */
+export function paintPlanes<T extends CanvasHitItem>(
+  items: readonly T[],
+): { readonly item: T; readonly z: number }[] {
+  let tier = 0;
+  return items.map((item, index) => {
+    const previous = items[index - 1];
+    const z = item.z ?? 0;
+    tier = previous !== undefined && (previous.z ?? 0) === z ? tier + 1 : 0;
+    return { item, z: z + tier * TIER_STEP };
+  });
+}
+
 /**
  * The item under a screen point: of every item whose rectangle the eye's ray
- * crosses, the nearest; items at the same depth go to the one painted later.
- * `items` are in paint order, back to front.
+ * crosses on its plane (`paintPlanes`), the nearest. `items` are in paint
+ * order, back to front.
  */
 export function hitTest(
   items: readonly CanvasHitItem[],
@@ -231,13 +254,12 @@ export function hitTest(
   screen: CanvasPoint,
 ): string | null {
   let best: { id: string; t: number } | null = null;
-  for (const item of items) {
-    const hit = rayToPlane(view, size, screen, item.z ?? 0);
+  for (const { item, z } of paintPlanes(items)) {
+    const hit = rayToPlane(view, size, screen, z);
     if (hit === null) continue;
     const { x, y } = hit.point;
     if (x < item.x || x > item.x + item.width || y < item.y || y > item.y + item.height) continue;
-    // Later items win ties: an equal distance means the same plane.
-    if (best === null || hit.t <= best.t + 1e-6) best = { id: item.id, t: hit.t };
+    if (best === null || hit.t < best.t) best = { id: item.id, t: hit.t };
   }
   return best?.id ?? null;
 }

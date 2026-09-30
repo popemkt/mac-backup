@@ -6,10 +6,12 @@
  * - it draws every item once, back to front in paint order;
  * - it draws every edge whose two ends exist, and no other;
  * - it marks exactly the shared selection;
- * - an item's centre is drawn where the one camera model projects it;
- * - what the renderer itself finds under an item's centre — the DOM's topmost
- *   box, three's own ray — is what the model's `hitTest` says, raised and
- *   overlapping cards included;
+ * - every item's corners are drawn where the one camera model projects them
+ *   on the item's paint plane (`paintPlanes`);
+ * - what is drawn on top at a point — the DOM's topmost box, the nearest
+ *   drawn plane — is what the model's `hitTest` finds there, for raised,
+ *   sunk and same-depth overlapping cards, from oblique orbits and from
+ *   behind;
  * - a card moved in the document is drawn where it moved.
  *
  * The 2D projection is the real DOM stage; the 3D one is the real scene on
@@ -23,8 +25,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { paintOrder, type CanvasDoc, type CanvasNode, type CanvasProjectionKind } from "@kb/canvas";
 import {
   hitTest,
+  paintPlanes,
   panOfView,
   projectPoint,
+  screenToPlane,
   type CanvasView,
   type ViewSize,
 } from "@/lib/canvas-camera";
@@ -45,6 +49,7 @@ const doc: CanvasDoc = {
   nodes: [
     { id: "frame", type: "group", label: "Frame", x: -40, y: -40, width: 720, height: 260 },
     { id: "low", type: "text", text: "on the plane", x: 0, y: 0, width: 200, height: 100 },
+    { id: "twin", type: "text", text: "same depth", x: 60, y: 50, width: 200, height: 100 },
     { id: "raised", type: "text", text: "raised", x: 150, y: 40, width: 200, height: 100, z: 80 },
     {
       id: "sunk",
@@ -67,8 +72,17 @@ const doc: CanvasDoc = {
 };
 const selection: CanvasSelection = { nodeIds: new Set(["raised"]), edgeIds: new Set(["e2"]) };
 const size: ViewSize = { width: 1000, height: 700 };
-/** The one view each projection is handed, and holds its own way. */
-const asked: CanvasView = { x: 300, y: 80, z: 0, zoom: 0.8, yaw: -0.35, pitch: 0.5, fov: 34 };
+/** The views each projection is handed, and holds its own way: a desk tilt, oblique, from behind. */
+const ASKED: readonly CanvasView[] = [
+  { x: 300, y: 80, z: 0, zoom: 0.8, yaw: -0.35, pitch: 0.5, fov: 34 },
+  { x: 300, y: 80, z: 0, zoom: 0.7, yaw: 1.05, pitch: 1.1, fov: 34 },
+  { x: 300, y: 80, z: 0, zoom: 0.8, yaw: Math.PI - 0.45, pitch: -0.35, fov: 34 },
+];
+/** Points where cards overlap, on the plane between them: raised over low, twin over low. */
+const OVERLAPS = [
+  { x: 175, y: 70, z: 40 },
+  { x: 100, y: 75, z: 0 },
+];
 
 const look: CardLook = {
   face: "rgb(255, 255, 255)",
@@ -89,14 +103,33 @@ interface Probe {
   drawn(): string[];
   edges(): string[];
   selected(): string[];
-  screenOf(id: string): { x: number; y: number } | null;
-  /** The item the renderer itself finds at a screen point. */
-  hit(point: { x: number; y: number }): string | null;
+  /** An item's rectangle corners as drawn, on screen. */
+  cornersOf(id: string): { x: number; y: number }[] | null;
+  /** The item drawn on top at a screen point. */
+  topAt(point: { x: number; y: number }): string | null;
   update(next: CanvasDoc): Promise<void>;
   dispose(): void;
 }
 
 type Mount = (view: CanvasView) => Promise<Probe>;
+
+/** Whether `p` is inside the convex quad `corners` (either winding). */
+function inside(
+  p: { x: number; y: number },
+  corners: readonly { x: number; y: number }[],
+): boolean {
+  let sign = 0;
+  for (let i = 0; i < corners.length; i++) {
+    const a = corners[i];
+    const b = corners[(i + 1) % corners.length];
+    if (a === undefined || b === undefined) return false;
+    const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    if (cross === 0) continue;
+    if (sign === 0) sign = Math.sign(cross);
+    else if (Math.sign(cross) !== sign) return false;
+  }
+  return true;
+}
 
 const noop = () => {};
 const px = (v: string) => Number.parseFloat(v);
@@ -160,13 +193,19 @@ const mount2d: Mount = async (view) => {
       [...container.querySelectorAll<HTMLElement>("[data-selected]")].map(
         (el) => el.dataset.cardId ?? el.dataset.edgeId ?? "",
       ),
-    screenOf: (id) => {
+    cornersOf: (id) => {
       const el = cards().find((c) => c.dataset.cardId === id);
       const b = el === undefined ? null : box(el);
-      return b === null ? null : { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+      if (b === null) return null;
+      return [
+        { x: b.x, y: b.y },
+        { x: b.x + b.w, y: b.y },
+        { x: b.x + b.w, y: b.y + b.h },
+        { x: b.x, y: b.y + b.h },
+      ];
     },
     // Positioned siblings in one stacking context: the last one laid out over the point is on top.
-    hit: (p) =>
+    topAt: (p) =>
       cards().findLast((el) => {
         const b = box(el);
         return b !== null && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
@@ -210,8 +249,20 @@ const mount3d: Mount = async (view) => {
     drawn: () => [...inspect().items],
     edges: () => [...inspect().edges],
     selected: () => [...inspect().selected],
-    screenOf: (id) => inspect().screenOf(id),
-    hit: (p) => inspect().pick(p),
+    cornersOf: (id) => inspect().drawnOf(id)?.corners ?? null,
+    // The depth buffer's answer: of the drawn rectangles under the point, the nearest drawn plane.
+    topAt: (p) => {
+      let best: { id: string; depth: number } | null = null;
+      for (const id of inspect().items) {
+        const drawn = inspect().drawnOf(id);
+        if (drawn === null || !inside(p, drawn.corners)) continue;
+        const on = screenToPlane(view, size, p, drawn.z);
+        const depth = on === null ? null : projectPoint(view, size, on)?.depth;
+        if (depth === undefined || depth === null) continue;
+        if (best === null || depth < best.depth) best = { id, depth };
+      }
+      return best?.id ?? null;
+    },
     update: async (next) => {
       scene.setContent({ doc: next, nodes: new Map(), selection });
       await Promise.resolve();
@@ -225,6 +276,14 @@ const mount3d: Mount = async (view) => {
 
 const PROBES: Record<CanvasProjectionKind, Mount> = { "2d": mount2d, "3d": mount3d };
 
+/** An item's rectangle corners on the plane `z`, clockwise from the top left. */
+const cornersOf = (item: CanvasNode, z: number) => [
+  { x: item.x, y: item.y, z },
+  { x: item.x + item.width, y: item.y, z },
+  { x: item.x + item.width, y: item.y + item.height, z },
+  { x: item.x, y: item.y + item.height, z },
+];
+
 const centreOf = (item: CanvasNode) => ({
   x: item.x + item.width / 2,
   y: item.y + item.height / 2,
@@ -235,7 +294,7 @@ describe("canvas projection contract", () => {
   const g = globalThis as Record<string, unknown>;
   const saved = new Map<string, unknown>();
 
-  beforeAll(() => {
+  beforeAll(async () => {
     const dom = new Window({ url: "https://kb.test/" });
     const globals: Record<string, unknown> = {
       window: dom,
@@ -257,6 +316,8 @@ describe("canvas projection contract", () => {
       g[key] = value;
     }
     fakeCanvasContexts(dom.HTMLCanvasElement.prototype);
+    // Both renderers load before the clock starts: three alone takes seconds to import cold.
+    await Promise.all([import("./canvas-stage"), import("./canvas-scene")]);
   });
 
   afterAll(() => {
@@ -272,7 +333,10 @@ describe("canvas projection contract", () => {
     );
   });
 
-  describe.each(CANVAS_PROJECTIONS.map((p) => [p.kind] as const))("%s", (kind) => {
+  const cases = CANVAS_PROJECTIONS.flatMap((p) =>
+    ASKED.map((asked, i) => [`${p.kind}, view ${i + 1}`, p.kind, asked] as const),
+  );
+  describe.each(cases)("%s", (_name, kind, asked) => {
     const view = canvasProjection(kind).settle(asked);
     const mount = PROBES[kind];
 
@@ -294,29 +358,31 @@ describe("canvas projection contract", () => {
       probe.dispose();
     });
 
-    it("draws each item's centre where the camera model projects it", async () => {
+    it("draws every item's corners where the model projects them on its paint plane", async () => {
       const probe = await mount(view);
-      for (const item of doc.nodes) {
-        const model = projectPoint(view, size, centreOf(item));
-        const drawn = probe.screenOf(item.id);
+      for (const { item, z } of paintPlanes(paintOrder(doc.nodes))) {
+        const drawn = probe.cornersOf(item.id);
         expect(drawn, item.id).not.toBeNull();
-        expect(drawn?.x, item.id).toBeCloseTo(model?.x ?? Number.NaN, 1);
-        expect(drawn?.y, item.id).toBeCloseTo(model?.y ?? Number.NaN, 1);
+        cornersOf(item, z).forEach((corner, i) => {
+          const model = projectPoint(view, size, corner);
+          expect(drawn?.[i]?.x, `${item.id} corner ${i}`).toBeCloseTo(model?.x ?? Number.NaN, 1);
+          expect(drawn?.[i]?.y, `${item.id} corner ${i}`).toBeCloseTo(model?.y ?? Number.NaN, 1);
+        });
       }
       probe.dispose();
     });
 
-    it("finds under each item's centre what the model's hit test finds", async () => {
+    it("draws on top at every point what the model's hit test finds there", async () => {
       const probe = await mount(view);
       const order = paintOrder(doc.nodes);
-      for (const item of doc.nodes) {
-        const at = projectPoint(view, size, centreOf(item));
-        if (at === null) continue;
-        expect(probe.hit(at), item.id).toBe(hitTest(order, view, size, at));
+      const points = [...doc.nodes.map(centreOf), ...OVERLAPS]
+        .map((p) => projectPoint(view, size, p))
+        .filter((p) => p !== null);
+      for (const at of points) {
+        expect(probe.topAt(at), `at ${at.x.toFixed(0)},${at.y.toFixed(0)}`).toBe(
+          hitTest(order, view, size, at),
+        );
       }
-      // The raised card covers the one beneath it where they overlap.
-      const overlap = projectPoint(view, size, { x: 175, y: 70, z: 80 });
-      expect(overlap && probe.hit(overlap)).toBe("raised");
       probe.dispose();
     });
 
@@ -324,10 +390,16 @@ describe("canvas projection contract", () => {
       const probe = await mount(view);
       const moved = doc.nodes.map((n) => (n.id === "sunk" ? { ...n, x: n.x + 120, z: 40 } : n));
       await probe.update({ ...doc, nodes: moved });
-      const item = moved.find((n) => n.id === "sunk");
-      const model = item === undefined ? null : projectPoint(view, size, centreOf(item));
-      expect(probe.screenOf("sunk")?.x).toBeCloseTo(model?.x ?? Number.NaN, 1);
-      expect(probe.screenOf("sunk")?.y).toBeCloseTo(model?.y ?? Number.NaN, 1);
+      const planes = paintPlanes(paintOrder(moved));
+      const sunk = planes.find((p) => p.item.id === "sunk");
+      expect(sunk).toBeDefined();
+      if (sunk === undefined) return;
+      const drawn = probe.cornersOf("sunk");
+      cornersOf(sunk.item, sunk.z).forEach((corner, i) => {
+        const model = projectPoint(view, size, corner);
+        expect(drawn?.[i]?.x).toBeCloseTo(model?.x ?? Number.NaN, 1);
+        expect(drawn?.[i]?.y).toBeCloseTo(model?.y ?? Number.NaN, 1);
+      });
       probe.dispose();
     });
   });

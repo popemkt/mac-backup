@@ -24,6 +24,7 @@ import { TIMING_FALLBACK } from "@/lib/timing";
 import type { SceneHandle } from "@/scene/host";
 import type { ScenePalette } from "@/scene/palette";
 import { fakeCanvasContexts, gpu, renders, type FakeRenderer } from "@/test-support/fake-gpu";
+import { BufferGeometry, Material, Object3D, Sprite } from "three/webgpu";
 import type * as ThreeWebGpu from "three/webgpu";
 
 vi.mock("three/webgpu", async (importOriginal) => ({
@@ -254,6 +255,34 @@ describe("scene contract", () => {
       const drawn = renders(renderer);
       flushFrames();
       expect(renders(renderer)).toBe(drawn);
+    });
+
+    it("disposing gives back every geometry and material it drew with", async () => {
+      const added = vi.spyOn(Object3D.prototype, "add");
+      const geometries = vi.spyOn(BufferGeometry.prototype, "dispose");
+      const materials = vi.spyOn(Material.prototype, "dispose");
+      const scene = await mount(host(), false);
+      scene.setRunning(true);
+      scene.dispose();
+      const disposed = new Set<unknown>([...geometries.mock.contexts, ...materials.mock.contexts]);
+      const leaked: string[] = [];
+      const drawn = added.mock.calls.flat().filter((one) => one instanceof Object3D);
+      for (const root of drawn) {
+        root.traverse((object: Object3D & { geometry?: unknown; material?: unknown }) => {
+          // Every sprite shares three's one quad (`scene/gpu/dispose`), which is never freed.
+          if (object.geometry !== undefined && !(object instanceof Sprite)) {
+            if (!disposed.has(object.geometry)) leaked.push(`${object.type} geometry`);
+          }
+          const list = Array.isArray(object.material) ? object.material : [object.material];
+          for (const one of list) {
+            if (one !== undefined && !disposed.has(one)) leaked.push(`${object.type} material`);
+          }
+        });
+      }
+      added.mockRestore();
+      geometries.mockRestore();
+      materials.mockRestore();
+      expect(leaked).toEqual([]);
     });
 
     it("draws nothing while hidden", async () => {

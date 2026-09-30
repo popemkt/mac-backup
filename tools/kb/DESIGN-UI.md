@@ -1001,8 +1001,10 @@ focus, an orbit (`yaw`, `pitch`) and a field of view, where `fov` 0 is
 orthographic. The DOM canvas is that camera face-on and orthographic, which
 is exactly its CSS `translate(pan) scale(zoom)`; `viewOfPan` and `panOfView`
 are the bridge, and zoom-to-fit, client-to-canvas conversion and the edge
-drop target (`hitTest`: the nearest item under the ray, the later-painted one
-at equal depth) all go through the camera rather than through pan
+drop target (`hitTest`: the nearest item under the ray, each on its paint
+plane, `paintPlanes`: its depth raised a hair per earlier item at that depth,
+so paint order decides from the front and nothing ever ties) all go through
+the camera rather than through pan
 arithmetic or `elementFromPoint`. A gesture reaches the pointer reducer as a
 screen point, which decides slop and panning, and the canvas point it stands
 for, which decides where a moved or resized card goes.
@@ -1011,8 +1013,10 @@ Two projections hold that camera (`CANVAS_PROJECTIONS`,
 `components/canvas/canvas-projections.ts`): **2D**, face-on and
 orthographic, drawn as DOM cards over SVG edges; and **3D**, in perspective
 and orbiting its focus, drawn on the scene kit's stage
-(`components/canvas/canvas-scene.ts`, the canvas's only three module, loaded
-in its own chunk). A projection declares only how it holds the camera
+(`components/canvas/canvas-scene.ts` and its card and edge layers, the
+canvas's only three modules, loaded in their own chunk; the harness's
+`components/canvas/3d` zone is the only part of the canvas that may reach the
+scene kit). A projection declares only how it holds the camera
 (`settle`) and the view it opens at when it takes over (`arrive`: the saved
 pose, or the same focus and zoom tipped back like a desk). The document's
 `camera` names the projection a canvas opens in and its last 3D pose
@@ -1022,10 +1026,14 @@ open view of that canvas.
 
 - **One contract.** `canvas-projection.contract.test.tsx` runs one suite over
   every registered projection: each draws every item once in paint order and
-  every edge whose ends exist, marks exactly the shared selection, draws an
-  item's centre where the camera model projects it, finds under a point
-  what `hitTest` finds (the DOM's topmost box, three's own ray), and draws a
-  moved card where it moved. The 3D scene also joins the scene contract.
+  every edge whose ends exist, marks exactly the shared selection, draws
+  every item's corners where the camera model projects them on its paint
+  plane, draws on top at a point what `hitTest` finds there (the DOM's
+  topmost box; the nearest drawn plane), and draws a moved card where it
+  moved — from a desk tilt, an oblique orbit and from behind, with raised,
+  sunk and same-depth overlapping cards. The 3D scene also joins the scene
+  contract, whose disposal check covers every geometry and material a scene
+  drew with.
 - **One camera in motion.** `lib/canvas-camera-rig.ts` holds the view the 3D
   scene draws with: gestures move it at once, flights ease over
   `--motion-duration-arrive` on `--motion-settle`, and under reduced motion
@@ -1040,7 +1048,12 @@ open view of that canvas.
 - **Cards stay cards.** Each card's face is painted into a canvas texture as
   it looks in 2D (`canvas-card-face.ts`): its text in the UI face at the body
   step, its bullet and tag chips, its shape and preset colour, the selection
-  ring. Translucent colours are composited over the face in sRGB before
+  ring. A face is repainted only when what it shows changes; a resized card
+  keeps its face stretched until sizes hold still, faces painted before the
+  page's fonts arrived are repainted once they do, and texture density
+  follows the display's pixel ratio up to a cap. Edges are rebuilt only when
+  what they are drawn from changes. Translucent colours are composited over
+  the face in sRGB before
   upload, because the GPU blends in linear light and would thin a faint
   hairline and brighten a faint wash. A raised card casts a soft shadow on
   the canvas plane, which carries the 2D dot grid; edges are lines between
@@ -1057,8 +1070,12 @@ open view of that canvas.
   for depth), and both are history steps written through `ext.canvas.tx.apply`.
   A drag on empty canvas orbits, a tap places the current tool on the plane
   (or clears the selection), the right or middle button or Space pans, the
-  wheel pans and a pinch zooms about the cursor. Text is edited in 2D; edge
-  labels and resize handles are 2D only.
+  wheel pans and a pinch zooms about the cursor (`canvas-scene-gestures.ts`).
+  A card let go where its plane is edge-on stays where the drag last had it,
+  and a tap that moved no camera saves no pose; a pose equal to the saved one
+  is not written again. Text is edited in 2D; edge labels and resize handles
+  are 2D only. Texture memory and culling for very large canvases are not
+  built (`GAP [GAP-CANVAS-TEXTURE-BUDGET]`).
 
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 real Clipboard-API copy/paste, snap guides during keyboard nudge, edge colour
