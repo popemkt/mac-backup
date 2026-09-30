@@ -17,6 +17,7 @@
  * in to keep that plane the same size on screen — the dolly zoom that turns
  * one projection into the other.
  */
+import type { CanvasPose } from "@kb/canvas";
 
 export interface CanvasPoint {
   x: number;
@@ -320,4 +321,94 @@ export function fitView(
     z: (minZ + maxZ) / 2,
     zoom,
   };
+}
+
+/** An orbit never tips past this, radians: the canvas never turns edge-on or over. */
+export const MAX_PITCH = 1.35;
+
+/** Radians of orbit per pixel of drag. */
+const ORBIT_PER_PIXEL = 0.004;
+
+/**
+ * Where a renderer puts its camera for `view`: the eye, the point it looks
+ * at, and which way is up on screen, all in canvas space.
+ */
+export function cameraPose(
+  view: CanvasView,
+  size: ViewSize,
+): { eye: CanvasPoint3; target: CanvasPoint3; up: CanvasPoint3 } {
+  const { eye, down } = frameOf(view, size);
+  return {
+    eye: { x: eye[0], y: eye[1], z: eye[2] },
+    target: { x: view.x, y: view.y, z: view.z },
+    up: { x: -down[0], y: -down[1], z: -down[2] },
+  };
+}
+
+/** `view` orbited by a drag of (`dx`, `dy`) pixels: across turns it, down tips it toward the eye. */
+export function orbitView(view: CanvasView, dx: number, dy: number): CanvasView {
+  const pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, view.pitch + dy * ORBIT_PER_PIXEL));
+  return { ...view, yaw: view.yaw - dx * ORBIT_PER_PIXEL, pitch };
+}
+
+/** `view` panned so the canvas follows a drag of (`dx`, `dy`) pixels on the focus plane. */
+export function panView(view: CanvasView, dx: number, dy: number): CanvasView {
+  const { right, down } = frameOf(view, { width: 1, height: 1 });
+  const along = (i: 0 | 1 | 2) => (right[i] * dx + down[i] * dy) / view.zoom;
+  return { ...view, x: view.x - along(0), y: view.y - along(1), z: view.z - along(2) };
+}
+
+/**
+ * `view` zoomed by `factor` about a screen point: the canvas point under it on
+ * the focus plane stays under it, as it does under a cursor.
+ */
+export function zoomViewAt(
+  view: CanvasView,
+  size: ViewSize,
+  factor: number,
+  screen: CanvasPoint,
+): CanvasView {
+  const zoom = clampZoom(view.zoom * factor);
+  const keep = view.zoom / zoom;
+  const { right, down } = frameOf(view, size);
+  const u = (screen.x - size.width / 2) / view.zoom;
+  const v = (screen.y - size.height / 2) / view.zoom;
+  // The point under the cursor stays put; the focus is pulled toward it.
+  const toward = (i: 0 | 1 | 2, focus: number) => {
+    const under = focus + right[i] * u + down[i] * v;
+    return under + (focus - under) * keep;
+  };
+  return { ...view, x: toward(0, view.x), y: toward(1, view.y), z: toward(2, view.z), zoom };
+}
+
+/** The shortest signed turn from angle `a` to angle `b`. */
+function turn(a: number, b: number): number {
+  const d = (b - a) % (Math.PI * 2);
+  return d > Math.PI ? d - Math.PI * 2 : d < -Math.PI ? d + Math.PI * 2 : d;
+}
+
+/**
+ * `t` of the way from `a` to `b`: the focus and the field of view linearly,
+ * the zoom in proportion (so a dolly feels even), the orbit the short way.
+ */
+export function lerpView(a: CanvasView, b: CanvasView, t: number): CanvasView {
+  const mix = (p: number, q: number) => p + (q - p) * t;
+  return {
+    x: mix(a.x, b.x),
+    y: mix(a.y, b.y),
+    z: mix(a.z, b.z),
+    zoom: a.zoom * (b.zoom / a.zoom) ** t,
+    yaw: a.yaw + turn(a.yaw, b.yaw) * t,
+    pitch: mix(a.pitch, b.pitch),
+    fov: mix(a.fov, b.fov),
+  };
+}
+
+/** The part of a view a canvas saves: all but the field of view, which the projection owns. */
+export function poseOfView(view: CanvasView): CanvasPose {
+  return { x: view.x, y: view.y, z: view.z, zoom: view.zoom, yaw: view.yaw, pitch: view.pitch };
+}
+
+export function viewOfPose(pose: CanvasPose, fov: number): CanvasView {
+  return { ...pose, fov };
 }

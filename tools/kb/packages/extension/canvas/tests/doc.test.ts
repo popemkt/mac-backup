@@ -158,6 +158,19 @@ describe("camera", () => {
     expect(roundTrip(withCanvasCamera(doc, camera)).camera?.pose).toEqual(pose);
   });
 
+  test("setting the camera a document already has is the same document", () => {
+    const camera = { projection: "3d" as const };
+    const doc = withCanvasCamera({ nodes: [], edges: [] }, camera);
+    expect(withCanvasCamera(doc, camera)).toBe(doc);
+    const flat = { nodes: [], edges: [] };
+    expect(withCanvasCamera(flat, undefined)).toBe(flat);
+  });
+
+  test("clearing keeps a camera this version could not read", () => {
+    const doc = parseCanvasDoc({ nodes: [], edges: [], camera: { projection: "vr" } });
+    expect(withCanvasCamera(doc, undefined).extra?.camera).toEqual({ projection: "vr" });
+  });
+
   test("clearing the camera leaves the document 2D", () => {
     const doc = withCanvasCamera({ nodes: [], edges: [] }, { projection: "3d" });
     expect(stringifyCanvasDoc(withCanvasCamera(doc, undefined))).toBe('{"nodes":[],"edges":[]}');

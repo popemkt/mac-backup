@@ -146,7 +146,16 @@ const TOKEN_FALLBACK = {
   "--muted": "#f5f5f5",
   "--muted-foreground": "#737373",
   "--primary": "#c27c0e",
+  "--destructive": "#dc2626",
   "--graph-edge": "rgba(34, 34, 34, 0.4)",
+  // The JSON Canvas colour presets "1"–"6" (`lib/canvas-color`), which the
+  // 3D canvas paints into its card textures.
+  "--canvas-color-1": "#dc2626",
+  "--canvas-color-2": "#ea580c",
+  "--canvas-color-3": "#ca8a04",
+  "--canvas-color-4": "#16a34a",
+  "--canvas-color-5": "#0891b2",
+  "--canvas-color-6": "#9333ea",
   // The lab palette: mid grey, so a missing token reads as missing rather
   // than as a deliberate colour.
   "--lab-ground": "rgb(128, 128, 128)",

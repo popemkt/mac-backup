@@ -396,13 +396,23 @@ export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
     .map(({ node }) => node);
 }
 
-/** `doc` looked at through `camera` (view state only; no item changes). */
+/**
+ * `doc` looked at through `camera` (view state only; no item changes). The
+ * same document comes back when nothing changes, so reference-equal history
+ * stays a no-op. Clearing keeps a camera this version could not read; setting
+ * one replaces it.
+ */
 export function withCanvasCamera(doc: CanvasDoc, camera: CanvasCamera | undefined): CanvasDoc {
-  const next: CanvasDoc = { ...doc };
-  if (camera === undefined) delete next.camera;
-  else next.camera = camera;
-  // A camera this version could not read gives way to the one set here.
-  if (next.extra && "camera" in next.extra) {
+  if (camera === undefined) {
+    if (doc.camera === undefined) return doc;
+    const cleared = { ...doc };
+    delete cleared.camera;
+    return cleared;
+  }
+  const unread = doc.extra !== undefined && "camera" in doc.extra;
+  if (doc.camera === camera && !unread) return doc;
+  const next: CanvasDoc = { ...doc, camera };
+  if (next.extra && unread) {
     const rest = Object.fromEntries(Object.entries(next.extra).filter(([k]) => k !== "camera"));
     if (Object.keys(rest).length > 0) next.extra = rest;
     else delete next.extra;

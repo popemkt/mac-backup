@@ -122,6 +122,11 @@
   animation: kb-surface-enter var(--motion-duration-quick) var(--motion-settle) both;
 }
 
+/* A canvas projection handing the viewport to another: the two crossfade. */
+.kb-projection-layer {
+  transition: opacity var(--motion-duration-reveal) var(--motion-settle);
+}
+
 /* Opacity only: never move the editor, scale its text, or capture fixed chrome. */
 .kb-workspace-reveal {
   animation: kb-workspace-reveal var(--motion-duration-reveal) ease-out;

@@ -44,6 +44,8 @@ interface CanvasGestureContext {
   setShapeInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setToolState: Dispatch<SetStateAction<ToolState>>;
   setZoom: Dispatch<SetStateAction<number>>;
+  /** Where a card added from the header lands, in the projection that is showing. */
+  placementPoint: () => { x: number; y: number };
 }
 
 type StageGestureContext = Pick<
@@ -236,22 +238,39 @@ function createCardGestures(
   return { startMoveForSelection, startResize };
 }
 
+/**
+ * A press on empty canvas with a placing tool drops its item at the canvas
+ * point under the press, in whichever projection saw it; false when the tool
+ * places nothing (select), so the press means something else there.
+ */
+function createToolPlacement({
+  docRef,
+  schedulePersist,
+  setInspectorAnchor,
+  setSelection,
+  setShapeInspectorAnchor,
+  setToolState,
+  toolState,
+}: StageGestureContext) {
+  return (world: { x: number; y: number }, client: { x: number; y: number }): boolean => {
+    const placed = placeWithTool(docRef.current, toolState.tool, world, ulid());
+    if (!placed) return false;
+    schedulePersist(placed.doc);
+    setSelection(selNode(placed.node.id));
+    setToolState((s) => reduceCanvasTool(s, { type: "placed" }));
+    setInspectorAnchor(null);
+    setShapeInspectorAnchor(isShapeNode(placed.node) ? client : null);
+    return true;
+  };
+}
+
 function createStageGestures(
-  {
-    dispatchPointer,
-    docRef,
-    pointerRef,
-    schedulePersist,
-    setInspectorAnchor,
-    setSelection,
-    setShapeInspectorAnchor,
-    setToolState,
-    spaceDown,
-    toolState,
-  }: StageGestureContext,
+  context: StageGestureContext,
   screenToWorld: ScreenToWorld,
   cardAt: CardAt,
 ) {
+  const { dispatchPointer, docRef, schedulePersist, setSelection, spaceDown, toolState } = context;
+  const placeAt = createToolPlacement(context);
   const onPointerDownStage = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button === 1 || spaceDown || (e.button === 0 && e.altKey)) {
       dispatchPointer({ type: "pan/start", screen: { x: e.clientX, y: e.clientY } });
@@ -259,23 +278,8 @@ function createStageGestures(
       return;
     }
     if (e.button === 0 && isEmptyStageTarget(e.target)) {
-      const placed = placeWithTool(
-        docRef.current,
-        toolState.tool,
-        screenToWorld(e.clientX, e.clientY, e.currentTarget),
-        ulid(),
-      );
-      if (placed) {
-        schedulePersist(placed.doc);
-        setSelection(selNode(placed.node.id));
-        setToolState((s) => reduceCanvasTool(s, { type: "placed" }));
-        setInspectorAnchor(null);
-        setShapeInspectorAnchor(null);
-        if (isShapeNode(placed.node)) {
-          setShapeInspectorAnchor({ x: e.clientX, y: e.clientY });
-        }
-        return;
-      }
+      const client = { x: e.clientX, y: e.clientY };
+      if (placeAt(screenToWorld(e.clientX, e.clientY, e.currentTarget), client)) return;
       // Begin marquee or clear selection
       const world = screenToWorld(e.clientX, e.clientY, e.currentTarget);
       dispatchPointer({
@@ -314,49 +318,35 @@ function createStageGestures(
     });
   };
 
-  const onPointerUp = createPointerEnd(
-    {
-      dispatchPointer,
-      docRef,
-      pointerRef,
-      schedulePersist,
-      setInspectorAnchor,
-      setSelection,
-      setShapeInspectorAnchor,
-      setToolState,
-      spaceDown,
-      toolState,
-    },
-    screenToWorld,
-    cardAt,
-  );
+  const onPointerUp = createPointerEnd(context, screenToWorld, cardAt);
   return {
     onDoubleClickStage,
     onPointerDownStage,
     onPointerMove,
     onPointerUp,
+    placeAt,
   };
 }
 
 function createAddKbNode({
   docRef,
   flushPersist,
-  pan,
+  placementPoint,
   setPickerOpen,
   setSelection,
-  zoom,
 }: Pick<
   CanvasGestureContext,
-  "docRef" | "flushPersist" | "pan" | "setPickerOpen" | "setSelection" | "zoom"
+  "docRef" | "flushPersist" | "placementPoint" | "setPickerOpen" | "setSelection"
 >) {
   const addKbNode = (nodeId: string) => {
     setPickerOpen(false);
+    const at = placementPoint();
     const card = {
       id: ulid(),
       type: "kb-node" as const,
       nodeId,
-      x: (200 - pan.x) / zoom,
-      y: (160 - pan.y) / zoom,
+      x: at.x,
+      y: at.y,
       width: 280,
       height: 72,
     };

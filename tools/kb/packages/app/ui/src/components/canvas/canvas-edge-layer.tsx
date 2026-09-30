@@ -182,7 +182,7 @@ function CanvasEdgeView({
   })();
 
   return (
-    <g key={edge.id}>
+    <g key={edge.id} data-edge-id={edge.id} data-selected={selected ? "" : undefined}>
       {/* Fat transparent hit area */}
       <path
         d={d}

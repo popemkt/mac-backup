@@ -1,12 +1,20 @@
 import { describe, expect, test } from "vitest";
 import {
+  MAX_PITCH,
+  cameraPose,
   clientToCanvas,
   fitView,
   hitTest,
+  lerpView,
+  orbitView,
   panOfView,
+  panView,
+  poseOfView,
   projectPoint,
   screenToPlane,
   viewOfPan,
+  viewOfPose,
+  zoomViewAt,
   type CanvasHitItem,
   type CanvasView,
 } from "@/lib/canvas-camera";
@@ -141,5 +149,55 @@ describe("zoom to fit", () => {
 
   test("nothing to frame is no view", () => {
     expect(fitView([], size, perspective)).toBeNull();
+  });
+});
+
+describe("moving the camera", () => {
+  test("a pan carries the focus plane with the pointer", () => {
+    const panned = panView(perspective, 30, -12);
+    const focus = { x: perspective.x, y: perspective.y, z: perspective.z };
+    const f0 = projectPoint(perspective, size, focus);
+    const f1 = projectPoint(panned, size, focus);
+    expect((f1?.x ?? 0) - (f0?.x ?? 0)).toBeCloseTo(30, 6);
+    expect((f1?.y ?? 0) - (f0?.y ?? 0)).toBeCloseTo(-12, 6);
+  });
+
+  test("zooming about a point keeps the canvas under it", () => {
+    const cursor = { x: 900, y: 200 };
+    const under = screenToPlane(perspective, size, cursor, perspective.z);
+    const zoomed = zoomViewAt(perspective, size, 1.6, cursor);
+    expect(zoomed.zoom).toBeCloseTo(perspective.zoom * 1.6, 9);
+    const after = projectPoint(zoomed, size, under ?? { x: 0, y: 0, z: 0 });
+    expect(after?.x).toBeCloseTo(cursor.x, 3);
+    expect(after?.y).toBeCloseTo(cursor.y, 3);
+  });
+
+  test("an orbit never tips the canvas past edge-on", () => {
+    expect(orbitView(perspective, 0, 10_000).pitch).toBe(MAX_PITCH);
+    expect(orbitView(perspective, 0, -10_000).pitch).toBe(-MAX_PITCH);
+    expect(orbitView(perspective, 50, 0).yaw).toBeLessThan(perspective.yaw);
+  });
+
+  test("a lerp turns the short way round and zooms in proportion", () => {
+    const a = { ...perspective, yaw: 3, zoom: 1 };
+    const b = { ...perspective, yaw: -3, zoom: 4 };
+    const mid = lerpView(a, b, 0.5);
+    expect(Math.abs(mid.yaw)).toBeGreaterThan(3);
+    expect(mid.zoom).toBeCloseTo(2, 9);
+    expect(lerpView(a, b, 1).fov).toBe(b.fov);
+  });
+
+  test("the pose a renderer aims with has up square to the line of sight", () => {
+    const pose = cameraPose(perspective, size);
+    const sight = {
+      x: pose.target.x - pose.eye.x,
+      y: pose.target.y - pose.eye.y,
+      z: pose.target.z - pose.eye.z,
+    };
+    expect(sight.x * pose.up.x + sight.y * pose.up.y + sight.z * pose.up.z).toBeCloseTo(0, 6);
+  });
+
+  test("a pose saves all but the field of view, and comes back whole", () => {
+    expect(viewOfPose(poseOfView(perspective), perspective.fov)).toEqual(perspective);
   });
 });

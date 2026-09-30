@@ -355,7 +355,16 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "components/prefs",
     "components/sidebar",
   ],
-  "components/canvas": ["components/canvas", "primitives", "stores", "actions", "lib", "view-keys"],
+  "components/canvas": [
+    "components/canvas",
+    "primitives",
+    "stores",
+    "actions",
+    "lib",
+    // The 3D projection stands on the scene kit, as the 3D graph does.
+    "scene",
+    "view-keys",
+  ],
   "components/graph": [
     "components/graph",
     "primitives",

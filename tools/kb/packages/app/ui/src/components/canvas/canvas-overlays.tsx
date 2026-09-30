@@ -1,4 +1,10 @@
-import type { CanvasEdge, CanvasNode, CanvasShapeNode, KbLinkMode } from "@kb/canvas";
+import type {
+  CanvasEdge,
+  CanvasNode,
+  CanvasProjectionKind,
+  CanvasShapeNode,
+  KbLinkMode,
+} from "@kb/canvas";
 import { CanvasToolbar } from "@/components/canvas/canvas-toolbar";
 import { EdgeInspector } from "@/components/canvas/edge-inspector";
 import { NodePicker } from "@/components/canvas/node-picker";
@@ -8,6 +14,8 @@ import { selectionEmpty } from "@/lib/canvas-selection";
 import type { CanvasTool, ToolState } from "@/lib/canvas-tool";
 
 interface CanvasOverlaysProps {
+  projection: CanvasProjectionKind;
+  onProjectionChange: (projection: CanvasProjectionKind) => void;
   selection: CanvasSelection;
   toolState: ToolState;
   selectedEdge: CanvasEdge | null;
@@ -33,6 +41,8 @@ interface CanvasOverlaysProps {
 }
 
 export function CanvasOverlays({
+  projection,
+  onProjectionChange,
   selection,
   toolState,
   selectedEdge,
@@ -59,6 +69,8 @@ export function CanvasOverlays({
   return (
     <>
       <CanvasToolbar
+        projection={projection}
+        onProjectionChange={onProjectionChange}
         tool={toolState.tool}
         sticky={toolState.sticky}
         onToolChange={onToolChange}

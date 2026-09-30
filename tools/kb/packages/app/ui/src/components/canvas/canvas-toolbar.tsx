@@ -1,15 +1,19 @@
 import type { ReactNode } from "react";
 import {
   CircleIcon,
+  CubeIcon,
   CursorIcon,
   DiamondIcon,
   FrameCornersIcon,
   PlusIcon,
   SquareIcon,
+  SquareHalfIcon,
   TextTIcon,
 } from "@phosphor-icons/react";
+import type { CanvasProjectionKind } from "@kb/canvas";
 import type { CanvasTool } from "@/lib/canvas-tool";
 import { cn } from "@/lib/cn";
+import { CANVAS_PROJECTIONS } from "./canvas-projections";
 
 const TOOLS: {
   id: CanvasTool;
@@ -25,14 +29,29 @@ const TOOLS: {
   { id: "kb-node", label: "Add kb node (N)", icon: <PlusIcon size={16} /> },
 ];
 
+/** Each projection's mark on the toggle. */
+const PROJECTION_ICONS: Record<CanvasProjectionKind, ReactNode> = {
+  "2d": <SquareHalfIcon size={16} />,
+  "3d": <CubeIcon size={16} />,
+};
+
 interface CanvasToolbarProps {
+  projection: CanvasProjectionKind;
+  onProjectionChange: (projection: CanvasProjectionKind) => void;
   tool: CanvasTool;
   sticky?: boolean;
   onToolChange: (tool: CanvasTool) => void;
   onToolDoubleClick: (tool: CanvasTool) => void;
 }
 
+const BUTTON = cn(
+  "relative flex h-8 w-8 items-center justify-center rounded-md text-foreground/55 transition-colors",
+  "hover:bg-foreground/5 hover:text-foreground/80",
+);
+
 export function CanvasToolbar({
+  projection,
+  onProjectionChange,
   tool,
   sticky,
   onToolChange,
@@ -52,11 +71,7 @@ export function CanvasToolbar({
           title={t.label}
           aria-label={t.label}
           aria-pressed={tool === t.id}
-          className={cn(
-            "relative flex h-8 w-8 items-center justify-center rounded-md text-foreground/55 transition-colors",
-            "hover:bg-foreground/5 hover:text-foreground/80",
-            tool === t.id && "bg-foreground/8 text-foreground/90",
-          )}
+          className={cn(BUTTON, tool === t.id && "bg-foreground/8 text-foreground/90")}
           onClick={() => onToolChange(t.id)}
           onDoubleClick={(e) => {
             e.preventDefault();
@@ -69,6 +84,23 @@ export function CanvasToolbar({
           )}
         </button>
       ))}
+      <div className="mx-1.5 my-1 h-px bg-foreground/10" role="separator" />
+      <div role="group" aria-label="Projection" className="flex flex-col gap-0.5">
+        {CANVAS_PROJECTIONS.map((p) => (
+          <button
+            key={p.kind}
+            type="button"
+            title={`${p.label}: ${p.title}`}
+            aria-label={`${p.label} projection`}
+            aria-pressed={projection === p.kind}
+            data-projection={p.kind}
+            className={cn(BUTTON, projection === p.kind && "bg-primary/12 text-primary")}
+            onClick={() => onProjectionChange(p.kind)}
+          >
+            {PROJECTION_ICONS[p.kind]}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

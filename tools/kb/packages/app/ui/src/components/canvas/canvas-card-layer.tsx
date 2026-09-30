@@ -51,6 +51,7 @@ function CanvasCardView({
       <div
         key={card.id}
         data-card-id={card.id}
+        data-selected={isSelected ? "" : undefined}
         className={cn(
           "group/card absolute rounded-md border border-dashed bg-foreground/[0.02]",
           isSelected ? "border-primary/40" : "border-foreground/10",
@@ -77,7 +78,7 @@ function CanvasCardView({
   }
   if (isTextNode(card)) {
     return (
-      <div key={card.id} data-card-id={card.id}>
+      <div key={card.id} data-card-id={card.id} data-selected={isSelected ? "" : undefined}>
         <TextCard
           card={card}
           selected={isSelected}
@@ -98,7 +99,7 @@ function CanvasCardView({
   }
   if (isShapeNode(card)) {
     return (
-      <div key={card.id} data-card-id={card.id}>
+      <div key={card.id} data-card-id={card.id} data-selected={isSelected ? "" : undefined}>
         <ShapeCard
           card={card}
           selected={isSelected}
@@ -125,6 +126,7 @@ function CanvasCardView({
       <div
         key={card.id}
         data-card-id={card.id}
+        data-selected={isSelected ? "" : undefined}
         className={cn(
           "group/card absolute rounded-md border bg-background px-2 py-1 text-label text-foreground/40",
           isSelected ? "border-primary/40" : "border-foreground/[0.06]",
@@ -147,7 +149,7 @@ function CanvasCardView({
     );
   }
   return (
-    <div key={card.id} data-card-id={card.id}>
+    <div key={card.id} data-card-id={card.id} data-selected={isSelected ? "" : undefined}>
       <KbNodeCard
         card={card}
         selected={isSelected}

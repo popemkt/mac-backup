@@ -1,6 +1,9 @@
-import { useCallback, useMemo, useReducer, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useMemo, useReducer, useRef, useState } from "react";
 import type { CanvasNode } from "@kb/canvas";
 import { upsertCanvasEdge, upsertCanvasNode } from "@kb/canvas";
+import { cn } from "@/lib/cn";
+import { useAppearance } from "@/stores/prefs.store";
+import { useCanvasProjection } from "@/components/canvas/use-canvas-projection";
 import { Bullet } from "@/components/outline/bullet";
 import { NodeRow } from "@/components/outline/node-row";
 import { NotFound } from "@/components/ui/not-found";
@@ -24,6 +27,9 @@ import {
 import { navigate } from "@/lib/router";
 import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
+
+/** The 3D projection's chunk: three loads only when a canvas is looked at in depth. */
+const Canvas3dStage = lazy(() => import("@/components/canvas/canvas-3d-stage"));
 
 interface CanvasPageProps {
   canvasId: string;
@@ -50,9 +56,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     schedulePersist,
     previewDoc,
     flushPersist,
+    setCamera,
     undo: undoCanvasDoc,
     redo: redoCanvasDoc,
   } = useCanvasDoc({ canvasId, canvasNode, nodes, rev, isInteracting });
+  const appearance = useAppearance();
   const { pan, marqueeRect, snapGuides } = pointerState;
 
   const [zoom, setZoom] = useState(1);
@@ -114,6 +122,20 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   const refFields = useMemo(() => listRefFields(nodes), [nodes]);
 
+  const stageRef = useRef<HTMLDivElement>(null);
+  const items = useCallback(() => docRef.current.nodes, [docRef]);
+  const projection = useCanvasProjection({
+    doc,
+    pan,
+    zoom,
+    stage: stageRef,
+    setCamera,
+    setZoom,
+    dispatchPointer,
+    items,
+  });
+  const in3d = projection.shown === "3d";
+
   const {
     addKbNode,
     onDoubleClickStage,
@@ -121,12 +143,14 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     onPointerMove,
     onPointerUp,
     onWheel,
+    placeAt,
     setTool,
     setToolSticky,
     startMoveForSelection,
     startResize,
     viewportControls,
   } = useCanvasGestures({
+    placementPoint: projection.placementPoint,
     docRef,
     pointerRef,
     pan,
@@ -162,7 +186,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setPickerOpen,
     setSpaceDown,
     setToolState,
-    viewport: viewportControls,
+    viewport: projection.viewportOf(viewportControls),
   });
 
   const { onDeleteEdge, onFieldChange, onModeChange } = createCanvasEdgeActions({
@@ -209,53 +233,98 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         <span className="text-label text-foreground/30">{Math.round(zoom * 100)}%</span>
       </div>
 
-      <div className="relative min-h-0 flex flex-1">
-        <CanvasStage
-          doc={doc}
-          nodes={nodes}
-          byId={byId}
-          selection={selection}
-          pan={pan}
-          zoom={zoom}
-          spaceDown={spaceDown}
-          toolState={toolState}
-          editingEdgeLabel={editingEdgeLabel}
-          edgeDrag={pointerState.drag?.kind === "edge" ? pointerState.drag : null}
-          snapGuides={snapGuides}
-          marqueeRect={marqueeRect}
-          onEditingEdgeLabelChange={setEditingEdgeLabel}
-          onEdgeLabelCommit={(edge, label) => {
-            const updated = { ...edge, label: label || undefined };
-            if (!label) delete updated.label;
-            schedulePersist(upsertCanvasEdge(docRef.current, updated));
-          }}
-          onCardSelect={(card, anchor) => {
-            setSelection(selNode(card.id));
-            setInspectorAnchor(null);
-            setShapeInspectorAnchor(anchor ?? null);
-          }}
-          onCardChange={(card) => schedulePersist(upsertCanvasNode(docRef.current, card))}
-          onResizeStart={startResize}
-          onPortDown={(cardId, side, screen) => {
-            dispatchPointer({
-              type: "edge/start",
-              fromCardId: cardId,
-              fromSide: side,
-              screen,
-            });
-          }}
-          onWheel={onWheel}
-          onPointerDownStage={onPointerDownStage}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={cancelPointer}
-          onDoubleClickStage={onDoubleClickStage}
-          handleCardPointerDown={(card, event, anchor) => {
-            onCardPointerDown(card, event, anchor, () => startMoveForSelection(event, card.id));
-          }}
-          handleEdgeClick={onEdgeClick}
-        />
+      <div ref={stageRef} className="relative min-h-0 flex flex-1">
+        <div
+          className={cn(
+            "kb-projection-layer relative flex min-h-0 flex-1",
+            in3d && "pointer-events-none opacity-0",
+          )}
+          aria-hidden={in3d}
+        >
+          <CanvasStage
+            doc={doc}
+            nodes={nodes}
+            byId={byId}
+            selection={selection}
+            pan={pan}
+            zoom={zoom}
+            spaceDown={spaceDown}
+            toolState={toolState}
+            editingEdgeLabel={editingEdgeLabel}
+            edgeDrag={pointerState.drag?.kind === "edge" ? pointerState.drag : null}
+            snapGuides={snapGuides}
+            marqueeRect={marqueeRect}
+            onEditingEdgeLabelChange={setEditingEdgeLabel}
+            onEdgeLabelCommit={(edge, label) => {
+              const updated = { ...edge, label: label || undefined };
+              if (!label) delete updated.label;
+              schedulePersist(upsertCanvasEdge(docRef.current, updated));
+            }}
+            onCardSelect={(card, anchor) => {
+              setSelection(selNode(card.id));
+              setInspectorAnchor(null);
+              setShapeInspectorAnchor(anchor ?? null);
+            }}
+            onCardChange={(card) => schedulePersist(upsertCanvasNode(docRef.current, card))}
+            onResizeStart={startResize}
+            onPortDown={(cardId, side, screen) => {
+              dispatchPointer({
+                type: "edge/start",
+                fromCardId: cardId,
+                fromSide: side,
+                screen,
+              });
+            }}
+            onWheel={onWheel}
+            onPointerDownStage={onPointerDownStage}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={cancelPointer}
+            onDoubleClickStage={onDoubleClickStage}
+            handleCardPointerDown={(card, event, anchor) => {
+              onCardPointerDown(card, event, anchor, () => startMoveForSelection(event, card.id));
+            }}
+            handleEdgeClick={onEdgeClick}
+          />
+        </div>
+        {projection.mounted3d && (
+          <div
+            className={cn(
+              "kb-projection-layer absolute inset-0",
+              !in3d && "pointer-events-none opacity-0",
+            )}
+          >
+            <Suspense fallback={null}>
+              <Canvas3dStage
+                key={projection.entry}
+                doc={doc}
+                nodes={nodes}
+                selection={selection}
+                rig={projection.rig}
+                appearance={appearance}
+                spaceDown={spaceDown}
+                onReady={projection.onSceneReady}
+                onError={projection.onSceneError}
+                onCardPress={(card, press, startMove) =>
+                  onCardPointerDown(card, press, undefined, startMove)
+                }
+                dispatchPointer={dispatchPointer}
+                onTapEmpty={(world, press) => {
+                  const client = { x: press.clientX, y: press.clientY };
+                  if (world !== null && placeAt(world, client)) return;
+                  if (press.shiftKey) return;
+                  setSelection(EMPTY_SELECTION);
+                  setInspectorAnchor(null);
+                  setShapeInspectorAnchor(null);
+                }}
+                onViewSettled={projection.onViewSettled}
+              />
+            </Suspense>
+          </div>
+        )}
         <CanvasOverlays
+          projection={projection.target}
+          onProjectionChange={projection.choose}
           selection={selection}
           toolState={toolState}
           selectedEdge={selectedEdgeObj}

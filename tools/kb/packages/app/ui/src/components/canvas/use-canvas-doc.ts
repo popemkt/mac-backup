@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { CanvasDoc } from "@kb/canvas";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { withCanvasCamera, type CanvasCamera, type CanvasDoc } from "@kb/canvas";
 import { persistCanvasDoc, readCanvasDoc, syncDocOnRev } from "@/lib/canvas-api";
 import {
   initHistory,
@@ -11,6 +11,42 @@ import {
 import type { OutlineNode } from "@/lib/types";
 
 const DEBOUNCE_MS = 300;
+
+/**
+ * `next` looked at the way the canvas is now. The camera is view state, not
+ * content: whatever document an edit was derived from, and wherever undo
+ * goes, the view stays. Only `setCamera` and the store move it.
+ */
+function keepView(now: CanvasDoc, next: CanvasDoc): CanvasDoc {
+  return withCanvasCamera(next, now.camera);
+}
+
+/** Undo and redo, and the camera, which moves outside the history. */
+function useViewOps(
+  canvasId: string,
+  historyRef: RefObject<CanvasHistory>,
+  installHistory: (next: CanvasHistory) => void,
+) {
+  return useMemo(() => {
+    const install = (next: CanvasHistory) => {
+      installHistory(next);
+      void persistCanvasDoc(canvasId, next.present);
+    };
+    return {
+      travel: (transform: (current: CanvasHistory) => CanvasHistory) => {
+        const current = historyRef.current;
+        const travelled = transform(current);
+        if (travelled === current) return;
+        install({ ...travelled, present: keepView(current.present, travelled.present) });
+      },
+      /** Look through `camera`: saved with the document, never an undo step. */
+      setCamera: (camera: CanvasCamera) => {
+        const current = historyRef.current;
+        install({ ...current, present: withCanvasCamera(current.present, camera) });
+      },
+    };
+  }, [canvasId, historyRef, installHistory]);
+}
 
 interface UseCanvasDocOptions {
   canvasId: string;
@@ -48,7 +84,8 @@ export function useCanvasDoc({
 
   const applyDoc = useCallback(
     (next: CanvasDoc) => {
-      const updated = pushHistory(previewBase.current ?? historyRef.current, next);
+      const view = keepView(historyRef.current.present, next);
+      const updated = pushHistory(previewBase.current ?? historyRef.current, view);
       previewBase.current = null;
       installHistory(updated);
     },
@@ -71,7 +108,7 @@ export function useCanvasDoc({
   const previewDoc = useCallback(
     (next: CanvasDoc) => {
       previewBase.current ??= historyRef.current;
-      applyDocSilent(next);
+      applyDocSilent(keepView(historyRef.current.present, next));
     },
     [applyDocSilent],
   );
@@ -92,7 +129,7 @@ export function useCanvasDoc({
       timerRef.current = null;
       dirtyRef.current = false;
       applyDoc(next);
-      await persistCanvasDoc(canvasId, next, opts);
+      await persistCanvasDoc(canvasId, historyRef.current.present, opts);
     },
     [applyDoc, canvasId],
   );
@@ -104,13 +141,7 @@ export function useCanvasDoc({
     installHistory(base);
   }, [installHistory]);
 
-  const travelHistory = (transform: (current: CanvasHistory) => CanvasHistory) => {
-    const current = historyRef.current;
-    const next = transform(current);
-    if (next === current) return;
-    installHistory(next);
-    void persistCanvasDoc(canvasId, next.present);
-  };
+  const view = useViewOps(canvasId, historyRef, installHistory);
 
   useEffect(() => {
     syncDocOnRev(canvasId, nodesRef.current, {
@@ -133,8 +164,9 @@ export function useCanvasDoc({
     schedulePersist,
     previewDoc,
     flushPersist,
-    undo: () => travelHistory(undoHistory),
-    redo: () => travelHistory(redoHistory),
+    setCamera: view.setCamera,
+    undo: () => view.travel(undoHistory),
+    redo: () => view.travel(redoHistory),
     cancelPreview,
   };
 }

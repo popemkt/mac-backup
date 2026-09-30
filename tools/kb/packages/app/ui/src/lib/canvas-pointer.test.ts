@@ -222,3 +222,36 @@ describe("shift-locked resize", () => {
     expect(released.persist).toBe("history");
   });
 });
+
+describe("lift", () => {
+  test("a drag up raises the carried cards by whole units at the current zoom", () => {
+    const ctx = { ...context(), zoom: 2 };
+    const started = reduce(
+      createPointerState(),
+      { type: "lift/start", id: moving.id, screen: { x: 0, y: 100 } },
+      ctx,
+    );
+    const still = reduce(
+      started.state,
+      { type: "pointer/move", screen: { x: 0, y: 98 }, world: { x: 0, y: 0 }, shiftKey: false },
+      ctx,
+    );
+    // Inside the slop nothing moves.
+    expect(still.doc).toBeUndefined();
+    const lifted = reduce(
+      started.state,
+      { type: "pointer/move", screen: { x: 0, y: 41 }, world: { x: 0, y: 0 }, shiftKey: false },
+      ctx,
+    );
+    expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(30);
+    expect(lifted.persist).toBe("silent");
+    const released = reduce(
+      lifted.state,
+      { type: "pointer/end", screen: { x: 0, y: 100 }, world: { x: 0, y: 0 } },
+      { ...context(lifted.doc), zoom: 2 },
+    );
+    // Back where it started, the card carries no depth at all.
+    expect(released.doc?.nodes.find((n) => n.id === moving.id)).not.toHaveProperty("z");
+    expect(released.persist).toBe("history");
+  });
+});
