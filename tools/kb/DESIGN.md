@@ -1441,11 +1441,14 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   kb has no way to check that a person really approved the call. The gate
   means only that a caller must say so deliberately and cannot end up
   approving by accident. Anyone who can reach a surface that carries the
-  flag can set it. Two such gaps are known:
-  - `POST /api/action` has no Origin check, so any web page open in a local
-    browser can post to it (`GAP-ACTION-ORIGIN`).
-  - The browser UI does not yet send approval at all (`GAP-BROWSER-APPROVAL`).
-    The step 5 sidebar's approval prompt closes that.
+  flag can set it. Who can reach `kb ui`'s HTTP and `/ws` is decided by its
+  one request guard (`app/server/src/guard.ts`, applied before `/ws` and
+  every `/api/*` route). A request passes only when its `Host` names this
+  server, which stops DNS rebinding. It must also carry no `Origin` (a local
+  program) or the UI's own. A `POST /api/action` must also be
+  `application/json`, so a page on another site cannot reach it at all. One
+  gap is known: the browser UI does not yet send approval
+  (`GAP-BROWSER-APPROVAL`). The step 5 sidebar's approval prompt closes that.
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
 - **One contract, every surface.** The CLI (`action-invoke`), MCP, HTTP and
   WebMCP each list the registry's action ids with their declared modes, from

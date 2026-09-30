@@ -87,10 +87,8 @@ const handleHttpRequestEffect = (
       return jsonResponse(yield* listSavedQueriesEffect(root));
     }
 
-    // No Origin check: any web page open in a local browser can POST here,
-    // `approved: true` included, since `approved` is a declaration and not a
-    // security boundary (DESIGN.md → Action registry).
-    // GAP [[01M3R2KDKN1EFE87R1K8CG3NPE]]
+    // The request guard (`guard.ts`) has already refused another site's page,
+    // so only the UI and local programs reach this.
     if (url.pathname === "/api/action" && req.method === "POST") {
       const body = yield* Effect.tryPromise(() => req.json()).pipe(Effect.option);
       if (Option.isNone(body)) {

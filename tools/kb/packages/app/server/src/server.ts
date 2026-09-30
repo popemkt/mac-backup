@@ -17,6 +17,7 @@ import {
   type UiDevSpawn,
 } from "./dev.ts";
 import { childProcessEnv, UI_DIST, UI_ROOT } from "./paths.ts";
+import { requestGuard, type RequestGuard } from "./guard.ts";
 import { handleHttpRequest } from "./http.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
@@ -34,6 +35,12 @@ export interface UiServerOptions {
   port?: number;
   openBrowser?: boolean;
   hostname?: string;
+  /**
+   * The port the browser loads the UI from, when another server serves it
+   * (the Vite dev server of `kb ui --dev`); its origin is the UI's. Default:
+   * this server's own port.
+   */
+  uiPort?: number;
 }
 
 export interface UiServerHandle {
@@ -152,16 +159,23 @@ function ingestEach(
 function serveUi(deps: {
   hostname: string;
   port: number;
+  uiPort: number | undefined;
   root: string;
   ctx: KbContext;
   hub: SubscriptionHub;
 }): Bun.Server<WsData> {
   const { ctx, hub } = deps;
+  // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
+  let guard: RequestGuard | null = null;
   return Bun.serve<WsData>({
     hostname: deps.hostname,
     port: deps.port,
     fetch(req, srv) {
       const url = new URL(req.url);
+      const port = srv.port ?? deps.port;
+      guard ??= requestGuard({ hostname: deps.hostname, port, uiPort: deps.uiPort ?? port });
+      const refused = guard.refuse(req, url);
+      if (refused !== null) return refused;
 
       if (url.pathname === "/ws" && req.method === "GET") {
         // Every connection is its own client. A tab names itself in the
@@ -226,7 +240,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   // The listener first: a bind that fails throws here, before the lifetime
   // owns anything, so nothing is left running behind a server that never came
   // up.
-  const server = serveUi({ hostname, port, root: opts.root, ctx, hub });
+  const server = serveUi({ hostname, port, uiPort: opts.uiPort, root: opts.root, ctx, hub });
 
   yield* Scope.addFinalizer(
     lifetime,
@@ -306,6 +320,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
     root: opts.root,
     port: opts.backendPort,
     openBrowser: false,
+    uiPort: opts.devPort,
   });
   const spawn = opts.spawn ?? bunSpawnDev;
   const child = yield* Effect.try({
