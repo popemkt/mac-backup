@@ -113,6 +113,14 @@ export function defaultViewIdOf(node: Carrier | undefined): NodeId | null {
 }
 
 /**
+ * A host's views with `viewId` first and the rest in their order: what
+ * making it the host's default writes, as one replacement of `sys.f.views`.
+ */
+export function viewsWithDefault(node: Carrier | undefined, viewId: NodeId): NodeId[] {
+  return [viewId, ...hostViewIds(node).filter((id) => id !== viewId)];
+}
+
+/**
  * The first view node a host names whose view is of `family`, as that view's
  * option node says (`sys.f.view.family`): what the host shows through that
  * family — for a frame, the view its children are shown in — whether or not

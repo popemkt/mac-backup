@@ -19,6 +19,7 @@ import {
   isViewNode,
   viewOptionId,
   viewOptionOf,
+  viewsWithDefault,
 } from "../src/view-node.ts";
 
 const seed = new Map(systemSeedNodes().map((node) => [node.id, node]));
@@ -73,6 +74,8 @@ describe("a view node and its host", () => {
       "v.2",
     );
     expect(defaultViewIdOf(carrying({}))).toBeNull();
+    expect(viewsWithDefault(host, "v.2")).toEqual(["v.2", "v.1"]);
+    expect(viewsWithDefault(host, "v.new")).toEqual(["v.new", "v.1", "v.2"]);
   });
 
   test("a host's view of a family is the first it names whose option is of that family", () => {

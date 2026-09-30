@@ -122,6 +122,7 @@ export {
   VIEW_VALUES,
   defaultViewIdOf,
   familyViewIdOf,
+  viewsWithDefault,
   docsViewProps,
   familyViewNodesQuery,
   hostViewIds,

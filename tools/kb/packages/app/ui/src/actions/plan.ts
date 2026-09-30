@@ -2,7 +2,7 @@ import type { ActionInvocation, WireNode } from "@kb/contracts";
 import {
   familyViewIdOf,
   fieldTypeValue,
-  hostViewIds,
+  viewsWithDefault,
   siblingSlots,
   viewOptionId,
   wouldCreateExtendsCycle,
@@ -506,7 +506,7 @@ export function planEditFrameView(
   };
   const made = planAddViewNode(nodes, newViewId, "", props);
   if (made === null) return null;
-  const views = [newViewId, ...hostViewIds(frame).filter((id) => id !== newViewId)];
+  const views = viewsWithDefault(frame, newViewId);
   const named = replaceProps(nodes, frameId, [
     { field: SYSTEM_IDS.viewsField, values: views.map(refTo) },
   ]);

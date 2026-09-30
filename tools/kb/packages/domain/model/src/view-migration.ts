@@ -14,7 +14,7 @@ import { SYSTEM_IDS, type KbNode, type NodeId, type PropValue } from "./model.ts
 import {
   DOCS_VIEW_OPTION,
   docsViewProps,
-  hostViewIds,
+  viewsWithDefault,
   isViewNode,
   viewOptionId,
   viewOptionOf,
@@ -191,7 +191,7 @@ function frameViewNode(frame: KbNode, id: NodeId): KbNode {
 function withoutFrameSettings(frame: KbNode, viewId: NodeId): KbNode {
   let props = frame.props;
   for (const field of FRAME_FIELDS) props = withField(props, field, []);
-  const views = [viewId, ...hostViewIds(frame).filter((id) => id !== viewId)];
+  const views = viewsWithDefault(frame, viewId);
   return { ...frame, props: { ...props, [SYSTEM_IDS.viewsField]: views.map(ref) } };
 }
 
