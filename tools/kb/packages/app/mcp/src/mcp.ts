@@ -14,11 +14,12 @@ import {
 import { Cause, Effect, Exit, Predicate } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
-  requiresApproval,
+  listedOn,
   type ActionInvocation,
   type ActionMode,
   type KbContext,
   type ManifestEntry,
+  type SurfaceWire,
 } from "@kb/contracts";
 import { type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect, listViewNamesEffect, renderNamedViewEffect } from "@kb/operations";
@@ -68,16 +69,16 @@ function modeHints(
 }
 
 /**
- * Whether an action appears in `tools/list`. An MCP call cannot carry
- * approval, so an approval-required action could never succeed here, and
- * listing it would only advertise a tool that always fails. It is still
- * reachable by its tool name, and the invoke core refuses that call with
- * `approval_required`. `kb_manifest` still lists it.
+ * MCP's wire: a `tools/call` has no envelope, because its arguments are the
+ * input, so it cannot carry `approved`. `tools/list` therefore leaves
+ * approval-required actions out ({@link listedOn}); a call by tool name still
+ * reaches the invoke core and gets `approval_required`, and `kb.manifest`
+ * still lists them.
  */
-function listedOnMcp(entry: ManifestEntry): boolean {
+export const MCP_WIRE: SurfaceWire = {
   // GAP [[01M3R2KD6V1AZ9WS62ZVG9T4G2]]
-  return !requiresApproval(entry.mode);
-}
+  carriesApproval: false,
+};
 
 function asObjectSchema(schema: unknown): Tool["inputSchema"] {
   if (Predicate.isObject(schema) && schema.type === "object") {
@@ -230,16 +231,18 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
   const ctx = yield* openKbEffect(root);
   const actions = (yield* registryFor(root)).manifestEntries;
   const byToolName = new Map(actions.map((a) => [actionIdToToolName(a.id), a] as const));
-  const tools = actions.filter(listedOnMcp).map(
-    (a): Tool => ({
-      name: actionIdToToolName(a.id),
-      title: a.title,
-      description: a.description,
-      inputSchema: asObjectSchema(a.inputSchema),
-      annotations: { title: a.title, ...modeHints(a.mode) },
-      _meta: { [ACTION_META_KEY]: { id: a.id, mode: a.mode } },
-    }),
-  );
+  const tools = actions
+    .filter((a) => listedOn(MCP_WIRE, a.mode))
+    .map(
+      (a): Tool => ({
+        name: actionIdToToolName(a.id),
+        title: a.title,
+        description: a.description,
+        inputSchema: asObjectSchema(a.inputSchema),
+        annotations: { title: a.title, ...modeHints(a.mode) },
+        _meta: { [ACTION_META_KEY]: { id: a.id, mode: a.mode } },
+      }),
+    );
 
   return bindMcpHandlers(ctx, tools, { byToolName });
 }, Effect.provide(bunFileSystemLayer));

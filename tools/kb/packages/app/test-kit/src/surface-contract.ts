@@ -19,10 +19,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import {
-  requiresApproval,
+  listedOn,
   type ActionInvocation,
   type ActionMode,
   type ActionReceipt,
+  type SurfaceWire,
 } from "@kb/contracts";
 import { bunFileSystemLayer, invoke, manifest, openKb } from "@kb/runtime";
 
@@ -45,8 +46,11 @@ export interface ActionSurface {
    * real caller of that surface would.
    */
   invoke(invocation: ActionInvocation): Promise<ActionReceipt>;
-  /** Whether this surface's wire format has an envelope that can carry `approved`. */
-  readonly carriesApproval: boolean;
+  /**
+   * What this surface's wire can carry, as the surface itself declares it.
+   * The properties below prove the declaration by behaviour.
+   */
+  readonly wire: SurfaceWire;
   close(): Promise<void>;
 }
 
@@ -94,7 +98,7 @@ const CALLS: readonly ActionInvocation[] = [
 ];
 
 /** A receipt as data on the wire: what any surface can faithfully return. */
-function wire(receipt: ActionReceipt): unknown {
+function asWireData(receipt: ActionReceipt): unknown {
   return JSON.parse(JSON.stringify(receipt));
 }
 
@@ -179,9 +183,7 @@ const PROPERTIES: ReadonlyArray<
         Effect.gen(function* () {
           const registry = yield* manifest(root).pipe(Effect.provide(bunFileSystemLayer));
           expect(registry.some((entry) => entry.id === APPROVAL_ACTION)).toBe(true);
-          const callable = registry.filter(
-            (entry) => surface.carriesApproval || !requiresApproval(entry.mode),
-          );
+          const callable = registry.filter((entry) => listedOn(surface.wire, entry.mode));
           const listed = yield* Effect.promise(() => surface.list());
           expect({ name, listed: byId(listed) }).toEqual({ name, listed: byId(callable) });
         }),
@@ -195,11 +197,11 @@ const PROPERTIES: ReadonlyArray<
           CALLS,
           (call) =>
             Effect.gen(function* () {
-              const receipt = wire(yield* via(call));
+              const receipt = asWireData(yield* via(call));
               expect({ name, call, receipt }).toEqual({
                 name,
                 call,
-                receipt: wire(yield* core(call)),
+                receipt: asWireData(yield* core(call)),
               });
             }),
           { discard: true },
@@ -213,11 +215,12 @@ const PROPERTIES: ReadonlyArray<
         Effect.gen(function* () {
           const call: ActionInvocation = { id: APPROVAL_ACTION, input: {}, approved: true };
           // Where the wire cannot carry approval, the call that arrives is the unapproved one.
-          const arrives = surface.carriesApproval ? call : { id: call.id, input: call.input };
+          const { carriesApproval } = surface.wire;
+          const arrives = carriesApproval ? call : { id: call.id, input: call.input };
           const expected = yield* core(arrives);
-          expect(expected.status).toBe(surface.carriesApproval ? "succeeded" : "failed");
-          const receipt = wire(yield* via(call));
-          expect({ name, receipt }).toEqual({ name, receipt: wire(expected) });
+          expect(expected.status).toBe(carriesApproval ? "succeeded" : "failed");
+          const receipt = asWireData(yield* via(call));
+          expect({ name, receipt }).toEqual({ name, receipt: asWireData(expected) });
         }),
       ),
   ],

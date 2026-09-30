@@ -18,9 +18,9 @@ import {
   type ActionInvocation,
   type ActionReceipt,
 } from "@kb/contracts";
-import { ACTION_META_KEY, createMcpServer } from "@kb/mcp";
+import { ACTION_META_KEY, MCP_WIRE, createMcpServer } from "@kb/mcp";
 import { bunFileSystemLayer } from "@kb/runtime";
-import { startUi } from "@kb/server";
+import { HTTP_WIRE, startUi } from "@kb/server";
 import {
   surfaceContract,
   type ActionSurface,
@@ -28,7 +28,7 @@ import {
   type SurfaceFactory,
 } from "@kb/test-kit";
 import { z } from "zod";
-import { main } from "../src/cli.ts";
+import { ACTION_INVOKE_WIRE, main } from "../src/cli.ts";
 
 /** What a listing must say of each action; the mode is decoded by the contracts' own schema. */
 const ListedActionSchema = ManifestEntrySchema.pick({ id: true, mode: true });
@@ -63,7 +63,7 @@ const cli: SurfaceFactory = async (root) => {
       JSON.parse(await kb(root, ["action-invoke", JSON.stringify(invocation)])),
     );
   return {
-    carriesApproval: true,
+    wire: ACTION_INVOKE_WIRE,
     list: async () => manifestOf(await invokeCli({ id: "kb.manifest", input: {} })),
     invoke: invokeCli,
     close: async () => undefined,
@@ -99,7 +99,7 @@ const mcp: SurfaceFactory = async (root) => {
   }));
 
   return {
-    carriesApproval: false,
+    wire: MCP_WIRE,
     list: async () => listed.map(({ action }) => action),
     invoke: async ({ id, input }) => {
       // An action MCP leaves out of tools/list is still called by its tool
@@ -125,7 +125,7 @@ const http: SurfaceFactory = async (root) => {
     startUi({ root, port: 0, openBrowser: false }).pipe(Effect.provide(bunFileSystemLayer)),
   );
   return {
-    carriesApproval: true,
+    wire: HTTP_WIRE,
     list: async () =>
       z.array(ListedActionSchema).parse(await (await fetch(`${handle.url}/api/manifest`)).json()),
     invoke: async (invocation) => {

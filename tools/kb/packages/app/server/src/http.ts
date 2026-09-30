@@ -4,14 +4,22 @@ import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
   ActionInvocationSchema,
   TxOrigin,
+  listedOn,
   type ActionResponse,
   type KbContext,
+  type SurfaceWire,
 } from "@kb/contracts";
 import { reloadEffect } from "@kb/operations";
 import { type ActionHandlerEnv, invokeReceiptEffect, kbRuntimeLayer, manifest } from "@kb/runtime";
 import * as assets from "./assets.ts";
 import { listSavedQueriesEffect } from "./saved-queries.ts";
 import type { SubscriptionHub } from "./session.ts";
+
+/**
+ * HTTP's wire: `POST /api/action` takes the invocation envelope, so it carries
+ * `approved`, and `GET /api/manifest` lists every action ({@link listedOn}).
+ */
+export const HTTP_WIRE: SurfaceWire = { carriesApproval: true };
 
 /** Match Bun/Web `Response.json` Content-Type exactly. */
 const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
@@ -70,7 +78,8 @@ const handleHttpRequestEffect = (
     }
 
     if (url.pathname === "/api/manifest" && req.method === "GET") {
-      return jsonResponse(yield* manifest(root));
+      const entries = yield* manifest(root);
+      return jsonResponse(entries.filter((entry) => listedOn(HTTP_WIRE, entry.mode)));
     }
 
     if (url.pathname === "/api/queries" && req.method === "GET") {

@@ -6,6 +6,7 @@ export {
   actionToManifestEntry,
   failed,
   isActionMode,
+  listedOn,
   requiresApproval,
   succeeded,
 } from "./actions.ts";
@@ -18,6 +19,7 @@ export type {
   ActionInvocation,
   ActionReceipt,
   ManifestEntry,
+  SurfaceWire,
 } from "./actions.ts";
 export { ActionPoint, TemplatePoint, extensionPlugin } from "./extension.ts";
 export type {

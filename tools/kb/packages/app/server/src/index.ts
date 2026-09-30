@@ -13,4 +13,5 @@
  */
 export { runUiCli, startUi } from "./server.ts";
 export type { UiServerHandle, UiServerOptions } from "./server.ts";
+export { HTTP_WIRE } from "./http.ts";
 export { kbDataRoot } from "./paths.ts";

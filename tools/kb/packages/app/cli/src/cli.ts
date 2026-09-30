@@ -4,7 +4,12 @@ import { Cause, Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { text as readStream } from "node:stream/consumers";
 import { join } from "node:path";
-import { UI_DEFAULT_PORT, type KbContext, type ActionReceipt } from "@kb/contracts";
+import {
+  UI_DEFAULT_PORT,
+  type KbContext,
+  type ActionReceipt,
+  type SurfaceWire,
+} from "@kb/contracts";
 import {
   kbRuntimeLayer,
   openKbEffect,
@@ -252,6 +257,13 @@ export function runPlanEffect(
     return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
   });
 }
+
+/**
+ * `kb action-invoke`'s wire: its JSON argument is the whole invocation
+ * envelope, so it carries `approved`, and its listing (`kb.manifest`) is the
+ * whole registry.
+ */
+export const ACTION_INVOKE_WIRE: SurfaceWire = { carriesApproval: true };
 
 /**
  * Parse action-invoke JSON text with native JSON.parse diagnostics, then leave

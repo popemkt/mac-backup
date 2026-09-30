@@ -1,5 +1,6 @@
 export {
   ACTION_META_KEY,
+  MCP_WIRE,
   callToolEffect,
   containToolResult,
   createMcpServer,

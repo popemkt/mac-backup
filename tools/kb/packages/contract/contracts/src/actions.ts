@@ -44,6 +44,26 @@ export function requiresApproval(mode: ActionMode): boolean {
 }
 
 /**
+ * What a surface's wire format can carry, declared once by each surface that
+ * projects the registry (the CLI's `action-invoke`, HTTP, MCP, WebMCP). The
+ * surface contract proves each declaration by behaviour.
+ */
+export interface SurfaceWire {
+  /** Whether a call on this wire has an envelope that can carry `approved`. */
+  readonly carriesApproval: boolean;
+}
+
+/**
+ * Whether a surface lists an action. The one rule is this: a surface whose
+ * wire cannot carry approval leaves approval-required actions out, because a
+ * call to one of them could never succeed there. A call by id still reaches
+ * the invoke core, which refuses it with `approval_required`.
+ */
+export function listedOn(wire: SurfaceWire, mode: ActionMode): boolean {
+  return wire.carriesApproval || !requiresApproval(mode);
+}
+
+/**
  * Services a native action handler may require. Provided as one merged Layer
  * at the invoke tip (`kbRuntimeLayer`); a handler that needs fewer of them
  * still assigns, because Effect's requirement channel is covariant.
