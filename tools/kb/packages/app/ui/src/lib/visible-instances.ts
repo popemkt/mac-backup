@@ -73,7 +73,11 @@ function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: str
   const frame = shownNode(node, schema);
   const frameId = frame.id;
 
-  // A frame whose view is not provided shows no rows, so it offers none.
+  // A frame whose view is not provided shows no rows, so it offers none. A
+  // slot past MAX_VIEW_DEPTH shows none either, and this walk does not know
+  // the slot depth it runs at: it relies on the outline never reaching it (a
+  // list going on down its tree costs no depth, and a projected view nests
+  // nothing), not on the one budget. [GAP-VIEW-DEPTH-WALK], a gap to file
   const view = frameViewOf(frame.props, ctx.views);
   if (view === null) return;
   const projected = projectsRows(view.key);

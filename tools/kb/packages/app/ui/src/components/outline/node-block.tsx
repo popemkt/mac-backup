@@ -2,7 +2,7 @@ import { memo, useCallback, useMemo } from "react";
 import { shownNode } from "@/lib/contextual-ref";
 import { cn } from "@/lib/cn";
 import { guideLineStyle, indentStyle } from "@/lib/indent";
-import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
+import { outlineInstanceKey } from "@/lib/instance-key";
 import { resolveRowChrome } from "@/lib/row-chrome";
 import { useUiStore } from "@/stores/ui.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
@@ -12,17 +12,11 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { bulletClickIntent, nodeTarget } from "@/lib/follow";
 import { mutations } from "@/actions/mutations";
-import { frameRows } from "@/lib/frame-rows";
-import type { ViewProps } from "@/lib/plugins";
-import type { ParamsOf } from "@/lib/view-key";
-import { frameViewOf, projectsRows, type FrameView } from "@/lib/view-config";
+import { frameViewOf } from "@/lib/view-config";
 import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
-import { useFrameSubject } from "./frame-subject";
-import { NoFrame } from "./frame-views";
 import { FrameViewSlot } from "./frame-view-slot";
 import { useFrameViewKeys } from "./use-frame-views";
-import { OutlineListView } from "./views";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { QueryResultsSection } from "./query-results";
@@ -213,11 +207,11 @@ export const NodeBlock = memo(function NodeBlock({
           )}
 
           {chrome.showsChildren && (
-            <FrameChildren
+            <RowChildren
               frameId={shownId}
               instanceKey={instanceKey}
               depth={depth + 1}
-              view={frameView}
+              projected={chrome.projected}
             />
           )}
 
@@ -270,75 +264,20 @@ function CreateChildStrip({ parentId, depth }: { parentId: string; depth: number
 }
 
 /**
- * What a row shows under itself: a list continues as rows here; any other view
- * is embedded in a slot, indented as one block.
+ * A row's children, shown by their frame's view. A projected view is one
+ * block, indented under the row; a list's rows indent themselves.
  */
-function FrameChildren({
+function RowChildren({
   frameId,
   instanceKey,
   depth,
-  view,
+  projected,
 }: {
   readonly frameId: string;
   readonly instanceKey: string;
   readonly depth: number;
-  readonly view: FrameView | null;
+  readonly projected: boolean;
 }) {
-  if (view !== null && !projectsRows(view.key))
-    return <ListRows frameId={frameId} instanceKey={instanceKey} depth={depth} view={view} />;
-  return (
-    <div style={indentStyle(depth)}>
-      <FrameViewSlot frameId={frameId} instanceKey={instanceKey} depth={depth} />
-    </div>
-  );
-}
-
-/**
- * The list view's rows: a frame's children as outline rows, each one hosting
- * its own children in turn — the same rows the visible-instance walk offers
- * keyboard navigation. A row whose frame is also a list continues this list
- * here rather than embedding the list view again in a slot: a list nests as
- * deep as the outline does, bounded by the tree, while the slot's depth budget
- * is for one view embedding another.
- */
-function ListRows({
-  frameId,
-  instanceKey,
-  depth,
-  view,
-}: {
-  readonly frameId: string;
-  /** The frame's render instance; at the outline's root, each row takes its canonical one. */
-  readonly instanceKey: string | undefined;
-  readonly depth: number;
-  readonly view: FrameView;
-}) {
-  const nodes = useOutlineStore((s) => s.nodes);
-  const schema = useOutlineStore(schemaOf);
-  const rows = useMemo(
-    () => frameRows({ frameId, nodes, schema, view }).rendered,
-    [frameId, nodes, schema, view],
-  );
-  return rows.map((child) => {
-    const key =
-      instanceKey === undefined
-        ? outlineInstanceKey(child.id, nodes)
-        : childInstanceKey(instanceKey, child.id);
-    return <NodeBlock key={key} nodeId={child.id} instanceKey={key} depth={depth} />;
-  });
-}
-
-/** The list view: a frame's children as the outline shows them, nested. */
-export function ListFrameView({ params }: ViewProps<ParamsOf<typeof OutlineListView>>) {
-  const subject = useFrameSubject();
-  const view = useMemo(() => ({ key: OutlineListView, params }), [params]);
-  if (subject === null) return <NoFrame />;
-  return (
-    <ListRows
-      frameId={subject.frameId}
-      instanceKey={subject.instanceKey}
-      depth={subject.depth}
-      view={view}
-    />
-  );
+  const slot = <FrameViewSlot frameId={frameId} instanceKey={instanceKey} depth={depth} />;
+  return projected ? <div style={indentStyle(depth)}>{slot}</div> : slot;
 }

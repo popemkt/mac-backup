@@ -1,7 +1,11 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
-import { BoardFrameView, CardsFrameView, TableFrameView } from "@/components/outline/frame-views";
-import { ListFrameView } from "@/components/outline/node-block";
+import {
+  BoardFrameView,
+  CardsFrameView,
+  ListFrameView,
+  TableFrameView,
+} from "@/components/outline/frame-views";
 import { matchOutline } from "@/components/outline/routes";
 import { HomeSection, OutlineSurface, PinnedSection } from "@/components/outline/surfaces";
 import {

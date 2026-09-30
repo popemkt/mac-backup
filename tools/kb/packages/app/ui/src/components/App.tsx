@@ -11,6 +11,7 @@ import { NotFound } from "@/components/ui/not-found";
 import { ViewSlot } from "@/components/ui/view-slot";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
+import { WorkspaceState } from "@/components/ui/workspace-state";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { useRoute, type ResolvedRoute } from "@/lib/plugins";
 import { OPTIONAL_UI_PLUGINS, startUiPlugins } from "@/ui-plugins";
@@ -170,7 +171,15 @@ const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
  * down with it. A route whose view is not loaded is not found.
  */
 function RouteBody({ route }: { route: ResolvedRoute }) {
-  return <ViewSlot view={route.view} params={route.params} placement="page" fallback={NOT_FOUND} />;
+  return (
+    <ViewSlot
+      view={route.view}
+      params={route.params}
+      placement="page"
+      fallback={NOT_FOUND}
+      pending={<WorkspaceState title={route.pendingTitle} loading />}
+    />
+  );
 }
 
 /** What the shell frames under its header: a route's page, or the not-found state. */

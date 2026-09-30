@@ -12,7 +12,7 @@
  * leaves nothing behind. Sizing, disposal, appearance, reduced motion and bad
  * config wait on the host contract: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
  */
-import { Suspense, act, type ReactElement } from "react";
+import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Effect, Result, Schema } from "effect";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -24,8 +24,10 @@ import {
   provideView,
   syncUiPlugins,
   type Placement,
+  type ViewProps,
   type ProvidedView,
 } from "@/lib/plugins";
+import { NoParams, viewKey } from "@/lib/view-key";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS } from "@/ui-plugins";
 
@@ -125,14 +127,13 @@ describe("view contract", () => {
   function mount(view: ProvidedView, placement: Placement = firstPlacement(view)): void {
     const host: ReactElement = (
       <section data-contract-host="true">
-        <Suspense fallback={SUSPENDED}>
-          <ViewSlot
-            view={view.key}
-            params={view.sample}
-            placement={placement}
-            fallback={FALLBACK}
-          />
-        </Suspense>
+        <ViewSlot
+          view={view.key}
+          params={view.sample}
+          placement={placement}
+          fallback={FALLBACK}
+          pending={SUSPENDED}
+        />
       </section>
     );
     act(() => root.render(host));
@@ -230,4 +231,93 @@ describe("view contract", () => {
       });
     },
   );
+
+  describe("the slot", () => {
+    const KEY = viewKey("contract.view", NoParams);
+    const TREE = viewKey("contract.tree", Schema.Struct({ level: Schema.Number }));
+    const DEEP = MAX_VIEW_DEPTH + 3;
+
+    /** A view that shows itself again under it, for the next subject, down to `DEEP`. */
+    const TreeView = ({ params: { level } }: ViewProps<{ readonly level: number }>) => (
+      <div data-contract-level={level}>
+        {level < DEEP ? (
+          <ViewSlot
+            view={TREE}
+            params={{ level: level + 1 }}
+            placement="page"
+            subject={String(level + 1)}
+            fallback={<p data-contract-depth-stop="true">stop</p>}
+          />
+        ) : null}
+      </div>
+    );
+
+    it("counts a view going on down its own tree, for other subjects, as no embed", () => {
+      act(() =>
+        syncUiPlugins([
+          ...ALL_PLUGINS,
+          definePlugin({
+            name: "contract",
+            apply: (ctx) =>
+              ctx.contribute(
+                ViewPoint,
+                provideView(TREE, {
+                  placements: ["page"],
+                  sample: { level: 1 },
+                  Component: TreeView,
+                }),
+              ),
+          }),
+        ]),
+      );
+      act(() =>
+        root.render(
+          <ViewSlot
+            view={TREE}
+            params={{ level: 1 }}
+            placement="page"
+            subject="1"
+            fallback={FALLBACK}
+          />,
+        ),
+      );
+      expect(container.querySelectorAll("[data-contract-level]")).toHaveLength(DEEP);
+      expect(shown("[data-contract-depth-stop]")).toBe(false);
+    });
+
+    it("waits for a view that suspends in its own box, and its host stays up", () => {
+      const never = new Promise<never>(() => {});
+      const Suspends = () => {
+        throw never;
+      };
+      act(() =>
+        syncUiPlugins([
+          ...ALL_PLUGINS,
+          definePlugin({
+            name: "contract",
+            apply: (ctx) =>
+              ctx.contribute(
+                ViewPoint,
+                provideView(KEY, { placements: ["page"], sample: {}, Component: Suspends }),
+              ),
+          }),
+        ]),
+      );
+      act(() =>
+        root.render(
+          <section data-contract-host="true">
+            <ViewSlot
+              view={KEY}
+              params={{}}
+              placement="page"
+              fallback={FALLBACK}
+              pending={SUSPENDED}
+            />
+          </section>,
+        ),
+      );
+      expect(shown("[data-contract-host]")).toBe(true);
+      expect(shown("[data-contract-suspended]")).toBe(true);
+    });
+  });
 });

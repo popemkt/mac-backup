@@ -332,6 +332,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
                   params={settings.success}
                   placement="page"
                   fallback={unavailable}
+                  subject={active.id}
                 />
               </GraphFrameContext.Provider>
             ) : (

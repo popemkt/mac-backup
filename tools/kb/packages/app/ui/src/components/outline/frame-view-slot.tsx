@@ -47,7 +47,13 @@ export function FrameViewSlot({
       {view === null ? (
         UNAVAILABLE
       ) : (
-        <ViewSlot view={view.key} params={view.params} placement="inline" fallback={UNAVAILABLE} />
+        <ViewSlot
+          view={view.key}
+          params={view.params}
+          placement="inline"
+          fallback={UNAVAILABLE}
+          subject={frameId}
+        />
       )}
     </FrameSubjectContext.Provider>
   );

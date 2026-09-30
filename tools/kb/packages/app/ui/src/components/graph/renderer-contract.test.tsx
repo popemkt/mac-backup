@@ -16,7 +16,7 @@
  * this table must list the same renderers. The 2D renderers draw through sigma, which needs
  * a WebGL2 context happy-dom lacks; their rows are todo, named by a gap.
  */
-import { Suspense, act, useMemo, type ReactElement, type ReactNode } from "react";
+import { act, useMemo, type ReactElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { Effect, Result } from "effect";
@@ -215,14 +215,13 @@ function adapter(
   if (Result.isFailure(settings)) throw new Error(settings.failure);
   return (
     <ContractHost appearance={appearance} selected={selected}>
-      <Suspense fallback={<p data-renderer-loading="true" />}>
-        <ViewSlot
-          view={key}
-          params={settings.success}
-          placement="page"
-          fallback={<p data-renderer-missing="true" />}
-        />
-      </Suspense>
+      <ViewSlot
+        view={key}
+        params={settings.success}
+        placement="page"
+        fallback={<p data-renderer-missing="true" />}
+        pending={<p data-renderer-loading="true" />}
+      />
     </ContractHost>
   );
 }

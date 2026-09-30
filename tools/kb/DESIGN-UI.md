@@ -1114,7 +1114,7 @@ a separate point that only points at it.
   and it is already live: the ontology's view embeds the graph and outline
   views, each in a page-placed slot inside the shell's page slot, and the
   outline shows each frame's children in an inline slot. The slot owns the
-  depth guard (promise 5).
+  depth guard (promise 6).
 
 **Keys.** A `ViewKey<P>` is made once, by `viewKey("<namespace>.<local>", params)`,
 and is compared **by identity**, like `Service`, `Event` and `Point` keys. A
@@ -1139,9 +1139,11 @@ matched route the same way: it returns the route's `P` when the route renders
 this key, and `null` otherwise. A sidebar section uses it to know whether the
 current page is its own, without naming an id as a string.
 
-**The slot's promises.** `<ViewSlot view params placement fallback>` is the
-only way to render a view, both for the shell's page and for one plugin
-embedding another's view.
+**The slot's promises.** `<ViewSlot view params placement fallback subject?
+pending?>` is the only way to render a view, both for the shell's page and
+for one plugin embedding another's view. `subject` is what the host shows the
+view for (a frame's id, a perspective's), where it may show the same view for
+another.
 
 1. It renders the view provided under `view`, with `params` and
    `host = { placement }`.
@@ -1150,15 +1152,24 @@ embedding another's view.
    offer `placement`. `fallback` is a required element, so a slot never
    renders nothing. This is live: unloading the owning plugin switches the
    slot to its fallback, and reloading it brings the view back.
-3. It wraps the view in its own `ViewErrorBoundary`, reset by the key's id.
-   A view that throws shows `ViewError` in its own box, and the host around
-   it stays up.
-4. It adds no DOM of its own, so the box is exactly what the host gives it.
-5. It counts how many slots enclose it, through a React context that only
-   the slot writes, and past `MAX_VIEW_DEPTH` (8) it renders `fallback`
-   instead of the view. A view that embeds itself, directly or through
-   another view, therefore stops instead of recursing. The depth is the
-   slot's to count. It is not part of `ViewHost`, because no view reads it.
+3. It wraps the view in its own `ViewErrorBoundary`, reset by the key's id
+   and the `subject`. A view that throws shows `ViewError` in its own box,
+   and the host around it stays up.
+4. It wraps the view in its own `Suspense`, showing `pending` (nothing, by
+   default) in its box while the view's code or data loads, so a host that
+   embeds a lazy view never blanks a boundary above it.
+5. It adds no DOM of its own, so the box is exactly what the host gives it.
+6. It counts the embeds that enclose it, through a React context that only
+   the slot writes, and past `MAX_VIEW_DEPTH` (5) it renders `fallback`
+   instead of the view. A slot showing the same view as the slot around it,
+   for another `subject`, is that view going on down its own tree (a list's
+   rows each showing their frame as a list) and counts nothing, because a
+   tree is as deep as its data; the same view for the same subject is a
+   cycle, and counts. A view that embeds itself, directly or through another
+   view, therefore stops instead of recursing. The depth is the slot's to
+   count. It is not part of `ViewHost`, because no view reads it. The
+   keyboard walk does not read that budget: it relies on the outline never
+   reaching it ([GAP-VIEW-DEPTH-WALK], a gap to file).
 
 **Views are soft and services are hard.** A missing view never makes its
 consumer `pending`. The consumer shows the fallback. A computation that
@@ -1215,12 +1226,12 @@ how the stored name resolves to the key among them.
   outline plugin wires to `ViewPoint` while it is loaded, so the store never
   reads the kernel. The frame a view shows (its id, instance key, query rows
   and depth) is not config, so it travels in the host's `FrameSubject`
-  context. Every outline host (the outline's root, a projected frame's row,
-  a query's results) renders a frame view through `FrameViewSlot`, with one
-  exception that is the list's own: a row of the list whose frame is also a
-  list continues that list instead of embedding the list view again, because
-  a list nests as deep as the outline does, bounded by the tree, while the
-  slot's depth budget is for one view embedding another.
+  context. Every outline host (the outline's root, a row of the list, a
+  query's projected results) renders a frame view through `FrameViewSlot`,
+  with the frame's id as the slot's `subject`, so a list of lists costs no
+  depth (promise 6). A query's results in the list view are the one rows
+  the list draws itself, as references, through the query row's
+  `renderNode`.
 
 **The contract.** `src/view-contract.test.tsx` runs over every view that the
 built-in and optional UI plugins contribute. A new view joins it by being
@@ -1235,7 +1246,9 @@ its key embeds that key again; and, once settled, leave nothing behind in its
 box or elsewhere in the document when it unmounts. "Comes back" means
 settled, with neither the fallback, a suspended state, nor an error showing.
 The route table in `ui-plugins.test.ts` also checks that every route renders
-a registered view that offers `page`. The remaining properties (sizing,
+a registered view that offers `page`. The slot is checked on its own too: a
+view going on down its own tree, for other subjects, passes the depth limit,
+and a view that suspends waits in its own box. The remaining properties (sizing,
 disposal of instrumented resources, appearance, reduced motion and bad
 config) are deferred with the host contract, in the same gap as above.
 
