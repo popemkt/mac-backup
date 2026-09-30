@@ -2,9 +2,8 @@ import type { SchemaIndex } from "@/lib/schema";
 import { Result, Schema } from "effect";
 import {
   decodeNodeConfig,
-  defaultViewIdOf,
+  familyViewIdOf,
   firstStr,
-  isViewNode,
   manyOf,
   oneOf,
   viewOptionId,
@@ -396,21 +395,30 @@ interface ViewCarrier {
 }
 
 /**
- * The view node a frame shows its children through: its default view, the
- * first view node its `sys.f.views` names (DESIGN.md → View nodes). Null when
- * it names none, or names a node that is not there or is no view node.
+ * The id of the view node a frame shows its children through: the first
+ * view node its `sys.f.views` names whose view is a frame view
+ * (`familyViewIdOf`, DESIGN.md → View nodes). That is its default unless it
+ * names another kind of view first (a snippet, a neighbourhood), which a
+ * frame edit never rewrites. Null when it names none.
  *
  * It is read from the schema, the whole graph: how a frame is shown is what
  * its content means, not content an ontology scope chooses, so a frame in a
  * scope keeps a view node that is no member of it.
  */
+export function frameViewNodeIdOf(
+  frame: { readonly props: NodeProps } | undefined,
+  schema: SchemaIndex,
+): string | null {
+  return familyViewIdOf(frame, FRAME_VIEW_FAMILY, (id) => schema.get(id));
+}
+
+/** The view node {@link frameViewNodeIdOf} names, or null. */
 function frameViewNodeOf(
   frame: { readonly props: NodeProps } | undefined,
   schema: SchemaIndex,
 ): ViewCarrier | null {
-  const id = defaultViewIdOf(frame);
-  const node = id === null ? undefined : schema.get(id);
-  return node !== undefined && isViewNode(node) ? node : null;
+  const id = frameViewNodeIdOf(frame, schema);
+  return (id === null ? undefined : schema.get(id)) ?? null;
 }
 
 /** Every frame setting a frame's view node holds, decoded (the defaults when it has none). */

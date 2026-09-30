@@ -121,6 +121,7 @@ export {
   VIEW_OPTION_TARGET_QUERY,
   VIEW_VALUES,
   defaultViewIdOf,
+  familyViewIdOf,
   docsViewProps,
   familyViewNodesQuery,
   hostViewIds,

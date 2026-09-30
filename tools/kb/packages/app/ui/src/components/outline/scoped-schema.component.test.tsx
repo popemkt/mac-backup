@@ -17,7 +17,7 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncUiPlugins } from "@/lib/plugins";
 import { FrameViewSlot } from "./frame-view-slot";
 import { outlineUiPlugin } from "./plugin";
-import { framedAs, type FrameViewName } from "@/fixtures/view-fields";
+import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
 
 /** A frame view and the settings its view node carries. */
 type FramedView = readonly [FrameViewName, WireNode["props"]];
@@ -56,6 +56,7 @@ function wire([view, settings]: FramedView): WireNode[] {
       [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: SYSTEM_IDS.ftRef }],
     }),
     ...framedAs(node("frame", "Services", tagged, ["row"]), view, settings),
+    ...viewOptionNodes,
     node("row", "alpha", { ...tagged, "f.status": [{ t: "ref", v: "opt.done" }] }),
     node("outsider", "outsider"),
     node("o.1", "Services ontology", {

@@ -839,11 +839,15 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   user-editable like the Pinned list, because every new view writes a child
   into it). Being a view node is its `sys.f.view`, never membership in that
   list; a view node filed anywhere else is as much one.
-- **A frame's view is its default view node.** Which of the frame views
-  (list, table, board, cards) shows a frame's children, and with which
-  settings (`sys.f.view.sort`, `…display`, `…colwidth`, `…pagesize`,
-  `…group`, `…filter`), is the frame's default view node: its `sys.f.view`
-  and its params. A frame that names none is a list. The view node is read
+- **A frame's view is the first frame view node it names.** Which of the
+  frame views (list, table, board, cards) shows a frame's children, and with
+  which settings (`sys.f.view.sort`, `…display`, `…colwidth`, `…pagesize`,
+  `…group`, `…filter`), is the first view node in its `sys.f.views` whose
+  view is of the frame family (`familyViewIdOf`, read from the option's
+  `sys.f.view.family`): its `sys.f.view` and its params. That is the
+  frame's default unless it names a view of another kind first (a snippet,
+  a neighbourhood), which a frame edit never rewrites. A frame that names
+  none is a list. The view node is read
   from the schema (the whole graph), not from an ontology's projection: how
   a frame is shown is what it means, so a scoped frame keeps a view node
   that is no member. The first edit of a frame with no view node (a view-as

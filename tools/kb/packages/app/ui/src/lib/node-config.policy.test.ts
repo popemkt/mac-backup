@@ -10,6 +10,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
+import { VIEW_FAMILY_VALUES } from "@kb/model";
 import { parsePerspective } from "@/lib/graph-lens";
 import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 import { Effect } from "effect";
@@ -126,12 +127,16 @@ describe("getViewConfig reporting", () => {
     expect(warned).toEqual([]);
   });
 
-  it("reports a view node whose view is no provided frame view, and shows the list", () => {
+  it("reports a frame view node whose view is not provided, and shows the list", () => {
+    // A frame view whose plugin is not loaded: its option says it is one.
+    const option = node("sys.view.outline.kanban", {
+      [SYSTEM_IDS.viewFamilyField]: [{ t: "ref", v: VIEW_FAMILY_VALUES["outline.frame"].id }],
+    });
     const viewNode = node("v.kanban", {
-      [SYSTEM_IDS.viewField]: [{ t: "ref", v: "sys.view.outline.kanban" }],
+      [SYSTEM_IDS.viewField]: [{ t: "ref", v: option.id }],
     });
     const frame = node("f", { [SYSTEM_IDS.viewsField]: [{ t: "ref", v: "v.kanban" }] });
-    const nodes = wireToOutlineMap([frame, viewNode], new Set());
+    const nodes = wireToOutlineMap([frame, viewNode, option], new Set());
     const schema = schemaOf({ ontologyId: null, nodes, wireNodes: [] });
     const view = frameViewOf(frame, schema, FRAME_VIEWS);
     expect(view?.key).toBe(OutlineListView);

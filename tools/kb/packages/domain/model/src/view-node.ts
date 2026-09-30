@@ -113,6 +113,26 @@ export function defaultViewIdOf(node: Carrier | undefined): NodeId | null {
 }
 
 /**
+ * The first view node a host names whose view is of `family`, as that view's
+ * option node says (`sys.f.view.family`): what the host shows through that
+ * family — for a frame, the view its children are shown in — whether or not
+ * it is the host's default. `lookup` reads a node by id; null when the host
+ * names none.
+ */
+export function familyViewIdOf(
+  host: Carrier | undefined,
+  family: ViewFamily,
+  lookup: (id: NodeId) => Carrier | undefined,
+): NodeId | null {
+  const familyId = VIEW_FAMILY_VALUES[family].id;
+  const inFamily = (id: NodeId): boolean => {
+    const option = viewOptionOf(lookup(id));
+    return option !== null && firstRefOf(lookup(option), SYSTEM_IDS.viewFamilyField) === familyId;
+  };
+  return hostViewIds(host).find(inFamily) ?? null;
+}
+
+/**
  * A docs view (`docs.markdown`): the rows of its subject query rendered
  * through a template an extension registers, written to a repo path. It is a
  * view node like any other; the server's render layer draws it.

@@ -1,15 +1,15 @@
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import {
-  defaultViewIdOf,
+  familyViewIdOf,
   fieldTypeValue,
   hostViewIds,
-  isViewNode,
   siblingSlots,
   viewOptionId,
   wouldCreateExtendsCycle,
   type FieldType,
 } from "@kb/model";
 import { forestRootIds } from "@/lib/graph-view";
+import { FRAME_VIEW_FAMILY } from "@/lib/view-config";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
 import { SYSTEM_IDS, isSysPrefixed, type PropValue } from "@/lib/types";
@@ -422,7 +422,8 @@ export const planSetGraphRenderer = (n: WireNode[], id: string, renderer: string
   planReplaceField(n, id, SYSTEM_IDS.viewField, [{ t: "ref", v: renderer }]);
 /**
  * A new view node, filed at the end of the Views list: the one place the UI
- * files the views it makes.
+ * files the views it makes. A view node its host stops naming, or whose host
+ * is deleted, stays filed there. GAP [GAP-ORPHAN-VIEW-NODES]
  */
 export function planAddViewNode(
   nodes: WireNode[],
@@ -477,15 +478,17 @@ export const frameViewFilters = (edn: string[]): FrameViewEdit => [
   { field: SYSTEM_IDS.viewFilterField, values: edn.map((v): PropValue => ({ t: "str", v })) },
 ];
 
-/** What a frame is shown as until it names a view node: the list. */
+/** What a frame is shown as until it names a frame view node: the list. */
 const FRAME_LIST_OPTION = viewOptionId("outline.list");
 
 /**
- * Edit a frame's view: its default view node's fields, replaced in one
- * `node.update`. A frame that names no view node yet gets one — the list's,
- * filed in the Views list under `newViewId`, carrying the edit — and names it
- * first in `sys.f.views`, so it is the frame's default. Null when there is no
- * Views list to file it in.
+ * Edit a frame's view: the first frame view node it names (`familyViewIdOf`,
+ * the one its children are shown through), its fields replaced in one
+ * `node.update`. A view of another kind named first (a snippet, a
+ * neighbourhood) is never rewritten. A frame that names no frame view node
+ * gets one — the list's, filed in the Views list under `newViewId`, carrying
+ * the edit — named first in `sys.f.views`, so it is the frame's default.
+ * Null when there is no Views list to file it in.
  */
 export function planEditFrameView(
   nodes: WireNode[],
@@ -494,9 +497,9 @@ export function planEditFrameView(
   newViewId: string,
 ): PlannedMutation | null {
   const frame = requireNode(nodes, frameId);
-  const viewId = defaultViewIdOf(frame);
-  const view = viewId === null ? undefined : wireById(nodes).get(viewId);
-  if (view !== undefined && isViewNode(view)) return replaceProps(nodes, view.id, [...edit]);
+  const byId = wireById(nodes);
+  const viewId = familyViewIdOf(frame, FRAME_VIEW_FAMILY, (id) => byId.get(id));
+  if (viewId !== null) return replaceProps(nodes, viewId, [...edit]);
   const props: WireNode["props"] = {
     [SYSTEM_IDS.viewField]: [refTo(FRAME_LIST_OPTION)],
     ...Object.fromEntries(edit.map(({ field, values }) => [field, values])),

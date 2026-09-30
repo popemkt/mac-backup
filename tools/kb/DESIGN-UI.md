@@ -1314,9 +1314,9 @@ how the stored name resolves to the key among them.
   `inline` that the outline plugin provides. Their keys
   (`components/outline/views.ts`) carry the one trait the row walk needs
   beside the params: how the view lays rows out (`outline`, nested; `rows`;
-  `columns`). The frame's default view node (DESIGN.md → View nodes) names
-  the view, and `frameViewOf` (`lib/view-config.ts`) looks that node up in
-  the schema, resolves its view among the frame views provided, falling
+  `columns`). The frame's first frame view node (DESIGN.md → View nodes)
+  names the view, and `frameViewOf` (`lib/view-config.ts`) looks that node
+  up in the schema, resolves its view among the frame views provided, falling
   back to the list's, and decodes the view node's props through that
   view's params, so the view gets exactly the settings it reads; a host
   that already selected the view node from the store (`useFrameView`) hands
@@ -1328,7 +1328,10 @@ how the stored name resolves to the key among them.
   views by their pickers, and every one of them, the toolbar's settings
   included, writes the frame's view node (`planEditFrameView`), making it on
   the first edit; none writes the frame's own props. A view node is edited
-  as a row with fields, like any node, where it is filed.
+  as a row with fields, like any node, where it is filed. A view node is
+  one node however many hosts name it, so editing it — from any host's
+  toolbar or its own row — edits it for every host that names it; a host
+  that should differ names a view node of its own.
   The store's row walk (`visible-instances`) and the command registry read
   the same enumeration through a port (`stores/frame-views`) that the
   outline plugin wires to `ViewPoint` while it is loaded, so the store never

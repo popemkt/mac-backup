@@ -27,7 +27,7 @@ import {
 } from "@/components/outline/views";
 import { ViewPoint, familyViews } from "@/lib/plugins";
 import type { WireNode } from "@kb/contracts";
-import { framedAs } from "@/fixtures/view-fields";
+import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";
 import { wireToOutlineMap } from "@/lib/graph-view";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
@@ -58,7 +58,7 @@ describe("view-config", () => {
   it("shows a frame in the view its default view node names, and the list when it names none", () => {
     const frame = { id: "f", text: "f", props: {}, children: [], createdAt: "", updatedAt: "" };
     const shownAs = (...nodes: WireNode[]) =>
-      frameViewOf(nodes[0], schemaOfWires(nodes), FRAME_VIEWS)?.key;
+      frameViewOf(nodes[0], schemaOfWires([...nodes, ...viewOptionNodes]), FRAME_VIEWS)?.key;
     for (const [name, key] of [
       ["table", OutlineTableView],
       ["board", OutlineBoardView],
@@ -89,6 +89,27 @@ describe("view-config", () => {
     expect(shownAs(both, { ...cards, id: view.id }, second)).toBe(OutlineCardsView);
   });
 
+  it("shows a frame through the first frame view it names, past a view of another kind", () => {
+    const frame = { id: "f", text: "f", props: {}, children: [], createdAt: "", updatedAt: "" };
+    const [, table] = framedAs(frame, "table");
+    const snippet = {
+      ...table,
+      id: "v.snippet",
+      props: { [SYSTEM_IDS.viewField]: [{ t: "ref" as const, v: "sys.view.outline.snippet" }] },
+    };
+    const host = {
+      ...frame,
+      props: {
+        [SYSTEM_IDS.viewsField]: [
+          { t: "ref" as const, v: snippet.id },
+          { t: "ref" as const, v: table.id },
+        ],
+      },
+    };
+    const schema = schemaOfWires([host, snippet, table, ...viewOptionNodes]);
+    expect(frameViewOf(host, schema, FRAME_VIEWS)?.key).toBe(OutlineTableView);
+  });
+
   it("decodes a frame's settings from its view node, not from its own props", () => {
     const sort = { [SYSTEM_IDS.viewPagesizeField]: [{ t: "num" as const, v: 7 }] };
     const frame = { id: "f", text: "f", props: sort, children: [], createdAt: "", updatedAt: "" };
@@ -96,7 +117,7 @@ describe("view-config", () => {
       DEFAULT_VIEW_CONFIG.pagesize,
     );
     const [host, view] = framedAs({ ...frame, props: {} }, "table", sort);
-    expect(frameConfigOf(host, schemaOfWires([host, view])).pagesize).toBe(7);
+    expect(frameConfigOf(host, schemaOfWires([host, view, ...viewOptionNodes])).pagesize).toBe(7);
   });
 
   it("pairs sort refs and sort dirs correctly", () => {

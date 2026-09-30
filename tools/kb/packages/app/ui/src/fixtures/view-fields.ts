@@ -35,6 +35,12 @@ function tree(id: string): WireNode[] {
 }
 
 /**
+ * The view options as the seed declares them, each carrying its family: what
+ * says a view node's view is a frame view (`familyViewIdOf`).
+ */
+export const viewOptionNodes = [...tree(SYSTEM_IDS.viewFamilyField), ...tree(SYSTEM_IDS.viewsRoot)];
+
+/**
  * Field nodes required by synthetic graphs that exercise view mutations, with
  * the view options a frame's view node names and the Views list it is filed in.
  */
@@ -52,8 +58,7 @@ export const viewFieldNodes = [
     SYSTEM_IDS.nodeTextField,
     SYSTEM_IDS.lensRendererField,
   ].map(field),
-  ...tree(SYSTEM_IDS.viewFamilyField),
-  ...tree(SYSTEM_IDS.viewsRoot),
+  ...viewOptionNodes,
   { ...field(SYSTEM_IDS.viewsList), text: "Views" },
 ];
 

@@ -14,6 +14,7 @@ import {
   VIEW_VALUES,
   viewValueEntries,
   defaultViewIdOf,
+  familyViewIdOf,
   hostViewIds,
   isViewNode,
   viewOptionId,
@@ -72,5 +73,21 @@ describe("a view node and its host", () => {
       "v.2",
     );
     expect(defaultViewIdOf(carrying({}))).toBeNull();
+  });
+
+  test("a host's view of a family is the first it names whose option is of that family", () => {
+    const views = new Map<string, { props: KbNode["props"] }>([
+      ["v.snippet", carrying({ [SYSTEM_IDS.viewField]: [ref(viewOptionId("outline.snippet"))] })],
+      ["v.table", carrying({ [SYSTEM_IDS.viewField]: [ref(viewOptionId("outline.table"))] })],
+      ["v.board", carrying({ [SYSTEM_IDS.viewField]: [ref(viewOptionId("outline.board"))] })],
+    ]);
+    const lookup = (id: string) => views.get(id) ?? seed.get(id);
+    const host = carrying({
+      [SYSTEM_IDS.viewsField]: [ref("v.snippet"), ref("v.missing"), ref("v.table"), ref("v.board")],
+    });
+    expect(defaultViewIdOf(host)).toBe("v.snippet");
+    expect(familyViewIdOf(host, "outline.frame", lookup)).toBe("v.table");
+    expect(familyViewIdOf(host, "graph.renderer", lookup)).toBeNull();
+    expect(familyViewIdOf(carrying({}), "outline.frame", lookup)).toBeNull();
   });
 });

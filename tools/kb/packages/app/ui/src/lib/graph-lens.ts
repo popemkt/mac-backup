@@ -182,12 +182,12 @@ export function listPerspectiveNodes(db: KbIndex | null, wireNodes: WireNode[]):
 }
 
 /*
- * The perspective's lens props, as one slot table.
+ * A graph view's lens props, as one slot table.
  *
- * Everything a `#graph-perspective` node may say about itself is declared here
- * once: the field it is stored under, how a stored value is read from that
- * field, what a legal value is (an Effect `Schema`), and the value used when
- * the node says nothing. `decodeNodeConfig` in `@kb/model` is the only code
+ * Everything a graph view node (a view node whose view is a renderer) may say
+ * about itself is declared here once: the field it is stored under, how a
+ * stored value is read from that field, what a legal value is (an Effect
+ * `Schema`), and the value used when the node says nothing. `decodeNodeConfig` in `@kb/model` is the only code
  * that walks it, and `view-config.ts` declares its own table against the same
  * mechanism.
  */

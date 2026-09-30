@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { present, siblingSlots } from "@kb/model";
+import type { WireNode } from "@kb/contracts";
+import { SYSTEM_IDS, present, siblingSlots, viewOptionId, type PropValue } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import {
+  frameViewIs,
   planDelete,
+  planEditFrameView,
   planIndent,
   planInsertSibling,
   planMergeInto,
@@ -88,6 +91,68 @@ describe("outline action input builders", () => {
           id: "n.root-a",
           unsetProps: [{ field: "field", value: { t: "str", v: "old" } }],
           setProps: [{ field: "field", value: { t: "str", v: "new" } }],
+        },
+      },
+    ]);
+  });
+});
+
+const ref = (v: string): PropValue => ({ t: "ref", v });
+const wire = (id: string, props: WireNode["props"], children: string[] = []): WireNode => ({
+  id,
+  text: "",
+  props,
+  children,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+});
+
+describe("editing a frame's view", () => {
+  const snippet = wire("v.snippet", {
+    [SYSTEM_IDS.viewField]: [ref(viewOptionId("outline.snippet"))],
+  });
+  const table = wire("v.table", { [SYSTEM_IDS.viewField]: [ref(viewOptionId("outline.table"))] });
+  const graph = (frameViews: string[]) => [
+    ...fixtureGraph.nodes.filter((n) => n.id !== SYSTEM_IDS.viewsList),
+    wire(SYSTEM_IDS.viewsList, {}, ["v.snippet", "v.table"]),
+    snippet,
+    table,
+    wire("f", { [SYSTEM_IDS.viewsField]: frameViews.map(ref) }),
+  ];
+  const toBoard = frameViewIs(viewOptionId("outline.board"));
+
+  it("writes the first frame view the frame names, never a view of another kind before it", () => {
+    const plan = present(
+      planEditFrameView(graph(["v.snippet", "v.table"]), "f", toBoard, "v.new"),
+      "edit",
+    );
+    expect(plan.actions.map((a) => [a.id, (a.input as { id: string }).id])).toEqual([
+      ["node.update", "v.table"],
+    ]);
+  });
+
+  it("makes a frame view first when the frame names only views of another kind", () => {
+    const plan = present(planEditFrameView(graph(["v.snippet"]), "f", toBoard, "v.new"), "edit");
+    expect(plan.actions).toEqual([
+      {
+        id: "node.add",
+        input: {
+          id: "v.new",
+          text: "",
+          parent: SYSTEM_IDS.viewsList,
+          position: 2,
+          props: [{ field: SYSTEM_IDS.viewField, value: ref(viewOptionId("outline.board")) }],
+        },
+      },
+      {
+        id: "node.update",
+        input: {
+          id: "f",
+          unsetProps: [{ field: SYSTEM_IDS.viewsField }],
+          setProps: [
+            { field: SYSTEM_IDS.viewsField, value: ref("v.new") },
+            { field: SYSTEM_IDS.viewsField, value: ref("v.snippet") },
+          ],
         },
       },
     ]);

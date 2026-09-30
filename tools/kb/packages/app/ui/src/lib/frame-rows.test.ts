@@ -12,7 +12,7 @@ import { ViewPoint, familyViews } from "@/lib/plugins";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { OutlineTableView } from "@/components/outline/views";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
-import { framedAs, type FrameViewName } from "@/fixtures/view-fields";
+import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
@@ -78,6 +78,8 @@ function graph(view: FrameViewName, settings: OutlineNode["props"], rowCount = 5
   const [frame, viewNode] = framedAs(node("frame", "Frame", {}, ids), view, settings);
   map.set(frame.id, frame);
   map.set(viewNode.id, node(viewNode.id, "", viewNode.props));
+  for (const option of viewOptionNodes)
+    map.set(option.id, node(option.id, option.text, option.props, option.children));
   return map;
 }
 

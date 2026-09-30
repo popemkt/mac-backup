@@ -89,7 +89,7 @@ async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
 }
 
 /**
- * Write `edit` to a frame's default view node, making one (filed in the
+ * Write `edit` to the frame view node a frame is shown through, making one (filed in the
  * Views list) when the frame names none (`planEditFrameView`).
  */
 async function editFrameView(frameId: string, edit: FrameViewEdit): Promise<void> {
@@ -663,7 +663,7 @@ export const mutations = {
     await applyPlan(planOntologySetClosure(wire(), ontoId, mode));
   },
 
-  /** Show a frame's children in `view`: its default view node names the view's option. */
+  /** Show a frame's children in `view`: its frame view node names the view's option. */
   async setFrameView(frameId: string, view: FrameViewKey): Promise<void> {
     const { frameViewIs } = await import("@/actions/plan");
     await editFrameView(frameId, frameViewIs(view.option));
@@ -706,7 +706,7 @@ export const mutations = {
     await applyPlan(planSetLensProp(wire(), perspectiveId, fieldId, value));
   },
 
-  // A frame's view settings are its default view node's params: each edit
+  // A frame's view settings are its frame view node's params: each edit
   // below writes that node (`editFrameView`), never the frame's own props.
 
   async setViewSort(frameId: string, sortSpecs: SortSpec[]): Promise<void> {

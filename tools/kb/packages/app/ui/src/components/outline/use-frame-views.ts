@@ -1,9 +1,10 @@
 import { useMemo } from "react";
-import { defaultViewIdOf, isViewNode } from "@kb/model";
+import { isViewNode } from "@kb/model";
 import { ViewPoint, currentContributions, familyViews, useContributions } from "@/lib/plugins";
 import { schemaOf } from "@/lib/schema";
 import type { OutlineNode } from "@/lib/types";
 import {
+  frameViewNodeIdOf,
   frameViewThrough,
   isFrameViewKey,
   type FrameView,
@@ -25,13 +26,16 @@ function useFrameViewKeys(): readonly FrameViewKey[] {
 }
 
 /**
- * The node `frame`'s default view names, live, read from the schema (the
- * whole graph, `frameViewNodeOf`): the store is read for that one node, so a
- * host re-renders when its view node changes and not otherwise.
+ * The view node `frame` shows its children through, live, read from the
+ * schema (the whole graph, `frameViewNodeIdOf`): the store is read for that
+ * one node, so a host re-renders when its view node changes and not otherwise.
  */
 export function useFrameViewNode(frame: OutlineNode | undefined): OutlineNode | undefined {
-  const id = defaultViewIdOf(frame);
-  return useOutlineStore((s) => (id === null ? undefined : schemaOf(s).get(id)));
+  return useOutlineStore((s) => {
+    const schema = schemaOf(s);
+    const id = frameViewNodeIdOf(frame, schema);
+    return id === null ? undefined : schema.get(id);
+  });
 }
 
 /** The view `frame` shows its children in, live (`frameViewOf`). */
