@@ -329,6 +329,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       schema: schemaFor(nodes),
       queryDb: useOutlineStore.getState().index,
       views: frameViewKeys(),
+      chain: [],
       pages: {},
     });
     // zoomed root itself + projected cards in board order

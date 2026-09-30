@@ -6,7 +6,8 @@ import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
-import { OutlineTableView } from "@/components/outline/views";
+import { OutlineListView, OutlineTableView } from "@/components/outline/views";
+import { MAX_VIEW_DEPTH, slotLink } from "@/lib/view-key";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { syncUiPlugins } from "@/lib/plugins";
@@ -45,6 +46,17 @@ describe("visible instances", () => {
         fixtureGraph.rev,
         "fixtures",
       );
+  });
+
+  it("offers no row a slot would refuse to render: the one rule, over the same chain", () => {
+    const store = useOutlineStore.getState();
+    expect(store.getVisibleInstances().length).toBeGreaterThan(0);
+    // The root frame's slot inside a slot already showing it: a cycle.
+    store.setSlotChain([slotLink(OutlineListView, store.rootNodeId)]);
+    expect(useOutlineStore.getState().getVisibleInstances()).toEqual([]);
+    // The root frame's slot at the depth limit.
+    store.setSlotChain(Array.from({ length: MAX_VIEW_DEPTH }, (_, i) => `contract.view:${i}`));
+    expect(useOutlineStore.getState().getVisibleInstances()).toEqual([]);
   });
 
   it("includes query-result instances when the query node is expanded", () => {

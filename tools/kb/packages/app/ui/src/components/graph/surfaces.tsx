@@ -18,6 +18,7 @@ import type { ParamsOf } from "@/lib/view-key";
 import { graphPath, navigate } from "@/lib/router";
 import { listPerspectiveNavItems } from "@/lib/sidebar-nav";
 import { useOutlineStore } from "@/stores/outline.store";
+import { keptLoad } from "@/lib/kept-load";
 
 /** The renderers' chunk: sigma and graphology stay out of the outline's bundle. */
 async function importRendererViews() {
@@ -28,29 +29,18 @@ async function importRendererViews() {
 type RendererViews = Awaited<ReturnType<typeof importRendererViews>>;
 
 /**
- * The chunk is loaded once and kept, so a renderer view renders at once
- * whenever it has already arrived. A load that fails is forgotten, so the next
- * render (a retry from the view's error) asks again.
+ * Loaded once and kept, so a renderer view renders at once whenever the chunk
+ * has arrived; a failed load is forgotten, so the view's "Try again" loads it
+ * again (`lib/kept-load`).
  */
-let rendererViews: RendererViews | null = null;
-let rendererViewsLoading: Promise<RendererViews> | null = null;
-function loadRendererViews(): Promise<RendererViews> {
-  rendererViewsLoading ??= importRendererViews().then(
-    (views) => {
-      rendererViews = views;
-      return views;
-    },
-    (error: unknown) => {
-      rendererViewsLoading = null;
-      throw error;
-    },
-  );
-  return rendererViewsLoading;
-}
+const rendererViews = keptLoad(importRendererViews);
 
-/** The renderers' chunk: at once when it has arrived, else suspending until it does. */
+/**
+ * The renderers' chunk: at once when it has arrived, else suspending inside
+ * the renderer's own slot until it does, or throwing its failure to that slot.
+ */
 function useRendererViews(): RendererViews {
-  return rendererViews ?? use(loadRendererViews());
+  return rendererViews.current() ?? use(rendererViews.load());
 }
 
 // Each renderer view as the graph plugin provides it: a component in this
@@ -82,9 +72,12 @@ export function TreemapRendererView(props: ViewProps<ParamsOf<typeof TreemapView
 }
 
 /** The page fetches the renderers with it, so its canvas never waits on a second round trip. */
-const GraphPage = lazy(async () => {
-  const [page] = await Promise.all([import("@/components/graph/graph-page"), loadRendererViews()]);
-  return page;
+const GraphPage = lazy(() => {
+  // Fetch the renderers alongside the page, so its canvas seldom waits on a
+  // second round trip; a failure here is the renderer slot's to show, not the
+  // page's.
+  rendererViews.load().catch(() => undefined);
+  return import("@/components/graph/graph-page");
 });
 
 export function GraphSurface({ params }: ViewProps<GraphParams>) {

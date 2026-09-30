@@ -19,6 +19,7 @@ import { isQueryNode, queryDefOf, resultNodeIds } from "@/lib/query-node";
 import type { NodeMap } from "@/lib/types";
 import { frameViewOf, projectsRows, type FrameView, type FrameViewKey } from "@/lib/view-config";
 import { hasText } from "@/lib/text";
+import { slotLink, slotRenders, type SlotChain } from "@/lib/view-key";
 import { shownNode, showsAncestor } from "@/lib/contextual-ref";
 
 export type VisibleInstance = {
@@ -37,6 +38,8 @@ interface WalkContext {
   queryDb: KbIndex | null;
   /** The frame views provided, which a frame's props resolve against. */
   views: readonly FrameViewKey[];
+  /** The slots around the outline's root frame, as its host renders it (`useSlotChain`). */
+  chain: SlotChain;
   pages: FramePagesMap;
   out: VisibleInstance[];
 }
@@ -62,7 +65,22 @@ function emitProjectedRows(
   }
 }
 
-function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: string): void {
+/**
+ * The chain under a frame's slot, or null when the slot would not render it —
+ * the one rule the slot itself applies (`slotRenders`), so a frame whose rows
+ * the outline refused to draw offers none to the keyboard either.
+ */
+function underSlot(chain: SlotChain, view: FrameView, frameId: string): SlotChain | null {
+  const link = slotLink(view.key, frameId);
+  return slotRenders(chain, link) ? [...chain, link] : null;
+}
+
+function walkVisibleInstances(
+  ctx: WalkContext,
+  nodeId: string,
+  instanceKey: string,
+  chain: SlotChain,
+): void {
   const { nodes, schema, queryDb, out } = ctx;
   const node = nodes.get(nodeId);
   if (!node) return;
@@ -73,11 +91,7 @@ function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: str
   const frame = shownNode(node, schema);
   const frameId = frame.id;
 
-  // A frame whose view is not provided shows no rows, so it offers none. A
-  // slot past MAX_VIEW_DEPTH shows none either, and this walk does not know
-  // the slot depth it runs at: it relies on the outline never reaching it (a
-  // list going on down its tree costs no depth, and a projected view nests
-  // nothing), not on the one budget. [GAP-VIEW-DEPTH-WALK], a gap to file
+  // A frame whose view is not provided shows no rows, so it offers none.
   const view = frameViewOf(frame.props, ctx.views);
   if (view === null) return;
   const projected = projectsRows(view.key);
@@ -94,13 +108,16 @@ function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: str
           excludeId: frameId,
         });
 
+        // Projected results sit in the query frame's slot; the list draws
+        // them itself, as rows of its own.
         if (projected) {
-          emitProjectedRows(ctx, frameId, view, ids, (id) => queryResultInstanceKey(frameId, id));
+          if (underSlot(chain, view, frameId) !== null)
+            emitProjectedRows(ctx, frameId, view, ids, (id) => queryResultInstanceKey(frameId, id));
           return;
         }
 
         for (const id of ids) {
-          walkVisibleInstances(ctx, id, queryResultInstanceKey(frameId, id));
+          walkVisibleInstances(ctx, id, queryResultInstanceKey(frameId, id), chain);
         }
       } catch {
         // Broken EDN: skip results
@@ -109,18 +126,24 @@ function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: str
     // Non-projected query: also walk structural children below results.
   }
 
+  if (projected && isQueryNode(frame)) return;
+  // A frame's children sit in its slot.
+  const inner = underSlot(chain, view, frameId);
+  if (inner === null) return;
   if (projected) {
-    if (isQueryNode(frame)) return;
     emitProjectedRows(ctx, frameId, view, undefined, (id) => childInstanceKey(instanceKey, id));
     return;
   }
 
   for (const child of frameRows({ frameId, nodes, schema, view }).rendered) {
-    walkVisibleInstances(ctx, child.id, childInstanceKey(instanceKey, child.id));
+    walkVisibleInstances(ctx, child.id, childInstanceKey(instanceKey, child.id), inner);
   }
 }
 
-/** What the walk reads: the graph, the query db, the frame views provided and the pages revealed. */
+/**
+ * What the walk reads: the graph, the query db, the frame views provided, the
+ * slots around the outline's root and the pages revealed.
+ */
 type WalkSource = Omit<WalkContext, "out">;
 
 export function collectVisibleInstances(rootNodeId: string, source: WalkSource): VisibleInstance[] {
@@ -130,15 +153,18 @@ export function collectVisibleInstances(rootNodeId: string, source: WalkSource):
   if (!root) return out;
   const ctx: WalkContext = { ...source, out };
 
+  // The root's rows sit in the root frame's slot, inside the outline's.
   const view = frameViewOf(root.props, views);
   if (view === null) return out;
+  const inner = underSlot(source.chain, view, rootNodeId);
+  if (inner === null) return out;
   if (projectsRows(view.key)) {
     emitProjectedRows(ctx, rootNodeId, view, undefined, (id) => outlineInstanceKey(id, nodes));
     return out;
   }
 
   for (const child of frameRows({ frameId: rootNodeId, nodes, schema, view }).rendered) {
-    walkVisibleInstances(ctx, child.id, outlineInstanceKey(child.id, nodes));
+    walkVisibleInstances(ctx, child.id, outlineInstanceKey(child.id, nodes), inner);
   }
   return out;
 }

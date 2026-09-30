@@ -6,6 +6,7 @@ import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";
 import { Breadcrumbs } from "./breadcrumbs";
 import { FrameViewSlot } from "./frame-view-slot";
+import { useSlotChain } from "@/components/ui/slot-chain";
 import { useFrameViewKeys } from "./use-frame-views";
 import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
@@ -23,6 +24,10 @@ export function OutlineEditor() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const root = useOutlineStore((s) => s.nodes.get(s.rootNodeId));
   const frameViews = useFrameViewKeys();
+  // The keyboard walk starts where the root frame's slot does.
+  const slotChain = useSlotChain();
+  const setSlotChain = useOutlineStore((s) => s.setSlotChain);
+  useEffect(() => setSlotChain(slotChain), [slotChain, setSlotChain]);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
   const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
   useSelectionKeymap();

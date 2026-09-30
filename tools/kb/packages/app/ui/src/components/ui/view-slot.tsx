@@ -1,40 +1,26 @@
-import { Suspense, createContext, useContext, useMemo, type ReactElement } from "react";
+import { Suspense, useContext, useMemo, type ReactElement } from "react";
+import { EnclosingSlots } from "@/components/ui/slot-chain";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { useView, type Placement, type ViewHost } from "@/lib/plugins";
-import type { ViewKey } from "@/lib/view-key";
+import { slotLink, slotRenders, type SlotChain, type ViewKey } from "@/lib/view-key";
 
-/**
- * How many views may embed one another. A view embeds others by key, and any
- * of them may embed it back (the ontology embeds the graph and the outline),
- * so a cycle is always one registration away; past this depth a slot shows its
- * fallback. Only an embed counts (see {@link ViewSlot}), and the deepest chain
- * of embeds a view legitimately makes today is five: the shell's page, an
- * ontology, its outline, the root frame's view, and a projected frame view
- * under that list. (The graph's is four: the shell's page, an ontology, its
- * graph, a renderer.)
- */
-export const MAX_VIEW_DEPTH = 5;
-
-/** The slot around this point of the tree; only `ViewSlot` writes it. */
-interface Enclosing {
-  /** How many embeds enclose this point. */
-  readonly depth: number;
-  readonly view: ViewKey<unknown> | null;
-  readonly subject: string | undefined;
-}
-
-const EnclosingSlot = createContext<Enclosing>({ depth: 0, view: null, subject: undefined });
+/** What a slot shows while its view loads: a quiet placeholder of the box, never a blank. */
+const PENDING = (
+  <div
+    aria-busy="true"
+    data-view-pending="true"
+    className="min-h-6 rounded-sm bg-foreground/[0.04] motion-safe:animate-pulse"
+  />
+);
 
 /**
  * The one way to render a view: the shell's page, and one plugin embedding
  * another's view by key, without importing it. What it promises is stated
  * once, in DESIGN-UI.md → UI points: routes and views.
  *
- * A slot counts toward {@link MAX_VIEW_DEPTH} when it embeds a view. A slot
- * showing the same view as the slot around it, for another subject, is that
- * view going on down its own tree (a list's rows each showing their own frame
- * as a list), not an embed, and costs nothing: a tree is as deep as its data.
- * The same view for the same subject is a cycle, and counts.
+ * Whether it renders is `slotRenders` over the slots around it: a slot that
+ * would show the same view for the same subject as any slot around it is a
+ * cycle, and shows its fallback; so is one past `MAX_VIEW_DEPTH`.
  */
 export function ViewSlot<P>({
   view,
@@ -42,14 +28,14 @@ export function ViewSlot<P>({
   placement,
   fallback,
   subject,
-  pending = null,
+  pending = PENDING,
 }: {
   readonly view: ViewKey<P>;
   readonly params: P;
   readonly placement: Placement;
   /**
    * Shown while no view is provided under `view`, when it does not offer
-   * `placement`, and past {@link MAX_VIEW_DEPTH}.
+   * `placement`, and when `slotRenders` refuses it.
    */
   readonly fallback: ReactElement;
   /**
@@ -62,26 +48,22 @@ export function ViewSlot<P>({
   readonly pending?: ReactElement | null;
 }) {
   const provided = useView(view);
-  const outer = useContext(EnclosingSlot);
+  const outer = useContext(EnclosingSlots);
   const host = useMemo((): ViewHost => ({ placement }), [placement]);
-  const continues = outer.view === view && subject !== undefined && outer.subject !== subject;
-  const depth = continues ? outer.depth : outer.depth + 1;
-  const enclosing = useMemo((): Enclosing => ({ depth, view, subject }), [depth, view, subject]);
-  if (provided === null || !provided.placements.includes(placement) || depth > MAX_VIEW_DEPTH)
+  const link = slotLink(view, subject);
+  const chain = useMemo((): SlotChain => [...outer, link], [outer, link]);
+  if (provided === null || !provided.placements.includes(placement) || !slotRenders(outer, link))
     return fallback;
   const { Component } = provided;
   // A view that throws is contained here: its box shows the error, its host
   // stays up. A view that suspends waits here too, so its host never blanks.
   return (
-    <EnclosingSlot.Provider value={enclosing}>
-      <ViewErrorBoundary
-        title="View crashed"
-        resetKey={subject === undefined ? view.id : `${view.id}:${subject}`}
-      >
+    <EnclosingSlots.Provider value={chain}>
+      <ViewErrorBoundary title="View crashed" resetKey={link}>
         <Suspense fallback={pending}>
           <Component params={params} host={host} />
         </Suspense>
       </ViewErrorBoundary>
-    </EnclosingSlot.Provider>
+    </EnclosingSlots.Provider>
   );
 }

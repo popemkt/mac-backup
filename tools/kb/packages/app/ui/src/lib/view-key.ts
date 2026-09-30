@@ -39,7 +39,10 @@ export type ParamsOf<K> = K extends ViewKey<infer P> ? P : never;
 export const NoParams = Schema.Struct({});
 export type NoParams = typeof NoParams.Type;
 
-export function viewKey<P>(id: `${string}.${string}`, params: Schema.Decoder<P>): ViewKey<P> {
+/** A key that belongs to no family: a view no host picks between (a page, an embed). */
+export type PlainViewKey<P> = ViewKey<P> & { readonly family?: undefined };
+
+export function viewKey<P>(id: `${string}.${string}`, params: Schema.Decoder<P>): PlainViewKey<P> {
   return { kind: "view", id, params };
 }
 
@@ -84,4 +87,36 @@ export interface ViewPicker {
 export interface FamilyView<K extends ViewKey<unknown>> {
   readonly key: K;
   readonly picker: ViewPicker;
+}
+
+/**
+ * The slots around a point of the tree, outermost first: each one's view and
+ * the subject it shows it for (`slotLink`). A slot renders its view only when
+ * {@link slotRenders} says so; the keyboard walk asks the same question of the
+ * chain it walks, so it never offers a row a slot refused to render.
+ */
+export type SlotChain = readonly string[];
+
+/**
+ * How deep slots may nest at all: a safety net against runaway nesting of
+ * ever-new subjects, since a repeat is caught exactly. The chain above a
+ * frame's rows is the shell's page, an ontology, its outline and the root
+ * frame's view (four), then one slot per frame the outline nests below the
+ * root, and one more for a projected view at the bottom. This repo's deepest outline nests four
+ * frames, so a chain of nine; 32 leaves room for an outline 27 frames deep.
+ */
+export const MAX_VIEW_DEPTH = 32;
+
+/** One link of a slot chain: a view, and what it is shown for. */
+export function slotLink(key: ViewKey<unknown>, subject: string | undefined): string {
+  return subject === undefined ? key.id : `${key.id}:${subject}`;
+}
+
+/**
+ * Whether a slot for `link` renders inside `chain`: not when a slot around it
+ * already shows the same view for the same subject (a cycle, however many
+ * other views lie between), and not past {@link MAX_VIEW_DEPTH}.
+ */
+export function slotRenders(chain: SlotChain, link: string): boolean {
+  return chain.length < MAX_VIEW_DEPTH && !chain.includes(link);
 }

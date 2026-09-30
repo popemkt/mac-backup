@@ -12,12 +12,13 @@
  * leaves nothing behind. Sizing, disposal, appearance, reduced motion and bad
  * config wait on the host contract: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
  */
-import { act, type ReactElement } from "react";
+import { act, use, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Effect, Result, Schema } from "effect";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { definePlugin, makeKernel, type Plugin } from "@kb/plugin";
-import { MAX_VIEW_DEPTH, ViewSlot } from "@/components/ui/view-slot";
+import { definePlugin, makeKernel, type Plugin, type ContributionEntry } from "@kb/plugin";
+import { ViewSlot } from "@/components/ui/view-slot";
+import { keptLoad } from "@/lib/kept-load";
 import {
   ViewPoint,
   findView,
@@ -27,7 +28,7 @@ import {
   type ViewProps,
   type ProvidedView,
 } from "@/lib/plugins";
-import { NoParams, viewKey } from "@/lib/view-key";
+import { MAX_VIEW_DEPTH, NoParams, localIdOf, viewKey } from "@/lib/view-key";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS } from "@/ui-plugins";
 
@@ -45,6 +46,14 @@ const VIEWS = (() => {
 
 const others = (owner: string) => ALL_PLUGINS.filter((plugin) => plugin.name !== owner);
 
+/** `view` again, under its own key and picker, drawn by `Component` instead. */
+function standIn(
+  view: ProvidedView,
+  Component: () => ReactElement,
+): ContributionEntry<ProvidedView> {
+  return { id: localIdOf(view.key), value: { ...view, Component } };
+}
+
 /** A provider under `view`'s own key whose component always throws. */
 function throwingStandIn(owner: string, view: ProvidedView): Plugin {
   const Throws = () => {
@@ -53,8 +62,7 @@ function throwingStandIn(owner: string, view: ProvidedView): Plugin {
   return definePlugin({
     name: `${owner}.contract-stand-in`,
     namespace: owner,
-    apply: (ctx) =>
-      ctx.contribute(ViewPoint, provideView(view.key, { ...view, Component: Throws })),
+    apply: (ctx) => ctx.contribute(ViewPoint, standIn(view, Throws)),
   });
 }
 
@@ -73,8 +81,7 @@ function selfEmbeddingStandIn(owner: string, view: ProvidedView): Plugin {
   return definePlugin({
     name: `${owner}.contract-self-embed`,
     namespace: owner,
-    apply: (ctx) =>
-      ctx.contribute(ViewPoint, provideView(view.key, { ...view, Component: Embeds })),
+    apply: (ctx) => ctx.contribute(ViewPoint, standIn(view, Embeds)),
   });
 }
 
@@ -83,6 +90,17 @@ function firstPlacement(view: ProvidedView): Placement {
   const [placement] = view.placements;
   if (placement === undefined) throw new Error(`${view.key.id} offers no placement`);
   return placement;
+}
+
+/** Let effects and promises run until `ready` holds, or fail after a while. */
+async function until(ready: () => boolean, ms = 3000): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (!ready()) {
+    if (Date.now() > deadline) throw new Error("the slot never settled");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
 }
 
 const FALLBACK = <p data-contract-fallback="true">fallback</p>;
@@ -124,7 +142,10 @@ describe("view contract", () => {
   });
 
   /** A host that stays up whatever its slot does, and the slot inside it. */
-  function mount(view: ProvidedView, placement: Placement = firstPlacement(view)): void {
+  async function mount(
+    view: ProvidedView,
+    placement: Placement = firstPlacement(view),
+  ): Promise<void> {
     const host: ReactElement = (
       <section data-contract-host="true">
         <ViewSlot
@@ -136,7 +157,8 @@ describe("view contract", () => {
         />
       </section>
     );
-    act(() => root.render(host));
+    // Awaited, so a view that suspends on its code is retried once that arrives.
+    await act(async () => root.render(host));
   }
 
   const shown = (selector: string) => container.querySelector(selector) !== null;
@@ -181,14 +203,14 @@ describe("view contract", () => {
       it.each(view.placements)(
         "mounts in a slot at %s, without the fallback or a crash",
         async (placement) => {
-          mount(view, placement);
+          await mount(view, placement);
           await settle();
           expectViewShown();
         },
       );
 
       it("shows the fallback while its owner is unloaded, and comes back on reload", async () => {
-        mount(view);
+        await mount(view);
         await settle();
         act(() => syncUiPlugins(others(owner)));
         expect(shown("[data-contract-fallback]")).toBe(true);
@@ -198,11 +220,11 @@ describe("view contract", () => {
         expectViewShown();
       });
 
-      it("keeps a throw under its key inside the slot", () => {
+      it("keeps a throw under its key inside the slot", async () => {
         const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
         try {
           act(() => syncUiPlugins([...others(owner), throwingStandIn(owner, view)]));
-          mount(view);
+          await mount(view);
           expect(shown('[data-testid="view-error"]')).toBe(true);
           expect(shown("[data-contract-host]")).toBe(true);
         } finally {
@@ -210,10 +232,10 @@ describe("view contract", () => {
         }
       });
 
-      it("stops a provider that embeds its own key at the depth limit", () => {
+      it("stops a provider that embeds its own key, for the same subject, at the first repeat", async () => {
         act(() => syncUiPlugins([...others(owner), selfEmbeddingStandIn(owner, view)]));
-        mount(view);
-        expect(container.querySelectorAll("[data-contract-nested]")).toHaveLength(MAX_VIEW_DEPTH);
+        await mount(view);
+        expect(container.querySelectorAll("[data-contract-nested]")).toHaveLength(1);
         expect(container.querySelectorAll("[data-contract-depth-stop]")).toHaveLength(1);
         expect(shown('[data-testid="view-error"]')).toBe(false);
       });
@@ -221,7 +243,7 @@ describe("view contract", () => {
       it("leaves nothing behind when it unmounts", async () => {
         const body = dom.window.document.body;
         const before = body.childNodes.length;
-        mount(view);
+        await mount(view);
         await settle();
         expectViewShown();
         act(() => root.render(<></>));
@@ -234,6 +256,7 @@ describe("view contract", () => {
 
   describe("the slot", () => {
     const KEY = viewKey("contract.view", NoParams);
+    const OTHER = viewKey("contract.other", NoParams);
     const TREE = viewKey("contract.tree", Schema.Struct({ level: Schema.Number }));
     const DEEP = MAX_VIEW_DEPTH + 3;
 
@@ -252,23 +275,26 @@ describe("view contract", () => {
       </div>
     );
 
-    it("counts a view going on down its own tree, for other subjects, as no embed", () => {
+    /** Load `views` beside every UI plugin, under the contract's own namespace. */
+    function provide(...views: readonly ContributionEntry<ProvidedView>[]): void {
       act(() =>
         syncUiPlugins([
           ...ALL_PLUGINS,
           definePlugin({
             name: "contract",
             apply: (ctx) =>
-              ctx.contribute(
-                ViewPoint,
-                provideView(TREE, {
-                  placements: ["page"],
-                  sample: { level: 1 },
-                  Component: TreeView,
-                }),
+              Effect.all(
+                views.map((view) => ctx.contribute(ViewPoint, view)),
+                { discard: true },
               ),
           }),
         ]),
+      );
+    }
+
+    it("shows a view again down its own tree, for other subjects, up to MAX_VIEW_DEPTH", () => {
+      provide(
+        provideView(TREE, { placements: ["page"], sample: { level: 1 }, Component: TreeView }),
       );
       act(() =>
         root.render(
@@ -281,8 +307,81 @@ describe("view contract", () => {
           />,
         ),
       );
-      expect(container.querySelectorAll("[data-contract-level]")).toHaveLength(DEEP);
-      expect(shown("[data-contract-depth-stop]")).toBe(false);
+      expect(container.querySelectorAll("[data-contract-level]")).toHaveLength(MAX_VIEW_DEPTH);
+      expect(container.querySelectorAll("[data-contract-depth-stop]")).toHaveLength(1);
+    });
+
+    it("stops a cycle through other views at the first repeat of a view and subject", () => {
+      // A for x embeds B for y, which embeds A for x again.
+      const A = () => (
+        <div data-contract-a="true">
+          <ViewSlot
+            view={OTHER}
+            params={{}}
+            placement="page"
+            subject="y"
+            fallback={<p data-contract-depth-stop="true">stop</p>}
+          />
+        </div>
+      );
+      const B = () => (
+        <div data-contract-b="true">
+          <ViewSlot
+            view={KEY}
+            params={{}}
+            placement="page"
+            subject="x"
+            fallback={<p data-contract-depth-stop="true">stop</p>}
+          />
+        </div>
+      );
+      provide(
+        provideView(KEY, { placements: ["page"], sample: {}, Component: A }),
+        provideView(OTHER, { placements: ["page"], sample: {}, Component: B }),
+      );
+      act(() =>
+        root.render(
+          <ViewSlot view={KEY} params={{}} placement="page" subject="x" fallback={FALLBACK} />,
+        ),
+      );
+      expect(container.querySelectorAll("[data-contract-a]")).toHaveLength(1);
+      expect(container.querySelectorAll("[data-contract-b]")).toHaveLength(1);
+      expect(container.querySelectorAll("[data-contract-depth-stop]")).toHaveLength(1);
+    });
+
+    it("loads a view's code again after a failed load, when its error is retried", async () => {
+      // The chunk fails to arrive until the network is back.
+      let offline = true;
+      const code = keptLoad(async () => {
+        if (offline) throw new Error("the chunk did not arrive");
+        return "arrived";
+      });
+      const Loads = () => <p data-contract-loaded="true">{code.current() ?? use(code.load())}</p>;
+      provide(provideView(KEY, { placements: ["page"], sample: {}, Component: Loads }));
+      const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        await act(async () =>
+          root.render(
+            <section data-contract-host="true">
+              <ViewSlot
+                view={KEY}
+                params={{}}
+                placement="page"
+                fallback={FALLBACK}
+                pending={SUSPENDED}
+              />
+            </section>,
+          ),
+        );
+        await until(() => shown('[data-testid="view-error"]'));
+        expect(shown("[data-contract-host]")).toBe(true);
+        offline = false;
+        const retry = container.querySelector('[data-testid="view-error-retry"]');
+        await act(async () => (retry as HTMLButtonElement | null)?.click());
+        await until(() => shown("[data-contract-loaded]"));
+      } finally {
+        quiet.mockRestore();
+      }
     });
 
     it("waits for a view that suspends in its own box, and its host stays up", () => {
@@ -290,19 +389,7 @@ describe("view contract", () => {
       const Suspends = () => {
         throw never;
       };
-      act(() =>
-        syncUiPlugins([
-          ...ALL_PLUGINS,
-          definePlugin({
-            name: "contract",
-            apply: (ctx) =>
-              ctx.contribute(
-                ViewPoint,
-                provideView(KEY, { placements: ["page"], sample: {}, Component: Suspends }),
-              ),
-          }),
-        ]),
-      );
+      provide(provideView(KEY, { placements: ["page"], sample: {}, Component: Suspends }));
       act(() =>
         root.render(
           <section data-contract-host="true">

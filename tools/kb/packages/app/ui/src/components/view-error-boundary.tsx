@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { RetryableError } from "@/lib/kept-load";
 import { logError } from "@/lib/log";
 
 export interface ViewErrorProps {
@@ -76,6 +77,10 @@ export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErr
   }
 
   private retry = (): void => {
+    // A failure that knows how to be tried again (a chunk that did not
+    // arrive) is told first, so the render below asks again.
+    const { error } = this.state;
+    if (error instanceof RetryableError) error.retry();
     this.setState({ error: null });
   };
 

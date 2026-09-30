@@ -22,6 +22,7 @@ import {
 } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import { Cause, Effect, Exit } from "effect";
+import { present } from "@kb/model";
 import {
   Point,
   makeKernel,
@@ -31,7 +32,13 @@ import {
   type PointKey,
 } from "@kb/plugin";
 import { usePath } from "@/lib/router";
-import { localIdOf, type FamilyView, type ViewKey, type ViewPicker } from "@/lib/view-key";
+import {
+  localIdOf,
+  type FamilyView,
+  type PlainViewKey,
+  type ViewKey,
+  type ViewPicker,
+} from "@/lib/view-key";
 import { toast } from "@/lib/toast";
 
 /**
@@ -77,6 +84,18 @@ export interface ProvidedView {
 export const ViewPoint = Point<ProvidedView>()("ui.views");
 
 /** The `ViewPoint` contribution for `key`, under the key's own local id. */
+/**
+ * A view of a family (its key names a `family`) must say how a picker names
+ * it: its pickers list it by nothing else. A view of no family has no picker.
+ */
+export function provideView<P>(
+  key: ViewKey<P> & { readonly family: string },
+  view: Omit<View<P>, "key" | "picker"> & { readonly picker: ViewPicker },
+): ContributionEntry<ProvidedView>;
+export function provideView<P>(
+  key: PlainViewKey<P>,
+  view: Omit<View<P>, "key" | "picker">,
+): ContributionEntry<ProvidedView>;
 export function provideView<P>(
   key: ViewKey<P>,
   view: Omit<View<P>, "key">,
@@ -233,8 +252,10 @@ export function familyViews<K extends ViewKey<unknown>>(
 ): readonly FamilyView<K>[] {
   const listed: FamilyView<K>[] = [];
   for (const { value } of views) {
-    if (isFamily(value.key) && value.picker !== undefined)
-      listed.push({ key: value.key, picker: value.picker });
+    if (!isFamily(value.key)) continue;
+    // `provideView` requires a family view's picker, so none is ever missing.
+    const picker = present(value.picker, `${value.key.id} is a family view with no picker`);
+    listed.push({ key: value.key, picker });
   }
   return listed.toSorted((a, b) => a.picker.order - b.picker.order);
 }

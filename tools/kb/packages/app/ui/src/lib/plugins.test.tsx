@@ -107,3 +107,27 @@ describe("syncUiPlugins", () => {
     expect(listed()).toEqual(["a.section"]);
   });
 });
+
+describe("provideView", () => {
+  const Plain = viewKey("t.plain", NoParams);
+  const Family = { ...viewKey("t.member", NoParams), family: "t.family" };
+
+  it("names a view of a family by the picker it is given, and a plain view by none", () => {
+    const member = provideView(Family, {
+      placements: ["page"],
+      sample: {},
+      Component: Nothing,
+      picker: { label: "Member", order: 0 },
+    });
+    expect(member.value.picker?.label).toBe("Member");
+    expect(
+      provideView(Plain, { placements: ["page"], sample: {}, Component: Nothing }).value.picker,
+    ).toBeUndefined();
+  });
+
+  it("will not take a view of a family without a picker (checked by tsc)", () => {
+    // @ts-expect-error: a family view must say how its pickers name it
+    const missing = provideView(Family, { placements: ["page"], sample: {}, Component: Nothing });
+    expect(missing.value.picker).toBeUndefined();
+  });
+});

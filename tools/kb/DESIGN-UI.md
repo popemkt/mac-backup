@@ -1155,21 +1155,26 @@ another.
 3. It wraps the view in its own `ViewErrorBoundary`, reset by the key's id
    and the `subject`. A view that throws shows `ViewError` in its own box,
    and the host around it stays up.
-4. It wraps the view in its own `Suspense`, showing `pending` (nothing, by
-   default) in its box while the view's code or data loads, so a host that
-   embeds a lazy view never blanks a boundary above it.
+4. It wraps the view in its own `Suspense`, showing `pending` in its box
+   while the view's code or data loads (by default a quiet token-coloured
+   placeholder; the shell's page passes its own loading state), so a host
+   that embeds a lazy view never blanks a boundary above it. A load that
+   fails and knows how to be tried again (`RetryableError`, from
+   `lib/kept-load`) is told so by the boundary's "Try again".
 5. It adds no DOM of its own, so the box is exactly what the host gives it.
-6. It counts the embeds that enclose it, through a React context that only
-   the slot writes, and past `MAX_VIEW_DEPTH` (5) it renders `fallback`
-   instead of the view. A slot showing the same view as the slot around it,
-   for another `subject`, is that view going on down its own tree (a list's
-   rows each showing their frame as a list) and counts nothing, because a
-   tree is as deep as its data; the same view for the same subject is a
-   cycle, and counts. A view that embeds itself, directly or through another
-   view, therefore stops instead of recursing. The depth is the slot's to
-   count. It is not part of `ViewHost`, because no view reads it. The
-   keyboard walk does not read that budget: it relies on the outline never
-   reaching it ([GAP-VIEW-DEPTH-WALK], a gap to file).
+6. It knows the slots around it, outermost first, as a chain of links
+   (`SlotChain`: each slot's view and subject), through a React context that
+   only the slot writes, and renders only when `slotRenders` says so
+   (`lib/view-key.ts`): not when any slot around it shows the same view for
+   the same subject, which is a cycle however many other views lie between,
+   and not past `MAX_VIEW_DEPTH` (32), a safety net against runaway nesting
+   of ever-new subjects. A list's rows each showing their frame as a list
+   are links for other subjects, so they are no cycle. A view that embeds
+   itself, directly or through another view, stops at the first repeat. The
+   chain is the slot's to keep; it is not part of `ViewHost`, because no view
+   reads it. The keyboard walk asks the same rule of the chain it walks,
+   starting from the chain around the outline's root frame, which the outline
+   host hands the store, so it never offers a row a slot refused to render.
 
 **Views are soft and services are hard.** A missing view never makes its
 consumer `pending`. The consumer shows the fallback. A computation that
@@ -1191,7 +1196,8 @@ renders one; keys are data (`lib/view-key.ts` knows no kernel, React or
 store). How a picker names a view (`picker`: its label, its `order` among the
 family, and where the family has them a glyph, an icon and a `sys.command`
 node) is presentation, so it is part of the view's contribution, not of its
-key. A family is enumerated one way: `familyViews` over `ViewPoint`, which
+key; `provideView` requires it for a key with a `family`, and takes none
+for a key without. A family is enumerated one way: `familyViews` over `ViewPoint`, which
 keeps the views of that family that are provided, in `picker.order`. While
 config is text, a view goes by its key's local id (`localIdOf`), which is
 how the stored name resolves to the key among them.
@@ -1207,7 +1213,9 @@ how the stored name resolves to the key among them.
   search) is not config, so it travels in the page's `GraphFrame` context,
   never in the params; a renderer view outside a graph host says there is
   nothing to draw. The renderers' components load in their own chunk,
-  fetched with the graph page's.
+  prefetched when the graph page loads; a renderer view suspends in its own
+  slot until the chunk arrives, and a failed load is tried again from that
+  slot's error.
 - *Frame views.* A frame's children are shown by one of the outline's four
   frame views, list, table, board and cards, each a view at placement
   `inline` that the outline plugin provides. Their keys
@@ -1228,8 +1236,9 @@ how the stored name resolves to the key among them.
   and depth) is not config, so it travels in the host's `FrameSubject`
   context. Every outline host (the outline's root, a row of the list, a
   query's projected results) renders a frame view through `FrameViewSlot`,
-  with the frame's id as the slot's `subject`, so a list of lists costs no
-  depth (promise 6). A query's results in the list view are the one rows
+  with the frame's id as the slot's `subject`, so a list of lists is a chain
+  of links for other frames, never a cycle (promise 6). A query's results
+  in the list view are the one rows
   the list draws itself, as references, through the query row's
   `renderNode`.
 
@@ -1241,14 +1250,16 @@ in each placement it offers, and show neither the fallback nor the slot's
 error (a family's view outside its host shows its own empty state: no graph,
 or no frame); show the fallback while its owner is unloaded
 and come back when the owner reloads; have a throw from a provider under its
-key contained by the slot; stop at `MAX_VIEW_DEPTH` when a provider under
+key contained by the slot; stop at the first repeat when a provider under
 its key embeds that key again; and, once settled, leave nothing behind in its
 box or elsewhere in the document when it unmounts. "Comes back" means
 settled, with neither the fallback, a suspended state, nor an error showing.
 The route table in `ui-plugins.test.ts` also checks that every route renders
 a registered view that offers `page`. The slot is checked on its own too: a
-view going on down its own tree, for other subjects, passes the depth limit,
-and a view that suspends waits in its own box. The remaining properties (sizing,
+view shown again down its own tree for other subjects renders up to
+`MAX_VIEW_DEPTH`; a cycle through another view stops at its first repeat; a
+view that suspends waits in its own box; and a view whose code failed to
+load loads again when its error is retried. The remaining properties (sizing,
 disposal of instrumented resources, appearance, reduced motion and bad
 config) are deferred with the host contract, in the same gap as above.
 

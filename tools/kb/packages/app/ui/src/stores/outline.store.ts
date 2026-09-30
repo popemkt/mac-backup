@@ -24,7 +24,7 @@ import {
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { logWarn } from "@/lib/log";
 import type { FrameViewKey } from "@/lib/view-config";
-import type { FamilyView } from "@/lib/view-key";
+import type { FamilyView, SlotChain } from "@/lib/view-key";
 import { providedFrameViews } from "@/stores/frame-views";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
 
@@ -124,6 +124,12 @@ interface OutlineState {
   /** Pages revealed per frame in paginating view modes (frame id -> pages). */
   framePages: Record<string, number>;
   revealMorePages: (frameId: string) => void;
+  /**
+   * The slots around the outline's root frame, as the outline host renders it:
+   * what the keyboard walk starts from, so it asks the slots' own rule.
+   */
+  slotChain: SlotChain;
+  setSlotChain: (chain: SlotChain) => void;
   /** The frame views provided, in their pickers' order (`stores/frame-views`). */
   frameViews: () => readonly FamilyView<FrameViewKey>[];
   getVisibleInstances: () => VisibleInstance[];
@@ -152,6 +158,7 @@ export const initialOutlineState: OutlineStateData = {
   nodes: new Map(),
   wireNodes: [],
   framePages: {},
+  slotChain: [],
   index: null,
   rev: 0,
   rootNodeId: WORKSPACE_ROOT_ID,
@@ -764,15 +771,20 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     frameViews: providedFrameViews,
 
     getVisibleInstances: () => {
-      const { nodes, rootNodeId, index, framePages } = get();
+      const { nodes, rootNodeId, index, framePages, slotChain } = get();
       const views = providedFrameViews().map((view) => view.key);
       return collectVisibleInstances(rootNodeId, {
         nodes,
         schema: schemaOf(get()),
         queryDb: index,
         views,
+        chain: slotChain,
         pages: framePages,
       });
+    },
+
+    setSlotChain: (chain) => {
+      if (chain.join("\n") !== get().slotChain.join("\n")) set({ slotChain: chain });
     },
 
     revealMorePages: (frameId) =>
