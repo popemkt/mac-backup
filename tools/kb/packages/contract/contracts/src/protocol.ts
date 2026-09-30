@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FailedReceiptSchema, SucceededReceiptSchema } from "./actions.ts";
+import { ScreenAckSchema, ScreenCommandSchema, ScreenStateSchema } from "./screen.ts";
 
 /**
  * Shared wire contract for the `kb ui` server (HTTP + WS) and its clients
@@ -85,6 +86,14 @@ export const ClientMessageSchema = z.discriminatedUnion("op", [
   /** Opt in/out of node-level tx broadcasts (browser UI wants these). */
   z.object({ op: z.literal("watch-tx"), enabled: z.boolean() }),
   z.object({ op: z.literal("ping") }),
+  /**
+   * This connection is a UI tab, and this is its whole screen now
+   * (`screen.ts`). Sent on connect and whenever the screen changes; the
+   * server keeps the latest per connection and forgets it on close.
+   */
+  z.object({ op: z.literal("screen"), state: ScreenStateSchema }),
+  /** The tab's answer to the `screen-command` with this `id`. */
+  z.object({ op: z.literal("screen-ack"), id: z.string().min(1), result: ScreenAckSchema }),
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
@@ -123,6 +132,16 @@ export const ServerMessageSchema = z.discriminatedUnion("op", [
    */
   z.object({ op: z.literal("snapshot-required"), head: z.number().int() }),
   z.object({ op: z.literal("pong") }),
+  /**
+   * Carry out this command (`ui.navigate`, `ui.select`) and answer with a
+   * `screen-ack` of the same `id`. Sent only to a connection that has
+   * published a screen.
+   */
+  z.object({
+    op: z.literal("screen-command"),
+    id: z.string().min(1),
+    command: ScreenCommandSchema,
+  }),
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 

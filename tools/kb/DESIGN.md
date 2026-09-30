@@ -1407,7 +1407,8 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
 - `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas via `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
 - **Mode**: every action states once, as a required field, what invoking it does.
   `{kind: "read"}` changes nothing. `{kind: "write", approval?: "required"}`
-  may change the graph or the workspace. Approval can only be declared on a
+  may change the graph, the workspace, or what a UI tab shows
+  ([Screen state](#screen-state)). Approval can only be declared on a
   write, so there is no read-with-approval state. The manifest publishes the
   mode, and each surface derives its behaviour from it and keeps no list of
   its own:
@@ -1583,6 +1584,8 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 | `ext.docs.materialize` (alias `docs.materialize`) | write | render the docs views → write md (bundled extension)                                                         |
 | `ext.docs.check` (alias `docs.check`)             | read  | materialize to memory, diff vs disk (bundled extension)                                                      |
 | `ext.canvas.tx.apply`                             | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension)                                      |
+| `ui.screen`                                       | read  | the open UI tabs' screen state, most recently active first ([Screen state](#screen-state))                   |
+| `ui.navigate` / `ui.select`                       | write | open a node or route / set the selection or focus in a UI tab ([Screen state](#screen-state))                |
 
 ## Materialization
 
@@ -1676,6 +1679,63 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
   call `Effect.runPromise` / `runPromiseExit` at the process edge — not inside
   action handlers.
 - No `@effect/cli` adoption (Commander preserved by design).
+
+## Screen state
+
+Agents know what is on the person's screen and can move it, through
+ordinary registry actions and without a database (roadmap decision 7 in
+`docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md`). Every
+shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
+`protocol.ts`.
+
+- **The channel is `/ws`, per tab, in memory.** A UI tab is a `/ws`
+  connection that has sent `{op: "screen", state}`: its route, whether it
+  has the person's attention (`active`), and its panes, each with the open
+  view (its view key id and the node it is shown for), the focused node,
+  the selection in the view's own ids, and for a canvas the 2D viewport and
+  the visible item ids. The tab id is the one its connection names
+  (`?origin=`), so a tab that reconnects is the same tab on a new
+  connection, and the old connection's late close drops nothing. The tab
+  sends its whole screen on connect and on every change, throttled
+  (`src/screen.ts` in the UI). The `kb ui` server (`ScreenHub`) keeps the
+  latest record per tab and forgets it when the tab's connection closes.
+  Nothing is written to the store, and a server restart forgets every tab
+  until each republishes on reconnect.
+- **Panes are in the record from the start.** A tab has one pane today,
+  `main`. Windowing (decision 12) gives it several, and `panes` plus
+  `activePane` already carry them, so that change adds panes and no new
+  message. A command may name its `pane`; without one it goes to the
+  active pane.
+- **`ui.screen`** (read) returns the live tabs, most recently active first:
+  the last tab to publish while it had attention comes first, and tabs that
+  never had it follow in the order they arrived. `tab` narrows the list to
+  that tab.
+- **`ui.navigate` and `ui.select`** (writes) are commands. The server sends
+  `{op: "screen-command", id, command}` to one tab, the most recently
+  active by default, and waits up to `timeoutMs` (default 2 s) for that
+  tab's `{op: "screen-ack", id, result}`. The receipt is always a success
+  whose output says what happened: `applied`, `rejected` with the tab's
+  reason, `timeout`, or `no-tab` when no live tab could take the command,
+  including a tab that closes before it answers. `timeout` says only that
+  no answer came in time: the tab may still carry the command out, and its
+  late answer is dropped. `ui.navigate` takes a
+  `node` (opened in the outline, zoomed to it) or a `route`; `ui.select`
+  takes a `selection`, a `focus`, or both, and the open view carries them
+  out or says why it cannot.
+- **No approval.** The two commands change what one tab shows, never the
+  graph or the workspace, and a person undoes either with one gesture.
+  Approval would also keep them off MCP and WebMCP (`listedOn`), the
+  surfaces an agent uses to follow and steer the screen.
+- **Every process reaches the one server.** The actions ask for the
+  `Screens` port. The `kb ui` server provides its `ScreenHub` in place of the
+  default. Every other process gets `remoteScreensLayer`, which reads
+  `.kb/ui.json` and asks that server the same action. `kb ui` writes the
+  file when it listens and removes it when it stops. It is runtime state,
+  gitignored and not backed up. A root that no server serves, or whose file
+  points at a server that has died, has no tabs, which is an answer and not
+  a failure. So `ui.*` reach MCP, HTTP, the CLI and WebMCP like any action,
+  and `surfaceContract` runs them over every surface against one fake tab
+  connected to the root's one `kb ui`.
 
 ## Repo integration
 

@@ -52,6 +52,14 @@ import {
   renderViewsActionEffect,
   renderViewsDef,
 } from "./render.ts";
+import {
+  uiNavigateDef,
+  uiNavigateEffect,
+  uiScreenDef,
+  uiScreenEffect,
+  uiSelectDef,
+  uiSelectEffect,
+} from "./ui.ts";
 
 /**
  * The invoke core: one registered-action shape, the core actions
@@ -95,8 +103,8 @@ export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[]
 
 /**
  * The actions that reach a service only the invoke tip's composition root can
- * provide: a workspace port (saved queries, views, assets) or the registry's
- * own catalog.
+ * provide: a workspace port (saved queries, views, assets), the registry's
+ * own catalog, or the screens of the UI tabs.
  */
 const portActions: readonly RegisteredAction[] = [
   coreNative(graphRunDef, graphRunEffect),
@@ -105,6 +113,9 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(renderViewsDef, renderViewsActionEffect),
   coreNative(kbManifestDef, kbManifestEffect),
   coreNative(viewsMigrateDef, viewsMigrateEffect),
+  coreNative(uiScreenDef, uiScreenEffect),
+  coreNative(uiNavigateDef, uiNavigateEffect),
+  coreNative(uiSelectDef, uiSelectEffect),
 ];
 
 export const coreActions: readonly RegisteredAction[] = [...isomorphicActions, ...portActions];

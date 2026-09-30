@@ -48,6 +48,43 @@ export type {
   ServerMessage,
   WireNode,
 } from "./protocol.ts";
+export {
+  CanvasScreenSchema,
+  NavigateTargetSchema,
+  PaneScreenSchema,
+  SCREEN_APPLIED,
+  SCREEN_COMMAND_TIMEOUT_MAX_MS,
+  SCREEN_COMMAND_TIMEOUT_MS,
+  ScreenAckSchema,
+  ScreenCommandSchema,
+  ScreenListSchema,
+  ScreenReceiptSchema,
+  ScreenStateSchema,
+  Screens,
+  TabScreenSchema,
+  UiNavigateInputSchema,
+  UiScreenInputSchema,
+  UiSelectInputSchema,
+  navigateCommand,
+  noTabReceipt,
+  screenRejected,
+  selectCommand,
+} from "./screen.ts";
+export type {
+  CanvasScreen,
+  NavigateTarget,
+  PaneScreen,
+  ScreenAck,
+  ScreenCommand,
+  ScreenList,
+  ScreenReceipt,
+  ScreenState,
+  ScreensPort,
+  TabScreen,
+  UiNavigateInput,
+  UiScreenInput,
+  UiSelectInput,
+} from "./screen.ts";
 export { KbCtx, KbStore, kbCtxLayer, kbStoreLayer } from "./session.ts";
 export { TX_TAIL_KEEP_ENTRIES, TX_TAIL_MAX_ENTRIES, TxOrigin, VIRTUAL_ORIGIN } from "./tx-log.ts";
 export type { KbTxLog, TxRecord, TxTail } from "./tx-log.ts";

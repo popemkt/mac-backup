@@ -4,6 +4,8 @@ import {
   ClientMessageSchema,
   ServerMessageSchema,
   type ClientMessage,
+  type ScreenCommand,
+  type ScreenState,
   type ServerMessage,
   type WireNode,
 } from "@kb/contracts";
@@ -215,5 +217,50 @@ describe("KbWsClient", () => {
     h.server.socket.deliver({ op: "tx", rev: "not-a-number" });
     expect(h.errors.some((e) => e.code === "invalid_server_message")).toBe(true);
     expect(h.graph).toEqual([{ op: "hello", rev: 0 }]);
+  });
+
+  it("publishes the tab's latest screen, again on every open", () => {
+    const h = makeHarness();
+    const state: ScreenState = {
+      route: "/",
+      active: true,
+      activePane: "main",
+      panes: [{ id: "main", view: null, focused: null, selection: [] }],
+    };
+    // Published before the socket is open: it goes out when the socket opens.
+    h.client.publishScreen({ ...state, route: "/canvas" });
+    h.client.publishScreen(state);
+    h.client.connect();
+    h.server.accept(0);
+    expect(h.server.received("screen")).toEqual([{ op: "screen", state }]);
+    h.server.drop();
+    vi.advanceTimersByTime(100);
+    h.server.accept(0);
+    expect(h.server.received("screen")).toEqual([{ op: "screen", state }]);
+  });
+
+  it("hands a screen command to its handler and sends the answer back under its id", () => {
+    const commands: Array<[string, ScreenCommand]> = [];
+    const server = new MockServer();
+    const client = new KbWsClient({
+      url: "ws://test/ws",
+      makeSocket: server.makeSocket,
+      onGraph: () => {},
+      onScreenCommand: (id, command) => {
+        commands.push([id, command]);
+        client.answerScreenCommand(id, { outcome: "applied" });
+      },
+    });
+    client.connect();
+    server.accept(0);
+    server.push({
+      op: "screen-command",
+      id: "c1",
+      command: { kind: "navigate", to: { node: "n.a" } },
+    });
+    expect(commands).toEqual([["c1", { kind: "navigate", to: { node: "n.a" } }]]);
+    expect(server.received("screen-ack")).toEqual([
+      { op: "screen-ack", id: "c1", result: { outcome: "applied" } },
+    ]);
   });
 });

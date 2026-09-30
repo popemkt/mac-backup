@@ -10,9 +10,10 @@ import {
   type SurfaceWire,
 } from "@kb/contracts";
 import { reloadEffect } from "@kb/operations";
-import { type ActionHandlerEnv, invokeReceiptEffect, kbRuntimeLayer, manifest } from "@kb/runtime";
+import { type ActionHandlerEnv, invokeReceiptEffect, manifest } from "@kb/runtime";
 import * as assets from "./assets.ts";
 import { listSavedQueriesEffect } from "./saved-queries.ts";
+import { serverRuntimeLayer } from "./screens.ts";
 import type { SubscriptionHub } from "./session.ts";
 
 /**
@@ -150,14 +151,14 @@ const handleHttpRequestEffect = (
   );
 
 /**
- * Promise facade for the HTTP layer: runs the routing Effect against the one
- * runtime Layer (FileSystem + store + session + templates) and converts the
- * response to a Web `Response`.
+ * Promise facade for the HTTP layer: runs the routing Effect against the
+ * server's runtime Layer (FileSystem + store + session + templates + the
+ * screens this server holds) and converts the response to a Web `Response`.
  */
 export function handleHttpRequest(req: Request, deps: UiHttpDeps): Promise<Response> {
   return Effect.runPromise(
     handleHttpRequestEffect(req, deps).pipe(
-      Effect.provide(kbRuntimeLayer(deps.ctx)),
+      Effect.provide(serverRuntimeLayer(deps.ctx, deps.hub.screens)),
       Effect.map(HttpServerResponse.toWeb),
     ),
   );

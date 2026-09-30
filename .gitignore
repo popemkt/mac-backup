@@ -43,6 +43,11 @@ tools/kb/ui/node_modules/
 .kb/kb.sqlite-wal
 .kb/kb.sqlite-shm
 
+# kb ui presence — which local kb ui serves this root, while one does. Runtime
+# state like a pidfile: written by `kb ui`, removed when it stops, neither
+# committed nor backed up.
+.kb/ui.json
+
 # kb transaction tail — the JSONL store's durable log of what changed, in what
 # order. State, not intent: the nodes are the repo's content and this is how
 # they got there, so it is a backup concern (docs/backup-strategy.md) and never

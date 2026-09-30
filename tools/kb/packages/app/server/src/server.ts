@@ -6,8 +6,8 @@ import type { PlatformError } from "effect/PlatformError";
 import { UI_DEFAULT_PORT, directorySignals, type KbContext } from "@kb/contracts";
 import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
-import { kbRuntimeLayer, openKbEffect, writeErr, bunFileSystemLayer } from "@kb/runtime";
-import { queriesDir } from "@kb/workspace-fs";
+import { openKbEffect, writeErr, bunFileSystemLayer } from "@kb/runtime";
+import { clearUiPresence, queriesDir, writeUiPresence } from "@kb/workspace-fs";
 import { ensureUiBuilt, type UiBuildError, type UiEnsureResult } from "./build.ts";
 import {
   UI_DEV_DEFAULT_PORT,
@@ -19,6 +19,7 @@ import {
 import { childProcessEnv, UI_DIST, UI_ROOT } from "./paths.ts";
 import { handleHttpRequest } from "./http.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
+import { serverRuntimeLayer } from "./screens.ts";
 import { SubscriptionHub, type ClientSend, type WsData } from "./session.ts";
 
 /** The injectable build-ensure step, shared by both entry points. */
@@ -161,9 +162,12 @@ function serveUi(deps: {
       const url = new URL(req.url);
 
       if (url.pathname === "/ws" && req.method === "GET") {
+        // Every connection is its own client; the origin names the tab it
+        // belongs to, which outlives a reconnect.
         const origin = url.searchParams.get("origin");
-        const clientId = origin !== null && origin !== "" ? origin : crypto.randomUUID();
-        const ok = srv.upgrade(req, { data: { clientId } });
+        const clientId = crypto.randomUUID();
+        const tab = origin !== null && origin !== "" ? origin : clientId;
+        const ok = srv.upgrade(req, { data: { clientId, tab } });
         if (!ok) {
           return new Response("WebSocket upgrade failed", { status: 400 });
         }
@@ -174,7 +178,7 @@ function serveUi(deps: {
     },
     websocket: {
       open(ws) {
-        Effect.runFork(hub.addClient(ws.data.clientId, clientSend(ws)));
+        Effect.runFork(hub.addClient(ws.data.clientId, clientSend(ws), ws.data.tab));
       },
       message(ws, message) {
         const text = typeof message === "string" ? message : new TextDecoder().decode(message);
@@ -210,7 +214,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const queries = new SavedQuerySet(ctx);
   queries.adopt(savedQueryNodes(yield* listSavedQueriesEffect(opts.root)));
 
-  const layer = kbRuntimeLayer(ctx);
+  const layer = serverRuntimeLayer(ctx, hub.screens);
   // The directory has to be there to be watched, and `kb ui` is the surface
   // that projects it — a root that has never saved a query would otherwise
   // never notice its first one.
@@ -248,19 +252,31 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     lifetime,
   );
 
-  const url = `http://${hostname}:${server.port}`;
-  if (openBrowserFlag) openBrowser(url);
-
   // server.port is `number | undefined` only for unix-socket listeners; we
   // always bind a TCP port, so it is defined here.
   const boundPort = server.port;
   if (boundPort === undefined) {
     return yield* domainError("internal", "TCP listener missing port");
   }
+  const url = `http://${hostname}:${boundPort}`;
+
+  // Say where this root is served, so a process that needs its tabs (the CLI
+  // or `kb mcp` asking for the screen) can reach them. Losing that costs only
+  // the screen actions in other processes, so a failed write is reported and
+  // the server still serves.
+  yield* writeUiPresence(opts.root, url).pipe(
+    Effect.catch((err) => Effect.sync(() => writeErr(`kb ui: ${err.message}`))),
+  );
+  yield* Scope.addFinalizer(
+    lifetime,
+    clearUiPresence(opts.root, url).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
+  );
+
+  if (openBrowserFlag) openBrowser(url);
 
   return {
     port: boundPort,
-    url: `http://${hostname}:${boundPort}`,
+    url,
     hostname,
     stop: Scope.close(lifetime, Exit.void),
   };

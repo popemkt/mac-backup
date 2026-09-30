@@ -6,9 +6,18 @@
  *    `since` question) between the socket and the replica's sync machine,
  *    which alone decides what they mean (session/replica.ts)
  *  - live query subscriptions (rows pushed on change)
- *  - reconnect with capped exponential backoff, resubscribing on open
+ *  - this tab's screen: the latest record it published, and the commands the
+ *    server sends it and their answers
+ *  - reconnect with capped exponential backoff, resubscribing and
+ *    republishing the screen on open
  */
-import { ServerMessageSchema, type ClientMessage } from "@kb/contracts";
+import {
+  ServerMessageSchema,
+  type ClientMessage,
+  type ScreenAck,
+  type ScreenCommand,
+  type ScreenState,
+} from "@kb/contracts";
 import { getClientOrigin } from "@/api/action";
 import type { GraphMessage } from "@/session/replica";
 
@@ -53,6 +62,11 @@ export interface KbWsClientOptions {
    */
   onServerError?: (err: { id?: string; code: string; message: string }) => void;
   onStatus?: (status: WsStatus) => void;
+  /**
+   * A command the server asks this tab to carry out; the answer goes back
+   * with {@link KbWsClient.answerScreenCommand} under the same id.
+   */
+  onScreenCommand?: (id: string, command: ScreenCommand) => void;
   /** Backoff bounds in ms (initial doubles up to max). */
   backoffInitialMs?: number;
   backoffMaxMs?: number;
@@ -94,6 +108,8 @@ export class KbWsClient {
   /** Detaches the listeners attached to {@link socket}; null when there are none. */
   private detachSocket: (() => void) | null = null;
   private subs = new Map<string, Subscription>();
+  /** The screen this tab last published; sent again whenever the socket opens. */
+  private screen: ScreenState | null = null;
   private attempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private closedByUser = false;
@@ -143,6 +159,17 @@ export class KbWsClient {
     this.send({ op: "since", rev });
   }
 
+  /** This tab's whole screen now. Survives reconnect: the latest is sent on every open. */
+  publishScreen(state: ScreenState): void {
+    this.screen = state;
+    this.send({ op: "screen", state });
+  }
+
+  /** Answer the server's screen command `id`. */
+  answerScreenCommand(id: string, result: ScreenAck): void {
+    this.send({ op: "screen-ack", id, result });
+  }
+
   private setStatus(status: WsStatus): void {
     this.status = status;
     this.opts.onStatus?.(status);
@@ -177,6 +204,7 @@ export class KbWsClient {
       for (const [id, sub] of this.subs) {
         this.send({ op: "subscribe", id, query: sub.query });
       }
+      if (this.screen !== null) this.send({ op: "screen", state: this.screen });
     };
     const onMessage = (event: { data: unknown }): void => {
       this.handleMessage(String(event.data));
@@ -257,6 +285,9 @@ export class KbWsClient {
         else this.opts.onServerError?.(msg);
         break;
       }
+      case "screen-command":
+        this.opts.onScreenCommand?.(msg.id, msg.command);
+        break;
       case "pong":
         break;
       // Exhaustive over ServerMessage['op']; switch-exhaustiveness-check guards it

@@ -30,6 +30,7 @@ import {
   type SurfaceWire,
 } from "@kb/contracts";
 import { bunFileSystemLayer, invoke, manifest, openKb } from "@kb/runtime";
+import { FakeTab } from "./fake-tab.ts";
 
 /** One listed action, as a surface's own listing states it. */
 export interface ListedAction {
@@ -78,6 +79,10 @@ export type SurfaceFactory = (root: string, ui: LiveUi) => Promise<ActionSurface
 
 const APPROVAL_ACTION = "ext.gated.stamp";
 
+/** The one tab connected to the root's `kb ui`, which applies every command it gets. */
+const CONTRACT_TAB = "tab.surface-contract";
+const MISSING_TAB = "tab.surface-contract-missing";
+
 /**
  * An approval-required write with no side effect and a fixed output, so
  * that receipts from different surfaces can be compared. Its schemas are
@@ -100,8 +105,9 @@ export default [
 
 /**
  * Calls whose receipts do not depend on when or where they run: reads, each
- * kind of failure, the listing itself, and an unapproved call to the gated
- * action.
+ * kind of failure, the listing itself, an unapproved call to the gated
+ * action, and the screen actions against the root's one tab, which answers
+ * every command the same way.
  */
 const CALLS: readonly ActionInvocation[] = [
   { id: "kb.manifest", input: {} },
@@ -114,6 +120,12 @@ const CALLS: readonly ActionInvocation[] = [
   },
   { id: "render.views", input: {} },
   { id: APPROVAL_ACTION, input: {} },
+  { id: "ui.screen", input: {} },
+  { id: "ui.screen", input: { tab: MISSING_TAB } },
+  { id: "ui.navigate", input: { route: "/canvas" } },
+  { id: "ui.navigate", input: {} },
+  { id: "ui.select", input: { selection: [] } },
+  { id: "ui.select", input: { tab: MISSING_TAB, focus: "sys.tag" } },
 ];
 
 /** A receipt as data on the wire: what any surface can faithfully return. */
@@ -137,11 +149,18 @@ const scratchRoot = Effect.acquireRelease(
   (root) => Effect.promise(() => rm(root, { recursive: true, force: true })),
 );
 
-/** The root's one `kb ui`, stopped when the scope closes. */
+/**
+ * The root's one `kb ui`, with one tab connected to it, both gone when the
+ * scope closes. Every surface reaches that one tab: HTTP and WebMCP through
+ * the server, the CLI, MCP and the invoke core through `.kb/ui.json`.
+ */
 function serveRoot(serve: ServeUi, root: string) {
   return Effect.acquireRelease(
-    Effect.promise(() => serve(root)),
-    (ui) => Effect.promise(() => ui.stop()),
+    Effect.gen(function* () {
+      const ui = yield* Effect.promise(() => serve(root));
+      return { ui, tab: yield* FakeTab.open(ui.url, CONTRACT_TAB) };
+    }),
+    ({ ui, tab }) => tab.close.pipe(Effect.andThen(Effect.promise(() => ui.stop()))),
   );
 }
 
@@ -186,7 +205,7 @@ function overSurfaces(
       Effect.gen(function* () {
         const root = yield* scratchRoot;
         const ctx = yield* Effect.promise(() => openKb(root));
-        const ui = yield* serveRoot(serve, root);
+        const { ui } = yield* serveRoot(serve, root);
         const core = (invocation: ActionInvocation) =>
           Effect.promise(() => invoke(ctx, invocation));
         yield* Effect.forEach(
@@ -228,6 +247,12 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
     (set) =>
       overSurfaces(set, ({ name, surface, core, via }) =>
         Effect.gen(function* () {
+          // The screen calls compare against a live tab, not two empty answers.
+          const screen = yield* core({ id: "ui.screen", input: {} });
+          expect(screen).toMatchObject({
+            status: "succeeded",
+            output: { tabs: [{ tab: CONTRACT_TAB }] },
+          });
           const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
           yield* Effect.forEach(
             CALLS,

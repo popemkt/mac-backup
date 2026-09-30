@@ -9,10 +9,14 @@ import {
   type WireNode,
 } from "@kb/contracts";
 import type { KbNode, KbTx } from "@kb/model";
+import { ScreenHub } from "./screens.ts";
 
 /** Bun.serve websocket attachment (server boundary only). */
 export type WsData = {
+  /** This connection, and no other. */
   clientId: string;
+  /** The tab the connection says it is (its `?origin=`); a reconnecting tab names the same one. */
+  tab: string;
 };
 
 /** Outbound send handle for a live WS client. Failures are ignored by the hub. */
@@ -20,6 +24,8 @@ export type ClientSend = (text: string) => Effect.Effect<void>;
 
 interface ClientState {
   send: ClientSend;
+  /** The tab this connection belongs to, should it publish a screen. */
+  tab: string;
   watchTx: boolean;
   /** subscription id → { query, lastHash } */
   subs: Map<string, { query: string; lastHash: string }>;
@@ -63,11 +69,17 @@ export function rowsHash(rows: unknown[][]): string {
  * node reached a client without a transaction; `SavedQuerySet` owns them now
  * and logs their changes, so the hub reads them off the log like everything
  * else.
+ *
+ * A connection that publishes a screen is a UI tab. The hub owns the
+ * connections, so it hands {@link screens} what concerns them — a published
+ * record, an answer to a command, a close — and that hub owns the rest.
  */
 export class SubscriptionHub {
   private clients = new Map<string, ClientState>();
   private ctx: KbContext;
   private readonly unsubscribe: () => void;
+  /** The screens of the connections that are UI tabs. */
+  readonly screens = new ScreenHub();
 
   constructor(ctx: KbContext) {
     this.ctx = ctx;
@@ -83,6 +95,7 @@ export class SubscriptionHub {
   dispose(): void {
     this.unsubscribe();
     this.clients.clear();
+    Effect.runFork(this.screens.dispose());
   }
 
   /** Test hook: number of live clients. */
@@ -100,15 +113,15 @@ export class SubscriptionHub {
   }
 
   /** Register a client and send the connection `hello`. */
-  addClient(clientId: string, send: ClientSend): Effect.Effect<void> {
-    this.clients.set(clientId, { send, watchTx: false, subs: new Map() });
+  addClient(clientId: string, send: ClientSend, tab = clientId): Effect.Effect<void> {
+    this.clients.set(clientId, { send, tab, watchTx: false, subs: new Map() });
     return send(JSON.stringify({ op: "hello", rev: this.ctx.log.head }));
   }
 
   /** Forget a client (socket closed / session interrupted). */
   removeClient(clientId: string): Effect.Effect<void> {
     this.clients.delete(clientId);
-    return Effect.void;
+    return this.screens.drop(clientId);
   }
 
   /** Process one inbound WS frame. Never throws; failures become `error` frames. */
@@ -150,6 +163,10 @@ export class SubscriptionHub {
       case "unsubscribe":
         client.subs.delete(msg.id);
         return Effect.void;
+      case "screen":
+        return this.screens.publish(clientId, client.tab, client.send, msg.state);
+      case "screen-ack":
+        return this.screens.ack(clientId, msg.id, msg.result);
       case "since": {
         // The frames themselves, not a nudge to refetch: a client that missed
         // three edits should receive three edits. Sent regardless of

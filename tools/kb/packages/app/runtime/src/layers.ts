@@ -31,17 +31,21 @@ import {
 } from "@kb/workspace-fs";
 import { noteStoreSynced } from "@kb/operations";
 import { registryFor } from "./registry.ts";
+import { remoteScreensLayer } from "./screens.ts";
 import { selectStore } from "./store-selection.ts";
 
 /**
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
- * the two workspace ports backed by `.kb/` on disk + the render templates
- * and the action catalog the registry resolved from core, bundled and
- * `.kb/extensions` contributions.
+ * the workspace ports backed by `.kb/` on disk + the UI tabs' screens, held
+ * by the `kb ui` serving the root + the render templates and the action
+ * catalog the registry resolved from core, bundled and `.kb/extensions`
+ * contributions.
  *
  * This is where "the actions run anywhere" is paid for: the actions ask for
- * {@link SavedQueries} and {@link Assets}, and this composition
- * root is the only place that says those are directories under `ctx.root`.
+ * {@link SavedQueries}, {@link Assets} and `Screens`, and this composition
+ * root is the only place that says those are directories under `ctx.root` and
+ * a server found through it. The `kb ui` server holds the screens itself, so
+ * it provides its own `Screens` over this layer.
  */
 export function kbRuntimeLayer(ctx: KbContext): Layer.Layer<ActionHandlerEnv> {
   const registry = registryFor(ctx.root).pipe(Effect.provide(bunFileSystemLayer));
@@ -53,6 +57,7 @@ export function kbRuntimeLayer(ctx: KbContext): Layer.Layer<ActionHandlerEnv> {
     savedQueriesLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
+    remoteScreensLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.effect(
       ActionCatalog,

@@ -10,14 +10,15 @@ import {
   schemaToJsonSchema,
 } from "@kb/model";
 import type { KbIndexService } from "@kb/query";
+import type { Screens } from "./screen.ts";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
 import type { Assets, LegacyDocsViews, SavedQueries } from "./workspace.ts";
 
 /**
  * What invoking an action does, declared once on its definition and read by
- * every surface: a `read` changes nothing, and a `write` may change the graph
- * or the workspace. A write can also require approval, meaning a person must
+ * every surface: a `read` changes nothing, and a `write` may change the graph,
+ * the workspace, or what a UI tab shows. A write can also require approval, meaning a person must
  * have approved the call. The invoke core refuses an unapproved call to such
  * an action ({@link requiresApproval}), so no surface can skip the check.
  * Approval exists only on a write, so it is part of the write arm and not a
@@ -92,7 +93,8 @@ export type ActionHandlerEnv =
   | ActionCatalog
   | SavedQueries
   | LegacyDocsViews
-  | Assets;
+  | Assets
+  | Screens;
 
 /**
  * What an action handler may fail with. A closed vocabulary, not `unknown`:
