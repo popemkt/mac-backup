@@ -201,7 +201,10 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
       onNodeOpen,
     ],
   );
-  const settings = rendererKey !== null && active ? paramsFrom(rendererKey, active) : null;
+  const settings = useMemo(
+    () => (rendererKey !== null && active ? paramsFrom(rendererKey, active) : null),
+    [rendererKey, active],
+  );
   const unavailable = (
     <WorkspaceState
       title="Visualization unavailable"

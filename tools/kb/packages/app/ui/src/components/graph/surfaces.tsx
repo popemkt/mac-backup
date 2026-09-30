@@ -29,15 +29,22 @@ type RendererViews = Awaited<ReturnType<typeof importRendererViews>>;
 
 /**
  * The chunk is loaded once and kept, so a renderer view renders at once
- * whenever it has already arrived.
+ * whenever it has already arrived. A load that fails is forgotten, so the next
+ * render (a retry from the view's error) asks again.
  */
 let rendererViews: RendererViews | null = null;
 let rendererViewsLoading: Promise<RendererViews> | null = null;
 function loadRendererViews(): Promise<RendererViews> {
-  rendererViewsLoading ??= importRendererViews().then((views) => {
-    rendererViews = views;
-    return views;
-  });
+  rendererViewsLoading ??= importRendererViews().then(
+    (views) => {
+      rendererViews = views;
+      return views;
+    },
+    (error: unknown) => {
+      rendererViewsLoading = null;
+      throw error;
+    },
+  );
   return rendererViewsLoading;
 }
 
