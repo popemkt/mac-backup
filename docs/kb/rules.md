@@ -97,6 +97,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Plan phases A1/A2 in docs/kb/waves/2026-09-24/briefs/plugin-composition.md: widen Placement and ViewHost with their first non-page consumer, have ViewSlot measure its box, and add the matching view-contract properties.
 - **node** — `01M3EZR20H0CDF5MD01M2S26C5`
 
+### GAP: action registry has no A2A adapter
+
+- **expected** — A2A joins CLI, MCP, HTTP and WebMCP as one more adapter over the action registry
+- **current** — no A2A surface; outside agents reach kb over MCP or HTTP only
+- **impact** — A2A-only peers cannot call kb actions
+- **closes** — an A2A adapter reading the same manifest and action modes, once a real A2A peer exists (docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md decision 11)
+- **node** — `01M3Q53VRYS9P936DQFQDN8TGW`
+
 ### GAP: actions/ reads the outline store instead of being handed state
 
 - **expected** — actions/ plans and invokes mutations against state it is given; the store is above it in UI_ALLOWS (stores may import actions, not the reverse).
@@ -272,6 +280,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Linking from a text value needs the id by hand.
 - **closes** — Wire the shared picker's [[ trigger into the text value editor (one trigger, both surfaces).
 - **node** — `01M3KA394XS9DCGY9RHS151G6F`
+
+### GAP: no pop-out OS windows for panes
+
+- **expected** — a pane can pop out into its own browser window, kept in sync over /ws like any client
+- **current** — panes live inside one browser window
+- **impact** — multi-monitor workflows need several kb tabs managed by hand
+- **closes** — window management design on top of the layout view type (docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md decision 12)
+- **node** — `01M3Q5DP9TQF0E9DZMHAKHMGWD`
 
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
