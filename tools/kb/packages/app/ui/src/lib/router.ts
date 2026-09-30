@@ -23,20 +23,18 @@ export function navigate(to: string): void {
   notify();
 }
 
+/** Call `listener` whenever the path changes, by `navigate` or by history; returns the unsubscribe. */
+export function subscribePath(listener: Listener): () => void {
+  listeners.add(listener);
+  window.addEventListener("popstate", listener);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("popstate", listener);
+  };
+}
+
 export function usePath(): string {
-  return useSyncExternalStore(
-    (onStoreChange) => {
-      listeners.add(onStoreChange);
-      const onPop = () => onStoreChange();
-      window.addEventListener("popstate", onPop);
-      return () => {
-        listeners.delete(onStoreChange);
-        window.removeEventListener("popstate", onPop);
-      };
-    },
-    getPath,
-    () => "/",
-  );
+  return useSyncExternalStore(subscribePath, getPath, () => "/");
 }
 
 export function graphPath(perspectiveId?: string | null): string {

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { HouseIcon, PushPinIcon } from "@phosphor-icons/react";
 import { OutlineColumn } from "@/components/outline/outline-column";
+import { useOutlineScreen } from "@/components/outline/use-outline-screen";
 import { OutlineView } from "@/components/outline/views";
 import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
@@ -11,6 +12,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 
 export function OutlineSurface() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
+  useOutlineScreen();
   return (
     <ViewErrorBoundary title="Outline crashed" resetKey={rootNodeId}>
       <OutlineColumn />

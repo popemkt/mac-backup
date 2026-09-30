@@ -15,6 +15,7 @@ import { labUiPlugin } from "@/components/lab/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { syncUiPlugins, type OptionalUiPlugin } from "@/lib/plugins";
+import { screenUiPlugin } from "@/screen";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { webMcpUiPlugin } from "@/webmcp";
 
@@ -25,6 +26,7 @@ export const BUILTIN_UI_PLUGINS: readonly Plugin[] = [
   ontologyUiPlugin,
   canvasUiPlugin,
   webMcpUiPlugin,
+  screenUiPlugin,
 ];
 
 /** Loaded only while switched on in Preferences; off by default. */

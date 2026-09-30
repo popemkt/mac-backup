@@ -1,15 +1,34 @@
 /**
  * Singleton live connection: carries the socket's graph stream into the
  * browser replica's sync machine (session/replica.ts), runs the network moves
- * it asks for (`since`, the /api/graph snapshot), and wires the ui store
- * (status indicator, error toasts).
+ * it asks for (`since`, the /api/graph snapshot), wires the ui store
+ * (status indicator, error toasts), and answers the server's screen commands
+ * with whatever the tab has installed to carry them out (`src/screen.ts`).
  */
+import type { ScreenAck, ScreenCommand } from "@kb/contracts";
 import { fetchGraphSnapshot } from "@/api/graph";
 import { KbWsClient, type KbWsClientOptions } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store"; // GAP [[01M1RXMQYDBWX4EWJPEFRDR05H]]
 import { browserReplica, setBrowserLink } from "@/session/runtime";
 
 let client: KbWsClient | null = null;
+
+/** How this tab carries out the server's screen commands; null while nothing does. */
+export type ScreenCommandHandler = (command: ScreenCommand) => ScreenAck;
+let screenCommands: ScreenCommandHandler | null = null;
+
+/** Install (or, with null, remove) what carries out the server's screen commands. */
+export function setScreenCommandHandler(handler: ScreenCommandHandler | null): void {
+  screenCommands = handler;
+}
+
+function answerScreenCommand(target: KbWsClient, id: string, command: ScreenCommand): void {
+  const answer: ScreenAck =
+    screenCommands === null
+      ? { outcome: "rejected", reason: "this tab carries out no screen commands" }
+      : screenCommands(command);
+  target.answerScreenCommand(id, answer);
+}
 
 /** The snapshot the machine asked for, strictly from /api/graph (never fixtures). */
 function fetchSnapshot(): void {
@@ -34,6 +53,7 @@ export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): Kb
     onStatus: (status) => useUiStore.getState().setWsStatus(status),
     onServerError: (err) =>
       useUiStore.getState().pushToast("error", `ws ${err.code}: ${err.message}`),
+    onScreenCommand: (id, command) => answerScreenCommand(next, id, command),
     ...overrides,
   });
   setBrowserLink({

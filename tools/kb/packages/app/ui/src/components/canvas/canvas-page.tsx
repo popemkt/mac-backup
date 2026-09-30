@@ -13,6 +13,7 @@ import { useCanvasDoc } from "@/components/canvas/use-canvas-doc";
 import { createCanvasEdgeActions } from "@/components/canvas/use-canvas-edge-actions";
 import { useCanvasGestures } from "@/components/canvas/use-canvas-gestures";
 import { useCanvasKeyboard } from "@/components/canvas/use-canvas-keyboard";
+import { useCanvasScreen } from "@/components/canvas/use-canvas-screen";
 import { useCanvasSelection } from "@/components/canvas/use-canvas-selection";
 import { listRefFields } from "@/lib/canvas-api";
 import type { ToolState } from "@/lib/canvas-tool";
@@ -123,6 +124,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const refFields = useMemo(() => listRefFields(nodes), [nodes]);
 
   const stageRef = useRef<HTMLDivElement>(null);
+  useCanvasScreen({ canvasId, doc, pan, zoom, stage: stageRef, selection, setSelection });
   const items = useCallback(() => docRef.current.nodes, [docRef]);
   const projection = useCanvasProjection({
     doc,

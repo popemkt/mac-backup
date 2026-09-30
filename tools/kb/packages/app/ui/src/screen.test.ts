@@ -1,0 +1,180 @@
+/**
+ * The tab's side of the screen channel: it publishes what it shows — the
+ * route, the view the route resolves to, and what the mounted view reports —
+ * throttled and only when it changed, and carries out the server's
+ * `ui.navigate` / `ui.select` commands. What the server does with either is
+ * `packages/app/server/tests/screens.test.ts`.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ScreenAck, ScreenState } from "@kb/contracts";
+import type { ScreenCommandHandler } from "@/api/live";
+import { fixtureGraph } from "@/api/fixture-graph";
+import { canvasUiPlugin } from "@/components/canvas/plugin";
+import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncUiPlugins } from "@/lib/plugins";
+import { getPath, navigate } from "@/lib/router";
+import { SCREEN_PUBLISH_MS, screenPlugin } from "@/screen";
+import { useOutlineStore } from "@/stores/outline.store";
+import { useScreenStore, type PaneSelect } from "@/stores/screen.store";
+import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+
+function tab(page: () => Window | null = () => window) {
+  const published: ScreenState[] = [];
+  let handler: ScreenCommandHandler | null = null;
+  const plugin = screenPlugin({
+    page,
+    publish: (state) => published.push(state),
+    handleCommands: (next) => {
+      handler = next;
+    },
+  });
+  const carryOut: ScreenCommandHandler = (command) => {
+    if (handler === null) throw new Error("no command handler installed");
+    return handler(command);
+  };
+  return { plugin, published, carryOut, installed: () => handler !== null };
+}
+
+function report(select: PaneSelect = () => ({ outcome: "applied" })) {
+  useScreenStore.setState({
+    report: { subject: "n.root-a", focused: "n.root-a", selection: ["n.root-a"] },
+    select,
+    owner: Symbol("test view"),
+  });
+}
+
+describe("the tab's screen", () => {
+  let dom: InstalledDom;
+
+  beforeEach(() => {
+    dom = installDomGlobals();
+    vi.useFakeTimers();
+    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+  });
+
+  afterEach(() => {
+    syncUiPlugins([]);
+    useScreenStore.setState({ report: null, select: null, owner: null });
+    vi.useRealTimers();
+    dom.restore();
+  });
+
+  it("publishes the route and its view on start, then each change once, throttled", () => {
+    const { plugin, published } = tab();
+    syncUiPlugins([outlineUiPlugin, canvasUiPlugin, plugin]);
+    expect(published).toHaveLength(1);
+    expect(published[0]).toMatchObject({
+      route: "/",
+      activePane: "main",
+      panes: [{ id: "main", view: { key: "outline.main" }, focused: null, selection: [] }],
+    });
+
+    navigate("/canvas");
+    navigate("/canvas/n.missing");
+    expect(published).toHaveLength(1);
+    vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
+    expect(published).toHaveLength(2);
+    expect(published[1]).toMatchObject({
+      route: "/canvas/n.missing",
+      panes: [{ view: { key: "canvas.page" } }],
+    });
+
+    // Something that changes nothing on screen is not published again.
+    window.dispatchEvent(new window.Event("focus"));
+    vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
+    expect(published).toHaveLength(2);
+  });
+
+  it("carries what the open view reports: its subject, focus and selection", () => {
+    const { plugin, published } = tab();
+    syncUiPlugins([outlineUiPlugin, plugin]);
+    report();
+    vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
+    expect(published.at(-1)?.panes).toEqual([
+      {
+        id: "main",
+        view: { key: "outline.main", subject: "n.root-a" },
+        focused: "n.root-a",
+        selection: ["n.root-a"],
+      },
+    ]);
+  });
+
+  it("names no view on a path no view owns", () => {
+    navigate("/nowhere");
+    const { plugin, published } = tab();
+    syncUiPlugins([outlineUiPlugin, plugin]);
+    expect(published[0]?.panes[0]?.view).toBeNull();
+  });
+
+  it("navigates to a route a view owns, and refuses one no view owns", () => {
+    const { plugin, carryOut } = tab();
+    syncUiPlugins([outlineUiPlugin, canvasUiPlugin, plugin]);
+    expect(carryOut({ kind: "navigate", to: { route: "/canvas" } })).toEqual({
+      outcome: "applied",
+    });
+    expect(getPath()).toBe("/canvas");
+    expect(carryOut({ kind: "navigate", to: { route: "/nowhere" } })).toEqual({
+      outcome: "rejected",
+      reason: "no view owns /nowhere",
+    });
+    expect(getPath()).toBe("/canvas");
+  });
+
+  it("opens a node in the outline, and refuses one it does not have", () => {
+    const { plugin, carryOut } = tab();
+    syncUiPlugins([outlineUiPlugin, canvasUiPlugin, plugin]);
+    navigate("/canvas");
+    expect(carryOut({ kind: "navigate", to: { node: "n.root-a" } })).toEqual({
+      outcome: "applied",
+    });
+    expect(getPath()).toBe("/");
+    expect(useOutlineStore.getState().rootNodeId).toBe("n.root-a");
+    expect(carryOut({ kind: "navigate", to: { node: "n.missing" } })).toEqual({
+      outcome: "rejected",
+      reason: "no node n.missing",
+    });
+  });
+
+  it("hands a select to the open view, whose answer is the tab's", () => {
+    const { plugin, carryOut } = tab();
+    syncUiPlugins([outlineUiPlugin, plugin]);
+    expect(carryOut({ kind: "select", selection: [] })).toEqual({
+      outcome: "rejected",
+      reason: "the open view takes no selection",
+    });
+    const select = vi.fn((): ScreenAck => ({ outcome: "applied" }));
+    report(select);
+    expect(carryOut({ kind: "select", selection: ["n.root-a"], focus: "n.root-a" })).toEqual({
+      outcome: "applied",
+    });
+    expect(select).toHaveBeenCalledWith({ selection: ["n.root-a"], focus: "n.root-a" });
+  });
+
+  it("refuses a pane it does not have", () => {
+    const { plugin, carryOut } = tab();
+    syncUiPlugins([outlineUiPlugin, plugin]);
+    expect(carryOut({ kind: "navigate", pane: "right", to: { route: "/" } })).toEqual({
+      outcome: "rejected",
+      reason: "no pane right; this tab has one, main",
+    });
+  });
+
+  it("does nothing where there is no page", () => {
+    const { plugin, published, installed } = tab(() => null);
+    syncUiPlugins([outlineUiPlugin, plugin]);
+    expect(published).toEqual([]);
+    expect(installed()).toBe(false);
+  });
+
+  it("stops publishing and carrying out commands when it unloads", () => {
+    const { plugin, published, installed } = tab();
+    syncUiPlugins([outlineUiPlugin, plugin]);
+    expect(installed()).toBe(true);
+    syncUiPlugins([outlineUiPlugin]);
+    expect(installed()).toBe(false);
+    navigate("/canvas");
+    vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
+    expect(published).toHaveLength(1);
+  });
+});
