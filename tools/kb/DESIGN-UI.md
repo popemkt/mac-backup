@@ -1052,8 +1052,9 @@ open view of that canvas.
   replace it.
 - **Gestures in 3D** are the 2D ones where they mean the same: a press on a
   card selects it (a modifier toggles), a drag carries it on its own plane
-  and Alt-drag lifts it (the pointer reducer's `lift`, whole units at the
-  current zoom); both are history steps written through `ext.canvas.tx.apply`.
+  and Alt-drag lifts it. Both are the pointer reducer's one move, carried
+  across the plane or along depth (`CARRY`: whole units at the current zoom
+  for depth), and both are history steps written through `ext.canvas.tx.apply`.
   A drag on empty canvas orbits, a tap places the current tool on the plane
   (or clears the selection), the right or middle button or Space pans, the
   wheel pans and a pinch zooms about the cursor. Text is edited in 2D; edge

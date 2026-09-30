@@ -42,28 +42,9 @@ export type ResizeCorner = "nw" | "ne" | "se" | "sw";
 
 type Drag =
   | { kind: "pan"; x: number; y: number; ox: number; oy: number }
-  | {
-      kind: "move-pending";
-      id: string;
-      /** Where the press went down: on screen (the slop), and in canvas space (the move). */
-      startX: number;
-      startY: number;
-      start: Point;
-      origPositions: Map<string, Point>;
-    }
-  | {
-      kind: "move";
-      start: Point;
-      origPositions: Map<string, Point>;
-    }
-  | {
-      /** Lifting cards toward the viewer (or pressing them away): a drag up raises. */
-      kind: "lift-pending";
-      startX: number;
-      startY: number;
-      origDepths: Map<string, number>;
-    }
-  | { kind: "lift"; startY: number; origDepths: Map<string, number> }
+  /** Carrying cards: not yet past the slop, then under way. */
+  | ({ kind: "move-pending" } & Carrying)
+  | ({ kind: "move" } & Carrying)
   | {
       kind: "resize-pending";
       id: string;
@@ -111,6 +92,19 @@ type Drag =
       baseSel: CanvasSelection;
     };
 
+/** Which way carried cards follow the pointer: across their plane, or along depth. */
+type Carry = "plane" | "depth";
+
+interface Carrying {
+  carry: Carry;
+  /** Where the press went down: on screen (slop, depth), and in canvas space (the plane). */
+  startX: number;
+  startY: number;
+  start: Point;
+  /** Each carried card as it was when the press went down. */
+  orig: ReadonlyMap<string, CanvasNode>;
+}
+
 export interface PointerState {
   drag: Drag | null;
   pan: Point;
@@ -130,7 +124,7 @@ export type CanvasPointerEvent =
   | { type: "pan/set"; pan: Point }
   | { type: "pan/start"; screen: Point }
   | { type: "move/start"; id: string; screen: Point; world: Point }
-  | { type: "lift/start"; id: string; screen: Point }
+  | { type: "lift/start"; id: string; screen: Point; world: Point }
   | { type: "resize/start"; id: string; corner: ResizeCorner; screen: Point; world: Point }
   | { type: "edge/start"; fromCardId: string; fromSide: CanvasSide; screen: Point }
   | { type: "marquee/start"; screen: Point; world: Point; additive: boolean }
@@ -180,55 +174,69 @@ function carried(id: string, ctx: PointerContext): CanvasNode[] {
   });
 }
 
-function startMove(
+/** Start carrying the cards a press on `id` carries, `carry`-wise. */
+function startCarry(
   state: PointerState,
-  event: Extract<CanvasPointerEvent, { type: "move/start" }>,
+  carry: Carry,
+  press: { readonly id: string; readonly screen: Point; readonly world: Point },
   ctx: PointerContext,
 ): PointerResult {
-  const origPositions = new Map<string, Point>();
-  for (const node of carried(event.id, ctx)) origPositions.set(node.id, { x: node.x, y: node.y });
+  const orig = new Map(carried(press.id, ctx).map((node) => [node.id, node] as const));
+  const { screen, world } = press;
   return result({
     ...state,
-    drag: {
-      kind: "move-pending",
-      id: event.id,
-      startX: event.screen.x,
-      startY: event.screen.y,
-      start: event.world,
-      origPositions,
-    },
+    drag: { kind: "move-pending", carry, startX: screen.x, startY: screen.y, start: world, orig },
   });
 }
 
-function startLift(
-  state: PointerState,
-  event: Extract<CanvasPointerEvent, { type: "lift/start" }>,
-  ctx: PointerContext,
-): PointerResult {
-  const origDepths = new Map<string, number>();
-  for (const node of carried(event.id, ctx)) origDepths.set(node.id, canvasDepth(node));
-  return result({
-    ...state,
-    drag: { kind: "lift-pending", startX: event.screen.x, startY: event.screen.y, origDepths },
-  });
-}
+type MoveDrag = Extract<Drag, { kind: "move" }>;
 
 /**
- * Carried cards at their depth plus the drag's height, in canvas units at the
- * current zoom (whole units: depth is a layout value, not a measurement).
+ * Where each carried card goes for a pointer at `screen` / `world`, per way
+ * of carrying: across the plane by the canvas-space delta (snapped to other
+ * cards), or along depth by the drag's height in canvas units at the current
+ * zoom, whole units (depth is a layout value, not a measurement).
  */
-function liftNodes(
-  drag: Extract<Drag, { kind: "lift" }>,
-  screenY: number,
-  ctx: PointerContext,
-): CanvasDoc {
-  const rise = Math.round((drag.startY - screenY) / ctx.zoom);
-  let doc = ctx.doc;
-  for (const [id, depth] of drag.origDepths) {
-    const node = ctx.byId.get(id);
-    if (node) doc = upsertCanvasNode(doc, withDepth(node, depth + rise));
+const CARRY: Record<
+  Carry,
+  (
+    drag: MoveDrag,
+    at: { readonly screen: Point; readonly world: Point },
+    ctx: PointerContext,
+  ) => {
+    /** A card as it is now, placed from where it was when the press went down. */
+    readonly place: (node: CanvasNode, orig: CanvasNode) => CanvasNode;
+    readonly guides: SnapGuide[];
   }
-  return doc;
+> = {
+  plane: (drag, at, ctx) => {
+    const { dx, dy, guides } = snapMove(
+      drag,
+      at.world.x - drag.start.x,
+      at.world.y - drag.start.y,
+      ctx,
+    );
+    return { place: (node, orig) => ({ ...node, x: orig.x + dx, y: orig.y + dy }), guides };
+  },
+  depth: (drag, at, ctx) => {
+    const rise = Math.round((drag.startY - at.screen.y) / ctx.zoom);
+    return { place: (node, orig) => withDepth(node, canvasDepth(orig) + rise), guides: [] };
+  },
+};
+
+/** The document with every carried card where the pointer at `at` takes it. */
+function carryNodes(
+  drag: MoveDrag,
+  at: { readonly screen: Point; readonly world: Point },
+  ctx: PointerContext,
+) {
+  const { place, guides } = CARRY[drag.carry](drag, at, ctx);
+  let doc = ctx.doc;
+  for (const [id, orig] of drag.orig) {
+    const node = ctx.byId.get(id);
+    if (node) doc = upsertCanvasNode(doc, place(node, orig));
+  }
+  return { doc, guides };
 }
 
 function startResize(
@@ -255,19 +263,13 @@ function startResize(
   });
 }
 
-function snapMove(
-  drag: Extract<Drag, { kind: "move" }>,
-  dx: number,
-  dy: number,
-  ctx: PointerContext,
-) {
-  const firstId = drag.origPositions.keys().next().value;
-  const original = firstId === undefined ? undefined : drag.origPositions.get(firstId);
-  const node = firstId === undefined ? undefined : ctx.byId.get(firstId);
+function snapMove(drag: MoveDrag, dx: number, dy: number, ctx: PointerContext) {
+  const original = drag.orig.values().next().value;
+  const node = original === undefined ? undefined : ctx.byId.get(original.id);
   if (!node || !original) return { dx, dy, guides: [] };
   return snapCanvasMove(
-    { ...node, ...original },
-    ctx.doc.nodes.filter((other) => !drag.origPositions.has(other.id)),
+    { ...node, x: original.x, y: original.y },
+    ctx.doc.nodes.filter((other) => !drag.orig.has(other.id)),
     dx,
     dy,
     ctx.zoom,
@@ -276,22 +278,12 @@ function snapMove(
 
 function moveNodes(
   state: PointerState,
-  drag: Extract<Drag, { kind: "move" }>,
+  drag: MoveDrag,
   event: Extract<CanvasPointerEvent, { type: "pointer/move" }>,
   ctx: PointerContext,
 ): PointerResult {
-  const delta = snapMove(drag, event.world.x - drag.start.x, event.world.y - drag.start.y, ctx);
-  let doc = ctx.doc;
-  for (const [id, orig] of drag.origPositions) {
-    const node = ctx.byId.get(id);
-    if (!node) continue;
-    doc = upsertCanvasNode(doc, {
-      ...node,
-      x: orig.x + delta.dx,
-      y: orig.y + delta.dy,
-    });
-  }
-  return result({ ...state, snapGuides: delta.guides }, { doc, persist: "silent" });
+  const { doc, guides } = carryNodes(drag, event, ctx);
+  return result({ ...state, snapGuides: guides }, { doc, persist: "silent" });
 }
 
 function resizedRect(
@@ -398,19 +390,10 @@ function reduceMove(
   }
   if (drag.kind === "move-pending") {
     if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
-    const active = { kind: "move" as const, start: drag.start, origPositions: drag.origPositions };
+    const active = { ...drag, kind: "move" as const };
     return moveNodes({ ...state, drag: active }, active, event, ctx);
   }
   if (drag.kind === "move") return moveNodes(state, drag, event, ctx);
-  if (drag.kind === "lift-pending") {
-    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
-    const active = { kind: "lift" as const, startY: drag.startY, origDepths: drag.origDepths };
-    const doc = liftNodes(active, event.screen.y, ctx);
-    return result({ ...state, drag: active }, { doc, persist: "silent" });
-  }
-  if (drag.kind === "lift") {
-    return result(state, { doc: liftNodes(drag, event.screen.y, ctx), persist: "silent" });
-  }
   if (drag.kind === "resize-pending") {
     if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
     const active = {
@@ -441,27 +424,6 @@ function closestPort(node: CanvasNode, px: number, py: number): CanvasSide {
     if (dist < best.dist) best = { side, dist };
   }
   return best.side;
-}
-
-function finishMove(
-  state: PointerState,
-  drag: Extract<Drag, { kind: "move" }>,
-  event: Extract<CanvasPointerEvent, { type: "pointer/end" }>,
-  ctx: PointerContext,
-): PointerResult {
-  const { dx, dy } = snapMove(
-    drag,
-    event.world.x - drag.start.x,
-    event.world.y - drag.start.y,
-    ctx,
-  );
-  let doc = ctx.doc;
-  for (const [id, orig] of drag.origPositions) {
-    const node = ctx.byId.get(id);
-    if (!node) continue;
-    doc = upsertCanvasNode(doc, { ...node, x: orig.x + dx, y: orig.y + dy });
-  }
-  return result({ ...state, drag: null, snapGuides: [] }, { doc, persist: "history" });
 }
 
 function finishEdge(
@@ -520,10 +482,9 @@ function reduceEnd(
   if (drag.kind === "marquee") {
     return result({ ...state, drag: null, marqueeRect: null });
   }
-  if (drag.kind === "move") return finishMove(state, drag, event, ctx);
-  if (drag.kind === "lift") {
-    const doc = liftNodes(drag, event.screen.y, ctx);
-    return result({ ...state, drag: null }, { doc, persist: "history" });
+  if (drag.kind === "move") {
+    const { doc } = carryNodes(drag, event, ctx);
+    return result({ ...state, drag: null, snapGuides: [] }, { doc, persist: "history" });
   }
   if (drag.kind === "resize") {
     const final = resizeNode(
@@ -566,8 +527,12 @@ export function pointerReduce(
       },
     });
   }
-  if (event.type === "move/start") return startMove(state, event, ctx);
-  if (event.type === "lift/start") return startLift(state, event, ctx);
+  if (event.type === "move/start") {
+    return startCarry(state, "plane", event, ctx);
+  }
+  if (event.type === "lift/start") {
+    return startCarry(state, "depth", event, ctx);
+  }
   if (event.type === "resize/start") return startResize(state, event, ctx);
   if (event.type === "edge/start") {
     return result({

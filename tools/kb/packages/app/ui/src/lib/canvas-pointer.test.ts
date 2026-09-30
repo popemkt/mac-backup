@@ -228,7 +228,7 @@ describe("lift", () => {
     const ctx = { ...context(), zoom: 2 };
     const started = reduce(
       createPointerState(),
-      { type: "lift/start", id: moving.id, screen: { x: 0, y: 100 } },
+      { type: "lift/start", id: moving.id, screen: { x: 0, y: 100 }, world: { x: 0, y: 0 } },
       ctx,
     );
     const still = reduce(

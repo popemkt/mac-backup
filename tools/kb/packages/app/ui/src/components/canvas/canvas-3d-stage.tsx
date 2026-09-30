@@ -127,10 +127,9 @@ function useSceneGestures(host: React.RefObject<HTMLDivElement | null>, props: C
       const world = planeAt(el, local, z);
       gesture.current = { kind: "card", z, pointerId: event.pointerId };
       props.onCardPress(card, event, () => {
-        if (event.altKey) props.dispatchPointer({ type: "lift/start", id: card.id, screen });
-        else if (world !== null) {
-          props.dispatchPointer({ type: "move/start", id: card.id, screen, world });
-        }
+        if (world === null) return;
+        const type = event.altKey ? "lift/start" : "move/start";
+        props.dispatchPointer({ type, id: card.id, screen, world });
       });
     } else {
       const kind = pans ? "pan" : "orbit";
