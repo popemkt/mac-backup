@@ -133,9 +133,15 @@ describe("useCanvasDoc persistence", () => {
     expect(persistCanvasDoc).toHaveBeenCalledTimes(1);
   });
 
-  test("the camera is saved at once and never undone", () => {
+  test("the camera is written on the edits' one path, and never undone", () => {
     act(() => current?.schedulePersist(first));
     act(() => current?.setCamera({ projection: "3d" }));
+    // In order with the edit before it: one write, once edits pause, carrying both.
+    expect(persistCanvasDoc).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(persistCanvasDoc).toHaveBeenCalledTimes(1);
     expect(persistCanvasDoc).toHaveBeenLastCalledWith("canvas", {
       ...first,
       camera: { projection: "3d" },

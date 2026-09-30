@@ -56,7 +56,12 @@ export interface SceneGestureHost {
 }
 
 type Gesture =
-  | { readonly kind: "card"; readonly z: number }
+  | {
+      readonly kind: "card";
+      readonly z: number;
+      /** The last canvas point the drag had on the card's plane (none while edge-on). */
+      last: CanvasPoint3 | null;
+    }
   | {
       readonly kind: "orbit" | "pan";
       x: number;
@@ -90,7 +95,7 @@ export class SceneGestures {
     if (card !== undefined) {
       const z = canvasDepth(card);
       const world = this.planeAt(press.local, z);
-      this.gesture = { kind: "card", z };
+      this.gesture = { kind: "card", z, last: world };
       this.host.cardPress(card, press, () => {
         if (world === null) return;
         const type = press.altKey ? "lift/start" : "move/start";
@@ -109,6 +114,7 @@ export class SceneGestures {
     if (g.kind === "card") {
       const world = this.planeAt(press.local, g.z);
       if (world === null) return "grabbing";
+      g.last = world;
       const screen = { x: press.clientX, y: press.clientY };
       this.host.dispatch({ type: "pointer/move", screen, world, shiftKey: press.shiftKey });
       return "grabbing";
@@ -131,14 +137,20 @@ export class SceneGestures {
         this.host.dispatch({ type: "pointer/cancel" });
         return;
       }
-      const world = this.planeAt(press.local, g.z) ?? { x: 0, y: 0, z: g.z };
+      // Released where the plane is edge-on: the card stays where the drag last had it.
+      const world = this.planeAt(press.local, g.z) ?? g.last;
+      if (world === null) {
+        this.host.dispatch({ type: "pointer/cancel" });
+        return;
+      }
       const screen = { x: press.clientX, y: press.clientY };
       this.host.dispatch({ type: "pointer/end", screen, world, shiftKey: press.shiftKey });
       return;
     }
     const tap = !pastSlop(press.clientX - g.startX, press.clientY - g.startY);
-    if (g.kind === "orbit" && tap && !cancelled) {
-      this.host.tapEmpty(this.planeAt(press.local, 0), press);
+    // A tap moved no camera: on empty canvas it means the tool or the selection.
+    if (tap) {
+      if (g.kind === "orbit" && !cancelled) this.host.tapEmpty(this.planeAt(press.local, 0), press);
       return;
     }
     this.host.settled();

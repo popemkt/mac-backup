@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react";
 import {
+  cameraLookingFrom,
+  posesAgree,
   projectionOf,
   type CanvasCamera,
   type CanvasDoc,
@@ -88,7 +90,10 @@ export function useCanvasProjection(context: ProjectionContext) {
   const onViewSettled = () => {
     if (!in3d || target !== "3d") return;
     setZoom(rig.view.zoom);
-    setCamera({ ...doc.camera, projection: "3d", pose: poseOfView(rig.view) });
+    const pose = poseOfView(rig.view);
+    // Back where it was: nothing to save.
+    if (posesAgree(pose, doc.camera?.pose)) return;
+    setCamera(cameraLookingFrom(doc.camera, "3d", pose));
   };
 
   const choose = (kind: CanvasProjectionKind) => {
@@ -99,7 +104,7 @@ export function useCanvasProjection(context: ProjectionContext) {
     if (kind === projectionOf(doc.camera)) return;
     // Leaving 3D keeps the pose it was looked at from, to come back to.
     const kept = in3d ? poseOfView(rig.view) : doc.camera?.pose;
-    setCamera({ ...doc.camera, projection: kind, ...(kept === undefined ? {} : { pose: kept }) });
+    setCamera(cameraLookingFrom(doc.camera, kind, kept));
   };
 
   const current = (): CanvasView => (in3d ? rig.view : viewOfPan(pan, zoom, size()));

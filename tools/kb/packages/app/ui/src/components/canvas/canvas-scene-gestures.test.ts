@@ -97,4 +97,30 @@ describe("gestures over the 3D canvas", () => {
     gestures.move(press({ x: centre().x + 10, y: centre().y }, { button: 2 }));
     expect(host.pan).toHaveBeenCalledWith(10, 0);
   });
+
+  test("a release where the card's plane is edge-on leaves the card where the drag last had it", () => {
+    let view = tilted;
+    const { gestures, events } = harness(() => view);
+    const at = centre();
+    gestures.down(press(at));
+    gestures.move(press({ x: at.x + 20, y: at.y }));
+    const moved = events.at(-1);
+    // The canvas turns edge-on, and the pointer is let go where its ray never meets the plane.
+    view = { ...tilted, pitch: Math.PI / 2 };
+    gestures.up(press({ x: at.x + 20, y: size.height - 5 }), false);
+    const end = events.at(-1);
+    expect(end?.type).toBe("pointer/end");
+    expect(moved?.type).toBe("pointer/move");
+    if (end?.type !== "pointer/end" || moved?.type !== "pointer/move") return;
+    expect(end.world).toEqual(moved.world);
+    expect(end.world.x).not.toBe(0);
+  });
+
+  test("a pan that never moved does not settle the camera", () => {
+    const { gestures, host } = harness();
+    gestures.down(press({ x: 5, y: 5 }, { button: 2 }));
+    gestures.up(press({ x: 5, y: 5 }, { button: 2 }), false);
+    expect(host.settled).not.toHaveBeenCalled();
+    expect(host.tapEmpty).not.toHaveBeenCalled();
+  });
 });

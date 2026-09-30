@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { withCanvasCamera, type CanvasCamera, type CanvasDoc } from "@kb/canvas";
 import { persistCanvasDoc, readCanvasDoc, syncDocOnRev } from "@/lib/canvas-api";
 import {
@@ -21,31 +21,60 @@ function keepView(now: CanvasDoc, next: CanvasDoc): CanvasDoc {
   return withCanvasCamera(next, now.camera);
 }
 
-/** Undo and redo, and the camera, which moves outside the history. */
-function useViewOps(
+/** Undo and redo: a step through the history, with the view left where it is. */
+function useHistoryTravel(
   canvasId: string,
   historyRef: RefObject<CanvasHistory>,
   installHistory: (next: CanvasHistory) => void,
 ) {
-  return useMemo(() => {
-    const install = (next: CanvasHistory) => {
+  return useCallback(
+    (transform: (current: CanvasHistory) => CanvasHistory) => {
+      const current = historyRef.current;
+      const travelled = transform(current);
+      if (travelled === current) return;
+      const next = { ...travelled, present: keepView(current.present, travelled.present) };
       installHistory(next);
       void persistCanvasDoc(canvasId, next.present);
-    };
-    return {
-      travel: (transform: (current: CanvasHistory) => CanvasHistory) => {
-        const current = historyRef.current;
-        const travelled = transform(current);
-        if (travelled === current) return;
-        install({ ...travelled, present: keepView(current.present, travelled.present) });
-      },
-      /** Look through `camera`: saved with the document, never an undo step. */
-      setCamera: (camera: CanvasCamera) => {
-        const current = historyRef.current;
-        install({ ...current, present: withCanvasCamera(current.present, camera) });
-      },
-    };
-  }, [canvasId, historyRef, installHistory]);
+    },
+    [canvasId, historyRef, installHistory],
+  );
+}
+
+/**
+ * The canvas's one write path: whatever is applied is written once edits
+ * pause, or at once on demand, and a pending write still goes out when the
+ * canvas closes. Content edits and camera changes both take it, in order.
+ */
+function useWritePath(canvasId: string, applied: () => CanvasDoc) {
+  const dirtyRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const write = useCallback(() => {
+    timerRef.current = null;
+    dirtyRef.current = false;
+    void persistCanvasDoc(canvasId, applied());
+  }, [applied, canvasId]);
+  const soon = useCallback(() => {
+    dirtyRef.current = true;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(write, DEBOUNCE_MS);
+  }, [write]);
+  const now = useCallback(
+    async (doc: CanvasDoc, opts?: Parameters<typeof persistCanvasDoc>[2]) => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = null;
+      dirtyRef.current = false;
+      await persistCanvasDoc(canvasId, doc, opts);
+    },
+    [canvasId],
+  );
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (dirtyRef.current) write();
+    },
+    [write],
+  );
+  return { soon, now, pending: useCallback(() => dirtyRef.current, []) };
 }
 
 interface UseCanvasDocOptions {
@@ -72,9 +101,10 @@ export function useCanvasDoc({
   nodesRef.current = nodes;
   const docRef = useRef(history.present);
   docRef.current = history.present;
-  const dirtyRef = useRef(false);
   const previewBase = useRef<CanvasHistory | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A preview is not yet an edit: what is written is the history under it.
+  const applied = useCallback(() => (previewBase.current ?? historyRef.current).present, []);
+  const writes = useWritePath(canvasId, applied);
 
   const installHistory = useCallback((next: CanvasHistory) => {
     historyRef.current = next;
@@ -99,12 +129,6 @@ export function useCanvasDoc({
     [installHistory],
   );
 
-  const persistLastApplied = useCallback(() => {
-    timerRef.current = null;
-    dirtyRef.current = false;
-    void persistCanvasDoc(canvasId, (previewBase.current ?? historyRef.current).present);
-  }, [canvasId]);
-
   const previewDoc = useCallback(
     (next: CanvasDoc) => {
       previewBase.current ??= historyRef.current;
@@ -113,25 +137,30 @@ export function useCanvasDoc({
     [applyDocSilent],
   );
 
+  const { soon, now, pending } = writes;
   const schedulePersist = useCallback(
     (next: CanvasDoc) => {
-      dirtyRef.current = true;
       applyDoc(next);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(persistLastApplied, DEBOUNCE_MS);
+      soon();
     },
-    [applyDoc, persistLastApplied],
+    [applyDoc, soon],
+  );
+
+  /** Look through `camera`: written on the same path as an edit, never an undo step. */
+  const setCamera = useCallback(
+    (camera: CanvasCamera) => {
+      applyDocSilent(withCanvasCamera(historyRef.current.present, camera));
+      soon();
+    },
+    [applyDocSilent, soon],
   );
 
   const flushPersist = useCallback(
     async (next: CanvasDoc, opts?: Parameters<typeof persistCanvasDoc>[2]) => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = null;
-      dirtyRef.current = false;
       applyDoc(next);
-      await persistCanvasDoc(canvasId, historyRef.current.present, opts);
+      await now(historyRef.current.present, opts);
     },
-    [applyDoc, canvasId],
+    [applyDoc, now],
   );
 
   const cancelPreview = useCallback(() => {
@@ -141,22 +170,14 @@ export function useCanvasDoc({
     installHistory(base);
   }, [installHistory]);
 
-  const view = useViewOps(canvasId, historyRef, installHistory);
+  const travel = useHistoryTravel(canvasId, historyRef, installHistory);
 
   useEffect(() => {
     syncDocOnRev(canvasId, nodesRef.current, {
       applyLocal: applyDocSilent,
-      isBusy: () => isInteracting() || dirtyRef.current,
+      isBusy: () => isInteracting() || pending(),
     });
-  }, [applyDocSilent, canvasId, isInteracting, rev]);
-
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (dirtyRef.current) persistLastApplied();
-    },
-    [persistLastApplied],
-  );
+  }, [applyDocSilent, canvasId, isInteracting, pending, rev]);
 
   return {
     doc: history.present,
@@ -164,9 +185,9 @@ export function useCanvasDoc({
     schedulePersist,
     previewDoc,
     flushPersist,
-    setCamera: view.setCamera,
-    undo: () => view.travel(undoHistory),
-    redo: () => view.travel(redoHistory),
+    setCamera,
+    undo: () => travel(undoHistory),
+    redo: () => travel(redoHistory),
     cancelPreview,
   };
 }

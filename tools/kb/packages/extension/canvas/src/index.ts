@@ -15,7 +15,7 @@ export {
   withCanvasCamera,
   withDepth,
 } from "./doc.ts";
-export { projectionOf } from "./camera.ts";
+export { cameraLookingFrom, posesAgree, projectionOf } from "./camera.ts";
 export type { CanvasCamera, CanvasPose, CanvasProjectionKind } from "./camera.ts";
 export type {
   CanvasDoc,

@@ -8,6 +8,7 @@
  * format, as agents write it, is DESIGN.md → Canvas documents.
  */
 import { emitCanvasCamera, parseCanvasCamera, type CanvasCamera } from "./camera.ts";
+import { dropExtra } from "./extra.ts";
 
 export type CanvasSide = "top" | "right" | "bottom" | "left";
 type CanvasEdgeEnd = "none" | "arrow";
@@ -153,6 +154,7 @@ const KNOWN_NODE_KEYS = new Set([
   "nodeId",
   "shape",
 ]);
+const KNOWN_NODE_KEYS_BUT_DEPTH = new Set([...KNOWN_NODE_KEYS].filter((key) => key !== "z"));
 const KNOWN_EDGE_KEYS = new Set([
   "id",
   "fromNode",
@@ -212,7 +214,12 @@ function parseNode(raw: unknown): CanvasNode | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.type !== "string") {
     return null;
   }
-  const extra = collectExtra(raw, KNOWN_NODE_KEYS);
+  const depth = typeof raw.z === "number" && Number.isFinite(raw.z) ? raw.z : undefined;
+  // A depth this version cannot read (another writer's) stays an unknown field, untouched.
+  const extra = collectExtra(
+    raw,
+    depth === undefined && raw.z !== undefined ? KNOWN_NODE_KEYS_BUT_DEPTH : KNOWN_NODE_KEYS,
+  );
   const base = {
     id: raw.id,
     type: raw.type,
@@ -220,7 +227,7 @@ function parseNode(raw: unknown): CanvasNode | null {
     y: asNum(raw.y),
     width: asNum(raw.width, 240),
     height: asNum(raw.height, 80),
-    ...(typeof raw.z === "number" && Number.isFinite(raw.z) ? { z: raw.z } : {}),
+    ...(depth === undefined ? {} : { z: depth }),
     ...(typeof raw.color === "string" ? { color: raw.color } : {}),
     ...(extra ? { extra } : {}),
   };
@@ -381,7 +388,8 @@ export function withDepth<N extends CanvasNode>(node: N, z: number): N {
   const next = { ...node };
   if (z === 0) delete next.z;
   else next.z = z;
-  return next;
+  // A depth set here supersedes one this version could not read.
+  return dropExtra(next, "z");
 }
 
 /**
@@ -411,13 +419,7 @@ export function withCanvasCamera(doc: CanvasDoc, camera: CanvasCamera | undefine
   }
   const unread = doc.extra !== undefined && "camera" in doc.extra;
   if (doc.camera === camera && !unread) return doc;
-  const next: CanvasDoc = { ...doc, camera };
-  if (next.extra && unread) {
-    const rest = Object.fromEntries(Object.entries(next.extra).filter(([k]) => k !== "camera"));
-    if (Object.keys(rest).length > 0) next.extra = rest;
-    else delete next.extra;
-  }
-  return next;
+  return dropExtra({ ...doc, camera }, "camera");
 }
 
 /** Immutable patch helpers. */

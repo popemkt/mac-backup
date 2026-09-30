@@ -6,8 +6,10 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import {
+  cameraLookingFrom,
   canvasDepth,
   paintOrder,
+  posesAgree,
   parseCanvasDoc,
   projectionOf,
   stringifyCanvasDoc,
@@ -83,13 +85,19 @@ describe("depth", () => {
     expect(canvasDepth(parseCanvasDoc(raw).nodes[0] as CanvasNode)).toBe(0);
   });
 
-  test("a depth that is not a finite number is dropped, like a bad x", () => {
-    const doc = parseCanvasDoc({
+  test("a depth kb cannot read is kept verbatim, and a depth set replaces it", () => {
+    const raw = {
       nodes: [{ id: "a", type: "text", x: 0, y: 0, width: 1, height: 1, text: "", z: "high" }],
       edges: [],
-    });
-    expect(doc.nodes[0]?.z).toBeUndefined();
-    expect(doc.nodes[0]?.extra).toBeUndefined();
+    };
+    const doc = parseCanvasDoc(raw);
+    const item = doc.nodes[0] as CanvasNode;
+    expect(canvasDepth(item)).toBe(0);
+    expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
+    const lifted = withDepth(item, 30);
+    expect(lifted).toMatchObject({ z: 30 });
+    expect(lifted.extra).toBeUndefined();
+    expect(withDepth(item, 0).extra).toBeUndefined();
   });
 
   test("depth survives on an item type kb does not know", () => {
@@ -169,6 +177,22 @@ describe("camera", () => {
   test("clearing keeps a camera this version could not read", () => {
     const doc = parseCanvasDoc({ nodes: [], edges: [], camera: { projection: "vr" } });
     expect(withCanvasCamera(doc, undefined).extra?.camera).toEqual({ projection: "vr" });
+  });
+
+  test("a pose written supersedes one kb could not read", () => {
+    const doc = parseCanvasDoc({ nodes: [], edges: [], camera: { projection: "3d", pose: 7 } });
+    const pose = { x: 1, y: 2, z: 3, zoom: 1, yaw: 0.2, pitch: 0.4 };
+    const camera = cameraLookingFrom(doc.camera, "2d", pose);
+    expect(camera).toEqual({ projection: "2d", pose });
+    expect(cameraLookingFrom(doc.camera, "2d").extra).toEqual({ pose: 7 });
+  });
+
+  test("two poses agree when nothing anyone could see differs", () => {
+    const pose = { x: 100, y: 50, z: 0, zoom: 0.9, yaw: -0.3, pitch: 0.6 };
+    expect(posesAgree(pose, { ...pose, x: 100.0001, zoom: 0.90000001 })).toBe(true);
+    expect(posesAgree(pose, { ...pose, yaw: -0.31 })).toBe(false);
+    expect(posesAgree(pose, undefined)).toBe(false);
+    expect(posesAgree(undefined, undefined)).toBe(true);
   });
 
   test("clearing the camera leaves the document 2D", () => {

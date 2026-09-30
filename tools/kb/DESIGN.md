@@ -1406,7 +1406,10 @@ A `#canvas` node keeps its layout as one [JSON Canvas 1.0](https://jsoncanvas.or
 document in `sys.f.canvas`, and `ext.canvas.tx.apply` is its one write path:
 the UI, the CLI and an agent all send the whole document after their change.
 `@kb/canvas` (`packages/extension/canvas/src/doc.ts`) parses and writes it;
-item types and fields it does not know survive a round trip untouched.
+item types and fields it does not know survive a round trip untouched, and
+so does a known field holding a value it cannot read (a `z` that is not a
+finite number, a `camera` or `pose` of the wrong shape) until kb writes that
+field itself.
 
 Canvas space is x to the right, y down, and z out of the page toward the
 viewer, all in the same units. kb's extension fields:

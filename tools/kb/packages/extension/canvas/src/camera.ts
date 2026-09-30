@@ -10,6 +10,7 @@
  * this module is what moves.
  */
 // GAP [GAP-CANVAS-CAMERA-VIEW]
+import { dropExtra } from "./extra.ts";
 
 /** How a canvas is drawn: face-on and orthographic, or in perspective. */
 export type CanvasProjectionKind = "2d" | "3d";
@@ -91,4 +92,35 @@ export function emitCanvasCamera(camera: CanvasCamera): Record<string, unknown> 
 /** The projection a camera opens in; no camera is 2D. */
 export function projectionOf(camera: CanvasCamera | undefined): CanvasProjectionKind {
   return camera?.projection ?? "2d";
+}
+
+/**
+ * `camera` opening in `projection`, looked at from `pose` when one is given.
+ * A pose written here supersedes one this version could not read.
+ */
+export function cameraLookingFrom(
+  camera: CanvasCamera | undefined,
+  projection: CanvasProjectionKind,
+  pose?: CanvasPose,
+): CanvasCamera {
+  const next: CanvasCamera = { ...camera, projection };
+  return pose === undefined ? next : dropExtra({ ...next, pose }, "pose");
+}
+
+/** How far two poses may differ and still be the same look, per component. */
+const POSE_TOLERANCE = { place: 1e-3, turn: 1e-4, zoom: 1e-4 } as const;
+
+const near = (p: number, q: number, tolerance: number) => Math.abs(p - q) <= tolerance;
+
+/** The same look, to within what nobody could see: saving it again would only churn. */
+export function posesAgree(a: CanvasPose | undefined, b: CanvasPose | undefined): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  return (
+    near(a.x, b.x, POSE_TOLERANCE.place) &&
+    near(a.y, b.y, POSE_TOLERANCE.place) &&
+    near(a.z, b.z, POSE_TOLERANCE.place) &&
+    near(a.yaw, b.yaw, POSE_TOLERANCE.turn) &&
+    near(a.pitch, b.pitch, POSE_TOLERANCE.turn) &&
+    near(a.zoom / b.zoom, 1, POSE_TOLERANCE.zoom)
+  );
 }
