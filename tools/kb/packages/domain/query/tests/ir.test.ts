@@ -60,11 +60,11 @@ const STORED_QUERIES: { name: string; edn: string }[] = [
  [?n :node/text ?text]]`,
   },
   {
-    name: ".kb/views/todos.json",
+    name: "docs view todos",
     edn: '[:find ?id :where [?n :f/sys.f.type ?tag] [?tag :node/text "todo"] [?tag :f/sys.f.type ?tagType] [?tagType :node/id "sys.tag"] [?n :node/id ?id]]',
   },
   {
-    name: ".kb/views/rules.json",
+    name: "docs view rules",
     edn: '[:find ?id :where [?n :f/sys.f.type ?tag] [?tag :node/text "rule"] [?tag :f/sys.f.type ?tagType] [?tagType :node/id "sys.tag"] [?n :node/id ?id]]',
   },
   {

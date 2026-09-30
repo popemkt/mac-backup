@@ -176,7 +176,7 @@ Verification and drift:
 
 Boundary:
 
-- `.kb/nodes.jsonl`, `.kb/queries/`, and `.kb/views/` stay committed in this
+- `.kb/nodes.jsonl` and `.kb/queries/` stay committed in this
   repo — they are source of truth, not backup concerns.
 - A committed node reference to `assets/…` is only valid if it resolves under
   `.kb/assets/`; anything outside that directory is rejected by the check.
