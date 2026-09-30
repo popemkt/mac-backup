@@ -83,7 +83,8 @@ const { graphUiPlugin } = await import("./plugin");
 const { ViewSlot } = await import("@/components/ui/view-slot");
 const { GraphFrameContext } = await import("./graph-frame");
 const { TreemapView, isRendererKey } = await import("./views");
-const { ViewPoint, localIdOf, paramsFrom, syncUiPlugins } = await import("@/lib/plugins");
+const { ViewPoint, familyViews, syncUiPlugins } = await import("@/lib/plugins");
+const { localIdOf, paramsFrom } = await import("@/lib/view-key");
 const { setEmphasisTargets, topologyOf } = await import("./force3d-emphasis");
 
 // --- a graph with two separate neighbourhoods: A–C and B–D -----------------
@@ -130,11 +131,8 @@ const DARK: Appearance = { designSystem: "kb", dark: true, key: "kb:dark" };
 const RENDERERS = (() => {
   const kernel = makeKernel();
   Effect.runSync(kernel.load(graphUiPlugin));
-  const keys = kernel
-    .contributions(ViewPoint)
-    .map((view) => view.value.key)
-    .filter(isRendererKey);
-  return new Map(keys.map((key) => [localIdOf(key), key]));
+  const renderers = familyViews(kernel.contributions(ViewPoint), isRendererKey);
+  return new Map(renderers.map(({ key }) => [localIdOf(key), key]));
 })();
 
 /** Each renderer's row: how the suite reaches it, and what it copies out of the tokens. */

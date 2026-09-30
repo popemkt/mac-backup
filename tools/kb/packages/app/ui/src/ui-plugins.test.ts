@@ -7,15 +7,8 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { definePlugin, makeKernel } from "@kb/plugin";
 import { GearIcon } from "@phosphor-icons/react";
-import {
-  NoParams,
-  RoutePoint,
-  SidebarSectionPoint,
-  ViewPoint,
-  findView,
-  matchRoute,
-  viewKey,
-} from "@/lib/plugins";
+import { RoutePoint, SidebarSectionPoint, ViewPoint, findView, matchRoute } from "@/lib/plugins";
+import { NoParams, viewKey } from "@/lib/view-key";
 import { ontologyPath, type OntologyView } from "@/lib/router";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS, uiPluginsFor } from "@/ui-plugins";
 

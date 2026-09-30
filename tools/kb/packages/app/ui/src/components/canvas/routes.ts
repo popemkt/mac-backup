@@ -1,5 +1,5 @@
 import type { CanvasParams } from "@/components/canvas/views";
-import type { NoParams } from "@/lib/plugins";
+import type { NoParams } from "@/lib/view-key";
 
 export function matchCanvasList(path: string): NoParams | null {
   return path === "/canvas" || path === "/canvas/" ? {} : null;

@@ -1,13 +1,6 @@
 import type { SchemaIndex } from "@/lib/schema";
 import { Result, Schema } from "effect";
 import {
-  ListBulletsIcon,
-  SquaresFourIcon,
-  TableIcon,
-  type Icon,
-  type IconWeight,
-} from "@phosphor-icons/react";
-import {
   decodeNodeConfig,
   firstStr,
   manyOf,
@@ -18,7 +11,7 @@ import {
 import type { OutlineNode, PropValue } from "./types";
 import { isSysPrefixed, SYSTEM_IDS } from "./types";
 import { logWarn } from "@/lib/log";
-import { localIdOf, paramsFrom, viewKey, type ViewKey } from "@/lib/plugins";
+import { localIdOf, paramsFrom, type ViewKey } from "@/lib/view-key";
 import { textOr } from "@/lib/text";
 
 export type SortDir = "asc" | "desc";
@@ -35,8 +28,8 @@ export type ViewFilter =
 
 /**
  * Everything a frame's `sys.f.view.*` props say, decoded: which view shows its
- * children (`mode`, that view's name, see {@link frameViewNamed}) and every
- * setting any frame view reads. A view reads only the ones its params declare
+ * children (`mode`, the name that view's key goes by) and every setting any
+ * frame view reads. A view reads only the ones its params declare
  * ({@link frameViewOf}).
  */
 export interface ViewConfig {
@@ -268,15 +261,14 @@ const filterValues = (props: NodeProps): unknown[] | undefined =>
   });
 
 /**
- * The outline's frame views: the four ways a frame shows its children, each a
- * view in `ViewPoint` that the outline plugin provides. Their keys live here,
- * beside the settings they are made of, because the row walk that keyboard
- * navigation follows (`visible-instances`, run by the store) must know a
- * frame's view without a component or the kernel.
+ * The outline's frame views: the ways a frame shows its children, each a view
+ * in `ViewPoint`. Their keys are data (`components/outline/views.ts`); this
+ * module states what every one of them is, and how a frame's props resolve to
+ * one of the views provided, which the store's row walk asks too.
  */
 
-/** The outline plugin's namespace: its page's key and its frame views' keys. */
-export const OUTLINE_NAMESPACE = "outline";
+/** The discriminant a frame view's key carries (`ViewKey.family`). */
+export const FRAME_VIEW_FAMILY = "outline.frame";
 
 /**
  * Each setting a frame view may read, with its schema — built from the same
@@ -284,7 +276,7 @@ export const OUTLINE_NAMESPACE = "outline";
  * view's params are made of these, so a view declares the settings it reads
  * by naming them here.
  */
-const FRAME_SETTINGS = {
+export const FRAME_SETTINGS = {
   filters: Schema.Array(ViewFilterSchema),
   sort: Schema.Array(SortSpecSchema),
   display: Schema.Array(Schema.NonEmptyString),
@@ -304,125 +296,34 @@ export interface FrameViewParams {
 }
 
 /**
- * How a frame view lays out the frame's rows, which is what the navigation
- * walk follows too. `outline` nests: each row hosts its own children in turn.
- * `rows` is one flat run, and `columns` groups flat rows into columns.
- */
-type FrameRowLayout = "outline" | "rows" | "columns";
-
-/**
- * A frame view's key. What its rows do follows from its params: it sorts when
- * it declares `sort`, pages when it declares `pagesize`, and groups its columns
- * by a field when it declares `groupFieldId`. The rest is how a picker names
- * it: the toolbar's glyph, the node menu's icon, and its `sys.command` node.
+ * A frame view's key: data only, the trait the row walk needs beside the
+ * params. `rows` is how it lays out the frame's rows: `outline` nests, each
+ * row hosting its own children in turn; `rows` is one flat run; `columns`
+ * groups flat rows into columns. What happens to the rows follows from the
+ * params: it sorts when they declare `sort`, pages when they declare
+ * `pagesize`, and groups its columns by a field when they declare
+ * `groupFieldId`.
  */
 export interface FrameViewKey<P extends FrameViewParams = FrameViewParams> extends ViewKey<P> {
-  readonly rows: FrameRowLayout;
-  readonly label: string;
-  readonly glyph: string;
-  readonly icon: Icon;
-  readonly iconWeight: IconWeight;
-  readonly command: string;
+  readonly family: typeof FRAME_VIEW_FAMILY;
+  readonly rows: "outline" | "rows" | "columns";
 }
 
-function frameView<P extends FrameViewParams>(
-  name: string,
-  params: Schema.Decoder<P>,
-  traits: Omit<FrameViewKey<P>, keyof ViewKey<P>>,
-): FrameViewKey<P> {
-  return { ...viewKey(`${OUTLINE_NAMESPACE}.${name}`, params), ...traits };
-}
-
-export const OutlineListView = frameView(
-  "list",
-  Schema.Struct({ filters: FRAME_SETTINGS.filters }),
-  {
-    rows: "outline",
-    label: "List",
-    glyph: "≡",
-    icon: ListBulletsIcon,
-    iconWeight: "regular",
-    command: SYSTEM_IDS.cmdViewAsList,
-  },
-);
-
-export const OutlineTableView = frameView(
-  "table",
-  Schema.Struct({
-    filters: FRAME_SETTINGS.filters,
-    sort: FRAME_SETTINGS.sort,
-    display: FRAME_SETTINGS.display,
-    colwidth: FRAME_SETTINGS.colwidth,
-    pagesize: FRAME_SETTINGS.pagesize,
-  }),
-  {
-    rows: "rows",
-    label: "Table",
-    glyph: "⊞",
-    icon: TableIcon,
-    iconWeight: "regular",
-    command: SYSTEM_IDS.cmdViewAsTable,
-  },
-);
-
-export const OutlineBoardView = frameView(
-  "board",
-  Schema.Struct({
-    filters: FRAME_SETTINGS.filters,
-    sort: FRAME_SETTINGS.sort,
-    display: FRAME_SETTINGS.display,
-    groupFieldId: FRAME_SETTINGS.groupFieldId,
-  }),
-  {
-    rows: "columns",
-    label: "Board",
-    glyph: "▥",
-    icon: SquaresFourIcon,
-    iconWeight: "regular",
-    command: SYSTEM_IDS.cmdViewAsBoard,
-  },
-);
-
-export const OutlineCardsView = frameView(
-  "cards",
-  Schema.Struct({
-    filters: FRAME_SETTINGS.filters,
-    sort: FRAME_SETTINGS.sort,
-    display: FRAME_SETTINGS.display,
-  }),
-  {
-    rows: "columns",
-    label: "Cards",
-    glyph: "▦",
-    icon: SquaresFourIcon,
-    iconWeight: "duotone",
-    command: SYSTEM_IDS.cmdViewAsCards,
-  },
-);
-
-/** Every frame view, in the order the toolbar and the node menu offer them. */
-export const FRAME_VIEWS: readonly FrameViewKey[] = [
-  OutlineListView,
-  OutlineTableView,
-  OutlineBoardView,
-  OutlineCardsView,
-];
-
-/** The frame view `sys.f.view.mode` names: its key's local id. Anything else is the list. */
-function frameViewNamed(name: string): FrameViewKey {
-  return FRAME_VIEWS.find((view) => localIdOf(view) === name) ?? OutlineListView;
+export function isFrameViewKey(key: ViewKey<unknown>): key is FrameViewKey {
+  return key.family === FRAME_VIEW_FAMILY;
 }
 
 /** Whether a view projects the frame's rows flat, instead of nesting them as the outline does. */
-export function projectsRows(view: FrameViewKey): boolean {
-  return view.rows !== "outline";
+export function projectsRows(view: FrameViewKey | null): boolean {
+  return view !== null && view.rows !== "outline";
 }
 
 const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
   mode: oneOf({
     fields: [SYSTEM_IDS.viewModeField],
     read: firstStr(SYSTEM_IDS.viewModeField),
-    schema: Schema.Literals(FRAME_VIEWS.map(localIdOf)),
+    // Any name: which names are views is the provided views' to say (`frameViewOf`).
+    schema: Schema.NonEmptyString,
     fallback: DEFAULT_VIEW_CONFIG.mode,
   }),
   sort: manyOf<SortSpec>({
@@ -495,18 +396,30 @@ export interface FrameView {
 }
 
 /**
- * The view a frame shows its children in, read off its props: the view its
- * `sys.f.view.mode` names, with the frame's config decoded through that
- * view's params, so it carries exactly the settings the view reads.
+ * The view a frame shows its children in, read off its props, among the
+ * frame views provided (`views`, as `ViewPoint` lists them): the one its
+ * `sys.f.view.mode` names, else the list's, with the frame's config decoded
+ * through that view's params so it carries exactly the settings the view
+ * reads. Null while not even the list is provided.
  */
-export function frameViewOf(props?: Record<string, PropValue[]>): FrameView {
+export function frameViewOf(
+  props: Record<string, PropValue[]> | undefined,
+  views: readonly FrameViewKey[],
+): FrameView | null {
   const config = getViewConfig(props);
-  const key = frameViewNamed(config.mode);
+  const named = (name: string) => views.find((view) => localIdOf(view) === name);
+  const asked = named(config.mode);
+  if (asked === undefined && config.mode !== DEFAULT_VIEW_CONFIG.mode)
+    logWarn(
+      `[view-config] ${SYSTEM_IDS.viewModeField} ignored: no frame view is named "${config.mode}"`,
+    );
+  const key = asked ?? named(DEFAULT_VIEW_CONFIG.mode);
+  if (key === undefined) return null;
   const params = paramsFrom(key, config);
   if (Result.isSuccess(params)) return { key, params: params.success };
   // Unreachable while every setting is decoded by the schema the params are made of.
   logWarn(`[view-config] ${key.id} cannot read this frame: ${params.failure}`);
-  return { key: OutlineListView, params: { filters: config.filters } };
+  return null;
 }
 
 export interface TableColumnSpec {

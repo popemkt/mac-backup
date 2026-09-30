@@ -1,4 +1,4 @@
-import type { NoParams } from "@/lib/plugins";
+import type { NoParams } from "@/lib/view-key";
 
 /** The outline owns `/`; which node it is zoomed to lives in the store, not the path. */
 export function matchOutline(path: string): NoParams | null {

@@ -61,7 +61,7 @@ export interface RowChromeInput {
   /** Where field definitions are read from: the whole graph (`lib/schema.ts`). */
   schema: SchemaIndex;
   /** The view the children of the node the row shows are shown in. */
-  view: FrameViewKey;
+  view: FrameViewKey | null;
   /**
    * This render instance. Whether the row is a query result
    * (`isQueryResultInstance`) and whether it repeats a row above it

@@ -29,6 +29,13 @@ import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useNodeKeyDown } from "./use-node-keydown";
+import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncUiPlugins } from "@/lib/plugins";
+
+// The outline runs as the app boots it: its frame views provided, and the
+// store's row walk wired to them.
+beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 /** No graph behind the text: every reference keeps the default link colour. */
 const PLAIN_INK = (): string | null => null;

@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { NoParams, viewKey } from "@/lib/plugins";
+import { NoParams, viewKey } from "@/lib/view-key";
 import { ONTOLOGY_VIEWS } from "@/lib/router";
 
 /** The ontology plugin's namespace and view keys: what a host imports, never the components. */

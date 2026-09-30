@@ -2,7 +2,7 @@ import { fieldContextOf, schemaOf, type SchemaIndex } from "@/lib/schema";
 import type { NodeMap } from "@/lib/types";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -19,9 +19,6 @@ import { ViewToolbar } from "./view-toolbar";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { listFilterFieldOptions } from "./view-filter-fields";
 import {
-  OutlineBoardView,
-  OutlineCardsView,
-  OutlineListView,
   applyViewFilters,
   flattenBoardOrder,
   frameViewOf,
@@ -29,13 +26,29 @@ import {
   groupChildrenForBoard,
   parseViewFilterEdn,
 } from "@/lib/view-config";
-import { paramsFrom } from "@/lib/plugins";
+import { OutlineBoardView, OutlineCardsView, OutlineListView } from "@/components/outline/views";
+import { paramsFrom } from "@/lib/view-key";
 import { Result } from "effect";
 import { collectVisibleInstances } from "@/lib/visible-instances";
+import { providedFrameViews } from "@/stores/frame-views";
+import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncUiPlugins } from "@/lib/plugins";
+
+// The outline runs as the app boots it: its frame views provided, and the
+// store's row walk wired to them.
+beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+afterAll(() => syncUiPlugins([]));
+
+/** The frame views provided, as the outline's hosts resolve against them. */
+function frameViewKeys() {
+  return providedFrameViews().map(({ key }) => key);
+}
 
 /** frame1's view as its host resolves it (`frameViewOf`): board or cards, with the settings it reads. */
 function columnsView() {
-  const { key, params } = frameViewOf(useOutlineStore.getState().nodes.get("frame1")?.props);
+  const view = frameViewOf(useOutlineStore.getState().nodes.get("frame1")?.props, frameViewKeys());
+  if (view === null) throw new Error("no frame view is provided");
+  const { key, params } = view;
   if (key === OutlineCardsView)
     return {
       key: OutlineCardsView,
@@ -311,12 +324,13 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const cols = groupChildrenForBoard(kids, "f_status", schemaFor(nodes));
     const expected = flattenBoardOrder(cols).map((n) => n.id);
     useOutlineStore.getState().zoomTo("frame1");
-    const visible = collectVisibleInstances(
-      "frame1",
+    const visible = collectVisibleInstances("frame1", {
       nodes,
-      schemaFor(nodes),
-      useOutlineStore.getState().index,
-    );
+      schema: schemaFor(nodes),
+      queryDb: useOutlineStore.getState().index,
+      views: frameViewKeys(),
+      pages: {},
+    });
     // zoomed root itself + projected cards in board order
     const projected = visible.filter((v) => v.nodeId !== "frame1").map((v) => v.nodeId);
     expect(projected).toEqual(expected);

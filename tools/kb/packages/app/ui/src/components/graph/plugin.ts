@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
+import { GRAPH_RENDERER_VALUES } from "@kb/model";
 import { matchGraph } from "@/components/graph/routes";
 import {
   ClusterRendererView,
@@ -40,7 +41,8 @@ import {
 /**
  * The graph: its page, the route to it (whole column, no workspace header),
  * its section, and one view per renderer — each drawn in the box the page's
- * canvas gives it, from the settings its key declares.
+ * canvas gives it, from the settings its key declares, and offered by the
+ * renderer switch in its picker's order.
  */
 export const graphUiPlugin = definePlugin({
   name: GRAPH_NAMESPACE,
@@ -55,6 +57,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(Force2dView, {
             placements: ["page"],
+            picker: { label: GRAPH_RENDERER_VALUES.force2d.label, order: 0 },
             sample: {
               layout: DEFAULT_LAYOUT,
               labelDensity: DEFAULT_LABEL_DENSITY,
@@ -69,6 +72,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(TreeView, {
             placements: ["page"],
+            picker: { label: GRAPH_RENDERER_VALUES.tree.label, order: 1 },
             sample: { showLabels: DEFAULT_SHOW_LABELS },
             Component: TreeRendererView,
           }),
@@ -77,6 +81,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(ClusterView, {
             placements: ["page"],
+            picker: { label: GRAPH_RENDERER_VALUES.cluster.label, order: 2 },
             sample: {
               labelDensity: DEFAULT_LABEL_DENSITY,
               showLabels: DEFAULT_SHOW_LABELS,
@@ -90,6 +95,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(Force3dView, {
             placements: ["page"],
+            picker: { label: GRAPH_RENDERER_VALUES.force3d.label, order: 3 },
             sample: {
               spread: DEFAULT_SPREAD,
               linkDistance: DEFAULT_LINK_DISTANCE,
@@ -106,6 +112,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(TreemapView, {
             placements: ["page"],
+            picker: { label: GRAPH_RENDERER_VALUES.treemap.label, order: 4 },
             sample: { showLabels: DEFAULT_SHOW_LABELS },
             Component: TreemapRendererView,
           }),

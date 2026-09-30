@@ -1,5 +1,5 @@
 import type { OntologyScopeParams } from "@/components/ontology/views";
-import type { NoParams } from "@/lib/plugins";
+import type { NoParams } from "@/lib/view-key";
 
 export function matchOntologyList(path: string): NoParams | null {
   return path === "/o" || path === "/o/" ? {} : null;

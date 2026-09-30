@@ -1174,45 +1174,53 @@ component. That is how the ontology embeds the graph and the outline
 (`components/ontology/surfaces.tsx`) without importing either one.
 
 **Families of views.** Some views are alternatives a host chooses between by
-config, and each family's key extends `ViewKey` with what that host must know
-before it renders one. While config is text, a view goes by its key's local
-id (`localIdOf`), which is how the stored name resolves to the key.
+config. A family's key extends `ViewKey` under a discriminant, `family`
+(`graph.renderer`, `outline.frame`), with what that host must know before it
+renders one; keys are data (`lib/view-key.ts` knows no kernel, React or
+store). How a picker names a view (`picker`: its label, its `order` among the
+family, and where the family has them a glyph, an icon and a `sys.command`
+node) is presentation, so it is part of the view's contribution, not of its
+key. A family is enumerated one way: `familyViews` over `ViewPoint`, which
+keeps the views of that family that are provided, in `picker.order`. While
+config is text, a view goes by its key's local id (`localIdOf`), which is
+how the stored name resolves to the key among them.
 
 - *Graph renderers.* Each renderer is a view whose `RendererKey`
-  (`components/graph/views.ts`) adds its label, capabilities, encodings and
-  whether it moves links. Its params are a `Schema.Struct` of the
-  `LENS_SETTINGS` it draws with, so the settings panel enables exactly the
-  settings its params declare. `lens.renderer` names it; the renderer switch
-  lists the renderer views that are provided. The graph page decodes the
-  perspective through the renderer's params and draws it through a
-  `<ViewSlot>`. What the renderer draws from beyond its settings (the
-  extracted graph, selection, camera and search) is not config, so it
-  travels in the page's `GraphFrame` context, never in the params; a
-  renderer view outside a graph host says there is nothing to draw. The
-  renderers' components load in their own chunk, fetched with the graph
-  page's.
+  (`components/graph/views.ts`) adds its capabilities, encodings and whether
+  it moves links. Its params are a `Schema.Struct` of the `LENS_SETTINGS` it
+  draws with, so the settings panel enables exactly the settings its params
+  declare. `lens.renderer` names it; the renderer switch lists the renderer
+  views provided. The graph page decodes the perspective through the
+  renderer's params and draws it through a `<ViewSlot>`. What the renderer
+  draws from beyond its settings (the extracted graph, selection, camera and
+  search) is not config, so it travels in the page's `GraphFrame` context,
+  never in the params; a renderer view outside a graph host says there is
+  nothing to draw. The renderers' components load in their own chunk,
+  fetched with the graph page's.
 - *Frame views.* A frame's children are shown by one of the outline's four
   frame views, list, table, board and cards, each a view at placement
-  `inline` that the outline plugin provides. `sys.f.view.mode` names it, and
-  `frameViewOf` (`lib/view-config.ts`) decodes the frame's props through that
-  view's params, so the view gets exactly the settings it reads. Their keys
-  live in `lib/view-config.ts`, not in the plugin's `views.ts`, because the
-  row walk that keyboard navigation follows (`visible-instances`, run by the
-  store) must resolve a frame's view with no component and no kernel. A
-  `FrameViewKey` adds how the view lays rows out (`outline`, nested; `rows`;
-  `columns`) and how a picker names it (label, the toolbar's glyph, the node
-  menu's icon, its `sys.command` node). What `frameRows` does with the rows
-  follows from the params: every view filters, and a view sorts, groups its
-  columns by a field, or pages exactly when its params declare `sort`,
-  `groupFieldId` or `pagesize`. The frame a view shows (its id, instance key,
-  query rows and depth) is not config, so it travels in the host's
-  `FrameSubject` context. Every outline host (the outline's root, a projected
-  frame's row, a query's results) renders a frame view through
-  `FrameViewSlot`, with one exception that is the list's own: a row of the
-  list whose frame is also a list continues that list instead of embedding
-  the list view again, because a list nests as deep as the outline does,
-  bounded by the tree, while the slot's depth budget is for one view
-  embedding another.
+  `inline` that the outline plugin provides. Their keys
+  (`components/outline/views.ts`) carry the one trait the row walk needs
+  beside the params: how the view lays rows out (`outline`, nested; `rows`;
+  `columns`). `sys.f.view.mode` names the view, and `frameViewOf`
+  (`lib/view-config.ts`) resolves it among the frame views provided, falling
+  back to the list's, and decodes the frame's props through that view's
+  params, so the view gets exactly the settings it reads. What `frameRows`
+  does with the rows follows from the params: every view filters, and a view
+  sorts, groups its columns by a field, or pages exactly when its params
+  declare `sort`, `groupFieldId` or `pagesize`. The toolbar, the node menu
+  and the `view-as` commands list the provided frame views by their pickers.
+  The store's row walk (`visible-instances`) and the command registry read
+  the same enumeration through a port (`stores/frame-views`) that the
+  outline plugin wires to `ViewPoint` while it is loaded, so the store never
+  reads the kernel. The frame a view shows (its id, instance key, query rows
+  and depth) is not config, so it travels in the host's `FrameSubject`
+  context. Every outline host (the outline's root, a projected frame's row,
+  a query's results) renders a frame view through `FrameViewSlot`, with one
+  exception that is the list's own: a row of the list whose frame is also a
+  list continues that list instead of embedding the list view again, because
+  a list nests as deep as the outline does, bounded by the tree, while the
+  slot's depth budget is for one view embedding another.
 
 **The contract.** `src/view-contract.test.tsx` runs over every view that the
 built-in and optional UI plugins contribute. A new view joins it by being
@@ -1239,9 +1247,9 @@ questions. Each one can be overridden.
    the consumer's act, not the thing. The overlap with the outline's
    `sys.f.view.*` prefix is accepted: those modes are views now
    (Families of views).
-2. *Where built-in keys live.* In the owning plugin's `views.ts`, as above,
-   except the outline's frame views, whose keys `lib` holds (Families of
-   views). After a package split, a key moves into that package's small
+2. *Where built-in keys live.* In the owning plugin's `views.ts`, as above.
+   A key is data (`lib/view-key.ts`), so a key file never pulls in the
+   kernel. After a package split, a key moves into that package's small
    contract module.
 3. *Which nodes get embeds.* Per-node refs, tag-level inheritance, or a
    workspace default. This is **open**, and it belongs to A1 (view config as

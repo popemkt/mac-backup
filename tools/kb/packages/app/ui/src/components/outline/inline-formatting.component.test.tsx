@@ -10,7 +10,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -20,6 +20,13 @@ import { getCaretSerializedOffset, setCaretSerializedOffset } from "@/lib/md-edi
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
+import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncUiPlugins } from "@/lib/plugins";
+
+// The outline runs as the app boots it: its frame views provided, and the
+// store's row walk wired to them.
+beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 const ISO = "2026-09-27T05:00:00.000Z";
 const TEXT = "plain **bold** *it* `code` [docs](https://ex.test) [[n.root-a|Ship]]";

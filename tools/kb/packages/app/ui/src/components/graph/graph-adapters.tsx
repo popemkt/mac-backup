@@ -1,7 +1,7 @@
 import { lazy, useMemo } from "react";
 import { outlineBulletAppearance } from "@/lib/bullet-mode";
 import type { LensNode, LensTheme } from "@/lib/graph-lens";
-import type { ParamsOf } from "@/lib/plugins";
+import type { ParamsOf } from "@/lib/view-key";
 import { GRAPH_THEMES } from "./graph-themes";
 import { useOutlineStore } from "@/stores/outline.store";
 import { SigmaGraph } from "./sigma-graph";

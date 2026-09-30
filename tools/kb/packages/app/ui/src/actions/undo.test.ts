@@ -1,13 +1,20 @@
 /**
  * r1 D19 — action-level undo/redo across destructive outline operations.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncUiPlugins } from "@/lib/plugins";
+
+// The outline runs as the app boots it: its frame views provided, and the
+// store's row walk wired to them.
+beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 function seed() {
   resetOutlineStore();

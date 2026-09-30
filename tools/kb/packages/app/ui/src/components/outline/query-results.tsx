@@ -9,7 +9,7 @@ import { indentStyle } from "@/lib/indent";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { queryDefOf, resultNodeIds } from "@/lib/query-node";
 import { useQueryNodeRows } from "@/lib/use-query-node-rows";
-import { OutlineListView, projectsRows, type FrameViewKey } from "@/lib/view-config";
+import { projectsRows, type FrameViewKey } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { FrameViewSlot } from "./frame-view-slot";
@@ -24,8 +24,8 @@ interface QueryResultItem {
 interface QueryResultsSectionProps {
   nodeId: string;
   depth: number;
-  /** The view the query node shows its results in. */
-  view?: FrameViewKey;
+  /** The view the query node shows its results in; null while none is provided. */
+  view: FrameViewKey | null;
   frameInstanceKey?: string;
   /** How to render one result node. Inverted from QueryResultsSection so the
    * recursive node <-> query-results pair is not a static import cycle. */
@@ -35,7 +35,7 @@ interface QueryResultsSectionProps {
 export function QueryResultsSection({
   nodeId,
   depth,
-  view = OutlineListView,
+  view,
   frameInstanceKey,
   renderNode,
 }: QueryResultsSectionProps) {

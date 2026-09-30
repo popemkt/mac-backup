@@ -17,7 +17,7 @@ import {
 import { frameRows } from "@/lib/frame-rows";
 import { isQueryNode, queryDefOf, resultNodeIds } from "@/lib/query-node";
 import type { NodeMap } from "@/lib/types";
-import { frameViewOf, projectsRows, type FrameView } from "@/lib/view-config";
+import { frameViewOf, projectsRows, type FrameView, type FrameViewKey } from "@/lib/view-config";
 import { hasText } from "@/lib/text";
 import { shownNode, showsAncestor } from "@/lib/contextual-ref";
 
@@ -27,7 +27,7 @@ export type VisibleInstance = {
 };
 
 /** Pages revealed per frame in paginating modes, keyed by frame node id. */
-export type FramePagesMap = Readonly<Record<string, number>>;
+type FramePagesMap = Readonly<Record<string, number>>;
 
 /** What a walk carries all the way down: the graph, the query db, the
  * per-frame page counts, and the list it appends to. */
@@ -35,6 +35,8 @@ interface WalkContext {
   nodes: NodeMap;
   schema: SchemaIndex;
   queryDb: KbIndex | null;
+  /** The frame views provided, which a frame's props resolve against. */
+  views: readonly FrameViewKey[];
   pages: FramePagesMap;
   out: VisibleInstance[];
 }
@@ -71,7 +73,9 @@ function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: str
   const frame = shownNode(node, schema);
   const frameId = frame.id;
 
-  const view = frameViewOf(frame.props);
+  // A frame whose view is not provided shows no rows, so it offers none.
+  const view = frameViewOf(frame.props, ctx.views);
+  if (view === null) return;
   const projected = projectsRows(view.key);
 
   // Query results — list walks refs; projected modes emit flat result rows. A
@@ -112,19 +116,18 @@ function walkVisibleInstances(ctx: WalkContext, nodeId: string, instanceKey: str
   }
 }
 
-export function collectVisibleInstances(
-  rootNodeId: string,
-  nodes: NodeMap,
-  schema: SchemaIndex,
-  queryDb: KbIndex | null,
-  pages: FramePagesMap = {},
-): VisibleInstance[] {
+/** What the walk reads: the graph, the query db, the frame views provided and the pages revealed. */
+type WalkSource = Omit<WalkContext, "out">;
+
+export function collectVisibleInstances(rootNodeId: string, source: WalkSource): VisibleInstance[] {
   const out: VisibleInstance[] = [];
+  const { nodes, schema, views } = source;
   const root = nodes.get(rootNodeId);
   if (!root) return out;
-  const ctx: WalkContext = { nodes, schema, queryDb, pages, out };
+  const ctx: WalkContext = { ...source, out };
 
-  const view = frameViewOf(root.props);
+  const view = frameViewOf(root.props, views);
+  if (view === null) return out;
   if (projectsRows(view.key)) {
     emitProjectedRows(ctx, rootNodeId, view, undefined, (id) => outlineInstanceKey(id, nodes));
     return out;

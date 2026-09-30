@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { viewKey } from "@/lib/plugins";
+import { viewKey } from "@/lib/view-key";
 
 /** The lab plugin's namespace and view keys: what a host imports, never the components. */
 export const LAB_NAMESPACE = "lab";

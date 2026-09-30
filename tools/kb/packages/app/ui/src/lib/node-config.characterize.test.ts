@@ -273,7 +273,8 @@ const VIEW_DEFAULTS: ViewConfig = {
 const VIEW_CASES: [string, Record<string, PropValue[]>, Partial<ViewConfig>][] = [
   ["no props", {}, {}],
   ["mode table", { [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "table" }] }, { mode: "table" }],
-  ["mode unknown", { [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "kanban" }] }, { mode: "list" }],
+  // A name no view goes by is kept; resolving it to the list is frameViewOf's.
+  ["mode unknown", { [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "kanban" }] }, { mode: "kanban" }],
   ["mode non-str", { [SYSTEM_IDS.viewModeField]: [{ t: "ref", v: "table" }] }, { mode: "list" }],
   [
     "sort pairs refs with dirs and defaults a missing dir to asc",

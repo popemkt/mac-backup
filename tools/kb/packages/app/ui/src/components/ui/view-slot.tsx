@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactElement } from "react";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
-import { useView, type Placement, type ViewHost, type ViewKey } from "@/lib/plugins";
+import { useView, type Placement, type ViewHost } from "@/lib/plugins";
+import type { ViewKey } from "@/lib/view-key";
 
 /**
  * How many slots may nest. A view embeds others by key, and any of them may

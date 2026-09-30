@@ -23,6 +23,9 @@ import {
 } from "@/lib/types";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { logWarn } from "@/lib/log";
+import type { FrameViewKey } from "@/lib/view-config";
+import type { FamilyView } from "@/lib/view-key";
+import { providedFrameViews } from "@/stores/frame-views";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
 
 export type { VisibleInstance };
@@ -121,6 +124,8 @@ interface OutlineState {
   /** Pages revealed per frame in paginating view modes (frame id -> pages). */
   framePages: Record<string, number>;
   revealMorePages: (frameId: string) => void;
+  /** The frame views provided, in their pickers' order (`stores/frame-views`). */
+  frameViews: () => readonly FamilyView<FrameViewKey>[];
   getVisibleInstances: () => VisibleInstance[];
   getVisibleNodes: () => string[];
   getPreviousVisibleInstance: (instanceKey: string) => VisibleInstance | null;
@@ -756,9 +761,18 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         .map((n) => ({ id: n.id, text: n.text }));
     },
 
+    frameViews: providedFrameViews,
+
     getVisibleInstances: () => {
       const { nodes, rootNodeId, index, framePages } = get();
-      return collectVisibleInstances(rootNodeId, nodes, schemaOf(get()), index, framePages);
+      const views = providedFrameViews().map((view) => view.key);
+      return collectVisibleInstances(rootNodeId, {
+        nodes,
+        schema: schemaOf(get()),
+        queryDb: index,
+        views,
+        pages: framePages,
+      });
     },
 
     revealMorePages: (frameId) =>

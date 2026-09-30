@@ -3,6 +3,7 @@ import { ViewSlot } from "@/components/ui/view-slot";
 import { frameViewOf } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FrameSubjectContext, type FrameSubject } from "./frame-subject";
+import { useFrameViewKeys } from "./use-frame-views";
 
 const UNAVAILABLE = (
   <p className="px-1 py-0.5 text-meta text-foreground/50" data-frame-view-unavailable="true">
@@ -29,7 +30,8 @@ export function FrameViewSlot({
   readonly depth: number;
 }) {
   const props = useOutlineStore((s) => s.nodes.get(frameId)?.props);
-  const view = useMemo(() => frameViewOf(props), [props]);
+  const views = useFrameViewKeys();
+  const view = useMemo(() => frameViewOf(props, views), [props, views]);
   const subject = useMemo(
     (): FrameSubject => ({
       frameId,
@@ -42,7 +44,11 @@ export function FrameViewSlot({
   );
   return (
     <FrameSubjectContext.Provider value={subject}>
-      <ViewSlot view={view.key} params={view.params} placement="inline" fallback={UNAVAILABLE} />
+      {view === null ? (
+        UNAVAILABLE
+      ) : (
+        <ViewSlot view={view.key} params={view.params} placement="inline" fallback={UNAVAILABLE} />
+      )}
     </FrameSubjectContext.Provider>
   );
 }

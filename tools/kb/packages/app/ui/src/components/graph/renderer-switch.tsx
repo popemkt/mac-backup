@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 import type { LensRenderer } from "@/lib/graph-lens";
-import { localIdOf } from "@/lib/plugins";
+import { localIdOf } from "@/lib/view-key";
 import { useRenderers } from "./use-renderers";
 
 interface RendererSwitchProps {
@@ -24,7 +24,7 @@ export function RendererSwitch({ value, onChange, className }: RendererSwitchPro
       data-renderer-switch="true"
       data-active-renderer={value}
     >
-      {renderers.map((key) => {
+      {renderers.map(({ key, picker }) => {
         const name = localIdOf(key);
         return (
           <button
@@ -41,7 +41,7 @@ export function RendererSwitch({ value, onChange, className }: RendererSwitchPro
               if (name !== value) onChange(name);
             }}
           >
-            {key.renderer.label}
+            {picker.label}
           </button>
         );
       })}

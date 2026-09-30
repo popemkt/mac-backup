@@ -11,13 +11,9 @@ import {
 import { cn } from "@/lib/cn";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
-import {
-  EMPTY_GROUP_KEY,
-  OutlineBoardView,
-  OutlineCardsView,
-  resolveTableColumns,
-} from "@/lib/view-config";
-import { localIdOf, type ParamsOf } from "@/lib/plugins";
+import { EMPTY_GROUP_KEY, resolveTableColumns } from "@/lib/view-config";
+import { OutlineBoardView, OutlineCardsView } from "./views";
+import { localIdOf, type ParamsOf } from "@/lib/view-key";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";

@@ -3,7 +3,7 @@
  * schema means. Under an ontology scope the projection holds members only,
  * and every field and tag lookup reads the whole graph through `schemaOf`.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { cardinalityOf, present } from "@kb/model";
 import { resolveAllowedRefIdsCached, resolveFieldTypeById } from "@/lib/field-type";
@@ -13,6 +13,13 @@ import { rowText } from "@/lib/contextual-ref";
 import { schemaOf } from "@/lib/schema";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "./outline.store";
+import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncUiPlugins } from "@/lib/plugins";
+
+// The outline runs as the app boots it: its frame views provided, and the
+// store's row walk wired to them.
+beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 const ISO = "2026-09-26T00:00:00.000Z";
 const TAG = "t.svc";

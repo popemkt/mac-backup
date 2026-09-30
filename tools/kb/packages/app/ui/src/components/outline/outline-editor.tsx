@@ -6,6 +6,7 @@ import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";
 import { Breadcrumbs } from "./breadcrumbs";
 import { FrameViewSlot } from "./frame-view-slot";
+import { useFrameViewKeys } from "./use-frame-views";
 import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
@@ -21,6 +22,7 @@ import { useSelectionKeymap } from "./use-selection-keymap";
 export function OutlineEditor() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const root = useOutlineStore((s) => s.nodes.get(s.rootNodeId));
+  const frameViews = useFrameViewKeys();
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
   const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
   useSelectionKeymap();
@@ -53,7 +55,7 @@ export function OutlineEditor() {
 
   // The root is a frame like any other: its view shows its rows, whether it is
   // the workspace root or a zoomed-in node.
-  const projected = projectsRows(frameViewOf(root.props).key);
+  const projected = projectsRows(frameViewOf(root.props, frameViews)?.key ?? null);
   const rootRows = <FrameViewSlot frameId={rootNodeId} depth={0} />;
 
   if (rootNodeId !== WORKSPACE_ROOT_ID) {

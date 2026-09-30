@@ -13,13 +13,16 @@ import { useFollow } from "@/stores/follow";
 import { bulletClickIntent, nodeTarget } from "@/lib/follow";
 import { mutations } from "@/actions/mutations";
 import { frameRows } from "@/lib/frame-rows";
-import type { ParamsOf, ViewProps } from "@/lib/plugins";
-import { OutlineListView, frameViewOf, type FrameView } from "@/lib/view-config";
+import type { ViewProps } from "@/lib/plugins";
+import type { ParamsOf } from "@/lib/view-key";
+import { frameViewOf, projectsRows, type FrameView } from "@/lib/view-config";
 import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
 import { useFrameSubject } from "./frame-subject";
 import { NoFrame } from "./frame-views";
 import { FrameViewSlot } from "./frame-view-slot";
+import { useFrameViewKeys } from "./use-frame-views";
+import { OutlineListView } from "./views";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { QueryResultsSection } from "./query-results";
@@ -106,7 +109,12 @@ export const NodeBlock = memo(function NodeBlock({
   const handleKeyDown = useNodeKeyDown({ nodeId, instanceKey });
 
   // The view the shown node's children are shown in: the frame is the shown node.
-  const frameView = useMemo(() => frameViewOf(shown?.props), [shown?.props]);
+  const frameViews = useFrameViewKeys();
+  const frameView = useMemo(
+    () => frameViewOf(shown?.props, frameViews),
+    [shown?.props, frameViews],
+  );
+  const frameViewKey = frameView?.key ?? null;
 
   if (!node || !shown) return null;
 
@@ -119,7 +127,7 @@ export const NodeBlock = memo(function NodeBlock({
   const chrome = resolveRowChrome({
     node,
     schema,
-    view: frameView.key,
+    view: frameViewKey,
     instanceKey,
     showDebugFields,
   });
@@ -170,7 +178,7 @@ export const NodeBlock = memo(function NodeBlock({
                 : "opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100",
             )}
           >
-            <ViewToolbar frameId={shownId} view={frameView.key} />
+            <ViewToolbar frameId={shownId} view={frameViewKey} />
           </div>
         )}
       </div>
@@ -191,7 +199,7 @@ export const NodeBlock = memo(function NodeBlock({
             <QueryResultsSection
               nodeId={shownId}
               depth={depth}
-              view={frameView.key}
+              view={frameViewKey}
               frameInstanceKey={instanceKey}
               renderNode={({ nodeId: rid, instanceKey: rInstanceKey, depth: rDepth }) => (
                 <NodeBlock
@@ -204,19 +212,14 @@ export const NodeBlock = memo(function NodeBlock({
             />
           )}
 
-          {chrome.showsChildren &&
-            (chrome.projected ? (
-              <div style={indentStyle(depth + 1)}>
-                <FrameViewSlot frameId={shownId} instanceKey={instanceKey} depth={depth + 1} />
-              </div>
-            ) : (
-              <ListRows
-                frameId={shownId}
-                instanceKey={instanceKey}
-                depth={depth + 1}
-                view={frameView}
-              />
-            ))}
+          {chrome.showsChildren && (
+            <FrameChildren
+              frameId={shownId}
+              instanceKey={instanceKey}
+              depth={depth + 1}
+              view={frameView}
+            />
+          )}
 
           {chrome.showsCreateChild && <CreateChildStrip parentId={shownId} depth={depth} />}
         </div>
@@ -262,6 +265,30 @@ function CreateChildStrip({ parentId, depth }: { parentId: string; depth: number
       >
         +
       </span>
+    </div>
+  );
+}
+
+/**
+ * What a row shows under itself: a list continues as rows here; any other view
+ * is embedded in a slot, indented as one block.
+ */
+function FrameChildren({
+  frameId,
+  instanceKey,
+  depth,
+  view,
+}: {
+  readonly frameId: string;
+  readonly instanceKey: string;
+  readonly depth: number;
+  readonly view: FrameView | null;
+}) {
+  if (view !== null && !projectsRows(view.key))
+    return <ListRows frameId={frameId} instanceKey={instanceKey} depth={depth} view={view} />;
+  return (
+    <div style={indentStyle(depth)}>
+      <FrameViewSlot frameId={frameId} instanceKey={instanceKey} depth={depth} />
     </div>
   );
 }

@@ -1,15 +1,16 @@
 import { useCallback, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
-import { FRAME_VIEWS, type FrameViewKey } from "@/lib/view-config";
-import { localIdOf } from "@/lib/plugins";
+import type { FrameViewKey } from "@/lib/view-config";
+import { localIdOf } from "@/lib/view-key";
 import { mutations } from "@/actions/mutations";
 import { useUiStore } from "@/stores/ui.store";
+import { useFrameViews } from "./use-frame-views";
 
 interface ViewToolbarProps {
   frameId: string;
-  /** The view the frame's children are shown in now. */
-  view: FrameViewKey;
+  /** The view the frame's children are shown in now; null while none is provided. */
+  view: FrameViewKey | null;
   className?: string;
   /**
    * Zoomed-header mode: collapse modes+filter behind a single gear until
@@ -18,8 +19,9 @@ interface ViewToolbarProps {
   tucked?: boolean;
 }
 
-/** One button per frame view, named by its key; the stored name is the key's local id. */
+/** One button per frame view provided, in its picker's order; the stored name is the key's local id. */
 export function ViewToolbar({ frameId, view, className, tucked = false }: ViewToolbarProps) {
+  const options = useFrameViews();
   const filterOpen = useUiStore((s) => s.filterPopoverFrameId === frameId);
   const setFilterFrame = useUiStore((s) => s.setFilterPopoverFrameId);
   const [expanded, setExpanded] = useState(false);
@@ -65,10 +67,10 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
       )}
       data-view-toolbar="true"
       data-frame-id={frameId}
-      data-active-mode={localIdOf(view)}
+      data-active-mode={view === null ? undefined : localIdOf(view)}
       data-tucked={tucked ? "true" : undefined}
     >
-      {FRAME_VIEWS.map((option) => (
+      {options.map(({ key: option, picker }) => (
         <button
           key={option.id}
           type="button"
@@ -81,8 +83,8 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
           data-mode-button={localIdOf(option)}
           onClick={(e) => handleSelect(option, e)}
         >
-          <span>{option.glyph}</span>
-          <span>{option.label}</span>
+          <span>{picker.glyph}</span>
+          <span>{picker.label}</span>
         </button>
       ))}
       <button

@@ -14,6 +14,7 @@ import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { OutlineListView } from "./views";
 import { QueryResultsSection } from "./query-results";
 
 const sinks = new Map<string, SubscriptionSink>();
@@ -73,7 +74,12 @@ describe("query results: a live subscription's error (component)", () => {
   it("shows the server's error in place of the loading state", () => {
     act(() =>
       root.render(
-        createElement(QueryResultsSection, { nodeId: "n.bad", depth: 0, renderNode: () => null }),
+        createElement(QueryResultsSection, {
+          view: OutlineListView,
+          nodeId: "n.bad",
+          depth: 0,
+          renderNode: () => null,
+        }),
       ),
     );
     expect(container.textContent).toContain("Loading results…");

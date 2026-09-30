@@ -50,8 +50,8 @@ import {
 } from "@/lib/theme";
 import { toast } from "@/lib/toast";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, isSysPrefixed, type NodeMap } from "@/lib/types";
-import { localIdOf } from "@/lib/plugins";
-import { FRAME_VIEWS, type FrameViewKey } from "@/lib/view-config";
+import type { FrameViewKey } from "@/lib/view-config";
+import { localIdOf, type FamilyView } from "@/lib/view-key";
 
 /** The picker a node command can hand the palette to. */
 export type NodeCommandStep = "add-tag" | "add-field" | "add-ref";
@@ -67,6 +67,8 @@ export interface OutlineCommandApi {
   zoomTo: (id: string) => void;
   expandAllInScope: () => void;
   collapseAllInScope: () => void;
+  /** The frame views provided, in their pickers' order. */
+  frameViews: () => readonly FamilyView<FrameViewKey>[];
 }
 
 interface PrefsCommandApi {
@@ -310,14 +312,6 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     scope: "global",
     run: (ctx) => ctx.outline.collapseAllInScope(),
   },
-  // One per frame view, bound to the `sys.command` node its key names.
-  ...FRAME_VIEWS.map(
-    (view): Command => ({
-      id: view.command,
-      scope: "global",
-      run: (ctx) => setGlobalFrameView(ctx, view),
-    }),
-  ),
   {
     // Portal host (ViewFilterPopoverHost) anchors to toolbar/frame row; if no
     // DOM host exists it toasts and clears — never a silent no-op.
@@ -466,18 +460,10 @@ const NODE_COMMANDS: readonly Command[] = [
     chrome: () => ({ label: "Delete node", icon: <TrashIcon size={14} /> }),
     run: (ctx) => nodeAction(ctx, (nodeId) => void mutations.deleteNode(nodeId)),
   },
-  // One per frame view, named and drawn as its key says.
-  ...FRAME_VIEWS.map(
-    (view): Command => ({
-      id: `view-as-${localIdOf(view)}`,
-      scope: "node",
-      chrome: () => ({
-        label: `View as: ${view.label}`,
-        icon: <view.icon size={14} weight={view.iconWeight} />,
-      }),
-      run: (ctx) => nodeAction(ctx, (nodeId) => void mutations.setFrameView(nodeId, view)),
-    }),
-  ),
+];
+
+/** What the node menu offers after the frame views. */
+const NODE_COMMANDS_AFTER_VIEWS: readonly Command[] = [
   {
     id: "view-filter",
     scope: "node",
@@ -486,9 +472,49 @@ const NODE_COMMANDS: readonly Command[] = [
   },
 ];
 
-const COMMANDS: readonly Command[] = [...GLOBAL_COMMANDS, ...NODE_COMMANDS];
+/**
+ * The frame views provided, as commands: each view's `sys.command` node, and a
+ * node-menu row named and drawn by its picker, in the pickers' order.
+ */
+function frameViewCommands(ctx: CommandContext): {
+  readonly global: readonly Command[];
+  readonly node: readonly Command[];
+} {
+  const views = ctx.outline.frameViews();
+  return {
+    global: views.flatMap(({ key, picker }): Command[] =>
+      picker.command === undefined
+        ? []
+        : [{ id: picker.command, scope: "global", run: (c) => setGlobalFrameView(c, key) }],
+    ),
+    node: views.map(
+      ({ key, picker }): Command => ({
+        id: `view-as-${localIdOf(key)}`,
+        scope: "node",
+        chrome: () => {
+          const Icon = picker.icon;
+          return {
+            label: `View as: ${picker.label}`,
+            icon: Icon === undefined ? null : <Icon size={14} weight={picker.iconWeight} />,
+          };
+        },
+        run: (c) => nodeAction(c, (nodeId) => void mutations.setFrameView(nodeId, key)),
+      }),
+    ),
+  };
+}
 
-const BY_ID: ReadonlyMap<string, Command> = new Map(COMMANDS.map((c) => [c.id, c]));
+/** Every command, in order: the static ones, with the frame views' where they sit. */
+function commandsFor(ctx: CommandContext): readonly Command[] {
+  const views = frameViewCommands(ctx);
+  return [
+    ...GLOBAL_COMMANDS,
+    ...views.global,
+    ...NODE_COMMANDS,
+    ...views.node,
+    ...NODE_COMMANDS_AFTER_VIEWS,
+  ];
+}
 
 /** One row of the node menu: what to show, and what pressing it does. */
 export interface NodeCommandListing {
@@ -505,22 +531,22 @@ export interface NodeCommandListing {
  * silently missing row.
  */
 export function listNodeCommands(ctx: CommandContext): NodeCommandListing[] {
-  return COMMANDS.filter(
-    (command) => command.scope === "node" && (command.when?.(ctx) ?? true),
-  ).map((command) => {
-    const chrome = present(command.chrome, `node command ${command.id} has no chrome`)(ctx);
-    return {
-      id: command.id,
-      label: chrome.label,
-      icon: chrome.icon,
-      run: () => void runCommand(command.id, ctx),
-    };
-  });
+  return commandsFor(ctx)
+    .filter((command) => command.scope === "node" && (command.when?.(ctx) ?? true))
+    .map((command) => {
+      const chrome = present(command.chrome, `node command ${command.id} has no chrome`)(ctx);
+      return {
+        id: command.id,
+        label: chrome.label,
+        icon: chrome.icon,
+        run: () => void runCommand(command.id, ctx),
+      };
+    });
 }
 
 /** Run a command by id — the runner both palettes share. */
 export async function runCommand(commandId: string, ctx: CommandContext): Promise<void> {
-  const command = BY_ID.get(commandId);
+  const command = commandsFor(ctx).find((c) => c.id === commandId);
   if (command === undefined) {
     toast(`Unknown command: ${commandId}`);
     return;

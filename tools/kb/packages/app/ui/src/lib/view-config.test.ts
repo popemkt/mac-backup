@@ -13,6 +13,19 @@ import {
   serializeViewFilter,
   sortChildrenForTable,
 } from "./view-config";
+import { Effect } from "effect";
+import { makeKernel } from "@kb/plugin";
+import { outlineUiPlugin } from "@/components/outline/plugin";
+import { OutlineListView } from "@/components/outline/views";
+import { ViewPoint, familyViews } from "@/lib/plugins";
+import { frameViewOf, isFrameViewKey } from "@/lib/view-config";
+
+/** The frame views the outline plugin provides, as its hosts resolve against them. */
+const FRAME_VIEWS = (() => {
+  const kernel = makeKernel();
+  Effect.runSync(kernel.load(outlineUiPlugin));
+  return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);
+})();
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
@@ -27,7 +40,7 @@ describe("view-config", () => {
     expect(DEFAULT_VIEW_CONFIG.filters).toEqual([]);
   });
 
-  it("reads view mode (list|table|board|cards) and falls back to list on invalid mode", () => {
+  it("reads view mode (list|table|board|cards), and a name no view goes by shows the list", () => {
     expect(
       getViewConfig({
         [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "table" }],
@@ -44,10 +57,8 @@ describe("view-config", () => {
       }).mode,
     ).toBe("cards");
     expect(
-      getViewConfig({
-        [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "kanban" }],
-      }).mode,
-    ).toBe("list");
+      frameViewOf({ [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "kanban" }] }, FRAME_VIEWS)?.key,
+    ).toBe(OutlineListView);
   });
 
   it("pairs sort refs and sort dirs correctly", () => {

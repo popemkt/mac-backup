@@ -1,14 +1,15 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
-import { OutlineListView, OutlineTableView, getViewConfig } from "@/lib/view-config";
-import { paramsFrom } from "@/lib/plugins";
+import { getViewConfig } from "@/lib/view-config";
+import { OutlineListView, OutlineTableView } from "@/components/outline/views";
+import { paramsFrom } from "@/lib/view-key";
 import { Result } from "effect";
 import { fieldContextOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -16,6 +17,13 @@ import { usePrefsStore } from "@/stores/prefs.store";
 import type { WireNode } from "@kb/contracts";
 import { TableView } from "./table-view";
 import { ViewToolbar } from "./view-toolbar";
+import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncUiPlugins } from "@/lib/plugins";
+
+// The outline runs as the app boots it: its frame views provided, and the
+// store's row walk wired to them.
+beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 const mockWireNodes: WireNode[] = [
   ...viewFieldNodes,

@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { WorkspaceState } from "@/components/ui/workspace-state";
-import type { ParamsOf, ViewProps } from "@/lib/plugins";
+import type { ViewProps } from "@/lib/plugins";
+import type { ParamsOf } from "@/lib/view-key";
 import {
   ClusterAdapter,
   Force2dAdapter,

@@ -20,6 +20,13 @@ import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
+import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncUiPlugins } from "@/lib/plugins";
+
+// The outline runs as the app boots it: its frame views provided, and the
+// store's row walk wired to them.
+beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 /**
  * The one line the registry refactor moved: the runner takes its state as an

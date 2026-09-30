@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import type { ParamsOf, ViewProps } from "@/lib/plugins";
-import { OutlineBoardView, OutlineCardsView, type OutlineTableView } from "@/lib/view-config";
+import type { ViewProps } from "@/lib/plugins";
+import type { ParamsOf } from "@/lib/view-key";
+import { OutlineBoardView, OutlineCardsView, type OutlineTableView } from "./views";
 import { BoardCardsView } from "./board-cards-view";
 import { useFrameSubject } from "./frame-subject";
 import { TableView } from "./table-view";

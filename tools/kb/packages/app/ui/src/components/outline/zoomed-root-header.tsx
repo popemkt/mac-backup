@@ -11,6 +11,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { FieldsSection } from "./fields-section";
 import { TagChipGroup } from "./tag-chip";
 import { ViewToolbar } from "./view-toolbar";
+import { useFrameViewKeys } from "./use-frame-views";
 import { NodeContent } from "./node-content";
 import { hasText } from "@/lib/text";
 
@@ -135,7 +136,7 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
   // Ambient wash, not an identity readout: one color is enough, but which
   // color and how it weakens both come from the tag-color owner.
   const washColor = nodeTagColors(node)[0] ?? null;
-  const view = frameViewOf(node.props).key;
+  const view = frameViewOf(node.props, useFrameViewKeys())?.key ?? null;
   const isList = !projectsRows(view);
 
   return (

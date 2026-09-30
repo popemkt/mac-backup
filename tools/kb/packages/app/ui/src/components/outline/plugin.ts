@@ -4,7 +4,14 @@ import { BoardFrameView, CardsFrameView, TableFrameView } from "@/components/out
 import { ListFrameView } from "@/components/outline/node-block";
 import { matchOutline } from "@/components/outline/routes";
 import { HomeSection, OutlineSurface, PinnedSection } from "@/components/outline/surfaces";
-import { OutlineView } from "@/components/outline/views";
+import {
+  OUTLINE_NAMESPACE,
+  OutlineBoardView,
+  OutlineCardsView,
+  OutlineListView,
+  OutlineTableView,
+  OutlineView,
+} from "@/components/outline/views";
 import {
   RoutePoint,
   SidebarSectionPoint,
@@ -12,27 +19,31 @@ import {
   provideRoute,
   provideView,
 } from "@/lib/plugins";
-import {
-  DEFAULT_VIEW_CONFIG,
-  OUTLINE_NAMESPACE,
-  OutlineBoardView,
-  OutlineCardsView,
-  OutlineListView,
-  OutlineTableView,
-} from "@/lib/view-config";
+import { ListBulletsIcon, SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
+import { SYSTEM_IDS } from "@/lib/types";
+import { DEFAULT_VIEW_CONFIG } from "@/lib/view-config";
+import { provideFrameViews, withdrawFrameViews } from "@/stores/frame-views";
+import { readFrameViews } from "@/components/outline/use-frame-views";
 
 const { filters, sort, display, colwidth, pagesize, groupFieldId } = DEFAULT_VIEW_CONFIG;
 
 /**
  * The outline: its page, the route to it at `/`, the Home and Pinned sidebar
  * sections, and its four frame views — each shown inline, under the row of the
- * frame whose children it lays out.
+ * frame whose children it lays out, and named for the toolbar, the node menu
+ * and its `sys.command` node by its `picker`, in the order they are offered.
  */
 export const outlineUiPlugin = definePlugin({
   name: OUTLINE_NAMESPACE,
   apply: (ctx) =>
     Effect.all(
       [
+        // The store's row walk and the commands read the frame views through
+        // their port, wired to the UI kernel while this plugin is loaded.
+        Effect.acquireRelease(
+          Effect.sync(() => provideFrameViews(readFrameViews)),
+          () => Effect.sync(() => withdrawFrameViews(readFrameViews)),
+        ),
         ctx.contribute(
           ViewPoint,
           provideView(OutlineView, {
@@ -47,6 +58,14 @@ export const outlineUiPlugin = definePlugin({
             placements: ["inline"],
             sample: { filters },
             Component: ListFrameView,
+            picker: {
+              label: "List",
+              order: 0,
+              glyph: "≡",
+              icon: ListBulletsIcon,
+              iconWeight: "regular",
+              command: SYSTEM_IDS.cmdViewAsList,
+            },
           }),
         ),
         ctx.contribute(
@@ -55,6 +74,14 @@ export const outlineUiPlugin = definePlugin({
             placements: ["inline"],
             sample: { filters, sort, display, colwidth, pagesize },
             Component: TableFrameView,
+            picker: {
+              label: "Table",
+              order: 1,
+              glyph: "⊞",
+              icon: TableIcon,
+              iconWeight: "regular",
+              command: SYSTEM_IDS.cmdViewAsTable,
+            },
           }),
         ),
         ctx.contribute(
@@ -63,6 +90,14 @@ export const outlineUiPlugin = definePlugin({
             placements: ["inline"],
             sample: { filters, sort, display, groupFieldId },
             Component: BoardFrameView,
+            picker: {
+              label: "Board",
+              order: 2,
+              glyph: "▥",
+              icon: SquaresFourIcon,
+              iconWeight: "regular",
+              command: SYSTEM_IDS.cmdViewAsBoard,
+            },
           }),
         ),
         ctx.contribute(
@@ -71,6 +106,14 @@ export const outlineUiPlugin = definePlugin({
             placements: ["inline"],
             sample: { filters, sort, display },
             Component: CardsFrameView,
+            picker: {
+              label: "Cards",
+              order: 3,
+              glyph: "▦",
+              icon: SquaresFourIcon,
+              iconWeight: "duotone",
+              command: SYSTEM_IDS.cmdViewAsCards,
+            },
           }),
         ),
         ctx.contribute(

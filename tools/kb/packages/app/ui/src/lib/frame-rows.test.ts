@@ -3,10 +3,14 @@
  * tests pin the contract every renderer and the nav walk share.
  */
 import { schemaOf, type SchemaIndex } from "@/lib/schema";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
+import { makeKernel } from "@kb/plugin";
 import { describe, expect, it } from "vitest";
 import { frameRows, type FrameRowsInput } from "@/lib/frame-rows";
-import { FRAME_VIEWS, OutlineTableView, frameViewOf } from "@/lib/view-config";
+import { frameViewOf, isFrameViewKey } from "@/lib/view-config";
+import { ViewPoint, familyViews } from "@/lib/plugins";
+import { outlineUiPlugin } from "@/components/outline/plugin";
+import { OutlineTableView } from "@/components/outline/views";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
@@ -14,9 +18,18 @@ function schemaFor(nodes: NodeMap): SchemaIndex {
   return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
 }
 
+/** The frame views the outline plugin provides, as its hosts see them. */
+const VIEWS = (() => {
+  const kernel = makeKernel();
+  Effect.runSync(kernel.load(outlineUiPlugin));
+  return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);
+})();
+
 /** A frame's rows input, in the view its props name, as every host resolves it. */
 function input(nodes: NodeMap, frameId = "frame"): FrameRowsInput {
-  return { frameId, nodes, schema: schemaFor(nodes), view: frameViewOf(nodes.get(frameId)?.props) };
+  const view = frameViewOf(nodes.get(frameId)?.props, VIEWS);
+  if (view === null) throw new Error("the outline plugin provides no list view");
+  return { frameId, nodes, schema: schemaFor(nodes), view };
 }
 
 function rowsOf(nodes: NodeMap, frameId = "frame") {
@@ -73,7 +86,7 @@ const asTable = (pagesize?: number): OutlineNode["props"] => ({
 
 describe("which views paginate", () => {
   it("is the views whose params declare a page size: the table, today", () => {
-    const paginating = FRAME_VIEWS.filter((view) =>
+    const paginating = VIEWS.filter((view) =>
       Object.hasOwn(Schema.decodeUnknownSync(view.params)(SETTINGS), "pagesize"),
     );
     expect(paginating).toEqual([OutlineTableView]);

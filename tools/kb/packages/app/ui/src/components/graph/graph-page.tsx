@@ -28,7 +28,7 @@ import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { ThemeIcon } from "@/components/ui/theme-icon";
 import { WorkspaceState } from "@/components/ui/workspace-state";
 import { ViewSlot } from "@/components/ui/view-slot";
-import { paramsFrom } from "@/lib/plugins";
+import { paramsFrom } from "@/lib/view-key";
 import { GraphFrameContext, graphViewKey, type GraphFrame } from "./graph-frame";
 import { useRenderer } from "./use-renderers";
 

@@ -11,8 +11,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { parsePerspective } from "@/lib/graph-lens";
-import { getViewConfig } from "@/lib/view-config";
 import { SYSTEM_IDS, type PropValue } from "@/lib/types";
+import { Effect } from "effect";
+import { makeKernel } from "@kb/plugin";
+import { outlineUiPlugin } from "@/components/outline/plugin";
+import { OutlineListView } from "@/components/outline/views";
+import { ViewPoint, familyViews } from "@/lib/plugins";
+import { frameViewOf, getViewConfig, isFrameViewKey } from "@/lib/view-config";
+
+/** The frame views the outline plugin provides, as its hosts resolve against them. */
+const FRAME_VIEWS = (() => {
+  const kernel = makeKernel();
+  Effect.runSync(kernel.load(outlineUiPlugin));
+  return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);
+})();
 
 let warned: string[] = [];
 let spy: ReturnType<typeof vi.spyOn>;
@@ -108,12 +120,14 @@ describe("getViewConfig reporting", () => {
     expect(warned).toEqual([]);
   });
 
-  it("reports an unknown view mode", () => {
-    expect(getViewConfig({ [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "kanban" }] }).mode).toBe(
-      "list",
+  it("reports a view mode no provided frame view goes by, and shows the list", () => {
+    const view = frameViewOf(
+      { [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "kanban" }] },
+      FRAME_VIEWS,
     );
+    expect(view?.key).toBe(OutlineListView);
     expect(warned).toEqual([
-      `[view-config] ${SYSTEM_IDS.viewModeField} ignored: Expected "list" | "table" | "board" | "cards"`,
+      `[view-config] ${SYSTEM_IDS.viewModeField} ignored: no frame view is named "kanban"`,
     ]);
   });
 

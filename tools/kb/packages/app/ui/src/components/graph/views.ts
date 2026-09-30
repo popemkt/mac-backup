@@ -1,7 +1,7 @@
 import { Schema } from "effect";
-import { GRAPH_RENDERER_VALUES } from "@kb/model";
+import type { GRAPH_RENDERER_VALUES } from "@kb/model";
 import { LENS_SETTINGS } from "@/lib/graph-lens";
-import { viewKey, type ViewKey } from "@/lib/plugins";
+import { viewKey, type ViewKey } from "@/lib/view-key";
 
 /** The graph plugin's namespace and view keys: what a host imports, never the components. */
 export const GRAPH_NAMESPACE = "graph";
@@ -38,7 +38,6 @@ export type GraphChannel = "relationships" | "color" | "size" | "group" | "label
 
 /** What a renderer is to the graph frame around it, beyond the settings it reads. */
 export interface RendererTraits {
-  readonly label: string;
   readonly capabilities: RendererCapabilities;
   readonly channels: readonly GraphChannel[];
   /** Whether it can move a link (a flowing link style's dashes); others draw the style's shape, still. */
@@ -52,13 +51,17 @@ export interface RendererTraits {
  * id is the renderer's name in `lens.renderer`.
  */
 export interface RendererKey<P> extends ViewKey<P> {
+  readonly family: typeof RENDERER_FAMILY;
   readonly params: Schema.Decoder<P> & { readonly fields: Schema.Struct.Fields };
   readonly renderer: RendererTraits;
 }
 
+/** The discriminant a graph renderer's key carries (`ViewKey.family`). */
+const RENDERER_FAMILY = "graph.renderer";
+
 /** Whether a view's key is a graph renderer's: what a renderer picker lists. */
 export function isRendererKey(key: ViewKey<unknown>): key is RendererKey<unknown> {
-  return "renderer" in key;
+  return key.family === RENDERER_FAMILY;
 }
 
 type RendererName = keyof typeof GRAPH_RENDERER_VALUES;
@@ -66,12 +69,13 @@ type RendererName = keyof typeof GRAPH_RENDERER_VALUES;
 function rendererKey<P>(
   name: RendererName,
   params: RendererKey<P>["params"],
-  traits: Omit<RendererTraits, "label">,
+  traits: RendererTraits,
 ): RendererKey<P> {
   return {
     ...viewKey(`${GRAPH_NAMESPACE}.${name}`, params),
+    family: RENDERER_FAMILY,
     params,
-    renderer: { label: GRAPH_RENDERER_VALUES[name].label, ...traits },
+    renderer: traits,
   };
 }
 

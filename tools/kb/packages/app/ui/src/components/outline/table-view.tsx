@@ -7,13 +7,12 @@ import { cn } from "@/lib/cn";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
 import {
-  OutlineTableView,
   frameViewOf,
   resolveTableColumns,
   type SortSpec,
   type TableColumnSpec,
 } from "@/lib/view-config";
-import type { ParamsOf } from "@/lib/plugins";
+import type { ParamsOf } from "@/lib/view-key";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -25,6 +24,8 @@ import { NodeField } from "./fields-section";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { useNodeKeyDown } from "./use-node-keydown";
+import { useFrameViewKeys } from "./use-frame-views";
+import { OutlineTableView } from "./views";
 
 /** The Name column is the node-text field, so sorting by it names a node like any other column. */
 const NAME_COLUMN = SYSTEM_IDS.nodeTextField;
@@ -262,6 +263,7 @@ const TableRow = memo(function TableRow({
   const follow = useFollow();
   // The cells are the shown node's (`lib/contextual-ref`); the row is `child`.
   const shown = shownNode(child, context.schema);
+  const frameViews = useFrameViewKeys();
   const rowDebug = useDebugFields(shown.id);
 
   const handleKeyDown = useNodeKeyDown({ nodeId: child.id, instanceKey: childKey });
@@ -271,7 +273,7 @@ const TableRow = memo(function TableRow({
   const chrome = resolveRowChrome({
     node: child,
     schema: context.schema,
-    view: frameViewOf(shown.props).key,
+    view: frameViewOf(shown.props, frameViews)?.key ?? null,
     instanceKey: childKey,
     showDebugFields: rowDebug,
   });

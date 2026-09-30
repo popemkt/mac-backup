@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { LensPerspective } from "@/lib/graph-lens";
 import type { FieldType } from "@kb/model";
 import type { FrameViewKey, SortSpec } from "@/lib/view-config";
-import { localIdOf } from "@/lib/plugins";
+import { localIdOf } from "@/lib/view-key";
 import { runOptimistic } from "@/actions/optimistic";
 import {
   planAddChild,

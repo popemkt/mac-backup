@@ -21,7 +21,7 @@ import {
   type ReactElement,
 } from "react";
 import type { Icon } from "@phosphor-icons/react";
-import { Cause, Effect, Exit, Result, Schema } from "effect";
+import { Cause, Effect, Exit } from "effect";
 import {
   Point,
   makeKernel,
@@ -31,6 +31,7 @@ import {
   type PointKey,
 } from "@kb/plugin";
 import { usePath } from "@/lib/router";
+import { localIdOf, type FamilyView, type ViewKey, type ViewPicker } from "@/lib/view-key";
 import { toast } from "@/lib/toast";
 
 /**
@@ -40,35 +41,6 @@ import { toast } from "@/lib/toast";
  * their first host: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
  */
 export type Placement = "page" | "inline";
-
-/**
- * A view's name and the params it renders from. Made once by the plugin that
- * owns the view and compared by identity, like `Service`/`Point` keys: a key
- * spelled alike but created elsewhere is a different key.
- */
-export interface ViewKey<P> {
-  readonly kind: "view";
-  /** `<namespace>.<local id>`: the owning plugin's namespace, then the view's id. */
-  readonly id: `${string}.${string}`;
-  /**
-   * What a legal `P` is: the view's settings, as an Effect `Schema`. It is the
-   * one statement of them — a host decodes stored config through it, a picker
-   * asks it which settings the view reads, and the contract decodes the
-   * view's `sample` with it. It also carries `P` for the compiler.
-   */
-  readonly params: Schema.Decoder<P>;
-}
-
-/** The params a key's view renders from. */
-export type ParamsOf<K> = K extends ViewKey<infer P> ? P : never;
-
-/** The params of a view that renders from nothing but the store (the outline, a list). */
-export const NoParams = Schema.Struct({});
-export type NoParams = typeof NoParams.Type;
-
-export function viewKey<P>(id: `${string}.${string}`, params: Schema.Decoder<P>): ViewKey<P> {
-  return { kind: "view", id, params };
-}
 
 /** What a host guarantees a view: never a store, never `ctx`. */
 export interface ViewHost {
@@ -86,6 +58,8 @@ export interface View<P> {
   /** The params the view contract mounts this view with. */
   readonly sample: P;
   readonly Component: FunctionComponent<ViewProps<P>>;
+  /** How a picker names it, for a view of a family a host chooses between. */
+  readonly picker?: ViewPicker;
 }
 
 /**
@@ -97,30 +71,10 @@ export interface ProvidedView {
   readonly placements: readonly Placement[];
   readonly sample: unknown;
   readonly Component: FunctionComponent<ViewProps<never>>;
+  readonly picker?: ViewPicker;
 }
 
 export const ViewPoint = Point<ProvidedView>()("ui.views");
-
-/**
- * The local id a contribution under `key` takes: the key's id past its
- * namespace. It is also the name a view goes by in config stored as text
- * (`sys.f.view.mode`, `lens.renderer`), so that name resolves to the key.
- */
-export function localIdOf(key: ViewKey<unknown>): string {
-  return key.id.slice(key.id.indexOf(".") + 1);
-}
-
-/**
- * `input` read as `key`'s params: how a host turns stored config into the
- * `P` it renders the view with. Only the settings the key declares are kept,
- * and one it cannot read is the failure's message.
- */
-export function paramsFrom<P>(key: ViewKey<P>, input: unknown): Result.Result<P, string> {
-  const decoded = Schema.decodeUnknownResult(key.params)(input);
-  return Result.isSuccess(decoded)
-    ? Result.succeed(decoded.success)
-    : Result.fail(decoded.failure.message);
-}
 
 /** The `ViewPoint` contribution for `key`, under the key's own local id. */
 export function provideView<P>(
@@ -260,6 +214,29 @@ function pointReader<C>(point: PointKey<C>): () => readonly Contribution<C>[] {
     }
     return items;
   };
+}
+
+/** A point's contributions now, for a reader outside React (a port the shell wires). */
+export function currentContributions<C>(point: PointKey<C>): readonly Contribution<C>[] {
+  return uiKernel.contributions(point);
+}
+
+/**
+ * The provided views of one family, as its pickers list them: each view whose
+ * key `isFamily` admits and whose contribution names it (`picker`), in
+ * `picker.order`. The one way a family is enumerated, so a picker, a decode
+ * and a walk all see the same views.
+ */
+export function familyViews<K extends ViewKey<unknown>>(
+  views: readonly Contribution<ProvidedView>[],
+  isFamily: (key: ViewKey<unknown>) => key is K,
+): readonly FamilyView<K>[] {
+  const listed: FamilyView<K>[] = [];
+  for (const { value } of views) {
+    if (isFamily(value.key) && value.picker !== undefined)
+      listed.push({ key: value.key, picker: value.picker });
+  }
+  return listed.toSorted((a, b) => a.picker.order - b.picker.order);
 }
 
 /** A point's contributions, re-read whenever the kernel changes. */
