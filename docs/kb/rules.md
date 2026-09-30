@@ -64,6 +64,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
+### GAP: a graph renderer view draws only inside a graph host
+
+- **expected** — a renderer view embedded alone (e.g. in a canvas card or beside a row) draws the neighbourhood of the node it is shown for
+- **current** — embedded alone it shows 'No graph to draw': the graph data comes from the graph page's GraphFrame context, not from params
+- **impact** — graph views cannot be embedded outside the graph page yet
+- **closes** — plugin-composition A1 neighbourhood view hosting a renderer (roadmap step 2)
+- **node** — `01M3R5NKA34ATJKJV9GVQRS16Z`
+
 ### GAP: a number prop that equals a live eid reads as a ref to that node
 
 - **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
@@ -100,7 +108,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: a view host is placement-only, and Placement is only page
 
 - **expected** — ViewHost carries placement, size, appearanceKey and reducedMotion; Placement includes inline, beside, float, card and hover; ViewSlot measures its box; view-contract checks sizing, disposal of instrumented resources, appearance, reduced motion and bad config (tools/kb/DESIGN-UI.md, UI points: routes and views). Nesting is a separate concern that the slot already owns: MAX_VIEW_DEPTH, checked by view-contract.
-- **current** — R1 of the plugin-composition plan ships ViewHost = { placement } with Placement = page. Views do already nest at page placement (the ontology view embeds the graph and outline views through ViewSlot inside the shell's page slot); ViewSlot bounds that with a depth context and MAX_VIEW_DEPTH, so this gap no longer covers nesting. view-contract checks mount, unload fallback and reload, error containment, the depth stop and clean unmount.
+- **current** — Placement is page | inline; ViewHost carries only placement. ViewSlot counts embeds by an exact (view, subject) ancestor chain plus MAX_VIEW_DEPTH=32 (slotRenders in lib/view-key.ts), and the keyboard walk asks the same rule.
 - **impact** — No view can be embedded at card, beside, float, inline or hover size yet, and a view cannot learn its box size, the appearance key or the reduced-motion preference from its host, so the shared suite cannot check those properties. Nothing breaks today, because every host asks for page placement.
 - **closes** — Plan phases A1/A2 in docs/kb/waves/2026-09-24/briefs/plugin-composition.md: widen Placement and ViewHost with their first non-page consumer, have ViewSlot measure its box, and add the matching view-contract properties.
 - **node** — `01M3EZR20H0CDF5MD01M2S26C5`
@@ -328,14 +336,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The graph cannot take the lab's orbit without a lab import; two camera-control mechanisms.
 - **closes** — WP4 folds kit/orbit.ts into scene/ with the lab kit's view controls, and the graph's flight and the orbit share one camera rig.
 - **node** — `01M3E9QZ3D6EG2W2MERM93ABNA`
-
-### GAP: outline view modes and graph renderers are local registries, not ViewPoint members
-
-- **expected** — The outline's list, table, board and cards modes are four views over a frame's children (sys.view.outline.* options), and each GRAPH_RENDERERS entry is a view the graph page selects, all contributed to ViewPoint and run by view-contract.
-- **current** — sys.f.view.mode is a text field holding list|table|board|cards, read by a local ViewMode union; GRAPH_RENDERERS is a local record in components/graph. Neither is a ViewPoint contribution.
-- **impact** — Another plugin cannot embed one outline mode or one renderer by key, and the view contract does not cover them, so a renderer that leaks a WebGL context or ignores reduced motion is not caught by the shared suite.
-- **closes** — After A1 lands sys.f.view and view nodes: make each mode and each renderer a ViewKey with its own view, migrate sys.f.view.mode to refs to the option nodes, and delete the local registries (plugin-composition brief, section 6, row later).
-- **node** — `01M3EZRFJ9RYFJJ4MW322RQ28S`
 
 ### GAP: package executors share no contract check
 
@@ -948,6 +948,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move MdView into the primitives zone; it takes text and options and touches no store.
 - **rule** — UI import matrix
 - **node** — `01M1RXNKKK31EGJWCA1KCV6V20`
+
+### GAP: outline view modes and graph renderers are local registries, not ViewPoint members
+
+- **expected** — The outline's list, table, board and cards modes are four views over a frame's children (sys.view.outline.* options), and each GRAPH_RENDERERS entry is a view the graph page selects, all contributed to ViewPoint and run by view-contract.
+- **current** — sys.f.view.mode is a text field holding list|table|board|cards, read by a local ViewMode union; GRAPH_RENDERERS is a local record in components/graph. Neither is a ViewPoint contribution.
+- **impact** — Another plugin cannot embed one outline mode or one renderer by key, and the view contract does not cover them, so a renderer that leaks a WebGL context or ignores reduced motion is not caught by the shared suite.
+- **closes** — After A1 lands sys.f.view and view nodes: make each mode and each renderer a ViewKey with its own view, migrate sys.f.view.mode to refs to the option nodes, and delete the local registries (plugin-composition brief, section 6, row later).
+- **node** — `01M3EZRFJ9RYFJJ4MW322RQ28S`
 
 ### GAP: OutlineNode.cursorPosition is deprecated but is still the canvas editor's caret channel
 

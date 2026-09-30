@@ -34,7 +34,6 @@
 
 ### todo
 
-- 1 · view types declare settings schemas; fold ViewMode + GRAPH_RENDERERS into ViewPoint (restructure)
 - 10 · chart view type storing a Vega-Lite spec
 - 2 · view nodes per plugin-composition A1 (sys.f.view, sys.f.views, placement) + default view per host; migrate sys.f.view.* and #graph-perspective (restructure)
 - 3 · generative UI mode A: view.propose, catalog in kb_manifest, render_view by view id + md fallback, ui:// snapshots
@@ -49,6 +48,7 @@
 - Check out more about zerolang and Lisp data as code code as data, and overall: making state unrepresentable paradigm of zerolang
 - decide which actions require approval (candidates: ext.docs.materialize, ext.check.sync, node.update when it deletes)
 - Explore @statelyai/graph for kb graph modeling, traversal algorithms, and visualization pipeline https://github.com/statelyai/graph
+- fix palette.e2e 'Make supertag' and 'Add field': tests look for a button, palette now renders commands as list options (fails on main since afffb39c or earlier)
 - Graph Database Engines Directory & Comparison https://gdb-engines.com/
 - kb ui portless mode: UDS transport for local subscriber apps + port discovery via .kb/runtime.json
 - Look into performant DB as "rebuildable" index syncing to source-control committable JSONL, and how Epic's LORE VCS solves binary versioning performantly
@@ -63,6 +63,7 @@
 ### done
 
 - 0 · action mode (read/write + approval) on ActionDefinition, in manifest; contract: every surface same actions + same receipt
+- 1 · view types declare settings schemas; fold ViewMode + GRAPH_RENDERERS into ViewPoint (restructure)
 - canvas simplify (Logseq model): edges are drawings only; native bind = one-shot prop write; bound-state computed at render (unbound tint); DELETE reconciler/persist-back/bindingId repair — supersedes broken-edge repair todo
 - graph: smart-elide system/editor-only nodes by default + toggle; universal graph button in header
 - kb refine W1: token system + row anatomy (bullet catalog, fields inline, selection keymap) — DESIGN-REFINE.md
