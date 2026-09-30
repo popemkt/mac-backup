@@ -28,7 +28,7 @@ import {
   type ListedAction,
   type SurfaceFactory,
 } from "@kb/test-kit";
-import { WEBMCP_WIRE, startWebMcp, type ModelContextTool } from "@kb/webmcp";
+import { ToolCallFailed, WEBMCP_WIRE, startWebMcp, type ModelContextTool } from "@kb/webmcp";
 import { z } from "zod";
 import { ACTION_INVOKE_WIRE, main } from "../src/cli.ts";
 
@@ -187,7 +187,13 @@ const webmcp: SurfaceFactory = async (root) => {
     invoke: async ({ id, input }) => {
       const tool = page.tool(id);
       if (tool === undefined) return null;
-      return ActionReceiptSchema.parse(await tool.execute(input));
+      // WebMCP reports a receipt that did not succeed as the tool's error.
+      try {
+        return ActionReceiptSchema.parse(await tool.execute(input));
+      } catch (error) {
+        if (error instanceof ToolCallFailed) return ActionReceiptSchema.parse(error.receipt);
+        throw error;
+      }
     },
     close: async () => {
       adapter.stop();

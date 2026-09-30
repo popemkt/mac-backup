@@ -5,10 +5,23 @@
  */
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
-import type { ActionInvocation, ActionReceipt, ManifestEntry } from "@kb/contracts";
+import {
+  failed,
+  type ActionInvocation,
+  type ActionReceipt,
+  type ManifestEntry,
+} from "@kb/contracts";
 import { makeKernel } from "@kb/plugin";
 import { FakeModelContext } from "@kb/test-kit";
-import { modelContextOf, startWebMcp, webMcpPlugin, type WebMcpOptions } from "../src/index.ts";
+import {
+  ToolCallFailed,
+  modelContextOf,
+  startWebMcp,
+  webMcpPlugin,
+  webMcpTool,
+  type ModelContext,
+  type WebMcpOptions,
+} from "../src/index.ts";
 
 function entry(id: string, mode: ManifestEntry["mode"]): ManifestEntry {
   return {
@@ -121,19 +134,57 @@ describe("WebMCP adapter", () => {
     });
   });
 
-  test("a host that throws is answered with an internal failure", async () => {
+  test("a receipt that did not succeed is the tool's error, carrying the receipt", async () => {
+    const page = new FakeModelContext();
+    const invoke = (invocation: ActionInvocation): Promise<ActionReceipt> =>
+      invocation.id === "kb.manifest"
+        ? Promise.resolve({ status: "succeeded", id: invocation.id, output: { actions: [WRITE] } })
+        : Promise.resolve(failed(invocation.id, "not_found", "no such node"));
+    await startWebMcp({ modelContext: () => page, invoke }).settled();
+    const error = await page
+      .tool("node.update")
+      ?.execute({ id: "n" })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ToolCallFailed);
+    expect((error as ToolCallFailed).message).toBe("no such node");
+    expect((error as ToolCallFailed).receipt).toMatchObject({
+      status: "failed",
+      id: "node.update",
+      code: "not_found",
+    });
+  });
+
+  test("a host that throws is answered with an internal failure, as the tool's error", async () => {
     const page = new FakeModelContext();
     const invoke = (invocation: ActionInvocation): Promise<ActionReceipt> =>
       invocation.id === "kb.manifest"
         ? Promise.resolve({ status: "succeeded", id: invocation.id, output: { actions: [READ] } })
         : Promise.reject(new Error("network down"));
     await startWebMcp({ modelContext: () => page, invoke }).settled();
-    expect(await page.tool("node.get")?.execute(undefined)).toMatchObject({
+    const error = await page
+      .tool("node.get")
+      ?.execute(undefined)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ToolCallFailed);
+    expect((error as ToolCallFailed).receipt).toMatchObject({
       status: "failed",
       id: "node.get",
       code: "internal",
       message: "network down",
     });
+  });
+
+  test("the input reaches the host as it was given", async () => {
+    const kb = host([READ]);
+    const page = new FakeModelContext();
+    await startWebMcp({ modelContext: () => page, invoke: kb.invoke }).settled();
+    await page.tool("node.get")?.execute(undefined);
+    expect(kb.calls.at(-1)).toEqual({ id: "node.get", input: undefined });
+  });
+
+  test("publishes the object schema MCP publishes, whatever the action declares", () => {
+    const tool = webMcpTool({ ...READ, inputSchema: { type: "string" } }, host([]).invoke);
+    expect(tool.inputSchema).toEqual({ type: "object", properties: {} });
   });
 
   test("re-registers when the listing changes, and only then", async () => {
@@ -203,6 +254,74 @@ describe("WebMCP adapter", () => {
     await startWebMcp(options).settled();
     expect(names(page)).toEqual(["node.get"]);
     expect(reports).toEqual(["WebMCP did not register bad name: invalid tool name: bad name"]);
+  });
+
+  test("a listing with a refused tool is not live, so the next sync registers it again", async () => {
+    const page = new FakeModelContext();
+    const reports: string[] = [];
+    const kb = host([READ, entry("bad name", { kind: "read" })]);
+    const changes = trigger();
+    const adapter = startWebMcp({
+      modelContext: () => page,
+      invoke: kb.invoke,
+      whenManifestMayChange: changes.subscribe,
+      report: (message) => reports.push(message),
+    });
+    await adapter.settled();
+    const first = page.tool("node.get");
+    changes.fire();
+    await adapter.settled();
+    expect(reports).toHaveLength(2);
+    expect(names(page)).toEqual(["node.get"]);
+    expect(page.tool("node.get")).not.toBe(first);
+  });
+
+  test("a registration cancelled by its own signal is not reported", async () => {
+    const reports: string[] = [];
+    const cancelled: ModelContext = {
+      registerTool: () => Promise.reject(new DOMException("aborted", "AbortError")),
+    };
+    await startWebMcp({
+      modelContext: () => cancelled,
+      invoke: host([READ]).invoke,
+      report: (message) => reports.push(message),
+    }).settled();
+    expect(reports).toEqual([]);
+  });
+
+  test("like a browser, the model context refuses a registration whose signal has aborted", async () => {
+    const page = new FakeModelContext();
+    const controller = new AbortController();
+    controller.abort();
+    const rejection = await page
+      .registerTool(webMcpTool(READ, host([]).invoke), { signal: controller.signal })
+      .catch((e: unknown) => e);
+    expect((rejection as DOMException).name).toBe("AbortError");
+    expect(names(page)).toEqual([]);
+  });
+
+  test("a listing that arrives after the page hid registers nothing; a restored page does", async () => {
+    const page = new FakeModelContext();
+    const changes = trigger();
+    const hides = trigger();
+    const gate = Promise.withResolvers<void>();
+    const kb = host([READ]);
+    const adapter = startWebMcp({
+      modelContext: () => page,
+      invoke: async (invocation) => {
+        if (invocation.id === "kb.manifest") await gate.promise;
+        return kb.invoke(invocation);
+      },
+      whenManifestMayChange: changes.subscribe,
+      whenPageHides: hides.subscribe,
+    });
+    hides.fire();
+    gate.resolve();
+    await adapter.settled();
+    expect(names(page)).toEqual([]);
+    changes.fire();
+    await adapter.settled();
+    expect(names(page)).toEqual(["node.get"]);
   });
 
   test("as a plugin, it registers on load and unregisters on unload", async () => {

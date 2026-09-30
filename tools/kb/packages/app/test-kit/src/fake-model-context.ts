@@ -1,7 +1,8 @@
 /**
  * A `document.modelContext` for tests, kept to the WebMCP draft of 2026-09-29
  * in what it refuses: a tool name outside 1–128 characters of
- * `[A-Za-z0-9_.-]`, and a second tool of a name already registered. A tool
+ * `[A-Za-z0-9_.-]`, a second tool of a name already registered, and a
+ * registration whose signal has already aborted (an `AbortError`). A tool
  * leaves when the signal it was registered with aborts, which is the draft's
  * only way to unregister.
  */
@@ -20,7 +21,9 @@ export class FakeModelContext implements ModelContext {
       return Promise.reject(new Error(`InvalidStateError: ${tool.name} is already registered`));
     }
     const signal = options?.signal;
-    if (signal?.aborted === true) return Promise.resolve();
+    if (signal?.aborted === true) {
+      return Promise.reject(new DOMException("The registration was aborted.", "AbortError"));
+    }
     this.#tools.set(tool.name, tool);
     signal?.addEventListener("abort", () => this.#tools.delete(tool.name), { once: true });
     return Promise.resolve();

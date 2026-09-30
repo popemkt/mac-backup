@@ -235,9 +235,18 @@ const PROPERTIES: ReadonlyArray<
           const expected = yield* core(arrives);
           expect(expected.status).toBe(carriesApproval ? "succeeded" : "failed");
           const receipt = yield* via(call);
-          // A wire that cannot make the call cannot run it either.
+          // A wire that cannot make the call cannot run it either: no answer is
+          // right only where the wire cannot carry approval and so does not
+          // list the action. The listing property above runs in this same
+          // suite and proves the second half for every surface, so a null
+          // here cannot hide a surface that drops a call it does list.
           if (receipt === null) {
-            expect({ name, carriesApproval }).toEqual({ name, carriesApproval: false });
+            const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
+            expect({ name, carriesApproval, listed: listed.has(call.id) }).toEqual({
+              name,
+              carriesApproval: false,
+              listed: false,
+            });
             return;
           }
           expect({ name, receipt: asWireData(receipt) }).toEqual({

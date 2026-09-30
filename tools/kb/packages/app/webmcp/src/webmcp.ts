@@ -85,15 +85,19 @@ function isModelContext(value: unknown): value is ModelContext {
   return Predicate.isObject(value) && typeof value.registerTool === "function";
 }
 
+/** What a browser rejects a registration with when its signal has aborted. */
+function isAbortError(error: unknown): boolean {
+  return Predicate.isObject(error) && error.name === "AbortError";
+}
+
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 /**
- * The receipt for an invocation, as a tool result. A receipt the host
- * decorated (the HTTP response's `rev`) is cut back to the receipt, and a host
- * that throws is answered with an `internal` failure, so the agent always gets
- * a receipt.
+ * The receipt for an invocation. A receipt the host decorated (the HTTP
+ * response's `rev`) is cut back to the receipt, and a host that throws is
+ * answered with an `internal` failure, so there is always a receipt.
  */
 function receiptFor(
   invoke: InvokeAction,
@@ -111,9 +115,24 @@ function receiptFor(
 }
 
 /**
+ * How a tool call fails. WebMCP treats a thrown error as the tool's error and
+ * anything returned as its result, so a receipt that is not `succeeded` is
+ * thrown: the message is the receipt's, and the whole receipt travels with it.
+ */
+export class ToolCallFailed extends Error {
+  override readonly name = "ToolCallFailed";
+  readonly receipt: Extract<ActionReceipt, { status: "failed" }>;
+  constructor(receipt: Extract<ActionReceipt, { status: "failed" }>) {
+    super(receipt.message);
+    this.receipt = receipt;
+  }
+}
+
+/**
  * One manifest entry as a WebMCP tool. The name is the action id, the hints
  * come from the mode alone: a read is `readOnlyHint`, a write is
- * `consequentialHint`.
+ * `consequentialHint`. A call resolves to the succeeded receipt and rejects
+ * with {@link ToolCallFailed} otherwise.
  */
 export function webMcpTool(entry: ManifestEntry, invoke: InvokeAction): ModelContextTool {
   const reads = entry.mode.kind === "read";
@@ -123,7 +142,11 @@ export function webMcpTool(entry: ManifestEntry, invoke: InvokeAction): ModelCon
     description: entry.description,
     inputSchema: asObjectSchema(entry.inputSchema),
     annotations: { readOnlyHint: reads, consequentialHint: !reads },
-    execute: (input) => Effect.runPromise(receiptFor(invoke, { id: entry.id, input: input ?? {} })),
+    execute: (input) =>
+      Effect.runPromise(receiptFor(invoke, { id: entry.id, input })).then((receipt) => {
+        if (receipt.status !== "succeeded") throw new ToolCallFailed(receipt);
+        return receipt;
+      }),
   };
 }
 
@@ -166,9 +189,10 @@ export function startWebMcp(options: WebMcpOptions): WebMcpAdapter {
   const report = options.report ?? (() => undefined);
 
   let controller: AbortController | null = null;
-  /** The listing the live tools were registered from, as JSON. */
+  /** The listing the live tools were registered from, as JSON; set only once all of them are. */
   let registered: string | null = null;
-  let stopped = false;
+  /** Bumped when the tools are withdrawn, so a sync requested before cannot register after. */
+  let generation = 0;
   let tail = Promise.resolve();
 
   const unregister = (): void => {
@@ -177,60 +201,81 @@ export function startWebMcp(options: WebMcpOptions): WebMcpAdapter {
     registered = null;
   };
 
-  /** Register the listing under a fresh signal, unless it is the one already live. */
+  /** Take every tool away for good, until a sync requested afterwards puts them back. */
+  const withdraw = (): void => {
+    generation += 1;
+    unregister();
+  };
+
+  /** A registration the browser refused is reported; one our own signal cancelled is not news. */
+  const registerOne = (entry: ManifestEntry, signal: AbortSignal): Effect.Effect<boolean> =>
+    Effect.tryPromise({
+      try: () => modelContext.registerTool(webMcpTool(entry, options.invoke), { signal }),
+      catch: (error) => ({ aborted: isAbortError(error), message: messageOf(error) }),
+    }).pipe(
+      Effect.as(true),
+      Effect.catch(({ aborted, message }) =>
+        aborted
+          ? Effect.succeed(true)
+          : Effect.sync(() => {
+              report(`WebMCP did not register ${entry.id}: ${message}`);
+              return false;
+            }),
+      ),
+    );
+
+  /**
+   * Register the listing under a fresh signal, unless it is the one already
+   * live. It counts as live only when every tool registered, so a listing with
+   * a refused tool is tried again by the next sync.
+   */
   const register = (listed: readonly ManifestEntry[]): Effect.Effect<void> => {
     const key = JSON.stringify(listed);
     if (key === registered) return Effect.void;
     unregister();
     const next = new AbortController();
     controller = next;
-    registered = key;
-    return Effect.forEach(
-      listed,
-      (entry) =>
-        Effect.tryPromise({
-          try: () =>
-            modelContext.registerTool(webMcpTool(entry, options.invoke), { signal: next.signal }),
-          catch: messageOf,
-        }).pipe(
-          Effect.catch((message) =>
-            Effect.sync(() => report(`WebMCP did not register ${entry.id}: ${message}`)),
-          ),
-        ),
-      { concurrency: "unbounded", discard: true },
+    return Effect.forEach(listed, (entry) => registerOne(entry, next.signal), {
+      concurrency: "unbounded",
+    }).pipe(
+      Effect.map((results) => {
+        if (controller === next && results.every(Boolean)) registered = key;
+      }),
     );
   };
 
-  const syncOnce = Effect.gen(function* () {
-    const receipt = yield* receiptFor(options.invoke, { id: MANIFEST_ACTION, input: {} });
-    if (stopped) return;
-    if (receipt.status === "failed") {
-      report(`WebMCP could not list the actions: ${receipt.message}`);
-      return;
-    }
-    const manifest = ManifestOutputSchema.safeParse(receipt.output);
-    if (!manifest.success) {
-      report(`WebMCP could not read the manifest: ${manifest.error.message}`);
-      return;
-    }
-    yield* register(manifest.data.actions.filter((entry) => listedOn(WEBMCP_WIRE, entry.mode)));
-  });
+  const syncOnce = (startedAt: number) =>
+    Effect.gen(function* () {
+      const receipt = yield* receiptFor(options.invoke, { id: MANIFEST_ACTION, input: {} });
+      // A page hidden, or an adapter stopped, while the listing was in flight has withdrawn its tools.
+      if (generation !== startedAt) return;
+      if (receipt.status === "failed") {
+        report(`WebMCP could not list the actions: ${receipt.message}`);
+        return;
+      }
+      const manifest = ManifestOutputSchema.safeParse(receipt.output);
+      if (!manifest.success) {
+        report(`WebMCP could not read the manifest: ${manifest.error.message}`);
+        return;
+      }
+      yield* register(manifest.data.actions.filter((entry) => listedOn(WEBMCP_WIRE, entry.mode)));
+    });
 
   // One sync at a time, so two listings never register the same name at once;
   // one that failed does not hold up the next.
   const sync = (): void => {
-    tail = tail.catch(() => undefined).then(() => Effect.runPromise(syncOnce));
+    const requestedAt = generation;
+    tail = tail.catch(() => undefined).then(() => Effect.runPromise(syncOnce(requestedAt)));
   };
 
-  const unsubscribe = [options.whenManifestMayChange?.(sync), options.whenPageHides?.(unregister)];
+  const unsubscribe = [options.whenManifestMayChange?.(sync), options.whenPageHides?.(withdraw)];
   sync();
 
   return {
     settled: () => tail,
     stop: () => {
-      stopped = true;
       for (const off of unsubscribe) off?.();
-      unregister();
+      withdraw();
     },
   };
 }
