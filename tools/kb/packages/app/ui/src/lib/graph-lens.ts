@@ -1,13 +1,14 @@
 /**
  * V0 graph-lens module — pure extract of {nodes, edges} from client DataScript
- * + wire nodes, driven by a #graph-perspective node's lens props.
+ * + wire nodes, driven by a graph view node's lens props.
  */
 import { Schema, SchemaGetter } from "effect";
 import type { BulletAppearance } from "@/lib/bullet-mode";
 import {
   GRAPH_LINK_STYLE_VALUES,
   GRAPH_THEME_VALUES,
-  GRAPH_RENDERER_VALUES,
+  viewOptionId,
+  viewOptionOf,
   graphOptionId,
   graphOptionKey,
   decodeNodeConfig,
@@ -24,7 +25,7 @@ import {
 } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "@/ds";
-import { nodeMentions, runQuery } from "@/ds";
+import { nodeMentions, queryFamilyViewNodes, runQuery } from "@/ds";
 import {
   UNTAGGED_COLOR,
   hashTagColor,
@@ -39,10 +40,12 @@ import { logWarn } from "@/lib/log";
 export type EdgeKind = "mention" | "child" | "ref-prop" | `prop:${string}`;
 
 /**
- * The four renderers `LENS_RENDERERS` knows about, plus any other string:
- * a perspective's renderer is a free-form kb prop, not a closed enum.
+ * A renderer, by the option node that names its view (`sys.view.graph.<name>`,
+ * its key's `option`): a graph view node's `sys.f.view`, or the renderer a
+ * neighbourhood hosts (`lens.renderer`). Which options are renderers is the
+ * renderer views provided, so it is any option id, not a closed enum.
  */
-export type LensRenderer = (typeof LENS_RENDERERS)[number] | (string & {});
+export type LensRenderer = string;
 
 export type LensLayout = "force" | "radial" | "hierarchical" | "grid";
 export type LensLabelDensity = "low" | "medium" | "high";
@@ -119,7 +122,8 @@ export const DEFAULT_EDGE_KINDS: EdgeKind[] = ["mention", "child"];
 export const DEFAULT_MAX_NODES = 500;
 export const DEFAULT_COLOR_BY = "tag";
 export const DEFAULT_SIZE_BY = "degree";
-export const DEFAULT_RENDERER = "force2d";
+/** A graph that names no renderer is drawn by the 2D one. */
+export const DEFAULT_RENDERER: LensRenderer = viewOptionId("graph.force2d");
 /** Fallback when a perspective has no cluster-by prop. Seeded perspectives use `parent`. */
 export const DEFAULT_CLUSTER_BY = "parent";
 export const DEFAULT_LAYOUT: LensLayout = "force";
@@ -140,8 +144,6 @@ export const LENS_THEMES = Object.keys(GRAPH_THEME_VALUES).filter(
 export const LENS_LINK_STYLES = Object.keys(GRAPH_LINK_STYLE_VALUES).filter(
   (key): key is LensLinkStyle => key in GRAPH_LINK_STYLE_VALUES,
 );
-
-const LENS_RENDERERS = Object.keys(GRAPH_RENDERER_VALUES);
 
 function isTagNode(node: WireNode | undefined): boolean {
   if (!node) return false;
@@ -167,14 +169,15 @@ export function firstTagOf(
   return null;
 }
 
-export function isGraphPerspectiveNode(node: WireNode): boolean {
-  const types = node.props[SYSTEM_IDS.typeField] ?? [];
-  return types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.graphPerspectiveTag);
-}
-
-export function listPerspectiveNodes(wireNodes: WireNode[]): WireNode[] {
+/**
+ * The graphs: the view nodes whose view is a renderer, by the query that says
+ * so (`familyViewNodesQuery`), in label order. None while the index loads.
+ */
+export function listPerspectiveNodes(db: KbIndex | null, wireNodes: WireNode[]): WireNode[] {
+  if (db === null) return [];
+  const ids = new Set(queryFamilyViewNodes(db, "graph.renderer"));
   return wireNodes
-    .filter(isGraphPerspectiveNode)
+    .filter((node) => ids.has(node.id))
     .toSorted((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
 }
 
@@ -297,7 +300,7 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
   }),
   renderer: oneOf({
     fields: [SYSTEM_IDS.lensRendererField],
-    read: optionKey(SYSTEM_IDS.lensRendererField, GRAPH_RENDERER_VALUES),
+    read: firstRef(SYSTEM_IDS.lensRendererField),
     schema: Schema.String,
     fallback: DEFAULT_RENDERER,
   }),
@@ -400,7 +403,9 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
 };
 
 /**
- * Decode a `#graph-perspective` node.
+ * Decode a graph view node: a view node whose view is a renderer. The
+ * renderer is its view (`sys.f.view`); every other lens prop is decoded by
+ * its slot.
  *
  * A malformed lens prop falls back to the slot's declared default and is
  * reported through the ui log seam; it never fails the perspective, because a
@@ -411,6 +416,7 @@ export function parsePerspective(node: WireNode): LensPerspective {
     id: node.id,
     label: node.text.trim() || "Untitled",
     ...lensConfig(node.props, node.id),
+    renderer: viewOptionOf(node) ?? DEFAULT_RENDERER,
   };
 }
 
@@ -860,10 +866,10 @@ export function sourceValue(key: string): PropValue {
   return id !== null ? { t: "ref", v: id } : { t: "str", v: key };
 }
 
+/** A graph view node's props for `p`: its renderer is its view, its lens props the params. */
 export function perspectiveProps(p: LensPerspective): WireNode["props"] {
   return {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphPerspectiveTag }],
-    [SYSTEM_IDS.lensRendererField]: [optionValue(GRAPH_RENDERER_VALUES, p.renderer)],
+    [SYSTEM_IDS.viewField]: [{ t: "ref", v: p.renderer }],
     [SYSTEM_IDS.lensQueryField]: [{ t: "str", v: p.query }],
     [SYSTEM_IDS.lensColorByField]: [sourceValue(p.colorBy)],
     [SYSTEM_IDS.lensSizeByField]: [sourceValue(p.sizeBy)],

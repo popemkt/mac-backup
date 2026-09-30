@@ -82,7 +82,6 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
     expect(seededTagIds.every((id) => id.startsWith("sys."))).toBe(true);
     expect(seededTagIds).toContain(SYSTEM_IDS.ontologyTag);
     expect(seededTagIds).toContain(SYSTEM_IDS.canvasTag);
-    expect(seededTagIds).toContain(SYSTEM_IDS.graphPerspectiveTag);
   });
 
   test("a kind is not an instance of itself, and fields are not tags", () => {

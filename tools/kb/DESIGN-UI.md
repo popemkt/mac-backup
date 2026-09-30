@@ -1297,8 +1297,9 @@ how the stored name resolves to the key among them.
   (`components/graph/views.ts`) adds its capabilities, encodings and whether
   it moves links. Its params are a `Schema.Struct` of the `LENS_SETTINGS` it
   draws with, so the settings panel enables exactly the settings its params
-  declare. `lens.renderer` names it; the renderer switch lists the renderer
-  views provided. The graph page decodes the perspective through the
+  declare. A graph view node's `sys.f.view` names it by its key's `option`
+  (a neighbourhood's `lens.renderer` names the renderer it hosts the same
+  way); the renderer switch lists the renderer views provided. The graph page decodes the perspective through the
   renderer's params and draws it through a `<ViewSlot>`. What the renderer
   draws from beyond its settings (the extracted graph, selection, camera and
   search) is not config, so it travels in the page's `GraphFrame` context,
@@ -2042,18 +2043,22 @@ TCP port, everything else can go UDS.
 ### Field-based graph perspectives (2026-09-07)
 
 The graph-first product principle lives in [AGENTS.md](../../AGENTS.md).
-A graph perspective is an ordinary `#graph-perspective` node. Its query selects
-nodes; its relationship sources select edges; its encodings map fields to label,
-color, size/area and group. The UI edits the existing lens fields and “Save as
-new perspective” creates a new node through the shared action pipeline. It does
-not create a separate preset store. New source values reference field nodes or the
-seeded source options; renderer choices reference the seeded renderer options.
-Both option sets are declared by parenting rather than by a supertag — the five
-renderers are `lens.renderer`'s own children, and the ten sources are one
+A graph perspective is a view node whose view is a renderer (DESIGN.md →
+Kinds, roles and options → View nodes): its `sys.f.view` names the renderer,
+and its lens props are that renderer's params. Its query selects nodes; its
+relationship sources select edges; its encodings map fields to label, color,
+size/area and group. The graphs the page's picker and the sidebar's Graph
+section list are a query over view nodes whose view is in the renderer family
+(`familyViewNodesQuery`), not a tag. The UI edits the existing lens fields,
+the renderer switch replaces the node's view, and “Save as new perspective”
+creates a new view node, filed in the Views list, through the shared action
+pipeline. It does not create a separate preset store. New source values
+reference field nodes or the seeded source options. The ten sources are one
 `sys.graph.sources` list that each source-selecting lens field narrows by
 `kind` through a `targetQuery` (DESIGN.md → Kinds, roles and options).
 Legacy string settings remain readable and existing values are not rewritten by
-seeding. Search, selection, legend dimming and camera position are transient.
+seeding. A pinned graph stays pinned: the node keeps its id, so its pin (a
+reference to it) still resolves. Search, selection, legend dimming and camera position are transient.
 Ontology membership remains a separate scope on the same projection.
 
 Each renderer is a view in `ViewPoint` (UI points: routes and views →

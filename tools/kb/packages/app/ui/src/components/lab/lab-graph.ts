@@ -79,7 +79,7 @@ export function useLabGraph(): LabGraph {
   const index = useOutlineStore((s) => s.index);
   return useMemo(() => {
     const perspective = resolvePerspective(
-      listPerspectiveNodes(wireNodes).map(parsePerspective),
+      listPerspectiveNodes(index, wireNodes).map(parsePerspective),
       null,
     );
     if (index === null || perspective === null) return { nodes: [], edges: [] };

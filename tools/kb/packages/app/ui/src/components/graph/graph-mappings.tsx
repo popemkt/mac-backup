@@ -7,7 +7,7 @@ import { sourceValue, type LensPerspective } from "@/lib/graph-lens";
 import { GRAPH_SOURCE_FIELD_KINDS, type GraphSourceField, type GraphSourceKind } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { useRenderer } from "./use-renderers";
-import type { GraphChannel } from "./views";
+import { TreeView, TreemapView, type GraphChannel } from "./views";
 
 /**
  * "Which options does this lens field accept?" — asked by field, because that
@@ -82,7 +82,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
                   </label>
                 ))}
               </div>
-              {perspective.renderer === "tree" ? (
+              {perspective.renderer === TreeView.option ? (
                 <p className="text-caption text-foreground/45">
                   A spanning tree shows each node once, including cyclic relationships.
                 </p>
@@ -93,10 +93,14 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
         const current = perspective[config.key] ?? "text";
         return (
           <label key={channel} className="block text-label text-foreground/55">
-            {channel === "size" && perspective.renderer === "treemap" ? "Area by" : config.label}
+            {channel === "size" && perspective.renderer === TreemapView.option
+              ? "Area by"
+              : config.label}
             <select
               aria-label={
-                channel === "size" && perspective.renderer === "treemap" ? "Area by" : config.label
+                channel === "size" && perspective.renderer === TreemapView.option
+                  ? "Area by"
+                  : config.label
               }
               className="mt-1 block w-full rounded-xs border border-foreground/10 bg-popover px-1.5 py-1 text-meta leading-4 text-foreground"
               value={current}

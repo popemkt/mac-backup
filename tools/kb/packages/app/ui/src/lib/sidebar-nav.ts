@@ -3,6 +3,7 @@
  * No React; sidebar.tsx only wires these to navigate/zoom.
  */
 import type { WireNode } from "@kb/contracts";
+import type { KbIndex } from "@/ds";
 import { listCanvasNodes } from "@/lib/canvas-api";
 import { listPerspectiveNodes } from "@/lib/graph-lens";
 import { listOntologyItems } from "@/lib/ontology-scope";
@@ -22,9 +23,12 @@ export function listPinnedNavItems(nodes: NodeMap): SidebarNavItem[] {
   }));
 }
 
-/** `#graph-perspective` nodes for the Graph section. */
-export function listPerspectiveNavItems(wireNodes: WireNode[]): SidebarNavItem[] {
-  return listPerspectiveNodes(wireNodes).map((n) => ({
+/** The graph view nodes (view nodes whose view is a renderer), for the Graph section. */
+export function listPerspectiveNavItems(
+  db: KbIndex | null,
+  wireNodes: WireNode[],
+): SidebarNavItem[] {
+  return listPerspectiveNodes(db, wireNodes).map((n) => ({
     id: n.id,
     label: n.text || n.id,
   }));

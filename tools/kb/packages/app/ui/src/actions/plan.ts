@@ -1,11 +1,5 @@
 import type { ActionInvocation, WireNode } from "@kb/contracts";
-import {
-  graphRendererId,
-  fieldTypeValue,
-  siblingSlots,
-  wouldCreateExtendsCycle,
-  type FieldType,
-} from "@kb/model";
+import { fieldTypeValue, siblingSlots, wouldCreateExtendsCycle, type FieldType } from "@kb/model";
 import { forestRootIds } from "@/lib/graph-view";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
@@ -416,8 +410,29 @@ export function planSetFieldTargetQuery(n: WireNode[], id: string, edn: string |
 
 export const planSetViewMode = (n: WireNode[], id: string, mode: string) =>
   planReplaceField(n, id, SYSTEM_IDS.viewModeField, [{ t: "str", v: mode }]);
-export const planSetLensRenderer = (n: WireNode[], id: string, value: string) =>
-  planSetLensProp(n, id, SYSTEM_IDS.lensRendererField, { t: "ref", v: graphRendererId(value) });
+/** A graph view's renderer is its view: the option `sys.f.view` names. */
+export const planSetGraphRenderer = (n: WireNode[], id: string, renderer: string) =>
+  planReplaceField(n, id, SYSTEM_IDS.viewField, [{ t: "ref", v: renderer }]);
+/**
+ * A new view node, filed at the end of the Views list: the one place the UI
+ * files the views it makes.
+ */
+export function planAddViewNode(
+  nodes: WireNode[],
+  id: string,
+  text: string,
+  props: WireNode["props"],
+): PlannedMutation | null {
+  const list = wireById(nodes).get(SYSTEM_IDS.viewsList);
+  if (list === undefined) return null;
+  return {
+    actions: addNode(id, text, {
+      parent: SYSTEM_IDS.viewsList,
+      position: list.children.length,
+      props,
+    }).actions,
+  };
+}
 export const planSetLensProp = (n: WireNode[], id: string, field: string, value: PropValue) =>
   planReplaceField(n, id, field, [value]);
 export function planSetViewSort(

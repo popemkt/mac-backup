@@ -647,17 +647,18 @@ export const mutations = {
     await applyPlan(planSetViewMode(wire(), frameId, localIdOf(view)));
   },
 
+  /** Save `perspective` as a new graph view node, filed in the Views list. */
   async saveGraphPerspective(perspective: LensPerspective, name: string): Promise<string | null> {
     const { perspectiveProps } = await import("@/lib/graph-lens");
+    const { planAddViewNode } = await import("@/actions/plan");
     const id = ulid();
-    const plan = planAddRootNode(
-      name.trim() || "Graph perspective",
+    const plan = planAddViewNode(
+      wire(),
       id,
+      name.trim() || "Graph perspective",
       perspectiveProps(perspective),
     );
-    delete plan.focusId;
-    delete plan.focusCursor;
-    return (await applyPlan(plan)) ? id : null;
+    return plan !== null && (await applyPlan(plan)) ? id : null;
   },
 
   async replaceField(nodeId: string, fieldId: string, values: PropValue[]): Promise<void> {
@@ -666,10 +667,11 @@ export const mutations = {
     await applyPlan(planReplaceField(wire(), nodeId, fieldId, values));
   },
 
-  async setLensRenderer(perspectiveId: string, renderer: string): Promise<void> {
+  /** Draw a graph view node with another renderer: `renderer` is the view's option. */
+  async setGraphRenderer(perspectiveId: string, renderer: string): Promise<void> {
     if (!guardSysWrite(perspectiveId)) return;
-    const { planSetLensRenderer } = await import("@/actions/plan");
-    await applyPlan(planSetLensRenderer(wire(), perspectiveId, renderer));
+    const { planSetGraphRenderer } = await import("@/actions/plan");
+    await applyPlan(planSetGraphRenderer(wire(), perspectiveId, renderer));
   },
 
   /**

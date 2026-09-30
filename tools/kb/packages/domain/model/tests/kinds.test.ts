@@ -32,11 +32,7 @@ const supertags = seed.filter((node) => typeRefsOf(node).includes(SYSTEM_IDS.tag
 
 describe("kinds, roles and options", () => {
   test("the seed ships supertags at all — otherwise the rest is vacuous", () => {
-    expect(supertags.map((node) => node.text).toSorted()).toEqual([
-      "canvas",
-      "graph-perspective",
-      "ontology",
-    ]);
+    expect(supertags.map((node) => node.text).toSorted()).toEqual(["canvas", "ontology"]);
   });
 
   test("every seeded supertag templates at least one field", () => {

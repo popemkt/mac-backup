@@ -15,21 +15,37 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { parsePerspective, type LensPerspective } from "@/lib/graph-lens";
+import { LEGACY_PERSPECTIVE_TAG, migrateToViewNodes, present } from "@kb/model";
+import {
+  DEFAULT_RENDERER,
+  lensConfig,
+  parsePerspective,
+  type LensPerspective,
+} from "@/lib/graph-lens";
 import { getViewConfig, type ViewConfig } from "@/lib/view-config";
 import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 
 const ISO = "2026-08-08T05:00:00.000Z";
 
+/** A graph view node: its view is the 2D renderer unless `props` names another. */
 function perspectiveNode(props: Record<string, PropValue[]>, text = "All mentions"): WireNode {
   return {
     id: "lens.all-mentions",
     text,
-    props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphPerspectiveTag }], ...props },
+    props: { [SYSTEM_IDS.viewField]: [{ t: "ref", v: DEFAULT_RENDERER }], ...props },
     children: [],
     createdAt: ISO,
     updatedAt: ISO,
   };
+}
+
+/** A perspective as a store written before view nodes held it, migrated on open. */
+function migratedPerspective(props: Record<string, PropValue[]>): WireNode {
+  const legacy: WireNode = {
+    ...perspectiveNode({}),
+    props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: LEGACY_PERSPECTIVE_TAG }], ...props },
+  };
+  return present(migrateToViewNodes([legacy]).nodes[0], "the migrated perspective");
 }
 
 /** Everything the decoder falls back to when a perspective carries no lens props. */
@@ -37,7 +53,7 @@ const ALL_DEFAULTS: LensPerspective = {
   id: "lens.all-mentions",
   label: "All mentions",
   query: "",
-  renderer: "force2d",
+  renderer: DEFAULT_RENDERER,
   colorBy: "tag",
   labelBy: "text",
   sizeBy: "degree",
@@ -60,7 +76,7 @@ describe("parsePerspective — stored nodes", () => {
   it("decodes the repo store's `lens.all-mentions` (node-valued renderer + edge-kinds)", () => {
     // Verbatim from `.kb/nodes.jsonl` at this wave's base commit.
     const parsed = parsePerspective(
-      perspectiveNode({
+      migratedPerspective({
         "sys.f.lens.cluster-by": [{ t: "str", v: "parent" }],
         "sys.f.lens.edge-kinds": [{ t: "ref", v: "01M1TAM8J2JP70H63HH9P7E15J" }],
         "sys.f.lens.layout": [{ t: "str", v: "hierarchical" }],
@@ -74,14 +90,14 @@ describe("parsePerspective — stored nodes", () => {
       edgeKinds: ["prop:01M1TAM8J2JP70H63HH9P7E15J"],
       layout: "hierarchical",
       maxNodes: 1000,
-      renderer: "force2d",
+      renderer: DEFAULT_RENDERER,
     });
   });
 
   it("decodes the kb store's `lens.all-mentions` (pre-node string values)", () => {
     // Verbatim from `tools/kb/.kb/nodes.jsonl` at this wave's base commit.
     const parsed = parsePerspective(
-      perspectiveNode({
+      migratedPerspective({
         "sys.f.lens.cluster-by": [{ t: "str", v: "parent" }],
         "sys.f.lens.edge-kinds": [
           { t: "str", v: "mention" },
@@ -113,18 +129,17 @@ const LENS_CASES: [string, string, PropValue[], Partial<LensPerspective>][] = [
   ],
   ["query non-str", SYSTEM_IDS.lensQueryField, [{ t: "num", v: 3 }], { query: "" }],
   [
-    "renderer unknown ref keeps the id",
+    "renderer is the view, not lens.renderer",
     SYSTEM_IDS.lensRendererField,
+    [{ t: "ref", v: "sys.view.graph.tree" }],
+    {},
+  ],
+  [
+    "renderer unknown view option keeps the id",
+    SYSTEM_IDS.viewField,
     [{ t: "ref", v: "n.custom" }],
     { renderer: "n.custom" },
   ],
-  [
-    "renderer free-form string",
-    SYSTEM_IDS.lensRendererField,
-    [{ t: "str", v: "sankey" }],
-    { renderer: "sankey" },
-  ],
-  ["renderer non-str", SYSTEM_IDS.lensRendererField, [{ t: "num", v: 3 }], { renderer: "force2d" }],
   [
     "colorBy source ref",
     SYSTEM_IDS.lensColorByField,
@@ -257,6 +272,17 @@ describe("parsePerspective — per-field carriers and fallbacks", () => {
       ...ALL_DEFAULTS,
       ...patch,
     });
+  });
+});
+
+describe("lensConfig — the renderer a graph view hosts (lens.renderer)", () => {
+  it.each([
+    ["a view option ref is kept", [{ t: "ref", v: "sys.view.graph.tree" }], "sys.view.graph.tree"],
+    ["an unknown ref keeps the id", [{ t: "ref", v: "n.custom" }], "n.custom"],
+    ["a string is no ref, so the default", [{ t: "str", v: "sankey" }], DEFAULT_RENDERER],
+    ["a number is no ref, so the default", [{ t: "num", v: 3 }], DEFAULT_RENDERER],
+  ] as [string, PropValue[], string][])("%s", (_name, values, renderer) => {
+    expect(lensConfig({ [SYSTEM_IDS.lensRendererField]: values }).renderer).toBe(renderer);
   });
 });
 

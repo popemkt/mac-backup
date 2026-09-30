@@ -15,19 +15,19 @@ test("node.update replaces an entire field atomically instead of erasing the new
   roots.push(root);
   const ctx = await openKb(root);
   await invoke(ctx, { id: "node.add", input: { id: "n.perspective", text: "Perspective" } });
-  const field = "sys.f.lens.renderer";
+  const field = "sys.f.view";
   await invoke(ctx, {
     id: "node.update",
     input: {
       id: "n.perspective",
-      setProps: [{ field, value: { t: "ref", v: "sys.graph.renderer.force2d" } }],
+      setProps: [{ field, value: { t: "ref", v: "sys.view.graph.force2d" } }],
     },
   });
   for (const renderer of [
-    "sys.graph.renderer.cluster",
-    "sys.graph.renderer.tree",
-    "sys.graph.renderer.force3d",
-    "sys.graph.renderer.force2d",
+    "sys.view.graph.cluster",
+    "sys.view.graph.tree",
+    "sys.view.graph.force3d",
+    "sys.view.graph.force2d",
   ]) {
     const receipt = await invoke(ctx, {
       id: "node.update",
@@ -45,6 +45,6 @@ test("node.update replaces an entire field atomically instead of erasing the new
   }
   const reopened = await openKb(root);
   expect(reopened.nodes.find((node) => node.id === "n.perspective")?.props[field]).toEqual([
-    { t: "ref", v: "sys.graph.renderer.force2d" },
+    { t: "ref", v: "sys.view.graph.force2d" },
   ]);
 });

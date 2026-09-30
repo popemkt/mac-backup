@@ -1,8 +1,8 @@
 /**
  * The graph option sets, resolved the way the picker resolves them.
  *
- * `lens.renderer` and the five source-selecting lens fields declare their
- * options as data — the renderer field by parenting them, the five source
+ * `lens.renderer`, `sys.f.view` and the five source-selecting lens fields declare their
+ * options as data — the view fields by a `targetQuery` over `sys.views`, the five source
  * fields by a `targetQuery` over the shared `sys.graph.sources` list narrowed
  * to one `kind` (DESIGN → Kinds, roles and options). Both used to be a
  * `targetTag` naming a supertag that templated nothing.
@@ -16,12 +16,13 @@ import { describe, expect, it } from "vitest";
 import { DatascriptIndex } from "@/ds";
 import { parsePerspective } from "@/lib/graph-lens";
 import {
-  GRAPH_RENDERER_VALUES,
   GRAPH_SOURCE_VALUES,
   SYSTEM_IDS,
   allowedRefIdsOf,
   present,
   systemSeedNodes,
+  viewOptionId,
+  viewValueEntries,
   type KbNode,
 } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
@@ -42,10 +43,19 @@ function sourceIds(...keys: (keyof typeof GRAPH_SOURCE_VALUES)[]): string[] {
 }
 
 describe("graph option sets resolve from data", () => {
-  it("lens.renderer offers its own children — the five renderers", () => {
+  it("lens.renderer offers the renderer views — the view options in that family", () => {
     expect(allowed(SYSTEM_IDS.lensRendererField)).toEqual(
-      Object.values(GRAPH_RENDERER_VALUES)
-        .map((value) => value.id)
+      viewValueEntries()
+        .filter(([, value]) => value.family === "graph.renderer")
+        .map(([viewId]) => viewOptionId(viewId))
+        .toSorted(),
+    );
+  });
+
+  it("sys.f.view offers every view option", () => {
+    expect(allowed(SYSTEM_IDS.viewField)).toEqual(
+      viewValueEntries()
+        .map(([viewId]) => viewOptionId(viewId))
         .toSorted(),
     );
   });

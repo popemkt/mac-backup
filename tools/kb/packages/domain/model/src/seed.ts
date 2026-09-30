@@ -1,7 +1,6 @@
 import {
   GRAPH_LINK_STYLE_VALUES,
   GRAPH_THEME_VALUES,
-  GRAPH_RENDERER_VALUES,
   GRAPH_SOURCE_FIELD_KINDS,
   GRAPH_SOURCE_KINDS,
   GRAPH_SOURCE_KIND_OPTION_IDS,
@@ -24,7 +23,8 @@ import {
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
   VIEW_PLACEMENT_VALUES,
-  VIEW_VALUES,
+  viewValueEntries,
+  viewFamilyTargetQuery,
   viewOptionId,
 } from "./view-node.ts";
 
@@ -35,11 +35,7 @@ import {
  * the generic rule has to exclude exactly this set — reading it here instead of
  * restating it is what keeps the two from drifting.
  */
-export const TEMPLATE_TAGS: readonly string[] = [
-  SYSTEM_IDS.field,
-  SYSTEM_IDS.graphPerspectiveTag,
-  SYSTEM_IDS.ontologyTag,
-];
+export const TEMPLATE_TAGS: readonly string[] = [SYSTEM_IDS.field, SYSTEM_IDS.ontologyTag];
 
 /** Reserved system nodes. Idempotent — same ids every time. */
 export function systemSeedNodes(at: string = nowIso()): KbNode[] {
@@ -203,7 +199,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...singleField(SYSTEM_IDS.viewFamilyField, "view.family", "ref"),
     children: viewFamilyOptions.map((option) => option.id),
   };
-  const viewOptions = Object.entries(VIEW_VALUES).map(([viewId, value]) =>
+  const viewOptions = viewValueEntries().map(([viewId, value]) =>
     mk(
       viewOptionId(viewId),
       value.label,
@@ -252,26 +248,15 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const viewsField = refQueryField(SYSTEM_IDS.viewsField, "views", VIEW_NODE_TARGET_QUERY);
 
   /*
-   * Graph vocabulary. Renderers and sources are option *sets*, so both are
-   * declared by parenting (DESIGN -> Kinds, roles and options); the two
-   * supertags that once held them templated no fields and existed only so
-   * `lens.renderer` had a `targetTag` to name. "2D" is not a kind of thing, it
-   * is one of the values `lens.renderer` may take.
-   *
-   * They are parented differently because they are shaped differently:
-   *
-   * - the five renderers belong to one field, so they are that field's own
-   *   children — exactly `sys.ft.*` under `sys.f.fieldType`;
-   * - the ten sources are ONE list read by five fields, and a node has one
-   *   parent. So they are children of a list node (`sys.graph.sources`, no tag;
-   *   the Pinned list is the precedent), they carry the `kind` that used to
-   *   exist only in TypeScript, and each of the five fields selects the subset
-   *   it accepts with a `targetQuery` — the shape `surface` uses to select
-   *   `enforcement`'s children minus `prose`.
+   * Graph vocabulary. Sources are an option *set*, declared by parenting
+   * (DESIGN -> Kinds, roles and options). They are ONE list read by five
+   * fields, and a node has one parent, so they are children of a list node
+   * (`sys.graph.sources`, no tag; the Pinned list is the precedent), they
+   * carry the `kind` that used to exist only in TypeScript, and each of the
+   * five fields selects the subset it accepts with a `targetQuery` — the
+   * shape `surface` uses to select `enforcement`'s children minus `prose`.
+   * The renderers are views, so they are options under `sys.views`.
    */
-  const rendererOptions = Object.values(GRAPH_RENDERER_VALUES).map((value) =>
-    mk(value.id, value.label),
-  );
   // Themes and link styles are option sets of one field each, shaped
   // like the renderers: the field's own children.
   const themeOptions = Object.values(GRAPH_THEME_VALUES).map((value) => mk(value.id, value.label));
@@ -306,10 +291,13 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const lensLabelByField = sourceField(SYSTEM_IDS.lensLabelByField, "lens.label-by");
   // Graph perspectives (V0): #graph-perspective tag + lens field template.
   const lensQueryField = singleField(SYSTEM_IDS.lensQueryField, "lens.query", "text");
-  const lensRendererField: KbNode = {
-    ...refField(SYSTEM_IDS.lensRendererField, "lens.renderer", undefined, one),
-    children: rendererOptions.map((option) => option.id),
-  };
+  // The renderer a graph view hosts (a neighbourhood's): one of the renderer views.
+  const lensRendererField = refQueryField(
+    SYSTEM_IDS.lensRendererField,
+    "lens.renderer",
+    viewFamilyTargetQuery("graph.renderer"),
+    one,
+  );
   const lensColorByField = sourceField(SYSTEM_IDS.lensColorByField, "lens.color-by");
   const lensSizeByField = sourceField(SYSTEM_IDS.lensSizeByField, "lens.size-by");
   const lensEdgeKindsField = sourceField(SYSTEM_IDS.lensEdgeKindsField, "lens.edge-kinds", {});
@@ -347,31 +335,10 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...refField(SYSTEM_IDS.lensLinkStyleField, "lens.link-style", undefined, one),
     children: linkStyleOptions.map((option) => option.id),
   };
-  const graphPerspectiveTag = mk(SYSTEM_IDS.graphPerspectiveTag, "graph-perspective", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
-    [SYSTEM_IDS.fieldsField]: [
-      { t: "ref", v: SYSTEM_IDS.lensQueryField },
-      { t: "ref", v: SYSTEM_IDS.lensRendererField },
-      { t: "ref", v: SYSTEM_IDS.lensColorByField },
-      { t: "ref", v: SYSTEM_IDS.lensSizeByField },
-      { t: "ref", v: SYSTEM_IDS.lensEdgeKindsField },
-      { t: "ref", v: SYSTEM_IDS.lensMaxNodesField },
-      { t: "ref", v: SYSTEM_IDS.lensClusterByField },
-      { t: "ref", v: SYSTEM_IDS.lensFocusField },
-      { t: "ref", v: SYSTEM_IDS.lensLabelByField },
-      { t: "ref", v: SYSTEM_IDS.lensLayoutField },
-      { t: "ref", v: SYSTEM_IDS.lensSpreadField },
-      { t: "ref", v: SYSTEM_IDS.lensLinkDistanceField },
-      { t: "ref", v: SYSTEM_IDS.lensShowLabelsField },
-      { t: "ref", v: SYSTEM_IDS.lensAutorotateField },
-      { t: "ref", v: SYSTEM_IDS.lensLabelDensityField },
-      { t: "ref", v: SYSTEM_IDS.lensThemeField },
-      { t: "ref", v: SYSTEM_IDS.lensLinkStyleField },
-    ],
-  });
+  // The default graph: a view node whose view is the 2D renderer, and whose
+  // lens props are that renderer's params (DESIGN → View nodes).
   const lensAllMentions = mk(SYSTEM_IDS.lensAllMentions, "All mentions", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphPerspectiveTag }],
-    [SYSTEM_IDS.lensRendererField]: [{ t: "ref", v: GRAPH_RENDERER_VALUES.force2d.id }],
+    [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("graph.force2d") }],
     [SYSTEM_IDS.lensClusterByField]: [{ t: "ref", v: GRAPH_SOURCE_VALUES.parent.id }],
     [SYSTEM_IDS.lensEdgeKindsField]: [
       { t: "ref", v: GRAPH_SOURCE_VALUES.mention.id },
@@ -422,6 +389,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * reads is the whole of what it is.
    */
   const pinnedRoot = mk(SYSTEM_IDS.pinnedRoot, "Pinned");
+
+  /*
+   * The Views list: where a view node the UI makes is filed — a saved graph,
+   * a frame's view. Being a view node is its `sys.f.view`, never membership
+   * here, so a view node filed anywhere else is as much one. User-editable
+   * for the Pinned list's reason: every new view writes a child into it.
+   */
+  const viewsList = mk(SYSTEM_IDS.viewsList, "Views");
 
   const ontologyTag = mk(SYSTEM_IDS.ontologyTag, "ontology", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
@@ -476,7 +451,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...sourceOptions,
     lensLabelByField,
     lensRendererField,
-    ...rendererOptions,
     lensColorByField,
     lensSizeByField,
     lensEdgeKindsField,
@@ -494,7 +468,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...themeOptions,
     lensLinkStyleField,
     ...linkStyleOptions,
-    graphPerspectiveTag,
     lensAllMentions,
     canvasField,
     canvasTag,
@@ -507,6 +480,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ontologyTag,
     refTargetField,
     pinnedRoot,
+    viewsList,
   ];
 }
 

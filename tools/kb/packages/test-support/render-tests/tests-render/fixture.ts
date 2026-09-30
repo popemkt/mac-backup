@@ -1,13 +1,14 @@
-import { graphRendererId, isSysPrefixed, systemSeedNodes } from "@kb/model";
+import { isSysPrefixed, systemSeedNodes, viewOptionId } from "@kb/model";
 
 const LEAF_IDS = Array.from({ length: 28 }, (_, index) => `render.fixture.node.${index + 1}`);
 const ROOT_ID = "render.fixture.root";
 const PERSPECTIVE_ID = "lens.all-mentions";
+const LENS_TAG_ID = "render.fixture.tag";
 
 /**
  * Every node the perspective's lens sees: the fixture's leaves, root and
  * perspective, plus each non-system node the seed adds when the scratch store
- * opens (today the Pinned list). Derived from the seed, not counted by hand,
+ * opens (today the Pinned and Views lists). Derived from the seed, not counted by hand,
  * because the lens has no way to tell a seeded node from a fixture one.
  */
 const LENS_IDS = new Set([
@@ -68,11 +69,15 @@ export function renderFixtureNodes(): FixtureNode[] {
   return [
     node(ROOT_ID, "Fixture root", LEAF_IDS),
     ...leaves,
+    // A tag of its own, so a legend has one category to toggle (the graph
+    // elides the tag node itself).
+    node(LENS_TAG_ID, "lens", [], { "sys.f.type": [{ t: "ref", v: "sys.tag" }] }),
     // Preserve the seed id so opening the scratch root does not add a second
-    // default perspective beside this fixture.
+    // default graph beside this fixture. A graph view node: its view is the
+    // 2D renderer.
     node(PERSPECTIVE_ID, "Render fixture", [], {
-      "sys.f.type": [{ t: "ref", v: "sys.tag.graph-perspective" }],
-      "sys.f.lens.renderer": [{ t: "ref", v: graphRendererId("force2d") }],
+      "sys.f.type": [{ t: "ref", v: LENS_TAG_ID }],
+      "sys.f.view": [{ t: "ref", v: viewOptionId("graph.force2d") }],
       "sys.f.lens.edge-kinds": [
         { t: "str", v: "mention" },
         { t: "str", v: "child" },

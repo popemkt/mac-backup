@@ -12,7 +12,7 @@ import {
 import { NotFound } from "@/components/ui/not-found";
 import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
-import { isGraphPerspectiveNode } from "@/lib/graph-lens";
+import { listPerspectiveNodes } from "@/lib/graph-lens";
 import { paramsOf, type MatchedRoute, type ViewProps } from "@/lib/plugins";
 import type { ParamsOf } from "@/lib/view-key";
 import { graphPath, navigate } from "@/lib/router";
@@ -84,11 +84,14 @@ export function GraphSurface({ params }: ViewProps<GraphParams>) {
   const perspectiveId = params.perspective ?? null;
   const ontologyId = params.ontology ?? null;
   const wireNodes = useOutlineStore((s) => s.wireNodes);
+  const index = useOutlineStore((s) => s.index);
+  // Not missing while the index loads: the graphs are a query over it.
   const missing = useMemo(
     () =>
       perspectiveId !== null &&
-      !wireNodes.some((n) => n.id === perspectiveId && isGraphPerspectiveNode(n)),
-    [wireNodes, perspectiveId],
+      index !== null &&
+      !listPerspectiveNodes(index, wireNodes).some((n) => n.id === perspectiveId),
+    [index, wireNodes, perspectiveId],
   );
   if (missing)
     return (
@@ -110,7 +113,8 @@ export function GraphSurface({ params }: ViewProps<GraphParams>) {
 
 export function GraphSection({ route }: { readonly route: MatchedRoute | null }) {
   const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const perspectives = useMemo(() => listPerspectiveNavItems(wireNodes), [wireNodes]);
+  const index = useOutlineStore((s) => s.index);
+  const perspectives = useMemo(() => listPerspectiveNavItems(index, wireNodes), [index, wireNodes]);
   const graph = paramsOf(route, GraphView);
   return (
     <SidebarSection>

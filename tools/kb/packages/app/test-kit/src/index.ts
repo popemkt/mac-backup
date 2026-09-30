@@ -11,7 +11,7 @@ export type { ScenarioResult } from "./harness.ts";
 export { logContract } from "./log-contract.ts";
 export type { LogAdapter } from "./log-contract.ts";
 export { storeContract } from "./store-contract.ts";
-export type { StoreFactory } from "./store-contract.ts";
+export type { StoreFactory } from "./store-session.ts";
 export { storeBenchmark } from "./store-benchmark.ts";
 export { surfaceContract } from "./surface-contract.ts";
 export type { ActionSurface, ListedAction, SurfaceFactory } from "./surface-contract.ts";

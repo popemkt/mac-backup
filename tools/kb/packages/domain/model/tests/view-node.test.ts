@@ -12,6 +12,7 @@ import {
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
   VIEW_VALUES,
+  viewValueEntries,
   defaultViewIdOf,
   hostViewIds,
   isViewNode,
@@ -28,7 +29,7 @@ describe("view options", () => {
   test("every view kb provides is one option child of sys.views, carrying its family", () => {
     const options = seed.get(SYSTEM_IDS.viewsRoot)?.children ?? [];
     expect(options).toEqual(Object.keys(VIEW_VALUES).map(viewOptionId));
-    for (const [viewId, value] of Object.entries(VIEW_VALUES)) {
+    for (const [viewId, value] of viewValueEntries()) {
       const family = seed.get(viewOptionId(viewId))?.props[SYSTEM_IDS.viewFamilyField];
       expect(family, viewId).toEqual(
         value.family === undefined ? undefined : [ref(VIEW_FAMILY_VALUES[value.family].id)],

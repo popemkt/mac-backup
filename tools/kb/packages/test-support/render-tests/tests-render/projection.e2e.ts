@@ -120,8 +120,8 @@ test("collapse holds the camera; mapped perspectives save as node references and
   await expect(page.getByLabel("Group by", { exact: true })).toHaveValue("prop:render.field.group");
   await page.getByRole("button", { name: "Graph settings", exact: true }).click();
   const receipt = await action("node.get", { id: savedId });
-  expect(receipt.output.node.props["sys.f.lens.renderer"]).toEqual([
-    { t: "ref", v: "sys.graph.renderer.treemap" },
+  expect(receipt.output.node.props["sys.f.view"]).toEqual([
+    { t: "ref", v: "sys.view.graph.treemap" },
   ]);
   expect(receipt.output.node.props["sys.f.lens.size-by"]).toEqual([
     { t: "ref", v: "render.field.area" },

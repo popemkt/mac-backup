@@ -9,16 +9,18 @@
  */
 import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
 import { childrenTargetQuery } from "./field-type.ts";
-import { GRAPH_RENDERER_VALUES } from "./graph-schema.ts";
 
 /** What this module reads of a node: its props. */
 interface Carrier {
   readonly props: Readonly<Record<string, readonly PropValue[]>>;
 }
 
+/** What every view option's id starts with; the view's id follows it. */
+const VIEW_OPTION_PREFIX = "sys.view.";
+
 /** The option node that names the view `<namespace>.<local id>` in data. */
 export function viewOptionId(viewId: string): string {
-  return `sys.view.${viewId}`;
+  return `${VIEW_OPTION_PREFIX}${viewId}`;
 }
 
 /**
@@ -47,7 +49,7 @@ interface ViewValue {
  * open and the plugins that own these views load in the browser.
  * GAP [GAP-VIEW-OPTION-SEEDS]
  */
-export const VIEW_VALUES: Readonly<Record<string, ViewValue>> = {
+export const VIEW_VALUES = {
   "outline.main": { label: "Outline" },
   "outline.list": { label: "List", family: "outline.frame" },
   "outline.table": { label: "Table", family: "outline.frame" },
@@ -55,18 +57,30 @@ export const VIEW_VALUES: Readonly<Record<string, ViewValue>> = {
   "outline.cards": { label: "Cards", family: "outline.frame" },
   "outline.snippet": { label: "Outline snippet" },
   "graph.page": { label: "Graph" },
-  "graph.force2d": { label: GRAPH_RENDERER_VALUES.force2d.label, family: "graph.renderer" },
-  "graph.tree": { label: GRAPH_RENDERER_VALUES.tree.label, family: "graph.renderer" },
-  "graph.cluster": { label: GRAPH_RENDERER_VALUES.cluster.label, family: "graph.renderer" },
-  "graph.force3d": { label: GRAPH_RENDERER_VALUES.force3d.label, family: "graph.renderer" },
-  "graph.treemap": { label: GRAPH_RENDERER_VALUES.treemap.label, family: "graph.renderer" },
+  "graph.force2d": { label: "2D", family: "graph.renderer" },
+  "graph.tree": { label: "Tree", family: "graph.renderer" },
+  "graph.cluster": { label: "Cluster", family: "graph.renderer" },
+  "graph.force3d": { label: "3D", family: "graph.renderer" },
+  "graph.treemap": { label: "Treemap", family: "graph.renderer" },
   "graph.neighbourhood": { label: "Neighbourhood" },
   "ontology.list": { label: "Ontologies" },
   "ontology.scope": { label: "Ontology" },
   "canvas.list": { label: "Canvases" },
   "canvas.page": { label: "Canvas" },
   "lab.page": { label: "Lab" },
-};
+} as const satisfies Readonly<Record<string, ViewValue>>;
+export type ViewId = keyof typeof VIEW_VALUES;
+
+/** Every view kb provides, as `[view id, value]` pairs in declared order. */
+export function viewValueEntries(): readonly (readonly [string, ViewValue])[] {
+  const values: Readonly<Record<string, ViewValue>> = VIEW_VALUES;
+  return Object.entries(values);
+}
+
+/** The view an option node names, back from its id, or null for any other node. */
+export function viewIdOfOption(option: NodeId): string | null {
+  return option.startsWith(VIEW_OPTION_PREFIX) ? option.slice(VIEW_OPTION_PREFIX.length) : null;
+}
 
 /**
  * Where a view node asks to be shown for its host: `sys.f.view.placement`'s

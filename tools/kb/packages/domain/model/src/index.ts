@@ -101,7 +101,6 @@ export { applyTx, diffTx, txIntegrityError } from "./tx.ts";
 export type { KbTx, StoreTx } from "./tx.ts";
 
 export {
-  GRAPH_RENDERER_VALUES,
   GRAPH_THEME_VALUES,
   GRAPH_LINK_STYLE_VALUES,
   graphOptionKey,
@@ -113,8 +112,6 @@ export {
   graphSourceKey,
   graphSourceId,
   graphSourceTargetQuery,
-  graphRendererKey,
-  graphRendererId,
 } from "./graph-schema.ts";
 export type { GraphSourceField, GraphSourceKind } from "./graph-schema.ts";
 export {
@@ -130,7 +127,10 @@ export {
   isViewNode,
   storedPlacementOf,
   viewFamilyTargetQuery,
+  viewIdOfOption,
   viewOptionId,
   viewOptionOf,
+  viewValueEntries,
 } from "./view-node.ts";
-export type { StoredPlacement, ViewFamily } from "./view-node.ts";
+export type { StoredPlacement, ViewFamily, ViewId } from "./view-node.ts";
+export { LEGACY_PERSPECTIVE_TAG, migrateToViewNodes } from "./view-migration.ts";

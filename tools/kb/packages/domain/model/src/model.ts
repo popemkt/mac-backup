@@ -164,8 +164,10 @@ export const SYSTEM_IDS = {
   cmdViewFilter: "sys.cmd.view-filter",
   /** Virtual root for saved queries (.kb/queries/*.edn); never in jsonl. */
   queriesRoot: "sys.queries",
-  /** Graph perspective lenses (V0/V1 — graph-lens module). */
-  graphPerspectiveTag: "sys.tag.graph-perspective",
+  /**
+   * Graph lenses (graph-lens module): the props of a graph view node — the
+   * renderer it names is its view, and these are that view's params.
+   */
   lensQueryField: "sys.f.lens.query",
   lensRendererField: "sys.f.lens.renderer",
   lensColorByField: "sys.f.lens.color-by",
@@ -228,6 +230,12 @@ export const SYSTEM_IDS = {
    * is written by the reorder the outline already has.
    */
   pinnedRoot: "pinned",
+  /**
+   * The Views list, where a view node the UI makes is filed. User-editable
+   * (NOT sys-prefixed) for the Pinned list's reason: making a view writes a
+   * child into it.
+   */
+  viewsList: "views",
   /** Canvas nodes (JSON Canvas 1.0 doc on sys.f.canvas). */
   canvasTag: "sys.tag.canvas",
   canvasField: "sys.f.canvas",

@@ -44,7 +44,7 @@ function perspective(props: Record<string, PropValue[]>): WireNode {
   return {
     id: "lens.p",
     text: "P",
-    props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphPerspectiveTag }], ...props },
+    props: { [SYSTEM_IDS.viewField]: [{ t: "ref", v: "sys.view.graph.force2d" }], ...props },
     children: [],
     createdAt: "2026-08-08T05:00:00.000Z",
     updatedAt: "2026-08-08T05:00:00.000Z",

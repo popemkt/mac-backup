@@ -8,6 +8,7 @@ import { useUiStore } from "@/stores/ui.store";
 import {
   buildTreeForest,
   extractLensGraph,
+  DEFAULT_RENDERER,
   listPerspectiveNodes,
   parsePerspective,
   resolvePerspective,
@@ -75,7 +76,10 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     });
   };
 
-  const perspectiveNodes = useMemo(() => listPerspectiveNodes(wireNodes), [wireNodes]);
+  const perspectiveNodes = useMemo(
+    () => listPerspectiveNodes(queryDb, wireNodes),
+    [queryDb, wireNodes],
+  );
   const perspectives = useMemo(() => perspectiveNodes.map(parsePerspective), [perspectiveNodes]);
 
   const active: LensPerspective | null = useMemo(
@@ -147,7 +151,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     [ontologyId, zoomTo],
   );
 
-  const renderer = active?.renderer ?? "force2d";
+  const renderer = active?.renderer ?? DEFAULT_RENDERER;
   const rendererKey = useRenderer(renderer);
 
   // Graph interaction state — selection + camera live on the frame, not per-renderer.
@@ -245,7 +249,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
           <RendererSwitch
             value={renderer}
             onChange={(r: LensRenderer) => {
-              void mutations.setLensRenderer(active.id, r);
+              void mutations.setGraphRenderer(active.id, r);
             }}
           />
         ) : null}

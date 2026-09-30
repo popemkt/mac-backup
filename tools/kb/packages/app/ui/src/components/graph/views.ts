@@ -1,5 +1,4 @@
 import { Schema } from "effect";
-import type { GRAPH_RENDERER_VALUES } from "@kb/model";
 import { EdgeKindSchema, LENS_SETTINGS, lensConfig } from "@/lib/graph-lens";
 import { viewKey, type ViewKey } from "@/lib/view-key";
 
@@ -27,7 +26,7 @@ export const NeighbourhoodParams = Schema.Struct({
   root: Schema.NonEmptyString,
   hops: Schema.Literals([1, 2, 3, 4]),
   edges: Schema.Array(EdgeKindSchema),
-  /** The renderer's local id (`force2d`, `tree`, …). */
+  /** The renderer that draws it, by its view's option (`LensRenderer`). */
   renderer: Schema.String,
   /** What the renderer draws with: the lens settings, each one's schema. */
   settings: Schema.Struct(LENS_SETTINGS),
@@ -84,8 +83,8 @@ export interface RendererTraits {
 /**
  * A graph renderer's key: a view of the graph a host extracted, whose params
  * are the lens settings it reads — a `Schema.Struct` of `LENS_SETTINGS`
- * entries, so asking which settings it reads is asking its params. Its local
- * id is the renderer's name in `lens.renderer`.
+ * entries, so asking which settings it reads is asking its params. Its
+ * `option` is what a graph view node's `sys.f.view` names it by.
  */
 export interface RendererKey<P> extends ViewKey<P> {
   readonly family: typeof RENDERER_FAMILY;
@@ -101,7 +100,7 @@ export function isRendererKey(key: ViewKey<unknown>): key is RendererKey<unknown
   return key.family === RENDERER_FAMILY;
 }
 
-type RendererName = keyof typeof GRAPH_RENDERER_VALUES;
+type RendererName = "force2d" | "tree" | "cluster" | "force3d" | "treemap";
 
 function rendererKey<P>(
   name: RendererName,

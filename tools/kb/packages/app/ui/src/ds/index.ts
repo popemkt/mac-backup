@@ -3,6 +3,7 @@
  * DataScript builder. Construction stays in the outline store; every other
  * UI module runs queries and backlinks through this file.
  */
+import { familyViewNodesQuery, type ViewFamily } from "@kb/model";
 import { backlinksQuery, neighbourhoodQuery, type KbIndex } from "@kb/query";
 
 export type { KbIndex } from "@kb/query";
@@ -50,4 +51,9 @@ export function queryNeighbourhood(
     }
   }
   return ids;
+}
+
+/** The view nodes whose view is in `family` (`@kb/model`'s `familyViewNodesQuery`). */
+export function queryFamilyViewNodes(ix: KbIndex, family: ViewFamily): string[] {
+  return queryIds(ix, familyViewNodesQuery(family));
 }

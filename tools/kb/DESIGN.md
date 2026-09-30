@@ -405,7 +405,7 @@ right field shape with no further checks: no `!`, no `as`, no field that
   yourself writing `node.props[id]!` means the schema is too loose — tighten
   the schema, do not bypass the type.
 - **A node-backed config decodes through one Schema, and says what it
-  ignored.** A `#graph-perspective` and a view frame are the same kind of
+  ignored.** A graph view node and a view frame are the same kind of
   thing — a node whose props configure a projection — so both decode through
   `@kb/model`'s `node-config` rather than a hand-written branch per field. A
   config declares a table of slots; a slot names the field node it reads, the
@@ -658,9 +658,10 @@ current)` is the one derivation; it keeps a moved node's rank when it still
 - **A merge settles ranks like a commit.** `mergeNodeSets` ends with the same
   `rankTx`, so two branches that each appended a root from one read never
   merge into a tie ([Merge](#merge)).
-- **Opening is a read.** `openKb` writes only when a real migration runs (the
-  seed adds or retires something, or a field-type value or a legacy
-  `{t:"date"}` value is rewritten), and
+- **Opening is a read.** `openKb` writes only when a real migration runs (a
+  store written before view nodes is rewritten to them, the seed adds or
+  retires something, or a field-type value or a legacy `{t:"date"}` value is
+  rewritten), and
   then commits exactly the nodes it changed. A node without a rank is ordered
   in memory by `compareRootOrder` and ranked by the next commit that writes its
   group, so reopening a store leaves its bytes, fingerprint and tail alone.
@@ -766,10 +767,12 @@ Two consequences the code depends on:
   declared query over the option nodes — not a fourth carrier: `targetQuery`
   is the general form and parenting is the sugar for the single-field case.
 
-`#ontology`, `#rule`, `#gap`, `#check`, `#todo`, `#graph-perspective` and
-`#canvas` remain supertags because each names a thing that exists before any
-particular field is filled in, and each templates a field set for its
-instances — which is the job a supertag has.
+`#ontology`, `#rule`, `#gap`, `#check`, `#todo` and `#canvas` remain
+supertags because each names a thing that exists before any particular field
+is filled in, and each templates a field set for its instances — which is the
+job a supertag has. `#graph-perspective` was one and is retired: strip a
+perspective's renderer and it is no graph, so what it is is the view it
+names, a field (View nodes, below).
 
 #### View nodes
 
@@ -822,6 +825,29 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   (GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]). Even the union misses a path that
   changes direction (a→b←c); a symmetric edge relation would be the true
   undirected form.
+- **A graph is a view node whose view is a renderer.** Its `sys.f.view`
+  names the renderer, and its lens props are that renderer's params; the
+  graphs a surface lists are the view nodes whose view is in the renderer
+  family (`familyViewNodesQuery`). The seeded "All mentions" graph
+  (`lens.all-mentions`) is one. `lens.renderer` is kept for the one graph
+  view that hosts another renderer — a neighbourhood — and targets the
+  renderer views (`viewFamilyTargetQuery`).
+- **A view node the UI makes is filed in the Views list** (`views`, seeded,
+  user-editable like the Pinned list, because every new view writes a child
+  into it). Being a view node is its `sys.f.view`, never membership in that
+  list; a view node filed anywhere else is as much one.
+- **A store written before view nodes is migrated on open**
+  (`migrateToViewNodes`, run by `openKbEffect` before the seed, so the
+  seed's fill-absent pass meets the new shape). A `#graph-perspective` node
+  becomes a view node: the renderer it named (an option ref or its name as
+  text; none, or one kb does not know, was drawn in 2D and still is) becomes
+  its `sys.f.view`, the tag goes and its other tags stay, and every other
+  lens prop stays as a param. The tag and `lens.renderer`'s old option
+  children are retired, and a `lens.renderer` ref to one of them elsewhere
+  names that renderer's view. The migration is a pure function of the node
+  set — no clock, no fresh ids — so two stores migrated apart write the same
+  nodes and merge cleanly, and it is idempotent. It runs over the store
+  port, so the store contract holds it for every backend.
 - **Transient views stay out of the graph.** A hover card or a selection
   preview passes its params from code, which the compiler checks; only a
   view someone chose is stored.

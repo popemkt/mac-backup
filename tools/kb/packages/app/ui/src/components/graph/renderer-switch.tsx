@@ -11,10 +11,11 @@ interface RendererSwitchProps {
 
 /**
  * Pill group matching ViewToolbar anatomy (DESIGN-RESKIN §0): one pill per
- * renderer view provided, named in `lens.renderer` by its local id.
+ * renderer view provided; choosing one names its view's option.
  */
 export function RendererSwitch({ value, onChange, className }: RendererSwitchProps) {
   const renderers = useRenderers();
+  const active = renderers.find(({ key }) => key.option === value)?.key;
   return (
     <div
       className={cn(
@@ -22,7 +23,7 @@ export function RendererSwitch({ value, onChange, className }: RendererSwitchPro
         className,
       )}
       data-renderer-switch="true"
-      data-active-renderer={value}
+      data-active-renderer={active === undefined ? undefined : localIdOf(active)}
     >
       {renderers.map(({ key, picker }) => {
         const name = localIdOf(key);
@@ -33,12 +34,12 @@ export function RendererSwitch({ value, onChange, className }: RendererSwitchPro
             data-renderer-button={name}
             className={cn(
               "rounded-xs px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
-              value === name
+              value === key.option
                 ? "bg-background font-semibold text-foreground shadow-edge"
                 : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/80",
             )}
             onClick={() => {
-              if (name !== value) onChange(name);
+              if (key.option !== value) onChange(key.option);
             }}
           >
             {picker.label}

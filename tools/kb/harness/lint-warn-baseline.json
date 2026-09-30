@@ -34,7 +34,6 @@
       "exports:packages/app/ui/src/lib/frame-rows.ts:frameRenderedRows": 1,
       "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_CLUSTER_BY": 1,
       "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_COLOR_BY": 1,
-      "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_RENDERER": 1,
       "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_SIZE_BY": 1,
       "exports:packages/app/ui/src/lib/graph-lens.ts:isElidedSchemaNode": 1,
       "exports:packages/app/ui/src/lib/graph-view.ts:childIdSet": 1,

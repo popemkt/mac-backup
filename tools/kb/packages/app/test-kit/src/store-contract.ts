@@ -24,13 +24,11 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { Cause, Duration, Effect, Exit, Option, Queue, Stream } from "effect";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { STORE_CHANGES_POLL, type EffectStore, type KbContext } from "@kb/contracts";
+import { STORE_CHANGES_POLL } from "@kb/contracts";
 import {
   applyTx,
-  canonicalJsonl,
   compareRootOrder,
   isDomainError,
   mergeNodeSets,
@@ -43,12 +41,20 @@ import {
   type PropValue,
 } from "@kb/model";
 import { mapSet } from "@kb/operations";
-import { bunFileSystemLayer, invokeReceiptEffect, kbRuntimeLayer, openKbEffect } from "@kb/runtime";
+import { invokeReceiptEffect, kbRuntimeLayer } from "@kb/runtime";
+import {
+  CONTRACT_AT,
+  backendRoot,
+  openSession,
+  scratchRoot,
+  stateOf,
+  type StoreFactory,
+} from "./store-session.ts";
+import { openingMigratesToViewNodes } from "./view-migration-contract.ts";
 
-/** How the suite gets an adapter under test for a scratch root. */
-export type StoreFactory = (root: string) => EffectStore;
+export type { StoreFactory } from "./store-session.ts";
 
-const AT = "2026-01-01T00:00:00.000Z";
+const AT = CONTRACT_AT;
 
 const propValueArb: fc.Arbitrary<PropValue> = fc.oneof(
   fc.record({ t: fc.constant("str" as const), v: fc.string() }),
@@ -128,12 +134,6 @@ function mergedConcernsSurviveCommit(makeStore: StoreFactory): Promise<void> {
   );
 }
 
-/** A scratch root for the current scope, removed when the scope closes. */
-const scratchRoot = Effect.acquireRelease(
-  Effect.promise(() => mkdtemp(join(tmpdir(), "kb-store-contract-"))),
-  (root) => Effect.promise(() => rm(root, { recursive: true, force: true })),
-);
-
 /** The DomainError a failed Exit carries, or the raw defect when it is not one. */
 function failureOf(exit: Exit.Exit<unknown, DomainError>): unknown {
   return Exit.isFailure(exit) ? Cause.squash(exit.cause) : null;
@@ -204,6 +204,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     freshSessionsAppendInOrder,
   ],
   ["an opening migration commits exactly the nodes it changed", openingMigrationIsMinimal],
+  [
+    "opening rewrites a store written before view nodes to them, and reopening is a read",
+    openingMigratesToViewNodes,
+  ],
   [
     "a cardinality-one field holds one value: set replaces in one transaction, two are refused",
     singleValuedFieldHoldsOne,
@@ -631,33 +635,6 @@ function commitTouchesOnlyChanges(makeStore: StoreFactory): Promise<void> {
     ),
   );
 }
-
-/** Open a session the way every surface does: select by presence, seed if new. */
-function openSession(root: string): Effect.Effect<KbContext, DomainError> {
-  return openKbEffect(root).pipe(Effect.provide(bunFileSystemLayer));
-}
-
-/** A root the factory's backend owns, so opening it selects that backend. */
-const backendRoot = Effect.fn("storeContract.backendRoot")(function* (makeStore: StoreFactory) {
-  const root = yield* scratchRoot;
-  yield* makeStore(root).commitEffect({ upserts: [], deletes: [] }, { at: AT });
-  return root;
-});
-
-interface StoreState {
-  readonly nodes: string;
-  readonly fingerprint: string | null;
-  readonly tail: number;
-}
-
-const stateOf = Effect.fn("storeContract.stateOf")(function* (store: EffectStore) {
-  const state: StoreState = {
-    nodes: canonicalJsonl(yield* store.loadEffect),
-    fingerprint: yield* store.fingerprint,
-    tail: store.txTail.entries().length,
-  };
-  return state;
-});
 
 function openingNeverWrites(makeStore: StoreFactory): Promise<void> {
   return Effect.runPromise(

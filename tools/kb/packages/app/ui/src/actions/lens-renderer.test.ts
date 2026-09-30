@@ -1,29 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { SYSTEM_IDS } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
-import { planSetLensProp, planSetLensRenderer } from "./plan";
+import { planSetGraphRenderer, planSetLensProp } from "./plan";
 
 const perspective: WireNode = {
   id: "perspective",
   text: "Perspective",
-  props: { [SYSTEM_IDS.lensRendererField]: [{ t: "str", v: "tree" }] },
+  props: { [SYSTEM_IDS.viewField]: [{ t: "ref", v: "sys.view.graph.tree" }] },
   children: [],
   createdAt: "2026-09-06T00:00:00.000Z",
   updatedAt: "2026-09-06T00:00:00.000Z",
 };
 
 describe("lens action inputs", () => {
-  it("replaces the renderer in one node.update, so no one sees it unset", () => {
-    expect(planSetLensRenderer([perspective], perspective.id, "force3d").actions).toEqual([
+  it("replaces the renderer — the graph view's view — in one node.update, so no one sees it unset", () => {
+    expect(
+      planSetGraphRenderer([perspective], perspective.id, "sys.view.graph.force3d").actions,
+    ).toEqual([
       {
         id: "node.update",
         input: {
           id: perspective.id,
-          unsetProps: [{ field: SYSTEM_IDS.lensRendererField }],
+          unsetProps: [{ field: SYSTEM_IDS.viewField }],
           setProps: [
             {
-              field: SYSTEM_IDS.lensRendererField,
-              value: { t: "ref", v: "sys.graph.renderer.force3d" },
+              field: SYSTEM_IDS.viewField,
+              value: { t: "ref", v: "sys.view.graph.force3d" },
             },
           ],
         },

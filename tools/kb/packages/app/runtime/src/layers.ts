@@ -7,6 +7,7 @@ import {
   ensureSystemSeed,
   migrateDateValues,
   migrateFieldTypeValues,
+  migrateToViewNodes,
   type DomainError,
   type KbNode,
 } from "@kb/model";
@@ -58,9 +59,10 @@ export function kbRuntimeLayer(ctx: KbContext): Layer.Layer<ActionHandlerEnv> {
 /**
  * Open a session over the root's store.
  *
- * Opening is a read. It writes only when a real migration runs — the system
- * seed adds or retires nodes, a field-type value or a legacy date value is
- * rewritten — and then it
+ * Opening is a read. It writes only when a real migration runs — a store
+ * written before view nodes is rewritten to them (`migrateToViewNodes`), the
+ * system seed adds or retires nodes, a field-type value or a legacy date
+ * value is rewritten — and then it
  * commits exactly the nodes that migration changed, never the whole set. Ranks
  * are not a migration: a node without one is ordered by `compareRootOrder`
  * in memory and ranked by the store on the next commit that writes its
@@ -73,11 +75,13 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   const store = yield* selectStore(root);
   const loaded = yield* store.loadEffect;
   const at = yield* currentIso;
-  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(loaded, at);
+  // Before the seed, so its fill-absent pass meets the migrated shape, not the old one.
+  const viewed = migrateToViewNodes(loaded);
+  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(viewed.nodes, at);
   const typed = migrateFieldTypeValues(seeded);
   const dated = migrateDateValues(typed.nodes);
   let nodes = loaded;
-  if (didSeed || deletes.length > 0 || typed.changed || dated.changed) {
+  if (viewed.changed || didSeed || deletes.length > 0 || typed.changed || dated.changed) {
     const commit = yield* store.commitEffect(diffTx(loaded, dated.nodes), { at });
     nodes = [...applyTx(loaded, commit.tx).values()];
   }

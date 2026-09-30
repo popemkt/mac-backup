@@ -44,11 +44,13 @@ function baseGraph(): WireNode[] {
       text: "type",
       props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
     }),
+    // The 2D renderer's view option, in the renderer family: what a graph view names.
+    node({ id: "sys.view-family.graph.renderer", text: "Graph renderer" }),
     node({
-      id: SYSTEM_IDS.graphPerspectiveTag,
-      text: "graph-perspective",
+      id: "sys.view.graph.force2d",
+      text: "2D",
       props: {
-        "sys.f.type": [{ t: "ref", v: "sys.tag" }],
+        [SYSTEM_IDS.viewFamilyField]: [{ t: "ref", v: "sys.view-family.graph.renderer" }],
       },
     }),
     node({
@@ -91,8 +93,7 @@ function baseGraph(): WireNode[] {
       id: SYSTEM_IDS.lensAllMentions,
       text: "All mentions",
       props: {
-        "sys.f.type": [{ t: "ref", v: SYSTEM_IDS.graphPerspectiveTag }],
-        [SYSTEM_IDS.lensRendererField]: [{ t: "str", v: "force2d" }],
+        [SYSTEM_IDS.viewField]: [{ t: "ref", v: "sys.view.graph.force2d" }],
         [SYSTEM_IDS.lensEdgeKindsField]: [
           { t: "str", v: "mention" },
           { t: "str", v: "child" },
@@ -107,7 +108,7 @@ function perspective(patch: Partial<LensPerspective> = {}): LensPerspective {
     id: SYSTEM_IDS.lensAllMentions,
     label: "All mentions",
     query: "",
-    renderer: "force2d",
+    renderer: "sys.view.graph.force2d",
     colorBy: "tag",
     sizeBy: "degree",
     edgeKinds: [...DEFAULT_EDGE_KINDS],
@@ -128,12 +129,13 @@ function perspective(patch: Partial<LensPerspective> = {}): LensPerspective {
 }
 
 describe("parsePerspective / listPerspectiveNodes", () => {
-  it("lists #graph-perspective nodes and applies defaults", () => {
+  it("lists the view nodes whose view is a renderer, and applies defaults", () => {
     const nodes = baseGraph();
-    const listed = listPerspectiveNodes(nodes);
+    const listed = listPerspectiveNodes(new DatascriptIndex(nodes), nodes);
     expect(listed.map((n) => n.id)).toEqual([SYSTEM_IDS.lensAllMentions]);
+    expect(listPerspectiveNodes(null, nodes)).toEqual([]);
     const p = parsePerspective(present(listed[0], "listed perspective"));
-    expect(p.renderer).toBe("force2d");
+    expect(p.renderer).toBe("sys.view.graph.force2d");
     expect(p.edgeKinds).toEqual(["mention", "child"]);
     expect(p.colorBy).toBe("tag");
     expect(p.sizeBy).toBe("degree");
@@ -352,7 +354,7 @@ describe("extractLensGraph", () => {
 describe("graph projection mappings", () => {
   it("roundtrips a saved perspective through ordinary reference-valued node fields", () => {
     const configured = perspective({
-      renderer: "treemap",
+      renderer: "sys.view.graph.treemap",
       colorBy: "prop:field.team",
       labelBy: "prop:field.title",
       sizeBy: "prop:field.hours",
@@ -366,7 +368,8 @@ describe("graph projection mappings", () => {
       text: configured.label,
       props: perspectiveProps(configured),
     });
-    expect(saved.props[SYSTEM_IDS.lensRendererField]?.[0]?.t).toBe("ref");
+    expect(saved.props[SYSTEM_IDS.viewField]).toEqual([{ t: "ref", v: "sys.view.graph.treemap" }]);
+    expect(saved.props[SYSTEM_IDS.lensRendererField]).toBeUndefined();
     expect(parsePerspective(saved)).toEqual(configured);
     expect(
       parsePerspective(

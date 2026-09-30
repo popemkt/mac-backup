@@ -5,7 +5,7 @@
 // read of them is a poll, and "the layout has settled" is a poll too: two
 // samples in a row with the same positions.
 import type { Page } from "playwright/test";
-import { graphRendererId } from "@kb/model";
+import { viewOptionId } from "@kb/model";
 import { FIXTURE_SIZE } from "./fixture.ts";
 import { expect, test } from "./harness-test.ts";
 
@@ -405,7 +405,7 @@ test("cluster selects in place, keeps camera still, and composes zero search wit
   await input.press("Escape");
   await expect(page.getByTestId("graph-selection-card")).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
-  await page.getByRole("button", { name: "graph-perspective 1", exact: true }).click();
+  await page.getByRole("button", { name: "lens 1", exact: true }).click();
   await expect
     .poll(() =>
       host.evaluate(
@@ -572,16 +572,18 @@ test("force2d draws the bullet theme sharp however near the camera is", async ({
     }, shot.toString("base64"));
   };
   let pixels: number[] = [];
+  // The bullet is drawn once its dot stands apart from its halo at the ends,
+  // and settled once the column crosses the dot's two edges with each
+  // changing over about a pixel, as a vector's does. A bullet painted at a
+  // fixed resolution never settles; one caught mid-transition to the theme
+  // does, so the poll waits the transition out rather than grading its frame.
   await expect
     .poll(async () => {
       pixels = await column();
-      // The bullet is drawn: its dot stands apart from its halo at the ends.
-      return colorDistance(pixels.slice(half * 4, half * 4 + 3), pixels.slice(0, 3));
+      const distinct = colorDistance(pixels.slice(half * 4, half * 4 + 3), pixels.slice(0, 3)) > 40;
+      return distinct ? changingPixels(pixels) : Number.POSITIVE_INFINITY;
     }, PAGE_READY)
-    .toBeGreaterThan(40);
-  // The column crosses the dot's two edges: each changes over about a
-  // pixel, as a vector's does.
-  expect(changingPixels(pixels)).toBeLessThanOrEqual(4);
+    .toBeLessThanOrEqual(4);
 });
 
 test("a renderer replacement survives reload on the first attempt", async ({ page }) => {
@@ -590,7 +592,7 @@ test("a renderer replacement survives reload on the first attempt", async ({ pag
   const saved = page.waitForResponse(
     (response) =>
       response.url().endsWith("/api/action") &&
-      (response.request().postData() ?? "").includes(graphRendererId("cluster")),
+      (response.request().postData() ?? "").includes(viewOptionId("graph.cluster")),
   );
   await selectRenderer(page, "cluster");
   await saved;

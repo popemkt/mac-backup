@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
-import { GRAPH_RENDERER_VALUES } from "@kb/model";
+import { VIEW_VALUES } from "@kb/model";
 import { matchGraph } from "@/components/graph/routes";
 import {
   ClusterRendererView,
@@ -60,7 +60,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(Force2dView, {
             placements: ["page"],
-            picker: { label: GRAPH_RENDERER_VALUES.force2d.label, order: 0 },
+            picker: { label: VIEW_VALUES["graph.force2d"].label, order: 0 },
             sample: {
               layout: DEFAULT_LAYOUT,
               labelDensity: DEFAULT_LABEL_DENSITY,
@@ -75,7 +75,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(TreeView, {
             placements: ["page"],
-            picker: { label: GRAPH_RENDERER_VALUES.tree.label, order: 1 },
+            picker: { label: VIEW_VALUES["graph.tree"].label, order: 1 },
             sample: { showLabels: DEFAULT_SHOW_LABELS },
             Component: TreeRendererView,
           }),
@@ -84,7 +84,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(ClusterView, {
             placements: ["page"],
-            picker: { label: GRAPH_RENDERER_VALUES.cluster.label, order: 2 },
+            picker: { label: VIEW_VALUES["graph.cluster"].label, order: 2 },
             sample: {
               labelDensity: DEFAULT_LABEL_DENSITY,
               showLabels: DEFAULT_SHOW_LABELS,
@@ -98,7 +98,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(Force3dView, {
             placements: ["page"],
-            picker: { label: GRAPH_RENDERER_VALUES.force3d.label, order: 3 },
+            picker: { label: VIEW_VALUES["graph.force3d"].label, order: 3 },
             sample: {
               spread: DEFAULT_SPREAD,
               linkDistance: DEFAULT_LINK_DISTANCE,
@@ -115,7 +115,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(TreemapView, {
             placements: ["page"],
-            picker: { label: GRAPH_RENDERER_VALUES.treemap.label, order: 4 },
+            picker: { label: VIEW_VALUES["graph.treemap"].label, order: 4 },
             sample: { showLabels: DEFAULT_SHOW_LABELS },
             Component: TreemapRendererView,
           }),
@@ -128,7 +128,7 @@ export const graphUiPlugin = definePlugin({
               root: "n.root-a",
               hops: 1,
               edges: ["mention", "child"],
-              renderer: "force2d",
+              renderer: Force2dView.option,
               settings: {
                 layout: DEFAULT_LAYOUT,
                 spread: DEFAULT_SPREAD,

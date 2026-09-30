@@ -1,8 +1,8 @@
 import { SYSTEM_IDS } from "./model.ts";
 
 /**
- * Stable graph vocabulary. Perspectives reference these ordinary option nodes
- * or field nodes.
+ * Stable graph vocabulary. Graph view nodes reference these ordinary option
+ * nodes or field nodes; the renderers themselves are views (`view-node.ts`).
  *
  * The ids are the seed's, and the seed derives the nodes from here — this file
  * is the TypeScript side of one declaration, not a second list. Two things it
@@ -16,14 +16,6 @@ import { SYSTEM_IDS } from "./model.ts";
  *   which the seed turns into five `targetQuery`s and the graph page turns into
  *   five option lists.
  */
-export const GRAPH_RENDERER_VALUES = {
-  force2d: { id: "sys.graph.renderer.force2d", label: "2D" },
-  tree: { id: "sys.graph.renderer.tree", label: "Tree" },
-  cluster: { id: "sys.graph.renderer.cluster", label: "Cluster" },
-  force3d: { id: "sys.graph.renderer.force3d", label: "3D" },
-  treemap: { id: "sys.graph.renderer.treemap", label: "Treemap" },
-} as const;
-
 /** The graph themes: `lens.theme`'s option children (matte is the default). */
 export const GRAPH_THEME_VALUES = {
   matte: { id: "sys.graph.theme.matte", label: "Matte" },
@@ -137,10 +129,4 @@ export function graphOptionKey(values: GraphOptionValues, id: string): string {
 /** The option node id for `key` in `values`, or `key` itself when none matches. */
 export function graphOptionId(values: GraphOptionValues, key: string): string {
   return values[key]?.id ?? key;
-}
-export function graphRendererKey(id: string): string {
-  return graphOptionKey(GRAPH_RENDERER_VALUES, id);
-}
-export function graphRendererId(key: string): string {
-  return graphOptionId(GRAPH_RENDERER_VALUES, key);
 }

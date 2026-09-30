@@ -6,12 +6,12 @@ import { buildTreeForest } from "@/lib/graph-lens";
 import { extractNeighbourhood } from "@/lib/graph-neighbourhood";
 import type { ViewProps } from "@/lib/plugins";
 import { navigate } from "@/lib/router";
-import { localIdOf, paramsFrom } from "@/lib/view-key";
+import { paramsFrom } from "@/lib/view-key";
 import { useAppearance } from "@/stores/prefs.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { GraphFrameContext, type GraphFrame } from "./graph-frame";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
-import { useRenderers } from "./use-renderers";
+import { useRenderer } from "./use-renderers";
 import type { NeighbourhoodParams } from "./views";
 
 const EMPTY = { nodes: [], edges: [], dropped: 0, queryError: null };
@@ -30,7 +30,7 @@ export function NeighbourhoodGraph({ params }: ViewProps<NeighbourhoodParams>) {
   const index = useOutlineStore((s) => s.index);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const appearance = useAppearance();
-  const rendererKey = useRenderers().find(({ key }) => localIdOf(key) === renderer)?.key ?? null;
+  const rendererKey = useRenderer(renderer);
 
   const lensGraph = useMemo(
     () => (index === null ? EMPTY : extractNeighbourhood(index, wireNodes, { root, hops, edges })),

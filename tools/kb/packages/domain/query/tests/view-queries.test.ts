@@ -8,6 +8,7 @@ import {
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
   VIEW_VALUES,
+  viewValueEntries,
   familyViewNodesQuery,
   systemSeedNodes,
   viewFamilyTargetQuery,
@@ -56,7 +57,7 @@ describe("view queries", () => {
   });
 
   test("a family's options are exactly the views declared in it", () => {
-    const renderers = Object.entries(VIEW_VALUES)
+    const renderers = viewValueEntries()
       .filter(([, value]) => value.family === "graph.renderer")
       .map(([viewId]) => viewOptionId(viewId))
       .toSorted();
@@ -65,8 +66,17 @@ describe("view queries", () => {
   });
 
   test("a family lists the view nodes whose view is in it, and sys.f.views may name any view node", () => {
-    expect(ids(familyViewNodesQuery("graph.renderer"))).toEqual(["v.tree"]);
+    // The seed's own graph, All mentions, is one of them.
+    expect(ids(familyViewNodesQuery("graph.renderer"))).toEqual([
+      SYSTEM_IDS.lensAllMentions,
+      "v.tree",
+    ]);
     expect(ids(familyViewNodesQuery("outline.frame"))).toEqual(["v.table"]);
-    expect(ids(VIEW_NODE_TARGET_QUERY)).toEqual(["v.nb", "v.table", "v.tree"]);
+    expect(ids(VIEW_NODE_TARGET_QUERY)).toEqual([
+      SYSTEM_IDS.lensAllMentions,
+      "v.nb",
+      "v.table",
+      "v.tree",
+    ]);
   });
 });

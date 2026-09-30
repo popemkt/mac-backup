@@ -1,5 +1,5 @@
 import type { GraphSnapshot, WireNode } from "@kb/contracts";
-import { systemSeedNodes } from "@kb/model";
+import { SYSTEM_IDS, systemSeedNodes } from "@kb/model";
 
 const ISO = "2026-08-08T05:00:00.000Z";
 
@@ -30,6 +30,19 @@ function seedField(id: string): WireNode {
   const seed = SEED.get(id);
   if (seed === undefined) throw new Error(`fixture graph names an unseeded field: ${id}`);
   return node({ id, text: seed.text, props: seed.props });
+}
+
+/**
+ * A seeded list as the seed declares it, with its option children: the view
+ * options a graph view names, and the families a query partitions them by.
+ */
+function seedTree(id: string): WireNode[] {
+  const seed = SEED.get(id);
+  if (seed === undefined) throw new Error(`fixture graph names an unseeded node: ${id}`);
+  return [
+    node({ id, text: seed.text, props: seed.props, children: seed.children }),
+    ...seed.children.flatMap(seedTree),
+  ];
 }
 
 /**
@@ -148,35 +161,20 @@ export const fixtureGraph: GraphSnapshot = {
     seedField("sys.f.lens.show-labels"),
     seedField("sys.f.lens.autorotate"),
     seedField("sys.f.lens.label-density"),
-    node({
-      id: "sys.tag.graph-perspective",
-      text: "graph-perspective",
-      props: {
-        "sys.f.type": [{ t: "ref", v: "sys.tag" }],
-        "sys.f.fields": [
-          { t: "ref", v: "sys.f.lens.query" },
-          { t: "ref", v: "sys.f.lens.renderer" },
-          { t: "ref", v: "sys.f.lens.color-by" },
-          { t: "ref", v: "sys.f.lens.size-by" },
-          { t: "ref", v: "sys.f.lens.edge-kinds" },
-          { t: "ref", v: "sys.f.lens.max-nodes" },
-          { t: "ref", v: "sys.f.lens.cluster-by" },
-          { t: "ref", v: "sys.f.lens.focus" },
-          { t: "ref", v: "sys.f.lens.layout" },
-          { t: "ref", v: "sys.f.lens.spread" },
-          { t: "ref", v: "sys.f.lens.link-distance" },
-          { t: "ref", v: "sys.f.lens.show-labels" },
-          { t: "ref", v: "sys.f.lens.autorotate" },
-          { t: "ref", v: "sys.f.lens.label-density" },
-        ],
-      },
-    }),
+    seedField("sys.f.lens.hops"),
+    // View nodes: the fields, and the view options with their families.
+    seedField("sys.f.view"),
+    seedField("sys.f.views"),
+    seedField("sys.f.view.placement"),
+    ...seedTree("sys.f.view.family"),
+    ...seedTree("sys.views"),
+    // A seeded supertag, so the offline graph holds both kinds of tag.
+    ...seedTree(SYSTEM_IDS.ontologyTag),
     node({
       id: "lens.all-mentions",
       text: "All mentions",
       props: {
-        "sys.f.type": [{ t: "ref", v: "sys.tag.graph-perspective" }],
-        "sys.f.lens.renderer": [{ t: "str", v: "force2d" }],
+        "sys.f.view": [{ t: "ref", v: "sys.view.graph.force2d" }],
         "sys.f.lens.cluster-by": [{ t: "str", v: "parent" }],
         "sys.f.lens.edge-kinds": [
           { t: "str", v: "mention" },
