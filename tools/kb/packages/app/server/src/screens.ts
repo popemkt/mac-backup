@@ -156,14 +156,10 @@ export class ScreenHub {
   };
 }
 
-/**
- * The runtime the `kb ui` server runs actions in: the root's runtime, with
- * the screens this server holds in place of the adapter that would reach a
- * server.
- */
+/** The runtime the `kb ui` server runs actions in: the root's runtime over the screens it holds. */
 export function serverRuntimeLayer(
   ctx: KbContext,
   screens: ScreenHub,
 ): Layer.Layer<ActionHandlerEnv> {
-  return Layer.merge(kbRuntimeLayer(ctx), Layer.succeed(Screens, screens.port));
+  return kbRuntimeLayer(ctx, Layer.succeed(Screens, screens.port));
 }

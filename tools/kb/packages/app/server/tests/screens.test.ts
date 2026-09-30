@@ -43,6 +43,17 @@ async function command(handle: UiServerHandle, id: "ui.navigate" | "ui.select", 
   return ScreenReceiptSchema.parse(await post(handle, { id, input }));
 }
 
+/** `read` until `done` accepts it, for at most two seconds; the last answer either way. */
+async function eventually<A>(read: () => Promise<A>, done: (value: A) => boolean): Promise<A> {
+  const deadline = Date.now() + 2000;
+  let value = await read();
+  while (!done(value) && Date.now() < deadline) {
+    await Bun.sleep(10);
+    value = await read();
+  }
+  return value;
+}
+
 function on(route: string, active = true): ScreenState {
   return { ...FAKE_TAB_SCREEN, route, active };
 }
@@ -81,7 +92,15 @@ describe("screen state", () => {
     ]);
 
     await run(a.close);
-    expect(await screen(handle)).toEqual({ tabs: [] });
+    // The server takes the close on its own turn, so the list empties soon after.
+    expect(
+      await eventually(
+        () => screen(handle),
+        (list) => list.tabs.length === 0,
+      ),
+    ).toEqual({
+      tabs: [],
+    });
   });
 
   test("tabs are listed most recently active first, and one can be asked for by id", async () => {
@@ -186,6 +205,16 @@ describe("screen state", () => {
     while (a.commands.length === 0) await Bun.sleep(5);
     await run(a.close);
     expect(await pending).toEqual({ outcome: "no-tab", tab: "tab.a" });
+  });
+
+  test("the server answers from its own tabs, never by asking the server .kb/ui.json names", async () => {
+    await tab("tab.a");
+    // Were the server forwarding to itself, a missing presence file would make this no-tab.
+    await rm(join(root, ".kb", "ui.json"));
+    expect(await command(handle, "ui.navigate", { route: "/" })).toEqual({
+      outcome: "applied",
+      tab: "tab.a",
+    });
   });
 
   test("another process reaches the tabs through .kb/ui.json", async () => {

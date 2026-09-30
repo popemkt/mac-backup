@@ -20,6 +20,7 @@ import {
   kbCtxLayer,
   kbStoreLayer,
   type KbContext,
+  type Screens,
   TemplateRegistry,
 } from "@kb/contracts";
 import { StoreTxLog } from "@kb/tx-log";
@@ -44,10 +45,18 @@ import { selectStore } from "./store-selection.ts";
  * This is where "the actions run anywhere" is paid for: the actions ask for
  * {@link SavedQueries}, {@link Assets} and `Screens`, and this composition
  * root is the only place that says those are directories under `ctx.root` and
- * a server found through it. The `kb ui` server holds the screens itself, so
- * it provides its own `Screens` over this layer.
+ * a server found through it.
+ *
+ * `screens` is where the tabs are. Every process but the `kb ui` server
+ * reaches that server's (the default); the server holds them itself and
+ * passes its own, so it never has a way to ask itself.
  */
-export function kbRuntimeLayer(ctx: KbContext): Layer.Layer<ActionHandlerEnv> {
+export function kbRuntimeLayer(
+  ctx: KbContext,
+  screens: Layer.Layer<Screens> = remoteScreensLayer(ctx.root).pipe(
+    Layer.provide(bunFileSystemLayer),
+  ),
+): Layer.Layer<ActionHandlerEnv> {
   const registry = registryFor(ctx.root).pipe(Effect.provide(bunFileSystemLayer));
   return Layer.mergeAll(
     bunFileSystemLayer,
@@ -57,7 +66,7 @@ export function kbRuntimeLayer(ctx: KbContext): Layer.Layer<ActionHandlerEnv> {
     savedQueriesLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
-    remoteScreensLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
+    screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.effect(
       ActionCatalog,

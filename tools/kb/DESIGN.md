@@ -1727,8 +1727,9 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   Approval would also keep them off MCP and WebMCP (`listedOn`), the
   surfaces an agent uses to follow and steer the screen.
 - **Every process reaches the one server.** The actions ask for the
-  `Screens` port. The `kb ui` server provides its `ScreenHub` in place of the
-  default. Every other process gets `remoteScreensLayer`, which reads
+  `Screens` port, which `kbRuntimeLayer` takes as an input. The `kb ui`
+  server passes its `ScreenHub`, so it never asks itself. Every other
+  process gets the default, `remoteScreensLayer`, which reads
   `.kb/ui.json` and asks that server the same action. `kb ui` writes the
   file when it listens and removes it when it stops. It is runtime state,
   gitignored and not backed up. A root that no server serves, or whose file
