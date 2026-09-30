@@ -55,7 +55,7 @@ packages/
   infrastructure/  store-jsonl  store-sqlite  tx-log  workspace-fs
   application/     operations
   extension/       canvas  ext-canvas  ext-check  ext-docs
-  app/             client  runtime  server  cli  mcp  ui  test-kit
+  app/             client  runtime  server  cli  mcp  webmcp  ui  test-kit
   test-support/    render-tests
 ```
 
@@ -1294,6 +1294,8 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     touches only its kb root). Hints cannot express approval, and a tool name cannot
     be mapped back to an id, so every tool also carries `{id, mode}` under
     `_meta["kb/action"]`.
+  - WebMCP: a read is `readOnlyHint`, a write is `consequentialHint`
+    ([Surfaces](#surfaces)).
   - `kb ext list` prints the mode.
   - The browser answers a local read without pushing it (DESIGN-UI.md →
     Architecture, Mutations). Where an action runs, locally or on the
@@ -1303,8 +1305,9 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   `approved: true` gets a failed receipt with code `approval_required`. The
   flag goes on the invocation envelope, not in the input, so a surface can
   carry approval only if its wire format has an envelope. `POST /api/action`
-  and `kb action-invoke` do. An MCP tool call does not, because its arguments
-  are the input, so every approval-required action is refused over MCP.
+  and `kb action-invoke` do. An MCP tool call and a WebMCP `execute` do not,
+  because their arguments are the input, so every approval-required action
+  is refused over MCP and WebMCP.
   Each surface declares what its wire carries once, as a `SurfaceWire`
   (`MCP_WIRE`, `HTTP_WIRE`, …), and one rule in `@kb/contracts`, `listedOn`,
   decides its listing from that and the mode: a surface whose wire cannot
@@ -1321,13 +1324,15 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   - The browser UI does not yet send approval at all (`GAP-BROWSER-APPROVAL`).
     The step 5 sidebar's approval prompt closes that.
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
-- **One contract, every surface.** The CLI (`action-invoke`), MCP and HTTP
-  each list the registry's action ids with their declared modes, from their
-  own listing: `kb.manifest`, the MCP tool list's `_meta`, and
-  `GET /api/manifest`, less what `listedOn` leaves out for its declared
-  wire. For the same call, each returns the invoke core's
-  receipt. An approved call runs only through a surface whose wire carries
-  the approval. These are properties of `surfaceContract` in `@kb/test-kit`
+- **One contract, every surface.** The CLI (`action-invoke`), MCP, HTTP and
+  WebMCP each list the registry's action ids with their declared modes, from
+  their own listing: `kb.manifest`, the MCP tool list's `_meta`,
+  `GET /api/manifest`, and the tools registered on the page's model context,
+  less what `listedOn` leaves out for its declared wire. For the same call,
+  each returns the invoke core's receipt, unless its wire cannot make the
+  call at all, which only an action it leaves out may be (WebMCP cannot call
+  a tool it never registered). An approved call runs only through a surface
+  whose wire carries the approval. These are properties of `surfaceContract` in `@kb/test-kit`
   (`surface-contract.ts`). They run over all surfaces at once, from
   `packages/app/cli/tests/surface-contract.test.ts`, and a new surface joins
   that map.
@@ -1482,6 +1487,28 @@ that view's settings (`camera.ts`, `GAP [GAP-CANVAS-CAMERA-VIEW]`).
       array.
     - A caller that used the old shapes has to switch to the new ones. The
       tool list (`tools/list`) states the new input schemas.
+- **WebMCP** (`@kb/webmcp`, loaded by the kb UI as the built-in `webmcp`
+  plugin): the registry as tools of the open page, for an agent that drives
+  the browser. It follows the WebMCP draft of 2026-09-29
+  (`document.modelContext.registerTool(tool, {signal})`), which ships only
+  behind a Chrome flag or origin trial.
+  - Where the page has no `document.modelContext` the adapter does nothing.
+    kb ships no polyfill: its tests use a spec-shaped fake, and a polyfilled
+    context reaches no agent without a browser extension or relay beside it.
+  - One tool per action `kb.manifest` lists, less what `listedOn` leaves out
+    for `WEBMCP_WIRE`. The name is the action id (dotted ids are legal WebMCP
+    names), the title, description and `inputSchema` are the manifest's, and
+    the hints come from the mode ([Action registry](#action-registry)).
+  - `execute` runs through the browser's one invoke path, which decides
+    whether the call runs on the local replica or on the server
+    (DESIGN-UI.md → Architecture). It returns the receipt, never throws.
+  - Every tool of one listing shares one `AbortSignal`. Aborting it is how
+    tools unregister: when the listing differs after the live socket opens
+    again (the registry is cached per server process), when the page is
+    hidden, and when the plugin unloads.
+  - `execute` has no envelope for `approved`, and `consequentialHint` asks the
+    agent to confirm a write without telling the page whether it did, so
+    approval-required actions are left out (`GAP-WEBMCP-APPROVAL`).
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 

@@ -574,6 +574,7 @@
   "@kb/test-kit" = copyPathToStore ./packages/app/test-kit;
   "@kb/tx-log" = copyPathToStore ./packages/infrastructure/tx-log;
   "@kb/ui" = copyPathToStore ./packages/app/ui;
+  "@kb/webmcp" = copyPathToStore ./packages/app/webmcp;
   "@kb/workspace-fs" = copyPathToStore ./packages/infrastructure/workspace-fs;
   "@modelcontextprotocol/sdk@1.30.0" = fetchurl {
     url = "https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.30.0.tgz";

@@ -16,6 +16,7 @@ import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { syncUiPlugins, type OptionalUiPlugin } from "@/lib/plugins";
 import { usePrefsStore } from "@/stores/prefs.store";
+import { webMcpUiPlugin } from "@/webmcp";
 
 /** Always loaded. */
 export const BUILTIN_UI_PLUGINS: readonly Plugin[] = [
@@ -23,6 +24,7 @@ export const BUILTIN_UI_PLUGINS: readonly Plugin[] = [
   graphUiPlugin,
   ontologyUiPlugin,
   canvasUiPlugin,
+  webMcpUiPlugin,
 ];
 
 /** Loaded only while switched on in Preferences; off by default. */

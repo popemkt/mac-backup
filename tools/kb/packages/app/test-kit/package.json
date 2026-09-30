@@ -17,6 +17,7 @@
     "@kb/query": "workspace:*",
     "@kb/runtime": "workspace:*",
     "@kb/tx-log": "workspace:*",
+    "@kb/webmcp": "workspace:*",
     "effect": "catalog:",
     "fast-check": "catalog:"
   },

@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@kb/test-kit": "workspace:*",
+    "@kb/webmcp": "workspace:*",
     "@modelcontextprotocol/sdk": "catalog:",
     "@types/bun": "catalog:",
     "typescript": "catalog:",

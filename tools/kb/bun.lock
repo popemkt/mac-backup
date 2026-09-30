@@ -43,6 +43,7 @@
       },
       "devDependencies": {
         "@kb/test-kit": "workspace:*",
+        "@kb/webmcp": "workspace:*",
         "@modelcontextprotocol/sdk": "catalog:",
         "@types/bun": "catalog:",
         "typescript": "catalog:",
@@ -134,6 +135,7 @@
         "@kb/query": "workspace:*",
         "@kb/runtime": "workspace:*",
         "@kb/tx-log": "workspace:*",
+        "@kb/webmcp": "workspace:*",
         "effect": "catalog:",
         "fast-check": "catalog:",
       },
@@ -154,6 +156,7 @@
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/tx-log": "workspace:*",
+        "@kb/webmcp": "workspace:*",
         "@phosphor-icons/react": "catalog:",
         "@sigma/edge-curve": "catalog:",
         "@sigma/node-border": "catalog:",
@@ -196,6 +199,20 @@
         "vite": "catalog:",
         "vite-plus": "catalog:",
         "vitest": "catalog:",
+      },
+    },
+    "packages/app/webmcp": {
+      "name": "@kb/webmcp",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/test-kit": "workspace:*",
+        "@types/bun": "catalog:",
       },
     },
     "packages/application/operations": {
@@ -720,6 +737,8 @@
     "@kb/tx-log": ["@kb/tx-log@workspace:packages/infrastructure/tx-log"],
 
     "@kb/ui": ["@kb/ui@workspace:packages/app/ui"],
+
+    "@kb/webmcp": ["@kb/webmcp@workspace:packages/app/webmcp"],
 
     "@kb/workspace-fs": ["@kb/workspace-fs@workspace:packages/infrastructure/workspace-fs"],
 

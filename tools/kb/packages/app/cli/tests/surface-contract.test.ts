@@ -1,8 +1,8 @@
 /**
  * The surface contract (`@kb/test-kit`'s `surfaceContract`) run over every
  * surface that projects the action registry. This package is the one place
- * that can reach all three: the CLI is its own, and it composes the MCP and
- * HTTP servers.
+ * that can reach all four: the CLI is its own, and it composes the MCP and
+ * HTTP servers and the page's WebMCP adapter.
  *
  * Each adapter speaks its surface's own protocol and turns the answer back
  * into a listing and a receipt without consulting the registry. That way a
@@ -20,13 +20,15 @@ import {
 } from "@kb/contracts";
 import { ACTION_META_KEY, MCP_WIRE, createMcpServer } from "@kb/mcp";
 import { bunFileSystemLayer } from "@kb/runtime";
-import { HTTP_WIRE, startUi } from "@kb/server";
+import { HTTP_WIRE, startUi, type UiServerHandle } from "@kb/server";
 import {
+  FakeModelContext,
   surfaceContract,
   type ActionSurface,
   type ListedAction,
   type SurfaceFactory,
 } from "@kb/test-kit";
+import { WEBMCP_WIRE, startWebMcp, type ModelContextTool } from "@kb/webmcp";
 import { z } from "zod";
 import { ACTION_INVOKE_WIRE, main } from "../src/cli.ts";
 
@@ -119,28 +121,79 @@ const mcp: SurfaceFactory = async (root) => {
   } satisfies ActionSurface;
 };
 
-/** HTTP: `GET /api/manifest` is the listing; `POST /api/action` carries the envelope. */
-const http: SurfaceFactory = async (root) => {
-  const handle = await Effect.runPromise(
+function startServer(root: string): Promise<UiServerHandle> {
+  return Effect.runPromise(
     startUi({ root, port: 0, openBrowser: false }).pipe(Effect.provide(bunFileSystemLayer)),
   );
+}
+
+/** `POST /api/action`, and the receipt from its response. */
+async function postAction(
+  handle: UiServerHandle,
+  invocation: ActionInvocation,
+): Promise<ActionReceipt> {
+  const res = await fetch(`${handle.url}/api/action`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(invocation),
+  });
+  const response = ActionResponseSchema.parse(await res.json());
+  if (response.status === "failed") return response;
+  const { rev: _rev, ...receipt } = response;
+  return receipt;
+}
+
+/** HTTP: `GET /api/manifest` is the listing; `POST /api/action` carries the envelope. */
+const http: SurfaceFactory = async (root) => {
+  const handle = await startServer(root);
   return {
     wire: HTTP_WIRE,
     list: async () =>
       z.array(ListedActionSchema).parse(await (await fetch(`${handle.url}/api/manifest`)).json()),
-    invoke: async (invocation) => {
-      const res = await fetch(`${handle.url}/api/action`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(invocation),
-      });
-      const response = ActionResponseSchema.parse(await res.json());
-      if (response.status === "failed") return response;
-      const { rev: _rev, ...receipt } = response;
-      return receipt;
-    },
+    invoke: (invocation) => postAction(handle, invocation),
     close: () => Effect.runPromise(handle.stop),
   } satisfies ActionSurface;
 };
 
-surfaceContract({ cli, mcp, http });
+/** A tool's mode, read back from the hints alone, as a WebMCP agent sees it. */
+function modeOf(tool: ModelContextTool): ListedAction["mode"] {
+  const { readOnlyHint, consequentialHint } = tool.annotations ?? {};
+  if (readOnlyHint === true && consequentialHint !== true) return { kind: "read" };
+  if (consequentialHint === true && readOnlyHint !== true) return { kind: "write" };
+  throw new Error(`${tool.name}: hints name no mode`);
+}
+
+/**
+ * WebMCP: the tools registered on a spec-shaped `document.modelContext` are
+ * the listing, and a call is `execute` on the tool of that name. The adapter
+ * runs over the browser's server lane (`POST /api/action`, as the UI's
+ * `postAction` sends it). A call to an action it registered no tool for
+ * cannot be made at all.
+ */
+const webmcp: SurfaceFactory = async (root) => {
+  const handle = await startServer(root);
+  const page = new FakeModelContext();
+  const adapter = startWebMcp({
+    modelContext: () => page,
+    invoke: (invocation) => postAction(handle, invocation),
+    report: (message) => {
+      throw new Error(message);
+    },
+  });
+  await adapter.settled();
+  return {
+    wire: WEBMCP_WIRE,
+    list: async () => page.tools().map((tool) => ({ id: tool.name, mode: modeOf(tool) })),
+    invoke: async ({ id, input }) => {
+      const tool = page.tool(id);
+      if (tool === undefined) return null;
+      return ActionReceiptSchema.parse(await tool.execute(input));
+    },
+    close: async () => {
+      adapter.stop();
+      await Effect.runPromise(handle.stop);
+    },
+  } satisfies ActionSurface;
+};
+
+surfaceContract({ cli, mcp, http, webmcp });

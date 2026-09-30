@@ -37,6 +37,9 @@ view is the outline view), never by importing a sibling folder's components.
 | `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`    | Canvases (30)          |
 | `lab`      | `lab.page` `/lab[/<study>]` (optional, off by default)   | Lab (40)               |
 
+One built-in plugin, `webmcp` (`src/webmcp.ts`), contributes no view: it
+registers the page's WebMCP tools (DESIGN.md → Surfaces).
+
 A path no route owns, and an id a view does not find (a canvas, an
 ontology, a graph perspective), render the one `components/ui/not-found.tsx`
 with no chrome of the missing thing; `ui/not-found.acceptance.test.tsx`

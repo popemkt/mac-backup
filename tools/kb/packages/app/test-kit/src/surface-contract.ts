@@ -3,7 +3,8 @@
  * promises. It is written once and run over all of the surfaces together.
  *
  * The registry is the source of truth. A surface (the CLI's
- * `action-invoke`, the MCP server, the HTTP API) is a way to reach it and
+ * `action-invoke`, the MCP server, the HTTP API, the page's WebMCP tools) is
+ * a way to reach it and
  * must add nothing and drop nothing. It lists the same ids with the same
  * declared modes, and for the same call it returns the same receipt as the
  * invoke core. A guarantee kept by one surface and broken by another is
@@ -43,9 +44,11 @@ export interface ActionSurface {
   /**
    * The receipt this surface returns for the call, rebuilt from its wire
    * form. A surface whose wire cannot carry `approved` drops it, just as a
-   * real caller of that surface would.
+   * real caller of that surface would. `null` means the wire has no way to
+   * make the call at all (WebMCP cannot call a tool it did not register),
+   * which only an action the surface leaves out of its listing may be.
    */
-  invoke(invocation: ActionInvocation): Promise<ActionReceipt>;
+  invoke(invocation: ActionInvocation): Promise<ActionReceipt | null>;
   /**
    * What this surface's wire can carry, as the surface itself declares it.
    * The properties below prove the declaration by behaviour.
@@ -133,8 +136,8 @@ interface SurfaceCase {
   readonly root: string;
   /** The invoke core's receipt for the call, on the same root. */
   readonly core: (invocation: ActionInvocation) => Effect.Effect<ActionReceipt>;
-  /** The surface's receipt for the call. */
-  readonly via: (invocation: ActionInvocation) => Effect.Effect<ActionReceipt>;
+  /** The surface's receipt for the call, or `null` when its wire cannot make it. */
+  readonly via: (invocation: ActionInvocation) => Effect.Effect<ActionReceipt | null>;
 }
 
 /**
@@ -190,22 +193,34 @@ const PROPERTIES: ReadonlyArray<
       ),
   ],
   [
-    "every surface returns the invoke core's receipt for the same call",
+    "every surface returns the invoke core's receipt for the same call, " +
+      "or cannot make a call to an action it does not list",
     (surfaces) =>
-      overSurfaces(surfaces, ({ name, core, via }) =>
-        Effect.forEach(
-          CALLS,
-          (call) =>
-            Effect.gen(function* () {
-              const receipt = asWireData(yield* via(call));
-              expect({ name, call, receipt }).toEqual({
-                name,
-                call,
-                receipt: asWireData(yield* core(call)),
-              });
-            }),
-          { discard: true },
-        ),
+      overSurfaces(surfaces, ({ name, surface, core, via }) =>
+        Effect.gen(function* () {
+          const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
+          yield* Effect.forEach(
+            CALLS,
+            (call) =>
+              Effect.gen(function* () {
+                const receipt = yield* via(call);
+                if (receipt === null) {
+                  expect({ name, call, listed: listed.has(call.id) }).toEqual({
+                    name,
+                    call,
+                    listed: false,
+                  });
+                  return;
+                }
+                expect({ name, call, receipt: asWireData(receipt) }).toEqual({
+                  name,
+                  call,
+                  receipt: asWireData(yield* core(call)),
+                });
+              }),
+            { discard: true },
+          );
+        }),
       ),
   ],
   [
@@ -219,8 +234,16 @@ const PROPERTIES: ReadonlyArray<
           const arrives = carriesApproval ? call : { id: call.id, input: call.input };
           const expected = yield* core(arrives);
           expect(expected.status).toBe(carriesApproval ? "succeeded" : "failed");
-          const receipt = asWireData(yield* via(call));
-          expect({ name, receipt }).toEqual({ name, receipt: asWireData(expected) });
+          const receipt = yield* via(call);
+          // A wire that cannot make the call cannot run it either.
+          if (receipt === null) {
+            expect({ name, carriesApproval }).toEqual({ name, carriesApproval: false });
+            return;
+          }
+          expect({ name, receipt: asWireData(receipt) }).toEqual({
+            name,
+            receipt: asWireData(expected),
+          });
         }),
       ),
   ],
