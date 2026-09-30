@@ -63,9 +63,20 @@ in
         if ! ${pkgs.nodejs}/bin/npm ls -g --depth=0 "$pkg" >/dev/null 2>&1; then
           echo "Installing missing npm global: $pkg"
           $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g "$pkg@latest"
-        elif [ "$pkg" = "@openai/codex" ] && [ ! -x "${npmPrefix}/bin/codex" ]; then
-          echo "Relinking missing Codex executable"
-          $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm rebuild -g "$pkg"
+        elif [ "$pkg" = "@openai/codex" ] \
+          && { [ ! -x "${npmPrefix}/bin/codex" ] \
+            || ! "${npmPrefix}/bin/codex" --version >/dev/null 2>&1; }; then
+          # Codex ships its native binary as an optional platform dependency
+          # (@openai/codex-darwin-arm64 and friends). `npm ls` still succeeds
+          # when that dependency is absent, and `npm rebuild` only relinks the
+          # bin shim, so neither check above notices. An install killed before
+          # npm reifies — it moves the old tree aside first — leaves exactly
+          # that state: a valid package.json, no runnable Codex. Only a full
+          # reinstall restores the platform package. Reinstall the version
+          # already there: a routine rebuild repairs, it never upgrades.
+          ver="$(${pkgs.nodejs}/bin/node -p "require('${npmPrefix}/lib/node_modules/@openai/codex/package.json').version" 2>/dev/null || echo latest)"
+          echo "Repairing Codex $ver: platform binary missing or not runnable"
+          $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g "$pkg@$ver"
         fi
       done
     '';
