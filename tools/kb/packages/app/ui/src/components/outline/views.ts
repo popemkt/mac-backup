@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import {
   FRAME_SETTINGS,
   FRAME_VIEW_FAMILY,
+  getViewConfig,
   type FrameViewKey,
   type FrameViewParams,
 } from "@/lib/view-config";
@@ -18,7 +19,12 @@ function frameViewKey<P extends FrameViewParams>(
   params: Schema.Decoder<P>,
   rows: FrameViewKey["rows"],
 ): FrameViewKey<P> {
-  return { ...viewKey(`${OUTLINE_NAMESPACE}.${name}`, params), family: FRAME_VIEW_FAMILY, rows };
+  // A frame view's settings are the `sys.f.view.*` props that configure it.
+  return {
+    ...viewKey(`${OUTLINE_NAMESPACE}.${name}`, params, (props) => getViewConfig(props)),
+    family: FRAME_VIEW_FAMILY,
+    rows,
+  };
 }
 
 /** A frame's children as the outline shows them, nested. */

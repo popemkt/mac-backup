@@ -284,7 +284,7 @@ export const LENS_SETTINGS = {
 export type LensSetting = keyof typeof LENS_SETTINGS;
 
 /** Everything the node itself declares; `id` and `label` come from the node. */
-type LensProps = Omit<LensPerspective, "id" | "label">;
+export type LensProps = Omit<LensPerspective, "id" | "label">;
 
 const LENS_SLOTS: ConfigSlots<LensProps> = {
   query: oneOf({
@@ -399,12 +399,23 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
  * bad prop must not make the graph unopenable.
  */
 export function parsePerspective(node: WireNode): LensPerspective {
-  const slot = decodeNodeConfig<LensProps>(LENS_SLOTS, node.props, (warning) =>
-    logWarn(`[graph-lens] ${node.id}: ${warning}`),
-  );
   return {
     id: node.id,
     label: node.text.trim() || "Untitled",
+    ...lensConfig(node.props, node.id),
+  };
+}
+
+/**
+ * The lens a node's props declare, decoded slot by slot: what a renderer
+ * view's params read (`RendererKey.config`), and the rest of a perspective.
+ * `subject` names the node in what the log reports.
+ */
+export function lensConfig(props: NodeProps, subject = ""): LensProps {
+  const slot = decodeNodeConfig<LensProps>(LENS_SLOTS, props, (warning) =>
+    logWarn(`[graph-lens] ${subject === "" ? "" : `${subject}: `}${warning}`),
+  );
+  return {
     query: slot("query"),
     renderer: slot("renderer"),
     colorBy: slot("colorBy"),

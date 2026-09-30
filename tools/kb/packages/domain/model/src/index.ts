@@ -117,3 +117,4 @@ export {
   graphRendererId,
 } from "./graph-schema.ts";
 export type { GraphSourceField, GraphSourceKind } from "./graph-schema.ts";
+export { viewOptionId } from "./view-node.ts";

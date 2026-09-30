@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import type { GRAPH_RENDERER_VALUES } from "@kb/model";
-import { LENS_SETTINGS } from "@/lib/graph-lens";
+import { LENS_SETTINGS, lensConfig } from "@/lib/graph-lens";
 import { viewKey, type ViewKey } from "@/lib/view-key";
 
 /** The graph plugin's namespace and view keys: what a host imports, never the components. */
@@ -72,7 +72,8 @@ function rendererKey<P>(
   traits: RendererTraits,
 ): RendererKey<P> {
   return {
-    ...viewKey(`${GRAPH_NAMESPACE}.${name}`, params),
+    // A renderer's settings are the lens props of the perspective it draws.
+    ...viewKey(`${GRAPH_NAMESPACE}.${name}`, params, (props) => lensConfig(props)),
     family: RENDERER_FAMILY,
     params,
     renderer: traits,

@@ -1209,7 +1209,13 @@ once. It is what types `P` for the compiler, and it is read at run time: a
 host decodes the view's stored config through it (`paramsFrom`, which keeps
 only the settings the key declares), a settings panel asks it which settings
 the view reads, and the contract decodes each view's `sample` with it. A view
-that renders from the store alone declares `NoParams`.
+that renders from the store alone declares `NoParams`. A key also names the
+view in data: `option` is the id of the option node that stands for it in
+the store (`sys.view.<id>`, derived from the id, so the two cannot disagree),
+and `config(props, host)` reads stored props into the input `params` decodes
+(`paramsFromProps`), for the node the view is shown for. A frame view reads
+the `sys.f.view.*` settings, a renderer the lens props, and a view whose
+settings nothing stores reads nothing.
 `provideView(key, view)` builds the
 contribution under the key's local id, and `provideRoute(route)` builds a
 route under its view's local id. A plugin's namespace is therefore the key's

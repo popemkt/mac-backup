@@ -7,6 +7,7 @@
  */
 import type { Icon, IconWeight } from "@phosphor-icons/react";
 import { Result, Schema } from "effect";
+import { viewOptionId, type NodeProps } from "@kb/model";
 
 /**
  * A view's name and the params it renders from. Made once by the plugin that
@@ -30,7 +31,23 @@ export interface ViewKey<P> {
    * family's key extends `ViewKey` under. A view no host picks has none.
    */
   readonly family?: string;
+  /**
+   * The option node that names this view in data (`sys.view.<id>`), which a
+   * view node's `sys.f.view` refers to. Derived from the id, so a key and the
+   * store name one view one way.
+   */
+  readonly option: string;
+  /**
+   * What `params` decodes from when the view is shown from stored config: a
+   * node's props, read into the input the schema takes, and the node the view
+   * is shown for (`host`, null when there is none). A view whose settings
+   * nothing stores reads nothing.
+   */
+  readonly config: ViewConfigReader;
 }
+
+/** How a key reads stored props into its params' input (`ViewKey.config`). */
+export type ViewConfigReader = (props: NodeProps, host: string | null) => unknown;
 
 /** The params a key's view renders from. */
 export type ParamsOf<K> = K extends ViewKey<infer P> ? P : never;
@@ -42,8 +59,15 @@ export type NoParams = typeof NoParams.Type;
 /** A key that belongs to no family: a view no host picks between (a page, an embed). */
 export type PlainViewKey<P> = ViewKey<P> & { readonly family?: undefined };
 
-export function viewKey<P>(id: `${string}.${string}`, params: Schema.Decoder<P>): PlainViewKey<P> {
-  return { kind: "view", id, params };
+/** A view whose settings nothing stores: it reads no props. */
+const READS_NOTHING: ViewConfigReader = () => ({});
+
+export function viewKey<P>(
+  id: `${string}.${string}`,
+  params: Schema.Decoder<P>,
+  config: ViewConfigReader = READS_NOTHING,
+): PlainViewKey<P> {
+  return { kind: "view", id, params, option: viewOptionId(id), config };
 }
 
 /**
@@ -65,6 +89,18 @@ export function paramsFrom<P>(key: ViewKey<P>, input: unknown): Result.Result<P,
   return Result.isSuccess(decoded)
     ? Result.succeed(decoded.success)
     : Result.fail(decoded.failure.message);
+}
+
+/**
+ * The params `key` renders from when shown from stored `props` for `host`:
+ * read through the key's `config`, then decoded by its `params`.
+ */
+export function paramsFromProps<P>(
+  key: ViewKey<P>,
+  props: NodeProps,
+  host: string | null,
+): Result.Result<P, string> {
+  return paramsFrom(key, key.config(props, host));
 }
 
 /**

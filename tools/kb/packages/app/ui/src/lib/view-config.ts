@@ -11,7 +11,7 @@ import {
 import type { OutlineNode, PropValue } from "./types";
 import { isSysPrefixed, SYSTEM_IDS } from "./types";
 import { logWarn } from "@/lib/log";
-import { localIdOf, paramsFrom, type ViewKey } from "@/lib/view-key";
+import { localIdOf, paramsFromProps, type ViewKey } from "@/lib/view-key";
 import { textOr } from "@/lib/text";
 
 export type SortDir = "asc" | "desc";
@@ -374,7 +374,7 @@ const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
  * through the ui log seam; it never fails the frame, because a bad prop must
  * not make the outline unopenable.
  */
-export function getViewConfig(props?: Record<string, PropValue[]>): ViewConfig {
+export function getViewConfig(props?: NodeProps): ViewConfig {
   const slot = decodeNodeConfig<ViewConfig>(VIEW_SLOTS, props, (warning) =>
     logWarn(`[view-config] ${warning}`),
   );
@@ -415,7 +415,7 @@ export function frameViewOf(
     );
   const key = asked ?? named(DEFAULT_VIEW_CONFIG.mode);
   if (key === undefined) return null;
-  const params = paramsFrom(key, config);
+  const params = paramsFromProps(key, props ?? {}, null);
   if (Result.isSuccess(params)) return { key, params: params.success };
   // Unreachable while every setting is decoded by the schema the params are made of.
   logWarn(`[view-config] ${key.id} cannot read this frame: ${params.failure}`);

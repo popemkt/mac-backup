@@ -28,7 +28,7 @@ import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { ThemeIcon } from "@/components/ui/theme-icon";
 import { WorkspaceState } from "@/components/ui/workspace-state";
 import { ViewSlot } from "@/components/ui/view-slot";
-import { paramsFrom } from "@/lib/view-key";
+import { paramsFromProps } from "@/lib/view-key";
 import { GraphFrameContext, graphViewKey, type GraphFrame } from "./graph-frame";
 import { useRenderer } from "./use-renderers";
 
@@ -75,10 +75,8 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     });
   };
 
-  const perspectives = useMemo(
-    () => listPerspectiveNodes(wireNodes).map(parsePerspective),
-    [wireNodes],
-  );
+  const perspectiveNodes = useMemo(() => listPerspectiveNodes(wireNodes), [wireNodes]);
+  const perspectives = useMemo(() => perspectiveNodes.map(parsePerspective), [perspectiveNodes]);
 
   const active: LensPerspective | null = useMemo(
     () => resolvePerspective(perspectives, perspectiveId),
@@ -201,9 +199,14 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
       onNodeOpen,
     ],
   );
+  // The renderer's settings, read off the perspective node through its key.
+  const activeProps = perspectiveNodes.find((node) => node.id === active?.id)?.props;
   const settings = useMemo(
-    () => (rendererKey !== null && active ? paramsFrom(rendererKey, active) : null),
-    [rendererKey, active],
+    () =>
+      rendererKey !== null && activeProps !== undefined
+        ? paramsFromProps(rendererKey, activeProps, null)
+        : null,
+    [rendererKey, activeProps],
   );
   const unavailable = (
     <WorkspaceState
