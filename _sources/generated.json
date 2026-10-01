@@ -23,11 +23,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-LwbE4Hhsth8VSE6vIu+ntjJOwgZ5uRE8+puVzPdac/E=",
+            "sha256": "sha256-30j+am5cYNGWbtN05rBWfLjIcYDfndFN+yX0I2W0uyU=",
             "type": "url",
-            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.4/CLIProxyAPI_8.0.4_darwin_aarch64.tar.gz"
+            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.8/CLIProxyAPI_8.0.8_darwin_aarch64.tar.gz"
         },
-        "version": "8.0.4"
+        "version": "8.0.8"
     },
     "cursor-cli": {
         "cargoLock": null,
@@ -68,11 +68,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-npldUEWLhSzxFAM+wxbfbGA4lBVG/1bdHzfTOG1nMOY=",
+            "sha256": "sha256-7GCcSOi2wmNnB24cAyJQg98o8urITlBy9OyT8y2X+Dg=",
             "type": "url",
-            "url": "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260926.zip"
+            "url": "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260930.zip"
         },
-        "version": "2.0.1-alpha+nightly.20260926"
+        "version": "2.0.1-alpha+nightly.20260930"
     },
     "vite-plus": {
         "cargoLock": null,

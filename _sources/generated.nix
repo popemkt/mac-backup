@@ -16,10 +16,10 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.4";
+    version = "8.0.8";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.4/CLIProxyAPI_8.0.4_darwin_aarch64.tar.gz";
-      sha256 = "sha256-LwbE4Hhsth8VSE6vIu+ntjJOwgZ5uRE8+puVzPdac/E=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.8/CLIProxyAPI_8.0.8_darwin_aarch64.tar.gz";
+      sha256 = "sha256-30j+am5cYNGWbtN05rBWfLjIcYDfndFN+yX0I2W0uyU=";
     };
   };
   cursor-cli = {
@@ -40,10 +40,10 @@
   };
   logseq-nightly = {
     pname = "logseq-nightly";
-    version = "2.0.1-alpha+nightly.20260926";
+    version = "2.0.1-alpha+nightly.20260930";
     src = fetchurl {
-      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260926.zip";
-      sha256 = "sha256-npldUEWLhSzxFAM+wxbfbGA4lBVG/1bdHzfTOG1nMOY=";
+      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260930.zip";
+      sha256 = "sha256-7GCcSOi2wmNnB24cAyJQg98o8urITlBy9OyT8y2X+Dg=";
     };
   };
   vite-plus = {
