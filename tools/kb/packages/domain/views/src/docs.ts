@@ -33,13 +33,18 @@ export const DocsMarkdownParams = Schema.Struct({
   savedQuery: Schema.optionalKey(Schema.NonEmptyString),
   template: Schema.NonEmptyString,
   output: RepoPath,
-}).check(
-  Schema.makeFilter(
-    (params: { readonly query?: string; readonly savedQuery?: string }) =>
-      (params.query === undefined) !== (params.savedQuery === undefined) ||
-      "needs exactly one of a query and a saved query",
-  ),
-);
+})
+  .annotate({
+    description:
+      "A markdown document: the rows of its subject, exactly one of a query and a saved query, rendered through a template to a repo-relative output path. Its text is the name it goes by.",
+  })
+  .check(
+    Schema.makeFilter(
+      (params: { readonly query?: string; readonly savedQuery?: string }) =>
+        (params.query === undefined) !== (params.savedQuery === undefined) ||
+        "needs exactly one of a query and a saved query",
+    ),
+  );
 export type DocsMarkdownParams = typeof DocsMarkdownParams.Type;
 
 /** A stored string setting, left out when the node holds none or only an empty one. */

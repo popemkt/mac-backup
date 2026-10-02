@@ -809,6 +809,19 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   seeded on open while those plugins load in the browser, so the seed is
   core's until plugins can contribute seeds (GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]).
   An unloaded plugin never deletes an option: the data outlives the code.
+- **The view catalog is the keys.** Every view's key — its id, option,
+  family, its settings as an Effect `Schema` (annotated with what the view
+  shows and what it is shown for) and how a view node's props are read into
+  them — is data in `@kb/views`, held by the UI that draws the view and the
+  server alike. `VIEW_CATALOG` lists one key per seeded option, and its tests
+  hold the two to each other; the UI's view contract holds every view a
+  plugin provides to a key in it. `kb.manifest` publishes the catalog beside
+  the actions (`viewCatalog`): per view its id, option, label, family, its
+  settings as the JSON Schema the key's params derive
+  (`Schema.toJsonSchemaDocument`, the JSON they decode from), and the
+  settings a view node holding none reads as, where one can be read. The
+  catalog states nothing a key does not, so an agent reading it reads what a
+  host decodes.
 - **A host names its views by ref.** `sys.f.views` (ref, many) on any node
   targets every view node (`VIEW_NODE_TARGET_QUERY`). Scope is per node:
   a view shown for every node of a tag would be a new model rule
@@ -1649,7 +1662,8 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
     - `render_view` is now `render.view`. Its argument is `name` (it was
       `view`), and it returns the action's output `{name, format, content}`
       as JSON, not the bare content.
-    - `kb_manifest` is now `kb.manifest` and returns `{actions}`, not a bare
+    - `kb_manifest` is now `kb.manifest` and returns `{actions, views}` (the
+      view catalog, Kinds, roles and options → View nodes), not a bare
       array.
     - A caller that used the old shapes has to switch to the new ones. The
       tool list (`tools/list`) states the new input schemas.

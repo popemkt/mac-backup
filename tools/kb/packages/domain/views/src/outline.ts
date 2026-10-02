@@ -12,8 +12,16 @@ import { NoParams, viewKey } from "./view-key.ts";
 /** The outline plugin's namespace and view keys: what a host imports, never the components. */
 export const OUTLINE_NAMESPACE = "outline";
 
+/** What every frame view says of the node it is shown for. */
+const FRAME_HOST = " Shown for a frame (the node it is named by): lays out that frame's children.";
+
 /** The outline, at `/`: a zoom lives in the store, not in the params. */
-export const OutlineView = viewKey(`${OUTLINE_NAMESPACE}.main`, NoParams);
+export const OutlineView = viewKey(
+  `${OUTLINE_NAMESPACE}.main`,
+  NoParams.annotate({
+    description: "The outline: every node as an editable tree, at /. It reads no settings.",
+  }),
+);
 
 /**
  * A read-only glimpse of the outline under `root`: its text, then its
@@ -24,6 +32,9 @@ export const OutlineSnippetParams = Schema.Struct({
   root: Schema.NonEmptyString,
   depth: Schema.Literals([0, 1, 2]),
   maxRows: Schema.Int.check(Schema.isGreaterThan(0)),
+}).annotate({
+  description:
+    "A read-only glimpse of the outline under root: its text, then its descendants depth levels down, at most maxRows rows. Stored, root is lens.focus, else the node it is shown for, and a stored snippet shows depth 1 and 6 rows.",
 });
 export type OutlineSnippetParams = typeof OutlineSnippetParams.Type;
 
@@ -60,7 +71,9 @@ function frameViewKey<P extends FrameViewParams>(
 /** A frame's children as the outline shows them, nested. */
 export const OutlineListView = frameViewKey(
   "list",
-  Schema.Struct({ filters: FRAME_SETTINGS.filters }),
+  Schema.Struct({ filters: FRAME_SETTINGS.filters }).annotate({
+    description: "A frame's children as the outline shows them, nested, filtered." + FRAME_HOST,
+  }),
   "outline",
 );
 
@@ -73,6 +86,8 @@ export const OutlineTableView = frameViewKey(
     display: FRAME_SETTINGS.display,
     colwidth: FRAME_SETTINGS.colwidth,
     pagesize: FRAME_SETTINGS.pagesize,
+  }).annotate({
+    description: "A frame's rows as one sorted, paged run, a column per field." + FRAME_HOST,
   }),
   "rows",
 );
@@ -85,6 +100,9 @@ export const OutlineBoardView = frameViewKey(
     sort: FRAME_SETTINGS.sort,
     display: FRAME_SETTINGS.display,
     groupFieldId: FRAME_SETTINGS.groupFieldId,
+  }).annotate({
+    description:
+      "A frame's rows as cards, a column per value of its group field (groupFieldId)." + FRAME_HOST,
   }),
   "columns",
 );
@@ -96,6 +114,8 @@ export const OutlineCardsView = frameViewKey(
     filters: FRAME_SETTINGS.filters,
     sort: FRAME_SETTINGS.sort,
     display: FRAME_SETTINGS.display,
+  }).annotate({
+    description: "A frame's rows as cards in one grid." + FRAME_HOST,
   }),
   "columns",
 );

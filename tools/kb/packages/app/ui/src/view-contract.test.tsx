@@ -30,7 +30,7 @@ import {
   type ProvidedView,
 } from "@/lib/plugins";
 import { MAX_VIEW_DEPTH } from "@/lib/view-key";
-import { NoParams, localIdOf, viewKey } from "@kb/views";
+import { NoParams, VIEW_CATALOG, localIdOf, viewKey } from "@kb/views";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS } from "@/ui-plugins";
 
@@ -209,6 +209,10 @@ describe("view contract", () => {
         )?.[1].id;
         if (view.key.family !== undefined) expect(expected).toBeDefined();
         expect(family?.v).toBe(expected);
+      });
+
+      it("is drawn under a key of the view catalog, the one the server lists", () => {
+        expect(VIEW_CATALOG).toContain(view.key);
       });
 
       it("declares its settings, and its sample is a legal value of them", () => {

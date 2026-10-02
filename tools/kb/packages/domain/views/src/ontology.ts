@@ -13,11 +13,17 @@ export const OntologyScopeParams = Schema.Struct({
   id: Schema.String,
   /** Which projection of the scope: the definition page, the outline, or the graph. */
   view: Schema.Literals(ONTOLOGY_VIEWS),
+}).annotate({
+  description:
+    "One ontology's scope, projected onto the view its params name. Its params come from the route: a view node holds none.",
 });
 export type OntologyScopeParams = typeof OntologyScopeParams.Type;
 
 /** Every ontology in the workspace. */
-export const OntologyListView = viewKey(`${ONTOLOGY_NAMESPACE}.list`, NoParams);
+export const OntologyListView = viewKey(
+  `${ONTOLOGY_NAMESPACE}.list`,
+  NoParams.annotate({ description: "Every ontology in the workspace. It reads no settings." }),
+);
 
 /** One ontology's scope, projected onto the view its params name. */
 export const OntologyScopeView = viewKey(`${ONTOLOGY_NAMESPACE}.scope`, OntologyScopeParams);

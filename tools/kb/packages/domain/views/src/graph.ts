@@ -10,6 +10,9 @@ export const GraphParams = Schema.Struct({
   perspective: Schema.optionalKey(Schema.String),
   /** Scopes the graph to one ontology's members, when an ontology embeds it. */
   ontology: Schema.optionalKey(Schema.String),
+}).annotate({
+  description:
+    "The graph page, drawing one graph view node (perspective) at /graph[/<perspective>]. Its params come from the route: a view node holds none.",
 });
 export type GraphParams = typeof GraphParams.Type;
 
@@ -30,6 +33,9 @@ export const NeighbourhoodParams = Schema.Struct({
   renderer: Schema.String,
   /** What the renderer draws with: the lens settings, each one's schema. */
   settings: Schema.Struct(LENS_SETTINGS),
+}).annotate({
+  description:
+    "A node's neighbourhood: the nodes within hops of root along edges, in either direction, drawn by the renderer view whose option renderer names, with settings. Stored, root is lens.focus, else the node it is shown for.",
 });
 export type NeighbourhoodParams = typeof NeighbourhoodParams.Type;
 
@@ -118,6 +124,11 @@ function rendererKey<P>(
   };
 }
 
+/** What every renderer says of where it is shown, after what it draws. */
+function rendererDescription(draws: string): string {
+  return `${draws}. A graph renderer: a graph view node names it as its view (sys.f.view) and holds its settings; which nodes it draws is the node's lens (lens.query and the mappings), which no renderer's params declare.`;
+}
+
 const standard: RendererCapabilities = {
   fit: true,
   zoom: true,
@@ -138,7 +149,7 @@ export const Force2dView = rendererKey(
     showLabels: LENS_SETTINGS.showLabels,
     theme: LENS_SETTINGS.theme,
     linkStyle: LENS_SETTINGS.linkStyle,
-  }),
+  }).annotate({ description: rendererDescription("Force-directed 2D") }),
   {
     capabilities: { ...standard, drag: true },
     channels: ["relationships", "color", "label", "size"],
@@ -148,7 +159,9 @@ export const Force2dView = rendererKey(
 /** A spanning tree of the chosen edges. */
 export const TreeView = rendererKey(
   "tree",
-  Schema.Struct({ showLabels: LENS_SETTINGS.showLabels }),
+  Schema.Struct({ showLabels: LENS_SETTINGS.showLabels }).annotate({
+    description: rendererDescription("A spanning tree of the chosen edges"),
+  }),
   {
     capabilities: { ...standard, drag: false },
     channels: ["relationships", "color", "label"],
@@ -163,7 +176,7 @@ export const ClusterView = rendererKey(
     showLabels: LENS_SETTINGS.showLabels,
     theme: LENS_SETTINGS.theme,
     linkStyle: LENS_SETTINGS.linkStyle,
-  }),
+  }).annotate({ description: rendererDescription("The 2D force layout, grouped into hulls") }),
   {
     capabilities: { ...standard, drag: true },
     channels: ["relationships", "color", "label", "size", "group"],
@@ -181,7 +194,7 @@ export const Force3dView = rendererKey(
     autorotate: LENS_SETTINGS.autorotate,
     theme: LENS_SETTINGS.theme,
     linkStyle: LENS_SETTINGS.linkStyle,
-  }),
+  }).annotate({ description: rendererDescription("Force-directed 3D") }),
   {
     capabilities: { ...standard, drag: false },
     linkMotion: true,
@@ -192,7 +205,9 @@ export const Force3dView = rendererKey(
 /** Area by the size encoding, boxed by the group encoding. */
 export const TreemapView = rendererKey(
   "treemap",
-  Schema.Struct({ showLabels: LENS_SETTINGS.showLabels }),
+  Schema.Struct({ showLabels: LENS_SETTINGS.showLabels }).annotate({
+    description: rendererDescription("Area by the size encoding, boxed by the group encoding"),
+  }),
   {
     capabilities: { ...standard, fit: false, zoom: false, reset: false, focus: false },
     channels: ["color", "size", "group", "label"],

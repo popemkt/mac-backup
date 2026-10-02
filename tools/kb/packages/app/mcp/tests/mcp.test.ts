@@ -17,6 +17,35 @@ async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-mcp-"));
 }
 
+/** An MCP client connected to a fresh server over `root`, and how to close both. */
+async function connect(root: string): Promise<{ client: Client; close: () => Promise<void> }> {
+  const server = await run(createMcpServer(root));
+  const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+  return {
+    client,
+    close: async () => {
+      await client.close();
+      await server.close();
+    },
+  };
+}
+
+/** A tool call's one text content, parsed as the JSON it carries. */
+async function callJson(
+  client: Client,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<{ isError: boolean; body: unknown }> {
+  const result = await client.callTool({ name, arguments: args });
+  const [first] = result.content as { type: string; text: string }[];
+  return {
+    isError: result.isError === true,
+    body: JSON.parse(present(first, "a text content").text),
+  };
+}
+
 describe("MCP surface", () => {
   let root: string;
 
@@ -95,6 +124,18 @@ describe("MCP surface", () => {
 
     await client.close();
     await server.close();
+  });
+
+  test("kb_manifest lists the view catalog, each view's settings as JSON Schema", async () => {
+    const { client, close } = await connect(root);
+    const { body } = await callJson(client, "kb_manifest", {});
+    const { views } = body as {
+      views: { id: string; option: string; settings: { properties?: object } }[];
+    };
+    const board = views.find((v) => v.id === "outline.board");
+    expect(board?.option).toBe("sys.view.outline.board");
+    expect(Object.keys(board?.settings.properties ?? {})).toContain("groupFieldId");
+    await close();
   });
 
   test("failed action returns isError with code+message, never throws", async () => {

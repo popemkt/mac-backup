@@ -16,7 +16,10 @@ export const LAB_SCENE_IDS = [
 ] as const;
 export type LabSceneId = (typeof LAB_SCENE_IDS)[number];
 
-export const LabParams = Schema.Struct({ scene: Schema.Literals(LAB_SCENE_IDS) });
+export const LabParams = Schema.Struct({ scene: Schema.Literals(LAB_SCENE_IDS) }).annotate({
+  description:
+    "The lab, showing one visual study. Its params come from the route: a view node holds none.",
+});
 export type LabParams = typeof LabParams.Type;
 
 /** The lab, showing one study. */
