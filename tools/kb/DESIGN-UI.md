@@ -46,6 +46,7 @@ implementation modules under `packages/app/server/src/` split by concern:
 |---|---|
 | `server.ts` | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown |
 | `http.ts` | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback |
+| `invoke.ts` | how the server runs an invocation it is handed: reload, then the invoke core |
 | `session.ts` | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup) |
 | `assets.ts` | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary) |
 | `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn` |

@@ -11,10 +11,10 @@ import {
   type ServerIdentity,
   type SurfaceWire,
 } from "@kb/contracts";
-import { reloadEffect } from "@kb/operations";
-import { type ActionHandlerEnv, invokeReceiptEffect, manifest } from "@kb/runtime";
+import { type ActionHandlerEnv, manifest } from "@kb/runtime";
 import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
+import { serverInvoke } from "./invoke.ts";
 import { listSavedQueriesEffect } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
 import type { SubscriptionHub } from "./session.ts";
@@ -116,12 +116,7 @@ const handleHttpRequestEffect = (
         return invalidInput(parsed.error.issues.map((i) => i.message).join("; "));
       }
 
-      // Fresh load so we don't miss external writes, then invoke natively.
-      // What the invocation commits reaches watchers through the log, which
-      // the hub is already subscribed to: persist → log → hub, with no second
-      // path from here and nothing to wait for fs.watch to notice.
-      yield* reloadEffect(ctx);
-      const receipt = yield* invokeReceiptEffect(ctx, parsed.data).pipe(
+      const receipt = yield* serverInvoke(ctx, parsed.data).pipe(
         Effect.provideService(TxOrigin, req.headers.get("x-kb-origin") ?? undefined),
       );
       // The head once the invocation has committed: the rev a client waits
