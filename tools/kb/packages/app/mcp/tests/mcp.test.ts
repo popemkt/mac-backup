@@ -174,6 +174,10 @@ describe("MCP surface", () => {
         template: "todos",
       }),
     );
+    // A docs view that cannot be read leaves the others listed and readable.
+    await Effect.runPromise(
+      addDocsView(root, "bare", { output: "docs/kb/bare.md", query: "[:find ?id]", template: "" }),
+    );
 
     const server = await run(createMcpServer(root));
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
@@ -182,7 +186,7 @@ describe("MCP surface", () => {
 
     const resources = await client.listResources();
     const uris = resources.resources.map((r) => r.uri);
-    expect(uris).toContain("ui://kb/view/todos");
+    expect(uris).toEqual(["ui://kb/view/todos"]);
 
     const read = await client.readResource({ uri: "ui://kb/view/todos" });
     const first = present(read.contents[0], "expected read.contents[0]");

@@ -37,6 +37,21 @@ import {
 
 const VIEW_URI_PREFIX = "ui://kb/view/";
 
+/** The resource a docs view is read as: its name, URI-encoded, under the prefix. */
+function viewUri(name: string): string {
+  return `${VIEW_URI_PREFIX}${encodeURIComponent(name)}`;
+}
+
+/** The docs view name a resource URI addresses, or null when it addresses none. */
+function viewNameOfUri(uri: string): string | null {
+  if (!uri.startsWith(VIEW_URI_PREFIX)) return null;
+  try {
+    return decodeURIComponent(uri.slice(VIEW_URI_PREFIX.length));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The `_meta` key under which every tool carries the action it projects:
  * `{id, mode}`, exactly as the manifest has them. A tool name is the id with
@@ -179,7 +194,7 @@ const listResourcesEffect = Effect.fn("mcp.listResources")(function* (ctx: KbCon
   const names = yield* listViewNamesEffect();
   return {
     resources: names.map((name) => ({
-      uri: `${VIEW_URI_PREFIX}${name}`,
+      uri: viewUri(name),
       name: `kb view: ${name}`,
       mimeType: "text/html",
     })),
@@ -187,10 +202,8 @@ const listResourcesEffect = Effect.fn("mcp.listResources")(function* (ctx: KbCon
 });
 
 const readResourceEffect = Effect.fn("mcp.readResource")(function* (ctx: KbContext, uri: string) {
-  if (!uri.startsWith(VIEW_URI_PREFIX)) {
-    return yield* domainError("not_found", `unknown resource: ${uri}`);
-  }
-  const name = uri.slice(VIEW_URI_PREFIX.length);
+  const name = viewNameOfUri(uri);
+  if (name === null) return yield* domainError("not_found", `unknown resource: ${uri}`);
   yield* reloadEffect(ctx);
   const rendered = yield* renderNamedViewEffect(name, "html");
   return {

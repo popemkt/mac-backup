@@ -274,6 +274,36 @@ describe("docs.materialize + docs.check", () => {
     expect(content).not.toContain("Everything else");
   });
 
+  test("a docs view that cannot be read is a warning; the others are still checked", async () => {
+    const ctx = await seedTodos(root);
+    await mustInvoke(ctx, "docs.materialize", {});
+    await addDocsView(ctx, "bare", { output: "docs/kb/bare.md", query: TODOS_QUERY });
+    const check = (await mustInvoke(ctx, "docs.check", {})) as {
+      clean: boolean;
+      views: { view: string; output: string; status: string }[];
+      warnings: string[];
+    };
+    expect(check.views).toEqual([{ view: "todos", output: "docs/kb/todos.md", status: "clean" }]);
+    expect(check.clean).toBe(true);
+    expect(check.warnings).toEqual(["view bare has no template"]);
+    const names = (await mustInvoke(ctx, "render.views", {})) as { views: string[] };
+    expect(names.views).toEqual(["todos"]);
+  });
+
+  test("a docs view's name is refused when it is no workspace name or is taken", async () => {
+    const ctx = await seedTodos(root);
+    for (const text of ["has space", "todos"]) {
+      const made = await invoke(ctx, {
+        id: "node.add",
+        input: {
+          text,
+          props: [{ field: SYSTEM_IDS.viewField, value: { t: "ref", v: DOCS_VIEW_OPTION } }],
+        },
+      });
+      expect(made.status).toBe("failed");
+    }
+  });
+
   test("invalid docs views fail with typed receipts naming what is wrong", async () => {
     const ctx = await seedTodos(root);
 

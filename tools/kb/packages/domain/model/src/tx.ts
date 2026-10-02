@@ -3,6 +3,7 @@ import { cardinalityOf } from "./field-type.ts";
 import { valueConformanceError } from "./field-value.ts";
 import type { KbNode, NodeId } from "./model.ts";
 import { present } from "./present.ts";
+import { docsViewNameError, docsViewNameOf, isDocsView } from "./view-node.ts";
 
 /**
  * One store transaction: the nodes to write and the ids to drop. The shape
@@ -156,9 +157,34 @@ function writtenValueError(
 }
 
 /**
+ * The first docs view a transaction names that its name cannot name
+ * (`docsViewNameError`). Scoped like the value check: only a node the
+ * transaction makes a docs view, or renames while it is one, is checked, so
+ * a store that already holds a bad name stays editable and `docs.check`
+ * reports it.
+ */
+function writtenDocsViewNameError(
+  before: Map<NodeId, KbNode>,
+  next: Map<NodeId, KbNode>,
+  tx: StoreTx,
+): string | null {
+  for (const { id } of tx.upserts) {
+    const node = next.get(id);
+    if (node === undefined || !isDocsView(node)) continue;
+    const was = before.get(id);
+    if (was !== undefined && isDocsView(was) && docsViewNameOf(was) === docsViewNameOf(node))
+      continue;
+    const err = docsViewNameError(node, next.values());
+    if (err !== null) return `node ${id}: ${err}`;
+  }
+  return null;
+}
+
+/**
  * Validate the prospective graph before it can be persisted: the outline is a
  * forest (every child exists, has one parent, no cycles, no orphaned
- * descendants), and every value the transaction writes conforms to its field.
+ * descendants), every value the transaction writes conforms to its field,
+ * and every docs view it names or renames has a name of its own.
  */
 export function txIntegrityError(previous: KbNode[], tx: StoreTx): string | null {
   const before = new Map(previous.map((node) => [node.id, node]));
@@ -170,7 +196,7 @@ export function txIntegrityError(previous: KbNode[], tx: StoreTx): string | null
   if (orphan !== null) return orphan;
   const cycle = cycleError(next, parentOf);
   if (cycle !== null) return cycle;
-  return writtenValueError(before, next, tx);
+  return writtenValueError(before, next, tx) ?? writtenDocsViewNameError(before, next, tx);
 }
 
 /**

@@ -2,7 +2,13 @@ import { Effect } from "effect";
 import { z } from "zod";
 import type { ActionDefinition, KbCtx, SavedQueries, TemplateRegistry } from "@kb/contracts";
 import { DomainError, domainError, present } from "@kb/model";
-import { DocsError, GENERATED_HEADER, loadViewsEffect, renderViewEffect } from "./docs/docs.ts";
+import {
+  DocsError,
+  GENERATED_HEADER,
+  docsViewEffect,
+  docsViewsEffect,
+  renderViewEffect,
+} from "./docs/docs.ts";
 
 type RenderError = DomainError | DocsError;
 type RenderEnv = KbCtx | SavedQueries | TemplateRegistry;
@@ -78,14 +84,7 @@ export const renderNamedViewEffect = Effect.fn("render.namedView")(function* (
   viewName: string,
   format: RenderFormat,
 ): Effect.fn.Return<RenderedView, RenderError, RenderEnv> {
-  const views = yield* loadViewsEffect(viewName);
-  const view = views[0];
-  if (!view) {
-    return yield* Effect.fail(
-      new DocsError("not_found", `view not found: ${viewName}`, { viewName }),
-    );
-  }
-  const md = yield* renderViewEffect(view);
+  const md = yield* renderViewEffect(yield* docsViewEffect(viewName));
   if (format === "md") {
     return { name: viewName, format, content: md };
   }
@@ -104,7 +103,7 @@ export const listViewNamesEffect = Effect.fn("render.listViews")(function* (): E
   RenderError,
   RenderEnv
 > {
-  const views = yield* loadViewsEffect();
+  const { views } = yield* docsViewsEffect();
   return views.map((v) => v.name).toSorted();
 });
 

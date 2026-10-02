@@ -19,6 +19,7 @@ if (receipt.status !== "succeeded") {
 
 // The action declares this shape; parse it rather than assert it.
 const out = materializeOutput.parse(receipt.output);
+for (const warning of out.warnings) writeErr(`kb docs: warning — ${warning}`);
 for (const w of out.written) {
   writeOut(`kb docs: wrote ${w.output} (view: ${w.view})`);
 }

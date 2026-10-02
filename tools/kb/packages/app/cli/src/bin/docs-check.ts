@@ -15,6 +15,7 @@ if (receipt.status !== "succeeded") {
 
 // The action declares this shape; parse it rather than assert it.
 const out = checkOutput.parse(receipt.output);
+for (const warning of out.warnings) writeErr(`kb docs: warning — ${warning}`);
 
 if (out.clean) {
   writeOut(`kb docs: clean (${out.views.length} view${out.views.length === 1 ? "" : "s"})`);

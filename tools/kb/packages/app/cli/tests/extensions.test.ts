@@ -125,7 +125,7 @@ describe("bundled docs extension", () => {
       const receipt = await invoke(ctx, { id, input: {} });
       expect(receipt.status).toBe("succeeded");
       if (receipt.status === "succeeded") {
-        expect(receipt.output).toEqual({ clean: true, views: [] });
+        expect(receipt.output).toEqual({ clean: true, views: [], warnings: [] });
       }
     }
 

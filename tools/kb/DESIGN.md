@@ -880,12 +880,13 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   `lens.renderer` ref to one of them elsewhere names that renderer's view.
   The root's `.kb/views/*.json` specs are imported as docs views
   ([Materialization](#materialization)) and their files removed once the
-  nodes are committed; a spec it cannot read, or whose `docs.<name>` a node
-  already holds, is named in a warning and its file stays. The migration is
-  a pure function of the node set and what the action passes in (the specs
-  and the one stamp an imported docs view is dated at) — no fresh ids — so
-  two stores migrated apart write the same nodes and merge cleanly, and a
-  second run changes nothing. It runs over the store port, so the store
+  nodes are committed; a spec it cannot read, whose `docs.<name>` a node
+  already holds, or whose name another docs view goes by, is named in a
+  warning and its file stays. The migration is a pure function of the node
+  set and what the action passes in (the specs and the one stamp an
+  imported docs view is dated at) — no fresh ids — so two stores migrated
+  apart write the same nodes and merge cleanly, and a second run changes
+  nothing. It runs over the store port, so the store
   contract holds it for every backend. A view node its host stops naming is
   not deleted with it (GAP [GAP-ORPHAN-VIEW-NODES]).
 - **Transient views stay out of the graph.** A hover card or a selection
@@ -1592,12 +1593,18 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
   (`sys.f.view.template`) and its repo-relative output
   (`sys.f.view.output`). Its text is the name `render.view`,
   `render.views`, `docs.materialize`/`docs.check` and MCP's `render_view` /
-  `ui://kb/view/<name>` know it by, so those contracts keep their names; a
-  name two docs views share is refused as ambiguous, and a missing param is
-  named in the failure. The `.kb/views/*.json` specs were a second store of
-  the same concept — a chosen projection: which rows, through which
-  template, to where — so they are retired rather than kept beside the
-  nodes, and nothing reads them but `views.migrate`, which turns a root's
+  `ui://kb/view/<name>` (the name URI-encoded) know it by, so those
+  contracts keep their names. The name is a workspace name that no other
+  docs view goes by (`docsViewNameError`): the write check refuses a write
+  that makes or renames a docs view against it, as it refuses a value its
+  field cannot hold. A docs view that still cannot be read — a name stored
+  before the check, or a missing param — never stops the others: it is a
+  warning in `docs.check` and `docs.materialize`, left out of
+  `render.views` and MCP's resource list, and a failure naming what is
+  wrong only when it is asked for by name. The `.kb/views/*.json` specs
+  were a second store of the same concept — a chosen projection: which
+  rows, through which template, to where — so they are retired rather than
+  kept beside the nodes, and nothing reads them but `views.migrate`, which turns a root's
   leftover specs into docs view nodes (`docs.<name>`, filed in the Views
   list; GAP [GAP-LEGACY-DOCS-VIEWS-IMPORT]). Templates are named TS functions
   (rows → md), no template-lang dep. They are contributed by extensions

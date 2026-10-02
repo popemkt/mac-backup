@@ -9,6 +9,7 @@
  */
 import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
 import { childrenTargetQuery } from "./field-type.ts";
+import { isValidWorkspaceName } from "./workspace-name.ts";
 
 /** What this module reads of a node: its props. */
 interface Carrier {
@@ -164,6 +165,43 @@ export type DocsViewSpec = {
 
 /** The option a docs view node names. */
 export const DOCS_VIEW_OPTION = viewOptionId("docs.markdown");
+
+/** Whether `node` is a docs view: a view node whose view is `docs.markdown`. */
+export function isDocsView(node: Carrier | undefined): boolean {
+  return viewOptionOf(node) === DOCS_VIEW_OPTION;
+}
+
+/** A node as a docs view's name is read from it: its id, text and props. */
+interface NamedCarrier extends Carrier {
+  readonly id: NodeId;
+  readonly text: string;
+}
+
+/** The name a docs view goes by: its text, trimmed. */
+export function docsViewNameOf(node: { readonly text: string }): string {
+  return node.text.trim();
+}
+
+/**
+ * Why a docs view's name cannot name it among `nodes` (the whole graph), or
+ * null. The name is what `render.view`, `docs.materialize`/`docs.check` and
+ * `ui://kb/view/<name>` address it by, so it is a workspace name
+ * (`isValidWorkspaceName`) and no other docs view goes by it. The write check
+ * refuses a docs view that breaks this; `docs.check` reports one already
+ * stored.
+ */
+export function docsViewNameError(
+  node: NamedCarrier,
+  nodes: Iterable<NamedCarrier>,
+): string | null {
+  const name = docsViewNameOf(node);
+  if (!isValidWorkspaceName(name))
+    return `docs view name "${name}" is not a workspace name (letters, digits, _ . -, starting on a letter, digit or _)`;
+  for (const other of nodes)
+    if (other.id !== node.id && isDocsView(other) && docsViewNameOf(other) === name)
+      return `docs view name ${name} is taken by ${other.id}`;
+  return null;
+}
 
 const str = (v: string): PropValue[] => [{ t: "str", v }];
 

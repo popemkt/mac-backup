@@ -12,12 +12,12 @@
  */
 import { SYSTEM_IDS, type KbNode, type NodeId, type PropValue } from "./model.ts";
 import {
-  DOCS_VIEW_OPTION,
+  docsViewNameError,
   docsViewProps,
   viewsWithDefault,
   isViewNode,
   viewOptionId,
-  viewOptionOf,
+  isDocsView,
   type DocsViewSpec,
 } from "./view-node.ts";
 
@@ -248,7 +248,9 @@ function docsViewNode(view: LegacyDocsView, at: string): KbNode {
 /**
  * The legacy docs views to import, each as its node, and what to say about
  * the ones left out: a name whose `docs.<name>` a docs view already holds is
- * imported already, and one a node that is no docs view holds cannot be.
+ * imported already, one a node that is no docs view holds cannot be, and a
+ * name another docs view goes by would be a second view of that name
+ * (`docsViewNameError`).
  */
 function docsImports(
   legacy: LegacyViews,
@@ -258,11 +260,15 @@ function docsImports(
   return legacy.docs.flatMap((view) => {
     const id = docsViewNodeId(view.name);
     const holder = byId.get(id);
-    if (holder === undefined) return [docsViewNode(view, legacy.at)];
+    const node = docsViewNode(view, legacy.at);
+    const nameError = docsViewNameError(node, byId.values());
+    if (holder === undefined && nameError === null) return [node];
     warnings.push(
-      viewOptionOf(holder) === DOCS_VIEW_OPTION
-        ? `docs view ${view.name} is already ${id}; its spec file was not imported again`
-        : `${id} is a node that is no docs view; docs view ${view.name} was not imported`,
+      holder === undefined
+        ? `${nameError}; docs view ${view.name} was not imported`
+        : isDocsView(holder)
+          ? `docs view ${view.name} is already ${id}; its spec file was not imported again`
+          : `${id} is a node that is no docs view; docs view ${view.name} was not imported`,
     );
     return [];
   });

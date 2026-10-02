@@ -299,6 +299,21 @@ describe("what the migration cannot do as asked, it says", () => {
     ]);
   });
 
+  test("a docs view whose name another docs view goes by is not imported: it would be a second", () => {
+    const namesake = node("my.rules", { text: "rules", props: docsViewProps(spec) });
+    const result = migrateToViewNodes([namesake], {
+      docs: [
+        { name: "rules", spec },
+        { name: "todos", spec },
+      ],
+      at: AT,
+    });
+    expect(result.imported).toEqual(["todos"]);
+    expect(result.warnings).toEqual([
+      "docs view name rules is taken by my.rules; docs view rules was not imported",
+    ]);
+  });
+
   test("the withdrawn placement field and its options are retired", () => {
     const placement = node("sys.f.view.placement", { children: ["sys.view-placement.inline"] });
     const result = migrateToViewNodes([placement, node("sys.view-placement.inline")], NONE);

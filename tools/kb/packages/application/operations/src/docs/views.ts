@@ -1,10 +1,11 @@
 import { Effect } from "effect";
 import { KbCtx } from "@kb/contracts";
 import {
-  DOCS_VIEW_OPTION,
   SYSTEM_IDS,
+  docsViewNameError,
+  docsViewNameOf,
   firstStr,
-  viewOptionOf,
+  isDocsView,
   type DocsViewSpec,
   type FailureCode,
   type KbNode,
@@ -46,7 +47,7 @@ function isRepoRelative(output: string): boolean {
 
 /** The docs view a view node is, or the param it cannot be read without. */
 function loadedView(node: KbNode): LoadedView | DocsError {
-  const name = node.text.trim();
+  const name = docsViewNameOf(node);
   const param = (field: string, label: string) => {
     const value = firstStr(field)(node.props);
     return value === undefined || value === ""
@@ -80,31 +81,61 @@ function loadedView(node: KbNode): LoadedView | DocsError {
 }
 
 /**
- * The docs views, one by name or every one sorted by name: the view nodes
- * whose view is `docs.markdown`. A name two view nodes go by is ambiguous.
+ * Every docs view node — a view node whose view is `docs.markdown` — sorted
+ * by name, as the view it is or, by the name it goes by, why it cannot be
+ * one: its name is no workspace name or another docs view goes by it too
+ * (`docsViewNameError`), or a param it cannot be read without is missing.
  */
-export const loadViewsEffect = Effect.fn("docs.loadViews")(function* (
-  name?: string,
-): Effect.fn.Return<LoadedView[], DocsError, KbCtx> {
-  const ctx = yield* KbCtx;
-  const nodes = ctx.nodes
-    .filter((node) => viewOptionOf(node) === DOCS_VIEW_OPTION)
-    .filter((node) => name === undefined || node.text.trim() === name)
+function readDocsViews(nodes: readonly KbNode[]): {
+  views: LoadedView[];
+  failures: Map<string, DocsError>;
+} {
+  const docs = nodes
+    .filter(isDocsView)
     .toSorted((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
-  if (name !== undefined && nodes.length === 0)
-    return yield* Effect.fail(new DocsError("not_found", `view not found: ${name}`, { name }));
-  if (name !== undefined && nodes.length > 1)
-    return yield* Effect.fail(
-      new DocsError("invalid_input", `view name is ambiguous: ${name}`, {
-        name,
-        ids: nodes.map((node) => node.id),
-      }),
-    );
   const views: LoadedView[] = [];
-  for (const node of nodes) {
-    const view = loadedView(node);
-    if (view instanceof DocsError) return yield* Effect.fail(view);
-    views.push(view);
+  const failures = new Map<string, DocsError>();
+  for (const node of docs) {
+    const name = docsViewNameOf(node);
+    const nameError = docsViewNameError(node, docs);
+    const view =
+      nameError === null
+        ? loadedView(node)
+        : new DocsError("invalid_input", `view ${name}: ${nameError}`, { name, id: node.id });
+    if (!(view instanceof DocsError)) views.push(view);
+    else if (!failures.has(name)) failures.set(name, view);
   }
-  return views;
+  return { views, failures };
+}
+
+/** The docs views that can be read, and a line for each docs view node that cannot. */
+export interface DocsViews {
+  readonly views: readonly LoadedView[];
+  readonly warnings: readonly string[];
+}
+
+/**
+ * Every docs view, sorted by name. One that cannot be read is a warning, not
+ * a failure: it leaves the rest to `docs.check`, pre-commit and MCP's
+ * resource list.
+ */
+export const docsViewsEffect = Effect.fn("docs.views")(function* (): Effect.fn.Return<
+  DocsViews,
+  never,
+  KbCtx
+> {
+  const { views, failures } = readDocsViews((yield* KbCtx).nodes);
+  return { views, warnings: [...failures.values()].map((failure) => failure.message) };
+});
+
+/** The docs view `name` names, or why there is none it can be. */
+export const docsViewEffect = Effect.fn("docs.view")(function* (
+  name: string,
+): Effect.fn.Return<LoadedView, DocsError, KbCtx> {
+  const { views, failures } = readDocsViews((yield* KbCtx).nodes);
+  const view = views.find((candidate) => candidate.name === name);
+  if (view !== undefined) return view;
+  return yield* Effect.fail(
+    failures.get(name) ?? new DocsError("not_found", `view not found: ${name}`, { name }),
+  );
 });

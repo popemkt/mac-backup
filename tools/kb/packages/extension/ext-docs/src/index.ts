@@ -9,7 +9,7 @@ import type {
   SavedQueries,
   TemplateRegistry,
 } from "@kb/contracts";
-import { DocsError, loadViewsEffect, renderViewEffect } from "@kb/operations";
+import { DocsError, docsViewEffect, docsViewsEffect, renderViewEffect } from "@kb/operations";
 import { rules } from "./rules.ts";
 import { todos } from "./todos.ts";
 
@@ -33,8 +33,12 @@ const viewInput = z.object({
   view: z.string().optional(),
 });
 
+/** One line for each docs view node that cannot be read as one; the rest are still done. */
+const warningsSchema = z.array(z.string());
+
 export const materializeOutput = z.object({
   written: z.array(z.object({ view: z.string(), output: z.string() })),
+  warnings: warningsSchema,
 });
 
 export const checkOutput = z.object({
@@ -46,9 +50,19 @@ export const checkOutput = z.object({
       status: z.enum(["clean", "stale", "missing"]),
     }),
   ),
+  warnings: warningsSchema,
 });
 
 type DocsEnv = KbCtx | FileSystem | TemplateRegistry | SavedQueries;
+
+/**
+ * The docs views an action runs over: the one it names, which must be one, or
+ * every one that can be read, with a warning for each that cannot.
+ */
+const selectedViews = Effect.fn("ext.docs.views")(function* (input: z.infer<typeof viewInput>) {
+  if (input.view === undefined) return yield* docsViewsEffect();
+  return { views: [yield* docsViewEffect(input.view)], warnings: [] };
+});
 
 function mapDocsFs(err: unknown, message: string): DocsError {
   return new DocsError(
@@ -62,7 +76,7 @@ export const docsMaterializeEffect = Effect.fn("ext.docs.materialize")(function*
 ): Effect.fn.Return<z.infer<typeof materializeOutput>, DocsError, DocsEnv> {
   const ctx = yield* KbCtx;
   const fs = yield* FileSystem;
-  const views = yield* loadViewsEffect(input.view);
+  const { views, warnings } = yield* selectedViews(input);
   const written: { view: string; output: string }[] = [];
   for (const view of views) {
     const content = yield* renderViewEffect(view);
@@ -75,7 +89,7 @@ export const docsMaterializeEffect = Effect.fn("ext.docs.materialize")(function*
       .pipe(Effect.mapError((err) => mapDocsFs(err, `write ${path}`)));
     written.push({ view: view.name, output: view.spec.output });
   }
-  return { written };
+  return { written, warnings: [...warnings] };
 });
 
 export const docsCheckEffect = Effect.fn("ext.docs.check")(function* (
@@ -83,7 +97,7 @@ export const docsCheckEffect = Effect.fn("ext.docs.check")(function* (
 ): Effect.fn.Return<z.infer<typeof checkOutput>, DocsError, DocsEnv> {
   const ctx = yield* KbCtx;
   const fs = yield* FileSystem;
-  const views = yield* loadViewsEffect(input.view);
+  const { views, warnings } = yield* selectedViews(input);
   const results: z.infer<typeof checkOutput>["views"] = [];
   for (const view of views) {
     const expected = yield* renderViewEffect(view);
@@ -97,6 +111,7 @@ export const docsCheckEffect = Effect.fn("ext.docs.check")(function* (
   return {
     clean: results.every((r) => r.status === "clean"),
     views: results,
+    warnings: [...warnings],
   };
 });
 
