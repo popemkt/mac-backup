@@ -16,42 +16,42 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.3.18";
+    version = "8.0.8";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.3.18/CLIProxyAPI_7.3.18_darwin_aarch64.tar.gz";
-      sha256 = "sha256-wFG/cNMklsZMbxJECF2y7F3r26uVQDNc3DOg0l5jvN0=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.8/CLIProxyAPI_8.0.8_darwin_aarch64.tar.gz";
+      sha256 = "sha256-30j+am5cYNGWbtN05rBWfLjIcYDfndFN+yX0I2W0uyU=";
     };
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.09.26-dd393fe";
+    version = "2026.09.28-64d2043";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.09.26-dd393fe/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-U4gn2Wp3m6uFSoZcjkKFno6H2zS19pdwJhuQ/Iz/8ZE=";
+      url = "https://downloads.cursor.com/lab/2026.09.28-64d2043/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-wNfpzS5iQ4YQuIbTQ5kH3B+YwpI7B7OkFBbMkZqvU8c=";
     };
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.10.1038";
+    version = "0.11.0";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.10.1038/GenOffice-0.10.1038-arm64.dmg";
-      sha256 = "sha256-KHVvbAcxlafI+8QK3SWdNSIGIxBwLLYQAejiRKomf18=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.11.0/GenOffice-0.11.0-arm64.dmg";
+      sha256 = "sha256-sUb1bVNfUdIUGE+Sb6FQQSKizgRfKVgbSdyGVVWzdWo=";
     };
   };
   logseq-nightly = {
     pname = "logseq-nightly";
-    version = "2.0.1-alpha+nightly.20260926";
+    version = "2.0.1-alpha+nightly.20260930";
     src = fetchurl {
-      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260926.zip";
-      sha256 = "sha256-npldUEWLhSzxFAM+wxbfbGA4lBVG/1bdHzfTOG1nMOY=";
+      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260930.zip";
+      sha256 = "sha256-7GCcSOi2wmNnB24cAyJQg98o8urITlBy9OyT8y2X+Dg=";
     };
   };
   vite-plus = {
     pname = "vite-plus";
-    version = "1.0.0-rc.1";
+    version = "1.0.0";
     src = fetchurl {
-      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.0.0-rc.1/vp-aarch64-apple-darwin.tar.gz";
-      sha256 = "sha256-YjSiWGa+AlzeHBmhS3tJI4Zubow5qecHRUDefz47zUE=";
+      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.0.0/vp-aarch64-apple-darwin.tar.gz";
+      sha256 = "sha256-MJ1CVQNIqhVuNKmi626eixxYhhJrFM2aiPQtFYqUSzU=";
     };
   };
 }
