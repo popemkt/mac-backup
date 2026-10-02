@@ -43,7 +43,7 @@ export const webMcpUiPlugin = webMcpPlugin({
   modelContext: () => modelContextOf(globalThis.document),
   // A local write answers at once and is pushed after; a tool call reports
   // the server's answer, so an agent never hears success for a rejected write.
-  invoke: async ({ id, input }) => (await invokeSettled(id, input)).settled,
+  invoke: async (invocation) => (await invokeSettled(invocation)).settled,
   whenManifestMayChange,
   whenPageHides,
   report: (message) => logWarn(`[kb/webmcp] ${message}`),

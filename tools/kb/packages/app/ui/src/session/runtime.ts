@@ -216,10 +216,12 @@ const done = (receipt: ActionReceipt): Invoked => ({
  * store and index runs locally first. A local read is then done, because it
  * has nothing to replicate. A local write is pushed so the server commits it
  * too: its `receipt` is the local commit, its `settled` is the server's
- * answer. Any other action goes to the server.
+ * answer. Any other action goes to the server. Every lane gets the whole
+ * envelope, so what the invocation declares reaches the invoke core that
+ * decides it, locally and on the server.
  */
-export async function invokeSettled(id: string, input: unknown): Promise<Invoked> {
-  const invocation: ActionInvocation = { id, input };
+export async function invokeSettled(invocation: ActionInvocation): Promise<Invoked> {
+  const { id } = invocation;
   const local = localActions.get(id);
   if (local === undefined) return done(await pushInvocation(invocation));
   if (local.def.mode.kind === "read") return done(await invokeLocal(invocation));
@@ -241,5 +243,5 @@ export async function invokeSettled(id: string, input: unknown): Promise<Invoked
 
 /** {@link invokeSettled} for a caller that acts on the first receipt and lets a rejected push surface as a toast. */
 export async function invoke(id: string, input: unknown): Promise<ActionReceipt> {
-  return (await invokeSettled(id, input)).receipt;
+  return (await invokeSettled({ id, input })).receipt;
 }
