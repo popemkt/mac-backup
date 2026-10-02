@@ -25,6 +25,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@kb/agent": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@kb/webmcp": "workspace:*",
     "@modelcontextprotocol/sdk": "catalog:",

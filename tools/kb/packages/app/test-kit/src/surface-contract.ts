@@ -3,8 +3,8 @@
  * promises. It is written once and run over all of the surfaces together.
  *
  * The registry is the source of truth. A surface (the CLI's
- * `action-invoke`, the MCP server, the HTTP API, the page's WebMCP tools) is
- * a way to reach it and
+ * `action-invoke`, the MCP server, the HTTP API, the page's WebMCP tools, the
+ * sidebar agent's tools) is a way to reach it and
  * must add nothing and drop nothing. It lists the same ids with the same
  * declared modes, and for the same call it returns the same receipt as the
  * invoke core. A guarantee kept by one surface and broken by another is

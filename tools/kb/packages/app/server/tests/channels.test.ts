@@ -100,12 +100,11 @@ describe("plugin channels", () => {
   test("an answer goes to the connection that asked, and a close reaches the channel", async () => {
     const a = await openTab("tab.a");
     const b = await openTab("tab.b");
-    const heardByA: unknown[] = [];
-    void run(a.hear("echo.chat", (frame) => (heardByA.push(frame), false))).catch(() => {});
     expect(await run(b.channel("echo.chat", "from b", () => true))).toMatchObject({
       data: { echo: "from b", tab: "tab.b" },
     });
-    expect(heardByA).toEqual([]);
+    expect(a.heard("echo.chat")).toEqual([]);
+    expect(b.heard("echo.chat")).toHaveLength(1);
     await run(b.close);
     tabs.splice(tabs.indexOf(b), 1);
     const deadline = Date.now() + 2000;

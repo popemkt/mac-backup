@@ -57,6 +57,7 @@ export class FakeTab {
   readonly refused: string[] = [];
   readonly #socket: WebSocket;
   readonly #waiters = new Set<(msg: ServerMessage) => void>();
+  readonly #heard = new Map<string, ChannelFrame[]>();
 
   private constructor(id: string, socket: WebSocket) {
     this.id = id;
@@ -65,17 +66,29 @@ export class FakeTab {
       const msg = ServerMessageSchema.parse(JSON.parse(String(event.data)));
       if (msg.op === "screen-command") this.#carryOut(msg.id, msg.command);
       if (msg.op === "screen-refused") this.refused.push(msg.tab);
+      const channel = msg.op === "channel" ? msg.channel : msg.op === "error" ? msg.id : undefined;
+      const frame = channel === undefined ? null : channelFrameOf(channel, msg);
+      if (channel !== undefined && frame !== null) {
+        this.#heard.set(channel, [...this.heard(channel), frame]);
+      }
       for (const waiter of this.#waiters) waiter(msg);
     });
   }
 
-  /** Connect to the `kb ui` at `url` as the tab `id`, and publish `screen`. */
-  static open(url: string, id: string, screen = FAKE_TAB_SCREEN): Effect.Effect<FakeTab> {
+  /**
+   * Connect to the `kb ui` at `url` as the tab `id`, and publish `screen`.
+   * With `null` it publishes none, and the connection is no tab at all.
+   */
+  static open(
+    url: string,
+    id: string,
+    screen: ScreenState | null = FAKE_TAB_SCREEN,
+  ): Effect.Effect<FakeTab> {
     return Effect.gen(function* () {
       const socket = new WebSocket(`${url.replace(/^http/, "ws")}/ws`);
       const tab = new FakeTab(id, socket);
       yield* tab.#exchange(null, (msg) => msg.op === "hello");
-      yield* tab.publish(screen);
+      if (screen !== null) yield* tab.publish(screen);
       return tab;
     });
   }
@@ -104,12 +117,14 @@ export class FakeTab {
     }).pipe(Effect.map((msg) => present(channelFrameOf(channel, msg), "a frame on the channel")));
   }
 
-  /** Wait for the first frame on the plugin channel `channel` that `until` accepts, sending nothing. */
-  hear(channel: string, until: (frame: ChannelFrame) => boolean): Effect.Effect<ChannelFrame> {
-    return this.#exchange(null, (msg) => {
-      const frame = channelFrameOf(channel, msg);
-      return frame !== null && until(frame);
-    }).pipe(Effect.map((msg) => present(channelFrameOf(channel, msg), "a frame on the channel")));
+  /** Send `data` on the plugin channel `channel`, waiting for nothing. */
+  say(channel: string, data: unknown): void {
+    this.#send({ op: "channel", channel, data });
+  }
+
+  /** Every frame the plugin channel `channel` has said to this connection, in order. */
+  heard(channel: string): readonly ChannelFrame[] {
+    return this.#heard.get(channel) ?? [];
   }
 
   /** Close the socket, and return once it is closed. */

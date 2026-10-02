@@ -1450,11 +1450,12 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   gap is known: the browser UI does not yet send approval
   (`GAP-BROWSER-APPROVAL`). The step 5 sidebar's approval prompt closes that.
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
-- **One contract, every surface.** The CLI (`action-invoke`), MCP, HTTP and
-  WebMCP each list the registry's action ids with their declared modes, from
-  their own listing: `kb.manifest`, the MCP tool list's `_meta`,
-  `GET /api/manifest`, and the tools registered on the page's model context,
-  less what `listedOn` leaves out for its declared wire. For the same call,
+- **One contract, every surface.** The CLI (`action-invoke`), MCP, HTTP,
+  WebMCP and the sidebar agent each list the registry's action ids with
+  their declared modes, from their own listing: `kb.manifest`, the MCP tool
+  list's `_meta`, `GET /api/manifest`, the tools registered on the page's
+  model context, and the tools a turn hands the agent's model, less what
+  `listedOn` leaves out for its declared wire. For the same call,
   each returns the invoke core's receipt, unless its wire cannot make the
   call at all, which only an action it leaves out may be (WebMCP cannot call
   a tool it never registered). An approved call runs only through a surface
@@ -1788,6 +1789,63 @@ A plugin can hold its own conversation with the connections of `kb ui`
 - In the browser, `KbWsClient.listen` and `sendChannel` carry a channel. A
   frame sent while the socket is down is dropped rather than replayed,
   because the plugin forgets a connection that closes.
+
+## Agent packages
+
+The sidebar agent lives outside core, in packages that core never imports
+(roadmap decision 8). They reach the surfaces through the hosts' kernels.
+
+| Package | Layer, scope | Holds |
+| --- | --- | --- |
+| `@kb/agent` | extension, shared | the runtime port, the channel's protocol, the bridge plugin, the prompt, the transcript the sidebar draws, and a scripted runtime |
+| `@kb/agent-claude` | extension, backend | the port's adapter over the local Claude Agent SDK |
+
+- **The bridge is a plugin of `kb ui`.** `agentPlugin({runtime})` injects
+  `UiHost` and owns the channel `agent.chat`
+  ([Plugin channels](#plugin-channels)). Anywhere else it waits, pending,
+  and does nothing.
+- **The runtime is a port**, and each backend is an adapter of it.
+  `AgentRuntime.turn(turn)` streams the reply's text and a `session`
+  handle, and it ends when the turn does. Interrupting the stream cancels
+  the turn, including a call that is waiting for the person. A turn
+  carries the system prompt, the message (the text and the sender's
+  screen), `resume` (the runtime's last `session`, which the bridge never
+  reads), the tools and `call`. The bridge owns the conversation, the
+  tools, approval and the prompt. A runtime owns only how one turn of a
+  model runs. ACP or another provider would be a further adapter, not a
+  fork. Tests run on `scriptedRuntime`.
+- **Every message carries the sender's screen.** The bridge asks
+  `ui.screen` for the tab that the sending connection publishes as. It
+  names the nodes that screen mentions (the open view's subject, the
+  focus and the selection, at most 12, through `node.get`) and hands the
+  result to the runtime as JSON. A runtime sends it as a `<screen>` block
+  before the text (`userTurnText`). A sender that is not a tab sends no
+  screen.
+- **The tools are the registry**: the manifest, filtered by
+  `listedOn(AGENT_WIRE)`, read at each turn. The agent's wire carries
+  approval, because a call that needs approval reaches a person before it
+  runs, so the agent lists every action.
+- **A call runs the way its mode says.**
+  - A call that needs no approval runs at once through `UiHost.invoke`.
+  - For a call whose action requires approval, the bridge sends
+    `tool-call` with `approval: true` and waits. The sidebar asks the
+    person. It then makes the call itself, through the browser's one
+    invoke path, with `approved` set to the person's answer, and replies
+    with that call's receipt. Declining is the same call without
+    approval, so the invoke core answers it `approval_required`.
+  - The bridge never declares approval. It takes only a receipt of the
+    same action, for a call that is waiting on that connection. Like
+    `approved`, the receipt is what the caller reports, not a proof
+    ([Action registry](#action-registry)).
+- **Conversations are ephemeral.** The sidebar mints the id. A
+  conversation belongs to the connection that started it and runs one
+  turn at a time. Closing that connection stops its turn and forgets it.
+  Nothing is written to the store. Threads kept as nodes are the
+  canonical shape (`GAP-AGENT-THREADS`). A backend may keep its own record
+  of a session, as Claude Code does.
+- `surfaceContract` runs the agent as one more surface (`agent`) over a
+  scripted model. It covers the listing, every receipt, and an approved
+  call made by the person.
 
 ## Repo integration
 

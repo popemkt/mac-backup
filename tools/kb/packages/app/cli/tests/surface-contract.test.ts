@@ -1,8 +1,9 @@
 /**
  * The surface contract (`@kb/test-kit`'s `surfaceContract`) run over every
  * surface that projects the action registry. This package is the one place
- * that can reach all four: the CLI is its own, and it composes the MCP and
- * HTTP servers and the page's WebMCP adapter.
+ * that can reach all five: the CLI is its own, and it composes the MCP and
+ * HTTP servers, the page's WebMCP adapter, and the agent bridge the `kb ui`
+ * server hosts.
  *
  * Each adapter speaks its surface's own protocol and turns the answer back
  * into a listing and a receipt without consulting the registry. That way a
@@ -22,7 +23,17 @@ import { ACTION_META_KEY, MCP_WIRE, createMcpServer } from "@kb/mcp";
 import { bunFileSystemLayer } from "@kb/runtime";
 import { HTTP_WIRE, startUi } from "@kb/server";
 import {
+  AGENT_CHANNEL,
+  AGENT_WIRE,
+  AgentEventSchema,
+  agentPlugin,
+  scriptedRuntime,
+  type AgentEvent,
+  type ScriptStep,
+} from "@kb/agent";
+import {
   FakeModelContext,
+  FakeTab,
   surfaceContract,
   type ActionSurface,
   type ListedAction,
@@ -122,10 +133,34 @@ const mcp: SurfaceFactory = async (root) => {
   } satisfies ActionSurface;
 };
 
-/** The root's one `kb ui`, on an ephemeral port. */
+/**
+ * What the agent surface asks its scripted model to do: list the tools it
+ * was given, or call one. The model answers in text, so the harness reads
+ * the agent's own view of the listing and of the receipt.
+ */
+const ContractAskSchema = z.union([
+  z.object({ list: z.literal(true) }),
+  z.object({ call: z.object({ id: z.string(), input: z.unknown() }) }),
+]);
+
+const contractRuntime = scriptedRuntime((turn): readonly ScriptStep[] => {
+  const ask = ContractAskSchema.parse(JSON.parse(turn.message.text));
+  if ("list" in ask) {
+    return [{ say: JSON.stringify(turn.tools.map(({ id, mode }) => ({ id, mode }))) }];
+  }
+  const { id, input } = ask.call;
+  return [{ call: id, input, answer: (receipt) => JSON.stringify(receipt) }];
+});
+
+/** The root's one `kb ui`, on an ephemeral port, hosting the agent over the scripted model. */
 const serve: ServeUi = async (root) => {
   const handle = await Effect.runPromise(
-    startUi({ root, port: 0, openBrowser: false }).pipe(Effect.provide(bunFileSystemLayer)),
+    startUi({
+      root,
+      port: 0,
+      openBrowser: false,
+      plugins: [agentPlugin({ runtime: contractRuntime })],
+    }).pipe(Effect.provide(bunFileSystemLayer)),
   );
   return { url: handle.url, stop: () => Effect.runPromise(handle.stop) };
 };
@@ -197,4 +232,61 @@ const webmcp: SurfaceFactory = async (_root, ui) => {
   } satisfies ActionSurface;
 };
 
-surfaceContract({ serve, surfaces: { cli, mcp, http, webmcp } });
+/** The agent channel's events of one conversation, from what `tab` has heard so far. */
+function agentEvents(tab: FakeTab, from: number, conversation: string): AgentEvent[] {
+  return tab
+    .heard(AGENT_CHANNEL)
+    .slice(from)
+    .flatMap((frame) => (frame.kind === "data" ? [AgentEventSchema.parse(frame.data)] : []))
+    .filter((event) => event.conversation === conversation);
+}
+
+/**
+ * The agent: a sidebar tab on the root's `kb ui` sends a message on the
+ * agent channel, and the scripted model lists its tools or makes the call.
+ * A call the mode says needs approval reaches the person, who makes it
+ * through the browser's lane (`POST /api/action`) with approval exactly as
+ * the invocation declares it, and answers the receipt. The receipt is the
+ * one the model was given.
+ */
+const agent: SurfaceFactory = async (_root, ui) => {
+  // A connection that publishes no screen, so the root's one tab stays the contract's own.
+  const tab = await Effect.runPromise(FakeTab.open(ui.url, "sidebar.surface-contract", null));
+  let turns = 0;
+  const say = async (ask: unknown, approved: boolean): Promise<string> => {
+    turns += 1;
+    const conversation = `contract-${turns}`;
+    const from = tab.heard(AGENT_CHANNEL).length;
+    tab.say(AGENT_CHANNEL, { type: "send", conversation, text: JSON.stringify(ask) });
+    const answered = new Set<string>();
+    const deadline = Date.now() + 10_000;
+    for (;;) {
+      const events = agentEvents(tab, from, conversation);
+      for (const event of events) {
+        if (event.type !== "tool-call" || !event.approval || answered.has(event.call)) continue;
+        answered.add(event.call);
+        const invocation = { id: event.action, input: event.input, approved };
+        const receipt = await postAction(ui.url, invocation);
+        tab.say(AGENT_CHANNEL, { type: "receipt", conversation, call: event.call, receipt });
+      }
+      const end = events.find((event) => event.type === "turn-end");
+      if (end !== undefined) {
+        if (end.outcome !== "done") throw new Error(`agent turn ${end.outcome}`);
+        return events.flatMap((event) => (event.type === "text" ? [event.delta] : [])).join("");
+      }
+      if (Date.now() > deadline)
+        throw new Error(`agent turn never ended: ${JSON.stringify(events)}`);
+      await Bun.sleep(5);
+    }
+  };
+  return {
+    wire: AGENT_WIRE,
+    list: async () =>
+      z.array(ListedActionSchema).parse(JSON.parse(await say({ list: true }, false))),
+    invoke: async ({ id, input, approved }) =>
+      ActionReceiptSchema.parse(JSON.parse(await say({ call: { id, input } }, approved === true))),
+    close: () => Effect.runPromise(tab.close),
+  } satisfies ActionSurface;
+};
+
+surfaceContract({ serve, surfaces: { cli, mcp, http, webmcp, agent } });
