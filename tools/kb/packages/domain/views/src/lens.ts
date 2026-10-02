@@ -13,6 +13,7 @@ import {
   GRAPH_THEME_VALUES,
   SYSTEM_IDS,
   decodeNodeConfig,
+  encodeNodeConfig,
   firstBool,
   firstNum,
   firstRef,
@@ -24,9 +25,14 @@ import {
   manyOf,
   oneOf,
   viewOptionId,
+  writeBool,
+  writeNum,
+  writeRef,
+  writeStr,
   type ConfigSlots,
   type NodeProps,
   type PropValue,
+  type SlotWrite,
 } from "@kb/model";
 import type { ConfigReport } from "./view-key.ts";
 
@@ -81,6 +87,8 @@ export const DEFAULT_EDGE_KINDS: EdgeKind[] = ["mention", "child"];
 export const DEFAULT_MAX_NODES = 500;
 export const DEFAULT_COLOR_BY = "tag";
 export const DEFAULT_SIZE_BY = "degree";
+/** A graph that names no label source labels its nodes by their text. */
+const DEFAULT_LABEL_BY = "text";
 /** A graph that names no renderer is drawn by the 2D one. */
 export const DEFAULT_RENDERER: LensRenderer = viewOptionId("graph.force2d");
 /** Fallback when a perspective has no cluster-by prop. Seeded perspectives use `parent`. */
@@ -109,10 +117,11 @@ export const LENS_LINK_STYLES = Object.keys(GRAPH_LINK_STYLE_VALUES).filter(
  *
  * Everything a graph view node (a view node whose view is a renderer) may say
  * about itself is declared here once: the field it is stored under, how a
- * stored value is read from that field, what a legal value is (an Effect
- * `Schema`), and the value used when the node says nothing. `decodeNodeConfig` in `@kb/model` is the only code
- * that walks it, and `frame.ts` declares its own table against the same
- * mechanism.
+ * stored value is read from that field and how a value is written back to it,
+ * what a legal value is (an Effect `Schema`), and the value used when the node
+ * says nothing. `decodeNodeConfig` and `encodeNodeConfig` in `@kb/model` are
+ * the only code that walks it, and `frame.ts` declares its own table against
+ * the same mechanism.
  */
 
 /**
@@ -148,6 +157,16 @@ function optionValue(values: Parameters<typeof graphOptionId>[0], key: string): 
   return id !== key ? { t: "ref", v: id } : { t: "str", v: key };
 }
 
+/** An option field written as {@link optionValue} writes its value. */
+const optionWrite =
+  (field: string, values: Parameters<typeof graphOptionId>[0]) =>
+  (key: string): SlotWrite => ({ [field]: [optionValue(values, key)] });
+
+/** A source field written as {@link sourceValue} writes its key. */
+const sourceWrite =
+  (field: string) =>
+  (key: string): SlotWrite => ({ [field]: [sourceValue(key)] });
+
 /**
  * `sys.graph.source.none` — "No grouping" — is what the graph panel writes to
  * `lens.edge-kinds` when every box is unchecked, because an absent prop would
@@ -162,6 +181,11 @@ const edgeKindValues = (props: NodeProps): unknown[] | undefined =>
     const key = value.t === "ref" ? graphSourceKey(value.v) : String(value.v);
     return key === NO_EDGE_KIND ? null : key;
   });
+
+/** No edge kinds is written as the `none` option, so it reads back as none rather than unset. */
+const edgeKindsWrite = (kinds: readonly EdgeKind[]): SlotWrite => ({
+  [SYSTEM_IDS.lensEdgeKindsField]: (kinds.length > 0 ? kinds : [NO_EDGE_KIND]).map(sourceValue),
+});
 
 export const EdgeKindSchema = Schema.Union([
   Schema.Literals(["mention", "child", "ref-prop"]),
@@ -218,108 +242,126 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
   query: oneOf({
     fields: [SYSTEM_IDS.lensQueryField],
     read: firstStr(SYSTEM_IDS.lensQueryField),
+    write: writeStr(SYSTEM_IDS.lensQueryField),
     schema: Schema.String,
     fallback: "",
   }),
   renderer: oneOf({
     fields: [SYSTEM_IDS.lensRendererField],
     read: firstRef(SYSTEM_IDS.lensRendererField),
+    write: writeRef(SYSTEM_IDS.lensRendererField),
     schema: Schema.String,
     fallback: DEFAULT_RENDERER,
   }),
   colorBy: oneOf({
     fields: [SYSTEM_IDS.lensColorByField],
     read: sourceKey(SYSTEM_IDS.lensColorByField),
+    write: sourceWrite(SYSTEM_IDS.lensColorByField),
     schema: SourceSchema,
     fallback: DEFAULT_COLOR_BY,
   }),
-  labelBy: oneOf({
+  labelBy: oneOf<string | undefined>({
     fields: [SYSTEM_IDS.lensLabelByField],
     read: sourceKey(SYSTEM_IDS.lensLabelByField),
+    write: (key) => sourceWrite(SYSTEM_IDS.lensLabelByField)(key ?? DEFAULT_LABEL_BY),
     schema: SourceSchema,
-    fallback: "text",
+    fallback: DEFAULT_LABEL_BY,
   }),
   sizeBy: oneOf({
     fields: [SYSTEM_IDS.lensSizeByField],
     read: sourceKey(SYSTEM_IDS.lensSizeByField),
+    write: sourceWrite(SYSTEM_IDS.lensSizeByField),
     schema: SourceSchema,
     fallback: DEFAULT_SIZE_BY,
   }),
   clusterBy: oneOf({
     fields: [SYSTEM_IDS.lensClusterByField],
     read: sourceKey(SYSTEM_IDS.lensClusterByField),
+    write: sourceWrite(SYSTEM_IDS.lensClusterByField),
     schema: SourceSchema,
     fallback: DEFAULT_CLUSTER_BY,
   }),
   edgeKinds: manyOf<EdgeKind>({
     fields: [SYSTEM_IDS.lensEdgeKindsField],
     read: edgeKindValues,
+    write: edgeKindsWrite,
     schema: Schema.NullOr(EdgeKindSchema),
     fallback: DEFAULT_EDGE_KINDS,
   }),
   maxNodes: oneOf({
     fields: [SYSTEM_IDS.lensMaxNodesField],
     read: firstNum(SYSTEM_IDS.lensMaxNodesField),
+    write: writeNum(SYSTEM_IDS.lensMaxNodesField),
     schema: NodeCountSchema,
     fallback: DEFAULT_MAX_NODES,
   }),
   focus: oneOf<string | null>({
     fields: [SYSTEM_IDS.lensFocusField],
     read: firstRef(SYSTEM_IDS.lensFocusField),
+    write: writeRef(SYSTEM_IDS.lensFocusField),
     schema: Schema.String,
     fallback: null,
   }),
   hops: oneOf<number | null>({
     fields: [SYSTEM_IDS.lensHopsField],
     read: firstNum(SYSTEM_IDS.lensHopsField),
+    write: writeNum(SYSTEM_IDS.lensHopsField),
     schema: NodeCountSchema,
     fallback: null,
   }),
   layout: oneOf({
     fields: [SYSTEM_IDS.lensLayoutField],
     read: firstStr(SYSTEM_IDS.lensLayoutField),
+    write: writeStr(SYSTEM_IDS.lensLayoutField),
     schema: LENS_SETTINGS.layout,
     fallback: DEFAULT_LAYOUT,
   }),
   spread: oneOf({
     fields: [SYSTEM_IDS.lensSpreadField],
     read: firstNum(SYSTEM_IDS.lensSpreadField),
+    write: writeNum(SYSTEM_IDS.lensSpreadField),
     schema: LENS_SETTINGS.spread,
     fallback: DEFAULT_SPREAD,
   }),
   linkDistance: oneOf({
     fields: [SYSTEM_IDS.lensLinkDistanceField],
     read: firstNum(SYSTEM_IDS.lensLinkDistanceField),
+    write: writeNum(SYSTEM_IDS.lensLinkDistanceField),
     schema: LENS_SETTINGS.linkDistance,
     fallback: DEFAULT_LINK_DISTANCE,
   }),
   showLabels: oneOf({
     fields: [SYSTEM_IDS.lensShowLabelsField],
     read: firstBool(SYSTEM_IDS.lensShowLabelsField),
+    write: writeBool(SYSTEM_IDS.lensShowLabelsField),
     schema: LENS_SETTINGS.showLabels,
     fallback: DEFAULT_SHOW_LABELS,
   }),
   autorotate: oneOf({
     fields: [SYSTEM_IDS.lensAutorotateField],
     read: firstBool(SYSTEM_IDS.lensAutorotateField),
+    write: writeBool(SYSTEM_IDS.lensAutorotateField),
     schema: LENS_SETTINGS.autorotate,
     fallback: DEFAULT_AUTOROTATE,
   }),
   labelDensity: oneOf({
     fields: [SYSTEM_IDS.lensLabelDensityField],
     read: firstStr(SYSTEM_IDS.lensLabelDensityField),
+    write: writeStr(SYSTEM_IDS.lensLabelDensityField),
     schema: LENS_SETTINGS.labelDensity,
     fallback: DEFAULT_LABEL_DENSITY,
   }),
   theme: oneOf({
     fields: [SYSTEM_IDS.lensThemeField],
     read: optionKey(SYSTEM_IDS.lensThemeField, GRAPH_THEME_VALUES),
+    write: optionWrite(SYSTEM_IDS.lensThemeField, GRAPH_THEME_VALUES),
     schema: LENS_SETTINGS.theme,
     fallback: DEFAULT_THEME,
   }),
   linkStyle: oneOf({
     fields: [SYSTEM_IDS.lensLinkStyleField],
     read: optionKey(SYSTEM_IDS.lensLinkStyleField, GRAPH_LINK_STYLE_VALUES),
+    write: optionWrite(SYSTEM_IDS.lensLinkStyleField, GRAPH_LINK_STYLE_VALUES),
     schema: LENS_SETTINGS.linkStyle,
     fallback: DEFAULT_LINK_STYLE,
   }),
@@ -362,28 +404,16 @@ export function sourceValue(key: string): PropValue {
   return id !== null ? { t: "ref", v: id } : { t: "str", v: key };
 }
 
-/** A graph view node's props for `p`: its renderer is its view, its lens props the params. */
+/**
+ * A graph view node's props for `p`: its renderer is its view, and its lens,
+ * written by the slots that read it back. The renderer slot is the one a
+ * neighbourhood hosts (`lens.renderer`), which a graph view node does not
+ * carry: its renderer is its `sys.f.view`.
+ */
 export function perspectiveProps(p: LensPerspective): Record<string, PropValue[]> {
+  const { id: _id, label: _label, renderer, ...lens } = p;
   return {
-    [SYSTEM_IDS.viewField]: [{ t: "ref", v: p.renderer }],
-    [SYSTEM_IDS.lensQueryField]: [{ t: "str", v: p.query }],
-    [SYSTEM_IDS.lensColorByField]: [sourceValue(p.colorBy)],
-    [SYSTEM_IDS.lensSizeByField]: [sourceValue(p.sizeBy)],
-    [SYSTEM_IDS.lensClusterByField]: [sourceValue(p.clusterBy)],
-    [SYSTEM_IDS.lensLabelByField]: [sourceValue(p.labelBy ?? "text")],
-    [SYSTEM_IDS.lensEdgeKindsField]: (p.edgeKinds.length ? p.edgeKinds : ["none"]).map(sourceValue),
-    ...(p.focus !== null
-      ? { [SYSTEM_IDS.lensFocusField]: [{ t: "ref" as const, v: p.focus }] }
-      : {}),
-    ...(p.hops !== null ? { [SYSTEM_IDS.lensHopsField]: [{ t: "num" as const, v: p.hops }] } : {}),
-    [SYSTEM_IDS.lensMaxNodesField]: [{ t: "num", v: p.maxNodes }],
-    [SYSTEM_IDS.lensLayoutField]: [{ t: "str", v: p.layout }],
-    [SYSTEM_IDS.lensSpreadField]: [{ t: "num", v: p.spread }],
-    [SYSTEM_IDS.lensLinkDistanceField]: [{ t: "num", v: p.linkDistance }],
-    [SYSTEM_IDS.lensShowLabelsField]: [{ t: "bool", v: p.showLabels }],
-    [SYSTEM_IDS.lensAutorotateField]: [{ t: "bool", v: p.autorotate }],
-    [SYSTEM_IDS.lensLabelDensityField]: [{ t: "str", v: p.labelDensity }],
-    [SYSTEM_IDS.lensThemeField]: [optionValue(GRAPH_THEME_VALUES, p.theme)],
-    [SYSTEM_IDS.lensLinkStyleField]: [optionValue(GRAPH_LINK_STYLE_VALUES, p.linkStyle)],
+    [SYSTEM_IDS.viewField]: [{ t: "ref", v: renderer }],
+    ...encodeNodeConfig(LENS_SLOTS, { ...lens, labelBy: lens.labelBy ?? DEFAULT_LABEL_BY }),
   };
 }

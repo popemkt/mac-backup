@@ -758,11 +758,6 @@ export const mutations = {
     await editFrameView(frameId, frameViewGroup(fieldId));
   },
 
-  async setViewFilters(frameId: string, filterEdnList: string[]): Promise<void> {
-    const { frameViewFilters } = await import("@/actions/plan");
-    await editFrameView(frameId, frameViewFilters(filterEdnList));
-  },
-
   async addViewFilter(frameId: string, edn: string): Promise<void> {
     const { serializeViewFilter, parseViewFilterEdn } = await import("@kb/views");
     const parsed = parseViewFilterEdn(edn);
@@ -770,9 +765,10 @@ export const mutations = {
       toast(`Bad filter EDN: ${edn}`);
       return;
     }
+    // A new filter is stored in its canonical form, not as it was typed.
     const next = [
-      ...(await frameConfig(frameId)).filters.map((f) => f.raw || serializeViewFilter(f)),
-      serializeViewFilter(parsed),
+      ...(await frameConfig(frameId)).filters,
+      { ...parsed, raw: serializeViewFilter(parsed) },
     ];
     const { frameViewFilters } = await import("@/actions/plan");
     await editFrameView(frameId, frameViewFilters(next));
@@ -780,9 +776,9 @@ export const mutations = {
 
   async removeViewFilter(frameId: string, edn: string): Promise<void> {
     const { serializeViewFilter } = await import("@kb/views");
-    const next = (await frameConfig(frameId)).filters
-      .map((f) => f.raw || serializeViewFilter(f))
-      .filter((raw) => raw !== edn);
+    const next = (await frameConfig(frameId)).filters.filter(
+      (f) => (f.raw || serializeViewFilter(f)) !== edn,
+    );
     const { frameViewFilters } = await import("@/actions/plan");
     await editFrameView(frameId, frameViewFilters(next));
   },

@@ -10,7 +10,13 @@ import {
   type FieldType,
 } from "@kb/model";
 import { forestRootIds } from "@/lib/graph-view";
-import { FRAME_VIEW_FAMILY } from "@kb/views";
+import {
+  FRAME_VIEW_FAMILY,
+  frameSettingWrite,
+  type SortSpec,
+  type ViewConfig,
+  type ViewFilter,
+} from "@kb/views";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
 import { SYSTEM_IDS, isSysPrefixed, type PropValue } from "@/lib/types";
@@ -456,28 +462,22 @@ const refTo = (v: string): PropValue => ({ t: "ref", v });
 export const frameViewIs = (option: string): FrameViewEdit => [
   { field: SYSTEM_IDS.viewField, values: [refTo(option)] },
 ];
-export const frameViewSort = (specs: Array<{ fieldId: string; dir: "asc" | "desc" }>) => [
-  { field: SYSTEM_IDS.viewSortField, values: specs.map((spec) => refTo(spec.fieldId)) },
-  {
-    field: SYSTEM_IDS.viewSortDirField,
-    values: specs.map((spec): PropValue => ({ t: "str", v: spec.dir })),
-  },
-];
-export const frameViewDisplay = (fields: string[]): FrameViewEdit => [
-  { field: SYSTEM_IDS.viewDisplayField, values: fields.map(refTo) },
-];
-export const frameViewColwidth = (widths: Record<string, number>): FrameViewEdit => [
-  { field: SYSTEM_IDS.viewColwidthField, values: [{ t: "str", v: JSON.stringify(widths) }] },
-];
-export const frameViewPagesize = (size: number): FrameViewEdit => [
-  { field: SYSTEM_IDS.viewPagesizeField, values: [{ t: "num", v: size }] },
-];
-export const frameViewGroup = (field: string | null): FrameViewEdit => [
-  { field: SYSTEM_IDS.viewGroupField, values: field !== null ? [refTo(field)] : [] },
-];
-export const frameViewFilters = (edn: string[]): FrameViewEdit => [
-  { field: SYSTEM_IDS.viewFilterField, values: edn.map((v): PropValue => ({ t: "str", v })) },
-];
+
+/** One frame setting's edit: what its slot writes (`frameSettingWrite`), field by field. */
+function frameSettingEdit<K extends keyof ViewConfig>(key: K, value: ViewConfig[K]): FrameViewEdit {
+  return Object.entries(frameSettingWrite(key, value)).map(([field, values]) => ({
+    field,
+    values: [...values],
+  }));
+}
+
+export const frameViewSort = (specs: SortSpec[]) => frameSettingEdit("sort", specs);
+export const frameViewDisplay = (fields: string[]) => frameSettingEdit("display", fields);
+export const frameViewColwidth = (widths: Record<string, number>) =>
+  frameSettingEdit("colwidth", widths);
+export const frameViewPagesize = (size: number) => frameSettingEdit("pagesize", size);
+export const frameViewGroup = (field: string | null) => frameSettingEdit("groupFieldId", field);
+export const frameViewFilters = (filters: ViewFilter[]) => frameSettingEdit("filters", filters);
 
 /**
  * Make `viewId` `hostId`'s default view: move it first in the host's

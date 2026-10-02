@@ -51,7 +51,18 @@ interface SlotDecode<A> {
 export interface ConfigSlot<A> {
   readonly fields: readonly NodeId[];
   readonly decode: (props: NodeProps) => SlotDecode<A>;
+  /** What storing `value` writes: {@link SlotWrite}. */
+  readonly encode: (value: A) => SlotWrite;
 }
+
+/**
+ * What a slot stores a value as: each field it reads, with the values that
+ * replace that field whole. An empty list clears the field. A slot reads back
+ * what it writes — the round trip is the slot's contract, held by the tests
+ * of every slot table — so a value is written the way it is read, and in no
+ * second place.
+ */
+export type SlotWrite = Readonly<Record<NodeId, readonly PropValue[]>>;
 
 /**
  * Any schema whose decoded type is `A`. Only the decode direction is used, so
@@ -86,12 +97,14 @@ function anyPresent(props: NodeProps, fields: readonly NodeId[]): boolean {
 export function oneOf<A>(spec: {
   readonly fields: readonly NodeId[];
   readonly read: (props: NodeProps) => unknown;
+  readonly write: (value: A) => SlotWrite;
   readonly schema: SlotSchema<A>;
   readonly fallback: A;
 }): ConfigSlot<A> {
   const decode = messageOf(spec.schema);
   return {
     fields: spec.fields,
+    encode: spec.write,
     decode: (props) => {
       const candidate = spec.read(props);
       const result = candidate === undefined ? Result.fail("no readable value") : decode(candidate);
@@ -116,12 +129,14 @@ export function oneOf<A>(spec: {
 export function manyOf<E>(spec: {
   readonly fields: readonly NodeId[];
   readonly read: (props: NodeProps) => readonly unknown[] | undefined;
+  readonly write: (values: readonly E[]) => SlotWrite;
   readonly schema: SlotSchema<E | null>;
   readonly fallback: readonly E[];
 }): ConfigSlot<E[]> {
   const decode = messageOf(spec.schema);
   return {
     fields: spec.fields,
+    encode: spec.write,
     decode: (props) => {
       const candidates = spec.read(props);
       if (candidates === undefined) return { value: [...spec.fallback], warnings: [] };
@@ -173,6 +188,39 @@ export function decodeNodeConfig<T extends object>(
   };
 }
 
+/**
+ * The props a node-backed config is stored as: each value `config` holds,
+ * written by its slot. A key `config` leaves out writes nothing, and a field
+ * a slot writes empty is no prop at all — on a node that does not hold it
+ * yet, an empty field would read as present and unreadable.
+ */
+export function encodeNodeConfig<T extends object>(
+  slots: ConfigSlots<T>,
+  config: Partial<T>,
+): Record<NodeId, PropValue[]> {
+  const props: Record<NodeId, PropValue[]> = {};
+  for (const key in slots) {
+    const value = config[key];
+    if (value === undefined) continue;
+    for (const [field, values] of Object.entries(encodeNodeSetting(slots, key, value)))
+      if (values.length > 0) props[field] = [...values];
+  }
+  return props;
+}
+
+/**
+ * What storing one setting of a node-backed config writes: its slot's
+ * {@link SlotWrite}, empty fields included, because an edit of a node that
+ * holds the setting clears a field by writing it empty.
+ */
+export function encodeNodeSetting<T extends object, K extends keyof T>(
+  slots: ConfigSlots<T>,
+  key: K,
+  value: T[K],
+): SlotWrite {
+  return slots[key].encode(value);
+}
+
 /*
  * Carrier readers.
  *
@@ -207,3 +255,29 @@ export const allValues =
   (field: NodeId) =>
   (props: NodeProps): readonly PropValue[] | undefined =>
     props[field];
+
+/*
+ * Carrier writers: the inverse of the readers above, each writing the one
+ * value its reader reads back. A `null` reference or number writes nothing,
+ * which clears the field: the slot's fallback reads back.
+ */
+
+export const writeStr =
+  (field: NodeId) =>
+  (value: string): SlotWrite => ({ [field]: [{ t: "str", v: value }] });
+
+export const writeNum =
+  (field: NodeId) =>
+  (value: number | null): SlotWrite => ({
+    [field]: value === null ? [] : [{ t: "num", v: value }],
+  });
+
+export const writeBool =
+  (field: NodeId) =>
+  (value: boolean): SlotWrite => ({ [field]: [{ t: "bool", v: value }] });
+
+export const writeRef =
+  (field: NodeId) =>
+  (value: NodeId | null): SlotWrite => ({
+    [field]: value === null ? [] : [{ t: "ref", v: value }],
+  });

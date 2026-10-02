@@ -57,6 +57,7 @@ export {
   FRAME_SETTINGS,
   FRAME_VIEW_FAMILY,
   decodeFrameConfig,
+  frameSettingWrite,
   isFrameViewKey,
   parseViewFilterEdn,
   projectsRows,

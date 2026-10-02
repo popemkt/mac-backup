@@ -8,11 +8,16 @@ import { Schema } from "effect";
 import {
   SYSTEM_IDS,
   decodeNodeConfig,
+  encodeNodeSetting,
   firstStr,
   manyOf,
   oneOf,
+  writeNum,
+  writeRef,
   type ConfigSlots,
   type NodeProps,
+  type PropValue,
+  type SlotWrite,
 } from "@kb/model";
 import type { ConfigReport, ViewKey } from "./view-key.ts";
 
@@ -96,11 +101,12 @@ export function parseViewFilterEdn(edn: string): ViewFilter | null {
 /*
  * The view frame's props, as one slot table.
  *
- * Same mechanism as `graph-lens.ts`'s perspective table (`@kb/model`'s
+ * Same mechanism as `lens.ts`'s perspective table (`@kb/model`'s
  * `node-config`): a slot names the field it reads, the carrier reader that
- * projects the stored values, the `Schema` that says what is legal, and the
- * value used when the frame says nothing. Nothing else in this file decides a
- * default.
+ * projects the stored values, the writer that stores a value back, the
+ * `Schema` that says what is legal, and the value used when the frame says
+ * nothing. Nothing else in this file decides a default, and nothing else in
+ * kb writes a frame setting (`frameSettingWrite`).
  */
 
 /**
@@ -215,6 +221,20 @@ const filterValues = (props: NodeProps): unknown[] | undefined =>
     return parseViewFilterEdn(value.v) ?? value.v;
   });
 
+const refValue = (v: string): PropValue => ({ t: "ref", v });
+const strValue = (v: string): PropValue => ({ t: "str", v });
+
+/** The two parallel fields {@link sortSpecValues} reads, written index for index. */
+const sortSpecWrite = (specs: readonly SortSpec[]): SlotWrite => ({
+  [SYSTEM_IDS.viewSortField]: specs.map((spec) => refValue(spec.fieldId)),
+  [SYSTEM_IDS.viewSortDirField]: specs.map((spec) => strValue(spec.dir)),
+});
+
+/** A filter is written as the EDN it was read from, else as its serialization. */
+const filtersWrite = (filters: readonly ViewFilter[]): SlotWrite => ({
+  [SYSTEM_IDS.viewFilterField]: filters.map((f) => strValue(f.raw || serializeViewFilter(f))),
+});
+
 /**
  * The outline's frame views: the ways a frame shows its children, each a view
  * in `ViewPoint`. Their keys are data (`outline.ts`); this module states what
@@ -277,24 +297,28 @@ const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
   sort: manyOf<SortSpec>({
     fields: [SYSTEM_IDS.viewSortField, SYSTEM_IDS.viewSortDirField],
     read: sortSpecValues,
+    write: sortSpecWrite,
     schema: Schema.NullOr(SortSpecSchema),
     fallback: DEFAULT_VIEW_CONFIG.sort,
   }),
   display: manyOf<string>({
     fields: [SYSTEM_IDS.viewDisplayField],
     read: displayValues,
+    write: (fields) => ({ [SYSTEM_IDS.viewDisplayField]: fields.map(refValue) }),
     schema: Schema.NullOr(Schema.NonEmptyString),
     fallback: DEFAULT_VIEW_CONFIG.display,
   }),
   colwidth: oneOf({
     fields: [SYSTEM_IDS.viewColwidthField],
     read: colwidthValue,
+    write: (widths) => ({ [SYSTEM_IDS.viewColwidthField]: [strValue(JSON.stringify(widths))] }),
     schema: WidthsSchema,
     fallback: DEFAULT_VIEW_CONFIG.colwidth,
   }),
   pagesize: oneOf({
     fields: [SYSTEM_IDS.viewPagesizeField],
     read: pagesizeValue,
+    write: writeNum(SYSTEM_IDS.viewPagesizeField),
     schema: PositiveSchema,
     fallback: DEFAULT_VIEW_CONFIG.pagesize,
   }),
@@ -305,15 +329,29 @@ const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
       return first?.t === "ref" ? first.v : undefined;
     },
     schema: Schema.NonEmptyString,
+    write: writeRef(SYSTEM_IDS.viewGroupField),
     fallback: DEFAULT_VIEW_CONFIG.groupFieldId,
   }),
   filters: manyOf<ViewFilter>({
     fields: [SYSTEM_IDS.viewFilterField],
     read: filterValues,
+    write: filtersWrite,
     schema: ViewFilterSchema,
     fallback: DEFAULT_VIEW_CONFIG.filters,
   }),
 };
+
+/**
+ * What storing one frame setting writes: the fields its slot reads, each
+ * replaced whole. A frame's toolbar edits its view node one setting at a time
+ * through this, so a setting is written the way it is read back.
+ */
+export function frameSettingWrite<K extends keyof ViewConfig>(
+  key: K,
+  value: ViewConfig[K],
+): SlotWrite {
+  return encodeNodeSetting(VIEW_SLOTS, key, value);
+}
 
 /**
  * Decode a view frame's configuration.

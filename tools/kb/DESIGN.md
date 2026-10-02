@@ -410,11 +410,16 @@ right field shape with no further checks: no `!`, no `as`, no field that
   `@kb/model`'s `node-config` rather than a hand-written branch per field. A
   config declares a table of slots; a slot names the field node it reads, the
   **carrier reader** that projects the stored `PropValue[]` to one candidate,
-  the `Schema` that says what is legal, and the value used when the store says
-  nothing. Carrier and validity stay apart: "the first `num` value of
-  `lens.max-nodes`" is a projection, "positive and whole" is the schema. A
-  default has exactly one home — the slot, beside the shape it defaults to —
-  never the ontology _and_ the function.
+  the **carrier writer** that stores a value back (`SlotWrite`: each field it
+  reads, replaced whole), the `Schema` that says what is legal, and the value
+  used when the store says nothing. Carrier and validity stay apart: "the
+  first `num` value of `lens.max-nodes`" is a projection, "positive and
+  whole" is the schema. A default has exactly one home — the slot, beside the
+  shape it defaults to — never the ontology _and_ the function. A slot reads
+  back what it writes, so a setting is written in no second place: a new
+  graph view node's props (`encodeNodeConfig`) and a frame toolbar's edit
+  (`frameSettingWrite`, through `encodeNodeSetting`) are the slots' writes,
+  and every slot table's tests hold the round trip.
 
   The malformed-input policy is part of the mechanism, not per call site:
 
@@ -431,7 +436,8 @@ right field shape with no further checks: no `!`, no `as`, no field that
     `none` source option stored in `lens.edge-kinds` means no edges, and is a
     value, not a mistake.
 
-  Reports reach `@kb/ui`'s log seam (`lib/log`) today. Surfacing them in the
+  A decode reports to the sink its caller passes; `@kb/ui` passes its log
+  seam (`lib/log`). Surfacing them in the
   UI the way `resolveOntology`'s warnings are surfaced is
   GAP [[01M1XF1NA2RBAX1E6NNX6PMZ6N]].
 

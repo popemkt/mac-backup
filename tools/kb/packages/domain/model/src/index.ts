@@ -46,14 +46,20 @@ export type { KbNode, NodeId, PropValue } from "./model.ts";
 export {
   allValues,
   decodeNodeConfig,
+  encodeNodeConfig,
+  encodeNodeSetting,
   firstBool,
   firstNum,
   firstRef,
   firstStr,
   manyOf,
   oneOf,
+  writeBool,
+  writeNum,
+  writeRef,
+  writeStr,
 } from "./node-config.ts";
-export type { ConfigReader, ConfigSlot, ConfigSlots, NodeProps } from "./node-config.ts";
+export type { ConfigReader, ConfigSlot, ConfigSlots, NodeProps, SlotWrite } from "./node-config.ts";
 export {
   KbNodeSchema,
   PropValueSchema,

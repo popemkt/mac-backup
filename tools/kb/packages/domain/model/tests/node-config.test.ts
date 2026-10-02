@@ -7,8 +7,13 @@ import {
   firstNum,
   firstRef,
   firstStr,
+  encodeNodeConfig,
   manyOf,
   oneOf,
+  writeBool,
+  writeNum,
+  writeRef,
+  writeStr,
   type ConfigSlots,
   type NodeProps,
 } from "../src/node-config.ts";
@@ -25,24 +30,28 @@ const SLOTS: ConfigSlots<Demo> = {
   mode: oneOf({
     fields: ["f.mode"],
     read: firstStr("f.mode"),
+    write: writeStr("f.mode"),
     schema: Schema.Literals(["list", "table"]),
     fallback: "list",
   }),
   size: oneOf({
     fields: ["f.size"],
     read: firstNum("f.size"),
+    write: writeNum("f.size"),
     schema: Schema.Finite.check(Schema.isGreaterThan(0)),
     fallback: 100,
   }),
   flag: oneOf({
     fields: ["f.flag"],
     read: firstBool("f.flag"),
+    write: writeBool("f.flag"),
     schema: Schema.Boolean,
     fallback: true,
   }),
   target: oneOf<string | null>({
     fields: ["f.target"],
     read: firstRef("f.target"),
+    write: writeRef("f.target"),
     schema: Schema.NonEmptyString,
     fallback: null,
   }),
@@ -50,6 +59,7 @@ const SLOTS: ConfigSlots<Demo> = {
     fields: ["f.tags"],
     read: (props) =>
       allValues("f.tags")(props)?.map((value) => (value.v === "skip" ? null : value.v)),
+    write: (tags) => ({ "f.tags": tags.map((v) => ({ t: "str" as const, v })) }),
     schema: Schema.NullOr(Schema.NonEmptyString),
     fallback: ["default"],
   }),
@@ -153,11 +163,23 @@ describe("node-config", () => {
     ]);
   });
 
+  it("reads back what it writes, and writes no prop for a value that clears its field", () => {
+    const stored: Demo = { mode: "table", size: 25, flag: false, target: "n.t", tags: ["a", "b"] };
+    const props = encodeNodeConfig(SLOTS, stored);
+    expect(decode(props)).toEqual({ value: stored, warnings: [] });
+    const cleared = encodeNodeConfig(SLOTS, { target: null, tags: [] });
+    expect(cleared).toEqual({});
+    expect(encodeNodeConfig(SLOTS, { mode: "list" })).toEqual({
+      "f.mode": [{ t: "str", v: "list" }],
+    });
+  });
+
   it("names every field a slot reads in its warning", () => {
     const paired = {
       keys: manyOf<string>({
         fields: ["f.keys", "f.dirs"],
         read: () => [1],
+        write: () => ({}),
         schema: Schema.NullOr(Schema.String),
         fallback: [],
       }),
