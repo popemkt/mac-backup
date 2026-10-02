@@ -123,6 +123,9 @@ function rendererKey<P extends LensWrite>(
     // A renderer's settings are the lens props of the perspective it draws.
     ...viewKey<P>(`${GRAPH_NAMESPACE}.${name}`, params, {
       read: (props, _host, report) => decodeLensConfig(props, report),
+      // A renderer writes the settings it draws with; the lens it draws (query,
+      // mappings, edge kinds) is no renderer's params, so a proposal cannot set it.
+      // GAP [GAP-GRAPH-LENS-PROPOSE]
       write: encodeLensConfig,
     }),
     family: RENDERER_FAMILY,

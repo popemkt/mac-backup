@@ -30,6 +30,8 @@ export class DocsError extends Error {
  */
 export interface LoadedView {
   name: string;
+  /** The docs view node. */
+  id: string;
   spec: DocsViewSpec;
 }
 
@@ -43,7 +45,7 @@ function loadedView(node: KbNode): LoadedView | DocsError {
     DocsMarkdownView,
     DocsMarkdownView.config.read(node.props, null, ignore),
   );
-  if (Result.isSuccess(params)) return { name, spec: docsSpecOf(params.success) };
+  if (Result.isSuccess(params)) return { name, id: node.id, spec: docsSpecOf(params.success) };
   return new DocsError(
     "invalid_input",
     `view ${name} is invalid: ${params.failure.map(issueText).join("; ")}`,

@@ -25,7 +25,7 @@ import {
   type SurfaceWire,
 } from "@kb/contracts";
 import { type DomainError, domainError, ensureDomainError } from "@kb/model";
-import { reloadEffect, listViewNamesEffect, renderNamedViewEffect } from "@kb/operations";
+import { reloadEffect, listViewNamesEffect, renderViewNodeEffect } from "@kb/operations";
 import {
   invokeReceiptEffect,
   kbRuntimeLayer,
@@ -156,7 +156,7 @@ const readResourceEffect = Effect.fn("mcp.readResource")(function* (ctx: KbConte
   const name = viewNameOfUri(uri);
   if (name === null) return yield* domainError("not_found", `unknown resource: ${uri}`);
   yield* reloadEffect(ctx);
-  const rendered = yield* renderNamedViewEffect(name, "html");
+  const rendered = yield* renderViewNodeEffect({ name }, "html");
   return {
     contents: [{ uri, mimeType: "text/html", text: rendered.content }],
   };

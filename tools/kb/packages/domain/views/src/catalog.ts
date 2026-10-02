@@ -92,7 +92,8 @@ function settingsSchemaOf(key: ViewKey<unknown>): unknown {
     : { ...document.schema, $defs: document.definitions };
 }
 
-function labelOf(key: ViewKey<unknown>): string {
+/** What the seed names a view: its option's label. */
+export function viewLabelOf(key: ViewKey<unknown>): string {
   const values: Readonly<Record<string, { readonly label: string }>> = VIEW_VALUES;
   return values[key.id]?.label ?? key.id;
 }
@@ -102,7 +103,7 @@ function entryOf(key: ViewKey<unknown>): ViewCatalogEntry {
   return {
     id: key.id,
     option: key.option,
-    label: labelOf(key),
+    label: viewLabelOf(key),
     ...(key.family === undefined ? {} : { family: key.family }),
     settings: settingsSchemaOf(key),
     ...(Result.isSuccess(defaults) ? { defaults: defaults.success } : {}),

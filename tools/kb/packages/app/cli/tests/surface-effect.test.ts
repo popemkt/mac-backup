@@ -330,8 +330,9 @@ export default [{
         required?: string[];
       }
     ).properties?.format;
+    // A view is asked for by a docs view's name or by a view node's id.
     expect(present(renders[0], "expected renders[0]").inputSchema).toMatchObject({
-      required: ["name"],
+      properties: { name: { type: "string" }, id: { type: "string" } },
     });
     expect(format?.default).toBe("html");
     expect(JSON.stringify(format)).toContain('"null"');

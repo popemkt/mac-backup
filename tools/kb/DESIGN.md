@@ -842,7 +842,22 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   `node.update` is not checked against its view's settings
   (`GAP-VIEW-WRITE-CHECK`). The frame toolbar's edits need no check of their
   own, because each writes one setting through its slot (`frameSettingWrite`),
-  which reads back what it writes.
+  which reads back what it writes. A graph view proposed this way holds its
+  renderer's settings only: which nodes it draws (`lens.query`, the
+  mappings, the edge kinds) is the graph host's lens, which no renderer's
+  params declare, so it draws every node until edited
+  (`GAP-GRAPH-LENS-PROPOSE`).
+- **A view node renders as markdown where a surface shows text only.**
+  `render.view` takes a docs view by name or any view node by id (exactly
+  one), shown for `host` (by default the one node naming it). A docs view
+  renders through its template whichever way it is asked for; any other view
+  node renders as its markdown (`viewMarkdown` in `@kb/operations`): the
+  view, the settings its key reads from the node for that host, and the
+  nodes it shows — its lens query's when it holds one, else the host's
+  children. One function (`renderViewNodeEffect`) serves the action and
+  MCP's `ui://kb/view/*` resources (Surfaces). The markdown lists the view's
+  subject; it does not lay it out the way the view does — filtered, sorted,
+  grouped, a column per field, drawn as a graph (`GAP-VIEW-MARKDOWN`).
 - **A host names its views by ref.** `sys.f.views` (ref, many) on any node
   targets every view node (`VIEW_NODE_TARGET_QUERY`). Scope is per node:
   a view shown for every node of a tag would be a new model rule
