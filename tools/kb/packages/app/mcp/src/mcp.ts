@@ -9,15 +9,17 @@ import {
   ReadResourceRequestSchema,
   type CallToolResult,
   type Tool,
-  type ToolAnnotations,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Cause, Effect, Exit } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
   asObjectSchema,
+  failed,
   listedOn,
+  mcpToolHints,
+  mcpToolName,
+  mcpToolResult,
   type ActionInvocation,
-  type ActionMode,
   type KbContext,
   type ManifestEntry,
   type SurfaceWire,
@@ -60,30 +62,6 @@ function viewNameOfUri(uri: string): string | null {
  */
 export const ACTION_META_KEY = "kb/action";
 
-function actionIdToToolName(actionId: string): string {
-  return actionId.replaceAll(".", "_");
-}
-
-/**
- * MCP's behaviour hints, taken only from the declared mode. A read is
- * read-only and idempotent. A write is treated as possibly destructive and
- * not idempotent, because the mode claims neither. Every action, read or
- * write, touches only this kb root, never an open world of outside
- * entities. MCP has no hint for approval; the full mode is under
- * {@link ACTION_META_KEY}.
- */
-function modeHints(
-  mode: ActionMode,
-): Pick<ToolAnnotations, "readOnlyHint" | "destructiveHint" | "idempotentHint" | "openWorldHint"> {
-  const reads = mode.kind === "read";
-  return {
-    readOnlyHint: reads,
-    destructiveHint: !reads,
-    idempotentHint: reads,
-    openWorldHint: false,
-  };
-}
-
 /**
  * MCP's wire: a `tools/call` has no envelope, because its arguments are the
  * input, so it cannot carry `approved`. `tools/list` therefore leaves
@@ -95,28 +73,6 @@ export const MCP_WIRE: SurfaceWire = {
   // GAP [[01M3R2KD6V1AZ9WS62ZVG9T4G2]]
   carriesApproval: false,
 };
-
-function jsonResult(value: unknown): CallToolResult {
-  return {
-    content: [{ type: "text", text: JSON.stringify(value) }],
-  };
-}
-
-function errorResult(code: string, message: string, details?: unknown): CallToolResult {
-  return {
-    isError: true,
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify({
-          code,
-          message,
-          ...(details === undefined ? {} : { details }),
-        }),
-      },
-    ],
-  };
-}
 
 function causeMessage(cause: Cause.Cause<unknown>): string {
   const squashed = Cause.squash(cause);
@@ -135,12 +91,12 @@ export function containToolResult<E, R>(
   effect: Effect.Effect<CallToolResult, E, R>,
 ): Effect.Effect<CallToolResult, never, R> {
   return Effect.exit(effect).pipe(
-    Effect.flatMap((exit) => {
+    Effect.flatMap((exit): Effect.Effect<CallToolResult> => {
       if (Exit.isSuccess(exit)) return Effect.succeed(exit.value);
       // Cancellation is not a tool failure: re-interrupt rather than
       // reporting `isError`, and the CallTool edge rejects as before.
       if (Cause.hasInterruptsOnly(exit.cause)) return Effect.interrupt;
-      return Effect.succeed(errorResult("internal", causeMessage(exit.cause)));
+      return Effect.succeed(mcpToolResult(failed("unknown", "internal", causeMessage(exit.cause))));
     }),
   );
 }
@@ -170,7 +126,7 @@ export function callToolEffect(
     Effect.gen(function* () {
       const action = tools.byToolName.get(name);
       if (!action) {
-        return errorResult("unknown_action", `unknown tool: ${name}`);
+        return mcpToolResult(failed(name, "unknown_action", `unknown tool: ${name}`));
       }
 
       const invocation: ActionInvocation = {
@@ -179,12 +135,7 @@ export function callToolEffect(
       };
       // Long-lived server vs CLI mutators: reload keeps per-invocation freshness.
       yield* reloadEffect(ctx);
-      const receipt = yield* invokeReceiptEffect(ctx, invocation);
-
-      if (receipt.status === "succeeded") {
-        return jsonResult(receipt.output);
-      }
-      return errorResult(receipt.code, receipt.message, receipt.details);
+      return mcpToolResult(yield* invokeReceiptEffect(ctx, invocation));
     }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
   );
 }
@@ -237,16 +188,16 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
 ): Effect.fn.Return<Server, DomainError, FileSystem> {
   const ctx = yield* openKbEffect(root);
   const actions = (yield* registryFor(root)).manifestEntries;
-  const byToolName = new Map(actions.map((a) => [actionIdToToolName(a.id), a] as const));
+  const byToolName = new Map(actions.map((a) => [mcpToolName(a.id), a] as const));
   const tools = actions
     .filter((a) => listedOn(MCP_WIRE, a.mode))
     .map(
       (a): Tool => ({
-        name: actionIdToToolName(a.id),
+        name: mcpToolName(a.id),
         title: a.title,
         description: a.description,
         inputSchema: asObjectSchema(a.inputSchema),
-        annotations: { title: a.title, ...modeHints(a.mode) },
+        annotations: { title: a.title, ...mcpToolHints(a.mode) },
         _meta: { [ACTION_META_KEY]: { id: a.id, mode: a.mode } },
       }),
     );
