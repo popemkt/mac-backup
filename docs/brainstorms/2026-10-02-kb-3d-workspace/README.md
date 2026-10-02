@@ -342,7 +342,19 @@ selection).
 - A canvas with GLB models is not portable through git alone.
 - `ui.capture` needs an open tab.
 
-## Questions for the owner
+## Owner answers (2026-10-02)
+
+1. **Floor**, as Blender and other 3D software do it: z up, a ground grid,
+   the orbit a turntable about z. The tool is for visualizing and arranging
+   ideas, not for modelling: no mesh editing, sculpting or edit mode.
+2. **Accept the step-7 cost for now:** no outliner, the shape inspector
+   gains transform fields, both are gaps. Decide 7b after Milestone 2; 7a is
+   scheduled after step 8.
+3. **R stays rect.** G, S and E are the modals, and R switches to rotate
+   inside one.
+4. **Empty-space drag in 3D orbits.** Shift-drag is the marquee.
+
+## Questions for the owner (as asked)
 
 1. **Floor or wall?** Recommended: floor. The canvas plane is the ground,
    z is up, and the 3D orbit becomes a turntable about z. This changes how
