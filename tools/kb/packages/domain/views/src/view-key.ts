@@ -6,7 +6,7 @@
  * stated once, in DESIGN-UI.md → UI points: routes and views.
  */
 import { Result, Schema, SchemaIssue } from "effect";
-import { viewOptionId, type NodeProps } from "@kb/model";
+import { viewOptionId, type NodeId, type NodeProps, type PropValue } from "@kb/model";
 
 /**
  * A view's name and the params it renders from. Made once by the plugin that
@@ -37,27 +37,33 @@ export interface ViewKey<P> {
    */
   readonly option: string;
   /**
-   * What `params` decodes from when the view is shown from stored config: a
-   * node's props, read into the input the schema takes, and the node the view
-   * is shown for (`host`, null when there is none). A view whose settings
-   * nothing stores reads nothing.
+   * How the view's settings are stored on a view node: read from its props
+   * into what `params` decodes, and written back from params to props.
    */
-  readonly config: ViewConfigReader;
+  readonly config: ViewConfigCodec<P>;
 }
 
 /** Where a config reader sends a stored prop it had to ignore. */
 export type ConfigReport = (warning: string) => void;
 
 /**
- * How a key reads stored props into its params' input (`ViewKey.config`). A
- * prop it cannot read is reported, never thrown: where the report goes is
- * the caller's to decide (the UI logs it).
+ * How a key stores its params on a view node (`ViewKey.config`).
+ *
+ * `read` takes a node's props, and the node the view is shown for (`host`,
+ * null when there is none), into the input its params decode from. A prop it
+ * cannot read is reported, never thrown: where the report goes is the
+ * caller's to decide (the UI logs it).
+ *
+ * `write` is the inverse: the props a view node holds `params` as. What a
+ * view stores, `read` reads back as the same params; a setting it does not
+ * store (one its host or its route supplies) is written as nothing, and
+ * reads back as whatever the node it is shown for gives. `viewNodeFor` holds
+ * a proposal to that round trip.
  */
-export type ViewConfigReader = (
-  props: NodeProps,
-  host: string | null,
-  report: ConfigReport,
-) => unknown;
+export interface ViewConfigCodec<P> {
+  read(props: NodeProps, host: string | null, report: ConfigReport): unknown;
+  write(params: P): Record<NodeId, PropValue[]>;
+}
 
 /** The params a key's view renders from. */
 export type ParamsOf<K> = K extends ViewKey<infer P> ? P : never;
@@ -69,13 +75,13 @@ export type NoParams = typeof NoParams.Type;
 /** A key that belongs to no family: a view no host picks between (a page, an embed). */
 export type PlainViewKey<P> = ViewKey<P> & { readonly family?: undefined };
 
-/** A view whose settings nothing stores: it reads no props. */
-const READS_NOTHING: ViewConfigReader = () => ({});
+/** A view whose settings nothing stores: it reads no props and writes none. */
+const STORES_NOTHING: ViewConfigCodec<never> = { read: () => ({}), write: () => ({}) };
 
 export function viewKey<P>(
   id: `${string}.${string}`,
   params: Schema.Decoder<P>,
-  config: ViewConfigReader = READS_NOTHING,
+  config: ViewConfigCodec<P> = STORES_NOTHING,
 ): PlainViewKey<P> {
   return { kind: "view", id, params, option: viewOptionId(id), config };
 }
@@ -150,5 +156,5 @@ export function paramsFromProps<P>(
   host: string | null,
   report: ConfigReport,
 ): Result.Result<P, string> {
-  return paramsFrom(key, key.config(props, host, report));
+  return paramsFrom(key, key.config.read(props, host, report));
 }

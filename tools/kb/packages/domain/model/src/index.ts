@@ -59,7 +59,14 @@ export {
   writeRef,
   writeStr,
 } from "./node-config.ts";
-export type { ConfigReader, ConfigSlot, ConfigSlots, NodeProps, SlotWrite } from "./node-config.ts";
+export type {
+  ConfigReader,
+  ConfigSlot,
+  ConfigSlots,
+  NodeProps,
+  SlotWrite,
+  Writable,
+} from "./node-config.ts";
 export {
   KbNodeSchema,
   PropValueSchema,

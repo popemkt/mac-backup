@@ -17,7 +17,7 @@ export {
   type ConfigReport,
   type ParamsOf,
   type PlainViewKey,
-  type ViewConfigReader,
+  type ViewConfigCodec,
   type ViewIssue,
   type ViewKey,
 } from "./view-key.ts";
@@ -43,6 +43,7 @@ export {
   LENS_SETTINGS,
   LENS_THEMES,
   decodeLensConfig,
+  encodeLensConfig,
   perspectiveProps,
   sourceValue,
   type EdgeKind,
@@ -54,12 +55,14 @@ export {
   type LensRenderer,
   type LensSetting,
   type LensTheme,
+  type LensWrite,
 } from "./lens.ts";
 export {
   DEFAULT_VIEW_CONFIG,
   FRAME_SETTINGS,
   FRAME_VIEW_FAMILY,
   decodeFrameConfig,
+  encodeFrameConfig,
   frameSettingWrite,
   isFrameViewKey,
   parseViewFilterEdn,
@@ -111,3 +114,4 @@ export { CANVAS_NAMESPACE, CanvasListView, CanvasParams, CanvasView } from "./ca
 export { LAB_NAMESPACE, LAB_SCENE_IDS, LabParams, LabView, type LabSceneId } from "./lab.ts";
 export { DOCS_NAMESPACE, DocsMarkdownParams, DocsMarkdownView, docsSpecOf } from "./docs.ts";
 export { VIEW_CATALOG, catalogKeyOf, viewCatalog, type ViewCatalogEntry } from "./catalog.ts";
+export { viewNodeFor, type ViewNodeProposal } from "./view-node.ts";

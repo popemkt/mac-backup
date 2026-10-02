@@ -794,7 +794,8 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
 - **The view is a field, not a tag.** A node carrying `sys.f.view` (ref, one)
   is a _view node_; strip the field and it is a plain node, so there is no
   `#view` supertag (the strip test above). Its other props are that view's
-  params: the view's key reads them (`ViewKey.config`) and its params schema
+  params: the view's key reads them (`ViewKey.config.read`), writes them
+  (`config.write`, the inverse) and its params schema
   decodes them, so a prop the view cannot read is reported by the field it
   names, never guessed around.
 - **Views are option nodes.** `sys.f.view` targets the children of the list
@@ -822,6 +823,26 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   settings a view node holding none reads as, where one can be read. The
   catalog states nothing a key does not, so an agent reading it reads what a
   host decodes.
+- **A proposed view is checked by its key, in one place** (generative UI
+  mode A: the model writes one view node). `view.propose` — a write with no
+  approval that needs only the store and the index, like `node.add`, so it
+  runs wherever the caller's store is — takes a view from the catalog (its
+  id or its option), settings for it and, optionally, the node it is shown
+  for. Its whole check is `@kb/views`' `viewNodeFor`: the settings decode
+  strictly by the view's params (every setting legal, none it does not
+  declare), are written by the key's `config.write`, and must read back
+  through `config.read`, for that host, as the same settings with nothing
+  reported. A setting the view takes from its host or its route, which a
+  view node therefore cannot hold, is refused by its path. On success the
+  node is filed at the end of the Views list and named in the host's
+  `sys.f.views` (first when `default`); otherwise nothing is written and the
+  receipt carries every issue as `{path, message}`. Any other entry that
+  makes a view node from settings is to call the same function. The write
+  check does not yet: a view node written through `node.add` or
+  `node.update` is not checked against its view's settings
+  (`GAP-VIEW-WRITE-CHECK`). The frame toolbar's edits need no check of their
+  own, because each writes one setting through its slot (`frameSettingWrite`),
+  which reads back what it writes.
 - **A host names its views by ref.** `sys.f.views` (ref, many) on any node
   targets every view node (`VIEW_NODE_TARGET_QUERY`). Scope is per node:
   a view shown for every node of a tag would be a new model rule

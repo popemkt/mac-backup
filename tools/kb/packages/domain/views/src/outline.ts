@@ -4,9 +4,11 @@ import {
   FRAME_SETTINGS,
   FRAME_VIEW_FAMILY,
   decodeFrameConfig,
+  encodeFrameConfig,
   type FrameViewKey,
   type FrameViewParams,
 } from "./frame.ts";
+import { encodeLensConfig } from "./lens.ts";
 import { NoParams, viewKey } from "./view-key.ts";
 
 /** The outline plugin's namespace and view keys: what a host imports, never the components. */
@@ -43,15 +45,14 @@ export type OutlineSnippetParams = typeof OutlineSnippetParams.Type;
  * shown for; nothing stored sets its depth or row cap, so a stored snippet
  * shows one level and six rows.
  */
-export const OutlineSnippetView = viewKey(
-  `${OUTLINE_NAMESPACE}.snippet`,
-  OutlineSnippetParams,
-  (props, host) => ({
+export const OutlineSnippetView = viewKey(`${OUTLINE_NAMESPACE}.snippet`, OutlineSnippetParams, {
+  read: (props, host) => ({
     root: firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined,
     depth: 1,
     maxRows: 6,
   }),
-);
+  write: ({ root }) => encodeLensConfig({ focus: root }),
+});
 
 function frameViewKey<P extends FrameViewParams>(
   name: string,
@@ -60,9 +61,10 @@ function frameViewKey<P extends FrameViewParams>(
 ): FrameViewKey<P> {
   // A frame view's settings are the `sys.f.view.*` props that configure it.
   return {
-    ...viewKey(`${OUTLINE_NAMESPACE}.${name}`, params, (props, _host, report) =>
-      decodeFrameConfig(props, report),
-    ),
+    ...viewKey<P>(`${OUTLINE_NAMESPACE}.${name}`, params, {
+      read: (props, _host, report) => decodeFrameConfig(props, report),
+      write: encodeFrameConfig,
+    }),
     family: FRAME_VIEW_FAMILY,
     rows,
   };

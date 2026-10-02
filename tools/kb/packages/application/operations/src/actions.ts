@@ -31,7 +31,7 @@ import { DatalogError, type KbIndex, KbIndexService } from "@kb/query";
 type KbWriteEnv = KbCtx | KbStore;
 
 /** Lift sync resolve/throw helpers into DomainError. */
-function syncDomain<A>(f: () => A): Effect.Effect<A, DomainError> {
+export function syncDomain<A>(f: () => A): Effect.Effect<A, DomainError> {
   return Effect.try({
     try: f,
     catch: (err) => {
@@ -187,13 +187,13 @@ function nodeById(ctx: KbContext, id: NodeId): KbNode | undefined {
   return ctx.index.getNode(id);
 }
 
-function requireNode(ctx: KbContext, id: NodeId): KbNode {
+export function requireNode(ctx: KbContext, id: NodeId): KbNode {
   const n = nodeById(ctx, id);
   if (!n) throw new ResolveError("not_found", `node not found: ${id}`, { id });
   return n;
 }
 
-function cloneNode(n: KbNode): KbNode {
+export function cloneNode(n: KbNode): KbNode {
   return {
     ...n,
     props: Object.fromEntries(
@@ -271,7 +271,12 @@ function collectSubtreeIds(nodes: KbNode[], rootId: NodeId): NodeId[] {
   return result;
 }
 
-function insertChild(parent: KbNode, childId: NodeId, at: string, position?: number): KbNode {
+export function insertChild(
+  parent: KbNode,
+  childId: NodeId,
+  at: string,
+  position?: number,
+): KbNode {
   const c = cloneNode(parent);
   const pos = position === undefined || position > c.children.length ? c.children.length : position;
   c.children = [...c.children.slice(0, pos), childId, ...c.children.slice(pos)];
@@ -286,7 +291,7 @@ function insertChild(parent: KbNode, childId: NodeId, at: string, position?: num
  * owner of the answer is `@kb/model`'s `rankForInsert`; the store's commit
  * settles it again against whatever it merges into.
  */
-function placedRank(
+export function placedRank(
   nodes: Iterable<KbNode>,
   parent: NodeId | null,
   node: KbNode,
@@ -401,7 +406,11 @@ function assertSysWriteAllowed(id: string, input: z.infer<typeof nodeUpdateDef.i
  * node.add / node.update. Checked against the final computed upserts, so no
  * structural path can slip through without tripping it.
  */
-function assertNoSysUpsert(upserts: readonly KbNode[], force: boolean, action: string): void {
+export function assertNoSysUpsert(
+  upserts: readonly KbNode[],
+  force: boolean,
+  action: string,
+): void {
   if (force) return;
   for (const n of upserts) {
     if (!isSysPrefixed(n.id)) continue;

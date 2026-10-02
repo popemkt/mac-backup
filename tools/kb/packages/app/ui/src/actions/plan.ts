@@ -8,6 +8,7 @@ import {
   viewOptionId,
   wouldCreateExtendsCycle,
   type FieldType,
+  type Writable,
 } from "@kb/model";
 import { forestRootIds } from "@/lib/graph-view";
 import {
@@ -464,7 +465,10 @@ export const frameViewIs = (option: string): FrameViewEdit => [
 ];
 
 /** One frame setting's edit: what its slot writes (`frameSettingWrite`), field by field. */
-function frameSettingEdit<K extends keyof ViewConfig>(key: K, value: ViewConfig[K]): FrameViewEdit {
+function frameSettingEdit<K extends keyof ViewConfig>(
+  key: K,
+  value: Writable<ViewConfig[K]>,
+): FrameViewEdit {
   return Object.entries(frameSettingWrite(key, value)).map(([field, values]) => ({
     field,
     values: [...values],

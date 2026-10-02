@@ -39,7 +39,10 @@ export interface LoadedView {
  */
 function loadedView(node: KbNode): LoadedView | DocsError {
   const name = docsViewNameOf(node);
-  const params = paramsIssues(DocsMarkdownView, DocsMarkdownView.config(node.props, null, ignore));
+  const params = paramsIssues(
+    DocsMarkdownView,
+    DocsMarkdownView.config.read(node.props, null, ignore),
+  );
   if (Result.isSuccess(params)) return { name, spec: docsSpecOf(params.success) };
   return new DocsError(
     "invalid_input",

@@ -52,7 +52,7 @@ export interface ConfigSlot<A> {
   readonly fields: readonly NodeId[];
   readonly decode: (props: NodeProps) => SlotDecode<A>;
   /** What storing `value` writes: {@link SlotWrite}. */
-  readonly encode: (value: A) => SlotWrite;
+  readonly encode: (value: Writable<A>) => SlotWrite;
 }
 
 /**
@@ -63,6 +63,13 @@ export interface ConfigSlot<A> {
  * second place.
  */
 export type SlotWrite = Readonly<Record<NodeId, readonly PropValue[]>>;
+
+/**
+ * What a slot takes to write: its value, with a list taken read-only, since
+ * writing never changes it. A config decoded from a schema holds read-only
+ * lists, and it is written as it is.
+ */
+export type Writable<A> = A extends readonly (infer E)[] ? readonly E[] : A;
 
 /**
  * Any schema whose decoded type is `A`. Only the decode direction is used, so
@@ -97,7 +104,7 @@ function anyPresent(props: NodeProps, fields: readonly NodeId[]): boolean {
 export function oneOf<A>(spec: {
   readonly fields: readonly NodeId[];
   readonly read: (props: NodeProps) => unknown;
-  readonly write: (value: A) => SlotWrite;
+  readonly write: (value: Writable<A>) => SlotWrite;
   readonly schema: SlotSchema<A>;
   readonly fallback: A;
 }): ConfigSlot<A> {
@@ -196,7 +203,7 @@ export function decodeNodeConfig<T extends object>(
  */
 export function encodeNodeConfig<T extends object>(
   slots: ConfigSlots<T>,
-  config: Partial<T>,
+  config: { readonly [K in keyof T]?: Writable<T[K]> },
 ): Record<NodeId, PropValue[]> {
   const props: Record<NodeId, PropValue[]> = {};
   for (const key in slots) {
@@ -216,7 +223,7 @@ export function encodeNodeConfig<T extends object>(
 export function encodeNodeSetting<T extends object, K extends keyof T>(
   slots: ConfigSlots<T>,
   key: K,
-  value: T[K],
+  value: Writable<T[K]>,
 ): SlotWrite {
   return slots[key].encode(value);
 }

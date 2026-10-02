@@ -1,5 +1,11 @@
 import { Schema } from "effect";
-import { EdgeKindSchema, LENS_SETTINGS, decodeLensConfig } from "./lens.ts";
+import {
+  EdgeKindSchema,
+  LENS_SETTINGS,
+  decodeLensConfig,
+  encodeLensConfig,
+  type LensWrite,
+} from "./lens.ts";
 import { viewKey, type ViewKey } from "./view-key.ts";
 
 /** The graph plugin's namespace and view keys: what a host imports, never the components. */
@@ -44,10 +50,8 @@ export type NeighbourhoodParams = typeof NeighbourhoodParams.Type;
  * empty focus means the node it is shown for; `lens.hops` (1 when absent),
  * `lens.edge-kinds`, `lens.renderer` and the renderer's settings.
  */
-export const NeighbourhoodView = viewKey(
-  `${GRAPH_NAMESPACE}.neighbourhood`,
-  NeighbourhoodParams,
-  (props, host, report) => {
+export const NeighbourhoodView = viewKey(`${GRAPH_NAMESPACE}.neighbourhood`, NeighbourhoodParams, {
+  read: (props, host, report) => {
     const lens = decodeLensConfig(props, report);
     return {
       root: lens.focus ?? host ?? undefined,
@@ -57,7 +61,9 @@ export const NeighbourhoodView = viewKey(
       settings: lens,
     };
   },
-);
+  write: ({ root, hops, edges, renderer, settings }) =>
+    encodeLensConfig({ ...settings, focus: root, hops, edgeKinds: edges, renderer }),
+});
 
 /**
  * What the shared frame chrome may drive for a renderer.
@@ -108,16 +114,17 @@ export function isRendererKey(key: ViewKey<unknown>): key is RendererKey<unknown
 
 type RendererName = "force2d" | "tree" | "cluster" | "force3d" | "treemap";
 
-function rendererKey<P>(
+function rendererKey<P extends LensWrite>(
   name: RendererName,
   params: RendererKey<P>["params"],
   traits: RendererTraits,
 ): RendererKey<P> {
   return {
     // A renderer's settings are the lens props of the perspective it draws.
-    ...viewKey(`${GRAPH_NAMESPACE}.${name}`, params, (props, _host, report) =>
-      decodeLensConfig(props, report),
-    ),
+    ...viewKey<P>(`${GRAPH_NAMESPACE}.${name}`, params, {
+      read: (props, _host, report) => decodeLensConfig(props, report),
+      write: encodeLensConfig,
+    }),
     family: RENDERER_FAMILY,
     params,
     renderer: traits,

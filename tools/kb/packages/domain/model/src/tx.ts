@@ -162,6 +162,11 @@ function writtenValueError(
  * transaction makes a docs view, or renames while it is one, is checked, so
  * a store that already holds a bad name stays editable and `docs.check`
  * reports it.
+ *
+ * The rest of a view node's settings are not checked here: the check that
+ * would (`@kb/views`' `viewNodeFor`) needs the view keys, which build on
+ * this package, so only `view.propose` runs it.
+ * GAP [GAP-VIEW-WRITE-CHECK]
  */
 function writtenDocsViewNameError(
   before: Map<NodeId, KbNode>,

@@ -33,6 +33,7 @@ import {
   type NodeProps,
   type PropValue,
   type SlotWrite,
+  type Writable,
 } from "@kb/model";
 import type { ConfigReport } from "./view-key.ts";
 
@@ -414,6 +415,14 @@ export function perspectiveProps(p: LensPerspective): Record<string, PropValue[]
   const { id: _id, label: _label, renderer, ...lens } = p;
   return {
     [SYSTEM_IDS.viewField]: [{ t: "ref", v: renderer }],
-    ...encodeNodeConfig(LENS_SLOTS, { ...lens, labelBy: lens.labelBy ?? DEFAULT_LABEL_BY }),
+    ...encodeLensConfig({ ...lens, labelBy: lens.labelBy ?? DEFAULT_LABEL_BY }),
   };
 }
+
+/** The lens props `lens` is stored as: each setting it holds, written by its slot. */
+export function encodeLensConfig(lens: LensWrite): Record<string, PropValue[]> {
+  return encodeNodeConfig(LENS_SLOTS, lens);
+}
+
+/** Lens settings as a view's params hold them: any of them, lists read-only. */
+export type LensWrite = { readonly [K in keyof LensProps]?: Writable<LensProps[K]> };

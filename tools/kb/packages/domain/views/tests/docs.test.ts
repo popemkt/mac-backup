@@ -11,7 +11,7 @@ import { DocsMarkdownView, docsSpecOf, issueText, paramsIssues } from "@kb/views
 function read(props: NodeProps) {
   return paramsIssues(
     DocsMarkdownView,
-    DocsMarkdownView.config(props, null, () => {}),
+    DocsMarkdownView.config.read(props, null, () => {}),
   );
 }
 

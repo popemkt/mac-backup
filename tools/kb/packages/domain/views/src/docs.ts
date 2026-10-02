@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { SYSTEM_IDS, firstStr, type DocsViewSpec, type NodeProps } from "@kb/model";
+import { SYSTEM_IDS, docsViewProps, firstStr, type DocsViewSpec, type NodeProps } from "@kb/model";
 import { viewKey } from "./view-key.ts";
 
 /** The docs extension's namespace: the server's render layer draws its view. */
@@ -59,10 +59,8 @@ function stored(props: NodeProps, field: string): string | undefined {
  * leaving out an empty one, so a setting it cannot be read without is named
  * by its params.
  */
-export const DocsMarkdownView = viewKey(
-  `${DOCS_NAMESPACE}.markdown`,
-  DocsMarkdownParams,
-  (props) => {
+export const DocsMarkdownView = viewKey(`${DOCS_NAMESPACE}.markdown`, DocsMarkdownParams, {
+  read: (props) => {
     const query = stored(props, SYSTEM_IDS.lensQueryField);
     const savedQuery = stored(props, SYSTEM_IDS.viewSavedQueryField);
     const template = stored(props, SYSTEM_IDS.viewTemplateField);
@@ -74,7 +72,12 @@ export const DocsMarkdownView = viewKey(
       ...(output === undefined ? {} : { output }),
     };
   },
-);
+  // What `@kb/model` writes for a docs view (`docsViewProps`), less the view it names.
+  write: (params) => {
+    const { [SYSTEM_IDS.viewField]: _view, ...settings } = docsViewProps(docsSpecOf(params));
+    return settings;
+  },
+});
 
 /** A docs view's params as the spec the render layer draws. */
 export function docsSpecOf(params: DocsMarkdownParams): DocsViewSpec {

@@ -8,6 +8,7 @@ import { Schema } from "effect";
 import {
   SYSTEM_IDS,
   decodeNodeConfig,
+  encodeNodeConfig,
   encodeNodeSetting,
   firstStr,
   manyOf,
@@ -18,6 +19,7 @@ import {
   type NodeProps,
   type PropValue,
   type SlotWrite,
+  type Writable,
 } from "@kb/model";
 import type { ConfigReport, ViewKey } from "./view-key.ts";
 
@@ -348,9 +350,14 @@ const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
  */
 export function frameSettingWrite<K extends keyof ViewConfig>(
   key: K,
-  value: ViewConfig[K],
+  value: Writable<ViewConfig[K]>,
 ): SlotWrite {
   return encodeNodeSetting(VIEW_SLOTS, key, value);
+}
+
+/** The props a frame view's params are stored as: each setting they hold, written by its slot. */
+export function encodeFrameConfig(params: FrameViewParams): Record<string, PropValue[]> {
+  return encodeNodeConfig(VIEW_SLOTS, params);
 }
 
 /**

@@ -119,6 +119,9 @@ const CALLS: readonly ActionInvocation[] = [
     input: { query: '[:find ?id :where [?e :node/id "sys.tag"] [?e :node/id ?id]]' },
   },
   { id: "render.views", input: {} },
+  // A proposal kb refuses writes nothing, so every surface sees the same refusal.
+  { id: "view.propose", input: { view: "outline.nope" } },
+  { id: "view.propose", input: { view: "outline.board", params: { groupFieldId: 7 } } },
   { id: APPROVAL_ACTION, input: {} },
   { id: "ui.screen", input: {} },
   { id: "ui.screen", input: { tab: MISSING_TAB } },
