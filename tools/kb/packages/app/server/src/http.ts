@@ -1,5 +1,6 @@
 import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
+import type { FileSystem } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
   ActionInvocationSchema,
@@ -58,6 +59,22 @@ function invalidInput(message: string): HttpServerResponse.HttpServerResponse {
   );
 }
 
+/** A read of the API: a `GET` that answers JSON. */
+type JsonRead = (deps: UiHttpDeps) => Effect.Effect<unknown, never, FileSystem>;
+
+/** The API's reads, by path. */
+const JSON_READS: ReadonlyMap<string, JsonRead> = new Map<string, JsonRead>([
+  ["/api/graph", ({ hub }) => Effect.succeed(hub.snapshot)],
+  [
+    "/api/manifest",
+    ({ root }) =>
+      manifest(root).pipe(
+        Effect.map((entries) => entries.filter((entry) => listedOn(HTTP_WIRE, entry.mode))),
+      ),
+  ],
+  ["/api/queries", ({ root }) => listSavedQueriesEffect(root)],
+]);
+
 /**
  * HTTP/API routing for `kb ui` (WebSocket upgrade stays on the Bun.serve
  * boundary in `server.ts`).
@@ -71,20 +88,12 @@ const handleHttpRequestEffect = (
   deps: UiHttpDeps,
 ): Effect.Effect<HttpServerResponse.HttpServerResponse, never, ActionHandlerEnv> =>
   Effect.gen(function* () {
-    const { root, ctx, hub } = deps;
+    const { root, ctx } = deps;
     const url = new URL(req.url);
 
-    if (url.pathname === "/api/graph" && req.method === "GET") {
-      return jsonResponse(hub.snapshot);
-    }
-
-    if (url.pathname === "/api/manifest" && req.method === "GET") {
-      const entries = yield* manifest(root);
-      return jsonResponse(entries.filter((entry) => listedOn(HTTP_WIRE, entry.mode)));
-    }
-
-    if (url.pathname === "/api/queries" && req.method === "GET") {
-      return jsonResponse(yield* listSavedQueriesEffect(root));
+    const read = req.method === "GET" ? JSON_READS.get(url.pathname) : undefined;
+    if (read !== undefined) {
+      return jsonResponse(yield* read(deps));
     }
 
     // The request guard (`guard.ts`) has already refused another site's page,
