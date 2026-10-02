@@ -1,0 +1,28 @@
+{
+  "name": "@kb/agent-claude",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "catalog:",
+    "@kb/agent": "workspace:*",
+    "@kb/contracts": "workspace:*",
+    "@modelcontextprotocol/sdk": "catalog:",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:backend"
+    ]
+  }
+}

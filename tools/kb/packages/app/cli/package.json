@@ -12,6 +12,8 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@kb/agent": "workspace:*",
+    "@kb/agent-claude": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/ext-check": "workspace:*",
     "@kb/ext-docs": "workspace:*",
@@ -25,7 +27,6 @@
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@kb/agent": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@kb/webmcp": "workspace:*",
     "@modelcontextprotocol/sdk": "catalog:",

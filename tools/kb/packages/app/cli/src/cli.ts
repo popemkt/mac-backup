@@ -307,6 +307,19 @@ function collect(value: string, previous: string[]): string[] {
 
 const toInt = (v: string): number => Number.parseInt(v, 10);
 
+/**
+ * The plugins `kb ui` hosts: the sidebar agent, over the person's local
+ * Claude. This composition root names them and the server names none
+ * (DESIGN.md → Plugin channels). They load on demand, so no other command
+ * pays for the agent packages.
+ */
+const uiPlugins = Effect.fn("kb.cli.uiPlugins")(function* (root: string) {
+  const [{ agentPlugin }, { claudeRuntime }] = yield* Effect.promise(() =>
+    Promise.all([import("@kb/agent"), import("@kb/agent-claude")]),
+  );
+  return [agentPlugin({ runtime: claudeRuntime({ cwd: root }) })];
+});
+
 interface ForceOpts {
   force?: boolean;
 }
@@ -361,9 +374,15 @@ function buildProgram(): Command {
     .option("--dev", "spawn the Vite dev server (HMR) and proxy to the backend", false)
     .option("--dev-port <n>", "Vite dev server port (default 5173)", toInt)
     .option("--no-open", "do not open a browser")
+    .option("--no-agent", "do not host the sidebar agent (the local Claude bridge)")
     .action(
       cliAction(
-        (globals, [opts]: [{ port?: number; dev?: boolean; devPort?: number; open?: boolean }]) =>
+        (
+          globals,
+          [opts]: [
+            { port?: number; dev?: boolean; devPort?: number; open?: boolean; agent?: boolean },
+          ],
+        ) =>
           Effect.gen(function* () {
             const { runUiCli } = yield* Effect.promise(() => import("@kb/server"));
             const root = yield* resolveRootEffect({ root: globals.root });
@@ -373,6 +392,7 @@ function buildProgram(): Command {
               openBrowser: opts.open !== false,
               dev: opts.dev === true,
               devPort: opts.devPort,
+              plugins: opts.agent === false ? [] : yield* uiPlugins(root),
             });
           }),
       ),

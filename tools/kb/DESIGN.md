@@ -1843,6 +1843,24 @@ The sidebar agent lives outside core, in packages that core never imports
   Nothing is written to the store. Threads kept as nodes are the
   canonical shape (`GAP-AGENT-THREADS`). A backend may keep its own record
   of a session, as Claude Code does.
+- **`kb ui` hosts the agent over the local Claude** (`claudeRuntime`), and
+  `--no-agent` leaves it out. The CLI is the composition root that names
+  it, and it loads the agent packages only for `kb ui`.
+  - The adapter runs Claude Code through the Claude Agent SDK under the
+    login the person already has. kb configures no API key and reads none.
+  - It uses the `claude` on PATH. Failing that, it uses the SDK's bundled
+    binary, which only a checkout's `node_modules` holds.
+  - The model's only tools are the turn's, served by an in-process MCP
+    server built for each turn. They have the names, hints and results
+    of `kb mcp` (`mcp-tool.ts` in contracts), and none is deferred behind
+    tool search.
+  - Claude Code's own tools, settings, CLAUDE.md files and MCP servers are
+    all left out. Claude Code runs in the kb root, and its permission mode
+    lets kb's tools run without asking, because approval is kb's decision,
+    made by mode.
+  - `resume` is Claude Code's session id. Claude Code keeps that session
+    in its own store, so the transcript lives in Claude Code's files, not
+    in kb's.
 - `surfaceContract` runs the agent as one more surface (`agent`) over a
   scripted model. It covers the listing, every receipt, and an approved
   call made by the person.
