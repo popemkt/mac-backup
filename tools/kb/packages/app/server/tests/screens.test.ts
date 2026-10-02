@@ -7,7 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -52,6 +52,12 @@ async function eventually<A>(read: () => Promise<A>, done: (value: A) => boolean
     value = await read();
   }
   return value;
+}
+
+/** A presence file for `root`, as a server at `url` in this process would write it. */
+async function writePresence(root: string, url: string): Promise<void> {
+  const presence = { url, pid: process.pid, root: await realpath(root) };
+  await writeFile(join(root, ".kb", "ui.json"), JSON.stringify(presence));
 }
 
 function on(route: string, active = true): ScreenState {
@@ -217,8 +223,11 @@ describe("screen state", () => {
   });
 
   test("another process reaches the tabs through .kb/ui.json", async () => {
-    const presence = JSON.parse(await readFile(join(root, ".kb", "ui.json"), "utf8")) as unknown;
-    expect(presence).toEqual({ url: handle.url });
+    const file = join(root, ".kb", "ui.json");
+    const presence = JSON.parse(await readFile(file, "utf8")) as unknown;
+    expect(presence).toEqual({ url: handle.url, pid: process.pid, root: await realpath(root) });
+    // Readable by its owner only.
+    expect((await stat(file)).mode & 0o777).toBe(0o600);
 
     await tab("tab.a");
     const ctx = await openKb(root);
@@ -276,11 +285,57 @@ describe("screen state with no kb ui", () => {
     const probe = Bun.serve({ port: 0, fetch: () => new Response() });
     const url = `http://127.0.0.1:${probe.port}`;
     void probe.stop(true);
-    await writeFile(join(root, ".kb", "ui.json"), JSON.stringify({ url }));
+    await writePresence(root, url);
+    const started = Date.now();
     expect(await invoke(ctx, { id: "ui.navigate", input: { node: "n.x" } })).toEqual({
       status: "succeeded",
       id: "ui.navigate",
       output: { outcome: "no-tab" },
     });
+    // Answered by the probe, not by waiting out the command's own timeout.
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+
+  test("a presence file whose port another root's kb ui now holds names no tabs", async () => {
+    const other = await mkdtemp(join(tmpdir(), "kb-screens-other-"));
+    const elsewhere = await run(startUi({ root: other, port: 0, openBrowser: false }));
+    const stranger = await run(FakeTab.open(elsewhere.url, "tab.stranger"));
+    try {
+      const ctx = await openKb(root);
+      await writePresence(root, elsewhere.url);
+      expect(await invoke(ctx, { id: "ui.screen", input: {} })).toEqual({
+        status: "succeeded",
+        id: "ui.screen",
+        output: { tabs: [] },
+      });
+      expect(await invoke(ctx, { id: "ui.navigate", input: { route: "/" } })).toEqual({
+        status: "succeeded",
+        id: "ui.navigate",
+        output: { outcome: "no-tab" },
+      });
+      expect(stranger.commands).toEqual([]);
+    } finally {
+      await run(stranger.close);
+      await run(elsewhere.stop);
+      await rm(other, { recursive: true, force: true });
+    }
+  });
+
+  test("a server that does not say which root it serves in time names no tabs", async () => {
+    const ctx = await openKb(root);
+    // Takes the connection and never answers.
+    const silent = Bun.serve({ port: 0, fetch: () => new Promise<Response>(() => undefined) });
+    try {
+      await writePresence(root, `http://127.0.0.1:${silent.port}`);
+      const started = Date.now();
+      expect(await invoke(ctx, { id: "ui.select", input: { focus: "n.x" } })).toEqual({
+        status: "succeeded",
+        id: "ui.select",
+        output: { outcome: "no-tab" },
+      });
+      expect(Date.now() - started).toBeLessThan(2000);
+    } finally {
+      void silent.stop(true);
+    }
   });
 });

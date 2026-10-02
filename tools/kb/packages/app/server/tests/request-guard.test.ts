@@ -65,6 +65,9 @@ describe("kb ui request guard", () => {
     const res = await fetch(`${handle.url}/api/manifest`, { headers: { Origin: EVIL } });
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({ status: "failed", code: "forbidden" });
+    // Nor may it learn which root this server serves.
+    const identity = await fetch(`${handle.url}/api/identity`, { headers: { Origin: EVIL } });
+    expect(identity.status).toBe(403);
   });
 
   test("a Host that is not this server is refused, which stops DNS rebinding", async () => {

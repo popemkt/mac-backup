@@ -36,6 +36,7 @@ export {
   ClientMessageSchema,
   GraphSnapshotSchema,
   SavedQuerySchema,
+  ServerIdentitySchema,
   ServerMessageSchema,
   UI_DEFAULT_PORT,
   WireNodeSchema,
@@ -45,6 +46,7 @@ export type {
   ClientMessage,
   GraphSnapshot,
   SavedQuery,
+  ServerIdentity,
   ServerMessage,
   WireNode,
 } from "./protocol.ts";

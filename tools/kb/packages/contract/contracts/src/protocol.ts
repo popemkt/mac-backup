@@ -12,6 +12,7 @@ import { ScreenAckSchema, ScreenCommandSchema, ScreenStateSchema } from "./scree
  *   GET  /api/manifest  -> ManifestEntry[]      (from registry.manifest())
  *   GET  /api/queries   -> SavedQuery[]         (.kb/queries/*.edn)
  *   POST /api/action    <- ActionInvocation     -> ActionResponse (registry.invoke)
+ *   GET  /api/identity  -> ServerIdentity       (which root this server serves)
  *   GET  /ws            -> upgrade to WebSocket (messages below)
  * Static UI bundle is served from / (ui/dist). Opaque kb media files are
  * served read-only from GET /assets/* → .kb/assets/ (W6a).
@@ -61,6 +62,15 @@ export const ActionResponseSchema = z.discriminatedUnion("status", [
   FailedReceiptSchema,
 ]);
 export type ActionResponse = z.infer<typeof ActionResponseSchema>;
+
+/**
+ * Which root this server serves (absolute, symlinks resolved). A process
+ * that found the server through `.kb/ui.json` asks this before it forwards
+ * anything, so a stale file whose port another root's server now holds is
+ * never mistaken for its own.
+ */
+export const ServerIdentitySchema = z.object({ root: z.string() });
+export type ServerIdentity = z.infer<typeof ServerIdentitySchema>;
 
 export const SavedQuerySchema = z.object({
   name: z.string(),

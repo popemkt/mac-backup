@@ -9,32 +9,52 @@ import { internal, isNotFound } from "./errors.ts";
  * writes it once it listens and removes it when it stops; a process that
  * needs the server for its root (the CLI or MCP asking for the screen) reads
  * it. It is runtime state, like a pidfile: never committed, never backed up,
- * and a file left by a server that died is only a URL nothing answers on.
+ * readable by its owner only. A file left by a server that died names a URL
+ * that no longer answers, or that another root's server now answers, so a
+ * reader asks the server which root it serves before it trusts the file.
  */
 function uiPresenceFile(root: string): string {
   return resolve(root, ".kb", "ui.json");
 }
 
-// The file names a URL and nothing that proves which root is served there.
-// GAP [GAP-UI-PRESENCE-IDENTITY]
-const Presence = Schema.fromJsonString(Schema.Struct({ url: Schema.String }));
-const decodePresence = Schema.decodeUnknownOption(Presence);
+const PresenceSchema = Schema.Struct({
+  url: Schema.String,
+  pid: Schema.Finite,
+  root: Schema.String,
+});
+export type UiPresence = typeof PresenceSchema.Type;
 
-/** Record that the `kb ui` at `url` serves `root`. */
+const decodePresence = Schema.decodeUnknownOption(Schema.fromJsonString(PresenceSchema));
+
+/** The root as a server names it: absolute, with its symlinks resolved. */
+export const canonicalRoot = Effect.fn("kb.uiPresence.canonicalRoot")(function* (
+  root: string,
+): Effect.fn.Return<string, never, FileSystem> {
+  const fs = yield* FileSystem;
+  return yield* fs.realPath(root).pipe(Effect.orElseSucceed(() => resolve(root)));
+});
+
+/** Record that the `kb ui` at `url`, this process, serves `root`. */
 export const writeUiPresence = Effect.fn("kb.uiPresence.write")(function* (
   root: string,
   url: string,
 ): Effect.fn.Return<void, DomainError, FileSystem> {
   const fs = yield* FileSystem;
+  const file = uiPresenceFile(root);
+  const presence: UiPresence = { url, pid: process.pid, root: yield* canonicalRoot(root) };
   yield* fs
-    .writeFileString(uiPresenceFile(root), `${JSON.stringify({ url })}\n`)
-    .pipe(Effect.mapError((err) => internal("write .kb/ui.json", err)));
+    .writeFileString(file, `${JSON.stringify(presence)}\n`, { mode: 0o600 })
+    // The mode applies only to a file this write creates; one left behind keeps its own.
+    .pipe(
+      Effect.andThen(fs.chmod(file, 0o600)),
+      Effect.mapError((err) => internal("write .kb/ui.json", err)),
+    );
 });
 
-/** The URL of the `kb ui` serving `root`, or null when none says it does. */
+/** What `.kb/ui.json` says, or null when there is none or it is not one this module wrote. */
 export const readUiPresence = Effect.fn("kb.uiPresence.read")(function* (
   root: string,
-): Effect.fn.Return<string | null, DomainError, FileSystem> {
+): Effect.fn.Return<UiPresence | null, DomainError, FileSystem> {
   const fs = yield* FileSystem;
   const text = yield* fs
     .readFileString(uiPresenceFile(root))
@@ -44,8 +64,7 @@ export const readUiPresence = Effect.fn("kb.uiPresence.read")(function* (
       ),
     );
   if (text === null) return null;
-  // A file that is not one this module wrote names no server.
-  return Option.getOrNull(Option.map(decodePresence(text), (presence) => presence.url));
+  return Option.getOrNull(decodePresence(text));
 });
 
 /**
@@ -56,7 +75,7 @@ export const clearUiPresence = Effect.fn("kb.uiPresence.clear")(function* (
   root: string,
   url: string,
 ): Effect.fn.Return<void, DomainError, FileSystem> {
-  if ((yield* readUiPresence(root)) !== url) return;
+  if ((yield* readUiPresence(root))?.url !== url) return;
   const fs = yield* FileSystem;
   yield* fs
     .remove(uiPresenceFile(root))

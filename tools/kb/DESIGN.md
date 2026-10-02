@@ -1737,13 +1737,16 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   `Screens` port, which `kbRuntimeLayer` takes as an input. The `kb ui`
   server passes its `ScreenHub`, so it never asks itself. Every other
   process gets the default, `remoteScreensLayer`, which reads
-  `.kb/ui.json` and asks that server the same action. `kb ui` writes the
-  file when it listens and removes it when it stops. It is runtime state,
-  gitignored and not backed up. A root that no server serves, or whose file
-  points at a server that has died, has no tabs, which is an answer and not
-  a failure. So `ui.*` reach MCP, HTTP, the CLI and WebMCP like any action,
-  and `surfaceContract` runs them over every surface against one fake tab
-  connected to the root's one `kb ui`.
+  `.kb/ui.json` and asks that server the same action. `kb ui` writes
+  `{url, pid, root}` there (mode 0600) when it listens and removes it when
+  it stops. It is runtime state, gitignored and not backed up. Before it
+  forwards anything, the reader asks the server named there which root it
+  serves (`GET /api/identity`, behind the request guard, with a short
+  timeout). A root that no server serves has no tabs. Neither has one whose
+  file points at a server that has died, does not answer in time, or serves
+  another root. That is an answer, not a failure. So `ui.*` reach MCP, HTTP,
+  the CLI and WebMCP like any action, and `surfaceContract` runs them over
+  every surface against one fake tab connected to the root's one `kb ui`.
 
 ## Repo integration
 

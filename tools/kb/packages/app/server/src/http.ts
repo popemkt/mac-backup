@@ -8,10 +8,12 @@ import {
   listedOn,
   type ActionResponse,
   type KbContext,
+  type ServerIdentity,
   type SurfaceWire,
 } from "@kb/contracts";
 import { reloadEffect } from "@kb/operations";
 import { type ActionHandlerEnv, invokeReceiptEffect, manifest } from "@kb/runtime";
+import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
 import { listSavedQueriesEffect } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
@@ -73,6 +75,11 @@ const JSON_READS: ReadonlyMap<string, JsonRead> = new Map<string, JsonRead>([
       ),
   ],
   ["/api/queries", ({ root }) => listSavedQueriesEffect(root)],
+  [
+    "/api/identity",
+    ({ root }) =>
+      canonicalRoot(root).pipe(Effect.map((served): ServerIdentity => ({ root: served }))),
+  ],
 ]);
 
 /**

@@ -5,6 +5,7 @@ import {
   SCREEN_COMMAND_TIMEOUT_MS,
   ScreenListSchema,
   ScreenReceiptSchema,
+  ServerIdentitySchema,
   Screens,
   noTabReceipt,
   type ScreenList,
@@ -14,10 +15,13 @@ import {
 } from "@kb/contracts";
 import { domainError, type DomainError } from "@kb/model";
 import { uiNavigateDef, uiScreenDef, uiSelectDef } from "@kb/operations";
-import { readUiPresence } from "@kb/workspace-fs";
+import { canonicalRoot, readUiPresence } from "@kb/workspace-fs";
 
 /** How much longer than the command's own wait the server gets to answer. */
 const ANSWER_MARGIN_MS = 2000;
+
+/** How long the server named in `.kb/ui.json` gets to say which root it serves. */
+const PROBE_MS = 500;
 
 /** Whether a request failed because nothing listens at its address (Bun's and Node's codes). */
 function refused(cause: unknown): boolean {
@@ -34,13 +38,41 @@ type Decoded<A> = { success: true; data: A } | { success: false; error: { messag
  * root, so each call asks that server, found through `.kb/ui.json`, the same
  * `ui.*` action its caller invoked; the server's own adapter answers it. A
  * root no server serves has no tabs: the list is empty and a command gets
- * `no-tab`. So does a presence file whose server no longer answers.
+ * `no-tab`. So does a presence file whose server no longer answers, or
+ * whose port a server of another root now holds.
  */
 export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, FileSystem> {
   return Layer.effect(
     Screens,
     Effect.gen(function* () {
       const context = yield* Effect.context<FileSystem>();
+
+      /**
+       * The URL of the `kb ui` that serves this root now, or null. The
+       * presence file only says where one was: the server there is asked
+       * which root it serves, briefly, and anything short of this root's
+       * own answer (no file, nothing listening, too slow, another root)
+       * means no server.
+       */
+      const serving = Effect.fn("kb.screens.serving")(function* (): Effect.fn.Return<
+        string | null,
+        DomainError,
+        FileSystem
+      > {
+        const presence = yield* readUiPresence(root);
+        if (presence === null) return null;
+        const expected = yield* canonicalRoot(root);
+        const identity = yield* Effect.tryPromise((signal) =>
+          fetch(`${presence.url}/api/identity`, { signal }),
+        ).pipe(
+          Effect.flatMap((res) => Effect.tryPromise(() => res.json())),
+          Effect.map((body) => ServerIdentitySchema.safeParse(body)),
+          Effect.timeoutOption(PROBE_MS),
+          Effect.orElseSucceed(() => Option.none()),
+        );
+        if (Option.isNone(identity) || !identity.value.success) return null;
+        return identity.value.data.root === expected ? presence.url : null;
+      });
 
       const ask = Effect.fn("kb.screens.ask")(function* <A>(
         id: string,
@@ -49,7 +81,7 @@ export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, Fi
         decode: (output: unknown) => Decoded<A>,
         none: A,
       ): Effect.fn.Return<A, DomainError, FileSystem> {
-        const url = yield* readUiPresence(root);
+        const url = yield* serving();
         if (url === null) return none;
         const post = Effect.tryPromise({
           try: (signal) =>
