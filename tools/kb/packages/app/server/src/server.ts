@@ -7,6 +7,7 @@ import { UI_DEFAULT_PORT, directorySignals, type KbContext } from "@kb/contracts
 import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
 import { openKbEffect, writeErr, bunFileSystemLayer } from "@kb/runtime";
+import { makeKernel, type Plugin } from "@kb/plugin";
 import { clearUiPresence, queriesDir, writeUiPresence } from "@kb/workspace-fs";
 import { ensureUiBuilt, type UiBuildError, type UiEnsureResult } from "./build.ts";
 import {
@@ -19,6 +20,7 @@ import {
 import { childProcessEnv, UI_DIST, UI_ROOT } from "./paths.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
 import { handleHttpRequest } from "./http.ts";
+import { channelsOf, loadServerPlugins } from "./plugins.ts";
 import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
 import { ClientGone, SubscriptionHub, type ClientSend, type WsData } from "./session.ts";
@@ -41,6 +43,12 @@ export interface UiServerOptions {
    * this server's own port.
    */
   uiPort?: number;
+  /**
+   * The plugins this server hosts (`plugins.ts`), loaded in order after the
+   * host itself. The caller, a composition root, names them; the server
+   * names none.
+   */
+  plugins?: readonly Plugin[];
 }
 
 export interface UiServerHandle {
@@ -223,7 +231,9 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const lifetime = Scope.makeUnsafe("parallel");
 
   const ctx = yield* openKbEffect(opts.root);
-  const hub = new SubscriptionHub(ctx);
+  const kernel = makeKernel();
+  const hub = new SubscriptionHub(ctx, channelsOf(kernel));
+  yield* loadServerPlugins(kernel, ctx, hub.screens, opts.plugins ?? []);
   const queries = new SavedQuerySet(ctx);
   queries.adopt(savedQueryNodes(yield* listSavedQueriesEffect(opts.root)));
 
@@ -249,6 +259,8 @@ export const startUi = Effect.fn("kb.startUi")(function* (
       void server.stop(true);
     }),
   );
+  // Each plugin's scope closes with the server's: what it forked stops with it.
+  yield* Scope.addFinalizer(lifetime, kernel.shutdown);
 
   // The store says when it moved; the server never names its files. The first
   // element is the state once the subscription is armed, so a write that
@@ -315,12 +327,14 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
   devPort: number;
   uiRoot: string;
   spawn?: UiDevSpawn;
+  plugins?: readonly Plugin[];
 }): Effect.fn.Return<UiDevServer, DomainError, FileSystem> {
   const backend = yield* startUi({
     root: opts.root,
     port: opts.backendPort,
     openBrowser: false,
     uiPort: opts.devPort,
+    plugins: opts.plugins,
   });
   const spawn = opts.spawn ?? bunSpawnDev;
   const child = yield* Effect.try({
@@ -356,6 +370,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
   openBrowser: boolean;
   uiRoot: string;
   ensureBuilt?: EnsureUiBuilt;
+  plugins?: readonly Plugin[];
 }): Effect.fn.Return<{ handle: UiServerHandle; build: UiEnsureResult }, DomainError, FileSystem> {
   const ensure = opts.ensureBuilt ?? ensureUiBuilt;
   const build = yield* ensure(opts.uiRoot, UI_DIST).pipe(Effect.mapError(ensureDomainError));
@@ -363,6 +378,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
     root: opts.root,
     port: opts.port,
     openBrowser: opts.openBrowser,
+    plugins: opts.plugins,
   });
   return { handle, build };
 }, Effect.provide(bunFileSystemLayer));
@@ -391,6 +407,8 @@ export interface RunUiCliOptions {
   /** Injectable build-ensure step (default {@link ensureUiBuilt}). */
   ensureBuilt?: EnsureUiBuilt;
   spawnDev?: UiDevSpawn;
+  /** The plugins the server hosts ({@link UiServerOptions.plugins}). */
+  plugins?: readonly Plugin[];
 }
 
 /**
@@ -413,6 +431,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
       devPort,
       uiRoot,
       spawn: opts.spawnDev,
+      plugins: opts.plugins,
     });
     writeErr(`kb ui dev server listening on ${dev.url}`);
     if (open) openBrowser(dev.url);
@@ -434,6 +453,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
     openBrowser: open,
     uiRoot,
     ensureBuilt: opts.ensureBuilt,
+    plugins: opts.plugins,
   });
   if (build.built) {
     writeErr(`kb ui: built UI at ${relative(process.cwd(), UI_DIST)} (${build.state})`);

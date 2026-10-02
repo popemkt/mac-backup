@@ -278,4 +278,39 @@ describe("KbWsClient", () => {
     server.push({ op: "screen-refused", tab: "tab.a", code: "tab_in_use" });
     expect(refused).toEqual(["tab.a"]);
   });
+
+  it("carries a plugin channel both ways, and its error to its own sink", () => {
+    const h = makeHarness();
+    const data: unknown[] = [];
+    const errors: { code: string; message: string }[] = [];
+    h.client.connect();
+    h.server.accept(0);
+    const unlisten = h.client.listen("agent.chat", {
+      data: (frame) => data.push(frame),
+      error: (err) => errors.push(err),
+    });
+    h.client.sendChannel("agent.chat", { type: "send", text: "hi" });
+    expect(h.server.received("channel")).toEqual([
+      { op: "channel", channel: "agent.chat", data: { type: "send", text: "hi" } },
+    ]);
+    h.server.push({ op: "channel", channel: "agent.chat", data: { type: "text", delta: "yo" } });
+    h.server.push({ op: "channel", channel: "other", data: "not ours" });
+    h.server.push({ op: "error", id: "agent.chat", code: "unknown_channel", message: "none" });
+    expect(data).toEqual([{ type: "text", delta: "yo" }]);
+    expect(errors).toEqual([
+      { op: "error", id: "agent.chat", code: "unknown_channel", message: "none" },
+    ]);
+    expect(h.errors).toEqual([]);
+    unlisten();
+    h.server.push({ op: "channel", channel: "agent.chat", data: "late" });
+    expect(data).toHaveLength(1);
+  });
+
+  it("drops a channel frame sent while the socket is down", () => {
+    const h = makeHarness();
+    h.client.sendChannel("agent.chat", { type: "send" });
+    h.client.connect();
+    h.server.accept(0);
+    expect(h.server.received("channel")).toEqual([]);
+  });
 });

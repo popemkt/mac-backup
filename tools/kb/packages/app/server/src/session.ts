@@ -1,5 +1,7 @@
 import { Effect, Schema } from "effect";
 import {
+  type Channel,
+  type ChannelPeer,
   type KbContext,
   ClientMessageSchema,
   GraphSnapshotSchema,
@@ -36,6 +38,18 @@ interface ClientState {
   /** subscription id → { query, lastHash } */
   subs: Map<string, { query: string; lastHash: string }>;
 }
+
+/**
+ * The plugin channels the hub routes `channel` frames to (`channel.ts`): the
+ * server's plugin kernel, read at each frame, so a plugin that loads or
+ * unloads is seen at once.
+ */
+export interface ChannelDirectory {
+  readonly find: (id: string) => Channel | undefined;
+  readonly all: () => readonly Channel[];
+}
+
+const NO_CHANNELS: ChannelDirectory = { find: () => undefined, all: () => [] };
 
 /** What one query answered this transaction, shared by every subscription on it. */
 type QueryAnswer = { ok: true; rows: unknown[][]; hash: string } | { ok: false; message: string };
@@ -79,16 +93,22 @@ export function rowsHash(rows: unknown[][]): string {
  * A connection that publishes a screen is a UI tab. The hub owns the
  * connections, so it hands {@link screens} what concerns them — a published
  * record, an answer to a command, a close — and that hub owns the rest.
+ *
+ * A `channel` frame goes to the plugin that owns that channel, with the
+ * connection it came from as its peer, and a close reaches every channel.
+ * The hub knows no channel by name.
  */
 export class SubscriptionHub {
   private clients = new Map<string, ClientState>();
   private ctx: KbContext;
+  private readonly channels: ChannelDirectory;
   private readonly unsubscribe: () => void;
   /** The screens of the connections that are UI tabs. */
   readonly screens = new ScreenHub();
 
-  constructor(ctx: KbContext) {
+  constructor(ctx: KbContext, channels: ChannelDirectory = NO_CHANNELS) {
     this.ctx = ctx;
+    this.channels = channels;
     this.unsubscribe = ctx.log.subscribe((tx) => {
       // The log calls back synchronously from inside the commit; the sends it
       // produces are synchronous too, so forking keeps frame order while
@@ -128,7 +148,25 @@ export class SubscriptionHub {
   /** Forget a client (socket closed / session interrupted). */
   removeClient(clientId: string): Effect.Effect<void> {
     this.clients.delete(clientId);
-    return this.screens.drop(clientId);
+    return this.screens.drop(clientId).pipe(
+      Effect.andThen(
+        Effect.forEach(this.channels.all(), (channel) => channel.drop(clientId), {
+          discard: true,
+        }),
+      ),
+    );
+  }
+
+  /** `clientId` as a peer of the channel `channel`: what it may know of the connection. */
+  private peer(clientId: string, channel: string, client: ClientState): ChannelPeer {
+    return {
+      connection: clientId,
+      tab: () => this.screens.tabOf(clientId),
+      send: (data) => {
+        const frame: ServerMessage = { op: "channel", channel, data };
+        return client.send(JSON.stringify(frame));
+      },
+    };
   }
 
   /** Process one inbound WS frame. Never throws; failures become `error` frames. */
@@ -174,6 +212,20 @@ export class SubscriptionHub {
         return this.screens.publish(clientId, msg.tab, client.deliver, msg.state);
       case "screen-ack":
         return this.screens.ack(clientId, msg.id, msg.result);
+      case "channel": {
+        const channel = this.channels.find(msg.channel);
+        if (channel === undefined) {
+          return client.send(
+            JSON.stringify({
+              op: "error",
+              id: msg.channel,
+              code: "unknown_channel",
+              message: `no plugin owns the channel ${msg.channel}`,
+            }),
+          );
+        }
+        return channel.receive(this.peer(clientId, msg.channel, client), msg.data);
+      }
       case "since": {
         // The frames themselves, not a nudge to refetch: a client that missed
         // three edits should receive three edits. Sent regardless of

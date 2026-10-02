@@ -5,6 +5,7 @@
  * test needs a live tab and has no page.
  */
 import { Effect } from "effect";
+import { present } from "@kb/model";
 import {
   SCREEN_APPLIED,
   ServerMessageSchema,
@@ -14,6 +15,19 @@ import {
   type ScreenState,
   type ServerMessage,
 } from "@kb/contracts";
+
+/** What a plugin channel says to this connection: its data, or the server's error naming it. */
+export type ChannelFrame =
+  | { readonly kind: "data"; readonly data: unknown }
+  | { readonly kind: "error"; readonly code: string; readonly message: string };
+
+function channelFrameOf(channel: string, msg: ServerMessage): ChannelFrame | null {
+  if (msg.op === "channel" && msg.channel === channel) return { kind: "data", data: msg.data };
+  if (msg.op === "error" && msg.id === channel) {
+    return { kind: "error", code: msg.code, message: msg.message };
+  }
+  return null;
+}
 
 /** How the tab answers a command: with this ack, or not at all. */
 export type FakeTabAnswer = ScreenAck | "silent";
@@ -72,6 +86,30 @@ export class FakeTab {
     // The server handles one connection's frames in order, so its pong comes
     // after it has taken (or refused) the screen.
     return this.#exchange({ op: "ping" }, (msg) => msg.op === "pong").pipe(Effect.asVoid);
+  }
+
+  /**
+   * Send `data` on the plugin channel `channel` and wait for the first frame
+   * on it that `until` accepts: the channel's own data, or the server's error
+   * naming it. The wait starts before the send.
+   */
+  channel(
+    channel: string,
+    data: unknown,
+    until: (frame: ChannelFrame) => boolean,
+  ): Effect.Effect<ChannelFrame> {
+    return this.#exchange({ op: "channel", channel, data }, (msg) => {
+      const frame = channelFrameOf(channel, msg);
+      return frame !== null && until(frame);
+    }).pipe(Effect.map((msg) => present(channelFrameOf(channel, msg), "a frame on the channel")));
+  }
+
+  /** Wait for the first frame on the plugin channel `channel` that `until` accepts, sending nothing. */
+  hear(channel: string, until: (frame: ChannelFrame) => boolean): Effect.Effect<ChannelFrame> {
+    return this.#exchange(null, (msg) => {
+      const frame = channelFrameOf(channel, msg);
+      return frame !== null && until(frame);
+    }).pipe(Effect.map((msg) => present(channelFrameOf(channel, msg), "a frame on the channel")));
   }
 
   /** Close the socket, and return once it is closed. */

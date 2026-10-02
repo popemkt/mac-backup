@@ -100,6 +100,14 @@ export class ScreenHub {
     });
   }
 
+  /** The tab `connection` publishes as, or null while it publishes none. */
+  tabOf(connection: string): string | null {
+    for (const [tab, held] of this.tabs) {
+      if (held.connection === connection) return tab;
+    }
+    return null;
+  }
+
   /** The server is stopping: no tab will answer. */
   dispose(): Effect.Effect<void> {
     return Effect.suspend(() => {

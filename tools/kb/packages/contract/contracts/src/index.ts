@@ -22,6 +22,8 @@ export type {
   ManifestEntry,
   SurfaceWire,
 } from "./actions.ts";
+export { ChannelPoint, UiHost } from "./channel.ts";
+export type { Channel, ChannelPeer, UiHostService } from "./channel.ts";
 export { ActionPoint, TemplatePoint, extensionPlugin } from "./extension.ts";
 export type {
   ActionContribution,

@@ -8,6 +8,7 @@
  *  - live query subscriptions (rows pushed on change)
  *  - this tab's screen: the latest record it published, and the commands the
  *    server sends it and their answers
+ *  - plugin channels: a plugin's frames to this connection, and ours to it
  *  - reconnect with capped exponential backoff, resubscribing and
  *    republishing the screen on open
  */
@@ -89,6 +90,16 @@ interface Subscription {
   sink: SubscriptionSink;
 }
 
+/**
+ * Where one plugin channel's frames go (`@kb/contracts` → `channel.ts`): the
+ * data the plugin sends this connection, or the error the server answers the
+ * channel with (no loaded plugin owns it).
+ */
+export interface ChannelSink {
+  data: (data: unknown) => void;
+  error: (err: { code: string; message: string }) => void;
+}
+
 function defaultUrl(): string {
   const loc = window.location;
   const proto = loc.protocol === "https:" ? "wss:" : "ws:";
@@ -110,6 +121,7 @@ export class KbWsClient {
   /** Detaches the listeners attached to {@link socket}; null when there are none. */
   private detachSocket: (() => void) | null = null;
   private subs = new Map<string, Subscription>();
+  private channels = new Map<string, ChannelSink>();
   /** The screen this tab last published; sent again whenever the socket opens. */
   private screen: { tab: string; state: ScreenState } | null = null;
   private attempts = 0;
@@ -170,6 +182,26 @@ export class KbWsClient {
   /** Answer the server's screen command `id`. */
   answerScreenCommand(id: string, result: ScreenAck): void {
     this.send({ op: "screen-ack", id, result });
+  }
+
+  /**
+   * Hear the plugin channel `channel`: what its plugin sends this connection
+   * goes to `sink`, one sink per channel. Returns the unlisten.
+   */
+  listen(channel: string, sink: ChannelSink): () => void {
+    this.channels.set(channel, sink);
+    return () => {
+      if (this.channels.get(channel) === sink) this.channels.delete(channel);
+    };
+  }
+
+  /**
+   * Send `data` on the plugin channel `channel`. Unlike a subscription it is
+   * not replayed on reconnect: a channel's plugin forgets a connection that
+   * closes, so a frame sent while the socket is down is dropped.
+   */
+  sendChannel(channel: string, data: unknown): void {
+    this.send({ op: "channel", channel, data });
   }
 
   private setStatus(status: WsStatus): void {
@@ -251,6 +283,14 @@ export class KbWsClient {
     }, delay);
   }
 
+  /** An error naming a live subscription or a channel is that sink's to show; any other is the toast's. */
+  private routeError(err: { id?: string | undefined; code: string; message: string }): void {
+    const sink =
+      err.id === undefined ? undefined : (this.subs.get(err.id)?.sink ?? this.channels.get(err.id));
+    if (sink) sink.error(err);
+    else this.opts.onServerError?.(err);
+  }
+
   private handleMessage(raw: string): void {
     let json: unknown;
     try {
@@ -281,12 +321,12 @@ export class KbWsClient {
         this.subs.get(msg.id)?.sink.rows(msg.rows, msg.rev);
         break;
       }
-      case "error": {
-        const sub = msg.id === undefined ? undefined : this.subs.get(msg.id);
-        if (sub) sub.sink.error(msg);
-        else this.opts.onServerError?.(msg);
+      case "error":
+        this.routeError(msg);
         break;
-      }
+      case "channel":
+        this.channels.get(msg.channel)?.data(msg.data);
+        break;
       case "screen-command":
         this.opts.onScreenCommand?.(msg.id, msg.command);
         break;

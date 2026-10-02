@@ -106,6 +106,13 @@ export const ClientMessageSchema = z.discriminatedUnion("op", [
   z.object({ op: z.literal("screen"), tab: z.string().min(1), state: ScreenStateSchema }),
   /** The tab's answer to the `screen-command` with this `id`. */
   z.object({ op: z.literal("screen-ack"), id: z.string().min(1), result: ScreenAckSchema }),
+  /**
+   * A frame for the plugin channel `channel` (`channel.ts`): `data` is that
+   * channel's own message, which the server hands over untouched. A channel
+   * no loaded plugin owns is answered with an `error` of code
+   * `unknown_channel` whose `id` names it.
+   */
+  z.object({ op: z.literal("channel"), channel: z.string().min(1), data: z.unknown() }),
 ]);
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
@@ -131,6 +138,7 @@ export const ServerMessageSchema = z.discriminatedUnion("op", [
   }),
   z.object({
     op: z.literal("error"),
+    /** The subscription or channel the error is about, when it is about one. */
     id: z.string().optional(),
     code: z.string(),
     message: z.string(),
@@ -159,6 +167,8 @@ export const ServerMessageSchema = z.discriminatedUnion("op", [
    * owns that tab id. The client picks a fresh id and publishes again.
    */
   z.object({ op: z.literal("screen-refused"), tab: z.string(), code: z.literal("tab_in_use") }),
+  /** A frame from the plugin that owns the channel `channel`, to this connection alone. */
+  z.object({ op: z.literal("channel"), channel: z.string(), data: z.unknown() }),
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;
 

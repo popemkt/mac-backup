@@ -1520,6 +1520,11 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   plugin and the browser. It does not belong to the core node model.
 - Extensions are loaded once per process; changing one requires restarting
   long-lived surfaces (`kb ui`, `kb mcp`).
+- The registry's kernel is not the only host. The browser page and the
+  `kb ui` server each run their own kernel of the same `@kb/plugin`, loaded
+  by their composition root ([Plugin channels](#plugin-channels)). This is
+  how a package outside core, such as an agent package, plugs into a
+  surface without core importing it.
 - **Extension SDK:** external `.kb/extensions/*.ts` authors get types from
   the running binary — `kb ext sdk --write` emits `.kb/sdk.d.ts` (ambient
   module `kb-ext-sdk`), then `import type { ExtensionAction, ExtensionTemplate }
@@ -1751,6 +1756,38 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   serves a root. It is written for the screens alone. When a second port
   needs the serving `kb ui`, generalize it into one forwarder rather than
   add a second.
+
+## Plugin channels
+
+A plugin can hold its own conversation with the connections of `kb ui`
+(the agent sidebar's chat is the first). The shapes are typed once in
+`contracts/src/channel.ts`, and the wire op is in `protocol.ts`.
+
+- **The server is a plugin host.** `startUi` takes `plugins`. It makes its
+  own `@kb/plugin` kernel, provides `UiHost` into it, and then loads the
+  plugins in order. The browser page is a host in the same way. The server
+  names no plugin itself: its caller, a composition root, does (the CLI's
+  `kb ui`). A plugin that fails to load is reported and skipped, and so is
+  one still waiting for a service. Neither stops the server. Each plugin's
+  scope closes when the server stops.
+- **`UiHost`** is what the server offers: the root, the manifest, and
+  `invoke`, which runs an invocation as `POST /api/action` does
+  (`serverInvoke`: reload, then the invoke core), approval included, and
+  always answers a receipt.
+- **A channel is a contribution to `ChannelPoint`**, under its namespaced
+  id (`agent.chat`). The frame is `{op: "channel", channel, data}` in both
+  directions. `data` is the channel's own contract, which its plugin
+  states. The hub hands it over untouched with the sending connection as
+  the peer: its id, the tab it publishes its screen as, and a `send` back
+  to it alone. A close reaches every channel's `drop`. A channel no loaded
+  plugin owns is answered with an `error` of code `unknown_channel` whose
+  `id` names it.
+- **No new endpoint.** Every frame rides a `/ws` socket that the request
+  guard already admitted, so a channel is as reachable as the screen is,
+  and no more.
+- In the browser, `KbWsClient.listen` and `sendChannel` carry a channel. A
+  frame sent while the socket is down is dropped rather than replayed,
+  because the plugin forgets a connection that closes.
 
 ## Repo integration
 
