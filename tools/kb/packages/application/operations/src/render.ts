@@ -97,11 +97,19 @@ const HTML_SHELL_STYLE =
   "font-family:system-ui,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem;line-height:1.5";
 
 /** A page holding rendered markdown, titled `title`. */
+/**
+ * The element of a rendered html page that holds the view, so a page that
+ * shows a snapshot (MCP's `ui://` resources) can swap in a fresh render.
+ */
+export const RENDERED_VIEW_ID = "kb-view";
+
 function htmlPage(title: string, md: string): string {
   return [
     `<!doctype html><meta charset="utf-8"><title>kb: ${escapeHtml(title)}</title>`,
     `<body style="${HTML_SHELL_STYLE}">`,
+    `<main id="${RENDERED_VIEW_ID}">`,
     mdToHtml(md),
+    "</main>",
     "</body>",
   ].join("\n");
 }

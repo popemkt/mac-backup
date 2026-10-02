@@ -138,6 +138,30 @@ describe("MCP surface", () => {
     await close();
   });
 
+  test("a view node's ui:// resource is an MCP App snapshot with a refresh", async () => {
+    const { client, close } = await connect(root);
+    const read = await client.readResource({ uri: "ui://kb/view/lens.all-mentions" });
+    const [content] = read.contents;
+    expect(content?.mimeType).toBe("text/html;profile=mcp-app");
+    expect(content?._meta).toEqual({ ui: { prefersBorder: true } });
+    const page = content !== undefined && "text" in content ? content.text : "";
+    expect(page).toContain('<main id="kb-view">');
+    expect(page).toContain("<h1>All mentions</h1>");
+    expect(page).toMatch(/Snapshot as of <time id="kb-as-of" datetime="\d{4}-/);
+    // The refresh asks the host to read this same resource again.
+    expect(page).toContain('"ui/initialize"');
+    expect(page).toContain('send("resources/read", read)');
+    expect(page).toContain('const read = { uri: "ui://kb/view/lens.all-mentions" };');
+    expect(page).toContain('<button id="kb-refresh" type="button" hidden>');
+    // The same view as text, for a host that renders no ui:// resource.
+    const { body } = await callJson(client, "render_view", {
+      id: "lens.all-mentions",
+      format: "md",
+    });
+    expect((body as { content: string }).content).toContain("# All mentions");
+    await close();
+  });
+
   test("failed action returns isError with code+message, never throws", async () => {
     const server = await run(createMcpServer(root));
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
@@ -227,11 +251,17 @@ describe("MCP surface", () => {
 
     const resources = await client.listResources();
     const uris = resources.resources.map((r) => r.uri);
-    expect(uris).toEqual(["ui://kb/view/todos"]);
+    // Docs views by name (the unreadable one left out), then view nodes by id.
+    expect(uris).toContain("ui://kb/view/todos");
+    expect(uris).not.toContain("ui://kb/view/bare");
+    expect(uris).toContain("ui://kb/view/lens.all-mentions");
+    expect(new Set(resources.resources.map((r) => r.mimeType))).toEqual(
+      new Set(["text/html;profile=mcp-app"]),
+    );
 
     const read = await client.readResource({ uri: "ui://kb/view/todos" });
     const first = present(read.contents[0], "expected read.contents[0]");
-    expect(first.mimeType).toBe("text/html");
+    expect(first.mimeType).toBe("text/html;profile=mcp-app");
     expect("text" in first && first.text).toContain("<h1>Todos</h1>");
 
     const rendered = await client.callTool({

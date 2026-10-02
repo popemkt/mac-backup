@@ -54,6 +54,7 @@ export { ontologyMembersDef, ontologyMembersEffect } from "./ontology.ts";
 export {
   listViewNamesEffect,
   mapRenderErr,
+  RENDERED_VIEW_ID,
   renderViewNodeEffect,
   type ViewRef,
   listViewRefsEffect,

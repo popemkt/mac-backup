@@ -24,8 +24,15 @@ import {
   type ManifestEntry,
   type SurfaceWire,
 } from "@kb/contracts";
-import { type DomainError, domainError, ensureDomainError } from "@kb/model";
-import { reloadEffect, listViewNamesEffect, renderViewNodeEffect } from "@kb/operations";
+import { type DomainError, currentIso, domainError, ensureDomainError } from "@kb/model";
+import {
+  listViewNamesEffect,
+  listViewRefsEffect,
+  reloadEffect,
+  renderViewNodeEffect,
+  type ViewRef,
+} from "@kb/operations";
+import { MCP_APP_MIME, viewSnapshotApp } from "./view-app.ts";
 import {
   invokeReceiptEffect,
   kbRuntimeLayer,
@@ -39,12 +46,12 @@ import {
 
 const VIEW_URI_PREFIX = "ui://kb/view/";
 
-/** The resource a docs view is read as: its name, URI-encoded, under the prefix. */
+/** The resource a view is read as: a docs view's name or a view node's id, URI-encoded. */
 function viewUri(name: string): string {
   return `${VIEW_URI_PREFIX}${encodeURIComponent(name)}`;
 }
 
-/** The docs view name a resource URI addresses, or null when it addresses none. */
+/** The segment a view resource URI addresses, or null when it addresses none. */
 function viewNameOfUri(uri: string): string | null {
   if (!uri.startsWith(VIEW_URI_PREFIX)) return null;
   try {
@@ -140,25 +147,47 @@ export function callToolEffect(
   );
 }
 
+/** What a resource's segment names: a docs view's name, or a view node's id. */
+function segmentOf(ref: ViewRef): string {
+  return ref.name ?? ref.id;
+}
+
+/** The view a resource segment names: a docs view by that name, else the view node with that id. */
+function refOfSegment(segment: string, docsNames: readonly string[]): ViewRef {
+  return docsNames.includes(segment) ? { name: segment } : { id: segment };
+}
+
+/** What the MCP Apps host is told of each view's page (`_meta.ui`). */
+const VIEW_UI_META = { ui: { prefersBorder: true } };
+
 const listResourcesEffect = Effect.fn("mcp.listResources")(function* (ctx: KbContext) {
   yield* reloadEffect(ctx);
-  const names = yield* listViewNamesEffect();
+  const refs = yield* listViewRefsEffect();
   return {
-    resources: names.map((name) => ({
-      uri: viewUri(name),
-      name: `kb view: ${name}`,
-      mimeType: "text/html",
+    resources: refs.map((ref) => ({
+      uri: viewUri(segmentOf(ref)),
+      name: `kb view: ${segmentOf(ref)}`,
+      mimeType: MCP_APP_MIME,
     })),
   };
 });
 
 const readResourceEffect = Effect.fn("mcp.readResource")(function* (ctx: KbContext, uri: string) {
-  const name = viewNameOfUri(uri);
-  if (name === null) return yield* domainError("not_found", `unknown resource: ${uri}`);
+  const segment = viewNameOfUri(uri);
+  if (segment === null) return yield* domainError("not_found", `unknown resource: ${uri}`);
   yield* reloadEffect(ctx);
-  const rendered = yield* renderViewNodeEffect({ name }, "html");
+  const ref = refOfSegment(segment, yield* listViewNamesEffect());
+  const rendered = yield* renderViewNodeEffect(ref, "html");
+  const asOf = yield* currentIso;
   return {
-    contents: [{ uri, mimeType: "text/html", text: rendered.content }],
+    contents: [
+      {
+        uri,
+        mimeType: MCP_APP_MIME,
+        text: viewSnapshotApp(rendered.content, uri, asOf),
+        _meta: VIEW_UI_META,
+      },
+    ],
   };
 });
 
@@ -219,7 +248,8 @@ function bindMcpHandlers(ctx: KbContext, tools: Tool[], toolsCtx: McpToolContext
 
   server.setRequestHandler(ListToolsRequestSchema, () => ({ tools }));
 
-  // MCP Apps backbone: each saved view is a ui:// html resource.
+  // MCP Apps: every view (a docs view by name, any other view node by id) is a
+  // ui:// resource, served as a snapshot as of the read (view-app.ts).
   server.setRequestHandler(ListResourcesRequestSchema, () =>
     runResourceHandler(listResourcesEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx)))),
   );

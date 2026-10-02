@@ -80,6 +80,7 @@
       "devDependencies": {
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
+        "happy-dom": "catalog:",
       },
     },
     "packages/app/runtime": {

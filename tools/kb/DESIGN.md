@@ -1703,6 +1703,25 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
       array.
     - A caller that used the old shapes has to switch to the new ones. The
       tool list (`tools/list`) states the new input schemas.
+    - Since roadmap step 3, `render.view` also takes a view node's `id`
+      instead of a `name`, and its output adds `id` and `view` (Kinds,
+      roles and options → View nodes).
+  - **Views are MCP App resources** (the MCP Apps extension, spec
+    2026-01-26). `resources/list` lists every view at
+    `ui://kb/view/<segment>` — a docs view by its name, any other view node
+    by its id; a segment that is a docs view's name names that docs view —
+    as `text/html;profile=mcp-app`. Reading one renders it through
+    `render.view`'s path (`renderViewNodeEffect`) and returns a snapshot as
+    of the read, with `_meta.ui.prefersBorder`: the page, the time it was
+    rendered, and a refresh (`app/mcp/src/view-app.ts`). The refresh shows
+    only once the host answers `ui/initialize`; it asks the host to read the
+    same resource again (`resources/read`), so the fresh snapshot is stamped
+    by the server that rendered it, and swaps it in. Outside a host it is
+    never shown. There is no live push, because a remote host
+    has no path back to a local kb server (roadmap decision 9). The page is
+    kb's own render, never model-written HTML, and it needs no network, so
+    it declares no CSP. A host that renders no `ui://` resource (Claude
+    Code) reads the same view as markdown through `render_view`.
 - **WebMCP** (`@kb/webmcp`, loaded by the kb UI as the built-in `webmcp`
   plugin): the registry as tools of the open page, for an agent that drives
   the browser. It follows the WebMCP draft of 2026-09-29
