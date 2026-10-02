@@ -9,13 +9,13 @@ import { Result, Schema, SchemaIssue } from "effect";
 import { viewOptionId, type NodeId, type NodeProps, type PropValue } from "@kb/model";
 
 /**
- * A view's name and the params it renders from. Made once by the plugin that
- * owns the view and compared by identity, like `Service`/`Point` keys: a key
+ * A view's name and the params it renders from. Made once, in this package,
+ * and compared by identity, like `Service`/`Point` keys: a key
  * spelled alike but created elsewhere is a different key.
  */
 export interface ViewKey<P> {
   readonly kind: "view";
-  /** `<namespace>.<local id>`: the owning plugin's namespace, then the view's id. */
+  /** `<namespace>.<local id>`: the namespace of what draws it (a UI plugin, or the server's render layer for docs), then the view's id. */
   readonly id: `${string}.${string}`;
   /**
    * What a legal `P` is: the view's settings, as an Effect `Schema`. It is the
@@ -98,13 +98,11 @@ export function localIdOf(key: ViewKey<unknown>): string {
 /**
  * `input` read as `key`'s params: how a host turns stored config into the
  * `P` it renders the view with. Only the settings the key declares are kept,
- * and one it cannot read is the failure's message.
+ * and every issue it cannot read is the failure's message, one line each
+ * ({@link paramsIssues}, {@link issueText}).
  */
 export function paramsFrom<P>(key: ViewKey<P>, input: unknown): Result.Result<P, string> {
-  const decoded = Schema.decodeUnknownResult(key.params)(input);
-  return Result.isSuccess(decoded)
-    ? Result.succeed(decoded.success)
-    : Result.fail(decoded.failure.message);
+  return Result.mapError(paramsIssues(key, input), (issues) => issues.map(issueText).join("; "));
 }
 
 /** One thing wrong with a view's params: where (a path into them) and what. */

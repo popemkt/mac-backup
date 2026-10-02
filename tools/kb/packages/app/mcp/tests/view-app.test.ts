@@ -63,7 +63,7 @@ describe("view snapshot app", () => {
         ? { contents: [{ uri: URI, text: viewSnapshotApp(page("After"), URI, AFTER) }] }
         : {
             protocolVersion: "2026-01-26",
-            hostCapabilities: {},
+            hostCapabilities: { serverResources: {} },
             hostInfo: { name: "t", version: "0" },
           },
     );
@@ -80,6 +80,21 @@ describe("view snapshot app", () => {
     expect(received.at(-1)).toMatchObject({ method: "resources/read", params: { uri: URI } });
     // The fresh snapshot is stamped by the server that rendered it.
     expect(window.document.querySelector("#kb-as-of")?.textContent).toBe(AFTER);
+    await window.happyDOM.close();
+  });
+
+  test("a host that proxies no resource reads gets no refresh", async () => {
+    const { window, received, button } = open(() => ({
+      protocolVersion: "2026-01-26",
+      hostCapabilities: { serverTools: {} },
+      hostInfo: { name: "t", version: "0" },
+    }));
+    await until(() => received.some((r) => r.method === "ui/notifications/initialized"));
+    expect(received.map((r) => r.method)).toEqual([
+      "ui/initialize",
+      "ui/notifications/initialized",
+    ]);
+    expect(button?.hidden).toBe(true);
     await window.happyDOM.close();
   });
 

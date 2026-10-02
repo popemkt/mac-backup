@@ -8,7 +8,8 @@
  * The page is kb's own render, not model-written HTML. It needs no network
  * (the spec's default CSP allows inline script and style and no connection):
  * the refresh goes through the host over the MCP Apps postMessage bridge,
- * `ui/initialize` first, then `resources/read`, so the fresh snapshot is
+ * `ui/initialize` first, then `resources/read` where the host proxies it
+ * (`hostCapabilities.serverResources`), so the fresh snapshot is
  * stamped by the server that rendered it. Outside a host, or in one that
  * does not answer, the refresh stays hidden, so it never looks live and does
  * nothing.
@@ -87,8 +88,10 @@ function refreshScript(uri: string): string {
     capabilities: {},
     appCapabilities: { availableDisplayModes: ["inline"] },
   }).then(
-    () => {
+    (result) => {
       window.parent.postMessage({ jsonrpc: "2.0", method: "ui/notifications/initialized" }, "*");
+      // A host proxies resources/read only when it says it does.
+      if (!result || !result.hostCapabilities || !result.hostCapabilities.serverResources) return;
       button.hidden = false;
       button.addEventListener("click", () => void refresh());
     },

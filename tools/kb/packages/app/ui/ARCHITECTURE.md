@@ -22,12 +22,13 @@ main.tsx
       └─ SharedChrome          prefs, filters, ⌘ palette, toasts
 ```
 
-A feature folder owns its plugin as four files: `views.ts` (its namespace,
-view keys and their param types, nothing else), `routes.ts` (path matchers),
-`surfaces.tsx` (its view components and sidebar section, components only) and
-`plugin.ts` (the contributions). A view embeds another plugin's view with
-`<ViewSlot>` and that plugin's key from its `views.ts` (an ontology's outline
-view is the outline view), never by importing a sibling folder's components.
+A feature folder owns its plugin as three files: `routes.ts` (path
+matchers), `surfaces.tsx` (its view components and sidebar section,
+components only) and `plugin.ts` (the contributions). Its view keys and
+their param types are data in `@kb/views`, one module per namespace, which
+the server holds too. A view embeds another plugin's view with `<ViewSlot>`
+and that view's key from `@kb/views` (an ontology's outline view is the
+outline view), never by importing a sibling folder's components.
 
 | plugin     | views and the routes to them                             | sidebar                |
 | ---------- | -------------------------------------------------------- | ---------------------- |

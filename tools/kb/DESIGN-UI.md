@@ -1214,8 +1214,9 @@ the view reads, and the contract decodes each view's `sample` with it. A view
 that renders from the store alone declares `NoParams`. A key also names the
 view in data: `option` is the id of the option node that stands for it in
 the store (`sys.view.<id>`, derived from the id, so the two cannot disagree),
-and `config(props, host)` reads stored props into the input `params` decodes
-(`paramsFromProps`), for the node the view is shown for. A frame view reads
+and `config.read(props, host, report)` reads stored props into the input
+`params` decodes (`paramsFromProps`), for the node the view is shown for;
+`config.write` is its inverse (DESIGN.md → View nodes). A frame view reads
 the `sys.f.view.*` settings, a renderer the lens props, and a view whose
 settings nothing stores reads nothing.
 `provideView(key, view)` builds the

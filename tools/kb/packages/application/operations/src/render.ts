@@ -96,13 +96,13 @@ function mdToHtml(md: string): string {
 const HTML_SHELL_STYLE =
   "font-family:system-ui,sans-serif;max-width:48rem;margin:2rem auto;padding:0 1rem;line-height:1.5";
 
-/** A page holding rendered markdown, titled `title`. */
 /**
  * The element of a rendered html page that holds the view, so a page that
  * shows a snapshot (MCP's `ui://` resources) can swap in a fresh render.
  */
 export const RENDERED_VIEW_ID = "kb-view";
 
+/** A page holding rendered markdown, titled `title`. */
 function htmlPage(title: string, md: string): string {
   return [
     `<!doctype html><meta charset="utf-8"><title>kb: ${escapeHtml(title)}</title>`,
@@ -201,17 +201,14 @@ export const renderViewDef = {
   description:
     "Render a view to html or md and return the content: a docs view by `name`, or any view node by `id` (exactly one), shown for `host` (by default the one node naming it). Markdown is the text-only form: the view, its settings, and the nodes it shows.",
   mode: { kind: "read" } as const,
-  inputSchema: z
-    .object({
-      name: z.string().min(1).optional(),
-      id: z.string().min(1).optional(),
-      host: z.string().min(1).optional(),
-      // Absent or null is html: some MCP clients send an omitted optional as null.
-      format: z.enum(["html", "md"]).nullable().default("html"),
-    })
-    .refine((input) => (input.name === undefined) !== (input.id === undefined), {
-      message: "exactly one of name and id",
-    }),
+  // Exactly one of `name` and `id`: the handler says so, in one place.
+  inputSchema: z.object({
+    name: z.string().min(1).optional(),
+    id: z.string().min(1).optional(),
+    host: z.string().min(1).optional(),
+    // Absent or null is html: some MCP clients send an omitted optional as null.
+    format: z.enum(["html", "md"]).nullable().default("html"),
+  }),
   outputSchema: z.object({
     name: z.string(),
     id: z.string(),
@@ -234,12 +231,14 @@ export const renderViewActionEffect = Effect.fn("render.view")(function* (
   input: z.infer<typeof renderViewDef.inputSchema>,
 ): Effect.fn.Return<RenderedView, RenderError, RenderEnv> {
   const format = input.format ?? "html";
-  if (input.id !== undefined)
-    return yield* renderViewNodeEffect(
-      input.host === undefined ? { id: input.id } : { id: input.id, host: input.host },
-      format,
-    );
-  return yield* renderViewNodeEffect({ name: input.name ?? "" }, format);
+  const { name, id, host } = input;
+  if (name !== undefined && id === undefined) return yield* renderViewNodeEffect({ name }, format);
+  if (id !== undefined && name === undefined)
+    return yield* renderViewNodeEffect(host === undefined ? { id } : { id, host }, format);
+  return yield* domainError("invalid_input", "render.view takes exactly one of name and id", {
+    name,
+    id,
+  });
 });
 
 export const renderViewsActionEffect = Effect.fn("render.views")(function* (): Effect.fn.Return<
