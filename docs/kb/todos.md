@@ -37,13 +37,13 @@
 
 - 10 · chart view type storing a Vega-Lite spec
 - 3 · generative UI mode A: view.propose, catalog in kb_manifest, render_view by view id + md fallback, ui:// snapshots
+- 5c · approval policies (decision 13): #approval-policy nodes (match, actor, decision) resolved by the invoke core; policies table view; policy writes always ask; seeded defaults
 - 6 · layout view type (decision 12): mode B dashboards + panes (Tana panels → splits/tabs via dockview adapter), saved workspaces as nodes
 - 9 · sandbox: one capability API + MCP Apps iframe bridge, QuickJS + Worker engines; #code-view, #script, promotion
 - canvas C2: media cards (assets) + frictionless quick-add — draw.io feel
 - Check out ideas from this, how did it handle transaction and stuff https://news.ycombinator.com/item?id=49440174
 - Check out Memgraph optimization: how does it optimize its in-memory virtualization layer (and other deployment modes) similar to our architecture
 - Check out more about zerolang and Lisp data as code code as data, and overall: making state unrepresentable paradigm of zerolang
-- decide which actions require approval (candidates: ext.docs.materialize, ext.check.sync, node.update when it deletes)
 - Explore @statelyai/graph for kb graph modeling, traversal algorithms, and visualization pipeline https://github.com/statelyai/graph
 - fix palette.e2e 'Make supertag' and 'Add field': tests look for a button, palette now renders commands as list options (fails on main since afffb39c or earlier)
 - Graph Database Engines Directory & Comparison https://gdb-engines.com/
@@ -65,6 +65,7 @@
 - 4 · WebMCP adapter over /api/action behind feature detection
 - 8 · canvas 3D: z/3D transforms, perspective camera on the WebGPU scene kit (three r186)
 - canvas simplify (Logseq model): edges are drawings only; native bind = one-shot prop write; bound-state computed at render (unbound tint); DELETE reconciler/persist-back/bindingId repair — supersedes broken-edge repair todo
+- decide which actions require approval (candidates: ext.docs.materialize, ext.check.sync, node.update when it deletes)
 - graph: smart-elide system/editor-only nodes by default + toggle; universal graph button in header
 - kb refine W1: token system + row anatomy (bullet catalog, fields inline, selection keymap) — DESIGN-REFINE.md
 - kb refine W2: markdown render-swap + ref links (micromark, cost budget) — DESIGN-REFINE.md

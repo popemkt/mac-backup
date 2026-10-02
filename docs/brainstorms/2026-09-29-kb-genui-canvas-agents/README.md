@@ -142,6 +142,25 @@ URLs cited in each report are the durable trail.
       stays canonical and the library's JSON is never stored.
     - Pop-out OS windows are a gap.
 
+13. **Approval is decided by policies, and policies are nodes** (owner,
+    2026-10-02).
+    - An `#approval-policy` node has `match` (an action id, a pattern such as
+      `ext.*`, or a mode such as "every write"), `actor` (`human` for a gesture
+      in the UI, `agent` for the sidebar, MCP or WebMCP, `cli`) and `decision`
+      (`allow`, `ask` or `deny`).
+    - The most specific matching policy wins. When none matches, the action's
+      declared `approval` (decision 3) decides. Every surface resolves through
+      the invoke core, proven by the surface contract suite.
+    - Policies are managed in a saved table view of `#approval-policy` nodes,
+      pinned in the sidebar. There is no settings page.
+    - Writing a policy node always asks, whatever the policies say, so no
+      agent can approve itself.
+    - Seeded defaults: a human gesture never asks. An agent is asked before
+      deleting nodes and before store-wide rewrites such as `views.migrate`.
+    - The actor, like `approved`, is declared by the caller, not proven.
+      Policies prevent accidents, not a determined local caller. Authenticated
+      callers are a gap.
+
 ## Build order
 
 Each step is its own commit or small series. A step marked *restructure*
@@ -156,6 +175,7 @@ step then adds behaviour on top.
 | 3 | **Mode A:** `view.propose` (validating), the view catalog with schemas in `kb_manifest`, `render_view` by view id with a markdown fallback, and `ui://` snapshots with the MCP Apps mime type. | add | 6 |
 | 4 | **WebMCP adapter** over `/api/action`, behind feature detection (the polyfill is optional). | add | — |
 | 5 | **Screen state:** the `/ws` screen channel plus `ui.screen`, `ui.navigate` and `ui.select`, then the **agent packages**: a local Claude bridge and the sidebar plugin. | add | — |
+| 5c | **Approval policies** (decision 13): `#approval-policy` nodes resolved by the invoke core, the policies table view, self-protecting policy writes, seeded defaults. Closes the "which actions require approval" todo. | add | — |
 | 6 | **Layout view type** (decision 12): mode B dashboards plus panes: Tana-style panels, then splits and tabs (dockview behind an adapter), and saved workspaces as nodes. | add | — |
 | 7 | **Canvas as a view:** canvas becomes a `ViewPoint` view type, text items become nodes, mentions are derived at load, and JSON Canvas becomes import/export. Then finer-grained canvas actions, `canvas.describe`, and lints that return `{new, resolved}`. | restructure, then add | 8 |
 | 8 | **Canvas 3D:** z and 3D transforms, and a perspective camera on the existing three.js WebGPU scene kit (three r180 → r186). | add | — |
