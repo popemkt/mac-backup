@@ -1747,6 +1747,10 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   another root. That is an answer, not a failure. So `ui.*` reach MCP, HTTP,
   the CLI and WebMCP like any action, and `surfaceContract` runs them over
   every surface against one fake tab connected to the root's one `kb ui`.
+  `remoteScreensLayer` is kb's one mechanism for asking the `kb ui` that
+  serves a root. It is written for the screens alone. When a second port
+  needs the serving `kb ui`, generalize it into one forwarder rather than
+  add a second.
 
 ## Repo integration
 
