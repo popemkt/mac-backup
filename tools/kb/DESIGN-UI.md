@@ -1168,8 +1168,9 @@ both are answered from the node ⌘K menu rather than from a device switch.
 ### UI points: routes and views
 
 The UI is assembled from contributions to the browser's `@kb/plugin` kernel
-(`lib/plugins.ts`), and three points hold them: `RoutePoint`, `ViewPoint` and
-`SidebarSectionPoint`. This section is the one statement of the first two.
+(`lib/plugins.ts`), and four points hold them: `RoutePoint`, `ViewPoint`,
+`SidebarSectionPoint` and `DockPoint`. This section is the one statement of
+the first two; [Docks](#docks) states the last.
 The plan they come from is
 `docs/kb/waves/2026-09-24/briefs/plugin-composition.md`, and this is its
 phase R1.
@@ -1408,6 +1409,32 @@ checked by `tsc`; nothing decodes them at the slot.
 
 These points live in `@kb/ui`, not in `@kb/ui-sdk`; moving them is R2
 (GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]).
+
+### Docks
+
+A dock is chrome, like a sidebar section, not a view. It is a tool window
+at the workspace's right edge, beside every page, and it shows no
+projection of the graph. A plugin contributes it to `DockPoint`
+(`ui.docks`) as `{order, label, icon, Component}`. The shell (`src/docks.tsx`)
+draws one toggle per dock in the workspace header, in `order`, and the open
+dock in the row beside the page. At most one dock is open (`openDock` in the
+ui store, transient). Below 768px the open dock floats over the page, as the
+sidebar does. Unloading the plugin removes its toggle and its window.
+
+The first dock is the agent's chat (`components/agent`), the optional `agent`
+plugin. It draws the conversation the agent channel reports
+(`DESIGN.md` → Agent packages): the text as it streams, each tool call as a
+line that opens onto its input and receipt, a running turn's stop button, and
+a "new conversation" button that forgets the old one.
+
+**Approval** is drawn as a card that waits on a call whose action requires
+approval. Approve and Decline are both the same call, made by this tab
+through the browser's one invoke path (`invokeSettled`), with `approved` set
+to the person's answer. The receipt that comes back is what the agent is
+told. A decline is therefore refused by the invoke core with
+`approval_required`, exactly as an unapproved call from anywhere would be.
+The folder reaches neither the socket nor the invoke path itself: the shell
+binds them as its ports (`src/agent.ts`).
 
 ### Optional UI plugins
 

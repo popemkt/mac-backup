@@ -186,6 +186,7 @@ export const UI_SRC = "packages/app/ui/src";
 
 /** A surface folder under `components/`: one page family and its chrome. */
 type UiSurface =
+  | "agent"
   | "canvas"
   | "graph"
   | "lab"
@@ -196,6 +197,7 @@ type UiSurface =
   | "sidebar";
 
 const UI_SURFACES: readonly UiSurface[] = [
+  "agent",
   "canvas",
   "graph",
   "lab",
@@ -314,6 +316,7 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "shell",
     "primitives",
     "view-keys",
+    "components/agent",
     "components/canvas",
     "components/graph",
     "components/lab",
@@ -411,6 +414,10 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "lib",
     "view-keys",
   ],
+  // The agent sidebar draws what the agent channel says; the shell hands it
+  // the socket and the invoke path as ports (`src/agent.ts`), so it reaches
+  // neither `api` nor `session` itself.
+  "components/agent": ["components/agent", "primitives", "stores", "lib"],
   "components/outline": [
     "components/outline",
     "primitives",

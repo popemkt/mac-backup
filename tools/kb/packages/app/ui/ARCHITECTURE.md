@@ -37,6 +37,10 @@ view is the outline view), never by importing a sibling folder's components.
 | `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`    | Canvases (30)          |
 | `lab`      | `lab.page` `/lab[/<study>]` (optional, off by default)   | Lab (40)               |
 
+The optional `agent` plugin (`components/agent`, bound to the page by
+`src/agent.ts`) contributes no view either: it contributes the agent's chat
+dock, which the shell draws through `src/docks.tsx` (DESIGN-UI.md → Docks).
+
 One built-in plugin, `webmcp` (`src/webmcp.ts`), contributes no view: it
 registers the page's WebMCP tools (DESIGN.md → Surfaces).
 

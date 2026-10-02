@@ -1446,9 +1446,11 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   every `/api/*` route). A request passes only when its `Host` names this
   server, which stops DNS rebinding. It must also carry no `Origin` (a local
   program) or the UI's own. A `POST /api/action` must also be
-  `application/json`, so a page on another site cannot reach it at all. One
-  gap is known: the browser UI does not yet send approval
-  (`GAP-BROWSER-APPROVAL`). The step 5 sidebar's approval prompt closes that.
+  `application/json`, so a page on another site cannot reach it at all.
+  The browser's one invoke path takes the whole envelope, on the local
+  replica and on the push lane. Its caller that sets `approved` is the
+  agent sidebar's approval prompt, which makes the call with the person's
+  answer (DESIGN-UI.md → Docks).
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
 - **One contract, every surface.** The CLI (`action-invoke`), MCP, HTTP,
   WebMCP and the sidebar agent each list the registry's action ids with

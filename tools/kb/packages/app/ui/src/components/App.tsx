@@ -3,6 +3,7 @@ import { ThemeIcon } from "@/components/ui/theme-icon";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
+import { DockHost, DockToggles } from "@/docks";
 import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar } from "@/components/sidebar/sidebar";
@@ -235,6 +236,7 @@ function WorkspaceShell({
         <ConnectionDot />
         <div className="flex-1" />
         <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
+        <DockToggles />
         <button
           type="button"
           className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
@@ -369,6 +371,9 @@ export function App() {
         )}
         <SharedChrome />
       </div>
+      <ViewErrorBoundary title="Dock crashed" resetKey="dock">
+        <DockHost />
+      </ViewErrorBoundary>
     </div>
   );
 }

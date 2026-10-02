@@ -44,6 +44,11 @@ interface UiState {
   nodePaletteOpen: boolean;
   /** W7.1: open filter popover for this frame (toolbar ⚙ / palette Filter…). */
   filterPopoverFrameId: string | null;
+  /**
+   * The dock open at the workspace's right edge (`DockPoint`), by its
+   * contribution id; null when none is. One at a time, and transient.
+   */
+  openDock: string | null;
 
   setWsStatus: (status: WsStatus) => void;
   setPrefsOpen: (open: boolean) => void;
@@ -51,6 +56,7 @@ interface UiState {
   setGlobalPaletteOpen: (open: boolean) => void;
   setNodePaletteOpen: (open: boolean) => void;
   setFilterPopoverFrameId: (frameId: string | null) => void;
+  setOpenDock: (dock: string | null) => void;
   pushToast: (kind: Toast["kind"], text: string) => void;
   dismissToast: (id: number) => void;
 }
@@ -65,6 +71,7 @@ export const useUiStore = create<UiState>((set) => ({
   globalPaletteOpen: false,
   nodePaletteOpen: false,
   filterPopoverFrameId: null,
+  openDock: null,
 
   setWsStatus: (wsStatus) => set({ wsStatus }),
   setPrefsOpen: (prefsOpen) => set({ prefsOpen }),
@@ -80,6 +87,7 @@ export const useUiStore = create<UiState>((set) => ({
       globalPaletteOpen: nodePaletteOpen ? false : s.globalPaletteOpen,
     })),
   setFilterPopoverFrameId: (filterPopoverFrameId) => set({ filterPopoverFrameId }),
+  setOpenDock: (openDock) => set({ openDock }),
 
   pushToast: (kind, text) => {
     const id = ++toastSeq;

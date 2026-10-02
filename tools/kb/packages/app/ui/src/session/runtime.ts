@@ -126,9 +126,6 @@ function requireSession(): BrowserSession {
  * settles it with its receipt (DESIGN-UI.md → Replica sync → Holds).
  */
 export function pushInvocation(invocation: ActionInvocation, hold?: Hold): Promise<ActionResponse> {
-  // The UI has no approval prompt yet, so it never sends `approved`, and an
-  // approval-required action is refused here. The step 5 sidebar closes this.
-  // GAP [[01M3R2KDDDPSB12NCJ6F6NJHMC]]
   const result = pushTail.catch(() => undefined).then(() => postAction(invocation));
   pushTail = result.then(
     () => undefined,

@@ -175,6 +175,22 @@ export interface SidebarSection {
 
 export const SidebarSectionPoint = Point<SidebarSection>()("ui.sidebar");
 
+/**
+ * A dock: a tool window at the workspace's right edge, beside every page
+ * (the agent's chat is the first). The workspace header has one toggle per
+ * dock, in `order`, and at most one dock is open.
+ */
+export interface Dock {
+  /** Lower first. */
+  readonly order: number;
+  /** What its toggle and its header call it. */
+  readonly label: string;
+  readonly icon: Icon;
+  readonly Component: ComponentType<{ readonly onClose: () => void }>;
+}
+
+export const DockPoint = Point<Dock>()("ui.docks");
+
 /** One kernel per page: everything the UI shows is contributed to it. */
 const uiKernel = makeKernel();
 
