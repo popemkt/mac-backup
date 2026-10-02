@@ -1611,7 +1611,10 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
   — held (`lens.query`) or a saved query's name (`sys.f.view.saved-query`),
   exactly one, the name resolved when it renders — its template
   (`sys.f.view.template`) and its repo-relative output
-  (`sys.f.view.output`). Its text is the name `render.view`,
+  (`sys.f.view.output`). Those are the params of its view's key
+  (`DocsMarkdownView` in `@kb/views`), and the render layer reads a docs
+  view through that key like a host reads any view, so what a docs view
+  cannot be read without is named by its path. Its text is the name `render.view`,
   `render.views`, `docs.materialize`/`docs.check` and MCP's `render_view` /
   `ui://kb/view/<name>` (the name URI-encoded) know it by, so those
   contracts keep their names. The name is a workspace name that no other

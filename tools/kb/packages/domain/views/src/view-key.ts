@@ -5,7 +5,7 @@
  * and drawn is the UI's (`@kb/ui`'s `lib/plugins.ts`); the contract of both is
  * stated once, in DESIGN-UI.md → UI points: routes and views.
  */
-import { Result, Schema } from "effect";
+import { Result, Schema, SchemaIssue } from "effect";
 import { viewOptionId, type NodeProps } from "@kb/model";
 
 /**
@@ -99,6 +99,45 @@ export function paramsFrom<P>(key: ViewKey<P>, input: unknown): Result.Result<P,
   return Result.isSuccess(decoded)
     ? Result.succeed(decoded.success)
     : Result.fail(decoded.failure.message);
+}
+
+/** One thing wrong with a view's params: where (a path into them) and what. */
+export interface ViewIssue {
+  readonly path: readonly string[];
+  readonly message: string;
+}
+
+const STANDARD_ISSUES = SchemaIssue.makeFormatterStandardSchemaV1();
+
+/**
+ * `input` read as `key`'s params, or every issue that stops it, each at its
+ * path. `strict` refuses a setting the view does not declare, which a host
+ * reading stored config ignores (`paramsFrom`) but a caller proposing params
+ * has to be told about.
+ */
+export function paramsIssues<P>(
+  key: ViewKey<P>,
+  input: unknown,
+  strict = false,
+): Result.Result<P, readonly ViewIssue[]> {
+  const decoded = Schema.decodeUnknownResult(key.params, {
+    onExcessProperty: strict ? "error" : "ignore",
+    errors: "all",
+  })(input);
+  if (Result.isSuccess(decoded)) return Result.succeed(decoded.success);
+  return Result.fail(
+    STANDARD_ISSUES(decoded.failure.issue).issues.map((issue) => ({
+      path: (issue.path ?? []).map((segment) =>
+        String(typeof segment === "object" ? segment.key : segment),
+      ),
+      message: issue.message,
+    })),
+  );
+}
+
+/** An issue as one line: its path, then what is wrong there. */
+export function issueText(issue: ViewIssue): string {
+  return issue.path.length === 0 ? issue.message : `${issue.path.join(".")}: ${issue.message}`;
 }
 
 /**

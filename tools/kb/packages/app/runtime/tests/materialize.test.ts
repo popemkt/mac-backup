@@ -285,7 +285,7 @@ describe("docs.materialize + docs.check", () => {
     };
     expect(check.views).toEqual([{ view: "todos", output: "docs/kb/todos.md", status: "clean" }]);
     expect(check.clean).toBe(true);
-    expect(check.warnings).toEqual(["view bare has no template"]);
+    expect(check.warnings).toEqual(["view bare is invalid: template: Missing key"]);
     const names = (await mustInvoke(ctx, "render.views", {})) as { views: string[] };
     expect(names.views).toEqual(["todos"]);
   });

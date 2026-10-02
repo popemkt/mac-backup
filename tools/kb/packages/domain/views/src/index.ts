@@ -11,11 +11,14 @@ export {
   localIdOf,
   paramsFrom,
   paramsFromProps,
+  paramsIssues,
+  issueText,
   viewKey,
   type ConfigReport,
   type ParamsOf,
   type PlainViewKey,
   type ViewConfigReader,
+  type ViewIssue,
   type ViewKey,
 } from "./view-key.ts";
 export {
@@ -106,3 +109,4 @@ export {
 } from "./ontology.ts";
 export { CANVAS_NAMESPACE, CanvasListView, CanvasParams, CanvasView } from "./canvas.ts";
 export { LAB_NAMESPACE, LAB_SCENE_IDS, LabParams, LabView, type LabSceneId } from "./lab.ts";
+export { DOCS_NAMESPACE, DocsMarkdownParams, DocsMarkdownView, docsSpecOf } from "./docs.ts";

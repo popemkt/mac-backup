@@ -1,15 +1,14 @@
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { KbCtx } from "@kb/contracts";
 import {
-  SYSTEM_IDS,
   docsViewNameError,
   docsViewNameOf,
-  firstStr,
   isDocsView,
   type DocsViewSpec,
   type FailureCode,
   type KbNode,
 } from "@kb/model";
+import { DocsMarkdownView, docsSpecOf, issueText, paramsIssues } from "@kb/views";
 
 /** Typed failure for docs operations; registry maps it to a receipt. */
 export class DocsError extends Error {
@@ -35,50 +34,22 @@ export interface LoadedView {
 }
 
 /**
- * A view writes its markdown somewhere in the repo, so the one thing its
- * `output` may not do is leave it. Pure on purpose — a path this rejects is
- * rejected the same way in every runtime, and the port that owns real paths
- * never sees it.
+ * The docs view a view node is, read through its view's key
+ * (`DocsMarkdownView`), or every param it cannot be read without.
  */
-function isRepoRelative(output: string): boolean {
-  if (/^([/\\]|[a-zA-Z]:[/\\])/.test(output)) return false;
-  return !output.split(/[\\/]/).includes("..");
-}
-
-/** The docs view a view node is, or the param it cannot be read without. */
 function loadedView(node: KbNode): LoadedView | DocsError {
   const name = docsViewNameOf(node);
-  const param = (field: string, label: string) => {
-    const value = firstStr(field)(node.props);
-    return value === undefined || value === ""
-      ? new DocsError("invalid_input", `view ${name} has no ${label}`, { name, field })
-      : value;
-  };
-  const template = param(SYSTEM_IDS.viewTemplateField, "template");
-  if (template instanceof DocsError) return template;
-  const output = param(SYSTEM_IDS.viewOutputField, "output");
-  if (output instanceof DocsError) return output;
-  if (!isRepoRelative(output))
-    return new DocsError("invalid_input", `view ${name} is invalid`, {
-      name,
-      issues: ["output must be a repo-relative path without .."],
-    });
-  const optional = (field: string) => {
-    const value = firstStr(field)(node.props);
-    return value === "" ? undefined : value;
-  };
-  const query = optional(SYSTEM_IDS.lensQueryField);
-  const savedQuery = optional(SYSTEM_IDS.viewSavedQueryField);
-  if (query !== undefined && savedQuery === undefined)
-    return { name, spec: { query, template, output } };
-  if (savedQuery !== undefined && query === undefined)
-    return { name, spec: { savedQuery, template, output } };
+  const params = paramsIssues(DocsMarkdownView, DocsMarkdownView.config(node.props, null, ignore));
+  if (Result.isSuccess(params)) return { name, spec: docsSpecOf(params.success) };
   return new DocsError(
     "invalid_input",
-    `view ${name} needs exactly one of a query and a saved query`,
-    { name },
+    `view ${name} is invalid: ${params.failure.map(issueText).join("; ")}`,
+    { name, issues: params.failure },
   );
 }
+
+/** The docs key reads each setting as stored, so it has nothing to report. */
+function ignore(): void {}
 
 /**
  * Every docs view node — a view node whose view is `docs.markdown` — sorted
