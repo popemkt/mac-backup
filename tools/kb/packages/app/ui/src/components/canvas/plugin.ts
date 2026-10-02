@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
 import { matchCanvas, matchCanvasList } from "@/components/canvas/routes";
 import { CanvasListSurface, CanvasSection, CanvasSurface } from "@/components/canvas/surfaces";
-import { CANVAS_NAMESPACE, CanvasListView, CanvasView } from "@/components/canvas/views";
+import { CANVAS_NAMESPACE, CanvasListView, CanvasView } from "@kb/views";
 import {
   RoutePoint,
   SidebarSectionPoint,

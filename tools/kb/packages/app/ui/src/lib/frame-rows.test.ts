@@ -7,10 +7,10 @@ import { Effect, Schema } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { describe, expect, it } from "vitest";
 import { frameRows, type FrameRowsInput } from "@/lib/frame-rows";
-import { frameViewOf, isFrameViewKey } from "@/lib/view-config";
+import { frameViewOf } from "@/lib/view-config";
 import { ViewPoint, familyViews } from "@/lib/plugins";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { OutlineTableView } from "@/components/outline/views";
+import { isFrameViewKey, OutlineTableView } from "@kb/views";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
 

@@ -17,7 +17,7 @@ import { resolveProps } from "@/lib/graph-view";
 import { isQueryResultInstance } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import type { OutlineNode } from "@/lib/types";
-import { projectsRows, type FrameViewKey } from "@/lib/view-config";
+import { projectsRows, type FrameViewKey } from "@kb/views";
 
 export interface RowChrome {
   /**

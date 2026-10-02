@@ -23,14 +23,8 @@ import { Effect, Result } from "effect";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeKernel } from "@kb/plugin";
 import { EmphasisFade } from "@/lib/graph-fade";
-import {
-  buildTreeForest,
-  LENS_THEMES,
-  type LensEdge,
-  type LensNode,
-  type LensPerspective,
-  type LensTheme,
-} from "@/lib/graph-lens";
+import { buildTreeForest, type LensEdge, type LensNode } from "@/lib/graph-lens";
+import { LENS_THEMES, type LensPerspective, type LensTheme } from "@kb/views";
 import type { Appearance } from "@/stores/prefs.store";
 import type { Force3dScene } from "./force3d-scene";
 import type { GraphFrame } from "./graph-frame";
@@ -82,9 +76,9 @@ vi.mock("./force3d-scene", () => ({
 const { graphUiPlugin } = await import("./plugin");
 const { ViewSlot } = await import("@/components/ui/view-slot");
 const { GraphFrameContext } = await import("./graph-frame");
-const { TreemapView, isRendererKey } = await import("./views");
+const { TreemapView, isRendererKey } = await import("@kb/views");
 const { ViewPoint, familyViews, syncUiPlugins } = await import("@/lib/plugins");
-const { localIdOf, paramsFrom } = await import("@/lib/view-key");
+const { localIdOf, paramsFrom } = await import("@kb/views");
 const { setEmphasisTargets, topologyOf } = await import("./force3d-emphasis");
 
 // --- a graph with two separate neighbourhoods: A–C and B–D -----------------

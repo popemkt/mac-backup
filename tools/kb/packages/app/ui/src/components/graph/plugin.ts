@@ -20,9 +20,6 @@ import {
   NeighbourhoodView,
   TreeView,
   TreemapView,
-} from "@/components/graph/views";
-import { NeighbourhoodGraph } from "@/components/graph/neighbourhood-view";
-import {
   DEFAULT_AUTOROTATE,
   DEFAULT_LABEL_DENSITY,
   DEFAULT_LAYOUT,
@@ -31,7 +28,8 @@ import {
   DEFAULT_SHOW_LABELS,
   DEFAULT_SPREAD,
   DEFAULT_THEME,
-} from "@/lib/graph-lens";
+} from "@kb/views";
+import { NeighbourhoodGraph } from "@/components/graph/neighbourhood-view";
 import {
   RoutePoint,
   SidebarSectionPoint,

@@ -5,26 +5,26 @@ import { SYSTEM_IDS } from "./types";
 import type { NodeMap, OutlineNode } from "./types";
 import {
   applyViewFilters,
-  DEFAULT_VIEW_CONFIG,
   frameConfigOf,
   frameViewOf,
-  isFrameViewKey,
   getViewConfig,
   groupChildrenForBoard,
-  parseViewFilterEdn,
   resolveTableColumns,
-  serializeViewFilter,
   sortChildrenForTable,
 } from "./view-config";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import {
+  DEFAULT_VIEW_CONFIG,
+  isFrameViewKey,
+  parseViewFilterEdn,
+  serializeViewFilter,
   OutlineBoardView,
   OutlineCardsView,
   OutlineListView,
   OutlineTableView,
-} from "@/components/outline/views";
+} from "@kb/views";
 import { ViewPoint, familyViews } from "@/lib/plugins";
 import type { WireNode } from "@kb/contracts";
 import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";

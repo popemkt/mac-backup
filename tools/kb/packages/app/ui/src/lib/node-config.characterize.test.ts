@@ -16,13 +16,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { LEGACY_PERSPECTIVE_TAG, migrateToViewNodes, present } from "@kb/model";
-import {
-  DEFAULT_RENDERER,
-  lensConfig,
-  parsePerspective,
-  type LensPerspective,
-} from "@/lib/graph-lens";
-import { getViewConfig, type ViewConfig } from "@/lib/view-config";
+import { lensConfig, parsePerspective } from "@/lib/graph-lens";
+import { DEFAULT_RENDERER, type LensPerspective, type ViewConfig } from "@kb/views";
+import { getViewConfig } from "@/lib/view-config";
 import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 
 const ISO = "2026-08-08T05:00:00.000Z";

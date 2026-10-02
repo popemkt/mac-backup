@@ -8,8 +8,8 @@ import { describe, expect, it } from "vitest";
 import { definePlugin, makeKernel } from "@kb/plugin";
 import { GearIcon } from "@phosphor-icons/react";
 import { RoutePoint, SidebarSectionPoint, ViewPoint, findView, matchRoute } from "@/lib/plugins";
-import { NoParams, viewKey } from "@/lib/view-key";
-import { ontologyPath, type OntologyView } from "@/lib/router";
+import { NoParams, viewKey, type OntologyView } from "@kb/views";
+import { ontologyPath } from "@/lib/router";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS, uiPluginsFor } from "@/ui-plugins";
 
 function kernelWithBuiltins() {

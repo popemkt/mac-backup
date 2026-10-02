@@ -5,7 +5,7 @@ import {
   linkStyleNote,
   settingDisabledReason,
 } from "./graph-capabilities";
-import { ClusterView, Force2dView, Force3dView, TreeView } from "./views";
+import { ClusterView, Force2dView, Force3dView, TreeView } from "@kb/views";
 
 describe("renderer capabilities", () => {
   it("declares a descriptor for every built-in renderer", () => {

@@ -160,6 +160,7 @@
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/tx-log": "workspace:*",
+        "@kb/views": "workspace:*",
         "@kb/webmcp": "workspace:*",
         "@phosphor-icons/react": "catalog:",
         "@sigma/edge-curve": "catalog:",
@@ -297,6 +298,17 @@
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
+      },
+    },
+    "packages/domain/views": {
+      "name": "@kb/views",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/model": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
       },
     },
     "packages/extension/agent": {
@@ -793,6 +805,8 @@
     "@kb/tx-log": ["@kb/tx-log@workspace:packages/infrastructure/tx-log"],
 
     "@kb/ui": ["@kb/ui@workspace:packages/app/ui"],
+
+    "@kb/views": ["@kb/views@workspace:packages/domain/views"],
 
     "@kb/webmcp": ["@kb/webmcp@workspace:packages/app/webmcp"],
 

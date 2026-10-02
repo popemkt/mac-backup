@@ -6,7 +6,7 @@
  * (`paramsFromProps`).
  */
 import { viewOptionOf, type NodeProps } from "@kb/model";
-import type { ViewKey } from "@/lib/view-key";
+import type { ViewKey } from "@kb/views";
 
 /** The key among `keys` that the view node names, or null when it names none of them. */
 export function viewKeyOfNode<K extends ViewKey<unknown>>(

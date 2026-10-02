@@ -8,7 +8,7 @@ import {
   type GraphLabelInk,
   type GraphLabelStyle,
 } from "@/lib/graph-label-paint";
-import { DEFAULT_THEME } from "@/lib/graph-lens";
+import { DEFAULT_THEME } from "@kb/views";
 import { readTokenColor } from "@/lib/css-color";
 import { GRAPH_THEMES } from "./graph-themes";
 import {

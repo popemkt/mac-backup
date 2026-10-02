@@ -19,7 +19,7 @@ import { oklchToRgb } from "@/lib/css-color";
 import { readDesignSystemSheets } from "@/lib/design-system-sheets";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { DESIGN_SYSTEM_IDS } from "@/lib/theme";
-import { LENS_THEMES, type LensTheme } from "@/lib/graph-lens";
+import { LENS_THEMES, type LensTheme } from "@kb/views";
 import { GLOW } from "./force3d-emphasis";
 import { peakChannel, shadeNode, type NodeLighting, type Rgb } from "./force3d-light";
 import { GRAPH_THEMES } from "./graph-themes";

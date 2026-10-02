@@ -1,6 +1,5 @@
 import { cn } from "@/lib/cn";
-import type { LensRenderer } from "@/lib/graph-lens";
-import { localIdOf } from "@/lib/view-key";
+import { type LensRenderer, localIdOf } from "@kb/views";
 import { useRenderers } from "./use-renderers";
 
 interface RendererSwitchProps {

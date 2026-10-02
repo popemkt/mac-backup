@@ -8,13 +8,13 @@ import {
   type GraphParams,
   type TreeView,
   type TreemapView,
-} from "@/components/graph/views";
+  type ParamsOf,
+} from "@kb/views";
 import { NotFound } from "@/components/ui/not-found";
 import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { listPerspectiveNodes } from "@/lib/graph-lens";
 import { paramsOf, type MatchedRoute, type ViewProps } from "@/lib/plugins";
-import type { ParamsOf } from "@/lib/view-key";
 import { graphPath, navigate } from "@/lib/router";
 import { listPerspectiveNavItems } from "@/lib/sidebar-nav";
 import { useOutlineStore } from "@/stores/outline.store";

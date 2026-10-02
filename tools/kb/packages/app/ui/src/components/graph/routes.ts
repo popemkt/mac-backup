@@ -1,4 +1,4 @@
-import type { GraphParams } from "@/components/graph/views";
+import type { GraphParams } from "@kb/views";
 
 /** `/graph` or `/graph/<perspective>`. */
 export function matchGraph(path: string): GraphParams | null {

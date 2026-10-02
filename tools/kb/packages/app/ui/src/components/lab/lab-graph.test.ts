@@ -4,7 +4,7 @@ import type { LensGraph, LensNode } from "@/lib/graph-lens";
 import { glintCount, toLabGraph } from "./lab-graph";
 import { starPoint } from "./sky/layout";
 import { labPath, matchLab } from "./routes";
-import { LAB_SCENE_IDS } from "./views";
+import { LAB_SCENE_IDS } from "@kb/views";
 
 function lensNode(id: string, degree = 1, clusterKey = "root"): LensNode {
   return { id, label: id, color: "#888", size: 3, clusterKey, tags: [], degree };

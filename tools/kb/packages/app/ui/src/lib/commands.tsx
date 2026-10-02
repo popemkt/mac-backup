@@ -51,8 +51,8 @@ import {
 } from "@/lib/theme";
 import { toast } from "@/lib/toast";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, isSysPrefixed, type NodeMap } from "@/lib/types";
-import type { FrameViewKey } from "@/lib/view-config";
-import { localIdOf, type FamilyView } from "@/lib/view-key";
+import { type FrameViewKey, localIdOf } from "@kb/views";
+import type { FamilyView } from "@/lib/view-key";
 
 /** The picker a node command can hand the palette to. */
 export type NodeCommandStep = "add-tag" | "add-field" | "add-ref";

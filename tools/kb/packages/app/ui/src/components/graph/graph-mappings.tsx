@@ -3,11 +3,16 @@ import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { SYSTEM_IDS } from "@/lib/types";
 import { graphBindingOptions, type GraphBindingOption } from "@/lib/graph-bindings";
-import { sourceValue, type LensPerspective } from "@/lib/graph-lens";
+import {
+  sourceValue,
+  type LensPerspective,
+  TreeView,
+  TreemapView,
+  type GraphChannel,
+} from "@kb/views";
 import { GRAPH_SOURCE_FIELD_KINDS, type GraphSourceField, type GraphSourceKind } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { useRenderer } from "./use-renderers";
-import { TreeView, TreemapView, type GraphChannel } from "./views";
 
 /**
  * "Which options does this lens field accept?" — asked by field, because that

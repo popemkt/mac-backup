@@ -18,7 +18,7 @@ import {
   syncUiPlugins,
   useContributions,
 } from "./plugins";
-import { viewKey, NoParams } from "@/lib/view-key";
+import { viewKey, NoParams } from "@kb/views";
 
 const Nothing = () => null;
 

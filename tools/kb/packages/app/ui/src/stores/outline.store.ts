@@ -23,7 +23,7 @@ import {
 } from "@/lib/types";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { logWarn } from "@/lib/log";
-import type { FrameViewKey } from "@/lib/view-config";
+import type { FrameViewKey } from "@kb/views";
 import type { FamilyView, SlotChain } from "@/lib/view-key";
 import { providedFrameViews } from "@/stores/frame-views";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";

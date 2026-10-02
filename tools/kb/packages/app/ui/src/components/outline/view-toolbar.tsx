@@ -1,8 +1,7 @@
 import { useCallback, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
-import type { FrameViewKey } from "@/lib/view-config";
-import { localIdOf } from "@/lib/view-key";
+import { type FrameViewKey, localIdOf } from "@kb/views";
 import { mutations } from "@/actions/mutations";
 import { useUiStore } from "@/stores/ui.store";
 import { useFrameViews } from "./use-frame-views";

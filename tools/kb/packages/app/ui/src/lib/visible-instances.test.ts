@@ -6,7 +6,7 @@ import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
-import { OutlineListView, OutlineTableView } from "@/components/outline/views";
+import { OutlineListView, OutlineTableView } from "@kb/views";
 import { MAX_VIEW_DEPTH, slotLink } from "@/lib/view-key";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { outlineUiPlugin } from "@/components/outline/plugin";

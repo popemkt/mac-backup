@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { NoParams, viewKey } from "@/lib/view-key";
+import { NoParams, viewKey } from "./view-key.ts";
 
 /** The canvas plugin's namespace and view keys: what a host imports, never the components. */
 export const CANVAS_NAMESPACE = "canvas";

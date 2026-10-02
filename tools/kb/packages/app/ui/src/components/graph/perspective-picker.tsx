@@ -2,7 +2,7 @@ import { mutations } from "@/actions/mutations";
 import { useEffect, useRef, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
-import type { LensPerspective } from "@/lib/graph-lens";
+import type { LensPerspective } from "@kb/views";
 
 interface PerspectivePickerProps {
   perspectives: LensPerspective[];

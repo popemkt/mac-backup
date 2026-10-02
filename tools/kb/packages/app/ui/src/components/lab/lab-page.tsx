@@ -21,7 +21,7 @@ import { SceneHost } from "@/components/lab/kit/scene-host";
 import { readTiming } from "@/lib/timing";
 import { useLabGraph } from "@/components/lab/lab-graph";
 import { labPath } from "@/components/lab/routes";
-import { LAB_SCENE_IDS, type LabSceneId } from "@/components/lab/views";
+import { LAB_SCENE_IDS, type LabSceneId } from "@kb/views";
 import { LAB_STUDIES } from "@/components/lab/studies";
 
 function StudySwitch({ scene }: { scene: LabSceneId }) {

@@ -3,22 +3,24 @@ import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
 import { DatascriptIndex } from "@/ds";
 import {
-  DEFAULT_EDGE_KINDS,
-  DEFAULT_MAX_NODES,
   buildTreeForest,
   extractLensGraph,
   firstTagOf,
   idsFromQueryRows,
   listPerspectiveNodes,
   parsePerspective,
-  perspectiveProps,
   resolveClusterKey,
   resolveColor,
   resolvePerspective,
   resolveSize,
   buildParentMap,
-  type LensPerspective,
 } from "@/lib/graph-lens";
+import {
+  DEFAULT_EDGE_KINDS,
+  DEFAULT_MAX_NODES,
+  perspectiveProps,
+  type LensPerspective,
+} from "@kb/views";
 import { SYSTEM_IDS } from "@/lib/types";
 
 const ISO = "2026-08-08T05:00:00.000Z";

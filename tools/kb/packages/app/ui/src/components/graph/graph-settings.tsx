@@ -10,7 +10,7 @@ import {
   LENS_LINK_STYLES,
   LENS_THEMES,
   type LensPerspective,
-} from "@/lib/graph-lens";
+} from "@kb/views";
 import { linkStyleNote, settingDisabledReason } from "./graph-capabilities";
 import { useRenderer } from "./use-renderers";
 import { cn } from "@/lib/cn";

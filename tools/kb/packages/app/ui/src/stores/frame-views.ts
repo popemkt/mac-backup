@@ -1,4 +1,4 @@
-import type { FrameViewKey } from "@/lib/view-config";
+import type { FrameViewKey } from "@kb/views";
 import type { FamilyView } from "@/lib/view-key";
 
 type FrameViewSource = () => readonly FamilyView<FrameViewKey>[];

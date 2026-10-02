@@ -12,7 +12,8 @@ import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS, systemSeedNodes } from "@kb/model";
 import { ViewSlot } from "@/components/ui/view-slot";
 import { syncUiPlugins } from "@/lib/plugins";
-import { paramsFromProps } from "@/lib/view-key";
+import { paramsFromProps, NeighbourhoodView, type NeighbourhoodParams } from "@kb/views";
+import { lensReport } from "@/lib/graph-lens";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import type * as GraphAdapters from "./graph-adapters";
@@ -34,7 +35,6 @@ vi.mock("./graph-adapters", async (importOriginal) => {
 });
 
 import { graphUiPlugin } from "./plugin";
-import { NeighbourhoodView, type NeighbourhoodParams } from "./views";
 
 const AT = "2026-09-30T00:00:00.000Z";
 const node = (id: string, patch: Partial<WireNode> = {}): WireNode => ({
@@ -63,6 +63,7 @@ function storedFor(host: string, props: WireNode["props"]): NeighbourhoodParams 
       NeighbourhoodView,
       { [SYSTEM_IDS.viewField]: [{ t: "ref", v: NeighbourhoodView.option }], ...props },
       host,
+      lensReport(),
     ),
   );
 }
@@ -165,9 +166,10 @@ describe("graph.neighbourhood", () => {
       NeighbourhoodView,
       { [SYSTEM_IDS.lensHopsField]: [{ t: "num", v: 9 }] },
       "n.b",
+      lensReport(),
     );
     expect(Result.isFailure(decoded) ? decoded.failure : "").toContain("hops");
-    const hostless = paramsFromProps(NeighbourhoodView, {}, null);
+    const hostless = paramsFromProps(NeighbourhoodView, {}, null, lensReport());
     expect(Result.isFailure(hostless) ? hostless.failure : "").toContain("root");
   });
 });

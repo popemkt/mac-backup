@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 import type { ViewProps } from "@/lib/plugins";
 import { useOutlineStore } from "@/stores/outline.store";
 import { snippetRows } from "./snippet-rows";
-import type { OutlineSnippetParams } from "./views";
+import type { OutlineSnippetParams } from "@kb/views";
 
 /** A row's indent by its depth below the root (a snippet reaches two levels at most). */
 const INDENT: readonly string[] = ["ps-0", "ps-3", "ps-6"];

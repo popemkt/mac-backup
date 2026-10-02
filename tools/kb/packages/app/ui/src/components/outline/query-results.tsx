@@ -9,7 +9,7 @@ import { indentStyle } from "@/lib/indent";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { queryDefOf, resultNodeIds } from "@/lib/query-node";
 import { useQueryNodeRows } from "@/lib/use-query-node-rows";
-import { projectsRows, type FrameViewKey } from "@/lib/view-config";
+import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { FrameViewSlot } from "./frame-view-slot";

@@ -1,6 +1,6 @@
 import { Schema } from "effect";
-import { EdgeKindSchema, LENS_SETTINGS, lensConfig } from "@/lib/graph-lens";
-import { viewKey, type ViewKey } from "@/lib/view-key";
+import { EdgeKindSchema, LENS_SETTINGS, decodeLensConfig } from "./lens.ts";
+import { viewKey, type ViewKey } from "./view-key.ts";
 
 /** The graph plugin's namespace and view keys: what a host imports, never the components. */
 export const GRAPH_NAMESPACE = "graph";
@@ -41,8 +41,8 @@ export type NeighbourhoodParams = typeof NeighbourhoodParams.Type;
 export const NeighbourhoodView = viewKey(
   `${GRAPH_NAMESPACE}.neighbourhood`,
   NeighbourhoodParams,
-  (props, host) => {
-    const lens = lensConfig(props);
+  (props, host, report) => {
+    const lens = decodeLensConfig(props, report);
     return {
       root: lens.focus ?? host ?? undefined,
       hops: lens.hops ?? 1,
@@ -109,7 +109,9 @@ function rendererKey<P>(
 ): RendererKey<P> {
   return {
     // A renderer's settings are the lens props of the perspective it draws.
-    ...viewKey(`${GRAPH_NAMESPACE}.${name}`, params, (props) => lensConfig(props)),
+    ...viewKey(`${GRAPH_NAMESPACE}.${name}`, params, (props, _host, report) =>
+      decodeLensConfig(props, report),
+    ),
     family: RENDERER_FAMILY,
     params,
     renderer: traits,

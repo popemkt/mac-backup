@@ -24,10 +24,14 @@ import {
   frameViewOf,
   getViewConfig,
   groupChildrenForBoard,
-  parseViewFilterEdn,
 } from "@/lib/view-config";
-import { OutlineBoardView, OutlineCardsView, OutlineListView } from "@/components/outline/views";
-import { paramsFrom } from "@/lib/view-key";
+import {
+  parseViewFilterEdn,
+  OutlineBoardView,
+  OutlineCardsView,
+  OutlineListView,
+  paramsFrom,
+} from "@kb/views";
 import { Result } from "effect";
 import { collectVisibleInstances } from "@/lib/visible-instances";
 import { providedFrameViews } from "@/stores/frame-views";

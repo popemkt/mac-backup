@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
-import { projectsRows } from "@/lib/view-config";
+import { projectsRows } from "@kb/views";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";

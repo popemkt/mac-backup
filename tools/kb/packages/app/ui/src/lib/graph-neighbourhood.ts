@@ -6,13 +6,8 @@
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "@/ds";
 import { queryNeighbourhood } from "@/ds";
-import {
-  extractLensGraph,
-  lensConfig,
-  type EdgeKind,
-  type LensGraph,
-  type LensPerspective,
-} from "@/lib/graph-lens";
+import { extractLensGraph, lensConfig, type LensGraph } from "@/lib/graph-lens";
+import type { EdgeKind, LensPerspective } from "@kb/views";
 
 /**
  * The node-valued attribute a neighbourhood walks for an edge kind. Text

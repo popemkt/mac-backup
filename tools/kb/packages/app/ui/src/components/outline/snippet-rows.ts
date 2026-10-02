@@ -1,6 +1,6 @@
 import { graphDisplayText } from "@/lib/graph-label";
 import type { NodeMap } from "@/lib/types";
-import type { OutlineSnippetParams } from "./views";
+import type { OutlineSnippetParams } from "@kb/views";
 
 export interface SnippetRow {
   readonly id: string;

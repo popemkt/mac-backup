@@ -14,12 +14,8 @@ import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode, type PropValue } from "@/lib/types";
-import {
-  DEFAULT_VIEW_CONFIG,
-  resolveTableColumns,
-  sortChildrenForTable,
-  type SortSpec,
-} from "./view-config";
+import { resolveTableColumns, sortChildrenForTable } from "./view-config";
+import { DEFAULT_VIEW_CONFIG, type SortSpec } from "@kb/views";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {

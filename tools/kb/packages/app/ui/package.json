@@ -27,6 +27,7 @@
     "@kb/plugin": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/tx-log": "workspace:*",
+    "@kb/views": "workspace:*",
     "@kb/webmcp": "workspace:*",
     "@phosphor-icons/react": "catalog:",
     "@sigma/edge-curve": "catalog:",

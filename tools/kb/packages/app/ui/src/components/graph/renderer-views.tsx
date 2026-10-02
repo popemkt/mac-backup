@@ -1,7 +1,14 @@
 import type { ComponentType } from "react";
 import { WorkspaceState } from "@/components/ui/workspace-state";
 import type { ViewProps } from "@/lib/plugins";
-import type { ParamsOf } from "@/lib/view-key";
+import type {
+  ParamsOf,
+  ClusterView,
+  Force2dView,
+  Force3dView,
+  TreeView,
+  TreemapView,
+} from "@kb/views";
 import {
   ClusterAdapter,
   Force2dAdapter,
@@ -12,7 +19,6 @@ import {
 import { GraphCanvasErrorBoundary } from "./graph-canvas-error";
 import { useGraphFrame } from "./graph-frame";
 import { TreemapGraph } from "./treemap-graph";
-import type { ClusterView, Force2dView, Force3dView, TreeView, TreemapView } from "./views";
 
 /**
  * What every renderer view is: its params are the settings it reads, and it

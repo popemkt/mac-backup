@@ -3,8 +3,8 @@
  * carries one, and the host that names its views.
  *
  * DESIGN.md → Kinds, roles and options → View nodes is the statement of the
- * model; this module is its vocabulary. A view's key lives with the plugin
- * that provides it (`@kb/ui`), and all the store needs of it is its name, so
+ * model; this module is its vocabulary. A view's key lives in `@kb/views`,
+ * which builds on this package, and all the store needs of it is its name, so
  * an option's id derives from the view's id and nothing else.
  */
 import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";

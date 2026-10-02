@@ -8,13 +8,8 @@
  */
 import type { Appearance } from "@/stores/prefs.store";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import {
-  DEFAULT_THEME,
-  type LensEdge,
-  type LensLinkStyle,
-  type LensNode,
-  type LensTheme,
-} from "@/lib/graph-lens";
+import type { LensEdge, LensNode } from "@/lib/graph-lens";
+import { DEFAULT_THEME, type LensLinkStyle, type LensTheme } from "@kb/views";
 import { showsHoverCard, type GraphEmphasis } from "@/lib/graph-interaction";
 import { useReducedMotion } from "@/lib/motion";
 import { readTiming } from "@/lib/timing";

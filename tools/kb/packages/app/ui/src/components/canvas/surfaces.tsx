@@ -1,6 +1,6 @@
 import { lazy, useMemo, useState } from "react";
 import { PlusIcon, SquareIcon } from "@phosphor-icons/react";
-import { CanvasListView, CanvasView, type CanvasParams } from "@/components/canvas/views";
+import { CanvasListView, CanvasView, type CanvasParams } from "@kb/views";
 import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { createCanvasNode } from "@/lib/canvas-api";

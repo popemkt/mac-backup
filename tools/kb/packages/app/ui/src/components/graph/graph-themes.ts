@@ -12,7 +12,7 @@
  */
 import { toRenderableColor, type ColorToken } from "@/lib/css-color";
 import type { GraphLabelStyle } from "@/lib/graph-label-paint";
-import type { LensTheme } from "@/lib/graph-lens";
+import type { LensTheme } from "@kb/views";
 import type { NodeSurface } from "./force3d-light";
 
 /** One value for a light page and one for a dark one. */

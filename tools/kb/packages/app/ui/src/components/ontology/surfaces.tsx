@@ -6,9 +6,9 @@ import {
   OntologyListView,
   OntologyScopeView,
   type OntologyScopeParams,
-} from "@/components/ontology/views";
-import { GraphView } from "@/components/graph/views";
-import { OutlineView } from "@/components/outline/views";
+  GraphView,
+  OutlineView,
+} from "@kb/views";
 import { isOntologyNode } from "@kb/model";
 import { NotFound } from "@/components/ui/not-found";
 import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";

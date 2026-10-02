@@ -17,7 +17,8 @@ import {
 import { frameRows } from "@/lib/frame-rows";
 import { isQueryNode, queryDefOf, resultNodeIds } from "@/lib/query-node";
 import type { NodeMap } from "@/lib/types";
-import { frameViewOf, projectsRows, type FrameView, type FrameViewKey } from "@/lib/view-config";
+import { frameViewOf, type FrameView } from "@/lib/view-config";
+import { projectsRows, type FrameViewKey } from "@kb/views";
 import { hasText } from "@/lib/text";
 import { slotLink, slotRenders, type SlotChain } from "@/lib/view-key";
 import { shownNode, showsAncestor } from "@/lib/contextual-ref";

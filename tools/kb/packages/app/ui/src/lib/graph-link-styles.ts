@@ -8,7 +8,7 @@
  * only where a dash can move (the 3D graph). A 2D graph given flow draws its
  * shape, still, and the settings panel says so.
  */
-import type { LensLinkStyle } from "@/lib/graph-lens";
+import type { LensLinkStyle } from "@kb/views";
 
 export interface LinkStyleParts {
   readonly curved: boolean;

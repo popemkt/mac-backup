@@ -7,11 +7,7 @@ import {
   OntologySection,
   OntologySurface,
 } from "@/components/ontology/surfaces";
-import {
-  ONTOLOGY_NAMESPACE,
-  OntologyListView,
-  OntologyScopeView,
-} from "@/components/ontology/views";
+import { ONTOLOGY_NAMESPACE, OntologyListView, OntologyScopeView } from "@kb/views";
 import {
   RoutePoint,
   SidebarSectionPoint,

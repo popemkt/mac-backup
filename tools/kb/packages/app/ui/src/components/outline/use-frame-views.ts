@@ -3,13 +3,8 @@ import { isViewNode } from "@kb/model";
 import { ViewPoint, currentContributions, familyViews, useContributions } from "@/lib/plugins";
 import { schemaOf } from "@/lib/schema";
 import type { OutlineNode } from "@/lib/types";
-import {
-  frameViewNodeIdOf,
-  frameViewThrough,
-  isFrameViewKey,
-  type FrameView,
-  type FrameViewKey,
-} from "@/lib/view-config";
+import { frameViewNodeIdOf, frameViewThrough, type FrameView } from "@/lib/view-config";
+import { isFrameViewKey, type FrameViewKey } from "@kb/views";
 import type { FamilyView } from "@/lib/view-key";
 import { useOutlineStore } from "@/stores/outline.store";
 

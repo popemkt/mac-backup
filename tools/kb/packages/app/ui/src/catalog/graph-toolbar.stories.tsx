@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { GraphToolbar } from "@/components/graph/graph-toolbar";
-import { Force2dView, TreeView } from "@/components/graph/views";
+import { Force2dView, TreeView } from "@kb/views";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
 
 const FORCE2D = Force2dView.renderer.capabilities;

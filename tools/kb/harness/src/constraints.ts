@@ -221,7 +221,6 @@ export type UiZone =
   | "scene"
   | "test-support"
   | "catalog"
-  | "view-keys"
   | "components/canvas/3d"
   | `components/${UiSurface}`;
 
@@ -245,14 +244,6 @@ const UI_PRIMITIVES: readonly string[] = [
 ];
 
 /**
- * A plugin folder's view keys (DESIGN-UI.md → UI points: routes and views):
- * the key constants and param types a host imports to embed that plugin's
- * view, and nothing else. Lifted out of the folder's zone, because a key must
- * be reachable where the folder's components must not.
- */
-const UI_VIEW_KEYS = /^components\/[^/]+\/views\.ts$/;
-
-/**
  * The canvas's 3D projection: the scene, its layers and the stage that hosts
  * it, lifted out of the canvas folder's zone so that only these files may
  * reach the scene kit. The 2D canvas cannot import three by accident.
@@ -270,7 +261,6 @@ const UI_CANVAS_3D = /^components\/canvas\/canvas-(?:scene(?:-cards|-edges)?\.ts
  */
 export function uiZoneOf(file: string): UiZone {
   if (!file.includes("/") || file === "components/App.tsx") return "shell";
-  if (UI_VIEW_KEYS.test(file)) return "view-keys";
   if (UI_CANVAS_3D.test(file)) return "components/canvas/3d";
   if (UI_PRIMITIVES.some((prefix) => file.startsWith(prefix))) return "primitives";
   const [head, next] = file.split("/");
@@ -315,7 +305,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   shell: [
     "shell",
     "primitives",
-    "view-keys",
     "components/agent",
     "components/canvas",
     "components/graph",
@@ -349,16 +338,11 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   // `resetOutlineStore` resets, and the `api/ws` port `FakeWsSocket` doubles.
   "test-support": ["test-support", "stores", "api"],
   primitives: ["primitives", "lib"],
-  // View keys: every surface may import them, so they reach only `lib` (the
-  // `viewKey` factory) — a key file that grew a component or a store read
-  // would hand that to every host.
-  "view-keys": ["view-keys", "lib"],
   catalog: [
     "catalog",
     "fixtures",
     "lib",
     "primitives",
-    "view-keys",
     "components/canvas",
     "components/graph",
     "components/ontology",
@@ -375,7 +359,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "stores",
     "actions",
     "lib",
-    "view-keys",
   ],
   // The 3D projection stands on the scene kit, as the 3D graph does.
   "components/canvas/3d": [
@@ -386,7 +369,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "actions",
     "lib",
     "scene",
-    "view-keys",
   ],
   "components/graph": [
     "components/graph",
@@ -395,7 +377,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "actions",
     "lib",
     "scene",
-    "view-keys",
   ],
   "components/lab": [
     "components/lab",
@@ -404,7 +385,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "actions",
     "lib",
     "scene",
-    "view-keys",
   ],
   "components/ontology": [
     "components/ontology",
@@ -412,7 +392,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "stores",
     "actions",
     "lib",
-    "view-keys",
   ],
   // The agent sidebar draws what the agent channel says; the shell hands it
   // the socket and the invoke path as ports (`src/agent.ts`), so it reaches
@@ -424,7 +403,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "stores",
     "actions",
     "lib",
-    "view-keys",
   ],
   "components/palette": [
     "components/palette",
@@ -432,17 +410,22 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "stores",
     "actions",
     "lib",
-    "view-keys",
   ],
-  "components/prefs": ["components/prefs", "primitives", "stores", "actions", "lib", "view-keys"],
+  "components/prefs": ["components/prefs", "primitives", "stores", "actions", "lib"],
   "components/sidebar": [
     "components/sidebar",
     "primitives",
     "stores",
     "actions",
     "lib",
-    "view-keys",
   ],
+  "components/graph": ["components/graph", "primitives", "stores", "actions", "lib", "scene"],
+  "components/lab": ["components/lab", "primitives", "stores", "actions", "lib", "scene"],
+  "components/ontology": ["components/ontology", "primitives", "stores", "actions", "lib"],
+  "components/outline": ["components/outline", "primitives", "stores", "actions", "lib"],
+  "components/palette": ["components/palette", "primitives", "stores", "actions", "lib"],
+  "components/prefs": ["components/prefs", "primitives", "stores", "actions", "lib"],
+  "components/sidebar": ["components/sidebar", "primitives", "stores", "actions", "lib"],
 };
 
 /**

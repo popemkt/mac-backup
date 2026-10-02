@@ -1,7 +1,14 @@
 import { lazy, useMemo } from "react";
 import { outlineBulletAppearance } from "@/lib/bullet-mode";
-import type { LensNode, LensTheme } from "@/lib/graph-lens";
-import type { ParamsOf } from "@/lib/view-key";
+import type { LensNode } from "@/lib/graph-lens";
+import type {
+  LensTheme,
+  ParamsOf,
+  ClusterView,
+  Force2dView,
+  Force3dView,
+  TreeView,
+} from "@kb/views";
 import { GRAPH_THEMES } from "./graph-themes";
 import { useOutlineStore } from "@/stores/outline.store";
 import { SigmaGraph } from "./sigma-graph";
@@ -9,7 +16,6 @@ import { ClusterGraph } from "./cluster-graph";
 import { TreeGraph } from "./tree-graph";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import type { GraphFrame } from "./graph-frame";
-import type { ClusterView, Force2dView, Force3dView, TreeView } from "./views";
 const Force3dGraph = lazy(() => import("./force3d-graph"));
 
 /** What a renderer draws from: the settings it reads, and the frame its host extracted. */

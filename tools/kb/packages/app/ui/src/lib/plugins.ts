@@ -32,13 +32,8 @@ import {
   type PointKey,
 } from "@kb/plugin";
 import { usePath } from "@/lib/router";
-import {
-  localIdOf,
-  type FamilyView,
-  type PlainViewKey,
-  type ViewKey,
-  type ViewPicker,
-} from "@/lib/view-key";
+import type { FamilyView, ViewPicker } from "@/lib/view-key";
+import { localIdOf, type PlainViewKey, type ViewKey } from "@kb/views";
 import { toast } from "@/lib/toast";
 
 /**

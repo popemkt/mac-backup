@@ -29,7 +29,8 @@ import {
   type ViewProps,
   type ProvidedView,
 } from "@/lib/plugins";
-import { MAX_VIEW_DEPTH, NoParams, localIdOf, viewKey } from "@/lib/view-key";
+import { MAX_VIEW_DEPTH } from "@/lib/view-key";
+import { NoParams, localIdOf, viewKey } from "@kb/views";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS } from "@/ui-plugins";
 

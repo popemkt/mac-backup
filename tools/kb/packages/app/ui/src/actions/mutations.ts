@@ -3,9 +3,8 @@
  */
 import { ulid } from "ulid";
 import { z } from "zod";
-import type { LensPerspective } from "@/lib/graph-lens";
+import type { LensPerspective, FrameViewKey, SortSpec, ViewConfig } from "@kb/views";
 import type { FieldType } from "@kb/model";
-import type { FrameViewKey, SortSpec, ViewConfig } from "@/lib/view-config";
 import { runOptimistic } from "@/actions/optimistic";
 import {
   planAddChild,
@@ -678,7 +677,7 @@ export const mutations = {
 
   /** Save `perspective` as a new graph view node, filed in the Views list. */
   async saveGraphPerspective(perspective: LensPerspective, name: string): Promise<string | null> {
-    const { perspectiveProps } = await import("@/lib/graph-lens");
+    const { perspectiveProps } = await import("@kb/views");
     const { planAddViewNode } = await import("@/actions/plan");
     const id = ulid();
     const plan = planAddViewNode(
@@ -765,7 +764,7 @@ export const mutations = {
   },
 
   async addViewFilter(frameId: string, edn: string): Promise<void> {
-    const { serializeViewFilter, parseViewFilterEdn } = await import("@/lib/view-config");
+    const { serializeViewFilter, parseViewFilterEdn } = await import("@kb/views");
     const parsed = parseViewFilterEdn(edn);
     if (!parsed) {
       toast(`Bad filter EDN: ${edn}`);
@@ -780,7 +779,7 @@ export const mutations = {
   },
 
   async removeViewFilter(frameId: string, edn: string): Promise<void> {
-    const { serializeViewFilter } = await import("@/lib/view-config");
+    const { serializeViewFilter } = await import("@kb/views");
     const next = (await frameConfig(frameId)).filters
       .map((f) => f.raw || serializeViewFilter(f))
       .filter((raw) => raw !== edn);

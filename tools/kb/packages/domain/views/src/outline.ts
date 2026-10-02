@@ -1,14 +1,13 @@
 import { Schema } from "effect";
-import { firstRef } from "@kb/model";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS, firstRef } from "@kb/model";
 import {
   FRAME_SETTINGS,
   FRAME_VIEW_FAMILY,
-  getViewConfig,
+  decodeFrameConfig,
   type FrameViewKey,
   type FrameViewParams,
-} from "@/lib/view-config";
-import { NoParams, viewKey } from "@/lib/view-key";
+} from "./frame.ts";
+import { NoParams, viewKey } from "./view-key.ts";
 
 /** The outline plugin's namespace and view keys: what a host imports, never the components. */
 export const OUTLINE_NAMESPACE = "outline";
@@ -50,7 +49,9 @@ function frameViewKey<P extends FrameViewParams>(
 ): FrameViewKey<P> {
   // A frame view's settings are the `sys.f.view.*` props that configure it.
   return {
-    ...viewKey(`${OUTLINE_NAMESPACE}.${name}`, params, (props) => getViewConfig(props)),
+    ...viewKey(`${OUTLINE_NAMESPACE}.${name}`, params, (props, _host, report) =>
+      decodeFrameConfig(props, report),
+    ),
     family: FRAME_VIEW_FAMILY,
     rows,
   };

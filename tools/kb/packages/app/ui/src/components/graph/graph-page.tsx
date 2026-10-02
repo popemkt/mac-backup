@@ -8,12 +8,10 @@ import { useUiStore } from "@/stores/ui.store";
 import {
   buildTreeForest,
   extractLensGraph,
-  DEFAULT_RENDERER,
+  lensReport,
   listPerspectiveNodes,
   parsePerspective,
   resolvePerspective,
-  type LensPerspective,
-  type LensRenderer,
 } from "@/lib/graph-lens";
 import { hasText } from "@/lib/text";
 import { listOntologyItems } from "@/lib/ontology-scope";
@@ -29,7 +27,12 @@ import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { ThemeIcon } from "@/components/ui/theme-icon";
 import { WorkspaceState } from "@/components/ui/workspace-state";
 import { ViewSlot } from "@/components/ui/view-slot";
-import { paramsFromProps } from "@/lib/view-key";
+import {
+  DEFAULT_RENDERER,
+  type LensPerspective,
+  type LensRenderer,
+  paramsFromProps,
+} from "@kb/views";
 import { GraphFrameContext, graphViewKey, type GraphFrame } from "./graph-frame";
 import { useRenderer } from "./use-renderers";
 
@@ -208,7 +211,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   const settings = useMemo(
     () =>
       rendererKey !== null && activeProps !== undefined
-        ? paramsFromProps(rendererKey, activeProps, null)
+        ? paramsFromProps(rendererKey, activeProps, null, lensReport())
         : null,
     [rendererKey, activeProps],
   );

@@ -10,7 +10,7 @@ import {
   type FieldType,
 } from "@kb/model";
 import { forestRootIds } from "@/lib/graph-view";
-import { FRAME_VIEW_FAMILY } from "@/lib/view-config";
+import { FRAME_VIEW_FAMILY } from "@kb/views";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
 import { SYSTEM_IDS, isSysPrefixed, type PropValue } from "@/lib/types";

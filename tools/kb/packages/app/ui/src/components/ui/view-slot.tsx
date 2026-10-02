@@ -2,7 +2,8 @@ import { Suspense, useContext, useMemo, type ReactElement } from "react";
 import { EnclosingSlots } from "@/components/ui/slot-chain";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { useView, type Placement, type ViewHost } from "@/lib/plugins";
-import { slotLink, slotRenders, type SlotChain, type ViewKey } from "@/lib/view-key";
+import { slotLink, slotRenders, type SlotChain } from "@/lib/view-key";
+import type { ViewKey } from "@kb/views";
 
 /** What a slot shows while its view loads: a quiet placeholder of the box, never a blank. */
 const PENDING = (

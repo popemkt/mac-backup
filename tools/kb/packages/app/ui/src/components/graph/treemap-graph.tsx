@@ -3,9 +3,8 @@ import { hierarchy, treemap } from "d3-hierarchy";
 import type { LensNode } from "@/lib/graph-lens";
 import { graphNodeAlpha } from "@/lib/graph-dim";
 import { selectionFromNode } from "./graph-selection";
-import type { ParamsOf } from "@/lib/view-key";
+import type { ParamsOf, TreemapView } from "@kb/views";
 import type { RendererProps } from "./graph-adapters";
-import type { TreemapView } from "./views";
 
 interface AreaNode {
   label: string;

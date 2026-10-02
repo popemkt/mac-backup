@@ -6,15 +6,14 @@ import Sigma from "sigma";
 import { EdgeArrowProgram } from "sigma/rendering";
 import { EdgeCurvedArrowProgram } from "@sigma/edge-curve";
 import { createNodeBorderProgram } from "@sigma/node-border";
+import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import {
   DEFAULT_THEME,
-  type LensEdge,
-  type LensNode,
   type LensLayout,
   type LensLabelDensity,
   type LensLinkStyle,
   type LensTheme,
-} from "@/lib/graph-lens";
+} from "@kb/views";
 import { LINK_STYLES } from "@/lib/graph-link-styles";
 import { readTokenColor } from "@/lib/css-color";
 import { graphLabelFont } from "@/lib/graph-label";

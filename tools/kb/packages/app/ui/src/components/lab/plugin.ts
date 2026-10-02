@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
 import { matchLab } from "@/components/lab/routes";
 import { LabSection, LabSurface } from "@/components/lab/surfaces";
-import { LAB_NAMESPACE, LAB_SCENE_IDS, LabView } from "@/components/lab/views";
+import { LAB_NAMESPACE, LAB_SCENE_IDS, LabView } from "@kb/views";
 import {
   RoutePoint,
   SidebarSectionPoint,

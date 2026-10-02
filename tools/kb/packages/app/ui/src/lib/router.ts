@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { OntologyView } from "@kb/views";
 
 /**
  * Tiny path router — no react-router dependency. Which page owns a path is
@@ -43,10 +44,6 @@ export function graphPath(perspectiveId?: string | null): string {
   }
   return "/graph";
 }
-
-/** The projections of one ontology's scope, each a path under `/o/<id>`. */
-export const ONTOLOGY_VIEWS = ["page", "outline", "graph"] as const;
-export type OntologyView = (typeof ONTOLOGY_VIEWS)[number];
 
 /** `/o/<id>` (page) · `/o/<id>/outline` · `/o/<id>/graph`. */
 export function ontologyPath(id: string, view: OntologyView = "page"): string {

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SYSTEM_IDS } from "@kb/model";
-import { NeighbourhoodView, TreeView } from "@/components/graph/views";
-import { OutlineSnippetView } from "@/components/outline/views";
+import { NeighbourhoodView, TreeView, OutlineSnippetView } from "@kb/views";
 import { viewKeyOfNode } from "@/lib/view-node";
 
 const naming = (option: string) => ({

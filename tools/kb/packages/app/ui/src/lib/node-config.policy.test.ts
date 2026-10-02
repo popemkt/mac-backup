@@ -16,9 +16,9 @@ import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { OutlineListView } from "@/components/outline/views";
+import { OutlineListView, isFrameViewKey } from "@kb/views";
 import { ViewPoint, familyViews } from "@/lib/plugins";
-import { frameViewOf, getViewConfig, isFrameViewKey } from "@/lib/view-config";
+import { frameViewOf, getViewConfig } from "@/lib/view-config";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { schemaOf } from "@/lib/schema";
 

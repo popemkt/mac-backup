@@ -1275,17 +1275,19 @@ another plugin must have is a `Service`, injected in `inject`, and it makes
 the consumer pending while its provider is off. Use that form only when a
 hard dependency is what you mean.
 
-**Where keys live.** Each plugin folder has a `views.ts` that holds only its
-view keys and their param types, with no React and no store. It is its own
-zone in `UI_ALLOWS` (`view-keys`). That zone reaches only `lib`, and every
-surface and the shell may import it. A host imports the key and never the
+**Where keys live.** Every view key kb provides, with its param types and the
+settings it reads from a view node, is data in `@kb/views`
+(`packages/domain/views`, `scope:shared`), one module per plugin namespace,
+with no React and no store. The server holds the same keys, to list, check
+and render views (DESIGN.md → View nodes), so a key is never written twice.
+Any zone may import the package. A host imports the key and never the
 component. That is how the ontology embeds the graph and the outline
 (`components/ontology/surfaces.tsx`) without importing either one.
 
 **Families of views.** Some views are alternatives a host chooses between by
 config. A family's key extends `ViewKey` under a discriminant, `family`
 (`graph.renderer`, `outline.frame`), with what that host must know before it
-renders one; keys are data (`lib/view-key.ts` knows no kernel, React or
+renders one; keys are data (`@kb/views` knows no kernel, React or
 store). How a picker names a view (`picker`: its label, its `order` among the
 family, and where the family has them a glyph, an icon and a `sys.command`
 node) is presentation, so it is part of the view's contribution, not of its
@@ -1296,7 +1298,7 @@ config is text, a view goes by its key's local id (`localIdOf`), which is
 how the stored name resolves to the key among them.
 
 - *Graph renderers.* Each renderer is a view whose `RendererKey`
-  (`components/graph/views.ts`) adds its capabilities, encodings and whether
+  (`@kb/views`, `graph.ts`) adds its capabilities, encodings and whether
   it moves links. Its params are a `Schema.Struct` of the `LENS_SETTINGS` it
   draws with, so the settings panel enables exactly the settings its params
   declare. A graph view node's `sys.f.view` names it by its key's `option`
@@ -1314,7 +1316,7 @@ how the stored name resolves to the key among them.
 - *Frame views.* A frame's children are shown by one of the outline's four
   frame views, list, table, board and cards, each a view at placement
   `inline` that the outline plugin provides. Their keys
-  (`components/outline/views.ts`) carry the one trait the row walk needs
+  (`@kb/views`, `outline.ts`) carry the one trait the row walk needs
   beside the params: how the view lays rows out (`outline`, nested; `rows`;
   `columns`). The frame's first frame view node (DESIGN.md → View nodes)
   names the view, and `frameViewOf` (`lib/view-config.ts`) looks that node
@@ -1376,10 +1378,9 @@ questions. Each one can be overridden.
    the consumer's act, not the thing. The overlap with the outline's
    `sys.f.view.*` prefix is accepted: those modes are views now
    (Families of views).
-2. *Where built-in keys live.* In the owning plugin's `views.ts`, as above.
-   A key is data (`lib/view-key.ts`), so a key file never pulls in the
-   kernel. After a package split, a key moves into that package's small
-   contract module.
+2. *Where built-in keys live.* In `@kb/views`, as above: the package split
+   this decision anticipated, made so the server holds the same keys. A key
+   is data, so the package never pulls in the kernel, React or a store.
 3. *Which nodes get embeds.* Per-node refs only (`sys.f.views`), decided in
    A1; DESIGN.md → Kinds, roles and options → View nodes.
 4. *Neighbourhood direction.* The union of both directions, decided in A1;
@@ -2100,7 +2101,7 @@ reference to it) still resolves. Search, selection, legend dimming and camera po
 Ontology membership remains a separate scope on the same projection.
 
 Each renderer is a view in `ViewPoint` (UI points: routes and views →
-Families of views). Its key, in `components/graph/views.ts`, owns its settings
+Families of views). Its key, in `@kb/views` (`graph.ts`), owns its settings
 (its `params`), its supported encodings and its interaction capabilities; the
 graph plugin provides its component. The shared frame disables unsupported
 camera operations with a reason, and the settings panel disables every

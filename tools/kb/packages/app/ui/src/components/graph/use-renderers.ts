@@ -1,8 +1,7 @@
 import { useMemo } from "react";
-import type { LensRenderer } from "@/lib/graph-lens";
+import { type LensRenderer, isRendererKey, type RendererKey } from "@kb/views";
 import { ViewPoint, familyViews, useContributions } from "@/lib/plugins";
 import type { FamilyView } from "@/lib/view-key";
-import { isRendererKey, type RendererKey } from "./views";
 
 /** The renderers whose views are provided, in their pickers' order. */
 export function useRenderers(): readonly FamilyView<RendererKey<unknown>>[] {

@@ -3,14 +3,14 @@ import { frameRows } from "@/lib/frame-rows";
 import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
 import type { ViewProps } from "@/lib/plugins";
 import { schemaOf } from "@/lib/schema";
-import type { ParamsOf } from "@/lib/view-key";
-import { useOutlineStore } from "@/stores/outline.store";
 import {
+  type ParamsOf,
   OutlineBoardView,
   OutlineCardsView,
   OutlineListView,
   type OutlineTableView,
-} from "./views";
+} from "@kb/views";
+import { useOutlineStore } from "@/stores/outline.store";
 import { BoardCardsView } from "./board-cards-view";
 import { useFrameSubject } from "./frame-subject";
 import { NodeBlock } from "./node-block";

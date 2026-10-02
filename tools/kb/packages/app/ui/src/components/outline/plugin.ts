@@ -16,7 +16,8 @@ import {
   OutlineSnippetView,
   OutlineTableView,
   OutlineView,
-} from "@/components/outline/views";
+  DEFAULT_VIEW_CONFIG,
+} from "@kb/views";
 import { OutlineSnippet } from "@/components/outline/outline-snippet";
 import {
   RoutePoint,
@@ -27,7 +28,6 @@ import {
 } from "@/lib/plugins";
 import { ListBulletsIcon, SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
 import { SYSTEM_IDS } from "@/lib/types";
-import { DEFAULT_VIEW_CONFIG } from "@/lib/view-config";
 import { provideFrameViews, withdrawFrameViews } from "@/stores/frame-views";
 import { readFrameViews } from "@/components/outline/use-frame-views";
 

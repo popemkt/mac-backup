@@ -6,8 +6,8 @@ import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/
 import { cn } from "@/lib/cn";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
-import { resolveTableColumns, type SortSpec, type TableColumnSpec } from "@/lib/view-config";
-import type { ParamsOf } from "@/lib/view-key";
+import { resolveTableColumns, type TableColumnSpec } from "@/lib/view-config";
+import { type SortSpec, type ParamsOf, OutlineTableView } from "@kb/views";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -20,7 +20,6 @@ import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { useNodeKeyDown } from "./use-node-keydown";
 import { useFrameView } from "./use-frame-views";
-import { OutlineTableView } from "./views";
 
 /** The Name column is the node-text field, so sorting by it names a node like any other column. */
 const NAME_COLUMN = SYSTEM_IDS.nodeTextField;

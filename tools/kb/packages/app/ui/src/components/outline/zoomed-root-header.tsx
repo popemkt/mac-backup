@@ -6,7 +6,7 @@ import { schemaOf } from "@/lib/schema";
 import type { OutlineNode } from "@/lib/types";
 import { isSysPrefixed } from "@/lib/types";
 import { nodeTagColors, tagColorAlpha } from "@/lib/tag-color";
-import { projectsRows, type FrameViewKey } from "@/lib/view-config";
+import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FieldsSection } from "./fields-section";
 import { TagChipGroup } from "./tag-chip";

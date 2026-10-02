@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { Result } from "effect";
 import { SYSTEM_IDS } from "@kb/model";
 import type { NodeMap, OutlineNode } from "@/lib/types";
-import { paramsFromProps } from "@/lib/view-key";
+import { paramsFromProps, OutlineSnippetView } from "@kb/views";
+import { frameReport } from "@/lib/view-config";
 import { snippetRows } from "./snippet-rows";
-import { OutlineSnippetView } from "./views";
 
 const AT = "2026-09-30T00:00:00.000Z";
 const node = (id: string, children: string[] = [], text = id): OutlineNode => ({
@@ -56,8 +56,12 @@ describe("outline.snippet", () => {
 
   it("reads a stored view node's focus as its root, else the node it is shown for", () => {
     const focus = { [SYSTEM_IDS.lensFocusField]: [{ t: "ref" as const, v: "a" }] };
-    expect(Result.getOrThrow(paramsFromProps(OutlineSnippetView, focus, "r")).root).toBe("a");
-    expect(Result.getOrThrow(paramsFromProps(OutlineSnippetView, {}, "r")).root).toBe("r");
-    expect(Result.isFailure(paramsFromProps(OutlineSnippetView, {}, null))).toBe(true);
+    expect(
+      Result.getOrThrow(paramsFromProps(OutlineSnippetView, focus, "r", frameReport)).root,
+    ).toBe("a");
+    expect(Result.getOrThrow(paramsFromProps(OutlineSnippetView, {}, "r", frameReport)).root).toBe(
+      "r",
+    );
+    expect(Result.isFailure(paramsFromProps(OutlineSnippetView, {}, null, frameReport))).toBe(true);
   });
 });
