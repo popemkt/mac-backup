@@ -40,6 +40,7 @@ export function setPostAction(fn: PostActionFn | null): void {
   postActionImpl = fn ?? defaultPostAction;
 }
 
-export function postAction(id: string, input: unknown): Promise<ActionResponse> {
-  return postActionImpl({ id, input });
+/** Send one invocation, its whole envelope, to the server. */
+export function postAction(invocation: ActionInvocation): Promise<ActionResponse> {
+  return postActionImpl(invocation);
 }

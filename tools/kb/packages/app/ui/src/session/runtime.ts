@@ -129,9 +129,7 @@ export function pushInvocation(invocation: ActionInvocation, hold?: Hold): Promi
   // The UI has no approval prompt yet, so it never sends `approved`, and an
   // approval-required action is refused here. The step 5 sidebar closes this.
   // GAP [[01M3R2KDDDPSB12NCJ6F6NJHMC]]
-  const result = pushTail
-    .catch(() => undefined)
-    .then(() => postAction(invocation.id, invocation.input));
+  const result = pushTail.catch(() => undefined).then(() => postAction(invocation));
   pushTail = result.then(
     () => undefined,
     () => undefined,
