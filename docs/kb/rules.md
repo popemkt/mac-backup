@@ -48,6 +48,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ## Gaps
 
+### GAP: .kb/views/*.json docs view specs are still read, for the one-time import
+
+- **expected** — docs views exist only as view nodes; no .kb/views reader remains
+- **current** — LegacyDocsViewsPort reads .kb/views/*.json so views.migrate can import and retire them; opening only reports them
+- **impact** — a second docs-view reader stays in the workspace port for roots not yet migrated
+- **closes** — every known root has run views.migrate; then delete LegacyDocsViewsPort and readLegacyDocsViews
+- **node** — `01M3YM5YCHGX6S04KN4G75B9RF`
+
 ### GAP: /api/action does not check Origin
 
 - **expected** — the server accepts action calls only from its own UI origin or local non-browser callers
@@ -71,14 +79,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — In 3D a relationship repeated many times looks like a single one, and a dense graph at device pixel ratio 2 draws hairline links that can be faint.
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
-
-### GAP: a graph renderer view draws only inside a graph host
-
-- **expected** — a renderer view embedded alone (e.g. in a canvas card or beside a row) draws the neighbourhood of the node it is shown for
-- **current** — embedded alone it shows 'No graph to draw': the graph data comes from the graph page's GraphFrame context, not from params
-- **impact** — graph views cannot be embedded outside the graph page yet
-- **closes** — plugin-composition A1 neighbourhood view hosting a renderer (roadmap step 2)
-- **node** — `01M3R5NKA34ATJKJV9GVQRS16Z`
 
 ### GAP: a number prop that equals a live eid reads as a ref to that node
 
@@ -120,6 +120,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — No view can be embedded at card, beside, float, inline or hover size yet, and a view cannot learn its box size, the appearance key or the reduced-motion preference from its host, so the shared suite cannot check those properties. Nothing breaks today, because every host asks for page placement.
 - **closes** — Plan phases A1/A2 in docs/kb/waves/2026-09-24/briefs/plugin-composition.md: widen Placement and ViewHost with their first non-page consumer, have ViewSlot measure its box, and add the matching view-contract properties.
 - **node** — `01M3EZR20H0CDF5MD01M2S26C5`
+
+### GAP: a view node its host stops naming, or whose host is deleted, is never deleted
+
+- **expected** — a view node lives as long as some host names it in sys.f.views, or is explicitly kept as a saved view
+- **current** — view nodes are filed at the end of the Views list (planAddViewNode, view-migration frameViewNode) and nothing deletes them with their host
+- **impact** — orphaned view nodes accumulate in the Views list as hosts are edited and deleted
+- **closes** — host lifecycle owns its views: deleting a host or dropping a view from sys.f.views deletes view nodes nothing else names
+- **node** — `01M3YM5Y5XYDZ1C7G0PCQ1RMK8`
 
 ### GAP: action registry has no A2A adapter
 
@@ -619,7 +627,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the system seed cannot retire or rename a seeded node
 
 - **expected** — A seeded node that is renamed or removed (a field such as lens.node-look becoming lens.theme, its option nodes, lens.curved-links) is retired by ensureSystemSeed on open: the old node and its option children are deleted, props keyed by it move to its replacement's key, and ref values to its options map to the replacement's options.
-- **current** — ensureSystemSeed only adds: it fills absent nodes, props and template field refs. The one retirement it knows is LEGACY_LENS_ALL_MENTIONS, special-cased. The two committed stores were migrated by hand with the kb CLI (kb rm, kb unset).
+- **current** — ensureSystemSeed only adds: it fills absent nodes, props and template field refs. Its one retirement is LEGACY_LENS_ALL_MENTIONS, special-cased. The view-node migration retires its own seeds (graph-perspective tag, frame view field, lens.renderer options, placement) through the explicit views.migrate action, a second retirement list beside the seed. There is still no general retirement table.
 - **impact** — A store opened elsewhere keeps the retired field nodes as clutter, the graph-perspective tag keeps listing them, and a value a perspective held under the old field is silently ignored (its choice reverts to the default).
 - **closes** — A declared retirement table in @kb/model (old id to replacement, option ids to option ids) that ensureSystemSeed applies before seeding, with the legacy all-mentions migration folded into it and a seed test over it.
 - **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
@@ -709,6 +717,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — After R1 settles, inventory the production UI import graph, remove unused permissions without touching the view-keys zone concurrently, and add a red fixture per removed edge.
 - **node** — `01M3F8EJSWHS38PMSSQ2BVN8DG`
 
+### GAP: view option nodes are seeded from one core table, not by the plugins that own the views
+
+- **expected** — each plugin that provides a view contributes its own option node under sys.views
+- **current** — VIEW_VALUES in packages/domain/model/src/view-node.ts lists every view kb provides; the store seeds those options on open because the owning plugins load only in the browser
+- **impact** — a new view plugin must also edit the core table; a third-party view cannot add its option without touching core
+- **closes** — a server-side plugin manifest that the seed reads, so view plugins declare their option nodes where they are defined
+- **node** — `01M3YM5XYZ4VHEK39RNQ6WWRPK`
+
 ### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter
 
 - **expected** — Every render spec runs on every lane that gates, so the Embers study, and the WebGPU backend of the scene kit, are proven in CI as well as locally.
@@ -752,6 +768,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Choose one carrier (the date variant, since PropValue already names it, or drop the variant), migrate stored values on open the way migrateFieldTypeValues does for type values, and list one kind for date.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39X7NQV187BDQVGH81997M5`
+
+### GAP: a graph renderer view draws only inside a graph host
+
+- **expected** — a renderer view embedded alone (e.g. in a canvas card or beside a row) draws the neighbourhood of the node it is shown for
+- **current** — closed by roadmap step 2: the neighbourhood view hosts a renderer and draws the neighbourhood of the node it is shown for, from its own params
+- **impact** — graph views cannot be embedded outside the graph page yet
+- **closes** — plugin-composition A1 neighbourhood view hosting a renderer (roadmap step 2)
+- **node** — `01M3R5NKA34ATJKJV9GVQRS16Z`
 
 ### GAP: a UI test gates on wall-clock time and fails under machine load
 

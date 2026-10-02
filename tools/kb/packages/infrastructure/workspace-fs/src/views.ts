@@ -33,7 +33,7 @@ function specOf(raw: string): DocsViewSpec | string {
  * The docs view specs a root still keeps as `.kb/views/*.json`, from before
  * docs views were view nodes, and a line for each one left out. A root with
  * no such directory keeps none. What `views.migrate` imports, and what
- * opening reports without importing. GAP [GAP-LEGACY-DOCS-VIEWS-IMPORT]
+ * opening reports without importing. GAP [[01M3YM5YCHGX6S04KN4G75B9RF]]
  */
 export const readLegacyDocsViews = Effect.fn("kb.views.legacy")(function* (root: string) {
   const fs = yield* FileSystem;

@@ -166,7 +166,7 @@ function isLegacyFrame(node: KbNode): boolean {
  * (`sys.f.view`, the list's when it named none kb knows), carrying the other
  * settings as they were stored, dated as the frame was last written. The
  * frame names it first in `sys.f.views`, so it is the frame's default.
- * Nothing deletes it with its frame. GAP [GAP-ORPHAN-VIEW-NODES]
+ * Nothing deletes it with its frame. GAP [[01M3YM5Y5XYDZ1C7G0PCQ1RMK8]]
  */
 function frameViewNode(frame: KbNode, id: NodeId): KbNode {
   const mode = frame.props[LEGACY_VIEW_MODE_FIELD]?.find((v) => v.t === "str")?.v.trim();

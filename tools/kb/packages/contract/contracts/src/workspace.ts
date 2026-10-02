@@ -48,7 +48,7 @@ export interface LegacyDocsViewFiles {
 /**
  * The docs view specs a root kept before docs views were view nodes: what
  * `views.migrate` imports, then retires. Nothing else reads them.
- * GAP [GAP-LEGACY-DOCS-VIEWS-IMPORT]
+ * GAP [[01M3YM5YCHGX6S04KN4G75B9RF]]
  */
 export interface LegacyDocsViewsPort {
   readonly read: Effect.Effect<LegacyDocsViewFiles, DomainError>;

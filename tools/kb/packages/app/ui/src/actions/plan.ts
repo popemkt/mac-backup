@@ -424,7 +424,7 @@ export const planSetGraphRenderer = (n: WireNode[], id: string, renderer: string
 /**
  * A new view node, filed at the end of the Views list: the one place the UI
  * files the views it makes. A view node its host stops naming, or whose host
- * is deleted, stays filed there. GAP [GAP-ORPHAN-VIEW-NODES]
+ * is deleted, stays filed there. GAP [[01M3YM5Y5XYDZ1C7G0PCQ1RMK8]]
  */
 export function planAddViewNode(
   nodes: WireNode[],

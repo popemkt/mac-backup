@@ -48,7 +48,7 @@ interface ViewValue {
  *
  * The seed lives here, not with each plugin, because the store is seeded on
  * open and the plugins that own these views load in the browser.
- * GAP [GAP-VIEW-OPTION-SEEDS]
+ * GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]
  */
 export const VIEW_VALUES = {
   "outline.main": { label: "Outline" },

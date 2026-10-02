@@ -801,7 +801,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   view contract holds every provided view's key to a seeded option in its
   own family. The brief has each plugin seed its own options; the store is
   seeded on open while those plugins load in the browser, so the seed is
-  core's until plugins can contribute seeds (GAP [GAP-VIEW-OPTION-SEEDS]).
+  core's until plugins can contribute seeds (GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]).
   An unloaded plugin never deletes an option: the data outlives the code.
 - **A host names its views by ref.** `sys.f.views` (ref, many) on any node
   targets every view node (`VIEW_NODE_TARGET_QUERY`). Scope is per node:
@@ -888,7 +888,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   apart write the same nodes and merge cleanly, and a second run changes
   nothing. It runs over the store port, so the store
   contract holds it for every backend. A view node its host stops naming is
-  not deleted with it (GAP [GAP-ORPHAN-VIEW-NODES]).
+  not deleted with it (GAP [[01M3YM5Y5XYDZ1C7G0PCQ1RMK8]]).
 - **Transient views stay out of the graph.** A hover card or a selection
   preview passes its params from code, which the compiler checks; only a
   view someone chose is stored.
@@ -1606,7 +1606,7 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
   rows, through which template, to where — so they are retired rather than
   kept beside the nodes, and nothing reads them but `views.migrate`, which turns a root's
   leftover specs into docs view nodes (`docs.<name>`, filed in the Views
-  list; GAP [GAP-LEGACY-DOCS-VIEWS-IMPORT]). Templates are named TS functions
+  list; GAP [[01M3YM5YCHGX6S04KN4G75B9RF]]). Templates are named TS functions
   (rows → md), no template-lang dep. They are contributed by extensions
   (core registers none) and referenced by their namespaced id
   `ext.<file>.<template>` or by an alias the extension declares.
