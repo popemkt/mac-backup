@@ -89,7 +89,7 @@ export function useCanvasScreen({
       selection: [...selection.nodeIds, ...selection.edgeIds],
       canvas: {
         // The 2D camera, also while the canvas is seen in 3D.
-        // GAP [GAP-SCREEN-CANVAS-3D]
+        // GAP [[01M3YMCVN656CNRJ3F3R91MHKA]]
         viewport: { x: pan.x, y: pan.y, zoom },
         visible: visibleItemIds(doc.nodes, { pan, zoom, width, height }),
       },

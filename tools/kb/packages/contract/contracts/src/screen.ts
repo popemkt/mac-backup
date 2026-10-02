@@ -31,7 +31,7 @@ export const PaneScreenSchema = z.object({
    * for (the outline's zoom root, the canvas node). `null` on a path no view
    * owns.
    */
-  // GAP [GAP-SCREEN-VIEW-NODE]
+  // GAP [[01M3YMCV7ZWR83DCCPQQS7PHNT]]
   view: z.object({ key: z.string().min(1), subject: z.string().min(1).optional() }).nullable(),
   /** The node the pane's focus is on, if any. */
   focused: z.string().min(1).nullable(),

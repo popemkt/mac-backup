@@ -22,6 +22,7 @@
 
 ### doing
 
+- 5 · screen state over /ws + ui.screen/ui.navigate/ui.select; agent packages (local Claude bridge, sidebar) outside core
 - A outline editor defects -> Tana-grade polish
 - B graph view CodeFlow-parity overhaul
 - C canvas professionalism overhaul (delete nodes!)
@@ -36,7 +37,6 @@
 
 - 10 · chart view type storing a Vega-Lite spec
 - 3 · generative UI mode A: view.propose, catalog in kb_manifest, render_view by view id + md fallback, ui:// snapshots
-- 5 · screen state over /ws + ui.screen/ui.navigate/ui.select; agent packages (local Claude bridge, sidebar) outside core
 - 6 · layout view type (decision 12): mode B dashboards + panes (Tana panels → splits/tabs via dockview adapter), saved workspaces as nodes
 - 9 · sandbox: one capability API + MCP Apps iframe bridge, QuickJS + Worker engines; #code-view, #script, promotion
 - canvas C2: media cards (assets) + frictionless quick-add — draw.io feel

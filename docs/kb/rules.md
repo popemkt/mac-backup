@@ -56,14 +56,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — every known root has run views.migrate; then delete LegacyDocsViewsPort and readLegacyDocsViews
 - **node** — `01M3YM5YCHGX6S04KN4G75B9RF`
 
-### GAP: /api/action does not check Origin
-
-- **expected** — the server accepts action calls only from its own UI origin or local non-browser callers
-- **current** — any web page open in the browser can POST to 127.0.0.1:4321/api/action, including approved: true
-- **impact** — a malicious page can write to the local kb
-- **closes** — an Origin/Host check on /api/action and /ws, with an allow-list for local tools
-- **node** — `01M3R2KDKN1EFE87R1K8CG3NPE`
-
 ### GAP: 3D canvas card textures have no memory budget or culling
 
 - **expected** — card textures are budgeted and culled or LOD'd by visibility and screen size
@@ -79,6 +71,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — In 3D a relationship repeated many times looks like a single one, and a dense graph at device pixel ratio 2 draws hairline links that can be faint.
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
+
+### GAP: a canvas seen in 3D reports its 2D camera on the screen
+
+- **expected** — while a canvas is seen in 3D the screen reports the 3D camera pose and the items actually visible in it
+- **current** — use-canvas-screen publishes the 2D pan/zoom and the items inside the 2D viewport, also in 3D
+- **impact** — an agent's idea of what the user sees on a 3D canvas can be wrong
+- **closes** — CanvasScreenSchema carries the camera {projection, pose} and the 3D scene reports visible items from its frustum
+- **node** — `01M3YMCVN656CNRJ3F3R91MHKA`
 
 ### GAP: a number prop that equals a live eid reads as a ref to that node
 
@@ -608,6 +608,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
+### GAP: the screen names a pane's view by view key, not by view node
+
+- **expected** — a pane's screen view names the view node it shows (sys.f.view option plus its params), so an agent can read or edit exactly that view
+- **current** — ScreenSchema.view is {key, subject?}: the view key id (outline.main, canvas.page) and the node it is shown for
+- **impact** — an agent sees which kind of view is open but not which saved view node or its settings; ui.navigate cannot open a given view node
+- **closes** — the UI routes by view node (roadmap step 6 panes hold a ref to a view node) and the screen reports that id
+- **node** — `01M3YMCV7ZWR83DCCPQQS7PHNT`
+
 ### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
 
 - **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
@@ -717,6 +725,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — After R1 settles, inventory the production UI import graph, remove unused permissions without touching the view-keys zone concurrently, and add a red fixture per removed edge.
 - **node** — `01M3F8EJSWHS38PMSSQ2BVN8DG`
 
+### GAP: ui.navigate opens a node only as the outline zoomed to it
+
+- **expected** — opening a node shows it in its default view (first of sys.f.views), or a requested view node
+- **current** — openNode in packages/app/ui/src/screen.ts always navigates to / and zooms the outline to the node
+- **impact** — an agent asking to open a canvas, a graph view or a node with a non-outline default lands in the outline instead
+- **closes** — one open-node route that resolves the node's default view, shared by the UI's own links and ui.navigate
+- **node** — `01M3YMCVEHWN0REJ8M1857ZEYX`
+
 ### GAP: view option nodes are seeded from one core table, not by the plugins that own the views
 
 - **expected** — each plugin that provides a view contributes its own option node under sys.views
@@ -735,6 +751,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 
 ## Closed
+
+### GAP: /api/action does not check Origin
+
+- **expected** — the server accepts action calls only from its own UI origin or local non-browser callers
+- **current** — closed by roadmap step 5a: one request guard on /ws and /api/* checks Host, Origin and a JSON content type before any route (packages/app/server/src/guard.ts)
+- **impact** — a malicious page can write to the local kb
+- **closes** — an Origin/Host check on /api/action and /ws, with an allow-list for local tools
+- **node** — `01M3R2KDKN1EFE87R1K8CG3NPE`
 
 ### GAP: 23 ui test files hand-copy the outline store reset literal
 

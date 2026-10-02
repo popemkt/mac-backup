@@ -70,7 +70,7 @@ function openRoute(route: string): ScreenAck {
 /**
  * Open a node: the outline, zoomed to it.
  */
-// GAP [GAP-OPEN-NODE]
+// GAP [[01M3YMCVEHWN0REJ8M1857ZEYX]]
 function openNode(id: string): ScreenAck {
   const outline = useOutlineStore.getState();
   if (!outline.nodes.has(id) && !outline.wireNodes.some((node) => node.id === id)) {
