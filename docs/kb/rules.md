@@ -403,7 +403,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — each bundled extension contributes its system nodes to a seed point under their frozen ids; core's seed holds core vocabulary only; ensureSystemSeed seeds the fold of BUNDLED_EXTENSIONS (never host or repository plugins), so every open seeds the same set
 - **current** — SYSTEM_IDS (packages/domain/model/src/model.ts) and systemSeedNodes (packages/domain/model/src/seed.ts) declare sys.f.chart, sys.f.code and sys.f.code.grant; ensureSystemSeed reads only the core table and no point takes a plugin's seed. Canvas is covered by 01M39F3MR3HT2NR553FY8CRD6X
 - **impact** — every feature edits @kb/model, and a store seeds a feature's fields whether or not its extension is loaded
-- **closes** — a SeedPoint in @kb/contracts, the BUNDLED_EXTENSIONS fold passed to ensureSystemSeed (bundledSeed() for test-kit and UI fixtures, systemSeedNodes() core only), and a committed seed golden; then each family's ids and nodes move into its shared package
+- **closes** — bundledSeed(), the fold of core's nodes and each BUNDLED_EXTENSIONS declaration's seed, passed to ensureSystemSeed (no registry, no SeedPoint); systemSeedNodes() core only with every caller moved; a committed seed golden; then each family's ids and nodes move into its shared package
 - **node** — `01M41H2Z7B5GCJXHCRYBS7M3YH`
 
 ### GAP: feature view models live in core packages

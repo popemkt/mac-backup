@@ -12,6 +12,20 @@ and on the [plugin-composition brief](../../kb/waves/2026-09-24/briefs/plugin-co
 this file is the home of these decisions until DESIGN.md absorbs them (step
 E1).
 
+*Revised the same day after a review against the code.* Eight findings are
+folded in, each marked "changed" or "added after review" where it lands:
+- the seed fold is the bundled list, not a loaded registry, and there is no
+  `SeedPoint`;
+- every `systemSeedNodes()` caller is named;
+- the view-type order changes once, at E4b, not at E9b;
+- the page's catalog is derived from `kb.manifest.views`;
+- `label` and `family` move onto `ViewKey` in E4, and `VIEW_VALUES` goes
+  with them;
+- the in-app UI plugins load each moved shared plugin as a child;
+- "optional" is a server-side load decision;
+- the E6 fence lists the breaches it starts with;
+- the `family:` tag is checked equal to the declared name.
+
 **In one paragraph.** An extension is a *family* of packages that share one
 name. Each package has exactly one scope, as the harness already requires.
 The shared package holds the family's vocabulary: ids, view keys, seed
@@ -111,8 +125,23 @@ Step E0 mints the rest ([Gaps to mint now](#gaps-to-mint-now)).
    - **`kb.manifest` gains `extensions`**: `[{name, label, optional, source}]`.
      `kb ext list` already prints this; now the page can read it.
    - **Each family declares itself once.** `defineExtension({name, label,
-     optional?})` in `@kb/<family>`. Every entry plugin takes its `name` from
-     the declaration, and so does the manifest row.
+     optional?, seed?})` in `@kb/<family>`. Every entry plugin takes its
+     `name` from the declaration, and so does the manifest row.
+     `BROWSER_EXTENSIONS` is keyed by the imported declaration's `name`, never
+     by a typed string, and the `family:` tag (decision 10) is checked equal to
+     it. So the declaration is the one home of the name, and the tag and the
+     resolver key are readings of it.
+   - **Optional is a server-side load decision.** A family the person
+     switches off is not loaded by the server registry, so its views leave
+     the catalog. Its seed nodes are still seeded, because the seed fold is
+     the bundled list and not the loaded one (decision 4). Each
+     `kb.manifest.extensions` row reports `enabled`. Lab has no server
+     package, so without this its "off" would be a browser preference while
+     the server still lists `lab.page`, which is the two-switch problem again.
+     The Preferences row writes the server-side setting, not local prefs, and
+     the browser follows the manifest. Where that setting lives (a node, since
+     everything is a node) is decided in E10. This is a behaviour change, so it
+     lands in E10b with the agent dock.
    - **The browser holds a resolver, not a second list.** Today's
      `BUILTIN_UI_PLUGINS` and `OPTIONAL_UI_PLUGINS` hold core UI plugins and
      feature UI plugins side by side. After the move:
@@ -139,17 +168,42 @@ Step E0 mints the rest ([Gaps to mint now](#gaps-to-mint-now)).
 
 ### Vocabulary: ids, seed, views
 
-4. **The seed is a contribution, and ids keep their exact spelling.**
-   - **`SeedPoint`** (`kb.seed`, in `@kb/contracts`) takes one system node
-     per contribution. The node id is the contribution's alias, so the
-     kernel's existing id-and-alias conflict check refuses two owners of one
-     id when the second plugin loads. Nothing of that plugin survives, as for
-     any clash.
-   - Core contributes its own nodes through `corePlugin`, exactly as it
-     contributes core actions.
+4. **The seed belongs to the family, and ids keep their exact spelling.**
+   - **The seed fold is the bundled list, never a loaded registry.**
+     `ensureSystemSeed` runs in `openKbEffect` before any registry exists
+     (`layers.ts`), and it must stay that way. Folding "what the registry
+     loaded" would pull `.kb/extensions` discovery into every open; a failed
+     load would silently shrink the seed; and `kb ui` adds the agent later
+     than `kb add` does, so the two would seed differently. So:
+     - each family declares its system nodes as the `seed` of its
+       `defineExtension` declaration;
+     - `bundledSeed()` folds core's nodes, then each `BUNDLED_EXTENSIONS`
+       declaration's `seed`, in bundled order. It is pure data and opens
+       nothing, and it fails on an id declared twice. The
+       `extensionContract` proves that it does;
+     - host plugins (the agent) and repository plugins contribute no seed.
+       There is no `SeedPoint`: a point open to every plugin would be a wider
+       door than the one list that may seed. *(Changed after review: the
+       first draft folded a `SeedPoint` over the loaded registry.)*
    - `ensureSystemSeed(nodes, at, seed)` takes the seed set as a parameter
-     instead of calling `systemSeedNodes`. `openKbEffect` passes the fold of
-     what the root's registry loaded.
+     instead of calling `systemSeedNodes`. `openKbEffect` passes
+     `bundledSeed()`.
+   - **Every caller of `systemSeedNodes()` is named and moves in E4.**
+     `systemSeedNodes()` becomes core's nodes only. Each caller that means "a
+     fresh store as kb ships it" switches to `bundledSeed()`:
+     - `domain/model/src/example.ts`;
+     - `app/test-kit/src/{harness,store-benchmark}.ts`;
+     - `app/ui/src/api/fixture-graph.ts`, `app/ui/src/fixtures/view-fields.ts`
+       and `view-contract.test.tsx`;
+     - the render-tests fixtures and server;
+     - about twenty further tests across `domain/model`, `domain/query`,
+       `app/runtime`, `app/server`, `app/cli`, `app/client` and `app/ui`
+       (`rg -l systemSeedNodes` lists them).
+
+     The UI fixtures read the same fold, so `bundledSeed()` lives in a
+     `scope:shared` module beside the list's declarations. Only the server
+     entries need Bun, and those are resolved per declaration in
+     `bundled.ts`. E4 picks that module.
    - **Ids are frozen data.** `sys.f.chart`, `sys.f.code`, `sys.f.code.grant`,
      `sys.f.canvas`, `sys.tag.canvas` and every `sys.view.<id>` keep their
      spelling. Only the declaring package changes: `CHART_IDS` lives in
@@ -157,8 +211,10 @@ Step E0 mints the rest ([Gaps to mint now](#gaps-to-mint-now)).
    - **No store migrates, and opening still never writes.** Three tests prove
      it:
      1. A seed golden, committed in step E4 before anything moves: the fresh
-        seed as a node set keyed by id. Every later step keeps it
-        byte-identical, except for one deliberate change (below).
+        seed as a node set keyed by id, each node whole, so a parent's
+        `children` order is part of it. Every later step keeps it
+        byte-identical, except for one deliberate change (below), which lands
+        straight after E4.
      2. A new `store-contract` case: a store written by the pre-move seed
         opens under the post-move registry with zero writes (it reuses
         `openingNeverWrites`).
@@ -170,32 +226,54 @@ Step E0 mints the rest ([Gaps to mint now](#gaps-to-mint-now)).
      views. After the move the fold gives core first, then the families in
      bundled order. `ensureSystemSeed` only appends missing children (`adopt`,
      `seed.ts:757`), so existing stores are never reordered. A fresh store
-     lists view types in the new order. The golden changes once, in its own
-     commit. **Owner question 4.**
+     lists view types in the new order. **Owner question 4** (accepted).
+     - The order changes **once, in step E4b, straight after E4**, while
+       everything is still core: `corePlugin` contributes its views core
+       first, then the feature views grouped by family in `BUNDLED_EXTENSIONS`
+       order. The golden changes in that commit only.
+     - Each later move (E7, E8, E9) then takes a family's group out of core
+       and into the family at the same place in the fold, so the golden,
+       child order included, stays byte-identical. *(Changed after review:
+       the first draft put the order change at the end, as E9b, but chart and
+       code leaving core at E7 and E8 would each have reordered the children
+       on the way.)*
    - **Renames and retirements stay out of this plan.** If an id must ever
      change, it goes through the retirement table of gap
      `01M3FK1PM9P96SNCSHXF0CJZRA`, or through an explicit action like
      `views.migrate`. It never happens on open.
-   - **Repository extensions** (`.kb/extensions`) get `seed` in the
-     declarative form later. That needs the ext-sdk surface, and its mirror
-     is gap `01M1PJWF4G6W4122ZE4K67319V`.
+   - **Repository extensions** (`.kb/extensions`) do not seed, for the
+     reasons above. If they ever must, that is a decision of its own about
+     the ext-sdk surface, and its mirror is gap `01M1PJWF4G6W4122ZE4K67319V`.
 
 5. **The view catalog is a point. This is the core view port.**
    - **`ViewKeyPoint`** (`kb.views`, in `@kb/contracts`) holds `ViewDef<P> =
      {key: ViewKey<P>, text?: ViewText<P>}`, one contribution per view, keyed
-     by the view id.
-   - `label` and `family` move onto `ViewKey`, so `VIEW_VALUES` has nothing
-     left to say and is deleted.
-   - The `sys.views` option nodes derive from the contributed keys inside the
-     seed fold. A view's option is therefore never declared twice.
+     by the view id. A family lists its `ViewDef`s as the `views` of its
+     declaration, and its shared plugin contributes exactly those.
+   - `label` and `family` move onto `ViewKey` **in E4**, so `VIEW_VALUES` and
+     the keys never sit side by side as two sources. `@kb/model` cannot read
+     `@kb/views` (the dependency runs the other way), so `VIEW_VALUES` cannot
+     become a reading of the keys. It is deleted in E4 instead, and its
+     readers move to `key.label` and `key.family`: the seed (through
+     `bundledSeed()`), `graph/plugin.ts`, `view-node.test.ts` and
+     `view-queries.test.ts`. Gap `01M3YM5XYZ4VHEK39RNQ6WWRPK` stays open
+     until E9, when the last feature key leaves core.
+   - The `sys.views` option nodes derive from the declared keys inside
+     `bundledSeed()` (decision 4), not from a loaded registry. A view's option
+     is therefore never declared twice.
    - A **`ViewCatalog` service** replaces every read of the `VIEW_CATALOG`
      constant: `view.propose`, `kb.manifest.viewCatalog`, `catalogKeyOf` and
      the view contract.
      - On the server it is provided from the registry kernel.
-     - In the browser it is provided from the page kernel, which holds core's
-       keys plus the shared plugin of every loaded family. The isomorphic
-       `view.propose` therefore checks against the same keys the server
-       does.
+     - In the browser it is **derived from `kb.manifest.views`**, which
+       already serves the server's catalog (`operations/src/manifest.ts`). The
+       page kernel holds the key objects, because decoding params needs code,
+       and the page's catalog is those keys restricted to the ids the
+       manifest lists. A key the page holds that the manifest lacks is
+       reported, never listed. So there is one catalog, read on the server
+       and bridged to the page, and the isomorphic `view.propose` checks
+       against the server's list. *(Changed after review: the first draft
+       read the page kernel as a second catalog.)*
    - **What stays core in `@kb/views`:** `view-key.ts`, `view-node.ts`, the
      catalog mechanism, and the core views (outline, graph, ontology, frame,
      lens, node route, layout, docs). See decision 8.
@@ -316,10 +394,26 @@ Step E0 mints the rest ([Gaps to mint now](#gaps-to-mint-now)).
 
     | Change | Rule | Red fixture |
     |---|---|---|
-    | `family:<name>` tag | required on every `packages/extension/*` package (`workspace-shape`) | an extension package without one |
+    | `family:<name>` tag | required on every `packages/extension/*` package (`workspace-shape`), and equal to the `name` its family's `defineExtension` declares, so the tag is checked against the one home of the name, not a third copy | an extension package without one; a tag that differs from the declaration |
     | Family edges | an extension package may import another extension package only of its own family. Closes `01M3F923QWH9HSAW61VNFWHANV`; the `LAYER_ALLOWS` GAP marker goes | ext-docs importing `@kb/canvas` |
-    | Composition-root fence, `EXTENSION_ROOTS` | an `app` package may import an extension package from one named file only: `runtime/src/bundled.ts`, `ui/src/ui-plugins.ts`, and the CLI's agent host | `layers.ts` importing `@kb/chart-vega` |
+    | Composition-root fence, `EXTENSION_ROOTS` | an `app` package may import an extension package from one named file only: `runtime/src/bundled.ts`, `ui/src/ui-plugins.ts`, and the CLI's agent host. Tests (`*.test.*`, `tests/`) are exempt, as in `UI_ALLOWS`. `@kb/ext-sdk` is the extension SDK, not a family, so the loader may import it | `layers.ts` importing `@kb/chart-vega` |
     | Pairing | every extension package is imported by the root of each host its scope runs in | a `-ui` package missing from `BROWSER_EXTENSIONS` |
+
+    **The fence is red on arrival unless E6 marks what already breaks it.**
+    These files import extension packages today, outside any root:
+    - `ui/src/agent.ts` and `components/agent/*` (`@kb/agent`), which leave
+      with E12;
+    - `components/canvas/*` (after E3 this includes the former
+      `lib/canvas-*`) and `catalog/canvas-card.stories.tsx` (`@kb/canvas`),
+      which leave with E13;
+    - `cli/src/bin/{check-audit,docs-check,docs-materialize}.ts`
+      (`@kb/ext-check`, `@kb/ext-docs`), which either become named roots or
+      reach their actions through the registry. E6 decides which.
+
+    E6 lands each of these as a sanctioned breach carrying
+    `GAP [[01M41H30Y60D3G9WJJX6NFQD2T]]`. The list shrinks as E12 and E13
+    land.
+    *(Added after review.)*
     | `SCOPE_ALLOWS.browser` | `["shared", "browser"]`, so a UI half can reach `@kb/ui-sdk` | — |
     | `kit` layer (if chosen) | `LAYER_ALLOWS.kit = [domain, contract]`; `extension` and `app` gain `kit` | — |
     | Lazy fence | walks browser workspace packages (decision 9) | a static `@kb/chart-vega` import in `@kb/chart-ui`'s plugin |
@@ -330,7 +424,8 @@ Step E0 mints the rest ([Gaps to mint now](#gaps-to-mint-now)).
     (`@kb/test-kit`), run over `BUNDLED_EXTENSIONS`. This is the
     one-contract rule applied to extensions. Every family must pass:
     - it loads and unloads cleanly, leaving nothing behind;
-    - its seed ids have one owner;
+    - its seed ids have one owner, and `bundledSeed()` folds them without
+      a registry (decision 4);
     - every view key it contributes has an option in the seed fold;
     - every text body renders its key's default settings;
     - the browser side: every view it contributes to the UI `ViewPoint` has a
@@ -357,19 +452,19 @@ day, M a few days, L a week.
 | # | Step | Kind | Size | 3D |
 |---|---|---|---|---|
 | E0 | Mint the gaps below, put `// GAP [[id]]` at each deferral site, and widen `01M3YM5XYZ4VHEK39RNQ6WWRPK` | chore | S | none |
-| E1 | Spec first: DESIGN.md → Core boundary states families, host entries, the bridge, `SeedPoint`, `ViewKeyPoint` with `text`, the painter/engine rule and the core classification (decision 8); DESIGN-UI states the resolver and `@kb/ui-sdk`; add the `#rule` node | docs | S | none |
+| E1 | Spec first: DESIGN.md → Core boundary states families, host entries, the bridge, the bundled seed fold, `ViewKeyPoint` with `text`, the painter/engine rule and the core classification (decision 8); DESIGN-UI states the resolver and `@kb/ui-sdk`; add the `#rule` node | docs | S | none |
 | E2 | **sdk zone:** carve `app/ui/src/sdk/` (UI points, `ViewSlot`, `CommandPoint`, `BrowserHost`, primitives). Restrict the chart, code, agent and lab rows to `[self, sdk]`. Move `lib/chart-data.ts` into chart's zone and "Add chart" into the chart plugin through `CommandPoint` | restructure | M | none |
 | E3 | **canvas zone:** move the `lib/canvas-*` modules into `components/canvas/`, and restrict the canvas and canvas/3d rows to `[self, sdk, scene]` | restructure | M–L | **yes**: it rewrites every canvas import |
 | — | *3D step 4 may resume here* | | | |
-| E4 | **Points:** add `SeedPoint`, `ViewKeyPoint` and the `ViewCatalog` service. `corePlugin` contributes today's whole seed and catalog. `ensureSystemSeed` takes the fold. Commit the seed golden and the two store-contract cases | restructure | M | none |
+| E4 | **Points:** add `defineExtension` (with `seed` and `views`), `bundledSeed()`, `ViewKeyPoint` and the `ViewCatalog` service (derived from `kb.manifest.views` in the page). `label` and `family` move onto `ViewKey`, and `VIEW_VALUES` is deleted. `corePlugin` contributes today's whole seed and catalog. `ensureSystemSeed` takes `bundledSeed()`, and every `systemSeedNodes()` caller is moved (decision 4). Commit the seed golden, child order included, and the two store-contract cases | restructure | M | none |
+| E4b | Fresh-store view-type order: core views first, then feature views grouped by family in bundled order. The golden changes here, once (decision 4) | change | S | none |
 | E5 | **View text:** `VIEW_BODIES` becomes `ViewDef.text`, and `viewText` reads it from the catalog (the bodies are still in operations, contributed by core) | restructure | S | none |
 | E6 | **Harness:** add `family:` tags, the family-edge rule, `EXTENSION_ROOTS` (`bundled.ts` split out of `registry.ts`), the pairing check, `SCOPE_ALLOWS.browser`, and an `extensionContract` skeleton over docs, check, canvas and agent | restructure | M | tags only in `extension/canvas/package.json` |
-| E7 | **chart family:** create `@kb/chart` (key, spec, `chartRecords`, text, ids, seed). `infrastructure/vega` moves to `extension/chart-vega` with `chartServerPlugin`. `ChartSvg` leaves contracts and `layers.ts` drops Vega | move | M | none |
-| E8 | **code family:** create `@kb/code` (key, grant, text, ids, seed, and the snapshot figure over `UntrustedEngine`). `CodeSnapshots` leaves `@kb/sandbox`, and `layers.ts` keeps only the engine | move | M | none |
-| E9 | **lab and canvas vocabulary:** create `@kb/lab` (key and seed). Canvas keys, ids and seed move into `@kb/canvas`, which closes the seed half of `01M39F3MR3HT2NR553FY8CRD6X`. Delete `VIEW_VALUES`, closing `01M3YM5XYZ4VHEK39RNQ6WWRPK`. `SYSTEM_IDS` is now core only | move | M | low: canvas imports change from `@kb/views` to `@kb/canvas` (about 8 files) |
-| E9b | Fresh-store view-type order: update the golden once (decision 4) | change | S | none |
-| E10 | **Bridge:** add `defineExtension`, `kb.manifest.extensions` and the `BROWSER_EXTENSIONS` resolver; `syncUiPlugins` follows the manifest | restructure | S–M | none |
-| E10b | The agent dock is offered only when the server runs the agent | change | S | none |
+| E7 | **chart family:** create `@kb/chart` (key, spec, `chartRecords`, text, ids, seed). `infrastructure/vega` moves to `extension/chart-vega` with `chartServerPlugin`. `ChartSvg` leaves contracts and `layers.ts` drops Vega. The in-`app/ui` chart plugin loads `chartPlugin()` as a child (`ctx.plugin`), so the moved key still reaches the page kernel before E12 | move | M | none |
+| E8 | **code family:** create `@kb/code` (key, grant, text, ids, seed, and the snapshot figure over `UntrustedEngine`). `CodeSnapshots` leaves `@kb/sandbox`, and `layers.ts` keeps only the engine. The in-`app/ui` code plugin loads `codePlugin()` as a child | move | M | none |
+| E9 | **lab and canvas vocabulary:** create `@kb/lab` (key and seed). Canvas keys, ids and seed move into `@kb/canvas`, which closes the seed half of `01M39F3MR3HT2NR553FY8CRD6X`. The in-`app/ui` lab and canvas plugins load their shared plugins as children. The last feature key leaves core, closing `01M3YM5XYZ4VHEK39RNQ6WWRPK`. `SYSTEM_IDS` is now core only | move | M | low: canvas imports change from `@kb/views` to `@kb/canvas` (about 8 files) |
+| E10 | **Bridge:** add `optional` to `defineExtension`, `kb.manifest.extensions` (with `enabled`) and the `BROWSER_EXTENSIONS` resolver keyed by declaration name; `syncUiPlugins` follows the manifest. Decide where the server-side on/off setting lives | restructure | S–M | none |
+| E10b | The agent dock is offered only when the server runs the agent, and an optional family (lab) is switched on and off on the server, not in browser prefs | change | S | none |
 | E11 | **Packages:** `@kb/ui-sdk` from the sdk zone and `@kb/scene` from the `scene` zone (layer per owner question 3); the lazy fence walks packages | move | M | low: an import-path rewrite in canvas/3d, mechanical |
 | E12 | **UI halves:** `@kb/chart-ui`, `@kb/code-ui`, `@kb/agent-ui` and `@kb/lab-ui` (one commit each). Their zones leave `UI_ALLOWS`, and `@kb/agent` and the Vega dependency leave `@kb/ui`'s manifest | move | S each | none (disjoint from canvas) |
 | E13 | **`@kb/canvas-ui`** from `components/canvas` (including 3D). Closes `01M39F3MR3HT2NR553FY8CRD6X` and lets `01M3EZRFTS1W8SB97GFJAWD92X` close | move | M | **yes**: a path move, mechanical after E3 |
@@ -404,7 +499,9 @@ rewritten later.
 
 ## Gaps to mint now
 
-The drift is visible before the move lands. These are new `#gap` nodes
+The drift is visible before the move lands. E0 minted these; each id
+stands beside its gap, and the text is as minted, review corrections
+included. They are new `#gap` nodes
 (`kb add "GAP: …" --tag gap --create --prop expected=… --prop current=…
 --prop impact=… --prop closes=…`), each with markers at the sites named in
 `current`.
@@ -420,7 +517,7 @@ twin.
 The new gaps:
 
 1. **GAP: extensions cannot contribute seed nodes; the chart and code fields
-   are core system ids**
+   are core system ids** (`01M41H2Z7B5GCJXHCRYBS7M3YH`)
    - *expected:* each extension contributes its system nodes to a seed point
      under their frozen ids; core's seed holds core vocabulary only; and
      `ensureSystemSeed` seeds the fold of what the root's registry loaded.
@@ -431,10 +528,11 @@ The new gaps:
      `01M39F3MR3HT2NR553FY8CRD6X`.
    - *impact:* every feature edits `@kb/model`, and a store seeds a feature's
      fields whether or not its extension is loaded.
-   - *closes:* a `SeedPoint` in `@kb/contracts`, the registry's fold passed to
-     `ensureSystemSeed`, and a committed seed golden; then each family's ids
-     and nodes move into its shared package.
-2. **GAP: a view's text projection is a branch in core's viewText**
+   - *closes:* the `BUNDLED_EXTENSIONS` seed fold (`bundledSeed()`, decision
+     4) passed to `ensureSystemSeed`, with `systemSeedNodes()` core only, and
+     a committed seed golden; then each family's ids and nodes move into its
+     shared package.
+2. **GAP: a view's text projection is a branch in core's viewText** (`01M41H2ZG7C0SV1DYZE6MMKPFE`)
    - *expected:* a view's text body and figure are part of the view's
      contribution, looked up by view id, and `@kb/operations` keeps only the
      generic body.
@@ -446,7 +544,7 @@ The new gaps:
    - *closes:* `ViewDef.text` on the view point, read by `viewText`; the two
      bodies move to their families.
 3. **GAP: the runtime binds feature painters and snapshot policy in
-   kbRuntimeLayer**
+   kbRuntimeLayer** (`01M41H2ZS8FH55DCW3S9ZGPWPY`)
    - *expected:* the chart family's server entry supplies its own figure;
      the code family draws its snapshot through a core engine reference; and
      `layers.ts` binds only core ports.
@@ -461,7 +559,7 @@ The new gaps:
    - *closes:* `chartPlugin({figure})` from `@kb/chart-vega`; the code
      snapshot as `@kb/code`'s figure over `UntrustedEngine`; `ChartSvg` and
      `CodeSnapshots` deleted.
-4. **GAP: feature view models live in core packages**
+4. **GAP: feature view models live in core packages** (`01M41H30342XZPX3CXZJTMPBYW`)
    - *expected:* `@kb/views` holds the view-key mechanism and core views,
      and the chart, code, lab and canvas keys and helpers live in their
      family's shared package.
@@ -474,7 +572,7 @@ The new gaps:
    - *closes:* the view-key point (with `01M3YM5XYZ4VHEK39RNQ6WWRPK`), then
      the moves into `@kb/chart`, `@kb/code`, `@kb/lab` and `@kb/canvas`.
 5. **GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not
-   packages**
+   packages** (`01M41H30C2RSD2FGVYBT5HAG48`)
    - *expected:* each is the browser package of its family, built against
      `@kb/ui-sdk`, and `@kb/ui` holds the shell and core views only.
    - *current:* `components/{chart,code,lab,agent}`, `src/agent.ts` and
@@ -488,7 +586,7 @@ The new gaps:
    - *closes:* the sdk zone with restricted `UI_ALLOWS` rows, `@kb/ui-sdk`
      (`01M3EZRFTS1W8SB97GFJAWD92X`), then one `-ui` package per family.
      Canvas is `01M39F3MR3HT2NR553FY8CRD6X`.
-6. **GAP: the server and browser plugin lists are not bridged**
+6. **GAP: the server and browser plugin lists are not bridged** (`01M41H30N0SV4QE5R8VQQ1K4ZA`)
    - *expected:* the server registry is the one list of loaded extensions;
      the browser loads the browser entry of each extension the manifest
      reports; and the optional flag lives on the extension's declaration.
@@ -502,7 +600,7 @@ The new gaps:
    - *closes:* `defineExtension` per family, `kb.manifest.extensions`, and a
      browser resolver keyed by family name.
 7. **GAP: nothing confines feature imports to a composition root's bundled
-   list**
+   list** (`01M41H30Y60D3G9WJJX6NFQD2T`)
    - *expected:* an `app` package imports an extension package only from its
      one bundled-extensions file, and the harness checks it.
    - *current:* `LAYER_ALLOWS.app` admits every extension import from any
