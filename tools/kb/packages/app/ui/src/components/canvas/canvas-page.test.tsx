@@ -61,6 +61,9 @@ function dispatchPointer(
   });
 }
 
+/** Past the canvas's persist debounce. */
+const settle = () => act(async () => new Promise((done) => setTimeout(done, 350)));
+
 describe("CanvasPage pointer interactions", () => {
   let dom: Window;
   let container: HTMLDivElement;
@@ -205,5 +208,55 @@ describe("CanvasPage pointer interactions", () => {
       width: 125,
       height: 100,
     });
+  });
+
+  it("a modal grab follows the pointer, and a press confirms or cancels it, reaching nothing", async () => {
+    await act(async () => {
+      root.render(<CanvasPage canvasId="canvas" />);
+    });
+    const canvasStage = present(container.querySelector("[data-canvas-stage]"), "stage");
+    const pointerSurface = present(canvasStage.parentElement?.parentElement, "pointer surface");
+    const cardA = present(container.querySelector('[data-card-id="a"] .group\\/card'), "card a");
+    dispatchPointer(cardA, "pointerdown", { button: 0, clientX: 60, clientY: 60 });
+    dispatchPointer(pointerSurface, "pointerup", { button: 0, clientX: 60, clientY: 60 });
+    const readout = () => container.querySelector('[data-testid="canvas-transform-readout"]');
+    /** G, then the pointer 50 to the right with no button held. */
+    const grab = () => {
+      dispatchPointer(pointerSurface, "pointermove", { buttons: 0, clientX: 60, clientY: 60 });
+      act(() => {
+        window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "g" }));
+      });
+      dispatchPointer(pointerSurface, "pointermove", { buttons: 0, clientX: 110, clientY: 60 });
+      expect(readout()).not.toBeNull();
+    };
+    const menu = () => {
+      const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+      act(() => {
+        cardA.dispatchEvent(event);
+      });
+      return event.defaultPrevented;
+    };
+    const persistedA = () =>
+      persistCanvasDoc.mock.calls.at(-1)?.[1].nodes.find((node) => node.id === "a");
+
+    // The right button cancels, its context menu swallowed; so does a Ctrl-click (macOS's).
+    for (const init of [{ button: 2 }, { button: 0, ctrlKey: true }]) {
+      grab();
+      dispatchPointer(cardA, "pointerdown", { clientX: 110, clientY: 60, ...init });
+      expect(readout()).toBeNull();
+      expect(menu()).toBe(true);
+      // Swallowed once: the next menu is the browser's.
+      expect(menu()).toBe(false);
+      await settle();
+      expect(persistCanvasDoc).not.toHaveBeenCalled();
+    }
+
+    // A plain left press confirms, and it neither selects nor carries what is under it.
+    grab();
+    dispatchPointer(cardA, "pointerdown", { button: 0, clientX: 110, clientY: 60 });
+    dispatchPointer(pointerSurface, "pointerup", { button: 0, clientX: 110, clientY: 60 });
+    expect(readout()).toBeNull();
+    await settle();
+    expect(persistedA()).toMatchObject({ x: 70, y: 20 });
   });
 });

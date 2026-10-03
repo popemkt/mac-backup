@@ -25,6 +25,8 @@ export interface CanvasKeyEvent {
   metaKey?: boolean;
   ctrlKey?: boolean;
   shiftKey?: boolean;
+  /** Held down: the browser repeating the key. */
+  repeat?: boolean;
 }
 
 export type CanvasIntent =
@@ -310,6 +312,8 @@ const mapTransform: ChordMap = (event, state) => {
  */
 const mapModal: ChordMap = (event, state) => {
   if (!state.transforming) return null;
+  // A held key acts once: holding X would cycle the axes, a digit type dozens. Backspace repeats.
+  if (event.repeat === true && event.key !== "Backspace") return claim(null);
   if (event.key === "Escape") return claim({ type: "transform", act: { kind: "cancel" } }, false);
   if (event.key === "Enter") return claim({ type: "transform", act: { kind: "confirm" } });
   if (event.key === "Meta" || event.key === "Control")

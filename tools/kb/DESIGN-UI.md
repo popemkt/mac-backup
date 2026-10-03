@@ -1053,8 +1053,10 @@ manipulation feel professional rather than merely functional.
   move aligns on each canvas axis it runs along within the tolerance and
   otherwise steps by the grid from where it began (Blender's increment
   snap), along a local axis too; its stretch lands the selection's extent
-  on grid multiples (alike every way for a uniform scale); its extrude
-  lands the lead item's depth on one. Holding ⌘ or Ctrl suspends every
+  on grid multiples (alike every way for a uniform scale; a size under one
+  step is left as it is, so a small item still scales); its extrude lands
+  the lead item's depth on one. Steps round halves away from zero, either
+  way. Holding ⌘ or Ctrl suspends every
   snap, and a typed value is never snapped.
   `Shift+1` zoom-to-fit frames the
   bounding box with 40px padding. Zoom range is 0.1–3.0 (`MIN_ZOOM`/`MAX_ZOOM`).
@@ -1077,11 +1079,18 @@ manipulation feel professional rather than merely functional.
   the first selected item's own axis, and a third time lets go; ⇧X ⇧Y ⇧Z
   hold it to the plane across that axis. Digits, `.`, `-` (negates) and
   Backspace type an exact value — a distance along the axis (unconstrained,
-  along X), degrees, a factor, or a depth. A left click or ↵ confirms, as
-  one history step written through `ext.canvas.tx.apply`; Esc, a right
-  click or losing focus cancels and the preview goes. While one runs its
-  own chord map comes first and claims every key, so a digit types rather
-  than picks a tool, and nothing else (a tool, Delete, undo) happens.
+  along X), degrees, a factor, or a depth. A plain left press or ↵
+  confirms, as one history step written through `ext.canvas.tx.apply`;
+  Esc, any other press (the right or middle button, or a Ctrl-click,
+  macOS's right click, its context menu swallowed) cancels and the preview
+  goes, and so does focus leaving the canvas — the window losing it, or
+  focus moving anywhere, such as a palette ⌘K opens — since the modal's
+  keys could no longer reach it. A press is told to the pointer reducer
+  as one event from either projection (`transform/press`), which alone
+  decides confirm or cancel. While one runs its own chord map comes first
+  and claims every key, so a digit types rather than picks a tool, and
+  nothing else (a tool, Delete, undo) happens; a held key acts once
+  (Backspace repeats).
   Unconstrained, a grab carries across the floor plan as a drag does, a
   rotate turns about the axis toward the eye (Z from the top, so in 2D it
   is the rotate handle's turn) and a scale stretches every way about the

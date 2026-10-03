@@ -185,7 +185,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   const {
     addKbNode,
-    onContextMenu,
     onDoubleClickStage,
     onModalPress,
     onPointerDownStage,
@@ -337,7 +336,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             onWheel={onWheel}
             onPointerDownStage={onPointerDownStage}
             onModalPress={onModalPress}
-            onContextMenu={onContextMenu}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={cancelPointer}

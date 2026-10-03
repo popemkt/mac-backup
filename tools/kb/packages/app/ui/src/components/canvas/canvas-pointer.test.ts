@@ -117,6 +117,52 @@ test("an edge drag that ends off-port creates nothing", () => {
   expect(ended.state.drag).toBeNull();
 });
 
+test("an edge drag that ends on another card's port binds them, read on the floor under it", () => {
+  const started = reduce(
+    createPointerState(),
+    { type: "edge/start", fromCardId: moving.id, fromSide: "right", screen: { x: 100, y: 30 } },
+    context(doc, EMPTY_SELECTION),
+  ).state;
+  const ended = reduce(
+    started,
+    {
+      type: "pointer/end",
+      screen: { x: 205, y: 30 },
+      edgeTargetId: guide.id,
+      edgeId: "e",
+      edgeBindingId: "bind",
+    },
+    context(doc, EMPTY_SELECTION),
+  );
+  expect(ended.persist).toBe("flush");
+  expect(ended.doc?.edges).toEqual([
+    expect.objectContaining({
+      id: "e",
+      fromNode: moving.id,
+      toNode: guide.id,
+      fromSide: "right",
+      toSide: "left",
+    }),
+  ]);
+  expect(ended.selection?.edgeIds).toEqual(new Set(["e"]));
+});
+
+test("a marquee drawn across the floor selects what it covers, read through the camera", () => {
+  const panned = viewOfPan({ x: 40, y: 40 }, 2, size);
+  const ctx = context(doc, EMPTY_SELECTION, panned);
+  // At 2× panned by 40: the screen point (30, 30) is the canvas point (-5, -5).
+  const started = reduce(
+    createPointerState(),
+    { type: "marquee/start", screen: { x: 30, y: 30 }, additive: false },
+    ctx,
+  );
+  const to = (state: PointerState) =>
+    reduce(state, { type: "pointer/move", screen: { x: 300, y: 200 }, shiftKey: false }, ctx);
+  const opened = to(started.state);
+  expect(opened.state.marqueeRect).toEqual({ x: -5, y: -5, w: 135, h: 85 });
+  expect(to(opened.state).selection?.nodeIds).toEqual(new Set([moving.id]));
+});
+
 test("the release persists the snapped position the drag showed", () => {
   const started = reduce(createPointerState(), {
     type: "move/start",
@@ -632,6 +678,47 @@ describe("modal transforms (G, S, E from the keyboard)", () => {
     let state = begin("extrude").state;
     for (const k of ["3", "3"]) state = key(state, k).state;
     expect(shown(reduce(state, { type: "transform/confirm" }, ctx()))?.depth).toBe(33);
+  });
+
+  test("a press ends it: a plain left press confirms; the right button or a Ctrl-click cancels", () => {
+    const moved = hover(begin("grab").state, { x: 537, y: 512 });
+    const pressWith = (button: number, ctrlKey: boolean) =>
+      reduce(moved.state, { type: "transform/press", button, ctrlKey }, context(moved.doc));
+    const confirmed = pressWith(0, false);
+    expect(confirmed.persist).toBe("history");
+    expect(shown(confirmed)?.x).toBe(37);
+    for (const [button, ctrl] of [
+      [2, false],
+      [1, false],
+      [0, true],
+    ] as const) {
+      const cancelled = pressWith(button, ctrl);
+      expect(cancelled.persist).toBe("cancel");
+      expect(cancelled.doc).toBeUndefined();
+      expect(cancelled.state.drag).toBeNull();
+    }
+  });
+
+  test("a press with no modal transform under way means nothing here", () => {
+    const state = createPointerState();
+    const pressed = reduce(state, { type: "transform/press", button: 0, ctrlKey: false });
+    expect(pressed.state).toBe(state);
+  });
+
+  test("switching mode where the pointer cannot be read sets the last mode aside", () => {
+    const moved = hover(begin("grab").state, { x: 537, y: 512 });
+    // Level from the front, standing past the pivot: the pivot is behind the eye.
+    const behind = context(alone, selectNode(moving.id), {
+      ...top,
+      y: -10_000,
+      pitch: Math.PI / 2,
+      fov: 34,
+    });
+    const switched = reduce(moved.state, { type: "transform/key", key: keyOf("r") }, behind);
+    expect(shown(switched)?.x).toBe(0);
+    expect(switched.state.drag?.kind === "transform" && switched.state.drag.applied).toBeNull();
+    const confirmed = reduce(switched.state, { type: "transform/confirm" }, behind);
+    expect(confirmed.doc).toBeUndefined();
   });
 
   test("with nothing selected, G begins nothing", () => {

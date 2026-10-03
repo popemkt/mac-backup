@@ -289,13 +289,21 @@ export function useCanvasKeyboard(context: CanvasKeyboardContext): (intent: Canv
       context.setSpaceDown(false);
       context.cancelPointer();
     };
+    // A modal transform is the canvas's keyboard: once focus goes anywhere — a
+    // palette, a field, a button — its keys no longer reach it, so it cancels,
+    // as leaving the window does.
+    const onFocusIn = () => {
+      if (context.transforming()) context.cancelPointer();
+    };
     window.addEventListener("blur", onBlur);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    document.addEventListener("focusin", onFocusIn);
     return () => {
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      document.removeEventListener("focusin", onFocusIn);
     };
   }, [context]);
   return (intent) => applyCanvasIntent(context, intent);

@@ -97,10 +97,8 @@ export class SceneGestures {
   /** A press went down; whether the host should capture the pointer. */
   down(press: ScenePress): boolean {
     if (this.host.transforming()) {
-      // A press only ends a modal transform: the left button confirms, any other cancels.
-      this.host.dispatch(
-        press.button === 0 ? { type: "transform/confirm" } : { type: "pointer/cancel" },
-      );
+      // A press only ends a modal transform; the reducer says how. The host swallows the menu.
+      this.host.dispatch({ type: "transform/press", button: press.button, ctrlKey: press.ctrlKey });
       return false;
     }
     const pans = press.button === 1 || press.button === 2 || this.host.spaceDown();

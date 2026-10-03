@@ -272,6 +272,24 @@ function createToolPlacement({
   };
 }
 
+/**
+ * Swallow the one context menu the press under way asks for: it fires on
+ * the press (macOS) or the release (Windows), and a later press stops the
+ * watch, in case the browser opens none.
+ */
+function swallowNextMenu(): void {
+  const swallow = (event: Event) => {
+    event.preventDefault();
+    stop();
+  };
+  const stop = () => {
+    window.removeEventListener("contextmenu", swallow, true);
+    window.removeEventListener("pointerdown", stop, true);
+  };
+  window.addEventListener("contextmenu", swallow, true);
+  window.addEventListener("pointerdown", stop, true);
+}
+
 function createStageGestures(
   context: StageGestureContext,
   screenToWorld: ScreenToWorld,
@@ -313,31 +331,24 @@ function createStageGestures(
     });
   };
 
-  const modal = () => {
-    const drag = context.pointerRef.current.drag;
-    return drag?.kind === "transform" && drag.modal;
-  };
   /**
-   * During a modal transform a press only ends it, and reaches nothing under
-   * it: the left button confirms; the right one cancels, through the context
-   * menu it asks for (Blender's). Whether it was such a press.
+   * During a modal transform a press only ends it (the reducer decides how,
+   * `transform/press`) and reaches nothing under it; a press that opens a
+   * context menu (the right button, or a Ctrl-click on macOS) has that menu
+   * swallowed. Whether it was such a press.
    */
   const onModalPress = (e: React.PointerEvent<HTMLDivElement>): boolean => {
-    if (!modal()) return false;
+    const drag = context.pointerRef.current.drag;
+    if (drag?.kind !== "transform" || !drag.modal) return false;
     e.preventDefault();
     e.stopPropagation();
-    if (e.button === 0) dispatchPointer({ type: "transform/confirm" });
+    if (e.button === 2 || e.ctrlKey) swallowNextMenu();
+    dispatchPointer({ type: "transform/press", button: e.button, ctrlKey: e.ctrlKey });
     return true;
-  };
-  const onContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!modal()) return;
-    e.preventDefault();
-    dispatchPointer({ type: "pointer/cancel" });
   };
 
   const onPointerUp = createPointerEnd(context, cardAt);
   return {
-    onContextMenu,
     onDoubleClickStage,
     onModalPress,
     onPointerDownStage,

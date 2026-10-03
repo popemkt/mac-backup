@@ -167,8 +167,27 @@ function alongAxis(
 }
 
 /**
+ * The items a transform leaves where they are, read once when it begins:
+ * in paint order (what a carry is read against, and snaps to and stands
+ * on), and whether any is a solid (with none, there is no top to read).
+ */
+export interface TransformGround {
+  readonly items: readonly CanvasNode[];
+  readonly solid: boolean;
+}
+
+/** The ground a transform of everything but `moving` stands on, in `nodes`. */
+export function groundOf(
+  nodes: readonly CanvasNode[],
+  moving: ReadonlyMap<string, CanvasNode>,
+): TransformGround {
+  const items = paintOrder(nodes.filter((node) => !moving.has(node.id)));
+  return { items, solid: items.some((item) => canvasDepth(item) > 0) };
+}
+
+/**
  * Where a carry across the floor plan has the pointer: where it visibly is —
- * on the top of a solid it is over (one of `others`, which it does not
+ * on the top of a solid it is over (one of `ground`'s, which it does not
  * carry), which is how an item is carried onto another — and otherwise on
  * the plane at height `z`.
  */
@@ -176,11 +195,12 @@ function carryPoint(
   camera: TransformCamera,
   at: CanvasPoint,
   z: number,
-  others: readonly CanvasNode[],
+  ground: TransformGround,
 ): CanvasVec | null {
   const { view, size } = camera;
-  const id = hitTest(paintOrder(others), view, size, at);
-  const under = others.find((item) => item.id === id);
+  if (!ground.solid) return screenToPlane(view, size, at, z);
+  const id = hitTest(ground.items, view, size, at);
+  const under = ground.items.find((item) => item.id === id);
   if (under !== undefined && canvasDepth(under) > 0) {
     const top = screenToPlane(view, size, at, canvasTop(under));
     if (top !== null && coversFromAbove(under, top)) return top;
@@ -207,14 +227,14 @@ function grabMove(
   input: TransformInput,
   at: CanvasPoint,
   camera: TransformCamera,
-  others: readonly CanvasNode[],
+  ground: TransformGround,
 ): CanvasVec | null {
   const typed = typedValue(input);
   if (typed !== null) return plus(ZERO, typedAxis(input), typed);
   const { constraint, anchor, from } = input;
   if (constraint === null) {
     const start = screenToPlane(camera.view, camera.size, from, anchor.z);
-    const now = carryPoint(camera, at, anchor.z, others);
+    const now = carryPoint(camera, at, anchor.z, ground);
     return start === null || now === null ? null : { x: now.x - start.x, y: now.y - start.y, z: 0 };
   }
   const dir = axisOf(inputAxes(input), constraint.axis);
@@ -289,19 +309,19 @@ function extrudeBy(input: TransformInput, at: CanvasPoint, camera: TransformCame
 
 /**
  * The transform `input` makes with the pointer at `at`, read through
- * `camera`; `others` are the items it does not move (a carry stands on
+ * `camera`, over `ground`: the items it does not move (a carry stands on
  * their tops). Null where the pointer cannot be read (its plane edge-on).
  */
 export function transformAt(
   input: TransformInput,
   at: CanvasPoint,
   camera: TransformCamera,
-  others: readonly CanvasNode[],
+  ground: TransformGround,
 ): CanvasTransform | null {
   const still = { ...stillAbout(input.pivot), axes: inputAxes(input) };
   switch (input.mode) {
     case "grab": {
-      const move = grabMove(input, at, camera, others);
+      const move = grabMove(input, at, camera, ground);
       return move === null ? null : { ...still, move };
     }
     case "rotate": {

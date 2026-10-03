@@ -132,6 +132,15 @@ describe("a modal transform (G, S, E)", () => {
   test.each(table)("during one, %o maps to %o", (event, intent) => {
     expect(mapCanvasKey(event, transforming)?.intent).toEqual(intent);
   });
+
+  test("a held key acts once (no axis cycling, no run of digits); Backspace repeats", () => {
+    expect(mapCanvasKey(chord("x", { repeat: true }), transforming)?.intent).toBeNull();
+    expect(mapCanvasKey(chord("7", { repeat: true }), transforming)?.intent).toBeNull();
+    expect(mapCanvasKey(chord("Backspace", { repeat: true }), transforming)?.intent).toEqual({
+      type: "transform",
+      act: { kind: "key", key: { kind: "type", key: "Backspace" } },
+    });
+  });
 });
 
 describe("what the browser still gets", () => {

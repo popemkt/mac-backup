@@ -3,6 +3,7 @@ import {
   boxToWorld,
   canvasTop,
   selectionPivot,
+  stillAbout,
   transformItem,
   upsertCanvasEdge,
   upsertCanvasNode,
@@ -18,10 +19,12 @@ import { snapCarry, snapPrecise, type SnapGuide, type SnappedTransform } from ".
 import { screenToPlane, type CanvasView, type ViewSize } from "./canvas-camera";
 import {
   ALONG_Z,
+  groundOf,
   isTyped,
   keyInput,
   transformAt,
   type TransformConstraint,
+  type TransformGround,
   type TransformInput,
   type TransformKey,
   type TransformMode,
@@ -83,6 +86,8 @@ type Drag =
       kind: "transform";
       /** Each transformed item as it was when the gesture began. */
       orig: ReadonlyMap<string, CanvasNode>;
+      /** The items it leaves where they are, read once: what it is read against, snaps to and stands on. */
+      ground: TransformGround;
       /** How the pointer makes the transform; null for a handle that reports whole ones (the gizmo). */
       input: TransformInput | null;
       /** Where the press went down on screen, until the pointer has gone past the slop. */
@@ -155,8 +160,10 @@ export type CanvasPointerEvent =
   | { type: "transform/key"; key: TransformKey }
   /** ⌘ (or Ctrl) went down or up during a modal transform. */
   | { type: "transform/free"; free: boolean }
-  /** A modal transform is confirmed (a click or Enter): written as one history step. */
+  /** A modal transform is confirmed (Enter): written as one history step. */
   | { type: "transform/confirm" }
+  /** A press during a modal transform, in either projection: it confirms or cancels (`pressModal`). */
+  | { type: "transform/press"; button: number; ctrlKey: boolean }
   | { type: "edge/start"; fromCardId: string; fromSide: CanvasSide; screen: Point }
   | { type: "marquee/start"; screen: Point; additive: boolean }
   | { type: "pointer/move"; screen: Point; shiftKey: boolean; free?: boolean }
@@ -243,6 +250,7 @@ function startTransform(
   state: PointerState,
   orig: ReadonlyMap<string, CanvasNode>,
   start: TransformStart,
+  ground: TransformGround,
   pressed?: CanvasNode,
 ): PointerResult {
   const lead = orig.values().next().value;
@@ -264,6 +272,7 @@ function startTransform(
     drag: {
       kind: "transform",
       orig,
+      ground,
       input,
       slop: modal ? null : screen,
       applied: null,
@@ -284,7 +293,8 @@ function startPress(
   const pressed = ctx.byId.get(press.id);
   if (pressed === undefined) return result(state);
   const orig = itemsOf(carriedIds(press.id, ctx.selection), ctx);
-  return startTransform(state, orig, { ...how, screen: press.screen, modal: false }, pressed);
+  const start = { ...how, screen: press.screen, modal: false };
+  return startTransform(state, orig, start, groundOf(ctx.doc.nodes, orig), pressed);
 }
 
 function startResize(
@@ -389,10 +399,6 @@ function resizeNode(
   return result(state, { doc, persist: "silent" });
 }
 
-/** The items a transform drag leaves where they are: what it snaps to and stands on. */
-const othersOf = (drag: TransformDrag, ctx: PointerContext) =>
-  ctx.doc.nodes.filter((node) => !drag.orig.has(node.id));
-
 /**
  * `t` snapped as what made it asks (`canvas-snap`): a carry across the
  * floor plan aligns and stands on surfaces; anything else snaps precisely.
@@ -403,7 +409,7 @@ function snapTransform(
   ctx: PointerContext,
 ): SnappedTransform {
   const moving = [...drag.orig.values()];
-  const others = othersOf(drag, ctx);
+  const others = drag.ground.items;
   const lead = moving[0];
   const carry = drag.input?.mode === "grab" && drag.input.constraint === null;
   return lead !== undefined && carry
@@ -444,7 +450,7 @@ function previewTransform(
 /** Read `drag`'s pointer input where the pointer is (`drag.at`), and preview what it makes. */
 function readInput(state: PointerState, drag: TransformDrag, ctx: PointerContext): PointerResult {
   if (drag.input === null) return result(state);
-  const t = transformAt(drag.input, drag.at, ctx, othersOf(drag, ctx));
+  const t = transformAt(drag.input, drag.at, ctx, drag.ground);
   return previewTransform(state, drag, t, ctx);
 }
 
@@ -483,7 +489,8 @@ function beginModal(
   if (state.drag !== null) return result(state);
   const orig = itemsOf(ctx.selection.nodeIds, ctx);
   const { mode, screen } = event;
-  return startTransform(state, orig, { mode, constraint: null, screen, modal: true });
+  const start = { mode, constraint: null, screen, modal: true };
+  return startTransform(state, orig, start, groundOf(ctx.doc.nodes, orig));
 }
 
 /** A key during a modal transform: the input changes, and is read again where the pointer is. */
@@ -494,11 +501,35 @@ function keyModal(
 ): PointerResult {
   const drag = state.drag;
   if (drag?.kind !== "transform" || !drag.modal || drag.input === null) return result(state);
-  const next =
-    event.type === "transform/free"
-      ? { ...drag, free: event.free }
-      : { ...drag, input: keyInput(drag.input, event.key, drag.at) };
-  return readInput(state, next, ctx);
+  if (event.type === "transform/free") return readInput(state, { ...drag, free: event.free }, ctx);
+  const input = keyInput(drag.input, event.key, drag.at);
+  if (input.mode === drag.input.mode) return readInput(state, { ...drag, input }, ctx);
+  // Another mode sets the last one aside: from the items as they were, even
+  // where the new one cannot read the pointer yet.
+  const fresh = { ...drag, input, applied: null };
+  const read = readInput(state, fresh, ctx);
+  return read.doc === undefined
+    ? result(read.state, {
+        doc: transformed(drag, stillAbout(input.pivot), ctx.doc),
+        persist: "silent",
+      })
+    : read;
+}
+
+/**
+ * A press during a modal transform ends it, and means nothing else: a plain
+ * primary press confirms; any other — the right or middle button, or a
+ * Ctrl-click, which is macOS's right click — cancels.
+ */
+function pressModal(
+  state: PointerState,
+  event: Extract<CanvasPointerEvent, { type: "transform/press" }>,
+  ctx: PointerContext,
+): PointerResult {
+  const drag = state.drag;
+  if (drag?.kind !== "transform" || !drag.modal) return result(state);
+  if (event.button === 0 && !event.ctrlKey) return commitTransform(state, drag, drag.applied, ctx);
+  return pointerReduce(state, { type: "pointer/cancel" }, ctx);
 }
 
 function reduceMove(
@@ -702,6 +733,7 @@ function reduceTransform(
         drag: {
           kind: "transform",
           orig,
+          ground: groundOf(ctx.doc.nodes, orig),
           input: null,
           slop: null,
           applied: null,
@@ -722,6 +754,8 @@ function reduceTransform(
     case "transform/confirm":
       if (drag === null || !drag.modal) return result(state);
       return commitTransform(state, drag, drag.applied, ctx);
+    case "transform/press":
+      return pressModal(state, event, ctx);
     default:
       return result(state);
   }

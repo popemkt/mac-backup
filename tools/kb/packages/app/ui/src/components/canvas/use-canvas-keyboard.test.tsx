@@ -44,6 +44,7 @@ interface Chord {
   ctrlKey?: boolean;
   shiftKey?: boolean;
   onInput?: boolean;
+  repeat?: boolean;
 }
 
 interface Recording {
@@ -110,7 +111,11 @@ afterEach(() => {
 });
 
 /** Mount the hook over a recording context and press one chord. */
-function press(chord: Chord, selection: CanvasSelection = selectNode("a")): Recording {
+function press(
+  chord: Chord,
+  selection: CanvasSelection = selectNode("a"),
+  transforming = false,
+): Recording {
   const log: string[] = [];
   const docs: CanvasDoc[] = [];
   const docRef = { current: doc };
@@ -121,7 +126,7 @@ function press(chord: Chord, selection: CanvasSelection = selectNode("a")): Reco
     cancelPointer: () => log.push("cancelPointer"),
     dispatchPointer: (event: { type: string }) => log.push(`pointer=${event.type}`),
     pointerAt: () => ({ x: 10, y: 20 }),
-    transforming: () => false,
+    transforming: () => transforming,
     byId: new Map(doc.nodes.map((node) => [node.id, node])),
     docRef,
     selRef,
@@ -177,6 +182,7 @@ function press(chord: Chord, selection: CanvasSelection = selectNode("a")): Reco
     metaKey: chord.metaKey ?? false,
     ctrlKey: chord.ctrlKey ?? false,
     shiftKey: chord.shiftKey ?? false,
+    repeat: chord.repeat ?? false,
     bubbles: true,
     cancelable: true,
   });
@@ -362,5 +368,49 @@ describe("the applied mutations", () => {
     expect(copiedEdge?.toNode).not.toBe("b");
     expect(next?.nodes.some((node) => node.id === copiedEdge?.fromNode)).toBe(true);
     expect(next?.nodes.some((node) => node.id === copiedEdge?.toNode)).toBe(true);
+  });
+});
+
+describe("during a modal transform", () => {
+  const during = (chord: Chord) => press(chord, selectNode("a"), true);
+
+  test("a key acts once: held, it does not repeat, but Backspace does", () => {
+    expect(during({ key: "x" }).log).toEqual(["pointer=transform/key"]);
+    expect(during({ key: "x", repeat: true }).log).toEqual([]);
+    expect(during({ key: "4", repeat: true }).log).toEqual([]);
+    expect(during({ key: "Backspace", repeat: true }).log).toEqual(["pointer=transform/key"]);
+  });
+
+  test("Escape cancels it and only it; a tool key does nothing", () => {
+    expect(during({ key: "Escape" }).log).toEqual(["cancelPointer"]);
+    expect(during({ key: "t" }).log).toEqual([]);
+  });
+
+  test("focus going anywhere cancels it, as the window losing focus does", () => {
+    const recording = during({ key: "Shift" });
+    expect(recording.log).toEqual([]);
+    const field = document.createElement("input");
+    document.body.appendChild(field);
+    act(() => {
+      field.dispatchEvent(new dom.Event("focusin", { bubbles: true }) as unknown as Event);
+    });
+    expect(recording.log).toEqual(["cancelPointer"]);
+    act(() => {
+      window.dispatchEvent(new dom.Event("blur") as unknown as Event);
+    });
+    expect(recording.log).toEqual(["cancelPointer", "space=true", "cancelPointer"]);
+    field.remove();
+  });
+
+  test("unmounted, the canvas listens to nothing", () => {
+    const recording = during({ key: "Shift" });
+    act(() => root.unmount());
+    act(() => {
+      window.dispatchEvent(new dom.KeyboardEvent("keydown", { key: "x" }) as unknown as Event);
+      window.dispatchEvent(new dom.Event("blur") as unknown as Event);
+      document.body.dispatchEvent(new dom.Event("focusin", { bubbles: true }) as unknown as Event);
+    });
+    expect(recording.log).toEqual([]);
+    root = createRoot(container);
   });
 });

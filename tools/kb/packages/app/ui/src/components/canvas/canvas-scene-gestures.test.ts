@@ -23,6 +23,7 @@ function harness(
   view: () => CanvasView = () => tilted,
   items: readonly CanvasNode[] = [card],
   gizmo: SceneGizmo = NO_GIZMO,
+  transforming = false,
 ) {
   const events: CanvasPointerEvent[] = [];
   const host: SceneGestureHost = {
@@ -31,7 +32,7 @@ function harness(
     items: () => items,
     selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
     spaceDown: () => false,
-    transforming: () => false,
+    transforming: () => transforming,
     gizmo: () => gizmo,
     cardPress: (_card, _press, startMove) => startMove(),
     dispatch: (event) => events.push(event),
@@ -137,6 +138,29 @@ describe("gestures over the 3D canvas", () => {
     gestures.up(press({ x: at.x + 20, y: at.y }), false);
     expect(release).toHaveBeenCalled();
     expect(events.at(-1)?.type).toBe("pointer/end");
+  });
+
+  test("during a modal transform a press only ends it, reaching nothing under it", () => {
+    const { gestures, events, host } = harness(() => tilted, [card], NO_GIZMO, true);
+    // Over the card, with the right button and with a Ctrl-click: each is a press, told as such.
+    expect(gestures.down(press(centre()))).toBe(false);
+    expect(gestures.down(press(centre(), { button: 2 }))).toBe(false);
+    expect(gestures.down(press(centre(), { ctrlKey: true }))).toBe(false);
+    expect(events).toEqual([
+      { type: "transform/press", button: 0, ctrlKey: false },
+      { type: "transform/press", button: 2, ctrlKey: false },
+      { type: "transform/press", button: 0, ctrlKey: true },
+    ]);
+    gestures.up(press(centre()), false);
+    expect(host.tapEmpty).not.toHaveBeenCalled();
+  });
+
+  test("with no button held, the pointer is still told to the reducer", () => {
+    const { gestures, events } = harness(() => tilted, [card], NO_GIZMO, true);
+    expect(gestures.move(press({ x: 40, y: 50 }))).toBe("grabbing");
+    expect(events).toEqual([
+      { type: "pointer/move", screen: { x: 40, y: 50 }, shiftKey: false, free: false },
+    ]);
   });
 
   test("a pan that never moved does not settle the camera", () => {

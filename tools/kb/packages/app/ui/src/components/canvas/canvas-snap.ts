@@ -119,7 +119,7 @@ function snapAlong(
 /** A move across the floor, snapped on x and y. */
 export function snapCanvasMove(
   moving: CanvasNode,
-  others: CanvasNode[],
+  others: readonly CanvasNode[],
   dx: number,
   dy: number,
   zoom: number,
@@ -186,7 +186,7 @@ export interface SnappedTransform {
 export function snapCarry(
   t: CanvasTransform,
   lead: CanvasNode,
-  others: CanvasNode[],
+  others: readonly CanvasNode[],
   zoom: number,
 ): SnappedTransform {
   const aligned = snapCanvasMove(lead, others, t.move.x, t.move.y, zoom);
@@ -213,8 +213,8 @@ const columnOf = (t: CanvasTransform, i: 0 | 1 | 2): CanvasVec => ({
 const dot = (a: CanvasVec, b: CanvasVec) => a.x * b.x + a.y * b.y + a.z * b.z;
 const onCanvasAxes = (t: CanvasTransform) =>
   t.axes.every((v, i) => Math.abs(v - (IDENTITY[i] ?? 0)) < 1e-9);
-/** `v` to the nearest whole step of the grid. */
-const stepped = (v: number) => Math.round(v / GRID_STEP) * GRID_STEP + 0;
+/** `v` to the nearest whole step of the grid, halves away from 0 either way. */
+const stepped = (v: number) => Math.sign(v) * Math.round(Math.abs(v) / GRID_STEP) * GRID_STEP + 0;
 
 /** How far `items` reach along `dir`: the spread of their corners. */
 function extentAlong(items: readonly CanvasNode[], dir: CanvasVec): number {
@@ -250,14 +250,15 @@ function snapMove(
 
 /**
  * `t`'s stretch, landing the extent of `moving` along each stretched axis on
- * a multiple of the grid (one grid step at least); a stretch every way
+ * a multiple of the grid — a size under one step is left as it is, so a
+ * small item can still be scaled — and a stretch every way
  * alike stays alike, landed by the longest extent.
  */
 function snapStretch(t: CanvasTransform, moving: readonly CanvasNode[]): CanvasVec {
   const by = t.stretch;
   const extents = AXES.map(({ i }) => extentAlong(moving, columnOf(t, i)));
   const land = (extent: number, f: number) =>
-    f === 1 || extent < 1e-9 ? f : Math.max(GRID_STEP, stepped(extent * f)) / extent;
+    f === 1 || extent < 1e-9 || extent * f < GRID_STEP ? f : stepped(extent * f) / extent;
   if (by.x === by.y && by.y === by.z) {
     const f = land(Math.max(...extents), by.x);
     return { x: f, y: f, z: f };

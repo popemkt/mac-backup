@@ -88,6 +88,24 @@ describe("precise transforms (constrained, gizmo, modal)", () => {
     expect(wider.transform.stretch).toEqual({ x: 1.4, y: 1, z: 1 });
   });
 
+  it("leave a size under one grid step as it is, so a small item still scales", () => {
+    const chip = { ...node("a", 0), width: 10, height: 10 };
+    const grown = snapPrecise(
+      { ...stillAbout({ x: 0, y: 0, z: 0 }), stretch: { x: 1.3, y: 1.3, z: 1.3 } },
+      [chip],
+      [],
+      1,
+    );
+    expect(grown.transform.stretch.x).toBe(1.3);
+  });
+
+  it("step a move by the grid alike either way, halves away from zero", () => {
+    const step = (x: number) => snapPrecise(moveBy({ x, y: 0, z: 0 }), [node("a", 0)], [], 1);
+    expect(step(30).transform.move.x).toBe(40);
+    expect(step(-30).transform.move.x).toBe(-40);
+    expect(step(-29).transform.move.x).toBe(-20);
+  });
+
   it("land an extrude on a grid multiple of the lead's depth", () => {
     const block = { ...node("a", 0), depth: 30 };
     const grown = snapPrecise({ ...stillAbout({ x: 0, y: 0, z: 0 }), extrude: 17 }, [block], [], 1);

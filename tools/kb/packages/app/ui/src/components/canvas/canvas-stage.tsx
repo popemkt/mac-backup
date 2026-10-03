@@ -31,7 +31,6 @@ interface CanvasStageProps {
   onPointerDownStage: (event: React.PointerEvent<HTMLDivElement>) => void;
   /** A press during a modal transform, which only ends it; whether it was one. */
   onModalPress: (event: React.PointerEvent<HTMLDivElement>) => boolean;
-  onContextMenu: (event: React.MouseEvent<HTMLDivElement>) => void;
   onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
   onPointerCancel: () => void;
   onPointerUp: (event: React.PointerEvent<HTMLDivElement>) => void;
@@ -91,7 +90,6 @@ export function CanvasStage({
   onWheel,
   onPointerDownStage,
   onModalPress,
-  onContextMenu,
   onPointerMove,
   onPointerUp,
   onPointerCancel,
@@ -117,7 +115,6 @@ export function CanvasStage({
         backgroundPosition: `${pan.x}px ${pan.y}px`,
       }}
       onWheel={onWheel}
-      onContextMenu={onContextMenu}
       onPointerDownCapture={(event) => {
         if (onModalPress(event)) return;
         if (event.button === 1 || spaceDown || (event.button === 0 && event.altKey)) {
