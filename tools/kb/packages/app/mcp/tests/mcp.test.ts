@@ -154,7 +154,8 @@ describe("MCP surface", () => {
     expect(page).toMatch(/Snapshot as of <time id="kb-as-of" datetime="\d{4}-/);
     // The refresh asks the host to read this same resource again.
     expect(page).toContain('"ui/initialize"');
-    expect(page).toContain('send("resources/read", read)');
+    expect(page).toContain('"resourcesRead":"resources/read"');
+    expect(page).toContain("send(methods.resourcesRead, read)");
     expect(page).toContain('const read = { uri: "ui://kb/view/lens.all-mentions" };');
     expect(page).toContain('<button id="kb-refresh" type="button" hidden>');
     // The same view as text, for a host that renders no ui:// resource.

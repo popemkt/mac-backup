@@ -14,13 +14,8 @@
  * does not answer, the refresh stays hidden, so it never looks live and does
  * nothing.
  */
+import { JSON_RPC_VERSION, MCP_APPS_METHODS, MCP_APPS_VERSION } from "@kb/contracts";
 import { RENDERED_VIEW_ID } from "@kb/operations";
-
-/** The MIME type an MCP Apps UI resource is served as. */
-export const MCP_APP_MIME = "text/html;profile=mcp-app";
-
-/** The MCP Apps protocol version the page speaks. */
-const MCP_APPS_VERSION = "2026-01-26";
 
 /** The element holding when the snapshot was rendered. */
 const AS_OF_ID = "kb-as-of";
@@ -43,6 +38,8 @@ function refreshScript(uri: string): string {
 (() => {
   const ids = { view: ${scriptJson(RENDERED_VIEW_ID)}, asOf: ${scriptJson(AS_OF_ID)} };
   const read = { uri: ${scriptJson(uri)} };
+  const jsonrpc = ${scriptJson(JSON_RPC_VERSION)};
+  const methods = ${scriptJson(MCP_APPS_METHODS)};
   const button = document.getElementById("kb-refresh");
   if (window.parent === window || !button) return;
   let next = 0;
@@ -51,11 +48,11 @@ function refreshScript(uri: string): string {
     new Promise((resolve, reject) => {
       const id = ++next;
       pending.set(id, { resolve, reject });
-      window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
+      window.parent.postMessage({ jsonrpc, id, method, params }, "*");
     });
   window.addEventListener("message", (event) => {
     const message = event.data;
-    if (!message || message.jsonrpc !== "2.0" || !pending.has(message.id)) return;
+    if (!message || message.jsonrpc !== jsonrpc || !pending.has(message.id)) return;
     const waiting = pending.get(message.id);
     pending.delete(message.id);
     if (message.error) waiting.reject(new Error(message.error.message));
@@ -69,7 +66,7 @@ function refreshScript(uri: string): string {
   const refresh = async () => {
     button.disabled = true;
     try {
-      const result = await send("resources/read", read);
+      const result = await send(methods.resourcesRead, read);
       const text = result && result.contents && result.contents[0] && result.contents[0].text;
       if (typeof text !== "string") throw new Error("the host returned no page");
       const fresh = new DOMParser().parseFromString(text, "text/html");
@@ -82,13 +79,13 @@ function refreshScript(uri: string): string {
       button.disabled = false;
     }
   };
-  send("ui/initialize", {
+  send(methods.initialize, {
     protocolVersion: ${scriptJson(MCP_APPS_VERSION)},
     appInfo: { name: "kb-view", version: "1" },
     appCapabilities: { availableDisplayModes: ["inline"] },
   }).then(
     (result) => {
-      window.parent.postMessage({ jsonrpc: "2.0", method: "ui/notifications/initialized" }, "*");
+      window.parent.postMessage({ jsonrpc, method: methods.initialized }, "*");
       // A host proxies resources/read only when it says it does.
       if (!result || !result.hostCapabilities || !result.hostCapabilities.serverResources) return;
       button.hidden = false;

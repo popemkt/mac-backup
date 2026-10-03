@@ -43,6 +43,7 @@ export { ChannelPoint, UiHost } from "./channel.ts";
 export type { Channel, ChannelPeer, UiHostService } from "./channel.ts";
 export { ActionPoint, TemplatePoint, extensionPlugin } from "./extension.ts";
 export { mcpToolHints, mcpToolName, mcpToolResult } from "./mcp-tool.ts";
+export { JSON_RPC_VERSION, MCP_APP_MIME, MCP_APPS_METHODS, MCP_APPS_VERSION } from "./mcp-apps.ts";
 export type { McpToolHints, McpToolResult } from "./mcp-tool.ts";
 export type {
   ActionContribution,

@@ -17,6 +17,7 @@ import {
   failed,
   listingOf,
   onWire,
+  MCP_APP_MIME,
   mcpToolHints,
   mcpToolName,
   mcpToolResult,
@@ -32,7 +33,7 @@ import {
   renderViewNodeEffect,
   type ViewRef,
 } from "@kb/operations";
-import { MCP_APP_MIME, viewSnapshotApp } from "./view-app.ts";
+import { viewSnapshotApp } from "./view-app.ts";
 import {
   invokeReceiptEffect,
   kbRuntimeLayer,
