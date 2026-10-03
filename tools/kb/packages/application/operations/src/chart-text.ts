@@ -81,6 +81,7 @@ function chartBody(ctx: KbContext, params: ChartParams): readonly string[] {
 const chartFigure = Effect.fn("chart.figure")(function* (ctx: KbContext, params: ChartParams) {
   const painter = yield* ChartSvg;
   if (painter === null) return null;
+  // GAP [[01M41TZJ2AG28C2X2DECZ25CN6]]
   const data = chartRecordsOf(ctx, params.source);
   if ("missing" in data) return null;
   return yield* painter

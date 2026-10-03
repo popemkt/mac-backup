@@ -81,6 +81,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — authenticated callers per surface (a UI session token, an agent identity), checked where the actor is filled in
 - **node** — `01M413SP3QSSQJMKKDK3W3J6G8`
 
+### GAP: a chart's page runs its query twice, once for the body and once for the figure
+
+- **expected** — a view's text resolves its data once and hands it to both body and figure
+- **current** — ViewDef.text = {body, figure?} gives each half only (ctx, params), so chartBody and chartFigure each call chartRecordsOf
+- **impact** — double datalog cost per chart page render, up to the 5000-row chart cap, on render.view and docs pages
+- **closes** — a per-view prepare step in ViewDef.text whose result both body and figure take
+- **node** — `01M41TZJ2AG28C2X2DECZ25CN6`
+
 ### GAP: a chart's spec is edited as JSON, with no builder
 
 - **expected** — a form picks a mark and the query's columns per channel and writes the same Vega-Lite spec through the same check
