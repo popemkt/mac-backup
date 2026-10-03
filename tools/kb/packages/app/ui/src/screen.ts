@@ -22,13 +22,11 @@ import { definePlugin, type Plugin } from "@kb/plugin";
 import { getClientOrigin } from "@/api/action";
 import { getLiveClient, setScreenTab, type ScreenTab } from "@/api/live";
 import { logWarn } from "@/lib/log";
+import { MAIN_PANE } from "@/lib/pane";
 import { RoutePoint, currentContributions, matchRoute } from "@/lib/plugins";
 import { getPath, navigate, subscribePath } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useScreenStore } from "@/stores/screen.store";
-
-/** The one pane a tab has until windowing lands. */
-const MAIN_PANE = "main";
 
 /** How often, at most, a tab publishes its screen. */
 export const SCREEN_PUBLISH_MS = 100;
@@ -37,7 +35,7 @@ export const SCREEN_PUBLISH_MS = 100;
 function readScreen(document: Document) {
   const route = getPath();
   const matched = matchRoute(currentContributions(RoutePoint), route);
-  const { report } = useScreenStore.getState();
+  const report = useScreenStore.getState().panes[MAIN_PANE]?.report;
   const subject = report?.subject;
   return ScreenStateSchema.safeParse({
     route,
@@ -91,8 +89,8 @@ function carryOut(command: ScreenCommand): ScreenAck {
   if (command.kind === "navigate") {
     return "node" in command.to ? openNode(command.to.node) : openRoute(command.to.route);
   }
-  const { select } = useScreenStore.getState();
-  if (select === null) return screenRejected("the open view takes no selection");
+  const select = useScreenStore.getState().panes[MAIN_PANE]?.select;
+  if (select === undefined) return screenRejected("the open view takes no selection");
   return select({
     ...(command.selection === undefined ? {} : { selection: command.selection }),
     ...(command.focus === undefined ? {} : { focus: command.focus }),

@@ -6,7 +6,12 @@
  * `packages/app/server/tests/screens.test.ts`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ScreenAck, ScreenCommand, ScreenState } from "@kb/contracts";
+import {
+  SCREEN_APPLIED,
+  type ScreenAck,
+  type ScreenCommand,
+  type ScreenState,
+} from "@kb/contracts";
 import type { ScreenTab } from "@/api/live";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
@@ -44,9 +49,13 @@ function tab(page: () => Window | null = () => window) {
 
 function report(select: PaneSelect = () => ({ outcome: "applied" })) {
   useScreenStore.setState({
-    report: { subject: "n.root-a", focused: "n.root-a", selection: ["n.root-a"] },
-    select,
-    owner: Symbol("test view"),
+    panes: {
+      main: {
+        report: { subject: "n.root-a", focused: "n.root-a", selection: ["n.root-a"] },
+        select,
+        owner: Symbol("test view"),
+      },
+    },
   });
 }
 
@@ -61,7 +70,7 @@ describe("the tab's screen", () => {
 
   afterEach(() => {
     syncUiPlugins([]);
-    useScreenStore.setState({ report: null, select: null, owner: null });
+    useScreenStore.setState({ panes: {} });
     vi.useRealTimers();
     dom.restore();
   });
@@ -184,7 +193,11 @@ describe("the tab's screen", () => {
     syncUiPlugins([outlineUiPlugin, plugin]);
     // A subject no record holds, as a view part-way through an update might report.
     const midUpdate = { subject: "", focused: null, selection: [] };
-    useScreenStore.setState({ report: midUpdate, select: null, owner: Symbol("test view") });
+    useScreenStore.setState({
+      panes: {
+        main: { report: midUpdate, select: () => SCREEN_APPLIED, owner: Symbol("test view") },
+      },
+    });
     vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
     expect(published).toHaveLength(1);
     // The view finishes without the store announcing anything: only a retry can see it.
