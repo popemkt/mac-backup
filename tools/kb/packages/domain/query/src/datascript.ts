@@ -4,7 +4,7 @@ import * as d from "datascript";
 import { present, type NodeId } from "@kb/model";
 import type { DatascriptDb, IdMap } from "./index/datoms.ts";
 import { compile, normalizeEdnQuery } from "./ir/compile.ts";
-import type { FindPos, Ir } from "./ir/ir.ts";
+import type { FindPos, Ir, IrQuery } from "./ir/ir.ts";
 import { parseEdn } from "./ir/parse.ts";
 import { DatalogError } from "./datalog-error.ts";
 
@@ -91,13 +91,37 @@ export function runIr(exec: EdnExecutor, ir: Ir, ids: IdMap, ...inputs: unknown[
 }
 
 /**
- * Raw-EDN entry: `compile(parseEdn(edn))` then execute, then revive every
- * eid-shaped integer. Structured IR when the subset parses, `{ kind: "raw" }`
- * when it does not. Typed revival (aggregates stay numbers) lives on `runIr`.
+ * `ir`'s find positions, with a scalar variable read as a node ref where it
+ * is the value of a field attr that holds refs (`DatascriptDb.refAttrs`): a
+ * ref field's value is an entity, a number field's a number, though both are
+ * stored as a bare number. GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]
+ */
+function findWithRefAttrs(ir: IrQuery, refAttrs: ReadonlySet<string>): readonly FindPos[] {
+  const refValued = new Set(
+    ir.where.flatMap((clause) =>
+      clause.kind === "pattern" && clause.value.t === "var" && refAttrs.has(clause.attr)
+        ? [clause.value.name]
+        : [],
+    ),
+  );
+  return ir.find.map((pos) =>
+    pos.kind === "var" && pos.type === "scalar" && refValued.has(pos.name)
+      ? { ...pos, type: "node-ref" }
+      : pos,
+  );
+}
+
+/**
+ * Raw-EDN entry: `compile(parseEdn(edn))` then execute. When the subset
+ * parses, only node-ref find positions are revived, so a count or a number
+ * field's value stays a number (`findWithRefAttrs`); a `{ kind: "raw" }`
+ * query revives every eid-shaped integer, as it cannot tell them apart.
  */
 export function query(db: DatascriptDb, edn: string, ...inputs: unknown[]): unknown {
-  const raw = executeIr(datascriptExecutor(db), parseEdn(edn), inputs);
-  return reviveValue(raw, db.ids);
+  const ir = parseEdn(edn);
+  const raw = executeIr(datascriptExecutor(db), ir, inputs);
+  if (ir.kind === "raw") return reviveValue(raw, db.ids);
+  return reviveTyped(raw, findWithRefAttrs(ir, db.refAttrs), db.ids);
 }
 
 /**

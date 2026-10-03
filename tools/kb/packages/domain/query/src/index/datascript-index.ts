@@ -44,6 +44,8 @@ export class DatascriptIndex implements KbIndex {
   #ids: IdMap = { toEid: new Map(), toId: new Map() };
   #nextEid = 1;
   #attrs = new Set<string>();
+  /** Field attrs that have held a node ref since the last rebuild (`DatascriptDb.refAttrs`). */
+  #refAttrs = new Set<string>();
   /** node → the ids it points at */
   #refsFrom = new Map<NodeId, Set<NodeId>>();
   /** id → the nodes pointing at it, resolvable or not */
@@ -64,7 +66,7 @@ export class DatascriptIndex implements KbIndex {
   }
 
   #datascriptDb(): DatascriptDb {
-    return { db: this.#db, ids: this.#ids };
+    return { db: this.#db, ids: this.#ids, refAttrs: this.#refAttrs };
   }
 
   rebuild(nodes: ReadonlyArray<KbNode>): void {
@@ -78,12 +80,14 @@ export class DatascriptIndex implements KbIndex {
     this.#refsFrom = new Map();
     this.#refsTo = new Map();
     this.#attrs = new Set();
+    this.#refAttrs = new Set();
 
     const datoms: Datom[] = [];
     for (const node of merged) {
       const built = nodeToDatoms(node, this.#ids);
       datoms.push(...built.datoms);
       for (const attr of built.attrs) this.#attrs.add(attr);
+      for (const attr of built.refAttrs) this.#refAttrs.add(attr);
       this.#setRefs(node.id, built.refs);
     }
 
@@ -128,6 +132,7 @@ export class DatascriptIndex implements KbIndex {
       for (const attr of built.attrs) {
         if (!this.#attrs.has(attr)) grown.add(attr);
       }
+      for (const attr of built.refAttrs) this.#refAttrs.add(attr);
       this.#setRefs(node.id, built.refs);
       const eid = present(this.#ids.toEid.get(node.id), `eid for ${node.id}`);
       this.#diffEntity(eid, built.datoms, retracts, adds);

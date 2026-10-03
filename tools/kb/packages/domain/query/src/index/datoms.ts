@@ -42,6 +42,11 @@ export interface IdMap {
 export interface DatascriptDb {
   db: unknown;
   ids: IdMap;
+  /**
+   * The field attrs that hold a node ref somewhere in the data: a bare number
+   * read from one of them is an entity, from any other a number.
+   */
+  refAttrs: ReadonlySet<string>;
 }
 
 function fieldAttr(fieldId: NodeId): string {
@@ -69,6 +74,8 @@ export interface NodeDatoms {
   datoms: Datom[];
   /** the attrs this node carries, so the schema can grow with the data */
   attrs: Set<string>;
+  /** the field attrs among them that hold a resolving node ref */
+  refAttrs: Set<string>;
   /**
    * Every node id this node points at through any carrier — child, `{t:"ref"}`
    * prop, or `[[id]]` in text — whether or not the target resolves today. An
@@ -85,6 +92,7 @@ export function nodeToDatoms(node: KbNode, ids: IdMap): NodeDatoms {
   const eid = present(ids.toEid.get(node.id), `eid for ${node.id}`);
   const datoms: Datom[] = [];
   const attrs = new Set<string>();
+  const refAttrs = new Set<string>();
   const refs = new Set<NodeId>();
 
   datoms.push([eid, ":node/id", node.id]);
@@ -118,7 +126,10 @@ export function nodeToDatoms(node: KbNode, ids: IdMap): NodeDatoms {
       if (pv.t === "ref") refs.add(pv.v);
       const datomValue = propDatomValue(pv, ids);
       attrs.add(attr);
-      if (datomValue.isRef) mentioned.add(datomValue.value);
+      if (datomValue.isRef) {
+        mentioned.add(datomValue.value);
+        refAttrs.add(attr);
+      }
       datoms.push([eid, attr, datomValue.value]);
     }
   }
@@ -133,7 +144,7 @@ export function nodeToDatoms(node: KbNode, ids: IdMap): NodeDatoms {
     datoms.push([eid, ":node/mentions", meid]);
   }
 
-  return { datoms, attrs, refs };
+  return { datoms, attrs, refAttrs, refs };
 }
 
 /**

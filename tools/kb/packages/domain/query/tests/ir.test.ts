@@ -238,13 +238,29 @@ describe("runIr revives only node-ref positions", () => {
   ]);
   const edn = "[:find ?v (count ?n) :where [?n :f/fld.status ?v]]";
 
-  test("count-revival: query() collides with an eid; runIr keeps the count", () => {
+  test("count-revival: a count that collides with an eid stays a count, by IR or by EDN", () => {
     const raw = index.runDatalog(edn);
     const ir = parseEdn(edn);
     expect(ir.kind).toBe("query");
     const typed = index.run(ir);
-    expect(sortedRows(raw)).toEqual([["doing", "c"]]);
+    expect(sortedRows(raw)).toEqual([["doing", 3]]);
     expect(sortedRows(typed)).toEqual([["doing", 3]]);
+  });
+
+  test("a number field's value stays a number, and a ref field's value is the node it names", () => {
+    const fields = indexFor([
+      node("a", { props: { "f.n": [{ t: "num", v: 1 }], "f.r": [{ t: "ref", v: "b" }] } }),
+      node("b", { props: { "f.n": [{ t: "num", v: 2 }] } }),
+    ]);
+    expect(
+      sortedRows(fields.runDatalog("[:find ?id ?n :where [?e :node/id ?id] [?e :f/f.n ?n]]")),
+    ).toEqual([
+      ["a", 1],
+      ["b", 2],
+    ]);
+    expect(fields.runDatalog("[:find ?id ?r :where [?e :node/id ?id] [?e :f/f.r ?r]]")).toEqual([
+      ["a", "b"],
+    ]);
   });
 });
 

@@ -268,7 +268,7 @@ describe("DatascriptIndex", () => {
     };
 
     expect(index.runDatalog("[:find ?v (count ?n) :where [?n :f/status ?v]]")).toEqual([
-      ["doing", "c"],
+      ["doing", 3],
     ]);
     expect(index.run(count)).toEqual([["doing", 3]]);
     expect(index.run(BACKLINKS_IR, targetId)).toEqual([["a", `sees [[${targetId}]]`]]);
