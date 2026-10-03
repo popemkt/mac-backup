@@ -1,31 +1,31 @@
-# Resume: roadmap build, state at 2026-10-03
+# Resume: roadmap build, state at 2026-10-04
 
 Decisions and order are in [README.md](README.md); the kb roadmap todo is
-`01M3Q531V167YVKRF4XBYG1MTK`. Main is `a6d13fc8`, pushed.
+`01M3Q531V167YVKRF4XBYG1MTK`. Main is pushed.
 
 ## Merged
 
-Steps 0, 1, 2, 3, 4, 5 (5a screen state, 5b agent sidebar) and 8. Each was
-reviewed by GPT-6.1 Sol before merge; every gap it named is minted and
-written as an id, and the gaps it closed are marked done. Main is pushed.
+Every roadmap step except 7 (deferred by the owner): 0, 1, 2, 3, 4, 5 (5a
+screen state, 5b agent sidebar, 5c approval policies), 6 (layout views),
+8 (canvas 3D), 9 (sandbox and code views), 10 (chart views), plus the outline
+update-cost fix. Each was reviewed by GPT-6.1 Sol before merge; every gap it
+named is minted and written as an id, and the gaps it closed are marked
+done. Main is pushed.
 
-## In progress (Opus builders, each in its own worktree)
+## 3D workspace
 
-- Outline update-cost fix (todo `01M3YPGV75SJ04YTD4G32F9SQS`), from `87bc6bf4`.
-- Step 6, layout views (decision 12), from `a6d13fc8`.
+Plan, research and owner answers in
+[../2026-10-02-kb-3d-workspace/README.md](../2026-10-02-kb-3d-workspace/README.md).
+Steps 0 (three r186), 1 (ground camera) and 2 (item model) are merged.
+Step 3 (solids, completing Milestone 1) is building. Then steps 4–10 in the
+plan's order.
 
-Each gets a Sol review, then merge (rebase onto main first; `bun install`
-in tools/kb after a merge that adds packages), then bookkeeping: mint its
-`GAP [GAP-…]` placeholders (`grep -rn 'GAP \[GAP-' tools/kb`), close what
-it closed, `docs.materialize`, commit, push.
+## How each step lands
 
-## Queue
-
-1. Step 5c, approval policies (decision 13).
-2. The 3D workspace: plan and owner answers in
-   [../2026-10-02-kb-3d-workspace/README.md](../2026-10-02-kb-3d-workspace/README.md);
-   its step 0 (three r180 → r186) comes first.
-
-## Not started
-
-Step 9 (sandbox), 10 (chart view). Step 7 is deferred by the owner.
+Opus builds in its own worktree; GPT-6.1 Sol reviews; rebase onto main;
+`bun install` in tools/kb; `bun run verify`, `bun run test`,
+`bun run test:ui`; fast-forward; mint its `GAP [GAP-…]` placeholders
+(`grep -rn 'GAP \[[A-Z]' tools/kb | grep -v 'GAP \[\['`), close what it
+closed, open both stores once to take new seeds (`kb search x` and
+`kb --root tools/kb search x`), `docs.materialize`, commit, push, restart
+`kb ui`. Check `git config --get core.hooksPath` points at .githooks.
