@@ -9,7 +9,7 @@ import {
   type CanvasSide,
 } from "@kb/canvas";
 import { sidePoint } from "@/lib/canvas-edge-path";
-import { snapCanvasMove } from "@/lib/canvas-snap";
+import { snapCanvasMove, type SnapGuide } from "@/lib/canvas-snap";
 import { pastSlop } from "@/lib/pointer-slop";
 import {
   EMPTY_SELECTION,
@@ -30,11 +30,6 @@ export interface Point {
 interface Rect extends Point {
   w: number;
   h: number;
-}
-
-interface SnapGuide {
-  axis: "x" | "y";
-  pos: number;
 }
 
 export type ResizeCorner = "nw" | "ne" | "se" | "sw";

@@ -40,23 +40,26 @@ interface CanvasStageProps {
   handleEdgeClick: (edge: CanvasEdge, event: React.MouseEvent) => void;
 }
 
+/** The guides across the floor, which the top view draws; a guide up the z axis has no line here. */
 function CanvasSnapGuides({ guides }: { guides: PointerResult["guides"] }) {
   return (
     <>
-      {guides.map((guide) => (
-        <div
-          key={guide.axis}
-          className={cn(
-            "absolute border-dashed border-primary/40",
-            guide.axis === "x" ? "border-l" : "border-t",
-          )}
-          style={
-            guide.axis === "x"
-              ? { left: guide.pos, top: -4000, height: 8000, pointerEvents: "none" }
-              : { top: guide.pos, left: -4000, width: 8000, pointerEvents: "none" }
-          }
-        />
-      ))}
+      {guides.map((guide) =>
+        guide.axis === "z" ? null : (
+          <div
+            key={guide.axis}
+            className={cn(
+              "absolute border-dashed border-primary/40",
+              guide.axis === "x" ? "border-l" : "border-t",
+            )}
+            style={
+              guide.axis === "x"
+                ? { left: guide.pos, top: -4000, height: 8000, pointerEvents: "none" }
+                : { top: guide.pos, left: -4000, width: 8000, pointerEvents: "none" }
+            }
+          />
+        ),
+      )}
     </>
   );
 }

@@ -16,6 +16,13 @@ it("uses the closest alignment once per axis, independent of candidate order", (
   expect(snapCanvasMove(node("a", 0), others, 100, 0, 1).dx).toBe(101);
   expect(snapCanvasMove(node("a", 0), others.toReversed(), 100, 0, 1).dx).toBe(101);
 });
+it("names the alignment it snapped to on each axis it snapped", () => {
+  const moved = snapCanvasMove(node("a", 0), [node("b", 203)], 100, 0, 1);
+  expect(moved.guides).toEqual([
+    { axis: "x", pos: 203 },
+    { axis: "y", pos: 0 },
+  ]);
+});
 it("keeps snapping tolerance consistent in screen pixels", () => {
   expect(snapCanvasMove(node("a", 0), [node("b", 208)], 100, 0, 0.5).dx).toBe(108);
   expect(snapCanvasMove(node("a", 0), [node("b", 203)], 100, 0, 2).dx).toBe(100);
