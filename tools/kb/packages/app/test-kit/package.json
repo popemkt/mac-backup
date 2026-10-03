@@ -18,6 +18,7 @@
     "@kb/runtime": "workspace:*",
     "@kb/sandbox": "workspace:*",
     "@kb/tx-log": "workspace:*",
+    "@kb/views": "workspace:*",
     "@kb/webmcp": "workspace:*",
     "effect": "catalog:",
     "fast-check": "catalog:"

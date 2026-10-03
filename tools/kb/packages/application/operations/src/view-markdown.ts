@@ -17,6 +17,7 @@ import type { KbContext } from "@kb/contracts";
 import { SYSTEM_IDS, firstStr, hostViewIds, viewOptionOf, type KbNode } from "@kb/model";
 import {
   ChartView,
+  CodeView,
   catalogKeyOf,
   issueText,
   paramsIssues,
@@ -24,6 +25,7 @@ import {
   type ViewKey,
 } from "@kb/views";
 import { chartBody } from "./chart-text.ts";
+import { codeBody } from "./code-text.ts";
 
 /** How many of a view's rows its markdown lists. */
 const MAX_ROWS = 100;
@@ -68,6 +70,7 @@ function ownBody<P>(key: ViewKey<P>, draw: OwnBody<P>["draw"]): OwnBody<P> {
 /** The views that draw their own body, each by its key. */
 const VIEW_BODIES: readonly OwnBody<unknown>[] = [
   ownBody(ChartView, (ctx, params) => chartBody(ctx, params)),
+  ownBody(CodeView, (_ctx, params) => codeBody(params)),
 ];
 
 /** The ids a view node's subject holds, or why they cannot be read. */

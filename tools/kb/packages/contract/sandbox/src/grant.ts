@@ -1,37 +1,16 @@
 /**
- * What sandboxed code may ask of the graph: its grant (DESIGN.md → Sandbox →
- * Grants). The grant is part of what runs, so it is inside the digest a
- * person trusts; widening it is new code. A call the grant does not cover is
+ * How a grant (`CodeGrant`, a code view's setting in `@kb/views`) decides a
+ * call (DESIGN.md → Sandbox → Grants). A call the grant does not cover is
  * refused before it reaches the invoke core, and one it covers still meets
  * the approval policies there, as the `script` actor.
  */
 import { Option, Schema } from "effect";
 import type { KbNode } from "@kb/model";
-
-/**
- * How far code may read. `subject` is the node it is shown for and the nodes
- * under it, through `node.get`; `graph` is every node, through `node.get` and
- * `graph.query`; `none` reads nothing.
- */
-export const READ_SCOPES = ["none", "subject", "graph"] as const;
-export type ReadScope = (typeof READ_SCOPES)[number];
+import type { CodeGrant } from "@kb/views";
 
 /** The actions a read scope governs: listing them under `actions` changes nothing. */
 export const NODE_READ = "node.get";
 export const GRAPH_READ = "graph.query";
-
-export const CodeGrant = Schema.Struct({
-  reads: Schema.Literals(READ_SCOPES),
-  /** Every other action the code may call, by id. */
-  actions: Schema.Array(Schema.NonEmptyString),
-}).annotate({
-  description:
-    "What the code may ask of the graph. reads: none, subject (the node it is shown for and the nodes under it, through node.get) or graph (every node, through node.get and graph.query). actions: the ids of any other actions it may call through kb.invoke; each call still meets the approval policies as the script actor.",
-});
-export type CodeGrant = typeof CodeGrant.Type;
-
-/** What code may do when its view names no grant: read the node it is shown for, and below. */
-export const DEFAULT_GRANT: CodeGrant = { reads: "subject", actions: [] };
 
 /** How far a run reaches: the node it is shown for, and a way to read nodes. */
 export interface GrantScope {

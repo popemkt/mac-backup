@@ -125,6 +125,16 @@ export {
   starterChartSpec,
   type ChartBox,
 } from "./chart.ts";
+export {
+  CODE_NAMESPACE,
+  CodeGrant,
+  CodeParams,
+  CodeView,
+  DEFAULT_GRANT,
+  READ_SCOPES,
+  STARTER_CODE,
+  type ReadScope,
+} from "./code.ts";
 export { LAB_NAMESPACE, LAB_SCENE_IDS, LabParams, LabView, type LabSceneId } from "./lab.ts";
 export { DOCS_NAMESPACE, DocsMarkdownParams, DocsMarkdownView, docsSpecOf } from "./docs.ts";
 export {

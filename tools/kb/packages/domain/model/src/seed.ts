@@ -361,6 +361,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text");
   // A chart view's spec (`chart.vega-lite`): Vega-Lite as JSON text.
   const chartField = singleField(SYSTEM_IDS.chartField, "chart", "text");
+  // A code view's code and its grant (`code.view`): both text, run as stored.
+  const codeField = singleField(SYSTEM_IDS.codeField, "code", "text");
+  const codeGrantField = singleField(SYSTEM_IDS.codeGrantField, "code.grant", "text");
   const canvasTag = mk(SYSTEM_IDS.canvasTag, "canvas", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.canvasField }],
@@ -581,6 +584,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     canvasField,
     layoutField,
     chartField,
+    codeField,
+    codeGrantField,
     canvasTag,
     ontoIncludeField,
     ontoMemberField,

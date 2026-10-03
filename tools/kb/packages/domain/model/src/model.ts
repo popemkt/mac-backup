@@ -253,6 +253,12 @@ export const SYSTEM_IDS = {
    */
   chartField: "sys.f.chart",
   /**
+   * A code view's code, as it is run (text, single), and the grant it runs
+   * under, as canonical JSON (text, single). DESIGN → View nodes → Code views.
+   */
+  codeField: "sys.f.code",
+  codeGrantField: "sys.f.code.grant",
+  /**
    * Ontologies (r5 core): a named, editable lens over the graph. An ontology
    * is an ordinary node tagged `#ontology` carrying `sys.f.onto.*` props —
    * a new node KIND, not a new node type. Membership bookkeeping lives on

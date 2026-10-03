@@ -153,6 +153,21 @@ describe("render.view by view node id", () => {
     expect((await render({ id: "v.lost" })).content).not.toContain("<figure");
   });
 
+  test("a code view an agent proposes renders as its code, its grant and where it runs", async () => {
+    const code = 'kb.draw(["p", {}, "```", kb.subject]);';
+    await mustInvoke("view.propose", {
+      view: "code.view",
+      params: { code, grant: { reads: "subject", actions: ["node.update"] } },
+      host: FRAME,
+      id: "v.code",
+    });
+    const md = await render({ id: "v.code", format: "md" });
+    expect(md.content).toContain("Code view (code.view), view node v.code, shown for Todos");
+    expect(md.content).toContain("It runs only in the kb UI, sandboxed");
+    expect(md.content).toContain("It may read its subject, and call node.update.");
+    expect(md.content).toContain(`\`\`\`\`js\n${code}\n\`\`\`\``);
+  });
+
   test("a node that is no view node, a missing one, or two refs at once are refused", async () => {
     expect(await invoke(ctx, { id: "render.view", input: { id: FRAME } })).toMatchObject({
       status: "failed",

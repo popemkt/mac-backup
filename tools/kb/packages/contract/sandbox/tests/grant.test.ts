@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { KbNode } from "@kb/model";
-import { DEFAULT_GRANT, grantRefusal, withinSubject, type GrantScope } from "../src/index.ts";
+import { DEFAULT_GRANT } from "@kb/views";
+import { grantRefusal, withinSubject, type GrantScope } from "../src/index.ts";
 
 function node(id: string, children: string[] = []): KbNode {
   return { id, text: id, props: {}, children, createdAt: "", updatedAt: "" };
