@@ -311,7 +311,7 @@ export class CardLayer {
 
   // A card is a plane with no thickness, so a level view (front, side) sees
   // it edge-on and draws nothing of it until items have depth (plan step 3).
-  // GAP [GAP-FLAT-EDGE-ON]
+  // GAP [[01M41AB7YM5801ZJNM1Q647SYD]]
   private place(card: Card, z: number): void {
     const { item } = card;
     const cx = item.x + item.width / 2;

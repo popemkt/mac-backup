@@ -80,14 +80,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — authenticated callers per surface (a UI session token, an agent identity), checked where the actor is filled in
 - **node** — `01M413SP3QSSQJMKKDK3W3J6G8`
 
-### GAP: a canvas seen in 3D reports its 2D camera on the screen
-
-- **expected** — while a canvas is seen in 3D the screen reports the 3D camera pose and the items actually visible in it
-- **current** — use-canvas-screen publishes the 2D pan/zoom and the items inside the 2D viewport, also in 3D
-- **impact** — an agent's idea of what the user sees on a 3D canvas can be wrong
-- **closes** — CanvasScreenSchema carries the camera {projection, pose} and the 3D scene reports visible items from its frustum
-- **node** — `01M3YMCVN656CNRJ3F3R91MHKA`
-
 ### GAP: a chart's spec is edited as JSON, with no builder
 
 - **expected** — a form picks a mark and the query's columns per channel and writes the same Vega-Lite spec through the same check
@@ -374,6 +366,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide a canonical package-family identity and teach the import graph check to verify extension-to-extension edges against it, with a red cross-family fixture and a green canvas fixture.
 - **node** — `01M3F923QWH9HSAW61VNFWHANV`
 
+### GAP: flat canvas items vanish in level 3D views
+
+- **expected** — flat items stay visible when the camera looks across the floor (front, side views)
+- **current** — cards have no thickness, so a level view sees them edge-on and draws nothing of them; only edges show
+- **impact** — front and side views of a canvas of flat cards look empty
+- **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
+- **node** — `01M41AB7YM5801ZJNM1Q647SYD`
+
 ### GAP: four hand-copied uv tool installers, each reading a failed uv tool list as not installed
 
 - **expected** — One uv tool installer (a shared helper each owning module calls with its spec, extras and extra freshness checks) that captures uv tool list, checks its exit status, and warns and continues on failure, as AGENTS.md Writing an executor requires.
@@ -588,6 +588,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give cli-proxy-api, cognee and headroom read-only port options, derive the other sites from them, and pass the Headroom URL to the reconciler as an argument.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
+
+### GAP: Shift-drag on empty space in 3D does not marquee-select
+
+- **expected** — Shift-drag on empty space in 3D draws a screen-space marquee and selects what it covers (owner answer 4 of the 3D plan)
+- **current** — every empty-space drag in 3D orbits the camera
+- **impact** — selecting many items in 3D means clicking each
+- **closes** — a 3D workspace step that owns the marquee, picking items by their projected boxes
+- **node** — `01M41AB88FH1G58NR7AZE0SZJF`
 
 ### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
 
@@ -879,6 +887,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two typescript/no-unsafe-type-assertion hits remain in ui src. One of them is the seam that deleted fourteen per-callback assertions; the other is the labelled-node sprite accessor.
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
+
+### GAP: a canvas seen in 3D reports its 2D camera on the screen
+
+- **expected** — while a canvas is seen in 3D the screen reports the 3D camera pose and the items actually visible in it
+- **current** — closed by 3D workspace step 1: a canvas pane reports {projection, pose, visible}, the 3D camera as it came to rest and what it shows
+- **impact** — an agent's idea of what the user sees on a 3D canvas can be wrong
+- **closes** — CanvasScreenSchema carries the camera {projection, pose} and the 3D scene reports visible items from its frustum
+- **node** — `01M3YMCVN656CNRJ3F3R91MHKA`
 
 ### GAP: a confirming frame for an earlier write overwrites a later optimistic write
 

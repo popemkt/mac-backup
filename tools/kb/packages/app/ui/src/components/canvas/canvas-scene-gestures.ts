@@ -104,7 +104,7 @@ export class SceneGestures {
     } else {
       // Owner answer 4 of the 3D workspace plan: Shift-drag here is a
       // screen-space marquee. Today every empty-space drag orbits.
-      // GAP [GAP-3D-MARQUEE]
+      // GAP [[01M41AB88FH1G58NR7AZE0SZJF]]
       const kind = pans ? "pan" : "orbit";
       this.gesture = { kind, ...screen, startX: screen.x, startY: screen.y };
     }
