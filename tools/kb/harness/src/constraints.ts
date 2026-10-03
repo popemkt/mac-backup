@@ -264,7 +264,7 @@ const UI_PRIMITIVES: readonly string[] = [
  * reach the scene kit. The 2D canvas cannot import three by accident.
  */
 const UI_CANVAS_3D =
-  /^components\/canvas\/canvas-(?:scene(?:-items|-edges|-solids)?\.ts|3d-stage\.tsx)$/;
+  /^components\/canvas\/canvas-(?:scene(?:-items|-edges|-solids|-gizmo|-space)?\.ts|3d-stage\.tsx)$/;
 
 /**
  * A file's zone, from its path relative to {@link UI_SRC}.

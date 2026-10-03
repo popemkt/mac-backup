@@ -43,6 +43,9 @@ const SNAP_TOL = 5;
 const TURN_STEP = Math.PI / 12;
 
 /** `t` with its turn rounded to the nearest whole step about the same axis. */
+// Only a transform's turn snaps: a gizmo move does not snap to the grid, and a
+// gizmo scale does not snap to grid multiples (plan decision 11).
+// GAP [gizmo-grid-snap]
 export function snapTurn(t: CanvasTransform): CanvasTransform {
   const { axis, angle } = axisAngleOf(t.turn);
   const stepped = Math.round(angle / TURN_STEP) * TURN_STEP;

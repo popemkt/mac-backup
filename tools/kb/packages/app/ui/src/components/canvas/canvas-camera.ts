@@ -254,8 +254,12 @@ function clipInFront(corners: readonly Vec[]): Vec[] {
   return out;
 }
 
-/** The eye's ray through a screen point: where it starts and which way it runs (unit length). */
-function screenRay(
+/**
+ * The eye's ray through a screen point: where it starts and which way it
+ * runs (unit length). What every pick is asked of — the camera model's own
+ * `hitTest`, and the 3D gizmo's handles.
+ */
+export function screenRay(
   view: CanvasView,
   size: ViewSize,
   screen: CanvasPoint,

@@ -69,6 +69,9 @@ const length = (v: CanvasVec) => Math.hypot(v.x, v.y, v.z);
  * taken as that, not as a shear its record could not hold). An item `t`
  * does not turn keeps its `rotation` exactly as written.
  */
+// A stretch along axes that are not the item's own cannot shear its record,
+// so each side stretches by how far its own axis grows.
+// GAP [stretch-across-turned-axes]
 export function transformItem<N extends CanvasNode>(node: N, t: CanvasTransform): N {
   const frame = boxFrame(node);
   const { axes, by } = t.stretch;

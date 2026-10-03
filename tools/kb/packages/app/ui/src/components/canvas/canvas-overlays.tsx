@@ -7,6 +7,8 @@ import { ItemInspector } from "./item-inspector";
 import type { CanvasSelection } from "./canvas-selection";
 import { selectionEmpty } from "./canvas-selection";
 import type { CanvasTool, ToolState } from "./canvas-tool";
+import { GIZMO_MODES, type GizmoChoice } from "./canvas-gizmo";
+import { cn } from "@/sdk";
 
 interface CanvasOverlaysProps {
   projection: CanvasProjectionKind;
@@ -35,12 +37,70 @@ interface CanvasOverlaysProps {
   onItemChange: (shape: CanvasNode) => void;
   onPickNode: (nodeId: string) => void;
   onClosePicker: () => void;
+  /** The 3D gizmo's choice, which the selection toolbar switches; null where there is no gizmo (2D). */
+  gizmo: GizmoChoice | null;
+  onGizmoChange: (choice: GizmoChoice) => void;
 }
 
-/** The floating selection toolbar: inspect one item, reorder, delete. */
+/** One of the toolbar's switch buttons: lit while it is the one chosen. */
+const switchClass = (on: boolean) =>
+  cn(
+    "rounded-md px-1.5 py-1 text-label",
+    on ? "bg-primary/15 text-primary" : "text-foreground/60 hover:bg-foreground/5",
+  );
+
+/**
+ * The gizmo's switches: which transform its handles make (the last one
+ * chosen stays), and whether they run along the canvas's axes or the
+ * selection's own.
+ */
+function GizmoSwitches({
+  gizmo,
+  onGizmoChange,
+}: {
+  gizmo: GizmoChoice;
+  onGizmoChange: (choice: GizmoChoice) => void;
+}) {
+  const local = gizmo.space === "local";
+  return (
+    <>
+      <div className="flex items-center gap-0.5" role="group" aria-label="Gizmo">
+        {GIZMO_MODES.map(({ mode, label }) => (
+          <button
+            key={mode}
+            type="button"
+            aria-pressed={gizmo.mode === mode}
+            className={switchClass(gizmo.mode === mode)}
+            onClick={() => onGizmoChange({ ...gizmo, mode })}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        aria-pressed={local}
+        title={
+          local
+            ? "Along the selection's own axes"
+            : "Along the canvas's axes (X red, Y green, Z blue)"
+        }
+        className={switchClass(local)}
+        onClick={() => onGizmoChange({ ...gizmo, space: local ? "global" : "local" })}
+      >
+        {local ? "Local" : "Global"}
+      </button>
+      <div className="mx-1 h-4 w-px bg-foreground/10" />
+    </>
+  );
+}
+
+/** The floating selection toolbar: in 3D the gizmo's switches, then inspect one item, reorder, delete. */
 function SelectionBar({
   count,
   canInspect,
+  gizmo,
+  onGizmoChange,
   onInspectItem,
   onBringToFront,
   onSendToBack,
@@ -50,11 +110,17 @@ function SelectionBar({
   canInspect: boolean;
 } & Pick<
   CanvasOverlaysProps,
-  "onInspectItem" | "onBringToFront" | "onSendToBack" | "onDeleteSelection"
+  | "gizmo"
+  | "onGizmoChange"
+  | "onInspectItem"
+  | "onBringToFront"
+  | "onSendToBack"
+  | "onDeleteSelection"
 >) {
   return (
     <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm">
       <span className="mr-1 text-label text-foreground/40">{count} selected</span>
+      {gizmo !== null && <GizmoSwitches gizmo={gizmo} onGizmoChange={onGizmoChange} />}
       {canInspect && (
         <button
           type="button"
@@ -126,6 +192,8 @@ export function CanvasOverlays({
   onItemChange,
   onPickNode,
   onClosePicker,
+  gizmo,
+  onGizmoChange,
 }: CanvasOverlaysProps) {
   return (
     <>
@@ -141,6 +209,8 @@ export function CanvasOverlays({
         <SelectionBar
           count={selection.nodeIds.size + selection.edgeIds.size}
           canInspect={selectedItem !== null}
+          gizmo={selection.nodeIds.size > 0 ? gizmo : null}
+          onGizmoChange={onGizmoChange}
           onInspectItem={onInspectItem}
           onBringToFront={onBringToFront}
           onSendToBack={onSendToBack}

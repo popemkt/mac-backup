@@ -1216,6 +1216,20 @@ open view of that canvas.
   `ext.canvas.tx.apply`. A carry reads the pointer where it visibly is: on
   the top of a solid it passes over (one it does not carry), so dragging an
   item onto another stands it there through surface snap.
+  **The gizmo** (`canvas-scene-gizmo.ts`) stands on the selection in 3D:
+  three's `TransformControls`, built with no DOM element, fed the camera
+  model's own ray (`screenRay`) by the gestures, which ask it before
+  anything behind it. It sits at the selection's pivot (the centre of the
+  box bounding it) and shows Move, Rotate or Scale, along the canvas's axes
+  or, Local, the first selected item's; the floating selection toolbar
+  switches both, and the last mode chosen stays. A drag reads the stand-in
+  the controls move back as one `CanvasTransform` (canvas y flipped back,
+  `canvas-scene-space.ts`), which the pointer reducer previews and writes
+  on release as one history step: the same transform drag the 2D rotate
+  handle makes, its turn snapped to 15°, ⌘ free. The controls' own snapping
+  is off. Through the orthographic lens they are handed an orthographic
+  twin of the stage's camera, so handles keep their size and turns their
+  pace.
   A drag on empty canvas orbits the turntable (across turns the floor with
   the hand, down tips toward the top view), a tap places the current tool on the plane
   (or clears the selection), the right or middle button or Space pans, the

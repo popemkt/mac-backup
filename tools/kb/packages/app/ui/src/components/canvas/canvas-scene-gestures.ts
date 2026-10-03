@@ -4,6 +4,10 @@
  * the same. Plain state, no DOM and no three: the host feeds it presses in
  * viewport coordinates and it answers through `SceneGestureHost`.
  *
+ * - On a handle of the gizmo (`canvas-gizmo`), which stands on the
+ *   selection: a drag moves, turns or scales the selection, as one transform
+ *   the pointer reducer previews and writes on release. The gizmo is asked
+ *   first, so its handles take the pointer over whatever is behind them.
  * - On an item: a press selects it (a modifier toggles it) and a drag carries
  *   it on its own plane; with Alt, up from the floor. Both go through the canvas
  *   pointer reducer, so a 3D drag is the same history step and the same write
@@ -26,6 +30,7 @@ import {
   type ViewSize,
 } from "./canvas-camera";
 import { carriedIds, type CanvasPointerEvent } from "./canvas-pointer";
+import type { SceneGizmo } from "./canvas-gizmo";
 import type { CanvasSelection } from "./canvas-selection";
 import { pastSlop } from "@/sdk";
 
@@ -47,6 +52,8 @@ export interface SceneGestureHost {
   readonly items: () => readonly CanvasNode[];
   readonly selection: () => CanvasSelection;
   readonly spaceDown: () => boolean;
+  /** The gizmo on the selection. */
+  readonly gizmo: () => SceneGizmo;
   /** A press on a card: select or toggle it, then `startMove` to carry it. */
   readonly cardPress: (card: CanvasNode, press: ScenePress, startMove: () => void) => void;
   readonly dispatch: (event: CanvasPointerEvent) => void;
@@ -59,6 +66,7 @@ export interface SceneGestureHost {
 }
 
 type Gesture =
+  | { readonly kind: "gizmo" }
   | {
       readonly kind: "card";
       readonly z: number;
@@ -95,8 +103,13 @@ export class SceneGestures {
   down(press: ScenePress): boolean {
     const pans = press.button === 1 || press.button === 2 || this.host.spaceDown();
     if (!pans && press.button !== 0) return false;
-    const card = pans ? undefined : this.cardAt(press.local);
     const screen = { x: press.clientX, y: press.clientY };
+    if (!pans && this.host.gizmo().press(press.local)) {
+      this.gesture = { kind: "gizmo" };
+      this.host.dispatch({ type: "transform/start" });
+      return true;
+    }
+    const card = pans ? undefined : this.cardAt(press.local);
     if (card !== undefined) {
       // Carried on the plane of its top, where a solid is usually taken hold of.
       const z = canvasTop(card);
@@ -120,7 +133,17 @@ export class SceneGestures {
 
   move(press: ScenePress): SceneCursor {
     const g = this.gesture;
-    if (g === null) return this.cardAt(press.local) === undefined ? "" : "grab";
+    if (g === null) {
+      if (this.host.gizmo().hover(press.local)) return "grab";
+      return this.cardAt(press.local) === undefined ? "" : "grab";
+    }
+    if (g.kind === "gizmo") {
+      const transform = this.host.gizmo().drag(press.local);
+      if (transform !== null) {
+        this.host.dispatch({ type: "transform/move", transform, free: press.metaKey });
+      }
+      return "grabbing";
+    }
     if (g.kind === "card") {
       const world = this.carryPoint(press.local, g);
       if (world === null) return "grabbing";
@@ -143,6 +166,14 @@ export class SceneGestures {
     const g = this.gesture;
     this.gesture = null;
     if (g === null) return;
+    if (g.kind === "gizmo") {
+      this.host.gizmo().release();
+      const screen = { x: press.clientX, y: press.clientY };
+      this.host.dispatch(
+        cancelled ? { type: "pointer/cancel" } : { type: "pointer/end", screen, world: screen },
+      );
+      return;
+    }
     if (g.kind === "card") {
       if (cancelled) {
         this.host.dispatch({ type: "pointer/cancel" });

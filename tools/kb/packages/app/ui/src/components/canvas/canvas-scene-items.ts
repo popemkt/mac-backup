@@ -67,6 +67,7 @@ import {
 } from "./canvas-card-face";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 import { BODY, FACE, solidGeometry, solidKey, type SolidSpec } from "./canvas-scene-solids";
+import { matrixToThree } from "./canvas-scene-space";
 
 /** A shadow lies just in front of the items on the floor. */
 const SHADOW_Z = 0.15;
@@ -78,14 +79,6 @@ const MAX_TEXTURE = 4096;
 const REPAINT_AFTER_MS = 180;
 /** The shadow texture's silhouette, inset this share of its side on each edge. */
 const SHADOW_INSET = 28 / 128;
-/**
- * A canvas-space matrix (row by row) in three's world, where y is flipped:
- * `F · m · F`, which negates the entries that mix y with x or z.
- */
-function flippedRotation(m: readonly number[], out: Matrix4): Matrix4 {
-  const [a = 1, b = 0, c = 0, d = 0, e = 1, f = 0, g = 0, h = 0, i = 1] = m;
-  return out.set(a, -b, c, 0, -d, e, -f, 0, g, -h, i, 0, 0, 0, 0, 1);
-}
 
 /** Edge widths, CSS pixels: a hairline at rest, firmer when selected. */
 const EDGE_WIDTH = 1;
@@ -515,7 +508,7 @@ export class ItemLayer {
     const frame = boxFrame(item, z);
     const origin = boxToWorld(frame, { x: 0, y: 0, z: -frame.half.z });
     entry.group.position.set(origin.x, -origin.y, origin.z);
-    entry.group.quaternion.setFromRotationMatrix(flippedRotation(frame.matrix, this.turn));
+    entry.group.quaternion.setFromRotationMatrix(matrixToThree(frame.matrix, this.turn));
     const tint = colorOf(item, look);
     // The body: the card stock, or its colour laid over it, a little firmer in the dark.
     entry.bodyMaterial.color.set(

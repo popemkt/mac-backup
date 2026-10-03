@@ -12,6 +12,7 @@ import type { CanvasPoint, CanvasPoint3, ViewSize } from "./canvas-camera";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import type { CanvasSelection } from "./canvas-selection";
+import { NO_GIZMO, type GizmoChoice } from "./canvas-gizmo";
 import { type Appearance, type OutlineNode, readTiming, useReducedMotion } from "@/sdk";
 import { attachScene } from "@/scene/host";
 import { readScenePalette } from "@/scene/palette";
@@ -26,6 +27,8 @@ export interface Canvas3dStageProps {
   readonly rig: CanvasCameraRig;
   readonly appearance: Appearance;
   readonly spaceDown: boolean;
+  /** Which transform the gizmo on the selection shows, and along which axes. */
+  readonly gizmo: GizmoChoice;
   /** The scene is drawing: the page crossfades to it. */
   readonly onReady: () => void;
   /** The scene could not start; the page stays in 2D. */
@@ -80,7 +83,11 @@ function pressOf(el: HTMLElement, event: PointerEvent): ScenePress {
 }
 
 /** Pointer and wheel input over the host, as the scene's gestures. */
-function useSceneGestures(host: React.RefObject<HTMLDivElement | null>, props: Canvas3dStageProps) {
+function useSceneGestures(
+  host: React.RefObject<HTMLDivElement | null>,
+  props: Canvas3dStageProps,
+  scene: CanvasScene | null,
+) {
   const [gestures] = useState(() => new SceneGestures(IDLE));
   // The gestures read the page as it last committed.
   useLayoutEffect(() => {
@@ -91,6 +98,7 @@ function useSceneGestures(host: React.RefObject<HTMLDivElement | null>, props: C
       items: () => props.doc.nodes,
       selection: () => props.selection,
       spaceDown: () => props.spaceDown,
+      gizmo: () => scene?.gizmo ?? NO_GIZMO,
       cardPress: props.onCardPress,
       dispatch: props.dispatchPointer,
       orbit: (dx, dy) => props.rig.orbitBy(dx, dy),
@@ -154,6 +162,7 @@ const IDLE: SceneGestureHost = {
   items: () => [],
   selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
   spaceDown: () => false,
+  gizmo: () => NO_GIZMO,
   cardPress: () => {},
   dispatch: () => {},
   orbit: () => {},
@@ -180,6 +189,7 @@ function useMountedScene(
       dark: props.appearance.dark,
       timing: readTiming(),
       reducedMotion,
+      gizmo: props.gizmo,
     }),
   );
   const ready = useEffectEvent(() => props.onReady());
@@ -209,9 +219,10 @@ export default function Canvas3dStage(props: Canvas3dStageProps) {
   const reducedMotion = useReducedMotion();
   const [scene, setScene] = useState<CanvasScene | null>(null);
   useMountedScene(host, props, reducedMotion, setScene);
-  useSceneGestures(host, props);
+  useSceneGestures(host, props, scene);
 
   useEffect(() => scene?.setContent({ doc, nodes, selection }), [scene, doc, nodes, selection]);
+  useEffect(() => scene?.setGizmo(props.gizmo), [scene, props.gizmo]);
   // By the time this runs <html> carries the new appearance, so the tokens hold its values.
   useEffect(() => {
     scene?.setLook(readCardLook(), readCanvasPalette(), appearance.dark);

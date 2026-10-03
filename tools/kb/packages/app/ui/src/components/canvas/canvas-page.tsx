@@ -25,6 +25,7 @@ import { useCanvasScreen } from "./use-canvas-screen";
 import { useCanvasSelection } from "./use-canvas-selection";
 import { listRefFields } from "./canvas-api";
 import type { ToolState } from "./canvas-tool";
+import { FIRST_GIZMO, type GizmoChoice } from "./canvas-gizmo";
 import {
   EMPTY_SELECTION,
   deleteSelected,
@@ -80,6 +81,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const [toolState, setToolState] = useState<ToolState>({ tool: "select" });
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const [gizmo, setGizmo] = useState<GizmoChoice>(FIRST_GIZMO);
 
   const byId = useMemo(() => {
     const m = new Map<string, CanvasNode>();
@@ -329,6 +331,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 rig={projection.rig}
                 appearance={appearance}
                 spaceDown={spaceDown}
+                gizmo={gizmo}
                 onReady={projection.onSceneReady}
                 onError={projection.onSceneError}
                 onCardPress={(card, press, startMove) =>
@@ -400,6 +403,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           onItemChange={(shape) => schedulePersist(upsertCanvasNode(docRef.current, shape))}
           onPickNode={addKbNode}
           onClosePicker={() => setPickerOpen(false)}
+          gizmo={in3d ? gizmo : null}
+          onGizmoChange={setGizmo}
         />
       </div>
     </div>

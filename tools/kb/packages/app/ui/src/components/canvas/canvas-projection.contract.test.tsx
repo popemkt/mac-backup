@@ -61,6 +61,7 @@ import { TIMING_FALLBACK } from "@/lib/timing";
 import { fakeCanvasContexts } from "@/test-support/fake-gpu";
 import type { CardLook } from "./canvas-card-face";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
+import { FIRST_GIZMO } from "./canvas-gizmo";
 import type * as ThreeWebGpu from "three/webgpu";
 import { browserHostUiPlugin } from "@/browser-host";
 import { syncUiPlugins } from "@/lib/plugins";
@@ -457,6 +458,7 @@ const mount3d: Mount = async (view) => {
     dark: false,
     timing: TIMING_FALLBACK,
     reducedMotion: true,
+    gizmo: FIRST_GIZMO,
   });
   scene.setRunning(true);
   scene.resize(size.width, size.height);

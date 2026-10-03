@@ -3,6 +3,7 @@ import type { CanvasNode } from "@kb/canvas";
 import { projectPoint, type CanvasView } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import { SceneGestures, type SceneGestureHost, type ScenePress } from "./canvas-scene-gestures";
+import { NO_GIZMO, type SceneGizmo } from "./canvas-gizmo";
 
 const size = { width: 800, height: 600 };
 const tilted: CanvasView = { x: 200, y: 100, z: 0, zoom: 1, yaw: -0.3, pitch: 0.5, fov: 34 };
@@ -17,7 +18,11 @@ const card: CanvasNode = {
   z: 40,
 };
 
-function harness(view: () => CanvasView = () => tilted, items: readonly CanvasNode[] = [card]) {
+function harness(
+  view: () => CanvasView = () => tilted,
+  items: readonly CanvasNode[] = [card],
+  gizmo: SceneGizmo = NO_GIZMO,
+) {
   const events: CanvasPointerEvent[] = [];
   const host: SceneGestureHost = {
     view,
@@ -25,6 +30,7 @@ function harness(view: () => CanvasView = () => tilted, items: readonly CanvasNo
     items: () => items,
     selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
     spaceDown: () => false,
+    gizmo: () => gizmo,
     cardPress: (_card, _press, startMove) => startMove(),
     dispatch: (event) => events.push(event),
     orbit: vi.fn(),
@@ -136,6 +142,31 @@ describe("gestures over the 3D canvas", () => {
     if (end?.type !== "pointer/end" || moved?.type !== "pointer/move") return;
     expect(end.world).toEqual(moved.world);
     expect(end.world.x).not.toBe(0);
+  });
+
+  test("a gizmo handle takes the press over the card behind it, and its drag is one transform", () => {
+    const transform = {
+      pivot: { x: 200, y: 100, z: 40 },
+      move: { x: 30, y: 0, z: 0 },
+      turn: [1, 0, 0, 0, 1, 0, 0, 0, 1] as const,
+      stretch: { axes: [1, 0, 0, 0, 1, 0, 0, 0, 1] as const, by: { x: 1, y: 1, z: 1 } },
+    };
+    const release = vi.fn();
+    const gizmo: SceneGizmo = {
+      hover: () => true,
+      press: () => true,
+      drag: () => transform,
+      release,
+    };
+    const { gestures, events } = harness(() => tilted, [card], gizmo);
+    const at = centre();
+    gestures.down(press(at));
+    expect(events.at(-1)).toEqual({ type: "transform/start" });
+    expect(gestures.move(press({ x: at.x + 20, y: at.y }, { metaKey: true }))).toBe("grabbing");
+    expect(events.at(-1)).toEqual({ type: "transform/move", transform, free: true });
+    gestures.up(press({ x: at.x + 20, y: at.y }), false);
+    expect(release).toHaveBeenCalled();
+    expect(events.at(-1)?.type).toBe("pointer/end");
   });
 
   test("a pan that never moved does not settle the camera", () => {

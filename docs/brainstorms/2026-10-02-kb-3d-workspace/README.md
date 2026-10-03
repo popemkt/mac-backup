@@ -275,6 +275,30 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
       `depth`, shown as a badge.
     - Every handle feeds the canvas pointer reducer. A preview never writes,
       and a release is one history step and one `tx.apply`.
+    - Built in step 4 (the gizmo): `TransformControls` from the r186 addons,
+      as decision 15 says, with three choices made in the doing.
+      - It is driven entirely by kb's gestures. They hand it the camera
+        model's ray (`screenRay`) through its public `pointerHover/Down/
+        Move/Up` with a null pointer, so its raycaster never reads a DOM
+        event. They ask it first, so a handle wins over the item behind it.
+      - Its motion comes back as one `CanvasTransform`: a move, a turn about
+        the pivot, and a stretch along the stand-in's axes. One module
+        (`canvas-scene-space.ts`) holds the y flip, and a test drives real
+        handles through the camera model. A drag right moves +x, a drag up
+        the page moves -y, and a clockwise ring turn from the top is +z.
+      - Through the orthographic lens, the controls get an orthographic twin
+        of the stage camera, a screen's height from the focus. The stage
+        draws that lens with a perspective camera set very far back, and
+        the controls size handles and pace turns by camera distance.
+      - **Local space follows the first selected item** for the whole
+        selection. Blender gives each item its own axes, which a single
+        stand-in cannot show. **Scale across a turned item's axes**
+        stretches each side by how far its own axis grows, because the
+        record holds no shear. The mode and space are page state, not
+        document state: Move and Global on each visit, as in Blender.
+      - The controls' Y arrow points along three's +y, which is canvas -y.
+        Its arrows are drawn at both ends, so no direction reads wrong.
+      - Verified on WebGPU and on the WebGL2 fallback.
     - Built in step 4 (the 2D half): the rotate handle sits on a stem above
       a selected card's top edge, inside the face, so it turns with it. It
       turns the whole selection about its bounding box centre. Every handle

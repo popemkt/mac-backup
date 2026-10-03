@@ -141,7 +141,8 @@ const SCENES: readonly (readonly [string, Mount])[] = [
             edges: [{ id: "e", fromNode: "a", toNode: "b", toEnd: "arrow" }],
           },
           nodes: new Map(),
-          selection: { nodeIds: new Set(), edgeIds: new Set() },
+          // A selection, so the gizmo stands on it and is drawn (and given back) too.
+          selection: { nodeIds: new Set(["a"]), edgeIds: new Set() },
         },
         look: {
           face: "rgb(20, 20, 30)",
@@ -160,6 +161,7 @@ const SCENES: readonly (readonly [string, Mount])[] = [
         dark: true,
         timing: TIMING_FALLBACK,
         reducedMotion: reduced,
+        gizmo: { mode: "rotate", space: "local" },
       });
       // A handover in flight: the scene must still stop, hide and hold still on cue.
       rig.flyTo({ ...view, yaw: 0.4 });

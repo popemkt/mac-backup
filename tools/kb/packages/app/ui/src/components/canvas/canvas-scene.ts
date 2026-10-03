@@ -6,13 +6,14 @@
  * of the canvas that touches three, and load only inside `canvas-3d-stage`'s
  * lazy chunk.
  *
- * - **Items** and **edges** are their layers'.
+ * - **Items** and **edges** are their layers'; the **gizmo** on the
+ *   selection is `canvas-scene-gizmo`'s.
  * - **The canvas plane** is the floor, and carries the 2D dot grid, fading
  *   out with distance.
  * - **The camera** is the rig's view (`components/canvas/canvas-camera-rig`), stepped and
  *   applied every frame, through either lens; canvas space (y down the top
  *   view) maps to three's (y up it) by flipping y, for points and camera
- *   alike, and z is up in both.
+ *   alike, and z is up in both (`canvas-scene-space`).
  *
  * Untoned and unbloomed: a card's face is its tokens' colours, unlit, and
  * a solid's body is the rig's matcap finish, shaded without lights.
@@ -33,7 +34,16 @@ import { toScreen, type ScreenPoint } from "@/scene/gpu/screen";
 import type { SceneBackend } from "@/scene/backend";
 import type { SceneHandle } from "@/scene/host";
 import type { ScenePalette } from "@/scene/palette";
-import { PERSPECTIVE_FOV, cameraPose, type CanvasView, type ViewSize } from "./canvas-camera";
+import {
+  PERSPECTIVE_FOV,
+  cameraPose,
+  type CanvasPoint,
+  type CanvasView,
+  type ViewSize,
+} from "./canvas-camera";
+import type { GizmoChoice, SceneGizmo } from "./canvas-gizmo";
+import { GizmoLayer } from "./canvas-scene-gizmo";
+import { toThree } from "./canvas-scene-space";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import type { Timing } from "@/sdk";
 import { over, type CardLook } from "./canvas-card-face";
@@ -49,6 +59,8 @@ export interface CanvasSceneInit {
   readonly dark: boolean;
   readonly timing: Timing;
   readonly reducedMotion: boolean;
+  /** Which transform the gizmo on the selection shows, and along which axes. */
+  readonly gizmo: GizmoChoice;
 }
 
 /** What a render spec and the projection contract read back from a mounted scene. */
@@ -79,6 +91,10 @@ interface CanvasSceneInspection {
 export interface CanvasScene extends SceneHandle {
   setContent(content: CanvasSceneContent): void;
   setLook(look: CardLook, palette: ScenePalette, dark: boolean): void;
+  /** Which transform the gizmo on the selection shows, and along which axes. */
+  setGizmo(choice: GizmoChoice): void;
+  /** The gizmo, as the gestures drive it. */
+  readonly gizmo: SceneGizmo;
   inspect(): CanvasSceneInspection;
 }
 
@@ -96,8 +112,6 @@ const PLANE_Z = -1;
 const GRID_STEP = 20;
 const GRID_DOT = 1.1;
 
-const flip = (p: { x: number; y: number; z: number }, out: Vector3) => out.set(p.x, -p.y, p.z);
-
 /**
  * Aim three's camera at `view`, for a canvas of `size`; how far the eye
  * stands from the focus. An orthographic view keeps the perspective camera
@@ -108,10 +122,10 @@ function applyView(camera: PerspectiveCamera, view: CanvasView, size: ViewSize, 
   const ortho = view.fov < MIN_FOV;
   const pose = cameraPose(view, size);
   camera.aspect = size.width / Math.max(1, size.height);
-  flip(pose.target, eye);
-  flip(pose.eye, camera.position);
+  toThree(pose.target, eye);
+  toThree(pose.eye, camera.position);
   if (ortho) camera.position.sub(eye).setLength(ORTHO_EYE).add(eye);
-  flip(pose.up, camera.up);
+  toThree(pose.up, camera.up);
   camera.lookAt(eye);
   const distance = camera.position.distanceTo(eye);
   if (ortho) {
@@ -176,6 +190,34 @@ function canvasPlane() {
   };
 }
 
+/**
+ * `gizmo` as the gestures drive it: each answer for the view as it is drawn
+ * now, at the viewport's size, and the frame redrawn after it.
+ */
+function drivenGizmo(
+  gizmo: GizmoLayer,
+  view: () => CanvasView,
+  size: ViewSize,
+  redraw: () => void,
+): SceneGizmo {
+  const handled =
+    <T>(run: (v: CanvasView, s: ViewSize, local: CanvasPoint) => T) =>
+    (local: CanvasPoint): T => {
+      const answer = run(view(), size, local);
+      redraw();
+      return answer;
+    };
+  return {
+    hover: handled((v, s, local) => gizmo.hover(v, s, local)),
+    press: handled((v, s, local) => gizmo.press(v, s, local)),
+    drag: handled((v, s, local) => gizmo.drag(v, s, local)),
+    release: () => {
+      gizmo.release();
+      redraw();
+    },
+  };
+}
+
 export async function mountCanvasScene(
   host: HTMLElement,
   init: CanvasSceneInit,
@@ -208,9 +250,14 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
   const plane = canvasPlane();
   plane.setLook(init.look);
   scene.add(plane.mesh, edges.root, cards.root);
+  const gizmo = new GizmoLayer(scene, camera);
+  let gizmoChoice: GizmoChoice = init.gizmo;
   let content = init.content;
+  /** The selected items, which the gizmo stands on. */
+  const selected = () => content.doc.nodes.filter((n) => content.selection.nodeIds.has(n.id));
   cards.sync(content);
   edges.sync(content);
+  gizmo.setTarget(selected(), gizmoChoice);
   const { rig } = init;
   rig.wake = stage.invalidate;
   // The stage steps every frame by 0 under reduced motion; a flight must land instead.
@@ -223,6 +270,7 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
     viewport.width = canvas.clientWidth || viewport.width;
     viewport.height = canvas.clientHeight || viewport.height;
     const distance = applyView(camera, rig.view, viewport, eye);
+    gizmo.follow(rig.view, viewport, rig.view.fov < MIN_FOV);
     fog.near.value = distance * 1.25;
     fog.far.value = distance * 4.5;
     plane.follow(rig.view, viewport);
@@ -239,8 +287,15 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
       content = next;
       cards.sync(content);
       edges.sync(content);
+      gizmo.setTarget(selected(), gizmoChoice);
       stage.invalidate();
     },
+    setGizmo: (choice: GizmoChoice) => {
+      gizmoChoice = choice;
+      gizmo.setTarget(selected(), gizmoChoice);
+      stage.invalidate();
+    },
+    gizmo: drivenGizmo(gizmo, () => rig.view, viewport, stage.invalidate),
     setLook: (look: CardLook, palette: ScenePalette, dark: boolean) => {
       stage.setPalette(palette);
       plane.setLook(look);
@@ -289,6 +344,7 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
     setReducedMotion: (reduced: boolean) => rig.setReducedMotion(reduced),
     dispose: () => {
       rig.wake = () => {};
+      gizmo.dispose();
       edges.dispose();
       cards.dispose();
       plane.dispose();
