@@ -23,6 +23,7 @@ import {
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
 import { cn, isOutside } from "@/sdk";
+import { AXIS_INK } from "./canvas-gizmo";
 
 export interface CanvasViewWidgetProps {
   readonly rig: CanvasCameraRig;
@@ -38,13 +39,6 @@ export interface CanvasViewWidgetProps {
 }
 
 type Axis = "x" | "y" | "z";
-
-/** Each axis's colour: X red, Y green, Z blue, as every 3D tool draws them. */
-const AXIS_INK: Record<Axis, string> = {
-  x: "var(--axis-x)",
-  y: "var(--axis-y)",
-  z: "var(--axis-z)",
-};
 
 /** The view from each axis end; none from under the floor. */
 const END_VIEWS: Record<

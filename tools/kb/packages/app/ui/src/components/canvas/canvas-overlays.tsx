@@ -11,6 +11,8 @@ import { GIZMO_MODES, type GizmoChoice } from "./canvas-gizmo";
 import { cn } from "@/sdk";
 
 interface CanvasOverlaysProps {
+  /** A modal transform is under way: its readout stands where the selection toolbar does. */
+  transforming: boolean;
   projection: CanvasProjectionKind;
   onProjectionChange: (projection: CanvasProjectionKind) => void;
   selection: CanvasSelection;
@@ -167,6 +169,7 @@ function SelectionBar({
 }
 
 export function CanvasOverlays({
+  transforming,
   projection,
   onProjectionChange,
   selection,
@@ -205,7 +208,7 @@ export function CanvasOverlays({
         onToolDoubleClick={onToolDoubleClick}
       />
 
-      {!selectionEmpty(selection) && !inspectorAnchor && !itemInspectorAnchor && (
+      {!transforming && !selectionEmpty(selection) && !inspectorAnchor && !itemInspectorAnchor && (
         <SelectionBar
           count={selection.nodeIds.size + selection.edgeIds.size}
           canInspect={selectedItem !== null}

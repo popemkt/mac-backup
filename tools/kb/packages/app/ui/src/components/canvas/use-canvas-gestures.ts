@@ -91,7 +91,7 @@ function createPointerEnd(context: StageGestureContext, cardAt: CardAt) {
     const next = context.dispatchPointer({
       type: "pointer/end",
       shiftKey: event.shiftKey,
-      free: event.metaKey,
+      free: event.metaKey || event.ctrlKey,
       screen: viewportPoint(event.clientX, event.clientY, event.currentTarget),
       edgeTargetId: edgeTarget,
       edgeId: drag?.kind === "edge" ? ulid() : undefined,
@@ -309,13 +309,37 @@ function createStageGestures(
       type: "pointer/move",
       screen: viewportPoint(e.clientX, e.clientY, e.currentTarget),
       shiftKey: e.shiftKey,
-      free: e.metaKey,
+      free: e.metaKey || e.ctrlKey,
     });
+  };
+
+  const modal = () => {
+    const drag = context.pointerRef.current.drag;
+    return drag?.kind === "transform" && drag.modal;
+  };
+  /**
+   * During a modal transform a press only ends it, and reaches nothing under
+   * it: the left button confirms; the right one cancels, through the context
+   * menu it asks for (Blender's). Whether it was such a press.
+   */
+  const onModalPress = (e: React.PointerEvent<HTMLDivElement>): boolean => {
+    if (!modal()) return false;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.button === 0) dispatchPointer({ type: "transform/confirm" });
+    return true;
+  };
+  const onContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!modal()) return;
+    e.preventDefault();
+    dispatchPointer({ type: "pointer/cancel" });
   };
 
   const onPointerUp = createPointerEnd(context, cardAt);
   return {
+    onContextMenu,
     onDoubleClickStage,
+    onModalPress,
     onPointerDownStage,
     onPointerMove,
     onPointerUp,

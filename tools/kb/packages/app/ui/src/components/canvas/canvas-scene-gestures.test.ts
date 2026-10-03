@@ -31,6 +31,7 @@ function harness(
     items: () => items,
     selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
     spaceDown: () => false,
+    transforming: () => false,
     gizmo: () => gizmo,
     cardPress: (_card, _press, startMove) => startMove(),
     dispatch: (event) => events.push(event),
@@ -118,6 +119,7 @@ describe("gestures over the 3D canvas", () => {
       move: { x: 30, y: 0, z: 0 },
       turn: [1, 0, 0, 0, 1, 0, 0, 0, 1] as const,
       stretch: { x: 1, y: 1, z: 1 },
+      extrude: 0,
     };
     const release = vi.fn();
     const gizmo: SceneGizmo = {

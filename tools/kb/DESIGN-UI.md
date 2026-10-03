@@ -1044,19 +1044,61 @@ manipulation feel professional rather than merely functional.
   centre comes over (its footprint, not its box), and one taken off a pile
   comes down to the floor; an item raised off every solid keeps its
   height. It owns **angle snap** too: a turn, from any handle, goes in 15°
-  steps about its own axis (`snapTurn`). Holding ⌘ suspends every snap.
+  steps about its own axis (`snapTurn`). And it owns the **grid**
+  (`GRID_STEP`, 20 units: the dot grid both projections draw). A transform
+  is snapped one of two ways by what made it: a carry across the floor
+  plan (a drag, an unconstrained grab) aligns and stands on surfaces
+  (`snapCarry`); every other one — a constrained or Alt grab, a rotate, a
+  scale, an extrude, any gizmo handle — snaps precisely (`snapPrecise`): its
+  move aligns on each canvas axis it runs along within the tolerance and
+  otherwise steps by the grid from where it began (Blender's increment
+  snap), along a local axis too; its stretch lands the selection's extent
+  on grid multiples (alike every way for a uniform scale); its extrude
+  lands the lead item's depth on one. Holding ⌘ or Ctrl suspends every
+  snap, and a typed value is never snapped.
   `Shift+1` zoom-to-fit frames the
   bounding box with 40px padding. Zoom range is 0.1–3.0 (`MIN_ZOOM`/`MAX_ZOOM`).
 - **Sticky tools.** `components/canvas/canvas-tool.ts` is a pure reducer: picking a tool is
   one-shot (it returns to `select` after placing), double-clicking the tool icon
   makes it **sticky** for repeated placement, `Escape` always returns to select.
   Tools: select (V), text (T), rect (R), ellipse (O / C), diamond (D),
-  group (G / F), kb node (N), solid (B); digits `1`–`8` mirror the same
+  group (F), kb node (N), solid (B); digits `1`–`8` mirror the same
   order. The solid tool is tldraw's geo-tool pattern: one button wearing
   the solid last picked, with a picker beside it over `CANVAS_SOLID_PRESETS`
   (box, pillar, sphere, cone, shelf, wall), and B picks that solid again.
   One table (`TOOL_LOOKS`, typed over every tool) names and marks them. The
-  numpad's digits are views, not tools (Projections → view widget).
+  numpad's digits are views, not tools (Projections → view widget). G is
+  not a tool: it grabs.
+- **Modal transforms** (Blender's G, S and E; plan 2026-10-02 decision 9),
+  in both projections. With something selected, G grabs, S scales and E
+  extrudes the selection, following the pointer with no button held; inside
+  one, R rotates, G grabs and S scales, each starting afresh from where the
+  pointer is. X, Y or Z holds it to that canvas axis, the same key again to
+  the first selected item's own axis, and a third time lets go; ⇧X ⇧Y ⇧Z
+  hold it to the plane across that axis. Digits, `.`, `-` (negates) and
+  Backspace type an exact value — a distance along the axis (unconstrained,
+  along X), degrees, a factor, or a depth. A left click or ↵ confirms, as
+  one history step written through `ext.canvas.tx.apply`; Esc, a right
+  click or losing focus cancels and the preview goes. While one runs its
+  own chord map comes first and claims every key, so a digit types rather
+  than picks a tool, and nothing else (a tool, Delete, undo) happens.
+  Unconstrained, a grab carries across the floor plan as a drag does, a
+  rotate turns about the axis toward the eye (Z from the top, so in 2D it
+  is the rotate handle's turn) and a scale stretches every way about the
+  pivot (the centre of the selection's box); an extrude always grows along
+  the lead item's own Z from its base, which is how a flat item becomes a
+  solid. Each is one of the inputs every pointer-made transform is
+  (`canvas-transform-input.ts`): a drag is a grab held to the floor plan,
+  Alt-drag a grab held to Z, the rotate handle a rotate about Z, so a modal
+  transform is the same transform drag the pointer reducer previews and
+  writes for them and for the gizmo, and `transformItem` applies it. An
+  axis is read along the screen as it shows that axis (and up the screen
+  where it points at the eye), a plane through the camera's ray. While one
+  runs a guide line in the axis's colour runs through the pivot along each
+  axis it is held to (`canvas-transform-guides.tsx`, drawn from the camera
+  model over either projection), and a readout where the selection toolbar
+  stands says what it does, what it is held to and its value — the depth
+  badge an extrude shows in 2D.
 - **Edges are drawings** (the Logseq-whiteboards decision, unchanged): a live
   dashed bezier ghost during creation, smart port snapping by nearest Euclidean
   distance, 18×18px port targets, a 20px transparent hit path under the visible
@@ -1230,8 +1272,10 @@ open view of that canvas.
   the controls move back as one `CanvasTransform` (canvas y flipped back,
   `canvas-scene-space.ts`), which the pointer reducer previews and writes
   on release as one history step: the same transform drag the 2D rotate
-  handle makes, its turn snapped to 15°, ⌘ free. The controls' own snapping
-  is off. Through the orthographic lens they are handed an orthographic
+  handle and a modal transform make, snapped precisely (its move by the
+  grid, its turn by 15°, its scale to grid multiples), ⌘ or Ctrl free. The
+  controls' own snapping is off. A press during a modal transform ends it
+  rather than reaching a handle or an item. Through the orthographic lens they are handed an orthographic
   twin of the stage's camera, so handles keep their size and turns their
   pace.
   A drag on empty canvas orbits the turntable (across turns the floor with

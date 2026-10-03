@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { CanvasNode } from "@kb/canvas";
-import { snapCanvasLift, snapCanvasMove, snapToSurface } from "./canvas-snap";
+import {
+  IDENTITY,
+  stillAbout,
+  turnAbout,
+  type CanvasNode,
+  type CanvasTransform,
+  type CanvasVec,
+} from "@kb/canvas";
+import { snapCanvasMove, snapPrecise, snapToSurface } from "./canvas-snap";
 
 const node = (id: string, x: number): CanvasNode => ({
   id,
@@ -23,13 +30,19 @@ it("names the alignment it snapped to on each axis it snapped", () => {
     { axis: "y", pos: 0 },
   ]);
 });
+/** A transform about the origin that only moves, along the canvas's axes or `axes`. */
+const moveBy = (move: CanvasVec, axes = IDENTITY): CanvasTransform => ({
+  ...stillAbout({ x: 0, y: 0, z: 0 }),
+  axes,
+  move,
+});
+
 it("lifts to the heights other items stand at, within the same tolerance", () => {
   const raised = { ...node("b", 400), z: 120 };
-  expect(snapCanvasLift(node("a", 0), [raised], 117, 1)).toEqual({
-    dz: 120,
+  expect(snapPrecise(moveBy({ x: 0, y: 0, z: 117 }), [node("a", 0)], [raised], 1)).toEqual({
+    transform: moveBy({ x: 0, y: 0, z: 120 }),
     guides: [{ axis: "z", pos: 120 }],
   });
-  expect(snapCanvasLift(node("a", 0), [raised], 110, 1).dz).toBe(110);
 });
 it("keeps snapping tolerance consistent in screen pixels", () => {
   expect(snapCanvasMove(node("a", 0), [node("b", 208)], 100, 0, 0.5).dx).toBe(108);
@@ -38,7 +51,48 @@ it("keeps snapping tolerance consistent in screen pixels", () => {
 it("aligns an item's top as well as its base up the z axis", () => {
   const block = { ...node("b", 400), depth: 80 };
   // A flat card lifted near the block's top snaps onto it.
-  expect(snapCanvasLift(node("a", 0), [block], 77, 1).dz).toBe(80);
+  const lifted = snapPrecise(moveBy({ x: 0, y: 0, z: 77 }), [node("a", 0)], [block], 1);
+  expect(lifted.transform.move.z).toBe(80);
+});
+
+describe("precise transforms (constrained, gizmo, modal)", () => {
+  it("step a move by the grid along each axis it moves, where nothing aligns", () => {
+    const snapped = snapPrecise(moveBy({ x: 31, y: 0, z: 49 }), [node("a", 0)], [], 1);
+    expect(snapped.transform.move).toEqual({ x: 40, y: 0, z: 40 });
+    expect(snapped.guides).toEqual([]);
+  });
+
+  it("step a move along turned axes by the grid, along those axes", () => {
+    // Axes turned a quarter about z: the first runs down the page.
+    const turned = turnAbout({ x: 0, y: 0, z: 1 }, Math.PI / 2);
+    const snapped = snapPrecise(moveBy({ x: 0, y: 27, z: 0 }, turned), [node("a", 0)], [], 1);
+    expect(snapped.transform.move.y).toBeCloseTo(20, 9);
+    expect(snapped.transform.move.x).toBeCloseTo(0, 9);
+  });
+
+  it("land a stretch on grid multiples of the selection's extent, alike every way when alike", () => {
+    const grown = snapPrecise(
+      { ...stillAbout({ x: 0, y: 0, z: 0 }), stretch: { x: 1.37, y: 1.37, z: 1.37 } },
+      [node("a", 0)],
+      [],
+      1,
+    );
+    // 100 wide × 1.37 = 137, landed on 140.
+    expect(grown.transform.stretch).toEqual({ x: 1.4, y: 1.4, z: 1.4 });
+    const wider = snapPrecise(
+      { ...stillAbout({ x: 0, y: 0, z: 0 }), stretch: { x: 1.37, y: 1, z: 1 } },
+      [node("a", 0)],
+      [],
+      1,
+    );
+    expect(wider.transform.stretch).toEqual({ x: 1.4, y: 1, z: 1 });
+  });
+
+  it("land an extrude on a grid multiple of the lead's depth", () => {
+    const block = { ...node("a", 0), depth: 30 };
+    const grown = snapPrecise({ ...stillAbout({ x: 0, y: 0, z: 0 }), extrude: 17 }, [block], [], 1);
+    expect(grown.transform.extrude).toBe(10);
+  });
 });
 
 describe("surfaces", () => {

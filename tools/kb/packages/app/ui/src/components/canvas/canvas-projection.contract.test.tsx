@@ -356,6 +356,8 @@ const mount2d: Mount = async (view) => {
           pan,
           zoom,
           spaceDown: false,
+          onModalPress: () => false,
+          onContextMenu: () => {},
           toolState: { tool: "select" },
           editingEdgeLabel: null,
           edgeDrag: null,

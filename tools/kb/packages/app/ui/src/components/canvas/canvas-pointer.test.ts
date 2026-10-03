@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { CanvasDoc, CanvasNode } from "@kb/canvas";
 import { EMPTY_SELECTION, selectNode } from "./canvas-selection";
 import { projectPoint, viewOfPan, type CanvasView } from "./canvas-camera";
-import { ALONG_Z } from "./canvas-transform-input";
+import { ALONG_Z, type TransformKey } from "./canvas-transform-input";
 import {
   createPointerState,
   pointerReduce,
@@ -224,7 +224,7 @@ describe("a carry held to Z (Alt-drag)", () => {
   /** Looking level from the front through the orthographic lens, at 2×: up the screen is up. */
   const front: CanvasView = { ...top, pitch: Math.PI / 2, zoom: 2 };
 
-  test("a drag up raises the carried cards with the pointer", () => {
+  test("a drag up raises the carried cards with the pointer, by grid steps", () => {
     const ctx = context(doc, selectNode(moving.id), front);
     const started = reduce(
       createPointerState(),
@@ -243,7 +243,7 @@ describe("a carry held to Z (Alt-drag)", () => {
       { type: "pointer/move", screen: { x: 0, y: 40 }, shiftKey: false },
       ctx,
     );
-    expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(30);
+    expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(40);
     expect(lifted.persist).toBe("silent");
     const released = reduce(
       lifted.state,
@@ -255,7 +255,7 @@ describe("a carry held to Z (Alt-drag)", () => {
     expect(released.persist).toBe("history");
   });
 
-  test("from the top, where Z points at the eye, it follows the pointer up the screen", () => {
+  test("from the top, where Z points at the eye, it follows the pointer up the screen (⌘: exactly)", () => {
     const zoomed = { ...top, zoom: 2 };
     const ctx = context(doc, selectNode(moving.id), zoomed);
     const started = reduce(
@@ -265,7 +265,7 @@ describe("a carry held to Z (Alt-drag)", () => {
     );
     const lifted = reduce(
       started.state,
-      { type: "pointer/move", screen: { x: 0, y: 40 }, shiftKey: false },
+      { type: "pointer/move", screen: { x: 0, y: 40 }, shiftKey: false, free: true },
       ctx,
     );
     expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(30);
@@ -462,27 +462,29 @@ describe("turning", () => {
     expect(z).toBeCloseTo(47, 3);
   });
 
-  test("a handle that reports whole transforms is previewed and written the same way", () => {
+  test("a handle that reports whole transforms is previewed, snapped and written the same way", () => {
     const started = reduce(createPointerState(), { type: "transform/start" });
-    const lifted = reduce(started.state, {
-      type: "transform/move",
-      transform: {
-        pivot: { x: 50, y: 30, z: 0 },
-        axes: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-        move: { x: 0, y: 0, z: 25 },
-        turn: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-        stretch: { x: 1, y: 1, z: 1 },
-      },
-    });
+    const transform = {
+      pivot: { x: 50, y: 30, z: 0 },
+      axes: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+      move: { x: 0, y: 0, z: 25 },
+      turn: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+      stretch: { x: 1, y: 1, z: 1 },
+      extrude: 0,
+    } as const;
+    // Its move steps by the grid; with ⌘ held, it goes exactly where the handle has it.
+    const free = reduce(started.state, { type: "transform/move", transform, free: true });
+    expect(free.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(25);
+    const lifted = reduce(started.state, { type: "transform/move", transform });
     expect(lifted.persist).toBe("silent");
-    expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(25);
+    expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(20);
     const released = reduce(
       lifted.state,
       { type: "pointer/end", screen: { x: 0, y: 0 } },
       context(lifted.doc),
     );
     expect(released.persist).toBe("history");
-    expect(released.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(25);
+    expect(released.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(20);
   });
 
   test("a turned item resizes along its own sides, its far corner held", () => {
@@ -524,5 +526,120 @@ describe("turning", () => {
       free: true,
     });
     expect(free.doc?.nodes.find((n) => n.id === moving.id)?.x).toBe(97);
+  });
+});
+
+/** The modal key a key stands for: an axis, a mode, or a typed character. */
+function keyOf(k: string): TransformKey {
+  if (k === "x" || k === "y" || k === "z") return { kind: "axis", axis: k, plane: false };
+  if (k === "r" || k === "g" || k === "s") {
+    return { kind: "mode", mode: ({ r: "rotate", g: "grab", s: "scale" } as const)[k] };
+  }
+  return { kind: "type", key: k };
+}
+
+describe("modal transforms (G, S, E from the keyboard)", () => {
+  /** `moving` alone, away from `guide`'s alignments, grabbed with the pointer at (500, 500). */
+  const alone: CanvasDoc = { nodes: [moving], edges: [] };
+  const ctx = () => context(alone);
+  const begin = (mode: "grab" | "scale" | "extrude", at = { x: 500, y: 500 }) =>
+    reduce(createPointerState(), { type: "transform/begin", mode, screen: at }, ctx());
+  const shown = (r: { doc?: CanvasDoc }) => r.doc?.nodes.find((n) => n.id === moving.id);
+  const hover = (state: PointerState, at: { x: number; y: number }, free = false) =>
+    reduce(state, { type: "pointer/move", screen: at, shiftKey: false, free }, ctx());
+  const key = (state: PointerState, k: string) =>
+    reduce(state, { type: "transform/key", key: keyOf(k) }, ctx());
+
+  test("G follows the pointer with no button held, and a release does not end it", () => {
+    const moved = hover(begin("grab").state, { x: 537, y: 512 });
+    expect([shown(moved)?.x, shown(moved)?.y]).toEqual([37, 12]);
+    const released = reduce(
+      moved.state,
+      { type: "pointer/end", screen: { x: 537, y: 512 } },
+      ctx(),
+    );
+    expect(released.state.drag?.kind).toBe("transform");
+    expect(released.doc).toBeUndefined();
+  });
+
+  test("a confirm writes it as one history step; a cancel writes nothing", () => {
+    const moved = hover(begin("grab").state, { x: 537, y: 512 });
+    const confirmed = reduce(moved.state, { type: "transform/confirm" }, context(moved.doc));
+    expect(confirmed.persist).toBe("history");
+    expect(shown(confirmed)?.x).toBe(37);
+    expect(confirmed.state.drag).toBeNull();
+    const cancelled = reduce(moved.state, { type: "pointer/cancel" }, context(moved.doc));
+    expect(cancelled.persist).toBe("cancel");
+    expect(cancelled.doc).toBeUndefined();
+  });
+
+  test("X holds it to the x axis, and it steps by the grid there; ⌘ lets it go exactly", () => {
+    const held = key(begin("grab").state, "x");
+    const moved = hover(held.state, { x: 537, y: 560 });
+    expect([shown(moved)?.x, shown(moved)?.y]).toEqual([40, 0]);
+    expect([shown(hover(held.state, { x: 537, y: 560 }, true))?.x]).toEqual([37]);
+  });
+
+  test("X twice holds it to the lead item's own x; a third time lets go", () => {
+    const spun = { ...moving, rotation: { z: 90 } };
+    const turned = context({ nodes: [spun], edges: [] });
+    const begun = reduce(
+      createPointerState(),
+      { type: "transform/begin", mode: "grab", screen: { x: 500, y: 500 } },
+      turned,
+    );
+    const once = reduce(begun.state, { type: "transform/key", key: keyOf("x") }, turned);
+    const twice = reduce(once.state, { type: "transform/key", key: keyOf("x") }, turned);
+    // Its own x runs down the page: a drag down the page carries it there.
+    const down = reduce(
+      twice.state,
+      { type: "pointer/move", screen: { x: 500, y: 540 }, shiftKey: false },
+      turned,
+    );
+    const item = down.doc?.nodes.find((n) => n.id === spun.id);
+    expect(item?.x).toBeCloseTo(0, 6);
+    expect(item?.y).toBeCloseTo(40, 6);
+    const thrice = reduce(twice.state, { type: "transform/key", key: keyOf("x") }, turned);
+    expect(thrice.state.drag?.kind === "transform" && thrice.state.drag.input?.constraint).toBe(
+      null,
+    );
+  });
+
+  test("a typed value sets it exactly along the constraint, and - negates", () => {
+    let state = key(begin("grab").state, "y").state;
+    for (const k of ["1", "2", ".", "5", "-"]) state = key(state, k).state;
+    const typed = key(state, "Backspace");
+    // "-12.5" less its last character: -12.
+    expect([shown(typed)?.x, shown(typed)?.y]).toEqual([0, -12]);
+  });
+
+  test("R inside a modal turns, about the axis toward the eye; typed in degrees", () => {
+    let state = key(begin("grab").state, "r").state;
+    for (const k of ["3", "0"]) state = key(state, k).state;
+    const turned = reduce(state, { type: "transform/confirm" }, ctx());
+    expect(shown(turned)?.rotation).toEqual({ z: 30 });
+  });
+
+  test("S scales about the pivot by the pointer's reach from it, landing on grid multiples", () => {
+    // The pivot (50, 30) is on screen at (50, 30): from 100 away to 137 away is ×1.37.
+    const scaled = hover(begin("scale", { x: 150, y: 30 }).state, { x: 187, y: 30 });
+    expect(shown(scaled)?.width).toBe(140);
+  });
+
+  test("E extrudes up the screen from the top view, by the grid; typed, exactly", () => {
+    const grown = hover(begin("extrude").state, { x: 500, y: 455 });
+    expect(shown(grown)?.depth).toBe(40);
+    let state = begin("extrude").state;
+    for (const k of ["3", "3"]) state = key(state, k).state;
+    expect(shown(reduce(state, { type: "transform/confirm" }, ctx()))?.depth).toBe(33);
+  });
+
+  test("with nothing selected, G begins nothing", () => {
+    const none = reduce(
+      createPointerState(),
+      { type: "transform/begin", mode: "grab", screen: { x: 0, y: 0 } },
+      context(alone, EMPTY_SELECTION),
+    );
+    expect(none.state.drag).toBeNull();
   });
 });

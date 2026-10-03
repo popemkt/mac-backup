@@ -119,6 +119,9 @@ function press(chord: Chord, selection: CanvasSelection = selectNode("a")): Reco
   let zoom = 1;
   const context = {
     cancelPointer: () => log.push("cancelPointer"),
+    dispatchPointer: (event: { type: string }) => log.push(`pointer=${event.type}`),
+    pointerAt: () => ({ x: 10, y: 20 }),
+    transforming: () => false,
     byId: new Map(doc.nodes.map((node) => [node.id, node])),
     docRef,
     selRef,
@@ -212,7 +215,9 @@ describe("the canvas keydown table", () => {
     ["tool ellipse (o)", { key: "o" }, ["tool=ellipse"]],
     ["tool ellipse (c)", { key: "c" }, ["tool=ellipse"]],
     ["tool diamond (d)", { key: "d" }, ["tool=diamond"]],
-    ["tool group (g)", { key: "g" }, ["tool=group"]],
+    ["tool group (f)", { key: "f" }, ["tool=group"]],
+    ["grab (g)", { key: "g" }, ["anchor=null", "shapeAnchor=null", "pointer=transform/begin"]],
+    ["extrude (e)", { key: "e" }, ["anchor=null", "shapeAnchor=null", "pointer=transform/begin"]],
     ["kb-node picker (n)", { key: "n" }, ["tool=select", "picker=true"]],
     ["zoom in", { key: "=", metaKey: true }, ["zoom=1.15"]],
     ["zoom in (+)", { key: "+", metaKey: true }, ["zoom=1.15"]],

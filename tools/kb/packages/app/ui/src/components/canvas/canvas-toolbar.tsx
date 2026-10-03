@@ -30,7 +30,7 @@ const TOOL_LOOKS: {
   rect: { label: "Rectangle (R)", icon: <SquareIcon size={16} /> },
   ellipse: { label: "Ellipse (O)", icon: <CircleIcon size={16} /> },
   diamond: { label: "Diamond (D)", icon: <DiamondIcon size={16} /> },
-  group: { label: "Group / Frame (G)", icon: <FrameCornersIcon size={16} /> },
+  group: { label: "Group / Frame (F)", icon: <FrameCornersIcon size={16} /> },
   "kb-node": { label: "Add kb node (N)", icon: <PlusIcon size={16} /> },
   box: { label: "Box", icon: <CubeIcon size={16} /> },
   pillar: { label: "Pillar", icon: <CylinderIcon size={16} /> },

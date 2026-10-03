@@ -1,8 +1,8 @@
 /**
  * One transform of a set of items about a pivot (plan 2026-10-02, decision
- * 10): what a gizmo drag, a top-view rotate handle and, later, a modal
- * grab, scale or rotate each make, and the one place that applies it to an
- * item's record. Every item stays the record it is — its footprint, `z`,
+ * 10): what a drag, a gizmo drag, a top-view rotate handle and a modal
+ * grab, rotate, scale or extrude each make, and the one place that applies
+ * it to an item's record. Every item stays the record it is — its footprint, `z`,
  * `depth` and `rotation`, in world coordinates — so a transform rewrites
  * those numbers and nothing else.
  */
@@ -18,11 +18,11 @@ import {
 } from "./rotation.ts";
 
 /**
- * A transform about `pivot`: stretch by `stretch` along `axes`, then `turn`,
- * then `move`, each about the pivot. `axes` (its columns, in the canvas's
- * own axes) are the axes the transform was made along — the canvas's, or a
- * handle's or a constraint's own — so a stretch runs along them, and
- * snapping steps along them too.
+ * A transform about `pivot`: stretch by `stretch` along `axes`, extrude,
+ * then `turn`, then `move`, each about the pivot. `axes` (its columns, in
+ * the canvas's own axes) are the axes the transform was made along — the
+ * canvas's, or a handle's or a constraint's own — so a stretch runs along
+ * them, and snapping steps along them too.
  */
 export interface CanvasTransform {
   readonly pivot: CanvasVec;
@@ -31,6 +31,12 @@ export interface CanvasTransform {
   readonly turn: CanvasMatrix;
   /** How far each of `axes` is stretched: 1 leaves it be. */
   readonly stretch: CanvasVec;
+  /**
+   * The length added to each item's depth, along its own Z from its base,
+   * which holds (Blender's E, which makes a flat item a solid): what a
+   * stretch cannot do, since a flat item stretched stays flat.
+   */
+  readonly extrude: number;
 }
 
 const ZERO: CanvasVec = { x: 0, y: 0, z: 0 };
@@ -38,7 +44,7 @@ const ONES: CanvasVec = { x: 1, y: 1, z: 1 };
 
 /** A transform that leaves everything where it is, about `pivot`. */
 export function stillAbout(pivot: CanvasVec): CanvasTransform {
-  return { pivot, axes: IDENTITY, move: ZERO, turn: IDENTITY, stretch: ONES };
+  return { pivot, axes: IDENTITY, move: ZERO, turn: IDENTITY, stretch: ONES, extrude: 0 };
 }
 
 /** The smallest an item's footprint side may be stretched to, canvas units. */
@@ -70,8 +76,10 @@ const length = (v: CanvasVec) => Math.hypot(v.x, v.y, v.z);
  * `node` transformed by `t`. Its centre moves as a point does; its own axes
  * turn with `turn`; and each of its sides stretches by how far the stretch
  * lengthens that side's axis (a stretch across a turned item's axes is
- * taken as that, not as a shear its record could not hold). An item `t`
- * does not turn keeps its `rotation` exactly as written.
+ * taken as that, not as a shear its record could not hold). An extrude
+ * then grows its depth along its own Z as turned, its base held, never
+ * below flat. An item `t` does not turn keeps its `rotation` exactly as
+ * written.
  */
 // A stretch along axes that are not the item's own cannot shear its record,
 // so each side stretches by how far its own axis grows.
@@ -86,11 +94,6 @@ export function transformItem<N extends CanvasNode>(node: N, t: CanvasTransform)
     z: frame.centre.z - t.pivot.z,
   };
   const to = apply(t.turn, apply(stretch, from));
-  const centre = {
-    x: t.pivot.x + t.move.x + to.x,
-    y: t.pivot.y + t.move.y + to.y,
-    z: t.pivot.z + t.move.z + to.z,
-  };
   const column = (i: 0 | 1 | 2): CanvasVec => ({
     x: frame.matrix[i],
     y: frame.matrix[3 + i] ?? 0,
@@ -99,14 +102,21 @@ export function transformItem<N extends CanvasNode>(node: N, t: CanvasTransform)
   const factor = (i: 0 | 1 | 2) => length(apply(stretch, column(i)));
   const width = fine(Math.max(MIN_SIDE, node.width * factor(0)));
   const height = fine(Math.max(MIN_SIDE, node.height * factor(1)));
-  const depth = fine(frame.half.z * 2 * factor(2));
+  const stretched = frame.half.z * 2 * factor(2);
+  const depth = fine(Math.max(0, stretched + t.extrude));
+  // Grown from its base: the centre rises half the growth along the item's own Z, as turned.
+  const matrix = multiply(t.turn, frame.matrix);
+  const rise = (depth - stretched) / 2;
+  const centre = {
+    x: t.pivot.x + t.move.x + to.x + matrix[2] * rise,
+    y: t.pivot.y + t.move.y + to.y + matrix[5] * rise,
+    z: t.pivot.z + t.move.z + to.z + matrix[8] * rise,
+  };
   const x = fine(centre.x - width / 2);
   const y = fine(centre.y - height / 2);
   const placed = withElevation(
     withDepth({ ...node, x, y, width, height }, depth),
     fine(centre.z - depth / 2),
   );
-  return same(t.turn, IDENTITY)
-    ? placed
-    : withRotation(placed, rotationOfMatrix(multiply(t.turn, frame.matrix)));
+  return same(t.turn, IDENTITY) ? placed : withRotation(placed, rotationOfMatrix(matrix));
 }

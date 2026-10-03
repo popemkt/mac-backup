@@ -230,6 +230,7 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
         "src/components/canvas/canvas-stage.tsx",
         "src/components/canvas/canvas-tool.ts",
         "src/components/canvas/canvas-toolbar.tsx",
+        "src/components/canvas/canvas-transform-guides.tsx",
         "src/components/canvas/canvas-transform-input.ts",
         "src/components/canvas/canvas-view-widget.tsx",
         "src/components/canvas/canvas-visible.ts",

@@ -49,6 +49,8 @@ export interface SceneGestureHost {
   readonly items: () => readonly CanvasNode[];
   readonly selection: () => CanvasSelection;
   readonly spaceDown: () => boolean;
+  /** A modal transform (G, S, E) is under way. */
+  readonly transforming: () => boolean;
   /** The gizmo on the selection. */
   readonly gizmo: () => SceneGizmo;
   /** A press on a card: select or toggle it, then `startMove` to carry it. */
@@ -73,6 +75,9 @@ type Gesture =
       readonly startY: number;
     };
 
+/** ⌘ or Ctrl held: every snap suspended. */
+const freeOf = (press: ScenePress) => press.metaKey || press.ctrlKey;
+
 /** What the pointer looks like over the scene. */
 export type SceneCursor = "" | "grab" | "grabbing";
 
@@ -91,6 +96,13 @@ export class SceneGestures {
 
   /** A press went down; whether the host should capture the pointer. */
   down(press: ScenePress): boolean {
+    if (this.host.transforming()) {
+      // A press only ends a modal transform: the left button confirms, any other cancels.
+      this.host.dispatch(
+        press.button === 0 ? { type: "transform/confirm" } : { type: "pointer/cancel" },
+      );
+      return false;
+    }
     const pans = press.button === 1 || press.button === 2 || this.host.spaceDown();
     if (!pans && press.button !== 0) return false;
     if (!pans && this.host.gizmo().press(press.local)) {
@@ -118,19 +130,21 @@ export class SceneGestures {
 
   move(press: ScenePress): SceneCursor {
     const g = this.gesture;
+    const { shiftKey } = press;
+    const free = freeOf(press);
     if (g === null) {
+      // With no button held the pointer still counts: a modal transform follows it.
+      this.host.dispatch({ type: "pointer/move", screen: press.local, shiftKey, free });
+      if (this.host.transforming()) return "grabbing";
       if (this.host.gizmo().hover(press.local)) return "grab";
       return this.cardAt(press.local) === undefined ? "" : "grab";
     }
     if (g.kind === "gizmo") {
       const transform = this.host.gizmo().drag(press.local);
-      if (transform !== null) {
-        this.host.dispatch({ type: "transform/move", transform, free: press.metaKey });
-      }
+      if (transform !== null) this.host.dispatch({ type: "transform/move", transform, free });
       return "grabbing";
     }
     if (g.kind === "card") {
-      const { shiftKey, metaKey: free } = press;
       this.host.dispatch({ type: "pointer/move", screen: press.local, shiftKey, free });
       return "grabbing";
     }
@@ -149,11 +163,11 @@ export class SceneGestures {
     if (g === null) return;
     if (g.kind === "gizmo" || g.kind === "card") {
       if (g.kind === "gizmo") this.host.gizmo().release();
-      const { shiftKey, metaKey: free } = press;
+      const { shiftKey } = press;
       this.host.dispatch(
         cancelled
           ? { type: "pointer/cancel" }
-          : { type: "pointer/end", screen: press.local, shiftKey, free },
+          : { type: "pointer/end", screen: press.local, shiftKey, free: freeOf(press) },
       );
       return;
     }

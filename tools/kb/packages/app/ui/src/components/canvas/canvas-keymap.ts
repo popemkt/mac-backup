@@ -10,10 +10,14 @@
  * duplicates rather than picking the diamond, `Delete` deletes rather than
  * nudging, and a numpad view key looks from its view rather than picking the
  * tool of the same digit (or deleting, for numpad `.` with NumLock off).
+ * During a modal transform its own map comes first and claims every chord,
+ * so a digit types a value rather than picking a tool, and Escape cancels
+ * the transform rather than clearing the selection.
  */
 import type { CanvasProjectionKind } from "@kb/canvas";
 import type { CanvasTool, CanvasToolPick } from "./canvas-tool";
 import { CANVAS_VIEW_PRESETS, ZOOM_STEP, type CanvasViewPreset } from "./canvas-camera";
+import type { CanvasAxis, TransformKey, TransformMode } from "./canvas-transform-input";
 
 export interface CanvasKeyEvent {
   key: string;
@@ -41,7 +45,19 @@ export type CanvasIntent =
   | { type: "look"; preset: CanvasViewPreset }
   | { type: "toggleLens" }
   | { type: "projection"; kind: CanvasProjectionKind }
-  | { type: "viewMenu" };
+  | { type: "viewMenu" }
+  | { type: "transform"; act: TransformAct };
+
+/** What a key does to a modal transform. */
+export type TransformAct =
+  /** Begin one on the selection: G grab, S scale, E extrude. */
+  | { kind: "begin"; mode: Exclude<TransformMode, "rotate"> }
+  /** During one: an axis, a typed value, or another mode. */
+  | { kind: "key"; key: TransformKey }
+  /** During one: ⌘ or Ctrl went down, which suspends snapping. */
+  | { kind: "free" }
+  | { kind: "confirm" }
+  | { kind: "cancel" };
 
 /** What the camera can be asked to do: the view commands. */
 type CanvasViewIntent = Extract<
@@ -140,9 +156,11 @@ export interface CanvasKeyBinding {
 
 export interface CanvasKeyState {
   selectionEmpty: boolean;
+  /** A modal transform is under way. */
+  transforming: boolean;
 }
 
-/** Tool shortcuts, by lowercased key. */
+/** Tool shortcuts, by lowercased key. G is not one: it grabs (plan decision 9). */
 const TOOL_KEYS: Record<string, CanvasTool> = {
   v: "select",
   "1": "select",
@@ -157,10 +175,28 @@ const TOOL_KEYS: Record<string, CanvasTool> = {
   "5": "diamond",
   n: "kb-node",
   "6": "kb-node",
-  g: "group",
   f: "group",
   "7": "group",
 };
+
+/** The keys that begin a modal transform of the selection, by lowercased key (Blender's). */
+const TRANSFORM_KEYS: Record<string, Exclude<TransformMode, "rotate">> = {
+  g: "grab",
+  s: "scale",
+  e: "extrude",
+};
+
+/** Inside a modal transform: the keys that switch it (R is free there, so it rotates). */
+const MODE_KEYS: Record<string, Exclude<TransformMode, "extrude">> = {
+  g: "grab",
+  r: "rotate",
+  s: "scale",
+};
+
+const AXIS_KEYS: Record<string, CanvasAxis> = { x: "x", y: "y", z: "z" };
+
+/** What a key types into a modal transform's value. */
+const TYPED_KEY = /^[\d.-]$|^Backspace$/;
 
 /** The solid tool's keys (plan 2026-10-02 decision 9): which solid it is is the tool state's. */
 const SOLID_TOOL_KEYS = new Set(["b", "8"]);
@@ -256,6 +292,46 @@ const mapTool: ChordMap = (event) => {
   return tool === undefined ? null : claim({ type: "tool", tool });
 };
 
+/** G, S or E with no modifier begins a modal transform of the selection. */
+const mapTransform: ChordMap = (event, state) => {
+  if (mod(event) || event.shiftKey === true) return null;
+  const mode = TRANSFORM_KEYS[event.key.toLowerCase()];
+  return mode === undefined
+    ? null
+    : claimWithSelection({ type: "transform", act: { kind: "begin", mode } }, state);
+};
+
+/**
+ * A modal transform's own keys, ahead of every other map while one is under
+ * way: X Y Z (⇧ for the plane across), G R S, a typed value, ↵ to confirm,
+ * Esc to cancel, ⌘ or Ctrl to suspend snapping. Any other chord is claimed
+ * and does nothing, its browser default kept, so nothing else happens
+ * mid-transform.
+ */
+const mapModal: ChordMap = (event, state) => {
+  if (!state.transforming) return null;
+  if (event.key === "Escape") return claim({ type: "transform", act: { kind: "cancel" } }, false);
+  if (event.key === "Enter") return claim({ type: "transform", act: { kind: "confirm" } });
+  if (event.key === "Meta" || event.key === "Control")
+    return claim({ type: "transform", act: { kind: "free" } }, false);
+  if (mod(event)) return claim(null, false);
+  const key = event.key.toLowerCase();
+  const axis = AXIS_KEYS[key];
+  const plane = event.shiftKey === true;
+  if (axis !== undefined)
+    return claim({ type: "transform", act: { kind: "key", key: { kind: "axis", axis, plane } } });
+  const mode = MODE_KEYS[key];
+  if (mode !== undefined)
+    return claim({ type: "transform", act: { kind: "key", key: { kind: "mode", mode } } });
+  if (TYPED_KEY.test(event.key)) {
+    return claim({
+      type: "transform",
+      act: { kind: "key", key: { kind: "type", key: event.key } },
+    });
+  }
+  return claim(null, false);
+};
+
 const mapZoom: ChordMap = (event) => {
   if (mod(event) && (event.key === "=" || event.key === "+"))
     return claim({ type: "zoomBy", factor: ZOOM_STEP });
@@ -265,6 +341,7 @@ const mapZoom: ChordMap = (event) => {
 };
 
 const CHORD_MAPS: readonly ChordMap[] = [
+  mapModal,
   mapHistory,
   mapView,
   mapSelection,
@@ -272,6 +349,7 @@ const CHORD_MAPS: readonly ChordMap[] = [
   mapDuplicate,
   mapCanvasState,
   mapNudge,
+  mapTransform,
   mapTool,
   mapZoom,
 ];

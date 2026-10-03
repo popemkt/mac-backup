@@ -37,6 +37,7 @@ import type { ToolState } from "./canvas-tool";
 import { FIRST_GIZMO, type GizmoChoice } from "./canvas-gizmo";
 import { viewOfPan } from "./canvas-camera";
 import type { TransformCamera } from "./canvas-transform-input";
+import { CanvasTransformGuides } from "./canvas-transform-guides";
 import {
   EMPTY_SELECTION,
   deleteSelected,
@@ -47,6 +48,7 @@ import {
   createPointerState,
   pointerReduce,
   type CanvasPointerEvent,
+  type Point,
   type PointerResult,
   type PointerState,
 } from "./canvas-pointer";
@@ -136,8 +138,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     [cancelPreview, flushPersist, schedulePersist, previewDoc, setSelection],
   );
 
+  /** Where the pointer last was over either projection: where a modal transform begins. */
+  const lastPointer = useRef<Point | null>(null);
   const dispatchPointer = useCallback(
     (event: CanvasPointerEvent): PointerResult => {
+      if ("screen" in event) lastPointer.current = event.screen;
       const next = pointerReduce(pointerRef.current, event, {
         doc: docRef.current,
         selection: selRef.current,
@@ -180,7 +185,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   const {
     addKbNode,
+    onContextMenu,
     onDoubleClickStage,
+    onModalPress,
     onPointerDownStage,
     onPointerMove,
     onPointerUp,
@@ -217,8 +224,19 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   }, [dispatchPointer]);
 
   const viewport = projection.viewportOf(viewportControls);
+  const modal = pointerState.drag?.kind === "transform" && pointerState.drag.modal;
+  const modalDrag = modal ? pointerState.drag : null;
   const applyIntent = useCanvasKeyboard({
     cancelPointer,
+    dispatchPointer,
+    pointerAt: () => {
+      const { size } = projection.camera();
+      return lastPointer.current ?? { x: size.width / 2, y: size.height / 2 };
+    },
+    transforming: () => {
+      const drag = pointerRef.current.drag;
+      return drag?.kind === "transform" && drag.modal;
+    },
     byId,
     docRef,
     selRef,
@@ -318,6 +336,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             onPortDown={startEdge}
             onWheel={onWheel}
             onPointerDownStage={onPointerDownStage}
+            onModalPress={onModalPress}
+            onContextMenu={onContextMenu}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={cancelPointer}
@@ -344,6 +364,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 rig={projection.rig}
                 appearance={appearance}
                 spaceDown={spaceDown}
+                transforming={modal}
                 gizmo={gizmo}
                 onReady={projection.onSceneReady}
                 onError={projection.onSceneError}
@@ -374,7 +395,18 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           onMenuOpenChange={setViewMenuOpen}
           onIntent={applyIntent}
         />
+        {modalDrag?.kind === "transform" && modalDrag.input !== null && (
+          <CanvasTransformGuides
+            input={modalDrag.input}
+            applied={modalDrag.applied}
+            rig={projection.rig}
+            in3d={in3d}
+            flatView={projection.flatView()}
+            size={projection.camera().size}
+          />
+        )}
         <CanvasOverlays
+          transforming={modal}
           projection={projection.target}
           onProjectionChange={projection.choose}
           selection={selection}

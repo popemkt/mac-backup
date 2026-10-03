@@ -2,8 +2,9 @@ import { describe, expect, test } from "vitest";
 import { mapCanvasKey, type CanvasIntent, type CanvasKeyEvent } from "./canvas-keymap";
 import { ZOOM_STEP } from "./canvas-camera";
 
-const withSelection = { selectionEmpty: false };
-const empty = { selectionEmpty: true };
+const withSelection = { selectionEmpty: false, transforming: false };
+const empty = { selectionEmpty: true, transforming: false };
+const transforming = { selectionEmpty: false, transforming: true };
 
 const chord = (key: string, extra: Partial<CanvasKeyEvent> = {}): CanvasKeyEvent => ({
   key,
@@ -35,6 +36,9 @@ describe("with something selected", () => {
     [chord("c"), { type: "tool", tool: "ellipse" }],
     [chord("d"), { type: "tool", tool: "diamond" }],
     [chord("f"), { type: "tool", tool: "group" }],
+    [chord("g"), { type: "transform", act: { kind: "begin", mode: "grab" } }],
+    [chord("s"), { type: "transform", act: { kind: "begin", mode: "scale" } }],
+    [chord("e"), { type: "transform", act: { kind: "begin", mode: "extrude" } }],
     [chord("n"), { type: "tool", tool: "kb-node" }],
     [chord("b"), { type: "tool", tool: "solid" }],
     [chord("8"), { type: "tool", tool: "solid" }],
@@ -81,6 +85,52 @@ describe("order between the chord maps", () => {
       type: "zoomTo",
       zoom: 1,
     });
+  });
+});
+
+describe("a modal transform (G, S, E)", () => {
+  test("G, S and E need a selection, and G no longer picks the group tool", () => {
+    expect(mapCanvasKey(chord("g"), empty)).toEqual({ intent: null, preventDefault: true });
+    expect(mapCanvasKey(chord("g", { metaKey: true }), withSelection)).toBeNull();
+    expect(mapCanvasKey(chord("e", { shiftKey: true }), withSelection)).toBeNull();
+  });
+
+  const table: [CanvasKeyEvent, CanvasIntent | null][] = [
+    [
+      chord("x"),
+      { type: "transform", act: { kind: "key", key: { kind: "axis", axis: "x", plane: false } } },
+    ],
+    [
+      chord("Z", { shiftKey: true }),
+      { type: "transform", act: { kind: "key", key: { kind: "axis", axis: "z", plane: true } } },
+    ],
+    [
+      chord("r"),
+      { type: "transform", act: { kind: "key", key: { kind: "mode", mode: "rotate" } } },
+    ],
+    [chord("s"), { type: "transform", act: { kind: "key", key: { kind: "mode", mode: "scale" } } }],
+    [chord("3"), { type: "transform", act: { kind: "key", key: { kind: "type", key: "3" } } }],
+    [chord("."), { type: "transform", act: { kind: "key", key: { kind: "type", key: "." } } }],
+    [chord("-"), { type: "transform", act: { kind: "key", key: { kind: "type", key: "-" } } }],
+    [
+      chord("Backspace"),
+      { type: "transform", act: { kind: "key", key: { kind: "type", key: "Backspace" } } },
+    ],
+    [
+      chord("4", { code: "Numpad4" }),
+      { type: "transform", act: { kind: "key", key: { kind: "type", key: "4" } } },
+    ],
+    [chord("Enter"), { type: "transform", act: { kind: "confirm" } }],
+    [chord("Escape"), { type: "transform", act: { kind: "cancel" } }],
+    [chord("Meta"), { type: "transform", act: { kind: "free" } }],
+    // Everything else does nothing mid-transform: no tool, no delete, no undo.
+    [chord("t"), null],
+    [chord("Delete"), null],
+    [chord("z", { metaKey: true }), null],
+  ];
+
+  test.each(table)("during one, %o maps to %o", (event, intent) => {
+    expect(mapCanvasKey(event, transforming)?.intent).toEqual(intent);
   });
 });
 

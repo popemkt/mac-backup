@@ -27,6 +27,8 @@ export interface Canvas3dStageProps {
   readonly rig: CanvasCameraRig;
   readonly appearance: Appearance;
   readonly spaceDown: boolean;
+  /** A modal transform (G, S, E) is under way: a press ends it. */
+  readonly transforming: boolean;
   /** Which transform the gizmo on the selection shows, and along which axes. */
   readonly gizmo: GizmoChoice;
   /** The scene is drawing: the page crossfades to it. */
@@ -98,6 +100,7 @@ function useSceneGestures(
       items: () => props.doc.nodes,
       selection: () => props.selection,
       spaceDown: () => props.spaceDown,
+      transforming: () => props.transforming,
       gizmo: () => scene?.gizmo ?? NO_GIZMO,
       cardPress: props.onCardPress,
       dispatch: props.dispatchPointer,
@@ -162,6 +165,7 @@ const IDLE: SceneGestureHost = {
   items: () => [],
   selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
   spaceDown: () => false,
+  transforming: () => false,
   gizmo: () => NO_GIZMO,
   cardPress: () => {},
   dispatch: () => {},

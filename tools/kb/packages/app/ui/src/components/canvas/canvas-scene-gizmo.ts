@@ -162,6 +162,7 @@ export class GizmoLayer {
       turn: matrixFromThree(this.turn.makeRotationFromQuaternion(delta)),
       axes: matrixFromThree(this.turn.makeRotationFromQuaternion(grip.quaternion)),
       stretch: { x: Math.abs(scale.x), y: Math.abs(scale.y), z: Math.abs(scale.z) },
+      extrude: 0,
     };
   }
 

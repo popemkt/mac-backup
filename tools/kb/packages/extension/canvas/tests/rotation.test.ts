@@ -191,6 +191,30 @@ describe("transforming items about a pivot", () => {
     expect(transformItem(block, stillAbout({ x: 3, y: 4, z: 5 }))).toEqual(block);
   });
 
+  test("extruded, a flat item becomes a solid standing on its base", () => {
+    const flat: CanvasNode = { ...block, depth: undefined, z: 10 };
+    const grown = transformItem(flat, { ...stillAbout({ x: 0, y: 0, z: 0 }), extrude: 40 });
+    expect([grown.x, grown.y, grown.z, grown.depth]).toEqual([0, 0, 10, 40]);
+    // Pushed back past flat, it stays flat.
+    const sunk = transformItem(block, { ...stillAbout({ x: 0, y: 0, z: 0 }), extrude: -90 });
+    expect(sunk).not.toHaveProperty("depth");
+    expect(sunk).not.toHaveProperty("z");
+  });
+
+  test("extruded when turned, it grows along its own Z from its base", () => {
+    // Turned a quarter about x: its own Z runs along canvas -y.
+    const wall: CanvasNode = { ...block, rotation: { x: 90 } };
+    const base = boxCorners(wall).slice(0, 4);
+    const grown = transformItem(wall, { ...stillAbout({ x: 0, y: 0, z: 0 }), extrude: 20 });
+    expect(grown.depth).toBe(60);
+    const after = boxCorners(grown).slice(0, 4);
+    after.forEach((corner, i) => {
+      expect(corner.x).toBeCloseTo(base[i]?.x ?? NaN, 6);
+      expect(corner.y).toBeCloseTo(base[i]?.y ?? NaN, 6);
+      expect(corner.z).toBeCloseTo(base[i]?.z ?? NaN, 6);
+    });
+  });
+
   test("turned about its own centre, an item only turns", () => {
     const turned = transformItem(block, { ...stillAbout(selectionPivot([block])), turn: quarter });
     expect([turned.x, turned.y, turned.z, turned.width]).toEqual([0, 0, undefined, 100]);

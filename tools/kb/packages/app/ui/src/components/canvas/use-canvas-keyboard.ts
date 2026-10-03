@@ -10,9 +10,10 @@ import {
   selectAll,
   selectionEmpty,
 } from "./canvas-selection";
-import { mapCanvasKey, type CanvasIntent } from "./canvas-keymap";
+import { mapCanvasKey, type CanvasIntent, type TransformAct } from "./canvas-keymap";
 import { reduceCanvasTool, type CanvasToolPick, type ToolState } from "./canvas-tool";
 import type { CanvasViewportControls } from "./canvas-camera";
+import type { CanvasPointerEvent } from "./canvas-pointer";
 import { isTextEntry } from "@/sdk";
 
 /**
@@ -23,6 +24,12 @@ import { isTextEntry } from "@/sdk";
  */
 interface CanvasKeyboardContext {
   cancelPointer: () => void;
+  /** The pointer reducer, which owns a modal transform as it owns any other transform drag. */
+  dispatchPointer: (event: CanvasPointerEvent) => void;
+  /** Where the pointer last was over the canvas, as a viewport point: where a modal transform begins. */
+  pointerAt: () => { x: number; y: number };
+  /** A modal transform is under way. */
+  transforming: () => boolean;
   byId: Map<string, CanvasNode>;
   docRef: RefObject<CanvasDoc>;
   selRef: RefObject<CanvasSelection>;
@@ -151,6 +158,45 @@ function chooseTool(context: CanvasKeyboardContext, tool: CanvasToolPick) {
   context.setToolState((state) => reduceCanvasTool(state, { type: "set-tool", tool }));
 }
 
+/** Frame every item, or the selected ones. */
+function frameItems(context: CanvasKeyboardContext, scope: "all" | "selection"): void {
+  const { nodes } = context.docRef.current;
+  const chosen = context.selRef.current.nodeIds;
+  context.viewport.frame(scope === "all" ? nodes : nodes.filter((node) => chosen.has(node.id)));
+}
+
+/**
+ * A key's act on a modal transform: the pointer reducer owns the transform,
+ * so each act is one of its events; it begins where the pointer last was.
+ */
+function applyTransformAct(context: CanvasKeyboardContext, act: TransformAct): void {
+  switch (act.kind) {
+    case "begin":
+      context.setInspectorAnchor(null);
+      context.setItemInspectorAnchor(null);
+      context.dispatchPointer({
+        type: "transform/begin",
+        mode: act.mode,
+        screen: context.pointerAt(),
+      });
+      break;
+    case "key":
+      context.dispatchPointer({ type: "transform/key", key: act.key });
+      break;
+    case "free":
+      context.dispatchPointer({ type: "transform/free", free: true });
+      break;
+    case "confirm":
+      context.dispatchPointer({ type: "transform/confirm" });
+      break;
+    case "cancel":
+      context.cancelPointer();
+      break;
+    default:
+      break;
+  }
+}
+
 /** One intent, one effect. Exhaustive over {@link CanvasIntent}. */
 function applyCanvasIntent(context: CanvasKeyboardContext, intent: CanvasIntent): void {
   switch (intent.type) {
@@ -195,14 +241,9 @@ function applyCanvasIntent(context: CanvasKeyboardContext, intent: CanvasIntent)
     case "zoomTo":
       context.viewport.zoomTo(intent.zoom);
       break;
-    case "frame": {
-      const { nodes } = context.docRef.current;
-      const chosen = context.selRef.current.nodeIds;
-      context.viewport.frame(
-        intent.scope === "all" ? nodes : nodes.filter((node) => chosen.has(node.id)),
-      );
+    case "frame":
+      frameItems(context, intent.scope);
       break;
-    }
     case "look":
       context.viewport.look(intent.preset);
       break;
@@ -214,6 +255,9 @@ function applyCanvasIntent(context: CanvasKeyboardContext, intent: CanvasIntent)
       break;
     case "viewMenu":
       context.openViewMenu();
+      break;
+    case "transform":
+      applyTransformAct(context, intent.act);
       break;
     default:
       // `switch-exhaustiveness-check` turns a new intent without a case red.
@@ -228,6 +272,7 @@ export function useCanvasKeyboard(context: CanvasKeyboardContext): (intent: Canv
       if (isTextEntry(event.target)) return;
       const binding = mapCanvasKey(event, {
         selectionEmpty: selectionEmpty(context.selRef.current),
+        transforming: context.transforming(),
       });
       if (binding === null) return;
       if (binding.intent !== null) applyCanvasIntent(context, binding.intent);
@@ -235,6 +280,10 @@ export function useCanvasKeyboard(context: CanvasKeyboardContext): (intent: Canv
     };
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.code === "Space") context.setSpaceDown(false);
+      // ⌘ or Ctrl let go mid-transform: snapping is back (its keydown is the keymap's).
+      if ((event.key === "Meta" || event.key === "Control") && context.transforming()) {
+        context.dispatchPointer({ type: "transform/free", free: false });
+      }
     };
     const onBlur = () => {
       context.setSpaceDown(false);

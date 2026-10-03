@@ -432,14 +432,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3E9TMG3C90N8VBEDXGHHK45`
 
-### GAP: gizmo moves do not snap to the grid, gizmo scales do not snap to steps
-
-- **expected** — gizmo moves snap to the grid and scales snap to steps, like 2D drags
-- **current** — the gizmo moves and scales freely
-- **impact** — precise placement in 3D needs the inspector
-- **closes** — 3D plan step 5: modal G/S/E with snapping
-- **node** — `01M41W56TR6V8H0ZQVRWRFV24K`
-
 ### GAP: GraphPage carries 35 branches of renderer and perspective selection
 
 - **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
@@ -1222,6 +1214,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Defaults are duplicated between this function and the ontology, and a bad prop silently falls back per field.
 - **closes** — Track 2 domain typing: a ViewConfig Schema decoded once. Same gap as parsePerspective in graph-lens.
 - **node** — `01M1MGCJAKKST0C1R54VVX9HPX`
+
+### GAP: gizmo moves do not snap to the grid, gizmo scales do not snap to steps
+
+- **expected** — gizmo moves snap to the grid and scales snap to steps, like 2D drags
+- **current** — the gizmo moves and scales freely
+- **impact** — precise placement in 3D needs the inspector
+- **closes** — 3D plan step 5: modal G/S/E with snapping
+- **node** — `01M41W56TR6V8H0ZQVRWRFV24K`
 
 ### GAP: GraphPage embeds the ontology surface's picker
 

@@ -46,6 +46,16 @@ export interface SceneGizmo {
   release(): void;
 }
 
+/**
+ * Each canvas axis's colour, X red, Y green, Z blue, as every 3D tool draws
+ * them: the view widget's ends and a modal transform's guide lines.
+ */
+export const AXIS_INK: { readonly [A in "x" | "y" | "z"]: string } = {
+  x: "var(--axis-x)",
+  y: "var(--axis-y)",
+  z: "var(--axis-z)",
+};
+
 /** A gizmo with no handles: before the scene is up, and wherever nothing is selected. */
 export const NO_GIZMO: SceneGizmo = {
   hover: () => false,

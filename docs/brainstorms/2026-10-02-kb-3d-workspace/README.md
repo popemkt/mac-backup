@@ -254,6 +254,33 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
      with NumLock off frames instead of deleting.
    - **R stays rect** (tldraw, already shipped). Rotate is G then R, the
      gizmo ring, or the 2D rotate handle. **Owner question 3.**
+   - Built in step 5 (modal G, S, E), with five choices made in the doing.
+     - **The modals work in 2D too**, by the same code: every input reads
+       the pointer through the camera model, and 2D is the top view. The
+       plan was silent beyond decision 10's 2D `E`; Blender's 2D editors
+       (UV, node, sequencer) keep G, R and S with X and Y constraints, so
+       2D keeps them all. Z in 2D points at the eye and is followed up the
+       screen, which is the 2D `E` badge's gesture too.
+     - **Unconstrained, G carries across the floor plan**, as a drag does,
+       not in Blender's view plane: on a floor board the view plane would
+       lift items off it from any tilted orbit. R unconstrained turns about
+       the axis toward the eye (Blender's), which is Z from the top.
+     - **G, R and S switch afresh**: the new mode starts from where the
+       pointer is, and the last one's transform is set aside.
+     - **A typed value is one field**: a distance along the constraint's
+       axis (a plane's first axis; unconstrained, X), degrees, a factor or a
+       depth. Blender's Tab to the next field and expressions are not built.
+     - **⌘ or Ctrl suspends snapping while held**, since kb snaps by
+       default; Blender's Ctrl toggles a snapping that is off by default, so
+       the two read the same in use.
+     - Every pointer-made transform is now one input
+       (`canvas-transform-input.ts`): a drag is a grab held to the floor
+       plan, Alt-drag (in 3D) a grab held to Z (decision 10's fold of the
+       lift), the rotate handle a rotate about Z, and the modals the same
+       inputs with no button held. The reducer reads every gesture through
+       the showing camera, so the projections report viewport points only.
+       `E` adds `extrude` to `CanvasTransform`, applied by `transformItem`:
+       a stretch cannot grow a flat item's depth.
    - In 3D, a press-drag on empty space keeps orbiting, as shipped.
      Shift-drag on empty space is a screen-space marquee. **Owner
      question 4.**
@@ -336,6 +363,18 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
     item inspector's rotation fields take exact angles. Holding ⌘ now
     suspends every snap (alignment, surface, lift and angle): each gesture
     reports `free`, and the reducer asks no snap.
+
+    Step 5 built the grid and the scale snap, for every transform but a
+    carry across the floor plan (`snapPrecise`; a carry keeps `snapCarry`,
+    alignment and surfaces): a move aligns on each canvas axis it runs
+    along, and otherwise steps by the grid **from where it began**, as the
+    angle snap does (Blender's increment snap, which also works along a
+    local axis, where an absolute grid means nothing); a stretch lands the
+    selection's extent, and an extrude the lead item's depth, on grid
+    **multiples** (sizes are absolute). The gizmo's moves and scales snap
+    the same way, which closes gap `01M41W56TR6V8H0ZQVRWRFV24K`. The grid's
+    pitch is stated once (`GRID_STEP`), and both projections' dot grids
+    draw it. Ctrl now frees as ⌘ does.
 
 12. **Groups and frames are one concept.** A group is a `group` item, drawn
     as a frame, and its members say so with `parent`.
