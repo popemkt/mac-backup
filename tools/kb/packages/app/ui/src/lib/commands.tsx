@@ -545,7 +545,8 @@ const NODE_COMMANDS: readonly Command[] = [
 const NODE_COMMANDS_AFTER_VIEWS: readonly Command[] = [
   {
     // A chart of a query node's rows (`chart.vega-lite`), started from its
-    // columns, named among its views and opened beside the pane.
+    // columns, named among its views and opened beside the pane. A feature
+    // command in the shell's table: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
     id: "add-chart",
     scope: "node",
     chrome: () => ({ label: "Add chart", icon: <ChartBarIcon size={14} weight="bold" /> }),

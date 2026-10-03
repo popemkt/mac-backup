@@ -37,6 +37,10 @@ import { paramsFromProps, type ViewKey } from "./view-key.ts";
  * (`VIEW_VALUES`), in the seed's order; the catalog's tests hold the two to
  * each other, and the UI's view contract holds every view a plugin provides
  * to a key here.
+ *
+ * A constant, not a reading of a view point: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]
+ * It also lists feature keys (chart, code, lab, canvas) that belong to their
+ * families: GAP [[01M41H30342XZPX3CXZJTMPBYW]]
  */
 export const VIEW_CATALOG: readonly ViewKey<unknown>[] = [
   OutlineView,

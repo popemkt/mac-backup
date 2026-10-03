@@ -2,6 +2,8 @@
  * A chart's data in the browser: its source query node's rows, live, named
  * by the query's `:find` columns (`queryRecords`, the one naming the server's
  * text form uses too), capped as `chartRecords` caps every chart's rows.
+ *
+ * Chart code in the shell's lib: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
  */
 import { useMemo } from "react";
 import { queryDefOf, type PropValue } from "@kb/model";

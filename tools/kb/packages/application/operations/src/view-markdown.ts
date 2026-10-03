@@ -67,7 +67,10 @@ function ownBody<P>(key: ViewKey<P>, draw: OwnBody<P>["draw"]): OwnBody<P> {
   return { key, draw };
 }
 
-/** The views that draw their own body, each by its key. */
+/**
+ * The views that draw their own body, each by its key. A core table naming
+ * feature views: GAP [[01M41H2ZG7C0SV1DYZE6MMKPFE]]
+ */
 const VIEW_BODIES: readonly OwnBody<unknown>[] = [
   ownBody(ChartView, (ctx, params) => chartBody(ctx, params)),
   ownBody(CodeView, (_ctx, params) => codeBody(params)),

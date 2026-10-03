@@ -6,6 +6,10 @@
  * Two lists, one mechanism: every plugin reaches the kernel through
  * `syncUiPlugins`, and the only difference an optional plugin has is that the
  * `enabledPlugins` preference decides whether it is in the set.
+ *
+ * These lists name extensions on their own, apart from the server's registry:
+ * GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]]. The feature plugins are zones of this
+ * package, and the optional ones load statically: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
  */
 import { ChatCircleDotsIcon, FlaskIcon } from "@phosphor-icons/react";
 import type { Plugin } from "@kb/plugin";

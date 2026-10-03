@@ -314,6 +314,8 @@ const toInt = (v: string): number => Number.parseInt(v, 10);
  * Claude. This composition root names them and the server names none
  * (DESIGN.md → Plugin channels). They load on demand, so no other command
  * pays for the agent packages.
+ *
+ * A second switch beside the browser's preference: GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]]
  */
 const uiPlugins = Effect.fn("kb.cli.uiPlugins")(function* (root: string) {
   const [{ agentPlugin }, { claudeRuntime }] = yield* Effect.promise(() =>

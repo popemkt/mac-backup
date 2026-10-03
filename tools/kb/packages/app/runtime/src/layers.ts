@@ -79,6 +79,7 @@ export function kbRuntimeLayer(
     legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
+    // Feature painter and snapshot policy bound by the root: GAP [[01M41H2ZS8FH55DCW3S9ZGPWPY]]
     Layer.succeed(ChartSvg, vegaChartPainter),
     Layer.succeed(CodeSnapshots, codeSnapshots(ctx)),
     Layer.effect(

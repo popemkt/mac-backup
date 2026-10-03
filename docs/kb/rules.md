@@ -225,6 +225,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — each view key carries a markdown projection beside its params
 - **node** — `01M40X30G92A0E57C02JHQ9A1G`
 
+### GAP: a view's text projection is a branch in core's viewText
+
+- **expected** — a view's text body and figure are part of the view's contribution, looked up by view id, and @kb/operations keeps only the generic body
+- **current** — packages/application/operations/src/view-markdown.ts imports ChartView and CodeView and pairs them with chartBody and codeBody in VIEW_BODIES; chart-text.ts and code-text.ts live in @kb/operations
+- **impact** — a view extension cannot say itself in text without editing core, and core carries chart-table and code-fence policy
+- **closes** — ViewDef.text on the view point, read by viewText; the two bodies move to their families
+- **node** — `01M41H2ZG7C0SV1DYZE6MMKPFE`
+
 ### GAP: action registry has no A2A adapter
 
 - **expected** — A2A joins CLI, MCP, HTTP and WebMCP as one more adapter over the action registry
@@ -390,6 +398,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide a canonical package-family identity and teach the import graph check to verify extension-to-extension edges against it, with a red cross-family fixture and a green canvas fixture.
 - **node** — `01M3F923QWH9HSAW61VNFWHANV`
 
+### GAP: extensions cannot contribute seed nodes; the chart and code fields are core system ids
+
+- **expected** — each bundled extension contributes its system nodes to a seed point under their frozen ids; core's seed holds core vocabulary only; ensureSystemSeed seeds the fold of BUNDLED_EXTENSIONS (never host or repository plugins), so every open seeds the same set
+- **current** — SYSTEM_IDS (packages/domain/model/src/model.ts) and systemSeedNodes (packages/domain/model/src/seed.ts) declare sys.f.chart, sys.f.code and sys.f.code.grant; ensureSystemSeed reads only the core table and no point takes a plugin's seed. Canvas is covered by 01M39F3MR3HT2NR553FY8CRD6X
+- **impact** — every feature edits @kb/model, and a store seeds a feature's fields whether or not its extension is loaded
+- **closes** — a SeedPoint in @kb/contracts, the BUNDLED_EXTENSIONS fold passed to ensureSystemSeed (bundledSeed() for test-kit and UI fixtures, systemSeedNodes() core only), and a committed seed golden; then each family's ids and nodes move into its shared package
+- **node** — `01M41H2Z7B5GCJXHCRYBS7M3YH`
+
+### GAP: feature view models live in core packages
+
+- **expected** — @kb/views holds the view-key mechanism and core views; the chart, code, lab and canvas keys and helpers live in their family's shared package
+- **current** — packages/domain/views/src/{chart,code,lab,canvas}.ts ship in VIEW_CATALOG, and chartRecords and MAX_CHART_ROWS are in @kb/query (records.ts)
+- **impact** — the catalog advertises lab.page while the lab plugin is off by default, so an agent can propose a view nothing draws; every feature edits domain packages
+- **closes** — the view-key point (with 01M3YM5XYZ4VHEK39RNQ6WWRPK), then the moves into @kb/chart, @kb/code, @kb/lab and @kb/canvas
+- **node** — `01M41H30342XZPX3CXZJTMPBYW`
+
 ### GAP: flat canvas items vanish in level 3D views
 
 - **expected** — flat items stay visible when the camera looks across the floor (front, side views)
@@ -497,6 +521,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Special nodes (inboxes, sys nodes) read the same as any other link.
 - **closes** — A seeded sys icon field and refInkOf reading it.
 - **node** — `01M3KA3BHNPNB8VX34HD8P2JCB`
+
+### GAP: nothing confines feature imports to a composition root's bundled list
+
+- **expected** — an app package imports an extension package only from its one bundled-extensions file, and the harness checks it
+- **current** — LAYER_ALLOWS.app (tools/kb/harness/src/constraints.ts) admits every extension import from any file of an app package; feature wiring sits in registry.ts, layers.ts, cli.ts, the cli bins and ui-plugins.ts, and also deep in @kb/ui (src/agent.ts, components/agent, lib/canvas-*); core never names a feature is prose
+- **impact** — the next move out of core can silently regrow a hardwired import, and a feature can be wired from anywhere
+- **closes** — EXTENSION_ROOTS in constraints.ts with a red fixture; the existing breaches GAP-marked until E12/E13 remove them
+- **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
 
 ### GAP: only view.propose checks a view node's settings against its key
 
@@ -703,6 +735,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
 
+### GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not packages
+
+- **expected** — each is the browser package of its family, built against @kb/ui-sdk, and @kb/ui holds the shell and core views only
+- **current** — components/{chart,code,lab,agent}, src/agent.ts and lib/chart-data.ts live in @kb/ui; @kb/ui depends on @kb/agent and @kb/vega; the shell's command table (lib/commands.tsx) carries Add chart; the optional lab and agent plugins are statically imported by ui-plugins.ts
+- **impact** — adding or removing a feature's UI edits @kb/ui, and optional plugins ship in the main bundle
+- **closes** — the sdk zone with restricted UI_ALLOWS rows, @kb/ui-sdk (01M3EZRFTS1W8SB97GFJAWD92X), then one -ui package per family; canvas is 01M39F3MR3HT2NR553FY8CRD6X
+- **node** — `01M41H30C2RSD2FGVYBT5HAG48`
+
 ### GAP: the CLI has no relative dates (today, next fri)
 
 - **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
@@ -784,6 +824,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
+### GAP: the runtime binds feature painters and snapshot policy in kbRuntimeLayer
+
+- **expected** — the chart family's server entry supplies its own figure; the code family draws its snapshot through a core engine reference (UntrustedEngine); layers.ts binds only core ports
+- **current** — packages/app/runtime/src/layers.ts provides ChartSvg with @kb/vega's vegaChartPainter and builds CodeSnapshots (codeSnapshots, a read-only invoke) over quickjsEngine; ChartSvg is a chart port in @kb/contracts and CodeSnapshots a code-view port in @kb/sandbox
+- **impact** — @kb/runtime depends on Vega; a painter or snapshot change edits the composition root; a new view with a figure has nowhere to register it
+- **closes** — chartPlugin({figure}) from @kb/chart-vega; the code snapshot as @kb/code's figure over UntrustedEngine; ChartSvg and CodeSnapshots deleted
+- **node** — `01M41H2ZS8FH55DCW3S9ZGPWPY`
+
 ### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
 
 - **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
@@ -791,6 +839,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
 - **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
 - **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
+
+### GAP: the server and browser plugin lists are not bridged
+
+- **expected** — the server registry is the one list of loaded extensions; the browser loads the browser entry of each extension the manifest reports; optional is a server-side load decision on the extension's declaration, reported by the manifest
+- **current** — BUNDLED_PLUGINS (packages/app/runtime/src/registry.ts), the CLI's agent wiring (cli.ts) and BUILTIN_UI_PLUGINS/OPTIONAL_UI_PLUGINS (packages/app/ui/src/ui-plugins.ts) each name extensions on their own; the agent has two switches, --no-agent and the enabledPlugins preference, and lab only the preference
+- **impact** — an extension can be on in one host and off in the other with nothing reporting it; the agent sidebar can be switched on against a server that runs no agent, which answers unknown_channel
+- **closes** — defineExtension per family, kb.manifest.extensions with enabled, and a browser resolver keyed by family name
+- **node** — `01M41H30N0SV4QE5R8VQQ1K4ZA`
 
 ### GAP: the sigma renderer's lifecycle effect carries 32 branches
 
@@ -911,10 +967,10 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: view option nodes are seeded from one core table, not by the plugins that own the views
 
-- **expected** — each plugin that provides a view contributes its own option node under sys.views
-- **current** — VIEW_VALUES in packages/domain/model/src/view-node.ts lists every view kb provides; the store seeds those options on open because the owning plugins load only in the browser
+- **expected** — each plugin that provides a view contributes its key to the server's view point (ViewKeyPoint), and VIEW_CATALOG and the sys.views option nodes are both readings of that point
+- **current** — VIEW_VALUES in packages/domain/model/src/view-node.ts lists every view kb provides, and the store seeds those options on open because the owning plugins load only in the browser; VIEW_CATALOG in @kb/views lists the same views by key
 - **impact** — a new view plugin must also edit the core table; a third-party view cannot add its option without touching core
-- **closes** — a server-side plugin manifest that the seed reads, so view plugins declare their option nodes where they are defined
+- **closes** — a ViewKeyPoint in @kb/contracts, with label and family on ViewKey; a ViewCatalog service read from that point replaces VIEW_CATALOG, the sys.views options derive from the bundled-extensions seed fold, and VIEW_VALUES is deleted
 - **node** — `01M3YM5XYZ4VHEK39RNQ6WWRPK`
 
 ### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter

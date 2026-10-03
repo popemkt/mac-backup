@@ -75,6 +75,7 @@ const corePlugin = definePlugin({
     ),
 });
 
+// Named apart from the browser's list: GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]]
 const BUNDLED_PLUGINS: readonly Plugin[] = [docsPlugin, canvasPlugin, checkPlugin];
 
 /** The top-level plugin a contribution belongs to (a child answers for its parent). */

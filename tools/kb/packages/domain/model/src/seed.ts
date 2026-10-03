@@ -360,6 +360,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // A layout view's arrangement (`layout.grid`): its pane tree as JSON text.
   const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text");
   // A chart view's spec (`chart.vega-lite`): Vega-Lite as JSON text.
+  // Feature nodes in core's seed: GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]]
   const chartField = singleField(SYSTEM_IDS.chartField, "chart", "text");
   // A code view's code and its grant (`code.view`): both text, run as stored.
   const codeField = singleField(SYSTEM_IDS.codeField, "code", "text");
@@ -629,6 +630,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
  * Also migrates the legacy default perspective `sys.lens.all-mentions` →
  * `lens.all-mentions` (user-editable). If both exist, drop the legacy id;
  * if only legacy exists, rename in place preserving text/props.
+ *
+ * It seeds core's table, not a fold of the bundled extensions' seeds:
+ * GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]]
  */
 export function ensureSystemSeed(
   nodes: KbNode[],

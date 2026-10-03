@@ -37,6 +37,7 @@ export const LAYER_ALLOWS: Record<string, readonly string[]> = {
   application: ["domain", "contract"],
   // GAP [[01M3F923QWH9HSAW61VNFWHANV]]
   extension: ["domain", "contract", "application", "extension"],
+  // Any app file may import an extension: GAP [[01M41H30Y60D3G9WJJX6NFQD2T]]
   app: ["domain", "contract", "infrastructure", "application", "extension", "app"],
   "test-support": ["domain", "app"],
 };

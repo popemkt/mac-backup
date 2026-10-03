@@ -32,6 +32,8 @@ export function queryRecords(edn: string, rows: readonly (readonly unknown[])[])
  * The most rows a chart draws, whatever its query's own limit: a query with
  * none would otherwise hand every row to Vega, in the browser and in the
  * server's SVG snapshot alike.
+ *
+ * Chart policy in a core package: GAP [[01M41H30342XZPX3CXZJTMPBYW]]
  */
 export const MAX_CHART_ROWS = 5000;
 

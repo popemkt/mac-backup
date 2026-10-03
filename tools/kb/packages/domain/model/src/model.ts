@@ -250,6 +250,9 @@ export const SYSTEM_IDS = {
   /**
    * A chart view's Vega-Lite spec, as canonical JSON (text, single).
    * DESIGN → View nodes → Chart views.
+   *
+   * The chart and code ids are feature vocabulary in core's table; they move
+   * to their families' shared packages: GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]]
    */
   chartField: "sys.f.chart",
   /**
