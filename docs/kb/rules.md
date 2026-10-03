@@ -84,7 +84,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: a chart's page runs its query twice, once for the body and once for the figure
 
 - **expected** — a view's text resolves its data once and hands it to both body and figure
-- **current** — ViewDef.text = {body, figure?} gives each half only (ctx, params), so chartBody and chartFigure each call chartRecordsOf
+- **current** — ViewDef.text = {body, figure?} gives each half only (ctx, params), so chartBody and chartFigure (packages/extension/chart/src/text.ts) each call chartRecordsOf
 - **impact** — double datalog cost per chart page render, up to the 5000-row chart cap, on render.view and docs pages
 - **closes** — a per-view prepare step in ViewDef.text whose result both body and figure take
 - **node** — `01M41TZJ2AG28C2X2DECZ25CN6`
@@ -410,17 +410,17 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: feature view models live in core packages
 
 - **expected** — @kb/views holds the view-key mechanism and core views; the chart, code, lab and canvas keys and helpers live in their family's shared package
-- **current** — packages/domain/views/src/{chart,code,lab,canvas}.ts are listed in core's declaration (coreExtension), and chartRecords and MAX_CHART_ROWS are in @kb/query (records.ts)
+- **current** — packages/domain/views/src/{code,lab,canvas}.ts are listed in core's declaration (coreExtension); the chart's key, spec and row cap left for @kb/chart
 - **impact** — the catalog advertises lab.page while the lab plugin is off by default, so an agent can propose a view nothing draws; every feature edits domain packages
-- **closes** — the moves into @kb/chart, @kb/code, @kb/lab and @kb/canvas (E7, E8, E9)
+- **closes** — the moves into @kb/code, @kb/lab and @kb/canvas (E8, E9)
 - **node** — `01M41H30342XZPX3CXZJTMPBYW`
 
 ### GAP: feature view options are seeded through core's declaration, not by the families that own the views
 
 - **expected** — each plugin that provides a view contributes its key to the view point (ViewKeyPoint) through its own family's declaration, and the ViewCatalog service and the sys.views option nodes are both readings of the declared keys
-- **current** — the catalog is a reading of ViewKeyPoint and every option derives from a declared key, but core's declaration (coreExtension, packages/application/operations/src/core-extension.ts) lists the chart, code, lab and canvas keys, so core seeds their options and contributes their keys
+- **current** — the catalog is a reading of ViewKeyPoint, every option derives from a declared key, and the chart family's declaration lists its own key, but core's declaration (coreExtension, packages/application/operations/src/core-extension.ts) lists the code, lab and canvas keys, so core seeds their options and contributes their keys
 - **impact** — a new view plugin must also edit the core table; a third-party view cannot add its option without touching core
-- **closes** — each family's declaration lists its own views (E7, E8, E9); the last feature key leaves core's declaration in E9
+- **closes** — code's, lab's and canvas's declarations list their own views (E8, E9); the last feature key leaves core's declaration in E9
 - **node** — `01M3YM5XYZ4VHEK39RNQ6WWRPK`
 
 ### GAP: flat canvas items vanish in level 3D views
@@ -542,9 +542,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: nothing confines feature imports to a composition root's bundled list
 
 - **expected** — an app package imports an extension package only from its one bundled-extensions file, and the harness checks it
-- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches it started with are the rows of EXTENSION_ROOT_BREACHES: @kb/ui's src/agent.ts and components/agent (@kb/agent), components/canvas and catalog/canvas-card.stories.tsx (@kb/canvas), and @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it
+- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches are the rows of EXTENSION_ROOT_BREACHES: @kb/ui's src/agent.ts and components/agent (@kb/agent), components/chart (@kb/chart, and @kb/chart-vega from chart-canvas.tsx, since the chart's vocabulary left core in E7), components/canvas and catalog/canvas-card.stories.tsx (@kb/canvas), and @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it
 - **impact** — the next move out of core can silently regrow a hardwired import, and a feature can be wired from anywhere
-- **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the agent UI with @kb/agent-ui (E12), the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
+- **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the agent and chart UIs with @kb/agent-ui and @kb/chart-ui (E12), the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
 - **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
 
 ### GAP: only view.propose checks a view node's settings against its key
@@ -776,26 +776,10 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a NodeTextHost binding in the sdk over BrowserHost, designed with @kb/ui-sdk (plan step E11), then canvas-card uses it and the GAP marker goes
 - **node** — `01M41MHRD7MF4NP23EE294B69C`
 
-### GAP: the chart and code fields are core system ids, seeded by core's declaration
-
-- **expected** — each bundled family declares its system nodes as its declaration's seed under their frozen ids; core's seed holds core vocabulary only; ensureSystemSeed seeds the fold of the bundled declarations (never host or repository plugins), so every open seeds the same set
-- **current** — ensureSystemSeed seeds the bundled fold (bundledSeed() in @kb/bundled, over BUNDLED_DECLARATIONS), but core's declaration still seeds the feature nodes: SYSTEM_IDS (packages/domain/model/src/model.ts) and systemSeedNodes (packages/domain/model/src/seed.ts) declare sys.f.chart, sys.f.code and sys.f.code.grant. Canvas is covered by 01M39F3MR3HT2NR553FY8CRD6X
-- **impact** — every feature edits @kb/model, and a store seeds a feature's fields whether or not its extension is loaded
-- **closes** — each family's ids and seed nodes move into its shared package's declaration, folded at the same place (chart in E7, code in E8)
-- **node** — `01M41H2Z7B5GCJXHCRYBS7M3YH`
-
-### GAP: the chart and code text projections live in core operations
-
-- **expected** — a view's text body and figure are part of the view's contribution, looked up by view id, and @kb/operations keeps only the generic body
-- **current** — viewText reads a view's ViewDef.text from the host's ViewCatalog, but chartText and codeText (packages/application/operations/src/chart-text.ts, code-text.ts) live in @kb/operations, and core's declaration (core-extension.ts) contributes them
-- **impact** — a view extension cannot say itself in text without editing core, and core carries chart-table and code-fence policy
-- **closes** — the two texts move to @kb/chart and @kb/code with their keys (E7, E8)
-- **node** — `01M41H2ZG7C0SV1DYZE6MMKPFE`
-
 ### GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not packages
 
 - **expected** — each is the browser package of its family, built against @kb/ui-sdk, and @kb/ui holds the shell and core views only
-- **current** — components/{chart,code,lab,agent}, src/agent.ts and lib/chart-data.ts live in @kb/ui; @kb/ui depends on @kb/agent and @kb/vega; the shell's command table (lib/commands.tsx) carries Add chart; the optional lab and agent plugins are statically imported by ui-plugins.ts
+- **current** — components/{chart,code,lab,agent} and src/agent.ts live in @kb/ui (reaching the shell through the sdk zone); @kb/ui depends on @kb/agent, @kb/chart and @kb/chart-vega; the optional lab and agent plugins are statically imported by ui-plugins.ts
 - **impact** — adding or removing a feature's UI edits @kb/ui, and optional plugins ship in the main bundle
 - **closes** — the sdk zone with restricted UI_ALLOWS rows, @kb/ui-sdk (01M3EZRFTS1W8SB97GFJAWD92X), then one -ui package per family; canvas is 01M39F3MR3HT2NR553FY8CRD6X
 - **node** — `01M41H30C2RSD2FGVYBT5HAG48`
@@ -807,6 +791,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two date grammars depending on surface.
 - **closes** — Move the phrase parser into @kb/model next to parseTypedValue and call it from CLI/MCP.
 - **node** — `01M3KA3AEEFG0E200V4D63G5SN`
+
+### GAP: the code fields are core system ids, seeded by core's declaration
+
+- **expected** — each bundled family declares its system nodes as its declaration's seed under their frozen ids; core's seed holds core vocabulary only; ensureSystemSeed seeds the fold of the bundled declarations (never host or repository plugins), so every open seeds the same set
+- **current** — ensureSystemSeed seeds the bundled fold (bundledSeed() in @kb/bundled, over BUNDLED_DECLARATIONS), and the chart family seeds sys.f.chart from its own declaration (@kb/chart), but core's declaration still seeds the code nodes: SYSTEM_IDS (packages/domain/model/src/model.ts) and systemSeedNodes (packages/domain/model/src/seed.ts) declare sys.f.code and sys.f.code.grant. Canvas is covered by 01M39F3MR3HT2NR553FY8CRD6X
+- **impact** — every feature edits @kb/model, and a store seeds a feature's fields whether or not its extension is loaded
+- **closes** — the code family's ids and seed nodes move into @kb/code's declaration, folded at the same place (E8)
+- **node** — `01M41H2Z7B5GCJXHCRYBS7M3YH`
+
+### GAP: the code text projection lives in core operations
+
+- **expected** — a view's text body and figure are part of the view's contribution, looked up by view id, and @kb/operations keeps only the generic body
+- **current** — viewText reads a view's ViewDef.text from the host's ViewCatalog, and the chart's text is its family's (@kb/chart), but codeText (packages/application/operations/src/code-text.ts) lives in @kb/operations, and core's declaration (core-extension.ts) contributes it
+- **impact** — a view extension cannot say itself in text without editing core, and core carries code-fence policy
+- **closes** — codeText moves to @kb/code with its key (E8)
+- **node** — `01M41H2ZG7C0SV1DYZE6MMKPFE`
 
 ### GAP: the date editor's Enter and Tab skip the value keymap
 
@@ -881,12 +881,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
-### GAP: the runtime binds feature painters and snapshot policy in kbRuntimeLayer
+### GAP: the runtime binds the code view's snapshot policy in kbRuntimeLayer
 
 - **expected** — the chart family's server entry supplies its own figure; the code family draws its snapshot through a core engine reference (UntrustedEngine); layers.ts binds only core ports
-- **current** — packages/app/runtime/src/layers.ts provides ChartSvg with @kb/vega's vegaChartPainter and builds CodeSnapshots (codeSnapshots, a read-only invoke) over quickjsEngine; ChartSvg is a chart port in @kb/contracts and CodeSnapshots a code-view port in @kb/sandbox
-- **impact** — @kb/runtime depends on Vega; a painter or snapshot change edits the composition root; a new view with a figure has nowhere to register it
-- **closes** — chartPlugin({figure}) from @kb/chart-vega; the code snapshot as @kb/code's figure over UntrustedEngine; ChartSvg and CodeSnapshots deleted
+- **current** — the chart family's server entry (chartServerPlugin, @kb/chart-vega) hands its painter to the family's shared plugin, but packages/app/runtime/src/layers.ts still builds CodeSnapshots (codeSnapshots, a read-only invoke) over quickjsEngine, and CodeSnapshots is a code-view port in @kb/sandbox
+- **impact** — a snapshot change edits the composition root, and the code view's figure is bound apart from its family
+- **closes** — the code snapshot as @kb/code's figure over UntrustedEngine; CodeSnapshots deleted (E8)
 - **node** — `01M41H2ZS8FH55DCW3S9ZGPWPY`
 
 ### GAP: the seed's fill-absent pass restores a seeded prop its owner unset

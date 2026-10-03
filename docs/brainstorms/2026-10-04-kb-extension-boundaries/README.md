@@ -627,6 +627,43 @@ commits, and this text is the reviewed shape.
   The text-body and page-catalog promises join at E7. The agent's run lives
   in `@kb/cli`'s tests, beside its host.
 
+**Note from the doing (E7).** Where the plan was silent, or the code
+pushed back, this is what was picked:
+- **The option is a painter, not a figure.** `chartPlugin({painter?})`
+  takes a `ChartPainter`, which turns a spec into SVG. The figure itself
+  stays in `@kb/chart`: it runs the query, caps the rows and fits the box.
+  The server's entry, `chartServerPlugin` (`@kb/chart-vega`), hands it Vega.
+  `ChartPainter` moved from `@kb/contracts` to `@kb/chart`, because only
+  the chart family and its painter name it now.
+- **The declaration is the painter-less reading of the plugin.** One
+  function, `chartViews(painter)`, makes the family's views. The
+  declaration holds `chartViews(null)` for the seed and the catalog, and
+  `chartPlugin` contributes `chartViews(painter)`. So the declaration's
+  views and the plugin's views are one list, not two. A text with no
+  painter has no `figure` at all. It does not have a figure that returns
+  null.
+- **A family's seed needs core's field rule.** `seededField` (`@kb/model`)
+  is the rule core's seed used privately: every field declares its type,
+  and its cardinality when it holds one value. It became exported
+  mechanism in its own commit, before the move.
+- **The double-query gap moved and stays open.** A shared prepare step
+  would change `ViewText` for every view, so it is not part of a move.
+  The marker moved with the text.
+- **The page entry takes its name from the declaration.** The page entry
+  is `chartUiPlugin`, named `chartExtension.name`. The view id's namespace
+  is a separate constant, `"chart"`, which is no longer exported. The
+  `family:` check reads only a literal name, so the declaration cannot
+  read the namespace from a constant.
+- **New sanctioned breaches.** The UI's `components/chart` now imports
+  `@kb/chart`, and `chart-canvas.tsx` imports `@kb/chart-vega`. These
+  files are named rows of `EXTENSION_ROOT_BREACHES` until `@kb/chart-ui`
+  (E12). Gap `01M41H30Y60D3G9WJJX6NFQD2T` says so.
+- **The extension contract's text promise joined.** The browser half, a
+  key in the page's catalog for every view a family gives the UI, was
+  already a case of the UI's view contract. After this step, the chart key
+  reaches that catalog only through the child `chartPlugin()`.
+- `kb ext list` now lists chart.
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D
