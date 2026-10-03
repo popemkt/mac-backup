@@ -10,5 +10,10 @@ import { useOutlineStore } from "@/stores/outline.store";
  * primitives, handed it as a prop, and every surface wants the same one.
  */
 export function useRefInk(): RefInk {
-  return refInkOf(useOutlineStore(schemaOf));
+  return useOutlineStore(refInkIn);
+}
+
+/** The ink for the graph `state` holds: one object per schema, so a reader may compare it. */
+export function refInkIn(state: Parameters<typeof schemaOf>[0]): RefInk {
+  return refInkOf(schemaOf(state));
 }

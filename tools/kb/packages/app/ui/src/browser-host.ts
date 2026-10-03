@@ -9,8 +9,10 @@ import { mutations } from "@/actions/mutations";
 import { proposeView } from "@/lib/propose-view";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import { BrowserHostService, type BrowserHost } from "@/sdk/host";
+import { followFrom } from "@/stores/follow";
 import { useOutlineStore } from "@/stores/outline.store";
 import { appearanceIn, usePrefsStore } from "@/stores/prefs.store";
+import { refInkIn } from "@/stores/ref-ink";
 import { useUiStore } from "@/stores/ui.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 
@@ -28,6 +30,8 @@ const host: BrowserHost = {
   index: () => useOutlineStore.getState().index,
   live: () => useUiStore.getState().wsStatus === "open",
   appearance: () => appearanceIn(usePrefsStore.getState()),
+  refInk: () => refInkIn(useOutlineStore.getState()),
+  follow: followFrom,
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),
   replaceField: (nodeId, fieldId, values) => mutations.replaceField(nodeId, fieldId, values),
   proposeView,

@@ -9,7 +9,7 @@ import { usePane } from "@/lib/pane";
 import { paramsOf, type MatchedRoute, type ViewProps } from "@/lib/plugins";
 import { navigate, nodePath } from "@/lib/router";
 import { listPinnedNavItems } from "@/lib/sidebar-nav";
-import { OpenNodeContext } from "@/stores/follow";
+import { OpenNodeContext } from "@/lib/follow";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 

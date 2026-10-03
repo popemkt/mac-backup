@@ -14,6 +14,8 @@
 import { Service } from "@kb/plugin";
 import type { KbNode, PropValue } from "@kb/model";
 import type { KbIndex } from "@/ds";
+import type { FollowHow, FollowTarget } from "@/lib/follow";
+import type { RefInk } from "@/lib/md-edit";
 import { currentService } from "@/lib/plugins";
 import type { proposeView } from "@/lib/propose-view";
 import type { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
@@ -32,6 +34,17 @@ export interface BrowserHost {
   /** Whether the live socket is open, so a query subscribes instead of running locally. */
   readonly live: () => boolean;
   readonly appearance: () => Appearance;
+  /** How references in rendered text are inked. */
+  readonly refInk: () => RefInk;
+  /**
+   * Carry out a follow from `pane`. `open` opens a node as the page around the
+   * caller (`OpenNodeContext`); null means the outline's zoom.
+   */
+  readonly follow: (
+    at: { readonly pane: string; readonly open: ((id: string) => void) | null },
+    target: FollowTarget,
+    how: FollowHow,
+  ) => void;
   /** Send a pane to a path. */
   readonly navigatePane: (pane: string, path: string) => void;
   /** Replace a field's values on a node, through the page's one write path. */

@@ -10,6 +10,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { failed, succeeded, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
 import type { AgentEvent, AgentRequest } from "@kb/agent";
+import { browserHostUiPlugin } from "@/browser-host";
+import { syncUiPlugins } from "@/lib/plugins";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { attachChat, useChat, type AgentPorts } from "./chat";
 import { AgentDock } from "./surfaces";
@@ -64,6 +66,10 @@ describe("the agent dock", () => {
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
   });
   afterAll(() => installed.restore());
+
+  // The dock's entries follow and ink references through the page's host.
+  beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+  afterAll(() => syncUiPlugins([]));
 
   function open(s: Stand): void {
     detach = attachChat(s.ports);

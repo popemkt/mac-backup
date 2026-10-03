@@ -407,9 +407,9 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   // route and view key, so it imports no other surface.
   "components/layout": ["components/layout", "primitives", "stores", "actions", "lib"],
   // The agent sidebar draws what the agent channel says; the shell hands it
-  // the socket and the invoke path as ports (`src/agent.ts`), so it reaches
-  // neither `api` nor `session` itself.
-  "components/agent": ["components/agent", "primitives", "stores", "lib"],
+  // the socket and the invoke path as ports (`src/agent.ts`), and the rest
+  // of the shell through the host.
+  "components/agent": extensionRow("components/agent"),
   // A chart draws its query node's rows; the rows and its saves come through the host.
   "components/chart": extensionRow("components/chart"),
   // A code view hosts a sandbox frame; the page's end of the bridge comes through the host.

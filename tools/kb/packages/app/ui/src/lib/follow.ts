@@ -19,7 +19,7 @@
  * Carrying a follow out — zooming, jumping, opening a tab — needs the store,
  * so it is `useFollow` (stores/follow.ts), and a primitive takes it as a prop.
  */
-import type { MouseEvent as ReactMouseEvent } from "react";
+import { createContext, type MouseEvent as ReactMouseEvent } from "react";
 import { asElement } from "@/lib/dom";
 import { INLINE_TEXT_CLASSES, KB_REF_ID_ATTR } from "@/lib/md-edit";
 
@@ -38,6 +38,13 @@ export type FollowHow = "open" | "reveal" | "beside";
 export type Follow = (target: FollowTarget, how: FollowHow) => void;
 
 export const nodeTarget = (id: string): FollowTarget => ({ kind: "node", id });
+
+/**
+ * How the page around a point opens a node as its page, where that is not
+ * the outline's zoom: an outline rooted at a node in its pane moves its pane
+ * to the node instead. None means the zoom.
+ */
+export const OpenNodeContext = createContext<((id: string) => void) | null>(null);
 
 /** What an element in rendered content points at, if it is a pointer segment. */
 type PointerHit =

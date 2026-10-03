@@ -11,14 +11,15 @@
  * and the hooks built over it. GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]
  */
 export { BrowserHostService, browserHost } from "./host";
-export { useAppearance, useGeneration, useNode, useQueryRows } from "./hooks";
+export { useAppearance, useFollow, useGeneration, useNode, useQueryRows, useRefInk } from "./hooks";
 
-// The UI points: views and node commands.
-export { ViewPoint, provideView, type ViewProps } from "@/lib/plugins";
+// The UI points: views, docks and node commands.
+export { DockPoint, ViewPoint, provideView, type ViewProps } from "@/lib/plugins";
 export { CommandPoint, nodeAction, type Command } from "@/lib/commands";
 
 // The primitives.
 export { IconButton } from "@/components/ui/icon-button";
+export { MdView } from "@/components/ui/md-view";
 export { WorkspaceState } from "@/components/ui/workspace-state";
 
 // Pure helpers: class names, tokens, logging, panes, routing and toasts.

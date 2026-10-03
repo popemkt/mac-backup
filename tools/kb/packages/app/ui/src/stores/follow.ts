@@ -1,16 +1,9 @@
-import { createContext, useCallback, useContext } from "react";
-import type { Follow } from "@/lib/follow";
+import { useCallback, useContext } from "react";
+import { OpenNodeContext, type Follow, type FollowHow, type FollowTarget } from "@/lib/follow";
 import { usePane } from "@/lib/pane";
 import { nodePath } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
-
-/**
- * How the page around a point opens a node as its page, where that is not
- * the outline's zoom: an outline rooted at a node in its pane moves its pane
- * to the node instead. None means the zoom.
- */
-export const OpenNodeContext = createContext<((id: string) => void) | null>(null);
 
 /** Open a node as the page around the caller: its pane's location, or the zoom. */
 export function useOpenNode(): (id: string) => void {
@@ -29,20 +22,29 @@ export function useOpenNode(): (id: string) => void {
  * same one. One owner, every call site.
  */
 export function useFollow(): Follow {
-  const jumpToNode = useOutlineStore((s) => s.jumpToNode);
-  const openBeside = useWorkspaceStore((s) => s.openBeside);
-  const open = useOpenNode();
+  const open = useContext(OpenNodeContext);
   const pane = usePane();
   return useCallback<Follow>(
-    (target, how) => {
-      if (target.kind === "href") {
-        window.open(target.href, "_blank", "noopener,noreferrer");
-        return;
-      }
-      if (how === "beside") openBeside(pane, nodePath(target.id));
-      else if (how === "reveal") jumpToNode(target.id);
-      else open(target.id);
-    },
-    [jumpToNode, open, openBeside, pane],
+    (target, how) => followFrom({ pane, open }, target, how),
+    [open, pane],
   );
+}
+
+/**
+ * The body of a follow, outside React: from `pane`, opening a node with
+ * `open` (`OpenNodeContext`), else the outline's zoom. `useFollow` and the
+ * page's `BrowserHost` both carry a follow out through it.
+ */
+export function followFrom(
+  at: { readonly pane: string; readonly open: ((id: string) => void) | null },
+  target: FollowTarget,
+  how: FollowHow,
+): void {
+  if (target.kind === "href") {
+    window.open(target.href, "_blank", "noopener,noreferrer");
+    return;
+  }
+  if (how === "beside") useWorkspaceStore.getState().openBeside(at.pane, nodePath(target.id));
+  else if (how === "reveal") useOutlineStore.getState().jumpToNode(target.id);
+  else (at.open ?? useOutlineStore.getState().zoomTo)(target.id);
 }

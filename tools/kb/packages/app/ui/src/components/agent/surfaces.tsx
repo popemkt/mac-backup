@@ -8,7 +8,7 @@ import {
   WarningIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import { IconButton } from "@/components/ui/icon-button";
+import { IconButton } from "@/sdk";
 import { decideCall, restartChat, sendToAgent, stopAgent, useChat } from "@/components/agent/chat";
 import { Entry } from "@/components/agent/entries";
 
