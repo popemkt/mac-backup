@@ -17,6 +17,13 @@ import { openKb } from "../src/session.ts";
 
 const ManifestSchema = z.object({ actions: z.array(DecidedEntrySchema) });
 
+/** A node.delete call for `id`, with the envelope fields a test varies. */
+const remove = (id: string, rest: Partial<ActionInvocation>): ActionInvocation => ({
+  id: "node.delete",
+  input: { id },
+  ...rest,
+});
+
 describe("approval policies in the invoke core", () => {
   let root: string;
   beforeEach(async () => {
@@ -30,11 +37,6 @@ describe("approval policies in the invoke core", () => {
     const ctx = await openKb(root);
     await invoke(ctx, { id: "node.add", input: { id: "n.a", text: "a" } });
     await invoke(ctx, { id: "node.add", input: { id: "n.b", text: "b" } });
-    const remove = (id: string, rest: Partial<ActionInvocation>): ActionInvocation => ({
-      id: "node.delete",
-      input: { id },
-      ...rest,
-    });
     expect(await invoke(ctx, remove("n.a", { actor: "agent" }))).toMatchObject({
       status: "failed",
       code: "approval_required",

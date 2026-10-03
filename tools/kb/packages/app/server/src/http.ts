@@ -4,7 +4,6 @@ import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
   ActionInvocationSchema,
   TxOrigin,
-  listedOn,
   listingOf,
   onWire,
   type ActionResponse,
@@ -23,7 +22,7 @@ import type { SubscriptionHub } from "./session.ts";
 /**
  * HTTP's wire: `POST /api/action` takes the invocation envelope, so it carries
  * `approved` and may name its actor, and `GET /api/manifest` lists every
- * action ({@link listedOn}). A call that names no actor is taken as an
+ * action (`listedOn` in `@kb/contracts`). A call that names no actor is taken as an
  * agent's: the UI names its own (`human` for a gesture), and a local program
  * that does not say is treated as the more cautious of the two.
  */
