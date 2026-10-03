@@ -54,6 +54,7 @@ import {
   goldenSeedOpensUnwritten,
   openingNeverWrites,
   unfoldedSeedNodesSurviveOpening,
+  viewTypeOrderSurvivesOpening,
 } from "./seed-opening-contract.ts";
 import { viewsMigrateRewritesLegacyShapes } from "./view-migration-contract.ts";
 
@@ -201,6 +202,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     openingNeverWrites,
   ],
   ["a store written by an earlier kb's seed opens without a write", goldenSeedOpensUnwritten],
+  [
+    "a store whose view types an earlier kb listed in another order keeps that order",
+    viewTypeOrderSurvivesOpening,
+  ],
   [
     "opening keeps seed nodes no bundled family declares: nothing deleted, nothing rewritten",
     unfoldedSeedNodesSurviveOpening,

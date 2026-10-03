@@ -59,13 +59,17 @@ export const coreExtension = defineExtension({
     viewDef(NeighbourhoodView),
     viewDef(OntologyListView),
     viewDef(OntologyScopeView),
-    viewDef(CanvasListView),
-    viewDef(CanvasView),
-    viewDef(LabView),
     viewDef(DocsMarkdownView),
     viewDef(LayoutView),
     viewDef(NodeView),
-    viewDef(ChartView, chartText),
+    // The feature views, after core's and grouped by the family that takes
+    // them, in the order those families sit in the bundled fold (canvas, lab,
+    // code, chart). Each group leaves for its family at the same place in
+    // the fold, so a fresh store's view types keep their order as it does.
+    viewDef(CanvasListView),
+    viewDef(CanvasView),
+    viewDef(LabView),
     viewDef(CodeView, codeText),
+    viewDef(ChartView, chartText),
   ],
 });

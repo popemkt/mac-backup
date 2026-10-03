@@ -75,6 +75,30 @@ export function goldenSeedOpensUnwritten(makeStore: StoreFactory): Promise<void>
 }
 
 /**
+ * A store whose `sys.views` options an earlier kb listed in another order —
+ * any store seeded before the fold put core's view types first — opens
+ * without a write and keeps its order: the seed only appends an option a
+ * store lacks, so a fresh store's order never reaches an existing one.
+ */
+export function viewTypeOrderSurvivesOpening(makeStore: StoreFactory): Promise<void> {
+  const nodes = seedGoldenNodes().map((node) =>
+    node.id === SYSTEM_IDS.viewsRoot ? { ...node, children: node.children.toReversed() } : node,
+  );
+  const earlier = nodes.find((node) => node.id === SYSTEM_IDS.viewsRoot)?.children;
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        yield* makeStore(root).commitEffect({ upserts: nodes, deletes: [] }, { at: AT });
+        yield* opensWithoutWriting(makeStore, root);
+        const loaded = yield* makeStore(root).loadEffect;
+        expect(loaded.find((node) => node.id === SYSTEM_IDS.viewsRoot)?.children).toEqual(earlier);
+      }),
+    ),
+  );
+}
+
+/**
  * A store holding a family's seed that this kb does not fold — an extension
  * switched off or gone — keeps those nodes as they are: opening neither
  * deletes nor rewrites a view option or a field no seed declares. The data

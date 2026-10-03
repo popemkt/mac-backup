@@ -545,6 +545,19 @@ silent, this is what was picked:
 - **The golden is order-sensitive** and byte-identical through E4 and E5.
   E4b, the order change, is not done here.
 
+**Note from the doing (E4b).** The order is fixed by the moves, not by
+taste. Core's declaration is folded first, so while a family's views are
+still in core they come before every family that has already moved. For
+the golden to stay byte-identical, the family that leaves core first must
+sit last. So the feature views follow core's as canvas, lab, code, chart:
+- chart (E7) joins the end of `BUNDLED_FAMILIES`;
+- code (E8) joins just before chart;
+- lab (E9) joins after canvas and before code, and canvas's views follow
+  canvas, which is already in the list.
+
+Existing stores keep their order. A store-contract case opens a store with
+`sys.views` in another order, and it writes nothing and keeps that order.
+
 **Note from the doing (E5).** `ViewText` is `{body, figure?}`, two
 functions of the decoded params, as the spec states. So a chart's page
 figure runs its query a second time, once per html render. `viewDef(key,
