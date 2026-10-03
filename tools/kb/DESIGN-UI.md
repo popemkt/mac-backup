@@ -1254,10 +1254,13 @@ a separate point that only points at it.
   opens the view frames it (`pageFrameOf`), and lets it fill its box when
   no route opens it.
 - **`ViewHost`** is what a host guarantees a view. It is never a store and
-  never `ctx`. It carries only `placement`, which is `page` (the view fills
+  never `ctx`. It carries `placement`, which is `page` (the view fills
   the box its host gives it: the shell's page, the graph's canvas) or
   `inline` (the view sits in the outline's flow, under the row of the frame
-  it shows). The rest of the host contract (size, appearance, reduced motion,
+  it shows), and, when the host draws the view from a view node, that node
+  (`viewNode`, which the slot takes and the node route passes): where a view
+  that edits its own settings writes them (the chart's spec editor). A view
+  drawn from a view type or from code has none. The rest of the host contract (size, appearance, reduced motion,
   and the other placements) arrives with its first consumer
   (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]). Nesting is separate from placement,
   and it is already live: the ontology's view embeds the graph and outline
@@ -1565,6 +1568,53 @@ until "Save workspace".
   (`<outer>:<inner>`), and each draws its page through a slot shown for its
   location. "Open as the workspace" (its corner button, or the node menu
   on a layout node) replaces the workspace with its tree, movable again.
+
+### Chart views
+
+The chart plugin (`components/chart`) draws `chart.vega-lite` (DESIGN.md
+→ View nodes → Chart views states its params and data) at placement
+`page`. It owns no route: a node opens it through `/node/<id>/<view>`,
+so a pane, a dashboard's pane and the pane switcher (which offers it for
+every node by its key) reach it with nothing of its own.
+
+- **Its rows are live.** `useChartData` (`lib/chart-data`) reads the source
+  query node's rows from the query node's subscription over `/ws`, or from
+  the local index while the socket is closed (`useQueryNodeRows`, the one
+  path a query node's rows take), names them through `@/ds`'s
+  `queryRecords` and caps them at the query's limit. A subscription id names
+  its subscriber (`querySubscriptionId`), so a chart and the query's row in
+  another pane each keep their own. When there is nothing to draw the page
+  says why: no source, a source that is no query, a query that fails.
+- **Vega loads in a chunk of its own**, inside the page's chunk, only once
+  there are rows (`chart-canvas`, the one UI module that imports `@kb/vega`;
+  the lazy-chunk fence in `harness/src/constraints.ts` holds `@kb/vega` and
+  `vega*` as it holds three). The page's header and its states never wait
+  on it. It keeps one Vega view per spec and appearance: new rows are
+  swapped into it by name (`CHART_DATA`) and a new box resizes it
+  (`ResizeObserver`), so a live update or a pane resize never builds it
+  again. It draws SVG, and its tooltip is a popover drawn inside the
+  chart's own box, so unmounting leaves nothing behind.
+- **Its look is the design system's.** `chartTheme()` is a Vega-Lite config
+  from resolved tokens (`readTokenColor`, because Vega paints SVG attributes,
+  which hold no `var()`): ink and muted ink for text, the rule colour for
+  grids and domains, the accent for a single series, the chart ramp
+  (`--chart-1…5`) for magnitude, the UI face and the label, meta and ui type
+  steps. It is read again when `useAppearance().key` changes. A spec's own
+  `config` wins over it. Categories reorder the ramp for contrast, because a
+  design system carries no categorical palette (GAP [GAP-CHART-CATEGORICAL]).
+- **Its settings are edited as what they are.** The `{ }` toggle opens the
+  spec as JSON, checked as it is typed by the chart's key (`paramsIssues`,
+  strict, the check `view.propose` makes), each issue at its path, with the
+  query's column names beside it. Save writes `sys.f.chart` on the view node
+  the chart is drawn from (`ViewHost.viewNode`), through the same check;
+  drawn from the view type alone (the switcher's "Chart"), it proposes a view
+  node for its source and moves the pane to it. There is no chart builder
+  (GAP [GAP-CHART-BUILDER]).
+- **"Add chart"** in a query node's node menu proposes a chart view node for
+  it, started from the query's columns (`starterChartSpec`: its first
+  aggregate column by its first non-id column, else a count of rows by that
+  column), and opens it in a panel beside. `lib/propose-view` is the UI's
+  one way to call `view.propose`; "Save workspace" goes through it too.
 
 ### Optional UI plugins
 

@@ -1001,6 +1001,69 @@ layouts).
   a layout inside itself repeats a link that the slot refuses
   (DESIGN-UI.md → the slot's promise 6).
 
+#### Chart views
+
+**A chart is a query node's rows drawn by a Vega-Lite spec** (roadmap
+decision 10). The chart view, `chart.vega-lite` (`@kb/views`' `chart.ts`),
+is a projection like a table: the table lays a query's rows out as cells,
+the chart as marks. How the browser draws it is DESIGN-UI.md → Chart views.
+
+- **The params are a source and a spec.** `{source?, spec}`: `source` is
+  the query node whose rows the chart draws, stored as `lens.focus`, else
+  the node the chart is shown for, so one chart view node named by many
+  query nodes draws each, and a proposal with no source is such a template.
+  `spec` is a Vega-Lite spec as plain JSON, held as canonical JSON in one
+  text prop, `sys.f.chart`, the way a layout holds its tree; a view node
+  holding none draws the count of its rows (`starterChartSpec([])`, the
+  catalog's default). Settings are JSON, never code, which is why the spec
+  is Vega-Lite: TanStack Charts' accessor functions cannot be stored, and
+  it may become a renderer behind the same stored spec.
+- **The spec is checked for its shape, and holds no data.** `ChartSpec`
+  declares Vega-Lite's top-level keys, each checked for its shape (a mark
+  Vega-Lite draws, arrays of objects for `layer`, `transform`, …, a
+  Vega-Lite `$schema` when it names one), and must draw something (a mark
+  or a composition); what lies inside them is Vega-Lite's to read. It holds
+  no `data`, `datasets` or `url` anywhere, at any depth: a chart's data is
+  its query's rows, and a stored spec fetches nothing. A proposal that
+  breaks this is refused at the path (`view.propose`); a stored one that
+  breaks it does not decode, so it is never drawn. The catalog publishes the
+  shape as JSON Schema, `additionalProperties: false`, with no `data` key.
+- **The rows are records named by the query.** `@kb/query`'s
+  `queryRecords` makes each row an object keyed by the query's `:find`
+  names (`?status` is `status`, `(count ?n)` is `count_n`, a repeat gets
+  `_2`), read from the `:find` section alone, so a query outside the IR
+  subset is named too; columns it cannot name are `col_1`, `col_2`, ….
+  The query's limit caps them. `chartSpecWithData` makes them the spec's
+  data (`data.values`, named `CHART_DATA` so a host swaps new rows in) and
+  fits a spec that fills its box (one view or a layer, unsized:
+  `fillsChartBox`) to the box it is drawn in. These are the only data a
+  chart draws, on every surface.
+- **On a text surface a chart is its encoding and its data.** Its body
+  (`viewText`, View nodes above) is what it draws — mark and channels,
+  layer by layer (`describeChartSpec`) — then its rows as a markdown table,
+  or why it has none: no source, a source that is no query node, a query
+  that fails. On an html page (`render.view` as html, a `ui://kb/view/<id>`
+  snapshot) its SVG sits above that text, drawn in a fixed 560 × 300 box
+  by the runtime's chart painter, `ChartSvg` (`@kb/contracts`): a port that
+  draws a Vega-Lite spec with inline data as one SVG document, fetching
+  nothing and compiling no code. It is a `Reference` with no painter by
+  default, so a surface that provides none (the browser's isomorphic
+  actions) draws the text alone; `kbRuntimeLayer` provides Vega, headless
+  under Bun with no canvas (`@kb/vega`, whose tests hold the promise). The
+  snapshot is unthemed, Vega's own look, like the page around it.
+- **How kb runs Vega is one place, `@kb/vega`.** A Vega-Lite spec compiles
+  to Vega, parsed to an AST (`ast: true`) that `vega-interpreter`
+  evaluates, so no expression in a stored spec becomes `new Function` and a
+  strict CSP holds; the loader refuses every load, sanitize, http and file
+  request (`NO_NETWORK`), so a URL that slipped past the check, an image or
+  a link reaches nothing. The browser and the server both run specs
+  through it.
+- **A chart view node is written like any view node.** An agent proposes
+  one through `view.propose` from the catalog entry; the UI's "Add chart"
+  proposes one for a query node, and its spec editor writes `sys.f.chart`
+  through the same check. Like every view node, one written through
+  `node.update` is not checked (GAP [[01M40X308W34T0PGSN12S9K2K2]]).
+
 ## Storage (horizontal)
 
 The port is `EffectStore` in `packages/contract/contracts/src/store.ts`; that
@@ -1363,6 +1426,14 @@ same lane. One path to a client, whatever a node's provenance.
   its EDN to `KbIndex.runDatalog`, which is `compile(parseEdn(edn))` then
   DataScript. The subset `parseEdn` understands becomes the kb IR
   (`@kb/query`'s `ir.ts`); anything else passes through as `raw`, unchanged.
+- **A number stays a number when the query parses.** A ref prop and a number
+  prop are both stored as a bare number (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]),
+  so a result value that equals a live eid could be either. For a query in
+  the IR subset only node-ref find positions are revived into node ids: a
+  variable the IR types as a node, or one bound as the value of a field attr
+  that holds refs somewhere in the data (the index's `refAttrs`). A count or
+  a number field's value stays a number. A `raw` query revives every
+  eid-shaped integer, as it cannot tell them apart.
 - **Transitive reach** is a `:where` clause in that subset, written as a rule
   call so the EDN stays valid datalog:
 
