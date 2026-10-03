@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { CanvasDoc, CanvasEdge, CanvasNode } from "@kb/canvas";
+import { isShapeNode, type CanvasDoc, type CanvasEdge, type CanvasNode } from "@kb/canvas";
 import {
   type CanvasSelection,
   EMPTY_SELECTION,
@@ -32,7 +32,9 @@ export function useCanvasSelection(doc: CanvasDoc, byId: Map<string, CanvasNode>
 
   /**
    * A press on a card, in whichever projection drew it: a modifier toggles
-   * it in the selection, a plain press selects it and starts moving it.
+   * it in the selection, a plain press selects it and starts moving it. A
+   * shape newly selected opens its inspector at `anchor`, where it was
+   * pressed; any item's inspector opens from the selection toolbar.
    */
   const onCardPointerDown = (
     card: CanvasNode,
@@ -50,7 +52,7 @@ export function useCanvasSelection(doc: CanvasDoc, byId: Map<string, CanvasNode>
     if (!isSelected) {
       setSelection(selectNode(card.id));
       setInspectorAnchor(null);
-      setItemInspectorAnchor(anchor ?? null);
+      setItemInspectorAnchor(isShapeNode(card) ? (anchor ?? null) : null);
     }
     startMove();
   };

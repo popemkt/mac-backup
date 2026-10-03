@@ -326,7 +326,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 onReady={projection.onSceneReady}
                 onError={projection.onSceneError}
                 onCardPress={(card, press, startMove) =>
-                  onCardPointerDown(card, press, undefined, startMove)
+                  onCardPointerDown(card, press, { x: press.clientX, y: press.clientY }, startMove)
                 }
                 dispatchPointer={dispatchPointer}
                 onTapEmpty={(world, press) => {
@@ -390,6 +390,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           onDeleteEdge={() => void onDeleteEdge()}
           onEdgeChange={(edge) => schedulePersist(upsertCanvasEdge(docRef.current, edge))}
           onCloseItemInspector={() => setItemInspectorAnchor(null)}
+          onInspectItem={setItemInspectorAnchor}
           onItemChange={(shape) => schedulePersist(upsertCanvasNode(docRef.current, shape))}
           onPickNode={addKbNode}
           onClosePicker={() => setPickerOpen(false)}

@@ -36,6 +36,8 @@ describe("with something selected", () => {
     [chord("d"), { type: "tool", tool: "diamond" }],
     [chord("f"), { type: "tool", tool: "group" }],
     [chord("n"), { type: "tool", tool: "kb-node" }],
+    [chord("b"), { type: "tool", tool: "solid" }],
+    [chord("8"), { type: "tool", tool: "solid" }],
     [chord("=", { metaKey: true }), { type: "zoomBy", factor: ZOOM_STEP }],
     [chord("+", { metaKey: true }), { type: "zoomBy", factor: ZOOM_STEP }],
     [chord("-", { metaKey: true }), { type: "zoomBy", factor: 1 / ZOOM_STEP }],

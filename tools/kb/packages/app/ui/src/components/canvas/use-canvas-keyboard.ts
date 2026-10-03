@@ -11,7 +11,7 @@ import {
   selectionEmpty,
 } from "@/lib/canvas-selection";
 import { mapCanvasKey, type CanvasIntent } from "@/lib/canvas-keymap";
-import { reduceCanvasTool, type CanvasTool, type ToolState } from "@/lib/canvas-tool";
+import { reduceCanvasTool, type CanvasToolPick, type ToolState } from "@/lib/canvas-tool";
 import type { CanvasViewportControls } from "@/lib/canvas-camera";
 import { isTextEntry } from "@/lib/dom";
 
@@ -142,7 +142,7 @@ function nudgeSelection(context: CanvasKeyboardContext, dx: number, dy: number) 
   context.schedulePersist(nextDoc);
 }
 
-function chooseTool(context: CanvasKeyboardContext, tool: CanvasTool) {
+function chooseTool(context: CanvasKeyboardContext, tool: CanvasToolPick) {
   if (tool === "kb-node") {
     context.setToolState({ tool: "select" });
     context.setPickerOpen(true);

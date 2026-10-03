@@ -159,10 +159,14 @@ function result(
   return { state, guides: state.snapGuides, ...rest };
 }
 
-/** The cards a press on `id` carries: the selection when `id` is in it, otherwise `id` alone. */
+/** The ids a press on `id` carries: the selection when `id` is in it, otherwise `id` alone. */
+export function carriedIds(id: string, selection: CanvasSelection): ReadonlySet<string> {
+  return selection.nodeIds.has(id) ? selection.nodeIds : new Set([id]);
+}
+
+/** The cards a press on `id` carries ({@link carriedIds}). */
 function carried(id: string, ctx: PointerContext): CanvasNode[] {
-  const ids = ctx.selection.nodeIds.has(id) ? ctx.selection.nodeIds : new Set([id]);
-  return [...ids].flatMap((one) => {
+  return [...carriedIds(id, ctx.selection)].flatMap((one) => {
     const node = ctx.byId.get(one);
     return node ? [node] : [];
   });

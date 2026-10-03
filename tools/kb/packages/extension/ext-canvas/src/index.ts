@@ -222,7 +222,9 @@ const actions: ExtensionAction[] = [
     title: "Apply canvas transaction",
     description:
       "Atomically write a canvas JSON document and optional relationship prop set/unset. " +
-      "Items may carry z (height above the floor, the canvas plane; absent is 0) and the document a camera " +
+      "Items may carry z (height of their base above the floor, the canvas plane; absent is 0) and depth " +
+      "(how far they rise from it; absent is flat), and a shape item's shape is rect, ellipse, diamond, " +
+      "sphere or cone. The document may carry a camera " +
       "({ projection: 2d | 3d, pose? }); see DESIGN.md, Canvas documents",
     mode: { kind: "write" },
     inputSchema: applyInput,

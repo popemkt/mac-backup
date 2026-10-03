@@ -12,7 +12,7 @@
  * tool of the same digit (or deleting, for numpad `.` with NumLock off).
  */
 import type { CanvasProjectionKind } from "@kb/canvas";
-import type { CanvasTool } from "@/lib/canvas-tool";
+import type { CanvasTool, CanvasToolPick } from "@/lib/canvas-tool";
 import { CANVAS_VIEW_PRESETS, ZOOM_STEP, type CanvasViewPreset } from "@/lib/canvas-camera";
 
 export interface CanvasKeyEvent {
@@ -34,7 +34,7 @@ export type CanvasIntent =
   | { type: "escape" }
   | { type: "panModifier" }
   | { type: "nudge"; dx: number; dy: number }
-  | { type: "tool"; tool: CanvasTool }
+  | { type: "tool"; tool: CanvasToolPick }
   | { type: "zoomBy"; factor: number }
   | { type: "zoomTo"; zoom: number }
   | { type: "frame"; scope: "all" | "selection" }
@@ -162,6 +162,9 @@ const TOOL_KEYS: Record<string, CanvasTool> = {
   "7": "group",
 };
 
+/** The solid tool's keys (plan 2026-10-02 decision 9): which solid it is is the tool state's. */
+const SOLID_TOOL_KEYS = new Set(["b", "8"]);
+
 /** One canvas unit per arrow, ten with Shift held. */
 const NUDGE_UNITS: Record<string, { dx: number; dy: number }> = {
   ArrowLeft: { dx: -1, dy: 0 },
@@ -247,7 +250,9 @@ const mapNudge: ChordMap = (event, state) => {
 };
 
 const mapTool: ChordMap = (event) => {
-  const tool = TOOL_KEYS[event.key.toLowerCase()];
+  const key = event.key.toLowerCase();
+  if (SOLID_TOOL_KEYS.has(key)) return claim({ type: "tool", tool: "solid" });
+  const tool = TOOL_KEYS[key];
   return tool === undefined ? null : claim({ type: "tool", tool });
 };
 

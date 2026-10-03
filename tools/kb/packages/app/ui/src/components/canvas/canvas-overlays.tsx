@@ -1,4 +1,5 @@
 import type { CanvasEdge, CanvasNode, CanvasProjectionKind, KbLinkMode } from "@kb/canvas";
+import { SlidersHorizontalIcon } from "@phosphor-icons/react";
 import { CanvasToolbar } from "@/components/canvas/canvas-toolbar";
 import { EdgeInspector } from "@/components/canvas/edge-inspector";
 import { NodePicker } from "@/components/canvas/node-picker";
@@ -29,9 +30,74 @@ interface CanvasOverlaysProps {
   onDeleteEdge: () => void;
   onEdgeChange: (edge: CanvasEdge) => void;
   onCloseItemInspector: () => void;
+  /** Open the selected item's inspector at a point on screen. */
+  onInspectItem: (anchor: { x: number; y: number }) => void;
   onItemChange: (shape: CanvasNode) => void;
   onPickNode: (nodeId: string) => void;
   onClosePicker: () => void;
+}
+
+/** The floating selection toolbar: inspect one item, reorder, delete. */
+function SelectionBar({
+  count,
+  canInspect,
+  onInspectItem,
+  onBringToFront,
+  onSendToBack,
+  onDeleteSelection,
+}: {
+  count: number;
+  canInspect: boolean;
+} & Pick<
+  CanvasOverlaysProps,
+  "onInspectItem" | "onBringToFront" | "onSendToBack" | "onDeleteSelection"
+>) {
+  return (
+    <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm">
+      <span className="mr-1 text-label text-foreground/40">{count} selected</span>
+      {canInspect && (
+        <button
+          type="button"
+          title="Inspect: colour, lift and depth"
+          aria-label="Inspect"
+          className="flex items-center gap-1 rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5"
+          onClick={(e) => {
+            const box = e.currentTarget.getBoundingClientRect();
+            // The inspector stands centred over the button (it opens 160px left of its anchor).
+            onInspectItem({ x: box.left + box.width / 2 + 16, y: box.top });
+          }}
+        >
+          <SlidersHorizontalIcon size={13} />
+          Inspect
+        </button>
+      )}
+      <button
+        type="button"
+        title="Bring to front"
+        className="rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5"
+        onClick={onBringToFront}
+      >
+        ↑ Front
+      </button>
+      <button
+        type="button"
+        title="Send to back"
+        className="rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5"
+        onClick={onSendToBack}
+      >
+        ↓ Back
+      </button>
+      <div className="mx-1 h-4 w-px bg-foreground/10" />
+      <button
+        type="button"
+        title="Delete selected (Del)"
+        className="rounded-md px-1.5 py-1 text-label text-destructive hover:bg-destructive/10"
+        onClick={onDeleteSelection}
+      >
+        Delete
+      </button>
+    </div>
+  );
 }
 
 export function CanvasOverlays({
@@ -56,6 +122,7 @@ export function CanvasOverlays({
   onDeleteEdge,
   onEdgeChange,
   onCloseItemInspector,
+  onInspectItem,
   onItemChange,
   onPickNode,
   onClosePicker,
@@ -65,43 +132,20 @@ export function CanvasOverlays({
       <CanvasToolbar
         projection={projection}
         onProjectionChange={onProjectionChange}
-        tool={toolState.tool}
-        sticky={toolState.sticky}
+        toolState={toolState}
         onToolChange={onToolChange}
         onToolDoubleClick={onToolDoubleClick}
       />
 
       {!selectionEmpty(selection) && !inspectorAnchor && !itemInspectorAnchor && (
-        <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm">
-          <span className="mr-1 text-label text-foreground/40">
-            {selection.nodeIds.size + selection.edgeIds.size} selected
-          </span>
-          <button
-            type="button"
-            title="Bring to front"
-            className="rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5"
-            onClick={onBringToFront}
-          >
-            ↑ Front
-          </button>
-          <button
-            type="button"
-            title="Send to back"
-            className="rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5"
-            onClick={onSendToBack}
-          >
-            ↓ Back
-          </button>
-          <div className="mx-1 h-4 w-px bg-foreground/10" />
-          <button
-            type="button"
-            title="Delete selected (Del)"
-            className="rounded-md px-1.5 py-1 text-label text-destructive hover:bg-destructive/10"
-            onClick={onDeleteSelection}
-          >
-            Delete
-          </button>
-        </div>
+        <SelectionBar
+          count={selection.nodeIds.size + selection.edgeIds.size}
+          canInspect={selectedItem !== null}
+          onInspectItem={onInspectItem}
+          onBringToFront={onBringToFront}
+          onSendToBack={onSendToBack}
+          onDeleteSelection={onDeleteSelection}
+        />
       )}
 
       {selectedEdge && inspectorAnchor && (

@@ -4,7 +4,7 @@
  * the same. Plain state, no DOM and no three: the host feeds it presses in
  * viewport coordinates and it answers through `SceneGestureHost`.
  *
- * - On a card: a press selects it (a modifier toggles it) and a drag carries
+ * - On an item: a press selects it (a modifier toggles it) and a drag carries
  *   it on its own plane; with Alt, up from the floor. Both go through the canvas
  *   pointer reducer, so a 3D drag is the same history step and the same write
  *   as a 2D one.
@@ -15,7 +15,14 @@
  * Every screen point becomes a canvas point through the one camera model, so
  * what is hit and where a card goes are the model's answers.
  */
-import { canvasElevation, paintOrder, type CanvasNode } from "@kb/canvas";
+import {
+  canvasDepth,
+  canvasTop,
+  itemShape,
+  onFootprint,
+  paintOrder,
+  type CanvasNode,
+} from "@kb/canvas";
 import {
   hitTest,
   screenToPlane,
@@ -24,7 +31,8 @@ import {
   type CanvasView,
   type ViewSize,
 } from "@/lib/canvas-camera";
-import type { CanvasPointerEvent } from "@/lib/canvas-pointer";
+import { carriedIds, type CanvasPointerEvent } from "@/lib/canvas-pointer";
+import type { CanvasSelection } from "@/lib/canvas-selection";
 import { pastSlop } from "@/lib/pointer-slop";
 
 /** A press: where it is in the viewport and on screen, its button and its modifiers. */
@@ -43,6 +51,7 @@ export interface SceneGestureHost {
   readonly view: () => CanvasView;
   readonly size: () => ViewSize;
   readonly items: () => readonly CanvasNode[];
+  readonly selection: () => CanvasSelection;
   readonly spaceDown: () => boolean;
   /** A press on a card: select or toggle it, then `startMove` to carry it. */
   readonly cardPress: (card: CanvasNode, press: ScenePress, startMove: () => void) => void;
@@ -59,6 +68,8 @@ type Gesture =
   | {
       readonly kind: "card";
       readonly z: number;
+      /** The items the drag carries, which the pointer is never read on. */
+      readonly carried: ReadonlySet<string>;
       /** The last canvas point the drag had on the card's plane (none while edge-on). */
       last: CanvasPoint3 | null;
     }
@@ -93,9 +104,11 @@ export class SceneGestures {
     const card = pans ? undefined : this.cardAt(press.local);
     const screen = { x: press.clientX, y: press.clientY };
     if (card !== undefined) {
-      const z = canvasElevation(card);
+      // Carried on the plane of its top, where a solid is usually taken hold of.
+      const z = canvasTop(card);
       const world = this.planeAt(press.local, z);
-      this.gesture = { kind: "card", z, last: world };
+      const carried = carriedIds(card.id, this.host.selection());
+      this.gesture = { kind: "card", z, carried, last: world };
       this.host.cardPress(card, press, () => {
         if (world === null) return;
         const type = press.altKey ? "lift/start" : "move/start";
@@ -115,7 +128,7 @@ export class SceneGestures {
     const g = this.gesture;
     if (g === null) return this.cardAt(press.local) === undefined ? "" : "grab";
     if (g.kind === "card") {
-      const world = this.planeAt(press.local, g.z);
+      const world = this.carryPoint(press.local, g);
       if (world === null) return "grabbing";
       g.last = world;
       const screen = { x: press.clientX, y: press.clientY };
@@ -141,7 +154,7 @@ export class SceneGestures {
         return;
       }
       // Released where the plane is edge-on: the card stays where the drag last had it.
-      const world = this.planeAt(press.local, g.z) ?? g.last;
+      const world = this.carryPoint(press.local, g) ?? g.last;
       if (world === null) {
         this.host.dispatch({ type: "pointer/cancel" });
         return;
@@ -163,6 +176,30 @@ export class SceneGestures {
     const items = this.host.items();
     const id = hitTest(paintOrder(items), this.host.view(), this.host.size(), local);
     return id === null ? undefined : items.find((n) => n.id === id);
+  }
+
+  /**
+   * Where a carry's pointer is: where it visibly is — on the top of a solid
+   * it is over, one the drag does not carry, which is how an item is
+   * carried onto another (the pointer reducer's surface snap then stands it
+   * there) — and otherwise on the plane the carried item was taken hold of.
+   */
+  private carryPoint(
+    local: CanvasPoint,
+    g: Extract<Gesture, { kind: "card" }>,
+  ): CanvasPoint3 | null {
+    const others = this.host.items().filter((item) => !g.carried.has(item.id));
+    const id = hitTest(paintOrder(others), this.host.view(), this.host.size(), local);
+    const under = others.find((item) => item.id === id);
+    if (under !== undefined && canvasDepth(under) > 0) {
+      const top = this.planeAt(local, canvasTop(under));
+      if (top !== null) {
+        const u = (top.x - under.x - under.width / 2) / (under.width / 2);
+        const v = (top.y - under.y - under.height / 2) / (under.height / 2);
+        if (onFootprint(itemShape(under), u, v)) return top;
+      }
+    }
+    return this.planeAt(local, g.z);
   }
 
   private planeAt(local: CanvasPoint, z: number): CanvasPoint3 | null {

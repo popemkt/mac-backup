@@ -17,12 +17,13 @@ const card: CanvasNode = {
   z: 40,
 };
 
-function harness(view: () => CanvasView = () => tilted) {
+function harness(view: () => CanvasView = () => tilted, items: readonly CanvasNode[] = [card]) {
   const events: CanvasPointerEvent[] = [];
   const host: SceneGestureHost = {
     view,
     size: () => size,
-    items: () => [card],
+    items: () => items,
+    selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
     spaceDown: () => false,
     cardPress: (_card, _press, startMove) => startMove(),
     dispatch: (event) => events.push(event),
@@ -55,6 +56,27 @@ const centre = () => {
 };
 
 describe("gestures over the 3D canvas", () => {
+  test("carried over a solid, the pointer is read on the solid's top, where it visibly is", () => {
+    const block: CanvasNode = {
+      id: "b",
+      type: "shape",
+      shape: "rect",
+      x: 500,
+      y: 40,
+      width: 120,
+      height: 120,
+      depth: 90,
+    };
+    const { gestures, events } = harness(() => tilted, [card, block]);
+    gestures.down(press(centre()));
+    const over = projectPoint(tilted, size, { x: 560, y: 100, z: 90 });
+    if (over === null) throw new Error("the block's top is out of view");
+    gestures.move(press({ x: over.x, y: over.y }));
+    const moved = events.findLast((e) => e.type === "pointer/move");
+    expect(moved?.type === "pointer/move" ? moved.world.x : 0).toBeCloseTo(560, 3);
+    expect(moved?.type === "pointer/move" ? moved.world.y : 0).toBeCloseTo(100, 3);
+  });
+
   test("a drag on a card carries it across its own plane", () => {
     const { gestures, events } = harness();
     const at = centre();

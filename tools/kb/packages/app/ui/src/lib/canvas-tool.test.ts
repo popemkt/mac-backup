@@ -18,6 +18,22 @@ describe("canvas tool reducer", () => {
     expect(reduceCanvasTool({ tool: "diamond" }, { type: "escape" })).toEqual({ tool: "select" });
     expect(reduceCanvasTool({ tool: "ellipse" }, { type: "placed" })).toEqual({ tool: "select" });
   });
+
+  test("the solid tool picks a box first, then whichever solid was picked last", () => {
+    expect(reduceCanvasTool({ tool: "select" }, { type: "set-tool", tool: "solid" })).toEqual({
+      tool: "box",
+      solid: "box",
+    });
+    const sphere = reduceCanvasTool({ tool: "select" }, { type: "set-tool", tool: "sphere" });
+    const placed = reduceCanvasTool(sphere, { type: "placed" });
+    expect(placed).toEqual({ tool: "select", solid: "sphere" });
+    // A flat tool in between does not forget it.
+    const text = reduceCanvasTool(placed, { type: "set-tool", tool: "text" });
+    expect(reduceCanvasTool(text, { type: "set-tool", tool: "solid" })).toEqual({
+      tool: "sphere",
+      solid: "sphere",
+    });
+  });
 });
 
 describe("placeWithTool", () => {
