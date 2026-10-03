@@ -395,6 +395,20 @@ two rows it moves between. `components/outline/update-cost.test.tsx` pins
 all three. The `[[` candidates (`nodeCandidates`, label order derived once
 per map) are computed only while a popup is open.
 
+Every expanded row is mounted; the outline is not windowed, because a
+windowed list fights the contentEditable focus and caret model (a row that
+unmounts takes its editor, its selection and its scroll anchor with it). Nor
+do row blocks carry `content-visibility: auto`. Measured on a 427-row
+outline, it removed the long frame of a first scroll only under a 6× CPU
+throttle (101 → 26 ms; 1× was already ≤ 17 ms), and did not change load. It
+costs too much for that: the containment it implies makes every block the
+containing block of the fixed-position pickers anchored in its rows, and
+clips them; estimated sizes make the scrollbar jump by thousands of pixels
+on the first scroll; and `scrollIntoView` targets drift as the skipped
+blocks above them are laid out. What remains is mount cost, linear in
+expanded rows (load ≈ 0.2 s at 1×, 1.1 s at 6×), named as
+`GAP [GAP-OUTLINE-WINDOWING]` where the list renders its rows.
+
 **`sys.*` rows are read-only at the door.** `store.activateNode` degrades a
 `sys.*` id to selection so no caret ever enters one; the row shows a hover
 padlock instead of failing on write.

@@ -47,6 +47,9 @@ export function ListFrameView({ params }: ViewProps<ParamsOf<typeof OutlineListV
   );
   if (subject === null) return <NoFrame />;
   const { instanceKey, depth } = subject;
+  // Every row mounts, on screen or not: load cost is linear in expanded rows
+  // (DESIGN-UI.md → Outline editor).
+  // GAP [GAP-OUTLINE-WINDOWING]
   return rows.map((child) => {
     // At the outline's root, a row takes its canonical instance.
     const key =
