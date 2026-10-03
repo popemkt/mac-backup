@@ -5,5 +5,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": [".storybook", "src", "vite.config.ts"]
+  "include": [".storybook", "src", "vite.config.ts", "vite.sandbox.config.ts"]
 }

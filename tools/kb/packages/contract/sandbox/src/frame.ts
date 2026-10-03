@@ -54,17 +54,43 @@ export const SANDBOX_FRAME_HEADERS: Readonly<Record<string, string>> = {
   "Cache-Control": "no-store",
 };
 
+/**
+ * The page's design tokens a frame takes, as CSS variables, so what code
+ * draws can use `var(--foreground)` and look like kb.
+ */
+export const SANDBOX_THEME_VARIABLES = [
+  "--background",
+  "--foreground",
+  "--muted-foreground",
+  "--card",
+  "--border",
+  "--accent",
+  "--accent-foreground",
+  "--chart-1",
+  "--chart-2",
+  "--chart-3",
+  "--chart-4",
+  "--chart-5",
+  "--app-font",
+  "--app-font-mono",
+] as const;
+
+/** Whether a theme variable's value is safe to set: no URL, escape, or way out of the declaration. */
+export function safeThemeValue(value: string): boolean {
+  return value.length < 512 && !/url\s*\(|\\|[;{}<>]|@import|expression\s*\(/i.test(value);
+}
+
 /** The frame's document: a box to draw in, a line for the run's end, and kb's frame script. */
 export function sandboxFrameDocument(): string {
   return [
     "<!doctype html>",
     '<html><head><meta charset="utf-8"><title>kb sandbox</title>',
     "<style>",
-    "html,body{margin:0;padding:0;background:transparent;color:var(--ink,#1f1f1f);",
-    "font:14px/1.5 var(--font-ui,system-ui,sans-serif)}",
+    "html,body{margin:0;padding:0;background:transparent;color:var(--foreground,#1f1f1f);",
+    "font:14px/1.5 var(--app-font,system-ui,sans-serif)}",
     `#${SANDBOX_DRAW_ID}{padding:12px}`,
     `#${SANDBOX_STATUS_ID}{margin:12px;padding:8px 12px;border-radius:6px;`,
-    "background:var(--surface-sunken,#f4f4f4);color:var(--ink-muted,#555);font-size:13px}",
+    "background:var(--card,#f4f4f4);color:var(--muted-foreground,#555);font-size:13px}",
     "</style></head>",
     `<body><div id="${SANDBOX_DRAW_ID}"></div><div id="${SANDBOX_STATUS_ID}" role="status" hidden></div>`,
     `<script src="${SANDBOX_SCRIPT_PATH}"></script></body></html>`,

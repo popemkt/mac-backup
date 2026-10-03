@@ -39,6 +39,7 @@ function uiSourceInputs(uiRoot: string): string[] {
     join(uiRoot, "index.html"),
     join(uiRoot, "package.json"),
     join(uiRoot, "vite.config.ts"),
+    join(uiRoot, "vite.sandbox.config.ts"),
     join(uiRoot, "tsconfig.json"),
     join(uiRoot, "bun.lock"),
     join(uiRoot, "package-lock.json"),

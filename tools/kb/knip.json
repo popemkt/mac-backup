@@ -28,6 +28,12 @@
         "tests-render/server.ts"
       ]
     },
+    "packages/app/ui": {
+      "entry": [
+        "vite.sandbox.config.ts",
+        "src/sandbox/frame.ts"
+      ]
+    },
     "packages/app/test-kit": {
       "entry": [
         "tests/*.test.ts",

@@ -122,4 +122,15 @@ describe("kb ui request guard", () => {
     const res = await fetch(`${handle.url}/`, { headers: { Origin: EVIL } });
     expect(res.status).not.toBe(403);
   });
+
+  test("the sandbox frame is served sandboxed, connecting nowhere, embeddable only here", async () => {
+    const res = await fetch(`${handle.url}/sandbox`);
+    expect(res.status).toBe(200);
+    const csp = res.headers.get("content-security-policy") ?? "";
+    expect(csp).toStartWith("sandbox allow-scripts;");
+    expect(csp).toContain("connect-src 'none'");
+    expect(csp).toContain("frame-ancestors 'self'");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(await res.text()).toContain('<script src="/sandbox/frame.js"></script>');
+  });
 });

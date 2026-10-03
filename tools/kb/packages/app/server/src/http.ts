@@ -12,6 +12,7 @@ import {
   type SurfaceWire,
 } from "@kb/contracts";
 import type { ActionHandlerEnv } from "@kb/runtime";
+import { SANDBOX_FRAME_HEADERS, SANDBOX_FRAME_PATH, sandboxFrameDocument } from "@kb/sandbox";
 import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
 import { serverInvoke } from "./invoke.ts";
@@ -130,6 +131,15 @@ const handleHttpRequestEffect = (
       const response: ActionResponse =
         receipt.status === "succeeded" ? { ...receipt, rev: ctx.log.head } : receipt;
       return jsonResponse(response);
+    }
+
+    // The sandbox frame's document, served with the policy that fences it
+    // (DESIGN.md → Sandbox → The frame); its script is a ui/dist file.
+    if (url.pathname === SANDBOX_FRAME_PATH && req.method === "GET") {
+      return HttpServerResponse.raw(sandboxFrameDocument(), {
+        status: 200,
+        headers: SANDBOX_FRAME_HEADERS,
+      });
     }
 
     // W6a: opaque media files — before SPA / ui/dist so /assets never

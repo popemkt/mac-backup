@@ -64,5 +64,7 @@ export {
   SANDBOX_IFRAME_FLAGS,
   SANDBOX_SCRIPT_PATH,
   SANDBOX_STATUS_ID,
+  SANDBOX_THEME_VARIABLES,
+  safeThemeValue,
   sandboxFrameDocument,
 } from "./frame.ts";

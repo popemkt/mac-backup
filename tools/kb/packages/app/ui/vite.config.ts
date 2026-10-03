@@ -49,6 +49,12 @@ export default defineConfig({
         target: `http://127.0.0.1:${apiPort}`,
         changeOrigin: true,
       },
+      // The sandbox frame's document and script come from the backend, which
+      // serves the frame with its policy (DESIGN.md → Sandbox → The frame).
+      "/sandbox": {
+        target: `http://127.0.0.1:${apiPort}`,
+        changeOrigin: true,
+      },
       "/ws": {
         target: `ws://127.0.0.1:${apiPort}`,
         ws: true,

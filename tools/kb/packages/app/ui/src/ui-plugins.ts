@@ -12,6 +12,7 @@ import type { Plugin } from "@kb/plugin";
 import { agentPlugin } from "@/agent";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
 import { chartUiPlugin } from "@/components/chart/plugin";
+import { codeUiPlugin } from "@/components/code/plugin";
 import { graphUiPlugin } from "@/components/graph/plugin";
 import { labUiPlugin } from "@/components/lab/plugin";
 import { layoutUiPlugin } from "@/components/layout/plugin";
@@ -30,6 +31,7 @@ export const BUILTIN_UI_PLUGINS: readonly Plugin[] = [
   canvasUiPlugin,
   layoutUiPlugin,
   chartUiPlugin,
+  codeUiPlugin,
   webMcpUiPlugin,
   screenUiPlugin,
 ];

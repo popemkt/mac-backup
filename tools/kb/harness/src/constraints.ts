@@ -189,6 +189,7 @@ type UiSurface =
   | "agent"
   | "canvas"
   | "chart"
+  | "code"
   | "graph"
   | "lab"
   | "layout"
@@ -202,6 +203,7 @@ const UI_SURFACES: readonly UiSurface[] = [
   "agent",
   "canvas",
   "chart",
+  "code",
   "graph",
   "lab",
   "layout",
@@ -225,6 +227,7 @@ export type UiZone =
   | "scene"
   | "test-support"
   | "catalog"
+  | "sandbox"
   | "components/canvas/3d"
   | `components/${UiSurface}`;
 
@@ -312,6 +315,7 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "components/agent",
     "components/canvas",
     "components/chart",
+    "components/code",
     "components/graph",
     "components/lab",
     "components/layout",
@@ -388,6 +392,11 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   "components/agent": ["components/agent", "primitives", "stores", "lib"],
   // A chart draws its query node's rows; the rows and its saves go through `lib`.
   "components/chart": ["components/chart", "primitives", "stores", "actions", "lib"],
+  // A code view hosts a sandbox frame; the page's end of the bridge is `lib`'s.
+  "components/code": ["components/code", "primitives", "stores", "actions", "lib"],
+  // The sandbox frame's own script, a separate build that runs in the frame:
+  // it reaches nothing of the page, and nothing of the page reaches it.
+  sandbox: ["sandbox"],
   "components/outline": ["components/outline", "primitives", "stores", "actions", "lib"],
   "components/palette": ["components/palette", "primitives", "stores", "actions", "lib"],
   "components/prefs": ["components/prefs", "primitives", "stores", "actions", "lib"],

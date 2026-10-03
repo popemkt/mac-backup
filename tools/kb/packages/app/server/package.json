@@ -17,6 +17,7 @@
     "@kb/plugin": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/runtime": "workspace:*",
+    "@kb/sandbox": "workspace:*",
     "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:"
   },
