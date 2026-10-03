@@ -1035,14 +1035,22 @@ manipulation feel professional rather than merely functional.
 - **Snap guides and fit.** Alignment snapping is magnetic within 5px
   (`SNAP_TOL`, `lib/canvas-snap.ts`), one rule on all three axes: a move
   across the floor snaps on x and y and draws dashed guide lines, and an
-  Alt-lift in 3D snaps to the heights other cards stand at (no line is drawn
-  up the z axis); `Shift+1` zoom-to-fit frames the
+  Alt-lift in 3D snaps to the bases and tops of other items (no line is
+  drawn up the z axis). The same module owns **surface snap**: an item
+  carried across the floor stands on the top of the highest solid its
+  centre comes over (its footprint, not its box), and one taken off a pile
+  comes down to the floor; an item raised off every solid keeps its
+  height. `Shift+1` zoom-to-fit frames the
   bounding box with 40px padding. Zoom range is 0.1–3.0 (`MIN_ZOOM`/`MAX_ZOOM`).
 - **Sticky tools.** `lib/canvas-tool.ts` is a pure reducer: picking a tool is
   one-shot (it returns to `select` after placing), double-clicking the tool icon
   makes it **sticky** for repeated placement, `Escape` always returns to select.
   Tools: select (V), text (T), rect (R), ellipse (O / C), diamond (D),
-  group (G / F), kb node (N); digits `1`–`7` mirror the same order. The
+  group (G / F), kb node (N), solid (B); digits `1`–`8` mirror the same
+  order. The solid tool is tldraw's geo-tool pattern: one button wearing
+  the solid last picked, with a picker beside it over `CANVAS_SOLID_PRESETS`
+  (box, pillar, sphere, cone, shelf, wall), and B picks that solid again.
+  One table (`TOOL_LOOKS`, typed over every tool) names and marks them. The
   numpad's digits are views, not tools (Projections → view widget).
 - **Edges are drawings** (the Logseq-whiteboards decision, unchanged): a live
   dashed bezier ghost during creation, smart port snapping by nearest Euclidean
@@ -1050,9 +1058,16 @@ manipulation feel professional rather than merely functional.
   stroke, per-colour SVG arrowhead markers, and mid-path labels editable by
   double-click. `EdgeInspector` toggles arrowheads per end and picks JSON Canvas
   colours 1–6.
-- **Floating selection toolbar** with Delete / Bring-to-front / Send-to-back.
-  Items paint by depth (`z`), then in document order, and the two buttons
-  reorder the document (`paintOrder`, DESIGN.md → Canvas documents).
+- **Floating selection toolbar** with Inspect (one item) / Delete /
+  Bring-to-front / Send-to-back. Items paint by the height of their top
+  (`z + depth`), then in document order, and the two buttons reorder the
+  document (`paintOrder`, DESIGN.md → Canvas documents).
+- **The item inspector** (`item-inspector.tsx`) shows the rows that apply to
+  the item: a shape's colour, and every item's height — Lift (`z`) and Depth,
+  each committed as one change, with Extrude (a sticky becomes a block, a
+  rectangle a box) and Flatten. A shape opens it where it is pressed, in
+  either projection; Inspect opens it for any item. It is a canvas widget,
+  not kb's node inspector, until items are nodes (plan 2026-10-02, step 7b).
 
 #### Projections
 
@@ -1064,10 +1079,13 @@ with the floor; no orbit goes under it) and a field of view, where `fov` 0 is
 orthographic. The DOM canvas is that camera from the top and orthographic,
 which is exactly its CSS `translate(pan) scale(zoom)`; `viewOfPan` and `panOfView`
 are the bridge, and zoom-to-fit, client-to-canvas conversion and the edge
-drop target (`hitTest`: the nearest item box the ray enters, each item a
-box on its footprint that is flat until items have depth; `paintPlanes`: its
-base raised a hair per earlier item whose top is at the same height, so
-paint order decides from above and nothing ever ties) all go through
+drop target (`hitTest`: the nearest item the ray enters, each item a box on
+its footprint filled exactly by the volume its shape names — a prism of
+the footprint, an ellipsoid or a cone, and a flat item its footprint on its
+plane; a rectangle's rounded corners are a look and are picked square;
+`paintPlanes`: its base raised a hair per earlier item whose top is at the
+same height, so paint order decides from above and nothing ever ties) all
+go through
 the camera rather than through pan
 arithmetic or `elementFromPoint`. A gesture reaches the pointer reducer as a
 screen point, which decides slop and panning, and the canvas point it stands
@@ -1093,12 +1111,15 @@ open view of that canvas.
 - **One contract.** `canvas-projection.contract.test.tsx` runs one suite over
   every registered projection: each draws every item once in paint order and
   every edge whose ends exist, marks exactly the shared selection, draws
-  every item's corners where the camera model projects them on its paint
-  plane, draws on top at a point what `hitTest` finds there (the DOM's
-  topmost box; the nearest drawn plane), and draws a moved card where it
+  every item's footprint box where the camera model projects it on its
+  paint plane, draws on top at a point what `hitTest` finds there (in the
+  DOM the topmost card whose footprint clip path covers it; in the scene
+  the first drawn surface a ray meets, asked of the real meshes), proves
+  **footprint parity** over a grid across every item's box (what 2D draws
+  and hit-tests is each solid's top view), and draws a moved card where it
   moved — from a desk tilt, an oblique orbit, low across the floor from the
   far side and through the orthographic lens, with raised, sunk and
-  same-depth overlapping cards. The 3D scene also joins the scene
+  same-height overlapping cards, every solid shape and a flat ellipse. The 3D scene also joins the scene
   contract, whose disposal check covers every geometry and material a scene
   drew with.
 - **One camera in motion.** `lib/canvas-camera-rig.ts` holds the view the 3D
@@ -1130,6 +1151,20 @@ open view of that canvas.
   view opens at a fixed zoom — a dolly zoom out of orthographic. Back to 2D
   the rig flies to the top view first and the DOM canvas takes its pan and zoom on
   arrival. A scene that cannot start leaves the canvas in 2D for the visit.
+- **Every item is a box its shape fills.** The shape table
+  (`CANVAS_SHAPES`, `@kb/canvas` `shapes.ts`) gives each shape its footprint,
+  its outline as path data and its volume; both projections trace the one
+  outline (the DOM as an SVG path and a clip path, the scene into faces and
+  meshes), and the corner radius comes from one rule (`cornerRadius`). The
+  mesh builders (`canvas-scene-solids.ts`, in the 3D zone) are the three
+  side, one per volume and typed by it, built at each item's size: a prism
+  of the footprint with smooth sides round curves and creases at corners,
+  an ellipsoid, a cone, and a flat item's footprint. A solid wears the card
+  face on its top and the rig's matcap finish (shaded without lights)
+  tinted by its colour on its body; every item draws its edges as a diagram
+  does. In 2D a shape's footprint is what the pointer hits (its clip path),
+  a solid's top view is marked (a lit dome, a cone's point), and anything
+  standing off the floor casts its footprint as a soft shadow.
 - **Cards stay cards.** Each card's face is painted into a canvas texture as
   it looks in 2D (`canvas-card-face.ts`): its text in the UI face at the body
   step, its bullet and tag chips, its shape and preset colour, the selection
@@ -1140,19 +1175,24 @@ open view of that canvas.
   what they are drawn from changes. Translucent colours are composited over
   the face in sRGB before
   upload, because the GPU blends in linear light and would thin a faint
-  hairline and brighten a faint wash. A raised card casts a soft shadow on
-  the canvas plane, which carries the 2D dot grid; edges are lines between
-  side anchors climbing from one depth to the other. The ground is the
+  hairline and brighten a faint wash. A raised item or a solid casts its
+  footprint as a soft shadow on the canvas plane, which carries the 2D dot
+  grid, and a selected raised item drops a stem to the floor; edges are
+  lines between side anchors, halfway up a solid's side, climbing from one
+  height to the other. The ground is the
   page's, edge to edge, so the crossfade is between equal grounds.
   Faces stay canvas textures on three r186: its `HTMLTexture` needs Chrome's
   HTML-in-Canvas origin trial (`copyElementImageToTexture`) and silently
   draws nothing without it, so it would ride on this path as a second one
   rather than replace it.
-- **Gestures in 3D** are the 2D ones where they mean the same: a press on a
-  card selects it (a modifier toggles), a drag carries it on its own plane
-  and Alt-drag lifts it. Both are the pointer reducer's one move, carried
-  across the plane or along depth (`CARRY`: whole units at the current zoom
-  for depth), and both are history steps written through `ext.canvas.tx.apply`.
+- **Gestures in 3D** are the 2D ones where they mean the same: a press on an
+  item selects it (a modifier toggles), a drag carries it on the plane of
+  its top and Alt-drag lifts it. Both are the pointer reducer's one move,
+  carried across the plane or up from the floor (`CARRY`: whole units at
+  the current zoom for a lift), and both are history steps written through
+  `ext.canvas.tx.apply`. A carry reads the pointer where it visibly is: on
+  the top of a solid it passes over (one it does not carry), so dragging an
+  item onto another stands it there through surface snap.
   A drag on empty canvas orbits the turntable (across turns the floor with
   the hand, down tips toward the top view), a tap places the current tool on the plane
   (or clears the selection), the right or middle button or Space pans, the
@@ -1166,7 +1206,12 @@ open view of that canvas.
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 real Clipboard-API copy/paste, snap guides during keyboard nudge, edge colour
 on the stroke itself, edge endpoint re-routing, group cards translating their
-children.
+children; in 3D, a sphere's or a cone's label (they have no flat top for the
+card face; billboards are plan step 7), and a flat item seen exactly level
+(the front and side presets), which is a hairline on its plane
+(`GAP [[01M41AB7YM5801ZJNM1Q647SYD]]`). From the top, a cone or a sphere paints by
+the height of its point, so a raised card floating over its rim is drawn
+under it there. Holding ⌘ does not yet suspend snapping.
 
 ### Cross-surface polish (i5)
 

@@ -464,6 +464,9 @@ export function canvasTop(node: CanvasNode): number {
  * rearrange. Every projection paints and hit-tests in this order, so from
  * the top a higher item covers a lower one.
  */
+// A cone or a sphere is ordered by its point, so from the top a raised card
+// over its low rim paints under it there.
+// GAP [TOP-VIEW-PAINT-ORDER]
 export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
   return nodes
     .map((node, index) => ({ node, index }))

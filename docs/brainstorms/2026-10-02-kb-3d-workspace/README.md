@@ -114,6 +114,10 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
      matrix stack.
    - Paint order in 2D, and the `paintPlanes` tie-break, use the top
      surface (`z + depth`) and then document order.
+   - Built in step 3: `depth`, and `shape` widened by `sphere` and `cone`.
+     `arrow` waits for step 9, whose A tool makes it. In code, `z` is
+     named the elevation (`canvasElevation`), so `depth` means only the
+     extent.
 
 5. **Predefined objects are presets over that one record, not kinds.** A
    `CANVAS_PRESETS` table maps each tool to a partial item. The per-tool
@@ -132,6 +136,13 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
    item: a sticky becomes a block and a rect becomes a box. That is Spline
    Hana's "lift into 3D" ([§e](research.md#e-2d-3d-switching-evidence)) as a
    field edit.
+   - Built in step 3, with two changes made in the doing. Extrude is the
+     item inspector's Extrude button and Depth field; the modal `E` is
+     step 5's. The wall is a thin box standing on its long edge (320 × 20,
+     200 deep), so it needs no rotation; putting stickies on its face
+     waits for rotation (step 4) and face-on text (step 7). The solid
+     presets are derived (`CANVAS_SOLID_PRESETS`: the presets with depth),
+     not listed.
 
 6. **One shape table, split at the three boundary.** A pure `CANVAS_SHAPES`
    in shared code gives, per shape, its 2D outline, its hit volume and its
@@ -139,6 +150,15 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
    is typed `{[K in CanvasShapeKind]: …}`, so tsc rejects a shape that has
    no mesh. Both sides use unit geometry scaled per item, with
    `InstancedMesh` when counts demand it.
+   - Built in step 3, with three changes made in the doing. The table gives
+     each shape a footprint (rect, ellipse, diamond), its outline as path
+     data that an SVG path, a canvas context and a three `Shape` all trace,
+     and a volume (prism, ellipsoid, cone). It has no edge anchors: every v1
+     footprint meets its box at the side midpoints, so anchors come with
+     solids' top-face anchors in step 9. The mesh builders are keyed by
+     volume, which the table names for every shape, so tsc still rejects a
+     shape with no mesh. Geometry is built at each item's size rather than
+     scaled from a unit, so rounded corners stay round.
 
 7. **Storage and formats.**
    - The layout stays where it is: JSON Canvas with kb's typed fields in
@@ -170,6 +190,9 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
      `hitTest` enters it with one slab test that a flat box also passes. The
      document has no `depth` yet (step 3), so every item is still flat. The
      exact ellipsoid and cylinder tests come with those shapes.
+   - Built in step 3: every volume is picked exactly, the cone and the
+     prism too, and a flat item on its footprint rather than its box. A
+     rectangle's rounded corners are picked square.
    - There is no three `Raycaster` and no BVH. Picking stays pure and
      GPU-free in tests. `three-mesh-bvh` waits for GLB models.
 
@@ -239,6 +262,12 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
     snaps to the heights other items stand at. The grid, surface, rotation
     and scale snaps come with the steps that make them mean something.
 
+    Step 3 built surface snap: the carried item's centre over a solid's
+    footprint stands it on that solid's top, and an item taken off a pile
+    comes down to the floor. In 3D the pointer is read where it visibly
+    is, on the top of a solid under it, so dragging onto a solid works
+    from any orbit.
+
 12. **Groups and frames are one concept.** A group is a `group` item, drawn
     as a frame, and its members say so with `parent`.
     - Dropping an item inside a frame's footprint sets `parent`, and moving
@@ -271,6 +300,10 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
     - **Ground cues.** Lifted items cast the soft shadow that cards already
       cast, and selected items show a thin stem down to the floor. This is
       what makes depth readable on a flat screen.
+      Built in step 3: raised items and solids cast their footprint's
+      silhouette, in 2D as well, and every item draws its edges, so a flat
+      item seen at a slant stays a crisp outline. Exactly level it is still
+      a hairline, so gap `01M41AB7YM5801ZJNM1Q647SYD` stays open.
     - **Text.** Faces stay `CanvasTexture`s painted by `canvas-card-face`, on
       the top face (or the front, for a wall). Double-click on a text item
       flies the camera face-on to it, overlays the existing DOM card editor
@@ -294,7 +327,7 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
     | camera | kb's camera model | OrbitControls or camera-controls would be a second camera model (Rule 1) |
     | picking | analytic, in `canvas-camera` | decision 8 |
     | geometry | three Box/Sphere/Cylinder/Cone/Extrude geometries | |
-    | materials | solids use the rig's matcap finish (shaded without lights); faces stay unlit | card faces stay their token colours |
+    | materials | solids use the rig's matcap finish (shaded without lights); faces stay unlit | card faces stay their token colours. Built in step 3: the matcap is the kit's `paletteMatcap` painted from a grey light ramp, tinted per item by its colour |
     | text | `CanvasTexture` faces and sprite billboards | troika is WebGL-only. three-text is 52.7 MB unpacked and young. `HTMLTexture` is a Chrome origin trial (DESIGN-UI already decided to stay on this path) |
     | formats | `GLTFExporter` / `GLTFLoader` | |
 
@@ -360,6 +393,9 @@ selection).
 
 **Gaps these steps will mint:**
 - The item inspector is a canvas widget, not kb's node inspector (until 7b).
+- Step 3: a sphere's or a cone's label is not drawn in 3D (until step 7's
+  billboards); rounded rectangle corners are picked square; from the top a
+  cone or a sphere paints by its point's height.
 - There is no outliner (until 7b).
 - 2D draws a tilted solid's top face, not its true silhouette.
 - A canvas with GLB models is not portable through git alone.
