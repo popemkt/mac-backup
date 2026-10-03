@@ -146,6 +146,15 @@ const TOKEN_FALLBACK = {
   "--muted": "#f5f5f5",
   "--muted-foreground": "#737373",
   "--primary": "#c27c0e",
+  "--border": "#e5e5e5",
+  "--popover": "#fff",
+  "--popover-foreground": "#222",
+  // The design system's chart ramp, light to dark (`components/chart`).
+  "--chart-1": "#fbd452",
+  "--chart-2": "#f49f1e",
+  "--chart-3": "#dc7702",
+  "--chart-4": "#b75301",
+  "--chart-5": "#8f4113",
   "--destructive": "#dc2626",
   "--graph-edge": "rgba(34, 34, 34, 0.4)",
   // The JSON Canvas colour presets "1"–"6" (`lib/canvas-color`), which the

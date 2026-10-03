@@ -188,6 +188,7 @@ export const UI_SRC = "packages/app/ui/src";
 type UiSurface =
   | "agent"
   | "canvas"
+  | "chart"
   | "graph"
   | "lab"
   | "layout"
@@ -200,6 +201,7 @@ type UiSurface =
 const UI_SURFACES: readonly UiSurface[] = [
   "agent",
   "canvas",
+  "chart",
   "graph",
   "lab",
   "layout",
@@ -309,6 +311,7 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "primitives",
     "components/agent",
     "components/canvas",
+    "components/chart",
     "components/graph",
     "components/lab",
     "components/layout",
@@ -383,6 +386,8 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   // the socket and the invoke path as ports (`src/agent.ts`), so it reaches
   // neither `api` nor `session` itself.
   "components/agent": ["components/agent", "primitives", "stores", "lib"],
+  // A chart draws its query node's rows; the rows and its saves go through `lib`.
+  "components/chart": ["components/chart", "primitives", "stores", "actions", "lib"],
   "components/outline": ["components/outline", "primitives", "stores", "actions", "lib"],
   "components/palette": ["components/palette", "primitives", "stores", "actions", "lib"],
   "components/prefs": ["components/prefs", "primitives", "stores", "actions", "lib"],
@@ -410,7 +415,9 @@ export const UI_ENTRY = "main.tsx";
  * their own. three is the whole real-time 3D stack (the scene kit's GPU
  * modules are three by another name, and are caught through the three they
  * import), and only a view that draws 3D — a lab study's scene, the 3D graph
- * — may load it.
+ * — may load it. `@kb/vega` is the whole chart stack (Vega, Vega-Lite and the
+ * expression interpreter, which only it imports), and only a chart's drawing
+ * may load it.
  *
  * Its own chunk means {@link UI_LAZY_DEPTH} dynamic `import()`s on every path
  * from the entry: the entry chunk loads on every visit, and a surface's
@@ -422,7 +429,7 @@ export const UI_ENTRY = "main.tsx";
  * One rule over the import graph, so no surface lists which of its files may
  * import three. `ui-lazy-fence.test.ts` applies it.
  */
-export const UI_LAZY_ONLY = /^three(?:\/|$)/;
+export const UI_LAZY_ONLY = /^(?:three|@kb\/vega|vega(?:-lite|-interpreter)?)(?:\/|$)/;
 
 /** Dynamic imports every path from {@link UI_ENTRY} to a {@link UI_LAZY_ONLY} import crosses. */
 export const UI_LAZY_DEPTH = 2;

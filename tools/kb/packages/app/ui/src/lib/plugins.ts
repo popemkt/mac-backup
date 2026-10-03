@@ -47,6 +47,12 @@ export type Placement = "page" | "inline";
 /** What a host guarantees a view: never a store, never `ctx`. */
 export interface ViewHost {
   readonly placement: Placement;
+  /**
+   * The view node the host draws the view from, when it draws one (the node
+   * route opening a view node): where a view that edits its own settings
+   * writes them. Absent for a view drawn from a view type or from code.
+   */
+  readonly viewNode?: string;
 }
 
 export interface ViewProps<P> {

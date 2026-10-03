@@ -24,6 +24,7 @@ import { ulid } from "ulid";
 import {
   ArrowBendUpLeftIcon,
   ArrowRightIcon,
+  ChartBarIcon,
   EyeIcon,
   EyeSlashIcon,
   HashIcon,
@@ -37,12 +38,22 @@ import {
   TextTIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
-import { hostViewIds, isQueryNode, isViewNode, present, typeRefsOf, viewOptionOf } from "@kb/model";
+import {
+  hostViewIds,
+  isQueryNode,
+  isViewNode,
+  present,
+  queryDefOf,
+  typeRefsOf,
+  viewOptionOf,
+} from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { mutations } from "@/actions/mutations";
 import { isContextualRef } from "@/lib/contextual-ref";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { isPinned } from "@/lib/pinned";
+import { proposeView } from "@/lib/propose-view";
+import { queryRecords } from "@/ds";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { navigate, nodePath, ontologyPath } from "@/lib/router";
 import {
@@ -54,10 +65,12 @@ import {
 import { toast } from "@/lib/toast";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, isSysPrefixed, type NodeMap } from "@/lib/types";
 import {
+  ChartView,
   LayoutView,
   layoutPanes,
   localIdOf,
   paramsFromProps,
+  starterChartSpec,
   type FrameViewKey,
   type LayoutTree,
 } from "@kb/views";
@@ -530,6 +543,28 @@ const NODE_COMMANDS: readonly Command[] = [
 
 /** What the node menu offers after the frame views. */
 const NODE_COMMANDS_AFTER_VIEWS: readonly Command[] = [
+  {
+    // A chart of a query node's rows (`chart.vega-lite`), started from its
+    // columns, named among its views and opened beside the pane.
+    id: "add-chart",
+    scope: "node",
+    chrome: () => ({ label: "Add chart", icon: <ChartBarIcon size={14} weight="bold" /> }),
+    when: (ctx) => queryDefOf(targetNode(ctx)) !== null,
+    run: (ctx) =>
+      nodeAction(ctx, (nodeId) => {
+        void (async () => {
+          const def = queryDefOf(ctx.outline.nodes.get(nodeId));
+          const columns = def === null ? [] : queryRecords(def.edn, []).columns;
+          const proposed = await proposeView({
+            view: ChartView,
+            params: { spec: starterChartSpec(columns) },
+            host: nodeId,
+          });
+          if ("refused" in proposed) toast(`Could not add a chart: ${proposed.refused}`);
+          else ctx.workspace.openBeside(ctx.workspace.focused, nodePath(nodeId, proposed.id));
+        })();
+      }),
+  },
   {
     id: "view-filter",
     scope: "node",

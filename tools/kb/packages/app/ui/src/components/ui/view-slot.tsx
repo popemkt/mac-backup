@@ -29,6 +29,7 @@ export function ViewSlot<P>({
   placement,
   fallback,
   subject,
+  viewNode,
   pending = PENDING,
 }: {
   readonly view: ViewKey<P>;
@@ -45,12 +46,17 @@ export function ViewSlot<P>({
    * changes, and it tells a view going on down its tree from a cycle.
    */
   readonly subject?: string;
+  /** The view node the view is drawn from, when it is drawn from one (`ViewHost.viewNode`). */
+  readonly viewNode?: string;
   /** Shown in the slot's box while the view's code or data is still loading. */
   readonly pending?: ReactElement | null;
 }) {
   const provided = useView(view);
   const outer = useContext(EnclosingSlots);
-  const host = useMemo((): ViewHost => ({ placement }), [placement]);
+  const host = useMemo(
+    (): ViewHost => (viewNode === undefined ? { placement } : { placement, viewNode }),
+    [placement, viewNode],
+  );
   const link = slotLink(view, subject);
   const chain = useMemo((): SlotChain => [...outer, link], [outer, link]);
   if (provided === null || !provided.placements.includes(placement) || !slotRenders(outer, link))

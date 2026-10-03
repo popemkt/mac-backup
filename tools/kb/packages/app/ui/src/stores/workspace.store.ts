@@ -10,7 +10,7 @@
  * pane's location without a history entry (`startWorkspace` keeps the two in
  * step).
  */
-import { Predicate, Result } from "effect";
+import { Result } from "effect";
 import { create } from "zustand";
 import {
   closePane,
@@ -30,7 +30,7 @@ import { MAIN_PANE } from "@/lib/pane";
 import { getPath, navigate, nodePath, replacePath, subscribePath } from "@/lib/router";
 import { toast } from "@/lib/toast";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
-import { invoke } from "@/session/runtime";
+import { proposeView } from "@/lib/propose-view";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -188,15 +188,13 @@ function keptLayout(layout: LayoutTree): LayoutTree {
  */
 async function saveWorkspace(layout: LayoutTree, text: string): Promise<string | null> {
   const root = keptLayout(layout);
-  const receipt = await invoke("view.propose", { view: LayoutView.id, params: { root }, text });
-  if (receipt.status === "failed") {
-    toast(`Could not save the workspace: ${receipt.message}`);
+  const proposed = await proposeView({ view: LayoutView, params: { root }, text });
+  if ("refused" in proposed) {
+    toast(`Could not save the workspace: ${proposed.refused}`);
     return null;
   }
-  const { output } = receipt;
-  const id = Predicate.isObject(output) && typeof output.id === "string" ? output.id : null;
   useUiStore.getState().pushToast("info", `Saved the workspace as “${text}”, in Views`);
-  return id;
+  return proposed.id;
 }
 
 /**

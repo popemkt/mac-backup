@@ -50,6 +50,7 @@ export function NodeViewSurface({ params }: ViewProps<NodeParams>) {
       params={decoded.success}
       placement="page"
       subject={target.success.subject}
+      {...(target.success.viewNode === undefined ? {} : { viewNode: target.success.viewNode })}
       fallback={UNAVAILABLE}
     />
   );

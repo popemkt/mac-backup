@@ -218,6 +218,14 @@ describe("node command palette", () => {
     ]);
   });
 
+  it("offers Add chart on a query node, after its views, and not on a plain node", async () => {
+    await open("n.query");
+    expect(labels()).toContain("Add chart");
+    expect(labels().indexOf("Add chart")).toBe(labels().indexOf("Filter…") - 1);
+    await open("n.plain");
+    expect(labels()).not.toContain("Add chart");
+  });
+
   it("drops Turn into query on a node that already is one", async () => {
     await open("n.query");
     expect(labels()).not.toContain("Turn into query");

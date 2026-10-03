@@ -163,6 +163,7 @@
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/tx-log": "workspace:*",
+        "@kb/vega": "workspace:*",
         "@kb/views": "workspace:*",
         "@kb/webmcp": "workspace:*",
         "@phosphor-icons/react": "catalog:",
