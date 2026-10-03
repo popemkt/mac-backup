@@ -1022,6 +1022,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — run QuickJS inside a blob Worker in the frame
 - **node** — `01M41DKVB5R21NRCE4T9R4KES1`
 
+### GAP: verify's check audit reads only tools/kb/.kb, never the repo's own rule data
+
+- **expected** — the commit gate audits every store's checks and rules, so a check node in .kb that drifts from its hook fails a commit
+- **current** — bun run verify runs check-audit from tools/kb, which reads tools/kb/.kb; the repo store's checks are audited only when someone runs check-audit from the repo root
+- **impact** — Check: intent-record drifted from .githooks/pre-commit unnoticed when exec was dropped
+- **closes** — pre-commit runs check-audit against the repo root's store when .kb or .githooks change, or verify audits both roots
+- **node** — `01M41YB3V2NC6NPXJYB9PH97D9`
+
 ### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter
 
 - **expected** — Every render spec runs on every lane that gates, so the Embers study, and the WebGPU backend of the scene kit, are proven in CI as well as locally.
