@@ -407,7 +407,7 @@ clips them; estimated sizes make the scrollbar jump by thousands of pixels
 on the first scroll; and `scrollIntoView` targets drift as the skipped
 blocks above them are laid out. What remains is mount cost, linear in
 expanded rows (load ≈ 0.2 s at 1×, 1.1 s at 6×), named as
-`GAP [GAP-OUTLINE-WINDOWING]` where the list renders its rows.
+`GAP [[01M41062Z83M38GYHC276XJ8RF]]` where the list renders its rows.
 
 **`sys.*` rows are read-only at the door.** `store.activateNode` degrades a
 `sys.*` id to selection so no caret ever enters one; the row shows a hover

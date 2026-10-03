@@ -277,6 +277,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — planSplit counts the shown node's children.
 - **node** — `01M3KA3BBRADE3TNWQ78JNK37M`
 
+### GAP: every expanded outline row mounts, so load cost grows with expanded rows
+
+- **expected** — the outline mounts only rows near the viewport, and updates and first paint cost the same for 50 or 5,000 expanded rows
+- **current** — ListFrameView mounts every expanded row; content-visibility was measured and rejected (it clips fixed-position pickers, makes the scrollbar jump and drifts scroll-into-view); load is ~0.2 s at 1x and ~1.1 s at 6x CPU for 427 rows
+- **impact** — large expanded outlines are slow to open and the first scroll can hitch on slow machines
+- **closes** — windowing for the outline list that keeps caret, focus, selection, pickers and jump-to-node working
+- **node** — `01M41062Z83M38GYHC276XJ8RF`
+
 ### GAP: extension SDK mirror is not bidirectionally typed
 
 - **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
