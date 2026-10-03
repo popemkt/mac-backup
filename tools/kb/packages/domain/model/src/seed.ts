@@ -461,8 +461,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ],
   });
   /*
-   * The defaults the owner chose: an agent is asked before it deletes a node
-   * and before a store-wide rewrite. Normal edits need no policy (no core
+   * The defaults the owner chose: an agent, and sandboxed code, is asked before
+   * it deletes a node and before a store-wide rewrite. Normal edits need no policy (no core
    * write declares approval), and a human's gesture never asks because the
    * gesture is the person's answer — a property of the resolver, not a row.
    * They are ordinary, editable nodes, filed under the query node that lists
@@ -477,6 +477,20 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     approvalPolicyNode(
       mk("approval.agent-views-migrate", "An agent asks before rewriting the store to view nodes"),
       { match: "views.migrate", actor: "agent", decision: "ask" },
+    ),
+    // Sandboxed code is agent-written until a person trusts it, so it meets
+    // the agent's caution: its host asks the person before these run.
+    approvalPolicyNode(mk("approval.script-delete", "Sandboxed code asks before deleting a node"), {
+      match: "node.delete",
+      actor: "script",
+      decision: "ask",
+    }),
+    approvalPolicyNode(
+      mk(
+        "approval.script-views-migrate",
+        "Sandboxed code asks before rewriting the store to view nodes",
+      ),
+      { match: "views.migrate", actor: "script", decision: "ask" },
     ),
   ];
   /*

@@ -10,10 +10,12 @@ import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
 /**
  * Who makes a call, as the caller declares it — like `approved`, a statement
  * and not a proof. `human` is a person's own gesture in the UI, `agent` is a
- * model acting for one (the sidebar agent, MCP, WebMCP), and `cli` is the
- * command line, which a person and an agent both use.
+ * model acting for one (the sidebar agent, MCP, WebMCP), `cli` is the
+ * command line, which a person and an agent both use, and `script` is code
+ * running in the sandbox (a code view), whoever wrote it — never a person,
+ * so it never answers a call that asks (DESIGN.md → Sandbox).
  */
-export const ACTORS = ["human", "agent", "cli"] as const;
+export const ACTORS = ["human", "agent", "cli", "script"] as const;
 export type Actor = (typeof ACTORS)[number];
 
 /**
@@ -39,6 +41,7 @@ export const ACTOR_OPTION_IDS: Readonly<Record<Actor, NodeId>> = {
   human: "sys.approval.actor.human",
   agent: "sys.approval.actor.agent",
   cli: "sys.approval.actor.cli",
+  script: "sys.approval.actor.script",
 };
 export const DECISION_OPTION_IDS: Readonly<Record<ApprovalDecision, NodeId>> = {
   allow: "sys.approval.decision.allow",

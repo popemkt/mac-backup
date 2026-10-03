@@ -62,7 +62,7 @@ describe("approval policies", () => {
     expect(approvalPoliciesOf(nodes)).toEqual([]);
   });
 
-  test("the seed tags its vocabulary as options and asks an agent before a delete or a rewrite", () => {
+  test("the seed tags its vocabulary as options and asks an agent or a script before a delete or a rewrite", () => {
     const seed = systemSeedNodes();
     const byId = new Map(seed.map((seeded) => [seeded.id, seeded]));
     expect(byId.get(SYSTEM_IDS.approvalActorField)?.children).toEqual(
@@ -75,6 +75,8 @@ describe("approval policies", () => {
     expect(policies.map(({ match, actor, decision }) => ({ match, actor, decision }))).toEqual([
       { match: "node.delete", actor: "agent", decision: "ask" },
       { match: "views.migrate", actor: "agent", decision: "ask" },
+      { match: "node.delete", actor: "script", decision: "ask" },
+      { match: "views.migrate", actor: "script", decision: "ask" },
     ]);
     // Filed under the query node that lists every policy, and editable.
     expect(byId.get(SYSTEM_IDS.approvalPolicies)?.children).toEqual(policies.map((p) => p.id));

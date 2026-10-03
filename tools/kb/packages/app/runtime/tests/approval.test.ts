@@ -50,6 +50,26 @@ describe("approval policies in the invoke core", () => {
     });
   });
 
+  test("sandboxed code meets the agent's caution, and writes no policy", async () => {
+    const ctx = await openKb(root);
+    await invoke(ctx, { id: "node.add", input: { id: "n.a", text: "a" } });
+    expect(await invoke(ctx, remove("n.a", { actor: "script" }))).toMatchObject({
+      status: "failed",
+      code: "approval_required",
+      details: { policy: "approval.script-delete" },
+    });
+    expect(
+      await invoke(ctx, {
+        id: "node.update",
+        input: { id: "approval.script-delete", text: "scripts never ask" },
+        actor: "script",
+      }),
+    ).toMatchObject({ status: "failed", details: { writes: "approval-policy" } });
+    expect(
+      await invoke(ctx, { id: "node.add", input: { text: "plain" }, actor: "script" }),
+    ).toMatchObject({ status: "succeeded" });
+  });
+
   test("kb.manifest tells each actor what is decided about its own calls", async () => {
     const ctx = await openKb(root);
     const decisions = async (actor: ActionInvocation["actor"]) => {

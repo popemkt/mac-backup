@@ -8,6 +8,7 @@
     ],
     "catalog": {
       "@anthropic-ai/claude-agent-sdk": "^0.3.287",
+      "@jitl/quickjs-singlefile-browser-release-sync": "0.32.0",
       "@effect/platform-bun": "4.0.0-rc.112",
       "@effect/tsgo": "^0.40.0",
       "@fontsource-variable/inter": "^5.3.0",
@@ -51,6 +52,7 @@
       "oxlint": "1.83.0",
       "oxlint-tsgolint": "^7.0.2002",
       "playwright": "^1.62.1",
+      "quickjs-emscripten-core": "0.32.0",
       "react": "^19.2.0",
       "react-dom": "^19.2.0",
       "sigma": "^3.0.3",

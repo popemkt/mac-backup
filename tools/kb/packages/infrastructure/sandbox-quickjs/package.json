@@ -1,0 +1,28 @@
+{
+  "name": "@kb/sandbox-quickjs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@jitl/quickjs-singlefile-browser-release-sync": "catalog:",
+    "@kb/sandbox": "workspace:*",
+    "effect": "catalog:",
+    "quickjs-emscripten-core": "catalog:"
+  },
+  "devDependencies": {
+    "@kb/test-kit": "workspace:*",
+    "@types/bun": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared"
+    ]
+  }
+}

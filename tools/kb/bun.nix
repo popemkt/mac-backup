@@ -569,6 +569,14 @@
     url = "https://registry.npmjs.org/@jest/diff-sequences/-/diff-sequences-30.0.1.tgz";
     hash = "sha512-n5H8QLDJ47QqbCNn5SuFjCRDrOLEZ0h8vAHCK5RL9Ls7Xa8AQLa/YxAc9UjFqoEDM48muwtBGjtMY5cr0PLDCw==";
   };
+  "@jitl/quickjs-ffi-types@0.32.0" = fetchurl {
+    url = "https://registry.npmjs.org/@jitl/quickjs-ffi-types/-/quickjs-ffi-types-0.32.0.tgz";
+    hash = "sha512-v9T+GQpmk43VDJ7d72sf0Nexhk+ArvtUihW27dy7lqAl0zBObFKtSBBIm5RBjwIhE8VwsPPm9PNuvPvNqLWUEg==";
+  };
+  "@jitl/quickjs-singlefile-browser-release-sync@0.32.0" = fetchurl {
+    url = "https://registry.npmjs.org/@jitl/quickjs-singlefile-browser-release-sync/-/quickjs-singlefile-browser-release-sync-0.32.0.tgz";
+    hash = "sha512-Hfdl7rh8dzxNWFRiYAYNbhn0RMF1/tO6SMH2mUW0aTibqwaAtqPRbi4WkwaIDlhNz8Z4dksJi1Zjl1R54Jsc/Q==";
+  };
   "@joshwooding/vite-plugin-react-docgen-typescript@0.7.0" = fetchurl {
     url = "https://registry.npmjs.org/@joshwooding/vite-plugin-react-docgen-typescript/-/vite-plugin-react-docgen-typescript-0.7.0.tgz";
     hash = "sha512-qvsTEwEFefhdirGOPnu9Wp6ChfIwy2dBCRuETU3uE+4cC+PFoxMSiiEhxk4lOluA34eARHA0OxqsEUYDqRMgeQ==";
@@ -610,6 +618,9 @@
   "@kb/query" = copyPathToStore ./packages/domain/query;
   "@kb/render-tests" = copyPathToStore ./packages/test-support/render-tests;
   "@kb/runtime" = copyPathToStore ./packages/app/runtime;
+  "@kb/sandbox" = copyPathToStore ./packages/contract/sandbox;
+  "@kb/sandbox-quickjs" = copyPathToStore ./packages/infrastructure/sandbox-quickjs;
+  "@kb/sandbox-worker" = copyPathToStore ./packages/infrastructure/sandbox-worker;
   "@kb/server" = copyPathToStore ./packages/app/server;
   "@kb/store-jsonl" = copyPathToStore ./packages/infrastructure/store-jsonl;
   "@kb/store-sqlite" = copyPathToStore ./packages/infrastructure/store-sqlite;
@@ -3283,6 +3294,10 @@
   "qs@6.15.3" = fetchurl {
     url = "https://registry.npmjs.org/qs/-/qs-6.15.3.tgz";
     hash = "sha512-O9gl3zCl5h5blw1KGUzQKhA5oUXSl8rwUIM5o0S3nCXMliSvy5Dzx7/DJcI+SwgICv+IneSZwhBh1oSyEHA71A==";
+  };
+  "quickjs-emscripten-core@0.32.0" = fetchurl {
+    url = "https://registry.npmjs.org/quickjs-emscripten-core/-/quickjs-emscripten-core-0.32.0.tgz";
+    hash = "sha512-QFnPfjFey8EqknSrSxe1hZrf1/8z7/6s1QzGOmKo6++02r7QRRX7ZoyNaZh7JuVjWsVW87KnQrbZqnHkOAzUyg==";
   };
   "range-parser@1.3.0" = fetchurl {
     url = "https://registry.npmjs.org/range-parser/-/range-parser-1.3.0.tgz";

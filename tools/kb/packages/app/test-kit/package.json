@@ -16,6 +16,7 @@
     "@kb/operations": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/runtime": "workspace:*",
+    "@kb/sandbox": "workspace:*",
     "@kb/tx-log": "workspace:*",
     "@kb/webmcp": "workspace:*",
     "effect": "catalog:",
