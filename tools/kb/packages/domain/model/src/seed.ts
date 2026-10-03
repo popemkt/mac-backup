@@ -43,6 +43,46 @@ import {
  */
 export const TEMPLATE_TAGS: readonly string[] = [SYSTEM_IDS.field, SYSTEM_IDS.ontologyTag];
 
+/** What a field that holds one value declares: its cardinality. */
+const SINGLE: KbNode["props"] = { [SYSTEM_IDS.cardinalityField]: [cardinalityValue("one")] };
+
+/**
+ * A system field as a seed declares it, core's or a family's.
+ *
+ * Every seeded field declares its value type — text ones included. A field's
+ * declared type is the contract its values are held to, and `fieldTypeOf`
+ * reads an absent one as text: right for a user's untyped field, wrong for
+ * nearly every system one (`sys.f.type` holds refs, `sys.f.hidden` a bool).
+ * So no system field leans on that default; each says what it holds, and the
+ * fill-absent pass of {@link ensureSystemSeed} carries the declaration to
+ * older stores.
+ *
+ * A field that is one setting, not a list, says so (`one`). Absent means
+ * many, so only the single-valued ones carry the declaration — and the
+ * fill-absent pass carries it to stores seeded before it existed.
+ */
+export function seededField(
+  id: string,
+  text: string,
+  type: FieldType,
+  at: string,
+  { one = false, props = {} }: { readonly one?: boolean; readonly props?: KbNode["props"] } = {},
+): KbNode {
+  return {
+    id,
+    text,
+    props: {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue(type)],
+      ...(one ? SINGLE : {}),
+      ...props,
+    },
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+}
+
 /**
  * Core's system nodes, the seed core's declaration contributes. Idempotent —
  * same ids every time. A store is never seeded with these alone: it is
@@ -59,37 +99,18 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     updatedAt: at,
   });
 
-  /*
-   * Every seeded field declares its value type — text ones included. A field's
-   * declared type is the contract its values are held to, and `fieldTypeOf`
-   * reads an absent one as text: right for a user's untyped field, wrong for
-   * nearly every system one (`sys.f.type` holds refs, `sys.f.hidden` a bool).
-   * So no system field leans on that default; each says what it holds, here,
-   * and the fill-absent pass below carries the declaration to older stores.
-   */
   const typedField = (
     id: string,
     text: string,
     type: FieldType,
     props: KbNode["props"] = {},
-  ): KbNode =>
-    mk(id, text, {
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue(type)],
-      ...props,
-    });
-  /*
-   * A seeded field that is one setting, not a list, says so. Absent means
-   * many, so only the single-valued ones carry the declaration — and the
-   * fill-absent pass carries it to stores seeded before it existed.
-   */
-  const one = { [SYSTEM_IDS.cardinalityField]: [cardinalityValue("one")] };
+  ): KbNode => seededField(id, text, type, at, { props });
   const singleField = (
     id: string,
     text: string,
     type: FieldType,
     props: KbNode["props"] = {},
-  ): KbNode => typedField(id, text, type, { ...one, ...props });
+  ): KbNode => seededField(id, text, type, at, { one: true, props });
 
   // A field node's own configuration is a field template, exactly like a tag's.
   // That is what lets one rule — "surface the fields your kinds and tags
@@ -240,7 +261,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     });
 
   // The view a node is (one option), and the view nodes a host names (many, in order).
-  const viewField = refQueryField(SYSTEM_IDS.viewField, "view", VIEW_OPTION_TARGET_QUERY, one);
+  const viewField = refQueryField(SYSTEM_IDS.viewField, "view", VIEW_OPTION_TARGET_QUERY, SINGLE);
   const viewsField = refQueryField(SYSTEM_IDS.viewsField, "views", VIEW_NODE_TARGET_QUERY);
   // A docs view's params beside its subject (`lens.query`): which template, written where.
   const viewTemplateField = singleField(SYSTEM_IDS.viewTemplateField, "view.template", "text");
@@ -289,8 +310,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * A lens field selecting from the shared source list, narrowed to its kind.
    * Every source field but `edge-kinds` selects one source.
    */
-  const sourceField = (id: GraphSourceField, text: string, props: KbNode["props"] = one): KbNode =>
-    refQueryField(id, text, graphSourceTargetQuery(GRAPH_SOURCE_FIELD_KINDS[id]), props);
+  const sourceField = (
+    id: GraphSourceField,
+    text: string,
+    props: KbNode["props"] = SINGLE,
+  ): KbNode => refQueryField(id, text, graphSourceTargetQuery(GRAPH_SOURCE_FIELD_KINDS[id]), props);
 
   const lensLabelByField = sourceField(SYSTEM_IDS.lensLabelByField, "lens.label-by");
   // Graph perspectives (V0): #graph-perspective tag + lens field template.
@@ -300,7 +324,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     SYSTEM_IDS.lensRendererField,
     "lens.renderer",
     viewFamilyTargetQuery("graph.renderer"),
-    one,
+    SINGLE,
   );
   const lensColorByField = sourceField(SYSTEM_IDS.lensColorByField, "lens.color-by");
   const lensSizeByField = sourceField(SYSTEM_IDS.lensSizeByField, "lens.size-by");
@@ -332,11 +356,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "text",
   );
   const lensThemeField: KbNode = {
-    ...refField(SYSTEM_IDS.lensThemeField, "lens.theme", undefined, one),
+    ...refField(SYSTEM_IDS.lensThemeField, "lens.theme", undefined, SINGLE),
     children: themeOptions.map((option) => option.id),
   };
   const lensLinkStyleField: KbNode = {
-    ...refField(SYSTEM_IDS.lensLinkStyleField, "lens.link-style", undefined, one),
+    ...refField(SYSTEM_IDS.lensLinkStyleField, "lens.link-style", undefined, SINGLE),
     children: linkStyleOptions.map((option) => option.id),
   };
   // The default graph: a view node whose view is the 2D renderer, and whose
@@ -389,7 +413,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * declared `targetTag` would narrow the picker to a rule the feature does
    * not have. `sys.f.onto.member` is unconstrained for the same reason.
    */
-  const refTargetField = refField(SYSTEM_IDS.refTargetField, "ref.target", undefined, one);
+  const refTargetField = refField(SYSTEM_IDS.refTargetField, "ref.target", undefined, SINGLE);
 
   /*
    * The Pinned list. Its children are contextual references to the pinned
