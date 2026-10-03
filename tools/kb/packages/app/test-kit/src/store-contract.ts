@@ -51,6 +51,7 @@ import {
   type StoreFactory,
 } from "./store-session.ts";
 import {
+  familyViewOrderOnOpening,
   goldenSeedOpensUnwritten,
   openingNeverWrites,
   unfoldedSeedNodesSurviveOpening,
@@ -202,6 +203,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     openingNeverWrites,
   ],
   ["a store written by an earlier kb's seed opens without a write", goldenSeedOpensUnwritten],
+  [
+    "a fresh store lists core's view types, then each family's in bundled order",
+    familyViewOrderOnOpening,
+  ],
   [
     "a store whose view types an earlier kb listed in another order keeps that order",
     viewTypeOrderSurvivesOpening,

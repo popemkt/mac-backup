@@ -8,7 +8,8 @@
  */
 import { expect } from "bun:test";
 import { Effect } from "effect";
-import { SYSTEM_IDS, fieldTypeValue, type KbNode } from "@kb/model";
+import { BUNDLED_DECLARATIONS } from "@kb/bundled";
+import { SYSTEM_IDS, fieldTypeValue, viewOptionId, type KbNode } from "@kb/model";
 import { seedGoldenNodes } from "./seed-golden.ts";
 import {
   CONTRACT_AT,
@@ -69,6 +70,43 @@ export function goldenSeedOpensUnwritten(makeStore: StoreFactory): Promise<void>
           { at: AT },
         );
         yield* opensWithoutWriting(makeStore, root);
+      }),
+    ),
+  );
+}
+
+/** Whether two lists of ids hold the same ids in the same order. */
+function sameOrder(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
+/**
+ * A fresh store lists its view types core's first, then each bundled
+ * family's, in `BUNDLED_FAMILIES` order (DESIGN.md → Extension families →
+ * the seed is the bundled fold), and that order is the one the seed golden
+ * froze. A family that joins the list at the wrong place reorders every new
+ * store; this names the rule where the golden alone would only show a diff.
+ */
+export function familyViewOrderOnOpening(makeStore: StoreFactory): Promise<void> {
+  const declared = BUNDLED_DECLARATIONS.flatMap((declaration) =>
+    (declaration.views ?? []).map((view) => viewOptionId(view.key.id)),
+  );
+  const frozen = seedGoldenNodes().find((node) => node.id === SYSTEM_IDS.viewsRoot)?.children ?? [];
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const ctx = yield* openSession(yield* backendRoot(makeStore));
+        const listed = ctx.index.getNode(SYSTEM_IDS.viewsRoot)?.children ?? [];
+        expect(
+          sameOrder(listed, declared)
+            ? null
+            : `sys.views lists core's view types first, then each family's in BUNDLED_FAMILIES order; expected ${declared.join(", ")}, got ${listed.join(", ")}`,
+        ).toBeNull();
+        expect(
+          sameOrder(listed, frozen)
+            ? null
+            : `BUNDLED_FAMILIES order is frozen data: a family joins the list where its view types keep the seed golden's sys.views order; the golden has ${frozen.join(", ")}, this kb seeds ${listed.join(", ")}`,
+        ).toBeNull();
       }),
     ),
   );
