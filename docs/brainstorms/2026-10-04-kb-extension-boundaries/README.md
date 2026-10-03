@@ -551,46 +551,68 @@ figure runs its query a second time, once per html render. `viewDef(key,
 text?)` pairs a key with a text of the same params type.
 
 **Note from the doing (E6).** Where the plan said "E6 decides", or was
-silent, this is what was picked:
-- **Every family declares itself now, not at its move.** Docs and check
-  declare in their only package (`@kb/ext-docs`, `@kb/ext-check`), canvas
+silent, this is what was picked. It was revised after a review of the first
+commits, and this text is the reviewed shape.
+- **Every family declares itself now, not at its move, in its shared
+  package.** Without a declaration the `family:` tag would have nothing to
+  equal. Docs and check had no shared package, so each gained one,
+  `@kb/docs` and `@kb/check`, holding only the declaration. Canvas declares
   in `@kb/canvas`, which gains `@kb/contracts` early, and agent in
-  `@kb/agent`. Without a declaration, the `family:` tag would have nothing
-  to equal. Every entry plugin reads its name from the declaration,
-  including the page's agent plugin, and `AGENT_PLUGIN` is gone. The harness
-  reads the name off the `defineExtension` call by parsing it. A name that
-  is not a string literal fails.
-- **`BUNDLED_EXTENSIONS` pairs each declaration with its server entry**
-  (`runtime/src/bundled.ts`), so `extensionContract` can hold the entry to
-  the name. The CLI's agent wiring moved into `cli/src/host-plugins.ts`.
-  The roots are those two files, `ui/src/ui-plugins.ts` and
-  `bundled/src/index.ts`.
-- **The breaches are rows, not line markers.** The canvas zone alone
-  imports `@kb/canvas` on about 50 lines, which is past the ~30-site limit
-  for per-site markers. Many of those lines are in files that 3D step 4
-  edits. So `EXTENSION_ROOT_BREACHES` lists a path (a file, or a folder
-  ending in `/`) and the one target it may name, under
-  `GAP [[01M41H30Y60D3G9WJJX6NFQD2T]]`. A row that no import matches fails,
-  so the list can only shrink. The rows are the agent UI (E12), the canvas
-  UI with its story (E13), and the three CLI bins.
+  `@kb/agent`. Every entry plugin reads its name from the declaration,
+  including the page's agent plugin, and `AGENT_PLUGIN` is gone; a test
+  pins the wire channel to `agent.chat`, so a rename cannot move it
+  silently.
+- **One bundled list.** `BUNDLED_FAMILIES` in `@kb/bundled` (`scope:shared`)
+  is it; the seed folds core then those declarations. `runtime/src/bundled.ts`
+  holds only the server entries, and `serverEntriesFor` pairs each family
+  with the entry of its name, failing at load on a family with no entry or
+  an entry with no family. The first draft kept a second
+  `{declaration, entry}` list there, a mirror the review caught. A bundled
+  family can only declare in a shared package, because the page folds the
+  same list.
+- **The roots** are `runtime/src/bundled.ts`, `cli/src/host-plugins.ts`
+  (the CLI's agent wiring, moved out of `cli.ts`), `ui/src/ui-plugins.ts`,
+  and `bundled/src/index.ts`, which imports each family's shared package
+  for its declaration and loads nothing. A root may not re-export an
+  extension package.
+- **The breaches are named files.** `EXTENSION_ROOT_BREACHES`, under
+  `GAP [[01M41H30Y60D3G9WJJX6NFQD2T]]`, lists each file that may import a
+  feature and the one feature it may import: the agent UI (E12), the canvas
+  UI with its story (E13, about 45 files), and the three CLI bins. A file
+  not named fails, and a named file that stops importing fails, so the list
+  is frozen and can only shrink, like a ratchet's baseline. Per-line
+  markers were not used because the canvas alone has about 50 import
+  lines, past the ~30-site limit. The first draft listed folders, which
+  sanctioned any future file there; the review caught it. A new canvas file
+  that imports `@kb/canvas` must be added here until E13.
 - **The CLI bins stay sanctioned breaches, not roots.** They already invoke
   through the registry. They import only the family's output schema, to
   print the report. That report is feature policy in core, so the bins are
   neither roots nor fixed by the registry route. The gap's `closes` says
   they leave once the family's report reaches them through the registry.
-- **Pairing for a shared package.** A `scope:shared` package runs in no
-  host on its own, so it pairs when a root or a package of its own family
-  imports it (`@kb/canvas` through `@kb/ext-canvas`).
+- **Pairing counts value imports only.** A type-only import loads nothing.
+  A `scope:shared` package runs in no host on its own, so it pairs when a
+  root of a host loads it or a loaded package of its own family imports it
+  (`@kb/canvas` through `@kb/ext-canvas`).
+- **The declared name is read fail-closed.** Only a direct call
+  `defineExtension({ name: "…" })` counts. An aliased import, a member call,
+  a computed or spread key, or the function passed as a value fails.
+- **Test files** are the package's own `tests/` and `tests-render/` folders
+  and `*.test.*` files; a `tests/` folder inside `src/` is production code.
 - **The rule node took a `#check`.** `ext.check.audit` derives enforcement
   from a check node and refuses a gate beside it. So promoting "Core names
   no feature" to `harness` needed a new `Check: extension families` node
   (harness, `bun run harness`, `extension-families.test.ts`) and removing
-  the rule's `gate`.
-- `extensionContract` checks four promises: the entry is named by the
-  declaration; the family loads and unloads cleanly; its seed has one owner;
-  every view key it contributes has an option. The text-body and
-  page-catalog promises join at E7. The agent's run lives in `@kb/cli`'s
-  tests, beside its host.
+  the rule's `gate`. Its principle states only what the check proves; the
+  browser's bridged list (E10, E12) and core's remaining feature vocabulary
+  are named there as not checked yet.
+- **`extensionContract` says what it can prove.** It holds each entry to its
+  declaration's name, to a clean load and unload, and to contributing
+  exactly the views its declaration lists. Its seed and view-option
+  promises run over empty sets today, because no family declares seed or
+  views yet; it says so under the seed and view gaps, which close at E7–E9.
+  The text-body and page-catalog promises join at E7. The agent's run lives
+  in `@kb/cli`'s tests, beside its host.
 
 ## 3D sequencing
 
