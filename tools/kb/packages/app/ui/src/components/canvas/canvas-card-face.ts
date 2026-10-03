@@ -91,16 +91,36 @@ function probeLength(property: "fontSize" | "borderTopLeftRadius", css: string, 
   return Number.isFinite(value) ? value : fallback;
 }
 
-let shapeRadiusPx: number | undefined;
+/** The corner radii an outline is rounded by, pixels: `rounded-xl` a card's, `rounded-md` a shape's. */
+type CornerRadii = Pick<CardLook, "radius" | "shapeRadius">;
+
+let radiiRead: { readonly skin: string | null; readonly radii: CornerRadii } | undefined;
 
 /**
- * `rounded-md`, a shape's corner radius, in pixels: what both projections
- * round a rectangle's outline by (`shapeOutline`). Read once — no theme
- * changes a radius.
+ * The corner radii, as the design system that is showing sets them: read
+ * once per skin (`data-theme`), since only a skin changes a radius.
  */
-export function readShapeRadius(): number {
-  shapeRadiusPx ??= probeLength("borderTopLeftRadius", "var(--radius-md)", 8);
-  return shapeRadiusPx;
+export function readCornerRadii(): CornerRadii {
+  const skin =
+    typeof document === "undefined" ? null : document.documentElement.getAttribute("data-theme");
+  if (radiiRead === undefined || radiiRead.skin !== skin) {
+    radiiRead = {
+      skin,
+      radii: {
+        radius: probeLength("borderTopLeftRadius", "var(--radius-xl)", 18),
+        shapeRadius: probeLength("borderTopLeftRadius", "var(--radius-md)", 8),
+      },
+    };
+  }
+  return radiiRead.radii;
+}
+
+/**
+ * The radius an item's outline is rounded by in both projections
+ * (`shapeOutline`): a shape's and a frame's, or a card's for any other item.
+ */
+export function cornerRadius(item: CanvasNode, radii: CornerRadii): number {
+  return isShapeNode(item) || isGroupNode(item) ? radii.shapeRadius : radii.radius;
 }
 
 /** Each JSON Canvas preset's token (`lib/canvas-color` paints the same ones in the DOM). */
@@ -126,8 +146,7 @@ export function readCardLook(): CardLook {
     body: probeLength("fontSize", "var(--type-body)", 14.5),
     ui: probeLength("fontSize", "var(--type-ui)", 13),
     label: probeLength("fontSize", "var(--type-label)", 11),
-    radius: probeLength("borderTopLeftRadius", "var(--radius-xl)", 18),
-    shapeRadius: readShapeRadius(),
+    ...readCornerRadii(),
   };
 }
 

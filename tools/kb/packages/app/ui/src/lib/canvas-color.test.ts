@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import { CANVAS_COLOR_PRESETS, resolveCanvasColor, canvasColorStyle } from "./canvas-color";
+import { CANVAS_COLOR_PRESETS, resolveCanvasColor } from "./canvas-color";
 
 const designSystemCss = readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "design-system.css"),
@@ -31,11 +31,5 @@ describe("canvas color presets", () => {
     expect(designSystemCss).toMatch(
       /:root,[^{]*\{[\s\S]*--canvas-color-1:[\s\S]*\}\s*\.dark,[^{]*\{[\s\S]*--canvas-color-1:/,
     );
-  });
-
-  test("canvasColorStyle uses resolved var for border/fill", () => {
-    const style = canvasColorStyle("3");
-    expect(style.borderColor).toBe("var(--canvas-color-3)");
-    expect(style.backgroundColor).toContain("var(--canvas-color-3)");
   });
 });

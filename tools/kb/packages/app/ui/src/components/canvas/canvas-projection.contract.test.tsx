@@ -6,12 +6,17 @@
  * - it draws every item once, back to front in paint order;
  * - it draws every edge whose two ends exist, and no other;
  * - it marks exactly the shared selection;
- * - every item's corners are drawn where the one camera model projects them
- *   on the item's paint plane (`paintPlanes`);
- * - what is drawn on top at a point — the DOM's topmost box, the nearest
- *   drawn plane — is what the model's `hitTest` finds there, for raised,
- *   sunk and same-depth overlapping cards, from oblique orbits, low across
+ * - every item's footprint box is drawn where the one camera model projects
+ *   it on the item's paint plane (`paintPlanes`);
+ * - what is drawn on top at a point — in the DOM the topmost card whose
+ *   footprint (its clip path, which the browser both paints and hit-tests
+ *   by) covers it, in the scene the first drawn surface a ray meets — is
+ *   what the model's `hitTest` finds there, for raised, sunk and same-height
+ *   overlapping cards and for every solid, from oblique orbits, low across
  *   the floor and through either lens;
+ * - footprint parity: over a grid across every item's box, inside its
+ *   footprint and in its corners outside it, both of the above agree with
+ *   the model, so what 2D draws and hit-tests is each solid's top view;
  * - a card moved in the document is drawn where it moved.
  *
  * The 2D projection is the real DOM stage; the 3D one is the real scene on
@@ -22,8 +27,20 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { paintOrder, type CanvasDoc, type CanvasNode, type CanvasProjectionKind } from "@kb/canvas";
+import { Raycaster, Vector3, type Object3D } from "three/webgpu";
 import {
+  canvasDepth,
+  canvasElevation,
+  itemShape,
+  onFootprint,
+  paintOrder,
+  type CanvasDoc,
+  type CanvasNode,
+  type CanvasProjectionKind,
+  type CanvasShapeKind,
+} from "@kb/canvas";
+import {
+  cameraPose,
   hitTest,
   paintPlanes,
   panOfView,
@@ -45,6 +62,9 @@ vi.mock("three/webgpu", async (importOriginal) => ({
   ...(await import("@/test-support/fake-gpu")).FAKE_WEBGPU,
 }));
 
+/** A shape item of `shape`, before it has an id or a place. */
+const solid = (shape: CanvasShapeKind) => ({ type: "shape" as const, shape, label: shape });
+
 const doc: CanvasDoc = {
   nodes: [
     { id: "frame", type: "group", label: "Frame", x: -40, y: -40, width: 720, height: 260 },
@@ -63,6 +83,23 @@ const doc: CanvasDoc = {
       z: -30,
     },
     { id: "gone", type: "kb-node", nodeId: "no.such.node", x: 700, y: 150, width: 180, height: 60 },
+    // Solids, and a flat shape whose box corners are open canvas.
+    {
+      id: "block",
+      type: "text",
+      text: "a block",
+      x: 40,
+      y: 260,
+      width: 160,
+      height: 90,
+      depth: 60,
+    },
+    { id: "ball", ...solid("sphere"), x: 260, y: 250, width: 120, height: 120, depth: 120 },
+    { id: "cone", ...solid("cone"), x: 420, y: 250, width: 110, height: 110, depth: 140 },
+    { id: "pillar", ...solid("ellipse"), x: 580, y: 250, width: 70, height: 70, depth: 180 },
+    { id: "gem", ...solid("diamond"), x: 560, y: 360, width: 120, height: 90, depth: 40 },
+    { id: "disc", ...solid("ellipse"), x: 690, y: 260, width: 140, height: 80 },
+    { id: "slab", ...solid("rect"), x: -200, y: 120, width: 160, height: 80, z: 100, depth: 12 },
   ],
   edges: [
     { id: "e1", fromNode: "low", toNode: "raised", toEnd: "arrow" },
@@ -118,22 +155,51 @@ interface Probe {
 
 type Mount = (view: CanvasView) => Promise<Probe>;
 
-/** Whether `p` is inside the convex quad `corners` (either winding). */
-function inside(
-  p: { x: number; y: number },
-  corners: readonly { x: number; y: number }[],
-): boolean {
-  let sign = 0;
-  for (let i = 0; i < corners.length; i++) {
-    const a = corners[i];
-    const b = corners[(i + 1) % corners.length];
-    if (a === undefined || b === undefined) return false;
-    const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
-    if (cross === 0) continue;
-    if (sign === 0) sign = Math.sign(cross);
-    else if (Math.sign(cross) !== sign) return false;
+/** SVG path data (M, L, C, Z) as a polygon, curves flattened. */
+function pathPolygon(d: string): { x: number; y: number }[] {
+  const tokens = d.match(/[MLCZ]|-?[\d.]+(?:e-?\d+)?/g) ?? [];
+  const points: { x: number; y: number }[] = [];
+  let i = 0;
+  const num = () => Number(tokens[i++]);
+  while (i < tokens.length) {
+    const op = tokens[i++];
+    if (op === "M" || op === "L") points.push({ x: num(), y: num() });
+    else if (op === "C") {
+      const from = points.at(-1) ?? { x: 0, y: 0 };
+      const [x1, y1, x2, y2, x, y] = [num(), num(), num(), num(), num(), num()];
+      for (let s = 1; s <= 16; s++) {
+        const t = s / 16;
+        const u = 1 - t;
+        points.push({
+          x: u * u * u * from.x + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x,
+          y: u * u * u * from.y + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y,
+        });
+      }
+    }
   }
-  return true;
+  return points;
+}
+
+/** Whether `p` is inside `polygon` (even-odd). */
+function inPolygon(p: { x: number; y: number }, polygon: readonly { x: number; y: number }[]) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i];
+    const b = polygon[j];
+    if (a === undefined || b === undefined) continue;
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/** The clip path a card's footprint layer is drawn and hit through, as a polygon in the card's box. */
+function footprintOf(el: HTMLElement): { x: number; y: number }[] | null {
+  const layer = el.querySelector<HTMLElement>("[data-footprint]");
+  const clip = layer?.style.clipPath ?? "";
+  const d = /path\("(.*)"\)/.exec(clip)?.[1];
+  return d === undefined ? null : pathPolygon(d);
 }
 
 const noop = () => {};
@@ -209,11 +275,18 @@ const mount2d: Mount = async (view) => {
         { x: b.x, y: b.y + b.h },
       ];
     },
-    // Positioned siblings in one stacking context: the last one laid out over the point is on top.
+    // Positioned siblings in one stacking context: the last one whose footprint covers the point.
     topAt: (p) =>
       cards().findLast((el) => {
         const b = box(el);
-        return b !== null && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+        if (b === null || p.x < b.x || p.x > b.x + b.w || p.y < b.y || p.y > b.y + b.h) {
+          return false;
+        }
+        const footprint = footprintOf(el);
+        return (
+          footprint === null ||
+          inPolygon({ x: (p.x - b.x) / zoom, y: (p.y - b.y) / zoom }, footprint)
+        );
       })?.dataset.cardId ?? null,
     update: async (next) => {
       render(next);
@@ -255,18 +328,18 @@ const mount3d: Mount = async (view) => {
     edges: () => [...inspect().edges],
     selected: () => [...inspect().selected],
     cornersOf: (id) => inspect().drawnOf(id)?.corners ?? null,
-    // The depth buffer's answer: of the drawn rectangles under the point, the nearest drawn plane.
+    // The depth buffer's answer: the first drawn surface the ray through the point meets.
     topAt: (p) => {
-      let best: { id: string; depth: number } | null = null;
+      const bodies = new Map<Object3D, string>();
       for (const id of inspect().items) {
-        const drawn = inspect().drawnOf(id);
-        if (drawn === null || !inside(p, drawn.corners)) continue;
-        const on = screenToPlane(view, size, p, drawn.z);
-        const depth = on === null ? null : projectPoint(view, size, on)?.depth;
-        if (depth === undefined || depth === null) continue;
-        if (best === null || depth < best.depth) best = { id, depth };
+        const body = inspect().bodyOf(id);
+        if (body !== null) bodies.set(body, id);
       }
-      return best?.id ?? null;
+      const ray = rayThrough(view, p);
+      if (ray === null) return null;
+      const raycaster = new Raycaster(ray.origin, ray.dir);
+      const [first] = raycaster.intersectObjects([...bodies.keys()], false);
+      return first === undefined ? null : (bodies.get(first.object) ?? null);
     },
     update: async (next) => {
       scene.setContent({ doc: next, nodes: new Map(), selection });
@@ -280,6 +353,83 @@ const mount3d: Mount = async (view) => {
 };
 
 const PROBES: Record<CanvasProjectionKind, Mount> = { "2d": mount2d, "3d": mount3d };
+
+/**
+ * The eye's ray through a screen point, in three's world (canvas y
+ * flipped): from the eye in perspective, from far back square to the screen
+ * through the orthographic lens. Built from the camera model alone.
+ */
+function rayThrough(view: CanvasView, p: { x: number; y: number }) {
+  const floor = screenToPlane(view, size, p, -400);
+  const from = view.fov > 0 ? cameraPose(view, size).eye : screenToPlane(view, size, p, 4000);
+  if (floor === null || from === null) return null;
+  const origin = new Vector3(from.x, -from.y, from.z);
+  const dir = new Vector3(floor.x, -floor.y, floor.z).sub(origin).normalize();
+  return { origin, dir };
+}
+
+/**
+ * Whether the ray through `p` meets some rectangle where its corner is
+ * rounded: a look both projections draw (`cornerRadius`) and the model
+ * treats as square, so a point there may fall either way.
+ */
+function atRoundedCorner(view: CanvasView, p: { x: number; y: number }): boolean {
+  const floor = screenToPlane(view, size, p, -400);
+  const from = view.fov > 0 ? cameraPose(view, size).eye : screenToPlane(view, size, p, 4000);
+  if (floor === null || from === null) return false;
+  const dir = [floor.x - from.x, floor.y - from.y, floor.z - from.z] as const;
+  const origin = [from.x, from.y, from.z] as const;
+  return paintPlanes(paintOrder(doc.nodes)).some(({ item, z }) => {
+    if (itemShape(item) !== "rect") return false;
+    const lo = [item.x, item.y, z];
+    const hi = [item.x + item.width, item.y + item.height, z + canvasDepth(item)];
+    let enter = -Infinity;
+    let exit = Infinity;
+    for (const i of [0, 1, 2] as const) {
+      const d = dir[i];
+      const a = ((lo[i] ?? 0) - origin[i]) / d;
+      const b = ((hi[i] ?? 0) - origin[i]) / d;
+      enter = Math.max(enter, Math.min(a, b));
+      exit = Math.min(exit, Math.max(a, b));
+    }
+    if (enter > exit) return false;
+    const x = origin[0] + dir[0] * enter;
+    const y = origin[1] + dir[1] * enter;
+    const across = Math.min(x - item.x, item.x + item.width - x);
+    const down = Math.min(y - item.y, item.y + item.height - y);
+    return across < CORNER && down < CORNER;
+  });
+}
+
+/** Wider than any corner radius a card or a shape is drawn with, canvas units. */
+const CORNER = 24;
+
+/**
+ * Points across every item's box, at half its height: on its footprint and
+ * in the corners of its box off it, kept clear of the footprint's outline,
+ * which a mesh only approximates.
+ */
+const footprintSamples = doc.nodes.flatMap((item) => {
+  // Off the round numbers, so no sample sits on another item's edge.
+  const steps = [-0.77, -0.37, 0.03, 0.43, 0.81];
+  return steps.flatMap((u) =>
+    steps.flatMap((v) => {
+      const near = [0.1, -0.1].some(
+        (d) =>
+          onFootprint(itemShape(item), u * (1 + d), v * (1 + d)) !==
+          onFootprint(itemShape(item), u, v),
+      );
+      if (near) return [];
+      return [
+        {
+          x: item.x + ((u + 1) / 2) * item.width,
+          y: item.y + ((v + 1) / 2) * item.height,
+          z: canvasElevation(item) + canvasDepth(item) / 2,
+        },
+      ];
+    }),
+  );
+});
 
 /** An item's rectangle corners on the plane `z`, clockwise from the top left. */
 const cornersOf = (item: CanvasNode, z: number) => [
@@ -363,7 +513,7 @@ describe("canvas projection contract", () => {
       probe.dispose();
     });
 
-    it("draws every item's corners where the model projects them on its paint plane", async () => {
+    it("draws every item's footprint box where the model projects it on its paint plane", async () => {
       const probe = await mount(view);
       for (const { item, z } of paintPlanes(paintOrder(doc.nodes))) {
         const drawn = probe.cornersOf(item.id);
@@ -385,6 +535,22 @@ describe("canvas projection contract", () => {
         .filter((p) => p !== null);
       for (const at of points) {
         expect(probe.topAt(at), `at ${at.x.toFixed(0)},${at.y.toFixed(0)}`).toBe(
+          hitTest(order, view, size, at),
+        );
+      }
+      probe.dispose();
+    });
+
+    it("draws and hits each item's top view: its footprint, not its box", async () => {
+      const probe = await mount(view);
+      const order = paintOrder(doc.nodes);
+      const points = footprintSamples
+        .map((p) => projectPoint(view, size, p))
+        .filter((p) => p !== null)
+        .filter((p) => !atRoundedCorner(view, p));
+      expect(points.length).toBeGreaterThan(200);
+      for (const at of points) {
+        expect(probe.topAt(at), `at ${at.x.toFixed(1)},${at.y.toFixed(1)}`).toBe(
           hitTest(order, view, size, at),
         );
       }

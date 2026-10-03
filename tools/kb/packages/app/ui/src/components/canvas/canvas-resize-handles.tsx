@@ -13,7 +13,7 @@ export function CanvasResizeHandles({
     <div
       key={corner}
       data-resize={corner}
-      className="absolute z-30 flex h-4 w-4 items-center justify-center"
+      className="pointer-events-auto absolute z-30 flex h-4 w-4 items-center justify-center"
       style={{
         top: corner.startsWith("n") ? -8 : undefined,
         bottom: corner.startsWith("s") ? -8 : undefined,

@@ -1,11 +1,12 @@
 /**
  * The 3D canvas: the canvas document drawn in depth on the scene kit's stage
  * (`@/scene/gpu/stage`), through the one camera model (DESIGN-UI.md → Canvas
- * → Projections). It and its layers (`canvas-scene-cards`,
- * `canvas-scene-edges`) are the only part of the canvas that touches three,
- * and load only inside `canvas-3d-stage`'s lazy chunk.
+ * → Projections). It and its layers (`canvas-scene-items` with its mesh
+ * builders `canvas-scene-solids`, and `canvas-scene-edges`) are the only part
+ * of the canvas that touches three, and load only inside `canvas-3d-stage`'s
+ * lazy chunk.
  *
- * - **Cards** and **edges** are their layers'.
+ * - **Items** and **edges** are their layers'.
  * - **The canvas plane** is the floor, and carries the 2D dot grid, fading
  *   out with distance.
  * - **The camera** is the rig's view (`lib/canvas-camera-rig`), stepped and
@@ -13,7 +14,8 @@
  *   view) maps to three's (y up it) by flipping y, for points and camera
  *   alike, and z is up in both.
  *
- * Unlit, untoned and unbloomed: a card's colours are the tokens'.
+ * Untoned and unbloomed: a card's face is its tokens' colours, unlit, and
+ * a solid's body is the rig's matcap finish, shaded without lights.
  */
 import {
   Color,
@@ -22,6 +24,7 @@ import {
   PlaneGeometry,
   Vector2,
   Vector3,
+  type Object3D,
   type PerspectiveCamera,
 } from "three/webgpu";
 import { float, fract, fwidth, length, positionWorld, smoothstep, uniform } from "three/tsl";
@@ -34,7 +37,7 @@ import { PERSPECTIVE_FOV, cameraPose, type CanvasView, type ViewSize } from "@/l
 import type { CanvasCameraRig } from "@/lib/canvas-camera-rig";
 import type { Timing } from "@/lib/timing";
 import { over, type CardLook } from "./canvas-card-face";
-import { CardLayer } from "./canvas-scene-cards";
+import { ItemLayer } from "./canvas-scene-items";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 import { EdgeLayer } from "./canvas-scene-edges";
 
@@ -62,9 +65,15 @@ interface CanvasSceneInspection {
   screenOf(id: string): { x: number; y: number } | null;
   /**
    * An item as drawn: the canvas-space height of its plane, and its
-   * rectangle's corners on the canvas (CSS pixels), from the mesh itself.
+   * footprint's box corners on the canvas (CSS pixels), from the mesh itself.
    */
   drawnOf(id: string): { z: number; corners: { x: number; y: number }[] } | null;
+  /**
+   * The mesh item `id` is drawn as, placed in three's world (canvas y
+   * flipped): what a probe asks the depth buffer's question of — which drawn
+   * surface a ray meets first.
+   */
+  bodyOf(id: string): Object3D | null;
 }
 
 export interface CanvasScene extends SceneHandle {
@@ -194,7 +203,7 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
   stage.setToneMapping("none");
   stage.backdrop({});
   const fog = stage.atmosphere(4000, 16_000);
-  const cards = new CardLayer(init.look, init.dark, stage.invalidate);
+  const cards = new ItemLayer(init.look, init.dark, stage.invalidate);
   const edges = new EdgeLayer(init.look);
   const plane = canvasPlane();
   plane.setLook(init.look);
@@ -264,6 +273,7 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
         if (corners.some((corner) => corner === null)) return null;
         return { z: drawn.z, corners: corners.filter((corner) => corner !== null) };
       },
+      bodyOf: (id) => cards.bodyOf(id),
     }),
   };
 

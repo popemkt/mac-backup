@@ -1,9 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { shapeOutline, svgPathData, type CanvasShapeNode } from "@kb/canvas";
-import { canvasColorStyle, resolveCanvasColor } from "@/lib/canvas-color";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  CANVAS_SHAPES,
+  canvasDepth,
+  shapeOutline,
+  svgPathData,
+  type CanvasShapeNode,
+  type CanvasVolume,
+} from "@kb/canvas";
+import { resolveCanvasColor } from "@/lib/canvas-color";
 import { classifyCardPointer } from "@/lib/card-pointer";
 import { cn } from "@/lib/cn";
-import { readShapeRadius } from "./canvas-card-face";
+import { cornerRadius, readCornerRadii } from "./canvas-card-face";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
 import {
@@ -26,53 +33,84 @@ interface ShapeCardProps {
 }
 
 /**
- * A shape's outline, traced from the shape table (`shapeOutline`) as the 3D
- * faces trace it, filled with its preset tint and stroked in its colour; a
- * selected shape is stroked in the primary over a soft halo.
+ * How a solid's top view marks what fills it, by volume: a prism's top is
+ * flat, so nothing; an ellipsoid's top is a dome, lit from the upper left;
+ * a cone's rises to a point over its centre.
+ */
+const TOP_VIEW_MARKS: { readonly [V in CanvasVolume]: (id: string) => React.ReactNode } = {
+  prism: () => null,
+  // Light and shade are amounts of white and black, the same in every theme.
+  ellipsoid: (id) => (
+    <radialGradient id={id} cx="38%" cy="32%" r="75%">
+      <stop offset="0%" stopColor="rgb(255 255 255)" stopOpacity={0.45} />
+      <stop offset="50%" stopColor="rgb(255 255 255)" stopOpacity={0} />
+      <stop offset="100%" stopColor="rgb(0 0 0)" stopOpacity={0.22} />
+    </radialGradient>
+  ),
+  cone: (id) => (
+    <radialGradient id={id} cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stopColor="rgb(255 255 255)" stopOpacity={0.4} />
+      <stop offset="4%" stopColor="rgb(255 255 255)" stopOpacity={0.2} />
+      <stop offset="100%" stopColor="rgb(0 0 0)" stopOpacity={0.16} />
+    </radialGradient>
+  ),
+};
+
+/**
+ * A shape's top view: its outline, traced from the shape table
+ * (`shapeOutline`) as the 3D faces and meshes trace it, filled with its
+ * preset tint and stroked in its colour (a selected shape in the primary over
+ * a soft halo), with a solid's top-view mark. Drawn only; the footprint the
+ * pointer hits is {@link ShapeCard}'s clipped layer.
  */
 function ShapeChrome({
   card,
+  d,
   selected,
-  children,
 }: {
   card: CanvasShapeNode;
+  d: string;
   selected: boolean;
-  children: React.ReactNode;
 }) {
-  const tint = canvasColorStyle(card.color);
-  const stroke =
-    resolveCanvasColor(card.color) ?? "color-mix(in oklab, var(--foreground) 18%, transparent)";
-  const d = svgPathData(shapeOutline(card.shape, card.width, card.height, readShapeRadius()));
+  const color = resolveCanvasColor(card.color);
+  const stroke = color ?? "color-mix(in oklab, var(--foreground) 18%, transparent)";
+  // Opaque, as the 3D face is: what stands on a shape covers it.
+  const fill = `color-mix(in oklab, ${color ?? "var(--foreground)"} ${color === undefined ? 2 : 14}%, var(--background))`;
+  const markId = useId();
+  const mark =
+    canvasDepth(card) > 0 ? TOP_VIEW_MARKS[CANVAS_SHAPES[card.shape].volume](markId) : null;
   return (
-    <div className="relative h-full w-full">
-      <svg
-        className="absolute inset-0 h-full w-full overflow-visible"
-        viewBox={`0 0 ${card.width} ${card.height}`}
-        aria-hidden
-      >
-        {selected && (
-          <path
-            d={d}
-            fill="none"
-            stroke="color-mix(in oklab, var(--primary) 15%, transparent)"
-            strokeWidth={6}
-          />
-        )}
+    <svg
+      className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+      viewBox={`0 0 ${card.width} ${card.height}`}
+      aria-hidden
+    >
+      {mark !== null && <defs>{mark}</defs>}
+      {selected && (
         <path
           d={d}
-          fill={
-            tint.backgroundColor ?? "color-mix(in oklab, var(--foreground) 2%, var(--background))"
-          }
-          stroke={selected ? "color-mix(in oklab, var(--primary) 70%, transparent)" : stroke}
-          strokeWidth={selected ? 2 : 1}
+          fill="none"
+          stroke="color-mix(in oklab, var(--primary) 15%, transparent)"
+          strokeWidth={6}
         />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center px-4">{children}</div>
-    </div>
+      )}
+      <path
+        d={d}
+        fill={fill}
+        stroke={selected ? "color-mix(in oklab, var(--primary) 70%, transparent)" : stroke}
+        strokeWidth={selected ? 2 : 1}
+      />
+      {mark !== null && <path d={d} fill={`url(#${markId})`} />}
+    </svg>
   );
 }
 
-/** One card for rect / ellipse / diamond — CSS/SVG only. */
+/**
+ * A shape item in 2D: its top view, and its footprint as what the pointer
+ * hits — the outline as a clip path, so the corners of an ellipse's or a
+ * sphere's box are open canvas, exactly as the camera model's `hitTest`
+ * says.
+ */
 export function ShapeCard({
   card,
   selected,
@@ -117,9 +155,13 @@ export function ShapeCard({
     setEdit(cancelLabelEdit(editRef.current));
   }, []);
 
+  const d = svgPathData(
+    shapeOutline(card.shape, card.width, card.height, cornerRadius(card, readCornerRadii())),
+  );
   return (
+    // The box is only a frame: the footprint inside it is what the pointer hits.
     <div
-      className="group/card absolute"
+      className="group/card pointer-events-none absolute"
       style={{
         left: card.x,
         top: card.y,
@@ -143,7 +185,12 @@ export function ShapeCard({
         beginEdit();
       }}
     >
-      <ShapeChrome card={card} selected={selected}>
+      <ShapeChrome card={card} d={d} selected={selected} />
+      <div
+        data-footprint
+        className="pointer-events-auto absolute inset-0 flex items-center justify-center px-4"
+        style={{ clipPath: `path("${d}")` }}
+      >
         {edit.editing ? (
           <input
             ref={inputRef}
@@ -174,7 +221,7 @@ export function ShapeCard({
             {textOr(card.label, "Label")}
           </span>
         )}
-      </ShapeChrome>
+      </div>
       <CanvasPorts onPortDown={onPortDown} />
       <CanvasResizeHandles selected={selected} onResizeStart={onResizeStart} />
     </div>

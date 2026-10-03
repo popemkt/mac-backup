@@ -8,7 +8,7 @@ import { Window } from "happy-dom";
 import type { CanvasDoc, CanvasNode } from "@kb/canvas";
 import { fakeCanvasContexts } from "@/test-support/fake-gpu";
 import type { CardLook } from "./canvas-card-face";
-import { CardLayer } from "./canvas-scene-cards";
+import { ItemLayer } from "./canvas-scene-items";
 
 const look: CardLook = {
   face: "rgb(255, 255, 255)",
@@ -61,7 +61,7 @@ describe("card faces", () => {
   afterEach(() => vi.useRealTimers());
 
   test("a face is painted once, and again only when what it shows changes", () => {
-    const layer = new CardLayer(look, false, () => {});
+    const layer = new ItemLayer(look, false, () => {});
     resetPaints();
     layer.sync(content([a, b]));
     expect(paints()).toBe(2);
@@ -75,7 +75,7 @@ describe("card faces", () => {
   test("a resize stretches the face, then repaints it once sizes hold still", () => {
     vi.useFakeTimers();
     const wake = vi.fn();
-    const layer = new CardLayer(look, false, wake);
+    const layer = new ItemLayer(look, false, wake);
     layer.sync(content([a, b]));
     resetPaints();
     for (const width of [220, 240, 260]) layer.sync(content([{ ...a, width }, b]));

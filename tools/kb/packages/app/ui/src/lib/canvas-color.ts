@@ -26,18 +26,3 @@ export function resolveCanvasColor(color?: string): string | undefined {
   if (preset !== undefined) return preset;
   return color;
 }
-
-/** Border + translucent fill suitable for shape cards. */
-export function canvasColorStyle(color?: string): {
-  borderColor?: string;
-  backgroundColor?: string;
-  color?: string;
-} {
-  const resolved = resolveCanvasColor(color);
-  if (resolved === undefined) return {};
-  return {
-    borderColor: resolved,
-    backgroundColor: `color-mix(in oklab, ${resolved} 14%, transparent)`,
-    color: resolved,
-  };
-}
