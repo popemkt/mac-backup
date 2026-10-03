@@ -8,9 +8,11 @@ import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
 import { SYSTEM_IDS, canonicalJson, type NodeProps } from "@kb/model";
 import {
+  CHART_DATA,
   ChartView,
   chartSpecWithData,
   describeChartSpec,
+  fillsChartBox,
   issueText,
   paramsFromProps,
   paramsIssues,
@@ -148,17 +150,25 @@ describe("chart data", () => {
     { id: "b", status: "done" },
   ];
 
-  test("the query's rows are the spec's data, and the box's width its width", () => {
-    expect(chartSpecWithData(BAR, records)).toEqual({
+  test("the query's rows are the spec's named data, fitted to the box it is drawn in", () => {
+    expect(chartSpecWithData(BAR, records, { width: 480, height: 300 })).toEqual({
       ...BAR,
-      width: "container",
-      data: { values: records },
+      width: 480,
+      height: 300,
+      autosize: { type: "fit", contains: "padding" },
+      data: { name: CHART_DATA, values: records },
     });
+    const layered = { layer: [BAR] };
+    expect(chartSpecWithData(layered, records, { width: 480 })).toMatchObject({ width: 480 });
   });
 
-  test("a width the spec sets, or a composition's own, is kept", () => {
-    expect(chartSpecWithData({ ...BAR, width: 300 }, records)["width"]).toBe(300);
-    expect(chartSpecWithData({ hconcat: [BAR, BAR] }, records)["width"]).toBeUndefined();
+  test("a size the spec sets, or a composition's own, is kept", () => {
+    const sized = chartSpecWithData({ ...BAR, width: 300 }, records, { width: 480 });
+    expect(sized["width"]).toBe(300);
+    expect(sized["autosize"]).toBeUndefined();
+    const composed = chartSpecWithData({ hconcat: [BAR, BAR] }, records, { width: 480 });
+    expect(composed["width"]).toBeUndefined();
+    expect(fillsChartBox({ facet: { field: "a" }, spec: BAR })).toBe(false);
   });
 
   test("the starter draws a measure by a category, else counts rows by one", () => {

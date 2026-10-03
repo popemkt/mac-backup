@@ -198,16 +198,45 @@ export const ChartView = viewKey(`${CHART_NAMESPACE}.vega-lite`, ChartParams, {
 });
 
 /**
+ * The name a chart's data goes by in the view Vega runs, so a host that
+ * holds the view swaps new rows in (`view.data(CHART_DATA, rows)`) instead of
+ * building it again.
+ */
+export const CHART_DATA = "kb";
+
+/** The box a chart is drawn in: its width, and its height when the host gives one. */
+export interface ChartBox {
+  readonly width: number;
+  readonly height?: number;
+}
+
+/**
+ * Whether `spec` lays itself out in `box`: one view or a layer, sized by
+ * neither width nor height. A composition sizes each of its views, and a spec
+ * that names a size keeps it.
+ */
+export function fillsChartBox(spec: ChartSpec): boolean {
+  return !DRAWS.slice(2).some((key) => key in spec) && !("width" in spec) && !("height" in spec);
+}
+
+/**
  * The spec Vega-Lite compiles: `spec` with the query's rows as its data
- * (`data.values`), and the box's width unless the spec sets one. The rows are
- * the only data a chart draws.
+ * (`data.values`, named {@link CHART_DATA}), fitted to `box` when it fills
+ * one ({@link fillsChartBox}). The rows are the only data a chart draws.
  */
 export function chartSpecWithData(
   spec: ChartSpec,
   records: readonly Readonly<Record<string, unknown>>[],
+  box: ChartBox,
 ): Record<string, unknown> {
-  const sized = DRAWS.slice(1).some((key) => key in spec) || "width" in spec;
-  return { ...spec, ...(sized ? {} : { width: "container" }), data: { values: records } };
+  const fitted = fillsChartBox(spec)
+    ? {
+        width: box.width,
+        ...(box.height === undefined ? {} : { height: box.height }),
+        autosize: spec.autosize ?? { type: "fit", contains: "padding" },
+      }
+    : {};
+  return { ...spec, ...fitted, data: { name: CHART_DATA, values: records } };
 }
 
 /** What a mark is called: its name, or its definition's `type`. */

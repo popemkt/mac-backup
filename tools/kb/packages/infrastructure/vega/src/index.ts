@@ -64,21 +64,13 @@ export function chartView(
   });
 }
 
-/** The width a headless chart is drawn at when the spec asks for its box's. */
-const SNAPSHOT_WIDTH = 560;
-
-/**
- * The Vega-Lite `spec` as one SVG document, drawn headless: no canvas, no
- * DOM. A spec sized to its box (`width: "container"`) has no box here, so it
- * is drawn {@link SNAPSHOT_WIDTH} wide.
- */
+/** The Vega-Lite `spec` as one SVG document, drawn headless: no canvas, no DOM. */
 export const chartSvg = Effect.fn("vega.chartSvg")(function* (
   spec: Readonly<Record<string, unknown>>,
 ) {
-  const sized = spec["width"] === "container" ? { ...spec, width: SNAPSHOT_WIDTH } : spec;
   return yield* Effect.acquireUseRelease(
     Effect.try({
-      try: () => chartView(sized),
+      try: () => chartView(spec),
       catch: (err) =>
         domainError("invalid_input", `the chart cannot be compiled: ${messageOf(err)}`),
     }),

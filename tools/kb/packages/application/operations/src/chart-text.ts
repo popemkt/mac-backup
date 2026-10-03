@@ -12,6 +12,9 @@ import { chartSpecWithData, describeChartSpec, type ChartParams } from "@kb/view
 /** How many of a chart's rows its table lists. */
 const MAX_TABLE_ROWS = 50;
 
+/** The box a page draws a chart in: no browser measures one, so it is fixed. */
+const PAGE_BOX = { width: 560, height: 300 };
+
 /** The rows a chart draws, or why it has none. */
 function chartRecordsOf(
   ctx: KbContext,
@@ -74,7 +77,7 @@ export function chartBody(ctx: KbContext, params: ChartParams) {
       const painter = yield* ChartSvg;
       if (painter === null) return null;
       return yield* painter
-        .svg(chartSpecWithData(params.spec, data.records))
+        .svg(chartSpecWithData(params.spec, data.records, PAGE_BOX))
         .pipe(Effect.orElseSucceed(() => null));
     }),
   };
