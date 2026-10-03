@@ -150,7 +150,11 @@ function postChain(
     occlusion: uniform(occluded ? 1 : 0),
     vignette: uniform(options.vignette ?? 0.55),
   };
-  const scenePass = pass(scene, camera);
+  // three r186's GTAO reads its centre depth with `gather()`, which WGSL has
+  // no overload for on a multisampled depth texture, so under occlusion the
+  // scene pass is single-sampled until three r187 (mrdoob/three.js#34609).
+  // GAP [GTAO-MSAA-DEPTH]
+  const scenePass = pass(scene, camera, occluded ? { samples: 0 } : {});
   const color = scenePass.getTextureNode("output");
   let lit: ReturnType<typeof color.mul> | typeof color = color;
   let occlusionPass: ReturnType<typeof gtao> | null = null;

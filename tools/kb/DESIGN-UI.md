@@ -1677,7 +1677,8 @@ scene's frame reports that something still moves, so a study (always moving)
 and the graph (moving while it lays out, flies or fades) share one rule.
 Shadows (`StageOptions.shadows`) and ambient occlusion (`ao`) are decided
 once, when the stage is built; the rig casts shadows exactly on a stage that
-has them.
+has them. Under occlusion the scene pass is single-sampled: three r186's GTAO
+cannot read a multisampled depth texture (fixed in r187), a gap.
 
 The renderer is three's `WebGPURenderer` (T1): WebGPU where the browser has
 it, three's own WebGL2 backend where it does not, the same node code
