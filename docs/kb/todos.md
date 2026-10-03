@@ -22,7 +22,6 @@
 
 ### doing
 
-- 5 · screen state over /ws + ui.screen/ui.navigate/ui.select; agent packages (local Claude bridge, sidebar) outside core
 - A outline editor defects -> Tana-grade polish
 - B graph view CodeFlow-parity overhaul
 - C canvas professionalism overhaul (delete nodes!)
@@ -63,6 +62,7 @@
 - 1 · view types declare settings schemas; fold ViewMode + GRAPH_RENDERERS into ViewPoint (restructure)
 - 2 · view nodes per plugin-composition A1 (sys.f.view, sys.f.views, placement) + default view per host; migrate sys.f.view.* and #graph-perspective (restructure)
 - 4 · WebMCP adapter over /api/action behind feature detection
+- 5 · screen state over /ws + ui.screen/ui.navigate/ui.select; agent packages (local Claude bridge, sidebar) outside core
 - 8 · canvas 3D: z/3D transforms, perspective camera on the WebGPU scene kit (three r186)
 - canvas simplify (Logseq model): edges are drawings only; native bind = one-shot prop write; bound-state computed at render (unbound tint); DELETE reconciler/persist-back/bindingId repair — supersedes broken-edge repair todo
 - decide which actions require approval (candidates: ext.docs.materialize, ext.check.sync, node.update when it deletes)

@@ -58,7 +58,7 @@ export const MAX_CONVERSATIONS_PER_CONNECTION = 8;
  * connection closes, when its connection starts more than
  * {@link MAX_CONVERSATIONS_PER_CONNECTION}, or when the server stops.
  */
-// GAP [GAP-AGENT-THREADS]
+// GAP [[01M40WSVNKVH3ZY8QE0GN5DY8X]]
 interface Conversation {
   readonly id: string;
   /** The connection that started it; no other may speak in it. */

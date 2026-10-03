@@ -146,6 +146,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMRB7AZB7DPFR6XBPBKQ9`
 
+### GAP: agent conversations live in the bridge's memory, not as nodes
+
+- **expected** — a sidebar conversation is a thread node whose messages are nodes, so it survives restarts, can be resumed, searched and linked like anything else
+- **current** — conversations are held in the agent bridge's memory per connection (at most 8) and vanish when the connection or server ends; Claude Code keeps its own session file
+- **impact** — no history across reloads; what an agent did and why is not part of the graph
+- **closes** — a thread/message node model the bridge writes, and resume from it
+- **node** — `01M40WSVNKVH3ZY8QE0GN5DY8X`
+
 ### GAP: agent-prompt review rules are not ported to this repo
 
 - **expected** — The dotfiles skills and agent directory has a stated review checklist for every prompt or skill change, with the mechanical half actually checked.
@@ -509,14 +517,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Either ds/ exports the index layer the session runtime builds, or the seam moves to session/ and ds/ becomes its caller — one of the two, decided when the browser store's ownership settles.
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
-
-### GAP: the browser UI cannot carry approval for an action
-
-- **expected** — the UI asks the user and invokes with approved: true
-- **current** — postAction sends only {id, input}; an approval-required write from the UI always fails
-- **impact** — approval-required actions are unusable from the kb UI
-- **closes** — an approval prompt in the UI, shared with the sidebar agent (roadmap step 5)
-- **node** — `01M3R2KDDDPSB12NCJ6F6NJHMC`
 
 ### GAP: the CLI has no relative dates (today, next fri)
 
@@ -1169,6 +1169,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A graph with more than 400 distinct bullets (many multi-tag colour sets) draws the overflow as the wrong bullet in the bullet theme.
 - **closes** — A second atlas page (a texture array) or painting overflow cells on demand, with a test that a graph past the capacity draws every bullet from its own cell.
 - **node** — `01M3FNF3PFQA9J4XM76G3K7P9A`
+
+### GAP: the browser UI cannot carry approval for an action
+
+- **expected** — the UI asks the user and invokes with approved: true
+- **current** — closed by roadmap step 5b: the agent sidebar's approval card makes the call from the tab with approved set by the person's click, through the one invoke path
+- **impact** — approval-required actions are unusable from the kb UI
+- **closes** — an approval prompt in the UI, shared with the sidebar agent (roadmap step 5)
+- **node** — `01M3R2KDDDPSB12NCJ6F6NJHMC`
 
 ### GAP: the canvas keydown effect is a 66-branch handler
 

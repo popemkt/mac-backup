@@ -1847,7 +1847,7 @@ The sidebar agent lives outside core, in packages that core never imports
   (its turn ends `cancelled`, a call waiting for the person is dropped),
   so a connection cannot grow the bridge without bound.
   Nothing is written to the store. Threads kept as nodes are the
-  canonical shape (`GAP-AGENT-THREADS`). A backend may keep its own record
+  canonical shape (GAP [[01M40WSVNKVH3ZY8QE0GN5DY8X]]). A backend may keep its own record
   of a session, as Claude Code does.
 - **`kb ui` hosts the agent over the local Claude** (`claudeRuntime`), and
   `--no-agent` leaves it out. The CLI is the composition root that names
