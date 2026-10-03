@@ -13,13 +13,14 @@
  */
 import { Service } from "@kb/plugin";
 import type { KbNode, PropValue } from "@kb/model";
+import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "@/ds";
 import type { FollowHow, FollowTarget } from "@/lib/follow";
 import type { RefInk } from "@/lib/md-edit";
 import { currentService } from "@/lib/plugins";
 import type { proposeView } from "@/lib/propose-view";
 import type { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
-import type { Appearance } from "@/lib/theme";
+import type { Appearance, ThemePref } from "@/lib/theme";
 
 export interface BrowserHost {
   /**
@@ -31,9 +32,22 @@ export interface BrowserHost {
   readonly node: (id: string) => KbNode | undefined;
   /** The replica's index, or null before the graph has loaded. */
   readonly index: () => KbIndex | null;
+  /** The graph's nodes as they came over the wire. */
+  readonly wireNodes: () => WireNode[];
   /** Whether the live socket is open, so a query subscribes instead of running locally. */
   readonly live: () => boolean;
   readonly appearance: () => Appearance;
+  readonly theme: () => ThemePref;
+  readonly prefsOpen: () => boolean;
+  readonly setPrefsOpen: (open: boolean) => void;
+  /** Whether the left rail is open, at a narrow or a wide viewport. */
+  readonly sidebarOpen: (narrow: boolean) => boolean;
+  /** Toggle the left rail from its button, drawn with the rail `open`; focus returns to it. */
+  readonly toggleSidebar: (
+    narrow: boolean,
+    open: boolean,
+    button: HTMLButtonElement | null,
+  ) => void;
   /** How references in rendered text are inked. */
   readonly refInk: () => RefInk;
   /**
@@ -45,6 +59,8 @@ export interface BrowserHost {
     target: FollowTarget,
     how: FollowHow,
   ) => void;
+  /** Zoom the outline to a node. */
+  readonly zoomTo: (id: string) => void;
   /** Send a pane to a path. */
   readonly navigatePane: (pane: string, path: string) => void;
   /** Replace a field's values on a node, through the page's one write path. */

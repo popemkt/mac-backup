@@ -9,7 +9,7 @@
  * the estimate and the seed outright: nothing measured before the break may
  * be carried across it.
  */
-import { approachShare } from "@/lib/timing";
+import { approachShare } from "@/sdk";
 
 /** How quickly the estimate follows the sampled speed (1/s). */
 const BLEND_RATE = 14;

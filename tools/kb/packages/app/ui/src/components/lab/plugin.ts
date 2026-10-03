@@ -4,12 +4,13 @@ import { matchLab } from "@/components/lab/routes";
 import { LabSection, LabSurface } from "@/components/lab/surfaces";
 import { LAB_NAMESPACE, LAB_SCENE_IDS, LabView } from "@kb/views";
 import {
+  BrowserHostService,
   RoutePoint,
   SidebarSectionPoint,
   ViewPoint,
   provideRoute,
   provideView,
-} from "@/lib/plugins";
+} from "@/sdk";
 
 /**
  * The lab: stylised real-time 3D projections of the graph, tried here before
@@ -19,6 +20,7 @@ import {
  */
 export const labUiPlugin = definePlugin({
   name: LAB_NAMESPACE,
+  inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(
       [

@@ -5,20 +5,24 @@
  * study is shown.
  */
 import { useCallback, useMemo, useState } from "react";
-import { cn } from "@/lib/cn";
-import { useReducedMotion } from "@/lib/motion";
-import { navigate } from "@/lib/router";
-import { useOutlineStore } from "@/stores/outline.store";
-import { useAppearance, usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
-import { useUiStore } from "@/stores/ui.store";
-import { SidebarToggle } from "@/components/ui/sidebar-toggle";
-import { ThemeIcon } from "@/components/ui/theme-icon";
-import { WorkspaceState } from "@/components/ui/workspace-state";
+import {
+  SidebarToggle,
+  ThemeIcon,
+  WorkspaceState,
+  browserHost,
+  cn,
+  navigate,
+  readTiming,
+  useAppearance,
+  usePrefsOpen,
+  useReducedMotion,
+  useSidebarToggle,
+  useTheme,
+} from "@/sdk";
 import { initialValues, type LabControlValue, type LabHover } from "@/components/lab/kit/contract";
 import { InfoCard } from "@/components/lab/kit/info-card";
 import type { SceneBackend } from "@/scene/backend";
 import { SceneHost } from "@/components/lab/kit/scene-host";
-import { readTiming } from "@/lib/timing";
 import { useLabGraph } from "@/components/lab/lab-graph";
 import { labPath } from "@/components/lab/routes";
 import { LAB_SCENE_IDS, type LabSceneId } from "@kb/views";
@@ -49,9 +53,8 @@ function StudySwitch({ scene }: { scene: LabSceneId }) {
 
 function LabHeader({ scene, backend }: { scene: LabSceneId; backend: SceneBackend | null }) {
   const sidebar = useSidebarToggle();
-  const theme = usePrefsStore((s) => s.theme);
-  const prefsOpen = useUiStore((s) => s.prefsOpen);
-  const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
+  const theme = useTheme();
+  const [prefsOpen, setPrefsOpen] = usePrefsOpen();
   return (
     <header className="relative z-10 flex h-11 shrink-0 items-center gap-3 px-4">
       <SidebarToggle {...sidebar} />
@@ -96,7 +99,6 @@ function Study({
   const graph = useLabGraph();
   const appearance = useAppearance();
   const reducedMotion = useReducedMotion();
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
   const timing = useMemo(() => readTiming(), []);
   const [values, setValues] = useState(() => initialValues(study.controls));
   const [hover, setHover] = useState<LabHover | null>(null);
@@ -105,13 +107,10 @@ function Study({
     (id: string, value: LabControlValue) => setValues((current) => ({ ...current, [id]: value })),
     [],
   );
-  const onOpen = useCallback(
-    (id: string) => {
-      navigate("/");
-      zoomTo(id);
-    },
-    [zoomTo],
-  );
+  const onOpen = useCallback((id: string) => {
+    navigate("/");
+    browserHost().zoomTo(id);
+  }, []);
   const { Panel } = study;
   return (
     <div className="absolute inset-0 bg-[var(--lab-ground)]" data-lab-study={scene}>

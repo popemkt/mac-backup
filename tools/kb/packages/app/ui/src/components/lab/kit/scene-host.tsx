@@ -9,9 +9,9 @@ import type { LabControlValues, LabHover, LabScene, LabStudy } from "@/component
 import { readLabPalette } from "@/components/lab/kit/palette";
 import type { SceneBackend } from "@/scene/backend";
 import { attachScene } from "@/scene/host";
-import { readTiming } from "@/lib/timing";
+import { readTiming } from "@/sdk";
 import type { LabGraph } from "@/components/lab/lab-graph";
-import type { Appearance } from "@/lib/theme";
+import type { Appearance } from "@/sdk";
 
 export interface SceneHostProps {
   readonly study: LabStudy;

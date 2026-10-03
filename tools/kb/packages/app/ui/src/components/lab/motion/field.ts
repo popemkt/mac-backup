@@ -17,7 +17,7 @@
  *
  * Plain arithmetic over typed arrays; a step allocates nothing (P3).
  */
-import { easeAt, springRate, stepSpring, type CubicBezier, type Spring } from "@/lib/timing";
+import { easeAt, springRate, stepSpring, type CubicBezier, type Spring } from "@/sdk";
 
 export type Drive = "spring" | "ease";
 

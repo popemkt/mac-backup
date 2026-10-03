@@ -21,7 +21,12 @@ import {
  * file there reaching a store, a sibling's `lib` helper or an action breaks
  * the matrix, and the same file reaching the sdk does not.
  */
-const EXTENSION_ZONES = ["components/agent", "components/chart", "components/code"] as const;
+const EXTENSION_ZONES = [
+  "components/agent",
+  "components/chart",
+  "components/code",
+  "components/lab",
+] as const;
 
 /** How each import of `source`, written in a file of `zone`, breaks the matrix. */
 function fixtureBreaches(zone: string, source: string): Array<string | undefined> {

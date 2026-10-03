@@ -489,7 +489,15 @@ the full contents.
 - `CommandPoint` sits beside `Command` in `lib/commands.tsx` for the same
   reason.
 - Everything that touches the shell's state goes through `BrowserHost`:
-  stores, writes, the invoke path and the sandbox host.
+  stores, writes, the invoke path and the sandbox host. The host is a
+  subscribe, reads and gestures, never hooks. The first draft handed out
+  hooks, and the React lint rightly flagged them as selected at run time.
+  The sdk's own hooks are built over the host with `useSyncExternalStore`.
+- Where a core hook and the host need the same rule, the rule moved into
+  one function that both call: `appearanceIn`, `followFrom`, `refInkIn`,
+  `sidebarOpenIn` and `toggleSidebarFrom`. `OpenNodeContext` moved from
+  `stores/` to `lib/follow`, because it is a React context and not a
+  store.
 - The shell provides `BrowserHost` from a built-in plugin, and the feature
   plugins inject it.
 

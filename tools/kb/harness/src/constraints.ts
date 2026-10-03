@@ -401,7 +401,8 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "scene",
   ],
   "components/graph": ["components/graph", "primitives", "stores", "actions", "lib", "scene"],
-  "components/lab": ["components/lab", "primitives", "stores", "actions", "lib", "scene"],
+  // The lab's studies stand on the scene kit, and on the shell through the host.
+  "components/lab": extensionRow("components/lab", "scene"),
   "components/ontology": ["components/ontology", "primitives", "stores", "actions", "lib"],
   // Panes and layouts: a pane draws whatever page its path resolves to, by
   // route and view key, so it imports no other surface.

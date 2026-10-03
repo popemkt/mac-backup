@@ -11,7 +11,12 @@ import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/s
 import { BrowserHostService, type BrowserHost } from "@/sdk/host";
 import { followFrom } from "@/stores/follow";
 import { useOutlineStore } from "@/stores/outline.store";
-import { appearanceIn, usePrefsStore } from "@/stores/prefs.store";
+import {
+  appearanceIn,
+  sidebarOpenIn,
+  toggleSidebarFrom,
+  usePrefsStore,
+} from "@/stores/prefs.store";
 import { refInkIn } from "@/stores/ref-ink";
 import { useUiStore } from "@/stores/ui.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
@@ -28,10 +33,17 @@ const host: BrowserHost = {
   },
   node: (id) => useOutlineStore.getState().nodes.get(id),
   index: () => useOutlineStore.getState().index,
+  wireNodes: () => useOutlineStore.getState().wireNodes,
   live: () => useUiStore.getState().wsStatus === "open",
   appearance: () => appearanceIn(usePrefsStore.getState()),
+  theme: () => usePrefsStore.getState().theme,
+  prefsOpen: () => useUiStore.getState().prefsOpen,
+  setPrefsOpen: (open) => useUiStore.getState().setPrefsOpen(open),
+  sidebarOpen: sidebarOpenIn,
+  toggleSidebar: toggleSidebarFrom,
   refInk: () => refInkIn(useOutlineStore.getState()),
   follow: followFrom,
+  zoomTo: (id) => useOutlineStore.getState().zoomTo(id),
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),
   replaceField: (nodeId, fieldId, values) => mutations.replaceField(nodeId, fieldId, values),
   proposeView,

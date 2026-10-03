@@ -1782,7 +1782,10 @@ the shell.
   - `BrowserHost`, a kernel service the shell provides. Through it a half
     reaches what it would otherwise take from the shell's stores, actions
     and lib: the live graph, appearance, navigation, panes, the invoke path
-    and the sandbox host.
+    and the sandbox host. It is a subscribe, reads and gestures, never
+    hooks: a hook selected from a service at run time is one React cannot
+    check. The sdk's own hooks (`useNode`, `useAppearance`, `useFollow`, …)
+    are built over it once, with `useSyncExternalStore`.
 
   The sdk never imports the shell's stores. The 3D scene kit, `@kb/scene`,
   is a browser package of its own beside it, for canvas 3D, the lab and the

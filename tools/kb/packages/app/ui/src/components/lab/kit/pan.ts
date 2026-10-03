@@ -4,7 +4,7 @@
  * speed and decays to rest. Plain arithmetic on one mutable record, so a
  * frame allocates nothing (P3); shared by every study that pans.
  */
-import { approach } from "@/lib/timing";
+import { approach } from "@/sdk";
 
 /** Where the view points, and how fast it is still turning (rad, rad/s). */
 export interface Pan {

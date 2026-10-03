@@ -15,9 +15,10 @@ import {
   listPerspectiveNodes,
   parsePerspective,
   resolvePerspective,
+  useIndex,
+  useWireNodes,
   type LensGraph,
-} from "@/lib/graph-lens";
-import { useOutlineStore } from "@/stores/outline.store";
+} from "@/sdk";
 
 export interface LabNode {
   readonly id: string;
@@ -75,8 +76,8 @@ export function toLabGraph(lens: LensGraph, wireNodes: readonly WireNode[]): Lab
 
 /** The lab's graph: the default perspective's lens over the live store. */
 export function useLabGraph(): LabGraph {
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const index = useOutlineStore((s) => s.index);
+  const wireNodes = useWireNodes();
+  const index = useIndex();
   return useMemo(() => {
     const perspective = resolvePerspective(
       listPerspectiveNodes(index, wireNodes).map(parsePerspective),

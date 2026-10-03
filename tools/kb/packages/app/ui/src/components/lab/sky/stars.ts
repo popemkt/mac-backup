@@ -28,7 +28,7 @@ import type { TslNode } from "@/scene/gpu/tsl";
 import { unitHash } from "@/scene/sphere";
 import { HERO_GLINTS, heroPoint, starPoint } from "@/components/lab/sky/layout";
 import { starLight } from "@/components/lab/sky/shaders";
-import { approach } from "@/lib/timing";
+import { approach } from "@/sdk";
 
 /** The depth at which a star is drawn at its nominal size. */
 const NOMINAL = 60;

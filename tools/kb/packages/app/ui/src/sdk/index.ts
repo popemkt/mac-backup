@@ -11,27 +11,79 @@
  * and the hooks built over it. GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]
  */
 export { BrowserHostService, browserHost } from "./host";
-export { useAppearance, useFollow, useGeneration, useNode, useQueryRows, useRefInk } from "./hooks";
+export {
+  useAppearance,
+  useFollow,
+  useGeneration,
+  useIndex,
+  useNode,
+  usePrefsOpen,
+  useQueryRows,
+  useRefInk,
+  useSidebarToggle,
+  useTheme,
+  useWireNodes,
+} from "./hooks";
 
-// The UI points: views, docks and node commands.
-export { DockPoint, ViewPoint, provideView, type ViewProps } from "@/lib/plugins";
+// The UI points: routes, views, sidebar sections, docks and node commands.
+export {
+  DockPoint,
+  RoutePoint,
+  SidebarSectionPoint,
+  ViewPoint,
+  paramsOf,
+  provideRoute,
+  provideView,
+  type MatchedRoute,
+  type ViewProps,
+} from "@/lib/plugins";
 export { CommandPoint, nodeAction, type Command } from "@/lib/commands";
 
 // The primitives.
+export { EnumSelect } from "@/components/ui/enum-select";
 export { IconButton } from "@/components/ui/icon-button";
 export { MdView } from "@/components/ui/md-view";
+export { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
+export { SidebarToggle } from "@/components/ui/sidebar-toggle";
+export { ThemeIcon } from "@/components/ui/theme-icon";
 export { WorkspaceState } from "@/components/ui/workspace-state";
+export { ViewErrorBoundary } from "@/components/view-error-boundary";
 
-// Pure helpers: class names, tokens, logging, panes, routing and toasts.
+// Pure helpers: class names, tokens, logging, motion, panes, routing, text,
+// timing and toasts.
 export { cn } from "@/lib/cn";
 export { readTokenColor } from "@/lib/css-color";
 export { graphLabelFont } from "@/lib/graph-label";
 export { logError, logWarn } from "@/lib/log";
+export { useReducedMotion } from "@/lib/motion";
 export { usePane } from "@/lib/pane";
-export { nodePath } from "@/lib/router";
+export { navigate, nodePath } from "@/lib/router";
 export { textOr } from "@/lib/text";
+export type { Appearance } from "@/lib/theme";
+export {
+  TIMING_FALLBACK,
+  approach,
+  approachRate,
+  approachShare,
+  easeAt,
+  readTiming,
+  springRate,
+  springResponse,
+  stepSpring,
+  type CubicBezier,
+  type Spring,
+  type Timing,
+} from "@/lib/timing";
 export { toast } from "@/lib/toast";
 
-// Query rows, named by their `:find` columns, and what a sandbox frame is handed.
+// Query rows, named by their `:find` columns; the graph as a perspective
+// draws it; and what a sandbox frame is handed.
 export { chartRecords, queryRecords, type QueryRecords } from "@/ds";
+export {
+  extractLensGraph,
+  listPerspectiveNodes,
+  parsePerspective,
+  resolvePerspective,
+  type LensGraph,
+} from "@/lib/graph-lens";
 export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "@/lib/sandbox-host";

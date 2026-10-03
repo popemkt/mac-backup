@@ -234,25 +234,43 @@ export function useSidebarToggle(): {
   open: boolean;
   onToggle: (button: HTMLButtonElement | null) => void;
 } {
-  // Wide, the sidebar docks and its open state is the device preference.
-  // Narrow, it floats over the page and opens only for this visit.
   const narrow = useNarrowViewport();
   const docked = usePrefsStore((s) => s.sidebarOpen);
-  const toggleDocked = usePrefsStore((s) => s.toggleSidebar);
   const overlay = useUiStore((s) => s.sidebarOverlayOpen);
-  const setOverlay = useUiStore((s) => s.setSidebarOverlayOpen);
-  const open = narrow ? overlay : docked;
-  const toggle = narrow ? () => setOverlay(!overlay) : toggleDocked;
-  return {
-    open,
-    onToggle: (button) => {
-      const focusedInSidebar = document.activeElement?.closest(SIDEBAR_REGION_SELECTOR);
-      toggle();
-      if (open && focusedInSidebar) {
-        requestAnimationFrame(() => button?.focus());
-      }
-    },
-  };
+  const open = sidebarOpenOf(narrow, docked, overlay);
+  return { open, onToggle: (button) => toggleSidebarFrom(narrow, open, button) };
+}
+
+/**
+ * Whether the left rail is open. Wide, the sidebar docks and its open state
+ * is the device preference; narrow, it floats over the page and opens only
+ * for this visit.
+ */
+function sidebarOpenOf(narrow: boolean, docked: boolean, overlay: boolean): boolean {
+  return narrow ? overlay : docked;
+}
+
+/** Whether the left rail is open now, for a reader outside React. */
+export function sidebarOpenIn(narrow: boolean): boolean {
+  return sidebarOpenOf(
+    narrow,
+    usePrefsStore.getState().sidebarOpen,
+    useUiStore.getState().sidebarOverlayOpen,
+  );
+}
+
+/** Toggle the left rail from its button, which was drawn with the rail `open`. */
+export function toggleSidebarFrom(
+  narrow: boolean,
+  open: boolean,
+  button: HTMLButtonElement | null,
+): void {
+  const focusedInSidebar = document.activeElement?.closest(SIDEBAR_REGION_SELECTOR);
+  if (narrow) useUiStore.getState().setSidebarOverlayOpen(!open);
+  else usePrefsStore.getState().toggleSidebar();
+  if (open && focusedInSidebar) {
+    requestAnimationFrame(() => button?.focus());
+  }
 }
 
 /**

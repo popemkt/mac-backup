@@ -5,11 +5,14 @@
  */
 import { useCallback, useContext, useSyncExternalStore } from "react";
 import type { KbNode } from "@kb/model";
+import type { WireNode } from "@kb/contracts";
+import type { KbIndex } from "@/ds";
 import { OpenNodeContext, type Follow } from "@/lib/follow";
 import type { RefInk } from "@/lib/md-edit";
 import { usePane } from "@/lib/pane";
 import { useQueryNodeRows, type QueryNodeRows } from "@/lib/use-query-node-rows";
-import type { Appearance } from "@/lib/theme";
+import type { Appearance, ThemePref } from "@/lib/theme";
+import { useNarrowViewport } from "@/lib/viewport";
 import { browserHost, type BrowserHost } from "./host";
 
 /** What `read` answers of the host, re-read whenever the host changes. */
@@ -22,6 +25,16 @@ function useHostValue<T>(read: (host: BrowserHost) => T): T {
 /** A node of the live graph; undefined for no id or no such node. */
 export function useNode(id: string | undefined): KbNode | undefined {
   return useHostValue((host) => (id === undefined ? undefined : host.node(id)));
+}
+
+/** The replica's index, or null before the graph has loaded. */
+export function useIndex(): KbIndex | null {
+  return useHostValue((host) => host.index());
+}
+
+/** The graph's nodes as they came over the wire. */
+export function useWireNodes(): WireNode[] {
+  return useHostValue((host) => host.wireNodes());
 }
 
 /** The index's mutation counter: it moves on every change the replica takes. */
@@ -38,7 +51,7 @@ export function useQueryRows(input: {
   readonly edn: string | null;
 }): QueryNodeRows {
   const live = useHostValue((host) => host.live());
-  const index = useHostValue((host) => host.index());
+  const index = useIndex();
   const generation = useGeneration();
   return useQueryNodeRows({ nodeId: input.nodeId, edn: input.edn, live, index, generation });
 }
@@ -61,4 +74,24 @@ export function useFollow(): Follow {
 /** What the page is painted in, resolved. */
 export function useAppearance(): Appearance {
   return useHostValue((host) => host.appearance());
+}
+
+export function useTheme(): ThemePref {
+  return useHostValue((host) => host.theme());
+}
+
+/** Whether Preferences is open, and how to open or close it. */
+export function usePrefsOpen(): readonly [boolean, (open: boolean) => void] {
+  const open = useHostValue((host) => host.prefsOpen());
+  return [open, (next) => browserHost().setPrefsOpen(next)];
+}
+
+/** The left rail's state and gesture, for the `SidebarToggle` primitive. */
+export function useSidebarToggle(): {
+  readonly open: boolean;
+  readonly onToggle: (button: HTMLButtonElement | null) => void;
+} {
+  const narrow = useNarrowViewport();
+  const open = useHostValue((host) => host.sidebarOpen(narrow));
+  return { open, onToggle: (button) => browserHost().toggleSidebar(narrow, open, button) };
 }

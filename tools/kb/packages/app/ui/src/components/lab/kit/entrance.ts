@@ -10,7 +10,7 @@
  */
 import { uniform } from "three/tsl";
 import { easeNode, type TslNode } from "@/scene/gpu/tsl";
-import { easeAt, type CubicBezier, type Timing } from "@/lib/timing";
+import { easeAt, type CubicBezier, type Timing } from "@/sdk";
 
 /** How much of the entrance the stagger spans; the rest is each piece's own arrival. */
 export const ENTRANCE_SPREAD = 0.55;
