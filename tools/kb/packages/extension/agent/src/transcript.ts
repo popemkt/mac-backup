@@ -22,6 +22,7 @@ export interface ToolEntry {
   readonly action: string;
   readonly title: string;
   readonly input: unknown;
+  /** Whether the invoke core asked for the person before the call could run. */
   readonly approval: boolean;
   readonly state: ToolState;
   readonly receipt: ActionReceipt | null;
@@ -136,13 +137,19 @@ export function withEvent(transcript: Transcript, event: AgentEvent): Transcript
         action: event.action,
         title: event.title,
         input: event.input,
-        approval: event.approval,
-        state: event.approval ? "awaiting" : "running",
+        approval: false,
+        state: "running",
         receipt: null,
         decision: null,
       };
       return { ...transcript, entries: [...transcript.entries, entry] };
     }
+    case "approval":
+      return mapTool(transcript, event.call, (entry) => ({
+        ...entry,
+        approval: true,
+        state: "awaiting",
+      }));
     case "tool-result":
       return mapTool(transcript, event.call, (entry) => ({
         ...entry,

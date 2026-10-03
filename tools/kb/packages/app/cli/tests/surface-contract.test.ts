@@ -245,10 +245,10 @@ function agentEvents(tab: FakeTab, from: number, conversation: string): AgentEve
 /**
  * The agent: a sidebar tab on the root's `kb ui` sends a message on the
  * agent channel, and the scripted model lists its tools or makes the call.
- * A call the mode says needs approval reaches the person, who makes it
- * through the browser's lane (`POST /api/action`) with approval exactly as
- * the invocation declares it, and answers the receipt. The receipt is the
- * one the model was given.
+ * A call the invoke core answers `approval_required` reaches the person,
+ * who makes it through the browser's lane (`POST /api/action`) with
+ * approval exactly as the invocation declares it, and answers the receipt.
+ * The receipt is the one the model was given.
  */
 const agent: SurfaceFactory = async (_root, ui) => {
   // A connection that publishes no screen, so the root's one tab stays the contract's own.
@@ -264,9 +264,14 @@ const agent: SurfaceFactory = async (_root, ui) => {
     for (;;) {
       const events = agentEvents(tab, from, conversation);
       for (const event of events) {
-        if (event.type !== "tool-call" || !event.approval || answered.has(event.call)) continue;
+        if (event.type !== "approval" || answered.has(event.call)) continue;
         answered.add(event.call);
-        const invocation = onWire(AGENT_WIRE, { id: event.action, input: event.input, approved });
+        const call = events.find(
+          (held): held is Extract<AgentEvent, { type: "tool-call" }> =>
+            held.type === "tool-call" && held.call === event.call,
+        );
+        if (call === undefined) throw new Error(`approval for a call never made: ${event.call}`);
+        const invocation = onWire(AGENT_WIRE, { id: call.action, input: call.input, approved });
         const receipt = await postAction(ui.url, invocation);
         tab.say(AGENT_CHANNEL, { type: "receipt", conversation, call: event.call, receipt });
       }

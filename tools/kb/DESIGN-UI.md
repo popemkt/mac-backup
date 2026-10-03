@@ -1491,8 +1491,9 @@ plugin. It draws the conversation the agent channel reports
 line that opens onto its input and receipt, a running turn's stop button, and
 a "new conversation" button that forgets the old one.
 
-**Approval** is drawn as a card that waits on a call whose action requires
-approval. Approve and Decline are both the same call, made by this tab
+**Approval** is drawn as a card that waits on a call the invoke core
+answered `approval_required` (the agent channel's `approval` event).
+Approve and Decline are both the same call, made by this tab as the agent's
 through the browser's one invoke path (`invokeSettled`), with `approved` set
 to the person's answer. The receipt that comes back is what the agent is
 told. A decline is therefore refused by the invoke core with

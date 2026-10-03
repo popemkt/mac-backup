@@ -28,7 +28,6 @@ describe("the sidebar's transcript", () => {
         action: "node.get",
         title: "Get node",
         input: {},
-        approval: false,
       },
       { type: "tool-result", conversation: K, call: "c1", receipt: succeeded("node.get", {}) },
       { type: "text", conversation: K, delta: "Done." },
@@ -40,7 +39,7 @@ describe("the sidebar's transcript", () => {
     expect(t.entries[2]).toMatchObject({ state: "done", receipt: succeeded("node.get", {}) });
   });
 
-  test("an approval call waits, then records the person's choice and its receipt", () => {
+  test("a call the invoke core asks about waits, then records the person's choice and its receipt", () => {
     let t = play(withSent(newTranscript(K), "stamp"), [
       {
         type: "tool-call",
@@ -49,10 +48,10 @@ describe("the sidebar's transcript", () => {
         action: "ext.gated.stamp",
         title: "Stamp",
         input: {},
-        approval: true,
       },
+      { type: "approval", conversation: K, call: "c1" },
     ]);
-    expect(t.entries[1]).toMatchObject({ state: "awaiting", decision: null });
+    expect(t.entries[1]).toMatchObject({ state: "awaiting", approval: true, decision: null });
     t = withDecision(t, "c1", "declined");
     expect(t.entries[1]).toMatchObject({ state: "deciding", decision: "declined" });
     const refused = failed("ext.gated.stamp", "approval_required", "needs approval");
@@ -68,10 +67,10 @@ describe("the sidebar's transcript", () => {
       action: "ext.gated.stamp",
       title: "Stamp",
       input: {},
-      approval: true,
     };
     const cancelled = play(withSent(newTranscript(K), "x"), [
       open,
+      { type: "approval", conversation: K, call: "c1" },
       { type: "turn-end", conversation: K, outcome: "cancelled" },
     ]);
     expect(cancelled.entries[1]).toMatchObject({ state: "stopped" });

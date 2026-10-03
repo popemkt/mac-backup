@@ -1,6 +1,7 @@
 /**
  * The bridge over a scripted runtime and a stand-in `kb ui` host: what a
- * turn is given, what the sidebar hears, and how a call runs by its mode.
+ * turn is given, what the sidebar hears, and how a call runs: through the
+ * host, and to the person where the host asks for them.
  * The real server, the real invoke core and the approval round trip through
  * `POST /api/action` are the surface contract's (`agent` surface).
  */
@@ -65,7 +66,10 @@ const SCREEN: TabScreen = {
   ],
 };
 
-/** A host whose registry is two actions and whose one tab is `tab.a`. */
+/**
+ * A host whose registry is two actions and whose one tab is `tab.a`. Like the
+ * invoke core, it refuses the gated action unless the call is approved.
+ */
 function fakeHost(invoked: ActionInvocation[]): UiHostService {
   const texts: Record<string, string> = { "n.root": "Root", "n.focus": "Focused" };
   return {
@@ -75,6 +79,11 @@ function fakeHost(invoked: ActionInvocation[]): UiHostService {
       Effect.sync((): ActionReceipt => {
         invoked.push(invocation);
         if (invocation.id === "ui.screen") return succeeded("ui.screen", { tabs: [SCREEN] });
+        if (invocation.id === GATED.id) {
+          return invocation.approved === true
+            ? succeeded(GATED.id, { stamped: true })
+            : failed(GATED.id, "approval_required", "needs approval");
+        }
         const input = invocation.input as { id?: string };
         const text = input.id === undefined ? undefined : texts[input.id];
         if (invocation.id === "node.get" && text !== undefined) {
@@ -198,15 +207,20 @@ describe("the agent bridge", () => {
     await peer.say(h.channel, { type: "send", conversation: "k1", text: "read" });
     await peer.turnEnd();
     const call = await peer.next((event) => event.type === "tool-call");
-    expect(call).toMatchObject({ action: "node.get", title: "Get node", approval: false });
+    expect(call).toMatchObject({ action: "node.get", title: "Get node" });
     const result = await peer.next((event) => event.type === "tool-result");
     const receipt = succeeded("node.get", { node: { id: "n.root", text: "Root" } });
     expect(result).toMatchObject({ call: (call as { call: string }).call, receipt });
     expect(seen).toEqual([receipt]);
-    expect(h.invoked).toContainEqual({ id: "node.get", input: { id: "n.root", depth: 0 } });
+    expect(h.invoked).toContainEqual({
+      id: "node.get",
+      input: { id: "n.root", depth: 0 },
+      actor: "agent",
+    });
+    expect(peer.heard.some((event) => event.type === "approval")).toBe(false);
   });
 
-  test("an approval-required call waits for the person's receipt and never runs on the host", async () => {
+  test("a call the host answers approval_required waits for the person's receipt", async () => {
     const seen: ActionReceipt[] = [];
     const h = open(() => [
       { call: "ext.gated.stamp", answer: (receipt) => (seen.push(receipt), "stamped") },
@@ -214,8 +228,13 @@ describe("the agent bridge", () => {
     const peer = new Peer("c1");
     await peer.say(h.channel, { type: "send", conversation: "k1", text: "stamp" });
     const call = await peer.next((event) => event.type === "tool-call");
-    expect(call).toMatchObject({ action: "ext.gated.stamp", approval: true });
+    expect(call).toMatchObject({ action: "ext.gated.stamp" });
     const id = (call as { call: string }).call;
+    expect(await peer.next((event) => event.type === "approval")).toEqual({
+      type: "approval",
+      conversation: "k1",
+      call: id,
+    });
 
     // A receipt of another action, or for a call nobody waits on, is refused.
     await peer.say(h.channel, {
@@ -240,7 +259,10 @@ describe("the agent bridge", () => {
       call: id,
       receipt: approved,
     });
-    expect(h.invoked.some((invocation) => invocation.id === "ext.gated.stamp")).toBe(false);
+    // The host saw only the agent's own call, which it refused; the bridge never approves.
+    expect(h.invoked.filter((invocation) => invocation.id === "ext.gated.stamp")).toEqual([
+      { id: "ext.gated.stamp", input: {}, actor: "agent" },
+    ]);
   });
 
   test("cancel stops a turn, a call waiting for the person included", async () => {

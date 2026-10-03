@@ -119,8 +119,8 @@ describe("the agent dock", () => {
       action: "ext.gated.stamp",
       title: "Stamp",
       input: { n: 1 },
-      approval: true,
     });
+    s.hear({ type: "approval", conversation: "k1", call: "c1" });
     expect(container.textContent).toContain("Approve Stamp?");
     await act(async () => button("Approve")?.click());
     expect(s.invoked).toEqual([
@@ -150,8 +150,8 @@ describe("the agent dock", () => {
       action: "ext.gated.stamp",
       title: "Stamp",
       input: {},
-      approval: true,
     });
+    s.hear({ type: "approval", conversation: "k1", call: "c1" });
     await act(async () => button("Decline")?.click());
     expect(s.invoked).toEqual([
       { id: "ext.gated.stamp", input: {}, approved: false, actor: "agent" },

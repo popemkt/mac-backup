@@ -1975,14 +1975,18 @@ The sidebar agent lives outside core, in packages that core never imports
   `listedOn(AGENT_WIRE)`, read at each turn. The agent's wire carries
   approval, because a call that needs approval reaches a person before it
   runs, so the agent lists every action.
-- **A call runs the way its mode says.**
-  - A call that needs no approval runs at once through `UiHost.invoke`.
-  - For a call whose action requires approval, the bridge sends
-    `tool-call` with `approval: true` and waits. The sidebar asks the
-    person. It then makes the call itself, through the browser's one
-    invoke path, with `approved` set to the person's answer, and replies
-    with that call's receipt. Declining is the same call without
-    approval, so the invoke core answers it `approval_required`.
+- **A call runs through the invoke core, which decides it.**
+  - Every call runs at once through `UiHost.invoke`, as the agent's
+    (`AGENT_WIRE`), and the bridge sends `tool-call`.
+  - When the invoke core answers `approval_required`, the bridge sends
+    `approval` for that call and waits. The sidebar asks the person. It
+    then makes the call itself, through the browser's one invoke path,
+    as the agent's, with `approved` set to the person's answer, and
+    replies with that call's receipt. Declining is the same call without
+    approval, so the invoke core answers it `approval_required` again.
+  - The bridge never predicts which calls ask, so whatever the invoke
+    core decides is what the person sees. A refusal for want of approval
+    comes before anything is written, so the first attempt costs nothing.
   - The bridge never declares approval. It takes only a receipt of the
     same action, for a call that is waiting on that connection. Like
     `approved`, the receipt is what the caller reports, not a proof

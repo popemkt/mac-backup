@@ -30,9 +30,9 @@ export interface AgentTurn {
   /** The registry actions the agent may call, as the manifest lists them. */
   readonly tools: readonly ManifestEntry[];
   /**
-   * Call one by its action id. The bridge runs it, asking the person first
-   * where the action's mode requires approval, and answers the receipt. It
-   * never fails: a call that cannot run is a failed receipt.
+   * Call one by its action id. The bridge runs it, asking the person where
+   * the invoke core answers that the call needs approval, and answers the
+   * receipt. It never fails: a call that cannot run is a failed receipt.
    */
   readonly call: (action: string, input: unknown) => Effect.Effect<ActionReceipt>;
 }

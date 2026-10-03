@@ -27,15 +27,16 @@ import type { AgentOutput, AgentRuntime } from "./runtime.ts";
 /**
  * The bridge: the agent plugin the `kb ui` server hosts. It owns the
  * conversations, gives the runtime the registry as its tools, and runs each
- * call the way the call's mode says (`DESIGN.md` → Agent packages):
+ * call through the invoke core, which decides it (`DESIGN.md` → Agent
+ * packages):
  *
- * - a call that needs no approval runs at once through `UiHost.invoke`, the
- *   server's one invoke path;
- * - a call whose action requires approval is handed to the person: the
- *   sidebar asks, makes the call itself through the browser's invoke path,
- *   approved or not, and answers with the receipt. The bridge never says a
- *   call was approved; only the person's tab does, and the invoke core
- *   decides.
+ * - every call runs at once through `UiHost.invoke`, the server's one invoke
+ *   path, as the agent's;
+ * - a call the invoke core answers `approval_required` is handed to the
+ *   person: the sidebar asks, makes the call itself through the browser's
+ *   invoke path, approved or not, and answers with the receipt. The bridge
+ *   never predicts which calls ask and never says a call was approved; only
+ *   the person's tab does, and the invoke core decides.
  */
 
 /** One call waiting for the person, and the action it must be the receipt of. */
@@ -207,7 +208,10 @@ class Bridge {
     });
   }
 
-  /** Run one tool call as its mode says, and tell the sidebar about it on both sides. */
+  /**
+   * Run one tool call through the invoke core, hand it to the person where
+   * the core asks for them, and tell the sidebar about it on both sides.
+   */
   private call(
     peer: ChannelPeer,
     conversation: Conversation,
@@ -217,10 +221,11 @@ class Bridge {
   ): Effect.Effect<ActionReceipt> {
     const { host } = this;
     const id = crypto.randomUUID();
-    const approval = entry !== undefined && declaredDecision(entry.mode) === "ask";
-    const answered = approval
-      ? this.person(conversation, id, action)
-      : host.invoke(onWire(AGENT_WIRE, { id: action, input }));
+    const askPerson = send(peer, {
+      type: "approval",
+      conversation: conversation.id,
+      call: id,
+    }).pipe(Effect.andThen(this.person(conversation, id, action)));
     return send(peer, {
       type: "tool-call",
       conversation: conversation.id,
@@ -228,9 +233,13 @@ class Bridge {
       action,
       title: entry?.title ?? action,
       input,
-      approval,
     }).pipe(
-      Effect.andThen(answered),
+      Effect.andThen(host.invoke(onWire(AGENT_WIRE, { id: action, input }))),
+      Effect.flatMap((receipt) =>
+        receipt.status === "failed" && receipt.code === "approval_required"
+          ? askPerson
+          : Effect.succeed(receipt),
+      ),
       Effect.tap((receipt) =>
         send(peer, { type: "tool-result", conversation: conversation.id, call: id, receipt }),
       ),

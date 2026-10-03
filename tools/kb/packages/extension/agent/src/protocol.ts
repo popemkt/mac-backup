@@ -31,8 +31,8 @@ export const AgentRequestSchema = z.discriminatedUnion("type", [
   /** Stop the running turn, a tool call waiting for the person included. */
   z.object({ type: z.literal("cancel"), conversation }),
   /**
-   * The person's answer to the approval-required call `call`: the receipt of
-   * the call as the tab made it through its own invoke path, approved or
+   * The person's answer to the call `call` that waits for them: the receipt
+   * of the call as the tab made it through its own invoke path, approved or
    * not. The invoke core decided it, not the sidebar.
    */
   z.object({
@@ -48,10 +48,7 @@ export type AgentRequest = z.infer<typeof AgentRequestSchema>;
 export const AgentEventSchema = z.discriminatedUnion("type", [
   /** More of the agent's reply. */
   z.object({ type: z.literal("text"), conversation, delta: z.string() }),
-  /**
-   * The agent called an action. With `approval`, the call waits for the
-   * person: the sidebar asks, makes the call, and answers with its receipt.
-   */
+  /** The agent called an action, which runs now. */
   z.object({
     type: z.literal("tool-call"),
     conversation,
@@ -59,8 +56,13 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     action: z.string(),
     title: z.string(),
     input: z.unknown(),
-    approval: z.boolean(),
   }),
+  /**
+   * The invoke core answered the call `approval_required`, so it waits for
+   * the person: the sidebar asks, makes the call with their answer, and
+   * replies with its receipt.
+   */
+  z.object({ type: z.literal("approval"), conversation, call: z.string() }),
   /** What the call answered. */
   z.object({
     type: z.literal("tool-result"),
