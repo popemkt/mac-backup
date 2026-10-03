@@ -35,7 +35,6 @@
 ### todo
 
 - 10 · chart view type storing a Vega-Lite spec
-- 3 · generative UI mode A: view.propose, catalog in kb_manifest, render_view by view id + md fallback, ui:// snapshots
 - 5c · approval policies (decision 13): #approval-policy nodes (match, actor, decision) resolved by the invoke core; policies table view; policy writes always ask; seeded defaults
 - 6 · layout view type (decision 12): mode B dashboards + panes (Tana panels → splits/tabs via dockview adapter), saved workspaces as nodes
 - 9 · sandbox: one capability API + MCP Apps iframe bridge, QuickJS + Worker engines; #code-view, #script, promotion
@@ -61,6 +60,7 @@
 - 0 · action mode (read/write + approval) on ActionDefinition, in manifest; contract: every surface same actions + same receipt
 - 1 · view types declare settings schemas; fold ViewMode + GRAPH_RENDERERS into ViewPoint (restructure)
 - 2 · view nodes per plugin-composition A1 (sys.f.view, sys.f.views, placement) + default view per host; migrate sys.f.view.* and #graph-perspective (restructure)
+- 3 · generative UI mode A: view.propose, catalog in kb_manifest, render_view by view id + md fallback, ui:// snapshots
 - 4 · WebMCP adapter over /api/action behind feature detection
 - 5 · screen state over /ws + ui.screen/ui.navigate/ui.select; agent packages (local Claude bridge, sidebar) outside core
 - 8 · canvas 3D: z/3D transforms, perspective camera on the WebGPU scene kit (three r186)

@@ -8,7 +8,7 @@
  * graph reads it), else the children of the node it is shown for. How the
  * view itself would lay them out — filtered, sorted, grouped, a column per
  * field, drawn as a graph — is not drawn here.
- * GAP [GAP-VIEW-MARKDOWN]
+ * GAP [[01M40X30G92A0E57C02JHQ9A1G]]
  */
 import { Predicate, Result } from "effect";
 import type { KbContext } from "@kb/contracts";

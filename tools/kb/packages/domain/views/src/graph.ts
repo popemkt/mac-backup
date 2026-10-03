@@ -125,7 +125,7 @@ function rendererKey<P extends LensWrite>(
       read: (props, _host, report) => decodeLensConfig(props, report),
       // A renderer writes the settings it draws with; the lens it draws (query,
       // mappings, edge kinds) is no renderer's params, so a proposal cannot set it.
-      // GAP [GAP-GRAPH-LENS-PROPOSE]
+      // GAP [[01M40X30Q8N7NYCYHW3J0GFKY7]]
       write: encodeLensConfig,
     }),
     family: RENDERER_FAMILY,

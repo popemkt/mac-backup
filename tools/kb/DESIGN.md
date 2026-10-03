@@ -840,13 +840,13 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   makes a view node from settings is to call the same function. The write
   check does not yet: a view node written through `node.add` or
   `node.update` is not checked against its view's settings
-  (`GAP-VIEW-WRITE-CHECK`). The frame toolbar's edits need no check of their
+  (GAP [[01M40X308W34T0PGSN12S9K2K2]]). The frame toolbar's edits need no check of their
   own, because each writes one setting through its slot (`frameSettingWrite`),
   which reads back what it writes. A graph view proposed this way holds its
   renderer's settings only: which nodes it draws (`lens.query`, the
   mappings, the edge kinds) is the graph host's lens, which no renderer's
   params declare, so it draws every node until edited
-  (`GAP-GRAPH-LENS-PROPOSE`).
+  (GAP [[01M40X30Q8N7NYCYHW3J0GFKY7]]).
 - **A view node renders as markdown where a surface shows text only.**
   `render.view` takes a docs view by name or any view node by id (exactly
   one), shown for `host` (by default the one node naming it). A docs view
@@ -857,7 +857,7 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   children. One function (`renderViewNodeEffect`) serves the action and
   MCP's `ui://kb/view/*` resources (Surfaces). The markdown lists the view's
   subject; it does not lay it out the way the view does — filtered, sorted,
-  grouped, a column per field, drawn as a graph (`GAP-VIEW-MARKDOWN`).
+  grouped, a column per field, drawn as a graph (GAP [[01M40X30G92A0E57C02JHQ9A1G]]).
 - **A host names its views by ref.** `sys.f.views` (ref, many) on any node
   targets every view node (`VIEW_NODE_TARGET_QUERY`). Scope is per node:
   a view shown for every node of a tag would be a new model rule

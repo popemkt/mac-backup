@@ -88,6 +88,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
 - **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
 
+### GAP: a proposed graph view cannot set its query or mappings
+
+- **expected** — view.propose can set a graph view's query, focus and mappings like its renderer settings
+- **current** — only the renderer's own settings are proposable; a proposed graph view draws every node until edited
+- **impact** — an agent cannot propose a focused graph view in one call
+- **closes** — the graph lens settings get a schema that proposals compose
+- **node** — `01M40X30Q8N7NYCYHW3J0GFKY7`
+
 ### GAP: a ref value's bullet follows instead of expanding the target inline
 
 - **expected** — A ref value's bullet expands the target's children inline under the field, the way a reference row's bullet expands its target.
@@ -128,6 +136,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — orphaned view nodes accumulate in the Views list as hosts are edited and deleted
 - **closes** — host lifecycle owns its views: deleting a host or dropping a view from sys.f.views deletes view nodes nothing else names
 - **node** — `01M3YM5Y5XYDZ1C7G0PCQ1RMK8`
+
+### GAP: a view node's markdown has no layout of its own
+
+- **expected** — each view type contributes its own markdown projection: filters, sort, board grouping, table columns, graph edges
+- **current** — render.view's markdown lists the view, its settings and the nodes its subject shows, the same shape for every view
+- **impact** — Claude Code and other hosts without ui:// see a flat list where the person sees a board, table or graph
+- **closes** — each view key carries a markdown projection beside its params
+- **node** — `01M40X30G92A0E57C02JHQ9A1G`
 
 ### GAP: action registry has no A2A adapter
 
@@ -368,6 +384,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Special nodes (inboxes, sys nodes) read the same as any other link.
 - **closes** — A seeded sys icon field and refInkOf reading it.
 - **node** — `01M3KA3BHNPNB8VX34HD8P2JCB`
+
+### GAP: only view.propose checks a view node's settings against its key
+
+- **expected** — every write of a view node, from any action, is checked by its view key
+- **current** — view.propose runs viewNodeFor; node.add and node.update can write a view node whose settings its view cannot read
+- **impact** — an agent or script using the generic node actions can store a broken view, which then renders its fallback
+- **closes** — the write check in tx.ts can reach the view keys, injected or with keys held as data
+- **node** — `01M40X308W34T0PGSN12S9K2K2`
 
 ### GAP: orbit controls stand in the lab kit, not the scene kit
 
