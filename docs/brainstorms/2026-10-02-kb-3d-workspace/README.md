@@ -235,6 +235,10 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
     Holding ⌘ suspends snapping. `TransformControls`' own snapping stays
     off, so snapping has one owner.
 
+    Step 2 built the first bullet: one rule over three axes, and an Alt-lift
+    snaps to the heights other items stand at. The grid, surface, rotation
+    and scale snaps come with the steps that make them mean something.
+
 12. **Groups and frames are one concept.** A group is a `group` item, drawn
     as a frame, and its members say so with `parent`.
     - Dropping an item inside a frame's footprint sets `parent`, and moving

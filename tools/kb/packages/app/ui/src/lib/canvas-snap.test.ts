@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { CanvasNode } from "@kb/canvas";
-import { snapCanvasMove } from "./canvas-snap";
+import { snapCanvasLift, snapCanvasMove } from "./canvas-snap";
 
 const node = (id: string, x: number): CanvasNode => ({
   id,
@@ -22,6 +22,14 @@ it("names the alignment it snapped to on each axis it snapped", () => {
     { axis: "x", pos: 203 },
     { axis: "y", pos: 0 },
   ]);
+});
+it("lifts to the heights other items stand at, within the same tolerance", () => {
+  const raised = { ...node("b", 400), z: 120 };
+  expect(snapCanvasLift(node("a", 0), [raised], 117, 1)).toEqual({
+    dz: 120,
+    guides: [{ axis: "z", pos: 120 }],
+  });
+  expect(snapCanvasLift(node("a", 0), [raised], 110, 1).dz).toBe(110);
 });
 it("keeps snapping tolerance consistent in screen pixels", () => {
   expect(snapCanvasMove(node("a", 0), [node("b", 208)], 100, 0, 0.5).dx).toBe(108);

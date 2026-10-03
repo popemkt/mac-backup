@@ -254,4 +254,21 @@ describe("lift", () => {
     expect(released.doc?.nodes.find((n) => n.id === moving.id)).not.toHaveProperty("z");
     expect(released.persist).toBe("history");
   });
+
+  test("a lift snaps to the height another card stands at", () => {
+    const shelf = { ...guide, z: 40 };
+    const ctx = context({ nodes: [moving, shelf], edges: [] });
+    const started = reduce(
+      createPointerState(),
+      { type: "lift/start", id: moving.id, screen: { x: 0, y: 100 }, world: { x: 0, y: 0 } },
+      ctx,
+    );
+    const lifted = reduce(
+      started.state,
+      { type: "pointer/move", screen: { x: 0, y: 63 }, world: { x: 0, y: 0 }, shiftKey: false },
+      ctx,
+    );
+    expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(40);
+    expect(lifted.state.snapGuides).toEqual([{ axis: "z", pos: 40 }]);
+  });
 });

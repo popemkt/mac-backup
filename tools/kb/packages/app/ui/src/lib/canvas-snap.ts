@@ -68,6 +68,17 @@ function snapAlong(
   };
 }
 
+/** A lift up from the floor, snapped on z: to the heights other items stand at. */
+export function snapCanvasLift(
+  moving: CanvasNode,
+  others: readonly CanvasNode[],
+  dz: number,
+  zoom: number,
+) {
+  const z = snapAlong("z", moving, others, dz, zoom);
+  return { dz: z.delta, guides: z.guide === null ? [] : [z.guide] };
+}
+
 /** A move across the floor, snapped on x and y. */
 export function snapCanvasMove(
   moving: CanvasNode,

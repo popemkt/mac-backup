@@ -1033,7 +1033,10 @@ manipulation feel professional rather than merely functional.
   four corner resize handles clamp at 80×40 (`Shift` locks aspect ratio), and
   arrow keys nudge 1px / 10px with `Shift`.
 - **Snap guides and fit.** Alignment snapping is magnetic within 5px
-  (`SNAP_TOL`) and draws dashed guide lines; `Shift+1` zoom-to-fit frames the
+  (`SNAP_TOL`, `lib/canvas-snap.ts`), one rule on all three axes: a move
+  across the floor snaps on x and y and draws dashed guide lines, and an
+  Alt-lift in 3D snaps to the heights other cards stand at (no line is drawn
+  up the z axis); `Shift+1` zoom-to-fit frames the
   bounding box with 40px padding. Zoom range is 0.1–3.0 (`MIN_ZOOM`/`MAX_ZOOM`).
 - **Sticky tools.** `lib/canvas-tool.ts` is a pure reducer: picking a tool is
   one-shot (it returns to `select` after placing), double-clicking the tool icon

@@ -9,7 +9,7 @@ import {
   type CanvasSide,
 } from "@kb/canvas";
 import { sidePoint } from "@/lib/canvas-edge-path";
-import { snapCanvasMove, type SnapGuide } from "@/lib/canvas-snap";
+import { snapCanvasLift, snapCanvasMove, type SnapGuide } from "@/lib/canvas-snap";
 import { pastSlop } from "@/lib/pointer-slop";
 import {
   EMPTY_SELECTION,
@@ -187,9 +187,10 @@ type MoveDrag = Extract<Drag, { kind: "move" }>;
 
 /**
  * Where each carried card goes for a pointer at `screen` / `world`, per way
- * of carrying: across the plane by the canvas-space delta (snapped to other
- * cards), or along depth by the drag's height in canvas units at the current
- * zoom, whole units (depth is a layout value, not a measurement).
+ * of carrying: across the plane by the canvas-space delta, or up from the
+ * floor by the drag's height in canvas units at the current zoom, whole units
+ * (height is a layout value, not a measurement). Either way the carry snaps
+ * to other cards' alignments on the axes it moves along (`canvas-snap`).
  */
 const CARRY: Record<
   Carry,
@@ -214,7 +215,8 @@ const CARRY: Record<
   },
   depth: (drag, at, ctx) => {
     const rise = Math.round((drag.startY - at.screen.y) / ctx.zoom);
-    return { place: (node, orig) => withDepth(node, canvasDepth(orig) + rise), guides: [] };
+    const { dz, guides } = snapLift(drag, rise, ctx);
+    return { place: (node, orig) => withDepth(node, canvasDepth(orig) + dz), guides };
   },
 };
 
@@ -257,17 +259,25 @@ function startResize(
   });
 }
 
-function snapMove(drag: MoveDrag, dx: number, dy: number, ctx: PointerContext) {
+/** The carried card that leads the snap (the first), as it was, and the cards it snaps to. */
+function snapLead(drag: MoveDrag, ctx: PointerContext) {
   const original = drag.orig.values().next().value;
   const node = original === undefined ? undefined : ctx.byId.get(original.id);
-  if (!node || !original) return { dx, dy, guides: [] };
-  return snapCanvasMove(
-    { ...node, x: original.x, y: original.y },
-    ctx.doc.nodes.filter((other) => !drag.orig.has(other.id)),
-    dx,
-    dy,
-    ctx.zoom,
-  );
+  if (!node || !original) return null;
+  const others = ctx.doc.nodes.filter((other) => !drag.orig.has(other.id));
+  return { lead: { ...node, x: original.x, y: original.y, z: original.z }, others };
+}
+
+function snapMove(drag: MoveDrag, dx: number, dy: number, ctx: PointerContext) {
+  const snap = snapLead(drag, ctx);
+  if (snap === null) return { dx, dy, guides: [] };
+  return snapCanvasMove(snap.lead, snap.others, dx, dy, ctx.zoom);
+}
+
+function snapLift(drag: MoveDrag, dz: number, ctx: PointerContext) {
+  const snap = snapLead(drag, ctx);
+  if (snap === null) return { dz, guides: [] };
+  return snapCanvasLift(snap.lead, snap.others, dz, ctx.zoom);
 }
 
 function moveNodes(
