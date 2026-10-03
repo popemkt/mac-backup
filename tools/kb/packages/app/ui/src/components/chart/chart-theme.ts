@@ -21,7 +21,7 @@ function typeStep(step: "label" | "meta" | "ui", fallback: number): number {
  * apart in lightness (3, 5, 2, 4, 1): the ramp is one hue light to dark, so
  * order is all that tells adjacent series apart.
  */
-// GAP [GAP-CHART-CATEGORICAL] A design system carries a sequential chart ramp
+// GAP [[01M4187DVGXP15CV2JX8Z5Q6V2]] A design system carries a sequential chart ramp
 // (--chart-1..5) and no categorical palette; categories reorder the ramp.
 const CATEGORY_STEPS = [3, 5, 2, 4, 1] as const;
 

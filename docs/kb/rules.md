@@ -88,6 +88,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — CanvasScreenSchema carries the camera {projection, pose} and the 3D scene reports visible items from its frustum
 - **node** — `01M3YMCVN656CNRJ3F3R91MHKA`
 
+### GAP: a chart's spec is edited as JSON, with no builder
+
+- **expected** — a form picks a mark and the query's columns per channel and writes the same Vega-Lite spec through the same check
+- **current** — the spec editor is a JSON text area with validation errors and the query's column names beside it
+- **impact** — making a chart needs Vega-Lite knowledge; agents can propose one, people mostly cannot
+- **closes** — a chart builder that writes the spec through the one chart spec check
+- **node** — `01M4187E5QQYRD8ENHQM968EEJ`
+
 ### GAP: a dashboard's inner panes are not in the screen state
 
 - **expected** — every pane on screen, including those inside a dashboard, is listed in the screen state and can be targeted
@@ -290,6 +298,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — ui src keeps one typescript/no-unsafe-type-assertion that a check cannot replace until the DOM lib drops the deprecation or the ratchet promotes no-deprecated to error with a pinpoint disable.
 - **closes** — lib.dom removes @deprecated from caretRangeFromPoint, or caretPositionFromPoint is the only probe and Chrome implements it everywhere this app runs.
 - **node** — `01M1P2R0XMSK1MRVQ8P2JH5V0Z`
+
+### GAP: charts have no categorical palette
+
+- **expected** — each design system carries a categorical chart palette, checked for colour-blind separation and contrast in light and dark
+- **current** — chartTheme reorders the one-hue --chart-1..5 sequential ramp for categories; it passes the palette check in light, fails in dark
+- **impact** — series in a multi-series chart are hard to tell apart, especially in dark mode
+- **closes** — categorical tokens in all three design systems, held by the existing completeness and contrast tests, read by chartTheme
+- **node** — `01M4187DVGXP15CV2JX8Z5Q6V2`
 
 ### GAP: chip remove controls are two bespoke badges
 

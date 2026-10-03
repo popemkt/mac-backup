@@ -4,7 +4,7 @@
  * check `view.propose` makes), each issue shown at its path. Saving is the
  * caller's: it holds the view node, or makes one.
  */
-// GAP [GAP-CHART-BUILDER] No chart builder: a person edits the spec as JSON,
+// GAP [[01M4187E5QQYRD8ENHQM968EEJ]] No chart builder: a person edits the spec as JSON,
 // with the query's columns named beside it; picking a mark and fields by hand
 // waits on a form over the spec's encoding.
 import { useMemo, useState } from "react";

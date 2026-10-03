@@ -34,7 +34,6 @@
 
 ### todo
 
-- 10 · chart view type storing a Vega-Lite spec
 - 9 · sandbox: one capability API + MCP Apps iframe bridge, QuickJS + Worker engines; #code-view, #script, promotion
 - canvas C2: media cards (assets) + frictionless quick-add — draw.io feel
 - Check out ideas from this, how did it handle transaction and stuff https://news.ycombinator.com/item?id=49440174
@@ -57,6 +56,7 @@
 
 - 0 · action mode (read/write + approval) on ActionDefinition, in manifest; contract: every surface same actions + same receipt
 - 1 · view types declare settings schemas; fold ViewMode + GRAPH_RENDERERS into ViewPoint (restructure)
+- 10 · chart view type storing a Vega-Lite spec
 - 2 · view nodes per plugin-composition A1 (sys.f.view, sys.f.views, placement) + default view per host; migrate sys.f.view.* and #graph-perspective (restructure)
 - 3 · generative UI mode A: view.propose, catalog in kb_manifest, render_view by view id + md fallback, ui:// snapshots
 - 4 · WebMCP adapter over /api/action behind feature detection

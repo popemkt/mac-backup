@@ -1601,7 +1601,7 @@ every node by its key) reach it with nothing of its own.
   (`--chart-1…5`) for magnitude, the UI face and the label, meta and ui type
   steps. It is read again when `useAppearance().key` changes. A spec's own
   `config` wins over it. Categories reorder the ramp for contrast, because a
-  design system carries no categorical palette (GAP [GAP-CHART-CATEGORICAL]).
+  design system carries no categorical palette (GAP [[01M4187DVGXP15CV2JX8Z5Q6V2]]).
 - **Its settings are edited as what they are.** The `{ }` toggle opens the
   spec as JSON, checked as it is typed by the chart's key (`paramsIssues`,
   strict, the check `view.propose` makes), each issue at its path, with the
@@ -1609,7 +1609,7 @@ every node by its key) reach it with nothing of its own.
   the chart is drawn from (`ViewHost.viewNode`), through the same check;
   drawn from the view type alone (the switcher's "Chart"), it proposes a view
   node for its source and moves the pane to it. There is no chart builder
-  (GAP [GAP-CHART-BUILDER]).
+  (GAP [[01M4187E5QQYRD8ENHQM968EEJ]]).
 - **"Add chart"** in a query node's node menu proposes a chart view node for
   it, started from the query's columns (`starterChartSpec`: its first
   aggregate column by its first non-id column, else a count of rows by that
