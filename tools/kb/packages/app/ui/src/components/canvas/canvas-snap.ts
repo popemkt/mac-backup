@@ -45,7 +45,7 @@ const TURN_STEP = Math.PI / 12;
 /** `t` with its turn rounded to the nearest whole step about the same axis. */
 // Only a transform's turn snaps: a gizmo move does not snap to the grid, and a
 // gizmo scale does not snap to grid multiples (plan decision 11).
-// GAP [gizmo-grid-snap]
+// GAP [[01M41W56TR6V8H0ZQVRWRFV24K]]
 export function snapTurn(t: CanvasTransform): CanvasTransform {
   const { axis, angle } = axisAngleOf(t.turn);
   const stepped = Math.round(angle / TURN_STEP) * TURN_STEP;
@@ -137,7 +137,7 @@ const centreOf = (item: CanvasNode, dx = 0, dy = 0) => ({
  */
 // A tilted solid offers its highest corner as its top, and a tilted item
 // stands on a surface by its base, not by its lowest point.
-// GAP [tilted-stacking]
+// GAP [[01M41W5769NCQYYYWC9NMFWM3J]]
 function surfaceUnder(at: { x: number; y: number }, others: readonly CanvasNode[]): number | null {
   let top: number | null = null;
   for (const other of others) {

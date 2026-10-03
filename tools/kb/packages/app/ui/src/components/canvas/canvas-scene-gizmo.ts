@@ -86,7 +86,7 @@ export class GizmoLayer {
     toThree(selectionPivot(items), this.proxy.position);
     // Local space turns the handles with the first item, for every item selected;
     // Blender gives each its own axes.
-    // GAP [local-space-first-item]
+    // GAP [[01M41W57GRNCMBJG1RYJQTA68P]]
     if (choice.space === "local") {
       this.proxy.quaternion.setFromRotationMatrix(matrixToThree(boxFrame(lead).matrix, this.turn));
     } else this.proxy.quaternion.identity();

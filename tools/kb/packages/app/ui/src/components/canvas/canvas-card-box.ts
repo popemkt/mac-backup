@@ -22,7 +22,7 @@ import {
  */
 // A flat item turned face down shows its face mirrored from the top, where
 // the 3D scene shows its blank back.
-// GAP [flipped-face-2d]
+// GAP [[01M41W56GDH3M0TNGX4BDV4STR]]
 export function cardBoxStyle(card: CanvasNode): CSSProperties {
   const box = { left: card.x, top: card.y, width: card.width, height: card.height };
   if (isUnrotated(canvasRotation(card))) return box;

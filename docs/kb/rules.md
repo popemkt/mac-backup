@@ -121,6 +121,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — list nested panes in the screen state with their own ids
 - **node** — `01M411FPSNN7B18JQ62RKB8ZXW`
 
+### GAP: a flat item turned face-down shows its face mirrored in 2D
+
+- **expected** — 2D shows a face-down flat card's blank back, as 3D does
+- **current** — 2D draws the face mirrored
+- **impact** — 2D and 3D disagree on what a flipped card looks like
+- **closes** — drawing a back face in 2D
+- **node** — `01M41W56GDH3M0TNGX4BDV4STR`
+
 ### GAP: a layout's panes are not mentions of the nodes they show
 
 - **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
@@ -432,6 +440,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3E9TMG3C90N8VBEDXGHHK45`
 
+### GAP: gizmo moves do not snap to the grid, gizmo scales do not snap to steps
+
+- **expected** — gizmo moves snap to the grid and scales snap to steps, like 2D drags
+- **current** — the gizmo moves and scales freely
+- **impact** — precise placement in 3D needs the inspector
+- **closes** — 3D plan step 5: modal G/S/E with snapping
+- **node** — `01M41W56TR6V8H0ZQVRWRFV24K`
+
 ### GAP: GraphPage carries 35 branches of renderer and perspective selection
 
 - **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
@@ -472,6 +488,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A second KbIndex implementation that cannot answer synchronously does not fit the port. Making reads Effects later is a wide mechanical change across the ontology runner's injected row function, the WS subscription hub and the docs renderer — three surfaces, no consumer asking for it today.
 - **closes** — p1 Phase 3 (SqliteIndex): change the port's read signatures to Effect and the three injected-runner signatures with it.
 - **node** — `01M1PH06G67A9HHTTXFZVAZ3YF`
+
+### GAP: Local gizmo space uses the first selected item's axes for the whole selection
+
+- **expected** — Local space transforms each selected item about its own axes and origin, as Blender does
+- **current** — the first selected item's axes and the selection centre are used for all
+- **impact** — multi-select Local rotations and scales differ from Blender
+- **closes** — per-item origins in the gizmo
+- **node** — `01M41W57GRNCMBJG1RYJQTA68P`
 
 ### GAP: main has no required branch protection
 
@@ -637,6 +661,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — After rebuild, manually run brew uninstall bun and confirm the drift audit is clean.
 - **node** — `01M3FAE5T61DZS8T7WRW3RTZ93`
 
+### GAP: scaling a turned item across its own axes stretches each side instead of shearing
+
+- **expected** — a scale across a turned item's axes shears it, as Blender does
+- **current** — each side is stretched along its own axis, keeping the item a box
+- **impact** — multi-item scales in Global space distort turned items differently from Blender
+- **closes** — shear in the item record
+- **node** — `01M41W5655T0R7791KKJM4WYB2`
+
 ### GAP: scripts cannot be attached to existing views
 
 - **expected** — a #script node attached to a view adds behaviour to it (overlays, reacting to the view's own events), run through the same sandbox
@@ -677,6 +709,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — text on round solids is visible only in 2D
 - **closes** — 3D plan step 7: billboards
 - **node** — `01M41GAZJS5TD86RFSAJJB4XKD`
+
+### GAP: stacking on and of tilted solids is approximate
+
+- **expected** — an item stacks on a tilted solid's real surface height, and a tilted item stands on its lowest point
+- **current** — a tilted solid offers its highest corner as its top, and a tilted item stands on its base
+- **impact** — stacks on tilted solids float or sink
+- **closes** — surface-height stacking
+- **node** — `01M41W5769NCQYYYWC9NMFWM3J`
 
 ### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
 
