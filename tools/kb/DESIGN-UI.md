@@ -1548,8 +1548,9 @@ checked by `tsc`; nothing decodes them at the slot.
   at most `maxRows` rows. Stored, its root is `lens.focus`, else the node it
   is shown for.
 
-These points live in `@kb/ui`, not in `@kb/ui-sdk`; moving them is R2
-(GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]).
+These points live in `@kb/ui`, not in `@kb/ui-sdk`. The sdk zone's barrel
+(`src/sdk`, [Extension UI halves](#extension-ui-halves)) names them for
+feature UIs, and moving their code is R2 (GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]).
 
 ### Docks
 

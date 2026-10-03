@@ -30,6 +30,7 @@ import {
   type ContributionEntry,
   type Plugin,
   type PointKey,
+  type ServiceKey,
 } from "@kb/plugin";
 import { usePath } from "@/lib/router";
 import type { FamilyView, ViewPicker } from "@/lib/view-key";
@@ -268,6 +269,11 @@ function pointReader<C>(point: PointKey<C>): () => readonly Contribution<C>[] {
 /** A point's contributions now, for a reader outside React (a port the shell wires). */
 export function currentContributions<C>(point: PointKey<C>): readonly Contribution<C>[] {
   return uiKernel.contributions(point);
+}
+
+/** The service provided under `key` now, or undefined while no plugin provides it. */
+export function currentService<S>(key: ServiceKey<S>): S | undefined {
+  return uiKernel.service(key);
 }
 
 /**

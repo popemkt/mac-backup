@@ -24,7 +24,6 @@ import { ulid } from "ulid";
 import {
   ArrowBendUpLeftIcon,
   ArrowRightIcon,
-  ChartBarIcon,
   EyeIcon,
   EyeSlashIcon,
   HashIcon,
@@ -38,22 +37,14 @@ import {
   TextTIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
-import {
-  hostViewIds,
-  isQueryNode,
-  isViewNode,
-  present,
-  queryDefOf,
-  typeRefsOf,
-  viewOptionOf,
-} from "@kb/model";
+import { hostViewIds, isQueryNode, isViewNode, present, typeRefsOf, viewOptionOf } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
+import { Point } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { isContextualRef } from "@/lib/contextual-ref";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { isPinned } from "@/lib/pinned";
-import { proposeView } from "@/lib/propose-view";
-import { queryRecords } from "@/ds";
+import { currentContributions } from "@/lib/plugins";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { navigate, nodePath, ontologyPath } from "@/lib/router";
 import {
@@ -65,12 +56,10 @@ import {
 import { toast } from "@/lib/toast";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, isSysPrefixed, type NodeMap } from "@/lib/types";
 import {
-  ChartView,
   LayoutView,
   layoutPanes,
   localIdOf,
   paramsFromProps,
-  starterChartSpec,
   type FrameViewKey,
   type LayoutTree,
 } from "@kb/views";
@@ -162,7 +151,7 @@ interface CommandChrome {
   readonly icon: React.ReactNode;
 }
 
-interface Command {
+export interface Command {
   readonly id: string;
   readonly scope: CommandScope;
   /** Absent ⇒ a `sys.command` node names this command. */
@@ -171,6 +160,14 @@ interface Command {
   readonly when?: (ctx: CommandContext) => boolean;
   readonly run: (ctx: CommandContext) => void | Promise<void>;
 }
+
+/**
+ * Commands a plugin contributes beside its views (the chart's "Add chart").
+ * The node menu lists them after the views and the default-view rows and
+ * before "Filter…", in the order their plugins loaded; the runner finds them
+ * by id like any other.
+ */
+export const CommandPoint = Point<Command>()("ui.commands");
 
 const THEME_CYCLE: readonly ThemePref[] = ["light", "dark", "system"];
 
@@ -208,7 +205,7 @@ function onTarget(ctx: CommandContext, body: (nodeId: string) => void): void {
 }
 
 /** A node command that acts and dismisses the menu. */
-function nodeAction(ctx: CommandContext, body: (nodeId: string) => void): void {
+export function nodeAction(ctx: CommandContext, body: (nodeId: string) => void): void {
   onTarget(ctx, body);
   ctx.palette.close();
 }
@@ -541,31 +538,8 @@ const NODE_COMMANDS: readonly Command[] = [
   },
 ];
 
-/** What the node menu offers after the frame views. */
+/** What the node menu offers last, after the views and what plugins contribute. */
 const NODE_COMMANDS_AFTER_VIEWS: readonly Command[] = [
-  {
-    // A chart of a query node's rows (`chart.vega-lite`), started from its
-    // columns, named among its views and opened beside the pane. A feature
-    // command in the shell's table: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
-    id: "add-chart",
-    scope: "node",
-    chrome: () => ({ label: "Add chart", icon: <ChartBarIcon size={14} weight="bold" /> }),
-    when: (ctx) => queryDefOf(targetNode(ctx)) !== null,
-    run: (ctx) =>
-      nodeAction(ctx, (nodeId) => {
-        void (async () => {
-          const def = queryDefOf(ctx.outline.nodes.get(nodeId));
-          const columns = def === null ? [] : queryRecords(def.edn, []).columns;
-          const proposed = await proposeView({
-            view: ChartView,
-            params: { spec: starterChartSpec(columns) },
-            host: nodeId,
-          });
-          if ("refused" in proposed) toast(`Could not add a chart: ${proposed.refused}`);
-          else ctx.workspace.openBeside(ctx.workspace.focused, nodePath(nodeId, proposed.id));
-        })();
-      }),
-  },
   {
     id: "view-filter",
     scope: "node",
@@ -665,6 +639,7 @@ function commandsFor(ctx: CommandContext): readonly Command[] {
     ...NODE_COMMANDS,
     ...views.node,
     ...defaultViewCommands(ctx),
+    ...currentContributions(CommandPoint).map(({ value }) => value),
     ...NODE_COMMANDS_AFTER_VIEWS,
   ];
 }

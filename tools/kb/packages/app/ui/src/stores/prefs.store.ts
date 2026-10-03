@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { z } from "zod";
 import { create } from "zustand";
 import { SIDEBAR_REGION_SELECTOR } from "@/lib/dom";
@@ -200,10 +199,26 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
   };
 });
 
+let lastAppearance: Appearance | null = null;
+
+/**
+ * The page's appearance in `state`: the same object while its key holds, so
+ * a reader that compares by identity (a selector, `useSyncExternalStore`, a
+ * memo) sees a change only when there was one.
+ */
+export function appearanceIn(
+  state: Pick<PrefsState, "designSystem" | "theme" | "systemDark">,
+): Appearance {
+  const next = appearanceOf(state.designSystem, resolveDark(state.theme, state.systemDark));
+  if (lastAppearance === null || lastAppearance.key !== next.key) {
+    lastAppearance = next;
+    return next;
+  }
+  return lastAppearance;
+}
+
 export function useAppearance(): Appearance {
-  const designSystem = usePrefsStore((s) => s.designSystem);
-  const dark = usePrefsStore((s) => resolveDark(s.theme, s.systemDark));
-  return useMemo(() => appearanceOf(designSystem, dark), [designSystem, dark]);
+  return usePrefsStore(appearanceIn);
 }
 
 /**

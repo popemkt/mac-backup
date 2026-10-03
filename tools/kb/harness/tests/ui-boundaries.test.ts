@@ -6,7 +6,27 @@ import {
   type UiZone,
   uiZoneOf,
 } from "../src/constraints.ts";
-import { uiImportSites, uiRepoPath, uiSourceFiles, uiViolations } from "../src/ui-imports.ts";
+import {
+  uiImportSites,
+  uiImportSitesIn,
+  uiRepoPath,
+  uiSourceFiles,
+  uiViolation,
+  uiViolations,
+} from "../src/ui-imports.ts";
+
+/**
+ * The zones that leave `@kb/ui` as extension UI halves, fenced to themselves
+ * and the sdk (DESIGN-UI.md → Extension UI halves). Each is a red fixture: a
+ * file there reaching a store, a sibling's `lib` helper or an action breaks
+ * the matrix, and the same file reaching the sdk does not.
+ */
+const EXTENSION_ZONES = ["components/chart"] as const;
+
+/** How each import of `source`, written in a file of `zone`, breaks the matrix. */
+function fixtureBreaches(zone: string, source: string): Array<string | undefined> {
+  return uiImportSitesIn(`${zone}/fixture.tsx`, source).map((site) => uiViolation(site));
+}
 
 /**
  * The UI's intra-package import matrix (wave u1 / plan D5).
@@ -60,6 +80,21 @@ describe("ui-boundaries", () => {
     expect(rows.toSorted(), `${UI_SRC} zones and UI_ALLOWS rows must match`).toEqual(
       [...present].toSorted(),
     );
+  });
+
+  test("an extension zone reaches the shell only through the sdk", () => {
+    for (const zone of EXTENSION_ZONES) {
+      expect(
+        fixtureBreaches(zone, 'import { useOutlineStore } from "@/stores/outline.store";\n'),
+      ).toEqual([`${zone} -> stores`]);
+      expect(fixtureBreaches(zone, 'import { mutations } from "@/actions/mutations";\n')).toEqual([
+        `${zone} -> actions`,
+      ]);
+      expect(fixtureBreaches(zone, 'import { cn } from "@/lib/cn";\n')).toEqual([`${zone} -> lib`]);
+      expect(fixtureBreaches(zone, 'import { cn, browserHost } from "@/sdk";\n')).toEqual([
+        undefined,
+      ]);
+    }
   });
 
   test("every zone a row or the specifier rule names is itself a row", () => {

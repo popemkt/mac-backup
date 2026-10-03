@@ -10,7 +10,7 @@
 import { useMemo, useState } from "react";
 import { Result } from "effect";
 import { ChartView, issueText, paramsIssues, type ChartSpec } from "@kb/views";
-import { cn } from "@/lib/cn";
+import { cn } from "@/sdk";
 
 /** The spec as a person reads it: indented JSON. */
 function specText(spec: ChartSpec): string {

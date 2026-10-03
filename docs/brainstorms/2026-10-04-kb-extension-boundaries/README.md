@@ -477,6 +477,22 @@ day, M a few days, L a week.
 E4–E12 have no order constraint with 3D steps 4–10 beyond what the table
 shows, so they can run in parallel worktrees with 3D work.
 
+**Note from the doing (E2).** In E2 the sdk zone is two files: a barrel,
+`src/sdk/index.ts`, and `BrowserHost`, `src/sdk/host.ts`. It is not yet
+the full contents.
+- The points, the primitives and the pure helpers that the barrel names
+  keep their code in `lib/`, the primitives zone and `ds/`. They move behind
+  the barrel in E11, so E11 is a move with no change to callers, and a
+  feature's imports only change from `@/sdk` to `@kb/ui-sdk`.
+- So the sdk row reaches `primitives`, `lib` and `ds`, and never `stores`
+  (GAP `01M3EZRFTS1W8SB97GFJAWD92X`).
+- `CommandPoint` sits beside `Command` in `lib/commands.tsx` for the same
+  reason.
+- Everything that touches the shell's state goes through `BrowserHost`:
+  stores, writes, the invoke path and the sandbox host.
+- The shell provides `BrowserHost` from a built-in plugin, and the feature
+  plugins inject it.
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D

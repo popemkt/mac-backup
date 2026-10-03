@@ -10,19 +10,18 @@ import { Result } from "effect";
 import { BracketsCurlyIcon, ChartBarIcon } from "@phosphor-icons/react";
 import { SYSTEM_IDS } from "@kb/model";
 import { ChartView, viewNodeFor, type ChartParams, type ChartSpec } from "@kb/views";
-import { mutations } from "@/actions/mutations";
-import { IconButton } from "@/components/ui/icon-button";
-import { WorkspaceState } from "@/components/ui/workspace-state";
-import { useChartData, type ChartData } from "@/lib/chart-data";
-import { usePane } from "@/lib/pane";
-import type { ViewProps } from "@/lib/plugins";
-import { proposeView } from "@/lib/propose-view";
-import { nodePath } from "@/lib/router";
-import { toast } from "@/lib/toast";
-import { useOutlineStore } from "@/stores/outline.store";
-import { useAppearance } from "@/stores/prefs.store";
-import { useUiStore } from "@/stores/ui.store";
-import { useWorkspaceStore } from "@/stores/workspace.store";
+import {
+  IconButton,
+  WorkspaceState,
+  browserHost,
+  nodePath,
+  toast,
+  useAppearance,
+  useNode,
+  usePane,
+  type ViewProps,
+} from "@/sdk";
+import { useChartData, type ChartData } from "./chart-data";
 import { SpecEditor } from "./spec-editor";
 
 const ChartCanvas = lazy(() => import("./chart-canvas"));
@@ -59,21 +58,13 @@ function Missing({ data, label }: { readonly data: ChartData; readonly label: st
 }
 
 export function ChartPage({ params, host }: ViewProps<ChartParams>) {
-  const source = useOutlineStore((s) =>
-    params.source === undefined ? null : (s.nodes.get(params.source) ?? null),
-  );
-  const viewNode = useOutlineStore((s) =>
-    host.viewNode === undefined ? undefined : s.nodes.get(host.viewNode),
-  );
-  const index = useOutlineStore((s) => s.index);
-  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
-  const live = useUiStore((s) => s.wsStatus) === "open";
+  const source = useNode(params.source) ?? null;
+  const viewNode = useNode(host.viewNode);
   const appearance = useAppearance().key;
-  const data = useChartData({ source, live, index, generation });
+  const data = useChartData(source);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const pane = usePane();
-  const navigatePane = useWorkspaceStore((s) => s.navigatePane);
   const sourceText = source?.text.trim() ?? "";
   const label = sourceText !== "" ? sourceText : (params.source ?? "This node");
   const viewText = viewNode?.text.trim() ?? "";
@@ -90,7 +81,7 @@ export function ChartPage({ params, host }: ViewProps<ChartParams>) {
           toast(`The spec cannot be saved: ${checked.failure.map((i) => i.message).join("; ")}`);
           return;
         }
-        await mutations.replaceField(
+        await browserHost().replaceField(
           host.viewNode,
           SYSTEM_IDS.chartField,
           checked.success.props[SYSTEM_IDS.chartField] ?? [],
@@ -98,7 +89,7 @@ export function ChartPage({ params, host }: ViewProps<ChartParams>) {
         setEditing(false);
         return;
       }
-      const proposed = await proposeView({
+      const proposed = await browserHost().proposeView({
         view: ChartView,
         params: { spec },
         ...(params.source === undefined ? {} : { host: params.source }),
@@ -108,7 +99,8 @@ export function ChartPage({ params, host }: ViewProps<ChartParams>) {
         return;
       }
       setEditing(false);
-      if (params.source !== undefined) navigatePane(pane, nodePath(params.source, proposed.id));
+      if (params.source !== undefined)
+        browserHost().navigatePane(pane, nodePath(params.source, proposed.id));
     } finally {
       setSaving(false);
     }

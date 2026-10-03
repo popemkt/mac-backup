@@ -11,6 +11,8 @@ import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
 import type { ChartParams } from "@kb/views";
 import { fixtureGraph } from "@/api/fixture-graph";
+import { browserHostUiPlugin } from "@/browser-host";
+import { syncUiPlugins } from "@/lib/plugins";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -82,6 +84,10 @@ describe("chart view (component)", () => {
   });
 
   afterAll(() => dom.restore());
+
+  // The chart reaches the shell through the page's host, as it does when the app boots.
+  beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+  afterAll(() => syncUiPlugins([]));
 
   beforeEach(() => {
     replaceField.mockClear();

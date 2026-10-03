@@ -226,6 +226,7 @@ export type UiZone =
   | "stores"
   | "fixtures"
   | "scene"
+  | "sdk"
   | "test-support"
   | "catalog"
   | "sandbox"
@@ -284,6 +285,17 @@ export function uiZoneOf(file: string): UiZone {
 }
 
 /**
+ * The row of a zone that leaves `@kb/ui` as an extension's UI half
+ * (DESIGN-UI.md → Extension UI halves): itself, the `sdk` zone, and only the
+ * extras it names (the scene kit, for 3D). What such a zone uses of the shell
+ * is therefore listed once, in the sdk's barrel. The row is deleted when its
+ * package leaves.
+ */
+function extensionRow(self: UiZone, ...extras: readonly UiZone[]): readonly UiZone[] {
+  return [self, "sdk", ...extras];
+}
+
+/**
  * Who may import whom inside the UI. Read as `UI_ALLOWS[zoneOf(importer)]`
  * must contain `zoneOf(imported)`; a zone always contains itself, spelled out
  * rather than implied, because "own surface" is a row of the original table.
@@ -313,6 +325,7 @@ export function uiZoneOf(file: string): UiZone {
 export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   shell: [
     "shell",
+    "sdk",
     "primitives",
     "components/agent",
     "components/canvas",
@@ -340,6 +353,11 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   session: ["lib", "api", "actions", "session", "ds"],
   stores: ["stores", "lib", "api", "session", "ds"],
   fixtures: ["fixtures", "lib"],
+  // The host API a feature's UI builds against, the future `@kb/ui-sdk`. Its
+  // barrel names primitives, `lib` helpers and `ds` row shapes whose code
+  // still lives there; it never names a store, and the shell's state reaches
+  // a feature only through `BrowserHost`. GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]
+  sdk: ["sdk", "primitives", "lib", "ds"],
   // The scene kit: the GPU stage, post chain, palette roles, light rig and
   // starfield every real-time 3D view stands on — the lab's studies and the
   // 3D graph alike — so neither surface owns a copy. Mechanism only: it reads
@@ -392,8 +410,8 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   // the socket and the invoke path as ports (`src/agent.ts`), so it reaches
   // neither `api` nor `session` itself.
   "components/agent": ["components/agent", "primitives", "stores", "lib"],
-  // A chart draws its query node's rows; the rows and its saves go through `lib`.
-  "components/chart": ["components/chart", "primitives", "stores", "actions", "lib"],
+  // A chart draws its query node's rows; the rows and its saves come through the host.
+  "components/chart": extensionRow("components/chart"),
   // A code view hosts a sandbox frame; the page's end of the bridge is `lib`'s.
   "components/code": ["components/code", "primitives", "stores", "actions", "lib"],
   // The sandbox frame's own script, a separate build that runs in the frame:

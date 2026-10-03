@@ -121,7 +121,7 @@ export function uiImportSitesIn(file: string, source: string): UiImportSite[] {
 }
 
 /** How a site breaks the matrix, or `undefined` when it does not. */
-function uiViolation(site: UiImportSite): string | undefined {
+export function uiViolation(site: UiImportSite): string | undefined {
   const specifierZones = UI_SPECIFIER_ALLOWS[site.specifier];
   if (specifierZones !== undefined && !specifierZones.includes(site.zone)) {
     return `${site.zone} -> ${site.specifier} (only ${specifierZones.join(", ")} may)`;

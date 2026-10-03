@@ -14,6 +14,7 @@
 import { ChatCircleDotsIcon, FlaskIcon } from "@phosphor-icons/react";
 import type { Plugin } from "@kb/plugin";
 import { agentPlugin } from "@/agent";
+import { browserHostUiPlugin } from "@/browser-host";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
 import { chartUiPlugin } from "@/components/chart/plugin";
 import { codeUiPlugin } from "@/components/code/plugin";
@@ -29,6 +30,7 @@ import { webMcpUiPlugin } from "@/webmcp";
 
 /** Always loaded. */
 export const BUILTIN_UI_PLUGINS: readonly Plugin[] = [
+  browserHostUiPlugin,
   outlineUiPlugin,
   graphUiPlugin,
   ontologyUiPlugin,

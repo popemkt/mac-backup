@@ -8,7 +8,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { chartView } from "@kb/vega";
 import { CHART_DATA, chartSpecWithData, fillsChartBox, type ChartSpec } from "@kb/views";
-import { logWarn } from "@/lib/log";
+import { logWarn } from "@/sdk";
 import { chartTheme } from "./chart-theme";
 
 type View = ReturnType<typeof chartView>;
