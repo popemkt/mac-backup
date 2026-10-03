@@ -3,16 +3,17 @@
  * what it is — the code, the grant it would run under, and a note that it
  * runs only in the kb UI's sandbox (DESIGN.md → View nodes → Code views).
  * On a page, above that text, the figure is what the code draws as of the
- * render, run read-only by whichever snapshotter the runtime provides
- * (DESIGN.md → Sandbox → Snapshots); none, or a run that drew nothing, draws
- * the text alone.
+ * render (DESIGN.md → Sandbox → Snapshots): run on the host's
+ * `UntrustedEngine`, whatever this machine trusts, and calling actions only
+ * through its `ReadInvoke`, because drawing a page is a read. A host that
+ * binds neither, or a run that drew nothing, draws the text alone.
  *
  * The code view's text is contributed as its `ViewDef.text`, but it still
  * lives in core's operations: GAP [[01M41H2ZG7C0SV1DYZE6MMKPFE]]
  */
 import { Effect } from "effect";
-import type { KbContext, ViewText } from "@kb/contracts";
-import { CodeSnapshots } from "@kb/sandbox";
+import { ReadInvoke, type KbContext, type ViewText } from "@kb/contracts";
+import { UntrustedEngine, snapshotRun } from "@kb/sandbox";
 import type { CodeParams } from "@kb/views";
 
 /** A fence long enough that no run of backticks in `code` closes it. */
@@ -28,14 +29,15 @@ function grantLine({ grant }: CodeParams): string {
 }
 
 /** What the code draws as of now, read-only, or null for nothing to show. */
-const codeFigure = Effect.fn("code.figure")(function* (_ctx: KbContext, params: CodeParams) {
-  const snapshots = yield* CodeSnapshots;
-  if (snapshots === null) return null;
-  const { html, end } = yield* snapshots.draw({
-    code: params.code,
-    grant: params.grant,
-    subject: params.source ?? null,
-  });
+const codeFigure = Effect.fn("code.figure")(function* (ctx: KbContext, params: CodeParams) {
+  const engine = yield* UntrustedEngine;
+  const invoke = yield* ReadInvoke;
+  if (engine === null || invoke === null) return null;
+  const { html, end } = yield* snapshotRun(
+    engine,
+    { invoke, node: (id) => ctx.index.getNode(id) },
+    { code: params.code, grant: params.grant, subject: params.source ?? null },
+  );
   const note = end === null ? "" : `<p><em>${escapeText(end.message)}</em></p>`;
   return html === null && note === "" ? null : `${html ?? ""}${note}`;
 });

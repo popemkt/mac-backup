@@ -7,7 +7,7 @@
  * Worker runs trusted code; `sandboxContract` in `@kb/test-kit` holds both to
  * the same properties.
  */
-import { Clock, Deferred, Effect, Queue, type Cause, type Scope } from "effect";
+import { Clock, Context, Deferred, Effect, Queue, type Cause, type Scope } from "effect";
 import type { EngineKind, SandboxLimits } from "./limits.ts";
 import type { EndReason, GuestEnd } from "./protocol.ts";
 
@@ -40,6 +40,17 @@ export interface SandboxEngine {
    */
   readonly start: (spec: GuestSpec) => Effect.Effect<GuestSession, never, Scope.Scope>;
 }
+
+/**
+ * The engine a host runs untrusted code on where no browser is: QuickJS, as
+ * the runtime binds it. Whatever this machine trusts, code run here is
+ * untrusted, so this names one engine and never asks the trust store. A
+ * host that binds none runs nothing, and what would have run is shown as
+ * text.
+ */
+export const UntrustedEngine = Context.Reference<SandboxEngine | null>("kb/UntrustedEngine", {
+  defaultValue: () => null,
+});
 
 /** The message a run ends with for each reason, given what the engine reported. */
 export function endOf(reason: EndReason, limits: SandboxLimits, detail = ""): GuestEnd {

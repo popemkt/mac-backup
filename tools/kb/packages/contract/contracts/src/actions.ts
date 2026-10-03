@@ -237,3 +237,16 @@ export function actionToManifestEntry(def: ActionDefinition): ManifestEntry {
 export class ActionCatalog extends Context.Service<ActionCatalog, readonly ManifestEntry[]>()(
   "kb/ActionCatalog",
 ) {}
+
+/** One call through the invoke core, made as a read: a call to an action that writes is refused before the core. */
+export type ReadInvoker = (invocation: ActionInvocation) => Effect.Effect<ActionReceipt>;
+
+/**
+ * How a read reaches the invoke core. Drawing a view's page is a read, so a
+ * figure that calls actions (a code view's snapshot) calls them through
+ * this, and every call it makes must be a read too. A host that provides
+ * none has no invoke core under its reads, and such a figure draws nothing.
+ */
+export const ReadInvoke = Context.Reference<ReadInvoker | null>("kb/ReadInvoke", {
+  defaultValue: () => null,
+});

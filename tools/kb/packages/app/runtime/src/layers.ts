@@ -23,11 +23,13 @@ import {
   failed,
   type ActionInvocation,
   type KbContext,
+  ReadInvoke,
+  type ReadInvoker,
   type Screens,
   TemplateRegistry,
   ViewCatalog,
 } from "@kb/contracts";
-import { CodeSnapshots, snapshotRun, type CodeSnapshotter } from "@kb/sandbox";
+import { UntrustedEngine } from "@kb/sandbox";
 import { quickjsEngine } from "@kb/sandbox-quickjs";
 import { StoreTxLog } from "@kb/tx-log";
 import {
@@ -46,9 +48,9 @@ import { selectStore } from "./store-selection.ts";
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
  * the workspace ports backed by `.kb/` on disk + the UI tabs' screens, held
  * by the `kb ui` serving the root + the view catalog the registry's plugins
- * contributed + QuickJS as the code snapshotter
- * (`CodeSnapshots`, so a code view's page draws what its code draws) + the
- * render templates and the action
+ * contributed + QuickJS as the engine untrusted code runs on and the invoke
+ * core as a read (`UntrustedEngine` and `ReadInvoke`, so a code view's page
+ * draws what its code draws) + the render templates and the action
  * catalog the registry resolved from core, bundled and `.kb/extensions`
  * contributions.
  *
@@ -80,8 +82,8 @@ export function kbRuntimeLayer(
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),
-    // Feature snapshot policy bound by the root: GAP [[01M41H2ZS8FH55DCW3S9ZGPWPY]]
-    Layer.succeed(CodeSnapshots, codeSnapshots(ctx)),
+    Layer.succeed(UntrustedEngine, quickjsEngine),
+    Layer.succeed(ReadInvoke, readInvoke(ctx)),
     Layer.effect(
       ActionCatalog,
       registry.pipe(Effect.map(({ manifestEntries }) => manifestEntries)),
@@ -90,13 +92,12 @@ export function kbRuntimeLayer(
 }
 
 /**
- * A code view's snapshot on this root (DESIGN.md → Sandbox → Snapshots): its
- * code run untrusted in QuickJS, every call made as the script's through the
- * invoke core, and refused before it when it is a write, because a snapshot
- * is a read.
+ * The invoke core on this root, as a read (`ReadInvoke`): a call to an
+ * action that writes is refused before the core, and any other runs through
+ * it, decided like every call.
  */
-function codeSnapshots(ctx: KbContext): CodeSnapshotter {
-  const invoke = (invocation: ActionInvocation) =>
+function readInvoke(ctx: KbContext): ReadInvoker {
+  return (invocation: ActionInvocation) =>
     Effect.gen(function* () {
       const registry = yield* registryFor(ctx.root);
       const mode = registry.byId.get(invocation.id)?.def.mode;
@@ -104,7 +105,7 @@ function codeSnapshots(ctx: KbContext): CodeSnapshotter {
         return failed(
           invocation.id,
           "forbidden",
-          `a snapshot only reads, and ${invocation.id} is a write; it runs in the kb UI`,
+          `${invocation.id} is a write, and a call made while reading may only read`,
         );
       }
       return yield* invokeReceiptEffect(ctx, invocation).pipe(Effect.provide(kbRuntimeLayer(ctx)));
@@ -114,9 +115,6 @@ function codeSnapshots(ctx: KbContext): CodeSnapshotter {
         Effect.succeed(receiptFromError(invocation.id, Cause.squash(cause))),
       ),
     );
-  return {
-    draw: (run) => snapshotRun(quickjsEngine, { invoke, node: (id) => ctx.index.getNode(id) }, run),
-  };
 }
 
 /**

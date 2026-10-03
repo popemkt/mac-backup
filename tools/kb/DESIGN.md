@@ -2515,11 +2515,18 @@ A code view on a page (`render.view` as html, every `ui://kb/view/<id>`
 resource) shows what its code draws as of the render, above its text. The
 code runs on the server: MCP Apps lets a resource declare connect, resource,
 frame and base-URI domains but no `'wasm-unsafe-eval'` or `worker-src`, so
-neither engine could run inside a conformant host's iframe. `CodeSnapshots`
-(a `Reference`, null by default) is provided by
-`kbRuntimeLayer` as QuickJS: always untrusted, every call made as the
-script's and refused before the invoke core when it is a write, because a
-snapshot is a read. `snapshotRun` waits until the run is quiet (no call
+neither engine could run inside a conformant host's iframe. The code view's
+figure asks two core references, each a `Reference` that is null by
+default, and draws nothing unless both are bound. `kbRuntimeLayer` binds
+both:
+- `UntrustedEngine` (`@kb/sandbox`) is the engine the code runs on. The
+  runtime binds QuickJS, so a snapshot is untrusted whatever this machine
+  trusts.
+- `ReadInvoke` (`@kb/contracts`) is the invoke core as a read. Every call is
+  made as the script's, and a call to a write is refused before the invoke
+  core, because drawing a page is a read.
+
+`snapshotRun` waits until the run is quiet (no call
 waiting, nothing unread), at most 2 s, and returns the last drawing with the
 run's end. As text (`render.view` as md, Claude Code) a code view is its
 code, its grant and where it runs.

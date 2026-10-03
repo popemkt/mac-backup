@@ -48,6 +48,7 @@ export {
 } from "./drawing.ts";
 export { guestScript, type GuestInit } from "./prelude.ts";
 export {
+  UntrustedEngine,
   endOf,
   endOfFailure,
   makeSessionCore,
@@ -71,11 +72,4 @@ export {
   safeThemeValue,
   sandboxFrameDocument,
 } from "./frame.ts";
-export {
-  CodeSnapshots,
-  SNAPSHOT_BUDGET_MS,
-  snapshotRun,
-  type CodeRun,
-  type CodeSnapshot,
-  type CodeSnapshotter,
-} from "./snapshot.ts";
+export { SNAPSHOT_BUDGET_MS, snapshotRun, type CodeRun, type CodeSnapshot } from "./snapshot.ts";

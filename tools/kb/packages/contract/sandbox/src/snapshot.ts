@@ -1,12 +1,12 @@
 /**
- * A code view as of a moment (DESIGN.md → Sandbox → Snapshots): what its code
- * draws, run where no browser is — a `ui://kb/view/<id>` resource, or
- * `render.view` as html. A snapshot is a read, so its run may only read: the
- * runtime's capability host refuses every write. It runs untrusted, whatever
- * this machine trusts, until the run is quiet or its budget is spent, and
- * hands back the last drawing as static HTML built from the allowlist.
+ * A run drawn as of a moment (DESIGN.md → Sandbox → Snapshots): what its
+ * code draws, run where no browser is — a code view's figure on a
+ * `ui://kb/view/<id>` resource, or `render.view` as html. It runs until the
+ * run is quiet or its budget is spent, and hands back the last drawing as
+ * static HTML built from the allowlist. Which engine runs it, and where its
+ * calls go, is its caller's to say.
  */
-import { Context, Duration, Effect } from "effect";
+import { Duration, Effect } from "effect";
 import type { CodeGrant } from "@kb/views";
 import { answerToolCall, type CapabilityHost } from "./capability.ts";
 import { drawingToHtml } from "./drawing.ts";
@@ -27,19 +27,6 @@ export interface CodeSnapshot {
   readonly html: string | null;
   readonly end: GuestEnd | null;
 }
-
-export interface CodeSnapshotter {
-  draw(run: CodeRun): Effect.Effect<CodeSnapshot>;
-}
-
-/**
- * The snapshotter a runtime provides. A surface that provides none shows a
- * code view as its text (its code and grant), so nothing downstream gains a
- * requirement.
- */
-export const CodeSnapshots = Context.Reference<CodeSnapshotter | null>("kb/CodeSnapshots", {
-  defaultValue: () => null,
-});
 
 /** How long a snapshot waits for its run to go quiet. */
 export const SNAPSHOT_BUDGET_MS = 2_000;

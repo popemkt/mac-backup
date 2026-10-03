@@ -3,6 +3,7 @@ export {
   ActionInvocationSchema,
   ActionReceiptSchema,
   ManifestEntrySchema,
+  ReadInvoke,
   actionToManifestEntry,
   asObjectSchema,
   failed,
@@ -38,6 +39,7 @@ export type {
   ActionInvocation,
   ActionReceipt,
   ManifestEntry,
+  ReadInvoker,
 } from "./actions.ts";
 export { ChannelPoint, UiHost } from "./channel.ts";
 export { declarationPlugin, defineExtension } from "./declaration.ts";
