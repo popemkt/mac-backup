@@ -4,6 +4,7 @@ import { CanvasEdgeLayer } from "./canvas-edge-layer";
 import type { CanvasSelection } from "./canvas-selection";
 import type { PointerResult, PointerState, ResizeCorner } from "./canvas-pointer";
 import type { ToolState } from "./canvas-tool";
+import { GRID_STEP } from "./canvas-snap";
 import { cn, type OutlineNode } from "@/sdk";
 
 interface CanvasStageProps {
@@ -107,7 +108,7 @@ export function CanvasStage({
       style={{
         backgroundImage:
           "radial-gradient(circle, color-mix(in oklab, var(--foreground) 4%, transparent) 1px, transparent 1px)",
-        backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
+        backgroundSize: `${GRID_STEP * zoom}px ${GRID_STEP * zoom}px`,
         backgroundPosition: `${pan.x}px ${pan.y}px`,
       }}
       onWheel={onWheel}

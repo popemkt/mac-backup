@@ -50,6 +50,7 @@ import { over, type CardLook } from "./canvas-card-face";
 import { ItemLayer } from "./canvas-scene-items";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 import { EdgeLayer } from "./canvas-scene-edges";
+import { GRID_STEP } from "./canvas-snap";
 
 export interface CanvasSceneInit {
   readonly rig: CanvasCameraRig;
@@ -108,8 +109,7 @@ const MIN_FOV = 0.5;
 const ORTHO_EYE = 50_000;
 /** The canvas plane sits just below the cards that lie on it. */
 const PLANE_Z = -1;
-/** The 2D dot grid's pitch and dot radius, canvas units. */
-const GRID_STEP = 20;
+/** The dot radius of the floor's dot grid (its pitch is `GRID_STEP`), canvas units. */
 const GRID_DOT = 1.1;
 
 /**

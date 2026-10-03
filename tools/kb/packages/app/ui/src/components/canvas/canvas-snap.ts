@@ -39,6 +39,9 @@ export interface SnapGuide {
 /** How near an alignment must be to snap, in screen pixels. */
 const SNAP_TOL = 5;
 
+/** The canvas's grid, canvas units: the dot grid both projections draw on the floor. */
+export const GRID_STEP = 20;
+
 /** The step a turn snaps to, radians: 15°. */
 const TURN_STEP = Math.PI / 12;
 
