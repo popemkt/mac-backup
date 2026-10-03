@@ -225,7 +225,7 @@ describe("KbWsClient", () => {
       route: "/",
       active: true,
       activePane: "main",
-      panes: [{ id: "main", view: null, focused: null, selection: [] }],
+      panes: [{ id: "main", route: "/", view: null, focused: null, selection: [] }],
     };
     // Published before the socket is open: it goes out when the socket opens.
     h.client.publishScreen("tab.a", { ...state, route: "/canvas" });

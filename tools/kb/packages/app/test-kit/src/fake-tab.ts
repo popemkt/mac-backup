@@ -40,6 +40,7 @@ export const FAKE_TAB_SCREEN: ScreenState = {
   panes: [
     {
       id: "main",
+      route: "/",
       view: { key: "outline.main", subject: "n.fake-tab-root" },
       focused: null,
       selection: [],

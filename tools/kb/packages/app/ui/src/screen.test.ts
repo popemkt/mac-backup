@@ -15,12 +15,15 @@ import {
 import type { ScreenTab } from "@/api/live";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
+import { layoutUiPlugin } from "@/components/layout/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { syncUiPlugins } from "@/lib/plugins";
 import { getPath, navigate } from "@/lib/router";
 import { SCREEN_PUBLISH_MS, screenPlugin } from "@/screen";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useScreenStore, type PaneSelect } from "@/stores/screen.store";
+import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
+import { layoutPanes, singlePane } from "@kb/views";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 
 function tab(page: () => Window | null = () => window) {
@@ -61,14 +64,22 @@ function report(select: PaneSelect = () => ({ outcome: "applied" })) {
 
 describe("the tab's screen", () => {
   let dom: InstalledDom;
+  let stopWorkspace: () => void;
 
   beforeEach(() => {
     dom = installDomGlobals();
     vi.useFakeTimers();
     useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    // One pane at the URL, kept in step with it, as the app boots.
+    useWorkspaceStore.setState({
+      layout: singlePane({ id: "main", path: getPath() }),
+      focused: "main",
+    });
+    stopWorkspace = startWorkspace();
   });
 
   afterEach(() => {
+    stopWorkspace();
     syncUiPlugins([]);
     useScreenStore.setState({ panes: {} });
     vi.useRealTimers();
@@ -109,6 +120,7 @@ describe("the tab's screen", () => {
     expect(published.at(-1)?.panes).toEqual([
       {
         id: "main",
+        route: "/",
         view: { key: "outline.main", subject: "n.root-a" },
         focused: "n.root-a",
         selection: ["n.root-a"],
@@ -137,18 +149,74 @@ describe("the tab's screen", () => {
     expect(getPath()).toBe("/canvas");
   });
 
-  it("opens a node in the outline, and refuses one it does not have", () => {
+  it("opens a node at its node route, in its default view, and refuses one it does not have", () => {
     const { plugin, carryOut } = tab();
-    syncUiPlugins([outlineUiPlugin, canvasUiPlugin, plugin]);
+    syncUiPlugins([outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
     navigate("/canvas");
     expect(carryOut({ kind: "navigate", to: { node: "n.root-a" } })).toEqual({
       outcome: "applied",
     });
-    expect(getPath()).toBe("/");
-    expect(useOutlineStore.getState().rootNodeId).toBe("n.root-a");
+    expect(getPath()).toBe("/node/n.root-a");
     expect(carryOut({ kind: "navigate", to: { node: "n.missing" } })).toEqual({
       outcome: "rejected",
       reason: "no node n.missing",
+    });
+  });
+
+  it("publishes every pane, the focused one active, and carries a command to the pane it names", () => {
+    const { plugin, published, carryOut } = tab();
+    syncUiPlugins([outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
+    const right = useWorkspaceStore.getState().openBeside("main", "/node/n.root-b");
+    vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
+    expect(published.at(-1)).toMatchObject({
+      route: "/node/n.root-b",
+      activePane: right,
+      panes: [
+        { id: "main", route: "/", view: { key: "outline.main" } },
+        { id: right, route: "/node/n.root-b", view: { key: "outline.main" } },
+      ],
+    });
+
+    // A command for the pane that is not focused moves that pane, not the URL.
+    useWorkspaceStore.getState().focus("main");
+    expect(carryOut({ kind: "navigate", pane: right, to: { route: "/canvas" } })).toEqual({
+      outcome: "applied",
+    });
+    expect(getPath()).toBe("/");
+    expect(layoutPanes(useWorkspaceStore.getState().layout).map((pane) => pane.path)).toEqual([
+      "/",
+      "/canvas",
+    ]);
+
+    // A select goes to the view in the pane it names.
+    const selectRight = vi.fn((): ScreenAck => ({ outcome: "applied" }));
+    useScreenStore.setState({
+      panes: {
+        [right]: {
+          report: { focused: null, selection: [] },
+          select: selectRight,
+          owner: Symbol("right"),
+        },
+      },
+    });
+    expect(carryOut({ kind: "select", pane: right, selection: ["n.root-a"] })).toEqual({
+      outcome: "applied",
+    });
+    expect(selectRight).toHaveBeenCalledWith({ selection: ["n.root-a"] });
+    expect(carryOut({ kind: "select", selection: [] })).toEqual({
+      outcome: "rejected",
+      reason: "the open view takes no selection",
+    });
+  });
+
+  it("names the view node a pane shows, and the view it opened in", () => {
+    const { plugin, published } = tab();
+    syncUiPlugins([outlineUiPlugin, layoutUiPlugin, plugin]);
+    navigate("/node/lens.all-mentions");
+    vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
+    expect(published.at(-1)?.panes[0]).toMatchObject({
+      route: "/node/lens.all-mentions",
+      view: { key: "graph.page", node: "lens.all-mentions" },
     });
   });
 
@@ -172,7 +240,7 @@ describe("the tab's screen", () => {
     syncUiPlugins([outlineUiPlugin, plugin]);
     expect(carryOut({ kind: "navigate", pane: "right", to: { route: "/" } })).toEqual({
       outcome: "rejected",
-      reason: "no pane right; this tab has one, main",
+      reason: "no pane right; this tab has main",
     });
   });
 

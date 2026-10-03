@@ -19,20 +19,27 @@ export const CanvasScreenSchema = z.object({
 export type CanvasScreen = z.infer<typeof CanvasScreenSchema>;
 
 /**
- * One pane of a tab. A tab has one pane today; windowing (splits, tabs,
- * Tana-style panels) gives it several, and the record already holds a list
- * with an active member so that change adds panes, not a new message.
+ * One pane of a tab: the workspace's panes (Tana-style panels, splits and
+ * tabs), every one in the record, and the active one named beside them.
  */
 export const PaneScreenSchema = z.object({
   id: z.string().min(1),
+  /** Where the pane is: the kb location it shows (the URL's, for the active pane). */
+  route: z.string().startsWith("/"),
   /**
    * The view the pane shows: its view key id (`outline.main`,
-   * `canvas.page`, …) and, where the view reports one, the node it is shown
-   * for (the outline's zoom root, the canvas node). `null` on a path no view
-   * owns.
+   * `graph.neighbourhood`, …) — for a node opened at `/node/<id>`, the view
+   * it opened in — the view node it shows when it shows one (`node`), and,
+   * where the view reports one, the node it is shown for (the outline's root,
+   * the canvas node). `null` on a path no view owns.
    */
-  // GAP [[01M3YMCV7ZWR83DCCPQQS7PHNT]]
-  view: z.object({ key: z.string().min(1), subject: z.string().min(1).optional() }).nullable(),
+  view: z
+    .object({
+      key: z.string().min(1),
+      node: z.string().min(1).optional(),
+      subject: z.string().min(1).optional(),
+    })
+    .nullable(),
   /** The node the pane's focus is on, if any. */
   focused: z.string().min(1).nullable(),
   /** What is selected, in the view's own ids: node ids in the outline, item ids on a canvas. */
@@ -46,7 +53,7 @@ const screenShape = {
   route: z.string().startsWith("/"),
   /** Whether the tab has the person's attention (its document has focus). */
   active: z.boolean(),
-  /** The pane the route names and a command without a `pane` goes to. */
+  /** The focused pane: the one the route names and a command without a `pane` goes to. */
   activePane: z.string().min(1),
   panes: z.array(PaneScreenSchema).min(1),
 };

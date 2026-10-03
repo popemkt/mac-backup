@@ -5,11 +5,14 @@
  * commands the server sends it. It is a built-in plugin, so it starts and
  * stops with the UI kernel.
  *
- * The route and the view key are the shell's; what the view shows — the node
- * it is shown for, focus, selection, a canvas's viewport — the mounted view
- * reports (`stores/screen.store`). A tab has one pane today, `main`.
+ * Every pane of the workspace is in it (`stores/workspace.store`): its
+ * location, and the view that location resolves to — for a node opened at
+ * `/node/<id>`, the view it opened in and the view node it shows. What the
+ * view shows — the node it is shown for, focus, selection, a canvas's
+ * viewport — the mounted view reports under its pane (`stores/screen.store`).
+ * A command goes to the pane it names, else the focused one.
  */
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import {
   SCREEN_APPLIED,
   ScreenStateSchema,
@@ -21,75 +24,98 @@ import {
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { getClientOrigin } from "@/api/action";
 import { getLiveClient, setScreenTab, type ScreenTab } from "@/api/live";
+import { NodeView, layoutPanes, resolveNodeView, type LayoutPane } from "@kb/views";
 import { logWarn } from "@/lib/log";
-import { MAIN_PANE } from "@/lib/pane";
-import { RoutePoint, currentContributions, matchRoute } from "@/lib/plugins";
-import { getPath, navigate, subscribePath } from "@/lib/router";
+import { RoutePoint, currentContributions, matchRoute, paramsOf } from "@/lib/plugins";
+import { getPath, nodePath, subscribePath } from "@/lib/router";
+import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useScreenStore } from "@/stores/screen.store";
+import { useWorkspaceStore } from "@/stores/workspace.store";
 
 /** How often, at most, a tab publishes its screen. */
 export const SCREEN_PUBLISH_MS = 100;
 
-/** This tab's screen now, or why what the view reported is not a screen. */
-function readScreen(document: Document) {
-  const route = getPath();
+/**
+ * The view a pane at `route` shows: the route's view, or, for a node opened
+ * at `/node/<id>`, the view it resolves to and the view node it shows.
+ */
+function viewAt(route: string): { key: string; node?: string } | null {
   const matched = matchRoute(currentContributions(RoutePoint), route);
-  const report = useScreenStore.getState().panes[MAIN_PANE]?.report;
-  const subject = report?.subject;
-  return ScreenStateSchema.safeParse({
-    route,
-    // Whether the person is looking at this tab.
-    active: document.visibilityState === "visible" && document.hasFocus(),
-    activePane: MAIN_PANE,
-    panes: [
-      {
-        id: MAIN_PANE,
-        view:
-          matched === null
-            ? null
-            : { key: matched.view.id, ...(subject === undefined ? {} : { subject }) },
-        focused: report?.focused ?? null,
-        selection: [...(report?.selection ?? [])],
-        ...(report?.canvas === undefined ? {} : { canvas: report.canvas }),
-      },
-    ],
-  });
-}
-
-function openRoute(route: string): ScreenAck {
-  if (matchRoute(currentContributions(RoutePoint), route) === null) {
-    return screenRejected(`no view owns ${route}`);
-  }
-  navigate(route);
-  return SCREEN_APPLIED;
+  if (matched === null) return null;
+  const opened = paramsOf(matched, NodeView);
+  if (opened === null) return { key: matched.view.id };
+  const schema = schemaOf(useOutlineStore.getState());
+  const target = resolveNodeView(
+    opened,
+    (id) => schema.get(id),
+    () => {},
+  );
+  if (Result.isFailure(target)) return { key: matched.view.id };
+  const { key, viewNode } = target.success;
+  return viewNode === undefined ? { key: key.id } : { key: key.id, node: viewNode };
 }
 
 /**
- * Open a node: the outline, zoomed to it.
+ * One workspace pane as the screen reports it. A dashboard's own panes are
+ * part of its pane's view: they are not listed, and no command names one.
+ * GAP [DASHBOARD-PANES-OFF-SCREEN]
  */
-// GAP [[01M3YMCVEHWN0REJ8M1857ZEYX]]
-function openNode(id: string): ScreenAck {
-  const outline = useOutlineStore.getState();
-  if (!outline.nodes.has(id) && !outline.wireNodes.some((node) => node.id === id)) {
-    return screenRejected(`no node ${id}`);
+function paneScreen(pane: LayoutPane) {
+  const report = useScreenStore.getState().panes[pane.id]?.report;
+  const view = viewAt(pane.path);
+  const subject = report?.subject;
+  return {
+    id: pane.id,
+    route: pane.path,
+    view: view === null ? null : { ...view, ...(subject === undefined ? {} : { subject }) },
+    focused: report?.focused ?? null,
+    selection: [...(report?.selection ?? [])],
+    ...(report?.canvas === undefined ? {} : { canvas: report.canvas }),
+  };
+}
+
+/** This tab's screen now, or why what the views reported is not a screen. */
+function readScreen(document: Document) {
+  const { layout, focused } = useWorkspaceStore.getState();
+  return ScreenStateSchema.safeParse({
+    route: getPath(),
+    // Whether the person is looking at this tab.
+    active: document.visibilityState === "visible" && document.hasFocus(),
+    activePane: focused,
+    panes: layoutPanes(layout).map(paneScreen),
+  });
+}
+
+/** Show `route` in `pane`, when a view owns it. */
+function openRoute(pane: string, route: string): ScreenAck {
+  if (matchRoute(currentContributions(RoutePoint), route) === null) {
+    return screenRejected(`no view owns ${route}`);
   }
-  navigate("/");
-  outline.zoomTo(id);
-  return useOutlineStore.getState().rootNodeId === id
-    ? SCREEN_APPLIED
-    : screenRejected(`the outline cannot open ${id}`);
+  useWorkspaceStore.getState().navigatePane(pane, route);
+  return SCREEN_APPLIED;
+}
+
+/** Open a node in `pane`, in its default view: the one route a node is opened by. */
+function openNode(pane: string, id: string): ScreenAck {
+  if (!schemaOf(useOutlineStore.getState()).has(id)) return screenRejected(`no node ${id}`);
+  return openRoute(pane, nodePath(id));
 }
 
 /** Carry out one of the server's screen commands in this tab. */
 function carryOut(command: ScreenCommand): ScreenAck {
-  if (command.pane !== undefined && command.pane !== MAIN_PANE) {
-    return screenRejected(`no pane ${command.pane}; this tab has one, ${MAIN_PANE}`);
+  const { layout, focused } = useWorkspaceStore.getState();
+  const ids = layoutPanes(layout).map((pane) => pane.id);
+  const pane = command.pane ?? focused;
+  if (!ids.includes(pane)) {
+    return screenRejected(`no pane ${pane}; this tab has ${ids.join(", ")}`);
   }
   if (command.kind === "navigate") {
-    return "node" in command.to ? openNode(command.to.node) : openRoute(command.to.route);
+    return "node" in command.to
+      ? openNode(pane, command.to.node)
+      : openRoute(pane, command.to.route);
   }
-  const select = useScreenStore.getState().panes[MAIN_PANE]?.select;
+  const select = useScreenStore.getState().panes[pane]?.select;
   if (select === undefined) return screenRejected("the open view takes no selection");
   return select({
     ...(command.selection === undefined ? {} : { selection: command.selection }),
@@ -101,12 +127,14 @@ function carryOut(command: ScreenCommand): ScreenAck {
 function watchScreen(page: Window, listener: () => void): () => void {
   const offPath = subscribePath(listener);
   const offView = useScreenStore.subscribe(listener);
+  const offPanes = useWorkspaceStore.subscribe(listener);
   page.addEventListener("focus", listener);
   page.addEventListener("blur", listener);
   page.document.addEventListener("visibilitychange", listener);
   return () => {
     offPath();
     offView();
+    offPanes();
     page.removeEventListener("focus", listener);
     page.removeEventListener("blur", listener);
     page.document.removeEventListener("visibilitychange", listener);

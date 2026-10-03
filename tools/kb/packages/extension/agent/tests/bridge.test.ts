@@ -57,6 +57,7 @@ const SCREEN: TabScreen = {
   panes: [
     {
       id: "main",
+      route: "/",
       view: { key: "outline.main", subject: "n.root" },
       focused: "n.focus",
       selection: ["n.focus", "item.not-a-node"],

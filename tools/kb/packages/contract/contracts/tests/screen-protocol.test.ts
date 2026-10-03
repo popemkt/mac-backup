@@ -17,6 +17,7 @@ import {
 
 const pane: PaneScreen = {
   id: "main",
+  route: "/",
   view: { key: "outline.main", subject: "n.root" },
   focused: "n.a",
   selection: ["n.a"],
@@ -46,6 +47,7 @@ describe("screen messages on /ws", () => {
         panes: [
           {
             id: "main",
+            route: "/canvas/n.c",
             view: { key: "canvas.page", subject: "n.c" },
             focused: null,
             selection: ["item-1"],
@@ -63,7 +65,13 @@ describe("screen messages on /ws", () => {
       activePane: "right",
       panes: [
         { ...pane, id: "left" },
-        { id: "right", view: null, focused: null, selection: [] },
+        {
+          id: "right",
+          route: "/node/n.b/v.hood",
+          view: { key: "graph.neighbourhood", node: "v.hood", subject: "n.b" },
+          focused: null,
+          selection: [],
+        },
       ],
     };
     expect(overTheWire(ClientMessageSchema, { op: "screen", tab: "tab.a", state })).toEqual({
