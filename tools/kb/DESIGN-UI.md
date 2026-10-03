@@ -1244,9 +1244,15 @@ a separate point that only points at it.
   `match(path) → P | null`, and, from those params, the shell `frame`
   (`scroll`, `fixed` or `full`), the `pendingTitle`, and an optional `Chrome`
   (a bar the shell renders outside the scroll region, such as the ontology
-  scope bar). A route owns no page component. The shell resolves the path to
+  scope bar). A route owns no page component. A pane resolves its path to
   the first route that matches, then renders that route's view through a
-  `<ViewSlot>` at placement `page`. A path that no route owns is not found.
+  `<ViewSlot>` at placement `page` (`PaneFrame`, Panes and layouts below). A
+  path that no route owns is not found. A route may name its `entry`, the
+  path that opens its view with nothing chosen, which a pane's view
+  switcher offers. A host that shows a view no route led it to (a node
+  opened in its default view) frames that view's page as the route that
+  opens the view frames it (`pageFrameOf`), and lets it fill its box when
+  no route opens it.
 - **`ViewHost`** is what a host guarantees a view. It is never a store and
   never `ctx`. It carries only `placement`, which is `page` (the view fills
   the box its host gives it: the shell's page, the graph's canvas) or
@@ -1493,6 +1499,71 @@ told. A decline is therefore refused by the invoke core with
 `approval_required`, exactly as an unapproved call from anywhere would be.
 The folder reaches neither the socket nor the invoke path itself: the shell
 binds them as its ports (`src/agent.ts`).
+
+### Panes and layouts
+
+The workspace is the layout open as the whole screen (DESIGN.md → View
+nodes → Layout views states the tree and the node route). Its arrangement
+and focus are the workspace store's (`stores/workspace.store`). They are
+per device, kept in `localStorage["kb-workspace"]`, and never in the graph
+until "Save workspace".
+
+- **The URL names the focused pane.** The address bar shows the focused
+  pane's location. A navigation (a link, a command, back and forward) moves
+  the focused pane (`startWorkspace`). Moving the focus shows the newly
+  focused pane's location without adding a history step (`replacePath`). On
+  load, the URL wins over the stored location of the focused pane.
+- **One pane has no chrome.** A workspace of one pane is drawn as the page
+  always was: the header, then the pane. Two or more panes are a movable
+  layout grid, and the header stays. A page that takes the whole column
+  (the graph) takes the header's place only when it is the only pane.
+- **A pane's body outlives its place on screen** (`pane-bodies.tsx`). Each
+  body is drawn once, into an element of its own, under its pane id
+  (`PaneContext`, `lib/pane`). The layout only places that element, so
+  opening a pane, closing one, moving a tab or resizing never remounts
+  another pane's view. A pane's scroll offset is put back after a move. A
+  pointer or the keyboard entering a pane focuses it.
+- **dockview draws the grid, behind an adapter.** `dockview-adapter.ts`
+  projects kb's tree to dockview's serialized form and reads every change
+  that dockview reports back into a kb tree. The kb tree is canonical, and
+  dockview's JSON is never kept: projecting a tree and reading it back is
+  the identity (a property test). A tree changed from outside is shown to
+  dockview again. dockview (MIT) and kb's theme (`dockview-theme.css`, every
+  value a design-system token) load in the grid's own chunk, only when a
+  second pane opens or a dashboard is shown. Floating and pop-out windows
+  are off (GAP [[01M3Q5DP9TQF0E9DZMHAKHMGWD]]).
+- **Panels first, then splits and tabs, on the one tree.** A Shift-click on
+  a bullet or a reference follows into a new pane to the right of the
+  pane it was clicked in (`FollowHow` `beside`, Tana's panels), and so does
+  the node menu's "Open in panel". Dragging a tab docks it as a split or
+  as a tab of another group. A tab's ✕ or "Close pane" closes a pane, and
+  the last pane stays. Each workspace pane's tab is its view switcher. It
+  lists the node the pane is shown for, through its default view, each of
+  its view nodes, and each view type that a node can be shown in. Then it
+  lists every route's `entry`. Choosing one moves the pane, and nothing is
+  written.
+- **Opening a node is the pane's.** `open` (a bullet's follow, a crumb, a
+  reference) zooms the outline when the pane shows the zoomed outline at
+  `/`. When the pane shows an outline rooted at a node (`/node/<id>`), it
+  moves that pane to the node instead (`OpenNodeContext`, `useOpenNode`).
+  The zoom is the store's, one per tab, so two panes at `/` show the same
+  node (GAP [ZOOM-IS-ONE-PER-TAB]).
+- **Each outline on screen is its own host.** An outline keys its rows
+  under its pane's outline host (`outlineHostOfPane`; the main pane's is the
+  canonical `tree/`), so the same node open in two panes is two rows,
+  edited one at a time. Each outline says where it is rooted and which
+  slots surround it (`stores/outline-hosts`). The keyboard walks the rows
+  of the host that a row is keyed under, and a row activated without an
+  instance takes its row in the outline being worked in. The page-wide
+  parts of editing (the selection keymap, undo, the node palette) are
+  owned by the one outline that leads (`useLeadsOutlines`). A query's
+  projected rows name their query, not their host
+  (GAP [QUERY-ROWS-NOT-PANE-KEYED]).
+- **A dashboard is fixed.** The layout view in a pane draws its own panes
+  with the same grid, locked. Its panes take ids under their pane's
+  (`<outer>:<inner>`), and each draws its page through a slot shown for its
+  location. "Open as the workspace" (its corner button, or the node menu
+  on a layout node) replaces the workspace with its tree, movable again.
 
 ### Optional UI plugins
 

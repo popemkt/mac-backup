@@ -948,6 +948,56 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   preview passes its params from code, which the compiler checks; only a
   view someone chose is stored.
 
+#### Layout views
+
+**Windowing is a view type, not a second system** (roadmap decision 12 in
+`docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md`). The layout
+view, `layout.grid` (`@kb/views`' `layout.ts`), arranges panes as splits
+and tabs. Shown inside a pane it is a dashboard (generative UI mode B);
+opened as the whole screen it is the workspace. It is the one tree either
+way, and only the chrome around it differs (DESIGN-UI.md → Panes and
+layouts).
+
+- **The params are the tree.** `{root}`, where a layout is tabs
+  (`{tabs: [pane, …], active?}`) or a split (`{split: row | column,
+  children: [≥2 layouts], sizes?}`). A split inside a row is a column and
+  the other way round, so one arrangement has one spelling. `sizes` are
+  fractions summing to 1, and are left out when the shares are even. Pane
+  ids are unique in the tree and hold no `/`. The schema refuses any other
+  shape, and every edit in `layout.ts` (`openBeside`, `closePane`,
+  `withPanePath`, `normalizeLayout`) returns a tree it accepts.
+- **A pane holds a location.** A pane is `{id, path}`, and its path is a
+  kb location that the UI's route table resolves: any page's path, or
+  `/node/<id>`, which shows a node in its default view, or
+  `/node/<id>/<view>`, which shows it through one of its view nodes or
+  through a view type named by its option. The URL names the focused pane
+  by being that pane's path. Ephemeral pane state (scroll, selection) is
+  not part of a layout.
+- **A node opens by one rule** (`resolveNodeView`, the `layout.node` view):
+  through a named view type, read for the node from an empty view node;
+  through a named view node, read for the node; as the view node itself
+  when the node is one; otherwise in the node's default view (the first it
+  names) or, when it names none, as the outline rooted at it (`outline.main`
+  with `root`). A frame view's page is the outline at the frame, and a
+  graph renderer's page is the graph page drawing that view node. The UI's
+  links, a pane, a dashboard's panes and `ui.navigate` all open nodes this
+  way.
+- **A layout node holds its tree as one prop.** `sys.f.layout` holds the
+  tree as canonical JSON, the shape a canvas keeps its layout in, so a drag
+  writes one prop atomically. "Save workspace" proposes the live
+  arrangement through `view.propose`, the one check of a proposed view, so
+  the UI saves exactly what an agent could propose. A pane at the zoomed
+  outline is saved as the node it is zoomed to. The node is filed in the
+  Views list and can be pinned. An agent builds a dashboard the same way,
+  from the catalog entry: it can name a host, whose default view it then
+  is. The nodes that a layout's panes open live inside that JSON, so the
+  loader derives no mention of them (GAP [LAYOUT-PANES-NOT-MENTIONS]).
+- **A layout that contains itself stops at the first repeat.** Each pane
+  of a dashboard draws its page through a slot shown for its location, and
+  the node route draws through a slot shown for the view node, so opening
+  a layout inside itself repeats a link that the slot refuses
+  (DESIGN-UI.md → the slot's promise 6).
+
 ## Storage (horizontal)
 
 The port is `EffectStore` in `packages/contract/contracts/src/store.ts`; that
@@ -1793,11 +1843,14 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   forgets it when the owning connection closes.
   Nothing is written to the store, and a server restart forgets every tab
   until each republishes on reconnect.
-- **Panes are in the record from the start.** A tab has one pane today,
-  `main`. Windowing (decision 12) gives it several, and `panes` plus
-  `activePane` already carry them, so that change adds panes and no new
-  message. A command may name its `pane`; without one it goes to the
-  active pane.
+- **Every pane is in the record.** `panes` lists the workspace's panes
+  (Layout views above), each with its location (`route`) and the view that
+  location resolves to. For a node opened at `/node/<id>` that is the view
+  it opened in, and `node` names the view node it shows when it shows one.
+  `activePane` is the focused pane, the one the URL names. A command may
+  name its `pane`. Without one it goes to the focused pane, and it is
+  refused for a pane the tab does not have. A dashboard's own panes are part
+  of their pane's view, so they are not listed (GAP [DASHBOARD-PANES-OFF-SCREEN]).
 - **`ui.screen`** (read) returns the live tabs, most recently active first:
   the last tab to publish while it had attention comes first, and tabs that
   never had it follow in the order they arrived. `tab` narrows the list to
@@ -1812,7 +1865,7 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   take the command (answered at once, not after the wait). `timeout` says only that
   no answer came in time: the tab may still carry the command out, and its
   late answer is dropped. `ui.navigate` takes a
-  `node` (opened in the outline, zoomed to it) or a `route`; `ui.select`
+  `node`, opened at its node route in the pane, or a `route`; `ui.select`
   takes a `selection`, a `focus`, or both, and the open view carries them
   out or says why it cannot.
 - **No approval.** The two commands change what one tab shows, never the
