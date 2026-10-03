@@ -19,6 +19,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { definePlugin, makeKernel, type Plugin, type ContributionEntry } from "@kb/plugin";
 import { SYSTEM_IDS, VIEW_FAMILY_VALUES, systemSeedNodes } from "@kb/model";
 import { ViewSlot } from "@/components/ui/view-slot";
+import { setPostAction } from "@/api/action";
 import { keptLoad } from "@/lib/kept-load";
 import {
   ViewPoint,
@@ -118,6 +119,14 @@ describe("view contract", () => {
 
   beforeAll(() => {
     dom = installDomGlobals();
+    // A code view asks the server which code is trusted; the server here
+    // answers that none is, as a fresh machine would.
+    setPostAction(async (invocation) => ({
+      status: "succeeded",
+      id: invocation.id,
+      output: { trusted: [] },
+      rev: 0,
+    }));
     const g = globalThis as Record<string, unknown>;
     g.IS_REACT_ACT_ENVIRONMENT = true;
     g.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
@@ -130,6 +139,7 @@ describe("view contract", () => {
   });
 
   afterAll(() => {
+    setPostAction(null);
     syncUiPlugins([]);
     dom.restore();
   });
