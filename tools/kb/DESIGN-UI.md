@@ -1743,6 +1743,60 @@ beside the built-ins:
 - Off by default means absent from the list. A name with no plugin behind it
   is inert, so shipping or retiring an optional plugin needs no migration.
 
+This preference is a second switch beside the server's. The contract below
+replaces it with a server-side decision that the browser follows:
+GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]].
+
+### Extension UI halves
+
+A family's browser half ([DESIGN → Extension families](DESIGN.md#extension-families))
+is a workspace package, `@kb/<family>-ui`, that the shell's Vite build
+compiles from source. It builds against `@kb/ui-sdk` and nothing else of
+the shell.
+
+- **The browser holds a resolver, not a second list.**
+  - `CORE_UI_PLUGINS` holds the shell's own projections: outline, graph,
+    ontology, layout, webmcp and screen.
+  - `BROWSER_EXTENSIONS: Record<family, {load: () => Promise<Plugin>}>` maps
+    a family, keyed by its declaration's `name`, to its browser entry.
+  - `syncUiPlugins` converges the page kernel on the core plugins, plus the
+    browser entry of every family `kb.manifest.extensions` reports as
+    enabled that the resolver has.
+  - The Preferences row for an optional family writes the server-side
+    setting, and the page follows the manifest. A page served without a
+    family therefore never offers that family's UI.
+- **One `load` shape for every source.** A bundled family's `load` is a
+  static import for a family that is always on, and `import()` for an
+  optional one, which keeps it out of the main bundle. A repository
+  extension's `load` fetches its built ESM through the same entry.
+- **The browser entry** is the family's shared plugin, loaded as a child
+  (`ctx.plugin`), plus its UI contributions. So the page kernel holds the
+  family's view keys, and the page's catalog is the manifest's catalog
+  restricted to them.
+- **`@kb/ui-sdk` is the host API.** It holds:
+  - the UI points ([UI points](#ui-points-routes-and-views), [Docks](#docks)),
+    `ViewSlot` and `CommandPoint`, a command contributed to the shell's
+    palette and node menu;
+  - the primitives and the design tokens;
+  - `BrowserHost`, a kernel service the shell provides. Through it a half
+    reaches what it would otherwise take from the shell's stores, actions
+    and lib: the live graph, appearance, navigation, panes, the invoke path
+    and the sandbox host.
+
+  The sdk never imports the shell's stores. The 3D scene kit, `@kb/scene`,
+  is a browser package of its own beside it, for canvas 3D, the lab and the
+  core `graph.force3d` renderer.
+- **Until the packages exist, zones carry the fence.** `app/ui/src/sdk/` is
+  the future `@kb/ui-sdk`. A feature zone (`components/{chart,code,agent,lab,canvas}`)
+  may reach only itself and `sdk`, plus `scene` for canvas 3D and the lab.
+  `UI_ALLOWS` in `harness/src/constraints.ts` states the rows, and each
+  zone's row is deleted when its package leaves. GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
+  (chart, code, agent, lab), GAP [[01M39F3MR3HT2NR553FY8CRD6X]] (canvas) and
+  GAP [[01M3EZRFTS1W8SB97GFJAWD92X]] (the sdk package) record the distance.
+- **The lazy fence follows packages.** `UI_LAZY_ONLY` applies to the import
+  closure from `UI_ENTRY`, walking into `scope:browser` workspace packages
+  too, so a chart page moved out of `app/ui` is still fenced from Vega.
+
 ### The lab
 
 The lab (`components/lab`, `/lab`) is an off-by-default sketchbook for

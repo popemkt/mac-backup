@@ -1829,6 +1829,132 @@ from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surf
   `approval: "required"` if a person must approve each call). The loader
   skips an extension that still uses the old strings.
 
+#### Extension families
+
+This is the contract for every feature kb bundles, such as chart, code, lab,
+agent, canvas, docs and check. **Core names no feature.** The reasons and
+the order of the move are in the
+[extension-boundaries plan](../../docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md).
+Where the code does not meet this contract yet, a gap says so (listed at the
+end).
+
+- **An extension is a family of packages, one scope each.** It is never one
+  package with two entries, because the scope fence, the tsconfig preset and
+  the isomorphism fence are per package. A family has up to three packages,
+  each flat under `packages/extension/`:
+
+  | Package | Scope | Holds |
+  |---|---|---|
+  | `@kb/<family>` | shared | ids, view keys, seed nodes, text bodies, the family's declaration and its **shared plugin** |
+  | `@kb/<family>-ui` | browser | views, routes, sidebar sections, docks and commands, built against `@kb/ui-sdk` ([DESIGN-UI → Extension UI halves](DESIGN-UI.md#extension-ui-halves)) |
+  | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK |
+
+- **A family declares itself once.** `defineExtension({name, label,
+  optional?, seed?, views?})` in `@kb/<family>` is the one home of its name:
+  - every entry plugin takes its `name` from the declaration;
+  - so do the manifest row and the browser resolver's key;
+  - the package's `family:<name>` tag is checked equal to it.
+- **Each host loads one entry per family, built from the shared plugin.**
+  The server entry and the browser entry are each a call to the shared
+  plugin factory plus that host's own contributions, so a key, a seed node
+  or a text body cannot differ between hosts. A family with no server-only
+  package uses its shared plugin as the server entry.
+- **One list decides what is on, and the browser follows it.**
+  `BUNDLED_EXTENSIONS` (`app/runtime`) is the list of server entries.
+  `kb.manifest.extensions` reports each one as `{name, label, optional,
+  enabled, source}`. The `kb ui` server adds the host plugins it loaded,
+  such as the agent, to the same report. The browser loads the browser
+  entry of each family the manifest reports as enabled, through a resolver
+  keyed by family name ([DESIGN-UI → Extension UI halves](DESIGN-UI.md#extension-ui-halves)).
+  **Optional is a server-side load decision:** a family switched off is not
+  loaded by the registry, so its views leave the catalog. There is never a
+  second switch in the browser.
+- **The seed is the bundled fold, never a loaded registry.**
+  `ensureSystemSeed(nodes, at, seed)` runs at open, before any registry
+  exists. `openKbEffect` passes it `bundledSeed()`, which is:
+  - core's nodes, then each `BUNDLED_EXTENSIONS` declaration's `seed`, in
+    bundled order;
+  - pure data: it opens nothing and fails on an id declared twice.
+
+  Host and repository plugins contribute no seed, so every surface seeds the
+  same set whatever it loads, and a failed extension load never shrinks the
+  seed. Opening a store with a family switched off neither deletes nor
+  rewrites that family's nodes: the data outlives the code.
+- **Ids are frozen data.** `sys.f.chart`, `sys.views` options and the rest
+  keep their spelling when their declaring package changes, so no store
+  migrates and opening still never writes. A rename goes through an explicit
+  action, never through open.
+- **The view catalog is a point.** `ViewKeyPoint` (`kb.views`, in
+  `@kb/contracts`) holds one `ViewDef<P> = {key, text?}` per view, keyed by
+  view id. A family's shared plugin contributes the `views` its declaration
+  lists. `ViewKey` carries the `label` and `family` that name the view's
+  option node under `sys.views`, and that option is derived inside
+  `bundledSeed()`, never declared again. A `ViewCatalog` service is the only
+  reading of the catalog:
+  - the server provides it from the registry kernel;
+  - the page derives it from `kb.manifest.views`: the page kernel's keys
+    restricted to the ids the manifest lists.
+
+  So `view.propose`, `render.view` and the manifest see only what is loaded,
+  on both hosts.
+- **A view's text is part of its contribution.** `ViewDef.text = {body,
+  figure?}`. `viewText` looks the view up in the catalog and falls back to
+  the generic body. `renderViewNodeEffect` stays the one function behind
+  `render.view` and `ui://kb/view/*`.
+- **A painter belongs to the view that paints with it; an engine belongs to
+  the core port it implements.**
+  - A figure (a chart's SVG, a code view's snapshot) is supplied by the
+    family's server entry. The browser entry supplies none, so the page's
+    isomorphic actions draw text only.
+  - Sandbox engines are adapters of the core sandbox port. Composition roots
+    bind them as they bind stores, and `sandboxContract` is their shared
+    suite.
+  - A family that needs an engine asks for a core reference such as
+    `UntrustedEngine`. It never binds one itself.
+  - No generic "runtime layer point" exists: nothing needs one.
+- **What stays core** is mechanism, plus the projections the shell is built
+  from:
+  - the store, datalog, kernel, subscriptions and the render backbone;
+  - the outline, graph (`graph.force3d` included) and ontology families;
+  - layout (`layout.grid`, `layout.node`, `sys.f.layout`), because the pane
+    tree is the workspace;
+  - the docs view type (`docs.markdown`). `@kb/ext-docs` owns the templates
+    and actions, not the view type;
+  - approval policy, `view.propose`, `render.view`, `ui://`, the sandbox
+    port, engines and frame host;
+  - the generic UI points.
+- **Enforcement.** The harness checks the boundary in
+  `harness/src/constraints.ts`:
+  - each extension package carries a `family:` tag;
+  - an extension package imports another extension package only of its own
+    family;
+  - an `app` package imports an extension package only from its composition
+    root's bundled-extensions file (`EXTENSION_ROOTS`);
+  - every extension package is loaded by the root of each host its scope
+    runs in.
+
+  One contract suite, `extensionContract` (`@kb/test-kit`), runs over
+  `BUNDLED_EXTENSIONS`. A family passes when:
+  - it loads and unloads cleanly;
+  - its seed ids have one owner;
+  - every view key it contributes has an option in the fold;
+  - every text body renders its key's defaults;
+  - every view it gives the UI has a key in the page's catalog.
+
+  The rule node "Core names no feature" records how far that enforcement
+  has landed.
+
+Today's drift from this contract is marked where it sits:
+- seed ids in core: GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]];
+- view text: GAP [[01M41H2ZG7C0SV1DYZE6MMKPFE]];
+- runtime painters: GAP [[01M41H2ZS8FH55DCW3S9ZGPWPY]];
+- feature view keys in `@kb/views`: GAP [[01M41H30342XZPX3CXZJTMPBYW]];
+- the catalog as a constant: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]];
+- UI zones: GAP [[01M41H30C2RSD2FGVYBT5HAG48]];
+- the unbridged lists: GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]];
+- open composition roots: GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
+- canvas: GAP [[01M39F3MR3HT2NR553FY8CRD6X]].
+
 ### Canvas documents
 
 A `#canvas` node keeps its layout as one [JSON Canvas 1.0](https://jsoncanvas.org/spec/1.0/)

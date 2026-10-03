@@ -10,7 +10,11 @@ builds on [DESIGN.md → Core boundary & extensions](../../../tools/kb/DESIGN.md
 and on the [plugin-composition brief](../../kb/waves/2026-09-24/briefs/plugin-composition.md)
 (phases R1/R2), and does not restate either. Once the owner signs it off,
 this file is the home of these decisions until DESIGN.md absorbs them (step
-E1).
+E1). **E1 has landed:** the contract is now stated in
+[DESIGN.md → Extension families](../../../tools/kb/DESIGN.md#extension-families)
+and [DESIGN-UI.md → Extension UI halves](../../../tools/kb/DESIGN-UI.md#extension-ui-halves).
+Where this file and those sections differ, those sections win. This file
+keeps the reasons and the build order.
 
 *Revised the same day after a review against the code.* Eight findings are
 folded in, each marked "changed" or "added after review" where it lands:
