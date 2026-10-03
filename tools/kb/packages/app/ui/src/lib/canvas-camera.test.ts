@@ -14,6 +14,7 @@ import {
   hitTest,
   lerpView,
   orbitView,
+  paintPlanes,
   panOfView,
   panView,
   poseOfView,
@@ -124,6 +125,25 @@ describe("hit-testing", () => {
     const behind = { ...perspective, x: 150, y: 50, yaw: 0, pitch: Math.PI };
     const at = projectPoint(behind, size, { x: 160, y: 30, z: 0 });
     expect(hitTest([low, high], behind, size, at ?? { x: 0, y: 0 })).toBe("low");
+  });
+
+  test("a box is hit on its side as well as its top, nearest first", () => {
+    // Level from the front (the eye on the +y side), a raised box hides a flat card behind it.
+    const front = { ...perspective, x: 100, y: 0, z: 60, yaw: 0, pitch: Math.PI / 2 };
+    const block: CanvasHitItem = { id: "block", x: 50, y: 100, width: 100, height: 40, depth: 120 };
+    const behind: CanvasHitItem = { id: "behind", x: 0, y: -400, width: 200, height: 10 };
+    const at = projectPoint(front, size, { x: 100, y: 140, z: 60 }) ?? { x: 0, y: 0 };
+    expect(hitTest([behind, block], front, size, at)).toBe("block");
+    expect(hitTest([{ ...block, depth: 0 }], front, size, at)).toBeNull();
+  });
+
+  test("paint order breaks ties between equal tops, not equal bases", () => {
+    const block: CanvasHitItem = { id: "block", x: 0, y: 0, width: 10, height: 10, depth: 40 };
+    const lid: CanvasHitItem = { id: "lid", x: 0, y: 0, width: 10, height: 10, z: 40 };
+    const [, raised] = paintPlanes([block, lid]);
+    expect(raised?.z).toBeGreaterThan(40);
+    const [, apart] = paintPlanes([block, { ...lid, z: 41 }]);
+    expect(apart?.z).toBe(41);
   });
 
   test("an empty point hits nothing", () => {

@@ -1061,9 +1061,10 @@ with the floor; no orbit goes under it) and a field of view, where `fov` 0 is
 orthographic. The DOM canvas is that camera from the top and orthographic,
 which is exactly its CSS `translate(pan) scale(zoom)`; `viewOfPan` and `panOfView`
 are the bridge, and zoom-to-fit, client-to-canvas conversion and the edge
-drop target (`hitTest`: the nearest item under the ray, each on its paint
-plane, `paintPlanes`: its depth raised a hair per earlier item at that depth,
-so paint order decides from the front and nothing ever ties) all go through
+drop target (`hitTest`: the nearest item box the ray enters, each item a
+box on its footprint that is flat until items have depth; `paintPlanes`: its
+base raised a hair per earlier item whose top is at the same height, so
+paint order decides from above and nothing ever ties) all go through
 the camera rather than through pan
 arithmetic or `elementFromPoint`. A gesture reaches the pointer reducer as a
 screen point, which decides slop and panning, and the canvas point it stands

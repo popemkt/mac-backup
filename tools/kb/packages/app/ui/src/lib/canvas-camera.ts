@@ -169,9 +169,9 @@ export interface ScreenRect {
 const NEAR_EYE = 1e-3;
 
 /**
- * The screen bounds of an item's rectangle on its plane, as `view` draws it:
- * the part in front of the eye, clipped where it passes beside it; null when
- * none of it is in front.
+ * The screen bounds of an item's box, as `view` draws it: the part in front
+ * of the eye, cut where it passes beside it; null when none of it is in
+ * front.
  */
 export function screenBounds(
   view: CanvasView,
@@ -179,15 +179,8 @@ export function screenBounds(
   item: CanvasHitItem,
 ): ScreenRect | null {
   const frame = frameOf(view, size);
-  const z = item.z ?? 0;
-  const corners: Vec[] = [
-    [item.x, item.y, z],
-    [item.x + item.width, item.y, z],
-    [item.x + item.width, item.y + item.height, z],
-    [item.x, item.y + item.height, z],
-  ];
   // Each corner in the camera's own axes: across, down, and how far in front of the eye.
-  const local = corners.map((p): Vec => {
+  const local = boxCorners(item, item.z ?? 0).map((p): Vec => {
     const v: Vec = [p[0] - frame.eye[0], p[1] - frame.eye[1], p[2] - frame.eye[2]];
     return [dot(v, frame.right), dot(v, frame.down), -dot(v, frame.back)];
   });
@@ -209,19 +202,51 @@ export function screenBounds(
   };
 }
 
-/** A convex polygon in camera axes cut to what lies at least {@link NEAR_EYE} in front of the eye. */
-function clipInFront(polygon: readonly Vec[]): Vec[] {
-  const out: Vec[] = [];
-  polygon.forEach((a, i) => {
-    const b = polygon[(i + 1) % polygon.length] ?? a;
-    const aIn = a[2] >= NEAR_EYE;
-    const bIn = b[2] >= NEAR_EYE;
-    if (aIn) out.push(a);
-    if (aIn !== bIn) {
-      const t = (NEAR_EYE - a[2]) / (b[2] - a[2]);
-      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, NEAR_EYE]);
-    }
-  });
+/**
+ * A box's corners: its footprint at its base, then at its top (the same four
+ * again when it is flat). {@link BOX_EDGES} joins them.
+ */
+function boxCorners(item: CanvasHitItem, z: number): Vec[] {
+  const { lo, hi } = boxOf(item, z);
+  const ring = (h: number): Vec[] => [
+    [lo[0], lo[1], h],
+    [hi[0], lo[1], h],
+    [hi[0], hi[1], h],
+    [lo[0], hi[1], h],
+  ];
+  return [...ring(lo[2]), ...ring(hi[2])];
+}
+
+/** The twelve edges of {@link boxCorners}: the base ring, the top ring, and the four uprights. */
+const BOX_EDGES: readonly (readonly [number, number])[] = [
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 0],
+  [4, 5],
+  [5, 6],
+  [6, 7],
+  [7, 4],
+  [0, 4],
+  [1, 5],
+  [2, 6],
+  [3, 7],
+];
+
+/**
+ * A box's corners in camera axes, cut to what lies at least {@link NEAR_EYE}
+ * in front of the eye: the corners in front, and where each edge crosses
+ * into view. Their bounds are the bounds of what is drawn.
+ */
+function clipInFront(corners: readonly Vec[]): Vec[] {
+  const out = corners.filter((p) => p[2] >= NEAR_EYE);
+  for (const [i, j] of BOX_EDGES) {
+    const a = corners[i];
+    const b = corners[j];
+    if (a === undefined || b === undefined || a[2] >= NEAR_EYE === b[2] >= NEAR_EYE) continue;
+    const t = (NEAR_EYE - a[2]) / (b[2] - a[2]);
+    out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, NEAR_EYE]);
+  }
   return out;
 }
 
@@ -288,26 +313,36 @@ export function screenToPlane(
   return rayToPlane(view, size, screen, z)?.point ?? null;
 }
 
-/** An item as the camera sees it: a rectangle on the plane at its depth. */
+/**
+ * An item as the camera sees it: a box standing on its footprint — the
+ * rectangle `x, y, width, height` at the height of its base `z` — and rising
+ * `depth` from there. Absent, `z` is the floor and `depth` 0: a flat
+ * rectangle, which is what every item is until items have depth.
+ */
 export interface CanvasHitItem {
   readonly id: string;
   readonly x: number;
   readonly y: number;
   readonly width: number;
   readonly height: number;
-  /** Depth; absent is the canvas plane. */
+  /** Height of the base above the floor; absent is the floor. */
   readonly z?: number;
+  /** How far the box rises from its base; absent or 0 is flat. */
+  readonly depth?: number;
 }
 
-/** How far apart cards at one depth stand in paint order, canvas units: a hair, but never a tie. */
+/** The height of an item's top surface: what paint order and its tie-break go by. */
+const topOf = (item: CanvasHitItem) => (item.z ?? 0) + (item.depth ?? 0);
+
+/** How far apart items with one top stand in paint order, canvas units: a hair, but never a tie. */
 const TIER_STEP = 0.08;
 
 /**
- * Each item with the plane it is drawn on and hit at: its depth, raised a
- * hair for every earlier item at that depth, so items at one depth are
- * ordered by paint order from the front and never share a plane. `items`
+ * Each item with the base it is drawn and hit at: its own, raised a hair for
+ * every earlier item whose top is at the same height, so items with one top
+ * are ordered by paint order from above and never share a surface. `items`
  * are in paint order, back to front. Every projection draws and hit-tests
- * on these planes, so what is under a point is what is drawn there, from
+ * at these heights, so what is under a point is what is drawn there, from
  * any side.
  */
 export function paintPlanes<T extends CanvasHitItem>(
@@ -316,16 +351,53 @@ export function paintPlanes<T extends CanvasHitItem>(
   let tier = 0;
   return items.map((item, index) => {
     const previous = items[index - 1];
-    const z = item.z ?? 0;
-    tier = previous !== undefined && (previous.z ?? 0) === z ? tier + 1 : 0;
-    return { item, z: z + tier * TIER_STEP };
+    tier = previous !== undefined && topOf(previous) === topOf(item) ? tier + 1 : 0;
+    return { item, z: (item.z ?? 0) + tier * TIER_STEP };
   });
 }
 
+/** An item's box as `paintPlanes` raises it: its lowest and highest corners. */
+function boxOf(item: CanvasHitItem, z: number): { readonly lo: Vec; readonly hi: Vec } {
+  return {
+    lo: [item.x, item.y, z],
+    hi: [item.x + item.width, item.y + item.height, z + (item.depth ?? 0)],
+  };
+}
+
 /**
- * The item under a screen point: of every item whose rectangle the eye's ray
- * crosses on its plane (`paintPlanes`), the nearest. `items` are in paint
- * order, back to front.
+ * How far along a ray it first enters a box, or null when it misses or only
+ * leaves it (the eye inside). A flat box is its rectangle: the ray meets its
+ * plane once, inside or not.
+ */
+function rayIntoBox(
+  ray: { readonly origin: CanvasPoint3; readonly dir: CanvasPoint3 },
+  box: { readonly lo: Vec; readonly hi: Vec },
+): number | null {
+  const origin: Vec = [ray.origin.x, ray.origin.y, ray.origin.z];
+  const dir: Vec = [ray.dir.x, ray.dir.y, ray.dir.z];
+  let enter = -Infinity;
+  let exit = Infinity;
+  for (const i of [0, 1, 2] as const) {
+    const lo = box.lo[i];
+    const hi = box.hi[i];
+    if (Math.abs(dir[i]) < 1e-12) {
+      // Running parallel to these faces: in the slab all along, or never.
+      if (origin[i] < lo || origin[i] > hi) return null;
+      continue;
+    }
+    const near = (lo - origin[i]) / dir[i];
+    const far = (hi - origin[i]) / dir[i];
+    enter = Math.max(enter, Math.min(near, far));
+    exit = Math.min(exit, Math.max(near, far));
+    if (enter > exit) return null;
+  }
+  return enter > 0 ? enter : null;
+}
+
+/**
+ * The item under a screen point: of every item whose box the eye's ray
+ * enters (`paintPlanes`), the nearest. `items` are in paint order, back to
+ * front.
  */
 export function hitTest(
   items: readonly CanvasHitItem[],
@@ -333,13 +405,11 @@ export function hitTest(
   size: ViewSize,
   screen: CanvasPoint,
 ): string | null {
+  const ray = screenRay(view, size, screen);
   let best: { id: string; t: number } | null = null;
   for (const { item, z } of paintPlanes(items)) {
-    const hit = rayToPlane(view, size, screen, z);
-    if (hit === null) continue;
-    const { x, y } = hit.point;
-    if (x < item.x || x > item.x + item.width || y < item.y || y > item.y + item.height) continue;
-    if (best === null || hit.t < best.t) best = { id: item.id, t: hit.t };
+    const t = rayIntoBox(ray, boxOf(item, z));
+    if (t !== null && (best === null || t < best.t)) best = { id: item.id, t };
   }
   return best?.id ?? null;
 }
@@ -403,13 +473,7 @@ export function fitView(
   const across = { min: Infinity, max: -Infinity };
   const upDown = { min: Infinity, max: -Infinity };
   for (const item of items) {
-    const z = item.z ?? 0;
-    for (const corner of [
-      [item.x, item.y, z],
-      [item.x + item.width, item.y, z],
-      [item.x, item.y + item.height, z],
-      [item.x + item.width, item.y + item.height, z],
-    ] as const) {
+    for (const corner of boxCorners(item, item.z ?? 0)) {
       corner.forEach((v, i) => {
         low[i] = Math.min(low[i] ?? v, v);
         high[i] = Math.max(high[i] ?? v, v);

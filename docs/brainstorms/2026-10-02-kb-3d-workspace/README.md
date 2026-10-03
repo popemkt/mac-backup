@@ -166,6 +166,10 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
    and cylinders exactly. Cone, prism and arrow use their box in v1.
    - Depth 0 is today's rectangle, so the restructure is proven by the
      current contract suite.
+   - Built in step 2: `CanvasHitItem` is a box with an optional `depth`, and
+     `hitTest` enters it with one slab test that a flat box also passes. The
+     document has no `depth` yet (step 3), so every item is still flat. The
+     exact ellipsoid and cylinder tests come with those shapes.
    - There is no three `Raycaster` and no BVH. Picking stays pure and
      GPU-free in tests. `three-mesh-bvh` waits for GLB models.
 
