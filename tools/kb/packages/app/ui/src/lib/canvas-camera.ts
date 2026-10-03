@@ -146,6 +146,74 @@ export function projectPoint(
   };
 }
 
+/** Screen bounds, CSS pixels from the viewport's top left. */
+export interface ScreenRect {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+/** How near the eye a point may be and still project, canvas units. */
+const NEAR_EYE = 1e-3;
+
+/**
+ * The screen bounds of an item's rectangle on its plane, as `view` draws it:
+ * the part in front of the eye, clipped where it passes beside it; null when
+ * none of it is in front.
+ */
+export function screenBounds(
+  view: CanvasView,
+  size: ViewSize,
+  item: CanvasHitItem,
+): ScreenRect | null {
+  const frame = frameOf(view, size);
+  const z = item.z ?? 0;
+  const corners: Vec[] = [
+    [item.x, item.y, z],
+    [item.x + item.width, item.y, z],
+    [item.x + item.width, item.y + item.height, z],
+    [item.x, item.y + item.height, z],
+  ];
+  // Each corner in the camera's own axes: across, down, and how far in front of the eye.
+  const local = corners.map((p): Vec => {
+    const v: Vec = [p[0] - frame.eye[0], p[1] - frame.eye[1], p[2] - frame.eye[2]];
+    return [dot(v, frame.right), dot(v, frame.down), -dot(v, frame.back)];
+  });
+  const focal = frame.focal;
+  // Orthographic: every corner projects, wherever the eye stands.
+  const kept = focal === null ? local : clipInFront(local);
+  if (kept.length === 0) return null;
+  const xs = kept.map(
+    ([h, , d]) => size.width / 2 + (focal === null ? h * view.zoom : (h * focal) / d),
+  );
+  const ys = kept.map(
+    ([, v, d]) => size.height / 2 + (focal === null ? v * view.zoom : (v * focal) / d),
+  );
+  return {
+    left: Math.min(...xs),
+    top: Math.min(...ys),
+    right: Math.max(...xs),
+    bottom: Math.max(...ys),
+  };
+}
+
+/** A convex polygon in camera axes cut to what lies at least {@link NEAR_EYE} in front of the eye. */
+function clipInFront(polygon: readonly Vec[]): Vec[] {
+  const out: Vec[] = [];
+  polygon.forEach((a, i) => {
+    const b = polygon[(i + 1) % polygon.length] ?? a;
+    const aIn = a[2] >= NEAR_EYE;
+    const bIn = b[2] >= NEAR_EYE;
+    if (aIn) out.push(a);
+    if (aIn !== bIn) {
+      const t = (NEAR_EYE - a[2]) / (b[2] - a[2]);
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, NEAR_EYE]);
+    }
+  });
+  return out;
+}
+
 /** The eye's ray through a screen point: where it starts and which way it runs (unit length). */
 function screenRay(
   view: CanvasView,

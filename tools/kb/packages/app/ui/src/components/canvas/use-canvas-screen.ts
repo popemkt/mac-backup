@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { CanvasDoc } from "@kb/canvas";
 import { SCREEN_APPLIED, screenRejected, type ScreenAck } from "@kb/contracts";
+import { viewOfPan } from "@/lib/canvas-camera";
 import { visibleItemIds } from "@/lib/canvas-visible";
 import type { CanvasSelection } from "@/lib/canvas-selection";
 import { usePaneScreen, type PaneSelection } from "@/stores/screen.store";
@@ -91,7 +92,10 @@ export function useCanvasScreen({
         // The 2D camera, also while the canvas is seen in 3D.
         // GAP [[01M3YMCVN656CNRJ3F3R91MHKA]]
         viewport: { x: pan.x, y: pan.y, zoom },
-        visible: visibleItemIds(doc.nodes, { pan, zoom, width, height }),
+        visible: visibleItemIds(doc.nodes, viewOfPan(pan, zoom, { width, height }), {
+          width,
+          height,
+        }),
       },
     },
     select,

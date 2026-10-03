@@ -1,28 +1,27 @@
 import type { CanvasNode } from "@kb/canvas";
+import { screenBounds, type CanvasView, type ViewSize } from "@/lib/canvas-camera";
 
-/** The 2D canvas camera: screen = pan + canvas × zoom (`canvas-stage`'s transform). */
-export interface CanvasView2d {
-  readonly pan: { readonly x: number; readonly y: number };
-  readonly zoom: number;
-  /** The stage's size on screen, in pixels. */
-  readonly width: number;
-  readonly height: number;
-}
-
-/** The ids of the items any part of which is inside the stage, in document order. */
-export function visibleItemIds(items: readonly CanvasNode[], view: CanvasView2d): string[] {
-  if (view.zoom <= 0 || view.width <= 0 || view.height <= 0) return [];
-  const left = -view.pan.x / view.zoom;
-  const top = -view.pan.y / view.zoom;
-  const right = left + view.width / view.zoom;
-  const bottom = top + view.height / view.zoom;
+/**
+ * The ids of the items any part of which `view` draws inside a stage of
+ * `size`, in document order: what the screen state reports as visible, in
+ * whichever projection holds the camera.
+ */
+export function visibleItemIds(
+  items: readonly CanvasNode[],
+  view: CanvasView,
+  size: ViewSize,
+): string[] {
+  if (view.zoom <= 0 || size.width <= 0 || size.height <= 0) return [];
   return items
-    .filter(
-      (item) =>
-        item.x < right &&
-        item.x + item.width > left &&
-        item.y < bottom &&
-        item.y + item.height > top,
-    )
+    .filter((item) => {
+      const drawn = screenBounds(view, size, item);
+      return (
+        drawn !== null &&
+        drawn.left < size.width &&
+        drawn.right > 0 &&
+        drawn.top < size.height &&
+        drawn.bottom > 0
+      );
+    })
     .map((item) => item.id);
 }
