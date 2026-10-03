@@ -17,9 +17,8 @@ import {
   WallIcon,
 } from "@phosphor-icons/react";
 import { CANVAS_SOLID_PRESETS, type CanvasProjectionKind } from "@kb/canvas";
-import { isSolidTool, solidOf, type CanvasTool, type ToolState } from "@/lib/canvas-tool";
-import { cn } from "@/lib/cn";
-import { isOutside } from "@/lib/dom";
+import { isSolidTool, solidOf, type CanvasTool, type ToolState } from "./canvas-tool";
+import { cn, isOutside } from "@/sdk";
 import { CANVAS_PROJECTIONS } from "./canvas-projections";
 
 /** Every tool's name and mark: tsc asks for one per preset, so a new preset cannot go unnamed. */

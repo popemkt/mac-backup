@@ -6,12 +6,18 @@
 import { act, createElement, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { CanvasDoc } from "@kb/canvas";
-import type { CanvasView } from "@/lib/canvas-camera";
-import { EMPTY_SELECTION } from "@/lib/canvas-selection";
+import type { CanvasView } from "./canvas-camera";
+import { EMPTY_SELECTION } from "./canvas-selection";
 import { useScreenStore } from "@/stores/screen.store";
 import { useCanvasScreen } from "./use-canvas-screen";
+import { browserHostUiPlugin } from "@/browser-host";
+import { syncUiPlugins } from "@/lib/plugins";
+
+// The canvas reaches the shell through the page's host, as when the app boots.
+beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 const doc: CanvasDoc = {
   nodes: [

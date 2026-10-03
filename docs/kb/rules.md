@@ -311,9 +311,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: canvas UI still lives in @kb/ui, not in a canvas browser plugin
 
 - **expected** — Canvas is three packages around one concept, one scope:* tag each, never one package with two entries. @kb/canvas (scope:shared, no dependencies) owns the JSON Canvas document. @kb/ext-canvas (scope:backend) is the backend plugin: ext.canvas.tx.apply plus the #canvas tag and sys.f.canvas field seeds, which leave @kb/model's systemSeedNodes because the system seed is core, not every view kb ships. A browser plugin package (scope:browser) contributes the canvas surfaces and sidebar section to the browser kernel. Both plugins depend on @kb/plugin and @kb/canvas, and neither names the other by a string literal.
-- **current** — The canvas UI is a built-in UI plugin in packages/app/ui/src/components/canvas (plugin.ts, surfaces.tsx) plus ~12 lib/canvas-* modules; sys.tag.canvas and sys.f.canvas are seeded by core; the UI calls the action by the string ext.canvas.tx.apply.
+- **current** — The canvas UI is a built-in UI plugin in packages/app/ui/src/components/canvas, its former lib/canvas-* modules included; it reaches the shell only through the sdk zone (src/sdk) except one sanctioned store import (01M41MHRD7MF4NP23EE294B69C); sys.tag.canvas and sys.f.canvas are seeded by core; the UI calls the action by the string ext.canvas.tx.apply.
 - **impact** — An extension cannot own its UI, so canvas is only nominally an extension, and removing ext-canvas leaves a canvas UI with no backend.
-- **closes** — First @kb/ui-sdk, decided as a design: the host API a browser plugin may use (the store selectors canvas needs, the text-host and sidebar primitives, invoke, live query, the UI points). Then, in order: state the three-package shape in DESIGN.md's Core boundary & extensions; create the browser plugin package and move components/canvas and the lib/canvas-* modules into it; move the canvas seeds from systemSeedNodes into @kb/ext-canvas. The harness keeps one scope per package; no per-entry scope.
+- **closes** — Make the sdk zone the @kb/ui-sdk package (plan step E11), then move components/canvas into a browser package @kb/canvas-ui built against it (E13); move the canvas keys, ids and seed into @kb/canvas's shared plugin (E9), not @kb/ext-canvas. The harness keeps one scope per package; no per-entry scope.
 - **node** — `01M39F3MR3HT2NR553FY8CRD6X`
 
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
@@ -526,7 +526,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: nothing confines feature imports to a composition root's bundled list
 
 - **expected** — an app package imports an extension package only from its one bundled-extensions file, and the harness checks it
-- **current** — LAYER_ALLOWS.app (tools/kb/harness/src/constraints.ts) admits every extension import from any file of an app package; feature wiring sits in registry.ts, layers.ts, cli.ts, the cli bins and ui-plugins.ts, and also deep in @kb/ui (src/agent.ts, components/agent, lib/canvas-*); core never names a feature is prose
+- **current** — LAYER_ALLOWS.app (tools/kb/harness/src/constraints.ts) admits every extension import from any file of an app package; feature wiring sits in registry.ts, layers.ts, cli.ts, the cli bins and ui-plugins.ts, and also deep in @kb/ui (src/agent.ts, components/agent, components/canvas); core never names a feature is prose
 - **impact** — the next move out of core can silently regrow a hardwired import, and a feature can be wired from anywhere
 - **closes** — EXTENSION_ROOTS in constraints.ts with a red fixture; the existing breaches GAP-marked until E12/E13 remove them
 - **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
@@ -735,6 +735,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Either ds/ exports the index layer the session runtime builds, or the seam moves to session/ and ds/ becomes its caller — one of the two, decided when the browser store's ownership settles.
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
+
+### GAP: the canvas's node card edits text through the outline's store binding
+
+- **expected** — the canvas kb-node card edits a node's text in place through the sdk: a NodeTextHost binding built over BrowserHost (graph reads, caret hand-off, text-host registry and node palette as host reads and gestures), so the canvas zone names no store
+- **current** — packages/app/ui/src/components/canvas/canvas-card.tsx imports useNodeTextHostBinding from stores/node-text-host-binding, which reads the outline store through tracked graph reads, to drive the NodeTextHost primitive; the sdk has no equivalent, so this one import is a sanctioned UI_ALLOWS breach
+- **impact** — the canvas zone keeps one reach into the shell's stores, so @kb/canvas-ui cannot leave @kb/ui until it is replaced
+- **closes** — a NodeTextHost binding in the sdk over BrowserHost, designed with @kb/ui-sdk (plan step E11), then canvas-card uses it and the GAP marker goes
+- **node** — `01M41MHRD7MF4NP23EE294B69C`
 
 ### GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not packages
 

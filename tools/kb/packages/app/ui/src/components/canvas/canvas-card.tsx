@@ -1,14 +1,17 @@
-import { classifyCardPointer } from "@/lib/card-pointer";
-import { asInstance } from "@/lib/dom";
+import { classifyCardPointer } from "./card-pointer";
+import {
+  asInstance,
+  browserHost,
+  Bullet,
+  cn,
+  NodeRow,
+  NodeTextHost,
+  useIsActive,
+  useNode,
+} from "@/sdk";
 import { useCallback } from "react";
 import type { CanvasKbNode, CanvasTextNode } from "@kb/canvas";
-import { Bullet } from "@/components/outline/bullet";
-import { NodeRow } from "@/components/outline/node-row";
-import { NodeTextHost } from "@/components/ui/node-text-host";
-import { mutations } from "@/actions/mutations";
-import { useOutlineStore } from "@/stores/outline.store";
-import { useNodeTextHostBinding } from "@/stores/node-text-host-binding";
-import { cn } from "@/lib/cn";
+import { useNodeTextHostBinding } from "@/stores/node-text-host-binding"; // GAP [[01M41MHRD7MF4NP23EE294B69C]]
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
 
@@ -35,7 +38,7 @@ function handleCanvasNodeKeyDown(
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
     asInstance(event.target, HTMLElement)?.blur();
-    useOutlineStore.getState().selectNode(nodeId, instanceKey);
+    browserHost().selectNode(nodeId, instanceKey);
     return;
   }
   if (
@@ -55,20 +58,16 @@ export function KbNodeCard({
   onResizeStart,
   onPortDown,
 }: KbCardProps) {
-  const node = useOutlineStore((s) => s.nodes.get(card.nodeId));
-  const activeNodeId = useOutlineStore((s) => s.activeNodeId);
-  const activeInstanceKey = useOutlineStore((s) => s.activeInstanceKey);
-  const activateNode = useOutlineStore((s) => s.activateNode);
-  const selectNode = useOutlineStore((s) => s.selectNode);
+  const node = useNode(card.nodeId);
   const instanceKey = canvasCardInstanceKey(card.id, card.nodeId);
-  const isActive = activeNodeId === card.nodeId && activeInstanceKey === instanceKey;
+  const isActive = useIsActive(card.nodeId, instanceKey);
   const binding = useNodeTextHostBinding(instanceKey);
 
   const handleActivate = useCallback(
     (cursorPos?: number) => {
-      activateNode(card.nodeId, cursorPos, instanceKey);
+      browserHost().activateNode(card.nodeId, cursorPos, instanceKey);
     },
-    [activateNode, card.nodeId, instanceKey],
+    [card.nodeId, instanceKey],
   );
 
   if (!node) {
@@ -119,7 +118,7 @@ export function KbNodeCard({
         isSelected={selected}
         isActive={isActive}
         onRowClick={() => {
-          selectNode(card.nodeId, instanceKey);
+          browserHost().selectNode(card.nodeId, instanceKey);
           onSelect();
         }}
         bullet={
@@ -128,7 +127,7 @@ export function KbNodeCard({
             isRef
             onClick={(e) => {
               e.stopPropagation();
-              selectNode(card.nodeId, instanceKey);
+              browserHost().selectNode(card.nodeId, instanceKey);
             }}
           />
         }
@@ -142,13 +141,13 @@ export function KbNodeCard({
             tags={node.tags}
             onActivate={handleActivate}
             onChange={(text) => {
-              void mutations.updateNodeContent(card.nodeId, text);
+              void browserHost().updateNodeContent(card.nodeId, text);
             }}
             onAttachFile={(file) => {
-              void mutations.attachFileToNode(card.nodeId, file);
+              void browserHost().attachFileToNode(card.nodeId, file);
             }}
             onRemoveTag={(tagId) => {
-              void mutations.removeTag(card.nodeId, tagId);
+              void browserHost().removeTag(card.nodeId, tagId);
             }}
             onKeyDown={(event) => handleCanvasNodeKeyDown(event, card.nodeId, instanceKey)}
           />

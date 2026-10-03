@@ -2,7 +2,7 @@ import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, test } from "vitest";
 import type { CanvasEdge, CanvasNode } from "@kb/canvas";
 import type { WireNode } from "@kb/contracts";
-import { planEdgeRelink, type EdgeRelinkContext } from "@/lib/canvas-edge-link";
+import { planEdgeRelink, type EdgeRelinkContext } from "./canvas-edge-link";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 

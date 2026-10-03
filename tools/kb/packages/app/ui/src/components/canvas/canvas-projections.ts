@@ -1,6 +1,6 @@
 /**
  * The canvas projections: the ways one canvas document is drawn, each the
- * one camera model (`lib/canvas-camera`) held a particular way
+ * one camera model (`components/canvas/canvas-camera`) held a particular way
  * (DESIGN-UI.md → Canvas → Projections).
  *
  * - **2D** is the camera from the top and orthographic, drawn as DOM cards
@@ -24,7 +24,7 @@ import {
   viewOfPose,
   withLens,
   type CanvasView,
-} from "@/lib/canvas-camera";
+} from "./canvas-camera";
 
 export interface CanvasProjection {
   readonly kind: CanvasProjectionKind;

@@ -1,4 +1,4 @@
-import type { ResizeCorner } from "@/lib/canvas-pointer";
+import type { ResizeCorner } from "./canvas-pointer";
 export type CanvasCorner = ResizeCorner;
 
 export function CanvasResizeHandles({

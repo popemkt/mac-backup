@@ -7,8 +7,10 @@
 import { definePlugin } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { proposeView } from "@/lib/propose-view";
+import { schemaOf } from "@/lib/schema";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import { BrowserHostService, type BrowserHost } from "@/sdk/host";
+import { invoke } from "@/session/runtime";
 import { followFrom } from "@/stores/follow";
 import { useOutlineStore } from "@/stores/outline.store";
 import {
@@ -18,6 +20,7 @@ import {
   usePrefsStore,
 } from "@/stores/prefs.store";
 import { refInkIn } from "@/stores/ref-ink";
+import { paneScreenPort } from "@/stores/screen.store";
 import { useUiStore } from "@/stores/ui.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 
@@ -32,6 +35,12 @@ const host: BrowserHost = {
     };
   },
   node: (id) => useOutlineStore.getState().nodes.get(id),
+  nodes: () => useOutlineStore.getState().nodes,
+  schema: () => schemaOf(useOutlineStore.getState()),
+  isActive: (nodeId, instanceKey) => {
+    const { activeNodeId, activeInstanceKey } = useOutlineStore.getState();
+    return activeNodeId === nodeId && activeInstanceKey === instanceKey;
+  },
   index: () => useOutlineStore.getState().index,
   wireNodes: () => useOutlineStore.getState().wireNodes,
   live: () => useUiStore.getState().wsStatus === "open",
@@ -44,8 +53,16 @@ const host: BrowserHost = {
   refInk: () => refInkIn(useOutlineStore.getState()),
   follow: followFrom,
   zoomTo: (id) => useOutlineStore.getState().zoomTo(id),
+  activateNode: (nodeId, cursorPos, instanceKey) =>
+    useOutlineStore.getState().activateNode(nodeId, cursorPos, instanceKey),
+  selectNode: (nodeId, instanceKey) => useOutlineStore.getState().selectNode(nodeId, instanceKey),
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),
   replaceField: (nodeId, fieldId, values) => mutations.replaceField(nodeId, fieldId, values),
+  updateNodeContent: (nodeId, text) => mutations.updateNodeContent(nodeId, text),
+  attachFileToNode: (nodeId, file) => mutations.attachFileToNode(nodeId, file),
+  removeTag: (nodeId, tagId) => mutations.removeTag(nodeId, tagId),
+  invoke,
+  screen: paneScreenPort,
   proposeView,
   sandbox: { hostFrame: hostSandboxFrame, invokeAsScript, isTrusted, setTrusted },
 };

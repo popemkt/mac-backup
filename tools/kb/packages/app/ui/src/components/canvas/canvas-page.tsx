@@ -1,52 +1,56 @@
 import { Suspense, lazy, useCallback, useMemo, useReducer, useRef, useState } from "react";
 import type { CanvasNode } from "@kb/canvas";
 import { upsertCanvasEdge, upsertCanvasNode } from "@kb/canvas";
-import { cn } from "@/lib/cn";
-import { useAppearance } from "@/stores/prefs.store";
-import { useCanvasProjection } from "@/components/canvas/use-canvas-projection";
-import { Bullet } from "@/components/outline/bullet";
-import { NodeRow } from "@/components/outline/node-row";
-import { NotFound } from "@/components/ui/not-found";
-import { CanvasOverlays } from "@/components/canvas/canvas-overlays";
-import { CanvasStage } from "@/components/canvas/canvas-stage";
-import { CanvasViewWidget } from "@/components/canvas/canvas-view-widget";
-import { useCanvasDoc } from "@/components/canvas/use-canvas-doc";
-import { createCanvasEdgeActions } from "@/components/canvas/use-canvas-edge-actions";
-import { useCanvasGestures } from "@/components/canvas/use-canvas-gestures";
-import { useCanvasKeyboard } from "@/components/canvas/use-canvas-keyboard";
-import { useCanvasScreen } from "@/components/canvas/use-canvas-screen";
-import { useCanvasSelection } from "@/components/canvas/use-canvas-selection";
-import { listRefFields } from "@/lib/canvas-api";
-import type { ToolState } from "@/lib/canvas-tool";
+import {
+  Bullet,
+  cn,
+  navigate,
+  NodeRow,
+  NotFound,
+  useAppearance,
+  useGeneration,
+  useIndex,
+  useNodes,
+  useSchema,
+} from "@/sdk";
+import { useCanvasProjection } from "./use-canvas-projection";
+import { CanvasOverlays } from "./canvas-overlays";
+import { CanvasStage } from "./canvas-stage";
+import { CanvasViewWidget } from "./canvas-view-widget";
+import { useCanvasDoc } from "./use-canvas-doc";
+import { createCanvasEdgeActions } from "./use-canvas-edge-actions";
+import { useCanvasGestures } from "./use-canvas-gestures";
+import { useCanvasKeyboard } from "./use-canvas-keyboard";
+import { useCanvasScreen } from "./use-canvas-screen";
+import { useCanvasSelection } from "./use-canvas-selection";
+import { listRefFields } from "./canvas-api";
+import type { ToolState } from "./canvas-tool";
 import {
   EMPTY_SELECTION,
   deleteSelected,
   selectNode as selNode,
   selectionEmpty,
-} from "@/lib/canvas-selection";
+} from "./canvas-selection";
 import {
   createPointerState,
   pointerReduce,
   type CanvasPointerEvent,
   type PointerResult,
   type PointerState,
-} from "@/lib/canvas-pointer";
-import { navigate } from "@/lib/router";
-import { schemaOf } from "@/lib/schema";
-import { useOutlineStore } from "@/stores/outline.store";
+} from "./canvas-pointer";
 
 /** The 3D projection's chunk: three loads only when a canvas is looked at in depth. */
-const Canvas3dStage = lazy(() => import("@/components/canvas/canvas-3d-stage"));
+const Canvas3dStage = lazy(() => import("./canvas-3d-stage"));
 
 interface CanvasPageProps {
   canvasId: string;
 }
 
 export function CanvasPage({ canvasId }: CanvasPageProps) {
-  const nodes = useOutlineStore((s) => s.nodes);
-  const schema = useOutlineStore(schemaOf);
-  const queryDb = useOutlineStore((s) => s.index);
-  const rev = useOutlineStore((s) => s.index?.generation ?? 0);
+  const nodes = useNodes();
+  const schema = useSchema();
+  const queryDb = useIndex();
+  const rev = useGeneration();
   const canvasNode = nodes.get(canvasId);
 
   const [pointerState, setPointerState] = useReducer(

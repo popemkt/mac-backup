@@ -4,12 +4,14 @@
  * store, and the host holds no hook of its own (see `sdk/host.ts`).
  */
 import { useCallback, useContext, useSyncExternalStore } from "react";
-import type { KbNode } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "@/ds";
 import { OpenNodeContext, type Follow } from "@/lib/follow";
 import type { RefInk } from "@/lib/md-edit";
 import { usePane } from "@/lib/pane";
+import { usePaneScreenThrough, type PaneReport, type PaneSelect } from "@/lib/pane-screen";
+import type { SchemaIndex } from "@/lib/schema";
+import type { NodeMap, OutlineNode } from "@/lib/types";
 import { useQueryNodeRows, type QueryNodeRows } from "@/lib/use-query-node-rows";
 import type { Appearance, ThemePref } from "@/lib/theme";
 import { useNarrowViewport } from "@/lib/viewport";
@@ -23,8 +25,31 @@ function useHostValue<T>(read: (host: BrowserHost) => T): T {
 }
 
 /** A node of the live graph; undefined for no id or no such node. */
-export function useNode(id: string | undefined): KbNode | undefined {
+export function useNode(id: string | undefined): OutlineNode | undefined {
   return useHostValue((host) => (id === undefined ? undefined : host.node(id)));
+}
+
+/** Every node of the live graph. */
+export function useNodes(): NodeMap {
+  return useHostValue((host) => host.nodes());
+}
+
+/** The live graph's schema. */
+export function useSchema(): SchemaIndex {
+  return useHostValue((host) => host.schema());
+}
+
+/** Whether a node is being edited in this instance. */
+export function useIsActive(nodeId: string, instanceKey: string): boolean {
+  return useHostValue((host) => host.isActive(nodeId, instanceKey));
+}
+
+/**
+ * Report what this view shows for the pane it is drawn in, and carry out its
+ * selects with `select`, until it unmounts (`lib/pane-screen`).
+ */
+export function usePaneScreen(report: PaneReport, select: PaneSelect): void {
+  usePaneScreenThrough(browserHost().screen, report, select);
 }
 
 /** The replica's index, or null before the graph has loaded. */

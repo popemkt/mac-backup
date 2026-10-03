@@ -1,5 +1,5 @@
 import type { CanvasNode } from "@kb/canvas";
-import { screenBounds, type CanvasView, type ViewSize } from "@/lib/canvas-camera";
+import { screenBounds, type CanvasView, type ViewSize } from "./canvas-camera";
 
 /**
  * The ids of the items any part of which `view` draws inside a stage of

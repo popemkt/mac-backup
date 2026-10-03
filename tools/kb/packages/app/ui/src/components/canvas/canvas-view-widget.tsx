@@ -19,15 +19,10 @@ import {
   screenAxes,
   type CanvasView,
   type CanvasViewPreset,
-} from "@/lib/canvas-camera";
-import type { CanvasCameraRig } from "@/lib/canvas-camera-rig";
-import {
-  CANVAS_VIEW_COMMANDS,
-  type CanvasIntent,
-  type CanvasViewCommand,
-} from "@/lib/canvas-keymap";
-import { cn } from "@/lib/cn";
-import { isOutside } from "@/lib/dom";
+} from "./canvas-camera";
+import type { CanvasCameraRig } from "./canvas-camera-rig";
+import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
+import { cn, isOutside } from "@/sdk";
 
 export interface CanvasViewWidgetProps {
   readonly rig: CanvasCameraRig;

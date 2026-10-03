@@ -14,7 +14,7 @@ import {
   planNativeBind,
   isValidNativeTarget,
   syncDocOnRev,
-} from "@/lib/canvas-api";
+} from "./canvas-api";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { clearAllowedRefIdsCache } from "@/lib/field-type";
 

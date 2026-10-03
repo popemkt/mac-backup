@@ -1,13 +1,19 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import type { CanvasDoc } from "@kb/canvas";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useOutlineStore } from "@/stores/outline.store";
 import { CanvasPage } from "./canvas-page";
-import type * as CanvasApi from "@/lib/canvas-api";
+import type * as CanvasApi from "./canvas-api";
+import { browserHostUiPlugin } from "@/browser-host";
+import { syncUiPlugins } from "@/lib/plugins";
+
+// The canvas reaches the shell through the page's host, as when the app boots.
+beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 const doc: CanvasDoc = {
   nodes: [
@@ -16,7 +22,7 @@ const doc: CanvasDoc = {
   ],
   edges: [],
 };
-vi.mock("@/lib/canvas-api", async (original) => ({
+vi.mock("./canvas-api", async (original) => ({
   ...(await original<typeof CanvasApi>()),
   readCanvasDoc: () => doc,
   syncDocOnRev: () => {},

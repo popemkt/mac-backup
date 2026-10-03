@@ -11,11 +11,8 @@ import {
   withElevation,
   type CanvasNode,
 } from "@kb/canvas";
-import { PopoverShell } from "@/components/ui/popover-shell";
-import { CANVAS_COLOR_PRESETS } from "@/lib/canvas-color";
-import { cn } from "@/lib/cn";
-import { isOutside } from "@/lib/dom";
-import { hasText } from "@/lib/text";
+import { cn, hasText, isOutside, PopoverShell } from "@/sdk";
+import { CANVAS_COLOR_PRESETS } from "./canvas-color";
 
 export interface ItemInspectorProps {
   item: CanvasNode;

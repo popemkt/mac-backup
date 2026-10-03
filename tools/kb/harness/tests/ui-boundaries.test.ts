@@ -4,6 +4,7 @@ import {
   UI_SPECIFIER_ALLOWS,
   UI_SRC,
   type UiZone,
+  isUiTestFile,
   uiZoneOf,
 } from "../src/constraints.ts";
 import {
@@ -23,14 +24,24 @@ import {
  */
 const EXTENSION_ZONES = [
   "components/agent",
+  "components/canvas",
+  "components/canvas/3d",
   "components/chart",
   "components/code",
   "components/lab",
-] as const;
+] as const satisfies readonly UiZone[];
 
-/** How each import of `source`, written in a file of `zone`, breaks the matrix. */
-function fixtureBreaches(zone: string, source: string): Array<string | undefined> {
-  return uiImportSitesIn(`${zone}/fixture.tsx`, source).map((site) => uiViolation(site));
+/**
+ * How each import of `source`, written in a file of `zone`, breaks the matrix.
+ * The file is a real one of that zone, because a zone is not always a folder
+ * (the canvas's 3D projection is a set of files).
+ */
+function fixtureBreaches(zone: UiZone, source: string): Array<string | undefined> {
+  const file = uiSourceFiles().find(
+    (candidate) => uiZoneOf(candidate) === zone && !isUiTestFile(candidate),
+  );
+  if (file === undefined) throw new Error(`no file in ${zone}`);
+  return uiImportSitesIn(file, source).map((site) => uiViolation(site));
 }
 
 /**

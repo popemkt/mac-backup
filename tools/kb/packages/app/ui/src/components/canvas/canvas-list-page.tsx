@@ -1,13 +1,9 @@
 import { useMemo, useState } from "react";
-import { Bullet } from "@/components/outline/bullet";
-import { NodeRow } from "@/components/outline/node-row";
-import { createCanvasNode, listCanvasNodes } from "@/lib/canvas-api";
-import { navigate } from "@/lib/router";
-import { useOutlineStore } from "@/stores/outline.store";
-import { WorkspaceState } from "@/components/ui/workspace-state";
+import { Bullet, navigate, NodeRow, useNodes, WorkspaceState } from "@/sdk";
+import { createCanvasNode, listCanvasNodes } from "./canvas-api";
 
 export function CanvasListPage() {
-  const nodes = useOutlineStore((s) => s.nodes);
+  const nodes = useNodes();
   const canvases = useMemo(() => listCanvasNodes(nodes), [nodes]);
   const [busy, setBusy] = useState(false);
 

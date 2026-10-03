@@ -5,9 +5,18 @@
  * ext.canvas.tx.apply; afterward the edge does not track/own the prop.
  * Bound vs unbound is computed at render time only (no reconciler writes).
  */
-import type { SchemaIndex } from "@/lib/schema";
+import {
+  browserHost,
+  isSysPrefixed,
+  type KbIndex,
+  logError,
+  type OutlineNode,
+  type PropValue,
+  resolveAllowedRefIds,
+  resolveFieldType,
+  type SchemaIndex,
+} from "@/sdk";
 import { ulid } from "ulid";
-import { invoke } from "@/session/runtime";
 import {
   EMPTY_CANVAS_DOC,
   isNativeEdgeBound,
@@ -16,11 +25,7 @@ import {
   type CanvasDoc,
   type CanvasEdge,
 } from "@kb/canvas";
-import { resolveAllowedRefIds, resolveFieldType } from "@/lib/field-type";
-import { typeRefsOf } from "@kb/model";
-import { SYSTEM_IDS, isSysPrefixed, type PropValue, type OutlineNode } from "@/lib/types";
-import type { KbIndex } from "@/ds";
-import { logError } from "@/lib/log";
+import { SYSTEM_IDS, typeRefsOf } from "@kb/model";
 
 export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
   if (!node) return { nodes: [], edges: [] };
@@ -140,7 +145,7 @@ export async function persistCanvasDoc(
     unsetProps?: { field: string; value?: unknown }[];
   },
 ): Promise<boolean> {
-  const receipt = await invoke("ext.canvas.tx.apply", {
+  const receipt = await browserHost().invoke("ext.canvas.tx.apply", {
     canvasId,
     doc: stringifyCanvasDoc(doc),
     propTargetId: opts?.propTargetId,
@@ -157,7 +162,7 @@ export async function persistCanvasDoc(
 export async function createCanvasNode(text = "Untitled canvas"): Promise<string | null> {
   const id = ulid();
   const docStr = stringifyCanvasDoc(EMPTY_CANVAS_DOC);
-  const receipt = await invoke("node.add", {
+  const receipt = await browserHost().invoke("node.add", {
     text,
     id,
     tags: [SYSTEM_IDS.canvasTag],

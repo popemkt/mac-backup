@@ -8,16 +8,13 @@
  */
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import type { CanvasDoc, CanvasNode } from "@kb/canvas";
-import type { CanvasPoint, CanvasPoint3, ViewSize } from "@/lib/canvas-camera";
-import type { CanvasCameraRig } from "@/lib/canvas-camera-rig";
-import type { CanvasPointerEvent } from "@/lib/canvas-pointer";
-import type { CanvasSelection } from "@/lib/canvas-selection";
-import { useReducedMotion } from "@/lib/motion";
-import { readTiming } from "@/lib/timing";
-import type { OutlineNode } from "@/lib/types";
+import type { CanvasPoint, CanvasPoint3, ViewSize } from "./canvas-camera";
+import type { CanvasCameraRig } from "./canvas-camera-rig";
+import type { CanvasPointerEvent } from "./canvas-pointer";
+import type { CanvasSelection } from "./canvas-selection";
+import { type Appearance, type OutlineNode, readTiming, useReducedMotion } from "@/sdk";
 import { attachScene } from "@/scene/host";
 import { readScenePalette } from "@/scene/palette";
-import type { Appearance } from "@/lib/theme";
 import { readCardLook } from "./canvas-card-face";
 import { mountCanvasScene, type CanvasScene } from "./canvas-scene";
 import { SceneGestures, type SceneGestureHost, type ScenePress } from "./canvas-scene-gestures";

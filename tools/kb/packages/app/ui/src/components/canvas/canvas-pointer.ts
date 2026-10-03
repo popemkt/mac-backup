@@ -8,16 +8,16 @@ import {
   type CanvasNode,
   type CanvasSide,
 } from "@kb/canvas";
-import { sidePoint } from "@/lib/canvas-edge-path";
-import { snapCanvasLift, snapCanvasMove, snapToSurface, type SnapGuide } from "@/lib/canvas-snap";
-import { pastSlop } from "@/lib/pointer-slop";
+import { sidePoint } from "./canvas-edge-path";
+import { snapCanvasLift, snapCanvasMove, snapToSurface, type SnapGuide } from "./canvas-snap";
+import { pastSlop } from "@/sdk";
 import {
   EMPTY_SELECTION,
   addNodes,
   marqueeSelect,
   selectEdge,
   type CanvasSelection,
-} from "@/lib/canvas-selection";
+} from "./canvas-selection";
 
 const MIN_NODE_W = 80;
 const MIN_NODE_H = 40;
@@ -110,7 +110,7 @@ export interface PointerState {
  * A gesture as the projection that saw it reports it. `screen` is where the
  * pointer is on screen, which decides slop and panning; `world` is the canvas
  * point it stands for, which decides where things go. How a screen point
- * becomes a canvas point is the projection's (`lib/canvas-camera`): a card
+ * becomes a canvas point is the projection's (`components/canvas/canvas-camera`): a card
  * moves on the plane it lies in, whatever the camera.
  */
 export type CanvasPointerEvent =

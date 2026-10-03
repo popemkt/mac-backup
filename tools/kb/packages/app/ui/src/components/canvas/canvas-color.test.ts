@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { CANVAS_COLOR_PRESETS, resolveCanvasColor } from "./canvas-color";
 
 const designSystemCss = readFileSync(
-  path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "design-system.css"),
+  path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "design-system.css"),
   "utf8",
 );
 

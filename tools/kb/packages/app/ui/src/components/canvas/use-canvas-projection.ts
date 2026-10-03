@@ -18,12 +18,10 @@ import {
   type CanvasViewportControls,
   type FlatViewportControls,
   type ViewSize,
-} from "@/lib/canvas-camera";
-import { CanvasCameraRig } from "@/lib/canvas-camera-rig";
-import type { CanvasPointerEvent, PointerResult } from "@/lib/canvas-pointer";
-import { logError } from "@/lib/log";
-import { prefersReducedMotion } from "@/lib/motion";
-import { readTiming } from "@/lib/timing";
+} from "./canvas-camera";
+import { CanvasCameraRig } from "./canvas-camera-rig";
+import type { CanvasPointerEvent, PointerResult } from "./canvas-pointer";
+import { logError, prefersReducedMotion, readTiming } from "@/sdk";
 import { CanvasHandover, type HandoverCanvas } from "./canvas-handover";
 
 /**

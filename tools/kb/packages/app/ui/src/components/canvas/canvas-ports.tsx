@@ -1,5 +1,5 @@
 import type { CanvasSide } from "@kb/canvas";
-import { cn } from "@/lib/cn";
+import { cn } from "@/sdk";
 
 /** Shared, unclipped connection targets for every canvas card. */
 export function CanvasPorts({

@@ -1,4 +1,4 @@
-import { asElement } from "@/lib/dom";
+import { asElement } from "@/sdk";
 
 /**
  * What a pointerdown on a canvas card means.

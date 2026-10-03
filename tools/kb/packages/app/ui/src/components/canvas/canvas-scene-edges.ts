@@ -25,7 +25,7 @@ import {
   type CanvasNode,
   type CanvasSide,
 } from "@kb/canvas";
-import { sidePoint } from "@/lib/canvas-edge-path";
+import { sidePoint } from "./canvas-edge-path";
 import type { CardLook } from "./canvas-card-face";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 

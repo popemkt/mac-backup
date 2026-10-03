@@ -25,8 +25,8 @@ import {
   type CanvasView,
   type CanvasViewportControls,
   type ViewSize,
-} from "@/lib/canvas-camera";
-import { easeAt, type Timing } from "@/lib/timing";
+} from "./canvas-camera";
+import { easeAt, type Timing } from "@/sdk";
 
 interface Flight {
   readonly from: CanvasView;

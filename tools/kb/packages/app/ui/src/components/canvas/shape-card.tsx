@@ -7,9 +7,9 @@ import {
   type CanvasShapeNode,
   type CanvasVolume,
 } from "@kb/canvas";
-import { resolveCanvasColor } from "@/lib/canvas-color";
-import { classifyCardPointer } from "@/lib/card-pointer";
-import { cn } from "@/lib/cn";
+import { resolveCanvasColor } from "./canvas-color";
+import { classifyCardPointer } from "./card-pointer";
+import { cn, hasText, textOr } from "@/sdk";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
@@ -19,8 +19,7 @@ import {
   startLabelEdit,
   typeLabelDraft,
   type LabelEditState,
-} from "@/lib/shape-label-edit";
-import { hasText, textOr } from "@/lib/text";
+} from "./shape-label-edit";
 
 interface ShapeCardProps {
   card: CanvasShapeNode;

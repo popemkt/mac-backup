@@ -11,13 +11,12 @@ import {
   shapeOutline,
   svgPathData,
 } from "@kb/canvas";
-import { KbNodeCard, TextCard } from "@/components/canvas/canvas-card";
-import { ShapeCard } from "@/components/canvas/shape-card";
-import type { CanvasSelection } from "@/lib/canvas-selection";
-import type { ResizeCorner } from "@/lib/canvas-pointer";
-import { classifyCardPointer } from "@/lib/card-pointer";
-import { hasText } from "@/lib/text";
-import { cn } from "@/lib/cn";
+import { KbNodeCard, TextCard } from "./canvas-card";
+import { ShapeCard } from "./shape-card";
+import type { CanvasSelection } from "./canvas-selection";
+import type { ResizeCorner } from "./canvas-pointer";
+import { classifyCardPointer } from "./card-pointer";
+import { cn, hasText } from "@/sdk";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles } from "./canvas-resize-handles";

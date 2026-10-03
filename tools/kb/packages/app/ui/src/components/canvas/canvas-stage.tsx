@@ -1,11 +1,10 @@
 import type { CanvasDoc, CanvasEdge, CanvasNode, CanvasSide } from "@kb/canvas";
-import { CanvasCardLayer } from "@/components/canvas/canvas-card-layer";
-import { CanvasEdgeLayer } from "@/components/canvas/canvas-edge-layer";
-import type { CanvasSelection } from "@/lib/canvas-selection";
-import type { PointerResult, PointerState, ResizeCorner } from "@/lib/canvas-pointer";
-import type { ToolState } from "@/lib/canvas-tool";
-import type { OutlineNode } from "@/lib/types";
-import { cn } from "@/lib/cn";
+import { CanvasCardLayer } from "./canvas-card-layer";
+import { CanvasEdgeLayer } from "./canvas-edge-layer";
+import type { CanvasSelection } from "./canvas-selection";
+import type { PointerResult, PointerState, ResizeCorner } from "./canvas-pointer";
+import type { ToolState } from "./canvas-tool";
+import { cn, type OutlineNode } from "@/sdk";
 
 interface CanvasStageProps {
   doc: CanvasDoc;

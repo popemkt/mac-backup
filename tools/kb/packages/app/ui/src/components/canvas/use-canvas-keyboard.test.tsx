@@ -3,8 +3,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { CanvasDoc } from "@kb/canvas";
-import { EMPTY_SELECTION, selectNode, type CanvasSelection } from "@/lib/canvas-selection";
-import type { ToolState } from "@/lib/canvas-tool";
+import { EMPTY_SELECTION, selectNode, type CanvasSelection } from "./canvas-selection";
+import type { ToolState } from "./canvas-tool";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
 
 /**

@@ -50,7 +50,7 @@ import {
   type CanvasFootprint,
   type CanvasNode,
 } from "@kb/canvas";
-import { paintPlanes } from "@/lib/canvas-camera";
+import { paintPlanes } from "./canvas-camera";
 import { matcapMaterial, paletteMatcap } from "@/scene/gpu/rig";
 import {
   cardFaceOf,

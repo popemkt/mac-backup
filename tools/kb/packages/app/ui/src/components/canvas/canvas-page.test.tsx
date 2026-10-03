@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import { stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, type OutlineNode } from "@/lib/types";
@@ -13,12 +13,18 @@ const { persistCanvasDoc } = vi.hoisted(() => ({
     .mockResolvedValue(true),
 }));
 
-vi.mock("@/lib/canvas-api", async (importOriginal) => {
+vi.mock("./canvas-api", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, persistCanvasDoc };
 });
 
 import { CanvasPage } from "./canvas-page";
+import { browserHostUiPlugin } from "@/browser-host";
+import { syncUiPlugins } from "@/lib/plugins";
+
+// The canvas reaches the shell through the page's host, as when the app boots.
+beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 const initialDoc: CanvasDoc = {
   nodes: [

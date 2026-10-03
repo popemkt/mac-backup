@@ -14,6 +14,7 @@ import {
 } from "@kb/contracts";
 import type { ScreenTab } from "@/api/live";
 import { fixtureGraph } from "@/api/fixture-graph";
+import { browserHostUiPlugin } from "@/browser-host";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -89,7 +90,7 @@ describe("the tab's screen", () => {
 
   it("publishes the route and its view on start, then each change once, throttled", () => {
     const { plugin, published } = tab();
-    syncUiPlugins([outlineUiPlugin, canvasUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, plugin]);
     expect(published).toHaveLength(1);
     expect(published[0]).toMatchObject({
       route: "/",
@@ -138,7 +139,7 @@ describe("the tab's screen", () => {
 
   it("navigates to a route a view owns, and refuses one no view owns", () => {
     const { plugin, carryOut } = tab();
-    syncUiPlugins([outlineUiPlugin, canvasUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, plugin]);
     expect(carryOut({ kind: "navigate", to: { route: "/canvas" } })).toEqual({
       outcome: "applied",
     });
@@ -152,7 +153,7 @@ describe("the tab's screen", () => {
 
   it("opens a node at its node route, in its default view, and refuses one it does not have", () => {
     const { plugin, carryOut } = tab();
-    syncUiPlugins([outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
     navigate("/canvas");
     expect(carryOut({ kind: "navigate", to: { node: "n.root-a" } })).toEqual({
       outcome: "applied",
@@ -166,7 +167,7 @@ describe("the tab's screen", () => {
 
   it("publishes every pane, the focused one active, and carries a command to the pane it names", () => {
     const { plugin, published, carryOut } = tab();
-    syncUiPlugins([outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
     const right = useWorkspaceStore.getState().openBeside("main", "/node/n.root-b");
     vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
     expect(published.at(-1)).toMatchObject({

@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
 import type { CanvasDoc, CanvasNode } from "@kb/canvas";
-import { EMPTY_SELECTION, selectNode } from "@/lib/canvas-selection";
+import { EMPTY_SELECTION, selectNode } from "./canvas-selection";
 import {
   createPointerState,
   pointerReduce,
   type CanvasPointerEvent,
   type PointerContext,
   type PointerState,
-} from "@/lib/canvas-pointer";
+} from "./canvas-pointer";
 
 const moving: CanvasNode = {
   id: "moving",

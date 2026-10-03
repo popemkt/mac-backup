@@ -12,15 +12,18 @@
  * `useSyncExternalStore`.
  */
 import { Service } from "@kb/plugin";
-import type { KbNode, PropValue } from "@kb/model";
-import type { WireNode } from "@kb/contracts";
+import type { PropValue } from "@kb/model";
+import type { ActionReceipt, WireNode } from "@kb/contracts";
 import type { KbIndex } from "@/ds";
 import type { FollowHow, FollowTarget } from "@/lib/follow";
 import type { RefInk } from "@/lib/md-edit";
+import type { PaneScreenPort } from "@/lib/pane-screen";
 import { currentService } from "@/lib/plugins";
 import type { proposeView } from "@/lib/propose-view";
 import type { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
+import type { SchemaIndex } from "@/lib/schema";
 import type { Appearance, ThemePref } from "@/lib/theme";
+import type { NodeMap, OutlineNode } from "@/lib/types";
 
 export interface BrowserHost {
   /**
@@ -28,8 +31,14 @@ export interface BrowserHost {
    * unsubscribe. Each read returns the same value until what it reads changes.
    */
   readonly subscribe: (listener: () => void) => () => void;
-  /** A node of the graph. */
-  readonly node: (id: string) => KbNode | undefined;
+  /** A node of the graph, as the outline holds it. */
+  readonly node: (id: string) => OutlineNode | undefined;
+  /** Every node of the graph, as the outline holds them. */
+  readonly nodes: () => NodeMap;
+  /** The graph's schema: fields, tags and their types. */
+  readonly schema: () => SchemaIndex;
+  /** Whether a node is being edited in this instance (`instanceKey`). */
+  readonly isActive: (nodeId: string, instanceKey: string) => boolean;
   /** The replica's index, or null before the graph has loaded. */
   readonly index: () => KbIndex | null;
   /** The graph's nodes as they came over the wire. */
@@ -61,10 +70,24 @@ export interface BrowserHost {
   ) => void;
   /** Zoom the outline to a node. */
   readonly zoomTo: (id: string) => void;
+  /** Start editing a node's text in one instance, with the caret at `cursorPos`. */
+  readonly activateNode: (nodeId: string, cursorPos?: number, instanceKey?: string) => void;
+  /** Select a node in one instance. */
+  readonly selectNode: (nodeId: string, instanceKey?: string) => void;
   /** Send a pane to a path. */
   readonly navigatePane: (pane: string, path: string) => void;
   /** Replace a field's values on a node, through the page's one write path. */
   readonly replaceField: (nodeId: string, fieldId: string, values: PropValue[]) => Promise<void>;
+  /** Set a node's text, through the page's one write path. */
+  readonly updateNodeContent: (nodeId: string, text: string) => Promise<void>;
+  /** Attach a file to a node; false when it could not be attached. */
+  readonly attachFileToNode: (nodeId: string, file: File) => Promise<boolean>;
+  /** Take a tag off a node. */
+  readonly removeTag: (nodeId: string, tagId: string) => Promise<void>;
+  /** Make one call through the browser's one invoke path and answer its receipt. */
+  readonly invoke: (id: string, input: unknown) => Promise<ActionReceipt>;
+  /** Where a view reports what it shows for its pane (`usePaneScreen`). */
+  readonly screen: PaneScreenPort;
   /** Make a view node through `view.propose`, the one check of a proposed view. */
   readonly proposeView: typeof proposeView;
   /** The page's end of the sandbox bridge (DESIGN.md → Sandbox). */

@@ -16,10 +16,14 @@ export {
   useFollow,
   useGeneration,
   useIndex,
+  useIsActive,
   useNode,
+  useNodes,
+  usePaneScreen,
   usePrefsOpen,
   useQueryRows,
   useRefInk,
+  useSchema,
   useSidebarToggle,
   useTheme,
   useWireNodes,
@@ -40,25 +44,35 @@ export {
 export { CommandPoint, nodeAction, type Command } from "@/lib/commands";
 
 // The primitives.
-export { EnumSelect } from "@/components/ui/enum-select";
+export { Bullet } from "@/components/outline/bullet";
+export { NodeRow } from "@/components/outline/node-row";
+export { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
 export { IconButton } from "@/components/ui/icon-button";
 export { MdView } from "@/components/ui/md-view";
+export { NodeTextHost } from "@/components/ui/node-text-host";
+export { NotFound } from "@/components/ui/not-found";
+export { PickerList } from "@/components/ui/picker-list";
+export { PopoverShell } from "@/components/ui/popover-shell";
 export { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
 export { SidebarToggle } from "@/components/ui/sidebar-toggle";
 export { ThemeIcon } from "@/components/ui/theme-icon";
 export { WorkspaceState } from "@/components/ui/workspace-state";
 export { ViewErrorBoundary } from "@/components/view-error-boundary";
 
-// Pure helpers: class names, tokens, logging, motion, panes, routing, text,
-// timing and toasts.
+// Pure helpers: class names, colours, the DOM, logging, motion, panes,
+// pickers, pointers, routing, text, timing and toasts.
 export { cn } from "@/lib/cn";
-export { readTokenColor } from "@/lib/css-color";
-export { graphLabelFont } from "@/lib/graph-label";
+export { readTokenColor, toRenderableColor, type ColorToken } from "@/lib/css-color";
+export { asElement, asInstance, isOutside, isTextEntry } from "@/lib/dom";
+export { graphDisplayText, graphLabelFont, wrapGraphLabel } from "@/lib/graph-label";
 export { logError, logWarn } from "@/lib/log";
-export { useReducedMotion } from "@/lib/motion";
+export { prefersReducedMotion, useReducedMotion } from "@/lib/motion";
 export { usePane } from "@/lib/pane";
+export type { PaneSelection } from "@/lib/pane-screen";
+export { pickerRows, type PickerCandidate } from "@/lib/picker";
+export { pastSlop } from "@/lib/pointer-slop";
 export { navigate, nodePath } from "@/lib/router";
-export { textOr } from "@/lib/text";
+export { hasText, textOr } from "@/lib/text";
 export type { Appearance } from "@/lib/theme";
 export {
   TIMING_FALLBACK,
@@ -75,10 +89,15 @@ export {
   type Timing,
 } from "@/lib/timing";
 export { toast } from "@/lib/toast";
+export { usePickerKeys } from "@/lib/use-picker";
 
-// Query rows, named by their `:find` columns; the graph as a perspective
-// draws it; and what a sandbox frame is handed.
-export { chartRecords, queryRecords, type QueryRecords } from "@/ds";
+// The graph's shapes: nodes, values, the schema and its field types, query
+// rows named by their `:find` columns, the graph as a perspective draws it,
+// and what a sandbox frame is handed.
+export { isSysPrefixed, type OutlineNode, type PropValue } from "@/lib/types";
+export { resolveAllowedRefIds, resolveFieldType } from "@/lib/field-type";
+export type { SchemaIndex } from "@/lib/schema";
+export { chartRecords, queryRecords, type KbIndex, type QueryRecords } from "@/ds";
 export {
   extractLensGraph,
   listPerspectiveNodes,

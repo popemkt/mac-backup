@@ -37,7 +37,7 @@ function without(panes: Readonly<Record<string, PaneView>>, pane: string) {
 }
 
 /** The screen store as the place pane reports are held. */
-const paneScreenPort: PaneScreenPort = {
+export const paneScreenPort: PaneScreenPort = {
   report: (pane, owner, report, select) => {
     const now = useScreenStore.getState().panes[pane];
     if (now?.owner === owner && JSON.stringify(now.report) === JSON.stringify(report)) return;

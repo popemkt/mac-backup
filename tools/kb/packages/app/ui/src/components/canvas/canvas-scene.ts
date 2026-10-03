@@ -9,7 +9,7 @@
  * - **Items** and **edges** are their layers'.
  * - **The canvas plane** is the floor, and carries the 2D dot grid, fading
  *   out with distance.
- * - **The camera** is the rig's view (`lib/canvas-camera-rig`), stepped and
+ * - **The camera** is the rig's view (`components/canvas/canvas-camera-rig`), stepped and
  *   applied every frame, through either lens; canvas space (y down the top
  *   view) maps to three's (y up it) by flipping y, for points and camera
  *   alike, and z is up in both.
@@ -33,9 +33,9 @@ import { toScreen, type ScreenPoint } from "@/scene/gpu/screen";
 import type { SceneBackend } from "@/scene/backend";
 import type { SceneHandle } from "@/scene/host";
 import type { ScenePalette } from "@/scene/palette";
-import { PERSPECTIVE_FOV, cameraPose, type CanvasView, type ViewSize } from "@/lib/canvas-camera";
-import type { CanvasCameraRig } from "@/lib/canvas-camera-rig";
-import type { Timing } from "@/lib/timing";
+import { PERSPECTIVE_FOV, cameraPose, type CanvasView, type ViewSize } from "./canvas-camera";
+import type { CanvasCameraRig } from "./canvas-camera-rig";
+import type { Timing } from "@/sdk";
 import { over, type CardLook } from "./canvas-card-face";
 import { ItemLayer } from "./canvas-scene-items";
 import type { CanvasSceneContent } from "./canvas-scene-content";

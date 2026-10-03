@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import type { CanvasNode } from "@kb/canvas";
-import { projectPoint, type CanvasView } from "@/lib/canvas-camera";
-import type { CanvasPointerEvent } from "@/lib/canvas-pointer";
+import { projectPoint, type CanvasView } from "./canvas-camera";
+import type { CanvasPointerEvent } from "./canvas-pointer";
 import { SceneGestures, type SceneGestureHost, type ScenePress } from "./canvas-scene-gestures";
 
 const size = { width: 800, height: 600 };

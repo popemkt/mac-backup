@@ -1,12 +1,12 @@
 import type { CanvasEdge, CanvasNode, CanvasProjectionKind, KbLinkMode } from "@kb/canvas";
 import { SlidersHorizontalIcon } from "@phosphor-icons/react";
-import { CanvasToolbar } from "@/components/canvas/canvas-toolbar";
-import { EdgeInspector } from "@/components/canvas/edge-inspector";
-import { NodePicker } from "@/components/canvas/node-picker";
-import { ItemInspector } from "@/components/canvas/item-inspector";
-import type { CanvasSelection } from "@/lib/canvas-selection";
-import { selectionEmpty } from "@/lib/canvas-selection";
-import type { CanvasTool, ToolState } from "@/lib/canvas-tool";
+import { CanvasToolbar } from "./canvas-toolbar";
+import { EdgeInspector } from "./edge-inspector";
+import { NodePicker } from "./node-picker";
+import { ItemInspector } from "./item-inspector";
+import type { CanvasSelection } from "./canvas-selection";
+import { selectionEmpty } from "./canvas-selection";
+import type { CanvasTool, ToolState } from "./canvas-tool";
 
 interface CanvasOverlaysProps {
   projection: CanvasProjectionKind;

@@ -2,11 +2,11 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
 import type { CanvasDoc, CanvasEdge, CanvasNode, KbLinkMode } from "@kb/canvas";
 import { removeCanvasEdge, upsertCanvasEdge } from "@kb/canvas";
-import type { useCanvasDoc } from "@/components/canvas/use-canvas-doc";
-import type { isValidNativeTarget } from "@/lib/canvas-api";
-import { planEdgeRelink, type EdgeRelink } from "@/lib/canvas-edge-link";
-import { type CanvasSelection, EMPTY_SELECTION } from "@/lib/canvas-selection";
-import { toast } from "@/lib/toast";
+import type { useCanvasDoc } from "./use-canvas-doc";
+import type { isValidNativeTarget } from "./canvas-api";
+import { planEdgeRelink, type EdgeRelink } from "./canvas-edge-link";
+import { type CanvasSelection, EMPTY_SELECTION } from "./canvas-selection";
+import { toast } from "@/sdk";
 
 interface CanvasEdgeActionContext {
   selectedEdge: CanvasEdge | null;

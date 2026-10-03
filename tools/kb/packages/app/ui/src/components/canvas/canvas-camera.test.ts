@@ -25,7 +25,7 @@ import {
   zoomViewAt,
   type CanvasHitItem,
   type CanvasView,
-} from "@/lib/canvas-camera";
+} from "./canvas-camera";
 
 const size = { width: 1200, height: 800 };
 const perspective: CanvasView = {

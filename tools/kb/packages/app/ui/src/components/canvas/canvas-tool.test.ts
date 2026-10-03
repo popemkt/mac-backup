@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { present } from "@kb/model";
 import { parseCanvasDoc, presetItem, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
-import { edgePath } from "@/lib/canvas-edge-path";
-import { placeWithTool, reduceCanvasTool } from "@/lib/canvas-tool";
+import { edgePath } from "./canvas-edge-path";
+import { placeWithTool, reduceCanvasTool } from "./canvas-tool";
 
 const createShapeNode = (kind: "rect" | "ellipse" | "diamond", x: number, y: number, id: string) =>
   presetItem(kind, { x, y }, id);

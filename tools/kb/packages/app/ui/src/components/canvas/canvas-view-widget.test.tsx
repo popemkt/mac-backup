@@ -7,9 +7,9 @@ import { act, createElement, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { presetView, viewOfPan, type CanvasView } from "@/lib/canvas-camera";
-import { CanvasCameraRig } from "@/lib/canvas-camera-rig";
-import type { CanvasIntent } from "@/lib/canvas-keymap";
+import { presetView, viewOfPan, type CanvasView } from "./canvas-camera";
+import { CanvasCameraRig } from "./canvas-camera-rig";
+import type { CanvasIntent } from "./canvas-keymap";
 import { TIMING_FALLBACK } from "@/lib/timing";
 import { CanvasViewWidget } from "./canvas-view-widget";
 

@@ -12,8 +12,8 @@
  * tool of the same digit (or deleting, for numpad `.` with NumLock off).
  */
 import type { CanvasProjectionKind } from "@kb/canvas";
-import type { CanvasTool, CanvasToolPick } from "@/lib/canvas-tool";
-import { CANVAS_VIEW_PRESETS, ZOOM_STEP, type CanvasViewPreset } from "@/lib/canvas-camera";
+import type { CanvasTool, CanvasToolPick } from "./canvas-tool";
+import { CANVAS_VIEW_PRESETS, ZOOM_STEP, type CanvasViewPreset } from "./canvas-camera";
 
 export interface CanvasKeyEvent {
   key: string;

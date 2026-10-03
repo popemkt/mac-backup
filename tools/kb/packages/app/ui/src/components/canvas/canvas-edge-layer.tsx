@@ -1,12 +1,11 @@
 import type { CanvasDoc, CanvasEdge, CanvasNode } from "@kb/canvas";
-import { edgePath, sidePoint } from "@/lib/canvas-edge-path";
-import { edgePropPresent } from "@/lib/canvas-api";
-import { resolveCanvasColor } from "@/lib/canvas-color";
-import type { CanvasSelection } from "@/lib/canvas-selection";
-import type { PointerState } from "@/lib/canvas-pointer";
-import type { OutlineNode } from "@/lib/types";
-import { hasText } from "@/lib/text";
-import { clientToCanvas } from "@/lib/canvas-camera";
+import { edgePath, sidePoint } from "./canvas-edge-path";
+import { edgePropPresent } from "./canvas-api";
+import { resolveCanvasColor } from "./canvas-color";
+import type { CanvasSelection } from "./canvas-selection";
+import type { PointerState } from "./canvas-pointer";
+import { hasText, type OutlineNode } from "@/sdk";
+import { clientToCanvas } from "./canvas-camera";
 
 interface CanvasEdgeLayerProps {
   doc: CanvasDoc;

@@ -11,7 +11,7 @@ const { persistCanvasDoc } = vi.hoisted(() => ({
     .mockResolvedValue(true),
 }));
 
-vi.mock("@/lib/canvas-api", async (importOriginal) => {
+vi.mock("./canvas-api", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, persistCanvasDoc };
 });

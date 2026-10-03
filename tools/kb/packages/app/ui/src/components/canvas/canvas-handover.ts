@@ -23,9 +23,9 @@
  * this visit, without rewriting the document.
  */
 import type { CanvasPose, CanvasProjectionKind } from "@kb/canvas";
-import { panOfView, viewOfPan, type CanvasPoint, type ViewSize } from "@/lib/canvas-camera";
-import type { CanvasCameraRig } from "@/lib/canvas-camera-rig";
-import type { Timing } from "@/lib/timing";
+import { panOfView, viewOfPan, type CanvasPoint, type ViewSize } from "./canvas-camera";
+import type { CanvasCameraRig } from "./canvas-camera-rig";
+import type { Timing } from "@/sdk";
 import { canvasProjection } from "./canvas-projections";
 
 type Phase = "entering" | "leaving" | "lingering" | null;

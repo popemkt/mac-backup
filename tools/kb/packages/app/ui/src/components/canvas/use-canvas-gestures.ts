@@ -3,21 +3,16 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
 import type { CanvasDoc } from "@kb/canvas";
 import { isShapeNode, paintOrder, presetItem, upsertCanvasNode } from "@kb/canvas";
-import {
-  placeWithTool,
-  reduceCanvasTool,
-  type CanvasTool,
-  type ToolState,
-} from "@/lib/canvas-tool";
-import { selectNode as selNode } from "@/lib/canvas-selection";
-import type { CanvasSelection } from "@/lib/canvas-selection";
+import { placeWithTool, reduceCanvasTool, type CanvasTool, type ToolState } from "./canvas-tool";
+import { selectNode as selNode } from "./canvas-selection";
+import type { CanvasSelection } from "./canvas-selection";
 import type {
   CanvasPointerEvent,
   PointerResult,
   PointerState,
   ResizeCorner,
-} from "@/lib/canvas-pointer";
-import { asElement } from "@/lib/dom";
+} from "./canvas-pointer";
+import { asElement } from "@/sdk";
 import {
   clampZoom,
   clientToCanvas,
@@ -27,7 +22,7 @@ import {
   viewOfPan,
   type CanvasHitItem,
   type FlatViewportControls,
-} from "@/lib/canvas-camera";
+} from "./canvas-camera";
 
 interface CanvasGestureContext {
   docRef: RefObject<CanvasDoc>;

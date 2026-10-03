@@ -501,6 +501,21 @@ the full contents.
 - The shell provides `BrowserHost` from a built-in plugin, and the feature
   plugins inject it.
 
+**Note from the doing (E3).**
+- The canvas's `lib/` modules are `canvas-*`, `card-pointer` and
+  `shape-label-edit`. They now live in `components/canvas/`, and the 2D and
+  3D rows are `extensionRow`s.
+- Pane screens report through one hook, `usePaneScreenThrough` in
+  `lib/pane-screen`, over a port. The screen store and the host are its two
+  bindings.
+- `listCanvasNavItems` left `lib/sidebar-nav`.
+- **One sanctioned breach remains.** The kb-node card drives the outline's
+  `NodeTextHost` with `useNodeTextHostBinding`, which reads stores through
+  tracked graph reads, caret hand-off and the text-host registry.
+  Rebuilding it over `BrowserHost` is a design of its own, so the import
+  carries `GAP [[01M41MHRD7MF4NP23EE294B69C]]`, closed with `@kb/ui-sdk`
+  (E11). Everything else the card does goes through the host.
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D

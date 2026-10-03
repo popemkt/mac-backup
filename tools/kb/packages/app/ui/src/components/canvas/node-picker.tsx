@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { useOutlineStore } from "@/stores/outline.store";
-import { typeRefsOf } from "@kb/model";
-import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
-import { pickerRows, type PickerCandidate } from "@/lib/picker";
-import { usePickerKeys } from "@/lib/use-picker";
-import { PickerList } from "@/components/ui/picker-list";
+import { SYSTEM_IDS, typeRefsOf } from "@kb/model";
+import {
+  isSysPrefixed,
+  type PickerCandidate,
+  PickerList,
+  pickerRows,
+  useNodes,
+  usePickerKeys,
+} from "@/sdk";
 
 interface NodePickerProps {
   onPick: (nodeId: string) => void;
@@ -17,7 +20,7 @@ interface NodePickerProps {
  * (lib/picker). Only the candidate set is the canvas's own.
  */
 export function NodePicker({ onPick, onClose }: NodePickerProps) {
-  const nodes = useOutlineStore((s) => s.nodes);
+  const nodes = useNodes();
   const [q, setQ] = useState("");
 
   const candidates = useMemo(() => {

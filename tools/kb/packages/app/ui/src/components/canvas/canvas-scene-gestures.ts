@@ -30,10 +30,10 @@ import {
   type CanvasPoint3,
   type CanvasView,
   type ViewSize,
-} from "@/lib/canvas-camera";
-import { carriedIds, type CanvasPointerEvent } from "@/lib/canvas-pointer";
-import type { CanvasSelection } from "@/lib/canvas-selection";
-import { pastSlop } from "@/lib/pointer-slop";
+} from "./canvas-camera";
+import { carriedIds, type CanvasPointerEvent } from "./canvas-pointer";
+import type { CanvasSelection } from "./canvas-selection";
+import { pastSlop } from "@/sdk";
 
 /** A press: where it is in the viewport and on screen, its button and its modifiers. */
 export interface ScenePress {

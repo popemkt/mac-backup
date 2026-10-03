@@ -382,24 +382,9 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "components/sidebar",
   ],
   // The page loads the 3D projection (lazily); only the projection reaches the scene kit.
-  "components/canvas": [
-    "components/canvas",
-    "components/canvas/3d",
-    "primitives",
-    "stores",
-    "actions",
-    "lib",
-  ],
+  "components/canvas": extensionRow("components/canvas", "components/canvas/3d"),
   // The 3D projection stands on the scene kit, as the 3D graph does.
-  "components/canvas/3d": [
-    "components/canvas/3d",
-    "components/canvas",
-    "primitives",
-    "stores",
-    "actions",
-    "lib",
-    "scene",
-  ],
+  "components/canvas/3d": extensionRow("components/canvas/3d", "components/canvas", "scene"),
   "components/graph": ["components/graph", "primitives", "stores", "actions", "lib", "scene"],
   // The lab's studies stand on the scene kit, and on the shell through the host.
   "components/lab": extensionRow("components/lab", "scene"),

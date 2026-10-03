@@ -118,7 +118,7 @@ const SCENES: readonly (readonly [string, Mount])[] = [
     "3D canvas",
     async (host, reduced) => {
       const { mountCanvasScene } = await import("@/components/canvas/canvas-scene");
-      const { CanvasCameraRig } = await import("@/lib/canvas-camera-rig");
+      const { CanvasCameraRig } = await import("@/components/canvas/canvas-camera-rig");
       const view = { x: 0, y: 0, z: 0, zoom: 1, yaw: -0.2, pitch: 0.5, fov: 34 };
       const rig = new CanvasCameraRig(view, TIMING_FALLBACK, reduced);
       const scene = await mountCanvasScene(host, {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { viewOfPan } from "@/lib/canvas-camera";
-import { CanvasCameraRig } from "@/lib/canvas-camera-rig";
+import { viewOfPan } from "./canvas-camera";
+import { CanvasCameraRig } from "./canvas-camera-rig";
 import { TIMING_FALLBACK } from "@/lib/timing";
 import { CanvasHandover, type HandoverCanvas } from "./canvas-handover";
 

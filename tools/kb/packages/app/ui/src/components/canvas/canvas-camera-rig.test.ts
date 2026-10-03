@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
-import { CanvasCameraRig } from "@/lib/canvas-camera-rig";
-import type { CanvasView } from "@/lib/canvas-camera";
+import { CanvasCameraRig } from "./canvas-camera-rig";
+import type { CanvasView } from "./canvas-camera";
 import { TIMING_FALLBACK } from "@/lib/timing";
 
 const flat: CanvasView = { x: 100, y: 50, z: 0, zoom: 1, yaw: 0, pitch: 0, fov: 0 };

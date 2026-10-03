@@ -48,14 +48,20 @@ import {
   screenToPlane,
   type CanvasView,
   type ViewSize,
-} from "@/lib/canvas-camera";
-import { CanvasCameraRig } from "@/lib/canvas-camera-rig";
-import type { CanvasSelection } from "@/lib/canvas-selection";
+} from "./canvas-camera";
+import { CanvasCameraRig } from "./canvas-camera-rig";
+import type { CanvasSelection } from "./canvas-selection";
 import { TIMING_FALLBACK } from "@/lib/timing";
 import { fakeCanvasContexts } from "@/test-support/fake-gpu";
 import type { CardLook } from "./canvas-card-face";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
 import type * as ThreeWebGpu from "three/webgpu";
+import { browserHostUiPlugin } from "@/browser-host";
+import { syncUiPlugins } from "@/lib/plugins";
+
+// The canvas reaches the shell through the page's host, as when the app boots.
+beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+afterAll(() => syncUiPlugins([]));
 
 vi.mock("three/webgpu", async (importOriginal) => ({
   ...(await importOriginal<typeof ThreeWebGpu>()),

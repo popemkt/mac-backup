@@ -1018,13 +1018,13 @@ links.
 The canvas is a thinking surface (draw.io lineage), and this wave made direct
 manipulation feel professional rather than merely functional.
 
-- **Selection is a set.** `lib/canvas-selection.ts` owns one
+- **Selection is a set.** `components/canvas/canvas-selection.ts` owns one
   `CanvasSelection { nodeIds, edgeIds }` with single / Shift-toggle /
   rubber-band marquee / `Cmd+A`. Dragging any card in a multi-selection
   translates all of them. Delete/Backspace removes every selected node and edge
   with cascade edge removal — and deleting a kb-node *card* never touches the
   underlying graph node.
-- **Undo/redo.** `lib/canvas-history.ts` is an immutable ring buffer
+- **Undo/redo.** `components/canvas/canvas-history.ts` is an immutable ring buffer
   (`MAX_HISTORY` = 30) with reference-equality skip; `Cmd+Z` /
   `Cmd+Shift+Z` / `Cmd+Y`.
 - **Direct-manipulation invariants.** A 4px pointer slop (`POINTER_SLOP` in
@@ -1033,7 +1033,7 @@ manipulation feel professional rather than merely functional.
   four corner resize handles clamp at 80×40 (`Shift` locks aspect ratio), and
   arrow keys nudge 1px / 10px with `Shift`.
 - **Snap guides and fit.** Alignment snapping is magnetic within 5px
-  (`SNAP_TOL`, `lib/canvas-snap.ts`), one rule on all three axes: a move
+  (`SNAP_TOL`, `components/canvas/canvas-snap.ts`), one rule on all three axes: a move
   across the floor snaps on x and y and draws dashed guide lines, and an
   Alt-lift in 3D snaps to the bases and tops of other items (no line is
   drawn up the z axis). The same module owns **surface snap**: an item
@@ -1042,7 +1042,7 @@ manipulation feel professional rather than merely functional.
   comes down to the floor; an item raised off every solid keeps its
   height. `Shift+1` zoom-to-fit frames the
   bounding box with 40px padding. Zoom range is 0.1–3.0 (`MIN_ZOOM`/`MAX_ZOOM`).
-- **Sticky tools.** `lib/canvas-tool.ts` is a pure reducer: picking a tool is
+- **Sticky tools.** `components/canvas/canvas-tool.ts` is a pure reducer: picking a tool is
   one-shot (it returns to `select` after placing), double-clicking the tool icon
   makes it **sticky** for repeated placement, `Escape` always returns to select.
   Tools: select (V), text (T), rect (R), ellipse (O / C), diamond (D),
@@ -1071,7 +1071,7 @@ manipulation feel professional rather than merely functional.
 
 #### Projections
 
-A canvas is drawn through one camera model, `lib/canvas-camera.ts`. The
+A canvas is drawn through one camera model, `components/canvas/canvas-camera.ts`. The
 canvas plane is the floor, with z up, as in Blender. A view is a focus point
 in canvas space, a zoom measured on the plane through that focus, a
 turntable orbit (`yaw` about z; `pitch` from 0, the top view, to π/2, level
@@ -1122,7 +1122,7 @@ open view of that canvas.
   same-height overlapping cards, every solid shape and a flat ellipse. The 3D scene also joins the scene
   contract, whose disposal check covers every geometry and material a scene
   drew with.
-- **One camera in motion.** `lib/canvas-camera-rig.ts` holds the view the 3D
+- **One camera in motion.** `components/canvas/canvas-camera-rig.ts` holds the view the 3D
   scene draws with: gestures move it at once, flights ease over
   `--motion-duration-arrive` on `--motion-settle`, and under reduced motion
   a flight lands at once. The keymap's zoom and frame reach whichever camera
@@ -1133,7 +1133,7 @@ open view of that canvas.
   orientations (`CANVAS_VIEW_PRESETS`): top, front, right, back, left (each
   named for where the eye stands; front is the +y side) and the oblique look
   a canvas first opens at. One table of view commands
-  (`CANVAS_VIEW_COMMANDS`, `lib/canvas-keymap.ts`) serves the keymap and the
+  (`CANVAS_VIEW_COMMANDS`, `components/canvas/canvas-keymap.ts`) serves the keymap and the
   view menu, and both reach the camera through `CanvasViewportControls`:
   numpad 7 / 1 / 3 look from the top, front and right (⌃ for back and left;
   there is no view from under the floor), numpad 5 swaps the lens, ⇧1 frames

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { withCanvasCamera, type CanvasCamera, type CanvasDoc } from "@kb/canvas";
-import { persistCanvasDoc, readCanvasDoc, syncDocOnRev } from "@/lib/canvas-api";
+import { persistCanvasDoc, readCanvasDoc, syncDocOnRev } from "./canvas-api";
 import {
   initHistory,
   pushHistory,
   redo as redoHistory,
   undo as undoHistory,
   type CanvasHistory,
-} from "@/lib/canvas-history";
-import type { OutlineNode } from "@/lib/types";
+} from "./canvas-history";
+import type { OutlineNode } from "@/sdk";
 
 const DEBOUNCE_MS = 300;
 

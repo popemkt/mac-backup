@@ -19,11 +19,17 @@ import {
   type CanvasNode,
   type CanvasShapeKind,
 } from "@kb/canvas";
-import { CANVAS_COLOR_PRESETS, type CanvasColorPresetId } from "@/lib/canvas-color";
-import { readTokenColor, toRenderableColor, type ColorToken } from "@/lib/css-color";
-import { graphDisplayText, graphLabelFont, wrapGraphLabel } from "@/lib/graph-label";
-import { hasText } from "@/lib/text";
-import type { OutlineNode } from "@/lib/types";
+import { CANVAS_COLOR_PRESETS, type CanvasColorPresetId } from "./canvas-color";
+import {
+  type ColorToken,
+  graphDisplayText,
+  graphLabelFont,
+  hasText,
+  type OutlineNode,
+  readTokenColor,
+  toRenderableColor,
+  wrapGraphLabel,
+} from "@/sdk";
 
 /** What a card shows, independent of how it is drawn. */
 export type CardFace =
@@ -123,7 +129,7 @@ export function cornerRadius(item: CanvasNode, radii: CornerRadii): number {
   return isShapeNode(item) || isGroupNode(item) ? radii.shapeRadius : radii.radius;
 }
 
-/** Each JSON Canvas preset's token (`lib/canvas-color` paints the same ones in the DOM). */
+/** Each JSON Canvas preset's token (`components/canvas/canvas-color` paints the same ones in the DOM). */
 const PRESET_TOKENS = {
   "1": "--canvas-color-1",
   "2": "--canvas-color-2",

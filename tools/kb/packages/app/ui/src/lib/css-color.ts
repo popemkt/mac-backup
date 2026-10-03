@@ -157,7 +157,7 @@ const TOKEN_FALLBACK = {
   "--chart-5": "#8f4113",
   "--destructive": "#dc2626",
   "--graph-edge": "rgba(34, 34, 34, 0.4)",
-  // The JSON Canvas colour presets "1"–"6" (`lib/canvas-color`), which the
+  // The JSON Canvas colour presets "1"–"6" (`components/canvas/canvas-color`), which the
   // 3D canvas paints into its card textures.
   "--canvas-color-1": "#dc2626",
   "--canvas-color-2": "#ea580c",

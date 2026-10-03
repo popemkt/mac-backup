@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode } from "@kb/canvas";
-import { screenBounds, viewOfPan } from "@/lib/canvas-camera";
-import { visibleItemIds } from "@/lib/canvas-visible";
+import { screenBounds, viewOfPan } from "./canvas-camera";
+import { visibleItemIds } from "./canvas-visible";
 
 function item(id: string, x: number, y: number, width = 100, height = 50): CanvasNode {
   return { id, type: "text", text: id, x, y, width, height };

@@ -9,14 +9,14 @@ import {
   deleteSelected,
   selectAll,
   selectionEmpty,
-} from "@/lib/canvas-selection";
-import { mapCanvasKey, type CanvasIntent } from "@/lib/canvas-keymap";
-import { reduceCanvasTool, type CanvasToolPick, type ToolState } from "@/lib/canvas-tool";
-import type { CanvasViewportControls } from "@/lib/canvas-camera";
-import { isTextEntry } from "@/lib/dom";
+} from "./canvas-selection";
+import { mapCanvasKey, type CanvasIntent } from "./canvas-keymap";
+import { reduceCanvasTool, type CanvasToolPick, type ToolState } from "./canvas-tool";
+import type { CanvasViewportControls } from "./canvas-camera";
+import { isTextEntry } from "@/sdk";
 
 /**
- * The canvas keyboard surface: `lib/canvas-keymap` decides *what* a chord
+ * The canvas keyboard surface: `components/canvas/canvas-keymap` decides *what* a chord
  * means, this file decides *how* that intent reaches the document, the
  * selection and the viewport. The listener itself is plumbing between the two,
  * and the view menu sends its commands through the same applier.

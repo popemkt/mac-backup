@@ -1,19 +1,22 @@
 import { lazy, useMemo, useState } from "react";
 import { PlusIcon, SquareIcon } from "@phosphor-icons/react";
 import { CanvasListView, CanvasView, type CanvasParams } from "@kb/views";
-import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
-import { ViewErrorBoundary } from "@/components/view-error-boundary";
-import { createCanvasNode, listCanvasNavItems } from "@/lib/canvas-api";
-import { paramsOf, type MatchedRoute, type ViewProps } from "@/lib/plugins";
-import { navigate } from "@/lib/router";
-import { useOutlineStore } from "@/stores/outline.store";
+import {
+  type MatchedRoute,
+  navigate,
+  paramsOf,
+  SidebarRow,
+  SidebarSection,
+  useNodes,
+  ViewErrorBoundary,
+  type ViewProps,
+} from "@/sdk";
+import { createCanvasNode, listCanvasNavItems } from "./canvas-api";
 
 const CanvasListPage = lazy(() =>
-  import("@/components/canvas/canvas-list-page").then((m) => ({ default: m.CanvasListPage })),
+  import("./canvas-list-page").then((m) => ({ default: m.CanvasListPage })),
 );
-const CanvasPage = lazy(() =>
-  import("@/components/canvas/canvas-page").then((m) => ({ default: m.CanvasPage })),
-);
+const CanvasPage = lazy(() => import("./canvas-page").then((m) => ({ default: m.CanvasPage })));
 
 export function CanvasListSurface() {
   return (
@@ -34,7 +37,7 @@ export function CanvasSurface({ params }: ViewProps<CanvasParams>) {
 
 export function CanvasSection({ route }: { readonly route: MatchedRoute | null }) {
   const open = paramsOf(route, CanvasView);
-  const nodes = useOutlineStore((s) => s.nodes);
+  const nodes = useNodes();
   const canvases = useMemo(() => listCanvasNavItems(nodes), [nodes]);
   const [creating, setCreating] = useState(false);
   const onNew = async () => {

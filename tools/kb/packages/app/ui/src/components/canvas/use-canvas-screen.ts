@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { CanvasDoc, CanvasProjectionKind } from "@kb/canvas";
 import { SCREEN_APPLIED, screenRejected, type CanvasScreen, type ScreenAck } from "@kb/contracts";
-import { poseOfView, viewOfPan, type CanvasView } from "@/lib/canvas-camera";
-import { visibleItemIds } from "@/lib/canvas-visible";
-import type { CanvasSelection } from "@/lib/canvas-selection";
-import type { PaneSelection } from "@/lib/pane-screen";
-import { usePaneScreen } from "@/stores/screen.store";
+import { poseOfView, viewOfPan, type CanvasView } from "./canvas-camera";
+import { visibleItemIds } from "./canvas-visible";
+import type { CanvasSelection } from "./canvas-selection";
+import { type PaneSelection, usePaneScreen } from "@/sdk";
 
 interface CanvasScreenInput {
   readonly canvasId: string;
