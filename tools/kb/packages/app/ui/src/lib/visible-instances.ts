@@ -11,6 +11,7 @@ import { runQuery } from "@/ds";
 import {
   childInstanceKey,
   isQueryResultInstance,
+  MAIN_OUTLINE_HOST,
   outlineInstanceKey,
   queryResultInstanceKey,
 } from "@/lib/instance-key";
@@ -147,7 +148,15 @@ function walkVisibleInstances(
  */
 type WalkSource = Omit<WalkContext, "out">;
 
-export function collectVisibleInstances(rootNodeId: string, source: WalkSource): VisibleInstance[] {
+/**
+ * The rows the outline host `host` draws under `rootNodeId`, in render order,
+ * each under its instance key in that host.
+ */
+export function collectVisibleInstances(
+  rootNodeId: string,
+  source: WalkSource,
+  host: string = MAIN_OUTLINE_HOST,
+): VisibleInstance[] {
   const out: VisibleInstance[] = [];
   const { nodes, schema, views } = source;
   const root = nodes.get(rootNodeId);
@@ -160,12 +169,14 @@ export function collectVisibleInstances(rootNodeId: string, source: WalkSource):
   const inner = underSlot(source.chain, view, rootNodeId);
   if (inner === null) return out;
   if (projectsRows(view.key)) {
-    emitProjectedRows(ctx, rootNodeId, view, undefined, (id) => outlineInstanceKey(id, nodes));
+    emitProjectedRows(ctx, rootNodeId, view, undefined, (id) =>
+      outlineInstanceKey(id, nodes, host),
+    );
     return out;
   }
 
   for (const child of frameRows({ frameId: rootNodeId, nodes, schema, view }).rendered) {
-    walkVisibleInstances(ctx, child.id, outlineInstanceKey(child.id, nodes), inner);
+    walkVisibleInstances(ctx, child.id, outlineInstanceKey(child.id, nodes, host), inner);
   }
   return out;
 }

@@ -3,6 +3,7 @@ import { mutations } from "@/actions/mutations";
 import { shownNode, shownNodeId } from "@/lib/contextual-ref";
 import { resolveRowChrome } from "@/lib/row-chrome";
 import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
+import { useOutlineHost } from "./outline-host";
 import { cn } from "@/lib/cn";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
@@ -58,7 +59,8 @@ export function TableView({
   const storeWidth = usePrefsStore((s) => s.width);
   const widthPref = widthPrefProp ?? storeWidth;
 
-  const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes);
+  const host = useOutlineHost();
+  const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes, host);
 
   const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
   const revealMorePages = useOutlineStore((s) => s.revealMorePages);

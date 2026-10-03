@@ -39,7 +39,6 @@ const AssetUploadOutputSchema = z.object({ path: z.string() });
 
 import { isSysPrefixed, SYSTEM_IDS, WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
-import { outlineInstanceKey } from "@/lib/instance-key";
 import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
@@ -389,8 +388,8 @@ export const mutations = {
     // guaranteed visible; focusSeq bump re-places the caret post-remount.
     const next = useOutlineStore.getState();
     next.expandAncestors(id);
-    const key = outlineInstanceKey(id, useOutlineStore.getState().nodes);
-    useOutlineStore.getState().activateNode(id, cursor ?? 0, key);
+    // Its row in the outline being worked in, under its new parent.
+    useOutlineStore.getState().activateNode(id, cursor ?? 0);
   },
 
   /** Shift+Tab outdent; caret stays at its exact offset (spec §3.1). */
@@ -403,8 +402,7 @@ export const mutations = {
     const result = await runOptimistic(plan);
     if (!result.ok) return;
     recordHistory(preWire, plan);
-    const key = outlineInstanceKey(id, useOutlineStore.getState().nodes);
-    useOutlineStore.getState().activateNode(id, cursor ?? 0, key);
+    useOutlineStore.getState().activateNode(id, cursor ?? 0);
   },
 
   async moveNodeUp(id: string): Promise<void> {

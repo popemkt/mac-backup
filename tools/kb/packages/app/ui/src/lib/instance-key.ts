@@ -1,5 +1,27 @@
 import type { NodeMap } from "@/lib/types";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import { MAIN_PANE } from "@/lib/pane";
+
+/**
+ * The outline host the main pane's outline keys its rows under: the
+ * canonical outline instance (`tree/<path>`).
+ */
+export const MAIN_OUTLINE_HOST = "tree";
+
+/**
+ * The outline host of a pane: every outline drawn in it keys its rows under
+ * this, so the same node open in two panes is two rows, edited one at a time.
+ * The main pane's is the canonical {@link MAIN_OUTLINE_HOST}.
+ */
+export function outlineHostOfPane(pane: string): string {
+  return pane === MAIN_PANE ? MAIN_OUTLINE_HOST : `pane:${pane}`;
+}
+
+/** The host an instance key is keyed under: everything before its first separator. */
+export function hostOfInstance(instanceKey: string): string {
+  const cut = instanceKey.indexOf("/");
+  return cut < 0 ? instanceKey : instanceKey.slice(0, cut);
+}
 
 /** Nest a child render under a parent instance key. */
 export function childInstanceKey(parentKey: string, nodeId: string): string {
@@ -7,10 +29,15 @@ export function childInstanceKey(parentKey: string, nodeId: string): string {
 }
 
 /**
- * Canonical outline-tree instance for a node (parent-path + nodeId).
- * Used when mutations/keyboard activate without an explicit render instance.
+ * A node's instance in the outline host `host` (parent path + node id): the
+ * key its row takes where that outline draws it from the tree. Used when
+ * mutations or the keyboard activate a row without naming its instance.
  */
-export function outlineInstanceKey(nodeId: string, nodes: NodeMap): string {
+export function outlineInstanceKey(
+  nodeId: string,
+  nodes: NodeMap,
+  host: string = MAIN_OUTLINE_HOST,
+): string {
   const chain: string[] = [];
   let cur: string | null = nodeId;
   const seen = new Set<string>();
@@ -20,7 +47,7 @@ export function outlineInstanceKey(nodeId: string, nodes: NodeMap): string {
     chain.unshift(cur);
     cur = nodes.get(cur)?.parentId ?? null;
   }
-  return `tree/${chain.join("/")}`;
+  return `${host}/${chain.join("/")}`;
 }
 
 /**

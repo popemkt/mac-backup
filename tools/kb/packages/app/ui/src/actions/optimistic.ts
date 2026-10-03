@@ -1,5 +1,4 @@
 import type { PlannedMutation } from "@/actions/plan";
-import { outlineInstanceKey } from "@/lib/instance-key";
 import { toast } from "@/lib/toast";
 import { invoke, invokeLocal } from "@/session/runtime";
 import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
@@ -27,12 +26,8 @@ export async function runOptimistic(
   }
 
   if (plan.focusId !== undefined) {
-    const store = useOutlineStore.getState();
-    store.activateNode(
-      plan.focusId,
-      plan.focusCursor ?? 0,
-      outlineInstanceKey(plan.focusId, store.nodes),
-    );
+    // Its row in the outline being worked in: the store resolves the instance.
+    useOutlineStore.getState().activateNode(plan.focusId, plan.focusCursor ?? 0);
   }
   return { ok: true, focusId: plan.focusId, focusCursor: plan.focusCursor };
 }

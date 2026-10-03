@@ -3,7 +3,12 @@ import { DatascriptIndex, type KbIndex } from "@/ds";
 import { loadExpandedIds, resolveProps, saveExpandedIds, wireToOutlineMap } from "@/lib/graph-view";
 import { resolveVisibleProps } from "@/lib/field-visibility";
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
-import { isInsideQueryResults, outlineInstanceKey } from "@/lib/instance-key";
+import {
+  MAIN_OUTLINE_HOST,
+  hostOfInstance,
+  isInsideQueryResults,
+  outlineInstanceKey,
+} from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
 import { schemaOf, type SchemaIndex } from "@/lib/schema";
@@ -24,8 +29,9 @@ import {
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { logWarn } from "@/lib/log";
 import type { FrameViewKey } from "@kb/views";
-import type { FamilyView, SlotChain } from "@/lib/view-key";
+import type { FamilyView } from "@/lib/view-key";
 import { providedFrameViews } from "@/stores/frame-views";
+import { outlineHostOf } from "@/stores/outline-hosts";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
 
 export type { VisibleInstance };
@@ -128,11 +134,10 @@ interface OutlineState {
    * The slots around the outline's root frame, as the outline host renders it:
    * what the keyboard walk starts from, so it asks the slots' own rule.
    */
-  slotChain: SlotChain;
-  setSlotChain: (chain: SlotChain) => void;
   /** The frame views provided, in their pickers' order (`stores/frame-views`). */
   frameViews: () => readonly FamilyView<FrameViewKey>[];
-  getVisibleInstances: () => VisibleInstance[];
+  /** The rows outline host `host` (the main pane's by default) draws, in render order. */
+  getVisibleInstances: (host?: string) => VisibleInstance[];
   getVisibleNodes: () => string[];
   getPreviousVisibleInstance: (instanceKey: string) => VisibleInstance | null;
   getNextVisibleInstance: (instanceKey: string) => VisibleInstance | null;
@@ -158,7 +163,6 @@ export const initialOutlineState: OutlineStateData = {
   nodes: new Map(),
   wireNodes: [],
   framePages: {},
-  slotChain: [],
   index: null,
   rev: 0,
   rootNodeId: WORKSPACE_ROOT_ID,
@@ -274,8 +278,28 @@ function projectOutline(
   };
 }
 
-function resolveActivateKey(id: string, instanceKey: string | undefined, nodes: NodeMap): string {
-  return instanceKey ?? outlineInstanceKey(id, nodes);
+/**
+ * The outline host whose walk holds `instanceKey`: the host it is keyed
+ * under when an outline is mounted there, else the main pane's (a projected
+ * row's key names its query, not its host).
+ */
+function walkHostOf(instanceKey: string | null): string {
+  if (instanceKey === null) return MAIN_OUTLINE_HOST;
+  const host = hostOfInstance(instanceKey);
+  return outlineHostOf(host) === undefined ? MAIN_OUTLINE_HOST : host;
+}
+
+/**
+ * The instance to activate `id` at: the one named, else its row in the
+ * outline being worked in (the host of the current selection).
+ */
+function resolveActivateKey(
+  id: string,
+  instanceKey: string | undefined,
+  nodes: NodeMap,
+  working: string | null,
+): string {
+  return instanceKey ?? outlineInstanceKey(id, nodes, walkHostOf(working));
 }
 
 /**
@@ -579,7 +603,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       // contextual reference whose target is gone.
       if (rowTextReadOnlyReason(id, get().nodes.get(id), schemaOf(get())) !== null) {
         pruneOutgoingTransient(id);
-        const roKey = resolveActivateKey(id, instanceKey, get().nodes);
+        const roKey = resolveActivateKey(id, instanceKey, get().nodes, get().selectedInstanceKey);
         set({
           selectedNodeId: id,
           selectedInstanceKey: roKey,
@@ -592,13 +616,13 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       // indent, and palette navigation therefore cannot focus a hidden row.
       get().expandAncestors(id);
       const revealed = get();
-      const key = resolveActivateKey(id, instanceKey, revealed.nodes);
+      const key = resolveActivateKey(id, instanceKey, revealed.nodes, revealed.selectedInstanceKey);
       // Reference instances are projected by query components, so their exact
       // visibility is only knowable once that component mounts. The mounted-host
       // half of the registry below validates them after React commits.
       if (
         !isInsideQueryResults(key) &&
-        !revealed.getVisibleInstances().some((item) => item.instanceKey === key)
+        !revealed.getVisibleInstances(walkHostOf(key)).some((item) => item.instanceKey === key)
       ) {
         if (import.meta.env.DEV) logWarn(`kb: refused unreachable focus target: ${key}`);
         toast("That node is not visible in this outline");
@@ -667,8 +691,8 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       }
       if (!get().nodes.has(id)) return;
       pruneOutgoingTransient(id);
-      const { nodes } = get();
-      const key = resolveActivateKey(id, instanceKey, nodes);
+      const { nodes, selectedInstanceKey } = get();
+      const key = resolveActivateKey(id, instanceKey, nodes, selectedInstanceKey);
       set({
         selectedNodeId: id,
         selectedInstanceKey: key,
@@ -779,21 +803,23 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
 
     frameViews: providedFrameViews,
 
-    getVisibleInstances: () => {
-      const { nodes, rootNodeId, index, framePages, slotChain } = get();
+    getVisibleInstances: (host = MAIN_OUTLINE_HOST) => {
+      const outline = outlineHostOf(host);
+      if (outline === undefined) return [];
+      const { nodes, rootNodeId, index, framePages } = get();
       const views = providedFrameViews().map((view) => view.key);
-      return collectVisibleInstances(rootNodeId, {
-        nodes,
-        schema: schemaOf(get()),
-        queryDb: index,
-        views,
-        chain: slotChain,
-        pages: framePages,
-      });
-    },
-
-    setSlotChain: (chain) => {
-      if (chain.join("\n") !== get().slotChain.join("\n")) set({ slotChain: chain });
+      return collectVisibleInstances(
+        outline.root ?? rootNodeId,
+        {
+          nodes,
+          schema: schemaOf(get()),
+          queryDb: index,
+          views,
+          chain: outline.chain,
+          pages: framePages,
+        },
+        host,
+      );
     },
 
     revealMorePages: (frameId) =>
@@ -810,10 +836,10 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         .map((i) => i.nodeId),
 
     getPreviousVisibleInstance: (instanceKey) =>
-      neighborVisibleInstance(get().getVisibleInstances(), instanceKey, -1),
+      neighborVisibleInstance(get().getVisibleInstances(walkHostOf(instanceKey)), instanceKey, -1),
 
     getNextVisibleInstance: (instanceKey) =>
-      neighborVisibleInstance(get().getVisibleInstances(), instanceKey, 1),
+      neighborVisibleInstance(get().getVisibleInstances(walkHostOf(instanceKey)), instanceKey, 1),
 
     getBreadcrumbs: () => {
       const { nodes, rootNodeId, homeRootId } = get();

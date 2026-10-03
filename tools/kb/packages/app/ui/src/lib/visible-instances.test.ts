@@ -1,8 +1,9 @@
-import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
-import { queryResultInstanceKey } from "@/lib/instance-key";
+import { MAIN_OUTLINE_HOST, queryResultInstanceKey } from "@/lib/instance-key";
+import { setOutlineHost } from "@/stores/outline-hosts";
 import { SYSTEM_IDS } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -48,14 +49,22 @@ describe("visible instances", () => {
       );
   });
 
+  afterEach(() => setOutlineHost(MAIN_OUTLINE_HOST, null));
+
   it("offers no row a slot would refuse to render: the one rule, over the same chain", () => {
     const store = useOutlineStore.getState();
     expect(store.getVisibleInstances().length).toBeGreaterThan(0);
     // The root frame's slot inside a slot already showing it: a cycle.
-    store.setSlotChain([slotLink(OutlineListView, store.rootNodeId)]);
+    setOutlineHost(MAIN_OUTLINE_HOST, {
+      root: null,
+      chain: [slotLink(OutlineListView, store.rootNodeId)],
+    });
     expect(useOutlineStore.getState().getVisibleInstances()).toEqual([]);
     // The root frame's slot at the depth limit.
-    store.setSlotChain(Array.from({ length: MAX_VIEW_DEPTH }, (_, i) => `contract.view:${i}`));
+    setOutlineHost(MAIN_OUTLINE_HOST, {
+      root: null,
+      chain: Array.from({ length: MAX_VIEW_DEPTH }, (_, i) => `contract.view:${i}`),
+    });
     expect(useOutlineStore.getState().getVisibleInstances()).toEqual([]);
   });
 

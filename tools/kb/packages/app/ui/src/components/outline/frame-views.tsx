@@ -14,6 +14,7 @@ import { BoardCardsView } from "./board-cards-view";
 import { useFrameSubject } from "./frame-subject";
 import { NodeBlock } from "./node-block";
 import { TableView } from "./table-view";
+import { useOutlineHost } from "./outline-host";
 
 /** What a frame view shows outside an outline host: there is no frame. */
 function NoFrame() {
@@ -32,6 +33,7 @@ function NoFrame() {
  */
 export function ListFrameView({ params }: ViewProps<ParamsOf<typeof OutlineListView>>) {
   const subject = useFrameSubject();
+  const host = useOutlineHost();
   const { outline: nodes, schema } = useGraphRead();
   const rows = useMemo(
     () =>
@@ -51,10 +53,10 @@ export function ListFrameView({ params }: ViewProps<ParamsOf<typeof OutlineListV
   // (DESIGN-UI.md → Outline editor).
   // GAP [[01M41062Z83M38GYHC276XJ8RF]]
   return rows.map((child) => {
-    // At the outline's root, a row takes its canonical instance.
+    // At the outline's root, a row takes its instance in this outline's host.
     const key =
       instanceKey === undefined
-        ? outlineInstanceKey(child.id, nodes)
+        ? outlineInstanceKey(child.id, nodes, host)
         : childInstanceKey(instanceKey, child.id);
     return <NodeBlock key={key} nodeId={child.id} instanceKey={key} depth={depth} />;
   });

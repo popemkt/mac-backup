@@ -8,6 +8,7 @@ import {
   outlineInstanceKey,
   queryResultInstanceKey,
 } from "@/lib/instance-key";
+import { useOutlineHost } from "./outline-host";
 import { cn } from "@/lib/cn";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
@@ -72,7 +73,8 @@ export function BoardCardsView({
   const storeWidth = usePrefsStore((s) => s.width);
   const widthPref = widthPrefProp ?? storeWidth;
 
-  const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes);
+  const host = useOutlineHost();
+  const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes, host);
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.

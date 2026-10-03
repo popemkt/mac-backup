@@ -14,6 +14,8 @@ import { SchemaSection } from "./schema-section";
 import { isTextEntry } from "@/lib/dom";
 import { HeaderWash, ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
+import { setOutlineHost } from "@/stores/outline-hosts";
+import { useLeadsOutlines, useOutlineHost } from "./outline-host";
 
 /**
  * Home (`__kb_root__`) is a virtual node with empty props — view.mode cannot
@@ -24,14 +26,14 @@ export function OutlineEditor() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const root = useOutlineStore((s) => s.nodes.get(s.rootNodeId));
   const rootView = useFrameView(root);
-  // The keyboard walk starts where the root frame's slot does.
+  // The keyboard walk of this outline's rows starts where its root frame's slot does.
+  const host = useOutlineHost();
   const slotChain = useSlotChain();
-  const setSlotChain = useOutlineStore((s) => s.setSlotChain);
-  useEffect(() => setSlotChain(slotChain), [slotChain, setSlotChain]);
-  const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
-  const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
-  useSelectionKeymap();
-  useUndoRedoKeymap();
+  useEffect(() => {
+    setOutlineHost(host, { root: null, chain: slotChain });
+    return () => setOutlineHost(host, null);
+  }, [host, slotChain]);
+  const leads = useLeadsOutlines();
 
   /**
    * Container background is NOT a create target — only the explicit strip is (F14).
@@ -94,7 +96,7 @@ export function OutlineEditor() {
         )}
         <SchemaSection nodeId={rootNodeId} />
         <ReferencesSection nodeId={rootNodeId} />
-        <NodeCommandPalette open={nodePaletteOpen} onClose={() => setNodePaletteOpen(false)} />
+        {leads ? <OutlinePageKeys /> : null}
       </div>
     );
   }
@@ -129,9 +131,22 @@ export function OutlineEditor() {
           +
         </span>
       </div>
-      <NodeCommandPalette open={nodePaletteOpen} onClose={() => setNodePaletteOpen(false)} />
+      {leads ? <OutlinePageKeys /> : null}
     </div>
   );
+}
+
+/**
+ * What editing an outline adds to the page once, however many outlines are
+ * on screen: the selection keymap, undo and redo, and the node palette. The
+ * outline that leads renders it (`useLeadsOutlines`).
+ */
+function OutlinePageKeys() {
+  const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
+  const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
+  useSelectionKeymap();
+  useUndoRedoKeymap();
+  return <NodeCommandPalette open={nodePaletteOpen} onClose={() => setNodePaletteOpen(false)} />;
 }
 
 /**
