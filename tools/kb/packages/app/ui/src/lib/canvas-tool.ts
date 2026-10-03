@@ -1,22 +1,18 @@
 /**
- * Canvas tool strip state + placement (pure — unit-tested).
- * Shape/text placement is JSON-only via upsertCanvasNode.
+ * Canvas tool strip state + placement (pure — unit-tested). Every placing
+ * tool is a preset (`CANVAS_PRESETS`, `@kb/canvas`): the tool makes its
+ * preset's item at the point placed, written through `upsertCanvasNode`.
  */
 import {
+  presetItem,
   upsertCanvasNode,
   type CanvasDoc,
   type CanvasNode,
-  type CanvasShapeKind,
-  type CanvasShapeNode,
-  type CanvasTextNode,
-  type CanvasGroupNode,
+  type CanvasPresetKind,
 } from "@kb/canvas";
 
-export type CanvasTool = "select" | "text" | "rect" | "ellipse" | "diamond" | "kb-node" | "group";
-
-export const DEFAULT_SHAPE_SIZE = { width: 160, height: 100 } as const;
-export const DEFAULT_TEXT_SIZE = { width: 220, height: 80 } as const;
-export const DEFAULT_GROUP_SIZE = { width: 300, height: 200 } as const;
+/** Select, or a tool that places its preset. */
+export type CanvasTool = "select" | CanvasPresetKind;
 
 export interface ToolState {
   tool: CanvasTool;
@@ -40,30 +36,9 @@ export function reduceCanvasTool(state: ToolState, action: ToolAction): ToolStat
   return { tool: action.tool };
 }
 
-export function createShapeNode(
-  kind: CanvasShapeKind,
-  x: number,
-  y: number,
-  id: string,
-): CanvasShapeNode {
-  return {
-    id,
-    type: "shape",
-    shape: kind,
-    x,
-    y,
-    width: DEFAULT_SHAPE_SIZE.width,
-    height: DEFAULT_SHAPE_SIZE.height,
-  };
-}
-
-export function isShapeTool(tool: CanvasTool): tool is "rect" | "ellipse" | "diamond" {
-  return tool === "rect" || tool === "ellipse" || tool === "diamond";
-}
-
 /**
- * Place a node for the active tool at world coords.
- * Returns null for select / kb-node (picker path). Reverts tool to select.
+ * Place the active tool's preset at world coords. Returns null for select,
+ * and for the card, whose node comes from the picker (it is placed with one).
  */
 export function placeWithTool(
   doc: CanvasDoc,
@@ -72,44 +47,6 @@ export function placeWithTool(
   id: string,
 ): { doc: CanvasDoc; node: CanvasNode; nextTool: CanvasTool } | null {
   if (tool === "select" || tool === "kb-node") return null;
-
-  if (tool === "text") {
-    const node: CanvasTextNode = {
-      id,
-      type: "text",
-      text: "",
-      x: world.x,
-      y: world.y,
-      ...DEFAULT_TEXT_SIZE,
-    };
-    return {
-      doc: upsertCanvasNode(doc, node),
-      node,
-      nextTool: "select",
-    };
-  }
-
-  if (tool === "group") {
-    const node: CanvasGroupNode = {
-      id,
-      type: "group",
-      x: world.x,
-      y: world.y,
-      ...DEFAULT_GROUP_SIZE,
-    };
-    return {
-      doc: upsertCanvasNode(doc, node),
-      node,
-      nextTool: "select",
-    };
-  }
-
-  if (!isShapeTool(tool)) return null;
-
-  const node = createShapeNode(tool, world.x, world.y, id);
-  return {
-    doc: upsertCanvasNode(doc, node),
-    node,
-    nextTool: "select",
-  };
+  const node = presetItem(tool, world, id);
+  return { doc: upsertCanvasNode(doc, node), node, nextTool: "select" };
 }

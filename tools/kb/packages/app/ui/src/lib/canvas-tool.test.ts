@@ -1,8 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { present } from "@kb/model";
-import { parseCanvasDoc, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
+import { parseCanvasDoc, presetItem, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import { edgePath } from "@/lib/canvas-edge-path";
-import { createShapeNode, placeWithTool, reduceCanvasTool } from "@/lib/canvas-tool";
+import { placeWithTool, reduceCanvasTool } from "@/lib/canvas-tool";
+
+const createShapeNode = (kind: "rect" | "ellipse" | "diamond", x: number, y: number, id: string) =>
+  presetItem(kind, { x, y }, id);
 
 describe("canvas tool reducer", () => {
   test("set-tool switches active tool", () => {
@@ -40,6 +43,23 @@ describe("placeWithTool", () => {
     const result = placeWithTool(empty, "text", { x: 0, y: 0 }, "t1");
     const placed = present(result, "placed text");
     expect(placed.node).toMatchObject({ type: "text", text: "" });
+  });
+
+  test("every placing tool makes its preset, and a card is placed with its node", () => {
+    expect(placeWithTool(empty, "group", { x: 1, y: 2 }, "g")?.node).toEqual({
+      id: "g",
+      type: "group",
+      x: 1,
+      y: 2,
+      width: 300,
+      height: 200,
+    });
+    expect(presetItem("kb-node", { x: 0, y: 0 }, "k", "n.a")).toMatchObject({
+      type: "kb-node",
+      nodeId: "n.a",
+      width: 280,
+      height: 72,
+    });
   });
 
   test("select and kb-node return null", () => {
