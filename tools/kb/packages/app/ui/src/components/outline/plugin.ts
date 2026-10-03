@@ -135,6 +135,7 @@ export const outlineUiPlugin = definePlugin({
           provideRoute({
             view: OutlineView,
             match: matchOutline,
+            entry: "/",
             frame: () => "scroll",
             pendingTitle: () => "Opening your workspace…",
           }),

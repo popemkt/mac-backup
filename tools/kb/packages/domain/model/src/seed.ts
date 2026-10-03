@@ -162,6 +162,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(SYSTEM_IDS.cmdNewOntology, "New ontology", cmdType),
     mk(SYSTEM_IDS.cmdEnterOntology, "Enter ontology…", cmdType),
     mk(SYSTEM_IDS.cmdExitOntology, "Exit ontology", cmdType),
+    // Panes and layouts
+    mk(SYSTEM_IDS.cmdSaveWorkspace, "Save workspace", cmdType),
+    mk(SYSTEM_IDS.cmdClosePane, "Close pane", cmdType),
   ];
 
   // Query nodes as pure system nodes (W4). A query node is any node carrying
@@ -346,6 +349,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
 
   // Canvas nodes (C1): #canvas tag templating sys.f.canvas (JSON Canvas 1.0 str).
   const canvasField = singleField(SYSTEM_IDS.canvasField, "canvas", "text");
+  // A layout view's arrangement (`layout.grid`): its pane tree as JSON text.
+  const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text");
   const canvasTag = mk(SYSTEM_IDS.canvasTag, "canvas", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.canvasField }],
@@ -468,6 +473,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...linkStyleOptions,
     lensAllMentions,
     canvasField,
+    layoutField,
     canvasTag,
     ontoIncludeField,
     ontoMemberField,

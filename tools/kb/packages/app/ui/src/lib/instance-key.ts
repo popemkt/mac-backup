@@ -57,7 +57,11 @@ export function outlineInstanceKey(
 const PROJECTION_PREFIX = "ref:";
 const QUERY_RESULT_PREFIX = `${PROJECTION_PREFIX}query:`;
 
-/** Query-result / reference-container instance. */
+/**
+ * Query-result / reference-container instance. It names its query, not its
+ * outline host, so one query open in two panes draws rows under the same keys,
+ * and the keyboard walks them in the main pane's outline. GAP [QUERY-ROWS-NOT-PANE-KEYED]
+ */
 export function queryResultInstanceKey(queryNodeId: string, nodeId: string): string {
   return `${QUERY_RESULT_PREFIX}${queryNodeId}/${nodeId}`;
 }

@@ -13,6 +13,7 @@ import { agentPlugin } from "@/agent";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
 import { graphUiPlugin } from "@/components/graph/plugin";
 import { labUiPlugin } from "@/components/lab/plugin";
+import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { syncUiPlugins, type OptionalUiPlugin } from "@/lib/plugins";
@@ -26,6 +27,7 @@ export const BUILTIN_UI_PLUGINS: readonly Plugin[] = [
   graphUiPlugin,
   ontologyUiPlugin,
   canvasUiPlugin,
+  layoutUiPlugin,
   webMcpUiPlugin,
   screenUiPlugin,
 ];

@@ -31,6 +31,8 @@ import {
   MagnifyingGlassIcon,
   PushPinIcon,
   PushPinSlashIcon,
+  SidebarSimpleIcon,
+  SquaresFourIcon,
   StarIcon,
   TextTIcon,
   TrashIcon,
@@ -42,7 +44,7 @@ import { isContextualRef } from "@/lib/contextual-ref";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { isPinned } from "@/lib/pinned";
 import { DEFAULT_QUERY_EDN, isQueryNode } from "@/lib/query-node";
-import { navigate, ontologyPath } from "@/lib/router";
+import { navigate, nodePath, ontologyPath } from "@/lib/router";
 import {
   DESIGN_SYSTEM_IDS,
   type DesignSystemId,
@@ -51,7 +53,15 @@ import {
 } from "@/lib/theme";
 import { toast } from "@/lib/toast";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, isSysPrefixed, type NodeMap } from "@/lib/types";
-import { type FrameViewKey, localIdOf } from "@kb/views";
+import {
+  LayoutView,
+  layoutPanes,
+  localIdOf,
+  paramsFromProps,
+  type FrameViewKey,
+  type LayoutTree,
+} from "@kb/views";
+import { Result } from "effect";
 import type { FamilyView } from "@/lib/view-key";
 
 /** The picker a node command can hand the palette to. */
@@ -87,6 +97,16 @@ interface UiCommandApi {
   setFilterPopoverFrameId: (id: string | null) => void;
 }
 
+/** What commands read and drive on the workspace (its panes and their arrangement). */
+interface WorkspaceCommandApi {
+  readonly layout: LayoutTree;
+  readonly focused: string;
+  openBeside: (beside: string, path: string) => string;
+  close: (id: string) => void;
+  replace: (layout: LayoutTree) => void;
+  save: (text: string) => Promise<string | null>;
+}
+
 interface DebugFieldsCommandApi {
   readonly ids: ReadonlySet<string>;
   toggle: (nodeId: string) => void;
@@ -117,6 +137,7 @@ export interface CommandContext {
   readonly prefs: PrefsCommandApi;
   readonly ui: UiCommandApi;
   readonly debugFields: DebugFieldsCommandApi;
+  readonly workspace: WorkspaceCommandApi;
   readonly palette: PaletteSurface;
 }
 
@@ -323,7 +344,29 @@ const GLOBAL_COMMANDS: readonly Command[] = [
         ctx.ui.setFilterPopoverFrameId(frameId);
       }),
   },
+  {
+    id: SYSTEM_IDS.cmdSaveWorkspace,
+    scope: "global",
+    run: async (ctx) => {
+      const count = layoutPanes(ctx.workspace.layout).length;
+      await ctx.workspace.save(`Workspace · ${count} ${count === 1 ? "pane" : "panes"}`);
+    },
+  },
+  {
+    id: SYSTEM_IDS.cmdClosePane,
+    scope: "global",
+    when: (ctx) => layoutPanes(ctx.workspace.layout).length > 1,
+    run: (ctx) => ctx.workspace.close(ctx.workspace.focused),
+  },
 ];
+
+/** The arrangement a layout view node holds, when the node is one and holds a legal one. */
+function layoutOf(ctx: CommandContext): LayoutTree | null {
+  const node = targetNode(ctx);
+  if (node === undefined || viewOptionOf(node) !== LayoutView.option) return null;
+  const params = paramsFromProps(LayoutView, node.props, null, () => {});
+  return Result.isSuccess(params) ? params.success.root : null;
+}
 
 /**
  * The node menu, in the order it shows.
@@ -407,6 +450,28 @@ const NODE_COMMANDS: readonly Command[] = [
     run: (ctx) => {
       ctx.palette.close();
       ctx.ui.setGlobalPaletteOpen(true);
+    },
+  },
+  {
+    // Tana's panels: the node in a new pane to the right of the focused one.
+    id: "open-beside",
+    scope: "node",
+    chrome: () => ({ label: "Open in panel", icon: <SidebarSimpleIcon size={14} mirrored /> }),
+    run: (ctx) =>
+      nodeAction(ctx, (nodeId) => {
+        ctx.workspace.openBeside(ctx.workspace.focused, nodePath(nodeId));
+      }),
+  },
+  {
+    // A saved layout opened as the whole screen, its panes movable again.
+    id: "open-as-workspace",
+    scope: "node",
+    chrome: () => ({ label: "Open as workspace", icon: <SquaresFourIcon size={14} /> }),
+    when: (ctx) => layoutOf(ctx) !== null,
+    run: (ctx) => {
+      const layout = layoutOf(ctx);
+      if (layout !== null) ctx.workspace.replace(layout);
+      ctx.palette.close();
     },
   },
   {

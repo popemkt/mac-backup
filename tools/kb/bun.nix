@@ -2235,6 +2235,18 @@
     url = "https://registry.npmjs.org/diff-match-patch/-/diff-match-patch-1.0.5.tgz";
     hash = "sha512-IayShXAgj/QMXgB0IWmKx+rOPuGMhqm5w6jvFxmVenXKIzRqTAAsbBPT3kWQeGANj3jGgvcvv4yK6SxqYmikgw==";
   };
+  "dockview-core@8.4.0" = fetchurl {
+    url = "https://registry.npmjs.org/dockview-core/-/dockview-core-8.4.0.tgz";
+    hash = "sha512-aMYJZwxeV5HcXFVwDbSxEcNz+ECZmZKea90DsW/Q2cIQvoopy7C2oJun0uefWaghVeYxFlEsTqFf3c6cDyAUDQ==";
+  };
+  "dockview-react@8.4.0" = fetchurl {
+    url = "https://registry.npmjs.org/dockview-react/-/dockview-react-8.4.0.tgz";
+    hash = "sha512-1im8xQb5vNDRWS2iiaceIdhOxO2K/wjfvXXLl5QrbZbEMARqx2NIrfu6TG7ekLyb8i1r/Zdv/FIjMXUPHrwYfw==";
+  };
+  "dockview@8.4.0" = fetchurl {
+    url = "https://registry.npmjs.org/dockview/-/dockview-8.4.0.tgz";
+    hash = "sha512-MAxJZREkIdPwxMVFgLFRAni8VE3fXTbbjV2SDaLlsubmvrQNCTM89YexuTSHC5PsWAqQLV87CIF2X7yT2wrY2g==";
+  };
   "doctrine@3.0.0" = fetchurl {
     url = "https://registry.npmjs.org/doctrine/-/doctrine-3.0.0.tgz";
     hash = "sha512-yS+Q5i3hBf7GBkd4KG8a7eBNNWNGLTaEwwYWUijIYM7zrlYDM0BFXHjjPWlWZ1Rg7UaddZeIDmi9jF3HmqiQ2w==";

@@ -82,11 +82,9 @@ export const NodeBlock = memo(function NodeBlock({
   // for a contextual reference, the original. (Also the guide-line strip's.)
   const handleBulletClick = useCallback(
     (e: React.MouseEvent) => {
-      if (bulletClickIntent(e, true) === "follow") {
-        follow(nodeTarget(shownId), "open");
-      } else {
-        toggleCollapse(nodeId);
-      }
+      const intent = bulletClickIntent(e, true);
+      if (intent === "toggle") toggleCollapse(nodeId);
+      else follow(nodeTarget(shownId), intent);
     },
     [toggleCollapse, follow, shownId, nodeId],
   );

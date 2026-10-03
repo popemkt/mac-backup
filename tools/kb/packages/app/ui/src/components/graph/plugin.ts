@@ -146,6 +146,7 @@ export const graphUiPlugin = definePlugin({
           provideRoute({
             view: GraphView,
             match: matchGraph,
+            entry: "/graph",
             frame: () => "full",
             pendingTitle: () => "Opening graph…",
           }),

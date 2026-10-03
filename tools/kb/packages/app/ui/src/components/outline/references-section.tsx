@@ -3,7 +3,7 @@ import { backlinkRows, type BacklinkRow } from "@/lib/backlinks";
 import { MdView } from "@/components/ui/md-view";
 import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
-import { useFollow } from "@/stores/follow";
+import { useFollow, useOpenNode } from "@/stores/follow";
 import { useRefInk } from "@/stores/ref-ink";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
@@ -48,7 +48,7 @@ export function ReferencesView({
 }
 
 function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const zoomTo = useOpenNode();
   const follow = useFollow();
   const ink = useRefInk();
   const nodes = useOutlineStore((s) => s.nodes);

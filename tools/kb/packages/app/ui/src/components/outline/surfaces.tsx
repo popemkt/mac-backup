@@ -2,21 +2,39 @@ import { useMemo } from "react";
 import { HouseIcon, PushPinIcon } from "@phosphor-icons/react";
 import { OutlineColumn } from "@/components/outline/outline-column";
 import { useOutlineScreen } from "@/components/outline/use-outline-screen";
-import { OutlineView } from "@kb/views";
+import { OutlineView, type OutlineParams } from "@kb/views";
 import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
-import { paramsOf, type MatchedRoute } from "@/lib/plugins";
-import { navigate } from "@/lib/router";
+import { usePane } from "@/lib/pane";
+import { paramsOf, type MatchedRoute, type ViewProps } from "@/lib/plugins";
+import { navigate, nodePath } from "@/lib/router";
 import { listPinnedNavItems } from "@/lib/sidebar-nav";
+import { OpenNodeContext } from "@/stores/follow";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useWorkspaceStore } from "@/stores/workspace.store";
 
-export function OutlineSurface() {
-  const rootNodeId = useOutlineStore((s) => s.rootNodeId);
-  useOutlineScreen();
+/**
+ * The outline: at its `root` when it has one (a node opened in a pane), else
+ * at the outline's zoom. A rooted outline opens a node by moving its pane to
+ * it; the zoomed one zooms. The zoom is the store's, one per tab, so two panes
+ * at `/` show the same node. GAP [ZOOM-IS-ONE-PER-TAB]
+ */
+export function OutlineSurface({ params }: ViewProps<OutlineParams>) {
+  const zoomRoot = useOutlineStore((s) => s.rootNodeId);
+  const { root } = params;
+  const pane = usePane();
+  const navigatePane = useWorkspaceStore((s) => s.navigatePane);
+  const open = useMemo(
+    () => (root === undefined ? null : (id: string) => navigatePane(pane, nodePath(id))),
+    [root, pane, navigatePane],
+  );
+  useOutlineScreen(root);
   return (
-    <ViewErrorBoundary title="Outline crashed" resetKey={rootNodeId}>
-      <OutlineColumn />
-    </ViewErrorBoundary>
+    <OpenNodeContext.Provider value={open}>
+      <ViewErrorBoundary title="Outline crashed" resetKey={root ?? zoomRoot}>
+        <OutlineColumn root={root} />
+      </ViewErrorBoundary>
+    </OpenNodeContext.Provider>
   );
 }
 

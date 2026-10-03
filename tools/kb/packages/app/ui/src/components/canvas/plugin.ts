@@ -38,6 +38,7 @@ export const canvasUiPlugin = definePlugin({
           provideRoute({
             view: CanvasListView,
             match: matchCanvasList,
+            entry: "/canvas",
             frame: () => "fixed",
             pendingTitle: () => "Opening canvas…",
           }),

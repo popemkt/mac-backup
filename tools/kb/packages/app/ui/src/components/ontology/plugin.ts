@@ -43,6 +43,7 @@ export const ontologyUiPlugin = definePlugin({
           provideRoute({
             view: OntologyListView,
             match: matchOntologyList,
+            entry: "/o",
             frame: () => "scroll",
             pendingTitle: () => "Opening ontology…",
           }),

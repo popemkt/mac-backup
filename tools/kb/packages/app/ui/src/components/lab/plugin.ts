@@ -35,6 +35,7 @@ export const labUiPlugin = definePlugin({
           provideRoute({
             view: LabView,
             match: matchLab,
+            entry: "/lab",
             frame: () => "full",
             pendingTitle: () => "Opening the lab…",
           }),

@@ -80,6 +80,7 @@ export {
   OutlineBoardView,
   OutlineCardsView,
   OutlineListView,
+  OutlineParams,
   OutlineSnippetParams,
   OutlineSnippetView,
   OutlineTableView,
@@ -121,3 +122,28 @@ export {
   type ViewCatalogEntry,
 } from "./catalog.ts";
 export { viewNodeFor, type ViewNodeProposal } from "./view-node.ts";
+export {
+  LAYOUT_NAMESPACE,
+  LayoutParams,
+  LayoutView,
+  NodeParams,
+  NodeView,
+  SPLIT_DIRECTIONS,
+  closePane,
+  decodeLayout,
+  findPane,
+  freshPaneId,
+  layoutPanes,
+  neighbourOf,
+  normalizeLayout,
+  openBeside,
+  sameLayout,
+  singlePane,
+  withPanePath,
+  type LayoutPane,
+  type LayoutSplit,
+  type LayoutTabs,
+  type LayoutTree,
+  type SplitDirection,
+} from "./layout.ts";
+export { resolveNodeView, type NodeViewTarget } from "./node-view.ts";

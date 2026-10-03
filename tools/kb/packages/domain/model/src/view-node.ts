@@ -70,6 +70,8 @@ export const VIEW_VALUES = {
   "canvas.page": { label: "Canvas" },
   "lab.page": { label: "Lab" },
   "docs.markdown": { label: "Markdown document" },
+  "layout.grid": { label: "Layout" },
+  "layout.node": { label: "Node" },
 } as const satisfies Readonly<Record<string, ViewValue>>;
 export type ViewId = keyof typeof VIEW_VALUES;
 

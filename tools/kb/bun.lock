@@ -171,6 +171,7 @@
         "clsx": "catalog:",
         "d3-force-3d": "catalog:",
         "d3-hierarchy": "catalog:",
+        "dockview-react": "catalog:",
         "effect": "catalog:",
         "graphology": "catalog:",
         "graphology-communities-louvain": "catalog:",
@@ -199,6 +200,7 @@
         "@types/react-dom": "catalog:",
         "@types/three": "catalog:",
         "@vitejs/plugin-react": "catalog:",
+        "fast-check": "catalog:",
         "happy-dom": "catalog:",
         "oxc-parser": "catalog:",
         "storybook": "catalog:",
@@ -312,6 +314,7 @@
       },
       "devDependencies": {
         "@types/bun": "catalog:",
+        "fast-check": "catalog:",
       },
     },
     "packages/extension/agent": {
@@ -493,6 +496,7 @@
     "d3-force-3d": "^3.0.6",
     "d3-hierarchy": "^3.1.2",
     "datascript": "^1.8.1",
+    "dockview-react": "^8.4.0",
     "effect": "4.0.0-rc.112",
     "fast-check": "^4.9.0",
     "graphology": "^0.26.0",
@@ -1426,6 +1430,12 @@
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
 
     "diff-match-patch": ["diff-match-patch@1.0.5", "", {}, "sha512-IayShXAgj/QMXgB0IWmKx+rOPuGMhqm5w6jvFxmVenXKIzRqTAAsbBPT3kWQeGANj3jGgvcvv4yK6SxqYmikgw=="],
+
+    "dockview": ["dockview@8.4.0", "", { "dependencies": { "dockview-core": "^8.4.0" } }, "sha512-MAxJZREkIdPwxMVFgLFRAni8VE3fXTbbjV2SDaLlsubmvrQNCTM89YexuTSHC5PsWAqQLV87CIF2X7yT2wrY2g=="],
+
+    "dockview-core": ["dockview-core@8.4.0", "", {}, "sha512-aMYJZwxeV5HcXFVwDbSxEcNz+ECZmZKea90DsW/Q2cIQvoopy7C2oJun0uefWaghVeYxFlEsTqFf3c6cDyAUDQ=="],
+
+    "dockview-react": ["dockview-react@8.4.0", "", { "dependencies": { "dockview": "^8.4.0" }, "peerDependencies": { "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-1im8xQb5vNDRWS2iiaceIdhOxO2K/wjfvXXLl5QrbZbEMARqx2NIrfu6TG7ekLyb8i1r/Zdv/FIjMXUPHrwYfw=="],
 
     "doctrine": ["doctrine@3.0.0", "", { "dependencies": { "esutils": "^2.0.2" } }, "sha512-yS+Q5i3hBf7GBkd4KG8a7eBNNWNGLTaEwwYWUijIYM7zrlYDM0BFXHjjPWlWZ1Rg7UaddZeIDmi9jF3HmqiQ2w=="],
 

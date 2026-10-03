@@ -17,6 +17,7 @@ import {
   TreemapView,
 } from "./graph.ts";
 import { LabView } from "./lab.ts";
+import { LayoutView, NodeView } from "./layout.ts";
 import { CanvasListView, CanvasView } from "./canvas.ts";
 import { OntologyListView, OntologyScopeView } from "./ontology.ts";
 import {
@@ -55,6 +56,8 @@ export const VIEW_CATALOG: readonly ViewKey<unknown>[] = [
   CanvasView,
   LabView,
   DocsMarkdownView,
+  LayoutView,
+  NodeView,
 ];
 
 /**

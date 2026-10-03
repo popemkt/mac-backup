@@ -9,7 +9,7 @@ import { createContext, useContext } from "react";
 /** The pane every tab starts with, and the one a tree outside any pane belongs to. */
 export const MAIN_PANE = "main";
 
-const PaneContext = createContext<string>(MAIN_PANE);
+export const PaneContext = createContext<string>(MAIN_PANE);
 
 /** The pane the caller is drawn in. */
 export function usePane(): string {

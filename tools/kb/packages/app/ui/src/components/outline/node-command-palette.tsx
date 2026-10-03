@@ -18,6 +18,7 @@ import { usePickerKeys } from "@/lib/use-picker";
 import { PickerList } from "@/components/ui/picker-list";
 import { SYSTEM_IDS, type NodeMap } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
+import { currentWorkspace } from "@/stores/workspace.store";
 import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -199,6 +200,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     prefs: usePrefsStore.getState(),
     ui: useUiStore.getState(),
     debugFields: { ids: debugIds, toggle: useDebugFieldsStore.getState().toggle },
+    workspace: currentWorkspace(),
     palette,
   };
 

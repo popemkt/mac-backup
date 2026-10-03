@@ -13,26 +13,31 @@ import { renderInlineMarkdown } from "@/lib/md-edit";
 const PLAIN_INK = (): string | null => null;
 
 describe("the one bullet rule", () => {
-  const plain = { metaKey: false, ctrlKey: false };
+  const plain = { metaKey: false, ctrlKey: false, shiftKey: false };
   it("a plain click toggles a bullet that can toggle", () => {
     expect(bulletClickIntent(plain, true)).toBe("toggle");
   });
   it("a modifier click always follows", () => {
-    expect(bulletClickIntent({ metaKey: true, ctrlKey: false }, true)).toBe("follow");
-    expect(bulletClickIntent({ metaKey: false, ctrlKey: true }, true)).toBe("follow");
+    expect(bulletClickIntent({ ...plain, metaKey: true }, true)).toBe("open");
+    expect(bulletClickIntent({ ...plain, ctrlKey: true }, true)).toBe("open");
+  });
+  it("a Shift-click follows into a pane beside this one", () => {
+    expect(bulletClickIntent({ ...plain, shiftKey: true }, true)).toBe("beside");
+    expect(bulletClickIntent({ ...plain, shiftKey: true }, false)).toBe("beside");
   });
   it("a bullet with nothing to toggle follows on a plain click", () => {
-    expect(bulletClickIntent(plain, false)).toBe("follow");
+    expect(bulletClickIntent(plain, false)).toBe("open");
   });
 });
 
 /** A click event shaped the way React hands one over. */
-function click(target: Element, mod = false) {
+function click(target: Element, mod = false, shift = false) {
   const flags = { stopped: false, prevented: false };
   const event = {
     target,
     metaKey: mod,
     ctrlKey: false,
+    shiftKey: shift,
     stopPropagation: () => {
       flags.stopped = true;
     },
@@ -66,9 +71,11 @@ describe("routing a click on rendered pointers", () => {
     expect(routePointerClick(plain.event, follow)).toBe(true);
     expect(plain.flags).toEqual({ stopped: true, prevented: true });
     expect(routePointerClick(click(pill, true).event, follow)).toBe(true);
+    expect(routePointerClick(click(pill, false, true).event, follow)).toBe(true);
     expect(seen).toEqual([
       [{ kind: "node", id: "n.x" }, "open"],
       [{ kind: "node", id: "n.x" }, "reveal"],
+      [{ kind: "node", id: "n.x" }, "beside"],
     ]);
   });
 

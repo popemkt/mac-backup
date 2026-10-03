@@ -17,7 +17,7 @@ const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
  * the centered column — breadcrumb included — shifted ~3px. Fixing it here is
  * what keeps every downstream element free of compensating offsets.
  */
-function ScrollRegion({
+export function ScrollRegion({
   scroll,
   children,
 }: {
@@ -48,7 +48,7 @@ function ScrollRegion({
  * boundary; the slot's only keeps a page that lacks one from taking the pane
  * down with it. A route whose view is not loaded is not found.
  */
-function RouteBody({ route }: { route: ResolvedRoute }) {
+function RouteBody({ route, subject }: { route: ResolvedRoute; subject: string | undefined }) {
   return (
     <ViewSlot
       view={route.view}
@@ -56,6 +56,7 @@ function RouteBody({ route }: { route: ResolvedRoute }) {
       placement="page"
       fallback={NOT_FOUND}
       pending={<WorkspaceState title={route.pendingTitle} loading />}
+      {...(subject === undefined ? {} : { subject })}
     />
   );
 }
@@ -64,10 +65,14 @@ function RouteBody({ route }: { route: ResolvedRoute }) {
  * What a pane shows at `path`: the page the route table resolves it to, with
  * the route's chrome above it and, unless the page owns its own viewport, a
  * scroll region around it. A path no route owns is not found.
+ *
+ * `subject` is what the pane's slot shows its page for where panes nest (a
+ * dashboard's panes give their locations), so a layout open inside itself is
+ * a repeat the slot refuses rather than a page drawn forever.
  */
-export function PaneFrame({ path }: { readonly path: string }) {
+export function PaneFrame({ path, subject }: { readonly path: string; readonly subject?: string }) {
   const route = matchRoute(useContributions(RoutePoint), path);
-  const body = route === null ? NOT_FOUND : <RouteBody route={route} />;
+  const body = route === null ? NOT_FOUND : <RouteBody route={route} subject={subject} />;
   return (
     <>
       {route?.chrome}

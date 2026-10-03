@@ -10,6 +10,7 @@ import { framedAs, viewFieldNodes, type FrameViewName } from "@/fixtures/view-fi
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
+import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -407,6 +408,7 @@ describe("Filter… host visibility", () => {
         prefs: usePrefsStore.getState(),
         ui: useUiStore.getState(),
         debugFields: useDebugFieldsStore.getState(),
+        workspace: useWorkspaceStore.getState(),
         palette: { close: () => {}, openStep: () => {} },
       });
     });

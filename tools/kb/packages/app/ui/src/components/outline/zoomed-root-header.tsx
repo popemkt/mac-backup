@@ -8,6 +8,7 @@ import { isSysPrefixed } from "@/lib/types";
 import { nodeTagColors, tagColorAlpha } from "@/lib/tag-color";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useOpenNode } from "@/stores/follow";
 import { FieldsSection } from "./fields-section";
 import { TagChipGroup } from "./tag-chip";
 import { ViewToolbar } from "./view-toolbar";
@@ -138,7 +139,7 @@ export function ZoomedRootHeader({
   /** The view the node shows its children in, as its host resolved it (`frameViewOf`). */
   readonly view: FrameViewKey | null;
 }) {
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const zoomTo = useOpenNode();
   // Ambient wash, not an identity readout: one color is enough, but which
   // color and how it weakens both come from the tag-color owner.
   const washColor = nodeTagColors(node)[0] ?? null;

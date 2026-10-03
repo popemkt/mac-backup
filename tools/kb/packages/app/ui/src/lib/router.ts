@@ -24,6 +24,17 @@ export function navigate(to: string): void {
   notify();
 }
 
+/**
+ * Show `to` in the address bar without a history entry: the URL names the
+ * focused pane, and moving the focus to another pane is not a step back can
+ * undo.
+ */
+export function replacePath(to: string): void {
+  if (to === getPath()) return;
+  window.history.replaceState({}, "", to);
+  notify();
+}
+
 /** Call `listener` whenever the path changes, by `navigate` or by history; returns the unsubscribe. */
 export function subscribePath(listener: Listener): () => void {
   listeners.add(listener);
@@ -43,6 +54,15 @@ export function graphPath(perspectiveId?: string | null): string {
     return `/graph/${encodeURIComponent(perspectiveId)}`;
   }
   return "/graph";
+}
+
+/**
+ * `/node/<id>`: a node in its default view; `/node/<id>/<view>`: the node
+ * through one view (a view node it names, or a view type by its option).
+ */
+export function nodePath(node: string, view?: string): string {
+  const base = `/node/${encodeURIComponent(node)}`;
+  return view === undefined ? base : `${base}/${encodeURIComponent(view)}`;
 }
 
 /** `/o/<id>` (page) · `/o/<id>/outline` · `/o/<id>/graph`. */

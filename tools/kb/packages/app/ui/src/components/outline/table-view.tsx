@@ -295,9 +295,9 @@ const TableRow = memo(function TableRow({
               collapsible={chrome.isExpandable}
               isRef={chrome.bulletIsRef}
               onClick={(e) => {
-                if (bulletClickIntent(e, true) === "follow") {
-                  follow(nodeTarget(shownNodeId(child)), "open");
-                } else toggleCollapse(child.id);
+                const intent = bulletClickIntent(e, true);
+                if (intent === "toggle") toggleCollapse(child.id);
+                else follow(nodeTarget(shownNodeId(child)), intent);
               }}
             />
           }

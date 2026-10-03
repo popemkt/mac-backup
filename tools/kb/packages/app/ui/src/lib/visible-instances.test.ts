@@ -140,3 +140,34 @@ describe("visible instances", () => {
     expect(texts).toEqual(sortedTexts);
   });
 });
+
+describe("outlines in several panes", () => {
+  beforeEach(() => {
+    resetOutlineStore();
+    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  });
+  afterEach(() => setOutlineHost("pane:p2", null));
+
+  it("walks an outline open in another pane under that pane's host, apart from the main one", () => {
+    setOutlineHost("pane:p2", { root: "n.root-a", chain: [] });
+    const store = useOutlineStore.getState();
+    const rows = store.getVisibleInstances("pane:p2");
+    expect(rows.map((row) => row.instanceKey)).toContain("pane:p2/n.root-a/n.child-a1");
+    expect(rows.every((row) => row.instanceKey.startsWith("pane:p2/"))).toBe(true);
+    // The main outline's rows are its own: no row is in both walks.
+    const main = new Set(store.getVisibleInstances().map((row) => row.instanceKey));
+    expect(rows.some((row) => main.has(row.instanceKey))).toBe(false);
+    // The keyboard stays inside the outline a row is drawn in.
+    const [first, second] = rows;
+    if (first === undefined || second === undefined) throw new Error("two rows");
+    expect(store.getPreviousVisibleInstance(first.instanceKey)).toBeNull();
+    expect(store.getNextVisibleInstance(first.instanceKey)).toEqual(second);
+  });
+
+  it("activates a row in the outline being worked in when no instance is named", () => {
+    setOutlineHost("pane:p2", { root: "n.root-a", chain: [] });
+    useOutlineStore.getState().selectNode("n.child-a1", "pane:p2/n.root-a/n.child-a1");
+    useOutlineStore.getState().activateNode("n.child-a2");
+    expect(useOutlineStore.getState().activeInstanceKey).toBe("pane:p2/n.root-a/n.child-a2");
+  });
+});

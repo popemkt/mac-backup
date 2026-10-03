@@ -119,6 +119,12 @@ export interface Route<P> {
   readonly pendingTitle: (params: P) => string;
   /** Rendered above the page, outside its scroll region (a scope bar). */
   readonly Chrome?: ComponentType<{ readonly params: P }>;
+  /**
+   * The path that opens this route's view with nothing chosen (`/graph`,
+   * `/canvas`), for a route that has one: where a pane's view switcher sends
+   * a pane to show this view.
+   */
+  readonly entry?: string;
 }
 
 /** The page a path resolved to: which view, with what params. */
@@ -136,7 +142,11 @@ export interface ResolvedRoute extends MatchedRoute {
 
 /** A route as the point holds it: resolving a path keeps its params typed inside. */
 export interface ProvidedRoute {
+  readonly view: ViewKey<unknown>;
   readonly resolve: (path: string) => ResolvedRoute | null;
+  /** How the route frames its view's page for `params`, which must be that view's. */
+  readonly frameOf: (params: unknown) => RouteFrame;
+  readonly entry?: string;
 }
 
 export const RoutePoint = Point<ProvidedRoute>()("ui.routes");
@@ -147,6 +157,9 @@ export function provideRoute<P>(route: Route<P>): ContributionEntry<ProvidedRout
   return {
     id: localIdOf(route.view),
     value: {
+      view: route.view,
+      frameOf: (params) => route.frame(asParamsOf(route.view, params)),
+      ...(route.entry === undefined ? {} : { entry: route.entry }),
       resolve: (path) => {
         const params = route.match(path);
         if (params === null) return null;
@@ -311,6 +324,20 @@ export function useView<P>(key: ViewKey<P>): View<P> | null {
 /** The params of `route` when it renders `key`, else null. */
 export function paramsOf<P>(route: MatchedRoute | null, key: ViewKey<P>): P | null {
   return route?.view === key ? asParamsOf(key, route.params) : null;
+}
+
+/**
+ * How `key`'s page is framed when it shows `params`: as the route that opens
+ * that view frames it, or null when no route opens it. A host that shows a
+ * view no route led to (a node opened in its default view) frames it so.
+ */
+export function pageFrameOf<P>(
+  routes: readonly Contribution<ProvidedRoute>[],
+  key: ViewKey<P>,
+  params: P,
+): RouteFrame | null {
+  const route = routes.find(({ value }) => value.view === key);
+  return route === undefined ? null : route.value.frameOf(params);
 }
 
 /** The route that owns `path`, or null when none does; the first match wins. */

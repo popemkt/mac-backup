@@ -8,12 +8,13 @@ import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover"
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
-import { PaneFrame } from "@/components/layout/pane-frame";
+import { Workspace } from "@/components/layout/workspace";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { useRoute } from "@/lib/plugins";
-import { usePath } from "@/lib/router";
+import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
+import { layoutPanes } from "@kb/views";
 import { OPTIONAL_UI_PLUGINS, startUiPlugins } from "@/ui-plugins";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
@@ -196,9 +197,12 @@ export function App() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const route = useRoute();
-  const path = usePath();
-  // A page that takes the whole column (the graph) takes the header's place too.
-  const header = route === null || route.frame !== "full";
+  const panes = useWorkspaceStore((s) => layoutPanes(s.layout).length);
+  // A lone page that takes the whole column (the graph) takes the header's place too.
+  const header = panes > 1 || route === null || route.frame !== "full";
+
+  // The URL names the focused pane: a navigation moves it.
+  useEffect(() => startWorkspace(), []);
 
   const reload = useCallback(async () => {
     setStatus("loading");
@@ -259,7 +263,7 @@ export function App() {
           {status === "error" ? (
             <LoadError error={error} onRetry={() => void reload()} />
           ) : (
-            <PaneFrame path={path} />
+            <Workspace />
           )}
         </WorkspaceBoundary>
         <SharedChrome />

@@ -20,6 +20,7 @@ import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
+import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -46,6 +47,7 @@ async function run(commandId: string): Promise<void> {
     prefs: usePrefsStore.getState(),
     ui: useUiStore.getState(),
     debugFields: useDebugFieldsStore.getState(),
+    workspace: useWorkspaceStore.getState(),
     palette: { close: () => {}, openStep: () => {} },
   });
 }

@@ -3,12 +3,7 @@ import { DatascriptIndex, type KbIndex } from "@/ds";
 import { loadExpandedIds, resolveProps, saveExpandedIds, wireToOutlineMap } from "@/lib/graph-view";
 import { resolveVisibleProps } from "@/lib/field-visibility";
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
-import {
-  MAIN_OUTLINE_HOST,
-  hostOfInstance,
-  isInsideQueryResults,
-  outlineInstanceKey,
-} from "@/lib/instance-key";
+import { MAIN_OUTLINE_HOST, isInsideQueryResults, outlineInstanceKey } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
 import { schemaOf, type SchemaIndex } from "@/lib/schema";
@@ -31,7 +26,7 @@ import { logWarn } from "@/lib/log";
 import type { FrameViewKey } from "@kb/views";
 import type { FamilyView } from "@/lib/view-key";
 import { providedFrameViews } from "@/stores/frame-views";
-import { outlineHostOf } from "@/stores/outline-hosts";
+import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "@/stores/outline-hosts";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
 
 export type { VisibleInstance };
@@ -276,17 +271,6 @@ function projectOutline(
     ontologyMembers: resolution.members,
     ontologyWarnings: resolution.warnings,
   };
-}
-
-/**
- * The outline host whose walk holds `instanceKey`: the host it is keyed
- * under when an outline is mounted there, else the main pane's (a projected
- * row's key names its query, not its host).
- */
-function walkHostOf(instanceKey: string | null): string {
-  if (instanceKey === null) return MAIN_OUTLINE_HOST;
-  const host = hostOfInstance(instanceKey);
-  return outlineHostOf(host) === undefined ? MAIN_OUTLINE_HOST : host;
 }
 
 /**

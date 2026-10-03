@@ -13,6 +13,7 @@ import { schemaZoomKind } from "@/lib/schema-zoom";
 import { toast } from "@/lib/toast";
 import { isSysPrefixed } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
+import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -33,6 +34,7 @@ function commandContext(onClose: () => void): CommandContext {
     prefs: usePrefsStore.getState(),
     ui: useUiStore.getState(),
     debugFields: useDebugFieldsStore.getState(),
+    workspace: useWorkspaceStore.getState(),
     palette: {
       close: onClose,
       openStep: () => toast("That command needs a selected row"),

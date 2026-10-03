@@ -39,8 +39,10 @@ describe("viewNodeFor", () => {
         issues: Result.isFailure(proposed) ? proposed.failure : [],
       }).toEqual({ view: entry.id, issues: [] });
       if (Result.isSuccess(proposed)) {
+        // It reads back as an empty view node reads for that host: a setting
+        // the view takes from its host when none is stored stays the host's.
         const back = paramsFromProps(key, proposed.success.props, "n.host", () => {});
-        expect(back).toEqual(Result.succeed(entry.defaults));
+        expect(back).toEqual(paramsFromProps(key, {}, "n.host", () => {}));
       }
     }
   });

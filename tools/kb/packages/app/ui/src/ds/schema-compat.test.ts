@@ -82,13 +82,13 @@ describe("UI datalog on DatascriptIndex", () => {
     expect(table.map((r) => [r.id, r.rows])).toEqual([
       // One node and one field fewer since lens.curved-links folded into lens.link-style;
       // then four view and lens fields, the view options with their list and families,
-      // the ontology tag in place of the retired graph-perspective tag, and the
-      // docs view option (+26, +4).
-      ["queries.list-all", 77],
+      // the ontology tag in place of the retired graph-perspective tag, the
+      // docs view option (+26, +4), and the layout and node view options (+2).
+      ["queries.list-all", 79],
       ["queries.list-fields", 30],
       ["queries.list-tags", 2],
       ["queries.backlinks-n.root-a", 0],
-      ["query-node.default", 77],
+      ["query-node.default", 79],
       ["schema-zoom.tagged-todo", 2],
       ["schema-zoom.field-status", 2],
       ["graph-lens.todo-via-id", 2],

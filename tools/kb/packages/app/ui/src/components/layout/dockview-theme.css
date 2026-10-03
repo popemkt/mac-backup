@@ -1,0 +1,102 @@
+/**
+ * kb's dockview theme: every variable dockview reads, set from the design
+ * system's tokens (DESIGN-UI.md → Design tokens), so panes, tabs and sashes
+ * change with the theme and the design system like the rest of the page, and
+ * no colour is written here. Loaded with the layout grid's chunk only.
+ */
+.dockview-theme-kb {
+  color-scheme: inherit;
+  font-family: var(--app-font);
+
+  /* Ground and ink. */
+  --dv-group-view-background-color: var(--background);
+  --dv-tabs-and-actions-container-background-color: color-mix(
+    in oklab,
+    var(--foreground) 2.5%,
+    var(--background)
+  );
+  --dv-activegroup-visiblepanel-tab-background-color: var(--background);
+  --dv-inactivegroup-visiblepanel-tab-background-color: color-mix(
+    in oklab,
+    var(--foreground) 1%,
+    var(--background)
+  );
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-activegroup-visiblepanel-tab-color: var(--foreground);
+  --dv-activegroup-hiddenpanel-tab-color: color-mix(in oklab, var(--foreground) 55%, transparent);
+  --dv-inactivegroup-visiblepanel-tab-color: color-mix(
+    in oklab,
+    var(--foreground) 65%,
+    transparent
+  );
+  --dv-inactivegroup-hiddenpanel-tab-color: color-mix(in oklab, var(--foreground) 40%, transparent);
+  --dv-tab-divider-color: transparent;
+  --dv-separator-border: color-mix(in oklab, var(--foreground) 7%, transparent);
+  --dv-paneview-header-border-color: var(--border);
+  --dv-paneview-active-outline-color: var(--ring);
+  --dv-icon-hover-background-color: color-mix(in oklab, var(--foreground) 6%, transparent);
+  --dv-scrollbar-background-color: color-mix(in oklab, var(--foreground) 20%, transparent);
+  --dv-tabs-container-scrollbar-color: color-mix(in oklab, var(--foreground) 20%, transparent);
+  --dv-context-menu-background-color: var(--popover);
+  --dv-context-menu-color: var(--popover-foreground);
+
+  /* The tab strip: a quiet bar the height of a toolbar row. */
+  --dv-tabs-and-actions-container-height: calc(30px * var(--density));
+  --dv-tabs-and-actions-container-font-size: var(--type-ui);
+  --dv-tab-font-size: inherit;
+  --dv-tab-margin: 0;
+  --dv-tab-close-icon-size: inherit;
+  --dv-tab-border-radius: 0px;
+  --dv-border-radius: 0px;
+  --dv-spacing-padding: 0px;
+  --dv-dropdown-border-radius: var(--radius);
+
+  /* Sashes: invisible until hovered, then the primary hairline. */
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: color-mix(in oklab, var(--primary) 70%, transparent);
+  --dv-sash-border-radius: 0px;
+  --dv-active-sash-transition-duration: var(--motion-duration-quick);
+  --dv-active-sash-transition-delay: 0.25s;
+
+  /* Dragging a pane: where it would land, in the primary's tint. */
+  --dv-drag-over-background-color: color-mix(in oklab, var(--primary) 10%, transparent);
+  --dv-drag-over-border-color: color-mix(in oklab, var(--primary) 45%, transparent);
+  --dv-drag-over-border: 1px solid var(--dv-drag-over-border-color);
+  --dv-edge-dock-indicator-color: color-mix(in oklab, var(--primary) 60%, transparent);
+  --dv-dnd-compass-color: var(--primary);
+  --dv-dnd-compass-cell-color: color-mix(in oklab, var(--primary) 14%, transparent);
+  --dv-dnd-compass-active-cell-color: color-mix(in oklab, var(--primary) 30%, transparent);
+  --dv-dnd-compass-edge-cell-color: color-mix(in oklab, var(--primary) 20%, transparent);
+  --dv-smart-guides-color: var(--primary);
+  --dv-smart-guides-preview-color: color-mix(in oklab, var(--primary) 20%, transparent);
+
+  /* Floating windows are off; these keep dockview's own rules well-formed. */
+  --dv-overlay-z-index: 30;
+  --dv-floating-box-shadow: var(--elevation-overlay);
+  --dv-floating-border: 1px solid var(--border);
+  --dv-floating-group-border: none;
+  --dv-floating-group-dragging-opacity: 0.6;
+  --dv-floating-titlebar-height: 22px;
+  --dv-floating-titlebar-background-color: var(--dv-tabs-and-actions-container-background-color);
+  --dv-floating-titlebar-border-bottom: var(--dv-floating-border);
+  --dv-tab-group-line-opacity: 0.6;
+}
+
+/* The strip sits on a hairline, like the workspace header. */
+.dockview-theme-kb .dv-tabs-and-actions-container {
+  border-bottom: 1px solid var(--dv-separator-border);
+}
+
+/* A tab is the pane's header: its title fills it, and the focused pane's is marked. */
+.dockview-theme-kb .dv-tab {
+  padding: 0;
+}
+
+.dockview-theme-kb .dv-tab.dv-active-tab {
+  box-shadow: inset 0 -1.5px 0 color-mix(in oklab, var(--foreground) 18%, transparent);
+}
+
+.dockview-theme-kb .dv-groupview.dv-active-group .dv-tab.dv-active-tab {
+  box-shadow: inset 0 -1.5px 0 var(--primary);
+}

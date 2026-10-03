@@ -243,6 +243,11 @@ export const SYSTEM_IDS = {
   canvasTag: "sys.tag.canvas",
   canvasField: "sys.f.canvas",
   /**
+   * A layout view's arrangement: its split-and-tab tree of panes, as
+   * canonical JSON (text, single). DESIGN → View nodes → Layout views.
+   */
+  layoutField: "sys.f.layout",
+  /**
    * Ontologies (r5 core): a named, editable lens over the graph. An ontology
    * is an ordinary node tagged `#ontology` carrying `sys.f.onto.*` props —
    * a new node KIND, not a new node type. Membership bookkeeping lives on
@@ -265,6 +270,9 @@ export const SYSTEM_IDS = {
   cmdNewOntology: "sys.cmd.new-ontology",
   cmdEnterOntology: "sys.cmd.enter-ontology",
   cmdExitOntology: "sys.cmd.exit-ontology",
+  /** Panes and layouts: keep the live arrangement as a layout node, close the focused pane. */
+  cmdSaveWorkspace: "sys.cmd.save-workspace",
+  cmdClosePane: "sys.cmd.close-pane",
 } as const;
 
 /** Pre-fix id — migrated away by ensureSystemSeed. */

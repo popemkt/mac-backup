@@ -9,7 +9,7 @@ import {
   type FrameViewParams,
 } from "./frame.ts";
 import { encodeLensConfig } from "./lens.ts";
-import { NoParams, viewKey } from "./view-key.ts";
+import { viewKey } from "./view-key.ts";
 
 /** The outline plugin's namespace and view keys: what a host imports, never the components. */
 export const OUTLINE_NAMESPACE = "outline";
@@ -17,13 +17,25 @@ export const OUTLINE_NAMESPACE = "outline";
 /** What every frame view says of the node it is shown for. */
 const FRAME_HOST = " Shown for a frame (the node it is named by): lays out that frame's children.";
 
-/** The outline, at `/`: a zoom lives in the store, not in the params. */
-export const OutlineView = viewKey(
-  `${OUTLINE_NAMESPACE}.main`,
-  NoParams.annotate({
-    description: "The outline: every node as an editable tree, at /. It reads no settings.",
-  }),
-);
+/**
+ * The outline, rooted at `root`; without one, at the outline's zoom, which
+ * lives in the store (`/`).
+ */
+export const OutlineParams = Schema.Struct({
+  root: Schema.optionalKey(Schema.NonEmptyString),
+}).annotate({
+  description:
+    "The outline: nodes as an editable tree, rooted at root, or at the outline's zoom (/) when there is none. Stored, root is lens.focus, else the node it is shown for.",
+});
+export type OutlineParams = typeof OutlineParams.Type;
+
+export const OutlineView = viewKey(`${OUTLINE_NAMESPACE}.main`, OutlineParams, {
+  read: (props, host) => {
+    const root = firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined;
+    return root === undefined ? {} : { root };
+  },
+  write: ({ root }) => (root === undefined ? {} : encodeLensConfig({ focus: root })),
+});
 
 /**
  * A read-only glimpse of the outline under `root`: its text, then its

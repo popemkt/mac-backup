@@ -22,17 +22,19 @@ import { useLeadsOutlines, useOutlineHost } from "./outline-host";
  * persist there, so home always renders the list of forest roots. Projected
  * views are available on zoomed/nested frames via ViewToolbar.
  */
-export function OutlineEditor() {
-  const rootNodeId = useOutlineStore((s) => s.rootNodeId);
-  const root = useOutlineStore((s) => s.nodes.get(s.rootNodeId));
+export function OutlineEditor({ root: rootProp }: { readonly root?: string | undefined }) {
+  // Rooted at its own node in a pane, else at the outline's zoom.
+  const zoomRoot = useOutlineStore((s) => s.rootNodeId);
+  const rootNodeId = rootProp ?? zoomRoot;
+  const root = useOutlineStore((s) => s.nodes.get(rootNodeId));
   const rootView = useFrameView(root);
   // The keyboard walk of this outline's rows starts where its root frame's slot does.
   const host = useOutlineHost();
   const slotChain = useSlotChain();
   useEffect(() => {
-    setOutlineHost(host, { root: null, chain: slotChain });
+    setOutlineHost(host, { root: rootProp ?? null, chain: slotChain });
     return () => setOutlineHost(host, null);
-  }, [host, slotChain]);
+  }, [host, rootProp, slotChain]);
   const leads = useLeadsOutlines();
 
   /**
@@ -68,7 +70,7 @@ export function OutlineEditor() {
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
     return (
       <div className="outline-editor px-2 pb-40">
-        <Breadcrumbs />
+        <Breadcrumbs root={rootProp} />
         <ZoomedRootHeader node={root} view={rootView?.key ?? null} />
 
         {rootRows}
@@ -106,7 +108,7 @@ export function OutlineEditor() {
       <div className="relative">
         <HeaderWash color="var(--primary)" />
         <div className="relative">
-          <Breadcrumbs />
+          <Breadcrumbs root={rootProp} />
         </div>
       </div>
 

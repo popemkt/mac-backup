@@ -622,7 +622,8 @@ function ResolvedRefRow({
           onClick={(e) => {
             e.stopPropagation();
             // A value's bullet has nothing of its own to expand, so it follows.
-            if (bulletClickIntent(e, false) === "follow") onFollow(nodeTarget(refId), "open");
+            const intent = bulletClickIntent(e, false);
+            if (intent !== "toggle") onFollow(nodeTarget(refId), intent);
           }}
         />
       }

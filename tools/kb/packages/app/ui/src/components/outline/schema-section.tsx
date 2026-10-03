@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useOutlineStore } from "@/stores/outline.store";
-import { useFollow } from "@/stores/follow";
+import { useFollow, useOpenNode } from "@/stores/follow";
 import { useRefInk } from "@/stores/ref-ink";
 import {
   queryFieldCarriers,
@@ -23,7 +23,7 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
   const queryDb = useOutlineStore((s) => s.index);
   const generation = useOutlineStore((s) => s.index?.generation ?? 0);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const zoomTo = useOpenNode();
 
   const kind = schemaZoomKind(node);
 

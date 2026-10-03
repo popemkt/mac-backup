@@ -298,9 +298,8 @@ const ViewCard = memo(function ViewCard({
             onClick={(e) => {
               e.stopPropagation();
               // A card's bullet cannot toggle: its children are not drawn.
-              if (bulletClickIntent(e, false) === "follow") {
-                follow(nodeTarget(shownNodeId(child)), "open");
-              }
+              const intent = bulletClickIntent(e, false);
+              if (intent !== "toggle") follow(nodeTarget(shownNodeId(child)), intent);
             }}
           />
         }

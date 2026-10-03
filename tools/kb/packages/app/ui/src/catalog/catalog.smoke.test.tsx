@@ -72,7 +72,8 @@ describe("surface error-boundary wiring (App)", () => {
     expect(appSrc).toContain('title="Sidebar crashed"');
     // A page that brings no boundary of its own still cannot take the shell
     // down: every pane renders its page through a view slot, which owns one.
-    expect(appSrc).toContain("<PaneFrame");
+    expect(appSrc).toContain("<Workspace");
+    expect(read("components/layout/workspace.tsx")).toContain("<PaneFrame");
     expect(read("components/layout/pane-frame.tsx")).toContain("<ViewSlot");
     expect(read("components/ui/view-slot.tsx")).toContain('title="View crashed"');
     // Each built-in page owns its boundary, beside the surface that renders it.

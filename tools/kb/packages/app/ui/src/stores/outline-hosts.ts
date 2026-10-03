@@ -1,4 +1,4 @@
-import { MAIN_OUTLINE_HOST } from "@/lib/instance-key";
+import { MAIN_OUTLINE_HOST, hostOfInstance } from "@/lib/instance-key";
 import type { SlotChain } from "@/lib/view-key";
 
 /**
@@ -32,4 +32,15 @@ export function setOutlineHost(id: string, host: OutlineHost | null): void {
 /** Where host `id` is rooted, or undefined when no outline is mounted under it. */
 export function outlineHostOf(id: string): OutlineHost | undefined {
   return hosts.get(id) ?? (id === MAIN_OUTLINE_HOST ? UNMOUNTED_MAIN : undefined);
+}
+
+/**
+ * The outline host whose rows include `instanceKey`: the host it is keyed
+ * under when an outline is mounted there, else the main pane's (a projected
+ * row's key names its query, not its host).
+ */
+export function outlineHostOfInstance(instanceKey: string | null): string {
+  if (instanceKey === null) return MAIN_OUTLINE_HOST;
+  const host = hostOfInstance(instanceKey);
+  return outlineHostOf(host) === undefined ? MAIN_OUTLINE_HOST : host;
 }
