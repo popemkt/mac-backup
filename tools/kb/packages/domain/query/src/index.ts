@@ -7,7 +7,7 @@ export { KbIndexService } from "./index/index.ts";
 export type { KbIndex } from "./index/index.ts";
 export { compile, normalizeEdnQuery } from "./ir/compile.ts";
 export { findColumns, parseEdn } from "./ir/parse.ts";
-export { queryRecords } from "./records.ts";
+export { MAX_CHART_ROWS, chartRecords, queryRecords } from "./records.ts";
 export type { QueryRecords } from "./records.ts";
 export type { Ir, IrQuery, IrRaw } from "./ir/ir.ts";
 export {

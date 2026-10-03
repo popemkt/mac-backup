@@ -6,7 +6,7 @@
 import { Effect } from "effect";
 import { ChartSvg, type KbContext } from "@kb/contracts";
 import { queryDefOf } from "@kb/model";
-import { queryRecords, type QueryRecords } from "@kb/query";
+import { chartRecords, type QueryRecords } from "@kb/query";
 import { chartSpecWithData, describeChartSpec, type ChartParams } from "@kb/views";
 
 /** How many of a chart's rows its table lists. */
@@ -29,7 +29,7 @@ function chartRecordsOf(
     return { missing: `${name} is no query node with a query, so it draws nothing.` };
   try {
     const rows = ctx.index.runDatalog(def.edn);
-    return queryRecords(def.edn, def.limit === null ? rows : rows.slice(0, def.limit));
+    return chartRecords(def, rows);
   } catch (err) {
     return {
       missing: `${name}'s query cannot be run: ${err instanceof Error ? err.message : String(err)}`,

@@ -1,11 +1,11 @@
 /**
  * A chart's data in the browser: its source query node's rows, live, named
  * by the query's `:find` columns (`queryRecords`, the one naming the server's
- * text form uses too), capped at the query's limit.
+ * text form uses too), capped as `chartRecords` caps every chart's rows.
  */
 import { useMemo } from "react";
 import { queryDefOf, type PropValue } from "@kb/model";
-import { queryRecords, type KbIndex, type QueryRecords } from "@/ds";
+import { chartRecords, type KbIndex, type QueryRecords } from "@/ds";
 import { useQueryNodeRows } from "@/lib/use-query-node-rows";
 
 export type ChartData =
@@ -35,7 +35,6 @@ export function useChartData(input: {
     if (def === null) return { kind: "missing", reason: "no-query" };
     if (error !== null) return { kind: "error", message: error };
     if (rows === null) return { kind: "loading" };
-    const capped = def.limit === null ? rows : rows.slice(0, def.limit);
-    return { kind: "rows", ...queryRecords(def.edn, capped) };
+    return { kind: "rows", ...chartRecords(def, rows) };
   }, [input.source, def, rows, error]);
 }
