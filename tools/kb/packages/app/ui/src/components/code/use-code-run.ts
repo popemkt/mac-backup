@@ -7,9 +7,8 @@
 import { useEffect, useState } from "react";
 import { Effect, Schema } from "effect";
 import type { ActionInvocation } from "@kb/contracts";
-import { codeDigest } from "@kb/sandbox";
+import { CodeGrant, codeDigest } from "@kb/sandbox";
 import { canonicalJson } from "@kb/model";
-import { CodeGrant } from "@kb/views";
 import { browserHost, type SandboxPorts } from "@/sdk";
 
 /** What is known of a run's trust: its digest, and whether it is trusted here. */

@@ -22,11 +22,11 @@ import {
   answerToolCall,
   notification,
   resultMessage,
+  type CodeGrant,
   type LogLevel,
   type RunInput,
   type RunStatus,
 } from "@kb/sandbox";
-import type { CodeGrant } from "@kb/views";
 import { invoke, invokeSettled } from "@/session/runtime";
 
 /** One run a frame hosts: what it runs, and what its code may ask. */

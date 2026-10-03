@@ -29,6 +29,7 @@
         "@kb/canvas": "workspace:*",
         "@kb/chart": "workspace:*",
         "@kb/check": "workspace:*",
+        "@kb/code": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
         "@kb/model": "workspace:*",
@@ -108,6 +109,7 @@
         "@effect/platform-bun": "catalog:",
         "@kb/bundled": "workspace:*",
         "@kb/chart-vega": "workspace:*",
+        "@kb/code": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/ext-canvas": "workspace:*",
         "@kb/ext-check": "workspace:*",
@@ -187,6 +189,7 @@
         "@kb/canvas": "workspace:*",
         "@kb/chart": "workspace:*",
         "@kb/chart-vega": "workspace:*",
+        "@kb/code": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
@@ -309,7 +312,6 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
-        "@kb/views": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {
@@ -444,6 +446,22 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+      },
+    },
+    "packages/extension/code": {
+      "name": "@kb/code",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/sandbox": "workspace:*",
+        "@kb/views": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/bundled": "workspace:*",
+        "@types/bun": "catalog:",
       },
     },
     "packages/extension/docs": {
@@ -923,6 +941,8 @@
     "@kb/cli": ["@kb/cli@workspace:packages/app/cli"],
 
     "@kb/client": ["@kb/client@workspace:packages/app/client"],
+
+    "@kb/code": ["@kb/code@workspace:packages/extension/code"],
 
     "@kb/contracts": ["@kb/contracts@workspace:packages/contract/contracts"],
 

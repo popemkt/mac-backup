@@ -7,7 +7,7 @@
  * calls go, is its caller's to say.
  */
 import { Duration, Effect } from "effect";
-import type { CodeGrant } from "@kb/views";
+import type { CodeGrant } from "./grant.ts";
 import { answerToolCall, type CapabilityHost } from "./capability.ts";
 import { drawingToHtml } from "./drawing.ts";
 import type { SandboxEngine } from "./engine.ts";
@@ -15,7 +15,7 @@ import { runGuest } from "./guest.ts";
 import { ENGINE_LIMITS } from "./limits.ts";
 import type { GuestEnd } from "./protocol.ts";
 
-/** One code view to draw: its code, its grant, and the node it is shown for. */
+/** One run to draw: its code, its grant, and the node it is shown for. */
 export interface CodeRun {
   readonly code: string;
   readonly grant: CodeGrant;

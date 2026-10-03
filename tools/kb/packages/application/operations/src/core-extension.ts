@@ -5,7 +5,7 @@
  * itself in where it has one. It is the first declaration the seed fold
  * reads, and both hosts load its views through `declarationPlugin`.
  *
- * It still lists the feature views (canvas, lab, code) beside its own,
+ * It still lists the feature views (canvas, lab) beside its own,
  * so they reach the catalog and the seed through core rather than their
  * families: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]] and GAP [[01M41H30342XZPX3CXZJTMPBYW]]
  */
@@ -15,7 +15,6 @@ import {
   CanvasListView,
   CanvasView,
   ClusterView,
-  CodeView,
   DocsMarkdownView,
   Force2dView,
   Force3dView,
@@ -35,7 +34,6 @@ import {
   TreeView,
   TreemapView,
 } from "@kb/views";
-import { codeText } from "./code-text.ts";
 
 export const coreExtension = defineExtension({
   name: "core",
@@ -68,6 +66,5 @@ export const coreExtension = defineExtension({
     viewDef(CanvasListView),
     viewDef(CanvasView),
     viewDef(LabView),
-    viewDef(CodeView, codeText),
   ],
 });

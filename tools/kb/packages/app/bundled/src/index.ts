@@ -17,6 +17,7 @@
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
 import { checkExtension } from "@kb/check";
+import { codeExtension } from "@kb/code";
 import type { ExtensionDeclaration } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
 import { foldSeed, type KbNode } from "@kb/model";
@@ -31,6 +32,7 @@ export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
   docsExtension,
   canvasExtension,
   checkExtension,
+  codeExtension,
   chartExtension,
 ];
 

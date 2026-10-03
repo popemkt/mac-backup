@@ -177,6 +177,8 @@ export interface SanctionedExtensionImport {
  *   `@kb/agent-ui` (step E12 of the extension-boundaries plan).
  * - The chart's UI half, `components/chart`, reads its family's vocabulary
  *   and draws with its painter; it leaves with `@kb/chart-ui` (E12).
+ * - The code view's UI half, `components/code`, reads its family's key and
+ *   loads its shared plugin; it leaves with `@kb/code-ui` (E12).
  * - The canvas's UI half, `components/canvas` and its story, leaves with
  *   `@kb/canvas-ui` (E13).
  * - The docs and check pre-commit entries parse their family's output
@@ -209,6 +211,10 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
       ],
     },
     { target: "@kb/chart-vega", files: ["src/components/chart/chart-canvas.tsx"] },
+    {
+      target: "@kb/code",
+      files: ["src/components/code/code-page.tsx", "src/components/code/plugin.ts"],
+    },
     {
       target: "@kb/canvas",
       files: [

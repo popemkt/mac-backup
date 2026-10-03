@@ -378,10 +378,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const canvasField = singleField(SYSTEM_IDS.canvasField, "canvas", "text");
   // A layout view's arrangement (`layout.grid`): its pane tree as JSON text.
   const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text");
-  // A code view's code and its grant (`code.view`): both text, run as stored.
-  // Feature nodes in core's seed: GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]]
-  const codeField = singleField(SYSTEM_IDS.codeField, "code", "text");
-  const codeGrantField = singleField(SYSTEM_IDS.codeGrantField, "code.grant", "text");
   const canvasTag = mk(SYSTEM_IDS.canvasTag, "canvas", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.canvasField }],
@@ -613,8 +609,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     lensAllMentions,
     canvasField,
     layoutField,
-    codeField,
-    codeGrantField,
     canvasTag,
     ontoIncludeField,
     ontoMemberField,

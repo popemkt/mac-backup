@@ -10,8 +10,9 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { SYSTEM_IDS, present } from "@kb/model";
 import { ViewCatalog, viewDef, type KbContext, type ViewDef } from "@kb/contracts";
-import { coreExtension, renderViewNodeEffect } from "@kb/operations";
-import { CodeView, viewCatalogOf, type ViewCatalogOf } from "@kb/views";
+import { renderViewNodeEffect } from "@kb/operations";
+import { CodeView, codeExtension } from "@kb/code";
+import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
@@ -186,10 +187,10 @@ describe("render.view by view node id", () => {
           Effect.provide(kbRuntimeLayer(ctx)),
         ),
       );
-    // The code view as core contributes it, its text included, and the same key bare.
+    // The code view as its family contributes it, its text included, and the same key bare.
     const declared = present(
-      coreExtension.views?.find((view) => view.key === CodeView),
-      "core declares the code view",
+      codeExtension.views?.find((view) => view.key === CodeView),
+      "the code family declares the code view",
     );
     const contributed = (await renderWith(viewCatalogOf([declared]))).content;
     expect(contributed).toContain("It runs only in the kb UI, sandboxed");

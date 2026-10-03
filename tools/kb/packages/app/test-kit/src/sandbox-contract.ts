@@ -14,12 +14,12 @@ import { describe, expect, test } from "bun:test";
 import { Duration, Effect, Option, Queue, Schema, type Cause } from "effect";
 import { failed, succeeded, type ActionInvocation } from "@kb/contracts";
 import type { KbNode } from "@kb/model";
-import type { CodeGrant } from "@kb/views";
 import {
   answerToolCall,
   drawingToHtml,
   runGuest,
   type CapabilityHost,
+  type CodeGrant,
   type GuestEnd,
   type GuestRun,
   type KbEvent,

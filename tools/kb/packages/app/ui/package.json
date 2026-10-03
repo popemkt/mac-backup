@@ -26,6 +26,7 @@
     "@kb/canvas": "workspace:*",
     "@kb/chart": "workspace:*",
     "@kb/chart-vega": "workspace:*",
+    "@kb/code": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",

@@ -6,15 +6,13 @@
  * render (DESIGN.md → Sandbox → Snapshots): run on the host's
  * `UntrustedEngine`, whatever this machine trusts, and calling actions only
  * through its `ReadInvoke`, because drawing a page is a read. A host that
- * binds neither, or a run that drew nothing, draws the text alone.
- *
- * The code view's text is contributed as its `ViewDef.text`, but it still
- * lives in core's operations: GAP [[01M41H2ZG7C0SV1DYZE6MMKPFE]]
+ * leaves either unbound (the page binds neither), or a run that drew
+ * nothing, draws the text alone.
  */
 import { Effect } from "effect";
 import { ReadInvoke, type KbContext, type ViewText } from "@kb/contracts";
 import { UntrustedEngine, snapshotRun } from "@kb/sandbox";
-import type { CodeParams } from "@kb/views";
+import type { CodeParams } from "./view.ts";
 
 /** A fence long enough that no run of backticks in `code` closes it. */
 function fenceFor(code: string): string {

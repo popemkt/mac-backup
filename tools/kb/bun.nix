@@ -610,6 +610,7 @@
   "@kb/check" = copyPathToStore ./packages/extension/check;
   "@kb/cli" = copyPathToStore ./packages/app/cli;
   "@kb/client" = copyPathToStore ./packages/app/client;
+  "@kb/code" = copyPathToStore ./packages/extension/code;
   "@kb/contracts" = copyPathToStore ./packages/contract/contracts;
   "@kb/docs" = copyPathToStore ./packages/extension/docs;
   "@kb/ext-canvas" = copyPathToStore ./packages/extension/ext-canvas;

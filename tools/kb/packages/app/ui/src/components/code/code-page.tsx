@@ -13,7 +13,7 @@ import {
   ShieldWarningIcon,
 } from "@phosphor-icons/react";
 import { ENGINE_LIMITS, engineKindFor, type EngineKind, type RunStatus } from "@kb/sandbox";
-import type { CodeParams } from "@kb/views";
+import type { CodeParams } from "@kb/code";
 import {
   IconButton,
   browserHost,

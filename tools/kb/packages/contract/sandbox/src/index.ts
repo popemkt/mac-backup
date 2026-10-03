@@ -14,7 +14,16 @@ export {
   engineKindFor,
   type EngineKind,
 } from "./limits.ts";
-export { GRAPH_READ, NODE_READ, grantRefusal, withinSubject, type GrantScope } from "./grant.ts";
+export {
+  CodeGrant,
+  GRAPH_READ,
+  NODE_READ,
+  READ_SCOPES,
+  grantRefusal,
+  withinSubject,
+  type GrantScope,
+  type ReadScope,
+} from "./grant.ts";
 export {
   END_REASONS,
   EventNotification,

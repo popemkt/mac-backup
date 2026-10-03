@@ -1075,7 +1075,10 @@ the chart as marks. How the browser draws it is DESIGN-UI.md → Chart views.
 
 **A code view is code that draws something, as a view node's settings**
 (generative UI mode C, roadmap decisions 4 and 5). The code view,
-`code.view` (`@kb/views`' `code.ts`), runs in the sandbox ([Sandbox](#sandbox)).
+`code.view`, is the code family's (`@kb/code`,
+[Extension families](#extension-families)): its key, its settings, its
+text, its page's snapshot and its two seed fields. It runs in the sandbox
+([Sandbox](#sandbox)), which is core.
 
 - **The params are a source, the code and a grant.** `{source?, code,
   grant}`: the code is one text prop, `sys.f.code`, held and read
@@ -2411,7 +2414,7 @@ is `@kb/sandbox` (`packages/contract/sandbox`); the engines are
 
 ### Grants and the script actor
 
-- **A grant** (`CodeGrant`, a code view's setting in `@kb/views`) is
+- **A grant** (`CodeGrant` in `@kb/sandbox`, a code view's setting) is
   `{reads: none | subject | graph, actions}`. `subject` reads the node the
   code is shown for and the nodes under it, through `node.get`; `graph`
   reads every node and may run `graph.query`; any other action must be
@@ -2562,7 +2565,7 @@ its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
   drawing's gestures and `data`. Closes: views declaring their events and
   overlay anchors in their keys, a transparent overlay frame over a hosted
   view, and `#script` as a view setting resolved like `sys.f.views`.
-- `// GAP [[01M41DKTTRA55RA1KF4QBWQ9MF]]` (`@kb/views`' `code.ts`). Expected: a
+- `// GAP [[01M41DKTTRA55RA1KF4QBWQ9MF]]` (`@kb/code`'s `view.ts`). Expected: a
   person promotes a trusted code view to a view type — a `.kb/extensions`
   plugin contributing a `ViewPoint` entry with a key, settings schema and
   catalog entry, committed after review — in the same gesture that trusts

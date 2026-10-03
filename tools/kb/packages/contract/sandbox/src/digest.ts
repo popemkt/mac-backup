@@ -7,7 +7,7 @@
  */
 import { Effect } from "effect";
 import { canonicalJson } from "@kb/model";
-import type { CodeGrant } from "@kb/views";
+import type { CodeGrant } from "./grant.ts";
 
 /** The version of what a digest covers; a change to it drops every trust. */
 const DIGEST_FORMAT = "kb.sandbox/1";
