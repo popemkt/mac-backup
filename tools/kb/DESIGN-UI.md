@@ -112,6 +112,13 @@ reads a rev.
 The visible replica takes them only for ids that no hold holds. `rev` becomes
 the frame's rev, and every hold whose `at` ≤ `rev` is released.
 
+**One view update per entry point.** The machine is moved through events in
+bursts (`receiveAll`; `receive` is a burst of one), and what a burst — or a
+settle, or a drop — decided the visible replica takes is applied once, at
+its end, at the rev it ended on: the net change per id, so a burst of frames
+is one outline projection, not one per frame. An installed snapshot replaces
+whatever the burst had taken before it.
+
 **Install a snapshot.** The snapshot becomes the server image and `rev`
 becomes its rev, even when that is below the old one. Every hold whose `at` ≤
 `snapshot.rev` is released, because the snapshot contains that write whether

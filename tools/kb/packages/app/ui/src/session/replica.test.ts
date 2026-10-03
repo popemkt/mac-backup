@@ -500,3 +500,37 @@ describe("browser replica sync machine", () => {
     }
   });
 });
+
+describe("a burst of events is one view apply", () => {
+  function recording() {
+    const applied: Array<{ upserts: string[]; deletes: string[]; rev: number }> = [];
+    const replica = new BrowserReplica(
+      [node("n.a", "a"), node("n.b", "b")],
+      0,
+      {
+        apply: (tx, rev) =>
+          applied.push({ upserts: tx.upserts.map((n) => n.text), deletes: tx.deletes, rev }),
+        install: () => {},
+        local: () => undefined,
+      },
+      () => null,
+    );
+    return { replica, applied };
+  }
+
+  it("applies the frames' net change once, at the last frame's rev", () => {
+    const { replica, applied } = recording();
+    replica.receiveAll([
+      frame(1, { "n.a": "one", "n.c": "c" }),
+      frame(2, { "n.a": "two" }),
+      frame(3, { "n.c": null, "n.b": null }),
+    ]);
+    expect(applied).toEqual([{ upserts: ["two"], deletes: ["n.c", "n.b"], rev: 3 }]);
+  });
+
+  it("still moves the view's rev for a frame that changes nothing", () => {
+    const { replica, applied } = recording();
+    replica.receiveAll([frame(1), frame(2)]);
+    expect(applied).toEqual([{ upserts: [], deletes: [], rev: 2 }]);
+  });
+});

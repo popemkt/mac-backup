@@ -60,6 +60,13 @@ export class BrowserReplica {
   private readonly holds = new Set<Hold>();
   private readonly view: ReplicaView;
   private readonly link: () => ReplicaLink | null;
+  /**
+   * What the visible replica takes from the events in hand, by id (`null`: it
+   * is gone), not yet applied. Each entry point applies it once, at its end.
+   */
+  private readonly taken = new Map<string, KbNode | null>();
+  /** The rev the view was last given; a frame that changes nothing still moves it. */
+  private shownRev: number;
 
   constructor(
     nodes: readonly KbNode[],
@@ -69,6 +76,7 @@ export class BrowserReplica {
   ) {
     this.server = new Map(nodes.map((node) => [node.id, node]));
     this.rev = rev;
+    this.shownRev = rev;
     this.view = view;
     this.link = link;
   }
@@ -78,6 +86,20 @@ export class BrowserReplica {
   }
 
   receive(event: SyncEvent): void {
+    this.receiveAll([event]);
+  }
+
+  /**
+   * Move the machine through `events`, in order, then apply what they decided
+   * to the visible replica as one update: a burst of frames is one view
+   * apply, at the burst's rev.
+   */
+  receiveAll(events: Iterable<SyncEvent>): void {
+    for (const event of events) this.step(event);
+    this.flush();
+  }
+
+  private step(event: SyncEvent): void {
     const awaiting = this.phase.tag === "awaiting-snapshot" ? this.phase : null;
     switch (event.op) {
       case "tx":
@@ -125,6 +147,7 @@ export class BrowserReplica {
     hold.at = rev;
     // While a snapshot is awaited, its install decides (it may already contain the write).
     if (this.phase.tag !== "awaiting-snapshot" && rev <= this.rev) this.show(this.release([hold]));
+    this.flush();
   }
 
   /** The push failed or threw: show the server image again, and ask what was missed. */
@@ -148,14 +171,8 @@ export class BrowserReplica {
       upserts: tx.upserts.filter((node) => !this.isHeld(node.id)),
       deletes: tx.deletes.filter((id) => !this.isHeld(id)),
     };
-    const released = this.release(this.confirmedBy(this.rev));
-    this.view.apply(
-      {
-        upserts: [...shown.upserts, ...released.upserts],
-        deletes: [...shown.deletes, ...released.deletes],
-      },
-      this.rev,
-    );
+    this.show(shown);
+    this.show(this.release(this.confirmedBy(this.rev)));
   }
 
   private install(snapshot: GraphSnapshot): void {
@@ -172,6 +189,9 @@ export class BrowserReplica {
       }
     }
     this.phase = { tag: "catching-up", from: this.rev };
+    // The snapshot is the whole visible replica: nothing taken before it stands.
+    this.taken.clear();
+    this.shownRev = this.rev;
     this.view.install(sortWireNodes([...shown.values()]), this.rev);
     // Frames were ignored while the snapshot was awaited; ask for any after it.
     this.link()?.since(this.rev);
@@ -216,7 +236,23 @@ export class BrowserReplica {
     return { upserts, deletes };
   }
 
+  /** The visible replica takes `tx` — deletes, then upserts — at this entry point's end. */
   private show(tx: StoreTx): void {
-    if (tx.upserts.length > 0 || tx.deletes.length > 0) this.view.apply(tx, this.rev);
+    for (const id of tx.deletes) this.taken.set(id, null);
+    for (const node of tx.upserts) this.taken.set(node.id, node);
+  }
+
+  /** Apply what was taken, once; a later take of an id replaces an earlier one. */
+  private flush(): void {
+    if (this.taken.size === 0 && this.shownRev === this.rev) return;
+    const upserts: KbNode[] = [];
+    const deletes: string[] = [];
+    for (const [id, node] of this.taken) {
+      if (node === null) deletes.push(id);
+      else upserts.push(node);
+    }
+    this.taken.clear();
+    this.shownRev = this.rev;
+    this.view.apply({ upserts, deletes }, this.rev);
   }
 }
