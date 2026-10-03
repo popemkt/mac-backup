@@ -137,6 +137,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — derive mentions from layout panes at load, as decision 6 does for canvas layout entries
 - **node** — `01M411FNY9J46BD71N2C5641NB`
 
+### GAP: a modal transform takes one typed value, not a vector
+
+- **expected** — typed input like Blender's: one value per axis with Tab to the next, and expressions
+- **current** — one typed field, applied along the constraint axis, or X when unconstrained
+- **impact** — an exact vector move or scale needs several modals or the inspector
+- **closes** — a per-axis typed buffer in TransformInput
+- **node** — `01M420HFRQHBNYSPD0KCMJZ0Y7`
+
 ### GAP: a number prop that equals a live eid reads as a ref to that node
 
 - **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.

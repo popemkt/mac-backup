@@ -214,7 +214,7 @@ function carryPoint(
  */
 // A typed value is one field: Blender's Tab to the next axis's field, and
 // typed expressions, are not built.
-// GAP [modal-typed-one-field]
+// GAP [[01M420HFRQHBNYSPD0KCMJZ0Y7]]
 function typedAxis(input: TransformInput): CanvasVec {
   const { constraint } = input;
   if (constraint === null) return axisOf(IDENTITY, "x");
