@@ -117,7 +117,12 @@ bursts (`receiveAll`; `receive` is a burst of one), and what a burst — or a
 settle, or a drop — decided the visible replica takes is applied once, at
 its end, at the rev it ended on: the net change per id, so a burst of frames
 is one outline projection, not one per frame. An installed snapshot replaces
-whatever the burst had taken before it.
+whatever the burst had taken before it. `api/live.ts`, the one place live
+events enter the machine (socket messages, the fetched snapshot, a retry),
+queues them and hands them over as one burst per animation frame (on a timer
+in a hidden tab), so the live stream costs at most one store update per
+frame. Holding an event for a frame is latency to the machine, which the
+table already tolerates.
 
 **Install a snapshot.** The snapshot becomes the server image and `rev`
 becomes its rev, even when that is below the old one. Every hold whose `at` ≤

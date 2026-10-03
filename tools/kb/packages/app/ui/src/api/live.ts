@@ -4,12 +4,20 @@
  * it asks for (`since`, the /api/graph snapshot), wires the ui store
  * (status indicator, error toasts), and hands what the server says about this
  * tab's screen to whatever the tab has installed for it (`src/screen.ts`).
+ *
+ * This is the one place live updates enter the replica, and it hands them over
+ * at most once per animation frame: everything that arrived since the last
+ * frame — frames, hellos, a fetched snapshot — is one `receiveAll`, which the
+ * replica applies as one view update (DESIGN-UI.md → Replica sync). Holding an
+ * event for a frame is network latency to the machine, which it already
+ * tolerates; a burst of frames no longer costs a projection each.
  */
 import { screenRejected, type ScreenAck, type ScreenCommand } from "@kb/contracts";
 import { fetchGraphSnapshot } from "@/api/graph";
 import { KbWsClient, type KbWsClientOptions } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store"; // GAP [[01M1RXMQYDBWX4EWJPEFRDR05H]]
 import { browserReplica, setBrowserLink } from "@/session/runtime";
+import type { SyncEvent } from "@/session/replica";
 
 let client: KbWsClient | null = null;
 
@@ -36,9 +44,9 @@ function answerScreenCommand(target: KbWsClient, id: string, command: ScreenComm
 }
 
 /** The snapshot the machine asked for, strictly from /api/graph (never fixtures). */
-function fetchSnapshot(): void {
+function fetchSnapshot(deliver: (event: SyncEvent) => void): void {
   void fetchGraphSnapshot().then(
-    (snapshot) => browserReplica()?.receive({ op: "snapshot", snapshot }),
+    (snapshot) => deliver({ op: "snapshot", snapshot }),
     (err: unknown) => {
       useUiStore
         .getState()
@@ -46,15 +54,45 @@ function fetchSnapshot(): void {
           "error",
           `graph resync failed: ${err instanceof Error ? err.message : String(err)}`,
         );
-      browserReplica()?.receive({ op: "snapshot-failed" });
+      deliver({ op: "snapshot-failed" });
     },
   );
 }
 
+/**
+ * Run `drain` with the next frame. A hidden tab paints none, so it drains on
+ * a timer instead (which the browser throttles), and so does a runtime with
+ * no frames at all.
+ */
+function nextFrame(drain: () => void): void {
+  const hidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+  if (typeof requestAnimationFrame === "function" && !hidden) requestAnimationFrame(drain);
+  else setTimeout(drain, 0);
+}
+
+/** The replica's inbox: events in arrival order, handed over once per frame. */
+function frameInbox(): (event: SyncEvent) => void {
+  let events: SyncEvent[] = [];
+  let scheduled = false;
+  const drain = (): void => {
+    scheduled = false;
+    const burst = events;
+    events = [];
+    browserReplica()?.receiveAll(burst);
+  };
+  return (event) => {
+    events.push(event);
+    if (scheduled) return;
+    scheduled = true;
+    nextFrame(drain);
+  };
+}
+
 /** Store-wired client; overrides let tests inject a fake socket. */
 export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): KbWsClient {
+  const deliver = frameInbox();
   const next = new KbWsClient({
-    onGraph: (msg) => browserReplica()?.receive(msg),
+    onGraph: deliver,
     onStatus: (status) => useUiStore.getState().setWsStatus(status),
     onServerError: (err) =>
       useUiStore.getState().pushToast("error", `ws ${err.code}: ${err.message}`),
@@ -64,8 +102,8 @@ export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): Kb
   });
   setBrowserLink({
     since: (rev) => next.since(rev),
-    fetchSnapshot,
-    retryAfter: (ms) => setTimeout(() => browserReplica()?.receive({ op: "retry" }), ms),
+    fetchSnapshot: () => fetchSnapshot(deliver),
+    retryAfter: (ms) => setTimeout(() => deliver({ op: "retry" }), ms),
   });
   return next;
 }
