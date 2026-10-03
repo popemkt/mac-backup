@@ -495,6 +495,19 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       ),
       { match: "views.migrate", actor: "script", decision: "ask" },
     ),
+    // Trusting code is a person's own gesture, made where the code is shown
+    // (DESIGN.md → Sandbox → Trust): no agent trusts code for them, and no
+    // code trusts itself.
+    approvalPolicyNode(mk("approval.agent-trust", "An agent never trusts code"), {
+      match: "sandbox.trust",
+      actor: "agent",
+      decision: "deny",
+    }),
+    approvalPolicyNode(mk("approval.script-trust", "Sandboxed code never trusts code"), {
+      match: "sandbox.trust",
+      actor: "script",
+      decision: "deny",
+    }),
   ];
   /*
    * Policies are managed in a saved table of every `#approval-policy` node,

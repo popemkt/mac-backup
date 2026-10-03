@@ -77,6 +77,8 @@ describe("approval policies", () => {
       { match: "views.migrate", actor: "agent", decision: "ask" },
       { match: "node.delete", actor: "script", decision: "ask" },
       { match: "views.migrate", actor: "script", decision: "ask" },
+      { match: "sandbox.trust", actor: "agent", decision: "deny" },
+      { match: "sandbox.trust", actor: "script", decision: "deny" },
     ]);
     // Filed under the query node that lists every policy, and editable.
     expect(byId.get(SYSTEM_IDS.approvalPolicies)?.children).toEqual(policies.map((p) => p.id));

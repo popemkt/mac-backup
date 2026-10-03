@@ -8,7 +8,12 @@ import { openKb } from "../src/session.ts";
 import { ActionCatalog, KbCtx, KbStore, templateRegistryLayer } from "@kb/contracts";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { remoteScreensLayer } from "../src/screens.ts";
-import { assetsLayer, legacyDocsViewsLayer, savedQueriesLayer } from "@kb/workspace-fs";
+import {
+  assetsLayer,
+  codeTrustLayer,
+  legacyDocsViewsLayer,
+  savedQueriesLayer,
+} from "@kb/workspace-fs";
 import { KbIndexService } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 import {
@@ -235,6 +240,7 @@ export default actions;
             savedQueriesLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             legacyDocsViewsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             assetsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
+            codeTrustLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             remoteScreensLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
           ),
         ),

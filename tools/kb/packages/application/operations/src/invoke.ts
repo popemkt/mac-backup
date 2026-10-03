@@ -28,6 +28,14 @@ import {
 import { decide } from "./approval.ts";
 import { assetUploadDef, assetUploadEffect } from "./assets.ts";
 import {
+  sandboxTrustDef,
+  sandboxTrustEffect,
+  sandboxTrustedDef,
+  sandboxTrustedEffect,
+  sandboxUntrustDef,
+  sandboxUntrustEffect,
+} from "./trust.ts";
+import {
   fieldDefineDef,
   fieldDefineEffect,
   graphQueryDef,
@@ -110,7 +118,7 @@ export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[]
 
 /**
  * The actions that reach a service only the invoke tip's composition root can
- * provide: a workspace port (saved queries, views, assets), the registry's
+ * provide: a workspace port (saved queries, views, assets, code trust), the registry's
  * own catalog, or the screens of the UI tabs.
  */
 const portActions: readonly RegisteredAction[] = [
@@ -123,6 +131,9 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(uiScreenDef, uiScreenEffect),
   coreNative(uiNavigateDef, uiNavigateEffect),
   coreNative(uiSelectDef, uiSelectEffect),
+  coreNative(sandboxTrustDef, sandboxTrustEffect),
+  coreNative(sandboxUntrustDef, sandboxUntrustEffect),
+  coreNative(sandboxTrustedDef, sandboxTrustedEffect),
 ];
 
 export const coreActions: readonly RegisteredAction[] = [...isomorphicActions, ...portActions];

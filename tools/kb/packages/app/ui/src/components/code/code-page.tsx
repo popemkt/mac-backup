@@ -1,40 +1,34 @@
 /**
  * The code view (DESIGN-UI.md → Code views): a view node's code, run in a
  * sandbox frame that fills the box its host gives it. Above it, which engine
- * runs it and how the run stands; beside it, the code itself, so a person
- * sees what runs. A write the code makes that asks for a person is asked
- * here, as a card: approving makes the same call, as the script's, with the
- * person's approval.
+ * runs it, how the run stands and the trust gesture; below it, on demand,
+ * the code itself, so a person sees what runs before trusting it. A write the
+ * code makes that asks for a person is asked here, as a card.
  */
 import { useMemo, useState } from "react";
-import { ArrowClockwiseIcon, CodeIcon, ShieldWarningIcon } from "@phosphor-icons/react";
-import type { ActionInvocation } from "@kb/contracts";
-import { ENGINE_LIMITS, type EngineKind, type RunStatus } from "@kb/sandbox";
+import {
+  ArrowClockwiseIcon,
+  CodeIcon,
+  ShieldCheckIcon,
+  ShieldWarningIcon,
+} from "@phosphor-icons/react";
+import { ENGINE_LIMITS, engineKindFor, type EngineKind, type RunStatus } from "@kb/sandbox";
 import type { CodeParams } from "@kb/views";
 import { IconButton } from "@/components/ui/icon-button";
 import { cn } from "@/lib/cn";
-import { textOr } from "@/lib/text";
-import type { ViewProps } from "@/lib/plugins";
-import {
-  invokeAsScript,
-  type SandboxEvents,
-  type SandboxPorts,
-  type SandboxRun,
-} from "@/lib/sandbox-host";
 import { logError, logWarn } from "@/lib/log";
+import type { ViewProps } from "@/lib/plugins";
+import { setTrusted, type SandboxEvents, type SandboxRun } from "@/lib/sandbox-host";
+import { textOr } from "@/lib/text";
+import { toast } from "@/lib/toast";
 import { useOutlineStore } from "@/stores/outline.store";
 import { SandboxFrame } from "./sandbox-frame";
+import { useCodeTrust, useSandboxPorts, type Asking, type CodeTrustState } from "./use-code-run";
 
 const BUTTON = cn(
   "rounded-sm px-2 py-1 text-label font-medium outline-none transition duration-100",
   "focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-default disabled:opacity-40",
 );
-
-/** A call the code made that waits for the person's answer. */
-interface Asking {
-  readonly invocation: ActionInvocation;
-  readonly answer: (approved: boolean) => void;
-}
 
 const ENGINE_LABEL: Readonly<Record<EngineKind, string>> = {
   quickjs: "Untrusted · QuickJS",
@@ -102,6 +96,72 @@ function CodePanel({ params }: { readonly params: CodeParams }) {
   );
 }
 
+interface HeaderProps {
+  readonly title: string;
+  readonly engine: EngineKind;
+  readonly status: RunStatus | null;
+  readonly trust: CodeTrustState | null;
+  readonly showCode: boolean;
+  readonly onTrust: (trusted: boolean) => void;
+  readonly onRunAgain: () => void;
+  readonly onToggleCode: () => void;
+}
+
+function CodeHeader({ title, engine, status, trust, showCode, ...on }: HeaderProps) {
+  return (
+    <header className="flex h-9 shrink-0 items-center gap-2 px-3">
+      <CodeIcon size={14} className="shrink-0 text-foreground/40" aria-hidden />
+      <h2 className="min-w-0 truncate text-ui font-medium text-foreground/80">{title}</h2>
+      <span
+        className="flex shrink-0 items-center gap-1 text-label text-muted-foreground"
+        data-sandbox-engine={engine}
+      >
+        {engine === "worker" ? (
+          <ShieldCheckIcon size={12} aria-hidden />
+        ) : (
+          <ShieldWarningIcon size={12} aria-hidden />
+        )}
+        {ENGINE_LABEL[engine]}
+      </span>
+      <span
+        className={cn(
+          "min-w-0 truncate text-label",
+          status?.state === "ended" ? "text-destructive" : "text-muted-foreground",
+        )}
+        role="status"
+        data-sandbox-status={status?.state ?? "starting"}
+      >
+        {statusText(status)}
+      </span>
+      <div className="ml-auto flex items-center gap-1">
+        {trust === null ? null : (
+          <button
+            type="button"
+            className={cn(BUTTON, "text-foreground/70 hover:bg-foreground/[0.06]")}
+            title={
+              trust.trusted
+                ? "Run this code in QuickJS again, as untrusted"
+                : "You have read this code: run it in a Worker on this machine, faster, with the same grant"
+            }
+            data-sandbox-trust={trust.trusted ? "trusted" : "untrusted"}
+            onClick={() => on.onTrust(!trust.trusted)}
+          >
+            {trust.trusted ? "Stop trusting" : "Trust this code"}
+          </button>
+        )}
+        <IconButton label="Run again" icon={ArrowClockwiseIcon} size="md" onClick={on.onRunAgain} />
+        <IconButton
+          label={showCode ? "Hide the code" : "Show the code"}
+          icon={CodeIcon}
+          size="md"
+          aria-pressed={showCode}
+          onClick={on.onToggleCode}
+        />
+      </div>
+    </header>
+  );
+}
+
 export function CodePage({ params, host }: ViewProps<CodeParams>) {
   const viewNode = useOutlineStore((s) =>
     host.viewNode === undefined ? undefined : s.nodes.get(host.viewNode),
@@ -110,10 +170,16 @@ export function CodePage({ params, host }: ViewProps<CodeParams>) {
   const [status, setStatus] = useState<RunStatus | null>(null);
   const [showCode, setShowCode] = useState(false);
   const [round, setRound] = useState(0);
-  const [asking, setAsking] = useState<readonly Asking[]>([]);
-  const engine: EngineKind = "quickjs";
+  const { trust, refresh } = useCodeTrust(params.code, params.grant);
+  const { ports, asking } = useSandboxPorts();
+  const [events] = useState<SandboxEvents>(() => ({
+    status: setStatus,
+    // The code's console, in the page's: the one log seam the UI has.
+    log: (level, text) => (level === "error" ? logError : logWarn)(`[code ${level}] ${text}`),
+  }));
   const title = textOr(viewNode?.text.trim(), "Code");
-
+  const engine = engineKindFor(trust?.trusted ?? false);
+  // Read once by the frame, which is keyed by the digest of what runs.
   const run: SandboxRun = useMemo(
     () => ({
       input: {
@@ -124,86 +190,44 @@ export function CodePage({ params, host }: ViewProps<CodeParams>) {
       },
       grant: params.grant,
     }),
-    [params.code, params.source, params.grant],
+    [params.code, params.source, params.grant, engine],
   );
 
-  // Stable for the page's life: a frame reads its ports and events once.
-  const [ports] = useState<SandboxPorts>(() => ({
-    node: (id) => useOutlineStore.getState().nodes.get(id),
-    invoke: async (invocation) => {
-      const receipt = await invokeAsScript(invocation);
-      if (receipt.status !== "failed" || receipt.code !== "approval_required") return receipt;
-      const approved = await new Promise<boolean>((resolve) => {
-        const entry: Asking = {
-          invocation,
-          answer: (answer) => {
-            setAsking((queue) => queue.filter((waiting) => waiting !== entry));
-            resolve(answer);
-          },
-        };
-        setAsking((queue) => [...queue, entry]);
-      });
-      // Declining is the same call without approval: the invoke core refuses it again.
-      return invokeAsScript(approved ? { ...invocation, approved: true } : invocation);
-    },
-  }));
-  const [events] = useState<SandboxEvents>(() => ({
-    status: setStatus,
-    // The code's console, in the page's: the one log seam the UI has.
-    log: (level, text) => (level === "error" ? logError : logWarn)(`[code ${level}] ${text}`),
-  }));
+  const changeTrust = async (trusted: boolean) => {
+    if (trust === null) return;
+    const receipt = await setTrusted(trust.digest, trusted);
+    if (receipt.status === "failed") toast(receipt.message);
+    setStatus(null);
+    refresh();
+  };
 
-  const ended = status?.state === "ended";
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col" data-code-view="true">
-      <header className="flex h-9 shrink-0 items-center gap-2 px-3">
-        <CodeIcon size={14} className="shrink-0 text-foreground/40" aria-hidden />
-        <h2 className="min-w-0 truncate text-ui font-medium text-foreground/80">{title}</h2>
-        <span
-          className="flex shrink-0 items-center gap-1 text-label text-muted-foreground"
-          data-sandbox-engine={engine}
-        >
-          <ShieldWarningIcon size={12} aria-hidden />
-          {ENGINE_LABEL[engine]}
-        </span>
-        <span
-          className={cn(
-            "min-w-0 truncate text-label",
-            ended ? "text-destructive" : "text-muted-foreground",
-          )}
-          role="status"
-          data-sandbox-status={status?.state ?? "starting"}
-        >
-          {statusText(status)}
-        </span>
-        <div className="ml-auto flex items-center gap-1">
-          <IconButton
-            label="Run again"
-            icon={ArrowClockwiseIcon}
-            size="md"
-            onClick={() => {
-              setStatus(null);
-              setRound(round + 1);
-            }}
-          />
-          <IconButton
-            label={showCode ? "Hide the code" : "Show the code"}
-            icon={CodeIcon}
-            size="md"
-            aria-pressed={showCode}
-            onClick={() => setShowCode(!showCode)}
-          />
-        </div>
-      </header>
+      <CodeHeader
+        title={title}
+        engine={engine}
+        status={status}
+        trust={trust}
+        showCode={showCode}
+        onTrust={(trusted) => void changeTrust(trusted)}
+        onRunAgain={() => {
+          setStatus(null);
+          setRound(round + 1);
+        }}
+        onToggleCode={() => setShowCode(!showCode)}
+      />
       <div className="flex min-h-0 flex-1 flex-col px-3 pb-3">
-        <SandboxFrame
-          key={`${String(round)}:${engine}:${params.source ?? ""}:${params.code}:${JSON.stringify(params.grant)}`}
-          run={run}
-          ports={ports}
-          events={events}
-          generation={generation}
-          title={`${title}, sandboxed`}
-        />
+        {/* Nothing runs until trust is known: it decides the engine. */}
+        {trust === null ? null : (
+          <SandboxFrame
+            key={`${String(round)}:${engine}:${params.source ?? ""}:${trust.digest}`}
+            run={run}
+            ports={ports}
+            events={events}
+            generation={generation}
+            title={`${title}, sandboxed`}
+          />
+        )}
       </div>
       {asking[0] === undefined ? null : <ApprovalCard asking={asking[0]} />}
       {showCode ? <CodePanel params={params} /> : null}

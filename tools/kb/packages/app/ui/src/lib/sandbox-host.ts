@@ -27,7 +27,7 @@ import {
   type RunStatus,
 } from "@kb/sandbox";
 import type { CodeGrant } from "@kb/views";
-import { invokeSettled } from "@/session/runtime";
+import { invoke, invokeSettled } from "@/session/runtime";
 
 /** One run a frame hosts: what it runs, and what its code may ask. */
 export interface SandboxRun {
@@ -183,4 +183,28 @@ export function hostSandboxFrame(
     },
     dispose,
   };
+}
+
+const decodeTrusted = Schema.decodeUnknownResult(
+  Schema.Struct({ trusted: Schema.Array(Schema.String) }),
+);
+
+/**
+ * Whether a person has trusted the code with `digest` on this machine
+ * (DESIGN.md → Sandbox → Trust). Asking is a read, made as the page's.
+ */
+export async function isTrusted(digest: string): Promise<boolean> {
+  const receipt = await invoke("sandbox.trusted", { digests: [digest] });
+  if (receipt.status !== "succeeded") return false;
+  const decoded = decodeTrusted(receipt.output);
+  return Result.isSuccess(decoded) && decoded.success.trusted.includes(digest);
+}
+
+/**
+ * Trust, or stop trusting, the code with `digest`: the person's own gesture,
+ * made as the page's, so the invoke core decides it as a human's. The digest
+ * is of exactly the code the page shows and runs.
+ */
+export function setTrusted(digest: string, trusted: boolean): Promise<ActionReceipt> {
+  return invoke(trusted ? "sandbox.trust" : "sandbox.untrust", { digest });
 }

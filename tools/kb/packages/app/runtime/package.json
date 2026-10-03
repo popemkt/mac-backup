@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@kb/canvas": "workspace:*",
+    "@kb/sandbox": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@kb/views": "workspace:*",
     "@types/bun": "catalog:",

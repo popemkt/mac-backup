@@ -6,12 +6,14 @@
  * the surface contract's.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect } from "effect";
 import { z } from "zod";
 import { DecidedEntrySchema, type ActionInvocation } from "@kb/contracts";
 import { DECISION_OPTION_IDS, SYSTEM_IDS } from "@kb/model";
+import { codeDigest } from "@kb/sandbox";
 import { invoke } from "../src/invoke.ts";
 import { openKb } from "../src/session.ts";
 
@@ -67,6 +69,48 @@ describe("approval policies in the invoke core", () => {
     ).toMatchObject({ status: "failed", details: { writes: "approval-policy" } });
     expect(
       await invoke(ctx, { id: "node.add", input: { text: "plain" }, actor: "script" }),
+    ).toMatchObject({ status: "succeeded" });
+  });
+
+  test("only a person trusts code, by the digest of what runs, and never in the graph", async () => {
+    const ctx = await openKb(root);
+    const grant = { reads: "subject" as const, actions: [] };
+    const digest = await Effect.runPromise(codeDigest("kb.draw('a')", grant));
+    const edited = await Effect.runPromise(codeDigest("kb.draw('a');", grant));
+    const trust = (rest: Partial<ActionInvocation>): ActionInvocation => ({
+      id: "sandbox.trust",
+      input: { digest },
+      ...rest,
+    });
+    expect(await invoke(ctx, trust({ actor: "agent" }))).toMatchObject({
+      code: "forbidden",
+      details: { policy: "approval.agent-trust" },
+    });
+    expect(await invoke(ctx, trust({ actor: "agent", approved: true }))).toMatchObject({
+      code: "forbidden",
+    });
+    expect(await invoke(ctx, trust({ actor: "script", approved: true }))).toMatchObject({
+      code: "forbidden",
+      details: { policy: "approval.script-trust" },
+    });
+    expect(await invoke(ctx, trust({ actor: "cli" }))).toMatchObject({
+      code: "approval_required",
+    });
+    expect(
+      await invoke(ctx, trust({ input: { digest: "sha256:nope" }, actor: "human" })),
+    ).toMatchObject({ code: "invalid_input" });
+    const before = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
+    expect(await invoke(ctx, trust({ actor: "human" }))).toMatchObject({ status: "succeeded" });
+    expect(await readFile(join(root, ".kb", "nodes.jsonl"), "utf8")).toBe(before);
+    const trusted = await invoke(ctx, {
+      id: "sandbox.trusted",
+      input: { digests: [digest, edited] },
+      actor: "script",
+    });
+    // Changing one character of the code is a digest nobody has trusted.
+    expect(trusted).toMatchObject({ status: "succeeded", output: { trusted: [digest] } });
+    expect(
+      await invoke(ctx, { id: "sandbox.untrust", input: { digest }, actor: "agent" }),
     ).toMatchObject({ status: "succeeded" });
   });
 

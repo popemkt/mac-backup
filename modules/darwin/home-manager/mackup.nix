@@ -35,10 +35,11 @@
     '';
 
     # kb has no upstream Mackup definition and its source of truth (nodes.jsonl,
-    # queries/, views/) is committed in this repo. Only the opaque media
-    # directory .kb/assets/ is owned by Mackup: it is gitignored (never commit
-    # binaries) and copied to iCloud by the standard `mackup backup`/`restore`
-    # flow. The flow is copy-based — no symlink is created — so restore is a
+    # queries/, views/) is committed in this repo. Mackup owns only its local
+    # state: the opaque media directory .kb/assets/ (never commit binaries)
+    # and .kb/trust.json, the sandboxed code a person trusted on this machine
+    # (never commit trust). Both are gitignored and copied to iCloud by the
+    # standard `mackup backup`/`restore` flow. The flow is copy-based — no symlink is created — so restore is a
     # plain directory copy and cannot produce a symlink loop. The HOME-relative
     # path assumes the repo lives at ~/.dotfiles (a repo invariant). Do not add
     # nodes.jsonl here; it is committed source of truth, not a backup concern.
@@ -49,6 +50,7 @@
 
       [configuration_files]
       .dotfiles/.kb/assets
+      .dotfiles/.kb/trust.json
     '';
 
     # T3 Code: agent harness control surface (pingdotgg/t3code). Sync only

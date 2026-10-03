@@ -28,6 +28,7 @@ import { StoreTxLog } from "@kb/tx-log";
 import { vegaChartPainter } from "@kb/vega";
 import {
   assetsLayer,
+  codeTrustLayer,
   legacyDocsViewsLayer,
   readLegacyDocsViews,
   savedQueriesLayer,
@@ -46,9 +47,9 @@ import { selectStore } from "./store-selection.ts";
  * contributions.
  *
  * This is where "the actions run anywhere" is paid for: the actions ask for
- * {@link SavedQueries}, {@link Assets} and `Screens`, and this composition
- * root is the only place that says those are directories under `ctx.root` and
- * a server found through it.
+ * {@link SavedQueries}, {@link Assets}, `CodeTrust` and `Screens`, and this
+ * composition root is the only place that says those are files under
+ * `ctx.root` and a server found through it.
  *
  * `screens` is where the tabs are. Every process but the `kb ui` server
  * reaches that server's (the default); the server holds them itself and
@@ -68,6 +69,7 @@ export function kbRuntimeLayer(
     Layer.succeed(KbIndexService, ctx.index),
     savedQueriesLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
+    codeTrustLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),

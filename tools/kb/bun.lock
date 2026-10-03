@@ -106,6 +106,7 @@
       },
       "devDependencies": {
         "@kb/canvas": "workspace:*",
+        "@kb/sandbox": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@kb/views": "workspace:*",
         "@types/bun": "catalog:",
@@ -239,6 +240,7 @@
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/query": "workspace:*",
+        "@kb/sandbox": "workspace:*",
         "@kb/views": "workspace:*",
         "effect": "catalog:",
         "zod": "catalog:",

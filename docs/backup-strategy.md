@@ -183,6 +183,26 @@ Boundary:
 - Before the first `mackup restore` on a fresh machine the media is absent and
   node references render as broken media — by design, the text stays portable.
 
+## kb Code Trust (`.kb/trust.json`)
+
+A kb code view runs model-written code in a sandbox: QuickJS until a person
+trusts it, a Worker after (`tools/kb/DESIGN.md` → Sandbox → Trust). Trust is
+the person's gesture over the digest of exactly what runs, recorded in
+`~/.dotfiles/.kb/trust.json`, one record per digest and machine.
+
+Decision: **state, and a backup concern.** Trust is a person's decision made
+by using kb, not configuration, and it must never travel with the repo:
+committing it would let anyone who can push code also push trust in that
+code. So it is gitignored, and the Mackup `kb` application owns it beside
+`.kb/assets` (`modules/darwin/home-manager/mackup.nix`), copy-based, so a
+restored machine gets its decisions back.
+
+- Each record names the machine (its hostname) it was made on, and kb honours
+  only this machine's records: the iCloud copy restores onto the other Mac
+  without trusting anything there.
+- Losing the file costs nothing but the gestures: every code view runs
+  untrusted, in QuickJS, until a person trusts it again.
+
 ## kb Transaction Tail (`.kb/tx.jsonl`)
 
 The JSONL store records every committed transaction — what was upserted, what

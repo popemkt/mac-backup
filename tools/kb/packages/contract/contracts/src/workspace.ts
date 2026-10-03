@@ -70,3 +70,18 @@ export interface AssetsPort {
 }
 
 export class Assets extends Context.Service<Assets, AssetsPort>()("kb/Assets") {}
+
+/**
+ * Which code a person has trusted on this machine (DESIGN.md → Sandbox →
+ * Trust): content digests, kept as local state beside the store and never
+ * in it, so trust is never committed, merged or pulled in from elsewhere.
+ * The adapter decides where the record lives and whose machine it is.
+ */
+export interface CodeTrustPort {
+  /** Which of `digests` a person has trusted on this machine. */
+  trusted(digests: readonly string[]): Effect.Effect<readonly string[], DomainError>;
+  trust(digest: string): Effect.Effect<void, DomainError>;
+  untrust(digest: string): Effect.Effect<void, DomainError>;
+}
+
+export class CodeTrust extends Context.Service<CodeTrust, CodeTrustPort>()("kb/CodeTrust") {}

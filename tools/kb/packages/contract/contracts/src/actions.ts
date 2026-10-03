@@ -14,7 +14,7 @@ import type { KbIndexService } from "@kb/query";
 import type { Screens } from "./screen.ts";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
-import type { Assets, LegacyDocsViews, SavedQueries } from "./workspace.ts";
+import type { Assets, CodeTrust, LegacyDocsViews, SavedQueries } from "./workspace.ts";
 
 /**
  * What invoking an action does, declared once on its definition and read by
@@ -75,6 +75,7 @@ export type ActionHandlerEnv =
   | SavedQueries
   | LegacyDocsViews
   | Assets
+  | CodeTrust
   | Screens;
 
 /**
