@@ -13,6 +13,7 @@ import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { useRoute } from "@/lib/plugins";
+import { loadServedViews } from "@/lib/view-catalog";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes } from "@kb/views";
 import { OPTIONAL_UI_PLUGINS, startUiPlugins } from "@/ui-plugins";
@@ -212,6 +213,8 @@ export function App() {
       hydrateFromWire(snapshot.nodes, snapshot.rev, source);
       setStatus("ready");
       ensureLiveConnection();
+      // The page's view catalog is the server's: ask which views it loaded.
+      if (source === "api") void loadServedViews();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStatus("error");

@@ -6,6 +6,7 @@ import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { Result } from "effect";
 import { SYSTEM_IDS, viewOptionId, type NodeProps } from "@kb/model";
+import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
   GraphView,
   LayoutView,
@@ -23,10 +24,16 @@ import {
   resolveNodeView,
   sameLayout,
   singlePane,
+  viewCatalogOf,
   viewNodeFor,
   withPanePath,
   type LayoutTree,
 } from "@kb/views";
+
+/** The catalog a server holding every bundled family lists. */
+const catalog = viewCatalogOf(
+  BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.views ?? []),
+);
 
 const pane = (id: string, path = `/node/${id}`) => ({ id, path });
 const tabs = (...ids: string[]): LayoutTree => {
@@ -228,6 +235,7 @@ describe("what /node/<id> opens", () => {
   const open = (node: string, view?: string) =>
     resolveNodeView(
       view === undefined ? { node } : { node, view },
+      catalog,
       (id) => nodes.get(id),
       () => {},
     );

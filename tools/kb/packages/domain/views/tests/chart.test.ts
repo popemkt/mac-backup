@@ -17,7 +17,7 @@ import {
   paramsFromProps,
   paramsIssues,
   starterChartSpec,
-  viewCatalog,
+  viewCatalogOf,
   viewNodeFor,
 } from "@kb/views";
 
@@ -211,7 +211,7 @@ describe("chart data", () => {
 });
 
 describe("chart catalog entry", () => {
-  const entry = viewCatalog().find((e) => e.id === ChartView.id);
+  const [entry] = viewCatalogOf([{ key: ChartView }]).entries();
 
   test("its settings are a JSON Schema of the spec, which names no data of its own", () => {
     expect(entry?.label).toBe("Chart");

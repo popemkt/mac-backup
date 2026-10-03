@@ -14,6 +14,7 @@ import type { KbIndexService } from "@kb/query";
 import type { Screens } from "./screen.ts";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
+import type { ViewCatalog } from "./view-catalog.ts";
 import type { Assets, CodeTrust, LegacyDocsViews, SavedQueries } from "./workspace.ts";
 
 /**
@@ -72,6 +73,7 @@ export type ActionHandlerEnv =
   | FileSystem
   | TemplateRegistry
   | ActionCatalog
+  | ViewCatalog
   | SavedQueries
   | LegacyDocsViews
   | Assets
@@ -103,13 +105,14 @@ export type ActionEffectHandler<R = ActionHandlerEnv> = (
 ) => Effect.Effect<unknown, ActionHandlerError, R>;
 
 /**
- * The services every runtime can supply from its own store and index — no
- * filesystem, no workspace ports. An action whose handler requires only these
+ * The services every runtime can supply from its own store and index, and
+ * the view catalog it reads off its own kernel — no filesystem, no workspace
+ * ports. An action whose handler requires only these
  * runs identically in the browser and on the server; the list of such actions
  * is `isomorphicActions` in `@kb/operations`, typed with this env so a
  * composition root that has nothing more can provide it without lying.
  */
-export type IsomorphicActionEnv = KbCtx | KbStore | KbIndexService;
+export type IsomorphicActionEnv = KbCtx | KbStore | KbIndexService | ViewCatalog;
 
 /**
  * Action contract. Schemas are Standard Schema v1–compatible (zod 4 satisfies

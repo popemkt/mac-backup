@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { z } from "zod";
 import {
   KbCtx,
+  ViewCatalog,
   type ActionDefinition,
   type SavedQueries,
   type TemplateRegistry,
@@ -15,7 +16,7 @@ import {
   present,
   viewOptionOf,
 } from "@kb/model";
-import { DocsMarkdownView, catalogKeyOf } from "@kb/views";
+import { DocsMarkdownView } from "@kb/views";
 import {
   DocsError,
   GENERATED_HEADER,
@@ -26,7 +27,7 @@ import {
 import { hostOf, viewText, viewTitleOf } from "./view-markdown.ts";
 
 type RenderError = DomainError | DocsError;
-type RenderEnv = KbCtx | SavedQueries | TemplateRegistry;
+type RenderEnv = KbCtx | SavedQueries | TemplateRegistry | ViewCatalog;
 
 /** Map unknown render failures; DomainError must be a runtime import for instanceof. */
 export function mapRenderErr(err: unknown): RenderError {
@@ -184,8 +185,9 @@ export const renderViewNodeEffect = Effect.fn("render.viewNode")(function* (
     });
   if (isDocsView(node)) return yield* renderDocsViewEffect(docsViewNameOf(node), format);
   const option = viewOptionOf(node);
-  const key = option === null ? null : catalogKeyOf(option);
-  const text = viewText(ctx, node, hostOf(ctx, node, ref.host ?? null));
+  const catalog = yield* ViewCatalog;
+  const key = option === null ? null : catalog.keyOf(option);
+  const text = viewText(ctx, catalog, node, hostOf(ctx, node, ref.host ?? null));
   const name = viewTitleOf(node, key);
   return {
     name,

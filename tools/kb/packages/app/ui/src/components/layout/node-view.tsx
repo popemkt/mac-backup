@@ -8,6 +8,7 @@ import { logWarn } from "@/lib/log";
 import { RoutePoint, pageFrameOf, useContributions, type ViewProps } from "@/lib/plugins";
 import { ScrollRegion } from "./pane-frame";
 import { schemaOf } from "@/lib/schema";
+import { usePageCatalog } from "@/lib/view-catalog";
 import { useOutlineStore } from "@/stores/outline.store";
 
 const UNAVAILABLE = (
@@ -26,14 +27,16 @@ const UNAVAILABLE = (
 export function NodeViewSurface({ params }: ViewProps<NodeParams>) {
   // Views and their hosts are read from the whole graph, whatever scope the outline is in.
   const schema = useOutlineStore(schemaOf);
+  const catalog = usePageCatalog();
   const target = useMemo(
     () =>
       resolveNodeView(
         params,
+        catalog,
         (id) => schema.get(id),
         (warning) => logWarn(`[kb/node] ${params.node}: ${warning}`),
       ),
-    [params, schema],
+    [params, catalog, schema],
   );
   const decoded = useMemo(
     () => Result.flatMap(target, (found) => paramsFrom(found.key, found.input)),

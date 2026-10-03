@@ -812,13 +812,14 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   views beside its own (GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]).
   An unloaded plugin never deletes an option: the data outlives the code.
 - **The view catalog is the keys.** Every view's key — its id, option,
-  family, its settings as an Effect `Schema` (annotated with what the view
+  label, family, its settings as an Effect `Schema` (annotated with what the view
   shows and what it is shown for) and how a view node's props are read into
   them — is data in `@kb/views`, held by the UI that draws the view and the
-  server alike. `VIEW_CATALOG` lists one key per seeded option, and its tests
-  hold the two to each other; the UI's view contract holds every view a
-  plugin provides to a key in it. `kb.manifest` publishes the catalog beside
-  the actions (`viewCatalog`): per view its id, option, label, family, its
+  server alike. A host's catalog is the keys its loaded plugins contributed
+  to `ViewKeyPoint`, read through the `ViewCatalog` service
+  ([Extension families](#extension-families)); the UI's view contract holds
+  every view a plugin provides to a key in the page's catalog. `kb.manifest`
+  publishes the catalog beside the actions: per view its id, option, label, family, its
   settings as the JSON Schema the key's params derive
   (`Schema.toJsonSchemaDocument`, the JSON they decode from), and the
   settings a view node holding none reads as, where one can be read. The
@@ -1951,7 +1952,7 @@ Today's drift from this contract is marked where it sits:
 - view text: GAP [[01M41H2ZG7C0SV1DYZE6MMKPFE]];
 - runtime painters: GAP [[01M41H2ZS8FH55DCW3S9ZGPWPY]];
 - feature view keys in `@kb/views`: GAP [[01M41H30342XZPX3CXZJTMPBYW]];
-- the catalog as a constant: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]];
+- feature keys contributed through core's declaration: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]];
 - UI zones: GAP [[01M41H30C2RSD2FGVYBT5HAG48]];
 - the unbridged lists: GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]];
 - open composition roots: GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];

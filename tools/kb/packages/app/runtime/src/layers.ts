@@ -26,6 +26,7 @@ import {
   type KbContext,
   type Screens,
   TemplateRegistry,
+  ViewCatalog,
 } from "@kb/contracts";
 import { CodeSnapshots, snapshotRun, type CodeSnapshotter } from "@kb/sandbox";
 import { quickjsEngine } from "@kb/sandbox-quickjs";
@@ -46,7 +47,8 @@ import { selectStore } from "./store-selection.ts";
 /**
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
  * the workspace ports backed by `.kb/` on disk + the UI tabs' screens, held
- * by the `kb ui` serving the root + Vega as the chart painter (`ChartSvg`,
+ * by the `kb ui` serving the root + the view catalog the registry's plugins
+ * contributed + Vega as the chart painter (`ChartSvg`,
  * so a chart's page draws its SVG) + QuickJS as the code snapshotter
  * (`CodeSnapshots`, so a code view's page draws what its code draws) + the
  * render templates and the action
@@ -80,6 +82,7 @@ export function kbRuntimeLayer(
     legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
+    Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),
     // Feature painter and snapshot policy bound by the root: GAP [[01M41H2ZS8FH55DCW3S9ZGPWPY]]
     Layer.succeed(ChartSvg, vegaChartPainter),
     Layer.succeed(CodeSnapshots, codeSnapshots(ctx)),

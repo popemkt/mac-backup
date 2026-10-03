@@ -31,22 +31,42 @@ import {
   type ProvidedView,
 } from "@/lib/plugins";
 import { MAX_VIEW_DEPTH } from "@/lib/view-key";
-import { NoParams, VIEW_CATALOG, localIdOf, viewKey } from "@kb/views";
+import { NoParams, localIdOf, viewKey } from "@kb/views";
+import { ViewKeyPoint } from "@kb/contracts";
+import { pageCatalogOf } from "@/lib/view-catalog";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS } from "@/ui-plugins";
-import { bundledSeed } from "@kb/bundled";
+import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 
 const ALL_PLUGINS: readonly Plugin[] = [
   ...BUILTIN_UI_PLUGINS,
   ...OPTIONAL_UI_PLUGINS.map((entry) => entry.plugin),
 ];
 
-/** Every view the UI can hold, with the plugin that owns it. */
-const VIEWS = (() => {
+/** A kernel holding every plugin the UI can hold. */
+const KERNEL = (() => {
   const kernel = makeKernel();
   Effect.runSync(Effect.forEach(ALL_PLUGINS, (plugin) => kernel.load(plugin)));
-  return kernel.contributions(ViewPoint);
+  return kernel;
 })();
+
+/** Every view the UI can hold, with the plugin that owns it. */
+const VIEWS = KERNEL.contributions(ViewPoint);
+
+/** The view ids a server running every bundled family lists in `kb.manifest`. */
+const SERVED = new Set(
+  BUNDLED_DECLARATIONS.flatMap((declaration) =>
+    (declaration.views ?? []).map((view) => view.key.id),
+  ),
+);
+
+/** The page's catalog, as a page served by that server derives it; what it leaves out. */
+const UNLISTED: string[] = [];
+const PAGE_CATALOG = pageCatalogOf(
+  KERNEL.contributions(ViewKeyPoint).map(({ value }) => value),
+  SERVED,
+  (viewId) => UNLISTED.push(viewId),
+);
 
 /** The seeded nodes, by id: where every view's option must be. */
 const SEED = new Map(bundledSeed().map((node) => [node.id, node]));
@@ -204,6 +224,10 @@ describe("view contract", () => {
     expect(VIEWS.length).toBeGreaterThan(0);
   });
 
+  it("holds no view key the server does not list", () => {
+    expect(UNLISTED).toEqual([]);
+  });
+
   describe.each(VIEWS.map((view) => ({ id: view.id, owner: view.owner, view: view.value })))(
     "$id",
     ({ owner, view }) => {
@@ -222,8 +246,8 @@ describe("view contract", () => {
         expect(family?.v).toBe(expected);
       });
 
-      it("is drawn under a key of the view catalog, the one the server lists", () => {
-        expect(VIEW_CATALOG).toContain(view.key);
+      it("is drawn under a key of the page's catalog, the one the server lists", () => {
+        expect(PAGE_CATALOG.keyOf(view.key.id)).toBe(view.key);
       });
 
       it("declares its settings, and its sample is a legal value of them", () => {

@@ -8,10 +8,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   SCREEN_APPLIED,
+  declarationPlugin,
   type ScreenAck,
   type ScreenCommand,
   type ScreenState,
 } from "@kb/contracts";
+import { coreExtension } from "@kb/operations";
 import type { ScreenTab } from "@/api/live";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { browserHostUiPlugin } from "@/browser-host";
@@ -213,7 +215,8 @@ describe("the tab's screen", () => {
 
   it("names the view node a pane shows, and the view it opened in", () => {
     const { plugin, published } = tab();
-    syncUiPlugins([outlineUiPlugin, layoutUiPlugin, plugin]);
+    // The view a node opens in is named through the page's catalog: core's declared views.
+    syncUiPlugins([declarationPlugin(coreExtension), outlineUiPlugin, layoutUiPlugin, plugin]);
     navigate("/node/lens.all-mentions");
     vi.advanceTimersByTime(SCREEN_PUBLISH_MS);
     expect(published.at(-1)?.panes[0]).toMatchObject({

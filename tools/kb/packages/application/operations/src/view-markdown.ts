@@ -13,14 +13,14 @@
  * GAP [[01M40X30G92A0E57C02JHQ9A1G]]
  */
 import { Effect, Predicate, Result } from "effect";
-import type { KbContext } from "@kb/contracts";
+import type { KbContext, ViewDef } from "@kb/contracts";
 import { SYSTEM_IDS, firstStr, hostViewIds, viewOptionOf, type KbNode } from "@kb/model";
 import {
   ChartView,
   CodeView,
-  catalogKeyOf,
   issueText,
   paramsIssues,
+  type ViewCatalogOf,
   type ViewKey,
 } from "@kb/views";
 import { chartBody } from "./chart-text.ts";
@@ -137,10 +137,15 @@ interface ViewText {
   readonly figure: Effect.Effect<string | null>;
 }
 
-/** What a view node is shown as on a text-only surface. */
-export function viewText(ctx: KbContext, view: KbNode, host: KbNode | null): ViewText {
+/** What a view node is shown as on a text-only surface, its view named through `catalog`. */
+export function viewText(
+  ctx: KbContext,
+  catalog: ViewCatalogOf<ViewDef<unknown>>,
+  view: KbNode,
+  host: KbNode | null,
+): ViewText {
   const option = viewOptionOf(view);
-  const key = option === null ? null : catalogKeyOf(option);
+  const key = option === null ? null : catalog.keyOf(option);
   const lines = [`# ${viewTitleOf(view, key)}`, ""];
   const shownFor = host === null ? "" : `, shown for ${host.text.trim() || host.id} (${host.id})`;
   lines.push(

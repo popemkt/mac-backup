@@ -12,6 +12,8 @@
  * package, and the optional ones load statically: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
  */
 import { ChatCircleDotsIcon, FlaskIcon } from "@phosphor-icons/react";
+import { declarationPlugin } from "@kb/contracts";
+import { coreExtension } from "@kb/operations";
 import type { Plugin } from "@kb/plugin";
 import { agentPlugin } from "@/agent";
 import { browserHostUiPlugin } from "@/browser-host";
@@ -28,8 +30,12 @@ import { screenUiPlugin } from "@/screen";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { webMcpUiPlugin } from "@/webmcp";
 
-/** Always loaded. */
+/**
+ * Always loaded. Core's views reach the page kernel's catalog through the
+ * same declaration the server loads them from.
+ */
 export const BUILTIN_UI_PLUGINS: readonly Plugin[] = [
+  declarationPlugin(coreExtension),
   browserHostUiPlugin,
   outlineUiPlugin,
   graphUiPlugin,

@@ -6,6 +6,7 @@ import {
   type KbCtx,
   type KbStore,
   type SurfaceWire,
+  ViewCatalog,
   failed,
   kbCtxLayer,
   kbStoreLayer,
@@ -17,6 +18,7 @@ import { StoreTxLog } from "@kb/tx-log";
 import { invokeReceiptWith, isomorphicActions, noteStoreSynced } from "@kb/operations";
 import { postAction, type ActionResponse } from "@/api/action";
 import { toast } from "@/lib/toast";
+import { livePageCatalog } from "@/lib/view-catalog";
 import { BrowserStore } from "./browser-store";
 import { BrowserReplica, type Hold, type ReplicaLink } from "./replica";
 
@@ -30,7 +32,7 @@ export interface BrowserSessionView {
 interface BrowserSession {
   readonly ctx: KbContext;
   readonly store: BrowserStore;
-  readonly layer: Layer.Layer<KbCtx | KbStore | KbIndexService>;
+  readonly layer: Layer.Layer<KbCtx | KbStore | KbIndexService | ViewCatalog>;
   readonly onLocalCommit: () => void;
   readonly replica: BrowserReplica;
 }
@@ -82,6 +84,7 @@ export function replaceBrowserSession(
       kbStoreLayer(store),
       kbCtxLayer(ctx),
       Layer.succeed(KbIndexService, index),
+      Layer.succeed(ViewCatalog, livePageCatalog),
     ),
     onLocalCommit: view.onLocalCommit,
     replica: new BrowserReplica(

@@ -13,7 +13,7 @@ import {
   type NodeId,
   type NodeProps,
 } from "@kb/model";
-import { catalogKeyOf } from "./catalog.ts";
+import type { CatalogItem, ViewCatalogOf } from "./catalog.ts";
 import { FRAME_VIEW_FAMILY } from "./frame.ts";
 import { GraphView } from "./graph.ts";
 import { OutlineView } from "./outline.ts";
@@ -62,7 +62,8 @@ function pageOf(
 }
 
 /**
- * What `params` opens, reading nodes through `lookup`:
+ * What `params` opens, reading nodes through `lookup` and naming views
+ * through `catalog`, the host's view catalog:
  *
  * - `view` names a view type (its option): that view, with the settings a
  *   view node holding none reads as, shown for the node;
@@ -73,6 +74,7 @@ function pageOf(
  */
 export function resolveNodeView(
   params: NodeParams,
+  catalog: Pick<ViewCatalogOf<CatalogItem>, "keyOf">,
   lookup: (id: NodeId) => Carrier | undefined,
   report: ConfigReport,
 ): Result.Result<NodeViewTarget, string> {
@@ -80,7 +82,7 @@ export function resolveNodeView(
   if (node === undefined) return Result.fail(`no node ${params.node}`);
   const type = params.view === undefined ? null : viewIdOfOption(params.view);
   if (type !== null) {
-    const key = catalogKeyOf(type);
+    const key = catalog.keyOf(type);
     if (key === null) return Result.fail(`no view ${type}`);
     return Result.succeed({ ...pageOf(key, {}, params.node, null, report), subject: params.node });
   }
@@ -90,7 +92,7 @@ export function resolveNodeView(
     return Result.succeed({ key: OutlineView, input: { root: params.node }, subject: params.node });
   const view = lookup(viewId);
   const option = viewOptionOf(view);
-  const key = option === null ? null : catalogKeyOf(option);
+  const key = option === null ? null : catalog.keyOf(option);
   if (view === undefined || key === null) return Result.fail(`${viewId} is no view node`);
   const host = self ? null : params.node;
   return Result.succeed({

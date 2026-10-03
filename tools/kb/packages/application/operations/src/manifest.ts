@@ -7,9 +7,10 @@
  * {@link ActionCatalog} the invoke tip provides, so the listing is always the
  * registry the call runs in.
  *
- * Beside the actions it lists the view catalog (`@kb/views`' `viewCatalog`):
- * every view kb provides, with its settings as JSON Schema, which is what an
- * agent needs to write a view node (`view.propose`).
+ * Beside the actions it lists the view catalog (the {@link ViewCatalog} the
+ * invoke tip provides): every view the loaded plugins provide, with its
+ * settings as JSON Schema, which is what an agent needs to write a view node
+ * (`view.propose`). The page derives its own catalog from this list.
  *
  * It lists every action, and says of each what is decided about the caller's
  * own call to it (`decision`): the policies for the actor the call was made
@@ -23,9 +24,9 @@ import {
   CurrentCall,
   DecidedEntrySchema,
   KbCtx,
+  ViewCatalog,
   type ActionDefinition,
 } from "@kb/contracts";
-import { viewCatalog } from "@kb/views";
 import { decide } from "./approval.ts";
 
 /** One view of the catalog on the wire: `@kb/views`' `ViewCatalogEntry`. */
@@ -54,7 +55,7 @@ export const kbManifestDef = {
 export const kbManifestEffect = Effect.fn("kb.manifest")(function* (): Effect.fn.Return<
   z.infer<typeof kbManifestDef.outputSchema>,
   never,
-  ActionCatalog | KbCtx
+  ActionCatalog | KbCtx | ViewCatalog
 > {
   const ctx = yield* KbCtx;
   const actor = (yield* CurrentCall)?.invocation.actor;
@@ -62,5 +63,5 @@ export const kbManifestEffect = Effect.fn("kb.manifest")(function* (): Effect.fn
     ...entry,
     decision: decide(ctx, { action: entry, actor }).decision,
   }));
-  return { actions, views: [...viewCatalog()] };
+  return { actions, views: [...(yield* ViewCatalog).entries()] };
 });

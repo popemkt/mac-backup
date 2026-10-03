@@ -1,80 +1,16 @@
 /**
- * The view catalog: every view kb provides, as an agent or a picker reads it
- * — the key's id, option, label and family, which the seed names its option
- * by, and its settings as a JSON Schema derived from the key's params, so the
- * catalog states nothing a key does not.
+ * The view catalog mechanism: the views a host knows, as an agent or a
+ * picker reads them — each key's id, option, label and family, which the seed
+ * names its option by, and its settings as a JSON Schema derived from the
+ * key's params, so the catalog states nothing a key does not.
+ *
+ * Which views a host knows is not this module's to say. A host reads them
+ * off its kernel's view point (DESIGN.md → Extension families → the view
+ * catalog is a point) and hands them to {@link viewCatalogOf}.
  */
 import { Result, Schema } from "effect";
 import { viewIdOfOption } from "@kb/model";
-import { DocsMarkdownView } from "./docs.ts";
-import {
-  ClusterView,
-  Force2dView,
-  Force3dView,
-  GraphView,
-  NeighbourhoodView,
-  TreeView,
-  TreemapView,
-} from "./graph.ts";
-import { LabView } from "./lab.ts";
-import { LayoutView, NodeView } from "./layout.ts";
-import { CanvasListView, CanvasView } from "./canvas.ts";
-import { ChartView } from "./chart.ts";
-import { CodeView } from "./code.ts";
-import { OntologyListView, OntologyScopeView } from "./ontology.ts";
-import {
-  OutlineBoardView,
-  OutlineCardsView,
-  OutlineListView,
-  OutlineSnippetView,
-  OutlineTableView,
-  OutlineView,
-} from "./outline.ts";
 import { paramsFromProps, type ViewKey } from "./view-key.ts";
-
-/**
- * Every view kb provides, one key per view, in the order the seed derives
- * their options; the UI's view contract holds every view a plugin provides to
- * a key here.
- *
- * A constant, not a reading of a view point: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]
- * It also lists feature keys (chart, code, lab, canvas) that belong to their
- * families: GAP [[01M41H30342XZPX3CXZJTMPBYW]]
- */
-export const VIEW_CATALOG: readonly ViewKey<unknown>[] = [
-  OutlineView,
-  OutlineListView,
-  OutlineTableView,
-  OutlineBoardView,
-  OutlineCardsView,
-  OutlineSnippetView,
-  GraphView,
-  Force2dView,
-  TreeView,
-  ClusterView,
-  Force3dView,
-  TreemapView,
-  NeighbourhoodView,
-  OntologyListView,
-  OntologyScopeView,
-  CanvasListView,
-  CanvasView,
-  LabView,
-  DocsMarkdownView,
-  LayoutView,
-  NodeView,
-  ChartView,
-  CodeView,
-];
-
-/**
- * The key a view goes by: its id (`outline.board`), or the option node that
- * names it in data (`sys.view.outline.board`). Null for neither.
- */
-export function catalogKeyOf(view: string): ViewKey<unknown> | null {
-  const id = viewIdOfOption(view) ?? view;
-  return VIEW_CATALOG.find((key) => key.id === id) ?? null;
-}
 
 /** One view of the catalog, as `kb.manifest` lists it. */
 export interface ViewCatalogEntry {
@@ -94,6 +30,25 @@ export interface ViewCatalogEntry {
   readonly defaults?: unknown;
 }
 
+/** What a catalog holds of each view: at least its key. */
+export interface CatalogItem {
+  readonly key: ViewKey<unknown>;
+}
+
+/** The views one host knows, in the order they were contributed. */
+export interface ViewCatalogOf<D extends CatalogItem> {
+  readonly items: readonly D[];
+  /**
+   * The view `view` names: its id (`outline.board`), or the option node that
+   * names it in data (`sys.view.outline.board`). Null for neither.
+   */
+  itemOf(view: string): D | null;
+  /** The key of the view `view` names, as {@link itemOf} finds it. */
+  keyOf(view: string): ViewKey<unknown> | null;
+  /** Every view as `kb.manifest` lists it, in {@link items}' order. */
+  entries(): readonly ViewCatalogEntry[];
+}
+
 /** The JSON Schema of a key's params, with its definitions inlined under `$defs`. */
 function settingsSchemaOf(key: ViewKey<unknown>): unknown {
   const document = Schema.toJsonSchemaDocument(key.params);
@@ -102,9 +57,14 @@ function settingsSchemaOf(key: ViewKey<unknown>): unknown {
     : { ...document.schema, $defs: document.definitions };
 }
 
+/** Entries by key: a key is made once, so its entry is derived once whatever catalog lists it. */
+const entryCache = new WeakMap<ViewKey<unknown>, ViewCatalogEntry>();
+
 function entryOf(key: ViewKey<unknown>): ViewCatalogEntry {
+  const cached = entryCache.get(key);
+  if (cached !== undefined) return cached;
   const defaults = paramsFromProps(key, {}, null, () => {});
-  return {
+  const entry: ViewCatalogEntry = {
     id: key.id,
     option: key.option,
     label: key.label,
@@ -112,12 +72,18 @@ function entryOf(key: ViewKey<unknown>): ViewCatalogEntry {
     settings: settingsSchemaOf(key),
     ...(Result.isSuccess(defaults) ? { defaults: defaults.success } : {}),
   };
+  entryCache.set(key, entry);
+  return entry;
 }
 
-let entries: readonly ViewCatalogEntry[] | undefined;
-
-/** The catalog's entries, in {@link VIEW_CATALOG}'s order, derived once. */
-export function viewCatalog(): readonly ViewCatalogEntry[] {
-  entries ??= VIEW_CATALOG.map(entryOf);
-  return entries;
+/** The catalog of `items`, looked up by view id or option. */
+export function viewCatalogOf<D extends CatalogItem>(items: readonly D[]): ViewCatalogOf<D> {
+  const byId = new Map<string, D>(items.map((item) => [item.key.id, item]));
+  const itemOf = (view: string): D | null => byId.get(viewIdOfOption(view) ?? view) ?? null;
+  return {
+    items,
+    itemOf,
+    keyOf: (view) => itemOf(view)?.key ?? null,
+    entries: () => items.map((item) => entryOf(item.key)),
+  };
 }

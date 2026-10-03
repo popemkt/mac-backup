@@ -9,12 +9,13 @@ import { createPortal } from "react-dom";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { Predicate, Result } from "effect";
 import { canonicalJson, hostViewIds, viewOptionOf } from "@kb/model";
-import { LayoutView, NodeView, catalogKeyOf, paramsFromProps, type ViewKey } from "@kb/views";
+import { LayoutView, NodeView, paramsFromProps, type ViewKey } from "@kb/views";
 import { useAnchoredPosition } from "@/components/ui/use-anchored-position";
 import { cn } from "@/lib/cn";
 import { RoutePoint, ViewPoint, matchRoute, useContributions } from "@/lib/plugins";
 import { nodePath } from "@/lib/router";
 import type { NodeMap } from "@/lib/types";
+import { usePageCatalog } from "@/lib/view-catalog";
 import { useOutlineStore } from "@/stores/outline.store";
 
 interface Choice {
@@ -27,13 +28,17 @@ interface Section {
   readonly choices: readonly Choice[];
 }
 
-/** What a view node is called here: its text, else its view's label. */
-function viewNodeLabel(id: string, nodes: NodeMap): string {
+/** What a view node is called here: its text, else its view's label, its view named through `catalog`. */
+function viewNodeLabel(
+  id: string,
+  nodes: NodeMap,
+  catalog: { keyOf(view: string): ViewKey<unknown> | null },
+): string {
   const node = nodes.get(id);
   const text = node?.text.trim() ?? "";
   if (text !== "") return text;
   const option = viewOptionOf(node);
-  const key = option === null ? null : catalogKeyOf(option);
+  const key = option === null ? null : catalog.keyOf(option);
   return key === null ? id : key.label;
 }
 
@@ -68,6 +73,7 @@ function hostOf(params: unknown): string | null {
 function useSections(path: string): readonly Section[] {
   const routes = useContributions(RoutePoint);
   const views = useContributions(ViewPoint);
+  const catalog = usePageCatalog();
   const nodes = useOutlineStore((s) => s.nodes);
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const route = matchRoute(routes, path);
@@ -81,7 +87,7 @@ function useSections(path: string): readonly Section[] {
         { path: nodePath(host), label: "Default view" },
         ...hostViewIds(hostNode).map((id) => ({
           path: nodePath(host, id),
-          label: viewNodeLabel(id, nodes),
+          label: viewNodeLabel(id, nodes, catalog),
         })),
         ...views
           .filter(({ value }) => value.placements.includes("page") && showsANode(value.key, host))

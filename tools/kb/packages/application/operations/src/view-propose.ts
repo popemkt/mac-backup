@@ -8,7 +8,7 @@
  */
 import { Effect, Result } from "effect";
 import { z } from "zod";
-import { KbCtx, type ActionDefinition, type KbStore } from "@kb/contracts";
+import { KbCtx, ViewCatalog, type ActionDefinition, type KbStore } from "@kb/contracts";
 import {
   SYSTEM_IDS,
   currentIso,
@@ -19,7 +19,7 @@ import {
   type KbNode,
   type PropValue,
 } from "@kb/model";
-import { VIEW_CATALOG, catalogKeyOf, issueText, viewNodeFor } from "@kb/views";
+import { issueText, viewNodeFor } from "@kb/views";
 import {
   assertNoSysUpsert,
   cloneNode,
@@ -74,14 +74,15 @@ export const viewProposeEffect = Effect.fn("view.propose")(function* (
 ): Effect.fn.Return<
   { id: string; view: string; host?: string; params: unknown; node: KbNode },
   DomainError,
-  KbCtx | KbStore
+  KbCtx | KbStore | ViewCatalog
 > {
   const ctx = yield* KbCtx;
-  const key = catalogKeyOf(input.view);
+  const catalog = yield* ViewCatalog;
+  const key = catalog.keyOf(input.view);
   if (key === null)
     return yield* domainError("invalid_input", `unknown view: ${input.view}`, {
       view: input.view,
-      views: VIEW_CATALOG.map((known) => known.id),
+      views: catalog.items.map((known) => known.key.id),
     });
   const hostId = input.host;
   const host = hostId === undefined ? null : yield* syncDomain(() => requireNode(ctx, hostId));

@@ -3,6 +3,8 @@ import type { FileSystem } from "effect/FileSystem";
 import {
   ActionPoint,
   TemplatePoint,
+  ViewKeyPoint,
+  declarationPlugin,
   actionToManifestEntry,
   extensionPlugin,
   type ActionContribution,
@@ -13,9 +15,17 @@ import {
   type KbContext,
   type ManifestEntry,
   type TemplateFn,
+  type ViewDef,
 } from "@kb/contracts";
 import type { ActionSchemaError, DomainError } from "@kb/model";
-import { coreActions, invokeReceiptWith, invokeWith, type RegisteredAction } from "@kb/operations";
+import {
+  coreActions,
+  coreExtension,
+  invokeReceiptWith,
+  invokeWith,
+  type RegisteredAction,
+} from "@kb/operations";
+import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
 import { discoverExtensions } from "./extension-loader.ts";
 import { writeErr } from "./output.ts";
@@ -56,21 +66,32 @@ export interface Registry {
   extensions: readonly RegistryExtension[];
   failures: readonly ExtensionFailure[];
   manifestEntries: readonly ManifestEntry[];
+  /** The views the loaded plugins contributed to `ViewKeyPoint`: what the `ViewCatalog` service holds. */
+  views: ViewCatalogOf<ViewDef<unknown>>;
 }
 
-/** Core's actions, contributed like anyone else's but in the root namespace. */
+/**
+ * Core's server entry: its actions, contributed like anyone else's but in the
+ * root namespace, and its declaration's views, loaded as a child.
+ */
 const corePlugin = definePlugin({
-  name: "core",
+  name: coreExtension.name,
   namespace: "",
   apply: (ctx) =>
-    Effect.forEach(
-      coreActions,
-      (action) =>
-        ctx.contribute(ActionPoint, {
-          id: action.def.id,
-          aliases: action.aliases,
-          value: { ...action.def, effect: action.effect, handler: action.handler },
-        }),
+    Effect.all(
+      [
+        Effect.forEach(
+          coreActions,
+          (action) =>
+            ctx.contribute(ActionPoint, {
+              id: action.def.id,
+              aliases: action.aliases,
+              value: { ...action.def, effect: action.effect, handler: action.handler },
+            }),
+          { discard: true },
+        ),
+        ctx.plugin(declarationPlugin(coreExtension)),
+      ],
       { discard: true },
     ),
 });
@@ -185,7 +206,9 @@ const buildRegistry = Effect.fnUntraced(function* (
     })),
   ]);
 
-  return { kernel, actions, byId, templates, extensions, failures, manifestEntries };
+  const views = viewCatalogOf(kernel.contributions(ViewKeyPoint).map(({ value }) => value));
+
+  return { kernel, actions, byId, templates, extensions, failures, manifestEntries, views };
 });
 
 const registryCache = new Map<string, Effect.Effect<Registry, never, FileSystem>>();

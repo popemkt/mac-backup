@@ -40,8 +40,10 @@ export type {
   ManifestEntry,
 } from "./actions.ts";
 export { ChannelPoint, UiHost } from "./channel.ts";
-export { defineExtension } from "./declaration.ts";
-export type { ExtensionDeclaration, ViewDef } from "./declaration.ts";
+export { declarationPlugin, defineExtension } from "./declaration.ts";
+export type { ExtensionDeclaration } from "./declaration.ts";
+export { ViewCatalog, ViewKeyPoint } from "./view-catalog.ts";
+export type { ViewDef } from "./view-catalog.ts";
 export type { Channel, ChannelPeer, UiHostService } from "./channel.ts";
 export { ActionPoint, TemplatePoint, extensionPlugin } from "./extension.ts";
 export { mcpToolHints, mcpToolName, mcpToolResult } from "./mcp-tool.ts";

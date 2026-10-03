@@ -249,12 +249,15 @@ export function syncUiPlugins(plugins: readonly Plugin[]): void {
   }
 }
 
+/** Called after every change to the page kernel's plugins, services or contributions. */
+export const subscribeUiKernel = uiKernel.subscribe;
+
 /**
  * A reader for one point that returns the same array until the kernel moves.
  * `useSyncExternalStore` compares snapshots by identity, and the kernel hands
  * out a fresh array per read.
  */
-function pointReader<C>(point: PointKey<C>): () => readonly Contribution<C>[] {
+export function pointReader<C>(point: PointKey<C>): () => readonly Contribution<C>[] {
   let version = -1;
   let items: readonly Contribution<C>[] = [];
   return () => {

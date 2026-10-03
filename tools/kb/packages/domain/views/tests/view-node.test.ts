@@ -7,15 +7,15 @@
 import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
 import { SYSTEM_IDS } from "@kb/model";
+import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
   CanvasView,
   NeighbourhoodView,
   OutlineBoardView,
   OutlineSnippetView,
-  catalogKeyOf,
   issueText,
   paramsFromProps,
-  viewCatalog,
+  viewCatalogOf,
   viewNodeFor,
   type ViewKey,
 } from "@kb/views";
@@ -25,13 +25,18 @@ function problems(key: ViewKey<unknown>, input: unknown, host: string | null = n
   return Result.isFailure(result) ? result.failure.map(issueText) : [];
 }
 
+/** The catalog a server holding every bundled family lists. */
+const catalog = viewCatalogOf(
+  BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.views ?? []),
+);
+
 const BOARD = { filters: [], sort: [], display: [], groupFieldId: "f.status" };
 
 describe("viewNodeFor", () => {
   test("every view that reads its defaults from an empty view node holds them", () => {
-    for (const entry of viewCatalog()) {
+    for (const entry of catalog.entries()) {
       if (entry.defaults === undefined) continue;
-      const key = catalogKeyOf(entry.id);
+      const key = catalog.keyOf(entry.id);
       if (key === null) throw new Error(`${entry.id} has no key`);
       const proposed = viewNodeFor(key, entry.defaults, "n.host");
       expect({

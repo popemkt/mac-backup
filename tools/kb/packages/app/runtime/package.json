@@ -28,13 +28,13 @@
     "@kb/store-sqlite": "workspace:*",
     "@kb/tx-log": "workspace:*",
     "@kb/vega": "workspace:*",
+    "@kb/views": "workspace:*",
     "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
     "@kb/canvas": "workspace:*",
     "@kb/test-kit": "workspace:*",
-    "@kb/views": "workspace:*",
     "@types/bun": "catalog:",
     "zod": "catalog:"
   },

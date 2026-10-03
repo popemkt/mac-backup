@@ -53,6 +53,7 @@ export {
   parsePropArg,
 } from "./map.ts";
 export type { DeclaredTypes, PlannedAction } from "./map.ts";
+export { kbManifestDef } from "./manifest.ts";
 export { ontologyMembersDef, ontologyMembersEffect } from "./ontology.ts";
 export {
   listViewNamesEffect,

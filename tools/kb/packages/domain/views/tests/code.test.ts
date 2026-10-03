@@ -5,11 +5,11 @@
 import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
 import { SYSTEM_IDS, canonicalJson, type NodeProps } from "@kb/model";
+import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
   CodeView,
   DEFAULT_GRANT,
   STARTER_CODE,
-  catalogKeyOf,
   paramsFromProps,
   viewNodeFor,
 } from "../src/index.ts";
@@ -18,8 +18,10 @@ const quiet = () => {};
 const CODE = '  kb.draw(["p", {}, "hi"]);\n';
 
 describe("the code view", () => {
-  test("is in the catalog as code.view, its option sys.view.code.view", () => {
-    expect(catalogKeyOf("code.view")).toBe(CodeView);
+  test("is declared as code.view, its option sys.view.code.view", () => {
+    const declared = BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.views ?? []);
+    expect(declared.map((view) => view.key)).toContain(CodeView);
+    expect(CodeView.id).toBe("code.view");
     expect(CodeView.option).toBe("sys.view.code.view");
   });
 

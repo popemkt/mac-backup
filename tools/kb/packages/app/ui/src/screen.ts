@@ -28,6 +28,7 @@ import { NodeView, layoutPanes, resolveNodeView, type LayoutPane } from "@kb/vie
 import { logWarn } from "@/lib/log";
 import { RoutePoint, currentContributions, matchRoute, paramsOf } from "@/lib/plugins";
 import { getPath, nodePath, subscribePath } from "@/lib/router";
+import { pageCatalog } from "@/lib/view-catalog";
 import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useScreenStore } from "@/stores/screen.store";
@@ -48,6 +49,7 @@ function viewAt(route: string): { key: string; node?: string } | null {
   const schema = schemaOf(useOutlineStore.getState());
   const target = resolveNodeView(
     opened,
+    pageCatalog(),
     (id) => schema.get(id),
     () => {},
   );
