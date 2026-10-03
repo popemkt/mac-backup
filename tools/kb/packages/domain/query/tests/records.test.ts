@@ -3,13 +3,7 @@
  * reads its data in.
  */
 import { describe, expect, test } from "bun:test";
-import {
-  DatascriptIndex,
-  MAX_CHART_ROWS,
-  chartRecords,
-  findColumns,
-  queryRecords,
-} from "@kb/query";
+import { DatascriptIndex, findColumns, queryRecords } from "@kb/query";
 import { SYSTEM_IDS, type KbNode } from "@kb/model";
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -73,24 +67,5 @@ describe("queryRecords", () => {
         { col_1: 2, col_2: 3 },
       ],
     });
-  });
-});
-
-describe("chartRecords", () => {
-  const edn = "[:find ?n :where [?e :node/id ?n]]";
-  const rows = Array.from({ length: MAX_CHART_ROWS + 10 }, (_, i) => [`n${String(i)}`]);
-
-  test("a chart draws at most its query's limit", () => {
-    expect(chartRecords({ edn, limit: 3 }, rows).records).toHaveLength(3);
-  });
-
-  test("a query with no limit still draws at most MAX_CHART_ROWS", () => {
-    expect(chartRecords({ edn, limit: null }, rows).records).toHaveLength(MAX_CHART_ROWS);
-  });
-
-  test("a limit above the cap is held to the cap", () => {
-    expect(chartRecords({ edn, limit: MAX_CHART_ROWS * 2 }, rows).records).toHaveLength(
-      MAX_CHART_ROWS,
-    );
   });
 });

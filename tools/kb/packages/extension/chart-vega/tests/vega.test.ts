@@ -1,11 +1,11 @@
 /**
- * The chart painter's promise (`ChartPainter` in @kb/contracts): a Vega-Lite
+ * The chart painter's promise (`ChartPainter` in @kb/chart): a Vega-Lite
  * spec with inline data becomes one SVG document, drawn headless; nothing is
  * fetched, and no expression is compiled to code.
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect, Exit } from "effect";
-import { chartSvg, vegaChartPainter } from "@kb/vega";
+import { chartSvg, vegaChartPainter } from "@kb/chart-vega";
 
 const BAR = {
   mark: "bar",

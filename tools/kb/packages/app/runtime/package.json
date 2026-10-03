@@ -13,6 +13,7 @@
   "dependencies": {
     "@effect/platform-bun": "catalog:",
     "@kb/bundled": "workspace:*",
+    "@kb/chart-vega": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/ext-canvas": "workspace:*",
     "@kb/ext-check": "workspace:*",
@@ -27,7 +28,6 @@
     "@kb/store-jsonl": "workspace:*",
     "@kb/store-sqlite": "workspace:*",
     "@kb/tx-log": "workspace:*",
-    "@kb/vega": "workspace:*",
     "@kb/views": "workspace:*",
     "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:"

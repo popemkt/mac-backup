@@ -8,8 +8,8 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
+import { CHART_IDS, type ChartParams } from "@kb/chart";
 import { SYSTEM_IDS } from "@kb/model";
-import type { ChartParams } from "@kb/views";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { browserHostUiPlugin } from "@/browser-host";
 import { syncUiPlugins } from "@/lib/plugins";
@@ -198,7 +198,7 @@ describe("chart view (component)", () => {
     await type(JSON.stringify(line));
     expect(save()?.disabled).toBe(false);
     await act(async () => save()?.click());
-    expect(replaceField).toHaveBeenCalledWith("v.chart", SYSTEM_IDS.chartField, [
+    expect(replaceField).toHaveBeenCalledWith("v.chart", CHART_IDS.chartField, [
       { t: "str", v: JSON.stringify({ encoding: BAR.encoding, mark: "line" }) },
     ]);
   });

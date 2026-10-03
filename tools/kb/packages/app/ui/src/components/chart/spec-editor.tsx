@@ -9,7 +9,8 @@
 // waits on a form over the spec's encoding.
 import { useMemo, useState } from "react";
 import { Result } from "effect";
-import { ChartView, issueText, paramsIssues, type ChartSpec } from "@kb/views";
+import { ChartView, type ChartSpec } from "@kb/chart";
+import { issueText, paramsIssues } from "@kb/views";
 import { cn } from "@/sdk";
 
 /** The spec as a person reads it: indented JSON. */

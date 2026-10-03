@@ -248,16 +248,11 @@ export const SYSTEM_IDS = {
    */
   layoutField: "sys.f.layout",
   /**
-   * A chart view's Vega-Lite spec, as canonical JSON (text, single).
-   * DESIGN → View nodes → Chart views.
-   *
-   * The chart and code ids are feature vocabulary in core's table; they move
-   * to their families' shared packages: GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]]
-   */
-  chartField: "sys.f.chart",
-  /**
    * A code view's code, as it is run (text, single), and the grant it runs
    * under, as canonical JSON (text, single). DESIGN → View nodes → Code views.
+   *
+   * The code ids are feature vocabulary in core's table; they move to their
+   * family's shared package: GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]]
    */
   codeField: "sys.f.code",
   codeGrantField: "sys.f.code.grant",

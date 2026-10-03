@@ -1746,17 +1746,19 @@ The chart plugin (`components/chart`) draws `chart.vega-lite` (DESIGN.md
 so a pane, a dashboard's pane and the pane switcher (which offers it for
 every node by its key) reach it with nothing of its own.
 
-- **Its rows are live.** `useChartData` (`lib/chart-data`) reads the source
-  query node's rows from the query node's subscription over `/ws`, or from
-  the local index while the socket is closed (`useQueryNodeRows`, the one
-  path a query node's rows take), names them through `@/ds`'s
-  `queryRecords` and caps them at the query's limit. A subscription id names
+- **Its rows are live.** `useChartData` (`components/chart/chart-data`)
+  reads the source query node's rows from the query node's subscription
+  over `/ws`, or from the local index while the socket is closed
+  (`useQueryNodeRows`, the one path a query node's rows take), and names
+  and caps them through `@kb/chart`'s `chartRecords`, as the server's text
+  does. A subscription id names
   its subscriber (`querySubscriptionId`), so a chart and the query's row in
   another pane each keep their own. When there is nothing to draw the page
   says why: no source, a source that is no query, a query that fails.
 - **Vega loads in a chunk of its own**, inside the page's chunk, only once
-  there are rows (`chart-canvas`, the one UI module that imports `@kb/vega`;
-  the lazy-chunk fence in `harness/src/constraints.ts` holds `@kb/vega` and
+  there are rows (`chart-canvas`, the one UI module that imports
+  `@kb/chart-vega`; the lazy-chunk fence in `harness/src/constraints.ts`
+  holds `@kb/chart-vega` and
   `vega*` as it holds three). The page's header and its states never wait
   on it. It keeps one Vega view per spec and appearance: new rows are
   swapped into it by name (`CHART_DATA`) and a new box resizes it

@@ -175,6 +175,8 @@ export interface SanctionedExtensionImport {
  *
  * - The agent's UI half, `src/agent.ts` and `components/agent`, leaves with
  *   `@kb/agent-ui` (step E12 of the extension-boundaries plan).
+ * - The chart's UI half, `components/chart`, reads its family's vocabulary
+ *   and draws with its painter; it leaves with `@kb/chart-ui` (E12).
  * - The canvas's UI half, `components/canvas` and its story, leaves with
  *   `@kb/canvas-ui` (E13).
  * - The docs and check pre-commit entries parse their family's output
@@ -195,6 +197,18 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
         "src/components/agent/plugin.ts",
       ],
     },
+    {
+      target: "@kb/chart",
+      files: [
+        "src/components/chart/add-chart.tsx",
+        "src/components/chart/chart-canvas.tsx",
+        "src/components/chart/chart-data.ts",
+        "src/components/chart/chart-page.tsx",
+        "src/components/chart/plugin.ts",
+        "src/components/chart/spec-editor.tsx",
+      ],
+    },
+    { target: "@kb/chart-vega", files: ["src/components/chart/chart-canvas.tsx"] },
     {
       target: "@kb/canvas",
       files: [
@@ -612,9 +626,9 @@ export const UI_ENTRY = "main.tsx";
  * their own. three is the whole real-time 3D stack (the scene kit's GPU
  * modules are three by another name, and are caught through the three they
  * import), and only a view that draws 3D — a lab study's scene, the 3D graph
- * — may load it. `@kb/vega` is the whole chart stack (Vega, Vega-Lite and the
- * expression interpreter, which only it imports), and only a chart's drawing
- * may load it.
+ * — may load it. `@kb/chart-vega` is the whole chart stack (Vega, Vega-Lite
+ * and the expression interpreter, which only it imports), and only a chart's
+ * drawing may load it.
  *
  * Its own chunk means {@link UI_LAZY_DEPTH} dynamic `import()`s on every path
  * from the entry: the entry chunk loads on every visit, and a surface's
@@ -626,7 +640,7 @@ export const UI_ENTRY = "main.tsx";
  * One rule over the import graph, so no surface lists which of its files may
  * import three. `ui-lazy-fence.test.ts` applies it.
  */
-export const UI_LAZY_ONLY = /^(?:three|@kb\/vega|vega(?:-lite|-interpreter)?)(?:\/|$)/;
+export const UI_LAZY_ONLY = /^(?:three|@kb\/chart-vega|vega(?:-lite|-interpreter)?)(?:\/|$)/;
 
 /** Dynamic imports every path from {@link UI_ENTRY} to a {@link UI_LAZY_ONLY} import crosses. */
 export const UI_LAZY_DEPTH = 2;

@@ -27,6 +27,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/canvas": "workspace:*",
+        "@kb/chart": "workspace:*",
         "@kb/check": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
@@ -106,6 +107,7 @@
       "dependencies": {
         "@effect/platform-bun": "catalog:",
         "@kb/bundled": "workspace:*",
+        "@kb/chart-vega": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/ext-canvas": "workspace:*",
         "@kb/ext-check": "workspace:*",
@@ -120,7 +122,6 @@
         "@kb/store-jsonl": "workspace:*",
         "@kb/store-sqlite": "workspace:*",
         "@kb/tx-log": "workspace:*",
-        "@kb/vega": "workspace:*",
         "@kb/views": "workspace:*",
         "@kb/workspace-fs": "workspace:*",
         "effect": "catalog:",
@@ -184,6 +185,8 @@
         "@kb/agent": "workspace:*",
         "@kb/bundled": "workspace:*",
         "@kb/canvas": "workspace:*",
+        "@kb/chart": "workspace:*",
+        "@kb/chart-vega": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
@@ -193,7 +196,6 @@
         "@kb/sandbox-quickjs": "workspace:*",
         "@kb/sandbox-worker": "workspace:*",
         "@kb/tx-log": "workspace:*",
-        "@kb/vega": "workspace:*",
         "@kb/views": "workspace:*",
         "@kb/webmcp": "workspace:*",
         "@phosphor-icons/react": "catalog:",
@@ -406,6 +408,37 @@
         "fast-check": "catalog:",
       },
     },
+    "packages/extension/chart": {
+      "name": "@kb/chart",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/query": "workspace:*",
+        "@kb/views": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/chart-vega": {
+      "name": "@kb/chart-vega",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/chart": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "effect": "catalog:",
+        "vega": "catalog:",
+        "vega-interpreter": "catalog:",
+        "vega-lite": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/extension/check": {
       "name": "@kb/check",
       "version": "0.0.0",
@@ -528,21 +561,6 @@
       "devDependencies": {
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
-      },
-    },
-    "packages/infrastructure/vega": {
-      "name": "@kb/vega",
-      "version": "0.0.0",
-      "dependencies": {
-        "@kb/contracts": "workspace:*",
-        "@kb/model": "workspace:*",
-        "effect": "catalog:",
-        "vega": "catalog:",
-        "vega-interpreter": "catalog:",
-        "vega-lite": "catalog:",
-      },
-      "devDependencies": {
-        "@types/bun": "catalog:",
       },
     },
     "packages/infrastructure/workspace-fs": {
@@ -896,6 +914,10 @@
 
     "@kb/canvas": ["@kb/canvas@workspace:packages/extension/canvas"],
 
+    "@kb/chart": ["@kb/chart@workspace:packages/extension/chart"],
+
+    "@kb/chart-vega": ["@kb/chart-vega@workspace:packages/extension/chart-vega"],
+
     "@kb/check": ["@kb/check@workspace:packages/extension/check"],
 
     "@kb/cli": ["@kb/cli@workspace:packages/app/cli"],
@@ -945,8 +967,6 @@
     "@kb/tx-log": ["@kb/tx-log@workspace:packages/infrastructure/tx-log"],
 
     "@kb/ui": ["@kb/ui@workspace:packages/app/ui"],
-
-    "@kb/vega": ["@kb/vega@workspace:packages/infrastructure/vega"],
 
     "@kb/views": ["@kb/views@workspace:packages/domain/views"],
 

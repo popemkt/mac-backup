@@ -1,16 +1,29 @@
 /**
  * A chart view on a text surface: what it draws (its mark and encoding),
- * then its data as a table, and on a page its SVG, painted by whichever
- * `ChartSvg` the runtime provides (none draws the text alone).
- *
- * The chart's text is contributed as its `ViewDef.text`, but it still lives in
- * core's operations: GAP [[01M41H2ZG7C0SV1DYZE6MMKPFE]]
+ * then its data as a table, and on a page its SVG, painted by the painter the
+ * host's entry hands the family (DESIGN.md → Extension families → a painter
+ * belongs to the view that paints with it). A host with none draws the text
+ * alone.
  */
 import { Effect } from "effect";
-import { ChartSvg, type KbContext, type ViewText } from "@kb/contracts";
-import { queryDefOf } from "@kb/model";
-import { chartRecords, type QueryRecords } from "@kb/query";
-import { chartSpecWithData, describeChartSpec, type ChartParams } from "@kb/views";
+import type { KbContext, ViewText } from "@kb/contracts";
+import { queryDefOf, type DomainError } from "@kb/model";
+import type { QueryRecords } from "@kb/query";
+import { chartRecords } from "./records.ts";
+import { chartSpecWithData, describeChartSpec, type ChartParams } from "./view.ts";
+
+/**
+ * Draws a chart as SVG where no browser does: what a page of a chart view
+ * shows above its text (DESIGN.md → View nodes → Chart views).
+ *
+ * The promise, which every painter keeps: `svg` takes a Vega-Lite spec whose
+ * data is inline (`data.values`) and succeeds with one SVG document; it
+ * fetches nothing (a URL in the spec draws as nothing) and compiles no code,
+ * so a stored spec runs no script and reaches no network.
+ */
+export interface ChartPainter {
+  svg(spec: Readonly<Record<string, unknown>>): Effect.Effect<string, DomainError>;
+}
 
 /** How many of a chart's rows its table lists. */
 const MAX_TABLE_ROWS = 50;
@@ -77,17 +90,23 @@ function chartBody(ctx: KbContext, params: ChartParams): readonly string[] {
   return [...lines, named, "", ...dataTable(data)];
 }
 
-/** A chart view's figure on a page: its SVG, painted by the runtime's `ChartSvg`, if any. */
-const chartFigure = Effect.fn("chart.figure")(function* (ctx: KbContext, params: ChartParams) {
-  const painter = yield* ChartSvg;
-  if (painter === null) return null;
-  // GAP [[01M41TZJ2AG28C2X2DECZ25CN6]]
-  const data = chartRecordsOf(ctx, params.source);
-  if ("missing" in data) return null;
-  return yield* painter
-    .svg(chartSpecWithData(params.spec, data.records, PAGE_BOX))
-    .pipe(Effect.orElseSucceed(() => null));
-});
+/** A chart view's figure on a page: its SVG, painted by `painter`. */
+function chartFigure(painter: ChartPainter): NonNullable<ViewText<ChartParams>["figure"]> {
+  return Effect.fn("chart.figure")(function* (ctx: KbContext, params: ChartParams) {
+    // GAP [[01M41TZJ2AG28C2X2DECZ25CN6]]
+    const data = chartRecordsOf(ctx, params.source);
+    if ("missing" in data) return null;
+    return yield* painter
+      .svg(chartSpecWithData(params.spec, data.records, PAGE_BOX))
+      .pipe(Effect.orElseSucceed(() => null));
+  });
+}
 
-/** How a chart view says itself in text: the chart's contribution of its `ViewDef.text`. */
-export const chartText: ViewText<ChartParams> = { body: chartBody, figure: chartFigure };
+/**
+ * How a chart view says itself in text: its body, and with a painter its
+ * page figure. The chart's `ViewDef.text`, as the family's plugin contributes
+ * it for a host's painter.
+ */
+export function chartText(painter: ChartPainter | null): ViewText<ChartParams> {
+  return painter === null ? { body: chartBody } : { body: chartBody, figure: chartFigure(painter) };
+}

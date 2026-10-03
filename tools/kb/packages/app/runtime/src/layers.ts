@@ -17,7 +17,6 @@ import { DatascriptIndex, KbIndexService } from "@kb/query";
 import {
   ActionCatalog,
   type ActionHandlerEnv,
-  ChartSvg,
   KbStore,
   kbCtxLayer,
   kbStoreLayer,
@@ -31,7 +30,6 @@ import {
 import { CodeSnapshots, snapshotRun, type CodeSnapshotter } from "@kb/sandbox";
 import { quickjsEngine } from "@kb/sandbox-quickjs";
 import { StoreTxLog } from "@kb/tx-log";
-import { vegaChartPainter } from "@kb/vega";
 import {
   assetsLayer,
   codeTrustLayer,
@@ -48,8 +46,7 @@ import { selectStore } from "./store-selection.ts";
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
  * the workspace ports backed by `.kb/` on disk + the UI tabs' screens, held
  * by the `kb ui` serving the root + the view catalog the registry's plugins
- * contributed + Vega as the chart painter (`ChartSvg`,
- * so a chart's page draws its SVG) + QuickJS as the code snapshotter
+ * contributed + QuickJS as the code snapshotter
  * (`CodeSnapshots`, so a code view's page draws what its code draws) + the
  * render templates and the action
  * catalog the registry resolved from core, bundled and `.kb/extensions`
@@ -83,8 +80,7 @@ export function kbRuntimeLayer(
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),
-    // Feature painter and snapshot policy bound by the root: GAP [[01M41H2ZS8FH55DCW3S9ZGPWPY]]
-    Layer.succeed(ChartSvg, vegaChartPainter),
+    // Feature snapshot policy bound by the root: GAP [[01M41H2ZS8FH55DCW3S9ZGPWPY]]
     Layer.succeed(CodeSnapshots, codeSnapshots(ctx)),
     Layer.effect(
       ActionCatalog,

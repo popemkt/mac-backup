@@ -15,17 +15,23 @@
  * family declares itself in its shared package, never its server one.
  */
 import { canvasExtension } from "@kb/canvas";
+import { chartExtension } from "@kb/chart";
 import { checkExtension } from "@kb/check";
 import type { ExtensionDeclaration } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
 import { foldSeed, type KbNode } from "@kb/model";
 import { coreExtension } from "@kb/operations";
 
-/** Every bundled family, in the order the registry loads them. */
+/**
+ * Every bundled family, in the order the registry loads them. The order is
+ * data a fresh store keeps: it orders the families' view types under
+ * `sys.views`, after core's.
+ */
 export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
   docsExtension,
   canvasExtension,
   checkExtension,
+  chartExtension,
 ];
 
 /** Core's declaration first, then each bundled family's: what the seed folds. */

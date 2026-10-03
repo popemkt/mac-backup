@@ -1007,8 +1007,10 @@ layouts).
 #### Chart views
 
 **A chart is a query node's rows drawn by a Vega-Lite spec** (roadmap
-decision 10). The chart view, `chart.vega-lite` (`@kb/views`' `chart.ts`),
-is a projection like a table: the table lays a query's rows out as cells,
+decision 10). The chart view, `chart.vega-lite`, is the chart family's
+(`@kb/chart`, [Extension families](#extension-families)): its key, its
+spec, the rows it draws, its text and its seed field. It is a projection
+like a table: the table lays a query's rows out as cells,
 the chart as marks. How the browser draws it is DESIGN-UI.md → Chart views.
 
 - **The params are a source and a spec.** `{source?, spec}`: `source` is
@@ -1036,7 +1038,8 @@ the chart as marks. How the browser draws it is DESIGN-UI.md → Chart views.
   names (`?status` is `status`, `(count ?n)` is `count_n`, a repeat gets
   `_2`), read from the `:find` section alone, so a query outside the IR
   subset is named too; columns it cannot name are `col_1`, `col_2`, ….
-  The query's limit caps them. `chartSpecWithData` makes them the spec's
+  The query's limit caps them, and `chartRecords` caps every chart at
+  `MAX_CHART_ROWS` (5000) whatever its limit. `chartSpecWithData` makes them the spec's
   data (`data.values`, named `CHART_DATA` so a host swaps new rows in) and
   fits a spec that fills its box (one view or a layer, unsized:
   `fillsChartBox`) to the box it is drawn in. These are the only data a
@@ -1047,14 +1050,15 @@ the chart as marks. How the browser draws it is DESIGN-UI.md → Chart views.
   or why it has none: no source, a source that is no query node, a query
   that fails. On an html page (`render.view` as html, a `ui://kb/view/<id>`
   snapshot) its SVG sits above that text, drawn in a fixed 560 × 300 box
-  by the runtime's chart painter, `ChartSvg` (`@kb/contracts`): a port that
-  draws a Vega-Lite spec with inline data as one SVG document, fetching
-  nothing and compiling no code. It is a `Reference` with no painter by
-  default, so a surface that provides none (the browser's isomorphic
-  actions) draws the text alone; `kbRuntimeLayer` provides Vega, headless
-  under Bun with no canvas (`@kb/vega`, whose tests hold the promise). The
-  snapshot is unthemed, Vega's own look, like the page around it.
-- **How kb runs Vega is one place, `@kb/vega`.** A Vega-Lite spec compiles
+  by a `ChartPainter` (`@kb/chart`): it draws a Vega-Lite spec with inline
+  data as one SVG document, fetching nothing and compiling no code. The
+  painter is handed to the family's shared plugin by the host's entry
+  (`chartPlugin({painter})`): the server's, `chartServerPlugin`
+  (`@kb/chart-vega`), hands it Vega, headless under Bun with no canvas,
+  whose tests hold the promise; the page's hands it none, so the browser's
+  isomorphic actions draw the text alone. The snapshot is unthemed, Vega's
+  own look, like the page around it.
+- **How kb runs Vega is one place, `@kb/chart-vega`.** A Vega-Lite spec compiles
   to Vega, parsed to an AST (`ast: true`) that `vega-interpreter`
   evaluates, so no expression in a stored spec becomes `new Function` and a
   strict CSP holds; the loader refuses every load, sanitize, http and file
@@ -2512,7 +2516,7 @@ resource) shows what its code draws as of the render, above its text. The
 code runs on the server: MCP Apps lets a resource declare connect, resource,
 frame and base-URI domains but no `'wasm-unsafe-eval'` or `worker-src`, so
 neither engine could run inside a conformant host's iframe. `CodeSnapshots`
-(a `Reference`, null by default, like `ChartSvg`) is provided by
+(a `Reference`, null by default) is provided by
 `kbRuntimeLayer` as QuickJS: always untrusted, every call made as the
 script's and refused before the invoke core when it is a write, because a
 snapshot is a read. `snapshotRun` waits until the run is quiet (no call

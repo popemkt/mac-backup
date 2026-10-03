@@ -7,7 +7,7 @@ import { familyViewNodesQuery, type ViewFamily } from "@kb/model";
 import { backlinksQuery, neighbourhoodQuery, type KbIndex } from "@kb/query";
 
 export type { KbIndex } from "@kb/query";
-export { DatascriptIndex, chartRecords, nodeMentions, queryRecords } from "@kb/query";
+export { DatascriptIndex, nodeMentions, queryRecords } from "@kb/query";
 export type { QueryRecords } from "@kb/query";
 
 export const runQuery = (ix: KbIndex, edn: string): unknown[][] => ix.runDatalog(edn);

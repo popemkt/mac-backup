@@ -14,6 +14,7 @@
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import type { ExtensionDeclaration } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
+import { chartServerPlugin } from "@kb/chart-vega";
 import { canvasPlugin } from "@kb/ext-canvas";
 import { checkPlugin } from "@kb/ext-check";
 import { docsPlugin } from "@kb/ext-docs";
@@ -53,4 +54,5 @@ export const BUNDLED_EXTENSIONS: readonly BundledExtension[] = serverEntriesFor(
   docsPlugin,
   canvasPlugin,
   checkPlugin,
+  chartServerPlugin,
 ]);

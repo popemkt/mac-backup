@@ -113,19 +113,6 @@ export {
 } from "./ontology.ts";
 export { CANVAS_NAMESPACE, CanvasListView, CanvasParams, CanvasView } from "./canvas.ts";
 export {
-  CHART_DATA,
-  CHART_MARKS,
-  CHART_NAMESPACE,
-  ChartParams,
-  ChartSpec,
-  ChartView,
-  chartSpecWithData,
-  describeChartSpec,
-  fillsChartBox,
-  starterChartSpec,
-  type ChartBox,
-} from "./chart.ts";
-export {
   CODE_NAMESPACE,
   CodeGrant,
   CodeParams,

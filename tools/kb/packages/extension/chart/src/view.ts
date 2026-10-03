@@ -8,11 +8,11 @@
  */
 import { Predicate, Schema } from "effect";
 import { SYSTEM_IDS, canonicalJson, firstRef, firstStr } from "@kb/model";
-import { encodeLensConfig } from "./lens.ts";
-import { viewKey, type ConfigReport } from "./view-key.ts";
+import { encodeLensConfig, viewKey, type ConfigReport } from "@kb/views";
+import { CHART_IDS } from "./ids.ts";
 
-/** The chart plugin's namespace and view key: what a host imports, never the component. */
-export const CHART_NAMESPACE = "chart";
+/** The namespace of the chart's view id: what draws it, the chart family. */
+const CHART_NAMESPACE = "chart";
 
 /** The marks Vega-Lite draws, by the name a spec gives them. */
 export const CHART_MARKS = [
@@ -173,7 +173,7 @@ function readSpec(raw: string | undefined, report: ConfigReport): { spec?: unkno
   try {
     return { spec: JSON.parse(raw) as unknown };
   } catch {
-    report(`${SYSTEM_IDS.chartField} is not JSON`);
+    report(`${CHART_IDS.chartField} is not JSON`);
     return {};
   }
 }
@@ -188,12 +188,12 @@ export const ChartView = viewKey(`${CHART_NAMESPACE}.vega-lite`, "Chart", ChartP
     const source = firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined;
     return {
       ...(source === undefined ? {} : { source }),
-      ...readSpec(firstStr(SYSTEM_IDS.chartField)(props), report),
+      ...readSpec(firstStr(CHART_IDS.chartField)(props), report),
     };
   },
   write: ({ source, spec }) => ({
     ...(source === undefined ? {} : encodeLensConfig({ focus: source })),
-    [SYSTEM_IDS.chartField]: [{ t: "str", v: canonicalJson(spec) }],
+    [CHART_IDS.chartField]: [{ t: "str", v: canonicalJson(spec) }],
   }),
 });
 

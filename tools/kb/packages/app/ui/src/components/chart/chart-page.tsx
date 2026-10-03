@@ -8,8 +8,8 @@
 import { Suspense, lazy, useMemo, useState } from "react";
 import { Result } from "effect";
 import { BracketsCurlyIcon, ChartBarIcon } from "@phosphor-icons/react";
-import { SYSTEM_IDS } from "@kb/model";
-import { ChartView, viewNodeFor, type ChartParams, type ChartSpec } from "@kb/views";
+import { CHART_IDS, ChartView, type ChartParams, type ChartSpec } from "@kb/chart";
+import { viewNodeFor } from "@kb/views";
 import {
   IconButton,
   WorkspaceState,
@@ -83,8 +83,8 @@ export function ChartPage({ params, host }: ViewProps<ChartParams>) {
         }
         await browserHost().replaceField(
           host.viewNode,
-          SYSTEM_IDS.chartField,
-          checked.success.props[SYSTEM_IDS.chartField] ?? [],
+          CHART_IDS.chartField,
+          checked.success.props[CHART_IDS.chartField] ?? [],
         );
         setEditing(false);
         return;

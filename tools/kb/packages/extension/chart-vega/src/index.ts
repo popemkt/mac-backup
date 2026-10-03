@@ -1,6 +1,9 @@
 /**
- * How kb runs Vega: one place, so the browser that draws a chart view and
- * the server that paints its snapshot run a spec the same way.
+ * How kb runs Vega, the chart family's painter: one place, so the browser
+ * that draws a chart view and the server that paints its snapshot run a spec
+ * the same way. It is also the family's server entry, which hands this
+ * painter to the shared plugin (DESIGN.md → Extension families → a painter
+ * belongs to the view that paints with it).
  *
  * - A Vega-Lite spec compiles to Vega, which parses to an AST (`ast: true`)
  *   that `vega-interpreter` evaluates: no expression is ever compiled with
@@ -16,8 +19,9 @@ import { Effect } from "effect";
 import { View, parse, type Loader, type TooltipHandler, type ViewOptions } from "vega";
 import { compile, type TopLevelSpec } from "vega-lite";
 import { expressionInterpreter } from "vega-interpreter";
-import type { ChartPainter } from "@kb/contracts";
+import { chartPlugin, type ChartPainter } from "@kb/chart";
 import { domainError } from "@kb/model";
+import type { Plugin } from "@kb/plugin";
 
 const refuse = (uri: string): Promise<never> =>
   Promise.reject(new Error(`a chart fetches nothing: ${uri}`));
@@ -87,5 +91,8 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** The painter a runtime provides as `ChartSvg`: Vega, headless. */
+/** The chart's painter where no browser draws: Vega, headless. */
 export const vegaChartPainter: ChartPainter = { svg: chartSvg };
+
+/** The chart family's server entry: its shared plugin, painting each chart page's figure with Vega. */
+export const chartServerPlugin: Plugin = chartPlugin({ painter: vegaChartPainter });

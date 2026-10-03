@@ -9,17 +9,14 @@ import { Result } from "effect";
 import { SYSTEM_IDS, canonicalJson, type NodeProps } from "@kb/model";
 import {
   CHART_DATA,
+  CHART_IDS,
   ChartView,
   chartSpecWithData,
   describeChartSpec,
   fillsChartBox,
-  issueText,
-  paramsFromProps,
-  paramsIssues,
   starterChartSpec,
-  viewCatalogOf,
-  viewNodeFor,
-} from "@kb/views";
+} from "@kb/chart";
+import { issueText, paramsFromProps, paramsIssues, viewCatalogOf, viewNodeFor } from "@kb/views";
 
 const BAR = {
   mark: "bar",
@@ -44,7 +41,7 @@ describe("chart spec", () => {
     if (Result.isFailure(proposal)) return;
     const { props } = proposal.success;
     expect(props[SYSTEM_IDS.viewField]).toEqual([{ t: "ref", v: ChartView.option }]);
-    expect(props[SYSTEM_IDS.chartField]).toEqual([{ t: "str", v: canonicalJson(BAR) }]);
+    expect(props[CHART_IDS.chartField]).toEqual([{ t: "str", v: canonicalJson(BAR) }]);
     // Proposed without a source, it is a template: it names no query node of its own.
     expect(props[SYSTEM_IDS.lensFocusField]).toBeUndefined();
   });
@@ -97,7 +94,7 @@ describe("chart spec", () => {
 describe("chart view node", () => {
   test("its source is its focus, else the node it is shown for", () => {
     const props: NodeProps = {
-      [SYSTEM_IDS.chartField]: [{ t: "str", v: JSON.stringify(BAR) }],
+      [CHART_IDS.chartField]: [{ t: "str", v: JSON.stringify(BAR) }],
     };
     expect(paramsFromProps(ChartView, props, "q.host", quiet)).toEqual(
       Result.succeed({ source: "q.host", spec: BAR }),
@@ -128,15 +125,15 @@ describe("chart view node", () => {
 
   test("a spec that is not JSON is reported, and the view cannot be read", () => {
     const reported: string[] = [];
-    const props: NodeProps = { [SYSTEM_IDS.chartField]: [{ t: "str", v: "{mark: bar" }] };
+    const props: NodeProps = { [CHART_IDS.chartField]: [{ t: "str", v: "{mark: bar" }] };
     const params = paramsFromProps(ChartView, props, "q.host", (w) => reported.push(w));
     expect(Result.isFailure(params)).toBe(true);
-    expect(reported).toEqual([`${SYSTEM_IDS.chartField} is not JSON`]);
+    expect(reported).toEqual([`${CHART_IDS.chartField} is not JSON`]);
   });
 
   test("a stored spec with data of its own does not decode, so it is never drawn", () => {
     const props: NodeProps = {
-      [SYSTEM_IDS.chartField]: [
+      [CHART_IDS.chartField]: [
         { t: "str", v: JSON.stringify({ layer: [{ ...BAR, data: { url: "x" } }] }) },
       ],
     };

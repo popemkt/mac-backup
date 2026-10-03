@@ -97,7 +97,7 @@ export { usePickerKeys } from "@/lib/use-picker";
 export { isSysPrefixed, type OutlineNode, type PropValue } from "@/lib/types";
 export { resolveAllowedRefIds, resolveFieldType } from "@/lib/field-type";
 export type { SchemaIndex } from "@/lib/schema";
-export { chartRecords, queryRecords, type KbIndex, type QueryRecords } from "@/ds";
+export { queryRecords, type KbIndex, type QueryRecords } from "@/ds";
 export {
   extractLensGraph,
   listPerspectiveNodes,

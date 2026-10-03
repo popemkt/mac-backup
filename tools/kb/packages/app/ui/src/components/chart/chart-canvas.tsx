@@ -6,8 +6,8 @@
  * never rebuilds the chart.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { chartView } from "@kb/vega";
-import { CHART_DATA, chartSpecWithData, fillsChartBox, type ChartSpec } from "@kb/views";
+import { CHART_DATA, chartSpecWithData, fillsChartBox, type ChartSpec } from "@kb/chart";
+import { chartView } from "@kb/chart-vega";
 import { logWarn } from "@/sdk";
 import { chartTheme } from "./chart-theme";
 

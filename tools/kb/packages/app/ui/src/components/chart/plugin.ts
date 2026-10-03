@@ -1,7 +1,7 @@
 import { lazy } from "react";
 import { Effect } from "effect";
+import { ChartView, chartExtension, chartPlugin, starterChartSpec } from "@kb/chart";
 import { definePlugin } from "@kb/plugin";
-import { CHART_NAMESPACE, ChartView, starterChartSpec } from "@kb/views";
 import { BrowserHostService, CommandPoint, ViewPoint, provideView } from "@/sdk";
 import { addChartCommand } from "./add-chart";
 
@@ -19,13 +19,19 @@ const ChartPage = lazy(() =>
  * owns no route: a node opens it through `/node/<id>/<view>` like any view,
  * so a pane, a dashboard and the pane switcher reach it with nothing of its
  * own.
+ *
+ * It is the chart family's page entry, so it loads the family's shared plugin
+ * as a child, with no painter: the chart's key reaches the page kernel's
+ * catalog from the family, as the server's does, and the page's isomorphic
+ * actions draw a chart as its text.
  */
 export const chartUiPlugin = definePlugin({
-  name: CHART_NAMESPACE,
+  name: chartExtension.name,
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(
       [
+        ctx.plugin(chartPlugin()),
         ctx.contribute(
           ViewPoint,
           provideView(ChartView, {

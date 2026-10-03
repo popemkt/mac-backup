@@ -1,5 +1,5 @@
 {
-  "name": "@kb/vega",
+  "name": "@kb/chart-vega",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,9 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@kb/contracts": "workspace:*",
+    "@kb/chart": "workspace:*",
     "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
     "effect": "catalog:",
     "vega": "catalog:",
     "vega-interpreter": "catalog:",
@@ -23,7 +24,8 @@
   },
   "nx": {
     "tags": [
-      "scope:shared"
+      "scope:shared",
+      "family:chart"
     ]
   }
 }
