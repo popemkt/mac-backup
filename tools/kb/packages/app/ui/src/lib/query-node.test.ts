@@ -184,7 +184,7 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     const { client, socket } = openClient();
     const got: unknown[][][] = [];
 
-    const unsubscribe = subscribeQueryNode(client, "n.q1", EDN, {
+    const unsubscribe = subscribeQueryNode(client, "n.q1", "s1", EDN, {
       rows: (rows) => got.push(rows),
       error: () => {},
     });
@@ -194,13 +194,13 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     >;
     expect(subFrame).toEqual({
       op: "subscribe",
-      id: querySubscriptionId("n.q1"),
+      id: querySubscriptionId("n.q1", "s1"),
       query: EDN,
     });
 
     socket.deliver({
       op: "rows",
-      id: querySubscriptionId("n.q1"),
+      id: querySubscriptionId("n.q1", "s1"),
       rev: 1,
       rows: [["n.root-a", "Ship kb ui shell"]],
     });
@@ -213,13 +213,13 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     >;
     expect(unsubFrame).toEqual({
       op: "unsubscribe",
-      id: querySubscriptionId("n.q1"),
+      id: querySubscriptionId("n.q1", "s1"),
     });
 
     // Late rows for a dead subscription never reach the callback.
     socket.deliver({
       op: "rows",
-      id: querySubscriptionId("n.q1"),
+      id: querySubscriptionId("n.q1", "s1"),
       rev: 2,
       rows: [["n.root-b", "late"]],
     });
@@ -227,9 +227,28 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     client.disconnect();
   });
 
+  it("two subscribers to one query node each keep theirs when the other lets go", () => {
+    const { client, socket } = openClient();
+    const first: unknown[][][] = [];
+    const second: unknown[][][] = [];
+    const leaveFirst = subscribeQueryNode(client, "n.q1", "s1", EDN, {
+      rows: (rows) => first.push(rows),
+      error: () => {},
+    });
+    subscribeQueryNode(client, "n.q1", "s2", EDN, {
+      rows: (rows) => second.push(rows),
+      error: () => {},
+    });
+    leaveFirst();
+    socket.deliver({ op: "rows", id: querySubscriptionId("n.q1", "s2"), rev: 1, rows: [["x"]] });
+    expect(second).toEqual([[["x"]]]);
+    expect(first).toEqual([]);
+    client.disconnect();
+  });
+
   it("active query subscriptions resubscribe after reconnect", () => {
     const { client, socket } = openClient();
-    subscribeQueryNode(client, "n.q1", EDN, { rows: () => {}, error: () => {} });
+    subscribeQueryNode(client, "n.q1", "s1", EDN, { rows: () => {}, error: () => {} });
     socket.sent.length = 0;
 
     // Drop and reopen the socket (client reconnects with same subs).
@@ -239,9 +258,9 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     // connect() replaced the socket via makeSocket — same fake instance.
     socket.accept();
     const frames = socket.sent.map((f) => JSON.parse(f) as { op: string; id?: string });
-    expect(frames.some((f) => f.op === "subscribe" && f.id === querySubscriptionId("n.q1"))).toBe(
-      true,
-    );
+    expect(
+      frames.some((f) => f.op === "subscribe" && f.id === querySubscriptionId("n.q1", "s1")),
+    ).toBe(true);
     client.disconnect();
   });
 });

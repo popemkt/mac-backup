@@ -84,7 +84,9 @@ describe("query results: a live subscription's error (component)", () => {
     );
     expect(container.textContent).toContain("Loading results…");
 
-    const sink = sinks.get("query-node:n.bad");
+    const [sink] = [...sinks.entries()].flatMap(([id, s]) =>
+      id.startsWith("query-node:n.bad#") ? [s] : [],
+    );
     expect(sink).toBeDefined();
     act(() => sink?.error({ code: "query_error", message: "bad find spec" }));
 

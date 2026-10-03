@@ -28,21 +28,28 @@ export function resultNodeIds(
   return out;
 }
 
-export function querySubscriptionId(nodeId: string): string {
-  return `query-node:${nodeId}`;
+/**
+ * One subscriber's subscription to a query node. A subscription id names one
+ * sink on the socket, so two subscribers to one query node (its row in two
+ * panes, a chart beside its row) each hold their own, and one letting go
+ * never ends the other's.
+ */
+export function querySubscriptionId(nodeId: string, subscriber: string): string {
+  return `query-node:${nodeId}#${subscriber}`;
 }
 
 /**
- * Live-subscribe a query node over the existing /ws SubscriptionHub.
- * Returns the unsubscribe thunk (call on collapse/unmount).
+ * Live-subscribe a query node over the existing /ws SubscriptionHub, as
+ * `subscriber`. Returns the unsubscribe thunk (call on collapse/unmount).
  */
 export function subscribeQueryNode(
   client: KbWsClient,
   nodeId: string,
+  subscriber: string,
   edn: string,
   sink: SubscriptionSink,
 ): () => void {
-  const id = querySubscriptionId(nodeId);
+  const id = querySubscriptionId(nodeId, subscriber);
   client.subscribe(id, edn, sink);
   return () => client.unsubscribe(id);
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { getLiveClient } from "@/api/live";
 import { runQuery, type KbIndex } from "@/ds";
 import { subscribeQueryNode } from "@/lib/query-node";
@@ -33,13 +33,15 @@ export function useQueryNodeRows(input: {
 }): QueryNodeRows {
   const { nodeId, edn, index, generation } = input;
   const liveEdn = input.live ? edn : null;
+  // Each caller holds its own subscription (`querySubscriptionId`).
+  const subscriber = useId();
 
   const [liveRows, setLiveRows] = useState<unknown[][] | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (liveEdn === null) return undefined;
-    const unsubscribe = subscribeQueryNode(getLiveClient(), nodeId, liveEdn, {
+    const unsubscribe = subscribeQueryNode(getLiveClient(), nodeId, subscriber, liveEdn, {
       rows: (rows) => {
         setLiveRows(rows);
         setLiveError(null);
@@ -54,7 +56,7 @@ export function useQueryNodeRows(input: {
       setLiveRows(null);
       setLiveError(null);
     };
-  }, [liveEdn, nodeId]);
+  }, [liveEdn, nodeId, subscriber]);
 
   const local = useMemo((): QueryNodeRows => {
     if (liveEdn !== null || edn === null || !index) return { rows: null, error: null };
