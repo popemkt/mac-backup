@@ -14,6 +14,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Generated docs are data | CLAUDE.md#kb--repo-knowledge-base | repo | Files under docs/kb are materialized from kb nodes; the data is edited and the file is regenerated, never the other way round. | hook | — |
 | Lab principles: measured bounds | tools/kb/DESIGN-UI.md#lab-principles | tools/kb packages/app/ui lab scene | The measurable lab principles hold as tests: the timing tokens are mirrored and inside their bounds (follow 300–600ms, ambient periods 8s or more; M5, M4), Embers pops within its budget (M4), and each study either runs on three's WebGL2 fallback without WebGPU or says why it cannot start (T1). | ci | — |
 | Compiler strictness contract | tools/kb/DESIGN.md#compiler-strictness-contract | tools/kb | One base tsconfig owns strictness; the DESIGN.md table is the contract, packages declare only their delta, and a rejected flag is recorded with its measured count. | harness | — |
+| Core names no feature | tools/kb/DESIGN.md#extension-families | tools/kb packages | Core is mechanism plus the shell's own projections; every bundled feature is a family of extension packages, one scope each, declared once and loaded by each host from its one bundled list. No core package, table or composition-root file outside that list names a feature. | harness | — |
 | Coverage is a signal | tools/kb/DESIGN.md#testing-doctrine | tools/kb | Coverage is reported and never a threshold; chasing a percentage manufactures exactly the noise the testing doctrine forbids. | harness | — |
 | Design tokens: every class is live | tools/kb/DESIGN-UI.md#design-tokens | tools/kb packages/app/ui | Every class the UI writes emits CSS under kb's stylesheet. The token bridge resets Tailwind's own scales, so a default step (text-sm, shadow-xl, rounded-3xl) reads like a class and compiles to nothing; Tailwind itself, not a pattern list, decides which classes are dead. | harness | — |
 | Drift markers | CLAUDE.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | harness | — |
@@ -36,7 +37,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Domain typing — parse unknown at the boundary | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | Every boundary parses unknown into the domain type. A cast or a non-null assertion on a domain value means the schema is too loose; tighten the schema instead. | lint | — |
 | Abstraction before addition (Rule 1) | CLAUDE.md#rule-1--abstraction-before-addition | repo | Every change lands in the shape it would have had if the requirement had always existed; when the model does not fit, the model gets fixed, not special-cased. | prose | — |
 | Canonical statements | CLAUDE.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
-| Core names no feature | tools/kb/DESIGN.md#extension-families | tools/kb packages | Core is mechanism plus the shell's own projections; every bundled feature is a family of extension packages, one scope each, declared once and loaded by each host from its one bundled list. No core package, table or composition-root file outside that list names a feature. | prose | Step E6 of the extension-boundaries plan: family tags, family edges, EXTENSION_ROOTS and the pairing check in tools/kb/harness/src/constraints.ts, plus the extensionContract suite |
 | Domain typing — discriminator over optional | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | If the rule for when a field appears is encodable, lift it into a discriminator instead of declaring an optional field. | prose | — |
 | Domain typing — literal discriminators | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | A discriminator is a literal or an enum of literals, never a bare string. | prose | — |
 | Domain typing — one canonical schema | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | A shared shape is declared once and referenced; an inline re-declaration of it is a divergence waiting to drop a field. | prose | — |
@@ -399,14 +399,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Domain typing — one canonical schema
 - **node** — `01M1PJWF4G6W4122ZE4K67319V`
 
-### GAP: extension-to-extension permission does not enforce family ownership
-
-- **expected** — An extension backend imports its own shared model, while independent extensions communicate through public contract points rather than each other’s implementation.
-- **current** — The extension-to-extension layer edge is required by ext-canvas to canvas, but layer and scope tags alone would also allow ext-docs or ext-check to import the canvas model.
-- **impact** — A cross-extension dependency could pass boundaries and couple independently loadable plugins.
-- **closes** — Decide a canonical package-family identity and teach the import graph check to verify extension-to-extension edges against it, with a red cross-family fixture and a green canvas fixture.
-- **node** — `01M3F923QWH9HSAW61VNFWHANV`
-
 ### GAP: feature view models live in core packages
 
 - **expected** — @kb/views holds the view-key mechanism and core views; the chart, code, lab and canvas keys and helpers live in their family's shared package
@@ -550,9 +542,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: nothing confines feature imports to a composition root's bundled list
 
 - **expected** — an app package imports an extension package only from its one bundled-extensions file, and the harness checks it
-- **current** — LAYER_ALLOWS.app (tools/kb/harness/src/constraints.ts) admits every extension import from any file of an app package; feature wiring sits in registry.ts, layers.ts, cli.ts, the cli bins and ui-plugins.ts, and also deep in @kb/ui (src/agent.ts, components/agent, components/canvas); core never names a feature is prose
+- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches it started with are the rows of EXTENSION_ROOT_BREACHES: @kb/ui's src/agent.ts and components/agent (@kb/agent), components/canvas and catalog/canvas-card.stories.tsx (@kb/canvas), and @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it
 - **impact** — the next move out of core can silently regrow a hardwired import, and a feature can be wired from anywhere
-- **closes** — EXTENSION_ROOTS in constraints.ts with a red fixture; the existing breaches GAP-marked until E12/E13 remove them
+- **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the agent UI with @kb/agent-ui (E12), the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
 - **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
 
 ### GAP: only view.propose checks a view node's settings against its key
@@ -908,7 +900,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the server and browser plugin lists are not bridged
 
 - **expected** — the server registry is the one list of loaded extensions; the browser loads the browser entry of each extension the manifest reports; optional is a server-side load decision on the extension's declaration, reported by the manifest
-- **current** — BUNDLED_PLUGINS (packages/app/runtime/src/registry.ts), the CLI's agent wiring (cli.ts) and BUILTIN_UI_PLUGINS/OPTIONAL_UI_PLUGINS (packages/app/ui/src/ui-plugins.ts) each name extensions on their own; the agent has two switches, --no-agent and the enabledPlugins preference, and lab only the preference
+- **current** — BUNDLED_EXTENSIONS (packages/app/runtime/src/bundled.ts), the CLI's agent wiring (packages/app/cli/src/host-plugins.ts) and BUILTIN_UI_PLUGINS/OPTIONAL_UI_PLUGINS (packages/app/ui/src/ui-plugins.ts) each name extensions on their own; the agent has two switches, --no-agent and the enabledPlugins preference, and lab only the preference
 - **impact** — an extension can be on in one host and off in the other with nothing reporting it; the agent sidebar can be switched on against a server that runs no agent, which answers unknown_channel
 - **closes** — defineExtension per family, kb.manifest.extensions with enabled, and a browser resolver keyed by family name
 - **node** — `01M41H30N0SV4QE5R8VQQ1K4ZA`
@@ -1198,6 +1190,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Define each core action once as a contribution and make the registry consume that canonical collection.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1PJW3WHWPCBT5BYNEQMYG98`
+
+### GAP: extension-to-extension permission does not enforce family ownership
+
+- **expected** — An extension backend imports its own shared model, while independent extensions communicate through public contract points rather than each other’s implementation.
+- **current** — closed by step E6 of the extension-boundaries plan: each extension package carries a family: tag equal to its family's defineExtension name, and familyEdgeViolation (tools/kb/harness/src/constraints.ts) refuses an extension-to-extension edge between two families, with a red cross-family fixture (ext-docs importing @kb/canvas) and a green canvas fixture in harness/tests/extension-families.test.ts
+- **impact** — A cross-extension dependency could pass boundaries and couple independently loadable plugins.
+- **closes** — Decide a canonical package-family identity and teach the import graph check to verify extension-to-extension edges against it, with a red cross-family fixture and a green canvas fixture.
+- **node** — `01M3F923QWH9HSAW61VNFWHANV`
 
 ### GAP: FieldRow branches 27 ways over field type and edit state
 

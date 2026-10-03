@@ -550,6 +550,48 @@ functions of the decoded params, as the spec states. So a chart's page
 figure runs its query a second time, once per html render. `viewDef(key,
 text?)` pairs a key with a text of the same params type.
 
+**Note from the doing (E6).** Where the plan said "E6 decides", or was
+silent, this is what was picked:
+- **Every family declares itself now, not at its move.** Docs and check
+  declare in their only package (`@kb/ext-docs`, `@kb/ext-check`), canvas
+  in `@kb/canvas`, which gains `@kb/contracts` early, and agent in
+  `@kb/agent`. Without a declaration, the `family:` tag would have nothing
+  to equal. Every entry plugin reads its name from the declaration,
+  including the page's agent plugin, and `AGENT_PLUGIN` is gone. The harness
+  reads the name off the `defineExtension` call by parsing it. A name that
+  is not a string literal fails.
+- **`BUNDLED_EXTENSIONS` pairs each declaration with its server entry**
+  (`runtime/src/bundled.ts`), so `extensionContract` can hold the entry to
+  the name. The CLI's agent wiring moved into `cli/src/host-plugins.ts`.
+  The roots are those two files, `ui/src/ui-plugins.ts` and
+  `bundled/src/index.ts`.
+- **The breaches are rows, not line markers.** The canvas zone alone
+  imports `@kb/canvas` on about 50 lines, which is past the ~30-site limit
+  for per-site markers. Many of those lines are in files that 3D step 4
+  edits. So `EXTENSION_ROOT_BREACHES` lists a path (a file, or a folder
+  ending in `/`) and the one target it may name, under
+  `GAP [[01M41H30Y60D3G9WJJX6NFQD2T]]`. A row that no import matches fails,
+  so the list can only shrink. The rows are the agent UI (E12), the canvas
+  UI with its story (E13), and the three CLI bins.
+- **The CLI bins stay sanctioned breaches, not roots.** They already invoke
+  through the registry. They import only the family's output schema, to
+  print the report. That report is feature policy in core, so the bins are
+  neither roots nor fixed by the registry route. The gap's `closes` says
+  they leave once the family's report reaches them through the registry.
+- **Pairing for a shared package.** A `scope:shared` package runs in no
+  host on its own, so it pairs when a root or a package of its own family
+  imports it (`@kb/canvas` through `@kb/ext-canvas`).
+- **The rule node took a `#check`.** `ext.check.audit` derives enforcement
+  from a check node and refuses a gate beside it. So promoting "Core names
+  no feature" to `harness` needed a new `Check: extension families` node
+  (harness, `bun run harness`, `extension-families.test.ts`) and removing
+  the rule's `gate`.
+- `extensionContract` checks four promises: the entry is named by the
+  declaration; the family loads and unloads cleanly; its seed has one owner;
+  every view key it contributes has an option. The text-body and
+  page-catalog promises join at E7. The agent's run lives in `@kb/cli`'s
+  tests, beside its host.
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D
