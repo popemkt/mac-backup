@@ -104,7 +104,7 @@ describe("import-graph bypasses", () => {
       'import { deep } from "@kb/high/src/deep.ts";\nexport const x = deep;\n',
     );
     expect(importEdges(root)).toEqual([
-      { source: "@kb/low", target: "@kb/high", file: "src/index.ts" },
+      { source: "@kb/low", target: "@kb/high", file: "src/index.ts", kind: "eager" },
     ]);
     expect(resolvedImports(root).map(surfaceBypass)).toEqual([
       '@kb/low imports "@kb/high/src/deep.ts", reaching past @kb/high\'s barrel  [src/index.ts]',
@@ -133,7 +133,7 @@ describe("import-graph bypasses", () => {
       'import { deep } from "../../../app/high/src/deep.ts";\nexport const x = deep;\n',
     );
     expect(importEdges(root)).toEqual([
-      { source: "@kb/low", target: "@kb/high", file: "src/index.ts" },
+      { source: "@kb/low", target: "@kb/high", file: "src/index.ts", kind: "eager" },
     ]);
     expect(resolvedImports(root).map(surfaceBypass)).toEqual([
       '@kb/low imports "../../../app/high/src/deep.ts", reaching @kb/high without naming it  [src/index.ts]',
@@ -182,7 +182,7 @@ describe("import-graph bypasses", () => {
       HIGH,
     ]);
     expect(importEdges(root)).toEqual([
-      { source: "@kb/low", target: "@kb/high", file: "src/index.ts" },
+      { source: "@kb/low", target: "@kb/high", file: "src/index.ts", kind: "eager" },
     ]);
     expect(resolvedImports(root).map(surfaceBypass).filter(Boolean)).toEqual([
       '@kb/low imports "@out/deep.ts", reaching @kb/high without naming it  [src/index.ts]',
@@ -205,7 +205,7 @@ describe("import-graph bypasses", () => {
         `src/index${ext}`,
       );
       expect(importEdges(root)).toEqual([
-        { source: "@kb/low", target: "@kb/high", file: `src/index${ext}` },
+        { source: "@kb/low", target: "@kb/high", file: `src/index${ext}`, kind: "eager" },
       ]);
     },
   );
@@ -252,6 +252,7 @@ describe("package matrix rejects denied directions", () => {
         source: "@kb/consumer",
         target: "@kb/provider",
         file: "src/index.ts",
+        kind: "eager",
       });
       expect(
         matrixViolation(

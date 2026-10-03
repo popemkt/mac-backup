@@ -133,12 +133,14 @@ export interface ExtensionRoot {
  * package from these files only — elsewhere, core would name a feature.
  * Keyed by package name, not directory, because the sanction is about the
  * package and survives it being moved. Test files are exempt, as they are
- * from {@link UI_ALLOWS}: a test reaches for whatever it drives.
+ * from {@link UI_ALLOWS}: a test reaches for whatever it drives. A root may
+ * not re-export an extension package, or other files would reach the
+ * feature through it.
  *
  * The same table is what pairing reads: every extension package must be
- * imported by a root of each host its scope runs in
- * ({@link HOSTS_BY_SCOPE}), so a family nobody loads is a dead seam that
- * fails rather than one that reads as covered.
+ * loaded — imported for its value, not only its types — by a root of each
+ * host its scope runs in ({@link HOSTS_BY_SCOPE}), so a family nobody loads
+ * is a dead seam that fails rather than one that reads as covered.
  */
 export const EXTENSION_ROOTS: Readonly<Record<string, readonly ExtensionRoot[]>> = {
   "@kb/runtime": [{ file: "src/bundled.ts", hosts: ["server"] }],
@@ -149,9 +151,9 @@ export const EXTENSION_ROOTS: Readonly<Record<string, readonly ExtensionRoot[]>>
 
 /**
  * The hosts a package of each scope runs in as an entry. A `scope:shared`
- * package runs in neither on its own: its family's entry loads it as a
- * child, or a root loads it as the entry itself, so pairing asks only that
- * a root or a package of its own family imports it.
+ * package runs in neither on its own: a root of a host loads it as the entry
+ * itself, or a loaded package of its own family loads it as a child, and
+ * pairing asks for one of the two.
  */
 export const HOSTS_BY_SCOPE: Readonly<Record<string, readonly ExtensionHost[]>> = {
   backend: ["server"],
@@ -159,22 +161,22 @@ export const HOSTS_BY_SCOPE: Readonly<Record<string, readonly ExtensionHost[]>> 
   shared: [],
 };
 
-/** A known import of an extension package from outside every root: a package path prefix and the one target it may name. */
+/** Known imports of one extension package from outside every root: the exact files, each package-relative. */
 export interface SanctionedExtensionImport {
-  /** Package-relative file, or a folder when it ends in `/`. */
-  readonly path: string;
   readonly target: string;
+  readonly files: readonly string[];
 }
 
 /**
  * The fence's sanctioned breaches, each leaving with the step that moves its
- * importer out of core. A row no import matches any more fails, so the list
- * can only shrink.
+ * importer out of core. Every file is named, so a new file that imports the
+ * feature fails, and a named file that no longer imports it fails too: the
+ * list is frozen and can only shrink, like a ratchet's baseline.
  *
- * - The agent's UI half is `src/agent.ts` and `components/agent`: it leaves
- *   with `@kb/agent-ui` (step E12 of the extension-boundaries plan).
- * - The canvas's UI half is `components/canvas` and its story: it leaves
- *   with `@kb/canvas-ui` (E13).
+ * - The agent's UI half, `src/agent.ts` and `components/agent`, leaves with
+ *   `@kb/agent-ui` (step E12 of the extension-boundaries plan).
+ * - The canvas's UI half, `components/canvas` and its story, leaves with
+ *   `@kb/canvas-ui` (E13).
  * - The docs and check pre-commit entries parse their family's output
  *   schema to print it: they leave when the family's report reaches them
  *   through the registry instead.
@@ -184,15 +186,68 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
   Record<string, readonly SanctionedExtensionImport[]>
 > = {
   "@kb/ui": [
-    { path: "src/agent.ts", target: "@kb/agent" },
-    { path: "src/components/agent/", target: "@kb/agent" },
-    { path: "src/components/canvas/", target: "@kb/canvas" },
-    { path: "src/catalog/canvas-card.stories.tsx", target: "@kb/canvas" },
+    {
+      target: "@kb/agent",
+      files: [
+        "src/agent.ts",
+        "src/components/agent/chat.ts",
+        "src/components/agent/entries.tsx",
+        "src/components/agent/plugin.ts",
+      ],
+    },
+    {
+      target: "@kb/canvas",
+      files: [
+        "src/catalog/canvas-card.stories.tsx",
+        "src/components/canvas/canvas-3d-stage.tsx",
+        "src/components/canvas/canvas-api.ts",
+        "src/components/canvas/canvas-camera.ts",
+        "src/components/canvas/canvas-card-box.ts",
+        "src/components/canvas/canvas-card-face.ts",
+        "src/components/canvas/canvas-card-layer.tsx",
+        "src/components/canvas/canvas-card.tsx",
+        "src/components/canvas/canvas-edge-layer.tsx",
+        "src/components/canvas/canvas-edge-link.ts",
+        "src/components/canvas/canvas-edge-path.ts",
+        "src/components/canvas/canvas-gizmo.ts",
+        "src/components/canvas/canvas-handover.ts",
+        "src/components/canvas/canvas-history.ts",
+        "src/components/canvas/canvas-keymap.ts",
+        "src/components/canvas/canvas-overlays.tsx",
+        "src/components/canvas/canvas-page.tsx",
+        "src/components/canvas/canvas-pointer.ts",
+        "src/components/canvas/canvas-ports.tsx",
+        "src/components/canvas/canvas-projections.ts",
+        "src/components/canvas/canvas-scene-content.ts",
+        "src/components/canvas/canvas-scene-edges.ts",
+        "src/components/canvas/canvas-scene-gestures.ts",
+        "src/components/canvas/canvas-scene-gizmo.ts",
+        "src/components/canvas/canvas-scene-items.ts",
+        "src/components/canvas/canvas-scene-solids.ts",
+        "src/components/canvas/canvas-scene-space.ts",
+        "src/components/canvas/canvas-selection.ts",
+        "src/components/canvas/canvas-snap.ts",
+        "src/components/canvas/canvas-stage.tsx",
+        "src/components/canvas/canvas-tool.ts",
+        "src/components/canvas/canvas-toolbar.tsx",
+        "src/components/canvas/canvas-view-widget.tsx",
+        "src/components/canvas/canvas-visible.ts",
+        "src/components/canvas/edge-inspector.tsx",
+        "src/components/canvas/item-inspector.tsx",
+        "src/components/canvas/shape-card.tsx",
+        "src/components/canvas/use-canvas-doc.ts",
+        "src/components/canvas/use-canvas-edge-actions.ts",
+        "src/components/canvas/use-canvas-gestures.ts",
+        "src/components/canvas/use-canvas-keyboard.ts",
+        "src/components/canvas/use-canvas-projection.ts",
+        "src/components/canvas/use-canvas-screen.ts",
+        "src/components/canvas/use-canvas-selection.ts",
+      ],
+    },
   ],
   "@kb/cli": [
-    { path: "src/bin/check-audit.ts", target: "@kb/ext-check" },
-    { path: "src/bin/docs-check.ts", target: "@kb/ext-docs" },
-    { path: "src/bin/docs-materialize.ts", target: "@kb/ext-docs" },
+    { target: "@kb/ext-check", files: ["src/bin/check-audit.ts"] },
+    { target: "@kb/ext-docs", files: ["src/bin/docs-check.ts", "src/bin/docs-materialize.ts"] },
   ],
 };
 
@@ -218,10 +273,14 @@ export function isIsomorphicScope(scope: string): boolean {
  */
 const TEST_WORLD_PACKAGES: ReadonlySet<string> = new Set(["@kb/test-kit", "@kb/bundled"]);
 
+/**
+ * A test file, by its package-relative path: anything in the package's own
+ * `tests/` or `tests-render/` folder, or a `*.test.ts(x)` anywhere. A
+ * `tests/` folder deeper in `src/` is production code like the rest of
+ * `src/`, so no file escapes a fence by where it is nested.
+ */
 export function isPackageTestFile(file: string): boolean {
-  return (
-    /(^|\/)tests\//.test(file) || /(^|\/)tests-render\//.test(file) || /\.test\.tsx?$/.test(file)
-  );
+  return /^(?:tests|tests-render)\//.test(file) || /\.test\.tsx?$/.test(file);
 }
 
 /** Test files may import a {@link TEST_WORLD_PACKAGES} package without inverting the production matrix. */

@@ -1,11 +1,12 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { EXTENSION_ROOTS, familyEdgeViolation } from "../src/constraints.ts";
+import { EXTENSION_ROOTS, familyEdgeViolation, isPackageTestFile } from "../src/constraints.ts";
 import {
   declaredNames,
   extensionRootBreaches,
   familyProblems,
+  rootReExports,
   staleRootSanctions,
   unpairedExtensions,
 } from "../src/families.ts";
@@ -35,9 +36,10 @@ afterAll(removeFixtureWorkspaces);
  * - an extension package imports another extension package only of its own
  *   family;
  * - an `app` package imports an extension package only from a file of
- *   `EXTENSION_ROOTS`, or on a sanctioned row of `EXTENSION_ROOT_BREACHES`;
- * - every extension package is loaded by a root of each host its scope runs
- *   in.
+ *   `EXTENSION_ROOTS`, or from a file named in `EXTENSION_ROOT_BREACHES`,
+ *   and a root re-exports none;
+ * - every extension package is loaded, by a value import, by a root of each
+ *   host its scope runs in.
  *
  * Each rule has a red fixture below: a tree built to break it, run through
  * the same function as the real workspace.
@@ -101,9 +103,24 @@ describe("extension families over the workspace", () => {
     expect(missing, missing.join("\n")).toEqual([]);
   });
 
+  test("no root re-exports an extension package", () => {
+    const leaks = rootReExports();
+    expect(leaks, leaks.join("\n")).toEqual([]);
+  });
+
   test("every extension package is loaded by a host", () => {
     const unpaired = unpairedExtensions();
     expect(unpaired, unpaired.join("\n")).toEqual([]);
+  });
+});
+
+describe("what counts as a test file", () => {
+  test("the package's own tests folder and test suffixes, never a tests folder inside src", () => {
+    expect(isPackageTestFile("tests/x.ts")).toBe(true);
+    expect(isPackageTestFile("tests-render/x.e2e.ts")).toBe(true);
+    expect(isPackageTestFile("src/lib/x.test.tsx")).toBe(true);
+    expect(isPackageTestFile("src/lib/tests/x.ts")).toBe(false);
+    expect(isPackageTestFile("src/tests-render/x.ts")).toBe(false);
   });
 });
 
@@ -117,6 +134,35 @@ describe("a family's name is read off its declaration", () => {
       ),
     ).toEqual([undefined]);
     expect(declaredNames("x.ts", 'export const name = "chart";\n')).toEqual([]);
+  });
+
+  test.each([
+    [
+      "an aliased import",
+      'import { defineExtension as d } from "@kb/contracts";\nexport const x = d({ name: "chart", label: "X" });\n',
+    ],
+    [
+      "a member call",
+      'import * as contracts from "@kb/contracts";\nexport const x = contracts.defineExtension({ name: "chart", label: "X" });\n',
+    ],
+    [
+      "a computed member call",
+      'import * as contracts from "@kb/contracts";\nexport const x = contracts["defineExtension"]({ name: "chart", label: "X" });\n',
+    ],
+    [
+      "a computed key",
+      'import { defineExtension } from "@kb/contracts";\nconst k = "name";\nexport const x = defineExtension({ [k]: "chart", label: "X" });\n',
+    ],
+    [
+      "a spread that may carry the name",
+      'import { defineExtension } from "@kb/contracts";\nconst base = { name: "chart" };\nexport const x = defineExtension({ ...base, name: "chart", label: "X" });\n',
+    ],
+    [
+      "the function passed on as a value",
+      'import { defineExtension } from "@kb/contracts";\nexport const declare = defineExtension;\n',
+    ],
+  ])("%s fails closed", (_, source) => {
+    expect(declaredNames("x.ts", source)).toContain(undefined);
   });
 });
 
@@ -226,22 +272,61 @@ describe("red fixtures: the composition-root fence", () => {
     ).toEqual(["src/layers.ts -> @kb/ext-docs"]);
   });
 
-  test("a sanctioned row covers its breach, and goes stale once the import leaves", () => {
-    const sanctioned = { "@kb/runtime": [{ path: "src/legacy/", target: "@kb/ext-docs" }] };
-    const breaching = fixtureWorkspace([
+  const sanctioned = {
+    "@kb/runtime": [{ target: "@kb/ext-docs", files: ["src/legacy/a.ts", "src/legacy/b.ts"] }],
+  };
+
+  test("a named file is sanctioned, and a new file beside it is not", () => {
+    const root = fixtureWorkspace([
       CANVAS,
       EXT_CANVAS,
       EXT_DOCS,
-      runtime({ "src/legacy/wire.ts": 'import "@kb/ext-docs";\n' }),
+      runtime({
+        "src/legacy/a.ts": 'import "@kb/ext-docs";\n',
+        "src/legacy/b.ts": 'import "@kb/ext-docs";\n',
+        "src/legacy/new.ts": 'import "@kb/ext-docs";\n',
+      }),
     ]);
     expect(
-      extensionRootBreaches(breaching, roots, sanctioned).map((breach) => breach.sanction),
-    ).toEqual([sanctioned["@kb/runtime"][0]]);
-    expect(staleRootSanctions(breaching, roots, sanctioned)).toEqual([]);
+      extensionRootBreaches(root, roots, sanctioned)
+        .map(
+          (breach) =>
+            `${breach.file} ${breach.sanction === undefined ? "unsanctioned" : "sanctioned"}`,
+        )
+        .toSorted(),
+    ).toEqual([
+      "src/legacy/a.ts sanctioned",
+      "src/legacy/b.ts sanctioned",
+      "src/legacy/new.ts unsanctioned",
+    ]);
+    expect(staleRootSanctions(root, roots, sanctioned)).toEqual([]);
+  });
 
-    const moved = fixtureWorkspace([CANVAS, EXT_CANVAS, EXT_DOCS, runtime()]);
-    expect(staleRootSanctions(moved, roots, sanctioned)).toEqual([
-      "@kb/runtime src/legacy/ -> @kb/ext-docs: no such import any more",
+  test("a named file that stops importing goes stale, though its row has another live file", () => {
+    const root = fixtureWorkspace([
+      CANVAS,
+      EXT_CANVAS,
+      EXT_DOCS,
+      runtime({ "src/legacy/a.ts": 'import "@kb/ext-docs";\n', "src/legacy/b.ts": "export {};\n" }),
+    ]);
+    expect(staleRootSanctions(root, roots, sanctioned)).toEqual([
+      "@kb/runtime src/legacy/b.ts -> @kb/ext-docs: no such import any more",
+    ]);
+  });
+
+  test("a root that re-exports an extension package leaks it", () => {
+    const root = fixtureWorkspace([
+      CANVAS,
+      EXT_CANVAS,
+      EXT_DOCS,
+      runtime({
+        "src/bundled.ts":
+          'import { x } from "@kb/ext-docs";\nimport "@kb/ext-canvas";\nexport { x };\nexport { y } from "@kb/canvas";\nexport const own = [x];\n',
+      }),
+    ]);
+    expect(rootReExports(root, roots)).toEqual([
+      "@kb/runtime src/bundled.ts re-exports @kb/canvas",
+      "@kb/runtime src/bundled.ts re-exports @kb/ext-docs",
     ]);
   });
 });
@@ -303,7 +388,37 @@ describe("red fixtures: pairing", () => {
       runtime({ "src/bundled.ts": 'import "@kb/ext-docs";\n' }),
     ]);
     expect(unpairedExtensions(root, roots)).toEqual([
-      "@kb/canvas (scope:shared): no root and no package of family:canvas loads it",
+      "@kb/canvas (scope:shared): no root and no loaded package of family:canvas loads it",
+      "@kb/ext-canvas (scope:backend): no server root loads it",
+    ]);
+  });
+
+  test("a type-only import in a root loads nothing", () => {
+    const root = fixtureWorkspace([
+      CANVAS,
+      EXT_CANVAS,
+      EXT_DOCS,
+      runtime({
+        "src/bundled.ts":
+          'import "@kb/ext-docs";\nimport type { X } from "@kb/ext-canvas";\nexport type Y = X;\n',
+      }),
+    ]);
+    expect(unpairedExtensions(root, roots)).toEqual([
+      "@kb/canvas (scope:shared): no root and no loaded package of family:canvas loads it",
+      "@kb/ext-canvas (scope:backend): no server root loads it",
+    ]);
+  });
+
+  test("a shared package is reached only through a sibling that is itself loaded", () => {
+    // ext-canvas still imports @kb/canvas, but nothing loads ext-canvas.
+    const root = fixtureWorkspace([
+      CANVAS,
+      EXT_CANVAS,
+      EXT_DOCS,
+      runtime({ "src/bundled.ts": 'import "@kb/ext-docs";\n' }),
+    ]);
+    expect(unpairedExtensions(root, roots)).toEqual([
+      "@kb/canvas (scope:shared): no root and no loaded package of family:canvas loads it",
       "@kb/ext-canvas (scope:backend): no server root loads it",
     ]);
   });

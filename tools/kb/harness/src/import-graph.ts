@@ -46,6 +46,8 @@ export interface ImportSite {
    * deep a package sits — the owning package is already named by `source`.
    */
   file: string;
+  /** Whether the import loads its target with the file, is erased, or loads lazily. */
+  kind: ImportKind;
 }
 
 export interface ImportEdge {
@@ -53,6 +55,8 @@ export interface ImportEdge {
   target: string;
   /** File that carries the import, relative to its own package. */
   file: string;
+  /** How the import loads its target: a type-only edge loads nothing. */
+  kind: ImportKind;
 }
 
 /** Every {@link SOURCE_EXT} file under a directory, derived output skipped. */
@@ -267,8 +271,8 @@ export function importSites(packagesRoot: string = PACKAGES_ROOT): ImportSite[] 
   for (const { dir, name } of workspacePackages(packagesRoot)) {
     const root = join(packagesRoot, dir);
     for (const file of sourceFilesUnder(root)) {
-      for (const specifier of specifiersOf(file, readFileSync(file, "utf8"))) {
-        sites.push({ source: name, specifier, file: file.slice(root.length + 1) });
+      for (const { specifier, kind } of importsOf(file, readFileSync(file, "utf8"))) {
+        sites.push({ source: name, specifier, file: file.slice(root.length + 1), kind });
       }
     }
   }
@@ -414,8 +418,8 @@ export function resolvedImports(packagesRoot: string = PACKAGES_ROOT): ResolvedI
 /** Every import that crosses a package boundary, however it is spelled. */
 export function importEdges(packagesRoot: string = PACKAGES_ROOT): ImportEdge[] {
   const edges: ImportEdge[] = [];
-  for (const { source, file, target } of resolvedImports(packagesRoot)) {
-    if (target.kind === "workspace") edges.push({ source, target: target.target, file });
+  for (const { source, file, kind, target } of resolvedImports(packagesRoot)) {
+    if (target.kind === "workspace") edges.push({ source, target: target.target, file, kind });
   }
   return edges;
 }
