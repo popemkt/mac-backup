@@ -22,7 +22,7 @@ export function useNode(id: string | undefined): KbNode | undefined {
 }
 
 /** The index's mutation counter: it moves on every change the replica takes. */
-function useGeneration(): number {
+export function useGeneration(): number {
   return useHostValue((host) => host.index()?.generation ?? 0);
 }
 

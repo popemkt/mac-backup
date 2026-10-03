@@ -412,8 +412,8 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   "components/agent": ["components/agent", "primitives", "stores", "lib"],
   // A chart draws its query node's rows; the rows and its saves come through the host.
   "components/chart": extensionRow("components/chart"),
-  // A code view hosts a sandbox frame; the page's end of the bridge is `lib`'s.
-  "components/code": ["components/code", "primitives", "stores", "actions", "lib"],
+  // A code view hosts a sandbox frame; the page's end of the bridge comes through the host.
+  "components/code": extensionRow("components/code"),
   // The sandbox frame's own script, a separate build that runs in the frame:
   // it reaches nothing of the page, and nothing of the page reaches it.
   sandbox: ["sandbox"],

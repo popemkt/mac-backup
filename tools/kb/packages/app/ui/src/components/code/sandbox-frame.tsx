@@ -8,12 +8,12 @@
 import { useEffect, useRef } from "react";
 import { SANDBOX_FRAME_PATH, SANDBOX_IFRAME_FLAGS } from "@kb/sandbox";
 import {
-  hostSandboxFrame,
+  browserHost,
   type HostedFrame,
   type SandboxEvents,
   type SandboxPorts,
   type SandboxRun,
-} from "@/lib/sandbox-host";
+} from "@/sdk";
 
 /** How long the graph must be still before the frame hears that it changed. */
 const CHANGE_SETTLE_MS = 150;
@@ -42,7 +42,7 @@ export function SandboxFrame({
     const element = frame.current;
     if (element === null) return undefined;
     const { run: initial, ports: given, events: told } = first.current;
-    const host = hostSandboxFrame(element, initial, given, told);
+    const host = browserHost().sandbox.hostFrame(element, initial, given, told);
     hosted.current = host;
     return () => {
       host.dispose();

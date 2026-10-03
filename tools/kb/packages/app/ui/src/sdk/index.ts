@@ -11,7 +11,7 @@
  * and the hooks built over it. GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]
  */
 export { BrowserHostService, browserHost } from "./host";
-export { useAppearance, useNode, useQueryRows } from "./hooks";
+export { useAppearance, useGeneration, useNode, useQueryRows } from "./hooks";
 
 // The UI points: views and node commands.
 export { ViewPoint, provideView, type ViewProps } from "@/lib/plugins";
@@ -25,10 +25,12 @@ export { WorkspaceState } from "@/components/ui/workspace-state";
 export { cn } from "@/lib/cn";
 export { readTokenColor } from "@/lib/css-color";
 export { graphLabelFont } from "@/lib/graph-label";
-export { logWarn } from "@/lib/log";
+export { logError, logWarn } from "@/lib/log";
 export { usePane } from "@/lib/pane";
 export { nodePath } from "@/lib/router";
+export { textOr } from "@/lib/text";
 export { toast } from "@/lib/toast";
 
-// Query rows, named by their `:find` columns.
+// Query rows, named by their `:find` columns, and what a sandbox frame is handed.
 export { chartRecords, queryRecords, type QueryRecords } from "@/ds";
+export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "@/lib/sandbox-host";

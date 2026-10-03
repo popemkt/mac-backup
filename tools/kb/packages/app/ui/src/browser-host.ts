@@ -7,6 +7,7 @@
 import { definePlugin } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { proposeView } from "@/lib/propose-view";
+import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import { BrowserHostService, type BrowserHost } from "@/sdk/host";
 import { useOutlineStore } from "@/stores/outline.store";
 import { appearanceIn, usePrefsStore } from "@/stores/prefs.store";
@@ -30,6 +31,7 @@ const host: BrowserHost = {
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),
   replaceField: (nodeId, fieldId, values) => mutations.replaceField(nodeId, fieldId, values),
   proposeView,
+  sandbox: { hostFrame: hostSandboxFrame, invokeAsScript, isTrusted, setTrusted },
 };
 
 export const browserHostUiPlugin = definePlugin({

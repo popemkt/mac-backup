@@ -16,6 +16,7 @@ import type { KbNode, PropValue } from "@kb/model";
 import type { KbIndex } from "@/ds";
 import { currentService } from "@/lib/plugins";
 import type { proposeView } from "@/lib/propose-view";
+import type { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import type { Appearance } from "@/lib/theme";
 
 export interface BrowserHost {
@@ -37,6 +38,13 @@ export interface BrowserHost {
   readonly replaceField: (nodeId: string, fieldId: string, values: PropValue[]) => Promise<void>;
   /** Make a view node through `view.propose`, the one check of a proposed view. */
   readonly proposeView: typeof proposeView;
+  /** The page's end of the sandbox bridge (DESIGN.md → Sandbox). */
+  readonly sandbox: {
+    readonly hostFrame: typeof hostSandboxFrame;
+    readonly invokeAsScript: typeof invokeAsScript;
+    readonly isTrusted: typeof isTrusted;
+    readonly setTrusted: typeof setTrusted;
+  };
 }
 
 export const BrowserHostService = Service<BrowserHost>()("ui.host");

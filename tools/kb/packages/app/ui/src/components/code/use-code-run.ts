@@ -10,8 +10,7 @@ import type { ActionInvocation } from "@kb/contracts";
 import { codeDigest } from "@kb/sandbox";
 import { canonicalJson } from "@kb/model";
 import { CodeGrant } from "@kb/views";
-import { invokeAsScript, isTrusted, type SandboxPorts } from "@/lib/sandbox-host";
-import { useOutlineStore } from "@/stores/outline.store";
+import { browserHost, type SandboxPorts } from "@/sdk";
 
 /** What is known of a run's trust: its digest, and whether it is trusted here. */
 export interface CodeTrustState {
@@ -44,7 +43,7 @@ export function useCodeTrust(
   useEffect(() => {
     let live = true;
     void Effect.runPromise(codeDigest(code, decodeGrant(grantKey)))
-      .then(async (digest) => ({ digest, trusted: await isTrusted(digest) }))
+      .then(async (digest) => ({ digest, trusted: await browserHost().sandbox.isTrusted(digest) }))
       .then((state) => {
         if (live) setKnown({ ...state, code, grantKey, round });
       });
@@ -79,9 +78,9 @@ export function useSandboxPorts(): {
 } {
   const [asking, setAsking] = useState<readonly Asking[]>([]);
   const [ports] = useState<SandboxPorts>(() => ({
-    node: (id) => useOutlineStore.getState().nodes.get(id),
+    node: (id) => browserHost().node(id),
     invoke: async (invocation) => {
-      const receipt = await invokeAsScript(invocation);
+      const receipt = await browserHost().sandbox.invokeAsScript(invocation);
       if (receipt.status !== "failed" || receipt.code !== "approval_required") return receipt;
       const approved = await new Promise<boolean>((resolve) => {
         const entry: Asking = {
@@ -93,7 +92,9 @@ export function useSandboxPorts(): {
         };
         setAsking((queue) => [...queue, entry]);
       });
-      return invokeAsScript(approved ? { ...invocation, approved: true } : invocation);
+      return browserHost().sandbox.invokeAsScript(
+        approved ? { ...invocation, approved: true } : invocation,
+      );
     },
   }));
   return { ports, asking };

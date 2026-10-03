@@ -1,7 +1,7 @@
 import { lazy } from "react";
 import { definePlugin } from "@kb/plugin";
 import { CODE_NAMESPACE, CodeView, DEFAULT_GRANT } from "@kb/views";
-import { ViewPoint, provideView } from "@/lib/plugins";
+import { BrowserHostService, ViewPoint, provideView } from "@/sdk";
 
 /** The code view's page, in a chunk of its own. */
 const CodePage = lazy(() =>
@@ -16,6 +16,7 @@ const CodePage = lazy(() =>
  */
 export const codeUiPlugin = definePlugin({
   name: CODE_NAMESPACE,
+  inject: [BrowserHostService],
   apply: (ctx) =>
     ctx.contribute(
       ViewPoint,

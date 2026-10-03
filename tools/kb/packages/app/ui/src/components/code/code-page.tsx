@@ -14,14 +14,20 @@ import {
 } from "@phosphor-icons/react";
 import { ENGINE_LIMITS, engineKindFor, type EngineKind, type RunStatus } from "@kb/sandbox";
 import type { CodeParams } from "@kb/views";
-import { IconButton } from "@/components/ui/icon-button";
-import { cn } from "@/lib/cn";
-import { logError, logWarn } from "@/lib/log";
-import type { ViewProps } from "@/lib/plugins";
-import { setTrusted, type SandboxEvents, type SandboxRun } from "@/lib/sandbox-host";
-import { textOr } from "@/lib/text";
-import { toast } from "@/lib/toast";
-import { useOutlineStore } from "@/stores/outline.store";
+import {
+  IconButton,
+  browserHost,
+  cn,
+  logError,
+  logWarn,
+  textOr,
+  toast,
+  useGeneration,
+  useNode,
+  type SandboxEvents,
+  type SandboxRun,
+  type ViewProps,
+} from "@/sdk";
 import { SandboxFrame } from "./sandbox-frame";
 import { useCodeTrust, useSandboxPorts, type Asking, type CodeTrustState } from "./use-code-run";
 
@@ -166,10 +172,8 @@ function CodeHeader({ title, engine, status, trust, showCode, ...on }: HeaderPro
 }
 
 export function CodePage({ params, host }: ViewProps<CodeParams>) {
-  const viewNode = useOutlineStore((s) =>
-    host.viewNode === undefined ? undefined : s.nodes.get(host.viewNode),
-  );
-  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
+  const viewNode = useNode(host.viewNode);
+  const generation = useGeneration();
   const [status, setStatus] = useState<RunStatus | null>(null);
   const [showCode, setShowCode] = useState(false);
   const [round, setRound] = useState(0);
@@ -198,7 +202,7 @@ export function CodePage({ params, host }: ViewProps<CodeParams>) {
 
   const changeTrust = async (trusted: boolean) => {
     if (trust === null) return;
-    const receipt = await setTrusted(trust.digest, trusted);
+    const receipt = await browserHost().sandbox.setTrusted(trust.digest, trusted);
     if (receipt.status === "failed") toast(receipt.message);
     setStatus(null);
     refresh();
