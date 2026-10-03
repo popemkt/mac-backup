@@ -2390,7 +2390,7 @@ its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
 
 ### Gaps
 
-- `// GAP [GAP-SCRIPTS]` (`@kb/sandbox`'s `index.ts`). Expected: a `#script`
+- `// GAP [[01M41DKTE1T51M031N231VGQJR]]` (`@kb/sandbox`'s `index.ts`). Expected: a `#script`
   node attached to a view (`sys.f.scripts` on a view node, ref, many) runs
   in the same sandbox with the same API, plus overlays drawn above the view
   it is attached to and that view's own events (a drop on a board column, a
@@ -2399,7 +2399,7 @@ its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
   drawing's gestures and `data`. Closes: views declaring their events and
   overlay anchors in their keys, a transparent overlay frame over a hosted
   view, and `#script` as a view setting resolved like `sys.f.views`.
-- `// GAP [GAP-CODE-VIEW-PROMOTION]` (`@kb/views`' `code.ts`). Expected: a
+- `// GAP [[01M41DKTTRA55RA1KF4QBWQ9MF]]` (`@kb/views`' `code.ts`). Expected: a
   person promotes a trusted code view to a view type — a `.kb/extensions`
   plugin contributing a `ViewPoint` entry with a key, settings schema and
   catalog entry, committed after review — in the same gesture that trusts
@@ -2407,18 +2407,18 @@ its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
   only; a code view stays a code view. Closes: a promotion action that
   writes the extension module from the view node (code, grant, a params
   schema the person names), and a UI flow that reviews and commits it.
-- `// GAP [GAP-SANDBOX-THREAD]` (the frame, `src/sandbox/frame.ts`).
+- `// GAP [[01M41DKVB5R21NRCE4T9R4KES1]]` (the frame, `src/sandbox/frame.ts`).
   Expected: untrusted code runs off the frame's main thread, so a turn that
   runs to its deadline never holds the page, even where the browser does
   not give a sandboxed frame its own process. Current: QuickJS runs on the
   frame's main thread, so a turn can hold it for up to 500 ms. Closes:
   QuickJS inside a blob Worker in the frame, with the same engine port.
-- `// GAP [GAP-SANDBOX-QUERY-COST]` (`grant.ts`). Expected: a guest's
+- `// GAP [[01M41DKVSGG1R5A27Q49SBPHDD]]` (`grant.ts`). Expected: a guest's
   `graph.query` is bounded in time as well as result size. Current: the
   result is bounded; a query that is expensive to evaluate runs to its end
   on the replica (in the browser) or the server. Closes: a deadline in the
   query layer that the invoke core can pass down.
-- `// GAP [GAP-SANDBOX-CODE-EDITOR]` (`code-page.tsx`). Expected: a person
+- `// GAP [[01M41DKW6PFA4FX6FRNWBV03ED]]` (`code-page.tsx`). Expected: a person
   edits a code view's code and grant in the view, checked by its key like
   the chart's spec editor. Current: code is written by `view.propose` (an
   agent), or by editing `sys.f.code` as a field. Closes: an editor beside

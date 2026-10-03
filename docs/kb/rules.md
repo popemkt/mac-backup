@@ -88,6 +88,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a chart builder that writes the spec through the one chart spec check
 - **node** — `01M4187E5QQYRD8ENHQM968EEJ`
 
+### GAP: a code view cannot be promoted to a view type
+
+- **expected** — the trust gesture can also promote a proven code view to an extension ViewPoint type, so mode A can use it
+- **current** — trusting a code view only switches its engine to the Worker
+- **impact** — the view catalog does not grow from code views that proved themselves (decision 4C)
+- **closes** — a promotion action plus a review-and-commit flow that writes the code view as an extension view
+- **node** — `01M41DKTTRA55RA1KF4QBWQ9MF`
+
+### GAP: a code view's code and grant cannot be edited in the view
+
+- **expected** — a person edits a code view's code and grant in the view, through the view key's check
+- **current** — code arrives through view.propose or by editing the field; the page shows it read-only
+- **impact** — changing a code view means editing raw fields
+- **closes** — an in-view editor that writes through the code view key's check
+- **node** — `01M41DKW6PFA4FX6FRNWBV03ED`
+
 ### GAP: a dashboard's inner panes are not in the screen state
 
 - **expected** — every pane on screen, including those inside a dashboard, is listed in the screen state and can be targeted
@@ -151,6 +167,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A wrongly picked reference must be deleted and recreated in the UI.
 - **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
 - **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
+
+### GAP: a sandboxed graph.query is bounded in size, not in time
+
+- **expected** — a guest's graph.query has a deadline in the query layer
+- **current** — only its result size is bounded; an expensive datalog query runs to completion
+- **impact** — a hostile or careless code view can make the server or replica spend unbounded time on one query
+- **closes** — a deadline in the query layer that the grant applies
+- **node** — `01M41DKVSGG1R5A27Q49SBPHDD`
 
 ### GAP: a seeded default the owner deletes comes back on the next open
 
@@ -572,6 +596,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — After rebuild, manually run brew uninstall bun and confirm the drift audit is clean.
 - **node** — `01M3FAE5T61DZS8T7WRW3RTZ93`
 
+### GAP: scripts cannot be attached to existing views
+
+- **expected** — a #script node attached to a view adds behaviour to it (overlays, reacting to the view's own events), run through the same sandbox
+- **current** — only code views run; views declare no events or overlay anchors
+- **impact** — hover panels, auto-layout and 'drop in column X sets status' (decision 5) cannot be scripted
+- **closes** — views declare their events and overlay anchors, an overlay frame, and a sys.f.scripts view setting
+- **node** — `01M41DKTE1T51M031N231VGQJR`
+
 ### GAP: search is a substring scan, no text index
 
 - **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.
@@ -844,6 +876,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A new accidental cross-zone import can pass without a reviewed architectural decision.
 - **closes** — After R1 settles, inventory the production UI import graph, remove unused permissions without touching the view-keys zone concurrently, and add a red fixture per removed edge.
 - **node** — `01M3F8EJSWHS38PMSSQ2BVN8DG`
+
+### GAP: untrusted sandbox code runs on the frame's main thread
+
+- **expected** — untrusted QuickJS runs off the sandbox frame's main thread
+- **current** — QuickJS runs on the frame's main thread and can hold it for up to 500 ms per turn
+- **impact** — a busy untrusted code view can stutter its own frame
+- **closes** — run QuickJS inside a blob Worker in the frame
+- **node** — `01M41DKVB5R21NRCE4T9R4KES1`
 
 ### GAP: view option nodes are seeded from one core table, not by the plugins that own the views
 

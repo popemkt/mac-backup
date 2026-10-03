@@ -79,7 +79,7 @@ function readGrant(raw: string | undefined, report: ConfigReport): { grant?: unk
   }
 }
 
-// GAP [GAP-CODE-VIEW-PROMOTION] Trusting a code view changes its engine only;
+// GAP [[01M41DKTTRA55RA1KF4QBWQ9MF]] Trusting a code view changes its engine only;
 // promoting it to a view type (an extension contributing a ViewPoint entry
 // mode A can configure) waits on a promotion action and its review flow
 // (DESIGN.md → Sandbox → Gaps).

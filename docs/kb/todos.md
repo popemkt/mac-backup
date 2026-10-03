@@ -34,7 +34,6 @@
 
 ### todo
 
-- 9 · sandbox: one capability API + MCP Apps iframe bridge, QuickJS + Worker engines; #code-view, #script, promotion
 - canvas C2: media cards (assets) + frictionless quick-add — draw.io feel
 - Check out ideas from this, how did it handle transaction and stuff https://news.ycombinator.com/item?id=49440174
 - Check out Memgraph optimization: how does it optimize its in-memory virtualization layer (and other deployment modes) similar to our architecture
@@ -64,6 +63,7 @@
 - 5c · approval policies (decision 13): #approval-policy nodes (match, actor, decision) resolved by the invoke core; policies table view; policy writes always ask; seeded defaults
 - 6 · layout view type (decision 12): mode B dashboards + panes (Tana panels → splits/tabs via dockview adapter), saved workspaces as nodes
 - 8 · canvas 3D: z/3D transforms, perspective camera on the WebGPU scene kit (three r186)
+- 9 · sandbox: one capability API + MCP Apps iframe bridge, QuickJS + Worker engines; #code-view, #script, promotion
 - canvas simplify (Logseq model): edges are drawings only; native bind = one-shot prop write; bound-state computed at render (unbound tint); DELETE reconciler/persist-back/bindingId repair — supersedes broken-edge repair todo
 - decide which actions require approval (candidates: ext.docs.materialize, ext.check.sync, node.update when it deletes)
 - graph: smart-elide system/editor-only nodes by default + toggle; universal graph button in header
