@@ -5,23 +5,26 @@
  * agent, which its host composes, from `@kb/cli`'s, so a promise one family
  * keeps and another breaks goes red.
  *
- * What it can prove today:
+ * What it proves:
  * - the entry plugin takes its name from the declaration;
  * - the family loads, and unloads leaving nothing behind;
  * - the views the entry contributes are exactly the views the declaration
- *   lists, so no family reaches the catalog past its declaration.
+ *   lists, so no family reaches the catalog past its declaration;
+ * - its seed folds beside the bundled one with no id owned twice, and every
+ *   view it declares has an option in that fold;
+ * - every text body its entry contributes renders its key's default
+ *   settings, and so does its figure where it draws one.
  *
- * What it cannot prove yet: no family declares seed nodes or views of its
- * own, because chart, code, lab and the canvas vocabulary are still seeded
- * and catalogued through core's declaration. So "no seed id owned twice"
- * and "every view has an option in the fold" run over empty sets for every
- * family, and pass on nothing. They gain a subject as each family's
- * vocabulary moves out of core (E7–E9): GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]]
- * (seed) and GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]] (views). The text-body and
- * page-catalog promises join with the first family view (E7).
+ * Chart is the first family with a subject for the seed, view and text
+ * promises. Code, lab and the canvas vocabulary are still seeded and
+ * catalogued through core's declaration until they move (E8, E9):
+ * GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]] (seed) and GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]
+ * (views). The browser half — every view a family gives the UI has a key in
+ * the page's catalog — is the UI's view contract (`view-contract.test.tsx`
+ * in `@kb/ui`), which runs over the page kernel.
  */
 import { describe, expect, test } from "bun:test";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
   ActionPoint,
@@ -32,7 +35,8 @@ import {
 } from "@kb/contracts";
 import { foldSeed, viewOptionId } from "@kb/model";
 import { makeKernel, type Kernel, type Plugin } from "@kb/plugin";
-import { CONTRACT_AT } from "./store-session.ts";
+import { paramsFromProps } from "@kb/views";
+import { CONTRACT_AT, openSession, scratchRoot } from "./store-session.ts";
 
 /** Every contribution the kernel holds at the points a family contributes to. */
 function contributions(kernel: Kernel): readonly string[] {
@@ -87,7 +91,6 @@ export function extensionContract(declaration: ExtensionDeclaration, entry: Plug
         }),
       ));
 
-    // Over empty sets for every family today: see the header.
     test("its seed folds beside the bundled one with no id owned twice", () => {
       expect(() => foldSeed(foldWith(declaration), CONTRACT_AT)).not.toThrow();
     });
@@ -99,5 +102,29 @@ export function extensionContract(declaration: ExtensionDeclaration, entry: Plug
         .filter((id) => !seeded.has(viewOptionId(id)));
       expect(orphans).toEqual([]);
     });
+
+    test("every text body it contributes renders its key's default settings", () =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const ctx = yield* openSession(yield* scratchRoot);
+            const kernel = makeKernel();
+            yield* kernel.load(entry);
+            const views = kernel.contributions(ViewKeyPoint).map(({ value }) => value);
+            yield* kernel.shutdown;
+            for (const { key, text } of views) {
+              if (text === undefined) continue;
+              const params = paramsFromProps(key, {}, null, () => {});
+              expect(Result.isFailure(params) ? `${key.id}: ${params.failure}` : null).toBeNull();
+              if (Result.isFailure(params)) continue;
+              const body = text.body(ctx, params.success, null);
+              expect(body.every((line) => typeof line === "string")).toBe(true);
+              if (text.figure === undefined) continue;
+              const figure = yield* text.figure(ctx, params.success, null);
+              expect(figure === null || typeof figure === "string").toBe(true);
+            }
+          }),
+        ),
+      ));
   });
 }

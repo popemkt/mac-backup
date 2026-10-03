@@ -1,13 +1,31 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
-import { defineExtension } from "@kb/contracts";
-import { definePlugin } from "@kb/plugin";
+import { ViewKeyPoint, defineExtension } from "@kb/contracts";
+import { definePlugin, makeKernel } from "@kb/plugin";
 import { extensionContract } from "@kb/test-kit";
 import { BUNDLED_EXTENSIONS, serverEntriesFor } from "../src/bundled.ts";
 
 // Every family the server bundles keeps the one extension contract.
 for (const { declaration, entry } of BUNDLED_EXTENSIONS) extensionContract(declaration, entry);
+
+describe("the contract's seed, view and text promises have a subject", () => {
+  test("chart declares a seed and a view whose text the server's entry paints", () => {
+    const chart = BUNDLED_EXTENSIONS.find(({ declaration }) => declaration.name === "chart");
+    expect(chart?.declaration.seed?.("2026-01-01T00:00:00.000Z").length).toBeGreaterThan(0);
+    expect(chart?.declaration.views?.map((view) => view.key.id)).toEqual(["chart.vega-lite"]);
+    const contributed = Effect.runSync(
+      Effect.gen(function* () {
+        const kernel = makeKernel();
+        if (chart !== undefined) yield* kernel.load(chart.entry);
+        const views = kernel.contributions(ViewKeyPoint).map(({ value }) => value);
+        yield* kernel.shutdown;
+        return views;
+      }),
+    );
+    expect(contributed.map((view) => view.text?.figure !== undefined)).toEqual([true]);
+  });
+});
 
 const plugin = (name: string) => definePlugin({ name, apply: () => Effect.void });
 const family = (name: string) => defineExtension({ name, label: name });
