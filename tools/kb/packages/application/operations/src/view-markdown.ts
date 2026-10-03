@@ -1,22 +1,24 @@
 /**
- * A view node as markdown, for a surface that shows text only (Claude Code
- * renders no `ui://` resource): which view it is, the settings its key reads
- * from it for the node it is shown for, and the nodes it shows.
+ * A view node on a surface that shows text (Claude Code renders no `ui://`
+ * resource): its heading — which view it is, shown for which node — then a
+ * body the view draws, and, for a page, a figure drawn above the text.
  *
- * The rows are the view's subject, read the one way every view node can be
- * read: a lens query when the node holds one (empty means every node, as a
- * graph reads it), else the children of the node it is shown for. How the
- * view itself would lay them out — filtered, sorted, grouped, a column per
- * field, drawn as a graph — is not drawn here.
+ * A view draws its own body when it knows how to say itself in text
+ * ({@link VIEW_BODIES}). Any other view's body is the settings its key reads
+ * from the node for the node it is shown for, and the nodes it shows, read
+ * the one way every view node can be read: a lens query when the node holds
+ * one (empty means every node, as a graph reads it), else the children of the
+ * node it is shown for. How such a view would lay them out — filtered,
+ * sorted, grouped, a column per field, drawn as a graph — is not drawn here.
  * GAP [[01M40X30G92A0E57C02JHQ9A1G]]
  */
-import { Predicate, Result } from "effect";
+import { Effect, Predicate, Result } from "effect";
 import type { KbContext } from "@kb/contracts";
 import { SYSTEM_IDS, firstStr, hostViewIds, viewOptionOf, type KbNode } from "@kb/model";
 import { catalogKeyOf, issueText, paramsIssues, viewLabelOf, type ViewKey } from "@kb/views";
 
 /** How many of a view's rows its markdown lists. */
-const MAX_ROWS = 100;
+export const MAX_ROWS = 100;
 
 /** The node a view node is shown for: the one asked for, else the one node naming it. */
 export function hostOf(ctx: KbContext, view: KbNode, asked: string | null): KbNode | null {
@@ -36,6 +38,19 @@ function nodeLine(ctx: KbContext, id: string): string {
   const text = ctx.index.getNode(id)?.text.trim() ?? "";
   return `- ${text === "" ? "(untitled)" : text} (${id})`;
 }
+
+/** What a view draws under its heading: markdown lines, and a figure for a page. */
+export interface ViewBody {
+  readonly lines: readonly string[];
+  /** Html a page draws above the text (a chart's SVG); absent, or null, when there is none. */
+  readonly figure?: Effect.Effect<string | null>;
+}
+
+/** How one view says itself in text, from the settings its key read for the node it is shown for. */
+type BodyOf<P> = (ctx: KbContext, params: P, host: KbNode | null) => ViewBody;
+
+/** The views that draw their own body, each by its key. */
+const VIEW_BODIES = new Map<ViewKey<unknown>, BodyOf<unknown>>();
 
 /** The ids a view node's subject holds, or why they cannot be read. */
 function subjectOf(
@@ -60,30 +75,23 @@ function subjectOf(
   return null;
 }
 
-/** The markdown a view node is shown as on a text-only surface. */
-export function viewMarkdown(ctx: KbContext, view: KbNode, host: KbNode | null): string {
-  const option = viewOptionOf(view);
-  const key = option === null ? null : catalogKeyOf(option);
-  const lines = [`# ${viewTitleOf(view, key)}`, ""];
-  const shownFor = host === null ? "" : `, shown for ${host.text.trim() || host.id} (${host.id})`;
-  lines.push(
-    key === null
-      ? `View node ${view.id} names ${option ?? "no view"}, which is no view kb provides.`
-      : `${viewLabelOf(key)} view (${key.id}), view node ${view.id}${shownFor}.`,
-  );
-  if (key !== null) {
-    const reported: string[] = [];
-    const params = paramsIssues(
-      key,
-      key.config.read(view.props, host?.id ?? null, (warning) => reported.push(warning)),
-    );
+/** The body of a view that draws none of its own: its settings, then its subject. */
+function settingsAndSubject(
+  ctx: KbContext,
+  view: KbNode,
+  host: KbNode | null,
+  params: Result.Result<unknown, string> | null,
+  reported: readonly string[],
+): readonly string[] {
+  const lines: string[] = [];
+  if (params !== null) {
     lines.push("", "## Settings", "");
     if (Result.isSuccess(params) && Predicate.isObject(params.success)) {
       const entries = Object.entries(params.success);
       if (entries.length === 0) lines.push("None.");
       for (const [setting, value] of entries) lines.push(`- ${setting}: ${JSON.stringify(value)}`);
     } else if (Result.isFailure(params)) {
-      lines.push(`This view node cannot be read: ${params.failure.map(issueText).join("; ")}`);
+      lines.push(`This view node cannot be read: ${params.failure}`);
     }
     for (const warning of reported) lines.push(`- ignored: ${warning}`);
   }
@@ -97,5 +105,44 @@ export function viewMarkdown(ctx: KbContext, view: KbNode, host: KbNode | null):
       if (subject.ids.length > MAX_ROWS) lines.push(`- and ${subject.ids.length - MAX_ROWS} more`);
     }
   }
-  return `${lines.join("\n")}\n`;
+  return lines;
+}
+
+/** A view node on a text surface: its markdown, and the figure a page draws above it. */
+export interface ViewText {
+  readonly markdown: string;
+  readonly figure: Effect.Effect<string | null>;
+}
+
+/** What a view node is shown as on a text-only surface. */
+export function viewText(ctx: KbContext, view: KbNode, host: KbNode | null): ViewText {
+  const option = viewOptionOf(view);
+  const key = option === null ? null : catalogKeyOf(option);
+  const lines = [`# ${viewTitleOf(view, key)}`, ""];
+  const shownFor = host === null ? "" : `, shown for ${host.text.trim() || host.id} (${host.id})`;
+  lines.push(
+    key === null
+      ? `View node ${view.id} names ${option ?? "no view"}, which is no view kb provides.`
+      : `${viewLabelOf(key)} view (${key.id}), view node ${view.id}${shownFor}.`,
+  );
+  const reported: string[] = [];
+  const params =
+    key === null
+      ? null
+      : Result.mapError(
+          paramsIssues(
+            key,
+            key.config.read(view.props, host?.id ?? null, (warning) => reported.push(warning)),
+          ),
+          (issues) => issues.map(issueText).join("; "),
+        );
+  const own = key === null ? undefined : VIEW_BODIES.get(key);
+  const body: ViewBody =
+    own !== undefined && params !== null && Result.isSuccess(params)
+      ? own(ctx, params.success, host)
+      : { lines: settingsAndSubject(ctx, view, host, params, reported) };
+  return {
+    markdown: `${[...lines, ...body.lines].join("\n")}\n`,
+    figure: body.figure ?? Effect.succeed(null),
+  };
 }

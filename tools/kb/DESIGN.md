@@ -851,13 +851,16 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   `render.view` takes a docs view by name or any view node by id (exactly
   one), shown for `host` (by default the one node naming it). A docs view
   renders through its template whichever way it is asked for; any other view
-  node renders as its markdown (`viewMarkdown` in `@kb/operations`): the
-  view, the settings its key reads from the node for that host, and the
-  nodes it shows — its lens query's when it holds one, else the host's
-  children. One function (`renderViewNodeEffect`) serves the action and
-  MCP's `ui://kb/view/*` resources (Surfaces). The markdown lists the view's
-  subject; it does not lay it out the way the view does — filtered, sorted,
-  grouped, a column per field, drawn as a graph (GAP [[01M40X30G92A0E57C02JHQ9A1G]]).
+  node renders as its text (`viewText` in `@kb/operations`): a heading naming
+  the view and the host, then a body, and on an html page a figure above it.
+  A view that can say itself in text draws its own body (and figure); any
+  other view's body is the settings its key reads from the node for that
+  host, and the nodes it shows — its lens query's when it holds one, else
+  the host's children. One function (`renderViewNodeEffect`) serves the
+  action and MCP's `ui://kb/view/*` resources (Surfaces). That generic body
+  lists the view's subject; it does not lay it out the way the view does —
+  filtered, sorted, grouped, a column per field, drawn as a graph
+  (GAP [[01M40X30G92A0E57C02JHQ9A1G]]).
 - **A host names its views by ref.** `sys.f.views` (ref, many) on any node
   targets every view node (`VIEW_NODE_TARGET_QUERY`). Scope is per node:
   a view shown for every node of a tag would be a new model rule

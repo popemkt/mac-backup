@@ -23,7 +23,7 @@ import {
   docsViewsEffect,
   renderViewEffect,
 } from "./docs/docs.ts";
-import { hostOf, viewMarkdown, viewTitleOf } from "./view-markdown.ts";
+import { hostOf, viewText, viewTitleOf } from "./view-markdown.ts";
 
 type RenderError = DomainError | DocsError;
 type RenderEnv = KbCtx | SavedQueries | TemplateRegistry;
@@ -102,12 +102,13 @@ const HTML_SHELL_STYLE =
  */
 export const RENDERED_VIEW_ID = "kb-view";
 
-/** A page holding rendered markdown, titled `title`. */
-function htmlPage(title: string, md: string): string {
+/** A page holding rendered markdown, titled `title`, under the view's figure when it draws one. */
+function htmlPage(title: string, md: string, figure: string | null = null): string {
   return [
     `<!doctype html><meta charset="utf-8"><title>kb: ${escapeHtml(title)}</title>`,
     `<body style="${HTML_SHELL_STYLE}">`,
     `<main id="${RENDERED_VIEW_ID}">`,
+    ...(figure === null ? [] : [`<figure style="margin:0 0 1rem">${figure}</figure>`]),
     mdToHtml(md),
     "</main>",
     "</body>",
@@ -137,7 +138,8 @@ const renderDocsViewEffect = Effect.fn("render.docsView")(function* (
  * Render a view node as md or as a self-contained html page: the one path
  * `render.view` and MCP's `ui://kb/view/*` resources share. A docs view
  * renders through its template, whether it is asked for by name or by id;
- * any other view node renders as its markdown (`viewMarkdown`).
+ * any other view node renders as its text (`viewText`): its markdown, and
+ * on a page the figure the view draws above it.
  */
 export const renderViewNodeEffect = Effect.fn("render.viewNode")(function* (
   ref: ViewRef,
@@ -155,14 +157,14 @@ export const renderViewNodeEffect = Effect.fn("render.viewNode")(function* (
   if (isDocsView(node)) return yield* renderDocsViewEffect(docsViewNameOf(node), format);
   const option = viewOptionOf(node);
   const key = option === null ? null : catalogKeyOf(option);
-  const md = viewMarkdown(ctx, node, hostOf(ctx, node, ref.host ?? null));
+  const text = viewText(ctx, node, hostOf(ctx, node, ref.host ?? null));
   const name = viewTitleOf(node, key);
   return {
     name,
     id: node.id,
     view: key?.id ?? option ?? "",
     format,
-    content: format === "md" ? md : htmlPage(name, md),
+    content: format === "md" ? text.markdown : htmlPage(name, text.markdown, yield* text.figure),
   };
 });
 
