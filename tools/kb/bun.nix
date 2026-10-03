@@ -605,9 +605,11 @@
   "@kb/agent-claude" = copyPathToStore ./packages/extension/agent-claude;
   "@kb/bundled" = copyPathToStore ./packages/app/bundled;
   "@kb/canvas" = copyPathToStore ./packages/extension/canvas;
+  "@kb/check" = copyPathToStore ./packages/extension/check;
   "@kb/cli" = copyPathToStore ./packages/app/cli;
   "@kb/client" = copyPathToStore ./packages/app/client;
   "@kb/contracts" = copyPathToStore ./packages/contract/contracts;
+  "@kb/docs" = copyPathToStore ./packages/extension/docs;
   "@kb/ext-canvas" = copyPathToStore ./packages/extension/ext-canvas;
   "@kb/ext-check" = copyPathToStore ./packages/extension/ext-check;
   "@kb/ext-docs" = copyPathToStore ./packages/extension/ext-docs;

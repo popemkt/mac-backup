@@ -2,7 +2,8 @@ import { dirname, join } from "node:path";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { KbCtx, defineExtension, extensionPlugin } from "@kb/contracts";
+import { KbCtx, extensionPlugin } from "@kb/contracts";
+import { docsExtension } from "@kb/docs";
 import type {
   ExtensionAction,
   ExtensionTemplate,
@@ -143,9 +144,6 @@ const templates: ExtensionTemplate[] = [
   { id: "todos", aliases: ["todos"], template: todos },
   { id: "rules", aliases: ["rules"], template: rules },
 ];
-
-/** The docs family's declaration: the one home of its name (DESIGN.md → Extension families). */
-export const docsExtension = defineExtension({ name: "docs", label: "Docs" });
 
 /** The docs family's server entry: `ext.docs.*`, with its bare legacy aliases. */
 export const docsPlugin = extensionPlugin({ name: docsExtension.name, actions, templates });

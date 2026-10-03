@@ -3,17 +3,36 @@
  * every bundled family, and the seed they fold to (DESIGN.md → Extension
  * families → the seed is the bundled fold).
  *
+ * This is the one list of bundled families. The server's registry pairs
+ * each declaration here with its server entry (`runtime/src/bundled.ts`),
+ * and fails at load on a family with no entry or an entry with no family,
+ * so the two hosts cannot disagree on what is bundled. It is a composition
+ * root (`EXTENSION_ROOTS`) that loads nothing: it reads each family's shared
+ * package for its declaration only.
+ *
  * It is `scope:shared` because the page reads the same fold as the server:
- * the offline graph and the UI's fixtures are seeded from it. Only a
- * family's server entry needs Bun, and that is resolved per declaration by
- * the runtime's registry.
+ * the offline graph and the UI's fixtures are seeded from it. So a bundled
+ * family declares itself in its shared package, never its server one.
  */
+import { canvasExtension } from "@kb/canvas";
+import { checkExtension } from "@kb/check";
 import type { ExtensionDeclaration } from "@kb/contracts";
+import { docsExtension } from "@kb/docs";
 import { foldSeed, type KbNode } from "@kb/model";
 import { coreExtension } from "@kb/operations";
 
-/** Core's declaration first, then each bundled family's, in the registry's order. */
-export const BUNDLED_DECLARATIONS: readonly ExtensionDeclaration[] = [coreExtension];
+/** Every bundled family, in the order the registry loads them. */
+export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
+  docsExtension,
+  canvasExtension,
+  checkExtension,
+];
+
+/** Core's declaration first, then each bundled family's: what the seed folds. */
+export const BUNDLED_DECLARATIONS: readonly ExtensionDeclaration[] = [
+  coreExtension,
+  ...BUNDLED_FAMILIES,
+];
 
 /**
  * The seed a store is opened with: the bundled declarations folded in order.

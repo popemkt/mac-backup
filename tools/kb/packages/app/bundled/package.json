@@ -11,7 +11,10 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@kb/canvas": "workspace:*",
+    "@kb/check": "workspace:*",
     "@kb/contracts": "workspace:*",
+    "@kb/docs": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*"
   },

@@ -1,4 +1,5 @@
-import { defineExtension, extensionPlugin, type ExtensionAction } from "@kb/contracts";
+import { checkExtension } from "@kb/check";
+import { extensionPlugin, type ExtensionAction } from "@kb/contracts";
 import { checkAuditEffect } from "./audit.ts";
 import { auditOutput, emptyInput, syncOutput } from "./model.ts";
 import { checkSyncEffect } from "./sync.ts";
@@ -23,9 +24,6 @@ const actions: ExtensionAction[] = [
     effect: checkSyncEffect,
   },
 ];
-
-/** The check family's declaration: the one home of its name (DESIGN.md → Extension families). */
-export const checkExtension = defineExtension({ name: "check", label: "Check" });
 
 /** The check family's server entry: `ext.check.*`. */
 export const checkPlugin = extensionPlugin({ name: checkExtension.name, actions, templates: [] });

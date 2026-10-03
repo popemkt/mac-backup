@@ -1863,8 +1863,11 @@ end).
   or a text body cannot differ between hosts. A family with no server-only
   package uses its shared plugin as the server entry.
 - **One list decides what is on, and the browser follows it.**
-  `BUNDLED_EXTENSIONS` (`app/runtime`) is the list of server entries.
-  `kb.manifest.extensions` reports each one as `{name, label, optional,
+  `BUNDLED_FAMILIES` (`@kb/bundled`) is the list of bundled families, by
+  declaration, so every bundled family declares itself in its shared
+  package. The server resolves each one's entry by the name the entry takes
+  from it (`BUNDLED_EXTENSIONS`, `app/runtime`), and fails at load on a
+  family with no entry or an entry with no family. `kb.manifest.extensions` reports each one as `{name, label, optional,
   enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   such as the agent, to the same report. The browser loads the browser
   entry of each family the manifest reports as enabled, through a resolver
@@ -1876,7 +1879,7 @@ end).
   `ensureSystemSeed(nodes, seed)` runs at open, before any registry
   exists. `openKbEffect` passes it `bundledSeed(at)` (`@kb/bundled`, a
   `scope:shared` package so the page folds the same seed), which is:
-  - core's nodes, then each `BUNDLED_EXTENSIONS` declaration's `seed`, in
+  - core's nodes, then each `BUNDLED_FAMILIES` declaration's `seed`, in
     bundled order;
   - pure data: it opens nothing and fails on an id declared twice.
 
@@ -1930,21 +1933,27 @@ end).
 - **Enforcement.** The harness checks the boundary in
   `harness/src/constraints.ts`:
   - each extension package carries one `family:` tag, equal to the literal
-    `name` of its family's one `defineExtension` declaration;
+    `name` of its family's one `defineExtension` declaration. Any other
+    reference to `defineExtension` (an alias, a member call, a computed or
+    spread key) fails, because only a direct literal call can be read;
   - an extension package imports another extension package only of its own
     family;
   - an `app` package imports an extension package only from its composition
-    root's bundled-extensions file (`EXTENSION_ROOTS`). Tests are exempt.
-    A breach that is known and deferred is a row of
-    `EXTENSION_ROOT_BREACHES`, under a gap, and a row no import matches any
-    more fails;
-  - every extension package is loaded by the root of each host its scope
-    runs in. A `scope:shared` package runs in no host on its own, so it is
-    loaded by a root or by a package of its own family.
+    root's bundled-extensions file (`EXTENSION_ROOTS`), and a root
+    re-exports none. Tests (the package's `tests/` folder and `*.test.*`
+    files) are exempt. A breach that is known and deferred is a file named
+    in `EXTENSION_ROOT_BREACHES`, under a gap: a file not named fails, and a
+    named file that no longer imports the feature fails;
+  - every extension package is loaded, by a value import, by the root of
+    each host its scope runs in. A `scope:shared` package runs in no host on
+    its own, so it is loaded by a root or by a loaded package of its own
+    family.
 
   One contract suite, `extensionContract` (`@kb/test-kit`), runs over
-  `BUNDLED_EXTENSIONS`. A family passes when:
+  `BUNDLED_EXTENSIONS` and over the host-composed agent. A family passes
+  when:
   - it loads and unloads cleanly;
+  - its entry contributes exactly the views its declaration lists;
   - its seed ids have one owner;
   - every view key it contributes has an option in the fold;
   - every text body renders its key's defaults;

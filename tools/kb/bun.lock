@@ -26,7 +26,10 @@
       "name": "@kb/bundled",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/canvas": "workspace:*",
+        "@kb/check": "workspace:*",
         "@kb/contracts": "workspace:*",
+        "@kb/docs": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
       },
@@ -103,7 +106,6 @@
       "dependencies": {
         "@effect/platform-bun": "catalog:",
         "@kb/bundled": "workspace:*",
-        "@kb/canvas": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/ext-canvas": "workspace:*",
         "@kb/ext-check": "workspace:*",
@@ -124,6 +126,7 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/canvas": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "zod": "catalog:",
@@ -403,6 +406,20 @@
         "fast-check": "catalog:",
       },
     },
+    "packages/extension/check": {
+      "name": "@kb/check",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+      },
+    },
+    "packages/extension/docs": {
+      "name": "@kb/docs",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+      },
+    },
     "packages/extension/ext-canvas": {
       "name": "@kb/ext-canvas",
       "version": "0.0.0",
@@ -422,6 +439,7 @@
       "name": "@kb/ext-check",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/check": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
@@ -437,6 +455,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/docs": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
         "effect": "catalog:",
@@ -877,11 +896,15 @@
 
     "@kb/canvas": ["@kb/canvas@workspace:packages/extension/canvas"],
 
+    "@kb/check": ["@kb/check@workspace:packages/extension/check"],
+
     "@kb/cli": ["@kb/cli@workspace:packages/app/cli"],
 
     "@kb/client": ["@kb/client@workspace:packages/app/client"],
 
     "@kb/contracts": ["@kb/contracts@workspace:packages/contract/contracts"],
+
+    "@kb/docs": ["@kb/docs@workspace:packages/extension/docs"],
 
     "@kb/ext-canvas": ["@kb/ext-canvas@workspace:packages/extension/ext-canvas"],
 
