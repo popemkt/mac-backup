@@ -31,7 +31,11 @@ const COUNT = 1600;
 const SPAN = [30, 18, 16] as const;
 const DEPTH_FROM = -9;
 
-export function ash(colors: PaletteUniforms, time: TslNode, arrival: TslNode): Sprite {
+export function ash(
+  colors: PaletteUniforms,
+  time: TslNode<"float">,
+  arrival: TslNode<"float">,
+): Sprite {
   const random = seededRandom(0x2545f491);
   // x, y, z: home in the volume, 0–1; w: a phase. The second: speed, size, ember, flicker.
   const homes = new Float32Array(COUNT * 4);
@@ -40,8 +44,8 @@ export function ash(colors: PaletteUniforms, time: TslNode, arrival: TslNode): S
     homes.set([random(), random(), random(), random() * Math.PI * 2], i * 4);
     looks.set([0.25 + random() * 0.5, random(), random() < 1 / 6 ? 1 : 0, random() * 20], i * 4);
   }
-  const home = instancedBufferAttribute(new InstancedBufferAttribute(homes, 4));
-  const look = instancedBufferAttribute(new InstancedBufferAttribute(looks, 4));
+  const home = instancedBufferAttribute<"vec4">(new InstancedBufferAttribute(homes, 4));
+  const look = instancedBufferAttribute<"vec4">(new InstancedBufferAttribute(looks, 4));
   // Rising, wrapping at the top; a slow sideways sway over periods past 8s (M4).
   const lift = fract(home.y.add(time.mul(look.x).mul(0.035)));
   const sway = sin(time.mul(0.45).add(home.w)).mul(0.5);

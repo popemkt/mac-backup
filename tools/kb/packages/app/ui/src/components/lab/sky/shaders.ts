@@ -47,14 +47,14 @@ const quad = () => uv().sub(0.5).mul(2);
  * glint two thin crossed spikes — the four-point diffraction of a telescope's
  * vanes. `spikes` scales their length.
  */
-export function starLight(glint: TslNode, spikes: TslNode): TslNode {
+export function starLight(glint: TslNode<"float">, spikes: TslNode<"float">): TslNode<"float"> {
   const q = quad();
   const ax = q.x.abs();
   const ay = q.y.abs();
   const core = exp(q.dot(q).mul(-55));
   const halo = exp(length(q).mul(-7)).mul(glint.mul(0.5).add(0.18));
   const reach = spikes.max(0.05);
-  const arm = (along: TslNode, across: TslNode) =>
+  const arm = (along: TslNode<"float">, across: TslNode<"float">) =>
     exp(across.mul(-90)).mul(float(1).sub(along.div(reach)).max(0).pow(3));
   return core.add(halo).add(arm(ax, ay).add(arm(ay, ax)).mul(glint));
 }
@@ -77,10 +77,10 @@ const BAND = [0.28, 0.93, 0.24] as const;
 export function nebula(
   colors: PaletteUniforms,
   u: {
-    readonly amount: TslNode;
-    readonly sun: TslNode;
-    readonly day: TslNode;
-    readonly arrival: TslNode;
+    readonly amount: TslNode<"float">;
+    readonly sun: TslNode<"vec3">;
+    readonly day: TslNode<"float">;
+    readonly arrival: TslNode<"float">;
   },
 ): Mesh {
   const { amount, arrival } = u;
@@ -133,7 +133,7 @@ export function nebula(
 }
 
 /** The sun's light: warm white from the accent, and how bright it is (HDR). */
-function sunColor(colors: PaletteUniforms): TslNode {
+function sunColor(colors: PaletteUniforms): TslNode<"vec3"> {
   return mix(colors.accent, vec3(1, 1, 1), 0.62);
 }
 
@@ -142,7 +142,11 @@ function sunColor(colors: PaletteUniforms): TslNode {
  * limb-darkened — dimmer where the surface turns away — and granulated by a
  * slowly boiling noise.
  */
-export function sun(colors: PaletteUniforms, time: TslNode, arrival: TslNode): Mesh {
+export function sun(
+  colors: PaletteUniforms,
+  time: TslNode<"float">,
+  arrival: TslNode<"float">,
+): Mesh {
   const material = new MeshBasicNodeMaterial();
   material.fog = false;
   const view = normalize(cameraPosition.sub(positionWorld));
@@ -167,7 +171,11 @@ export function sun(colors: PaletteUniforms, time: TslNode, arrival: TslNode): M
  * broken into faint streamers by noise over the angle round the disc. Drawn
  * additively; the sun's own sphere hides the part behind the disc.
  */
-export function corona(colors: PaletteUniforms, time: TslNode, arrival: TslNode): Sprite {
+export function corona(
+  colors: PaletteUniforms,
+  time: TslNode<"float">,
+  arrival: TslNode<"float">,
+): Sprite {
   const material = new SpriteNodeMaterial({
     transparent: true,
     depthWrite: false,
@@ -204,10 +212,10 @@ export function corona(colors: PaletteUniforms, time: TslNode, arrival: TslNode)
 export function moon(
   colors: PaletteUniforms,
   u: {
-    readonly sun: TslNode;
-    readonly earthshine: TslNode;
-    readonly day: TslNode;
-    readonly arrival: TslNode;
+    readonly sun: TslNode<"vec3">;
+    readonly earthshine: TslNode<"float">;
+    readonly day: TslNode<"float">;
+    readonly arrival: TslNode<"float">;
   },
 ): Mesh {
   const material = new MeshBasicNodeMaterial({ transparent: true });

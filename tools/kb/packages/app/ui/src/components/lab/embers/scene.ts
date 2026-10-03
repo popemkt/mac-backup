@@ -87,7 +87,7 @@ function embers(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
   const { u, buffers: b } = sim;
   const life = b.state.element(instanceIndex);
   const place = b.position.element(instanceIndex);
-  const gain = uniform<number>(HEAT_GAIN.dark);
+  const gain = uniform(HEAT_GAIN.dark);
   const dark = uniform(init.dark ? 1 : 0);
   // The air's own clock: the haze and the ash drift while the sim may rest.
   const clock = uniform(0);

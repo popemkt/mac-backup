@@ -20,7 +20,7 @@ export class Entrance {
   readonly progress = uniform(0);
   private elapsed = 0;
   private readonly duration: number;
-  private readonly ease: (t: TslNode) => TslNode;
+  private readonly ease: (t: TslNode<"float">) => TslNode<"float">;
   private readonly curve: CubicBezier;
 
   constructor(timing: Timing) {
@@ -42,7 +42,7 @@ export class Entrance {
    * How far a piece has arrived, 0 → 1 on the settle ease, for a piece whose
    * place in the order is `lag` (0 first, 1 last).
    */
-  arrival(lag: TslNode): TslNode {
+  arrival(lag: TslNode<"float">): TslNode<"float"> {
     return this.ease(
       this.progress
         .sub(lag.clamp(0, 1).mul(ENTRANCE_SPREAD))

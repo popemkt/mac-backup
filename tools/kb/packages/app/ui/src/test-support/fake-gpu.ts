@@ -73,7 +73,7 @@ export const gpu = {
 };
 
 /** The `three/webgpu` exports a suite replaces. */
-export const FAKE_WEBGPU = { WebGPURenderer: FakeRenderer, PostProcessing: FakePost };
+export const FAKE_WEBGPU = { WebGPURenderer: FakeRenderer, RenderPipeline: FakePost };
 
 /** How many frames a stand-in renderer's post chain has drawn. */
 export const renders = (renderer: FakeRenderer): number => renderer.post?.renders ?? 0;

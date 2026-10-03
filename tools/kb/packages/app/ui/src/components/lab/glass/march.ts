@@ -26,6 +26,7 @@ import {
   Break,
   Fn,
   If,
+  Loop,
   abs,
   cameraPosition,
   dot,
@@ -48,7 +49,7 @@ import {
   vec3,
 } from "three/tsl";
 import type { PaletteUniforms } from "@/scene/gpu/stage";
-import { loop, type TslNode } from "@/scene/gpu/tsl";
+import type { TslNode } from "@/scene/gpu/tsl";
 import { BLOB_BOUNDS, BLOB_COUNT } from "@/components/lab/glass/blobs";
 
 const OUTER_STEPS = 56;
@@ -56,23 +57,23 @@ const INNER_STEPS = 28;
 const EPSILON = 0.0015;
 
 export interface GlassUniforms {
-  readonly blend: TslNode;
-  readonly ior: TslNode;
-  readonly dispersion: TslNode;
-  readonly density: TslNode;
+  readonly blend: TslNode<"float">;
+  readonly ior: TslNode<"float">;
+  readonly dispersion: TslNode<"float">;
+  readonly density: TslNode<"float">;
   /** How far the blobs have grown in, 0–1 each (the entrance). */
-  readonly grown: (index: number) => TslNode;
+  readonly grown: (index: number) => TslNode<"float">;
 }
 
 /** The blobs' centres and radii, a uniform array the CPU rewrites each frame. */
 export function blobUniforms() {
   const values = Array.from({ length: BLOB_COUNT }, () => new Vector4());
-  return { values, node: uniformArray(values, "vec4") };
+  return { values, node: uniformArray<"vec4">(values, "vec4") };
 }
 type BlobUniforms = ReturnType<typeof blobUniforms>;
 
 /** Polynomial smooth minimum: a crease-free union within `k`. */
-function smin(a: TslNode, b: TslNode, k: TslNode): TslNode {
+function smin(a: TslNode<"float">, b: TslNode<"float">, k: TslNode<"float">): TslNode<"float"> {
   const h = max(k.sub(abs(a.sub(b))), 0).div(k);
   return min(a, b).sub(h.mul(h).mul(k).mul(0.25));
 }
@@ -82,9 +83,9 @@ function smin(a: TslNode, b: TslNode, k: TslNode): TslNode {
  * places — the march, both normals, the path through the glass — and inlined
  * at each the shader took most of a minute to compile.
  */
-function field(blobs: BlobUniforms, u: GlassUniforms): (p: TslNode) => TslNode {
-  const fn = Fn(([p]: readonly [TslNode]) => {
-    let d: TslNode = float(1e4);
+function field(blobs: BlobUniforms, u: GlassUniforms): (p: TslNode<"vec3">) => TslNode<"float"> {
+  const fn = Fn(([p]: readonly [TslNode<"vec3">]) => {
+    let d: TslNode<"float"> = float(1e4);
     for (let i = 0; i < BLOB_COUNT; i++) {
       const blob = blobs.node.element(int(i));
       const sphere = length(p.sub(blob.xyz))
@@ -100,7 +101,10 @@ function field(blobs: BlobUniforms, u: GlassUniforms): (p: TslNode) => TslNode {
 }
 
 /** The field's gradient at `p`, from a tetrahedron of four samples. */
-function normalAt(sdf: (p: TslNode) => TslNode, p: TslNode): TslNode {
+function normalAt(
+  sdf: (p: TslNode<"vec3">) => TslNode<"float">,
+  p: TslNode<"vec3">,
+): TslNode<"vec3"> {
   const e = 0.002;
   const a = vec3(1, -1, -1);
   const b = vec3(-1, -1, 1);
@@ -116,8 +120,8 @@ function normalAt(sdf: (p: TslNode) => TslNode, p: TslNode): TslNode {
 }
 
 /** The studio, in direction `d`: the light the glass bends and mirrors. */
-function studioLight(colors: PaletteUniforms): (d: TslNode) => TslNode {
-  const fn = Fn(([d]: readonly [TslNode]) => studioAt(colors, d)).setLayout({
+function studioLight(colors: PaletteUniforms): (d: TslNode<"vec3">) => TslNode<"vec3"> {
+  const fn = Fn(([d]: readonly [TslNode<"vec3">]) => studioAt(colors, d)).setLayout({
     name: "glassStudio",
     type: "vec3",
     inputs: [{ name: "d", type: "vec3" }],
@@ -125,7 +129,7 @@ function studioLight(colors: PaletteUniforms): (d: TslNode) => TslNode {
   return (d) => fn(d);
 }
 
-function studioAt(colors: PaletteUniforms, d: TslNode): TslNode {
+function studioAt(colors: PaletteUniforms, d: TslNode<"vec3">): TslNode<"vec3"> {
   const up = d.y;
   const ground = mix(colors.ground, colors.edge, smoothstep(-0.1, 0.9, abs(up)));
   // Soft boxes: a long strip overhead, a key panel to one side, a low rim behind.
@@ -169,15 +173,15 @@ function studioAt(colors: PaletteUniforms, d: TslNode): TslNode {
 interface Glass {
   readonly colors: PaletteUniforms;
   readonly u: GlassUniforms;
-  readonly sdf: (p: TslNode) => TslNode;
-  readonly studio: (d: TslNode) => TslNode;
+  readonly sdf: (p: TslNode<"vec3">) => TslNode<"float">;
+  readonly studio: (d: TslNode<"vec3">) => TslNode<"vec3">;
 }
 
 /** Where a ray from `p` along `dir` inside the glass leaves it, and how far it went. */
-function passThrough(g: Glass, p: TslNode, dir: TslNode) {
+function passThrough(g: Glass, p: TslNode<"vec3">, dir: TslNode<"vec3">) {
   const q = vec3(p).toVar();
   const travelled = float(0).toVar();
-  loop(INNER_STEPS, () => {
+  Loop({ start: 0, end: INNER_STEPS, type: "int" }, () => {
     const d = g.sdf(q).negate().max(0.02);
     q.addAssign(dir.mul(d));
     travelled.addAssign(d);
@@ -189,7 +193,7 @@ function passThrough(g: Glass, p: TslNode, dir: TslNode) {
 }
 
 /** The glass's colour where the ray `rd` lands on it at `p`. */
-function shade(g: Glass, at: TslNode, rd: TslNode): TslNode {
+function shade(g: Glass, at: TslNode<"vec3">, rd: TslNode<"vec3">): TslNode<"vec3"> {
   const { colors, u, sdf, studio } = g;
   const p = vec3(at).toVar();
   const n = normalAt(sdf, p).toVar();
@@ -200,7 +204,7 @@ function shade(g: Glass, at: TslNode, rd: TslNode): TslNode {
   const inward = refract(rd, n, float(1).div(u.ior)).toVar();
   const { exit, travelled } = passThrough(g, p.sub(n.mul(EPSILON * 4)), inward);
   const out = normalAt(sdf, exit).negate();
-  const leave = (index: TslNode) => {
+  const leave = (index: TslNode<"float">) => {
     const bent = refract(inward, out, index);
     // Total internal reflection: no way out, so the ray mirrors inside.
     return studio(select(dot(bent, bent).lessThan(0.5), reflect(inward, out), bent));
@@ -232,7 +236,7 @@ export function glassMesh(colors: PaletteUniforms, blobs: BlobUniforms, u: Glass
       const far = b.negate().add(sqrt(h)).toVar();
       const t = max(b.negate().sub(sqrt(h)), 0).toVar();
       const hit = float(0).toVar();
-      loop(OUTER_STEPS, () => {
+      Loop({ start: 0, end: OUTER_STEPS, type: "int" }, () => {
         const d = sdf(ro.add(rd.mul(t)));
         If(d.lessThan(EPSILON), () => {
           hit.assign(1);

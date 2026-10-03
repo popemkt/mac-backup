@@ -21,6 +21,7 @@ import {
   PlaneGeometry,
   SRGBColorSpace,
   Vector3,
+  type UniformNode,
 } from "three/webgpu";
 import { texture, uniform } from "three/tsl";
 import { canvasDepth, paintOrder, type CanvasNode } from "@kb/canvas";
@@ -51,7 +52,7 @@ interface Card {
   /** The face texture, as the materials sample it (its value swaps when the size does). */
   readonly face: ReturnType<typeof texture>;
   /** How dark this card's shadow is, 0–1. */
-  readonly shade: ReturnType<typeof uniform<number>>;
+  readonly shade: UniformNode<"float", number>;
   map: CanvasTexture;
   /** What the face shows (`faceVersion`), and the size it was painted at. */
   version: string;

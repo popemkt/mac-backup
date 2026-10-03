@@ -279,9 +279,9 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
 
     **three r180 → r186** is its own chore commit (step 0), done before the
     first addon import (step 4), so new three code is written once against
-    the target version. No feature waits for `HTMLTexture`. The lockfile
-    pins 0.180.0, but `packages/app/ui/node_modules/three` holds 0.185.1:
-    reinstall before trusting any local render result.
+    the target version. No feature waits for `HTMLTexture`. Done
+    2026-10-03: the catalog pins `three` ^0.186.1 and `@types/three`
+    ^0.186.0, and a fresh install resolves exactly those.
 
 ### Agents
 

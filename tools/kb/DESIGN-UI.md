@@ -1116,10 +1116,10 @@ open view of that canvas.
   the canvas plane, which carries the 2D dot grid; edges are lines between
   side anchors climbing from one depth to the other. The ground is the
   page's, edge to edge, so the crossfade is between equal grounds.
-  Three stays at r180: r186's `HTMLTexture` needs Chrome's HTML-in-Canvas
-  origin trial (`copyElementImageToTexture`) and silently draws nothing
-  without it, so it would ride on this path as a second one rather than
-  replace it.
+  Faces stay canvas textures on three r186: its `HTMLTexture` needs Chrome's
+  HTML-in-Canvas origin trial (`copyElementImageToTexture`) and silently
+  draws nothing without it, so it would ride on this path as a second one
+  rather than replace it.
 - **Gestures in 3D** are the 2D ones where they mean the same: a press on a
   card selects it (a modifier toggles), a drag carries it on its own plane
   and Alt-drag lifts it. Both are the pointer reducer's one move, carried
@@ -1743,7 +1743,7 @@ study's info card cites them by id.
   WebGL2 fallback is three's, never a hand-rolled second path); every shader
   and compute kernel a TSL node graph (`Fn`, `uniform`, storage buffers,
   `compute()`) on node materials, never GLSL/WGSL strings or
-  `ShaderMaterial`; post-processing a TSL graph (`PostProcessing`, `pass()`,
+  `ShaderMaterial`; post-processing a TSL graph (`RenderPipeline`, `pass()`,
   `bloom()`, tone mapping, dither); the info card's parameters drive TSL
   `uniform()`s. Where three's TSL typings are looser than the nodes, the one
   typed seam is `scene/gpu/tsl.ts`. Plain CPU arithmetic that feeds instance data

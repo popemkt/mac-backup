@@ -54,7 +54,7 @@ function motion(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
     state.array[i * 4] = field.centers[i * 2] ?? 0;
     state.array[i * 4 + 2] = field.centers[i * 2 + 1] ?? 0;
   }
-  const s = instancedBufferAttribute(state);
+  const s = instancedBufferAttribute<"vec4">(state);
   const entrance = new Entrance(init.timing);
   // Arriving, the tiles rise out of the floor from the centre outward.
   const risen = entrance.arrival(length(vec3(s.x, 0, s.z)).div((SIDE * SPACING) / 2));

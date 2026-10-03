@@ -45,7 +45,11 @@ const AWAY = 1000;
 function streaks(
   colors: PaletteUniforms,
   b: FlowBuffers,
-  look: { readonly streak: TslNode; readonly dark: TslNode; readonly arrival: TslNode },
+  look: {
+    readonly streak: TslNode<"float">;
+    readonly dark: TslNode<"float">;
+    readonly arrival: TslNode<"float">;
+  },
 ): Sprite {
   const state = b.position.element(instanceIndex);
   const motion = b.velocity.element(instanceIndex);

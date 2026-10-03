@@ -34,11 +34,11 @@ import { approach } from "@/lib/timing";
 const NOMINAL = 60;
 
 export interface StarUniforms {
-  readonly time: TslNode;
-  readonly twinkle: TslNode;
-  readonly hover: TslNode;
-  readonly spikes: TslNode;
-  readonly lines: TslNode;
+  readonly time: TslNode<"float">;
+  readonly twinkle: TslNode<"float">;
+  readonly hover: TslNode<"float">;
+  readonly spikes: TslNode<"float">;
+  readonly lines: TslNode<"float">;
 }
 
 export class NodeStars {
@@ -82,8 +82,8 @@ export class NodeStars {
       return at;
     });
     this.positions = new InstancedBufferAttribute(positions, 3);
-    const place = instancedBufferAttribute(this.positions);
-    const look = instancedBufferAttribute(new InstancedBufferAttribute(looks, 4));
+    const place = instancedBufferAttribute<"vec3">(this.positions);
+    const look = instancedBufferAttribute<"vec4">(new InstancedBufferAttribute(looks, 4));
     const hovered = u.hover.equal(instanceIndex.toFloat());
     const material = new SpriteNodeMaterial({ transparent: true, depthWrite: false });
     material.fog = false;

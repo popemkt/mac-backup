@@ -39,9 +39,9 @@ export interface BackdropOptions {
 /** The backdrop's colour for this pixel, for `scene.backgroundNode`. `time` in seconds. */
 export function backdropNode(
   colors: PaletteUniforms,
-  time: TslNode,
+  time: TslNode<"float">,
   options: BackdropOptions = {},
-): TslNode {
+): TslNode<"vec3"> {
   const [fx, fy] = options.focus ?? [0.5, 0.5];
   const warmth = options.warmth ?? 0;
   const haze = options.haze ?? 0;

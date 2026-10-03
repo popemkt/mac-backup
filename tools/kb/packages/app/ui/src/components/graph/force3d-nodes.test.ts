@@ -4,8 +4,8 @@
  * encoding it draws, sizes included: the spheres and the pick radii follow.
  */
 import { describe, expect, it } from "vitest";
-import { BoxGeometry, Color, type InstancedMesh } from "three/webgpu";
-import { uniform } from "three/tsl";
+import { BoxGeometry, type InstancedMesh } from "three/webgpu";
+import { colorUniform } from "@/scene/gpu/tsl";
 import type { LensNode } from "@/lib/graph-lens";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { topologyOf } from "./force3d-emphasis";
@@ -21,11 +21,11 @@ const PALETTE = { ground: "#000", edge: "#000", hue: "#888", ink: "#fff", accent
 
 function colors() {
   return {
-    ground: uniform(new Color()),
-    edge: uniform(new Color()),
-    hue: uniform(new Color()),
-    ink: uniform(new Color()),
-    accent: uniform(new Color()),
+    ground: colorUniform(),
+    edge: colorUniform(),
+    hue: colorUniform(),
+    ink: colorUniform(),
+    accent: colorUniform(),
   };
 }
 

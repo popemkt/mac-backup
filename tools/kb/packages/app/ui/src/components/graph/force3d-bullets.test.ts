@@ -6,15 +6,8 @@
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
-import {
-  CanvasTexture,
-  Color,
-  Sprite,
-  Vector4,
-  type Node,
-  type SpriteNodeMaterial,
-} from "three/webgpu";
-import { uniform } from "three/tsl";
+import { CanvasTexture, Sprite, Vector4, type Node, type SpriteNodeMaterial } from "three/webgpu";
+import { colorUniform } from "@/scene/gpu/tsl";
 import { BULLET_GEOMETRY, bulletAppearance, bulletExtent } from "@/lib/bullet-mode";
 import { EmphasisFade } from "@/lib/graph-fade";
 import type { LensNode } from "@/lib/graph-lens";
@@ -40,11 +33,11 @@ function node(id: string, b = bullet(false, false)): LensNode {
 
 const PALETTE = { ground: "#fff", edge: "#fff", hue: "#888", ink: "#111", accent: "#f80" };
 const colors = () => ({
-  ground: uniform(new Color()),
-  edge: uniform(new Color()),
-  hue: uniform(new Color()),
-  ink: uniform(new Color()),
-  accent: uniform(new Color()),
+  ground: colorUniform(),
+  edge: colorUniform(),
+  hue: colorUniform(),
+  ink: colorUniform(),
+  accent: colorUniform(),
 });
 const fades = (n: number) => ({
   dim: new EmphasisFade(n, 0.2),

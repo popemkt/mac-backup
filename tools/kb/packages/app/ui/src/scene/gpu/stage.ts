@@ -36,16 +36,14 @@ import {
   AgXToneMapping,
   Color,
   NoToneMapping,
-  PCFSoftShadowMap,
+  PCFShadowMap,
   PerspectiveCamera,
-  PostProcessing,
+  RenderPipeline,
   Scene,
   WebGPURenderer,
   type ToneMapping,
 } from "three/webgpu";
 import {
-  colorToDirection,
-  directionToColor,
   dot,
   float,
   fog,
@@ -55,6 +53,7 @@ import {
   mrt,
   normalView,
   output,
+  packNormalToRGB,
   pass,
   rangeFogFactor,
   renderOutput,
@@ -63,6 +62,7 @@ import {
   screenUV,
   smoothstep,
   uniform,
+  unpackRGBToNormal,
   vec2,
   vec4,
 } from "three/tsl";
@@ -72,7 +72,7 @@ import type { SceneBackend } from "@/scene/backend";
 import type { SceneHandle } from "@/scene/host";
 import { backdropNode, type BackdropOptions } from "@/scene/gpu/backdrop";
 import { disposeGraph } from "@/scene/gpu/dispose";
-import type { TslNode } from "@/scene/gpu/tsl";
+import { colorUniform, type TslNode } from "@/scene/gpu/tsl";
 import type { ScenePalette } from "@/scene/palette";
 import { BLOOM_THRESHOLD } from "@/scene/shade-ops";
 import { approachRate, approachShare, clampStep, type Timing } from "@/lib/timing";
@@ -126,11 +126,11 @@ interface StageBuild {
 /** The palette as uniforms (linear colour): what every view's shaders read. */
 function paletteUniforms() {
   return {
-    ground: uniform(new Color()),
-    edge: uniform(new Color()),
-    hue: uniform(new Color()),
-    ink: uniform(new Color()),
-    accent: uniform(new Color()),
+    ground: colorUniform(),
+    edge: colorUniform(),
+    hue: colorUniform(),
+    ink: colorUniform(),
+    accent: colorUniform(),
   };
 }
 export type PaletteUniforms = ReturnType<typeof paletteUniforms>;
@@ -155,11 +155,11 @@ function postChain(
   let lit: ReturnType<typeof color.mul> | typeof color = color;
   let occlusionPass: ReturnType<typeof gtao> | null = null;
   if (occluded) {
-    scenePass.setMRT(mrt({ output, normal: directionToColor(normalView) }));
+    scenePass.setMRT(mrt({ output, normal: packNormalToRGB(normalView) }));
     const normals = scenePass.getTextureNode("normal");
     occlusionPass = gtao(
       scenePass.getTextureNode("depth"),
-      sample((uv) => colorToDirection(normals.sample(uv))),
+      sample((uv) => unpackRGBToNormal(normals.sample(uv))),
       camera,
     );
     occlusionPass.resolutionScale = 0.5;
@@ -176,7 +176,7 @@ function postChain(
   const noise = fract(
     float(52.9829189).mul(fract(dot(screenCoordinate.xy, vec2(0.06711056, 0.00583715)))),
   );
-  const post = new PostProcessing(renderer);
+  const post = new RenderPipeline(renderer);
   post.outputColorTransform = false;
   post.outputNode = vec4(display.rgb.add(noise.sub(0.5).mul(knobs.dither.div(255))), 1);
   return { post, glow, occlusionPass, knobs };
@@ -199,7 +199,7 @@ async function mountRenderer(host: HTMLElement, shadows: boolean): Promise<WebGP
   renderer.setPixelRatio(pixelRatio());
   if (shadows) {
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = PCFSoftShadowMap;
+    renderer.shadowMap.type = PCFShadowMap;
   }
   Object.assign(renderer.domElement.style, {
     display: "block",
@@ -363,7 +363,7 @@ async function createStage(host: HTMLElement, options: StageOptions) {
      * edges into `edge`, and whatever warmth, haze or rise the view asks for,
      * drifting on its `time` (seconds).
      */
-    backdrop: (ground: BackdropOptions & { readonly time?: TslNode } = {}) => {
+    backdrop: (ground: BackdropOptions & { readonly time?: TslNode<"float"> } = {}) => {
       // The occlusion pass renders to two targets, and three's background
       // mesh writes only one: under occlusion the ground is a flat clear (the
       // same live colour), and the post chain's edge fade does the vignette.
@@ -416,7 +416,7 @@ async function createStage(host: HTMLElement, options: StageOptions) {
         chain.occlusionPass?.dispose();
         chain.glow.dispose();
         chain.post.dispose();
-        renderer.dispose();
+        void renderer.dispose();
         renderer.domElement.remove();
       },
     } satisfies SceneHandle,

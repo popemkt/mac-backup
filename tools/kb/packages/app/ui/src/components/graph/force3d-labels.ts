@@ -19,6 +19,7 @@ import {
   Vector3,
   type Group,
   type PerspectiveCamera,
+  type UniformNode,
 } from "three/webgpu";
 import { texture, uniform } from "three/tsl";
 import { fitGraphLabel } from "@/lib/graph-label";
@@ -46,7 +47,7 @@ interface Label {
   readonly sprite: Sprite;
   readonly width: number;
   readonly box: GraphLabelBox;
-  readonly opacity: ReturnType<typeof uniform<number>>;
+  readonly opacity: UniformNode<"float", number>;
   dispose(): void;
 }
 

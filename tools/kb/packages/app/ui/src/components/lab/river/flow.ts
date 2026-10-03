@@ -45,7 +45,7 @@ const LENGTH = 13;
 const RADIUS = 1.35;
 
 /** The channel's centre line at `x`: a slow meander in y and z. */
-function centreAt(x: TslNode): TslNode {
+function centreAt(x: TslNode<"float">): TslNode<"vec3"> {
   return vec3(x, sin(x.mul(0.33)).mul(1.3), cos(x.mul(0.21)).mul(1.4));
 }
 
@@ -90,14 +90,14 @@ function seed() {
 export type FlowBuffers = ReturnType<typeof seed>;
 
 /** The noise potential ψ, as one WGSL function (it is sampled six times a particle). */
-const potential = Fn(([q]: readonly [TslNode]) => mx_noise_vec3(q)).setLayout({
+const potential = Fn(([q]: readonly [TslNode<"vec3">]) => mx_noise_vec3(q)).setLayout({
   name: "riverPotential",
   type: "vec3",
   inputs: [{ name: "q", type: "vec3" }],
 });
 
 /** ∇ × ψ at `q`, by central differences. */
-function curl(q: TslNode): TslNode {
+function curl(q: TslNode<"vec3">): TslNode<"vec3"> {
   const e = 0.08;
   const dx = vec3(e, 0, 0);
   const dy = vec3(0, e, 0);

@@ -54,12 +54,12 @@ import type { TslNode } from "@/scene/gpu/tsl";
 import { SEA_CELL, SEA_SIZE, WAVE_COUNT, type Wave } from "@/components/lab/ocean/waves";
 
 export interface SeaUniforms {
-  readonly time: TslNode;
+  readonly time: TslNode<"float">;
   /** Unit direction toward the sun. */
-  readonly sun: TslNode;
+  readonly sun: TslNode<"vec3">;
   /** 0–1: how far the waves have risen from calm (the entrance). */
-  readonly swell: TslNode;
-  readonly foam: TslNode;
+  readonly swell: TslNode<"float">;
+  readonly foam: TslNode<"float">;
 }
 
 /** The wave set as two uniform arrays: (dx, dz, k, a) and (c, s, 0, 0). */
@@ -67,8 +67,8 @@ export function waveUniforms() {
   const shape = Array.from({ length: WAVE_COUNT }, () => new Vector4());
   const motion = Array.from({ length: WAVE_COUNT }, () => new Vector4());
   return {
-    shape: uniformArray(shape, "vec4"),
-    motion: uniformArray(motion, "vec4"),
+    shape: uniformArray<"vec4">(shape, "vec4"),
+    motion: uniformArray<"vec4">(motion, "vec4"),
     set: (waves: readonly Wave[]) => {
       waves.forEach((w, i) => {
         shape[i]?.set(w.dx, w.dz, w.k, w.amplitude);
@@ -80,7 +80,7 @@ export function waveUniforms() {
 type WaveUniforms = ReturnType<typeof waveUniforms>;
 
 /** The sun's own light: the accent run toward white. */
-function sunlight(colors: PaletteUniforms): TslNode {
+function sunlight(colors: PaletteUniforms): TslNode<"vec3"> {
   return mix(colors.accent, vec3(1, 1, 1), 0.55);
 }
 
@@ -89,8 +89,11 @@ function sunlight(colors: PaletteUniforms): TslNode {
  * takes its own instance: a layout function's uniforms are bound per
  * material, and one instance shared by two left the second unbound.
  */
-export function skyFunction(colors: PaletteUniforms, u: SeaUniforms): (d: TslNode) => TslNode {
-  const fn = Fn(([d]: readonly [TslNode]) => {
+export function skyFunction(
+  colors: PaletteUniforms,
+  u: SeaUniforms,
+): (d: TslNode<"vec3">) => TslNode<"vec3"> {
+  const fn = Fn(([d]: readonly [TslNode<"vec3">]) => {
     const up = d.y;
     const mu = dot(d, u.sun).max(0);
     // The hue family everywhere; the accent only where the sun warms it (L1).
@@ -127,7 +130,7 @@ export function skyFunction(colors: PaletteUniforms, u: SeaUniforms): (d: TslNod
   return (d) => fn(d);
 }
 
-export function skyDome(sky: (d: TslNode) => TslNode): Mesh {
+export function skyDome(sky: (d: TslNode<"vec3">) => TslNode<"vec3">): Mesh {
   const material = new MeshBasicNodeMaterial({ side: BackSide, depthWrite: false });
   material.fog = false;
   material.colorNode = sky(normalize(positionWorld.sub(cameraPosition)));
@@ -135,10 +138,10 @@ export function skyDome(sky: (d: TslNode) => TslNode): Mesh {
 }
 
 /** The Gerstner sum at grid point `p` (xz): displaced position, normal and pinch. */
-function gerstner(w: WaveUniforms, u: SeaUniforms, p: TslNode) {
-  let offset: TslNode = vec3(0, 0, 0);
-  let tangent: TslNode = vec3(1, 0, 0);
-  let binormal: TslNode = vec3(0, 0, 1);
+function gerstner(w: WaveUniforms, u: SeaUniforms, p: TslNode<"vec3">) {
+  let offset: TslNode<"vec3"> = vec3(0, 0, 0);
+  let tangent: TslNode<"vec3"> = vec3(1, 0, 0);
+  let binormal: TslNode<"vec3"> = vec3(0, 0, 1);
   for (let i = 0; i < WAVE_COUNT; i++) {
     const shape = w.shape.element(int(i));
     const motion = w.motion.element(int(i));
@@ -176,7 +179,7 @@ function gerstner(w: WaveUniforms, u: SeaUniforms, p: TslNode) {
 
 export function sea(
   colors: PaletteUniforms,
-  sky: (d: TslNode) => TslNode,
+  sky: (d: TslNode<"vec3">) => TslNode<"vec3">,
   w: WaveUniforms,
   u: SeaUniforms,
 ): Mesh {

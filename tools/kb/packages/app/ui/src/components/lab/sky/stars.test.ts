@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { Color } from "three/webgpu";
-import { float, uniform } from "three/tsl";
+import { float } from "three/tsl";
+import { colorUniform } from "@/scene/gpu/tsl";
 import { TIMING_FALLBACK } from "@/lib/timing";
 import type { LabGraph } from "@/components/lab/lab-graph";
 import { Entrance } from "@/components/lab/kit/entrance";
 import { NodeStars, stepConstellation } from "./stars";
 
 const colors = {
-  ground: uniform(new Color()),
-  edge: uniform(new Color()),
-  hue: uniform(new Color()),
-  ink: uniform(new Color()),
-  accent: uniform(new Color()),
+  ground: colorUniform(),
+  edge: colorUniform(),
+  hue: colorUniform(),
+  ink: colorUniform(),
+  accent: colorUniform(),
 };
 
 const node = (id: string) => ({

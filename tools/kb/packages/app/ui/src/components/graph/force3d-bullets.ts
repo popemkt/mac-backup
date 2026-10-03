@@ -28,6 +28,7 @@ import {
   SpriteNodeMaterial,
   Vector2,
   Vector4,
+  type UniformNode,
 } from "three/webgpu";
 import {
   abs,
@@ -45,7 +46,6 @@ import {
   mix,
   mod,
   select,
-  sRGBTransferEOTF,
   texture,
   uniform,
   uv,
@@ -64,7 +64,7 @@ import {
   PLAIN_BULLET,
   readBulletPage,
 } from "@/lib/bullet-gpu";
-import { NODE_OPS, type TslNode } from "@/scene/gpu/tsl";
+import { NODE_OPS, linearFromSrgb, type TslNode } from "@/scene/gpu/tsl";
 import type { Force3dTopology } from "./force3d-emphasis";
 import { shadeNode } from "./force3d-light";
 import { baseRadius, nodeRadius, type NodeLayer, type NodeLayerInit } from "./force3d-nodes";
@@ -94,12 +94,12 @@ const vec4Uniform = (value: readonly number[]) =>
 
 /** What a bullet's fragment reads: its node's entry, and the colour table and glyphs. */
 interface BulletInputs {
-  readonly mark: TslNode;
-  readonly paint: TslNode;
-  readonly alpha: TslNode;
+  readonly mark: TslNode<"vec4">;
+  readonly paint: TslNode<"vec4">;
+  readonly alpha: TslNode<"vec4">;
   readonly colors: CanvasTexture;
   readonly glyphs: CanvasTexture;
-  readonly tableSize: ReturnType<typeof uniform<Vector2>>;
+  readonly tableSize: UniformNode<"vec2", Vector2>;
 }
 
 /** Each node's table entry (`BulletTable`) as instance attributes, and their nodes. */
@@ -110,9 +110,9 @@ function entryAttributes(n: number) {
   const alpha = make();
   return {
     nodes: {
-      mark: instancedDynamicBufferAttribute(mark, "vec4"),
-      paint: instancedDynamicBufferAttribute(paint, "vec4"),
-      alpha: instancedDynamicBufferAttribute(alpha, "vec4"),
+      mark: instancedDynamicBufferAttribute<"vec4">(mark, "vec4"),
+      paint: instancedDynamicBufferAttribute<"vec4">(paint, "vec4"),
+      alpha: instancedDynamicBufferAttribute<"vec4">(alpha, "vec4"),
     },
     write(table: BulletTable) {
       for (const [attribute, values] of [
@@ -128,7 +128,8 @@ function entryAttributes(n: number) {
 }
 
 /** Lay a mark of colour `c` at strength `s` over what is there (premultiplied). */
-const lay = (under: TslNode, c: TslNode, s: TslNode) => mix(under, vec4(c, 1), s);
+const lay = (under: TslNode<"vec4">, c: TslNode<"vec3">, s: TslNode<"float">) =>
+  mix(under, vec4(c, 1), s);
 
 /**
  * A bullet's fragment, as the 2D program draws it (`sigma-bullets`): the
@@ -149,10 +150,10 @@ function bulletFragment(inputs: BulletInputs) {
   // down), and how much of the box one screen pixel spans there.
   const p = vec2(uv().x.sub(0.5), float(0.5).sub(uv().y)).mul(glyph.z);
   const pixel = max(fwidth(p.x), fwidth(p.y));
-  const cover = (d: TslNode) => clamp(float(0.5).sub(d.div(pixel)), 0, 1);
+  const cover = (d: TslNode<"float">) => clamp(float(0.5).sub(d.div(pixel)), 0, 1);
   /** Every sample of the colour table, so a rebuilt table reaches each. */
   const tableSamples: ReturnType<typeof texture>[] = [];
-  const texel = (column: TslNode) => {
+  const texel = (column: TslNode<"float">) => {
     const sample = texture(
       inputs.colors,
       vec2(paint.x.add(column), paint.y).add(0.5).div(inputs.tableSize),
@@ -161,7 +162,7 @@ function bulletFragment(inputs: BulletInputs) {
     return sample.rgb;
   };
   /** Which of n equal wedges, clockwise from the top (CSS conic-gradient's). */
-  const wedge = (count: TslNode) =>
+  const wedge = (count: TslNode<"float">) =>
     min(floor(fract(atan(p.x, p.y.negate()).div(TAU).add(1)).mul(count)), count.sub(1));
   const r = length(p);
   const angle = atan(p.y, p.x);
@@ -193,12 +194,12 @@ function bulletFragment(inputs: BulletInputs) {
   // ring, the dot and the ink are laid over it in the outline's order, in
   // sRGB as the outline composites, then taken to the scene's linear light.
   const C = BULLET_TABLE_COLUMNS;
-  let laid: TslNode = vec4(texel(float(C.ground)).mul(shown), shown);
+  let laid: TslNode<"vec4"> = vec4(texel(float(C.ground)).mul(shown), shown);
   laid = lay(laid, texel(float(C.halo).add(wedge(paint.z))), alpha.x.mul(halo));
   laid = lay(laid, texel(float(C.ring)), alpha.w.mul(ringed));
   laid = lay(laid, texel(float(C.halo).add(paint.z).add(wedge(paint.w))), alpha.y.mul(dotted));
   laid = lay(laid, texel(float(C.ink)), alpha.z.mul(inked));
-  const hue = sRGBTransferEOTF(laid.rgb.div(max(laid.a, 1e-4)));
+  const hue = linearFromSrgb(laid.rgb.div(max(laid.a, 1e-4)));
   return { hue, shown, tableSamples };
 }
 
@@ -223,8 +224,8 @@ export function bulletLayer(init: NodeLayerInit): NodeLayer {
   let glyphVersion = -1;
 
   const material = new SpriteNodeMaterial();
-  const at = instancedDynamicBufferAttribute(place, "vec4");
-  const present = instancedDynamicBufferAttribute(presence, "float");
+  const at = instancedDynamicBufferAttribute<"vec4">(place, "vec4");
+  const present = instancedDynamicBufferAttribute<"float">(presence, "float");
   material.positionNode = at.xyz;
   material.scaleNode = at.w;
 

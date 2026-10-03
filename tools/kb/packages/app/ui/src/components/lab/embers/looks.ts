@@ -69,16 +69,16 @@ export function isEmberLook(value: unknown): value is EmberLook {
 export interface LookInputs {
   readonly colors: PaletteUniforms;
   /** The sphere's centre and radius, world units. */
-  readonly place: TslNode;
-  readonly radius: TslNode;
+  readonly place: TslNode<"vec3">;
+  readonly radius: TslNode<"float">;
   /** Contact heat (and a pop's flash), the resting glow, and this frame's cap on the rest. */
-  readonly contact: TslNode;
-  readonly rest: TslNode;
-  readonly ceiling: TslNode;
-  readonly gain: TslNode;
+  readonly contact: TslNode<"float">;
+  readonly rest: TslNode<"float">;
+  readonly ceiling: TslNode<"float">;
+  readonly gain: TslNode<"float">;
   /** 1 on a dark theme, 0 on a light one. */
-  readonly dark: TslNode;
-  readonly time: TslNode;
+  readonly dark: TslNode<"float">;
+  readonly time: TslNode<"float">;
 }
 
 /** A look's draw: the sphere mesh, and what else it adds (the toon outline). */
@@ -93,11 +93,11 @@ const BANDS = 4;
 /** The outline's width, world units, whatever the sphere's size. */
 const INK = 0.016;
 
-function shown(i: LookInputs, rest: TslNode = i.rest): TslNode {
+function shown(i: LookInputs, rest: TslNode<"float"> = i.rest): TslNode<"float"> {
   return displayTemperature(NODE_OPS, i.contact, rest, i.ceiling).min(FLASH);
 }
 
-function emissive(i: LookInputs, t: TslNode): TslNode {
+function emissive(i: LookInputs, t: TslNode<"float">): TslNode<"vec3"> {
   return heatEmissive(NODE_OPS, vec3(i.colors.accent), t, i.gain);
 }
 
@@ -112,7 +112,7 @@ function instanced(geometry: BufferGeometry, material: Material, count: number):
  * A seeded offset per sphere, so no two share a pattern. Patterns read
  * `positionGeometry`, the unit sphere, not the placed position.
  */
-function seed(): TslNode {
+function seed(): TslNode<"vec3"> {
   const i = instanceIndex.toFloat();
   return vec3(hash(i), hash(i.add(17.3)), hash(i.add(41.9))).mul(19);
 }

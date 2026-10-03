@@ -19,6 +19,7 @@
 import {
   Fn,
   If,
+  Loop,
   atomicAdd,
   atomicLoad,
   atomicStore,
@@ -43,7 +44,7 @@ import {
   vec3,
 } from "three/tsl";
 import { Vector3 } from "three/webgpu";
-import { easeNode, loop, type TslNode } from "@/scene/gpu/tsl";
+import { easeNode, minInt, type TslNode } from "@/scene/gpu/tsl";
 import type { Timing } from "@/lib/timing";
 
 /** Grid table size (power of two) and how many spheres one cell remembers. */
@@ -107,7 +108,7 @@ function buffers(homes: Float32Array, count: number) {
 export type EmberBuffers = ReturnType<typeof buffers>;
 
 /** The grid cell of an integer cell coordinate, hashed into the table. */
-function hashCell(c: TslNode): TslNode {
+function hashCell(c: TslNode<"ivec3">): TslNode<"uint"> {
   return c.x
     .mul(73856093)
     .bitXor(c.y.mul(19349663))
@@ -121,23 +122,23 @@ function hashCell(c: TslNode): TslNode {
  * spans a few dozen cells, so ±512 never wraps. Two cells that share a hash
  * bucket keep different keys.
  */
-function cellKey(c: TslNode): TslNode {
+function cellKey(c: TslNode<"ivec3">): TslNode<"uint"> {
   return uint(c.x.add(512))
     .bitOr(uint(c.y.add(512)).shiftLeft(10))
     .bitOr(uint(c.z.add(512)).shiftLeft(20));
 }
 
-function cellCoord(p: TslNode, size: number): TslNode {
+function cellCoord(p: TslNode<"vec3">, size: number): TslNode<"ivec3"> {
   return ivec3(floor(p.div(size)));
 }
 
 /** One sphere's running collision sums, as shader variables. */
 interface Contact {
-  readonly p: TslNode;
-  readonly v: TslNode;
-  readonly push: TslNode;
-  readonly kick: TslNode;
-  readonly impact: TslNode;
+  readonly p: TslNode<"vec3">;
+  readonly v: TslNode<"vec3">;
+  readonly push: TslNode<"vec3">;
+  readonly kick: TslNode<"vec3">;
+  readonly impact: TslNode<"float">;
 }
 
 /**
@@ -146,21 +147,19 @@ interface Contact {
  * entries carrying this cell's key are met: a sphere is met once, from the one
  * probe whose cell it is in, even when two of the 27 probes share a bucket.
  */
-function scanCell(b: EmberBuffers, coord: TslNode, size: number, self: Contact): void {
+function scanCell(b: EmberBuffers, coord: TslNode<"ivec3">, size: number, self: Contact): void {
   const bucket = hashCell(coord).toVar();
   const key = cellKey(coord).toVar();
   // Materialised before the loop: left inline as the bound, no contact was ever found.
-  const filled = int(atomicLoad(b.cells.element(bucket)))
-    .min(SLOTS)
-    .toVar();
-  loop(filled, (s) => {
+  const filled = minInt(int(atomicLoad(b.cells.element(bucket))), SLOTS).toVar();
+  Loop({ start: 0, end: filled, type: "int" }, ({ i: s }) => {
     const entry = b.slots.element(bucket.mul(SLOTS).add(uint(s))).toVar();
     If(entry.y.equal(key), () => meet(b, entry.x, size, self));
   });
 }
 
 /** Sphere `j` against `self`: move out of it, bounce off it, and heat by the impact. */
-function meet(b: EmberBuffers, j: TslNode, size: number, self: Contact): void {
+function meet(b: EmberBuffers, j: TslNode<"uint">, size: number, self: Contact): void {
   If(j.notEqual(instanceIndex), () => {
     const d = b.position.element(j).sub(self.p).toVar();
     const dist = length(d).toVar();
@@ -182,7 +181,7 @@ function meet(b: EmberBuffers, j: TslNode, size: number, self: Contact): void {
  * untouched and contact heat has somewhere to climb from. It is shown, never
  * stored: it cannot pop anything, and the material caps it (`heat.ts`).
  */
-export function restFloor(u: EmberUniforms, p: TslNode, cloud: number): TslNode {
+export function restFloor(u: EmberUniforms, p: TslNode<"vec3">, cloud: number): TslNode<"float"> {
   const fromCore = length(p.sub(u.center)).div(cloud);
   const drift = mx_noise_float(p.mul(0.9).add(vec3(0, u.time.mul(0.07), 0)))
     .mul(0.5)
@@ -226,7 +225,7 @@ function kernels(u: EmberUniforms, b: EmberBuffers, shape: EmberShape, timing: T
     };
     If(b.state.element(i).x.equal(LIVE), () => {
       const home = cellCoord(self.p, size).toVar();
-      loop(27, (n) => {
+      Loop({ start: 0, end: 27, type: "int" }, ({ i: n }) => {
         const offset = ivec3(n.mod(3).sub(1), n.div(3).mod(3).sub(1), n.div(9).sub(1));
         scanCell(b, home.add(offset).toVar(), size, self);
       });
@@ -245,7 +244,7 @@ function advanceKernel(
   b: EmberBuffers,
   shape: EmberShape,
   timing: Timing,
-  ease: (t: TslNode) => TslNode,
+  ease: (t: TslNode<"float">) => TslNode<"float">,
 ) {
   const i = instanceIndex;
   return Fn(() => {

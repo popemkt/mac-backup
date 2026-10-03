@@ -40,7 +40,7 @@ import { toRenderableColor } from "@/lib/css-color";
 import { TIER, type Force3dFades, type Force3dTopology } from "./force3d-emphasis";
 import { KEY_DIRECTION, RIM_POWER, shadeNode } from "./force3d-light";
 import type { GraphTheme, SolidForm } from "./graph-themes";
-import { NODE_OPS } from "@/scene/gpu/tsl";
+import { NODE_OPS, type TslNode } from "@/scene/gpu/tsl";
 
 /** World radius per cube root of a lens node's size. */
 const RADIUS_PER_SIZE = 4.2;
@@ -60,8 +60,8 @@ export const CUBE_HALF_EDGE = Math.cbrt(Math.PI / 6);
 /** How wide a cube's edge line is, as a share of a face's half-width. */
 const CUBE_EDGE = 0.1;
 
-type NormalNode = ReturnType<typeof normalize>;
-type ScalarNode = ReturnType<typeof float>;
+type NormalNode = TslNode<"vec3">;
+type ScalarNode = TslNode<"float">;
 
 /**
  * A solid a node may be drawn as: its unit geometry (radius 1 in the node's
@@ -175,9 +175,9 @@ function drawSolids(
   const base = new Float32Array(n);
 
   const material = new MeshBasicNodeMaterial();
-  const at = instancedDynamicBufferAttribute(place, "vec4");
-  const hue = instancedDynamicBufferAttribute(tint, "vec3");
-  const emphasis = instancedDynamicBufferAttribute(look, "vec3");
+  const at = instancedDynamicBufferAttribute<"vec4">(place, "vec4");
+  const hue = instancedDynamicBufferAttribute<"vec3">(tint, "vec3");
+  const emphasis = instancedDynamicBufferAttribute<"vec3">(look, "vec3");
   material.positionNode = positionLocal.mul(at.w).add(at.xyz);
   const normal = normalize(normalView);
   const key = normal.dot(vec3(...KEY_DIRECTION)).max(0);
