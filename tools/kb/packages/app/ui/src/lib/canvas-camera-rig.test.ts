@@ -64,6 +64,23 @@ describe("the canvas camera rig", () => {
     expect(rig.flying).toBe(false);
   });
 
+  test("presets and the lens are flights, and subscribers see every move", () => {
+    const rig = new CanvasCameraRig(deep, TIMING_FALLBACK, true);
+    const seen = vi.fn();
+    const stop = rig.subscribe(seen);
+    const controls = rig.controls(() => size, vi.fn());
+    controls.look("front");
+    expect(rig.view).toMatchObject({ yaw: 0, pitch: Math.PI / 2, x: deep.x, zoom: deep.zoom });
+    controls.toggleLens();
+    expect(rig.view.fov).toBe(0);
+    controls.toggleLens();
+    expect(rig.view.fov).toBe(34);
+    expect(seen).toHaveBeenCalledTimes(3);
+    stop();
+    rig.panBy(1, 1);
+    expect(seen).toHaveBeenCalledTimes(3);
+  });
+
   test("every change wakes whoever draws", () => {
     const rig = new CanvasCameraRig(deep, TIMING_FALLBACK, false);
     const wake = vi.fn();

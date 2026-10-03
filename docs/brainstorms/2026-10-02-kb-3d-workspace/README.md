@@ -189,6 +189,12 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
    | ⌘G · ⌘⇧G | group · ungroup | |
    | ⌘Z ⌘⇧Z ⌘A ⌘D ⌫ arrows | as today | |
 
+   - Built in step 1: the numpad views, numpad 5, ⇧2, numpad `.` and the
+     `` ` `` menu, from one table that the menu reads too. The "perspective"
+     view is named **oblique**, so it is not confused with the perspective
+     lens. The menu also holds the oblique view and 2D/3D. Numpad keys match
+     by physical key, so the top-row digits keep their tools and numpad `.`
+     with NumLock off frames instead of deleting.
    - **R stays rect** (tldraw, already shipped). Rotate is G then R, the
      gizmo ring, or the 2D rotate handle. **Owner question 3.**
    - In 3D, a press-drag on empty space keeps orbiting, as shipped.

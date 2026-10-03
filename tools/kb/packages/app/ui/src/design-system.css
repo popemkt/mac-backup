@@ -87,6 +87,12 @@
   --canvas-color-4: oklch(0.62 0.15 145);
   --canvas-color-5: oklch(0.62 0.12 210);
   --canvas-color-6: oklch(0.58 0.17 300);
+  /* The canvas's axes (its view widget): X red, Y green, Z blue, as every 3D
+   * tool draws them, from the document presets so each skin's light and dark
+   * tuning carries over. */
+  --axis-x: var(--canvas-color-1);
+  --axis-y: var(--canvas-color-4);
+  --axis-z: var(--canvas-color-5);
   /* Lab palette (components/lab, Lab principles L1): one violet hue family
    * and one accent, the app's own primary. Light: a lavender daylight. */
   --lab-ground: oklch(0.955 0.02 292);

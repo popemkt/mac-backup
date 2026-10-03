@@ -9,11 +9,14 @@ import {
 } from "@kb/canvas";
 import {
   poseOfView,
+  presetView,
   screenToPlane,
   viewOfPan,
+  withLens,
   type CanvasPoint,
   type CanvasView,
   type CanvasViewportControls,
+  type FlatViewportControls,
   type ViewSize,
 } from "@/lib/canvas-camera";
 import { CanvasCameraRig } from "@/lib/canvas-camera-rig";
@@ -27,7 +30,7 @@ import { CanvasHandover, type HandoverCanvas } from "./canvas-handover";
  * The canvas page's side of the projections: the one camera rig, the
  * handover between projections (`canvas-handover`), and the page's answers
  * that depend on which projection is showing — where a new card lands, and
- * which camera the keymap drives.
+ * which camera the keymap and the view widget drive.
  */
 interface ProjectionContext {
   readonly doc: CanvasDoc;
@@ -95,11 +98,14 @@ export function useCanvasProjection(context: ProjectionContext) {
     setCamera(cameraLookingFrom(doc.camera, "3d", pose));
   };
 
+  const retryDepth = () => {
+    if (!state.failed) return;
+    handover.retry();
+    handover.want("3d");
+  };
+
   const choose = (kind: CanvasProjectionKind) => {
-    if (kind === "3d" && state.failed) {
-      handover.retry();
-      handover.want("3d");
-    }
+    if (kind === "3d") retryDepth();
     if (kind === projectionOf(doc.camera)) return;
     // Leaving 3D keeps the pose it was looked at from, to come back to.
     const kept = in3d ? poseOfView(rig.view) : doc.camera?.pose;
@@ -107,6 +113,27 @@ export function useCanvasProjection(context: ProjectionContext) {
   };
 
   const current = (): CanvasView => (in3d ? rig.view : viewOfPan(pan, zoom, size()));
+
+  /** Enter 3D looking from `view`: the handover flies there from the top. */
+  const enterLookingFrom = (view: CanvasView) => {
+    retryDepth();
+    setCamera(cameraLookingFrom(doc.camera, "3d", poseOfView(view)));
+  };
+
+  /**
+   * The 2D camera's answers to a preset or a lens: 2D is the top view
+   * through the orthographic lens, so any other look is a way into 3D. A
+   * preset keeps the lens the canvas was last seen through in depth.
+   */
+  const lookFromTop = (flat: FlatViewportControls): CanvasViewportControls => ({
+    ...flat,
+    look: (preset) => {
+      if (preset === "top") return;
+      const lens = doc.camera?.pose?.fov === 0 ? "orthographic" : "perspective";
+      enterLookingFrom(presetView(withLens(current(), lens), preset));
+    },
+    toggleLens: () => enterLookingFrom(withLens(current(), "perspective")),
+  });
 
   return {
     rig,
@@ -127,8 +154,10 @@ export function useCanvasProjection(context: ProjectionContext) {
       const at = screenToPlane(current(), size(), PLACEMENT, 0);
       return at === null ? { x: 0, y: 0 } : { x: at.x, y: at.y };
     },
-    /** The showing camera's answers to the keymap, given the 2D ones. */
-    viewportOf: (flatControls: CanvasViewportControls): CanvasViewportControls =>
-      in3d ? rig.controls(size, onViewSettled) : flatControls,
+    /** The 2D view's camera, as the camera model holds it (the top view, orthographic). */
+    flatView: (): CanvasView => viewOfPan(pan, zoom, size()),
+    /** The showing camera's answers to the keymap and the view widget, given the 2D ones. */
+    viewportOf: (flatControls: FlatViewportControls): CanvasViewportControls =>
+      in3d ? rig.controls(size, onViewSettled) : lookFromTop(flatControls),
   };
 }

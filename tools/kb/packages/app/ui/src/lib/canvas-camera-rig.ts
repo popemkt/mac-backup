@@ -5,16 +5,21 @@
  * Gestures (orbit, pan, zoom about a point) move the view at once, because a
  * hand on the canvas wants no lag. A flight eases from the view it starts at
  * to a goal over `--motion-duration-arrive` on `--motion-settle`: switching
- * projection is a flight, and so is zoom-to-fit. Under reduced motion a
- * flight lands at once (M7). The rig knows no renderer: whoever draws steps
- * it once a frame and is woken when the view changes between frames.
+ * projection is a flight, and so are framing items, a view preset and a
+ * change of lens. Under reduced motion a flight lands at once (M7). The rig
+ * knows no renderer: whoever draws steps it once a frame and is woken when
+ * the view changes between frames, and anyone may subscribe to the view (the
+ * axis widget does).
  */
 import {
   clampZoom,
   fitView,
+  lensOf,
   lerpView,
   orbitView,
   panView,
+  presetView,
+  withLens,
   zoomViewAt,
   type CanvasPoint,
   type CanvasView,
@@ -37,6 +42,7 @@ export class CanvasCameraRig {
   private flight: Flight | null = null;
   private reduced: boolean;
   private readonly timing: Timing;
+  private readonly listeners = new Set<() => void>();
   /** Draw a frame: set by the renderer that steps this rig. */
   wake: () => void = () => {};
 
@@ -49,6 +55,12 @@ export class CanvasCameraRig {
   get view(): CanvasView {
     return this.current;
   }
+
+  /** Be told whenever the view moves; the view itself is {@link view} (an external store). */
+  readonly subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
 
   /** A flight is under way. */
   get flying(): boolean {
@@ -63,7 +75,7 @@ export class CanvasCameraRig {
   /** Stand at `view` now, dropping any flight (its arrival never comes). */
   jump(view: CanvasView): void {
     this.flight = null;
-    this.current = view;
+    this.moveTo(view);
     this.wake();
   }
 
@@ -103,13 +115,14 @@ export class CanvasCameraRig {
       this.land(flight);
       return false;
     }
-    this.current = lerpView(flight.from, flight.to, easeAt(this.timing.settle, t));
+    this.moveTo(lerpView(flight.from, flight.to, easeAt(this.timing.settle, t)));
     return true;
   }
 
   /**
-   * What the keymap asks of this camera: zoom about the middle of the
-   * viewport, or fly to frame some items.
+   * What the keymap and the view widget ask of this camera: zoom about the
+   * middle of the viewport, or fly to frame some items, to a preset, or
+   * through the other lens.
    */
   controls(size: () => ViewSize, settled: () => void): CanvasViewportControls {
     return {
@@ -127,12 +140,22 @@ export class CanvasCameraRig {
         const framed = fitView(items, size(), this.current);
         if (framed !== null) this.flyTo(framed, settled);
       },
+      look: (preset) => this.flyTo(presetView(this.current, preset), settled),
+      toggleLens: () => {
+        const other = lensOf(this.current) === "perspective" ? "orthographic" : "perspective";
+        this.flyTo(withLens(this.current, other), settled);
+      },
     };
+  }
+
+  private moveTo(view: CanvasView): void {
+    this.current = view;
+    for (const listener of this.listeners) listener();
   }
 
   private land(flight: Flight): void {
     this.flight = null;
-    this.current = flight.to;
+    this.moveTo(flight.to);
     this.wake();
     flight.arrive?.();
   }

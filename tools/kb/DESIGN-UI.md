@@ -1039,7 +1039,8 @@ manipulation feel professional rather than merely functional.
   one-shot (it returns to `select` after placing), double-clicking the tool icon
   makes it **sticky** for repeated placement, `Escape` always returns to select.
   Tools: select (V), text (T), rect (R), ellipse (O / C), diamond (D),
-  group (G / F), kb node (N); digits `1`–`7` mirror the same order.
+  group (G / F), kb node (N); digits `1`–`7` mirror the same order. The
+  numpad's digits are views, not tools (Projections → view widget).
 - **Edges are drawings** (the Logseq-whiteboards decision, unchanged): a live
   dashed bezier ghost during creation, smart port snapping by nearest Euclidean
   distance, 18×18px port targets, a 20px transparent hit path under the visible
@@ -1103,6 +1104,22 @@ open view of that canvas.
   is showing through `CanvasViewportControls`. The scene draws the
   orthographic lens, and the orthographic end of a dolly, with an exact
   orthographic projection, so it is the same picture as the DOM canvas.
+- **Views, the widget and the view menu.** The camera model names six
+  orientations (`CANVAS_VIEW_PRESETS`): top, front, right, back, left (each
+  named for where the eye stands; front is the +y side) and the oblique look
+  a canvas first opens at. One table of view commands
+  (`CANVAS_VIEW_COMMANDS`, `lib/canvas-keymap.ts`) serves the keymap and the
+  view menu, and both reach the camera through `CanvasViewportControls`:
+  numpad 7 / 1 / 3 look from the top, front and right (⌃ for back and left;
+  there is no view from under the floor), numpad 5 swaps the lens, ⇧1 frames
+  everything, ⇧2 and numpad `.` frame the selection, and `` ` `` opens the
+  menu (which also holds the oblique view and 2D/3D). Numpad keys match by
+  physical key, so NumLock and the layout do not matter. In 2D, which is the
+  top view through the orthographic lens, any other view or lens enters 3D
+  there. The widget in the stage's corner is an axis gizmo computed from the
+  camera's frame (`screenAxes`), with no second scene: X red, Y green, Z
+  blue (`--axis-*`, derived from the document colour presets), each end a
+  button that looks from that side; under it the view's name opens the menu.
 - **The handover** (`canvas-handover.ts`): into 3D, the rig stands where the
   2D view is, the scene mounts behind the DOM canvas, the two crossfade
   while they are identical (`--motion-duration-reveal`), and then the field of

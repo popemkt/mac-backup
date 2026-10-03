@@ -9,6 +9,7 @@ import { NodeRow } from "@/components/outline/node-row";
 import { NotFound } from "@/components/ui/not-found";
 import { CanvasOverlays } from "@/components/canvas/canvas-overlays";
 import { CanvasStage } from "@/components/canvas/canvas-stage";
+import { CanvasViewWidget } from "@/components/canvas/canvas-view-widget";
 import { useCanvasDoc } from "@/components/canvas/use-canvas-doc";
 import { createCanvasEdgeActions } from "@/components/canvas/use-canvas-edge-actions";
 import { useCanvasGestures } from "@/components/canvas/use-canvas-gestures";
@@ -17,7 +18,12 @@ import { useCanvasScreen } from "@/components/canvas/use-canvas-screen";
 import { useCanvasSelection } from "@/components/canvas/use-canvas-selection";
 import { listRefFields } from "@/lib/canvas-api";
 import type { ToolState } from "@/lib/canvas-tool";
-import { EMPTY_SELECTION, deleteSelected, selectNode as selNode } from "@/lib/canvas-selection";
+import {
+  EMPTY_SELECTION,
+  deleteSelected,
+  selectNode as selNode,
+  selectionEmpty,
+} from "@/lib/canvas-selection";
 import {
   createPointerState,
   pointerReduce,
@@ -69,6 +75,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [toolState, setToolState] = useState<ToolState>({ tool: "select" });
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
 
   const byId = useMemo(() => {
     const m = new Map<string, CanvasNode>();
@@ -172,7 +179,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     dispatchPointer({ type: "pointer/cancel" });
   }, [dispatchPointer]);
 
-  useCanvasKeyboard({
+  const viewport = projection.viewportOf(viewportControls);
+  const applyIntent = useCanvasKeyboard({
     cancelPointer,
     byId,
     docRef,
@@ -186,7 +194,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setPickerOpen,
     setSpaceDown,
     setToolState,
-    viewport: projection.viewportOf(viewportControls),
+    viewport,
+    chooseProjection: projection.choose,
+    openViewMenu: () => setViewMenuOpen(true),
   });
 
   const { onDeleteEdge, onFieldChange, onModeChange } = createCanvasEdgeActions({
@@ -322,6 +332,16 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             </Suspense>
           </div>
         )}
+        <CanvasViewWidget
+          rig={projection.rig}
+          in3d={in3d}
+          flatView={projection.flatView()}
+          projection={projection.target}
+          selectionEmpty={selectionEmpty(selection)}
+          menuOpen={viewMenuOpen}
+          onMenuOpenChange={setViewMenuOpen}
+          onIntent={applyIntent}
+        />
         <CanvasOverlays
           projection={projection.target}
           onProjectionChange={projection.choose}

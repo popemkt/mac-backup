@@ -26,7 +26,7 @@ import {
   panOfView,
   viewOfPan,
   type CanvasHitItem,
-  type CanvasViewportControls,
+  type FlatViewportControls,
 } from "@/lib/canvas-camera";
 
 interface CanvasGestureContext {
@@ -201,7 +201,7 @@ function useViewportControls({
     });
   };
   /** The top-view camera's answers to the keymap; a key zooms with the pan held, as it always has. */
-  const viewportControls: CanvasViewportControls = {
+  const viewportControls: FlatViewportControls = {
     zoomBy: (factor) => setZoom((current) => clampZoom(current * factor)),
     zoomTo: (next) => setZoom(clampZoom(next)),
     frame,

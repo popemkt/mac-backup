@@ -41,6 +41,12 @@ describe("with something selected", () => {
     [chord("-", { metaKey: true }), { type: "zoomBy", factor: 1 / ZOOM_STEP }],
     [chord("0", { metaKey: true }), { type: "zoomTo", zoom: 1 }],
     [chord("!", { shiftKey: true }), { type: "frame", scope: "all" }],
+    [chord("@", { code: "Digit2", shiftKey: true }), { type: "frame", scope: "selection" }],
+    [chord("Delete", { code: "NumpadDecimal" }), { type: "frame", scope: "selection" }],
+    [chord("Home", { code: "Numpad7" }), { type: "look", preset: "top" }],
+    [chord("End", { code: "Numpad1", ctrlKey: true }), { type: "look", preset: "back" }],
+    [chord("5", { code: "Numpad5" }), { type: "toggleLens" }],
+    [chord("`", { code: "Backquote" }), { type: "viewMenu" }],
   ];
 
   test.each(table)("%o maps to %o", (event, intent) => {

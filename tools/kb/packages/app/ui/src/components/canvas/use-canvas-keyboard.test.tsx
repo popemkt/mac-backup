@@ -41,6 +41,7 @@ interface Chord {
   key: string;
   code?: string;
   metaKey?: boolean;
+  ctrlKey?: boolean;
   shiftKey?: boolean;
   onInput?: boolean;
 }
@@ -151,7 +152,11 @@ function press(chord: Chord, selection: CanvasSelection = selectNode("a")): Reco
       },
       frame: (items: readonly { id: string }[]) =>
         log.push(`frame=${items.map((item) => item.id).join("+")}`),
+      look: (preset: string) => log.push(`look=${preset}`),
+      toggleLens: () => log.push("lens"),
     },
+    chooseProjection: (kind: string) => log.push(`projection=${kind}`),
+    openViewMenu: () => log.push("viewMenu"),
   };
 
   function Probe() {
@@ -167,6 +172,7 @@ function press(chord: Chord, selection: CanvasSelection = selectNode("a")): Reco
     key: chord.key,
     code: chord.code ?? "",
     metaKey: chord.metaKey ?? false,
+    ctrlKey: chord.ctrlKey ?? false,
     shiftKey: chord.shiftKey ?? false,
     bubbles: true,
     cancelable: true,
@@ -213,6 +219,19 @@ describe("the canvas keydown table", () => {
     ["zoom out", { key: "-", metaKey: true }, ["zoom=0.87"]],
     ["zoom reset", { key: "0", metaKey: true }, ["zoom=1"]],
     ["frame all", { key: "!", shiftKey: true }, ["frame=a+b"]],
+    ["frame selection", { key: "@", code: "Digit2", shiftKey: true }, ["frame=a"]],
+    ["frame selection (numpad .)", { key: ".", code: "NumpadDecimal" }, ["frame=a"]],
+    // NumLock off: numpad . reports Delete, and still frames rather than deletes.
+    ["frame selection (numpad Del)", { key: "Delete", code: "NumpadDecimal" }, ["frame=a"]],
+    ["top view (numpad 7)", { key: "7", code: "Numpad7" }, ["look=top"]],
+    ["front view (numpad 1)", { key: "1", code: "Numpad1" }, ["look=front"]],
+    ["back view (⌃numpad 1)", { key: "1", code: "Numpad1", ctrlKey: true }, ["look=back"]],
+    ["right view (numpad 3)", { key: "3", code: "Numpad3" }, ["look=right"]],
+    ["left view (⌃numpad 3)", { key: "3", code: "Numpad3", ctrlKey: true }, ["look=left"]],
+    ["lens (numpad 5)", { key: "5", code: "Numpad5" }, ["lens"]],
+    ["no view from under the floor (⌃numpad 7)", { key: "7", code: "Numpad7", ctrlKey: true }, []],
+    ["the top-row 7 keeps its tool", { key: "7", code: "Digit7" }, ["tool=group"]],
+    ["view menu", { key: "`", code: "Backquote" }, ["viewMenu"]],
     ["unbound key", { key: "q", metaKey: true }, []],
     ["inside a text entry", { key: "Delete", onInput: true }, []],
   ];

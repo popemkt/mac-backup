@@ -7,11 +7,13 @@
  *
  * The chord maps are consulted in {@link CHORD_MAPS} order, and that order is
  * load-bearing: `⌘c` copies rather than picking the ellipse tool, `⌘d`
- * duplicates rather than picking the diamond, and `Delete` deletes rather than
- * nudging.
+ * duplicates rather than picking the diamond, `Delete` deletes rather than
+ * nudging, and a numpad view key looks from its view rather than picking the
+ * tool of the same digit (or deleting, for numpad `.` with NumLock off).
  */
+import type { CanvasProjectionKind } from "@kb/canvas";
 import type { CanvasTool } from "@/lib/canvas-tool";
-import { ZOOM_STEP } from "@/lib/canvas-camera";
+import { CANVAS_VIEW_PRESETS, ZOOM_STEP, type CanvasViewPreset } from "@/lib/canvas-camera";
 
 export interface CanvasKeyEvent {
   key: string;
@@ -35,10 +37,92 @@ export type CanvasIntent =
   | { type: "tool"; tool: CanvasTool }
   | { type: "zoomBy"; factor: number }
   | { type: "zoomTo"; zoom: number }
-  | { type: "frame"; scope: CanvasFrameScope };
+  | { type: "frame"; scope: "all" | "selection" }
+  | { type: "look"; preset: CanvasViewPreset }
+  | { type: "toggleLens" }
+  | { type: "projection"; kind: CanvasProjectionKind }
+  | { type: "viewMenu" };
 
-/** What a frame takes in: every item on the canvas. */
-type CanvasFrameScope = "all";
+/** What the camera can be asked to do: the view commands. */
+type CanvasViewIntent = Extract<
+  CanvasIntent,
+  { type: "frame" | "look" | "toggleLens" | "projection" }
+>;
+
+/**
+ * A physical chord: matched by `code` where the key's place is what counts
+ * (numpad keys, whatever NumLock and the layout say) or by `key`, with
+ * exactly the modifiers it names.
+ */
+interface ViewChord {
+  readonly code?: string;
+  readonly key?: string;
+  readonly shift?: boolean;
+  readonly ctrl?: boolean;
+}
+
+/**
+ * A view command: what it asks of the camera, what the view menu calls it,
+ * the chord as the menu shows it, and the chords that ask for it. One table
+ * serves the keymap and the menu, so the two cannot disagree.
+ */
+export interface CanvasViewCommand {
+  readonly intent: CanvasViewIntent;
+  readonly label: string;
+  readonly hint: string;
+  readonly chords: readonly ViewChord[];
+}
+
+const look = (
+  preset: CanvasViewPreset,
+  hint: string,
+  chords: readonly ViewChord[],
+): CanvasViewCommand => ({
+  intent: { type: "look", preset },
+  label: CANVAS_VIEW_PRESETS[preset].label,
+  hint,
+  chords,
+});
+
+/**
+ * The view commands, in the view menu's order: Blender's numpad views (⌃ for
+ * the opposite side; there is no view from under the floor), the lens, the
+ * projections, and framing (⇧1 and ⇧2 are tldraw's, numpad `.` Blender's).
+ */
+export const CANVAS_VIEW_COMMANDS: readonly CanvasViewCommand[] = [
+  look("top", "Num7", [{ code: "Numpad7" }]),
+  look("front", "Num1", [{ code: "Numpad1" }]),
+  look("right", "Num3", [{ code: "Numpad3" }]),
+  look("back", "⌃Num1", [{ code: "Numpad1", ctrl: true }]),
+  look("left", "⌃Num3", [{ code: "Numpad3", ctrl: true }]),
+  look("oblique", "", []),
+  {
+    intent: { type: "toggleLens" },
+    label: "Orthographic",
+    hint: "Num5",
+    chords: [{ code: "Numpad5" }],
+  },
+  { intent: { type: "projection", kind: "2d" }, label: "2D", hint: "", chords: [] },
+  { intent: { type: "projection", kind: "3d" }, label: "3D", hint: "", chords: [] },
+  {
+    intent: { type: "frame", scope: "all" },
+    label: "Frame all",
+    hint: "⇧1",
+    chords: [
+      { code: "Digit1", shift: true },
+      { key: "!", shift: true },
+    ],
+  },
+  {
+    intent: { type: "frame", scope: "selection" },
+    label: "Frame selection",
+    hint: "⇧2",
+    chords: [{ code: "Digit2", shift: true }, { key: "@", shift: true }, { code: "NumpadDecimal" }],
+  },
+];
+
+/** The chord that opens the view menu, for keyboards without a numpad. */
+const VIEW_MENU_CHORD: ViewChord = { code: "Backquote" };
 
 /**
  * A chord the canvas claims.
@@ -134,6 +218,25 @@ const mapCanvasState: ChordMap = (event) => {
   return null;
 };
 
+const matches = (chord: ViewChord, event: CanvasKeyEvent): boolean =>
+  (chord.code === undefined ? event.key === chord.key : event.code === chord.code) &&
+  (chord.shift === true) === (event.shiftKey === true) &&
+  (chord.ctrl === true) === (event.ctrlKey === true) &&
+  event.metaKey !== true;
+
+const mapView: ChordMap = (event, state) => {
+  if (matches(VIEW_MENU_CHORD, event)) return claim({ type: "viewMenu" });
+  const command = CANVAS_VIEW_COMMANDS.find((c) => c.chords.some((ch) => matches(ch, event)));
+  if (command === undefined) {
+    // A numpad digit with no view keeps its tool; ⌃numpad 7 (from under the floor) is no view.
+    return event.code === "Numpad7" ? claim(null) : null;
+  }
+  const { intent } = command;
+  return intent.type === "frame" && intent.scope === "selection"
+    ? claimWithSelection(intent, state)
+    : claim(intent);
+};
+
 const mapNudge: ChordMap = (event, state) => {
   if (!event.key.startsWith("Arrow")) return null;
   // The one claim that leaves the default alone.
@@ -153,12 +256,12 @@ const mapZoom: ChordMap = (event) => {
     return claim({ type: "zoomBy", factor: ZOOM_STEP });
   if (mod(event) && event.key === "-") return claim({ type: "zoomBy", factor: 1 / ZOOM_STEP });
   if (mod(event) && event.key === "0") return claim({ type: "zoomTo", zoom: 1 });
-  if (event.shiftKey === true && event.key === "!") return claim({ type: "frame", scope: "all" });
   return null;
 };
 
 const CHORD_MAPS: readonly ChordMap[] = [
   mapHistory,
+  mapView,
   mapSelection,
   mapClipboard,
   mapDuplicate,

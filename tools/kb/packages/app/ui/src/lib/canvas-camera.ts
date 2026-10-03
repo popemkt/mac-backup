@@ -74,15 +74,23 @@ export function clampZoom(zoom: number): number {
 
 /**
  * What a projection's camera does when a key or a button asks: zoom by a
- * step, zoom to a level, or frame some items. The keymap drives whichever
- * projection is showing through this, never its pan, zoom or orbit directly.
+ * step, zoom to a level, frame some items, look from a preset, or swap its
+ * lens. The keymap and the view widget drive whichever projection is
+ * showing through this, never its pan, zoom or orbit directly.
  */
 export interface CanvasViewportControls {
   zoomBy(factor: number): void;
   zoomTo(zoom: number): void;
   /** Frame `items` ({@link fitView}); nothing to frame leaves the camera be. */
   frame(items: readonly CanvasHitItem[]): void;
+  /** Look from `preset`; the top-down 2D view enters 3D for any other. */
+  look(preset: CanvasViewPreset): void;
+  /** Swap between perspective and orthographic; from 2D, enter 3D in perspective. */
+  toggleLens(): void;
 }
+
+/** What the 2D canvas's own camera answers: the rest is a way into 3D. */
+export type FlatViewportControls = Omit<CanvasViewportControls, "look" | "toggleLens">;
 
 /** Where an orthographic eye stands behind the focus plane, canvas units (any far point will do). */
 const ORTHO_STANDOFF = 1e6;
@@ -561,13 +569,13 @@ interface ViewPresetSpec {
   readonly pitch: number;
 }
 
-const CANVAS_VIEW_PRESETS: { readonly [P in CanvasViewPreset]: ViewPresetSpec } = {
+export const CANVAS_VIEW_PRESETS: { readonly [P in CanvasViewPreset]: ViewPresetSpec } = {
   top: { label: "Top", yaw: 0, pitch: 0 },
   front: { label: "Front", yaw: 0, pitch: MAX_PITCH },
   right: { label: "Right", yaw: -Math.PI / 2, pitch: MAX_PITCH },
   back: { label: "Back", yaw: Math.PI, pitch: MAX_PITCH },
   left: { label: "Left", yaw: Math.PI / 2, pitch: MAX_PITCH },
-  oblique: { label: "Oblique", yaw: -0.2, pitch: 0.58 },
+  oblique: { label: "Oblique", yaw: -0.4, pitch: 0.85 },
 };
 
 /** `from` turned to look from `preset`, its focus, zoom and lens kept. */

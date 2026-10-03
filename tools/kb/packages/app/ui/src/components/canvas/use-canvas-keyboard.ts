@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
-import type { CanvasDoc, CanvasEdge, CanvasNode } from "@kb/canvas";
+import type { CanvasDoc, CanvasEdge, CanvasNode, CanvasProjectionKind } from "@kb/canvas";
 import { parseCanvasDoc, upsertCanvasEdge, upsertCanvasNode } from "@kb/canvas";
 import {
   type CanvasSelection,
@@ -18,7 +18,8 @@ import { isTextEntry } from "@/lib/dom";
 /**
  * The canvas keyboard surface: `lib/canvas-keymap` decides *what* a chord
  * means, this file decides *how* that intent reaches the document, the
- * selection and the viewport. The listener itself is plumbing between the two.
+ * selection and the viewport. The listener itself is plumbing between the two,
+ * and the view menu sends its commands through the same applier.
  */
 interface CanvasKeyboardContext {
   cancelPointer: () => void;
@@ -36,6 +37,8 @@ interface CanvasKeyboardContext {
   setToolState: Dispatch<SetStateAction<ToolState>>;
   /** The camera of the projection that is showing. */
   viewport: CanvasViewportControls;
+  chooseProjection: (kind: CanvasProjectionKind) => void;
+  openViewMenu: () => void;
 }
 
 /** Pasted and duplicated content lands this far from its origin. */
@@ -192,8 +195,25 @@ function applyCanvasIntent(context: CanvasKeyboardContext, intent: CanvasIntent)
     case "zoomTo":
       context.viewport.zoomTo(intent.zoom);
       break;
-    case "frame":
-      context.viewport.frame(context.docRef.current.nodes);
+    case "frame": {
+      const { nodes } = context.docRef.current;
+      const chosen = context.selRef.current.nodeIds;
+      context.viewport.frame(
+        intent.scope === "all" ? nodes : nodes.filter((node) => chosen.has(node.id)),
+      );
+      break;
+    }
+    case "look":
+      context.viewport.look(intent.preset);
+      break;
+    case "toggleLens":
+      context.viewport.toggleLens();
+      break;
+    case "projection":
+      context.chooseProjection(intent.kind);
+      break;
+    case "viewMenu":
+      context.openViewMenu();
       break;
     default:
       // `switch-exhaustiveness-check` turns a new intent without a case red.
@@ -201,7 +221,8 @@ function applyCanvasIntent(context: CanvasKeyboardContext, intent: CanvasIntent)
   }
 }
 
-export function useCanvasKeyboard(context: CanvasKeyboardContext) {
+/** Listen for the canvas's chords; the applier comes back for the view menu's commands. */
+export function useCanvasKeyboard(context: CanvasKeyboardContext): (intent: CanvasIntent) => void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTextEntry(event.target)) return;
@@ -228,4 +249,5 @@ export function useCanvasKeyboard(context: CanvasKeyboardContext) {
       window.removeEventListener("keyup", onKeyUp);
     };
   }, [context]);
+  return (intent) => applyCanvasIntent(context, intent);
 }
