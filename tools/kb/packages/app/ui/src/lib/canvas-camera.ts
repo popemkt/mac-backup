@@ -284,7 +284,7 @@ function screenRay(
 }
 
 /**
- * Where the ray through `screen` meets the canvas plane at depth `z`, and how
+ * Where the ray through `screen` meets the plane at height `z`, and how
  * far along the ray that is; null when the plane is edge-on or behind the eye.
  */
 function rayToPlane(
@@ -301,7 +301,7 @@ function rayToPlane(
 }
 
 /**
- * The canvas point under `screen` on the plane at depth `z`: where a click
+ * The canvas point under `screen` on the plane at height `z`: where a click
  * places something, and where a card dragged on its own plane goes.
  */
 export function screenToPlane(

@@ -1,14 +1,8 @@
-import type {
-  CanvasEdge,
-  CanvasNode,
-  CanvasProjectionKind,
-  CanvasShapeNode,
-  KbLinkMode,
-} from "@kb/canvas";
+import type { CanvasEdge, CanvasNode, CanvasProjectionKind, KbLinkMode } from "@kb/canvas";
 import { CanvasToolbar } from "@/components/canvas/canvas-toolbar";
 import { EdgeInspector } from "@/components/canvas/edge-inspector";
 import { NodePicker } from "@/components/canvas/node-picker";
-import { ShapeInspector } from "@/components/canvas/shape-inspector";
+import { ItemInspector } from "@/components/canvas/item-inspector";
 import type { CanvasSelection } from "@/lib/canvas-selection";
 import { selectionEmpty } from "@/lib/canvas-selection";
 import type { CanvasTool, ToolState } from "@/lib/canvas-tool";
@@ -19,9 +13,9 @@ interface CanvasOverlaysProps {
   selection: CanvasSelection;
   toolState: ToolState;
   selectedEdge: CanvasEdge | null;
-  selectedShape: CanvasShapeNode | null;
+  selectedItem: CanvasNode | null;
   inspectorAnchor: { x: number; y: number } | null;
-  shapeInspectorAnchor: { x: number; y: number } | null;
+  itemInspectorAnchor: { x: number; y: number } | null;
   pickerOpen: boolean;
   refFields: { id: string; name: string; isRef: boolean }[];
   onToolChange: (tool: CanvasTool) => void;
@@ -34,8 +28,8 @@ interface CanvasOverlaysProps {
   onEdgeFieldChange: (fieldId: string) => void;
   onDeleteEdge: () => void;
   onEdgeChange: (edge: CanvasEdge) => void;
-  onCloseShapeInspector: () => void;
-  onShapeChange: (shape: CanvasNode) => void;
+  onCloseItemInspector: () => void;
+  onItemChange: (shape: CanvasNode) => void;
   onPickNode: (nodeId: string) => void;
   onClosePicker: () => void;
 }
@@ -46,9 +40,9 @@ export function CanvasOverlays({
   selection,
   toolState,
   selectedEdge,
-  selectedShape,
+  selectedItem,
   inspectorAnchor,
-  shapeInspectorAnchor,
+  itemInspectorAnchor,
   pickerOpen,
   refFields,
   onToolChange,
@@ -61,8 +55,8 @@ export function CanvasOverlays({
   onEdgeFieldChange,
   onDeleteEdge,
   onEdgeChange,
-  onCloseShapeInspector,
-  onShapeChange,
+  onCloseItemInspector,
+  onItemChange,
   onPickNode,
   onClosePicker,
 }: CanvasOverlaysProps) {
@@ -77,7 +71,7 @@ export function CanvasOverlays({
         onToolDoubleClick={onToolDoubleClick}
       />
 
-      {!selectionEmpty(selection) && !inspectorAnchor && !shapeInspectorAnchor && (
+      {!selectionEmpty(selection) && !inspectorAnchor && !itemInspectorAnchor && (
         <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm">
           <span className="mr-1 text-label text-foreground/40">
             {selection.nodeIds.size + selection.edgeIds.size} selected
@@ -134,17 +128,12 @@ export function CanvasOverlays({
         />
       )}
 
-      {selectedShape && shapeInspectorAnchor && (
-        <ShapeInspector
-          card={selectedShape}
-          anchor={shapeInspectorAnchor}
-          onClose={onCloseShapeInspector}
-          onColorChange={(color) => {
-            const updated = { ...selectedShape };
-            if (color === undefined) delete updated.color;
-            else updated.color = color;
-            onShapeChange(updated);
-          }}
+      {selectedItem && itemInspectorAnchor && (
+        <ItemInspector
+          item={selectedItem}
+          anchor={itemInspectorAnchor}
+          onClose={onCloseItemInspector}
+          onChange={onItemChange}
         />
       )}
 

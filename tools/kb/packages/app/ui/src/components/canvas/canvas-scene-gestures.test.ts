@@ -68,7 +68,7 @@ describe("gestures over the 3D canvas", () => {
     expect(start?.type === "move/start" && start.world.y).toBeCloseTo(100, 6);
   });
 
-  test("with Alt, the drag carries it along depth", () => {
+  test("with Alt, the drag lifts it off the floor", () => {
     const { gestures, events } = harness();
     gestures.down(press(centre(), { altKey: true }));
     expect(events[0]?.type).toBe("lift/start");

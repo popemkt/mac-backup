@@ -1,8 +1,8 @@
 import {
-  canvasDepth,
+  canvasElevation,
   upsertCanvasEdge,
   upsertCanvasNode,
-  withDepth,
+  withElevation,
   type CanvasDoc,
   type CanvasEdge,
   type CanvasNode,
@@ -86,12 +86,12 @@ type Drag =
       baseSel: CanvasSelection;
     };
 
-/** Which way carried cards follow the pointer: across their plane, or along depth. */
-type Carry = "plane" | "depth";
+/** Which way carried cards follow the pointer: across their plane, or up from the floor. */
+type Carry = "plane" | "lift";
 
 interface Carrying {
   carry: Carry;
-  /** Where the press went down: on screen (slop, depth), and in canvas space (the plane). */
+  /** Where the press went down: on screen (slop, lift), and in canvas space (the plane). */
   startX: number;
   startY: number;
   start: Point;
@@ -213,10 +213,10 @@ const CARRY: Record<
     );
     return { place: (node, orig) => ({ ...node, x: orig.x + dx, y: orig.y + dy }), guides };
   },
-  depth: (drag, at, ctx) => {
+  lift: (drag, at, ctx) => {
     const rise = Math.round((drag.startY - at.screen.y) / ctx.zoom);
     const { dz, guides } = snapLift(drag, rise, ctx);
-    return { place: (node, orig) => withDepth(node, canvasDepth(orig) + dz), guides };
+    return { place: (node, orig) => withElevation(node, canvasElevation(orig) + dz), guides };
   },
 };
 
@@ -535,7 +535,7 @@ export function pointerReduce(
     return startCarry(state, "plane", event, ctx);
   }
   if (event.type === "lift/start") {
-    return startCarry(state, "depth", event, ctx);
+    return startCarry(state, "lift", event, ctx);
   }
   if (event.type === "resize/start") return startResize(state, event, ctx);
   if (event.type === "edge/start") {

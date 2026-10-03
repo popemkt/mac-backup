@@ -31,7 +31,7 @@ interface CanvasKeyboardContext {
   redoCanvasDoc: () => void;
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
   setInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
-  setShapeInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
+  setItemInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setPickerOpen: Dispatch<SetStateAction<boolean>>;
   setSpaceDown: Dispatch<SetStateAction<boolean>>;
   setToolState: Dispatch<SetStateAction<ToolState>>;
@@ -48,7 +48,7 @@ function deleteSelection(context: CanvasKeyboardContext) {
   context.schedulePersist(deleteSelected(context.docRef.current, context.selRef.current));
   context.setSelection(EMPTY_SELECTION);
   context.setInspectorAnchor(null);
-  context.setShapeInspectorAnchor(null);
+  context.setItemInspectorAnchor(null);
 }
 
 function copySelection(context: CanvasKeyboardContext) {
@@ -128,7 +128,7 @@ function escapeCanvas(context: CanvasKeyboardContext) {
   context.setToolState((state) => reduceCanvasTool(state, { type: "escape" }));
   context.setSelection(EMPTY_SELECTION);
   context.setInspectorAnchor(null);
-  context.setShapeInspectorAnchor(null);
+  context.setItemInspectorAnchor(null);
 }
 
 function nudgeSelection(context: CanvasKeyboardContext, dx: number, dy: number) {

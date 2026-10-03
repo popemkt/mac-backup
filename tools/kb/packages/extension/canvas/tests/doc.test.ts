@@ -7,14 +7,14 @@ import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import {
   cameraLookingFrom,
-  canvasDepth,
+  canvasElevation,
   paintOrder,
   posesAgree,
   parseCanvasDoc,
   projectionOf,
   stringifyCanvasDoc,
   withCanvasCamera,
-  withDepth,
+  withElevation,
   type CanvasDoc,
   type CanvasNode,
 } from "../src/index.ts";
@@ -86,7 +86,7 @@ describe("depth", () => {
       edges: [],
     };
     expect(JSON.parse(stringifyCanvasDoc(parseCanvasDoc(raw)))).toEqual(raw);
-    expect(canvasDepth(parseCanvasDoc(raw).nodes[0] as CanvasNode)).toBe(0);
+    expect(canvasElevation(parseCanvasDoc(raw).nodes[0] as CanvasNode)).toBe(0);
   });
 
   test("a depth kb cannot read is kept verbatim, and a depth set replaces it", () => {
@@ -96,12 +96,12 @@ describe("depth", () => {
     };
     const doc = parseCanvasDoc(raw);
     const item = doc.nodes[0] as CanvasNode;
-    expect(canvasDepth(item)).toBe(0);
+    expect(canvasElevation(item)).toBe(0);
     expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
-    const lifted = withDepth(item, 30);
+    const lifted = withElevation(item, 30);
     expect(lifted).toMatchObject({ z: 30 });
     expect(lifted.extra).toBeUndefined();
-    expect(withDepth(item, 0).extra).toBeUndefined();
+    expect(withElevation(item, 0).extra).toBeUndefined();
   });
 
   test("depth survives on an item type kb does not know", () => {
@@ -133,9 +133,9 @@ describe("depth", () => {
 
   test("back on the plane, an item carries no depth at all", () => {
     const node: CanvasNode = { id: "a", type: "text", text: "", x: 0, y: 0, width: 1, height: 1 };
-    const raised = withDepth(node, 120);
+    const raised = withElevation(node, 120);
     expect(raised.z).toBe(120);
-    expect("z" in withDepth(raised, 0)).toBe(false);
+    expect("z" in withElevation(raised, 0)).toBe(false);
   });
 
   test("paint order is depth first, then document order", () => {

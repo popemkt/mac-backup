@@ -134,7 +134,7 @@ function press(chord: Chord, selection: CanvasSelection = selectNode("a")): Reco
       log.push(`selection=${ids(selRef.current)}`);
     },
     setInspectorAnchor: () => log.push("anchor=null"),
-    setShapeInspectorAnchor: () => log.push("shapeAnchor=null"),
+    setItemInspectorAnchor: () => log.push("shapeAnchor=null"),
     setPickerOpen: () => log.push("picker=true"),
     setSpaceDown: () => log.push("space=true"),
     setToolState: (next: ToolState | ((s: ToolState) => ToolState)) => {

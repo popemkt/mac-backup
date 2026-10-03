@@ -161,7 +161,17 @@ const KNOWN_NODE_KEYS = new Set([
   "nodeId",
   "shape",
 ]);
-const KNOWN_NODE_KEYS_BUT_DEPTH = new Set([...KNOWN_NODE_KEYS].filter((key) => key !== "z"));
+/**
+ * kb's optional numeric item fields. Each is read when it holds a finite
+ * number; a value this version cannot read (another writer's) stays an
+ * unknown field, untouched, until kb writes that field itself.
+ */
+const ITEM_NUMBERS = ["z"] as const;
+type ItemNumber = (typeof ITEM_NUMBERS)[number];
+
+function finite(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
 const KNOWN_EDGE_KEYS = new Set([
   "id",
   "fromNode",
@@ -221,11 +231,18 @@ function parseNode(raw: unknown): CanvasNode | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.type !== "string") {
     return null;
   }
-  const depth = typeof raw.z === "number" && Number.isFinite(raw.z) ? raw.z : undefined;
-  // A depth this version cannot read (another writer's) stays an unknown field, untouched.
+  const numbers: Partial<Record<ItemNumber, number>> = {};
+  const unread = new Set<string>();
+  for (const key of ITEM_NUMBERS) {
+    const value = finite(raw[key]);
+    if (value !== undefined) numbers[key] = value;
+    else if (raw[key] !== undefined) unread.add(key);
+  }
   const extra = collectExtra(
     raw,
-    depth === undefined && raw.z !== undefined ? KNOWN_NODE_KEYS_BUT_DEPTH : KNOWN_NODE_KEYS,
+    unread.size === 0
+      ? KNOWN_NODE_KEYS
+      : new Set([...KNOWN_NODE_KEYS].filter((key) => !unread.has(key))),
   );
   const base = {
     id: raw.id,
@@ -234,7 +251,7 @@ function parseNode(raw: unknown): CanvasNode | null {
     y: asNum(raw.y),
     width: asNum(raw.width, 240),
     height: asNum(raw.height, 80),
-    ...(depth === undefined ? {} : { z: depth }),
+    ...numbers,
     ...(typeof raw.color === "string" ? { color: raw.color } : {}),
     ...(typeof raw.nodeId === "string" ? { nodeId: raw.nodeId } : {}),
     ...(extra ? { extra } : {}),
@@ -309,7 +326,10 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
     width: n.width,
     height: n.height,
   };
-  if (n.z !== undefined) out.z = n.z;
+  for (const key of ITEM_NUMBERS) {
+    const value = n[key];
+    if (value !== undefined) out[key] = value;
+  }
   if (n.color !== undefined) out.color = n.color;
   if (n.nodeId !== undefined) out.nodeId = n.nodeId;
   // `CanvasUnknownNode.type` is `string`, so `type === "text"` does not
@@ -383,32 +403,39 @@ export function stringifyCanvasDoc(doc: CanvasDoc): string {
   return JSON.stringify(out);
 }
 
-/** An item's depth: 0, the canvas plane, when it has none. */
-export function canvasDepth(node: CanvasNode): number {
+/** An item's elevation: the height of its base above the floor, 0 when it has none. */
+export function canvasElevation(node: CanvasNode): number {
   return node.z ?? 0;
 }
 
 /**
- * `node` at depth `z`. Depth 0 is written as no depth at all, so an item
- * that comes back to the plane leaves the document as it was before 3D.
+ * `node` with numeric field `key` at `value`. 0 is written as no value at
+ * all, so an item that comes back to 0 leaves the document as it was before
+ * the field existed, and a value set here supersedes one this version could
+ * not read.
  */
-export function withDepth<N extends CanvasNode>(node: N, z: number): N {
+function withNumber<N extends CanvasNode>(node: N, key: ItemNumber, value: number): N {
   const next = { ...node };
-  if (z === 0) delete next.z;
-  else next.z = z;
-  // A depth set here supersedes one this version could not read.
-  return dropExtra(next, "z");
+  if (value === 0) delete next[key];
+  else next[key] = value;
+  return dropExtra(next, key);
+}
+
+/** `node` with its base at elevation `z`; back on the floor it carries no `z`. */
+export function withElevation<N extends CanvasNode>(node: N, z: number): N {
+  return withNumber(node, "z", z);
 }
 
 /**
- * Items back to front: by depth, and at one depth in document order, which
- * bring-to-front and send-to-back rearrange. Every projection paints and
- * hit-tests in this order, so from the top a raised item covers a lower one.
+ * Items back to front: by elevation, and at one elevation in document order,
+ * which bring-to-front and send-to-back rearrange. Every projection paints
+ * and hit-tests in this order, so from the top a raised item covers a lower
+ * one.
  */
 export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
   return nodes
     .map((node, index) => ({ node, index }))
-    .toSorted((a, b) => canvasDepth(a.node) - canvasDepth(b.node) || a.index - b.index)
+    .toSorted((a, b) => canvasElevation(a.node) - canvasElevation(b.node) || a.index - b.index)
     .map(({ node }) => node);
 }
 

@@ -42,7 +42,7 @@ interface CanvasGestureContext {
   setInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setPickerOpen: Dispatch<SetStateAction<boolean>>;
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
-  setShapeInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
+  setItemInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setToolState: Dispatch<SetStateAction<ToolState>>;
   setZoom: Dispatch<SetStateAction<number>>;
   /** Where a card added from the header lands, in the projection that is showing. */
@@ -57,7 +57,7 @@ type StageGestureContext = Pick<
   | "schedulePersist"
   | "setInspectorAnchor"
   | "setSelection"
-  | "setShapeInspectorAnchor"
+  | "setItemInspectorAnchor"
   | "setToolState"
   | "spaceDown"
   | "toolState"
@@ -81,7 +81,7 @@ function createPointerEnd(
     const drag = context.pointerRef.current.drag;
     if (drag?.kind === "marquee-pending") {
       context.setInspectorAnchor(null);
-      context.setShapeInspectorAnchor(null);
+      context.setItemInspectorAnchor(null);
     }
     const edgeTarget =
       drag?.kind === "edge"
@@ -252,7 +252,7 @@ function createToolPlacement({
   schedulePersist,
   setInspectorAnchor,
   setSelection,
-  setShapeInspectorAnchor,
+  setItemInspectorAnchor,
   setToolState,
   toolState,
 }: StageGestureContext) {
@@ -263,7 +263,7 @@ function createToolPlacement({
     setSelection(selNode(placed.node.id));
     setToolState((s) => reduceCanvasTool(s, { type: "placed" }));
     setInspectorAnchor(null);
-    setShapeInspectorAnchor(isShapeNode(placed.node) ? client : null);
+    setItemInspectorAnchor(isShapeNode(placed.node) ? client : null);
     return true;
   };
 }

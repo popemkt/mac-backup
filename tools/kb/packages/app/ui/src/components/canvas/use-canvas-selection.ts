@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import type { CanvasDoc, CanvasEdge, CanvasNode } from "@kb/canvas";
-import { isShapeNode } from "@kb/canvas";
 import {
   type CanvasSelection,
   EMPTY_SELECTION,
@@ -16,7 +15,7 @@ type CardPress = Pick<PointerEvent, "shiftKey" | "metaKey" | "ctrlKey">;
 export function useCanvasSelection(doc: CanvasDoc, byId: Map<string, CanvasNode>) {
   const [selection, setSelection] = useState<CanvasSelection>(EMPTY_SELECTION);
   const [inspectorAnchor, setInspectorAnchor] = useState<{ x: number; y: number } | null>(null);
-  const [shapeInspectorAnchor, setShapeInspectorAnchor] = useState<{
+  const [itemInspectorAnchor, setItemInspectorAnchor] = useState<{
     x: number;
     y: number;
   } | null>(null);
@@ -28,14 +27,8 @@ export function useCanvasSelection(doc: CanvasDoc, byId: Map<string, CanvasNode>
     selectedEdgeId !== undefined
       ? (doc.edges.find((edge) => edge.id === selectedEdgeId) ?? null)
       : null;
-  const selectedShapeId = selection.nodeIds.size === 1 ? ([...selection.nodeIds][0] ?? null) : null;
-  const selectedShape =
-    selectedShapeId === null
-      ? null
-      : (() => {
-          const node = byId.get(selectedShapeId);
-          return node && isShapeNode(node) ? node : null;
-        })();
+  const selectedItemId = selection.nodeIds.size === 1 ? ([...selection.nodeIds][0] ?? null) : null;
+  const selectedItem = selectedItemId === null ? null : (byId.get(selectedItemId) ?? null);
 
   /**
    * A press on a card, in whichever projection drew it: a modifier toggles
@@ -51,13 +44,13 @@ export function useCanvasSelection(doc: CanvasDoc, byId: Map<string, CanvasNode>
     if (press.shiftKey || press.metaKey || press.ctrlKey) {
       setSelection(toggleNode(selection, card.id));
       setInspectorAnchor(null);
-      setShapeInspectorAnchor(null);
+      setItemInspectorAnchor(null);
       return;
     }
     if (!isSelected) {
       setSelection(selectNode(card.id));
       setInspectorAnchor(null);
-      setShapeInspectorAnchor(anchor ?? null);
+      setItemInspectorAnchor(anchor ?? null);
     }
     startMove();
   };
@@ -70,7 +63,7 @@ export function useCanvasSelection(doc: CanvasDoc, byId: Map<string, CanvasNode>
       setSelection(selectEdge(edge.id));
     }
     setInspectorAnchor({ x: event.clientX, y: event.clientY });
-    setShapeInspectorAnchor(null);
+    setItemInspectorAnchor(null);
   };
 
   return {
@@ -78,12 +71,12 @@ export function useCanvasSelection(doc: CanvasDoc, byId: Map<string, CanvasNode>
     onCardPointerDown,
     onEdgeClick,
     selectedEdge,
-    selectedShape,
+    selectedItem,
     selection,
     selectionRef,
     setInspectorAnchor,
     setSelection,
-    setShapeInspectorAnchor,
-    shapeInspectorAnchor,
+    setItemInspectorAnchor,
+    itemInspectorAnchor,
   };
 }

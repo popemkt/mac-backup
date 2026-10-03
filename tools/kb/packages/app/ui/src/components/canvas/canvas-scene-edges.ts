@@ -1,8 +1,8 @@
 /**
  * The 3D canvas's edges (`canvas-scene`): lines between the items' side
- * anchors, bowed like their 2D bezier and climbing from one depth to the
+ * anchors, bowed like their 2D bezier and climbing from one height to the
  * other, with a cone for an arrowhead. An edge is rebuilt only when what it
- * is drawn from changes (`edgeVersion`: its ends' boxes and depths, sides,
+ * is drawn from changes (`edgeVersion`: its ends' boxes and heights, sides,
  * arrowheads, colour and selection); a drag rebuilds just the edges of the
  * cards it carries.
  */
@@ -18,7 +18,7 @@ import {
 } from "three/webgpu";
 import { Line2 } from "three/addons/lines/webgpu/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
-import { canvasDepth, type CanvasEdge, type CanvasNode, type CanvasSide } from "@kb/canvas";
+import { canvasElevation, type CanvasEdge, type CanvasNode, type CanvasSide } from "@kb/canvas";
 import { sidePoint } from "@/lib/canvas-edge-path";
 import type { CardLook } from "./canvas-card-face";
 import type { CanvasSceneContent } from "./canvas-scene-content";
@@ -34,14 +34,14 @@ function outward(side: CanvasSide): [number, number] {
   return [1, 0];
 }
 
-/** The edge's curve in three's space: the 2D bezier, climbing smoothly between the two depths. */
+/** The edge's curve in three's space: the 2D bezier, climbing smoothly between the two heights. */
 function edgeCurve(from: CanvasNode, to: CanvasNode, edge: CanvasEdge): Vector3[] {
   const fromSide = edge.fromSide ?? "right";
   const toSide = edge.toSide ?? "left";
   const a = sidePoint(from, fromSide);
   const b = sidePoint(to, toSide);
-  const za = canvasDepth(from);
-  const zb = canvasDepth(to);
+  const za = canvasElevation(from);
+  const zb = canvasElevation(to);
   const reach = Math.max(40, Math.hypot(b.x - a.x, b.y - a.y) * 0.4);
   const [ax, ay] = outward(fromSide);
   const [bx, by] = outward(toSide);
@@ -59,7 +59,7 @@ function edgeCurve(from: CanvasNode, to: CanvasNode, edge: CanvasEdge): Vector3[
   return points;
 }
 
-const box = (n: CanvasNode) => `${n.x},${n.y},${n.width},${n.height},${canvasDepth(n)}`;
+const box = (n: CanvasNode) => `${n.x},${n.y},${n.width},${n.height},${canvasElevation(n)}`;
 
 /** Everything an edge is drawn from, as a version. */
 function edgeVersion(edge: CanvasEdge, from: CanvasNode, to: CanvasNode, selected: boolean) {

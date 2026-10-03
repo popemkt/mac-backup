@@ -250,7 +250,7 @@ describe("lift", () => {
       { type: "pointer/end", screen: { x: 0, y: 100 }, world: { x: 0, y: 0 } },
       { ...context(lifted.doc), zoom: 2 },
     );
-    // Back where it started, the card carries no depth at all.
+    // Back where it started, the card carries no elevation at all.
     expect(released.doc?.nodes.find((n) => n.id === moving.id)).not.toHaveProperty("z");
     expect(released.persist).toBe("history");
   });

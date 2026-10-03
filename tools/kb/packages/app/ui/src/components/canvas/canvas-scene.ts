@@ -61,7 +61,7 @@ interface CanvasSceneInspection {
   /** Where an item's centre is on the canvas, CSS pixels; null when out of view. */
   screenOf(id: string): { x: number; y: number } | null;
   /**
-   * An item as drawn: the canvas-space depth of its plane, and its
+   * An item as drawn: the canvas-space height of its plane, and its
    * rectangle's corners on the canvas (CSS pixels), from the mesh itself.
    */
   drawnOf(id: string): { z: number; corners: { x: number; y: number }[] } | null;

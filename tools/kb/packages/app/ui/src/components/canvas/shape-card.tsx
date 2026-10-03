@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CanvasShapeNode } from "@kb/canvas";
+import { shapeOutline, svgPathData, type CanvasShapeNode } from "@kb/canvas";
 import { canvasColorStyle, resolveCanvasColor } from "@/lib/canvas-color";
 import { classifyCardPointer } from "@/lib/card-pointer";
 import { cn } from "@/lib/cn";
+import { readShapeRadius } from "./canvas-card-face";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
 import {
@@ -24,57 +25,49 @@ interface ShapeCardProps {
   onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
+/**
+ * A shape's outline, traced from the shape table (`shapeOutline`) as the 3D
+ * faces trace it, filled with its preset tint and stroked in its colour; a
+ * selected shape is stroked in the primary over a soft halo.
+ */
 function ShapeChrome({
-  shape,
-  color,
+  card,
   selected,
   children,
 }: {
-  shape: CanvasShapeNode["shape"];
-  color?: string;
+  card: CanvasShapeNode;
   selected: boolean;
   children: React.ReactNode;
 }) {
-  const tint = canvasColorStyle(color);
+  const tint = canvasColorStyle(card.color);
   const stroke =
-    resolveCanvasColor(color) ?? "color-mix(in oklab, var(--foreground) 18%, transparent)";
-
-  if (shape === "diamond") {
-    return (
-      <div className="relative h-full w-full">
-        <svg
-          className="absolute inset-0 h-full w-full"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          aria-hidden
-        >
-          <polygon
-            points="50,2 98,50 50,98 2,50"
-            fill={tint.backgroundColor ?? "color-mix(in oklab, var(--foreground) 3%, transparent)"}
-            stroke={selected ? "var(--primary)" : stroke}
-            strokeWidth={selected ? 2.2 : 1.5}
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center px-4">{children}</div>
-      </div>
-    );
-  }
-
+    resolveCanvasColor(card.color) ?? "color-mix(in oklab, var(--foreground) 18%, transparent)";
+  const d = svgPathData(shapeOutline(card.shape, card.width, card.height, readShapeRadius()));
   return (
-    <div
-      className={cn(
-        "flex h-full w-full items-center justify-center border px-3",
-        shape === "ellipse" ? "rounded-full" : "rounded-md",
-        selected ? "border-primary/70 ring-2 ring-primary/15" : "border-foreground/[0.12]",
-      )}
-      style={{
-        borderColor: selected ? undefined : tint.borderColor,
-        backgroundColor:
-          tint.backgroundColor ?? "color-mix(in oklab, var(--foreground) 2%, var(--background))",
-      }}
-    >
-      {children}
+    <div className="relative h-full w-full">
+      <svg
+        className="absolute inset-0 h-full w-full overflow-visible"
+        viewBox={`0 0 ${card.width} ${card.height}`}
+        aria-hidden
+      >
+        {selected && (
+          <path
+            d={d}
+            fill="none"
+            stroke="color-mix(in oklab, var(--primary) 15%, transparent)"
+            strokeWidth={6}
+          />
+        )}
+        <path
+          d={d}
+          fill={
+            tint.backgroundColor ?? "color-mix(in oklab, var(--foreground) 2%, var(--background))"
+          }
+          stroke={selected ? "color-mix(in oklab, var(--primary) 70%, transparent)" : stroke}
+          strokeWidth={selected ? 2 : 1}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center px-4">{children}</div>
     </div>
   );
 }
@@ -150,7 +143,7 @@ export function ShapeCard({
         beginEdit();
       }}
     >
-      <ShapeChrome shape={card.shape} color={card.color} selected={selected}>
+      <ShapeChrome card={card} selected={selected}>
         {edit.editing ? (
           <input
             ref={inputRef}

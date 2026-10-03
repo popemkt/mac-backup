@@ -14,6 +14,8 @@ import {
   isKbNode,
   isShapeNode,
   isTextNode,
+  shapeOutline,
+  tracePath,
   type CanvasNode,
   type CanvasShapeKind,
 } from "@kb/canvas";
@@ -76,16 +78,29 @@ export interface CardLook {
 
 /** A length token resolved by the browser (calc and var included), or the fallback. */
 function probeLength(property: "fontSize" | "borderTopLeftRadius", css: string, fallback: number) {
-  if (typeof document === "undefined") return fallback;
+  const view = typeof document === "undefined" ? null : document.defaultView;
+  if (view === null) return fallback;
   const probe = document.createElement("span");
   probe.style.position = "absolute";
   probe.style.visibility = "hidden";
   if (property === "fontSize") probe.style.fontSize = css;
   else probe.style.borderRadius = css;
   document.documentElement.appendChild(probe);
-  const value = Number.parseFloat(getComputedStyle(probe)[property]);
+  const value = Number.parseFloat(view.getComputedStyle(probe)[property]);
   probe.remove();
   return Number.isFinite(value) ? value : fallback;
+}
+
+let shapeRadiusPx: number | undefined;
+
+/**
+ * `rounded-md`, a shape's corner radius, in pixels: what both projections
+ * round a rectangle's outline by (`shapeOutline`). Read once — no theme
+ * changes a radius.
+ */
+export function readShapeRadius(): number {
+  shapeRadiusPx ??= probeLength("borderTopLeftRadius", "var(--radius-md)", 8);
+  return shapeRadiusPx;
 }
 
 /** Each JSON Canvas preset's token (`lib/canvas-color` paints the same ones in the DOM). */
@@ -112,7 +127,7 @@ export function readCardLook(): CardLook {
     ui: probeLength("fontSize", "var(--type-ui)", 13),
     label: probeLength("fontSize", "var(--type-label)", 11),
     radius: probeLength("borderTopLeftRadius", "var(--radius-xl)", 18),
-    shapeRadius: probeLength("borderTopLeftRadius", "var(--radius-md)", 8),
+    shapeRadius: readShapeRadius(),
   };
 }
 
@@ -289,16 +304,8 @@ function paintText(
 }
 
 function shapePath(ctx: Ctx, shape: CanvasShapeKind, box: FaceBox, radius: number): void {
-  const { width: w, height: h } = box;
   ctx.beginPath();
-  if (shape === "ellipse") ctx.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
-  else if (shape === "diamond") {
-    ctx.moveTo(w / 2, 0);
-    ctx.lineTo(w, h / 2);
-    ctx.lineTo(w / 2, h);
-    ctx.lineTo(0, h / 2);
-    ctx.closePath();
-  } else ctx.roundRect(0, 0, w, h, Math.min(radius, w / 2, h / 2));
+  tracePath(ctx, shapeOutline(shape, box.width, box.height, radius));
 }
 
 function paintShape(

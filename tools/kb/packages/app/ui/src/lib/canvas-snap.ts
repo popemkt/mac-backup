@@ -6,7 +6,7 @@
  * start, end or middle within {@link SNAP_TOL} screen pixels, the nearest
  * alignment winning, once per axis.
  */
-import { canvasDepth, type CanvasNode } from "@kb/canvas";
+import { canvasElevation, type CanvasNode } from "@kb/canvas";
 
 /** One of the canvas's axes: x and y across the floor, z up from it. */
 type SnapAxis = "x" | "y" | "z";
@@ -25,7 +25,7 @@ function spanOf(item: CanvasNode, axis: SnapAxis): { start: number; size: number
   if (axis === "x") return { start: item.x, size: item.width };
   if (axis === "y") return { start: item.y, size: item.height };
   // Up from the floor an item starts at its base; every item is flat until items have depth.
-  return { start: canvasDepth(item), size: 0 };
+  return { start: canvasElevation(item), size: 0 };
 }
 
 /**

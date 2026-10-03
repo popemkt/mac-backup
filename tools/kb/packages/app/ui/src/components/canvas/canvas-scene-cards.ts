@@ -24,7 +24,7 @@ import {
   type UniformNode,
 } from "three/webgpu";
 import { texture, uniform } from "three/tsl";
-import { canvasDepth, paintOrder, type CanvasNode } from "@kb/canvas";
+import { canvasElevation, paintOrder, type CanvasNode } from "@kb/canvas";
 import { paintPlanes } from "@/lib/canvas-camera";
 import { readTokenColor } from "@/lib/css-color";
 import {
@@ -217,7 +217,7 @@ export class CardLayer {
     if (this.stale.size > 0) this.repaintSoon();
   }
 
-  /** The canvas-space depth card `id` is drawn at, and its rectangle's corners in the world. */
+  /** The canvas-space height card `id` is drawn at, and its rectangle's corners in the world. */
   drawn(id: string): { z: number; corners: Vector3[] } | null {
     const card = this.cards.get(id);
     if (card === undefined) return null;
@@ -319,7 +319,7 @@ export class CardLayer {
     card.group.position.set(cx, -cy, z);
     card.group.scale.set(item.width + FACE_MARGIN * 2, item.height + FACE_MARGIN * 2, 1);
     // A raised card's shadow falls on the plane below it, larger and fainter the higher it is.
-    const lift = Math.max(0, canvasDepth(item));
+    const lift = Math.max(0, canvasElevation(item));
     card.footprint.visible = lift > 0.5;
     const spread = 1 + Math.min(0.6, lift / 800);
     card.footprint.position.set(cx, -(cy + lift * 0.1), SHADOW_Z);

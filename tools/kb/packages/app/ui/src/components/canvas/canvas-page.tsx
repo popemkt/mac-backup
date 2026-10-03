@@ -88,13 +88,13 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     onCardPointerDown,
     onEdgeClick,
     selectedEdge: selectedEdgeObj,
-    selectedShape,
+    selectedItem,
     selection,
     selectionRef: selRef,
     setInspectorAnchor,
     setSelection,
-    setShapeInspectorAnchor,
-    shapeInspectorAnchor,
+    setItemInspectorAnchor,
+    itemInspectorAnchor,
   } = useCanvasSelection(doc, byId);
 
   const applyPointerResult = useCallback(
@@ -180,7 +180,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setInspectorAnchor,
     setPickerOpen,
     setSelection,
-    setShapeInspectorAnchor,
+    setItemInspectorAnchor,
     setToolState,
     setZoom,
   });
@@ -200,7 +200,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     redoCanvasDoc,
     setSelection,
     setInspectorAnchor,
-    setShapeInspectorAnchor,
+    setItemInspectorAnchor,
     setPickerOpen,
     setSpaceDown,
     setToolState,
@@ -283,7 +283,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             onCardSelect={(card, anchor) => {
               setSelection(selNode(card.id));
               setInspectorAnchor(null);
-              setShapeInspectorAnchor(anchor ?? null);
+              setItemInspectorAnchor(anchor ?? null);
             }}
             onCardChange={(card) => schedulePersist(upsertCanvasNode(docRef.current, card))}
             onResizeStart={startResize}
@@ -335,7 +335,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                   if (press.shiftKey) return;
                   setSelection(EMPTY_SELECTION);
                   setInspectorAnchor(null);
-                  setShapeInspectorAnchor(null);
+                  setItemInspectorAnchor(null);
                 }}
                 onViewSettled={projection.onViewSettled}
               />
@@ -358,9 +358,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           selection={selection}
           toolState={toolState}
           selectedEdge={selectedEdgeObj}
-          selectedShape={selectedShape}
+          selectedItem={selectedItem}
           inspectorAnchor={inspectorAnchor}
-          shapeInspectorAnchor={shapeInspectorAnchor}
+          itemInspectorAnchor={itemInspectorAnchor}
           pickerOpen={pickerOpen}
           refFields={refFields}
           onToolChange={setTool}
@@ -389,8 +389,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           onEdgeFieldChange={(fieldId) => void onFieldChange(fieldId)}
           onDeleteEdge={() => void onDeleteEdge()}
           onEdgeChange={(edge) => schedulePersist(upsertCanvasEdge(docRef.current, edge))}
-          onCloseShapeInspector={() => setShapeInspectorAnchor(null)}
-          onShapeChange={(shape) => schedulePersist(upsertCanvasNode(docRef.current, shape))}
+          onCloseItemInspector={() => setItemInspectorAnchor(null)}
+          onItemChange={(shape) => schedulePersist(upsertCanvasNode(docRef.current, shape))}
           onPickNode={addKbNode}
           onClosePicker={() => setPickerOpen(false)}
         />

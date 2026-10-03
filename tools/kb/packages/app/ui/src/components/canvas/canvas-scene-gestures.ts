@@ -5,7 +5,7 @@
  * viewport coordinates and it answers through `SceneGestureHost`.
  *
  * - On a card: a press selects it (a modifier toggles it) and a drag carries
- *   it on its own plane; with Alt, along depth. Both go through the canvas
+ *   it on its own plane; with Alt, up from the floor. Both go through the canvas
  *   pointer reducer, so a 3D drag is the same history step and the same write
  *   as a 2D one.
  * - On empty canvas: a drag orbits, a tap places the current tool (or clears
@@ -15,7 +15,7 @@
  * Every screen point becomes a canvas point through the one camera model, so
  * what is hit and where a card goes are the model's answers.
  */
-import { canvasDepth, paintOrder, type CanvasNode } from "@kb/canvas";
+import { canvasElevation, paintOrder, type CanvasNode } from "@kb/canvas";
 import {
   hitTest,
   screenToPlane,
@@ -93,7 +93,7 @@ export class SceneGestures {
     const card = pans ? undefined : this.cardAt(press.local);
     const screen = { x: press.clientX, y: press.clientY };
     if (card !== undefined) {
-      const z = canvasDepth(card);
+      const z = canvasElevation(card);
       const world = this.planeAt(press.local, z);
       this.gesture = { kind: "card", z, last: world };
       this.host.cardPress(card, press, () => {
