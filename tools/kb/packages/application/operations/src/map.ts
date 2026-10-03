@@ -147,10 +147,9 @@ export function mapGet(opts: { id: string; depth?: number }): PlannedAction {
 
 export function mapRm(opts: { id: string; force?: boolean }): PlannedAction {
   return {
-    id: "node.update",
+    id: "node.delete",
     input: {
       id: opts.id,
-      delete: true,
       ...(opts.force === true ? { force: true } : {}),
     },
   };

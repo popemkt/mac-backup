@@ -31,7 +31,7 @@ describe("outline action input builders", () => {
 
   it("delete delegates cascade semantics to node.update", () => {
     expect(planDelete(fixtureGraph.nodes, "n.root-a").actions).toEqual([
-      { id: "node.update", input: { id: "n.root-a", delete: true, descendants: "cascade" } },
+      { id: "node.delete", input: { id: "n.root-a", descendants: "cascade" } },
     ]);
   });
 
@@ -70,8 +70,8 @@ describe("outline action input builders", () => {
     const merged = present(planMergeInto(fixtureGraph.nodes, "n.child-a2", "n.child-a1"), "merge");
     expect(merged.focusId).toBe("n.child-a1");
     expect(merged.actions.at(-1)).toEqual({
-      id: "node.update",
-      input: { id: "n.child-a2", delete: true },
+      id: "node.delete",
+      input: { id: "n.child-a2" },
     });
   });
 

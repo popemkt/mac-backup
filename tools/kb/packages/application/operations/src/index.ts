@@ -14,6 +14,8 @@ export {
   nodeGetEffect,
   nodeUpdateDef,
   nodeUpdateEffect,
+  nodeDeleteDef,
+  nodeDeleteEffect,
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";

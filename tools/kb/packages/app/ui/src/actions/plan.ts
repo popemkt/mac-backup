@@ -105,7 +105,7 @@ export function planSplit(
   };
 }
 export const planDelete = (_nodes: WireNode[], id: string) =>
-  update(id, { delete: true, descendants: "cascade" });
+  plan({ id: "node.delete", input: { id, descendants: "cascade" } });
 export function planMergeInto(
   nodes: WireNode[],
   id: string,
@@ -121,7 +121,7 @@ export function planMergeInto(
         id: "node.update",
         input: { id: childId, parent: targetId, position: target.children.length + offset },
       })),
-      { id: "node.update", input: { id, delete: true } },
+      { id: "node.delete", input: { id } },
     ],
     focusId: targetId,
     focusCursor: target.text.length,

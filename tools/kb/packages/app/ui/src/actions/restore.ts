@@ -64,8 +64,7 @@ export function restoreInvocations(
   const toById = new Map(to.map((node) => [node.id, node]));
   const actions: Array<{ id: string; input: unknown }> = [];
   for (const node of from) {
-    if (!toById.has(node.id))
-      actions.push({ id: "node.update", input: { id: node.id, delete: true } });
+    if (!toById.has(node.id)) actions.push({ id: "node.delete", input: { id: node.id } });
   }
   const missing = to.filter((node) => !fromById.has(node.id));
   const depth = (node: WireNode): number => {

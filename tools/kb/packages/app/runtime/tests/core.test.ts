@@ -359,7 +359,7 @@ describe("registry + operations", () => {
     expect(ok.status).toBe("succeeded");
   });
 
-  test("node.update delete cascades descendants and core rejects shallow orphan tx", async () => {
+  test("node.delete cascades descendants and core rejects shallow orphan tx", async () => {
     const ctx = await openKb(root);
     const parent = await invoke(ctx, { id: "node.add", input: { id: "n.parent", text: "parent" } });
     expect(parent.status).toBe("succeeded");
@@ -373,8 +373,8 @@ describe("registry + operations", () => {
     });
 
     const deleted = await invoke(ctx, {
-      id: "node.update",
-      input: { id: "n.parent", delete: true },
+      id: "node.delete",
+      input: { id: "n.parent" },
     });
     expect(deleted.status).toBe("succeeded");
     expect(ctx.nodes.some((node) => node.id === "n.child" || node.id === "n.grandchild")).toBe(

@@ -1685,7 +1685,8 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 | Action                                            | Mode  | Does                                                                                                         |
 | ------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------ |
 | `node.add`                                        | write | create (text, props by field name/id, parent, position, tags)                                                |
-| `node.update`                                     | write | edit text / set-unset props / move / delete                                                                  |
+| `node.update`                                     | write | edit text / set-unset props / move                                                                           |
+| `node.delete`                                     | write | delete a node, its descendants with it unless `descendants: "reparent"` (`kb rm`)                           |
 | `node.get`                                        | read  | pull subtree to depth N                                                                                      |
 | `field.define` / `tag.define`                     | write | mint field/tag nodes (sugar over node.add)                                                                   |
 | `graph.query`                                     | read  | raw datalog → JSON rows                                                                                      |
@@ -1702,6 +1703,12 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 | `ext.canvas.tx.apply`                             | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension)                                      |
 | `ui.screen`                                       | read  | the open UI tabs' screen state, most recently active first ([Screen state](#screen-state))                   |
 | `ui.navigate` / `ui.select`                       | write | open a node or route / set the selection or focus in a UI tab ([Screen state](#screen-state))                |
+
+**Breaking change (roadmap step 5c), with no alias:** deleting is
+`node.delete`. `node.update` no longer takes `delete` or `descendants`, and
+its output always carries the node. Deleting is its own action because it is
+the write a caller most needs to name on its own: an approval policy matches
+an action by its id ([Action registry](#action-registry)).
 
 ## Materialization
 

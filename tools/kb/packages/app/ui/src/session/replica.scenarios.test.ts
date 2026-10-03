@@ -315,7 +315,7 @@ class Harness {
 
   async run(step: Step): Promise<void> {
     if ("write" in step) await invoke("node.update", { id: step.write, text: step.text });
-    else if ("remove" in step) await invoke("node.update", { id: step.remove, delete: true });
+    else if ("remove" in step) await invoke("node.delete", { id: step.remove });
     else if ("type" in step) await mutations.updateNodeContent(step.type, step.text);
     else if ("receipt" in step) this.push(step.receipt).settle({ rev: step.rev });
     else if ("fail" in step) this.push(step.fail).settle({ fail: true });

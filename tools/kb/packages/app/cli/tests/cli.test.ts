@@ -67,7 +67,7 @@ describe("arg → invocation mapping", () => {
       id: "n1",
       unsetProps: [{ field: "status" }],
     });
-    expect(mapRm({ id: "n1" }).input).toEqual({ id: "n1", delete: true });
+    expect(mapRm({ id: "n1" })).toEqual({ id: "node.delete", input: { id: "n1" } });
     expect(mapMv({ id: "n1", parent: "p1", position: 0 }).input).toEqual({
       id: "n1",
       parent: "p1",

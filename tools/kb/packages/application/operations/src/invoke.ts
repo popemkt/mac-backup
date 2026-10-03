@@ -36,6 +36,8 @@ import {
   graphSearchEffect,
   nodeAddDef,
   nodeAddEffect,
+  nodeDeleteDef,
+  nodeDeleteEffect,
   nodeGetDef,
   nodeGetEffect,
   nodeUpdateDef,
@@ -94,6 +96,7 @@ function coreNative<R>(def: ActionDefinition, effect: ActionEffectHandler<R>): R
 export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[] = [
   coreNative(nodeAddDef, nodeAddEffect),
   coreNative(nodeUpdateDef, nodeUpdateEffect),
+  coreNative(nodeDeleteDef, nodeDeleteEffect),
   coreNative(nodeGetDef, nodeGetEffect),
   coreNative(fieldDefineDef, fieldDefineEffect),
   coreNative(tagDefineDef, tagDefineEffect),

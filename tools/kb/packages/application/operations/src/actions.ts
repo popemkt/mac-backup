@@ -76,7 +76,7 @@ export const nodeAddDef = {
 export const nodeUpdateDef = {
   id: "node.update",
   title: "Update node",
-  description: "Edit text, set/unset props, move, or delete a node",
+  description: "Edit text, set/unset props, or move a node",
   mode: { kind: "write" } as const,
   inputSchema: z.object({
     id: z.string(),
@@ -87,7 +87,28 @@ export const nodeUpdateDef = {
     parent: z.string().nullable().optional(),
     /** Index in the target sibling group; the end when omitted on a move. */
     position: z.number().int().nonnegative().optional(),
-    delete: z.boolean().optional(),
+    /** Bypass sys.* write-guard (browse yes / break no). */
+    force: z.boolean().optional(),
+  }),
+  outputSchema: z.object({
+    id: z.string(),
+    node: z.record(z.string(), z.unknown()),
+  }),
+} satisfies ActionDefinition;
+
+/**
+ * Deleting is its own action, not a flag on `node.update`: it is the one
+ * write whose loss a person cannot see in the node that remains, so it is
+ * the write a caller (an approval policy, a person reading a tool list) most
+ * needs to name on its own.
+ */
+export const nodeDeleteDef = {
+  id: "node.delete",
+  title: "Delete node",
+  description: "Delete a node and, by default, its descendants (reparent keeps them)",
+  mode: { kind: "write" } as const,
+  inputSchema: z.object({
+    id: z.string(),
     /** Parent deletion is never implicitly shallow; cascade is the default. */
     descendants: z.enum(["cascade", "reparent"]).optional(),
     /** Bypass sys.* write-guard (browse yes / break no). */
@@ -95,8 +116,7 @@ export const nodeUpdateDef = {
   }),
   outputSchema: z.object({
     id: z.string(),
-    deleted: z.boolean().optional(),
-    node: z.record(z.string(), z.unknown()).optional(),
+    deleted: z.literal(true),
   }),
 } satisfies ActionDefinition;
 
@@ -387,7 +407,6 @@ function assertSysWriteAllowed(id: string, input: z.infer<typeof nodeUpdateDef.i
     input.text !== undefined ||
     (input.setProps !== undefined && input.setProps.length > 0) ||
     (input.unsetProps !== undefined && input.unsetProps.length > 0) ||
-    input.delete === true ||
     input.parent !== undefined ||
     input.position !== undefined;
   if (!mutating) return;
@@ -422,21 +441,32 @@ export function assertNoSysUpsert(
   }
 }
 
+export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
+  input: z.infer<typeof nodeDeleteDef.inputSchema>,
+): Effect.fn.Return<{ id: string; deleted: true }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const at = yield* currentIso;
+  if (isSysPrefixed(input.id) && input.force !== true) {
+    return yield* domainError(
+      "forbidden",
+      `sys.* nodes are write-protected (use force to override): ${input.id}`,
+      { id: input.id },
+    );
+  }
+  const deleteIds =
+    input.descendants === "reparent" ? [input.id] : collectSubtreeIds(ctx.nodes, input.id);
+  const upserts = detachFromParents(ctx.nodes, input.id, at);
+  yield* syncDomain(() => assertNoSysUpsert(upserts, input.force === true, "node.delete"));
+  yield* persistEffect(ctx, { upserts, deletes: deleteIds });
+  return { id: input.id, deleted: true };
+});
+
 export const nodeUpdateEffect = Effect.fn("node.update")(function* (
   input: z.infer<typeof nodeUpdateDef.inputSchema>,
-): Effect.fn.Return<{ id: string; deleted?: boolean; node?: KbNode }, DomainError, KbWriteEnv> {
+): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
   yield* syncDomain(() => assertSysWriteAllowed(input.id, input));
-
-  if (input.delete === true) {
-    const deleteIds =
-      input.descendants === "reparent" ? [input.id] : collectSubtreeIds(ctx.nodes, input.id);
-    const upserts = detachFromParents(ctx.nodes, input.id, at);
-    yield* syncDomain(() => assertNoSysUpsert(upserts, input.force === true, "node.update"));
-    yield* persistEffect(ctx, { upserts, deletes: deleteIds });
-    return { id: input.id, deleted: true };
-  }
 
   const node = yield* syncDomain(() => cloneNode(requireNode(ctx, input.id)));
   const upserts: KbNode[] = [];
