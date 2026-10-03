@@ -40,7 +40,7 @@ describe("with something selected", () => {
     [chord("+", { metaKey: true }), { type: "zoomBy", factor: ZOOM_STEP }],
     [chord("-", { metaKey: true }), { type: "zoomBy", factor: 1 / ZOOM_STEP }],
     [chord("0", { metaKey: true }), { type: "zoomTo", zoom: 1 }],
-    [chord("!", { shiftKey: true }), { type: "zoomToFit" }],
+    [chord("!", { shiftKey: true }), { type: "frame", scope: "all" }],
   ];
 
   test.each(table)("%o maps to %o", (event, intent) => {

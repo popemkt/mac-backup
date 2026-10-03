@@ -37,7 +37,6 @@ interface ProjectionContext {
   readonly setCamera: (camera: CanvasCamera) => void;
   readonly setZoom: (zoom: number) => void;
   readonly dispatchPointer: (event: CanvasPointerEvent) => PointerResult;
-  readonly items: () => CanvasDoc["nodes"];
 }
 
 /** Where a new card lands: this far into the viewport from its corner, on the canvas plane. */
@@ -58,7 +57,7 @@ function sizeOf(stage: HTMLDivElement | null): ViewSize {
 }
 
 export function useCanvasProjection(context: ProjectionContext) {
-  const { doc, pan, zoom, stage, setCamera, setZoom, dispatchPointer, items } = context;
+  const { doc, pan, zoom, stage, setCamera, setZoom, dispatchPointer } = context;
   const [rig] = useState(
     () =>
       new CanvasCameraRig(viewOfPan(pan, zoom, sizeOf(null)), readTiming(), prefersReducedMotion()),
@@ -130,6 +129,6 @@ export function useCanvasProjection(context: ProjectionContext) {
     },
     /** The showing camera's answers to the keymap, given the 2D ones. */
     viewportOf: (flatControls: CanvasViewportControls): CanvasViewportControls =>
-      in3d ? rig.controls(size, items, onViewSettled) : flatControls,
+      in3d ? rig.controls(size, onViewSettled) : flatControls,
   };
 }

@@ -35,7 +35,10 @@ export type CanvasIntent =
   | { type: "tool"; tool: CanvasTool }
   | { type: "zoomBy"; factor: number }
   | { type: "zoomTo"; zoom: number }
-  | { type: "zoomToFit" };
+  | { type: "frame"; scope: CanvasFrameScope };
+
+/** What a frame takes in: every item on the canvas. */
+type CanvasFrameScope = "all";
 
 /**
  * A chord the canvas claims.
@@ -150,7 +153,7 @@ const mapZoom: ChordMap = (event) => {
     return claim({ type: "zoomBy", factor: ZOOM_STEP });
   if (mod(event) && event.key === "-") return claim({ type: "zoomBy", factor: 1 / ZOOM_STEP });
   if (mod(event) && event.key === "0") return claim({ type: "zoomTo", zoom: 1 });
-  if (event.shiftKey === true && event.key === "!") return claim({ type: "zoomToFit" });
+  if (event.shiftKey === true && event.key === "!") return claim({ type: "frame", scope: "all" });
   return null;
 };
 

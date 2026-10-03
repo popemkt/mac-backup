@@ -192,8 +192,8 @@ function applyCanvasIntent(context: CanvasKeyboardContext, intent: CanvasIntent)
     case "zoomTo":
       context.viewport.zoomTo(intent.zoom);
       break;
-    case "zoomToFit":
-      context.viewport.fit();
+    case "frame":
+      context.viewport.frame(context.docRef.current.nodes);
       break;
     default:
       // `switch-exhaustiveness-check` turns a new intent without a case red.

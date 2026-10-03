@@ -25,6 +25,7 @@ import {
   hitTest,
   panOfView,
   viewOfPan,
+  type CanvasHitItem,
   type CanvasViewportControls,
 } from "@/lib/canvas-camera";
 
@@ -142,16 +143,19 @@ function useViewportControls({
   setZoom,
   zoom,
 }: Pick<CanvasGestureContext, "docRef" | "dispatchPointer" | "pan" | "setZoom" | "zoom">) {
-  const zoomToFit = useCallback(() => {
-    const stageEl = document.querySelector("[data-canvas-viewport]");
-    if (!stageEl) return;
-    const rect = stageEl.getBoundingClientRect();
-    const fitted = fitView(docRef.current.nodes, rect, viewOfPan(pan, zoom, rect));
-    if (fitted === null) return;
-    const framed = panOfView(fitted, rect);
-    dispatchPointer({ type: "pan/set", pan: framed.pan });
-    setZoom(framed.zoom);
-  }, [dispatchPointer, docRef, pan, setZoom, zoom]);
+  const frame = useCallback(
+    (items: readonly CanvasHitItem[]) => {
+      const stageEl = document.querySelector("[data-canvas-viewport]");
+      if (!stageEl) return;
+      const rect = stageEl.getBoundingClientRect();
+      const fitted = fitView(items, rect, viewOfPan(pan, zoom, rect));
+      if (fitted === null) return;
+      const framed = panOfView(fitted, rect);
+      dispatchPointer({ type: "pan/set", pan: framed.pan });
+      setZoom(framed.zoom);
+    },
+    [dispatchPointer, pan, setZoom, zoom],
+  );
 
   const screenToWorld = useCallback(
     (clientX: number, clientY: number, el: HTMLElement) => {
@@ -200,7 +204,7 @@ function useViewportControls({
   const viewportControls: CanvasViewportControls = {
     zoomBy: (factor) => setZoom((current) => clampZoom(current * factor)),
     zoomTo: (next) => setZoom(clampZoom(next)),
-    fit: zoomToFit,
+    frame,
   };
   return { cardAt, onWheel, screenToWorld, viewportControls };
 }

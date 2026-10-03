@@ -16,7 +16,6 @@ import {
   orbitView,
   panView,
   zoomViewAt,
-  type CanvasHitItem,
   type CanvasPoint,
   type CanvasView,
   type CanvasViewportControls,
@@ -110,13 +109,9 @@ export class CanvasCameraRig {
 
   /**
    * What the keymap asks of this camera: zoom about the middle of the
-   * viewport, or fly to frame every item.
+   * viewport, or fly to frame some items.
    */
-  controls(
-    size: () => ViewSize,
-    items: () => readonly CanvasHitItem[],
-    settled: () => void,
-  ): CanvasViewportControls {
+  controls(size: () => ViewSize, settled: () => void): CanvasViewportControls {
     return {
       zoomBy: (factor) => {
         const s = size();
@@ -128,8 +123,8 @@ export class CanvasCameraRig {
         this.zoomAt(clampZoom(zoom) / this.current.zoom, middle(s), s);
         settled();
       },
-      fit: () => {
-        const framed = fitView(items(), size(), this.current);
+      frame: (items) => {
+        const framed = fitView(items, size(), this.current);
         if (framed !== null) this.flyTo(framed, settled);
       },
     };

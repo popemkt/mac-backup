@@ -74,20 +74,16 @@ describe("the canvas camera rig", () => {
     expect(wake).toHaveBeenCalledTimes(3);
   });
 
-  test("the keymap's controls zoom about the middle and fly to fit", () => {
+  test("the keymap's controls zoom about the middle and fly to frame", () => {
     const rig = new CanvasCameraRig(deep, TIMING_FALLBACK, true);
     const settled = vi.fn();
     const items = [{ id: "a", x: 0, y: 0, width: 400, height: 300 }];
-    const controls = rig.controls(
-      () => size,
-      () => items,
-      settled,
-    );
+    const controls = rig.controls(() => size, settled);
     controls.zoomTo(2);
     expect(rig.view.zoom).toBeCloseTo(2, 9);
     controls.zoomBy(0.5);
     expect(rig.view.zoom).toBeCloseTo(1, 9);
-    controls.fit();
+    controls.frame(items);
     expect(rig.view.x).toBe(200);
     expect(rig.view.yaw).toBe(deep.yaw);
     expect(settled).toHaveBeenCalledTimes(3);

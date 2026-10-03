@@ -71,13 +71,14 @@ export function clampZoom(zoom: number): number {
 
 /**
  * What a projection's camera does when a key or a button asks: zoom by a
- * step, zoom to a level, or frame everything. The keymap drives whichever
+ * step, zoom to a level, or frame some items. The keymap drives whichever
  * projection is showing through this, never its pan, zoom or orbit directly.
  */
 export interface CanvasViewportControls {
   zoomBy(factor: number): void;
   zoomTo(zoom: number): void;
-  fit(): void;
+  /** Frame `items` ({@link fitView}); nothing to frame leaves the camera be. */
+  frame(items: readonly CanvasHitItem[]): void;
 }
 
 /** Where an orthographic eye stands behind the focus plane, canvas units (any far point will do). */

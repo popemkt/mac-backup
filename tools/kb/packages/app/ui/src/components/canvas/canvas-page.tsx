@@ -125,7 +125,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   const stageRef = useRef<HTMLDivElement>(null);
   useCanvasScreen({ canvasId, doc, pan, zoom, stage: stageRef, selection, setSelection });
-  const items = useCallback(() => docRef.current.nodes, [docRef]);
   const projection = useCanvasProjection({
     doc,
     pan,
@@ -134,7 +133,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setCamera,
     setZoom,
     dispatchPointer,
-    items,
   });
   const in3d = projection.shown === "3d";
 

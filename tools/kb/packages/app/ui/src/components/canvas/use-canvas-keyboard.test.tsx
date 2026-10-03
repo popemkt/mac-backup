@@ -149,7 +149,8 @@ function press(chord: Chord, selection: CanvasSelection = selectNode("a")): Reco
         zoom = next;
         log.push(`zoom=${Math.round(zoom * 1000) / 1000}`);
       },
-      fit: () => log.push("zoomToFit"),
+      frame: (items: readonly { id: string }[]) =>
+        log.push(`frame=${items.map((item) => item.id).join("+")}`),
     },
   };
 
@@ -211,7 +212,7 @@ describe("the canvas keydown table", () => {
     ["zoom in (+)", { key: "+", metaKey: true }, ["zoom=1.15"]],
     ["zoom out", { key: "-", metaKey: true }, ["zoom=0.87"]],
     ["zoom reset", { key: "0", metaKey: true }, ["zoom=1"]],
-    ["zoom to fit", { key: "!", shiftKey: true }, ["zoomToFit"]],
+    ["frame all", { key: "!", shiftKey: true }, ["frame=a+b"]],
     ["unbound key", { key: "q", metaKey: true }, []],
     ["inside a text entry", { key: "Delete", onInput: true }, []],
   ];
