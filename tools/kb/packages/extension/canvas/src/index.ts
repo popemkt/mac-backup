@@ -49,6 +49,7 @@ export {
 } from "./box.ts";
 export type { CanvasBox, CanvasFrame, CanvasVec } from "./box.ts";
 export { cameraLookingFrom, posesAgree, projectionOf } from "./camera.ts";
+export { canvasExtension } from "./extension.ts";
 export { CANVAS_SOLID_PRESETS, presetItem } from "./presets.ts";
 export {
   CANVAS_SHAPES,

@@ -23,7 +23,7 @@ import {
   type NodeId,
   type PropValue,
 } from "@kb/model";
-import { parseCanvasDoc, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
+import { canvasExtension, parseCanvasDoc, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 
 /**
  * Bundled canvas extension: atomic canvas JSON + relationship prop writes.
@@ -233,5 +233,5 @@ const actions: ExtensionAction[] = [
   },
 ];
 
-/** The bundled canvas extension: `ext.canvas.*`. */
-export const canvasPlugin = extensionPlugin({ name: "canvas", actions, templates: [] });
+/** The canvas family's server entry: `ext.canvas.*`, named by the family's declaration. */
+export const canvasPlugin = extensionPlugin({ name: canvasExtension.name, actions, templates: [] });

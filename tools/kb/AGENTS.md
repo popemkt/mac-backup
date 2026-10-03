@@ -42,7 +42,9 @@ once, in `DESIGN.md` →
   [`docs/ci.md`](../../docs/ci.md#pre-commit-the-same-questions-one-commit-earlier).
 - Linting & boundaries (`tools/kb`): every boundary — layer and scope
   direction, the isomorphism fence (a `scope:shared` package may not import
-  `node:*`, `bun:*`, or `@effect/platform-bun`), and the zone matrix inside
+  `node:*`, `bun:*`, or `@effect/platform-bun`), the extension family axis
+  and composition-root fence (`EXTENSION_ROOTS`; `DESIGN.md` → Extension
+  families), and the zone matrix inside
   `packages/app/ui` (`UI_ALLOWS`, whose sanctioned breaches carry
   `// GAP [[id]]` on the import line) — is stated once in
   `tools/kb/harness/src/constraints.ts` and enforced by `tools/kb/harness`
@@ -91,7 +93,7 @@ once, in `DESIGN.md` →
 
 ## Extensions
 
-`@kb/ext-check` owns the `ext.check.audit` read action and `ext.check.sync` apply action: it proves that every `rule.check` points to a `#check` whose evidence exists and whose invocation is wired into its declared surface, rejects stale enforcement, simultaneous `gate` and `check`, and broken rule homes, and derives `rule.enforcement` from the check surface. To remove it, delete `packages/extension/ext-check`, its `BUNDLED_PLUGINS` registry entry (`checkPlugin`), `packages/app/cli/src/bin/check-audit.ts`, and the `check:audit` script plus its `verify` mention; remove the `@kb/ext-check` manifest dependencies and refresh `bun.lock`; the `check` tag, the `enforcement` field's option children and `rule.check` refs are data and may stay or be removed with `kb rm`, after which the rules index is hand-typed again.
+`@kb/ext-check` owns the `ext.check.audit` read action and `ext.check.sync` apply action: it proves that every `rule.check` points to a `#check` whose evidence exists and whose invocation is wired into its declared surface, rejects stale enforcement, simultaneous `gate` and `check`, and broken rule homes, and derives `rule.enforcement` from the check surface. To remove it, delete `packages/extension/ext-check`, its `BUNDLED_EXTENSIONS` entry in `packages/app/runtime/src/bundled.ts` (`checkExtension` and `checkPlugin`), `packages/app/cli/src/bin/check-audit.ts`, and the `check:audit` script plus its `verify` mention; remove the `@kb/ext-check` manifest dependencies and refresh `bun.lock`; the `check` tag, the `enforcement` field's option children and `rule.check` refs are data and may stay or be removed with `kb rm`, after which the rules index is hand-typed again.
 
 ### Effect
 

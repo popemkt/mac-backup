@@ -21,7 +21,8 @@
   },
   "nx": {
     "tags": [
-      "scope:shared"
+      "scope:shared",
+      "family:agent"
     ]
   }
 }

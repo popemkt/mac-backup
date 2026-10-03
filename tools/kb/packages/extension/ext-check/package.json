@@ -22,7 +22,8 @@
   },
   "nx": {
     "tags": [
-      "scope:backend"
+      "scope:backend",
+      "family:check"
     ]
   }
 }

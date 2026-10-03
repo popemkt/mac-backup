@@ -103,6 +103,7 @@
       "dependencies": {
         "@effect/platform-bun": "catalog:",
         "@kb/bundled": "workspace:*",
+        "@kb/canvas": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/ext-canvas": "workspace:*",
         "@kb/ext-check": "workspace:*",
@@ -123,7 +124,6 @@
         "effect": "catalog:",
       },
       "devDependencies": {
-        "@kb/canvas": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "zod": "catalog:",
@@ -394,6 +394,9 @@
     "packages/extension/canvas": {
       "name": "@kb/canvas",
       "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+      },
       "devDependencies": {
         "@types/bun": "catalog:",
         "fast-check": "catalog:",

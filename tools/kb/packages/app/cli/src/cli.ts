@@ -45,6 +45,7 @@ import {
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
 import { bundledSeed } from "@kb/bundled";
 import { formatMode, formatReceipt } from "./format.ts";
+import { hostPlugins } from "./host-plugins.ts";
 import {
   fieldsNeedingCreate,
   mapActionInvoke,
@@ -310,21 +311,6 @@ function collect(value: string, previous: string[]): string[] {
 
 const toInt = (v: string): number => Number.parseInt(v, 10);
 
-/**
- * The plugins `kb ui` hosts: the sidebar agent, over the person's local
- * Claude. This composition root names them and the server names none
- * (DESIGN.md → Plugin channels). They load on demand, so no other command
- * pays for the agent packages.
- *
- * A second switch beside the browser's preference: GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]]
- */
-const uiPlugins = Effect.fn("kb.cli.uiPlugins")(function* (root: string) {
-  const [{ agentPlugin }, { claudeRuntime }] = yield* Effect.promise(() =>
-    Promise.all([import("@kb/agent"), import("@kb/agent-claude")]),
-  );
-  return [agentPlugin({ runtime: claudeRuntime({ cwd: root }) })];
-});
-
 interface ForceOpts {
   force?: boolean;
 }
@@ -397,7 +383,7 @@ function buildProgram(): Command {
               openBrowser: opts.open !== false,
               dev: opts.dev === true,
               devPort: opts.devPort,
-              plugins: opts.agent === false ? [] : yield* uiPlugins(root),
+              plugins: opts.agent === false ? [] : yield* hostPlugins(root),
             });
           }),
       ),

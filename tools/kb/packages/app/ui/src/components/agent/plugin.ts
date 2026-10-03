@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { ChatCircleDotsIcon } from "@phosphor-icons/react";
+import { agentExtension } from "@kb/agent";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { attachChat, type AgentPorts } from "@/components/agent/chat";
 import { AgentDock } from "@/components/agent/surfaces";
@@ -14,7 +15,7 @@ import { BrowserHostService, DockPoint } from "@/sdk";
  */
 export function agentUiPlugin(ports: AgentPorts): Plugin {
   return definePlugin({
-    name: "agent",
+    name: agentExtension.name,
     inject: [BrowserHostService],
     apply: (ctx) =>
       Effect.gen(function* () {

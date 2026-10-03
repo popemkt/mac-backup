@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ActionReceiptSchema, type SurfaceWire } from "@kb/contracts";
+import { agentExtension } from "./extension.ts";
 
 /**
  * The agent's channel: what the sidebar and the bridge say to each other,
@@ -9,10 +10,9 @@ import { ActionReceiptSchema, type SurfaceWire } from "@kb/contracts";
  * connection closes. Nothing here reaches the store.
  */
 
-/** The plugin's name and its channel's id; the kernel joins them into the channel the UI opens. */
-export const AGENT_PLUGIN = "agent";
+/** The channel's id; the kernel joins the plugin's name and it into the channel the UI opens. */
 export const AGENT_CHANNEL_ID = "chat";
-export const AGENT_CHANNEL = `${AGENT_PLUGIN}.${AGENT_CHANNEL_ID}`;
+export const AGENT_CHANNEL = `${agentExtension.name}.${AGENT_CHANNEL_ID}`;
 
 /**
  * The agent's wire: a tool call reaches a person before it runs wherever the

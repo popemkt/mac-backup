@@ -12,10 +12,10 @@ import {
   type UiHostService,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
+import { agentExtension } from "./extension.ts";
 import { AGENT_SYSTEM_PROMPT, screenContext } from "./prompt.ts";
 import {
   AGENT_CHANNEL_ID,
-  AGENT_PLUGIN,
   AGENT_WIRE,
   AgentRequestSchema,
   type AgentEvent,
@@ -281,7 +281,7 @@ function turnEnd(conversation: string, exit: Exit.Exit<unknown, unknown>): Agent
  */
 export function agentPlugin(options: { readonly runtime: AgentRuntime }): Plugin {
   return definePlugin({
-    name: AGENT_PLUGIN,
+    name: agentExtension.name,
     inject: [UiHost],
     apply: (ctx) =>
       Effect.gen(function* () {

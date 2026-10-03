@@ -1929,13 +1929,18 @@ end).
   - the generic UI points.
 - **Enforcement.** The harness checks the boundary in
   `harness/src/constraints.ts`:
-  - each extension package carries a `family:` tag;
+  - each extension package carries one `family:` tag, equal to the literal
+    `name` of its family's one `defineExtension` declaration;
   - an extension package imports another extension package only of its own
     family;
   - an `app` package imports an extension package only from its composition
-    root's bundled-extensions file (`EXTENSION_ROOTS`);
+    root's bundled-extensions file (`EXTENSION_ROOTS`). Tests are exempt.
+    A breach that is known and deferred is a row of
+    `EXTENSION_ROOT_BREACHES`, under a gap, and a row no import matches any
+    more fails;
   - every extension package is loaded by the root of each host its scope
-    runs in.
+    runs in. A `scope:shared` package runs in no host on its own, so it is
+    loaded by a root or by a package of its own family.
 
   One contract suite, `extensionContract` (`@kb/test-kit`), runs over
   `BUNDLED_EXTENSIONS`. A family passes when:

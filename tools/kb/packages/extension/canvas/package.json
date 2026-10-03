@@ -10,13 +10,17 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
     "test": "bun test"
   },
+  "dependencies": {
+    "@kb/contracts": "workspace:*"
+  },
   "devDependencies": {
     "@types/bun": "catalog:",
     "fast-check": "catalog:"
   },
   "nx": {
     "tags": [
-      "scope:shared"
+      "scope:shared",
+      "family:canvas"
     ]
   }
 }

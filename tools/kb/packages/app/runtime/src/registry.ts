@@ -27,11 +27,9 @@ import {
 } from "@kb/operations";
 import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
+import { BUNDLED_EXTENSIONS } from "./bundled.ts";
 import { discoverExtensions } from "./extension-loader.ts";
 import { writeErr } from "./output.ts";
-import { docsPlugin } from "@kb/ext-docs";
-import { canvasPlugin } from "@kb/ext-canvas";
-import { checkPlugin } from "@kb/ext-check";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
 export type { ActionHandlerEnv } from "@kb/contracts";
@@ -96,9 +94,6 @@ const corePlugin = definePlugin({
     ),
 });
 
-// Named apart from the browser's list: GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]]
-const BUNDLED_PLUGINS: readonly Plugin[] = [docsPlugin, canvasPlugin, checkPlugin];
-
 /** The top-level plugin a contribution belongs to (a child answers for its parent). */
 function rootOwner(contribution: Contribution<unknown>): string {
   return contribution.owner.split("/")[0] ?? contribution.owner;
@@ -162,7 +157,7 @@ const buildRegistry = Effect.fnUntraced(function* (
     );
 
   yield* load(corePlugin, "core");
-  for (const plugin of BUNDLED_PLUGINS) yield* load(plugin, "bundled");
+  for (const { entry } of BUNDLED_EXTENSIONS) yield* load(entry, "bundled");
   if (root !== null) {
     const discovered = yield* discoverExtensions(root);
     failures.push(...discovered.failures);
