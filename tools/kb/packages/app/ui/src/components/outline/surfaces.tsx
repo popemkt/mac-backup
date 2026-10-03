@@ -17,7 +17,7 @@ import { useWorkspaceStore } from "@/stores/workspace.store";
  * The outline: at its `root` when it has one (a node opened in a pane), else
  * at the outline's zoom. A rooted outline opens a node by moving its pane to
  * it; the zoomed one zooms. The zoom is the store's, one per tab, so two panes
- * at `/` show the same node. GAP [ZOOM-IS-ONE-PER-TAB]
+ * at `/` show the same node. GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]
  */
 export function OutlineSurface({ params }: ViewProps<OutlineParams>) {
   const zoomRoot = useOutlineStore((s) => s.rootNodeId);

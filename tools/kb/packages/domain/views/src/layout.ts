@@ -30,7 +30,7 @@ const KbPath = Schema.String.check(
  * that page.
  */
 // A pane names where it is, never another pane: a view that follows another
-// pane's focused node has nothing to bind to yet. GAP [LINKED-PANES]
+// pane's focused node has nothing to bind to yet. GAP [[01M411FQ0FQMXK01FCB1840GT0]]
 export const LayoutPane = Schema.Struct({ id: PaneId, path: KbPath });
 export type LayoutPane = typeof LayoutPane.Type;
 
@@ -129,7 +129,7 @@ function readArrangement(raw: string | undefined, report: ConfigReport): unknown
  * text prop (`sys.f.layout`) holding the tree as canonical JSON — the shape a
  * canvas keeps its layout in, so a drag writes one prop atomically. The nodes
  * its panes open live inside that JSON, so the loader derives no mention of
- * them and they have no backlink to the layout. GAP [LAYOUT-PANES-NOT-MENTIONS]
+ * them and they have no backlink to the layout. GAP [[01M411FNY9J46BD71N2C5641NB]]
  */
 export const LayoutView = viewKey(`${LAYOUT_NAMESPACE}.grid`, LayoutParams, {
   read: (props, _host, report) => readArrangement(firstStr(SYSTEM_IDS.layoutField)(props), report),

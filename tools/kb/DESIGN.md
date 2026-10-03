@@ -991,7 +991,7 @@ layouts).
   Views list and can be pinned. An agent builds a dashboard the same way,
   from the catalog entry: it can name a host, whose default view it then
   is. The nodes that a layout's panes open live inside that JSON, so the
-  loader derives no mention of them (GAP [LAYOUT-PANES-NOT-MENTIONS]).
+  loader derives no mention of them (GAP [[01M411FNY9J46BD71N2C5641NB]]).
 - **A layout that contains itself stops at the first repeat.** Each pane
   of a dashboard draws its page through a slot shown for its location, and
   the node route draws through a slot shown for the view node, so opening
@@ -1850,7 +1850,7 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   `activePane` is the focused pane, the one the URL names. A command may
   name its `pane`. Without one it goes to the focused pane, and it is
   refused for a pane the tab does not have. A dashboard's own panes are part
-  of their pane's view, so they are not listed (GAP [DASHBOARD-PANES-OFF-SCREEN]).
+  of their pane's view, so they are not listed (GAP [[01M411FPSNN7B18JQ62RKB8ZXW]]).
 - **`ui.screen`** (read) returns the live tabs, most recently active first:
   the last tab to publish while it had attention comes first, and tabs that
   never had it follow in the order they arrived. `tab` narrows the list to

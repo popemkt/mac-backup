@@ -1547,7 +1547,7 @@ until "Save workspace".
   `/`. When the pane shows an outline rooted at a node (`/node/<id>`), it
   moves that pane to the node instead (`OpenNodeContext`, `useOpenNode`).
   The zoom is the store's, one per tab, so two panes at `/` show the same
-  node (GAP [ZOOM-IS-ONE-PER-TAB]).
+  node (GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]).
 - **Each outline on screen is its own host.** An outline keys its rows
   under its pane's outline host (`outlineHostOfPane`; the main pane's is the
   canonical `tree/`), so the same node open in two panes is two rows,
@@ -1558,7 +1558,7 @@ until "Save workspace".
   parts of editing (the selection keymap, undo, the node palette) are
   owned by the one outline that leads (`useLeadsOutlines`). A query's
   projected rows name their query, not their host
-  (GAP [QUERY-ROWS-NOT-PANE-KEYED]).
+  (GAP [[01M411FPC839XBJJ873V1VYYYD]]).
 - **A dashboard is fixed.** The layout view in a pane draws its own panes
   with the same grid, locked. Its panes take ids under their pane's
   (`<outer>:<inner>`), and each draws its page through a slot shown for its

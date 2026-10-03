@@ -53,7 +53,7 @@ function pageOf(
 ): { readonly key: ViewKey<unknown>; readonly input: unknown } {
   // The outline lays the frame out through the frame's own first frame view,
   // so another of its frame view nodes chosen here shows that one instead.
-  // GAP [PANE-FRAME-VIEW-CHOICE]
+  // GAP [[01M411FPKHWPRFTWDYKVXBDYSB]]
   if (key.family === FRAME_VIEW_FAMILY && host !== null)
     return { key: OutlineView, input: { root: host } };
   if (key.family === "graph.renderer" && viewNode !== null)

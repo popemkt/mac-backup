@@ -80,6 +80,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — CanvasScreenSchema carries the camera {projection, pose} and the 3D scene reports visible items from its frustum
 - **node** — `01M3YMCVN656CNRJ3F3R91MHKA`
 
+### GAP: a dashboard's inner panes are not in the screen state
+
+- **expected** — every pane on screen, including those inside a dashboard, is listed in the screen state and can be targeted
+- **current** — panes inside a dashboard are part of their pane's view and are not listed
+- **impact** — an agent cannot see or move what a dashboard's inner panes show
+- **closes** — list nested panes in the screen state with their own ids
+- **node** — `01M411FPSNN7B18JQ62RKB8ZXW`
+
+### GAP: a layout's panes are not mentions of the nodes they show
+
+- **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
+- **current** — panes sit inside the sys.f.layout JSON, and the loader derives no mention from them
+- **impact** — a node shown in a saved workspace or dashboard does not list it in its backlinks
+- **closes** — derive mentions from layout panes at load, as decision 6 does for canvas layout entries
+- **node** — `01M411FNY9J46BD71N2C5641NB`
+
 ### GAP: a number prop that equals a live eid reads as a ref to that node
 
 - **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
@@ -87,6 +103,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
 - **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
 - **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
+
+### GAP: a pane cannot follow another pane's focused node
+
+- **expected** — a pane spec can bind its subject to another pane's focus, so a graph pane follows the outline's focused node
+- **current** — a pane holds a fixed path; nothing binds it to another pane
+- **impact** — linked panes (decision 12) need manual navigation
+- **closes** — add a focus binding to the pane spec, resolved through the screen state
+- **node** — `01M411FQ0FQMXK01FCB1840GT0`
+
+### GAP: a pane cannot show a frame through its second frame view
+
+- **expected** — choosing a frame's second frame view in a pane's switcher shows that view
+- **current** — the pane shows the frame's first frame view
+- **impact** — a frame with list and board views cannot be shown as a board in one pane and a list in another
+- **closes** — let the outline page take a frame view override from the pane
+- **node** — `01M411FPKHWPRFTWDYKVXBDYSB`
 
 ### GAP: a proposed graph view cannot set its query or mappings
 
@@ -409,6 +441,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — WP4 folds kit/orbit.ts into scene/ with the lab kit's view controls, and the graph's flight and the orbit share one camera rig.
 - **node** — `01M3E9QZ3D6EG2W2MERM93ABNA`
 
+### GAP: outline zoom is one per tab, not one per pane
+
+- **expected** — each pane's outline has its own zoom root
+- **current** — the outline at / reads the store's single zoom, so two panes at / show the same node
+- **impact** — two outline panes cannot be zoomed into different nodes at the root route
+- **closes** — move the zoom into the pane's location
+- **node** — `01M411FP5AGQ4VB5SGJWCJAN66`
+
 ### GAP: package executors share no contract check
 
 - **expected** — Every executor-installed channel in modules/options/channels.nix names the executor view that installs it, and one flake check proves, per host, that each channel's members reach that view. A new executor joins the check by registering its view.
@@ -433,6 +473,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A dead variant every exhaustive switch must still handle.
 - **closes** — Once all stores have been opened under the migration, drop the variant from PropValue and the schema.
 - **node** — `01M3KA3A2Q317N5EHFEF6TYVDE`
+
+### GAP: query-result rows are not keyed per pane
+
+- **expected** — query-result rows carry their outline host in their instance key, like other rows
+- **current** — ref:query: keys carry no host, and the keyboard walks them in the main pane's outline
+- **impact** — the same query open in two panes shares row instances; keyboard navigation in query results goes to the main pane
+- **closes** — put the host in the query-row instance key
+- **node** — `01M411FPC839XBJJ873V1VYYYD`
 
 ### GAP: reach is recognised only inside the query subset parseEdn models
 
@@ -640,14 +688,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
-### GAP: the screen names a pane's view by view key, not by view node
-
-- **expected** — a pane's screen view names the view node it shows (sys.f.view option plus its params), so an agent can read or edit exactly that view
-- **current** — ScreenSchema.view is {key, subject?}: the view key id (outline.main, canvas.page) and the node it is shown for
-- **impact** — an agent sees which kind of view is open but not which saved view node or its settings; ui.navigate cannot open a given view node
-- **closes** — the UI routes by view node (roadmap step 6 panes hold a ref to a view node) and the screen reports that id
-- **node** — `01M3YMCV7ZWR83DCCPQQS7PHNT`
-
 ### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
 
 - **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
@@ -756,14 +796,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A new accidental cross-zone import can pass without a reviewed architectural decision.
 - **closes** — After R1 settles, inventory the production UI import graph, remove unused permissions without touching the view-keys zone concurrently, and add a red fixture per removed edge.
 - **node** — `01M3F8EJSWHS38PMSSQ2BVN8DG`
-
-### GAP: ui.navigate opens a node only as the outline zoomed to it
-
-- **expected** — opening a node shows it in its default view (first of sys.f.views), or a requested view node
-- **current** — openNode in packages/app/ui/src/screen.ts always navigates to / and zooms the outline to the node
-- **impact** — an agent asking to open a canvas, a graph view or a node with a non-outline default lands in the outline instead
-- **closes** — one open-node route that resolves the node's default view, shared by the UI's own links and ui.navigate
-- **node** — `01M3YMCVEHWN0REJ8M1857ZEYX`
 
 ### GAP: view option nodes are seeded from one core table, not by the plugins that own the views
 
@@ -1301,6 +1333,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNMP8NQZ2WD8F2E8V6QBH`
 
+### GAP: the screen names a pane's view by view key, not by view node
+
+- **expected** — a pane's screen view names the view node it shows (sys.f.view option plus its params), so an agent can read or edit exactly that view
+- **current** — closed by roadmap step 6: each pane's screen view names the view node it shows, resolved by one open-node rule
+- **impact** — an agent sees which kind of view is open but not which saved view node or its settings; ui.navigate cannot open a given view node
+- **closes** — the UI routes by view node (roadmap step 6 panes hold a ref to a view node) and the screen reports that id
+- **node** — `01M3YMCV7ZWR83DCCPQQS7PHNT`
+
 ### GAP: the Sky borrows the graph's toScreen across the UI zones until it moves to scene/gpu/screen.ts
 
 - **expected** — One screen projection in the scene kit (scene/gpu/screen.ts, toScreen) that the 3D graph and the Sky both import.
@@ -1357,3 +1397,11 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A red run was not evidence of a defect and a green run was not evidence of correctness, so agents learned to rerun rather than trust the gate. Before the fix, 2 of 5 full test:ui runs under load reddened on use-node-keydown/editor-behavior and 1 of 5 on palette-index.
 - **closes** — Closed: test-support/active-text-host.ts follows the store's activeInstanceKey and registers a host for it, called from the beforeEach of the suites that render one row or none; the settling poll that used to outrun the timer is deleted; palette-index times nine samples instead of three and states where its budget came from. 5/5 test:ui green under a concurrent bun test packages, 5/5 the other way; the pairing is 0/10 red solo, parallel and sequential.
 - **node** — `01M1XA98A0A7PWEPMHG2T4R5GP`
+
+### GAP: ui.navigate opens a node only as the outline zoomed to it
+
+- **expected** — opening a node shows it in its default view (first of sys.f.views), or a requested view node
+- **current** — closed by roadmap step 6: /node/<id>[/<view>] opens a node in its default view or a named view through resolveNodeView, and ui.navigate uses the same route
+- **impact** — an agent asking to open a canvas, a graph view or a node with a non-outline default lands in the outline instead
+- **closes** — one open-node route that resolves the node's default view, shared by the UI's own links and ui.navigate
+- **node** — `01M3YMCVEHWN0REJ8M1857ZEYX`

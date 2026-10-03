@@ -59,7 +59,7 @@ function viewAt(route: string): { key: string; node?: string } | null {
 /**
  * One workspace pane as the screen reports it. A dashboard's own panes are
  * part of its pane's view: they are not listed, and no command names one.
- * GAP [DASHBOARD-PANES-OFF-SCREEN]
+ * GAP [[01M411FPSNN7B18JQ62RKB8ZXW]]
  */
 function paneScreen(pane: LayoutPane) {
   const report = useScreenStore.getState().panes[pane.id]?.report;
