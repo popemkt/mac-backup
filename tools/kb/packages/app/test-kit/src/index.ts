@@ -9,6 +9,7 @@ export {
   runScenario,
 } from "./harness.ts";
 export type { ScenarioResult } from "./harness.ts";
+export { extensionContract } from "./extension-contract.ts";
 export { logContract } from "./log-contract.ts";
 export type { LogAdapter } from "./log-contract.ts";
 export { sandboxContract } from "./sandbox-contract.ts";
