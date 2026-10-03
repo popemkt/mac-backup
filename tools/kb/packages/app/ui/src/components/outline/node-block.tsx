@@ -6,8 +6,9 @@ import { outlineInstanceKey } from "@/lib/instance-key";
 import { resolveRowChrome } from "@/lib/row-chrome";
 import { useUiStore } from "@/stores/ui.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import type { SchemaIndex } from "@/lib/schema";
 import type { OutlineNode } from "@/lib/types";
+import { useGraphRead } from "@/stores/graph-read";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { bulletClickIntent, nodeTarget } from "@/lib/follow";
@@ -49,13 +50,10 @@ export const NodeBlock = memo(function NodeBlock({
   depth,
   instanceKey: instanceKeyProp,
 }: NodeBlockProps) {
-  const node = useOutlineStore((s) => s.nodes.get(nodeId));
-  const nodes = useOutlineStore((s) => s.nodes);
-  const schema = useOutlineStore(schemaOf);
-  const activeNodeId = useOutlineStore((s) => s.activeNodeId);
-  const activeInstanceKey = useOutlineStore((s) => s.activeInstanceKey);
-  const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
-  const selectedInstanceKey = useOutlineStore((s) => s.selectedInstanceKey);
+  // The row depends on the nodes it reads — its own, the one it shows, the
+  // definitions its fields and tags name — not on the whole graph.
+  const { outline, schema } = useGraphRead();
+  const node = outline.get(nodeId);
   const activateNode = useOutlineStore((s) => s.activateNode);
   const selectNode = useOutlineStore((s) => s.selectNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
@@ -65,10 +63,19 @@ export const NodeBlock = memo(function NodeBlock({
   // instance key, the keymaps — stays `nodeId`.
   const { shown, shownId } = rowShows(nodeId, node, schema);
   const showDebugFields = useDebugFields(shownId);
-  const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
   const filterOpen = useUiStore((s) => s.filterPopoverFrameId === shownId);
 
-  const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, nodes);
+  const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, outline);
+  // Focus is this instance's or not: a row re-renders when it gains or loses
+  // it, not whenever it moves between other rows.
+  const isActive = useOutlineStore(
+    (s) => s.activeNodeId === nodeId && s.activeInstanceKey === instanceKey,
+  );
+  const isSelected = useOutlineStore(
+    (s) => s.selectedNodeId === nodeId && s.selectedInstanceKey === instanceKey,
+  );
+  const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
+  const isPaletteAnchor = nodePaletteOpen && (isSelected || isActive);
 
   // The one bullet rule (`bulletClickIntent`), reference rows included: a
   // plain click toggles, a modifier click follows to the node the row shows —
@@ -108,12 +115,6 @@ export const NodeBlock = memo(function NodeBlock({
 
   if (!node || !shown) return null;
 
-  const isActive = activeNodeId === nodeId && activeInstanceKey === instanceKey;
-  const isSelected = selectedNodeId === nodeId && selectedInstanceKey === instanceKey;
-  const isPaletteAnchor =
-    nodePaletteOpen &&
-    ((selectedNodeId === nodeId && selectedInstanceKey === instanceKey) ||
-      (activeNodeId === nodeId && activeInstanceKey === instanceKey));
   const chrome = resolveRowChrome({
     node,
     schema,

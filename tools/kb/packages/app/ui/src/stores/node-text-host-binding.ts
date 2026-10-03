@@ -1,4 +1,4 @@
-import { schemaOf } from "@/lib/schema";
+import { useGraphRead } from "@/stores/graph-read";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { useUiStore } from "@/stores/ui.store";
@@ -8,13 +8,18 @@ import { useUiStore } from "@/stores/ui.store";
  *
  * Every surface that renders the host calls this once and spreads the result;
  * the two mutation callbacks stay on the surface because stores may not import
- * actions. The reads are store-wide, so the hook takes no arguments — a
- * node-scoped read is the outline-store split's job, not a parameter here.
+ * actions. The reads are the host's own: the graph through a `GraphRead`, so
+ * the host re-renders when a node it read changes (its text's references, the
+ * schema it resolves), and the caret placement only when it is addressed to
+ * `instanceKey`.
  */
-export function useNodeTextHostBinding() {
-  const nodes = useOutlineStore((s) => s.nodes);
-  const schema = useOutlineStore(schemaOf);
-  const pendingCaret = useOutlineStore((s) => s.pendingCaret);
+export function useNodeTextHostBinding(instanceKey: string | undefined) {
+  const { outline, schema } = useGraphRead();
+  const pendingCaret = useOutlineStore((s) =>
+    instanceKey !== undefined && s.pendingCaret?.instanceKey === instanceKey
+      ? s.pendingCaret
+      : null,
+  );
   const consumeCaret = useOutlineStore((s) => s.consumeCaret);
   const placeCaret = useOutlineStore((s) => s.placeCaret);
   const selectNode = useOutlineStore((s) => s.selectNode);
@@ -24,7 +29,7 @@ export function useNodeTextHostBinding() {
   const onFollow = useFollow();
 
   return {
-    nodes,
+    nodes: outline,
     schema,
     pendingCaret,
     onFollow,

@@ -7,7 +7,8 @@ import { isValueMismatch, resolveFieldTypeById, type FieldType } from "@/lib/fie
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
 import { isSysPrefixed, type PropValue } from "@/lib/types";
 import { useDebugFields } from "@/stores/debug-fields.store";
-import { fieldContextOf, type FieldContext } from "@/lib/schema";
+import type { FieldContext } from "@/lib/schema";
+import { useGraphRead } from "@/stores/graph-read";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { rowTextOf } from "@/lib/contextual-ref";
@@ -31,7 +32,7 @@ export interface FieldValueStackProps {
   fieldId: string;
   fieldType: FieldType;
   values: PropValue[];
-  /** What the values resolve against (`fieldContextOf`). */
+  /** What the values resolve against (the section's `GraphRead`). */
   context: FieldContext;
   readOnly: boolean;
   /** Carry out a follow from inside a value (`useFollow`). */
@@ -378,7 +379,7 @@ interface NodeFieldProps {
   /** The field's name, as the surface resolved it. */
   label: string;
   values: PropValue[];
-  /** What the values resolve against (`fieldContextOf`). */
+  /** What the values resolve against (the section's `GraphRead`). */
   context: FieldContext;
   /** Indent of the label column; a card passes -1, a row its own depth. */
   depth?: number;
@@ -439,9 +440,10 @@ export function NodeField({
 
 /** Inline field rows under a node (DESIGN-RESKIN §1.4). */
 export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps) {
-  const node = useOutlineStore((s) => s.nodes.get(nodeId));
-  // Field definitions come from the whole graph, never the scoped projection.
-  const context = useOutlineStore(fieldContextOf);
+  // Field definitions come from the whole graph, never the scoped projection;
+  // the section depends on the definitions and values it reads, not the graph.
+  const context = useGraphRead();
+  const node = context.outline.get(nodeId);
   // Debug rows are this node's own business (⌘K → "Show debug fields").
   const showDebugFields = useDebugFields(nodeId);
 

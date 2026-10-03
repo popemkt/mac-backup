@@ -136,15 +136,24 @@ function sameProps(a: OutlineNode["props"], b: OutlineNode["props"]): boolean {
 
 /** Whether two projections of a node are the same value, field by field. */
 function sameOutlineNode(a: OutlineNode, b: OutlineNode): boolean {
+  return a.collapsed === b.collapsed && sameMeaning(a, b);
+}
+
+/**
+ * Whether two projections of a node say the same about it, whatever their
+ * expansion: everything but `collapsed`, which is the outline's view state
+ * and nothing a schema reader asks (`lib/schema.ts`).
+ */
+export function sameMeaning(a: OutlineNode, b: OutlineNode): boolean {
   return (
-    a.text === b.text &&
-    a.parentId === b.parentId &&
-    a.collapsed === b.collapsed &&
-    a.createdAt === b.createdAt &&
-    a.updatedAt === b.updatedAt &&
-    sameIds(a.children, b.children) &&
-    sameTags(a.tags, b.tags) &&
-    sameProps(a.props, b.props)
+    a === b ||
+    (a.text === b.text &&
+      a.parentId === b.parentId &&
+      a.createdAt === b.createdAt &&
+      a.updatedAt === b.updatedAt &&
+      sameIds(a.children, b.children) &&
+      sameTags(a.tags, b.tags) &&
+      sameProps(a.props, b.props))
   );
 }
 

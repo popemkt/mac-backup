@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { ViewSlot } from "@/components/ui/view-slot";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphRead } from "@/stores/graph-read";
 import { FrameSubjectContext, type FrameSubject } from "./frame-subject";
 import { useFrameView } from "./use-frame-views";
 
@@ -28,7 +28,7 @@ export function FrameViewSlot({
   readonly isQuerySource?: boolean;
   readonly depth: number;
 }) {
-  const frame = useOutlineStore((s) => s.nodes.get(frameId));
+  const frame = useGraphRead().outline.get(frameId);
   const view = useFrameView(frame);
   const subject = useMemo(
     (): FrameSubject => ({

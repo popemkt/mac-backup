@@ -62,7 +62,7 @@ export function KbNodeCard({
   const selectNode = useOutlineStore((s) => s.selectNode);
   const instanceKey = canvasCardInstanceKey(card.id, card.nodeId);
   const isActive = activeNodeId === card.nodeId && activeInstanceKey === instanceKey;
-  const binding = useNodeTextHostBinding();
+  const binding = useNodeTextHostBinding(instanceKey);
 
   const handleActivate = useCallback(
     (cursorPos?: number) => {

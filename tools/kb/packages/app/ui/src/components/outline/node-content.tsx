@@ -26,7 +26,7 @@ export function NodeContent({
   /** The row's node, as the surface renders it (a projection may pass its own map). */
   node: OutlineNode;
 }) {
-  const binding = useNodeTextHostBinding();
+  const binding = useNodeTextHostBinding(props.instanceKey);
   const content = rowText(node, binding.schema);
   const textNodeId = shownNodeId(node);
   return (

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { frameRows } from "@/lib/frame-rows";
 import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
 import type { ViewProps } from "@/lib/plugins";
-import { schemaOf } from "@/lib/schema";
+import { useGraphRead } from "@/stores/graph-read";
 import {
   type ParamsOf,
   OutlineBoardView,
@@ -10,7 +10,6 @@ import {
   OutlineListView,
   type OutlineTableView,
 } from "@kb/views";
-import { useOutlineStore } from "@/stores/outline.store";
 import { BoardCardsView } from "./board-cards-view";
 import { useFrameSubject } from "./frame-subject";
 import { NodeBlock } from "./node-block";
@@ -33,8 +32,7 @@ function NoFrame() {
  */
 export function ListFrameView({ params }: ViewProps<ParamsOf<typeof OutlineListView>>) {
   const subject = useFrameSubject();
-  const nodes = useOutlineStore((s) => s.nodes);
-  const schema = useOutlineStore(schemaOf);
+  const { outline: nodes, schema } = useGraphRead();
   const rows = useMemo(
     () =>
       subject === null

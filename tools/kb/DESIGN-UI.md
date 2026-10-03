@@ -353,6 +353,36 @@ a handle rather than a copied path) — as one record,
 node. `Bullet` renders that record and decides nothing; the graph's bullet
 theme paints the same record (Graph → The themes), so the two cannot drift.
 
+**A row depends on what it reads, not on the graph.** The outline store
+holds the graph as whole values — the projection (`nodes`), the schema
+(`schemaOf`) and the query index — and every graph change, expand or
+collapse replaces the maps. Two properties keep that from costing a render
+per row:
+
+- The projection is persistent. `wireToOutlineMap` takes the projection it
+  replaces and keeps a node's object when the node projects to the same
+  value, so a node's identity changes exactly when what it shows does; the
+  schema does the same per snapshot.
+- A row reads the graph through `useGraphRead` (`stores/graph-read.ts`):
+  the outline, schema and index as views that record which ids were asked
+  for (a walk records the whole map, a query the index generation). The view
+  is renewed, and the row re-renders, only when one of those reads changed —
+  an outline entry by identity, a schema entry by `sameMeaning`, since a
+  schema reader never asks about expansion. Reads always answer from the
+  store's current maps, so a read added later is never stale. It is a
+  selector over the one store, not a second copy of it. The rows, their
+  text host binding, their fields section and the list frame view read
+  this way; focus, selection and caret placement are selected per instance
+  (`activeNodeId === nodeId && activeInstanceKey === instanceKey`), not as
+  store-wide values.
+
+So a one-node change re-renders that node's row (and the list frame view
+above it, which renders the same memoized children); an expand re-renders
+the toggled row and mounts its subtree; moving the selection re-renders the
+two rows it moves between. `components/outline/update-cost.test.tsx` pins
+all three. The `[[` candidates (`nodeCandidates`, label order derived once
+per map) are computed only while a popup is open.
+
 **`sys.*` rows are read-only at the door.** `store.activateNode` degrades a
 `sys.*` id to selection so no caret ever enters one; the row shows a hover
 padlock instead of failing on write.
