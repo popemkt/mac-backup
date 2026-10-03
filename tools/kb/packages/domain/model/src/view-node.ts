@@ -72,6 +72,7 @@ export const VIEW_VALUES = {
   "docs.markdown": { label: "Markdown document" },
   "layout.grid": { label: "Layout" },
   "layout.node": { label: "Node" },
+  "chart.vega-lite": { label: "Chart" },
 } as const satisfies Readonly<Record<string, ViewValue>>;
 export type ViewId = keyof typeof VIEW_VALUES;
 

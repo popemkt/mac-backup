@@ -121,7 +121,8 @@ function readNumber(src: Src): number {
 
 function readSymbolOrBool(src: Src): Edn {
   const start = src.i;
-  while (src.i < src.s.length && /[A-Za-z0-9_./+*?$%-]/.test(present(src.s[src.i], "sym"))) {
+  // EDN's symbol characters, so a predicate (`[(> ?n 2)]`) reads as a symbol.
+  while (src.i < src.s.length && /[A-Za-z0-9_./+*?$%!<>=&'-]/.test(present(src.s[src.i], "sym"))) {
     src.i += 1;
   }
   const v = src.s.slice(start, src.i);
@@ -157,6 +158,51 @@ function readMap(src: Src): [Edn, Edn][] {
     const val = readValue(src);
     out.push([key, val]);
   }
+}
+
+/**
+ * The names of a query's `:find` columns, in order: `?status` is `status`,
+ * an aggregate or a pull is its function and its variable (`(count ?n)` is
+ * `count_n`), and a name taken already gets `_2`, `_3`, …. Unlike
+ * {@link parseEdn} this reads the `:find` section only, so a query outside the
+ * IR subset (`or`, predicates) is still named. Null when the query is not one
+ * EDN vector, or its result is not rows (a scalar `?x .` or a collection
+ * `[?x ...]`), or `:keys` already names them.
+ */
+export function findColumns(edn: string): readonly string[] | null {
+  let value: Edn;
+  try {
+    const src: Src = { s: edn, i: 0 };
+    value = readValue(src);
+    skipWs(src);
+    if (src.i !== src.s.length) return null;
+  } catch {
+    return null;
+  }
+  if (value.k !== "vec") return null;
+  const start = value.v.findIndex((item) => item.k === "kw" && item.v === ":find");
+  if (start < 0 || value.v.some((item) => item.k === "kw" && item.v === ":keys")) return null;
+  const end = value.v.findIndex((item, i) => i > start && item.k === "kw");
+  const find = value.v.slice(start + 1, end < 0 ? undefined : end);
+  const names = find.map(columnName);
+  if (names.length === 0 || names.some((name) => name === null)) return null;
+  const taken = new Map<string, number>();
+  return names.map((name) => {
+    const base = name ?? "";
+    const seen = (taken.get(base) ?? 0) + 1;
+    taken.set(base, seen);
+    return seen === 1 ? base : `${base}_${seen}`;
+  });
+}
+
+/** One `:find` element's column name, or null when it is no column (`.`, `...`, a tuple). */
+function columnName(item: Edn): string | null {
+  if (item.k === "sym") return item.v.startsWith("?") && item.v.length > 1 ? item.v.slice(1) : null;
+  if (item.k !== "list") return null;
+  const [op, ...args] = item.v;
+  const variable = args.findLast((arg) => arg.k === "sym" && arg.v.startsWith("?"));
+  if (op?.k !== "sym" || variable?.k !== "sym") return null;
+  return `${op.v}_${variable.v.slice(1)}`;
 }
 
 function queryFromEdn(value: Edn): IrQuery | null {

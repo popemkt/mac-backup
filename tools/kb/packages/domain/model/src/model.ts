@@ -248,6 +248,11 @@ export const SYSTEM_IDS = {
    */
   layoutField: "sys.f.layout",
   /**
+   * A chart view's Vega-Lite spec, as canonical JSON (text, single).
+   * DESIGN → View nodes → Chart views.
+   */
+  chartField: "sys.f.chart",
+  /**
    * Ontologies (r5 core): a named, editable lens over the graph. An ontology
    * is an ordinary node tagged `#ontology` carrying `sys.f.onto.*` props —
    * a new node KIND, not a new node type. Membership bookkeeping lives on

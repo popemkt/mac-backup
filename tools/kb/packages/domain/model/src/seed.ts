@@ -359,6 +359,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const canvasField = singleField(SYSTEM_IDS.canvasField, "canvas", "text");
   // A layout view's arrangement (`layout.grid`): its pane tree as JSON text.
   const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text");
+  // A chart view's spec (`chart.vega-lite`): Vega-Lite as JSON text.
+  const chartField = singleField(SYSTEM_IDS.chartField, "chart", "text");
   const canvasTag = mk(SYSTEM_IDS.canvasTag, "canvas", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.canvasField }],
@@ -564,6 +566,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     lensAllMentions,
     canvasField,
     layoutField,
+    chartField,
     canvasTag,
     ontoIncludeField,
     ontoMemberField,

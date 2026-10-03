@@ -19,6 +19,7 @@ import {
 import { LabView } from "./lab.ts";
 import { LayoutView, NodeView } from "./layout.ts";
 import { CanvasListView, CanvasView } from "./canvas.ts";
+import { ChartView } from "./chart.ts";
 import { OntologyListView, OntologyScopeView } from "./ontology.ts";
 import {
   OutlineBoardView,
@@ -58,6 +59,7 @@ export const VIEW_CATALOG: readonly ViewKey<unknown>[] = [
   DocsMarkdownView,
   LayoutView,
   NodeView,
+  ChartView,
 ];
 
 /**

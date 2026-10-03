@@ -112,6 +112,16 @@ export {
   type OntologyView,
 } from "./ontology.ts";
 export { CANVAS_NAMESPACE, CanvasListView, CanvasParams, CanvasView } from "./canvas.ts";
+export {
+  CHART_MARKS,
+  CHART_NAMESPACE,
+  ChartParams,
+  ChartSpec,
+  ChartView,
+  chartSpecWithData,
+  describeChartSpec,
+  starterChartSpec,
+} from "./chart.ts";
 export { LAB_NAMESPACE, LAB_SCENE_IDS, LabParams, LabView, type LabSceneId } from "./lab.ts";
 export { DOCS_NAMESPACE, DocsMarkdownParams, DocsMarkdownView, docsSpecOf } from "./docs.ts";
 export {
