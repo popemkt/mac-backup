@@ -3,16 +3,10 @@
  * subscribe/unsubscribe lifecycle over the /ws client.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { isQueryNode, present, queryDefOf } from "@kb/model";
 import { KbWsClient } from "@/api/ws";
 import { fixtureGraph } from "@/api/fixture-graph";
-import {
-  isQueryNode,
-  queryDefOf,
-  querySubscriptionId,
-  resultNodeIds,
-  subscribeQueryNode,
-} from "@/lib/query-node";
+import { querySubscriptionId, resultNodeIds, subscribeQueryNode } from "@/lib/query-node";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FakeWsSocket } from "@/test-support/ws";

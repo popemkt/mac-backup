@@ -15,7 +15,7 @@ import type { SchemaIndex } from "@/lib/schema";
 import { isContextualRef, shownNode, showsAncestor } from "@/lib/contextual-ref";
 import { resolveProps } from "@/lib/graph-view";
 import { isQueryResultInstance } from "@/lib/instance-key";
-import { isQueryNode } from "@/lib/query-node";
+import { isQueryNode } from "@kb/model";
 import type { OutlineNode } from "@/lib/types";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 

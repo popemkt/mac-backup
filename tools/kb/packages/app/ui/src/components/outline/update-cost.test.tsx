@@ -15,9 +15,8 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { systemSeedNodes } from "@kb/model";
+import { isQueryNode, systemSeedNodes } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { isQueryNode } from "@/lib/query-node";
 import { nodeCandidates } from "@/lib/refs";
 import type * as Refs from "@/lib/refs";
 import { resolveRowChrome } from "@/lib/row-chrome";

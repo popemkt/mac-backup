@@ -7,7 +7,8 @@
 import type { ReactNode } from "react";
 import { indentStyle } from "@/lib/indent";
 import { queryResultInstanceKey } from "@/lib/instance-key";
-import { queryDefOf, resultNodeIds } from "@/lib/query-node";
+import { queryDefOf } from "@kb/model";
+import { resultNodeIds } from "@/lib/query-node";
 import { useQueryNodeRows } from "@/lib/use-query-node-rows";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useOutlineStore } from "@/stores/outline.store";

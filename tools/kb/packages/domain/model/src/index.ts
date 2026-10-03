@@ -112,6 +112,8 @@ export {
   siblingSlots,
 } from "./order.ts";
 export type { NodeRank, RankSlot } from "./order.ts";
+export { hasQueryDef, isQueryNode, queryDefOf } from "./query-node.ts";
+export type { QueryNodeDef } from "./query-node.ts";
 export { ResolveError, resolveFieldId, resolveTagId } from "./resolve.ts";
 export {
   ActionSchemaError,

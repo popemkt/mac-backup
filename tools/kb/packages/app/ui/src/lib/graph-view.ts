@@ -1,7 +1,6 @@
 import type { SchemaIndex } from "@/lib/schema";
 import type { WireNode } from "@kb/contracts";
-import { compareRootOrder, typeRefsOf } from "@kb/model";
-import { hasQueryDef } from "@/lib/query-node";
+import { compareRootOrder, hasQueryDef, typeRefsOf } from "@kb/model";
 import { tagColorOf, tagPalette, type TagPalette } from "@/lib/tag-color";
 import {
   resolveVisibleProps,

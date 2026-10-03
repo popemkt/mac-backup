@@ -37,13 +37,13 @@ import {
   TextTIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
-import { hostViewIds, isViewNode, present, typeRefsOf, viewOptionOf } from "@kb/model";
+import { hostViewIds, isQueryNode, isViewNode, present, typeRefsOf, viewOptionOf } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { mutations } from "@/actions/mutations";
 import { isContextualRef } from "@/lib/contextual-ref";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { isPinned } from "@/lib/pinned";
-import { DEFAULT_QUERY_EDN, isQueryNode } from "@/lib/query-node";
+import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { navigate, nodePath, ontologyPath } from "@/lib/router";
 import {
   DESIGN_SYSTEM_IDS,

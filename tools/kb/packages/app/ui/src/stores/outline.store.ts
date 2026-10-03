@@ -4,7 +4,7 @@ import { loadExpandedIds, resolveProps, saveExpandedIds, wireToOutlineMap } from
 import { resolveVisibleProps } from "@/lib/field-visibility";
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import { MAIN_OUTLINE_HOST, isInsideQueryResults, outlineInstanceKey } from "@/lib/instance-key";
-import { isQueryNode } from "@/lib/query-node";
+import { isQueryNode } from "@kb/model";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
 import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { toast } from "@/lib/toast";

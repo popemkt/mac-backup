@@ -16,7 +16,8 @@ import {
   queryResultInstanceKey,
 } from "@/lib/instance-key";
 import { frameRows } from "@/lib/frame-rows";
-import { isQueryNode, queryDefOf, resultNodeIds } from "@/lib/query-node";
+import { isQueryNode, queryDefOf } from "@kb/model";
+import { resultNodeIds } from "@/lib/query-node";
 import type { NodeMap } from "@/lib/types";
 import { frameViewOf, type FrameView } from "@/lib/view-config";
 import { projectsRows, type FrameViewKey } from "@kb/views";
