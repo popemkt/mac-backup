@@ -1588,7 +1588,7 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     (`pin.approval.policies`) puts it in the sidebar. All three are
     ordinary user-editable nodes, edited like any query, view or pin. A
     seeded node its owner deletes comes back on the next open, because the
-    seed adds every id it misses (`// GAP [GAP-SEEDED-NODE-RETURNS]` in
+    seed adds every id it misses (`// GAP [[01M413SPC35K20DFC4TRP4DJYH]]` in
     `seed.ts`): to retire a default policy, set its decision rather than
     delete it.
   - The policies are read from the session's own graph, once per index
@@ -1623,7 +1623,7 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   - `approved` and the actor are things the caller declares, not a security
     boundary. Policies prevent accidents, not a determined local caller.
     kb has no way to check that a person really approved the call, or who
-    made it (`// GAP [GAP-AUTHENTICATED-ACTOR]` in `approval.ts`). The gate
+    made it (`// GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]` in `approval.ts`). The gate
     means only that a caller must say so deliberately and cannot end up
     approving by accident. Anyone who can reach a surface that carries the
     flag can set it. Who can reach `kb ui`'s HTTP and `/ws` is decided by its

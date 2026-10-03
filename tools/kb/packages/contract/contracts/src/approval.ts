@@ -143,7 +143,7 @@ function outranks(
  * asks is answered by the gesture itself; both are declared, not proven, and
  * whoever can claim one can claim the other.
  */
-// GAP [GAP-AUTHENTICATED-ACTOR]
+// GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]
 export function hasPerson(invocation: ActionInvocation): boolean {
   return invocation.approved === true || invocation.actor === "human";
 }

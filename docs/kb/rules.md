@@ -72,6 +72,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
+### GAP: a call's actor and approval are declared by the caller, not proven
+
+- **expected** — each surface authenticates its caller, so actor and approved are facts kb checks, and policies are a boundary rather than a guard against accidents
+- **current** — the invocation envelope's actor and approved are whatever the caller sends (the CLI and HTTP may name any actor); hasPerson trusts them
+- **impact** — a determined local process can claim to be human or approved; policies only stop accidents
+- **closes** — authenticated callers per surface (a UI session token, an agent identity), checked where the actor is filled in
+- **node** — `01M413SP3QSSQJMKKDK3W3J6G8`
+
 ### GAP: a canvas seen in 3D reports its 2D camera on the screen
 
 - **expected** — while a canvas is seen in 3D the screen reports the 3D camera pose and the items actually visible in it
@@ -143,6 +151,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A wrongly picked reference must be deleted and recreated in the UI.
 - **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
 - **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
+
+### GAP: a seeded default the owner deletes comes back on the next open
+
+- **expected** — the seed records what it planted, so a planted id that is missing reads as deleted and stays deleted
+- **current** — ensureSystemSeed re-adds every missing id on open, including default policies, the policies table view and its pin
+- **impact** — deleting a default policy, view or pin does not stick; DESIGN.md says to change a default's decision instead. Related to seed retirement, 01M3FK1PM9P96SNCSHXF0CJZRA
+- **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
+- **node** — `01M413SPC35K20DFC4TRP4DJYH`
 
 ### GAP: a store's release is not on the port; selectStore drops it
 

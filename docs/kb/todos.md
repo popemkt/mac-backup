@@ -35,7 +35,6 @@
 ### todo
 
 - 10 · chart view type storing a Vega-Lite spec
-- 5c · approval policies (decision 13): #approval-policy nodes (match, actor, decision) resolved by the invoke core; policies table view; policy writes always ask; seeded defaults
 - 9 · sandbox: one capability API + MCP Apps iframe bridge, QuickJS + Worker engines; #code-view, #script, promotion
 - canvas C2: media cards (assets) + frictionless quick-add — draw.io feel
 - Check out ideas from this, how did it handle transaction and stuff https://news.ycombinator.com/item?id=49440174
@@ -62,6 +61,7 @@
 - 3 · generative UI mode A: view.propose, catalog in kb_manifest, render_view by view id + md fallback, ui:// snapshots
 - 4 · WebMCP adapter over /api/action behind feature detection
 - 5 · screen state over /ws + ui.screen/ui.navigate/ui.select; agent packages (local Claude bridge, sidebar) outside core
+- 5c · approval policies (decision 13): #approval-policy nodes (match, actor, decision) resolved by the invoke core; policies table view; policy writes always ask; seeded defaults
 - 6 · layout view type (decision 12): mode B dashboards + panes (Tana panels → splits/tabs via dockview adapter), saved workspaces as nodes
 - 8 · canvas 3D: z/3D transforms, perspective camera on the WebGPU scene kit (three r186)
 - canvas simplify (Logseq model): edges are drawings only; native bind = one-shot prop write; bound-state computed at render (unbound tint); DELETE reconciler/persist-back/bindingId repair — supersedes broken-edge repair todo

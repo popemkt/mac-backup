@@ -498,7 +498,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     }),
     children: defaultPolicies.map((policy) => policy.id),
   };
-  // GAP [GAP-SEEDED-NODE-RETURNS]
+  // GAP [[01M413SPC35K20DFC4TRP4DJYH]]
   const approvalPoliciesPin = mk(SYSTEM_IDS.approvalPoliciesPin, "", {
     [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: SYSTEM_IDS.approvalPolicies }],
   });
