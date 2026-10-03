@@ -1,18 +1,24 @@
 /**
  * The extension contract: what every family promises (DESIGN.md → Extension
  * families → Enforcement), written once and run over each of them. The
- * server's bundled list runs it from `@kb/runtime`'s tests, and the agent,
- * which its host composes, from `@kb/cli`'s, so a promise one family keeps
- * and another breaks goes red.
+ * server's resolved bundled list runs it from `@kb/runtime`'s tests, and the
+ * agent, which its host composes, from `@kb/cli`'s, so a promise one family
+ * keeps and another breaks goes red.
  *
- * It holds the promises every family can be asked today:
- * - its entry plugin takes its name from its declaration;
- * - it loads, and unloads leaving nothing behind;
- * - its seed folds beside the bundled one with no id owned twice;
- * - every view key it contributes has an option in that fold.
+ * What it can prove today:
+ * - the entry plugin takes its name from the declaration;
+ * - the family loads, and unloads leaving nothing behind;
+ * - the views the entry contributes are exactly the views the declaration
+ *   lists, so no family reaches the catalog past its declaration.
  *
- * The text-body and page-catalog promises join when the first family
- * contributes a view of its own (step E7 of the extension-boundaries plan).
+ * What it cannot prove yet: no family declares seed nodes or views of its
+ * own, because chart, code, lab and the canvas vocabulary are still seeded
+ * and catalogued through core's declaration. So "no seed id owned twice"
+ * and "every view has an option in the fold" run over empty sets for every
+ * family, and pass on nothing. They gain a subject as each family's
+ * vocabulary moves out of core (E7–E9): GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]]
+ * (seed) and GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]] (views). The text-body and
+ * page-catalog promises join with the first family view (E7).
  */
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
@@ -38,7 +44,10 @@ function contributions(kernel: Kernel): readonly string[] {
   ].map((contribution) => contribution.id);
 }
 
-/** The bundled declarations, with this one in its place or at the end. */
+/**
+ * The seed fold this family is opened under: the bundled declarations, which
+ * already hold a bundled family, plus this one when it is a host plugin.
+ */
 function foldWith(declaration: ExtensionDeclaration): readonly ExtensionDeclaration[] {
   return BUNDLED_DECLARATIONS.includes(declaration)
     ? BUNDLED_DECLARATIONS
@@ -65,25 +74,30 @@ export function extensionContract(declaration: ExtensionDeclaration, entry: Plug
         }),
       ));
 
-    test("its seed folds beside the bundled one with no id owned twice", () => {
-      expect(() => foldSeed(foldWith(declaration), CONTRACT_AT)).not.toThrow();
-    });
-
-    test("every view key it contributes has an option in the fold", () =>
+    test("the views it contributes are exactly the views it declares", () =>
       Effect.runPromise(
         Effect.gen(function* () {
           const kernel = makeKernel();
           yield* kernel.load(entry);
-          const seeded = new Set(
-            foldSeed(foldWith(declaration), CONTRACT_AT).map((node) => node.id),
-          );
-          const orphans = kernel
-            .contributions(ViewKeyPoint)
-            .map((view) => view.id)
-            .filter((id) => !seeded.has(viewOptionId(id)));
+          const contributed = kernel.contributions(ViewKeyPoint).map((view) => view.id);
           yield* kernel.shutdown;
-          expect(orphans).toEqual([]);
+          expect(contributed.toSorted()).toEqual(
+            (declaration.views ?? []).map((view) => view.key.id).toSorted(),
+          );
         }),
       ));
+
+    // Over empty sets for every family today: see the header.
+    test("its seed folds beside the bundled one with no id owned twice", () => {
+      expect(() => foldSeed(foldWith(declaration), CONTRACT_AT)).not.toThrow();
+    });
+
+    test("every view it declares has an option in the fold", () => {
+      const seeded = new Set(foldSeed(foldWith(declaration), CONTRACT_AT).map((node) => node.id));
+      const orphans = (declaration.views ?? [])
+        .map((view) => view.key.id)
+        .filter((id) => !seeded.has(viewOptionId(id)));
+      expect(orphans).toEqual([]);
+    });
   });
 }
