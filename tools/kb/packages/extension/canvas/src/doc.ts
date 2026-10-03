@@ -33,9 +33,9 @@ interface CanvasNodeBase {
   width: number;
   height: number;
   /**
-   * Depth, toward the viewer, in the same units as x and y. Absent is 0, the
-   * canvas plane. In 3D it is a real axis; face-on it only orders painting
-   * (`paintOrder`).
+   * Height above the floor (the canvas plane), in the same units as x and y.
+   * Absent is 0. In 3D it is a real axis; from the top it only orders
+   * painting (`paintOrder`).
    */
   z?: number;
   color?: string;
@@ -395,7 +395,7 @@ export function withDepth<N extends CanvasNode>(node: N, z: number): N {
 /**
  * Items back to front: by depth, and at one depth in document order, which
  * bring-to-front and send-to-back rearrange. Every projection paints and
- * hit-tests in this order, so face-on a raised item covers a lower one.
+ * hit-tests in this order, so from the top a raised item covers a lower one.
  */
 export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
   return nodes

@@ -1052,11 +1052,13 @@ manipulation feel professional rather than merely functional.
 
 #### Projections
 
-A canvas is drawn through one camera model, `lib/canvas-camera.ts`: a view
-is a focus point in canvas space, a zoom measured on the plane through that
-focus, an orbit (`yaw`, `pitch`) and a field of view, where `fov` 0 is
-orthographic. The DOM canvas is that camera face-on and orthographic, which
-is exactly its CSS `translate(pan) scale(zoom)`; `viewOfPan` and `panOfView`
+A canvas is drawn through one camera model, `lib/canvas-camera.ts`. The
+canvas plane is the floor, with z up, as in Blender. A view is a focus point
+in canvas space, a zoom measured on the plane through that focus, a
+turntable orbit (`yaw` about z; `pitch` from 0, the top view, to π/2, level
+with the floor; no orbit goes under it) and a field of view, where `fov` 0 is
+orthographic. The DOM canvas is that camera from the top and orthographic,
+which is exactly its CSS `translate(pan) scale(zoom)`; `viewOfPan` and `panOfView`
 are the bridge, and zoom-to-fit, client-to-canvas conversion and the edge
 drop target (`hitTest`: the nearest item under the ray, each on its paint
 plane, `paintPlanes`: its depth raised a hair per earlier item at that depth,
@@ -1067,15 +1069,17 @@ screen point, which decides slop and panning, and the canvas point it stands
 for, which decides where a moved or resized card goes.
 
 Two projections hold that camera (`CANVAS_PROJECTIONS`,
-`components/canvas/canvas-projections.ts`): **2D**, face-on and
-orthographic, drawn as DOM cards over SVG edges; and **3D**, in perspective
-and orbiting its focus, drawn on the scene kit's stage
+`components/canvas/canvas-projections.ts`): **2D**, from the top and
+orthographic, drawn as DOM cards over SVG edges; and **3D**, on its
+turntable through a perspective or an orthographic lens, drawn on the scene
+kit's stage
 (`components/canvas/canvas-scene.ts` and its card and edge layers, the
 canvas's only three modules, loaded in their own chunk; the harness's
 `components/canvas/3d` zone is the only part of the canvas that may reach the
 scene kit). A projection declares only how it holds the camera
 (`settle`) and the view it opens at when it takes over (`arrive`: the saved
-pose, or the same focus and zoom tipped back like a desk). The document's
+pose, or the same focus and zoom turned to the oblique preset, in
+perspective). The document's
 `camera` names the projection a canvas opens in and its last 3D pose
 (DESIGN.md → Canvas documents); the toolbar's 2D/3D toggle writes it, the
 undo history leaves it alone, and an agent that writes it switches every
@@ -1087,20 +1091,23 @@ open view of that canvas.
   every item's corners where the camera model projects them on its paint
   plane, draws on top at a point what `hitTest` finds there (the DOM's
   topmost box; the nearest drawn plane), and draws a moved card where it
-  moved — from a desk tilt, an oblique orbit and from behind, with raised,
-  sunk and same-depth overlapping cards. The 3D scene also joins the scene
+  moved — from a desk tilt, an oblique orbit, low across the floor from the
+  far side and through the orthographic lens, with raised, sunk and
+  same-depth overlapping cards. The 3D scene also joins the scene
   contract, whose disposal check covers every geometry and material a scene
   drew with.
 - **One camera in motion.** `lib/canvas-camera-rig.ts` holds the view the 3D
   scene draws with: gestures move it at once, flights ease over
   `--motion-duration-arrive` on `--motion-settle`, and under reduced motion
-  a flight lands at once. The keymap's zoom and fit reach whichever camera is
-  showing through `CanvasViewportControls`.
+  a flight lands at once. The keymap's zoom and frame reach whichever camera
+  is showing through `CanvasViewportControls`. The scene draws the
+  orthographic lens, and the orthographic end of a dolly, with an exact
+  orthographic projection, so it is the same picture as the DOM canvas.
 - **The handover** (`canvas-handover.ts`): into 3D, the rig stands where the
   2D view is, the scene mounts behind the DOM canvas, the two crossfade
   while they are identical (`--motion-duration-reveal`), and then the field of
   view opens at a fixed zoom — a dolly zoom out of orthographic. Back to 2D
-  the rig flies face-on first and the DOM canvas takes its pan and zoom on
+  the rig flies to the top view first and the DOM canvas takes its pan and zoom on
   arrival. A scene that cannot start leaves the canvas in 2D for the visit.
 - **Cards stay cards.** Each card's face is painted into a canvas texture as
   it looks in 2D (`canvas-card-face.ts`): its text in the UI face at the body
@@ -1125,7 +1132,8 @@ open view of that canvas.
   and Alt-drag lifts it. Both are the pointer reducer's one move, carried
   across the plane or along depth (`CARRY`: whole units at the current zoom
   for depth), and both are history steps written through `ext.canvas.tx.apply`.
-  A drag on empty canvas orbits, a tap places the current tool on the plane
+  A drag on empty canvas orbits the turntable (across turns the floor with
+  the hand, down tips toward the top view), a tap places the current tool on the plane
   (or clears the selection), the right or middle button or Space pans, the
   wheel pans and a pinch zooms about the cursor (`canvas-scene-gestures.ts`).
   A card let go where its plane is edge-on stays where the drag last had it,

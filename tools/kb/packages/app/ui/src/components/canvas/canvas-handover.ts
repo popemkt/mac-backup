@@ -7,12 +7,12 @@
  * The document's camera names the projection a canvas opens in (`want`);
  * `shown` is the one drawing. They differ only while one hands over:
  *
- * - **into 3D**: the rig stands where the 2D view is (face-on, orthographic)
+ * - **into 3D**: the rig stands where the 2D view is (from the top, orthographic)
  *   and a fresh scene mounts behind the DOM canvas (`entering`). Once it
  *   draws (`ready`), the two crossfade — identical at that instant — and
  *   then the rig flies out to the 3D pose: the field of view opens at a
  *   fixed zoom, a dolly zoom;
- * - **back to 2D**: the rig flies back to face-on and orthographic
+ * - **back to 2D**: the rig flies back to the top view, orthographic
  *   (`leaving`); on arrival the DOM canvas takes the view's pan and zoom and
  *   fades in over the scene, which stays mounted until the fade is done
  *   (`lingering`).

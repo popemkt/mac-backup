@@ -12,16 +12,19 @@
 // GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]
 import { dropExtra } from "./extra.ts";
 
-/** How a canvas is drawn: face-on and orthographic, or in perspective. */
+/** How a canvas is drawn: from the top and orthographic, or in depth on a turntable. */
 export type CanvasProjectionKind = "2d" | "3d";
 
 const PROJECTIONS = ["2d", "3d"] as const satisfies readonly CanvasProjectionKind[];
 
 /**
- * A saved 3D pose, in the canvas's own space (x right, y down, z toward the
- * viewer): the point looked at, the zoom on the plane through it (screen
- * pixels per canvas unit), and the orbit about it in radians. Yaw turns about
- * the canvas's vertical axis; pitch tips its bottom edge toward the eye.
+ * A camera pose, in the canvas's own space (the canvas plane is the floor: x
+ * right and y down as the top view shows them, z up): the point looked at,
+ * the zoom on the plane through it (screen pixels per canvas unit), the
+ * turntable orbit about it in radians, and the lens. Yaw turns about z; pitch
+ * runs from 0, looking straight down, to π/2, level with the floor. `fov` is
+ * the vertical field of view in degrees, 0 orthographic; a pose saved before
+ * it had one is seen through the 3D projection's perspective lens.
  */
 export interface CanvasPose {
   x: number;
@@ -30,6 +33,7 @@ export interface CanvasPose {
   zoom: number;
   yaw: number;
   pitch: number;
+  fov?: number;
 }
 
 export interface CanvasCamera {
@@ -41,6 +45,8 @@ export interface CanvasCamera {
 
 const KNOWN_CAMERA_KEYS = new Set(["projection", "pose"]);
 const POSE_KEYS = ["x", "y", "z", "zoom", "yaw", "pitch"] as const;
+/** A lens no camera could hold, degrees: it is read as no lens at all. */
+const MAX_FOV = 179;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -55,7 +61,9 @@ function parsePose(raw: unknown): CanvasPose | undefined {
   const { x, y, z, zoom, yaw, pitch } = raw;
   if (!finite(x) || !finite(y) || !finite(z) || !finite(yaw) || !finite(pitch)) return undefined;
   if (!finite(zoom) || zoom <= 0) return undefined;
-  return { x, y, z, zoom, yaw, pitch };
+  const pose: CanvasPose = { x, y, z, zoom, yaw, pitch };
+  if (finite(raw.fov) && raw.fov >= 0 && raw.fov <= MAX_FOV) pose.fov = raw.fov;
+  return pose;
 }
 
 /**
@@ -84,6 +92,7 @@ export function emitCanvasCamera(camera: CanvasCamera): Record<string, unknown> 
   if (camera.pose) {
     const pose: Record<string, number> = {};
     for (const key of POSE_KEYS) pose[key] = camera.pose[key];
+    if (camera.pose.fov !== undefined) pose.fov = camera.pose.fov;
     out.pose = pose;
   }
   return out;
@@ -108,7 +117,7 @@ export function cameraLookingFrom(
 }
 
 /** How far two poses may differ and still be the same look, per component. */
-const POSE_TOLERANCE = { place: 1e-3, turn: 1e-4, zoom: 1e-4 } as const;
+const POSE_TOLERANCE = { place: 1e-3, turn: 1e-4, zoom: 1e-4, lens: 1e-3 } as const;
 
 const near = (p: number, q: number, tolerance: number) => Math.abs(p - q) <= tolerance;
 
@@ -121,6 +130,9 @@ export function posesAgree(a: CanvasPose | undefined, b: CanvasPose | undefined)
     near(a.z, b.z, POSE_TOLERANCE.place) &&
     near(a.yaw, b.yaw, POSE_TOLERANCE.turn) &&
     near(a.pitch, b.pitch, POSE_TOLERANCE.turn) &&
-    near(a.zoom / b.zoom, 1, POSE_TOLERANCE.zoom)
+    near(a.zoom / b.zoom, 1, POSE_TOLERANCE.zoom) &&
+    (a.fov === undefined || b.fov === undefined
+      ? a.fov === b.fov
+      : near(a.fov, b.fov, POSE_TOLERANCE.lens))
   );
 }

@@ -36,14 +36,18 @@ const nodeArb: fc.Arbitrary<CanvasNode> = fc
   })
   .map(({ z, ...rest }) => ({ ...rest, type: "text" as const, ...(z === undefined ? {} : { z }) }));
 
-const poseArb = fc.record({
-  x: finite,
-  y: finite,
-  z: finite,
-  zoom: fc.double({ noNaN: true, min: 0.01, max: 10 }),
-  yaw: finite,
-  pitch: finite,
-});
+const poseArb = fc.record(
+  {
+    x: finite,
+    y: finite,
+    z: finite,
+    zoom: fc.double({ noNaN: true, min: 0.01, max: 10 }),
+    yaw: finite,
+    pitch: finite,
+    fov: fc.double({ noNaN: true, min: 0, max: 120 }),
+  },
+  { requiredKeys: ["x", "y", "z", "zoom", "yaw", "pitch"] },
+);
 
 const cameraArb = fc.record(
   { projection: fc.constantFrom("2d" as const, "3d" as const), pose: poseArb },
@@ -193,6 +197,19 @@ describe("camera", () => {
     expect(posesAgree(pose, { ...pose, yaw: -0.31 })).toBe(false);
     expect(posesAgree(pose, undefined)).toBe(false);
     expect(posesAgree(undefined, undefined)).toBe(true);
+    expect(posesAgree({ ...pose, fov: 34 }, { ...pose, fov: 0 })).toBe(false);
+    expect(posesAgree({ ...pose, fov: 34 }, pose)).toBe(false);
+  });
+
+  test("a pose keeps its lens, and one it cannot read is no lens at all", () => {
+    const pose = { x: 1, y: 2, z: 3, zoom: 1, yaw: 0.2, pitch: 0.4, fov: 0 };
+    const doc = { nodes: [], edges: [], camera: { projection: "3d" as const, pose } };
+    expect(roundTrip(doc).camera?.pose).toEqual(pose);
+    const unread = parseCanvasDoc({
+      ...doc,
+      camera: { projection: "3d", pose: { ...pose, fov: -4 } },
+    });
+    expect(unread.camera?.pose).toEqual({ x: 1, y: 2, z: 3, zoom: 1, yaw: 0.2, pitch: 0.4 });
   });
 
   test("clearing the camera leaves the document 2D", () => {

@@ -6,10 +6,12 @@
  * and load only inside `canvas-3d-stage`'s lazy chunk.
  *
  * - **Cards** and **edges** are their layers'.
- * - **The canvas plane** carries the 2D dot grid, fading out with distance.
+ * - **The canvas plane** is the floor, and carries the 2D dot grid, fading
+ *   out with distance.
  * - **The camera** is the rig's view (`lib/canvas-camera-rig`), stepped and
- *   applied every frame; canvas space (y down) maps to three's (y up) by
- *   flipping y, for points and camera alike.
+ *   applied every frame, through either lens; canvas space (y down the top
+ *   view) maps to three's (y up it) by flipping y, for points and camera
+ *   alike, and z is up in both.
  *
  * Unlit, untoned and unbloomed: a card's colours are the tokens'.
  */
@@ -28,7 +30,7 @@ import { toScreen, type ScreenPoint } from "@/scene/gpu/screen";
 import type { SceneBackend } from "@/scene/backend";
 import type { SceneHandle } from "@/scene/host";
 import type { ScenePalette } from "@/scene/palette";
-import { cameraPose, type CanvasView, type ViewSize } from "@/lib/canvas-camera";
+import { PERSPECTIVE_FOV, cameraPose, type CanvasView, type ViewSize } from "@/lib/canvas-camera";
 import type { CanvasCameraRig } from "@/lib/canvas-camera-rig";
 import type { Timing } from "@/lib/timing";
 import { over, type CardLook } from "./canvas-card-face";
@@ -71,9 +73,15 @@ export interface CanvasScene extends SceneHandle {
   inspect(): CanvasSceneInspection;
 }
 
-/** A field of view the renderer can hold: the orthographic end of a dolly is this, not 0. */
+/**
+ * The narrowest field of view drawn in perspective, degrees. Below it the
+ * camera is drawn orthographic, exactly: the end of a dolly zoom and the
+ * orthographic lens are the same picture as the 2D canvas.
+ */
 const MIN_FOV = 0.5;
-/** The canvas plane sits just behind the cards that lie on it. */
+/** Where an orthographic eye stands back from the focus, canvas units: in front of any canvas. */
+const ORTHO_EYE = 50_000;
+/** The canvas plane sits just below the cards that lie on it. */
 const PLANE_Z = -1;
 /** The 2D dot grid's pitch and dot radius, canvas units. */
 const GRID_STEP = 20;
@@ -81,19 +89,44 @@ const GRID_DOT = 1.1;
 
 const flip = (p: { x: number; y: number; z: number }, out: Vector3) => out.set(p.x, -p.y, p.z);
 
-/** Aim three's camera at `view`, for a canvas of `size`. */
+/**
+ * Aim three's camera at `view`, for a canvas of `size`; how far the eye
+ * stands from the focus. An orthographic view keeps the perspective camera
+ * and gives it an orthographic projection, so the stage's one camera serves
+ * both lenses.
+ */
 function applyView(camera: PerspectiveCamera, view: CanvasView, size: ViewSize, eye: Vector3) {
-  const held = { ...view, fov: Math.max(MIN_FOV, view.fov) };
-  const pose = cameraPose(held, size);
-  camera.fov = held.fov;
+  const ortho = view.fov < MIN_FOV;
+  const pose = cameraPose(view, size);
   camera.aspect = size.width / Math.max(1, size.height);
+  flip(pose.target, eye);
   flip(pose.eye, camera.position);
+  if (ortho) camera.position.sub(eye).setLength(ORTHO_EYE).add(eye);
   flip(pose.up, camera.up);
-  camera.lookAt(flip(pose.target, eye));
+  camera.lookAt(eye);
   const distance = camera.position.distanceTo(eye);
-  camera.near = Math.max(1, distance * 0.02);
-  camera.far = distance * 8 + 40_000;
-  camera.updateProjectionMatrix();
+  if (ortho) {
+    camera.near = 1;
+    camera.far = ORTHO_EYE * 3;
+    const w = size.width / 2 / view.zoom;
+    const h = size.height / 2 / view.zoom;
+    camera.projectionMatrix.makeOrthographic(
+      -w,
+      w,
+      h,
+      -h,
+      camera.near,
+      camera.far,
+      camera.coordinateSystem,
+      camera.reversedDepth,
+    );
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+  } else {
+    camera.fov = view.fov;
+    camera.near = Math.max(1, distance * 0.02);
+    camera.far = distance * 8 + 40_000;
+    camera.updateProjectionMatrix();
+  }
   camera.updateMatrixWorld();
   return distance;
 }
@@ -141,7 +174,7 @@ export async function mountCanvasScene(
   const { parts, handle } = await mountScene(
     host,
     {
-      fov: 34,
+      fov: PERSPECTIVE_FOV,
       palette: init.palette,
       timing: init.timing,
       reducedMotion: init.reducedMotion,
@@ -156,6 +189,8 @@ export async function mountCanvasScene(
 function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
   const { camera, scene } = stage;
   const canvas = stage.renderer.domElement;
+  // An orthographic projection is built for the renderer's clip space before its first frame.
+  camera.coordinateSystem = stage.renderer.coordinateSystem;
   stage.setToneMapping("none");
   stage.backdrop({});
   const fog = stage.atmosphere(4000, 16_000);

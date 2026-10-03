@@ -3,10 +3,11 @@
  * one camera model (`lib/canvas-camera`) held a particular way
  * (DESIGN-UI.md → Canvas → Projections).
  *
- * - **2D** is the camera face-on and orthographic, drawn as DOM cards over
- *   SVG edges (`canvas-stage`).
- * - **3D** is the camera in perspective, orbiting its focus, drawn on the
- *   scene kit (`canvas-scene`).
+ * - **2D** is the camera from the top and orthographic, drawn as DOM cards
+ *   over SVG edges (`canvas-stage`).
+ * - **3D** is the camera on its turntable about the floor's z, through a
+ *   perspective or an orthographic lens, drawn on the scene kit
+ *   (`canvas-scene`).
  *
  * Every projection draws every item and every edge, hit-tests through
  * `hitTest`, moves cards on their own plane and marks the shared selection;
@@ -15,13 +16,15 @@
  * view it opens at when it takes over from another.
  */
 import type { CanvasPose, CanvasProjectionKind } from "@kb/canvas";
-import { MAX_PITCH, viewOfPose, type CanvasView } from "@/lib/canvas-camera";
-
-/** The 3D field of view, degrees: long enough that cards stay square-on readable. */
-const PERSPECTIVE_FOV = 34;
-
-/** The orbit a canvas first opens at in 3D: tipped back like a desk, turned a little. */
-const FIRST_ORBIT = { yaw: -0.2, pitch: 0.58 } as const;
+import {
+  PERSPECTIVE_FOV,
+  heldOrbit,
+  lensOf,
+  presetView,
+  viewOfPose,
+  withLens,
+  type CanvasView,
+} from "@/lib/canvas-camera";
 
 export interface CanvasProjection {
   readonly kind: CanvasProjectionKind;
@@ -39,29 +42,27 @@ export interface CanvasProjection {
 
 const flat = (view: CanvasView): CanvasView => ({ ...view, yaw: 0, pitch: 0, fov: 0 });
 
-const perspective = (view: CanvasView): CanvasView => ({
-  ...view,
-  pitch: Math.max(-MAX_PITCH, Math.min(MAX_PITCH, view.pitch)),
-  fov: PERSPECTIVE_FOV,
-});
+/** The turntable within its range, through whichever of the two lenses it is nearer. */
+const turntable = (view: CanvasView): CanvasView => withLens(heldOrbit(view), lensOf(view));
 
 const BY_KIND: { readonly [K in CanvasProjectionKind]: CanvasProjection & { readonly kind: K } } = {
   "2d": {
     kind: "2d",
     label: "2D",
-    title: "Flat: edit cards in place",
+    title: "Flat: the top view, cards edited in place",
     settle: flat,
     arrive: (from) => flat(from),
   },
   "3d": {
     kind: "3d",
     label: "3D",
-    title: "Depth: drag to orbit, Alt-drag a card to lift it",
-    settle: perspective,
+    title: "Depth: drag to orbit the floor, Alt-drag a card to lift it",
+    settle: turntable,
+    // A first visit opens oblique and in perspective, a little further back.
     arrive: (from, saved) =>
-      perspective(
+      turntable(
         saved === undefined
-          ? { ...from, ...FIRST_ORBIT, zoom: from.zoom * 0.92 }
+          ? { ...presetView(from, "oblique"), zoom: from.zoom * 0.92, fov: PERSPECTIVE_FOV }
           : viewOfPose(saved, PERSPECTIVE_FOV),
       ),
   },

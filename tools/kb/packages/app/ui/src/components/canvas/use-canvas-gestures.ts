@@ -200,7 +200,7 @@ function useViewportControls({
       pan: { x: pan.x - e.deltaX, y: pan.y - e.deltaY },
     });
   };
-  /** The face-on camera's answers to the keymap; a key zooms with the pan held, as it always has. */
+  /** The top-view camera's answers to the keymap; a key zooms with the pan held, as it always has. */
   const viewportControls: CanvasViewportControls = {
     zoomBy: (factor) => setZoom((current) => clampZoom(current * factor)),
     zoomTo: (next) => setZoom(clampZoom(next)),

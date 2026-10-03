@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 import {
   MAX_PITCH,
+  PERSPECTIVE_FOV,
+  heldOrbit,
+  lensOf,
+  presetOf,
+  presetView,
+  screenAxes,
+  withLens,
   cameraPose,
   clientToCanvas,
   fitView,
@@ -112,8 +119,9 @@ describe("hit-testing", () => {
     expect(hitTest([high, low, later], view, size, { x: 160, y: 30 })).toBe("high");
   });
 
-  test("seen from behind, the nearer item is the deeper one", () => {
-    const behind = { ...perspective, x: 150, y: 50, yaw: Math.PI, pitch: 0 };
+  test("seen from under the floor, the nearer item is the deeper one", () => {
+    // No orbit reaches under the floor, but the model answers for any eye.
+    const behind = { ...perspective, x: 150, y: 50, yaw: 0, pitch: Math.PI };
     const at = projectPoint(behind, size, { x: 160, y: 30, z: 0 });
     expect(hitTest([low, high], behind, size, at ?? { x: 0, y: 0 })).toBe("low");
   });
@@ -172,10 +180,22 @@ describe("moving the camera", () => {
     expect(after?.y).toBeCloseTo(cursor.y, 3);
   });
 
-  test("an orbit never tips the canvas past edge-on", () => {
-    expect(orbitView(perspective, 0, 10_000).pitch).toBe(MAX_PITCH);
-    expect(orbitView(perspective, 0, -10_000).pitch).toBe(-MAX_PITCH);
-    expect(orbitView(perspective, 50, 0).yaw).toBeLessThan(perspective.yaw);
+  test("an orbit is a turntable: from the top down to level, never under the floor", () => {
+    expect(orbitView(perspective, 0, -10_000).pitch).toBe(MAX_PITCH);
+    expect(MAX_PITCH).toBe(Math.PI / 2);
+    expect(orbitView(perspective, 0, 10_000).pitch).toBe(0);
+    expect(heldOrbit({ ...perspective, pitch: -0.4 }).pitch).toBe(0);
+  });
+
+  test("a drag across turns the floor with the hand: its near edge follows", () => {
+    const near = { x: perspective.x, y: perspective.y + 200, z: 0 };
+    const before = projectPoint(perspective, size, near);
+    const after = projectPoint(orbitView(perspective, 40, 0), size, near);
+    expect((after?.x ?? 0) - (before?.x ?? 0)).toBeGreaterThan(0);
+  });
+
+  test("a drag down tips the view toward the top", () => {
+    expect(orbitView(perspective, 0, 30).pitch).toBeLessThan(perspective.pitch);
   });
 
   test("a lerp turns the short way round and zooms in proportion", () => {
@@ -197,7 +217,68 @@ describe("moving the camera", () => {
     expect(sight.x * pose.up.x + sight.y * pose.up.y + sight.z * pose.up.z).toBeCloseTo(0, 6);
   });
 
-  test("a pose saves all but the field of view, and comes back whole", () => {
-    expect(viewOfPose(poseOfView(perspective), perspective.fov)).toEqual(perspective);
+  test("a pose saves the whole view, lens and all, and comes back whole", () => {
+    expect(viewOfPose(poseOfView(perspective), 0)).toEqual(perspective);
+    const { fov: _lens, ...older } = poseOfView(perspective);
+    expect(viewOfPose(older, PERSPECTIVE_FOV).fov).toBe(PERSPECTIVE_FOV);
+  });
+});
+
+describe("the floor", () => {
+  const at = (view: CanvasView, p: { x: number; y: number; z: number }) =>
+    projectPoint(view, size, p) ?? { x: Number.NaN, y: Number.NaN, depth: Number.NaN };
+  const focus = { x: perspective.x, y: perspective.y, z: 0 };
+
+  test("from the top, x is right, y is down and z points at the eye", () => {
+    const axes = screenAxes(presetView(perspective, "top"));
+    expect(axes.x.x).toBeCloseTo(1, 9);
+    expect(axes.x.y).toBeCloseTo(0, 9);
+    expect(axes.y.y).toBeCloseTo(1, 9);
+    expect(axes.z.toward).toBeCloseTo(1, 9);
+  });
+
+  test("from the front, z is up the screen and the eye stands on the +y side", () => {
+    const front = presetView({ ...perspective, fov: 0 }, "front");
+    const up = at(front, { ...focus, z: 100 });
+    expect(up.y).toBeLessThan(size.height / 2 - 50);
+    expect(at(front, { ...focus, x: focus.x + 100 }).x).toBeGreaterThan(size.width / 2);
+    expect(screenAxes(front).y.toward).toBeCloseTo(1, 9);
+  });
+
+  test.each([
+    ["right", "x", 1],
+    ["left", "x", -1],
+    ["front", "y", 1],
+    ["back", "y", -1],
+  ] as const)("the %s view's eye stands on the %s axis's %d side", (preset, axis, side) => {
+    expect(screenAxes(presetView(perspective, preset))[axis].toward).toBeCloseTo(side, 9);
+  });
+
+  test("a preset is recognised, and any other orbit is not", () => {
+    expect(presetOf(presetView(perspective, "right"))).toBe("right");
+    expect(presetOf({ ...presetView(perspective, "back"), yaw: -Math.PI })).toBe("back");
+    expect(presetOf(perspective)).toBeNull();
+  });
+
+  test("a lens swap keeps the focus plane's zoom", () => {
+    const top = presetView(perspective, "top");
+    const ortho = withLens(top, "orthographic");
+    expect(lensOf(ortho)).toBe("orthographic");
+    expect(lensOf(withLens(ortho, "perspective"))).toBe("perspective");
+    const step = (view: CanvasView) =>
+      at(view, { ...focus, x: focus.x + 10 }).x - at(view, focus).x;
+    expect(step(ortho)).toBeCloseTo(step(top), 6);
+  });
+
+  test("a frame from the front measures width and height above the floor", () => {
+    const items: CanvasHitItem[] = [
+      { id: "low", x: 0, y: 0, width: 400, height: 2000 },
+      { id: "high", x: 0, y: 0, width: 400, height: 100, z: 300 },
+    ];
+    const front = presetView({ ...perspective, fov: 0 }, "front");
+    const framed = fitView(items, size, front);
+    // 400 wide by 300 high on screen: the 2000 deep footprint is edge-on.
+    expect(framed?.zoom).toBeCloseTo(1, 9);
+    expect(framed?.z).toBe(150);
   });
 });

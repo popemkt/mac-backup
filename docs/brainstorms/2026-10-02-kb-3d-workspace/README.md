@@ -65,6 +65,13 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
      in a top view is up. Only `frameOf`, `orbitView` and `MAX_PITCH` move,
      and the projection contract proves the result. Saved poses are view
      state and are reset. **Owner question 1.**
+   - Built in step 1, with two changes made in the doing. The vertical drag
+     now follows Blender and three's `OrbitControls`: dragging down tips the
+     view toward the top. Saved poses are not reset; they are read under the
+     new model, with pitch clamped into 0..π/2. The 3D projection has two
+     lenses, perspective and orthographic (decision 9's numpad 5), so a
+     `pose` carries the lens as `fov`. A pose without one is seen in
+     perspective.
 
 ### Object model
 

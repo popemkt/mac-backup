@@ -3,19 +3,22 @@
  * every canvas projection draws, hit-tests and moves through
  * (DESIGN-UI.md → Canvas → Projections).
  *
- * Canvas space is the document's: x to the right, y down, and z out of the
- * page toward the viewer, in the document's units. A view looks at a focus
- * point from an orbit (`yaw`, `pitch`; both 0 is face-on) through a field of
- * view, and `zoom` is how many screen pixels one canvas unit covers on the
- * plane through the focus that faces the camera. `fov` 0 is orthographic.
+ * Canvas space is the document's, in its units. The canvas plane is the
+ * floor: x runs to the right and y down the page as the top view shows them,
+ * and z points up off the floor. A view looks at a focus point from a
+ * turntable orbit — `yaw` turns it about z, and `pitch` tips it from looking
+ * straight down (0, the top view) to level with the floor (π/2) — through a
+ * field of view, and `zoom` is how many screen pixels one canvas unit covers
+ * on the plane through the focus that faces the camera. `fov` 0 is
+ * orthographic.
  *
- * The 2D projection is this camera face-on and orthographic, which is exactly
- * a CSS `translate(pan) scale(zoom)`: {@link viewOfPan} and {@link panOfView}
- * are the bridge, and every 2D conversion goes through them. The 3D
- * projection is the same camera in perspective. Because `zoom` is measured on
- * the focus plane, widening the field of view at a fixed zoom pulls the eye
- * in to keep that plane the same size on screen — the dolly zoom that turns
- * one projection into the other.
+ * The 2D projection is this camera from the top and orthographic, which is
+ * exactly a CSS `translate(pan) scale(zoom)`: {@link viewOfPan} and
+ * {@link panOfView} are the bridge, and every 2D conversion goes through
+ * them. The 3D projection is the same camera free to orbit, in perspective or
+ * orthographic. Because `zoom` is measured on the focus plane, widening the
+ * field of view at a fixed zoom pulls the eye in to keep that plane the same
+ * size on screen — the dolly zoom that turns one projection into the other.
  */
 import type { CanvasPose } from "@kb/canvas";
 
@@ -37,7 +40,7 @@ export interface CanvasView {
   readonly z: number;
   /** Screen pixels per canvas unit on the focus plane. */
   readonly zoom: number;
-  /** Radians. Yaw turns about the canvas's vertical axis; pitch tips its bottom toward the eye. */
+  /** Radians. Yaw turns the orbit about z; pitch tips it from the top view (0) to level (π/2). */
   readonly yaw: number;
   readonly pitch: number;
   /** Vertical field of view in degrees; 0 is orthographic. */
@@ -90,7 +93,7 @@ const dot = (a: Vec, b: Vec) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 /**
  * The camera's axes in canvas space: screen right, screen down, and `back`
- * (from the focus toward the eye). Face-on they are exactly x, y and z.
+ * (from the focus toward the eye). From the top they are exactly x, y and z.
  */
 interface Frame {
   readonly right: Vec;
@@ -107,10 +110,10 @@ function frameOf(view: CanvasView, size: ViewSize): Frame {
   const sy = Math.sin(view.yaw);
   const cp = Math.cos(view.pitch);
   const sp = Math.sin(view.pitch);
-  // Tip about x by pitch, then turn about y by yaw.
-  const right: Vec = [cy, 0, -sy];
-  const down: Vec = [sy * -sp, cp, cy * -sp];
-  const back: Vec = [sy * cp, sp, cy * cp];
+  // Tip toward level by pitch (screen down swings from y to -z), then turn about z by yaw.
+  const right: Vec = [cy, sy, 0];
+  const down: Vec = [-sy * cp, cy * cp, -sp];
+  const back: Vec = [-sy * sp, cy * sp, cp];
   const focal = view.fov > 0 ? size.height / 2 / Math.tan((view.fov * Math.PI) / 360) : null;
   const distance = focal === null ? ORTHO_STANDOFF : focal / view.zoom;
   const eye: Vec = [
@@ -346,7 +349,7 @@ export function viewOfPan(pan: CanvasPoint, zoom: number, size: ViewSize): Canva
   };
 }
 
-/** The CSS pan and zoom that draw `view` face-on (its orbit and field of view set aside). */
+/** The CSS pan and zoom that draw `view` from the top (its orbit and field of view set aside). */
 export function panOfView(view: CanvasView, size: ViewSize): { pan: CanvasPoint; zoom: number } {
   return {
     pan: { x: size.width / 2 - view.x * view.zoom, y: size.height / 2 - view.y * view.zoom },
@@ -370,13 +373,15 @@ export function clientToCanvas(
   return at === null ? local : { x: at.x, y: at.y };
 }
 
-/** Padding zoom-to-fit keeps around the framed items, screen pixels. */
+/** Padding a frame keeps around the framed items, screen pixels. */
 const FIT_PAD = 40;
 
 /**
- * `from` refocused and rezoomed to frame every item with {@link FIT_PAD} to
+ * `from` refocused and rezoomed to frame `items` with {@link FIT_PAD} to
  * spare, never enlarging past 1:1; null when there is nothing to frame. Its
- * orbit and field of view are kept, so a fit in 3D stays in 3D.
+ * orbit and field of view are kept, so a frame in 3D stays in 3D, and the
+ * items' extent is measured across the screen as that orbit sees it: from the
+ * top their footprint, from the front their width and height above the floor.
  */
 export function fitView(
   items: readonly CanvasHitItem[],
@@ -384,41 +389,48 @@ export function fitView(
   from: CanvasView,
 ): CanvasView | null {
   if (items.length === 0) return null;
-  let minX = Infinity;
-  let minY = Infinity;
-  let minZ = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  let maxZ = -Infinity;
+  const { right, down } = frameOf(from, size);
+  const low = [Infinity, Infinity, Infinity];
+  const high = [-Infinity, -Infinity, -Infinity];
+  const across = { min: Infinity, max: -Infinity };
+  const upDown = { min: Infinity, max: -Infinity };
   for (const item of items) {
     const z = item.z ?? 0;
-    minX = Math.min(minX, item.x);
-    minY = Math.min(minY, item.y);
-    minZ = Math.min(minZ, z);
-    maxX = Math.max(maxX, item.x + item.width);
-    maxY = Math.max(maxY, item.y + item.height);
-    maxZ = Math.max(maxZ, z);
+    for (const corner of [
+      [item.x, item.y, z],
+      [item.x + item.width, item.y, z],
+      [item.x, item.y + item.height, z],
+      [item.x + item.width, item.y + item.height, z],
+    ] as const) {
+      corner.forEach((v, i) => {
+        low[i] = Math.min(low[i] ?? v, v);
+        high[i] = Math.max(high[i] ?? v, v);
+      });
+      const h = dot(corner, right);
+      const v = dot(corner, down);
+      across.min = Math.min(across.min, h);
+      across.max = Math.max(across.max, h);
+      upDown.min = Math.min(upDown.min, v);
+      upDown.max = Math.max(upDown.max, v);
+    }
   }
-  const width = maxX - minX;
-  const height = maxY - minY;
-  if (width <= 0 || height <= 0) return null;
-  const zoom = clampZoom(
-    Math.min((size.width - FIT_PAD * 2) / width, (size.height - FIT_PAD * 2) / height, 1),
-  );
-  return {
-    ...from,
-    x: (minX + maxX) / 2,
-    y: (minY + maxY) / 2,
-    z: (minZ + maxZ) / 2,
-    zoom,
-  };
+  const fits = [
+    { extent: across.max - across.min, room: size.width - FIT_PAD * 2 },
+    { extent: upDown.max - upDown.min, room: size.height - FIT_PAD * 2 },
+  ].filter(({ extent }) => extent > 1e-6);
+  if (fits.length === 0) return null;
+  const zoom = clampZoom(Math.min(1, ...fits.map(({ extent, room }) => room / extent)));
+  const mid = (i: 0 | 1 | 2) => ((low[i] ?? 0) + (high[i] ?? 0)) / 2;
+  return { ...from, x: mid(0), y: mid(1), z: mid(2), zoom };
 }
 
-/** An orbit never tips past this, radians: the canvas never turns edge-on or over. */
-export const MAX_PITCH = 1.35;
+/** An orbit tips no further than level with the floor, radians, and never under it. */
+export const MAX_PITCH = Math.PI / 2;
 
 /** Radians of orbit per pixel of drag. */
 const ORBIT_PER_PIXEL = 0.004;
+
+const clampPitch = (pitch: number) => Math.max(0, Math.min(MAX_PITCH, pitch));
 
 /**
  * Where a renderer puts its camera for `view`: the eye, the point it looks
@@ -436,10 +448,19 @@ export function cameraPose(
   };
 }
 
-/** `view` orbited by a drag of (`dx`, `dy`) pixels: across turns it, down tips it toward the eye. */
+/**
+ * `view` orbited by a drag of (`dx`, `dy`) pixels, as a turntable: across
+ * turns the floor about z with the hand (its near edge follows the drag), and
+ * down tips the view toward the top, up toward level with the floor.
+ */
 export function orbitView(view: CanvasView, dx: number, dy: number): CanvasView {
-  const pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, view.pitch + dy * ORBIT_PER_PIXEL));
-  return { ...view, yaw: view.yaw - dx * ORBIT_PER_PIXEL, pitch };
+  const pitch = clampPitch(view.pitch - dy * ORBIT_PER_PIXEL);
+  return { ...view, yaw: view.yaw + dx * ORBIT_PER_PIXEL, pitch };
+}
+
+/** The view the orbit holds once it is let go: pitch within the floor's range. */
+export function heldOrbit(view: CanvasView): CanvasView {
+  return { ...view, pitch: clampPitch(view.pitch) };
 }
 
 /** `view` panned so the canvas follows a drag of (`dx`, `dy`) pixels on the focus plane. */
@@ -495,11 +516,86 @@ export function lerpView(a: CanvasView, b: CanvasView, t: number): CanvasView {
   };
 }
 
-/** The part of a view a canvas saves: all but the field of view, which the projection owns. */
+/** The part of a view a canvas saves and reports: all of it, in the document's pose shape. */
 export function poseOfView(view: CanvasView): CanvasPose {
-  return { x: view.x, y: view.y, z: view.z, zoom: view.zoom, yaw: view.yaw, pitch: view.pitch };
+  const { x, y, z, zoom, yaw, pitch, fov } = view;
+  return { x, y, z, zoom, yaw, pitch, fov };
 }
 
+/** The view a saved pose stands for; a pose saved before poses had a lens is seen through `fov`. */
 export function viewOfPose(pose: CanvasPose, fov: number): CanvasView {
-  return { ...pose, fov };
+  return { ...pose, fov: pose.fov ?? fov };
+}
+
+// ── lenses ───────────────────────────────────────────────────────────────
+
+/** How the camera draws depth: converging (perspective) or not at all (orthographic). */
+export type CanvasLens = "perspective" | "orthographic";
+
+/** The perspective lens's vertical field of view, degrees: long, so cards stay square-on readable. */
+export const PERSPECTIVE_FOV = 34;
+
+export function lensOf(view: CanvasView): CanvasLens {
+  return view.fov > 0 ? "perspective" : "orthographic";
+}
+
+/** `view` through `lens`, at the same zoom on its focus plane (a dolly zoom when flown). */
+export function withLens(view: CanvasView, lens: CanvasLens): CanvasView {
+  return { ...view, fov: lens === "perspective" ? PERSPECTIVE_FOV : 0 };
+}
+
+// ── view presets ─────────────────────────────────────────────────────────
+
+/**
+ * The named orientations of the orbit, Blender's numpad views: from the top
+ * (the 2D view's), level from each side, and the oblique look a canvas first
+ * opens at in 3D. Each side is named for where the eye stands — `front` on
+ * the +y side, looking across the floor with x to the right; `right` on +x.
+ */
+const CANVAS_VIEW_PRESET_KINDS = ["top", "front", "right", "back", "left", "oblique"] as const;
+export type CanvasViewPreset = (typeof CANVAS_VIEW_PRESET_KINDS)[number];
+
+interface ViewPresetSpec {
+  readonly label: string;
+  readonly yaw: number;
+  readonly pitch: number;
+}
+
+const CANVAS_VIEW_PRESETS: { readonly [P in CanvasViewPreset]: ViewPresetSpec } = {
+  top: { label: "Top", yaw: 0, pitch: 0 },
+  front: { label: "Front", yaw: 0, pitch: MAX_PITCH },
+  right: { label: "Right", yaw: -Math.PI / 2, pitch: MAX_PITCH },
+  back: { label: "Back", yaw: Math.PI, pitch: MAX_PITCH },
+  left: { label: "Left", yaw: Math.PI / 2, pitch: MAX_PITCH },
+  oblique: { label: "Oblique", yaw: -0.2, pitch: 0.58 },
+};
+
+/** `from` turned to look from `preset`, its focus, zoom and lens kept. */
+export function presetView(from: CanvasView, preset: CanvasViewPreset): CanvasView {
+  const { yaw, pitch } = CANVAS_VIEW_PRESETS[preset];
+  return { ...from, yaw, pitch };
+}
+
+/** The preset `view` looks from, if it is one (to a hair); null for any other orbit. */
+export function presetOf(view: CanvasView): CanvasViewPreset | null {
+  const near = (preset: CanvasViewPreset) => {
+    const spec = CANVAS_VIEW_PRESETS[preset];
+    return Math.abs(turn(view.yaw, spec.yaw)) < 1e-3 && Math.abs(view.pitch - spec.pitch) < 1e-3;
+  };
+  return CANVAS_VIEW_PRESET_KINDS.find(near) ?? null;
+}
+
+/** One canvas axis as the camera sees it: its screen direction, and how far it points at the eye. */
+export interface ScreenAxis {
+  readonly x: number;
+  readonly y: number;
+  /** -1 (straight away from the eye) to 1 (straight at it). */
+  readonly toward: number;
+}
+
+/** The three canvas axes as `view` sees them: what an axis widget draws. */
+export function screenAxes(view: CanvasView): { readonly [A in "x" | "y" | "z"]: ScreenAxis } {
+  const { right, down, back } = frameOf(view, { width: 1, height: 1 });
+  const axis = (i: 0 | 1 | 2): ScreenAxis => ({ x: right[i], y: down[i], toward: back[i] });
+  return { x: axis(0), y: axis(1), z: axis(2) };
 }

@@ -10,8 +10,8 @@
  *   on the item's paint plane (`paintPlanes`);
  * - what is drawn on top at a point — the DOM's topmost box, the nearest
  *   drawn plane — is what the model's `hitTest` finds there, for raised,
- *   sunk and same-depth overlapping cards, from oblique orbits and from
- *   behind;
+ *   sunk and same-depth overlapping cards, from oblique orbits, low across
+ *   the floor and through either lens;
  * - a card moved in the document is drawn where it moved.
  *
  * The 2D projection is the real DOM stage; the 3D one is the real scene on
@@ -72,11 +72,16 @@ const doc: CanvasDoc = {
 };
 const selection: CanvasSelection = { nodeIds: new Set(["raised"]), edgeIds: new Set(["e2"]) };
 const size: ViewSize = { width: 1000, height: 700 };
-/** The views each projection is handed, and holds its own way: a desk tilt, oblique, from behind. */
+/**
+ * The views each projection is handed, and holds its own way: a desk tilt,
+ * an oblique turn, low across the floor from the far side, and an oblique
+ * turn through the orthographic lens.
+ */
 const ASKED: readonly CanvasView[] = [
   { x: 300, y: 80, z: 0, zoom: 0.8, yaw: -0.35, pitch: 0.5, fov: 34 },
   { x: 300, y: 80, z: 0, zoom: 0.7, yaw: 1.05, pitch: 1.1, fov: 34 },
-  { x: 300, y: 80, z: 0, zoom: 0.8, yaw: Math.PI - 0.45, pitch: -0.35, fov: 34 },
+  { x: 300, y: 80, z: 0, zoom: 0.8, yaw: Math.PI - 0.45, pitch: 1.3, fov: 34 },
+  { x: 300, y: 80, z: 0, zoom: 0.8, yaw: 0.7, pitch: 0.9, fov: 0 },
 ];
 /** Points where cards overlap, on the plane between them: raised over low, twin over low. */
 const OVERLAPS = [
