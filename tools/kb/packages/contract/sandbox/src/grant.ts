@@ -10,6 +10,9 @@ import type { CodeGrant } from "@kb/views";
 
 /** The actions a read scope governs: listing them under `actions` changes nothing. */
 export const NODE_READ = "node.get";
+// GAP [GAP-SANDBOX-QUERY-COST] A granted graph.query is bounded in its result,
+// not in its cost: a deadline in the query layer closes it (DESIGN.md →
+// Sandbox → Gaps).
 export const GRAPH_READ = "graph.query";
 
 /** How far a run reaches: the node it is shown for, and a way to read nodes. */

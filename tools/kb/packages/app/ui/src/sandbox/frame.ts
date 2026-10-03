@@ -31,6 +31,9 @@ import {
 import { quickjsEngine } from "@kb/sandbox-quickjs";
 import { workerEngine } from "@kb/sandbox-worker";
 
+// GAP [GAP-SANDBOX-THREAD] QuickJS runs on this frame's main thread, so a
+// turn can hold it up to its deadline; running it in a blob Worker inside the
+// frame, behind the same engine port, closes it (DESIGN.md → Sandbox → Gaps).
 const ENGINES: Readonly<Record<RunInput["engine"], SandboxEngine>> = {
   quickjs: quickjsEngine,
   worker: workerEngine,

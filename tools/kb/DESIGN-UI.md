@@ -1481,9 +1481,9 @@ questions. Each one can be overridden.
 4. *Neighbourhood direction.* The union of both directions, decided in A1;
    stated in the same section.
 5. *Isolation.* Views are trusted and run in the same realm. Each one is
-   contained by its slot's error boundary and its fallback. There is no
-   iframe and no sandbox; that transport stays a later option for untrusted
-   views.
+   contained by its slot's error boundary and its fallback. Untrusted code
+   is the code view's, which runs in a sandbox frame inside its own view
+   (Code views below; DESIGN.md → Sandbox).
 
 **View nodes (A1).** A view someone chose is a node (DESIGN.md → Kinds,
 roles and options → View nodes): its `sys.f.view` names the key whose
@@ -1644,6 +1644,36 @@ every node by its key) reach it with nothing of its own.
   aggregate column by its first non-id column, else a count of rows by that
   column), and opens it in a panel beside. `lib/propose-view` is the UI's
   one way to call `view.propose`; "Save workspace" goes through it too.
+
+### Code views
+
+The code plugin (`components/code`) draws `code.view` (DESIGN.md → View
+nodes → Code views states its params, DESIGN.md → Sandbox how it runs) at
+placement `page`. It owns no route: a node opens it through
+`/node/<id>/<view>`, in a pane, a dashboard or the pane switcher.
+
+- **The page is a header and a frame.** The header names the view, which
+  engine runs it ("Untrusted · QuickJS" or "Trusted · Worker") and how the
+  run stands: running, or the end's sentence ("ran longer than 500 ms in one
+  turn and was interrupted"). The frame (`sandbox-frame.tsx`) is an iframe
+  at `/sandbox`, sandboxed with `allow-scripts` alone, filling the box, and
+  bound to the page's end of the bridge (`lib/sandbox-host`) while it is
+  mounted. A new run is a new frame: the frame is keyed by the engine, the
+  subject, the digest of what runs and "Run again", so no realm outlives the
+  code it ran. Nothing runs until the digest's trust is known, because it
+  decides the engine. The graph changing reaches the code as a `data`
+  event, once the graph has been still for 150 ms.
+- **Trust is a gesture beside the code.** "Show the code" opens the code and
+  what its grant lets it ask; "Trust this code" calls `sandbox.trust` with
+  the digest of exactly that code, as the page's own (human) call, and the
+  frame starts again in a Worker; "Stop trusting" takes it back. The grant
+  is compared by value, so an edit elsewhere never restarts the run.
+- **A write that asks is a card in the view.** When the invoke core answers
+  a call of the code `approval_required`, the call waits on a card showing
+  the action and its input: Approve once makes the same call as the
+  script's with `approved`; Decline makes it without, so the code is told
+  `approval_required` (`use-code-run.ts`). The code's console goes to the
+  page's log seam.
 
 ### Optional UI plugins
 

@@ -77,6 +77,9 @@ function ApprovalCard({ asking }: { readonly asking: Asking }) {
   );
 }
 
+// GAP [GAP-SANDBOX-CODE-EDITOR] The code is shown, not edited here: an editor
+// writing through the key's check, like the chart's spec editor, closes it
+// (DESIGN.md → Sandbox → Gaps).
 function CodePanel({ params }: { readonly params: CodeParams }) {
   const { reads, actions } = params.grant;
   return (

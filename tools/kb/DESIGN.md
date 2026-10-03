@@ -1064,6 +1064,29 @@ the chart as marks. How the browser draws it is DESIGN-UI.md → Chart views.
   through the same check. Like every view node, one written through
   `node.update` is not checked (GAP [[01M40X308W34T0PGSN12S9K2K2]]).
 
+#### Code views
+
+**A code view is code that draws something, as a view node's settings**
+(generative UI mode C, roadmap decisions 4 and 5). The code view,
+`code.view` (`@kb/views`' `code.ts`), runs in the sandbox ([Sandbox](#sandbox)).
+
+- **The params are a source, the code and a grant.** `{source?, code,
+  grant}`: the code is one text prop, `sys.f.code`, held and read
+  untrimmed, because what runs is what a person trusts; the grant
+  (`{reads, actions}`, [Sandbox → Grants](#grants-and-the-script-actor)) is
+  canonical JSON in `sys.f.code.grant`, absent meaning the default (read the
+  subject, call nothing); `source` is `lens.focus`, else the node the view
+  is shown for, and the code reads it as `kb.subject`. A view node holding
+  no code runs `STARTER_CODE`, which lists its subject's children.
+- **Agents write code views through `view.propose`**, from the catalog
+  entry, whose description is the guest's whole API. Like every view node,
+  one written through `node.update` is not checked
+  (GAP [[01M40X308W34T0PGSN12S9K2K2]]).
+- **On a text surface it is shown, not run**: where it runs, what its grant
+  lets it ask, and its code in a fence no backtick in it can close. On a
+  page it is that text under what the code draws as of the render
+  ([Sandbox → Snapshots](#snapshots)).
+
 ## Storage (horizontal)
 
 The port is `EffectStore` in `packages/contract/contracts/src/store.ts`; that
@@ -1614,7 +1637,7 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     has `approval.match` (an action id, a pattern where `*` is any run of
     characters such as `ext.*`, or a mode word, `every read` or
     `every write`), `approval.actor` (one of its option children `human`,
-    `agent`, `cli`; absent means every actor) and `approval.decision` (one of
+    `agent`, `cli`, `script`; absent means every actor) and `approval.decision` (one of
     `allow`, `ask`, `deny`). The tag, the fields and the options are seeded,
     and a policy names an option by id, so renaming one changes nothing. A
     policy missing its match or its decision decides nothing.
@@ -1651,8 +1674,9 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     third-party extension's Promise handler that commits through the store
     port itself is trusted repo code and is not asked.
   - **Seeded defaults**, ordinary editable nodes filed under the query node
-    `approval.policies` ("Approval policies"): an agent asks before
-    `node.delete` and before `views.migrate`. Normal edits need no row,
+    `approval.policies` ("Approval policies"): an agent, and sandboxed code,
+    asks before `node.delete` and before `views.migrate`, and neither may
+    `sandbox.trust` ([Sandbox](#trust)). Normal edits need no row,
     because no core write declares approval.
   - **Policies are managed in a saved table, pinned in the sidebar; there is
     no settings page.** The query node lists every `#approval-policy` node
@@ -1674,8 +1698,8 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     WebMCP `execute` do not, because their arguments are the input, so a
     call that asks is always refused over MCP and WebMCP.
   - The wire also names its **actor**, who a call on it is made by: `human`
-    (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP) or
-    `cli`. The actor rides the envelope beside `approved` and is declared
+    (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP), `cli`,
+    or `script` (code in the sandbox, [Sandbox](#sandbox)). The actor rides the envelope beside `approved` and is declared
     the same way, not proven. Every surface hands the invoke core its calls
     through `onWire`, which fills in the wire's actor where the envelope
     names none, so only a wire with an envelope (HTTP, `kb action-invoke`)
@@ -1865,6 +1889,8 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 | `ext.canvas.tx.apply`                             | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension)                                      |
 | `ui.screen`                                       | read  | the open UI tabs' screen state, most recently active first ([Screen state](#screen-state))                   |
 | `ui.navigate` / `ui.select`                       | write | open a node or route / set the selection or focus in a UI tab ([Screen state](#screen-state))                |
+| `sandbox.trust` / `sandbox.untrust`               | write | trust, or stop trusting, sandboxed code on this machine by its digest; trusting asks ([Sandbox](#trust))     |
+| `sandbox.trusted`                                 | read  | which of these code digests a person trusted on this machine ([Sandbox](#trust))                             |
 
 **Breaking change (roadmap step 5c), with no alias:** deleting is
 `node.delete`. `node.update` no longer takes `delete` or `descendants`, and
@@ -2179,6 +2205,224 @@ The sidebar agent lives outside core, in packages that core never imports
 - `surfaceContract` runs the agent as one more surface (`agent`) over a
   scripted model. It covers the listing, every receipt, and an approved
   call made by the person.
+
+## Sandbox
+
+Code that a model writes runs in a sandbox (roadmap decisions 4 and 5 in
+`docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md`). A code view
+(View nodes → Code views) draws something; a script, attached to a view,
+would add behaviour to it (GAP-SCRIPTS below). Both are one system: one
+capability API, one bridge, two engines under one contract. The vocabulary
+is `@kb/sandbox` (`packages/contract/sandbox`); the engines are
+`@kb/sandbox-quickjs` and `@kb/sandbox-worker`.
+
+### The capability API
+
+- **One dialect on both hops.** Guest code talks to the frame that runs it,
+  and the frame talks to the kb page, in the MCP Apps bridge's JSON-RPC
+  (`MCP_APPS_METHODS` in `@kb/contracts`; the messages are
+  `protocol.ts`). A graph read or a write is `tools/call` of a registry
+  action, so a guest's call passes from hop to hop unchanged and reaches the
+  invoke core like any other call. kb's own methods are `kb/draw`,
+  `kb/event`, `kb/fail` and `kb/status`. Everything a guest or a frame sends
+  is decoded before anything reads it.
+- **The guest's API is one prelude** (`prelude.ts`), run first in every
+  engine above a bare string pipe (`__kb_post` out, `__kb_receive` in), so
+  both engines offer the same API: `kb.subject`; `kb.node(id, depth)`
+  (`node.get`); `kb.query(edn)` (`graph.query`); `kb.invoke(action, input)`,
+  which resolves to the output or rejects with an error carrying the
+  receipt's `code`; `kb.draw(drawing)`; `kb.on(type, handler)` for `click`,
+  `input`, `change` on what it drew and `data` when the graph changed;
+  `kb.h`; and `console`. The code is the body of an async function, so it
+  may `await` at its top level, and any error it throws, now or in a
+  handler, ends the run with that error's message.
+- **A drawing is data, never HTML** (`drawing.ts`): text, an element
+  `[tag, attrs?, ...children]` or a list. The host builds it from an
+  allowlist of HTML and SVG elements and attributes: nothing that runs
+  script (`script`, `on*`), loads (`img`, `src`, `url(` in a style, an SVG
+  paint server outside the drawing) or navigates (`a`, `href`, `form`,
+  `formaction`) survives. The browser builds it element by element
+  (`drawingToDom`, no parser); a snapshot writes it as escaped HTML
+  (`drawingToHtml`).
+- **`runGuest`** is the one driver every host uses: the frame in the
+  browser, the snapshotter on the server and the contract suite. It starts
+  the engine, decodes what the guest sends, draws through the allowlist,
+  and answers calls through the host's capability host.
+- **`answerToolCall`** is the host side: the grant decides whether a call
+  may be made at all, then the invoke core decides it as the `script`
+  actor. The guest's call has no envelope, so it can name no actor and
+  approve nothing; only its host can bring a person's answer.
+
+### Grants and the script actor
+
+- **A grant** (`CodeGrant`, a code view's setting in `@kb/views`) is
+  `{reads: none | subject | graph, actions}`. `subject` reads the node the
+  code is shown for and the nodes under it, through `node.get`; `graph`
+  reads every node and may run `graph.query`; any other action must be
+  named in `actions`. `grantRefusal` refuses the rest with `forbidden`
+  before the invoke core is asked. The default reads the subject and calls
+  nothing.
+- **`script`** is the fourth actor (`ACTORS` in `@kb/model`): code in the
+  sandbox, whoever wrote it, never a person. `SCRIPT_WIRE` carries approval
+  only as far as its host can put a person behind a call. Its seeded
+  policies give it the agent's caution — it is asked before `node.delete`
+  and `views.migrate` — and deny it `sandbox.trust`; writing a policy asks
+  it like every caller. In the kb UI a call that asks shows a card in the
+  code view: Approve once makes the same call as the script's with
+  `approved`, Decline makes it without, and the invoke core refuses that
+  again (DESIGN-UI.md → Code views).
+
+### Limits
+
+`SandboxLimits` bound a run, per engine (`ENGINE_LIMITS`): time per turn
+(500 ms in QuickJS, 5 s in a Worker), heap (32 MB in QuickJS; a Worker's
+cannot be capped), stack, messages per second (200), message and result size
+(512 Ki characters), calls waiting at once (16) and drawing size (10 000
+nodes). A turn is one delivery to the guest with the promise jobs it leaves.
+Crossing any bound ends the run with a reason (`GuestEnd`: `interrupted`,
+`out-of-memory`, `flood`, `oversized`, `error`, `stopped`) and a sentence a
+person can read; the host stays up. The page also cuts off a frame that
+sends it more than 400 messages a second.
+
+### Engines
+
+- **QuickJS-wasm for untrusted code** (quickjs-emscripten 0.32.0, MIT, the
+  `singlefile-browser` variant, which embeds its WebAssembly so a page with
+  no connection still loads it and a bundle needs no asset). Each run gets
+  its own WebAssembly instance; the guest's realm holds the language and
+  the prelude and nothing of the host. QuickJS enforces the bounds itself:
+  an interrupt handler ends a turn past its deadline (and remembers it, so
+  a guest that catches the interrupt in an async function is still
+  stopped), and the runtime refuses an allocation past the heap and a frame
+  past the stack.
+- **A Worker for trusted code**, started from a blob holding a bootstrap,
+  the prelude and the code (nothing fetched, nothing evaluated from a
+  string). It runs at full speed. The bootstrap keeps the pipe's ends and
+  removes every API that connects, stores, schedules or spawns, so the
+  guest sees the same API; a watchdog terminates a turn past its bound.
+  The removal is a courtesy; the boundary is the frame's CSP, which the
+  Worker inherits.
+- **One contract.** `sandboxContract` (`@kb/test-kit`) holds both engines,
+  from each engine's tests, to the same properties: they draw, read as the
+  script within the grant, a write that asks comes back
+  `approval_required` and cannot be approved by the guest, no network,
+  timers or raw pipe, an infinite loop (also in a handler) is interrupted, a
+  memory bomb, a message flood, an oversized message and too many waiting
+  calls are stopped, errors end the run with their message, and the host
+  stays up after a run it cut off.
+
+### The frame
+
+- An iframe sandboxed with `allow-scripts` alone (`SANDBOX_IFRAME_FLAGS`),
+  so its origin is opaque: no storage, cookies or DOM shared with the page.
+  `kb ui` serves its document at `/sandbox` (`sandboxFrameDocument`) with
+  `SANDBOX_FRAME_CSP`: `sandbox allow-scripts` (sandboxed even when opened
+  directly), `default-src 'none'`, `script-src 'self' 'wasm-unsafe-eval'`,
+  `worker-src blob:`, `connect-src`, images, fonts, media, objects, frames
+  and `form-action` `'none'`, `frame-ancestors 'self'`. Its one script,
+  `/sandbox/frame.js`, is built on its own (`vite.sandbox.config.ts`) into
+  a classic file with every import inlined: a module script would need CORS
+  from an opaque origin, and a second file a connection.
+- It is an MCP Apps app whose host is the page: it sends `ui/initialize`,
+  takes the run as `ui/notifications/tool-input` (`RunInput`: code,
+  subject, engine, limits), runs it, reports `kb/status`, and forwards the
+  guest's `tools/call`. It listens only to its parent window.
+- The page's end (`lib/sandbox-host`) listens only to its own frame's
+  window, answers the handshake with the theme's tokens, and answers tool
+  calls through `answerToolCall` over the browser's one invoke path. A frame
+  that loads a second document after it initialized — the one navigation a
+  CSP cannot forbid — is cut off and sent nothing more.
+
+### Trust
+
+- **Untrusted by default; trusted by a person, per digest, per machine.**
+  `codeDigest` is the SHA-256 of exactly what runs: the code as stored,
+  untrimmed, and its grant (`kb.sandbox/1`). The page computes it from the
+  code it shows and hands the frame, never reads it from the node or the
+  guest; one changed character, or a wider grant, is code nobody trusted.
+- `sandbox.trust` (write, approval required), `sandbox.untrust` (write) and
+  `sandbox.trusted` (read) reach the `CodeTrust` port (`@kb/contracts`),
+  whose adapter (`@kb/workspace-fs`) keeps `.kb/trust.json`: gitignored,
+  backed up by Mackup, each record naming its machine and only this
+  machine's honoured (`docs/backup-strategy.md` → kb Code Trust).
+- A human's gesture is never asked; the seed denies `sandbox.trust` to an
+  agent and to a script, so no code promotes itself and no agent promotes
+  code a person has not seen; the CLI asks. Trust changes the engine and
+  its limits, never the capabilities: a trusted run has the same API and
+  the same grant.
+- Promoting a code view to a view type is the same act, later
+  (GAP-CODE-VIEW-PROMOTION below).
+
+### Snapshots
+
+A code view on a page (`render.view` as html, every `ui://kb/view/<id>`
+resource) shows what its code draws as of the render, above its text. The
+code runs on the server: MCP Apps lets a resource declare connect, resource,
+frame and base-URI domains but no `'wasm-unsafe-eval'` or `worker-src`, so
+neither engine could run inside a conformant host's iframe. `CodeSnapshots`
+(a `Reference`, null by default, like `ChartSvg`) is provided by
+`kbRuntimeLayer` as QuickJS: always untrusted, every call made as the
+script's and refused before the invoke core when it is a write, because a
+snapshot is a read. `snapshotRun` waits until the run is quiet (no call
+waiting, nothing unread), at most 2 s, and returns the last drawing with the
+run's end. As text (`render.view` as md, Claude Code) a code view is its
+code, its grant and where it runs.
+
+### The threat model
+
+Each threat, the fences against it, and the tests that pin them.
+
+| Threat | Fences | Pinned by |
+| --- | --- | --- |
+| Escape from QuickJS | The guest realm is QuickJS's alone, in its own WebAssembly instance per run, reaching the host only through the string pipe; in the browser a second fence, the opaque-origin frame and its CSP; on the server (snapshots) the WebAssembly sandbox alone, with only read actions behind it | contract: no network, no timers, no raw pipe (`sandboxContract`); `kb ui` serves the frame sandboxed (`request-guard.test.ts`) |
+| Frame origin and CSP | `sandbox="allow-scripts"` without `allow-same-origin`, repeated as the CSP's `sandbox`; `script-src 'self' 'wasm-unsafe-eval'`, no `'unsafe-inline'` script and no `'unsafe-eval'`; `frame-ancestors 'self'` | `capability.test.ts` (the policy), `request-guard.test.ts` (served with it) |
+| postMessage spoofing | The page hears only its frame's own window and decodes every message; the frame hears only its parent; the page posts nothing to a frame that loaded a second document | `sandbox-host.test.ts` |
+| Exfiltration | `connect-src`, images, fonts, media, forms and frames `'none'`, inherited by the trusted Worker; the drawing allowlist drops every element and attribute that loads or navigates, so the one navigation a CSP cannot forbid has nothing to start it | `drawing.test.ts`; contract: no network |
+| Prompt-injected writes | The grant names every action the code may call; each call meets the policies as `script` (asked before deletes and rewrites, denied trust, a policy write always asks); the guest cannot set `approved` or its actor; a snapshot refuses every write | contract: outside the grant never reaches the invoke core, approval cannot be self-granted; `capability.test.ts`; `approval.test.ts` (runtime); `view-render.test.ts` (a snapshot's write is forbidden) |
+| Denial of service | Turn deadline (interrupt, watchdog), heap and stack caps in QuickJS, message rate and size, waiting-call bound, drawing bound, the page's own rate limit on the frame | contract: infinite loop, loop in a handler, memory bomb, flood, oversized, waiting calls; QuickJS heap and stack tests; `sandbox-host.test.ts` (flood) |
+| Trust spoofing | The digest is over exactly what runs, computed by the host from the code it runs; trust is local state, per machine, never committed; only a human gesture trusts | `capability.test.ts` (digest covers every character and the grant); `approval.test.ts` (who may trust; an edited digest is untrusted; nothing written to the store); `trust.test.ts` (per machine) |
+
+What the sandbox does not promise: `approved` and the actor are declared,
+not proven (GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]); a Worker's heap is not
+capped, only its time; QuickJS runs on the frame's main thread
+(GAP-SANDBOX-THREAD); and a `graph.query` that the grant allows is bounded in
+its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
+
+### Gaps
+
+- `// GAP [GAP-SCRIPTS]` (`@kb/sandbox`'s `index.ts`). Expected: a `#script`
+  node attached to a view (`sys.f.scripts` on a view node, ref, many) runs
+  in the same sandbox with the same API, plus overlays drawn above the view
+  it is attached to and that view's own events (a drop on a board column, a
+  hover on a graph node), each a `kb/event` type a view declares. Current:
+  only code views run; the API draws only its own box and hears only its own
+  drawing's gestures and `data`. Closes: views declaring their events and
+  overlay anchors in their keys, a transparent overlay frame over a hosted
+  view, and `#script` as a view setting resolved like `sys.f.views`.
+- `// GAP [GAP-CODE-VIEW-PROMOTION]` (`@kb/views`' `code.ts`). Expected: a
+  person promotes a trusted code view to a view type — a `.kb/extensions`
+  plugin contributing a `ViewPoint` entry with a key, settings schema and
+  catalog entry, committed after review — in the same gesture that trusts
+  it, so mode A can then configure it. Current: trust changes the engine
+  only; a code view stays a code view. Closes: a promotion action that
+  writes the extension module from the view node (code, grant, a params
+  schema the person names), and a UI flow that reviews and commits it.
+- `// GAP [GAP-SANDBOX-THREAD]` (the frame, `src/sandbox/frame.ts`).
+  Expected: untrusted code runs off the frame's main thread, so a turn that
+  runs to its deadline never holds the page, even where the browser does
+  not give a sandboxed frame its own process. Current: QuickJS runs on the
+  frame's main thread, so a turn can hold it for up to 500 ms. Closes:
+  QuickJS inside a blob Worker in the frame, with the same engine port.
+- `// GAP [GAP-SANDBOX-QUERY-COST]` (`grant.ts`). Expected: a guest's
+  `graph.query` is bounded in time as well as result size. Current: the
+  result is bounded; a query that is expensive to evaluate runs to its end
+  on the replica (in the browser) or the server. Closes: a deadline in the
+  query layer that the invoke core can pass down.
+- `// GAP [GAP-SANDBOX-CODE-EDITOR]` (`code-page.tsx`). Expected: a person
+  edits a code view's code and grant in the view, checked by its key like
+  the chart's spec editor. Current: code is written by `view.propose` (an
+  agent), or by editing `sys.f.code` as a field. Closes: an editor beside
+  the code panel that writes through the key's check.
 
 ## Repo integration
 
