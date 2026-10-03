@@ -10,8 +10,18 @@ export {
   requiresApproval,
   succeeded,
 } from "./actions.ts";
-export { declaredDecision, listedOn, onWire } from "./approval.ts";
-export type { SurfaceWire } from "./approval.ts";
+export {
+  CurrentCall,
+  DecidedEntrySchema,
+  approvalRefusal,
+  declaredDecision,
+  hasPerson,
+  listedOn,
+  listingOf,
+  onWire,
+  resolveApproval,
+} from "./approval.ts";
+export type { ApprovalResolution, DecidedEntry, SurfaceWire } from "./approval.ts";
 export type {
   ActionDefinition,
   ActionEffectHandler,

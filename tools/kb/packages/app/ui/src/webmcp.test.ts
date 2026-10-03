@@ -7,7 +7,13 @@
  */
 import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ActionInvocation, ActionResponse, ManifestEntry } from "@kb/contracts";
+import {
+  declaredDecision,
+  type ActionInvocation,
+  type ActionResponse,
+  type DecidedEntry,
+  type ManifestEntry,
+} from "@kb/contracts";
 import { makeKernel } from "@kb/plugin";
 import { ToolCallFailed, type ModelContextTool } from "@kb/webmcp";
 import { setPostAction } from "@/api/action";
@@ -18,8 +24,10 @@ import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { webMcpUiPlugin } from "@/webmcp";
 
-function entry(id: string, mode: ManifestEntry["mode"]): ManifestEntry {
-  return { id, title: id, description: id, mode, inputSchema: {}, outputSchema: {} };
+/** An action as `kb.manifest` lists it to an agent on a root with no policies: its mode decides. */
+function entry(id: string, mode: ManifestEntry["mode"]): DecidedEntry {
+  const base = { id, title: id, description: id, mode, inputSchema: {}, outputSchema: {} };
+  return { ...base, decision: declaredDecision(mode) };
 }
 
 const MANIFEST = [

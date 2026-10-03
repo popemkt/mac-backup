@@ -17,6 +17,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { systemSeedNodes } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
+import { isQueryNode } from "@/lib/query-node";
 import { nodeCandidates } from "@/lib/refs";
 import type * as Refs from "@/lib/refs";
 import { resolveRowChrome } from "@/lib/row-chrome";
@@ -47,11 +48,16 @@ function wire(id: string, text: string, children: string[] = []): WireNode {
   return { id, text, props: {}, children, createdAt: ISO, updatedAt: ISO };
 }
 
-/** One parent with many children, a few other roots, and one `[[` row. */
+/**
+ * One parent with many children, a few other roots, and one `[[` row. The
+ * seed's query nodes are left out: their results are a live subscription
+ * that answers after the render, and re-run on every transaction by design,
+ * which is not the row cost measured here.
+ */
 function graph(): WireNode[] {
   const kids = Array.from({ length: CHILDREN }, (_, i) => wire(`n.kid-${i}`, `Kid ${i}`));
   return [
-    ...systemSeedNodes(ISO),
+    ...systemSeedNodes(ISO).filter((node) => !isQueryNode(node)),
     wire(
       "n.parent",
       "Parent",

@@ -775,8 +775,8 @@ Two consequences the code depends on:
   declared query over the option nodes — not a fourth carrier: `targetQuery`
   is the general form and parenting is the sugar for the single-field case.
 
-`#ontology`, `#rule`, `#gap`, `#check`, `#todo` and `#canvas` remain
-supertags because each names a thing that exists before any particular field
+`#ontology`, `#rule`, `#gap`, `#check`, `#todo`, `#canvas` and
+`#approval-policy` remain supertags because each names a thing that exists before any particular field
 is filled in, and each templates a field set for its instances — which is the
 job a supertag has. `#graph-perspective` was one and is retired: strip a
 perspective's renderer and it is no graph, so what it is is the view it
@@ -1528,55 +1528,104 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   - The browser answers a local read without pushing it (DESIGN-UI.md →
     Architecture, Mutations). Where an action runs, locally or on the
     server, depends on what its handler needs, not on its mode.
-- **Approval** is checked in one place, the invoke core (`invokeWith`). An
-  approval-required action whose `ActionInvocation` does not carry
-  `approved: true` gets a failed receipt with code `approval_required`. The
-  flag goes on the invocation envelope, not in the input, so a surface can
-  carry approval only if its wire format has an envelope. `POST /api/action`
-  and `kb action-invoke` do. An MCP tool call and a WebMCP `execute` do not,
-  because their arguments are the input, so every approval-required action
-  is refused over MCP and WebMCP.
-  Each surface declares what its wire carries once, as a `SurfaceWire`
-  (`MCP_WIRE`, `HTTP_WIRE`, …), and one rule in `@kb/contracts`, `listedOn`,
-  decides its listing from that and what is decided about a call (`allow`,
-  `ask` or `deny`; an approval-required action asks): a surface whose wire
-  cannot carry approval leaves approval-required actions out, because they could
-  never succeed there.
-  The wire also names its **actor**, who a call on it is made by: `human`
-  (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP) or `cli`.
-  The actor rides the envelope beside `approved` and is declared the same
-  way, not proven. Every surface hands the invoke core its calls through
-  `onWire`, which fills in the wire's actor where the envelope names none,
-  so only a wire with an envelope (HTTP, `kb action-invoke`) lets a caller
-  say otherwise. HTTP's own actor is `agent`, the more cautious one, because
-  the page names its gestures `human` and a local program that does not say
-  is not taken for a person. A call by its id or tool name still reaches the invoke
-  core and gets `approval_required`, and `kb.manifest` still lists it.
-  `approved` is something the caller declares, not a security boundary.
-  kb has no way to check that a person really approved the call. The gate
-  means only that a caller must say so deliberately and cannot end up
-  approving by accident. Anyone who can reach a surface that carries the
-  flag can set it. Who can reach `kb ui`'s HTTP and `/ws` is decided by its
-  one request guard (`app/server/src/guard.ts`, applied before `/ws` and
-  every `/api/*` route). A request passes only when its `Host` names this
-  server, which stops DNS rebinding. It must also carry no `Origin` (a local
-  program) or the UI's own. A `POST /api/action` must also be
-  `application/json`, so a page on another site cannot reach it at all.
-  The browser's one invoke path takes the whole envelope, on the local
-  replica and on the push lane. Its caller that sets `approved` is the
-  agent sidebar's approval prompt, which makes the call with the person's
-  answer (DESIGN-UI.md → Docks).
+- **Approval** is decided in one place, the invoke core (`invokeWith`), by one
+  resolver, `resolveApproval` in `@kb/contracts`, before anything runs
+  (roadmap decision 13 in
+  `docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md`). What it
+  decides about a call is `allow`, `ask` or `deny`. A denied call fails
+  `forbidden`. A call that asks runs only with a person behind it, and
+  otherwise fails `approval_required`. Both refusals name the deciding
+  policy in `details.policy`.
+  - **Policies are nodes.** An `#approval-policy` node (`sys.tag.approval-policy`)
+    has `approval.match` (an action id, a pattern where `*` is any run of
+    characters such as `ext.*`, or a mode word, `every read` or
+    `every write`), `approval.actor` (one of its option children `human`,
+    `agent`, `cli`; absent means every actor) and `approval.decision` (one of
+    `allow`, `ask`, `deny`). The tag, the fields and the options are seeded,
+    and a policy names an option by id, so renaming one changes nothing. A
+    policy missing its match or its decision decides nothing.
+  - **The most specific policy wins.** A policy applies when its match names
+    the action and its actor is the call's or absent. Specificity is ordered
+    by match first: the action's own id, then a pattern by how many literal
+    characters it holds, then a mode word, then a bare `*`. Then a policy
+    naming the actor beats one naming none. Two policies that still tie
+    decide the stricter, so order never matters. With none, the action's
+    declared mode decides (decision 3): `ask` where it requires approval,
+    else `allow`.
+  - **A declared approval is a floor that only a policy naming the action by
+    its own id can lower.** Its author said every call needs a person. A
+    pattern or a mode word is written for many actions and must not unsay
+    that by accident, while a person who names the one action means it.
+    Any policy may raise a decision.
+  - **A person stands behind a call** when it carries `approved: true` or its
+    actor is `human`. A gesture is the person, so a human is never asked:
+    the owner's "a human gesture never asks" holds in the resolver, not as a
+    policy row that could be edited into a confirm the UI has no way to show.
+    A policy can still deny a human.
+  - **Seeded defaults**, ordinary editable nodes filed under the query node
+    `approval.policies` ("Approval policies"): an agent asks before
+    `node.delete` and before `views.migrate`. Normal edits need no row,
+    because no core write declares approval.
+  - The policies are read from the session's own graph, once per index
+    generation, so a policy written a moment ago decides the next call, and
+    the browser's replica decides a local call exactly as the server does.
+  - The flag goes on the invocation envelope, not in the input, so a surface
+    can carry approval only if its wire format has an envelope.
+    `POST /api/action` and `kb action-invoke` do. An MCP tool call and a
+    WebMCP `execute` do not, because their arguments are the input, so a
+    call that asks is always refused over MCP and WebMCP.
+  - The wire also names its **actor**, who a call on it is made by: `human`
+    (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP) or
+    `cli`. The actor rides the envelope beside `approved` and is declared
+    the same way, not proven. Every surface hands the invoke core its calls
+    through `onWire`, which fills in the wire's actor where the envelope
+    names none, so only a wire with an envelope (HTTP, `kb action-invoke`)
+    lets a caller say otherwise. HTTP's own actor is `agent`, the more
+    cautious one, because the page names its gestures `human` and a local
+    program that does not say is not taken for a person. A call made in
+    process names no actor and meets only the policies for every actor.
+  - **Listings are honest.** Each surface declares what its wire carries
+    once, as a `SurfaceWire` (`MCP_WIRE`, `HTTP_WIRE`, …), and lists by
+    calling `kb.manifest` on that wire. `kb.manifest` lists every action and
+    says of each what is decided about the caller's own call
+    (`decision`). One rule in `@kb/contracts`, `listedOn`, then leaves out an
+    action whose call could never succeed there: one denied to the wire's
+    actor, or one that asks on a wire that cannot carry approval
+    (`listingOf`). A call by its id or tool name still reaches the invoke
+    core and is refused. MCP's `tools/list` and each agent turn read it
+    afresh, and the page's WebMCP lists again when its replica's policies
+    change.
+  - `approved` and the actor are things the caller declares, not a security
+    boundary. Policies prevent accidents, not a determined local caller.
+    kb has no way to check that a person really approved the call, or who
+    made it (`// GAP [GAP-AUTHENTICATED-ACTOR]` in `approval.ts`). The gate
+    means only that a caller must say so deliberately and cannot end up
+    approving by accident. Anyone who can reach a surface that carries the
+    flag can set it. Who can reach `kb ui`'s HTTP and `/ws` is decided by its
+    one request guard (`app/server/src/guard.ts`, applied before `/ws` and
+    every `/api/*` route). A request passes only when its `Host` names this
+    server, which stops DNS rebinding. It must also carry no `Origin` (a local
+    program) or the UI's own. A `POST /api/action` must also be
+    `application/json`, so a page on another site cannot reach it at all.
+  - The browser's one invoke path takes the whole envelope, on the local
+    replica and on the push lane. Its caller that sets `approved` is the
+    agent sidebar's approval prompt, which makes the call as the agent's,
+    with the person's answer (DESIGN-UI.md → Docks).
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
 - **One contract, every surface.** The CLI (`action-invoke`), MCP, HTTP,
   WebMCP and the sidebar agent each list the registry's action ids with
   their declared modes, from their own listing: `kb.manifest`, the MCP tool
   list's `_meta`, `GET /api/manifest`, the tools registered on the page's
   model context, and the tools a turn hands the agent's model, less what
-  `listedOn` leaves out for its declared wire. For the same call,
-  each returns the invoke core's receipt, unless its wire cannot make the
+  `listedOn` leaves out for its declared wire and actor. For the same call,
+  each returns the invoke core's receipt for that call made by its actor,
+  unless its wire cannot make the
   call at all, which only an action it leaves out may be (WebMCP cannot call
   a tool it never registered). An approved call runs only through a surface
-  whose wire carries the approval. These are properties of `surfaceContract` in `@kb/test-kit`
+  whose wire carries the approval. One policy decides the same on every
+  surface: a denial refuses, an ask refuses an unapproved call, and only a
+  policy naming the action lowers its declared approval. These are
+  properties of `surfaceContract` in `@kb/test-kit`
   (`surface-contract.ts`). They run over all surfaces at once, from
   `packages/app/cli/tests/surface-contract.test.ts`, and a new surface joins
   that map.
@@ -1758,8 +1807,9 @@ an action by its id ([Action registry](#action-registry)).
 ## Surfaces
 
 - **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere. Internal command orchestration is Effect (`resolveRootEffect` → `openKbEffect` → `runPlanEffect` / `invokeReceiptEffect`) with an `Effect.runPromise` + exit-code boundary at each Commander surface action (not a claim that the whole process has a single runPromise). Commander itself stays the argv contract.
-- **MCP** (`kb mcp`, `@modelcontextprotocol/sdk` stdio): loop manifest → one
-  tool per action → Effect handler (`callToolEffect` / resource Effects via `reloadEffect` + `invokeReceiptEffect`); tool hints from the mode ([Action registry](#action-registry)). SDK request handlers remain Promise-returning; CallTool maps Fail/Die to `isError`, resource Fail/Die to JSON-RPC `-32603`.
+- **MCP** (`kb mcp`, `@modelcontextprotocol/sdk` stdio): `kb.manifest` as an
+  agent, read at each `tools/list` → one tool per action it may call → Effect
+  handler (`callToolEffect` / resource Effects via `reloadEffect` + `invokeReceiptEffect`); tool hints from the mode ([Action registry](#action-registry)). SDK request handlers remain Promise-returning; CallTool maps Fail/Die to `isError`, resource Fail/Die to JSON-RPC `-32603`.
   - **Breaking change (roadmap step 0), with no alias.** MCP no longer has
     hand-written tools; every tool is a registry action.
     - `render_view` is now `render.view`. Its argument is `name` (it was
@@ -1797,8 +1847,9 @@ an action by its id ([Action registry](#action-registry)).
   - Where the page has no `document.modelContext` the adapter does nothing.
     kb ships no polyfill: its tests use a spec-shaped fake, and a polyfilled
     context reaches no agent without a browser extension or relay beside it.
-  - One tool per action `kb.manifest` lists, less what `listedOn` leaves out
-    for `WEBMCP_WIRE`. The name is the action id (dotted ids are legal WebMCP
+  - One tool per action `kb.manifest` lists to an agent, less what
+    `listedOn` leaves out for `WEBMCP_WIRE`; it lists again when the
+    replica's approval policies change. The name is the action id (dotted ids are legal WebMCP
     names), the title and description are the manifest's, the `inputSchema` is
     the same object schema MCP publishes (`asObjectSchema`), and the hints
     come from the mode ([Action registry](#action-registry)).
@@ -1815,7 +1866,7 @@ an action by its id ([Action registry](#action-registry)).
     hidden, and when the plugin unloads.
   - `execute` has no envelope for `approved`, and `consequentialHint` asks the
     agent to confirm a write without telling the page whether it did, so
-    approval-required actions are left out (`GAP-WEBMCP-APPROVAL`).
+    actions that ask an agent are left out (`GAP-WEBMCP-APPROVAL`).
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 
@@ -1971,10 +2022,11 @@ The sidebar agent lives outside core, in packages that core never imports
   result to the runtime as JSON. A runtime sends it as a `<screen>` block
   before the text (`userTurnText`). A sender that is not a tab sends no
   screen.
-- **The tools are the registry**: the manifest, filtered by
-  `listedOn(AGENT_WIRE)`, read at each turn. The agent's wire carries
-  approval, because a call that needs approval reaches a person before it
-  runs, so the agent lists every action.
+- **The tools are the registry**: what `kb.manifest` lists to the agent,
+  filtered by `listedOn(AGENT_WIRE)` (`listingOf`), read at each turn. The
+  agent's wire carries approval, because a call that needs approval reaches
+  a person before it runs, so the agent lists every action not denied to
+  it.
 - **A call runs through the invoke core, which decides it.**
   - Every call runs at once through `UiHost.invoke`, as the agent's
     (`AGENT_WIRE`), and the bridge sends `tool-call`.

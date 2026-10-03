@@ -1,5 +1,16 @@
-export { ACTORS, APPROVAL_DECISIONS } from "./approval-policy.ts";
-export type { Actor, ApprovalDecision } from "./approval-policy.ts";
+export {
+  ACTORS,
+  ACTOR_OPTION_IDS,
+  APPROVAL_DECISIONS,
+  APPROVAL_POLICIES_QUERY,
+  DECISION_OPTION_IDS,
+  MODE_MATCHES,
+  approvalPoliciesOf,
+  approvalPolicyNode,
+  matchSpecificity,
+  stricterDecision,
+} from "./approval-policy.ts";
+export type { Actor, ApprovalDecision, ApprovalPolicy } from "./approval-policy.ts";
 export { byNodeId, canonicalJson, canonicalJsonl } from "./canonical.ts";
 export {
   DomainError,

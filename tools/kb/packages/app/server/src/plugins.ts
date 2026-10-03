@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { ChannelPoint, UiHost, type KbContext, type UiHostService } from "@kb/contracts";
 import { definePlugin, type Kernel, type Plugin } from "@kb/plugin";
 import { receiptFromError } from "@kb/operations";
-import { bunFileSystemLayer, manifest, writeErr } from "@kb/runtime";
+import { writeErr } from "@kb/runtime";
 import { serverInvoke } from "./invoke.ts";
 import { serverRuntimeLayer, type ScreenHub } from "./screens.ts";
 import type { ChannelDirectory } from "./session.ts";
@@ -28,7 +28,6 @@ export function channelsOf(kernel: Kernel): ChannelDirectory {
 function uiHost(ctx: KbContext, screens: ScreenHub): UiHostService {
   return {
     root: ctx.root,
-    manifest: manifest(ctx.root).pipe(Effect.provide(bunFileSystemLayer)),
     invoke: (invocation) =>
       serverInvoke(ctx, invocation).pipe(
         Effect.provide(serverRuntimeLayer(ctx, screens)),

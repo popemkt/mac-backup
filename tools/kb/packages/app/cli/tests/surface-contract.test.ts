@@ -15,7 +15,9 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
   ActionReceiptSchema,
   ActionResponseSchema,
+  DecidedEntrySchema,
   ManifestEntrySchema,
+  listedOn,
   onWire,
   type ActionInvocation,
   type ActionReceipt,
@@ -47,11 +49,16 @@ import { ACTION_INVOKE_WIRE, main } from "../src/cli.ts";
 
 /** What a listing must say of each action; the mode is decoded by the contracts' own schema. */
 const ListedActionSchema = ManifestEntrySchema.pick({ id: true, mode: true });
-const ManifestOutputSchema = z.object({ actions: z.array(ListedActionSchema) });
+const ManifestOutputSchema = z.object({
+  actions: z.array(DecidedEntrySchema.pick({ id: true, mode: true, decision: true })),
+});
 
+/** The CLI's listing: what `kb.manifest` lists to it, less what its wire could never call. */
 function manifestOf(receipt: ActionReceipt): ListedAction[] {
   if (receipt.status !== "succeeded") throw new Error(`kb.manifest failed: ${receipt.message}`);
-  return ManifestOutputSchema.parse(receipt.output).actions;
+  return ManifestOutputSchema.parse(receipt.output)
+    .actions.filter((entry) => listedOn(ACTION_INVOKE_WIRE, entry.decision))
+    .map(({ id, mode }) => ({ id, mode }));
 }
 
 /** Run `kb` in-process and capture stdout; `--json` makes it a receipt. */

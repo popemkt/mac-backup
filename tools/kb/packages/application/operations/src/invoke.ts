@@ -10,7 +10,8 @@ import {
   succeeded,
   type ExtensionPromiseHandler,
   type KbContext,
-  declaredDecision,
+  CurrentCall,
+  approvalRefusal,
 } from "@kb/contracts";
 import {
   ActionSchemaError,
@@ -24,6 +25,7 @@ import {
   receiptCodeOf,
   type DomainError,
 } from "@kb/model";
+import { decide } from "./approval.ts";
 import { assetUploadDef, assetUploadEffect } from "./assets.ts";
 import {
   fieldDefineDef,
@@ -213,16 +215,17 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   const { id, input } = invocation;
   const entry = actions.get(id);
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
-  // Approval is decided here, on invoke itself, so no surface can skip it.
-  if (declaredDecision(entry.def.mode) === "ask" && invocation.approved !== true) {
-    return failed(id, "approval_required", `action ${id} requires approval; this call has none`);
-  }
+  // Approval is decided here, on invoke itself, so no surface can skip it:
+  // the session's policies for this call's actor, else the action's mode.
+  const refusal = approvalRefusal(decide(ctx, entry.def, invocation.actor), invocation);
+  if (refusal !== null) return refusal;
 
   const parsed = yield* parseBySchema(entry.def.inputSchema, input);
   const run = dispatch(entry, ctx, parsed);
   if (run === null) return failed(id, "internal", `action has no effect or handler: ${id}`);
 
-  return succeeded(id, yield* parseOutput(entry.def, yield* run));
+  const output = yield* run.pipe(Effect.provideService(CurrentCall, invocation));
+  return succeeded(id, yield* parseOutput(entry.def, output));
 });
 
 /**

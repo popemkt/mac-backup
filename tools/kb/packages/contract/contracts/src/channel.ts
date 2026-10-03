@@ -1,6 +1,6 @@
 import type { Effect } from "effect";
 import { Point, Service } from "@kb/plugin";
-import type { ActionInvocation, ActionReceipt, ManifestEntry } from "./actions.ts";
+import type { ActionInvocation, ActionReceipt } from "./actions.ts";
 
 /**
  * Plugin channels: a plugin's own conversation with the connections of the
@@ -35,12 +35,14 @@ export interface Channel {
 /** The channels the `kb ui` server's plugins own, by contribution id (`<namespace>.<id>`). */
 export const ChannelPoint = Point<Channel>()("kb.ui.channels");
 
-/** What the `kb ui` server offers the plugins it hosts: the registry, run as it runs every call. */
+/**
+ * What the `kb ui` server offers the plugins it hosts: the registry, run as it
+ * runs every call. A plugin lists the registry the way every surface does, by
+ * calling `kb.manifest` on its own wire.
+ */
 export interface UiHostService {
   /** The root the server serves. */
   readonly root: string;
-  /** The registry's manifest, every entry as `kb.manifest` lists it. */
-  readonly manifest: Effect.Effect<readonly ManifestEntry[]>;
   /**
    * Run an invocation as `POST /api/action` runs it, approval included: the
    * session brought up to date, then the invoke core. Always a receipt.

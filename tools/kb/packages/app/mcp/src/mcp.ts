@@ -15,8 +15,7 @@ import type { FileSystem } from "effect/FileSystem";
 import {
   asObjectSchema,
   failed,
-  declaredDecision,
-  listedOn,
+  listingOf,
   onWire,
   mcpToolHints,
   mcpToolName,
@@ -72,10 +71,10 @@ export const ACTION_META_KEY = "kb/action";
 
 /**
  * MCP's wire: a `tools/call` has no envelope, because its arguments are the
- * input, so it cannot carry `approved`. `tools/list` therefore leaves
- * approval-required actions out ({@link listedOn}); a call by tool name still
- * reaches the invoke core and gets `approval_required`, and `kb.manifest`
- * still lists them.
+ * input, so it cannot carry `approved`, and every call is an agent's.
+ * `tools/list` therefore leaves out what would ask for approval or is denied
+ * to an agent (`listedOn`); a call by tool name still reaches the invoke core
+ * and is refused, and `kb.manifest` still lists every action.
  */
 export const MCP_WIRE: SurfaceWire = {
   // GAP [[01M3R2KD6V1AZ9WS62ZVG9T4G2]]
@@ -217,35 +216,50 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
   const ctx = yield* openKbEffect(root);
   const actions = (yield* registryFor(root)).manifestEntries;
   const byToolName = new Map(actions.map((a) => [mcpToolName(a.id), a] as const));
-  const tools = actions
-    .filter((a) => listedOn(MCP_WIRE, declaredDecision(a.mode)))
-    .map(
-      (a): Tool => ({
-        name: mcpToolName(a.id),
-        title: a.title,
-        description: a.description,
-        inputSchema: asObjectSchema(a.inputSchema),
-        annotations: { title: a.title, ...mcpToolHints(a.mode) },
-        _meta: { [ACTION_META_KEY]: { id: a.id, mode: a.mode } },
-      }),
-    );
-
-  return bindMcpHandlers(ctx, tools, { byToolName });
+  return bindMcpHandlers(ctx, { byToolName });
 }, Effect.provide(bunFileSystemLayer));
+
+/** One listed action as an MCP tool, its hints from the mode and `{id, mode}` under `_meta`. */
+function mcpTool(a: ManifestEntry): Tool {
+  return {
+    name: mcpToolName(a.id),
+    title: a.title,
+    description: a.description,
+    inputSchema: asObjectSchema(a.inputSchema),
+    annotations: { title: a.title, ...mcpToolHints(a.mode) },
+    _meta: { [ACTION_META_KEY]: { id: a.id, mode: a.mode } },
+  };
+}
+
+/**
+ * `tools/list`, read at each request: what `kb.manifest` lists to an agent,
+ * less what this wire could never call. The policies are graph data, so the
+ * list follows them as they change.
+ */
+const listToolsEffect = Effect.fn("mcp.listTools")(function* (ctx: KbContext) {
+  yield* reloadEffect(ctx);
+  const manifest = yield* invokeReceiptEffect(
+    ctx,
+    onWire(MCP_WIRE, { id: "kb.manifest", input: {} }),
+  );
+  return { tools: listingOf(MCP_WIRE, manifest).map(mcpTool) };
+});
 
 /**
  * The MCP SDK boundary. Every request handler must hand the SDK a promise, so
  * this is where kb's Effects are run — a plain function beside the builder,
  * not inside it.
  */
-function bindMcpHandlers(ctx: KbContext, tools: Tool[], toolsCtx: McpToolContext) {
+function bindMcpHandlers(ctx: KbContext, toolsCtx: McpToolContext) {
   // oxlint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
   const server = new Server(
     { name: "kb", version: "0.1.0" },
     { capabilities: { tools: {}, resources: {} } },
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, () => ({ tools }));
+  server.setRequestHandler(ListToolsRequestSchema, () =>
+    runResourceHandler(listToolsEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx)))),
+  );
 
   // MCP Apps: every view (a docs view by name, any other view node by id) is a
   // ui:// resource, served as a snapshot as of the read (view-app.ts).

@@ -6,6 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import {
+  declaredDecision,
   failed,
   type ActionInvocation,
   type ActionReceipt,
@@ -38,14 +39,29 @@ const READ = entry("node.get", { kind: "read" });
 const WRITE = entry("node.update", { kind: "write" });
 const GATED = entry("ext.gated.stamp", { kind: "write", approval: "required" });
 
-/** A host whose registry is `actions` and which records every call. */
+/** An action as `kb.manifest` lists it to a caller who may run it. */
+const allowed = (action: ManifestEntry) => ({ ...action, decision: "allow" });
+
+/**
+ * A host whose registry is `actions` and which records every call. Its
+ * manifest decides each action by its mode alone, as a root with no policies
+ * does.
+ */
 function host(initial: readonly ManifestEntry[]) {
   let actions = initial;
   const calls: ActionInvocation[] = [];
   const invoke = (invocation: ActionInvocation): Promise<ActionReceipt> => {
     calls.push(invocation);
     if (invocation.id === "kb.manifest") {
-      return Promise.resolve({ status: "succeeded", id: invocation.id, output: { actions } });
+      const decided = actions.map((action) => ({
+        ...action,
+        decision: declaredDecision(action.mode),
+      }));
+      return Promise.resolve({
+        status: "succeeded",
+        id: invocation.id,
+        output: { actions: decided },
+      });
     }
     return Promise.resolve({ status: "succeeded", id: invocation.id, output: invocation.input });
   };
@@ -123,7 +139,11 @@ describe("WebMCP adapter", () => {
     const page = new FakeModelContext();
     const invoke = (invocation: ActionInvocation): Promise<ActionReceipt> =>
       invocation.id === "kb.manifest"
-        ? Promise.resolve({ status: "succeeded", id: invocation.id, output: { actions: [WRITE] } })
+        ? Promise.resolve({
+            status: "succeeded",
+            id: invocation.id,
+            output: { actions: [allowed(WRITE)] },
+          })
         : // The browser's server lane answers with the HTTP response, rev and all.
           Promise.resolve({ status: "succeeded", id: invocation.id, output: 1, rev: 7 });
     await startWebMcp({ modelContext: () => page, invoke }).settled();
@@ -138,7 +158,11 @@ describe("WebMCP adapter", () => {
     const page = new FakeModelContext();
     const invoke = (invocation: ActionInvocation): Promise<ActionReceipt> =>
       invocation.id === "kb.manifest"
-        ? Promise.resolve({ status: "succeeded", id: invocation.id, output: { actions: [WRITE] } })
+        ? Promise.resolve({
+            status: "succeeded",
+            id: invocation.id,
+            output: { actions: [allowed(WRITE)] },
+          })
         : Promise.resolve(failed(invocation.id, "not_found", "no such node"));
     await startWebMcp({ modelContext: () => page, invoke }).settled();
     const error = await page
@@ -158,7 +182,11 @@ describe("WebMCP adapter", () => {
     const page = new FakeModelContext();
     const invoke = (invocation: ActionInvocation): Promise<ActionReceipt> =>
       invocation.id === "kb.manifest"
-        ? Promise.resolve({ status: "succeeded", id: invocation.id, output: { actions: [READ] } })
+        ? Promise.resolve({
+            status: "succeeded",
+            id: invocation.id,
+            output: { actions: [allowed(READ)] },
+          })
         : Promise.reject(new Error("network down"));
     await startWebMcp({ modelContext: () => page, invoke }).settled();
     const error = await page

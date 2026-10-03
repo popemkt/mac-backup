@@ -11,11 +11,13 @@
  * exactly what this suite catches, so it is not a per-adapter test.
  *
  * Every property runs against a fresh scratch root. That root holds one
- * fixture extension whose action requires approval, so the approval path
- * gets exercised even though no core action requires approval. One `kb ui`
- * serves the root for the whole property, as one serves a real root: the
- * surfaces that speak to a server (HTTP, the page's WebMCP) speak to that
- * one, and none starts a second over the same root.
+ * fixture extension whose actions the root's approval policies decide in
+ * each way there is — one requires approval, one is denied, one asks an
+ * agent — so every approval path gets exercised even though no core action
+ * requires approval. One `kb ui` serves the root for the whole property, as
+ * one serves a real root: the surfaces that speak to a server (HTTP, the
+ * page's WebMCP) speak to that one, and none starts a second over the same
+ * root.
  */
 import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -23,14 +25,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import {
-  declaredDecision,
   listedOn,
   onWire,
+  resolveApproval,
   type ActionInvocation,
   type ActionMode,
   type ActionReceipt,
   type SurfaceWire,
 } from "@kb/contracts";
+import {
+  ACTOR_OPTION_IDS,
+  DECISION_OPTION_IDS,
+  SYSTEM_IDS,
+  approvalPoliciesOf,
+  type ApprovalPolicy,
+} from "@kb/model";
 import { bunFileSystemLayer, invoke, manifest, openKb } from "@kb/runtime";
 import { FakeTab } from "./fake-tab.ts";
 
@@ -80,30 +89,78 @@ export type ServeUi = (root: string) => Promise<LiveUi>;
 export type SurfaceFactory = (root: string, ui: LiveUi) => Promise<ActionSurface>;
 
 const APPROVAL_ACTION = "ext.gated.stamp";
+/** A plain write that a policy denies to every actor. */
+const DENIED_ACTION = "ext.gated.blocked";
+/** A plain write that a policy asks an agent about. */
+const ASKED_ACTION = "ext.gated.checked";
 
 /** The one tab connected to the root's `kb ui`, which applies every command it gets. */
 const CONTRACT_TAB = "tab.surface-contract";
 const MISSING_TAB = "tab.surface-contract-missing";
 
 /**
- * An approval-required write with no side effect and a fixed output, so
- * that receipts from different surfaces can be compared. Its schemas are
- * bare `{parse}` objects, so the module imports nothing and loads from any
- * scratch directory.
+ * Writes with no side effect and a fixed output, so that receipts from
+ * different surfaces can be compared: one that requires approval, and two
+ * plain ones for the policies to decide. Their schemas are bare `{parse}`
+ * objects, so the module imports nothing and loads from any scratch
+ * directory.
  */
 const GATED_EXTENSION = `const passthrough = { parse: (input) => input ?? {} };
+const write = (id, output, mode = { kind: "write" }) => ({
+  id,
+  title: id,
+  description: "a write for the surface contract",
+  mode,
+  inputSchema: passthrough,
+  outputSchema: passthrough,
+  handler: async () => output,
+});
 export default [
-  {
-    id: "stamp",
-    title: "Stamp",
-    description: "an approval-required write for the surface contract",
-    mode: { kind: "write", approval: "required" },
-    inputSchema: passthrough,
-    outputSchema: passthrough,
-    handler: async () => ({ stamped: true }),
-  },
+  write("stamp", { stamped: true }, { kind: "write", approval: "required" }),
+  write("blocked", { blocked: false }),
+  write("checked", { checked: true }),
 ];
 `;
+
+/**
+ * The root's policies, beside the seeded defaults: a denial for everyone, an
+ * ask for an agent, an exact allow that lowers the declared approval of the
+ * stamp for the command line only, and a pattern allow for an agent that
+ * lowers nothing the stamp declares.
+ */
+const POLICIES: readonly Omit<ApprovalPolicy, "id">[] = [
+  { match: DENIED_ACTION, actor: null, decision: "deny" },
+  { match: ASKED_ACTION, actor: "agent", decision: "ask" },
+  { match: APPROVAL_ACTION, actor: "cli", decision: "allow" },
+  { match: "ext.gated.*", actor: "agent", decision: "allow" },
+];
+
+/** A policy as a node, written through the invoke core with a person's approval. */
+function policyInvocation(policy: Omit<ApprovalPolicy, "id">): ActionInvocation {
+  return {
+    id: "node.add",
+    approved: true,
+    input: {
+      text: `${policy.actor ?? "anyone"}: ${policy.decision} ${policy.match}`,
+      props: [
+        { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.approvalPolicyTag } },
+        { field: SYSTEM_IDS.approvalMatchField, value: { t: "str", v: policy.match } },
+        ...(policy.actor === null
+          ? []
+          : [
+              {
+                field: SYSTEM_IDS.approvalActorField,
+                value: { t: "ref", v: ACTOR_OPTION_IDS[policy.actor] },
+              },
+            ]),
+        {
+          field: SYSTEM_IDS.approvalDecisionField,
+          value: { t: "ref", v: DECISION_OPTION_IDS[policy.decision] },
+        },
+      ],
+    },
+  };
+}
 
 /**
  * Calls whose receipts do not depend on when or where they run: reads, each
@@ -126,6 +183,8 @@ const CALLS: readonly ActionInvocation[] = [
   { id: "view.propose", input: { view: "outline.nope" } },
   { id: "view.propose", input: { view: "outline.board", params: { groupFieldId: 7 } } },
   { id: APPROVAL_ACTION, input: {} },
+  { id: DENIED_ACTION, input: {} },
+  { id: ASKED_ACTION, input: {} },
   { id: "ui.screen", input: {} },
   { id: "ui.screen", input: { tab: MISSING_TAB } },
   { id: "ui.navigate", input: { route: "/canvas" } },
@@ -183,6 +242,8 @@ interface SurfaceCase {
   readonly name: string;
   readonly surface: ActionSurface;
   readonly root: string;
+  /** The root's approval policies, as the invoke core reads them. */
+  readonly policies: readonly ApprovalPolicy[];
   /**
    * The invoke core's receipt for the call, on the same root, as it arrives
    * from this surface: made by the actor the surface declares for it.
@@ -200,8 +261,9 @@ export interface SurfaceSet {
 
 /**
  * Each surface in turn over one scratch root. The root is opened once first,
- * so the system seed is written before any surface opens it, and every
- * surface then reads the same store; then its one `kb ui` starts. The
+ * so the system seed and the root's policies are written before any surface
+ * opens it, and every surface then reads the same store; then its one
+ * `kb ui` starts. The
  * surfaces run one after another because each owns process-wide resources
  * (stdout, a port).
  */
@@ -214,6 +276,11 @@ function overSurfaces(
       Effect.gen(function* () {
         const root = yield* scratchRoot;
         const ctx = yield* Effect.promise(() => openKb(root));
+        for (const policy of POLICIES) {
+          const written = yield* Effect.promise(() => invoke(ctx, policyInvocation(policy)));
+          expect(written.status).toBe("succeeded");
+        }
+        const policies = approvalPoliciesOf(ctx.nodes);
         const { ui } = yield* serveRoot(serve, root);
         yield* Effect.forEach(
           Object.entries(surfaces),
@@ -225,7 +292,7 @@ function overSurfaces(
                   Effect.promise(() => invoke(ctx, onWire(surface.wire, invocation)));
                 const via = (invocation: ActionInvocation) =>
                   Effect.promise(() => surface.invoke(invocation));
-                yield* check({ name, surface, root, core, via });
+                yield* check({ name, surface, root, policies, core, via });
               }),
             ),
           { discard: true },
@@ -238,14 +305,14 @@ function overSurfaces(
 const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<void>]> = [
   [
     "every surface lists the registry's action ids with their declared modes, " +
-      "leaving out only the actions its wire could never approve",
+      "leaving out only what is denied to its actor or asks where its wire cannot approve",
     (set) =>
-      overSurfaces(set, ({ name, surface, root }) =>
+      overSurfaces(set, ({ name, surface, root, policies }) =>
         Effect.gen(function* () {
           const registry = yield* manifest(root).pipe(Effect.provide(bunFileSystemLayer));
           expect(registry.some((entry) => entry.id === APPROVAL_ACTION)).toBe(true);
           const callable = registry.filter((entry) =>
-            listedOn(surface.wire, declaredDecision(entry.mode)),
+            listedOn(surface.wire, resolveApproval(policies, entry, surface.wire.actor).decision),
           );
           const listed = yield* Effect.promise(() => surface.list());
           expect({ name, listed: byId(listed) }).toEqual({ name, listed: byId(callable) });
@@ -294,12 +361,14 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
     (set) =>
       overSurfaces(set, ({ name, surface, core, via }) =>
         Effect.gen(function* () {
-          const call: ActionInvocation = { id: APPROVAL_ACTION, input: {}, approved: true };
+          const call: ActionInvocation = { id: ASKED_ACTION, input: {}, approved: true };
           // Where the wire cannot carry approval, the call that arrives is the unapproved one.
           const { carriesApproval } = surface.wire;
           const arrives = carriesApproval ? call : { id: call.id, input: call.input };
           const expected = yield* core(arrives);
-          expect(expected.status).toBe(carriesApproval ? "succeeded" : "failed");
+          // The command line is never asked about this action; an agent is.
+          const asked = surface.wire.actor === "agent";
+          expect(expected.status).toBe(carriesApproval || !asked ? "succeeded" : "failed");
           const receipt = yield* via(call);
           // A wire that cannot make the call cannot run it either: no answer is
           // right only where the wire cannot carry approval and so does not
@@ -318,6 +387,40 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
           expect({ name, receipt: asWireData(receipt) }).toEqual({
             name,
             receipt: asWireData(expected),
+          });
+        }),
+      ),
+  ],
+  [
+    "one policy decides the same on every surface: a denial refuses, an ask refuses an " +
+      "unapproved call, and only a policy naming the action lowers a declared approval",
+    (set) =>
+      overSurfaces(set, ({ name, surface, via }) =>
+        Effect.gen(function* () {
+          const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
+          // What a call came to: "ran", its failure code, or "uncallable" where
+          // the wire cannot make it at all, which only an unlisted action may be.
+          const outcome = (id: string) =>
+            Effect.map(via({ id, input: {} }), (receipt) => {
+              if (receipt !== null) return receipt.status === "failed" ? receipt.code : "ran";
+              expect({ name, id, listed: listed.has(id) }).toEqual({ name, id, listed: false });
+              return "uncallable";
+            });
+          // The refusal `code`, or the wire's own where it cannot make the call.
+          const refusal = (code: string, seen: string) =>
+            seen === "uncallable" && !surface.wire.carriesApproval ? seen : code;
+          const agent = surface.wire.actor === "agent";
+          const denied = yield* outcome(DENIED_ACTION);
+          const asked = yield* outcome(ASKED_ACTION);
+          const declared = yield* outcome(APPROVAL_ACTION);
+          expect({ name, denied, asked, declared }).toEqual({
+            name,
+            // Denied to every actor, whatever the wire.
+            denied: refusal("forbidden", denied),
+            // Asked of an agent, never of the command line.
+            asked: agent ? refusal("approval_required", asked) : "ran",
+            // The exact allow is the command line's; an agent's pattern allow lowers nothing.
+            declared: agent ? refusal("approval_required", declared) : "ran",
           });
         }),
       ),

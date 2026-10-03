@@ -1,19 +1,18 @@
 import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
-import type { FileSystem } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
   ActionInvocationSchema,
   TxOrigin,
-  declaredDecision,
   listedOn,
+  listingOf,
   onWire,
   type ActionResponse,
   type KbContext,
   type ServerIdentity,
   type SurfaceWire,
 } from "@kb/contracts";
-import { type ActionHandlerEnv, manifest } from "@kb/runtime";
+import type { ActionHandlerEnv } from "@kb/runtime";
 import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
 import { serverInvoke } from "./invoke.ts";
@@ -67,18 +66,18 @@ function invalidInput(message: string): HttpServerResponse.HttpServerResponse {
 }
 
 /** A read of the API: a `GET` that answers JSON. */
-type JsonRead = (deps: UiHttpDeps) => Effect.Effect<unknown, never, FileSystem>;
+type JsonRead = (deps: UiHttpDeps) => Effect.Effect<unknown, never, ActionHandlerEnv>;
 
 /** The API's reads, by path. */
 const JSON_READS: ReadonlyMap<string, JsonRead> = new Map<string, JsonRead>([
   ["/api/graph", ({ hub }) => Effect.succeed(hub.snapshot)],
   [
     "/api/manifest",
-    ({ root }) =>
-      manifest(root).pipe(
-        Effect.map((entries) =>
-          entries.filter((entry) => listedOn(HTTP_WIRE, declaredDecision(entry.mode))),
-        ),
+    ({ ctx }) =>
+      serverInvoke(ctx, onWire(HTTP_WIRE, { id: "kb.manifest", input: {} })).pipe(
+        Effect.map((receipt) => listingOf(HTTP_WIRE, receipt)),
+        // A store that cannot be reloaded lists nothing, as a refused manifest does.
+        Effect.orElseSucceed(() => []),
       ),
   ],
   ["/api/queries", ({ root }) => listSavedQueriesEffect(root)],

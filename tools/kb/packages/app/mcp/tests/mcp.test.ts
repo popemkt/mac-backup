@@ -57,7 +57,7 @@ describe("MCP surface", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  test("lists action tools plus kb_manifest; node_add then graph_query", async () => {
+  test("lists the action tools an agent may call; node_add then graph_query", async () => {
     const server = await run(createMcpServer(root));
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -67,8 +67,12 @@ describe("MCP surface", () => {
     const listed = await client.listTools();
     const names = new Set(listed.tools.map((t) => t.name));
     expect(names.has("kb_manifest")).toBe(true);
+    // The seeded policies ask an agent before it deletes or rewrites the
+    // store, and MCP cannot carry approval, so those two are not tools.
+    const asked = new Set(["node_delete", "views_migrate"]);
     for (const entry of await run(manifest(root))) {
-      expect(names.has(entry.id.replaceAll(".", "_"))).toBe(true);
+      const tool = entry.id.replaceAll(".", "_");
+      expect({ tool, listed: names.has(tool) }).toEqual({ tool, listed: !asked.has(tool) });
     }
 
     const nodeAddTool = listed.tools.find((t) => t.name === "node_add");

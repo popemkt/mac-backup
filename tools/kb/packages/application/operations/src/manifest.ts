@@ -10,11 +10,23 @@
  * Beside the actions it lists the view catalog (`@kb/views`' `viewCatalog`):
  * every view kb provides, with its settings as JSON Schema, which is what an
  * agent needs to write a view node (`view.propose`).
+ *
+ * It lists every action, and says of each what is decided about the caller's
+ * own call to it (`decision`): the policies for the actor the call was made
+ * by, else the action's mode. That is what each surface lists from
+ * (`listingOf`), so a surface and the invoke core cannot disagree.
  */
 import { Effect } from "effect";
 import { z } from "zod";
-import { ActionCatalog, ManifestEntrySchema, type ActionDefinition } from "@kb/contracts";
+import {
+  ActionCatalog,
+  CurrentCall,
+  DecidedEntrySchema,
+  KbCtx,
+  type ActionDefinition,
+} from "@kb/contracts";
 import { viewCatalog } from "@kb/views";
+import { decide } from "./approval.ts";
 
 /** One view of the catalog on the wire: `@kb/views`' `ViewCatalogEntry`. */
 const ViewCatalogEntrySchema = z.object({
@@ -30,11 +42,11 @@ export const kbManifestDef = {
   id: "kb.manifest",
   title: "KB action manifest",
   description:
-    "Return the full kb action registry manifest, and the view catalog: every view type with its settings as JSON Schema",
+    "Return the full kb action registry manifest, with what is decided about your own call to each action (allow, ask for approval, deny), and the view catalog: every view type with its settings as JSON Schema",
   mode: { kind: "read" } as const,
   inputSchema: z.object({}),
   outputSchema: z.object({
-    actions: z.array(ManifestEntrySchema),
+    actions: z.array(DecidedEntrySchema),
     views: z.array(ViewCatalogEntrySchema),
   }),
 } satisfies ActionDefinition;
@@ -42,7 +54,13 @@ export const kbManifestDef = {
 export const kbManifestEffect = Effect.fn("kb.manifest")(function* (): Effect.fn.Return<
   z.infer<typeof kbManifestDef.outputSchema>,
   never,
-  ActionCatalog
+  ActionCatalog | KbCtx
 > {
-  return { actions: [...(yield* ActionCatalog)], views: [...viewCatalog()] };
+  const ctx = yield* KbCtx;
+  const actor = (yield* CurrentCall)?.actor;
+  const actions = (yield* ActionCatalog).map((entry) => ({
+    ...entry,
+    decision: decide(ctx, entry, actor).decision,
+  }));
+  return { actions, views: [...viewCatalog()] };
 });

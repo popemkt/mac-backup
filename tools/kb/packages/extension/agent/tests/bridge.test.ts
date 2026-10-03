@@ -50,6 +50,16 @@ const GATED: ManifestEntry = {
   outputSchema: {},
 };
 
+/** An action a policy denies the agent: it is never one of its tools. */
+const DENIED: ManifestEntry = {
+  id: "node.delete",
+  title: "Delete node",
+  description: "",
+  mode: { kind: "write" },
+  inputSchema: {},
+  outputSchema: {},
+};
+
 const SCREEN: TabScreen = {
   tab: "tab.a",
   route: "/",
@@ -74,10 +84,17 @@ function fakeHost(invoked: ActionInvocation[]): UiHostService {
   const texts: Record<string, string> = { "n.root": "Root", "n.focus": "Focused" };
   return {
     root: "/tmp/fake-root",
-    manifest: Effect.succeed([READ, GATED]),
     invoke: (invocation) =>
       Effect.sync((): ActionReceipt => {
         invoked.push(invocation);
+        if (invocation.id === "kb.manifest") {
+          const actions = [
+            { ...READ, decision: "allow" },
+            { ...GATED, decision: "ask" },
+            { ...DENIED, decision: "deny" },
+          ];
+          return succeeded("kb.manifest", { actions, views: [] });
+        }
         if (invocation.id === "ui.screen") return succeeded("ui.screen", { tabs: [SCREEN] });
         if (invocation.id === GATED.id) {
           return invocation.approved === true
@@ -161,7 +178,7 @@ function open(script: (text: string) => readonly ScriptStep[]): Harness {
 }
 
 describe("the agent bridge", () => {
-  test("a turn gets the prompt, the sender's screen, every action and the last session", async () => {
+  test("a turn gets the prompt, the sender's screen, every action not denied to it and the last session", async () => {
     const h = open(() => [{ say: "Hello" }, { say: ", there" }]);
     const peer = new Peer("c1");
     await peer.say(h.channel, { type: "send", conversation: "k1", text: "hi" });

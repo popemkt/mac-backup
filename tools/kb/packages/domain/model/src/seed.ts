@@ -1,4 +1,12 @@
 import {
+  ACTORS,
+  ACTOR_OPTION_IDS,
+  APPROVAL_DECISIONS,
+  APPROVAL_POLICIES_QUERY,
+  DECISION_OPTION_IDS,
+  approvalPolicyNode,
+} from "./approval-policy.ts";
+import {
   GRAPH_LINK_STYLE_VALUES,
   GRAPH_THEME_VALUES,
   GRAPH_SOURCE_FIELD_KINDS,
@@ -413,6 +421,59 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ],
   });
 
+  /*
+   * Approval policies (DESIGN.md → Action registry → Approval). `#approval-policy`
+   * is a kind — strip its decision and it is still a policy, badly filled in —
+   * so it is a tag templating its three fields. Actors and decisions are option
+   * sets of one field each, so they are those fields' children.
+   */
+  const approvalMatchField = singleField(SYSTEM_IDS.approvalMatchField, "approval.match", "text");
+  const actorOptions = ACTORS.map((actor) => mk(ACTOR_OPTION_IDS[actor], actor));
+  const approvalActorField: KbNode = {
+    ...singleField(SYSTEM_IDS.approvalActorField, "approval.actor", "ref"),
+    children: actorOptions.map((option) => option.id),
+  };
+  const decisionOptions = APPROVAL_DECISIONS.map((decision) =>
+    mk(DECISION_OPTION_IDS[decision], decision),
+  );
+  const approvalDecisionField: KbNode = {
+    ...singleField(SYSTEM_IDS.approvalDecisionField, "approval.decision", "ref"),
+    children: decisionOptions.map((option) => option.id),
+  };
+  const approvalPolicyTag = mk(SYSTEM_IDS.approvalPolicyTag, "approval-policy", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+    [SYSTEM_IDS.fieldsField]: [
+      { t: "ref", v: SYSTEM_IDS.approvalMatchField },
+      { t: "ref", v: SYSTEM_IDS.approvalActorField },
+      { t: "ref", v: SYSTEM_IDS.approvalDecisionField },
+    ],
+  });
+  /*
+   * The defaults the owner chose: an agent is asked before it deletes a node
+   * and before a store-wide rewrite. Normal edits need no policy (no core
+   * write declares approval), and a human's gesture never asks because the
+   * gesture is the person's answer — a property of the resolver, not a row.
+   * They are ordinary, editable nodes, filed under the query node that lists
+   * every policy.
+   */
+  const defaultPolicies = [
+    approvalPolicyNode(mk("approval.agent-delete", "An agent asks before deleting a node"), {
+      match: "node.delete",
+      actor: "agent",
+      decision: "ask",
+    }),
+    approvalPolicyNode(
+      mk("approval.agent-views-migrate", "An agent asks before rewriting the store to view nodes"),
+      { match: "views.migrate", actor: "agent", decision: "ask" },
+    ),
+  ];
+  const approvalPolicies: KbNode = {
+    ...mk(SYSTEM_IDS.approvalPolicies, "Approval policies", {
+      [SYSTEM_IDS.queryField]: [{ t: "str", v: APPROVAL_POLICIES_QUERY }],
+    }),
+    children: defaultPolicies.map((policy) => policy.id),
+  };
+
   return [
     field,
     tag,
@@ -485,6 +546,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     refTargetField,
     pinnedRoot,
     viewsList,
+    approvalMatchField,
+    approvalActorField,
+    ...actorOptions,
+    approvalDecisionField,
+    ...decisionOptions,
+    approvalPolicyTag,
+    approvalPolicies,
+    ...defaultPolicies,
   ];
 }
 

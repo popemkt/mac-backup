@@ -273,6 +273,24 @@ export const SYSTEM_IDS = {
   /** Panes and layouts: keep the live arrangement as a layout node, close the focused pane. */
   cmdSaveWorkspace: "sys.cmd.save-workspace",
   cmdClosePane: "sys.cmd.close-pane",
+  /**
+   * Approval policies (DESIGN.md → Action registry → Approval): an ordinary
+   * node tagged `#approval-policy` says what is decided about a call. `match`
+   * names the actions (str, one), `actor` who calls (a ref to one of its
+   * option children; absent means every actor), `decision` what happens (a
+   * ref to one of its option children).
+   */
+  approvalPolicyTag: "sys.tag.approval-policy",
+  approvalMatchField: "sys.f.approval.match",
+  approvalActorField: "sys.f.approval.actor",
+  approvalDecisionField: "sys.f.approval.decision",
+  /**
+   * Where the seeded default policies are filed: a query node over every
+   * `#approval-policy` node, so a policy filed anywhere shows there too.
+   * User-editable (NOT sys-prefixed): its view and its children are the
+   * person's to arrange.
+   */
+  approvalPolicies: "approval.policies",
 } as const;
 
 /** Pre-fix id — migrated away by ensureSystemSeed. */

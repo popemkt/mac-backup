@@ -13,9 +13,8 @@
 import { Effect, Predicate } from "effect";
 import { z } from "zod";
 import {
-  ManifestEntrySchema,
+  DecidedEntrySchema,
   asObjectSchema,
-  declaredDecision,
   failed,
   listedOn,
   onWire,
@@ -72,7 +71,7 @@ export type InvokeAction = (invocation: ActionInvocation) => Promise<ActionRecei
 /** The action whose output lists the registry this surface projects. */
 const MANIFEST_ACTION = "kb.manifest";
 
-const ManifestOutputSchema = z.object({ actions: z.array(ManifestEntrySchema) });
+const ManifestOutputSchema = z.object({ actions: z.array(DecidedEntrySchema) });
 
 /**
  * `document.modelContext` where the browser has WebMCP, else `undefined`:
@@ -267,9 +266,7 @@ export function startWebMcp(options: WebMcpOptions): WebMcpAdapter {
         return;
       }
       yield* register(
-        manifest.data.actions.filter((entry) =>
-          listedOn(WEBMCP_WIRE, declaredDecision(entry.mode)),
-        ),
+        manifest.data.actions.filter((entry) => listedOn(WEBMCP_WIRE, entry.decision)),
       );
     });
 
