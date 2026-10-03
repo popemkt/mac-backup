@@ -9,7 +9,7 @@
  * location, and the view that location resolves to — for a node opened at
  * `/node/<id>`, the view it opened in and the view node it shows. What the
  * view shows — the node it is shown for, focus, selection, a canvas's
- * viewport — the mounted view reports under its pane (`stores/screen.store`).
+ * camera — the mounted view reports under its pane (`stores/screen.store`).
  * A command goes to the pane it names, else the focused one.
  */
 import { Effect, Result } from "effect";

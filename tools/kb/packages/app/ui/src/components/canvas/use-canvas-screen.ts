@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import type { CanvasDoc } from "@kb/canvas";
-import { SCREEN_APPLIED, screenRejected, type ScreenAck } from "@kb/contracts";
-import { viewOfPan } from "@/lib/canvas-camera";
+import type { CanvasDoc, CanvasProjectionKind } from "@kb/canvas";
+import { SCREEN_APPLIED, screenRejected, type CanvasScreen, type ScreenAck } from "@kb/contracts";
+import { poseOfView, viewOfPan, type CanvasView } from "@/lib/canvas-camera";
 import { visibleItemIds } from "@/lib/canvas-visible";
 import type { CanvasSelection } from "@/lib/canvas-selection";
 import { usePaneScreen, type PaneSelection } from "@/stores/screen.store";
@@ -11,6 +11,9 @@ interface CanvasScreenInput {
   readonly doc: CanvasDoc;
   readonly pan: { readonly x: number; readonly y: number };
   readonly zoom: number;
+  /** The projection showing, and in 3D the view it last came to rest at. */
+  readonly shown: CanvasProjectionKind;
+  readonly settled3d: CanvasView | null;
   readonly stage: RefObject<HTMLElement | null>;
   readonly selection: CanvasSelection;
   readonly setSelection: (selection: CanvasSelection) => void;
@@ -55,19 +58,24 @@ function useStageSize(stage: RefObject<HTMLElement | null>): { width: number; he
 
 /**
  * Report the canvas's part of the screen — the canvas node, its selected
- * items, its 2D viewport and the items inside it — and carry out a
- * `ui.select` of item ids. A canvas has no focus to move.
+ * items, the camera of the projection showing and the items it shows — and
+ * carry out a `ui.select` of item ids. A canvas has no focus to move. In 3D
+ * the camera is reported as it comes to rest, not on every frame of a drag.
  */
 export function useCanvasScreen({
   canvasId,
   doc,
   pan,
   zoom,
+  shown,
+  settled3d,
   stage,
   selection,
   setSelection,
 }: CanvasScreenInput): void {
   const { width, height } = useStageSize(stage);
+  const size = { width, height };
+  const view = shown === "3d" && settled3d !== null ? settled3d : viewOfPan(pan, zoom, size);
   const select = (command: PaneSelection): ScreenAck => {
     if (command.focus !== undefined) {
       return screenRejected("a canvas has no focus; select its items instead");
@@ -89,13 +97,10 @@ export function useCanvasScreen({
       focused: null,
       selection: [...selection.nodeIds, ...selection.edgeIds],
       canvas: {
-        // The 2D camera, also while the canvas is seen in 3D.
-        // GAP [[01M3YMCVN656CNRJ3F3R91MHKA]]
-        viewport: { x: pan.x, y: pan.y, zoom },
-        visible: visibleItemIds(doc.nodes, viewOfPan(pan, zoom, { width, height }), {
-          width,
-          height,
-        }),
+        projection: shown,
+        // The document's pose shape is the screen's: the bridge is checked here.
+        pose: { ...poseOfView(view), fov: view.fov } satisfies CanvasScreen["pose"],
+        visible: visibleItemIds(doc.nodes, view, size),
       },
     },
     select,

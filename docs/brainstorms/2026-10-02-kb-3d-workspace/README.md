@@ -316,7 +316,9 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
     | `ui.navigate` | write | gains a camera target (item ids or a preset), so an agent can *show* the person something |
 
     - `CanvasScreenSchema` gains `projection` and `pose`. Today it carries
-      only a 2D viewport.
+      only a 2D viewport. Built in step 1: the `pose` replaces the viewport,
+      because the 2D view is that same camera from the top. The visible
+      items are the ones the showing camera draws, through either lens.
     - There is no code execution against the canvas until step 9's sandbox.
       Blender MCP's `execute_code` is mode C territory
       ([§f](research.md#f-agent-notes-brief)).

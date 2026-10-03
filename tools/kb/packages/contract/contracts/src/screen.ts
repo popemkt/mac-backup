@@ -11,9 +11,24 @@ import { present, type DomainError } from "@kb/model";
  * `ui.*` actions that read and move it; this file types every shape once.
  */
 
-/** A canvas pane's camera and what it shows: the 2D viewport and the ids of the items inside it. */
+/**
+ * A canvas pane's camera and what it shows: the projection showing, the
+ * camera's pose in the canvas document's pose shape (`DESIGN.md` → Canvas
+ * documents: the point looked at, the zoom on the plane through it, the
+ * turntable orbit and the lens; in 2D the top view, orthographic), and the
+ * ids of the items any part of which is on screen.
+ */
 export const CanvasScreenSchema = z.object({
-  viewport: z.object({ x: z.number(), y: z.number(), zoom: z.number() }),
+  projection: z.enum(["2d", "3d"]),
+  pose: z.object({
+    x: z.number(),
+    y: z.number(),
+    z: z.number(),
+    zoom: z.number(),
+    yaw: z.number(),
+    pitch: z.number(),
+    fov: z.number(),
+  }),
   visible: z.array(z.string()),
 });
 export type CanvasScreen = z.infer<typeof CanvasScreenSchema>;

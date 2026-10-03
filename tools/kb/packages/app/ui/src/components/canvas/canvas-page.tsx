@@ -131,7 +131,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const refFields = useMemo(() => listRefFields(nodes), [nodes]);
 
   const stageRef = useRef<HTMLDivElement>(null);
-  useCanvasScreen({ canvasId, doc, pan, zoom, stage: stageRef, selection, setSelection });
   const projection = useCanvasProjection({
     doc,
     pan,
@@ -142,6 +141,17 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     dispatchPointer,
   });
   const in3d = projection.shown === "3d";
+  useCanvasScreen({
+    canvasId,
+    doc,
+    pan,
+    zoom,
+    shown: projection.shown,
+    settled3d: projection.settled3d,
+    stage: stageRef,
+    selection,
+    setSelection,
+  });
 
   const {
     addKbNode,

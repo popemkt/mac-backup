@@ -2,7 +2,7 @@
  * The open views' part of this tab's screen. The tab publishes its screen
  * over `/ws` (`src/screen.ts`); each pane's location and view key it knows
  * itself, but what a view shows — the node it is shown for, its focus and
- * selection, a canvas's viewport — only the mounted view knows. So each view
+ * selection, a canvas's camera — only the mounted view knows. So each view
  * reports that here, under the pane it is drawn in (`lib/pane`), with how it
  * carries out a `ui.select`, and takes both back when it unmounts.
  */

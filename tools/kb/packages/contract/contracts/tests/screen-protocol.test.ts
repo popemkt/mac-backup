@@ -36,7 +36,7 @@ describe("screen messages on /ws", () => {
     expect(overTheWire(ClientMessageSchema, msg)).toEqual(msg);
   });
 
-  test("a canvas pane carries its viewport and visible items", () => {
+  test("a canvas pane carries its projection, camera pose and visible items", () => {
     const msg: ClientMessage = {
       op: "screen",
       tab: "tab.a",
@@ -51,7 +51,11 @@ describe("screen messages on /ws", () => {
             view: { key: "canvas.page", subject: "n.c" },
             focused: null,
             selection: ["item-1"],
-            canvas: { viewport: { x: -40, y: 12.5, zoom: 1.5 }, visible: ["item-1", "item-2"] },
+            canvas: {
+              projection: "3d",
+              pose: { x: -40, y: 12.5, z: 0, zoom: 1.5, yaw: -0.4, pitch: 0.85, fov: 34 },
+              visible: ["item-1", "item-2"],
+            },
           },
         ],
       },

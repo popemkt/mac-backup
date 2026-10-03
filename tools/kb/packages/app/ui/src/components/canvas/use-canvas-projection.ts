@@ -66,6 +66,8 @@ export function useCanvasProjection(context: ProjectionContext) {
       new CanvasCameraRig(viewOfPan(pan, zoom, sizeOf(null)), readTiming(), prefersReducedMotion()),
   );
   const [handover] = useState(() => new CanvasHandover(rig, readTiming(), UNMOUNTED));
+  /** The 3D view as it last came to rest: what the screen state reports. */
+  const [settled3d, setSettled3d] = useState<CanvasView | null>(null);
   // What the handover reads when it acts: the page as of its last commit.
   useLayoutEffect(() => {
     const pose = doc.camera?.pose;
@@ -77,7 +79,10 @@ export function useCanvasProjection(context: ProjectionContext) {
         dispatchPointer({ type: "pan/set", pan: next });
         setZoom(nextZoom);
       },
-      arrived: setZoom,
+      arrived: (arrivedZoom) => {
+        setZoom(arrivedZoom);
+        setSettled3d(rig.view);
+      },
     });
   });
   useEffect(() => () => handover.dispose(), [handover]);
@@ -92,6 +97,7 @@ export function useCanvasProjection(context: ProjectionContext) {
   const onViewSettled = () => {
     if (!in3d || target !== "3d") return;
     setZoom(rig.view.zoom);
+    setSettled3d(rig.view);
     const pose = poseOfView(rig.view);
     // Back where it was: nothing to save.
     if (posesAgree(pose, doc.camera?.pose)) return;
@@ -139,6 +145,7 @@ export function useCanvasProjection(context: ProjectionContext) {
     rig,
     target,
     shown: state.shown,
+    settled3d,
     /** The 3D layer is mounted: showing, about to, or fading out. */
     mounted3d: in3d || state.phase !== null,
     entry: state.entry,

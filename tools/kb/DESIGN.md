@@ -2002,8 +2002,10 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   connection that has sent `{op: "screen", state}`: its route, whether it
   has the person's attention (`active`), and its panes, each with the open
   view (its view key id and the node it is shown for), the focused node,
-  the selection in the view's own ids, and for a canvas the 2D viewport and
-  the visible item ids. The message names its tab id; the UI starts as its
+  the selection in the view's own ids, and for a canvas the projection
+  showing, its camera as a `pose` (Canvas documents; in 2D the top view,
+  orthographic; in 3D as it last came to rest) and the ids of the items that
+  camera shows. The message names its tab id; the UI starts as its
   page's origin id, which is minted per page load and so is per tab.
   The id belongs to the first live connection that publishes it. Another
   connection naming a live tab's id gets `screen-refused`, picks a fresh id
