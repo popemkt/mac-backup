@@ -4,7 +4,7 @@ import {
   canvasTop,
   selectionPivot,
   stillAbout,
-  transformItem,
+  transformItems,
   upsertCanvasEdge,
   upsertCanvasNode,
   withElevation,
@@ -417,11 +417,9 @@ function snapTransform(
     : snapPrecise(t, moving, others, ctx.view.zoom);
 }
 
-/** The document with every item of `drag` transformed by `t`. */
+/** The document with every item of `drag` transformed by `t`, from where each began. */
 function transformed(drag: TransformDrag, t: CanvasTransform, doc: CanvasDoc): CanvasDoc {
-  let next = doc;
-  for (const orig of drag.orig.values()) next = upsertCanvasNode(next, transformItem(orig, t));
-  return next;
+  return transformItems(doc, drag.orig.values(), t);
 }
 
 /**

@@ -7,7 +7,7 @@
  * those numbers and nothing else.
  */
 import { boxCorners, boxFrame, type CanvasBox, type CanvasVec } from "./box.ts";
-import { withDepth, withElevation, withRotation, type CanvasNode } from "./doc.ts";
+import { withDepth, withElevation, withRotation, type CanvasDoc, type CanvasNode } from "./doc.ts";
 import {
   IDENTITY,
   apply,
@@ -119,4 +119,25 @@ export function transformItem<N extends CanvasNode>(node: N, t: CanvasTransform)
     fine(centre.z - depth / 2),
   );
   return same(t.turn, IDENTITY) ? placed : withRotation(placed, rotationOfMatrix(matrix));
+}
+
+/**
+ * `doc` with each of `items` — the records a transform starts from, which a
+ * preview reads again on every move — transformed by `t` in one pass over
+ * the document, in place of the item each one names.
+ */
+export function transformItems(
+  doc: CanvasDoc,
+  items: Iterable<CanvasNode>,
+  t: CanvasTransform,
+): CanvasDoc {
+  const moved = new Map<string, CanvasNode>();
+  for (const item of items) moved.set(item.id, transformItem(item, t));
+  if (moved.size === 0) return doc;
+  return { ...doc, nodes: doc.nodes.map((node) => moved.get(node.id) ?? node) };
+}
+
+/** A transform that only moves, by `by`, about `pivot`: what a nudge of the arrow keys makes. */
+export function moveBy(pivot: CanvasVec, by: CanvasVec): CanvasTransform {
+  return { ...stillAbout(pivot), move: by };
 }

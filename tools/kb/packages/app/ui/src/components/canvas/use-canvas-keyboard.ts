@@ -2,7 +2,14 @@ import { useEffect } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
 import type { CanvasDoc, CanvasEdge, CanvasNode, CanvasProjectionKind } from "@kb/canvas";
-import { parseCanvasDoc, upsertCanvasEdge, upsertCanvasNode } from "@kb/canvas";
+import {
+  moveBy,
+  parseCanvasDoc,
+  selectionPivot,
+  transformItems,
+  upsertCanvasEdge,
+  upsertCanvasNode,
+} from "@kb/canvas";
 import {
   type CanvasSelection,
   EMPTY_SELECTION,
@@ -138,15 +145,11 @@ function escapeCanvas(context: CanvasKeyboardContext) {
   context.setItemInspectorAnchor(null);
 }
 
+/** A nudge is a move of the selection, the one transform every other move is. */
 function nudgeSelection(context: CanvasKeyboardContext, dx: number, dy: number) {
-  let nextDoc = context.docRef.current;
-  for (const nodeId of context.selRef.current.nodeIds) {
-    const node = context.byId.get(nodeId);
-    if (node) {
-      nextDoc = upsertCanvasNode(nextDoc, { ...node, x: node.x + dx, y: node.y + dy });
-    }
-  }
-  context.schedulePersist(nextDoc);
+  const items = [...context.selRef.current.nodeIds].flatMap((id) => context.byId.get(id) ?? []);
+  const t = moveBy(selectionPivot(items), { x: dx, y: dy, z: 0 });
+  context.schedulePersist(transformItems(context.docRef.current, items, t));
 }
 
 function chooseTool(context: CanvasKeyboardContext, tool: CanvasToolPick) {

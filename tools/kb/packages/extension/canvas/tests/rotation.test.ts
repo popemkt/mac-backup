@@ -25,6 +25,8 @@ import {
   stringifyCanvasDoc,
   topView,
   transformItem,
+  transformItems,
+  moveBy,
   turnAbout,
   withRotation,
   type CanvasMatrix,
@@ -238,6 +240,27 @@ describe("transforming items about a pivot", () => {
     expect([grown.x, grown.width, grown.height, grown.depth, grown.z]).toEqual([
       -50, 200, 60, 20, 10,
     ]);
+  });
+
+  test("a set of items moves in one pass, from the records given, and nothing else", () => {
+    const other: CanvasNode = { ...block, id: "o", x: 200, rotation: { z: 30 } };
+    const still: CanvasNode = { ...block, id: "s", x: 400 };
+    const doc = { nodes: [block, other, still], edges: [] };
+    // From where they began, whatever the document shows now: a preview reads them again.
+    const shown = { ...doc, nodes: [{ ...block, x: 999 }, other, still] };
+    const moved = transformItems(
+      shown,
+      [block, other],
+      moveBy({ x: 0, y: 0, z: 0 }, { x: 5, y: -2, z: 0 }),
+    );
+    expect(moved.nodes.map((n) => [n.id, n.x, n.y])).toEqual([
+      ["b", 5, -2],
+      ["o", 205, -2],
+      ["s", 400, 0],
+    ]);
+    expect(moved.nodes[1]?.rotation).toEqual({ z: 30 });
+    expect(moved.nodes[2]).toBe(still);
+    expect(transformItems(doc, [], moveBy({ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }))).toBe(doc);
   });
 
   test("the pivot is the centre of the box bounding every item", () => {

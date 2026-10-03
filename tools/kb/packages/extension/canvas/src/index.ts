@@ -34,7 +34,7 @@ export {
   turnAbout,
 } from "./rotation.ts";
 export type { CanvasMatrix, CanvasRotation } from "./rotation.ts";
-export { selectionPivot, stillAbout, transformItem } from "./transform.ts";
+export { moveBy, selectionPivot, stillAbout, transformItem, transformItems } from "./transform.ts";
 export type { CanvasTransform } from "./transform.ts";
 export {
   boxCorners,
