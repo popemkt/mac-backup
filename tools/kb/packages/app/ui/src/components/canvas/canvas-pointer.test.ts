@@ -318,3 +318,124 @@ describe("stacking", () => {
     expect(off.doc?.nodes.find((n) => n.id === moving.id)).not.toHaveProperty("z");
   });
 });
+
+describe("turning", () => {
+  /** A press on `moving`'s rotate handle, above its centre (50, 30), then a drag to `world`. */
+  function turnTo(world: { x: number; y: number }, free = false) {
+    const started = reduce(createPointerState(), {
+      type: "turn/start",
+      id: moving.id,
+      screen: { x: 50, y: -10 },
+      world: { x: 50, y: -10 },
+    });
+    return reduce(started.state, {
+      type: "pointer/move",
+      screen: { x: world.x, y: world.y },
+      world,
+      shiftKey: false,
+      free,
+    });
+  }
+
+  test("the rotate handle turns the item about its centre in 15° steps, previewed then written", () => {
+    // From straight above the centre to 47° clockwise of it: snapped to 45°.
+    const swing = (47 * Math.PI) / 180;
+    const at = { x: 50 + 40 * Math.sin(swing), y: 30 - 40 * Math.cos(swing) };
+    const turned = turnTo(at);
+    expect(turned.persist).toBe("silent");
+    const shown = turned.doc?.nodes.find((n) => n.id === moving.id);
+    expect(shown?.rotation).toEqual({ z: 45 });
+    // Turned about its centre: its footprint box stays where it was.
+    expect([shown?.x, shown?.y]).toEqual([0, 0]);
+    const released = reduce(
+      turned.state,
+      { type: "pointer/end", screen: at, world: at },
+      context(turned.doc),
+    );
+    expect(released.persist).toBe("history");
+    expect(released.doc?.nodes.find((n) => n.id === moving.id)?.rotation).toEqual({ z: 45 });
+  });
+
+  test("holding ⌘ turns it freely", () => {
+    const swing = (47 * Math.PI) / 180;
+    const turned = turnTo({ x: 50 + 40 * Math.sin(swing), y: 30 - 40 * Math.cos(swing) }, true);
+    const z = turned.doc?.nodes.find((n) => n.id === moving.id)?.rotation?.z ?? 0;
+    expect(z).toBeCloseTo(47, 3);
+  });
+
+  test("a handle that reports whole transforms is previewed and written the same way", () => {
+    const started = reduce(createPointerState(), { type: "transform/start" });
+    const lifted = reduce(started.state, {
+      type: "transform/move",
+      transform: {
+        pivot: { x: 50, y: 30, z: 0 },
+        move: { x: 0, y: 0, z: 25 },
+        turn: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        stretch: { axes: [1, 0, 0, 0, 1, 0, 0, 0, 1], by: { x: 1, y: 1, z: 1 } },
+      },
+    });
+    expect(lifted.persist).toBe("silent");
+    expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(25);
+    const released = reduce(
+      lifted.state,
+      { type: "pointer/end", screen: { x: 0, y: 0 }, world: { x: 0, y: 0 } },
+      context(lifted.doc),
+    );
+    expect(released.persist).toBe("history");
+    expect(released.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(25);
+  });
+
+  test("a turned item resizes along its own sides, its far corner held", () => {
+    const spun: CanvasNode = { ...moving, rotation: { z: 90 } };
+    const ctx = context({ nodes: [spun], edges: [] });
+    // Turned a quarter, its own width runs down the page: dragging its east handle down widens it.
+    const started = reduce(
+      createPointerState(),
+      {
+        type: "resize/start",
+        id: spun.id,
+        corner: "se",
+        screen: { x: 0, y: 0 },
+        world: { x: 0, y: 0 },
+      },
+      ctx,
+    );
+    const grown = reduce(
+      started.state,
+      { type: "pointer/move", screen: { x: 0, y: 40 }, world: { x: 0, y: 40 }, shiftKey: false },
+      ctx,
+    );
+    const shown = grown.doc?.nodes.find((n) => n.id === spun.id);
+    expect(shown?.width).toBeCloseTo(140, 6);
+    expect(shown?.height).toBeCloseTo(60, 6);
+    // Its centre moved half the growth along its own width: down the page.
+    expect((shown?.x ?? 0) + (shown?.width ?? 0) / 2).toBeCloseTo(50, 6);
+    expect((shown?.y ?? 0) + (shown?.height ?? 0) / 2).toBeCloseTo(50, 6);
+  });
+
+  test("holding ⌘ moves without snapping to alignments", () => {
+    const started = reduce(createPointerState(), {
+      type: "move/start",
+      id: moving.id,
+      screen: { x: 0, y: 0 },
+      world: { x: 0, y: 0 },
+    });
+    // 3 units shy of lining up with `guide`'s left edge (200).
+    const near = { x: 97, y: 0 };
+    const snapped = reduce(started.state, {
+      type: "pointer/move",
+      screen: near,
+      world: near,
+      shiftKey: false,
+    });
+    expect(snapped.doc?.nodes.find((n) => n.id === moving.id)?.x).toBe(100);
+    const free = reduce(started.state, {
+      type: "pointer/move",
+      screen: near,
+      world: near,
+      shiftKey: false,
+      free: true,
+    });
+    expect(free.doc?.nodes.find((n) => n.id === moving.id)?.x).toBe(97);
+  });
+});

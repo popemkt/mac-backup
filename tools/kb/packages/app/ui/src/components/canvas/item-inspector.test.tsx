@@ -20,6 +20,10 @@ const sticky: CanvasNode = {
   height: 80,
 };
 
+/** The value in the inspector's field labelled `label`. */
+const fieldValue = (label: string) =>
+  document.querySelector<HTMLInputElement>(`input[aria-label='${label}']`)?.value;
+
 /** The inspector's button reading `label`. */
 const button = (label: string) =>
   [...document.querySelectorAll("button")].find((b) => b.textContent === label);
@@ -77,6 +81,25 @@ describe("item inspector", () => {
     act(() => button("Flatten")?.click());
     expect(changes.at(-1)).not.toHaveProperty("depth");
     expect(changes).toHaveLength(2);
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  test("the rotation row shows each angle the item is turned by, 0 for an absent one", () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() =>
+      root.render(
+        createElement(ItemInspector, {
+          item: { ...sticky, rotation: { x: 10, z: -45 } },
+          anchor: { x: 200, y: 100 },
+          onClose: () => {},
+          onChange: () => {},
+        }),
+      ),
+    );
+    expect([fieldValue("X"), fieldValue("Y"), fieldValue("Z")]).toEqual(["10", "0", "-45"]);
     act(() => root.unmount());
     container.remove();
   });

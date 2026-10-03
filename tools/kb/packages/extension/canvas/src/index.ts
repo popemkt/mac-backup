@@ -2,6 +2,7 @@ export {
   EMPTY_CANVAS_DOC,
   canvasDepth,
   canvasElevation,
+  canvasRotation,
   canvasTop,
   isGroupNode,
   isKbNode,
@@ -17,26 +18,47 @@ export {
   withCanvasCamera,
   withDepth,
   withElevation,
+  withRotation,
 } from "./doc.ts";
+export {
+  IDENTITY,
+  NO_ROTATION,
+  apply,
+  axisAngleOf,
+  isUnrotated,
+  multiply,
+  normalizeDegrees,
+  rotationMatrix,
+  rotationOfMatrix,
+  transpose,
+  turnAbout,
+} from "./rotation.ts";
+export type { CanvasMatrix, CanvasRotation } from "./rotation.ts";
+export { selectionPivot, stillAbout, transformItem } from "./transform.ts";
+export type { CanvasTransform } from "./transform.ts";
 export {
   boxCorners,
   boxFrame,
+  boxRotation,
   boxToLocal,
   boxToWorld,
   boxTop,
   directionToLocal,
   directionToWorld,
+  planeCorners,
 } from "./box.ts";
 export type { CanvasBox, CanvasFrame, CanvasVec } from "./box.ts";
 export { cameraLookingFrom, posesAgree, projectionOf } from "./camera.ts";
 export { CANVAS_SOLID_PRESETS, presetItem } from "./presets.ts";
 export {
   CANVAS_SHAPES,
+  faceShare,
   itemShape,
   onFootprint,
   outlinePoints,
   shapeOutline,
   svgPathData,
+  topView,
   tracePath,
 } from "./shapes.ts";
 export type { CanvasFootprint, CanvasPathSink, CanvasVolume } from "./shapes.ts";

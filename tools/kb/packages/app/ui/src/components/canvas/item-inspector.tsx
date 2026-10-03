@@ -3,12 +3,14 @@ import { createPortal } from "react-dom";
 import {
   canvasDepth,
   canvasElevation,
+  canvasRotation,
   isGroupNode,
   isKbNode,
   isShapeNode,
   isTextNode,
   withDepth,
   withElevation,
+  withRotation,
   type CanvasNode,
 } from "@kb/canvas";
 import { cn, hasText, isOutside, PopoverShell } from "@/sdk";
@@ -66,31 +68,43 @@ function ColorRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChang
 }
 
 /**
- * A length in canvas units, committed on Enter or blur as one change (one
+ * How a field reads its number: a length in whole canvas units, stepped by
+ * ten; an angle in degrees to a tenth, stepped by the 15° a turn snaps to.
+ */
+const FIELD_UNITS = {
+  length: { step: 10, round: (v: number) => Math.round(v) },
+  angle: { step: 15, round: (v: number) => Math.round(v * 10) / 10 },
+} as const;
+
+/**
+ * A number in its unit, committed on Enter or blur as one change (one
  * history step), never per keystroke; Escape puts the value back.
  */
-function LengthField({
+function NumberField({
   label,
   hint,
   value,
+  unit,
   min,
   onCommit,
 }: {
   label: string;
   hint: string;
   value: number;
+  unit: keyof typeof FIELD_UNITS;
   min?: number;
   onCommit: (value: number) => void;
 }) {
   // A new value from outside remounts the field (its `key`), so the draft starts from it.
   const [draft, setDraft] = useState(String(value));
+  const { step, round } = FIELD_UNITS[unit];
   const commit = () => {
     const next = Number(draft);
     if (draft.trim() === "" || !Number.isFinite(next)) {
       setDraft(String(value));
       return;
     }
-    const clamped = Math.round(min === undefined ? next : Math.max(min, next));
+    const clamped = round(min === undefined ? next : Math.max(min, next));
     if (clamped !== value) onCommit(clamped);
     else setDraft(String(value));
   };
@@ -99,8 +113,8 @@ function LengthField({
       <span className="text-label text-foreground/45">{label}</span>
       <input
         type="number"
-        inputMode="numeric"
-        step={10}
+        inputMode="decimal"
+        step={step}
         min={min}
         aria-label={label}
         className="h-7 w-full rounded-md border border-foreground/10 bg-background px-2 text-ui text-foreground/85 tabular-nums outline-none focus:border-primary/50"
@@ -139,21 +153,55 @@ function HeightRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChan
         </button>
       </div>
       <div className="flex gap-2">
-        <LengthField
+        <NumberField
           key={`lift:${canvasElevation(item)}`}
           label="Lift"
           hint="How high its base stands off the floor"
           value={canvasElevation(item)}
+          unit="length"
           onCommit={(z) => onChange(withElevation(item, z))}
         />
-        <LengthField
+        <NumberField
           key={`depth:${depth}`}
           label="Depth"
           hint="How far it rises from its base; 0 is flat"
           value={depth}
+          unit="length"
           min={0}
           onCommit={(d) => onChange(withDepth(item, d))}
         />
+      </div>
+    </div>
+  );
+}
+
+/** What each rotation field turns the item about. */
+const TURN_HINTS = {
+  x: "Degrees about its own width axis, applied first",
+  y: "Degrees about its depth-wise axis, applied second",
+  z: "Degrees about the vertical, applied last; clockwise from the top",
+} as const;
+
+/**
+ * How the item is turned about its centre: degrees about x, then y, then z
+ * (Blender's XYZ Euler), each committed as one change.
+ */
+function RotationRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChange">) {
+  const rotation = canvasRotation(item);
+  return (
+    <div className="flex flex-col gap-1.5 px-1.5 pb-1.5">
+      <span className="text-meta text-foreground/50">Rotation</span>
+      <div className="flex gap-2">
+        {(["x", "y", "z"] as const).map((axis) => (
+          <NumberField
+            key={`turn:${axis}:${rotation[axis]}`}
+            label={axis.toUpperCase()}
+            hint={TURN_HINTS[axis]}
+            value={rotation[axis]}
+            unit="angle"
+            onCommit={(angle) => onChange(withRotation(item, { ...rotation, [axis]: angle }))}
+          />
+        ))}
       </div>
     </div>
   );
@@ -207,6 +255,7 @@ export function ItemInspector({ item, anchor, onClose, onChange }: ItemInspector
       >
         {isShapeNode(item) && <ColorRow item={item} onChange={onChange} />}
         <HeightRow item={item} onChange={onChange} />
+        <RotationRow item={item} onChange={onChange} />
       </PopoverShell>
     </div>,
     document.body,

@@ -69,11 +69,11 @@ interface CanvasSceneInspection {
    */
   drawnOf(id: string): { z: number; corners: { x: number; y: number }[] } | null;
   /**
-   * The mesh item `id` is drawn as, placed in three's world (canvas y
+   * The meshes item `id` is drawn as, placed in three's world (canvas y
    * flipped): what a probe asks the depth buffer's question of — which drawn
    * surface a ray meets first.
    */
-  bodyOf(id: string): Object3D | null;
+  bodiesOf(id: string): readonly Object3D[];
 }
 
 export interface CanvasScene extends SceneHandle {
@@ -273,7 +273,7 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
         if (corners.some((corner) => corner === null)) return null;
         return { z: drawn.z, corners: corners.filter((corner) => corner !== null) };
       },
-      bodyOf: (id) => cards.bodyOf(id),
+      bodiesOf: (id) => cards.bodiesOf(id),
     }),
   };
 

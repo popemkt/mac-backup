@@ -169,6 +169,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setToolSticky,
     startMoveForSelection,
     startResize,
+    startRotate,
     viewportControls,
   } = useCanvasGestures({
     placementPoint: projection.placementPoint,
@@ -291,6 +292,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             }}
             onCardChange={(card) => schedulePersist(upsertCanvasNode(docRef.current, card))}
             onResizeStart={startResize}
+            onRotateStart={startRotate}
             onPortDown={(cardId, side, screen) => {
               dispatchPointer({
                 type: "edge/start",

@@ -1030,7 +1030,10 @@ manipulation feel professional rather than merely functional.
 - **Direct-manipulation invariants.** A 4px pointer slop (`POINTER_SLOP` in
   `lib/pointer-slop.ts`, the one slop the scene kit's taps and a graph node's
   drag use too) kills hair-trigger moves, pointer capture on card drags and resize handles survives a fast drag,
-  four corner resize handles clamp at 80×40 (`Shift` locks aspect ratio), and
+  four corner resize handles clamp at 80×40 (`Shift` locks aspect ratio) and
+  resize a turned card along its own sides, tldraw's rotate handle on a
+  stem above a selected card turns the selection about its centre
+  (`turn/start`, a transform drag in the pointer reducer), and
   arrow keys nudge 1px / 10px with `Shift`.
 - **Snap guides and fit.** Alignment snapping is magnetic within 5px
   (`SNAP_TOL`, `components/canvas/canvas-snap.ts`), one rule on all three axes: a move
@@ -1040,7 +1043,9 @@ manipulation feel professional rather than merely functional.
   carried across the floor stands on the top of the highest solid its
   centre comes over (its footprint, not its box), and one taken off a pile
   comes down to the floor; an item raised off every solid keeps its
-  height. `Shift+1` zoom-to-fit frames the
+  height. It owns **angle snap** too: a turn, from any handle, goes in 15°
+  steps about its own axis (`snapTurn`). Holding ⌘ suspends every snap.
+  `Shift+1` zoom-to-fit frames the
   bounding box with 40px padding. Zoom range is 0.1–3.0 (`MIN_ZOOM`/`MAX_ZOOM`).
 - **Sticky tools.** `components/canvas/canvas-tool.ts` is a pure reducer: picking a tool is
   one-shot (it returns to `select` after placing), double-clicking the tool icon
@@ -1063,9 +1068,10 @@ manipulation feel professional rather than merely functional.
   (`z + depth`), then in document order, and the two buttons reorder the
   document (`paintOrder`, DESIGN.md → Canvas documents).
 - **The item inspector** (`item-inspector.tsx`) shows the rows that apply to
-  the item: a shape's colour, and every item's height — Lift (`z`) and Depth,
-  each committed as one change, with Extrude (a sticky becomes a block, a
-  rectangle a box) and Flatten. A shape opens it where it is pressed, in
+  the item: a shape's colour, every item's height — Lift (`z`) and Depth,
+  with Extrude (a sticky becomes a block, a rectangle a box) and Flatten —
+  and its Rotation, degrees about X, Y and Z in that order, each field
+  committed as one change. A shape opens it where it is pressed, in
   either projection; Inspect opens it for any item. It is a canvas widget,
   not kb's node inspector, until items are nodes (plan 2026-10-02, step 7b).
 
@@ -1080,7 +1086,9 @@ orthographic. The DOM canvas is that camera from the top and orthographic,
 which is exactly its CSS `translate(pan) scale(zoom)`; `viewOfPan` and `panOfView`
 are the bridge, and zoom-to-fit, client-to-canvas conversion and the edge
 drop target (`hitTest`: the nearest item the ray enters, each item a box on
-its footprint filled exactly by the volume its shape names — a prism of
+its footprint, turned about its centre by its `rotation` (the ray is read
+in the box's own frame, `boxFrame` in `@kb/canvas` `box.ts`), filled
+exactly by the volume its shape names — a prism of
 the footprint, an ellipsoid or a cone, and a flat item its footprint on its
 plane; a rectangle's rounded corners are a look and are picked square;
 `paintPlanes`: its base raised a hair per earlier item whose top is at the
@@ -1111,15 +1119,17 @@ open view of that canvas.
 - **One contract.** `canvas-projection.contract.test.tsx` runs one suite over
   every registered projection: each draws every item once in paint order and
   every edge whose ends exist, marks exactly the shared selection, draws
-  every item's footprint box where the camera model projects it on its
-  paint plane, draws on top at a point what `hitTest` finds there (in the
-  DOM the topmost card whose footprint clip path covers it; in the scene
-  the first drawn surface a ray meets, asked of the real meshes), proves
-  **footprint parity** over a grid across every item's box (what 2D draws
-  and hit-tests is each solid's top view), and draws a moved card where it
-  moved — from a desk tilt, an oblique orbit, low across the floor from the
-  far side and through the orthographic lens, with raised, sunk and
-  same-height overlapping cards, every solid shape and a flat ellipse. The 3D scene also joins the scene
+  every item's face (the plane `faceShare` names, turned with the item)
+  where the camera model projects it over its paint plane, draws on top at
+  a point what `hitTest` finds there (in the DOM the topmost card whose
+  body or face covers it, the face read back through its CSS transform; in
+  the scene the first drawn surface a ray meets, asked of the real meshes),
+  proves **footprint parity** over a grid across every item's box (what 2D
+  draws and hits is each item's top view), and draws a moved and turned
+  card where it went — from a desk tilt, an oblique orbit, low across the
+  floor from the far side and through the orthographic lens, with raised,
+  sunk and same-height overlapping cards, every solid shape, a flat
+  ellipse, and turned items: flat and solid, spun about z and tilted. The 3D scene also joins the scene
   contract, whose disposal check covers every geometry and material a scene
   drew with.
 - **One camera in motion.** `components/canvas/canvas-camera-rig.ts` holds the view the 3D
@@ -1164,7 +1174,20 @@ open view of that canvas.
   tinted by its colour on its body; every item draws its edges as a diagram
   does. In 2D a shape's footprint is what the pointer hits (its clip path),
   a solid's top view is marked (a lit dome, a cone's point), and anything
-  standing off the floor casts its footprint as a soft shadow.
+  standing off the floor casts its top view as a soft shadow.
+- **A turned item** is turned in both projections by the one rotation
+  matrix (`@kb/canvas` `rotation.ts`: degrees about x, then y, then z,
+  Blender's XYZ Euler). The scene sets each mesh's turn from it, canvas y
+  flipped. The DOM lays a turned item's face on its footprint box under a
+  `matrix3d` of that matrix, carried to the plane its face lies on (a
+  prism's top, an ellipsoid's equator, a cone's base: `faceShare`); CSS's
+  axes are the top view's, and with no perspective on the stage the browser
+  flattens the face straight down, so it paints and hit-tests the face's
+  exact top view. Under its face a solid draws its body as its top view
+  (`topView`: the silhouette of everything it fills, the convex hull of
+  its volume), which a tilted solid shows round its face and the pointer
+  takes it by. Side anchors and their outward directions turn with the
+  item (`sideAnchor`), and the marquee and framing read its turned box.
 - **Cards stay cards.** Each card's face is painted into a canvas texture as
   it looks in 2D (`canvas-card-face.ts`): its text in the UI face at the body
   step, its bullet and tag chips, its shape and preset colour, the selection
@@ -1211,7 +1234,7 @@ card face; billboards are plan step 7), and a flat item seen exactly level
 (the front and side presets), which is a hairline on its plane
 (`GAP [[01M41AB7YM5801ZJNM1Q647SYD]]`). From the top, a cone or a sphere paints by
 the height of its point, so a raised card floating over its rim is drawn
-under it there. Holding ⌘ does not yet suspend snapping.
+under it there.
 
 ### Cross-surface polish (i5)
 

@@ -57,6 +57,7 @@ describe("ShapeCard label edit wiring", () => {
           onLabelChange={onLabelChange}
           onMoveStart={() => {}}
           onResizeStart={() => {}}
+          onRotateStart={() => {}}
           onPortDown={() => {}}
         />,
       );

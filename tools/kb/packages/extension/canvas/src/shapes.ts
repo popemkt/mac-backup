@@ -9,15 +9,17 @@
  * The 3D mesh builders are keyed by the same kinds, so a shape with no mesh
  * does not type-check.
  *
- * What 2D draws and hit-tests is exactly the top view of the volume: a flat
- * item is its footprint, and a solid's footprint is its volume seen from
- * above. The projection contract proves both projections against it.
+ * What 2D draws and hit-tests is exactly the top view of the volume
+ * ({@link topView}): a flat item is its footprint, and a solid is its volume
+ * seen from above, however it is turned. The projection contract proves
+ * both projections against it.
  *
  * An outline is path data in the item's own box, `w` × `h` with its origin
  * at the top left and y down, as the top view shows it: moves, lines, cubic
  * curves and a close, the subset an SVG path, a canvas 2D context and a three
  * `Shape` all speak.
  */
+import { boxFrame, boxToWorld, type CanvasBox, type CanvasVec } from "./box.ts";
 import { isShapeNode, type CanvasNode, type CanvasShapeKind } from "./doc.ts";
 
 /** One step of an outline: move, line, cubic curve (two controls, then the point), close. */
@@ -54,6 +56,23 @@ export const CANVAS_SHAPES: { readonly [K in CanvasShapeKind]: CanvasShapeSpec }
 /** The shape that fills an item's box: a shape item's own, a card's rectangle for any other. */
 export function itemShape(item: CanvasNode): CanvasShapeKind {
   return isShapeNode(item) ? item.shape : "rect";
+}
+
+/**
+ * Where on a volume its face lies, as a share of the way up its box: the
+ * section of it the top view shows as its footprint, which an unturned item
+ * draws its card on. A prism wears its card on its top; an ellipsoid's
+ * widest section is its equator; a cone's is its base.
+ */
+const VOLUME_FACE: { readonly [V in CanvasVolume]: number } = {
+  prism: 1,
+  ellipsoid: 0.5,
+  cone: 0,
+};
+
+/** How far up its box an item's face lies (0 its base, 1 its top; a flat item is all one plane). */
+export function faceShare(item: CanvasNode): number {
+  return VOLUME_FACE[CANVAS_SHAPES[itemShape(item)].volume];
 }
 
 /**
@@ -199,6 +218,82 @@ export function outlinePoints(commands: readonly CanvasPathCommand[]): [number, 
   const sink = new PointSink();
   tracePath(sink, commands);
   return sink.points;
+}
+
+/** How many points go round each ring of an ellipsoid's top-view sampling, and how many rings. */
+const ROUND_SEGMENTS = 64;
+const ROUND_RINGS = 16;
+
+/** The points round an ellipse filling the box's footprint, at height `z` in its frame. */
+function ellipseRing(half: CanvasVec, z: number, scale = 1): CanvasVec[] {
+  return Array.from({ length: ROUND_SEGMENTS }, (_, i) => {
+    const a = (i / ROUND_SEGMENTS) * Math.PI * 2;
+    return { x: Math.cos(a) * half.x * scale, y: Math.sin(a) * half.y * scale, z };
+  });
+}
+
+/** The points a volume's top view is the hull of, in the box's own frame. */
+function volumePoints(shape: CanvasShapeKind, half: CanvasVec, radius: number): CanvasVec[] {
+  const footprint = (z: number) =>
+    outlinePoints(shapeOutline(shape, half.x * 2, half.y * 2, radius)).map(([x, y]) => ({
+      x: x - half.x,
+      y: y - half.y,
+      z,
+    }));
+  if (half.z <= 0) return footprint(0);
+  switch (CANVAS_SHAPES[shape].volume) {
+    case "ellipsoid":
+      return Array.from({ length: ROUND_RINGS + 1 }, (_, k) => {
+        const lat = (k / ROUND_RINGS - 0.5) * Math.PI;
+        return ellipseRing(half, Math.sin(lat) * half.z, Math.cos(lat));
+      }).flat();
+    case "cone":
+      return [...footprint(-half.z), { x: 0, y: 0, z: half.z }];
+    case "prism":
+    default:
+      return [...footprint(-half.z), ...footprint(half.z)];
+  }
+}
+
+type Point2 = readonly [number, number];
+
+/** Which way `o → a → b` turns: positive anticlockwise (in y-up terms), 0 straight on. */
+const cross = (o: Point2, a: Point2, b: Point2) =>
+  (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+
+/** The convex hull of `points` (Andrew's monotone chain), in order round it. */
+function hull(points: readonly Point2[]): [number, number][] {
+  const sorted = points.toSorted((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (sorted.length < 3) return sorted.map(([x, y]) => [x, y]);
+  const chain = (run: readonly Point2[]) => {
+    const out: Point2[] = [];
+    for (const p of run) {
+      while (out.length >= 2 && cross(out.at(-2) ?? p, out.at(-1) ?? p, p) <= 0) out.pop();
+      out.push(p);
+    }
+    return out.slice(0, -1);
+  };
+  return [...chain(sorted), ...chain(sorted.toReversed())].map(([x, y]) => [x, y]);
+}
+
+/**
+ * An item's top view: the outline of everything it fills, seen from
+ * straight above, as a polygon in canvas units (x, y) — its footprint for an
+ * unturned item, and for a turned one its volume's silhouette (the convex
+ * hull of the volume, every footprint being convex). Round parts are
+ * sampled finely; a rectangle's corners are rounded by `radius`.
+ */
+export function topView(
+  item: CanvasBox & { readonly shape?: CanvasShapeKind },
+  radius: number,
+  base = item.z ?? 0,
+): [number, number][] {
+  const frame = boxFrame(item, base);
+  const points = volumePoints(item.shape ?? "rect", frame.half, radius).map((local) => {
+    const p = boxToWorld(frame, local);
+    return [p.x, p.y] as const;
+  });
+  return hull(points);
 }
 
 /** Trace `commands` into `sink`, each point mapped through `at` (identity by default). */

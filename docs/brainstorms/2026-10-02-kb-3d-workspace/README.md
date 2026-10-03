@@ -118,6 +118,36 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
      `arrow` waits for step 9, whose A tool makes it. In code, `z` is
      named the elevation (`canvasElevation`), so `depth` means only the
      extent.
+   - Built in step 4: `rotation`, with four choices made in the doing.
+     - **The order is Blender's XYZ Euler**: about x, then y, then z, each
+       about the canvas's fixed axes, so the matrix is `Rz · Ry · Rx`
+       (`@kb/canvas` `rotation.ts`, the only place that states it). A turn
+       about z then always spins an item about the vertical, so the 2D
+       rotate handle only changes `rotation.z`.
+     - **Angles are right-handed in canvas coordinates.** Because y runs
+       down the page, a positive `z` turns clockwise from the top, the same
+       sense as CSS `rotate` and tldraw. Blender's top view turns the other
+       way only because its y runs up.
+     - **The record is written sparsely**: `{ x?, y?, z? }`, an absent angle
+       is 0, kb writes only the angles that are not 0 and each within
+       (-180, 180], and an unturned item has no `rotation`. A value kb cannot
+       read stays an unknown field, as `z` and `depth` do.
+     - **Paint order goes by the highest corner** of the turned box, which is
+       `z + depth` for an item turned only about z.
+   - The 2D projection draws a turned item's true top view, so the gap
+     planned below ("2D draws a tilted solid's top face, not its true
+     silhouette") is not minted. Its face is its footprint box under a
+     `matrix3d` of the one rotation matrix, carried to the plane its face
+     lies on (a prism's top, an ellipsoid's equator, a cone's base:
+     `faceShare`). With no perspective, the browser flattens the face
+     straight down, so it paints and hit-tests the face's exact top view.
+     Under the face, a solid draws its body as its silhouette (`topView`,
+     the convex hull of its volume). The contract proves both projections
+     on spun and tilted items, flat and solid.
+   - The wall preset stays a thin box standing on its long edge. Turned to
+     face the front, it would need `z` 90 to stand on the floor, because
+     rotation is about the centre and `z` is the base. Nothing stands on a
+     vertical face yet either. Revisit with step 7's face-on text.
 
 5. **Predefined objects are presets over that one record, not kinds.** A
    `CANVAS_PRESETS` table maps each tool to a partial item. The per-tool
@@ -245,6 +275,14 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
       `depth`, shown as a badge.
     - Every handle feeds the canvas pointer reducer. A preview never writes,
       and a release is one history step and one `tx.apply`.
+    - Built in step 4 (the 2D half): the rotate handle sits on a stem above
+      a selected card's top edge, inside the face, so it turns with it. It
+      turns the whole selection about its bounding box centre. Every handle
+      makes one `CanvasTransform` (a pivot, a move, a turn and a stretch,
+      `@kb/canvas` `transform.ts`), and `transformItem` is the one place
+      that applies it to an item's record. The reducer holds it as one
+      `transform` drag. Resize handles on a turned card resize along its
+      own sides, with the far corner held.
 
 11. **Snapping: one module, three axes.** `lib/canvas-snap.ts` grows from
     x/y alignment into:
@@ -267,6 +305,13 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
     comes down to the floor. In 3D the pointer is read where it visibly
     is, on the top of a solid under it, so dragging onto a solid works
     from any orbit.
+
+    Step 4 built the angle snap and ⌘. A turn from any handle snaps its
+    angle to 15° steps about its own axis (`snapTurn`). The step is
+    relative to where the turn began, as in Blender's increment snap. The
+    item inspector's rotation fields take exact angles. Holding ⌘ now
+    suspends every snap (alignment, surface, lift and angle): each gesture
+    reports `free`, and the reducer asks no snap.
 
 12. **Groups and frames are one concept.** A group is a `group` item, drawn
     as a frame, and its members say so with `parent`.
@@ -397,7 +442,8 @@ selection).
   billboards); rounded rectangle corners are picked square; from the top a
   cone or a sphere paints by its point's height.
 - There is no outliner (until 7b).
-- 2D draws a tilted solid's top face, not its true silhouette.
+- ~~2D draws a tilted solid's top face, not its true silhouette.~~ Not
+  minted: step 4 draws the silhouette (decision 4).
 - A canvas with GLB models is not portable through git alone.
 - `ui.capture` needs an open tab.
 

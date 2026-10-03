@@ -126,7 +126,8 @@ export class SceneGestures {
       if (world === null) return "grabbing";
       g.last = world;
       const screen = { x: press.clientX, y: press.clientY };
-      this.host.dispatch({ type: "pointer/move", screen, world, shiftKey: press.shiftKey });
+      const { shiftKey, metaKey: free } = press;
+      this.host.dispatch({ type: "pointer/move", screen, world, shiftKey, free });
       return "grabbing";
     }
     const dx = press.clientX - g.x;
@@ -154,7 +155,8 @@ export class SceneGestures {
         return;
       }
       const screen = { x: press.clientX, y: press.clientY };
-      this.host.dispatch({ type: "pointer/end", screen, world, shiftKey: press.shiftKey });
+      const { shiftKey, metaKey: free } = press;
+      this.host.dispatch({ type: "pointer/end", screen, world, shiftKey, free });
       return;
     }
     const tap = !pastSlop(press.clientX - g.startX, press.clientY - g.startY);

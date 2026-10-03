@@ -10,8 +10,21 @@
  * - **Surfaces**: an item carried across the floor stands on the top of the
  *   highest solid its centre passes over (`snapToSurface`), which is how
  *   things are put on one another.
+ * - **Angles**: a turn goes in steps of {@link TURN_STEP} (`snapTurn`),
+ *   whichever handle makes it.
+ *
+ * Holding ⌘ suspends every snap: the gesture reports it as `free`, and the
+ * pointer reducer then asks none of these.
  */
-import { canvasDepth, canvasElevation, canvasTop, type CanvasNode } from "@kb/canvas";
+import {
+  axisAngleOf,
+  canvasDepth,
+  canvasElevation,
+  canvasTop,
+  turnAbout,
+  type CanvasNode,
+  type CanvasTransform,
+} from "@kb/canvas";
 import { coversFromAbove } from "./canvas-camera";
 
 /** One of the canvas's axes: x and y across the floor, z up from it. */
@@ -25,6 +38,16 @@ export interface SnapGuide {
 
 /** How near an alignment must be to snap, in screen pixels. */
 const SNAP_TOL = 5;
+
+/** The step a turn snaps to, radians: 15°. */
+const TURN_STEP = Math.PI / 12;
+
+/** `t` with its turn rounded to the nearest whole step about the same axis. */
+export function snapTurn(t: CanvasTransform): CanvasTransform {
+  const { axis, angle } = axisAngleOf(t.turn);
+  const stepped = Math.round(angle / TURN_STEP) * TURN_STEP;
+  return stepped === angle ? t : { ...t, turn: turnAbout(axis, stepped) };
+}
 
 /** Where an item starts along an axis, and how far it reaches. */
 function spanOf(item: CanvasNode, axis: SnapAxis): { start: number; size: number } {
@@ -109,6 +132,9 @@ const centreOf = (item: CanvasNode, dx = 0, dy = 0) => ({
  * solid in `others` whose top view covers it (`coversFromAbove`), or null
  * over open floor.
  */
+// A tilted solid offers its highest corner as its top, and a tilted item
+// stands on a surface by its base, not by its lowest point.
+// GAP [tilted-stacking]
 function surfaceUnder(at: { x: number; y: number }, others: readonly CanvasNode[]): number | null {
   let top: number | null = null;
   for (const other of others) {

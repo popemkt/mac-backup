@@ -1,5 +1,5 @@
 /**
- * An item's box: its frame (centre and half extents), its eight corners,
+ * An item's box: its frame (centre, half extents and turn), its eight corners,
  * its top, and points and directions carried between the canvas and the
  * box's own frame.
  */
@@ -23,6 +23,8 @@ describe("an item's box", () => {
     expect(boxFrame(box)).toEqual({
       centre: { x: 60, y: 50, z: 25 },
       half: { x: 50, y: 30, z: 20 },
+      // Unturned, its own axes are the canvas's.
+      matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
     });
     // A caller may raise the base (paint planes); a flat box is centred on its plane.
     expect(boxFrame(box, 9).centre.z).toBe(29);
@@ -50,13 +52,15 @@ describe("an item's box", () => {
           z: fc.double({ min: -1e3, max: 1e3, noNaN: true }),
         }),
         (p) => {
-          const frame = boxFrame(box);
-          const there = boxToWorld(frame, boxToLocal(frame, p));
-          const turned = directionToWorld(frame, directionToLocal(frame, p));
-          for (const back of [there, turned]) {
-            expect(back.x).toBeCloseTo(p.x, 6);
-            expect(back.y).toBeCloseTo(p.y, 6);
-            expect(back.z).toBeCloseTo(p.z, 6);
+          for (const one of [box, { ...box, rotation: { x: 20, y: -35, z: 70 } }]) {
+            const frame = boxFrame(one);
+            const there = boxToWorld(frame, boxToLocal(frame, p));
+            const turned = directionToWorld(frame, directionToLocal(frame, p));
+            for (const back of [there, turned]) {
+              expect(back.x).toBeCloseTo(p.x, 6);
+              expect(back.y).toBeCloseTo(p.y, 6);
+              expect(back.z).toBeCloseTo(p.z, 6);
+            }
           }
         },
       ),

@@ -3,14 +3,15 @@
  * Spec: https://jsoncanvas.org/spec/1.0/
  *
  * Unknown node types and extra fields round-trip (forward compatible). kb's
- * own extension fields are typed here: `nodeId`, `z` and `depth` on any
- * item, `shape` on a shape item,
+ * own extension fields are typed here: `nodeId`, `z`, `depth` and
+ * `rotation` on any item, `shape` on a shape item,
  * `kbLink` on an edge, and `camera` on the document (`./camera.ts`). The
  * format, as agents write it, is DESIGN.md → Canvas documents.
  */
-import { boxTop } from "./box.ts";
+import { boxRotation, boxTop } from "./box.ts";
 import { emitCanvasCamera, parseCanvasCamera, type CanvasCamera } from "./camera.ts";
 import { dropExtra } from "./extra.ts";
+import { normalizeDegrees, type CanvasRotation } from "./rotation.ts";
 
 export type CanvasSide = "top" | "right" | "bottom" | "left";
 type CanvasEdgeEnd = "none" | "arrow";
@@ -47,6 +48,12 @@ interface CanvasNodeBase {
    * this and nothing else.
    */
   depth?: number;
+  /**
+   * How the item's box is turned about its centre, in degrees about x, then
+   * y, then z (`./rotation.ts` owns the order). An absent angle is 0, and an
+   * unturned item has no `rotation` at all.
+   */
+  rotation?: Partial<CanvasRotation>;
   color?: string;
   /**
    * What the item means: the store node it stands for. Any item may carry
@@ -173,6 +180,7 @@ const KNOWN_NODE_KEYS = new Set([
   "height",
   "z",
   "depth",
+  "rotation",
   "color",
   "text",
   "label",
@@ -189,6 +197,25 @@ type ItemNumber = (typeof ITEM_NUMBERS)[number];
 
 function finite(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+const AXES = ["x", "y", "z"] as const;
+
+/**
+ * A `rotation` as written: an object of angles about x, y and z, each a
+ * finite number or absent. Anything else is a value this version cannot
+ * read, and stays an unknown field.
+ */
+function parseRotation(raw: unknown): Partial<CanvasRotation> | undefined {
+  if (!isRecord(raw)) return undefined;
+  const angles: { x?: number; y?: number; z?: number } = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const axis = AXES.find((a) => a === key);
+    const angle = finite(value);
+    if (axis === undefined || angle === undefined) return undefined;
+    angles[axis] = angle;
+  }
+  return angles;
 }
 const KNOWN_EDGE_KEYS = new Set([
   "id",
@@ -245,17 +272,29 @@ function parseKbLink(raw: unknown): KbLink | undefined {
   };
 }
 
+/**
+ * kb's own optional item fields as written — the numbers and the turn — and
+ * the ones present that this version cannot read, which stay unknown fields.
+ */
+function readItemFields(raw: Record<string, unknown>) {
+  const fields: Partial<Record<ItemNumber, number>> & { rotation?: Partial<CanvasRotation> } = {};
+  const unread = new Set<string>();
+  for (const key of ITEM_NUMBERS) {
+    const value = finite(raw[key]);
+    if (value !== undefined) fields[key] = value;
+    else if (raw[key] !== undefined) unread.add(key);
+  }
+  const rotation = parseRotation(raw.rotation);
+  if (rotation !== undefined) fields.rotation = rotation;
+  else if (raw.rotation !== undefined) unread.add("rotation");
+  return { fields, unread };
+}
+
 function parseNode(raw: unknown): CanvasNode | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.type !== "string") {
     return null;
   }
-  const numbers: Partial<Record<ItemNumber, number>> = {};
-  const unread = new Set<string>();
-  for (const key of ITEM_NUMBERS) {
-    const value = finite(raw[key]);
-    if (value !== undefined) numbers[key] = value;
-    else if (raw[key] !== undefined) unread.add(key);
-  }
+  const { fields, unread } = readItemFields(raw);
   const extra = collectExtra(
     raw,
     unread.size === 0
@@ -269,7 +308,7 @@ function parseNode(raw: unknown): CanvasNode | null {
     y: asNum(raw.y),
     width: asNum(raw.width, 240),
     height: asNum(raw.height, 80),
-    ...numbers,
+    ...fields,
     ...(typeof raw.color === "string" ? { color: raw.color } : {}),
     ...(typeof raw.nodeId === "string" ? { nodeId: raw.nodeId } : {}),
     ...(extra ? { extra } : {}),
@@ -348,6 +387,7 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
     const value = n[key];
     if (value !== undefined) out[key] = value;
   }
+  if (n.rotation !== undefined) out.rotation = { ...n.rotation };
   if (n.color !== undefined) out.color = n.color;
   if (n.nodeId !== undefined) out.nodeId = n.nodeId;
   // `CanvasUnknownNode.type` is `string`, so `type === "text"` does not
@@ -454,6 +494,29 @@ export function withDepth<N extends CanvasNode>(node: N, depth: number): N {
   return withNumber(node, "depth", Math.max(0, depth));
 }
 
+/** How an item is turned, every angle given (0 for an absent one). */
+export function canvasRotation(node: CanvasNode): CanvasRotation {
+  return boxRotation(node);
+}
+
+/**
+ * `node` turned to `rotation`, each angle within (-180, 180]. An angle of 0
+ * is written as no angle, and an unturned item carries no `rotation`, so an
+ * item turned back leaves the document as it was; a turn set here supersedes
+ * one this version could not read.
+ */
+export function withRotation<N extends CanvasNode>(node: N, rotation: CanvasRotation): N {
+  const angles: { x?: number; y?: number; z?: number } = {};
+  for (const axis of AXES) {
+    const angle = normalizeDegrees(rotation[axis]);
+    if (angle !== 0) angles[axis] = angle;
+  }
+  const next = { ...node };
+  if (Object.keys(angles).length === 0) delete next.rotation;
+  else next.rotation = angles;
+  return dropExtra(next, "rotation");
+}
+
 /** The height of an item's top surface: what is stacked on it stands there (`boxTop`). */
 export function canvasTop(node: CanvasNode): number {
   return boxTop(node);
@@ -466,7 +529,8 @@ export function canvasTop(node: CanvasNode): number {
  * the top a higher item covers a lower one.
  */
 // A cone or a sphere is ordered by its point, so from the top a raised card
-// over its low rim paints under it there.
+// over its low rim paints under it there; a tilted item is ordered by its
+// highest corner, so the same holds over its low side.
 // GAP [[01M41GAYYABEV7H197ZPAVD260]]
 export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
   return nodes

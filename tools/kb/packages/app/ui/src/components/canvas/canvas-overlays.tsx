@@ -58,7 +58,7 @@ function SelectionBar({
       {canInspect && (
         <button
           type="button"
-          title="Inspect: colour, lift and depth"
+          title="Inspect: colour, height and rotation"
           aria-label="Inspect"
           className="flex items-center gap-1 rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5"
           onClick={(e) => {

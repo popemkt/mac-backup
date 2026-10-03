@@ -1,7 +1,8 @@
 /**
  * The 3D canvas's items (`canvas-scene`): each one the box its shape fills,
- * built by the mesh builders (`canvas-scene-solids`) and stood on its paint
- * plane (`paintPlanes`). A flat item is its footprint, faced with the card
+ * built by the mesh builders (`canvas-scene-solids`), stood on its paint
+ * plane (`paintPlanes`) and turned about its centre by the item's frame
+ * (`boxFrame`), canvas y flipped into three's as for every point. A flat item is its footprint, faced with the card
  * painted as it looks in 2D (`canvas-card-face`) into a canvas texture, so
  * text stays text; its back is blank card stock. A solid carries that face
  * on its top and the body below it in the rig's matcap finish (shaded
@@ -26,6 +27,7 @@ import {
   FrontSide,
   Group,
   Line2NodeMaterial,
+  Matrix4,
   Mesh,
   MeshBasicNodeMaterial,
   PlaneGeometry,
@@ -44,7 +46,7 @@ import {
   boxFrame,
   boxToWorld,
   canvasDepth,
-  canvasElevation,
+  faceShare,
   itemShape,
   paintOrder,
   shapeOutline,
@@ -76,6 +78,15 @@ const MAX_TEXTURE = 4096;
 const REPAINT_AFTER_MS = 180;
 /** The shadow texture's silhouette, inset this share of its side on each edge. */
 const SHADOW_INSET = 28 / 128;
+/**
+ * A canvas-space matrix (row by row) in three's world, where y is flipped:
+ * `F · m · F`, which negates the entries that mix y with x or z.
+ */
+function flippedRotation(m: readonly number[], out: Matrix4): Matrix4 {
+  const [a = 1, b = 0, c = 0, d = 0, e = 1, f = 0, g = 0, h = 0, i = 1] = m;
+  return out.set(a, -b, c, 0, -d, e, -f, 0, g, -h, i, 0, 0, 0, 0, 1);
+}
+
 /** Edge widths, CSS pixels: a hairline at rest, firmer when selected. */
 const EDGE_WIDTH = 1;
 const EDGE_WIDTH_SELECTED = 2;
@@ -256,6 +267,8 @@ export class ItemLayer {
   private look: CardLook;
   private dark: boolean;
   private readonly stale = new Set<Item>();
+  /** Scratch for an item's turn in three's world. */
+  private readonly turn = new Matrix4();
   private repaint: ReturnType<typeof setTimeout> | null = null;
   private readonly wake: () => void;
   order: readonly string[] = [];
@@ -312,27 +325,36 @@ export class ItemLayer {
     if (this.stale.size > 0) this.repaintSoon();
   }
 
-  /** The canvas-space height item `id` stands at, and its footprint's corners in the world. */
+  /**
+   * The canvas-space height item `id`'s base stands at, and its face's
+   * corners in the world (the plane `faceShare` names, read through the
+   * mesh's own placement).
+   */
   drawn(id: string): { z: number; corners: Vector3[] } | null {
     const entry = this.items.get(id);
     if (entry === undefined) return null;
     entry.group.updateMatrixWorld(true);
-    const { width, height } = entry.item;
+    const { item } = entry;
+    const { width, height } = item;
+    const face = faceShare(item) * canvasDepth(item);
     const corners = [
       [-width / 2, height / 2],
       [width / 2, height / 2],
       [width / 2, -height / 2],
       [-width / 2, -height / 2],
-    ].map(([x = 0, y = 0]) => entry.group.localToWorld(new Vector3(x, y, 0)));
+    ].map(([x = 0, y = 0]) => entry.group.localToWorld(new Vector3(x, y, face)));
     return { z: entry.group.position.z, corners };
   }
 
-  /** The mesh item `id` is drawn as, in the world: what a ray through the screen meets. */
-  bodyOf(id: string): Object3D | null {
+  /**
+   * The meshes item `id` is drawn as, in the world: what a ray through the
+   * screen meets — its body, and a flat item's blank back, seen from behind.
+   */
+  bodiesOf(id: string): readonly Object3D[] {
     const entry = this.items.get(id);
-    if (entry === undefined) return null;
+    if (entry === undefined) return [];
     entry.group.updateMatrixWorld(true);
-    return entry.body;
+    return entry.back.visible ? [entry.body, entry.back] : [entry.body];
   }
 
   dispose(): void {
@@ -493,6 +515,7 @@ export class ItemLayer {
     const frame = boxFrame(item, z);
     const origin = boxToWorld(frame, { x: 0, y: 0, z: -frame.half.z });
     entry.group.position.set(origin.x, -origin.y, origin.z);
+    entry.group.quaternion.setFromRotationMatrix(flippedRotation(frame.matrix, this.turn));
     const tint = colorOf(item, look);
     // The body: the card stock, or its colour laid over it, a little firmer in the dark.
     entry.bodyMaterial.color.set(
@@ -511,18 +534,38 @@ export class ItemLayer {
     );
     entry.edgeMaterial.linewidth = selected ? EDGE_WIDTH_SELECTED : EDGE_WIDTH;
     entry.edges.visible = selected || !entry.edgesWhenSelected;
-    // A raised item or a solid casts its footprint on the floor below: larger and fainter the higher.
-    const lift = Math.max(0, canvasElevation(item));
+    // A raised item or a solid casts its footprint on the floor below: larger and fainter the
+    // higher; a turned one casts its footprint as seen from above (its own axes, flattened).
+    const lift = Math.max(0, origin.z);
     entry.groundShadow.visible = lift > 0.5 || depth > 0;
     const spread = 1 + Math.min(0.6, lift / 800);
     const reach = (1 / (1 - SHADOW_INSET * 2)) * (depth > 0 ? 1.04 : 0.8) * spread;
-    entry.groundShadow.position.set(cx, -(cy + lift * 0.1 + depth * 0.05), SHADOW_Z);
-    entry.groundShadow.scale.set(item.width * reach, item.height * reach, 1);
+    const [a, b, , d, e] = frame.matrix;
+    const [sx, sy] = [item.width * reach, item.height * reach];
+    entry.groundShadow.matrixAutoUpdate = false;
+    entry.groundShadow.matrix.set(
+      a * sx,
+      -b * sy,
+      0,
+      cx,
+      -d * sx,
+      e * sy,
+      0,
+      -(cy + lift * 0.1 + depth * 0.05),
+      0,
+      0,
+      1,
+      SHADOW_Z,
+      0,
+      0,
+      0,
+      1,
+    );
     entry.shade.value = Math.exp(-lift / 1600) * (depth > 0 ? 0.9 : 1);
     // A selected raised item drops a stem from its base to the floor.
     entry.stem.visible = selected && lift > 0.5;
     if (entry.stem.visible) {
-      entry.stem.position.set(cx, -cy, 0);
+      entry.stem.position.set(origin.x, -origin.y, 0);
       const [line, foot] = entry.stem.children;
       if (line !== undefined) line.scale.set(1, 1, lift);
       if (foot !== undefined) foot.position.z = SHADOW_Z * 2;

@@ -6,8 +6,9 @@
  * - it draws every item once, back to front in paint order;
  * - it draws every edge whose two ends exist, and no other;
  * - it marks exactly the shared selection;
- * - every item's footprint box is drawn where the one camera model projects
- *   it on the item's paint plane (`paintPlanes`);
+ * - every item's face is drawn where the one camera model projects it: the
+ *   corners of the plane its face lies on (`faceShare`), turned with the
+ *   item, over its paint plane (`paintPlanes`);
  * - what is drawn on top at a point — in the DOM the topmost card whose
  *   footprint (its clip path, which the browser both paints and hit-tests
  *   by) covers it, in the scene the first drawn surface a ray meets — is
@@ -16,8 +17,9 @@
  *   the floor and through either lens;
  * - footprint parity: over a grid across every item's box, inside its
  *   footprint and in its corners outside it, both of the above agree with
- *   the model, so what 2D draws and hit-tests is each solid's top view;
- * - a card moved in the document is drawn where it moved.
+ *   the model, so what 2D draws and hit-tests is each solid's top view —
+ *   for turned items too, flat and solid, spun about z and tilted;
+ * - a card moved and turned in the document is drawn where it went.
  *
  * The 2D projection is the real DOM stage; the 3D one is the real scene on
  * the GPU stand-ins (`@/test-support/fake-gpu`). A projection joins by its
@@ -29,11 +31,15 @@ import { Window } from "happy-dom";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Raycaster, Vector3, type Object3D } from "three/webgpu";
 import {
-  canvasDepth,
-  canvasElevation,
+  boxFrame,
+  boxToLocal,
+  boxToWorld,
+  directionToLocal,
+  faceShare,
   itemShape,
   onFootprint,
   paintOrder,
+  planeCorners,
   type CanvasDoc,
   type CanvasNode,
   type CanvasProjectionKind,
@@ -106,6 +112,69 @@ const doc: CanvasDoc = {
     { id: "gem", ...solid("diamond"), x: 560, y: 360, width: 120, height: 90, depth: 40 },
     { id: "disc", ...solid("ellipse"), x: 690, y: 260, width: 140, height: 80 },
     { id: "slab", ...solid("rect"), x: -200, y: 120, width: 160, height: 80, z: 100, depth: 12 },
+    // Turned items, apart from the rest: spun about z, and tilted, flat and solid.
+    {
+      id: "spun",
+      type: "text",
+      text: "spun",
+      x: 0,
+      y: 540,
+      width: 160,
+      height: 90,
+      rotation: { z: 30 },
+    },
+    {
+      id: "tipped",
+      type: "text",
+      text: "tipped",
+      x: 230,
+      y: 540,
+      width: 140,
+      height: 80,
+      z: 40,
+      rotation: { x: 50, z: 20 },
+    },
+    {
+      id: "crate",
+      ...solid("rect"),
+      x: 440,
+      y: 540,
+      width: 100,
+      height: 80,
+      depth: 60,
+      rotation: { z: 25 },
+    },
+    {
+      id: "leaning",
+      ...solid("rect"),
+      x: 640,
+      y: 540,
+      width: 110,
+      height: 70,
+      depth: 50,
+      z: 20,
+      rotation: { x: 30, y: -20, z: 15 },
+    },
+    {
+      id: "orb",
+      ...solid("sphere"),
+      x: 840,
+      y: 530,
+      width: 100,
+      height: 80,
+      depth: 90,
+      rotation: { x: 40, y: 25 },
+    },
+    {
+      id: "spire",
+      ...solid("cone"),
+      x: 1020,
+      y: 530,
+      width: 90,
+      height: 90,
+      depth: 120,
+      rotation: { y: 35, z: 10 },
+    },
   ],
   edges: [
     { id: "e1", fromNode: "low", toNode: "raised", toEnd: "arrow" },
@@ -151,7 +220,7 @@ interface Probe {
   drawn(): string[];
   edges(): string[];
   selected(): string[];
-  /** An item's rectangle corners as drawn, on screen. */
+  /** An item's face corners as drawn, on screen. */
   cornersOf(id: string): { x: number; y: number }[] | null;
   /** The item drawn on top at a screen point. */
   topAt(point: { x: number; y: number }): string | null;
@@ -208,6 +277,63 @@ function footprintOf(el: HTMLElement): { x: number; y: number }[] | null {
   return d === undefined ? null : pathPolygon(d);
 }
 
+/** A solid's body as drawn: its path, as a polygon in canvas units. */
+function bodyOf(el: HTMLElement): { x: number; y: number }[] | null {
+  const d = el.querySelector("[data-body] path")?.getAttribute("d");
+  return d === null || d === undefined ? null : pathPolygon(d);
+}
+
+/**
+ * What a browser does with a face's CSS `transform` and no perspective: the
+ * `matrix3d` (column by column) about the box's centre, flattened onto the
+ * screen — the 2 × 2 that x and y go through, and the shift. No transform
+ * leaves the box where it is laid out.
+ */
+function flattened(el: HTMLElement): {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  e: number;
+  f: number;
+} {
+  const values = /matrix3d\(([^)]*)\)/.exec(el.style.transform)?.[1]?.split(",").map(Number);
+  if (values === undefined) return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+  const at = (i: number) => values[i] ?? Number.NaN;
+  return { a: at(0), b: at(1), c: at(4), d: at(5), e: at(12), f: at(13) };
+}
+
+/** A face as the DOM lays it out: its box in canvas units, and its flattened transform. */
+interface LaidFace {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+  readonly m: ReturnType<typeof flattened>;
+}
+
+/** A point of the face's own box (from its top left), where the browser draws it, canvas units. */
+function drawnAt(f: LaidFace, q: { x: number; y: number }) {
+  const u = q.x - f.w / 2;
+  const v = q.y - f.h / 2;
+  return {
+    x: f.x + f.w / 2 + f.m.a * u + f.m.c * v + f.m.e,
+    y: f.y + f.h / 2 + f.m.b * u + f.m.d * v + f.m.f,
+  };
+}
+
+/** A canvas point in the face's own box, or null where the face is seen edge-on. */
+function onFace(f: LaidFace, p: { x: number; y: number }) {
+  const det = f.m.a * f.m.d - f.m.b * f.m.c;
+  if (Math.abs(det) < 1e-6) return null;
+  const dx = p.x - (f.x + f.w / 2) - f.m.e;
+  const dy = p.y - (f.y + f.h / 2) - f.m.f;
+  return {
+    x: (f.m.d * dx - f.m.c * dy) / det + f.w / 2,
+    y: (f.m.a * dy - f.m.b * dx) / det + f.h / 2,
+  };
+}
+
 const noop = () => {};
 const px = (v: string) => Number.parseFloat(v);
 
@@ -239,6 +365,7 @@ const mount2d: Mount = async (view) => {
           onCardSelect: noop,
           onCardChange: noop,
           onResizeStart: noop,
+          onRotateStart: noop,
           onPortDown: noop,
           onWheel: noop,
           onPointerDownStage: noop,
@@ -253,13 +380,19 @@ const mount2d: Mount = async (view) => {
     );
   render(doc);
   const cards = () => [...container.querySelectorAll<HTMLElement>("[data-card-id]")];
-  const box = (el: HTMLElement) => {
+  /** The face's laid-out box in canvas units, and its transform as the browser flattens it. */
+  const face = (el: HTMLElement): LaidFace | null => {
     const laid = el.style.left === "" ? el.querySelector<HTMLElement>("[style*='left']") : el;
     if (laid === null) return null;
-    const x = px(laid.style.left) * zoom + pan.x;
-    const y = px(laid.style.top) * zoom + pan.y;
-    return { x, y, w: px(laid.style.width) * zoom, h: px(laid.style.height) * zoom };
+    const [x, y, w, h] = [laid.style.left, laid.style.top, laid.style.width, laid.style.height].map(
+      px,
+    ) as [number, number, number, number];
+    return { x, y, w, h, m: flattened(laid) };
   };
+  const toScreen = (p: { x: number; y: number }) => ({
+    x: p.x * zoom + pan.x,
+    y: p.y * zoom + pan.y,
+  });
   return {
     drawn: () => cards().map((el) => el.dataset.cardId ?? ""),
     edges: () =>
@@ -272,27 +405,26 @@ const mount2d: Mount = async (view) => {
       ),
     cornersOf: (id) => {
       const el = cards().find((c) => c.dataset.cardId === id);
-      const b = el === undefined ? null : box(el);
-      if (b === null) return null;
+      const f = el === undefined ? null : face(el);
+      if (f === null) return null;
       return [
-        { x: b.x, y: b.y },
-        { x: b.x + b.w, y: b.y },
-        { x: b.x + b.w, y: b.y + b.h },
-        { x: b.x, y: b.y + b.h },
-      ];
+        { x: 0, y: 0 },
+        { x: f.w, y: 0 },
+        { x: f.w, y: f.h },
+        { x: 0, y: f.h },
+      ].map((q) => toScreen(drawnAt(f, q)));
     },
-    // Positioned siblings in one stacking context: the last one whose footprint covers the point.
+    // Positioned siblings in one stacking context: the last one whose body or face covers the point.
     topAt: (p) =>
       cards().findLast((el) => {
-        const b = box(el);
-        if (b === null || p.x < b.x || p.x > b.x + b.w || p.y < b.y || p.y > b.y + b.h) {
-          return false;
-        }
+        const at = { x: (p.x - pan.x) / zoom, y: (p.y - pan.y) / zoom };
+        const body = bodyOf(el);
+        if (body !== null && inPolygon(at, body)) return true;
+        const f = face(el);
+        const q = f === null ? null : onFace(f, at);
+        if (f === null || q === null || q.x < 0 || q.x > f.w || q.y < 0 || q.y > f.h) return false;
         const footprint = footprintOf(el);
-        return (
-          footprint === null ||
-          inPolygon({ x: (p.x - b.x) / zoom, y: (p.y - b.y) / zoom }, footprint)
-        );
+        return footprint === null || inPolygon(q, footprint);
       })?.dataset.cardId ?? null,
     update: async (next) => {
       render(next);
@@ -338,8 +470,7 @@ const mount3d: Mount = async (view) => {
     topAt: (p) => {
       const bodies = new Map<Object3D, string>();
       for (const id of inspect().items) {
-        const body = inspect().bodyOf(id);
-        if (body !== null) bodies.set(body, id);
+        for (const body of inspect().bodiesOf(id)) bodies.set(body, id);
       }
       const ray = rayThrough(view, p);
       if (ray === null) return null;
@@ -383,27 +514,28 @@ function atRoundedCorner(view: CanvasView, p: { x: number; y: number }): boolean
   const floor = screenToPlane(view, size, p, -400);
   const from = view.fov > 0 ? cameraPose(view, size).eye : screenToPlane(view, size, p, 4000);
   if (floor === null || from === null) return false;
-  const dir = [floor.x - from.x, floor.y - from.y, floor.z - from.z] as const;
-  const origin = [from.x, from.y, from.z] as const;
+  const ray = { x: floor.x - from.x, y: floor.y - from.y, z: floor.z - from.z };
   return paintPlanes(paintOrder(doc.nodes)).some(({ item, z }) => {
     if (itemShape(item) !== "rect") return false;
-    const lo = [item.x, item.y, z];
-    const hi = [item.x + item.width, item.y + item.height, z + canvasDepth(item)];
+    // In the box's own frame it is centred on the origin along its own axes.
+    const frame = boxFrame(item, z);
+    const o = boxToLocal(frame, from);
+    const d = directionToLocal(frame, ray);
+    const origin = [o.x, o.y, o.z] as const;
+    const dir = [d.x, d.y, d.z] as const;
+    const half = [frame.half.x, frame.half.y, frame.half.z] as const;
     let enter = -Infinity;
     let exit = Infinity;
     for (const i of [0, 1, 2] as const) {
-      const d = dir[i];
-      const a = ((lo[i] ?? 0) - origin[i]) / d;
-      const b = ((hi[i] ?? 0) - origin[i]) / d;
+      const a = (-half[i] - origin[i]) / dir[i];
+      const b = (half[i] - origin[i]) / dir[i];
       enter = Math.max(enter, Math.min(a, b));
       exit = Math.min(exit, Math.max(a, b));
     }
     if (enter > exit) return false;
     const x = origin[0] + dir[0] * enter;
     const y = origin[1] + dir[1] * enter;
-    const across = Math.min(x - item.x, item.x + item.width - x);
-    const down = Math.min(y - item.y, item.y + item.height - y);
-    return across < CORNER && down < CORNER;
+    return half[0] - Math.abs(x) < CORNER && half[1] - Math.abs(y) < CORNER;
   });
 }
 
@@ -426,24 +558,15 @@ const footprintSamples = doc.nodes.flatMap((item) => {
           onFootprint(itemShape(item), u, v),
       );
       if (near) return [];
-      return [
-        {
-          x: item.x + ((u + 1) / 2) * item.width,
-          y: item.y + ((v + 1) / 2) * item.height,
-          z: canvasElevation(item) + canvasDepth(item) / 2,
-        },
-      ];
+      // Halfway up the box, in its own frame, turned with it.
+      const frame = boxFrame(item);
+      return [boxToWorld(frame, { x: u * frame.half.x, y: v * frame.half.y, z: 0 })];
     }),
   );
 });
 
-/** An item's rectangle corners on the plane `z`, clockwise from the top left. */
-const cornersOf = (item: CanvasNode, z: number) => [
-  { x: item.x, y: item.y, z },
-  { x: item.x + item.width, y: item.y, z },
-  { x: item.x + item.width, y: item.y + item.height, z },
-  { x: item.x, y: item.y + item.height, z },
-];
+/** An item's face corners over the paint plane `z`, clockwise from the top left. */
+const cornersOf = (item: CanvasNode, z: number) => planeCorners(item, faceShare(item), z);
 
 const centreOf = (item: CanvasNode) => ({
   x: item.x + item.width / 2,
@@ -519,7 +642,7 @@ describe("canvas projection contract", () => {
       probe.dispose();
     });
 
-    it("draws every item's footprint box where the model projects it on its paint plane", async () => {
+    it("draws every item's face where the model projects it, turned, over its paint plane", async () => {
       const probe = await mount(view);
       for (const { item, z } of paintPlanes(paintOrder(doc.nodes))) {
         const drawn = probe.cornersOf(item.id);
@@ -563,9 +686,11 @@ describe("canvas projection contract", () => {
       probe.dispose();
     });
 
-    it("draws a moved card where it moved", async () => {
+    it("draws a moved and turned card where it went", async () => {
       const probe = await mount(view);
-      const moved = doc.nodes.map((n) => (n.id === "sunk" ? { ...n, x: n.x + 120, z: 40 } : n));
+      const moved = doc.nodes.map((n) =>
+        n.id === "sunk" ? { ...n, x: n.x + 120, z: 40, rotation: { x: 20, z: 40 } } : n,
+      );
       await probe.update({ ...doc, nodes: moved });
       const planes = paintPlanes(paintOrder(moved));
       const sunk = planes.find((p) => p.item.id === "sunk");

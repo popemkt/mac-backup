@@ -2,7 +2,7 @@
  * Pure canvas selection helpers — no React deps.
  * Manages a unified selection of nodes + edges with additive/toggle ops.
  */
-import type { CanvasDoc, CanvasNode } from "@kb/canvas";
+import { boxCorners, type CanvasDoc, type CanvasNode } from "@kb/canvas";
 
 export interface CanvasSelection {
   nodeIds: Set<string>;
@@ -51,7 +51,7 @@ export function selectAll(doc: CanvasDoc): CanvasSelection {
   };
 }
 
-/** Select all nodes whose bounding box intersects the given rectangle. */
+/** Select all nodes whose bounding box, as the top view sees it, intersects the given rectangle. */
 export function marqueeSelect(
   nodes: CanvasNode[],
   rect: { x: number; y: number; w: number; h: number },
@@ -62,7 +62,15 @@ export function marqueeSelect(
   const rr = Math.max(rect.x, rect.x + rect.w);
   const rb = Math.max(rect.y, rect.y + rect.h);
   for (const n of nodes) {
-    if (n.x + n.width > rx && n.x < rr && n.y + n.height > ry && n.y < rb) {
+    const corners = boxCorners(n);
+    const xs = corners.map((c) => c.x);
+    const ys = corners.map((c) => c.y);
+    if (
+      Math.max(...xs) > rx &&
+      Math.min(...xs) < rr &&
+      Math.max(...ys) > ry &&
+      Math.min(...ys) < rb
+    ) {
       ids.add(n.id);
     }
   }

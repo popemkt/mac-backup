@@ -1967,7 +1967,8 @@ the UI, the CLI and an agent all send the whole document after their change.
 `@kb/canvas` (`packages/extension/canvas/src/doc.ts`) parses and writes it;
 item types and fields it does not know survive a round trip untouched, and
 so does a known field holding a value it cannot read (a `z` that is not a
-finite number, a `depth` that is not, a `camera` or `pose` of the wrong
+finite number, a `depth` that is not, a `rotation` that is not an object of
+finite angles, a `camera` or `pose` of the wrong
 shape) until kb writes that field itself.
 
 The canvas plane is the floor: x runs to the right and y down the page as
@@ -1980,6 +1981,7 @@ units. kb's extension fields:
 | item     | `shape`  | what fills a `shape` item's box: `rect`, `ellipse`, `diamond`, `sphere` or `cone`. Flat, its outline; with depth, a box, an elliptic cylinder, a diamond prism, an ellipsoid or a cone. Any other item fills its box as a `rect` |
 | item     | `z`      | elevation: the height of the item's base above the floor. Absent is 0, the canvas plane, and 0 is written as absent |
 | item     | `depth`  | how far the item rises from its base. Absent is 0, flat, and 0 is written as absent; extruding sets this and nothing else |
+| item     | `rotation` | `{ x?, y?, z? }`: how the item's box is turned about its centre, in degrees about x, then y, then z, each about the canvas's fixed axes (Blender's XYZ Euler; `@kb/canvas` `rotation.ts` owns the order). Right-handed in canvas coordinates, so with y down the page a positive `z` turns clockwise from the top, as CSS `rotate` does. An absent angle is 0, kb writes only the angles that are not 0 and each within (-180, 180], and an unturned item has no `rotation` |
 | edge     | `kbLink` | the one-shot native bind of a drawn edge ([INSPIRATIONS](INSPIRATIONS.md): edges are drawings)            |
 | document | `camera` | `{ projection: "2d" \| "3d", pose? }`: which projection the canvas opens in, and its last 3D pose; absent is 2D |
 
@@ -1988,14 +1990,15 @@ screen pixels per canvas unit on the plane through it, the turntable orbit
 about it in radians (yaw turns about z; pitch runs from 0, looking straight
 down, to π/2, level with the floor), and the lens as a vertical field of view
 in degrees, 0 orthographic. A pose without `fov` is seen in perspective.
-Every item is a box — its footprint, its `z` and its `depth` — and its shape
+Every item is a box — its footprint, its `z` and its `depth`, turned by its
+`rotation` about its centre — and its shape
 fills it (the shape table, `@kb/canvas` `shapes.ts`). In 3D, `z` is a real
 axis; from the top, items paint by the height of their top surface
-(`z + depth`) and then in document order, which bring-to-front and
-send-to-back rearrange. An agent sets height and volume the way it moves a
-card: it writes `z` and `depth` on the item and applies the document; a
-solid preset (box, pillar, sphere, cone, slab, wall) is nothing but a shape
-item with depth.
+(`z + depth`, a turned item's highest corner) and then in document order,
+which bring-to-front and send-to-back rearrange. An agent sets height,
+volume and turn the way it moves a card: it writes `z`, `depth` and
+`rotation` on the item and applies the document; a solid preset (box,
+pillar, sphere, cone, slab, wall) is nothing but a shape item with depth.
 
 The camera is view state, not content: the undo history leaves it out. It
 sits on the document only until canvases become view nodes, and then moves to

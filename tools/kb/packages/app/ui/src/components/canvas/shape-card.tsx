@@ -29,6 +29,7 @@ interface ShapeCardProps {
   onLabelChange: (label: string) => void;
   onMoveStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent, corner: CanvasCorner) => void;
+  onRotateStart: (e: React.PointerEvent) => void;
   onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
@@ -118,6 +119,7 @@ export function ShapeCard({
   onLabelChange,
   onMoveStart,
   onResizeStart,
+  onRotateStart,
   onPortDown,
 }: ShapeCardProps) {
   const [edit, setEdit] = useState<LabelEditState>(() =>
@@ -218,7 +220,11 @@ export function ShapeCard({
         )}
       </div>
       <CanvasPorts onPortDown={onPortDown} />
-      <CanvasResizeHandles selected={selected} onResizeStart={onResizeStart} />
+      <CanvasResizeHandles
+        selected={selected}
+        onResizeStart={onResizeStart}
+        onRotateStart={onRotateStart}
+      />
     </div>
   );
 }

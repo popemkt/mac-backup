@@ -24,6 +24,7 @@ interface CanvasStageProps {
   onCardSelect: (card: CanvasNode, anchor?: { x: number; y: number }) => void;
   onCardChange: (card: CanvasNode) => void;
   onResizeStart: (cardId: string, corner: ResizeCorner, screen: { x: number; y: number }) => void;
+  onRotateStart: (cardId: string, screen: { x: number; y: number }) => void;
   onPortDown: (cardId: string, side: CanvasSide, screen: { x: number; y: number }) => void;
   onWheel: (event: React.WheelEvent<HTMLDivElement>) => void;
   onPointerDownStage: (event: React.PointerEvent<HTMLDivElement>) => void;
@@ -81,6 +82,7 @@ export function CanvasStage({
   onCardSelect,
   onCardChange,
   onResizeStart,
+  onRotateStart,
   onPortDown,
   onWheel,
   onPointerDownStage,
@@ -164,6 +166,7 @@ export function CanvasStage({
           onCardSelect={onCardSelect}
           onCardChange={onCardChange}
           onResizeStart={onResizeStart}
+          onRotateStart={onRotateStart}
           onPortDown={onPortDown}
           onCardPointerDown={handleCardPointerDown}
         />

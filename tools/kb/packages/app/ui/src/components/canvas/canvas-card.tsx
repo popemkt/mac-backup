@@ -27,6 +27,7 @@ interface KbCardProps {
   onSelect: () => void;
   onMoveStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent, corner: CanvasCorner) => void;
+  onRotateStart: (e: React.PointerEvent) => void;
   onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
@@ -57,6 +58,7 @@ export function KbNodeCard({
   onSelect,
   onMoveStart,
   onResizeStart,
+  onRotateStart,
   onPortDown,
 }: KbCardProps) {
   const node = useNode(card.nodeId);
@@ -145,7 +147,11 @@ export function KbNodeCard({
         }
       />
       <CanvasPorts onPortDown={onPortDown} />
-      <CanvasResizeHandles selected={selected} onResizeStart={onResizeStart} />
+      <CanvasResizeHandles
+        selected={selected}
+        onResizeStart={onResizeStart}
+        onRotateStart={onRotateStart}
+      />
     </div>
   );
 }
@@ -157,6 +163,7 @@ interface TextCardProps {
   onChange: (text: string) => void;
   onMoveStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent, corner: CanvasCorner) => void;
+  onRotateStart: (e: React.PointerEvent) => void;
   onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
@@ -167,6 +174,7 @@ export function TextCard({
   onChange,
   onMoveStart,
   onResizeStart,
+  onRotateStart,
   onPortDown,
 }: TextCardProps) {
   return (
@@ -195,7 +203,11 @@ export function TextCard({
         onPointerDown={(e) => e.stopPropagation()}
       />
       <CanvasPorts onPortDown={onPortDown} />
-      <CanvasResizeHandles selected={selected} onResizeStart={onResizeStart} />
+      <CanvasResizeHandles
+        selected={selected}
+        onResizeStart={onResizeStart}
+        onRotateStart={onRotateStart}
+      />
     </div>
   );
 }

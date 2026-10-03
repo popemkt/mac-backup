@@ -85,6 +85,7 @@ function createPointerEnd(
     const next = context.dispatchPointer({
       type: "pointer/end",
       shiftKey: event.shiftKey,
+      free: event.metaKey,
       screen: { x: event.clientX, y: event.clientY },
       world: screenToWorld(event.clientX, event.clientY, event.currentTarget),
       edgeTargetId: edgeTarget,
@@ -234,7 +235,10 @@ function createCardGestures(
       world: worldAt(screen.x, screen.y),
     });
   };
-  return { startMoveForSelection, startResize };
+  const startRotate = (cardId: string, screen: { x: number; y: number }) => {
+    dispatchPointer({ type: "turn/start", id: cardId, screen, world: worldAt(screen.x, screen.y) });
+  };
+  return { startMoveForSelection, startResize, startRotate };
 }
 
 /**
@@ -306,6 +310,7 @@ function createStageGestures(
       screen: { x: e.clientX, y: e.clientY },
       world: screenToWorld(e.clientX, e.clientY, e.currentTarget),
       shiftKey: e.shiftKey,
+      free: e.metaKey,
     });
   };
 
