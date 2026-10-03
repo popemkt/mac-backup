@@ -399,7 +399,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * No tag on the node either: it is a list, and being the node the sidebar
    * reads is the whole of what it is.
    */
-  const pinnedRoot = mk(SYSTEM_IDS.pinnedRoot, "Pinned");
+  /*
+   * The sidebar's one seeded pin: the approval policies, managed in their
+   * table (below). Every other pin is the person's own.
+   */
+  const pinnedRoot: KbNode = {
+    ...mk(SYSTEM_IDS.pinnedRoot, "Pinned"),
+    children: [SYSTEM_IDS.approvalPoliciesPin],
+  };
 
   /*
    * The Views list: where a view node the UI makes is filed — a saved graph,
@@ -407,7 +414,10 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * here, so a view node filed anywhere else is as much one. User-editable
    * for the Pinned list's reason: every new view writes a child into it.
    */
-  const viewsList = mk(SYSTEM_IDS.viewsList, "Views");
+  const viewsList: KbNode = {
+    ...mk(SYSTEM_IDS.viewsList, "Views"),
+    children: [SYSTEM_IDS.approvalPoliciesView],
+  };
 
   const ontologyTag = mk(SYSTEM_IDS.ontologyTag, "ontology", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
@@ -467,12 +477,31 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { match: "views.migrate", actor: "agent", decision: "ask" },
     ),
   ];
+  /*
+   * Policies are managed in a saved table of every `#approval-policy` node,
+   * pinned in the sidebar; there is no settings page. The table is an
+   * ordinary frame view node over the query node's results, its columns the
+   * three fields, so its sort, widths and filters are edited like any view's.
+   */
+  const approvalPoliciesView = mk(SYSTEM_IDS.approvalPoliciesView, "", {
+    [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("outline.table") }],
+    [SYSTEM_IDS.viewDisplayField]: [
+      { t: "ref", v: SYSTEM_IDS.approvalMatchField },
+      { t: "ref", v: SYSTEM_IDS.approvalActorField },
+      { t: "ref", v: SYSTEM_IDS.approvalDecisionField },
+    ],
+  });
   const approvalPolicies: KbNode = {
     ...mk(SYSTEM_IDS.approvalPolicies, "Approval policies", {
       [SYSTEM_IDS.queryField]: [{ t: "str", v: APPROVAL_POLICIES_QUERY }],
+      [SYSTEM_IDS.viewsField]: [{ t: "ref", v: SYSTEM_IDS.approvalPoliciesView }],
     }),
     children: defaultPolicies.map((policy) => policy.id),
   };
+  // GAP [GAP-SEEDED-NODE-RETURNS]
+  const approvalPoliciesPin = mk(SYSTEM_IDS.approvalPoliciesPin, "", {
+    [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: SYSTEM_IDS.approvalPolicies }],
+  });
 
   return [
     field,
@@ -554,6 +583,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     approvalPolicyTag,
     approvalPolicies,
     ...defaultPolicies,
+    approvalPoliciesView,
+    approvalPoliciesPin,
   ];
 }
 

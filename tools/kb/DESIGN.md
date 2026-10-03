@@ -1580,6 +1580,17 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     `approval.policies` ("Approval policies"): an agent asks before
     `node.delete` and before `views.migrate`. Normal edits need no row,
     because no core write declares approval.
+  - **Policies are managed in a saved table, pinned in the sidebar; there is
+    no settings page.** The query node lists every `#approval-policy` node
+    wherever it is filed, and names a seeded table view node
+    (`view.approval.policies`, filed in the Views list) whose columns are
+    the three fields. The Pinned list's seeded reference
+    (`pin.approval.policies`) puts it in the sidebar. All three are
+    ordinary user-editable nodes, edited like any query, view or pin. A
+    seeded node its owner deletes comes back on the next open, because the
+    seed adds every id it misses (`// GAP [GAP-SEEDED-NODE-RETURNS]` in
+    `seed.ts`): to retire a default policy, set its decision rather than
+    delete it.
   - The policies are read from the session's own graph, once per index
     generation, so a policy written a moment ago decides the next call, and
     the browser's replica decides a local call exactly as the server does.

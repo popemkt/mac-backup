@@ -291,6 +291,14 @@ export const SYSTEM_IDS = {
    * person's to arrange.
    */
   approvalPolicies: "approval.policies",
+  /**
+   * How the policies are managed: a table view node over that query's
+   * results, filed in the Views list and named by the query node, and the
+   * contextual reference that pins the query node in the sidebar. Both
+   * user-editable, as every view node and every pin is.
+   */
+  approvalPoliciesView: "view.approval.policies",
+  approvalPoliciesPin: "pin.approval.policies",
 } as const;
 
 /** Pre-fix id — migrated away by ensureSystemSeed. */

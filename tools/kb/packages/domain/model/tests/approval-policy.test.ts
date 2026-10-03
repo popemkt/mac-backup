@@ -11,6 +11,7 @@ import {
 } from "../src/approval-policy.ts";
 import { SYSTEM_IDS, type KbNode } from "../src/model.ts";
 import { systemSeedNodes } from "../src/seed.ts";
+import { viewOptionId } from "../src/view-node.ts";
 
 const node = (id: string, props: KbNode["props"] = {}): KbNode => ({
   id,
@@ -78,5 +79,22 @@ describe("approval policies", () => {
     // Filed under the query node that lists every policy, and editable.
     expect(byId.get(SYSTEM_IDS.approvalPolicies)?.children).toEqual(policies.map((p) => p.id));
     expect(policies.every((p) => !p.id.startsWith("sys."))).toBe(true);
+  });
+
+  test("the policies are managed in a table view of that query, pinned in the sidebar", () => {
+    const byId = new Map(systemSeedNodes().map((seeded) => [seeded.id, seeded]));
+    const host = byId.get(SYSTEM_IDS.approvalPolicies);
+    expect(host?.props[SYSTEM_IDS.viewsField]).toEqual([
+      { t: "ref", v: SYSTEM_IDS.approvalPoliciesView },
+    ]);
+    const view = byId.get(SYSTEM_IDS.approvalPoliciesView);
+    expect(view?.props[SYSTEM_IDS.viewField]).toEqual([
+      { t: "ref", v: viewOptionId("outline.table") },
+    ]);
+    expect(byId.get(SYSTEM_IDS.viewsList)?.children).toContain(SYSTEM_IDS.approvalPoliciesView);
+    expect(byId.get(SYSTEM_IDS.pinnedRoot)?.children).toEqual([SYSTEM_IDS.approvalPoliciesPin]);
+    expect(byId.get(SYSTEM_IDS.approvalPoliciesPin)?.props[SYSTEM_IDS.refTargetField]).toEqual([
+      { t: "ref", v: SYSTEM_IDS.approvalPolicies },
+    ]);
   });
 });

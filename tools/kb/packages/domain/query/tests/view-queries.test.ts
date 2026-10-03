@@ -66,17 +66,22 @@ describe("view queries", () => {
   });
 
   test("a family lists the view nodes whose view is in it, and sys.f.views may name any view node", () => {
-    // The seed's own graph, All mentions, is one of them.
+    // The seed's own graph, All mentions, is one of them, and its approval
+    // policies table another.
     expect(ids(familyViewNodesQuery("graph.renderer"))).toEqual([
       SYSTEM_IDS.lensAllMentions,
       "v.tree",
     ]);
-    expect(ids(familyViewNodesQuery("outline.frame"))).toEqual(["v.table"]);
+    expect(ids(familyViewNodesQuery("outline.frame"))).toEqual([
+      "v.table",
+      SYSTEM_IDS.approvalPoliciesView,
+    ]);
     expect(ids(VIEW_NODE_TARGET_QUERY)).toEqual([
       SYSTEM_IDS.lensAllMentions,
       "v.nb",
       "v.table",
       "v.tree",
+      SYSTEM_IDS.approvalPoliciesView,
     ]);
   });
 });
