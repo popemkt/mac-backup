@@ -9,8 +9,9 @@ export {
   approvalPolicyNode,
   matchSpecificity,
   stricterDecision,
+  writesApprovalPolicy,
 } from "./approval-policy.ts";
-export type { Actor, ApprovalDecision, ApprovalPolicy } from "./approval-policy.ts";
+export type { Actor, ApprovalDecision, ApprovalPolicy, NodeWrite } from "./approval-policy.ts";
 export { byNodeId, canonicalJson, canonicalJsonl } from "./canonical.ts";
 export {
   DomainError,

@@ -93,6 +93,8 @@ const APPROVAL_ACTION = "ext.gated.stamp";
 const DENIED_ACTION = "ext.gated.blocked";
 /** A plain write that a policy asks an agent about. */
 const ASKED_ACTION = "ext.gated.checked";
+/** One of the seeded default policies. */
+const SEEDED_POLICY = "approval.agent-delete";
 
 /** The one tab connected to the root's `kb ui`, which applies every command it gets. */
 const CONTRACT_TAB = "tab.surface-contract";
@@ -125,14 +127,16 @@ export default [
 /**
  * The root's policies, beside the seeded defaults: a denial for everyone, an
  * ask for an agent, an exact allow that lowers the declared approval of the
- * stamp for the command line only, and a pattern allow for an agent that
- * lowers nothing the stamp declares.
+ * stamp for the command line only, a pattern allow for an agent that lowers
+ * nothing the stamp declares, and an allow of every write to anyone, which a
+ * write to a policy ignores.
  */
 const POLICIES: readonly Omit<ApprovalPolicy, "id">[] = [
   { match: DENIED_ACTION, actor: null, decision: "deny" },
   { match: ASKED_ACTION, actor: "agent", decision: "ask" },
   { match: APPROVAL_ACTION, actor: "cli", decision: "allow" },
   { match: "ext.gated.*", actor: "agent", decision: "allow" },
+  { match: "node.update", actor: null, decision: "allow" },
 ];
 
 /** A policy as a node, written through the invoke core with a person's approval. */
@@ -185,6 +189,8 @@ const CALLS: readonly ActionInvocation[] = [
   { id: APPROVAL_ACTION, input: {} },
   { id: DENIED_ACTION, input: {} },
   { id: ASKED_ACTION, input: {} },
+  // A write to a policy asks whatever the policies say, and writes nothing when refused.
+  { id: "node.update", input: { id: SEEDED_POLICY, text: "agents never ask" } },
   { id: "ui.screen", input: {} },
   { id: "ui.screen", input: { tab: MISSING_TAB } },
   { id: "ui.navigate", input: { route: "/canvas" } },
@@ -312,7 +318,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
           const registry = yield* manifest(root).pipe(Effect.provide(bunFileSystemLayer));
           expect(registry.some((entry) => entry.id === APPROVAL_ACTION)).toBe(true);
           const callable = registry.filter((entry) =>
-            listedOn(surface.wire, resolveApproval(policies, entry, surface.wire.actor).decision),
+            listedOn(
+              surface.wire,
+              resolveApproval(policies, { action: entry, actor: surface.wire.actor }).decision,
+            ),
           );
           const listed = yield* Effect.promise(() => surface.list());
           expect({ name, listed: byId(listed) }).toEqual({ name, listed: byId(callable) });
@@ -422,6 +431,27 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
             // The exact allow is the command line's; an agent's pattern allow lowers nothing.
             declared: agent ? refusal("approval_required", declared) : "ran",
           });
+        }),
+      ),
+  ],
+  [
+    "no surface writes a policy without a person behind the call, whatever the policies say",
+    (set) =>
+      overSurfaces(set, ({ name, surface, via }) =>
+        Effect.gen(function* () {
+          // A policy that would allow every write to anyone: it lowers nothing here.
+          const edit: ActionInvocation = {
+            id: "node.update",
+            input: { id: SEEDED_POLICY, setProps: [] },
+          };
+          const unapproved = yield* via(edit);
+          expect({ name, code: unapproved?.status === "failed" ? unapproved.code : "ran" }).toEqual(
+            { name, code: "approval_required" },
+          );
+          const approved = yield* via({ ...edit, approved: true });
+          // Approved, it runs exactly where the wire carries the approval.
+          const ran = approved?.status === "succeeded";
+          expect({ name, ran }).toEqual({ name, ran: surface.wire.carriesApproval });
         }),
       ),
   ],

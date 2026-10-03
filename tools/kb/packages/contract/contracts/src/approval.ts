@@ -4,13 +4,14 @@ import {
   APPROVAL_DECISIONS,
   matchSpecificity,
   stricterDecision,
+  writesApprovalPolicy,
   type Actor,
   type ApprovalDecision,
   type ApprovalPolicy,
+  type NodeWrite,
 } from "@kb/model";
 import {
   ManifestEntrySchema,
-  failed,
   requiresApproval,
   type ActionInvocation,
   type ActionMode,
@@ -54,15 +55,29 @@ export function declaredDecision(mode: ActionMode): ApprovalDecision {
   return requiresApproval(mode) ? "ask" : "allow";
 }
 
-/** What is decided about one call, and which policy decided it. */
+/**
+ * One call, as the resolver weighs it: the action, who calls, and — once the
+ * handler has worked it out, just before it commits — the nodes it writes.
+ */
+export interface ApprovalCall {
+  readonly action: { readonly id: string; readonly mode: ActionMode };
+  readonly actor: Actor | undefined;
+  readonly writes?: readonly NodeWrite[];
+}
+
+/** What is decided about one call, and what decided it. */
 export interface ApprovalResolution {
   readonly decision: ApprovalDecision;
-  /** The policy that decided, or `null` when no policy matched and the action's mode did. */
-  readonly policy: string | null;
+  /**
+   * The policy that decided (its id), the action's declared mode (`mode`),
+   * or the rule that a policy is written only with a person behind the call
+   * (`policy-write`).
+   */
+  readonly by: { readonly policy: string } | "mode" | "policy-write";
 }
 
 /**
- * The one resolver: what is decided about a call to `action` by `actor`.
+ * The one resolver: what is decided about a call.
  *
  * - A policy applies when its `match` names the action and its actor is the
  *   call's, or it names no actor. A call that names no actor (one made in
@@ -76,12 +91,22 @@ export interface ApprovalResolution {
  *   own id can lower. Its author said every call needs a person; a pattern or
  *   a mode word written for many actions does not unsay it by accident, while
  *   a person who names the action means it.
+ * - A call that writes a policy, or the vocabulary policies are written in,
+ *   asks, whatever the policies say: otherwise a caller could allow itself.
+ *   That is known only from its writes, so the invoke core asks again with
+ *   them just before the commit, and nothing is written when it refuses.
  */
 export function resolveApproval(
   policies: readonly ApprovalPolicy[],
-  action: { readonly id: string; readonly mode: ActionMode },
-  actor: Actor | undefined,
+  call: ApprovalCall,
 ): ApprovalResolution {
+  const ruled = byPolicy(policies, call);
+  if (ruled.decision === "deny" || !(call.writes ?? []).some(writesApprovalPolicy)) return ruled;
+  return { decision: "ask", by: "policy-write" };
+}
+
+function byPolicy(policies: readonly ApprovalPolicy[], call: ApprovalCall): ApprovalResolution {
+  const { action, actor } = call;
   const declared = declaredDecision(action.mode);
   let best: { policy: ApprovalPolicy; rank: readonly number[] } | null = null;
   for (const policy of policies) {
@@ -91,11 +116,11 @@ export function resolveApproval(
     const rank = [...specificity, policy.actor === null ? 0 : 1];
     if (best === null || outranks(rank, policy, best)) best = { policy, rank };
   }
-  if (best === null) return { decision: declared, policy: null };
+  if (best === null) return { decision: declared, by: "mode" };
   const exact = best.policy.match === action.id;
   return {
     decision: exact ? best.policy.decision : stricterDecision(best.policy.decision, declared),
-    policy: best.policy.id,
+    by: { policy: best.policy.id },
   };
 }
 
@@ -123,34 +148,50 @@ export function hasPerson(invocation: ActionInvocation): boolean {
   return invocation.approved === true || invocation.actor === "human";
 }
 
+/** Why a call may not run: the failure it is refused with. */
+export interface ApprovalRefusal {
+  readonly code: "forbidden" | "approval_required";
+  readonly message: string;
+  readonly details?: { readonly policy: string } | { readonly writes: "approval-policy" };
+}
+
 /**
- * The receipt the invoke core refuses a call with, or `null` when it may run:
- * a denied call never runs, and a call that asks runs only with a person
+ * What the invoke core refuses a call with, or `null` when it may run: a
+ * denied call never runs, and a call that asks runs only with a person
  * behind it ({@link hasPerson}).
  */
 export function approvalRefusal(
   resolution: ApprovalResolution,
   invocation: ActionInvocation,
-): ActionReceipt | null {
+): ApprovalRefusal | null {
   const { id } = invocation;
-  const { decision, policy } = resolution;
-  if (decision === "deny") {
-    return failed(
-      id,
-      "forbidden",
-      `action ${id} is denied to ${invocation.actor ?? "this caller"} by approval policy ${policy ?? "?"}`,
-      { policy },
-    );
+  const { decision, by } = resolution;
+  if (decision === "allow" || (decision === "ask" && hasPerson(invocation))) return null;
+  if (by === "mode") {
+    return {
+      code: "approval_required",
+      message: `action ${id} requires approval; this call has none`,
+    };
   }
-  if (decision === "allow" || hasPerson(invocation)) return null;
-  return policy === null
-    ? failed(id, "approval_required", `action ${id} requires approval; this call has none`)
-    : failed(
-        id,
-        "approval_required",
-        `action ${id} asks for approval under policy ${policy}; this call has none`,
-        { policy },
-      );
+  if (by === "policy-write") {
+    return {
+      code: "approval_required",
+      message: `action ${id} writes an approval policy, which always needs a person's approval; this call has none`,
+      details: { writes: "approval-policy" },
+    };
+  }
+  if (decision === "deny") {
+    return {
+      code: "forbidden",
+      message: `action ${id} is denied to ${invocation.actor ?? "this caller"} by approval policy ${by.policy}`,
+      details: { policy: by.policy },
+    };
+  }
+  return {
+    code: "approval_required",
+    message: `action ${id} asks for approval under policy ${by.policy}; this call has none`,
+    details: { policy: by.policy },
+  };
 }
 
 /**
@@ -189,12 +230,19 @@ export function listingOf(wire: SurfaceWire, receipt: ActionReceipt): DecidedEnt
   return parsed.data.actions.filter((entry) => listedOn(wire, entry.decision));
 }
 
+/** The call a handler runs as: the invocation, and the action it invokes. */
+export interface RunningCall {
+  readonly invocation: ActionInvocation;
+  readonly action: ApprovalCall["action"];
+}
+
 /**
- * The call an action runs as. The invoke core provides it around each
+ * The call a handler runs as. The invoke core provides it around each
  * handler, so an action that answers by its caller (`kb.manifest` lists what
- * is decided for that caller) reads it here rather than from its input. Code
- * that runs outside any invocation sees `null`.
+ * is decided for that caller) reads it here rather than from its input, and
+ * the commit asks the resolver again with what the call writes. Code that
+ * runs outside any invocation sees `null`.
  */
-export const CurrentCall = Context.Reference<ActionInvocation | null>("kb/CurrentCall", {
+export const CurrentCall = Context.Reference<RunningCall | null>("kb/CurrentCall", {
   defaultValue: () => null,
 });

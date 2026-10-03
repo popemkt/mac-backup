@@ -6,7 +6,15 @@ import {
   txIntegrityError,
   type StoreTx,
 } from "@kb/model";
-import { KbStore, TxOrigin, type KbContext, type StoreFingerprint } from "@kb/contracts";
+import {
+  CurrentCall,
+  KbStore,
+  TxOrigin,
+  approvalRefusal,
+  type KbContext,
+  type StoreFingerprint,
+} from "@kb/contracts";
+import { decide } from "./approval.ts";
 
 /**
  * The store as this session last saw it.
@@ -80,6 +88,11 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
  * catch up to whatever the tail now holds. `refresh` rather than an append,
  * because the same call also adopts anything another process appended in the
  * meantime — the log has one way to learn what happened, not two.
+ *
+ * Inside an invocation, the resolver is asked again with what the commit
+ * writes (`resolveApproval`): a write to an approval policy needs a person
+ * behind the call, whatever the policies say, and is refused here, before the
+ * store is touched.
  */
 export const persistEffect = Effect.fn("kb.persist")(function* (
   ctx: KbContext,
@@ -91,6 +104,16 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   const integrityError = txIntegrityError(ctx.nodes, tx);
   if (integrityError !== null && integrityError !== "") {
     return yield* domainError("invalid_input", `invalid graph transaction: ${integrityError}`);
+  }
+  const call = yield* CurrentCall;
+  if (call !== null) {
+    const writes = [
+      ...tx.upserts.map((after) => ({ before: ctx.index.getNode(after.id), after })),
+      ...tx.deletes.map((id) => ({ before: ctx.index.getNode(id), after: undefined })),
+    ];
+    const resolution = decide(ctx, { ...call, actor: call.invocation.actor, writes });
+    const refusal = approvalRefusal(resolution, call.invocation);
+    if (refusal !== null) return yield* domainError(refusal.code, refusal.message, refusal.details);
   }
   const caughtUpTo = seen.get(ctx) ?? null;
   const commit = yield* store.commitEffect(tx, { at: yield* currentIso, origin });

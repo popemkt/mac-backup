@@ -64,6 +64,36 @@ describe("approval policies in the invoke core", () => {
     expect(await decisions("cli")).toEqual({ "node.add": "allow", "node.delete": "allow" });
   });
 
+  test("a write to a policy needs a person behind it, and is refused before anything is written", async () => {
+    const ctx = await openKb(root);
+    const policy = "approval.agent-delete";
+    const textOf = () => ctx.index.getNode(policy)?.text;
+    const before = textOf();
+    const edit = (rest: Partial<ActionInvocation>): ActionInvocation => ({
+      id: "node.update",
+      input: { id: policy, text: "agents never ask" },
+      ...rest,
+    });
+    for (const actor of ["agent", "cli"] as const) {
+      expect(await invoke(ctx, edit({ actor }))).toMatchObject({
+        status: "failed",
+        code: "approval_required",
+        details: { writes: "approval-policy" },
+      });
+    }
+    // Deleting the list that files them deletes them too, so it asks as well.
+    expect(
+      await invoke(ctx, { id: "node.delete", input: { id: SYSTEM_IDS.approvalPolicies } }),
+    ).toMatchObject({ status: "failed", code: "approval_required" });
+    expect(textOf()).toBe(before);
+    // A person's own gesture, or an approved call, writes it.
+    expect(await invoke(ctx, edit({ actor: "human" }))).toMatchObject({ status: "succeeded" });
+    expect(textOf()).toBe("agents never ask");
+    expect(await invoke(ctx, edit({ actor: "agent", approved: true }))).toMatchObject({
+      status: "succeeded",
+    });
+  });
+
   test("a policy written a moment ago decides the very next call", async () => {
     const ctx = await openKb(root);
     const add = { id: "node.add", input: { text: "x" }, actor: "cli" } as const;

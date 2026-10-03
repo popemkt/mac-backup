@@ -1562,6 +1562,20 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     the owner's "a human gesture never asks" holds in the resolver, not as a
     policy row that could be edited into a confirm the UI has no way to show.
     A policy can still deny a human.
+  - **Writing a policy always asks**, whatever the policies say, so no caller
+    can allow itself. A write counts when it writes an `#approval-policy`
+    node (tagged before or after, so tagging and untagging count) or the
+    tag, the fields and the options policies are written in; a denial stays
+    a denial. This is a rule of the resolver, which weighs the call's writes
+    as part of the call (`ApprovalCall.writes`): the invoke core asks it
+    before the handler runs, and `persistEffect` asks it again with what the
+    commit writes and refuses with `approval_required`
+    (`details.writes: "approval-policy"`) before the store is touched. So a
+    human edits the policies table directly, while an agent's edit reaches
+    the sidebar's approval card and MCP, WebMCP and an unapproved CLI call
+    are refused. Every core write commits through `persistEffect`; a
+    third-party extension's Promise handler that commits through the store
+    port itself is trusted repo code and is not asked.
   - **Seeded defaults**, ordinary editable nodes filed under the query node
     `approval.policies` ("Approval policies"): an agent asks before
     `node.delete` and before `views.migrate`. Normal edits need no row,
@@ -1624,7 +1638,8 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   a tool it never registered). An approved call runs only through a surface
   whose wire carries the approval. One policy decides the same on every
   surface: a denial refuses, an ask refuses an unapproved call, and only a
-  policy naming the action lowers its declared approval. These are
+  policy naming the action lowers its declared approval; and no surface
+  writes a policy without a person behind the call. These are
   properties of `surfaceContract` in `@kb/test-kit`
   (`surface-contract.ts`). They run over all surfaces at once, from
   `packages/app/cli/tests/surface-contract.test.ts`, and a new surface joins

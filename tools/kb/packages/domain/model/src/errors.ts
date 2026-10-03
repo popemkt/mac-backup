@@ -16,6 +16,8 @@ export class DomainError extends Schema.TaggedError<DomainError>()("Kb/DomainErr
     "invalid_input",
     "conflict",
     "internal",
+    // A commit that writes an approval policy without a person behind the call.
+    "approval_required",
   ]),
   message: Schema.String,
   details: Schema.optionalKey(Schema.Unknown),
@@ -31,6 +33,7 @@ const DOMAIN_ERROR_CODES = new Set<string>([
   "invalid_input",
   "conflict",
   "internal",
+  "approval_required",
 ]);
 
 export function domainError(

@@ -121,6 +121,33 @@ export function matchSpecificity(
   return literal > 0 ? [3, literal] : [1, 0];
 }
 
+/** One node a call writes: as it was (absent when new) and as it will be (absent when deleted). */
+export interface NodeWrite {
+  readonly before: KbNode | undefined;
+  readonly after: KbNode | undefined;
+}
+
+/** The tag, the fields and the option nodes every policy is written in. */
+const APPROVAL_VOCABULARY: ReadonlySet<NodeId> = new Set([
+  SYSTEM_IDS.approvalPolicyTag,
+  SYSTEM_IDS.approvalMatchField,
+  SYSTEM_IDS.approvalActorField,
+  SYSTEM_IDS.approvalDecisionField,
+  ...Object.values(ACTOR_OPTION_IDS),
+  ...Object.values(DECISION_OPTION_IDS),
+]);
+
+/**
+ * Whether a write changes what the policies decide: it writes a policy (one
+ * tagged before or after, so tagging and untagging count), or the vocabulary
+ * every policy is written in.
+ */
+export function writesApprovalPolicy(write: NodeWrite): boolean {
+  const id = write.after?.id ?? write.before?.id;
+  if (id !== undefined && APPROVAL_VOCABULARY.has(id)) return true;
+  return [write.before, write.after].some((node) => node !== undefined && isPolicyNode(node));
+}
+
 /** The datalog query for every `#approval-policy` node, as a query node runs it. */
 export const APPROVAL_POLICIES_QUERY = `[:find ?id :where [?n :f/${SYSTEM_IDS.typeField} ?t] [?t :node/id "${SYSTEM_IDS.approvalPolicyTag}"] [?n :node/id ?id]]`;
 

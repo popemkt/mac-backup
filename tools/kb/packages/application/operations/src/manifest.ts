@@ -57,10 +57,10 @@ export const kbManifestEffect = Effect.fn("kb.manifest")(function* (): Effect.fn
   ActionCatalog | KbCtx
 > {
   const ctx = yield* KbCtx;
-  const actor = (yield* CurrentCall)?.actor;
+  const actor = (yield* CurrentCall)?.invocation.actor;
   const actions = (yield* ActionCatalog).map((entry) => ({
     ...entry,
-    decision: decide(ctx, entry, actor).decision,
+    decision: decide(ctx, { action: entry, actor }).decision,
   }));
   return { actions, views: [...viewCatalog()] };
 });

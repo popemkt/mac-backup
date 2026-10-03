@@ -217,14 +217,15 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
   // Approval is decided here, on invoke itself, so no surface can skip it:
   // the session's policies for this call's actor, else the action's mode.
-  const refusal = approvalRefusal(decide(ctx, entry.def, invocation.actor), invocation);
-  if (refusal !== null) return refusal;
+  const action = entry.def;
+  const refusal = approvalRefusal(decide(ctx, { action, actor: invocation.actor }), invocation);
+  if (refusal !== null) return failed(id, refusal.code, refusal.message, refusal.details);
 
   const parsed = yield* parseBySchema(entry.def.inputSchema, input);
   const run = dispatch(entry, ctx, parsed);
   if (run === null) return failed(id, "internal", `action has no effect or handler: ${id}`);
 
-  const output = yield* run.pipe(Effect.provideService(CurrentCall, invocation));
+  const output = yield* run.pipe(Effect.provideService(CurrentCall, { invocation, action }));
   return succeeded(id, yield* parseOutput(entry.def, output));
 });
 

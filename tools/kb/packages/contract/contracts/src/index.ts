@@ -21,7 +21,14 @@ export {
   onWire,
   resolveApproval,
 } from "./approval.ts";
-export type { ApprovalResolution, DecidedEntry, SurfaceWire } from "./approval.ts";
+export type {
+  ApprovalCall,
+  ApprovalRefusal,
+  ApprovalResolution,
+  DecidedEntry,
+  RunningCall,
+  SurfaceWire,
+} from "./approval.ts";
 export type {
   ActionDefinition,
   ActionEffectHandler,

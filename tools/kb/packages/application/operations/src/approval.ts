@@ -1,5 +1,10 @@
-import { resolveApproval, type ApprovalResolution, type KbContext } from "@kb/contracts";
-import { approvalPoliciesOf, type Actor, type ApprovalPolicy } from "@kb/model";
+import {
+  resolveApproval,
+  type ApprovalCall,
+  type ApprovalResolution,
+  type KbContext,
+} from "@kb/contracts";
+import { approvalPoliciesOf, type ApprovalPolicy } from "@kb/model";
 import type { KbIndex } from "@kb/query";
 
 /**
@@ -17,11 +22,7 @@ function policiesOf(ctx: KbContext): readonly ApprovalPolicy[] {
   return policies;
 }
 
-/** What the session's policies decide about a call to `action` by `actor`. */
-export function decide(
-  ctx: KbContext,
-  action: Parameters<typeof resolveApproval>[1],
-  actor: Actor | undefined,
-): ApprovalResolution {
-  return resolveApproval(policiesOf(ctx), action, actor);
+/** What the session's policies decide about `call`. */
+export function decide(ctx: KbContext, call: ApprovalCall): ApprovalResolution {
+  return resolveApproval(policiesOf(ctx), call);
 }
