@@ -516,6 +516,40 @@ the full contents.
   carries `GAP [[01M41MHRD7MF4NP23EE294B69C]]`, closed with `@kb/ui-sdk`
   (E11). Everything else the card does goes through the host.
 
+**Note from the doing (E4).** Where the plan said "E4 picks", or was
+silent, this is what was picked:
+- **The shared module is a package, `@kb/bundled`** (`app/bundled`,
+  `scope:shared`). It holds `BUNDLED_DECLARATIONS`, core's declaration
+  first, and `bundledSeed()`. A family's shared declaration joins that list
+  in E7–E9. The fold itself, `foldSeed`, is `@kb/model`'s mechanism, so
+  the option node shape stays with `viewOptionId`. It places the options
+  right after `sys.views`, which keeps even the seed's array order. So E6's
+  `EXTENSION_ROOTS` gains `bundled/src/index.ts`, beside `bundled.ts` and
+  `ui-plugins.ts`, and `bundled.ts` resolves a server entry per declaration.
+- **Core is declared too.** `coreExtension` (`@kb/operations`) holds the
+  seed and the whole catalog. Its server entry is `corePlugin` (actions)
+  with `declarationPlugin(coreExtension)` as a child. The page loads
+  `declarationPlugin(coreExtension)` from `BUILTIN_UI_PLUGINS`.
+- `ensureSystemSeed(nodes, seed)` has no `at`, because the seed is already
+  stamped. `isPristine(nodes, seed)` takes the seed too. DESIGN.md says so.
+- **Tests reach the fold through the harness, not a re-export.** A barrel
+  may not re-export another package. So domain tests import `@kb/bundled`
+  the way they import `@kb/test-kit`: `TEST_WORLD_PACKAGES` in
+  `constraints.ts` names both.
+- `ViewKey.family` is typed `ViewFamily`. `ViewPicker.label` is gone,
+  because a picker reads `key.label`, which made the copy a mirror.
+- **The page before a server answers.** An offline page on its fixtures,
+  or one whose `kb.manifest` has not arrived, is its own server. Its
+  kernel's keys are its catalog (`lib/view-catalog.ts`). `ViewCatalog`
+  joins `IsomorphicActionEnv`, because `view.propose` reads it.
+- **The golden is order-sensitive** and byte-identical through E4 and E5.
+  E4b, the order change, is not done here.
+
+**Note from the doing (E5).** `ViewText` is `{body, figure?}`, two
+functions of the decoded params, as the spec states. So a chart's page
+figure runs its query a second time, once per html render. `viewDef(key,
+text?)` pairs a key with a text of the same params type.
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D

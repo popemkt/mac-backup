@@ -226,14 +226,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — each view key carries a markdown projection beside its params
 - **node** — `01M40X30G92A0E57C02JHQ9A1G`
 
-### GAP: a view's text projection is a branch in core's viewText
-
-- **expected** — a view's text body and figure are part of the view's contribution, looked up by view id, and @kb/operations keeps only the generic body
-- **current** — packages/application/operations/src/view-markdown.ts imports ChartView and CodeView and pairs them with chartBody and codeBody in VIEW_BODIES; chart-text.ts and code-text.ts live in @kb/operations
-- **impact** — a view extension cannot say itself in text without editing core, and core carries chart-table and code-fence policy
-- **closes** — ViewDef.text on the view point, read by viewText; the two bodies move to their families
-- **node** — `01M41H2ZG7C0SV1DYZE6MMKPFE`
-
 ### GAP: action registry has no A2A adapter
 
 - **expected** — A2A joins CLI, MCP, HTTP and WebMCP as one more adapter over the action registry
@@ -399,21 +391,21 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide a canonical package-family identity and teach the import graph check to verify extension-to-extension edges against it, with a red cross-family fixture and a green canvas fixture.
 - **node** — `01M3F923QWH9HSAW61VNFWHANV`
 
-### GAP: extensions cannot contribute seed nodes; the chart and code fields are core system ids
-
-- **expected** — each bundled extension contributes its system nodes to a seed point under their frozen ids; core's seed holds core vocabulary only; ensureSystemSeed seeds the fold of BUNDLED_EXTENSIONS (never host or repository plugins), so every open seeds the same set
-- **current** — SYSTEM_IDS (packages/domain/model/src/model.ts) and systemSeedNodes (packages/domain/model/src/seed.ts) declare sys.f.chart, sys.f.code and sys.f.code.grant; ensureSystemSeed reads only the core table and no point takes a plugin's seed. Canvas is covered by 01M39F3MR3HT2NR553FY8CRD6X
-- **impact** — every feature edits @kb/model, and a store seeds a feature's fields whether or not its extension is loaded
-- **closes** — bundledSeed(), the fold of core's nodes and each BUNDLED_EXTENSIONS declaration's seed, passed to ensureSystemSeed (no registry, no SeedPoint); systemSeedNodes() core only with every caller moved; a committed seed golden; then each family's ids and nodes move into its shared package
-- **node** — `01M41H2Z7B5GCJXHCRYBS7M3YH`
-
 ### GAP: feature view models live in core packages
 
 - **expected** — @kb/views holds the view-key mechanism and core views; the chart, code, lab and canvas keys and helpers live in their family's shared package
-- **current** — packages/domain/views/src/{chart,code,lab,canvas}.ts ship in VIEW_CATALOG, and chartRecords and MAX_CHART_ROWS are in @kb/query (records.ts)
+- **current** — packages/domain/views/src/{chart,code,lab,canvas}.ts are listed in core's declaration (coreExtension), and chartRecords and MAX_CHART_ROWS are in @kb/query (records.ts)
 - **impact** — the catalog advertises lab.page while the lab plugin is off by default, so an agent can propose a view nothing draws; every feature edits domain packages
-- **closes** — the view-key point (with 01M3YM5XYZ4VHEK39RNQ6WWRPK), then the moves into @kb/chart, @kb/code, @kb/lab and @kb/canvas
+- **closes** — the moves into @kb/chart, @kb/code, @kb/lab and @kb/canvas (E7, E8, E9)
 - **node** — `01M41H30342XZPX3CXZJTMPBYW`
+
+### GAP: feature view options are seeded through core's declaration, not by the families that own the views
+
+- **expected** — each plugin that provides a view contributes its key to the view point (ViewKeyPoint) through its own family's declaration, and the ViewCatalog service and the sys.views option nodes are both readings of the declared keys
+- **current** — the catalog is a reading of ViewKeyPoint and every option derives from a declared key, but core's declaration (coreExtension, packages/application/operations/src/core-extension.ts) lists the chart, code, lab and canvas keys, so core seeds their options and contributes their keys
+- **impact** — a new view plugin must also edit the core table; a third-party view cannot add its option without touching core
+- **closes** — each family's declaration lists its own views (E7, E8, E9); the last feature key leaves core's declaration in E9
+- **node** — `01M3YM5XYZ4VHEK39RNQ6WWRPK`
 
 ### GAP: flat canvas items vanish in level 3D views
 
@@ -744,6 +736,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a NodeTextHost binding in the sdk over BrowserHost, designed with @kb/ui-sdk (plan step E11), then canvas-card uses it and the GAP marker goes
 - **node** — `01M41MHRD7MF4NP23EE294B69C`
 
+### GAP: the chart and code fields are core system ids, seeded by core's declaration
+
+- **expected** — each bundled family declares its system nodes as its declaration's seed under their frozen ids; core's seed holds core vocabulary only; ensureSystemSeed seeds the fold of the bundled declarations (never host or repository plugins), so every open seeds the same set
+- **current** — ensureSystemSeed seeds the bundled fold (bundledSeed() in @kb/bundled, over BUNDLED_DECLARATIONS), but core's declaration still seeds the feature nodes: SYSTEM_IDS (packages/domain/model/src/model.ts) and systemSeedNodes (packages/domain/model/src/seed.ts) declare sys.f.chart, sys.f.code and sys.f.code.grant. Canvas is covered by 01M39F3MR3HT2NR553FY8CRD6X
+- **impact** — every feature edits @kb/model, and a store seeds a feature's fields whether or not its extension is loaded
+- **closes** — each family's ids and seed nodes move into its shared package's declaration, folded at the same place (chart in E7, code in E8)
+- **node** — `01M41H2Z7B5GCJXHCRYBS7M3YH`
+
+### GAP: the chart and code text projections live in core operations
+
+- **expected** — a view's text body and figure are part of the view's contribution, looked up by view id, and @kb/operations keeps only the generic body
+- **current** — viewText reads a view's ViewDef.text from the host's ViewCatalog, but chartText and codeText (packages/application/operations/src/chart-text.ts, code-text.ts) live in @kb/operations, and core's declaration (core-extension.ts) contributes them
+- **impact** — a view extension cannot say itself in text without editing core, and core carries chart-table and code-fence policy
+- **closes** — the two texts move to @kb/chart and @kb/code with their keys (E7, E8)
+- **node** — `01M41H2ZG7C0SV1DYZE6MMKPFE`
+
 ### GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not packages
 
 - **expected** — each is the browser package of its family, built against @kb/ui-sdk, and @kb/ui holds the shell and core views only
@@ -973,14 +981,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a busy untrusted code view can stutter its own frame
 - **closes** — run QuickJS inside a blob Worker in the frame
 - **node** — `01M41DKVB5R21NRCE4T9R4KES1`
-
-### GAP: view option nodes are seeded from one core table, not by the plugins that own the views
-
-- **expected** — each plugin that provides a view contributes its key to the server's view point (ViewKeyPoint), and VIEW_CATALOG and the sys.views option nodes are both readings of that point
-- **current** — VIEW_VALUES in packages/domain/model/src/view-node.ts lists every view kb provides, and the store seeds those options on open because the owning plugins load only in the browser; VIEW_CATALOG in @kb/views lists the same views by key
-- **impact** — a new view plugin must also edit the core table; a third-party view cannot add its option without touching core
-- **closes** — a ViewKeyPoint in @kb/contracts, with label and family on ViewKey; a ViewCatalog service read from that point replaces VIEW_CATALOG, the sys.views options derive from the bundled-extensions seed fold, and VIEW_VALUES is deleted
-- **node** — `01M3YM5XYZ4VHEK39RNQ6WWRPK`
 
 ### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter
 
