@@ -168,6 +168,39 @@ describe("render.view by view node id", () => {
     expect(md.content).toContain(`\`\`\`\`js\n${code}\n\`\`\`\``);
   });
 
+  test("a code view's page draws what its code draws, read-only, as of the render", async () => {
+    const code = [
+      "const host = await kb.node(kb.subject, 1);",
+      "let wrote;",
+      'try { await kb.invoke("node.update", { id: kb.subject, text: "changed" }); wrote = "wrote"; }',
+      "catch (e) { wrote = e.code; }",
+      'kb.draw(["ul", { class: "kids" }, ...host.children.map((c) => ["li", {}, c.text]),',
+      '  ["li", { onclick: "x" }, wrote]]);',
+    ].join("\n");
+    await mustInvoke("view.propose", {
+      view: "code.view",
+      params: { code, grant: { reads: "subject", actions: ["node.update"] } },
+      host: FRAME,
+      id: "v.snap",
+    });
+    const html = await render({ id: "v.snap" });
+    expect(html.content).toContain(
+      '<figure style="margin:0 0 1rem"><ul class="kids"><li>Ship it</li><li>Test it</li><li>forbidden</li></ul></figure>',
+    );
+    expect(ctx.index.getNode(FRAME)?.text).toBe("Todos");
+  });
+
+  test("a code view whose code loops says so on its page", async () => {
+    await mustInvoke("view.propose", {
+      view: "code.view",
+      params: { code: "while (true) {}", grant: { reads: "none", actions: [] } },
+      host: FRAME,
+      id: "v.loop",
+    });
+    const html = await render({ id: "v.loop" });
+    expect(html.content).toContain("ran longer than 500 ms in one turn and was interrupted");
+  });
+
   test("a node that is no view node, a missing one, or two refs at once are refused", async () => {
     expect(await invoke(ctx, { id: "render.view", input: { id: FRAME } })).toMatchObject({
       status: "failed",

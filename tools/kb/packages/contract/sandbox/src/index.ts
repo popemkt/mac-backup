@@ -68,3 +68,11 @@ export {
   safeThemeValue,
   sandboxFrameDocument,
 } from "./frame.ts";
+export {
+  CodeSnapshots,
+  SNAPSHOT_BUDGET_MS,
+  snapshotRun,
+  type CodeRun,
+  type CodeSnapshot,
+  type CodeSnapshotter,
+} from "./snapshot.ts";

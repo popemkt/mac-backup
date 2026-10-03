@@ -1,4 +1,4 @@
-import { Effect, Layer } from "effect";
+import { Cause, Effect, Layer } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
   currentIso,
@@ -20,10 +20,14 @@ import {
   KbStore,
   kbCtxLayer,
   kbStoreLayer,
+  failed,
+  type ActionInvocation,
   type KbContext,
   type Screens,
   TemplateRegistry,
 } from "@kb/contracts";
+import { CodeSnapshots, snapshotRun, type CodeSnapshotter } from "@kb/sandbox";
+import { quickjsEngine } from "@kb/sandbox-quickjs";
 import { StoreTxLog } from "@kb/tx-log";
 import { vegaChartPainter } from "@kb/vega";
 import {
@@ -34,7 +38,7 @@ import {
   savedQueriesLayer,
 } from "@kb/workspace-fs";
 import { noteStoreSynced } from "@kb/operations";
-import { registryFor } from "./registry.ts";
+import { invokeReceiptEffect, receiptFromError, registryFor } from "./registry.ts";
 import { remoteScreensLayer } from "./screens.ts";
 import { selectStore } from "./store-selection.ts";
 
@@ -42,7 +46,9 @@ import { selectStore } from "./store-selection.ts";
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
  * the workspace ports backed by `.kb/` on disk + the UI tabs' screens, held
  * by the `kb ui` serving the root + Vega as the chart painter (`ChartSvg`,
- * so a chart's page draws its SVG) + the render templates and the action
+ * so a chart's page draws its SVG) + QuickJS as the code snapshotter
+ * (`CodeSnapshots`, so a code view's page draws what its code draws) + the
+ * render templates and the action
  * catalog the registry resolved from core, bundled and `.kb/extensions`
  * contributions.
  *
@@ -74,11 +80,42 @@ export function kbRuntimeLayer(
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.succeed(ChartSvg, vegaChartPainter),
+    Layer.succeed(CodeSnapshots, codeSnapshots(ctx)),
     Layer.effect(
       ActionCatalog,
       registry.pipe(Effect.map(({ manifestEntries }) => manifestEntries)),
     ),
   );
+}
+
+/**
+ * A code view's snapshot on this root (DESIGN.md → Sandbox → Snapshots): its
+ * code run untrusted in QuickJS, every call made as the script's through the
+ * invoke core, and refused before it when it is a write, because a snapshot
+ * is a read.
+ */
+function codeSnapshots(ctx: KbContext): CodeSnapshotter {
+  const invoke = (invocation: ActionInvocation) =>
+    Effect.gen(function* () {
+      const registry = yield* registryFor(ctx.root);
+      const mode = registry.byId.get(invocation.id)?.def.mode;
+      if (mode !== undefined && mode.kind !== "read") {
+        return failed(
+          invocation.id,
+          "forbidden",
+          `a snapshot only reads, and ${invocation.id} is a write; it runs in the kb UI`,
+        );
+      }
+      return yield* invokeReceiptEffect(ctx, invocation).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+    }).pipe(
+      Effect.provide(bunFileSystemLayer),
+      Effect.catchCause((cause) =>
+        Effect.succeed(receiptFromError(invocation.id, Cause.squash(cause))),
+      ),
+    );
+  return {
+    draw: (run) => snapshotRun(quickjsEngine, { invoke, node: (id) => ctx.index.getNode(id) }, run),
+  };
 }
 
 /**

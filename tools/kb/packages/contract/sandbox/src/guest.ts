@@ -6,7 +6,7 @@
  * capability host, and hands it events. The guest is untrusted, so a message
  * that does not decode, or a call beyond the pending bound, ends the run.
  */
-import { Deferred, Effect, Exit, Queue, Result, Schema, type Scope } from "effect";
+import { Deferred, Effect, Exit, Queue, Result, Schedule, Schema, type Scope } from "effect";
 import { MCP_APPS_METHODS } from "@kb/contracts";
 import { sanitizeDrawing, type DrawingReport } from "./drawing.ts";
 import { endOfFailure, type GuestSpec, type SandboxEngine } from "./engine.ts";
@@ -40,10 +40,17 @@ export interface GuestRun {
   readonly ended: Effect.Effect<GuestEnd>;
   /** Whether the run has ended. */
   readonly over: Effect.Effect<boolean>;
-  /** Wait until no tool call is waiting on the host (or the run ends). */
+  /**
+   * Wait until the run is quiet — no call waits on the host and nothing the
+   * guest sent is unread — or has ended: how a snapshot knows the drawing is
+   * the code's last word.
+   */
   readonly settled: Effect.Effect<void>;
   readonly stop: Effect.Effect<void>;
 }
+
+/** How often `settled` looks again while the guest is still busy. */
+const SETTLE_POLL_MS = 10;
 
 const decodeGuestMessage = Schema.decodeUnknownResult(Schema.fromJsonString(GuestMessage));
 
@@ -54,9 +61,9 @@ export const runGuest = Effect.fn("sandbox.runGuest")(function* (
 ): Effect.fn.Return<GuestRun, never, Scope.Scope> {
   const session = yield* engine.start(spec);
   const ended = yield* Deferred.make<GuestEnd>();
+  // Calls waiting on the host, and messages taken but not yet acted on.
   let pending = 0;
-  let quiet = yield* Deferred.make<void>();
-  yield* Deferred.succeed(quiet, undefined);
+  let handling = 0;
 
   const fail = (end: GuestEnd) => Effect.andThen(Deferred.succeed(ended, end), session.stop);
 
@@ -69,9 +76,8 @@ export const runGuest = Effect.fn("sandbox.runGuest")(function* (
       yield* session.deliver(JSON.stringify(reply));
     }).pipe(
       Effect.ensuring(
-        Effect.suspend(() => {
+        Effect.sync(() => {
           pending -= 1;
-          return pending === 0 ? Deferred.succeed(quiet, undefined) : Effect.void;
         }),
       ),
     );
@@ -84,11 +90,8 @@ export const runGuest = Effect.fn("sandbox.runGuest")(function* (
           message: `The code had more than ${String(spec.limits.maxPendingCalls)} calls waiting at once and was stopped.`,
         });
       }
-      return Effect.gen(function* () {
-        if (pending === 0) quiet = yield* Deferred.make<void>();
-        pending += 1;
-        yield* Effect.forkScoped(answer(id, params));
-      });
+      pending += 1;
+      return Effect.asVoid(Effect.forkScoped(answer(id, params)));
     });
 
   /** What one decoded message does. */
@@ -114,7 +117,17 @@ export const runGuest = Effect.fn("sandbox.runGuest")(function* (
 
   // The guest's messages, in order, until its outbox ends with the run.
   yield* Effect.forkScoped(
-    Effect.forever(Effect.flatMap(Queue.take(session.outbox), handle)).pipe(
+    Effect.forever(
+      Effect.flatMap(Queue.take(session.outbox), (text) => {
+        handling += 1;
+        return Effect.ensuring(
+          handle(text),
+          Effect.sync(() => {
+            handling -= 1;
+          }),
+        );
+      }),
+    ).pipe(
       Effect.ignore,
       Effect.andThen(Effect.flatMap(session.ended, (end) => Deferred.succeed(ended, end))),
     ),
@@ -125,9 +138,15 @@ export const runGuest = Effect.fn("sandbox.runGuest")(function* (
     ended: Deferred.await(ended),
     over: Deferred.isDone(ended),
     settled: Effect.raceFirst(
-      Effect.suspend(() => Deferred.await(quiet)),
+      // Quiet: nothing waits on the host, and nothing the guest sent is unread.
+      Effect.repeat(
+        Effect.sync(
+          () => pending === 0 && handling === 0 && Queue.sizeUnsafe(session.outbox) === 0,
+        ),
+        { until: (quiet) => quiet, schedule: Schedule.spaced(SETTLE_POLL_MS) },
+      ),
       Effect.asVoid(Deferred.await(ended)),
-    ),
+    ).pipe(Effect.asVoid),
     stop: session.stop,
   };
 });

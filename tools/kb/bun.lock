@@ -97,6 +97,8 @@
         "@kb/operations": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
+        "@kb/sandbox": "workspace:*",
+        "@kb/sandbox-quickjs": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
         "@kb/store-sqlite": "workspace:*",
         "@kb/tx-log": "workspace:*",
@@ -106,7 +108,6 @@
       },
       "devDependencies": {
         "@kb/canvas": "workspace:*",
-        "@kb/sandbox": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@kb/views": "workspace:*",
         "@types/bun": "catalog:",
