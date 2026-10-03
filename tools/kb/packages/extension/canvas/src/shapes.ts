@@ -62,7 +62,7 @@ export function itemShape(item: CanvasNode): CanvasShapeKind {
  * rectangle's rounded corners are a look and are not cut off here, so
  * picking and stacking treat them as square.
  */
-// GAP [ROUNDED-CORNER-PICK]
+// GAP [[01M41GAZ88QXRS7M85S0JN0ZW1]]
 export function onFootprint(shape: CanvasShapeKind, u: number, v: number): boolean {
   switch (CANVAS_SHAPES[shape].footprint) {
     case "ellipse":

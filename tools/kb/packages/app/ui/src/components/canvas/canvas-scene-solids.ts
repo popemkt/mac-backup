@@ -287,7 +287,7 @@ const VOLUME_BUILDERS: { readonly [V in CanvasVolume]: (spec: SolidSpec) => Soli
   prism,
   // An ellipsoid and a cone have no flat top to wear the card on, so their
   // label is not drawn in 3D until labels are billboards (plan step 7).
-  // GAP [SOLID-LABEL-BILLBOARDS]
+  // GAP [[01M41GAZJS5TD86RFSAJJB4XKD]]
   ellipsoid: (spec) => ({
     geometry: primitive(new SphereGeometry(0.5, 64, 40), spec),
     edges: ellipseLoop(spec, spec.depth / 2),

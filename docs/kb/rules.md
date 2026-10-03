@@ -393,7 +393,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: flat canvas items vanish in level 3D views
 
 - **expected** — flat items stay visible when the camera looks across the floor (front, side views)
-- **current** — cards have no thickness, so a level view sees them edge-on and draws nothing of them; only edges show
+- **current** — flat cards draw an outline, so any tilted view shows them; at the exact front and side presets a flat card is still a faint hairline at floor level
 - **impact** — front and side views of a canvas of flat cards look empty
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
@@ -539,6 +539,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The value stack's paste handler splits on newlines for many-valued fields and appends one slot per line.
 - **node** — `01M3KA39GQ7Q8HSD0JKB46VCC5`
 
+### GAP: picking and stacking treat rounded corners as square
+
+- **expected** — hitTest and surface snap follow the rounded rect corners that are drawn
+- **current** — rounded rects are hit and stacked as sharp boxes
+- **impact** — a click or a drop just outside a drawn corner still lands on the item
+- **closes** — a rounded-rect hit volume in the shape table
+- **node** — `01M41GAZ88QXRS7M85S0JN0ZW1`
+
 ### GAP: PropValue still carries the legacy {t:"date"} variant
 
 - **expected** — PropValue has one carrier per value; dates are {t:"str"} only.
@@ -628,6 +636,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — selecting many items in 3D means clicking each
 - **closes** — a 3D workspace step that owns the marquee, picking items by their projected boxes
 - **node** — `01M41AB88FH1G58NR7AZE0SZJF`
+
+### GAP: sphere and cone labels are not drawn in 3D
+
+- **expected** — a sphere or cone shows its text in 3D, as a billboard
+- **current** — they have no flat top for the card face, so the label is not drawn
+- **impact** — text on round solids is visible only in 2D
+- **closes** — 3D plan step 7: billboards
+- **node** — `01M41GAZJS5TD86RFSAJJB4XKD`
 
 ### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
 
@@ -833,6 +849,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
 - **rule** — Design tokens: no bypass
 - **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
+
+### GAP: top view paints cones and spheres by their point, not their true height
+
+- **expected** — the top-down DOM projection orders a cone or sphere by its real surface height under each point
+- **current** — paint order uses the item's top point (z + depth), so a raised card over a cone's low rim paints under it
+- **impact** — wrong overlap in top view for cards floating over the edge of a sphere or cone
+- **closes** — per-point ordering, or no DOM renderer for canvases holding such solids
+- **node** — `01M41GAYYABEV7H197ZPAVD260`
 
 ### GAP: translucent text (text-foreground/N) is outside the contrast guard
 

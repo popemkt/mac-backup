@@ -466,7 +466,7 @@ export function canvasTop(node: CanvasNode): number {
  */
 // A cone or a sphere is ordered by its point, so from the top a raised card
 // over its low rim paints under it there.
-// GAP [TOP-VIEW-PAINT-ORDER]
+// GAP [[01M41GAYYABEV7H197ZPAVD260]]
 export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
   return nodes
     .map((node, index) => ({ node, index }))
