@@ -24,6 +24,7 @@
     "@kb/store-jsonl": "workspace:*",
     "@kb/store-sqlite": "workspace:*",
     "@kb/tx-log": "workspace:*",
+    "@kb/vega": "workspace:*",
     "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:"
   },

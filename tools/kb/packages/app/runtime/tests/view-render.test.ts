@@ -96,6 +96,63 @@ describe("render.view by view node id", () => {
     expect(await render({ id: "v.docs", format: "md" })).toEqual(byName);
   });
 
+  test("a chart renders as its encoding and its query's rows, and its page as SVG", async () => {
+    await mustInvoke("node.add", {
+      id: "q.todos",
+      text: "Todo texts",
+      props: [
+        {
+          field: SYSTEM_IDS.queryField,
+          value: {
+            t: "str",
+            v: '[:find ?id ?text :where [?f :node/id "n.render-frame"] [?f :node/child ?n] [?n :node/id ?id] [?n :node/text ?text]]',
+          },
+        },
+      ],
+    });
+    await mustInvoke("view.propose", {
+      view: "chart.vega-lite",
+      params: {
+        spec: {
+          mark: "bar",
+          encoding: {
+            x: { field: "text", type: "nominal" },
+            y: { aggregate: "count", type: "quantitative" },
+          },
+        },
+      },
+      host: "q.todos",
+      id: "v.chart",
+    });
+    const md = await render({ id: "v.chart", format: "md" });
+    expect(md.content).toContain(
+      "Chart view (chart.vega-lite), view node v.chart, shown for Todo texts (q.todos).",
+    );
+    expect(md.content).toContain(
+      "## Chart\n\n- mark: bar\n- x: text (nominal)\n- y: count (quantitative)\n",
+    );
+    expect(md.content).toContain("The rows of Todo texts (q.todos).");
+    expect(md.content).toContain("| id | text |\n| --- | --- |\n");
+    expect(md.content).toContain("| n.ship | Ship it |");
+    expect(md.content).toContain("| n.test | Test it |");
+    const html = await render({ id: "v.chart" });
+    expect(html.content).toContain("<figure");
+    expect(html.content).toContain("<svg");
+    expect(html.content).toContain("<td>Ship it</td>");
+  });
+
+  test("a chart shown for no query node says it draws nothing, and draws no figure", async () => {
+    await mustInvoke("view.propose", {
+      view: "chart.vega-lite",
+      params: { spec: { mark: "point" } },
+      host: FRAME,
+      id: "v.lost",
+    });
+    const md = await render({ id: "v.lost", format: "md" });
+    expect(md.content).toContain("Todos (n.render-frame) is no query node with a query");
+    expect((await render({ id: "v.lost" })).content).not.toContain("<figure");
+  });
+
   test("a node that is no view node, a missing one, or two refs at once are refused", async () => {
     expect(await invoke(ctx, { id: "render.view", input: { id: FRAME } })).toMatchObject({
       status: "failed",

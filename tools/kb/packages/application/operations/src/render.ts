@@ -63,18 +63,45 @@ function escapeHtml(s: string): string {
     .replaceAll('"', "&quot;");
 }
 
-/** Minimal deterministic md -> html (headings, lists, paragraphs) for
- * template output; templates emit simple markdown by contract. */
+/** A markdown table row's cells, `\|` kept as a literal bar. */
+function tableCells(line: string): string[] {
+  return line
+    .slice(1, line.endsWith("|") ? -1 : undefined)
+    .split(/(?<!\\)\|/)
+    .map((c) => c.trim().replaceAll("\\|", "|"));
+}
+
+/** Minimal deterministic md -> html (headings, lists, tables, paragraphs)
+ * for template and view output; both emit simple markdown by contract. */
 function mdToHtml(md: string): string {
   const out: string[] = [];
   let inList = false;
+  let table: "head" | "body" | null = null;
   for (const raw of md.split("\n")) {
     const line = raw.trimEnd();
     const h = /^(#{1,6})\s+(.*)$/.exec(line);
     const li = /^-\s+(.*)$/.exec(line);
+    const row = line.startsWith("|") ? tableCells(line) : null;
     if (!li && inList) {
       out.push("</ul>");
       inList = false;
+    }
+    if (row === null && table !== null) {
+      out.push("</tbody></table>");
+      table = null;
+    }
+    if (row !== null) {
+      if (table === null) {
+        out.push(
+          `<table><thead><tr>${row.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead><tbody>`,
+        );
+        table = "head";
+      } else if (table === "head" && row.every((c) => /^:?-+:?$/.test(c))) {
+        table = "body";
+      } else {
+        out.push(`<tr>${row.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`);
+      }
+      continue;
     }
     if (h) {
       const level = present(h[1], "heading marks").length;
@@ -90,6 +117,7 @@ function mdToHtml(md: string): string {
     }
   }
   if (inList) out.push("</ul>");
+  if (table !== null) out.push("</tbody></table>");
   return out.join("\n");
 }
 

@@ -15,10 +15,18 @@
 import { Effect, Predicate, Result } from "effect";
 import type { KbContext } from "@kb/contracts";
 import { SYSTEM_IDS, firstStr, hostViewIds, viewOptionOf, type KbNode } from "@kb/model";
-import { catalogKeyOf, issueText, paramsIssues, viewLabelOf, type ViewKey } from "@kb/views";
+import {
+  ChartView,
+  catalogKeyOf,
+  issueText,
+  paramsIssues,
+  viewLabelOf,
+  type ViewKey,
+} from "@kb/views";
+import { chartBody } from "./chart-text.ts";
 
 /** How many of a view's rows its markdown lists. */
-export const MAX_ROWS = 100;
+const MAX_ROWS = 100;
 
 /** The node a view node is shown for: the one asked for, else the one node naming it. */
 export function hostOf(ctx: KbContext, view: KbNode, asked: string | null): KbNode | null {
@@ -40,17 +48,27 @@ function nodeLine(ctx: KbContext, id: string): string {
 }
 
 /** What a view draws under its heading: markdown lines, and a figure for a page. */
-export interface ViewBody {
+interface ViewBody {
   readonly lines: readonly string[];
   /** Html a page draws above the text (a chart's SVG); absent, or null, when there is none. */
   readonly figure?: Effect.Effect<string | null>;
 }
 
 /** How one view says itself in text, from the settings its key read for the node it is shown for. */
-type BodyOf<P> = (ctx: KbContext, params: P, host: KbNode | null) => ViewBody;
+interface OwnBody<P> {
+  readonly key: ViewKey<P>;
+  draw(ctx: KbContext, params: P, host: KbNode | null): ViewBody;
+}
+
+/** A view's own body, drawn from the params its key decodes. */
+function ownBody<P>(key: ViewKey<P>, draw: OwnBody<P>["draw"]): OwnBody<P> {
+  return { key, draw };
+}
 
 /** The views that draw their own body, each by its key. */
-const VIEW_BODIES = new Map<ViewKey<unknown>, BodyOf<unknown>>();
+const VIEW_BODIES: readonly OwnBody<unknown>[] = [
+  ownBody(ChartView, (ctx, params) => chartBody(ctx, params)),
+];
 
 /** The ids a view node's subject holds, or why they cannot be read. */
 function subjectOf(
@@ -109,7 +127,7 @@ function settingsAndSubject(
 }
 
 /** A view node on a text surface: its markdown, and the figure a page draws above it. */
-export interface ViewText {
+interface ViewText {
   readonly markdown: string;
   readonly figure: Effect.Effect<string | null>;
 }
@@ -136,10 +154,10 @@ export function viewText(ctx: KbContext, view: KbNode, host: KbNode | null): Vie
           ),
           (issues) => issues.map(issueText).join("; "),
         );
-  const own = key === null ? undefined : VIEW_BODIES.get(key);
+  const own = VIEW_BODIES.find((entry) => entry.key === key);
   const body: ViewBody =
     own !== undefined && params !== null && Result.isSuccess(params)
-      ? own(ctx, params.success, host)
+      ? own.draw(ctx, params.success, host)
       : { lines: settingsAndSubject(ctx, view, host, params, reported) };
   return {
     markdown: `${[...lines, ...body.lines].join("\n")}\n`,

@@ -108,6 +108,8 @@ export type {
   UiScreenInput,
   UiSelectInput,
 } from "./screen.ts";
+export { ChartSvg } from "./chart.ts";
+export type { ChartPainter } from "./chart.ts";
 export { KbCtx, KbStore, kbCtxLayer, kbStoreLayer } from "./session.ts";
 export { TX_TAIL_KEEP_ENTRIES, TX_TAIL_MAX_ENTRIES, TxOrigin, VIRTUAL_ORIGIN } from "./tx-log.ts";
 export type { KbTxLog, TxRecord, TxTail } from "./tx-log.ts";

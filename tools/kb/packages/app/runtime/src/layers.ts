@@ -16,6 +16,7 @@ import { DatascriptIndex, KbIndexService } from "@kb/query";
 import {
   ActionCatalog,
   type ActionHandlerEnv,
+  ChartSvg,
   KbStore,
   kbCtxLayer,
   kbStoreLayer,
@@ -24,6 +25,7 @@ import {
   TemplateRegistry,
 } from "@kb/contracts";
 import { StoreTxLog } from "@kb/tx-log";
+import { vegaChartPainter } from "@kb/vega";
 import {
   assetsLayer,
   legacyDocsViewsLayer,
@@ -38,7 +40,8 @@ import { selectStore } from "./store-selection.ts";
 /**
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
  * the workspace ports backed by `.kb/` on disk + the UI tabs' screens, held
- * by the `kb ui` serving the root + the render templates and the action
+ * by the `kb ui` serving the root + Vega as the chart painter (`ChartSvg`,
+ * so a chart's page draws its SVG) + the render templates and the action
  * catalog the registry resolved from core, bundled and `.kb/extensions`
  * contributions.
  *
@@ -68,6 +71,7 @@ export function kbRuntimeLayer(
     legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
+    Layer.succeed(ChartSvg, vegaChartPainter),
     Layer.effect(
       ActionCatalog,
       registry.pipe(Effect.map(({ manifestEntries }) => manifestEntries)),
