@@ -86,6 +86,24 @@ export function refUses(
 }
 
 /**
+ * Every node of a map as a picker candidate, in label order. Sorting is the
+ * expensive half of a candidate list, and it depends on the map alone, so it
+ * is derived once per map identity and shared by every picker that reads it.
+ */
+const labelOrdered = new WeakMap<ReadonlyMap<string, OutlineNode>, readonly PickerCandidate[]>();
+
+function candidatesInLabelOrder(
+  nodes: ReadonlyMap<string, OutlineNode>,
+): readonly PickerCandidate[] {
+  const cached = labelOrdered.get(nodes);
+  if (cached !== undefined) return cached;
+  const all = Array.from(nodes.values(), (n) => ({ id: n.id, label: n.text || n.id }));
+  const sorted = all.toSorted((a, b) => a.label.localeCompare(b.label));
+  labelOrdered.set(nodes, sorted);
+  return sorted;
+}
+
+/**
  * The nodes of `nodes` a node picker may offer, as picker candidates, in
  * label order — the candidate source the field picker, the `[[`
  * autocomplete and the palette's "reference a node" step share. Matching and
@@ -94,19 +112,17 @@ export function refUses(
  * The declared constraint is an *input*, applied before the engine ranks and
  * limits. Post-filtering an already-limited list was the other half of the
  * bug `isOfferable` describes: an allowed node that ranked 13th disappeared.
+ * Filtering keeps the shared label order, which is stable, so it is the order
+ * the offered set alone would sort to.
  */
 export function nodeCandidates(
   nodes: ReadonlyMap<string, OutlineNode>,
   options: { allowed?: Set<string> | null; exclude?: (id: string) => boolean } = {},
 ): PickerCandidate[] {
   const { allowed = null, exclude } = options;
-  const out: PickerCandidate[] = [];
-  for (const n of nodes.values()) {
-    if (!isOfferable(n.id, allowed)) continue;
-    if (exclude?.(n.id) === true) continue;
-    out.push({ id: n.id, label: n.text || n.id });
-  }
-  return out.toSorted((a, b) => a.label.localeCompare(b.label));
+  return candidatesInLabelOrder(nodes).filter(
+    (c) => isOfferable(c.id, allowed) && exclude?.(c.id) !== true,
+  );
 }
 
 /** Build the wiki-link token inserted on autocomplete select. */

@@ -163,10 +163,10 @@ export function NodeTextHost({
   // Dismissal survives until the query itself changes or typing resumes.
   const refOpen = acDismissed && rawRefOpen?.query === acDismissedQuery.current ? null : rawRefOpen;
 
-  const candidates = useMemo(() => nodeCandidates(nodes), [nodes]);
+  // Candidates exist only while the `[[` popup is open: a closed row asks for none.
   const rows = useMemo(
-    () => (refOpen ? pickerRows(candidates, { query: refOpen.query, limit: 12 }) : []),
-    [refOpen, candidates],
+    () => (refOpen ? pickerRows(nodeCandidates(nodes), { query: refOpen.query, limit: 12 }) : []),
+    [refOpen, nodes],
   );
 
   useLayoutEffect(() => {
