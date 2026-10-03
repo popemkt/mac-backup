@@ -2,9 +2,10 @@ import { Cause, Deferred, Effect, Exit, Fiber, Stream, type Scope } from "effect
 import {
   ChannelPoint,
   UiHost,
+  declaredDecision,
   failed,
   listedOn,
-  requiresApproval,
+  onWire,
   type ActionReceipt,
   type Channel,
   type ChannelPeer,
@@ -186,7 +187,9 @@ class Bridge {
       this.call(peer, conversation, byId.get(action), action, input);
     return Effect.gen(function* () {
       const screen = yield* screenContext(host, peer.tab());
-      const tools = (yield* host.manifest).filter((entry) => listedOn(AGENT_WIRE, entry.mode));
+      const tools = (yield* host.manifest).filter((entry) =>
+        listedOn(AGENT_WIRE, declaredDecision(entry.mode)),
+      );
       const outputs = runtime.turn({
         system: AGENT_SYSTEM_PROMPT,
         message: { text, screen },
@@ -214,10 +217,10 @@ class Bridge {
   ): Effect.Effect<ActionReceipt> {
     const { host } = this;
     const id = crypto.randomUUID();
-    const approval = entry !== undefined && requiresApproval(entry.mode);
+    const approval = entry !== undefined && declaredDecision(entry.mode) === "ask";
     const answered = approval
       ? this.person(conversation, id, action)
-      : host.invoke({ id: action, input });
+      : host.invoke(onWire(AGENT_WIRE, { id: action, input }));
     return send(peer, {
       type: "tool-call",
       conversation: conversation.id,

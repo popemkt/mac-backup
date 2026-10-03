@@ -15,8 +15,10 @@ import { z } from "zod";
 import {
   ManifestEntrySchema,
   asObjectSchema,
+  declaredDecision,
   failed,
   listedOn,
+  onWire,
   type ActionInvocation,
   type ActionReceipt,
   type ManifestEntry,
@@ -61,6 +63,7 @@ export interface ModelContext {
 export const WEBMCP_WIRE: SurfaceWire = {
   // GAP [[01M3S5DDJ7MP2VZ4WJB007RRR5]]
   carriesApproval: false,
+  actor: "agent",
 };
 
 /** How the host runs an invocation: its receipt, never a throw it can help. */
@@ -143,10 +146,12 @@ export function webMcpTool(entry: ManifestEntry, invoke: InvokeAction): ModelCon
     inputSchema: asObjectSchema(entry.inputSchema),
     annotations: { readOnlyHint: reads, consequentialHint: !reads },
     execute: (input) =>
-      Effect.runPromise(receiptFor(invoke, { id: entry.id, input })).then((receipt) => {
-        if (receipt.status !== "succeeded") throw new ToolCallFailed(receipt);
-        return receipt;
-      }),
+      Effect.runPromise(receiptFor(invoke, onWire(WEBMCP_WIRE, { id: entry.id, input }))).then(
+        (receipt) => {
+          if (receipt.status !== "succeeded") throw new ToolCallFailed(receipt);
+          return receipt;
+        },
+      ),
   };
 }
 
@@ -246,7 +251,10 @@ export function startWebMcp(options: WebMcpOptions): WebMcpAdapter {
 
   const syncOnce = (startedAt: number) =>
     Effect.gen(function* () {
-      const receipt = yield* receiptFor(options.invoke, { id: MANIFEST_ACTION, input: {} });
+      const receipt = yield* receiptFor(
+        options.invoke,
+        onWire(WEBMCP_WIRE, { id: MANIFEST_ACTION, input: {} }),
+      );
       // A page hidden, or an adapter stopped, while the listing was in flight has withdrawn its tools.
       if (generation !== startedAt) return;
       if (receipt.status === "failed") {
@@ -258,7 +266,11 @@ export function startWebMcp(options: WebMcpOptions): WebMcpAdapter {
         report(`WebMCP could not read the manifest: ${manifest.error.message}`);
         return;
       }
-      yield* register(manifest.data.actions.filter((entry) => listedOn(WEBMCP_WIRE, entry.mode)));
+      yield* register(
+        manifest.data.actions.filter((entry) =>
+          listedOn(WEBMCP_WIRE, declaredDecision(entry.mode)),
+        ),
+      );
     });
 
   // One sync at a time, so two listings never register the same name at once;

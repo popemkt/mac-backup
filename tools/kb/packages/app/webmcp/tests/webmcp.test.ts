@@ -174,12 +174,12 @@ describe("WebMCP adapter", () => {
     });
   });
 
-  test("the input reaches the host as it was given", async () => {
+  test("the input reaches the host as it was given, as an agent's call", async () => {
     const kb = host([READ]);
     const page = new FakeModelContext();
     await startWebMcp({ modelContext: () => page, invoke: kb.invoke }).settled();
     await page.tool("node.get")?.execute(undefined);
-    expect(kb.calls.at(-1)).toEqual({ id: "node.get", input: undefined });
+    expect(kb.calls.at(-1)).toEqual({ id: "node.get", input: undefined, actor: "agent" });
   });
 
   test("publishes the object schema MCP publishes, whatever the action declares", () => {

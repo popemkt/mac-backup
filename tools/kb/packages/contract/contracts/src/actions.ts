@@ -2,6 +2,7 @@ import { Context, Predicate, type Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import {
+  ACTORS,
   FailureCodeSchema,
   type ActionSchema,
   type ActionSchemaError,
@@ -42,26 +43,6 @@ export function isActionMode(value: unknown): value is ActionMode {
 /** True when invoking an action with this mode needs a person's approval. */
 export function requiresApproval(mode: ActionMode): boolean {
   return mode.kind === "write" && mode.approval === "required";
-}
-
-/**
- * What a surface's wire format can carry, declared once by each surface that
- * projects the registry (the CLI's `action-invoke`, HTTP, MCP, WebMCP). The
- * surface contract proves each declaration by behaviour.
- */
-export interface SurfaceWire {
-  /** Whether a call on this wire has an envelope that can carry `approved`. */
-  readonly carriesApproval: boolean;
-}
-
-/**
- * Whether a surface lists an action. The one rule is this: a surface whose
- * wire cannot carry approval leaves approval-required actions out, because a
- * call to one of them could never succeed there. A call by id still reaches
- * the invoke core, which refuses it with `approval_required`.
- */
-export function listedOn(wire: SurfaceWire, mode: ActionMode): boolean {
-  return wire.carriesApproval || !requiresApproval(mode);
 }
 
 /**
@@ -168,6 +149,10 @@ export interface ActionDefinition<
  * format has an envelope around the input. HTTP and `action-invoke` do. An
  * MCP tool call does not: its arguments are the input. So through MCP, an
  * action whose mode requires approval gets an `approval_required` receipt.
+ *
+ * `actor` is who makes the call, declared the same way and for the same
+ * reason. A surface fills in its own when the envelope names none
+ * (`onWire`), so only a surface with an envelope lets its caller say.
  */
 export const ActionInvocationSchema = z.object({
   id: z.string().min(1),
@@ -176,6 +161,7 @@ export const ActionInvocationSchema = z.object({
     .optional()
     .transform((input): unknown => input ?? {}),
   approved: z.boolean().optional(),
+  actor: z.enum(ACTORS).optional(),
 });
 export type ActionInvocation = z.output<typeof ActionInvocationSchema>;
 

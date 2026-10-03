@@ -123,7 +123,9 @@ describe("the agent dock", () => {
     });
     expect(container.textContent).toContain("Approve Stamp?");
     await act(async () => button("Approve")?.click());
-    expect(s.invoked).toEqual([{ id: "ext.gated.stamp", input: { n: 1 }, approved: true }]);
+    expect(s.invoked).toEqual([
+      { id: "ext.gated.stamp", input: { n: 1 }, approved: true, actor: "agent" },
+    ]);
     expect(s.sent).toContainEqual({
       type: "receipt",
       conversation: "k1",
@@ -151,7 +153,9 @@ describe("the agent dock", () => {
       approval: true,
     });
     await act(async () => button("Decline")?.click());
-    expect(s.invoked).toEqual([{ id: "ext.gated.stamp", input: {}, approved: false }]);
+    expect(s.invoked).toEqual([
+      { id: "ext.gated.stamp", input: {}, approved: false, actor: "agent" },
+    ]);
     expect(s.sent.at(-1)).toEqual({
       type: "receipt",
       conversation: "k1",

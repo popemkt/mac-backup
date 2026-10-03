@@ -27,9 +27,11 @@ describe("browser action runtime", () => {
     await invoked;
     expect(useOutlineStore.getState().index?.getNode("n.root-a")?.text).toBe("local first");
     await waitForBrowserPushes();
+    // The page names its own gesture: the person's.
     expect(post).toHaveBeenCalledWith({
       id: "node.update",
       input: { id: "n.root-a", text: "local first" },
+      actor: "human",
     });
   });
 

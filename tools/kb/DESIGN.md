@@ -1538,9 +1538,19 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   is refused over MCP and WebMCP.
   Each surface declares what its wire carries once, as a `SurfaceWire`
   (`MCP_WIRE`, `HTTP_WIRE`, …), and one rule in `@kb/contracts`, `listedOn`,
-  decides its listing from that and the mode: a surface whose wire cannot
-  carry approval leaves approval-required actions out, because they could
-  never succeed there. A call by its id or tool name still reaches the invoke
+  decides its listing from that and what is decided about a call (`allow`,
+  `ask` or `deny`; an approval-required action asks): a surface whose wire
+  cannot carry approval leaves approval-required actions out, because they could
+  never succeed there.
+  The wire also names its **actor**, who a call on it is made by: `human`
+  (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP) or `cli`.
+  The actor rides the envelope beside `approved` and is declared the same
+  way, not proven. Every surface hands the invoke core its calls through
+  `onWire`, which fills in the wire's actor where the envelope names none,
+  so only a wire with an envelope (HTTP, `kb action-invoke`) lets a caller
+  say otherwise. HTTP's own actor is `agent`, the more cautious one, because
+  the page names its gestures `human` and a local program that does not say
+  is not taken for a person. A call by its id or tool name still reaches the invoke
   core and gets `approval_required`, and `kb.manifest` still lists it.
   `approved` is something the caller declares, not a security boundary.
   kb has no way to check that a person really approved the call. The gate

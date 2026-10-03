@@ -16,10 +16,11 @@ export const AGENT_CHANNEL = `${AGENT_PLUGIN}.${AGENT_CHANNEL_ID}`;
 
 /**
  * The agent's wire: a tool call reaches a person before it runs wherever the
- * action's mode requires approval, so it carries approval, and the agent
- * lists every action (`listedOn`).
+ * call needs approval, so it carries approval, and the agent lists every
+ * action that is not denied to it (`listedOn`). Every call on it is the
+ * agent's, the one the person approves included.
  */
-export const AGENT_WIRE: SurfaceWire = { carriesApproval: true };
+export const AGENT_WIRE: SurfaceWire = { carriesApproval: true, actor: "agent" };
 
 const conversation = z.string().min(1);
 

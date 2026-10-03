@@ -8,6 +8,7 @@ import {
   UI_DEFAULT_PORT,
   type KbContext,
   type ActionReceipt,
+  onWire,
   type SurfaceWire,
 } from "@kb/contracts";
 import {
@@ -219,10 +220,10 @@ function ensureFieldsEffect(
         ),
       );
       if (outcome !== "missing") continue;
-      const receipt = yield* invokeReceiptEffect(ctx, {
-        id: "field.define",
-        input: { name },
-      });
+      const receipt = yield* invokeReceiptEffect(
+        ctx,
+        onWire(ACTION_INVOKE_WIRE, { id: "field.define", input: { name } }),
+      );
       if (receipt.status === "failed") return receipt;
     }
     return null;
@@ -243,10 +244,10 @@ export function runPlanEffect(
       return EXIT_FAILED;
     }
 
-    const receipt = yield* invokeReceiptEffect(ctx, {
-      id: plan.id,
-      input: plan.input,
-    });
+    const receipt = yield* invokeReceiptEffect(
+      ctx,
+      onWire(ACTION_INVOKE_WIRE, { id: plan.id, input: plan.input }),
+    );
 
     writeOut(
       formatReceipt(receipt, {
@@ -259,11 +260,12 @@ export function runPlanEffect(
 }
 
 /**
- * `kb action-invoke`'s wire: its JSON argument is the whole invocation
- * envelope, so it carries `approved`, and its listing (`kb.manifest`) is the
- * whole registry.
+ * The CLI's wire: `kb action-invoke`'s JSON argument is the whole invocation
+ * envelope, so it carries `approved` and may name its actor, and its listing
+ * (`kb.manifest`) is the whole registry. A call that names no actor, and every
+ * call a verb (`kb add`, `kb rm`, …) plans, is made by the command line.
  */
-export const ACTION_INVOKE_WIRE: SurfaceWire = { carriesApproval: true };
+export const ACTION_INVOKE_WIRE: SurfaceWire = { carriesApproval: true, actor: "cli" };
 
 /**
  * Parse action-invoke JSON text with native JSON.parse diagnostics, then leave
@@ -837,7 +839,7 @@ function buildProgram(): Command {
       kbAction((ctx, globals, [jsonArg]: [string]) =>
         Effect.gen(function* () {
           const raw = yield* readActionJsonEffect(jsonArg);
-          const invocation = mapActionInvoke(raw);
+          const invocation = onWire(ACTION_INVOKE_WIRE, mapActionInvoke(raw));
           const receipt = yield* invokeReceiptEffect(ctx, invocation);
           writeOut(formatReceipt(receipt, { json: globals.json === true }));
           return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;

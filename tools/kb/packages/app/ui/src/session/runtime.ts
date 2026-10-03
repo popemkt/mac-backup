@@ -5,9 +5,11 @@ import {
   type KbContext,
   type KbCtx,
   type KbStore,
+  type SurfaceWire,
   failed,
   kbCtxLayer,
   kbStoreLayer,
+  onWire,
 } from "@kb/contracts";
 import type { KbNode, StoreTx } from "@kb/model";
 import { KbIndexService, type KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
@@ -43,6 +45,14 @@ let pushTail = Promise.resolve();
  * index (`IsomorphicActionEnv`), whether they read or write.
  */
 const localActions = new Map(isomorphicActions.map((action) => [action.def.id, action]));
+
+/**
+ * The page's own lane. Its envelope carries `approved` and the actor, and a
+ * call that names no actor is the person's gesture. A call the page makes for
+ * someone else says so: WebMCP's tools and the agent sidebar's approved call
+ * name `agent`.
+ */
+const PAGE_WIRE: SurfaceWire = { carriesApproval: true, actor: "human" };
 
 function noteBrowserStoreSynced(current: BrowserSession): void {
   Effect.runSync(noteStoreSynced(current.ctx).pipe(Effect.provide(current.layer)));
@@ -126,7 +136,9 @@ function requireSession(): BrowserSession {
  * settles it with its receipt (DESIGN-UI.md → Replica sync → Holds).
  */
 export function pushInvocation(invocation: ActionInvocation, hold?: Hold): Promise<ActionResponse> {
-  const result = pushTail.catch(() => undefined).then(() => postAction(invocation));
+  const result = pushTail
+    .catch(() => undefined)
+    .then(() => postAction(onWire(PAGE_WIRE, invocation)));
   pushTail = result.then(
     () => undefined,
     () => undefined,
@@ -158,7 +170,9 @@ export function waitForBrowserPushes(): Promise<void> {
 export function invokeLocal(invocation: ActionInvocation): Promise<ActionReceipt> {
   const current = requireSession();
   return Effect.runPromise(
-    invokeReceiptWith(localActions, current.ctx, invocation).pipe(Effect.provide(current.layer)),
+    invokeReceiptWith(localActions, current.ctx, onWire(PAGE_WIRE, invocation)).pipe(
+      Effect.provide(current.layer),
+    ),
   ).then((receipt) => {
     // Only a write commits; a read leaves the outline store nothing to project.
     const writes = localActions.get(invocation.id)?.def.mode.kind === "write";

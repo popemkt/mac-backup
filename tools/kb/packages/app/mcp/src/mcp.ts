@@ -15,11 +15,12 @@ import type { FileSystem } from "effect/FileSystem";
 import {
   asObjectSchema,
   failed,
+  declaredDecision,
   listedOn,
+  onWire,
   mcpToolHints,
   mcpToolName,
   mcpToolResult,
-  type ActionInvocation,
   type KbContext,
   type ManifestEntry,
   type SurfaceWire,
@@ -79,6 +80,7 @@ export const ACTION_META_KEY = "kb/action";
 export const MCP_WIRE: SurfaceWire = {
   // GAP [[01M3R2KD6V1AZ9WS62ZVG9T4G2]]
   carriesApproval: false,
+  actor: "agent",
 };
 
 function causeMessage(cause: Cause.Cause<unknown>): string {
@@ -136,10 +138,7 @@ export function callToolEffect(
         return mcpToolResult(failed(name, "unknown_action", `unknown tool: ${name}`));
       }
 
-      const invocation: ActionInvocation = {
-        id: action.id,
-        input: args ?? {},
-      };
+      const invocation = onWire(MCP_WIRE, { id: action.id, input: args ?? {} });
       // Long-lived server vs CLI mutators: reload keeps per-invocation freshness.
       yield* reloadEffect(ctx);
       return mcpToolResult(yield* invokeReceiptEffect(ctx, invocation));
@@ -219,7 +218,7 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
   const actions = (yield* registryFor(root)).manifestEntries;
   const byToolName = new Map(actions.map((a) => [mcpToolName(a.id), a] as const));
   const tools = actions
-    .filter((a) => listedOn(MCP_WIRE, a.mode))
+    .filter((a) => listedOn(MCP_WIRE, declaredDecision(a.mode)))
     .map(
       (a): Tool => ({
         name: mcpToolName(a.id),

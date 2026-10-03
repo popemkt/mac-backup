@@ -26,6 +26,7 @@ describe("mutations invoke shared actions", () => {
     expect(post).toHaveBeenCalledWith({
       id: "node.update",
       input: { id: "n.child-a2", parent: "n.child-a1", position: 0 },
+      actor: "human",
     });
   });
 

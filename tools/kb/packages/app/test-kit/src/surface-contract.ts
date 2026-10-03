@@ -23,7 +23,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import {
+  declaredDecision,
   listedOn,
+  onWire,
   type ActionInvocation,
   type ActionMode,
   type ActionReceipt,
@@ -181,7 +183,10 @@ interface SurfaceCase {
   readonly name: string;
   readonly surface: ActionSurface;
   readonly root: string;
-  /** The invoke core's receipt for the call, on the same root. */
+  /**
+   * The invoke core's receipt for the call, on the same root, as it arrives
+   * from this surface: made by the actor the surface declares for it.
+   */
   readonly core: (invocation: ActionInvocation) => Effect.Effect<ActionReceipt>;
   /** The surface's receipt for the call, or `null` when its wire cannot make it. */
   readonly via: (invocation: ActionInvocation) => Effect.Effect<ActionReceipt | null>;
@@ -210,14 +215,14 @@ function overSurfaces(
         const root = yield* scratchRoot;
         const ctx = yield* Effect.promise(() => openKb(root));
         const { ui } = yield* serveRoot(serve, root);
-        const core = (invocation: ActionInvocation) =>
-          Effect.promise(() => invoke(ctx, invocation));
         yield* Effect.forEach(
           Object.entries(surfaces),
           ([name, open]) =>
             Effect.scoped(
               Effect.gen(function* () {
                 const surface = yield* openSurface(open, root, ui);
+                const core = (invocation: ActionInvocation) =>
+                  Effect.promise(() => invoke(ctx, onWire(surface.wire, invocation)));
                 const via = (invocation: ActionInvocation) =>
                   Effect.promise(() => surface.invoke(invocation));
                 yield* check({ name, surface, root, core, via });
@@ -239,7 +244,9 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
         Effect.gen(function* () {
           const registry = yield* manifest(root).pipe(Effect.provide(bunFileSystemLayer));
           expect(registry.some((entry) => entry.id === APPROVAL_ACTION)).toBe(true);
-          const callable = registry.filter((entry) => listedOn(surface.wire, entry.mode));
+          const callable = registry.filter((entry) =>
+            listedOn(surface.wire, declaredDecision(entry.mode)),
+          );
           const listed = yield* Effect.promise(() => surface.list());
           expect({ name, listed: byId(listed) }).toEqual({ name, listed: byId(callable) });
         }),

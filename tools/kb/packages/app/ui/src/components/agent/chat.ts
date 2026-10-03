@@ -14,6 +14,7 @@
  */
 import { create } from "zustand";
 import {
+  AGENT_WIRE,
   AgentEventSchema,
   newTranscript,
   withDecision,
@@ -24,7 +25,7 @@ import {
   type ToolEntry,
   type Transcript,
 } from "@kb/agent";
-import { failed, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
+import { failed, onWire, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
 
 /** Where the chat reaches the agent and the graph. */
 export interface AgentPorts {
@@ -91,7 +92,7 @@ export function decideCall(call: string, approved: boolean): void {
     .transcript.entries.find((held): held is ToolEntry => held.kind === "tool" && held.id === call);
   if (bound === null || entry?.state !== "awaiting") return;
   update((transcript) => withDecision(transcript, call, approved ? "approved" : "declined"));
-  const invocation: ActionInvocation = { id: entry.action, input: entry.input, approved };
+  const invocation = onWire(AGENT_WIRE, { id: entry.action, input: entry.input, approved });
   const at = conversation();
   void bound
     .invoke(invocation)

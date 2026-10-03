@@ -16,6 +16,7 @@ import {
   ActionReceiptSchema,
   ActionResponseSchema,
   ManifestEntrySchema,
+  onWire,
   type ActionInvocation,
   type ActionReceipt,
 } from "@kb/contracts";
@@ -265,7 +266,7 @@ const agent: SurfaceFactory = async (_root, ui) => {
       for (const event of events) {
         if (event.type !== "tool-call" || !event.approval || answered.has(event.call)) continue;
         answered.add(event.call);
-        const invocation = { id: event.action, input: event.input, approved };
+        const invocation = onWire(AGENT_WIRE, { id: event.action, input: event.input, approved });
         const receipt = await postAction(ui.url, invocation);
         tab.say(AGENT_CHANNEL, { type: "receipt", conversation, call: event.call, receipt });
       }

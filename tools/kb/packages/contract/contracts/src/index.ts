@@ -7,10 +7,11 @@ export {
   asObjectSchema,
   failed,
   isActionMode,
-  listedOn,
   requiresApproval,
   succeeded,
 } from "./actions.ts";
+export { declaredDecision, listedOn, onWire } from "./approval.ts";
+export type { SurfaceWire } from "./approval.ts";
 export type {
   ActionDefinition,
   ActionEffectHandler,
@@ -20,7 +21,6 @@ export type {
   ActionInvocation,
   ActionReceipt,
   ManifestEntry,
-  SurfaceWire,
 } from "./actions.ts";
 export { ChannelPoint, UiHost } from "./channel.ts";
 export type { Channel, ChannelPeer, UiHostService } from "./channel.ts";

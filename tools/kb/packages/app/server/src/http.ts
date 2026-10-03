@@ -5,7 +5,9 @@ import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
   ActionInvocationSchema,
   TxOrigin,
+  declaredDecision,
   listedOn,
+  onWire,
   type ActionResponse,
   type KbContext,
   type ServerIdentity,
@@ -21,9 +23,12 @@ import type { SubscriptionHub } from "./session.ts";
 
 /**
  * HTTP's wire: `POST /api/action` takes the invocation envelope, so it carries
- * `approved`, and `GET /api/manifest` lists every action ({@link listedOn}).
+ * `approved` and may name its actor, and `GET /api/manifest` lists every
+ * action ({@link listedOn}). A call that names no actor is taken as an
+ * agent's: the UI names its own (`human` for a gesture), and a local program
+ * that does not say is treated as the more cautious of the two.
  */
-export const HTTP_WIRE: SurfaceWire = { carriesApproval: true };
+export const HTTP_WIRE: SurfaceWire = { carriesApproval: true, actor: "agent" };
 
 /** Match Bun/Web `Response.json` Content-Type exactly. */
 const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
@@ -71,7 +76,9 @@ const JSON_READS: ReadonlyMap<string, JsonRead> = new Map<string, JsonRead>([
     "/api/manifest",
     ({ root }) =>
       manifest(root).pipe(
-        Effect.map((entries) => entries.filter((entry) => listedOn(HTTP_WIRE, entry.mode))),
+        Effect.map((entries) =>
+          entries.filter((entry) => listedOn(HTTP_WIRE, declaredDecision(entry.mode))),
+        ),
       ),
   ],
   ["/api/queries", ({ root }) => listSavedQueriesEffect(root)],
@@ -116,7 +123,7 @@ const handleHttpRequestEffect = (
         return invalidInput(parsed.error.issues.map((i) => i.message).join("; "));
       }
 
-      const receipt = yield* serverInvoke(ctx, parsed.data).pipe(
+      const receipt = yield* serverInvoke(ctx, onWire(HTTP_WIRE, parsed.data)).pipe(
         Effect.provideService(TxOrigin, req.headers.get("x-kb-origin") ?? undefined),
       );
       // The head once the invocation has committed: the rev a client waits
