@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
-import type { CanvasDoc } from "@kb/canvas";
+import type { CanvasDoc, CanvasSide } from "@kb/canvas";
 import { isShapeNode, paintOrder, presetItem, upsertCanvasNode } from "@kb/canvas";
 import { placeWithTool, reduceCanvasTool, type CanvasTool, type ToolState } from "./canvas-tool";
 import { selectNode as selNode } from "./canvas-selection";
@@ -67,11 +67,17 @@ type ScreenToWorld = (
 /** The card under a client point, as the camera sees it (`hitTest`). */
 type CardAt = (clientX: number, clientY: number, element: HTMLElement) => string | null;
 
-function createPointerEnd(
-  context: StageGestureContext,
-  screenToWorld: ScreenToWorld,
-  cardAt: CardAt,
-) {
+/**
+ * A client point as the 2D viewport sees it, CSS pixels from its top left
+ * (`element`, or the canvas viewport): what a gesture reports.
+ */
+function viewportPoint(clientX: number, clientY: number, element?: HTMLElement) {
+  const el = element ?? document.querySelector<HTMLElement>("[data-canvas-viewport]");
+  const rect = el?.getBoundingClientRect();
+  return { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) };
+}
+
+function createPointerEnd(context: StageGestureContext, cardAt: CardAt) {
   return (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = context.pointerRef.current.drag;
     if (drag?.kind === "marquee-pending") {
@@ -86,8 +92,7 @@ function createPointerEnd(
       type: "pointer/end",
       shiftKey: event.shiftKey,
       free: event.metaKey,
-      screen: { x: event.clientX, y: event.clientY },
-      world: screenToWorld(event.clientX, event.clientY, event.currentTarget),
+      screen: viewportPoint(event.clientX, event.clientY, event.currentTarget),
       edgeTargetId: edgeTarget,
       edgeId: drag?.kind === "edge" ? ulid() : undefined,
       edgeBindingId: drag?.kind === "edge" ? ulid() : undefined,
@@ -206,39 +211,39 @@ function useViewportControls({
 }
 
 /**
- * A press on a card or its handle starts a gesture at the canvas point under
- * it, read through the viewport the gesture is over.
+ * A press on a card or its handle starts a gesture at the viewport point
+ * under it (`client` is where it is in the window).
  */
-function createCardGestures(
-  dispatchPointer: CanvasGestureContext["dispatchPointer"],
-  screenToWorld: ScreenToWorld,
-) {
-  const worldAt = (clientX: number, clientY: number) => {
-    const stageEl = document.querySelector<HTMLElement>("[data-canvas-viewport]");
-    return stageEl ? screenToWorld(clientX, clientY, stageEl) : { x: clientX, y: clientY };
-  };
+function createCardGestures(dispatchPointer: CanvasGestureContext["dispatchPointer"]) {
   const startMoveForSelection = (e: React.PointerEvent, clickedId: string) => {
     dispatchPointer({
       type: "move/start",
       id: clickedId,
-      screen: { x: e.clientX, y: e.clientY },
-      world: worldAt(e.clientX, e.clientY),
+      screen: viewportPoint(e.clientX, e.clientY),
     });
     asElement(e.target)?.setPointerCapture(e.pointerId);
   };
-  const startResize = (cardId: string, corner: ResizeCorner, screen: { x: number; y: number }) => {
+  const startResize = (cardId: string, corner: ResizeCorner, client: { x: number; y: number }) => {
     dispatchPointer({
       type: "resize/start",
       id: cardId,
       corner,
-      screen,
-      world: worldAt(screen.x, screen.y),
+      screen: viewportPoint(client.x, client.y),
     });
   };
-  const startRotate = (cardId: string, screen: { x: number; y: number }) => {
-    dispatchPointer({ type: "turn/start", id: cardId, screen, world: worldAt(screen.x, screen.y) });
+  const startRotate = (cardId: string, client: { x: number; y: number }) => {
+    dispatchPointer({ type: "turn/start", id: cardId, screen: viewportPoint(client.x, client.y) });
   };
-  return { startMoveForSelection, startResize, startRotate };
+  /** A press on a card's port starts an edge from it. */
+  const startEdge = (cardId: string, side: CanvasSide, client: { x: number; y: number }) => {
+    dispatchPointer({
+      type: "edge/start",
+      fromCardId: cardId,
+      fromSide: side,
+      screen: viewportPoint(client.x, client.y),
+    });
+  };
+  return { startEdge, startMoveForSelection, startResize, startRotate };
 }
 
 /**
@@ -275,8 +280,9 @@ function createStageGestures(
   const { dispatchPointer, docRef, schedulePersist, setSelection, spaceDown, toolState } = context;
   const placeAt = createToolPlacement(context);
   const onPointerDownStage = (e: React.PointerEvent<HTMLDivElement>) => {
+    const screen = viewportPoint(e.clientX, e.clientY, e.currentTarget);
     if (e.button === 1 || spaceDown || (e.button === 0 && e.altKey)) {
-      dispatchPointer({ type: "pan/start", screen: { x: e.clientX, y: e.clientY } });
+      dispatchPointer({ type: "pan/start", screen });
       asElement(e.target)?.setPointerCapture(e.pointerId);
       return;
     }
@@ -284,13 +290,7 @@ function createStageGestures(
       const client = { x: e.clientX, y: e.clientY };
       if (placeAt(screenToWorld(e.clientX, e.clientY, e.currentTarget), client)) return;
       // Begin marquee or clear selection
-      const world = screenToWorld(e.clientX, e.clientY, e.currentTarget);
-      dispatchPointer({
-        type: "marquee/start",
-        screen: { x: e.clientX, y: e.clientY },
-        world,
-        additive: e.shiftKey,
-      });
+      dispatchPointer({ type: "marquee/start", screen, additive: e.shiftKey });
       asElement(e.target)?.setPointerCapture(e.pointerId);
     }
   };
@@ -307,14 +307,13 @@ function createStageGestures(
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     dispatchPointer({
       type: "pointer/move",
-      screen: { x: e.clientX, y: e.clientY },
-      world: screenToWorld(e.clientX, e.clientY, e.currentTarget),
+      screen: viewportPoint(e.clientX, e.clientY, e.currentTarget),
       shiftKey: e.shiftKey,
       free: e.metaKey,
     });
   };
 
-  const onPointerUp = createPointerEnd(context, screenToWorld, cardAt);
+  const onPointerUp = createPointerEnd(context, cardAt);
   return {
     onDoubleClickStage,
     onPointerDownStage,
@@ -347,7 +346,7 @@ export function useCanvasGestures(context: CanvasGestureContext) {
   const toolControls = useToolControls(context);
   const viewport = useViewportControls(context);
   const stage = createStageGestures(context, viewport.screenToWorld, viewport.cardAt);
-  const cards = createCardGestures(context.dispatchPointer, viewport.screenToWorld);
+  const cards = createCardGestures(context.dispatchPointer);
   return {
     ...cards,
     addKbNode: createAddKbNode(context),

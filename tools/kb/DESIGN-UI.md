@@ -1096,8 +1096,10 @@ same height, so paint order decides from above and nothing ever ties) all
 go through
 the camera rather than through pan
 arithmetic or `elementFromPoint`. A gesture reaches the pointer reducer as a
-screen point, which decides slop and panning, and the canvas point it stands
-for, which decides where a moved or resized card goes.
+viewport point, which decides slop and panning, and the reducer reads it
+through the showing camera (its context carries the view and the viewport
+size), which decides where a moved or resized card goes — so one reading
+serves both projections.
 
 Two projections hold that camera (`CANVAS_PROJECTIONS`,
 `components/canvas/canvas-projections.ts`): **2D**, from the top and
@@ -1210,12 +1212,14 @@ open view of that canvas.
   rather than replace it.
 - **Gestures in 3D** are the 2D ones where they mean the same: a press on an
   item selects it (a modifier toggles), a drag carries it on the plane of
-  its top and Alt-drag lifts it. Both are the pointer reducer's one move,
-  carried across the plane or up from the floor (`CARRY`: whole units at
-  the current zoom for a lift), and both are history steps written through
-  `ext.canvas.tx.apply`. A carry reads the pointer where it visibly is: on
-  the top of a solid it passes over (one it does not carry), so dragging an
-  item onto another stands it there through surface snap.
+  its top and Alt-drag lifts it. Both are one transform drag in the pointer
+  reducer, made by a grab (`canvas-transform-input.ts`): held to the floor
+  plan, or for Alt held to the Z axis — the axis's travel read along it as
+  the screen shows it, and up the screen where Z points at the eye — and
+  both are history steps written through `ext.canvas.tx.apply`. A carry
+  reads the pointer where it visibly is: on the top of a solid it passes
+  over (one it does not carry), so dragging an item onto another stands it
+  there through surface snap.
   **The gizmo** (`canvas-scene-gizmo.ts`) stands on the selection in 3D:
   three's `TransformControls`, built with no DOM element, fed the camera
   model's own ray (`screenRay`) by the gestures, which ask it before

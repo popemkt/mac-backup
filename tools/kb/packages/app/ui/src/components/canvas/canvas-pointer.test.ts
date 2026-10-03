@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 import type { CanvasDoc, CanvasNode } from "@kb/canvas";
 import { EMPTY_SELECTION, selectNode } from "./canvas-selection";
+import { projectPoint, viewOfPan, type CanvasView } from "./canvas-camera";
+import { ALONG_Z } from "./canvas-transform-input";
 import {
   createPointerState,
   pointerReduce,
@@ -29,12 +31,21 @@ const guide: CanvasNode = {
 };
 const doc: CanvasDoc = { nodes: [moving, guide], edges: [] };
 
-function context(stateDoc: CanvasDoc = doc, selection = selectNode(moving.id)): PointerContext {
+const size = { width: 800, height: 600 };
+/** The top view with no pan at 1:1: a screen point is the canvas point it stands over. */
+const top = viewOfPan({ x: 0, y: 0 }, 1, size);
+
+function context(
+  stateDoc: CanvasDoc = doc,
+  selection = selectNode(moving.id),
+  view: CanvasView = top,
+): PointerContext {
   return {
     doc: stateDoc,
     selection,
-    zoom: 1,
     byId: new Map(stateDoc.nodes.map((node) => [node.id, node])),
+    view,
+    size,
   };
 }
 
@@ -44,12 +55,7 @@ function reduce(state: PointerState, event: CanvasPointerEvent, ctx: PointerCont
 
 test("a move without a prior down is a no-op", () => {
   const state = createPointerState();
-  const next = reduce(state, {
-    type: "pointer/move",
-    screen: { x: 20, y: 20 },
-    world: { x: 20, y: 20 },
-    shiftKey: false,
-  });
+  const next = reduce(state, { type: "pointer/move", screen: { x: 20, y: 20 }, shiftKey: false });
   expect(next.state).toBe(state);
   expect(next.doc).toBeUndefined();
 });
@@ -61,18 +67,15 @@ describe("resize", () => {
       id: moving.id,
       corner,
       screen: { x: 0, y: 0 },
-      world: { x: 0, y: 0 },
     }).state;
     const active = reduce(started, {
       type: "pointer/move",
       screen: { x: 1_000, y: 1_000 },
-      world: { x: 1_000, y: 1_000 },
       shiftKey: false,
     }).state;
     const resized = reduce(active, {
       type: "pointer/move",
       screen: { x: 1_000, y: 1_000 },
-      world: { x: 1_000, y: 1_000 },
       shiftKey: false,
     }).doc?.nodes.find((node) => node.id === moving.id);
     expect(resized?.width).toBeGreaterThanOrEqual(80);
@@ -85,21 +88,14 @@ test("snapping only moves toward the guide", () => {
     type: "move/start",
     id: moving.id,
     screen: { x: 0, y: 0 },
-    world: { x: 0, y: 0 },
   }).state;
   const active = reduce(started, {
     type: "pointer/move",
     screen: { x: 97, y: 10 },
-    world: { x: 97, y: 10 },
     shiftKey: false,
   }).state;
   const beforeDistance = Math.abs(moving.x + moving.width + 97 - guide.x);
-  const moved = reduce(active, {
-    type: "pointer/move",
-    screen: { x: 97, y: 10 },
-    world: { x: 97, y: 10 },
-    shiftKey: false,
-  });
+  const moved = reduce(active, { type: "pointer/move", screen: { x: 97, y: 10 }, shiftKey: false });
   const snapped = moved.doc?.nodes.find((node) => node.id === moving.id);
   const afterDistance = Math.abs((snapped?.x ?? 0) + moving.width - guide.x);
   expect(moved.guides).toContainEqual({ axis: "x", pos: guide.x });
@@ -109,17 +105,12 @@ test("snapping only moves toward the guide", () => {
 test("an edge drag that ends off-port creates nothing", () => {
   const started = reduce(
     createPointerState(),
-    {
-      type: "edge/start",
-      fromCardId: moving.id,
-      fromSide: "right",
-      screen: { x: 100, y: 30 },
-    },
+    { type: "edge/start", fromCardId: moving.id, fromSide: "right", screen: { x: 100, y: 30 } },
     context(doc, EMPTY_SELECTION),
   ).state;
   const ended = reduce(
     started,
-    { type: "pointer/end", screen: { x: 500, y: 500 }, world: { x: 500, y: 500 } },
+    { type: "pointer/end", screen: { x: 500, y: 500 } },
     context(doc, EMPTY_SELECTION),
   );
   expect(ended.doc).toBeUndefined();
@@ -131,12 +122,10 @@ test("the release persists the snapped position the drag showed", () => {
     type: "move/start",
     id: moving.id,
     screen: { x: 0, y: 0 },
-    world: { x: 0, y: 0 },
   });
   const dragged = reduce(started.state, {
     type: "pointer/move",
     screen: { x: 97, y: 10 },
-    world: { x: 97, y: 10 },
     shiftKey: false,
   });
   const shown = dragged.doc?.nodes.find((node) => node.id === moving.id);
@@ -145,13 +134,30 @@ test("the release persists the snapped position the drag showed", () => {
 
   const released = reduce(
     dragged.state,
-    { type: "pointer/end", screen: { x: 97, y: 10 }, world: { x: 97, y: 10 } },
+    { type: "pointer/end", screen: { x: 97, y: 10 } },
     context(dragged.doc),
   );
   const persisted = released.doc?.nodes.find((node) => node.id === moving.id);
   expect(persisted?.x).toBe(shown?.x);
   expect(released.persist).toBe("history");
   expect(released.state.snapGuides).toEqual([]);
+});
+
+test("a press that never goes past the slop writes nothing", () => {
+  const started = reduce(createPointerState(), {
+    type: "move/start",
+    id: moving.id,
+    screen: { x: 0, y: 0 },
+  });
+  const still = reduce(started.state, {
+    type: "pointer/move",
+    screen: { x: 2, y: 1 },
+    shiftKey: false,
+  });
+  expect(still.doc).toBeUndefined();
+  const released = reduce(still.state, { type: "pointer/end", screen: { x: 2, y: 1 } });
+  expect(released.doc).toBeUndefined();
+  expect(released.state.drag).toBeNull();
 });
 
 describe("shift-locked resize", () => {
@@ -171,12 +177,10 @@ describe("shift-locked resize", () => {
       id: moving.id,
       corner,
       screen: { x: 0, y: 0 },
-      world: { x: 0, y: 0 },
     });
     const resized = reduce(started.state, {
       type: "pointer/move",
       screen: delta,
-      world: delta,
       shiftKey: true,
     }).doc?.nodes.find((node) => node.id === moving.id);
     expect(resized).toBeDefined();
@@ -195,22 +199,15 @@ describe("shift-locked resize", () => {
       id: moving.id,
       corner: "nw",
       screen: { x: 0, y: 0 },
-      world: { x: 0, y: 0 },
     });
     const active = reduce(started.state, {
       type: "pointer/move",
       screen: { x: -60, y: -40 },
-      world: { x: -60, y: -40 },
       shiftKey: true,
     });
     const released = reduce(
       active.state,
-      {
-        type: "pointer/end",
-        screen: { x: -60, y: -40 },
-        world: { x: -60, y: -40 },
-        shiftKey: true,
-      },
+      { type: "pointer/end", screen: { x: -60, y: -40 }, shiftKey: true },
       context(active.doc),
     );
     const persisted = released.doc?.nodes.find((node) => node.id === moving.id);
@@ -223,49 +220,71 @@ describe("shift-locked resize", () => {
   });
 });
 
-describe("lift", () => {
-  test("a drag up raises the carried cards by whole units at the current zoom", () => {
-    const ctx = { ...context(), zoom: 2 };
+describe("a carry held to Z (Alt-drag)", () => {
+  /** Looking level from the front through the orthographic lens, at 2×: up the screen is up. */
+  const front: CanvasView = { ...top, pitch: Math.PI / 2, zoom: 2 };
+
+  test("a drag up raises the carried cards with the pointer", () => {
+    const ctx = context(doc, selectNode(moving.id), front);
     const started = reduce(
       createPointerState(),
-      { type: "lift/start", id: moving.id, screen: { x: 0, y: 100 }, world: { x: 0, y: 0 } },
+      { type: "move/start", id: moving.id, screen: { x: 0, y: 100 }, along: ALONG_Z },
       ctx,
     );
     const still = reduce(
       started.state,
-      { type: "pointer/move", screen: { x: 0, y: 98 }, world: { x: 0, y: 0 }, shiftKey: false },
+      { type: "pointer/move", screen: { x: 0, y: 98 }, shiftKey: false },
       ctx,
     );
     // Inside the slop nothing moves.
     expect(still.doc).toBeUndefined();
     const lifted = reduce(
       started.state,
-      { type: "pointer/move", screen: { x: 0, y: 41 }, world: { x: 0, y: 0 }, shiftKey: false },
+      { type: "pointer/move", screen: { x: 0, y: 40 }, shiftKey: false },
       ctx,
     );
     expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(30);
     expect(lifted.persist).toBe("silent");
     const released = reduce(
       lifted.state,
-      { type: "pointer/end", screen: { x: 0, y: 100 }, world: { x: 0, y: 0 } },
-      { ...context(lifted.doc), zoom: 2 },
+      { type: "pointer/end", screen: { x: 0, y: 100 } },
+      context(lifted.doc, selectNode(moving.id), front),
     );
     // Back where it started, the card carries no elevation at all.
     expect(released.doc?.nodes.find((n) => n.id === moving.id)).not.toHaveProperty("z");
     expect(released.persist).toBe("history");
   });
 
-  test("a lift snaps to the height another card stands at", () => {
-    const shelf = { ...guide, z: 40 };
-    const ctx = context({ nodes: [moving, shelf], edges: [] });
+  test("from the top, where Z points at the eye, it follows the pointer up the screen", () => {
+    const zoomed = { ...top, zoom: 2 };
+    const ctx = context(doc, selectNode(moving.id), zoomed);
     const started = reduce(
       createPointerState(),
-      { type: "lift/start", id: moving.id, screen: { x: 0, y: 100 }, world: { x: 0, y: 0 } },
+      { type: "move/start", id: moving.id, screen: { x: 0, y: 100 }, along: ALONG_Z },
       ctx,
     );
     const lifted = reduce(
       started.state,
-      { type: "pointer/move", screen: { x: 0, y: 63 }, world: { x: 0, y: 0 }, shiftKey: false },
+      { type: "pointer/move", screen: { x: 0, y: 40 }, shiftKey: false },
+      ctx,
+    );
+    expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(30);
+  });
+
+  test("it snaps to the height another card stands at", () => {
+    const shelf = { ...guide, z: 40 };
+    const ctx = context({ nodes: [moving, shelf], edges: [] }, selectNode(moving.id), {
+      ...front,
+      zoom: 1,
+    });
+    const started = reduce(
+      createPointerState(),
+      { type: "move/start", id: moving.id, screen: { x: 0, y: 100 }, along: ALONG_Z },
+      ctx,
+    );
+    const lifted = reduce(
+      started.state,
+      { type: "pointer/move", screen: { x: 0, y: 63 }, shiftKey: false },
       ctx,
     );
     expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(40);
@@ -279,17 +298,12 @@ describe("stacking", () => {
     const ctx = context({ nodes: [moving, block], edges: [] });
     const started = reduce(
       createPointerState(),
-      { type: "move/start", id: moving.id, screen: { x: 0, y: 0 }, world: { x: 0, y: 0 } },
+      { type: "move/start", id: moving.id, screen: { x: 0, y: 0 } },
       ctx,
     );
     const over = reduce(
       started.state,
-      {
-        type: "pointer/move",
-        screen: { x: 20, y: 20 },
-        world: { x: 310, y: 310 },
-        shiftKey: false,
-      },
+      { type: "pointer/move", screen: { x: 310, y: 310 }, shiftKey: false },
       ctx,
     );
     const stacked = over.doc?.nodes.find((n) => n.id === moving.id);
@@ -297,7 +311,7 @@ describe("stacking", () => {
     expect(over.state.snapGuides).toContainEqual({ axis: "z", pos: 70 });
     const released = reduce(
       over.state,
-      { type: "pointer/end", screen: { x: 20, y: 20 }, world: { x: 310, y: 310 } },
+      { type: "pointer/end", screen: { x: 310, y: 310 } },
       context(over.doc),
     );
     expect(released.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(70);
@@ -307,34 +321,123 @@ describe("stacking", () => {
     const onTop = released.doc ?? doc;
     const again = reduce(
       createPointerState(),
-      { type: "move/start", id: moving.id, screen: { x: 0, y: 0 }, world: { x: 0, y: 0 } },
+      { type: "move/start", id: moving.id, screen: { x: 310, y: 310 } },
       context(onTop),
     );
     const off = reduce(
       again.state,
-      { type: "pointer/move", screen: { x: 30, y: 30 }, world: { x: -700, y: 0 }, shiftKey: false },
+      { type: "pointer/move", screen: { x: -390, y: 310 }, shiftKey: false },
       context(onTop),
     );
     expect(off.doc?.nodes.find((n) => n.id === moving.id)).not.toHaveProperty("z");
   });
 });
 
+describe("a carry seen in depth", () => {
+  const size3 = { width: 800, height: 600 };
+  const tilted: CanvasView = { x: 200, y: 100, z: 0, zoom: 1, yaw: -0.3, pitch: 0.5, fov: 34 };
+  const card: CanvasNode = {
+    id: "c",
+    type: "text",
+    text: "",
+    x: 100,
+    y: 50,
+    width: 200,
+    height: 100,
+    z: 40,
+  };
+  const on = (view: CanvasView, p: { x: number; y: number; z: number }) => {
+    const at = projectPoint(view, size3, p);
+    if (at === null) throw new Error("out of view");
+    return { x: at.x, y: at.y };
+  };
+  const ctxOf = (nodes: CanvasNode[], view: CanvasView = tilted): PointerContext => ({
+    ...context({ nodes, edges: [] }, selectNode(card.id), view),
+    size: size3,
+  });
+
+  test("it is read on the card's own plane", () => {
+    const ctx = ctxOf([card]);
+    const from = on(tilted, { x: 200, y: 100, z: 40 });
+    const started = reduce(
+      createPointerState(),
+      { type: "move/start", id: card.id, screen: from },
+      ctx,
+    );
+    const to = on(tilted, { x: 260, y: 130, z: 40 });
+    const moved = reduce(started.state, { type: "pointer/move", screen: to, shiftKey: false }, ctx);
+    const shown = moved.doc?.nodes.find((n) => n.id === card.id);
+    expect(shown?.x).toBeCloseTo(160, 3);
+    expect(shown?.y).toBeCloseTo(80, 3);
+    expect(shown?.z).toBe(40);
+  });
+
+  test("carried over a solid, the pointer is read on the solid's top, where it visibly is", () => {
+    const block: CanvasNode = {
+      id: "b",
+      type: "shape",
+      shape: "rect",
+      x: 500,
+      y: 40,
+      width: 120,
+      height: 120,
+      depth: 90,
+    };
+    const ctx = ctxOf([card, block]);
+    const from = on(tilted, { x: 200, y: 100, z: 40 });
+    const started = reduce(
+      createPointerState(),
+      { type: "move/start", id: card.id, screen: from },
+      ctx,
+    );
+    const over = on(tilted, { x: 560, y: 100, z: 90 });
+    const moved = reduce(
+      started.state,
+      { type: "pointer/move", screen: over, shiftKey: false },
+      ctx,
+    );
+    const shown = moved.doc?.nodes.find((n) => n.id === card.id);
+    // Its centre came over (560, 100) and it stands on the block.
+    expect((shown?.x ?? 0) + card.width / 2).toBeCloseTo(560, 3);
+    expect((shown?.y ?? 0) + card.height / 2).toBeCloseTo(100, 3);
+    expect(shown?.z).toBe(90);
+  });
+
+  test("a release where the card's plane is edge-on leaves it where the drag last had it", () => {
+    const from = on(tilted, { x: 200, y: 100, z: 40 });
+    const started = reduce(
+      createPointerState(),
+      { type: "move/start", id: card.id, screen: from },
+      ctxOf([card]),
+    );
+    const moved = reduce(
+      started.state,
+      { type: "pointer/move", screen: { x: from.x + 20, y: from.y }, shiftKey: false },
+      ctxOf([card]),
+    );
+    const shown = moved.doc?.nodes.find((n) => n.id === card.id);
+    // The canvas turns edge-on, and the pointer is let go where its ray never meets the plane.
+    const level = { ...tilted, pitch: Math.PI / 2 };
+    const released = reduce(
+      moved.state,
+      { type: "pointer/end", screen: { x: from.x + 20, y: size3.height - 5 } },
+      ctxOf(moved.doc?.nodes ?? [card], level),
+    );
+    expect(released.persist).toBe("history");
+    expect(released.doc?.nodes.find((n) => n.id === card.id)?.x).toBe(shown?.x);
+    expect(shown?.x).not.toBe(card.x);
+  });
+});
+
 describe("turning", () => {
-  /** A press on `moving`'s rotate handle, above its centre (50, 30), then a drag to `world`. */
-  function turnTo(world: { x: number; y: number }, free = false) {
+  /** A press on `moving`'s rotate handle, above its centre (50, 30), then a drag to `at`. */
+  function turnTo(at: { x: number; y: number }, free = false) {
     const started = reduce(createPointerState(), {
       type: "turn/start",
       id: moving.id,
       screen: { x: 50, y: -10 },
-      world: { x: 50, y: -10 },
     });
-    return reduce(started.state, {
-      type: "pointer/move",
-      screen: { x: world.x, y: world.y },
-      world,
-      shiftKey: false,
-      free,
-    });
+    return reduce(started.state, { type: "pointer/move", screen: at, shiftKey: false, free });
   }
 
   test("the rotate handle turns the item about its centre in 15° steps, previewed then written", () => {
@@ -347,11 +450,7 @@ describe("turning", () => {
     expect(shown?.rotation).toEqual({ z: 45 });
     // Turned about its centre: its footprint box stays where it was.
     expect([shown?.x, shown?.y]).toEqual([0, 0]);
-    const released = reduce(
-      turned.state,
-      { type: "pointer/end", screen: at, world: at },
-      context(turned.doc),
-    );
+    const released = reduce(turned.state, { type: "pointer/end", screen: at }, context(turned.doc));
     expect(released.persist).toBe("history");
     expect(released.doc?.nodes.find((n) => n.id === moving.id)?.rotation).toEqual({ z: 45 });
   });
@@ -369,16 +468,17 @@ describe("turning", () => {
       type: "transform/move",
       transform: {
         pivot: { x: 50, y: 30, z: 0 },
+        axes: [1, 0, 0, 0, 1, 0, 0, 0, 1],
         move: { x: 0, y: 0, z: 25 },
         turn: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-        stretch: { axes: [1, 0, 0, 0, 1, 0, 0, 0, 1], by: { x: 1, y: 1, z: 1 } },
+        stretch: { x: 1, y: 1, z: 1 },
       },
     });
     expect(lifted.persist).toBe("silent");
     expect(lifted.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(25);
     const released = reduce(
       lifted.state,
-      { type: "pointer/end", screen: { x: 0, y: 0 }, world: { x: 0, y: 0 } },
+      { type: "pointer/end", screen: { x: 0, y: 0 } },
       context(lifted.doc),
     );
     expect(released.persist).toBe("history");
@@ -391,18 +491,12 @@ describe("turning", () => {
     // Turned a quarter, its own width runs down the page: dragging its east handle down widens it.
     const started = reduce(
       createPointerState(),
-      {
-        type: "resize/start",
-        id: spun.id,
-        corner: "se",
-        screen: { x: 0, y: 0 },
-        world: { x: 0, y: 0 },
-      },
+      { type: "resize/start", id: spun.id, corner: "se", screen: { x: 0, y: 0 } },
       ctx,
     );
     const grown = reduce(
       started.state,
-      { type: "pointer/move", screen: { x: 0, y: 40 }, world: { x: 0, y: 40 }, shiftKey: false },
+      { type: "pointer/move", screen: { x: 0, y: 40 }, shiftKey: false },
       ctx,
     );
     const shown = grown.doc?.nodes.find((n) => n.id === spun.id);
@@ -418,21 +512,14 @@ describe("turning", () => {
       type: "move/start",
       id: moving.id,
       screen: { x: 0, y: 0 },
-      world: { x: 0, y: 0 },
     });
     // 3 units shy of lining up with `guide`'s left edge (200).
     const near = { x: 97, y: 0 };
-    const snapped = reduce(started.state, {
-      type: "pointer/move",
-      screen: near,
-      world: near,
-      shiftKey: false,
-    });
+    const snapped = reduce(started.state, { type: "pointer/move", screen: near, shiftKey: false });
     expect(snapped.doc?.nodes.find((n) => n.id === moving.id)?.x).toBe(100);
     const free = reduce(started.state, {
       type: "pointer/move",
       screen: near,
-      world: near,
       shiftKey: false,
       free: true,
     });

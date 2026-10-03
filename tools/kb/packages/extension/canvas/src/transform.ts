@@ -18,15 +18,19 @@ import {
 } from "./rotation.ts";
 
 /**
- * A transform about `pivot`: stretch along `stretch.axes` (its columns) by
- * `stretch.by`, then `turn`, then `move`, each about the pivot and in the
- * canvas's own axes.
+ * A transform about `pivot`: stretch by `stretch` along `axes`, then `turn`,
+ * then `move`, each about the pivot. `axes` (its columns, in the canvas's
+ * own axes) are the axes the transform was made along — the canvas's, or a
+ * handle's or a constraint's own — so a stretch runs along them, and
+ * snapping steps along them too.
  */
 export interface CanvasTransform {
   readonly pivot: CanvasVec;
+  readonly axes: CanvasMatrix;
   readonly move: CanvasVec;
   readonly turn: CanvasMatrix;
-  readonly stretch: { readonly axes: CanvasMatrix; readonly by: CanvasVec };
+  /** How far each of `axes` is stretched: 1 leaves it be. */
+  readonly stretch: CanvasVec;
 }
 
 const ZERO: CanvasVec = { x: 0, y: 0, z: 0 };
@@ -34,7 +38,7 @@ const ONES: CanvasVec = { x: 1, y: 1, z: 1 };
 
 /** A transform that leaves everything where it is, about `pivot`. */
 export function stillAbout(pivot: CanvasVec): CanvasTransform {
-  return { pivot, move: ZERO, turn: IDENTITY, stretch: { axes: IDENTITY, by: ONES } };
+  return { pivot, axes: IDENTITY, move: ZERO, turn: IDENTITY, stretch: ONES };
 }
 
 /** The smallest an item's footprint side may be stretched to, canvas units. */
@@ -64,7 +68,7 @@ const length = (v: CanvasVec) => Math.hypot(v.x, v.y, v.z);
 
 /**
  * `node` transformed by `t`. Its centre moves as a point does; its own axes
- * turn with `turn`; and each of its sides stretches by how far `stretch`
+ * turn with `turn`; and each of its sides stretches by how far the stretch
  * lengthens that side's axis (a stretch across a turned item's axes is
  * taken as that, not as a shear its record could not hold). An item `t`
  * does not turn keeps its `rotation` exactly as written.
@@ -74,7 +78,7 @@ const length = (v: CanvasVec) => Math.hypot(v.x, v.y, v.z);
 // GAP [[01M41W5655T0R7791KKJM4WYB2]]
 export function transformItem<N extends CanvasNode>(node: N, t: CanvasTransform): N {
   const frame = boxFrame(node);
-  const { axes, by } = t.stretch;
+  const { axes, stretch: by } = t;
   const stretch = multiply(multiply(axes, [by.x, 0, 0, 0, by.y, 0, 0, 0, by.z]), transpose(axes));
   const from = {
     x: frame.centre.x - t.pivot.x,

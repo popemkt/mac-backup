@@ -1,4 +1,13 @@
-import { Suspense, lazy, useCallback, useMemo, useReducer, useRef, useState } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import type { CanvasNode } from "@kb/canvas";
 import { upsertCanvasEdge, upsertCanvasNode } from "@kb/canvas";
 import {
@@ -26,6 +35,8 @@ import { useCanvasSelection } from "./use-canvas-selection";
 import { listRefFields } from "./canvas-api";
 import type { ToolState } from "./canvas-tool";
 import { FIRST_GIZMO, type GizmoChoice } from "./canvas-gizmo";
+import { viewOfPan } from "./canvas-camera";
+import type { TransformCamera } from "./canvas-transform-input";
 import {
   EMPTY_SELECTION,
   deleteSelected,
@@ -60,6 +71,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   );
   const pointerRef = useRef(pointerState);
   pointerRef.current = pointerState;
+  /** The showing camera, which every gesture is read through; the projection's, once it is up. */
+  const cameraRef = useRef<() => TransformCamera>(() => ({
+    view: viewOfPan(pointerState.pan, 1, { width: 1, height: 1 }),
+    size: { width: 1, height: 1 },
+  }));
   const isInteracting = useCallback(() => pointerRef.current.drag !== null, []);
   const {
     doc,
@@ -125,13 +141,13 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       const next = pointerReduce(pointerRef.current, event, {
         doc: docRef.current,
         selection: selRef.current,
-        zoom,
         byId,
+        ...cameraRef.current(),
       });
       applyPointerResult(next);
       return next;
     },
-    [applyPointerResult, byId, docRef, selRef, zoom],
+    [applyPointerResult, byId, docRef, selRef],
   );
 
   const refFields = useMemo(() => listRefFields(nodes), [nodes]);
@@ -145,6 +161,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setCamera,
     setZoom,
     dispatchPointer,
+  });
+  useLayoutEffect(() => {
+    cameraRef.current = projection.camera;
   });
   const in3d = projection.shown === "3d";
   useCanvasScreen({
@@ -169,6 +188,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     placeAt,
     setTool,
     setToolSticky,
+    startEdge,
     startMoveForSelection,
     startResize,
     startRotate,
@@ -295,14 +315,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             onCardChange={(card) => schedulePersist(upsertCanvasNode(docRef.current, card))}
             onResizeStart={startResize}
             onRotateStart={startRotate}
-            onPortDown={(cardId, side, screen) => {
-              dispatchPointer({
-                type: "edge/start",
-                fromCardId: cardId,
-                fromSide: side,
-                screen,
-              });
-            }}
+            onPortDown={startEdge}
             onWheel={onWheel}
             onPointerDownStage={onPointerDownStage}
             onPointerMove={onPointerMove}

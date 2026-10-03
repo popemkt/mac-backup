@@ -9,19 +9,15 @@
  *   the pointer reducer previews and writes on release. The gizmo is asked
  *   first, so its handles take the pointer over whatever is behind them.
  * - On an item: a press selects it (a modifier toggles it) and a drag carries
- *   it on its own plane; with Alt, up from the floor. Both go through the canvas
- *   pointer reducer, so a 3D drag is the same history step and the same write
- *   as a 2D one.
+ *   it across the floor plan; with Alt, held to Z. Both go through the canvas
+ *   pointer reducer, which reads the pointer through the camera model, so a
+ *   3D drag is the same transform, history step and write as a 2D one.
  * - On empty canvas: a drag orbits, a tap places the current tool (or clears
  *   the selection).
  * - The right or middle button, or Space, pans.
- *
- * Every screen point becomes a canvas point through the one camera model, so
- * what is hit and where a card goes are the model's answers.
  */
-import { canvasDepth, canvasTop, paintOrder, type CanvasNode } from "@kb/canvas";
+import { paintOrder, type CanvasNode } from "@kb/canvas";
 import {
-  coversFromAbove,
   hitTest,
   screenToPlane,
   type CanvasPoint,
@@ -29,7 +25,8 @@ import {
   type CanvasView,
   type ViewSize,
 } from "./canvas-camera";
-import { carriedIds, type CanvasPointerEvent } from "./canvas-pointer";
+import type { CanvasPointerEvent } from "./canvas-pointer";
+import { ALONG_Z } from "./canvas-transform-input";
 import type { SceneGizmo } from "./canvas-gizmo";
 import type { CanvasSelection } from "./canvas-selection";
 import { pastSlop } from "@/sdk";
@@ -67,14 +64,7 @@ export interface SceneGestureHost {
 
 type Gesture =
   | { readonly kind: "gizmo" }
-  | {
-      readonly kind: "card";
-      readonly z: number;
-      /** The items the drag carries, which the pointer is never read on. */
-      readonly carried: ReadonlySet<string>;
-      /** The last canvas point the drag had on the card's plane (none while edge-on). */
-      last: CanvasPoint3 | null;
-    }
+  | { readonly kind: "card" }
   | {
       readonly kind: "orbit" | "pan";
       x: number;
@@ -103,7 +93,6 @@ export class SceneGestures {
   down(press: ScenePress): boolean {
     const pans = press.button === 1 || press.button === 2 || this.host.spaceDown();
     if (!pans && press.button !== 0) return false;
-    const screen = { x: press.clientX, y: press.clientY };
     if (!pans && this.host.gizmo().press(press.local)) {
       this.gesture = { kind: "gizmo" };
       this.host.dispatch({ type: "transform/start" });
@@ -111,21 +100,17 @@ export class SceneGestures {
     }
     const card = pans ? undefined : this.cardAt(press.local);
     if (card !== undefined) {
-      // Carried on the plane of its top, where a solid is usually taken hold of.
-      const z = canvasTop(card);
-      const world = this.planeAt(press.local, z);
-      const carried = carriedIds(card.id, this.host.selection());
-      this.gesture = { kind: "card", z, carried, last: world };
+      this.gesture = { kind: "card" };
       this.host.cardPress(card, press, () => {
-        if (world === null) return;
-        const type = press.altKey ? "lift/start" : "move/start";
-        this.host.dispatch({ type, id: card.id, screen, world });
+        const along = press.altKey ? { along: ALONG_Z } : {};
+        this.host.dispatch({ type: "move/start", id: card.id, screen: press.local, ...along });
       });
     } else {
       // Owner answer 4 of the 3D workspace plan: Shift-drag here is a
       // screen-space marquee. Today every empty-space drag orbits.
       // GAP [[01M41AB88FH1G58NR7AZE0SZJF]]
       const kind = pans ? "pan" : "orbit";
+      const screen = { x: press.clientX, y: press.clientY };
       this.gesture = { kind, ...screen, startX: screen.x, startY: screen.y };
     }
     return true;
@@ -145,12 +130,8 @@ export class SceneGestures {
       return "grabbing";
     }
     if (g.kind === "card") {
-      const world = this.carryPoint(press.local, g);
-      if (world === null) return "grabbing";
-      g.last = world;
-      const screen = { x: press.clientX, y: press.clientY };
       const { shiftKey, metaKey: free } = press;
-      this.host.dispatch({ type: "pointer/move", screen, world, shiftKey, free });
+      this.host.dispatch({ type: "pointer/move", screen: press.local, shiftKey, free });
       return "grabbing";
     }
     const dx = press.clientX - g.x;
@@ -166,34 +147,25 @@ export class SceneGestures {
     const g = this.gesture;
     this.gesture = null;
     if (g === null) return;
-    if (g.kind === "gizmo") {
-      this.host.gizmo().release();
-      const screen = { x: press.clientX, y: press.clientY };
-      this.host.dispatch(
-        cancelled ? { type: "pointer/cancel" } : { type: "pointer/end", screen, world: screen },
-      );
-      return;
-    }
-    if (g.kind === "card") {
-      if (cancelled) {
-        this.host.dispatch({ type: "pointer/cancel" });
-        return;
-      }
-      // Released where the plane is edge-on: the card stays where the drag last had it.
-      const world = this.carryPoint(press.local, g) ?? g.last;
-      if (world === null) {
-        this.host.dispatch({ type: "pointer/cancel" });
-        return;
-      }
-      const screen = { x: press.clientX, y: press.clientY };
+    if (g.kind === "gizmo" || g.kind === "card") {
+      if (g.kind === "gizmo") this.host.gizmo().release();
       const { shiftKey, metaKey: free } = press;
-      this.host.dispatch({ type: "pointer/end", screen, world, shiftKey, free });
+      this.host.dispatch(
+        cancelled
+          ? { type: "pointer/cancel" }
+          : { type: "pointer/end", screen: press.local, shiftKey, free },
+      );
       return;
     }
     const tap = !pastSlop(press.clientX - g.startX, press.clientY - g.startY);
     // A tap moved no camera: on empty canvas it means the tool or the selection.
     if (tap) {
-      if (g.kind === "orbit" && !cancelled) this.host.tapEmpty(this.planeAt(press.local, 0), press);
+      if (g.kind === "orbit" && !cancelled) {
+        this.host.tapEmpty(
+          screenToPlane(this.host.view(), this.host.size(), press.local, 0),
+          press,
+        );
+      }
       return;
     }
     this.host.settled();
@@ -203,29 +175,5 @@ export class SceneGestures {
     const items = this.host.items();
     const id = hitTest(paintOrder(items), this.host.view(), this.host.size(), local);
     return id === null ? undefined : items.find((n) => n.id === id);
-  }
-
-  /**
-   * Where a carry's pointer is: where it visibly is — on the top of a solid
-   * it is over, one the drag does not carry, which is how an item is
-   * carried onto another (the pointer reducer's surface snap then stands it
-   * there) — and otherwise on the plane the carried item was taken hold of.
-   */
-  private carryPoint(
-    local: CanvasPoint,
-    g: Extract<Gesture, { kind: "card" }>,
-  ): CanvasPoint3 | null {
-    const others = this.host.items().filter((item) => !g.carried.has(item.id));
-    const id = hitTest(paintOrder(others), this.host.view(), this.host.size(), local);
-    const under = others.find((item) => item.id === id);
-    if (under !== undefined && canvasDepth(under) > 0) {
-      const top = this.planeAt(local, canvasTop(under));
-      if (top !== null && coversFromAbove(under, top)) return top;
-    }
-    return this.planeAt(local, g.z);
-  }
-
-  private planeAt(local: CanvasPoint, z: number): CanvasPoint3 | null {
-    return screenToPlane(this.host.view(), this.host.size(), local, z);
   }
 }

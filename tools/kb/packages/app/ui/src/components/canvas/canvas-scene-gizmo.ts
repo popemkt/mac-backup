@@ -160,10 +160,8 @@ export class GizmoLayer {
       pivot: grip.pivot,
       move: moved,
       turn: matrixFromThree(this.turn.makeRotationFromQuaternion(delta)),
-      stretch: {
-        axes: matrixFromThree(this.turn.makeRotationFromQuaternion(grip.quaternion)),
-        by: { x: Math.abs(scale.x), y: Math.abs(scale.y), z: Math.abs(scale.z) },
-      },
+      axes: matrixFromThree(this.turn.makeRotationFromQuaternion(grip.quaternion)),
+      stretch: { x: Math.abs(scale.x), y: Math.abs(scale.y), z: Math.abs(scale.z) },
     };
   }
 

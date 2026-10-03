@@ -229,10 +229,12 @@ function GhostEdgePath({
   const from = byId.get(edgeDrag.fromCardId);
   const stageEl = document.querySelector("[data-canvas-viewport]");
   if (!from || !stageEl) return null;
-  const stageRect = stageEl.getBoundingClientRect();
+  const { width, height } = stageEl.getBoundingClientRect();
   const anchor = sideAnchor(from, edgeDrag.fromSide);
   const start = anchor.at;
-  const end = clientToCanvas({ x: edgeDrag.x, y: edgeDrag.y }, stageRect, pan, zoom);
+  // The drag holds a viewport point: the viewport is its own origin.
+  const viewport = { left: 0, top: 0, width, height };
+  const end = clientToCanvas({ x: edgeDrag.x, y: edgeDrag.y }, viewport, pan, zoom);
   const { x: c1x, y: c1y } = leaving(anchor, Math.max(40, Math.abs(end.x - start.x) * 0.45));
   return (
     <path

@@ -159,6 +159,8 @@ export function useCanvasProjection(context: ProjectionContext) {
       const at = screenToPlane(current(), size(), PLACEMENT, 0);
       return at === null ? { x: 0, y: 0 } : { x: at.x, y: at.y };
     },
+    /** The showing camera and the viewport it draws on: what every gesture is read through. */
+    camera: () => ({ view: current(), size: size() }),
     /** The 2D view's camera, as the camera model holds it (the top view, orthographic). */
     flatView: (): CanvasView => viewOfPan(pan, zoom, size()),
     /** The showing camera's answers to the keymap and the view widget, given the 2D ones. */

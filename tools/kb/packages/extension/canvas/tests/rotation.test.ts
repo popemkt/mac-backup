@@ -208,7 +208,8 @@ describe("transforming items about a pivot", () => {
   test("stretched along its own axes, its sides grow and its centre holds", () => {
     const grown = transformItem(block, {
       ...stillAbout(selectionPivot([block])),
-      stretch: { axes: rotationMatrix({ x: 0, y: 0, z: 0 }), by: { x: 2, y: 1, z: 0.5 } },
+      axes: rotationMatrix({ x: 0, y: 0, z: 0 }),
+      stretch: { x: 2, y: 1, z: 0.5 },
     });
     expect([grown.x, grown.width, grown.height, grown.depth, grown.z]).toEqual([
       -50, 200, 60, 20, 10,

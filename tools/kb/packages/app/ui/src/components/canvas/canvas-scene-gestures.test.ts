@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { CanvasNode } from "@kb/canvas";
 import { projectPoint, type CanvasView } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
+import { ALONG_Z } from "./canvas-transform-input";
 import { SceneGestures, type SceneGestureHost, type ScenePress } from "./canvas-scene-gestures";
 import { NO_GIZMO, type SceneGizmo } from "./canvas-gizmo";
 
@@ -62,44 +63,28 @@ const centre = () => {
 };
 
 describe("gestures over the 3D canvas", () => {
-  test("carried over a solid, the pointer is read on the solid's top, where it visibly is", () => {
-    const block: CanvasNode = {
-      id: "b",
-      type: "shape",
-      shape: "rect",
-      x: 500,
-      y: 40,
-      width: 120,
-      height: 120,
-      depth: 90,
-    };
-    const { gestures, events } = harness(() => tilted, [card, block]);
-    gestures.down(press(centre()));
-    const over = projectPoint(tilted, size, { x: 560, y: 100, z: 90 });
-    if (over === null) throw new Error("the block's top is out of view");
-    gestures.move(press({ x: over.x, y: over.y }));
-    const moved = events.findLast((e) => e.type === "pointer/move");
-    expect(moved?.type === "pointer/move" ? moved.world.x : 0).toBeCloseTo(560, 3);
-    expect(moved?.type === "pointer/move" ? moved.world.y : 0).toBeCloseTo(100, 3);
-  });
-
-  test("a drag on a card carries it across its own plane", () => {
+  test("a drag on a card carries it, reported at viewport points the reducer reads", () => {
     const { gestures, events } = harness();
     const at = centre();
     expect(gestures.down(press(at))).toBe(true);
     gestures.move(press({ x: at.x + 30, y: at.y }));
     gestures.up(press({ x: at.x + 30, y: at.y }), false);
-    expect(events.map((e) => e.type)).toEqual(["move/start", "pointer/move", "pointer/end"]);
-    const start = events[0];
-    // The press lands on the card's plane, at its centre.
-    expect(start?.type === "move/start" && start.world.x).toBeCloseTo(200, 6);
-    expect(start?.type === "move/start" && start.world.y).toBeCloseTo(100, 6);
+    expect(events).toEqual([
+      { type: "move/start", id: card.id, screen: at },
+      { type: "pointer/move", screen: { x: at.x + 30, y: at.y }, shiftKey: false, free: false },
+      { type: "pointer/end", screen: { x: at.x + 30, y: at.y }, shiftKey: false, free: false },
+    ]);
   });
 
-  test("with Alt, the drag lifts it off the floor", () => {
+  test("with Alt, the drag is held to Z", () => {
     const { gestures, events } = harness();
     gestures.down(press(centre(), { altKey: true }));
-    expect(events[0]?.type).toBe("lift/start");
+    expect(events[0]).toEqual({
+      type: "move/start",
+      id: card.id,
+      screen: centre(),
+      along: ALONG_Z,
+    });
   });
 
   test("a drag on empty canvas orbits, and settles when it ends", () => {
@@ -126,30 +111,13 @@ describe("gestures over the 3D canvas", () => {
     expect(host.pan).toHaveBeenCalledWith(10, 0);
   });
 
-  test("a release where the card's plane is edge-on leaves the card where the drag last had it", () => {
-    let view = tilted;
-    const { gestures, events } = harness(() => view);
-    const at = centre();
-    gestures.down(press(at));
-    gestures.move(press({ x: at.x + 20, y: at.y }));
-    const moved = events.at(-1);
-    // The canvas turns edge-on, and the pointer is let go where its ray never meets the plane.
-    view = { ...tilted, pitch: Math.PI / 2 };
-    gestures.up(press({ x: at.x + 20, y: size.height - 5 }), false);
-    const end = events.at(-1);
-    expect(end?.type).toBe("pointer/end");
-    expect(moved?.type).toBe("pointer/move");
-    if (end?.type !== "pointer/end" || moved?.type !== "pointer/move") return;
-    expect(end.world).toEqual(moved.world);
-    expect(end.world.x).not.toBe(0);
-  });
-
   test("a gizmo handle takes the press over the card behind it, and its drag is one transform", () => {
     const transform = {
       pivot: { x: 200, y: 100, z: 40 },
+      axes: [1, 0, 0, 0, 1, 0, 0, 0, 1] as const,
       move: { x: 30, y: 0, z: 0 },
       turn: [1, 0, 0, 0, 1, 0, 0, 0, 1] as const,
-      stretch: { axes: [1, 0, 0, 0, 1, 0, 0, 0, 1] as const, by: { x: 1, y: 1, z: 1 } },
+      stretch: { x: 1, y: 1, z: 1 },
     };
     const release = vi.fn();
     const gizmo: SceneGizmo = {

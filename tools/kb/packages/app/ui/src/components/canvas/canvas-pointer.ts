@@ -1,11 +1,9 @@
 import {
   boxFrame,
   boxToWorld,
-  canvasElevation,
+  canvasTop,
   selectionPivot,
-  stillAbout,
   transformItem,
-  turnAbout,
   upsertCanvasEdge,
   upsertCanvasNode,
   withElevation,
@@ -14,7 +12,6 @@ import {
   type CanvasNode,
   type CanvasSide,
   type CanvasTransform,
-  type CanvasVec,
 } from "@kb/canvas";
 import { sidePoint } from "./canvas-edge-path";
 import {
@@ -24,6 +21,13 @@ import {
   snapTurn,
   type SnapGuide,
 } from "./canvas-snap";
+import { screenToPlane, type CanvasView, type ViewSize } from "./canvas-camera";
+import {
+  ALONG_Z,
+  transformAt,
+  type TransformConstraint,
+  type TransformInput,
+} from "./canvas-transform-input";
 import { pastSlop } from "@/sdk";
 import {
   EMPTY_SELECTION,
@@ -50,9 +54,6 @@ export type ResizeCorner = "nw" | "ne" | "se" | "sw";
 
 type Drag =
   | { kind: "pan"; x: number; y: number; ox: number; oy: number }
-  /** Carrying cards: not yet past the slop, then under way. */
-  | ({ kind: "move-pending" } & Carrying)
-  | ({ kind: "move" } & Carrying)
   | {
       kind: "resize-pending";
       id: string;
@@ -75,14 +76,18 @@ type Drag =
       origW: number;
       origH: number;
     }
-  /** A top-view rotate handle pressed, not yet past the slop. */
-  | { kind: "turn-pending"; id: string; startX: number; startY: number; start: Point }
-  /** Items under one transform about a pivot, from a rotate handle or the gizmo. */
+  /**
+   * Items under one transform about a pivot: carried by a press on a card,
+   * turned by the top-view rotate handle, or moved by the 3D gizmo.
+   */
   | {
       kind: "transform";
       /** Each transformed item as it was when the gesture began. */
       orig: ReadonlyMap<string, CanvasNode>;
-      by: TransformBy;
+      /** How the pointer makes the transform; null for a handle that reports whole ones (the gizmo). */
+      input: TransformInput | null;
+      /** Where the press went down on screen, until the pointer has gone past the slop. */
+      slop: Point | null;
       /** The transform the preview last showed, which the release writes. */
       applied: CanvasTransform | null;
     }
@@ -111,27 +116,7 @@ type Drag =
       baseSel: CanvasSelection;
     };
 
-/**
- * What makes a transform: a top-view rotate handle, turning the items about
- * `pivot` by how far the pointer has swung round it since `from` (radians);
- * or a handle that reports whole transforms itself (the 3D gizmo).
- */
-type TransformBy =
-  | { readonly kind: "turn"; readonly pivot: CanvasVec; readonly from: number }
-  | { readonly kind: "handle" };
-
-/** Which way carried cards follow the pointer: across their plane, or up from the floor. */
-type Carry = "plane" | "lift";
-
-interface Carrying {
-  carry: Carry;
-  /** Where the press went down: on screen (slop, lift), and in canvas space (the plane). */
-  startX: number;
-  startY: number;
-  start: Point;
-  /** Each carried card as it was when the press went down. */
-  orig: ReadonlyMap<string, CanvasNode>;
-}
+type TransformDrag = Extract<Drag, { kind: "transform" }>;
 
 export interface PointerState {
   drag: Drag | null;
@@ -141,30 +126,28 @@ export interface PointerState {
 }
 
 /**
- * A gesture as the projection that saw it reports it. `screen` is where the
- * pointer is on screen, which decides slop and panning; `world` is the canvas
- * point it stands for, which decides where things go. How a screen point
- * becomes a canvas point is the projection's (`components/canvas/canvas-camera`): a card
- * moves on the plane it lies in, whatever the camera. `free` (⌘ held) suspends
- * every snap (`canvas-snap`).
+ * A gesture as the projection that saw it reports it: where the pointer is
+ * on screen (CSS pixels from the viewport's top left), which decides slop
+ * and panning. The reducer reads that point through the showing camera
+ * (`PointerContext`), so where a card goes is the camera model's answer in
+ * either projection. `free` (⌘ held) suspends every snap (`canvas-snap`).
  */
 export type CanvasPointerEvent =
   | { type: "pointer/cancel" }
   | { type: "pan/set"; pan: Point }
   | { type: "pan/start"; screen: Point }
-  | { type: "move/start"; id: string; screen: Point; world: Point }
-  | { type: "lift/start"; id: string; screen: Point; world: Point }
-  | { type: "resize/start"; id: string; corner: ResizeCorner; screen: Point; world: Point }
-  | { type: "turn/start"; id: string; screen: Point; world: Point }
+  /** A press on a card carries it, across the floor plan or held to `along` (Alt: Z). */
+  | { type: "move/start"; id: string; screen: Point; along?: TransformConstraint }
+  | { type: "resize/start"; id: string; corner: ResizeCorner; screen: Point }
+  | { type: "turn/start"; id: string; screen: Point }
   | { type: "transform/start" }
   | { type: "transform/move"; transform: CanvasTransform; free?: boolean }
   | { type: "edge/start"; fromCardId: string; fromSide: CanvasSide; screen: Point }
-  | { type: "marquee/start"; screen: Point; world: Point; additive: boolean }
-  | { type: "pointer/move"; screen: Point; world: Point; shiftKey: boolean; free?: boolean }
+  | { type: "marquee/start"; screen: Point; additive: boolean }
+  | { type: "pointer/move"; screen: Point; shiftKey: boolean; free?: boolean }
   | {
       type: "pointer/end";
       screen: Point;
-      world: Point;
       shiftKey?: boolean;
       free?: boolean;
       edgeTargetId?: string;
@@ -172,11 +155,13 @@ export type CanvasPointerEvent =
       edgeBindingId?: string;
     };
 
+/** What the reducer reads a gesture against: the document, the selection, and the showing camera. */
 export interface PointerContext {
   doc: CanvasDoc;
   selection: CanvasSelection;
-  zoom: number;
   byId: ReadonlyMap<string, CanvasNode>;
+  view: CanvasView;
+  size: ViewSize;
 }
 
 export interface PointerResult {
@@ -198,85 +183,63 @@ function result(
   return { state, guides: state.snapGuides, ...rest };
 }
 
+/**
+ * The floor point under `screen`. Only the 3D view can hold the floor
+ * edge-on, and none of the gestures that ask (resize, marquee, edge) are
+ * made there; the screen point stands in.
+ */
+function floorAt(ctx: PointerContext, screen: Point): Point {
+  const at = screenToPlane(ctx.view, ctx.size, screen, 0);
+  return at === null ? screen : { x: at.x, y: at.y };
+}
+
 /** The ids a press on `id` carries: the selection when `id` is in it, otherwise `id` alone. */
-export function carriedIds(id: string, selection: CanvasSelection): ReadonlySet<string> {
+function carriedIds(id: string, selection: CanvasSelection): ReadonlySet<string> {
   return selection.nodeIds.has(id) ? selection.nodeIds : new Set([id]);
 }
 
-/** The cards a press on `id` carries ({@link carriedIds}). */
-function carried(id: string, ctx: PointerContext): CanvasNode[] {
-  return [...carriedIds(id, ctx.selection)].flatMap((one) => {
-    const node = ctx.byId.get(one);
-    return node ? [node] : [];
-  });
+/** The items `ids` name, as they are now, by id. */
+function itemsOf(ids: Iterable<string>, ctx: PointerContext): ReadonlyMap<string, CanvasNode> {
+  return new Map(
+    [...ids].flatMap((id) => {
+      const node = ctx.byId.get(id);
+      return node ? [[id, node] as const] : [];
+    }),
+  );
 }
-
-/** Start carrying the cards a press on `id` carries, `carry`-wise. */
-function startCarry(
-  state: PointerState,
-  carry: Carry,
-  press: { readonly id: string; readonly screen: Point; readonly world: Point },
-  ctx: PointerContext,
-): PointerResult {
-  const orig = origOf(press.id, ctx);
-  const { screen, world } = press;
-  return result({
-    ...state,
-    drag: { kind: "move-pending", carry, startX: screen.x, startY: screen.y, start: world, orig },
-  });
-}
-
-type MoveDrag = Extract<Drag, { kind: "move" }>;
 
 /**
- * Where each carried card goes for a pointer at `screen` / `world`, per way
- * of carrying: across the plane by the canvas-space delta, or up from the
- * floor by the drag's height in canvas units at the current zoom, whole units
- * (height is a layout value, not a measurement). Either way the carry snaps
- * to other cards' alignments on the axes it moves along (`canvas-snap`).
+ * A transform drag over the items a press on `id` carries, made by the
+ * pointer as `mode` says, held to `constraint`, from `screen` on: a grab
+ * holds the pressed item's top, where a solid is taken hold of.
  */
-const CARRY: Record<
-  Carry,
-  (
-    drag: MoveDrag,
-    at: { readonly screen: Point; readonly world: Point; readonly free?: boolean },
-    ctx: PointerContext,
-  ) => {
-    /** A card as it is now, placed from where it was when the press went down. */
-    readonly place: (node: CanvasNode, orig: CanvasNode) => CanvasNode;
-    readonly guides: SnapGuide[];
-  }
-> = {
-  plane: (drag, at, ctx) => {
-    const raw = { dx: at.world.x - drag.start.x, dy: at.world.y - drag.start.y, dz: 0 };
-    const { dx, dy, dz, guides } =
-      at.free === true ? { ...raw, guides: [] } : snapMove(drag, raw.dx, raw.dy, ctx);
-    return {
-      place: (node, orig) =>
-        withElevation({ ...node, x: orig.x + dx, y: orig.y + dy }, canvasElevation(orig) + dz),
-      guides,
-    };
+function startPointerTransform(
+  state: PointerState,
+  press: {
+    readonly id: string;
+    readonly screen: Point;
+    readonly mode: TransformInput["mode"];
+    readonly constraint: TransformConstraint | null;
   },
-  lift: (drag, at, ctx) => {
-    const rise = Math.round((drag.startY - at.screen.y) / ctx.zoom);
-    const { dz, guides } = at.free === true ? { dz: rise, guides: [] } : snapLift(drag, rise, ctx);
-    return { place: (node, orig) => withElevation(node, canvasElevation(orig) + dz), guides };
-  },
-};
-
-/** The document with every carried card where the pointer at `at` takes it. */
-function carryNodes(
-  drag: MoveDrag,
-  at: { readonly screen: Point; readonly world: Point; readonly free?: boolean },
   ctx: PointerContext,
-) {
-  const { place, guides } = CARRY[drag.carry](drag, at, ctx);
-  let doc = ctx.doc;
-  for (const [id, orig] of drag.orig) {
-    const node = ctx.byId.get(id);
-    if (node) doc = upsertCanvasNode(doc, place(node, orig));
-  }
-  return { doc, guides };
+): PointerResult {
+  const orig = itemsOf(carriedIds(press.id, ctx.selection), ctx);
+  const pressed = ctx.byId.get(press.id);
+  const lead = orig.values().next().value;
+  if (pressed === undefined || lead === undefined) return result(state);
+  const centre = boxFrame(pressed).centre;
+  const input: TransformInput = {
+    mode: press.mode,
+    constraint: press.constraint,
+    pivot: selectionPivot([...orig.values()]),
+    own: boxFrame(lead).matrix,
+    anchor: { x: centre.x, y: centre.y, z: canvasTop(pressed) },
+    from: press.screen,
+  };
+  return result({
+    ...state,
+    drag: { kind: "transform", orig, input, slop: press.screen, applied: null },
+  });
 }
 
 function startResize(
@@ -294,47 +257,13 @@ function startResize(
       corner: event.corner,
       startX: event.screen.x,
       startY: event.screen.y,
-      start: event.world,
+      start: floorAt(ctx, event.screen),
       origX: node.x,
       origY: node.y,
       origW: node.width,
       origH: node.height,
     },
   });
-}
-
-/** The carried card that leads the snap (the first), as it was, and the cards it snaps to. */
-function snapLead(drag: MoveDrag, ctx: PointerContext) {
-  const original = drag.orig.values().next().value;
-  const node = original === undefined ? undefined : ctx.byId.get(original.id);
-  if (!node || !original) return null;
-  const others = ctx.doc.nodes.filter((other) => !drag.orig.has(other.id));
-  return { lead: { ...node, x: original.x, y: original.y, z: original.z }, others };
-}
-
-/** A carry across the floor: aligned on x and y, standing on the surface it comes over. */
-function snapMove(drag: MoveDrag, dx: number, dy: number, ctx: PointerContext) {
-  const snap = snapLead(drag, ctx);
-  if (snap === null) return { dx, dy, dz: 0, guides: [] };
-  const aligned = snapCanvasMove(snap.lead, snap.others, dx, dy, ctx.zoom);
-  const surface = snapToSurface(snap.lead, snap.others, aligned.dx, aligned.dy);
-  return { ...aligned, dz: surface.dz, guides: [...aligned.guides, ...surface.guides] };
-}
-
-function snapLift(drag: MoveDrag, dz: number, ctx: PointerContext) {
-  const snap = snapLead(drag, ctx);
-  if (snap === null) return { dz, guides: [] };
-  return snapCanvasLift(snap.lead, snap.others, dz, ctx.zoom);
-}
-
-function moveNodes(
-  state: PointerState,
-  drag: MoveDrag,
-  event: Extract<CanvasPointerEvent, { type: "pointer/move" }>,
-  ctx: PointerContext,
-): PointerResult {
-  const { doc, guides } = carryNodes(drag, event, ctx);
-  return result({ ...state, snapGuides: guides }, { doc, persist: "silent" });
 }
 
 /**
@@ -355,14 +284,10 @@ function acrossFace(node: CanvasNode, dx: number, dy: number): Point {
  */
 function resizedRect(
   drag: Extract<Drag, { kind: "resize" }>,
-  event: Extract<CanvasPointerEvent, { type: "pointer/move" }>,
+  at: { readonly world: Point; readonly shiftKey: boolean },
   node: CanvasNode,
 ): Rect {
-  const { x: dx, y: dy } = acrossFace(
-    node,
-    event.world.x - drag.start.x,
-    event.world.y - drag.start.y,
-  );
+  const { x: dx, y: dy } = acrossFace(node, at.world.x - drag.start.x, at.world.y - drag.start.y);
   let x = drag.origX;
   let y = drag.origY;
   let w = drag.origW;
@@ -377,7 +302,7 @@ function resizedRect(
     h = Math.max(MIN_NODE_H, drag.origH - dy);
     y = drag.origY + drag.origH - h;
   }
-  if (event.shiftKey && drag.origW > 0 && drag.origH > 0) {
+  if (at.shiftKey && drag.origW > 0 && drag.origH > 0) {
     const ratio = drag.origW / drag.origH;
     if (w / h > ratio) w = Math.max(MIN_NODE_W, h * ratio);
     else h = Math.max(MIN_NODE_H, w / ratio);
@@ -390,12 +315,12 @@ function resizedRect(
 function resizeNode(
   state: PointerState,
   drag: Extract<Drag, { kind: "resize" }>,
-  event: Extract<CanvasPointerEvent, { type: "pointer/move" }>,
+  at: { readonly screen: Point; readonly shiftKey: boolean },
   ctx: PointerContext,
 ): PointerResult {
   const node = ctx.byId.get(drag.id);
   if (!node) return result(state);
-  const rect = resizedRect(drag, event, node);
+  const rect = resizedRect(drag, { world: floorAt(ctx, at.screen), shiftKey: at.shiftKey }, node);
   // The footprint changed in the item's own frame: its centre moves along its own axes.
   const was = { ...node, x: drag.origX, y: drag.origY, width: drag.origW, height: drag.origH };
   const centre = boxToWorld(boxFrame(was), {
@@ -419,35 +344,91 @@ function resizeNode(
   return result(state, { doc, persist: "silent" });
 }
 
-/** The carried items as they were, by id, for a gesture starting on `id`. */
-function origOf(id: string, ctx: PointerContext): ReadonlyMap<string, CanvasNode> {
-  return new Map(carried(id, ctx).map((node) => [node.id, node] as const));
+/** The items a transform drag leaves where they are: what it snaps to and stands on. */
+const othersOf = (drag: TransformDrag, ctx: PointerContext) =>
+  ctx.doc.nodes.filter((node) => !drag.orig.has(node.id));
+
+/**
+ * `t` snapped as its input asks: a carry across the floor plan aligns on x
+ * and y and stands on the surface it comes over; a carry held to Z aligns
+ * with the heights other items stand at; a turn goes in 15° steps.
+ */
+function snapTransform(
+  drag: TransformDrag,
+  t: CanvasTransform,
+  ctx: PointerContext,
+): { transform: CanvasTransform; guides: SnapGuide[] } {
+  const lead = drag.orig.values().next().value;
+  const others = othersOf(drag, ctx);
+  const { input } = drag;
+  if (lead === undefined || input?.mode !== "grab") return { transform: snapTurn(t), guides: [] };
+  const zoom = ctx.view.zoom;
+  if (input.constraint === null) {
+    const aligned = snapCanvasMove(lead, others, t.move.x, t.move.y, zoom);
+    const surface = snapToSurface(lead, others, aligned.dx, aligned.dy);
+    return {
+      transform: { ...t, move: { x: aligned.dx, y: aligned.dy, z: surface.dz } },
+      guides: [...aligned.guides, ...surface.guides],
+    };
+  }
+  const { axis, plane, space } = input.constraint;
+  if (axis === ALONG_Z.axis && plane === ALONG_Z.plane && space === ALONG_Z.space) {
+    const lifted = snapCanvasLift(lead, others, t.move.z, zoom);
+    return { transform: { ...t, move: { ...t.move, z: lifted.dz } }, guides: lifted.guides };
+  }
+  return { transform: t, guides: [] };
 }
 
-/** The pointer's bearing from `pivot` across the floor, radians (clockwise from +x, as y runs down). */
-const bearing = (pivot: CanvasVec, at: Point) => Math.atan2(at.y - pivot.y, at.x - pivot.x);
+/** The document with every item of `drag` transformed by `t`. */
+function transformed(drag: TransformDrag, t: CanvasTransform, doc: CanvasDoc): CanvasDoc {
+  let next = doc;
+  for (const orig of drag.orig.values()) next = upsertCanvasNode(next, transformItem(orig, t));
+  return next;
+}
 
 /**
  * Preview `t` on the transformed items, snapped unless `free`: the document
- * shown, never written, until the release (`reduceEnd`).
+ * shown, never written, until the release (`reduceEnd`). A pointer that
+ * cannot be read (null) leaves the preview where it was.
  */
 function previewTransform(
   state: PointerState,
-  drag: Extract<Drag, { kind: "transform" }>,
-  t: CanvasTransform,
+  drag: TransformDrag,
+  t: CanvasTransform | null,
   free: boolean,
   ctx: PointerContext,
 ): PointerResult {
-  const applied = free ? t : snapTurn(t);
-  let doc = ctx.doc;
-  for (const orig of drag.orig.values()) doc = upsertCanvasNode(doc, transformItem(orig, applied));
-  return result({ ...state, drag: { ...drag, applied } }, { doc, persist: "silent" });
+  if (t === null) return result({ ...state, drag: { ...drag, slop: null } });
+  const { transform: applied, guides } = free
+    ? { transform: t, guides: [] }
+    : snapTransform(drag, t, ctx);
+  return result(
+    { ...state, drag: { ...drag, slop: null, applied }, snapGuides: guides },
+    { doc: transformed(drag, applied, ctx.doc), persist: "silent" },
+  );
 }
 
-/** The turn a top-view rotate handle makes with the pointer at `world`. */
-function turnTo(by: Extract<TransformBy, { kind: "turn" }>, world: Point): CanvasTransform {
-  const swing = bearing(by.pivot, world) - by.from;
-  return { ...stillAbout(by.pivot), turn: turnAbout({ x: 0, y: 0, z: 1 }, swing) };
+/** The transform a drag's pointer input makes with the pointer at `screen`. */
+const pointerTransform = (
+  input: TransformInput,
+  screen: Point,
+  drag: TransformDrag,
+  ctx: PointerContext,
+) => transformAt(input, screen, ctx, othersOf(drag, ctx));
+
+function moveTransform(
+  state: PointerState,
+  drag: TransformDrag,
+  event: Extract<CanvasPointerEvent, { type: "pointer/move" }>,
+  ctx: PointerContext,
+): PointerResult {
+  const { input, slop } = drag;
+  if (input === null) return result(state);
+  if (slop !== null && !pastSlop(event.screen.x - slop.x, event.screen.y - slop.y)) {
+    return result(state);
+  }
+  const t = pointerTransform(input, event.screen, drag, ctx);
+  return previewTransform(state, drag, t, event.free ?? false, ctx);
 }
 
 function reduceMove(
@@ -468,47 +449,44 @@ function reduceMove(
   }
   if (drag.kind === "marquee-pending") {
     if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
+    const world = floorAt(ctx, event.screen);
     return result({
       ...state,
       drag: {
         kind: "marquee",
         worldX: drag.worldX,
         worldY: drag.worldY,
-        curX: event.world.x,
-        curY: event.world.y,
+        curX: world.x,
+        curY: world.y,
         additive: drag.additive,
         baseSel: drag.additive ? ctx.selection : EMPTY_SELECTION,
       },
       marqueeRect: {
         x: drag.worldX,
         y: drag.worldY,
-        w: event.world.x - drag.worldX,
-        h: event.world.y - drag.worldY,
+        w: world.x - drag.worldX,
+        h: world.y - drag.worldY,
       },
     });
   }
   if (drag.kind === "marquee") {
+    const world = floorAt(ctx, event.screen);
     const marqueeRect = {
       x: drag.worldX,
       y: drag.worldY,
-      w: event.world.x - drag.worldX,
-      h: event.world.y - drag.worldY,
+      w: world.x - drag.worldX,
+      h: world.y - drag.worldY,
     };
     return result(
       {
         ...state,
-        drag: { ...drag, curX: event.world.x, curY: event.world.y },
+        drag: { ...drag, curX: world.x, curY: world.y },
         marqueeRect,
       },
       { selection: addNodes(drag.baseSel, marqueeSelect(ctx.doc.nodes, marqueeRect)) },
     );
   }
-  if (drag.kind === "move-pending") {
-    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
-    const active = { ...drag, kind: "move" as const };
-    return moveNodes({ ...state, drag: active }, active, event, ctx);
-  }
-  if (drag.kind === "move") return moveNodes(state, drag, event, ctx);
+  if (drag.kind === "transform") return moveTransform(state, drag, event, ctx);
   if (drag.kind === "resize-pending") {
     if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
     const active = {
@@ -524,18 +502,6 @@ function reduceMove(
     return resizeNode({ ...state, drag: active }, active, event, ctx);
   }
   if (drag.kind === "resize") return resizeNode(state, drag, event, ctx);
-  if (drag.kind === "turn-pending") {
-    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
-    const orig = origOf(drag.id, ctx);
-    const pivot = selectionPivot([...orig.values()]);
-    const by = { kind: "turn" as const, pivot, from: bearing(pivot, drag.start) };
-    const active = { kind: "transform" as const, orig, by, applied: null };
-    return previewTransform(state, active, turnTo(by, event.world), event.free ?? false, ctx);
-  }
-  if (drag.kind === "transform") {
-    if (drag.by.kind !== "turn") return result(state);
-    return previewTransform(state, drag, turnTo(drag.by, event.world), event.free ?? false, ctx);
-  }
   return result({
     ...state,
     drag: { ...drag, x: event.screen.x, y: event.screen.y },
@@ -570,12 +536,13 @@ function finishEdge(
   const from = ctx.byId.get(drag.fromCardId);
   const to = ctx.byId.get(event.edgeTargetId);
   if (!from || !to) return result({ ...state, drag: null });
+  const world = floorAt(ctx, event.screen);
   const edge: CanvasEdge = {
     id: event.edgeId,
     fromNode: drag.fromCardId,
     toNode: event.edgeTargetId,
     fromSide: drag.fromSide,
-    toSide: closestPort(to, event.world.x, event.world.y),
+    toSide: closestPort(to, world.x, world.y),
     toEnd: "arrow",
     kbLink: {
       mode: "layout",
@@ -596,6 +563,35 @@ function finishEdge(
   );
 }
 
+/**
+ * The release of a transform: a pointer-made one read once more where the
+ * pointer let go (where it cannot be read, as the preview last had it),
+ * then written as one history step; a press that never went past the slop
+ * writes nothing.
+ */
+function endTransform(
+  state: PointerState,
+  drag: TransformDrag,
+  event: Extract<CanvasPointerEvent, { type: "pointer/end" }>,
+  ctx: PointerContext,
+): PointerResult {
+  const done = { ...state, drag: null, snapGuides: [] };
+  if (drag.slop !== null) return result(done);
+  const last =
+    drag.input === null
+      ? null
+      : previewTransform(
+          state,
+          drag,
+          pointerTransform(drag.input, event.screen, drag, ctx),
+          event.free ?? false,
+          ctx,
+        );
+  const final = last?.state.drag?.kind === "transform" ? last.state.drag.applied : drag.applied;
+  if (final === null) return result(done);
+  return result(done, { doc: transformed(drag, final, ctx.doc), persist: "history" });
+}
+
 function reduceEnd(
   state: PointerState,
   event: Extract<CanvasPointerEvent, { type: "pointer/end" }>,
@@ -609,32 +605,17 @@ function reduceEnd(
   if (drag.kind === "marquee") {
     return result({ ...state, drag: null, marqueeRect: null });
   }
-  if (drag.kind === "move") {
-    const { doc } = carryNodes(drag, event, ctx);
-    return result({ ...state, drag: null, snapGuides: [] }, { doc, persist: "history" });
-  }
+  if (drag.kind === "transform") return endTransform(state, drag, event, ctx);
   if (drag.kind === "resize") {
     const final = resizeNode(
       state,
       drag,
-      {
-        type: "pointer/move",
-        screen: event.screen,
-        world: event.world,
-        shiftKey: event.shiftKey ?? false,
-      },
+      { screen: event.screen, shiftKey: event.shiftKey ?? false },
       ctx,
     );
     return result({ ...state, drag: null }, { doc: final.doc ?? ctx.doc, persist: "history" });
   }
   if (drag.kind === "edge") return finishEdge(state, drag, event, ctx);
-  if (drag.kind === "transform" && drag.applied !== null) {
-    let doc = ctx.doc;
-    for (const orig of drag.orig.values()) {
-      doc = upsertCanvasNode(doc, transformItem(orig, drag.applied));
-    }
-    return result({ ...state, drag: null }, { doc, persist: "history" });
-  }
   return result({ ...state, drag: null });
 }
 
@@ -662,30 +643,24 @@ export function pointerReduce(
     });
   }
   if (event.type === "move/start") {
-    return startCarry(state, "plane", event, ctx);
+    const { id, screen } = event;
+    return startPointerTransform(
+      state,
+      { id, screen, mode: "grab", constraint: event.along ?? null },
+      ctx,
+    );
   }
-  if (event.type === "lift/start") {
-    return startCarry(state, "lift", event, ctx);
+  if (event.type === "turn/start") {
+    const { id, screen } = event;
+    return startPointerTransform(state, { id, screen, mode: "rotate", constraint: ALONG_Z }, ctx);
   }
   if (event.type === "resize/start") return startResize(state, event, ctx);
-  if (event.type === "turn/start") {
-    const { id, screen, world } = event;
-    return result({
-      ...state,
-      drag: { kind: "turn-pending", id, startX: screen.x, startY: screen.y, start: world },
-    });
-  }
   if (event.type === "transform/start") {
-    const orig = new Map(
-      [...ctx.selection.nodeIds].flatMap((id) => {
-        const node = ctx.byId.get(id);
-        return node ? [[id, node] as const] : [];
-      }),
-    );
+    const orig = itemsOf(ctx.selection.nodeIds, ctx);
     if (orig.size === 0) return result(state);
     return result({
       ...state,
-      drag: { kind: "transform", orig, by: { kind: "handle" }, applied: null },
+      drag: { kind: "transform", orig, input: null, slop: null, applied: null },
     });
   }
   if (event.type === "transform/move") {
@@ -706,14 +681,15 @@ export function pointerReduce(
     });
   }
   if (event.type === "marquee/start") {
+    const world = floorAt(ctx, event.screen);
     return result({
       ...state,
       drag: {
         kind: "marquee-pending",
         startX: event.screen.x,
         startY: event.screen.y,
-        worldX: event.world.x,
-        worldY: event.world.y,
+        worldX: world.x,
+        worldY: world.y,
         additive: event.additive,
       },
     });
