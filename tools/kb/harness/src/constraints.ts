@@ -190,6 +190,7 @@ type UiSurface =
   | "canvas"
   | "graph"
   | "lab"
+  | "layout"
   | "ontology"
   | "outline"
   | "palette"
@@ -201,6 +202,7 @@ const UI_SURFACES: readonly UiSurface[] = [
   "canvas",
   "graph",
   "lab",
+  "layout",
   "ontology",
   "outline",
   "palette",
@@ -309,6 +311,7 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "components/canvas",
     "components/graph",
     "components/lab",
+    "components/layout",
     "components/ontology",
     "components/outline",
     "components/palette",
@@ -373,6 +376,9 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   "components/graph": ["components/graph", "primitives", "stores", "actions", "lib", "scene"],
   "components/lab": ["components/lab", "primitives", "stores", "actions", "lib", "scene"],
   "components/ontology": ["components/ontology", "primitives", "stores", "actions", "lib"],
+  // Panes and layouts: a pane draws whatever page its path resolves to, by
+  // route and view key, so it imports no other surface.
+  "components/layout": ["components/layout", "primitives", "stores", "actions", "lib"],
   // The agent sidebar draws what the agent channel says; the shell hands it
   // the socket and the invoke path as ports (`src/agent.ts`), so it reaches
   // neither `api` nor `session` itself.

@@ -67,14 +67,14 @@ describe("layout-shift regressions (i10)", () => {
   });
 
   it("the main scroll region reserves its scrollbar gutter", () => {
-    const src = readFileSync(path.join(outlineDir, "../App.tsx"), "utf8");
-    // One owner of "the main region" — the className is not restated per route.
-    expect(src).toMatch(/function MainRegion\(/);
+    const src = readFileSync(path.join(outlineDir, "../layout/pane-frame.tsx"), "utf8");
+    // One owner of a pane's scroll region — the className is not restated per route.
+    expect(src).toMatch(/function ScrollRegion\(/);
     expect((src.match(/<main\b/g) ?? []).length).toBe(1);
     expect(src).not.toMatch(/className="min-h-0 flex-1 overflow-(?:auto|hidden)"/);
-    // Every page under the workspace header is framed by the one call site,
-    // canvas (non-scrolling) included: the frame is data on the surface.
-    expect((src.match(/<MainRegion\b/g) ?? []).length).toBe(1);
+    // Every page in a pane is framed by the one call site, canvas
+    // (non-scrolling) included: the frame is data on the surface.
+    expect((src.match(/<ScrollRegion\b/g) ?? []).length).toBe(1);
     // The track is reserved unconditionally, so a view that overflows and one
     // that does not resolve to the same content width — the centered column,
     // and with it the breadcrumb, cannot shift by the 6px scrollbar.

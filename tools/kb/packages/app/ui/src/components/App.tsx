@@ -8,13 +8,12 @@ import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover"
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
-import { NotFound } from "@/components/ui/not-found";
-import { ViewSlot } from "@/components/ui/view-slot";
+import { PaneFrame } from "@/components/layout/pane-frame";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
-import { WorkspaceState } from "@/components/ui/workspace-state";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
-import { useRoute, type ResolvedRoute } from "@/lib/plugins";
+import { useRoute } from "@/lib/plugins";
+import { usePath } from "@/lib/router";
 import { OPTIONAL_UI_PLUGINS, startUiPlugins } from "@/ui-plugins";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
@@ -128,97 +127,8 @@ function SharedChrome() {
   );
 }
 
-/**
- * The one main region.
- *
- * It owns the scrollbar gutter, and reserves it whether or not this view
- * happens to overflow (`::-webkit-scrollbar` is 6px wide and therefore takes
- * layout width, see index.css). Without that, a long view had a scrollbar and
- * a short one did not, the content box changed width by 6px between them, and
- * the centered column — breadcrumb included — shifted ~3px. Fixing it here is
- * what keeps every downstream element free of compensating offsets.
- */
-function MainRegion({
-  scroll = true,
-  children,
-}: {
-  /** Canvas owns its own viewport and deliberately does not scroll. */
-  scroll?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <main
-      className={cn(
-        "min-h-0 flex-1",
-        // `overflow-y: scroll`, not `auto` + `scrollbar-gutter: stable`. Both
-        // reserve the 6px track so an overflowing view and a short one resolve
-        // to the same content width (that width difference is what moved the
-        // centered column, and the breadcrumb with it). Only this one works
-        // everywhere: scrollbar-gutter needs Safari 18.2+.
-        scroll ? "overflow-x-auto overflow-y-scroll" : "overflow-hidden",
-      )}
-      data-main-region={scroll ? "scroll" : "fixed"}
-    >
-      {children}
-    </main>
-  );
-}
-
-const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
-
-/**
- * The matched route's view, in the page slot. A plugin's page owns its own
- * boundary; the slot's only keeps a page that lacks one from taking the shell
- * down with it. A route whose view is not loaded is not found.
- */
-function RouteBody({ route }: { route: ResolvedRoute }) {
-  return (
-    <ViewSlot
-      view={route.view}
-      params={route.params}
-      placement="page"
-      fallback={NOT_FOUND}
-      pending={<WorkspaceState title={route.pendingTitle} loading />}
-    />
-  );
-}
-
-/** What the shell frames under its header: a route's page, or the not-found state. */
-interface ShellPage {
-  readonly pendingTitle: string;
-  readonly scroll: boolean;
-  readonly chrome: React.ReactNode;
-  readonly body: React.ReactNode;
-}
-
-function routePage(route: ResolvedRoute): ShellPage {
-  return {
-    pendingTitle: route.pendingTitle,
-    scroll: route.frame === "scroll",
-    chrome: route.chrome,
-    body: <RouteBody route={route} />,
-  };
-}
-
-/** A path no route owns. */
-const NOT_FOUND_PAGE: ShellPage = {
-  pendingTitle: "Opening your workspace…",
-  scroll: true,
-  chrome: null,
-  body: NOT_FOUND,
-};
-
-function WorkspaceShell({
-  status,
-  error,
-  onRetry,
-  page,
-}: {
-  status: "loading" | "ready" | "error";
-  error: string | null;
-  onRetry: () => void;
-  page: ShellPage;
-}) {
+/** The workspace header: the sidebar toggle, connection, palette, docks and preferences. */
+function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) {
   const theme = usePrefsStore((s) => s.theme);
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
@@ -226,39 +136,27 @@ function WorkspaceShell({
   const sidebar = useSidebarToggle();
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col">
-      <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
-        <SidebarToggle {...sidebar} />
-        <h1 className="text-ui font-medium text-foreground/50">kb</h1>
-        {status === "loading" ? (
-          <span className="text-label text-foreground/30">loading…</span>
-        ) : null}
-        <ConnectionDot />
-        <div className="flex-1" />
-        <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
-        <DockToggles />
-        <button
-          type="button"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
-          aria-label="Preferences"
-          title="Preferences"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setPrefsOpen(!prefsOpen)}
-        >
-          <ThemeIcon theme={theme} size={15} />
-        </button>
-      </header>
-
-      {status === "ready" ? page.chrome : null}
-
-      <WorkspaceBoundary pending={status === "loading"} title={page.pendingTitle}>
-        {status === "error" ? (
-          <LoadError error={error} onRetry={onRetry} />
-        ) : (
-          <MainRegion scroll={page.scroll}>{page.body}</MainRegion>
-        )}
-      </WorkspaceBoundary>
-    </div>
+    <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
+      <SidebarToggle {...sidebar} />
+      <h1 className="text-ui font-medium text-foreground/50">kb</h1>
+      {status === "loading" ? (
+        <span className="text-label text-foreground/30">loading…</span>
+      ) : null}
+      <ConnectionDot />
+      <div className="flex-1" />
+      <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
+      <DockToggles />
+      <button
+        type="button"
+        className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
+        aria-label="Preferences"
+        title="Preferences"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => setPrefsOpen(!prefsOpen)}
+      >
+        <ThemeIcon theme={theme} size={15} />
+      </button>
+    </header>
   );
 }
 
@@ -298,6 +196,9 @@ export function App() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const route = useRoute();
+  const path = usePath();
+  // A page that takes the whole column (the graph) takes the header's place too.
+  const header = route === null || route.frame !== "full";
 
   const reload = useCallback(async () => {
     setStatus("loading");
@@ -350,25 +251,17 @@ export function App() {
         tabIndex={-1}
         className="relative flex min-h-0 min-w-0 flex-1 flex-col outline-none"
       >
-        {route !== null && route.frame === "full" ? (
-          <WorkspaceBoundary pending={status === "loading"} title={route.pendingTitle}>
-            {status === "error" ? (
-              <LoadError error={error} onRetry={() => void reload()} />
-            ) : (
-              <>
-                {route.chrome}
-                <RouteBody route={route} />
-              </>
-            )}
-          </WorkspaceBoundary>
-        ) : (
-          <WorkspaceShell
-            status={status}
-            error={error}
-            onRetry={() => void reload()}
-            page={route === null ? NOT_FOUND_PAGE : routePage(route)}
-          />
-        )}
+        {header ? <WorkspaceHeader status={status} /> : null}
+        <WorkspaceBoundary
+          pending={status === "loading"}
+          title={route?.pendingTitle ?? "Opening your workspace…"}
+        >
+          {status === "error" ? (
+            <LoadError error={error} onRetry={() => void reload()} />
+          ) : (
+            <PaneFrame path={path} />
+          )}
+        </WorkspaceBoundary>
         <SharedChrome />
       </div>
       <ViewErrorBoundary title="Dock crashed" resetKey="dock">
