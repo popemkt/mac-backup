@@ -84,8 +84,7 @@ function refreshScript(uri: string): string {
   };
   send("ui/initialize", {
     protocolVersion: ${scriptJson(MCP_APPS_VERSION)},
-    clientInfo: { name: "kb-view", version: "1" },
-    capabilities: {},
+    appInfo: { name: "kb-view", version: "1" },
     appCapabilities: { availableDisplayModes: ["inline"] },
   }).then(
     (result) => {
