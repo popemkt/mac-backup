@@ -3,8 +3,9 @@
  * resource): its heading — which view it is, shown for which node — then a
  * body the view draws, and, for a page, a figure drawn above the text.
  *
- * A view draws its own body when it knows how to say itself in text
- * ({@link VIEW_BODIES}). Any other view's body is the settings its key reads
+ * A view draws its own body when it knows how to say itself in text: its
+ * `ViewDef.text`, found in the host's view catalog by the view's id. Any other
+ * view's body is the settings its key reads
  * from the node for the node it is shown for, and the nodes it shows, read
  * the one way every view node can be read: a lens query when the node holds
  * one (empty means every node, as a graph reads it), else the children of the
@@ -15,16 +16,7 @@
 import { Effect, Predicate, Result } from "effect";
 import type { KbContext, ViewDef } from "@kb/contracts";
 import { SYSTEM_IDS, firstStr, hostViewIds, viewOptionOf, type KbNode } from "@kb/model";
-import {
-  ChartView,
-  CodeView,
-  issueText,
-  paramsIssues,
-  type ViewCatalogOf,
-  type ViewKey,
-} from "@kb/views";
-import { chartBody } from "./chart-text.ts";
-import { codeBody } from "./code-text.ts";
+import { issueText, paramsIssues, type ViewCatalogOf, type ViewKey } from "@kb/views";
 
 /** How many of a view's rows its markdown lists. */
 const MAX_ROWS = 100;
@@ -47,33 +39,6 @@ function nodeLine(ctx: KbContext, id: string): string {
   const text = ctx.index.getNode(id)?.text.trim() ?? "";
   return `- ${text === "" ? "(untitled)" : text} (${id})`;
 }
-
-/** What a view draws under its heading: markdown lines, and a figure for a page. */
-interface ViewBody {
-  readonly lines: readonly string[];
-  /** Html a page draws above the text (a chart's SVG); absent, or null, when there is none. */
-  readonly figure?: Effect.Effect<string | null>;
-}
-
-/** How one view says itself in text, from the settings its key read for the node it is shown for. */
-interface OwnBody<P> {
-  readonly key: ViewKey<P>;
-  draw(ctx: KbContext, params: P, host: KbNode | null): ViewBody;
-}
-
-/** A view's own body, drawn from the params its key decodes. */
-function ownBody<P>(key: ViewKey<P>, draw: OwnBody<P>["draw"]): OwnBody<P> {
-  return { key, draw };
-}
-
-/**
- * The views that draw their own body, each by its key. A core table naming
- * feature views: GAP [[01M41H2ZG7C0SV1DYZE6MMKPFE]]
- */
-const VIEW_BODIES: readonly OwnBody<unknown>[] = [
-  ownBody(ChartView, (ctx, params) => chartBody(ctx, params)),
-  ownBody(CodeView, (_ctx, params) => codeBody(params)),
-];
 
 /** The ids a view node's subject holds, or why they cannot be read. */
 function subjectOf(
@@ -132,7 +97,7 @@ function settingsAndSubject(
 }
 
 /** A view node on a text surface: its markdown, and the figure a page draws above it. */
-interface ViewText {
+interface ViewNodeText {
   readonly markdown: string;
   readonly figure: Effect.Effect<string | null>;
 }
@@ -143,9 +108,10 @@ export function viewText(
   catalog: ViewCatalogOf<ViewDef<unknown>>,
   view: KbNode,
   host: KbNode | null,
-): ViewText {
+): ViewNodeText {
   const option = viewOptionOf(view);
-  const key = option === null ? null : catalog.keyOf(option);
+  const def = option === null ? null : catalog.itemOf(option);
+  const key = def?.key ?? null;
   const lines = [`# ${viewTitleOf(view, key)}`, ""];
   const shownFor = host === null ? "" : `, shown for ${host.text.trim() || host.id} (${host.id})`;
   lines.push(
@@ -164,13 +130,14 @@ export function viewText(
           ),
           (issues) => issues.map(issueText).join("; "),
         );
-  const own = VIEW_BODIES.find((entry) => entry.key === key);
-  const body: ViewBody =
-    own !== undefined && params !== null && Result.isSuccess(params)
-      ? own.draw(ctx, params.success, host)
-      : { lines: settingsAndSubject(ctx, view, host, params, reported) };
+  const text = def?.text;
+  if (text === undefined || params === null || Result.isFailure(params))
+    return {
+      markdown: `${[...lines, ...settingsAndSubject(ctx, view, host, params, reported)].join("\n")}\n`,
+      figure: Effect.succeed(null),
+    };
   return {
-    markdown: `${[...lines, ...body.lines].join("\n")}\n`,
-    figure: body.figure ?? Effect.succeed(null),
+    markdown: `${[...lines, ...text.body(ctx, params.success, host)].join("\n")}\n`,
+    figure: text.figure?.(ctx, params.success, host) ?? Effect.succeed(null),
   };
 }

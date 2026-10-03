@@ -855,8 +855,9 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   renders through its template whichever way it is asked for; any other view
   node renders as its text (`viewText` in `@kb/operations`): a heading naming
   the view and the host, then a body, and on an html page a figure above it.
-  A view that can say itself in text draws its own body (and figure); any
-  other view's body is the settings its key reads from the node for that
+  A view that can say itself in text draws its own body (and figure), the
+  `ViewDef.text` its contribution carries, found in the host's view catalog
+  ([Extension families](#extension-families)); any other view's body is the settings its key reads from the node for that
   host, and the nodes it shows — its lens query's when it holds one, else
   the host's children. One function (`renderViewNodeEffect`) serves the
   action and MCP's `ui://kb/view/*` resources (Surfaces). That generic body

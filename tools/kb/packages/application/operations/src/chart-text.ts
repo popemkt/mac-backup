@@ -2,9 +2,12 @@
  * A chart view on a text surface: what it draws (its mark and encoding),
  * then its data as a table, and on a page its SVG, painted by whichever
  * `ChartSvg` the runtime provides (none draws the text alone).
+ *
+ * The chart's text is contributed as its `ViewDef.text`, but it still lives in
+ * core's operations: GAP [[01M41H2ZG7C0SV1DYZE6MMKPFE]]
  */
 import { Effect } from "effect";
-import { ChartSvg, type KbContext } from "@kb/contracts";
+import { ChartSvg, type KbContext, type ViewText } from "@kb/contracts";
 import { queryDefOf } from "@kb/model";
 import { chartRecords, type QueryRecords } from "@kb/query";
 import { chartSpecWithData, describeChartSpec, type ChartParams } from "@kb/views";
@@ -63,22 +66,27 @@ function dataTable({ columns, records }: QueryRecords): readonly string[] {
   return lines;
 }
 
-/** A chart view's body: its encoding, its data, and its SVG for a page. */
-export function chartBody(ctx: KbContext, params: ChartParams) {
+/** A chart view's body: its encoding, then its data. */
+function chartBody(ctx: KbContext, params: ChartParams): readonly string[] {
   const data = chartRecordsOf(ctx, params.source);
   const lines = ["", "## Chart", "", ...describeChartSpec(params.spec), "", "## Data", ""];
-  if ("missing" in data) return { lines: [...lines, data.missing] };
+  if ("missing" in data) return [...lines, data.missing];
   const source = ctx.index.getNode(params.source ?? "");
   const named =
     source === undefined ? "" : `The rows of ${source.text.trim() || source.id} (${source.id}).`;
-  return {
-    lines: [...lines, named, "", ...dataTable(data)],
-    figure: Effect.gen(function* () {
-      const painter = yield* ChartSvg;
-      if (painter === null) return null;
-      return yield* painter
-        .svg(chartSpecWithData(params.spec, data.records, PAGE_BOX))
-        .pipe(Effect.orElseSucceed(() => null));
-    }),
-  };
+  return [...lines, named, "", ...dataTable(data)];
 }
+
+/** A chart view's figure on a page: its SVG, painted by the runtime's `ChartSvg`, if any. */
+const chartFigure = Effect.fn("chart.figure")(function* (ctx: KbContext, params: ChartParams) {
+  const painter = yield* ChartSvg;
+  if (painter === null) return null;
+  const data = chartRecordsOf(ctx, params.source);
+  if ("missing" in data) return null;
+  return yield* painter
+    .svg(chartSpecWithData(params.spec, data.records, PAGE_BOX))
+    .pipe(Effect.orElseSucceed(() => null));
+});
+
+/** How a chart view says itself in text: the chart's contribution of its `ViewDef.text`. */
+export const chartText: ViewText<ChartParams> = { body: chartBody, figure: chartFigure };

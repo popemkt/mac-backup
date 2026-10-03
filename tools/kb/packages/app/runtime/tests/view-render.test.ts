@@ -7,8 +7,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SYSTEM_IDS } from "@kb/model";
-import type { KbContext } from "@kb/contracts";
+import { Effect } from "effect";
+import { SYSTEM_IDS, present } from "@kb/model";
+import { ViewCatalog, viewDef, type KbContext, type ViewDef } from "@kb/contracts";
+import { coreExtension, renderViewNodeEffect } from "@kb/operations";
+import { CodeView, viewCatalogOf, type ViewCatalogOf } from "@kb/views";
+import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
 
@@ -166,6 +170,32 @@ describe("render.view by view node id", () => {
     expect(md.content).toContain("It runs only in the kb UI, sandboxed");
     expect(md.content).toContain("It may read its subject, and call node.update.");
     expect(md.content).toContain(`\`\`\`\`js\n${code}\n\`\`\`\``);
+  });
+
+  test("a view says itself in the text its catalog contribution carries, else generically", async () => {
+    await mustInvoke("view.propose", {
+      view: "code.view",
+      params: { code: "kb.draw([]);", grant: { reads: "none", actions: [] } },
+      host: FRAME,
+      id: "v.code",
+    });
+    const renderWith = (catalog: ViewCatalogOf<ViewDef<unknown>>) =>
+      Effect.runPromise(
+        renderViewNodeEffect({ id: "v.code" }, "md").pipe(
+          Effect.provideService(ViewCatalog, catalog),
+          Effect.provide(kbRuntimeLayer(ctx)),
+        ),
+      );
+    // The code view as core contributes it, its text included, and the same key bare.
+    const declared = present(
+      coreExtension.views?.find((view) => view.key === CodeView),
+      "core declares the code view",
+    );
+    const contributed = (await renderWith(viewCatalogOf([declared]))).content;
+    expect(contributed).toContain("It runs only in the kb UI, sandboxed");
+    const bare = (await renderWith(viewCatalogOf([viewDef(CodeView)]))).content;
+    expect(bare).not.toContain("It runs only in the kb UI");
+    expect(bare).toContain("## Settings");
   });
 
   test("a code view's page draws what its code draws, read-only, as of the render", async () => {

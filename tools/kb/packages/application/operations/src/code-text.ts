@@ -6,8 +6,12 @@
  * render, run read-only by whichever snapshotter the runtime provides
  * (DESIGN.md → Sandbox → Snapshots); none, or a run that drew nothing, draws
  * the text alone.
+ *
+ * The code view's text is contributed as its `ViewDef.text`, but it still
+ * lives in core's operations: GAP [[01M41H2ZG7C0SV1DYZE6MMKPFE]]
  */
 import { Effect } from "effect";
+import type { KbContext, ViewText } from "@kb/contracts";
 import { CodeSnapshots } from "@kb/sandbox";
 import type { CodeParams } from "@kb/views";
 
@@ -24,43 +28,38 @@ function grantLine({ grant }: CodeParams): string {
 }
 
 /** What the code draws as of now, read-only, or null for nothing to show. */
-function codeFigure(params: CodeParams): Effect.Effect<string | null> {
-  return Effect.gen(function* () {
-    const snapshots = yield* CodeSnapshots;
-    if (snapshots === null) return null;
-    const { html, end } = yield* snapshots.draw({
-      code: params.code,
-      grant: params.grant,
-      subject: params.source ?? null,
-    });
-    const note = end === null ? "" : `<p><em>${escapeText(end.message)}</em></p>`;
-    return html === null && note === "" ? null : `${html ?? ""}${note}`;
+const codeFigure = Effect.fn("code.figure")(function* (_ctx: KbContext, params: CodeParams) {
+  const snapshots = yield* CodeSnapshots;
+  if (snapshots === null) return null;
+  const { html, end } = yield* snapshots.draw({
+    code: params.code,
+    grant: params.grant,
+    subject: params.source ?? null,
   });
-}
+  const note = end === null ? "" : `<p><em>${escapeText(end.message)}</em></p>`;
+  return html === null && note === "" ? null : `${html ?? ""}${note}`;
+});
 
 function escapeText(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
-/** A code view's body: a note on where it runs, its grant, and its code; on a page, its drawing. */
-export function codeBody(params: CodeParams): {
-  readonly lines: readonly string[];
-  readonly figure: Effect.Effect<string | null>;
-} {
+/** A code view's body: a note on where it runs, its grant, and its code. */
+function codeBody(_ctx: KbContext, params: CodeParams): readonly string[] {
   const fence = fenceFor(params.code);
-  return {
-    lines: [
-      "",
-      "## Code",
-      "",
-      "This view is code. It runs only in the kb UI, sandboxed: in QuickJS until a person trusts it on their machine, then in a Worker. As text it is shown, not run; a page shows what it draws as of now, run read-only.",
-      "",
-      `${grantLine(params)}${params.source === undefined ? "" : ` It is shown for ${params.source}.`}`,
-      "",
-      `${fence}js`,
-      params.code,
-      fence,
-    ],
-    figure: codeFigure(params),
-  };
+  return [
+    "",
+    "## Code",
+    "",
+    "This view is code. It runs only in the kb UI, sandboxed: in QuickJS until a person trusts it on their machine, then in a Worker. As text it is shown, not run; a page shows what it draws as of now, run read-only.",
+    "",
+    `${grantLine(params)}${params.source === undefined ? "" : ` It is shown for ${params.source}.`}`,
+    "",
+    `${fence}js`,
+    params.code,
+    fence,
+  ];
 }
+
+/** How a code view says itself in text: the code view's contribution of its `ViewDef.text`. */
+export const codeText: ViewText<CodeParams> = { body: codeBody, figure: codeFigure };
