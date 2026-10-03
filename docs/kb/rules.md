@@ -160,6 +160,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a planted-ids record the seed reads, folded into the retirement table that gap names
 - **node** — `01M413SPC35K20DFC4TRP4DJYH`
 
+### GAP: a stage with ambient occlusion renders without MSAA until three r187
+
+- **expected** — every stage antialiases its scene pass, occlusion or not
+- **current** — r186's GTAO cannot read a multisampled depth texture, so a stage with occlusion (the Light study) renders its scene pass single-sampled
+- **impact** — the Light study has aliased edges
+- **closes** — upgrade to three r187, which fixes GTAO with MSAA depth (mrdoob/three.js#34598, #34609), and drop the single-sample branch
+- **node** — `01M416DT1SEWS5P3J28JT4R6YG`
+
 ### GAP: a store's release is not on the port; selectStore drops it
 
 - **expected** — Letting go of an open store is part of what selecting one returns: the caller that opened it can close it, through the port or a Scope, so a sqlite connection's lifetime is the session's, not the process's.
