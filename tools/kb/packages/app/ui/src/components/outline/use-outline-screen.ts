@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 import { SCREEN_APPLIED, screenRejected, type ScreenAck } from "@kb/contracts";
 import { outlineInstanceKey } from "@/lib/instance-key";
-import { usePaneScreen, type PaneSelection } from "@/stores/screen.store";
+import type { PaneSelection } from "@/lib/pane-screen";
+import { usePaneScreen } from "@/stores/screen.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { outlineHostOfInstance } from "@/stores/outline-hosts";
 import { useOutlineHost } from "./outline-host";

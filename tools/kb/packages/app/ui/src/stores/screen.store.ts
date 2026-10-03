@@ -4,31 +4,16 @@
  * itself, but what a view shows — the node it is shown for, its focus and
  * selection, a canvas's camera — only the mounted view knows. So each view
  * reports that here, under the pane it is drawn in (`lib/pane`), with how it
- * carries out a `ui.select`, and takes both back when it unmounts.
+ * carries out a `ui.select`, and takes both back when it unmounts. The shapes
+ * and the reporting hook are `lib/pane-screen`'s; this is where reports are held.
  */
-import { useEffect, useRef, useState } from "react";
 import { create } from "zustand";
-import type { CanvasScreen, ScreenAck } from "@kb/contracts";
-import { usePane } from "@/lib/pane";
-
-/** What the view in a pane says about what it shows. */
-export interface PaneReport {
-  /** The node the view is shown for (the outline's zoom root, the canvas node). */
-  readonly subject?: string;
-  readonly focused: string | null;
-  /** In the view's own ids: node ids in the outline, item ids on a canvas. */
-  readonly selection: readonly string[];
-  readonly canvas?: CanvasScreen;
-}
-
-/** A `ui.select` as the view receives it. */
-export interface PaneSelection {
-  readonly selection?: readonly string[];
-  readonly focus?: string;
-}
-
-/** How the view carries out a select; its answer is the tab's answer. */
-export type PaneSelect = (command: PaneSelection) => ScreenAck;
+import {
+  usePaneScreenThrough,
+  type PaneReport,
+  type PaneScreenPort,
+  type PaneSelect,
+} from "@/lib/pane-screen";
 
 /** One pane's view: what it reports and how it selects. */
 interface PaneView {
@@ -51,34 +36,27 @@ function without(panes: Readonly<Record<string, PaneView>>, pane: string) {
   return rest;
 }
 
+/** The screen store as the place pane reports are held. */
+const paneScreenPort: PaneScreenPort = {
+  report: (pane, owner, report, select) => {
+    const now = useScreenStore.getState().panes[pane];
+    if (now?.owner === owner && JSON.stringify(now.report) === JSON.stringify(report)) return;
+    useScreenStore.setState((state) => ({
+      panes: { ...state.panes, [pane]: { report, select, owner } },
+    }));
+  },
+  release: (pane, owner) => {
+    if (useScreenStore.getState().panes[pane]?.owner === owner) {
+      useScreenStore.setState((state) => ({ panes: without(state.panes, pane) }));
+    }
+  },
+};
+
 /**
  * Report `report` for the pane this view is drawn in, and carry out its
  * selects with `select`, until the view unmounts. A report equal to the last
  * one is not news.
  */
 export function usePaneScreen(report: PaneReport, select: PaneSelect): void {
-  const pane = usePane();
-  const [owner] = useState(() => Symbol("pane-view"));
-  const selectRef = useRef(select);
-
-  useEffect(() => {
-    selectRef.current = select;
-    const now = useScreenStore.getState().panes[pane];
-    if (now?.owner === owner && JSON.stringify(now.report) === JSON.stringify(report)) return;
-    useScreenStore.setState((state) => ({
-      panes: {
-        ...state.panes,
-        [pane]: { report, select: (command) => selectRef.current(command), owner },
-      },
-    }));
-  });
-
-  useEffect(
-    () => () => {
-      if (useScreenStore.getState().panes[pane]?.owner === owner) {
-        useScreenStore.setState((state) => ({ panes: without(state.panes, pane) }));
-      }
-    },
-    [owner, pane],
-  );
+  usePaneScreenThrough(paneScreenPort, report, select);
 }

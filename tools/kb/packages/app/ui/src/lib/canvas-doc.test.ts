@@ -10,6 +10,7 @@ import {
 import {
   edgePropPresent,
   hasPropRef,
+  listCanvasNavItems,
   planNativeBind,
   isValidNativeTarget,
   syncDocOnRev,
@@ -21,6 +22,36 @@ import { clearAllowedRefIdsCache } from "@/lib/field-type";
 function schemaFor(nodes: NodeMap): SchemaIndex {
   return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
 }
+
+/** An outline node with nothing but an id, a text and props. */
+function outline(id: string, text: string, props: OutlineNode["props"] = {}): OutlineNode {
+  return {
+    id,
+    text,
+    parentId: null,
+    children: [],
+    collapsed: false,
+    props,
+    createdAt: "",
+    updatedAt: "",
+    tags: [],
+  };
+}
+
+describe("the Canvases section", () => {
+  test("lists #canvas nodes, and only those", () => {
+    const nodes: NodeMap = new Map([
+      [
+        "cv1",
+        outline("cv1", "My canvas", {
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.canvasTag }],
+        }),
+      ],
+      ["x", outline("x", "plain")],
+    ]);
+    expect(listCanvasNavItems(nodes)).toEqual([{ id: "cv1", label: "My canvas" }]);
+  });
+});
 
 describe("canvas doc (UI alias)", () => {
   test("round-trip kb-node + kbLink", () => {

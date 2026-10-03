@@ -53,6 +53,16 @@ function propLookupFromStore(
   };
 }
 
+/** `#canvas` nodes as the Canvases sidebar section lists them. */
+export function listCanvasNavItems(
+  nodes: Map<string, OutlineNode>,
+): Array<{ readonly id: string; readonly label: string }> {
+  return listCanvasNodes(nodes).map((n) => ({
+    id: n.id,
+    label: n.text || "Untitled canvas",
+  }));
+}
+
 /** Render-time: native edge whose prop is still present. */
 export function edgePropPresent(edge: CanvasEdge, nodes: Map<string, OutlineNode>): boolean {
   return isNativeEdgeBound(edge, propLookupFromStore(nodes));

@@ -4,7 +4,8 @@ import { SCREEN_APPLIED, screenRejected, type CanvasScreen, type ScreenAck } fro
 import { poseOfView, viewOfPan, type CanvasView } from "@/lib/canvas-camera";
 import { visibleItemIds } from "@/lib/canvas-visible";
 import type { CanvasSelection } from "@/lib/canvas-selection";
-import { usePaneScreen, type PaneSelection } from "@/stores/screen.store";
+import type { PaneSelection } from "@/lib/pane-screen";
+import { usePaneScreen } from "@/stores/screen.store";
 
 interface CanvasScreenInput {
   readonly canvasId: string;

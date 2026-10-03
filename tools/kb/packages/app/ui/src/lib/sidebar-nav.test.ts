@@ -3,7 +3,7 @@ import type { WireNode } from "@kb/contracts";
 import { systemSeedNodes } from "@kb/model";
 import { DatascriptIndex } from "@/ds";
 import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
-import { listCanvasNavItems, listPerspectiveNavItems, listPinnedNavItems } from "./sidebar-nav";
+import { listPerspectiveNavItems, listPinnedNavItems } from "./sidebar-nav";
 
 function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">): OutlineNode {
   return {
@@ -59,22 +59,7 @@ describe("sidebar-nav selectors", () => {
     ]);
   });
 
-  it("lists canvas and graph-perspective nav items", () => {
-    const nodes = new Map<string, OutlineNode>([
-      [
-        "cv1",
-        outline({
-          id: "cv1",
-          text: "My canvas",
-          props: {
-            [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.canvasTag }],
-          },
-        }),
-      ],
-      ["x", outline({ id: "x", text: "plain" })],
-    ]);
-    expect(listCanvasNavItems(nodes)).toEqual([{ id: "cv1", label: "My canvas" }]);
-
+  it("lists graph-perspective nav items", () => {
     // The seed's view options and families: a graph is a view node whose view is a renderer.
     const wire: WireNode[] = [
       ...systemSeedNodes(),

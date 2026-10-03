@@ -4,11 +4,10 @@
  */
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "@/ds";
-import { listCanvasNodes } from "@/lib/canvas-api";
 import { listPerspectiveNodes } from "@/lib/graph-lens";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { listPinnedNodes } from "@/lib/pinned";
-import type { NodeMap, OutlineNode } from "@/lib/types";
+import type { NodeMap } from "@/lib/types";
 
 export interface SidebarNavItem {
   id: string;
@@ -31,14 +30,6 @@ export function listPerspectiveNavItems(
   return listPerspectiveNodes(db, wireNodes).map((n) => ({
     id: n.id,
     label: n.text || n.id,
-  }));
-}
-
-/** `#canvas` nodes for the Canvases section. */
-export function listCanvasNavItems(nodes: Map<string, OutlineNode>): SidebarNavItem[] {
-  return listCanvasNodes(nodes).map((n) => ({
-    id: n.id,
-    label: n.text || "Untitled canvas",
   }));
 }
 

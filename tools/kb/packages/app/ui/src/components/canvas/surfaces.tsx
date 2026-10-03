@@ -3,10 +3,9 @@ import { PlusIcon, SquareIcon } from "@phosphor-icons/react";
 import { CanvasListView, CanvasView, type CanvasParams } from "@kb/views";
 import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
-import { createCanvasNode } from "@/lib/canvas-api";
+import { createCanvasNode, listCanvasNavItems } from "@/lib/canvas-api";
 import { paramsOf, type MatchedRoute, type ViewProps } from "@/lib/plugins";
 import { navigate } from "@/lib/router";
-import { listCanvasNavItems } from "@/lib/sidebar-nav";
 import { useOutlineStore } from "@/stores/outline.store";
 
 const CanvasListPage = lazy(() =>
