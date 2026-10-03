@@ -154,6 +154,53 @@ export interface CanvasPathSink {
   closePath(): unknown;
 }
 
+/** How far apart the points a curve is flattened into may be, canvas units. */
+const CURVE_STEP = 6;
+
+/** Collects an outline as points, curves flattened. */
+class PointSink implements CanvasPathSink {
+  readonly points: [number, number][] = [];
+
+  moveTo(x: number, y: number): void {
+    this.points.push([x, y]);
+  }
+
+  lineTo(x: number, y: number): void {
+    this.points.push([x, y]);
+  }
+
+  // oxlint-disable-next-line max-params -- the canvas 2D context's own signature, which a sink speaks
+  bezierCurveTo(x1: number, y1: number, x2: number, y2: number, x: number, y: number): void {
+    const [x0, y0] = this.points.at(-1) ?? [x, y];
+    const reach = Math.hypot(x1 - x0, y1 - y0) + Math.hypot(x2 - x1, y2 - y1);
+    const n = Math.max(
+      2,
+      Math.min(24, Math.ceil((reach + Math.hypot(x - x2, y - y2)) / CURVE_STEP)),
+    );
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      const u = 1 - t;
+      this.points.push([
+        u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x,
+        u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y,
+      ]);
+    }
+  }
+
+  closePath(): void {}
+}
+
+/**
+ * An outline as the points it passes through, in order, its curves
+ * flattened to points no more than a few canvas units apart: what a mesh is
+ * built round and what a polygon is tested against.
+ */
+export function outlinePoints(commands: readonly CanvasPathCommand[]): [number, number][] {
+  const sink = new PointSink();
+  tracePath(sink, commands);
+  return sink.points;
+}
+
 /** Trace `commands` into `sink`, each point mapped through `at` (identity by default). */
 export function tracePath(
   sink: CanvasPathSink,

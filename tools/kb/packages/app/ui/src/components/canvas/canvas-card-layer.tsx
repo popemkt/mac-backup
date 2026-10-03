@@ -16,6 +16,7 @@ import { ShapeCard } from "./shape-card";
 import type { CanvasSelection } from "./canvas-selection";
 import type { ResizeCorner } from "./canvas-pointer";
 import { classifyCardPointer } from "./card-pointer";
+import { cardBoxStyle } from "./canvas-card-box";
 import { cn, hasText } from "@/sdk";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
 import { CanvasPorts } from "./canvas-ports";
@@ -93,12 +94,7 @@ function CanvasCardView({
           "group/card absolute rounded-md border border-dashed bg-foreground/[0.02]",
           isSelected ? "border-primary/40" : "border-foreground/10",
         )}
-        style={{
-          left: card.x,
-          top: card.y,
-          width: card.width,
-          height: card.height,
-        }}
+        style={cardBoxStyle(card)}
         onPointerDown={(e) => {
           if (classifyCardPointer(e.target, undefined) === "chrome") return;
           e.stopPropagation();
@@ -168,12 +164,7 @@ function CanvasCardView({
           "group/card absolute rounded-md border bg-background px-2 py-1 text-label text-foreground/40",
           isSelected ? "border-primary/40" : "border-foreground/[0.06]",
         )}
-        style={{
-          left: card.x,
-          top: card.y,
-          width: card.width,
-          height: card.height,
-        }}
+        style={cardBoxStyle(card)}
         onPointerDown={(e) => {
           e.stopPropagation();
           handleCardPointerDown(card, e);

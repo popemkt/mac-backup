@@ -11,14 +11,8 @@
  *   highest solid its centre passes over (`snapToSurface`), which is how
  *   things are put on one another.
  */
-import {
-  canvasDepth,
-  canvasElevation,
-  canvasTop,
-  itemShape,
-  onFootprint,
-  type CanvasNode,
-} from "@kb/canvas";
+import { canvasDepth, canvasElevation, canvasTop, type CanvasNode } from "@kb/canvas";
+import { coversFromAbove } from "./canvas-camera";
 
 /** One of the canvas's axes: x and y across the floor, z up from it. */
 type SnapAxis = "x" | "y" | "z";
@@ -112,15 +106,13 @@ const centreOf = (item: CanvasNode, dx = 0, dy = 0) => ({
 
 /**
  * The surface a point on the floor plan stands under: the top of the highest
- * solid in `others` whose footprint it is on, or null over open floor.
+ * solid in `others` whose top view covers it (`coversFromAbove`), or null
+ * over open floor.
  */
 function surfaceUnder(at: { x: number; y: number }, others: readonly CanvasNode[]): number | null {
   let top: number | null = null;
   for (const other of others) {
-    if (canvasDepth(other) <= 0) continue;
-    const u = (at.x - other.x - other.width / 2) / (other.width / 2);
-    const v = (at.y - other.y - other.height / 2) / (other.height / 2);
-    if (!onFootprint(itemShape(other), u, v)) continue;
+    if (canvasDepth(other) <= 0 || !coversFromAbove(other, at)) continue;
     top = Math.max(top ?? -Infinity, canvasTop(other));
   }
   return top;

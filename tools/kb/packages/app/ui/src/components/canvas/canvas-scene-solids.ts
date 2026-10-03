@@ -32,8 +32,7 @@ import {
 import {
   CANVAS_SHAPES,
   shapeOutline,
-  tracePath,
-  type CanvasPathSink,
+  outlinePoints,
   type CanvasShapeKind,
   type CanvasVolume,
 } from "@kb/canvas";
@@ -69,53 +68,19 @@ export interface SolidGeometry {
 /** A point on the outline in the item's frame, and the outward normal of the side it starts. */
 type Ring = readonly (readonly [number, number])[];
 
-/** How far apart the points a curve is flattened into may be, canvas units. */
-const CURVE_STEP = 6;
 /** Sides meeting at more than this turn (radians) keep a hard edge; gentler ones are smoothed. */
 const CREASE = (35 * Math.PI) / 180;
-
-/** Collects an outline as a closed ring of points, curves flattened. */
-class RingSink implements CanvasPathSink {
-  readonly points: [number, number][] = [];
-
-  moveTo(x: number, y: number): void {
-    this.points.push([x, y]);
-  }
-
-  lineTo(x: number, y: number): void {
-    this.points.push([x, y]);
-  }
-
-  // oxlint-disable-next-line max-params -- the canvas 2D context's own signature, which a sink speaks
-  bezierCurveTo(x1: number, y1: number, x2: number, y2: number, x: number, y: number): void {
-    const [x0, y0] = this.points.at(-1) ?? [x, y];
-    const reach = Math.hypot(x1 - x0, y1 - y0) + Math.hypot(x2 - x1, y2 - y1);
-    const n = Math.max(
-      2,
-      Math.min(24, Math.ceil((reach + Math.hypot(x - x2, y - y2)) / CURVE_STEP)),
-    );
-    for (let i = 1; i <= n; i++) {
-      const t = i / n;
-      const u = 1 - t;
-      this.points.push([
-        u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x,
-        u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y,
-      ]);
-    }
-  }
-
-  closePath(): void {}
-}
 
 /**
  * The footprint's outline as a ring in the item's frame (y up), counter-
  * clockwise seen from above, with no repeated closing point.
  */
 function footprintRing(spec: SolidSpec): Ring {
-  const sink = new RingSink();
   const { width: w, height: h } = spec;
-  tracePath(sink, shapeOutline(spec.shape, w, h, spec.radius), (x, y) => [x - w / 2, h / 2 - y]);
-  const ring = sink.points.filter((p, i, all) => {
+  const points = outlinePoints(shapeOutline(spec.shape, w, h, spec.radius)).map(
+    ([x, y]): [number, number] => [x - w / 2, h / 2 - y],
+  );
+  const ring = points.filter((p, i, all) => {
     const next = all[(i + 1) % all.length];
     return next === undefined || Math.hypot(next[0] - p[0], next[1] - p[1]) > 1e-6;
   });

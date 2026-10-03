@@ -9,6 +9,7 @@ import {
 } from "@kb/canvas";
 import { resolveCanvasColor } from "./canvas-color";
 import { classifyCardPointer } from "./card-pointer";
+import { cardBoxStyle } from "./canvas-card-box";
 import { cn, hasText, textOr } from "@/sdk";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
 import { CanvasPorts } from "./canvas-ports";
@@ -161,12 +162,7 @@ export function ShapeCard({
     // The box is only a frame: the footprint inside it is what the pointer hits.
     <div
       className="group/card pointer-events-none absolute"
-      style={{
-        left: card.x,
-        top: card.y,
-        width: card.width,
-        height: card.height,
-      }}
+      style={cardBoxStyle(card)}
       onPointerDown={(e) => {
         const intent = classifyCardPointer(e.target, "input");
         if (intent === "chrome") return;

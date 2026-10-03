@@ -1,4 +1,5 @@
 import { classifyCardPointer } from "./card-pointer";
+import { cardBoxStyle } from "./canvas-card-box";
 import {
   asInstance,
   browserHost,
@@ -74,12 +75,7 @@ export function KbNodeCard({
     return (
       <div
         className="absolute rounded-md border border-destructive/30 bg-background px-2 py-1 text-label text-destructive"
-        style={{
-          left: card.x,
-          top: card.y,
-          width: card.width,
-          height: card.height,
-        }}
+        style={cardBoxStyle(card)}
       >
         missing {card.nodeId}
       </div>
@@ -92,12 +88,7 @@ export function KbNodeCard({
         "group/card absolute rounded-xl border bg-background shadow-raised",
         selected ? "border-primary/70 ring-2 ring-primary/15" : "border-foreground/12",
       )}
-      style={{
-        left: card.x,
-        top: card.y,
-        width: card.width,
-        height: card.height,
-      }}
+      style={cardBoxStyle(card)}
       onPointerDown={(e) => {
         const intent = classifyCardPointer(e.target, ".node-content");
         if (intent === "chrome") return;
@@ -184,12 +175,7 @@ export function TextCard({
         "group/card absolute rounded-xl border bg-background p-3 shadow-raised",
         selected ? "border-primary/40" : "border-foreground/12",
       )}
-      style={{
-        left: card.x,
-        top: card.y,
-        width: card.width,
-        height: card.height,
-      }}
+      style={cardBoxStyle(card)}
       onPointerDown={(e) => {
         const intent = classifyCardPointer(e.target, "textarea");
         if (intent === "chrome") return;

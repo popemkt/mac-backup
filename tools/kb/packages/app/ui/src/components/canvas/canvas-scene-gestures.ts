@@ -15,15 +15,9 @@
  * Every screen point becomes a canvas point through the one camera model, so
  * what is hit and where a card goes are the model's answers.
  */
+import { canvasDepth, canvasTop, paintOrder, type CanvasNode } from "@kb/canvas";
 import {
-  canvasDepth,
-  canvasTop,
-  itemShape,
-  onFootprint,
-  paintOrder,
-  type CanvasNode,
-} from "@kb/canvas";
-import {
+  coversFromAbove,
   hitTest,
   screenToPlane,
   type CanvasPoint,
@@ -193,11 +187,7 @@ export class SceneGestures {
     const under = others.find((item) => item.id === id);
     if (under !== undefined && canvasDepth(under) > 0) {
       const top = this.planeAt(local, canvasTop(under));
-      if (top !== null) {
-        const u = (top.x - under.x - under.width / 2) / (under.width / 2);
-        const v = (top.y - under.y - under.height / 2) / (under.height / 2);
-        if (onFootprint(itemShape(under), u, v)) return top;
-      }
+      if (top !== null && coversFromAbove(under, top)) return top;
     }
     return this.planeAt(local, g.z);
   }

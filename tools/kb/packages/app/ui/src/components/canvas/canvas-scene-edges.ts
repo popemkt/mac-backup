@@ -18,44 +18,31 @@ import {
 } from "three/webgpu";
 import { Line2 } from "three/addons/lines/webgpu/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
-import {
-  canvasDepth,
-  canvasElevation,
-  type CanvasEdge,
-  type CanvasNode,
-  type CanvasSide,
-} from "@kb/canvas";
-import { sidePoint } from "./canvas-edge-path";
+import type { CanvasEdge, CanvasNode } from "@kb/canvas";
+import { leaving, sideAnchor, type SideAnchor } from "./canvas-edge-path";
 import type { CardLook } from "./canvas-card-face";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 
 const SAMPLES = 28;
 const UP = new Vector3(0, 1, 0);
 
-/** A side's outward direction in canvas space. */
-function outward(side: CanvasSide): [number, number] {
-  if (side === "left") return [-1, 0];
-  if (side === "top") return [0, -1];
-  if (side === "bottom") return [0, 1];
-  return [1, 0];
+/** The two side anchors an edge runs between (`sideAnchor`): where it starts and ends. */
+function anchorsOf(from: CanvasNode, to: CanvasNode, edge: CanvasEdge) {
+  return [
+    sideAnchor(from, edge.fromSide ?? "right"),
+    sideAnchor(to, edge.toSide ?? "left"),
+  ] as const;
 }
 
-/** Where an edge meets an item's side: halfway up it, which on a flat item is its plane. */
-const anchorHeight = (n: CanvasNode) => canvasElevation(n) + canvasDepth(n) / 2;
-
 /** The edge's curve in three's space: the 2D bezier, climbing smoothly between the two heights. */
-function edgeCurve(from: CanvasNode, to: CanvasNode, edge: CanvasEdge): Vector3[] {
-  const fromSide = edge.fromSide ?? "right";
-  const toSide = edge.toSide ?? "left";
-  const a = sidePoint(from, fromSide);
-  const b = sidePoint(to, toSide);
-  const za = anchorHeight(from);
-  const zb = anchorHeight(to);
+function edgeCurve([from, to]: readonly [SideAnchor, SideAnchor]): Vector3[] {
+  const a = from.at;
+  const b = to.at;
+  const za = a.z;
+  const zb = b.z;
   const reach = Math.max(40, Math.hypot(b.x - a.x, b.y - a.y) * 0.4);
-  const [ax, ay] = outward(fromSide);
-  const [bx, by] = outward(toSide);
-  const c1 = { x: a.x + ax * reach, y: a.y + ay * reach };
-  const c2 = { x: b.x + bx * reach, y: b.y + by * reach };
+  const c1 = leaving(from, reach);
+  const c2 = leaving(to, reach);
   const points: Vector3[] = [];
   for (let i = 0; i <= SAMPLES; i++) {
     const t = i / SAMPLES;
@@ -68,12 +55,16 @@ function edgeCurve(from: CanvasNode, to: CanvasNode, edge: CanvasEdge): Vector3[
   return points;
 }
 
-const box = (n: CanvasNode) => `${n.x},${n.y},${n.width},${n.height},${anchorHeight(n)}`;
+const anchorKey = ({ at, out }: SideAnchor) => `${at.x},${at.y},${at.z},${out.x},${out.y}`;
 
-/** Everything an edge is drawn from, as a version. */
-function edgeVersion(edge: CanvasEdge, from: CanvasNode, to: CanvasNode, selected: boolean) {
-  const ends = `${edge.fromSide ?? ""}>${edge.toSide ?? ""}:${edge.fromEnd ?? ""}>${edge.toEnd ?? ""}`;
-  return `${box(from)}|${box(to)}|${ends}|${edge.color ?? ""}|${selected ? "s" : "-"}`;
+/** Everything an edge is drawn from, as a version: its anchors, ends, colour and selection. */
+function edgeVersion(
+  edge: CanvasEdge,
+  [from, to]: readonly [SideAnchor, SideAnchor],
+  selected: boolean,
+) {
+  const ends = `${edge.fromEnd ?? ""}>${edge.toEnd ?? ""}`;
+  return `${anchorKey(from)}|${anchorKey(to)}|${ends}|${edge.color ?? ""}|${selected ? "s" : "-"}`;
 }
 
 interface DrawnEdge {
@@ -107,10 +98,11 @@ export class EdgeLayer {
       if (!from || !to) continue;
       ids.push(edge.id);
       const selected = content.selection.edgeIds.has(edge.id);
-      const version = edgeVersion(edge, from, to, selected);
+      const anchors = anchorsOf(from, to, edge);
+      const version = edgeVersion(edge, anchors, selected);
       if (this.drawn.get(edge.id)?.version === version) continue;
       this.drop(edge.id);
-      const group = this.draw(edge, edgeCurve(from, to, edge), selected);
+      const group = this.draw(edge, edgeCurve(anchors), selected);
       this.root.add(group);
       this.drawn.set(edge.id, { group, version });
     }

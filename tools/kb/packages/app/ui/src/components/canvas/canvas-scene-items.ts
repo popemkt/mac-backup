@@ -41,6 +41,8 @@ import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js
 import { mix, texture, uniform } from "three/tsl";
 import {
   CANVAS_SHAPES,
+  boxFrame,
+  boxToWorld,
   canvasDepth,
   canvasElevation,
   itemShape,
@@ -487,7 +489,10 @@ export class ItemLayer {
     const cx = item.x + item.width / 2;
     const cy = item.y + item.height / 2;
     const depth = canvasDepth(item);
-    entry.group.position.set(cx, -cy, z);
+    // The geometry's origin is the centre of its base, in the box's own frame.
+    const frame = boxFrame(item, z);
+    const origin = boxToWorld(frame, { x: 0, y: 0, z: -frame.half.z });
+    entry.group.position.set(origin.x, -origin.y, origin.z);
     const tint = colorOf(item, look);
     // The body: the card stock, or its colour laid over it, a little firmer in the dark.
     entry.bodyMaterial.color.set(

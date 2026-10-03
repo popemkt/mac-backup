@@ -8,6 +8,7 @@
  * `kbLink` on an edge, and `camera` on the document (`./camera.ts`). The
  * format, as agents write it, is DESIGN.md → Canvas documents.
  */
+import { boxTop } from "./box.ts";
 import { emitCanvasCamera, parseCanvasCamera, type CanvasCamera } from "./camera.ts";
 import { dropExtra } from "./extra.ts";
 
@@ -453,9 +454,9 @@ export function withDepth<N extends CanvasNode>(node: N, depth: number): N {
   return withNumber(node, "depth", Math.max(0, depth));
 }
 
-/** The height of an item's top surface: what is stacked on it stands there. */
+/** The height of an item's top surface: what is stacked on it stands there (`boxTop`). */
 export function canvasTop(node: CanvasNode): number {
-  return canvasElevation(node) + canvasDepth(node);
+  return boxTop(node);
 }
 
 /**

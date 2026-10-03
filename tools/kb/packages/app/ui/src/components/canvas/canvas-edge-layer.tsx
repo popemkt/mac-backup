@@ -1,5 +1,5 @@
 import type { CanvasDoc, CanvasEdge, CanvasNode } from "@kb/canvas";
-import { edgePath, sidePoint } from "./canvas-edge-path";
+import { edgePath, leaving, sideAnchor, sidePoint } from "./canvas-edge-path";
 import { edgePropPresent } from "./canvas-api";
 import { resolveCanvasColor } from "./canvas-color";
 import type { CanvasSelection } from "./canvas-selection";
@@ -230,13 +230,10 @@ function GhostEdgePath({
   const stageEl = document.querySelector("[data-canvas-viewport]");
   if (!from || !stageEl) return null;
   const stageRect = stageEl.getBoundingClientRect();
-  const start = sidePoint(from, edgeDrag.fromSide);
+  const anchor = sideAnchor(from, edgeDrag.fromSide);
+  const start = anchor.at;
   const end = clientToCanvas({ x: edgeDrag.x, y: edgeDrag.y }, stageRect, pan, zoom);
-  const dx = Math.max(40, Math.abs(end.x - start.x) * 0.45);
-  const c1x =
-    start.x + (edgeDrag.fromSide === "left" ? -dx : edgeDrag.fromSide === "right" ? dx : 0);
-  const c1y =
-    start.y + (edgeDrag.fromSide === "top" ? -dx : edgeDrag.fromSide === "bottom" ? dx : 0);
+  const { x: c1x, y: c1y } = leaving(anchor, Math.max(40, Math.abs(end.x - start.x) * 0.45));
   return (
     <path
       data-testid="canvas-connection-preview"

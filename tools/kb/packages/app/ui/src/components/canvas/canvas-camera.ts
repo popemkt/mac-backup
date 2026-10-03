@@ -20,7 +20,18 @@
  * field of view at a fixed zoom pulls the eye in to keep that plane the same
  * size on screen — the dolly zoom that turns one projection into the other.
  */
-import { CANVAS_SHAPES, onFootprint, type CanvasPose, type CanvasShapeKind } from "@kb/canvas";
+import {
+  CANVAS_SHAPES,
+  boxCorners as cornersOfBox,
+  boxFrame,
+  boxToLocal,
+  boxTop,
+  directionToLocal,
+  onFootprint,
+  type CanvasBox,
+  type CanvasPose,
+  type CanvasShapeKind,
+} from "@kb/canvas";
 
 export interface CanvasPoint {
   x: number;
@@ -203,18 +214,11 @@ export function screenBounds(
 }
 
 /**
- * A box's corners: its footprint at its base, then at its top (the same four
- * again when it is flat). {@link BOX_EDGES} joins them.
+ * A box's corners (`boxCorners` in `@kb/canvas`): its base, then its top
+ * (the same four again when it is flat). {@link BOX_EDGES} joins them.
  */
 function boxCorners(item: CanvasHitItem, z: number): Vec[] {
-  const { lo, hi } = boxOf(item, z);
-  const ring = (h: number): Vec[] => [
-    [lo[0], lo[1], h],
-    [hi[0], lo[1], h],
-    [hi[0], hi[1], h],
-    [lo[0], hi[1], h],
-  ];
-  return [...ring(lo[2]), ...ring(hi[2])];
+  return cornersOfBox(item, z).map((p): Vec => [p.x, p.y, p.z]);
 }
 
 /** The twelve edges of {@link boxCorners}: the base ring, the top ring, and the four uprights. */
@@ -320,22 +324,14 @@ export function screenToPlane(
  * the floor, `depth` 0 (flat: the shape's footprint on its plane) and the
  * shape a rectangle.
  */
-export interface CanvasHitItem {
+export interface CanvasHitItem extends CanvasBox {
   readonly id: string;
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-  /** Height of the base above the floor; absent is the floor. */
-  readonly z?: number;
-  /** How far the box rises from its base; absent or 0 is flat. */
-  readonly depth?: number;
   /** What fills the box; absent is a rectangle (every item that is not a shape). */
   readonly shape?: CanvasShapeKind;
 }
 
 /** The height of an item's top surface: what paint order and its tie-break go by. */
-const topOf = (item: CanvasHitItem) => (item.z ?? 0) + (item.depth ?? 0);
+const topOf = (item: CanvasHitItem) => boxTop(item);
 
 /** How far apart items with one top stand in paint order, canvas units: a hair, but never a tie. */
 const TIER_STEP = 0.08;
@@ -357,14 +353,6 @@ export function paintPlanes<T extends CanvasHitItem>(
     tier = previous !== undefined && topOf(previous) === topOf(item) ? tier + 1 : 0;
     return { item, z: (item.z ?? 0) + tier * TIER_STEP };
   });
-}
-
-/** An item's box as `paintPlanes` raises it: its lowest and highest corners. */
-function boxOf(item: CanvasHitItem, z: number): { readonly lo: Vec; readonly hi: Vec } {
-  return {
-    lo: [item.x, item.y, z],
-    hi: [item.x + item.width, item.y + item.height, z + (item.depth ?? 0)],
-  };
 }
 
 interface Ray {
@@ -444,7 +432,7 @@ interface UnitLine {
   readonly per: number;
 }
 
-/** A ray's coordinate (`origin + dir · t`) in a box's unit space, from `start` by `half`. */
+/** A ray's coordinate (`origin + dir · t`, in the box's own frame) in its unit space, from `start` by `half`. */
 const unitLine = (origin: number, dir: number, start: number, half: number): UnitLine => ({
   at: (origin - start) / half,
   per: dir / half,
@@ -501,22 +489,40 @@ function volumeSpans(
  * fills.
  */
 function rayIntoItem(ray: Ray, item: CanvasHitItem, z: number): number | null {
-  const box = boxSpan(ray, boxOf(item, z));
+  // In the box's own frame the box is centred on the origin along its own axes.
+  const frame = boxFrame(item, z);
+  const origin = boxToLocal(frame, ray.origin);
+  const dir = directionToLocal(frame, ray.dir);
+  const { half } = frame;
+  const box = boxSpan(
+    { origin, dir },
+    { lo: [-half.x, -half.y, -half.z], hi: [half.x, half.y, half.z] },
+  );
   if (box === null) return null;
-  const rx = item.width / 2;
-  const ry = item.height / 2;
-  const depth = item.depth ?? 0;
-  const x = unitLine(ray.origin.x, ray.dir.x, item.x + rx, rx);
-  const y = unitLine(ray.origin.y, ray.dir.y, item.y + ry, ry);
+  const x = unitLine(origin.x, dir.x, 0, half.x);
+  const y = unitLine(origin.y, dir.y, 0, half.y);
   const shape = item.shape ?? "rect";
-  if (depth <= 0) {
+  if (half.z <= 0) {
     const [t] = box;
     return t > 0 && onFootprint(shape, x.at + x.per * t, y.at + y.per * t) ? t : null;
   }
-  const up = unitLine(ray.origin.z, ray.dir.z, z, depth);
+  const up = unitLine(origin.z, dir.z, -half.z, half.z * 2);
   const spans = volumeSpans(shape, box, [x, y, up]).toSorted((a, b) => a[0] - b[0]);
   const ahead = spans.find(([, exit]) => exit > 0);
   return ahead !== undefined && ahead[0] > 0 ? ahead[0] : null;
+}
+
+/** How far above everything a ray looking straight down starts, canvas units. */
+const ABOVE_ALL = 1e7;
+
+/**
+ * Whether `item`'s top view covers the floor point `at`: a ray looking
+ * straight down through it enters the item. What snapping stands an item
+ * on, and where a carry finds the top it passes over, are this answer.
+ */
+export function coversFromAbove(item: CanvasHitItem, at: CanvasPoint): boolean {
+  const down: Ray = { origin: { x: at.x, y: at.y, z: ABOVE_ALL }, dir: { x: 0, y: 0, z: -1 } };
+  return rayIntoItem(down, item, item.z ?? 0) !== null;
 }
 
 /**
