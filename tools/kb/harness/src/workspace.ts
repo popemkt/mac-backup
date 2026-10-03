@@ -162,27 +162,32 @@ export function tagsOf(manifest: PackageManifest): string[] {
 /**
  * Tag values on one axis, e.g. axisValues(tags, "scope") -> ["backend"].
  *
- * `scope` is the only axis tags carry: a package's layer is the folder it sits
- * in. `layer` stays a legal argument for the one caller that asks in order to
- * assert the tag is absent (`workspace-shape`).
+ * Tags carry `scope` on every package and `family` on an extension package: a
+ * package's layer is the folder it sits in. `layer` stays a legal argument
+ * for the one caller that asks in order to assert the tag is absent
+ * (`workspace-shape`).
  */
-export function axisValues(tags: string[], axis: "layer" | "scope"): string[] {
+export function axisValues(tags: string[], axis: "layer" | "scope" | "family"): string[] {
   return tags.filter((t) => t.startsWith(`${axis}:`)).map((t) => t.slice(axis.length + 1));
 }
 
 /**
- * Both axes of every package, keyed by manifest name: the input
- * {@link matrixViolation} measures an edge against. Built here because it is
- * read off the tree and the manifests, which is this module's job.
+ * Both axes and the family of every package, keyed by manifest name: the
+ * input {@link matrixViolation} and {@link familyEdgeViolation} measure an
+ * edge against. Built here because it is read off the tree and the
+ * manifests, which is this module's job.
  */
 export function packageAxes(
   packages: readonly WorkspacePackage[] = workspacePackages(),
 ): Map<string, PackageAxes> {
   return new Map(
-    packages.map(({ name, layer, manifest }) => [
-      name,
-      { layer, scope: axisValues(tagsOf(manifest), "scope")[0] },
-    ]),
+    packages.map(({ name, layer, manifest }) => {
+      const tags = tagsOf(manifest);
+      return [
+        name,
+        { layer, scope: axisValues(tags, "scope")[0], family: axisValues(tags, "family")[0] },
+      ];
+    }),
   );
 }
 

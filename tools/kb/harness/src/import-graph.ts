@@ -104,15 +104,24 @@ export interface ImportRecord {
 }
 
 /**
+ * One file, parsed. A file the parser cannot read throws rather than reading
+ * as a file with nothing in it, so no fence passes on a syntax it cannot see.
+ */
+export function parseModule(file: string, source: string): ReturnType<typeof parseSync> {
+  const parsed = parseSync(file, source);
+  if (parsed.errors.length > 0) {
+    throw new Error(`${file}: ${parsed.errors.map((e) => e.message).join("; ")}`);
+  }
+  return parsed;
+}
+
+/**
  * Every import of one file (see {@link specifiersOf}), with how it loads and
  * where its specifier sits, in source order: the records the module record
  * carries and the ones read off the program are merged by offset.
  */
 export function importsOf(file: string, source: string): ImportRecord[] {
-  const parsed = parseSync(file, source);
-  if (parsed.errors.length > 0) {
-    throw new Error(`${file}: ${parsed.errors.map((e) => e.message).join("; ")}`);
-  }
+  const parsed = parseModule(file, source);
   const out: ImportRecord[] = [];
   for (const entry of parsed.module.staticImports) {
     const typeOnly = entry.entries.length > 0 && entry.entries.every((name) => name.isType);
@@ -145,14 +154,30 @@ export function importsOf(file: string, source: string): ImportRecord[] {
   return out.toSorted((a, b) => a.start - b.start);
 }
 
-type AstNode = { type?: unknown } & Record<string, unknown>;
+export type AstNode = { type?: unknown } & Record<string, unknown>;
 
-function isAstNode(value: unknown): value is AstNode {
+export function isAstNode(value: unknown): value is AstNode {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Calls `visit` on every node of a parsed program, depth first. */
+export function walkAst(program: unknown, visit: (node: AstNode) => void): void {
+  const walk = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) walk(item);
+      return;
+    }
+    if (!isAstNode(value)) return;
+    visit(value);
+    for (const [key, child] of Object.entries(value)) {
+      if (key !== "type" && typeof child === "object") walk(child);
+    }
+  };
+  walk(program);
+}
+
 /** A string the parser can read without running anything: `"x"`, `'x'`, or `x` in backticks with no substitution. */
-function stringLiteral(node: unknown): string | undefined {
+export function stringLiteral(node: unknown): string | undefined {
   if (!isAstNode(node)) return undefined;
   if (node.type === "Literal") return typeof node["value"] === "string" ? node["value"] : undefined;
   if (node.type !== "TemplateLiteral") return undefined;
@@ -177,12 +202,7 @@ function startOf(node: unknown): number {
  */
 function commonJsImports(program: unknown): ImportRecord[] {
   const out: ImportRecord[] = [];
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) {
-      for (const item of value) visit(item);
-      return;
-    }
-    if (!isAstNode(value)) return;
+  walkAst(program, (value) => {
     if (value.type === "CallExpression") {
       const callee = value["callee"];
       const [first] = Array.isArray(value["arguments"]) ? value["arguments"] : [];
@@ -203,11 +223,7 @@ function commonJsImports(program: unknown): ImportRecord[] {
         });
       }
     }
-    for (const [key, child] of Object.entries(value)) {
-      if (key !== "type" && typeof child === "object") visit(child);
-    }
-  };
-  visit(program);
+  });
   return out;
 }
 
@@ -225,10 +241,7 @@ export interface ReExport {
  * has to re-derive it.
  */
 export function reExportsOf(file: string, source: string): ReExport[] {
-  const parsed = parseSync(file, source);
-  if (parsed.errors.length > 0) {
-    throw new Error(`${file}: ${parsed.errors.map((e) => e.message).join("; ")}`);
-  }
+  const parsed = parseModule(file, source);
   const out: ReExport[] = [];
   for (const statement of parsed.module.staticExports) {
     for (const entry of statement.entries) {

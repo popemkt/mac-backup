@@ -1,10 +1,14 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
 import { matrixViolation } from "../src/constraints.ts";
 import { importEdges, resolvedImports, specifiersOf, surfaceBypass } from "../src/import-graph.ts";
 import { packageAxes, workspacePackages } from "../src/workspace.ts";
+import {
+  type FixturePackage,
+  fixtureWorkspace,
+  removeFixtureWorkspaces,
+} from "./fixture-workspace.ts";
+
+afterAll(removeFixtureWorkspaces);
 
 /**
  * Harness check: import extraction is a parse, not a scan (wave t2).
@@ -73,61 +77,6 @@ export const El = () => <Thing<string> value="x" />;
   test("a file that does not parse fails loudly rather than reporting no imports", () => {
     expect(() => specifiersOf("broken.ts", "import { from '@kb/x'\n")).toThrow("broken.ts");
   });
-});
-
-/**
- * A throwaway `packages/` tree: one manifest and one source file per package.
- *
- * Bypasses are spellings the workspace does not currently contain (the real
- * tree is clean, which is the point), so the red case for each has to be
- * built. Every reader the graph uses takes a packages root, so these are the
- * same functions the real checks call, over two packages instead of twenty.
- */
-interface FixturePackage {
-  /** `<layer>/<name>` under the fixture's packages root. */
-  dir: string;
-  name: string;
-  scope: string;
-  /** Source files, keyed by package-relative path. */
-  files: Record<string, string>;
-  /** `compilerOptions.paths`, when the case is about an alias. */
-  paths?: Record<string, string[]>;
-}
-
-const fixtureRoots: string[] = [];
-
-function fixtureWorkspace(packages: readonly FixturePackage[]): string {
-  const root = mkdtempSync(join(tmpdir(), "kb-import-graph-"));
-  fixtureRoots.push(root);
-  const packagesRoot = join(root, "packages");
-  for (const pkg of packages) {
-    const dir = join(packagesRoot, pkg.dir);
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(
-      join(dir, "package.json"),
-      JSON.stringify({
-        name: pkg.name,
-        exports: { ".": "./src/index.ts" },
-        nx: { tags: [`scope:${pkg.scope}`] },
-      }),
-    );
-    if (pkg.paths !== undefined) {
-      writeFileSync(
-        join(dir, "tsconfig.json"),
-        JSON.stringify({ compilerOptions: { paths: pkg.paths } }),
-      );
-    }
-    for (const [file, source] of Object.entries(pkg.files)) {
-      const path = join(dir, file);
-      mkdirSync(dirname(path), { recursive: true });
-      writeFileSync(path, source);
-    }
-  }
-  return packagesRoot;
-}
-
-afterAll(() => {
-  for (const root of fixtureRoots) rmSync(root, { recursive: true, force: true });
 });
 
 /** `domain/low` may import only `domain`; `app/high` is two axes away. */
@@ -276,7 +225,6 @@ describe("package matrix rejects denied directions", () => {
     ["layer", "test-support", "application", "test-support", "shared"],
     ["layer", "test-support", "extension", "test-support", "backend"],
     ["layer", "test-support", "test-support", "test-support", "shared"],
-    ["scope", "app", "app", "browser", "browser"],
     ["scope", "app", "app", "test-support", "test-support"],
     ["scope", "app", "app", "shared", "backend"],
     ["scope", "app", "app", "backend", "browser"],
@@ -317,4 +265,26 @@ describe("package matrix rejects denied directions", () => {
       );
     },
   );
+});
+
+describe("package matrix admits a UI half's reach", () => {
+  test("a browser package may import a browser package (a family's UI half -> the host kit)", () => {
+    const root = fixtureWorkspace([
+      {
+        dir: "extension/chart-ui",
+        name: "@kb/chart-ui",
+        scope: "browser",
+        files: { "src/index.ts": 'import "@kb/ui-kit";\n' },
+      },
+      {
+        dir: "contract/ui-kit",
+        name: "@kb/ui-kit",
+        scope: "browser",
+        files: { "src/index.ts": "export const kit = 1;\n" },
+      },
+    ]);
+    expect(
+      matrixViolation(packageAxes(workspacePackages(root)), "@kb/chart-ui", "@kb/ui-kit", "scope"),
+    ).toBeUndefined();
+  });
 });

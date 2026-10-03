@@ -10,9 +10,9 @@
  *   party code; the fences that matter (extension ↛ infrastructure,
  *   extension ↛ app) still hold. Third-party `.kb/extensions/*.ts` are fenced
  *   by @kb/ext-sdk's ambient d.ts, which is not a package edge at all.
- * - `layer:extension` may reach `extension` for @kb/ext-canvas's shared
- *   @kb/canvas document. GAP [[01M3F923QWH9HSAW61VNFWHANV]] records the
- *   missing distinction between a plugin's own model and another's.
+ * - `layer:extension` may reach `extension`, but only inside one family:
+ *   @kb/ext-canvas reads its own family's @kb/canvas document, and
+ *   {@link familyEdgeViolation} refuses an edge between two families.
  * - `test-support` may reach `app`. @kb/render-tests drives the server
  *   through its public surface; it still may not reach infrastructure. The DST
  *   harness (`@kb/test-kit`) builds the runtime Layer itself, so it sits under
@@ -35,9 +35,9 @@ export const LAYER_ALLOWS: Record<string, readonly string[]> = {
   contract: ["domain", "contract"],
   infrastructure: ["domain", "contract"],
   application: ["domain", "contract"],
-  // GAP [[01M3F923QWH9HSAW61VNFWHANV]]
+  // Of its own family only: familyEdgeViolation.
   extension: ["domain", "contract", "application", "extension"],
-  // Any app file may import an extension: GAP [[01M41H30Y60D3G9WJJX6NFQD2T]]
+  // From a composition root only: EXTENSION_ROOTS.
   app: ["domain", "contract", "infrastructure", "application", "extension", "app"],
   "test-support": ["domain", "app"],
 };
@@ -45,15 +45,21 @@ export const LAYER_ALLOWS: Record<string, readonly string[]> = {
 export const SCOPE_ALLOWS: Record<string, readonly string[]> = {
   shared: ["shared"],
   backend: ["shared", "backend"],
-  browser: ["shared"],
+  // A family's UI half builds against the browser host kit (`@kb/ui-sdk`).
+  browser: ["shared", "browser"],
   "test-support": ["shared", "backend"],
 };
 
-/** Both axes of one package: where it sits, and the runtime it must survive. */
+/**
+ * Both axes of one package — where it sits, and the runtime it must survive —
+ * and, for an extension package, the family it belongs to.
+ */
 export interface PackageAxes {
   layer: string;
   /** `undefined` when the package carries no `scope:` tag — a `workspace-shape` failure. */
   scope: string | undefined;
+  /** The `family:` tag; `undefined` outside the extension layer, and a failure inside it. */
+  family: string | undefined;
 }
 
 /**
@@ -80,6 +86,115 @@ export function matrixViolation(
   if ((allows[from] ?? []).includes(to)) return undefined;
   return `${source} (${axis}:${from}) -> ${target} (${axis}:${to})`;
 }
+
+/**
+ * The extension families (DESIGN.md → Extension families). A family is the
+ * packages that share one `family:<name>` tag. The tag is data and not a
+ * duplicate of the folder: the layer says where a package sits, the family
+ * says whose it is. Its name has one home, the family's `defineExtension`
+ * declaration, and the `extension-families` check holds the tag equal to it.
+ */
+export const EXTENSION_LAYER = "extension";
+
+/**
+ * An edge between two extension packages, measured against the family axis,
+ * or `undefined` when it stays inside one family (or is not between two
+ * extension packages at all). A backend package reads its own family's
+ * shared model; two families meet only through core's points.
+ */
+export function familyEdgeViolation(
+  axesOf: ReadonlyMap<string, PackageAxes>,
+  source: string,
+  target: string,
+): string | undefined {
+  const from = axesOf.get(source);
+  const to = axesOf.get(target);
+  if (from?.layer !== EXTENSION_LAYER || to?.layer !== EXTENSION_LAYER) return undefined;
+  if (from.family !== undefined && from.family === to.family) return undefined;
+  return `${source} (family:${from.family ?? "none"}) -> ${target} (family:${to.family ?? "none"})`;
+}
+
+/** The two hosts that load extension entries: the server registry and the browser kernel. */
+export type ExtensionHost = "server" | "browser";
+
+/** One file that may import extension packages, and the hosts whose entries it loads. */
+export interface ExtensionRoot {
+  /** Package-relative path of the one file. */
+  readonly file: string;
+  /**
+   * Whose entries it loads. `@kb/bundled` folds declarations into the seed
+   * and loads nothing, so it pairs no host.
+   */
+  readonly hosts: readonly ExtensionHost[];
+}
+
+/**
+ * The composition-root fence. An `app` package may import an extension
+ * package from these files only — elsewhere, core would name a feature.
+ * Keyed by package name, not directory, because the sanction is about the
+ * package and survives it being moved. Test files are exempt, as they are
+ * from {@link UI_ALLOWS}: a test reaches for whatever it drives.
+ *
+ * The same table is what pairing reads: every extension package must be
+ * imported by a root of each host its scope runs in
+ * ({@link HOSTS_BY_SCOPE}), so a family nobody loads is a dead seam that
+ * fails rather than one that reads as covered.
+ */
+export const EXTENSION_ROOTS: Readonly<Record<string, readonly ExtensionRoot[]>> = {
+  "@kb/runtime": [{ file: "src/bundled.ts", hosts: ["server"] }],
+  "@kb/cli": [{ file: "src/host-plugins.ts", hosts: ["server"] }],
+  "@kb/ui": [{ file: "src/ui-plugins.ts", hosts: ["browser"] }],
+  "@kb/bundled": [{ file: "src/index.ts", hosts: [] }],
+};
+
+/**
+ * The hosts a package of each scope runs in as an entry. A `scope:shared`
+ * package runs in neither on its own: its family's entry loads it as a
+ * child, or a root loads it as the entry itself, so pairing asks only that
+ * a root or a package of its own family imports it.
+ */
+export const HOSTS_BY_SCOPE: Readonly<Record<string, readonly ExtensionHost[]>> = {
+  backend: ["server"],
+  browser: ["browser"],
+  shared: [],
+};
+
+/** A known import of an extension package from outside every root: a package path prefix and the one target it may name. */
+export interface SanctionedExtensionImport {
+  /** Package-relative file, or a folder when it ends in `/`. */
+  readonly path: string;
+  readonly target: string;
+}
+
+/**
+ * The fence's sanctioned breaches, each leaving with the step that moves its
+ * importer out of core. A row no import matches any more fails, so the list
+ * can only shrink.
+ *
+ * - The agent's UI half is `src/agent.ts` and `components/agent`: it leaves
+ *   with `@kb/agent-ui` (step E12 of the extension-boundaries plan).
+ * - The canvas's UI half is `components/canvas` and its story: it leaves
+ *   with `@kb/canvas-ui` (E13).
+ * - The docs and check pre-commit entries parse their family's output
+ *   schema to print it: they leave when the family's report reaches them
+ *   through the registry instead.
+ */
+// GAP [[01M41H30Y60D3G9WJJX6NFQD2T]]
+export const EXTENSION_ROOT_BREACHES: Readonly<
+  Record<string, readonly SanctionedExtensionImport[]>
+> = {
+  "@kb/ui": [
+    { path: "src/agent.ts", target: "@kb/agent" },
+    { path: "src/components/agent/", target: "@kb/agent" },
+    { path: "src/components/canvas/", target: "@kb/canvas" },
+    { path: "src/catalog/canvas-card.stories.tsx", target: "@kb/canvas" },
+  ],
+  "@kb/cli": [
+    { path: "src/bin/check-audit.ts", target: "@kb/ext-check" },
+    { path: "src/bin/docs-check.ts", target: "@kb/ext-docs" },
+    { path: "src/bin/docs-materialize.ts", target: "@kb/ext-docs" },
+  ],
+};
 
 /**
  * The isomorphism fence. A `scope:shared` package runs in the browser too, so
