@@ -425,6 +425,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — window management design on top of the layout view type (docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md decision 12)
 - **node** — `01M3Q5DP9TQF0E9DZMHAKHMGWD`
 
+### GAP: no scene is pre-compiled; every scene compiles on the hidden first frame
+
+- **expected** — Every study's pipelines, including the GTAO two-target pass and the shadow pass, are compiled before the first frame is drawn (Lab principle P2).
+- **current** — scene/gpu/stage.ts reveal() compiles nothing ahead of the first frame: on three r186 a compileAsync (the renderer's or the scene pass's) builds each material a second time for another target, and three's per-backend cache of layout-function code then drops that function's uniforms, so the glass and ocean studies' pipelines were rejected. Every stage scene (the lab studies, the 3D graph, the 3D canvas) compiles synchronously on its first, still-hidden frame.
+- **impact** — A compile hitch behind the fade-in on every scene: nothing pops, but no frame is pre-warmed and the main thread blocks while the shaders build.
+- **closes** — Compile ahead of the first frame, for the scene pass's own target, once three builds a layout function's uniforms per material (mrdoob/three.js#33666, open) or a pre-compile no longer builds a material twice; include the occlusion and shadow passes.
+- **rule** — Lab principles
+- **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
+
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
 - **expected** — A malformed config prop is visible where the config is: a badge or bar beside the graph / view frame, the way resolveOntology's warnings surface through ontology-scope-bar and ontology-page.
@@ -669,15 +678,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A crash in that window costs every connected client one snapshot instead of frames - the same cost the log already had before it was durable, so nothing regresses. What is not reached is the stated shape: on JSONL the record can still lag the write. The lag is detected exactly, because the mark it is compared by is the file's content hash.
 - **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
 - **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
-
-### GAP: the lab pre-compiles only plain scenes; occlusion and shadow scenes compile on the hidden first frame
-
-- **expected** — Every study's pipelines, including the GTAO two-target pass and the shadow pass, are compiled before the first frame is drawn (Lab principle P2).
-- **current** — scene/gpu/stage.ts reveal() calls renderer.compileAsync only when the scene has no occlusion and no shadows; the Light and Motion studies compile synchronously on the first, still-hidden frame.
-- **impact** — A one-frame compile hitch behind the fade-in on those two studies; nothing pops, but the frame is not pre-warmed.
-- **closes** — Compile through the post chain (PostProcessing.renderAsync on a hidden frame, or a compileAsync that takes the pass's render target and the shadow pass) once three supports it, then drop the condition.
-- **rule** — Lab principles
-- **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
 
 ### GAP: the node palette has no "Add value to <field>" command
 

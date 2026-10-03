@@ -385,13 +385,13 @@ async function createStage(host: HTMLElement, options: StageOptions) {
       return range;
     },
     /** Compile every shader, draw once unseen, then fade the canvas in (P2). */
-    reveal: async () => {
-      // `compileAsync` builds a scene's pipelines for a plain one-target draw.
-      // Under occlusion the scene renders through a two-target pass, and with
-      // shadows three r180 leaves the shadow pass out, so the first frame's
-      // command buffer is rejected; those scenes compile on the hidden first
-      // frame below instead. GAP [[01M3A8QG4PEQK0A9N3KPQ3K98X]]
-      if (!occluded && !shadows) await renderer.compileAsync(scene, camera);
+    reveal: () => {
+      // Every scene compiles on the hidden first frame. A compile ahead of it
+      // (`compileAsync`, the renderer's or the scene pass's) builds each
+      // material a second time for another target, and three r186 caches a
+      // layout function's code from its first build, so the second build
+      // loses that function's uniforms and its pipeline is rejected.
+      // GAP [[01M3A8QG4PEQK0A9N3KPQ3K98X]]
       loop.draw(performance.now());
       requestAnimationFrame(() => {
         renderer.domElement.style.opacity = "1";
@@ -453,7 +453,7 @@ export async function mountScene<P extends SceneParts>(
   try {
     parts = build(stage);
     stage.setFrame(parts.frame);
-    await stage.reveal();
+    stage.reveal();
   } catch (error) {
     parts?.dispose?.();
     stage.handle.dispose();

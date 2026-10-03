@@ -54,9 +54,6 @@ class FakeRenderer {
     this.loop = loop;
     return Promise.resolve();
   }
-  compileAsync() {
-    return Promise.resolve();
-  }
   compute() {}
   dispose() {
     gpu.live.delete(this);
