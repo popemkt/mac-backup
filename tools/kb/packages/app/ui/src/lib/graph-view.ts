@@ -95,6 +95,61 @@ function nodeDefaultsCollapsed(wire: WireNode, byId: Map<string, WireNode>): boo
   return false;
 }
 
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
+function sameTags(a: readonly TagBadge[], b: readonly TagBadge[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((tag, i) => {
+      const other = b[i];
+      return (
+        other !== undefined &&
+        tag.id === other.id &&
+        tag.name === other.name &&
+        tag.color === other.color
+      );
+    })
+  );
+}
+
+function sameProps(a: OutlineNode["props"], b: OutlineNode["props"]): boolean {
+  if (a === b) return true;
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every((key) => {
+    const left = a[key] ?? [];
+    const right = b[key];
+    return (
+      right !== undefined &&
+      left.length === right.length &&
+      left.every((value, i) => {
+        const other = right[i];
+        return (
+          value === other || (other !== undefined && value.t === other.t && value.v === other.v)
+        );
+      })
+    );
+  });
+}
+
+/** Whether two projections of a node are the same value, field by field. */
+function sameOutlineNode(a: OutlineNode, b: OutlineNode): boolean {
+  return (
+    a.text === b.text &&
+    a.parentId === b.parentId &&
+    a.collapsed === b.collapsed &&
+    a.createdAt === b.createdAt &&
+    a.updatedAt === b.updatedAt &&
+    sameIds(a.children, b.children) &&
+    sameTags(a.tags, b.tags) &&
+    sameProps(a.props, b.props)
+  );
+}
+
+const NO_PREVIOUS: ReadonlyMap<string, OutlineNode> = new Map();
+
 /**
  * The outline view model for `nodes`. Each node's tag chips — names and
  * colours — and its default collapse (does it show fields?) are resolved against
@@ -103,11 +158,17 @@ function nodeDefaultsCollapsed(wire: WireNode, byId: Map<string, WireNode>): boo
  * `nodes`; what the schema means, and the tag palette (`tagPalette`, one
  * palette for the whole workspace), never depend on which content is shown
  * (`lib/schema.ts`).
+ *
+ * The projection is persistent: a node that projects to the value it had in
+ * `previous` keeps that object, so a node's identity changes exactly when what
+ * it shows does. That is what lets a reader depend on the nodes it read
+ * instead of on the whole map (`stores/graph-read.ts`).
  */
 export function wireToOutlineMap(
   nodes: WireNode[],
   expandedIds: Set<string>,
   graph: readonly WireNode[] = nodes,
+  previous: ReadonlyMap<string, OutlineNode> = NO_PREVIOUS,
 ): NodeMap {
   const byId = new Map(graph.map((n) => [n.id, n]));
   const palette = tagPalette(graph);
@@ -117,9 +178,14 @@ export function wireToOutlineMap(
   }
 
   const map: NodeMap = new Map();
+  const keep = (next: OutlineNode): void => {
+    const before = previous.get(next.id);
+    map.set(next.id, before !== undefined && sameOutlineNode(before, next) ? before : next);
+  };
   const roots = forestRootIds(nodes);
+  const rootSet = new Set(roots);
 
-  map.set(WORKSPACE_ROOT_ID, {
+  keep({
     id: WORKSPACE_ROOT_ID,
     text: "kb",
     parentId: null,
@@ -132,14 +198,14 @@ export function wireToOutlineMap(
   });
 
   for (const wire of nodes) {
-    const parentId = parentOf.get(wire.id) ?? null;
-    const outlineParent = parentId ?? (roots.includes(wire.id) ? WORKSPACE_ROOT_ID : null);
+    // A forest root is in no children list: the workspace is its parent.
+    const parentId = parentOf.get(wire.id) ?? (rootSet.has(wire.id) ? WORKSPACE_ROOT_ID : null);
     const tags = resolveTags(wire, byId, palette);
     const collapsed = nodeDefaultsCollapsed(wire, byId) && !expandedIds.has(wire.id);
-    map.set(wire.id, {
+    keep({
       id: wire.id,
       text: wire.text,
-      parentId: outlineParent,
+      parentId,
       children: [...wire.children],
       collapsed,
       props: wire.props,
@@ -147,12 +213,6 @@ export function wireToOutlineMap(
       updatedAt: wire.updatedAt,
       tags,
     });
-  }
-
-  // Fix parent pointers for forest roots
-  for (const rootId of roots) {
-    const n = map.get(rootId);
-    if (n) map.set(rootId, { ...n, parentId: WORKSPACE_ROOT_ID });
   }
 
   return map;

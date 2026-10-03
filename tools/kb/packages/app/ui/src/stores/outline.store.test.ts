@@ -53,6 +53,29 @@ describe("outline store (WireNode adaptation)", () => {
     expect(a.tags).toEqual([{ id: "tag.todo", name: "todo", color: expect.any(String) }]);
   });
 
+  it("keeps the object of every node a transaction did not change", () => {
+    seed();
+    const before = useOutlineStore.getState().nodes;
+    const target = present(
+      fixtureGraph.nodes.find((n) => n.id === "n.child-a1"),
+      "n.child-a1",
+    );
+    useOutlineStore.getState().applyTx([{ ...target, text: "renamed" }], [], { rev: 2 });
+    const after = useOutlineStore.getState().nodes;
+    expect(after).not.toBe(before);
+    expect(after.get("n.child-a1")).not.toBe(before.get("n.child-a1"));
+    expect(after.get("n.child-a1")?.text).toBe("renamed");
+    const changed = [...after.keys()].filter((id) => after.get(id) !== before.get(id));
+    expect(changed).toEqual(["n.child-a1"]);
+
+    // Expansion replaces only the toggled node.
+    useOutlineStore.getState().toggleCollapse("n.root-a");
+    const toggled = useOutlineStore.getState().nodes;
+    expect([...toggled.keys()].filter((id) => toggled.get(id) !== after.get(id))).toEqual([
+      "n.root-a",
+    ]);
+  });
+
   it("activate / select / deactivate", () => {
     seed();
     useOutlineStore.getState().activateNode("n.root-a", 3);

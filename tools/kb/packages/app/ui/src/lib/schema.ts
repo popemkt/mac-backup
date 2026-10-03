@@ -99,7 +99,13 @@ function projectionAsSchema(nodes: NodeMap): SchemaIndex {
   return nodes as unknown as SchemaIndex;
 }
 
+/** The last whole graph built: the next one keeps its unchanged nodes (`wireToOutlineMap`). */
+let lastWholeGraph: SchemaIndex | undefined;
+
 function wholeGraph(state: SchemaSource): SchemaIndex {
+  const wire = [...state.wireNodes];
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a map becomes a SchemaIndex; built from the full snapshot
-  return wireToOutlineMap([...state.wireNodes], new Set()) as unknown as SchemaIndex;
+  const built = wireToOutlineMap(wire, new Set(), wire, lastWholeGraph) as unknown as SchemaIndex;
+  lastWholeGraph = built;
+  return built;
 }

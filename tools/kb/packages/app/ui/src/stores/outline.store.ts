@@ -241,25 +241,34 @@ interface Projection {
  * `wireNodes` stays this wave: planners (`actions/plan.ts`) already read it,
  * and w5 owns the write path. `index.storedNodes()` would be a second copy
  * of the same snapshot.
+ *
+ * `previous` is the projection this one replaces; a node that projects to the
+ * same value keeps its object (`wireToOutlineMap`). A fresh load has none.
  */
 function projectOutline(
   wire: WireNode[],
   expanded: Set<string>,
   ontologyId: string | null,
   index: KbIndex,
+  previous?: NodeMap,
 ): Projection {
   // `wire` is the whole graph: the projection resolves schema and the tag
   // palette against it, whatever it shows (`lib/schema.ts`).
   if (ontologyId === null) {
     return {
-      nodes: wireToOutlineMap(wire, expanded),
+      nodes: wireToOutlineMap(wire, expanded, wire, previous),
       ontologyMembers: null,
       ontologyWarnings: [],
     };
   }
   const resolution = resolveScope(wire, ontologyId, index, index.generation);
   return {
-    nodes: wireToOutlineMap(scopedWireNodes(wire, resolution.members, ontologyId), expanded, wire),
+    nodes: wireToOutlineMap(
+      scopedWireNodes(wire, resolution.members, ontologyId),
+      expanded,
+      wire,
+      previous,
+    ),
     ontologyMembers: resolution.members,
     ontologyWarnings: resolution.warnings,
   };
@@ -305,7 +314,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     const wireNodes = prev.index.storedNodes();
     const expanded = collectExpanded(prev.nodes);
     for (const id of loadExpandedIds()) expanded.add(id);
-    const projection = projectOutline(wireNodes, expanded, prev.ontologyId, prev.index);
+    const projection = projectOutline(wireNodes, expanded, prev.ontologyId, prev.index, prev.nodes);
     const nodes = projection.nodes;
     set({
       wireNodes,
@@ -353,7 +362,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     if (st.index !== null) {
       ingestBrowserTx({ upserts: [], deletes: [out] });
     }
-    const projection = projectOutline(nextWire, expanded, st.ontologyId, index);
+    const projection = projectOutline(nextWire, expanded, st.ontologyId, index, st.nodes);
     set({
       wireNodes: nextWire,
       nodes: projection.nodes,
@@ -424,7 +433,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       for (const id of loadExpandedIds()) expanded.add(id);
       const nextRev = opts?.rev ?? prev.rev;
       const index = prev.index ?? new DatascriptIndex(nextWire);
-      const projection = projectOutline(nextWire, expanded, prev.ontologyId, index);
+      const projection = projectOutline(nextWire, expanded, prev.ontologyId, index, prev.nodes);
       const nodes = projection.nodes;
       // Deleted nodes must not remain the zoom root / selection.
       const rootNodeId = nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId;
@@ -459,7 +468,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const expanded = collectExpanded(prev.nodes);
       const index = prev.index ?? new DatascriptIndex(wireNodes);
       if (prev.index !== null) installBrowserNodes(wireNodes);
-      const projection = projectOutline(wireNodes, expanded, prev.ontologyId, index);
+      const projection = projectOutline(wireNodes, expanded, prev.ontologyId, index, prev.nodes);
       const nodes = projection.nodes;
       const rootNodeId = nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId;
       const selectedNodeId =
@@ -496,7 +505,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const expanded = collectExpanded(st.nodes);
       for (const eid of loadExpandedIds()) expanded.add(eid);
       const index = st.index ?? new DatascriptIndex(st.wireNodes);
-      const projection = projectOutline(st.wireNodes, expanded, id, index);
+      const projection = projectOutline(st.wireNodes, expanded, id, index, st.nodes);
 
       if (id === null) {
         // Leaving: return to the root the user was on before entering.
