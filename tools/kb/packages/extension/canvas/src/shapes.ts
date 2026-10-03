@@ -1,15 +1,24 @@
 /**
- * The shape table (plan 2026-10-02 decision 6): what each shape stands on, as
- * the top view draws it. Every renderer traces a shape's outline from here —
- * the DOM canvas as an SVG path, the 3D canvas into its face textures — so
- * the 2D and the 3D picture of one item cannot disagree about its outline.
+ * The shape table (plan 2026-10-02 decision 6). Every item is a box — its
+ * footprint, its elevation `z` and its `depth` — and its shape says what
+ * fills it: per shape, the footprint it stands on as the top view draws it,
+ * and the volume it fills above it. Pure, so both sides of the three
+ * boundary read it: every renderer traces a shape's outline from here (the
+ * DOM canvas as an SVG path, the 3D canvas into its faces and meshes), the
+ * camera model picks with its volume, and snapping stacks on its footprint.
+ * The 3D mesh builders are keyed by the same kinds, so a shape with no mesh
+ * does not type-check.
+ *
+ * What 2D draws and hit-tests is exactly the top view of the volume: a flat
+ * item is its footprint, and a solid's footprint is its volume seen from
+ * above. The projection contract proves both projections against it.
  *
  * An outline is path data in the item's own box, `w` × `h` with its origin
  * at the top left and y down, as the top view shows it: moves, lines, cubic
  * curves and a close, the subset an SVG path, a canvas 2D context and a three
  * `Shape` all speak.
  */
-import type { CanvasShapeKind } from "./doc.ts";
+import { isShapeNode, type CanvasNode, type CanvasShapeKind } from "./doc.ts";
 
 /** One step of an outline: move, line, cubic curve (two controls, then the point), close. */
 export type CanvasPathCommand =
@@ -18,19 +27,51 @@ export type CanvasPathCommand =
   | readonly ["C", number, number, number, number, number, number]
   | readonly ["Z"];
 
-/** The ground plan an outline is drawn from. */
-type CanvasFootprint = "rect" | "ellipse" | "diamond";
+/** The ground plan a shape stands on, which its outline draws. */
+export type CanvasFootprint = "rect" | "ellipse" | "diamond";
+
+/**
+ * What a shape fills its box with, given depth: its footprint carried
+ * straight up (a box, an elliptic cylinder, a diamond prism), the ellipsoid
+ * the box bounds, or a cone from the footprint up to a point over its
+ * centre.
+ */
+export type CanvasVolume = "prism" | "ellipsoid" | "cone";
 
 interface CanvasShapeSpec {
-  /** What it stands on, as the top view draws it. */
   readonly footprint: CanvasFootprint;
+  readonly volume: CanvasVolume;
 }
 
-const CANVAS_SHAPES: { readonly [K in CanvasShapeKind]: CanvasShapeSpec } = {
-  rect: { footprint: "rect" },
-  ellipse: { footprint: "ellipse" },
-  diamond: { footprint: "diamond" },
+export const CANVAS_SHAPES: { readonly [K in CanvasShapeKind]: CanvasShapeSpec } = {
+  rect: { footprint: "rect", volume: "prism" },
+  ellipse: { footprint: "ellipse", volume: "prism" },
+  diamond: { footprint: "diamond", volume: "prism" },
+  sphere: { footprint: "ellipse", volume: "ellipsoid" },
+  cone: { footprint: "ellipse", volume: "cone" },
 };
+
+/** The shape that fills an item's box: a shape item's own, a card's rectangle for any other. */
+export function itemShape(item: CanvasNode): CanvasShapeKind {
+  return isShapeNode(item) ? item.shape : "rect";
+}
+
+/**
+ * Whether a point is on `shape`'s footprint, given in the box's unit
+ * coordinates: `u` and `v` run from -1 to 1 across it, 0 at its centre. A
+ * rectangle's rounded corners are a look and are not cut off here.
+ */
+export function onFootprint(shape: CanvasShapeKind, u: number, v: number): boolean {
+  switch (CANVAS_SHAPES[shape].footprint) {
+    case "ellipse":
+      return u * u + v * v <= 1;
+    case "diamond":
+      return Math.abs(u) + Math.abs(v) <= 1;
+    case "rect":
+    default:
+      return Math.abs(u) <= 1 && Math.abs(v) <= 1;
+  }
+}
 
 /** How far a cubic's control points reach to draw a quarter circle. */
 const KAPPA = 0.5522847498;

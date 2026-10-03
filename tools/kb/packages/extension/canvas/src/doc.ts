@@ -3,8 +3,8 @@
  * Spec: https://jsoncanvas.org/spec/1.0/
  *
  * Unknown node types and extra fields round-trip (forward compatible). kb's
- * own extension fields are typed here: `nodeId` (on any item), `shape` and
- * `z` on an item,
+ * own extension fields are typed here: `nodeId`, `z` and `depth` on any
+ * item, `shape` on a shape item,
  * `kbLink` on an edge, and `camera` on the document (`./camera.ts`). The
  * format, as agents write it, is DESIGN.md → Canvas documents.
  */
@@ -34,11 +34,18 @@ interface CanvasNodeBase {
   width: number;
   height: number;
   /**
-   * Height above the floor (the canvas plane), in the same units as x and y.
-   * Absent is 0. In 3D it is a real axis; from the top it only orders
-   * painting (`paintOrder`).
+   * Elevation: the height of the item's base above the floor (the canvas
+   * plane), in the same units as x and y. Absent is 0. In 3D it is a real
+   * axis; from the top it orders painting (`paintOrder`).
    */
   z?: number;
+  /**
+   * How far the item rises from its base, in the same units. Absent or 0 is
+   * flat: a card on its plane. Every item is a box — its footprint, `z` and
+   * `depth` — that its shape fills (`./shapes.ts`); extruding an item sets
+   * this and nothing else.
+   */
+  depth?: number;
   color?: string;
   /**
    * What the item means: the store node it stands for. Any item may carry
@@ -66,8 +73,11 @@ export interface CanvasKbNode extends CanvasNodeBase {
   nodeId: string;
 }
 
-/** Freeform draw.io-style shape (JSON-only; no store node). */
-export type CanvasShapeKind = "rect" | "ellipse" | "diamond";
+/**
+ * What fills a shape item's box (`./shapes.ts`): flat, its outline; with
+ * depth, a box, an elliptic cylinder, a prism, an ellipsoid or a cone.
+ */
+export type CanvasShapeKind = "rect" | "ellipse" | "diamond" | "sphere" | "cone";
 
 export interface CanvasShapeNode extends CanvasNodeBase {
   type: "shape";
@@ -103,7 +113,13 @@ export function isShapeNode(n: CanvasNode): n is CanvasShapeNode {
   return n.type === "shape" && "shape" in n;
 }
 
-const SHAPE_KINDS = ["rect", "ellipse", "diamond"] as const;
+const SHAPE_KINDS = [
+  "rect",
+  "ellipse",
+  "diamond",
+  "sphere",
+  "cone",
+] as const satisfies readonly CanvasShapeKind[];
 
 /**
  * Membership that narrows. A `Set<string>.has()` proves nothing to the type
@@ -155,6 +171,7 @@ const KNOWN_NODE_KEYS = new Set([
   "width",
   "height",
   "z",
+  "depth",
   "color",
   "text",
   "label",
@@ -166,7 +183,7 @@ const KNOWN_NODE_KEYS = new Set([
  * number; a value this version cannot read (another writer's) stays an
  * unknown field, untouched, until kb writes that field itself.
  */
-const ITEM_NUMBERS = ["z"] as const;
+const ITEM_NUMBERS = ["z", "depth"] as const;
 type ItemNumber = (typeof ITEM_NUMBERS)[number];
 
 function finite(v: unknown): number | undefined {
@@ -426,16 +443,31 @@ export function withElevation<N extends CanvasNode>(node: N, z: number): N {
   return withNumber(node, "z", z);
 }
 
+/** How far an item rises from its base: 0, flat, when it has no depth (or a negative one). */
+export function canvasDepth(node: CanvasNode): number {
+  return Math.max(0, node.depth ?? 0);
+}
+
+/** `node` extruded to `depth` (never below 0); flat again, it carries no `depth`. */
+export function withDepth<N extends CanvasNode>(node: N, depth: number): N {
+  return withNumber(node, "depth", Math.max(0, depth));
+}
+
+/** The height of an item's top surface: what is stacked on it stands there. */
+export function canvasTop(node: CanvasNode): number {
+  return canvasElevation(node) + canvasDepth(node);
+}
+
 /**
- * Items back to front: by elevation, and at one elevation in document order,
- * which bring-to-front and send-to-back rearrange. Every projection paints
- * and hit-tests in this order, so from the top a raised item covers a lower
- * one.
+ * Items back to front: by the height of their top surface, and at one
+ * height in document order, which bring-to-front and send-to-back
+ * rearrange. Every projection paints and hit-tests in this order, so from
+ * the top a higher item covers a lower one.
  */
 export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
   return nodes
     .map((node, index) => ({ node, index }))
-    .toSorted((a, b) => canvasElevation(a.node) - canvasElevation(b.node) || a.index - b.index)
+    .toSorted((a, b) => canvasTop(a.node) - canvasTop(b.node) || a.index - b.index)
     .map(({ node }) => node);
 }
 

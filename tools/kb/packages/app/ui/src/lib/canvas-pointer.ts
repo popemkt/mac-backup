@@ -9,7 +9,7 @@ import {
   type CanvasSide,
 } from "@kb/canvas";
 import { sidePoint } from "@/lib/canvas-edge-path";
-import { snapCanvasLift, snapCanvasMove, type SnapGuide } from "@/lib/canvas-snap";
+import { snapCanvasLift, snapCanvasMove, snapToSurface, type SnapGuide } from "@/lib/canvas-snap";
 import { pastSlop } from "@/lib/pointer-slop";
 import {
   EMPTY_SELECTION,
@@ -205,13 +205,17 @@ const CARRY: Record<
   }
 > = {
   plane: (drag, at, ctx) => {
-    const { dx, dy, guides } = snapMove(
+    const { dx, dy, dz, guides } = snapMove(
       drag,
       at.world.x - drag.start.x,
       at.world.y - drag.start.y,
       ctx,
     );
-    return { place: (node, orig) => ({ ...node, x: orig.x + dx, y: orig.y + dy }), guides };
+    return {
+      place: (node, orig) =>
+        withElevation({ ...node, x: orig.x + dx, y: orig.y + dy }, canvasElevation(orig) + dz),
+      guides,
+    };
   },
   lift: (drag, at, ctx) => {
     const rise = Math.round((drag.startY - at.screen.y) / ctx.zoom);
@@ -268,10 +272,13 @@ function snapLead(drag: MoveDrag, ctx: PointerContext) {
   return { lead: { ...node, x: original.x, y: original.y, z: original.z }, others };
 }
 
+/** A carry across the floor: aligned on x and y, standing on the surface it comes over. */
 function snapMove(drag: MoveDrag, dx: number, dy: number, ctx: PointerContext) {
   const snap = snapLead(drag, ctx);
-  if (snap === null) return { dx, dy, guides: [] };
-  return snapCanvasMove(snap.lead, snap.others, dx, dy, ctx.zoom);
+  if (snap === null) return { dx, dy, dz: 0, guides: [] };
+  const aligned = snapCanvasMove(snap.lead, snap.others, dx, dy, ctx.zoom);
+  const surface = snapToSurface(snap.lead, snap.others, aligned.dx, aligned.dy);
+  return { ...aligned, dz: surface.dz, guides: [...aligned.guides, ...surface.guides] };
 }
 
 function snapLift(drag: MoveDrag, dz: number, ctx: PointerContext) {

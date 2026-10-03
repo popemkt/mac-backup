@@ -20,7 +20,7 @@
  * field of view at a fixed zoom pulls the eye in to keep that plane the same
  * size on screen — the dolly zoom that turns one projection into the other.
  */
-import type { CanvasPose } from "@kb/canvas";
+import { CANVAS_SHAPES, onFootprint, type CanvasPose, type CanvasShapeKind } from "@kb/canvas";
 
 export interface CanvasPoint {
   x: number;
@@ -316,8 +316,9 @@ export function screenToPlane(
 /**
  * An item as the camera sees it: a box standing on its footprint — the
  * rectangle `x, y, width, height` at the height of its base `z` — and rising
- * `depth` from there. Absent, `z` is the floor and `depth` 0: a flat
- * rectangle, which is what every item is until items have depth.
+ * `depth` from there, filled by its shape (`CANVAS_SHAPES`). Absent, `z` is
+ * the floor, `depth` 0 (flat: the shape's footprint on its plane) and the
+ * shape a rectangle.
  */
 export interface CanvasHitItem {
   readonly id: string;
@@ -329,6 +330,8 @@ export interface CanvasHitItem {
   readonly z?: number;
   /** How far the box rises from its base; absent or 0 is flat. */
   readonly depth?: number;
+  /** What fills the box; absent is a rectangle (every item that is not a shape). */
+  readonly shape?: CanvasShapeKind;
 }
 
 /** The height of an item's top surface: what paint order and its tie-break go by. */
@@ -364,15 +367,19 @@ function boxOf(item: CanvasHitItem, z: number): { readonly lo: Vec; readonly hi:
   };
 }
 
+interface Ray {
+  readonly origin: CanvasPoint3;
+  readonly dir: CanvasPoint3;
+}
+
+/** A stretch of a ray, from where it enters a region to where it leaves. */
+type Span = readonly [enter: number, exit: number];
+
 /**
- * How far along a ray it first enters a box, or null when it misses or only
- * leaves it (the eye inside). A flat box is its rectangle: the ray meets its
- * plane once, inside or not.
+ * The stretch of a ray inside a box, or null when it misses. A flat box is
+ * its rectangle: the ray crosses its plane at one point, inside or not.
  */
-function rayIntoBox(
-  ray: { readonly origin: CanvasPoint3; readonly dir: CanvasPoint3 },
-  box: { readonly lo: Vec; readonly hi: Vec },
-): number | null {
+function boxSpan(ray: Ray, box: { readonly lo: Vec; readonly hi: Vec }): Span | null {
   const origin: Vec = [ray.origin.x, ray.origin.y, ray.origin.z];
   const dir: Vec = [ray.dir.x, ray.dir.y, ray.dir.z];
   let enter = -Infinity;
@@ -391,7 +398,125 @@ function rayIntoBox(
     exit = Math.min(exit, Math.max(near, far));
     if (enter > exit) return null;
   }
-  return enter > 0 ? enter : null;
+  return [enter, exit];
+}
+
+/** Where `a t² + b t + c ≤ 0` along a ray: no stretch, one, or two running off to infinity. */
+function quadraticSpans(a: number, b: number, c: number): Span[] {
+  if (Math.abs(a) < 1e-12) {
+    if (Math.abs(b) < 1e-12) return c <= 0 ? [[-Infinity, Infinity]] : [];
+    const t = -c / b;
+    return [b > 0 ? [-Infinity, t] : [t, Infinity]];
+  }
+  const disc = b * b - 4 * a * c;
+  if (disc < 0) return a > 0 ? [] : [[-Infinity, Infinity]];
+  const root = Math.sqrt(disc);
+  const t1 = (-b - root) / (2 * a);
+  const t2 = (-b + root) / (2 * a);
+  const lo = Math.min(t1, t2);
+  const hi = Math.max(t1, t2);
+  return a > 0
+    ? [[lo, hi]]
+    : [
+        [-Infinity, lo],
+        [hi, Infinity],
+      ];
+}
+
+/** The stretches in both `a` and `b`. */
+function within(a: readonly Span[], b: readonly Span[]): Span[] {
+  return a.flatMap(([a0, a1]) =>
+    b.flatMap(([b0, b1]): Span[] => {
+      const enter = Math.max(a0, b0);
+      const exit = Math.min(a1, b1);
+      return enter <= exit ? [[enter, exit]] : [];
+    }),
+  );
+}
+
+/**
+ * A coordinate along the ray in the box's unit space, as `at + per · t`:
+ * across the footprint -1 to 1 from its centre, up it 0 at the base and 1 at
+ * the top. Linear, so a stretch of the ray is the same stretch in either.
+ */
+interface UnitLine {
+  readonly at: number;
+  readonly per: number;
+}
+
+/** A ray's coordinate (`origin + dir · t`) in a box's unit space, from `start` by `half`. */
+const unitLine = (origin: number, dir: number, start: number, half: number): UnitLine => ({
+  at: (origin - start) / half,
+  per: dir / half,
+});
+
+/**
+ * The stretches of a ray inside the volume a shape fills its box with
+ * (`CANVAS_SHAPES`), given the box's own stretch: exactly, never by a
+ * bounding box.
+ */
+function volumeSpans(
+  shape: CanvasShapeKind,
+  inBox: Span,
+  [x, y, z]: readonly [UnitLine, UnitLine, UnitLine],
+): Span[] {
+  const { footprint, volume } = CANVAS_SHAPES[shape];
+  // X² + Y² (+ k) as a quadratic in t, for the round footprints and volumes.
+  const round = (extra: UnitLine, sign: number): Span[] =>
+    quadraticSpans(
+      x.per ** 2 + y.per ** 2 + sign * extra.per ** 2,
+      2 * (x.at * x.per + y.at * y.per + sign * extra.at * extra.per),
+      x.at ** 2 + y.at ** 2 + sign * extra.at ** 2 - (sign > 0 ? 1 : 0),
+    );
+  const none: UnitLine = { at: 0, per: 0 };
+  if (volume === "ellipsoid") {
+    // X² + Y² + (2Z - 1)² ≤ 1: the ellipsoid the box bounds.
+    return within([inBox], round({ at: 2 * z.at - 1, per: 2 * z.per }, 1));
+  }
+  if (volume === "cone") {
+    // X² + Y² ≤ (1 - Z)²: the footprint at the base, narrowing to a point at the top.
+    return within([inBox], round({ at: 1 - z.at, per: -z.per }, -1));
+  }
+  if (footprint === "ellipse") return within([inBox], round(none, 1));
+  if (footprint === "diamond") {
+    // ±X ± Y ≤ 1: four half-spaces.
+    return [
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ].reduce<Span[]>(
+      (spans, [sx = 1, sy = 1]) =>
+        within(spans, quadraticSpans(0, sx * x.per + sy * y.per, sx * x.at + sy * y.at - 1)),
+      [inBox],
+    );
+  }
+  return [inBox];
+}
+
+/**
+ * How far along a ray it first enters an item as `paintPlanes` raises it to
+ * base `z`, or null when it misses or only leaves it (the eye inside). A
+ * flat item is its footprint on its plane; a solid, the volume its shape
+ * fills.
+ */
+function rayIntoItem(ray: Ray, item: CanvasHitItem, z: number): number | null {
+  const box = boxSpan(ray, boxOf(item, z));
+  if (box === null) return null;
+  const rx = item.width / 2;
+  const ry = item.height / 2;
+  const depth = item.depth ?? 0;
+  const x = unitLine(ray.origin.x, ray.dir.x, item.x + rx, rx);
+  const y = unitLine(ray.origin.y, ray.dir.y, item.y + ry, ry);
+  const shape = item.shape ?? "rect";
+  if (depth <= 0) {
+    const [t] = box;
+    return t > 0 && onFootprint(shape, x.at + x.per * t, y.at + y.per * t) ? t : null;
+  }
+  const up = unitLine(ray.origin.z, ray.dir.z, z, depth);
+  const spans = volumeSpans(shape, box, [x, y, up]).toSorted((a, b) => a[0] - b[0]);
+  const ahead = spans.find(([, exit]) => exit > 0);
+  return ahead !== undefined && ahead[0] > 0 ? ahead[0] : null;
 }
 
 /**
@@ -408,7 +533,7 @@ export function hitTest(
   const ray = screenRay(view, size, screen);
   let best: { id: string; t: number } | null = null;
   for (const { item, z } of paintPlanes(items)) {
-    const t = rayIntoBox(ray, boxOf(item, z));
+    const t = rayIntoItem(ray, item, z);
     if (t !== null && (best === null || t < best.t)) best = { id: item.id, t };
   }
   return best?.id ?? null;

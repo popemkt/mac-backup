@@ -272,3 +272,49 @@ describe("lift", () => {
     expect(lifted.state.snapGuides).toEqual([{ axis: "z", pos: 40 }]);
   });
 });
+
+describe("stacking", () => {
+  test("a card carried onto a solid stands on its top, and comes down off it", () => {
+    const block = { ...guide, x: 300, y: 300, depth: 70 };
+    const ctx = context({ nodes: [moving, block], edges: [] });
+    const started = reduce(
+      createPointerState(),
+      { type: "move/start", id: moving.id, screen: { x: 0, y: 0 }, world: { x: 0, y: 0 } },
+      ctx,
+    );
+    const over = reduce(
+      started.state,
+      {
+        type: "pointer/move",
+        screen: { x: 20, y: 20 },
+        world: { x: 310, y: 310 },
+        shiftKey: false,
+      },
+      ctx,
+    );
+    const stacked = over.doc?.nodes.find((n) => n.id === moving.id);
+    expect(stacked?.z).toBe(70);
+    expect(over.state.snapGuides).toContainEqual({ axis: "z", pos: 70 });
+    const released = reduce(
+      over.state,
+      { type: "pointer/end", screen: { x: 20, y: 20 }, world: { x: 310, y: 310 } },
+      context(over.doc),
+    );
+    expect(released.doc?.nodes.find((n) => n.id === moving.id)?.z).toBe(70);
+    expect(released.persist).toBe("history");
+
+    // Picked up again and carried off: back on the floor, with no elevation written.
+    const onTop = released.doc ?? doc;
+    const again = reduce(
+      createPointerState(),
+      { type: "move/start", id: moving.id, screen: { x: 0, y: 0 }, world: { x: 0, y: 0 } },
+      context(onTop),
+    );
+    const off = reduce(
+      again.state,
+      { type: "pointer/move", screen: { x: 30, y: 30 }, world: { x: -700, y: 0 }, shiftKey: false },
+      context(onTop),
+    );
+    expect(off.doc?.nodes.find((n) => n.id === moving.id)).not.toHaveProperty("z");
+  });
+});

@@ -1,14 +1,26 @@
 /**
  * The canvas document round-trips: what kb reads it writes back, its own
- * extension fields (depth, camera) included, and anything it does not know
- * survives untouched. Absent depth and camera are today's 2D canvas.
+ * extension fields (elevation, depth, shape, camera) included, and anything
+ * it does not know survives untouched. Absent elevation, depth and camera
+ * are a flat 2D canvas. The shape table and the presets over it are pure
+ * data, proved here too.
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import {
+  CANVAS_SHAPES,
+  CANVAS_SOLID_PRESETS,
   cameraLookingFrom,
+  canvasDepth,
   canvasElevation,
+  canvasTop,
+  itemShape,
+  onFootprint,
   paintOrder,
+  presetItem,
+  shapeOutline,
+  svgPathData,
+  withDepth,
   posesAgree,
   parseCanvasDoc,
   projectionOf,
@@ -32,9 +44,21 @@ const nodeArb: fc.Arbitrary<CanvasNode> = fc
     width: fc.double({ noNaN: true, min: 1, max: 4000 }),
     height: fc.double({ noNaN: true, min: 1, max: 4000 }),
     z: fc.option(finite, { nil: undefined }),
-    text: fc.string(),
+    depth: fc.option(fc.double({ noNaN: true, min: 0, max: 4000 }), { nil: undefined }),
+    look: fc.oneof(
+      fc.record({ type: fc.constant("text" as const), text: fc.string() }),
+      fc.record({
+        type: fc.constant("shape" as const),
+        shape: fc.constantFrom("rect", "ellipse", "diamond", "sphere", "cone" as const),
+      }),
+    ),
   })
-  .map(({ z, ...rest }) => ({ ...rest, type: "text" as const, ...(z === undefined ? {} : { z }) }));
+  .map(({ z, depth, look, ...rest }) => ({
+    ...rest,
+    ...look,
+    ...(z === undefined ? {} : { z }),
+    ...(depth === undefined ? {} : { depth: depth + 0 }),
+  }));
 
 const poseArb = fc.record(
   {
@@ -54,8 +78,8 @@ const cameraArb = fc.record(
   { requiredKeys: ["projection"] },
 );
 
-/** A bare text item at depth `z`. */
-const itemAt = (id: string, z?: number): CanvasNode => ({
+/** A bare text item at elevation `z`, rising `depth`. */
+const itemAt = (id: string, z?: number, depth?: number): CanvasNode => ({
   id,
   type: "text",
   text: "",
@@ -64,10 +88,11 @@ const itemAt = (id: string, z?: number): CanvasNode => ({
   width: 1,
   height: 1,
   ...(z === undefined ? {} : { z }),
+  ...(depth === undefined ? {} : { depth }),
 });
 
-describe("depth", () => {
-  test("any document with depths and a camera reads back as itself", () => {
+describe("elevation and depth", () => {
+  test("any document of flat items and solids, with a camera, reads back as itself", () => {
     fc.assert(
       fc.property(
         fc.array(nodeArb, { maxLength: 8 }),
@@ -138,15 +163,95 @@ describe("depth", () => {
     expect("z" in withElevation(raised, 0)).toBe(false);
   });
 
-  test("paint order is depth first, then document order", () => {
+  test("paint order is the top surface's height first, then document order", () => {
     const order = paintOrder([
       itemAt("a", 50),
       itemAt("b"),
       itemAt("c", -10),
       itemAt("d"),
       itemAt("e", 50),
+      // Standing on the floor, a block 80 tall tops a card raised to 50.
+      itemAt("f", 0, 80),
     ]);
-    expect(order.map((n) => n.id)).toEqual(["c", "b", "d", "a", "e"]);
+    expect(order.map((n) => n.id)).toEqual(["c", "b", "d", "a", "e", "f"]);
+  });
+
+  test("extruding sets depth and nothing else; flat again, the item is as it was", () => {
+    const sticky = itemAt("s", 30);
+    const block = withDepth(sticky, 60);
+    expect(block).toEqual({ ...sticky, depth: 60 });
+    expect([canvasElevation(block), canvasDepth(block), canvasTop(block)]).toEqual([30, 60, 90]);
+    expect(withDepth(block, 0)).toEqual(sticky);
+    // There is no negative depth: an item sunk below its base is flat.
+    expect(withDepth(sticky, -5)).toEqual(sticky);
+    expect(canvasDepth({ ...sticky, depth: -5 })).toBe(0);
+  });
+
+  test("a depth kb cannot read stays verbatim beside an elevation it can", () => {
+    const raw = {
+      nodes: [
+        { id: "a", type: "text", x: 0, y: 0, width: 1, height: 1, text: "", z: 4, depth: "x" },
+      ],
+      edges: [],
+    };
+    const doc = parseCanvasDoc(raw);
+    expect(doc.nodes[0]?.z).toBe(4);
+    expect(canvasDepth(doc.nodes[0] as CanvasNode)).toBe(0);
+    expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
+    expect(withDepth(doc.nodes[0] as CanvasNode, 10).extra).toBeUndefined();
+  });
+
+  test("a solid's shape and depth survive a round trip", () => {
+    const raw = {
+      nodes: [
+        { id: "b", type: "shape", x: 0, y: 0, width: 80, height: 80, depth: 40, shape: "sphere" },
+        { id: "c", type: "shape", x: 0, y: 0, width: 80, height: 80, depth: 90, shape: "cone" },
+      ],
+      edges: [],
+    };
+    expect(JSON.parse(stringifyCanvasDoc(parseCanvasDoc(raw)))).toEqual(raw);
+  });
+});
+
+describe("shapes and presets", () => {
+  test("every item is a box its shape fills; a card or a frame is a rectangle", () => {
+    expect(itemShape(itemAt("t"))).toBe("rect");
+    expect(itemShape(presetItem("sphere", { x: 0, y: 0 }, "s"))).toBe("sphere");
+    expect(Object.values(CANVAS_SHAPES).map((spec) => spec.volume)).toEqual([
+      "prism",
+      "prism",
+      "prism",
+      "ellipsoid",
+      "cone",
+    ]);
+  });
+
+  test("a footprint is what its outline encloses", () => {
+    // Corners of the box are off every footprint but the rectangle's.
+    expect(onFootprint("rect", 0.95, 0.95)).toBe(true);
+    expect(onFootprint("ellipse", 0.95, 0.95)).toBe(false);
+    expect(onFootprint("diamond", 0.6, 0.6)).toBe(false);
+    expect(onFootprint("sphere", 0.7, 0.7)).toBe(true);
+    expect(onFootprint("cone", 0, 0.99)).toBe(true);
+    // The outline passes through each side's midpoint, where edges anchor.
+    for (const shape of ["rect", "ellipse", "diamond", "sphere", "cone"] as const) {
+      const d = svgPathData(shapeOutline(shape, 100, 60, 8));
+      expect(d.startsWith("M "), shape).toBe(true);
+      expect(d.endsWith("Z"), shape).toBe(true);
+    }
+    expect(svgPathData(shapeOutline("diamond", 100, 60, 8))).toBe(
+      "M 50 0 L 100 30 L 50 60 L 0 30 Z",
+    );
+  });
+
+  test("the solid presets are exactly the presets with depth, in the table's order", () => {
+    expect(CANVAS_SOLID_PRESETS).toEqual(["box", "pillar", "sphere", "cone", "slab", "wall"]);
+    for (const preset of CANVAS_SOLID_PRESETS) {
+      expect(canvasDepth(presetItem(preset, { x: 0, y: 0 }, preset)), preset).toBeGreaterThan(0);
+    }
+    // A shelf is raised off the floor to stand things on; everything else stands on it.
+    expect(canvasElevation(presetItem("slab", { x: 0, y: 0 }, "s"))).toBeGreaterThan(0);
+    expect(canvasElevation(presetItem("box", { x: 0, y: 0 }, "b"))).toBe(0);
   });
 });
 

@@ -149,6 +149,88 @@ describe("hit-testing", () => {
   test("an empty point hits nothing", () => {
     expect(hitTest([low], perspective, size, { x: 2, y: 2 })).toBeNull();
   });
+
+  test("from the top, a flat shape is hit on its footprint, not its box", () => {
+    const view = viewOfPan({ x: 0, y: 0 }, 1, size);
+    const disc: CanvasHitItem = { id: "disc", x: 0, y: 0, width: 100, height: 100 };
+    const corner = { x: 6, y: 6 };
+    expect(hitTest([disc], view, size, corner)).toBe("disc");
+    for (const shape of ["ellipse", "diamond", "sphere", "cone"] as const) {
+      expect(hitTest([{ ...disc, shape }], view, size, corner), shape).toBeNull();
+      expect(hitTest([{ ...disc, shape }], view, size, { x: 50, y: 50 }), shape).toBe("disc");
+    }
+  });
+
+  test("level from the front, a cone narrows to its point and a sphere rounds off", () => {
+    const front = { ...perspective, x: 50, y: 0, z: 50, yaw: 0, pitch: Math.PI / 2, fov: 0 };
+    const solid: CanvasHitItem = { id: "s", x: 0, y: 0, width: 100, height: 100, depth: 100 };
+    const at = (x: number, z: number) => projectPoint(front, size, { x, y: 100, z }) ?? { x, y: z };
+    // Near the top, off centre: inside the box, outside the cone and the sphere.
+    expect(hitTest([solid], front, size, at(20, 92))).toBe("s");
+    expect(hitTest([{ ...solid, shape: "cone" }], front, size, at(20, 92))).toBeNull();
+    expect(hitTest([{ ...solid, shape: "sphere" }], front, size, at(8, 92))).toBeNull();
+    // Near the base, off centre: a cone is widest there, a sphere is not.
+    expect(hitTest([{ ...solid, shape: "cone" }], front, size, at(10, 4))).toBe("s");
+    expect(hitTest([{ ...solid, shape: "sphere" }], front, size, at(10, 4))).toBeNull();
+    expect(hitTest([{ ...solid, shape: "sphere" }], front, size, at(50, 50))).toBe("s");
+  });
+
+  test("every volume is hit exactly where a march along the ray first enters it", () => {
+    // An independent statement of each volume, in the box's unit space.
+    const inside: Record<string, (u: number, v: number, w: number) => boolean> = {
+      rect: (u, v, w) => Math.abs(u) <= 1 && Math.abs(v) <= 1 && w >= 0 && w <= 1,
+      ellipse: (u, v, w) => u * u + v * v <= 1 && w >= 0 && w <= 1,
+      diamond: (u, v, w) => Math.abs(u) + Math.abs(v) <= 1 && w >= 0 && w <= 1,
+      sphere: (u, v, w) => u * u + v * v + (2 * w - 1) ** 2 <= 1,
+      cone: (u, v, w) => w >= 0 && w <= 1 && u * u + v * v <= (1 - w) ** 2,
+    };
+    let seed = 7;
+    const rand = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+    const item = { id: "s", x: -60, y: -40, width: 120, height: 80, depth: 90 };
+    const agreed = { hits: 0, misses: 0 };
+    for (let i = 0; i < 800; i++) {
+      const shape = (["rect", "ellipse", "diamond", "sphere", "cone"] as const)[i % 5] ?? "rect";
+      const view: CanvasView = {
+        x: 0,
+        y: 0,
+        z: 45,
+        zoom: 1,
+        yaw: rand() * Math.PI * 2,
+        pitch: rand() * MAX_PITCH,
+        fov: rand() < 0.5 ? 0 : PERSPECTIVE_FOV,
+      };
+      const screen = { x: 600 + (rand() - 0.5) * 200, y: 400 + (rand() - 0.5) * 200 };
+      const hit = hitTest([{ ...item, shape }], view, size, screen);
+      // March the ray through the box's neighbourhood and note where it is inside.
+      const near = screenToPlane(view, size, screen, 200);
+      const far = screenToPlane(view, size, screen, -100);
+      if (near === null || far === null) continue;
+      // Deep: well inside at some sample. Grazing: never inside, but once near the surface.
+      let deep = false;
+      let grazing = false;
+      const isInside = inside[shape] ?? (() => false);
+      const nudges = [-1, 1].flatMap((a) => [-1, 1].flatMap((b) => [-1, 1].map((c) => [a, b, c])));
+      for (let s = 0; s <= 4000; s++) {
+        const t = s / 4000;
+        const p = (k: "x" | "y" | "z") => near[k] + (far[k] - near[k]) * t;
+        const u = (p("x") - item.x - 60) / 60;
+        const v = (p("y") - item.y - 40) / 40;
+        const w = p("z") / 90;
+        const around = (d: number) =>
+          nudges.map(([a = 0, b = 0, c = 0]) => isInside(u + a * d, v + b * d, w + c * d));
+        if (around(0.03).every(Boolean)) deep = true;
+        if (around(0.03).some(Boolean)) grazing = true;
+      }
+      if (!deep && grazing) continue;
+      expect(hit, `${shape} #${i}`).toBe(deep ? "s" : null);
+      agreed[deep ? "hits" : "misses"]++;
+    }
+    expect(agreed.hits).toBeGreaterThan(100);
+    expect(agreed.misses).toBeGreaterThan(50);
+  });
 });
 
 describe("zoom to fit", () => {
