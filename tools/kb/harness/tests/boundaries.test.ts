@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import {
   RUNTIME_ONLY_SPECIFIERS,
   isIsomorphicScope,
-  isTestKitDevDependency,
+  isTestWorldDevDependency,
   matrixViolation,
-  testMayImportTestKit,
+  testMayImportTestWorld,
 } from "../src/constraints.ts";
 import { readFileSync } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
@@ -55,7 +55,7 @@ describe("boundaries", () => {
   test("every cross-package import satisfies both axes of the matrix", () => {
     const violations: string[] = [];
     for (const edge of importEdges()) {
-      if (testMayImportTestKit(edge.file, edge.target)) continue;
+      if (testMayImportTestWorld(edge.file, edge.target)) continue;
       for (const axis of ["layer", "scope"] as const) {
         const problem = matrixViolation(axesOf, edge.source, edge.target, axis);
         if (problem !== undefined) violations.push(`${problem}  [${edge.file}]`);
@@ -83,7 +83,7 @@ describe("boundaries", () => {
   test("every declared dependency satisfies both axes of the matrix", () => {
     const violations: string[] = [];
     for (const edge of declaredEdges()) {
-      if (isTestKitDevDependency(edge.target)) continue;
+      if (isTestWorldDevDependency(edge.target)) continue;
       for (const axis of ["layer", "scope"] as const) {
         const problem = matrixViolation(axesOf, edge.source, edge.target, axis);
         if (problem !== undefined) violations.push(`${problem}  [manifest]`);
@@ -120,7 +120,7 @@ describe("boundaries", () => {
     const declared = new Set(declaredEdges().map(({ source, target }) => `${source} ${target}`));
     const missing = new Set<string>();
     for (const edge of importEdges()) {
-      if (testMayImportTestKit(edge.file, edge.target)) continue;
+      if (testMayImportTestWorld(edge.file, edge.target)) continue;
       if (!declared.has(`${edge.source} ${edge.target}`)) {
         missing.add(`${edge.source} imports ${edge.target} without declaring it`);
       }

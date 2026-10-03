@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { systemSeedNodes } from "@kb/model";
 import { DatascriptIndex } from "@/ds";
 import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
 import { listPerspectiveNavItems, listPinnedNavItems } from "./sidebar-nav";
+import { bundledSeed } from "@kb/bundled";
 
 function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">): OutlineNode {
   return {
@@ -62,7 +62,7 @@ describe("sidebar-nav selectors", () => {
   it("lists graph-perspective nav items", () => {
     // The seed's view options and families: a graph is a view node whose view is a renderer.
     const wire: WireNode[] = [
-      ...systemSeedNodes(),
+      ...bundledSeed(),
       wireNode("p1", "Lens A", view("sys.view.graph.tree")),
       wireNode("t1", "A table", view("sys.view.outline.table")),
       wireNode("other", "nope"),

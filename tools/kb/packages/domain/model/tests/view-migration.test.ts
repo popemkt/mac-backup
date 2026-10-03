@@ -7,7 +7,6 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/model.ts";
-import { systemSeedNodes } from "../src/seed.ts";
 import {
   LEGACY_PERSPECTIVE_TAG,
   LEGACY_VIEW_MODE_FIELD,
@@ -17,6 +16,7 @@ import {
   migrateToViewNodes,
 } from "../src/view-migration.ts";
 import { defaultViewIdOf, docsViewProps, viewOptionId } from "../src/view-node.ts";
+import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-09-01T00:00:00.000Z";
 /** No legacy docs views: what a store alone migrates with. */
@@ -325,7 +325,7 @@ describe("what the migration cannot do as asked, it says", () => {
 describe("a store already in the new shape", () => {
   test("comes back as it was: the seed, and a view node", () => {
     const seeded = [
-      ...systemSeedNodes(AT),
+      ...bundledSeed(AT),
       node("v.1", { props: { [SYSTEM_IDS.viewField]: [ref(viewOptionId("graph.tree"))] } }),
     ];
     const result = migrateToViewNodes(seeded, NONE);

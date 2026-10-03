@@ -1,4 +1,5 @@
-import { isSysPrefixed, systemSeedNodes, viewOptionId } from "@kb/model";
+import { isSysPrefixed, viewOptionId } from "@kb/model";
+import { bundledSeed } from "@kb/bundled";
 
 const LEAF_IDS = Array.from({ length: 28 }, (_, index) => `render.fixture.node.${index + 1}`);
 const ROOT_ID = "render.fixture.root";
@@ -15,7 +16,7 @@ const LENS_IDS = new Set([
   ...LEAF_IDS,
   ROOT_ID,
   PERSPECTIVE_ID,
-  ...systemSeedNodes()
+  ...bundledSeed()
     .map((seeded) => seeded.id)
     .filter((id) => !isSysPrefixed(id)),
 ]);

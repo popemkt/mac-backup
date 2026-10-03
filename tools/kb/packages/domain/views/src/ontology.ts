@@ -22,8 +22,13 @@ export type OntologyScopeParams = typeof OntologyScopeParams.Type;
 /** Every ontology in the workspace. */
 export const OntologyListView = viewKey(
   `${ONTOLOGY_NAMESPACE}.list`,
+  "Ontologies",
   NoParams.annotate({ description: "Every ontology in the workspace. It reads no settings." }),
 );
 
 /** One ontology's scope, projected onto the view its params name. */
-export const OntologyScopeView = viewKey(`${ONTOLOGY_NAMESPACE}.scope`, OntologyScopeParams);
+export const OntologyScopeView = viewKey(
+  `${ONTOLOGY_NAMESPACE}.scope`,
+  "Ontology",
+  OntologyScopeParams,
+);

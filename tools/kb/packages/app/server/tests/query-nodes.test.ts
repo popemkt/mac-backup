@@ -8,11 +8,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ensureSystemSeed, present, SYSTEM_IDS, systemSeedNodes, type KbNode } from "@kb/model";
+import { ensureSystemSeed, present, SYSTEM_IDS, type KbNode } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { Effect } from "effect";
 import { savedQueryNodes } from "../src/saved-queries.ts";
 import { startUi, type UiServerHandle } from "../src/server.ts";
+import { bundledSeed } from "@kb/bundled";
 
 const run = Effect.runPromise;
 
@@ -22,7 +23,7 @@ function refs(node: KbNode | WireNode, field: string): string[] {
 
 describe("W4 seed: query fields", () => {
   test("seeds sys.f.query and sys.f.query.limit, and no #query supertag", () => {
-    const seed = systemSeedNodes();
+    const seed = bundledSeed();
     const byId = new Map(seed.map((n) => [n.id, n]));
 
     expect(
@@ -42,9 +43,9 @@ describe("W4 seed: query fields", () => {
   });
 
   test("ensureSystemSeed is idempotent over the W4 nodes", () => {
-    const first = ensureSystemSeed([]);
+    const first = ensureSystemSeed([], bundledSeed());
     expect(first.seeded).toBe(true);
-    const again = ensureSystemSeed(first.nodes);
+    const again = ensureSystemSeed(first.nodes, bundledSeed());
     expect(again.seeded).toBe(false);
     expect(again.nodes.length).toBe(first.nodes.length);
   });

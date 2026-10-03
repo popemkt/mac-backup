@@ -11,6 +11,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@kb/bundled": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",

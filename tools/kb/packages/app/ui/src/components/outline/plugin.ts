@@ -65,7 +65,6 @@ export const outlineUiPlugin = definePlugin({
             sample: { filters },
             Component: ListFrameView,
             picker: {
-              label: "List",
               order: 0,
               glyph: "≡",
               icon: ListBulletsIcon,
@@ -81,7 +80,6 @@ export const outlineUiPlugin = definePlugin({
             sample: { filters, sort, display, colwidth, pagesize },
             Component: TableFrameView,
             picker: {
-              label: "Table",
               order: 1,
               glyph: "⊞",
               icon: TableIcon,
@@ -97,7 +95,6 @@ export const outlineUiPlugin = definePlugin({
             sample: { filters, sort, display, groupFieldId },
             Component: BoardFrameView,
             picker: {
-              label: "Board",
               order: 2,
               glyph: "▥",
               icon: SquaresFourIcon,
@@ -113,7 +110,6 @@ export const outlineUiPlugin = definePlugin({
             sample: { filters, sort, display },
             Component: CardsFrameView,
             picker: {
-              label: "Cards",
               order: 3,
               glyph: "▦",
               icon: SquaresFourIcon,

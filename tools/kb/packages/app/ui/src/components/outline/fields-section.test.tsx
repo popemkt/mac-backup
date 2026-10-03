@@ -9,9 +9,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
-import { systemSeedNodes } from "@kb/model";
 import { FieldValueStack } from "@/components/outline/fields-section";
 import { SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
+import { bundledSeed } from "@kb/bundled";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
@@ -94,7 +94,7 @@ describe("field value stack", () => {
 
   it("a single-valued field offers no second slot", () => {
     // `sys.f.lens.link-distance` declares cardinality one in the seed.
-    const seeded = new Map(systemSeedNodes().map((n) => [n.id, n] as const)) as unknown as NodeMap;
+    const seeded = new Map(bundledSeed().map((n) => [n.id, n] as const)) as unknown as NodeMap;
     const html = renderToStaticMarkup(
       createElement(FieldValueStack, {
         nodeId: "n.1",

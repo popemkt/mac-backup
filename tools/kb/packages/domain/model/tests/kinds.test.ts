@@ -24,9 +24,9 @@ import {
   targetTagsOf,
 } from "../src/field-type.ts";
 import { refValuesOf, typeRefsOf } from "../src/ontology.ts";
-import { systemSeedNodes } from "../src/seed.ts";
+import { bundledSeed } from "@kb/bundled";
 
-const seed: KbNode[] = systemSeedNodes();
+const seed: KbNode[] = bundledSeed();
 const byId = new Map(seed.map((node) => [node.id, node]));
 const supertags = seed.filter((node) => typeRefsOf(node).includes(SYSTEM_IDS.tag));
 

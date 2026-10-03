@@ -94,23 +94,29 @@ export function isIsomorphicScope(scope: string): boolean {
 }
 
 /**
- * Test files may import `@kb/test-kit` without inverting the production
- * matrix. The DST harness and scenario runners live there; a domain package
- * depending on test-kit as a production edge would be domain → app.
+ * What a test builds its world from, which a test file may import whatever
+ * layer it sits in: `@kb/test-kit`, where the DST harness, the scenario
+ * runners and the contract suites live, and `@kb/bundled`, the seed kb ships
+ * (`bundledSeed()`), from which a test makes a fresh store. As production
+ * edges both would be domain → app, so only test files and devDependencies
+ * may name them.
  */
+const TEST_WORLD_PACKAGES: ReadonlySet<string> = new Set(["@kb/test-kit", "@kb/bundled"]);
+
 export function isPackageTestFile(file: string): boolean {
   return (
     /(^|\/)tests\//.test(file) || /(^|\/)tests-render\//.test(file) || /\.test\.tsx?$/.test(file)
   );
 }
 
-export function testMayImportTestKit(file: string, target: string): boolean {
-  return target === "@kb/test-kit" && isPackageTestFile(file);
+/** Test files may import a {@link TEST_WORLD_PACKAGES} package without inverting the production matrix. */
+export function testMayImportTestWorld(file: string, target: string): boolean {
+  return TEST_WORLD_PACKAGES.has(target) && isPackageTestFile(file);
 }
 
-/** Listing `@kb/test-kit` as a devDependency is the test-file reachability edge. */
-export function isTestKitDevDependency(target: string): boolean {
-  return target === "@kb/test-kit" || target.endsWith("/test-kit");
+/** Listing a {@link TEST_WORLD_PACKAGES} package as a devDependency is the test-file reachability edge. */
+export function isTestWorldDevDependency(target: string): boolean {
+  return TEST_WORLD_PACKAGES.has(target) || target.endsWith("/test-kit");
 }
 
 /**

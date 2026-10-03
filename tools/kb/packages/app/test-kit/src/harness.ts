@@ -8,7 +8,6 @@ import {
   txIntegrityError,
   isSysPrefixed,
   type KbNode,
-  systemSeedNodes,
   rankOf,
   rankTx,
   canonicalJsonl,
@@ -27,6 +26,7 @@ import {
   mapTagDefine,
   type PlannedAction,
 } from "@kb/operations";
+import { bundledSeed } from "@kb/bundled";
 import type { KbContext } from "@kb/contracts";
 
 /**
@@ -363,7 +363,7 @@ function orderingErrors(nodes: KbNode[]): string[] {
 
 function mintedSysErrors(nodes: KbNode[]): string[] {
   const out: string[] = [];
-  const seedIds = new Set(systemSeedNodes().map((n) => n.id));
+  const seedIds = new Set(bundledSeed().map((n) => n.id));
   for (const n of nodes) {
     if (isSysPrefixed(n.id) && !seedIds.has(n.id)) {
       out.push(`sys node ${n.id} was minted during simulation`);

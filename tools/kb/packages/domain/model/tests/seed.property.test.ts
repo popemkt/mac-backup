@@ -13,18 +13,19 @@ import { describe, expect, test } from "bun:test";
 import { present } from "../src/present.ts";
 import fc from "fast-check";
 import type { KbNode, PropValue } from "../src/model.ts";
-import { TEMPLATE_TAGS, ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
+import { TEMPLATE_TAGS, ensureSystemSeed } from "../src/seed.ts";
+import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-08-24T00:00:00.000Z";
 const EXCLUDED = new Set<string>(TEMPLATE_TAGS);
-const CANDIDATE_IDS = systemSeedNodes(AT)
+const CANDIDATE_IDS = bundledSeed(AT)
   .map((n) => n.id)
   .filter((id) => !EXCLUDED.has(id));
 
 describe("seed idempotence properties (fast-check)", () => {
   test("ensureSystemSeed over the pristine seed is a no-op", () => {
-    const seed = systemSeedNodes(AT);
-    const result = ensureSystemSeed(seed);
+    const seed = bundledSeed(AT);
+    const result = ensureSystemSeed(seed, bundledSeed());
     expect(result.seeded).toBe(false);
     expect(result.deletes).toEqual([]);
     expect(result.nodes).toEqual(seed);
@@ -36,7 +37,7 @@ describe("seed idempotence properties (fast-check)", () => {
         fc.uniqueArray(fc.constantFrom(...CANDIDATE_IDS), { minLength: 1, maxLength: 8 }),
         fc.array(fc.boolean(), { minLength: 1, maxLength: 200 }),
         (selectedIds, keepFlags) => {
-          const baseSeed = systemSeedNodes(AT);
+          const baseSeed = bundledSeed(AT);
           const baseById = new Map(baseSeed.map((n) => [n.id, n]));
           const selected = new Set(selectedIds);
           let flagIdx = 0;
@@ -56,7 +57,7 @@ describe("seed idempotence properties (fast-check)", () => {
             return { ...node, props: nextProps };
           });
 
-          const result = ensureSystemSeed(existingNodes);
+          const result = ensureSystemSeed(existingNodes, bundledSeed());
           const resultById = new Map(result.nodes.map((n) => [n.id, n]));
 
           for (const id of selectedIds) {
@@ -77,7 +78,7 @@ describe("seed idempotence properties (fast-check)", () => {
             }
           }
 
-          const second = ensureSystemSeed(result.nodes);
+          const second = ensureSystemSeed(result.nodes, bundledSeed());
           expect(second.seeded).toBe(false);
           expect(second.nodes).toEqual(result.nodes);
         },

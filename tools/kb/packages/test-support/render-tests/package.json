@@ -12,6 +12,7 @@
     "@kb/server": "workspace:*"
   },
   "devDependencies": {
+    "@kb/bundled": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:",

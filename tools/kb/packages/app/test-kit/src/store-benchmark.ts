@@ -16,7 +16,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { EffectStore } from "@kb/contracts";
-import { SYSTEM_IDS, systemSeedNodes, type KbNode } from "@kb/model";
+import { bundledSeed } from "@kb/bundled";
+import { SYSTEM_IDS, type KbNode } from "@kb/model";
 import { DatascriptIndex } from "@kb/query";
 import { writeOut } from "@kb/runtime";
 import type { StoreFactory } from "./store-contract.ts";
@@ -44,7 +45,7 @@ function printTable(name: string, rows: ReadonlyArray<readonly [string, number]>
 }
 
 function benchmarkNodes(at: string): KbNode[] {
-  const nodes: KbNode[] = systemSeedNodes(at);
+  const nodes: KbNode[] = bundledSeed(at);
   nodes.push({
     id: TAG_ID,
     text: "bench",

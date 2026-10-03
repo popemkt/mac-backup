@@ -21,7 +21,6 @@ import {
   catalogKeyOf,
   issueText,
   paramsIssues,
-  viewLabelOf,
   type ViewKey,
 } from "@kb/views";
 import { chartBody } from "./chart-text.ts";
@@ -41,7 +40,7 @@ export function hostOf(ctx: KbContext, view: KbNode, asked: string | null): KbNo
 export function viewTitleOf(view: KbNode, key: ViewKey<unknown> | null): string {
   const text = view.text.trim();
   if (text !== "") return text;
-  return key === null ? view.id : `${viewLabelOf(key)} view`;
+  return key === null ? view.id : `${key.label} view`;
 }
 
 function nodeLine(ctx: KbContext, id: string): string {
@@ -147,7 +146,7 @@ export function viewText(ctx: KbContext, view: KbNode, host: KbNode | null): Vie
   lines.push(
     key === null
       ? `View node ${view.id} names ${option ?? "no view"}, which is no view kb provides.`
-      : `${viewLabelOf(key)} view (${key.id}), view node ${view.id}${shownFor}.`,
+      : `${key.label} view (${key.id}), view node ${view.id}${shownFor}.`,
   );
   const reported: string[] = [];
   const params =

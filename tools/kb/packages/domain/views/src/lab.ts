@@ -23,4 +23,4 @@ export const LabParams = Schema.Struct({ scene: Schema.Literals(LAB_SCENE_IDS) }
 export type LabParams = typeof LabParams.Type;
 
 /** The lab, showing one study. */
-export const LabView = viewKey(`${LAB_NAMESPACE}.page`, LabParams);
+export const LabView = viewKey(`${LAB_NAMESPACE}.page`, "Lab", LabParams);

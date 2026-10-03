@@ -4,13 +4,8 @@
  * write passes.
  */
 import { describe, expect, test } from "bun:test";
-import {
-  SYSTEM_IDS,
-  cardinalityOf,
-  systemSeedNodes,
-  txIntegrityError,
-  type KbNode,
-} from "../src/index.ts";
+import { SYSTEM_IDS, cardinalityOf, txIntegrityError, type KbNode } from "../src/index.ts";
+import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -92,7 +87,7 @@ describe("cardinality: one", () => {
   });
 
   test("the seed passes its own check, and declares its settings single", () => {
-    const seed = systemSeedNodes(AT);
+    const seed = bundledSeed(AT);
     expect(txIntegrityError([], { upserts: seed, deletes: [] })).toBeNull();
     const byId = new Map(seed.map((n) => [n.id, n]));
     for (const id of [

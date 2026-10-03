@@ -25,7 +25,6 @@ import {
   ONTOLOGY_TARGET_QUERY,
   present,
   SYSTEM_IDS,
-  systemSeedNodes,
   targetQueryOf,
   targetTagsOf,
   type KbNode,
@@ -34,10 +33,11 @@ import {
   typeRefsOf,
 } from "@kb/model";
 import { DatascriptIndex } from "@kb/query";
+import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-08-24T00:00:00.000Z";
 
-const seed = systemSeedNodes(AT);
+const seed = bundledSeed(AT);
 const seedMap = new Map<string, KbNode>(seed.map((n) => [n.id, n]));
 
 /** The EDN runner core asks for, bound to the backend datalog engine. */

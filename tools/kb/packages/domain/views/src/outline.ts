@@ -29,7 +29,7 @@ export const OutlineParams = Schema.Struct({
 });
 export type OutlineParams = typeof OutlineParams.Type;
 
-export const OutlineView = viewKey(`${OUTLINE_NAMESPACE}.main`, OutlineParams, {
+export const OutlineView = viewKey(`${OUTLINE_NAMESPACE}.main`, "Outline", OutlineParams, {
   read: (props, host) => {
     const root = firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined;
     return root === undefined ? {} : { root };
@@ -57,23 +57,29 @@ export type OutlineSnippetParams = typeof OutlineSnippetParams.Type;
  * shown for; nothing stored sets its depth or row cap, so a stored snippet
  * shows one level and six rows.
  */
-export const OutlineSnippetView = viewKey(`${OUTLINE_NAMESPACE}.snippet`, OutlineSnippetParams, {
-  read: (props, host) => ({
-    root: firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined,
-    depth: 1,
-    maxRows: 6,
-  }),
-  write: ({ root }) => encodeLensConfig({ focus: root }),
-});
+export const OutlineSnippetView = viewKey(
+  `${OUTLINE_NAMESPACE}.snippet`,
+  "Outline snippet",
+  OutlineSnippetParams,
+  {
+    read: (props, host) => ({
+      root: firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined,
+      depth: 1,
+      maxRows: 6,
+    }),
+    write: ({ root }) => encodeLensConfig({ focus: root }),
+  },
+);
 
 function frameViewKey<P extends FrameViewParams>(
   name: string,
+  label: string,
   params: Schema.Decoder<P>,
   rows: FrameViewKey["rows"],
 ): FrameViewKey<P> {
   // A frame view's settings are the `sys.f.view.*` props that configure it.
   return {
-    ...viewKey<P>(`${OUTLINE_NAMESPACE}.${name}`, params, {
+    ...viewKey<P>(`${OUTLINE_NAMESPACE}.${name}`, label, params, {
       read: (props, _host, report) => decodeFrameConfig(props, report),
       write: encodeFrameConfig,
     }),
@@ -85,6 +91,7 @@ function frameViewKey<P extends FrameViewParams>(
 /** A frame's children as the outline shows them, nested. */
 export const OutlineListView = frameViewKey(
   "list",
+  "List",
   Schema.Struct({ filters: FRAME_SETTINGS.filters }).annotate({
     description: "A frame's children as the outline shows them, nested, filtered." + FRAME_HOST,
   }),
@@ -94,6 +101,7 @@ export const OutlineListView = frameViewKey(
 /** A frame's rows as one sorted, paged run, a column per field. */
 export const OutlineTableView = frameViewKey(
   "table",
+  "Table",
   Schema.Struct({
     filters: FRAME_SETTINGS.filters,
     sort: FRAME_SETTINGS.sort,
@@ -109,6 +117,7 @@ export const OutlineTableView = frameViewKey(
 /** A frame's rows as cards, a column per value of its group field. */
 export const OutlineBoardView = frameViewKey(
   "board",
+  "Board",
   Schema.Struct({
     filters: FRAME_SETTINGS.filters,
     sort: FRAME_SETTINGS.sort,
@@ -124,6 +133,7 @@ export const OutlineBoardView = frameViewKey(
 /** A frame's rows as cards in one grid. */
 export const OutlineCardsView = frameViewKey(
   "cards",
+  "Cards",
   Schema.Struct({
     filters: FRAME_SETTINGS.filters,
     sort: FRAME_SETTINGS.sort,

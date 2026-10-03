@@ -1,5 +1,4 @@
 import { Predicate } from "effect";
-import { viewLabelOf } from "@kb/views";
 import { RoutePoint, matchRoute, useContributions } from "@/lib/plugins";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -24,7 +23,7 @@ export function usePaneTitle(path: string): string {
     return node === undefined ? undefined : node.text.trim();
   });
   if (route === null) return "Not found";
-  return text !== undefined && text !== "" ? text : viewLabelOf(route.view);
+  return text !== undefined && text !== "" ? text : route.view.label;
 }
 
 function subjectOf(params: unknown): string | undefined {

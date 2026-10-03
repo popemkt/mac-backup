@@ -15,19 +15,15 @@
 import { describe, expect, it } from "vitest";
 import { DatascriptIndex } from "@/ds";
 import { parsePerspective } from "@/lib/graph-lens";
-import {
-  GRAPH_SOURCE_VALUES,
-  SYSTEM_IDS,
-  allowedRefIdsOf,
-  present,
-  systemSeedNodes,
-  viewOptionId,
-  viewValueEntries,
-  type KbNode,
-} from "@kb/model";
+import { GRAPH_SOURCE_VALUES, SYSTEM_IDS, allowedRefIdsOf, present, type KbNode } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
+import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 
-const seed: KbNode[] = systemSeedNodes("2026-09-09T00:00:00.000Z");
+/** Every declared view key: what the seed derives its view options from. */
+const declaredKeys = BUNDLED_DECLARATIONS.flatMap((declaration) =>
+  (declaration.views ?? []).map((view) => view.key),
+);
+const seed: KbNode[] = bundledSeed("2026-09-09T00:00:00.000Z");
 const byId = new Map(seed.map((node) => [node.id, node]));
 const index = new DatascriptIndex(seed);
 const runner = (edn: string): unknown[][] => index.runDatalog(edn);
@@ -45,19 +41,15 @@ function sourceIds(...keys: (keyof typeof GRAPH_SOURCE_VALUES)[]): string[] {
 describe("graph option sets resolve from data", () => {
   it("lens.renderer offers the renderer views — the view options in that family", () => {
     expect(allowed(SYSTEM_IDS.lensRendererField)).toEqual(
-      viewValueEntries()
-        .filter(([, value]) => value.family === "graph.renderer")
-        .map(([viewId]) => viewOptionId(viewId))
+      declaredKeys
+        .filter((key) => key.family === "graph.renderer")
+        .map((key) => key.option)
         .toSorted(),
     );
   });
 
   it("sys.f.view offers every view option", () => {
-    expect(allowed(SYSTEM_IDS.viewField)).toEqual(
-      viewValueEntries()
-        .map(([viewId]) => viewOptionId(viewId))
-        .toSorted(),
-    );
+    expect(allowed(SYSTEM_IDS.viewField)).toEqual(declaredKeys.map((key) => key.option).toSorted());
   });
 
   it("each source field offers the shared list narrowed to its kind", () => {

@@ -9,7 +9,7 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Result } from "effect";
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS, systemSeedNodes } from "@kb/model";
+import { SYSTEM_IDS } from "@kb/model";
 import { ViewSlot } from "@/components/ui/view-slot";
 import { syncUiPlugins } from "@/lib/plugins";
 import { paramsFromProps, NeighbourhoodView, type NeighbourhoodParams } from "@kb/views";
@@ -35,6 +35,7 @@ vi.mock("./graph-adapters", async (importOriginal) => {
 });
 
 import { graphUiPlugin } from "./plugin";
+import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-09-30T00:00:00.000Z";
 const node = (id: string, patch: Partial<WireNode> = {}): WireNode => ({
@@ -49,7 +50,7 @@ const node = (id: string, patch: Partial<WireNode> = {}): WireNode => ({
 
 /** a ─child→ b ─child→ c, and d mentions a: b's one-hop neighbours are a and c. */
 const GRAPH: WireNode[] = [
-  ...systemSeedNodes(AT),
+  ...bundledSeed(AT),
   node("n.a", { children: ["n.b"] }),
   node("n.b", { children: ["n.c"] }),
   node("n.c"),

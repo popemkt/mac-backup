@@ -6,7 +6,13 @@
  * stated once, in DESIGN-UI.md → UI points: routes and views.
  */
 import { Result, Schema, SchemaIssue } from "effect";
-import { viewOptionId, type NodeId, type NodeProps, type PropValue } from "@kb/model";
+import {
+  viewOptionId,
+  type NodeId,
+  type NodeProps,
+  type PropValue,
+  type ViewFamily,
+} from "@kb/model";
 
 /**
  * A view's name and the params it renders from. Made once, in this package,
@@ -18,6 +24,12 @@ export interface ViewKey<P> {
   /** `<namespace>.<local id>`: the namespace of what draws it (a UI plugin, or the server's render layer for docs), then the view's id. */
   readonly id: `${string}.${string}`;
   /**
+   * What the view is called: its option node's text under `sys.views`, which
+   * the seed derives from this key, and what a picker or a pane title names
+   * it by.
+   */
+  readonly label: string;
+  /**
    * What a legal `P` is: the view's settings, as an Effect `Schema`. It is the
    * one statement of them — a host decodes stored config through it, a picker
    * asks it which settings the view reads, and the contract decodes the
@@ -27,9 +39,11 @@ export interface ViewKey<P> {
   /**
    * The family of views a host chooses between by config, when the view is
    * one of them (`graph.renderer`, `outline.frame`): the discriminant a
-   * family's key extends `ViewKey` under. A view no host picks has none.
+   * family's key extends `ViewKey` under. A view no host picks has none. Its
+   * option node carries the family's node (`sys.f.view.family`), which the
+   * seed derives from this key too.
    */
-  readonly family?: string;
+  readonly family?: ViewFamily;
   /**
    * The option node that names this view in data (`sys.view.<id>`), which a
    * view node's `sys.f.view` refers to. Derived from the id, so a key and the
@@ -80,10 +94,11 @@ const STORES_NOTHING: ViewConfigCodec<never> = { read: () => ({}), write: () => 
 
 export function viewKey<P>(
   id: `${string}.${string}`,
+  label: string,
   params: Schema.Decoder<P>,
   config: ViewConfigCodec<P> = STORES_NOTHING,
 ): PlainViewKey<P> {
-  return { kind: "view", id, params, option: viewOptionId(id), config };
+  return { kind: "view", id, label, params, option: viewOptionId(id), config };
 }
 
 /**

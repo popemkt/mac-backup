@@ -16,16 +16,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKb } from "../src/session.ts";
-import {
-  ensureSystemSeed,
-  fieldTypeOf,
-  present,
-  SYSTEM_IDS,
-  systemSeedNodes,
-  type KbNode,
-} from "@kb/model";
+import { ensureSystemSeed, fieldTypeOf, present, SYSTEM_IDS, type KbNode } from "@kb/model";
 import { backlinksQuery, DatascriptIndex } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
+import { bundledSeed } from "@kb/bundled";
 
 function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -48,7 +42,7 @@ async function tempRoot(): Promise<string> {
 
 describe("seed: the ref.target field, and no #ref tag", () => {
   test("seeds a ref-typed sys.f.ref.target", () => {
-    const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
+    const byId = new Map(bundledSeed().map((n) => [n.id, n]));
 
     const field = byId.get(SYSTEM_IDS.refTargetField);
     expect(field).toBeDefined();
@@ -63,20 +57,20 @@ describe("seed: the ref.target field, and no #ref tag", () => {
   test("seeds no `ref` supertag — a node with no target is not a reference", () => {
     // The general claim (what a supertag is for) lives in @kb/model's
     // kinds.test.ts; this pins the one tag this feature used to carry.
-    const texts = systemSeedNodes()
+    const texts = bundledSeed()
       .filter((n) => refs(n, SYSTEM_IDS.typeField).includes(SYSTEM_IDS.tag))
       .map((n) => n.text);
     expect(texts).not.toContain("ref");
   });
 
   test("ensureSystemSeed stays idempotent and heals a store missing the field", () => {
-    const first = ensureSystemSeed([]);
+    const first = ensureSystemSeed([], bundledSeed());
     expect(first.seeded).toBe(true);
-    const again = ensureSystemSeed(first.nodes);
+    const again = ensureSystemSeed(first.nodes, bundledSeed());
     expect(again.seeded).toBe(false);
 
     const stale = first.nodes.filter((n) => n.id !== SYSTEM_IDS.refTargetField);
-    const healed = ensureSystemSeed(stale);
+    const healed = ensureSystemSeed(stale, bundledSeed());
     expect(healed.seeded).toBe(true);
     const field = present(
       healed.nodes.find((n) => n.id === SYSTEM_IDS.refTargetField),

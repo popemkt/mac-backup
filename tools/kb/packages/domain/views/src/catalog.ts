@@ -1,11 +1,11 @@
 /**
  * The view catalog: every view kb provides, as an agent or a picker reads it
- * — the key's id and option, the label and family the seed names it by
- * (`VIEW_VALUES`), and its settings as a JSON Schema derived from the key's
- * params, so the catalog states nothing a key does not.
+ * — the key's id, option, label and family, which the seed names its option
+ * by, and its settings as a JSON Schema derived from the key's params, so the
+ * catalog states nothing a key does not.
  */
 import { Result, Schema } from "effect";
-import { VIEW_VALUES, viewIdOfOption } from "@kb/model";
+import { viewIdOfOption } from "@kb/model";
 import { DocsMarkdownView } from "./docs.ts";
 import {
   ClusterView,
@@ -33,10 +33,9 @@ import {
 import { paramsFromProps, type ViewKey } from "./view-key.ts";
 
 /**
- * Every view kb provides, one key per view the seed names an option for
- * (`VIEW_VALUES`), in the seed's order; the catalog's tests hold the two to
- * each other, and the UI's view contract holds every view a plugin provides
- * to a key here.
+ * Every view kb provides, one key per view, in the order the seed derives
+ * their options; the UI's view contract holds every view a plugin provides to
+ * a key here.
  *
  * A constant, not a reading of a view point: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]
  * It also lists feature keys (chart, code, lab, canvas) that belong to their
@@ -103,18 +102,12 @@ function settingsSchemaOf(key: ViewKey<unknown>): unknown {
     : { ...document.schema, $defs: document.definitions };
 }
 
-/** What the seed names a view: its option's label. */
-export function viewLabelOf(key: ViewKey<unknown>): string {
-  const values: Readonly<Record<string, { readonly label: string }>> = VIEW_VALUES;
-  return values[key.id]?.label ?? key.id;
-}
-
 function entryOf(key: ViewKey<unknown>): ViewCatalogEntry {
   const defaults = paramsFromProps(key, {}, null, () => {});
   return {
     id: key.id,
     option: key.option,
-    label: viewLabelOf(key),
+    label: key.label,
     ...(key.family === undefined ? {} : { family: key.family }),
     settings: settingsSchemaOf(key),
     ...(Result.isSuccess(defaults) ? { defaults: defaults.success } : {}),

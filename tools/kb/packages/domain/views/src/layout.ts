@@ -131,7 +131,7 @@ function readArrangement(raw: string | undefined, report: ConfigReport): unknown
  * its panes open live inside that JSON, so the loader derives no mention of
  * them and they have no backlink to the layout. GAP [[01M411FNY9J46BD71N2C5641NB]]
  */
-export const LayoutView = viewKey(`${LAYOUT_NAMESPACE}.grid`, LayoutParams, {
+export const LayoutView = viewKey(`${LAYOUT_NAMESPACE}.grid`, "Layout", LayoutParams, {
   read: (props, _host, report) => readArrangement(firstStr(SYSTEM_IDS.layoutField)(props), report),
   write: ({ root }) => ({ [SYSTEM_IDS.layoutField]: [{ t: "str", v: canonicalJson(root) }] }),
 });
@@ -150,7 +150,7 @@ export const NodeParams = Schema.Struct({
 });
 export type NodeParams = typeof NodeParams.Type;
 
-export const NodeView = viewKey(`${LAYOUT_NAMESPACE}.node`, NodeParams, {
+export const NodeView = viewKey(`${LAYOUT_NAMESPACE}.node`, "Node", NodeParams, {
   read: (props, host) => {
     const node = firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined;
     return node === undefined ? {} : { node };

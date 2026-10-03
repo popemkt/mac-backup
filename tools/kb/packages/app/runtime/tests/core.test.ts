@@ -8,7 +8,6 @@ import {
   ensureSystemSeed,
   present,
   SYSTEM_IDS,
-  systemSeedNodes,
   txIntegrityError,
   type KbNode,
 } from "@kb/model";
@@ -17,6 +16,7 @@ import { bunFileSystemLayer } from "../src/platform.ts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";
+import { bundledSeed } from "@kb/bundled";
 
 /** The `at` a test commit records; the tail wants one and none of these assert on it. */
 const TX_AT = "2026-01-01T00:00:00.000Z";
@@ -93,7 +93,7 @@ describe("opening migrates the legacy date carrier", () => {
     };
     await Effect.runPromise(
       new JsonlStore(root).commitEffect(
-        { upserts: [...systemSeedNodes(), legacy], deletes: [] },
+        { upserts: [...bundledSeed(), legacy], deletes: [] },
         { at: TX_AT },
       ),
     );
@@ -120,7 +120,7 @@ describe("system seed", () => {
   test("created on first init and idempotent", async () => {
     const ctx1 = await openKb(root);
     const ids = new Set(ctx1.nodes.map((n) => n.id));
-    for (const s of systemSeedNodes()) {
+    for (const s of bundledSeed()) {
       expect(ids.has(s.id)).toBe(true);
     }
     const bytes1 = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
@@ -130,7 +130,7 @@ describe("system seed", () => {
     const bytes2 = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
     expect(bytes2).toBe(bytes1);
 
-    const again = ensureSystemSeed(ctx2.nodes);
+    const again = ensureSystemSeed(ctx2.nodes, bundledSeed());
     expect(again.seeded).toBe(false);
   });
 
@@ -139,13 +139,13 @@ describe("system seed", () => {
     // resolveTags skips it so it never renders as a tag chip. Self-typing it
     // would put it in every tag picker, where applying it would look like
     // tagging while actually changing the node's kind.
-    const tag = systemSeedNodes().find((n) => n.id === SYSTEM_IDS.tag);
+    const tag = bundledSeed().find((n) => n.id === SYSTEM_IDS.tag);
     expect(tag).toBeDefined();
     expect(present(tag, "expected tag").props[SYSTEM_IDS.typeField]).toBeUndefined();
   });
 
   test("seed fills prop keys a stored sys node lacks, and never rewrites one it has", () => {
-    const seeded = systemSeedNodes();
+    const seeded = bundledSeed();
     const tagSeed = present(
       seeded.find((n) => n.id === SYSTEM_IDS.tag),
       "expected seeded.find((n) => n.id === SYSTEM_IDS.tag)",
@@ -167,7 +167,7 @@ describe("system seed", () => {
       return n;
     });
 
-    const result = ensureSystemSeed(stored);
+    const result = ensureSystemSeed(stored, bundledSeed());
     expect(result.seeded).toBe(true);
     const byId = new Map(result.nodes.map((n) => [n.id, n]));
 

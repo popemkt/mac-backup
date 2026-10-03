@@ -9,14 +9,7 @@ import { createPortal } from "react-dom";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { Predicate, Result } from "effect";
 import { canonicalJson, hostViewIds, viewOptionOf } from "@kb/model";
-import {
-  LayoutView,
-  NodeView,
-  catalogKeyOf,
-  paramsFromProps,
-  viewLabelOf,
-  type ViewKey,
-} from "@kb/views";
+import { LayoutView, NodeView, catalogKeyOf, paramsFromProps, type ViewKey } from "@kb/views";
 import { useAnchoredPosition } from "@/components/ui/use-anchored-position";
 import { cn } from "@/lib/cn";
 import { RoutePoint, ViewPoint, matchRoute, useContributions } from "@/lib/plugins";
@@ -41,7 +34,7 @@ function viewNodeLabel(id: string, nodes: NodeMap): string {
   if (text !== "") return text;
   const option = viewOptionOf(node);
   const key = option === null ? null : catalogKeyOf(option);
-  return key === null ? id : viewLabelOf(key);
+  return key === null ? id : key.label;
 }
 
 const quiet = (): void => {};
@@ -94,13 +87,13 @@ function useSections(path: string): readonly Section[] {
           .filter(({ value }) => value.placements.includes("page") && showsANode(value.key, host))
           .map(({ value }) => ({
             path: nodePath(host, value.key.option),
-            label: viewLabelOf(value.key),
+            label: value.key.label,
           })),
       ],
     });
   }
   const pages = routes.flatMap(({ value }) =>
-    value.entry === undefined ? [] : [{ path: value.entry, label: viewLabelOf(value.view) }],
+    value.entry === undefined ? [] : [{ path: value.entry, label: value.view.label }],
   );
   if (pages.length > 0) sections.push({ title: "Pages", choices: pages });
   return sections;

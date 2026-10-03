@@ -22,6 +22,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@kb/bundled": "workspace:*",
     "@kb/store-jsonl": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:"

@@ -804,11 +804,12 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   cannot disagree. An option of a family (`graph.renderer`, `outline.frame`)
   carries `sys.f.view.family`, a ref to one of that field's option children,
   which is what a query partitions the options by: the graph sources' shape
-  (one list, several fields). The seed declares them (`VIEW_VALUES`), and the
-  view contract holds every provided view's key to a seeded option in its
-  own family. The brief has each plugin seed its own options; the store is
-  seeded on open while those plugins load in the browser, so the seed is
-  core's until plugins can contribute seeds (GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]).
+  (one list, several fields). Each option is derived from a declared view's
+  key — its id, `label` and `family` — when the bundled seed is folded
+  ([Extension families](#extension-families)), so no option is declared
+  twice, and the view contract holds every provided view's key to a seeded
+  option in its own family. Core's declaration still lists the feature
+  views beside its own (GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]).
   An unloaded plugin never deletes an option: the data outlives the code.
 - **The view catalog is the keys.** Every view's key — its id, option,
   family, its settings as an Effect `Schema` (annotated with what the view
@@ -1870,8 +1871,9 @@ end).
   loaded by the registry, so its views leave the catalog. There is never a
   second switch in the browser.
 - **The seed is the bundled fold, never a loaded registry.**
-  `ensureSystemSeed(nodes, at, seed)` runs at open, before any registry
-  exists. `openKbEffect` passes it `bundledSeed()`, which is:
+  `ensureSystemSeed(nodes, seed)` runs at open, before any registry
+  exists. `openKbEffect` passes it `bundledSeed(at)` (`@kb/bundled`, a
+  `scope:shared` package so the page folds the same seed), which is:
   - core's nodes, then each `BUNDLED_EXTENSIONS` declaration's `seed`, in
     bundled order;
   - pure data: it opens nothing and fails on an id declared twice.

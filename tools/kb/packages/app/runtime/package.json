@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@effect/platform-bun": "catalog:",
+    "@kb/bundled": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/ext-canvas": "workspace:*",
     "@kb/ext-check": "workspace:*",

@@ -11,6 +11,7 @@ import {
   type DomainError,
   type KbNode,
 } from "@kb/model";
+import { bundledSeed } from "@kb/bundled";
 import { bunFileSystemLayer } from "./platform.ts";
 import { DatascriptIndex, KbIndexService } from "@kb/query";
 import {
@@ -164,7 +165,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   const store = yield* selectStore(root);
   const loaded = yield* store.loadEffect;
   const at = yield* currentIso;
-  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(loaded, at);
+  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(loaded, bundledSeed(at));
   const typed = migrateFieldTypeValues(seeded);
   const dated = migrateDateValues(typed.nodes);
   let nodes = loaded;

@@ -1,10 +1,11 @@
 import type { WireNode } from "@kb/contracts";
-import { frameViewNodeId, systemSeedNodes, viewOptionId } from "@kb/model";
+import { frameViewNodeId, viewOptionId } from "@kb/model";
 import { SYSTEM_IDS } from "@/lib/types";
+import { bundledSeed } from "@kb/bundled";
 
 const at = "2026-09-06T00:00:00.000Z";
 
-const SEED = new Map(systemSeedNodes(at).map((seed) => [seed.id, seed]));
+const SEED = new Map(bundledSeed(at).map((seed) => [seed.id, seed]));
 
 function seeded(id: string) {
   const seed = SEED.get(id);

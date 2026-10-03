@@ -183,7 +183,7 @@ function readSpec(raw: string | undefined, report: ConfigReport): { spec?: unkno
  * prop (`sys.f.chart`) holding it as canonical JSON, and whose source is its
  * `lens.focus`, else the node it is shown for.
  */
-export const ChartView = viewKey(`${CHART_NAMESPACE}.vega-lite`, ChartParams, {
+export const ChartView = viewKey(`${CHART_NAMESPACE}.vega-lite`, "Chart", ChartParams, {
   read: (props, host, report) => {
     const source = firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined;
     return {

@@ -24,7 +24,7 @@ const Nothing = () => null;
 
 /** A plugin contributing one view, the route to it at `/<name>`, and one sidebar section. */
 function pagePlugin(name: string): Plugin {
-  const view = viewKey(`${name}.page`, NoParams);
+  const view = viewKey(`${name}.page`, name, NoParams);
   return definePlugin({
     name,
     apply: (ctx) =>
@@ -109,17 +109,17 @@ describe("syncUiPlugins", () => {
 });
 
 describe("provideView", () => {
-  const Plain = viewKey("t.plain", NoParams);
-  const Family = { ...viewKey("t.member", NoParams), family: "t.family" };
+  const Plain = viewKey("t.plain", "Plain", NoParams);
+  const Family = { ...viewKey("t.member", "Member", NoParams), family: "outline.frame" as const };
 
   it("names a view of a family by the picker it is given, and a plain view by none", () => {
     const member = provideView(Family, {
       placements: ["page"],
       sample: {},
       Component: Nothing,
-      picker: { label: "Member", order: 0 },
+      picker: { order: 7 },
     });
-    expect(member.value.picker?.label).toBe("Member");
+    expect(member.value.picker?.order).toBe(7);
     expect(
       provideView(Plain, { placements: ["page"], sample: {}, Component: Nothing }).value.picker,
     ).toBeUndefined();

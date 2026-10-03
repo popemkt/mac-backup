@@ -20,7 +20,6 @@ import {
   present,
   resolveOntology,
   SYSTEM_IDS,
-  systemSeedNodes,
   type KbNode,
   type NodeLike,
   type PropValue,
@@ -30,6 +29,7 @@ import { ontologyMembersEffect } from "@kb/operations";
 import { runWithKb } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
+import { bundledSeed } from "@kb/bundled";
 
 // ── fixtures ───────────────────────────────────────────────────────────────
 
@@ -530,7 +530,7 @@ function strs(n: KbNode, field: string): string[] {
 
 describe("ontology seed", () => {
   test("seeds the #ontology tag, six onto.* fields, and three commands", () => {
-    const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
+    const byId = new Map(bundledSeed().map((n) => [n.id, n]));
 
     for (const id of [
       SYSTEM_IDS.ontoIncludeField,
@@ -611,13 +611,13 @@ describe("ontology seed", () => {
   });
 
   test("no default ontology instance is seeded", () => {
-    expect(systemSeedNodes().filter(isOntologyNode)).toEqual([]);
+    expect(bundledSeed().filter(isOntologyNode)).toEqual([]);
   });
 
   test("ensureSystemSeed is idempotent and backfills the tag template", () => {
-    const first = ensureSystemSeed([]);
+    const first = ensureSystemSeed([], bundledSeed());
     expect(first.seeded).toBe(true);
-    const again = ensureSystemSeed(first.nodes);
+    const again = ensureSystemSeed(first.nodes, bundledSeed());
     expect(again.seeded).toBe(false);
     expect(again.nodes.length).toBe(first.nodes.length);
 
@@ -628,7 +628,7 @@ describe("ontology seed", () => {
         ? { ...n, text: "my-ontology", props: { ...n.props, [SYSTEM_IDS.fieldsField]: [] } }
         : n,
     );
-    const healed = ensureSystemSeed(stale);
+    const healed = ensureSystemSeed(stale, bundledSeed());
     expect(healed.seeded).toBe(true);
     const tag = present(
       healed.nodes.find((n) => n.id === SYSTEM_IDS.ontologyTag),
@@ -683,7 +683,7 @@ describe("ontology migration", () => {
     const beforeStripped = new Set(beforeLines.map(strip));
     const added = afterLines.filter((l) => !beforeStripped.has(strip(l)));
     expect(added.length).toBeGreaterThan(0);
-    const seedIds = new Set(systemSeedNodes().map((n) => n.id));
+    const seedIds = new Set(bundledSeed().map((n) => n.id));
     for (const line of added) {
       expect(seedIds.has((JSON.parse(line) as { id: string }).id)).toBe(true);
     }

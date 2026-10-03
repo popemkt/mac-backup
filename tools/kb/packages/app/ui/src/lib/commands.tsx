@@ -570,7 +570,7 @@ function frameViewCommands(ctx: CommandContext): {
         chrome: () => {
           const Icon = picker.icon;
           return {
-            label: `View as: ${picker.label}`,
+            label: `View as: ${key.label}`,
             icon: Icon === undefined ? null : <Icon size={14} weight={picker.iconWeight} />,
           };
         },

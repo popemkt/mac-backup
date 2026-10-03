@@ -12,7 +12,7 @@ import { fieldTypeOf } from "../src/field-type.ts";
 import { EXAMPLE_IDS, exampleSeedNodes, isPristine } from "../src/example.ts";
 import { SYSTEM_IDS, type KbNode } from "../src/model.ts";
 import { resolveOntology } from "../src/ontology.ts";
-import { systemSeedNodes } from "../src/seed.ts";
+import { bundledSeed } from "@kb/bundled";
 
 const byId = () => new Map(exampleSeedNodes().map((n) => [n.id, n]));
 
@@ -32,9 +32,10 @@ describe("example content", () => {
     // Pristine = system seed only. Once anything else is present — including
     // example nodes already added, or a note the owner wrote — init must not
     // add them again, so deleting them makes them stay deleted.
-    expect(isPristine(systemSeedNodes())).toBe(true);
-    expect(isPristine([...systemSeedNodes(), ...exampleSeedNodes()])).toBe(false);
-    expect(isPristine([...systemSeedNodes(), { id: "01SOMETHINGTHEOWNERWROTE" }])).toBe(false);
+    const seed = bundledSeed();
+    expect(isPristine(seed, seed)).toBe(true);
+    expect(isPristine([...seed, ...exampleSeedNodes()], seed)).toBe(false);
+    expect(isPristine([...seed, { id: "01SOMETHINGTHEOWNERWROTE" }], seed)).toBe(false);
   });
 
   test("#task templates a field of every type, and status is an option list", () => {
@@ -113,7 +114,7 @@ describe("example content", () => {
   test("every ref in the example content points at something that exists", () => {
     // A dangling ref in demo content teaches the wrong thing about the model.
     const nodes = exampleSeedNodes();
-    const known = new Set([...nodes.map((n) => n.id), ...systemSeedNodes().map((n) => n.id)]);
+    const known = new Set([...nodes.map((n) => n.id), ...bundledSeed().map((n) => n.id)]);
     for (const node of nodes) {
       for (const [field, values] of Object.entries(node.props)) {
         for (const value of values) {

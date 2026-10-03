@@ -6,13 +6,10 @@
 import { describe, expect, test } from "bun:test";
 import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/model.ts";
 import { cardinalityOf, fieldTypeOf, targetQueryOf } from "../src/field-type.ts";
-import { systemSeedNodes } from "../src/seed.ts";
 import {
   VIEW_FAMILY_VALUES,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
-  VIEW_VALUES,
-  viewValueEntries,
   defaultViewIdOf,
   familyViewIdOf,
   hostViewIds,
@@ -21,23 +18,13 @@ import {
   viewOptionOf,
   viewsWithDefault,
 } from "../src/view-node.ts";
+import { bundledSeed } from "@kb/bundled";
 
-const seed = new Map(systemSeedNodes().map((node) => [node.id, node]));
+const seed = new Map(bundledSeed().map((node) => [node.id, node]));
 const ref = (v: string): PropValue => ({ t: "ref", v });
 const carrying = (props: KbNode["props"]) => ({ props });
 
 describe("view options", () => {
-  test("every view kb provides is one option child of sys.views, carrying its family", () => {
-    const options = seed.get(SYSTEM_IDS.viewsRoot)?.children ?? [];
-    expect(options).toEqual(Object.keys(VIEW_VALUES).map(viewOptionId));
-    for (const [viewId, value] of viewValueEntries()) {
-      const family = seed.get(viewOptionId(viewId))?.props[SYSTEM_IDS.viewFamilyField];
-      expect(family, viewId).toEqual(
-        value.family === undefined ? undefined : [ref(VIEW_FAMILY_VALUES[value.family].id)],
-      );
-    }
-  });
-
   test("sys.f.view is one ref into sys.views; sys.f.views many refs to view nodes", () => {
     const view = seed.get(SYSTEM_IDS.viewField);
     expect(fieldTypeOf(view?.props)).toBe("ref");

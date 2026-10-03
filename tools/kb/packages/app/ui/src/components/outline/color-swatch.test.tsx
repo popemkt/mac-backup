@@ -4,7 +4,7 @@
 import type { KbIndex } from "@/ds";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
-import { fieldTypeOf, systemSeedNodes } from "@kb/model";
+import { fieldTypeOf } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ColorSwatchEditor } from "./field-value";
@@ -14,6 +14,7 @@ import { TAG_PALETTE } from "@/lib/tag-color";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { bundledSeed } from "@kb/bundled";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
@@ -63,7 +64,7 @@ describe("ColorSwatchEditor (i10 item 4)", () => {
     // The hidden flag is a checkbox because its seeded field node says so,
     // not because the field section special-cases its id.
     expect(fields).not.toContain("SYSTEM_IDS.hiddenField");
-    const hidden = systemSeedNodes().find((n) => n.id === SYSTEM_IDS.hiddenField);
+    const hidden = bundledSeed().find((n) => n.id === SYSTEM_IDS.hiddenField);
     expect(fieldTypeOf(hidden?.props)).toBe("checkbox");
   });
 });

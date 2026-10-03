@@ -89,7 +89,7 @@ function readGrant(raw: string | undefined, report: ConfigReport): { grant?: unk
  * (`sys.f.code.grant`, canonical JSON), and whose subject is its
  * `lens.focus`, else the node it is shown for.
  */
-export const CodeView = viewKey(`${CODE_NAMESPACE}.view`, CodeParams, {
+export const CodeView = viewKey(`${CODE_NAMESPACE}.view`, "Code", CodeParams, {
   read: (props, host, report) => {
     const source = firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined;
     return {

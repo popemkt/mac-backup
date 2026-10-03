@@ -15,7 +15,8 @@ import {
   migrateFieldTypeValues,
 } from "../src/field-type.ts";
 import { resolveFieldId } from "../src/resolve.ts";
-import { ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
+import { ensureSystemSeed } from "../src/seed.ts";
+import { bundledSeed } from "@kb/bundled";
 
 function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -23,7 +24,7 @@ function refs(node: KbNode, field: string): string[] {
 
 describe("typed field seeds", () => {
   test("seeds sys.f.fieldType, sys.f.targetTag, sys.f.targetQuery as field nodes", () => {
-    const seed = systemSeedNodes();
+    const seed = bundledSeed();
     const byId = new Map(seed.map((n) => [n.id, n]));
 
     for (const id of [
@@ -55,7 +56,7 @@ describe("typed field seeds", () => {
   });
 
   test("every seeded field declares its value type — none leans on the text default", () => {
-    const fields = systemSeedNodes().filter((n) =>
+    const fields = bundledSeed().filter((n) =>
       refs(n, SYSTEM_IDS.typeField).includes(SYSTEM_IDS.field),
     );
     expect(fields.length).toBeGreaterThan(0);
@@ -72,7 +73,7 @@ describe("typed field seeds", () => {
   test("every field type is a plain child of the type field — no supertag", () => {
     // "text" is not a kind of thing, it is one of the values fieldType may
     // take, so it carries no kind ref at all: being a child says it.
-    const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
+    const byId = new Map(bundledSeed().map((n) => [n.id, n]));
     const slot = present(
       byId.get(SYSTEM_IDS.fieldTypeField),
       "expected byId.get(SYSTEM_IDS.fieldTypeField)",
@@ -91,7 +92,7 @@ describe("typed field seeds", () => {
     // This is what lets the normal ref editor render it: nothing about the
     // type slot is special-cased, it is a ref field whose options are its
     // children — the same declaration a user's own option list makes.
-    const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
+    const byId = new Map(bundledSeed().map((n) => [n.id, n]));
     const slot = present(
       byId.get(SYSTEM_IDS.fieldTypeField),
       "expected byId.get(SYSTEM_IDS.fieldTypeField)",
@@ -104,7 +105,7 @@ describe("typed field seeds", () => {
   test("a field node templates its own schema fields, like a tag does", () => {
     // One rule — surface the fields your kinds and tags template — has to cover
     // field pages too, or they need a bespoke configurator panel.
-    const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
+    const byId = new Map(bundledSeed().map((n) => [n.id, n]));
     expect(
       refs(
         present(byId.get(SYSTEM_IDS.field), "expected byId.get(SYSTEM_IDS.field)"),
@@ -195,15 +196,15 @@ describe("typed field seeds", () => {
   });
 
   test("ensureSystemSeed is idempotent over typed-field nodes", () => {
-    const first = ensureSystemSeed([]);
+    const first = ensureSystemSeed([], bundledSeed());
     expect(first.seeded).toBe(true);
-    const again = ensureSystemSeed(first.nodes);
+    const again = ensureSystemSeed(first.nodes, bundledSeed());
     expect(again.seeded).toBe(false);
     expect(again.nodes.length).toBe(first.nodes.length);
   });
 
   test("resolveFieldId short aliases for typed-field sys nodes", () => {
-    const nodes = systemSeedNodes();
+    const nodes = bundledSeed();
     expect(resolveFieldId(nodes, "fieldType")).toBe(SYSTEM_IDS.fieldTypeField);
     expect(resolveFieldId(nodes, "targetTag")).toBe(SYSTEM_IDS.targetTagField);
     expect(resolveFieldId(nodes, "targetQuery")).toBe(SYSTEM_IDS.targetQueryField);

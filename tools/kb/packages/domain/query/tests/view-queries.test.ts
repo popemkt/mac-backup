@@ -7,15 +7,14 @@ import {
   SYSTEM_IDS,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
-  VIEW_VALUES,
-  viewValueEntries,
+  VIEW_FAMILY_VALUES,
   familyViewNodesQuery,
-  systemSeedNodes,
   viewFamilyTargetQuery,
   viewOptionId,
   type KbNode,
 } from "@kb/model";
 import { DatascriptIndex, parseEdn } from "@kb/query";
+import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-01-01T00:00:00.000Z";
 const viewNode = (id: string, viewId: string): KbNode => ({
@@ -27,8 +26,13 @@ const viewNode = (id: string, viewId: string): KbNode => ({
   updatedAt: AT,
 });
 
+const seed = bundledSeed(AT);
+/** The view options the seed files under `sys.views`. */
+const optionIds = new Set(seed.find((node) => node.id === SYSTEM_IDS.viewsRoot)?.children);
+const options = seed.filter((node) => optionIds.has(node.id));
+
 const index = new DatascriptIndex([
-  ...systemSeedNodes(AT),
+  ...seed,
   viewNode("v.table", "outline.table"),
   viewNode("v.tree", "graph.tree"),
   viewNode("v.nb", "graph.neighbourhood"),
@@ -51,15 +55,17 @@ describe("view queries", () => {
   });
 
   test("sys.f.view may name every view option, and nothing else", () => {
-    expect(ids(VIEW_OPTION_TARGET_QUERY)).toEqual(
-      Object.keys(VIEW_VALUES).map(viewOptionId).toSorted(),
-    );
+    expect(ids(VIEW_OPTION_TARGET_QUERY)).toEqual(options.map((option) => option.id).toSorted());
   });
 
   test("a family's options are exactly the views declared in it", () => {
-    const renderers = viewValueEntries()
-      .filter(([, value]) => value.family === "graph.renderer")
-      .map(([viewId]) => viewOptionId(viewId))
+    const renderers = options
+      .filter(
+        (option) =>
+          option.props[SYSTEM_IDS.viewFamilyField]?.[0]?.v ===
+          VIEW_FAMILY_VALUES["graph.renderer"].id,
+      )
+      .map((option) => option.id)
       .toSorted();
     expect(renderers.length).toBeGreaterThan(0);
     expect(ids(viewFamilyTargetQuery("graph.renderer"))).toEqual(renderers);

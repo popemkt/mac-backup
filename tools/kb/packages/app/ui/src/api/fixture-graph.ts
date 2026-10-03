@@ -1,5 +1,6 @@
 import type { GraphSnapshot, WireNode } from "@kb/contracts";
-import { SYSTEM_IDS, systemSeedNodes } from "@kb/model";
+import { SYSTEM_IDS } from "@kb/model";
+import { bundledSeed } from "@kb/bundled";
 
 const ISO = "2026-08-08T05:00:00.000Z";
 
@@ -15,7 +16,7 @@ function node(
   };
 }
 
-const SEED = new Map(systemSeedNodes(ISO).map((seed) => [seed.id, seed]));
+const SEED = new Map(bundledSeed(ISO).map((seed) => [seed.id, seed]));
 
 /**
  * A system field as the seed declares it.

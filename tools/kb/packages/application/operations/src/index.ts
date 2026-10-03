@@ -19,6 +19,7 @@ export {
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
+export { coreExtension } from "./core-extension.ts";
 export { assetUploadDef, assetUploadEffect, mediaKindFromExt, textHasAssetRef } from "./assets.ts";
 export { GENERATED_HEADER, renderViewEffect } from "./docs/docs.ts";
 export { renderText } from "./docs/text.ts";

@@ -16,8 +16,9 @@ export type CanvasParams = typeof CanvasParams.Type;
 /** Every canvas in the workspace. */
 export const CanvasListView = viewKey(
   `${CANVAS_NAMESPACE}.list`,
+  "Canvases",
   NoParams.annotate({ description: "Every canvas in the workspace. It reads no settings." }),
 );
 
 /** One canvas, which owns its own viewport. */
-export const CanvasView = viewKey(`${CANVAS_NAMESPACE}.page`, CanvasParams);
+export const CanvasView = viewKey(`${CANVAS_NAMESPACE}.page`, "Canvas", CanvasParams);

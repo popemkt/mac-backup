@@ -137,13 +137,7 @@ export {
 } from "./code.ts";
 export { LAB_NAMESPACE, LAB_SCENE_IDS, LabParams, LabView, type LabSceneId } from "./lab.ts";
 export { DOCS_NAMESPACE, DocsMarkdownParams, DocsMarkdownView, docsSpecOf } from "./docs.ts";
-export {
-  VIEW_CATALOG,
-  catalogKeyOf,
-  viewCatalog,
-  viewLabelOf,
-  type ViewCatalogEntry,
-} from "./catalog.ts";
+export { VIEW_CATALOG, catalogKeyOf, viewCatalog, type ViewCatalogEntry } from "./catalog.ts";
 export { viewNodeFor, type ViewNodeProposal } from "./view-node.ts";
 export {
   LAYOUT_NAMESPACE,

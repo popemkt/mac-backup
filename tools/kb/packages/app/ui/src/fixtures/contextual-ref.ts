@@ -22,7 +22,7 @@ function wire(partial: Partial<WireNode> & Pick<WireNode, "id">): WireNode {
   };
 }
 
-/** Mirrors systemSeedNodes(): the ref-typed target field, and nothing else. */
+/** Mirrors the bundled seed: the ref-typed target field, and nothing else. */
 export const REF_SEED_WIRES: WireNode[] = [
   wire({
     id: SYSTEM_IDS.refTargetField,

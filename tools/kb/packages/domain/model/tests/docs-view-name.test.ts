@@ -6,16 +6,11 @@
  * renames, so a store holding a bad name stays editable.
  */
 import { describe, expect, test } from "bun:test";
-import {
-  SYSTEM_IDS,
-  docsViewProps,
-  systemSeedNodes,
-  txIntegrityError,
-  type KbNode,
-} from "../src/index.ts";
+import { SYSTEM_IDS, docsViewProps, txIntegrityError, type KbNode } from "../src/index.ts";
+import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-01-01T00:00:00.000Z";
-const SEED = systemSeedNodes(AT);
+const SEED = bundledSeed(AT);
 
 function docsView(id: string, text: string): KbNode {
   return {

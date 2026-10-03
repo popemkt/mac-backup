@@ -29,9 +29,9 @@ import {
   VIEW_FAMILY_VALUES,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
-  viewValueEntries,
   viewFamilyTargetQuery,
   viewOptionId,
+  type ViewFamily,
 } from "./view-node.ts";
 
 /**
@@ -43,7 +43,12 @@ import {
  */
 export const TEMPLATE_TAGS: readonly string[] = [SYSTEM_IDS.field, SYSTEM_IDS.ontologyTag];
 
-/** Reserved system nodes. Idempotent — same ids every time. */
+/**
+ * Core's system nodes, the seed core's declaration contributes. Idempotent —
+ * same ids every time. A store is never seeded with these alone: it is
+ * seeded with the fold of every bundled declaration ({@link foldSeed}),
+ * core's first, which also derives the view options these nodes refer to.
+ */
 export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const mk = (id: string, text: string, props: KbNode["props"] = {}): KbNode => ({
     id,
@@ -198,7 +203,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * are an option set read by more than one field (`sys.f.view` takes any of
    * them, a renderer choice only the renderers), so they are children of a
    * list node, and each carries its family, which is what a query partitions
-   * them by — the shape of the graph sources.
+   * them by — the shape of the graph sources. The options themselves are not
+   * core's to list: each is derived from a declared view's key when the seed
+   * is folded ({@link foldSeed}), so the list node is seeded empty here.
    */
   const viewFamilyOptions = Object.values(VIEW_FAMILY_VALUES).map((value) =>
     mk(value.id, value.label),
@@ -207,19 +214,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...singleField(SYSTEM_IDS.viewFamilyField, "view.family", "ref"),
     children: viewFamilyOptions.map((option) => option.id),
   };
-  const viewOptions = viewValueEntries().map(([viewId, value]) =>
-    mk(
-      viewOptionId(viewId),
-      value.label,
-      value.family === undefined
-        ? {}
-        : { [SYSTEM_IDS.viewFamilyField]: [{ t: "ref", v: VIEW_FAMILY_VALUES[value.family].id }] },
-    ),
-  );
-  const viewsRoot: KbNode = {
-    ...mk(SYSTEM_IDS.viewsRoot, "View types"),
-    children: viewOptions.map((option) => option.id),
-  };
+  const viewsRoot = mk(SYSTEM_IDS.viewsRoot, "View types");
 
   const refField = (id: string, text: string, targetTag?: string, props: KbNode["props"] = {}) =>
     typedField(id, text, "ref", {
@@ -569,7 +564,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewFamilyField,
     ...viewFamilyOptions,
     viewsRoot,
-    ...viewOptions,
     lensQueryField,
     graphSourceKindField,
     ...sourceKindOptions,
@@ -625,18 +619,82 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
 }
 
 /**
- * Merge seed into existing nodes without overwriting user edits to sys.* text/props.
+ * A view as the seed names it: its id, the label its option node carries,
+ * and the family it is one of. A view's key is one, so the option is derived
+ * from the key and never declared a second time.
+ */
+export interface SeedView {
+  readonly id: string;
+  readonly label: string;
+  readonly family?: ViewFamily | undefined;
+}
+
+/**
+ * What one declaration gives the seed (DESIGN.md → Extension families → the
+ * seed is the bundled fold): its own system nodes under frozen ids, and the
+ * views whose option nodes the fold derives.
+ */
+export interface SeedSource {
+  readonly name: string;
+  readonly seed?: (at: string) => readonly KbNode[];
+  readonly views?: readonly { readonly key: SeedView }[];
+}
+
+/** The option node that names `view` under `sys.views`, carrying its family. */
+function viewOptionNode(view: SeedView, at: string): KbNode {
+  return {
+    id: viewOptionId(view.id),
+    text: view.label,
+    props:
+      view.family === undefined
+        ? {}
+        : { [SYSTEM_IDS.viewFamilyField]: [{ t: "ref", v: VIEW_FAMILY_VALUES[view.family].id }] },
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+}
+
+/**
+ * The seed a store is opened with: every source's nodes, in source order,
+ * and every source's views as option nodes, children of `sys.views` in the
+ * same order and placed right after it. Pure data: it opens nothing, and it
+ * throws on an id two sources declare, because that is a bundling defect no
+ * store can repair.
+ */
+export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()): KbNode[] {
+  const nodes = sources.flatMap((source) => source.seed?.(at) ?? []);
+  const options = sources.flatMap((source) =>
+    (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
+  );
+  const rootAt = nodes.findIndex((node) => node.id === SYSTEM_IDS.viewsRoot);
+  const root = nodes[rootAt];
+  if (root === undefined) throw new Error(`no seed source declares ${SYSTEM_IDS.viewsRoot}`);
+  const folded = [
+    ...nodes.slice(0, rootAt),
+    { ...root, children: [...root.children, ...options.map((option) => option.id)] },
+    ...options,
+    ...nodes.slice(rootAt + 1),
+  ];
+  const seen = new Set<string>();
+  for (const node of folded) {
+    if (seen.has(node.id)) throw new Error(`seed id ${node.id} is declared twice`);
+    seen.add(node.id);
+  }
+  return folded;
+}
+
+/**
+ * Merge `seed` (the fold of the bundled declarations, {@link foldSeed}) into
+ * existing nodes without overwriting user edits to sys.* text/props.
  *
  * Also migrates the legacy default perspective `sys.lens.all-mentions` →
  * `lens.all-mentions` (user-editable). If both exist, drop the legacy id;
  * if only legacy exists, rename in place preserving text/props.
- *
- * It seeds core's table, not a fold of the bundled extensions' seeds:
- * GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]]
  */
 export function ensureSystemSeed(
   nodes: KbNode[],
-  at: string = nowIso(),
+  seed: readonly KbNode[],
 ): {
   nodes: KbNode[];
   seeded: boolean;
@@ -665,11 +723,11 @@ export function ensureSystemSeed(
 
   const seedById = new Map<string, KbNode>();
   const seedTemplateTags = new Map<string, KbNode>();
-  for (const seed of systemSeedNodes(at)) {
-    seedById.set(seed.id, seed);
-    if (TEMPLATE_TAGS.includes(seed.id)) seedTemplateTags.set(seed.id, seed);
-    if (!byId.has(seed.id)) {
-      byId.set(seed.id, seed);
+  for (const node of seed) {
+    seedById.set(node.id, node);
+    if (TEMPLATE_TAGS.includes(node.id)) seedTemplateTags.set(node.id, node);
+    if (!byId.has(node.id)) {
+      byId.set(node.id, node);
       seeded = true;
     }
   }
@@ -711,12 +769,12 @@ export function ensureSystemSeed(
    * never had from one its owner unset, so an unset seeded key comes back on
    * the next open.
    */
-  for (const seed of seedById.values()) {
-    const existing = byId.get(seed.id);
-    if (existing === undefined || existing === seed) continue;
-    const absent = Object.entries(seed.props).filter(([field]) => !(field in existing.props));
+  for (const declared of seedById.values()) {
+    const existing = byId.get(declared.id);
+    if (existing === undefined || existing === declared) continue;
+    const absent = Object.entries(declared.props).filter(([field]) => !(field in existing.props));
     if (absent.length === 0) continue;
-    byId.set(seed.id, {
+    byId.set(declared.id, {
       ...existing,
       props: { ...existing.props, ...Object.fromEntries(absent) },
     });

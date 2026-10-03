@@ -5,7 +5,7 @@ import type { FileSystem } from "effect/FileSystem";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SYSTEM_IDS, fieldTypeValue, systemSeedNodes, type KbTx, type PropValue } from "@kb/model";
+import { SYSTEM_IDS, fieldTypeValue, type KbTx, type PropValue } from "@kb/model";
 import { DatascriptIndex } from "@kb/query";
 import {
   STORE_BACKENDS,
@@ -15,6 +15,7 @@ import {
   bunFileSystemLayer,
 } from "@kb/runtime";
 import { KbClientError, openClient, type KbNode } from "../src/index.ts";
+import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-09-19T00:00:00.000Z";
 const roots: string[] = [];
@@ -230,7 +231,7 @@ describe.each([...STORE_BACKENDS])("over a %s store", (backend) => {
     };
     const seeded = await client.commit({
       expectedRevision: empty.revision,
-      upserts: [...systemSeedNodes(AT), estimate],
+      upserts: [...bundledSeed(AT), estimate],
       deletes: [],
     });
     const task = (value: PropValue): KbNode => ({

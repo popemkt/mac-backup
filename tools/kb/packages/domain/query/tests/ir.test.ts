@@ -13,7 +13,8 @@ import {
 } from "@kb/query";
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
-import { systemSeedNodes, type KbNode } from "@kb/model";
+import type { KbNode } from "@kb/model";
+import { bundledSeed } from "@kb/bundled";
 
 function indexFor(nodes: KbNode[]): DatascriptIndex {
   return new DatascriptIndex(nodes);
@@ -98,7 +99,7 @@ describe("parseEdn subset vs raw", () => {
 
 describe("compile(parse(edn)) is query-equivalent", () => {
   const index = indexFor([
-    ...systemSeedNodes(AT),
+    ...bundledSeed(AT),
     node("n.todo", {
       text: "a todo",
       props: { "sys.f.type": [{ t: "ref", v: "sys.tag" }] },

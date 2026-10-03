@@ -10,8 +10,8 @@ import {
   approvalPolicyNode,
 } from "../src/approval-policy.ts";
 import { SYSTEM_IDS, type KbNode } from "../src/model.ts";
-import { systemSeedNodes } from "../src/seed.ts";
 import { viewOptionId } from "../src/view-node.ts";
+import { bundledSeed } from "@kb/bundled";
 
 const node = (id: string, props: KbNode["props"] = {}): KbNode => ({
   id,
@@ -63,7 +63,7 @@ describe("approval policies", () => {
   });
 
   test("the seed tags its vocabulary as options and asks an agent or a script before a delete or a rewrite", () => {
-    const seed = systemSeedNodes();
+    const seed = bundledSeed();
     const byId = new Map(seed.map((seeded) => [seeded.id, seeded]));
     expect(byId.get(SYSTEM_IDS.approvalActorField)?.children).toEqual(
       Object.values(ACTOR_OPTION_IDS),
@@ -86,7 +86,7 @@ describe("approval policies", () => {
   });
 
   test("the policies are managed in a table view of that query, pinned in the sidebar", () => {
-    const byId = new Map(systemSeedNodes().map((seeded) => [seeded.id, seeded]));
+    const byId = new Map(bundledSeed().map((seeded) => [seeded.id, seeded]));
     const host = byId.get(SYSTEM_IDS.approvalPolicies);
     expect(host?.props[SYSTEM_IDS.viewsField]).toEqual([
       { t: "ref", v: SYSTEM_IDS.approvalPoliciesView },

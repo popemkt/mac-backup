@@ -25,7 +25,6 @@ import { present } from "./present.ts";
 import { fieldTypeValue } from "./field-type.ts";
 import { SYSTEM_IDS, type KbNode, nowIso } from "./model.ts";
 import { ranksFor } from "./order.ts";
-import { systemSeedNodes } from "./seed.ts";
 
 export const EXAMPLE_IDS = {
   project: "ex.project",
@@ -228,11 +227,15 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
  * a store, so re-running init can neither resurrect deleted examples nor bury
  * real notes under them.
  *
- * Derived from the seed rather than a hardcoded id list: the seed already owns
- * which ids it creates, including the non-`sys.` ones like the default graph
- * perspective, and a second list here would only drift out of step with it.
+ * Read against `seed`, the seed the store was opened with (the bundled fold),
+ * rather than a hardcoded id list: the seed already owns which ids it
+ * creates, including the non-`sys.` ones like the default graph perspective,
+ * and a second list here would only drift out of step with it.
  */
-export function isPristine(nodes: readonly { id: string }[]): boolean {
-  const seeded = new Set(systemSeedNodes().map((n) => n.id));
+export function isPristine(
+  nodes: readonly { id: string }[],
+  seed: readonly { id: string }[],
+): boolean {
+  const seeded = new Set(seed.map((n) => n.id));
   return nodes.every((n) => seeded.has(n.id));
 }

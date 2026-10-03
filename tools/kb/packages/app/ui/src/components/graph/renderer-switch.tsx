@@ -24,7 +24,7 @@ export function RendererSwitch({ value, onChange, className }: RendererSwitchPro
       data-renderer-switch="true"
       data-active-renderer={active === undefined ? undefined : localIdOf(active)}
     >
-      {renderers.map(({ key, picker }) => {
+      {renderers.map(({ key }) => {
         const name = localIdOf(key);
         return (
           <button
@@ -41,7 +41,7 @@ export function RendererSwitch({ value, onChange, className }: RendererSwitchPro
               if (key.option !== value) onChange(key.option);
             }}
           >
-            {picker.label}
+            {key.label}
           </button>
         );
       })}

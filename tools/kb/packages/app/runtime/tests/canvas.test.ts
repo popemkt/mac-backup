@@ -18,9 +18,10 @@ import {
   type CanvasEdge,
 } from "@kb/canvas";
 import { openKb } from "../src/session.ts";
-import { ensureSystemSeed, fieldTypeValue, present, SYSTEM_IDS, systemSeedNodes } from "@kb/model";
+import { ensureSystemSeed, fieldTypeValue, present, SYSTEM_IDS } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
+import { bundledSeed } from "@kb/bundled";
 
 let roots: string[] = [];
 
@@ -55,7 +56,7 @@ afterEach(async () => {
 
 describe("C1 seed: canvas tag + field", () => {
   test("seeds sys.tag.canvas templating sys.f.canvas", () => {
-    const seed = systemSeedNodes();
+    const seed = bundledSeed();
     const byId = new Map(seed.map((n) => [n.id, n]));
     const tag = byId.get(SYSTEM_IDS.canvasTag);
     expect(tag).toBeDefined();
@@ -74,9 +75,9 @@ describe("C1 seed: canvas tag + field", () => {
   });
 
   test("ensureSystemSeed is idempotent over canvas nodes", () => {
-    const first = ensureSystemSeed([]);
+    const first = ensureSystemSeed([], bundledSeed());
     expect(first.seeded).toBe(true);
-    const again = ensureSystemSeed(first.nodes);
+    const again = ensureSystemSeed(first.nodes, bundledSeed());
     expect(again.seeded).toBe(false);
   });
 });

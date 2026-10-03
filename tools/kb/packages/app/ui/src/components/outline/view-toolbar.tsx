@@ -83,7 +83,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
           onClick={(e) => handleSelect(option, e)}
         >
           <span>{picker.glyph}</span>
-          <span>{picker.label}</span>
+          <span>{option.label}</span>
         </button>
       ))}
       <button

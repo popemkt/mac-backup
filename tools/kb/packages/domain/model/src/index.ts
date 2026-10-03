@@ -125,7 +125,8 @@ export {
   schemaToJsonSchema,
 } from "./schema-seam.ts";
 export type { ActionSchema } from "./schema-seam.ts";
-export { ensureSystemSeed, systemSeedNodes } from "./seed.ts";
+export { ensureSystemSeed, foldSeed, systemSeedNodes } from "./seed.ts";
+export type { SeedSource, SeedView } from "./seed.ts";
 export { applyTx, diffTx, txIntegrityError } from "./tx.ts";
 export type { KbTx, StoreTx } from "./tx.ts";
 
@@ -148,7 +149,6 @@ export {
   VIEW_FAMILY_VALUES,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
-  VIEW_VALUES,
   defaultViewIdOf,
   familyViewIdOf,
   docsViewNameError,
@@ -163,9 +163,8 @@ export {
   viewIdOfOption,
   viewOptionId,
   viewOptionOf,
-  viewValueEntries,
 } from "./view-node.ts";
-export type { DocsViewSpec, ViewFamily, ViewId } from "./view-node.ts";
+export type { DocsViewSpec, ViewFamily } from "./view-node.ts";
 export {
   LEGACY_PERSPECTIVE_TAG,
   LEGACY_VIEW_MODE_FIELD,

@@ -17,7 +17,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Effect, Result, Schema } from "effect";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { definePlugin, makeKernel, type Plugin, type ContributionEntry } from "@kb/plugin";
-import { SYSTEM_IDS, VIEW_FAMILY_VALUES, systemSeedNodes } from "@kb/model";
+import { SYSTEM_IDS, VIEW_FAMILY_VALUES } from "@kb/model";
 import { ViewSlot } from "@/components/ui/view-slot";
 import { setPostAction } from "@/api/action";
 import { keptLoad } from "@/lib/kept-load";
@@ -34,6 +34,7 @@ import { MAX_VIEW_DEPTH } from "@/lib/view-key";
 import { NoParams, VIEW_CATALOG, localIdOf, viewKey } from "@kb/views";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS } from "@/ui-plugins";
+import { bundledSeed } from "@kb/bundled";
 
 const ALL_PLUGINS: readonly Plugin[] = [
   ...BUILTIN_UI_PLUGINS,
@@ -48,7 +49,7 @@ const VIEWS = (() => {
 })();
 
 /** The seeded nodes, by id: where every view's option must be. */
-const SEED = new Map(systemSeedNodes().map((node) => [node.id, node]));
+const SEED = new Map(bundledSeed().map((node) => [node.id, node]));
 
 const others = (owner: string) => ALL_PLUGINS.filter((plugin) => plugin.name !== owner);
 
@@ -285,9 +286,9 @@ describe("view contract", () => {
   );
 
   describe("the slot", () => {
-    const KEY = viewKey("contract.view", NoParams);
-    const OTHER = viewKey("contract.other", NoParams);
-    const TREE = viewKey("contract.tree", Schema.Struct({ level: Schema.Number }));
+    const KEY = viewKey("contract.view", "Contract view", NoParams);
+    const OTHER = viewKey("contract.other", "Contract other", NoParams);
+    const TREE = viewKey("contract.tree", "Contract tree", Schema.Struct({ level: Schema.Number }));
     const DEEP = MAX_VIEW_DEPTH + 3;
 
     /** A view that shows itself again under it, for the next subject, down to `DEEP`. */

@@ -5,14 +5,7 @@
  * `sys.f.views` and touches no other host.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  SYSTEM_IDS,
-  defaultViewIdOf,
-  hostViewIds,
-  present,
-  systemSeedNodes,
-  viewOptionId,
-} from "@kb/model";
+import { SYSTEM_IDS, defaultViewIdOf, hostViewIds, present, viewOptionId } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
@@ -29,6 +22,7 @@ import {
   viewTargetFrameId,
   type CommandContext,
 } from "@/lib/commands";
+import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-09-30T00:00:00.000Z";
 
@@ -39,7 +33,7 @@ function wire(id: string, text: string, props: WireNode["props"]): WireNode {
 const ref = (v: string) => ({ t: "ref" as const, v });
 
 function graph(): WireNode[] {
-  const seeded: WireNode[] = systemSeedNodes().map((n) => ({ ...n }));
+  const seeded: WireNode[] = bundledSeed().map((n) => ({ ...n }));
   const seededIds = new Set(seeded.map((n) => n.id));
   const names = { [SYSTEM_IDS.viewsField]: [ref("v.table"), ref("v.board")] };
   return [

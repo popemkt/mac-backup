@@ -9,13 +9,7 @@
  * to an argument.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  SYSTEM_IDS,
-  defaultViewIdOf,
-  systemSeedNodes,
-  viewOptionId,
-  viewOptionOf,
-} from "@kb/model";
+import { SYSTEM_IDS, defaultViewIdOf, viewOptionId, viewOptionOf } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
@@ -29,6 +23,7 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { syncUiPlugins } from "@/lib/plugins";
+import { bundledSeed } from "@kb/bundled";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
@@ -56,7 +51,7 @@ async function run(commandId: string): Promise<void> {
  * seeded roots and write seeded fields, so a partial graph would report a
  * routing failure that is really a missing node. */
 function seedGraph(): WireNode[] {
-  const seeded: WireNode[] = systemSeedNodes().map((n) => ({ ...n }));
+  const seeded: WireNode[] = bundledSeed().map((n) => ({ ...n }));
   const seededIds = new Set(seeded.map((n) => n.id));
   // The saved-query root is created on demand, not seeded; `zoomTo` refuses an
   // id the node map does not hold, so the row has to be here to be reachable.

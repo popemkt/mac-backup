@@ -1428,9 +1428,9 @@ component. That is how the ontology embeds the graph and the outline
 config. A family's key extends `ViewKey` under a discriminant, `family`
 (`graph.renderer`, `outline.frame`), with what that host must know before it
 renders one; keys are data (`@kb/views` knows no kernel, React or
-store). How a picker names a view (`picker`: its label, its `order` among the
-family, and where the family has them a glyph, an icon and a `sys.command`
-node) is presentation, so it is part of the view's contribution, not of its
+store). A picker names a view by its key's `label`; how it shows it
+(`picker`: its `order` among the family, and where the family has them a
+glyph, an icon and a `sys.command` node) is presentation, so it is part of the view's contribution, not of its
 key; `provideView` requires it for a key with a `family`, and takes none
 for a key without. A family is enumerated one way: `familyViews` over `ViewPoint`, which
 keeps the views of that family that are provided, in `picker.order`. While

@@ -15,7 +15,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { isQueryNode, systemSeedNodes } from "@kb/model";
+import { isQueryNode } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { nodeCandidates } from "@/lib/refs";
 import type * as Refs from "@/lib/refs";
@@ -29,6 +29,7 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { outlineUiPlugin } from "./plugin";
 import { FrameViewSlot } from "./frame-view-slot";
+import { bundledSeed } from "@kb/bundled";
 
 vi.mock("@/lib/refs", async (importOriginal) => {
   const actual = await importOriginal<typeof Refs>();
@@ -56,7 +57,7 @@ function wire(id: string, text: string, children: string[] = []): WireNode {
 function graph(): WireNode[] {
   const kids = Array.from({ length: CHILDREN }, (_, i) => wire(`n.kid-${i}`, `Kid ${i}`));
   return [
-    ...systemSeedNodes(ISO).filter((node) => !isQueryNode(node)),
+    ...bundledSeed(ISO).filter((node) => !isQueryNode(node)),
     wire(
       "n.parent",
       "Parent",

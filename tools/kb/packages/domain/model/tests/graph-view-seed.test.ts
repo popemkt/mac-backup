@@ -6,9 +6,10 @@
 import { describe, expect, test } from "bun:test";
 import { present } from "../src/present.ts";
 import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode } from "../src/model.ts";
-import { ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
+import { ensureSystemSeed } from "../src/seed.ts";
 import { viewFamilyTargetQuery, viewOptionId } from "../src/view-node.ts";
 import { targetQueryOf } from "../src/field-type.ts";
+import { bundledSeed } from "@kb/bundled";
 
 function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -16,7 +17,7 @@ function refs(node: KbNode, field: string): string[] {
 
 describe("the graph's seed", () => {
   test("seeds the lens fields, and All mentions as a view node naming the 2D renderer", () => {
-    const seed = systemSeedNodes();
+    const seed = bundledSeed();
     const byId = new Map(seed.map((n) => [n.id, n]));
 
     for (const id of [
@@ -62,15 +63,15 @@ describe("the graph's seed", () => {
   });
 
   test("no #graph-perspective tag is seeded: a graph is a view node", () => {
-    const ids = new Set(systemSeedNodes().map((n) => n.id));
+    const ids = new Set(bundledSeed().map((n) => n.id));
     expect(ids.has("sys.tag.graph-perspective")).toBe(false);
     expect([...ids].some((id) => id.startsWith("sys.graph.renderer."))).toBe(false);
   });
 
   test("ensureSystemSeed is idempotent over lens nodes", () => {
-    const first = ensureSystemSeed([]);
+    const first = ensureSystemSeed([], bundledSeed());
     expect(first.seeded).toBe(true);
-    const again = ensureSystemSeed(first.nodes);
+    const again = ensureSystemSeed(first.nodes, bundledSeed());
     expect(again.seeded).toBe(false);
     expect(again.nodes.length).toBe(first.nodes.length);
   });
@@ -85,7 +86,7 @@ describe("the graph's seed", () => {
       createdAt: at,
       updatedAt: at,
     };
-    const result = ensureSystemSeed([legacy]);
+    const result = ensureSystemSeed([legacy], bundledSeed());
     expect(result.seeded).toBe(true);
     expect(result.deletes).toEqual([LEGACY_LENS_ALL_MENTIONS]);
     const byId = new Map(result.nodes.map((n) => [n.id, n]));

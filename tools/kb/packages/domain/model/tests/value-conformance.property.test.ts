@@ -15,7 +15,6 @@ import {
   SYSTEM_IDS,
   acceptsValueKind,
   fieldTypeValue,
-  systemSeedNodes,
   txIntegrityError,
   type FieldType,
   type KbNode,
@@ -23,6 +22,7 @@ import {
 } from "../src/index.ts";
 import { normalizeUrl, valueConformanceError } from "../src/field-value.ts";
 import { parseDay } from "../src/local-date.ts";
+import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -89,7 +89,7 @@ describe("written values conform to their field", () => {
       deletes: [],
     };
     // Over the seed: writing a field node writes its own sys.f.fieldType value.
-    expect(txIntegrityError(systemSeedNodes(AT), tx)).toBeNull();
+    expect(txIntegrityError(bundledSeed(AT), tx)).toBeNull();
   });
 
   test("a ref to a node the same transaction deletes is refused", () => {
@@ -113,7 +113,7 @@ describe("written values conform to their field", () => {
   });
 
   test("every value the seed writes conforms to the field it is under", () => {
-    const seed = systemSeedNodes(AT);
+    const seed = bundledSeed(AT);
     const byId = new Map(seed.map((n) => [n.id, n]));
     const failures = seed.flatMap((n) =>
       Object.entries(n.props).flatMap(([fieldId, values]) =>

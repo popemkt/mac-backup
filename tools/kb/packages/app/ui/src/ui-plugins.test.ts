@@ -83,7 +83,7 @@ describe("built-in routes", () => {
       const matched = matchRoute(kernel.contributions(RoutePoint), path);
       expect(matched, path).not.toBeNull();
       expect(
-        findView(views, matched?.view ?? viewKey("none.none", NoParams))?.placements,
+        findView(views, matched?.view ?? viewKey("none.none", "None", NoParams))?.placements,
       ).toContain("page");
     }
   });

@@ -1,23 +1,25 @@
 /**
- * The view catalog is the keys, described: one entry per view the seed names
- * an option for, each entry's settings derived from its key's params, so an
- * agent reading `kb.manifest` reads exactly what a host decodes.
+ * The view catalog is the keys, described: one entry per key, each entry's
+ * label, family and settings derived from the key, so an agent reading
+ * `kb.manifest` reads exactly what a host decodes. That the seed names each
+ * key's option is the seed fold's property (`@kb/bundled`'s tests).
  */
 import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
-import { viewOptionId, viewValueEntries } from "@kb/model";
+import { viewOptionId } from "@kb/model";
 import { VIEW_CATALOG, catalogKeyOf, paramsIssues, viewCatalog } from "@kb/views";
 
-describe("view catalog", () => {
-  test("lists one key per view the seed names, in its order, each under its own option", () => {
-    const ids: string[] = VIEW_CATALOG.map((key) => key.id);
-    expect(ids).toEqual(viewValueEntries().map(([id]) => id));
-    for (const key of VIEW_CATALOG) expect(key.option).toBe(viewOptionId(key.id));
-  });
+/** What names a view: its id, its label and its family. */
+const named = (entry: { id: string; label: string; family?: string | undefined }) => [
+  entry.id,
+  entry.label,
+  entry.family,
+];
 
-  test("a key's family is the family its option is seeded in", () => {
-    const values = new Map(viewValueEntries());
-    for (const key of VIEW_CATALOG) expect(key.family).toBe(values.get(key.id)?.family);
+describe("view catalog", () => {
+  test("lists one entry per key, under its own option, named by its key", () => {
+    expect(viewCatalog().map(named)).toEqual(VIEW_CATALOG.map(named));
+    for (const key of VIEW_CATALOG) expect(key.option).toBe(viewOptionId(key.id));
   });
 
   test("every entry states its settings as a JSON Schema with a description", () => {

@@ -43,6 +43,7 @@ import {
   resolveTagId,
 } from "@kb/model";
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
+import { bundledSeed } from "@kb/bundled";
 import { formatMode, formatReceipt } from "./format.ts";
 import {
   fieldsNeedingCreate,
@@ -431,7 +432,7 @@ function buildProgram(): Command {
            * only fills a store nobody has put anything into yet.
            */
           let examples = 0;
-          if (opts.bare !== true && isPristine(ctx.nodes)) {
+          if (opts.bare !== true && isPristine(ctx.nodes, bundledSeed())) {
             const nodes = exampleSeedNodes(yield* currentIso);
             yield* persistEffect(ctx, { upserts: nodes, deletes: [] }).pipe(
               Effect.provide(kbRuntimeLayer(ctx)),

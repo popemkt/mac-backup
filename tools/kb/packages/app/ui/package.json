@@ -22,6 +22,7 @@
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/outfit": "catalog:",
     "@kb/agent": "workspace:*",
+    "@kb/bundled": "workspace:*",
     "@kb/canvas": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",

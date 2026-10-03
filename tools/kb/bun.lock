@@ -22,6 +22,18 @@
         "vite-plus": "catalog:",
       },
     },
+    "packages/app/bundled": {
+      "name": "@kb/bundled",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/operations": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/app/cli": {
       "name": "@kb/cli",
       "version": "0.0.0",
@@ -31,6 +43,7 @@
       "dependencies": {
         "@kb/agent": "workspace:*",
         "@kb/agent-claude": "workspace:*",
+        "@kb/bundled": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/ext-check": "workspace:*",
         "@kb/ext-docs": "workspace:*",
@@ -63,6 +76,7 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/bundled": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -88,6 +102,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@effect/platform-bun": "catalog:",
+        "@kb/bundled": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/ext-canvas": "workspace:*",
         "@kb/ext-check": "workspace:*",
@@ -129,6 +144,7 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/bundled": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
@@ -138,6 +154,7 @@
       "name": "@kb/test-kit",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/bundled": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
@@ -161,6 +178,7 @@
         "@fontsource-variable/inter": "catalog:",
         "@fontsource-variable/outfit": "catalog:",
         "@kb/agent": "workspace:*",
+        "@kb/bundled": "workspace:*",
         "@kb/canvas": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
@@ -257,6 +275,7 @@
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
+        "@kb/views": "workspace:*",
         "effect": "catalog:",
         "zod": "catalog:",
       },
@@ -301,6 +320,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@kb/bundled": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
@@ -325,6 +345,7 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/bundled": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
@@ -520,6 +541,7 @@
         "@kb/server": "workspace:*",
       },
       "devDependencies": {
+        "@kb/bundled": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
@@ -845,6 +867,8 @@
     "@kb/agent": ["@kb/agent@workspace:packages/extension/agent"],
 
     "@kb/agent-claude": ["@kb/agent-claude@workspace:packages/extension/agent-claude"],
+
+    "@kb/bundled": ["@kb/bundled@workspace:packages/app/bundled"],
 
     "@kb/canvas": ["@kb/canvas@workspace:packages/extension/canvas"],
 

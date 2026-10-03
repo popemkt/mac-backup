@@ -24,14 +24,9 @@ import {
   parsePropArg,
   UsageError,
 } from "@kb/operations";
-import {
-  SYSTEM_IDS,
-  fieldTypeValue,
-  systemSeedNodes,
-  type FieldType,
-  type KbNode,
-} from "@kb/model";
+import { SYSTEM_IDS, fieldTypeValue, type FieldType, type KbNode } from "@kb/model";
 import { main } from "../src/cli.ts";
+import { bundledSeed } from "@kb/bundled";
 
 describe("arg → invocation mapping", () => {
   test("mapAdd builds node.add input", () => {
@@ -171,7 +166,7 @@ describe("arg → invocation mapping", () => {
       createdAt: "",
       updatedAt: "",
     };
-    const typeOf = declaredTypes([...systemSeedNodes(), estimate]);
+    const typeOf = declaredTypes([...bundledSeed(), estimate]);
     expect(typeOf("estimate")).toBe("number");
     expect(typeOf("f.estimate")).toBe("number");
     expect(typeOf("type")).toBe("ref");

@@ -16,6 +16,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@kb/bundled": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:",
     "fast-check": "catalog:"

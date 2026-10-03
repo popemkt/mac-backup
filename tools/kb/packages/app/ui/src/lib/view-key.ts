@@ -9,14 +9,14 @@ import type { Icon, IconWeight } from "@phosphor-icons/react";
 import type { ViewKey } from "@kb/views";
 
 /**
- * How a picker names a view of a family: part of the view's contribution, not
- * of its key, because it is presentation. `order` is where it sits among its
- * family (lower first); `glyph` is the toolbar's text mark, `icon` the menu's,
- * and `command` the `sys.command` node that switches to it, where the family
- * has those.
+ * How a picker shows a view of a family: part of the view's contribution, not
+ * of its key, because it is presentation. The picker names it by its key's
+ * `label`, the name the seed gives its option. `order` is where it sits among
+ * its family (lower first); `glyph` is the toolbar's text mark, `icon` the
+ * menu's, and `command` the `sys.command` node that switches to it, where the
+ * family has those.
  */
 export interface ViewPicker {
-  readonly label: string;
   readonly order: number;
   readonly glyph?: string;
   readonly icon?: Icon;

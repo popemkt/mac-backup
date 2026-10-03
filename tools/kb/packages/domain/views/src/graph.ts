@@ -23,7 +23,7 @@ export const GraphParams = Schema.Struct({
 export type GraphParams = typeof GraphParams.Type;
 
 /** The graph: its page at `/graph[/<perspective>]`, and what an ontology's graph view embeds. */
-export const GraphView = viewKey(`${GRAPH_NAMESPACE}.page`, GraphParams);
+export const GraphView = viewKey(`${GRAPH_NAMESPACE}.page`, "Graph", GraphParams);
 
 /**
  * A node's neighbourhood: the nodes within `hops` of `root` along `edges`, in
@@ -50,20 +50,25 @@ export type NeighbourhoodParams = typeof NeighbourhoodParams.Type;
  * empty focus means the node it is shown for; `lens.hops` (1 when absent),
  * `lens.edge-kinds`, `lens.renderer` and the renderer's settings.
  */
-export const NeighbourhoodView = viewKey(`${GRAPH_NAMESPACE}.neighbourhood`, NeighbourhoodParams, {
-  read: (props, host, report) => {
-    const lens = decodeLensConfig(props, report);
-    return {
-      root: lens.focus ?? host ?? undefined,
-      hops: lens.hops ?? 1,
-      edges: lens.edgeKinds,
-      renderer: lens.renderer,
-      settings: lens,
-    };
+export const NeighbourhoodView = viewKey(
+  `${GRAPH_NAMESPACE}.neighbourhood`,
+  "Neighbourhood",
+  NeighbourhoodParams,
+  {
+    read: (props, host, report) => {
+      const lens = decodeLensConfig(props, report);
+      return {
+        root: lens.focus ?? host ?? undefined,
+        hops: lens.hops ?? 1,
+        edges: lens.edgeKinds,
+        renderer: lens.renderer,
+        settings: lens,
+      };
+    },
+    write: ({ root, hops, edges, renderer, settings }) =>
+      encodeLensConfig({ ...settings, focus: root, hops, edgeKinds: edges, renderer }),
   },
-  write: ({ root, hops, edges, renderer, settings }) =>
-    encodeLensConfig({ ...settings, focus: root, hops, edgeKinds: edges, renderer }),
-});
+);
 
 /**
  * What the shared frame chrome may drive for a renderer.
@@ -116,12 +121,13 @@ type RendererName = "force2d" | "tree" | "cluster" | "force3d" | "treemap";
 
 function rendererKey<P extends LensWrite>(
   name: RendererName,
+  label: string,
   params: RendererKey<P>["params"],
   traits: RendererTraits,
 ): RendererKey<P> {
   return {
     // A renderer's settings are the lens props of the perspective it draws.
-    ...viewKey<P>(`${GRAPH_NAMESPACE}.${name}`, params, {
+    ...viewKey<P>(`${GRAPH_NAMESPACE}.${name}`, label, params, {
       read: (props, _host, report) => decodeLensConfig(props, report),
       // A renderer writes the settings it draws with; the lens it draws (query,
       // mappings, edge kinds) is no renderer's params, so a proposal cannot set it.
@@ -153,6 +159,7 @@ const standard: RendererCapabilities = {
 /** Force-directed 2D, on sigma. */
 export const Force2dView = rendererKey(
   "force2d",
+  "2D",
   Schema.Struct({
     layout: LENS_SETTINGS.layout,
     labelDensity: LENS_SETTINGS.labelDensity,
@@ -169,6 +176,7 @@ export const Force2dView = rendererKey(
 /** A spanning tree of the chosen edges. */
 export const TreeView = rendererKey(
   "tree",
+  "Tree",
   Schema.Struct({ showLabels: LENS_SETTINGS.showLabels }).annotate({
     description: rendererDescription("A spanning tree of the chosen edges"),
   }),
@@ -181,6 +189,7 @@ export const TreeView = rendererKey(
 /** The 2D force layout, grouped into hulls. */
 export const ClusterView = rendererKey(
   "cluster",
+  "Cluster",
   Schema.Struct({
     labelDensity: LENS_SETTINGS.labelDensity,
     showLabels: LENS_SETTINGS.showLabels,
@@ -196,6 +205,7 @@ export const ClusterView = rendererKey(
 /** Force-directed 3D, on the scene kit. */
 export const Force3dView = rendererKey(
   "force3d",
+  "3D",
   Schema.Struct({
     spread: LENS_SETTINGS.spread,
     linkDistance: LENS_SETTINGS.linkDistance,
@@ -215,6 +225,7 @@ export const Force3dView = rendererKey(
 /** Area by the size encoding, boxed by the group encoding. */
 export const TreemapView = rendererKey(
   "treemap",
+  "Treemap",
   Schema.Struct({ showLabels: LENS_SETTINGS.showLabels }).annotate({
     description: rendererDescription("Area by the size encoding, boxed by the group encoding"),
   }),

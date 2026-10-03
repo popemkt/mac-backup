@@ -36,53 +36,6 @@ export const VIEW_FAMILY_VALUES = {
 } as const;
 export type ViewFamily = keyof typeof VIEW_FAMILY_VALUES;
 
-interface ViewValue {
-  readonly label: string;
-  readonly family?: ViewFamily;
-}
-
-/**
- * Every view kb provides, by view id: what the seed makes one option node of,
- * under `sys.views`. The view contract holds each provided view's key to an
- * entry here with the same family, so a key and its option cannot drift.
- *
- * The seed lives here, not with each plugin, because the store is seeded on
- * open and the plugins that own these views load in the browser.
- * GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]
- */
-export const VIEW_VALUES = {
-  "outline.main": { label: "Outline" },
-  "outline.list": { label: "List", family: "outline.frame" },
-  "outline.table": { label: "Table", family: "outline.frame" },
-  "outline.board": { label: "Board", family: "outline.frame" },
-  "outline.cards": { label: "Cards", family: "outline.frame" },
-  "outline.snippet": { label: "Outline snippet" },
-  "graph.page": { label: "Graph" },
-  "graph.force2d": { label: "2D", family: "graph.renderer" },
-  "graph.tree": { label: "Tree", family: "graph.renderer" },
-  "graph.cluster": { label: "Cluster", family: "graph.renderer" },
-  "graph.force3d": { label: "3D", family: "graph.renderer" },
-  "graph.treemap": { label: "Treemap", family: "graph.renderer" },
-  "graph.neighbourhood": { label: "Neighbourhood" },
-  "ontology.list": { label: "Ontologies" },
-  "ontology.scope": { label: "Ontology" },
-  "canvas.list": { label: "Canvases" },
-  "canvas.page": { label: "Canvas" },
-  "lab.page": { label: "Lab" },
-  "docs.markdown": { label: "Markdown document" },
-  "layout.grid": { label: "Layout" },
-  "layout.node": { label: "Node" },
-  "chart.vega-lite": { label: "Chart" },
-  "code.view": { label: "Code" },
-} as const satisfies Readonly<Record<string, ViewValue>>;
-export type ViewId = keyof typeof VIEW_VALUES;
-
-/** Every view kb provides, as `[view id, value]` pairs in declared order. */
-export function viewValueEntries(): readonly (readonly [string, ViewValue])[] {
-  const values: Readonly<Record<string, ViewValue>> = VIEW_VALUES;
-  return Object.entries(values);
-}
-
 /** The view an option node names, back from its id, or null for any other node. */
 export function viewIdOfOption(option: NodeId): string | null {
   return option.startsWith(VIEW_OPTION_PREFIX) ? option.slice(VIEW_OPTION_PREFIX.length) : null;

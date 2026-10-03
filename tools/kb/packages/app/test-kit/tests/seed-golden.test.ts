@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { canonicalJsonl, systemSeedNodes } from "@kb/model";
+import { canonicalJsonl } from "@kb/model";
+import { bundledSeed } from "@kb/bundled";
 import { CONTRACT_AT, seedGolden } from "@kb/test-kit";
 
 /*
@@ -9,6 +10,6 @@ import { CONTRACT_AT, seedGolden } from "@kb/test-kit";
  */
 describe("seed golden", () => {
   test("a fresh store's seed is the golden, children order included", () => {
-    expect(canonicalJsonl(systemSeedNodes(CONTRACT_AT))).toBe(seedGolden());
+    expect(canonicalJsonl(bundledSeed(CONTRACT_AT))).toBe(seedGolden());
   });
 });

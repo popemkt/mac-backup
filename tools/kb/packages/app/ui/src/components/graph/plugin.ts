@@ -1,6 +1,5 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
-import { VIEW_VALUES } from "@kb/model";
 import { matchGraph } from "@/components/graph/routes";
 import {
   ClusterRendererView,
@@ -58,7 +57,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(Force2dView, {
             placements: ["page"],
-            picker: { label: VIEW_VALUES["graph.force2d"].label, order: 0 },
+            picker: { order: 0 },
             sample: {
               layout: DEFAULT_LAYOUT,
               labelDensity: DEFAULT_LABEL_DENSITY,
@@ -73,7 +72,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(TreeView, {
             placements: ["page"],
-            picker: { label: VIEW_VALUES["graph.tree"].label, order: 1 },
+            picker: { order: 1 },
             sample: { showLabels: DEFAULT_SHOW_LABELS },
             Component: TreeRendererView,
           }),
@@ -82,7 +81,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(ClusterView, {
             placements: ["page"],
-            picker: { label: VIEW_VALUES["graph.cluster"].label, order: 2 },
+            picker: { order: 2 },
             sample: {
               labelDensity: DEFAULT_LABEL_DENSITY,
               showLabels: DEFAULT_SHOW_LABELS,
@@ -96,7 +95,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(Force3dView, {
             placements: ["page"],
-            picker: { label: VIEW_VALUES["graph.force3d"].label, order: 3 },
+            picker: { order: 3 },
             sample: {
               spread: DEFAULT_SPREAD,
               linkDistance: DEFAULT_LINK_DISTANCE,
@@ -113,7 +112,7 @@ export const graphUiPlugin = definePlugin({
           ViewPoint,
           provideView(TreemapView, {
             placements: ["page"],
-            picker: { label: VIEW_VALUES["graph.treemap"].label, order: 4 },
+            picker: { order: 4 },
             sample: { showLabels: DEFAULT_SHOW_LABELS },
             Component: TreemapRendererView,
           }),
