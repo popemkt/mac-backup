@@ -6,7 +6,9 @@
   "exports": {},
   "scripts": {
     "dev": "vp dev",
-    "build": "vp build && vp build --config vite.sandbox.config.ts",
+    "build": "bun run build:app && bun run build:sandbox",
+    "build:app": "vp build",
+    "build:sandbox": "vp build --config vite.sandbox.config.ts",
     "preview": "vp preview",
     "test": "vp test",
     "test:watch": "vp test --watch",

@@ -21,7 +21,7 @@ export function buildHarnessUi(): void {
       "run",
       "--filter",
       "@kb/ui",
-      "build",
+      "build:app",
       "--mode",
       "test-render",
       "--outDir",

@@ -24,7 +24,7 @@ async function openPaletteOn(page: Page, nodeId: string) {
 async function runCommand(page: Page, nodeId: string, label: string) {
   const palette = await openPaletteOn(page, nodeId);
   await page.keyboard.type(label);
-  await expect(palette.getByRole("button", { name: label })).toBeVisible();
+  await expect(palette.getByRole("option", { name: label })).toBeVisible();
   await page.keyboard.press("Enter");
   return palette;
 }
@@ -57,7 +57,7 @@ test("Add field names a new field and gives the node an editable row for it", as
   // Same picker as add-tag: no match means offer to mint one from what was typed.
   await page.keyboard.type("priority");
   await expect(
-    page.getByRole("dialog").getByRole("button", {
+    page.getByRole("dialog").getByRole("option", {
       name: 'Create field "priority"',
     }),
   ).toBeVisible();
@@ -78,8 +78,8 @@ test("Add field names a new field and gives the node an editable row for it", as
   await expect(row.locator('[data-field-value="true"]')).toHaveCount(1);
   await expect(row.locator('[data-field-value="true"]')).toHaveText("high");
 
-  await row.getByRole("button", { name: "value", exact: true }).click();
-  await row.locator("[data-editable-text]").last().click();
+  // Enter on a value leaves an empty input focused ("Enter to add another"),
+  // so the second value is typed straight into it.
   await page.keyboard.type("later");
   await page.keyboard.press("Enter");
 
