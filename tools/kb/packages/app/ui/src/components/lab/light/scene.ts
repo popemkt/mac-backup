@@ -65,6 +65,10 @@ function stillLife(): Piece[] {
   const back = piece(new PlaneGeometry(14, 8), "ground", "matte", [0, 4, -3.2]);
   const side = piece(new PlaneGeometry(14, 8), "ground", "matte", [-3.2, 4, 0]);
   side.mesh.rotation.y = Math.PI / 2;
+  // The room is a cutaway: the key stands outside the side wall, so the
+  // walls and floor take shadows but cast none (a wall seen from behind
+  // would otherwise shade the whole still life).
+  for (const room of [floor, back, side]) room.mesh.castShadow = false;
   const torus = piece(new TorusGeometry(0.42, 0.14, 32, 96), "ink", "metal", [-0.95, 0.56, 0.9]);
   torus.mesh.rotation.set(-Math.PI / 2.4, 0, 0.3);
   return [
