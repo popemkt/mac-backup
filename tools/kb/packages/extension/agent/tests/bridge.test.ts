@@ -24,6 +24,7 @@ import {
   AGENT_CHANNEL,
   AGENT_SYSTEM_PROMPT,
   AgentEventSchema,
+  MAX_CONVERSATIONS_PER_CONNECTION,
   agentPlugin,
   scriptedRuntime,
   type AgentEvent,
@@ -303,6 +304,47 @@ describe("the agent bridge", () => {
     const other = new Peer("c2");
     await other.say(h.channel, { type: "send", conversation: "k1", text: "two" });
     expect(other.heard.some((event) => event.type === "refused")).toBe(false);
+    expect(h.runtime.turns.at(-1)?.resume).toBeUndefined();
+  });
+
+  test("a connection holds a bounded number of conversations: the least recently used closes", async () => {
+    const h = open((text) => (text === "wait" ? [{ call: "ext.gated.stamp" }] : [{ hang: true }]));
+    const peer = new Peer("c1");
+    const cap = MAX_CONVERSATIONS_PER_CONNECTION;
+    // k0 waits on the person; the rest hang. Speaking in k1 again makes k0 the oldest.
+    await peer.say(h.channel, { type: "send", conversation: "k0", text: "wait" });
+    const call = (await peer.next((event) => event.type === "tool-call")) as { call: string };
+    for (let i = 1; i < cap; i++) {
+      await peer.say(h.channel, { type: "send", conversation: `k${i}`, text: "hang" });
+    }
+    await peer.say(h.channel, { type: "cancel", conversation: "k1" });
+    await peer.say(h.channel, { type: "send", conversation: "k1", text: "again" });
+    expect(
+      peer.heard.some((event) => event.type === "turn-end" && event.conversation === "k0"),
+    ).toBe(false);
+
+    await peer.say(h.channel, { type: "send", conversation: "extra", text: "hang" });
+    expect(
+      await peer.next((event) => event.type === "turn-end" && event.conversation === "k0"),
+    ).toMatchObject({ outcome: "cancelled" });
+    // Its pending approval went with it: nothing waits for that call any more.
+    await peer.say(h.channel, {
+      type: "receipt",
+      conversation: "k0",
+      call: call.call,
+      receipt: succeeded("ext.gated.stamp", {}),
+    });
+    expect(peer.heard.at(-1)).toMatchObject({ type: "refused" });
+    // The others still run: only the surplus closed.
+    expect(
+      peer.heard.filter((event) => event.type === "turn-end" && event.conversation !== "k0"),
+    ).toHaveLength(1);
+    // Another connection's conversations are not counted against this one.
+    const other = new Peer("c2");
+    await other.say(h.channel, { type: "send", conversation: "o1", text: "hang" });
+    expect(other.heard.some((event) => event.type === "refused")).toBe(false);
+    // A closed conversation's id starts afresh.
+    await peer.say(h.channel, { type: "send", conversation: "k0", text: "hang" });
     expect(h.runtime.turns.at(-1)?.resume).toBeUndefined();
   });
 });

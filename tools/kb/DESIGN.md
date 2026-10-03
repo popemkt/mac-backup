@@ -1842,6 +1842,10 @@ The sidebar agent lives outside core, in packages that core never imports
 - **Conversations are ephemeral.** The sidebar mints the id. A
   conversation belongs to the connection that started it and runs one
   turn at a time. Closing that connection stops its turn and forgets it.
+  A connection holds at most `MAX_CONVERSATIONS_PER_CONNECTION` (8):
+  starting another closes its least recently spoken-in one the same way
+  (its turn ends `cancelled`, a call waiting for the person is dropped),
+  so a connection cannot grow the bridge without bound.
   Nothing is written to the store. Threads kept as nodes are the
   canonical shape (`GAP-AGENT-THREADS`). A backend may keep its own record
   of a session, as Claude Code does.

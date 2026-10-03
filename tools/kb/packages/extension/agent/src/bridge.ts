@@ -44,8 +44,19 @@ interface Waiting {
 }
 
 /**
+ * How many conversations one connection holds at once. Starting one more
+ * closes the connection's least recently spoken-in one: its turn is
+ * interrupted (the sidebar hears `turn-end` cancelled, and a call waiting
+ * for the person is dropped) and it is forgotten. Without the bound a
+ * connection could grow the bridge's memory, and the turns in it, without
+ * limit. Speaking to a closed conversation's id starts it afresh.
+ */
+export const MAX_CONVERSATIONS_PER_CONNECTION = 8;
+
+/**
  * A conversation, in this process's memory only: it is gone when its
- * connection closes or the server stops.
+ * connection closes, when its connection starts more than
+ * {@link MAX_CONVERSATIONS_PER_CONNECTION}, or when the server stops.
  */
 // GAP [GAP-AGENT-THREADS]
 interface Conversation {
@@ -65,6 +76,7 @@ function messageOf(cause: Cause.Cause<unknown>): string {
 }
 
 class Bridge {
+  /** Least recently spoken-in first: speaking re-inserts, so Map order is the eviction order. */
   private readonly conversations = new Map<string, Conversation>();
   private readonly host: UiHostService;
   private readonly runtime: AgentRuntime;
@@ -86,15 +98,18 @@ class Bridge {
       return this.handle(peer, request.data);
     },
     drop: (connection) =>
-      Effect.forEach(
-        [...this.conversations.values()].filter((held) => held.connection === connection),
-        (held) => {
-          this.conversations.delete(held.id);
-          return held.turn === null ? Effect.void : Fiber.interrupt(held.turn);
-        },
-        { discard: true },
-      ),
+      Effect.forEach(this.heldBy(connection), (held) => this.close(held), { discard: true }),
   };
+
+  private heldBy(connection: string): Conversation[] {
+    return [...this.conversations.values()].filter((held) => held.connection === connection);
+  }
+
+  /** Forget a conversation and stop its turn, if one runs. */
+  private close(held: Conversation): Effect.Effect<void> {
+    this.conversations.delete(held.id);
+    return held.turn === null ? Effect.void : Fiber.interrupt(held.turn);
+  }
 
   private handle(peer: ChannelPeer, request: AgentRequest): Effect.Effect<void> {
     const held = this.conversations.get(request.conversation);
@@ -102,7 +117,20 @@ class Bridge {
       return refuse(peer, request.conversation, "another connection holds this conversation");
     }
     if (request.type === "send") {
-      return this.start(peer, held ?? this.open(peer, request.conversation), request.text);
+      if (held !== undefined) {
+        this.conversations.delete(held.id);
+        this.conversations.set(held.id, held);
+        return this.start(peer, held, request.text);
+      }
+      const holding = this.heldBy(peer.connection);
+      const surplus = holding.slice(
+        0,
+        Math.max(0, holding.length + 1 - MAX_CONVERSATIONS_PER_CONNECTION),
+      );
+      const opened = this.open(peer, request.conversation);
+      return Effect.forEach(surplus, (old) => this.close(old), { discard: true }).pipe(
+        Effect.andThen(this.start(peer, opened, request.text)),
+      );
     }
     if (request.type === "cancel") {
       const turn = held?.turn ?? null;
