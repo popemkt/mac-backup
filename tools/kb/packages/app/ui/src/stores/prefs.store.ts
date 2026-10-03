@@ -18,6 +18,8 @@ import {
   DESIGN_SYSTEM_IDS,
   THEMES,
   WIDTHS,
+  appearanceOf,
+  type Appearance,
   type DesignSystemId,
   type ThemePref,
   type WidthPref,
@@ -197,24 +199,6 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
     },
   };
 });
-
-/**
- * What the page is painted in, resolved: everything that changes the values
- * the design-system tokens hold. DOM styling follows a change by itself (every
- * utility is a live `var()`); canvas and WebGL renderers copied token values
- * out, so they re-read them whenever `key` changes. This is the one signal
- * they listen to.
- */
-export interface Appearance {
-  readonly designSystem: DesignSystemId;
-  readonly dark: boolean;
-  /** Changes exactly when any field above does. */
-  readonly key: string;
-}
-
-function appearanceOf(designSystem: DesignSystemId, dark: boolean): Appearance {
-  return { designSystem, dark, key: `${designSystem}:${dark ? "dark" : "light"}` };
-}
 
 export function useAppearance(): Appearance {
   const designSystem = usePrefsStore((s) => s.designSystem);

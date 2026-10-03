@@ -6,7 +6,7 @@
  * appearance and reduced motion. A new perspective is a new scene. This
  * module is the lazy chunk `graph-adapters` imports.
  */
-import type { Appearance } from "@/stores/prefs.store";
+import type { Appearance } from "@/lib/theme";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { DEFAULT_THEME, type LensLinkStyle, type LensTheme } from "@kb/views";

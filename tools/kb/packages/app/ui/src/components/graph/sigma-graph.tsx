@@ -1,4 +1,4 @@
-import type { Appearance } from "@/stores/prefs.store";
+import type { Appearance } from "@/lib/theme";
 import { asInstance } from "@/lib/dom";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Graph from "graphology";

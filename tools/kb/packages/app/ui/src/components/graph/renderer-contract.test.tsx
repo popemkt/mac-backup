@@ -25,7 +25,7 @@ import { makeKernel } from "@kb/plugin";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { buildTreeForest, type LensEdge, type LensNode } from "@/lib/graph-lens";
 import { LENS_THEMES, type LensPerspective, type LensTheme } from "@kb/views";
-import type { Appearance } from "@/stores/prefs.store";
+import type { Appearance } from "@/lib/theme";
 import type { Force3dScene } from "./force3d-scene";
 import type { GraphFrame } from "./graph-frame";
 import type * as CssColor from "@/lib/css-color";

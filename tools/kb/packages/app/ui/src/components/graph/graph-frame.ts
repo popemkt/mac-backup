@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { Appearance } from "@/stores/prefs.store";
+import type { Appearance } from "@/lib/theme";
 import type { LensGraph, LensTreeNode } from "@/lib/graph-lens";
 import type { LensPerspective } from "@kb/views";
 import type { GraphCameraControls } from "./graph-camera-controls";

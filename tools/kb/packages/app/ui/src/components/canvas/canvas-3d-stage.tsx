@@ -17,7 +17,7 @@ import { readTiming } from "@/lib/timing";
 import type { OutlineNode } from "@/lib/types";
 import { attachScene } from "@/scene/host";
 import { readScenePalette } from "@/scene/palette";
-import type { Appearance } from "@/stores/prefs.store";
+import type { Appearance } from "@/lib/theme";
 import { readCardLook } from "./canvas-card-face";
 import { mountCanvasScene, type CanvasScene } from "./canvas-scene";
 import { SceneGestures, type SceneGestureHost, type ScenePress } from "./canvas-scene-gestures";

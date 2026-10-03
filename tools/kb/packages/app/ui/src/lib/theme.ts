@@ -36,3 +36,21 @@ export const DESIGN_SYSTEMS: readonly DesignSystem[] = DESIGN_SYSTEM_IDS.map((id
   id,
   label: DESIGN_SYSTEM_LABELS[id],
 }));
+
+/**
+ * What the page is painted in, resolved: everything that changes the values
+ * the design-system tokens hold. DOM styling follows a change by itself (every
+ * utility is a live `var()`); canvas and WebGL renderers copied token values
+ * out, so they re-read them whenever `key` changes. This is the one signal
+ * they listen to.
+ */
+export interface Appearance {
+  readonly designSystem: DesignSystemId;
+  readonly dark: boolean;
+  /** Changes exactly when any field above does. */
+  readonly key: string;
+}
+
+export function appearanceOf(designSystem: DesignSystemId, dark: boolean): Appearance {
+  return { designSystem, dark, key: `${designSystem}:${dark ? "dark" : "light"}` };
+}

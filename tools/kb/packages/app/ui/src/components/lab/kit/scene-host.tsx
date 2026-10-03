@@ -11,7 +11,7 @@ import type { SceneBackend } from "@/scene/backend";
 import { attachScene } from "@/scene/host";
 import { readTiming } from "@/lib/timing";
 import type { LabGraph } from "@/components/lab/lab-graph";
-import type { Appearance } from "@/stores/prefs.store";
+import type { Appearance } from "@/lib/theme";
 
 export interface SceneHostProps {
   readonly study: LabStudy;
