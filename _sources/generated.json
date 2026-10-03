@@ -23,11 +23,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-30j+am5cYNGWbtN05rBWfLjIcYDfndFN+yX0I2W0uyU=",
+            "sha256": "sha256-ZSoZLj44UgJT4zDEoJT6iRZyg3DD8hPxJ9vFbjW+eTg=",
             "type": "url",
-            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.8/CLIProxyAPI_8.0.8_darwin_aarch64.tar.gz"
+            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.13/CLIProxyAPI_8.0.13_darwin_aarch64.tar.gz"
         },
-        "version": "8.0.8"
+        "version": "8.0.13"
     },
     "cursor-cli": {
         "cargoLock": null,
@@ -38,11 +38,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-wNfpzS5iQ4YQuIbTQ5kH3B+YwpI7B7OkFBbMkZqvU8c=",
+            "sha256": "sha256-Yp5R3kOgt/s7hvXrx+V59999+UGznynoKUXN51AUWvw=",
             "type": "url",
-            "url": "https://downloads.cursor.com/lab/2026.09.28-64d2043/darwin/arm64/agent-cli-package.tar.gz"
+            "url": "https://downloads.cursor.com/lab/2026.10.01-e373342/darwin/arm64/agent-cli-package.tar.gz"
         },
-        "version": "2026.09.28-64d2043"
+        "version": "2026.10.01-e373342"
     },
     "genoffice": {
         "cargoLock": null,
@@ -68,11 +68,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-7GCcSOi2wmNnB24cAyJQg98o8urITlBy9OyT8y2X+Dg=",
+            "sha256": "sha256-QyWsBFAOtpMiVm+YAcFz/Ic5kBQYRcxvYA5FXexSOsQ=",
             "type": "url",
-            "url": "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260930.zip"
+            "url": "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.2-alpha+nightly.20261002.zip"
         },
-        "version": "2.0.1-alpha+nightly.20260930"
+        "version": "2.0.2-alpha+nightly.20261002"
     },
     "vite-plus": {
         "cargoLock": null,
