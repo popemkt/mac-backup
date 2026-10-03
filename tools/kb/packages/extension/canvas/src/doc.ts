@@ -3,7 +3,8 @@
  * Spec: https://jsoncanvas.org/spec/1.0/
  *
  * Unknown node types and extra fields round-trip (forward compatible). kb's
- * own extension fields are typed here: `nodeId`, `shape` and `z` on an item,
+ * own extension fields are typed here: `nodeId` (on any item), `shape` and
+ * `z` on an item,
  * `kbLink` on an edge, and `camera` on the document (`./camera.ts`). The
  * format, as agents write it, is DESIGN.md → Canvas documents.
  */
@@ -39,6 +40,12 @@ interface CanvasNodeBase {
    */
   z?: number;
   color?: string;
+  /**
+   * What the item means: the store node it stands for. Any item may carry
+   * one, whatever it looks like (`type`, `shape`); absent, the item is a
+   * drawing with no node behind it.
+   */
+  nodeId?: string;
   /** Unrecognized fields preserved for round-trip. */
   extra?: Record<string, unknown>;
 }
@@ -53,7 +60,7 @@ export interface CanvasGroupNode extends CanvasNodeBase {
   label?: string;
 }
 
-/** Live kb node card — layout only; text/tags render from the store. */
+/** A card: a text card showing its node, live — layout only; text/tags render from the store. */
 export interface CanvasKbNode extends CanvasNodeBase {
   type: "kb-node";
   nodeId: string;
@@ -89,7 +96,7 @@ export function isTextNode(n: CanvasNode): n is CanvasTextNode {
 }
 
 export function isGroupNode(n: CanvasNode): n is CanvasGroupNode {
-  return n.type === "group" && !("nodeId" in n) && !("text" in n);
+  return n.type === "group" && !("text" in n);
 }
 
 export function isShapeNode(n: CanvasNode): n is CanvasShapeNode {
@@ -229,6 +236,7 @@ function parseNode(raw: unknown): CanvasNode | null {
     height: asNum(raw.height, 80),
     ...(depth === undefined ? {} : { z: depth }),
     ...(typeof raw.color === "string" ? { color: raw.color } : {}),
+    ...(typeof raw.nodeId === "string" ? { nodeId: raw.nodeId } : {}),
     ...(extra ? { extra } : {}),
   };
   if (raw.type === "text") {
@@ -303,11 +311,11 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
   };
   if (n.z !== undefined) out.z = n.z;
   if (n.color !== undefined) out.color = n.color;
+  if (n.nodeId !== undefined) out.nodeId = n.nodeId;
   // `CanvasUnknownNode.type` is `string`, so `type === "text"` does not
   // discriminate the union — the guards this module already exports do.
   if (isTextNode(n)) out.text = n.text;
   if (isGroupNode(n) && n.label !== undefined) out.label = n.label;
-  if (isKbNode(n)) out.nodeId = n.nodeId;
   if (isShapeNode(n)) {
     out.shape = n.shape;
     if (n.label !== undefined) out.label = n.label;

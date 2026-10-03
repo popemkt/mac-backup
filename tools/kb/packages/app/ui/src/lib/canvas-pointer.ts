@@ -1,6 +1,5 @@
 import {
   canvasDepth,
-  isKbNode,
   upsertCanvasEdge,
   upsertCanvasNode,
   withDepth,
@@ -454,8 +453,8 @@ function finishEdge(
       mode: "layout",
       via: "prop",
       fieldId: "",
-      sourceNodeId: isKbNode(from) ? from.nodeId : "",
-      targetNodeId: isKbNode(to) ? to.nodeId : "",
+      sourceNodeId: from.nodeId ?? "",
+      targetNodeId: to.nodeId ?? "",
       bindingId: event.edgeBindingId,
     },
   };

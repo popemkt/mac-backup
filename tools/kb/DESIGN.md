@@ -1822,7 +1822,7 @@ units. kb's extension fields:
 
 | On       | Field    | Meaning                                                                                                   |
 | -------- | -------- | --------------------------------------------------------------------------------------------------------- |
-| item     | `nodeId` | a `kb-node` card's store node; its text and tags render live from the store                               |
+| item     | `nodeId` | what the item means: the store node it stands for. Any item may carry one; a `kb-node` card needs one, and its text and tags render live from the store |
 | item     | `shape`  | a `shape` item's outline: `rect`, `ellipse` or `diamond`                                                  |
 | item     | `z`      | height above the floor. Absent is 0, the canvas plane, and 0 is written as absent                         |
 | edge     | `kbLink` | the one-shot native bind of a drawn edge ([INSPIRATIONS](INSPIRATIONS.md): edges are drawings)            |

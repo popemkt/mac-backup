@@ -12,13 +12,7 @@
  * reducer takes its edge ids, so a plan is a function of its inputs.
  */
 import type { SchemaIndex } from "@/lib/schema";
-import {
-  isKbNode,
-  type CanvasEdge,
-  type CanvasKbNode,
-  type CanvasNode,
-  type KbLinkMode,
-} from "@kb/canvas";
+import type { CanvasEdge, CanvasNode, KbLinkMode } from "@kb/canvas";
 import { isValidNativeTarget, planNativeBind } from "@/lib/canvas-api";
 import type { PropValue } from "@/lib/types";
 
@@ -48,16 +42,22 @@ export type EdgeRelinkPlan =
 const NEEDS_FIELD = "Pick a ref field before enabling native mode";
 const NOT_ALLOWED = "Target not allowed for this ref field";
 
+/** The two ends of a link, by what they mean: the store nodes they stand for. */
 interface KbEndpoints {
-  from: CanvasKbNode;
-  to: CanvasKbNode;
+  from: { readonly nodeId: string };
+  to: { readonly nodeId: string };
 }
 
-/** Both ends, when both are kb-node cards — a native link needs two of them. */
+/**
+ * Both ends, when both items carry a node, whatever they look like — a native
+ * link needs a node at each end.
+ */
 function kbEndpoints(edge: CanvasEdge, ctx: EdgeRelinkContext): KbEndpoints | null {
-  const from = ctx.byId.get(edge.fromNode);
-  const to = ctx.byId.get(edge.toNode);
-  return from && to && isKbNode(from) && isKbNode(to) ? { from, to } : null;
+  const from = ctx.byId.get(edge.fromNode)?.nodeId;
+  const to = ctx.byId.get(edge.toNode)?.nodeId;
+  return from !== undefined && to !== undefined
+    ? { from: { nodeId: from }, to: { nodeId: to } }
+    : null;
 }
 
 function linkFor(

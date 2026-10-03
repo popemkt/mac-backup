@@ -114,6 +114,23 @@ describe("depth", () => {
     expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
   });
 
+  test("any item may carry the node it means, whatever it looks like", () => {
+    const raw = {
+      nodes: [
+        { id: "s", type: "shape", x: 0, y: 0, width: 9, height: 9, nodeId: "n.a", shape: "rect" },
+        { id: "t", type: "text", x: 0, y: 0, width: 9, height: 9, nodeId: "n.b", text: "hi" },
+        { id: "f", type: "file", file: "a.md", x: 0, y: 0, width: 9, height: 9, nodeId: "n.c" },
+        { id: "k", type: "kb-node", x: 0, y: 0, width: 9, height: 9, nodeId: "n.d" },
+      ],
+      edges: [],
+    };
+    const doc = parseCanvasDoc(raw);
+    expect(doc.nodes.map((n) => n.nodeId)).toEqual(["n.a", "n.b", "n.c", "n.d"]);
+    expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
+    // A card still needs its node: one without is not a card.
+    expect(parseCanvasDoc({ nodes: [{ id: "k", type: "kb-node" }], edges: [] }).nodes).toEqual([]);
+  });
+
   test("back on the plane, an item carries no depth at all", () => {
     const node: CanvasNode = { id: "a", type: "text", text: "", x: 0, y: 0, width: 1, height: 1 };
     const raised = withDepth(node, 120);
