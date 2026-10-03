@@ -1,6 +1,6 @@
 /**
  * Where Vega draws: the chart's own chunk, the only module of the UI that
- * loads the chart stack (`@kb/vega`, behind the lazy-chunk fence). It keeps
+ * loads the chart stack (`@kb/chart-vega`, behind the lazy-chunk fence). It keeps
  * one Vega view per spec and appearance; new rows are swapped into that view
  * (`CHART_DATA`) and a new box resizes it, so a live update or a pane resize
  * never rebuilds the chart.

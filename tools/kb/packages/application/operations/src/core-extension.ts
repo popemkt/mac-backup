@@ -60,11 +60,11 @@ export const coreExtension = defineExtension({
     viewDef(DocsMarkdownView),
     viewDef(LayoutView),
     viewDef(NodeView),
-    // The feature views, after core's and grouped by the family that takes
-    // them, in the order those families sit in the bundled fold (canvas, lab,
-    // code, then chart, which has left). Each group leaves for its family at
-    // the same place in the fold, so a fresh store's view types keep their
-    // order as it does.
+    // The feature views still in core, after core's own, grouped by the
+    // family that will take each. The order is `BUNDLED_FAMILIES`'
+    // (`@kb/bundled`), which owns it. Each group leaves for its family at the
+    // same place in the fold, and the store contract's view-order case fails
+    // by name if a group or a family lands elsewhere.
     viewDef(CanvasListView),
     viewDef(CanvasView),
     viewDef(LabView),
