@@ -4,6 +4,7 @@
   bun,
   bun2nix,
   makeBinaryWrapper,
+  callPackage,
 }:
 
 # Single entry point: one `kb` binary with the SPA baked beside it.
@@ -14,7 +15,9 @@
 # bun.lock (kb's `postinstall`; its harness fails a stale copy). Each package
 # is fetched against the hash the lockfile already records, and the build
 # itself is an ordinary offline derivation — so no hash here tracks kb's own
-# code, and editing kb never needs a hash refresh.
+# code, and editing kb never needs a hash refresh. Only this host's slice of
+# them is fetched (`host-bun-nix.nix`): the foreign-platform natives bun would
+# skip anyway, e.g. the Agent SDK's per-platform CLI binaries, stay unfetched.
 stdenvNoCC.mkDerivation {
   pname = "kb";
   version = "0.1.0";
@@ -38,7 +41,7 @@ stdenvNoCC.mkDerivation {
   ];
 
   bunDeps = bun2nix.fetchBunDeps {
-    bunNix = ../../tools/kb/bun.nix;
+    bunNix = callPackage ./host-bun-nix.nix { };
   };
 
   # The hook installs node_modules from bunDeps; building and installing are
