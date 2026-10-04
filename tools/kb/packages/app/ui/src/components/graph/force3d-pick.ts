@@ -17,8 +17,7 @@
  */
 import type { PerspectiveCamera } from "three/webgpu";
 import type { NodeDrag } from "@/lib/graph-drag";
-import { PointerField } from "@/scene/gpu/pointer";
-import { pixelsPerUnit, toScreen, type ScreenPoint } from "@/scene/gpu/screen";
+import { pixelsPerUnit, PointerField, toScreen, type ScreenPoint } from "@kb/scene-gpu";
 
 /** The smallest reach a node has under the pointer, CSS px, and the slack past its disc. */
 const MIN_REACH = 6;

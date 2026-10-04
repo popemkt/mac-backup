@@ -25,7 +25,6 @@ import {
 const EXTENSION_ZONES = [
   "components/agent",
   "components/canvas",
-  "components/canvas/3d",
   "components/chart",
   "components/code",
   "components/lab",

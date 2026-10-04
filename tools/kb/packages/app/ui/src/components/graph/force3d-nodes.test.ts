@@ -5,11 +5,10 @@
  */
 import { describe, expect, it } from "vitest";
 import { BoxGeometry, type InstancedMesh } from "three/webgpu";
-import { colorUniform } from "@/scene/gpu/tsl";
+import { colorUniform, disposeGraph } from "@kb/scene-gpu";
 import type { LensNode } from "@kb/ui-sdk";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { topologyOf } from "./force3d-emphasis";
-import { disposeGraph } from "@/scene/gpu/dispose";
 import { CUBE_HALF_EDGE, solidLayer } from "./force3d-nodes";
 import { GRAPH_THEMES } from "./graph-themes";
 

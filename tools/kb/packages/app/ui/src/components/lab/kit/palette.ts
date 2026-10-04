@@ -2,7 +2,7 @@
  * The lab palette: the `--lab-*` tokens in `design-system.css` in the scene
  * palette's five roles. The accent is the app's own `--primary`.
  */
-import { readScenePalette, type ScenePalette } from "@/scene/palette";
+import { readScenePalette, type ScenePalette } from "@kb/scene";
 
 export function readLabPalette(): ScenePalette {
   return readScenePalette({

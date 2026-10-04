@@ -10,8 +10,8 @@
  */
 import type { LabControlValue, LabScene, LabSceneInit } from "@/components/lab/kit/contract";
 import type { LabGraph } from "@/components/lab/lab-graph";
-import type { ScenePalette } from "@/scene/palette";
-import { mountScene, type SceneStage, type StageOptions } from "@/scene/gpu/stage";
+import type { ScenePalette } from "@kb/scene";
+import { mountScene, type SceneStage, type StageOptions } from "@kb/scene-gpu";
 
 export interface StudyContext {
   /** The element the study draws into; its pointer events are the study's. */

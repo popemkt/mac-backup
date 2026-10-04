@@ -9,7 +9,7 @@ import { useEffect, useRef } from "react";
 import type { LabControlValues } from "@/components/lab/kit/contract";
 import { numberOf } from "@/components/lab/kit/contract";
 import { readLabPalette } from "@/components/lab/kit/palette";
-import type { ScenePalette } from "@/scene/palette";
+import type { ScenePalette } from "@kb/scene";
 import { easeAt, springRate, springResponse, useReducedMotion, type Timing } from "@kb/ui-sdk";
 
 const WIDTH = 260;

@@ -20,7 +20,7 @@ import {
   SRGBColorSpace,
   type Object3D,
 } from "three/webgpu";
-import type { ScenePalette } from "@/scene/palette";
+import type { ScenePalette } from "@kb/scene";
 
 /** Physically plausible intensities for the rig, under AgX. */
 const KEY = 3.2;

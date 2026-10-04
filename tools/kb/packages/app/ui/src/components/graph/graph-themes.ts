@@ -77,7 +77,7 @@ export interface SceneDress {
   readonly ground: Variants<ColorToken>;
   readonly edge: Variants<ColorToken>;
   /**
-   * The backdrop's accent warmth and haze, 0–1 (`scene/gpu/backdrop`). The
+   * The backdrop's accent warmth and haze, 0–1 (`@kb/scene-gpu`'s `backdrop`). The
    * haze stands still: the graph's stage draws only while something moves.
    */
   readonly backdrop: { readonly warmth: number; readonly haze: number };

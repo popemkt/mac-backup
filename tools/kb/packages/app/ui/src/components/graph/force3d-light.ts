@@ -16,7 +16,7 @@
  * colour and design system.
  */
 
-import { NUMBER_OPS, type Rgb, type ShadeOps } from "@/scene/shade-ops";
+import { NUMBER_OPS, type Rgb, type ShadeOps } from "@kb/scene";
 import type { NodeForm } from "./graph-themes";
 
 export type { Rgb };

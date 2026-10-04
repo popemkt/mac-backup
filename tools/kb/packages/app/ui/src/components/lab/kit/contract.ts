@@ -8,8 +8,7 @@
  */
 import type { ComponentType } from "react";
 import type { LabGraph } from "@/components/lab/lab-graph";
-import type { SceneHandle } from "@/scene/host";
-import type { ScenePalette } from "@/scene/palette";
+import type { SceneHandle, ScenePalette } from "@kb/scene";
 import type { Timing } from "@kb/ui-sdk";
 
 /** A Lab principle, by its id in DESIGN-UI.md → Lab principles. */

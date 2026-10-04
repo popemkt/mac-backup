@@ -23,9 +23,8 @@ import {
 import { float, instancedBufferAttribute, instanceIndex, length, select, sin } from "three/tsl";
 import type { LabGraph, LabNode } from "@/components/lab/lab-graph";
 import type { Entrance } from "@/components/lab/kit/entrance";
-import type { PaletteUniforms } from "@/scene/gpu/stage";
-import type { TslNode } from "@/scene/gpu/tsl";
-import { unitHash } from "@/scene/sphere";
+import { unitHash } from "@kb/scene";
+import type { PaletteUniforms, TslNode } from "@kb/scene-gpu";
 import { HERO_GLINTS, heroPoint, starPoint } from "@/components/lab/sky/layout";
 import { starLight } from "@/components/lab/sky/shaders";
 import { approach } from "@kb/ui-sdk";

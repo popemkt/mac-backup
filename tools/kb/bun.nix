@@ -628,6 +628,8 @@
   "@kb/sandbox" = copyPathToStore ./packages/contract/sandbox;
   "@kb/sandbox-quickjs" = copyPathToStore ./packages/infrastructure/sandbox-quickjs;
   "@kb/sandbox-worker" = copyPathToStore ./packages/infrastructure/sandbox-worker;
+  "@kb/scene" = copyPathToStore ./packages/kit/scene;
+  "@kb/scene-gpu" = copyPathToStore ./packages/kit/scene-gpu;
   "@kb/server" = copyPathToStore ./packages/app/server;
   "@kb/store-jsonl" = copyPathToStore ./packages/infrastructure/store-jsonl;
   "@kb/store-sqlite" = copyPathToStore ./packages/infrastructure/store-sqlite;

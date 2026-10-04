@@ -48,8 +48,7 @@ import {
   uniformArray,
   vec3,
 } from "three/tsl";
-import type { PaletteUniforms } from "@/scene/gpu/stage";
-import type { TslNode } from "@/scene/gpu/tsl";
+import type { PaletteUniforms, TslNode } from "@kb/scene-gpu";
 import { BLOB_BOUNDS, BLOB_COUNT } from "@/components/lab/glass/blobs";
 
 const OUTER_STEPS = 56;

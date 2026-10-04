@@ -48,9 +48,13 @@ import {
   sqrt,
   vec3,
 } from "three/tsl";
-import { finishMaterial } from "@/scene/gpu/rig";
-import type { PaletteUniforms, SceneStage } from "@/scene/gpu/stage";
-import { NODE_OPS, type TslNode } from "@/scene/gpu/tsl";
+import {
+  finishMaterial,
+  NODE_OPS,
+  type PaletteUniforms,
+  type SceneStage,
+  type TslNode,
+} from "@kb/scene-gpu";
 import {
   EMBER_TINT,
   displayTemperature,

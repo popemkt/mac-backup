@@ -1,5 +1,5 @@
 /**
- * The 3D graph, drawn on the scene kit's stage (`@/scene/gpu/stage`): the
+ * The 3D graph, drawn on the scene kit's stage (`@kb/scene-gpu`): the
  * same WebGPU + TSL renderer, post chain, palette uniforms, frame loop and
  * reveal the lab's studies stand on (Lab principles T1, P4), so nothing here
  * owns a renderer, a bloom or a tone mapping of its own. This module composes
@@ -21,12 +21,8 @@
  */
 import type { PerspectiveCamera } from "three/webgpu";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { mountScene, type SceneStage } from "@/scene/gpu/stage";
-import { starfield } from "@/scene/gpu/starfield";
-import { toScreen, type ScreenPoint } from "@/scene/gpu/screen";
-import type { SceneBackend } from "@/scene/backend";
-import type { SceneHandle } from "@/scene/host";
-import type { ScenePalette } from "@/scene/palette";
+import type { SceneBackend, SceneHandle, ScenePalette } from "@kb/scene";
+import { mountScene, starfield, toScreen, type SceneStage, type ScreenPoint } from "@kb/scene-gpu";
 import type { GraphEmphasis } from "@/lib/graph-interaction";
 import type { LensEdge, LensNode, Timing } from "@kb/ui-sdk";
 import type { GraphCameraControls } from "./graph-camera-controls";

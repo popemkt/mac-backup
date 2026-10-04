@@ -1,5 +1,5 @@
 /**
- * The lab's React host over the scene host (`@/scene/host`): it mounts one
+ * The lab's React host over the scene host (`@kb/scene`): it mounts one
  * study's scene into a div through `attachScene`, which owns sizing, tab
  * visibility and disposal, and hands the study what only a study is told —
  * graph, theme, reduced motion and control values.
@@ -7,8 +7,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { LabControlValues, LabHover, LabScene, LabStudy } from "@/components/lab/kit/contract";
 import { readLabPalette } from "@/components/lab/kit/palette";
-import type { SceneBackend } from "@/scene/backend";
-import { attachScene } from "@/scene/host";
+import { attachScene, type SceneBackend } from "@kb/scene";
 import { readTiming, type Appearance } from "@kb/ui-sdk";
 import type { LabGraph } from "@/components/lab/lab-graph";
 

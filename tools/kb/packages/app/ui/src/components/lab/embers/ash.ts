@@ -21,8 +21,7 @@ import {
   uv,
   vec3,
 } from "three/tsl";
-import type { PaletteUniforms } from "@/scene/gpu/stage";
-import type { TslNode } from "@/scene/gpu/tsl";
+import type { PaletteUniforms, TslNode } from "@kb/scene-gpu";
 import { EMBER_TINT } from "@/components/lab/embers/heat";
 import { seededRandom } from "@/components/lab/kit/seeded";
 

@@ -7,9 +7,8 @@
  * encodings only restyles them.
  */
 import { Group, type PerspectiveCamera } from "three/webgpu";
-import { disposeGraph } from "@/scene/gpu/dispose";
-import type { SceneStage } from "@/scene/gpu/stage";
-import type { ScenePalette } from "@/scene/palette";
+import type { ScenePalette } from "@kb/scene";
+import { disposeGraph, type SceneStage } from "@kb/scene-gpu";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { graphFocus, type GraphEmphasis } from "@/lib/graph-interaction";
 import { approachRate, type LensEdge, type LensNode, type Timing } from "@kb/ui-sdk";

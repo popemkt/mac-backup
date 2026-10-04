@@ -6,8 +6,8 @@
  */
 import { InstancedBufferAttribute, Sprite, SpriteNodeMaterial } from "three/webgpu";
 import { exp, float, instancedBufferAttribute, uniform, uv } from "three/tsl";
-import { scatterPlace, sphereDirection } from "@/scene/sphere";
-import type { PaletteUniforms } from "@/scene/gpu/stage";
+import { scatterPlace, sphereDirection } from "@kb/scene";
+import type { PaletteUniforms } from "./stage";
 
 export interface StarfieldOptions {
   /** Names the scatter; the same seed always lays the same stars. */

@@ -1,5 +1,5 @@
 /**
- * The scene contract: what every `SceneHandle` promises (`@/scene/host`,
+ * The scene contract: what every `SceneHandle` promises (`@kb/scene`'s `host`,
  * DESIGN-UI.md → The lab), proved over every registered scene — each lab
  * study in `LAB_STUDIES`, the 3D graph in every theme and the 3D canvas. A new study joins by being
  * registered; a promise one scene keeps and another breaks goes red here.
@@ -21,8 +21,7 @@ import { LAB_STUDIES } from "@/components/lab/studies";
 import type { LabSceneInit } from "@/components/lab/kit/contract";
 import { TIMING_FALLBACK, type LensEdge, type LensNode } from "@kb/ui-sdk";
 import { LENS_THEMES } from "@kb/views";
-import type { SceneHandle } from "@/scene/host";
-import type { ScenePalette } from "@/scene/palette";
+import type { SceneHandle, ScenePalette } from "@kb/scene";
 import { fakeCanvasContexts, gpu, renders, type FakeRenderer } from "@/test-support/fake-gpu";
 import { BufferGeometry, Material, Object3D, Sprite } from "three/webgpu";
 import type * as ThreeWebGpu from "three/webgpu";
@@ -271,7 +270,7 @@ describe("scene contract", () => {
       const drawn = added.mock.calls.flat().filter((one) => one instanceof Object3D);
       for (const root of drawn) {
         root.traverse((object: Object3D & { geometry?: unknown; material?: unknown }) => {
-          // Every sprite shares three's one quad (`scene/gpu/dispose`), which is never freed.
+          // Every sprite shares three's one quad (`@kb/scene-gpu`'s `dispose`), which is never freed.
           if (object.geometry !== undefined && !(object instanceof Sprite)) {
             if (!disposed.has(object.geometry)) leaked.push(`${object.type} geometry`);
           }

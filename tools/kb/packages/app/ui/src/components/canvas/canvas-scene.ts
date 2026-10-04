@@ -29,12 +29,9 @@ import {
   type PerspectiveCamera,
 } from "three/webgpu";
 import { float, fract, fwidth, length, positionWorld, smoothstep, uniform } from "three/tsl";
-import { mountScene, type SceneStage } from "@/scene/gpu/stage";
-import { toScreen, type ScreenPoint } from "@/scene/gpu/screen";
-import type { SceneBackend } from "@/scene/backend";
+import type { SceneBackend, SceneHandle, ScenePalette } from "@kb/scene";
+import { mountScene, toScreen, type SceneStage, type ScreenPoint } from "@kb/scene-gpu";
 import type { CanvasAxes } from "@kb/canvas";
-import type { SceneHandle } from "@/scene/host";
-import type { ScenePalette } from "@/scene/palette";
 import {
   PERSPECTIVE_FOV,
   cameraPose,

@@ -26,9 +26,7 @@ import {
   vec3,
 } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
-import { PointerField } from "@/scene/gpu/pointer";
-import { createRig, finishMaterial } from "@/scene/gpu/rig";
-import type { SceneStage } from "@/scene/gpu/stage";
+import { createRig, finishMaterial, PointerField, type SceneStage } from "@kb/scene-gpu";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { TileField } from "@/components/lab/motion/field";
 import { Entrance } from "@/components/lab/kit/entrance";

@@ -22,8 +22,8 @@ import {
   vec2,
   vec3,
 } from "three/tsl";
-import type { PaletteUniforms } from "@/scene/gpu/stage";
-import type { TslNode } from "@/scene/gpu/tsl";
+import type { PaletteUniforms } from "./stage";
+import type { TslNode } from "./tsl";
 
 export interface BackdropOptions {
   /** Where the light pools, in screen UV (0.5, 0.5 is the centre). */

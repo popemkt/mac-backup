@@ -2,7 +2,7 @@
  * Embers' heat-to-light curve, stated once (Lab principle L2).
  *
  * `heatEmissive` and `displayTemperature` are written over the scene kit's
- * shading arithmetic (`@/scene/shade-ops`), so the one definition runs twice:
+ * shading arithmetic (`@kb/scene`), so the one definition runs twice:
  * as TSL nodes in the sphere material, and as numbers on the CPU, where
  * `restCeiling` asks it how warm the resting glow may be before any channel
  * of any sphere's emissive crosses the bloom threshold.
@@ -20,7 +20,7 @@
  * halo). A small maroon floor keeps the coolest sphere a colour (L1).
  */
 
-import { BLOOM_THRESHOLD, NUMBER_OPS, type Rgb, type ShadeOps } from "@/scene/shade-ops";
+import { BLOOM_THRESHOLD, NUMBER_OPS, type Rgb, type ShadeOps } from "@kb/scene";
 
 export type { Rgb };
 

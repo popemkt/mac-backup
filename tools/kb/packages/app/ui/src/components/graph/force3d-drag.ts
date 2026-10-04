@@ -10,7 +10,7 @@
 import { Vector3, type PerspectiveCamera } from "three/webgpu";
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { DragSurface } from "@/lib/graph-drag";
-import { onFacingPlane } from "@/scene/gpu/screen";
+import { onFacingPlane } from "@kb/scene-gpu";
 import type { GraphCamera, GraphPlaces } from "./force3d-camera";
 
 export function sceneDragSurface(rig: {

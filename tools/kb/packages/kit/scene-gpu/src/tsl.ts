@@ -17,7 +17,7 @@ import {
 } from "three/tsl";
 import { Color, type Node, type UniformNode } from "three/webgpu";
 import { easeAt, type CubicBezier } from "@kb/ui-sdk";
-import type { ShadeOps } from "@/scene/shade-ops";
+import type { ShadeOps } from "@kb/scene";
 
 /**
  * A shader node of TSL type `T` (`"float"`, `"vec3"`, …): three's own typed

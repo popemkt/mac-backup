@@ -844,7 +844,7 @@ like themselves (P5).
   the quick duration; an arriving element fades in. One class,
   `.kb-graph-move` in `motion.css`, and a tree link's path (`d`) moves with
   its nodes. A tree hover lights its neighbourhood like a selection does.
-- **3D** is drawn on the scene kit (`src/scene/`, see [The lab](#the-lab)):
+- **3D** is drawn on the scene kit (`@kb/scene`, see [The lab](#the-lab)):
   the same WebGPU + TSL stage, post chain, palette uniforms, frame loop and
   reveal as the studies (T1, P4) — `force3d-scene.ts` owns no renderer.
   Nodes are one instanced draw with the rig baked into the material; only
@@ -1290,7 +1290,7 @@ open view of that canvas.
   its outline as path data and its volume; both projections trace the one
   outline (the DOM as an SVG path and a clip path, the scene into faces and
   meshes), and the corner radius comes from one rule (`cornerRadius`). The
-  mesh builders (`canvas-scene-solids.ts`, in the 3D zone) are the three
+  mesh builders (`canvas-scene-solids.ts`, behind the 3D stage's chunk) are the three
   side, one per volume and typed by it, built at each item's size: a prism
   of the footprint with smooth sides round curves and creases at corners,
   an ellipsoid, a cone, and a flat item's footprint. A solid wears the card
@@ -2019,12 +2019,14 @@ the shell.
     check. The sdk's own hooks (`useNode`, `useAppearance`, `useFollow`, …)
     are built over it once, with `useSyncExternalStore`.
 
-  The sdk never imports the shell's stores. The 3D scene kit, `@kb/scene`,
-  is a browser package of its own beside it, for canvas 3D, the lab and the
-  core `graph.force3d` renderer.
+  The sdk never imports the shell's stores. The 3D scene kit is two kit
+  packages beside it, for canvas 3D, the lab and the core `graph.force3d`
+  renderer: `@kb/scene`, which touches no GPU, and `@kb/scene-gpu`, which is
+  three, so a 3D host can mount a scene without carrying three itself
+  ([The lab](#the-lab)).
 - **Until a half is a package, its zone carries the fence.** A feature zone
   still in `@kb/ui` (`components/{chart,code,agent,lab,canvas}`) may reach
-  only itself and `@kb/ui-sdk`, plus `scene` for canvas 3D and the lab.
+  only itself, `@kb/ui-sdk` and the scene kit.
   `UI_ALLOWS` in `harness/src/constraints.ts` states the rows, and each
   zone's row is deleted when its package leaves. GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
   (chart, code, agent, lab) and GAP [[01M39F3MR3HT2NR553FY8CRD6X]] (canvas)
@@ -2068,29 +2070,32 @@ light-theme `--lab-*` token names (L1); the ramp makes both themes
 intentional (P5).
 
 Every study is built from one kit (P4), in two homes. What any real-time 3D
-view needs is the **scene kit**, `src/scene/` (its own zone in `UI_ALLOWS`,
-open to the lab and the graph): `host` (`SceneHandle`, the one interface
+view needs is the **scene kit**, two packages of the `kit` layer:
+`@kb/scene` touches no GPU and `@kb/scene-gpu` is three, so a surface's 3D
+host mounts through the first and only its lazily loaded scene imports the
+second. `@kb/scene` holds `host` (`SceneHandle`, the one interface
 every mounted scene meets — sized, paused while the tab is hidden, told of
 reduced motion, disposed — and `attachScene`, the one non-React mechanism
 that keeps a scene in step with its element and disposes one whose mount
 lands after the element has gone; each surface wraps it in a thin React
-host of its own, so `scene/` holds no React), `gpu/screen` (`toScreen`, the
+host of its own, so the kit holds no React), `palette` (the five palette
+roles, filled from whichever tokens the caller names), `sphere` (seeded
+places on a sphere) and `shade-ops` (the arithmetic a shading formula is
+written over once, run as TSL nodes through `@kb/scene-gpu`'s `NODE_OPS` and
+as numbers through `NUMBER_OPS`, so a test proves the shader itself: Embers'
+heat curve and the 3D graph's node light). `@kb/scene-gpu` holds `screen` (`toScreen`, the
 one projection of a world point to canvas pixels, decided in view space;
-every label, pick and hover asks it), `gpu/pointer` (`PointerField`: where
+every label, pick and hover asks it), `pointer` (`PointerField`: where
 the pointer is over a scene, where its ray meets a plane, and which presses
-were taps — every study and the 3D graph read the one field), `gpu/stage` (renderer, post chain, tone
-mapping, palette uniforms, frame loop, reveal), `gpu/tsl` (the typed TSL seam
-and the ease as a shader function), `gpu/rig` (lights and finishes),
-`gpu/backdrop` (every view's ground, through the stage's `backdrop()`: the
+were taps — every study and the 3D graph read the one field), `stage` (renderer, post chain, tone
+mapping, palette uniforms, frame loop, reveal), `tsl` (the typed TSL seam
+and the ease as a shader function), `rig` (lights and finishes),
+`backdrop` (every view's ground, through the stage's `backdrop()`: the
 ground pooled at a focal point and falling to the edge colour, plus the
 warmth, domain-warped haze and heat shimmer a study asks for — never a flat
-fill), `gpu/starfield`, `gpu/dispose`, `palette` (the five palette roles, filled
-from whichever tokens the caller names), `sphere` (seeded places on a
-sphere) and `shade-ops` (the arithmetic a shading formula is written over
-once, run as TSL nodes through `gpu/tsl`'s `NODE_OPS` and as numbers through
-`NUMBER_OPS`, so a test proves the shader itself: Embers' heat curve and the
-3D graph's node light). The timing vocabulary (the motion tokens, springs, eases) is
-`lib/timing.ts`, beside `lib/motion.ts`, because DOM motion reads it too.
+fill), `starfield` and `dispose`. The timing vocabulary (the motion tokens,
+springs, eases) is `@kb/ui-sdk`'s `lib/timing.ts`, beside `lib/motion.ts`,
+because DOM motion reads it too.
 What only the lab needs stays in `components/lab/kit`: `study`
 (`mountStudy`: a study's side of `mountScene`, and the theme hand-off), `palette` (the
 `--lab-*` roles), `pan`, `pan-control` and `velocity` (drag-to-turn with
@@ -2104,7 +2109,7 @@ seeded random a study scatters from), `scene-host` (its React wrapper over
 `three` loads only in a chunk of its own: each study's scene and the 3D
 graph sit behind a dynamic `import()` inside their surface's own lazy route
 chunk, so every path from the entry to a three import, direct or through
-`scene/gpu/`, crosses two of them. That is one
+`@kb/scene-gpu`, crosses two of them. That is one
 rule over the import graph (`UI_LAZY_ONLY` in `harness/src/constraints.ts`,
 applied by the harness's `ui-lazy-fence` check), so no surface lists which of
 its files may import three.
@@ -2112,7 +2117,7 @@ its files may import three.
 **The scene contract.** A lab study and the 3D graph are implementations of
 one `SceneHandle`, and each is built through the stage's `mountScene`, which
 answers the handle from the stage. What the handle promises belongs to the
-handle, and one contract suite (`scene/scene-contract.test.ts`) proves it over
+handle, and one contract suite (`@kb/ui`'s `scene-contract.test.ts`) proves it over
 every registered scene — each study in `LAB_STUDIES`, the 3D graph and the
 3D canvas:
 disposing leaves no live renderer, loop or canvas; a hidden scene draws
@@ -2164,7 +2169,7 @@ study's info card cites them by id.
   Value contrast over hue contrast.
 - **L2.** Physically plausible light: a named key/fill/rim rig, a set tone
   mapping (ACES by default; AgX greys a light ground), sRGB output. Bloom's
-  threshold is 1 (`BLOOM_THRESHOLD` in `scene/shade-ops`), so only HDR values
+  threshold is 1 (`BLOOM_THRESHOLD` in `@kb/scene`'s `shade-ops`), so only HDR values
   glow and nothing glows by accident.
 - **L3.** Depth cues: fog or atmospheric perspective, size attenuation, and
   falloff at the edges.
@@ -2194,7 +2199,7 @@ study's info card cites them by id.
   `ShaderMaterial`; post-processing a TSL graph (`RenderPipeline`, `pass()`,
   `bloom()`, tone mapping, dither); the info card's parameters drive TSL
   `uniform()`s. Where three's TSL typings are looser than the nodes, the one
-  typed seam is `scene/gpu/tsl.ts`. Plain CPU arithmetic that feeds instance data
+  typed seam is `@kb/scene-gpu`'s `tsl.ts`. Plain CPU arithmetic that feeds instance data
   (the Motion field's springs) is not a shader and stays TypeScript. TypeGPU
   or raw WGSL only where TSL cannot express the thing, recorded as a gap.
 
@@ -2422,7 +2427,7 @@ is.
   knob). Canvas renderers read colour through `readTokenColor`
   (`lib/css-color.ts`), which owns each token's no-document fallback, so no
   component carries a colour literal. The lab's palette (`--lab-*`, Lab
-  principles L1) is layer 1 too, read the same way by `lab/kit/palette.ts` through `scene/palette.ts`.
+  principles L1) is layer 1 too, read the same way by `lab/kit/palette.ts` through `@kb/scene`'s `palette.ts`.
 - **Canvas renderers re-read on one signal.** A DOM utility follows a token
   change by itself; a renderer that copied a value out (a colour, the
   graph label face) does not. `useAppearance()` (`stores/prefs.store.ts`)

@@ -49,8 +49,7 @@ import {
   vec2,
   vec3,
 } from "three/tsl";
-import type { PaletteUniforms } from "@/scene/gpu/stage";
-import type { TslNode } from "@/scene/gpu/tsl";
+import type { PaletteUniforms, TslNode } from "@kb/scene-gpu";
 import { SEA_CELL, SEA_SIZE, WAVE_COUNT, type Wave } from "@/components/lab/ocean/waves";
 
 export interface SeaUniforms {

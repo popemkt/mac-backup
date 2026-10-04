@@ -12,8 +12,7 @@
 import { Vector3, type Mesh, type Object3D, type PerspectiveCamera } from "three/webgpu";
 import type { LabSceneInit } from "@/components/lab/kit/contract";
 import type { Grab } from "@/components/lab/kit/pan-control";
-import { PointerField } from "@/scene/gpu/pointer";
-import { toScreen, type ScreenPoint } from "@/scene/gpu/screen";
+import { PointerField, toScreen, type ScreenPoint } from "@kb/scene-gpu";
 import type { NodeStars } from "@/components/lab/sky/stars";
 
 /** Pixels within which the pointer is on a star; a glint is easier to hit. */

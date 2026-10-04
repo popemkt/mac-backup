@@ -60,7 +60,7 @@ import {
   type CanvasNode,
 } from "@kb/canvas";
 import { paintPlanes } from "./canvas-camera";
-import { matcapMaterial, paletteMatcap } from "@/scene/gpu/rig";
+import { matcapMaterial, paletteMatcap } from "@kb/scene-gpu";
 import {
   cardFaceOf,
   cornerRadius,

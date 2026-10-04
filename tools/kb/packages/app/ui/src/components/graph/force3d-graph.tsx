@@ -1,5 +1,5 @@
 /**
- * The 3D graph's React host over the scene host (`@/scene/host`): it mounts
+ * The 3D graph's React host over the scene host (`@kb/scene`): it mounts
  * the scene (`force3d-scene`, the only part that touches three) into a div
  * through `attachScene`, which owns sizing, tab visibility and disposal, and
  * hands the scene what only the graph is told — graph, settings, emphasis,
@@ -17,8 +17,7 @@ import {
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { DEFAULT_THEME, type LensLinkStyle, type LensTheme } from "@kb/views";
 import { showsHoverCard, type GraphEmphasis } from "@/lib/graph-interaction";
-import { readScenePalette } from "@/scene/palette";
-import { attachScene } from "@/scene/host";
+import { attachScene, readScenePalette } from "@kb/scene";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
 import { GRAPH_THEMES, variant } from "./graph-themes";

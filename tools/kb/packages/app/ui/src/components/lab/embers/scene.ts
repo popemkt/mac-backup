@@ -28,11 +28,9 @@
 import { PointLight, SphereGeometry, Vector3 } from "three/webgpu";
 import { float, instanceIndex, length, uniform } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
-import { PointerField } from "@/scene/gpu/pointer";
+import { createRig, PointerField, type SceneStage } from "@kb/scene-gpu";
 import { Entrance } from "@/components/lab/kit/entrance";
 import { seededRandom } from "@/components/lab/kit/seeded";
-import { createRig } from "@/scene/gpu/rig";
-import type { SceneStage } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { emberSimulation, restFloor, type EmberShape } from "@/components/lab/embers/compute";
 import { PopGrants } from "@/components/lab/embers/pops";

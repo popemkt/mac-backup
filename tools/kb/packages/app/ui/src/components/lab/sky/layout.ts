@@ -8,7 +8,7 @@
  * slide across far ones (parallax), and a constellation seen from the side
  * is no longer the shape it was from the front.
  */
-import { sphereDirection, unitHash, type SpherePlace } from "@/scene/sphere";
+import { sphereDirection, unitHash, type SpherePlace } from "@kb/scene";
 import type { LabNode } from "@/components/lab/lab-graph";
 
 /** How far from the centre of the sky stars stand, world units. */

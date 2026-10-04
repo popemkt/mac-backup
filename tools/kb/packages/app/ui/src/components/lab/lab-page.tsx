@@ -21,7 +21,7 @@ import {
 } from "@kb/ui-sdk";
 import { initialValues, type LabControlValue, type LabHover } from "@/components/lab/kit/contract";
 import { InfoCard } from "@/components/lab/kit/info-card";
-import type { SceneBackend } from "@/scene/backend";
+import type { SceneBackend } from "@kb/scene";
 import { SceneHost } from "@/components/lab/kit/scene-host";
 import { useLabGraph } from "@/components/lab/lab-graph";
 import { labPath } from "@/components/lab/routes";

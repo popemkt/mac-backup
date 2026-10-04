@@ -28,7 +28,8 @@
  * `application/` owns infrastructure-free use cases; `app/` owns composition
  * roots and delivery surfaces that wire the lower layers together.
  * `kit/` holds the browser host libraries a plugin builds against
- * (`@kb/ui-sdk`, the scene kit): neither a port adapter nor a use case, they
+ * (`@kb/ui-sdk`, and the scene kit `@kb/scene` with `@kb/scene-gpu`):
+ * neither a port adapter nor a use case, they
  * stand on the domain and the contracts, one kit may stand on another, and
  * only extensions and composition roots build on them.
  * - There is no `scope:extension` row: no package carries it, and a row
@@ -454,11 +455,9 @@ export type UiZone =
   | "session"
   | "stores"
   | "fixtures"
-  | "scene"
   | "test-support"
   | "catalog"
   | "sandbox"
-  | "components/canvas/3d"
   | `components/${UiSurface}`;
 
 /**
@@ -477,14 +476,6 @@ const UI_PRIMITIVES: readonly string[] = [
 ];
 
 /**
- * The canvas's 3D projection: the scene, its layers and the stage that hosts
- * it, lifted out of the canvas folder's zone so that only these files may
- * reach the scene kit. The 2D canvas cannot import three by accident.
- */
-const UI_CANVAS_3D =
-  /^components\/canvas\/canvas-(?:scene(?:-items|-edges|-labels|-solids|-gizmo|-space)?\.ts|3d-stage\.tsx)$/;
-
-/**
  * A file's zone, from its path relative to {@link UI_SRC}.
  *
  * `main.tsx` and `components/App.tsx` are the composition root, so they are
@@ -495,7 +486,6 @@ const UI_CANVAS_3D =
  */
 export function uiZoneOf(file: string): UiZone {
   if (!file.includes("/") || file === "components/App.tsx") return "shell";
-  if (UI_CANVAS_3D.test(file)) return "components/canvas/3d";
   if (UI_PRIMITIVES.some((prefix) => file.startsWith(prefix))) return "primitives";
   const [head, next] = file.split("/");
   if (head === "components") {
@@ -510,13 +500,13 @@ export function uiZoneOf(file: string): UiZone {
 
 /**
  * The row of a zone that leaves `@kb/ui` as an extension's UI half
- * (DESIGN-UI.md → Extension UI halves): itself, and only the extras it names
- * (the scene kit, for 3D). Everything else it uses of the shell comes from
- * `@kb/ui-sdk`, a package edge and not a zone, so it is listed once, in that
- * package's barrel. The row is deleted when its package leaves.
+ * (DESIGN-UI.md → Extension UI halves): itself alone. Everything it uses of
+ * the shell comes from `@kb/ui-sdk`, and its 3D from the scene kit, which are
+ * package edges and not zones, so what it uses is listed once, in those
+ * packages' barrels. The row is deleted when its package leaves.
  */
-function extensionRow(self: UiZone, ...extras: readonly UiZone[]): readonly UiZone[] {
-  return [self, ...extras];
+function extensionRow(self: UiZone): readonly UiZone[] {
+  return [self];
 }
 
 /**
@@ -574,11 +564,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   session: ["lib", "api", "actions", "session"],
   stores: ["stores", "lib", "api", "session"],
   fixtures: ["fixtures", "lib"],
-  // The scene kit: the GPU stage, post chain, palette roles, light rig and
-  // starfield every real-time 3D view stands on — the lab's studies and the
-  // 3D graph alike — so neither surface owns a copy. Mechanism only: it reads
-  // tokens and timing from `@kb/ui-sdk` and knows no surface.
-  scene: ["scene"],
   // Test helpers: imported only by test files, which the surface rows exempt,
   // so no row names it. It reaches what it stands in for — the store
   // `resetOutlineStore` resets, and the `api/ws` port `FakeWsSocket` doubles.
@@ -597,13 +582,12 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "components/prefs",
     "components/sidebar",
   ],
-  // The page loads the 3D projection (lazily); only the projection reaches the scene kit.
-  "components/canvas": extensionRow("components/canvas", "components/canvas/3d"),
-  // The 3D projection stands on the scene kit, as the 3D graph does.
-  "components/canvas/3d": extensionRow("components/canvas/3d", "components/canvas", "scene"),
-  "components/graph": ["components/graph", "primitives", "stores", "actions", "lib", "scene"],
+  // The canvas and its 3D projection; the projection stands on the scene kit,
+  // whose three the lazy fence keeps behind the projection's own chunk.
+  "components/canvas": extensionRow("components/canvas"),
+  "components/graph": ["components/graph", "primitives", "stores", "actions", "lib"],
   // The lab's studies stand on the scene kit, and on the shell through the host.
-  "components/lab": extensionRow("components/lab", "scene"),
+  "components/lab": extensionRow("components/lab"),
   "components/ontology": ["components/ontology", "primitives", "stores", "actions", "lib"],
   // Panes and layouts: a pane draws whatever page its path resolves to, by
   // route and view key, so it imports no other surface.
@@ -644,9 +628,9 @@ export const UI_ENTRY = "main.tsx";
 
 /**
  * The lazy-chunk fence: specifiers the page loads only inside a chunk of
- * their own. three is the whole real-time 3D stack (the scene kit's GPU
- * modules are three by another name, and are caught through the three they
- * import), and only a view that draws 3D — a lab study's scene, the 3D graph
+ * their own. three is the whole real-time 3D stack (`@kb/scene-gpu` is three
+ * by another name, and is caught through the three it imports, since the walk
+ * follows the page into every browser package), and only a view that draws 3D — a lab study's scene, the 3D graph
  * — may load it. `@kb/chart-vega` is the whole chart stack (Vega, Vega-Lite
  * and the expression interpreter, which only it imports), and only a chart's
  * drawing may load it.

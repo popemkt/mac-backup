@@ -36,7 +36,7 @@ import {
   vec4,
 } from "three/tsl";
 import { Vector3 } from "three/webgpu";
-import type { TslNode } from "@/scene/gpu/tsl";
+import type { TslNode } from "@kb/scene-gpu";
 import { seededRandom } from "@/components/lab/kit/seeded";
 
 export const PARTICLES = 131_072;

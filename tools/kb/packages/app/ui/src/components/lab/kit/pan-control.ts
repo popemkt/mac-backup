@@ -5,7 +5,7 @@
  * (the view turns) or a grab (the study moves something it hit — a star, the
  * sun); the study answers `grab` with what it took, or `null` for a pan. The
  * arithmetic is `kit/pan`; where the pointer is over the scene is the scene
- * kit's `PointerField` (`@/scene/gpu/pointer`).
+ * kit's `PointerField` (`@kb/scene-gpu`).
  */
 import {
   panCoast,

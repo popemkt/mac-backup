@@ -15,7 +15,7 @@ import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/k
 import { numberOf } from "@/components/lab/kit/contract";
 import { OrbitControl } from "@/components/lab/kit/orbit";
 import { Entrance } from "@/components/lab/kit/entrance";
-import type { SceneStage } from "@/scene/gpu/stage";
+import type { SceneStage } from "@kb/scene-gpu";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { waveSet } from "@/components/lab/ocean/waves";
 import { sea, skyDome, skyFunction, waveUniforms } from "@/components/lab/ocean/shaders";

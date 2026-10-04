@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { Color, PerspectiveCamera, Scene } from "three/webgpu";
 import { uniform } from "three/tsl";
 import { TIMING_FALLBACK, type LensEdge, type LensNode } from "@kb/ui-sdk";
-import type { SceneStage } from "@/scene/gpu/stage";
+import type { SceneStage } from "@kb/scene-gpu";
 import { GraphLayers, type Force3dSettings } from "./force3d-layers";
 
 const node = (id: string, degree: number): LensNode => ({

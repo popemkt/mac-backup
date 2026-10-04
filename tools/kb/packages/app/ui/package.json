@@ -38,6 +38,8 @@
     "@kb/sandbox": "workspace:*",
     "@kb/sandbox-quickjs": "workspace:*",
     "@kb/sandbox-worker": "workspace:*",
+    "@kb/scene": "workspace:*",
+    "@kb/scene-gpu": "workspace:*",
     "@kb/tx-log": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
     "@kb/views": "workspace:*",

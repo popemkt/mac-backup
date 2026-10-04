@@ -36,8 +36,7 @@ import {
   vec2,
   vec3,
 } from "three/tsl";
-import type { PaletteUniforms } from "@/scene/gpu/stage";
-import type { TslNode } from "@/scene/gpu/tsl";
+import type { PaletteUniforms, TslNode } from "@kb/scene-gpu";
 
 /** Position across a sprite's quad: 0 at its centre, ±1 at its edges. */
 const quad = () => uv().sub(0.5).mul(2);

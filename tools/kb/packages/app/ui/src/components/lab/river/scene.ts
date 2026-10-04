@@ -31,10 +31,8 @@ import {
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import { numberOf } from "@/components/lab/kit/contract";
 import { OrbitControl } from "@/components/lab/kit/orbit";
-import { PointerField } from "@/scene/gpu/pointer";
+import { PointerField, type PaletteUniforms, type SceneStage, type TslNode } from "@kb/scene-gpu";
 import { Entrance } from "@/components/lab/kit/entrance";
-import type { PaletteUniforms, SceneStage } from "@/scene/gpu/stage";
-import type { TslNode } from "@/scene/gpu/tsl";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { PARTICLES, riverFlow, type FlowBuffers } from "@/components/lab/river/flow";
 

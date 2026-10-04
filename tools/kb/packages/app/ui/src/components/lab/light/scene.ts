@@ -24,16 +24,17 @@ import {
 } from "three/webgpu";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
-import type { ScenePalette } from "@/scene/palette";
-import { PanControl } from "@/components/lab/kit/pan-control";
+import type { ScenePalette } from "@kb/scene";
 import {
   createRig,
   finishMaterial,
   matcapMaterial,
   paletteMatcap,
   type Finish,
-} from "@/scene/gpu/rig";
-import type { SceneStage, SceneToneMapping } from "@/scene/gpu/stage";
+  type SceneStage,
+  type SceneToneMapping,
+} from "@kb/scene-gpu";
+import { PanControl } from "@/components/lab/kit/pan-control";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { Entrance } from "@/components/lab/kit/entrance";
 import { lampLevels } from "@/components/lab/light/lamps";

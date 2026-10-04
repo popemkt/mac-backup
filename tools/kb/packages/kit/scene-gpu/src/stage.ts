@@ -68,13 +68,10 @@ import {
 } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { ao as gtao } from "three/addons/tsl/display/GTAONode.js";
-import type { SceneBackend } from "@/scene/backend";
-import type { SceneHandle } from "@/scene/host";
-import { backdropNode, type BackdropOptions } from "@/scene/gpu/backdrop";
-import { disposeGraph } from "@/scene/gpu/dispose";
-import { colorUniform, type TslNode } from "@/scene/gpu/tsl";
-import type { ScenePalette } from "@/scene/palette";
-import { BLOOM_THRESHOLD } from "@/scene/shade-ops";
+import { BLOOM_THRESHOLD, type SceneBackend, type SceneHandle, type ScenePalette } from "@kb/scene";
+import { backdropNode, type BackdropOptions } from "./backdrop";
+import { disposeGraph } from "./dispose";
+import { colorUniform, type TslNode } from "./tsl";
 import { approachRate, approachShare, clampStep, type Timing } from "@kb/ui-sdk";
 
 /** The device pixel ratio a stage never exceeds (P3). */

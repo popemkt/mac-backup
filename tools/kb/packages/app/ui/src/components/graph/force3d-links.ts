@@ -43,8 +43,8 @@ import {
   uniform,
   uv,
 } from "three/tsl";
-import type { PaletteUniforms } from "@/scene/gpu/stage";
-import type { ScenePalette } from "@/scene/palette";
+import type { ScenePalette } from "@kb/scene";
+import type { PaletteUniforms } from "@kb/scene-gpu";
 import { approach } from "@kb/ui-sdk";
 import type { LinkStyleParts } from "@/lib/graph-link-styles";
 import { restingLink, type LinkTone } from "./graph-themes";

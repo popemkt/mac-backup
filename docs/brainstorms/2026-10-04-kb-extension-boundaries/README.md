@@ -782,6 +782,56 @@ was silent, this is what was picked:
   lab and agent are no longer in the main bundle), and the rule's "not
   checked yet" now names the `-ui` pairing of E12.
 
+**Note from the doing (E11).** Where the plan was silent, or the code
+pushed back, this is what was picked:
+- **The kit layer** answers owner question 3: `LAYER_ALLOWS.kit` is
+  `[domain, contract, kit]`, and `extension` and `app` gain `kit`. A kit may
+  reach a kit because the scene kit reads tokens and timing from
+  `@kb/ui-sdk`.
+- **`@kb/ui-sdk` is the barrel's closure, not only the barrel.** The names
+  the sdk zone listed close over about 65 modules: the UI points, `ViewSlot`
+  and the command point, the primitives, the pure helpers, the graph's
+  shapes as the page holds them, and the query seam (the former `ds/`). They
+  moved whole, and the shell imports the same modules from the package, so
+  each keeps one home. The barrel therefore names what the shell uses too.
+- **Three seams were cut** so that the package reaches no shell state. The
+  command point's contract (`lib/command-point.ts`) left the shell's command
+  table. `BrowserHost` states the proposal and sandbox-bridge shapes instead
+  of naming the shell's modules. A query node's live rows subscribe through
+  `BrowserHost.subscribeQuery`.
+- **`ViewSlot` moved too**, so gap `01M3EZRFTS1W8SB97GFJAWD92X` is closed.
+- **The query seam is the kit's.** `UI_SPECIFIER_ALLOWS` lets no zone of
+  `@kb/ui` import `@kb/query`. The tests that pin the page's queries on its
+  fixture graph moved from `ds/` to `lib/`, and the two that import
+  `@kb/query` carry the query-seam gap `01M1RXNP3EMV1ES85BVE9CXMYE`.
+- **The scene kit is two packages:** `@kb/scene` (host, palette, shading and
+  placement arithmetic; no GPU) and `@kb/scene-gpu` (the stage, rig,
+  starfield, TSL seam; three). With one barrel, the build put three in the
+  chunk the lab page imports its host from, so opening the lab loaded
+  three. The fence still passed at depth 2, but the chunks moved. With two
+  packages the chunks are as before.
+- **The `components/canvas/3d` zone is gone.** It existed to keep the 2D
+  canvas off the scene zone. The scene kit is a package now, the lazy fence
+  holds its three, and the zone told nothing apart.
+- **Browser packages share the page's runner and scan.** `test:ui` runs the
+  Vitest `test` of every `scope:browser` project, `bun test` skips the kit,
+  and `index.css` names it with `@source`. `browser-scope.test.ts` holds all
+  three to the scope tags. The tests that scan "the UI's source" (tokens,
+  design systems, utility liveness, the determinism seam) read every browser
+  package.
+- **Tests stay with their subject.** A kit test that holds the kit to the
+  page's stylesheets reads them by path, because the design tokens are still
+  `@kb/ui`'s. The outline's create-strip check left NodeRow's test for the
+  outline. `update-cost.test.tsx` mocks the kit's `refs` module by path,
+  because the call it counts is made inside the kit.
+- **Draining.** The ratchet counts a moved file's Knip debt as new, so the
+  nine unused exports in moved files were drained: two dead functions are
+  deleted and seven are no longer exported.
+- **Open.** Gap `01M41MHRD7MF4NP23EE294B69C` (the canvas card's text binding
+  over the host) stays open and must land before E13. Comments in canvas
+  files that name the old `@/scene` paths wait for E13, because 3D step 8
+  was editing the canvas at the time.
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D

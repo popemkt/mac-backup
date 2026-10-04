@@ -203,6 +203,8 @@
         "@kb/sandbox": "workspace:*",
         "@kb/sandbox-quickjs": "workspace:*",
         "@kb/sandbox-worker": "workspace:*",
+        "@kb/scene": "workspace:*",
+        "@kb/scene-gpu": "workspace:*",
         "@kb/tx-log": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
         "@kb/views": "workspace:*",
@@ -610,6 +612,32 @@
       "devDependencies": {
         "@effect/platform-bun": "catalog:",
         "@types/bun": "catalog:",
+      },
+    },
+    "packages/kit/scene": {
+      "name": "@kb/scene",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/ui-sdk": "workspace:*",
+      },
+      "devDependencies": {
+        "happy-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
+    "packages/kit/scene-gpu": {
+      "name": "@kb/scene-gpu",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/scene": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "three": "catalog:",
+      },
+      "devDependencies": {
+        "@types/three": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/kit/ui-sdk": {
@@ -1021,6 +1049,10 @@
     "@kb/sandbox-quickjs": ["@kb/sandbox-quickjs@workspace:packages/infrastructure/sandbox-quickjs"],
 
     "@kb/sandbox-worker": ["@kb/sandbox-worker@workspace:packages/infrastructure/sandbox-worker"],
+
+    "@kb/scene": ["@kb/scene@workspace:packages/kit/scene"],
+
+    "@kb/scene-gpu": ["@kb/scene-gpu@workspace:packages/kit/scene-gpu"],
 
     "@kb/server": ["@kb/server@workspace:packages/app/server"],
 

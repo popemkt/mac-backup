@@ -17,7 +17,7 @@
  * through its handle is proved over every registered scene by one contract
  * suite, `scene-contract.test.ts`.
  */
-import type { SceneBackend } from "@/scene/backend";
+import type { SceneBackend } from "./backend";
 
 /** A mounted scene, as a host drives it. */
 export interface SceneHandle {

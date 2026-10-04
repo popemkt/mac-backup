@@ -7,7 +7,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
 import { CanvasTexture, Sprite, Vector4, type Node, type SpriteNodeMaterial } from "three/webgpu";
-import { colorUniform } from "@/scene/gpu/tsl";
+import { colorUniform } from "@kb/scene-gpu";
 import { BULLET_GEOMETRY, bulletAppearance, bulletExtent, type LensNode } from "@kb/ui-sdk";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { topologyOf } from "./force3d-emphasis";

@@ -9,7 +9,7 @@
  * already over: the first still is the whole composition.
  */
 import { uniform } from "three/tsl";
-import { easeNode, type TslNode } from "@/scene/gpu/tsl";
+import { easeNode, type TslNode } from "@kb/scene-gpu";
 import { easeAt, type CubicBezier, type Timing } from "@kb/ui-sdk";
 
 /** How much of the entrance the stagger spans; the rest is each piece's own arrival. */

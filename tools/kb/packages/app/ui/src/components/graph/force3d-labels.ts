@@ -33,9 +33,9 @@ import {
 } from "@/lib/graph-label-paint";
 import { labelArrived } from "@/lib/graph-arrival";
 import { byLabelPriority, reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
-import type { ScenePalette } from "@/scene/palette";
+import type { ScenePalette } from "@kb/scene";
+import { pixelsPerUnit, toScreen, type ScreenPoint } from "@kb/scene-gpu";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
-import { pixelsPerUnit, toScreen, type ScreenPoint } from "@/scene/gpu/screen";
 
 const FONT_SIZE = 12;
 const HEIGHT = GRAPH_LABEL_HEIGHT;

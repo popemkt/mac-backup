@@ -34,13 +34,12 @@ import {
   uv,
   vec3,
 } from "three/tsl";
-import type { PaletteUniforms } from "@/scene/gpu/stage";
-import type { ScenePalette } from "@/scene/palette";
+import type { ScenePalette } from "@kb/scene";
+import { NODE_OPS, type PaletteUniforms, type TslNode } from "@kb/scene-gpu";
 import { toRenderableColor } from "@kb/ui-sdk";
 import { TIER, type Force3dFades, type Force3dTopology } from "./force3d-emphasis";
 import { KEY_DIRECTION, RIM_POWER, shadeNode } from "./force3d-light";
 import type { GraphTheme, SolidForm } from "./graph-themes";
-import { NODE_OPS, type TslNode } from "@/scene/gpu/tsl";
 
 /** World radius per cube root of a lens node's size. */
 const RADIUS_PER_SIZE = 4.2;
