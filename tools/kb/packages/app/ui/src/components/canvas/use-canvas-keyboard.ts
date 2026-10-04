@@ -108,12 +108,28 @@ function pasteDoc(source: CanvasDoc, context: CanvasKeyboardContext, selectEdges
   });
 }
 
-function pasteCanvas(text: string, context: CanvasKeyboardContext) {
+/** Paste `text` as canvas items; false when it is not a canvas document. */
+function pasteCanvas(text: string, context: CanvasKeyboardContext): boolean {
+  let source: CanvasDoc;
   try {
-    pasteDoc(parseCanvasDoc(text), context, true);
+    source = parseCanvasDoc(text);
   } catch {
-    // Clipboard content is not a canvas document.
+    return false;
   }
+  pasteDoc(source, context, true);
+  return true;
+}
+
+/**
+ * The browser's paste, which ⌘V (or Edit → Paste) raises with what the
+ * clipboard holds and no permission asked: a canvas document becomes items.
+ * A field being typed in keeps its own paste, and a modal transform takes
+ * none.
+ */
+function pasteClipboard(event: ClipboardEvent, context: CanvasKeyboardContext): void {
+  if (isTextEntry(event.target) || context.transforming()) return;
+  const text = event.clipboardData?.getData("text/plain") ?? "";
+  if (text !== "" && pasteCanvas(text, context)) event.preventDefault();
 }
 
 function duplicateSelection(context: CanvasKeyboardContext) {
@@ -243,8 +259,6 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
   delete: deleteSelection,
   selectAll: (context) => context.setSelection(selectAll(context.docRef.current, context.scope)),
   copy: copySelection,
-  paste: (context) =>
-    void navigator.clipboard.readText().then((text) => pasteCanvas(text, context)),
   duplicate: duplicateSelection,
   escape: escapeCanvas,
   panModifier: (context) => context.setSpaceDown(true),
@@ -307,14 +321,17 @@ export function useCanvasKeyboard(context: CanvasKeyboardContext): (intent: Canv
     const onFocusIn = () => {
       if (context.transforming()) context.cancelPointer();
     };
+    const onPaste = (event: ClipboardEvent) => pasteClipboard(event, context);
     window.addEventListener("blur", onBlur);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("paste", onPaste);
     document.addEventListener("focusin", onFocusIn);
     return () => {
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("paste", onPaste);
       document.removeEventListener("focusin", onFocusIn);
     };
   }, [context]);

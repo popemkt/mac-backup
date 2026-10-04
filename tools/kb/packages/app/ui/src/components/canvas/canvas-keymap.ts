@@ -37,7 +37,6 @@ export type CanvasIntent =
   | { type: "delete" }
   | { type: "selectAll" }
   | { type: "copy" }
-  | { type: "paste" }
   | { type: "duplicate" }
   | { type: "escape" }
   | { type: "panModifier" }
@@ -256,10 +255,14 @@ const mapSelection: ChordMap = (event, state) => {
   return null;
 };
 
+/**
+ * ⌘C copies the selection. ⌘V is not the canvas's chord: it is left to the
+ * browser, whose paste event carries whatever the clipboard holds, with no
+ * permission asked (`use-canvas-keyboard`).
+ */
 const mapClipboard: ChordMap = (event, state) => {
   if (!mod(event)) return null;
   if (event.key === "c") return claimWithSelection({ type: "copy" }, state);
-  if (event.key === "v") return claim({ type: "paste" });
   return null;
 };
 
@@ -309,7 +312,9 @@ const mapNudge: ChordMap = (event, state) => {
   return claim({ type: "nudge", dx: unit.dx * step, dy: unit.dy * step });
 };
 
+/** A tool is a plain key: with ⌘ or Ctrl held the chord is the browser's (⌘V its paste). */
 const mapTool: ChordMap = (event) => {
+  if (mod(event)) return null;
   const key = event.key.toLowerCase();
   if (SOLID_TOOL_KEYS.has(key)) return claim({ type: "tool", tool: "solid" });
   const tool = TOOL_KEYS[key];

@@ -89,7 +89,7 @@ function ids(selection: CanvasSelection): string {
 let dom: Window;
 let root: Root;
 let container: HTMLElement;
-let clipboard: { text: string; reads: number; writes: string[] };
+let clipboard: { writes: string[] };
 
 beforeAll(() => {
   dom = new Window({ url: "https://kb.test/" });
@@ -113,16 +113,12 @@ beforeAll(() => {
       writeText: async (text: string) => {
         clipboard.writes.push(text);
       },
-      readText: async () => {
-        clipboard.reads += 1;
-        return clipboard.text;
-      },
     },
   });
 });
 
 beforeEach(() => {
-  clipboard = { text: "", reads: 0, writes: [] };
+  clipboard = { writes: [] };
   container = document.createElement("div");
   document.body.appendChild(container);
 });
@@ -132,6 +128,13 @@ afterEach(() => {
   container.remove();
 });
 
+/** The hook mounted over a recording context: what it did, and its applier. */
+interface Mounted {
+  readonly log: string[];
+  readonly docs: CanvasDoc[];
+  readonly apply: (intent: CanvasIntent) => void;
+}
+
 /** Mount the hook over a recording context and press one chord. */
 function press(
   chord: Chord,
@@ -139,6 +142,44 @@ function press(
   transforming = false,
   around: Surroundings = {},
 ): Recording {
+  const mounted = mount(selection, transforming, around);
+  const target: EventTarget = chord.onInput === true ? document.createElement("input") : window;
+  if (target instanceof HTMLElement) document.body.appendChild(target);
+  const event = new dom.KeyboardEvent("keydown", {
+    key: chord.key,
+    code: chord.code ?? "",
+    metaKey: chord.metaKey ?? false,
+    ctrlKey: chord.ctrlKey ?? false,
+    shiftKey: chord.shiftKey ?? false,
+    repeat: chord.repeat ?? false,
+    bubbles: true,
+    cancelable: true,
+  });
+  act(() => {
+    target.dispatchEvent(event as unknown as Event);
+  });
+  return { ...mounted, defaultPrevented: event.defaultPrevented };
+}
+
+/** Mount the hook and let the browser raise a paste carrying `text`, over a field when `onInput`. */
+function paste(text: string, onInput = false, transforming = false): Recording {
+  const mounted = mount(selectNode("a"), transforming, {});
+  const target: EventTarget = onInput ? document.createElement("input") : window;
+  if (target instanceof HTMLElement) document.body.appendChild(target);
+  const data = new dom.DataTransfer();
+  data.setData("text/plain", text);
+  const event = new dom.ClipboardEvent("paste", {
+    clipboardData: data,
+    bubbles: true,
+    cancelable: true,
+  });
+  act(() => {
+    target.dispatchEvent(event as unknown as Event);
+  });
+  return { ...mounted, defaultPrevented: event.defaultPrevented };
+}
+
+function mount(selection: CanvasSelection, transforming: boolean, around: Surroundings): Mounted {
   const log: string[] = [];
   const docs: CanvasDoc[] = [];
   const start = around.doc ?? doc;
@@ -211,28 +252,7 @@ function press(
   }
   root = createRoot(container);
   act(() => root.render(<Probe />));
-
-  const target: EventTarget = chord.onInput === true ? document.createElement("input") : window;
-  if (target instanceof HTMLElement) document.body.appendChild(target);
-  const event = new dom.KeyboardEvent("keydown", {
-    key: chord.key,
-    code: chord.code ?? "",
-    metaKey: chord.metaKey ?? false,
-    ctrlKey: chord.ctrlKey ?? false,
-    shiftKey: chord.shiftKey ?? false,
-    repeat: chord.repeat ?? false,
-    bubbles: true,
-    cancelable: true,
-  });
-  act(() => {
-    target.dispatchEvent(event as unknown as Event);
-  });
-  return {
-    log,
-    docs,
-    defaultPrevented: event.defaultPrevented,
-    apply: (intent) => appliers.at(-1)?.(intent),
-  };
+  return { log, docs, apply: (intent) => appliers.at(-1)?.(intent) };
 }
 
 describe("the canvas keydown table", () => {
@@ -347,16 +367,19 @@ describe("clipboard", () => {
     expect(copied.edges).toEqual([]);
   });
 
-  test("paste remaps ids, offsets by 24 and selects what it pasted", async () => {
-    clipboard.text = JSON.stringify({
-      nodes: [{ id: "a", type: "shape", shape: "rect", x: 10, y: 20, width: 160, height: 100 }],
-      edges: [],
-    });
+  const pastedCanvas = JSON.stringify({
+    nodes: [{ id: "a", type: "shape", shape: "rect", x: 10, y: 20, width: 160, height: 100 }],
+    edges: [],
+  });
+
+  test("⌘V is left to the browser, whose paste the canvas takes", () => {
     const recording = press({ key: "v", metaKey: true });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(clipboard.reads).toBe(1);
+    expect(recording.log).toEqual([]);
+    expect(recording.defaultPrevented).toBe(false);
+  });
+
+  test("a paste remaps ids, offsets by 24 and selects what it pasted", () => {
+    const recording = paste(pastedCanvas);
     const pasted = recording.docs.at(-1);
     expect(pasted?.nodes).toHaveLength(3);
     const added = pasted?.nodes.at(-1);
@@ -364,16 +387,19 @@ describe("clipboard", () => {
     expect(added?.x).toBe(34);
     expect(added?.y).toBe(44);
     expect(recording.log).toEqual(["persist", "selection=<new>"]);
+    expect(recording.defaultPrevented).toBe(true);
   });
 
-  test("paste of a non-canvas payload changes nothing", async () => {
-    clipboard.text = "not a canvas";
-    const recording = press({ key: "v", metaKey: true });
-    await act(async () => {
-      await Promise.resolve();
-    });
+  test("a paste of a non-canvas payload changes nothing and is left to the page", () => {
+    const recording = paste("not a canvas");
     expect(recording.log).toEqual([]);
     expect(recording.docs).toEqual([]);
+    expect(recording.defaultPrevented).toBe(false);
+  });
+
+  test("a paste into a field, or during a modal transform, is not the canvas's", () => {
+    expect(paste(pastedCanvas, true).docs).toEqual([]);
+    expect(paste(pastedCanvas, false, true).docs).toEqual([]);
   });
 });
 

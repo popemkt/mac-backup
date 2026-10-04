@@ -26,7 +26,6 @@ describe("with something selected", () => {
     [chord("Backspace"), { type: "delete" }],
     [chord("a", { metaKey: true }), { type: "selectAll" }],
     [chord("c", { metaKey: true }), { type: "copy" }],
-    [chord("v", { metaKey: true }), { type: "paste" }],
     [chord("d", { metaKey: true }), { type: "duplicate" }],
     [chord("Escape"), { type: "escape" }],
     [chord(" ", { code: "Space" }), { type: "panModifier" }],
@@ -78,11 +77,9 @@ describe("order between the chord maps", () => {
     expect(mapCanvasKey(chord("d", { metaKey: true }), withSelection)?.intent).toEqual({
       type: "duplicate",
     });
-    // ⌘1 is still the select tool: only c, d, v and a have commands.
-    expect(mapCanvasKey(chord("1", { metaKey: true }), withSelection)?.intent).toEqual({
-      type: "tool",
-      tool: "select",
-    });
+    // A tool is a plain key: ⌘1 and ⌘V stay the browser's.
+    expect(mapCanvasKey(chord("1", { metaKey: true }), withSelection)).toBeNull();
+    expect(mapCanvasKey(chord("v", { metaKey: true }), withSelection)).toBeNull();
   });
 
   test("⌘0 falls past the tool keys to the zoom reset", () => {
@@ -217,8 +214,8 @@ describe("what the browser still gets", () => {
     });
   });
 
-  test("paste and select-all do not need a selection", () => {
-    expect(mapCanvasKey(chord("v", { metaKey: true }), empty)?.intent).toEqual({ type: "paste" });
+  test("⌘V is not claimed, so the browser raises its paste; select-all needs no selection", () => {
+    expect(mapCanvasKey(chord("v", { metaKey: true }), empty)).toBeNull();
     expect(mapCanvasKey(chord("a", { metaKey: true }), empty)?.intent).toEqual({
       type: "selectAll",
     });

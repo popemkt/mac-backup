@@ -1024,6 +1024,13 @@ manipulation feel professional rather than merely functional.
   translates all of them. Delete/Backspace removes every selected node and edge
   with cascade edge removal — and deleting a kb-node *card* never touches the
   underlying graph node.
+- **The clipboard.** ⌘C writes the selection, with its members and the
+  edges among them, as a canvas document. A paste is the browser's paste
+  event — ⌘V is left to the browser, as every ⌘ chord without a canvas
+  command is (a tool is a plain key) — so it carries what the clipboard
+  holds with no permission asked: a canvas document becomes items 24 units
+  from where they were, selected. A field keeps its own paste, and a modal
+  transform takes none.
 - **Undo/redo.** `components/canvas/canvas-history.ts` is an immutable ring buffer
   (`MAX_HISTORY` = 30) with reference-equality skip; `Cmd+Z` /
   `Cmd+Shift+Z` / `Cmd+Y`.
@@ -1337,7 +1344,7 @@ open view of that canvas.
   built (`GAP [[01M3S5DDC3JYX8871YMJ7C6PAN]]`).
 
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
-real Clipboard-API copy/paste, snap guides during keyboard nudge, edge colour
+a copy in any form but a canvas document's text, snap guides during keyboard nudge, edge colour
 on the stroke itself, edge endpoint re-routing; in 3D, a sphere's or a cone's
 label (they have no flat top for the
 card face; billboards are plan step 7), and a flat item seen exactly level
