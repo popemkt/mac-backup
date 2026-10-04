@@ -11,4 +11,6 @@ export type {
   PluginStatus,
 } from "./kernel.ts";
 export { Event, Point, Service, asKeyType } from "./keys.ts";
+export { syncPlugins } from "./sync.ts";
+export type { SyncFailure } from "./sync.ts";
 export type { AnyServiceKey, EventKey, Key, PointKey, ServiceKey } from "./keys.ts";
