@@ -731,6 +731,48 @@ was picked:
   close at E9b. The root-fence and UI-zone gaps name the lab's breaches.
 - `kb ext list` now lists lab.
 
+**Note from the doing (E9b, canvas).** The canvas half of E9 landed after
+3D step 8 and E10–E12. Where the plan was silent, or the code pushed back,
+this is what was picked:
+- **`@kb/canvas` holds the vocabulary.** `CANVAS_IDS` (`sys.tag.canvas`,
+  `sys.f.canvas`), the `canvas.list` and `canvas.page` keys, the seed, and
+  the declaration's `seed` and `views`. `canvasPlugin()` is the shared
+  plugin. Canvas views say themselves in the generic text, so they carry
+  no text, as the lab's do. `SYSTEM_IDS` and `systemSeedNodes` now hold
+  core's ids only, and `@kb/views` holds core's keys only.
+- **A family's seed needs core's tag rule.** Core built its three tags by
+  hand. `seededTag` (`@kb/model`), beside `seededField`, became exported
+  mechanism in its own commit, before the move, as `seededField` did at E7.
+- **The server entry is the actions plus the shared plugin.** The canvas is
+  the first family with both actions and views. `@kb/ext-canvas`'s entry,
+  renamed `canvasServerPlugin` after `chartServerPlugin`, is its
+  `ext.canvas.*` actions with `canvasPlugin()` loaded as a child, as
+  `corePlugin` loads core's declaration. The page's canvas plugin loads
+  `canvasPlugin()` as a child and takes its name from the declaration.
+- **The golden is byte-identical.** Canvas already sits after docs in
+  `BUNDLED_FAMILIES`, which is where E4b put its views, and the golden is
+  keyed by id, so the seed's array order does not reach it.
+- **The breach list grew by three files.** `components/canvas`'s
+  `plugin.ts`, `routes.ts` and `surfaces.tsx` read the keys from `@kb/views`
+  before. They now import `@kb/canvas`, so they are named rows of
+  `EXTENSION_ROOT_BREACHES` until `@kb/canvas-ui` (E13). The lab grew the
+  list the same way at E9.
+- **One piece of canvas vocabulary stays in core, under a new gap.** The
+  outline's bullet resolves a node typed by `sys.tag.canvas` to the canvas
+  kind and its glyph in `@kb/ui-sdk`, and a kit may not import a family. A
+  kind contributed by the family would need a bullet point and a glyph
+  atlas built from contributions, which is a design of its own. So the kit
+  keeps a copy of the frozen id under `GAP [canvas-bullet-kind]`, and a test
+  in `components/canvas` holds the copy to `CANVAS_IDS`.
+- **Not moved: the screen contract.** 3D step 8 put a canvas pane's camera
+  (`CanvasScreenSchema`, `CanvasViewTarget`) in `@kb/contracts` and the
+  `ui.capture` and `ui.navigate` texts in `@kb/operations`. That is screen
+  state, not view vocabulary, so it is outside E9b. Whether it is canvas
+  vocabulary in core is an owner question.
+- **Gaps.** The feature-model gap `01M41H30342XZPX3CXZJTMPBYW` and the
+  catalog-key gap `01M3YM5XYZ4VHEK39RNQ6WWRPK` close, and the seed half of
+  `01M39F3MR3HT2NR553FY8CRD6X` is done, which stays open for E13.
+
 **Note from the doing (E10, E10b).** Where the plan said "E10 decides", or
 was silent, this is what was picked:
 - **The switch is a node, never seeded.** An optional family is on while
