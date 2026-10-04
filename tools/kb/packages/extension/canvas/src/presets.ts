@@ -11,6 +11,7 @@
  * flat item makes the same kind of thing.
  */
 import type {
+  CanvasFileNode,
   CanvasGroupNode,
   CanvasKbNode,
   CanvasNode,
@@ -38,6 +39,8 @@ const CANVAS_PRESETS = {
   group: { type: "group", width: 300, height: 200 } satisfies Unplaced<CanvasGroupNode>,
   /** A card: a text card showing a node, so it is placed with one. */
   "kb-node": { type: "kb-node", width: 280, height: 72 } satisfies Unplaced<CanvasKbNode>,
+  /** A picture: a file item showing an image asset, so it is placed with one (`imageItem`). */
+  image: { type: "file", file: "", width: 320, height: 240 } satisfies Unplaced<CanvasFileNode>,
   box: shape("rect", { width: 120, height: 120, depth: 120 }),
   pillar: shape("ellipse", { width: 72, height: 72, depth: 220 }),
   sphere: shape("sphere", { width: 140, height: 140, depth: 140 }),
@@ -82,4 +85,24 @@ export function presetItem(
     y: at.y,
     ...(nodeId === undefined ? {} : { nodeId }),
   };
+}
+
+/**
+ * The image preset placed showing asset `file` (`assets/…`), centred on
+ * `at`: at its own aspect when its pixel size `natural` is known, never
+ * larger than it and its longer side no longer than the preset's.
+ */
+export function imageItem(
+  file: string,
+  at: { readonly x: number; readonly y: number },
+  id: string,
+  natural?: { readonly width: number; readonly height: number },
+): CanvasFileNode {
+  const preset = CANVAS_PRESETS.image;
+  const bound = Math.max(preset.width, preset.height);
+  const known = natural !== undefined && natural.width > 0 && natural.height > 0;
+  const scale = known ? Math.min(1, bound / Math.max(natural.width, natural.height)) : 1;
+  const width = known ? Math.max(1, Math.round(natural.width * scale)) : preset.width;
+  const height = known ? Math.max(1, Math.round(natural.height * scale)) : preset.height;
+  return { ...preset, id, file, x: at.x - width / 2, y: at.y - height / 2, width, height };
 }

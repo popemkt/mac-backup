@@ -14,6 +14,8 @@ import {
   canvasDepth,
   canvasElevation,
   canvasTop,
+  imageItem,
+  isFileNode,
   itemShape,
   onFootprint,
   paintOrder,
@@ -252,6 +254,46 @@ describe("shapes and presets", () => {
     // A shelf is raised off the floor to stand things on; everything else stands on it.
     expect(canvasElevation(presetItem("slab", { x: 0, y: 0 }, "s"))).toBeGreaterThan(0);
     expect(canvasElevation(presetItem("box", { x: 0, y: 0 }, "b"))).toBe(0);
+  });
+});
+
+describe("images", () => {
+  test("a file item is typed by its file, and its subpath round-trips untouched", () => {
+    const raw = {
+      nodes: [
+        {
+          id: "i",
+          type: "file",
+          file: "assets/01ABC.png",
+          subpath: "#x",
+          x: 1,
+          y: 2,
+          width: 3,
+          height: 4,
+        },
+      ],
+      edges: [],
+    };
+    const [image] = parseCanvasDoc(raw).nodes;
+    expect(image !== undefined && isFileNode(image) ? image.file : null).toBe("assets/01ABC.png");
+    expect(JSON.parse(stringifyCanvasDoc(parseCanvasDoc(raw)))).toEqual(raw);
+  });
+
+  test("an image is placed centred, at its own aspect, its longer side no longer than the preset's", () => {
+    const wide = imageItem("assets/w.png", { x: 500, y: 300 }, "w", { width: 1600, height: 900 });
+    expect(wide).toMatchObject({ type: "file", file: "assets/w.png", width: 320, height: 180 });
+    expect(wide).toMatchObject({ x: 340, y: 210 });
+    // Never larger than the picture itself; unknown, the preset's box.
+    expect(imageItem("assets/s.png", { x: 0, y: 0 }, "s", { width: 40, height: 30 })).toMatchObject(
+      {
+        width: 40,
+        height: 30,
+      },
+    );
+    expect(imageItem("assets/u.svg", { x: 0, y: 0 }, "u")).toMatchObject({
+      width: 320,
+      height: 240,
+    });
   });
 });
 

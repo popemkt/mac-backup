@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { CanvasNode } from "@kb/canvas";
 import type { OutlineNode } from "@/lib/types";
 import { cardFaceOf, over, type CardLook } from "./canvas-card-face";
+import type { FacePicture } from "./canvas-face-pictures";
 
 const look: CardLook = {
   face: "rgb(255, 255, 255)",
@@ -18,6 +19,8 @@ const look: CardLook = {
 };
 
 const at = { x: 0, y: 0, width: 100, height: 50 };
+/** No picture has loaded yet. */
+const loading = (): FacePicture => ({ state: "loading" });
 
 describe("a card's face", () => {
   test("a note card shows its node's text, refs as labels, and its tags", () => {
@@ -33,7 +36,7 @@ describe("a card's face", () => {
       updatedAt: "",
     };
     const item: CanvasNode = { id: "c", type: "kb-node", nodeId: "n", ...at };
-    const face = cardFaceOf(item, new Map([["n", node]]));
+    const face = cardFaceOf(item, new Map([["n", node]]), loading);
     expect(face.kind).toBe("note");
     if (face.kind !== "note") return;
     expect(face.text).not.toContain("[[");
@@ -42,12 +45,38 @@ describe("a card's face", () => {
 
   test("a card whose node is gone says so", () => {
     const item: CanvasNode = { id: "c", type: "kb-node", nodeId: "gone", ...at };
-    expect(cardFaceOf(item, new Map())).toEqual({ kind: "missing", label: "missing gone" });
+    expect(cardFaceOf(item, new Map(), loading)).toEqual({
+      kind: "missing",
+      label: "missing gone",
+    });
   });
 
   test("an item type kb does not know shows its type", () => {
-    const item: CanvasNode = { id: "f", type: "file", ...at };
-    expect(cardFaceOf(item, new Map())).toEqual({ kind: "other", label: "file" });
+    const item: CanvasNode = { id: "l", type: "link", ...at };
+    expect(cardFaceOf(item, new Map(), loading)).toEqual({ kind: "other", label: "link" });
+  });
+
+  test("an image shows the picture at its asset's route, as the 2D canvas loads it", () => {
+    const asked: string[] = [];
+    const item: CanvasNode = { id: "i", type: "file", file: "assets/01ABC.png", ...at };
+    const face = cardFaceOf(item, new Map(), (src) => {
+      asked.push(src);
+      return { state: "missing" };
+    });
+    expect(face).toEqual({
+      kind: "image",
+      src: "/assets/01ABC.png",
+      picture: { state: "missing" },
+    });
+    expect(asked).toEqual(["/assets/01ABC.png"]);
+  });
+
+  test("a file that is not a picture shows its path, and no picture is asked for", () => {
+    const item: CanvasNode = { id: "n", type: "file", file: "notes/plan.md", ...at };
+    const face = cardFaceOf(item, new Map(), () => {
+      throw new Error("not a picture");
+    });
+    expect(face).toEqual({ kind: "other", label: "notes/plan.md" });
   });
 
   test("a faint colour is composited over the face in sRGB, as the DOM does", () => {

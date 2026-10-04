@@ -10,6 +10,7 @@
  * shape colour, and the UI face at the body and UI steps for text.
  */
 import {
+  isFileNode,
   isGroupNode,
   isKbNode,
   isShapeNode,
@@ -20,7 +21,9 @@ import {
   type CanvasShapeKind,
 } from "@kb/canvas";
 import { CANVAS_COLOR_PRESETS, type CanvasColorPresetId } from "./canvas-color";
+import { isPicture, type FacePicture } from "./canvas-face-pictures";
 import {
+  assetSrcUrl,
   type ColorToken,
   graphDisplayText,
   graphLabelFont,
@@ -46,10 +49,20 @@ export type CardFace =
       readonly color: string | undefined;
     }
   | { readonly kind: "group"; readonly label: string }
+  /** An image item's picture, from the asset its file names. */
+  | { readonly kind: "image"; readonly src: string; readonly picture: FacePicture }
   | { readonly kind: "missing"; readonly label: string }
   | { readonly kind: "other"; readonly label: string };
 
-export function cardFaceOf(item: CanvasNode, nodes: ReadonlyMap<string, OutlineNode>): CardFace {
+/**
+ * What `item` shows: a card its node's text and tags (`nodes`), an image the
+ * picture at its asset's source (`picture`), anything else its own fields.
+ */
+export function cardFaceOf(
+  item: CanvasNode,
+  nodes: ReadonlyMap<string, OutlineNode>,
+  picture: (src: string) => FacePicture,
+): CardFace {
   if (isKbNode(item)) {
     const node = nodes.get(item.nodeId);
     if (node === undefined) return { kind: "missing", label: `missing ${item.nodeId}` };
@@ -61,6 +74,11 @@ export function cardFaceOf(item: CanvasNode, nodes: ReadonlyMap<string, OutlineN
     return { kind: "shape", shape: item.shape, label: item.label ?? "", color: item.color };
   }
   if (isGroupNode(item)) return { kind: "group", label: item.label ?? "" };
+  if (isFileNode(item)) {
+    if (!isPicture(item.file)) return { kind: "other", label: item.file };
+    const src = assetSrcUrl(item.file);
+    return { kind: "image", src, picture: picture(src) };
+  }
   return { kind: "other", label: item.type };
 }
 
@@ -383,6 +401,36 @@ function paintGroup(
   paintLines(ctx, [face.label], 8, 4, look.label * 1.8);
 }
 
+/**
+ * An image: its picture filling the card, cropped to cover it as the 2D
+ * `<img>` is (`object-cover`), under the card's hairline; while it loads, or
+ * when its asset is gone, a plain card saying so.
+ */
+function paintImage(
+  ctx: Ctx,
+  face: Extract<CardFace, { kind: "image" }>,
+  box: FaceBox,
+  look: CardLook,
+) {
+  const { picture } = face;
+  if (picture.state !== "ready") {
+    const label = picture.state === "missing" ? "missing image" : "";
+    paintPlain(ctx, label, box, look, over(look, look.ink, 0.4));
+    return;
+  }
+  const { naturalWidth: width, naturalHeight: height } = picture.image;
+  const scale = Math.max(box.width / Math.max(1, width), box.height / Math.max(1, height));
+  const [w, h] = [width * scale, height * scale];
+  ctx.save();
+  roundedRect(ctx, box.width, box.height, look.shapeRadius);
+  ctx.fillStyle = look.face;
+  ctx.fill();
+  ctx.clip();
+  ctx.drawImage(picture.image, (box.width - w) / 2, (box.height - h) / 2, w, h);
+  ctx.restore();
+  paintOutline(ctx, box, look, look.shapeRadius, over(look, look.ink, 0.12));
+}
+
 function paintPlain(ctx: Ctx, label: string, box: FaceBox, look: CardLook, ink: string) {
   paintSurface(ctx, box, look, look.face, look.radius);
   setFont(ctx, look, look.label);
@@ -404,6 +452,9 @@ export function paintCardFace(ctx: Ctx, face: CardFace, box: FaceBox, look: Card
       break;
     case "group":
       paintGroup(ctx, face, box, look);
+      break;
+    case "image":
+      paintImage(ctx, face, box, look);
       break;
     case "missing":
       paintPlain(ctx, face.label, box, look, look.danger);

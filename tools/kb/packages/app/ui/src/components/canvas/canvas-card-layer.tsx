@@ -3,6 +3,7 @@ import type { CanvasDoc, CanvasNode, CanvasSide } from "@kb/canvas";
 import {
   canvasDepth,
   canvasTop,
+  isFileNode,
   isGroupNode,
   isKbNode,
   isShapeNode,
@@ -13,6 +14,8 @@ import {
   topView,
 } from "@kb/canvas";
 import { KbNodeCard, TextCard } from "./canvas-card";
+import { ImageCard } from "./canvas-image-card";
+import { isPicture } from "./canvas-face-pictures";
 import { ShapeCard } from "./shape-card";
 import type { CanvasSelection } from "./canvas-selection";
 import type { ResizeCorner } from "./canvas-pointer";
@@ -221,6 +224,22 @@ function CanvasCardFace({
       />
     );
   }
+  if (isFileNode(card) && isPicture(card.file)) {
+    return (
+      <ImageCard
+        card={card}
+        box={box}
+        selected={isSelected}
+        onSelect={() => {
+          if (!selection.nodeIds.has(card.id)) onCardSelect(card);
+        }}
+        onMoveStart={(e) => handleCardPointerDown(card, e)}
+        onResizeStart={resizeHandler}
+        onRotateStart={rotateHandler}
+        onPortDown={portHandler(card.id)}
+      />
+    );
+  }
   if (!isKbNode(card)) {
     return (
       <div
@@ -234,7 +253,7 @@ function CanvasCardFace({
           handleCardPointerDown(card, e);
         }}
       >
-        {card.type}
+        {isFileNode(card) ? card.file : card.type}
         <CanvasResizeHandles
           selected={isSelected}
           onResizeStart={resizeHandler}

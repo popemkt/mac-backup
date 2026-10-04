@@ -7,6 +7,7 @@ import {
   CylinderIcon,
   DiamondIcon,
   FrameCornersIcon,
+  ImageIcon,
   PlusIcon,
   RowsIcon,
   SphereIcon,
@@ -32,6 +33,7 @@ const TOOL_LOOKS: {
   diamond: { label: "Diamond (D)", icon: <DiamondIcon size={16} /> },
   group: { label: "Group / Frame (F)", icon: <FrameCornersIcon size={16} /> },
   "kb-node": { label: "Add kb node (N)", icon: <PlusIcon size={16} /> },
+  image: { label: "Image (or paste or drop one)", icon: <ImageIcon size={16} /> },
   box: { label: "Box", icon: <CubeIcon size={16} /> },
   pillar: { label: "Pillar", icon: <CylinderIcon size={16} /> },
   sphere: { label: "Sphere", icon: <SphereIcon size={16} /> },
@@ -49,6 +51,7 @@ const FLAT_TOOLS: readonly CanvasTool[] = [
   "diamond",
   "group",
   "kb-node",
+  "image",
 ];
 
 /** Each projection's mark on the toggle. */

@@ -1028,9 +1028,26 @@ manipulation feel professional rather than merely functional.
   edges among them, as a canvas document. A paste is the browser's paste
   event — ⌘V is left to the browser, as every ⌘ chord without a canvas
   command is (a tool is a plain key) — so it carries what the clipboard
-  holds with no permission asked: a canvas document becomes items 24 units
-  from where they were, selected. A field keeps its own paste, and a modal
+  holds with no permission asked: image files become pictures at the
+  pointer, and otherwise a canvas document becomes items 24 units from
+  where they were, selected. A field keeps its own paste, and a modal
   transform takes none.
+- **Pictures** (plan 2026-10-02, step 7). An image is a `file` item showing
+  an asset (DESIGN.md → Canvas documents): the image preset over the one
+  item record, so it moves, turns, lifts, extrudes and belongs to frames as
+  every item does. It comes in three ways, each stored through the host's
+  one upload (`uploadAsset`, which is `asset.upload`, as a note's media is)
+  and placed in one write, selected (`canvas-media.ts`): pasted, at the
+  pointer; dropped on either projection, on the floor where it was let go
+  as the showing camera sees it; or chosen with the image tool, whose file
+  chooser places at the header's placement point (a tool placed with
+  something chosen first, as the card is with its node: `pickTool`). It
+  lands centred, at its own aspect, its longer side at most 320, never
+  larger than itself. The 2D face is an `<img>` from the asset route
+  (`assetSrcUrl`), covering its box; the 3D face paints the same picture
+  into its texture (`canvas-face-pictures.ts`: one load per source, its
+  faces repainted when it settles, a source no face shows let go). A missing
+  asset says so in both; assets are backup-owned and never committed.
 - **Undo/redo.** `components/canvas/canvas-history.ts` is an immutable ring buffer
   (`MAX_HISTORY` = 30) with reference-equality skip; `Cmd+Z` /
   `Cmd+Shift+Z` / `Cmd+Y`.
@@ -1077,7 +1094,8 @@ manipulation feel professional rather than merely functional.
   (box, pillar, sphere, cone, shelf, wall), and B picks that solid again.
   One table (`TOOL_LOOKS`, typed over every tool) names and marks them. The
   numpad's digits are views, not tools (Projections → view widget). G is
-  not a tool: it grabs.
+  not a tool: it grabs. The image tool has no key; it opens a file chooser
+  (Pictures, above).
 - **Modal transforms** (Blender's G, S and E; plan 2026-10-02 decision 9),
   in both projections. With something selected, G grabs, S scales and E
   extrudes the selection, following the pointer with no button held; inside

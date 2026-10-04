@@ -99,7 +99,18 @@ export interface CanvasShapeNode extends CanvasNodeBase {
   label?: string;
 }
 
-/** Opaque passthrough for file/link/future types. */
+/**
+ * A JSON Canvas file item: a picture of the file at `file`. kb's are images
+ * stored as assets, `assets/…` — the path `asset.upload` answers with and
+ * markdown's `![](assets/…)` references — and its `subpath` round-trips as
+ * an unknown field.
+ */
+export interface CanvasFileNode extends CanvasNodeBase {
+  type: "file";
+  file: string;
+}
+
+/** Opaque passthrough for link/future types. */
 interface CanvasUnknownNode extends CanvasNodeBase {
   type: string;
 }
@@ -109,6 +120,7 @@ export type CanvasNode =
   | CanvasGroupNode
   | CanvasKbNode
   | CanvasShapeNode
+  | CanvasFileNode
   | CanvasUnknownNode;
 
 export function isKbNode(n: CanvasNode): n is CanvasKbNode {
@@ -125,6 +137,10 @@ export function isGroupNode(n: CanvasNode): n is CanvasGroupNode {
 
 export function isShapeNode(n: CanvasNode): n is CanvasShapeNode {
   return n.type === "shape" && "shape" in n;
+}
+
+export function isFileNode(n: CanvasNode): n is CanvasFileNode {
+  return n.type === "file" && "file" in n;
 }
 
 const SHAPE_KINDS = [
@@ -193,6 +209,7 @@ const KNOWN_NODE_KEYS = new Set([
   "nodeId",
   "parent",
   "shape",
+  "file",
 ]);
 /**
  * kb's optional numeric item fields. Each is read when it holds a finite
@@ -352,7 +369,10 @@ function parseNode(raw: unknown): CanvasNode | null {
       ...(typeof raw.label === "string" ? { label: raw.label } : {}),
     };
   }
-  // file / link / future — opaque passthrough
+  if (raw.type === "file") {
+    return { ...base, type: "file", file: typeof raw.file === "string" ? raw.file : "" };
+  }
+  // link / future — opaque passthrough
   return base;
 }
 
@@ -412,6 +432,7 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
     out.shape = n.shape;
     if (n.label !== undefined) out.label = n.label;
   }
+  if (isFileNode(n)) out.file = n.file;
   if (n.extra) Object.assign(out, n.extra);
   return out;
 }

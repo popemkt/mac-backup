@@ -53,6 +53,8 @@ interface CanvasKeyboardContext {
   dispatchPointer: (event: CanvasPointerEvent) => void;
   /** Where the pointer last was over the canvas, as a viewport point: where a modal transform begins. */
   pointerAt: () => { x: number; y: number };
+  /** Place the pictures among pasted files at the pointer; whether there were any. */
+  pastePictures: (files: Iterable<File>) => boolean;
   /** A modal transform is under way. */
   transforming: () => boolean;
   /** Frames are being presented. */
@@ -129,13 +131,19 @@ function pasteCanvas(text: string, context: CanvasKeyboardContext): boolean {
 
 /**
  * The browser's paste, which ⌘V (or Edit → Paste) raises with what the
- * clipboard holds and no permission asked: a canvas document becomes items.
- * A field being typed in keeps its own paste, and a modal transform takes
- * none.
+ * clipboard holds and no permission asked: pictures become image items at
+ * the pointer, and otherwise a canvas document becomes items. A field being
+ * typed in keeps its own paste, and a modal transform takes none.
  */
 function pasteClipboard(event: ClipboardEvent, context: CanvasKeyboardContext): void {
   if (isTextEntry(event.target) || context.transforming()) return;
-  const text = event.clipboardData?.getData("text/plain") ?? "";
+  const data = event.clipboardData;
+  if (data === null) return;
+  if (context.pastePictures(data.files)) {
+    event.preventDefault();
+    return;
+  }
+  const text = data.getData("text/plain");
   if (text !== "" && pasteCanvas(text, context)) event.preventDefault();
 }
 

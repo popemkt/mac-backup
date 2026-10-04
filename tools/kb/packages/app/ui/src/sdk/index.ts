@@ -59,13 +59,14 @@ export { ThemeIcon } from "@/components/ui/theme-icon";
 export { WorkspaceState } from "@/components/ui/workspace-state";
 export { ViewErrorBoundary } from "@/components/view-error-boundary";
 
-// Pure helpers: class names, colours, the DOM, logging, motion, panes,
+// Pure helpers: class names, colours, the DOM, logging, media, motion, panes,
 // pickers, pointers, routing, text, timing and toasts.
 export { cn } from "@/lib/cn";
 export { readTokenColor, toRenderableColor, type ColorToken } from "@/lib/css-color";
 export { asElement, asInstance, isOutside, isTextEntry } from "@/lib/dom";
 export { graphDisplayText, graphLabelFont, wrapGraphLabel } from "@/lib/graph-label";
 export { logError, logWarn } from "@/lib/log";
+export { assetSrcUrl, mediaKindFromHref } from "@/lib/md-inline";
 export { prefersReducedMotion, useReducedMotion } from "@/lib/motion";
 export { usePane } from "@/lib/pane";
 export type { PaneSelection } from "@/lib/pane-screen";

@@ -162,12 +162,13 @@ function press(
 }
 
 /** Mount the hook and let the browser raise a paste carrying `text`, over a field when `onInput`. */
-function paste(text: string, onInput = false, transforming = false): Recording {
+function paste(text: string, onInput = false, transforming = false, files: File[] = []): Recording {
   const mounted = mount(selectNode("a"), transforming, {});
   const target: EventTarget = onInput ? document.createElement("input") : window;
   if (target instanceof HTMLElement) document.body.appendChild(target);
   const data = new dom.DataTransfer();
   data.setData("text/plain", text);
+  for (const file of files) data.items.add(file as unknown as Parameters<typeof data.items.add>[0]);
   const event = new dom.ClipboardEvent("paste", {
     clipboardData: data,
     bubbles: true,
@@ -191,6 +192,11 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
     cancelPointer: () => log.push("cancelPointer"),
     dispatchPointer: (event: { type: string }) => log.push(`pointer=${event.type}`),
     pointerAt: () => ({ x: 10, y: 20 }),
+    pastePictures: (files: Iterable<File>) => {
+      const names = [...files].map((file) => file.name);
+      if (names.length > 0) log.push(`pictures=${names.join("+")}`);
+      return names.length > 0;
+    },
     transforming: () => transforming,
     presenting: () => around.presenting ?? false,
     present: (step: string) => log.push(`present=${step}`),
@@ -395,6 +401,14 @@ describe("clipboard", () => {
     expect(recording.log).toEqual([]);
     expect(recording.docs).toEqual([]);
     expect(recording.defaultPrevented).toBe(false);
+  });
+
+  test("a paste carrying pictures places them, ahead of any text it carries", () => {
+    const picture = new dom.File(["png"], "shot.png", { type: "image/png" });
+    const recording = paste(pastedCanvas, false, false, [picture as unknown as File]);
+    expect(recording.log).toEqual(["pictures=shot.png"]);
+    expect(recording.docs).toEqual([]);
+    expect(recording.defaultPrevented).toBe(true);
   });
 
   test("a paste into a field, or during a modal transform, is not the canvas's", () => {

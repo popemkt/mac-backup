@@ -34,6 +34,7 @@ import { CanvasOverlays } from "./canvas-overlays";
 import { CanvasStage } from "./canvas-stage";
 import { CanvasViewWidget } from "./canvas-view-widget";
 import { useCanvasDoc } from "./use-canvas-doc";
+import { useCanvasPictures } from "./use-canvas-pictures";
 import { createCanvasEdgeActions } from "./use-canvas-edge-actions";
 import { useCanvasGestures } from "./use-canvas-gestures";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
@@ -110,11 +111,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const [zoom, setZoom] = useState(1);
   const [spaceDown, setSpaceDown] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  /** What a tool placed with something chosen first opens: a card's node picker. */
-  const choose = useCallback((chooser: CanvasChooser) => {
-    const opens: Record<CanvasChooser, () => void> = { node: () => setPickerOpen(true) };
-    opens[chooser]();
-  }, []);
   const [toolState, setToolState] = useState<ToolState>({ tool: "select" });
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
@@ -212,6 +208,28 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     cameraRef.current = projection.camera;
   });
   const in3d = projection.shown === "3d";
+  /** Where the pointer last was over the canvas, or the middle of it. */
+  const pointerAt = () => {
+    const { size } = projection.camera();
+    return lastPointer.current ?? { x: size.width / 2, y: size.height / 2 };
+  };
+  const pictures = useCanvasPictures({
+    docRef,
+    schedulePersist,
+    setSelection,
+    camera: projection.camera,
+    pointerAt,
+    placementPoint: projection.placementPoint,
+    stage: stageRef,
+  });
+  /** What a tool placed with something chosen first opens: a card's node picker, an image's file chooser. */
+  const choose = (chooser: CanvasChooser) => {
+    const opens: Record<CanvasChooser, () => void> = {
+      node: () => setPickerOpen(true),
+      file: pictures.choose,
+    };
+    opens[chooser]();
+  };
   useCanvasScreen({
     canvasId,
     doc,
@@ -280,10 +298,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const applyIntent = useCanvasKeyboard({
     cancelPointer,
     dispatchPointer,
-    pointerAt: () => {
-      const { size } = projection.camera();
-      return lastPointer.current ?? { x: size.width / 2, y: size.height / 2 };
-    },
+    pointerAt,
+    pastePictures: pictures.paste,
     transforming: () => {
       const drag = pointerRef.current.drag;
       return drag?.kind === "transform" && drag.modal;
@@ -354,7 +370,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         <span className="text-label text-foreground/30">{Math.round(zoom * 100)}%</span>
       </div>
 
-      <div ref={stageRef} className="relative min-h-0 flex flex-1">
+      <div
+        ref={stageRef}
+        className="relative min-h-0 flex flex-1"
+        onDragOver={pictures.onDragOver}
+        onDrop={pictures.onDrop}
+      >
         <div
           className={cn(
             "kb-projection-layer relative flex min-h-0 flex-1",

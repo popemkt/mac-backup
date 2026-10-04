@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   EMPTY_CANVAS_DOC,
+  isFileNode,
   isNativeEdgeBound,
   parseCanvasDoc,
   removeCanvasEdge,
@@ -261,8 +262,8 @@ describe("unknown type + field round-trip", () => {
       schemaVersion: 2,
     };
     const again = parseCanvasDoc(stringifyCanvasDoc(parseCanvasDoc(raw)));
-    expect(again.nodes[0]?.type).toBe("file");
-    expect(again.nodes[0]?.extra?.file).toBe("note.md");
+    const [file] = again.nodes;
+    expect(file !== undefined && isFileNode(file) ? file.file : null).toBe("note.md");
     expect(again.nodes[0]?.extra?.custom).toEqual({ a: 1 });
     expect(again.edges[0]?.extra?.pluginMeta).toBe(true);
     expect(again.extra?.schemaVersion).toBe(2);

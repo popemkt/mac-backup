@@ -67,12 +67,15 @@ export function reduceCanvasTool(state: ToolState, action: ToolAction): ToolStat
 
 /**
  * What a preset is placed with, chosen before it is placed: a card, the node
- * it shows. Picking such a tool opens its chooser instead of arming it, and
- * the choice places the item.
+ * it shows; an image, its picture file. Picking such a tool opens its chooser
+ * instead of arming it, and the choice places the item.
  */
-export type CanvasChooser = "node";
+export type CanvasChooser = "node" | "file";
 
-const CHOOSERS: { readonly [P in CanvasPresetKind]?: CanvasChooser } = { "kb-node": "node" };
+const CHOOSERS: { readonly [P in CanvasPresetKind]?: CanvasChooser } = {
+  "kb-node": "node",
+  image: "file",
+};
 
 /** The chooser `pick` opens, or null for a tool that is armed. */
 function chooserOf(pick: CanvasToolPick): CanvasChooser | null {

@@ -4,6 +4,7 @@ export {
   canvasElevation,
   canvasRotation,
   canvasTop,
+  isFileNode,
   isGroupNode,
   isKbNode,
   isNativeEdgeBound,
@@ -77,7 +78,7 @@ export {
 export type { CanvasBox, CanvasFrame, CanvasVec } from "./box.ts";
 export { cameraLookingFrom, posesAgree, projectionOf } from "./camera.ts";
 export { canvasExtension } from "./extension.ts";
-export { CANVAS_SOLID_PRESETS, presetItem } from "./presets.ts";
+export { CANVAS_SOLID_PRESETS, imageItem, presetItem } from "./presets.ts";
 export {
   CANVAS_SHAPES,
   faceShare,
@@ -95,6 +96,7 @@ export type { CanvasCamera, CanvasPose, CanvasProjectionKind } from "./camera.ts
 export type {
   CanvasDoc,
   CanvasEdge,
+  CanvasFileNode,
   CanvasGroupNode,
   CanvasKbNode,
   CanvasNode,

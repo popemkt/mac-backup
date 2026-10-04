@@ -66,6 +66,7 @@ import {
   type CardLook,
 } from "./canvas-card-face";
 import type { CanvasSceneContent } from "./canvas-scene-content";
+import { FacePictures } from "./canvas-face-pictures";
 import { BODY, FACE, solidGeometry, solidKey, type SolidSpec } from "./canvas-scene-solids";
 import { matrixToThree } from "./canvas-scene-space";
 
@@ -166,6 +167,8 @@ function faceVersion(face: CardFace, selected: boolean): string {
       return `s${mark}${face.shape}:${face.color ?? ""}:${fingerprint(face.label)}`;
     case "text":
       return `t${mark}${fingerprint(face.text)}`;
+    case "image":
+      return `i${mark}${face.picture.state}:${face.src}`;
     case "group":
     case "missing":
     case "other":
@@ -260,6 +263,8 @@ export class ItemLayer {
   private look: CardLook;
   private dark: boolean;
   private readonly stale = new Set<Item>();
+  /** The pictures image faces are painted with, decoded once per source. */
+  private readonly pictures = new FacePictures((src) => this.pictureSettled(src));
   /** Scratch for an item's turn in three's world. */
   private readonly turn = new Matrix4();
   private repaint: ReturnType<typeof setTimeout> | null = null;
@@ -295,10 +300,15 @@ export class ItemLayer {
   sync(content: CanvasSceneContent): void {
     const items = paintOrder(content.doc.nodes);
     const seen = new Set<string>();
+    const pictured = new Set<string>();
+    const picture = (src: string) => {
+      pictured.add(src);
+      return this.pictures.get(src);
+    };
     for (const { item, z } of paintPlanes(items)) {
       seen.add(item.id);
       const selected = content.selection.nodeIds.has(item.id);
-      const face = cardFaceOf(item, content.nodes);
+      const face = cardFaceOf(item, content.nodes, picture);
       const version = faceVersion(face, selected);
       const entry = this.items.get(item.id) ?? this.add(item, { face, selected });
       entry.item = item;
@@ -314,6 +324,7 @@ export class ItemLayer {
       this.remove(entry);
       this.items.delete(id);
     }
+    this.pictures.keep(pictured);
     this.order = items.map((item) => item.id);
     if (this.stale.size > 0) this.repaintSoon();
   }
@@ -354,6 +365,7 @@ export class ItemLayer {
     if (this.repaint !== null) clearTimeout(this.repaint);
     for (const entry of this.items.values()) this.remove(entry);
     this.items.clear();
+    this.pictures.dispose();
     this.plane.dispose();
     this.foot.dispose();
     this.matcap.dispose();
@@ -370,6 +382,17 @@ export class ItemLayer {
     entry.version = version;
     entry.painted = { width: entry.item.width, height: entry.item.height };
     this.stale.delete(entry);
+  }
+
+  /** The picture at `src` loaded or proved missing: each face showing it is painted with it now. */
+  private pictureSettled(src: string): void {
+    for (const entry of this.items.values()) {
+      const { face, selected } = entry.shows;
+      if (face.kind !== "image" || face.src !== src) continue;
+      entry.shows = { face: { ...face, picture: this.pictures.get(src) }, selected };
+      this.paint(entry, faceVersion(entry.shows.face, selected));
+    }
+    this.wake();
   }
 
   private repaintSoon(): void {
