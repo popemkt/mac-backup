@@ -117,6 +117,7 @@
 - Extension isolation, the rest (plans: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md, docs/brainstorms/2026-10-04-kb-extension-boundaries/sdk.md)
 - Investigate the layers DeepSeek Harness adds on top of Cordis (DESIGN.md names it as the kernel's model): what it layers on, what kb lacks, what is worth taking
 - kb work queue, in order (owner's priority 2026-10-04; resume notes: docs/brainstorms/2026-09-29-kb-genui-canvas-agents/resume.md)
+- node.addTree · add a whole outline in one transaction (kb add --outline <file>, and the same action for MCP and the agent). Model the format on Tana Paste (%%tana%%, nested '- ' items, #tag, field:: value, ref); also look at Logseq/Roam paste and OPML import as prior art. All-or-nothing, one tx; returns the created ids
 - Open: flaky canvas-camera.test.ts timeout; confirm the test:ui per-package total
 - oxlint 1.83 → 1.86 with @oxlint/plugins and oxc-parser
 - Review reconcile_claude_direct_routing.py: retire or simplify once Headroom stops mutating global ~/.claude/settings.json
