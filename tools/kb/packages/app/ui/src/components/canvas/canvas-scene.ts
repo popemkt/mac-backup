@@ -284,6 +284,36 @@ function cameraFacer(layers: readonly { face(axes: CanvasAxes): void }[]) {
   };
 }
 
+/**
+ * Pictures of the scene, taken one at a time: while one is taken the frame
+ * draws its view (`posing`) instead of the rig's, without the gizmo, and
+ * then the rig's again. The rig never moves; the canvas shows the picture's
+ * view for the frames taken. GAP [capture-shows-a-frame]
+ */
+function picturesOf(stage: SceneStage, gizmo: GizmoLayer) {
+  let posing: CanvasView | null = null;
+  let queue: Promise<unknown> = Promise.resolve();
+  const take = async (view: CanvasView) => {
+    posing = view;
+    const showHandles = gizmo.hide();
+    try {
+      return await stage.picture();
+    } finally {
+      posing = null;
+      showHandles();
+      stage.invalidate();
+    }
+  };
+  return {
+    posing: () => posing,
+    picture: (view: CanvasView) => {
+      const taken = queue.then(() => take(view));
+      queue = taken.catch(() => undefined);
+      return taken;
+    },
+  };
+}
+
 export async function mountCanvasScene(
   host: HTMLElement,
   init: CanvasSceneInit,
@@ -318,6 +348,7 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
   plane.setLook(init.look);
   scene.add(plane.mesh, edges.root, cards.root, labels.root);
   const gizmo = new GizmoLayer(scene, camera);
+  const pictures = picturesOf(stage, gizmo);
   let gizmoChoice: GizmoChoice = init.gizmo;
   let content = init.content;
   /** The selected items, which the gizmo stands on. */
@@ -345,14 +376,11 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
     plane.follow(view, viewport);
   };
 
-  /** The view a picture is being taken from: drawn in place of the rig's until it is taken. */
-  let posing: CanvasView | null = null;
-
   const frame = (dt: number) => {
     const moving = rig.step(dt);
     viewport.width = canvas.clientWidth || viewport.width;
     viewport.height = canvas.clientHeight || viewport.height;
-    aimAt(posing ?? rig.view);
+    aimAt(pictures.posing() ?? rig.view);
     return moving;
   };
 
@@ -388,18 +416,7 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
       stage.invalidate();
     },
     inspect: () => inspection({ stage, cards, labels, edges, content, onScreen }),
-    // The canvas shows the picture's view for the two frames taken; the rig never moves. GAP [capture-shows-a-frame]
-    picture: async (view: CanvasView) => {
-      posing = view;
-      const showHandles = gizmo.hide();
-      try {
-        return await stage.picture();
-      } finally {
-        posing = null;
-        showHandles();
-        stage.invalidate();
-      }
-    },
+    picture: pictures.picture,
   };
 
   return {

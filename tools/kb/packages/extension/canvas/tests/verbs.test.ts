@@ -190,6 +190,19 @@ describe("place", () => {
     expect(canvasMembership(placed.doc.nodes).parentOf("n")).toBe("w");
   });
 
+  test("in a frame means held by it: a spot a nested frame would take is passed over", () => {
+    const outer = frame("outer", [0, 0, 600, 400]);
+    const inner = frame("inner", [0, 0, 300, 200], { parent: "outer" });
+    const placed = placeItem(doc(outer, inner), makeItem({ preset: "text" }, "n"), { in: "outer" });
+    expect(canvasMembership(placed.doc.nodes).parentOf("n")).toBe("outer");
+  });
+
+  test("at the top left of the box an item takes up, however it is turned", () => {
+    const turned = box("t", 0, 0, { width: 200, height: 100, rotation: { z: 90 } });
+    const placed = placeItem(doc(turned), turned, { at: { x: 400, y: 300, z: 0 } });
+    expect(itemBounds(item(placed.doc, "t")).min).toMatchObject({ x: 400, y: 300 });
+  });
+
   test("in something that is not a frame, or a frame too small, is refused", () => {
     expect(() =>
       placeItem(doc(card("t", 0, 0)), makeItem({ preset: "text" }, "n"), { in: "t" }),
@@ -245,6 +258,11 @@ describe("arrange", () => {
     }
     const column = arrangeItems(three, ["a", "b", "c"], { layout: "column" });
     expect(where(column, "b", "a")?.direction).toBe("south");
+  });
+
+  test("a ring of one item leaves it where it is", () => {
+    const one = arrangeItems(doc(card("a", 40, 60)), ["a"], { layout: "ring" });
+    expect(item(one, "a")).toMatchObject({ x: 40, y: 60 });
   });
 
   test("a stack stands each on the one before, over the first", () => {

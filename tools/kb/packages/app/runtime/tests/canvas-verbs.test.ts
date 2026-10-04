@@ -290,6 +290,47 @@ describe("ext.canvas.connect, group, ungroup and promote", () => {
     ]);
   });
 
+  test("an edge never binds kb's own fields, a node's tags among them", async () => {
+    const ctx = await canvasKb();
+    await invoke(ctx, { id: "node.add", input: { id: "n.a", text: "A" } });
+    await invoke(ctx, { id: "node.add", input: { id: "n.b", text: "B" } });
+    await invoke(ctx, {
+      id: "ext.canvas.tx.apply",
+      input: {
+        canvasId: "n.canvas",
+        doc: {
+          nodes: [
+            card("a", 0, 0, { type: "kb-node", nodeId: "n.a" }),
+            card("b", 400, 0, { type: "kb-node", nodeId: "n.b" }),
+          ],
+          edges: [],
+        },
+      },
+    });
+    const receipt = await invoke(
+      ctx,
+      verb("connect", { from: "a", to: "b", bind: SYSTEM_IDS.typeField }),
+    );
+    expect(receipt).toMatchObject({ status: "failed", code: "invalid_input" });
+    expect(ctx.nodes.find((n) => n.id === "n.a")?.props[SYSTEM_IDS.typeField]).toBeUndefined();
+  });
+
+  test("a verb refuses a canvas whose document kb cannot read, rather than write over it", async () => {
+    const ctx = await canvasKb();
+    await invoke(ctx, {
+      id: "node.update",
+      input: {
+        id: "n.canvas",
+        unsetProps: [{ field: SYSTEM_IDS.canvasField }],
+        setProps: [{ field: SYSTEM_IDS.canvasField, value: { t: "str", v: "{not json" } }],
+      },
+    });
+    const receipt = await invoke(ctx, verb("place", { items: [{ make: {}, at: { x: 0, y: 0 } }] }));
+    expect(receipt).toMatchObject({ status: "failed", code: "invalid_input" });
+    const raw = ctx.nodes.find((n) => n.id === "n.canvas")?.props[SYSTEM_IDS.canvasField]?.[0];
+    expect(raw).toEqual({ t: "str", v: "{not json" });
+  });
+
   test("group gathers a frame round items; ungroup takes it apart", async () => {
     const ctx = await canvasKb([card("a", 0, 0), card("b", 200, 0)]);
     const grouped = output(await invoke(ctx, verb("group", { ids: ["a", "b"], label: "Pair" })));

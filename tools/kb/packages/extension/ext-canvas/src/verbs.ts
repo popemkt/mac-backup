@@ -14,7 +14,7 @@ import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { KbCtx, Screens, type ExtensionAction, type KbStore } from "@kb/contracts";
 import { nodeAddEffect } from "@kb/operations";
-import { freshId, resolveFieldId, type KbNode } from "@kb/model";
+import { freshId, isSysPrefixed, resolveFieldId, type KbNode } from "@kb/model";
 import {
   CANVAS_DIRECTIONS,
   CANVAS_LAYOUTS,
@@ -292,7 +292,7 @@ const PlacementSchema = z
       .object({ x: z.number(), y: z.number(), z: z.number().optional() })
       .optional()
       .describe(
-        "plain coordinates of its top left; with no z it keeps its height, or stands on what is under it",
+        "plain coordinates of the top left of its box; with no z it keeps its height, or stands on what is under it",
       ),
   })
   .superRefine((p, ctx) => {
@@ -451,6 +451,20 @@ const connectOutput = z.object({
  * nothing when the edge binds nothing or the source already holds the ref
  * (a bind is one-shot, as the edge inspector's is).
  */
+/**
+ * The field a bound edge sets, by name or id: one of the person's own —
+ * kb's `sys.*` fields (a node's tags among them) are never an edge's to set,
+ * as the edge inspector offers none of them. Whether it holds a ref to that
+ * node is the store's write check, as for any value.
+ */
+function bindableField(nodes: KbNode[], field: string): string {
+  const fieldId = resolveFieldId(nodes, field);
+  if (isSysPrefixed(fieldId)) {
+    throw new CanvasRelationError(`${fieldId} is kb's own field; an edge binds one of yours`);
+  }
+  return fieldId;
+}
+
 function bindWrite(
   nodes: KbNode[],
   edge: CanvasEdge,
@@ -476,7 +490,7 @@ const canvasConnectEffect = Effect.fn("ext.canvas.connect")(function* (
   const before = yield* readCanvasEffect(input.canvasId);
   const bind = input.bind;
   const fieldId =
-    bind === undefined ? undefined : yield* canvasStep(() => resolveFieldId(ctx.nodes, bind));
+    bind === undefined ? undefined : yield* canvasStep(() => bindableField(ctx.nodes, bind));
   const id = yield* freshId;
   const bindingId = yield* freshId;
   const { doc, edge } = yield* canvasStep(() =>

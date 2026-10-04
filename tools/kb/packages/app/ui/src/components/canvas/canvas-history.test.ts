@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { CanvasDoc } from "@kb/canvas";
 import {
   adoptStored,
+  canvasContent,
   canRedo,
   canUndo,
   initHistory,
@@ -107,21 +108,33 @@ describe("canvas history", () => {
   });
 });
 
+/** A canvas that has written nothing. */
+const none = () => false;
+
 describe("what the store holds, taken in", () => {
+  test("a late echo of the canvas's own write changes nothing: an undo past it holds", () => {
+    // Wrote d1 then d2, then undid back to d1; d2's echo arrives late.
+    const undone = undo(pushHistory(initHistory(d1), d2));
+    const sent = new Set([canvasContent(d1), canvasContent(d2)]);
+    const h = adoptStored(undone, d2, (content) => sent.has(content));
+    expect(h).toBe(undone);
+    expect(h.future).toHaveLength(1);
+  });
+
   test("an edit made elsewhere — an agent's verb — is one step, which undo takes back", () => {
-    const h = adoptStored(initHistory(d1), d2);
+    const h = adoptStored(initHistory(d1), d2, none);
     expect(h.present).toBe(d2);
     expect(undo(h).present).toBe(d1);
   });
 
   test("the store echoing what is shown changes nothing", () => {
     const h = initHistory(d1);
-    expect(adoptStored(h, { ...d1, nodes: [...d1.nodes] })).toBe(h);
+    expect(adoptStored(h, { ...d1, nodes: [...d1.nodes] }, none)).toBe(h);
   });
 
   test("a change of the camera alone is view state: taken in, with no step", () => {
     const camera = { projection: "3d" as const };
-    const h = adoptStored(initHistory(d1), { ...d1, camera });
+    const h = adoptStored(initHistory(d1), { ...d1, camera }, none);
     expect(h.present.camera).toEqual(camera);
     expect(canUndo(h)).toBe(false);
   });

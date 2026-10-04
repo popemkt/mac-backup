@@ -3,6 +3,7 @@ import { withCanvasCamera, type CanvasCamera, type CanvasDoc } from "@kb/canvas"
 import { persistCanvasDoc, readCanvasDoc, syncDocOnRev } from "./canvas-api";
 import {
   adoptStored,
+  canvasContent,
   initHistory,
   pushHistory,
   redo as redoHistory,
@@ -12,6 +13,31 @@ import {
 import type { OutlineNode } from "@kb/ui-sdk";
 
 const DEBOUNCE_MS = 300;
+
+/** How many of its own writes a canvas remembers, to know their echoes. */
+const REMEMBERED = 16;
+
+type Send = (
+  doc: CanvasDoc,
+  ...opts: [Parameters<typeof persistCanvasDoc>[2]?]
+) => Promise<boolean>;
+
+/**
+ * The canvas's writes to the store, remembered by content: the store echoing
+ * one back, late, is not an edit made elsewhere (`adoptStored`).
+ */
+function useSentDocs(canvasId: string) {
+  const sent = useRef<string[]>([]);
+  const send: Send = useCallback(
+    (doc, ...opts) => {
+      sent.current = [...sent.current.slice(1 - REMEMBERED), canvasContent(doc)];
+      return persistCanvasDoc(canvasId, doc, ...opts);
+    },
+    [canvasId],
+  );
+  const wasSent = useCallback((content: string) => sent.current.includes(content), []);
+  return { send, wasSent };
+}
 
 /**
  * `next` looked at the way the canvas is now. The camera is view state, not
@@ -24,7 +50,7 @@ function keepView(now: CanvasDoc, next: CanvasDoc): CanvasDoc {
 
 /** Undo and redo: a step through the history, with the view left where it is. */
 function useHistoryTravel(
-  canvasId: string,
+  send: Send,
   historyRef: RefObject<CanvasHistory>,
   installHistory: (next: CanvasHistory) => void,
 ) {
@@ -35,9 +61,9 @@ function useHistoryTravel(
       if (travelled === current) return;
       const next = { ...travelled, present: keepView(current.present, travelled.present) };
       installHistory(next);
-      void persistCanvasDoc(canvasId, next.present);
+      void send(next.present);
     },
-    [canvasId, historyRef, installHistory],
+    [send, historyRef, installHistory],
   );
 }
 
@@ -46,14 +72,14 @@ function useHistoryTravel(
  * pause, or at once on demand, and a pending write still goes out when the
  * canvas closes. Content edits and camera changes both take it, in order.
  */
-function useWritePath(canvasId: string, applied: () => CanvasDoc) {
+function useWritePath(send: Send, applied: () => CanvasDoc) {
   const dirtyRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const write = useCallback(() => {
     timerRef.current = null;
     dirtyRef.current = false;
-    void persistCanvasDoc(canvasId, applied());
-  }, [applied, canvasId]);
+    void send(applied());
+  }, [applied, send]);
   const soon = useCallback(() => {
     dirtyRef.current = true;
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -64,9 +90,9 @@ function useWritePath(canvasId: string, applied: () => CanvasDoc) {
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = null;
       dirtyRef.current = false;
-      await persistCanvasDoc(canvasId, doc, opts);
+      await send(doc, opts);
     },
-    [canvasId],
+    [send],
   );
   useEffect(
     () => () => {
@@ -105,7 +131,8 @@ export function useCanvasDoc({
   const previewBase = useRef<CanvasHistory | null>(null);
   // A preview is not yet an edit: what is written is the history under it.
   const applied = useCallback(() => (previewBase.current ?? historyRef.current).present, []);
-  const writes = useWritePath(canvasId, applied);
+  const { send, wasSent } = useSentDocs(canvasId);
+  const writes = useWritePath(send, applied);
 
   const installHistory = useCallback((next: CanvasHistory) => {
     historyRef.current = next;
@@ -171,12 +198,12 @@ export function useCanvasDoc({
     installHistory(base);
   }, [installHistory]);
 
-  const travel = useHistoryTravel(canvasId, historyRef, installHistory);
+  const travel = useHistoryTravel(send, historyRef, installHistory);
 
   /** What the store holds now, taken in: an edit made elsewhere is one step to undo. */
   const adoptStoredDoc = useCallback(
-    (stored: CanvasDoc) => installHistory(adoptStored(historyRef.current, stored)),
-    [installHistory],
+    (stored: CanvasDoc) => installHistory(adoptStored(historyRef.current, stored, wasSent)),
+    [installHistory, wasSent],
   );
 
   useEffect(() => {

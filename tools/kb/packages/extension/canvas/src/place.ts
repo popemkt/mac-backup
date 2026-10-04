@@ -43,7 +43,7 @@ export type CanvasWhere =
   | { /** On top of this item, centred on it (a frame: in it). */ readonly on: string }
   | { /** Inside this frame, at the first spot clear of its other members. */ readonly in: string }
   | {
-      /** Its top left at x, y, its base at `z`; with none, it lands as a carry does (`snapToSurface`). */
+      /** The top left of the box it takes up at x, y, its base at `z`; with none, it lands as a carry does. */
       readonly at: { readonly x: number; readonly y: number; readonly z?: number };
     };
 
@@ -197,7 +197,9 @@ function spotsFor(placing: Placing, where: CanvasWhere): CanvasNode[] {
   const { item, others } = placing;
   if ("at" in where) {
     const { x, y, z } = where.at;
-    const by = { x: x - item.x, y: y - item.y };
+    // The top left of the box it takes up, as `describe` gives boxes, however it is turned.
+    const { min } = itemBounds(item);
+    const by = { x: x - min.x, y: y - min.y };
     return [z === undefined ? landed(placing, by) : withElevation(moved(item, { ...by, z: 0 }), z)];
   }
   if ("near" in where) {
@@ -243,11 +245,22 @@ export function placeItem(
   }
   const others = start.nodes.filter((node) => !carried.has(node.id));
   const placing: Placing = { item: record, origin, others };
-  const spot = firstClear(spotsFor(placing, where), others) ?? record;
-  const placed = settleMembership(editItem(start, spot), [record.id]);
-  if ("in" in where && canvasMembership(placed.nodes).parentOf(record.id) !== where.in) {
-    throw new CanvasRelationError(`${record.id} does not fit in frame ${where.in}`);
+  /** The canvas with the item let go at `spot`: in whatever frame holds it there. */
+  const settled = (spot: CanvasNode) => settleMembership(editItem(start, spot), [record.id]);
+  // In a frame means held by that frame, not by one nested in it.
+  const spots = spotsFor(placing, where).filter(
+    (spot) =>
+      !("in" in where) || canvasMembership(settled(spot).nodes).parentOf(record.id) === where.in,
+  );
+  const spot = firstClear(spots, others);
+  if (spot === null) {
+    throw new CanvasRelationError(
+      "in" in where
+        ? `${record.id} does not fit in frame ${where.in}`
+        : `there is nowhere to place ${record.id} there`,
+    );
   }
+  const placed = settled(spot);
   const landedItem = placed.nodes.find((node) => node.id === record.id) ?? spot;
   return { doc: placed, item: landedItem };
 }

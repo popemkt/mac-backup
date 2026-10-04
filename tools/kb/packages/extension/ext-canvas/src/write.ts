@@ -173,13 +173,23 @@ function storedDoc(host: KbNode): CanvasDoc {
 
 /**
  * The document on the `#canvas` node `canvasId`, which a verb resolves its
- * relations against; refused when the node is not a canvas.
+ * relations against and writes back whole; refused when the node is not a
+ * canvas, or holds a document kb cannot read — writing a verb's result over
+ * it would lose everything else on it. A canvas with none is empty.
  */
 export const readCanvasEffect = Effect.fn("ext.canvas.read")(function* (
   canvasId: string,
 ): Effect.fn.Return<CanvasDoc, CanvasFail, KbCtx> {
   const ctx = yield* KbCtx;
-  return storedDoc(yield* canvasStep(() => assertCanvasHost(ctx, canvasId)));
+  const host = yield* canvasStep(() => assertCanvasHost(ctx, canvasId));
+  const raw = host.props[SYSTEM_IDS.canvasField]?.[0];
+  if (raw === undefined) return { nodes: [], edges: [] };
+  if (raw.t !== "str") {
+    return yield* Effect.fail(
+      new CanvasTxError(`canvas ${canvasId} holds no document kb can read`),
+    );
+  }
+  return yield* parseDocEffect(raw.v, canvasId);
 });
 
 /** What one canvas write commits: the document, and the other nodes the same act changes. */

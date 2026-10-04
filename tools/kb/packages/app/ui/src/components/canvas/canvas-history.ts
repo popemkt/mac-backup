@@ -28,17 +28,25 @@ export function pushHistory(h: CanvasHistory, next: CanvasDoc): CanvasHistory {
 }
 
 /** A document's content as stored, its camera left out: what an edit changes. */
-const contentOf = (doc: CanvasDoc) => stringifyCanvasDoc(withCanvasCamera(doc, undefined));
+export const canvasContent = (doc: CanvasDoc) =>
+  stringifyCanvasDoc(withCanvasCamera(doc, undefined));
 
 /**
  * `h` having taken in `stored`, the document the store holds now. A change
  * of content made elsewhere — another tab's, an agent's canvas verb, each
  * one canvas write — is one step, which undo takes back as it takes back
- * the person's own. A change of the camera alone is view state, taken in
- * with no step, and the store echoing what is shown changes nothing.
+ * the person's own. Content this canvas wrote itself (`sent`, by
+ * `canvasContent`) is its own write echoing back, late: the canvas has
+ * moved on, so it changes nothing. A change of the camera alone is view
+ * state, taken in with no step.
  */
-export function adoptStored(h: CanvasHistory, stored: CanvasDoc): CanvasHistory {
-  if (contentOf(stored) !== contentOf(h.present)) return pushHistory(h, stored);
+export function adoptStored(
+  h: CanvasHistory,
+  stored: CanvasDoc,
+  sent: (content: string) => boolean,
+): CanvasHistory {
+  const content = canvasContent(stored);
+  if (content !== canvasContent(h.present)) return sent(content) ? h : pushHistory(h, stored);
   if (stringifyCanvasDoc(stored) === stringifyCanvasDoc(h.present)) return h;
   return { ...h, present: stored };
 }

@@ -90,7 +90,8 @@ function ringSlots(bounds: readonly CanvasBounds[], all: CanvasBounds, gap: numb
   const centre = boundsCentre(all);
   const reach = bounds.map((b) => Math.hypot(extentOf(b).x, extentOf(b).y));
   const around = reach.reduce((sum, r) => sum + r + gap, 0);
-  const radius = Math.max(Math.max(...reach), around / (2 * Math.PI));
+  // One item is its own ring: it stays where it is.
+  const radius = bounds.length < 2 ? 0 : Math.max(Math.max(...reach), around / (2 * Math.PI));
   return bounds.map((_, i) => {
     const angle = -Math.PI / 2 + (2 * Math.PI * i) / bounds.length;
     return { x: centre.x + radius * Math.cos(angle), y: centre.y + radius * Math.sin(angle) };
