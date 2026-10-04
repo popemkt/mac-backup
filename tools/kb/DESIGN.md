@@ -2010,7 +2010,7 @@ end).
 Today's drift from this contract is marked where it sits:
 - open composition roots: GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
 - extensions that still reach core's use cases (`@kb/operations`):
-  GAP [extensions-reach-core-use-cases];
+  GAP [[01M439W857BD9QQTBEQ5X5D06D]];
 - canvas: GAP [[01M39F3MR3HT2NR553FY8CRD6X]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
   frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]].

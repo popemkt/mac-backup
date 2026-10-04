@@ -381,6 +381,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
+### GAP: core's screen protocol names the canvas
+
+- **expected** — core's screen protocol carries a pane's view state opaquely and the canvas family contributes its own part
+- **current** — PaneScreen.canvas, CanvasScreenSchema and CANVAS_VIEW_PRESET_NAMES live in @kb/contracts, and ui.capture in @kb/operations is 'Capture a canvas'
+- **impact** — screen state is the next feature vocabulary in core that no check sees, and it grows with every 3D camera step
+- **closes** — E19 of the extension SDK plan, after E13, at a 3D step boundary
+- **node** — `01M43AT0V9HHVS7ZAEPWXEGE7F`
+
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.
@@ -423,6 +431,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Domain typing — one canonical schema
 - **node** — `01M1PJWF4G6W4122ZE4K67319V`
 
+### GAP: extensions reach core's use cases (@kb/operations)
+
+- **expected** — an extension package builds on domain, contract, kit and its own family only; core's write path and render backbone reach it as contract services (GraphWrites, ReadInvoke)
+- **current** — LAYER_ALLOWS.extension admits application; ext-canvas write.ts and verbs.ts import @kb/operations (ext-check and ext-docs left it at E15a)
+- **impact** — core's use cases are an extension API nobody declared: changing persistEffect edits a family, and a new extension can reach any use case
+- **closes** — E15b moves ext-canvas onto GraphWrites; E15c drops application from LAYER_ALLOWS.extension
+- **node** — `01M439W857BD9QQTBEQ5X5D06D`
+
 ### GAP: flat canvas items vanish in level 3D views
 
 - **expected** — flat items stay visible when the camera looks across the floor (front, side views)
@@ -447,6 +463,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Adding a renderer means editing the page, which is exactly the coupling capabilitiesFor was introduced to remove.
 - **closes** — Move the remaining renderer-specific branches behind RendererCapabilities and render one <GraphCanvasFrame> for every renderer.
 - **node** — `01M1MGCFTMWY5EYHEWP9QVH8Z9`
+
+### GAP: helpers two families need are copied between them
+
+- **expected** — a helper that two families need has one home in the layer they share
+- **current** — three copied pairs (propText/tagIdsNamed, cell, BUTTON), listed in the sdk plan's section 2 table
+- **impact** — a fix to one copy silently misses the other
+- **closes** — E16 of the extension SDK plan
+- **node** — `01M43ASYY0EC1E4TYFXYXHZEME`
 
 ### GAP: hierarchicalLayout mixes forest construction with placement in 21 branches
 
