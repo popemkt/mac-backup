@@ -1,10 +1,15 @@
-import type { CanvasDoc, CanvasEdge, CanvasNode, CanvasSide } from "@kb/canvas";
+import {
+  GRID_STEP,
+  type CanvasDoc,
+  type CanvasEdge,
+  type CanvasNode,
+  type CanvasSide,
+} from "@kb/canvas";
 import { CanvasCardLayer } from "./canvas-card-layer";
 import { CanvasEdgeLayer } from "./canvas-edge-layer";
 import type { CanvasSelection } from "./canvas-selection";
 import type { PointerResult, PointerState, ResizeCorner } from "./canvas-pointer";
 import type { ToolState } from "./canvas-tool";
-import { GRID_STEP } from "./canvas-snap";
 import { cn, type OutlineNode } from "@kb/ui-sdk";
 
 interface CanvasStageProps {

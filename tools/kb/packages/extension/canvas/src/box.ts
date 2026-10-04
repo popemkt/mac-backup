@@ -236,6 +236,28 @@ export function boxCorners(box: CanvasBox, base = box.z ?? 0): CanvasVec[] {
   return frameCorners(boxFrame(box, base));
 }
 
+/** The box that bounds some corners along the canvas's own axes: its least and greatest corner. */
+export interface CanvasBounds {
+  readonly min: CanvasVec;
+  readonly max: CanvasVec;
+}
+
+/**
+ * The bounds of `boxes` along the canvas's axes: the least and the greatest
+ * of their corners, however each is turned; null for none. What a frame
+ * gathered round items spans, and what a canvas's relations compare.
+ */
+export function boxBounds(boxes: readonly CanvasBox[]): CanvasBounds | null {
+  const corners = boxes.flatMap((box) => boxCorners(box));
+  if (corners.length === 0) return null;
+  const low = (axis: keyof CanvasVec) => Math.min(...corners.map((c) => c[axis]));
+  const high = (axis: keyof CanvasVec) => Math.max(...corners.map((c) => c[axis]));
+  return {
+    min: { x: low("x"), y: low("y"), z: low("z") },
+    max: { x: high("x"), y: high("y"), z: high("z") },
+  };
+}
+
 /** The height of a box's highest corner: what is stacked on it stands there. */
 export function boxTop(box: CanvasBox): number {
   return Math.max(...boxCorners(box).map((corner) => corner.z));

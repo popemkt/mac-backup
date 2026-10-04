@@ -17,6 +17,7 @@ import {
   axisAngleOf,
   canvasDepth,
   canvasTop,
+  coversFromAbove,
   paintOrder,
   stillAbout,
   turnAbout,
@@ -26,7 +27,6 @@ import {
   type CanvasVec,
 } from "@kb/canvas";
 import {
-  coversFromAbove,
   hitTest,
   projectPoint,
   screenAxes,

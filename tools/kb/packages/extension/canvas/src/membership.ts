@@ -12,7 +12,7 @@
  * coordinates like every item, so a group's transform rewrites their
  * records and nothing reads a matrix stack.
  */
-import { boxCorners, boxFrame, boxToLocal, boxTop, type CanvasVec } from "./box.ts";
+import { boxBounds, boxFrame, boxToLocal, boxTop, type CanvasVec } from "./box.ts";
 import {
   isGroupNode,
   withElevation,
@@ -252,11 +252,9 @@ export function placeItems(doc: CanvasDoc, items: readonly CanvasNode[]): Canvas
  */
 export function groupItems(doc: CanvasDoc, ids: Iterable<string>, id: string, pad = 0): CanvasDoc {
   const { items, members } = carriedBy(doc.nodes, ids);
-  const first = items[0];
-  if (first === undefined) return doc;
-  const corners = [...items, ...members].flatMap((node) => boxCorners(node));
-  const low = (axis: "x" | "y" | "z") => Math.min(...corners.map((c) => c[axis]));
-  const high = (axis: "x" | "y") => Math.max(...corners.map((c) => c[axis]));
+  const bounds = boxBounds([...items, ...members]);
+  if (bounds === null) return doc;
+  const { min, max } = bounds;
   const membership = canvasMembership(doc.nodes);
   const homes = new Set(items.map((item) => membership.parentOf(item.id)));
   const home = homes.size === 1 ? ([...homes][0] ?? undefined) : undefined;
@@ -265,12 +263,12 @@ export function groupItems(doc: CanvasDoc, ids: Iterable<string>, id: string, pa
       {
         id,
         type: "group",
-        x: low("x") - pad,
-        y: low("y") - pad,
-        width: high("x") - low("x") + pad * 2,
-        height: high("y") - low("y") + pad * 2,
+        x: min.x - pad,
+        y: min.y - pad,
+        width: max.x - min.x + pad * 2,
+        height: max.y - min.y + pad * 2,
       },
-      low("z"),
+      min.z,
     ),
     home,
   );

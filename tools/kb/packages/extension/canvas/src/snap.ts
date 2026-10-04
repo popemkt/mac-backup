@@ -1,5 +1,6 @@
 /**
- * Snapping for transformed items (DESIGN-UI.md → Canvas), in one module.
+ * Snapping for transformed and placed items (DESIGN-UI.md → Canvas), in one
+ * module: a pointer's gesture and an agent's placement snap by the same rules.
  * A transform is snapped one of two ways, by what made it:
  *
  * - **A carry across the floor plan** (a drag on a card, or an
@@ -30,19 +31,11 @@
  * Holding ⌘ suspends every snap: the gesture reports it as `free`, and the
  * pointer reducer then asks none of these; neither does a typed value.
  */
-import {
-  IDENTITY,
-  axisAngleOf,
-  boxCorners,
-  canvasDepth,
-  canvasElevation,
-  canvasTop,
-  turnAbout,
-  type CanvasNode,
-  type CanvasTransform,
-  type CanvasVec,
-} from "@kb/canvas";
-import { coversFromAbove } from "./canvas-camera";
+import { boxCorners, type CanvasVec } from "./box.ts";
+import { canvasDepth, canvasElevation, canvasTop, type CanvasNode } from "./doc.ts";
+import { coversFromAbove } from "./pick.ts";
+import { IDENTITY, axisAngleOf, turnAbout } from "./rotation.ts";
+import type { CanvasTransform } from "./transform.ts";
 
 /** One of the canvas's axes: x and y across the floor, z up from it. */
 type SnapAxis = "x" | "y" | "z";

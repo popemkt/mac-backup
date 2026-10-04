@@ -31,7 +31,7 @@ import {
 import { float, fract, fwidth, length, positionWorld, smoothstep, uniform } from "three/tsl";
 import type { SceneBackend, SceneHandle, ScenePalette } from "@kb/scene";
 import { mountScene, toScreen, type SceneStage, type ScreenPoint } from "@kb/scene-gpu";
-import type { CanvasAxes } from "@kb/canvas";
+import { GRID_STEP, type CanvasAxes } from "@kb/canvas";
 import {
   PERSPECTIVE_FOV,
   cameraPose,
@@ -50,7 +50,6 @@ import { ItemLayer } from "./canvas-scene-items";
 import { LabelLayer } from "./canvas-scene-labels";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 import { EdgeLayer } from "./canvas-scene-edges";
-import { GRID_STEP } from "./canvas-snap";
 
 export interface CanvasSceneInit {
   readonly rig: CanvasCameraRig;

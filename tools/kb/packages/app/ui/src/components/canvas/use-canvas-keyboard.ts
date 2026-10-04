@@ -3,6 +3,7 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
 import type { CanvasDoc, CanvasNode, CanvasProjectionKind } from "@kb/canvas";
 import {
+  GRID_STEP,
   carriedBy,
   carriedPart,
   groupItems,
@@ -29,7 +30,6 @@ import {
   type PresentAct,
   type TransformAct,
 } from "./canvas-keymap";
-import { GRID_STEP } from "./canvas-snap";
 import {
   pickTool,
   reduceCanvasTool,

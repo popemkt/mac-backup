@@ -1,13 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import {
   IDENTITY,
+  snapCanvasMove,
+  snapPrecise,
+  snapToSurface,
   stillAbout,
   turnAbout,
   type CanvasNode,
   type CanvasTransform,
   type CanvasVec,
-} from "@kb/canvas";
-import { snapCanvasMove, snapPrecise, snapToSurface } from "./canvas-snap";
+} from "../src/index.ts";
 
 const node = (id: string, x: number): CanvasNode => ({
   id,

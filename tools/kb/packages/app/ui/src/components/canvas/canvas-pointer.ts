@@ -5,6 +5,8 @@ import {
   carriedBy,
   selectionPivot,
   settleMembership,
+  snapCarry,
+  snapPrecise,
   stillAbout,
   transformCarried,
   upsertCanvasEdge,
@@ -17,9 +19,10 @@ import {
   type CanvasNode,
   type CanvasSide,
   type CanvasTransform,
+  type SnapGuide,
+  type SnappedTransform,
 } from "@kb/canvas";
 import { sidePoint } from "./canvas-edge-path";
-import { snapCarry, snapPrecise, type SnapGuide, type SnappedTransform } from "./canvas-snap";
 import { screenToPlane, type CanvasView, type ViewSize } from "./canvas-camera";
 import {
   ALONG_Z,
@@ -148,7 +151,7 @@ export interface PointerState {
  * on screen (CSS pixels from the viewport's top left), which decides slop
  * and panning. The reducer reads that point through the showing camera
  * (`PointerContext`), so where a card goes is the camera model's answer in
- * either projection. `free` (⌘ held) suspends every snap (`canvas-snap`).
+ * either projection. `free` (⌘ held) suspends every snap (`@kb/canvas` `snap.ts`).
  */
 export type CanvasPointerEvent =
   | { type: "pointer/cancel" }
@@ -416,7 +419,7 @@ function resizeNode(
 }
 
 /**
- * `t` snapped as what made it asks (`canvas-snap`): a carry across the
+ * `t` snapped as what made it asks (`@kb/canvas` `snap.ts`): a carry across the
  * floor plan aligns and stands on surfaces; anything else snaps precisely.
  */
 function snapTransform(

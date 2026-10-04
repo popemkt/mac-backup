@@ -12,7 +12,7 @@
  * `CanvasTransform` in canvas space: a move, a turn and a stretch about the
  * pivot. It writes nothing; the pointer reducer previews the transform and
  * writes it on release, snapping its turn, so the controls' own snapping
- * stays off and snapping has one owner (`canvas-snap`).
+ * stays off and snapping has one owner (`@kb/canvas` `snap.ts`).
  *
  * An orthographic view is drawn by the stage's perspective camera with an
  * orthographic projection, from far back; the controls size their handles,

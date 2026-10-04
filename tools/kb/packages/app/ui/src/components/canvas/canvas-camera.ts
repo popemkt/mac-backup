@@ -21,20 +21,15 @@
  * size on screen — the dolly zoom that turns one projection into the other.
  */
 import {
-  CANVAS_SHAPES,
-  TOP_AXES,
   boxFrame,
-  boxToLocal,
   boxTop,
-  directionToLocal,
   faceStands,
   frameCorners,
   itemFrame,
-  onFootprint,
+  rayIntoItem,
   type CanvasAxes,
-  type CanvasBox,
+  type CanvasPickItem,
   type CanvasPose,
-  type CanvasShapeKind,
   type CanvasVec,
 } from "@kb/canvas";
 
@@ -352,10 +347,8 @@ export function screenToPlane(
  * the floor, `depth` 0 (flat: the shape's footprint on its plane) and the
  * shape a rectangle.
  */
-export interface CanvasHitItem extends CanvasBox {
+export interface CanvasHitItem extends CanvasPickItem {
   readonly id: string;
-  /** What fills the box; absent is a rectangle (every item that is not a shape). */
-  readonly shape?: CanvasShapeKind;
 }
 
 /** The height of an item's top surface: what paint order and its tie-break go by. */
@@ -381,176 +374,6 @@ export function paintPlanes<T extends CanvasHitItem>(
     tier = previous !== undefined && topOf(previous) === topOf(item) ? tier + 1 : 0;
     return { item, z: (item.z ?? 0) + tier * TIER_STEP };
   });
-}
-
-interface Ray {
-  readonly origin: CanvasPoint3;
-  readonly dir: CanvasPoint3;
-}
-
-/** A stretch of a ray, from where it enters a region to where it leaves. */
-type Span = readonly [enter: number, exit: number];
-
-/**
- * The stretch of a ray inside a box, or null when it misses. A flat box is
- * its rectangle: the ray crosses its plane at one point, inside or not.
- */
-function boxSpan(ray: Ray, box: { readonly lo: Vec; readonly hi: Vec }): Span | null {
-  const origin: Vec = [ray.origin.x, ray.origin.y, ray.origin.z];
-  const dir: Vec = [ray.dir.x, ray.dir.y, ray.dir.z];
-  let enter = -Infinity;
-  let exit = Infinity;
-  for (const i of [0, 1, 2] as const) {
-    const lo = box.lo[i];
-    const hi = box.hi[i];
-    if (Math.abs(dir[i]) < 1e-12) {
-      // Running parallel to these faces: in the slab all along, or never.
-      if (origin[i] < lo || origin[i] > hi) return null;
-      continue;
-    }
-    const near = (lo - origin[i]) / dir[i];
-    const far = (hi - origin[i]) / dir[i];
-    enter = Math.max(enter, Math.min(near, far));
-    exit = Math.min(exit, Math.max(near, far));
-    if (enter > exit) return null;
-  }
-  return [enter, exit];
-}
-
-/** Where `a t² + b t + c ≤ 0` along a ray: no stretch, one, or two running off to infinity. */
-function quadraticSpans(a: number, b: number, c: number): Span[] {
-  if (Math.abs(a) < 1e-12) {
-    if (Math.abs(b) < 1e-12) return c <= 0 ? [[-Infinity, Infinity]] : [];
-    const t = -c / b;
-    return [b > 0 ? [-Infinity, t] : [t, Infinity]];
-  }
-  const disc = b * b - 4 * a * c;
-  if (disc < 0) return a > 0 ? [] : [[-Infinity, Infinity]];
-  const root = Math.sqrt(disc);
-  const t1 = (-b - root) / (2 * a);
-  const t2 = (-b + root) / (2 * a);
-  const lo = Math.min(t1, t2);
-  const hi = Math.max(t1, t2);
-  return a > 0
-    ? [[lo, hi]]
-    : [
-        [-Infinity, lo],
-        [hi, Infinity],
-      ];
-}
-
-/** The stretches in both `a` and `b`. */
-function within(a: readonly Span[], b: readonly Span[]): Span[] {
-  return a.flatMap(([a0, a1]) =>
-    b.flatMap(([b0, b1]): Span[] => {
-      const enter = Math.max(a0, b0);
-      const exit = Math.min(a1, b1);
-      return enter <= exit ? [[enter, exit]] : [];
-    }),
-  );
-}
-
-/**
- * A coordinate along the ray in the box's unit space, as `at + per · t`:
- * across the footprint -1 to 1 from its centre, up it 0 at the base and 1 at
- * the top. Linear, so a stretch of the ray is the same stretch in either.
- */
-interface UnitLine {
-  readonly at: number;
-  readonly per: number;
-}
-
-/** A ray's coordinate (`origin + dir · t`, in the box's own frame) in its unit space, from `start` by `half`. */
-const unitLine = (origin: number, dir: number, start: number, half: number): UnitLine => ({
-  at: (origin - start) / half,
-  per: dir / half,
-});
-
-/**
- * The stretches of a ray inside the volume a shape fills its box with
- * (`CANVAS_SHAPES`), given the box's own stretch: exactly, never by a
- * bounding box.
- */
-function volumeSpans(
-  shape: CanvasShapeKind,
-  inBox: Span,
-  [x, y, z]: readonly [UnitLine, UnitLine, UnitLine],
-): Span[] {
-  const { footprint, volume } = CANVAS_SHAPES[shape];
-  // X² + Y² (+ k) as a quadratic in t, for the round footprints and volumes.
-  const round = (extra: UnitLine, sign: number): Span[] =>
-    quadraticSpans(
-      x.per ** 2 + y.per ** 2 + sign * extra.per ** 2,
-      2 * (x.at * x.per + y.at * y.per + sign * extra.at * extra.per),
-      x.at ** 2 + y.at ** 2 + sign * extra.at ** 2 - (sign > 0 ? 1 : 0),
-    );
-  const none: UnitLine = { at: 0, per: 0 };
-  if (volume === "ellipsoid") {
-    // X² + Y² + (2Z - 1)² ≤ 1: the ellipsoid the box bounds.
-    return within([inBox], round({ at: 2 * z.at - 1, per: 2 * z.per }, 1));
-  }
-  if (volume === "cone") {
-    // X² + Y² ≤ (1 - Z)²: the footprint at the base, narrowing to a point at the top.
-    return within([inBox], round({ at: 1 - z.at, per: -z.per }, -1));
-  }
-  if (footprint === "ellipse") return within([inBox], round(none, 1));
-  if (footprint === "diamond") {
-    // ±X ± Y ≤ 1: four half-spaces.
-    return [
-      [1, 1],
-      [1, -1],
-      [-1, 1],
-      [-1, -1],
-    ].reduce<Span[]>(
-      (spans, [sx = 1, sy = 1]) =>
-        within(spans, quadraticSpans(0, sx * x.per + sy * y.per, sx * x.at + sy * y.at - 1)),
-      [inBox],
-    );
-  }
-  return [inBox];
-}
-
-/**
- * How far along a ray it first enters an item as `paintPlanes` raises it to
- * base `z`, or null when it misses or only leaves it (the eye inside). A
- * flat item is its footprint on its plane; a solid, the volume its shape
- * fills.
- */
-function rayIntoItem(ray: Ray, item: CanvasHitItem, z: number, axes: CanvasAxes): number | null {
-  // In the box's own frame the box is centred on the origin along its own axes.
-  const frame = itemFrame(item, axes, z);
-  const origin = boxToLocal(frame, ray.origin);
-  const dir = directionToLocal(frame, ray.dir);
-  const { half } = frame;
-  const box = boxSpan(
-    { origin, dir },
-    { lo: [-half.x, -half.y, -half.z], hi: [half.x, half.y, half.z] },
-  );
-  if (box === null) return null;
-  const x = unitLine(origin.x, dir.x, 0, half.x);
-  const y = unitLine(origin.y, dir.y, 0, half.y);
-  const shape = item.shape ?? "rect";
-  if (half.z <= 0) {
-    const [t] = box;
-    return t > 0 && onFootprint(shape, x.at + x.per * t, y.at + y.per * t) ? t : null;
-  }
-  const up = unitLine(origin.z, dir.z, -half.z, half.z * 2);
-  const spans = volumeSpans(shape, box, [x, y, up]).toSorted((a, b) => a[0] - b[0]);
-  const ahead = spans.find(([, exit]) => exit > 0);
-  return ahead !== undefined && ahead[0] > 0 ? ahead[0] : null;
-}
-
-/** How far above everything a ray looking straight down starts, canvas units. */
-const ABOVE_ALL = 1e7;
-
-/**
- * Whether `item`'s top view covers the floor point `at`: a ray looking
- * straight down through it enters the item. What snapping stands an item
- * on, and where a carry finds the top it passes over, are this answer.
- */
-export function coversFromAbove(item: CanvasHitItem, at: CanvasPoint): boolean {
-  const down: Ray = { origin: { x: at.x, y: at.y, z: ABOVE_ALL }, dir: { x: 0, y: 0, z: -1 } };
-  return rayIntoItem(down, item, item.z ?? 0, TOP_AXES) !== null;
 }
 
 /**

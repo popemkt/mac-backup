@@ -1060,7 +1060,7 @@ manipulation feel professional rather than merely functional.
   (`turn/start`, a transform drag in the pointer reducer), and
   arrow keys nudge 1px / 10px with `Shift`.
 - **Snap guides and fit.** Alignment snapping is magnetic within 5px
-  (`SNAP_TOL`, `components/canvas/canvas-snap.ts`), one rule on all three axes: a move
+  (`SNAP_TOL`, `@kb/canvas` `snap.ts`, which an agent's placements snap by too), one rule on all three axes: a move
   across the floor snaps on x and y and draws dashed guide lines, and an
   Alt-lift in 3D snaps to the bases and tops of other items (no line is
   drawn up the z axis). The same module owns **surface snap**: an item

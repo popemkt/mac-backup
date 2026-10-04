@@ -67,6 +67,7 @@ export {
 export type { CanvasTransform } from "./transform.ts";
 export {
   TOP_AXES,
+  boxBounds,
   boxCorners,
   boxFrame,
   boxRotation,
@@ -84,8 +85,12 @@ export {
   itemFrame,
   planeCorners,
 } from "./box.ts";
-export type { CanvasAxes, CanvasBox, CanvasFrame, CanvasVec } from "./box.ts";
+export type { CanvasAxes, CanvasBounds, CanvasBox, CanvasFrame, CanvasVec } from "./box.ts";
 export { cameraLookingFrom, posesAgree, projectionOf } from "./camera.ts";
+export { coversFromAbove, rayIntoItem } from "./pick.ts";
+export type { CanvasPickItem, CanvasRay } from "./pick.ts";
+export { GRID_STEP, snapCanvasMove, snapCarry, snapPrecise, snapToSurface } from "./snap.ts";
+export type { SnapGuide, SnappedTransform } from "./snap.ts";
 export { canvasExtension } from "./extension.ts";
 export { CANVAS_SOLID_PRESETS, imageItem, placedOnFace, presetItem } from "./presets.ts";
 export {
