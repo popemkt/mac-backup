@@ -1776,6 +1776,13 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
 - Skipped from harman (YAGNI): profiles, pagination cursors, idempotency
   replay, A2A surfaces. Contracts leave room; Fiber interrupt covers cancellation for native handlers.
 
+When a reverse proxy serves the UI, `kb ui --public-origin <http(s)-origin>`
+declares its browser origin. The same guard derives the accepted Host authority
+and Origin from that address, in production and development; local addresses
+remain valid. The CLI accepts an origin URL with an optional trailing slash,
+not credentials, a path, a query, or a fragment. Undeclared hosts and unrelated
+browser origins remain forbidden.
+
 ### Core boundary & extensions
 
 Core ships mechanism only: store (JSONL), datalog (DataScript), the action

@@ -45,38 +45,58 @@ in
           the app.
         '';
         type = types.attrsOf (
-          types.submodule (_: {
-            options = {
-              target = mkOption {
-                type = types.str;
-                example = "http://127.0.0.1:3000";
-                description = "Loopback URL to which Tailscale forwards service traffic.";
-              };
+          types.submodule (
+            { config, name, ... }: {
+              options = {
+                target = mkOption {
+                  type = types.str;
+                  example = "http://127.0.0.1:3000";
+                  description = "Loopback URL to which Tailscale forwards service traffic.";
+                };
 
-              port = mkOption {
-                type = types.port;
-                default = 443;
-                description = "Port exposed on the service's TailVIP.";
-              };
+                port = mkOption {
+                  type = types.port;
+                  default = 443;
+                  description = "Port exposed on the service's TailVIP.";
+                };
 
-              protocol = mkOption {
-                type = types.enum [
-                  "http"
-                  "https"
-                  "tcp"
-                  "tls-terminated-tcp"
-                ];
-                default = "https";
-                description = "Protocol exposed by Tailscale on the service's TailVIP.";
-              };
+                protocol = mkOption {
+                  type = types.enum [
+                    "http"
+                    "https"
+                    "tcp"
+                    "tls-terminated-tcp"
+                  ];
+                  default = "https";
+                  description = "Protocol exposed by Tailscale on the service's TailVIP.";
+                };
 
-              advertised = mkOption {
-                type = types.bool;
-                default = true;
-                description = "Whether this host accepts new connections for the service.";
+                advertised = mkOption {
+                  type = types.bool;
+                  default = true;
+                  description = "Whether this host accepts new connections for the service.";
+                };
+                publicOrigin = mkOption {
+                  type = types.nullOr types.str;
+                  readOnly = true;
+                  default =
+                    if
+                      builtins.elem config.protocol [
+                        "http"
+                        "https"
+                      ]
+                    then
+                      "${config.protocol}://${name}.${cfg.tailnetDomain}"
+                      + lib.optionalString (
+                        config.port != (if config.protocol == "https" then 443 else 80)
+                      ) ":${toString config.port}"
+                    else
+                      null;
+                  description = "Browser origin derived from the HTTP service identity, protocol, and exposed port.";
+                };
               };
-            };
-          })
+            }
+          )
         );
       };
     };

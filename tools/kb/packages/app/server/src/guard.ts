@@ -27,6 +27,8 @@ export interface GuardSite {
   readonly port: number;
   /** The port the UI page is served from: this server's, or the Vite dev server's. */
   readonly uiPort: number;
+  /** Browser origin when a reverse proxy serves this UI. */
+  readonly publicOrigin?: string;
 }
 
 export interface RequestGuard {
@@ -47,10 +49,11 @@ function isJson(contentType: string | null): boolean {
 
 export function requestGuard(site: GuardSite): RequestGuard {
   const names = [...new Set([...LOOPBACK_NAMES, site.hostname])];
-  const hosts = new Set(names.map((name) => `${name}:${site.port}`));
   const origins = new Set(
     names.flatMap((name) => [site.port, site.uiPort].map((port) => `http://${name}:${port}`)),
   );
+  if (site.publicOrigin !== undefined) origins.add(new URL(site.publicOrigin).origin);
+  const hosts = new Set([...origins].map((origin) => new URL(origin).host));
   return {
     refuse: (req, url) => {
       if (url.pathname !== "/ws" && !url.pathname.startsWith("/api/")) return null;

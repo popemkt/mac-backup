@@ -49,6 +49,8 @@ export interface UiServerOptions {
    * this server's own port.
    */
   uiPort?: number;
+  /** Browser origin when a reverse proxy serves this UI. */
+  publicOrigin?: string;
   /**
    * The extensions this server hosts (`plugins.ts`), their plugins loaded in
    * order after the host itself, and each reported in `kb.manifest` beside
@@ -175,6 +177,7 @@ function serveUi(deps: {
   hostname: string;
   port: number;
   uiPort: number | undefined;
+  publicOrigin: string | undefined;
   root: string;
   ctx: KbContext;
   hub: SubscriptionHub;
@@ -189,7 +192,12 @@ function serveUi(deps: {
     fetch(req, srv) {
       const url = new URL(req.url);
       const port = srv.port ?? deps.port;
-      guard ??= requestGuard({ hostname: deps.hostname, port, uiPort: deps.uiPort ?? port });
+      guard ??= requestGuard({
+        hostname: deps.hostname,
+        port,
+        uiPort: deps.uiPort ?? port,
+        publicOrigin: deps.publicOrigin,
+      });
       const refused = guard.refuse(req, url);
       if (refused !== null) return refused;
 
@@ -262,6 +270,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     hostname,
     port,
     uiPort: opts.uiPort,
+    publicOrigin: opts.publicOrigin,
     root: opts.root,
     ctx,
     hub,
@@ -342,6 +351,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
   backendPort: number;
   devPort: number;
   uiRoot: string;
+  publicOrigin?: string;
   spawn?: UiDevSpawn;
   extensions?: readonly ExtensionEntry[];
 }): Effect.fn.Return<UiDevServer, DomainError, FileSystem> {
@@ -350,6 +360,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
     port: opts.backendPort,
     openBrowser: false,
     uiPort: opts.devPort,
+    publicOrigin: opts.publicOrigin,
     extensions: opts.extensions,
   });
   const spawn = opts.spawn ?? bunSpawnDev;
@@ -385,6 +396,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
   port: number;
   openBrowser: boolean;
   uiRoot: string;
+  publicOrigin?: string;
   ensureBuilt?: EnsureUiBuilt;
   extensions?: readonly ExtensionEntry[];
 }): Effect.fn.Return<{ handle: UiServerHandle; build: UiEnsureResult }, DomainError, FileSystem> {
@@ -394,6 +406,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
     root: opts.root,
     port: opts.port,
     openBrowser: opts.openBrowser,
+    publicOrigin: opts.publicOrigin,
     extensions: opts.extensions,
   });
   return { handle, build };
@@ -421,6 +434,7 @@ export interface RunUiCliOptions {
   devPort?: number;
   uiRoot?: string;
   /** Injectable build-ensure step (default {@link ensureUiBuilt}). */
+  publicOrigin?: string;
   ensureBuilt?: EnsureUiBuilt;
   spawnDev?: UiDevSpawn;
   /** The extensions the server hosts ({@link UiServerOptions.extensions}). */
@@ -447,6 +461,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
       devPort,
       uiRoot,
       spawn: opts.spawnDev,
+      publicOrigin: opts.publicOrigin,
       extensions: opts.extensions,
     });
     writeErr(`kb ui dev server listening on ${dev.url}`);
@@ -469,6 +484,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
     openBrowser: open,
     uiRoot,
     ensureBuilt: opts.ensureBuilt,
+    publicOrigin: opts.publicOrigin,
     extensions: opts.extensions,
   });
   if (build.built) {

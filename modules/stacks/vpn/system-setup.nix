@@ -24,7 +24,7 @@ let
       name = "Tailscale service: svc:${name}";
       description = "Define, approve, and route the stable ${name} Tailnet Service endpoint.";
       required = service.advertised;
-      requiredBy = [ "https://${name}.${cfg.tailnetDomain}" ];
+      requiredBy = [ (if service.publicOrigin == null then "svc:${name}" else service.publicOrigin) ];
       dependsOn = [ "tailscale-device" ];
       connections = [
         {

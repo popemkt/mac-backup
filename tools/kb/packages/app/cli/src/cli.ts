@@ -310,6 +310,28 @@ function collect(value: string, previous: string[]): string[] {
 }
 
 const toInt = (v: string): number => Number.parseInt(v, 10);
+const toOrigin = (value: string): string => {
+  try {
+    const url = new URL(value);
+    if (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.username === "" &&
+      url.password === "" &&
+      url.pathname === "/" &&
+      url.search === "" &&
+      url.hash === ""
+    ) {
+      return url.origin;
+    }
+  } catch {
+    // Report malformed URLs through the same CLI usage error as non-origin URLs.
+  }
+  throw new CommanderError(
+    EXIT_USAGE,
+    "commander.invalidArgument",
+    "--public-origin must be an HTTP(S) origin, e.g. https://kb.example.com",
+  );
+};
 
 interface ForceOpts {
   force?: boolean;
@@ -364,6 +386,7 @@ function buildProgram(): Command {
     .option("--port <n>", "backend listen port (default 4321)", toInt)
     .option("--dev", "spawn the Vite dev server (HMR) and proxy to the backend", false)
     .option("--dev-port <n>", "Vite dev server port (default 5173)", toInt)
+    .option("--public-origin <url>", "browser origin when served through a reverse proxy", toOrigin)
     .option("--no-open", "do not open a browser")
     .option("--no-agent", "do not host the sidebar agent (the local Claude bridge)")
     .action(
@@ -371,7 +394,14 @@ function buildProgram(): Command {
         (
           globals,
           [opts]: [
-            { port?: number; dev?: boolean; devPort?: number; open?: boolean; agent?: boolean },
+            {
+              port?: number;
+              dev?: boolean;
+              devPort?: number;
+              publicOrigin?: string;
+              open?: boolean;
+              agent?: boolean;
+            },
           ],
         ) =>
           Effect.gen(function* () {
@@ -383,6 +413,7 @@ function buildProgram(): Command {
               openBrowser: opts.open !== false,
               dev: opts.dev === true,
               devPort: opts.devPort,
+              publicOrigin: opts.publicOrigin,
               extensions: opts.agent === false ? [] : yield* hostExtensions(root),
             });
           }),

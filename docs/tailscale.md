@@ -97,10 +97,8 @@ time remains a Tailscale control-plane operation.
 | `svc:kb` | `https://kb.<tailnet-domain>` | `127.0.0.1:9000` | Home kb UI |
 | `svc:adhoc` | `https://adhoc.<tailnet-domain>` | `127.0.0.1:9001` | Temporary HTTP apps |
 
-The kb endpoint does not keep the UI running or add application authentication.
-Start `kb ui --port 9000 --no-open` from the home graph checkout, and Tailscale
-terminates HTTPS for allowed tailnet members. The loopback listener keeps port
-9000 off the LAN.
+The personal host's kb lifecycle and origin-aware readiness check are declared
+by the kb stack; see [kb-service.md](kb-service.md).
 
 The ad hoc endpoint is independent of kb. Start any temporary HTTP server on
 `127.0.0.1:9001`; Tailscale serves it at the ad hoc HTTPS name for allowed

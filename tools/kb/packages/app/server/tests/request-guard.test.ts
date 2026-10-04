@@ -27,12 +27,18 @@ function rawGet(url: string, headers: Record<string, string>): Promise<number> {
 }
 
 /** Whether a WebSocket handshake with this Origin opens (it answers hello) or is refused. */
-function handshake(url: string, origin: string | undefined): Promise<"open" | "refused"> {
+function handshake(
+  url: string,
+  origin: string | undefined,
+  host?: string,
+): Promise<"open" | "refused"> {
   return new Promise((resolve) => {
-    const socket = new WebSocket(
-      `${url.replace(/^http/, "ws")}/ws`,
-      origin === undefined ? undefined : { headers: { Origin: origin } },
-    );
+    const socket = new WebSocket(`${url.replace(/^http/, "ws")}/ws`, {
+      headers: {
+        ...(origin === undefined ? {} : { Origin: origin }),
+        ...(host === undefined ? {} : { Host: host }),
+      },
+    });
     socket.addEventListener("open", () => {
       socket.close();
       resolve("open");
@@ -115,6 +121,40 @@ describe("kb ui request guard", () => {
     } finally {
       await Effect.runPromise(dev.stop);
       await rm(devRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("a declared reverse proxy origin reaches the API and WebSocket", async () => {
+    const proxyRoot = await mkdtemp(join(tmpdir(), "kb-guard-proxy-"));
+    const publicOrigin = "https://kb.example.test";
+    const host = new URL(publicOrigin).host;
+    const proxy = await Effect.runPromise(
+      startUi({ root: proxyRoot, port: 0, openBrowser: false, publicOrigin: `${publicOrigin}/` }),
+    );
+    try {
+      expect(await rawGet(`${handle.url}/api/manifest`, { Host: host })).toBe(403);
+      expect(await rawGet(`${proxy.url}/api/manifest`, { Host: host, Origin: publicOrigin })).toBe(
+        200,
+      );
+      expect(await rawGet(`${proxy.url}/api/identity`, { Host: host })).toBe(200);
+      expect(await handshake(proxy.url, publicOrigin, host)).toBe("open");
+      expect(await handshake(proxy.url, EVIL, host)).toBe("refused");
+      expect(await rawGet(`${proxy.url}/api/manifest`, { Host: host, Origin: EVIL })).toBe(403);
+      expect(
+        await rawGet(`${proxy.url}/api/manifest`, {
+          Host: host,
+          Origin: "http://kb.example.test",
+        }),
+      ).toBe(403);
+      expect(
+        await rawGet(`${proxy.url}/api/manifest`, {
+          Host: "evil.example",
+          Origin: publicOrigin,
+        }),
+      ).toBe(403);
+    } finally {
+      await Effect.runPromise(proxy.stop);
+      await rm(proxyRoot, { recursive: true, force: true });
     }
   });
 

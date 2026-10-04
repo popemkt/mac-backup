@@ -27,8 +27,8 @@ class CheckFailed(RuntimeError):
     pass
 
 
-def _read_json_url(url: str, timeout_seconds: float) -> Any:
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+def _read_json_url(url: str, timeout_seconds: float, headers: dict[str, str] | None = None) -> Any:
+    request = urllib.request.Request(url, headers={"Accept": "application/json", **(headers or {})})
     try:
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
             return json.load(response)
@@ -67,7 +67,7 @@ def _check_file(check: FileCheck) -> str:
 
 
 def _check_http_json(check: HttpJsonCheck) -> str:
-    payload = _read_json_url(check.url, check.timeout_seconds)
+    payload = _read_json_url(check.url, check.timeout_seconds, check.headers)
     for path, expected in check.expected.items():
         actual = _nested_value(payload, path)
         if actual != expected:

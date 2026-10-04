@@ -44,6 +44,7 @@ class FileCheck(StrictModel):
 class HttpJsonCheck(StrictModel):
     kind: Literal["http_json"]
     url: str
+    headers: dict[str, str] = Field(default_factory=dict)
     expected: dict[str, str]
     timeout_seconds: float = 10
     success_detail: str
