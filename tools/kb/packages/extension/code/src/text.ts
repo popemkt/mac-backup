@@ -51,7 +51,7 @@ function codeBody(_ctx: KbContext, params: CodeParams): readonly string[] {
     "",
     "## Code",
     "",
-    "This view is code. It runs only in the kb UI, sandboxed: in QuickJS until a person trusts it on their machine, then in a Worker. As text it is shown, not run; a page shows what it draws as of now, run read-only.",
+    "This view is code. It runs only in the kb UI, sandboxed: in QuickJS until a person trusts it on their machine, then in a Worker. As text it is shown, not run. Where kb's runtime renders a page, it also shows above this text what the code draws as of the render, run read-only; a host that cannot run it shows this text alone.",
     "",
     `${grantLine(params)}${params.source === undefined ? "" : ` It is shown for ${params.source}.`}`,
     "",
