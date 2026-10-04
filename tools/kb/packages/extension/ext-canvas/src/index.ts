@@ -8,22 +8,17 @@ import {
   type KbContext,
   type KbStore,
 } from "@kb/contracts";
-import { persistEffect } from "@kb/operations";
+import { resolveFieldId, present, type KbNode, type NodeId, type PropValue } from "@kb/model";
+import { canvasExtension } from "@kb/canvas";
 import {
-  SYSTEM_IDS,
-  isSysPrefixed,
-  currentIso,
-  ResolveError,
-  resolveFieldId,
-  domainError,
-  domainFromResolve,
-  present,
-  type DomainError,
-  type KbNode,
-  type NodeId,
-  type PropValue,
-} from "@kb/model";
-import { canvasExtension, parseCanvasDoc, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
+  CanvasTxError,
+  assertUserWritable,
+  cloneNode,
+  commitCanvasEffect,
+  parseDocEffect,
+  requireNode,
+  type CanvasFail,
+} from "./write.ts";
 
 /**
  * Bundled canvas extension: atomic canvas JSON + relationship prop writes.
@@ -64,59 +59,6 @@ const applyOutput = z.object({
   propTargetId: z.string().optional(),
 });
 
-function cloneNode(n: KbNode): KbNode {
-  return {
-    ...n,
-    props: Object.fromEntries(
-      Object.entries(n.props).map(([k, v]) => [k, v.map((x) => ({ ...x }))]),
-    ),
-    children: [...n.children],
-  };
-}
-
-function requireNode(ctx: KbContext, id: NodeId): KbNode {
-  const n = ctx.nodes.find((x) => x.id === id);
-  if (!n) throw new ResolveError("not_found", `node not found: ${id}`, { id });
-  return n;
-}
-
-function assertUserWritable(id: string): void {
-  if (isSysPrefixed(id)) {
-    throw new ResolveError("forbidden", `sys.* nodes are write-protected: ${id}`, { id });
-  }
-}
-
-class CanvasTxError extends Error {
-  readonly code = "invalid_input" as const;
-  readonly details?: unknown;
-
-  constructor(message: string, details?: unknown) {
-    super(message);
-    this.name = "CanvasTxError";
-    this.details = details;
-  }
-}
-
-function assertCanvasHost(ctx: KbContext, id: NodeId): KbNode {
-  assertUserWritable(id);
-  const node = requireNode(ctx, id);
-  const types = node.props[SYSTEM_IDS.typeField] ?? [];
-  const tagged = types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.canvasTag);
-  if (!tagged) {
-    // Also accept a user tag named "canvas" typed as sys.tag (text match).
-    const canvasTagNodes = ctx.nodes.filter(
-      (n) =>
-        n.text === "canvas" &&
-        (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === SYSTEM_IDS.tag),
-    );
-    const ok = types.some((v) => v.t === "ref" && canvasTagNodes.some((t) => t.id === v.v));
-    if (!ok) {
-      throw new CanvasTxError(`canvas host must be tagged #canvas: ${id}`, { id });
-    }
-  }
-  return node;
-}
-
 function applySetProps(
   ctx: KbContext,
   props: Record<NodeId, PropValue[]>,
@@ -147,73 +89,40 @@ function applyUnsetProps(
   }
 }
 
-type CanvasFail = DomainError | CanvasTxError;
+/** The source node of a native bind with its prop ops applied, stamped `at`. */
+function propTarget(ctx: KbContext, input: z.infer<typeof applyInput>, at: string): KbNode {
+  const targetId = present(input.propTargetId, "propTargetId");
+  assertUserWritable(targetId);
+  const t = cloneNode(requireNode(ctx, targetId));
+  if (input.setProps) applySetProps(ctx, t.props, input.setProps);
+  if (input.unsetProps) applyUnsetProps(ctx, t.props, input.unsetProps);
+  t.updatedAt = at;
+  return t;
+}
 
 export const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(function* (
   input: z.infer<typeof applyInput>,
 ): Effect.fn.Return<z.infer<typeof applyOutput>, CanvasFail, KbCtx | KbStore | FileSystem> {
   const ctx = yield* KbCtx;
-
-  const parsed: CanvasDoc = yield* Effect.try({
-    try: () => parseCanvasDoc(input.doc),
-    catch: (err) =>
-      new CanvasTxError(`invalid canvas doc: ${err instanceof Error ? err.message : String(err)}`, {
-        canvasId: input.canvasId,
-      }),
-  });
-  const docStr = stringifyCanvasDoc(parsed);
-  // One stamp per transaction, from the Clock the store's replay overrides.
-  const at = yield* currentIso;
-
-  const canvas = yield* Effect.try({
-    try: () => cloneNode(assertCanvasHost(ctx, input.canvasId)),
-    catch: (err) => {
-      if (err instanceof CanvasTxError) return err;
-      if (err instanceof ResolveError) return domainFromResolve(err);
-      return domainError("internal", err instanceof Error ? err.message : String(err));
-    },
-  });
-  // Replace (not append) the canvas JSON prop — single current document.
-  canvas.props[SYSTEM_IDS.canvasField] = [{ t: "str", v: docStr }];
-  canvas.updatedAt = at;
-
-  const upserts: KbNode[] = [canvas];
-  let propTargetId: string | undefined;
-
+  const doc = yield* parseDocEffect(input.doc, input.canvasId);
   const hasPropOps =
     (input.setProps !== undefined && input.setProps.length > 0) ||
     (input.unsetProps !== undefined && input.unsetProps.length > 0);
-
-  if (hasPropOps) {
-    if (input.propTargetId === undefined || input.propTargetId === "") {
-      return yield* Effect.fail(
-        new CanvasTxError("propTargetId required when setProps/unsetProps provided"),
-      );
-    }
-    const target = yield* Effect.try({
-      try: () => {
-        const targetId = present(input.propTargetId, "propTargetId");
-        assertUserWritable(targetId);
-        const t = cloneNode(requireNode(ctx, targetId));
-        if (input.setProps) applySetProps(ctx, t.props, input.setProps);
-        if (input.unsetProps) {
-          applyUnsetProps(ctx, t.props, input.unsetProps);
-        }
-        t.updatedAt = at;
-        return t;
-      },
-      catch: (err) => {
-        if (err instanceof CanvasTxError) return err;
-        if (err instanceof ResolveError) return domainFromResolve(err);
-        return domainError("internal", err instanceof Error ? err.message : String(err));
-      },
-    });
-    upserts.push(target);
-    propTargetId = input.propTargetId;
+  if (hasPropOps && (input.propTargetId === undefined || input.propTargetId === "")) {
+    return yield* Effect.fail(
+      new CanvasTxError("propTargetId required when setProps/unsetProps provided"),
+    );
   }
-
-  yield* persistEffect(ctx, { upserts, deletes: [] });
-  return { canvasId: input.canvasId, doc: docStr, propTargetId };
+  const stored = yield* commitCanvasEffect({
+    canvasId: input.canvasId,
+    doc,
+    ...(hasPropOps ? { also: (at: string) => [propTarget(ctx, input, at)] } : {}),
+  });
+  return {
+    canvasId: input.canvasId,
+    doc: stored,
+    ...(hasPropOps ? { propTargetId: input.propTargetId } : {}),
+  };
 });
 
 const actions: ExtensionAction[] = [
