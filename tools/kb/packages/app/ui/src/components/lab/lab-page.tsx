@@ -25,7 +25,7 @@ import type { SceneBackend } from "@/scene/backend";
 import { SceneHost } from "@/components/lab/kit/scene-host";
 import { useLabGraph } from "@/components/lab/lab-graph";
 import { labPath } from "@/components/lab/routes";
-import { LAB_SCENE_IDS, type LabSceneId } from "@kb/views";
+import { LAB_SCENE_IDS, type LabSceneId } from "@kb/lab";
 import { LAB_STUDIES } from "@/components/lab/studies";
 
 function StudySwitch({ scene }: { scene: LabSceneId }) {

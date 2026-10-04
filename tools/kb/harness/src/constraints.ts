@@ -179,6 +179,8 @@ export interface SanctionedExtensionImport {
  *   and draws with its painter; it leaves with `@kb/chart-ui` (E12).
  * - The code view's UI half, `components/code`, reads its family's key and
  *   loads its shared plugin; it leaves with `@kb/code-ui` (E12).
+ * - The lab's UI half, `components/lab`, reads its family's key and studies
+ *   and loads its shared plugin; it leaves with `@kb/lab-ui` (E12).
  * - The canvas's UI half, `components/canvas` and its story, leaves with
  *   `@kb/canvas-ui` (E13).
  * - The docs and check pre-commit entries parse their family's output
@@ -214,6 +216,16 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
     {
       target: "@kb/code",
       files: ["src/components/code/code-page.tsx", "src/components/code/plugin.ts"],
+    },
+    {
+      target: "@kb/lab",
+      files: [
+        "src/components/lab/lab-page.tsx",
+        "src/components/lab/plugin.ts",
+        "src/components/lab/routes.ts",
+        "src/components/lab/studies.ts",
+        "src/components/lab/surfaces.tsx",
+      ],
     },
     {
       target: "@kb/canvas",

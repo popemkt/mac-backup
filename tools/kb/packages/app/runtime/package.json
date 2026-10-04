@@ -20,6 +20,7 @@
     "@kb/ext-check": "workspace:*",
     "@kb/ext-docs": "workspace:*",
     "@kb/ext-sdk": "workspace:*",
+    "@kb/lab": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
     "@kb/plugin": "workspace:*",

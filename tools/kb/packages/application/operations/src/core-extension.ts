@@ -5,7 +5,7 @@
  * itself in where it has one. It is the first declaration the seed fold
  * reads, and both hosts load its views through `declarationPlugin`.
  *
- * It still lists the feature views (canvas, lab) beside its own,
+ * It still lists the canvas views beside its own,
  * so they reach the catalog and the seed through core rather than their
  * families: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]] and GAP [[01M41H30342XZPX3CXZJTMPBYW]]
  */
@@ -19,7 +19,6 @@ import {
   Force2dView,
   Force3dView,
   GraphView,
-  LabView,
   LayoutView,
   NeighbourhoodView,
   NodeView,
@@ -65,6 +64,5 @@ export const coreExtension = defineExtension({
     // by name if a group or a family lands elsewhere.
     viewDef(CanvasListView),
     viewDef(CanvasView),
-    viewDef(LabView),
   ],
 });

@@ -32,6 +32,7 @@
         "@kb/code": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
+        "@kb/lab": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
       },
@@ -115,6 +116,7 @@
         "@kb/ext-check": "workspace:*",
         "@kb/ext-docs": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
+        "@kb/lab": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
         "@kb/plugin": "workspace:*",
@@ -191,6 +193,7 @@
         "@kb/chart-vega": "workspace:*",
         "@kb/code": "workspace:*",
         "@kb/contracts": "workspace:*",
+        "@kb/lab": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
         "@kb/plugin": "workspace:*",
@@ -513,6 +516,20 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/lab": {
+      "name": "@kb/lab",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/views": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/bundled": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -955,6 +972,8 @@
     "@kb/ext-docs": ["@kb/ext-docs@workspace:packages/extension/ext-docs"],
 
     "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/contract/ext-sdk"],
+
+    "@kb/lab": ["@kb/lab@workspace:packages/extension/lab"],
 
     "@kb/mcp": ["@kb/mcp@workspace:packages/app/mcp"],
 

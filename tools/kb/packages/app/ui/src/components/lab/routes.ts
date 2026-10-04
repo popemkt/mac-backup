@@ -1,4 +1,4 @@
-import { LAB_SCENE_IDS, type LabParams, type LabSceneId } from "@kb/views";
+import { LAB_SCENE_IDS, type LabParams, type LabSceneId } from "@kb/lab";
 
 function isLabScene(value: string): value is LabSceneId {
   return LAB_SCENE_IDS.some((id) => id === value);

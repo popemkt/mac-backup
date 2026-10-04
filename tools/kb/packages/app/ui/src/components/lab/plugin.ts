@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
+import { LAB_SCENE_IDS, LabView, labExtension, labPlugin } from "@kb/lab";
 import { matchLab } from "@/components/lab/routes";
 import { LabSection, LabSurface } from "@/components/lab/surfaces";
-import { LAB_NAMESPACE, LAB_SCENE_IDS, LabView } from "@kb/views";
 import {
   BrowserHostService,
   RoutePoint,
@@ -17,13 +17,18 @@ import {
  * anything reaches a working view. Optional and off by default — it is in
  * `OPTIONAL_UI_PLUGINS`, not the built-ins — so its view, its route and its
  * sidebar row exist only while the preference has it on.
+ *
+ * It is the lab family's page entry, so it loads the family's shared plugin
+ * as a child: the lab page's key reaches the page kernel's catalog from the
+ * family, as the server's does.
  */
 export const labUiPlugin = definePlugin({
-  name: LAB_NAMESPACE,
+  name: labExtension.name,
   inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(
       [
+        ctx.plugin(labPlugin()),
         ctx.contribute(
           ViewPoint,
           provideView(LabView, {

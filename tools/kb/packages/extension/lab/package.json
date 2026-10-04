@@ -1,5 +1,5 @@
 {
-  "name": "@kb/bundled",
+  "name": "@kb/lab",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,22 +11,19 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@kb/canvas": "workspace:*",
-    "@kb/chart": "workspace:*",
-    "@kb/check": "workspace:*",
-    "@kb/code": "workspace:*",
     "@kb/contracts": "workspace:*",
-    "@kb/docs": "workspace:*",
-    "@kb/lab": "workspace:*",
-    "@kb/model": "workspace:*",
-    "@kb/operations": "workspace:*"
+    "@kb/plugin": "workspace:*",
+    "@kb/views": "workspace:*",
+    "effect": "catalog:"
   },
   "devDependencies": {
+    "@kb/bundled": "workspace:*",
     "@types/bun": "catalog:"
   },
   "nx": {
     "tags": [
-      "scope:shared"
+      "scope:shared",
+      "family:lab"
     ]
   }
 }

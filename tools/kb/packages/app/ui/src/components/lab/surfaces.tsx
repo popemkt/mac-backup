@@ -1,7 +1,7 @@
 import { lazy } from "react";
 import { FlaskIcon } from "@phosphor-icons/react";
 import { labPath } from "@/components/lab/routes";
-import { LAB_SCENE_IDS, LabView, type LabParams } from "@kb/views";
+import { LAB_SCENE_IDS, LabView, type LabParams } from "@kb/lab";
 import {
   SidebarRow,
   SidebarSection,

@@ -6,7 +6,7 @@
 import type { LabStudy } from "@/components/lab/kit/contract";
 import { TIMING_FALLBACK } from "@/sdk";
 import { CurvePanel } from "@/components/lab/motion/curve-panel";
-import type { LabSceneId } from "@kb/views";
+import type { LabSceneId } from "@kb/lab";
 
 const follow = Math.round(TIMING_FALLBACK.follow * 1000);
 const stagger = Math.round(TIMING_FALLBACK.stagger * 1000);

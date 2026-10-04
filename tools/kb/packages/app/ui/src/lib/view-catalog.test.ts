@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ChartView } from "@kb/chart";
-import { LabView, OutlineView } from "@kb/views";
+import { LabView } from "@kb/lab";
+import { OutlineView } from "@kb/views";
 import { pageCatalogOf } from "@/lib/view-catalog";
 
 const held = [{ key: OutlineView }, { key: LabView }, { key: ChartView }];

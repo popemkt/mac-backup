@@ -1941,6 +1941,8 @@ the shell.
 The lab (`components/lab`, `/lab`) is an off-by-default sketchbook for
 real-time 3D: a place to study effects, lighting, polish and motion before
 anything reaches a working view. It is the first optional UI plugin (above).
+Its view key, `lab.page`, and the list of its studies are the lab family's
+(`@kb/lab`, [DESIGN → Extension families](DESIGN.md#extension-families)).
 Its studies are exercises, not product features: a study **may** read the
 graph (the Sky's stars are nodes), but it does not have to, and nothing a
 study does is a kb milestone. What a study proves graduates into functional

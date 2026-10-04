@@ -1,8 +1,12 @@
+/**
+ * The lab's view: one page, showing one visual study. Its params come from
+ * the route, so a view node stores none; this module is its vocabulary.
+ */
 import { Schema } from "effect";
-import { viewKey } from "./view-key.ts";
+import { viewKey } from "@kb/views";
 
-/** The lab plugin's namespace and view keys: what a host imports, never the components. */
-export const LAB_NAMESPACE = "lab";
+/** The namespace of the lab view's id: what draws it, the lab family. */
+const LAB_NAMESPACE = "lab";
 
 /** The studies the lab shows, in switcher order; the first is `/lab`'s. */
 export const LAB_SCENE_IDS = [

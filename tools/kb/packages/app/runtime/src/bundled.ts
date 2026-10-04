@@ -19,6 +19,7 @@ import { codePlugin } from "@kb/code";
 import { canvasPlugin } from "@kb/ext-canvas";
 import { checkPlugin } from "@kb/ext-check";
 import { docsPlugin } from "@kb/ext-docs";
+import { labPlugin } from "@kb/lab";
 
 /** One bundled family: the declaration that names it, and the plugin the server loads for it. */
 export interface BundledExtension {
@@ -54,6 +55,7 @@ export function serverEntriesFor(
 export const BUNDLED_EXTENSIONS: readonly BundledExtension[] = serverEntriesFor(BUNDLED_FAMILIES, [
   docsPlugin,
   canvasPlugin,
+  labPlugin(),
   checkPlugin,
   codePlugin(),
   chartServerPlugin,

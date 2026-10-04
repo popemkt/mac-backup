@@ -20,6 +20,7 @@ import { checkExtension } from "@kb/check";
 import { codeExtension } from "@kb/code";
 import type { ExtensionDeclaration } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
+import { labExtension } from "@kb/lab";
 import { foldSeed, type KbNode } from "@kb/model";
 import { coreExtension } from "@kb/operations";
 
@@ -31,6 +32,7 @@ import { coreExtension } from "@kb/operations";
 export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
   docsExtension,
   canvasExtension,
+  labExtension,
   checkExtension,
   codeExtension,
   chartExtension,
