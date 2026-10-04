@@ -92,12 +92,42 @@
 
 ## (other)
 
+### doing
+
+- E10c · every cleanly extracted family can be switched off through the one extension switch (canvas, chart, code, lab, agent; --no-agent folds into it). Plan: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md
+
 ### todo
 
+- 3D step 10 · formats: JSON Canvas export, GLB
+- 3D step 9 · connectors
 - bug: graph.query reviveValue turns aggregate results into node ids — [:find ?v (count ?n) …] returns a NodeId where the count should be (any integer 1..N matching an eid is revived). Fix in p1 Phase 2f: typed projection per :find position in the query IR; DataScript adapter revives only ref-typed positions. Found by r3 (docs/kb/waves/2026-09-03/reports/datalog-vs-cypher/README.md §8)
 - canvas.test.ts calls mkdtemp inside packages/app/runtime/tests, so an aborted run leaves kb-canvas-* directories in the tree (seen in the t2 worktree 2026-09-04); use os.tmpdir() or a try/finally rm
+- commander 15 (check the --no-* options)
+- Cordis-level plugin integration, maybe more: config as fields on sys.extension.<name> with re-apply; a graph-driven loader; a plugin view; hot reload; optional injects and lifecycle events. First a Sonnet survey, then an Opus plan (integration.md)
+- Dependency upgrades (survey: docs/brainstorms/2026-10-04-kb-upgrades/README.md)
+- E14 · close the gaps, flip the extension rule's enforcement to harness, docs.materialize
+- E15b · ext-canvas onto GraphWrites; KbStore and @kb/operations leave ext-canvas (adds planNodeAdd with its caller)
+- E15c · fence: LAYER_ALLOWS.extension drops application; DESIGN.md workspace shape fixed
+- E16 · copied family helpers get one home each
+- E17 · type-check the repository extension surface (kb-ext-sdk) against the contract
+- E18 · the CLI's report bins import no family (a report shape in @kb/contracts, one generic print path)
+- E19 · the screen protocol's canvas vocabulary leaves core (at a 3D step boundary)
+- E20 · boundary errors in the editor: an oxlint JS plugin over the harness's matrixViolation (one rule table); after the oxlint upgrade
+- Effect 4.0.0 stable with @effect/tsgo 0.48 (effect-tsgo patch runs in prepare)
+- Extension isolation, the rest (plans: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md, docs/brainstorms/2026-10-04-kb-extension-boundaries/sdk.md)
+- Investigate the layers DeepSeek Harness adds on top of Cordis (DESIGN.md names it as the kernel's model): what it layers on, what kb lacks, what is worth taking
+- kb work queue, in order (owner's priority 2026-10-04; resume notes: docs/brainstorms/2026-09-29-kb-genui-canvas-agents/resume.md)
+- Open: flaky canvas-camera.test.ts timeout; confirm the test:ui per-package total
+- oxlint 1.83 → 1.86 with @oxlint/plugins and oxc-parser
 - Review reconcile_claude_direct_routing.py: retire or simplify once Headroom stops mutating global ~/.claude/settings.json
+- safe minors and patches + bun audit fix (35 advisories, 15 high: rerun bun audit for the full list); drop root overrides that repeat the catalog's vite/vitest
+- Sidebar agent config (model, executable) as fields on the agent's extension node; folds into the plugin-config step
+- Vite+ 1.0 stack: vite-plus 1.0, vitest 5, plugin-react 6, vp migrate (vi.mock in 16 files)
 
 ### done
 
 - outline perf: a graph update or expand re-renders every row (63 ms at 1x, ~660 ms at 6x CPU) — fix candidate memo, per-row selectors, coalesce WS updates, content-visibility
+
+### later
+
+- Step 7b · canvas items become nodes, the owner's call

@@ -19,55 +19,13 @@ done. Main is pushed.
   ([../2026-10-04-kb-extension-boundaries/README.md](../2026-10-04-kb-extension-boundaries/README.md))
   through E0-E12, including E4b, E9 lab and E10b.
 
-## To do, in order (updated 2026-10-04)
+## To do, in order
 
-Owner's priority: finish extension isolation first, then the rest.
-
-1. **Extension isolation** (plans:
-   [README](../2026-10-04-kb-extension-boundaries/README.md),
-   [sdk.md](../2026-10-04-kb-extension-boundaries/sdk.md)). Landed: E0-E12,
-   E9b, the card text-binding gap, E13 (`@kb/canvas-ui`) and E15a
-   (`GraphWrites`; ext-check and ext-docs left `@kb/operations`); main at
-   5ec154a2. Left, in rounds of two: E15b + E17, E15c + E16, E18, then
-   E14 (close gaps, flip the rule to `harness`).
-2. **Dependency upgrades** (survey:
-   [../2026-10-04-kb-upgrades/README.md](../2026-10-04-kb-upgrades/README.md)),
-   after isolation so the lockfile does not fight the builders:
-   safe minors and patches with `bun audit fix` (35 advisories, 15 high;
-   rerun `bun audit` for the full list); oxlint 1.83 to 1.86 with
-   `@oxlint/plugins` and `oxc-parser`; Effect 4.0.0 stable with
-   `@effect/tsgo`; the Vite+ 1.0 stack (vitest 5, plugin-react 6,
-   `vp migrate`); commander 15. Drop the root `overrides` that repeat the
-   catalog's vite and vitest.
-3. **E20: boundary errors in the editor.** One oxlint JS plugin that calls
-   the harness's `matrixViolation` (`harness/src/constraints.ts`) with the
-   importing file, the specifier and the `nx.tags` in package.json, so the
-   rule table stays single. The harness keeps the whole-graph checks
-   (shrinking breach lists, pairing, composition roots). After the oxlint
-   upgrade. Neither oxlint nor `vp` has a built-in boundary rule (checked
-   2026-10-04).
-4. **Cordis-level plugin integration** (owner wants it, "maybe more"). kb's
-   kernel already has Cordis's core. Missing, in order: plugin config as
-   fields on the `sys.extension.<name>` node with re-apply on change; a
-   graph-driven loader replacing `bundled.ts`'s list (one node per plugin
-   instance); a plugin view (status, services, contributions as nodes and
-   edges); hot reload; optional injects and lifecycle events. First step:
-   a Sonnet survey of Cordis's real features against kb, then an Opus plan
-   (`integration.md`).
-5. **Sidebar agent config** (model, executable). Folds into item 4's
-   first step. Today `@kb/agent-claude` runs local Claude Code with the
-   login's default model; `host-plugins.ts` passes only `cwd`.
-6. **E19**: the screen protocol's canvas vocabulary leaves core, at a 3D
-   step boundary.
-7. **3D steps 9 (connectors) and 10 (JSON Canvas and GLB export).**
-8. **Step 7b** (canvas items become nodes), the owner's call.
-
-## Open questions
-
-- The test:ui count: the landing report saw 2218 in `@kb/ui`, against the
-  builder's 2404 across packages. Confirm the nx per-package total (the step 8
-  landing summed 2399 across the packages, 2213 of them in `@kb/ui`).
-- A flaky `canvas-camera.test.ts` timeout.
+The ordered work queue is data in kb: the todo
+`01M43DRVEQY02RTSX3XYWB8TG1` ("kb work queue, in order") and its
+children, each with a status. Read it with
+`kb backlinks 01M43DRVEQY02RTSX3XYWB8TG1` or open it in `kb ui`. Change
+order or status there, not here.
 
 ## Agent routing
 
