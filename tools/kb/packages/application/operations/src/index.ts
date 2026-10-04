@@ -10,6 +10,7 @@ export {
   graphSearchEffect,
   nodeAddDef,
   nodeAddEffect,
+  planNodeAddEffect,
   nodeGetDef,
   nodeGetEffect,
   nodeUpdateDef,

@@ -13,7 +13,7 @@ import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { KbCtx, Screens, type ExtensionAction, type KbStore } from "@kb/contracts";
-import { nodeAddEffect } from "@kb/operations";
+import { planNodeAddEffect } from "@kb/operations";
 import { freshId, isSysPrefixed, resolveFieldId, type KbNode } from "@kb/model";
 import {
   CANVAS_DIRECTIONS,
@@ -596,13 +596,19 @@ const canvasPromoteEffect = Effect.fn("ext.canvas.promote")(function* (
 ): Effect.fn.Return<z.infer<typeof promoteOutput>, CanvasFail, WriteEnv> {
   const before = yield* readCanvasEffect(input.canvasId);
   const text = yield* canvasStep(() => promotableText(before, input.id));
-  // Node first, then layout (D6): an orphan node is harmless, a card of no node is not.
-  const { id: nodeId } = yield* nodeAddEffect({
+  // The node and the card that shows it are one transaction: a failed canvas
+  // write leaves no node behind, and the pair is one step of history.
+  const planned = yield* planNodeAddEffect({
     text,
     ...(input.nodeId === undefined ? {} : { id: input.nodeId }),
   });
+  const nodeId = planned.id;
   const doc = yield* canvasStep(() => promoteItem(before, input.id, nodeId));
-  const written = yield* commitCanvasEffect({ canvasId: input.canvasId, doc });
+  const written = yield* commitCanvasEffect({
+    canvasId: input.canvasId,
+    doc,
+    also: () => planned.upserts,
+  });
   return { canvasId: input.canvasId, id: input.id, nodeId, lints: written.lints };
 });
 

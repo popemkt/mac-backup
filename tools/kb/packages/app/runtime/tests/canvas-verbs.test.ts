@@ -355,6 +355,49 @@ describe("ext.canvas.connect, group, ungroup and promote", () => {
   });
 });
 
+describe("promote is one write", () => {
+  test("the node and the card land in one transaction", async () => {
+    const ctx = await canvasKb([card("s", 0, 0, { text: "A thought" })]);
+    const head = ctx.log.head;
+    const out = output(await invoke(ctx, verb("promote", { id: "s" })));
+    expect(ctx.log.head).toBe(head + 1);
+    expect(ctx.nodes.some((n) => n.id === out.nodeId)).toBe(true);
+  });
+
+  test("a refused canvas write leaves no node behind", async () => {
+    const ctx = await canvasKb([card("s", 0, 0, { text: "A thought" })]);
+    const policy = await invoke(ctx, {
+      id: "node.add",
+      approved: true,
+      input: {
+        id: "p.promote-ask",
+        text: "agents ask before promoting",
+        props: [
+          { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.approvalPolicyTag } },
+          { field: SYSTEM_IDS.approvalMatchField, value: { t: "str", v: "ext.canvas.promote" } },
+          { field: SYSTEM_IDS.approvalActorField, value: { t: "ref", v: ACTOR_OPTION_IDS.agent } },
+          {
+            field: SYSTEM_IDS.approvalDecisionField,
+            value: { t: "ref", v: DECISION_OPTION_IDS.ask },
+          },
+        ],
+      },
+    });
+    expect(policy.status).toBe("succeeded");
+    const before = ctx.nodes.length;
+    const head = ctx.log.head;
+    const refused = await invoke(
+      ctx,
+      verb("promote", { id: "s", nodeId: "n.promoted" }, { actor: "agent" }),
+    );
+    expect(refused).toMatchObject({ status: "failed", code: "approval_required" });
+    expect(ctx.nodes.some((n) => n.id === "n.promoted")).toBe(false);
+    expect(ctx.nodes).toHaveLength(before);
+    expect(ctx.log.head).toBe(head);
+    expect(stored(ctx).nodes[0]).toMatchObject({ type: "text", text: "A thought" });
+  });
+});
+
 describe("approval", () => {
   test("a policy on the canvas verbs decides an agent's call, and a person's gesture still runs", async () => {
     const ctx = await canvasKb([card("a", 0, 0)]);

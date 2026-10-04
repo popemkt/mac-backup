@@ -358,9 +358,15 @@ function pullSubtree(ctx: KbContext, id: NodeId, depth: number): unknown {
   return walk(node, depth);
 }
 
-export const nodeAddEffect = Effect.fn("node.add")(function* (
+/**
+ * The nodes a `node.add` would write (the new node, and its parent with the
+ * child inserted), checked but not stored. `nodeAddEffect` persists them; a
+ * caller whose write must land with another (a canvas card and its node)
+ * hands them to that write instead, so the two commit as one transaction.
+ */
+export const planNodeAddEffect = Effect.fn("node.add.plan")(function* (
   input: z.infer<typeof nodeAddDef.inputSchema>,
-): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
+): Effect.fn.Return<{ id: string; node: KbNode; upserts: KbNode[] }, DomainError, KbCtx> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
   const id = input.id ?? (yield* freshId);
@@ -397,6 +403,14 @@ export const nodeAddEffect = Effect.fn("node.add")(function* (
 
   yield* syncDomain(() => assertNoSysUpsert(upserts, input.force === true, "node.add"));
 
+  return { id, node, upserts };
+});
+
+export const nodeAddEffect = Effect.fn("node.add")(function* (
+  input: z.infer<typeof nodeAddDef.inputSchema>,
+): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const { id, node, upserts } = yield* planNodeAddEffect(input);
   yield* persistEffect(ctx, { upserts, deletes: [] });
   return { id, node };
 });
