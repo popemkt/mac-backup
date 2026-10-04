@@ -8,6 +8,8 @@ import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { Window } from "happy-dom";
 import {
   boxCorners,
+  frameCorners,
+  frontFrame,
   type CanvasAxes,
   type CanvasDoc,
   type CanvasNode,
@@ -131,6 +133,14 @@ describe("standing labels", () => {
       for (const corner of boxCorners(ball)) {
         expect(dot(corner, axes.back)).toBeLessThan(depths[0] ?? 0);
       }
+      // Exactly where the camera model stands it (`frontFrame`).
+      frameCorners(frontFrame(ball, axes))
+        .slice(0, 4)
+        .forEach((model, i) => {
+          expect(corners[i]?.x).toBeCloseTo(model.x, 6);
+          expect(corners[i]?.y).toBeCloseTo(model.y, 6);
+          expect(corners[i]?.z).toBeCloseTo(model.z, 6);
+        });
     }
     layer.dispose();
   });

@@ -22,9 +22,11 @@ import {
   TOP_AXES,
   canvasDepth,
   faceStands,
-  frontFrame,
+  boxFrame,
+  frontReach,
   paintOrder,
   type CanvasAxes,
+  type CanvasFrame,
   type CanvasNode,
 } from "@kb/canvas";
 import { paintPlanes } from "./canvas-camera";
@@ -32,7 +34,7 @@ import { cardFaceOf, faceWords, paintLabel, type CardLook } from "./canvas-card-
 import type { FacePicture } from "./canvas-face-pictures";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 import { faceDensity } from "./canvas-scene-items";
-import { matrixToThree, toThree } from "./canvas-scene-space";
+import { axesToThree } from "./canvas-scene-space";
 
 interface Label {
   readonly mesh: Mesh;
@@ -43,7 +45,8 @@ interface Label {
   /** What it was painted from: its words, its size and whether it was selected. */
   version: string;
   item: CanvasNode;
-  z: number;
+  /** Its box where it stands (`boxFrame`), read when the document changes, not when the view does. */
+  box: CanvasFrame;
 }
 
 /** A label's words never ask for a picture: an image has none. */
@@ -79,7 +82,7 @@ export class LabelLayer {
       seen.add(item.id);
       const label = this.labels.get(item.id) ?? this.add(item.id);
       label.item = item;
-      label.z = z;
+      label.box = boxFrame(item, z);
       const words = faceWords(cardFaceOf(item, content.nodes, NO_PICTURE));
       const selected = content.selection.nodeIds.has(item.id);
       const version = `${selected ? "s" : "-"}${item.width}x${item.height}:${words}`;
@@ -139,7 +142,7 @@ export class LabelLayer {
       painted,
       version: "",
       item: { id, type: "text", text: "", x: 0, y: 0, width: 1, height: 1 },
-      z: 0,
+      box: boxFrame({ x: 0, y: 0, width: 1, height: 1 }),
     };
     this.labels.set(id, label);
     return label;
@@ -175,10 +178,17 @@ export class LabelLayer {
 
   /** Stand the label in front of its solid, square to the camera. */
   private orient(label: Label): void {
-    const frame = frontFrame(label.item, this.axes, label.z);
-    toThree(frame.centre, label.mesh.position);
-    label.mesh.quaternion.setFromRotationMatrix(matrixToThree(frame.matrix, this.turn));
-    label.mesh.scale.set(frame.half.x * 2, frame.half.y * 2, 1);
+    // `frontFrame` from its parts, with nothing made: this runs every frame the orbit turns.
+    const { centre, half } = label.box;
+    const { back } = this.axes;
+    const reach = frontReach(label.box, back);
+    label.mesh.position.set(
+      centre.x + back.x * reach,
+      -(centre.y + back.y * reach),
+      centre.z + back.z * reach,
+    );
+    label.mesh.quaternion.setFromRotationMatrix(axesToThree(this.axes, this.turn));
+    label.mesh.scale.set(half.x * 2, half.y * 2, 1);
   }
 
   private remove(label: Label): void {

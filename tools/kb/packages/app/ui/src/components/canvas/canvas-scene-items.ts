@@ -50,7 +50,7 @@ import {
   faceShare,
   faceStands,
   facesCamera,
-  itemFrame,
+  facingLift,
   itemShape,
   paintOrder,
   shapeOutline,
@@ -73,7 +73,7 @@ import {
 import type { CanvasSceneContent } from "./canvas-scene-content";
 import { FacePictures } from "./canvas-face-pictures";
 import { BODY, FACE, solidGeometry, solidKey, type SolidSpec } from "./canvas-scene-solids";
-import { matrixToThree } from "./canvas-scene-space";
+import { axesToThree, matrixToThree } from "./canvas-scene-space";
 
 /** A shadow lies just in front of the items on the floor. */
 const SHADOW_Z = 0.15;
@@ -546,13 +546,23 @@ export class ItemLayer {
 
   /**
    * Stand the item's geometry where the camera draws it (`itemFrame`): its
-   * origin is the centre of its base, in its own frame.
+   * origin is the centre of its base, in its own frame. A flat billboard,
+   * turned every frame the orbit turns, is stood from its parts
+   * (`facingFrame`: over its footprint's centre, raised by `facingLift`,
+   * turned to the camera's axes) with nothing made; anything else is its box.
    */
   private orient(entry: Item): void {
-    const frame = itemFrame(entry.item, this.axes, entry.z);
+    const { item, group } = entry;
+    if (facesCamera(item)) {
+      const lift = facingLift(item, this.axes);
+      group.position.set(item.x + item.width / 2, -(item.y + item.height / 2), entry.z + lift);
+      group.quaternion.setFromRotationMatrix(axesToThree(this.axes, this.turn));
+      return;
+    }
+    const frame = boxFrame(item, entry.z);
     const origin = boxToWorld(frame, { x: 0, y: 0, z: -frame.half.z });
-    entry.group.position.set(origin.x, -origin.y, origin.z);
-    entry.group.quaternion.setFromRotationMatrix(matrixToThree(frame.matrix, this.turn));
+    group.position.set(origin.x, -origin.y, origin.z);
+    group.quaternion.setFromRotationMatrix(matrixToThree(frame.matrix, this.turn));
   }
 
   /** Stand the item on its plane at `z`, colour it, and lay its shadow and stem on the floor. */

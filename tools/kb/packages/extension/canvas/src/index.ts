@@ -77,8 +77,10 @@ export {
   directionToWorld,
   facesCamera,
   facingFrame,
+  facingLift,
   frameCorners,
   frontFrame,
+  frontReach,
   itemFrame,
   planeCorners,
 } from "./box.ts";

@@ -133,15 +133,41 @@ export function facingFrame(box: CanvasBox, axes: CanvasAxes, base = box.z ?? 0)
     centre: {
       x: box.x + box.width / 2,
       y: box.y + box.height / 2,
-      z: base - (axes.down.z * box.height) / 2,
+      z: base + facingLift(box, axes),
     },
     half: { x: box.width / 2, y: box.height / 2, z: 0 },
     matrix: axesMatrix(axes),
   };
 }
 
+/**
+ * How far a facing box's centre rises off its plane for a camera looking
+ * along `axes`: half its height, as far as the view is tipped toward level
+ * (`facingFrame`). A number, so a renderer turning billboards every frame
+ * reads it with nothing made.
+ */
+export function facingLift(box: CanvasBox, axes: CanvasAxes): number {
+  return (-axes.down.z * box.height) / 2;
+}
+
 /** How far in front of a solid its standing face hangs, canvas units: clear of its surface. */
 const FRONT_GAP = 1;
+
+/**
+ * How far a standing face stands from its box's centre toward the eye along
+ * `back`: the box's reach that way — each of its half-extents along its own
+ * axes (the matrix's columns) — and a hair (`frontFrame`). A number, as
+ * `facingLift` is.
+ */
+export function frontReach(frame: CanvasFrame, back: CanvasVec): number {
+  const { half, matrix: m } = frame;
+  return (
+    half.x * Math.abs(m[0] * back.x + m[3] * back.y + m[6] * back.z) +
+    half.y * Math.abs(m[1] * back.x + m[4] * back.y + m[7] * back.z) +
+    half.z * Math.abs(m[2] * back.x + m[5] * back.y + m[8] * back.z) +
+    FRONT_GAP
+  );
+}
 
 /**
  * A solid's face stood in front of it for a camera looking along `axes`:
@@ -151,14 +177,10 @@ const FRONT_GAP = 1;
  * cone's label shows, having no flat top to lie on (`faceStands`).
  */
 export function frontFrame(box: CanvasBox, axes: CanvasAxes, base = box.z ?? 0): CanvasFrame {
-  const { centre, half, matrix: m } = boxFrame(box, base);
+  const frame = boxFrame(box, base);
+  const { centre, half } = frame;
   const { back } = axes;
-  // The box's reach along `back`: each of its own half-extents along its own axes (`m`'s columns).
-  const reach =
-    half.x * Math.abs(m[0] * back.x + m[3] * back.y + m[6] * back.z) +
-    half.y * Math.abs(m[1] * back.x + m[4] * back.y + m[7] * back.z) +
-    half.z * Math.abs(m[2] * back.x + m[5] * back.y + m[8] * back.z) +
-    FRONT_GAP;
+  const reach = frontReach(frame, back);
   return {
     centre: {
       x: centre.x + back.x * reach,

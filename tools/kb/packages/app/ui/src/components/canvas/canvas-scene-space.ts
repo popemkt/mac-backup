@@ -6,7 +6,7 @@
  * a turn or a ray across goes through here.
  */
 import type { Matrix4, Vector3 } from "three/webgpu";
-import type { CanvasMatrix, CanvasVec } from "@kb/canvas";
+import type { CanvasAxes, CanvasMatrix, CanvasVec } from "@kb/canvas";
 
 /** A canvas point (or direction) in three's world, into `out`. */
 export function toThree(p: CanvasVec, out: Vector3): Vector3 {
@@ -22,6 +22,15 @@ export function fromThree(v: Vector3): CanvasVec {
 export function matrixToThree(m: CanvasMatrix, out: Matrix4): Matrix4 {
   const [a, b, c, d, e, f, g, h, i] = m;
   return out.set(a, -b, c, 0, -d, e, -f, 0, g, -h, i, 0, 0, 0, 0, 1);
+}
+
+/**
+ * The turn that takes x, y and z to a camera's right, down and back (what a
+ * face square to it is turned by), as three's, into `out` — the matrix
+ * `matrixToThree` would make of them, with nothing made on the way.
+ */
+export function axesToThree({ right: r, down: d, back: b }: CanvasAxes, out: Matrix4): Matrix4 {
+  return out.set(r.x, -d.x, b.x, 0, -r.y, d.y, -b.y, 0, r.z, -d.z, b.z, 0, 0, 0, 0, 1);
 }
 
 /** Three's rotation (the upper 3 × 3 of `m`) as a canvas rotation matrix, row by row. */
