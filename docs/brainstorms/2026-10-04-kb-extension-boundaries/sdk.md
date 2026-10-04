@@ -314,8 +314,9 @@ this workspace.
   binding, and `graph-writes.test.ts` (`app/runtime`) holds its promises.
   ext-check did not get a test double: `ext.check.sync` split into its
   decision (`enforcementSyncs`), tested on the graph it would leave, and one
-  `commit`. A second binding has to turn `graph-writes.test.ts` into a
-  suite.
+  `commit`. `check-sync.test.ts` (`app/runtime`) runs the action end to end
+  on a temp store. A second binding has to turn `graph-writes.test.ts` into
+  a suite.
 - **The gap is not minted yet.** After E15a, the importers that
   `GAP [extensions-reach-core-use-cases]` names are only ext-canvas
   `write.ts` and `verbs.ts`. They are left unmarked because E15a does not
