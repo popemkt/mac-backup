@@ -74,7 +74,8 @@ export function edgePropPresent(edge: CanvasEdge, nodes: Map<string, OutlineNode
 }
 
 /**
- * Live-sync canvas JSON from the store on rev bumps.
+ * Live-sync canvas JSON from the store on rev bumps: `adopt` takes in what
+ * the store holds (an edit made elsewhere is one undo step: `adoptStored`).
  * When busy (drag/dirty), skip — never clobber in-progress local edits.
  * No orphan pruning / no persist-back.
  */
@@ -82,12 +83,12 @@ export function syncDocOnRev(
   canvasId: string,
   nodes: Map<string, OutlineNode>,
   opts: {
-    applyLocal: (doc: CanvasDoc) => void;
+    adopt: (doc: CanvasDoc) => void;
     isBusy: () => boolean;
   },
 ): void {
   if (opts.isBusy()) return;
-  opts.applyLocal(readCanvasDoc(nodes.get(canvasId)));
+  opts.adopt(readCanvasDoc(nodes.get(canvasId)));
 }
 
 export function hasPropRef(

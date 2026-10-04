@@ -1050,7 +1050,10 @@ manipulation feel professional rather than merely functional.
   asset says so in both; assets are backup-owned and never committed.
 - **Undo/redo.** `components/canvas/canvas-history.ts` is an immutable ring buffer
   (`MAX_HISTORY` = 30) with reference-equality skip; `Cmd+Z` /
-  `Cmd+Shift+Z` / `Cmd+Y`.
+  `Cmd+Shift+Z` / `Cmd+Y`. An edit the store brings from elsewhere —
+  another tab's, or an agent's canvas verb, each one canvas write — is one
+  step too, which ⌘Z takes back as it takes back the person's own
+  (`adoptStored`); a change of the camera alone is taken in with no step.
 - **Direct-manipulation invariants.** A 4px pointer slop (`POINTER_SLOP` in
   `lib/pointer-slop.ts`, the one slop the scene kit's taps and a graph node's
   drag use too) kills hair-trigger moves, pointer capture on card drags and resize handles survives a fast drag,

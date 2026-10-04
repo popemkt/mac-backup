@@ -2,7 +2,7 @@
  * Immutable undo/redo ring buffer for CanvasDoc snapshots.
  * Pure — no React deps; unit-tested standalone.
  */
-import type { CanvasDoc } from "@kb/canvas";
+import { stringifyCanvasDoc, withCanvasCamera, type CanvasDoc } from "@kb/canvas";
 
 const MAX_HISTORY = 30;
 
@@ -25,6 +25,22 @@ export function pushHistory(h: CanvasHistory, next: CanvasDoc): CanvasHistory {
   const past = [...h.past, h.present];
   if (past.length > MAX_HISTORY) past.shift();
   return { past, present: next, future: [] };
+}
+
+/** A document's content as stored, its camera left out: what an edit changes. */
+const contentOf = (doc: CanvasDoc) => stringifyCanvasDoc(withCanvasCamera(doc, undefined));
+
+/**
+ * `h` having taken in `stored`, the document the store holds now. A change
+ * of content made elsewhere — another tab's, an agent's canvas verb, each
+ * one canvas write — is one step, which undo takes back as it takes back
+ * the person's own. A change of the camera alone is view state, taken in
+ * with no step, and the store echoing what is shown changes nothing.
+ */
+export function adoptStored(h: CanvasHistory, stored: CanvasDoc): CanvasHistory {
+  if (contentOf(stored) !== contentOf(h.present)) return pushHistory(h, stored);
+  if (stringifyCanvasDoc(stored) === stringifyCanvasDoc(h.present)) return h;
+  return { ...h, present: stored };
 }
 
 export function undo(h: CanvasHistory): CanvasHistory {

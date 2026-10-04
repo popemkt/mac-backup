@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { withCanvasCamera, type CanvasCamera, type CanvasDoc } from "@kb/canvas";
 import { persistCanvasDoc, readCanvasDoc, syncDocOnRev } from "./canvas-api";
 import {
+  adoptStored,
   initHistory,
   pushHistory,
   redo as redoHistory,
@@ -172,12 +173,18 @@ export function useCanvasDoc({
 
   const travel = useHistoryTravel(canvasId, historyRef, installHistory);
 
+  /** What the store holds now, taken in: an edit made elsewhere is one step to undo. */
+  const adoptStoredDoc = useCallback(
+    (stored: CanvasDoc) => installHistory(adoptStored(historyRef.current, stored)),
+    [installHistory],
+  );
+
   useEffect(() => {
     syncDocOnRev(canvasId, nodesRef.current, {
-      applyLocal: applyDocSilent,
+      adopt: adoptStoredDoc,
       isBusy: () => isInteracting() || pending(),
     });
-  }, [applyDocSilent, canvasId, isInteracting, pending, rev]);
+  }, [adoptStoredDoc, canvasId, isInteracting, pending, rev]);
 
   return {
     doc: history.present,

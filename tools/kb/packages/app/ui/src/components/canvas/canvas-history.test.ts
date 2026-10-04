@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 import type { CanvasDoc } from "@kb/canvas";
-import { canRedo, canUndo, initHistory, pushHistory, redo, undo } from "./canvas-history";
+import {
+  adoptStored,
+  canRedo,
+  canUndo,
+  initHistory,
+  pushHistory,
+  redo,
+  undo,
+} from "./canvas-history";
 
 const d0: CanvasDoc = { nodes: [], edges: [] };
 const d1: CanvasDoc = {
@@ -96,5 +104,25 @@ describe("canvas history", () => {
     expect(h.present).toBe(d1);
     h = redo(h);
     expect(h.present).toBe(d2);
+  });
+});
+
+describe("what the store holds, taken in", () => {
+  test("an edit made elsewhere — an agent's verb — is one step, which undo takes back", () => {
+    const h = adoptStored(initHistory(d1), d2);
+    expect(h.present).toBe(d2);
+    expect(undo(h).present).toBe(d1);
+  });
+
+  test("the store echoing what is shown changes nothing", () => {
+    const h = initHistory(d1);
+    expect(adoptStored(h, { ...d1, nodes: [...d1.nodes] })).toBe(h);
+  });
+
+  test("a change of the camera alone is view state: taken in, with no step", () => {
+    const camera = { projection: "3d" as const };
+    const h = adoptStored(initHistory(d1), { ...d1, camera });
+    expect(h.present.camera).toEqual(camera);
+    expect(canUndo(h)).toBe(false);
   });
 });

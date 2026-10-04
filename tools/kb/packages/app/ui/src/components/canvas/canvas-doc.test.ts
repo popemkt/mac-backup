@@ -327,13 +327,13 @@ describe("drag/dirty live-sync guard", () => {
     ]);
     const applied: CanvasDoc[] = [];
     syncDocOnRev("canvas", nodes, {
-      applyLocal: (d) => applied.push(d),
+      adopt: (d) => applied.push(d),
       isBusy: () => true,
     });
     expect(applied).toEqual([]);
 
     syncDocOnRev("canvas", nodes, {
-      applyLocal: (d) => applied.push(d),
+      adopt: (d) => applied.push(d),
       isBusy: () => false,
     });
     expect(applied).toHaveLength(1);
