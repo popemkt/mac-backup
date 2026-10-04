@@ -1907,7 +1907,10 @@ end).
   reading of the catalog:
   - the server provides it from the registry kernel;
   - the page derives it from `kb.manifest.views`: the page kernel's keys
-    restricted to the ids the manifest lists.
+    restricted to the ids the manifest lists. A view the manifest lists
+    that no plugin on the page holds stays listed by its entry
+    (`listedOf`), so a node naming it resolves to that listing and opens as
+    "cannot be shown here", named by the server's label.
 
   So `view.propose`, `render.view` and the manifest see only what is loaded,
   on both hosts.

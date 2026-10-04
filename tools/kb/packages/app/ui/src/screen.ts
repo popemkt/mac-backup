@@ -54,8 +54,9 @@ function viewAt(route: string): { key: string; node?: string } | null {
     () => {},
   );
   if (Result.isFailure(target)) return { key: matched.view.id };
-  const { key, viewNode } = target.success;
-  return viewNode === undefined ? { key: key.id } : { key: key.id, node: viewNode };
+  const found = target.success;
+  const key = found.key === null ? found.listed.id : found.key.id;
+  return found.viewNode === undefined ? { key } : { key, node: found.viewNode };
 }
 
 /**

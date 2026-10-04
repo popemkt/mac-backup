@@ -13,7 +13,7 @@ import {
   type NodeId,
   type NodeProps,
 } from "@kb/model";
-import type { CatalogItem, ViewCatalogOf } from "./catalog.ts";
+import type { CatalogItem, ViewCatalogEntry, ViewCatalogOf } from "./catalog.ts";
 import { FRAME_VIEW_FAMILY } from "./frame.ts";
 import { GraphView } from "./graph.ts";
 import { OutlineView } from "./outline.ts";
@@ -29,13 +29,29 @@ interface Carrier {
  * The view a node opens in: its key, the input its params decode from, and
  * the subject the slot shows it for (the view node, or the node).
  */
-export interface NodeViewTarget {
+export interface HeldViewTarget {
   readonly key: ViewKey<unknown>;
   readonly input: unknown;
   readonly subject: NodeId;
   /** The view node it shows, when it shows one (not a view type, not the outline). */
   readonly viewNode?: NodeId;
 }
+
+/**
+ * A view the host's catalog lists but holds no key for (the page, for a view
+ * no loaded plugin draws): named by its entry, so a host can say which view
+ * it cannot show here.
+ */
+export interface UnheldViewTarget {
+  readonly key: null;
+  readonly listed: ViewCatalogEntry;
+  readonly subject: NodeId;
+  readonly viewNode?: NodeId;
+}
+
+export type NodeViewTarget = HeldViewTarget | UnheldViewTarget;
+
+type Catalog = Pick<ViewCatalogOf<CatalogItem>, "keyOf" | "listedOf">;
 
 /**
  * The page a view of `key` is shown on, shown for `host` through view node
@@ -71,10 +87,14 @@ function pageOf(
  * - no `view`, and the node is a view node: that view node, shown for no node;
  * - no `view`: the node's default view (the first view node it names), or,
  *   when it names none, the outline at the node.
+ *
+ * A view the catalog lists without holding its key resolves to that listing
+ * (`key: null`), not to a failure: the node is there, and its view is one
+ * this host cannot draw.
  */
 export function resolveNodeView(
   params: NodeParams,
-  catalog: Pick<ViewCatalogOf<CatalogItem>, "keyOf">,
+  catalog: Catalog,
   lookup: (id: NodeId) => Carrier | undefined,
   report: ConfigReport,
 ): Result.Result<NodeViewTarget, string> {
@@ -83,7 +103,7 @@ export function resolveNodeView(
   const type = params.view === undefined ? null : viewIdOfOption(params.view);
   if (type !== null) {
     const key = catalog.keyOf(type);
-    if (key === null) return Result.fail(`no view ${type}`);
+    if (key === null) return unheld(catalog, type, { subject: params.node }, `no view ${type}`);
     return Result.succeed({ ...pageOf(key, {}, params.node, null, report), subject: params.node });
   }
   const self = params.view === undefined && isViewNode(node);
@@ -93,11 +113,24 @@ export function resolveNodeView(
   const view = lookup(viewId);
   const option = viewOptionOf(view);
   const key = option === null ? null : catalog.keyOf(option);
-  if (view === undefined || key === null) return Result.fail(`${viewId} is no view node`);
+  const missing = `${viewId} is no view node`;
+  if (view === undefined || option === null) return Result.fail(missing);
+  if (key === null) return unheld(catalog, option, { subject: viewId, viewNode: viewId }, missing);
   const host = self ? null : params.node;
   return Result.succeed({
     ...pageOf(key, view.props, host, viewId, report),
     subject: viewId,
     viewNode: viewId,
   });
+}
+
+/** The view `view` names as the catalog lists it without a key, else `failure`. */
+function unheld(
+  catalog: Catalog,
+  view: string,
+  shown: { readonly subject: NodeId; readonly viewNode?: NodeId },
+  failure: string,
+): Result.Result<UnheldViewTarget, string> {
+  const listed = catalog.listedOf(view);
+  return listed === null ? Result.fail(failure) : Result.succeed({ key: null, listed, ...shown });
 }

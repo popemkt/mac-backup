@@ -28,18 +28,20 @@ interface Section {
   readonly choices: readonly Choice[];
 }
 
-/** What a view node is called here: its text, else its view's label, its view named through `catalog`. */
+/**
+ * What a view node is called here: its text, else its view's label, its view
+ * named through `catalog`, which lists views this page cannot draw too.
+ */
 function viewNodeLabel(
   id: string,
   nodes: NodeMap,
-  catalog: { keyOf(view: string): ViewKey<unknown> | null },
+  catalog: { listedOf(view: string): { readonly label: string } | null },
 ): string {
   const node = nodes.get(id);
   const text = node?.text.trim() ?? "";
   if (text !== "") return text;
   const option = viewOptionOf(node);
-  const key = option === null ? null : catalog.keyOf(option);
-  return key === null ? id : key.label;
+  return (option === null ? null : catalog.listedOf(option))?.label ?? id;
 }
 
 const quiet = (): void => {};

@@ -239,6 +239,13 @@ describe("what /node/<id> opens", () => {
       (id) => nodes.get(id),
       () => {},
     );
+  /** What `open` resolves to, for a view the catalog holds the key of. */
+  const openHeld = (node: string, view?: string) => {
+    const target = Result.getOrThrow(open(node, view));
+    if (target.key === null)
+      throw new Error(`${node} resolved to ${target.listed.id}, held by no key`);
+    return target;
+  };
 
   test("a node that names no view opens as the outline at it", () => {
     expect(open("n.plain")).toEqual(
@@ -258,21 +265,21 @@ describe("what /node/<id> opens", () => {
   });
 
   test("a node opens through any one of its views, read for it", () => {
-    const hood = Result.getOrThrow(open("n.frame", "v.hood"));
+    const hood = openHeld("n.frame", "v.hood");
     expect(hood.key).toBe(NeighbourhoodView);
     expect(hood.input).toMatchObject({ root: "n.frame", hops: 2 });
   });
 
   test("a node opens as a view type, by the type's option", () => {
-    const hood = Result.getOrThrow(open("n.plain", NeighbourhoodView.option));
+    const hood = openHeld("n.plain", NeighbourhoodView.option);
     expect(hood.key).toBe(NeighbourhoodView);
     expect(hood.input).toMatchObject({ root: "n.plain", hops: 1 });
   });
 
   test("a view node opens as itself; a renderer's page is the graph page drawing it", () => {
-    expect(Result.getOrThrow(open("v.graph")).key).toBe(GraphView);
-    expect(Result.getOrThrow(open("v.graph")).input).toEqual({ perspective: "v.graph" });
-    const layout = Result.getOrThrow(open("v.layout"));
+    expect(openHeld("v.graph").key).toBe(GraphView);
+    expect(openHeld("v.graph").input).toEqual({ perspective: "v.graph" });
+    const layout = openHeld("v.layout");
     expect(layout.key).toBe(LayoutView);
     expect(layout.input).toEqual({ root: tabs("a") });
   });
@@ -281,5 +288,31 @@ describe("what /node/<id> opens", () => {
     expect(open("n.missing")).toEqual(Result.fail("no node n.missing"));
     expect(open("n.plain", "n.plain")).toEqual(Result.fail("n.plain is no view node"));
     expect(open("n.plain", "sys.view.nope")).toEqual(Result.fail("no view nope"));
+  });
+
+  test("a view the catalog lists without its key resolves to that listing, not a failure", () => {
+    const listed = catalog.entries().find((entry) => entry.id === "graph.neighbourhood");
+    if (listed === undefined) throw new Error("the bundled catalog lists graph.neighbourhood");
+    const unheld = viewCatalogOf(
+      catalog.items.filter((item) => item.key !== NeighbourhoodView),
+      [listed],
+    );
+    const openUnheld = (node: string, view?: string) =>
+      resolveNodeView(
+        view === undefined ? { node } : { node, view },
+        unheld,
+        (id) => nodes.get(id),
+        () => {},
+      );
+    expect(openUnheld("n.frame", "v.hood")).toEqual(
+      Result.succeed({ key: null, listed, subject: "v.hood", viewNode: "v.hood" }),
+    );
+    expect(openUnheld("v.hood")).toEqual(
+      Result.succeed({ key: null, listed, subject: "v.hood", viewNode: "v.hood" }),
+    );
+    expect(openUnheld("n.plain", NeighbourhoodView.option)).toEqual(
+      Result.succeed({ key: null, listed, subject: "n.plain" }),
+    );
+    expect(openUnheld("n.plain", "sys.view.nope")).toEqual(Result.fail("no view nope"));
   });
 });

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Result } from "effect";
-import { paramsFrom, resolveNodeView, type NodeParams } from "@kb/views";
+import { paramsFrom, resolveNodeView, type HeldViewTarget, type NodeParams } from "@kb/views";
 import { NotFound } from "@/components/ui/not-found";
 import { ViewSlot } from "@/components/ui/view-slot";
 import { WorkspaceState } from "@/components/ui/workspace-state";
@@ -11,12 +11,15 @@ import { schemaOf } from "@/lib/schema";
 import { usePageCatalog } from "@/lib/view-catalog";
 import { useOutlineStore } from "@/stores/outline.store";
 
-const UNAVAILABLE = (
-  <WorkspaceState
-    title="This view cannot be shown here"
-    description="Its plugin is not loaded, or a pane around it already shows it."
-  />
-);
+/** The one "cannot be shown here" state, naming the view by its label. */
+function unavailable(label: string) {
+  return (
+    <WorkspaceState
+      title="This view cannot be shown here"
+      description={`${label}: its plugin is not loaded, or a pane around it already shows it.`}
+    />
+  );
+}
 
 /**
  * `/node/<id>[/<view>]`: a node in its default view, or through one view
@@ -38,27 +41,31 @@ export function NodeViewSurface({ params }: ViewProps<NodeParams>) {
       ),
     [params, catalog, schema],
   );
-  const decoded = useMemo(
-    () => Result.flatMap(target, (found) => paramsFrom(found.key, found.input)),
-    [target],
-  );
-  const routes = useContributions(RoutePoint);
   if (Result.isFailure(target))
     return <NotFound what="Node" id={params.node} back={{ label: "Home", path: "/" }} />;
+  // A view the server lists that no plugin on this page holds the key of.
+  if (target.success.key === null) return unavailable(target.success.listed.label);
+  return <HeldView target={target.success} />;
+}
+
+/** A view whose key the page holds: its params decoded, drawn in a slot of its own. */
+function HeldView({ target }: { readonly target: HeldViewTarget }) {
+  const decoded = useMemo(() => paramsFrom(target.key, target.input), [target]);
+  const routes = useContributions(RoutePoint);
   if (Result.isFailure(decoded))
     return <WorkspaceState title="This view cannot be shown" description={decoded.failure} />;
   const slot = (
     <ViewSlot
-      view={target.success.key}
+      view={target.key}
       params={decoded.success}
       placement="page"
-      subject={target.success.subject}
-      {...(target.success.viewNode === undefined ? {} : { viewNode: target.success.viewNode })}
-      fallback={UNAVAILABLE}
+      subject={target.subject}
+      {...(target.viewNode === undefined ? {} : { viewNode: target.viewNode })}
+      fallback={unavailable(target.key.label)}
     />
   );
   // Framed as the route that opens the view frames it; a view no route opens fills the pane.
-  return pageFrameOf(routes, target.success.key, decoded.success) === "scroll" ? (
+  return pageFrameOf(routes, target.key, decoded.success) === "scroll" ? (
     <ScrollRegion scroll>{slot}</ScrollRegion>
   ) : (
     <div className="flex h-full min-h-0 flex-1 flex-col">{slot}</div>

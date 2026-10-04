@@ -144,4 +144,9 @@ export {
   type LayoutTree,
   type SplitDirection,
 } from "./layout.ts";
-export { resolveNodeView, type NodeViewTarget } from "./node-view.ts";
+export {
+  resolveNodeView,
+  type HeldViewTarget,
+  type NodeViewTarget,
+  type UnheldViewTarget,
+} from "./node-view.ts";
