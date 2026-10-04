@@ -375,16 +375,18 @@ per row:
   replaces and keeps a node's object when the node projects to the same
   value, so a node's identity changes exactly when what it shows does; the
   schema does the same per snapshot.
-- A row reads the graph through `useGraphRead` (`stores/graph-read.ts`):
-  the outline, schema and index as views that record which ids were asked
-  for (a walk records the whole map, a query the index generation). The view
-  is renewed, and the row re-renders, only when one of those reads changed —
-  an outline entry by identity, a schema entry by `sameMeaning`, since a
-  schema reader never asks about expansion. Reads always answer from the
-  store's current maps, so a read added later is never stale. It is a
-  selector over the one store, not a second copy of it. The rows, their
-  text host binding, their fields section and the list frame view read
-  this way; focus, selection and caret placement are selected per instance
+- A row reads the graph through a tracked read (`useGraphReadThrough`,
+  `@kb/ui-sdk` → `lib/graph-read`, over a `GraphSource`; the shell's
+  `useGraphRead` binds it to the outline store): the outline, schema and
+  index as views that record which ids were asked for (a walk records the
+  whole map, a query the index generation). The view is renewed, and the
+  row re-renders, only when one of those reads changed — an outline entry
+  by identity, a schema entry by `sameMeaning`, since a schema reader never
+  asks about expansion. Reads always answer from the source's current maps,
+  so a read added later is never stale. It is a selector over the one
+  store, not a second copy of it. The rows, their text host binding
+  (`useNodeTextBindingThrough` over a `NodeTextPort`), their fields section
+  and the list frame view read this way; focus, selection and caret placement are selected per instance
   (`activeNodeId === nodeId && activeInstanceKey === instanceKey`), not as
   store-wide values.
 

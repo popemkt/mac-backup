@@ -32,7 +32,6 @@
       "types:packages/app/ui/src/lib/palette-index.ts:PaletteEntry": 1,
       "types:packages/app/ui/src/lib/palette-index.ts:PaletteEntryKind": 1,
       "types:packages/app/ui/src/stores/outline.store.ts:ActivateOpts": 1,
-      "types:packages/app/ui/src/stores/outline.store.ts:CaretIntent": 1,
       "types:packages/app/ui/src/stores/outline.store.ts:VisibleInstance": 1,
       "types:packages/contract/contracts/src/actions.ts:ActionHandlerError": 1
     }

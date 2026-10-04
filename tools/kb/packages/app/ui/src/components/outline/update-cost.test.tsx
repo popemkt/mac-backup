@@ -3,7 +3,8 @@
  * not to how many rows are on screen.
  *
  * - A one-node change re-renders that node's row, not every row: rows read
- *   the graph through `useGraphRead` (`stores/graph-read.ts`).
+ *   the graph through `useGraphRead` (`stores/graph-read.ts`, over the kit's
+ *   `lib/graph-read`).
  * - Expanding or collapsing re-renders the toggled row and mounts or unmounts
  *   its subtree; its siblings stay as they were.
  * - Moving the selection re-renders the two rows it moves between.

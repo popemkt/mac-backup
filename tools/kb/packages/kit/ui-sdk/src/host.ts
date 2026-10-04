@@ -16,7 +16,7 @@ import type { PropValue } from "@kb/model";
 import type { ActionInvocation, ActionReceipt, WireNode } from "@kb/contracts";
 import type { ViewKey } from "@kb/views";
 import type { KbIndex } from "./query";
-import type { FollowHow, FollowTarget } from "./lib/follow";
+import type { CarryOutFollow } from "./lib/follow";
 import type { RefInk } from "./lib/md-edit";
 import type { PaneScreenPort } from "./lib/pane-screen";
 import { currentService } from "./lib/plugins";
@@ -74,15 +74,8 @@ export interface BrowserHost {
   ) => void;
   /** How references in rendered text are inked. */
   readonly refInk: () => RefInk;
-  /**
-   * Carry out a follow from `pane`. `open` opens a node as the page around the
-   * caller (`OpenNodeContext`); null means the outline's zoom.
-   */
-  readonly follow: (
-    at: { readonly pane: string; readonly open: ((id: string) => void) | null },
-    target: FollowTarget,
-    how: FollowHow,
-  ) => void;
+  /** Carry out a follow from where its caller is drawn (`useFollowThrough`). */
+  readonly follow: CarryOutFollow;
   /** Zoom the outline to a node. */
   readonly zoomTo: (id: string) => void;
   /** Start editing a node's text in one instance, with the caret at `cursorPos`. */

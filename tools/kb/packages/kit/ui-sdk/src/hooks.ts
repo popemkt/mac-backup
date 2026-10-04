@@ -3,12 +3,11 @@
  * hook over the host's subscribe and reads. A feature calls these, never a
  * store, and the host holds no hook of its own (see `sdk/host.ts`).
  */
-import { useCallback, useContext, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "./query";
-import { OpenNodeContext, type Follow } from "./lib/follow";
+import { useFollowThrough, type Follow } from "./lib/follow";
 import type { RefInk } from "./lib/md-edit";
-import { usePane } from "./lib/pane";
 import { usePaneScreenThrough, type PaneCarryOut, type PaneReport } from "./lib/pane-screen";
 import type { SchemaIndex } from "./lib/schema";
 import type { NodeMap, OutlineNode } from "./lib/types";
@@ -95,12 +94,7 @@ export function useRefInk(): RefInk {
 
 /** How a pointer in rendered text is followed from where the caller is drawn, for `MdView`'s `onFollow`. */
 export function useFollow(): Follow {
-  const open = useContext(OpenNodeContext);
-  const pane = usePane();
-  return useCallback<Follow>(
-    (target, how) => browserHost().follow({ pane, open }, target, how),
-    [open, pane],
-  );
+  return useFollowThrough(browserHost().follow);
 }
 
 /** What the page is painted in, resolved. */

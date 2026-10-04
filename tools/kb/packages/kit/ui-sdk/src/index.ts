@@ -93,10 +93,13 @@ export { IconButton } from "./components/icon-button";
 export { InlineMarkdown, MdView } from "./components/md-view";
 export { NodeRow } from "./components/node-row";
 export {
+  type CaretAt,
+  type CaretIntent,
   NodeTextHost,
   type NodeTextHostBinding,
   type NodeTextHostProps,
 } from "./components/node-text-host";
+export { type NodeTextPort, useNodeTextBindingThrough } from "./components/node-text-port";
 export { NotFound } from "./components/not-found";
 export { PickerList } from "./components/picker-list";
 export { POPOVER_VALUE_CLASS, PopoverShell } from "./components/popover-shell";
@@ -176,6 +179,7 @@ export {
   queryResultInstanceKey,
 } from "./lib/instance-key";
 export { nodeCandidates, type RefCreation, refCreationOf, refSearchOf, refUses } from "./lib/refs";
+export { type GraphRead, type GraphSource, useGraphReadThrough } from "./lib/graph-read";
 export { type FieldContext, fieldContextOf, type SchemaIndex, schemaOf } from "./lib/schema";
 export {
   DEBUG_FIELDS_STORAGE_KEY,
@@ -246,13 +250,16 @@ export {
 } from "./lib/dom";
 export {
   bulletClickIntent,
+  type CarryOutFollow,
   type Follow,
+  type FollowFrom,
   type FollowHow,
   followHowOf,
   type FollowTarget,
   nodeTarget,
   OpenNodeContext,
   routePointerClick,
+  useFollowThrough,
 } from "./lib/follow";
 export {
   fitGraphLabel,
