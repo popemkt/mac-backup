@@ -1108,6 +1108,45 @@ manipulation feel professional rather than merely functional.
   model over either projection), and a readout where the selection toolbar
   stands says what it does, what it is held to and its value — the depth
   badge an extrude shows in 2D.
+- **Groups and frames are one concept** (plan 2026-10-02, decision 12): a
+  group is a `group` item drawn as a frame, and its members name it as
+  their `parent` (DESIGN.md → Canvas documents). Membership is stored, and
+  geometry only proposes it: an item placed — by a tool, a paste, a
+  duplicate — or let go after any transform belongs to the frame nested
+  deepest of those no smaller than it whose top view holds its centre, or
+  to none (`settleMembership`);
+  a placing tool sees through a frame to the floor, so it places inside.
+  ⌘G gathers the selection into a new frame a grid step round it (at the
+  lowest base among them, belonging where they all did), ⌘⇧G takes the
+  selected groups apart, their members belonging where the group did; the
+  selection toolbar has both. A group carries its members (`carriedBy`):
+  every transform — a carry, a nudge, the rotate handle, the gizmo, modal
+  G/R/S — moves, turns and scales them by the motion it makes about the
+  selected items' pivot, through the one transform drag, previewed and
+  written as one history step; an extrude grows only the items it names.
+  An edit of a group's box in the item inspector (its lift or turn) carries
+  them by the motion of its base (`editItem`); a corner resize reshapes the
+  frame alone. Delete, copy and duplicate take the members too. At one
+  height a group paints and hit-tests under its members, nested to any
+  depth (`paintOrder`). Selection is made in a scope: outside a group a
+  press on a member reaches the group (its own editor never takes the
+  press; its ports still start an edge), a double-click goes one group
+  deeper toward the item under it — on a frame's own body, into it — and
+  Esc puts an armed tool down, then steps out of the group, selecting it, before it clears anything
+  else; a press outside the scope, or on empty canvas, steps out as far as
+  it must, and a marquee or ⌘A selects what a press would there. A chip in
+  the corner names the group entered. Both projections share all of it.
+- **Frames are viewpoints** (decision 7): the view menu lists the canvas's
+  frames (the groups that belong to no other, `viewpointFrames`) and goes
+  to each face-on (`faceOnView`: the eye on the side its face points to,
+  squared to its own x from the top, framed as ⇧2 frames); the 2D view
+  frames a floor frame from the top and enters 3D for one stood up.
+  **Present frames** steps through them in document order: → ↓ Space
+  PageDown forward, ← ↑ ⇧Space PageUp back, Esc stops (a modal transform's
+  keys still come first); a bar where the selection toolbar stands names
+  the frame and its place. It stands at a frame, not a place, so frames
+  added or taken away elsewhere move no slide, and it ends when its frame
+  goes.
 - **Edges are drawings** (the Logseq-whiteboards decision, unchanged): a live
   dashed bezier ghost during creation, smart port snapping by nearest Euclidean
   distance, 18×18px port targets, a 20px transparent hit path under the visible
@@ -1299,8 +1338,8 @@ open view of that canvas.
 
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 real Clipboard-API copy/paste, snap guides during keyboard nudge, edge colour
-on the stroke itself, edge endpoint re-routing, group cards translating their
-children; in 3D, a sphere's or a cone's label (they have no flat top for the
+on the stroke itself, edge endpoint re-routing; in 3D, a sphere's or a cone's
+label (they have no flat top for the
 card face; billboards are plan step 7), and a flat item seen exactly level
 (the front and side presets), which is a hairline on its plane
 (`GAP [[01M41AB7YM5801ZJNM1Q647SYD]]`). From the top, a cone or a sphere paints by

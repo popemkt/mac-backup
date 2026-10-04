@@ -1,15 +1,16 @@
 /**
  * Canvas tool strip state + placement (pure — unit-tested). Every placing
  * tool is a preset (`CANVAS_PRESETS`, `@kb/canvas`): the tool makes its
- * preset's item at the point placed, written through `upsertCanvasNode`.
+ * preset's item at the point placed (`placeItems`), which belongs to the
+ * frame it lands in.
  *
  * The solids share one tool, tldraw's geo-tool pattern: picking a solid
  * preset remembers it, and the solid tool (B) picks the one last made.
  */
 import {
   CANVAS_SOLID_PRESETS,
+  placeItems,
   presetItem,
-  upsertCanvasNode,
   type CanvasDoc,
   type CanvasNode,
   type CanvasPresetKind,
@@ -65,8 +66,16 @@ export function reduceCanvasTool(state: ToolState, action: ToolAction): ToolStat
 }
 
 /**
- * Place the active tool's preset at world coords. Returns null for select,
- * and for the card, whose node comes from the picker (it is placed with one).
+ * Whether a press with `tool` places its preset: every tool but select, and
+ * the card, whose node comes from the picker (it is placed with one).
+ */
+export function placesItem(tool: CanvasTool): tool is Exclude<CanvasTool, "select" | "kb-node"> {
+  return tool !== "select" && tool !== "kb-node";
+}
+
+/**
+ * Place the active tool's preset at world coords; null when the tool places
+ * nothing on a press (`placesItem`).
  */
 export function placeWithTool(
   doc: CanvasDoc,
@@ -74,7 +83,7 @@ export function placeWithTool(
   world: { x: number; y: number },
   id: string,
 ): { doc: CanvasDoc; node: CanvasNode; nextTool: CanvasTool } | null {
-  if (tool === "select" || tool === "kb-node") return null;
+  if (!placesItem(tool)) return null;
   const node = presetItem(tool, world, id);
-  return { doc: upsertCanvasNode(doc, node), node, nextTool: "select" };
+  return { doc: placeItems(doc, [node]), node, nextTool: "select" };
 }

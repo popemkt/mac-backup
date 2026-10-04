@@ -9,8 +9,15 @@ import {
   useState,
 } from "react";
 import type { CanvasNode } from "@kb/canvas";
-import { upsertCanvasEdge, upsertCanvasNode } from "@kb/canvas";
 import {
+  canvasMembership,
+  editItem,
+  upsertCanvasEdge,
+  upsertCanvasNode,
+  viewpointFrames,
+} from "@kb/canvas";
+import {
+  asElement,
   Bullet,
   cn,
   navigate,
@@ -33,7 +40,9 @@ import { useCanvasKeyboard } from "./use-canvas-keyboard";
 import { useCanvasScreen } from "./use-canvas-screen";
 import { useCanvasSelection } from "./use-canvas-selection";
 import { listRefFields } from "./canvas-api";
-import type { ToolState } from "./canvas-tool";
+import { classifyCardPointer } from "./card-pointer";
+import { placesItem, type ToolState } from "./canvas-tool";
+import type { PresentAct } from "./canvas-keymap";
 import { FIRST_GIZMO, type GizmoChoice } from "./canvas-gizmo";
 import { viewOfPan } from "./canvas-camera";
 import type { TransformCamera } from "./canvas-transform-input";
@@ -55,6 +64,11 @@ import {
 
 /** The 3D projection's chunk: three loads only when a canvas is looked at in depth. */
 const Canvas3dStage = lazy(() => import("./canvas-3d-stage"));
+
+/** The id of the item a DOM event landed on, in the 2D stage. */
+function cardIdAt(target: EventTarget | null): string | undefined {
+  return asElement(target)?.closest<HTMLElement>("[data-card-id]")?.dataset.cardId;
+}
 
 interface CanvasPageProps {
   canvasId: string;
@@ -100,26 +114,40 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [gizmo, setGizmo] = useState<GizmoChoice>(FIRST_GIZMO);
+  /** The frame present mode stands at, by id, so a frame added or taken away elsewhere moves no slide; null when not presenting. */
+  const [presentId, setPresentId] = useState<string | null>(null);
 
   const byId = useMemo(() => {
     const m = new Map<string, CanvasNode>();
     for (const n of doc.nodes) m.set(n.id, n);
     return m;
   }, [doc.nodes]);
+  const membership = useMemo(() => canvasMembership(doc.nodes), [doc.nodes]);
+  /** The frames the canvas is seen through: "go to frame" and present mode's slides. */
+  const frames = useMemo(() => viewpointFrames(doc.nodes, membership), [doc.nodes, membership]);
+  const presentIndex = frames.findIndex((frame) => frame.id === presentId);
+  const presenting = presentIndex < 0 ? null : presentIndex;
+  // The frame presented is gone: present mode ends, and nothing later brings it back.
+  if (presentId !== null && presenting === null) setPresentId(null);
 
   const {
+    enter,
     inspectorAnchor,
+    leave,
     onCardPointerDown,
     onEdgeClick,
+    pressReaches,
+    scope,
     selectedEdge: selectedEdgeObj,
     selectedItem,
     selection,
     selectionRef: selRef,
     setInspectorAnchor,
+    setScope,
     setSelection,
     setItemInspectorAnchor,
     itemInspectorAnchor,
-  } = useCanvasSelection(doc, byId);
+  } = useCanvasSelection(doc, byId, membership);
 
   const applyPointerResult = useCallback(
     (next: PointerResult) => {
@@ -145,14 +173,16 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       if ("screen" in event) lastPointer.current = event.screen;
       const next = pointerReduce(pointerRef.current, event, {
         doc: docRef.current,
+        membership,
         selection: selRef.current,
+        scope,
         byId,
         ...cameraRef.current(),
       });
       applyPointerResult(next);
       return next;
     },
-    [applyPointerResult, byId, docRef, selRef],
+    [applyPointerResult, byId, docRef, membership, scope, selRef],
   );
 
   const refFields = useMemo(() => listRefFields(nodes), [nodes]);
@@ -192,6 +222,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     onPointerUp,
     onWheel,
     placeAt,
+    screenToWorld,
     setTool,
     setToolSticky,
     startEdge,
@@ -225,6 +256,15 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const viewport = projection.viewportOf(viewportControls);
   const modal = pointerState.drag?.kind === "transform" && pointerState.drag.modal;
   const modalDrag = modal ? pointerState.drag : null;
+  /** Present mode steps through the frames, flying to each face-on; past either end it stays. */
+  const present = (act: PresentAct) => {
+    const step = act === "next" ? 1 : act === "previous" ? -1 : 0;
+    const at =
+      act === "start" ? 0 : Math.max(0, Math.min(frames.length - 1, (presenting ?? 0) + step));
+    const frame = act === "stop" ? undefined : frames[at];
+    setPresentId(frame?.id ?? null);
+    if (frame !== undefined) viewport.faceOn(frame);
+  };
   const applyIntent = useCanvasKeyboard({
     cancelPointer,
     dispatchPointer,
@@ -236,6 +276,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       const drag = pointerRef.current.drag;
       return drag?.kind === "transform" && drag.modal;
     },
+    presenting: () => presenting !== null,
+    present,
+    toolArmed: toolState.tool !== "select",
+    scope,
+    leaveScope: leave,
     byId,
     docRef,
     selRef,
@@ -304,6 +349,40 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             in3d && "pointer-events-none opacity-0",
           )}
           aria-hidden={in3d}
+          onPointerDownCapture={(e) => {
+            if (modal || e.button !== 0 || spaceDown || e.altKey) return;
+            const card = byId.get(cardIdAt(e.target) ?? "");
+            // A press on empty canvas steps out of the group entered.
+            if (card === undefined) {
+              if (!e.shiftKey) setScope(null);
+              return;
+            }
+            // A placing tool sees through a frame to the floor: it places inside it.
+            const viewportEl = e.currentTarget.querySelector<HTMLElement>("[data-canvas-viewport]");
+            const client = { x: e.clientX, y: e.clientY };
+            if (
+              membership.isGroup(card.id) &&
+              viewportEl !== null &&
+              placeAt(screenToWorld(client.x, client.y, viewportEl), client)
+            ) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+            // Its ports are the card's own: an edge may start from a member of any group.
+            if (classifyCardPointer(e.target, undefined) === "chrome") return;
+            // A member of a group not entered is part of its group: its own editor never takes the press.
+            if (pressReaches(card)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            onCardPointerDown(card, e, undefined, (id) => startMoveForSelection(e, id));
+          }}
+          onDoubleClickCapture={(e) => {
+            const card = byId.get(cardIdAt(e.target) ?? "");
+            if (modal || card === undefined || !enter(card)) return;
+            e.preventDefault();
+            e.stopPropagation();
+          }}
         >
           <CanvasStage
             doc={doc}
@@ -341,7 +420,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             onPointerCancel={cancelPointer}
             onDoubleClickStage={onDoubleClickStage}
             handleCardPointerDown={(card, event, anchor) => {
-              onCardPointerDown(card, event, anchor, () => startMoveForSelection(event, card.id));
+              onCardPointerDown(card, event, anchor, (id) => startMoveForSelection(event, id));
             }}
             handleEdgeClick={onEdgeClick}
           />
@@ -362,6 +441,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 rig={projection.rig}
                 appearance={appearance}
                 spaceDown={spaceDown}
+                placing={placesItem(toolState.tool)}
                 transforming={modal}
                 gizmo={gizmo}
                 onReady={projection.onSceneReady}
@@ -369,11 +449,13 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 onCardPress={(card, press, startMove) =>
                   onCardPointerDown(card, press, { x: press.clientX, y: press.clientY }, startMove)
                 }
+                onCardDoubleClick={enter}
                 dispatchPointer={dispatchPointer}
                 onTapEmpty={(world, press) => {
                   const client = { x: press.clientX, y: press.clientY };
                   if (world !== null && placeAt(world, client)) return;
                   if (press.shiftKey) return;
+                  setScope(null);
                   setSelection(EMPTY_SELECTION);
                   setInspectorAnchor(null);
                   setItemInspectorAnchor(null);
@@ -389,6 +471,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           flatView={projection.flatView()}
           projection={projection.target}
           selectionEmpty={selectionEmpty(selection)}
+          frames={frames}
           menuOpen={viewMenuOpen}
           onMenuOpenChange={setViewMenuOpen}
           onIntent={applyIntent}
@@ -405,6 +488,17 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         )}
         <CanvasOverlays
           transforming={modal}
+          scope={scope === null ? null : (byId.get(scope) ?? null)}
+          onLeaveScope={leave}
+          presenting={
+            presenting === null
+              ? null
+              : { at: presenting, frames: frames.length, frame: frames[presenting] }
+          }
+          onPresent={present}
+          onGroup={() => applyIntent({ type: "group" })}
+          onUngroup={() => applyIntent({ type: "ungroup" })}
+          canUngroup={[...selection.nodeIds].some((id) => membership.isGroup(id))}
           projection={projection.target}
           onProjectionChange={projection.choose}
           selection={selection}
@@ -443,7 +537,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           onEdgeChange={(edge) => schedulePersist(upsertCanvasEdge(docRef.current, edge))}
           onCloseItemInspector={() => setItemInspectorAnchor(null)}
           onInspectItem={setItemInspectorAnchor}
-          onItemChange={(shape) => schedulePersist(upsertCanvasNode(docRef.current, shape))}
+          onItemChange={(item) => schedulePersist(editItem(docRef.current, item))}
           onPickNode={addKbNode}
           onClosePicker={() => setPickerOpen(false)}
           gizmo={in3d ? gizmo : null}

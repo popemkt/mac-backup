@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { CanvasDoc, CanvasNode } from "@kb/canvas";
+import { canvasMembership, type CanvasDoc, type CanvasNode } from "@kb/canvas";
 import { EMPTY_SELECTION, selectNode } from "./canvas-selection";
 import { projectPoint, viewOfPan, type CanvasView } from "./canvas-camera";
 import { ALONG_Z, type TransformKey } from "./canvas-transform-input";
@@ -42,6 +42,8 @@ function context(
 ): PointerContext {
   return {
     doc: stateDoc,
+    membership: canvasMembership(stateDoc.nodes),
+    scope: null,
     selection,
     byId: new Map(stateDoc.nodes.map((node) => [node.id, node])),
     view,
@@ -728,5 +730,119 @@ describe("modal transforms (G, S, E from the keyboard)", () => {
       context(alone, EMPTY_SELECTION),
     );
     expect(none.state.drag).toBeNull();
+  });
+});
+
+/** Item `id` as result `r` writes or shows it. */
+const itemIn = (r: { doc?: CanvasDoc }, id: string) => r.doc?.nodes.find((n) => n.id === id);
+
+describe("groups and frames", () => {
+  /** A frame holding a card and an inner frame, which holds a card; a loose card well away. */
+  const framed: CanvasDoc = {
+    nodes: [
+      { id: "frame", type: "group", x: 0, y: 0, width: 400, height: 300 },
+      { id: "a", type: "text", text: "a", x: 20, y: 20, width: 80, height: 40, parent: "frame" },
+      { id: "inner", type: "group", x: 200, y: 100, width: 160, height: 160, parent: "frame" },
+      { id: "b", type: "text", text: "b", x: 240, y: 140, width: 80, height: 40, parent: "inner" },
+      { id: "loose", type: "text", text: "loose", x: 700, y: 700, width: 80, height: 40 },
+    ],
+    edges: [],
+  };
+  const drag = (
+    id: string,
+    to: { x: number; y: number },
+    selection = selectNode(id),
+    from = { x: 0, y: 0 },
+  ) => {
+    const ctx = context(framed, selection);
+    const started = reduce(createPointerState(), { type: "move/start", id, screen: from }, ctx);
+    const moved = reduce(
+      started.state,
+      { type: "pointer/move", screen: to, shiftKey: false, free: true },
+      ctx,
+    );
+    const released = reduce(
+      moved.state,
+      { type: "pointer/end", screen: to, free: true },
+      context(moved.doc, selection),
+    );
+    return { moved, released };
+  };
+
+  test("a carried frame carries its members, nested, in the preview and the write", () => {
+    const { moved, released } = drag("frame", { x: 30, y: 40 });
+    for (const r of [moved, released]) {
+      expect(["frame", "a", "inner", "b", "loose"].map((id) => itemIn(r, id)?.x)).toEqual([
+        30, 50, 230, 270, 700,
+      ]);
+    }
+    expect(released.persist).toBe("history");
+    expect(itemIn(released, "b")?.parent).toBe("inner");
+  });
+
+  test("let go over a frame, an item joins the innermost one; let go outside every frame, it leaves", () => {
+    const into = drag("loose", { x: -440, y: -540 });
+    expect(itemIn(into.released, "loose")?.parent).toBe("inner");
+    // Only the release decides: the preview leaves membership as it was.
+    expect(itemIn(into.moved, "loose")?.parent).toBeUndefined();
+    const out = drag("b", { x: 600, y: 0 });
+    expect(itemIn(out.released, "b")).not.toHaveProperty("parent");
+  });
+
+  test("a modal transform of a frame turns its members about the frame's pivot", () => {
+    const ctx = () => context(framed, selectNode("inner"));
+    const begun = reduce(
+      createPointerState(),
+      { type: "transform/begin", mode: "grab", screen: { x: 500, y: 500 } },
+      ctx(),
+    );
+    const turned = reduce(begun.state, { type: "transform/key", key: keyOf("r") }, ctx());
+    const typed = ["9", "0"].reduce(
+      (r, k) => reduce(r.state, { type: "transform/key", key: keyOf(k) }, ctx()),
+      turned,
+    );
+    const done = reduce(typed.state, { type: "transform/confirm" }, context(typed.doc));
+    expect(itemIn(done, "inner")?.rotation).toEqual({ z: 90 });
+    expect(itemIn(done, "b")?.rotation).toEqual({ z: 90 });
+    expect(itemIn(done, "a")).toEqual(framed.nodes[1]);
+  });
+
+  test("an extrude of a frame grows the frame, and no member of it", () => {
+    const ctx = () => context(framed, selectNode("inner"));
+    const begun = reduce(
+      createPointerState(),
+      { type: "transform/begin", mode: "extrude", screen: { x: 500, y: 500 } },
+      ctx(),
+    );
+    const typed = ["3", "0"].reduce(
+      (r, k) => reduce(r.state, { type: "transform/key", key: keyOf(k) }, ctx()),
+      begun,
+    );
+    expect(itemIn(typed, "inner")?.depth).toBe(30);
+    expect(itemIn(typed, "b")?.depth).toBeUndefined();
+  });
+
+  test("a marquee picks what a press would in the scope: whole groups outside, members within", () => {
+    const sweep = (scope: string | null) => {
+      const ctx = { ...context(framed, EMPTY_SELECTION), scope };
+      const started = reduce(
+        createPointerState(),
+        { type: "marquee/start", screen: { x: 230, y: 130 }, additive: false },
+        ctx,
+      );
+      const opened = reduce(
+        started.state,
+        { type: "pointer/move", screen: { x: 900, y: 900 }, shiftKey: false },
+        ctx,
+      );
+      return reduce(
+        opened.state,
+        { type: "pointer/move", screen: { x: 900, y: 900 }, shiftKey: false },
+        ctx,
+      ).selection?.nodeIds;
+    };
+    expect(sweep(null)).toEqual(new Set(["frame", "loose"]));
+    expect(sweep("frame")).toEqual(new Set(["inner"]));
+    expect(sweep("inner")).toEqual(new Set(["b"]));
   });
 });

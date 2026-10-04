@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
 import type { CanvasDoc, CanvasSide } from "@kb/canvas";
-import { isShapeNode, paintOrder, presetItem, upsertCanvasNode } from "@kb/canvas";
+import { isShapeNode, paintOrder, placeItems, presetItem } from "@kb/canvas";
 import { placeWithTool, reduceCanvasTool, type CanvasTool, type ToolState } from "./canvas-tool";
 import { selectNode as selNode } from "./canvas-selection";
 import type { CanvasSelection } from "./canvas-selection";
@@ -318,7 +318,7 @@ function createStageGestures(
     if (toolState.tool !== "select") return;
     const world = screenToWorld(e.clientX, e.clientY, e.currentTarget);
     const card = presetItem("text", world, ulid());
-    schedulePersist(upsertCanvasNode(docRef.current, card));
+    schedulePersist(placeItems(docRef.current, [card]));
     setSelection(selNode(card.id));
   };
 
@@ -371,7 +371,7 @@ function createAddKbNode({
   const addKbNode = (nodeId: string) => {
     setPickerOpen(false);
     const card = presetItem("kb-node", placementPoint(), ulid(), nodeId);
-    void flushPersist(upsertCanvasNode(docRef.current, card));
+    void flushPersist(placeItems(docRef.current, [card]));
     setSelection(selNode(card.id));
   };
   return addKbNode;

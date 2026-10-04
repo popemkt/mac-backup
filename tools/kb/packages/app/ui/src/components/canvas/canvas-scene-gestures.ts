@@ -8,15 +8,18 @@
  *   selection: a drag moves, turns or scales the selection, as one transform
  *   the pointer reducer previews and writes on release. The gizmo is asked
  *   first, so its handles take the pointer over whatever is behind them.
- * - On an item: a press selects it (a modifier toggles it) and a drag carries
- *   it across the floor plan; with Alt, held to Z. Both go through the canvas
- *   pointer reducer, which reads the pointer through the camera model, so a
- *   3D drag is the same transform, history step and write as a 2D one.
+ * - On an item: a press selects what it reaches — the item, or the group it
+ *   stands for when that group is not entered — (a modifier toggles it) and
+ *   a drag carries it across the floor plan; with Alt, held to Z. Both go
+ *   through the canvas pointer reducer, which reads the pointer through the
+ *   camera model, so a 3D drag is the same transform, history step and
+ *   write as a 2D one. A double-click enters the group on the way to it.
  * - On empty canvas: a drag orbits, a tap places the current tool (or clears
- *   the selection).
+ *   the selection). A placing tool sees through a frame to the floor, so a
+ *   tap on one places inside it.
  * - The right or middle button, or Space, pans.
  */
-import { paintOrder, type CanvasNode } from "@kb/canvas";
+import { isGroupNode, paintOrder, type CanvasNode } from "@kb/canvas";
 import {
   hitTest,
   screenToPlane,
@@ -49,12 +52,20 @@ export interface SceneGestureHost {
   readonly items: () => readonly CanvasNode[];
   readonly selection: () => CanvasSelection;
   readonly spaceDown: () => boolean;
+  /** A tool that places an item is active. */
+  readonly placing: () => boolean;
   /** A modal transform (G, S, E) is under way. */
   readonly transforming: () => boolean;
   /** The gizmo on the selection. */
   readonly gizmo: () => SceneGizmo;
-  /** A press on a card: select or toggle it, then `startMove` to carry it. */
-  readonly cardPress: (card: CanvasNode, press: ScenePress, startMove: () => void) => void;
+  /** A press on a card: select or toggle what it reaches, then `startMove` to carry that, by id. */
+  readonly cardPress: (
+    card: CanvasNode,
+    press: ScenePress,
+    startMove: (id: string) => void,
+  ) => void;
+  /** A double-click on a card: into the group on the way to it; whether it went. */
+  readonly cardDoubleClick: (card: CanvasNode) => boolean;
   readonly dispatch: (event: CanvasPointerEvent) => void;
   readonly orbit: (dx: number, dy: number) => void;
   readonly pan: (dx: number, dy: number) => void;
@@ -108,12 +119,13 @@ export class SceneGestures {
       this.host.dispatch({ type: "transform/start" });
       return true;
     }
-    const card = pans ? undefined : this.cardAt(press.local);
+    const hit = pans ? undefined : this.cardAt(press.local);
+    const card = hit !== undefined && this.host.placing() && isGroupNode(hit) ? undefined : hit;
     if (card !== undefined) {
       this.gesture = { kind: "card" };
-      this.host.cardPress(card, press, () => {
+      this.host.cardPress(card, press, (id) => {
         const along = press.altKey ? { along: ALONG_Z } : {};
-        this.host.dispatch({ type: "move/start", id: card.id, screen: press.local, ...along });
+        this.host.dispatch({ type: "move/start", id, screen: press.local, ...along });
       });
     } else {
       // Owner answer 4 of the 3D workspace plan: Shift-drag here is a
@@ -183,9 +195,21 @@ export class SceneGestures {
     this.host.settled();
   }
 
+  /** A double-click: on an item, into the group on the way to it. A modal transform takes none. */
+  doubleClick(press: ScenePress): void {
+    if (this.host.transforming() || press.button !== 0) return;
+    const card = this.cardAt(press.local);
+    if (card !== undefined) this.host.cardDoubleClick(card);
+  }
+
+  /** The items in paint order, read again only when the document changes (hover asks on every move). */
+  private ordered: { readonly of: readonly CanvasNode[]; readonly order: CanvasNode[] } | null =
+    null;
+
   private cardAt(local: CanvasPoint): CanvasNode | undefined {
     const items = this.host.items();
-    const id = hitTest(paintOrder(items), this.host.view(), this.host.size(), local);
+    if (this.ordered?.of !== items) this.ordered = { of: items, order: paintOrder(items) };
+    const id = hitTest(this.ordered.order, this.host.view(), this.host.size(), local);
     return id === null ? undefined : items.find((n) => n.id === id);
   }
 }

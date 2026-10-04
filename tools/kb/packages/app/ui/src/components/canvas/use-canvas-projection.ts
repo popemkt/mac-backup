@@ -8,6 +8,8 @@ import {
   type CanvasProjectionKind,
 } from "@kb/canvas";
 import {
+  faceOnView,
+  isTopView,
   poseOfView,
   presetView,
   screenToPlane,
@@ -125,19 +127,28 @@ export function useCanvasProjection(context: ProjectionContext) {
   };
 
   /**
-   * The 2D camera's answers to a preset or a lens: 2D is the top view
+   * The 2D camera's answers to a preset, a lens or a face-on look: 2D is the top view
    * through the orthographic lens, so any other look is a way into 3D. A
    * preset keeps the lens the canvas was last seen through in depth.
    */
-  const lookFromTop = (flat: FlatViewportControls): CanvasViewportControls => ({
-    ...flat,
-    look: (preset) => {
-      if (preset === "top") return;
-      const lens = doc.camera?.pose?.fov === 0 ? "orthographic" : "perspective";
-      enterLookingFrom(presetView(withLens(current(), lens), preset));
-    },
-    toggleLens: () => enterLookingFrom(withLens(current(), "perspective")),
-  });
+  const lookFromTop = (flat: FlatViewportControls): CanvasViewportControls => {
+    /** The top view through the lens the canvas was last seen through in depth. */
+    const inDepth = () =>
+      withLens(current(), doc.camera?.pose?.fov === 0 ? "orthographic" : "perspective");
+    return {
+      ...flat,
+      faceOn: (item) => {
+        const facing = faceOnView(item, size(), inDepth());
+        if (facing === null) return;
+        if (isTopView(facing)) flat.frame([item]);
+        else enterLookingFrom(facing);
+      },
+      look: (preset) => {
+        if (preset !== "top") enterLookingFrom(presetView(inDepth(), preset));
+      },
+      toggleLens: () => enterLookingFrom(withLens(current(), "perspective")),
+    };
+  };
 
   return {
     rig,

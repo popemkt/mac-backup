@@ -12,7 +12,9 @@
  * tool of the same digit (or deleting, for numpad `.` with NumLock off).
  * During a modal transform its own map comes first and claims every chord,
  * so a digit types a value rather than picking a tool, and Escape cancels
- * the transform rather than clearing the selection.
+ * the transform rather than clearing the selection. While frames are
+ * presented, theirs comes next: the arrows step through them rather than
+ * nudging, and Escape stops presenting.
  */
 import type { CanvasProjectionKind } from "@kb/canvas";
 import type { CanvasTool, CanvasToolPick } from "./canvas-tool";
@@ -48,7 +50,18 @@ export type CanvasIntent =
   | { type: "toggleLens" }
   | { type: "projection"; kind: CanvasProjectionKind }
   | { type: "viewMenu" }
-  | { type: "transform"; act: TransformAct };
+  | { type: "transform"; act: TransformAct }
+  /** ⌘G: gather the selection into a group, a frame round it. */
+  | { type: "group" }
+  /** ⌘⇧G: take the selected groups apart. */
+  | { type: "ungroup" }
+  /** Look at a frame face-on: a frame is a viewpoint (plan decision 7). */
+  | { type: "viewpoint"; id: string }
+  /** Present mode: step through the canvas's frames, one viewpoint each. */
+  | { type: "present"; act: PresentAct };
+
+/** What a key does to present mode. */
+export type PresentAct = "start" | "next" | "previous" | "stop";
 
 /** What a key does to a modal transform. */
 export type TransformAct =
@@ -64,7 +77,7 @@ export type TransformAct =
 /** What the camera can be asked to do: the view commands. */
 type CanvasViewIntent = Extract<
   CanvasIntent,
-  { type: "frame" | "look" | "toggleLens" | "projection" }
+  { type: "frame" | "look" | "toggleLens" | "projection" | "present" }
 >;
 
 /**
@@ -137,6 +150,7 @@ export const CANVAS_VIEW_COMMANDS: readonly CanvasViewCommand[] = [
     hint: "⇧2",
     chords: [{ code: "Digit2", shift: true }, { key: "@", shift: true }, { code: "NumpadDecimal" }],
   },
+  { intent: { type: "present", act: "start" }, label: "Present frames", hint: "", chords: [] },
 ];
 
 /** The chord that opens the view menu, for keyboards without a numpad. */
@@ -160,6 +174,8 @@ export interface CanvasKeyState {
   selectionEmpty: boolean;
   /** A modal transform is under way. */
   transforming: boolean;
+  /** Frames are being presented. */
+  presenting?: boolean;
 }
 
 /** Tool shortcuts, by lowercased key. G is not one: it grabs (plan decision 9). */
@@ -245,6 +261,12 @@ const mapClipboard: ChordMap = (event, state) => {
   if (event.key === "c") return claimWithSelection({ type: "copy" }, state);
   if (event.key === "v") return claim({ type: "paste" });
   return null;
+};
+
+/** ⌘G groups the selection, ⌘⇧G takes its groups apart (and the browser's find-next never runs). */
+const mapGroup: ChordMap = (event, state) => {
+  if (!mod(event) || event.key.toLowerCase() !== "g") return null;
+  return claimWithSelection({ type: event.shiftKey === true ? "ungroup" : "group" }, state);
 };
 
 const mapDuplicate: ChordMap = (event, state) => {
@@ -336,6 +358,27 @@ const mapModal: ChordMap = (event, state) => {
   return claim(null, false);
 };
 
+/** Present mode's keys: forward and back through the frames, as a slide deck steps; Esc stops. */
+const PRESENT_KEYS: Record<string, PresentAct> = {
+  ArrowRight: "next",
+  ArrowDown: "next",
+  PageDown: "next",
+  " ": "next",
+  ArrowLeft: "previous",
+  ArrowUp: "previous",
+  PageUp: "previous",
+  Escape: "stop",
+};
+
+/** While frames are presented: their keys, ahead of nudging and of Escape's other meanings. */
+const mapPresent: ChordMap = (event, state) => {
+  if (state.presenting !== true || mod(event)) return null;
+  const act = PRESENT_KEYS[event.key];
+  if (act === undefined) return null;
+  const back = event.key === " " && event.shiftKey === true;
+  return claim({ type: "present", act: back ? "previous" : act }, act !== "stop");
+};
+
 const mapZoom: ChordMap = (event) => {
   if (mod(event) && (event.key === "=" || event.key === "+"))
     return claim({ type: "zoomBy", factor: ZOOM_STEP });
@@ -346,10 +389,12 @@ const mapZoom: ChordMap = (event) => {
 
 const CHORD_MAPS: readonly ChordMap[] = [
   mapModal,
+  mapPresent,
   mapHistory,
   mapView,
   mapSelection,
   mapClipboard,
+  mapGroup,
   mapDuplicate,
   mapCanvasState,
   mapNudge,

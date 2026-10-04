@@ -9,7 +9,6 @@ export {
   isNativeEdgeBound,
   isShapeNode,
   isTextNode,
-  paintOrder,
   parseCanvasDoc,
   removeCanvasEdge,
   stringifyCanvasDoc,
@@ -18,8 +17,27 @@ export {
   withCanvasCamera,
   withDepth,
   withElevation,
+  withParent,
   withRotation,
 } from "./doc.ts";
+export {
+  ancestorsOf,
+  canvasMembership,
+  carriedBy,
+  carriedPart,
+  editItem,
+  groupItems,
+  isWithin,
+  paintOrder,
+  pasteItems,
+  placeItems,
+  settleMembership,
+  transformCarried,
+  ungroupItems,
+  viewpointFrames,
+  withMembers,
+} from "./membership.ts";
+export type { CanvasCarried, CanvasMembership } from "./membership.ts";
 export {
   IDENTITY,
   NO_ROTATION,
@@ -34,7 +52,16 @@ export {
   turnAbout,
 } from "./rotation.ts";
 export type { CanvasMatrix, CanvasRotation } from "./rotation.ts";
-export { moveBy, selectionPivot, stillAbout, transformItem, transformItems } from "./transform.ts";
+export {
+  isStill,
+  motionBetween,
+  motionOf,
+  moveBy,
+  selectionPivot,
+  stillAbout,
+  transformItem,
+  transformItems,
+} from "./transform.ts";
 export type { CanvasTransform } from "./transform.ts";
 export {
   boxCorners,

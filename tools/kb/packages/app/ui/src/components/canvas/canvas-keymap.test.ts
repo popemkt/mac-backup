@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { mapCanvasKey, type CanvasIntent, type CanvasKeyEvent } from "./canvas-keymap";
+import {
+  CANVAS_VIEW_COMMANDS,
+  mapCanvasKey,
+  type CanvasIntent,
+  type CanvasKeyEvent,
+} from "./canvas-keymap";
 import { ZOOM_STEP } from "./canvas-camera";
 
 const withSelection = { selectionEmpty: false, transforming: false };
@@ -91,7 +96,6 @@ describe("order between the chord maps", () => {
 describe("a modal transform (G, S, E)", () => {
   test("G, S and E need a selection, and G no longer picks the group tool", () => {
     expect(mapCanvasKey(chord("g"), empty)).toEqual({ intent: null, preventDefault: true });
-    expect(mapCanvasKey(chord("g", { metaKey: true }), withSelection)).toBeNull();
     expect(mapCanvasKey(chord("e", { shiftKey: true }), withSelection)).toBeNull();
   });
 
@@ -166,6 +170,50 @@ describe("what the browser still gets", () => {
     expect(mapCanvasKey(chord("ArrowLeft"), empty)).toEqual({
       intent: null,
       preventDefault: false,
+    });
+  });
+
+  test("⌘G groups and ⌘⇧G ungroups the selection, and the browser's find-next never runs", () => {
+    expect(mapCanvasKey(chord("g", { metaKey: true }), withSelection)).toEqual({
+      intent: { type: "group" },
+      preventDefault: true,
+    });
+    expect(mapCanvasKey(chord("G", { ctrlKey: true, shiftKey: true }), withSelection)).toEqual({
+      intent: { type: "ungroup" },
+      preventDefault: true,
+    });
+    expect(mapCanvasKey(chord("g", { metaKey: true }), empty)).toEqual({
+      intent: null,
+      preventDefault: true,
+    });
+  });
+
+  test("while frames are presented their keys come first; a modal transform's still before them", () => {
+    const presenting = { ...withSelection, presenting: true };
+    const act = (event: CanvasKeyEvent) => mapCanvasKey(event, presenting)?.intent;
+    expect(act(chord("ArrowRight"))).toEqual({ type: "present", act: "next" });
+    expect(act(chord("ArrowUp"))).toEqual({ type: "present", act: "previous" });
+    expect(act(chord(" ", { shiftKey: true }))).toEqual({ type: "present", act: "previous" });
+    expect(mapCanvasKey(chord("Escape"), presenting)).toEqual({
+      intent: { type: "present", act: "stop" },
+      preventDefault: false,
+    });
+    // Anything else means what it always does, and ⌘ chords are never the deck's.
+    expect(act(chord("r"))).toEqual({ type: "tool", tool: "rect" });
+    expect(act(chord("ArrowRight", { metaKey: true }))).not.toEqual({
+      type: "present",
+      act: "next",
+    });
+    expect(mapCanvasKey(chord("Escape"), { ...transforming, presenting: true })?.intent).toEqual({
+      type: "transform",
+      act: { kind: "cancel" },
+    });
+  });
+
+  test("the view menu's table can start presenting", () => {
+    expect(CANVAS_VIEW_COMMANDS.map((c) => c.intent)).toContainEqual({
+      type: "present",
+      act: "start",
     });
   });
 

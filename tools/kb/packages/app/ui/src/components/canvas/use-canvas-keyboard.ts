@@ -1,23 +1,35 @@
 import { useEffect } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
-import type { CanvasDoc, CanvasEdge, CanvasNode, CanvasProjectionKind } from "@kb/canvas";
+import type { CanvasDoc, CanvasNode, CanvasProjectionKind } from "@kb/canvas";
 import {
+  carriedBy,
+  carriedPart,
+  groupItems,
   moveBy,
   parseCanvasDoc,
+  pasteItems,
   selectionPivot,
-  transformItems,
-  upsertCanvasEdge,
-  upsertCanvasNode,
+  settleMembership,
+  transformCarried,
+  ungroupItems,
 } from "@kb/canvas";
 import {
+  type CanvasScope,
   type CanvasSelection,
   EMPTY_SELECTION,
   deleteSelected,
   selectAll,
+  selectNode,
   selectionEmpty,
 } from "./canvas-selection";
-import { mapCanvasKey, type CanvasIntent, type TransformAct } from "./canvas-keymap";
+import {
+  mapCanvasKey,
+  type CanvasIntent,
+  type PresentAct,
+  type TransformAct,
+} from "./canvas-keymap";
+import { GRID_STEP } from "./canvas-snap";
 import { reduceCanvasTool, type CanvasToolPick, type ToolState } from "./canvas-tool";
 import type { CanvasViewportControls } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
@@ -37,6 +49,16 @@ interface CanvasKeyboardContext {
   pointerAt: () => { x: number; y: number };
   /** A modal transform is under way. */
   transforming: () => boolean;
+  /** Frames are being presented. */
+  presenting: () => boolean;
+  /** Step present mode: start it, move through the frames, or stop. */
+  present: (act: PresentAct) => void;
+  /** A tool other than select is armed. */
+  toolArmed: boolean;
+  /** The group entered, where a selection is made. */
+  scope: CanvasScope;
+  /** Esc out of the group entered; false when there is none. */
+  leaveScope: () => boolean;
   byId: Map<string, CanvasNode>;
   docRef: RefObject<CanvasDoc>;
   selRef: RefObject<CanvasSelection>;
@@ -65,91 +87,90 @@ function deleteSelection(context: CanvasKeyboardContext) {
   context.setItemInspectorAnchor(null);
 }
 
+/** A copy takes the selected items with their members, the edges among them and the edges selected. */
 function copySelection(context: CanvasKeyboardContext) {
-  const selection = context.selRef.current;
-  const copied: CanvasDoc = {
-    nodes: context.docRef.current.nodes.filter((node) => selection.nodeIds.has(node.id)),
-    edges: context.docRef.current.edges.filter(
-      (edge) =>
-        selection.edgeIds.has(edge.id) ||
-        (selection.nodeIds.has(edge.fromNode) && selection.nodeIds.has(edge.toNode)),
-    ),
-  };
+  const { nodeIds, edgeIds } = context.selRef.current;
+  const copied = carriedPart(context.docRef.current, nodeIds, edgeIds);
   void navigator.clipboard.writeText(JSON.stringify(copied));
+}
+
+/**
+ * Write `source` in as new items, offset from where they were (`pasteItems`),
+ * and select them: what a paste and a duplicate both are.
+ */
+function pasteDoc(source: CanvasDoc, context: CanvasKeyboardContext, selectEdges: boolean) {
+  const offset = { x: CLONE_OFFSET, y: CLONE_OFFSET };
+  const pasted = pasteItems(context.docRef.current, source, offset, ulid);
+  context.schedulePersist(pasted.doc);
+  context.setSelection({
+    nodeIds: new Set(pasted.nodeIds),
+    edgeIds: new Set(selectEdges ? pasted.edgeIds : []),
+  });
 }
 
 function pasteCanvas(text: string, context: CanvasKeyboardContext) {
   try {
-    const parsed = parseCanvasDoc(text);
-    const idMap = new Map<string, string>();
-    const newNodes: CanvasNode[] = parsed.nodes.map((node) => {
-      const id = ulid();
-      idMap.set(node.id, id);
-      return { ...node, id, x: node.x + CLONE_OFFSET, y: node.y + CLONE_OFFSET };
-    });
-    const newEdges: CanvasEdge[] = parsed.edges.flatMap((edge) => {
-      const fromNode = idMap.get(edge.fromNode);
-      const toNode = idMap.get(edge.toNode);
-      return fromNode === undefined || toNode === undefined
-        ? []
-        : [{ ...edge, id: ulid(), fromNode, toNode }];
-    });
-    let nextDoc = context.docRef.current;
-    for (const node of newNodes) nextDoc = upsertCanvasNode(nextDoc, node);
-    for (const edge of newEdges) nextDoc = upsertCanvasEdge(nextDoc, edge);
-    context.schedulePersist(nextDoc);
-    context.setSelection({
-      nodeIds: new Set(newNodes.map((node) => node.id)),
-      edgeIds: new Set(newEdges.map((edge) => edge.id)),
-    });
+    pasteDoc(parseCanvasDoc(text), context, true);
   } catch {
     // Clipboard content is not a canvas document.
   }
 }
 
 function duplicateSelection(context: CanvasKeyboardContext) {
-  const selection = context.selRef.current;
-  const idMap = new Map<string, string>();
-  let nextDoc = context.docRef.current;
-  for (const nodeId of selection.nodeIds) {
-    const node = context.byId.get(nodeId);
-    if (!node) continue;
-    const id = ulid();
-    idMap.set(nodeId, id);
-    nextDoc = upsertCanvasNode(nextDoc, {
-      ...node,
-      id,
-      x: node.x + CLONE_OFFSET,
-      y: node.y + CLONE_OFFSET,
-    });
-  }
-  for (const edge of context.docRef.current.edges) {
-    if (selection.nodeIds.has(edge.fromNode) && selection.nodeIds.has(edge.toNode)) {
-      nextDoc = upsertCanvasEdge(nextDoc, {
-        ...edge,
-        id: ulid(),
-        fromNode: idMap.get(edge.fromNode) ?? edge.fromNode,
-        toNode: idMap.get(edge.toNode) ?? edge.toNode,
-      });
-    }
-  }
-  context.schedulePersist(nextDoc);
-  context.setSelection({ nodeIds: new Set(idMap.values()), edgeIds: new Set() });
+  pasteDoc(carriedPart(context.docRef.current, context.selRef.current.nodeIds), context, false);
 }
 
+/** ⌘G: the selection gathered into a new group, a frame a grid step round it, which is selected. */
+function groupSelection(context: CanvasKeyboardContext) {
+  const id = ulid();
+  const grouped = groupItems(context.docRef.current, context.selRef.current.nodeIds, id, GRID_STEP);
+  if (grouped === context.docRef.current) return;
+  context.schedulePersist(grouped);
+  context.setSelection(selectNode(id));
+}
+
+/** ⌘⇧G: the selected groups taken apart; what they held is selected. */
+function ungroupSelection(context: CanvasKeyboardContext) {
+  const { doc, released } = ungroupItems(context.docRef.current, context.selRef.current.nodeIds);
+  if (doc === context.docRef.current) return;
+  context.schedulePersist(doc);
+  context.setSelection({ nodeIds: new Set(released), edgeIds: new Set() });
+}
+
+/**
+ * Esc steps out one thing at a time (plan decision 14): a modal transform
+ * (its own map), present mode (its own map), an armed tool, the group
+ * entered, then the selection.
+ */
 function escapeCanvas(context: CanvasKeyboardContext) {
   context.cancelPointer();
+  if (context.toolArmed) {
+    context.setToolState((state) => reduceCanvasTool(state, { type: "escape" }));
+    return;
+  }
+  if (context.leaveScope()) return;
   context.setToolState((state) => reduceCanvasTool(state, { type: "escape" }));
   context.setSelection(EMPTY_SELECTION);
   context.setInspectorAnchor(null);
   context.setItemInspectorAnchor(null);
 }
 
-/** A nudge is a move of the selection, the one transform every other move is. */
+/**
+ * A nudge is a move of the selection, the one transform every other move
+ * is: its groups' members come too, and what it lets go of belongs to the
+ * frame that holds it there.
+ */
 function nudgeSelection(context: CanvasKeyboardContext, dx: number, dy: number) {
-  const items = [...context.selRef.current.nodeIds].flatMap((id) => context.byId.get(id) ?? []);
-  const t = moveBy(selectionPivot(items), { x: dx, y: dy, z: 0 });
-  context.schedulePersist(transformItems(context.docRef.current, items, t));
+  const doc = context.docRef.current;
+  const carried = carriedBy(doc.nodes, context.selRef.current.nodeIds);
+  const t = moveBy(selectionPivot(carried.items), { x: dx, y: dy, z: 0 });
+  const moved = transformCarried(doc, carried, t);
+  context.schedulePersist(
+    settleMembership(
+      moved,
+      carried.items.map((item) => item.id),
+    ),
+  );
 }
 
 function chooseTool(context: CanvasKeyboardContext, tool: CanvasToolPick) {
@@ -220,7 +241,7 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
     context.redoCanvasDoc();
   },
   delete: deleteSelection,
-  selectAll: (context) => context.setSelection(selectAll(context.docRef.current)),
+  selectAll: (context) => context.setSelection(selectAll(context.docRef.current, context.scope)),
   copy: copySelection,
   paste: (context) =>
     void navigator.clipboard.readText().then((text) => pasteCanvas(text, context)),
@@ -237,6 +258,13 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
   projection: (context, intent) => context.chooseProjection(intent.kind),
   viewMenu: (context) => context.openViewMenu(),
   transform: (context, intent) => applyTransformAct(context, intent.act),
+  group: groupSelection,
+  ungroup: ungroupSelection,
+  viewpoint: (context, intent) => {
+    const frame = context.byId.get(intent.id);
+    if (frame !== undefined) context.viewport.faceOn(frame);
+  },
+  present: (context, intent) => context.present(intent.act),
 };
 
 /** Apply `intent` through the applier its kind names. */
@@ -256,6 +284,7 @@ export function useCanvasKeyboard(context: CanvasKeyboardContext): (intent: Canv
       const binding = mapCanvasKey(event, {
         selectionEmpty: selectionEmpty(context.selRef.current),
         transforming: context.transforming(),
+        presenting: context.presenting(),
       });
       if (binding === null) return;
       if (binding.intent !== null) applyCanvasIntent(context, binding.intent);

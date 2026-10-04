@@ -1,10 +1,11 @@
-import { act } from "react";
+import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { CanvasDoc } from "@kb/canvas";
 import { EMPTY_SELECTION, selectNode, type CanvasSelection } from "./canvas-selection";
 import type { ToolState } from "./canvas-tool";
+import type { CanvasIntent } from "./canvas-keymap";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
 
 /**
@@ -51,11 +52,32 @@ interface Recording {
   log: string[];
   docs: CanvasDoc[];
   defaultPrevented: boolean;
+  /** The hook's applier, as the view menu calls it. */
+  apply: (intent: CanvasIntent) => void;
 }
+
+/** What else the page tells the hook: present mode, the group entered, the document. */
+interface Surroundings {
+  presenting?: boolean;
+  scope?: string | null;
+  toolArmed?: boolean;
+  doc?: CanvasDoc;
+}
+
+/** A frame holding a and b, with a loose c and an edge from a to c. */
+const framed: CanvasDoc = {
+  nodes: [
+    { id: "f", type: "group", label: "F", x: -20, y: -20, width: 500, height: 340 },
+    { id: "a", type: "text", text: "a", x: 0, y: 0, width: 80, height: 40, parent: "f" },
+    { id: "b", type: "text", text: "b", x: 300, y: 200, width: 80, height: 40, parent: "f" },
+    { id: "c", type: "text", text: "c", x: 900, y: 0, width: 80, height: 40 },
+  ],
+  edges: [{ id: "e1", fromNode: "a", toNode: "c" }],
+};
 
 /** Selection as a stable label: ids the fixture did not name are freshly minted. */
 function ids(selection: CanvasSelection): string {
-  const known = new Set(["a", "b", "e1"]);
+  const known = new Set(["a", "b", "c", "f", "e1"]);
   return (
     [...selection.nodeIds, ...selection.edgeIds]
       .map((id) => (known.has(id) ? id : "<new>"))
@@ -115,10 +137,12 @@ function press(
   chord: Chord,
   selection: CanvasSelection = selectNode("a"),
   transforming = false,
+  around: Surroundings = {},
 ): Recording {
   const log: string[] = [];
   const docs: CanvasDoc[] = [];
-  const docRef = { current: doc };
+  const start = around.doc ?? doc;
+  const docRef = { current: start };
   const selRef = { current: selection };
   let toolState: ToolState = { tool: "select" };
   let zoom = 1;
@@ -127,7 +151,16 @@ function press(
     dispatchPointer: (event: { type: string }) => log.push(`pointer=${event.type}`),
     pointerAt: () => ({ x: 10, y: 20 }),
     transforming: () => transforming,
-    byId: new Map(doc.nodes.map((node) => [node.id, node])),
+    presenting: () => around.presenting ?? false,
+    present: (step: string) => log.push(`present=${step}`),
+    toolArmed: around.toolArmed ?? false,
+    scope: around.scope ?? null,
+    leaveScope: () => {
+      if ((around.scope ?? null) === null) return false;
+      log.push("leave");
+      return true;
+    },
+    byId: new Map(start.nodes.map((node) => [node.id, node])),
     docRef,
     selRef,
     schedulePersist: (next: CanvasDoc) => {
@@ -162,13 +195,18 @@ function press(
         log.push(`frame=${items.map((item) => item.id).join("+")}`),
       look: (preset: string) => log.push(`look=${preset}`),
       toggleLens: () => log.push("lens"),
+      faceOn: (item: { id: string }) => log.push(`faceOn=${item.id}`),
     },
     chooseProjection: (kind: string) => log.push(`projection=${kind}`),
     openViewMenu: () => log.push("viewMenu"),
   };
 
+  const appliers: ((intent: CanvasIntent) => void)[] = [];
   function Probe() {
-    useCanvasKeyboard(context);
+    const apply = useCanvasKeyboard(context);
+    useEffect(() => {
+      appliers.push(apply);
+    });
     return null;
   }
   root = createRoot(container);
@@ -189,7 +227,12 @@ function press(
   act(() => {
     target.dispatchEvent(event as unknown as Event);
   });
-  return { log, docs, defaultPrevented: event.defaultPrevented };
+  return {
+    log,
+    docs,
+    defaultPrevented: event.defaultPrevented,
+    apply: (intent) => appliers.at(-1)?.(intent),
+  };
 }
 
 describe("the canvas keydown table", () => {
@@ -368,6 +411,101 @@ describe("the applied mutations", () => {
     expect(copiedEdge?.toNode).not.toBe("b");
     expect(next?.nodes.some((node) => node.id === copiedEdge?.fromNode)).toBe(true);
     expect(next?.nodes.some((node) => node.id === copiedEdge?.toNode)).toBe(true);
+  });
+});
+
+describe("groups and frames", () => {
+  const group = { nodeIds: new Set(["a", "b"]), edgeIds: new Set<string>() };
+
+  test("⌘G gathers the selection into a frame round it, and selects the frame", () => {
+    const recording = press({ key: "g", metaKey: true }, group);
+    expect(recording.log).toEqual(["persist", "selection=<new>"]);
+    expect(recording.defaultPrevented).toBe(true);
+    const [frame, a, b] = recording.docs[0]?.nodes ?? [];
+    expect(frame?.type).toBe("group");
+    expect([a?.parent, b?.parent]).toEqual([frame?.id, frame?.id]);
+    // A grid step to spare round them on the floor plan.
+    expect([frame?.x, frame?.y, frame?.width, frame?.height]).toEqual([-20, -20, 500, 340]);
+  });
+
+  test("⌘⇧G takes the selected group apart and selects what it held; nothing selected, nothing", () => {
+    const recording = press({ key: "G", metaKey: true, shiftKey: true }, selectNode("f"), false, {
+      doc: framed,
+    });
+    expect(recording.log).toEqual(["persist", "selection=a+b"]);
+    expect(recording.docs[0]?.nodes.map((n) => [n.id, n.parent])).toEqual([
+      ["a", undefined],
+      ["b", undefined],
+      ["c", undefined],
+    ]);
+    const empty = press({ key: "g", metaKey: true }, EMPTY_SELECTION);
+    expect(empty.log).toEqual([]);
+    expect(empty.defaultPrevented).toBe(true);
+  });
+
+  test("a group carries its members: nudged, deleted and duplicated with it", () => {
+    const frame = selectNode("f");
+    const nudged = press({ key: "ArrowRight", shiftKey: true }, frame, false, { doc: framed });
+    expect(nudged.docs[0]?.nodes.map((n) => n.x)).toEqual([-10, 10, 310, 900]);
+    const deleted = press({ key: "Delete" }, frame, false, { doc: framed });
+    expect(deleted.docs[0]?.nodes.map((n) => n.id)).toEqual(["c"]);
+    expect(deleted.docs[0]?.edges).toEqual([]);
+    const copied = press({ key: "d", metaKey: true }, frame, false, { doc: framed });
+    const [, , , , copy, ...members] = copied.docs[0]?.nodes ?? [];
+    expect(members.map((n) => n.parent)).toEqual([copy?.id, copy?.id]);
+    expect(copied.log).toEqual(["persist", "selection=<new>"]);
+  });
+
+  test("⌘A in a group selects its members; at the canvas, its loose items and groups", () => {
+    expect(press({ key: "a", metaKey: true }, EMPTY_SELECTION, false, { doc: framed }).log).toEqual(
+      ["selection=c+e1+f"],
+    );
+    const inside = press({ key: "a", metaKey: true }, EMPTY_SELECTION, false, {
+      doc: framed,
+      scope: "f",
+    });
+    expect(inside.log).toEqual(["selection=a+b"]);
+  });
+
+  test("Escape with a tool armed in a group puts the tool down first, and only that", () => {
+    const armed = press({ key: "Escape" }, selectNode("a"), false, {
+      doc: framed,
+      scope: "f",
+      toolArmed: true,
+    });
+    expect(armed.log).toEqual(["cancelPointer", "tool=select"]);
+  });
+
+  test("Escape in a group leaves it, and does nothing else", () => {
+    const recording = press({ key: "Escape" }, selectNode("a"), false, { doc: framed, scope: "f" });
+    expect(recording.log).toEqual(["cancelPointer", "leave"]);
+  });
+});
+
+describe("frames as viewpoints and present mode", () => {
+  const presenting = (chord: Chord) => press(chord, selectNode("a"), false, { presenting: true });
+
+  test("the arrows, Space and the page keys step through the frames; Escape stops", () => {
+    expect(presenting({ key: "ArrowRight" }).log).toEqual(["present=next"]);
+    expect(presenting({ key: " ", code: "Space" }).log).toEqual(["present=next"]);
+    expect(presenting({ key: "PageDown" }).log).toEqual(["present=next"]);
+    expect(presenting({ key: " ", code: "Space", shiftKey: true }).log).toEqual([
+      "present=previous",
+    ]);
+    expect(presenting({ key: "ArrowLeft" }).log).toEqual(["present=previous"]);
+    const stop = presenting({ key: "Escape" });
+    expect(stop.log).toEqual(["present=stop"]);
+    expect(stop.defaultPrevented).toBe(false);
+    // Not presenting, an arrow nudges as ever.
+    expect(press({ key: "ArrowRight" }).log).toEqual(["persist"]);
+  });
+
+  test("going to a frame looks at it face-on; Present starts the deck", () => {
+    const recording = press({ key: "Shift" }, EMPTY_SELECTION, false, { doc: framed });
+    act(() => recording.apply({ type: "viewpoint", id: "f" }));
+    act(() => recording.apply({ type: "viewpoint", id: "gone" }));
+    act(() => recording.apply({ type: "present", act: "start" }));
+    expect(recording.log).toEqual(["faceOn=f", "present=start"]);
   });
 });
 

@@ -94,6 +94,12 @@ export interface CanvasViewportControls {
   zoomTo(zoom: number): void;
   /** Frame `items` ({@link fitView}); nothing to frame leaves the camera be. */
   frame(items: readonly CanvasHitItem[]): void;
+  /**
+   * Look at `item` face-on and frame it ({@link faceOnView}): a frame seen
+   * as a viewpoint. The top-down 2D view frames one that faces up, and
+   * enters 3D for any other.
+   */
+  faceOn(item: CanvasHitItem): void;
   /** Look from `preset`; the top-down 2D view enters 3D for any other. */
   look(preset: CanvasViewPreset): void;
   /** Swap between perspective and orthographic; from 2D, enter 3D in perspective. */
@@ -101,7 +107,7 @@ export interface CanvasViewportControls {
 }
 
 /** What the 2D canvas's own camera answers: the rest is a way into 3D. */
-export type FlatViewportControls = Omit<CanvasViewportControls, "look" | "toggleLens">;
+export type FlatViewportControls = Omit<CanvasViewportControls, "look" | "toggleLens" | "faceOn">;
 
 /** Where an orthographic eye stands behind the focus plane, canvas units (any far point will do). */
 const ORTHO_STANDOFF = 1e6;
@@ -629,6 +635,36 @@ export function fitView(
   const zoom = clampZoom(Math.min(1, ...fits.map(({ extent, room }) => room / extent)));
   const mid = (i: 0 | 1 | 2) => ((low[i] ?? 0) + (high[i] ?? 0)) / 2;
   return { ...from, x: mid(0), y: mid(1), z: mid(2), zoom };
+}
+
+/** Under this much pitch, radians, a view is from the top, and its yaw only turns the screen. */
+const FROM_TOP = 1e-3;
+
+/**
+ * `from` turned to look at `item` face-on and refocused to frame it (its
+ * lens kept): the eye stands on the side its face points to — its box's
+ * own Z, turned (from above, for a face turned down: there is no view from
+ * under the floor) — and a face seen from the top is squared to the screen
+ * along its own X. A frame on the floor is looked at from the top; one
+ * stood up as a wall, level from in front of it. Null when there is nothing
+ * to frame.
+ */
+export function faceOnView(
+  item: CanvasHitItem,
+  size: ViewSize,
+  from: CanvasView,
+): CanvasView | null {
+  const m = boxFrame(item).matrix;
+  const up = m[8] < 0 ? -1 : 1;
+  const normal = { x: m[2] * up, y: m[5] * up, z: m[8] * up };
+  const pitch = Math.acos(Math.min(1, normal.z));
+  const yaw = pitch < FROM_TOP ? Math.atan2(m[3], m[0]) : Math.atan2(-normal.x, normal.y);
+  return fitView([item], size, { ...from, yaw, pitch: clampPitch(pitch) });
+}
+
+/** Whether `view` looks straight down with the screen along x and y: what the 2D view can show. */
+export function isTopView(view: CanvasView): boolean {
+  return view.pitch < FROM_TOP && Math.abs(turn(view.yaw, 0)) < FROM_TOP;
 }
 
 /** An orbit tips no further than level with the floor, radians, and never under it. */

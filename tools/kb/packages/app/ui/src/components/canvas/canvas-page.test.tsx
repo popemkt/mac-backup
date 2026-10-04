@@ -61,6 +61,12 @@ function dispatchPointer(
   });
 }
 
+/** A key pressed on the window, as the canvas hears it. */
+const key = (init: KeyboardEventInit) =>
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ...init }));
+  });
+
 /** Past the canvas's persist debounce. */
 const settle = () => act(async () => new Promise((done) => setTimeout(done, 350)));
 
@@ -208,6 +214,154 @@ describe("CanvasPage pointer interactions", () => {
       width: 125,
       height: 100,
     });
+  });
+
+  it("a member stands for its group until the group is entered; Esc leaves it; ⌘⇧G takes it apart", async () => {
+    const framed: CanvasDoc = {
+      nodes: [
+        { id: "f", type: "group", label: "Ideas", x: 0, y: 0, width: 400, height: 200 },
+        { id: "a", type: "text", text: "a", x: 20, y: 40, width: 120, height: 60, parent: "f" },
+        { id: "b", type: "text", text: "b", x: 220, y: 40, width: 120, height: 60, parent: "f" },
+      ],
+      edges: [],
+    };
+    const node: OutlineNode = {
+      ...canvasNode,
+      props: {
+        ...canvasNode.props,
+        [SYSTEM_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
+      },
+    };
+    useOutlineStore.setState({ nodes: new Map([[node.id, node]]) });
+    await act(async () => {
+      root.render(<CanvasPage canvasId="canvas" />);
+    });
+    const canvasStage = present(container.querySelector("[data-canvas-stage]"), "stage");
+    const pointerSurface = present(canvasStage.parentElement?.parentElement, "pointer surface");
+    const faceOf = (id: string) =>
+      present(container.querySelector(`[data-card-id="${id}"] .group\\/card`), `card ${id}`);
+    const selected = () =>
+      [...container.querySelectorAll<HTMLElement>("[data-card-id][data-selected]")].map(
+        (el) => el.dataset.cardId,
+      );
+    const chip = () => container.querySelector('[data-testid="canvas-scope"]');
+
+    // A press on a member selects its group, and a drag carries the group with its members.
+    dispatchPointer(faceOf("a"), "pointerdown", { button: 0, clientX: 100, clientY: 100 });
+    expect(selected()).toEqual(["f"]);
+    dispatchPointer(pointerSurface, "pointermove", { button: 0, clientX: 110, clientY: 100 });
+    dispatchPointer(pointerSurface, "pointermove", { button: 0, clientX: 137, clientY: 100 });
+    dispatchPointer(pointerSurface, "pointerup", { button: 0, clientX: 137, clientY: 100 });
+    await settle();
+    const carried = persistCanvasDoc.mock.calls.at(-1)?.[1];
+    expect(carried?.nodes.map((n) => [n.id, n.x])).toEqual([
+      ["f", 37],
+      ["a", 57],
+      ["b", 257],
+    ]);
+
+    // A double-click enters the group, selecting the member under it; Esc leaves, selecting the group.
+    act(() => {
+      faceOf("a").dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+    });
+    expect(selected()).toEqual(["a"]);
+    expect(chip()?.textContent).toContain("Ideas");
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    });
+    expect(chip()).toBeNull();
+    expect(selected()).toEqual(["f"]);
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "G", metaKey: true, shiftKey: true }),
+      );
+    });
+    await settle();
+    const apart = persistCanvasDoc.mock.calls.at(-1)?.[1];
+    expect(apart?.nodes.map((n) => [n.id, n.parent])).toEqual([
+      ["a", undefined],
+      ["b", undefined],
+    ]);
+    expect(selected()).toEqual(["a", "b"]);
+  });
+
+  it("present mode ends with its frame, and a frame made later does not bring it back", async () => {
+    const framed: CanvasDoc = {
+      nodes: [
+        { id: "f", type: "group", label: "Ideas", x: 0, y: 0, width: 300, height: 200 },
+        { id: "b", type: "text", text: "b", x: 500, y: 40, width: 120, height: 60 },
+      ],
+      edges: [],
+    };
+    const node: OutlineNode = {
+      ...canvasNode,
+      props: {
+        ...canvasNode.props,
+        [SYSTEM_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
+      },
+    };
+    useOutlineStore.setState({ nodes: new Map([[node.id, node]]) });
+    await act(async () => {
+      root.render(<CanvasPage canvasId="canvas" />);
+    });
+    const canvasStage = present(container.querySelector("[data-canvas-stage]"), "stage");
+    const pointerSurface = present(canvasStage.parentElement?.parentElement, "pointer surface");
+    const press = (id: string) => {
+      const face = present(container.querySelector(`[data-card-id="${id}"] .group\\/card`), id);
+      dispatchPointer(face, "pointerdown", { button: 0, clientX: 520, clientY: 60 });
+      dispatchPointer(pointerSurface, "pointerup", { button: 0, clientX: 520, clientY: 60 });
+    };
+    const bar = () => container.querySelector('[data-testid="canvas-present-bar"]');
+
+    act(() => {
+      present(container.querySelector<HTMLElement>("[aria-haspopup=menu]"), "view menu").click();
+    });
+    const start = [...container.querySelectorAll<HTMLElement>("[role=menuitem]")].find((item) =>
+      item.textContent.startsWith("Present frames"),
+    );
+    act(() => start?.click());
+    expect(bar()?.textContent).toContain("Ideas");
+
+    // The frame presented is deleted: present mode ends.
+    press("f");
+    key({ key: "Delete" });
+    expect(bar()).toBeNull();
+
+    // A frame made later is not presented, and the arrows nudge again.
+    press("b");
+    key({ key: "g", metaKey: true });
+    expect(bar()).toBeNull();
+    key({ key: "ArrowRight", shiftKey: true });
+    await settle();
+    const last = persistCanvasDoc.mock.calls.at(-1)?.[1];
+    expect(last?.nodes.find((n) => n.id === "b")?.x).toBe(510);
+  });
+
+  it("a placing tool sees through a frame: what it places there belongs to the frame", async () => {
+    const framed: CanvasDoc = {
+      nodes: [{ id: "f", type: "group", label: "Ideas", x: 0, y: 0, width: 600, height: 400 }],
+      edges: [],
+    };
+    const node: OutlineNode = {
+      ...canvasNode,
+      props: {
+        ...canvasNode.props,
+        [SYSTEM_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
+      },
+    };
+    useOutlineStore.setState({ nodes: new Map([[node.id, node]]) });
+    await act(async () => {
+      root.render(<CanvasPage canvasId="canvas" />);
+    });
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "r" }));
+    });
+    const frame = present(container.querySelector('[data-card-id="f"] .group\\/card'), "frame");
+    dispatchPointer(frame, "pointerdown", { button: 0, clientX: 200, clientY: 200 });
+    await settle();
+    const placed = persistCanvasDoc.mock.calls.at(-1)?.[1].nodes.at(-1);
+    expect(placed).toMatchObject({ type: "shape", shape: "rect", parent: "f" });
   });
 
   it("a modal grab follows the pointer, and a press confirms or cancels it, reaching nothing", async () => {

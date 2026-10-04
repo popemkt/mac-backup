@@ -12,6 +12,7 @@ import { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasIntent } from "./canvas-keymap";
 import { TIMING_FALLBACK } from "@/lib/timing";
 import { CanvasViewWidget } from "./canvas-view-widget";
+import type { CanvasGroupNode } from "@kb/canvas";
 
 const size = { width: 800, height: 600 };
 const flat = viewOfPan({ x: 0, y: 0 }, 1, size);
@@ -41,7 +42,12 @@ afterEach(() => {
   container.remove();
 });
 
-function mount(view: CanvasView, in3d: boolean, selectionEmpty = true) {
+function mount(
+  view: CanvasView,
+  in3d: boolean,
+  selectionEmpty = true,
+  frames: readonly CanvasGroupNode[] = [],
+) {
   const rig = new CanvasCameraRig(view, TIMING_FALLBACK, true);
   const onIntent = vi.fn<(intent: CanvasIntent) => void>();
   function Host() {
@@ -52,6 +58,7 @@ function mount(view: CanvasView, in3d: boolean, selectionEmpty = true) {
       flatView: flat,
       projection: in3d ? "3d" : "2d",
       selectionEmpty,
+      frames,
       menuOpen: open,
       onMenuOpenChange: setOpen,
       onIntent,
@@ -96,5 +103,27 @@ describe("the canvas view widget", () => {
     click(named("Front"));
     expect(onIntent).toHaveBeenCalledWith({ type: "look", preset: "front" });
     expect(container.querySelector("[role=menu]")).toBeNull();
+  });
+
+  it("lists the canvas's frames to go to, and presents them only when there are some", () => {
+    const frames: CanvasGroupNode[] = [
+      { id: "f1", type: "group", label: "Ideas", x: 0, y: 0, width: 100, height: 100 },
+      { id: "f2", type: "group", x: 200, y: 0, width: 100, height: 100 },
+    ];
+    const items = () => [...container.querySelectorAll<HTMLButtonElement>("[role^=menuitem]")];
+    const named = (name: string) => items().find((item) => item.textContent.startsWith(name));
+    mount(flat, false);
+    click(container.querySelector("[aria-haspopup=menu]"));
+    expect(named("Present frames")?.disabled).toBe(true);
+    expect(container.querySelector("[role=group][aria-label=Frames]")).toBeNull();
+    act(() => root.unmount());
+    root = createRoot(container);
+    const { onIntent } = mount(flat, false, true, frames);
+    click(container.querySelector("[aria-haspopup=menu]"));
+    expect(named("Present frames")?.disabled).toBe(false);
+    // A frame with no label goes by its place among the frames.
+    expect(named("Frame 2")).toBeDefined();
+    click(named("Ideas"));
+    expect(onIntent).toHaveBeenCalledWith({ type: "viewpoint", id: "f1" });
   });
 });

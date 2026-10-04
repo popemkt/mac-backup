@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { present } from "@kb/model";
 import { parseCanvasDoc, presetItem, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import { edgePath } from "./canvas-edge-path";
-import { placeWithTool, reduceCanvasTool } from "./canvas-tool";
+import { placesItem, placeWithTool, reduceCanvasTool } from "./canvas-tool";
 
 const createShapeNode = (kind: "rect" | "ellipse" | "diamond", x: number, y: number, id: string) =>
   presetItem(kind, { x, y }, id);
@@ -122,5 +122,25 @@ describe("edge-to-shape connectivity", () => {
       toNode: "b",
     });
     expect(again.nodes.map((n) => n.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("placing into frames", () => {
+  test("every tool but select and the card places on a press; both projections ask this", () => {
+    expect(placesItem("rect")).toBe(true);
+    expect(placesItem("group")).toBe(true);
+    expect(placesItem("select")).toBe(false);
+    expect(placesItem("kb-node")).toBe(false);
+  });
+
+  test("an item placed over a frame belongs to it", () => {
+    const doc: CanvasDoc = {
+      nodes: [{ id: "f", type: "group", x: 0, y: 0, width: 600, height: 400 }],
+      edges: [],
+    };
+    const placed = placeWithTool(doc, "rect", { x: 100, y: 100 }, "r");
+    expect(placed?.doc.nodes.at(-1)).toMatchObject({ id: "r", parent: "f" });
+    const outside = placeWithTool(doc, "rect", { x: 900, y: 900 }, "o");
+    expect(outside?.doc.nodes.at(-1)).not.toHaveProperty("parent");
   });
 });

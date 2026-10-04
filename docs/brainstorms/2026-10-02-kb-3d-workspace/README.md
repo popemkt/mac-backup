@@ -385,6 +385,42 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
       re-openable group ([§b](research.md#b-prior-art-products), takeaway 2).
     - Blender's split between collections and parenting is skipped
       ([§c](research.md#c-blender--dcc-conventions-adopt-vs-skip)).
+    - Built in step 6, with six choices made in the doing.
+      - **`parent` is the one membership, stored; geometry only proposes
+        it.** JSON Canvas groups contain by geometry alone, and kb's
+        `group` items held nothing. Now an item placed (any tool, a paste,
+        a duplicate) or let go after any transform — a carry, a nudge, a
+        modal or gizmo transform — belongs to the frame nested deepest of
+        those no smaller than it whose top view holds its centre (paint
+        order only breaks a tie), or to none: tldraw's
+        frame gesture, applied once, so a member never leaves by being
+        looked at differently, and ⌘G can state membership outright
+        (`@kb/canvas` `membership.ts`). A `parent` that names no group or
+        closes a cycle is not honoured. Height plays no part, as for what a
+        carried item stands on; a frame stood up as a wall holds nothing on
+        its face yet (`GAP [frame-face-membership]`).
+      - **A group carries its members through the one transform path.**
+        The transform drag holds what the selection carries (`carriedBy`):
+        the items, about whose pivot it turns and scales, and their members,
+        which follow the motion of space it makes (`motionOf`, no extrude:
+        E grows only the items named). The inspector's lift and turn of a
+        group carry members by the motion of its base (`editItem`). A corner
+        resize reshapes a frame alone, as tldraw's frame handles do.
+      - **Tldraw's group scope**: a press on a member reaches the group not
+        entered; double-click goes one group deeper (on a frame's body,
+        into it); Esc puts an armed tool down, then leaves, before it clears; a press outside, or on empty
+        canvas, steps out. A placing tool sees through a frame to the
+        floor, and a member's ports still start an edge.
+      - **Paint order is tree order at one height**: a group before its
+        members whatever the document order (both projections, and the
+        contract proves it nested).
+      - **Delete, copy and duplicate take the members.** ⌘⇧G releases them
+        to the group's own group.
+      - **Viewpoints and present mode** (decision 7): frames that belong to
+        no other, in document order. "Go to frame" (the view menu) and
+        present mode look face-on (`faceOnView`, a camera view like the
+        presets, fitted as ⇧2 fits); the 2D view frames a floor frame and
+        enters 3D for a stood-up one. Present's keys are a slide deck's; it stands at a frame by id and ends with it.
 
 13. **Connectors in 3D.** Edges keep their current model.
     - On a solid, the anchors are its four side faces and its top face. When

@@ -137,6 +137,65 @@ export function transformItems(
   return { ...doc, nodes: doc.nodes.map((node) => moved.get(node.id) ?? node) };
 }
 
+/**
+ * The motion of space `t` makes, without its extrude: what a group's
+ * members follow when it is transformed, so an extrude grows the items it
+ * names and no member of theirs.
+ */
+export function motionOf(t: CanvasTransform): CanvasTransform {
+  return t.extrude === 0 ? t : { ...t, extrude: 0 };
+}
+
+/** Whether `t` leaves every item where it is. */
+export function isStill(t: CanvasTransform): boolean {
+  const { move, stretch } = t;
+  return (
+    move.x === 0 &&
+    move.y === 0 &&
+    move.z === 0 &&
+    stretch.x === 1 &&
+    stretch.y === 1 &&
+    stretch.z === 1 &&
+    t.extrude === 0 &&
+    same(t.turn, IDENTITY)
+  );
+}
+
+/** The centre of a box's base, as turned: what stands on it rides there. */
+function baseOf(box: CanvasBox): CanvasVec {
+  const { centre, half, matrix } = boxFrame(box);
+  return {
+    x: centre.x - matrix[2] * half.z,
+    y: centre.y - matrix[5] * half.z,
+    z: centre.z - matrix[8] * half.z,
+  };
+}
+
+/**
+ * The motion that carries `before`'s base to `after`'s, turned as it
+ * turned: how what stands on a box follows an edit of its record. A change
+ * of size or depth is no motion — a frame reshaped from its corner, or
+ * extruded, leaves its members where they are.
+ */
+export function motionBetween(before: CanvasBox, after: CanvasBox): CanvasTransform {
+  const from = baseOf(before);
+  // Read at the size it had, its corner where it now stands (JSON Canvas's
+  // anchor): a reshape or an extrude is no motion, turned or not.
+  const to = baseOf({
+    ...after,
+    width: before.width,
+    height: before.height,
+    depth: before.depth ?? 0,
+  });
+  const turn = multiply(boxFrame(after).matrix, transpose(boxFrame(before).matrix));
+  return {
+    ...stillAbout(from),
+    move: { x: to.x - from.x, y: to.y - from.y, z: to.z - from.z },
+    // The same turn before and after is no turn, whatever float noise R·Rᵀ leaves.
+    turn: turn.every((v, i) => Math.abs(v - (IDENTITY[i] ?? 0)) < 1e-9) ? IDENTITY : turn,
+  };
+}
+
 /** A transform that only moves, by `by`, about `pivot`: what a nudge of the arrow keys makes. */
 export function moveBy(pivot: CanvasVec, by: CanvasVec): CanvasTransform {
   return { ...stillAbout(pivot), move: by };

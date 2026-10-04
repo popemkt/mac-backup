@@ -32,9 +32,11 @@ function harness(
     items: () => items,
     selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
     spaceDown: () => false,
+    placing: () => false,
     transforming: () => transforming,
     gizmo: () => gizmo,
-    cardPress: (_card, _press, startMove) => startMove(),
+    cardPress: (pressed, _press, startMove) => startMove(pressed.id),
+    cardDoubleClick: vi.fn(() => true),
     dispatch: (event) => events.push(event),
     orbit: vi.fn(),
     pan: vi.fn(),
@@ -169,5 +171,44 @@ describe("gestures over the 3D canvas", () => {
     gestures.up(press({ x: 5, y: 5 }, { button: 2 }), false);
     expect(host.settled).not.toHaveBeenCalled();
     expect(host.tapEmpty).not.toHaveBeenCalled();
+  });
+});
+
+describe("groups in 3D", () => {
+  test("a press carries what the page says it reaches: the group a member stands for", () => {
+    const { gestures, events, host } = harness();
+    gestures.bind({ ...host, cardPress: (_card, _press, startMove) => startMove("its-group") });
+    gestures.down(press(centre()));
+    expect(events[0]).toEqual({ type: "move/start", id: "its-group", screen: centre() });
+  });
+
+  test("a double-click on a card asks to enter toward it; on empty canvas, or mid-transform, nothing", () => {
+    const { gestures, host } = harness();
+    gestures.doubleClick(press(centre()));
+    expect(host.cardDoubleClick).toHaveBeenCalledWith(card);
+    gestures.doubleClick(press({ x: 5, y: 5 }));
+    expect(host.cardDoubleClick).toHaveBeenCalledTimes(1);
+    const modal = harness(undefined, undefined, undefined, true);
+    modal.gestures.doubleClick(press(centre()));
+    expect(modal.host.cardDoubleClick).not.toHaveBeenCalled();
+  });
+});
+
+describe("a placing tool over a frame", () => {
+  const frame: CanvasNode = { id: "f", type: "group", x: 100, y: 50, width: 200, height: 100 };
+
+  test("sees through it to the floor: a tap places, where a press would select the frame", () => {
+    const { gestures, events, host } = harness(undefined, [frame]);
+    gestures.bind({ ...host, placing: () => true });
+    const at = projectPoint(tilted, size, { x: 200, y: 100, z: 0 });
+    if (at === null) throw new Error("the frame's centre is out of view");
+    gestures.down(press(at));
+    gestures.up(press(at), false);
+    expect(host.tapEmpty).toHaveBeenCalledTimes(1);
+    expect(events).toEqual([]);
+    // With the select tool the same press takes hold of the frame.
+    const plain = harness(undefined, [frame]);
+    plain.gestures.down(press(at));
+    expect(plain.events[0]).toMatchObject({ type: "move/start", id: "f" });
   });
 });

@@ -2000,6 +2000,7 @@ units. kb's extension fields:
 | item     | `z`      | elevation: the height of the item's base above the floor. Absent is 0, the canvas plane, and 0 is written as absent |
 | item     | `depth`  | how far the item rises from its base. Absent is 0, flat, and 0 is written as absent; extruding sets this and nothing else |
 | item     | `rotation` | `{ x?, y?, z? }`: how the item's box is turned about its centre, in degrees about x, then y, then z, each about the canvas's fixed axes (Blender's XYZ Euler; `@kb/canvas` `rotation.ts` owns the order). Right-handed in canvas coordinates, so with y down the page a positive `z` turns clockwise from the top, as CSS `rotate` does. An absent angle is 0, kb writes only the angles that are not 0 and each within (-180, 180], and an unturned item has no `rotation` |
+| item     | `parent` | the group the item belongs to: a `group` item's id. Groups nest, and a group carries its members — what moves, turns, scales, deletes or copies it does so to them, rewriting their world coordinates. One that names no group, or would make the item its own member, is not honoured (the item belongs to the canvas) and is kept as written. kb sets it where an item is placed or let go: of the frames no smaller than it whose top view holds its centre, the one nested deepest (then the one drawn on top), or none (`@kb/canvas` `membership.ts`) |
 | edge     | `kbLink` | the one-shot native bind of a drawn edge ([INSPIRATIONS](INSPIRATIONS.md): edges are drawings)            |
 | document | `camera` | `{ projection: "2d" \| "3d", pose? }`: which projection the canvas opens in, and its last 3D pose; absent is 2D |
 
@@ -2013,7 +2014,8 @@ Every item is a box — its footprint, its `z` and its `depth`, turned by its
 fills it (the shape table, `@kb/canvas` `shapes.ts`). In 3D, `z` is a real
 axis; from the top, items paint by the height of their top surface
 (`z + depth`, a turned item's highest corner) and then in document order,
-which bring-to-front and send-to-back rearrange. An agent sets height,
+which bring-to-front and send-to-back rearrange; at one height a group
+paints before its members, whatever their order. An agent sets height,
 volume and turn the way it moves a card: it writes `z`, `depth` and
 `rotation` on the item and applies the document; a solid preset (box,
 pillar, sphere, cone, slab, wall) is nothing but a shape item with depth.

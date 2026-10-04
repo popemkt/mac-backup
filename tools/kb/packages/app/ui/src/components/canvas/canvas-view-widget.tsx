@@ -8,10 +8,11 @@
  * Clicking an axis end looks from that side (Blender's convention: the +X end
  * is the right view). The menu lists the view commands (`CANVAS_VIEW_COMMANDS`,
  * the keymap's own table) and sends them through the keymap's applier, so a
- * key and a click cannot mean different things.
+ * key and a click cannot mean different things; under them, the canvas's
+ * frames, each a viewpoint to go to.
  */
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import type { CanvasProjectionKind } from "@kb/canvas";
+import type { CanvasGroupNode, CanvasProjectionKind } from "@kb/canvas";
 import {
   CANVAS_VIEW_PRESETS,
   lensOf,
@@ -24,6 +25,7 @@ import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
 import { cn, isOutside } from "@/sdk";
 import { AXIS_INK } from "./canvas-gizmo";
+import { frameName } from "./canvas-frame-name";
 
 export interface CanvasViewWidgetProps {
   readonly rig: CanvasCameraRig;
@@ -33,6 +35,8 @@ export interface CanvasViewWidgetProps {
   /** The projection the canvas asks for. */
   readonly projection: CanvasProjectionKind;
   readonly selectionEmpty: boolean;
+  /** The frames the canvas is seen through (`viewpointFrames`): the menu goes to each. */
+  readonly frames: readonly CanvasGroupNode[];
   readonly menuOpen: boolean;
   readonly onMenuOpenChange: (open: boolean) => void;
   readonly onIntent: (intent: CanvasIntent) => void;
@@ -175,11 +179,18 @@ function checkedOf(
   return null;
 }
 
+/** The menu's row look, and its kbd hint's. */
+const ROW = cn(
+  "flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left outline-none",
+  "hover:bg-foreground/[0.06] focus-visible:bg-foreground/[0.06] disabled:opacity-40",
+);
+
 function ViewMenu({
   view,
   in3d,
   projection,
   selectionEmpty,
+  frames,
   onIntent,
   onClose,
   anchor,
@@ -188,6 +199,7 @@ function ViewMenu({
   in3d: boolean;
   projection: CanvasProjectionKind;
   selectionEmpty: boolean;
+  frames: readonly CanvasGroupNode[];
   onIntent: (intent: CanvasIntent) => void;
   onClose: (returnFocus: boolean) => void;
   anchor: React.RefObject<HTMLElement | null>;
@@ -231,7 +243,9 @@ function ViewMenu({
         const prior = CANVAS_VIEW_COMMANDS[index - 1];
         const separated = prior !== undefined && prior.intent.type !== intent.type;
         const checked = checkedOf(command, view, in3d, projection);
-        const disabled = intent.type === "frame" && intent.scope === "selection" && selectionEmpty;
+        const disabled =
+          (intent.type === "frame" && intent.scope === "selection" && selectionEmpty) ||
+          (intent.type === "present" && frames.length === 0);
         const role =
           checked === null
             ? "menuitem"
@@ -248,11 +262,7 @@ function ViewMenu({
               disabled={disabled}
               // The menu opens with its first command focused, for the arrow keys.
               autoFocus={command === CANVAS_VIEW_COMMANDS[0]}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left outline-none",
-                "hover:bg-foreground/[0.06] focus-visible:bg-foreground/[0.06] disabled:opacity-40",
-                checked === true ? "text-foreground" : "text-foreground/70",
-              )}
+              className={cn(ROW, checked === true ? "text-foreground" : "text-foreground/70")}
               onClick={() => {
                 onIntent(intent);
                 onClose(false);
@@ -275,6 +285,44 @@ function ViewMenu({
           </div>
         );
       })}
+      <FrameItems
+        frames={frames}
+        onGo={(id) => onIntent({ type: "viewpoint", id })}
+        onClose={onClose}
+      />
+    </div>
+  );
+}
+
+/** The menu's frames, each a viewpoint to go to; nothing when the canvas has none. */
+function FrameItems({
+  frames,
+  onGo,
+  onClose,
+}: {
+  frames: readonly CanvasGroupNode[];
+  onGo: (id: string) => void;
+  onClose: (returnFocus: boolean) => void;
+}) {
+  if (frames.length === 0) return null;
+  return (
+    <div role="group" aria-label="Frames">
+      <div role="separator" className="mx-1 my-1 h-px bg-foreground/10" />
+      {frames.map((frame, at) => (
+        <button
+          key={frame.id}
+          type="button"
+          role="menuitem"
+          className={cn(ROW, "text-foreground/70")}
+          onClick={() => {
+            onGo(frame.id);
+            onClose(false);
+          }}
+        >
+          <span className="h-1.5 w-1.5 shrink-0 rounded-xs border border-foreground/30" />
+          <span className="truncate">{frameName(frame, `Frame ${at + 1}`)}</span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -285,6 +333,7 @@ export function CanvasViewWidget({
   flatView,
   projection,
   selectionEmpty,
+  frames,
   menuOpen,
   onMenuOpenChange,
   onIntent,
@@ -316,6 +365,7 @@ export function CanvasViewWidget({
             in3d={in3d}
             projection={projection}
             selectionEmpty={selectionEmpty}
+            frames={frames}
             onIntent={onIntent}
             anchor={trigger}
             onClose={(returnFocus) => {

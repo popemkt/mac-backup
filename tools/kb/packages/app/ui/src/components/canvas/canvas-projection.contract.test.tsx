@@ -19,7 +19,10 @@
  *   footprint and in its corners outside it, both of the above agree with
  *   the model, so what 2D draws and hit-tests is each solid's top view —
  *   for turned items too, flat and solid, spun about z and tilted;
- * - a card moved and turned in the document is drawn where it went.
+ * - a card moved and turned in the document is drawn where it went;
+ * - nested membership: a frame paints under what belongs to it, at any
+ *   depth and whatever the document order, and a frame's transform draws
+ *   its members where it carried them.
  *
  * The 2D projection is the real DOM stage; the 3D one is the real scene on
  * the GPU stand-ins (`@/test-support/fake-gpu`). A projection joins by its
@@ -34,12 +37,17 @@ import {
   boxFrame,
   boxToLocal,
   boxToWorld,
+  carriedBy,
   directionToLocal,
   faceShare,
   itemShape,
   onFootprint,
   paintOrder,
   planeCorners,
+  selectionPivot,
+  stillAbout,
+  transformCarried,
+  turnAbout,
   type CanvasDoc,
   type CanvasNode,
   type CanvasProjectionKind,
@@ -81,8 +89,48 @@ const solid = (shape: CanvasShapeKind) => ({ type: "shape" as const, shape, labe
 const doc: CanvasDoc = {
   nodes: [
     { id: "frame", type: "group", label: "Frame", x: -40, y: -40, width: 720, height: 260 },
-    { id: "low", type: "text", text: "on the plane", x: 0, y: 0, width: 200, height: 100 },
-    { id: "twin", type: "text", text: "same depth", x: 60, y: 50, width: 200, height: 100 },
+    {
+      id: "low",
+      type: "text",
+      text: "on the plane",
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+      parent: "frame",
+    },
+    {
+      id: "twin",
+      type: "text",
+      text: "same depth",
+      x: 60,
+      y: 50,
+      width: 200,
+      height: 100,
+      parent: "frame",
+    },
+    // Nested membership, written before the groups it belongs to: each paints over its group.
+    {
+      id: "held",
+      type: "text",
+      text: "held",
+      x: 50,
+      y: 745,
+      width: 120,
+      height: 60,
+      parent: "nest",
+    },
+    {
+      id: "nest",
+      type: "group",
+      label: "Nest",
+      x: 20,
+      y: 720,
+      width: 200,
+      height: 120,
+      parent: "late",
+    },
+    { id: "late", type: "group", label: "Late", x: 0, y: 700, width: 320, height: 200 },
     { id: "raised", type: "text", text: "raised", x: 150, y: 40, width: 200, height: 100, z: 80 },
     {
       id: "sunk",
@@ -685,6 +733,39 @@ describe("canvas projection contract", () => {
         expect(probe.topAt(at), `at ${at.x.toFixed(1)},${at.y.toFixed(1)}`).toBe(
           hitTest(order, view, size, at),
         );
+      }
+      probe.dispose();
+    });
+
+    it("draws a frame's members where the frame's transform carried them", async () => {
+      const probe = await mount(view);
+      const carried = carriedBy(doc.nodes, ["late"]);
+      const t = {
+        ...stillAbout(selectionPivot(carried.items)),
+        move: { x: 60, y: -20, z: 30 },
+        turn: turnAbout({ x: 0, y: 0, z: 1 }, Math.PI / 6),
+      };
+      const moved = transformCarried(doc, carried, t);
+      await probe.update(moved);
+      const planes = paintPlanes(paintOrder(moved.nodes));
+      expect(probe.drawn()).toEqual(paintOrder(moved.nodes).map((n) => n.id));
+      for (const id of ["late", "nest", "held"]) {
+        const plane = planes.find((p) => p.item.id === id);
+        expect(plane, id).toBeDefined();
+        if (plane === undefined) continue;
+        const drawn = probe.cornersOf(id);
+        cornersOf(plane.item, plane.z).forEach((corner, i) => {
+          const model = projectPoint(view, size, corner);
+          expect(drawn?.[i]?.x, `${id} corner ${i}`).toBeCloseTo(model?.x ?? Number.NaN, 1);
+          expect(drawn?.[i]?.y, `${id} corner ${i}`).toBeCloseTo(model?.y ?? Number.NaN, 1);
+        });
+      }
+      // What is on top over the carried member is what the model finds there.
+      const held = moved.nodes.find((n) => n.id === "held");
+      const at = held === undefined ? null : projectPoint(view, size, centreOf(held));
+      expect(at).not.toBeNull();
+      if (at !== null) {
+        expect(probe.topAt(at)).toBe(hitTest(paintOrder(moved.nodes), view, size, at));
       }
       probe.dispose();
     });

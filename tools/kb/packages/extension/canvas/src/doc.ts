@@ -3,8 +3,8 @@
  * Spec: https://jsoncanvas.org/spec/1.0/
  *
  * Unknown node types and extra fields round-trip (forward compatible). kb's
- * own extension fields are typed here: `nodeId`, `z`, `depth` and
- * `rotation` on any item, `shape` on a shape item,
+ * own extension fields are typed here: `nodeId`, `z`, `depth`,
+ * `rotation` and `parent` on any item, `shape` on a shape item,
  * `kbLink` on an edge, and `camera` on the document (`./camera.ts`). The
  * format, as agents write it, is DESIGN.md → Canvas documents.
  */
@@ -61,6 +61,12 @@ interface CanvasNodeBase {
    * drawing with no node behind it.
    */
   nodeId?: string;
+  /**
+   * The group the item belongs to: a `group` item's id. A group carries its
+   * members, nested to any depth (`./membership.ts`); one that names no
+   * group, or would make the item its own member, is not honoured.
+   */
+  parent?: string;
   /** Unrecognized fields preserved for round-trip. */
   extra?: Record<string, unknown>;
 }
@@ -185,6 +191,7 @@ const KNOWN_NODE_KEYS = new Set([
   "text",
   "label",
   "nodeId",
+  "parent",
   "shape",
 ]);
 /**
@@ -273,11 +280,15 @@ function parseKbLink(raw: unknown): KbLink | undefined {
 }
 
 /**
- * kb's own optional item fields as written — the numbers and the turn — and
- * the ones present that this version cannot read, which stay unknown fields.
+ * kb's own optional item fields as written — the numbers, the turn and the
+ * group — and the ones present that this version cannot read, which stay
+ * unknown fields.
  */
 function readItemFields(raw: Record<string, unknown>) {
-  const fields: Partial<Record<ItemNumber, number>> & { rotation?: Partial<CanvasRotation> } = {};
+  const fields: Partial<Record<ItemNumber, number>> & {
+    rotation?: Partial<CanvasRotation>;
+    parent?: string;
+  } = {};
   const unread = new Set<string>();
   for (const key of ITEM_NUMBERS) {
     const value = finite(raw[key]);
@@ -287,6 +298,8 @@ function readItemFields(raw: Record<string, unknown>) {
   const rotation = parseRotation(raw.rotation);
   if (rotation !== undefined) fields.rotation = rotation;
   else if (raw.rotation !== undefined) unread.add("rotation");
+  if (typeof raw.parent === "string") fields.parent = raw.parent;
+  else if (raw.parent !== undefined) unread.add("parent");
   return { fields, unread };
 }
 
@@ -390,6 +403,7 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
   if (n.rotation !== undefined) out.rotation = { ...n.rotation };
   if (n.color !== undefined) out.color = n.color;
   if (n.nodeId !== undefined) out.nodeId = n.nodeId;
+  if (n.parent !== undefined) out.parent = n.parent;
   // `CanvasUnknownNode.type` is `string`, so `type === "text"` does not
   // discriminate the union — the guards this module already exports do.
   if (isTextNode(n)) out.text = n.text;
@@ -517,26 +531,20 @@ export function withRotation<N extends CanvasNode>(node: N, rotation: CanvasRota
   return dropExtra(next, "rotation");
 }
 
+/**
+ * `node` belonging to group `parent`, or to none; one set here supersedes a
+ * value this version could not read.
+ */
+export function withParent<N extends CanvasNode>(node: N, parent: string | undefined): N {
+  const next = { ...node };
+  if (parent === undefined) delete next.parent;
+  else next.parent = parent;
+  return dropExtra(next, "parent");
+}
+
 /** The height of an item's top surface: what is stacked on it stands there (`boxTop`). */
 export function canvasTop(node: CanvasNode): number {
   return boxTop(node);
-}
-
-/**
- * Items back to front: by the height of their top surface, and at one
- * height in document order, which bring-to-front and send-to-back
- * rearrange. Every projection paints and hit-tests in this order, so from
- * the top a higher item covers a lower one.
- */
-// A cone or a sphere is ordered by its point, so from the top a raised card
-// over its low rim paints under it there; a tilted item is ordered by its
-// highest corner, so the same holds over its low side.
-// GAP [[01M41GAYYABEV7H197ZPAVD260]]
-export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
-  return nodes
-    .map((node, index) => ({ node, index }))
-    .toSorted((a, b) => canvasTop(a.node) - canvasTop(b.node) || a.index - b.index)
-    .map(({ node }) => node);
 }
 
 /**

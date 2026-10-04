@@ -2,14 +2,18 @@ import {
   boxFrame,
   boxToWorld,
   canvasTop,
+  carriedBy,
   selectionPivot,
+  settleMembership,
   stillAbout,
-  transformItems,
+  transformCarried,
   upsertCanvasEdge,
   upsertCanvasNode,
   withElevation,
+  type CanvasCarried,
   type CanvasDoc,
   type CanvasEdge,
+  type CanvasMembership,
   type CanvasNode,
   type CanvasSide,
   type CanvasTransform,
@@ -34,7 +38,9 @@ import {
   EMPTY_SELECTION,
   addNodes,
   marqueeSelect,
+  pickAllIn,
   selectEdge,
+  type CanvasScope,
   type CanvasSelection,
 } from "./canvas-selection";
 
@@ -84,8 +90,8 @@ type Drag =
    */
   | {
       kind: "transform";
-      /** Each transformed item as it was when the gesture began. */
-      orig: ReadonlyMap<string, CanvasNode>;
+      /** What it carries — the items, the lead first, and their members — as each was when it began. */
+      carried: CanvasCarried;
       /** The items it leaves where they are, read once: what it is read against, snaps to and stands on. */
       ground: TransformGround;
       /** How the pointer makes the transform; null for a handle that reports whole ones (the gizmo). */
@@ -177,10 +183,16 @@ export type CanvasPointerEvent =
       edgeBindingId?: string;
     };
 
-/** What the reducer reads a gesture against: the document, the selection, and the showing camera. */
+/**
+ * What the reducer reads a gesture against: the document, who belongs to
+ * whom on it, the selection and the scope it is made in, and the showing
+ * camera.
+ */
 export interface PointerContext {
   doc: CanvasDoc;
+  membership: CanvasMembership;
   selection: CanvasSelection;
+  scope: CanvasScope;
   byId: ReadonlyMap<string, CanvasNode>;
   view: CanvasView;
   size: ViewSize;
@@ -220,14 +232,17 @@ function carriedIds(id: string, selection: CanvasSelection): ReadonlySet<string>
   return selection.nodeIds.has(id) ? selection.nodeIds : new Set([id]);
 }
 
-/** The items `ids` name, as they are now, by id. */
-function itemsOf(ids: Iterable<string>, ctx: PointerContext): ReadonlyMap<string, CanvasNode> {
-  return new Map(
-    [...ids].flatMap((id) => {
-      const node = ctx.byId.get(id);
-      return node ? [[id, node] as const] : [];
-    }),
-  );
+/**
+ * What a transform of `ids` carries, as it is now — the items and every
+ * member below them — and the ground it leaves where it is.
+ */
+function carry(
+  ids: Iterable<string>,
+  ctx: PointerContext,
+): { readonly carried: CanvasCarried; readonly ground: TransformGround } {
+  const carried = carriedBy(ctx.doc.nodes, ids);
+  const moving = new Set([...carried.items, ...carried.members].map((node) => node.id));
+  return { carried, ground: groundOf(ctx.doc.nodes, moving) };
 }
 
 /** How a pointer-made transform of some items begins. */
@@ -241,21 +256,23 @@ interface TransformStart {
 }
 
 /**
- * A transform drag over `orig`, made by the pointer from `start`. A press
- * waits out the slop and its grab holds the pressed item's top, where a
- * solid is taken hold of; a modal transform follows at once and holds the
- * pivot.
+ * A transform drag of what `ids` carry, made by the pointer from `start`. A
+ * press waits out the slop and its grab holds the pressed item's top, where
+ * a solid is taken hold of; a modal transform follows at once and holds the
+ * pivot. It turns and scales about its items' pivot, and their members
+ * follow.
  */
 function startTransform(
   state: PointerState,
-  orig: ReadonlyMap<string, CanvasNode>,
+  ids: Iterable<string>,
   start: TransformStart,
-  ground: TransformGround,
+  ctx: PointerContext,
   pressed?: CanvasNode,
 ): PointerResult {
-  const lead = orig.values().next().value;
+  const { carried, ground } = carry(ids, ctx);
+  const lead = carried.items[0];
   if (lead === undefined) return result(state);
-  const pivot = selectionPivot([...orig.values()]);
+  const pivot = selectionPivot(carried.items);
   const held = pressed === undefined ? null : boxFrame(pressed).centre;
   const input: TransformInput = {
     mode: start.mode,
@@ -271,7 +288,7 @@ function startTransform(
     ...state,
     drag: {
       kind: "transform",
-      orig,
+      carried,
       ground,
       input,
       slop: modal ? null : screen,
@@ -292,9 +309,8 @@ function startPress(
 ): PointerResult {
   const pressed = ctx.byId.get(press.id);
   if (pressed === undefined) return result(state);
-  const orig = itemsOf(carriedIds(press.id, ctx.selection), ctx);
   const start = { ...how, screen: press.screen, modal: false };
-  return startTransform(state, orig, start, groundOf(ctx.doc.nodes, orig), pressed);
+  return startTransform(state, carriedIds(press.id, ctx.selection), start, ctx, pressed);
 }
 
 function startResize(
@@ -408,18 +424,18 @@ function snapTransform(
   t: CanvasTransform,
   ctx: PointerContext,
 ): SnappedTransform {
-  const moving = [...drag.orig.values()];
+  const moving = drag.carried.items;
   const others = drag.ground.items;
   const lead = moving[0];
-  const carry = drag.input?.mode === "grab" && drag.input.constraint === null;
-  return lead !== undefined && carry
+  const acrossFloor = drag.input?.mode === "grab" && drag.input.constraint === null;
+  return lead !== undefined && acrossFloor
     ? snapCarry(t, lead, others, ctx.view.zoom)
     : snapPrecise(t, moving, others, ctx.view.zoom);
 }
 
-/** The document with every item of `drag` transformed by `t`, from where each began. */
+/** The document with what `drag` carries transformed by `t`, from where each began. */
 function transformed(drag: TransformDrag, t: CanvasTransform, doc: CanvasDoc): CanvasDoc {
-  return transformItems(doc, drag.orig.values(), t);
+  return transformCarried(doc, drag.carried, t);
 }
 
 /**
@@ -466,7 +482,12 @@ function moveTransform(
   return readInput(state, { ...drag, at: event.screen, free: event.free ?? false }, ctx);
 }
 
-/** Write `final` over `drag`'s items as one history step (nothing, when there is none). */
+/**
+ * Write `final` over what `drag` carries as one history step (nothing, when
+ * there is none). The items it lets go of then belong to the frame that
+ * holds them where they landed, or to none (`settleMembership`); their
+ * members came with them, so they stay where they belong.
+ */
 function commitTransform(
   state: PointerState,
   drag: TransformDrag,
@@ -475,7 +496,11 @@ function commitTransform(
 ): PointerResult {
   const done = { ...state, drag: null, snapGuides: [] };
   if (final === null) return result(done);
-  return result(done, { doc: transformed(drag, final, ctx.doc), persist: "history" });
+  const doc = settleMembership(
+    transformed(drag, final, ctx.doc),
+    drag.carried.items.map((item) => item.id),
+  );
+  return result(done, { doc, persist: "history" });
 }
 
 /** A modal transform of the selection, begun from the keyboard with the pointer at `screen`. */
@@ -485,10 +510,9 @@ function beginModal(
   ctx: PointerContext,
 ): PointerResult {
   if (state.drag !== null) return result(state);
-  const orig = itemsOf(ctx.selection.nodeIds, ctx);
   const { mode, screen } = event;
   const start = { mode, constraint: null, screen, modal: true };
-  return startTransform(state, orig, start, groundOf(ctx.doc.nodes, orig));
+  return startTransform(state, ctx.selection.nodeIds, start, ctx);
 }
 
 /** A key during a modal transform: the input changes, and is read again where the pointer is. */
@@ -582,7 +606,12 @@ function reduceMove(
         drag: { ...drag, curX: world.x, curY: world.y },
         marqueeRect,
       },
-      { selection: addNodes(drag.baseSel, marqueeSelect(ctx.doc.nodes, marqueeRect)) },
+      {
+        selection: addNodes(
+          drag.baseSel,
+          pickAllIn(ctx.membership, marqueeSelect(ctx.doc.nodes, marqueeRect), ctx.scope),
+        ),
+      },
     );
   }
   if (drag.kind === "transform") return moveTransform(state, drag, event, ctx);
@@ -723,15 +752,15 @@ function reduceTransform(
   const drag = state.drag?.kind === "transform" ? state.drag : null;
   switch (event.type) {
     case "transform/start": {
-      const orig = itemsOf(ctx.selection.nodeIds, ctx);
-      if (orig.size === 0) return result(state);
+      const { carried, ground } = carry(ctx.selection.nodeIds, ctx);
+      if (carried.items.length === 0) return result(state);
       const at = { x: 0, y: 0 };
       return result({
         ...state,
         drag: {
           kind: "transform",
-          orig,
-          ground: groundOf(ctx.doc.nodes, orig),
+          carried,
+          ground,
           input: null,
           slop: null,
           applied: null,

@@ -27,6 +27,8 @@ export interface Canvas3dStageProps {
   readonly rig: CanvasCameraRig;
   readonly appearance: Appearance;
   readonly spaceDown: boolean;
+  /** A tool that places an item is active: it sees through frames to the floor. */
+  readonly placing: boolean;
   /** A modal transform (G, S, E) is under way: a press ends it. */
   readonly transforming: boolean;
   /** Which transform the gizmo on the selection shows, and along which axes. */
@@ -35,8 +37,14 @@ export interface Canvas3dStageProps {
   readonly onReady: () => void;
   /** The scene could not start; the page stays in 2D. */
   readonly onError: (error: Error) => void;
-  /** A press on a card: select or toggle it, then `startMove` to carry it. */
-  readonly onCardPress: (card: CanvasNode, press: ScenePress, startMove: () => void) => void;
+  /** A press on a card: select or toggle what it reaches, then `startMove` to carry that. */
+  readonly onCardPress: (
+    card: CanvasNode,
+    press: ScenePress,
+    startMove: (id: string) => void,
+  ) => void;
+  /** A double-click on a card: into the group on the way to it (whether it went). */
+  readonly onCardDoubleClick: (card: CanvasNode) => boolean;
   readonly dispatchPointer: (event: CanvasPointerEvent) => void;
   /** A tap on empty canvas, at the canvas-plane point under it (null when edge-on). */
   readonly onTapEmpty: (world: CanvasPoint3 | null, press: ScenePress) => void;
@@ -71,7 +79,7 @@ function localOf(el: HTMLElement, event: { clientX: number; clientY: number }): 
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
 
-function pressOf(el: HTMLElement, event: PointerEvent): ScenePress {
+function pressOf(el: HTMLElement, event: MouseEvent): ScenePress {
   return {
     local: localOf(el, event),
     clientX: event.clientX,
@@ -100,9 +108,11 @@ function useSceneGestures(
       items: () => props.doc.nodes,
       selection: () => props.selection,
       spaceDown: () => props.spaceDown,
+      placing: () => props.placing,
       transforming: () => props.transforming,
       gizmo: () => scene?.gizmo ?? NO_GIZMO,
       cardPress: props.onCardPress,
+      cardDoubleClick: props.onCardDoubleClick,
       dispatch: props.dispatchPointer,
       orbit: (dx, dy) => props.rig.orbitBy(dx, dy),
       pan: (dx, dy) => props.rig.panBy(dx, dy),
@@ -140,7 +150,9 @@ function useSceneGestures(
       timer = setTimeout(settled, WHEEL_SETTLE_MS);
     };
     const onMenu = (e: Event) => e.preventDefault();
+    const onDoubleClick = (e: MouseEvent) => gestures.doubleClick(pressOf(el, e));
     el.addEventListener("pointerdown", onDown);
+    el.addEventListener("dblclick", onDoubleClick);
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);
     el.addEventListener("pointercancel", onCancel);
@@ -149,6 +161,7 @@ function useSceneGestures(
     return () => {
       if (timer !== null) clearTimeout(timer);
       el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("dblclick", onDoubleClick);
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onCancel);
@@ -165,9 +178,11 @@ const IDLE: SceneGestureHost = {
   items: () => [],
   selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
   spaceDown: () => false,
+  placing: () => false,
   transforming: () => false,
   gizmo: () => NO_GIZMO,
   cardPress: () => {},
+  cardDoubleClick: () => false,
   dispatch: () => {},
   orbit: () => {},
   pan: () => {},

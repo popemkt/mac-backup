@@ -13,6 +13,7 @@
  */
 import {
   clampZoom,
+  faceOnView,
   fitView,
   lensOf,
   lerpView,
@@ -139,6 +140,10 @@ export class CanvasCameraRig {
       frame: (items) => {
         const framed = fitView(items, size(), this.current);
         if (framed !== null) this.flyTo(framed, settled);
+      },
+      faceOn: (item) => {
+        const facing = faceOnView(item, size(), this.current);
+        if (facing !== null) this.flyTo(facing, settled);
       },
       look: (preset) => this.flyTo(presetView(this.current, preset), settled),
       toggleLens: () => {

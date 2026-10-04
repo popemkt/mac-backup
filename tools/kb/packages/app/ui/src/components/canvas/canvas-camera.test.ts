@@ -11,8 +11,10 @@ import {
   cameraPose,
   clientToCanvas,
   coversFromAbove,
+  faceOnView,
   fitView,
   hitTest,
+  isTopView,
   lerpView,
   orbitView,
   paintPlanes,
@@ -404,5 +406,45 @@ describe("the floor", () => {
     // 400 wide by 300 high on screen: the 2000 deep footprint is edge-on.
     expect(framed?.zoom).toBeCloseTo(1, 9);
     expect(framed?.z).toBe(150);
+  });
+});
+
+describe("a frame as a viewpoint", () => {
+  const frame: CanvasHitItem = { id: "f", x: 100, y: 50, width: 400, height: 200 };
+
+  test("one on the floor is looked at from the top, squared to the screen along its own x", () => {
+    const flat = faceOnView(frame, size, perspective);
+    expect(flat?.pitch).toBeCloseTo(0, 9);
+    expect(flat?.yaw).toBeCloseTo(0, 9);
+    expect([flat?.x, flat?.y]).toEqual([300, 150]);
+    expect(flat?.fov).toBe(perspective.fov);
+    expect(flat !== null && isTopView(flat)).toBe(true);
+    const spun = faceOnView({ ...frame, rotation: { z: 30 } }, size, perspective);
+    expect(spun?.yaw).toBeCloseTo(Math.PI / 6, 9);
+    expect(spun !== null && isTopView(spun)).toBe(false);
+  });
+
+  test("one stood up as a wall is looked at level, from the side its face points to", () => {
+    // Turned a quarter about x, its face points to canvas -y: the eye stands behind the canvas.
+    const wall = faceOnView({ ...frame, rotation: { x: 90 } }, size, perspective);
+    expect(wall?.pitch).toBeCloseTo(MAX_PITCH, 9);
+    expect(wall === null ? null : presetOf(wall)).toBe("back");
+    // Turned face down, it is looked at from above, never from under the floor.
+    const down = faceOnView({ ...frame, rotation: { x: 180 } }, size, perspective);
+    expect(down?.pitch).toBeCloseTo(0, 9);
+  });
+
+  test("it frames the frame: every corner on screen, inside the padding", () => {
+    const view = faceOnView({ ...frame, rotation: { x: 90, z: 20 } }, size, perspective);
+    expect(view).not.toBeNull();
+    if (view === null) return;
+    for (const corner of [
+      { x: 100, y: 50 },
+      { x: 500, y: 250 },
+    ]) {
+      const at = projectPoint({ ...view, fov: 0 }, size, { ...corner, z: 0 });
+      expect(at?.x).toBeGreaterThanOrEqual(0);
+      expect(at?.x).toBeLessThanOrEqual(size.width);
+    }
   });
 });

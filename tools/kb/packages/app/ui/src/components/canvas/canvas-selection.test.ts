@@ -1,10 +1,14 @@
 import { describe, expect, test } from "vitest";
-import type { CanvasDoc } from "@kb/canvas";
+import { canvasMembership, type CanvasDoc } from "@kb/canvas";
 import {
   EMPTY_SELECTION,
   addNodes,
   deleteSelected,
+  enterToward,
   marqueeSelect,
+  pickAllIn,
+  pickIn,
+  scopeIn,
   selectAll,
   selectEdge,
   selectNode,
@@ -112,5 +116,49 @@ describe("deleteSelected", () => {
     const result = deleteSelected(sampleDoc, EMPTY_SELECTION);
     expect(result.nodes).toHaveLength(3);
     expect(result.edges).toHaveLength(2);
+  });
+});
+
+describe("the scope a selection is made in", () => {
+  /** frame ⊃ { a, inner ⊃ { b } }, and a loose c. */
+  const membership = canvasMembership([
+    { id: "frame", type: "group", x: 0, y: 0, width: 400, height: 300 },
+    { id: "a", type: "text", text: "", x: 0, y: 0, width: 10, height: 10, parent: "frame" },
+    { id: "inner", type: "group", x: 0, y: 0, width: 200, height: 200, parent: "frame" },
+    { id: "b", type: "text", text: "", x: 0, y: 0, width: 10, height: 10, parent: "inner" },
+    { id: "c", type: "text", text: "", x: 0, y: 0, width: 10, height: 10 },
+  ]);
+
+  test("a press reaches the item that belongs directly to the scope", () => {
+    expect(pickIn(membership, "b", null)).toEqual({ id: "frame", scope: null });
+    expect(pickIn(membership, "b", "frame")).toEqual({ id: "inner", scope: "frame" });
+    expect(pickIn(membership, "b", "inner")).toEqual({ id: "b", scope: "inner" });
+    expect(pickIn(membership, "c", null)).toEqual({ id: "c", scope: null });
+  });
+
+  test("a press outside the scope steps out of it, as far as it must", () => {
+    expect(pickIn(membership, "a", "inner")).toEqual({ id: "a", scope: "frame" });
+    expect(pickIn(membership, "c", "inner")).toEqual({ id: "c", scope: null });
+    // The entered group's own body is outside it: the press selects the group.
+    expect(pickIn(membership, "inner", "inner")).toEqual({ id: "inner", scope: "frame" });
+    // A scope that is gone is the canvas.
+    expect(pickIn(membership, "b", "gone")).toEqual({ id: "frame", scope: null });
+    expect(scopeIn(membership, "a")).toBeNull();
+  });
+
+  test("a double-click goes one group deeper toward the item, or is the item's own", () => {
+    expect(enterToward(membership, "b", null)).toEqual({ id: "inner", scope: "frame" });
+    expect(enterToward(membership, "b", "frame")).toEqual({ id: "b", scope: "inner" });
+    expect(enterToward(membership, "b", "inner")).toBeNull();
+    expect(enterToward(membership, "c", null)).toBeNull();
+    // On a group a press selects whole: into it, with nothing selected.
+    expect(enterToward(membership, "frame", null)).toEqual({ id: null, scope: "frame" });
+  });
+
+  test("a marquee picks as a press would, and nothing outside the scope", () => {
+    const all = ["frame", "a", "inner", "b", "c"];
+    expect(pickAllIn(membership, all, null)).toEqual(new Set(["frame", "c"]));
+    expect(pickAllIn(membership, all, "frame")).toEqual(new Set(["a", "inner"]));
+    expect(pickAllIn(membership, all, "inner")).toEqual(new Set(["b"]));
   });
 });

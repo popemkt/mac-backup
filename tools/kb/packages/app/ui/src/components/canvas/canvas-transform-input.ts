@@ -176,10 +176,10 @@ export interface TransformGround {
   readonly solid: boolean;
 }
 
-/** The ground a transform of everything but `moving` stands on, in `nodes`. */
+/** The ground a transform of everything but the items `moving` names stands on, in `nodes`. */
 export function groundOf(
   nodes: readonly CanvasNode[],
-  moving: ReadonlyMap<string, CanvasNode>,
+  moving: ReadonlySet<string>,
 ): TransformGround {
   const items = paintOrder(nodes.filter((node) => !moving.has(node.id)));
   return { items, solid: items.some((item) => canvasDepth(item) > 0) };
