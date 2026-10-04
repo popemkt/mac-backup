@@ -769,6 +769,15 @@ was silent, this is what was picked:
   icon, since an icon per family would be browser metadata no row needs.
 - **`kb ext list`** lists every family, an optional one as `off` until
   switched on.
+- **After review.** Switching changes which code the server loads, so two
+  seeded approval policies gate `extension.switch` as decision 13 gates
+  `node.delete` and `sandbox.trust`: an agent asks, sandboxed code is
+  denied, and a person or the CLI needs no row. This is the one deliberate
+  seed-golden change of E10b: an existing store gains the two policies on
+  its next open, once. The switch re-reads the store before it writes. A
+  page served by `kb ui` opens its workspace only once the manifest's
+  plugins are loaded. `BROWSER_EXTENSIONS` names every bundled family, a
+  server-only one (docs, check) as `null`, and a test holds it to that.
 - **Gaps.** The bridge gap is closed. The UI-zones gap is narrowed (the
   lab and agent are no longer in the main bundle), and the rule's "not
   checked yet" now names the `-ui` pairing of E12.
