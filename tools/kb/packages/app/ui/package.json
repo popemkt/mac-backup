@@ -25,7 +25,7 @@
     "@kb/bundled": "workspace:*",
     "@kb/canvas": "workspace:*",
     "@kb/chart": "workspace:*",
-    "@kb/chart-vega": "workspace:*",
+    "@kb/chart-ui": "workspace:*",
     "@kb/check": "workspace:*",
     "@kb/code": "workspace:*",
     "@kb/contracts": "workspace:*",

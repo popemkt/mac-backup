@@ -21,9 +21,10 @@
 @import "./design-systems/terminal.css";
 @import "./tokens.css";
 @import "./motion.css";
-/* The page's other browser packages (the kit) are compiled from source into
- * this bundle, so their classes are scanned too. */
+/* The page's other browser packages (the kit, each family's UI half) are
+ * compiled from source into this bundle, so their classes are scanned too. */
 @source "../../../kit";
+@source "../../../extension/*-ui/src/**/*.{ts,tsx}";
 
 @custom-variant dark (&:is(.dark *));
 

@@ -181,8 +181,6 @@ export interface SanctionedExtensionImport {
  *
  * - The agent's UI half, `src/agent.ts` and `components/agent`, leaves with
  *   `@kb/agent-ui` (step E12 of the extension-boundaries plan).
- * - The chart's UI half, `components/chart`, reads its family's vocabulary
- *   and draws with its painter; it leaves with `@kb/chart-ui` (E12).
  * - The code view's UI half, `components/code`, reads its family's key and
  *   loads its shared plugin; it leaves with `@kb/code-ui` (E12).
  * - The lab's UI half, `components/lab`, reads its family's key and studies
@@ -207,18 +205,6 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
         "src/components/agent/plugin.ts",
       ],
     },
-    {
-      target: "@kb/chart",
-      files: [
-        "src/components/chart/add-chart.tsx",
-        "src/components/chart/chart-canvas.tsx",
-        "src/components/chart/chart-data.ts",
-        "src/components/chart/chart-page.tsx",
-        "src/components/chart/plugin.ts",
-        "src/components/chart/spec-editor.tsx",
-      ],
-    },
-    { target: "@kb/chart-vega", files: ["src/components/chart/chart-canvas.tsx"] },
     {
       target: "@kb/code",
       files: ["src/components/code/code-page.tsx", "src/components/code/plugin.ts"],
@@ -301,6 +287,24 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
     { target: "@kb/ext-docs", files: ["src/bin/docs-check.ts", "src/bin/docs-materialize.ts"] },
   ],
 };
+
+/**
+ * A family's browser half is one package, `@kb/<family>-ui` (DESIGN.md →
+ * Extension families): `scope:browser`, named for the family its tag names,
+ * and loaded by the browser root like every extension package. The suffix is
+ * that name's one statement.
+ */
+export const BROWSER_HALF_SUFFIX = "-ui";
+
+/**
+ * Families whose browser half is still a surface of `@kb/ui` rather than its
+ * `-ui` package, each with the gap that records it. A surface named for a
+ * family and not listed here fails, and a listed one that no longer is a
+ * surface fails too, so the list can only shrink.
+ */
+// The agent, code and lab halves: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
+// The canvas half: GAP [[01M39F3MR3HT2NR553FY8CRD6X]]
+export const CORE_BROWSER_HALVES: ReadonlySet<string> = new Set(["agent", "canvas", "code", "lab"]);
 
 /**
  * The isomorphism fence. A `scope:shared` package runs in the browser too, so
@@ -420,7 +424,6 @@ export const UI_SRC = "packages/app/ui/src";
 type UiSurface =
   | "agent"
   | "canvas"
-  | "chart"
   | "code"
   | "graph"
   | "lab"
@@ -431,10 +434,9 @@ type UiSurface =
   | "prefs"
   | "sidebar";
 
-const UI_SURFACES: readonly UiSurface[] = [
+export const UI_SURFACES: readonly UiSurface[] = [
   "agent",
   "canvas",
-  "chart",
   "code",
   "graph",
   "lab",
@@ -542,7 +544,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "primitives",
     "components/agent",
     "components/canvas",
-    "components/chart",
     "components/code",
     "components/graph",
     "components/lab",
@@ -596,8 +597,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   // the socket and the invoke path as ports (`src/agent.ts`), and the rest
   // of the shell through the host.
   "components/agent": extensionRow("components/agent"),
-  // A chart draws its query node's rows; the rows and its saves come through the host.
-  "components/chart": extensionRow("components/chart"),
   // A code view hosts a sandbox frame; the page's end of the bridge comes through the host.
   "components/code": extensionRow("components/code"),
   // The sandbox frame's own script, a separate build that runs in the frame:

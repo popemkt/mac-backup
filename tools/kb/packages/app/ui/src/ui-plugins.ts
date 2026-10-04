@@ -35,7 +35,7 @@ import { coreExtension, extensionSwitchDef } from "@kb/operations";
 import type { Plugin } from "@kb/plugin";
 import { browserHostUiPlugin } from "@/browser-host";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
-import { chartUiPlugin } from "@/components/chart/plugin";
+import { chartUiPlugin } from "@kb/chart-ui";
 import { codeUiPlugin } from "@/components/code/plugin";
 import { graphUiPlugin } from "@/components/graph/plugin";
 import { layoutUiPlugin } from "@/components/layout/plugin";

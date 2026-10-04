@@ -606,6 +606,7 @@
   "@kb/bundled" = copyPathToStore ./packages/app/bundled;
   "@kb/canvas" = copyPathToStore ./packages/extension/canvas;
   "@kb/chart" = copyPathToStore ./packages/extension/chart;
+  "@kb/chart-ui" = copyPathToStore ./packages/extension/chart-ui;
   "@kb/chart-vega" = copyPathToStore ./packages/extension/chart-vega;
   "@kb/check" = copyPathToStore ./packages/extension/check;
   "@kb/cli" = copyPathToStore ./packages/app/cli;

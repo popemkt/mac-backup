@@ -1975,7 +1975,12 @@ end).
   - every extension package is loaded, by a value import, by the root of
     each host its scope runs in. A `scope:shared` package runs in no host on
     its own, so it is loaded by a root or by a loaded package of its own
-    family.
+    family;
+  - a family's browser half is its one `@kb/<family>-ui` package: a
+    `scope:browser` extension package is named for its family, a `-ui`
+    package is `scope:browser`, and a surface of `@kb/ui` named for a
+    family is a deferred breach listed in `CORE_BROWSER_HALVES`, under a
+    gap, and the list can only shrink.
 
   One contract suite, `extensionContract` (`@kb/test-kit`), runs over
   `BUNDLED_EXTENSIONS` and over the host-composed agent. A family passes

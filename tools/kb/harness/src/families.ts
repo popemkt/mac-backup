@@ -8,6 +8,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  BROWSER_HALF_SUFFIX,
+  CORE_BROWSER_HALVES,
   EXTENSION_LAYER,
   EXTENSION_ROOTS,
   EXTENSION_ROOT_BREACHES,
@@ -15,6 +17,7 @@ import {
   type ExtensionRoot,
   type PackageAxes,
   type SanctionedExtensionImport,
+  UI_SURFACES,
   isPackageTestFile,
 } from "./constraints.ts";
 import {
@@ -182,6 +185,59 @@ export function familyProblems(packagesRoot: string = PACKAGES_ROOT): string[] {
       problems.push(
         `family:${family}: declared ${found.length} times (${found.map((d) => d.at).join(", ")})`,
       );
+    }
+  }
+  return problems.toSorted();
+}
+
+/**
+ * Every way a family's browser half fails to be its one `-ui` package:
+ *
+ * - a `scope:browser` extension package is `@kb/<family>-ui` for
+ *   the family its tag names, and a package so suffixed is `scope:browser`;
+ * - a surface of `@kb/ui` named for a family is that family's browser half
+ *   living in core, allowed only while {@link CORE_BROWSER_HALVES} lists it,
+ *   and a listed family that is no longer a surface is a stale sanction.
+ *
+ * With pairing ({@link unpairedExtensions}), the browser root loads each
+ * family's UI from the one package named for it.
+ */
+export function browserHalfProblems(
+  packagesRoot: string = PACKAGES_ROOT,
+  surfaces: readonly string[] = UI_SURFACES,
+  sanctioned: ReadonlySet<string> = CORE_BROWSER_HALVES,
+): string[] {
+  const problems: string[] = [];
+  const families = new Set<string>();
+  for (const pkg of workspacePackages(packagesRoot)) {
+    if (pkg.layer !== EXTENSION_LAYER) continue;
+    const tags = tagsOf(pkg.manifest);
+    const [scope] = axisValues(tags, "scope");
+    const [family] = axisValues(tags, "family");
+    if (family === undefined) continue;
+    families.add(family);
+    const half = `@kb/${family}${BROWSER_HALF_SUFFIX}`;
+    if (scope === "browser" && pkg.name !== half) {
+      problems.push(
+        `${pkg.name}: a browser package of family:${family} is its browser half, ${half}`,
+      );
+    }
+    if (pkg.name.endsWith(BROWSER_HALF_SUFFIX) && scope !== "browser") {
+      problems.push(
+        `${pkg.name}: a ${BROWSER_HALF_SUFFIX} package is a browser half, scope:browser, not scope:${scope}`,
+      );
+    }
+  }
+  for (const surface of surfaces) {
+    if (families.has(surface) && !sanctioned.has(surface)) {
+      problems.push(
+        `@kb/ui components/${surface}: family:${surface}'s browser half is a surface of core, not @kb/${surface}${BROWSER_HALF_SUFFIX}`,
+      );
+    }
+  }
+  for (const family of sanctioned) {
+    if (!surfaces.includes(family)) {
+      problems.push(`CORE_BROWSER_HALVES names ${family}, which is no longer a surface of @kb/ui`);
     }
   }
   return problems.toSorted();

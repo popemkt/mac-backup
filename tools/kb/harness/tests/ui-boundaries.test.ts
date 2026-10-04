@@ -25,7 +25,6 @@ import {
 const EXTENSION_ZONES = [
   "components/agent",
   "components/canvas",
-  "components/chart",
   "components/code",
   "components/lab",
 ] as const satisfies readonly UiZone[];

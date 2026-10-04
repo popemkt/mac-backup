@@ -1856,13 +1856,13 @@ until "Save workspace".
 
 ### Chart views
 
-The chart plugin (`components/chart`) draws `chart.vega-lite` (DESIGN.md
+The chart plugin (`@kb/chart-ui`) draws `chart.vega-lite` (DESIGN.md
 → View nodes → Chart views states its params and data) at placement
 `page`. It owns no route: a node opens it through `/node/<id>/<view>`,
 so a pane, a dashboard's pane and the pane switcher (which offers it for
 every node by its key) reach it with nothing of its own.
 
-- **Its rows are live.** `useChartData` (`components/chart/chart-data`)
+- **Its rows are live.** `useChartData` (`@kb/chart-ui`'s `chart-data`)
   reads the source query node's rows from the query node's subscription
   over `/ws`, or from the local index while the socket is closed
   (`useQueryNodeRows`, the one path a query node's rows take), and names
@@ -2025,11 +2025,11 @@ the shell.
   three, so a 3D host can mount a scene without carrying three itself
   ([The lab](#the-lab)).
 - **Until a half is a package, its zone carries the fence.** A feature zone
-  still in `@kb/ui` (`components/{chart,code,agent,lab,canvas}`) may reach
+  still in `@kb/ui` (`components/{code,agent,lab,canvas}`) may reach
   only itself, `@kb/ui-sdk` and the scene kit.
   `UI_ALLOWS` in `harness/src/constraints.ts` states the rows, and each
   zone's row is deleted when its package leaves. GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
-  (chart, code, agent, lab) and GAP [[01M39F3MR3HT2NR553FY8CRD6X]] (canvas)
+  (code, agent, lab) and GAP [[01M39F3MR3HT2NR553FY8CRD6X]] (canvas)
   record the distance.
 - **The lazy fence follows packages.** `UI_LAZY_ONLY` applies to the import
   closure from `UI_ENTRY`, walking into `scope:browser` workspace packages

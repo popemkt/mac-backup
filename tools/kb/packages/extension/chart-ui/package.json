@@ -1,0 +1,32 @@
+{
+  "name": "@kb/chart-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@kb/chart": "workspace:*",
+    "@kb/chart-vega": "workspace:*",
+    "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
+    "@kb/ui-sdk": "workspace:*",
+    "@kb/views": "workspace:*",
+    "@phosphor-icons/react": "catalog:",
+    "effect": "catalog:",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:browser",
+      "family:chart"
+    ]
+  }
+}

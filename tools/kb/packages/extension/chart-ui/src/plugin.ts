@@ -9,9 +9,7 @@ import { addChartCommand } from "./add-chart";
  * The chart's page, in a chunk of its own; Vega loads in another one inside
  * it, only once there are rows to draw (the lazy-chunk fence).
  */
-const ChartPage = lazy(() =>
-  import("@/components/chart/chart-page").then((m) => ({ default: m.ChartPage })),
-);
+const ChartPage = lazy(() => import("./chart-page").then((m) => ({ default: m.ChartPage })));
 
 /**
  * Charts (roadmap decision 10): the `chart.vega-lite` view, a query node's

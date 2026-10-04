@@ -69,8 +69,11 @@ describe("browser-scope", () => {
     const unscanned = packages
       .filter(({ name, manifest }) => name !== "@kb/ui" && isBrowser(tagsOf(manifest)))
       .filter(({ dir }) => {
-        const at = relative(UI_SRC_ROOT, join(PACKAGES_ROOT, dir));
-        return !sources.some((source) => new Bun.Glob(`${source}{,/**}`).match(at));
+        // A source file of the package, named as index.css names paths: from its folder.
+        const probe = relative(UI_SRC_ROOT, join(PACKAGES_ROOT, dir, "src", "probe.tsx"));
+        return !sources.some((pattern) =>
+          [pattern, `${pattern}/**`].some((glob) => new Bun.Glob(glob).match(probe)),
+        );
       })
       .map(({ name }) => name);
     expect(unscanned, "browser packages no @source in index.css names").toEqual([]);

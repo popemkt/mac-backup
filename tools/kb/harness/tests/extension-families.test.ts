@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { EXTENSION_ROOTS, familyEdgeViolation, isPackageTestFile } from "../src/constraints.ts";
 import {
+  browserHalfProblems,
   declaredNames,
   extensionRootBreaches,
   familyProblems,
@@ -39,7 +40,9 @@ afterAll(removeFixtureWorkspaces);
  *   `EXTENSION_ROOTS`, or from a file named in `EXTENSION_ROOT_BREACHES`,
  *   and a root re-exports none;
  * - every extension package is loaded, by a value import, by a root of each
- *   host its scope runs in.
+ *   host its scope runs in;
+ * - a family's browser half is its one `@kb/<family>-ui` package, not a
+ *   surface of `@kb/ui`.
  *
  * Each rule has a red fixture below: a tree built to break it, run through
  * the same function as the real workspace.
@@ -49,6 +52,11 @@ const declares = (name: string): string =>
   `import { defineExtension } from "@kb/contracts";\nexport const x = defineExtension({ name: "${name}", label: "X" });\n`;
 
 describe("extension families over the workspace", () => {
+  test("each family's browser half is its one -ui package", () => {
+    const problems = browserHalfProblems();
+    expect(problems, problems.join("\n")).toEqual([]);
+  });
+
   test("every family tag equals its family's one declaration", () => {
     const problems = familyProblems();
     expect(problems, problems.join("\n")).toEqual([]);
@@ -420,6 +428,42 @@ describe("red fixtures: pairing", () => {
     expect(unpairedExtensions(root, roots)).toEqual([
       "@kb/canvas (scope:shared): no root and no loaded package of family:canvas loads it",
       "@kb/ext-canvas (scope:backend): no server root loads it",
+    ]);
+  });
+});
+
+describe("red fixtures: browser halves", () => {
+  const CANVAS_UI: FixturePackage = {
+    dir: "extension/canvas-ui",
+    name: "@kb/canvas-ui",
+    scope: "browser",
+    tags: ["family:canvas"],
+    files: { "src/index.ts": "export {};\n" },
+  };
+
+  test("a family's browser package is named for it, and a -ui package is a browser one", () => {
+    const misnamed = fixtureWorkspace([
+      CANVAS,
+      { ...CANVAS_UI, dir: "extension/canvas-pages", name: "@kb/canvas-pages" },
+    ]);
+    expect(browserHalfProblems(misnamed, [], new Set())).toEqual([
+      "@kb/canvas-pages: a browser package of family:canvas is its browser half, @kb/canvas-ui",
+    ]);
+    const shared = fixtureWorkspace([CANVAS, { ...CANVAS_UI, scope: "shared" }]);
+    expect(browserHalfProblems(shared, [], new Set())).toEqual([
+      "@kb/canvas-ui: a -ui package is a browser half, scope:browser, not scope:shared",
+    ]);
+    expect(browserHalfProblems(fixtureWorkspace([CANVAS, CANVAS_UI]), [], new Set())).toEqual([]);
+  });
+
+  test("a surface of @kb/ui named for a family is a half in core, unless sanctioned", () => {
+    const root = fixtureWorkspace([CANVAS, EXT_DOCS]);
+    expect(browserHalfProblems(root, ["canvas", "outline"], new Set())).toEqual([
+      "@kb/ui components/canvas: family:canvas's browser half is a surface of core, not @kb/canvas-ui",
+    ]);
+    expect(browserHalfProblems(root, ["canvas", "outline"], new Set(["canvas"]))).toEqual([]);
+    expect(browserHalfProblems(root, ["outline"], new Set(["canvas"]))).toEqual([
+      "CORE_BROWSER_HALVES names canvas, which is no longer a surface of @kb/ui",
     ]);
   });
 });

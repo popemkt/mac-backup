@@ -2,22 +2,24 @@
  * The chart view in the browser: it draws its source query node's rows with
  * Vega (lazily, as SVG), says why when it has nothing to draw, follows the
  * rows as they change, and edits its spec through the chart key's own check,
- * writing the view node it is drawn from.
+ * writing the view node it is drawn from. It is drawn as the shell draws it:
+ * the chart family's page entry loaded beside the page's host, and its view
+ * found on the view point.
  */
-import { act, createElement } from "react";
+import { Suspense, act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { CHART_IDS, type ChartParams } from "@kb/chart";
+import { CHART_IDS, ChartView, type ChartParams } from "@kb/chart";
 import { SYSTEM_IDS } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { browserHostUiPlugin } from "@/browser-host";
-import { syncUiPlugins } from "@kb/ui-sdk";
+import { ViewPoint, currentContributions, findView, syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
-import { ChartPage } from "./chart-page";
+import { chartUiPlugin } from "@kb/chart-ui";
 
 const replaceField = vi.fn((_node: string, _field: string, _values: unknown) => Promise.resolve());
 vi.mock("@/actions/mutations", () => ({
@@ -86,7 +88,7 @@ describe("chart view (component)", () => {
   afterAll(() => dom.restore());
 
   // The chart reaches the shell through the page's host, as it does when the app boots.
-  beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+  beforeAll(() => syncUiPlugins([browserHostUiPlugin, chartUiPlugin]));
   afterAll(() => syncUiPlugins([]));
 
   beforeEach(() => {
@@ -111,14 +113,22 @@ describe("chart view (component)", () => {
   });
 
   async function show(params: ChartParams, viewNode?: string): Promise<void> {
+    const page = findView(currentContributions(ViewPoint), ChartView);
+    if (page === null) throw new Error("the chart family's page entry provides no chart view");
     await act(async () =>
       root.render(
-        createElement(ChartPage, {
-          params,
-          host: viewNode === undefined ? { placement: "page" } : { placement: "page", viewNode },
-        }),
+        createElement(
+          Suspense,
+          { fallback: null },
+          createElement(page.Component, {
+            params,
+            host: viewNode === undefined ? { placement: "page" } : { placement: "page", viewNode },
+          }),
+        ),
       ),
     );
+    // The page is its own chunk.
+    await settle(() => container.childElementCount > 0);
   }
 
   const text = () => container.textContent;

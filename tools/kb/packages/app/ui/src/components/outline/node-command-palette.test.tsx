@@ -24,7 +24,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeCommandPalette } from "./node-command-palette";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { chartUiPlugin } from "@/components/chart/plugin";
+import { chartUiPlugin } from "@kb/chart-ui";
 import { browserHostUiPlugin } from "@/browser-host";
 
 // The outline runs as the app boots it: its frame views provided, and the

@@ -149,7 +149,7 @@ const TOKEN_FALLBACK = {
   "--border": "#e5e5e5",
   "--popover": "#fff",
   "--popover-foreground": "#222",
-  // The design system's chart ramp, light to dark (`components/chart`).
+  // The design system's chart ramp, light to dark (`@kb/chart-ui`).
   "--chart-1": "#fbd452",
   "--chart-2": "#f49f1e",
   "--chart-3": "#dc7702",
