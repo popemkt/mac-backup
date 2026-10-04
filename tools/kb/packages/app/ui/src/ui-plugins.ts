@@ -12,8 +12,7 @@
  * reads the one bundled list as a store with no switch written. Every plugin
  * reaches the kernel through `syncUiPlugins`.
  *
- * Each family's browser entry comes from its `-ui` package, except the canvas,
- * still a zone of this package: GAP [[01M39F3MR3HT2NR553FY8CRD6X]]
+ * Each family's browser entry comes from its `-ui` package.
  */
 import { useSyncExternalStore } from "react";
 import { ulid } from "ulid";
@@ -38,7 +37,7 @@ import { coreExtension, extensionSwitchDef } from "@kb/operations";
 import type { Plugin } from "@kb/plugin";
 import { getLiveClient } from "@/api/live";
 import { browserHostUiPlugin } from "@/browser-host";
-import { canvasUiPlugin } from "@/components/canvas/plugin";
+import { canvasUiPlugin } from "@kb/canvas-ui";
 import { chartUiPlugin } from "@kb/chart-ui";
 import { codeUiPlugin } from "@kb/code-ui";
 import { graphUiPlugin } from "@/components/graph/plugin";

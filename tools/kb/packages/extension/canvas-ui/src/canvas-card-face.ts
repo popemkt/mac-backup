@@ -147,7 +147,7 @@ export function cornerRadius(item: CanvasNode, radii: CornerRadii): number {
   return isShapeNode(item) || isGroupNode(item) ? radii.shapeRadius : radii.radius;
 }
 
-/** Each JSON Canvas preset's token (`components/canvas/canvas-color` paints the same ones in the DOM). */
+/** Each JSON Canvas preset's token (`canvas-color` paints the same ones in the DOM). */
 const PRESET_TOKENS = {
   "1": "--canvas-color-1",
   "2": "--canvas-color-2",

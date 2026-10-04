@@ -17,7 +17,7 @@ import { coreExtension } from "@kb/operations";
 import type { ScreenTab } from "@/api/live";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { browserHostUiPlugin } from "@/browser-host";
-import { canvasUiPlugin } from "@/components/canvas/plugin";
+import { canvasUiPlugin } from "@kb/canvas-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { getPath, navigate, syncUiPlugins, type PaneCarryOut } from "@kb/ui-sdk";

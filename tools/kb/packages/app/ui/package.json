@@ -25,6 +25,7 @@
     "@kb/agent-ui": "workspace:*",
     "@kb/bundled": "workspace:*",
     "@kb/canvas": "workspace:*",
+    "@kb/canvas-ui": "workspace:*",
     "@kb/chart": "workspace:*",
     "@kb/chart-ui": "workspace:*",
     "@kb/check": "workspace:*",

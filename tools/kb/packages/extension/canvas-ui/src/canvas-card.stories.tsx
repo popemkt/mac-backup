@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { TextCard } from "@/components/canvas/canvas-card";
+import { TextCard } from "./canvas-card";
 import type { CanvasTextNode } from "@kb/canvas";
 
 const noop = (): void => undefined;

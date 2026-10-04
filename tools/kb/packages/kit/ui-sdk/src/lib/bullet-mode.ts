@@ -19,7 +19,7 @@ export type BulletKind =
 /**
  * The canvas family's tag, by its frozen id. The kit may not import a
  * family, so this is a copy of `CANVAS_IDS.canvasTag` (`@kb/canvas`), held
- * equal to it by the canvas's bullet test in `@kb/ui`. The canvas kind, its
+ * equal to it by the canvas's bullet test in `@kb/canvas-ui`. The canvas kind, its
  * glyph and this id are canvas vocabulary in core until a family can give
  * its tag a bullet.
  */

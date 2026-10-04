@@ -42,7 +42,7 @@ import type { CanvasPointerEvent } from "./canvas-pointer";
 import { isTextEntry } from "@kb/ui-sdk";
 
 /**
- * The canvas keyboard surface: `components/canvas/canvas-keymap` decides *what* a chord
+ * The canvas keyboard surface: `canvas-keymap` decides *what* a chord
  * means, this file decides *how* that intent reaches the document, the
  * selection and the viewport. The listener itself is plumbing between the two,
  * and the view menu sends its commands through the same applier.

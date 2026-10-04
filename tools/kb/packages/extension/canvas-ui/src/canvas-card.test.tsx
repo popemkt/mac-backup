@@ -6,7 +6,7 @@
  * binds its text host through the page's `BrowserHost`, never the shell's
  * stores, so these tests hold it to that port (a test host); that the
  * shell's activation accepts a canvas instance is the outline's own test
- * (`lib/instance-key.test.ts`).
+ * (`@kb/ui`'s `lib/instance-key.test.ts`).
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";

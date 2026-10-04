@@ -66,11 +66,9 @@ package name never encodes its layer — moving a package between folders is a
 `git mv` plus one `extends` path.
 
 An extension's parts are separate workspace packages by runtime, colocated
-under `extension/`: `@kb/canvas` owns the shared JSON Canvas document and
-`@kb/ext-canvas` owns its backend plugin. The browser part still lives in
-`@kb/ui` pending the `@kb/ui-sdk` host contract (gap
-`01M39F3MR3HT2NR553FY8CRD6X`); it must not be extracted as a second UI
-mechanism ahead of that contract. A package has one `scope:*` tag, never a
+under `extension/`: `@kb/canvas` owns the shared JSON Canvas document,
+`@kb/ext-canvas` owns its backend plugin, and `@kb/canvas-ui` its browser
+half, built against `@kb/ui-sdk`. A package has one `scope:*` tag, never a
 per-entry scope. Extension packages can import another extension package's
 public barrel when their scope permits it. Third-party `.kb/extensions` use
 the generated ambient `kb-ext-sdk` declaration, not workspace package imports.
@@ -1993,8 +1991,9 @@ end).
   - a family's browser half is its one `@kb/<family>-ui` package: a
     `scope:browser` extension package is named for its family, a `-ui`
     package is `scope:browser`, and a surface of `@kb/ui` named for a
-    family is a deferred breach listed in `CORE_BROWSER_HALVES`, under a
-    gap, and the list can only shrink.
+    family fails unless it is a deferred breach listed in
+    `CORE_BROWSER_HALVES`, under a gap. The list can only shrink, and is
+    empty since the canvas's half became `@kb/canvas-ui`.
 
   One contract suite, `extensionContract` (`@kb/test-kit`), runs over
   `BUNDLED_EXTENSIONS` and over the host-composed agent. A family passes
@@ -2010,10 +2009,10 @@ end).
   has landed.
 
 Today's drift from this contract is marked where it sits:
-- open composition roots: GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
+- the CLI's report bins, which import their family's output schema:
+  GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
 - extensions that still reach core's use cases (`@kb/operations`):
   GAP [[01M439W857BD9QQTBEQ5X5D06D]];
-- canvas: GAP [[01M39F3MR3HT2NR553FY8CRD6X]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
   frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]].
 

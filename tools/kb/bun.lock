@@ -190,6 +190,7 @@
         "@kb/agent-ui": "workspace:*",
         "@kb/bundled": "workspace:*",
         "@kb/canvas": "workspace:*",
+        "@kb/canvas-ui": "workspace:*",
         "@kb/chart": "workspace:*",
         "@kb/chart-ui": "workspace:*",
         "@kb/check": "workspace:*",
@@ -439,6 +440,37 @@
         "@kb/bundled": "workspace:*",
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
+      },
+    },
+    "packages/extension/canvas-ui": {
+      "name": "@kb/canvas-ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/canvas": "workspace:*",
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/scene": "workspace:*",
+        "@kb/scene-gpu": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "@kb/views": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+        "three": "catalog:",
+        "ulid": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/ui-test-kit": "workspace:*",
+        "@storybook/react-vite": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@types/three": "catalog:",
+        "happy-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/extension/chart": {
@@ -1108,6 +1140,8 @@
     "@kb/bundled": ["@kb/bundled@workspace:packages/app/bundled"],
 
     "@kb/canvas": ["@kb/canvas@workspace:packages/extension/canvas"],
+
+    "@kb/canvas-ui": ["@kb/canvas-ui@workspace:packages/extension/canvas-ui"],
 
     "@kb/chart": ["@kb/chart@workspace:packages/extension/chart"],
 

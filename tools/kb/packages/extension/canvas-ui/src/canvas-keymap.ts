@@ -3,7 +3,7 @@
  *
  * Pure, like `lib/selection-keymap.ts`: nothing here reads a store, a ref or
  * the DOM, so the whole table is reachable from a unit test. The appliers live
- * beside the hook that owns the effects (`components/canvas/use-canvas-keyboard`).
+ * beside the hook that owns the effects (`use-canvas-keyboard`).
  *
  * The chord maps are consulted in {@link CHORD_MAPS} order, and that order is
  * load-bearing: `⌘c` copies rather than picking the ellipse tool, `⌘d`

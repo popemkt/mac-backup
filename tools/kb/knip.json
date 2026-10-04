@@ -45,8 +45,7 @@
     "packages/contract/ext-sdk/src/surface.ts"
   ],
   "ignoreFiles": [
-    "packages/app/ui/src/api/queries.ts",
-    "packages/app/ui/src/components/canvas/index.tsx"
+    "packages/app/ui/src/api/queries.ts"
   ],
   "ignoreDependencies": [
     "graphology-communities-louvain",

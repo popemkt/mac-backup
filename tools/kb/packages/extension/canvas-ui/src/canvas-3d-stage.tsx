@@ -1,6 +1,6 @@
 /**
  * The 3D canvas's React host: it mounts the scene (`canvas-scene`, the only
- * part that touches three) through the scene host (`@/scene/host`), keeps it
+ * part that touches three) through the scene host (`@kb/scene`'s `attachScene`), keeps it
  * given the document, the selection and the look, and feeds pointer input to
  * the scene's gestures (`canvas-scene-gestures`); the wheel pans and a pinch
  * (or Ctrl/⌘ + wheel) zooms about the cursor, as in 2D. This module is the

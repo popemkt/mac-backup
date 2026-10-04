@@ -17,7 +17,6 @@ import * as tagChipGroupStories from "./tag-chip-group.stories";
 import * as nodeRowStories from "./node-row.stories";
 import * as fieldValueStories from "./field-value.stories";
 import * as fieldValueStackStories from "./field-value-stack.stories";
-import * as canvasCardStories from "./canvas-card.stories";
 import * as graphToolbarStories from "./graph-toolbar.stories";
 import * as nodeContentStories from "./node-content.stories";
 import * as graphCanvasFrameStories from "./graph-canvas-frame.stories";
@@ -34,7 +33,6 @@ storiesRender([
   { name: "node-row", mod: nodeRowStories },
   { name: "field-value", mod: fieldValueStories },
   { name: "field-value-stack", mod: fieldValueStackStories },
-  { name: "canvas-card", mod: canvasCardStories },
   { name: "graph-toolbar", mod: graphToolbarStories },
   { name: "node-content", mod: nodeContentStories },
   { name: "graph-canvas-frame", mod: graphCanvasFrameStories },
@@ -57,7 +55,9 @@ describe("surface error-boundary wiring (App)", () => {
     // Each built-in page owns its boundary, beside the surface that renders it.
     expect(read("components/outline/surfaces.tsx")).toContain('title="Outline crashed"');
     expect(read("components/graph/surfaces.tsx")).toContain('title="Graph crashed"');
-    expect(read("components/canvas/surfaces.tsx")).toContain('title="Canvas crashed"');
+    expect(
+      readFileSync(path.join(browserSource("@kb/canvas-ui"), "surfaces.tsx"), "utf8"),
+    ).toContain('title="Canvas crashed"');
     expect(read("components/ontology/surfaces.tsx")).toContain('title="Ontology crashed"');
   });
 });

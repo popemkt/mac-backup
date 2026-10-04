@@ -11,7 +11,6 @@
     },
     "advisory": {},
     "knip": {
-      "devDependencies:package.json:vite": 1,
       "devDependencies:packages/domain/model/package.json:@kb/test-kit": 1,
       "devDependencies:packages/domain/query/package.json:@kb/test-kit": 1,
       "devDependencies:packages/test-support/render-tests/package.json:@kb/test-kit": 1,

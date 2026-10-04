@@ -1,6 +1,6 @@
 /**
  * The 3D canvas: the canvas document drawn in depth on the scene kit's stage
- * (`@/scene/gpu/stage`), through the one camera model (DESIGN-UI.md → Canvas
+ * (`@kb/scene-gpu`'s stage), through the one camera model (DESIGN-UI.md → Canvas
  * → Projections). It and its layers (`canvas-scene-items` with its mesh
  * builders `canvas-scene-solids`, and `canvas-scene-edges`) are the only part
  * of the canvas that touches three, and load only inside `canvas-3d-stage`'s
@@ -10,7 +10,7 @@
  *   selection is `canvas-scene-gizmo`'s.
  * - **The canvas plane** is the floor, and carries the 2D dot grid, fading
  *   out with distance.
- * - **The camera** is the rig's view (`components/canvas/canvas-camera-rig`), stepped and
+ * - **The camera** is the rig's view (`canvas-camera-rig`), stepped and
  *   applied every frame, through either lens; canvas space (y down the top
  *   view) maps to three's (y up it) by flipping y, for points and camera
  *   alike, and z is up in both (`canvas-scene-space`).
