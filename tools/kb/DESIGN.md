@@ -1947,6 +1947,15 @@ end).
   - A family that needs an engine asks for a core reference such as
     `UntrustedEngine`. It never binds one itself.
   - No generic "runtime layer point" exists: nothing needs one.
+- **Core's write path reaches a family as a contract service, never as a
+  use case.** `GraphWrites` (`@kb/contracts`) is that path, and
+  `kbRuntimeLayer` binds it:
+  - `commit(tx)` is `persistEffect`: the transaction's integrity is checked
+    against the graph it merges into, the approval resolver is asked again
+    with what it writes when it runs inside a call, and the index and the
+    transaction log move with it.
+
+  `graph-writes.test.ts` (`app/runtime`) holds this over the binding.
 - **What stays core** is mechanism, plus the projections the shell is built
   from:
   - the store, datalog, kernel, subscriptions and the render backbone;
@@ -1997,6 +2006,8 @@ end).
 
 Today's drift from this contract is marked where it sits:
 - open composition roots: GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
+- extensions that still reach core's use cases (`@kb/operations`):
+  GAP [extensions-reach-core-use-cases];
 - canvas: GAP [[01M39F3MR3HT2NR553FY8CRD6X]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
   frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]].

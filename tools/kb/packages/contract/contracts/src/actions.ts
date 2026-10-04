@@ -12,6 +12,7 @@ import {
 } from "@kb/model";
 import type { KbIndexService } from "@kb/query";
 import type { Screens } from "./screen.ts";
+import type { GraphWrites } from "./graph-writes.ts";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
 import type { ExtensionCatalog } from "./declaration.ts";
@@ -70,6 +71,7 @@ export function asObjectSchema(
 export type ActionHandlerEnv =
   | KbCtx
   | KbStore
+  | GraphWrites
   | KbIndexService
   | FileSystem
   | TemplateRegistry

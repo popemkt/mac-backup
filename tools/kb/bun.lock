@@ -561,7 +561,6 @@
         "@kb/check": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
-        "@kb/operations": "workspace:*",
         "effect": "catalog:",
         "zod": "catalog:",
       },
