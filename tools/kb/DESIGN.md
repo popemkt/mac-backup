@@ -2056,7 +2056,7 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 | `graph.run`                                       | read  | execute saved query from `.kb/queries/`                                                                      |
 | `graph.search`                                    | read  | text/prop filter convenience                                                                                 |
 | `ontology.members`                                | read  | resolve an `#ontology` node's membership, with provenance ([Ontologies](#ontologies--a-lens-over-the-graph)) |
-| `asset.upload`                                    | write | write opaque bytes to `.kb/assets/<ulid>.<ext>`; returns the `assets/…` markdown path                        |
+| `asset.upload`                                    | write | write opaque bytes to `.kb/assets/<ulid>.<ext>`, at most `ASSET_MAX_BYTES` (25 MiB, the one limit a page also checks before reading a file); returns the `assets/…` markdown path |
 | `render.view`                                     | read  | render a docs view (a `docs.markdown` view node, by name) to html or md                                      |
 | `render.views`                                    | read  | list the docs view names available to `render.view`                                                          |
 | `views.migrate`                                   | write | rewrite a store written before view nodes to them and import `.kb/views` ([View nodes](#view-nodes))         |

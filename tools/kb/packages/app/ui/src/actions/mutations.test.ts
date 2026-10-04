@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ASSET_MAX_BYTES } from "@kb/operations";
 import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "./mutations";
@@ -28,6 +29,16 @@ describe("mutations invoke shared actions", () => {
       input: { id: "n.child-a2", parent: "n.child-a1", position: 0 },
       actor: "human",
     });
+  });
+
+  it("an asset over the one limit is refused before it is read, and never sent", async () => {
+    const huge = new File(["x"], "huge.png", { type: "image/png" });
+    Object.defineProperty(huge, "size", { value: ASSET_MAX_BYTES + 1 });
+    const read = vi.spyOn(huge, "arrayBuffer");
+    expect(await mutations.uploadAsset(huge)).toBeNull();
+    expect(read).not.toHaveBeenCalled();
+    await waitForBrowserPushes();
+    expect(post).not.toHaveBeenCalled();
   });
 
   it("property edits are applied through node.update", async () => {

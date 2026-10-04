@@ -1,6 +1,7 @@
 /**
  * Mutation action layer — optimistic local tx → POST /api/action.
  */
+import { ASSET_MAX_BYTES } from "@kb/operations";
 import { ulid } from "ulid";
 import { z } from "zod";
 import type { LensPerspective, FrameViewKey, SortSpec, ViewConfig } from "@kb/views";
@@ -36,6 +37,9 @@ import { toast } from "@/lib/toast";
 
 /** `asset.upload` answers with the repo-relative path it stored the bytes at. */
 const AssetUploadOutputSchema = z.object({ path: z.string() });
+
+/** A size in whole megabytes, as a toast says it. */
+const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 
 import { isSysPrefixed, SYSTEM_IDS, WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
@@ -538,6 +542,13 @@ export const mutations = {
     const store = useOutlineStore.getState();
     if (store.loadSource === "fixtures" || store.loadSource === null) {
       toast("Cannot upload assets without a live kb server");
+      return null;
+    }
+    // Refused before it is read: reading and encoding a huge file would freeze the tab.
+    if (file.size > ASSET_MAX_BYTES) {
+      toast(
+        `${file.name} is too large to store (${mb(file.size)}; at most ${mb(ASSET_MAX_BYTES)})`,
+      );
       return null;
     }
     try {

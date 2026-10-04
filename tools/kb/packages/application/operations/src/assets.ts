@@ -73,6 +73,17 @@ function decodeBytes(input: string, encoding: "base64" | "utf8"): Uint8Array {
   }
 }
 
+/**
+ * The most bytes one asset holds. `asset.upload` refuses more, and a page
+ * refuses a larger file before reading it (the browser reads the whole file
+ * and base64s it), so a huge paste or drop cannot freeze the tab. One value,
+ * which both ends import.
+ */
+export const ASSET_MAX_BYTES = 25 * 1024 * 1024;
+
+/** The longest `bytes` input that can hold that many: base64, and a data-URL prefix's slack. */
+const BYTES_INPUT_MAX = Math.ceil(ASSET_MAX_BYTES / 3) * 4 + 256;
+
 export const assetUploadDef = {
   id: "asset.upload",
   title: "Upload asset",
@@ -80,7 +91,7 @@ export const assetUploadDef = {
   mode: { kind: "write" } as const,
   inputSchema: z.object({
     /** File contents as base64 (default) or utf8. */
-    bytes: z.string().min(1),
+    bytes: z.string().min(1).max(BYTES_INPUT_MAX),
     encoding: z.enum(["base64", "utf8"]).default("base64"),
     /** Original filename — used only for extension / suggested alt text. */
     filename: z.string().optional(),
@@ -108,6 +119,13 @@ export const assetUploadEffect = Effect.fn("asset.upload")(function* (
       const data = decodeBytes(input.bytes, input.encoding);
       if (data.byteLength === 0) {
         throw new ResolveError("forbidden", "empty asset payload", {});
+      }
+      if (data.byteLength > ASSET_MAX_BYTES) {
+        throw new ResolveError(
+          "forbidden",
+          `asset too large: ${data.byteLength} bytes — at most ${ASSET_MAX_BYTES}`,
+          { bytes: data.byteLength, max: ASSET_MAX_BYTES },
+        );
       }
       return { ext, data };
     },

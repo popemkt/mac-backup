@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runWithKb } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
-import { assetUploadEffect, mediaKindFromExt, textHasAssetRef } from "@kb/operations";
+import {
+  ASSET_MAX_BYTES,
+  assetUploadEffect,
+  mediaKindFromExt,
+  textHasAssetRef,
+} from "@kb/operations";
 import { resolveAssetFile } from "@kb/workspace-fs";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
@@ -70,6 +75,24 @@ describe("asset.upload action", () => {
     expect(jsonl).not.toContain("hello-png");
     expect(jsonl).not.toContain(bytes);
 
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test("refuses an asset larger than the one limit, and stores one at it", async () => {
+    root = await mkdtemp(join(tmpdir(), "kb-asset-big-"));
+    await mkdir(join(root, ".kb"), { recursive: true });
+    resetRegistryCache();
+    const ctx = await openKb(root);
+    const over = await invoke(ctx, {
+      id: "asset.upload",
+      input: { bytes: Buffer.alloc(ASSET_MAX_BYTES + 1).toString("base64"), ext: "png" },
+    });
+    expect(over.status).toBe("failed");
+    const at = await invoke(ctx, {
+      id: "asset.upload",
+      input: { bytes: Buffer.alloc(ASSET_MAX_BYTES, 1).toString("base64"), ext: "png" },
+    });
+    expect(at.status).toBe("succeeded");
     await rm(root, { recursive: true, force: true });
   });
 
