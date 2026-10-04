@@ -40,10 +40,10 @@
   };
   logseq-nightly = {
     pname = "logseq-nightly";
-    version = "2.0.2-alpha+nightly.20261002";
+    version = "2.0.2-alpha+nightly.20261003";
     src = fetchurl {
-      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.2-alpha+nightly.20261002.zip";
-      sha256 = "sha256-QyWsBFAOtpMiVm+YAcFz/Ic5kBQYRcxvYA5FXexSOsQ=";
+      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.2-alpha+nightly.20261003.zip";
+      sha256 = "sha256-+HAcZhvhUll40v2aJXujm4yCIpd1ftTneCzzUZ3pHW4=";
     };
   };
   vite-plus = {
