@@ -14,6 +14,10 @@ import type { CanvasFrame, CanvasVec } from "./box.ts";
 import {
   canvasDepth,
   canvasElevation,
+  isGroupNode,
+  isShapeNode,
+  isTextNode,
+  withDepth,
   withElevation,
   withRotation,
   type CanvasFileNode,
@@ -23,6 +27,7 @@ import {
   type CanvasShapeNode,
   type CanvasTextNode,
 } from "./doc.ts";
+import { CanvasRelationError } from "./relations.ts";
 import { apply, rotationOfMatrix } from "./rotation.ts";
 
 /** An item before it is placed: no id, no position, and no meaning yet. */
@@ -99,6 +104,59 @@ export function presetItem(
     y: at.y,
     ...(nodeId === undefined ? {} : { nodeId }),
   };
+}
+
+/** Every preset, in the table's order: what a placement may name. */
+export const CANVAS_PRESET_KINDS: readonly CanvasPresetKind[] = PRESET_KINDS;
+
+/**
+ * What a new item is asked for in words, as an agent asks: a preset, the
+ * words it shows (a text card's text, a shape's or a frame's label), and
+ * any of its look and size. A card needs the node it shows, a picture the
+ * asset it shows.
+ */
+export interface CanvasItemSpec {
+  readonly preset: CanvasPresetKind;
+  readonly text?: string;
+  readonly color?: string;
+  readonly nodeId?: string;
+  readonly file?: string;
+  readonly width?: number;
+  readonly height?: number;
+  readonly depth?: number;
+}
+
+/**
+ * The item `spec` asks for, as item `id`, not yet placed (its top left at
+ * the origin, its preset's elevation). Throws `CanvasRelationError` when a
+ * card names no node or a picture no asset.
+ */
+export function makeItem(spec: CanvasItemSpec, id: string): CanvasNode {
+  const origin = { x: 0, y: 0 };
+  if (spec.preset === "kb-node" && spec.nodeId === undefined) {
+    throw new CanvasRelationError("a card shows a node: give its nodeId");
+  }
+  if (spec.preset === "image" && spec.file === undefined) {
+    throw new CanvasRelationError("a picture shows an asset: give its file (assets/…)");
+  }
+  const base =
+    spec.preset === "image"
+      ? imageItem(spec.file ?? "", origin, id)
+      : presetItem(spec.preset, origin, id, spec.nodeId);
+  const sized = {
+    ...base,
+    x: 0,
+    y: 0,
+    ...(spec.width === undefined ? {} : { width: Math.max(1, spec.width) }),
+    ...(spec.height === undefined ? {} : { height: Math.max(1, spec.height) }),
+    ...(spec.color === undefined ? {} : { color: spec.color }),
+    ...(spec.nodeId === undefined ? {} : { nodeId: spec.nodeId }),
+  };
+  const deep = spec.depth === undefined ? sized : withDepth(sized, spec.depth);
+  if (spec.text === undefined) return deep;
+  if (isTextNode(deep)) return { ...deep, text: spec.text };
+  if (isShapeNode(deep) || isGroupNode(deep)) return { ...deep, label: spec.text };
+  throw new CanvasRelationError(`a ${spec.preset} shows no words of its own`);
 }
 
 /** How far off a face an item placed on it stands, canvas units: clear of it, so the two never fight. */

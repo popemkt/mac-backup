@@ -3,18 +3,17 @@ import {
   boxToWorld,
   canvasTop,
   carriedBy,
+  connectItems,
   selectionPivot,
   settleMembership,
   snapCarry,
   snapPrecise,
   stillAbout,
   transformCarried,
-  upsertCanvasEdge,
   upsertCanvasNode,
   withElevation,
   type CanvasCarried,
   type CanvasDoc,
-  type CanvasEdge,
   type CanvasMembership,
   type CanvasNode,
   type CanvasSide,
@@ -668,26 +667,19 @@ function finishEdge(
   const to = ctx.byId.get(event.edgeTargetId);
   if (!from || !to) return result({ ...state, drag: null });
   const world = floorAt(ctx, event.screen);
-  const edge: CanvasEdge = {
+  // The one edge record an agent's `connect` makes too, by the ports the drag chose.
+  const { doc, edge } = connectItems(ctx.doc, {
     id: event.edgeId,
-    fromNode: drag.fromCardId,
-    toNode: event.edgeTargetId,
+    bindingId: event.edgeBindingId,
+    from: from.id,
+    to: to.id,
     fromSide: drag.fromSide,
     toSide: closestPort(to, world.x, world.y),
-    toEnd: "arrow",
-    kbLink: {
-      mode: "layout",
-      via: "prop",
-      fieldId: "",
-      sourceNodeId: from.nodeId ?? "",
-      targetNodeId: to.nodeId ?? "",
-      bindingId: event.edgeBindingId,
-    },
-  };
+  });
   return result(
     { ...state, drag: null },
     {
-      doc: upsertCanvasEdge(ctx.doc, edge),
+      doc,
       selection: selectEdge(edge.id),
       persist: "flush",
     },

@@ -87,12 +87,51 @@ export {
 } from "./box.ts";
 export type { CanvasAxes, CanvasBounds, CanvasBox, CanvasFrame, CanvasVec } from "./box.ts";
 export { cameraLookingFrom, posesAgree, projectionOf } from "./camera.ts";
+export { CANVAS_LAYOUTS, arrangeItems } from "./arrange.ts";
+export type { CanvasArrangement, CanvasLayerValue, CanvasLayout } from "./arrange.ts";
+export { connectItems } from "./connect.ts";
+export type { CanvasConnection } from "./connect.ts";
+export { describeCanvas, itemKind } from "./describe.ts";
+export type {
+  CanvasDescription,
+  DescribedCluster,
+  DescribedItem,
+  DescribedRelation,
+} from "./describe.ts";
+export { CANVAS_LINT_RULES, lintCanvas, lintDiff } from "./lint.ts";
+export type { CanvasLint, CanvasLintDiff, CanvasLintRule } from "./lint.ts";
+export { placeItem } from "./place.ts";
+export type { CanvasWhere } from "./place.ts";
+export { promotableText, promoteItem } from "./promote.ts";
+export {
+  CANVAS_DIRECTIONS,
+  CanvasRelationError,
+  directionFrom,
+  facingSides,
+  itemBounds,
+  overlaps,
+} from "./relations.ts";
+export type { CanvasDirection } from "./relations.ts";
 export { coversFromAbove, rayIntoItem } from "./pick.ts";
 export type { CanvasPickItem, CanvasRay } from "./pick.ts";
-export { GRID_STEP, snapCanvasMove, snapCarry, snapPrecise, snapToSurface } from "./snap.ts";
+export {
+  GRID_STEP,
+  restingOn,
+  snapCanvasMove,
+  snapCarry,
+  snapPrecise,
+  snapToSurface,
+} from "./snap.ts";
 export type { SnapGuide, SnappedTransform } from "./snap.ts";
 export { canvasExtension } from "./extension.ts";
-export { CANVAS_SOLID_PRESETS, imageItem, placedOnFace, presetItem } from "./presets.ts";
+export {
+  CANVAS_PRESET_KINDS,
+  CANVAS_SOLID_PRESETS,
+  imageItem,
+  makeItem,
+  placedOnFace,
+  presetItem,
+} from "./presets.ts";
 export {
   CANVAS_SHAPES,
   faceShare,
@@ -106,7 +145,7 @@ export {
   tracePath,
 } from "./shapes.ts";
 export type { CanvasFootprint, CanvasPathSink, CanvasVolume } from "./shapes.ts";
-export type { CanvasPresetKind } from "./presets.ts";
+export type { CanvasItemSpec, CanvasPresetKind } from "./presets.ts";
 export type { CanvasCamera, CanvasPose, CanvasProjectionKind } from "./camera.ts";
 export type {
   CanvasDoc,

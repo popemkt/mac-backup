@@ -12,7 +12,7 @@
  * coordinates like every item, so a group's transform rewrites their
  * records and nothing reads a matrix stack.
  */
-import { boxBounds, boxFrame, boxToLocal, boxTop, type CanvasVec } from "./box.ts";
+import { boxBounds, boxFrame, boxToLocal, boxTop, type CanvasBox } from "./box.ts";
 import {
   isGroupNode,
   withElevation,
@@ -171,16 +171,16 @@ export function editItem(doc: CanvasDoc, after: CanvasNode): CanvasDoc {
 const area = (node: CanvasNode) => node.width * node.height;
 
 /**
- * Whether `frame`'s face covers `point` as the frame's own face-on view sees
- * it: the point, carried along the frame's normal onto its plane, lies
- * inside its footprint. How far in front of or behind the face it is plays
- * no part, so a frame on the floor holds what stands over it whatever its
- * height, and one stood up as a wall what is laid on its face. Strictly
- * inside: the floor at a wall's foot is at its edge, and not on it.
+ * Whether `frame`'s face covers `item`'s centre as the frame's own face-on
+ * view sees it: the centre, carried along the frame's normal onto its
+ * plane, lies inside its footprint. How far in front of or behind the face
+ * it is plays no part, so a frame on the floor holds what stands over it
+ * whatever its height, and one stood up as a wall what is laid on its face.
+ * Strictly inside: the floor at a wall's foot is at its edge, and not on it.
  */
-function faceCovers(frame: CanvasNode, point: CanvasVec): boolean {
+export function faceHolds(frame: CanvasNode, item: CanvasBox): boolean {
   const own = boxFrame(frame);
-  const local = boxToLocal(own, point);
+  const local = boxToLocal(own, boxFrame(item).centre);
   return Math.abs(local.x) < own.half.x && Math.abs(local.y) < own.half.y;
 }
 
@@ -196,11 +196,10 @@ function frameHolding(
   membership: CanvasMembership,
   item: CanvasNode,
 ): string | null {
-  const { centre } = boxFrame(item);
   let holder: { readonly id: string; readonly depth: number } | null = null;
   for (const node of paintOrder(nodes)) {
     if (!isGroupNode(node) || node.id === item.id || area(node) < area(item)) continue;
-    if (isWithin(membership, node.id, item.id) || !faceCovers(node, centre)) continue;
+    if (isWithin(membership, node.id, item.id) || !faceHolds(node, item)) continue;
     // Later in paint order wins a tie of depth: `>=`.
     const depth = ancestorsOf(membership, node.id).length;
     if (holder === null || depth >= holder.depth) holder = { id: node.id, depth };

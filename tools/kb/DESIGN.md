@@ -2050,6 +2050,56 @@ The camera is view state, not content: the undo history leaves it out. It
 sits on the document only until canvases become view nodes, and then moves to
 that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 
+#### Agent verbs
+
+An agent that cannot see a canvas edits it by relation, never by working out
+a coordinate (plan 2026-10-02, decision 16). The verbs are `ext.canvas.*`
+actions (Operations), so every surface lists them and the invoke core
+decides their approval like any action's: a policy names one by its id,
+the family by `ext.canvas.*`, or every write. Each is a pure function in
+`@kb/canvas` over the document, resolved through the code a person's
+gestures go through — the one transform (`transformItem`), surface snap
+(`snap.ts`), membership and the drop rule (`membership.ts`), placing on a
+frame's face (`placedOnFace`), the edge record the pointer's edge drag makes
+(`connectItems`) — and each write is one `commitCanvasEffect`: one store
+transaction, one step of an open canvas's history.
+
+- **Relations read both ways** (`relations.ts`). Directions are the canvas's
+  own axes — left and right along x, north and south along y (north up the
+  page), above and below along z — never the camera's or an item's own, and
+  a turned item is compared by the box bounding it along them (`boxBounds`;
+  `GAP [relations-read-bounds]`). `describe` says "a is `side` of b, `gap`
+  apart" exactly when `place` would have put a there: the side along which
+  their bounds stand farthest apart (`directionFrom`), and two items that no
+  direction parts overlap (`overlaps`). A flat item at a solid's base is in
+  it; one on its top rests on it (`restingOn`, what surface snap stands it on).
+- **`place`** makes or moves items `near` another on a side with a gap
+  (level with it, its base aligned with the target's), `on` one (centred,
+  standing on its top), `in` a frame (row by row, clear of its members; on a
+  frame that stands, laid on its face), or `at` plain coordinates (landing as
+  a carry lands when no height is given). A spot that is taken steps further
+  out by the grid until clear. A moved item carries its members (`editItem`)
+  and belongs where the drop rule says; one placed `in` a frame that cannot
+  hold it is refused. A new item is a preset with words (`makeItem`).
+- **`arrange`** lays items out as a row, column, grid, ring or stack, or as
+  layers whose height follows a field's value on each item's node.
+- **`connect`** draws an arrow between the sides facing each other; `bind`
+  also sets a ref field on the source's node, once, in the same transaction.
+  **`group`** gathers items into a frame a grid step round them, as ⌘G does;
+  **`ungroup`** takes frames apart. **`promote`** makes a node of a text
+  card's words (no parent, node first: D6), and the card shows it.
+- **Lints** (`lint.ts`): `overlap` (one of the two a solid), `floating`
+  (raised with nothing under it and no frame face it lies on),
+  `missing-end`, `missing-node`, `missing-group`, `outside-frame`. Every
+  canvas write — `tx.apply` included — answers `lints: {new, resolved}`,
+  and `ext.canvas.lint` reads them.
+- **`describe`** gives each item's kind, words and box and the relations
+  `on`, `in`, `linked` and `near`, at three levels of detail: the items in
+  focus (the `focus` asked for, else the open tab's selection, else what it
+  shows) in full, the rest on screen blurred to what and where, and what is
+  off screen counted per frame. With no tab showing the canvas, every item
+  is in full. It also gives the lints, the camera and the tab's screen.
+
 ## Operations (verticals)
 
 | Action                                            | Mode  | Does                                                                                                         |
@@ -2071,7 +2121,9 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 | `extension.switch`                                | write | turn an optional extension on or off for this kb: the registry loads it, or leaves it out, from the next call ([Extension families](#extension-families)) |
 | `ext.docs.materialize` (alias `docs.materialize`) | write | render the docs views → write md (bundled extension)                                                         |
 | `ext.docs.check` (alias `docs.check`)             | read  | materialize to memory, diff vs disk (bundled extension)                                                      |
-| `ext.canvas.tx.apply`                             | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension)                                      |
+| `ext.canvas.tx.apply`                             | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension); answers the lints it made and cleared |
+| `ext.canvas.describe` / `ext.canvas.lint`         | read  | a canvas in words, at three levels of detail / its lints ([Agent verbs](#agent-verbs))                        |
+| `ext.canvas.place` / `arrange` / `connect` / `group` / `ungroup` / `promote` | write | edit a canvas by relation, one write each ([Agent verbs](#agent-verbs))              |
 | `ui.screen`                                       | read  | the open UI tabs' screen state, most recently active first ([Screen state](#screen-state))                   |
 | `ui.navigate` / `ui.select`                       | write | open a node or route / set the selection or focus in a UI tab ([Screen state](#screen-state))                |
 | `sandbox.trust` / `sandbox.untrust`               | write | trust, or stop trusting, sandboxed code on this machine by its digest; trusting asks ([Sandbox](#trust))     |

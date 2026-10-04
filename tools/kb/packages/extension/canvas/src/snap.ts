@@ -21,7 +21,8 @@
  *   axis.
  * - **Surfaces**: an item carried across the floor stands on the top of the
  *   highest solid its centre passes over (`snapToSurface`), which is how
- *   things are put on one another.
+ *   things are put on one another; what an item stands on that way is what
+ *   it rests on (`restingOn`).
  * - **The grid** ({@link GRID_STEP}, the dot grid): a move steps by it from
  *   where it began (Blender's increment snap), and a size lands on its
  *   multiples.
@@ -164,6 +165,28 @@ export function snapToSurface(
   if (under !== null) return { dz: under - z, guides: [{ axis: "z", pos: under }] };
   const stoodOn = surfaceUnder(centreOf(moving), others);
   return { dz: stoodOn !== null && stoodOn === z ? -z : 0, guides: [] };
+}
+
+/** How far an item's base may be from a top and still rest on it, canvas units. */
+const REST_TOL = 0.5;
+
+/**
+ * The solid in `others` that `item` rests on: one whose top view covers its
+ * footprint's centre and whose top is where its base is — what surface snap
+ * stands it on. Null when it rests on none: on the floor, or in the air.
+ */
+export function restingOn(item: CanvasNode, others: readonly CanvasNode[]): CanvasNode | null {
+  const at = centreOf(item);
+  const z = canvasElevation(item);
+  return (
+    others.find(
+      (other) =>
+        other.id !== item.id &&
+        canvasDepth(other) > 0 &&
+        Math.abs(canvasTop(other) - z) <= REST_TOL &&
+        coversFromAbove(other, at),
+    ) ?? null
+  );
 }
 
 /** A transform as snapping left it, and the alignments it snapped to. */

@@ -1179,7 +1179,9 @@ manipulation feel professional rather than merely functional.
   the frame and its place. It stands at a frame, not a place, so frames
   added or taken away elsewhere move no slide, and it ends when its frame
   goes.
-- **Edges are drawings** (the Logseq-whiteboards decision, unchanged): a live
+- **Edges are drawings** (the Logseq-whiteboards decision, unchanged): the
+  record a drag makes is `connectItems`'s (`@kb/canvas`), the one an agent's
+  `ext.canvas.connect` makes, by the ports the drag chose; a live
   dashed bezier ghost during creation, smart port snapping by nearest Euclidean
   distance, 18×18px port targets, a 20px transparent hit path under the visible
   stroke, per-colour SVG arrowhead markers, and mid-path labels editable by

@@ -162,7 +162,7 @@ export function isStill(t: CanvasTransform): boolean {
 }
 
 /** The centre of a box's base, as turned: what stands on it rides there. */
-function baseOf(box: CanvasBox): CanvasVec {
+export function baseOf(box: CanvasBox): CanvasVec {
   const { centre, half, matrix } = boxFrame(box);
   return {
     x: centre.x - matrix[2] * half.z,
