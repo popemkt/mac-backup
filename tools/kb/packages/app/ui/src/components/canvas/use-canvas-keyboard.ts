@@ -200,72 +200,52 @@ function applyTransformAct(context: CanvasKeyboardContext, act: TransformAct): v
   }
 }
 
-/** One intent, one effect. Exhaustive over {@link CanvasIntent}. */
-function applyCanvasIntent(context: CanvasKeyboardContext, intent: CanvasIntent): void {
-  switch (intent.type) {
-    case "undo":
-      context.cancelPointer();
-      context.undoCanvasDoc();
-      break;
-    case "redo":
-      context.cancelPointer();
-      context.redoCanvasDoc();
-      break;
-    case "delete":
-      deleteSelection(context);
-      break;
-    case "selectAll":
-      context.setSelection(selectAll(context.docRef.current));
-      break;
-    case "copy":
-      copySelection(context);
-      break;
-    case "paste":
-      void navigator.clipboard.readText().then((text) => pasteCanvas(text, context));
-      break;
-    case "duplicate":
-      duplicateSelection(context);
-      break;
-    case "escape":
-      escapeCanvas(context);
-      break;
-    case "panModifier":
-      context.setSpaceDown(true);
-      break;
-    case "nudge":
-      nudgeSelection(context, intent.dx, intent.dy);
-      break;
-    case "tool":
-      chooseTool(context, intent.tool);
-      break;
-    case "zoomBy":
-      context.viewport.zoomBy(intent.factor);
-      break;
-    case "zoomTo":
-      context.viewport.zoomTo(intent.zoom);
-      break;
-    case "frame":
-      frameItems(context, intent.scope);
-      break;
-    case "look":
-      context.viewport.look(intent.preset);
-      break;
-    case "toggleLens":
-      context.viewport.toggleLens();
-      break;
-    case "projection":
-      context.chooseProjection(intent.kind);
-      break;
-    case "viewMenu":
-      context.openViewMenu();
-      break;
-    case "transform":
-      applyTransformAct(context, intent.act);
-      break;
-    default:
-      // `switch-exhaustiveness-check` turns a new intent without a case red.
-      break;
-  }
+/** What one kind of intent does, given the intent of that kind. */
+type IntentApplier<K extends CanvasIntent["type"]> = (
+  context: CanvasKeyboardContext,
+  intent: Extract<CanvasIntent, { type: K }>,
+) => void;
+
+/**
+ * One intent, one effect: a table typed over every kind of {@link CanvasIntent},
+ * so a new intent with no effect, or an effect for none, is a type error.
+ */
+const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> } = {
+  undo: (context) => {
+    context.cancelPointer();
+    context.undoCanvasDoc();
+  },
+  redo: (context) => {
+    context.cancelPointer();
+    context.redoCanvasDoc();
+  },
+  delete: deleteSelection,
+  selectAll: (context) => context.setSelection(selectAll(context.docRef.current)),
+  copy: copySelection,
+  paste: (context) =>
+    void navigator.clipboard.readText().then((text) => pasteCanvas(text, context)),
+  duplicate: duplicateSelection,
+  escape: escapeCanvas,
+  panModifier: (context) => context.setSpaceDown(true),
+  nudge: (context, intent) => nudgeSelection(context, intent.dx, intent.dy),
+  tool: (context, intent) => chooseTool(context, intent.tool),
+  zoomBy: (context, intent) => context.viewport.zoomBy(intent.factor),
+  zoomTo: (context, intent) => context.viewport.zoomTo(intent.zoom),
+  frame: (context, intent) => frameItems(context, intent.scope),
+  look: (context, intent) => context.viewport.look(intent.preset),
+  toggleLens: (context) => context.viewport.toggleLens(),
+  projection: (context, intent) => context.chooseProjection(intent.kind),
+  viewMenu: (context) => context.openViewMenu(),
+  transform: (context, intent) => applyTransformAct(context, intent.act),
+};
+
+/** Apply `intent` through the applier its kind names. */
+function applyCanvasIntent<K extends CanvasIntent["type"]>(
+  context: CanvasKeyboardContext,
+  intent: Extract<CanvasIntent, { type: K }>,
+): void {
+  const apply: IntentApplier<K> = INTENT_APPLIERS[intent.type];
+  apply(context, intent);
 }
 
 /** Listen for the canvas's chords; the applier comes back for the view menu's commands. */
