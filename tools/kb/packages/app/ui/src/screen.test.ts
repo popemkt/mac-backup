@@ -20,7 +20,7 @@ import { browserHostUiPlugin } from "@/browser-host";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { getPath, navigate, syncUiPlugins, type PaneSelect } from "@kb/ui-sdk";
+import { getPath, navigate, syncUiPlugins, type PaneCarryOut } from "@kb/ui-sdk";
 import { SCREEN_PUBLISH_MS, screenPlugin } from "@/screen";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useScreenStore } from "@/stores/screen.store";
@@ -47,17 +47,18 @@ function tab(page: () => Window | null = () => window) {
     if (attached === null) throw new Error("no screen side attached");
     return attached;
   };
-  const carryOut = (command: ScreenCommand): ScreenAck => side().carryOut(command);
+  const carryOut = (command: ScreenCommand): ScreenAck | Promise<ScreenAck> =>
+    side().carryOut(command);
   const refused = (id: string): void => side().refused(id);
   return { plugin, published, ids, carryOut, refused, installed: () => attached !== null };
 }
 
-function report(select: PaneSelect = () => ({ outcome: "applied" })) {
+function report(carryOut: PaneCarryOut = () => ({ outcome: "applied" })) {
   useScreenStore.setState({
     panes: {
       main: {
         report: { subject: "n.root-a", focused: "n.root-a", selection: ["n.root-a"] },
-        select,
+        carryOut,
         owner: Symbol("test view"),
       },
     },
@@ -196,7 +197,7 @@ describe("the tab's screen", () => {
       panes: {
         [right]: {
           report: { focused: null, selection: [] },
-          select: selectRight,
+          carryOut: selectRight,
           owner: Symbol("right"),
         },
       },
@@ -204,7 +205,7 @@ describe("the tab's screen", () => {
     expect(carryOut({ kind: "select", pane: right, selection: ["n.root-a"] })).toEqual({
       outcome: "applied",
     });
-    expect(selectRight).toHaveBeenCalledWith({ selection: ["n.root-a"] });
+    expect(selectRight).toHaveBeenCalledWith({ kind: "select", selection: ["n.root-a"] });
     expect(carryOut({ kind: "select", selection: [] })).toEqual({
       outcome: "rejected",
       reason: "the open view takes no selection",
@@ -235,7 +236,11 @@ describe("the tab's screen", () => {
     expect(carryOut({ kind: "select", selection: ["n.root-a"], focus: "n.root-a" })).toEqual({
       outcome: "applied",
     });
-    expect(select).toHaveBeenCalledWith({ selection: ["n.root-a"], focus: "n.root-a" });
+    expect(select).toHaveBeenCalledWith({
+      kind: "select",
+      selection: ["n.root-a"],
+      focus: "n.root-a",
+    });
   });
 
   it("refuses a pane it does not have", () => {
@@ -266,7 +271,7 @@ describe("the tab's screen", () => {
     const midUpdate = { subject: "", focused: null, selection: [] };
     useScreenStore.setState({
       panes: {
-        main: { report: midUpdate, select: () => SCREEN_APPLIED, owner: Symbol("test view") },
+        main: { report: midUpdate, carryOut: () => SCREEN_APPLIED, owner: Symbol("test view") },
       },
     });
     vi.advanceTimersByTime(SCREEN_PUBLISH_MS);

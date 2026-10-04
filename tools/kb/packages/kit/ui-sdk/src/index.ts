@@ -283,7 +283,7 @@ export { MAIN_PANE, PaneContext, usePane } from "./lib/pane";
 export {
   type PaneReport,
   type PaneScreenPort,
-  type PaneSelect,
+  type PaneCarryOut,
   type PaneSelection,
   usePaneScreenThrough,
 } from "./lib/pane-screen";

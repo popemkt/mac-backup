@@ -23,8 +23,8 @@ let client: KbWsClient | null = null;
 
 /** What the server says about this tab's screen, and how the tab answers it. */
 export interface ScreenTab {
-  /** Carry out a command; the answer goes back to the server. */
-  readonly carryOut: (command: ScreenCommand) => ScreenAck;
+  /** Carry out a command; the answer, now or once there is one, goes back to the server. */
+  readonly carryOut: (command: ScreenCommand) => ScreenAck | Promise<ScreenAck>;
   /** A screen published as `tab` was refused: another live connection owns that id. */
   readonly refused: (tab: string) => void;
 }
@@ -40,7 +40,19 @@ function answerScreenCommand(target: KbWsClient, id: string, command: ScreenComm
     screenTab === null
       ? screenRejected("this tab carries out no screen commands")
       : screenTab.carryOut(command);
-  target.answerScreenCommand(id, answer);
+  if (!(answer instanceof Promise)) {
+    target.answerScreenCommand(id, answer);
+    return;
+  }
+  // A view that answers later still answers: one that fails says so rather than going quiet.
+  void answer.then(
+    (ack) => target.answerScreenCommand(id, ack),
+    (err: unknown) =>
+      target.answerScreenCommand(
+        id,
+        screenRejected(err instanceof Error ? err.message : String(err)),
+      ),
+  );
 }
 
 /** The snapshot the machine asked for, strictly from /api/graph (never fixtures). */

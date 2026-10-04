@@ -9,7 +9,7 @@ import type { KbIndex } from "./query";
 import { OpenNodeContext, type Follow } from "./lib/follow";
 import type { RefInk } from "./lib/md-edit";
 import { usePane } from "./lib/pane";
-import { usePaneScreenThrough, type PaneReport, type PaneSelect } from "./lib/pane-screen";
+import { usePaneScreenThrough, type PaneCarryOut, type PaneReport } from "./lib/pane-screen";
 import type { SchemaIndex } from "./lib/schema";
 import type { NodeMap, OutlineNode } from "./lib/types";
 import { useQueryNodeRows, type QueryNodeRows } from "./lib/use-query-node-rows";
@@ -45,11 +45,11 @@ export function useIsActive(nodeId: string, instanceKey: string): boolean {
 }
 
 /**
- * Report what this view shows for the pane it is drawn in, and carry out its
- * selects with `select`, until it unmounts (`lib/pane-screen`).
+ * Report what this view shows for the pane it is drawn in, and carry out the
+ * commands sent to it with `carryOut`, until it unmounts (`lib/pane-screen`).
  */
-export function usePaneScreen(report: PaneReport, select: PaneSelect): void {
-  usePaneScreenThrough(browserHost().screen, report, select);
+export function usePaneScreen(report: PaneReport, carryOut: PaneCarryOut): void {
+  usePaneScreenThrough(browserHost().screen, report, carryOut);
 }
 
 /** The replica's index, or null before the graph has loaded. */

@@ -112,8 +112,12 @@ function openNode(pane: string, id: string): ScreenAck {
   return openRoute(pane, nodePath(id));
 }
 
-/** Carry out one of the server's screen commands in this tab. */
-function carryOut(command: ScreenCommand): ScreenAck {
+/**
+ * Carry out one of the server's screen commands in this tab: a navigate
+ * itself, and every other command through the view in the pane it names,
+ * whose answer, now or once it has one, is the tab's.
+ */
+function carryOut(command: ScreenCommand): ScreenAck | Promise<ScreenAck> {
   const { layout, focused } = useWorkspaceStore.getState();
   const ids = layoutPanes(layout).map((pane) => pane.id);
   const pane = command.pane ?? focused;
@@ -125,9 +129,10 @@ function carryOut(command: ScreenCommand): ScreenAck {
       ? openNode(pane, command.to.node)
       : openRoute(pane, command.to.route);
   }
-  const select = useScreenStore.getState().panes[pane]?.select;
-  if (select === undefined) return screenRejected("the open view takes no selection");
-  return select({
+  const view = useScreenStore.getState().panes[pane];
+  if (view === undefined) return screenRejected("the open view takes no selection");
+  return view.carryOut({
+    kind: "select",
     ...(command.selection === undefined ? {} : { selection: command.selection }),
     ...(command.focus === undefined ? {} : { focus: command.focus }),
   });

@@ -1,9 +1,9 @@
 /**
  * A view's report of what it shows, for the pane it is drawn in (`lib/pane`),
- * and how it carries out a `ui.select`. The tab's screen is assembled from
- * these (`stores/screen.store`, `src/screen.ts`). This module holds the shapes
- * and the one hook that reports through a port, so the screen store and the
- * page's `BrowserHost` are two bindings of one body.
+ * and how it carries out the screen commands sent to it. The tab's screen is
+ * assembled from these (`stores/screen.store`, `src/screen.ts`). This module
+ * holds the shapes and the one hook that reports through a port, so the
+ * screen store and the page's `BrowserHost` are two bindings of one body.
  */
 import { useEffect, useRef, useState } from "react";
 import type { CanvasScreen, ScreenAck } from "@kb/contracts";
@@ -25,36 +25,51 @@ export interface PaneSelection {
   readonly focus?: string;
 }
 
-/** How the view carries out a select; its answer is the tab's answer. */
-export type PaneSelect = (command: PaneSelection) => ScreenAck;
+/**
+ * A screen command as the view in its pane receives it: the commands the
+ * view, not the tab, carries out.
+ */
+type PaneCommand = { readonly kind: "select" } & PaneSelection;
+
+/**
+ * How the view carries out the commands sent to it; its answer, now or once
+ * it has one, is the tab's answer. A command it has no way to carry out it
+ * answers with a rejection that says so.
+ */
+export type PaneCarryOut = (command: PaneCommand) => ScreenAck | Promise<ScreenAck>;
 
 /** Where pane reports are held. */
 export interface PaneScreenPort {
   /**
-   * Hold `report` for `pane` under `owner`, carrying out its selects with
-   * `select`. A report equal to the one `owner` already holds is not news.
+   * Hold `report` for `pane` under `owner`, carrying out its commands with
+   * `carryOut`. A report equal to the one `owner` already holds is not news.
    */
-  readonly report: (pane: string, owner: symbol, report: PaneReport, select: PaneSelect) => void;
+  readonly report: (
+    pane: string,
+    owner: symbol,
+    report: PaneReport,
+    carryOut: PaneCarryOut,
+  ) => void;
   /** Let `pane`'s report go, if `owner` still holds it. */
   readonly release: (pane: string, owner: symbol) => void;
 }
 
 /**
  * Report `report` for the pane this view is drawn in, through `port`, and
- * carry out its selects with `select`, until the view unmounts.
+ * carry out its commands with `carryOut`, until the view unmounts.
  */
 export function usePaneScreenThrough(
   port: PaneScreenPort,
   report: PaneReport,
-  select: PaneSelect,
+  carryOut: PaneCarryOut,
 ): void {
   const pane = usePane();
   const [owner] = useState(() => Symbol("pane-view"));
-  const selectRef = useRef(select);
+  const carryOutRef = useRef(carryOut);
 
   useEffect(() => {
-    selectRef.current = select;
-    port.report(pane, owner, report, (command) => selectRef.current(command));
+    carryOutRef.current = carryOut;
+    port.report(pane, owner, report, (command) => carryOutRef.current(command));
   });
 
   useEffect(() => () => port.release(pane, owner), [owner, pane, port]);

@@ -4,7 +4,7 @@
  * itself, but what a view shows — the node it is shown for, its focus and
  * selection, a canvas's camera — only the mounted view knows. So each view
  * reports that here, under the pane it is drawn in (`lib/pane`), with how it
- * carries out a `ui.select`, and takes both back when it unmounts. The shapes
+ * carries out the commands sent to it, and takes both back when it unmounts. The shapes
  * and the reporting hook are `lib/pane-screen`'s; this is where reports are held.
  */
 import { create } from "zustand";
@@ -12,13 +12,13 @@ import {
   usePaneScreenThrough,
   type PaneReport,
   type PaneScreenPort,
-  type PaneSelect,
+  type PaneCarryOut,
 } from "@kb/ui-sdk";
 
-/** One pane's view: what it reports and how it selects. */
+/** One pane's view: what it reports and how it carries out commands. */
 interface PaneView {
   readonly report: PaneReport;
-  readonly select: PaneSelect;
+  readonly carryOut: PaneCarryOut;
   /** Which mounted view the two belong to, so one view's unmount never clears another's. */
   readonly owner: symbol;
 }
@@ -38,11 +38,11 @@ function without(panes: Readonly<Record<string, PaneView>>, pane: string) {
 
 /** The screen store as the place pane reports are held. */
 export const paneScreenPort: PaneScreenPort = {
-  report: (pane, owner, report, select) => {
+  report: (pane, owner, report, carryOut) => {
     const now = useScreenStore.getState().panes[pane];
     if (now?.owner === owner && JSON.stringify(now.report) === JSON.stringify(report)) return;
     useScreenStore.setState((state) => ({
-      panes: { ...state.panes, [pane]: { report, select, owner } },
+      panes: { ...state.panes, [pane]: { report, carryOut, owner } },
     }));
   },
   release: (pane, owner) => {
@@ -54,9 +54,9 @@ export const paneScreenPort: PaneScreenPort = {
 
 /**
  * Report `report` for the pane this view is drawn in, and carry out its
- * selects with `select`, until the view unmounts. A report equal to the last
+ * commands with `carryOut`, until the view unmounts. A report equal to the last
  * one is not news.
  */
-export function usePaneScreen(report: PaneReport, select: PaneSelect): void {
-  usePaneScreenThrough(paneScreenPort, report, select);
+export function usePaneScreen(report: PaneReport, carryOut: PaneCarryOut): void {
+  usePaneScreenThrough(paneScreenPort, report, carryOut);
 }
