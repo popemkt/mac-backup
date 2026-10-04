@@ -45,7 +45,8 @@ export const LAYER_ALLOWS: Record<string, readonly string[]> = {
   extension: ["domain", "contract", "application", "kit", "extension"],
   // From a composition root only: EXTENSION_ROOTS.
   app: ["domain", "contract", "infrastructure", "application", "kit", "extension", "app"],
-  "test-support": ["domain", "app"],
+  // The UI test kit's scene contract holds the scene kit's handle.
+  "test-support": ["domain", "kit", "app"],
 };
 
 export const SCOPE_ALLOWS: Record<string, readonly string[]> = {

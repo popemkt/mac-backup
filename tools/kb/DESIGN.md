@@ -77,7 +77,8 @@ the generated ambient `kb-ext-sdk` declaration, not workspace package imports.
 The layer and scope matrices admit only directions used by package imports;
 an empty compatibility edge is not a contract. `app` is the composition
 root, while `test-support` reaches only the domain and app surfaces its
-render harness actually drives. The UI's intra-package matrix is a separate
+render harness actually drives, and the scene kit whose handle the UI test
+kit's scene contract holds. The UI's intra-package matrix is a separate
 zone contract; unused zone edges await the R1 view-point work rather than
 changing the surface imports under that branch.
 

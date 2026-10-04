@@ -769,7 +769,13 @@
       "name": "@kb/ui-test-kit",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/scene": "workspace:*",
         "happy-dom": "catalog:",
+        "three": "catalog:",
+        "vitest": "catalog:",
+      },
+      "devDependencies": {
+        "@types/three": "catalog:",
       },
     },
   },

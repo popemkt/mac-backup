@@ -10,7 +10,13 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "happy-dom": "catalog:"
+    "@kb/scene": "workspace:*",
+    "happy-dom": "catalog:",
+    "three": "catalog:",
+    "vitest": "catalog:"
+  },
+  "devDependencies": {
+    "@types/three": "catalog:"
   },
   "nx": {
     "tags": [
