@@ -1999,7 +1999,7 @@ Today's drift from this contract is marked where it sits:
 - open composition roots: GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
 - canvas: GAP [[01M39F3MR3HT2NR553FY8CRD6X]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
-  frozen id: GAP [canvas-bullet-kind].
+  frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]].
 
 ### Canvas documents
 

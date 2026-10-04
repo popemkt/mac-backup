@@ -23,7 +23,7 @@ export type BulletKind =
  * glyph and this id are canvas vocabulary in core until a family can give
  * its tag a bullet.
  */
-// GAP [canvas-bullet-kind]
+// GAP [[01M436DVSEHKNYWSF2MR07HPMR]]
 const CANVAS_TAG = "sys.tag.canvas";
 
 /** Optional overrides for canvas (and forced media) until those tags ship. */

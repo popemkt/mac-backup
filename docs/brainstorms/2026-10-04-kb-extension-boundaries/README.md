@@ -762,7 +762,7 @@ this is what was picked:
   kind and its glyph in `@kb/ui-sdk`, and a kit may not import a family. A
   kind contributed by the family would need a bullet point and a glyph
   atlas built from contributions, which is a design of its own. So the kit
-  keeps a copy of the frozen id under `GAP [canvas-bullet-kind]`, and a test
+  keeps a copy of the frozen id under `GAP [[01M436DVSEHKNYWSF2MR07HPMR]]`, and a test
   in `components/canvas` holds the copy to `CANVAS_IDS`.
 - **Not moved: the screen contract.** 3D step 8 put a canvas pane's camera
   (`CanvasScreenSchema`, `CanvasViewTarget`) in `@kb/contracts` and the

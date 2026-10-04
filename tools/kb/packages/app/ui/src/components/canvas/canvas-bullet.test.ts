@@ -1,7 +1,7 @@
 /**
  * A canvas node's bullet. The kit draws the canvas kind for a node typed by
  * the family's tag, which it names by a copy of the frozen id because it may
- * not import the family (GAP [canvas-bullet-kind]). This test is the bridge
+ * not import the family (GAP [[01M436DVSEHKNYWSF2MR07HPMR]]). This test is the bridge
  * that holds the copy to `CANVAS_IDS`: a canvas node, typed by the family's
  * own tag and with no tag name to go on, still gets the canvas glyph.
  */
