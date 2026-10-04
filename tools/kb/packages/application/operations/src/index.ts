@@ -28,8 +28,8 @@ export {
   mediaKindFromExt,
   textHasAssetRef,
 } from "./assets.ts";
-export { GENERATED_HEADER, renderViewEffect } from "./docs/docs.ts";
-export { DocsError, docsViewEffect, docsViewsEffect } from "./docs/views.ts";
+export { GENERATED_HEADER } from "./docs/docs.ts";
+export { DocsError } from "./docs/views.ts";
 export {
   UsageError,
   fieldsNeedingCreate,

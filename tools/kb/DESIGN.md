@@ -1947,9 +1947,12 @@ end).
   - A family that needs an engine asks for a core reference such as
     `UntrustedEngine`. It never binds one itself.
   - No generic "runtime layer point" exists: nothing needs one.
-- **Core's write path reaches a family as a contract service, never as a
-  use case.** `GraphWrites` (`@kb/contracts`) is that path, and
-  `kbRuntimeLayer` binds it:
+- **Core's write path and render backbone reach a family as contract
+  services, never as use cases.** A docs view's bytes reach the docs
+  family through `ReadInvoke`, as `render.view` in md, which is the
+  backbone every surface asks; which docs views a graph holds is
+  `docsViewsOf` and `docsViewNamed` (`@kb/views`). `GraphWrites`
+  (`@kb/contracts`) is the write path, and `kbRuntimeLayer` binds it:
   - `commit(tx)` is `persistEffect`: the transaction's integrity is checked
     against the graph it merges into, the approval resolver is asked again
     with what it writes when it runs inside a call, and the index and the
