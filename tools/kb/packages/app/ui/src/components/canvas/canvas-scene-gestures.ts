@@ -20,14 +20,8 @@
  * - The right or middle button, or Space, pans.
  */
 import { isGroupNode, paintOrder, type CanvasNode } from "@kb/canvas";
-import {
-  hitTest,
-  screenToPlane,
-  type CanvasPoint,
-  type CanvasPoint3,
-  type CanvasView,
-  type ViewSize,
-} from "./canvas-camera";
+import { hitTest, type CanvasPoint, type CanvasView, type ViewSize } from "./canvas-camera";
+import { placeUnder, type CanvasPlace } from "./canvas-faces";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import { ALONG_Z } from "./canvas-transform-input";
 import type { SceneGizmo } from "./canvas-gizmo";
@@ -69,8 +63,8 @@ export interface SceneGestureHost {
   readonly dispatch: (event: CanvasPointerEvent) => void;
   readonly orbit: (dx: number, dy: number) => void;
   readonly pan: (dx: number, dy: number) => void;
-  /** A tap on empty canvas, at the canvas-plane point under it (null when edge-on). */
-  readonly tapEmpty: (world: CanvasPoint3 | null, press: ScenePress) => void;
+  /** A tap on empty canvas, or with a placing tool on a frame: where a tool would place there (`placeUnder`). */
+  readonly tapEmpty: (place: CanvasPlace | null, press: ScenePress) => void;
   /** An orbit or a pan came to rest. */
   readonly settled: () => void;
 }
@@ -84,6 +78,8 @@ type Gesture =
       y: number;
       readonly startX: number;
       readonly startY: number;
+      /** The frame a placing tool was pressed on, which it places on (`placeUnder`). */
+      readonly frame?: CanvasNode;
     };
 
 /** ⌘ or Ctrl held: every snap suspended. */
@@ -120,7 +116,9 @@ export class SceneGestures {
       return true;
     }
     const hit = pans ? undefined : this.cardAt(press.local);
-    const card = hit !== undefined && this.host.placing() && isGroupNode(hit) ? undefined : hit;
+    // A placing tool places on a frame it is pressed on, not into it.
+    const frame = hit !== undefined && this.host.placing() && isGroupNode(hit) ? hit : undefined;
+    const card = frame === undefined ? hit : undefined;
     if (card !== undefined) {
       this.gesture = { kind: "card" };
       this.host.cardPress(card, press, (id) => {
@@ -133,7 +131,7 @@ export class SceneGestures {
       // GAP [[01M41AB88FH1G58NR7AZE0SZJF]]
       const kind = pans ? "pan" : "orbit";
       const screen = { x: press.clientX, y: press.clientY };
-      this.gesture = { kind, ...screen, startX: screen.x, startY: screen.y };
+      this.gesture = { kind, ...screen, startX: screen.x, startY: screen.y, frame };
     }
     return true;
   }
@@ -186,7 +184,7 @@ export class SceneGestures {
     if (tap) {
       if (g.kind === "orbit" && !cancelled) {
         this.host.tapEmpty(
-          screenToPlane(this.host.view(), this.host.size(), press.local, 0),
+          placeUnder(this.host.view(), this.host.size(), press.local, g.frame),
           press,
         );
       }

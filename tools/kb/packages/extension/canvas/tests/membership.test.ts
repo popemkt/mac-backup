@@ -6,6 +6,8 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
+  boxCorners,
+  boxFrame,
   canvasMembership,
   carriedBy,
   carriedPart,
@@ -16,6 +18,8 @@ import {
   paintOrder,
   parseCanvasDoc,
   pasteItems,
+  placedOnFace,
+  presetItem,
   selectionPivot,
   settleMembership,
   stillAbout,
@@ -247,6 +251,30 @@ describe("placing and letting go", () => {
       ["outer"],
     );
     expect(byId(outer, "outer")).not.toHaveProperty("parent");
+  });
+
+  test("a frame stood up as a wall holds what is laid on its face, not what stands before it", () => {
+    // 300 wide and 200 tall, stood on its long edge facing the front (+y), its foot on the floor.
+    const wall: CanvasNode = {
+      ...frame("wall", [0, 0, 300, 200]),
+      z: 100,
+      rotation: { x: -90 },
+    };
+    const note = presetItem("text", { x: 0, y: 0 }, "s");
+    const at = { x: 40, y: 100, z: 180 };
+    const placed = placedOnFace(note, boxFrame(wall), at);
+    // On the face, turned as the wall is, a hair off it, its top left where it was put.
+    expect(placed.rotation).toEqual({ x: -90 });
+    const corner = boxCorners(placed)[0];
+    expect(corner?.x).toBeCloseTo(40, 6);
+    expect(Math.abs(boxFrame(placed).centre.y - 100)).toBeLessThan(2);
+    const doc = settleMembership({ nodes: [wall, placed], edges: [] }, ["s"]);
+    expect(byId(doc, "s")?.parent).toBe("wall");
+    // A card on the floor in front of it is on no face of it.
+    const floor = { ...note, id: "f", x: 40, y: 300 };
+    expect(
+      byId(settleMembership({ nodes: [wall, floor], edges: [] }, ["f"]), "f"),
+    ).not.toHaveProperty("parent");
   });
 });
 

@@ -48,6 +48,7 @@ import { placesItem, type CanvasChooser, type ToolState } from "./canvas-tool";
 import type { PresentAct } from "./canvas-keymap";
 import { FIRST_GIZMO, type GizmoChoice } from "./canvas-gizmo";
 import { viewOfPan } from "./canvas-camera";
+import { placeUnder } from "./canvas-faces";
 import type { TransformCamera } from "./canvas-transform-input";
 import { CanvasTransformGuides } from "./canvas-transform-guides";
 import {
@@ -256,7 +257,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     onPointerUp,
     onWheel,
     placeAt,
-    screenToWorld,
     setTool,
     setToolSticky,
     startEdge,
@@ -278,6 +278,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setInspectorAnchor,
     setPickerOpen,
     choose,
+    edit: (id) => faces.onEdit(id, true),
     setSelection,
     setItemInspectorAnchor,
     setToolState,
@@ -395,13 +396,17 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
               if (!e.shiftKey) setScope(null);
               return;
             }
-            // A placing tool sees through a frame to the floor: it places inside it.
+            // A placing tool places inside a frame: on its face, or the floor under it (`placeUnder`).
             const viewportEl = e.currentTarget.querySelector<HTMLElement>("[data-canvas-viewport]");
             const client = { x: e.clientX, y: e.clientY };
+            const rect = viewportEl?.getBoundingClientRect();
+            const { view, size } = projection.camera();
+            const local = { x: client.x - (rect?.left ?? 0), y: client.y - (rect?.top ?? 0) };
+            const place = placeUnder(view, size, local, card);
             if (
               membership.isGroup(card.id) &&
-              viewportEl !== null &&
-              placeAt(screenToWorld(client.x, client.y, viewportEl), client)
+              place !== null &&
+              placeAt(place.at, client, place.face)
             ) {
               e.preventDefault();
               e.stopPropagation();
@@ -491,9 +496,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 }
                 onCardDoubleClick={faces.doubleClick}
                 dispatchPointer={dispatchPointer}
-                onTapEmpty={(world, press) => {
+                onTapEmpty={(place, press) => {
                   const client = { x: press.clientX, y: press.clientY };
-                  if (world !== null && placeAt(world, client)) return;
+                  if (place !== null && placeAt(place.at, client, place.face)) return;
                   if (press.shiftKey) return;
                   setScope(null);
                   setSelection(EMPTY_SELECTION);

@@ -244,6 +244,7 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
         "src/components/canvas/canvas-edge-path.ts",
         "src/components/canvas/canvas-face-editor.tsx",
         "src/components/canvas/canvas-face-overlay.ts",
+        "src/components/canvas/canvas-faces.ts",
         "src/components/canvas/canvas-gizmo.ts",
         "src/components/canvas/canvas-handover.ts",
         "src/components/canvas/canvas-history.ts",

@@ -12,7 +12,7 @@
  * coordinates like every item, so a group's transform rewrites their
  * records and nothing reads a matrix stack.
  */
-import { boxCorners, boxFrame, boxTop } from "./box.ts";
+import { boxCorners, boxFrame, boxToLocal, boxTop, type CanvasVec } from "./box.ts";
 import {
   isGroupNode,
   withElevation,
@@ -22,7 +22,6 @@ import {
   type CanvasGroupNode,
   type CanvasNode,
 } from "./doc.ts";
-import { topView } from "./shapes.ts";
 import {
   isStill,
   motionBetween,
@@ -168,34 +167,30 @@ export function editItem(doc: CanvasDoc, after: CanvasNode): CanvasDoc {
   return transformItems(written, members, motion);
 }
 
-/** Whether `p` is inside the polygon `points` (even-odd). */
-function inside(
-  p: { readonly x: number; readonly y: number },
-  points: readonly [number, number][],
-) {
-  let within = false;
-  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-    const [ax, ay] = points[i] ?? [0, 0];
-    const [bx, by] = points[j] ?? [0, 0];
-    if (ay > p.y !== by > p.y && p.x < ((bx - ax) * (p.y - ay)) / (by - ay) + ax) within = !within;
-  }
-  return within;
-}
-
 /** How much of the floor a footprint covers, canvas units squared. */
 const area = (node: CanvasNode) => node.width * node.height;
 
 /**
- * The frame that holds `item` on a canvas of `nodes`: of the groups no
- * smaller than it whose top view its centre is over — never itself or one
- * of its own members — the innermost, nested deepest, and of those the one
- * drawn on top there; null when none does. Height plays no part: the floor
- * plan decides, as it does for what a carried item stands on. A frame as
- * large as its one member (⌘G with no padding) still holds it.
+ * Whether `frame`'s face covers `point` as the frame's own face-on view sees
+ * it: the point, carried along the frame's normal onto its plane, lies
+ * inside its footprint. How far in front of or behind the face it is plays
+ * no part, so a frame on the floor holds what stands over it whatever its
+ * height, and one stood up as a wall what is laid on its face. Strictly
+ * inside: the floor at a wall's foot is at its edge, and not on it.
  */
-// A frame stood up as a wall holds nothing on its face: membership is read
-// on the floor plan, not in the frame's own plane.
-// GAP [[01M425V18PBXRG7PZJB4BQ0KS6]]
+function faceCovers(frame: CanvasNode, point: CanvasVec): boolean {
+  const own = boxFrame(frame);
+  const local = boxToLocal(own, point);
+  return Math.abs(local.x) < own.half.x && Math.abs(local.y) < own.half.y;
+}
+
+/**
+ * The frame that holds `item` on a canvas of `nodes`: of the groups no
+ * smaller than it whose face its centre is on, seen face-on (`faceCovers`)
+ * — never itself or one of its own members — the innermost, nested
+ * deepest, and of those the one drawn on top there; null when none does. A
+ * frame as large as its one member (⌘G with no padding) still holds it.
+ */
 function frameHolding(
   nodes: readonly CanvasNode[],
   membership: CanvasMembership,
@@ -205,7 +200,7 @@ function frameHolding(
   let holder: { readonly id: string; readonly depth: number } | null = null;
   for (const node of paintOrder(nodes)) {
     if (!isGroupNode(node) || node.id === item.id || area(node) < area(item)) continue;
-    if (isWithin(membership, node.id, item.id) || !inside(centre, topView(node, 0))) continue;
+    if (isWithin(membership, node.id, item.id) || !faceCovers(node, centre)) continue;
     // Later in paint order wins a tie of depth: `>=`.
     const depth = ancestorsOf(membership, node.id).length;
     if (holder === null || depth >= holder.depth) holder = { id: node.id, depth };

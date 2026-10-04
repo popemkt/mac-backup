@@ -8,7 +8,8 @@
  */
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import type { CanvasDoc, CanvasNode } from "@kb/canvas";
-import type { CanvasPoint, CanvasPoint3, ViewSize } from "./canvas-camera";
+import type { CanvasPoint, ViewSize } from "./canvas-camera";
+import type { CanvasPlace } from "./canvas-faces";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import type { CanvasSelection } from "./canvas-selection";
@@ -46,8 +47,8 @@ export interface Canvas3dStageProps {
   /** A double-click on a card: into the group on the way to it (whether it went). */
   readonly onCardDoubleClick: (card: CanvasNode) => boolean;
   readonly dispatchPointer: (event: CanvasPointerEvent) => void;
-  /** A tap on empty canvas, at the canvas-plane point under it (null when edge-on). */
-  readonly onTapEmpty: (world: CanvasPoint3 | null, press: ScenePress) => void;
+  /** A tap on empty canvas, or with a placing tool on a frame: where a tool would place there. */
+  readonly onTapEmpty: (place: CanvasPlace | null, press: ScenePress) => void;
   /** An orbit, a pan or a zoom came to rest. */
   readonly onViewSettled: () => void;
 }

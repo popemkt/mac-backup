@@ -10,8 +10,10 @@
 import {
   CANVAS_SOLID_PRESETS,
   placeItems,
+  placedOnFace,
   presetItem,
   type CanvasDoc,
+  type CanvasFrame,
   type CanvasNode,
   type CanvasPresetKind,
 } from "@kb/canvas";
@@ -119,16 +121,22 @@ export function placesItem(tool: CanvasTool): boolean {
 }
 
 /**
- * Place the active tool's preset at world coords; null when the tool places
- * nothing on a press (`placesItem`).
+ * Place the active tool's preset with its top left at `world` — on the
+ * floor, or on `face` (a frame's that stands: `placeUnder`), turned as it
+ * is; null when the tool places nothing on a press (`placesItem`).
  */
 export function placeWithTool(
   doc: CanvasDoc,
   tool: CanvasTool,
-  world: { x: number; y: number },
+  world: { readonly x: number; readonly y: number; readonly z?: number },
   id: string,
+  face: CanvasFrame | null = null,
 ): { doc: CanvasDoc; node: CanvasNode; nextTool: CanvasTool } | null {
   if (tool === "select" || !placesItem(tool)) return null;
-  const node = presetItem(tool, world, id);
+  const preset = presetItem(tool, world, id);
+  const node =
+    face === null
+      ? preset
+      : placedOnFace(preset, face, { x: world.x, y: world.y, z: world.z ?? 0 });
   return { doc: placeItems(doc, [node]), node, nextTool: "select" };
 }

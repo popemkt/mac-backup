@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { present } from "@kb/model";
-import { parseCanvasDoc, presetItem, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
+import {
+  boxFrame,
+  parseCanvasDoc,
+  presetItem,
+  stringifyCanvasDoc,
+  type CanvasDoc,
+} from "@kb/canvas";
 import { edgePath } from "./canvas-edge-path";
 import {
   pickTool,
@@ -157,6 +163,23 @@ describe("placing into frames", () => {
     expect(state).toMatchObject({ tool: "ellipse", sticky: true });
     pickTool("select", true, to);
     expect(state).toEqual({ tool: "select" });
+  });
+
+  test("an item placed on a frame stood up as a wall lies on its face and belongs to it", () => {
+    const wall = {
+      id: "w",
+      type: "group",
+      x: 0,
+      y: 0,
+      width: 400,
+      height: 300,
+      z: 150,
+      rotation: { x: -90 },
+    } as const;
+    const doc: CanvasDoc = { nodes: [wall], edges: [] };
+    const face = boxFrame(wall);
+    const placed = placeWithTool(doc, "text", { x: 60, y: 150, z: 260 }, "t", face);
+    expect(placed?.doc.nodes.at(-1)).toMatchObject({ id: "t", parent: "w", rotation: { x: -90 } });
   });
 
   test("an item placed over a frame belongs to it", () => {

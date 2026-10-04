@@ -10,14 +10,20 @@
  * floor, a wall a thin rectangle standing on its long edge. Extruding any
  * flat item makes the same kind of thing.
  */
-import type {
-  CanvasFileNode,
-  CanvasGroupNode,
-  CanvasKbNode,
-  CanvasNode,
-  CanvasShapeNode,
-  CanvasTextNode,
+import type { CanvasFrame, CanvasVec } from "./box.ts";
+import {
+  canvasDepth,
+  canvasElevation,
+  withElevation,
+  withRotation,
+  type CanvasFileNode,
+  type CanvasGroupNode,
+  type CanvasKbNode,
+  type CanvasNode,
+  type CanvasShapeNode,
+  type CanvasTextNode,
 } from "./doc.ts";
+import { apply, rotationOfMatrix } from "./rotation.ts";
 
 /** An item before it is placed: no id, no position, and no meaning yet. */
 type Unplaced<N extends CanvasNode> = N extends unknown
@@ -93,6 +99,31 @@ export function presetItem(
     y: at.y,
     ...(nodeId === undefined ? {} : { nodeId }),
   };
+}
+
+/** How far off a face an item placed on it stands, canvas units: clear of it, so the two never fight. */
+const OFF_FACE = 1;
+
+/**
+ * `item` placed on the plane of `face` — a frame's face, wherever it stands
+ * — its top left at `at` on that plane: turned as the face is, and its base
+ * lifted off the face by its own elevation (a shelf stands off a wall as it
+ * stands off the floor) and a hair more. The floor needs none of that:
+ * `presetItem` places there.
+ */
+export function placedOnFace<N extends CanvasNode>(item: N, face: CanvasFrame, at: CanvasVec): N {
+  const depth = canvasDepth(item);
+  const lift = canvasElevation(item) + depth / 2 + OFF_FACE;
+  const centre = apply(face.matrix, { x: item.width / 2, y: item.height / 2, z: lift });
+  const placed = {
+    ...item,
+    x: at.x + centre.x - item.width / 2,
+    y: at.y + centre.y - item.height / 2,
+  };
+  return withRotation(
+    withElevation(placed, at.z + centre.z - depth / 2),
+    rotationOfMatrix(face.matrix),
+  );
 }
 
 /**

@@ -1139,9 +1139,15 @@ manipulation feel professional rather than merely functional.
   their `parent` (DESIGN.md → Canvas documents). Membership is stored, and
   geometry only proposes it: an item placed — by a tool, a paste, a
   duplicate — or let go after any transform belongs to the frame nested
-  deepest of those no smaller than it whose top view holds its centre, or
-  to none (`settleMembership`);
-  a placing tool sees through a frame to the floor, so it places inside.
+  deepest of those no smaller than it whose face holds its centre seen
+  face-on — carried along the frame's normal onto its plane, so a frame on
+  the floor holds what stands over it and one stood up as a wall what is
+  laid on its face — or to none (`settleMembership`);
+  a placing tool places on a frame it is pressed on (`placeUnder`): on the
+  floor under one that lies flat facing up, and on the face of one that
+  stands or tips, turned as it is and a hair off it (`placedOnFace`), so
+  stickies go on a wall, then move along it with G ⇧Y (the plane across
+  its normal) and stay its members.
   ⌘G gathers the selection into a new frame a grid step round it (at the
   lowest base among them, belonging where they all did), ⌘⇧G takes the
   selected groups apart, their members belonging where the group did; the
@@ -1399,7 +1405,9 @@ open view of that canvas.
   turned shape in place: the turntable camera never rolls. Typing goes to
   the editor, so G, S and E type; Escape, Enter (in a label or a card) or a
   press elsewhere closes it, and the camera flies back to where it was —
-  unless it was taken elsewhere meanwhile (`CanvasCameraRig.visit`).
+  unless it was taken elsewhere meanwhile (`CanvasCameraRig.visit`). A
+  text card or a label placed with its tool opens its editor at once, in
+  either projection, as tldraw's text does (where it lands; no flight).
 
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 a copy in any form but a canvas document's text, snap guides during keyboard nudge, edge colour

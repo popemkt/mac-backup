@@ -8,7 +8,8 @@
  */
 import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import type { CanvasNode } from "@kb/canvas";
-import { faceFrameOf, type ViewSize } from "./canvas-camera";
+import type { ViewSize } from "./canvas-camera";
+import { faceFrameOf } from "./canvas-faces";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { CanvasCardFace } from "./canvas-card-layer";
 import { faceTransform } from "./canvas-face-overlay";

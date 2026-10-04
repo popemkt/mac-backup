@@ -6,7 +6,8 @@
  */
 import { describe, expect, test } from "vitest";
 import { boxFrame, frameCorners, type CanvasNode } from "@kb/canvas";
-import { faceFrameOf, presetView, projectPoint, type CanvasView } from "./canvas-camera";
+import { presetView, projectPoint, type CanvasView } from "./canvas-camera";
+import { faceFrameOf } from "./canvas-faces";
 import { faceTransform, quadTransform } from "./canvas-face-overlay";
 
 /** Where a `matrix3d` (transform-origin 0 0) puts a point of the element, perspective divided. */

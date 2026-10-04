@@ -1,8 +1,8 @@
 import { useCallback } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
-import type { CanvasDoc, CanvasSide } from "@kb/canvas";
-import { isShapeNode, paintOrder, placeItems, presetItem } from "@kb/canvas";
+import type { CanvasDoc, CanvasFrame, CanvasSide } from "@kb/canvas";
+import { isShapeNode, isTextNode, paintOrder, placeItems, presetItem } from "@kb/canvas";
 import {
   pickTool,
   placeWithTool,
@@ -45,6 +45,8 @@ interface CanvasGestureContext {
   setPickerOpen: Dispatch<SetStateAction<boolean>>;
   /** Open the chooser a tool placed with something chosen first opens (`pickTool`). */
   choose: (chooser: CanvasChooser) => void;
+  /** Open an item's editor: a text card placed with its tool is typed into at once, as in tldraw. */
+  edit: (id: string) => void;
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
   setItemInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setToolState: Dispatch<SetStateAction<ToolState>>;
@@ -65,6 +67,7 @@ type StageGestureContext = Pick<
   | "setToolState"
   | "spaceDown"
   | "toolState"
+  | "edit"
 >;
 
 type ScreenToWorld = (
@@ -258,15 +261,21 @@ function createToolPlacement({
   setItemInspectorAnchor,
   setToolState,
   toolState,
+  edit,
 }: StageGestureContext) {
-  return (world: { x: number; y: number }, client: { x: number; y: number }): boolean => {
-    const placed = placeWithTool(docRef.current, toolState.tool, world, ulid());
+  return (
+    world: { x: number; y: number; z?: number },
+    client: { x: number; y: number },
+    face: CanvasFrame | null = null,
+  ): boolean => {
+    const placed = placeWithTool(docRef.current, toolState.tool, world, ulid(), face);
     if (!placed) return false;
     schedulePersist(placed.doc);
     setSelection(selNode(placed.node.id));
     setToolState((s) => reduceCanvasTool(s, { type: "placed" }));
     setInspectorAnchor(null);
     setItemInspectorAnchor(isShapeNode(placed.node) ? client : null);
+    if (isTextNode(placed.node)) edit(placed.node.id);
     return true;
   };
 }
@@ -305,7 +314,11 @@ function createStageGestures(
     }
     if (e.button === 0 && isEmptyStageTarget(e.target)) {
       const client = { x: e.clientX, y: e.clientY };
-      if (placeAt(screenToWorld(e.clientX, e.clientY, e.currentTarget), client)) return;
+      if (placeAt(screenToWorld(e.clientX, e.clientY, e.currentTarget), client)) {
+        // The press keeps its focus change to itself: a text card placed here is typed into.
+        e.preventDefault();
+        return;
+      }
       // Begin marquee or clear selection
       dispatchPointer({ type: "marquee/start", screen, additive: e.shiftKey });
       asElement(e.target)?.setPointerCapture(e.pointerId);
