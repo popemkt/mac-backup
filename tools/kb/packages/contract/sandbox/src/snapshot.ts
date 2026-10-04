@@ -1,6 +1,6 @@
 /**
  * A run drawn as of a moment (DESIGN.md → Sandbox → Snapshots): what its
- * code draws, run where no browser is — a code view's figure on a
+ * code draws, run where no browser is — a view's figure on a
  * `ui://kb/view/<id>` resource, or `render.view` as html. It runs until the
  * run is quiet or its budget is spent, and hands back the last drawing as
  * static HTML built from the allowlist. Which engine runs it, and where its

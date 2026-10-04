@@ -238,7 +238,10 @@ export class ActionCatalog extends Context.Service<ActionCatalog, readonly Manif
   "kb/ActionCatalog",
 ) {}
 
-/** One call through the invoke core, made as a read: a call to an action that writes is refused before the core. */
+/**
+ * One call through the invoke core, made as a read: a call to an action
+ * that writes is refused before the core.
+ */
 export type ReadInvoker = (invocation: ActionInvocation) => Effect.Effect<ActionReceipt>;
 
 /**

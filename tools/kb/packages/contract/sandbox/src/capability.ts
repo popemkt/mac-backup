@@ -16,8 +16,7 @@ import {
   type SurfaceWire,
 } from "@kb/contracts";
 import type { KbNode } from "@kb/model";
-import type { CodeGrant } from "./grant.ts";
-import { grantRefusal } from "./grant.ts";
+import { grantRefusal, type CodeGrant } from "./grant.ts";
 import type { SandboxLimits } from "./limits.ts";
 import type { ToolCall, ToolResult } from "./protocol.ts";
 

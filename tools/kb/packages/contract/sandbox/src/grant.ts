@@ -13,8 +13,7 @@ import type { KbNode } from "@kb/model";
  * under it, through `node.get`; `graph` is every node, through `node.get` and
  * `graph.query`; `none` reads nothing.
  */
-export const READ_SCOPES = ["none", "subject", "graph"] as const;
-export type ReadScope = (typeof READ_SCOPES)[number];
+const READ_SCOPES = ["none", "subject", "graph"] as const;
 
 /**
  * What code may ask of the graph: its grant. It is part of what runs, so it

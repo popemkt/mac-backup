@@ -18,11 +18,9 @@ export {
   CodeGrant,
   GRAPH_READ,
   NODE_READ,
-  READ_SCOPES,
   grantRefusal,
   withinSubject,
   type GrantScope,
-  type ReadScope,
 } from "./grant.ts";
 export {
   END_REASONS,

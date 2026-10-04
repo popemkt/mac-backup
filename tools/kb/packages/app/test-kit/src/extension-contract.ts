@@ -16,13 +16,14 @@
  *   settings, and so does its figure where it draws one.
  *
  * Chart and code are the families with a subject for the seed, view and
- * text promises; what a figure draws needs the host's painter or engine, so
- * the runtime's tests assert each one's drawn figure by name. The canvas's
- * fields are still seeded by core (GAP [[01M39F3MR3HT2NR553FY8CRD6X]]), and the
- * lab and canvas views catalogued through core's declaration
- * (GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]), until they move (E9). The browser half — every view a family gives the UI has a key in
- * the page's catalog — is the UI's view contract (`view-contract.test.tsx`
- * in `@kb/ui`), which runs over the page kernel.
+ * text promises. What a figure draws needs the host's painter or engine, so
+ * the runtime's tests assert each one's drawn figure by name. Until they
+ * move (E9), core still seeds the canvas's fields
+ * (GAP [[01M39F3MR3HT2NR553FY8CRD6X]]) and catalogues the lab and canvas views
+ * through its declaration (GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]). The browser
+ * half — every view a family gives the UI has a key in the page's catalog —
+ * is the UI's view contract (`view-contract.test.tsx` in `@kb/ui`), which
+ * runs over the page kernel.
  */
 import { describe, expect, test } from "bun:test";
 import { Effect, Result } from "effect";

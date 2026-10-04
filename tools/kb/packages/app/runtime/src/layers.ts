@@ -49,8 +49,8 @@ import { selectStore } from "./store-selection.ts";
  * the workspace ports backed by `.kb/` on disk + the UI tabs' screens, held
  * by the `kb ui` serving the root + the view catalog the registry's plugins
  * contributed + QuickJS as the engine untrusted code runs on and the invoke
- * core as a read (`UntrustedEngine` and `ReadInvoke`, so a code view's page
- * draws what its code draws) + the render templates and the action
+ * core as a read (`UntrustedEngine` and `ReadInvoke`, which a view's figure
+ * runs code on and calls actions through) + the render templates and the action
  * catalog the registry resolved from core, bundled and `.kb/extensions`
  * contributions.
  *
