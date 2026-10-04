@@ -28,6 +28,10 @@ const SIDES: { readonly [S in CanvasSide]: { readonly x: number; readonly y: num
  * Where an edge meets `node`'s `side`, in canvas space: the one answer the 2D
  * path, its drag preview, the 3D curve and the nearest-port choice all read.
  */
+// A flat billboard stands up in 3D, but an edge meets it at its box's side
+// on the floor, where it lies; and a turned billboard's anchors turn with a
+// rotation it does not draw. Anchors on what is drawn come with 3D plan step 9.
+// GAP [billboard-edge-anchors]
 export function sideAnchor(node: CanvasNode, side: CanvasSide = "right"): SideAnchor {
   const frame = boxFrame(node);
   const unit = SIDES[side];

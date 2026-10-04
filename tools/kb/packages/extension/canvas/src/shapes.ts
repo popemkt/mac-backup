@@ -76,6 +76,29 @@ export function faceShare(item: CanvasNode): number {
 }
 
 /**
+ * Whether a volume has a flat cap to carry a face: a prism's top. An
+ * ellipsoid's or a cone's face (`VOLUME_FACE`) lies inside it, where no one
+ * sees it.
+ */
+const VOLUME_CAPPED: { readonly [V in CanvasVolume]: boolean } = {
+  prism: true,
+  ellipsoid: false,
+  cone: false,
+};
+
+/**
+ * Whether an item's face turns to the camera in 3D rather than lying on it:
+ * a billboard's (`billboard`), and a solid's whose volume has no flat cap
+ * to carry it — a sphere's, a cone's. A flat item that stands is drawn
+ * facing the camera whole (`facingFrame`); a solid's face stands in front
+ * of its body.
+ */
+export function faceStands(item: CanvasBox & { readonly shape?: CanvasShapeKind }): boolean {
+  if (item.billboard === true) return true;
+  return (item.depth ?? 0) > 0 && !VOLUME_CAPPED[CANVAS_SHAPES[item.shape ?? "rect"].volume];
+}
+
+/**
  * Whether a point is on `shape`'s footprint, given in the box's unit
  * coordinates: `u` and `v` run from -1 to 1 across it, 0 at its centre. A
  * rectangle's rounded corners are a look and are not cut off here, so

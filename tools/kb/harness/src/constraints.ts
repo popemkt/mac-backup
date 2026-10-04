@@ -257,8 +257,10 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
         "src/components/canvas/canvas-scene-gestures.ts",
         "src/components/canvas/canvas-scene-gizmo.ts",
         "src/components/canvas/canvas-scene-items.ts",
+        "src/components/canvas/canvas-scene-labels.ts",
         "src/components/canvas/canvas-scene-solids.ts",
         "src/components/canvas/canvas-scene-space.ts",
+        "src/components/canvas/canvas-scene.ts",
         "src/components/canvas/canvas-selection.ts",
         "src/components/canvas/canvas-snap.ts",
         "src/components/canvas/canvas-stage.tsx",
@@ -475,7 +477,7 @@ const UI_PRIMITIVES: readonly string[] = [
  * reach the scene kit. The 2D canvas cannot import three by accident.
  */
 const UI_CANVAS_3D =
-  /^components\/canvas\/canvas-(?:scene(?:-items|-edges|-solids|-gizmo|-space)?\.ts|3d-stage\.tsx)$/;
+  /^components\/canvas\/canvas-(?:scene(?:-items|-edges|-labels|-solids|-gizmo|-space)?\.ts|3d-stage\.tsx)$/;
 
 /**
  * A file's zone, from its path relative to {@link UI_SRC}.

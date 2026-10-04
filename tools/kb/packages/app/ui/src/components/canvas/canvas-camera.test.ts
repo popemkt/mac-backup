@@ -448,3 +448,40 @@ describe("a frame as a viewpoint", () => {
     }
   });
 });
+
+describe("billboards", () => {
+  const label: CanvasHitItem = {
+    id: "label",
+    x: 0,
+    y: 0,
+    width: 200,
+    height: 80,
+    billboard: true,
+    rotation: { x: 60 },
+  };
+  const front = presetView({ ...perspective, x: 100, y: 40, z: 40, fov: 0 }, "front");
+
+  test("level with the floor, a flat billboard is picked where it stands, not on the floor", () => {
+    // Its footprint is edge-on from the front; it stands from its centre line up 80.
+    const standing = projectPoint(front, size, { x: 100, y: 40, z: 60 });
+    const above = projectPoint(front, size, { x: 100, y: 40, z: 100 });
+    expect(standing).not.toBeNull();
+    if (standing === null || above === null) return;
+    expect(hitTest([label], front, size, standing)).toBe("label");
+    expect(hitTest([label], front, size, above)).toBeNull();
+  });
+
+  test("from the top it is its footprint, its turn set aside", () => {
+    const top = presetView(perspective, "top");
+    const corner = projectPoint(top, size, { x: 195, y: 75, z: 0 });
+    expect(corner).not.toBeNull();
+    if (corner !== null) expect(hitTest([label], top, size, corner)).toBe("label");
+    expect(coversFromAbove(label, { x: 195, y: 75 })).toBe(true);
+  });
+
+  test("a face that stands faces every view: looking at it face-on keeps the orbit", () => {
+    const facing = faceOnView(label, size, perspective);
+    expect(facing?.yaw).toBe(perspective.yaw);
+    expect(facing?.pitch).toBe(perspective.pitch);
+  });
+});

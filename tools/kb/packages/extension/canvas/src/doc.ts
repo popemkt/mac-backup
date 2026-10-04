@@ -67,6 +67,12 @@ interface CanvasNodeBase {
    * group, or would make the item its own member, is not honoured.
    */
   parent?: string;
+  /**
+   * Whether the item's face turns to the camera in 3D: a flat item stands up
+   * square to the screen from where it lies, a solid shows its face in front
+   * of it (`./shapes.ts` `faceStands`). Written only when set.
+   */
+  billboard?: boolean;
   /** Unrecognized fields preserved for round-trip. */
   extra?: Record<string, unknown>;
 }
@@ -208,6 +214,7 @@ const KNOWN_NODE_KEYS = new Set([
   "label",
   "nodeId",
   "parent",
+  "billboard",
   "shape",
   "file",
 ]);
@@ -305,6 +312,7 @@ function readItemFields(raw: Record<string, unknown>) {
   const fields: Partial<Record<ItemNumber, number>> & {
     rotation?: Partial<CanvasRotation>;
     parent?: string;
+    billboard?: boolean;
   } = {};
   const unread = new Set<string>();
   for (const key of ITEM_NUMBERS) {
@@ -317,6 +325,8 @@ function readItemFields(raw: Record<string, unknown>) {
   else if (raw.rotation !== undefined) unread.add("rotation");
   if (typeof raw.parent === "string") fields.parent = raw.parent;
   else if (raw.parent !== undefined) unread.add("parent");
+  if (typeof raw.billboard === "boolean") fields.billboard = raw.billboard;
+  else if (raw.billboard !== undefined) unread.add("billboard");
   return { fields, unread };
 }
 
@@ -424,6 +434,7 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
   if (n.color !== undefined) out.color = n.color;
   if (n.nodeId !== undefined) out.nodeId = n.nodeId;
   if (n.parent !== undefined) out.parent = n.parent;
+  if (n.billboard !== undefined) out.billboard = n.billboard;
   // `CanvasUnknownNode.type` is `string`, so `type === "text"` does not
   // discriminate the union — the guards this module already exports do.
   if (isTextNode(n)) out.text = n.text;
@@ -561,6 +572,18 @@ export function withParent<N extends CanvasNode>(node: N, parent: string | undef
   if (parent === undefined) delete next.parent;
   else next.parent = parent;
   return dropExtra(next, "parent");
+}
+
+/**
+ * `node` with its face turned to the camera, or not: set, it is written
+ * `true`; cleared, it carries no `billboard`. A value set here supersedes one
+ * this version could not read.
+ */
+export function withBillboard<N extends CanvasNode>(node: N, on: boolean): N {
+  const next = { ...node };
+  if (on) next.billboard = true;
+  else delete next.billboard;
+  return dropExtra(next, "billboard");
 }
 
 /** The height of an item's top surface: what is stacked on it stands there (`boxTop`). */

@@ -43,14 +43,19 @@ import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js
 import { mix, texture, uniform } from "three/tsl";
 import {
   CANVAS_SHAPES,
+  TOP_AXES,
   boxFrame,
   boxToWorld,
   canvasDepth,
   faceShare,
+  faceStands,
+  facesCamera,
+  itemFrame,
   itemShape,
   paintOrder,
   shapeOutline,
   tracePath,
+  type CanvasAxes,
   type CanvasFootprint,
   type CanvasNode,
 } from "@kb/canvas";
@@ -122,6 +127,8 @@ interface Item {
   built: string;
   edgesWhenSelected: boolean;
   item: CanvasNode;
+  /** The height its base is drawn at (`paintPlanes`). */
+  z: number;
   shows: { face: CardFace; selected: boolean };
 }
 
@@ -178,7 +185,8 @@ function faceVersion(face: CardFace, selected: boolean): string {
   }
 }
 
-function faceDensity(width: number, height: number): number {
+/** Texture pixels per canvas unit for a face of this size: the display's ratio, capped. */
+export function faceDensity(width: number, height: number): number {
   const ratio = typeof window === "undefined" ? 1 : Math.max(1, window.devicePixelRatio || 1);
   return Math.min(MAX_DENSITY, ratio * DENSITY_PER_PIXEL, MAX_TEXTURE / Math.max(width, height));
 }
@@ -267,6 +275,8 @@ export class ItemLayer {
   private readonly pictures = new FacePictures((src) => this.pictureSettled(src));
   /** Scratch for an item's turn in three's world. */
   private readonly turn = new Matrix4();
+  /** Which way the camera looks, which a flat billboard faces. */
+  private axes: CanvasAxes = TOP_AXES;
   private repaint: ReturnType<typeof setTimeout> | null = null;
   private readonly wake: () => void;
   order: readonly string[] = [];
@@ -421,7 +431,9 @@ export class ItemLayer {
       radius: cornerRadius(item, this.look),
       faceMargin: FACE_MARGIN,
     };
-    const key = solidKey(spec);
+    // A solid whose face stands wears no face on its top (`canvas-scene-labels` stands it up).
+    const capped = spec.depth > 0 && !faceStands(item);
+    const key = `${solidKey(spec)}${capped ? "" : "|bare"}`;
     if (entry.built === key) return;
     const solid = solidGeometry(spec);
     entry.body.geometry.dispose();
@@ -432,7 +444,7 @@ export class ItemLayer {
     entry.edgesWhenSelected = solid.edgesWhenSelected;
     const raised = spec.depth > 0;
     entry.body.material = slotted(
-      raised ? entry.faces.solid : entry.faces.flat,
+      raised ? (capped ? entry.faces.solid : entry.bodyMaterial) : entry.faces.flat,
       entry.bodyMaterial,
     );
     // Seen from below, a flat card is blank stock; a solid has its own bottom.
@@ -513,11 +525,34 @@ export class ItemLayer {
       edgesWhenSelected: false,
       item,
       shows,
+      z: 0,
     };
     // The shared plane stands in until the first build; never dispose it with the item.
     body.geometry = new PlaneGeometry(1, 1);
     this.items.set(item.id, entry);
     return entry;
+  }
+
+  /**
+   * Turn every flat billboard square to a camera looking along `axes`
+   * (`facingFrame`); every other item is drawn as it is turned.
+   */
+  face(axes: CanvasAxes): void {
+    this.axes = axes;
+    for (const entry of this.items.values()) {
+      if (facesCamera(entry.item)) this.orient(entry);
+    }
+  }
+
+  /**
+   * Stand the item's geometry where the camera draws it (`itemFrame`): its
+   * origin is the centre of its base, in its own frame.
+   */
+  private orient(entry: Item): void {
+    const frame = itemFrame(entry.item, this.axes, entry.z);
+    const origin = boxToWorld(frame, { x: 0, y: 0, z: -frame.half.z });
+    entry.group.position.set(origin.x, -origin.y, origin.z);
+    entry.group.quaternion.setFromRotationMatrix(matrixToThree(frame.matrix, this.turn));
   }
 
   /** Stand the item on its plane at `z`, colour it, and lay its shadow and stem on the floor. */
@@ -527,11 +562,10 @@ export class ItemLayer {
     const cx = item.x + item.width / 2;
     const cy = item.y + item.height / 2;
     const depth = canvasDepth(item);
-    // The geometry's origin is the centre of its base, in the box's own frame.
+    entry.z = z;
+    this.orient(entry);
     const frame = boxFrame(item, z);
     const origin = boxToWorld(frame, { x: 0, y: 0, z: -frame.half.z });
-    entry.group.position.set(origin.x, -origin.y, origin.z);
-    entry.group.quaternion.setFromRotationMatrix(matrixToThree(frame.matrix, this.turn));
     const tint = colorOf(item, look);
     // The body: the card stock, or its colour laid over it, a little firmer in the dark.
     entry.bodyMaterial.color.set(

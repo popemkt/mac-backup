@@ -1094,7 +1094,8 @@ manipulation feel professional rather than merely functional.
   (box, pillar, sphere, cone, shelf, wall), and B picks that solid again.
   One table (`TOOL_LOOKS`, typed over every tool) names and marks them. The
   numpad's digits are views, not tools (Projections → view widget). G is
-  not a tool: it grabs. The image tool has no key; it opens a file chooser
+  not a tool: it grabs. The label tool (a text card facing the camera,
+  below) has no key, and neither has the image tool, which opens a file chooser
   (Pictures, above).
 - **Modal transforms** (Blender's G, S and E; plan 2026-10-02 decision 9),
   in both projections. With something selected, G grabs, S scales and E
@@ -1325,6 +1326,24 @@ open view of that canvas.
   HTML-in-Canvas origin trial (`copyElementImageToTexture`) and silently
   draws nothing without it, so it would ride on this path as a second one
   rather than replace it.
+- **Faces that stand** (plan 2026-10-02, step 7; `faceStands`). Every view
+  is a camera, with its own axes (`viewAxes`: the screen's right and down,
+  and back toward the eye), and a face that stands turns to them. A flat
+  billboard (`billboard`; the label preset is a text card that is one) is
+  drawn and picked square to the screen (`facingFrame`, through `itemFrame`,
+  which `hitTest`, the screen bounds, framing and both projections read):
+  its centre over its footprint's, raised by half its height as far as the
+  view is tipped toward level, so its lower edge stays on its plane — from
+  the top it is its footprint, unturned, and level with the floor it stands
+  up from it, which is what keeps a label legible in the front and side
+  views. A solid's face stands when it is a billboard or has no flat top to
+  carry it — a sphere, a cone: its top is then plain, and a label of its
+  face's words on a pill of card stock (`paintLabel`) stands square to the
+  camera in front of the whole body (`frontFrame`: the box's reach toward
+  the eye; `canvas-scene-labels.ts`). A label is a look, not a surface: the
+  solid is picked by its body. Both turn only when the orbit does. In 2D a
+  standing face shows as it always did. The inspector's "Face the camera"
+  sets `billboard`, and hides the rotation a flat billboard does not draw.
 - **Gestures in 3D** are the 2D ones where they mean the same: a press on an
   item selects it (a modifier toggles), a drag carries it on the plane of
   its top and Alt-drag lifts it. Both are one transform drag in the pointer
@@ -1363,11 +1382,9 @@ open view of that canvas.
 
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 a copy in any form but a canvas document's text, snap guides during keyboard nudge, edge colour
-on the stroke itself, edge endpoint re-routing; in 3D, a sphere's or a cone's
-label (they have no flat top for the
-card face; billboards are plan step 7), and a flat item seen exactly level
-(the front and side presets), which is a hairline on its plane
-(`GAP [[01M41AB7YM5801ZJNM1Q647SYD]]`). From the top, a cone or a sphere paints by
+on the stroke itself, edge endpoint re-routing; in 3D, a flat item that is
+not a billboard seen exactly level (the front and side presets), which is a
+hairline on its plane (`GAP [[01M41AB7YM5801ZJNM1Q647SYD]]`). From the top, a cone or a sphere paints by
 the height of its point, so a raised card floating over its rim is drawn
 under it there.
 

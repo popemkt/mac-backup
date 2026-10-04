@@ -13,6 +13,7 @@ import {
   SphereIcon,
   SquareIcon,
   SquareHalfIcon,
+  TagIcon,
   TextTIcon,
   TriangleIcon,
   WallIcon,
@@ -28,6 +29,7 @@ const TOOL_LOOKS: {
 } = {
   select: { label: "Select (V)", icon: <CursorIcon size={16} /> },
   text: { label: "Text (T)", icon: <TextTIcon size={16} /> },
+  label: { label: "Label: faces you in 3D", icon: <TagIcon size={16} /> },
   rect: { label: "Rectangle (R)", icon: <SquareIcon size={16} /> },
   ellipse: { label: "Ellipse (O)", icon: <CircleIcon size={16} /> },
   diamond: { label: "Diamond (D)", icon: <DiamondIcon size={16} /> },
@@ -46,6 +48,7 @@ const TOOL_LOOKS: {
 const FLAT_TOOLS: readonly CanvasTool[] = [
   "select",
   "text",
+  "label",
   "rect",
   "ellipse",
   "diamond",

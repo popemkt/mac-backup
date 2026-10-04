@@ -431,6 +431,57 @@ function paintImage(
   paintOutline(ctx, box, look, look.shapeRadius, over(look, look.ink, 0.12));
 }
 
+/** The words a face shows, as a standing label says them; an image says none. */
+export function faceWords(face: CardFace): string {
+  switch (face.kind) {
+    case "note":
+    case "text":
+      return face.text;
+    case "image":
+      return "";
+    case "shape":
+    case "group":
+    case "missing":
+    case "other":
+      return face.label;
+    default:
+      return "";
+  }
+}
+
+/**
+ * A standing face's label (`faceStands`): `words` set in the UI face at the
+ * UI step, centred in a box of the face's size, on a pill of card stock so
+ * it reads over whatever is behind it — a solid's body is its surface, so
+ * the label paints no card. Selected, the pill wears the selection ring.
+ * Nothing at all for no words.
+ */
+export function paintLabel(ctx: Ctx, words: string, box: FaceBox, look: CardLook): void {
+  if (!hasText(words)) return;
+  setFont(ctx, look, look.ui, 500);
+  const line = look.ui * 1.4;
+  const lines = wrapText(ctx, words, box.width - PAD * 2, 3);
+  const wide = Math.max(...lines.map((l) => ctx.measureText(l).width));
+  const pill = { width: Math.min(box.width, wide + PAD * 2), height: line * lines.length + PAD };
+  ctx.save();
+  ctx.translate((box.width - pill.width) / 2, (box.height - pill.height) / 2);
+  roundedRect(ctx, pill.width, pill.height, pill.height / 2);
+  ctx.fillStyle = alpha(look.face, 0.92);
+  ctx.fill();
+  paintOutline(
+    ctx,
+    { ...pill, selected: box.selected },
+    look,
+    pill.height / 2,
+    over(look, look.ink, 0.14),
+  );
+  ctx.restore();
+  ctx.fillStyle = over(look, look.ink, 0.88);
+  ctx.textAlign = "center";
+  paintLines(ctx, lines, box.width / 2, box.height / 2 - (line * lines.length) / 2, line);
+  ctx.textAlign = "left";
+}
+
 function paintPlain(ctx: Ctx, label: string, box: FaceBox, look: CardLook, ink: string) {
   paintSurface(ctx, box, look, look.face, look.radius);
   setFont(ctx, look, look.label);

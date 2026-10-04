@@ -40,6 +40,9 @@ import {
   carriedBy,
   directionToLocal,
   faceShare,
+  facesCamera,
+  frameCorners,
+  itemFrame,
   itemShape,
   onFootprint,
   paintOrder,
@@ -60,6 +63,7 @@ import {
   panOfView,
   projectPoint,
   screenToPlane,
+  viewAxes,
   type CanvasView,
   type ViewSize,
 } from "./canvas-camera";
@@ -213,6 +217,41 @@ const doc: CanvasDoc = {
       height: 80,
       depth: 90,
       rotation: { x: 40, y: 25 },
+    },
+    // Billboards, apart: a label turned (which it does not show: it faces the camera), and a
+    // raised one; a solid billboard keeps its body's turn.
+    {
+      id: "tag",
+      type: "text",
+      text: "tag",
+      x: 1200,
+      y: 250,
+      width: 140,
+      height: 50,
+      billboard: true,
+      rotation: { x: 30, z: 40 },
+    },
+    {
+      id: "sign",
+      type: "text",
+      text: "sign",
+      x: 1200,
+      y: 420,
+      width: 120,
+      height: 60,
+      z: 60,
+      billboard: true,
+    },
+    {
+      id: "post",
+      ...solid("rect"),
+      x: 1220,
+      y: 560,
+      width: 60,
+      height: 60,
+      depth: 90,
+      billboard: true,
+      rotation: { z: 20 },
     },
     {
       id: "spire",
@@ -619,7 +658,10 @@ const footprintSamples = doc.nodes.flatMap((item) => {
 });
 
 /** An item's face corners over the paint plane `z`, clockwise from the top left. */
-const cornersOf = (item: CanvasNode, z: number) => planeCorners(item, faceShare(item), z);
+const cornersOf = (item: CanvasNode, z: number, view: CanvasView) =>
+  facesCamera(item)
+    ? frameCorners(itemFrame(item, viewAxes(view), z)).slice(0, 4)
+    : planeCorners(item, faceShare(item), z);
 
 const centreOf = (item: CanvasNode) => ({
   x: item.x + item.width / 2,
@@ -700,7 +742,7 @@ describe("canvas projection contract", () => {
       for (const { item, z } of paintPlanes(paintOrder(doc.nodes))) {
         const drawn = probe.cornersOf(item.id);
         expect(drawn, item.id).not.toBeNull();
-        cornersOf(item, z).forEach((corner, i) => {
+        cornersOf(item, z, view).forEach((corner, i) => {
           const model = projectPoint(view, size, corner);
           expect(drawn?.[i]?.x, `${item.id} corner ${i}`).toBeCloseTo(model?.x ?? Number.NaN, 1);
           expect(drawn?.[i]?.y, `${item.id} corner ${i}`).toBeCloseTo(model?.y ?? Number.NaN, 1);
@@ -756,7 +798,7 @@ describe("canvas projection contract", () => {
         expect(plane, id).toBeDefined();
         if (plane === undefined) continue;
         const drawn = probe.cornersOf(id);
-        cornersOf(plane.item, plane.z).forEach((corner, i) => {
+        cornersOf(plane.item, plane.z, view).forEach((corner, i) => {
           const model = projectPoint(view, size, corner);
           expect(drawn?.[i]?.x, `${id} corner ${i}`).toBeCloseTo(model?.x ?? Number.NaN, 1);
           expect(drawn?.[i]?.y, `${id} corner ${i}`).toBeCloseTo(model?.y ?? Number.NaN, 1);
@@ -783,7 +825,7 @@ describe("canvas projection contract", () => {
       expect(sunk).toBeDefined();
       if (sunk === undefined) return;
       const drawn = probe.cornersOf("sunk");
-      cornersOf(sunk.item, sunk.z).forEach((corner, i) => {
+      cornersOf(sunk.item, sunk.z, view).forEach((corner, i) => {
         const model = projectPoint(view, size, corner);
         expect(drawn?.[i]?.x).toBeCloseTo(model?.x ?? Number.NaN, 1);
         expect(drawn?.[i]?.y).toBeCloseTo(model?.y ?? Number.NaN, 1);

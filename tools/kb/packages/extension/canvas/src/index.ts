@@ -15,6 +15,7 @@ export {
   stringifyCanvasDoc,
   upsertCanvasEdge,
   upsertCanvasNode,
+  withBillboard,
   withCanvasCamera,
   withDepth,
   withElevation,
@@ -65,6 +66,7 @@ export {
 } from "./transform.ts";
 export type { CanvasTransform } from "./transform.ts";
 export {
+  TOP_AXES,
   boxCorners,
   boxFrame,
   boxRotation,
@@ -73,15 +75,21 @@ export {
   boxTop,
   directionToLocal,
   directionToWorld,
+  facesCamera,
+  facingFrame,
+  frameCorners,
+  frontFrame,
+  itemFrame,
   planeCorners,
 } from "./box.ts";
-export type { CanvasBox, CanvasFrame, CanvasVec } from "./box.ts";
+export type { CanvasAxes, CanvasBox, CanvasFrame, CanvasVec } from "./box.ts";
 export { cameraLookingFrom, posesAgree, projectionOf } from "./camera.ts";
 export { canvasExtension } from "./extension.ts";
 export { CANVAS_SOLID_PRESETS, imageItem, presetItem } from "./presets.ts";
 export {
   CANVAS_SHAPES,
   faceShare,
+  faceStands,
   itemShape,
   onFootprint,
   outlinePoints,

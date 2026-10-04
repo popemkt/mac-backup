@@ -4,10 +4,13 @@ import {
   canvasDepth,
   canvasElevation,
   canvasRotation,
+  facesCamera,
+  isFileNode,
   isGroupNode,
   isKbNode,
   isShapeNode,
   isTextNode,
+  withBillboard,
   withDepth,
   withElevation,
   withRotation,
@@ -175,6 +178,28 @@ function HeightRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChan
   );
 }
 
+/**
+ * Whether the item's face turns to the camera in 3D (`billboard`): a flat
+ * item stands square to the screen, a solid shows its face in front of it.
+ */
+function FacingRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChange">) {
+  return (
+    <label
+      className="flex items-center justify-between px-1.5 pb-1.5"
+      title="In 3D its face turns to you from any side, as a label does"
+    >
+      <span className="text-meta text-foreground/50">Face the camera</span>
+      <input
+        type="checkbox"
+        aria-label="Face the camera"
+        className="h-3.5 w-3.5 accent-primary"
+        checked={item.billboard === true}
+        onChange={(e) => onChange(withBillboard(item, e.target.checked))}
+      />
+    </label>
+  );
+}
+
 /** What each rotation field turns the item about. */
 const TURN_HINTS = {
   x: "Degrees about its own width axis, applied first",
@@ -210,7 +235,9 @@ function RotationRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onCh
 /** What the inspector calls the item: by what it is, not how it is stored. */
 function titleOf(item: CanvasNode): string {
   if (isShapeNode(item)) return canvasDepth(item) > 0 ? "Solid" : "Shape";
-  if (isTextNode(item)) return canvasDepth(item) > 0 ? "Block" : "Text";
+  if (isTextNode(item))
+    return canvasDepth(item) > 0 ? "Block" : facesCamera(item) ? "Label" : "Text";
+  if (isFileNode(item)) return "Image";
   if (isKbNode(item)) return "Card";
   if (isGroupNode(item)) return "Frame";
   return "Item";
@@ -255,7 +282,9 @@ export function ItemInspector({ item, anchor, onClose, onChange }: ItemInspector
       >
         {isShapeNode(item) && <ColorRow item={item} onChange={onChange} />}
         <HeightRow item={item} onChange={onChange} />
-        <RotationRow item={item} onChange={onChange} />
+        <FacingRow item={item} onChange={onChange} />
+        {/* A flat billboard faces the camera whatever way it is turned. */}
+        {!facesCamera(item) && <RotationRow item={item} onChange={onChange} />}
       </PopoverShell>
     </div>,
     document.body,

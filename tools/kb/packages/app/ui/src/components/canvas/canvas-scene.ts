@@ -32,11 +32,13 @@ import { float, fract, fwidth, length, positionWorld, smoothstep, uniform } from
 import { mountScene, type SceneStage } from "@/scene/gpu/stage";
 import { toScreen, type ScreenPoint } from "@/scene/gpu/screen";
 import type { SceneBackend } from "@/scene/backend";
+import type { CanvasAxes } from "@kb/canvas";
 import type { SceneHandle } from "@/scene/host";
 import type { ScenePalette } from "@/scene/palette";
 import {
   PERSPECTIVE_FOV,
   cameraPose,
+  viewAxes,
   type CanvasPoint,
   type CanvasView,
   type ViewSize,
@@ -48,6 +50,7 @@ import type { CanvasCameraRig } from "./canvas-camera-rig";
 import type { Timing } from "@/sdk";
 import { over, type CardLook } from "./canvas-card-face";
 import { ItemLayer } from "./canvas-scene-items";
+import { LabelLayer } from "./canvas-scene-labels";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 import { EdgeLayer } from "./canvas-scene-edges";
 import { GRID_STEP } from "./canvas-snap";
@@ -87,6 +90,10 @@ interface CanvasSceneInspection {
    * surface a ray meets first.
    */
   bodiesOf(id: string): readonly Object3D[];
+  /** Item ids whose face stands as a label in front of them (`canvas-scene-labels`). */
+  readonly labels: readonly string[];
+  /** A standing label's corners on the canvas, CSS pixels, clockwise from its top left; null when out of view. */
+  labelOf(id: string): { x: number; y: number }[] | null;
 }
 
 export interface CanvasScene extends SceneHandle {
@@ -218,6 +225,68 @@ function drivenGizmo(
   };
 }
 
+/** Every point of `points` on screen, or null when one is out of view. */
+function allOnScreen(
+  points: readonly Vector3[] | null,
+  onScreen: (world: Vector3) => { x: number; y: number } | null,
+): { x: number; y: number }[] | null {
+  if (points === null) return null;
+  const on = points.map(onScreen);
+  return on.some((p) => p === null) ? null : on.filter((p) => p !== null);
+}
+
+/** What a mounted scene reads back: its layers as they last drew, through the camera as it is. */
+function inspection(parts: {
+  readonly stage: SceneStage;
+  readonly cards: ItemLayer;
+  readonly labels: LabelLayer;
+  readonly edges: EdgeLayer;
+  readonly content: CanvasSceneContent;
+  readonly onScreen: (world: Vector3) => { x: number; y: number } | null;
+}): CanvasSceneInspection {
+  const { stage, cards, labels, edges, content, onScreen } = parts;
+  return {
+    backend: stage.backend,
+    frames: stage.frames(),
+    items: cards.order,
+    edges: edges.ids,
+    selected: [
+      ...cards.order.filter((id) => content.selection.nodeIds.has(id)),
+      ...edges.ids.filter((id) => content.selection.edgeIds.has(id)),
+    ],
+    screenOf: (id) => {
+      const drawn = cards.drawn(id);
+      const [a, , c] = drawn?.corners ?? [];
+      if (a === undefined || c === undefined) return null;
+      return onScreen(a.clone().add(c).multiplyScalar(0.5));
+    },
+    drawnOf: (id) => {
+      const drawn = cards.drawn(id);
+      const corners = allOnScreen(drawn?.corners ?? null, onScreen);
+      return drawn === null || corners === null ? null : { z: drawn.z, corners };
+    },
+    bodiesOf: (id) => cards.bodiesOf(id),
+    labels: labels.ids,
+    labelOf: (id) => allOnScreen(labels.cornersOf(id), onScreen),
+  };
+}
+
+/**
+ * Turn what faces the camera — flat billboards, standing labels — to a view,
+ * each time its orbit changes; a still camera, or one only panned or zoomed,
+ * turns nothing.
+ */
+function cameraFacer(layers: readonly { face(axes: CanvasAxes): void }[]) {
+  const faced = { yaw: Number.NaN, pitch: Number.NaN };
+  return (view: CanvasView) => {
+    if (view.yaw === faced.yaw && view.pitch === faced.pitch) return;
+    faced.yaw = view.yaw;
+    faced.pitch = view.pitch;
+    const axes = viewAxes(view);
+    for (const layer of layers) layer.face(axes);
+  };
+}
+
 export async function mountCanvasScene(
   host: HTMLElement,
   init: CanvasSceneInit,
@@ -246,16 +315,18 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
   stage.backdrop({});
   const fog = stage.atmosphere(4000, 16_000);
   const cards = new ItemLayer(init.look, init.dark, stage.invalidate);
+  const labels = new LabelLayer(init.look);
   const edges = new EdgeLayer(init.look);
   const plane = canvasPlane();
   plane.setLook(init.look);
-  scene.add(plane.mesh, edges.root, cards.root);
+  scene.add(plane.mesh, edges.root, cards.root, labels.root);
   const gizmo = new GizmoLayer(scene, camera);
   let gizmoChoice: GizmoChoice = init.gizmo;
   let content = init.content;
   /** The selected items, which the gizmo stands on. */
   const selected = () => content.doc.nodes.filter((n) => content.selection.nodeIds.has(n.id));
   cards.sync(content);
+  labels.sync(content);
   edges.sync(content);
   gizmo.setTarget(selected(), gizmoChoice);
   const { rig } = init;
@@ -265,10 +336,13 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
   const viewport = { width: 1, height: 1 };
   const eye = new Vector3();
 
+  const faceCamera = cameraFacer([cards, labels]);
+
   const frame = (dt: number) => {
     const moving = rig.step(dt);
     viewport.width = canvas.clientWidth || viewport.width;
     viewport.height = canvas.clientHeight || viewport.height;
+    faceCamera(rig.view);
     const distance = applyView(camera, rig.view, viewport, eye);
     gizmo.follow(rig.view, viewport, rig.view.fov < MIN_FOV);
     fog.near.value = distance * 1.25;
@@ -286,6 +360,7 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
     setContent: (next: CanvasSceneContent) => {
       content = next;
       cards.sync(content);
+      labels.sync(content);
       edges.sync(content);
       gizmo.setTarget(selected(), gizmoChoice);
       stage.invalidate();
@@ -300,36 +375,14 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
       stage.setPalette(palette);
       plane.setLook(look);
       cards.setLook(look, dark);
+      labels.setLook(look);
       edges.setLook(look);
       cards.sync(content);
+      labels.sync(content);
       edges.sync(content);
       stage.invalidate();
     },
-    inspect: (): CanvasSceneInspection => ({
-      backend: stage.backend,
-      frames: stage.frames(),
-      items: cards.order,
-      edges: edges.ids,
-      selected: [
-        ...cards.order.filter((id) => content.selection.nodeIds.has(id)),
-        ...edges.ids.filter((id) => content.selection.edgeIds.has(id)),
-      ],
-      screenOf: (id) => {
-        const drawn = cards.drawn(id);
-        if (drawn === null) return null;
-        const [a, , c] = drawn.corners;
-        if (a === undefined || c === undefined) return null;
-        return onScreen({ x: (a.x + c.x) / 2, y: (a.y + c.y) / 2, z: (a.z + c.z) / 2 });
-      },
-      drawnOf: (id) => {
-        const drawn = cards.drawn(id);
-        if (drawn === null) return null;
-        const corners = drawn.corners.map(onScreen);
-        if (corners.some((corner) => corner === null)) return null;
-        return { z: drawn.z, corners: corners.filter((corner) => corner !== null) };
-      },
-      bodiesOf: (id) => cards.bodiesOf(id),
-    }),
+    inspect: () => inspection({ stage, cards, labels, edges, content, onScreen }),
   };
 
   return {
@@ -347,6 +400,7 @@ function canvasScene(stage: SceneStage, init: CanvasSceneInit) {
       gizmo.dispose();
       edges.dispose();
       cards.dispose();
+      labels.dispose();
       plane.dispose();
     },
   };

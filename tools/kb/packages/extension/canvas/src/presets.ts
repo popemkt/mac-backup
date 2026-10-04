@@ -32,6 +32,14 @@ const shape = (
 const CANVAS_PRESETS = {
   /** A text card: its own words, no node. */
   text: { type: "text", text: "", width: 220, height: 80 } satisfies Unplaced<CanvasTextNode>,
+  /** A label: a text card that faces the camera in 3D, readable from any side. */
+  label: {
+    type: "text",
+    text: "",
+    width: 160,
+    height: 48,
+    billboard: true,
+  } satisfies Unplaced<CanvasTextNode>,
   rect: shape("rect", { width: 160, height: 100 }),
   ellipse: shape("ellipse", { width: 160, height: 100 }),
   diamond: shape("diamond", { width: 160, height: 100 }),

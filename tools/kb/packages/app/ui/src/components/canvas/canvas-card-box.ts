@@ -1,9 +1,10 @@
 import type { CSSProperties } from "react";
 import {
-  boxFrame,
+  TOP_AXES,
   canvasDepth,
   faceShare,
   isUnrotated,
+  itemFrame,
   canvasRotation,
   type CanvasNode,
 } from "@kb/canvas";
@@ -26,7 +27,8 @@ import {
 export function cardBoxStyle(card: CanvasNode): CSSProperties {
   const box = { left: card.x, top: card.y, width: card.width, height: card.height };
   if (isUnrotated(canvasRotation(card))) return box;
-  const m = boxFrame(card).matrix;
+  // The top view is a camera like any other: a flat billboard faces it, unturned (`itemFrame`).
+  const m = itemFrame(card, TOP_AXES).matrix;
   // The face's offset from the box's centre, along the box's own up.
   const up = (faceShare(card) - 0.5) * canvasDepth(card);
   const column = [m[0], m[3], m[6], 0, m[1], m[4], m[7], 0, m[2], m[5], m[8], 0];

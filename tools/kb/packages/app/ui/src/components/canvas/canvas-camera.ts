@@ -22,15 +22,20 @@
  */
 import {
   CANVAS_SHAPES,
-  boxCorners as cornersOfBox,
+  TOP_AXES,
   boxFrame,
   boxToLocal,
   boxTop,
   directionToLocal,
+  faceStands,
+  frameCorners,
+  itemFrame,
   onFootprint,
+  type CanvasAxes,
   type CanvasBox,
   type CanvasPose,
   type CanvasShapeKind,
+  type CanvasVec,
 } from "@kb/canvas";
 
 export interface CanvasPoint {
@@ -197,7 +202,7 @@ export function screenBounds(
 ): ScreenRect | null {
   const frame = frameOf(view, size);
   // Each corner in the camera's own axes: across, down, and how far in front of the eye.
-  const local = boxCorners(item, item.z ?? 0).map((p): Vec => {
+  const local = itemCorners(item, item.z ?? 0, viewAxes(view)).map((p): Vec => {
     const v: Vec = [p[0] - frame.eye[0], p[1] - frame.eye[1], p[2] - frame.eye[2]];
     return [dot(v, frame.right), dot(v, frame.down), -dot(v, frame.back)];
   });
@@ -220,14 +225,27 @@ export function screenBounds(
 }
 
 /**
- * A box's corners (`boxCorners` in `@kb/canvas`): its base, then its top
- * (the same four again when it is flat). {@link BOX_EDGES} joins them.
+ * An item's corners as a camera looking along `axes` draws it (`itemFrame`
+ * in `@kb/canvas`, which stands a flat billboard square to it): its base,
+ * then its top (the same four again when it is flat). {@link BOX_EDGES}
+ * joins them.
  */
-function boxCorners(item: CanvasHitItem, z: number): Vec[] {
-  return cornersOfBox(item, z).map((p): Vec => [p.x, p.y, p.z]);
+function itemCorners(item: CanvasHitItem, z: number, axes: CanvasAxes): Vec[] {
+  return frameCorners(itemFrame(item, axes, z)).map((p): Vec => [p.x, p.y, p.z]);
 }
 
-/** The twelve edges of {@link boxCorners}: the base ring, the top ring, and the four uprights. */
+/** Which way `view` looks, in canvas space: its screen's right and down, and back toward the eye. */
+export function viewAxes(view: CanvasView): CanvasAxes {
+  const { right, down, back } = frameOf(view, AXES_ONLY);
+  return { right: vecOf(right), down: vecOf(down), back: vecOf(back) };
+}
+
+const vecOf = ([x, y, z]: Vec): CanvasVec => ({ x, y, z });
+
+/** A viewport for a question about directions alone, which no viewport's size changes. */
+const AXES_ONLY: ViewSize = { width: 1, height: 1 };
+
+/** The twelve edges of {@link itemCorners}: the base ring, the top ring, and the four uprights. */
 const BOX_EDGES: readonly (readonly [number, number])[] = [
   [0, 1],
   [1, 2],
@@ -498,9 +516,9 @@ function volumeSpans(
  * flat item is its footprint on its plane; a solid, the volume its shape
  * fills.
  */
-function rayIntoItem(ray: Ray, item: CanvasHitItem, z: number): number | null {
+function rayIntoItem(ray: Ray, item: CanvasHitItem, z: number, axes: CanvasAxes): number | null {
   // In the box's own frame the box is centred on the origin along its own axes.
-  const frame = boxFrame(item, z);
+  const frame = itemFrame(item, axes, z);
   const origin = boxToLocal(frame, ray.origin);
   const dir = directionToLocal(frame, ray.dir);
   const { half } = frame;
@@ -532,7 +550,7 @@ const ABOVE_ALL = 1e7;
  */
 export function coversFromAbove(item: CanvasHitItem, at: CanvasPoint): boolean {
   const down: Ray = { origin: { x: at.x, y: at.y, z: ABOVE_ALL }, dir: { x: 0, y: 0, z: -1 } };
-  return rayIntoItem(down, item, item.z ?? 0) !== null;
+  return rayIntoItem(down, item, item.z ?? 0, TOP_AXES) !== null;
 }
 
 /**
@@ -547,9 +565,10 @@ export function hitTest(
   screen: CanvasPoint,
 ): string | null {
   const ray = screenRay(view, size, screen);
+  const axes = viewAxes(view);
   let best: { id: string; t: number } | null = null;
   for (const { item, z } of paintPlanes(items)) {
-    const t = rayIntoItem(ray, item, z);
+    const t = rayIntoItem(ray, item, z, axes);
     if (t !== null && (best === null || t < best.t)) best = { id: item.id, t };
   }
   return best?.id ?? null;
@@ -609,12 +628,13 @@ export function fitView(
 ): CanvasView | null {
   if (items.length === 0) return null;
   const { right, down } = frameOf(from, size);
+  const axes = viewAxes(from);
   const low = [Infinity, Infinity, Infinity];
   const high = [-Infinity, -Infinity, -Infinity];
   const across = { min: Infinity, max: -Infinity };
   const upDown = { min: Infinity, max: -Infinity };
   for (const item of items) {
-    for (const corner of boxCorners(item, item.z ?? 0)) {
+    for (const corner of itemCorners(item, item.z ?? 0, axes)) {
       corner.forEach((v, i) => {
         low[i] = Math.min(low[i] ?? v, v);
         high[i] = Math.max(high[i] ?? v, v);
@@ -646,14 +666,16 @@ const FROM_TOP = 1e-3;
  * own Z, turned (from above, for a face turned down: there is no view from
  * under the floor) — and a face seen from the top is squared to the screen
  * along its own X. A frame on the floor is looked at from the top; one
- * stood up as a wall, level from in front of it. Null when there is nothing
- * to frame.
+ * stood up as a wall, level from in front of it. A face that stands
+ * (`faceStands`: a billboard's, a sphere's) faces every view, so the orbit
+ * is kept and the item only framed. Null when there is nothing to frame.
  */
 export function faceOnView(
   item: CanvasHitItem,
   size: ViewSize,
   from: CanvasView,
 ): CanvasView | null {
+  if (faceStands(item)) return fitView([item], size, from);
   const m = boxFrame(item).matrix;
   const up = m[8] < 0 ? -1 : 1;
   const normal = { x: m[2] * up, y: m[5] * up, z: m[8] * up };

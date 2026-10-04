@@ -39,6 +39,31 @@ export interface CanvasBox {
   readonly depth?: number;
   /** Its turn about its centre, degrees; an absent angle is 0. */
   readonly rotation?: Partial<CanvasRotation>;
+  /** Its face turns to the camera (`facingFrame`). */
+  readonly billboard?: boolean;
+}
+
+/**
+ * Which way a camera looks, in canvas space: its screen's right and down,
+ * and back from what it looks at toward the eye — three unit vectors, right
+ * then down then back a right-handed frame, as x, y and z are.
+ */
+export interface CanvasAxes {
+  readonly right: CanvasVec;
+  readonly down: CanvasVec;
+  readonly back: CanvasVec;
+}
+
+/** The top view's axes: the screen's right and down are x and y, and the eye is up z. */
+export const TOP_AXES: CanvasAxes = Object.freeze({
+  right: { x: 1, y: 0, z: 0 },
+  down: { x: 0, y: 1, z: 0 },
+  back: { x: 0, y: 0, z: 1 },
+});
+
+/** The matrix that turns x, y and z into a camera's right, down and back. */
+function axesMatrix({ right, down, back }: CanvasAxes): CanvasMatrix {
+  return [right.x, down.x, back.x, right.y, down.y, back.y, right.z, down.z, back.z];
 }
 
 /**
@@ -95,12 +120,80 @@ export function directionToLocal(frame: CanvasFrame, world: CanvasVec): CanvasVe
 }
 
 /**
- * A box's eight corners in the canvas: its base, clockwise as the top view
- * reads it from the top left, then its top in the same order (the same four
- * again when it is flat).
+ * A flat box's frame as a camera looking along `axes` sees it face-on: its
+ * footprint stood square to the screen, its top to the screen's top, rising
+ * from where it lies — the centre over the footprint's centre, raised by
+ * half its height as far as the view is tipped toward level, so its lower
+ * edge stays on its plane. From the top it is its footprint; level with
+ * the floor, it stands up from it. Its own turn is set aside: it faces the
+ * camera whatever way it was turned.
  */
-export function boxCorners(box: CanvasBox, base = box.z ?? 0): CanvasVec[] {
-  const frame = boxFrame(box, base);
+export function facingFrame(box: CanvasBox, axes: CanvasAxes, base = box.z ?? 0): CanvasFrame {
+  return {
+    centre: {
+      x: box.x + box.width / 2,
+      y: box.y + box.height / 2,
+      z: base - (axes.down.z * box.height) / 2,
+    },
+    half: { x: box.width / 2, y: box.height / 2, z: 0 },
+    matrix: axesMatrix(axes),
+  };
+}
+
+/** How far in front of a solid its standing face hangs, canvas units: clear of its surface. */
+const FRONT_GAP = 1;
+
+/**
+ * A solid's face stood in front of it for a camera looking along `axes`:
+ * its footprint's size, square to the screen, centred on the box's centre
+ * and brought toward the eye until the whole box is behind it (the box's
+ * reach along `back`), so its body never covers it. Where a sphere's or a
+ * cone's label shows, having no flat top to lie on (`faceStands`).
+ */
+export function frontFrame(box: CanvasBox, axes: CanvasAxes, base = box.z ?? 0): CanvasFrame {
+  const { centre, half, matrix: m } = boxFrame(box, base);
+  const { back } = axes;
+  // The box's reach along `back`: each of its own half-extents along its own axes (`m`'s columns).
+  const reach =
+    half.x * Math.abs(m[0] * back.x + m[3] * back.y + m[6] * back.z) +
+    half.y * Math.abs(m[1] * back.x + m[4] * back.y + m[7] * back.z) +
+    half.z * Math.abs(m[2] * back.x + m[5] * back.y + m[8] * back.z) +
+    FRONT_GAP;
+  return {
+    centre: {
+      x: centre.x + back.x * reach,
+      y: centre.y + back.y * reach,
+      z: centre.z + back.z * reach,
+    },
+    half: { x: half.x, y: half.y, z: 0 },
+    matrix: axesMatrix(axes),
+  };
+}
+
+/**
+ * Whether an item is drawn and picked facing the camera: a flat billboard.
+ * A solid billboard keeps its body as it is turned, and only its face stands
+ * (`faceStands`).
+ */
+export function facesCamera(box: CanvasBox): boolean {
+  return box.billboard === true && depthOf(box) === 0;
+}
+
+/**
+ * The frame an item is drawn and picked in by a camera looking along
+ * `axes`: a flat billboard's footprint facing it (`facingFrame`), any other
+ * item's box.
+ */
+export function itemFrame(box: CanvasBox, axes: CanvasAxes, base = box.z ?? 0): CanvasFrame {
+  return facesCamera(box) ? facingFrame(box, axes, base) : boxFrame(box, base);
+}
+
+/**
+ * A frame's eight corners in the canvas: its base, clockwise as its own top
+ * view reads it from the top left, then its top in the same order (the same
+ * four again when it is flat).
+ */
+export function frameCorners(frame: CanvasFrame): CanvasVec[] {
   const { half } = frame;
   const ring = (z: number) =>
     [
@@ -110,6 +203,15 @@ export function boxCorners(box: CanvasBox, base = box.z ?? 0): CanvasVec[] {
       { x: -half.x, y: half.y, z },
     ].map((local) => boxToWorld(frame, local));
   return [...ring(-half.z), ...ring(half.z)];
+}
+
+/**
+ * A box's eight corners in the canvas: its base, clockwise as the top view
+ * reads it from the top left, then its top in the same order (the same four
+ * again when it is flat).
+ */
+export function boxCorners(box: CanvasBox, base = box.z ?? 0): CanvasVec[] {
+  return frameCorners(boxFrame(box, base));
 }
 
 /** The height of a box's highest corner: what is stacked on it stands there. */
