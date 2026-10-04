@@ -398,7 +398,7 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
         (`@kb/canvas` `membership.ts`). A `parent` that names no group or
         closes a cycle is not honoured. Height plays no part, as for what a
         carried item stands on; a frame stood up as a wall holds nothing on
-        its face yet (`GAP [frame-face-membership]`).
+        its face yet (`GAP [[01M425V18PBXRG7PZJB4BQ0KS6]]`).
       - **A group carries its members through the one transform path.**
         The transform drag holds what the selection carries (`carriedBy`):
         the items, about whose pivot it turns and scales, and their members,

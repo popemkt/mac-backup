@@ -195,7 +195,7 @@ const area = (node: CanvasNode) => node.width * node.height;
  */
 // A frame stood up as a wall holds nothing on its face: membership is read
 // on the floor plan, not in the frame's own plane.
-// GAP [frame-face-membership]
+// GAP [[01M425V18PBXRG7PZJB4BQ0KS6]]
 function frameHolding(
   nodes: readonly CanvasNode[],
   membership: CanvasMembership,

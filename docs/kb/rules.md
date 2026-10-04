@@ -129,6 +129,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — drawing a back face in 2D
 - **node** — `01M41W56GDH3M0TNGX4BDV4STR`
 
+### GAP: a frame stood up as a wall does not hold items on its face
+
+- **expected** — a frame holds items laid on its own face, whatever way it stands
+- **current** — membership is read on the floor plan only: an item joins a frame whose top view holds its centre
+- **impact** — a frame stood up as a wall cannot hold stickies on it
+- **closes** — containment measured in the frame's own plane, with 3D plan step 7's face-on text
+- **node** — `01M425V18PBXRG7PZJB4BQ0KS6`
+
 ### GAP: a layout's panes are not mentions of the nodes they show
 
 - **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
