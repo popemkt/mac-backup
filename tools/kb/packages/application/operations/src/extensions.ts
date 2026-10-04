@@ -37,6 +37,8 @@ export const extensionSwitchEffect = Effect.fn("extension.switch")(function* (
   DomainError,
   ExtensionCatalog | KbCtx | KbStore
 > {
+  // A family a host composes (the agent, by `kb ui`) is in this catalog only where that host
+  // runs, so only there can its switch be written. GAP [host-family-switch-anywhere]
   const row = (yield* ExtensionCatalog).find((candidate) => candidate.name === input.name);
   if (row === undefined) {
     return yield* domainError("not_found", `no extension named ${input.name}`, {

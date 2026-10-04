@@ -469,6 +469,7 @@ day, M a few days, L a week.
 | E9 | **lab and canvas vocabulary:** create `@kb/lab` (key and seed). Canvas keys, ids and seed move into `@kb/canvas`, which closes the seed half of `01M39F3MR3HT2NR553FY8CRD6X`. The in-`app/ui` lab and canvas plugins load their shared plugins as children. The last feature key leaves core, closing `01M3YM5XYZ4VHEK39RNQ6WWRPK`. `SYSTEM_IDS` is now core only | move | M | low: canvas imports change from `@kb/views` to `@kb/canvas` (about 8 files) |
 | E10 | **Bridge:** add `optional` to `defineExtension`, `kb.manifest.extensions` (with `enabled`) and the `BROWSER_EXTENSIONS` resolver keyed by declaration name; `syncUiPlugins` follows the manifest. Decide where the server-side on/off setting lives | restructure | S–M | none |
 | E10b | The agent dock is offered only when the server runs the agent, and an optional family (lab) is switched on and off on the server, not in browser prefs | change | S | none |
+| E10c | **Every family can be switched off** through E10b's one switch: canvas, chart, code and the agent become optional (on by default; the lab stays off by default), the default is part of each declaration, `kb ui --no-agent` goes, the `kb ui` host composes what it hosts as its store switches it, a view of a family switched off opens as unavailable, and `extensionContract` holds every family to the switch. Docs and check stay required | change (after four restructures and a fix) | M | none |
 | E11 | **Packages:** `@kb/ui-sdk` from the sdk zone and `@kb/scene` from the `scene` zone (layer per owner question 3); the lazy fence walks packages | move | M | low: an import-path rewrite in canvas/3d, mechanical |
 | E12 | **UI halves:** `@kb/chart-ui`, `@kb/code-ui`, `@kb/agent-ui` and `@kb/lab-ui` (one commit each). Their zones leave `UI_ALLOWS`, and `@kb/agent` and the Vega dependency leave `@kb/ui`'s manifest | move | S each | none (disjoint from canvas) |
 | E13 | **`@kb/canvas-ui`** from `components/canvas` (including 3D). Closes `01M39F3MR3HT2NR553FY8CRD6X` and lets `01M3EZRFTS1W8SB97GFJAWD92X` close | move | M | **yes**: a path move, mechanical after E3 |
@@ -823,6 +824,76 @@ was silent, this is what was picked:
 - **Gaps.** The bridge gap is closed. The UI-zones gap is narrowed (the
   lab and agent are no longer in the main bundle), and the rule's "not
   checked yet" now names the `-ui` pairing of E12.
+
+**Note from the doing (E10c).** The owner asked for every family that is
+cleanly an extension to be switchable. It landed after E13 and E15a, as
+four restructures, a fix and a change. Where the brief was silent, or the
+code pushed back, this is what was picked:
+- **The default is the declaration's.** `optional: boolean` became
+  `optional: { byDefault: "on" | "off" }`, so a store with no switch
+  written has each family as its declaration says. A switch that does not
+  read as a checkbox reads as that default. Canvas, chart, code and the
+  agent are `"on"`, the lab `"off"`. There is no table of defaults
+  elsewhere, and the manifest row still says only `optional`.
+- **One convergence, every host.** The page's `syncUiPlugins` rule moved to
+  `@kb/plugin` as `syncPlugins`, and the `kb ui` host now uses it too:
+  `composeHosted` composes the extensions it was handed as `familyOn`
+  admits them, again whenever its log carries a write to one of their
+  switch nodes, and before each report, so the manifest always says what
+  the store holds. The registry keeps its cache keyed by the families on.
+  So every host makes the one decision with the one rule, and switching
+  the agent off and on is live, as the lab's is.
+- **`--no-agent` is gone, not kept as an override.** An override for one
+  process would be a second switch that the manifest reports and Preferences
+  cannot see. `kb ui` always hands the agent over, and the store says
+  whether it is hosted.
+- **What the switch cannot reach yet.** A family a host composes is in
+  `ExtensionCatalog` only where that host runs, so `extension.switch` for
+  the agent works through `kb ui` (Preferences, or its HTTP), and the CLI
+  answers `not_found`. Placeholder `GAP [host-family-switch-anywhere]` at
+  the lookup in `operations/src/extensions.ts`, to mint at merge:
+  - *expected:* every surface can write any family's switch, a hosted one
+    included, and `kb ext list` lists it;
+  - *current:* only a process that composes the family lists it, so only
+    `kb ui` can switch the agent;
+  - *impact:* the agent cannot be switched off before `kb ui` first runs
+    with it, except from the page;
+  - *closes:* the host families' declarations reported (not loaded) by
+    every process, or the agent's declaration joining the bundled list
+    with a host half that only `kb ui` loads.
+- **A view of a family switched off opens as unavailable.** Since E10b a
+  lab view node with the lab off resolved to "Node not found", because the
+  server no longer lists the view. `viewNamed` (`@kb/views`) names a view by
+  its listing, else by its option node, which the seed holds whatever
+  loads. `resolveNodeView` and the pane switcher both read it. That is the
+  one unavailable state of fb4fc354, now reached from either side.
+- **Docs and check stay required.** Docs owns the templates (`rules`,
+  `todos`) that core's `docs.markdown` views render with, so with docs off
+  a core view would break instead of reading as unavailable. Check derives
+  the rules index's enforcement. Both run the repository's gates
+  (`docs.check` in the hook, `check:audit` in `verify`). A required family
+  is on whatever its node says, and `extension.switch` refuses it. A
+  runtime test writes both switches off by hand and shows both gates still
+  run, so a gate cannot read as clean because its family was switched
+  away.
+- **The contract holds the switch.** `extensionContract(declaration, entry,
+  host)` takes a `SwitchingHost`, the host that composes the family over a
+  store lookup: the registry for the bundled families, and `composeHosted`
+  for the agent. Every family is held to its default composition. An
+  optional one is held to off, on, off and on again on the same host,
+  neither held nor reported while off. A required one is held to ignoring
+  a hand-written off. The page's half is a case in `ui-plugins.test.ts`
+  over every switchable family with a browser half: reported off, its
+  views, routes, sidebar, docks and commands leave the page kernel, and
+  reported on they return.
+- **Preferences lists every optional family the server reports**, whether
+  or not it has a browser half, because the switch is the server's.
+- **Not changed.** Canvas, chart and code still load from the main bundle
+  when on, as before. Switching them off removes them from the kernel, not
+  from the bytes the page downloads. A `#canvas` node keeps its canvas
+  bullet while the canvas is off, because that vocabulary is still in the
+  kit (gap `01M436DVSEHKNYWSF2MR07HPMR`), and following it reaches a path
+  no plugin owns, which is not found.
 
 **Note from the doing (E11).** Where the plan was silent, or the code
 pushed back, this is what was picked:
