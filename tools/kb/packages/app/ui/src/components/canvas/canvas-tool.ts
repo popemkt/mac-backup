@@ -66,11 +66,53 @@ export function reduceCanvasTool(state: ToolState, action: ToolAction): ToolStat
 }
 
 /**
- * Whether a press with `tool` places its preset: every tool but select, and
- * the card, whose node comes from the picker (it is placed with one).
+ * What a preset is placed with, chosen before it is placed: a card, the node
+ * it shows. Picking such a tool opens its chooser instead of arming it, and
+ * the choice places the item.
  */
-export function placesItem(tool: CanvasTool): tool is Exclude<CanvasTool, "select" | "kb-node"> {
-  return tool !== "select" && tool !== "kb-node";
+export type CanvasChooser = "node";
+
+const CHOOSERS: { readonly [P in CanvasPresetKind]?: CanvasChooser } = { "kb-node": "node" };
+
+/** The chooser `pick` opens, or null for a tool that is armed. */
+function chooserOf(pick: CanvasToolPick): CanvasChooser | null {
+  return pick === "select" || pick === "solid" ? null : (CHOOSERS[pick] ?? null);
+}
+
+/**
+ * Pick `pick` from a key or a button, sticky (a double-click) or not: a tool
+ * placed with something chosen first opens its chooser, with select armed,
+ * and is never sticky (its double-click's first click chose already); any
+ * other is armed. Every way of picking a tool goes through here.
+ */
+export function pickTool(
+  pick: CanvasToolPick,
+  sticky: boolean,
+  to: {
+    readonly setToolState: (next: (state: ToolState) => ToolState) => void;
+    readonly choose: (chooser: CanvasChooser) => void;
+  },
+): void {
+  const chooser = chooserOf(pick);
+  if (chooser !== null) {
+    if (sticky) return;
+    to.setToolState(() => ({ tool: "select" }));
+    to.choose(chooser);
+    return;
+  }
+  // Select places nothing, so it has nothing to repeat.
+  const repeats = sticky && pick !== "select";
+  to.setToolState((state) =>
+    reduceCanvasTool(state, { type: repeats ? "set-tool-sticky" : "set-tool", tool: pick }),
+  );
+}
+
+/**
+ * Whether a press with `tool` places its preset: every tool but select, and
+ * those placed with something chosen first (`chooserOf`).
+ */
+export function placesItem(tool: CanvasTool): boolean {
+  return tool !== "select" && chooserOf(tool) === null;
 }
 
 /**
@@ -83,7 +125,7 @@ export function placeWithTool(
   world: { x: number; y: number },
   id: string,
 ): { doc: CanvasDoc; node: CanvasNode; nextTool: CanvasTool } | null {
-  if (!placesItem(tool)) return null;
+  if (tool === "select" || !placesItem(tool)) return null;
   const node = presetItem(tool, world, id);
   return { doc: placeItems(doc, [node]), node, nextTool: "select" };
 }

@@ -41,7 +41,7 @@ import { useCanvasScreen } from "./use-canvas-screen";
 import { useCanvasSelection } from "./use-canvas-selection";
 import { listRefFields } from "./canvas-api";
 import { classifyCardPointer } from "./card-pointer";
-import { placesItem, type ToolState } from "./canvas-tool";
+import { placesItem, type CanvasChooser, type ToolState } from "./canvas-tool";
 import type { PresentAct } from "./canvas-keymap";
 import { FIRST_GIZMO, type GizmoChoice } from "./canvas-gizmo";
 import { viewOfPan } from "./canvas-camera";
@@ -110,6 +110,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const [zoom, setZoom] = useState(1);
   const [spaceDown, setSpaceDown] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  /** What a tool placed with something chosen first opens: a card's node picker. */
+  const choose = useCallback((chooser: CanvasChooser) => {
+    const opens: Record<CanvasChooser, () => void> = { node: () => setPickerOpen(true) };
+    opens[chooser]();
+  }, []);
   const [toolState, setToolState] = useState<ToolState>({ tool: "select" });
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
@@ -249,6 +254,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     flushPersist,
     setInspectorAnchor,
     setPickerOpen,
+    choose,
     setSelection,
     setItemInspectorAnchor,
     setToolState,
@@ -296,7 +302,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setSelection,
     setInspectorAnchor,
     setItemInspectorAnchor,
-    setPickerOpen,
+    choose,
     setSpaceDown,
     setToolState,
     viewport,

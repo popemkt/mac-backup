@@ -217,7 +217,7 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
     },
     setInspectorAnchor: () => log.push("anchor=null"),
     setItemInspectorAnchor: () => log.push("shapeAnchor=null"),
-    setPickerOpen: () => log.push("picker=true"),
+    choose: (chooser: string) => log.push(`choose=${chooser}`),
     setSpaceDown: () => log.push("space=true"),
     setToolState: (next: ToolState | ((s: ToolState) => ToolState)) => {
       toolState = typeof next === "function" ? next(toolState) : next;
@@ -287,7 +287,7 @@ describe("the canvas keydown table", () => {
     ["tool group (f)", { key: "f" }, ["tool=group"]],
     ["grab (g)", { key: "g" }, ["anchor=null", "shapeAnchor=null", "pointer=transform/begin"]],
     ["extrude (e)", { key: "e" }, ["anchor=null", "shapeAnchor=null", "pointer=transform/begin"]],
-    ["kb-node picker (n)", { key: "n" }, ["tool=select", "picker=true"]],
+    ["kb-node picker (n)", { key: "n" }, ["tool=select", "choose=node"]],
     ["zoom in", { key: "=", metaKey: true }, ["zoom=1.15"]],
     ["zoom in (+)", { key: "+", metaKey: true }, ["zoom=1.15"]],
     ["zoom out", { key: "-", metaKey: true }, ["zoom=0.87"]],

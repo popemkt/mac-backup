@@ -2,7 +2,13 @@ import { describe, expect, test } from "vitest";
 import { present } from "@kb/model";
 import { parseCanvasDoc, presetItem, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import { edgePath } from "./canvas-edge-path";
-import { placesItem, placeWithTool, reduceCanvasTool } from "./canvas-tool";
+import {
+  pickTool,
+  placesItem,
+  placeWithTool,
+  reduceCanvasTool,
+  type ToolState,
+} from "./canvas-tool";
 
 const createShapeNode = (kind: "rect" | "ellipse" | "diamond", x: number, y: number, id: string) =>
   presetItem(kind, { x, y }, id);
@@ -131,6 +137,26 @@ describe("placing into frames", () => {
     expect(placesItem("group")).toBe(true);
     expect(placesItem("select")).toBe(false);
     expect(placesItem("kb-node")).toBe(false);
+  });
+
+  test("picking a tool placed with a choice opens its chooser with select armed, never sticky", () => {
+    const log: string[] = [];
+    let state: ToolState = { tool: "rect", sticky: true };
+    const to = {
+      setToolState: (next: (s: ToolState) => ToolState) => {
+        state = next(state);
+      },
+      choose: (chooser: string) => log.push(chooser),
+    };
+    pickTool("kb-node", false, to);
+    expect(state).toEqual({ tool: "select" });
+    expect(log).toEqual(["node"]);
+    pickTool("kb-node", true, to);
+    expect(log).toEqual(["node"]);
+    pickTool("ellipse", true, to);
+    expect(state).toMatchObject({ tool: "ellipse", sticky: true });
+    pickTool("select", true, to);
+    expect(state).toEqual({ tool: "select" });
   });
 
   test("an item placed over a frame belongs to it", () => {

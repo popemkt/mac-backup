@@ -3,7 +3,14 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
 import type { CanvasDoc, CanvasSide } from "@kb/canvas";
 import { isShapeNode, paintOrder, placeItems, presetItem } from "@kb/canvas";
-import { placeWithTool, reduceCanvasTool, type CanvasTool, type ToolState } from "./canvas-tool";
+import {
+  pickTool,
+  placeWithTool,
+  reduceCanvasTool,
+  type CanvasChooser,
+  type CanvasTool,
+  type ToolState,
+} from "./canvas-tool";
 import { selectNode as selNode } from "./canvas-selection";
 import type { CanvasSelection } from "./canvas-selection";
 import type {
@@ -36,6 +43,8 @@ interface CanvasGestureContext {
   flushPersist: (doc: CanvasDoc) => Promise<void>;
   setInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setPickerOpen: Dispatch<SetStateAction<boolean>>;
+  /** Open the chooser a tool placed with something chosen first opens (`pickTool`). */
+  choose: (chooser: CanvasChooser) => void;
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
   setItemInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setToolState: Dispatch<SetStateAction<ToolState>>;
@@ -113,26 +122,16 @@ const isEmptyStageTarget = (target: EventTarget | null) => {
 };
 
 function useToolControls({
-  setPickerOpen,
+  choose,
   setToolState,
-}: Pick<CanvasGestureContext, "setPickerOpen" | "setToolState">) {
+}: Pick<CanvasGestureContext, "choose" | "setToolState">) {
   const setTool = useCallback(
-    (tool: CanvasTool) => {
-      if (tool === "kb-node") {
-        setToolState({ tool: "select" });
-        setPickerOpen(true);
-        return;
-      }
-      setToolState((state) => reduceCanvasTool(state, { type: "set-tool", tool }));
-    },
-    [setPickerOpen, setToolState],
+    (tool: CanvasTool) => pickTool(tool, false, { setToolState, choose }),
+    [choose, setToolState],
   );
   const setToolSticky = useCallback(
-    (tool: CanvasTool) => {
-      if (tool === "kb-node" || tool === "select") return;
-      setToolState((state) => reduceCanvasTool(state, { type: "set-tool-sticky", tool }));
-    },
-    [setToolState],
+    (tool: CanvasTool) => pickTool(tool, true, { setToolState, choose }),
+    [choose, setToolState],
   );
   return { setTool, setToolSticky };
 }

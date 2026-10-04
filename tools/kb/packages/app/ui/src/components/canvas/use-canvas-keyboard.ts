@@ -30,7 +30,13 @@ import {
   type TransformAct,
 } from "./canvas-keymap";
 import { GRID_STEP } from "./canvas-snap";
-import { reduceCanvasTool, type CanvasToolPick, type ToolState } from "./canvas-tool";
+import {
+  pickTool,
+  reduceCanvasTool,
+  type CanvasChooser,
+  type CanvasToolPick,
+  type ToolState,
+} from "./canvas-tool";
 import type { CanvasViewportControls } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import { isTextEntry } from "@/sdk";
@@ -68,7 +74,8 @@ interface CanvasKeyboardContext {
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
   setInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setItemInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
-  setPickerOpen: Dispatch<SetStateAction<boolean>>;
+  /** Open the chooser a tool placed with something chosen first opens (`pickTool`). */
+  choose: (chooser: CanvasChooser) => void;
   setSpaceDown: Dispatch<SetStateAction<boolean>>;
   setToolState: Dispatch<SetStateAction<ToolState>>;
   /** The camera of the projection that is showing. */
@@ -190,12 +197,7 @@ function nudgeSelection(context: CanvasKeyboardContext, dx: number, dy: number) 
 }
 
 function chooseTool(context: CanvasKeyboardContext, tool: CanvasToolPick) {
-  if (tool === "kb-node") {
-    context.setToolState({ tool: "select" });
-    context.setPickerOpen(true);
-    return;
-  }
-  context.setToolState((state) => reduceCanvasTool(state, { type: "set-tool", tool }));
+  pickTool(tool, false, context);
 }
 
 /** Frame every item, or the selected ones. */
