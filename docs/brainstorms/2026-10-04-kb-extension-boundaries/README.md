@@ -697,6 +697,40 @@ pushed back, this is what was picked:
   what remains.
 - `kb ext list` now lists code.
 
+**Note from the doing (E9, lab).** E9 landed in two halves. This is the lab
+half; canvas is E9b, because the 3D work was editing `extension/canvas` at
+the time. Where the plan was silent, or the code pushed back, this is what
+was picked:
+- **The lab declares no seed.** It has no system id. Its one system node is
+  its view's option, `sys.view.lab.page`, and the fold derives that from the
+  key. So `labExtension` has `views` and no `seed`, and the spelling cannot
+  drift.
+- **The lab has no text of its own.** A lab page says itself in the generic
+  body. `viewDef(LabView)` carries no `text`, and the extension contract's
+  lab subject asserts that, not a null figure.
+- **Its place in the bundled list** is right after canvas, before check.
+  Check has no views, so this is the place the E4b note names, and the golden
+  stays byte-identical.
+- **The page's lab plugin loads `labPlugin()` as a child.** So the page
+  kernel holds `lab.page` only while the lab is on. Before, core's
+  declaration put the key in every page kernel. `components/lab` files that
+  import `@kb/lab` are named rows of `EXTENSION_ROOT_BREACHES` until
+  `@kb/lab-ui` (E12).
+- **The two switches: the server decides, and that lands in E10b, as
+  decision 3 says.** The other choice was to drop the claim that the lab is
+  optional: make it a built-in on the page, so the server's always-on load
+  is the only switch. That was built and then withdrawn, because it reverses
+  the owner's recorded decision that the lab is an off-by-default sketchbook
+  ([wave 2026-09-24 plan](../../kb/waves/2026-09-24/plan.md#the-lab-and-rule-1)).
+  The server-side switch needs its setting, which E10 places, so it is not
+  part of a move. Until then the server always loads the lab family, and the
+  page loads its UI only under the preference. Gap
+  `01M41H30N0SV4QE5R8VQQ1K4ZA` now names the lab half of its drift and
+  closes with E10b.
+- **Gaps.** The feature-model and catalog-key gaps name only canvas now, and
+  close at E9b. The root-fence and UI-zone gaps name the lab's breaches.
+- `kb ext list` now lists lab.
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D

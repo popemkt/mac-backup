@@ -418,17 +418,17 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: feature view models live in core packages
 
 - **expected** — @kb/views holds the view-key mechanism and core views; the chart, code, lab and canvas keys and helpers live in their family's shared package
-- **current** — packages/domain/views/src/{lab,canvas}.ts are listed in core's declaration (coreExtension); the chart's key, spec and row cap left for @kb/chart (E7), and the code view's key and settings for @kb/code (E8)
-- **impact** — the catalog advertises lab.page while the lab plugin is off by default, so an agent can propose a view nothing draws; every feature edits domain packages
-- **closes** — the moves into @kb/lab and @kb/canvas (E9)
+- **current** — packages/domain/views/src/canvas.ts is listed in core's declaration (coreExtension); the chart's key, spec and row cap left for @kb/chart (E7), the code view's key and settings for @kb/code (E8), and the lab page's key and studies for @kb/lab (E9)
+- **impact** — a canvas view change edits @kb/views, a domain package, apart from the canvas family that owns the canvas document
+- **closes** — the canvas keys' move into @kb/canvas (E9b)
 - **node** — `01M41H30342XZPX3CXZJTMPBYW`
 
 ### GAP: feature view options are seeded through core's declaration, not by the families that own the views
 
 - **expected** — each plugin that provides a view contributes its key to the view point (ViewKeyPoint) through its own family's declaration, and the ViewCatalog service and the sys.views option nodes are both readings of the declared keys
-- **current** — the catalog is a reading of ViewKeyPoint, every option derives from a declared key, and the chart and code families' declarations list their own keys, but core's declaration (coreExtension, packages/application/operations/src/core-extension.ts) lists the lab and canvas keys, so core seeds their options and contributes their keys
+- **current** — the catalog is a reading of ViewKeyPoint, every option derives from a declared key, and the chart, code and lab families' declarations list their own keys, but core's declaration (coreExtension, packages/application/operations/src/core-extension.ts) lists the canvas keys, so core seeds their options and contributes their keys
 - **impact** — a new view plugin must also edit the core table; a third-party view cannot add its option without touching core
-- **closes** — lab's and canvas's declarations list their own views (E9), when the last feature key leaves core's declaration
+- **closes** — canvas's declaration lists its own views (E9b), when the last feature key leaves core's declaration
 - **node** — `01M3YM5XYZ4VHEK39RNQ6WWRPK`
 
 ### GAP: flat canvas items vanish in level 3D views
@@ -550,9 +550,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: nothing confines feature imports to a composition root's bundled list
 
 - **expected** — an app package imports an extension package only from its one bundled-extensions file, and the harness checks it
-- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches are the rows of EXTENSION_ROOT_BREACHES: @kb/ui's src/agent.ts and components/agent (@kb/agent), components/chart (@kb/chart, and @kb/chart-vega from chart-canvas.tsx, since the chart's vocabulary left core in E7), components/code (@kb/code, since the code view's vocabulary left core in E8), components/canvas and catalog/canvas-card.stories.tsx (@kb/canvas), and @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it
+- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches are the rows of EXTENSION_ROOT_BREACHES: @kb/ui's src/agent.ts and components/agent (@kb/agent), components/chart (@kb/chart, and @kb/chart-vega from chart-canvas.tsx, since the chart's vocabulary left core in E7), components/code (@kb/code, since the code view's vocabulary left core in E8), components/lab (@kb/lab, since the lab's vocabulary left core in E9), components/canvas and catalog/canvas-card.stories.tsx (@kb/canvas), and @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it
 - **impact** — the next move out of core can silently regrow a hardwired import, and a feature can be wired from anywhere
-- **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the agent, chart and code UIs with @kb/agent-ui, @kb/chart-ui and @kb/code-ui (E12), the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
+- **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the agent, chart, code and lab UIs with @kb/agent-ui, @kb/chart-ui, @kb/code-ui and @kb/lab-ui (E12), the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
 - **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
 
 ### GAP: only view.propose checks a view node's settings against its key
@@ -787,7 +787,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not packages
 
 - **expected** — each is the browser package of its family, built against @kb/ui-sdk, and @kb/ui holds the shell and core views only
-- **current** — components/{chart,code,lab,agent} and src/agent.ts live in @kb/ui (reaching the shell through the sdk zone); @kb/ui depends on @kb/agent, @kb/chart, @kb/chart-vega and @kb/code; the optional lab and agent plugins are statically imported by ui-plugins.ts
+- **current** — components/{chart,code,lab,agent} and src/agent.ts live in @kb/ui (reaching the shell through the sdk zone); @kb/ui depends on @kb/agent, @kb/chart, @kb/chart-vega, @kb/code and @kb/lab; the optional lab and agent plugins are statically imported by ui-plugins.ts
 - **impact** — adding or removing a feature's UI edits @kb/ui, and optional plugins ship in the main bundle
 - **closes** — the sdk zone with restricted UI_ALLOWS rows, @kb/ui-sdk (01M3EZRFTS1W8SB97GFJAWD92X), then one -ui package per family; canvas is 01M39F3MR3HT2NR553FY8CRD6X
 - **node** — `01M41H30C2RSD2FGVYBT5HAG48`
@@ -884,9 +884,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the server and browser plugin lists are not bridged
 
 - **expected** — the server registry is the one list of loaded extensions; the browser loads the browser entry of each extension the manifest reports; optional is a server-side load decision on the extension's declaration, reported by the manifest
-- **current** — BUNDLED_EXTENSIONS (packages/app/runtime/src/bundled.ts), the CLI's agent wiring (packages/app/cli/src/host-plugins.ts) and BUILTIN_UI_PLUGINS/OPTIONAL_UI_PLUGINS (packages/app/ui/src/ui-plugins.ts) each name extensions on their own; the agent has two switches, --no-agent and the enabledPlugins preference, and lab only the preference
-- **impact** — an extension can be on in one host and off in the other with nothing reporting it; the agent sidebar can be switched on against a server that runs no agent, which answers unknown_channel
-- **closes** — defineExtension per family, kb.manifest.extensions with enabled, and a browser resolver keyed by family name
+- **current** — BUNDLED_EXTENSIONS (packages/app/runtime/src/bundled.ts), the CLI's agent wiring (packages/app/cli/src/host-plugins.ts) and BUILTIN_UI_PLUGINS/OPTIONAL_UI_PLUGINS (packages/app/ui/src/ui-plugins.ts) each name extensions on their own; the agent has two switches, --no-agent and the enabledPlugins preference; the server always loads the lab family (labPlugin()), so kb.manifest always lists lab.page, while the page loads the lab's UI only under the enabledPlugins preference, off by default
+- **impact** — an extension can be on in one host and off in the other with nothing reporting it; the agent sidebar can be switched on against a server that runs no agent, which answers unknown_channel; the server's catalog lists lab.page while the page has the lab off, so an agent can propose a view the page does not draw
+- **closes** — defineExtension per family, kb.manifest.extensions with enabled, and a browser resolver keyed by family name; the lab's off-by-default becomes a server-side setting that the registry loads by and the manifest reports, and its Preferences row writes that setting (E10, E10b)
 - **node** — `01M41H30N0SV4QE5R8VQQ1K4ZA`
 
 ### GAP: the sigma renderer's lifecycle effect carries 32 branches
