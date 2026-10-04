@@ -16,6 +16,16 @@ export type BulletKind =
   | "canvas"
   | "ontology";
 
+/**
+ * The canvas family's tag, by its frozen id. The kit may not import a
+ * family, so this is a copy of `CANVAS_IDS.canvasTag` (`@kb/canvas`), held
+ * equal to it by the canvas's bullet test in `@kb/ui`. The canvas kind, its
+ * glyph and this id are canvas vocabulary in core until a family can give
+ * its tag a bullet.
+ */
+// GAP [canvas-bullet-kind]
+const CANVAS_TAG = "sys.tag.canvas";
+
 /** Optional overrides for canvas (and forced media) until those tags ship. */
 type BulletKindOverride = "media" | "canvas";
 
@@ -53,11 +63,8 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
   // W4: anything carrying sys.f.query — the field is the kind, so the glyph
   // reads the same carrier `isQueryNode` does instead of a tag's display name.
   if (input.fieldIds?.includes(SYSTEM_IDS.queryField) === true) return "query";
-  // C1: #canvas tag (or seeded sys.tag.canvas)
-  if (
-    refs.includes(SYSTEM_IDS.canvasTag) ||
-    input.tagNames.some((n) => n.toLowerCase() === "canvas")
-  ) {
+  // C1: #canvas tag (or the canvas family's seeded tag)
+  if (refs.includes(CANVAS_TAG) || input.tagNames.some((n) => n.toLowerCase() === "canvas")) {
     return "canvas";
   }
   // r5: #ontology tag — a lens over the graph, not ordinary content

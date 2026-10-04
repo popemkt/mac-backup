@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
-import { stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
+import { CANVAS_IDS, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import { syncUiPlugins, SYSTEM_IDS, WORKSPACE_ROOT_ID, type OutlineNode } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 
@@ -40,8 +40,8 @@ const canvasNode: OutlineNode = {
   children: [],
   collapsed: false,
   props: {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.canvasTag }],
-    [SYSTEM_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(initialDoc) }],
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: CANVAS_IDS.canvasTag }],
+    [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(initialDoc) }],
   },
   tags: [],
   createdAt: "2026-09-05T00:00:00.000Z",
@@ -228,7 +228,7 @@ describe("CanvasPage pointer interactions", () => {
       ...canvasNode,
       props: {
         ...canvasNode.props,
-        [SYSTEM_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
+        [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
       },
     };
     useOutlineStore.setState({ nodes: new Map([[node.id, node]]) });
@@ -297,7 +297,7 @@ describe("CanvasPage pointer interactions", () => {
       ...canvasNode,
       props: {
         ...canvasNode.props,
-        [SYSTEM_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
+        [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
       },
     };
     useOutlineStore.setState({ nodes: new Map([[node.id, node]]) });
@@ -346,7 +346,7 @@ describe("CanvasPage pointer interactions", () => {
       ...canvasNode,
       props: {
         ...canvasNode.props,
-        [SYSTEM_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
+        [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
       },
     };
     useOutlineStore.setState({ nodes: new Map([[node.id, node]]) });

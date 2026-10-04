@@ -46,9 +46,9 @@ describe("resolveBulletKind", () => {
     expect(resolveBulletKind(base({ tagNames: ["Query"] }))).toBe("plain");
   });
 
-  it("maps canvas from #canvas tag or sys.tag.canvas type ref", () => {
+  it("maps canvas from a #canvas tag", () => {
+    // The family's own tag, by its id, is the canvas UI's bullet test.
     expect(resolveBulletKind(base({ tagNames: ["canvas"] }))).toBe("canvas");
-    expect(resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.canvasTag] }))).toBe("canvas");
   });
 
   it("prefers type ref over parent/query", () => {

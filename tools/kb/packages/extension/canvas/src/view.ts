@@ -1,8 +1,12 @@
+/**
+ * The canvas's views: every canvas, and one canvas. Their params come from
+ * the route, so a view node stores none; this module is their vocabulary.
+ */
 import { Schema } from "effect";
-import { NoParams, viewKey } from "./view-key.ts";
+import { NoParams, viewKey } from "@kb/views";
 
-/** The canvas plugin's namespace and view keys: what a host imports, never the components. */
-export const CANVAS_NAMESPACE = "canvas";
+/** The namespace of the canvas views' ids: what draws them, the canvas family. */
+const CANVAS_NAMESPACE = "canvas";
 
 export const CanvasParams = Schema.Struct({
   /** The `#canvas` node's id. */

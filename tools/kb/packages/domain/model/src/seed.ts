@@ -394,11 +394,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ],
   });
 
-  // Canvas nodes (C1): #canvas tag templating sys.f.canvas (JSON Canvas 1.0 str).
-  const canvasField = singleField(SYSTEM_IDS.canvasField, "canvas", "text");
   // A layout view's arrangement (`layout.grid`): its pane tree as JSON text.
   const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text");
-  const canvasTag = seededTag(SYSTEM_IDS.canvasTag, "canvas", [SYSTEM_IDS.canvasField], at);
 
   // Ontologies (r5 core): #ontology tag templating the sys.f.onto.* algebra.
   // No default ontology is seeded — an empty ontology list is a legitimate
@@ -640,9 +637,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     lensLinkStyleField,
     ...linkStyleOptions,
     lensAllMentions,
-    canvasField,
     layoutField,
-    canvasTag,
     ontoIncludeField,
     ontoMemberField,
     ontoExcludeField,

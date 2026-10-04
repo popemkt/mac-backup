@@ -1,6 +1,6 @@
 import { lazy, useMemo, useState } from "react";
 import { PlusIcon, SquareIcon } from "@phosphor-icons/react";
-import { CanvasListView, CanvasView, type CanvasParams } from "@kb/views";
+import { CanvasListView, CanvasView, type CanvasParams } from "@kb/canvas";
 import {
   navigate,
   paramsOf,

@@ -179,8 +179,9 @@ export interface SanctionedExtensionImport {
  * feature fails, and a named file that no longer imports it fails too: the
  * list is frozen and can only shrink, like a ratchet's baseline.
  *
- * - The canvas's UI half, `components/canvas` and its story, leaves with
- *   `@kb/canvas-ui` (step E13 of the extension-boundaries plan).
+ * - The canvas's UI half, `components/canvas` and its story, reads its
+ *   family's document, ids and keys and loads its shared plugin; it leaves
+ *   with `@kb/canvas-ui` (step E13 of the extension-boundaries plan).
  * - The docs and check pre-commit entries parse their family's output
  *   schema to print it: they leave when the family's report reaches them
  *   through the registry instead.
@@ -239,7 +240,10 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
         "src/components/canvas/canvas-visible.ts",
         "src/components/canvas/edge-inspector.tsx",
         "src/components/canvas/item-inspector.tsx",
+        "src/components/canvas/plugin.ts",
+        "src/components/canvas/routes.ts",
         "src/components/canvas/shape-card.tsx",
+        "src/components/canvas/surfaces.tsx",
         "src/components/canvas/use-canvas-doc.ts",
         "src/components/canvas/use-canvas-edge-actions.ts",
         "src/components/canvas/use-canvas-gestures.ts",

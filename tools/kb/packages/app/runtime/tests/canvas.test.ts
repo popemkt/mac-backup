@@ -7,6 +7,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  CANVAS_IDS,
   EMPTY_CANVAS_DOC,
   isFileNode,
   isNativeEdgeBound,
@@ -59,16 +60,16 @@ describe("C1 seed: canvas tag + field", () => {
   test("seeds sys.tag.canvas templating sys.f.canvas", () => {
     const seed = bundledSeed();
     const byId = new Map(seed.map((n) => [n.id, n]));
-    const tag = byId.get(SYSTEM_IDS.canvasTag);
+    const tag = byId.get(CANVAS_IDS.canvasTag);
     expect(tag).toBeDefined();
     expect(present(tag, "expected tag").text).toBe("canvas");
     expect(present(tag, "expected tag").props[SYSTEM_IDS.typeField]).toEqual([
       { t: "ref", v: SYSTEM_IDS.tag },
     ]);
     expect(present(tag, "expected tag").props[SYSTEM_IDS.fieldsField]).toEqual([
-      { t: "ref", v: SYSTEM_IDS.canvasField },
+      { t: "ref", v: CANVAS_IDS.canvasField },
     ]);
-    const field = byId.get(SYSTEM_IDS.canvasField);
+    const field = byId.get(CANVAS_IDS.canvasField);
     expect(field).toBeDefined();
     expect(present(field, "expected field").props[SYSTEM_IDS.typeField]).toEqual([
       { t: "ref", v: SYSTEM_IDS.field },
@@ -353,7 +354,7 @@ describe("ext.canvas.tx.apply", () => {
       ctx.nodes.find((n) => n.id === "n.canvas"),
       'expected ctx.nodes.find((n) => n.id === "n.canvas")',
     );
-    const stored = canvasNode.props[SYSTEM_IDS.canvasField]?.[0];
+    const stored = canvasNode.props[CANVAS_IDS.canvasField]?.[0];
     expect(stored?.t).toBe("str");
     expect(parseCanvasDoc(String(present(stored, "expected stored").v))).toEqual(doc);
 
@@ -391,7 +392,7 @@ describe("ext.canvas.tx.apply", () => {
     const stored = present(
       ctx.nodes.find((n) => n.id === "n.canvas"),
       "canvas",
-    ).props[SYSTEM_IDS.canvasField]?.[0];
+    ).props[CANVAS_IDS.canvasField]?.[0];
     expect(JSON.parse(String(present(stored, "stored doc").v))).toEqual(doc);
   });
 
@@ -429,7 +430,7 @@ describe("ext.canvas.tx.apply", () => {
       ctx.nodes.find((n) => n.id === "n.canvas"),
       'expected ctx.nodes.find((n) => n.id === "n.canvas")',
     );
-    expect(canvasNode.props[SYSTEM_IDS.canvasField]).toBeUndefined();
+    expect(canvasNode.props[CANVAS_IDS.canvasField]).toBeUndefined();
   });
 
   test("sys-guard: refuses writes targeting sys.* nodes", async () => {
@@ -438,7 +439,7 @@ describe("ext.canvas.tx.apply", () => {
     const receipt = await invoke(ctx, {
       id: "ext.canvas.tx.apply",
       input: {
-        canvasId: SYSTEM_IDS.canvasTag,
+        canvasId: CANVAS_IDS.canvasTag,
         doc: EMPTY_CANVAS_DOC,
       },
     });
@@ -597,10 +598,10 @@ describe("ext.canvas.tx.apply", () => {
         String(
           present(
             present(
-              canvasNode.props[SYSTEM_IDS.canvasField],
-              "expected canvasNode.props[SYSTEM_IDS.canvasField]",
+              canvasNode.props[CANVAS_IDS.canvasField],
+              "expected canvasNode.props[CANVAS_IDS.canvasField]",
             )[0],
-            "expected canvasNode.props[SYSTEM_IDS.canvasField][0]",
+            "expected canvasNode.props[CANVAS_IDS.canvasField][0]",
           ).v,
         ),
       ),

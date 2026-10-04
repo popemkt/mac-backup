@@ -24,6 +24,7 @@ import {
   type PropValue,
 } from "@kb/model";
 import {
+  CANVAS_IDS,
   CanvasRelationError,
   lintCanvas,
   lintDiff,
@@ -72,7 +73,7 @@ function assertCanvasHost(ctx: KbContext, id: NodeId): KbNode {
   assertUserWritable(id);
   const node = requireNode(ctx, id);
   const types = node.props[SYSTEM_IDS.typeField] ?? [];
-  const tagged = types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.canvasTag);
+  const tagged = types.some((v) => v.t === "ref" && v.v === CANVAS_IDS.canvasTag);
   if (!tagged) {
     // Also accept a user tag named "canvas" typed as sys.tag (text match).
     const canvasTagNodes = ctx.nodes.filter(
@@ -162,7 +163,7 @@ export function withPropOps(
 
 /** The document a `#canvas` node holds; an empty canvas when it holds none it can read. */
 function storedDoc(host: KbNode): CanvasDoc {
-  const raw = host.props[SYSTEM_IDS.canvasField]?.[0];
+  const raw = host.props[CANVAS_IDS.canvasField]?.[0];
   if (raw === undefined || raw.t !== "str") return { nodes: [], edges: [] };
   try {
     return parseCanvasDoc(raw.v);
@@ -182,7 +183,7 @@ export const readCanvasEffect = Effect.fn("ext.canvas.read")(function* (
 ): Effect.fn.Return<CanvasDoc, CanvasFail, KbCtx> {
   const ctx = yield* KbCtx;
   const host = yield* canvasStep(() => assertCanvasHost(ctx, canvasId));
-  const raw = host.props[SYSTEM_IDS.canvasField]?.[0];
+  const raw = host.props[CANVAS_IDS.canvasField]?.[0];
   if (raw === undefined) return { nodes: [], edges: [] };
   if (raw.t !== "str") {
     return yield* Effect.fail(
@@ -227,7 +228,7 @@ export const commitCanvasEffect = Effect.fn("ext.canvas.commit")(function* (
   const host = yield* canvasStep(() => assertCanvasHost(ctx, write.canvasId));
   const canvas = cloneNode(host);
   // Replace (not append) the canvas JSON prop — single current document.
-  canvas.props[SYSTEM_IDS.canvasField] = [{ t: "str", v: docStr }];
+  canvas.props[CANVAS_IDS.canvasField] = [{ t: "str", v: docStr }];
   canvas.updatedAt = at;
   const also = yield* canvasStep(() => write.also?.(at) ?? []);
   const known = new Set([...ctx.nodes, ...also].map((node) => node.id));

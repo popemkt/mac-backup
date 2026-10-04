@@ -1,3 +1,8 @@
+/**
+ * The canvas family's shared package (DESIGN.md → Extension families): the
+ * JSON Canvas document and the geometry and verbs over it, the family's ids,
+ * view keys and seed, and the declaration and shared plugin both hosts load.
+ */
 export {
   EMPTY_CANVAS_DOC,
   canvasDepth,
@@ -123,7 +128,9 @@ export {
   snapToSurface,
 } from "./snap.ts";
 export type { SnapGuide, SnappedTransform } from "./snap.ts";
-export { canvasExtension } from "./extension.ts";
+export { CANVAS_IDS } from "./ids.ts";
+export { CanvasListView, CanvasParams, CanvasView } from "./view.ts";
+export { canvasExtension, canvasPlugin } from "./extension.ts";
 export {
   CANVAS_PRESET_KINDS,
   CANVAS_SOLID_PRESETS,

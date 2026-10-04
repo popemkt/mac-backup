@@ -239,9 +239,6 @@ export const SYSTEM_IDS = {
    * child into it.
    */
   viewsList: "views",
-  /** Canvas nodes (JSON Canvas 1.0 doc on sys.f.canvas). */
-  canvasTag: "sys.tag.canvas",
-  canvasField: "sys.f.canvas",
   /**
    * A layout view's arrangement: its split-and-tab tree of panes, as
    * canonical JSON (text, single). DESIGN → View nodes → Layout views.

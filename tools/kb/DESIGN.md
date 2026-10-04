@@ -811,14 +811,14 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   key — its id, `label` and `family` — when the bundled seed is folded
   ([Extension families](#extension-families)), so no option is declared
   twice, and the view contract holds every provided view's key to a seeded
-  option in its own family. Core's declaration still lists the feature
-  views beside its own (GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]).
+  option in its own family. Core's declaration lists core's views only; a
+  feature's views are its family's declaration's.
   An unloaded plugin never deletes an option: the data outlives the code.
 - **The view catalog is the keys.** Every view's key — its id, option,
   label, family, its settings as an Effect `Schema` (annotated with what the view
   shows and what it is shown for) and how a view node's props are read into
-  them — is data in `@kb/views`, held by the UI that draws the view and the
-  server alike. A host's catalog is the keys its loaded plugins contributed
+  them — is data (core's views in `@kb/views`, a feature's in its family's
+  shared package), held by the UI that draws the view and the server alike. A host's catalog is the keys its loaded plugins contributed
   to `ViewKeyPoint`, read through the `ViewCatalog` service
   ([Extension families](#extension-families)); the UI's view contract holds
   every view a plugin provides to a key in the page's catalog. `kb.manifest`
@@ -1996,10 +1996,10 @@ end).
   has landed.
 
 Today's drift from this contract is marked where it sits:
-- feature view keys in `@kb/views`: GAP [[01M41H30342XZPX3CXZJTMPBYW]];
-- feature keys contributed through core's declaration: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]];
 - open composition roots: GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
-- canvas: GAP [[01M39F3MR3HT2NR553FY8CRD6X]].
+- canvas: GAP [[01M39F3MR3HT2NR553FY8CRD6X]];
+- the outline's canvas bullet, which the kit names by the canvas tag's
+  frozen id: GAP [canvas-bullet-kind].
 
 ### Canvas documents
 
@@ -2011,7 +2011,10 @@ item types and fields it does not know survive a round trip untouched, and
 so does a known field holding a value it cannot read (a `z` that is not a
 finite number, a `depth` that is not, a `rotation` that is not an object of
 finite angles, a `camera` or `pose` of the wrong
-shape) until kb writes that field itself.
+shape) until kb writes that field itself. The `#canvas` tag
+(`sys.tag.canvas`), the field it templates, and the `canvas.list` and
+`canvas.page` view keys are the canvas family's too (`CANVAS_IDS` and its
+declaration, [Extension families](#extension-families)).
 
 The canvas plane is the floor: x runs to the right and y down the page as
 the top view (2D) shows them, and z points up off the floor, all in the same

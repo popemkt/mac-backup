@@ -1,4 +1,5 @@
-import type { CanvasParams, NoParams } from "@kb/views";
+import type { CanvasParams } from "@kb/canvas";
+import type { NoParams } from "@kb/views";
 
 export function matchCanvasList(path: string): NoParams | null {
   return path === "/canvas" || path === "/canvas/" ? {} : null;

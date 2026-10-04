@@ -10,6 +10,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  CANVAS_IDS,
   canvasMembership,
   directionFrom,
   itemBounds,
@@ -59,7 +60,7 @@ function stored(ctx: Kb): CanvasDoc {
     ctx.nodes.find((n) => n.id === "n.canvas"),
     "canvas",
   );
-  const raw = present(node.props[SYSTEM_IDS.canvasField]?.[0], "canvas doc");
+  const raw = present(node.props[CANVAS_IDS.canvasField]?.[0], "canvas doc");
   return parseCanvasDoc(String(raw.v));
 }
 
@@ -321,13 +322,13 @@ describe("ext.canvas.connect, group, ungroup and promote", () => {
       id: "node.update",
       input: {
         id: "n.canvas",
-        unsetProps: [{ field: SYSTEM_IDS.canvasField }],
-        setProps: [{ field: SYSTEM_IDS.canvasField, value: { t: "str", v: "{not json" } }],
+        unsetProps: [{ field: CANVAS_IDS.canvasField }],
+        setProps: [{ field: CANVAS_IDS.canvasField, value: { t: "str", v: "{not json" } }],
       },
     });
     const receipt = await invoke(ctx, verb("place", { items: [{ make: {}, at: { x: 0, y: 0 } }] }));
     expect(receipt).toMatchObject({ status: "failed", code: "invalid_input" });
-    const raw = ctx.nodes.find((n) => n.id === "n.canvas")?.props[SYSTEM_IDS.canvasField]?.[0];
+    const raw = ctx.nodes.find((n) => n.id === "n.canvas")?.props[CANVAS_IDS.canvasField]?.[0];
     expect(raw).toEqual({ t: "str", v: "{not json" });
   });
 

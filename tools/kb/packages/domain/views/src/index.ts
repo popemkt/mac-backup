@@ -111,7 +111,6 @@ export {
   OntologyScopeView,
   type OntologyView,
 } from "./ontology.ts";
-export { CANVAS_NAMESPACE, CanvasListView, CanvasParams, CanvasView } from "./canvas.ts";
 export { DOCS_NAMESPACE, DocsMarkdownParams, DocsMarkdownView, docsSpecOf } from "./docs.ts";
 export {
   viewCatalogOf,

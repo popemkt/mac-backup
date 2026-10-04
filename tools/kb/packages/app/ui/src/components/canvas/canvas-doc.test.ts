@@ -8,6 +8,7 @@ import {
 } from "@kb/ui-sdk";
 import { describe, expect, test } from "vitest";
 import {
+  CANVAS_IDS,
   isNativeEdgeBound,
   parseCanvasDoc,
   stringifyCanvasDoc,
@@ -49,7 +50,7 @@ describe("the Canvases section", () => {
       [
         "cv1",
         outline("cv1", "My canvas", {
-          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.canvasTag }],
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: CANVAS_IDS.canvasTag }],
         }),
       ],
       ["x", outline("x", "plain")],
@@ -317,7 +318,7 @@ describe("drag/dirty live-sync guard", () => {
           children: [],
           collapsed: false,
           props: {
-            [SYSTEM_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(foreign) }],
+            [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(foreign) }],
           },
           createdAt: "",
           updatedAt: "",

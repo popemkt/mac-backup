@@ -18,6 +18,7 @@ import {
 } from "@kb/ui-sdk";
 import { ulid } from "ulid";
 import {
+  CANVAS_IDS,
   EMPTY_CANVAS_DOC,
   isNativeEdgeBound,
   parseCanvasDoc,
@@ -29,7 +30,7 @@ import { SYSTEM_IDS, typeRefsOf } from "@kb/model";
 
 export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
   if (!node) return { nodes: [], edges: [] };
-  const raw = node.props[SYSTEM_IDS.canvasField]?.[0];
+  const raw = node.props[CANVAS_IDS.canvasField]?.[0];
   if (!raw || raw.t !== "str" || typeof raw.v !== "string") {
     return { nodes: [], edges: [] };
   }
@@ -43,7 +44,7 @@ export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
 export function listCanvasNodes(nodes: Map<string, OutlineNode>): OutlineNode[] {
   const out: OutlineNode[] = [];
   for (const n of nodes.values()) {
-    const tagged = typeRefsOf(n).includes(SYSTEM_IDS.canvasTag);
+    const tagged = typeRefsOf(n).includes(CANVAS_IDS.canvasTag);
     if (tagged) out.push(n);
   }
   return out.toSorted((a, b) => a.text.localeCompare(b.text));
@@ -166,8 +167,8 @@ export async function createCanvasNode(text = "Untitled canvas"): Promise<string
   const receipt = await browserHost().invoke("node.add", {
     text,
     id,
-    tags: [SYSTEM_IDS.canvasTag],
-    props: [{ field: SYSTEM_IDS.canvasField, value: { t: "str", v: docStr } }],
+    tags: [CANVAS_IDS.canvasTag],
+    props: [{ field: CANVAS_IDS.canvasField, value: { t: "str", v: docStr } }],
   });
   if (receipt.status === "failed") {
     logError("[kb/canvas] create failed:", receipt.message);
