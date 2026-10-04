@@ -5,9 +5,7 @@ import { definePlugin } from "@kb/plugin";
 import { BrowserHostService, provideView, ViewPoint } from "@kb/ui-sdk";
 
 /** The code view's page, in a chunk of its own. */
-const CodePage = lazy(() =>
-  import("@/components/code/code-page").then((m) => ({ default: m.CodePage })),
-);
+const CodePage = lazy(() => import("./code-page").then((m) => ({ default: m.CodePage })));
 
 /**
  * Code views (generative UI mode C): the `code.view` view, a view node's

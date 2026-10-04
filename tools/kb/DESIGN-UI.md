@@ -1905,7 +1905,7 @@ every node by its key) reach it with nothing of its own.
 
 ### Code views
 
-The code plugin (`components/code`) draws `code.view` (DESIGN.md → View
+The code plugin (`@kb/code-ui`) draws `code.view` (DESIGN.md → View
 nodes → Code views states its params, DESIGN.md → Sandbox how it runs) at
 placement `page`. It owns no route: a node opens it through
 `/node/<id>/<view>`, in a pane, a dashboard or the pane switcher.
@@ -2025,11 +2025,11 @@ the shell.
   three, so a 3D host can mount a scene without carrying three itself
   ([The lab](#the-lab)).
 - **Until a half is a package, its zone carries the fence.** A feature zone
-  still in `@kb/ui` (`components/{code,agent,lab,canvas}`) may reach
+  still in `@kb/ui` (`components/{agent,lab,canvas}`) may reach
   only itself, `@kb/ui-sdk` and the scene kit.
   `UI_ALLOWS` in `harness/src/constraints.ts` states the rows, and each
   zone's row is deleted when its package leaves. GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
-  (code, agent, lab) and GAP [[01M39F3MR3HT2NR553FY8CRD6X]] (canvas)
+  (agent, lab) and GAP [[01M39F3MR3HT2NR553FY8CRD6X]] (canvas)
   record the distance.
 - **The lazy fence follows packages.** `UI_LAZY_ONLY` applies to the import
   closure from `UI_ENTRY`, walking into `scope:browser` workspace packages

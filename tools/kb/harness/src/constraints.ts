@@ -181,8 +181,6 @@ export interface SanctionedExtensionImport {
  *
  * - The agent's UI half, `src/agent.ts` and `components/agent`, leaves with
  *   `@kb/agent-ui` (step E12 of the extension-boundaries plan).
- * - The code view's UI half, `components/code`, reads its family's key and
- *   loads its shared plugin; it leaves with `@kb/code-ui` (E12).
  * - The lab's UI half, `components/lab`, reads its family's key and studies
  *   and loads its shared plugin; it leaves with `@kb/lab-ui` (E12).
  * - The canvas's UI half, `components/canvas` and its story, leaves with
@@ -204,10 +202,6 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
         "src/components/agent/entries.tsx",
         "src/components/agent/plugin.ts",
       ],
-    },
-    {
-      target: "@kb/code",
-      files: ["src/components/code/code-page.tsx", "src/components/code/plugin.ts"],
     },
     {
       target: "@kb/lab",
@@ -302,9 +296,9 @@ export const BROWSER_HALF_SUFFIX = "-ui";
  * family and not listed here fails, and a listed one that no longer is a
  * surface fails too, so the list can only shrink.
  */
-// The agent, code and lab halves: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
+// The agent and lab halves: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
 // The canvas half: GAP [[01M39F3MR3HT2NR553FY8CRD6X]]
-export const CORE_BROWSER_HALVES: ReadonlySet<string> = new Set(["agent", "canvas", "code", "lab"]);
+export const CORE_BROWSER_HALVES: ReadonlySet<string> = new Set(["agent", "canvas", "lab"]);
 
 /**
  * The isomorphism fence. A `scope:shared` package runs in the browser too, so
@@ -424,7 +418,6 @@ export const UI_SRC = "packages/app/ui/src";
 type UiSurface =
   | "agent"
   | "canvas"
-  | "code"
   | "graph"
   | "lab"
   | "layout"
@@ -437,7 +430,6 @@ type UiSurface =
 export const UI_SURFACES: readonly UiSurface[] = [
   "agent",
   "canvas",
-  "code",
   "graph",
   "lab",
   "layout",
@@ -544,7 +536,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "primitives",
     "components/agent",
     "components/canvas",
-    "components/code",
     "components/graph",
     "components/lab",
     "components/layout",
@@ -597,8 +588,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   // the socket and the invoke path as ports (`src/agent.ts`), and the rest
   // of the shell through the host.
   "components/agent": extensionRow("components/agent"),
-  // A code view hosts a sandbox frame; the page's end of the bridge comes through the host.
-  "components/code": extensionRow("components/code"),
   // The sandbox frame's own script, a separate build that runs in the frame:
   // it reaches nothing of the page, and nothing of the page reaches it.
   sandbox: ["sandbox"],

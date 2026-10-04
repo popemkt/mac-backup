@@ -28,6 +28,7 @@
     "@kb/chart-ui": "workspace:*",
     "@kb/check": "workspace:*",
     "@kb/code": "workspace:*",
+    "@kb/code-ui": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/docs": "workspace:*",
     "@kb/lab": "workspace:*",
