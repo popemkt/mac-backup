@@ -10,11 +10,19 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect } from "effect";
 import { bundledSeed } from "@kb/bundled";
-import { EXTENSION_ENABLED_FIELD, extensionNodeId, type ActionReceipt } from "@kb/contracts";
-import { SYSTEM_IDS, type KbNode } from "@kb/model";
+import {
+  EXTENSION_ENABLED_FIELD,
+  ReadInvoke,
+  extensionNodeId,
+  type ActionInvocation,
+  type ActionReceipt,
+} from "@kb/contracts";
+import { SYSTEM_IDS, present, type Actor, type KbNode } from "@kb/model";
 import { kbManifestDef } from "@kb/operations";
 import { invoke } from "../src/invoke.ts";
+import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 
 type Session = Awaited<ReturnType<typeof openKb>>;
@@ -105,6 +113,19 @@ describe("the lab is switched on the server", () => {
     expect((await readFile(store)).equals(before)).toBe(true);
   });
 
+  test("a switch reads the store as it is, so a stale session does not re-create another's node", async () => {
+    const stale = await openKb(root);
+    const other = await openKb(root);
+    expect((await switchLab(other, true)).status).toBe("succeeded");
+    const created = other.index.getNode(LAB_NODE)?.createdAt;
+    expect(created).toBeDefined();
+    expect(stale.index.getNode(LAB_NODE)).toBeUndefined();
+
+    expect((await switchLab(stale, false)).status).toBe("succeeded");
+    expect(stale.index.getNode(LAB_NODE)?.createdAt).toBe(created);
+    expect(await labIn(stale)).toMatchObject({ row: { enabled: false } });
+  });
+
   test("a family that is not optional cannot be switched, and an unknown one is not found", async () => {
     const ctx = await openKb(root);
     const before: KbNode[] = ctx.nodes;
@@ -115,5 +136,79 @@ describe("the lab is switched on the server", () => {
       await invoke(ctx, { id: "extension.switch", input: { name: "nope", on: true } }),
     ).toMatchObject({ status: "failed", code: "not_found" });
     expect(ctx.nodes).toEqual(before);
+  });
+});
+
+/** A call to switch the lab on, made by `actor`, with a person's approval or without. */
+function call(actor: Actor, approved?: boolean): ActionInvocation {
+  return {
+    id: "extension.switch",
+    input: { name: "lab", on: true },
+    actor,
+    ...(approved === undefined ? {} : { approved }),
+  };
+}
+
+/**
+ * Who may switch: switching changes which code the server loads, so the
+ * seeded approval policies ask an agent and deny sandboxed code, while a
+ * person's gesture and the CLI need no row (DESIGN.md → Action registry →
+ * Approval). A code view's figure reaches actions only as a read, so it
+ * cannot switch either.
+ */
+describe("who may switch an extension", () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), "kb-extension-switch-approval-"));
+  });
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test("an agent is asked: refused without a person's approval, run with it", async () => {
+    const ctx = await openKb(root);
+    expect(await invoke(ctx, call("agent"))).toMatchObject({
+      status: "failed",
+      code: "approval_required",
+      details: { policy: "approval.agent-extension-switch" },
+    });
+    expect(ctx.index.getNode(LAB_NODE)).toBeUndefined();
+    expect((await invoke(ctx, call("agent", true))).status).toBe("succeeded");
+    expect(await labIn(ctx)).toMatchObject({ row: { enabled: true } });
+  });
+
+  test("a person's gesture and the CLI switch with no approval", async () => {
+    const ctx = await openKb(root);
+    expect((await invoke(ctx, call("human"))).status).toBe("succeeded");
+    expect((await invoke(ctx, { ...call("cli"), input: { name: "lab", on: false } })).status).toBe(
+      "succeeded",
+    );
+    expect(await labIn(ctx)).toMatchObject({ row: { enabled: false } });
+  });
+
+  test("sandboxed code is refused, even with an approval", async () => {
+    const ctx = await openKb(root);
+    for (const approved of [undefined, true]) {
+      expect(await invoke(ctx, call("script", approved))).toMatchObject({
+        status: "failed",
+        code: "forbidden",
+        details: { policy: "approval.script-extension-switch" },
+      });
+    }
+    expect(ctx.index.getNode(LAB_NODE)).toBeUndefined();
+  });
+
+  test("a code view's figure, which invokes only as a read, cannot switch", async () => {
+    const ctx = await openKb(root);
+    const receipt = await Effect.runPromise(
+      Effect.gen(function* () {
+        const read = present(yield* ReadInvoke, "the runtime binds ReadInvoke");
+        return yield* read(call("script"));
+      }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+    );
+    expect(receipt).toMatchObject({ status: "failed", code: "forbidden" });
+    expect(ctx.index.getNode(LAB_NODE)).toBeUndefined();
   });
 });

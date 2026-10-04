@@ -68,9 +68,10 @@ describe("MCP surface", () => {
     const names = new Set(listed.tools.map((t) => t.name));
     expect(names.has("kb_manifest")).toBe(true);
     // The seeded policies ask an agent before it deletes or rewrites the
-    // store, and MCP cannot carry approval, so those two are not tools; nor
-    // is trusting code, which the seed denies to an agent.
-    const asked = new Set(["node_delete", "views_migrate", "sandbox_trust"]);
+    // store, or switches an extension, and MCP cannot carry approval, so
+    // those are not tools; nor is trusting code, which the seed denies to an
+    // agent.
+    const asked = new Set(["node_delete", "views_migrate", "extension_switch", "sandbox_trust"]);
     for (const entry of await run(manifest(root))) {
       const tool = entry.id.replaceAll(".", "_");
       expect({ tool, listed: names.has(tool) }).toEqual({ tool, listed: !asked.has(tool) });

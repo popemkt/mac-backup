@@ -479,7 +479,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   });
   /*
    * The defaults the owner chose: an agent, and sandboxed code, is asked before
-   * it deletes a node and before a store-wide rewrite. Normal edits need no policy (no core
+   * it deletes a node and before a store-wide rewrite; an agent is asked
+   * before switching an extension, which code never does. Normal edits need no policy (no core
    * write declares approval), and a human's gesture never asks because the
    * gesture is the person's answer — a property of the resolver, not a row.
    * They are ordinary, editable nodes, filed under the query node that lists
@@ -522,6 +523,17 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       actor: "script",
       decision: "deny",
     }),
+    // Switching an optional extension changes which code the server loads
+    // (DESIGN.md → Extension families): an agent asks the person, and
+    // sandboxed code never does it.
+    approvalPolicyNode(
+      mk("approval.agent-extension-switch", "An agent asks before switching an extension"),
+      { match: "extension.switch", actor: "agent", decision: "ask" },
+    ),
+    approvalPolicyNode(
+      mk("approval.script-extension-switch", "Sandboxed code never switches an extension"),
+      { match: "extension.switch", actor: "script", decision: "deny" },
+    ),
   ];
   /*
    * Policies are managed in a saved table of every `#approval-policy` node,

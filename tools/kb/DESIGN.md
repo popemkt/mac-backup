@@ -1686,7 +1686,10 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   - **Seeded defaults**, ordinary editable nodes filed under the query node
     `approval.policies` ("Approval policies"): an agent, and sandboxed code,
     asks before `node.delete` and before `views.migrate`, and neither may
-    `sandbox.trust` ([Sandbox](#trust)). Normal edits need no row,
+    `sandbox.trust` ([Sandbox](#trust)). An agent asks before
+    `extension.switch`, and sandboxed code may not call it, since it changes
+    which code the server loads ([Extension families](#extension-families)).
+    Normal edits need no row,
     because no core write declares approval.
   - **Policies are managed in a saved table, pinned in the sidebar; there is
     no settings page.** The query node lists every `#approval-policy` node

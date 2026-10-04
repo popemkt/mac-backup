@@ -4,7 +4,9 @@
  * decision). It writes the family's switch node (`switchWrites`), so the
  * registry loads the family, or leaves it out, from the next call on, and
  * `kb.manifest` reports it so. It is the one way the switch is written: the
- * page's Preferences row calls it, and so may the CLI or an agent.
+ * page's Preferences row calls it, and so may the CLI. It changes which code
+ * the server loads, so the seeded approval policies ask an agent and deny
+ * sandboxed code (DESIGN.md → Action registry → Approval).
  */
 import { Effect } from "effect";
 import { z } from "zod";
@@ -16,7 +18,7 @@ import {
   type KbStore,
 } from "@kb/contracts";
 import { currentIso, domainError, type DomainError } from "@kb/model";
-import { persistEffect } from "./session.ts";
+import { persistEffect, reloadEffect } from "./session.ts";
 
 export const extensionSwitchDef = {
   id: "extension.switch",
@@ -49,6 +51,8 @@ export const extensionSwitchEffect = Effect.fn("extension.switch")(function* (
     );
   }
   const ctx = yield* KbCtx;
+  // Read the switch as the store has it now: another process may have written it first.
+  yield* reloadEffect(ctx);
   const upserts = switchWrites(row, input.on, (id) => ctx.index.getNode(id), yield* currentIso);
   yield* persistEffect(ctx, { upserts, deletes: [] });
   return { name: input.name, on: input.on };
