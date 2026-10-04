@@ -103,11 +103,13 @@ export interface BrowserExtension {
 
 /**
  * The browser entry of each family, keyed by the name its declaration gives
- * it. A family that is always on loads from the main bundle. One that is on
- * only when the server says so (the optional lab, the agent a `kb ui` hosts)
- * is its own chunk, fetched when it is first on. A family with no browser
- * half is listed too, as `null`, so a bundled family is never left out by
- * omission: the resolver's test holds every bundled family to an entry.
+ * it. Whether the page loads one is the server's report, never this table.
+ * How it is fetched is: a family a store has on by default (canvas, code,
+ * chart) loads from the main bundle, and one off by default (the lab) or
+ * hosted only by `kb ui` (the agent) is its own chunk, fetched when it is
+ * first on. A family with no browser half is listed too, as `null`, so a
+ * bundled family is never left out by omission: the resolver's test holds
+ * every bundled family to an entry.
  */
 export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> = {
   [docsExtension.name]: null,
@@ -152,10 +154,14 @@ function browserEntry(name: string): BrowserExtension | null {
   return Object.hasOwn(BROWSER_EXTENSIONS, name) ? (BROWSER_EXTENSIONS[name] ?? null) : null;
 }
 
-/** The switches for these rows: each optional family the page can draw, on as the server reports it. */
+/**
+ * The switches for these rows: each optional family the server reports, on
+ * as it reports it. Whether the family has a browser half does not matter:
+ * the switch is the server's, and Preferences is where a person reaches it.
+ */
 function switchesFor(rows: readonly ExtensionRow[]): readonly ExtensionSwitch[] {
   return rows
-    .filter((row) => row.optional && browserEntry(row.name) !== null)
+    .filter((row) => row.optional)
     .map(({ name, label, enabled }) => ({ name, label, on: enabled }));
 }
 

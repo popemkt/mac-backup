@@ -2,7 +2,8 @@
  * The agent's dock through the real App follows the server that hosts the
  * agent: a page whose `kb.manifest` reports the agent loaded (a `kb ui` that
  * hosts it) offers the Agent toggle, and a page whose server reports none
- * (`kb ui --no-agent`) offers none, whatever this browser chose before.
+ * (the agent switched off, or a server that hosts none) offers none,
+ * whatever this browser chose before.
  * There is no second switch in the browser.
  */
 import { act } from "react";

@@ -5,7 +5,8 @@
  * {@link codePlugin}, so the key, the seed and the text cannot differ
  * between them. The family has no server-only package: its figure asks the
  * host's core references for an engine and an invoke core, and only the
- * runtime binds them, so on the page it draws the text alone.
+ * runtime binds them, so on the page it draws the text alone. It is optional
+ * and on by default.
  */
 import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
@@ -16,6 +17,7 @@ import { CodeView } from "./view.ts";
 export const codeExtension = defineExtension({
   name: "code",
   label: "Code",
+  optional: { byDefault: "on" },
   seed: codeSeedNodes,
   views: [viewDef(CodeView, codeText)],
 });

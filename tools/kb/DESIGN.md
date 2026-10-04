@@ -1867,7 +1867,9 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK |
 
 - **A family declares itself once.** `defineExtension({name, label,
-  optional?, seed?, views?})` in `@kb/<family>` is the one home of its name:
+  optional?, seed?, views?})` in `@kb/<family>` is the one home of its name
+  and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
+  its state in a store where no one has switched it):
   - every entry plugin takes its `name` from the declaration;
   - so do the manifest row and the browser resolver's key;
   - the package's `family:<name>` tag is checked equal to it.
@@ -1887,19 +1889,42 @@ end).
   entry of each family the manifest reports as enabled, through a resolver
   keyed by family name ([DESIGN-UI → Extension UI halves](DESIGN-UI.md#extension-ui-halves)).
   **Optional is a server-side load decision:** a family switched off is not
-  loaded by the registry, so its views leave the catalog. There is never a
-  second switch in the browser.
+  loaded by its host, so its actions and views leave the registry, the
+  catalog, MCP's tools and the agent's, and the page drops its browser
+  half. There is never a second switch in the browser.
+  - **Which families can be switched.** Canvas, chart, code and the agent
+    are optional and on by default; the lab is optional and off by
+    default. Docs and check are required: docs owns the templates core's
+    `docs.markdown` views render with, so with docs off a core view would
+    break rather than read as unavailable, and the two run the repository's
+    gates (`docs.check`, `check:audit`). A required family is on wherever it
+    is composed whatever its node says, and `extension.switch` refuses it,
+    so no gate can read as clean because its family was switched away.
+  - **The family is the unit.** Every package of a family follows the one
+    switch: the server's entry, the `kb ui` host's entry and the browser
+    half. A family depends only on its own packages (the family fence), so
+    switching one off never breaks another.
   - **The switch is a node.** An optional family is on while the store's
     `sys.extension.<name>` node carries `true` in the checkbox field
-    `sys.f.extension.enabled` (`familyOn`, `@kb/contracts`). Neither node is
-    seeded: `extension.switch` writes them the first time a person switches
-    the family (`switchWrites`), so opening a store never writes them, and a
-    store without them has every optional family off. The registry is
-    cached per root and per set of families on, so a switch takes effect on
-    the next call.
-  - `kb ui` hosts the agent unless it is started with `--no-agent`, and
-    reports it beside the bundled families. That flag is the agent's one
-    switch: a page served without the agent never offers its dock.
+    `sys.f.extension.enabled`, and by its declared default where the store
+    holds no switch (`familyOn`, `@kb/contracts`). Neither node is seeded:
+    `extension.switch` writes them the first time a person switches the
+    family (`switchWrites`), so opening a store never writes them. A switch
+    that does not read as a checkbox reads as the default.
+  - **Every host makes the one decision.** The registry is cached per root
+    and per set of families on, so a switch takes effect on the next call.
+    The `kb ui` server composes the extensions it hosts (the agent) the
+    same way: `composeHosted` converges its kernel on the ones `familyOn`
+    admits (`syncPlugins`, `@kb/plugin`, the convergence the page uses
+    too), whenever its log carries a write to their switch and before each
+    report, so switching the agent takes effect live and switching it back
+    restores it. There is no flag: `kb ui` always hands the agent over,
+    and the store says whether it is hosted. A family the host composes is
+    switched where that host runs (the page's Preferences, or a call to
+    the `kb ui` server); a process that composes no agent does not list it.
+  - **The data stays.** Switching a family writes only its switch node: its
+    nodes and its seed are untouched, and a view of it opens as
+    unavailable, by its option (below).
 - **The seed is the bundled fold, never a loaded registry.**
   `ensureSystemSeed(nodes, seed)` runs at open, before any registry
   exists. `openKbEffect` passes it `bundledSeed(at)` (`@kb/bundled`, a
@@ -2001,14 +2026,23 @@ end).
     empty since the canvas's half became `@kb/canvas-ui`.
 
   One contract suite, `extensionContract` (`@kb/test-kit`), runs over
-  `BUNDLED_EXTENSIONS` and over the host-composed agent. A family passes
+  `BUNDLED_EXTENSIONS`, the registry their host, and over the
+  host-composed agent, `kb ui`'s composition its host. A family passes
   when:
   - it loads and unloads cleanly;
   - its entry contributes exactly the views its declaration lists;
   - its seed ids have one owner;
   - every view key it contributes has an option in the fold;
   - every text body renders its key's defaults;
+  - its host composes it as its declaration has it by default where no
+    switch is written; an optional family switched off is neither held nor
+    reported on, and switched back on is both again on the same host; a
+    required family written off by hand is still held and reported on;
   - every view it gives the UI has a key in the page's catalog.
+
+  The page's half of switching (a family reported off leaves the page
+  kernel with everything it contributed, and returns when reported on) is
+  a case over every switchable family in `ui-plugins.test.ts`.
 
   The rule node "Core names no feature" records how far that enforcement
   has landed.
@@ -2382,13 +2416,15 @@ A plugin can hold its own conversation with the connections of `kb ui`
 (the agent sidebar's chat is the first). The shapes are typed once in
 `contracts/src/channel.ts`, and the wire op is in `protocol.ts`.
 
-- **The server is a plugin host.** `startUi` takes `plugins`. It makes its
-  own `@kb/plugin` kernel, provides `UiHost` into it, and then loads the
-  plugins in order. The browser page is a host in the same way. The server
-  names no plugin itself: its caller, a composition root, does (the CLI's
-  `kb ui`). A plugin that fails to load is reported and skipped, and so is
-  one still waiting for a service. Neither stops the server. Each plugin's
-  scope closes when the server stops.
+- **The server is a plugin host.** `startUi` takes `extensions`. It makes
+  its own `@kb/plugin` kernel, provides `UiHost` into it, and then composes
+  each extension its store has on, in order, and again whenever a switch
+  moves ([Extension families](#extension-families)). The browser page is a
+  host in the same way. The server names no plugin itself: its caller, a
+  composition root, does (the CLI's `kb ui`). A plugin that fails to load
+  is reported and skipped, and so is one still waiting for a service.
+  Neither stops the server. Each plugin's scope closes when it is switched
+  off or the server stops.
 - **`UiHost`** is what the server offers: the root, the manifest, and
   `invoke`, which runs an invocation as `POST /api/action` does
   (`serverInvoke`: reload, then the invoke core), approval included, and
@@ -2470,11 +2506,13 @@ The sidebar agent lives outside core, in packages that core never imports
   Nothing is written to the store. Threads kept as nodes are the
   canonical shape (GAP [[01M40WSVNKVH3ZY8QE0GN5DY8X]]). A backend may keep its own record
   of a session, as Claude Code does.
-- **`kb ui` hosts the agent over the local Claude** (`claudeRuntime`), and
-  `--no-agent` leaves it out. The CLI is the composition root that names
-  it, and it loads the agent packages only for `kb ui`. The server reports
-  the agent in `kb.manifest.extensions`, and the page offers the agent's
-  dock only while it is reported ([Extension families](#extension-families)).
+- **`kb ui` hosts the agent over the local Claude** (`claudeRuntime`) while
+  its store has the agent on, which it is by default; `extension.switch`
+  turns it off like any optional family. The CLI is the composition root
+  that names it, and it loads the agent packages only for `kb ui`. The
+  server reports the agent in `kb.manifest.extensions`, and the page
+  offers the agent's dock only while it is reported on
+  ([Extension families](#extension-families)).
   - The adapter runs Claude Code through the Claude Agent SDK under the
     login the person already has. kb configures no API key and reads none.
   - It uses the `claude` on PATH. Failing that, it uses the SDK's bundled

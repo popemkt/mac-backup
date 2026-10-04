@@ -50,7 +50,7 @@ interface ChatState {
   readonly unreachable: string | null;
 }
 
-const NO_AGENT = "This kb ui hosts no agent. Start it without --no-agent to chat here.";
+const NO_AGENT = "This kb ui hosts no agent, so there is no one to chat with here.";
 const OFFLINE = "Not connected to kb. Reconnecting…";
 
 export const useChat = create<ChatState>(() => ({

@@ -46,7 +46,7 @@ export function channelsOf(kernel: Kernel): ChannelDirectory {
  * store holds is what the host reports, whoever wrote it and however the
  * host heard of it.
  */
-interface HostedExtensions {
+export interface HostedExtensions {
   readonly converge: Effect.Effect<void>;
   readonly rows: Effect.Effect<readonly ExtensionRow[]>;
   /** The switch nodes of the extensions it was handed: a write to one is a reason to converge. */
@@ -83,7 +83,7 @@ function uiHost(
  * core. The kernel moves only when the switches do, so a plugin that failed
  * is tried again when it is switched, not at every report.
  */
-const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
+export const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
   kernel: Kernel,
   extensions: readonly ExtensionEntry[],
   nodeOf: NodeLookup,

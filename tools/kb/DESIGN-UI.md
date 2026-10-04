@@ -1941,9 +1941,10 @@ placement `page`. It owns no route: a node opens it through
 
 ### Optional UI plugins
 
-Some extensions are off until a person switches them on (the lab), and
-some are there only when the server hosts them (the agent). Neither is a
-browser preference: the server decides, and the page follows
+Every optional family (canvas, chart, code, the lab, the agent) is on or
+off as its store says, the lab off by default and the rest on, and the
+agent is there only when a `kb ui` hosts it. None is a browser
+preference: the server decides, and the page follows
 `kb.manifest.extensions` ([DESIGN → Extension families](DESIGN.md#extension-families)).
 There is one mechanism, not a second path beside the core plugins:
 
@@ -1952,10 +1953,10 @@ There is one mechanism, not a second path beside the core plugins:
   `familiesToLoad` turns the server's report into the families whose
   browser entries the kernel should hold: each reported loaded that the
   resolver has. Until a server answers, the page reads the bundled list as
-  a server over a store with no switch written, so the lab is off and no
-  agent is reported.
-- Preferences → plugins has one on/off row per optional extension the page
-  can draw, showing what the server reports. Choosing calls
+  a server over a store with no switch written, so each family is as it is
+  by default and no agent is reported.
+- Preferences → plugins has one on/off row per optional extension the
+  server reports, showing what it reports. Choosing calls
   `extension.switch` and reads the manifest again; the row shows the
   server's answer, never the choice. A switch written anywhere else (another
   tab, the CLI) reaches the page's graph, and the page reads the manifest
@@ -1965,7 +1966,7 @@ There is one mechanism, not a second path beside the core plugins:
   ignored on read and dropped on the next write. A browser that had the
   lab on sees it off until it is switched on for the kb, from Preferences
   or with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
-  The agent needs nothing: `kb ui` hosts it unless started with `--no-agent`.
+  The agent needs nothing: it is on by default, and switched like the rest.
 - **Until a server answers, the workspace waits.** A page served by `kb ui`
   opens its workspace only once the manifest has landed and the plugins it
   reports are loaded, so a layout never shows a lab view, or any family's

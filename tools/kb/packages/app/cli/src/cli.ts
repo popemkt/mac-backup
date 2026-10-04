@@ -365,15 +365,9 @@ function buildProgram(): Command {
     .option("--dev", "spawn the Vite dev server (HMR) and proxy to the backend", false)
     .option("--dev-port <n>", "Vite dev server port (default 5173)", toInt)
     .option("--no-open", "do not open a browser")
-    .option("--no-agent", "do not host the sidebar agent (the local Claude bridge)")
     .action(
       cliAction(
-        (
-          globals,
-          [opts]: [
-            { port?: number; dev?: boolean; devPort?: number; open?: boolean; agent?: boolean },
-          ],
-        ) =>
+        (globals, [opts]: [{ port?: number; dev?: boolean; devPort?: number; open?: boolean }]) =>
           Effect.gen(function* () {
             const { runUiCli } = yield* Effect.promise(() => import("@kb/server"));
             const root = yield* resolveRootEffect({ root: globals.root });
@@ -383,7 +377,7 @@ function buildProgram(): Command {
               openBrowser: opts.open !== false,
               dev: opts.dev === true,
               devPort: opts.devPort,
-              extensions: opts.agent === false ? [] : yield* hostExtensions(root),
+              extensions: yield* hostExtensions(root),
             });
           }),
       ),

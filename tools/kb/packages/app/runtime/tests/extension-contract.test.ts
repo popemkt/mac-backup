@@ -7,17 +7,35 @@ import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { ActionPoint, ViewKeyPoint, defineExtension } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
 import { definePlugin, makeKernel } from "@kb/plugin";
-import { extensionContract } from "@kb/test-kit";
+import { extensionContract, type SwitchingHost } from "@kb/test-kit";
 import { BUNDLED_EXTENSIONS, serverEntriesFor } from "../src/bundled.ts";
+import { bunFileSystemLayer } from "../src/platform.ts";
 import { invoke } from "../src/invoke.ts";
 import { kbRuntimeLayer } from "../src/layers.ts";
+import { registryFor } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
 
 /** A spec that draws the count of a query's rows: one bar, whatever the columns. */
 const COUNT_ROWS = { mark: "bar", encoding: { y: { aggregate: "count", type: "quantitative" } } };
 
-// Every family the server bundles keeps the one extension contract.
-for (const { declaration, entry } of BUNDLED_EXTENSIONS) extensionContract(declaration, entry);
+/** The registry as the host of a bundled family: what it loads and reports over a store's switches. */
+function registryHost(name: string): SwitchingHost {
+  return {
+    compose: (nodeOf) =>
+      registryFor(null, nodeOf).pipe(
+        Effect.map(({ families, kernel }) => ({
+          row: families.find((family) => family.name === name),
+          kernel,
+        })),
+        Effect.provide(bunFileSystemLayer),
+      ),
+  };
+}
+
+// Every family the server bundles keeps the one extension contract, the registry its host.
+for (const { declaration, entry } of BUNDLED_EXTENSIONS) {
+  extensionContract(declaration, entry, registryHost(declaration.name));
+}
 
 describe("the contract's seed, view and text promises have a subject", () => {
   let root: string;

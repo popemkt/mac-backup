@@ -11,16 +11,17 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { bundledSeed } from "@kb/bundled";
+import { BUNDLED_FAMILIES, bundledSeed } from "@kb/bundled";
 import {
   EXTENSION_ENABLED_FIELD,
   ReadInvoke,
   extensionNodeId,
+  switchWrites,
   type ActionInvocation,
   type ActionReceipt,
 } from "@kb/contracts";
 import { SYSTEM_IDS, present, type Actor, type KbNode } from "@kb/model";
-import { kbManifestDef } from "@kb/operations";
+import { kbManifestDef, persistEffect } from "@kb/operations";
 import { invoke } from "../src/invoke.ts";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
@@ -45,6 +46,7 @@ function switchLab(ctx: Session, on: boolean): Promise<ActionReceipt> {
 }
 
 const LAB_NODE = extensionNodeId("lab");
+const ISO = "2026-10-04T00:00:00.000Z";
 
 describe("the lab is switched on the server", () => {
   let root: string;
@@ -129,13 +131,65 @@ describe("the lab is switched on the server", () => {
   test("a family that is not optional cannot be switched, and an unknown one is not found", async () => {
     const ctx = await openKb(root);
     const before: KbNode[] = ctx.nodes;
-    expect(
-      await invoke(ctx, { id: "extension.switch", input: { name: "chart", on: false } }),
-    ).toMatchObject({ status: "failed", code: "invalid_input" });
+    for (const name of ["docs", "check"]) {
+      expect(
+        await invoke(ctx, { id: "extension.switch", input: { name, on: false } }),
+      ).toMatchObject({ status: "failed", code: "invalid_input" });
+    }
     expect(
       await invoke(ctx, { id: "extension.switch", input: { name: "nope", on: true } }),
     ).toMatchObject({ status: "failed", code: "not_found" });
     expect(ctx.nodes).toEqual(before);
+  });
+});
+
+/**
+ * The gates a commit passes (`docs.check`, and `check:audit` through
+ * `ext.check.audit`) belong to required families. A required family is on
+ * whatever its switch node says (the extension contract holds every one to
+ * it), so a store whose docs and check switches are written off by hand,
+ * past `extension.switch`, still answers both gates: a gate can never read
+ * as clean because the family that runs it was switched away.
+ */
+describe("the gates do not depend on a switch", () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), "kb-extension-switch-gates-"));
+  });
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test("docs and check written off by hand still load, and their gates still run", async () => {
+    // The families that run the gates are exactly the required ones.
+    const required = BUNDLED_FAMILIES.filter((family) => family.optional === undefined);
+    expect(required.map(({ name }) => name)).toEqual(["docs", "check"]);
+    const ctx = await openKb(root);
+    const off: KbNode[] = [];
+    for (const family of required) {
+      const written = new Map(off.map((node) => [node.id, node]));
+      off.push(...switchWrites(family, false, (id) => written.get(id), ISO));
+    }
+    await Effect.runPromise(
+      persistEffect(ctx, { upserts: off, deletes: [] }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+    );
+    expect(ctx.index.getNode(extensionNodeId("docs"))?.props[EXTENSION_ENABLED_FIELD]).toEqual([
+      { t: "bool", v: false },
+    ]);
+    const manifest = await invoke(ctx, { id: "kb.manifest", input: {} });
+    const { extensions } = kbManifestDef.outputSchema.parse(
+      manifest.status === "succeeded" ? manifest.output : null,
+    );
+    expect(
+      extensions
+        .filter(({ name }) => name === "docs" || name === "check")
+        .map((row) => row.enabled),
+    ).toEqual([true, true]);
+    for (const gate of ["docs.check", "ext.check.audit"]) {
+      expect(await invoke(ctx, { id: gate, input: {} })).toMatchObject({ status: "succeeded" });
+    }
   });
 });
 
