@@ -1929,6 +1929,11 @@ end).
     that no plugin on the page holds stays listed by its entry
     (`listedOf`), so a node naming it resolves to that listing and opens as
     "cannot be shown here", named by the server's label.
+  - a view of a family switched off is listed by no catalog, but its option
+    node is seeded whatever loads. So `viewNamed` (`@kb/views`) names a view
+    by its listing, else by its option node's text, which the seed wrote
+    from the key's label; a node naming it opens as the same "cannot be
+    shown here" state, and the pane switcher names it the same way.
 
   So `view.propose`, `render.view` and the manifest see only what is loaded,
   on both hosts.

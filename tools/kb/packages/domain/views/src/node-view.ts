@@ -9,6 +9,7 @@ import {
   defaultViewIdOf,
   isViewNode,
   viewIdOfOption,
+  viewOptionId,
   viewOptionOf,
   type NodeId,
   type NodeProps,
@@ -20,9 +21,10 @@ import { OutlineView } from "./outline.ts";
 import type { NodeParams } from "./layout.ts";
 import type { ConfigReport, ViewKey } from "./view-key.ts";
 
-/** What the resolver reads of a node. */
+/** What the resolver reads of a node: its props, and its text when it names a view. */
 interface Carrier {
   readonly props: NodeProps;
+  readonly text?: string;
 }
 
 /**
@@ -37,14 +39,18 @@ export interface HeldViewTarget {
   readonly viewNode?: NodeId;
 }
 
+/** A view as a host names one it cannot draw: its id and its label. */
+export type NamedView = Pick<ViewCatalogEntry, "id" | "label">;
+
 /**
- * A view the host's catalog lists but holds no key for (the page, for a view
- * no loaded plugin draws): named by its entry, so a host can say which view
- * it cannot show here.
+ * A view the host holds no key for: one its catalog lists without a key (the
+ * page, for a view no loaded plugin draws), or one of a family the host has
+ * switched off, which no catalog lists. Named ({@link viewNamed}), so a host
+ * can say which view it cannot show here.
  */
 export interface UnheldViewTarget {
   readonly key: null;
-  readonly listed: ViewCatalogEntry;
+  readonly listed: NamedView;
   readonly subject: NodeId;
   readonly viewNode?: NodeId;
 }
@@ -88,9 +94,10 @@ function pageOf(
  * - no `view`: the node's default view (the first view node it names), or,
  *   when it names none, the outline at the node.
  *
- * A view the catalog lists without holding its key resolves to that listing
- * (`key: null`), not to a failure: the node is there, and its view is one
- * this host cannot draw.
+ * A view the host holds no key for resolves to its name (`key: null`,
+ * {@link viewNamed}), not to a failure: the node is there, and its view is
+ * one this host cannot draw, because no plugin here draws it or its family
+ * is switched off.
  */
 export function resolveNodeView(
   params: NodeParams,
@@ -103,7 +110,8 @@ export function resolveNodeView(
   const type = params.view === undefined ? null : viewIdOfOption(params.view);
   if (type !== null) {
     const key = catalog.keyOf(type);
-    if (key === null) return unheld(catalog, type, { subject: params.node }, `no view ${type}`);
+    if (key === null)
+      return unheld(catalog, lookup, type, { subject: params.node }, `no view ${type}`);
     return Result.succeed({ ...pageOf(key, {}, params.node, null, report), subject: params.node });
   }
   const self = params.view === undefined && isViewNode(node);
@@ -115,7 +123,8 @@ export function resolveNodeView(
   const key = option === null ? null : catalog.keyOf(option);
   const missing = `${viewId} is no view node`;
   if (view === undefined || option === null) return Result.fail(missing);
-  if (key === null) return unheld(catalog, option, { subject: viewId, viewNode: viewId }, missing);
+  if (key === null)
+    return unheld(catalog, lookup, option, { subject: viewId, viewNode: viewId }, missing);
   const host = self ? null : params.node;
   return Result.succeed({
     ...pageOf(key, view.props, host, viewId, report),
@@ -124,13 +133,33 @@ export function resolveNodeView(
   });
 }
 
-/** The view `view` names as the catalog lists it without a key, else `failure`. */
+/**
+ * The view `view` (its id or its option) names: as `catalog` lists it, else
+ * as the graph holds its option node. A view of a family switched off is
+ * listed by no catalog, but its option is seeded whatever loads (the seed is
+ * the bundled fold), and the option's text is the view's label. Null for
+ * neither, so a name that is no view stays one.
+ */
+export function viewNamed(
+  view: string,
+  catalog: Pick<Catalog, "listedOf">,
+  lookup: (id: NodeId) => Carrier | undefined,
+): NamedView | null {
+  const listed = catalog.listedOf(view);
+  if (listed !== null) return listed;
+  const id = viewIdOfOption(view) ?? view;
+  const label = lookup(viewOptionId(id))?.text;
+  return label === undefined ? null : { id, label };
+}
+
+/** The view `view` names, held by no key ({@link viewNamed}), else `failure`. */
 function unheld(
   catalog: Catalog,
+  lookup: (id: NodeId) => Carrier | undefined,
   view: string,
   shown: { readonly subject: NodeId; readonly viewNode?: NodeId },
   failure: string,
 ): Result.Result<UnheldViewTarget, string> {
-  const listed = catalog.listedOf(view);
+  const listed = viewNamed(view, catalog, lookup);
   return listed === null ? Result.fail(failure) : Result.succeed({ key: null, listed, ...shown });
 }

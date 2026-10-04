@@ -315,4 +315,29 @@ describe("what /node/<id> opens", () => {
     );
     expect(openUnheld("n.plain", "sys.view.nope")).toEqual(Result.fail("no view nope"));
   });
+
+  test("a view no catalog lists resolves to its option node's name, when the graph holds the option", () => {
+    // A family switched off: its views leave the catalog, but its option nodes are seeded.
+    const off = viewCatalogOf(catalog.items.filter((item) => item.key !== NeighbourhoodView));
+    const withOption = new Map<string, { props: NodeProps; text?: string }>([
+      ...nodes,
+      [NeighbourhoodView.option, { props: {}, text: "Neighbourhood" }],
+    ]);
+    const openOff = (graph: typeof withOption, node: string, view?: string) =>
+      resolveNodeView(
+        view === undefined ? { node } : { node, view },
+        off,
+        (id) => graph.get(id),
+        () => {},
+      );
+    const listed = { id: "graph.neighbourhood", label: "Neighbourhood" };
+    expect(openOff(withOption, "n.frame", "v.hood")).toEqual(
+      Result.succeed({ key: null, listed, subject: "v.hood", viewNode: "v.hood" }),
+    );
+    expect(openOff(withOption, "n.plain", NeighbourhoodView.option)).toEqual(
+      Result.succeed({ key: null, listed, subject: "n.plain" }),
+    );
+    // Without the option, nothing names the view: the node's view is no view.
+    expect(openOff(nodes, "n.frame", "v.hood")).toEqual(Result.fail("v.hood is no view node"));
+  });
 });

@@ -9,7 +9,7 @@ import { createPortal } from "react-dom";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { Predicate, Result } from "effect";
 import { canonicalJson, hostViewIds, viewOptionOf } from "@kb/model";
-import { LayoutView, NodeView, paramsFromProps, type ViewKey } from "@kb/views";
+import { LayoutView, NodeView, paramsFromProps, viewNamed, type ViewKey } from "@kb/views";
 import {
   cn,
   matchRoute,
@@ -35,18 +35,20 @@ interface Section {
 
 /**
  * What a view node is called here: its text, else its view's label, its view
- * named through `catalog`, which lists views this page cannot draw too.
+ * named as a node opens it (`viewNamed`), so a view this page cannot draw is
+ * named too.
  */
 function viewNodeLabel(
   id: string,
   nodes: NodeMap,
-  catalog: { listedOf(view: string): { readonly label: string } | null },
+  catalog: Parameters<typeof viewNamed>[1],
 ): string {
   const node = nodes.get(id);
   const text = node?.text.trim() ?? "";
   if (text !== "") return text;
   const option = viewOptionOf(node);
-  return (option === null ? null : catalog.listedOf(option))?.label ?? id;
+  const named = option === null ? null : viewNamed(option, catalog, (view) => nodes.get(view));
+  return named?.label ?? id;
 }
 
 const quiet = (): void => {};

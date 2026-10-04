@@ -155,7 +155,9 @@ export {
 } from "./layout.ts";
 export {
   resolveNodeView,
+  viewNamed,
   type HeldViewTarget,
+  type NamedView,
   type NodeViewTarget,
   type UnheldViewTarget,
 } from "./node-view.ts";
