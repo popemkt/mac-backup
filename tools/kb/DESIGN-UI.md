@@ -2024,7 +2024,11 @@ the shell.
     and the sandbox host. It is a subscribe, reads and gestures, never
     hooks: a hook selected from a service at run time is one React cannot
     check. The sdk's own hooks (`useNode`, `useAppearance`, `useFollow`, …)
-    are built over it once, with `useSyncExternalStore`.
+    are built over it once, with `useSyncExternalStore`. It is also a
+    `NodeTextPort` (tracked graph reads, the caret hand-off, the text-host
+    registry), so a half binds a `NodeTextHost` with `useNodeTextBinding`
+    through the same body (`useNodeTextBindingThrough`) the shell binds its
+    own with, over its stores.
 
   The sdk never imports the shell's stores. The 3D scene kit is two kit
   packages beside it, for canvas 3D, the lab and the core `graph.force3d`

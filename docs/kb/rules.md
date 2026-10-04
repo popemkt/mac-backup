@@ -343,7 +343,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: canvas UI still lives in @kb/ui, not in a canvas browser plugin
 
 - **expected** — Canvas is three packages around one concept, one scope:* tag each, never one package with two entries. @kb/canvas (scope:shared, no dependencies) owns the JSON Canvas document. @kb/ext-canvas (scope:backend) is the backend plugin: ext.canvas.tx.apply plus the #canvas tag and sys.f.canvas field seeds, which leave @kb/model's systemSeedNodes because the system seed is core, not every view kb ships. A browser plugin package (scope:browser) contributes the canvas surfaces and sidebar section to the browser kernel. Both plugins depend on @kb/plugin and @kb/canvas, and neither names the other by a string literal.
-- **current** — The canvas UI is a built-in UI plugin in packages/app/ui/src/components/canvas, its former lib/canvas-* modules included; it reaches the shell only through @kb/ui-sdk and the scene kit except one sanctioned store import (01M41MHRD7MF4NP23EE294B69C); sys.tag.canvas and sys.f.canvas are seeded by core; the UI calls the action by the string ext.canvas.tx.apply.
+- **current** — The canvas UI is a built-in UI plugin in packages/app/ui/src/components/canvas, its former lib/canvas-* modules included; it reaches the shell only through @kb/ui-sdk and the scene kit, its node card's text host included (useNodeTextBinding over BrowserHost); sys.tag.canvas and sys.f.canvas are seeded by core; the UI calls the action by the string ext.canvas.tx.apply.
 - **impact** — An extension cannot own its UI, so canvas is only nominally an extension, and removing ext-canvas leaves a canvas UI with no backend.
 - **closes** — Move components/canvas into a browser package @kb/canvas-ui built against @kb/ui-sdk (E13 of the extension-boundaries plan); move the canvas keys, ids and seed into @kb/canvas's shared plugin (E9b), not @kb/ext-canvas. The harness keeps one scope per package; no per-entry scope.
 - **node** — `01M39F3MR3HT2NR553FY8CRD6X`
@@ -799,14 +799,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Either @kb/ui-sdk's query seam exports the index layer the session runtime builds and the query constants the page runs, or the seam moves to session/ and the kit's query module becomes its caller — one of the two, decided when the browser store's ownership settles.
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
-
-### GAP: the canvas's node card edits text through the outline's store binding
-
-- **expected** — the canvas kb-node card edits a node's text in place through @kb/ui-sdk: a NodeTextHost binding built over BrowserHost (graph reads, caret hand-off, text-host registry and node palette as host reads and gestures), so the canvas zone names no store
-- **current** — packages/app/ui/src/components/canvas/canvas-card.tsx imports useNodeTextHostBinding from stores/node-text-host-binding, which reads the outline store through tracked graph reads, to drive @kb/ui-sdk's NodeTextHost primitive; the sdk has no equivalent, so this one import is a sanctioned UI_ALLOWS breach
-- **impact** — the canvas zone keeps one reach into the shell's stores, so @kb/canvas-ui cannot leave @kb/ui until it is replaced
-- **closes** — a NodeTextHost binding in @kb/ui-sdk over BrowserHost, then canvas-card uses it and the GAP marker goes; it must land before the canvas leaves @kb/ui (E13 of the extension-boundaries plan)
-- **node** — `01M41MHRD7MF4NP23EE294B69C`
 
 ### GAP: the CLI has no relative dates (today, next fri)
 
@@ -1506,6 +1498,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Highest-complexity handler in the canvas; clipboard parsing and selection maths are unreachable from tests.
 - **closes** — Same treatment as the outline keydown gap: pure chord mapping, separate appliers, clipboard parsing already has parseCanvasDoc to lean on.
 - **node** — `01M1MGCS6A29HT51G40W5TEEYK`
+
+### GAP: the canvas's node card edits text through the outline's store binding
+
+- **expected** — the canvas kb-node card edits a node's text in place through @kb/ui-sdk: a NodeTextHost binding built over BrowserHost (graph reads, caret hand-off, text-host registry and node palette as host reads and gestures), so the canvas zone names no store
+- **current** — Closed before E13 of the extension-boundaries plan. NodeTextHost's binding is @kb/ui-sdk's: useNodeTextBindingThrough over a NodeTextPort (tracked graph reads, caret hand-off, text-host registry, node palette, follow). The shell's stores are one binding (stores/node-text-port.ts) and BrowserHost, which extends NodeTextPort and is built on that binding, is the other; canvas-card binds through useNodeTextBinding (the host), and the canvas zone imports nothing of the shell.
+- **impact** — the canvas zone keeps one reach into the shell's stores, so @kb/canvas-ui cannot leave @kb/ui until it is replaced
+- **closes** — a NodeTextHost binding in @kb/ui-sdk over BrowserHost, then canvas-card uses it and the GAP marker goes; it must land before the canvas leaves @kb/ui (E13 of the extension-boundaries plan)
+- **node** — `01M41MHRD7MF4NP23EE294B69C`
 
 ### GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not packages
 

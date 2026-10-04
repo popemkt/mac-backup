@@ -5,6 +5,8 @@
  */
 import { useSyncExternalStore } from "react";
 import type { WireNode } from "@kb/contracts";
+import type { NodeTextHostBinding } from "./components/node-text-host";
+import { useNodeTextBindingThrough } from "./components/node-text-port";
 import type { KbIndex } from "./query";
 import { useFollowThrough, type Follow } from "./lib/follow";
 import type { RefInk } from "./lib/md-edit";
@@ -36,6 +38,14 @@ export function useNodes(): NodeMap {
 /** The live graph's schema. */
 export function useSchema(): SchemaIndex {
   return useHostValue((host) => host.schema());
+}
+
+/**
+ * A node text host's binding in `instanceKey`, through the page's host: the
+ * same body the shell binds its own text hosts with (`useNodeTextBindingThrough`).
+ */
+export function useNodeTextBinding(instanceKey: string | undefined): NodeTextHostBinding {
+  return useNodeTextBindingThrough(browserHost(), instanceKey);
 }
 
 /** Whether a node is being edited in this instance. */

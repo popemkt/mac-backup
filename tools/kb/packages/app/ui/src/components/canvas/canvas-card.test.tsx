@@ -3,14 +3,24 @@
  * projected instance per projection (`canvasInstanceKey`), which the outline
  * activates as it does a query's rows — in 2D where the card lies, in 3D in
  * the face editor laid on it — and only the projection showing edits it.
+ * The card binds its text host through the page's `BrowserHost`, never the
+ * shell's stores.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import type { CanvasKbNode } from "@kb/canvas";
+import { definePlugin } from "@kb/plugin";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { browserHostUiPlugin } from "@/browser-host";
-import { canvasInstanceKey, syncUiPlugins, TIMING_FALLBACK } from "@kb/ui-sdk";
+import {
+  browserHost,
+  type BrowserHost,
+  BrowserHostService,
+  canvasInstanceKey,
+  syncUiPlugins,
+  TIMING_FALLBACK,
+} from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
@@ -101,5 +111,53 @@ describe("a card's node text on a canvas", () => {
     );
     expect(edits).toEqual(["card:open"]);
     expect(toasts()).not.toContain("That node is not visible in this outline");
+  });
+
+  test("the card's caret hand-off and text-host registry go through BrowserHost", () => {
+    const page = browserHost();
+    const calls: string[] = [];
+    const host: BrowserHost = {
+      ...page,
+      registerTextHost: (key) => {
+        calls.push(`register ${key}`);
+        page.registerTextHost(key);
+      },
+      unregisterTextHost: (key) => {
+        calls.push(`unregister ${key}`);
+        page.unregisterTextHost(key);
+      },
+      consumeCaret: (key) => {
+        calls.push(`consume ${key}`);
+        return page.consumeCaret(key);
+      },
+    };
+    syncUiPlugins([
+      definePlugin({ name: "host.spy", apply: (ctx) => ctx.provide(BrowserHostService, host) }),
+    ]);
+    try {
+      const card2d = (
+        <KbNodeCard
+          card={card}
+          projection="2d"
+          box={{ left: 0, top: 0, width: 280, height: 72 }}
+          editing
+          onEdit={noop}
+          selected
+          onSelect={noop}
+          onMoveStart={noop}
+          onResizeStart={noop}
+          onRotateStart={noop}
+          onPortDown={noop}
+        />
+      );
+      act(() => root.render(card2d));
+      const key = canvasInstanceKey("2d", "card", "n.root-a");
+      expect(useOutlineStore.getState().activeInstanceKey).toBe(key);
+      expect(calls).toEqual([`register ${key}`, `consume ${key}`]);
+      act(() => root.render(null));
+      expect(calls).toContain(`unregister ${key}`);
+    } finally {
+      syncUiPlugins([browserHostUiPlugin]);
+    }
   });
 });

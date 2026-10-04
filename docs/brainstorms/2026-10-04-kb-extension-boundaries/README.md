@@ -864,6 +864,29 @@ pushed back, this is what was picked:
   The lab acceptance test mocks the Embers scene module by path, because
   the lab page loads it by itself.
 
+**Note from the doing (card text binding).** Gap
+`01M41MHRD7MF4NP23EE294B69C` is closed, ahead of E13.
+- **One body over a port, not a second binding.** The node text host's
+  binding (`useNodeTextBindingThrough`), the tracked graph read
+  (`useGraphReadThrough` over a `GraphSource`) and the follow
+  (`useFollowThrough`) moved into `@kb/ui-sdk`, each over a port, as
+  `usePaneScreenThrough` did in E3. The shell's stores are one binding
+  (`stores/node-text-port.ts`, `outlineGraph`, `followFrom`). `BrowserHost`
+  extends `NodeTextPort` and the page builds it on the shell's port, so its
+  graph reads, caret hand-off, text-host registry, `selectNode` and
+  `follow` have one home each.
+- **Why the outline keeps the store binding.** Binding the outline through
+  the host would make every outline test load the host plugin. With the
+  port, both sides run the same body, and only the source differs.
+- **The card binds through the host** (`useNodeTextBinding`), so the canvas
+  zone imports nothing of the shell. A test swaps in a recording host and
+  checks that the card's caret hand-off and text-host registry go through
+  it.
+- **Smaller moves.** `CaretIntent` is the sdk's, and the store imports it.
+  The text writes (`onAttachFile`, `onRemoveTag`) moved from the binding to
+  the host's props, because the surface names the node its text belongs
+  to.
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D

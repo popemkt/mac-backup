@@ -46,7 +46,7 @@ export interface GraphRead extends FieldContext {
  * changes.
  */
 export interface GraphSource {
-  /** Listen for any change to what the reads below answer; returns the unsubscribe. */
+  /** Listen for any change to what this source's reads answer; returns the unsubscribe. */
   readonly subscribe: (listener: () => void) => () => void;
   /** Every node of the graph, as the outline holds them. */
   readonly nodes: () => NodeMap;

@@ -21,6 +21,7 @@ export {
   useIsActive,
   useNode,
   useNodes,
+  useNodeTextBinding,
   usePaneScreen,
   usePrefsOpen,
   useQueryRows,

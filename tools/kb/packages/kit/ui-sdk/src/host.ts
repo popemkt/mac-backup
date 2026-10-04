@@ -15,14 +15,12 @@ import { Service } from "@kb/plugin";
 import type { PropValue } from "@kb/model";
 import type { ActionInvocation, ActionReceipt, WireNode } from "@kb/contracts";
 import type { ViewKey } from "@kb/views";
-import type { KbIndex } from "./query";
-import type { CarryOutFollow } from "./lib/follow";
+import type { NodeTextPort } from "./components/node-text-port";
 import type { RefInk } from "./lib/md-edit";
 import type { PaneScreenPort } from "./lib/pane-screen";
 import { currentService } from "./lib/plugins";
-import type { SchemaIndex } from "./lib/schema";
 import type { Appearance, ThemePref } from "./lib/theme";
-import type { NodeMap, OutlineNode } from "./lib/types";
+import type { OutlineNode } from "./lib/types";
 import type { QueryRowsSubscribe } from "./lib/use-query-node-rows";
 import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
 
@@ -38,22 +36,17 @@ export interface ViewProposal {
 /** The new view node's id, or the receipt's message when the proposal was refused. */
 export type ProposedView = { readonly id: string } | { readonly refused: string };
 
-export interface BrowserHost {
-  /**
-   * Listen for any change to what the reads below answer; returns the
-   * unsubscribe. Each read returns the same value until what it reads changes.
-   */
-  readonly subscribe: (listener: () => void) => () => void;
+/**
+ * The page's host. It is a node text port too (`NodeTextPort`): the graph
+ * reads, the caret hand-off, the text-host registry and the gestures a node
+ * text host makes, so a half binds a text host through it
+ * (`useNodeTextBinding`) as the shell binds its own through its stores.
+ */
+export interface BrowserHost extends NodeTextPort {
   /** A node of the graph, as the outline holds it. */
   readonly node: (id: string) => OutlineNode | undefined;
-  /** Every node of the graph, as the outline holds them. */
-  readonly nodes: () => NodeMap;
-  /** The graph's schema: fields, tags and their types. */
-  readonly schema: () => SchemaIndex;
   /** Whether a node is being edited in this instance (`instanceKey`). */
   readonly isActive: (nodeId: string, instanceKey: string) => boolean;
-  /** The replica's index, or null before the graph has loaded. */
-  readonly index: () => KbIndex | null;
   /** The graph's nodes as they came over the wire. */
   readonly wireNodes: () => WireNode[];
   /** Whether the live socket is open, so a query subscribes instead of running locally. */
@@ -74,14 +67,10 @@ export interface BrowserHost {
   ) => void;
   /** How references in rendered text are inked. */
   readonly refInk: () => RefInk;
-  /** Carry out a follow from where its caller is drawn (`useFollowThrough`). */
-  readonly follow: CarryOutFollow;
   /** Zoom the outline to a node. */
   readonly zoomTo: (id: string) => void;
   /** Start editing a node's text in one instance, with the caret at `cursorPos`. */
   readonly activateNode: (nodeId: string, cursorPos?: number, instanceKey?: string) => void;
-  /** Select a node in one instance. */
-  readonly selectNode: (nodeId: string, instanceKey?: string) => void;
   /** Send a pane to a path. */
   readonly navigatePane: (pane: string, path: string) => void;
   /** Replace a field's values on a node, through the page's one write path. */

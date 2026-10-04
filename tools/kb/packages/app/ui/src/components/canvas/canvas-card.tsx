@@ -9,11 +9,10 @@ import {
   NodeTextHost,
   useIsActive,
   useNode,
-  useNodeTextBindingThrough,
+  useNodeTextBinding,
 } from "@kb/ui-sdk";
 import { useCallback, useEffect, useEffectEvent, useRef } from "react";
 import type { CanvasKbNode, CanvasTextNode } from "@kb/canvas";
-import { nodeTextPort } from "@/stores/node-text-port"; // GAP [[01M41MHRD7MF4NP23EE294B69C]]
 import type { FaceLayout } from "./canvas-face";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
@@ -90,7 +89,7 @@ export function KbNodeCard({
   const node = useNode(card.nodeId);
   const instanceKey = canvasInstanceKey(projection, card.id, card.nodeId);
   const isActive = useIsActive(card.nodeId, instanceKey);
-  const binding = useNodeTextBindingThrough(nodeTextPort, instanceKey);
+  const binding = useNodeTextBinding(instanceKey);
 
   const handleActivate = useCallback(
     (cursorPos?: number) => {

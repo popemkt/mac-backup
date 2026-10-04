@@ -2,7 +2,7 @@
  * The shell's stores as a node text port (`@kb/ui-sdk` → `NodeTextPort`):
  * the outline's graph, its caret hand-off and text-host registry, the node
  * palette's switch, and the page's follow. Every text host the shell draws is
- * bound through it.
+ * bound through it, and the page's `BrowserHost` is built on it.
  */
 import type { NodeTextPort } from "@kb/ui-sdk";
 import { followFrom } from "@/stores/follow";
