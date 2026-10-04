@@ -187,6 +187,7 @@
         "@fontsource-variable/inter": "catalog:",
         "@fontsource-variable/outfit": "catalog:",
         "@kb/agent": "workspace:*",
+        "@kb/agent-ui": "workspace:*",
         "@kb/bundled": "workspace:*",
         "@kb/canvas": "workspace:*",
         "@kb/chart": "workspace:*",
@@ -404,6 +405,23 @@
       },
       "devDependencies": {
         "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/agent-ui": {
+      "name": "@kb/agent-ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/agent": "workspace:*",
+        "@kb/contracts": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "zustand": "catalog:",
+      },
+      "devDependencies": {
+        "@types/react": "catalog:",
       },
     },
     "packages/extension/canvas": {
@@ -1036,6 +1054,8 @@
     "@kb/agent": ["@kb/agent@workspace:packages/extension/agent"],
 
     "@kb/agent-claude": ["@kb/agent-claude@workspace:packages/extension/agent-claude"],
+
+    "@kb/agent-ui": ["@kb/agent-ui@workspace:packages/extension/agent-ui"],
 
     "@kb/bundled": ["@kb/bundled@workspace:packages/app/bundled"],
 

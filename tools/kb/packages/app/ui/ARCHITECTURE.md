@@ -38,7 +38,7 @@ outline view), never by importing a sibling folder's components.
 | `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`    | Canvases (30)          |
 | `lab`      | `lab.page` `/lab[/<study>]` (optional, off by default)   | Lab (40)               |
 
-The `agent` plugin (`components/agent`, bound to the page by `src/agent.ts`)
+The `agent` plugin (`@kb/agent-ui`, bound to the page's ports in `src/ui-plugins.ts`)
 contributes no view either: it contributes the agent's chat dock, which the
 shell draws through `src/docks.tsx` (DESIGN-UI.md → Docks). It is loaded only
 while the server reports that it hosts the agent.

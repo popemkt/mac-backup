@@ -13,8 +13,7 @@ import type { AgentEvent, AgentRequest } from "@kb/agent";
 import { browserHostUiPlugin } from "@/browser-host";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
-import { attachChat, useChat, type AgentPorts } from "./chat";
-import { AgentDock } from "./surfaces";
+import { AgentDock, attachChat, useChat, type AgentPorts } from "@kb/agent-ui";
 
 interface Stand {
   readonly ports: AgentPorts;

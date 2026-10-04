@@ -23,7 +23,6 @@ import {
  * breaks the matrix, and the same file reaching the sdk package does not.
  */
 const EXTENSION_ZONES = [
-  "components/agent",
   "components/canvas",
   "components/lab",
 ] as const satisfies readonly UiZone[];

@@ -179,10 +179,9 @@ export interface SanctionedExtensionImport {
  * feature fails, and a named file that no longer imports it fails too: the
  * list is frozen and can only shrink, like a ratchet's baseline.
  *
- * - The agent's UI half, `src/agent.ts` and `components/agent`, leaves with
- *   `@kb/agent-ui` (step E12 of the extension-boundaries plan).
  * - The lab's UI half, `components/lab`, reads its family's key and studies
- *   and loads its shared plugin; it leaves with `@kb/lab-ui` (E12).
+ *   and loads its shared plugin; it leaves with `@kb/lab-ui` (step E12 of
+ *   the extension-boundaries plan).
  * - The canvas's UI half, `components/canvas` and its story, leaves with
  *   `@kb/canvas-ui` (E13).
  * - The docs and check pre-commit entries parse their family's output
@@ -194,15 +193,6 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
   Record<string, readonly SanctionedExtensionImport[]>
 > = {
   "@kb/ui": [
-    {
-      target: "@kb/agent",
-      files: [
-        "src/agent.ts",
-        "src/components/agent/chat.ts",
-        "src/components/agent/entries.tsx",
-        "src/components/agent/plugin.ts",
-      ],
-    },
     {
       target: "@kb/lab",
       files: [
@@ -296,9 +286,9 @@ export const BROWSER_HALF_SUFFIX = "-ui";
  * family and not listed here fails, and a listed one that no longer is a
  * surface fails too, so the list can only shrink.
  */
-// The agent and lab halves: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
+// The lab half: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
 // The canvas half: GAP [[01M39F3MR3HT2NR553FY8CRD6X]]
-export const CORE_BROWSER_HALVES: ReadonlySet<string> = new Set(["agent", "canvas", "lab"]);
+export const CORE_BROWSER_HALVES: ReadonlySet<string> = new Set(["canvas", "lab"]);
 
 /**
  * The isomorphism fence. A `scope:shared` package runs in the browser too, so
@@ -416,7 +406,6 @@ export const UI_SRC = "packages/app/ui/src";
 
 /** A surface folder under `components/`: one page family and its chrome. */
 type UiSurface =
-  | "agent"
   | "canvas"
   | "graph"
   | "lab"
@@ -428,7 +417,6 @@ type UiSurface =
   | "sidebar";
 
 export const UI_SURFACES: readonly UiSurface[] = [
-  "agent",
   "canvas",
   "graph",
   "lab",
@@ -534,7 +522,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   shell: [
     "shell",
     "primitives",
-    "components/agent",
     "components/canvas",
     "components/graph",
     "components/lab",
@@ -584,10 +571,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   // Panes and layouts: a pane draws whatever page its path resolves to, by
   // route and view key, so it imports no other surface.
   "components/layout": ["components/layout", "primitives", "stores", "actions", "lib"],
-  // The agent sidebar draws what the agent channel says; the shell hands it
-  // the socket and the invoke path as ports (`src/agent.ts`), and the rest
-  // of the shell through the host.
-  "components/agent": extensionRow("components/agent"),
   // The sandbox frame's own script, a separate build that runs in the frame:
   // it reaches nothing of the page, and nothing of the page reaches it.
   sandbox: ["sandbox"],

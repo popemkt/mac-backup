@@ -9,8 +9,8 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { IconButton } from "@kb/ui-sdk";
-import { decideCall, restartChat, sendToAgent, stopAgent, useChat } from "@/components/agent/chat";
-import { Entry } from "@/components/agent/entries";
+import { decideCall, restartChat, sendToAgent, stopAgent, useChat } from "./chat";
+import { Entry } from "./entries";
 
 /** How tall the composer grows before it scrolls, in px. */
 const COMPOSER_MAX_PX = 160;

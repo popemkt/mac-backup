@@ -15,7 +15,9 @@
  * The feature plugins are zones of this package: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
  */
 import { useSyncExternalStore } from "react";
-import { agentExtension } from "@kb/agent";
+import { ulid } from "ulid";
+import { AGENT_CHANNEL, agentExtension } from "@kb/agent";
+import type { AgentPorts } from "@kb/agent-ui";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
@@ -33,6 +35,7 @@ import { docsExtension } from "@kb/docs";
 import { labExtension } from "@kb/lab";
 import { coreExtension, extensionSwitchDef } from "@kb/operations";
 import type { Plugin } from "@kb/plugin";
+import { getLiveClient } from "@/api/live";
 import { browserHostUiPlugin } from "@/browser-host";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
 import { chartUiPlugin } from "@kb/chart-ui";
@@ -44,8 +47,9 @@ import { outlineUiPlugin } from "@/components/outline/plugin";
 import { logWarn, syncUiPlugins, toast, type ExtensionSwitch } from "@kb/ui-sdk";
 import { loadManifest, servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
-import { invoke } from "@/session/runtime";
+import { invoke, invokeSettled } from "@/session/runtime";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useUiStore } from "@/stores/ui.store";
 import { webMcpUiPlugin } from "@/webmcp";
 
 /**
@@ -62,6 +66,35 @@ export const CORE_UI_PLUGINS: readonly Plugin[] = [
   webMcpUiPlugin,
   screenUiPlugin,
 ];
+
+/**
+ * The agent's ports, bound to this page: the live socket's `agent.chat`
+ * channel, the socket's state, and the browser's one invoke path, through
+ * which the person's approve or decline is made. The agent's UI half reaches
+ * neither the socket nor the invoke path itself.
+ */
+const AGENT_PORTS: AgentPorts = {
+  listen: (sink) => getLiveClient().listen(AGENT_CHANNEL, sink),
+  send: (request) => getLiveClient().sendChannel(AGENT_CHANNEL, request),
+  connection: (listener) =>
+    useUiStore.subscribe((next, previous) => {
+      if (next.wsStatus === previous.wsStatus) return;
+      if (next.wsStatus === "open") listener(true);
+      else if (previous.wsStatus === "open") listener(false);
+    }),
+  // A local write answers at once and is pushed after; the agent is told
+  // what the server made of the call, never the optimistic first answer.
+  invoke: async (invocation) => (await invokeSettled(invocation)).settled,
+  newConversation: () => ulid(),
+};
+
+/** The agent's browser entry, bound to the page's ports once, the first time it loads. */
+let agentEntry: Plugin | undefined;
+async function loadAgentEntry(): Promise<Plugin> {
+  const { agentUiPlugin } = await import("@kb/agent-ui");
+  agentEntry ??= agentUiPlugin(AGENT_PORTS);
+  return agentEntry;
+}
 
 /** How the page loads a family's browser entry. */
 export interface BrowserExtension {
@@ -85,7 +118,7 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null
   [checkExtension.name]: null,
   [codeExtension.name]: { load: () => Promise.resolve(codeUiPlugin) },
   [chartExtension.name]: { load: () => Promise.resolve(chartUiPlugin) },
-  [agentExtension.name]: { load: () => import("@/agent").then(({ agentPlugin }) => agentPlugin) },
+  [agentExtension.name]: { load: loadAgentEntry },
 };
 
 /**

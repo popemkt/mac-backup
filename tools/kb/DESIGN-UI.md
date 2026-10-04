@@ -1773,7 +1773,7 @@ dock in the row beside the page. At most one dock is open (`openDock` in the
 ui store, transient). Below 768px the open dock floats over the page, as the
 sidebar does. Unloading the plugin removes its toggle and its window.
 
-The first dock is the agent's chat (`components/agent`), the optional `agent`
+The first dock is the agent's chat (`@kb/agent-ui`), the optional `agent`
 plugin. It draws the conversation the agent channel reports
 (`DESIGN.md` → Agent packages): the text as it streams, each tool call as a
 line that opens onto its input and receipt, a running turn's stop button, and
@@ -1786,8 +1786,8 @@ through the browser's one invoke path (`invokeSettled`), with `approved` set
 to the person's answer. The receipt that comes back is what the agent is
 told. A decline is therefore refused by the invoke core with
 `approval_required`, exactly as an unapproved call from anywhere would be.
-The folder reaches neither the socket nor the invoke path itself: the shell
-binds them as its ports (`src/agent.ts`).
+The package (`@kb/agent-ui`) reaches neither the socket nor the invoke path
+itself: the shell binds them as its ports where it loads it (`ui-plugins.ts`).
 
 ### Panes and layouts
 
@@ -2025,11 +2025,11 @@ the shell.
   three, so a 3D host can mount a scene without carrying three itself
   ([The lab](#the-lab)).
 - **Until a half is a package, its zone carries the fence.** A feature zone
-  still in `@kb/ui` (`components/{agent,lab,canvas}`) may reach
+  still in `@kb/ui` (`components/{lab,canvas}`) may reach
   only itself, `@kb/ui-sdk` and the scene kit.
   `UI_ALLOWS` in `harness/src/constraints.ts` states the rows, and each
   zone's row is deleted when its package leaves. GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
-  (agent, lab) and GAP [[01M39F3MR3HT2NR553FY8CRD6X]] (canvas)
+  (lab) and GAP [[01M39F3MR3HT2NR553FY8CRD6X]] (canvas)
   record the distance.
 - **The lazy fence follows packages.** `UI_LAZY_ONLY` applies to the import
   closure from `UI_ENTRY`, walking into `scope:browser` workspace packages
