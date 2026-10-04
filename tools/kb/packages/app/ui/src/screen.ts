@@ -25,11 +25,18 @@ import { definePlugin, type Plugin } from "@kb/plugin";
 import { getClientOrigin } from "@/api/action";
 import { getLiveClient, setScreenTab, type ScreenTab } from "@/api/live";
 import { NodeView, layoutPanes, resolveNodeView, type LayoutPane } from "@kb/views";
-import { logWarn } from "@/lib/log";
-import { RoutePoint, currentContributions, matchRoute, paramsOf } from "@/lib/plugins";
-import { getPath, nodePath, subscribePath } from "@/lib/router";
+import {
+  currentContributions,
+  getPath,
+  logWarn,
+  matchRoute,
+  nodePath,
+  paramsOf,
+  RoutePoint,
+  schemaOf,
+  subscribePath,
+} from "@kb/ui-sdk";
 import { pageCatalog } from "@/lib/view-catalog";
-import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useScreenStore } from "@/stores/screen.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";

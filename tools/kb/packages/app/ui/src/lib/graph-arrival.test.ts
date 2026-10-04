@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GraphArrival, hopsFromHubs } from "./graph-arrival";
-import { TIMING_FALLBACK } from "./timing";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 
 /** A star round node 0, with a tail 1 → 5 → 6 → 7 → 8 → 9. */
 const LINKS: [number, number][] = [

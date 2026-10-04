@@ -6,9 +6,8 @@ import {
   MinusIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
-import { hasText } from "@/lib/text";
+import { cn, hasText } from "@kb/ui-sdk";
 import { isGraphShortcutTarget } from "@/lib/graph-interaction";
-import { cn } from "@/lib/cn";
 import type { LensPerspective, RendererCapabilities } from "@kb/views";
 import { CAPABILITY_REASONS } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";

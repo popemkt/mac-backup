@@ -11,8 +11,13 @@ import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { DatascriptIndex } from "@/ds";
-import { extractLensGraph, parsePerspective, resolveSize, type LensGraph } from "@/lib/graph-lens";
+import {
+  DatascriptIndex,
+  extractLensGraph,
+  parsePerspective,
+  resolveSize,
+  type LensGraph,
+} from "@kb/ui-sdk";
 import { fa2Settings } from "./fa2-layout";
 import { computeLayoutPositions } from "@/lib/graph-layouts";
 import {

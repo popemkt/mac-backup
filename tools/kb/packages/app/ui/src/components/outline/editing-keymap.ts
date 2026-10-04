@@ -12,9 +12,8 @@
  * is caret geometry: {@link VerticalNavDecision} belongs to `./caret`, and a
  * leaf module may not reach up here for it.
  */
-import { lookupChord, type Chord, type KeyChordEvent } from "@/lib/keychord";
+import { lookupChord, type Chord, type KeyChordEvent, type VerticalNavDecision } from "@kb/ui-sdk";
 import type { VisibleInstance } from "@/lib/visible-instances";
-import type { VerticalNavDecision } from "@/lib/caret";
 
 /** What the row looks like to the keymap. Offsets are SERIALIZED offsets. */
 export interface EditingKeyContext {

@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TagChip } from "./tag-chip";
+import { TagChip } from "@kb/ui-sdk";
+import { browserSource } from "@/test-support/browser-packages";
 
 const outlineDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -48,7 +49,10 @@ describe("layout-shift regressions (i10)", () => {
     expect(withRemove).not.toMatch(/h-\[\d+px\]/);
     expect(withoutRemove).not.toMatch(/h-\[\d+px\]/);
 
-    const src = readFileSync(path.join(outlineDir, "tag-chip.tsx"), "utf8");
+    const src = readFileSync(
+      path.join(browserSource("@kb/ui-sdk"), "components/tag-chip.tsx"),
+      "utf8",
+    );
     expect(src).toContain("absolute inset-0");
     expect(src).not.toMatch(/hidden[\s\S]*group-hover\/tag:flex/);
   });

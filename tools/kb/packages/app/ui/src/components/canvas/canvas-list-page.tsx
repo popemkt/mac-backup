@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Bullet, navigate, NodeRow, useNodes, WorkspaceState } from "@/sdk";
+import { Bullet, navigate, NodeRow, useNodes, WorkspaceState } from "@kb/ui-sdk";
 import { createCanvasNode, listCanvasNodes } from "./canvas-api";
 
 export function CanvasListPage() {

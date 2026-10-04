@@ -6,7 +6,7 @@ import type { useCanvasDoc } from "./use-canvas-doc";
 import type { isValidNativeTarget } from "./canvas-api";
 import { planEdgeRelink, type EdgeRelink } from "./canvas-edge-link";
 import { type CanvasSelection, EMPTY_SELECTION } from "./canvas-selection";
-import { toast } from "@/sdk";
+import { toast } from "@kb/ui-sdk";
 
 interface CanvasEdgeActionContext {
   selectedEdge: CanvasEdge | null;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EmphasisFade } from "./graph-fade";
-import { TIMING_FALLBACK } from "./timing";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 
 const QUICK = TIMING_FALLBACK.quick;
 

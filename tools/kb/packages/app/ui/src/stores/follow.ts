@@ -1,7 +1,12 @@
 import { useCallback, useContext } from "react";
-import { OpenNodeContext, type Follow, type FollowHow, type FollowTarget } from "@/lib/follow";
-import { usePane } from "@/lib/pane";
-import { nodePath } from "@/lib/router";
+import {
+  nodePath,
+  OpenNodeContext,
+  usePane,
+  type Follow,
+  type FollowHow,
+  type FollowTarget,
+} from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 

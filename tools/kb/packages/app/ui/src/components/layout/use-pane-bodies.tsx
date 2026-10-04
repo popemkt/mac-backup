@@ -9,7 +9,7 @@
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { LayoutPane } from "@kb/views";
-import { PaneContext } from "@/lib/pane";
+import { PaneContext } from "@kb/ui-sdk";
 
 /** Where each pane's body is drawn, by pane id. */
 export type ElementOf = (id: string) => HTMLElement;

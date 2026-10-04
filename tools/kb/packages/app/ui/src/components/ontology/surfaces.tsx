@@ -10,14 +10,20 @@ import {
   OutlineView,
 } from "@kb/views";
 import { isOntologyNode } from "@kb/model";
-import { NotFound } from "@/components/ui/not-found";
-import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
-import { ViewSlot } from "@/components/ui/view-slot";
-import { ViewErrorBoundary } from "@/components/view-error-boundary";
-import { paramsOf, type MatchedRoute, type ViewProps } from "@/lib/plugins";
-import { navigate, ontologyPath } from "@/lib/router";
+import {
+  navigate,
+  NotFound,
+  ontologyPath,
+  paramsOf,
+  SidebarRow,
+  SidebarSection,
+  textOr,
+  ViewErrorBoundary,
+  ViewSlot,
+  type MatchedRoute,
+  type ViewProps,
+} from "@kb/ui-sdk";
 import { listOntologyNavItems } from "@/lib/sidebar-nav";
-import { textOr } from "@/lib/text";
 import { useOutlineStore } from "@/stores/outline.store";
 
 const OntologyPage = lazy(() =>

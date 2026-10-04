@@ -11,7 +11,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { failed, succeeded, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
 import type { AgentEvent, AgentRequest } from "@kb/agent";
 import { browserHostUiPlugin } from "@/browser-host";
-import { syncUiPlugins } from "@/lib/plugins";
+import { syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { attachChat, useChat, type AgentPorts } from "./chat";
 import { AgentDock } from "./surfaces";

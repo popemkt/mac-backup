@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ThemeIcon } from "@/components/ui/theme-icon";
+import { cn, hasText, SidebarToggle, ThemeIcon, useRoute, ViewErrorBoundary } from "@kb/ui-sdk";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
@@ -7,12 +7,9 @@ import { DockHost, DockToggles } from "@/docks";
 import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar } from "@/components/sidebar/sidebar";
-import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { Workspace } from "@/components/layout/workspace";
-import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
-import { useRoute } from "@/lib/plugins";
 import { loadManifest } from "@/lib/manifest";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes } from "@kb/views";
@@ -26,8 +23,6 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store";
-import { cn } from "@/lib/cn";
-import { hasText } from "@/lib/text";
 
 // Every page is a route to a plugin's view, and the sidebar section that
 // leads to it is a contribution too; the shell only frames whichever route

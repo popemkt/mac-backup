@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
-import type { FollowHow, FollowTarget } from "@/lib/follow";
+import type { FollowHow, FollowTarget } from "@kb/ui-sdk";
 import { FieldRow } from "./field-row";
 import { TagFieldsConfigView } from "./tag-fields-config";
 

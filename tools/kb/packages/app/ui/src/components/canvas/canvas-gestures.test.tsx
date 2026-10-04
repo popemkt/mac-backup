@@ -9,7 +9,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { CanvasPage } from "./canvas-page";
 import type * as CanvasApi from "./canvas-api";
 import { browserHostUiPlugin } from "@/browser-host";
-import { syncUiPlugins } from "@/lib/plugins";
+import { syncUiPlugins } from "@kb/ui-sdk";
 
 // The canvas reaches the shell through the page's host, as when the app boots.
 beforeAll(() => syncUiPlugins([browserHostUiPlugin]));

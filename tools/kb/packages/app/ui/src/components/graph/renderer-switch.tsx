@@ -1,4 +1,4 @@
-import { cn } from "@/lib/cn";
+import { cn } from "@kb/ui-sdk";
 import { type LensRenderer, localIdOf } from "@kb/views";
 import { useRenderers } from "./use-renderers";
 

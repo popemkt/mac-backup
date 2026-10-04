@@ -28,6 +28,7 @@ import * as graphToolbarStories from "./graph-toolbar.stories";
 import * as nodeContentStories from "./node-content.stories";
 import * as graphCanvasFrameStories from "./graph-canvas-frame.stories";
 import * as pickerListStories from "./picker-list.stories";
+import { browserSource } from "@/test-support/browser-packages";
 
 const catalogDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -75,7 +76,9 @@ describe("surface error-boundary wiring (App)", () => {
     expect(appSrc).toContain("<Workspace");
     expect(read("components/layout/workspace.tsx")).toContain("<PaneFrame");
     expect(read("components/layout/pane-frame.tsx")).toContain("<ViewSlot");
-    expect(read("components/ui/view-slot.tsx")).toContain('title="View crashed"');
+    expect(
+      readFileSync(path.join(browserSource("@kb/ui-sdk"), "components/view-slot.tsx"), "utf8"),
+    ).toContain('title="View crashed"');
     // Each built-in page owns its boundary, beside the surface that renders it.
     expect(read("components/outline/surfaces.tsx")).toContain('title="Outline crashed"');
     expect(read("components/graph/surfaces.tsx")).toContain('title="Graph crashed"');

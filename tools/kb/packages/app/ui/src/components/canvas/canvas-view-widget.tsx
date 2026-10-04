@@ -23,7 +23,7 @@ import {
 } from "./canvas-camera";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
-import { cn, isOutside } from "@/sdk";
+import { cn, isOutside } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";
 import { frameName } from "./canvas-frame-name";
 

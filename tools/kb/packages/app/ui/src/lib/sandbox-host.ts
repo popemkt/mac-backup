@@ -14,7 +14,6 @@ import {
   type ActionInvocation,
   type ActionReceipt,
 } from "@kb/contracts";
-import type { KbNode } from "@kb/model";
 import {
   FrameMessage,
   KB_METHODS,
@@ -22,37 +21,9 @@ import {
   answerToolCall,
   notification,
   resultMessage,
-  type CodeGrant,
-  type LogLevel,
-  type RunInput,
-  type RunStatus,
 } from "@kb/sandbox";
 import { invoke, invokeSettled } from "@/session/runtime";
-
-/** One run a frame hosts: what it runs, and what its code may ask. */
-export interface SandboxRun {
-  readonly input: RunInput;
-  readonly grant: CodeGrant;
-}
-
-/** What the page gives the frame: nodes for the grant's scope, and the invoke path. */
-export interface SandboxPorts {
-  readonly node: (id: string) => KbNode | undefined;
-  /** Make one call as the script's and answer the server's receipt. */
-  readonly invoke: (invocation: ActionInvocation) => Promise<ActionReceipt>;
-}
-
-/** What the frame tells the page. */
-export interface SandboxEvents {
-  readonly status: (status: RunStatus) => void;
-  readonly log: (level: LogLevel, text: string) => void;
-}
-
-/** A hosted frame: tell it the graph changed, or let it go. */
-export interface HostedFrame {
-  readonly changed: () => void;
-  readonly dispose: () => void;
-}
+import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "@kb/ui-sdk";
 
 /** How many messages a frame may send the page in any one second before it is cut off. */
 const FRAME_MESSAGES_PER_SECOND = 400;

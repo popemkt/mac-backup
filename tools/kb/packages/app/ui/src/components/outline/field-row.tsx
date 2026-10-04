@@ -1,9 +1,13 @@
 import { WarningIcon } from "@phosphor-icons/react";
-import { cn } from "@/lib/cn";
-import type { FieldType } from "@/lib/field-type";
-import { followHowOf, nodeTarget, type Follow } from "@/lib/follow";
-import { indentStyle } from "@/lib/indent";
-import { IconButton } from "@/components/ui/icon-button";
+import {
+  cn,
+  followHowOf,
+  IconButton,
+  indentStyle,
+  nodeTarget,
+  type FieldType,
+  type Follow,
+} from "@kb/ui-sdk";
 import { fieldGlyphOf, type FieldGlyph } from "./value-views";
 
 export const FIELD_LABEL_WIDTH = 120;

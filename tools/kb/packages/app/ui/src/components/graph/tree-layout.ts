@@ -15,8 +15,7 @@
  * Coordinates follow d3's tree: `x` runs down the frame, `y` across it.
  */
 import { hierarchy, tree as d3Tree, type HierarchyPointNode } from "d3-hierarchy";
-import type { LensTreeNode } from "@/lib/graph-lens";
-import { GRAPH_LABEL_WIDTH, wrapGraphLabel } from "@/lib/graph-label";
+import { GRAPH_LABEL_WIDTH, wrapGraphLabel, type LensTreeNode } from "@kb/ui-sdk";
 
 /** How many levels a large tree shows before anything is expanded. */
 export const OPEN_DEPTH = 2;

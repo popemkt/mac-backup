@@ -16,11 +16,14 @@
 @import "@fontsource-variable/outfit";
 @import "./design-system.css";
 /* The other design systems, after the default so each overrides it (DESIGN-UI.md
- * → Design tokens → Design systems). One file per id in lib/theme.ts. */
+ * → Design tokens → Design systems). One file per id in @kb/ui-sdk's lib/theme.ts. */
 @import "./design-systems/paper.css";
 @import "./design-systems/terminal.css";
 @import "./tokens.css";
 @import "./motion.css";
+/* The page's other browser packages (the kit) are compiled from source into
+ * this bundle, so their classes are scanned too. */
+@source "../../../kit";
 
 @custom-variant dark (&:is(.dark *));
 

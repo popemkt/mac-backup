@@ -45,7 +45,7 @@ import {
 } from "three/tsl";
 import { Vector3 } from "three/webgpu";
 import { easeNode, minInt, type TslNode } from "@/scene/gpu/tsl";
-import type { Timing } from "@/sdk";
+import type { Timing } from "@kb/ui-sdk";
 
 /** Grid table size (power of two) and how many spheres one cell remembers. */
 const TABLE = 16384;

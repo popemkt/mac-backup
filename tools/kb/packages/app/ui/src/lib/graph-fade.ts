@@ -12,7 +12,7 @@
  * Values live in one Float32Array, indexed by the renderer's own item order,
  * so a frame's step allocates nothing (P3).
  */
-import { approachRate, approachShare } from "@/lib/timing";
+import { approachRate, approachShare } from "@kb/ui-sdk";
 
 /** Below this gap a value has arrived, and is set exactly. */
 const ARRIVED = 1e-3;

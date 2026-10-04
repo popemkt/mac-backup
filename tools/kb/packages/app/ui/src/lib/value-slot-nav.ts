@@ -13,7 +13,7 @@
  * arrives on it (Backspace on an empty value lands at the end of the one
  * before).
  */
-import { asInstance } from "@/lib/dom";
+import { asInstance } from "@kb/ui-sdk";
 
 /** What another slot, or a row, may ask of a value slot. */
 export interface SlotControl {

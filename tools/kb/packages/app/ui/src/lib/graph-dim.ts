@@ -1,4 +1,4 @@
-import { toRenderableColor } from "./css-color";
+import { toRenderableColor } from "@kb/ui-sdk";
 
 /** Theme-independent graph emphasis. Keep semantic node colour and only vary
  * alpha, so search, filters and neighbourhood focus compose predictably. */

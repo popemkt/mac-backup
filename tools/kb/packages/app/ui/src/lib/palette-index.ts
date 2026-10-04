@@ -3,7 +3,7 @@
  * Fuzzy match runs over a prebuilt lowercase haystack; callers virtualize ≤20 rows.
  */
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS } from "@kb/ui-sdk";
 
 export type PaletteEntryKind = "command" | "node";
 

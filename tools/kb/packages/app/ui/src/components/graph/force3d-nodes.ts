@@ -36,7 +36,7 @@ import {
 } from "three/tsl";
 import type { PaletteUniforms } from "@/scene/gpu/stage";
 import type { ScenePalette } from "@/scene/palette";
-import { toRenderableColor } from "@/lib/css-color";
+import { toRenderableColor } from "@kb/ui-sdk";
 import { TIER, type Force3dFades, type Force3dTopology } from "./force3d-emphasis";
 import { KEY_DIRECTION, RIM_POWER, shadeNode } from "./force3d-light";
 import type { GraphTheme, SolidForm } from "./graph-themes";

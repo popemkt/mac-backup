@@ -10,7 +10,7 @@
  * not a tap.
  */
 import { Vector3, type PerspectiveCamera } from "three/webgpu";
-import { pastSlop } from "@/lib/pointer-slop";
+import { pastSlop } from "@kb/ui-sdk";
 import { onFacingPlane } from "./screen";
 
 export interface PointerFieldEvents {

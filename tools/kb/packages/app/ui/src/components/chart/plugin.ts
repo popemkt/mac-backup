@@ -2,7 +2,7 @@ import { lazy } from "react";
 import { Effect } from "effect";
 import { ChartView, chartExtension, chartPlugin, starterChartSpec } from "@kb/chart";
 import { definePlugin } from "@kb/plugin";
-import { BrowserHostService, CommandPoint, ViewPoint, provideView } from "@/sdk";
+import { BrowserHostService, CommandPoint, provideView, ViewPoint } from "@kb/ui-sdk";
 import { addChartCommand } from "./add-chart";
 
 /**

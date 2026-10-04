@@ -14,7 +14,7 @@
 import { modelContextOf, webMcpPlugin } from "@kb/webmcp";
 import { approvalPoliciesOf } from "@kb/model";
 import type { KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
-import { logWarn } from "@/lib/log";
+import { logWarn } from "@kb/ui-sdk";
 import { invokeSettled } from "@/session/runtime";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";

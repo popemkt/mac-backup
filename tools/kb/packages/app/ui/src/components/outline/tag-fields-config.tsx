@@ -1,16 +1,18 @@
 import { useMemo, useRef, useState } from "react";
-import { pickerRows } from "@/lib/picker";
-import { usePickerKeys } from "@/lib/use-picker";
-import { PickerList } from "@/components/ui/picker-list";
+import {
+  cn,
+  IconButton,
+  isSysPrefixed,
+  PickerList,
+  pickerRows,
+  schemaOf,
+  usePickerKeys,
+  type Follow,
+} from "@kb/ui-sdk";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
-import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
-import { isSysPrefixed } from "@/lib/types";
-import { cn } from "@/lib/cn";
-import type { Follow } from "@/lib/follow";
 import { useFollow } from "@/stores/follow";
-import { IconButton } from "@/components/ui/icon-button";
 import { FieldRow } from "./field-row";
 import { resolveTagFields, type TagFieldRef } from "./tag-fields";
 

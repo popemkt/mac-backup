@@ -1,7 +1,6 @@
 import type Sigma from "sigma";
 import type { CameraState } from "sigma/types";
-import { prefersReducedMotion } from "@/lib/motion";
-import { easeAt, readTiming } from "@/lib/timing";
+import { easeAt, prefersReducedMotion, readTiming } from "@kb/ui-sdk";
 
 /**
  * Sigma owns cancellation so rapid camera commands cannot race each other.

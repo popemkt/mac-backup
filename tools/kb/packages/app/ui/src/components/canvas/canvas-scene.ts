@@ -47,7 +47,7 @@ import type { GizmoChoice, SceneGizmo } from "./canvas-gizmo";
 import { GizmoLayer } from "./canvas-scene-gizmo";
 import { toThree } from "./canvas-scene-space";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
-import type { Timing } from "@/sdk";
+import type { Timing } from "@kb/ui-sdk";
 import { over, type CardLook } from "./canvas-card-face";
 import { ItemLayer } from "./canvas-scene-items";
 import { LabelLayer } from "./canvas-scene-labels";

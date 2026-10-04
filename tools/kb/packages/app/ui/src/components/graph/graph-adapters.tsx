@@ -1,6 +1,5 @@
 import { lazy, useMemo } from "react";
-import { outlineBulletAppearance } from "@/lib/bullet-mode";
-import type { LensNode } from "@/lib/graph-lens";
+import { outlineBulletAppearance, type LensNode } from "@kb/ui-sdk";
 import type {
   LensTheme,
   ParamsOf,

@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { logError } from "@/lib/log";
+import { logError } from "@kb/ui-sdk";
 
 interface GraphCanvasErrorBoundaryProps {
   children: ReactNode;

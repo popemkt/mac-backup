@@ -2,15 +2,15 @@ import { lazy, useMemo, useState } from "react";
 import { PlusIcon, SquareIcon } from "@phosphor-icons/react";
 import { CanvasListView, CanvasView, type CanvasParams } from "@kb/views";
 import {
-  type MatchedRoute,
   navigate,
   paramsOf,
   SidebarRow,
   SidebarSection,
   useNodes,
   ViewErrorBoundary,
+  type MatchedRoute,
   type ViewProps,
-} from "@/sdk";
+} from "@kb/ui-sdk";
 import { createCanvasNode, listCanvasNavItems } from "./canvas-api";
 
 const CanvasListPage = lazy(() =>

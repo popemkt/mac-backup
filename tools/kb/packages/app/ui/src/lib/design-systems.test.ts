@@ -12,16 +12,23 @@ import { __unstable__loadDesignSystem } from "@tailwindcss/node";
 import { Scanner } from "@tailwindcss/oxide";
 import { parseSync } from "oxc-parser";
 import { describe, expect, it } from "vitest";
-import { oklchToRgb } from "./css-color";
-import { INLINE_TEXT_CLASSES } from "./md-edit";
+import {
+  DEFAULT_DESIGN_SYSTEM,
+  DESIGN_SYSTEM_IDS,
+  DESIGN_SYSTEMS,
+  INLINE_TEXT_CLASSES,
+  oklchToRgb,
+  TAG_PALETTE,
+  tagChipColors,
+  tagColorAlpha,
+} from "@kb/ui-sdk";
+import { browserSources } from "@/test-support/browser-packages";
 import {
   baseSelector,
   darkSelector,
   readDesignSystemSheets,
   type Decls,
 } from "./design-system-sheets";
-import { TAG_PALETTE, tagChipColors, tagColorAlpha } from "./tag-color";
-import { DEFAULT_DESIGN_SYSTEM, DESIGN_SYSTEMS, DESIGN_SYSTEM_IDS } from "./theme";
 
 const src = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const systemsDir = path.join(src, "design-systems");
@@ -413,12 +420,12 @@ function scanModule(file: string, source: string) {
 }
 
 /**
- * `renderInlineMarkdown` (lib/md-edit.ts) writes its elements with the DOM
+ * `renderInlineMarkdown` (`@kb/ui-sdk`'s lib/md-edit.ts) writes its elements with the DOM
  * API, which the JSX walk cannot read. Its text classes are exported, so the
  * guard scans them as one text element each — the classes the builder writes,
  * not a copy of them.
  */
-const INLINE_BUILDER = "lib/md-edit.inline-builder.tsx";
+const INLINE_BUILDER = "@kb/ui-sdk/lib/md-edit.inline-builder.tsx";
 const INLINE_BUILDER_SOURCE = Object.values(INLINE_TEXT_CLASSES)
   .map((c) => `<span className="${c}">text</span>;`)
   .join("\n");
@@ -432,25 +439,34 @@ const MOUNTS: readonly { host: string; at: string; guest: string }[] = [
   // A row's content (NodeTextHost → MdView: text, refs, links) sits in the
   // row's `.node-content`, under a selected row's two primary tints.
   {
-    host: "components/outline/node-row.tsx",
+    host: "@kb/ui-sdk/components/node-row.tsx",
     at: "node-content",
-    guest: "components/ui/md-view.tsx",
+    guest: "@kb/ui-sdk/components/md-view.tsx",
   },
   // The inline markdown inside it is built as DOM, not JSX, so its classes
   // are measured through INLINE_BUILDER.
   {
-    host: "components/outline/node-row.tsx",
+    host: "@kb/ui-sdk/components/node-row.tsx",
     at: "node-content",
     guest: INLINE_BUILDER,
   },
 ];
 
+/**
+ * Every component module of the page, keyed by its path in `@kb/ui`'s src, or
+ * by its package and path for every other browser package.
+ */
 function uiModules(): Map<string, string> {
   const out = new Map<string, string>([[INLINE_BUILDER, INLINE_BUILDER_SOURCE]]);
-  for (const entry of readdirSync(src, { recursive: true })) {
-    const file = String(entry);
-    if (!file.endsWith(".tsx") || /\.(test|stories)\.tsx$/.test(file)) continue;
-    out.set(file, readFileSync(path.join(src, file), "utf8"));
+  for (const { name, src: root } of browserSources()) {
+    for (const entry of readdirSync(root, { recursive: true })) {
+      const file = String(entry);
+      if (!file.endsWith(".tsx") || /\.(test|stories)\.tsx$/.test(file)) continue;
+      out.set(
+        name === "@kb/ui" ? file : path.join(name, file),
+        readFileSync(path.join(root, file), "utf8"),
+      );
+    }
   }
   return out;
 }

@@ -6,7 +6,7 @@
 import { ChartBarIcon } from "@phosphor-icons/react";
 import { queryDefOf } from "@kb/model";
 import { ChartView, starterChartSpec } from "@kb/chart";
-import { browserHost, nodeAction, nodePath, queryRecords, toast, type Command } from "@/sdk";
+import { browserHost, nodeAction, nodePath, queryRecords, toast, type Command } from "@kb/ui-sdk";
 
 export const addChartCommand: Command = {
   id: "add-chart",

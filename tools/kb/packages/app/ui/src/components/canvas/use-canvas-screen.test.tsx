@@ -13,7 +13,7 @@ import { EMPTY_SELECTION } from "./canvas-selection";
 import { useScreenStore } from "@/stores/screen.store";
 import { useCanvasScreen } from "./use-canvas-screen";
 import { browserHostUiPlugin } from "@/browser-host";
-import { syncUiPlugins } from "@/lib/plugins";
+import { syncUiPlugins } from "@kb/ui-sdk";
 
 // The canvas reaches the shell through the page's host, as when the app boots.
 beforeAll(() => syncUiPlugins([browserHostUiPlugin]));

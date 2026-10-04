@@ -4,7 +4,7 @@
  * is imported only when the study is opened.
  */
 import type { LabStudy } from "@/components/lab/kit/contract";
-import { TIMING_FALLBACK } from "@/sdk";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { CurvePanel } from "@/components/lab/motion/curve-panel";
 import type { LabSceneId } from "@kb/lab";
 

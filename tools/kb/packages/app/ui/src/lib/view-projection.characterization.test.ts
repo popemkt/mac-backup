@@ -10,10 +10,16 @@
  * Written before `explicitColumns` / `derivedColumns` / `compareByField`,
  * unchanged through them.
  */
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import {
+  schemaOf,
+  SYSTEM_IDS,
+  type NodeMap,
+  type OutlineNode,
+  type PropValue,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { stubOutlineNode } from "@/catalog/fixtures";
-import { SYSTEM_IDS, type NodeMap, type OutlineNode, type PropValue } from "@/lib/types";
 import { resolveTableColumns, sortChildrenForTable } from "./view-config";
 import { DEFAULT_VIEW_CONFIG, type SortSpec } from "@kb/views";
 

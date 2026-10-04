@@ -78,7 +78,7 @@
     "postinstall": "bun2nix -o bun.nix",
     "typecheck": "nx run-many -t typecheck",
     "test": "bun test packages",
-    "test:ui": "bun run --filter @kb/ui test",
+    "test:ui": "nx run-many -t test --projects=tag:scope:browser --parallel=1 --output-style=static --skip-nx-cache",
     "test:render": "bun run --filter @kb/render-tests test:render",
     "test:dst": "bun packages/app/test-kit/tests/run-many.ts 25",
     "test:mutation": "stryker run",

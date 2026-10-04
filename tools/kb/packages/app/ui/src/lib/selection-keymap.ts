@@ -2,7 +2,7 @@
  * Selection-mode keymap (nxus / DESIGN-REFINE §2 W1; r1 §3.2 Mode B).
  * Active only when a node is selected and not being edited.
  */
-import { isPrintableKey, lookupChord, type Chord, type KeyChordEvent } from "@/lib/keychord";
+import { isPrintableKey, lookupChord, type Chord, type KeyChordEvent } from "@kb/ui-sdk";
 import type { VisibleInstance } from "@/lib/visible-instances";
 
 /** Selection mode reads the same event shape every keymap reads. */

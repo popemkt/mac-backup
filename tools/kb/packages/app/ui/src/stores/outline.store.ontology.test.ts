@@ -1,10 +1,9 @@
 import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
+import { syncUiPlugins, SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useOutlineStore } from "./outline.store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { syncUiPlugins } from "@/lib/plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

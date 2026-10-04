@@ -6,19 +6,19 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import {
-  SidebarToggle,
-  ThemeIcon,
-  WorkspaceState,
   browserHost,
   cn,
   navigate,
   readTiming,
+  SidebarToggle,
+  ThemeIcon,
   useAppearance,
   usePrefsOpen,
   useReducedMotion,
   useSidebarToggle,
   useTheme,
-} from "@/sdk";
+  WorkspaceState,
+} from "@kb/ui-sdk";
 import { initialValues, type LabControlValue, type LabHover } from "@/components/lab/kit/contract";
 import { InfoCard } from "@/components/lab/kit/info-card";
 import type { SceneBackend } from "@/scene/backend";

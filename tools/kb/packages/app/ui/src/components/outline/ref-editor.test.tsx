@@ -11,17 +11,26 @@
  * (constrain, then limit — not limit, then constrain), and the one-placeholder
  * rule for the ref editing slot.
  */
-import { fieldContextOf, schemaOf, type FieldContext, type SchemaIndex } from "@/lib/schema";
+import {
+  DatascriptIndex,
+  FIELD_TYPE_OPTION_IDS,
+  fieldContextOf,
+  nodeCandidates,
+  resolveAllowedRefIds,
+  schemaOf,
+  SYSTEM_IDS,
+  wireToOutlineMap,
+  WORKSPACE_ROOT_ID,
+  type FieldContext,
+  type KbIndex,
+  type NodeMap,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WireNode } from "@kb/contracts";
-import { DatascriptIndex, type KbIndex } from "@/ds";
-import { FIELD_TYPE_OPTION_IDS, resolveAllowedRefIds } from "@/lib/field-type";
-import { wireToOutlineMap } from "@/lib/graph-view";
-import { nodeCandidates } from "@/lib/refs";
-import { SYSTEM_IDS, WORKSPACE_ROOT_ID, type NodeMap } from "@/lib/types";
 import { ValueSlot } from "./value-slot";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */

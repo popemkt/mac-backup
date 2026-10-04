@@ -15,8 +15,7 @@ import { present } from "@kb/model";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { setPostAction } from "@/api/action";
 import { App } from "@/components/App";
-import { navigate } from "@/lib/router";
-import { SYSTEM_IDS } from "@/lib/types";
+import { navigate, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 
 const ISO = "2026-08-23T00:00:00.000Z";
@@ -205,7 +204,7 @@ describe("ontology scope (acceptance)", () => {
         .map((r) => r.id),
     ).toEqual(["n.caddy"]);
 
-    const { extractLensGraph } = await import("@/lib/graph-lens");
+    const { extractLensGraph } = await import("@kb/ui-sdk");
     const s = useOutlineStore.getState();
     const graph = extractLensGraph(
       present(s.index, "query db"),

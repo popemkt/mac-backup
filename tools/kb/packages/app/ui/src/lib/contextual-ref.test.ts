@@ -3,25 +3,28 @@
  * node carrying `sys.f.ref.target`; it displays the target's *current* text,
  * and editing that text edits the target.
  */
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
-import { describe, expect, it } from "vitest";
-import type { WireNode } from "@kb/contracts";
-import { present } from "@kb/model";
-import { DatascriptIndex, queryBacklinks } from "@/ds";
-import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
-import { fixtureGraph } from "@/api/fixture-graph";
 import {
   contextualTargetOf,
+  DatascriptIndex,
   isContextualRef,
+  queryBacklinks,
   rowText,
   rowTextOf,
   rowTextReadOnlyReason,
+  schemaOf,
   shownNode,
   shownNodeId,
   showsAncestor,
-} from "@/lib/contextual-ref";
-import { wireToOutlineMap } from "@/lib/graph-view";
-import { SYSTEM_IDS, type NodeMap } from "@/lib/types";
+  SYSTEM_IDS,
+  wireToOutlineMap,
+  type NodeMap,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
+import { describe, expect, it } from "vitest";
+import type { WireNode } from "@kb/contracts";
+import { present } from "@kb/model";
+import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
+import { fixtureGraph } from "@/api/fixture-graph";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {

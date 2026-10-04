@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { NodeTextHost, type NodeTextHostBinding } from "@/components/ui/node-text-host";
-import { schemaOf } from "@/lib/schema";
+import { NodeTextHost, schemaOf, type NodeTextHostBinding } from "@kb/ui-sdk";
 
 const noop = (): void => undefined;
 const noopActivate = (): void => undefined;

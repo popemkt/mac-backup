@@ -20,8 +20,8 @@ import {
   listNodeCommands,
   runCommand,
   viewTargetFrameId,
-  type CommandContext,
 } from "@/lib/commands";
+import type { CommandContext } from "@kb/ui-sdk";
 import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-09-30T00:00:00.000Z";

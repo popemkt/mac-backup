@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Result } from "effect";
 import { SYSTEM_IDS } from "@kb/model";
-import type { NodeMap, OutlineNode } from "@/lib/types";
+import type { NodeMap, OutlineNode } from "@kb/ui-sdk";
 import { paramsFromProps, OutlineSnippetView } from "@kb/views";
 import { frameReport } from "@/lib/view-config";
 import { snippetRows } from "./snippet-rows";

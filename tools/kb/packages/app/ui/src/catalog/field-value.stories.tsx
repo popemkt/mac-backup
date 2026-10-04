@@ -1,5 +1,4 @@
-import type { NodeMap } from "@/lib/types";
-import { fieldContextOf, type FieldContext } from "@/lib/schema";
+import { fieldContextOf, type FieldContext, type NodeMap } from "@kb/ui-sdk";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ValueSlot } from "@/components/outline/value-slot";
 

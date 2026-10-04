@@ -13,14 +13,12 @@ import { createRoot, type Root } from "react-dom/client";
 import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { outlineInstanceKey } from "@/lib/instance-key";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { installDomGlobals } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useSelectionKeymap } from "./use-selection-keymap";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { syncUiPlugins } from "@/lib/plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

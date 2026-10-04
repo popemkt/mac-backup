@@ -18,7 +18,7 @@ import {
   useIndex,
   useWireNodes,
   type LensGraph,
-} from "@/sdk";
+} from "@kb/ui-sdk";
 
 export interface LabNode {
   readonly id: string;

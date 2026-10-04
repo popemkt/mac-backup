@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { buildPaletteIndex, searchPalette } from "@/lib/palette-index";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS } from "@kb/ui-sdk";
 
 const ISO = "2026-08-08T00:00:00.000Z";
 

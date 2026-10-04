@@ -15,9 +15,9 @@ import {
 import { ENGINE_LIMITS, engineKindFor, type EngineKind, type RunStatus } from "@kb/sandbox";
 import type { CodeParams } from "@kb/code";
 import {
-  IconButton,
   browserHost,
   cn,
+  IconButton,
   logError,
   logWarn,
   textOr,
@@ -27,7 +27,7 @@ import {
   type SandboxEvents,
   type SandboxRun,
   type ViewProps,
-} from "@/sdk";
+} from "@kb/ui-sdk";
 import { SandboxFrame } from "./sandbox-frame";
 import { useCodeTrust, useSandboxPorts, type Asking, type CodeTrustState } from "./use-code-run";
 

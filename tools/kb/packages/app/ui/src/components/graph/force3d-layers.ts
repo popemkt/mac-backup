@@ -12,12 +12,11 @@ import type { SceneStage } from "@/scene/gpu/stage";
 import type { ScenePalette } from "@/scene/palette";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { graphFocus, type GraphEmphasis } from "@/lib/graph-interaction";
-import type { LensEdge, LensNode } from "@/lib/graph-lens";
+import { approachRate, type LensEdge, type LensNode, type Timing } from "@kb/ui-sdk";
 import type { LensLinkStyle, LensTheme } from "@kb/views";
 import { GraphArrival, hopsFromHubs } from "@/lib/graph-arrival";
 import { byLabelPriority } from "@/lib/graph-label-layout";
 import { LINK_STYLES } from "@/lib/graph-link-styles";
-import { approachRate, type Timing } from "@/lib/timing";
 import {
   particleLinks,
   setEmphasisTargets,

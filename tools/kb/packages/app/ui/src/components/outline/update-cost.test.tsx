@@ -17,13 +17,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { isQueryNode } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { nodeCandidates } from "@/lib/refs";
-import type * as Refs from "@/lib/refs";
+import { nodeCandidates, outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import type * as UiSdk from "@kb/ui-sdk";
 import { resolveRowChrome } from "@/lib/row-chrome";
 import type * as RowChrome from "@/lib/row-chrome";
-import { outlineInstanceKey } from "@/lib/instance-key";
-import { syncUiPlugins } from "@/lib/plugins";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -31,8 +28,10 @@ import { outlineUiPlugin } from "./plugin";
 import { FrameViewSlot } from "./frame-view-slot";
 import { bundledSeed } from "@kb/bundled";
 
-vi.mock("@/lib/refs", async (importOriginal) => {
-  const actual = await importOriginal<typeof Refs>();
+// The `[[` popup asks from inside the kit (`NodeTextHost`), so the mock names the
+// module that answers, not the barrel that re-exports it.
+vi.mock("../../../../../kit/ui-sdk/src/lib/refs", async (importOriginal) => {
+  const actual = await importOriginal<Pick<typeof UiSdk, "nodeCandidates">>();
   return { ...actual, nodeCandidates: vi.fn(actual.nodeCandidates) };
 });
 

@@ -8,7 +8,7 @@
  * pushed through the others to watch them merge. While the pointer is away
  * the seventh returns to the middle.
  */
-import { springRate, stepSpring, type Spring, type Timing } from "@/sdk";
+import { springRate, stepSpring, type Spring, type Timing } from "@kb/ui-sdk";
 
 /** A blob: where it is and how big (world units). */
 export interface Blob {

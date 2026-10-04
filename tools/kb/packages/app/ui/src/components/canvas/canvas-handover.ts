@@ -25,7 +25,7 @@
 import type { CanvasPose, CanvasProjectionKind } from "@kb/canvas";
 import { panOfView, viewOfPan, type CanvasPoint, type ViewSize } from "./canvas-camera";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
-import type { Timing } from "@/sdk";
+import type { Timing } from "@kb/ui-sdk";
 import { canvasProjection } from "./canvas-projections";
 
 type Phase = "entering" | "leaving" | "lingering" | null;

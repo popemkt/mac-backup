@@ -16,7 +16,7 @@ import {
   vec3,
 } from "three/tsl";
 import { Color, type Node, type UniformNode } from "three/webgpu";
-import { easeAt, type CubicBezier } from "@/lib/timing";
+import { easeAt, type CubicBezier } from "@kb/ui-sdk";
 import type { ShadeOps } from "@/scene/shade-ops";
 
 /**

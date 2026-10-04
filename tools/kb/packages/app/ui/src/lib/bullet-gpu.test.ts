@@ -18,8 +18,9 @@ import {
   bulletAppearance,
   bulletRingDash,
   queryHandleStart,
+  SYSTEM_IDS,
   type BulletAppearanceInput,
-} from "./bullet-mode";
+} from "@kb/ui-sdk";
 import {
   BULLET_MARKS,
   BULLET_TABLE_COLUMNS,
@@ -30,7 +31,6 @@ import {
   PLAIN_BULLET,
   signedDistanceField,
 } from "./bullet-gpu";
-import { SYSTEM_IDS } from "./types";
 
 const appear = (partial: Partial<BulletAppearanceInput> = {}) =>
   bulletAppearance({

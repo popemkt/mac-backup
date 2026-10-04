@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
-import type { LensNode } from "@/lib/graph-lens";
+import type { LensNode } from "@kb/ui-sdk";
 import { GraphLegend } from "./graph-legend";
 let dom: Window, container: HTMLDivElement, root: Root;
 beforeAll(() => {

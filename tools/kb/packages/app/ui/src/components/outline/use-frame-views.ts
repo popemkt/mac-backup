@@ -1,11 +1,16 @@
 import { useMemo } from "react";
 import { isViewNode } from "@kb/model";
-import { ViewPoint, currentContributions, familyViews, useContributions } from "@/lib/plugins";
-import { schemaOf } from "@/lib/schema";
-import type { OutlineNode } from "@/lib/types";
+import {
+  currentContributions,
+  familyViews,
+  schemaOf,
+  useContributions,
+  ViewPoint,
+  type FamilyView,
+  type OutlineNode,
+} from "@kb/ui-sdk";
 import { frameViewNodeIdOf, frameViewThrough, type FrameView } from "@/lib/view-config";
 import { isFrameViewKey, type FrameViewKey } from "@kb/views";
-import type { FamilyView } from "@/lib/view-key";
 import { useOutlineStore } from "@/stores/outline.store";
 
 /** The frame views provided, in their pickers' order: live, as `ViewPoint` holds them. */

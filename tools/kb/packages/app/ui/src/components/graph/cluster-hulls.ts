@@ -1,9 +1,7 @@
 import type Sigma from "sigma";
 import { clusterHull, clusterHullPath, HULL_PAD } from "./cluster-hull";
-import { hashTagColor } from "@/lib/tag-color";
+import { fitGraphLabel, graphLabelFont, hashTagColor, readTokenColor } from "@kb/ui-sdk";
 import { withGraphAlpha } from "@/lib/graph-dim";
-import { readTokenColor } from "@/lib/css-color";
-import { fitGraphLabel, graphLabelFont } from "@/lib/graph-label";
 import type { GraphLabelBox } from "@/lib/graph-label-layout";
 
 /**

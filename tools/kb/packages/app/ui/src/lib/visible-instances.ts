@@ -5,25 +5,28 @@
  * {@link frameRows}, the function the renderers call, as each frame's view
  * ({@link frameViewOf}) lays them out. This walk only assigns instance keys and recurses.
  */
-import type { SchemaIndex } from "@/lib/schema";
-import type { KbIndex } from "@/ds";
-import { runQuery } from "@/ds";
 import {
   childInstanceKey,
+  hasText,
   isQueryResultInstance,
   MAIN_OUTLINE_HOST,
   outlineInstanceKey,
   queryResultInstanceKey,
-} from "@/lib/instance-key";
+  runQuery,
+  shownNode,
+  showsAncestor,
+  slotLink,
+  slotRenders,
+  type KbIndex,
+  type NodeMap,
+  type SchemaIndex,
+  type SlotChain,
+} from "@kb/ui-sdk";
 import { frameRows } from "@/lib/frame-rows";
 import { isQueryNode, queryDefOf } from "@kb/model";
 import { resultNodeIds } from "@/lib/query-node";
-import type { NodeMap } from "@/lib/types";
 import { frameViewOf, type FrameView } from "@/lib/view-config";
 import { projectsRows, type FrameViewKey } from "@kb/views";
-import { hasText } from "@/lib/text";
-import { slotLink, slotRenders, type SlotChain } from "@/lib/view-key";
-import { shownNode, showsAncestor } from "@/lib/contextual-ref";
 
 export type VisibleInstance = {
   nodeId: string;

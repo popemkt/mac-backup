@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { ENTRANCE_SPREAD, Entrance } from "@/components/lab/kit/entrance";
 import { LAMP_ORDER, lampLevels } from "./lamps";
 

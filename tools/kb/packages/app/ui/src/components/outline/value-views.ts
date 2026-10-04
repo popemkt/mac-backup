@@ -7,7 +7,7 @@ import {
   CheckSquareIcon,
   type Icon,
 } from "@phosphor-icons/react";
-import type { FieldType } from "@/lib/field-type";
+import type { FieldType } from "@kb/ui-sdk";
 import { valueKindOf, type ValueKind } from "@/lib/value-kind";
 import {
   CheckboxSurface,

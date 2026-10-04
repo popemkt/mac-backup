@@ -22,7 +22,7 @@ import {
   type UniformNode,
 } from "three/webgpu";
 import { texture, uniform } from "three/tsl";
-import { fitGraphLabel } from "@/lib/graph-label";
+import { fitGraphLabel } from "@kb/ui-sdk";
 import {
   GRAPH_LABEL_HEIGHT,
   GRAPH_LABEL_PAD,

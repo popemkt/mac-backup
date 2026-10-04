@@ -1,17 +1,15 @@
 import { useCallback, useEffect } from "react";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import { isTextEntry, useSlotChain, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { projectsRows } from "@kb/views";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";
 import { Breadcrumbs } from "./breadcrumbs";
 import { FrameViewSlot } from "./frame-view-slot";
-import { useSlotChain } from "@/components/ui/slot-chain";
 import { useFrameView } from "./use-frame-views";
 import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
-import { isTextEntry } from "@/lib/dom";
 import { HeaderWash, ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
 import { setOutlineHost } from "@/stores/outline-hosts";

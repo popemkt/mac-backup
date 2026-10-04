@@ -16,10 +16,7 @@ import {
   type MemberReason,
   type OntologyResolution,
 } from "@kb/model";
-import { textOr } from "@/lib/text";
-import type { KbIndex } from "@/ds";
-import { runQuery } from "@/ds";
-import type { NodeMap, OutlineNode } from "@/lib/types";
+import { runQuery, textOr, type KbIndex, type NodeMap, type OutlineNode } from "@kb/ui-sdk";
 
 export type { MemberReason, OntologyResolution };
 

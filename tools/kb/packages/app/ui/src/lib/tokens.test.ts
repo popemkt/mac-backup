@@ -2,9 +2,21 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { ELEVATIONS, TYPE_STEPS } from "./cn";
+import { ELEVATIONS, TYPE_STEPS } from "@kb/ui-sdk";
+import { browserSource, browserSources } from "@/test-support/browser-packages";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const kit = browserSource("@kb/ui-sdk");
+
+/** Every source file of the page, each named by its package and its path in `src`. */
+function pageSourceFiles(): Array<{ readonly file: string; readonly rel: string }> {
+  return browserSources().flatMap(({ name, src }) =>
+    collectSourceFiles(src).map((file) => ({
+      file,
+      rel: path.join(name, path.relative(src, file)),
+    })),
+  );
+}
 
 function collectSourceFiles(dir: string): string[] {
   const out: string[] = [];
@@ -31,7 +43,7 @@ describe("kb tokens", () => {
   const tokenDecls = stripComments(tokens);
   const index = readFileSync(path.join(root, "index.css"), "utf8");
   const designSystem = readFileSync(path.join(root, "design-system.css"), "utf8");
-  const content = readFileSync(path.join(root, "components/ui/node-text-host.tsx"), "utf8");
+  const content = readFileSync(path.join(kit, "components/node-text-host.tsx"), "utf8");
 
   it("defines row metric tokens from DESIGN-REFINE W1", () => {
     expect(tokens).toMatch(/--kb-indent:\s*calc\(24px \* var\(--density\)\)/);
@@ -53,7 +65,7 @@ describe("kb tokens", () => {
     expect(tokens).toMatch(/--tag-h:\s*calc\(var\(--kb-text-line\)/);
     expect(tokens).toMatch(/--tag-line:\s*var\(--tag-h\)/);
     expect(tokens).toMatch(/\.kb-tag\s*\{[^}]*height:\s*var\(--tag-h\)/s);
-    const chip = readFileSync(path.join(root, "components/outline/tag-chip.tsx"), "utf8");
+    const chip = readFileSync(path.join(kit, "components/tag-chip.tsx"), "utf8");
     expect(stripComments(chip)).not.toMatch(/h-\[\d+px\]/);
   });
 
@@ -132,7 +144,8 @@ describe("kb tokens", () => {
         ),
       ),
     ];
-    const readers = collectSourceFiles(root)
+    const readers = pageSourceFiles()
+      .map(({ file }) => file)
       // A design system restates layer 1; restating a token is not reading it.
       .filter(
         (file) =>
@@ -180,9 +193,8 @@ describe("kb tokens", () => {
     // UI — row indent and guide-line offset alike — is computed in one module
     // from --kb-indent; nothing else multiplies the step or reads the var.
     const offenders: string[] = [];
-    for (const file of collectSourceFiles(root)) {
-      const rel = path.relative(root, file);
-      if (rel === path.join("lib", "indent.ts")) continue;
+    for (const { file, rel } of pageSourceFiles()) {
+      if (rel === path.join("@kb/ui-sdk", "lib", "indent.ts")) continue;
       if (/\.test\.(?:tsx?)$/.test(rel)) continue;
       const text = stripComments(readFileSync(file, "utf8"));
       if (/\*\s*24\b|\b24\s*\*/.test(text)) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { CameraFlight, dollyGoal, fitGoal, neighbourhoodGoal, type Vec3 } from "./force3d-flight";
 
 const FOLLOW = TIMING_FALLBACK.follow;

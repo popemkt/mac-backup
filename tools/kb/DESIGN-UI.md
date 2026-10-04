@@ -1508,7 +1508,7 @@ both are answered from the node ⌘K menu rather than from a device switch.
 ### UI points: routes and views
 
 The UI is assembled from contributions to the browser's `@kb/plugin` kernel
-(`lib/plugins.ts`), and four points hold them: `RoutePoint`, `ViewPoint`,
+(`@kb/ui-sdk`'s `lib/plugins.ts`), and four points hold them: `RoutePoint`, `ViewPoint`,
 `SidebarSectionPoint` and `DockPoint`. This section is the one statement of
 the first two; [Docks](#docks) states the last.
 The plan they come from is
@@ -1758,9 +1758,9 @@ checked by `tsc`; nothing decodes them at the slot.
   at most `maxRows` rows. Stored, its root is `lens.focus`, else the node it
   is shown for.
 
-These points live in `@kb/ui`, not in `@kb/ui-sdk`. The sdk zone's barrel
-(`src/sdk`, [Extension UI halves](#extension-ui-halves)) names them for
-feature UIs, and moving their code is R2 (GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]).
+These points, and `ViewSlot`, live in `@kb/ui-sdk`
+([Extension UI halves](#extension-ui-halves)), so a plugin package contributes
+and embeds views through the package, as the shell does.
 
 ### Docks
 
@@ -1965,7 +1965,7 @@ There is one mechanism, not a second path beside the core plugins:
   reports are loaded, so a layout never shows a lab view, or any family's
   view, as unavailable on the way. An offline page has no server to wait
   for and opens on its own reading.
-- `lib/plugins.ts` → `syncUiPlugins` converges the UI kernel on that set:
+- `syncUiPlugins` (`@kb/ui-sdk`) converges the UI kernel on that set:
   it loads what is missing and unloads each top-level plugin no longer
   listed. `startUiPlugins` runs it at boot and again whenever the server's
   report changes.
@@ -2003,7 +2003,10 @@ the shell.
   (`ctx.plugin`), plus its UI contributions. So the page kernel holds the
   family's view keys, and the page's catalog is the manifest's catalog
   restricted to them.
-- **`@kb/ui-sdk` is the host API.** It holds:
+- **`@kb/ui-sdk` is the host API**, a package of the `kit` layer: browser
+  host libraries a plugin builds against, which only extensions and
+  composition roots build on. The shell builds on it too, so each piece has
+  one home. It holds:
   - the UI points ([UI points](#ui-points-routes-and-views), [Docks](#docks)),
     `ViewSlot` and `CommandPoint`, a command contributed to the shell's
     palette and node menu;
@@ -2019,13 +2022,13 @@ the shell.
   The sdk never imports the shell's stores. The 3D scene kit, `@kb/scene`,
   is a browser package of its own beside it, for canvas 3D, the lab and the
   core `graph.force3d` renderer.
-- **Until the packages exist, zones carry the fence.** `app/ui/src/sdk/` is
-  the future `@kb/ui-sdk`. A feature zone (`components/{chart,code,agent,lab,canvas}`)
-  may reach only itself and `sdk`, plus `scene` for canvas 3D and the lab.
+- **Until a half is a package, its zone carries the fence.** A feature zone
+  still in `@kb/ui` (`components/{chart,code,agent,lab,canvas}`) may reach
+  only itself and `@kb/ui-sdk`, plus `scene` for canvas 3D and the lab.
   `UI_ALLOWS` in `harness/src/constraints.ts` states the rows, and each
   zone's row is deleted when its package leaves. GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
-  (chart, code, agent, lab), GAP [[01M39F3MR3HT2NR553FY8CRD6X]] (canvas) and
-  GAP [[01M3EZRFTS1W8SB97GFJAWD92X]] (the sdk package) record the distance.
+  (chart, code, agent, lab) and GAP [[01M39F3MR3HT2NR553FY8CRD6X]] (canvas)
+  record the distance.
 - **The lazy fence follows packages.** `UI_LAZY_ONLY` applies to the import
   closure from `UI_ENTRY`, walking into `scope:browser` workspace packages
   too, so a chart page moved out of `app/ui` is still fenced from Vega.

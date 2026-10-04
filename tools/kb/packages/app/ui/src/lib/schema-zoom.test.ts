@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { DatascriptIndex } from "@/ds";
+import { DatascriptIndex, wireToOutlineMap } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { queryFieldCarriers, queryTaggedInstances, schemaZoomKind } from "@/lib/schema-zoom";
-import { wireToOutlineMap } from "@/lib/graph-view";
 
 describe("schema zoom queries", () => {
   const qdb = new DatascriptIndex(fixtureGraph.nodes);

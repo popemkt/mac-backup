@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Bullet } from "@/components/outline/bullet";
+import { Bullet } from "@kb/ui-sdk";
 import { stubOutlineNode } from "./fixtures";
 
 const noop = (): void => undefined;

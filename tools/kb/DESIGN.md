@@ -137,18 +137,21 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
     declared devDependency, which is what makes its platform binary
     (`@oxlint-tsgolint/darwin-arm64`) install.
   - `bun run test` → `bun test packages`
-  - `bun run test:ui` → `bun run --filter @kb/ui test` (Vitest)
+  - `bun run test:ui` → the Vitest `test` script of every `scope:browser`
+    project (`nx run-many -t test --projects=tag:scope:browser`)
   - `bun run test:dst` → the deterministic simulation sweep
   - `bun run knip` → the hard, unbaselined dead-code report for cleanup work
   - `bun run harness` → repository constraints plus the shared lint/Knip debt
     ratchet
   - `bun run verify` → typecheck + lint + format check + harness; Knip admission
     runs through the harness ratchet until its lane reaches zero
-- **Two runners, split by package, not by file.** Everything except `@kb/ui`
-  runs on `bun test`; the browser package runs on Vitest because its suite
-  needs happy-dom, `vi.mock` hoisting and fake timers. `bunfig.toml` states
-  that split once (`pathIgnorePatterns = ["**/packages/app/ui/**"]`) instead of
-  naming individual files.
+- **Two runners, split by package, not by file.** Every `scope:browser`
+  package (`@kb/ui`, the kit, each family's UI half) runs on Vitest, because
+  its suite needs happy-dom, `vi.mock` hoisting and fake timers; everything
+  else runs on `bun test`. `bunfig.toml`'s `pathIgnorePatterns` keeps the
+  browser packages out of `bun test` by folder instead of naming files, and
+  `harness/tests/browser-scope.test.ts` holds those folders to the scope
+  tags.
 - TypeScript 7 removed `baseUrl`. `tsconfig.base.json` holds the flags, two
   runtime presets hold the runtime keys, and each package declares only its
   `include` and no `paths` beyond `@kb/ui`'s intra-package `@/*`.

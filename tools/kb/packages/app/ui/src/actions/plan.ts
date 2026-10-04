@@ -10,7 +10,7 @@ import {
   type FieldType,
   type Writable,
 } from "@kb/model";
-import { forestRootIds } from "@/lib/graph-view";
+import { forestRootIds, isSysPrefixed, SYSTEM_IDS, type PropValue } from "@kb/ui-sdk";
 import {
   FRAME_VIEW_FAMILY,
   frameSettingWrite,
@@ -20,7 +20,6 @@ import {
 } from "@kb/views";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
-import { SYSTEM_IDS, isSysPrefixed, type PropValue } from "@/lib/types";
 
 export interface PlannedMutation {
   actions: ActionInvocation[];

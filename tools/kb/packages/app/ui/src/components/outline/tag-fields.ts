@@ -6,8 +6,7 @@
  * component's module exports components only.
  */
 import { typeRefsOf } from "@kb/model";
-import type { SchemaIndex } from "@/lib/schema";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS, type SchemaIndex } from "@kb/ui-sdk";
 
 export interface TagFieldRef {
   id: string;

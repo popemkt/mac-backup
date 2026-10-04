@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasView } from "./canvas-camera";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 
 const flat: CanvasView = { x: 100, y: 50, z: 0, zoom: 1, yaw: 0, pitch: 0, fov: 0 };
 const deep: CanvasView = { ...flat, yaw: -0.3, pitch: 0.6, fov: 34, zoom: 0.9 };

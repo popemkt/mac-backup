@@ -1,11 +1,12 @@
 import { mutations } from "@/actions/mutations";
 import {
   NodeTextHost,
+  rowText,
+  shownNodeId,
   type NodeTextHostBinding,
   type NodeTextHostProps,
-} from "@/components/ui/node-text-host";
-import { rowText, shownNodeId } from "@/lib/contextual-ref";
-import type { OutlineNode } from "@/lib/types";
+  type OutlineNode,
+} from "@kb/ui-sdk";
 import { useNodeTextHostBinding } from "@/stores/node-text-host-binding";
 
 /**

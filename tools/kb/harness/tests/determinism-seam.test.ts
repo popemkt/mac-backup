@@ -3,7 +3,7 @@ import { present } from "../src/present.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { sourceFilesUnder } from "../src/import-graph.ts";
-import { PACKAGES_ROOT, workspacePackages } from "../src/workspace.ts";
+import { PACKAGES_ROOT, axisValues, tagsOf, workspacePackages } from "../src/workspace.ts";
 
 /**
  * Determinism seam guard (t2-dst).
@@ -14,9 +14,10 @@ import { PACKAGES_ROOT, workspacePackages } from "../src/workspace.ts";
  * `Math.random`, or mints a `ulid` directly, a seeded replay silently
  * diverges. This guard fails if a fresh bypass is introduced.
  *
- * Scope: every package that can reach the store. `@kb/ui` and
- * `@kb/render-tests` are browser/e2e trees whose rendering legitimately reads
- * the clock and never writes a node.
+ * Scope: every package that can reach the store. A `scope:browser` package
+ * (`@kb/ui`, the kit, each family's UI half) and `@kb/render-tests` are
+ * browser/e2e trees whose rendering legitimately reads the clock and never
+ * writes a node.
  *
  * Allowlisted (documented) exceptions:
  *   - model.ts            the seam owner (defines nowIso/currentIso/freshId)
@@ -36,7 +37,9 @@ import { PACKAGES_ROOT, workspacePackages } from "../src/workspace.ts";
  * where a package sits is the reader's business, and this guard's business is
  * which tokens may appear where.
  */
-const NOT_STORE_REACHABLE = new Set(["@kb/ui", "@kb/render-tests"]);
+/** The scope whose packages render in the page, and so read the clock to draw. */
+const RENDERING_SCOPE = "browser";
+const NOT_STORE_REACHABLE = new Set(["@kb/render-tests"]);
 
 /** One file, named the way a reader can check it: package plus its own path. */
 function at(pkg: string, file: string): string {
@@ -62,8 +65,9 @@ const tokens = Object.keys(ALLOWED);
 describe("determinism seam guard", () => {
   test("no store-reachable file reads time/randomness outside the seam owner", () => {
     const violations: string[] = [];
-    for (const { dir, name } of workspacePackages()) {
+    for (const { dir, name, manifest } of workspacePackages()) {
       if (NOT_STORE_REACHABLE.has(name)) continue;
+      if (axisValues(tagsOf(manifest), "scope")[0] === RENDERING_SCOPE) continue;
       const root = join(PACKAGES_ROOT, dir);
       const src = join(root, "src");
       // A suite package (@kb/render-tests) has no production tree at all.

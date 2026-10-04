@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { viewOfPan } from "./canvas-camera";
 import { CanvasCameraRig } from "./canvas-camera-rig";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { CanvasHandover, type HandoverCanvas } from "./canvas-handover";
 
 const size = { width: 1000, height: 600 };

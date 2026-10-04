@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { isPinned, listPinnedNodes, pinnedRefIds, pinnedRefIdsFor } from "@/lib/pinned";
-import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
+import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@kb/ui-sdk";
 
 function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">): OutlineNode {
   return {

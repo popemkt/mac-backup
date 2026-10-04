@@ -10,14 +10,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import {
-  RoutePoint,
-  SidebarSectionPoint,
-  ViewPoint,
   provideRoute,
   provideView,
+  RoutePoint,
+  SidebarSectionPoint,
   syncUiPlugins,
   useContributions,
-} from "./plugins";
+  ViewPoint,
+} from "@kb/ui-sdk";
 import { viewKey, NoParams } from "@kb/views";
 
 const Nothing = () => null;

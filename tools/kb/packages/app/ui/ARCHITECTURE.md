@@ -7,7 +7,7 @@ is a projection. This file is the encapsulation contract for new work.
 
 The shell names no feature. Every page is a **route** to a **view**, and every
 sidebar section a contribution, made by a UI plugin into the browser's
-`@kb/plugin` kernel (`lib/plugins.ts`); `ui-plugins.ts` lists the built-in
+`@kb/plugin` kernel (`@kb/ui-sdk`); `ui-plugins.ts` lists the built-in
 plugins and the shell loads them before it renders. What the view and route
 points promise is stated once, in DESIGN-UI.md → UI points: routes and views.
 
@@ -47,7 +47,7 @@ One built-in plugin, `webmcp` (`src/webmcp.ts`), contributes no view: it
 registers the page's WebMCP tools (DESIGN.md → Surfaces).
 
 A path no route owns, and an id a view does not find (a canvas, an
-ontology, a graph perspective), render the one `components/ui/not-found.tsx`
+ontology, a graph perspective), render the one `NotFound` (`@kb/ui-sdk`)
 with no chrome of the missing thing; `ui/not-found.acceptance.test.tsx`
 walks every route shape through the real App.
 
@@ -80,7 +80,7 @@ The lab for the Lab principles its studies follow.
 A view owns its boundary (only it knows what resets it); the `ViewSlot` it
 renders in wraps it too, so a plugin without one cannot blank the workspace
 or the view that embeds it. Use `ViewErrorBoundary` / `ViewError` from
-`components/view-error-boundary.tsx`. Do not invent a second boundary type.
+`@kb/ui-sdk`. Do not invent a second boundary type.
 `console.error` in `componentDidCatch` is intentional (devtools signal).
 
 ## Import / ownership rules
@@ -112,7 +112,6 @@ event handlers — never in the render body.
 ```
 components/
   App.tsx                 shell only (routing + chrome composition)
-  view-error-boundary.tsx shared recovery UI
   outline/                editor + list/table/board projections
   graph/                  renderers + toolbar (lazy page)
   canvas/                 page + cards (lazy)
@@ -122,8 +121,11 @@ components/
 scene/                    the scene kit every real-time 3D view stands on (gpu/ = three)
 catalog/                  story modules + smoke tests (dev/test only)
 stores/, lib/, api/, actions/
-ds/                       one-file @kb/query seam (runQuery, queryBacklinks, DatascriptIndex, nodeMentions)
 ```
+
+The UI points, the primitives, the page's pure helpers, `BrowserHost` and the
+one `@kb/query` seam are the `@kb/ui-sdk` package (`packages/kit/ui-sdk`),
+which a family's UI half builds against and the shell builds on too.
 
 Colocate tests as `*.test.ts(x)` next to the unit. Catalog stories are
 `catalog/<name>.stories.tsx` in Storybook CSF3 format.

@@ -1,5 +1,12 @@
-import { fieldContextOf, schemaOf, type SchemaIndex } from "@/lib/schema";
-import type { NodeMap } from "@/lib/types";
+import {
+  fieldContextOf,
+  queryResultInstanceKey,
+  schemaOf,
+  syncUiPlugins,
+  SYSTEM_IDS,
+  type NodeMap,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -7,8 +14,6 @@ import { defaultViewIdOf, present, viewOptionOf } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { framedAs, viewFieldNodes, type FrameViewName } from "@/fixtures/view-fields";
-import { queryResultInstanceKey } from "@/lib/instance-key";
-import { SYSTEM_IDS } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -37,7 +42,6 @@ import { Result } from "effect";
 import { collectVisibleInstances } from "@/lib/visible-instances";
 import { providedFrameViews } from "@/stores/frame-views";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { syncUiPlugins } from "@/lib/plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

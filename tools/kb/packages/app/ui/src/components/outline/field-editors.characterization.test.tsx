@@ -16,8 +16,17 @@
  * the ref picker's query — are pinned by what the editor *offers* here, and by
  * the pure readers (`parseDateInput`, the picker engine) elsewhere.
  */
-import type { KbIndex } from "@/ds";
-import { fieldContextOf, type FieldContext } from "@/lib/schema";
+import {
+  emptyValueForType,
+  FIELD_TYPES,
+  fieldContextOf,
+  SYSTEM_IDS,
+  type FieldContext,
+  type FieldType,
+  type KbIndex,
+  type NodeMap,
+  type PropValue,
+} from "@kb/ui-sdk";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -25,8 +34,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { stubOutlineNode } from "@/catalog/fixtures";
-import { emptyValueForType, FIELD_TYPES, type FieldType } from "@/lib/field-type";
-import { SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
 import { FieldRow } from "./field-row";
 import { longDateLabel, relativeDateLabel } from "@/lib/date-display";
 import { ValueSlot } from "./value-slot";

@@ -8,7 +8,7 @@ import {
   undo as undoHistory,
   type CanvasHistory,
 } from "./canvas-history";
-import type { OutlineNode } from "@/sdk";
+import type { OutlineNode } from "@kb/ui-sdk";
 
 const DEBOUNCE_MS = 300;
 

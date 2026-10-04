@@ -3,14 +3,19 @@
  * store reads do not survive renderToStaticMarkup (the tag-fields-config
  * lesson), and the thing worth pinning here is layout, not wiring.
  */
-import type { KbIndex } from "@/ds";
-import { fieldContextOf, type FieldContext } from "@/lib/schema";
+import {
+  fieldContextOf,
+  SYSTEM_IDS,
+  type FieldContext,
+  type KbIndex,
+  type NodeMap,
+  type PropValue,
+} from "@kb/ui-sdk";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
 import { FieldValueStack } from "@/components/outline/fields-section";
-import { SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
 import { bundledSeed } from "@kb/bundled";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */

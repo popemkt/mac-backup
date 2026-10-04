@@ -217,6 +217,17 @@ export function bunfigInstall(): BunfigInstall {
   };
 }
 
+/**
+ * `bunfig.toml`'s `[test] pathIgnorePatterns`: the paths `bun test` does not
+ * run, which is how the runner split by package is stated (DESIGN.md → Two
+ * runners).
+ */
+export function bunfigTestIgnores(): string[] {
+  const parsed: unknown = Bun.TOML.parse(readFileSync(join(WORKSPACE_ROOT, "bunfig.toml"), "utf8"));
+  const ignores = table(table(parsed)["test"])["pathIgnorePatterns"];
+  return Array.isArray(ignores) ? ignores.map(String) : [];
+}
+
 export interface Tsconfig {
   extends?: string;
   include?: string[];

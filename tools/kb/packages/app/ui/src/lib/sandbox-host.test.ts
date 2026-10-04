@@ -8,7 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { succeeded, type ActionInvocation } from "@kb/contracts";
 import { ENGINE_LIMITS, type RunStatus } from "@kb/sandbox";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
-import { hostSandboxFrame, type SandboxRun } from "./sandbox-host";
+import type { SandboxRun } from "@kb/ui-sdk";
+import { hostSandboxFrame } from "./sandbox-host";
 
 const RUN: SandboxRun = {
   input: { code: "kb.draw(1)", subject: "n.s", engine: "quickjs", limits: ENGINE_LIMITS.quickjs },

@@ -11,7 +11,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LensNode } from "@/lib/graph-lens";
+import type { LensNode } from "@kb/ui-sdk";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import type { Force3dScene, Force3dSceneInit } from "./force3d-scene";
 

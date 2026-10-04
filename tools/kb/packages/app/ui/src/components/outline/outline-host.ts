@@ -7,8 +7,7 @@
  * still on screen.
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { outlineHostOfPane } from "@/lib/instance-key";
-import { usePane } from "@/lib/pane";
+import { outlineHostOfPane, usePane } from "@kb/ui-sdk";
 
 /** The outline host of the pane the caller is drawn in. */
 export function useOutlineHost(): string {

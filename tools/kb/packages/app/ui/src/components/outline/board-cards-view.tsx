@@ -1,30 +1,35 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
-import { shownNode, shownNodeId } from "@/lib/contextual-ref";
-import { isReferenceRow } from "@/lib/row-chrome";
 import {
+  Bullet,
+  bulletClickIntent,
   childInstanceKey,
+  cn,
+  fieldContextOf,
   isQueryResultInstance,
+  NodeRow,
+  nodeTarget,
   outlineInstanceKey,
   queryResultInstanceKey,
-} from "@/lib/instance-key";
+  shownNode,
+  shownNodeId,
+  TagChipGroup,
+  type FieldContext,
+  type NodeMap,
+  type OutlineNode,
+  type PropValue,
+} from "@kb/ui-sdk";
+import { isReferenceRow } from "@/lib/row-chrome";
 import { useOutlineHost } from "./outline-host";
-import { cn } from "@/lib/cn";
-import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
 import { EMPTY_GROUP_KEY, resolveTableColumns } from "@/lib/view-config";
 import { OutlineBoardView, OutlineCardsView, localIdOf, type ParamsOf } from "@kb/views";
-import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
-import { bulletClickIntent, nodeTarget } from "@/lib/follow";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { usePrefsStore } from "@/stores/prefs.store";
-import { Bullet } from "./bullet";
 import { NodeField } from "./fields-section";
 import { NodeContent } from "./node-content";
-import { NodeRow } from "./node-row";
-import { TagChipGroup } from "./tag-chip";
 import { useNodeKeyDown } from "./use-node-keydown";
 
 /**

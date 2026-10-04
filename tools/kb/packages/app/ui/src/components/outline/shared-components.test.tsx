@@ -9,8 +9,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CircleHalfIcon } from "@phosphor-icons/react";
 import { FieldRow } from "./field-row";
-import { TagChip, TagChipGroup } from "./tag-chip";
-import { hashTagColor, tagChipColors } from "@/lib/tag-color";
+import { hashTagColor, TagChip, tagChipColors, TagChipGroup } from "@kb/ui-sdk";
+import { browserSource } from "@/test-support/browser-packages";
 
 const outlineDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,8 +18,15 @@ function readOutlineSource(name: string): string {
   return readFileSync(path.join(outlineDir, name), "utf8");
 }
 
+const kitDir = browserSource("@kb/ui-sdk");
+
 function readPrimitiveSource(name: string): string {
-  return readFileSync(path.join(outlineDir, "../ui", name), "utf8");
+  return readFileSync(path.join(kitDir, "components", name), "utf8");
+}
+
+/** Whether `source` imports `name` from the kit. */
+function importsFromKit(source: string, name: string): boolean {
+  return new RegExp(`\\b${name}\\b[^;]*from "@kb/ui-sdk"`).test(source);
 }
 
 describe("shared outline components (W8b)", () => {
@@ -77,9 +84,9 @@ describe("shared outline components (W8b)", () => {
     );
     expect(html).not.toContain("Configure tag");
     expect(html).not.toContain("GearSix");
-    expect(readOutlineSource("tag-chip.tsx")).not.toContain("GearSix");
-    expect(readOutlineSource("tag-chip.tsx")).not.toContain("onConfigure");
-    expect(readOutlineSource("tag-chip.tsx")).not.toContain("onTagConfigure");
+    expect(readPrimitiveSource("tag-chip.tsx")).not.toContain("GearSix");
+    expect(readPrimitiveSource("tag-chip.tsx")).not.toContain("onConfigure");
+    expect(readPrimitiveSource("tag-chip.tsx")).not.toContain("onTagConfigure");
   });
 
   it("TagChipGroup wraps without fixed height", () => {
@@ -160,39 +167,37 @@ describe("shared outline components (W8b)", () => {
   });
 
   it("surface modules import the single shared row/chip/field components", () => {
-    expect(readOutlineSource("node-block.tsx")).toMatch(/from "\.\/node-row"/);
-    expect(readPrimitiveSource("node-text-host.tsx")).toMatch(
-      /from "@\/components\/outline\/tag-chip"/,
-    );
-    expect(readOutlineSource("references-section.tsx")).toMatch(/from "\.\/node-row"/);
-    expect(readOutlineSource("references-section.tsx")).toMatch(/from "\.\/tag-chip"/);
-    expect(readOutlineSource("field-value.tsx")).toMatch(/from "\.\/node-row"/);
-    expect(readOutlineSource("field-value.tsx")).toMatch(/from "\.\/tag-chip"/);
+    expect(importsFromKit(readOutlineSource("node-block.tsx"), "NodeRow")).toBe(true);
+    expect(readPrimitiveSource("node-text-host.tsx")).toMatch(/from "\.\/tag-chip"/);
+    expect(importsFromKit(readOutlineSource("references-section.tsx"), "NodeRow")).toBe(true);
+    expect(importsFromKit(readOutlineSource("references-section.tsx"), "TagChip\\w*")).toBe(true);
+    expect(importsFromKit(readOutlineSource("field-value.tsx"), "NodeRow")).toBe(true);
+    expect(importsFromKit(readOutlineSource("field-value.tsx"), "TagChip\\w*")).toBe(true);
     expect(readOutlineSource("fields-section.tsx")).toMatch(/from "\.\/field-row"/);
     // W8b + import/no-cycle: query results render via the shared NodeBlock, so
     // the recursive node<->query pair must not be a static import cycle. The
     // renderer is inverted (node-block passes renderNode into query-results).
     expect(readOutlineSource("query-results.tsx")).not.toMatch(/from "\.\/node-block"/);
     expect(readOutlineSource("node-block.tsx")).toMatch(/from "\.\/query-results"/);
-    expect(readOutlineSource("schema-section.tsx")).toMatch(/from "\.\/node-row"/);
+    expect(importsFromKit(readOutlineSource("schema-section.tsx"), "NodeRow")).toBe(true);
   });
 
   it("tag render path is TagChip only — no inline striped duplicate (i10 item 3)", () => {
     const content = readPrimitiveSource("node-text-host.tsx");
-    expect(content).toMatch(/from "@\/components\/outline\/tag-chip"/);
+    expect(content).toMatch(/from "\.\/tag-chip"/);
     expect(content).toMatch(/TagChipGroup/);
     // No second ad-hoc tag markup / hardcoded chip sizes in the content row.
     expect(content).not.toMatch(/text-\[1[01]px\].*tag|tag.*text-\[1[01]px\]/i);
     expect(content).not.toMatch(/striped/);
-    expect(readOutlineSource("tag-chip.tsx")).toContain("kb-tag");
-    expect(readOutlineSource("tag-chip.tsx")).not.toMatch(/text-\[\d+px\]/);
+    expect(readPrimitiveSource("tag-chip.tsx")).toContain("kb-tag");
+    expect(readPrimitiveSource("tag-chip.tsx")).not.toMatch(/text-\[\d+px\]/);
   });
 
   it("node-block encodes §1.3 guide-line metrics (indent+2, left-[9px], w-5, bottom-2)", () => {
     const src = readOutlineSource("node-block.tsx");
     // The offset itself lives with the rest of the indent geometry.
     expect(src).toMatch(/guideLineStyle\(depth\)/);
-    const indent = readFileSync(path.join(outlineDir, "../../lib/indent.ts"), "utf8");
+    const indent = readFileSync(path.join(kitDir, "lib/indent.ts"), "utf8");
     expect(indent).toMatch(/var\(--kb-indent\)/);
     expect(indent).toMatch(/\+ 2px/);
     expect(src).toContain("left-[9px]");

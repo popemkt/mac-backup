@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TIMING_FALLBACK, easeAt } from "@/lib/timing";
+import { easeAt, TIMING_FALLBACK } from "@kb/ui-sdk";
 import { Entrance } from "./entrance";
 
 describe("a study's entrance", () => {

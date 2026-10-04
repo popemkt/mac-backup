@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { CanvasEdge, KbLinkMode } from "@kb/canvas";
 import { CANVAS_COLOR_PRESETS } from "./canvas-color";
-import { cn, type EnumOption, EnumSelect, hasText, isOutside } from "@/sdk";
+import { cn, EnumSelect, hasText, isOutside, type EnumOption } from "@kb/ui-sdk";
 
 export interface EdgeInspectorProps {
   edge: CanvasEdge;

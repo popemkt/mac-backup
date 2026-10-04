@@ -9,12 +9,16 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
-import { DatascriptIndex } from "@/ds";
-import { fieldTypeValue } from "@/lib/field-type";
-import { wireToOutlineMap } from "@/lib/graph-view";
-import type { RefCreation } from "@/lib/refs";
-import { fieldContextOf, type FieldContext } from "@/lib/schema";
-import { SYSTEM_IDS, type PropValue } from "@/lib/types";
+import {
+  DatascriptIndex,
+  fieldContextOf,
+  fieldTypeValue,
+  SYSTEM_IDS,
+  wireToOutlineMap,
+  type FieldContext,
+  type PropValue,
+  type RefCreation,
+} from "@kb/ui-sdk";
 import { FieldPicker, type FieldHandle } from "./field-picker";
 
 const ISO = "2026-09-28T00:00:00.000Z";

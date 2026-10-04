@@ -1,9 +1,14 @@
 import type { ReactNode } from "react";
-import { NotFound } from "@/components/ui/not-found";
-import { ViewSlot } from "@/components/ui/view-slot";
-import { WorkspaceState } from "@/components/ui/workspace-state";
-import { cn } from "@/lib/cn";
-import { RoutePoint, matchRoute, useContributions, type ResolvedRoute } from "@/lib/plugins";
+import {
+  cn,
+  matchRoute,
+  NotFound,
+  RoutePoint,
+  useContributions,
+  ViewSlot,
+  WorkspaceState,
+  type ResolvedRoute,
+} from "@kb/ui-sdk";
 
 const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
 

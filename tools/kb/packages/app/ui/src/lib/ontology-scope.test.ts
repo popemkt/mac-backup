@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { DatascriptIndex } from "@/ds";
+import { DatascriptIndex, SYSTEM_IDS, wireToOutlineMap } from "@kb/ui-sdk";
 import {
   excludedRows,
   listOntologyItems,
@@ -9,8 +9,6 @@ import {
   resolveScope,
   scopedWireNodes,
 } from "@/lib/ontology-scope";
-import { wireToOutlineMap } from "@/lib/graph-view";
-import { SYSTEM_IDS } from "@/lib/types";
 
 const ISO = "2026-08-23T00:00:00.000Z";
 

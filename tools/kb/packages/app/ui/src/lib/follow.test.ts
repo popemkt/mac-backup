@@ -3,11 +3,11 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import {
   bulletClickIntent,
+  renderInlineMarkdown,
   routePointerClick,
   type FollowHow,
   type FollowTarget,
-} from "@/lib/follow";
-import { renderInlineMarkdown } from "@/lib/md-edit";
+} from "@kb/ui-sdk";
 
 /** No graph behind the text: every reference keeps the default link colour. */
 const PLAIN_INK = (): string | null => null;

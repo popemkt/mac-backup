@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { DatascriptIndex } from "@/ds";
-import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
+import { DatascriptIndex, SYSTEM_IDS, type OutlineNode } from "@kb/ui-sdk";
 import { listPerspectiveNavItems, listPinnedNavItems } from "./sidebar-nav";
 import { bundledSeed } from "@kb/bundled";
 

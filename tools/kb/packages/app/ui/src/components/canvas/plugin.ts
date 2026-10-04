@@ -10,7 +10,7 @@ import {
   RoutePoint,
   SidebarSectionPoint,
   ViewPoint,
-} from "@/sdk";
+} from "@kb/ui-sdk";
 
 /** Canvases: the list and one canvas (its own viewport, so `fixed`), their routes, the section. */
 export const canvasUiPlugin = definePlugin({

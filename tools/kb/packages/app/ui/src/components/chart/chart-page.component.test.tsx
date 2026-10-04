@@ -12,7 +12,7 @@ import { CHART_IDS, type ChartParams } from "@kb/chart";
 import { SYSTEM_IDS } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { browserHostUiPlugin } from "@/browser-host";
-import { syncUiPlugins } from "@/lib/plugins";
+import { syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useOutlineStore } from "@/stores/outline.store";

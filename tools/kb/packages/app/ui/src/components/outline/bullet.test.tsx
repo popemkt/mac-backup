@@ -21,17 +21,20 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { queryResultInstanceKey } from "@/lib/instance-key";
 import {
+  Bullet,
   BULLET_GEOMETRY,
   BULLET_QUERY_ICON,
   bulletRingDash,
   queryIconPath,
-} from "@/lib/bullet-mode";
-import { SYSTEM_IDS, WORKSPACE_ROOT_ID, type OutlineNode, type TagBadge } from "@/lib/types";
+  queryResultInstanceKey,
+  SYSTEM_IDS,
+  WORKSPACE_ROOT_ID,
+  type OutlineNode,
+  type TagBadge,
+} from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { Bullet } from "./bullet";
 import { NodeBlock } from "./node-block";
 
 const RED = "#ef4444";

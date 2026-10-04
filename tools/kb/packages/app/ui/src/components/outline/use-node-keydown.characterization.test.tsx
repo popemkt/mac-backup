@@ -20,17 +20,21 @@ import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
-import { rowTextOf } from "@/lib/contextual-ref";
-import { outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
-import { renderInlineMarkdown, setCaretSerializedOffset } from "@/lib/md-edit";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import {
+  outlineInstanceKey,
+  queryResultInstanceKey,
+  renderInlineMarkdown,
+  rowTextOf,
+  setCaretSerializedOffset,
+  syncUiPlugins,
+  WORKSPACE_ROOT_ID,
+} from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useNodeKeyDown } from "./use-node-keydown";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { syncUiPlugins } from "@/lib/plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

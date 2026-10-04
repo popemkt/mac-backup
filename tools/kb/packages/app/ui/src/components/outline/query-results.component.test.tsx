@@ -10,7 +10,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import type { WireNode } from "@kb/contracts";
 import type { SubscriptionSink } from "@/api/ws";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { resetOutlineStore } from "@/test-support/outline-store";

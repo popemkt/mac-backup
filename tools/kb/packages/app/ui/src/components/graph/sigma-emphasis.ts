@@ -17,10 +17,9 @@
  */
 import type Sigma from "sigma";
 import { EmphasisFade } from "@/lib/graph-fade";
-import { readTokenColor } from "@/lib/css-color";
+import { clampStep, readTokenColor, type Timing } from "@kb/ui-sdk";
 import { premultipliedGraphColor } from "@/lib/graph-dim";
 import { GraphArrival, hopsFromHubs, labelArrived } from "@/lib/graph-arrival";
-import { clampStep, type Timing } from "@/lib/timing";
 
 /** Presence under which a node's label is not drawn. */
 const LABEL_PRESENCE = 0.6;

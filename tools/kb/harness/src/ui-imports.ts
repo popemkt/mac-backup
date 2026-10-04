@@ -22,7 +22,14 @@ import {
   uiZoneOf,
 } from "./constraints.ts";
 import { type ImportKind, importsOf, sourceFilesUnder } from "./import-graph.ts";
-import { PACKAGES_ROOT, WORKSPACE_ROOT } from "./workspace.ts";
+import {
+  PACKAGES_ROOT,
+  WORKSPACE_ROOT,
+  type WorkspacePackage,
+  axisValues,
+  tagsOf,
+  workspacePackages,
+} from "./workspace.ts";
 
 const UI_SRC_ROOT = join(PACKAGES_ROOT, relative("packages", UI_SRC));
 
@@ -58,20 +65,24 @@ export function uiSourceFiles(): string[] {
   return [...sourceFilesUnder(UI_SRC_ROOT)].map((file) => relative(UI_SRC_ROOT, file)).toSorted();
 }
 
+/** The source file a path names once TypeScript's extension-less forms are tried, if any. */
+function sourceFileAt(base: string): string | undefined {
+  for (const suffix of CANDIDATES) {
+    const candidate = `${base}${suffix}`;
+    if (!/\.tsx?$/.test(candidate)) continue;
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+  }
+  return undefined;
+}
+
 /** The source file a relative or `@/…` specifier names, if it is one. */
 function resolveWithin(file: string, specifier: string): string | undefined {
   let base: string;
   if (specifier.startsWith(".")) base = resolve(dirname(join(UI_SRC_ROOT, file)), specifier);
   else if (specifier.startsWith("@/")) base = join(UI_SRC_ROOT, specifier.slice(2));
   else return undefined;
-  for (const suffix of CANDIDATES) {
-    const candidate = `${base}${suffix}`;
-    if (!/\.tsx?$/.test(candidate)) continue;
-    if (existsSync(candidate) && statSync(candidate).isFile()) {
-      return relative(UI_SRC_ROOT, candidate);
-    }
-  }
-  return undefined;
+  const found = sourceFileAt(base);
+  return found === undefined ? undefined : relative(UI_SRC_ROOT, found);
 }
 
 /**
@@ -143,12 +154,95 @@ export function uiViolations(): Array<UiImportSite & { violation: string }> {
 }
 
 /**
+ * One import in the page's bundle, placed by file. A `@kb/ui` file is keyed by
+ * its path under {@link UI_SRC}, as in {@link UiImportSite}; a file of another
+ * browser package by its package name and its path in the package
+ * (`@kb/ui-sdk/src/index.ts`).
+ */
+export type BundleSite = Pick<UiImportSite, "file" | "specifier" | "kind" | "target">;
+
+/** The package `@kb/ui`'s `src` belongs to. */
+const UI_PACKAGE = "@kb/ui";
+
+/**
+ * The page's other packages: every `scope:browser` workspace package but
+ * `@kb/ui` itself. The shell's Vite build compiles each from source into the
+ * one bundle (DESIGN-UI.md → Extension UI halves).
+ */
+function browserPackages(): WorkspacePackage[] {
+  return workspacePackages().filter(
+    (pkg) => pkg.name !== UI_PACKAGE && axisValues(tagsOf(pkg.manifest), "scope")[0] === "browser",
+  );
+}
+
+/** The key of a browser package's file in the bundle. */
+function packageKey(pkg: WorkspacePackage, path: string): string {
+  return `${pkg.name}/${relative(join(PACKAGES_ROOT, pkg.dir), path)}`;
+}
+
+/**
+ * Every source file of the page: `@kb/ui`'s, keyed as {@link uiSourceFiles}
+ * keys them, then each other browser package's, keyed by package.
+ */
+export function bundleSourceFiles(): Array<{ readonly key: string; readonly path: string }> {
+  return [
+    ...uiSourceFiles().map((file) => ({ key: file, path: join(UI_SRC_ROOT, file) })),
+    ...browserPackages().flatMap((pkg) =>
+      [...sourceFilesUnder(join(PACKAGES_ROOT, pkg.dir))]
+        .toSorted()
+        .map((path) => ({ key: packageKey(pkg, path), path })),
+    ),
+  ];
+}
+
+let cachedBundle: BundleSite[] | undefined;
+
+/**
+ * Every import of the page's bundle. A `@kb/<browser package>` specifier lands
+ * on that package's barrel, from `@kb/ui` or from another browser package, so
+ * a path from the entry walks into the kit and the families' UI halves exactly
+ * as Vite does. Any other package is not part of the walk: its imports are not
+ * compiled into the bundle from this tree.
+ */
+export function bundleImportSites(): BundleSite[] {
+  if (cachedBundle !== undefined) return cachedBundle;
+  const packages = browserPackages();
+  const barrels = new Map(
+    packages.map((pkg) => [
+      pkg.name,
+      packageKey(pkg, join(PACKAGES_ROOT, pkg.dir, "src/index.ts")),
+    ]),
+  );
+  const ui = uiImportSites().map((site) => ({
+    ...site,
+    target: site.target ?? barrels.get(site.specifier),
+  }));
+  const rest = packages.flatMap((pkg) =>
+    [...sourceFilesUnder(join(PACKAGES_ROOT, pkg.dir))].flatMap((path) =>
+      importsOf(path, readFileSync(path, "utf8")).map(({ specifier, kind }) => {
+        const local = specifier.startsWith(".")
+          ? sourceFileAt(resolve(dirname(path), specifier))
+          : undefined;
+        return {
+          file: packageKey(pkg, path),
+          specifier,
+          kind,
+          target: local === undefined ? barrels.get(specifier) : packageKey(pkg, local),
+        };
+      }),
+    ),
+  );
+  cachedBundle = [...ui, ...rest];
+  return cachedBundle;
+}
+
+/**
  * The fewest dynamic imports any path from `entry` crosses to reach each
  * file, with the path that does it (`a => b` for a lazy edge). Type-only
  * edges load nothing and are not paths.
  */
 export function lazyDepths(
-  sites: readonly UiImportSite[],
+  sites: readonly BundleSite[],
   entry: string = UI_ENTRY,
 ): Map<string, { depth: number; chain: readonly string[] }> {
   const edges = new Map<string, Array<{ to: string; lazy: boolean }>>();
@@ -187,7 +281,7 @@ export function lazyDepths(
  * boundary. A type-only import loads nothing.
  */
 export function lazyFenceBreaches(
-  sites: readonly UiImportSite[],
+  sites: readonly BundleSite[],
   entry: string = UI_ENTRY,
 ): string[] {
   const depths = lazyDepths(sites, entry);

@@ -10,7 +10,7 @@ import type { CanvasSelection } from "./canvas-selection";
 import { selectionEmpty } from "./canvas-selection";
 import type { CanvasTool, ToolState } from "./canvas-tool";
 import { GIZMO_MODES, type GizmoChoice } from "./canvas-gizmo";
-import { cn } from "@/sdk";
+import { cn } from "@kb/ui-sdk";
 
 /** Where present mode stands: the frame shown, by its place among how many. */
 interface PresentingAt {

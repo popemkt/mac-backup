@@ -1,10 +1,15 @@
 import { useCallback } from "react";
-import { rowTextOf, shownNode } from "@/lib/contextual-ref";
-import { schemaOf } from "@/lib/schema";
-import { isQueryResultInstance } from "@/lib/instance-key";
-import { getCaretSerializedOffset } from "@/lib/md-edit";
+import {
+  getCaretSerializedOffset,
+  isQueryResultInstance,
+  readCaretGeometry,
+  rowTextOf,
+  schemaOf,
+  shownNode,
+  verticalArrowDecision,
+  type VerticalNavDecision,
+} from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
-import { readCaretGeometry, verticalArrowDecision, type VerticalNavDecision } from "@/lib/caret";
 import { fieldSlotCount } from "@/lib/value-slot-nav";
 import { applyEditingIntent } from "./editing-intents";
 import { mapEditingKey, type EditingKeyContext } from "./editing-keymap";

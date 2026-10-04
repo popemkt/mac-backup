@@ -6,7 +6,7 @@ import {
   orderCandidates,
   pickerRows,
   type PickerCandidate,
-} from "@/lib/picker";
+} from "@kb/ui-sdk";
 import { notePick, recentPicks } from "@/lib/picker-recency";
 
 const candidates: PickerCandidate[] = [

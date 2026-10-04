@@ -23,7 +23,7 @@ import {
 } from "./canvas-camera";
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasPointerEvent, PointerResult } from "./canvas-pointer";
-import { logError, prefersReducedMotion, readTiming } from "@/sdk";
+import { logError, prefersReducedMotion, readTiming } from "@kb/ui-sdk";
 import { CanvasHandover, type HandoverCanvas } from "./canvas-handover";
 
 /**

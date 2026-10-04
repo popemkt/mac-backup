@@ -8,14 +8,12 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
-import { SYSTEM_IDS } from "@/lib/types";
+import { outlineInstanceKey, queryResultInstanceKey, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { syncUiPlugins } from "@/lib/plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

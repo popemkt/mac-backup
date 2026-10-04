@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
-import { cn } from "@/lib/cn";
+import { cn } from "@kb/ui-sdk";
 import type { OntologyNavItem } from "@/lib/ontology-scope";
 
 interface OntologyPickerProps {

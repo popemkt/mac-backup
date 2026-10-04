@@ -8,10 +8,12 @@ minimumReleaseAge = 4320
 trustedDependencies = []
 
 # One workspace, two runners, split by package rather than by file: every
-# package except @kb/ui runs on `bun test packages`; the browser package runs
-# on Vitest (`bun run --filter @kb/ui test`) because its suite needs happy-dom,
-# vi.mock hoisting and fake timers. Documented once in DESIGN.md.
+# package but the browser ones runs on `bun test packages`; the browser
+# packages (@kb/ui and the kit) run on Vitest (`bun run test:ui`) because their
+# suites need happy-dom, vi.mock hoisting and fake timers. Documented once in
+# DESIGN.md; harness/tests/browser-scope.test.ts holds this list to the
+# packages' scope tags.
 [test]
-pathIgnorePatterns = ["**/packages/app/ui/**"]
+pathIgnorePatterns = ["**/packages/app/ui/**", "**/packages/kit/**"]
 # Inert unless KB_FAST_CHECK_SEED is set; the mutation run sets it. Why, in the file.
 preload = ["./packages/app/test-kit/src/fast-check-seed.ts"]

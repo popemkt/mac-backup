@@ -1,8 +1,7 @@
 import { useRef, useState } from "react";
 import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { addMonths, formatDay, parseDateInput, parseDay, type LocalDate } from "@kb/model";
-import { cn } from "@/lib/cn";
-import { KB_TEXT_CLASS } from "@/lib/md-inline";
+import { cn, IconButton, KB_TEXT_CLASS, useAnchoredPosition } from "@kb/ui-sdk";
 import { calendarWeeks, dateEditorIntent, sameDay } from "@/lib/date-calendar";
 import {
   firstDayOfWeek,
@@ -11,8 +10,6 @@ import {
   todayLocal,
   weekdayInitials,
 } from "@/lib/date-display";
-import { IconButton } from "@/components/ui/icon-button";
-import { useAnchoredPosition } from "@/components/ui/use-anchored-position";
 
 export interface DateEditorProps {
   /** What the input starts with: the stored date, or input the slot kept. */

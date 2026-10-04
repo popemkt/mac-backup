@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS } from "@kb/ui-sdk";
 import { graphBindingOptions, type GraphBindingOption } from "@/lib/graph-bindings";
 import {
   sourceValue,

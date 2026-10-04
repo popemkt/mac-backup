@@ -1,24 +1,33 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
-import { shownNode, shownNodeId } from "@/lib/contextual-ref";
+import {
+  Bullet,
+  bulletClickIntent,
+  childInstanceKey,
+  cn,
+  fieldContextOf,
+  NodeRow,
+  nodeTarget,
+  outlineInstanceKey,
+  queryResultInstanceKey,
+  shownNode,
+  shownNodeId,
+  SYSTEM_IDS,
+  type FieldContext,
+  type NodeMap,
+  type OutlineNode,
+} from "@kb/ui-sdk";
 import { resolveRowChrome } from "@/lib/row-chrome";
-import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { useOutlineHost } from "./outline-host";
-import { cn } from "@/lib/cn";
-import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
 import { resolveTableColumns, type TableColumnSpec } from "@/lib/view-config";
 import { type SortSpec, type ParamsOf, OutlineTableView } from "@kb/views";
 import { useDebugFields } from "@/stores/debug-fields.store";
-import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
-import { bulletClickIntent, nodeTarget } from "@/lib/follow";
 import { usePrefsStore } from "@/stores/prefs.store";
-import { Bullet } from "./bullet";
 import { NodeField } from "./fields-section";
 import { NodeContent } from "./node-content";
-import { NodeRow } from "./node-row";
 import { useNodeKeyDown } from "./use-node-keydown";
 import { useFrameView } from "./use-frame-views";
 

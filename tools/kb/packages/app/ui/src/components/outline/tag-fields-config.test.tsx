@@ -3,7 +3,7 @@
  * existed and were tested, but no component called them, so the CLI was the
  * only path. These lock the affordance and its reuse rule in place.
  */
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import { schemaOf, SYSTEM_IDS, type NodeMap, type OutlineNode, type SchemaIndex } from "@kb/ui-sdk";
 import { describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
@@ -11,7 +11,6 @@ import { installDomGlobals } from "@/test-support/dom-globals";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TagFieldsConfigView } from "./tag-fields-config";
 import { resolveTagFields, type TagFieldRef } from "./tag-fields";
-import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 
 /** The real outline shape, narrowed — not a lookalike that can drift from it. */
 type TestNode = Pick<OutlineNode, "text" | "props">;

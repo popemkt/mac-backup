@@ -19,7 +19,7 @@ import type {
   PointerState,
   ResizeCorner,
 } from "./canvas-pointer";
-import { asElement } from "@/sdk";
+import { asElement } from "@kb/ui-sdk";
 import {
   clampZoom,
   clientToCanvas,

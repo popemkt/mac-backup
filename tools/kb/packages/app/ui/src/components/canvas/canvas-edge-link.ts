@@ -11,7 +11,7 @@
  * Pure: the fresh binding id arrives on the context, the way the pointer
  * reducer takes its edge ids, so a plan is a function of its inputs.
  */
-import type { PropValue, SchemaIndex } from "@/sdk";
+import type { PropValue, SchemaIndex } from "@kb/ui-sdk";
 import type { CanvasEdge, CanvasNode, KbLinkMode } from "@kb/canvas";
 import { isValidNativeTarget, planNativeBind } from "./canvas-api";
 

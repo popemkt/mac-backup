@@ -3,9 +3,8 @@
  * resolveTableColumns: projected rows' tags. Lives outside the popover
  * component so the popover file exports components only.
  */
-import type { SchemaIndex } from "@/lib/schema";
+import type { NodeMap, OutlineNode, SchemaIndex } from "@kb/ui-sdk";
 import { frameConfigOf, resolveTableColumns } from "@/lib/view-config";
-import type { NodeMap, OutlineNode } from "@/lib/types";
 
 /** `nodes` is the projection the frame's rows come from; `schema` names their fields. */
 export function listFilterFieldOptions(

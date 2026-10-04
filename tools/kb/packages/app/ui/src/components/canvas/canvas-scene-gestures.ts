@@ -26,7 +26,7 @@ import type { CanvasPointerEvent } from "./canvas-pointer";
 import { ALONG_Z } from "./canvas-transform-input";
 import type { SceneGizmo } from "./canvas-gizmo";
 import type { CanvasSelection } from "./canvas-selection";
-import { pastSlop } from "@/sdk";
+import { pastSlop } from "@kb/ui-sdk";
 
 /** A press: where it is in the viewport and on screen, its button and its modifiers. */
 export interface ScenePress {

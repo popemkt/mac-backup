@@ -1,10 +1,15 @@
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import {
+  schemaOf,
+  SYSTEM_IDS,
+  wireToOutlineMap,
+  type NodeMap,
+  type OutlineNode,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { describe, expect, test } from "vitest";
 import type { CanvasEdge, CanvasNode } from "@kb/canvas";
 import type { WireNode } from "@kb/contracts";
 import { planEdgeRelink, type EdgeRelinkContext } from "./canvas-edge-link";
-import { wireToOutlineMap } from "@/lib/graph-view";
-import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {

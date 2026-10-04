@@ -1,5 +1,4 @@
-import { graphDisplayText } from "@/lib/graph-label";
-import type { NodeMap } from "@/lib/types";
+import { graphDisplayText, type NodeMap } from "@kb/ui-sdk";
 import type { OutlineSnippetParams } from "@kb/views";
 
 export interface SnippetRow {

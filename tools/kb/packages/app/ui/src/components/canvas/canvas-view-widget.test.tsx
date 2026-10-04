@@ -10,7 +10,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { presetView, viewOfPan, type CanvasView } from "./canvas-camera";
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasIntent } from "./canvas-keymap";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { CanvasViewWidget } from "./canvas-view-widget";
 import type { CanvasGroupNode } from "@kb/canvas";
 

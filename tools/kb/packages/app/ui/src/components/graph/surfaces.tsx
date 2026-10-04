@@ -10,15 +10,21 @@ import {
   type TreemapView,
   type ParamsOf,
 } from "@kb/views";
-import { NotFound } from "@/components/ui/not-found";
-import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
-import { ViewErrorBoundary } from "@/components/view-error-boundary";
-import { listPerspectiveNodes } from "@/lib/graph-lens";
-import { paramsOf, type MatchedRoute, type ViewProps } from "@/lib/plugins";
-import { graphPath, navigate } from "@/lib/router";
+import {
+  graphPath,
+  keptLoad,
+  listPerspectiveNodes,
+  navigate,
+  NotFound,
+  paramsOf,
+  SidebarRow,
+  SidebarSection,
+  ViewErrorBoundary,
+  type MatchedRoute,
+  type ViewProps,
+} from "@kb/ui-sdk";
 import { listPerspectiveNavItems } from "@/lib/sidebar-nav";
 import { useOutlineStore } from "@/stores/outline.store";
-import { keptLoad } from "@/lib/kept-load";
 
 /** The renderers' chunk: sigma and graphology stay out of the outline's bundle. */
 async function importRendererViews() {

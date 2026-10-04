@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { TagChipGroup } from "@/components/outline/tag-chip";
+import { TagChipGroup } from "@kb/ui-sdk";
 
 const meta = {
   title: "Outline/TagChipGroup",

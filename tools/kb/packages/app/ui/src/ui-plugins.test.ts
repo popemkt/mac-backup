@@ -11,9 +11,15 @@ import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { extensionRow, type ExtensionRow } from "@kb/contracts";
 import { agentExtension } from "@kb/agent";
 import { labExtension } from "@kb/lab";
-import { RoutePoint, SidebarSectionPoint, ViewPoint, findView, matchRoute } from "@/lib/plugins";
+import {
+  findView,
+  matchRoute,
+  ontologyPath,
+  RoutePoint,
+  SidebarSectionPoint,
+  ViewPoint,
+} from "@kb/ui-sdk";
 import { NoParams, viewKey, type OntologyView } from "@kb/views";
-import { ontologyPath } from "@/lib/router";
 import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS, familiesToLoad } from "@/ui-plugins";
 
 /** The browser entries of the families that are always on, as the resolver loads them. */

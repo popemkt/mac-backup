@@ -18,8 +18,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { stubOutlineNode } from "@/catalog/fixtures";
-import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
-import { Bullet } from "./bullet";
+import { Bullet, SYSTEM_IDS, type OutlineNode } from "@kb/ui-sdk";
 
 function typed(id: string, typeId: string, extra: Partial<OutlineNode> = {}): OutlineNode {
   return stubOutlineNode({

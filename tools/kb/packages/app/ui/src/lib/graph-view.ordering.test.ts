@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { forestRootIds, wireToOutlineMap } from "@/lib/graph-view";
+import { EXPANDED_STORAGE_KEY, forestRootIds, wireToOutlineMap } from "@kb/ui-sdk";
 import { mergeTx } from "@/lib/tx";
-import { EXPANDED_STORAGE_KEY } from "@/lib/types";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";

@@ -13,7 +13,7 @@ import {
   type SandboxEvents,
   type SandboxPorts,
   type SandboxRun,
-} from "@/sdk";
+} from "@kb/ui-sdk";
 
 /** How long the graph must be still before the frame hears that it changed. */
 const CHANGE_SETTLE_MS = 150;

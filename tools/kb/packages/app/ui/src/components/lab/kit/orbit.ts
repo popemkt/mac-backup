@@ -15,7 +15,7 @@
  * the stage, where WP4 is folding the lab kit's view controls; it stands here
  * until that lands.
  */
-import { approach, approachRate, type Timing } from "@/sdk";
+import { approach, approachRate, type Timing } from "@kb/ui-sdk";
 import { PanControl, type Grab } from "@/components/lab/kit/pan-control";
 
 interface Point {

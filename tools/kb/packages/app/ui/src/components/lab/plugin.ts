@@ -5,12 +5,12 @@ import { matchLab } from "@/components/lab/routes";
 import { LabSection, LabSurface } from "@/components/lab/surfaces";
 import {
   BrowserHostService,
+  provideRoute,
+  provideView,
   RoutePoint,
   SidebarSectionPoint,
   ViewPoint,
-  provideRoute,
-  provideView,
-} from "@/sdk";
+} from "@kb/ui-sdk";
 
 /**
  * The lab: stylised real-time 3D projections of the graph, tried here before

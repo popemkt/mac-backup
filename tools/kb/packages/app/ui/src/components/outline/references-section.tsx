@@ -1,13 +1,9 @@
 import { useMemo } from "react";
 import { backlinkRows, type BacklinkRow } from "@/lib/backlinks";
-import { MdView } from "@/components/ui/md-view";
-import { schemaOf } from "@/lib/schema";
+import { Bullet, MdView, NodeRow, schemaOf, TagChipGroup } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow, useOpenNode } from "@/stores/follow";
 import { useRefInk } from "@/stores/ref-ink";
-import { Bullet } from "./bullet";
-import { NodeRow } from "./node-row";
-import { TagChipGroup } from "./tag-chip";
 
 /**
  * Inline "References (N)" at the bottom of a zoomed view (DESIGN-RESKIN §1.5).

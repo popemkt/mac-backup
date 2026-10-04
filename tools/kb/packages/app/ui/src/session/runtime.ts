@@ -17,7 +17,7 @@ import { KbIndexService, type KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1
 import { StoreTxLog } from "@kb/tx-log";
 import { invokeReceiptWith, isomorphicActions, noteStoreSynced } from "@kb/operations";
 import { postAction, type ActionResponse } from "@/api/action";
-import { toast } from "@/lib/toast";
+import { toast } from "@kb/ui-sdk";
 import { livePageCatalog } from "@/lib/view-catalog";
 import { BrowserStore } from "./browser-store";
 import { BrowserReplica, type Hold, type ReplicaLink } from "./replica";

@@ -1,9 +1,14 @@
-import type { SchemaIndex } from "@/lib/schema";
+import {
+  isSysPrefixed,
+  logWarn,
+  SYSTEM_IDS,
+  textOr,
+  type OutlineNode,
+  type PropValue,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { Result } from "effect";
 import { familyViewIdOf, viewOptionId, viewOptionOf, type NodeProps } from "@kb/model";
-import type { OutlineNode, PropValue } from "./types";
-import { isSysPrefixed, SYSTEM_IDS } from "./types";
-import { logWarn } from "@/lib/log";
 import {
   FRAME_VIEW_FAMILY,
   decodeFrameConfig,
@@ -15,7 +20,6 @@ import {
   type ViewFilter,
 } from "@kb/views";
 import { viewKeyOfNode } from "@/lib/view-node";
-import { textOr } from "@/lib/text";
 
 function propValueKey(v: PropValue, _schema: SchemaIndex): string {
   if (v.t === "ref") return `ref:${v.v}`;

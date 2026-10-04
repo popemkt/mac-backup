@@ -1,11 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Result } from "effect";
-import { ViewSlot } from "@/components/ui/view-slot";
-import { WorkspaceState } from "@/components/ui/workspace-state";
-import { buildTreeForest } from "@/lib/graph-lens";
+import { buildTreeForest, navigate, ViewSlot, WorkspaceState, type ViewProps } from "@kb/ui-sdk";
 import { extractNeighbourhood } from "@/lib/graph-neighbourhood";
-import type { ViewProps } from "@/lib/plugins";
-import { navigate } from "@/lib/router";
 import { paramsFrom, type NeighbourhoodParams } from "@kb/views";
 import { useAppearance } from "@/stores/prefs.store";
 import { useOutlineStore } from "@/stores/outline.store";

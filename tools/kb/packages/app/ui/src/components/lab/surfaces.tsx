@@ -3,14 +3,14 @@ import { FlaskIcon } from "@phosphor-icons/react";
 import { labPath } from "@/components/lab/routes";
 import { LAB_SCENE_IDS, LabView, type LabParams } from "@kb/lab";
 import {
+  navigate,
+  paramsOf,
   SidebarRow,
   SidebarSection,
   ViewErrorBoundary,
-  navigate,
-  paramsOf,
   type MatchedRoute,
   type ViewProps,
-} from "@/sdk";
+} from "@kb/ui-sdk";
 
 /** Three.js and every scene stay in the lab's own chunks: the main bundle must not grow. */
 const LabPage = lazy(() => import("@/components/lab/lab-page"));

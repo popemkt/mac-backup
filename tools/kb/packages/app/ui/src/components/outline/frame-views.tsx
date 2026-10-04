@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { frameRows } from "@/lib/frame-rows";
-import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
-import type { ViewProps } from "@/lib/plugins";
+import { childInstanceKey, outlineInstanceKey, type ViewProps } from "@kb/ui-sdk";
 import { useGraphRead } from "@/stores/graph-read";
 import {
   type ParamsOf,

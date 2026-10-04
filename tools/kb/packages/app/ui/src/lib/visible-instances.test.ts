@@ -2,16 +2,20 @@ import { beforeAll, afterAll, afterEach, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
-import { MAIN_OUTLINE_HOST, queryResultInstanceKey } from "@/lib/instance-key";
+import {
+  MAIN_OUTLINE_HOST,
+  MAX_VIEW_DEPTH,
+  queryResultInstanceKey,
+  slotLink,
+  syncUiPlugins,
+  SYSTEM_IDS,
+} from "@kb/ui-sdk";
 import { setOutlineHost } from "@/stores/outline-hosts";
-import { SYSTEM_IDS } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
 import { OutlineListView, OutlineTableView } from "@kb/views";
-import { MAX_VIEW_DEPTH, slotLink } from "@/lib/view-key";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { syncUiPlugins } from "@/lib/plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

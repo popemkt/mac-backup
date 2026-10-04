@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import type { LensGraph, LensNode } from "@/lib/graph-lens";
+import type { LensGraph, LensNode } from "@kb/ui-sdk";
 import { glintCount, toLabGraph } from "./lab-graph";
 import { starPoint } from "./sky/layout";
 import { labPath, matchLab } from "./routes";

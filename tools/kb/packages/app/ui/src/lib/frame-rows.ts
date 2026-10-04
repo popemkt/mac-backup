@@ -9,8 +9,7 @@
  *
  * Pure: pagination state is passed in as `pages`, never read from a store.
  */
-import type { SchemaIndex } from "@/lib/schema";
-import type { NodeMap, OutlineNode } from "@/lib/types";
+import type { NodeMap, OutlineNode, SchemaIndex } from "@kb/ui-sdk";
 import {
   applyViewFilters,
   flattenBoardOrder,

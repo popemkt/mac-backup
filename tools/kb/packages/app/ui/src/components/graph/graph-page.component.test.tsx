@@ -7,7 +7,7 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { SYSTEM_IDS } from "@/lib/types";
+import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import type * as GraphAdapters from "./graph-adapters";
@@ -53,7 +53,6 @@ vi.mock("./graph-adapters", async (importOriginal) => {
 
 import GraphPage from "./graph-page";
 import { graphUiPlugin } from "./plugin";
-import { syncUiPlugins } from "@/lib/plugins";
 
 /**
  * Let the page settle: lazy renderer chunks resolve and effects commit, each

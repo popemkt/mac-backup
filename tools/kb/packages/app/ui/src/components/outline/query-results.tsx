@@ -5,16 +5,13 @@
  * (W7.1 / W8e).
  */
 import type { ReactNode } from "react";
-import { indentStyle } from "@/lib/indent";
-import { queryResultInstanceKey } from "@/lib/instance-key";
+import { hasText, indentStyle, queryResultInstanceKey, useQueryNodeRows } from "@kb/ui-sdk";
 import { queryDefOf } from "@kb/model";
-import { resultNodeIds } from "@/lib/query-node";
-import { useQueryNodeRows } from "@/lib/use-query-node-rows";
+import { resultNodeIds, subscribeLiveQueryNode } from "@/lib/query-node";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { FrameViewSlot } from "./frame-view-slot";
-import { hasText } from "@/lib/text";
 
 interface QueryResultItem {
   nodeId: string;
@@ -55,6 +52,7 @@ export function QueryResultsSection({
     live: wsStatus === "open",
     index: queryDb,
     generation,
+    subscribe: subscribeLiveQueryNode,
   });
 
   if (!def || edn === null) return null;

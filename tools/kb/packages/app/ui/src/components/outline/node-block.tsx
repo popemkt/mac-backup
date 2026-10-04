@@ -1,25 +1,29 @@
 import { memo, useCallback } from "react";
-import { shownNode } from "@/lib/contextual-ref";
-import { cn } from "@/lib/cn";
-import { guideLineStyle, indentStyle } from "@/lib/indent";
-import { outlineInstanceKey } from "@/lib/instance-key";
+import {
+  Bullet,
+  bulletClickIntent,
+  cn,
+  guideLineStyle,
+  indentStyle,
+  NodeRow,
+  nodeTarget,
+  outlineInstanceKey,
+  shownNode,
+  type OutlineNode,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { resolveRowChrome } from "@/lib/row-chrome";
 import { useUiStore } from "@/stores/ui.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
-import type { SchemaIndex } from "@/lib/schema";
-import type { OutlineNode } from "@/lib/types";
 import { useGraphRead } from "@/stores/graph-read";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
-import { bulletClickIntent, nodeTarget } from "@/lib/follow";
 import { mutations } from "@/actions/mutations";
 
-import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
 import { FrameViewSlot } from "./frame-view-slot";
 import { useFrameView } from "./use-frame-views";
 import { NodeContent } from "./node-content";
-import { NodeRow } from "./node-row";
 import { QueryResultsSection } from "./query-results";
 import { useNodeKeyDown } from "./use-node-keydown";
 import { ViewToolbar } from "./view-toolbar";

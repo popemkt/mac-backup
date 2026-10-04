@@ -6,7 +6,7 @@
  * 2D graphs onto sigma's label layer — so a style reads the same wherever
  * it is drawn (DESIGN-UI → Graph → Graph themes).
  */
-import { graphLabelFont, type GraphLabelFace } from "@/lib/graph-label";
+import { graphLabelFont, type GraphLabelFace } from "@kb/ui-sdk";
 
 /** How a theme sets its labels. */
 export interface GraphLabelStyle {

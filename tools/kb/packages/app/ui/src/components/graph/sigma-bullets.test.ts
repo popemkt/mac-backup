@@ -11,7 +11,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
 import type { NodeDisplayData, RenderParams } from "sigma/types";
-import { BULLET_GEOMETRY, bulletAppearance, bulletExtent } from "@/lib/bullet-mode";
+import { BULLET_GEOMETRY, bulletAppearance, bulletExtent } from "@kb/ui-sdk";
 import { BULLET_UNIFORMS, BulletTable, PLAIN_BULLET } from "@/lib/bullet-gpu";
 import type * as SigmaBullets from "./sigma-bullets";
 

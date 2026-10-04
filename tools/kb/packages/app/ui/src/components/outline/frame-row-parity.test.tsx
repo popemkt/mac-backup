@@ -7,7 +7,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { syncUiPlugins } from "@/lib/plugins";
+import { syncUiPlugins } from "@kb/ui-sdk";
 import { outlineUiPlugin } from "./plugin";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";

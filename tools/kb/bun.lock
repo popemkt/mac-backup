@@ -204,13 +204,13 @@
         "@kb/sandbox-quickjs": "workspace:*",
         "@kb/sandbox-worker": "workspace:*",
         "@kb/tx-log": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
         "@kb/views": "workspace:*",
         "@kb/webmcp": "workspace:*",
         "@phosphor-icons/react": "catalog:",
         "@sigma/edge-curve": "catalog:",
         "@sigma/node-border": "catalog:",
         "@tailwindcss/vite": "catalog:",
-        "clsx": "catalog:",
         "d3-force-3d": "catalog:",
         "d3-hierarchy": "catalog:",
         "dockview-react": "catalog:",
@@ -223,7 +223,6 @@
         "react": "catalog:",
         "react-dom": "catalog:",
         "sigma": "catalog:",
-        "tailwind-merge": "catalog:",
         "tailwindcss": "catalog:",
         "three": "catalog:",
         "ulid": "catalog:",
@@ -611,6 +610,32 @@
       "devDependencies": {
         "@effect/platform-bun": "catalog:",
         "@types/bun": "catalog:",
+      },
+    },
+    "packages/kit/ui-sdk": {
+      "name": "@kb/ui-sdk",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/query": "workspace:*",
+        "@kb/sandbox": "workspace:*",
+        "@kb/views": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
+        "clsx": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "tailwind-merge": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "happy-dom": "catalog:",
+        "react-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/test-support/render-tests": {
@@ -1008,6 +1033,8 @@
     "@kb/tx-log": ["@kb/tx-log@workspace:packages/infrastructure/tx-log"],
 
     "@kb/ui": ["@kb/ui@workspace:packages/app/ui"],
+
+    "@kb/ui-sdk": ["@kb/ui-sdk@workspace:packages/kit/ui-sdk"],
 
     "@kb/views": ["@kb/views@workspace:packages/domain/views"],
 

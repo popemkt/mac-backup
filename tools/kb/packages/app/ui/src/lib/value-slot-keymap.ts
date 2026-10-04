@@ -9,7 +9,7 @@
  * caret editor leaves them to the slot, a picker or the date editor keeps
  * them, because the same Enter, Escape and arrows move through its own list.
  */
-import { isPrintableKey, lookupChord, type Chord, type KeyChordEvent } from "@/lib/keychord";
+import { isPrintableKey, lookupChord, type Chord, type KeyChordEvent } from "@kb/ui-sdk";
 
 export type ValueSlotIntent =
   // ── at rest ──

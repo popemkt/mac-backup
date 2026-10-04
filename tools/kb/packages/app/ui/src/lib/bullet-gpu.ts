@@ -32,12 +32,12 @@ import {
   BULLET_SYS_OPACITY,
   bulletAppearance,
   bulletRingDash,
+  graphLabelFont,
   queryHandleStart,
   type BulletAppearance,
   type BulletPaint,
   type BulletShape,
-} from "@/lib/bullet-mode";
-import { graphLabelFont } from "@/lib/graph-label";
+} from "@kb/ui-sdk";
 
 /** What the page gives a drawn bullet: its colours and the glyph's face. */
 export interface BulletPage {

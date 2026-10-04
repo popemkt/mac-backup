@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import type { CanvasDoc } from "@kb/canvas";
-import type { OutlineNode } from "@/lib/types";
+import type { OutlineNode } from "@kb/ui-sdk";
 
 const { persistCanvasDoc } = vi.hoisted(() => ({
   persistCanvasDoc: vi

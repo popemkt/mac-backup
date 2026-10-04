@@ -1,6 +1,4 @@
-import type { RefInk } from "@/lib/md-edit";
-import { schemaOf } from "@/lib/schema";
-import { refInkOf } from "@/lib/tag-color";
+import { refInkOf, schemaOf, type RefInk } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 
 /**

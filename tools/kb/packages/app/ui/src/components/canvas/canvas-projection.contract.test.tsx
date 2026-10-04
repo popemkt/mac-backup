@@ -69,14 +69,13 @@ import {
 } from "./canvas-camera";
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasSelection } from "./canvas-selection";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { syncUiPlugins, TIMING_FALLBACK } from "@kb/ui-sdk";
 import { fakeCanvasContexts } from "@/test-support/fake-gpu";
 import type { CardLook } from "./canvas-card-face";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
 import { FIRST_GIZMO } from "./canvas-gizmo";
 import type * as ThreeWebGpu from "three/webgpu";
 import { browserHostUiPlugin } from "@/browser-host";
-import { syncUiPlugins } from "@/lib/plugins";
 
 // The canvas reaches the shell through the page's host, as when the app boots.
 beforeAll(() => syncUiPlugins([browserHostUiPlugin]));

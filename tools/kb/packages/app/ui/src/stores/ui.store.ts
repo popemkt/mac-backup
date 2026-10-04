@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { WsStatus } from "@/api/ws";
-import { setToastSink } from "@/lib/toast";
+import { setToastSink } from "@kb/ui-sdk";
 
 export interface Toast {
   id: number;

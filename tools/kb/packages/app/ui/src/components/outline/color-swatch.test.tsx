@@ -1,16 +1,20 @@
 /**
  * i10 item 4 — color swatch field editor for sys.f.color on tag node pages.
  */
-import type { KbIndex } from "@/ds";
-import { fieldContextOf, type FieldContext } from "@/lib/schema";
+import {
+  fieldContextOf,
+  SYSTEM_IDS,
+  TAG_PALETTE,
+  type FieldContext,
+  type KbIndex,
+  type NodeMap,
+} from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { fieldTypeOf } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ColorSwatchEditor } from "./field-value";
 import { ValueSlot } from "./value-slot";
-import { SYSTEM_IDS, type NodeMap } from "@/lib/types";
-import { TAG_PALETTE } from "@/lib/tag-color";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

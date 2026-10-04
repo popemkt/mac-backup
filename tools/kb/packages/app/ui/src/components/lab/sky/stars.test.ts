@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { float } from "three/tsl";
 import { colorUniform } from "@/scene/gpu/tsl";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import type { LabGraph } from "@/components/lab/lab-graph";
 import { Entrance } from "@/components/lab/kit/entrance";
 import { NodeStars, stepConstellation } from "./stars";

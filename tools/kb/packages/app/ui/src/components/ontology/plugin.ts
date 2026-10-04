@@ -8,13 +8,7 @@ import {
   OntologySurface,
 } from "@/components/ontology/surfaces";
 import { ONTOLOGY_NAMESPACE, OntologyListView, OntologyScopeView } from "@kb/views";
-import {
-  RoutePoint,
-  SidebarSectionPoint,
-  ViewPoint,
-  provideRoute,
-  provideView,
-} from "@/lib/plugins";
+import { provideRoute, provideView, RoutePoint, SidebarSectionPoint, ViewPoint } from "@kb/ui-sdk";
 
 /** Ontologies: the list, one ontology's scope in three views, their routes, and the section. */
 export const ontologyUiPlugin = definePlugin({

@@ -1,4 +1,10 @@
-import type { Appearance } from "@/lib/theme";
+import {
+  graphLabelFont,
+  readTokenColor,
+  type Appearance,
+  type LensEdge,
+  type LensTreeNode,
+} from "@kb/ui-sdk";
 import {
   useCallback,
   useEffect,
@@ -8,9 +14,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type { LensTreeNode, LensEdge } from "@/lib/graph-lens";
-import { readTokenColor } from "@/lib/css-color";
-import { graphLabelFont } from "@/lib/graph-label";
 import {
   graphEmphasisAlpha,
   graphFocus,

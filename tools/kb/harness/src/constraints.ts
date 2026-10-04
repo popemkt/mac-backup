@@ -27,6 +27,10 @@
  * place the set of layers is written down.
  * `application/` owns infrastructure-free use cases; `app/` owns composition
  * roots and delivery surfaces that wire the lower layers together.
+ * `kit/` holds the browser host libraries a plugin builds against
+ * (`@kb/ui-sdk`, the scene kit): neither a port adapter nor a use case, they
+ * stand on the domain and the contracts, one kit may stand on another, and
+ * only extensions and composition roots build on them.
  * - There is no `scope:extension` row: no package carries it, and a row
  *   nothing reads is worse than no row.
  */
@@ -35,10 +39,11 @@ export const LAYER_ALLOWS: Record<string, readonly string[]> = {
   contract: ["domain", "contract"],
   infrastructure: ["domain", "contract"],
   application: ["domain", "contract"],
+  kit: ["domain", "contract", "kit"],
   // Of its own family only: familyEdgeViolation.
-  extension: ["domain", "contract", "application", "extension"],
+  extension: ["domain", "contract", "application", "kit", "extension"],
   // From a composition root only: EXTENSION_ROOTS.
-  app: ["domain", "contract", "infrastructure", "application", "extension", "app"],
+  app: ["domain", "contract", "infrastructure", "application", "kit", "extension", "app"],
   "test-support": ["domain", "app"],
 };
 
@@ -443,7 +448,6 @@ const UI_SURFACES: readonly UiSurface[] = [
 export type UiZone =
   | "shell"
   | "primitives"
-  | "ds"
   | "lib"
   | "api"
   | "actions"
@@ -451,7 +455,6 @@ export type UiZone =
   | "stores"
   | "fixtures"
   | "scene"
-  | "sdk"
   | "test-support"
   | "catalog"
   | "sandbox"
@@ -465,11 +468,7 @@ export type UiZone =
  * second file of the same component lands in the same zone as its subject.
  */
 const UI_PRIMITIVES: readonly string[] = [
-  "components/view-error-boundary",
   "components/ui/",
-  "components/outline/tag-chip",
-  "components/outline/bullet",
-  "components/outline/node-row",
   "components/outline/field-row",
   "components/outline/field-value",
   "components/outline/value-slot",
@@ -511,13 +510,13 @@ export function uiZoneOf(file: string): UiZone {
 
 /**
  * The row of a zone that leaves `@kb/ui` as an extension's UI half
- * (DESIGN-UI.md → Extension UI halves): itself, the `sdk` zone, and only the
- * extras it names (the scene kit, for 3D). What such a zone uses of the shell
- * is therefore listed once, in the sdk's barrel. The row is deleted when its
- * package leaves.
+ * (DESIGN-UI.md → Extension UI halves): itself, and only the extras it names
+ * (the scene kit, for 3D). Everything else it uses of the shell comes from
+ * `@kb/ui-sdk`, a package edge and not a zone, so it is listed once, in that
+ * package's barrel. The row is deleted when its package leaves.
  */
 function extensionRow(self: UiZone, ...extras: readonly UiZone[]): readonly UiZone[] {
-  return [self, "sdk", ...extras];
+  return [self, ...extras];
 }
 
 /**
@@ -550,7 +549,6 @@ function extensionRow(self: UiZone, ...extras: readonly UiZone[]): readonly UiZo
 export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   shell: [
     "shell",
-    "sdk",
     "primitives",
     "components/agent",
     "components/canvas",
@@ -569,25 +567,18 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "session",
     "api",
     "lib",
-    "ds",
   ],
-  ds: ["ds"],
-  lib: ["lib", "api", "actions", "session", "ds"],
-  api: ["lib", "api", "actions", "session", "ds"],
-  actions: ["lib", "api", "actions", "session", "ds"],
-  session: ["lib", "api", "actions", "session", "ds"],
-  stores: ["stores", "lib", "api", "session", "ds"],
+  lib: ["lib", "api", "actions", "session"],
+  api: ["lib", "api", "actions", "session"],
+  actions: ["lib", "api", "actions", "session"],
+  session: ["lib", "api", "actions", "session"],
+  stores: ["stores", "lib", "api", "session"],
   fixtures: ["fixtures", "lib"],
-  // The host API a feature's UI builds against, the future `@kb/ui-sdk`. Its
-  // barrel names primitives, `lib` helpers and `ds` row shapes whose code
-  // still lives there; it never names a store, and the shell's state reaches
-  // a feature only through `BrowserHost`. GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]
-  sdk: ["sdk", "primitives", "lib", "ds"],
   // The scene kit: the GPU stage, post chain, palette roles, light rig and
   // starfield every real-time 3D view stands on — the lab's studies and the
   // 3D graph alike — so neither surface owns a copy. Mechanism only: it reads
-  // tokens and timing from `lib` and knows no surface.
-  scene: ["scene", "lib"],
+  // tokens and timing from `@kb/ui-sdk` and knows no surface.
+  scene: ["scene"],
   // Test helpers: imported only by test files, which the surface rows exempt,
   // so no row names it. It reaches what it stands in for — the store
   // `resetOutlineStore` resets, and the `api/ws` port `FakeWsSocket` doubles.
@@ -635,13 +626,14 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
 };
 
 /**
- * The one bare-specifier rule inside the UI: `ds/` is the single `@kb/query`
- * seam, so a second DataScript entry point is a boundary breach rather than a
- * package edge. Every other `@kb/*` and third-party specifier belongs to the
- * package matrix above, not to this one.
+ * The one bare-specifier rule inside the UI: `@kb/ui-sdk`'s query module is
+ * the page's single `@kb/query` seam, so no zone of `@kb/ui` may import
+ * `@kb/query` itself — a second DataScript entry point is a boundary breach
+ * rather than a package edge. Every other `@kb/*` and third-party specifier
+ * belongs to the package matrix above, not to this one.
  */
 export const UI_SPECIFIER_ALLOWS: Record<string, readonly UiZone[]> = {
-  "@kb/query": ["ds"],
+  "@kb/query": [],
 };
 
 /**

@@ -7,9 +7,9 @@
 import { definePlugin } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { proposeView } from "@/lib/propose-view";
-import { schemaOf } from "@/lib/schema";
+import { subscribeLiveQueryNode } from "@/lib/query-node";
+import { BrowserHostService, schemaOf, type BrowserHost } from "@kb/ui-sdk";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
-import { BrowserHostService, type BrowserHost } from "@/sdk/host";
 import { invoke } from "@/session/runtime";
 import { followFrom } from "@/stores/follow";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -44,6 +44,7 @@ const host: BrowserHost = {
   index: () => useOutlineStore.getState().index,
   wireNodes: () => useOutlineStore.getState().wireNodes,
   live: () => useUiStore.getState().wsStatus === "open",
+  subscribeQuery: subscribeLiveQueryNode,
   appearance: () => appearanceIn(usePrefsStore.getState()),
   theme: () => usePrefsStore.getState().theme,
   prefsOpen: () => useUiStore.getState().prefsOpen,

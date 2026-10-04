@@ -10,7 +10,7 @@ import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals
 const invoke = vi.fn();
 vi.mock("@/session/runtime", () => ({ invoke: (id: string, input: unknown) => invoke(id, input) }));
 
-const { getPath, navigate } = await import("@/lib/router");
+const { getPath, navigate } = await import("@kb/ui-sdk");
 const { startWorkspace, useWorkspaceStore, WORKSPACE_STORAGE_KEY } =
   await import("@/stores/workspace.store");
 const { useOutlineStore } = await import("@/stores/outline.store");

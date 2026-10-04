@@ -8,16 +8,21 @@ import {
   typeRefsOf,
   wouldCreateExtendsCycle,
 } from "@kb/model";
-import { hasText, textOr } from "@/lib/text";
+import {
+  cn,
+  hasText,
+  navigate,
+  NotFound,
+  SYSTEM_IDS,
+  tagChipColors,
+  tagColorOf,
+  tagPalette,
+  textOr,
+} from "@kb/ui-sdk";
 import { mutations } from "@/actions/mutations";
 import { MemberRow } from "@/components/ontology/member-row";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
-import { cn } from "@/lib/cn";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
-import { NotFound } from "@/components/ui/not-found";
-import { navigate } from "@/lib/router";
-import { tagChipColors, tagColorOf, tagPalette } from "@/lib/tag-color";
-import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
 export interface OntologyPageProps {

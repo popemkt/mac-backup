@@ -1,8 +1,13 @@
 import { useMemo } from "react";
-import { cn } from "@/lib/cn";
-import { asInstance, sidebarRegionProps } from "@/lib/dom";
-import { SidebarSectionPoint, useContributions, useRoute } from "@/lib/plugins";
-import { useNarrowViewport } from "@/lib/viewport";
+import {
+  asInstance,
+  cn,
+  sidebarRegionProps,
+  SidebarSectionPoint,
+  useContributions,
+  useNarrowViewport,
+  useRoute,
+} from "@kb/ui-sdk";
 import { useSidebarToggle } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 

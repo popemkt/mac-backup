@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import { Result } from "effect";
 import { ChartView, type ChartSpec } from "@kb/chart";
 import { issueText, paramsIssues } from "@kb/views";
-import { cn } from "@/sdk";
+import { cn } from "@kb/ui-sdk";
 
 /** The spec as a person reads it: indented JSON. */
 function specText(spec: ChartSpec): string {

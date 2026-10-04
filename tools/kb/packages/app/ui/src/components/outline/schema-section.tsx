@@ -8,11 +8,8 @@ import {
   schemaZoomKind,
   type SchemaHit,
 } from "@/lib/schema-zoom";
-import { MdView } from "@/components/ui/md-view";
-import { Bullet } from "./bullet";
-import { NodeRow } from "./node-row";
+import { Bullet, MdView, NodeRow, TagChipGroup } from "@kb/ui-sdk";
 import { TagFieldsConfig } from "./tag-fields-config";
-import { TagChipGroup } from "./tag-chip";
 
 /**
  * When zoomed into a tag or field definition, show live schema instances

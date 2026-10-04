@@ -19,9 +19,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { Window } from "happy-dom";
 import { LAB_STUDIES } from "@/components/lab/studies";
 import type { LabSceneInit } from "@/components/lab/kit/contract";
-import type { LensEdge, LensNode } from "@/lib/graph-lens";
+import { TIMING_FALLBACK, type LensEdge, type LensNode } from "@kb/ui-sdk";
 import { LENS_THEMES } from "@kb/views";
-import { TIMING_FALLBACK } from "@/lib/timing";
 import type { SceneHandle } from "@/scene/host";
 import type { ScenePalette } from "@/scene/palette";
 import { fakeCanvasContexts, gpu, renders, type FakeRenderer } from "@/test-support/fake-gpu";

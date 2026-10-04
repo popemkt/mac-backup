@@ -9,16 +9,21 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
-import { fieldContextOf } from "@/lib/schema";
-import { SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
-import { fieldTypeValue } from "@/lib/field-type";
+import {
+  DatascriptIndex,
+  fieldContextOf,
+  fieldTypeValue,
+  SYSTEM_IDS,
+  TAG_PALETTE,
+  wireToOutlineMap,
+  type FollowHow,
+  type FollowTarget,
+  type NodeMap,
+  type PropValue,
+} from "@kb/ui-sdk";
 import { FieldValueStack } from "./fields-section";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WireNode } from "@kb/contracts";
-import { DatascriptIndex } from "@/ds";
-import { wireToOutlineMap } from "@/lib/graph-view";
-import { TAG_PALETTE } from "@/lib/tag-color";
-import type { FollowHow, FollowTarget } from "@/lib/follow";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { formatNumber, numberEditText } from "@/lib/number-format";
 import { ValueSlot } from "./value-slot";

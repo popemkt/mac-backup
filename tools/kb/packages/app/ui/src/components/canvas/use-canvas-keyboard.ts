@@ -39,7 +39,7 @@ import {
 } from "./canvas-tool";
 import type { CanvasViewportControls } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
-import { isTextEntry } from "@/sdk";
+import { isTextEntry } from "@kb/ui-sdk";
 
 /**
  * The canvas keyboard surface: `components/canvas/canvas-keymap` decides *what* a chord

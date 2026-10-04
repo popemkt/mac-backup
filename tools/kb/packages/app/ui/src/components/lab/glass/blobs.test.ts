@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { BLOB_BOUNDS, BLOB_COUNT, BlobField, shortestPeriod } from "./blobs";
 
 describe("the glass blobs", () => {

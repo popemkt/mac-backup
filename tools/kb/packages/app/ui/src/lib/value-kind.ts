@@ -10,7 +10,13 @@
  * Pure on purpose: no React, no DOM. The components that draw each kind are
  * keyed by the same union in `components/outline/field-value.tsx`.
  */
-import type { FieldType } from "@/lib/field-type";
+import {
+  nodeTarget,
+  SYSTEM_IDS,
+  type FieldType,
+  type FollowTarget,
+  type PropValue,
+} from "@kb/ui-sdk";
 import {
   declaresOptionSet,
   normalizeUrl,
@@ -18,10 +24,8 @@ import {
   type NodeLike,
   type ParsedValue,
 } from "@kb/model";
-import { nodeTarget, type FollowTarget } from "@/lib/follow";
 import { numberEditText, numberSeparators } from "@/lib/number-format";
 import { todayLocal } from "@/lib/date-display";
-import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 
 /**
  * The kinds of value slot. A declared type names one; a field may name its

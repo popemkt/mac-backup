@@ -10,7 +10,7 @@
  * Values live in one Float32Array in the renderer's own node order, so a
  * frame's step allocates nothing (P3).
  */
-import { easeAt, type Timing } from "@/lib/timing";
+import { easeAt, type Timing } from "@kb/ui-sdk";
 
 /**
  * How far a node must have arrived before its label shows, in every renderer:

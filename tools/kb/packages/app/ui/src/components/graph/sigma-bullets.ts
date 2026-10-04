@@ -20,7 +20,7 @@
 import { NodeProgram, type ProgramInfo } from "sigma/rendering";
 import type { NodeDisplayData, RenderParams } from "sigma/types";
 import { floatColor } from "sigma/utils";
-import { BULLET_GEOMETRY, bulletExtent, type BulletAppearance } from "@/lib/bullet-mode";
+import { BULLET_GEOMETRY, bulletExtent, type BulletAppearance } from "@kb/ui-sdk";
 import {
   BULLET_MARKS,
   BULLET_TABLE_COLUMNS,

@@ -11,16 +11,16 @@ import { BracketsCurlyIcon, ChartBarIcon } from "@phosphor-icons/react";
 import { CHART_IDS, ChartView, type ChartParams, type ChartSpec } from "@kb/chart";
 import { viewNodeFor } from "@kb/views";
 import {
-  IconButton,
-  WorkspaceState,
   browserHost,
+  IconButton,
   nodePath,
   toast,
   useAppearance,
   useNode,
   usePane,
+  WorkspaceState,
   type ViewProps,
-} from "@/sdk";
+} from "@kb/ui-sdk";
 import { useChartData, type ChartData } from "./chart-data";
 import { SpecEditor } from "./spec-editor";
 

@@ -3,12 +3,12 @@ import { createPortal } from "react-dom";
 import { SYSTEM_IDS, typeRefsOf } from "@kb/model";
 import {
   isSysPrefixed,
-  type PickerCandidate,
   PickerList,
   pickerRows,
   useNodes,
   usePickerKeys,
-} from "@/sdk";
+  type PickerCandidate,
+} from "@kb/ui-sdk";
 
 interface NodePickerProps {
   onPick: (nodeId: string) => void;

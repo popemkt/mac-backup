@@ -5,7 +5,7 @@
  */
 import { useId, useState } from "react";
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
-import { EnumSelect } from "@/sdk";
+import { EnumSelect } from "@kb/ui-sdk";
 import type {
   LabControl,
   LabControlValue,

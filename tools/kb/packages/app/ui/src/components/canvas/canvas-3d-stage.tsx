@@ -14,7 +14,7 @@ import type { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import type { CanvasSelection } from "./canvas-selection";
 import { NO_GIZMO, type GizmoChoice } from "./canvas-gizmo";
-import { type Appearance, type OutlineNode, readTiming, useReducedMotion } from "@/sdk";
+import { readTiming, useReducedMotion, type Appearance, type OutlineNode } from "@kb/ui-sdk";
 import { attachScene } from "@/scene/host";
 import { readScenePalette } from "@/scene/palette";
 import { readCardLook } from "./canvas-card-face";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { CanvasNode } from "@kb/canvas";
-import type { OutlineNode } from "@/lib/types";
+import type { OutlineNode } from "@kb/ui-sdk";
 import { cardFaceOf, over, type CardLook } from "./canvas-card-face";
 import { isPicture, type FacePicture } from "./canvas-face-pictures";
 

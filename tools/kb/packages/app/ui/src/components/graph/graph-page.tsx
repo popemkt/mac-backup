@@ -7,26 +7,28 @@ import { usePrefsStore, useAppearance, useSidebarToggle } from "@/stores/prefs.s
 import { useUiStore } from "@/stores/ui.store";
 import {
   buildTreeForest,
+  cn,
   extractLensGraph,
+  graphPath,
+  hasText,
   lensReport,
   listPerspectiveNodes,
+  navigate,
+  ontologyPath,
   parsePerspective,
   resolvePerspective,
-} from "@/lib/graph-lens";
-import { hasText } from "@/lib/text";
+  SidebarToggle,
+  ThemeIcon,
+  ViewSlot,
+  WorkspaceState,
+} from "@kb/ui-sdk";
 import { listOntologyItems } from "@/lib/ontology-scope";
-import { cn } from "@/lib/cn";
-import { graphPath, navigate, ontologyPath } from "@/lib/router";
 import { OntologyPicker } from "@/components/ui/ontology-picker";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
 import { GraphCanvasFrame } from "@/components/graph/graph-canvas-frame";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "@/components/graph/graph-selection";
-import { SidebarToggle } from "@/components/ui/sidebar-toggle";
-import { ThemeIcon } from "@/components/ui/theme-icon";
-import { WorkspaceState } from "@/components/ui/workspace-state";
-import { ViewSlot } from "@/components/ui/view-slot";
 import {
   DEFAULT_RENDERER,
   type LensPerspective,

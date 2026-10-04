@@ -1,15 +1,23 @@
 import { useMemo, useRef, useState } from "react";
 import { declaresOptionSet } from "@kb/model";
-import { cn } from "@/lib/cn";
-import { KB_TEXT_CLASS } from "@/lib/md-inline";
-import { orderCandidates, pickerRows, type PickerRow } from "@/lib/picker";
+import {
+  cn,
+  KB_TEXT_CLASS,
+  nodeCandidates,
+  orderCandidates,
+  PickerList,
+  pickerRows,
+  refCreationOf,
+  refSearchOf,
+  refUses,
+  textOr,
+  usePickerKeys,
+  type FieldContext,
+  type PickerRow,
+  type PropValue,
+  type RefCreation,
+} from "@kb/ui-sdk";
 import { notePick, recentPicks } from "@/lib/picker-recency";
-import { nodeCandidates, refCreationOf, refSearchOf, refUses, type RefCreation } from "@/lib/refs";
-import type { FieldContext } from "@/lib/schema";
-import { textOr } from "@/lib/text";
-import type { PropValue } from "@/lib/types";
-import { usePickerKeys } from "@/lib/use-picker";
-import { PickerList } from "@/components/ui/picker-list";
 
 const inputClass = cn(
   "w-full flex-1 rounded-sm border-none bg-transparent px-1 outline-none",

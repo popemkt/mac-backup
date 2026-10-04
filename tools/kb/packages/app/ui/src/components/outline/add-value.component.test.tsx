@@ -11,9 +11,7 @@ import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { setCaretSerializedOffset } from "@/lib/md-edit";
-import { fieldContextOf } from "@/lib/schema";
-import { SYSTEM_IDS } from "@/lib/types";
+import { fieldContextOf, setCaretSerializedOffset, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FieldValueStack } from "./fields-section";
 

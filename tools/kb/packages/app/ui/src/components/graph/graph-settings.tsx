@@ -2,7 +2,7 @@ import { GraphMappings } from "./graph-mappings";
 import { useEffect, useRef, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
-import { SYSTEM_IDS } from "@/lib/types";
+import { cn, isOutside, SYSTEM_IDS } from "@kb/ui-sdk";
 import { GRAPH_LINK_STYLE_VALUES, GRAPH_THEME_VALUES } from "@kb/model";
 import {
   LENS_LABEL_DENSITIES,
@@ -13,8 +13,6 @@ import {
 } from "@kb/views";
 import { linkStyleNote, settingDisabledReason } from "./graph-capabilities";
 import { useRenderer } from "./use-renderers";
-import { cn } from "@/lib/cn";
-import { isOutside } from "@/lib/dom";
 
 interface GraphSettingsProps {
   perspective: LensPerspective;

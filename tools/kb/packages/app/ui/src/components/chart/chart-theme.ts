@@ -5,7 +5,7 @@
  * (`readTokenColor`) and read again when the appearance changes, like every
  * renderer that copies token values out (DESIGN-UI.md → Design tokens).
  */
-import { graphLabelFont, readTokenColor } from "@/sdk";
+import { graphLabelFont, readTokenColor } from "@kb/ui-sdk";
 
 /** A type step's size in px, read from the design system (`--type-<step>`). */
 function typeStep(step: "label" | "meta" | "ui", fallback: number): number {

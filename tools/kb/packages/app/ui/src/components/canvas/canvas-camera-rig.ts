@@ -29,7 +29,7 @@ import {
   type ViewSize,
 } from "./canvas-camera";
 import { posesAgree } from "@kb/canvas";
-import { easeAt, type Timing } from "@/sdk";
+import { easeAt, type Timing } from "@kb/ui-sdk";
 
 interface Flight {
   readonly from: CanvasView;

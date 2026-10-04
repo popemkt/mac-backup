@@ -1,26 +1,25 @@
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
-import { describe, expect, it } from "vitest";
-import { DatascriptIndex } from "@/ds";
-import { fixtureGraph } from "@/api/fixture-graph";
-import { wireToOutlineMap } from "@/lib/graph-view";
-import { nodeCandidates } from "@/lib/refs";
 import {
   clearAllowedRefIdsCache,
+  DatascriptIndex,
   emptyValueForType,
   fieldTypeValue,
+  isSysPrefixed,
   isValueMismatch,
+  nodeCandidates,
   resolveAllowedRefIds,
   resolveAllowedRefIdsCached,
   resolveFieldType,
   resolveFieldTypeById,
-} from "@/lib/field-type";
-import {
+  schemaOf,
   SYSTEM_IDS,
+  wireToOutlineMap,
   WORKSPACE_ROOT_ID,
-  isSysPrefixed,
   type NodeMap,
   type OutlineNode,
-} from "@/lib/types";
+  type SchemaIndex,
+} from "@kb/ui-sdk";
+import { describe, expect, it } from "vitest";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { allowedRefIdsOf, present, typeRefsOf, type NodeLike } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { planAddFieldTargetTag, planSetFieldTargetQuery, planSetFieldType } from "@/actions/plan";

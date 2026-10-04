@@ -2,17 +2,21 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FunnelIcon, PlusIcon, TextTIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
-import { toast } from "@/lib/toast";
+import {
+  EnumSelect,
+  POPOVER_VALUE_CLASS,
+  PopoverShell,
+  schemaOf,
+  toast,
+  type EnumOption,
+} from "@kb/ui-sdk";
 import { getViewConfig } from "@/lib/view-config";
 import { serializeViewFilter, type ViewFilter } from "@kb/views";
-import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "@/components/ui/pref-field-row";
 import { useFrameViewNode } from "./use-frame-views";
 import { listFilterFieldOptions } from "./view-filter-fields";
-import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
-import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
 
 type FilterKind = "eq" | "text";
 

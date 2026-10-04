@@ -29,13 +29,7 @@ import {
   DEFAULT_THEME,
 } from "@kb/views";
 import { NeighbourhoodGraph } from "@/components/graph/neighbourhood-view";
-import {
-  RoutePoint,
-  SidebarSectionPoint,
-  ViewPoint,
-  provideRoute,
-  provideView,
-} from "@/lib/plugins";
+import { provideRoute, provideView, RoutePoint, SidebarSectionPoint, ViewPoint } from "@kb/ui-sdk";
 
 /**
  * The graph: its page, the route to it (whole column, no workspace header),

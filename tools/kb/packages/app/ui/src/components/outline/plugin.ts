@@ -20,14 +20,14 @@ import {
 } from "@kb/views";
 import { OutlineSnippet } from "@/components/outline/outline-snippet";
 import {
-  RoutePoint,
-  SidebarSectionPoint,
-  ViewPoint,
   provideRoute,
   provideView,
-} from "@/lib/plugins";
+  RoutePoint,
+  SidebarSectionPoint,
+  SYSTEM_IDS,
+  ViewPoint,
+} from "@kb/ui-sdk";
 import { ListBulletsIcon, SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
-import { SYSTEM_IDS } from "@/lib/types";
 import { provideFrameViews, withdrawFrameViews } from "@/stores/frame-views";
 import { readFrameViews } from "@/components/outline/use-frame-views";
 

@@ -1,12 +1,19 @@
-import type { Appearance } from "@/lib/theme";
-import { asInstance } from "@/lib/dom";
+import {
+  asInstance,
+  graphLabelFont,
+  prefersReducedMotion,
+  readTiming,
+  readTokenColor,
+  type Appearance,
+  type LensEdge,
+  type LensNode,
+} from "@kb/ui-sdk";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
 import { EdgeArrowProgram } from "sigma/rendering";
 import { EdgeCurvedArrowProgram } from "@sigma/edge-curve";
 import { createNodeBorderProgram } from "@sigma/node-border";
-import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import {
   DEFAULT_THEME,
   type LensLayout,
@@ -15,10 +22,6 @@ import {
   type LensTheme,
 } from "@kb/views";
 import { LINK_STYLES } from "@/lib/graph-link-styles";
-import { readTokenColor } from "@/lib/css-color";
-import { graphLabelFont } from "@/lib/graph-label";
-import { prefersReducedMotion } from "@/lib/motion";
-import { readTiming } from "@/lib/timing";
 import {
   graphEmphasisAlpha,
   graphFocus,

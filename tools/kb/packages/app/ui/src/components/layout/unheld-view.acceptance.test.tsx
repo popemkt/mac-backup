@@ -21,7 +21,7 @@ const { App } = await import("@/components/App");
 const { PaneSwitcher } = await import("@/components/layout/pane-switcher");
 const { setFetchGraphSnapshot } = await import("@/api/graph");
 const { setPostAction } = await import("@/api/action");
-const { navigate } = await import("@/lib/router");
+const { navigate } = await import("@kb/ui-sdk");
 const { pageCatalog } = await import("@/lib/view-catalog");
 
 const ISO = "2026-10-04T00:00:00.000Z";

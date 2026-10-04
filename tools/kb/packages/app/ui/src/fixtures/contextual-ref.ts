@@ -7,7 +7,7 @@
  * fixture that grows breaks tests that are about something else entirely.
  */
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS } from "@kb/ui-sdk";
 
 const ISO = "2026-08-08T05:00:00.000Z";
 

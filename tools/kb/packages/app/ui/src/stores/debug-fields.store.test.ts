@@ -8,7 +8,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { DEBUG_FIELDS_STORAGE_KEY } from "@/lib/types";
+import { DEBUG_FIELDS_STORAGE_KEY } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 
 const g = globalThis as Record<string, unknown>;

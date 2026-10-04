@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useMemo } from "react";
 import { isGraphShortcutTarget } from "@/lib/graph-interaction";
-import type { LensNode } from "@/lib/graph-lens";
+import { hasText, type LensNode } from "@kb/ui-sdk";
 import { GraphLegend } from "./graph-legend";
 import { GraphToolbar } from "./graph-toolbar";
 import { GraphCanvasError } from "./graph-canvas-error";
@@ -9,7 +9,6 @@ import { capabilitiesFor } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
 import type { LensPerspective, RendererKey } from "@kb/views";
-import { hasText } from "@/lib/text";
 
 /** Shared graph chrome. Renderers only own pixels and renderer-specific input;
  * the frame owns the discoverable vocabulary that surrounds every graph. */

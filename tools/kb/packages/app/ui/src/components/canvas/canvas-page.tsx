@@ -29,7 +29,7 @@ import {
   useIndex,
   useNodes,
   useSchema,
-} from "@/sdk";
+} from "@kb/ui-sdk";
 import { useCanvasProjection } from "./use-canvas-projection";
 import { CanvasOverlays } from "./canvas-overlays";
 import { CanvasStage } from "./canvas-stage";

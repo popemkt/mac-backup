@@ -9,7 +9,7 @@
  *
  * Pure arithmetic, no three: the scene reads `eye` and `look` after `step`.
  */
-import { springRate, stepSpring, type Spring } from "@/lib/timing";
+import { springRate, stepSpring, type Spring } from "@kb/ui-sdk";
 
 export interface Vec3 {
   x: number;

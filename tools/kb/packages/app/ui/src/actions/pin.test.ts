@@ -11,9 +11,8 @@ import { mutations } from "@/actions/mutations";
 import { REF_SEED_WIRES } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { listPinnedNavItems } from "@/lib/sidebar-nav";
-import { contextualTargetOf } from "@/lib/contextual-ref";
+import { contextualTargetOf, SYSTEM_IDS } from "@kb/ui-sdk";
 import { isPinned, pinnedRefIds } from "@/lib/pinned";
-import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 

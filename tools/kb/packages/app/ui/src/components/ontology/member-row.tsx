@@ -1,8 +1,6 @@
 import { ArrowUUpLeftIcon, PushPinIcon, PushPinSlashIcon, XIcon } from "@phosphor-icons/react";
 import { describeReason } from "@kb/model";
-import { cn } from "@/lib/cn";
-import { IconButton } from "@/components/ui/icon-button";
-import { MdView } from "@/components/ui/md-view";
+import { cn, IconButton, MdView } from "@kb/ui-sdk";
 import type { MemberRowModel } from "@/lib/ontology-scope";
 import { useFollow } from "@/stores/follow";
 import { useRefInk } from "@/stores/ref-ink";

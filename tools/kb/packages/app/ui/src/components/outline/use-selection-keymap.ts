@@ -1,6 +1,5 @@
 import { useEffect } from "react";
-import { shownNode } from "@/lib/contextual-ref";
-import { schemaOf } from "@/lib/schema";
+import { schemaOf, shownNode } from "@kb/ui-sdk";
 import { isEditableTarget, mapSelectionKey } from "@/lib/selection-keymap";
 import { useOutlineStore } from "@/stores/outline.store";
 import { fieldSlotCount } from "@/lib/value-slot-nav";

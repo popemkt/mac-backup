@@ -13,7 +13,7 @@ import type { GraphSnapshot } from "@kb/contracts";
 
 const { App } = await import("@/components/App");
 const { setFetchGraphSnapshot } = await import("@/api/graph");
-const { navigate } = await import("@/lib/router");
+const { navigate } = await import("@kb/ui-sdk");
 
 const ISO = "2026-09-24T00:00:00.000Z";
 

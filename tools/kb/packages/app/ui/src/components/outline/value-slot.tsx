@@ -1,9 +1,13 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import type { FieldContext } from "@/lib/schema";
-import type { PropValue } from "@/lib/types";
+import {
+  emptyValueForType,
+  routePointerClick,
+  type FieldContext,
+  type FieldType,
+  type Follow,
+  type PropValue,
+} from "@kb/ui-sdk";
 import type { ParsedValue } from "@kb/model";
-import { routePointerClick, type Follow } from "@/lib/follow";
-import { emptyValueForType, type FieldType } from "@/lib/field-type";
 import {
   EDITOR_MODES,
   toggledValue,

@@ -1,6 +1,5 @@
 import { WarningIcon } from "@phosphor-icons/react";
-import { cn } from "@/lib/cn";
-import { navigate, ontologyPath } from "@/lib/router";
+import { cn, navigate, ontologyPath } from "@kb/ui-sdk";
 import type { OntologyView } from "@kb/views";
 
 export interface OntologyScopeBarProps {

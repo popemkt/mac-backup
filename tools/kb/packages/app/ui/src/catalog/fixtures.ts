@@ -1,4 +1,4 @@
-import type { OutlineNode } from "@/lib/types";
+import type { OutlineNode } from "@kb/ui-sdk";
 
 /** Minimal outline node for Bullet / NodeRow stories. */
 export function stubOutlineNode(

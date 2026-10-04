@@ -13,7 +13,7 @@ import {
   type PaneReport,
   type PaneScreenPort,
   type PaneSelect,
-} from "@/lib/pane-screen";
+} from "@kb/ui-sdk";
 
 /** One pane's view: what it reports and how it selects. */
 interface PaneView {

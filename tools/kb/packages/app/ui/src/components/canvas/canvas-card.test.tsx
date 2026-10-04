@@ -10,9 +10,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import type { CanvasKbNode } from "@kb/canvas";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { browserHostUiPlugin } from "@/browser-host";
-import { canvasInstanceKey } from "@/lib/instance-key";
-import { syncUiPlugins } from "@/lib/plugins";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { canvasInstanceKey, syncUiPlugins, TIMING_FALLBACK } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";

@@ -9,7 +9,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { CanvasNode } from "@kb/canvas";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import { useFaceEditing } from "./use-face-editing";
 

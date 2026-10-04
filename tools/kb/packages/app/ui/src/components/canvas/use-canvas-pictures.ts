@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import type { CanvasDoc } from "@kb/canvas";
-import { logError } from "@/sdk";
+import { logError } from "@kb/ui-sdk";
 import { screenToPlane, type CanvasPoint } from "./canvas-camera";
 import { imageFilesOf, placePictures, type PictureWrite } from "./canvas-media";
 import type { CanvasSelection } from "./canvas-selection";

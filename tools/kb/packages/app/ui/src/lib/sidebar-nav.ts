@@ -3,11 +3,9 @@
  * No React; sidebar.tsx only wires these to navigate/zoom.
  */
 import type { WireNode } from "@kb/contracts";
-import type { KbIndex } from "@/ds";
-import { listPerspectiveNodes } from "@/lib/graph-lens";
+import { listPerspectiveNodes, type KbIndex, type NodeMap } from "@kb/ui-sdk";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { listPinnedNodes } from "@/lib/pinned";
-import type { NodeMap } from "@/lib/types";
 
 export interface SidebarNavItem {
   id: string;

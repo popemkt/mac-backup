@@ -1,15 +1,21 @@
-import { THEME_GLYPHS } from "@/lib/theme-glyphs";
+import {
+  cn,
+  DESIGN_SYSTEMS,
+  EnumSelect,
+  isOutside,
+  POPOVER_VALUE_CLASS,
+  PopoverShell,
+  THEME_GLYPHS,
+  type EnumOption,
+  type ExtensionSwitch,
+  type ThemePref,
+  type WidthPref,
+} from "@kb/ui-sdk";
 import { useEffect, useRef } from "react";
 import { ArrowsHorizontalIcon, PuzzlePieceIcon, SwatchesIcon } from "@phosphor-icons/react";
-import { cn } from "@/lib/cn";
-import { DESIGN_SYSTEMS } from "@/lib/theme";
-import { usePrefsStore, type ThemePref, type WidthPref } from "@/stores/prefs.store";
-import { isOutside } from "@/lib/dom";
-import type { ExtensionSwitch } from "@/lib/plugins";
+import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "@/components/ui/pref-field-row";
-import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
-import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
 
 const THEME_OPTIONS: readonly EnumOption<ThemePref>[] = [
   { value: "system", label: "system" },

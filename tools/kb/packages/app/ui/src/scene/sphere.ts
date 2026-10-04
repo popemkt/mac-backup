@@ -2,7 +2,7 @@
  * Places on a sphere around the viewer, as yaw and pitch, and a seeded hash
  * to scatter them: the sky's stars and every scene's starfield stand here.
  */
-import { djb2Hash } from "@/lib/tag-color";
+import { djb2Hash } from "@kb/ui-sdk";
 
 /**
  * A stable number in [0, 1) for a key. djb2 alone keeps near-identical keys

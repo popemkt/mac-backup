@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS } from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
 import { planSetGraphRenderer, planSetLensProp } from "./plan";
 

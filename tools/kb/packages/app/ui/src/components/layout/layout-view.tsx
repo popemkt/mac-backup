@@ -9,9 +9,7 @@
 import { lazy, Suspense, useState } from "react";
 import { ArrowsOutSimpleIcon } from "@phosphor-icons/react";
 import { layoutPanes, type LayoutPane, type LayoutParams, type LayoutTree } from "@kb/views";
-import { IconButton } from "@/components/ui/icon-button";
-import { usePane } from "@/lib/pane";
-import type { ViewProps } from "@/lib/plugins";
+import { IconButton, usePane, type ViewProps } from "@kb/ui-sdk";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { PaneFrame } from "./pane-frame";
 import { PaneMount } from "./pane-mount";

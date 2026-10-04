@@ -1,4 +1,4 @@
-import { hasText } from "@/sdk";
+import { hasText } from "@kb/ui-sdk";
 /**
  * JSON Canvas color presets ("1"–"6") → theme CSS custom properties
  * (`--canvas-color-N` on :root / .dark). Hex and other literals pass through.

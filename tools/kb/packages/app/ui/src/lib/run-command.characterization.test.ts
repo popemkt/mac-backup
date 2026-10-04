@@ -12,7 +12,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SYSTEM_IDS, defaultViewIdOf, viewOptionId, viewOptionOf } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -22,7 +22,6 @@ import { installDomGlobals } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { syncUiPlugins } from "@/lib/plugins";
 import { bundledSeed } from "@kb/bundled";
 
 // The outline runs as the app boots it: its frame views provided, and the

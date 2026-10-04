@@ -10,11 +10,16 @@ import { CaretDownIcon } from "@phosphor-icons/react";
 import { Predicate, Result } from "effect";
 import { canonicalJson, hostViewIds, viewOptionOf } from "@kb/model";
 import { LayoutView, NodeView, paramsFromProps, type ViewKey } from "@kb/views";
-import { useAnchoredPosition } from "@/components/ui/use-anchored-position";
-import { cn } from "@/lib/cn";
-import { RoutePoint, ViewPoint, matchRoute, useContributions } from "@/lib/plugins";
-import { nodePath } from "@/lib/router";
-import type { NodeMap } from "@/lib/types";
+import {
+  cn,
+  matchRoute,
+  nodePath,
+  RoutePoint,
+  useAnchoredPosition,
+  useContributions,
+  ViewPoint,
+  type NodeMap,
+} from "@kb/ui-sdk";
 import { usePageCatalog } from "@/lib/view-catalog";
 import { useOutlineStore } from "@/stores/outline.store";
 

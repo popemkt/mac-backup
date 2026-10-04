@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import type { LensEdge, LensNode } from "@/lib/graph-lens";
+import type { LensEdge, LensNode } from "@kb/ui-sdk";
 import {
   computeLayoutPositions,
   gridLayout,

@@ -9,7 +9,7 @@ import { Effect, Schema } from "effect";
 import type { ActionInvocation } from "@kb/contracts";
 import { CodeGrant, codeDigest } from "@kb/sandbox";
 import { canonicalJson } from "@kb/model";
-import { browserHost, type SandboxPorts } from "@/sdk";
+import { browserHost, type SandboxPorts } from "@kb/ui-sdk";
 
 /** What is known of a run's trust: its digest, and whether it is trusted here. */
 export interface CodeTrustState {

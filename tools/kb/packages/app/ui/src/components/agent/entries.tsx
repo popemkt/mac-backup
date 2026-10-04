@@ -8,7 +8,7 @@ import {
   WarningCircleIcon,
 } from "@phosphor-icons/react";
 import type { ToolEntry, TranscriptEntry } from "@kb/agent";
-import { MdView, cn, useFollow, useRefInk } from "@/sdk";
+import { cn, MdView, useFollow, useRefInk } from "@kb/ui-sdk";
 
 /** A value as the cards show it: JSON, two-space indented. */
 function shown(value: unknown): string {

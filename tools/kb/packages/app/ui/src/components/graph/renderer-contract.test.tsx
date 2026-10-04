@@ -23,12 +23,11 @@ import { Effect, Result } from "effect";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeKernel } from "@kb/plugin";
 import { EmphasisFade } from "@/lib/graph-fade";
-import { buildTreeForest, type LensEdge, type LensNode } from "@/lib/graph-lens";
+import { buildTreeForest, type Appearance, type LensEdge, type LensNode } from "@kb/ui-sdk";
 import { LENS_THEMES, type LensPerspective, type LensTheme } from "@kb/views";
-import type { Appearance } from "@/lib/theme";
 import type { Force3dScene } from "./force3d-scene";
 import type { GraphFrame } from "./graph-frame";
-import type * as CssColor from "@/lib/css-color";
+import type * as UiSdk from "@kb/ui-sdk";
 
 const probes = vi.hoisted(() => ({
   tokenReads: 0,
@@ -36,8 +35,9 @@ const probes = vi.hoisted(() => ({
   noop: () => {},
 }));
 
-vi.mock("@/lib/css-color", async (importOriginal) => {
-  const real = await importOriginal<typeof CssColor>();
+// Every token read goes through the kit's one reader, so counting it at the barrel counts them all.
+vi.mock("@kb/ui-sdk", async (importOriginal) => {
+  const real = await importOriginal<typeof UiSdk>();
   return {
     ...real,
     readTokenColor: (...args: Parameters<typeof real.readTokenColor>) => {
@@ -74,10 +74,10 @@ vi.mock("./force3d-scene", () => ({
 }));
 
 const { graphUiPlugin } = await import("./plugin");
-const { ViewSlot } = await import("@/components/ui/view-slot");
+const { ViewSlot } = await import("@kb/ui-sdk");
 const { GraphFrameContext } = await import("./graph-frame");
 const { TreemapView, isRendererKey } = await import("@kb/views");
-const { ViewPoint, familyViews, syncUiPlugins } = await import("@/lib/plugins");
+const { ViewPoint, familyViews, syncUiPlugins } = await import("@kb/ui-sdk");
 const { localIdOf, paramsFrom } = await import("@kb/views");
 const { setEmphasisTargets, topologyOf } = await import("./force3d-emphasis");
 

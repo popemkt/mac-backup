@@ -9,9 +9,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { BLOOM_THRESHOLD, NUMBER_OPS } from "@/scene/shade-ops";
-import { oklchToRgb } from "@/lib/css-color";
+import { DESIGN_SYSTEM_IDS, oklchToRgb, type DesignSystemId } from "@kb/ui-sdk";
 import { readDesignSystemSheets, type Variant } from "@/lib/design-system-sheets";
-import { DESIGN_SYSTEM_IDS, type DesignSystemId } from "@/lib/theme";
 import {
   HEAT_GAIN,
   RestCeiling,

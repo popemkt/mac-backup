@@ -10,13 +10,15 @@ import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { outlineInstanceKey } from "@/lib/instance-key";
-import { setCaretSerializedOffset } from "@/lib/md-edit";
-import { SYSTEM_IDS } from "@/lib/types";
+import {
+  outlineInstanceKey,
+  setCaretSerializedOffset,
+  syncUiPlugins,
+  SYSTEM_IDS,
+} from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { NodeBlock } from "./node-block";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { syncUiPlugins } from "@/lib/plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

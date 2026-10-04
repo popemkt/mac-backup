@@ -1,4 +1,4 @@
-import { isAssetPath, mediaKindFromHref } from "@/sdk";
+import { isAssetPath, mediaKindFromHref } from "@kb/ui-sdk";
 
 /**
  * The pictures image faces are painted with in 3D, decoded once per source

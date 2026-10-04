@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { BoxGeometry, type InstancedMesh } from "three/webgpu";
 import { colorUniform } from "@/scene/gpu/tsl";
-import type { LensNode } from "@/lib/graph-lens";
+import type { LensNode } from "@kb/ui-sdk";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { topologyOf } from "./force3d-emphasis";
 import { disposeGraph } from "@/scene/gpu/dispose";

@@ -9,7 +9,7 @@ import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { OntologyPage } from "./ontology-page";
 

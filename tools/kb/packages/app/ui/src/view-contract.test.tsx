@@ -18,19 +18,19 @@ import { Effect, Result, Schema } from "effect";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { definePlugin, makeKernel, type Plugin, type ContributionEntry } from "@kb/plugin";
 import { SYSTEM_IDS, VIEW_FAMILY_VALUES } from "@kb/model";
-import { ViewSlot } from "@/components/ui/view-slot";
-import { setPostAction } from "@/api/action";
-import { keptLoad } from "@/lib/kept-load";
 import {
-  ViewPoint,
   findView,
+  keptLoad,
+  MAX_VIEW_DEPTH,
   provideView,
   syncUiPlugins,
+  ViewPoint,
+  ViewSlot,
   type Placement,
-  type ViewProps,
   type ProvidedView,
-} from "@/lib/plugins";
-import { MAX_VIEW_DEPTH } from "@/lib/view-key";
+  type ViewProps,
+} from "@kb/ui-sdk";
+import { setPostAction } from "@/api/action";
 import { NoParams, localIdOf, viewCatalogOf, viewKey } from "@kb/views";
 import { ViewKeyPoint } from "@kb/contracts";
 import { pageCatalogOf } from "@/lib/view-catalog";

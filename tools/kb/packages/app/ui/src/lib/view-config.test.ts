@@ -1,8 +1,15 @@
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import {
+  familyViews,
+  schemaOf,
+  SYSTEM_IDS,
+  ViewPoint,
+  wireToOutlineMap,
+  type NodeMap,
+  type OutlineNode,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { SYSTEM_IDS } from "./types";
-import type { NodeMap, OutlineNode } from "./types";
 import {
   applyViewFilters,
   frameConfigOf,
@@ -25,10 +32,8 @@ import {
   OutlineListView,
   OutlineTableView,
 } from "@kb/views";
-import { ViewPoint, familyViews } from "@/lib/plugins";
 import type { WireNode } from "@kb/contracts";
 import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";
-import { wireToOutlineMap } from "@/lib/graph-view";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {

@@ -1,0 +1,40 @@
+{
+  "name": "@kb/ui-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
+    "@kb/query": "workspace:*",
+    "@kb/sandbox": "workspace:*",
+    "@kb/views": "workspace:*",
+    "@phosphor-icons/react": "catalog:",
+    "clsx": "catalog:",
+    "effect": "catalog:",
+    "react": "catalog:",
+    "tailwind-merge": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "happy-dom": "catalog:",
+    "react-dom": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:browser"
+    ]
+  }
+}

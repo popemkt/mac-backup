@@ -1,5 +1,5 @@
 import type { Settings } from "sigma/settings";
-import { fitGraphLabel } from "@/lib/graph-label";
+import { fitGraphLabel, readTokenColor } from "@kb/ui-sdk";
 import {
   GRAPH_LABEL_PAD,
   graphLabelText,
@@ -9,7 +9,6 @@ import {
   type GraphLabelStyle,
 } from "@/lib/graph-label-paint";
 import { DEFAULT_THEME } from "@kb/views";
-import { readTokenColor } from "@/lib/css-color";
 import { GRAPH_THEMES } from "./graph-themes";
 import {
   byLabelPriority,

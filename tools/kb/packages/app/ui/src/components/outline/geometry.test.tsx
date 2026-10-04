@@ -3,18 +3,23 @@
  * The One-Row Metric Invariant: every row state resolves to identical
  * indent / bullet-slot / content-padding geometry from the token source.
  */
-import type { KbIndex } from "@/ds";
-import { fieldContextOf, type FieldContext } from "@/lib/schema";
+import {
+  fieldContextOf,
+  NodeRow,
+  type FieldContext,
+  type KbIndex,
+  type NodeMap,
+  type PropValue,
+} from "@kb/ui-sdk";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { NodeRow } from "./node-row";
 import { FieldRow } from "./field-row";
 import { ValueSlot } from "./value-slot";
-import type { NodeMap, PropValue } from "@/lib/types";
+import { browserSource } from "@/test-support/browser-packages";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
@@ -27,12 +32,14 @@ function readOutlineSource(name: string): string {
   return readFileSync(path.join(outlineDir, name), "utf8");
 }
 
+const kitDir = browserSource("@kb/ui-sdk");
+
 function readIndentOwner(): string {
-  return readFileSync(path.join(outlineDir, "../../lib/indent.ts"), "utf8");
+  return readFileSync(path.join(kitDir, "lib/indent.ts"), "utf8");
 }
 
 function readPrimitiveSource(name: string): string {
-  return readFileSync(path.join(outlineDir, "../ui", name), "utf8");
+  return readFileSync(path.join(kitDir, "components", name), "utf8");
 }
 
 /** The indent step at reference density, read from the token sheet the UI actually ships. */
@@ -75,7 +82,7 @@ describe("One-Row Metric Invariant (§5.2)", () => {
   });
 
   it("bullet slot is the fixed 24px hit area", () => {
-    expect(readOutlineSource("bullet.tsx")).toContain("h-6 w-6");
+    expect(readPrimitiveSource("bullet.tsx")).toContain("h-6 w-6");
     // The gutter strip lines up with that hit area from the indent owner.
     expect(readOutlineSource("node-block.tsx")).toMatch(/guideLineStyle\(depth\)/);
     expect(readIndentOwner()).toMatch(/\+ 2px/);
@@ -178,8 +185,11 @@ describe("Row decorations start at the indent, not the container edge", () => {
   });
 
   it("every indented surface reads the one indent owner", () => {
-    for (const name of ["node-row.tsx", "field-row.tsx", "node-block.tsx", "query-results.tsx"]) {
-      expect(readOutlineSource(name)).toMatch(/from "@\/lib\/indent"/);
+    for (const name of ["field-row.tsx", "node-block.tsx", "query-results.tsx"]) {
+      expect(readOutlineSource(name)).toMatch(
+        /\b(?:indentStyle|guideLineStyle)\b[^;]*from "@kb\/ui-sdk"/,
+      );
     }
+    expect(readPrimitiveSource("node-row.tsx")).toMatch(/from "\.\.\/lib\/indent"/);
   });
 });

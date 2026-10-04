@@ -5,19 +5,22 @@ import { defaultViewIdOf, present, viewOptionOf } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { framedAs, viewFieldNodes } from "@/fixtures/view-fields";
-import { outlineInstanceKey } from "@/lib/instance-key";
-import { SYSTEM_IDS } from "@/lib/types";
+import {
+  fieldContextOf,
+  outlineInstanceKey,
+  schemaOf,
+  syncUiPlugins,
+  SYSTEM_IDS,
+} from "@kb/ui-sdk";
 import { frameConfigOf, getViewConfig } from "@/lib/view-config";
 import { OutlineListView, OutlineTableView, paramsFrom } from "@kb/views";
 import { Result } from "effect";
-import { fieldContextOf, schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import type { WireNode } from "@kb/contracts";
 import { TableView } from "./table-view";
 import { ViewToolbar } from "./view-toolbar";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { syncUiPlugins } from "@/lib/plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

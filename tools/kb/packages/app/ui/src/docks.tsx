@@ -5,9 +5,7 @@
  * and its window with it.
  */
 import { useMemo } from "react";
-import { DockPoint, useContributions, type Dock } from "@/lib/plugins";
-import { cn } from "@/lib/cn";
-import { useNarrowViewport } from "@/lib/viewport";
+import { cn, DockPoint, useContributions, useNarrowViewport, type Dock } from "@kb/ui-sdk";
 import { useUiStore } from "@/stores/ui.store";
 
 const DOCK_WIDTH_PX = 380;

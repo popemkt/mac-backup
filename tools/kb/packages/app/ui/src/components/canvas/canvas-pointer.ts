@@ -33,7 +33,7 @@ import {
   type TransformKey,
   type TransformMode,
 } from "./canvas-transform-input";
-import { pastSlop } from "@/sdk";
+import { pastSlop } from "@kb/ui-sdk";
 import {
   EMPTY_SELECTION,
   addNodes,

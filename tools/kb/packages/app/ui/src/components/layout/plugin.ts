@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
 import { LAYOUT_NAMESPACE, LayoutView, NodeView } from "@kb/views";
-import { RoutePoint, ViewPoint, provideRoute, provideView } from "@/lib/plugins";
+import { provideRoute, provideView, RoutePoint, ViewPoint } from "@kb/ui-sdk";
 import { LayoutViewSurface } from "./layout-view";
 import { NodeViewSurface } from "./node-view";
 import { matchNode } from "./routes";

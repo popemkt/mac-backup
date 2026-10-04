@@ -1,5 +1,5 @@
 import type { PlannedMutation } from "@/actions/plan";
-import { toast } from "@/lib/toast";
+import { toast } from "@kb/ui-sdk";
 import { invoke, invokeLocal } from "@/session/runtime";
 import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 

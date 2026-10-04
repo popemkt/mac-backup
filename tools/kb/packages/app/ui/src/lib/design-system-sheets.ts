@@ -9,7 +9,7 @@
  * copy of its values. The caller hands in the CSS text; nothing here touches
  * the file system.
  */
-import { DEFAULT_DESIGN_SYSTEM, DESIGN_SYSTEM_IDS, type DesignSystemId } from "./theme";
+import { DEFAULT_DESIGN_SYSTEM, DESIGN_SYSTEM_IDS, type DesignSystemId } from "@kb/ui-sdk";
 
 export type Decls = ReadonlyMap<string, string>;
 interface Block {

@@ -1,4 +1,4 @@
-import type { LensEdge } from "./graph-lens";
+import type { LensEdge } from "@kb/ui-sdk";
 import { graphNodeAlpha } from "./graph-dim";
 
 /** One meaning of search, filtering and the selected node's neighbourhood. */

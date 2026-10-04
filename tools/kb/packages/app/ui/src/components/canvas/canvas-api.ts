@@ -8,14 +8,14 @@
 import {
   browserHost,
   isSysPrefixed,
-  type KbIndex,
   logError,
-  type OutlineNode,
-  type PropValue,
   resolveAllowedRefIds,
   resolveFieldType,
+  type KbIndex,
+  type OutlineNode,
+  type PropValue,
   type SchemaIndex,
-} from "@/sdk";
+} from "@kb/ui-sdk";
 import { ulid } from "ulid";
 import {
   EMPTY_CANVAS_DOC,

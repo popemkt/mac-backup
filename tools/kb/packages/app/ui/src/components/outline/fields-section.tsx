@@ -2,19 +2,25 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { cardinalityOf } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
-import { cn } from "@/lib/cn";
-import { isValueMismatch, resolveFieldTypeById, type FieldType } from "@/lib/field-type";
-import { formatPropValue, resolveProps } from "@/lib/graph-view";
-import { isSysPrefixed, type PropValue } from "@/lib/types";
+import {
+  cn,
+  formatPropValue,
+  IconButton,
+  isSysPrefixed,
+  isValueMismatch,
+  resolveFieldTypeById,
+  resolveProps,
+  rowTextOf,
+  type FieldContext,
+  type FieldType,
+  type Follow,
+  type PropValue,
+} from "@kb/ui-sdk";
 import { useDebugFields } from "@/stores/debug-fields.store";
-import type { FieldContext } from "@/lib/schema";
 import { useGraphRead } from "@/stores/graph-read";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
-import { rowTextOf } from "@/lib/contextual-ref";
 import { arriveAt, slotAt } from "@/lib/value-slot-nav";
-import type { Follow } from "@/lib/follow";
-import { IconButton } from "@/components/ui/icon-button";
 import { FieldRow } from "./field-row";
 import { ValueSlot } from "./value-slot";
 import { FieldPicker, type FieldHandle } from "./field-picker";

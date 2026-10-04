@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
 import { listOntologyItems } from "@/lib/ontology-scope";
-import { navigate, ontologyPath } from "@/lib/router";
+import { navigate, ontologyPath } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 
 /**

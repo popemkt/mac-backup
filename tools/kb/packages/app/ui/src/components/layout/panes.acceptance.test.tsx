@@ -15,7 +15,7 @@ import { LayoutView, layoutPanes, type LayoutTree } from "@kb/views";
 
 const { App } = await import("@/components/App");
 const { setFetchGraphSnapshot } = await import("@/api/graph");
-const { getPath, navigate } = await import("@/lib/router");
+const { getPath, navigate } = await import("@kb/ui-sdk");
 const { useWorkspaceStore, WORKSPACE_STORAGE_KEY } = await import("@/stores/workspace.store");
 
 const ISO = "2026-10-03T00:00:00.000Z";

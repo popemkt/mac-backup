@@ -4,21 +4,11 @@
  * exactly what an agent could propose.
  */
 import { Predicate } from "effect";
-import type { ViewKey } from "@kb/views";
+import type { ProposedView, ViewProposal } from "@kb/ui-sdk";
 import { invoke } from "@/session/runtime";
 
-export interface ViewProposal {
-  readonly view: ViewKey<unknown>;
-  readonly params: Readonly<Record<string, unknown>>;
-  /** The node it is shown for, which names it among its views. */
-  readonly host?: string;
-  readonly text?: string;
-}
-
 /** The new view node's id, or the receipt's message when the proposal was refused. */
-export async function proposeView(
-  proposal: ViewProposal,
-): Promise<{ readonly id: string } | { readonly refused: string }> {
+export async function proposeView(proposal: ViewProposal): Promise<ProposedView> {
   const receipt = await invoke("view.propose", {
     view: proposal.view.id,
     params: proposal.params,

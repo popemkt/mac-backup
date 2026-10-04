@@ -8,7 +8,7 @@
  * unchanged — and each element keeps its own timer, so scrolling a second
  * element does not strand the first one's mark.
  */
-import { asInstance } from "@/lib/dom";
+import { asInstance } from "@kb/ui-sdk";
 
 const SCROLLING_ATTR = "data-scrolling";
 const SETTLE_MS = 1000;

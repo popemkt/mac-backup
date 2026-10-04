@@ -18,8 +18,7 @@
  * dropped on the next prefs write.
  */
 import { create } from "zustand";
-import { loadIdSet, saveIdSet } from "@/lib/graph-view";
-import { DEBUG_FIELDS_STORAGE_KEY } from "@/lib/types";
+import { DEBUG_FIELDS_STORAGE_KEY, loadIdSet, saveIdSet } from "@kb/ui-sdk";
 
 interface DebugFieldsState {
   /** Node ids currently revealing their debug field rows. */

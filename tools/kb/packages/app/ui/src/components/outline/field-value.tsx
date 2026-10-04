@@ -1,35 +1,42 @@
-import type { FieldContext } from "@/lib/schema";
-import type { OutlineNode, PropValue } from "@/lib/types";
-import { useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
-import { cn } from "@/lib/cn";
-import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import {
-  INLINE_TEXT_CLASSES,
-  KB_REF_ID_ATTR,
+  asInstance,
+  Bullet,
+  bulletClickIntent,
+  cn,
   getCaretSerializedOffset,
+  INLINE_TEXT_CLASSES,
+  InlineMarkdown,
+  KB_REF_ID_ATTR,
+  KB_TEXT_CLASS,
+  NodeRow,
+  nodeTarget,
+  offsetFromPoint,
+  OptionChip,
+  optionColorOf,
   readInlineInput,
+  refInkOf,
   renderInlineMarkdown,
   revealMarkupAtSelection,
   serializeEditable,
   setCaretSerializedOffset,
+  TAG_PALETTE,
+  TagChipGroup,
+  useRevealMarkup,
+  type FieldContext,
+  type Follow,
+  type FollowTarget,
+  type OutlineNode,
+  type PropValue,
   type RefInk,
-} from "@/lib/md-edit";
-import { offsetFromPoint } from "@/lib/caret";
-import { InlineMarkdown } from "@/components/ui/md-view";
-import { useRevealMarkup } from "@/components/ui/use-reveal-markup";
+} from "@kb/ui-sdk";
+import { useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { urlLabel } from "@/lib/url-label";
 import { formatNumber } from "@/lib/number-format";
 import { parseDateInput, parseDay, type ParsedValue } from "@kb/model";
 import { longDateLabel, relativeDateLabel } from "@/lib/date-display";
 import { DateEditor } from "@/components/ui/date-editor";
 import { CheckIcon, WarningIcon } from "@phosphor-icons/react";
-import { optionColorOf, refInkOf, TAG_PALETTE } from "@/lib/tag-color";
-import { asInstance } from "@/lib/dom";
-import { bulletClickIntent, nodeTarget, type Follow, type FollowTarget } from "@/lib/follow";
 import type { ValueKindSpec } from "@/lib/value-kind";
-import { Bullet } from "./bullet";
-import { NodeRow } from "./node-row";
-import { OptionChip, TagChipGroup } from "./tag-chip";
 import { FieldPicker, type FieldHandle } from "./field-picker";
 
 /**

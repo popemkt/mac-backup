@@ -10,10 +10,14 @@
  * here fails the build.
  */
 import { mutations } from "@/actions/mutations";
-import { rowTextOf } from "@/lib/contextual-ref";
-import { renderInlineMarkdown, serializeEditable, setCaretSerializedOffset } from "@/lib/md-edit";
-import { schemaOf } from "@/lib/schema";
-import { refInkOf } from "@/lib/tag-color";
+import {
+  refInkOf,
+  renderInlineMarkdown,
+  rowTextOf,
+  schemaOf,
+  serializeEditable,
+  setCaretSerializedOffset,
+} from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { enterFields } from "@/lib/value-slot-nav";
 import type { EditingIntent } from "./editing-keymap";

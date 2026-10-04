@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { NodeRow } from "@/components/outline/node-row";
+import { NodeRow } from "@kb/ui-sdk";
 
 const bullet = createElement("span", { "data-story": "bullet" }, "\u2022");
 

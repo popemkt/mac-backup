@@ -4,9 +4,13 @@
  * Kinds, roles and options → View nodes states what a neighbourhood is.
  */
 import type { WireNode } from "@kb/contracts";
-import type { KbIndex } from "@/ds";
-import { queryNeighbourhood } from "@/ds";
-import { extractLensGraph, lensConfig, type LensGraph } from "@/lib/graph-lens";
+import {
+  extractLensGraph,
+  lensConfig,
+  queryNeighbourhood,
+  type KbIndex,
+  type LensGraph,
+} from "@kb/ui-sdk";
 import type { EdgeKind, LensPerspective } from "@kb/views";
 
 /**

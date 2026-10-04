@@ -10,7 +10,7 @@ import {
 import { resolveCanvasColor } from "./canvas-color";
 import { classifyCardPointer } from "./card-pointer";
 import type { FaceLayout } from "./canvas-face";
-import { cn, hasText, textOr } from "@/sdk";
+import { cn, hasText, textOr } from "@kb/ui-sdk";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";

@@ -14,7 +14,7 @@
  * node. Where the pointer puts the node is the renderer's (`DragSurface`):
  * the 2D camera's inverse, or the plane through the node facing the 3D eye.
  */
-import { pastSlop } from "./pointer-slop";
+import { pastSlop } from "@kb/ui-sdk";
 
 /** Where a held node stands, in the layout's own coordinates (2D leaves `z` out). */
 export interface LayoutPoint {

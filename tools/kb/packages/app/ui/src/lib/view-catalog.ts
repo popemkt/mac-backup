@@ -17,9 +17,8 @@ import { useSyncExternalStore } from "react";
 import { ViewKeyPoint, type ViewDef } from "@kb/contracts";
 import type { Contribution } from "@kb/plugin";
 import { viewCatalogOf, type ViewCatalogEntry, type ViewCatalogOf } from "@kb/views";
-import { logWarn } from "@/lib/log";
+import { logWarn, pointReader, subscribeUiKernel } from "@kb/ui-sdk";
 import { servedManifest, subscribeManifest } from "@/lib/manifest";
-import { pointReader, subscribeUiKernel } from "@/lib/plugins";
 
 type PageCatalog = ViewCatalogOf<ViewDef<unknown>>;
 

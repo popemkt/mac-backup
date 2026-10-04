@@ -7,7 +7,7 @@ import { isQueryNode, present, queryDefOf } from "@kb/model";
 import { KbWsClient } from "@/api/ws";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { querySubscriptionId, resultNodeIds, subscribeQueryNode } from "@/lib/query-node";
-import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
+import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FakeWsSocket } from "@/test-support/ws";
 import type { WireNode } from "@kb/contracts";

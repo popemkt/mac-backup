@@ -1,7 +1,4 @@
-import type { SchemaIndex } from "@/lib/schema";
-import { queryBacklinks, type KbIndex } from "@/ds";
-import { rowText } from "@/lib/contextual-ref";
-import type { TagBadge } from "@/lib/types";
+import { queryBacklinks, rowText, type KbIndex, type SchemaIndex, type TagBadge } from "@kb/ui-sdk";
 
 export interface BacklinkRow {
   id: string;
@@ -12,7 +9,7 @@ export interface BacklinkRow {
 /**
  * Nodes that reference `nodeId`, resolved to rows ready to render.
  *
- * The query itself belongs to `ds/` — one owner for "what references X" — and
+ * The query itself belongs to the query seam (`@kb/ui-sdk`) — one owner for "what references X" — and
  * this is the layer above it that the References section consumes, so the seam
  * keeps one set of callers instead of gaining a component.
  *

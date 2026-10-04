@@ -45,7 +45,7 @@ import {
 } from "three/tsl";
 import type { PaletteUniforms } from "@/scene/gpu/stage";
 import type { ScenePalette } from "@/scene/palette";
-import { approach } from "@/lib/timing";
+import { approach } from "@kb/ui-sdk";
 import type { LinkStyleParts } from "@/lib/graph-link-styles";
 import { restingLink, type LinkTone } from "./graph-themes";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";

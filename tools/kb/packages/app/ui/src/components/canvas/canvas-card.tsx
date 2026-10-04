@@ -2,14 +2,14 @@ import { classifyCardPointer } from "./card-pointer";
 import {
   asInstance,
   browserHost,
-  canvasInstanceKey,
   Bullet,
+  canvasInstanceKey,
   cn,
   NodeRow,
   NodeTextHost,
   useIsActive,
   useNode,
-} from "@/sdk";
+} from "@kb/ui-sdk";
 import { useCallback, useEffect, useEffectEvent, useRef } from "react";
 import type { CanvasKbNode, CanvasTextNode } from "@kb/canvas";
 import { useNodeTextHostBinding } from "@/stores/node-text-host-binding"; // GAP [[01M41MHRD7MF4NP23EE294B69C]]

@@ -1,5 +1,5 @@
 import { flushSync } from "react-dom";
-import { prefersReducedMotion } from "@/lib/motion";
+import { prefersReducedMotion } from "@kb/ui-sdk";
 
 let active: ViewTransition | null = null;
 let revision = 0;

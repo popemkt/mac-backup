@@ -1,5 +1,4 @@
-import { MAIN_OUTLINE_HOST, hostOfInstance } from "@/lib/instance-key";
-import type { SlotChain } from "@/lib/view-key";
+import { hostOfInstance, MAIN_OUTLINE_HOST, type SlotChain } from "@kb/ui-sdk";
 
 /**
  * An outline on screen, as the keyboard walk needs it: the node it is rooted

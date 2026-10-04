@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CanvasFileNode } from "@kb/canvas";
-import { assetSrcUrl, cn } from "@/sdk";
+import { assetSrcUrl, cn } from "@kb/ui-sdk";
 import { classifyCardPointer } from "./card-pointer";
 import type { FaceLayout } from "./canvas-face";
 import { CanvasPorts } from "./canvas-ports";

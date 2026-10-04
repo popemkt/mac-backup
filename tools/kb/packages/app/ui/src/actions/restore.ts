@@ -7,7 +7,7 @@
 import type { WireNode } from "@kb/contracts";
 import { siblingSlots } from "@kb/model";
 import { findParentWire } from "@/lib/tx";
-import type { PropValue } from "@/lib/types";
+import type { PropValue } from "@kb/ui-sdk";
 
 function propEntries(node: WireNode): Array<{ field: string; value: PropValue }> {
   return Object.entries(node.props).flatMap(([field, values]) =>

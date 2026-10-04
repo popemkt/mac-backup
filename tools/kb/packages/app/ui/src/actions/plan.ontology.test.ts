@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS } from "@kb/ui-sdk";
 import {
   planDefineOntology,
   planOntologyAddExtends,

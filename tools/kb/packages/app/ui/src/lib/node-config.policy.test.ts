@@ -11,16 +11,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { VIEW_FAMILY_VALUES } from "@kb/model";
-import { parsePerspective } from "@/lib/graph-lens";
-import { SYSTEM_IDS, type PropValue } from "@/lib/types";
+import {
+  familyViews,
+  parsePerspective,
+  schemaOf,
+  SYSTEM_IDS,
+  ViewPoint,
+  wireToOutlineMap,
+  type PropValue,
+} from "@kb/ui-sdk";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { OutlineListView, isFrameViewKey } from "@kb/views";
-import { ViewPoint, familyViews } from "@/lib/plugins";
 import { frameViewOf, getViewConfig } from "@/lib/view-config";
-import { wireToOutlineMap } from "@/lib/graph-view";
-import { schemaOf } from "@/lib/schema";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {

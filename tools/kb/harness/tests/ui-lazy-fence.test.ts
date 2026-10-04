@@ -3,9 +3,9 @@ import { UI_ENTRY, UI_LAZY_DEPTH, UI_LAZY_ONLY, uiZoneOf } from "../src/constrai
 import { importsOf } from "../src/import-graph.ts";
 import {
   type UiImportSite,
+  bundleImportSites,
   lazyDepths,
   lazyFenceBreaches,
-  uiImportSites,
   uiImportSitesIn,
   uiSourceFiles,
 } from "../src/ui-imports.ts";
@@ -14,7 +14,9 @@ import {
  * The UI's lazy-chunk fence (`UI_LAZY_ONLY` and `UI_LAZY_DEPTH` in
  * constraints.ts): three loads only in a chunk of its own, so every path from
  * the entry to a three import crosses two dynamic `import()`s — the surface's
- * route chunk, then the 3D view's own.
+ * route chunk, then the 3D view's own. The walk follows a `@kb/<package>`
+ * import into every browser package the bundle compiles from source, so code
+ * that leaves `@kb/ui` stays fenced.
  *
  * It replaces three hand-kept boundary tests (the scene kit's, the lab's and
  * the graph's), each of which listed the files allowed to import three. The
@@ -43,7 +45,7 @@ function site(file: string, specifier: string, kind: UiImportSite["kind"], targe
 
 describe("ui-lazy-fence", () => {
   test("every path from the entry to a three import crosses two dynamic imports", () => {
-    const breaches = lazyFenceBreaches(uiImportSites());
+    const breaches = lazyFenceBreaches(bundleImportSites());
     expect(
       breaches,
       `three reached outside a chunk of its own (=> is a lazy edge):\n${breaches.join("\n")}`,
@@ -51,7 +53,7 @@ describe("ui-lazy-fence", () => {
   });
 
   test("the fence has something to hold: three is imported, and reached at depth", () => {
-    const sites = uiImportSites();
+    const sites = bundleImportSites();
     const importers = sites.filter((s) => s.kind === "eager" && UI_LAZY_ONLY.test(s.specifier));
     expect(importers.length).toBeGreaterThan(0);
     expect(uiSourceFiles()).toContain(UI_ENTRY);
@@ -117,6 +119,36 @@ describe("ui-lazy-fence", () => {
       site(host, "three/webgpu", "eager"),
       site("lib/b.ts", "three", "eager"),
     ];
+    expect(lazyFenceBreaches(fenced, entry)).toEqual([]);
+  });
+
+  test("the walk crosses into browser packages: the kit's barrel is reached from the entry", () => {
+    const depths = lazyDepths(bundleImportSites());
+    expect(depths.get("@kb/ui-sdk/src/index.ts")?.depth).toBe(0);
+  });
+
+  test("a package hop is a path like any other: a static chart stack behind it is a breach", () => {
+    const entry = "main.tsx";
+    const half = "@kb/chart-ui/src/index.ts";
+    const page = "@kb/chart-ui/src/chart-page.tsx";
+    const sites = [
+      site(entry, "@kb/chart-ui", "eager", half),
+      { file: half, specifier: "./chart-page", kind: "lazy", target: page },
+      { file: page, specifier: "@kb/chart-vega", kind: "eager", target: undefined },
+    ] as const;
+    expect(lazyFenceBreaches(sites, entry)).toEqual([
+      `main.tsx -> ${half} => ${page} -> @kb/chart-vega`,
+    ]);
+    const fenced = [
+      ...sites.slice(0, 2),
+      { file: page, specifier: "./chart-canvas", kind: "lazy", target: "@kb/chart-ui/src/c.tsx" },
+      {
+        file: "@kb/chart-ui/src/c.tsx",
+        specifier: "@kb/chart-vega",
+        kind: "eager",
+        target: undefined,
+      },
+    ] as const;
     expect(lazyFenceBreaches(fenced, entry)).toEqual([]);
   });
 

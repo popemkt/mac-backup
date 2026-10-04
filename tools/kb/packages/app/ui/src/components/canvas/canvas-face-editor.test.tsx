@@ -11,7 +11,7 @@ import type { CanvasNode, CanvasTextNode } from "@kb/canvas";
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import { CanvasFaceEditor } from "./canvas-face-editor";
 import { hasEditor } from "./canvas-face-overlay";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 
 const card: CanvasTextNode = {
   id: "c",

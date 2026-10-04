@@ -327,9 +327,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: canvas UI still lives in @kb/ui, not in a canvas browser plugin
 
 - **expected** — Canvas is three packages around one concept, one scope:* tag each, never one package with two entries. @kb/canvas (scope:shared, no dependencies) owns the JSON Canvas document. @kb/ext-canvas (scope:backend) is the backend plugin: ext.canvas.tx.apply plus the #canvas tag and sys.f.canvas field seeds, which leave @kb/model's systemSeedNodes because the system seed is core, not every view kb ships. A browser plugin package (scope:browser) contributes the canvas surfaces and sidebar section to the browser kernel. Both plugins depend on @kb/plugin and @kb/canvas, and neither names the other by a string literal.
-- **current** — The canvas UI is a built-in UI plugin in packages/app/ui/src/components/canvas, its former lib/canvas-* modules included; it reaches the shell only through the sdk zone (src/sdk) except one sanctioned store import (01M41MHRD7MF4NP23EE294B69C); sys.tag.canvas and sys.f.canvas are seeded by core; the UI calls the action by the string ext.canvas.tx.apply.
+- **current** — The canvas UI is a built-in UI plugin in packages/app/ui/src/components/canvas, its former lib/canvas-* modules included; it reaches the shell only through @kb/ui-sdk and the scene kit except one sanctioned store import (01M41MHRD7MF4NP23EE294B69C); sys.tag.canvas and sys.f.canvas are seeded by core; the UI calls the action by the string ext.canvas.tx.apply.
 - **impact** — An extension cannot own its UI, so canvas is only nominally an extension, and removing ext-canvas leaves a canvas UI with no backend.
-- **closes** — Make the sdk zone the @kb/ui-sdk package (plan step E11), then move components/canvas into a browser package @kb/canvas-ui built against it (E13); move the canvas keys, ids and seed into @kb/canvas's shared plugin (E9), not @kb/ext-canvas. The harness keeps one scope per package; no per-entry scope.
+- **closes** — Move components/canvas into a browser package @kb/canvas-ui built against @kb/ui-sdk (E13 of the extension-boundaries plan); move the canvas keys, ids and seed into @kb/canvas's shared plugin (E9b), not @kb/ext-canvas. The harness keeps one scope per package; no per-entry scope.
 - **node** — `01M39F3MR3HT2NR553FY8CRD6X`
 
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
@@ -761,27 +761,27 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: the browser session runtime is a second @kb/query entry point
 
-- **expected** — ds/ is the UI's one @kb/query seam — the rule UI_SPECIFIER_ALLOWS states — so everything that needs an index goes through it.
-- **current** — session/runtime.ts imports KbIndexService and KbIndex from @kb/query to build the browser store's index layer, and session/runtime.test.ts imports it to assert on that layer. Two import sites.
-- **impact** — There are two places that know how a DataScript index is constructed in the browser, which is the duplicate the ds/ seam was created to remove; a change to the index shape has to be made twice.
-- **closes** — Either ds/ exports the index layer the session runtime builds, or the seam moves to session/ and ds/ becomes its caller — one of the two, decided when the browser store's ownership settles.
+- **expected** — @kb/ui-sdk's query module is the page's one @kb/query seam, the rule UI_SPECIFIER_ALLOWS states, so everything in @kb/ui that needs an index goes through it.
+- **current** — session/runtime.ts imports KbIndexService and KbIndex from @kb/query to build the browser store's index layer, and session/runtime.test.ts imports it to assert on that layer; webmcp.ts imports KbIndex; and two tests that pin the page's queries on its fixture graph, lib/query-seam.test.ts and lib/schema-compat.test.ts, import @kb/query's constants and normalizer. Five import sites.
+- **impact** — There are two places that know how a DataScript index is constructed in the browser, which is the duplicate the query seam was created to remove; a change to the index shape has to be made twice.
+- **closes** — Either @kb/ui-sdk's query seam exports the index layer the session runtime builds and the query constants the page runs, or the seam moves to session/ and the kit's query module becomes its caller — one of the two, decided when the browser store's ownership settles.
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
 
 ### GAP: the canvas's node card edits text through the outline's store binding
 
-- **expected** — the canvas kb-node card edits a node's text in place through the sdk: a NodeTextHost binding built over BrowserHost (graph reads, caret hand-off, text-host registry and node palette as host reads and gestures), so the canvas zone names no store
-- **current** — packages/app/ui/src/components/canvas/canvas-card.tsx imports useNodeTextHostBinding from stores/node-text-host-binding, which reads the outline store through tracked graph reads, to drive the NodeTextHost primitive; the sdk has no equivalent, so this one import is a sanctioned UI_ALLOWS breach
+- **expected** — the canvas kb-node card edits a node's text in place through @kb/ui-sdk: a NodeTextHost binding built over BrowserHost (graph reads, caret hand-off, text-host registry and node palette as host reads and gestures), so the canvas zone names no store
+- **current** — packages/app/ui/src/components/canvas/canvas-card.tsx imports useNodeTextHostBinding from stores/node-text-host-binding, which reads the outline store through tracked graph reads, to drive @kb/ui-sdk's NodeTextHost primitive; the sdk has no equivalent, so this one import is a sanctioned UI_ALLOWS breach
 - **impact** — the canvas zone keeps one reach into the shell's stores, so @kb/canvas-ui cannot leave @kb/ui until it is replaced
-- **closes** — a NodeTextHost binding in the sdk over BrowserHost, designed with @kb/ui-sdk (plan step E11), then canvas-card uses it and the GAP marker goes
+- **closes** — a NodeTextHost binding in @kb/ui-sdk over BrowserHost, then canvas-card uses it and the GAP marker goes; it must land before the canvas leaves @kb/ui (E13 of the extension-boundaries plan)
 - **node** — `01M41MHRD7MF4NP23EE294B69C`
 
 ### GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not packages
 
 - **expected** — each is the browser package of its family, built against @kb/ui-sdk, and @kb/ui holds the shell and core views only
-- **current** — components/{chart,code,lab,agent} and src/agent.ts live in @kb/ui (reaching the shell through the sdk zone); @kb/ui depends on @kb/agent, @kb/chart, @kb/chart-vega, @kb/code and @kb/lab; ui-plugins.ts resolves each family's browser entry from these zones (the lab and the agent as import() chunks), not from a -ui package
+- **current** — components/{chart,code,lab,agent} and src/agent.ts live in @kb/ui, reaching the shell only through @kb/ui-sdk (and the scene kit, for the lab); @kb/ui depends on @kb/agent, @kb/chart, @kb/chart-vega, @kb/code and @kb/lab; ui-plugins.ts resolves each family's browser entry from these zones (the lab and the agent as import() chunks), not from a -ui package
 - **impact** — adding or removing a feature's UI edits @kb/ui, and the harness cannot pair a family with a -ui package in BROWSER_EXTENSIONS
-- **closes** — the sdk zone with restricted UI_ALLOWS rows, @kb/ui-sdk (01M3EZRFTS1W8SB97GFJAWD92X), then one -ui package per family; canvas is 01M39F3MR3HT2NR553FY8CRD6X
+- **closes** — one -ui package per family, built against @kb/ui-sdk (E12 of the extension-boundaries plan); canvas is 01M39F3MR3HT2NR553FY8CRD6X
 - **node** — `01M41H30C2RSD2FGVYBT5HAG48`
 
 ### GAP: the CLI has no relative dates (today, next fri)
@@ -897,14 +897,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — State the pin-tool contract once in docs/github-release-packages.md, move uv-sources to exit 20 for could not resolve, and add a uv-sources case to a shared stubbed check next to github-sources-check. Coordinate with the owner of scripts/github-sources.
 - **rule** — One contract, every implementation
 - **node** — `01M3E9VSQZTDHRV4C9YRWD1QV1`
-
-### GAP: the view and route points live in @kb/ui, not @kb/ui-sdk
-
-- **expected** — ViewKey, View, ViewHost, Placement, Route, ViewPoint, RoutePoint, provideView, provideRoute, useView and ViewSlot are the UI points of @kb/ui-sdk (scope:browser), the host API a browser plugin package or repository extension builds against.
-- **current** — They live in packages/app/ui/src/lib/plugins.ts and components/ui/view-slot.tsx inside @kb/ui, so only in-tree UI plugins can contribute or embed a view.
-- **impact** — The canvas browser package and repository extensions cannot use views without importing @kb/ui internals, so the planned canvas split would have to reach into the app package.
-- **closes** — Plan phase R2 in docs/kb/waves/2026-09-24/briefs/plugin-composition.md, as part of the @kb/ui-sdk design in gap 01M39F3MR3HT2NR553FY8CRD6X: move these types and the slot into the sdk, then let the canvas package consume them.
-- **node** — `01M3EZRFTS1W8SB97GFJAWD92X`
 
 ### GAP: the write check covers written values only, so a retype or a delete can strand stored ones
 
@@ -1637,6 +1629,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A restart of kb ui costs every open client a full graph refetch, and no surface can replay history — undo across sessions, an audit trail, and a browser replica that survives a reload all need the durable form.
 - **closes** — Write each append to .kb/tx.jsonl inside the JsonlStore write lock, load the tail at openKbEffect and seed MemoryTxLog's window and rev from it; make rev per-store rather than per-server in protocol.ts.
 - **node** — `01M1QZMR3CYFYPEXBMC2JTFAA5`
+
+### GAP: the view and route points live in @kb/ui, not @kb/ui-sdk
+
+- **expected** — ViewKey, View, ViewHost, Placement, Route, ViewPoint, RoutePoint, provideView, provideRoute, useView and ViewSlot are the UI points of @kb/ui-sdk (scope:browser), the host API a browser plugin package or repository extension builds against.
+- **current** — Closed by E11 of the extension-boundaries plan. ViewKey, View, ViewHost, Placement, Route, ViewPoint, RoutePoint, provideView, provideRoute, useView, ViewSlot and the command point live in @kb/ui-sdk (packages/kit/ui-sdk, scope:browser, kit layer), beside the primitives, the page's pure helpers, BrowserHost and the page's one @kb/query seam; the shell imports them from the package too.
+- **impact** — The canvas browser package and repository extensions cannot use views without importing @kb/ui internals, so the planned canvas split would have to reach into the app package.
+- **closes** — Plan phase R2 in docs/kb/waves/2026-09-24/briefs/plugin-composition.md, as part of the @kb/ui-sdk design in gap 01M39F3MR3HT2NR553FY8CRD6X: move these types and the slot into the sdk, then let the canvas package consume them.
+- **node** — `01M3EZRFTS1W8SB97GFJAWD92X`
 
 ### GAP: the ws client assigns on* handlers instead of addEventListener
 

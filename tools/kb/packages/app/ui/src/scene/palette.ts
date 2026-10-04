@@ -5,7 +5,7 @@
  * lab reads its `--lab-*` set, the 3D graph the app's own surface colours. A
  * theme change is a re-read; no scene names a colour.
  */
-import { readTokenColor, type ColorToken } from "@/lib/css-color";
+import { readTokenColor, type ColorToken } from "@kb/ui-sdk";
 
 export interface ScenePalette {
   /** The background at the focal point, and at the frame's edge. */

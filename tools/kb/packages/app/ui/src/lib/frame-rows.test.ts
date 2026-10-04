@@ -2,16 +2,22 @@
  * frame-rows is the single owner of frame row order and pagination. These
  * tests pin the contract every renderer and the nav walk share.
  */
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import {
+  familyViews,
+  schemaOf,
+  SYSTEM_IDS,
+  ViewPoint,
+  type NodeMap,
+  type OutlineNode,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { Effect, Schema } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { describe, expect, it } from "vitest";
 import { frameRows, type FrameRowsInput } from "@/lib/frame-rows";
 import { frameViewOf } from "@/lib/view-config";
-import { ViewPoint, familyViews } from "@/lib/plugins";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { isFrameViewKey, OutlineTableView } from "@kb/views";
-import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */

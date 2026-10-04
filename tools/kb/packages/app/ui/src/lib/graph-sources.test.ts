@@ -13,8 +13,7 @@
  * rows, in the same binding the browser picker uses.
  */
 import { describe, expect, it } from "vitest";
-import { DatascriptIndex } from "@/ds";
-import { parsePerspective } from "@/lib/graph-lens";
+import { DatascriptIndex, parsePerspective } from "@kb/ui-sdk";
 import { GRAPH_SOURCE_VALUES, SYSTEM_IDS, allowedRefIdsOf, present, type KbNode } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";

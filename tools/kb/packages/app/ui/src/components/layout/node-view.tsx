@@ -1,13 +1,18 @@
 import { useMemo } from "react";
 import { Result } from "effect";
 import { paramsFrom, resolveNodeView, type HeldViewTarget, type NodeParams } from "@kb/views";
-import { NotFound } from "@/components/ui/not-found";
-import { ViewSlot } from "@/components/ui/view-slot";
-import { WorkspaceState } from "@/components/ui/workspace-state";
-import { logWarn } from "@/lib/log";
-import { RoutePoint, pageFrameOf, useContributions, type ViewProps } from "@/lib/plugins";
+import {
+  logWarn,
+  NotFound,
+  pageFrameOf,
+  RoutePoint,
+  schemaOf,
+  useContributions,
+  ViewSlot,
+  WorkspaceState,
+  type ViewProps,
+} from "@kb/ui-sdk";
 import { ScrollRegion } from "./pane-frame";
-import { schemaOf } from "@/lib/schema";
 import { usePageCatalog } from "@/lib/view-catalog";
 import { useOutlineStore } from "@/stores/outline.store";
 

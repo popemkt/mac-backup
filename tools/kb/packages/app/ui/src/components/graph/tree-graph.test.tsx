@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import type { LensTreeNode } from "@/lib/graph-lens";
+import type { LensTreeNode } from "@kb/ui-sdk";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import { TreeGraph } from "./tree-graph";
 

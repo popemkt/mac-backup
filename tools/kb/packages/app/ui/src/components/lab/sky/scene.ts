@@ -31,7 +31,7 @@ import { OrbitControl } from "@/components/lab/kit/orbit";
 import { Entrance } from "@/components/lab/kit/entrance";
 import type { SceneStage } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
-import { approachRate } from "@/sdk";
+import { approachRate } from "@kb/ui-sdk";
 import { starfield } from "@/scene/gpu/starfield";
 import { corona, moon, nebula, sun } from "@/components/lab/sky/shaders";
 import { NodeStars, stepConstellation } from "@/components/lab/sky/stars";

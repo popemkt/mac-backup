@@ -8,7 +8,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
-import { DESIGN_SYSTEMS } from "@/lib/theme";
+import { DESIGN_SYSTEMS } from "@kb/ui-sdk";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PreferencesPopover } from "./preferences-popover";

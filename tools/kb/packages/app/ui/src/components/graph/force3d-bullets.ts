@@ -53,7 +53,7 @@ import {
   vec3,
   vec4,
 } from "three/tsl";
-import { bulletExtent, BULLET_GEOMETRY, BULLET_HALO_RADIUS } from "@/lib/bullet-mode";
+import { BULLET_GEOMETRY, BULLET_HALO_RADIUS, bulletExtent } from "@kb/ui-sdk";
 import {
   BULLET_MARKS,
   BULLET_TABLE_COLUMNS,

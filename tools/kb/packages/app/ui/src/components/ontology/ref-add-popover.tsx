@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { pickerRows, type PickerCandidate, type PickerRow } from "@/lib/picker";
-import { usePickerKeys } from "@/lib/use-picker";
-import { PickerList } from "@/components/ui/picker-list";
+import {
+  isOutside,
+  PickerList,
+  pickerRows,
+  usePickerKeys,
+  type PickerCandidate,
+  type PickerRow,
+} from "@kb/ui-sdk";
 import { PlusIcon } from "@phosphor-icons/react";
-import { isOutside } from "@/lib/dom";
 
 interface RefAddPopoverProps {
   /** Button label, e.g. "+ tag". */

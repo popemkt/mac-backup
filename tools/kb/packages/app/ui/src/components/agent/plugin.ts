@@ -4,7 +4,7 @@ import { agentExtension } from "@kb/agent";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { attachChat, type AgentPorts } from "@/components/agent/chat";
 import { AgentDock } from "@/components/agent/surfaces";
-import { BrowserHostService, DockPoint } from "@/sdk";
+import { BrowserHostService, DockPoint } from "@kb/ui-sdk";
 
 /**
  * The agent sidebar: a dock that chats with the agent the `kb ui` server

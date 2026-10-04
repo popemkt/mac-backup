@@ -1,6 +1,5 @@
 import { Predicate } from "effect";
-import { RoutePoint, matchRoute, useContributions } from "@/lib/plugins";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import { matchRoute, RoutePoint, useContributions, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 
 /** The params a page names its subject by, in the order a title prefers them. */

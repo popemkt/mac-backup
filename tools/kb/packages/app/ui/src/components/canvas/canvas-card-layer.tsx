@@ -23,7 +23,7 @@ import { classifyCardPointer } from "./card-pointer";
 import { cardBoxStyle } from "./canvas-card-box";
 import type { FaceLayout } from "./canvas-face";
 import { resolveCanvasColor } from "./canvas-color";
-import { cn, hasText } from "@/sdk";
+import { cn, hasText } from "@kb/ui-sdk";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles } from "./canvas-resize-handles";

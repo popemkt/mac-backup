@@ -1,8 +1,19 @@
 import { z } from "zod";
 import { create } from "zustand";
-import { SIDEBAR_REGION_SELECTOR } from "@/lib/dom";
-import { hasText } from "@/lib/text";
-import { useNarrowViewport } from "@/lib/viewport";
+import {
+  appearanceOf,
+  DEFAULT_DESIGN_SYSTEM,
+  DESIGN_SYSTEM_IDS,
+  hasText,
+  SIDEBAR_REGION_SELECTOR,
+  THEMES,
+  useNarrowViewport,
+  WIDTHS,
+  type Appearance,
+  type DesignSystemId,
+  type ThemePref,
+  type WidthPref,
+} from "@kb/ui-sdk";
 import { useUiStore } from "@/stores/ui.store";
 import { transitionTheme } from "@/lib/theme-transition";
 
@@ -12,18 +23,6 @@ import { transitionTheme } from "@/lib/theme-transition";
  * Persisted to localStorage["kb-prefs"] — device concern, never repo data.
  * index.html carries a blocking script that reads the same key pre-paint.
  */
-import {
-  DEFAULT_DESIGN_SYSTEM,
-  DESIGN_SYSTEM_IDS,
-  THEMES,
-  WIDTHS,
-  appearanceOf,
-  type Appearance,
-  type DesignSystemId,
-  type ThemePref,
-  type WidthPref,
-} from "@/lib/theme";
-export type { ThemePref, WidthPref } from "@/lib/theme";
 
 export interface Prefs {
   theme: ThemePref;

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
-import { cn } from "@/lib/cn";
+import { cn } from "@kb/ui-sdk";
 import { type FrameViewKey, localIdOf } from "@kb/views";
 import { mutations } from "@/actions/mutations";
 import { useUiStore } from "@/stores/ui.store";

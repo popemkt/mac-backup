@@ -28,10 +28,14 @@
  * value; it is a selector over the one store, not a second copy of it.
  */
 import { useState, useSyncExternalStore } from "react";
-import type { KbIndex } from "@/ds";
-import { sameMeaning } from "@/lib/graph-view";
-import { schemaOf, type FieldContext, type SchemaIndex } from "@/lib/schema";
-import type { NodeMap } from "@/lib/types";
+import {
+  sameMeaning,
+  schemaOf,
+  type FieldContext,
+  type KbIndex,
+  type NodeMap,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 
 /** The graph as a component reads it: the outline as shown, its schema, the index. */

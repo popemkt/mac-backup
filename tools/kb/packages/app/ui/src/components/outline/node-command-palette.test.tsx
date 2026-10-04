@@ -18,7 +18,7 @@ import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { isPinned } from "@/lib/pinned";
-import { SYSTEM_IDS } from "@/lib/types";
+import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -26,7 +26,6 @@ import { NodeCommandPalette } from "./node-command-palette";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { chartUiPlugin } from "@/components/chart/plugin";
 import { browserHostUiPlugin } from "@/browser-host";
-import { syncUiPlugins } from "@/lib/plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them; the chart contributes "Add chart".

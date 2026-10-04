@@ -32,8 +32,15 @@ import {
   type PlannedMutation,
 } from "@/actions/plan";
 import { pinnedRefIdsFor } from "@/lib/pinned";
-import type { RefCreation } from "@/lib/refs";
-import { toast } from "@/lib/toast";
+import {
+  forestRootIds,
+  isSysPrefixed,
+  SYSTEM_IDS,
+  toast,
+  WORKSPACE_ROOT_ID,
+  type PropValue,
+  type RefCreation,
+} from "@kb/ui-sdk";
 
 /** `asset.upload` answers with the repo-relative path it stored the bytes at. */
 const AssetUploadOutputSchema = z.object({ path: z.string() });
@@ -41,8 +48,6 @@ const AssetUploadOutputSchema = z.object({ path: z.string() });
 /** A size in whole megabytes, as a toast says it. */
 const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 
-import { isSysPrefixed, SYSTEM_IDS, WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
-import { forestRootIds } from "@/lib/graph-view";
 import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
@@ -109,7 +114,7 @@ async function editFrameView(frameId: string, edit: FrameViewEdit): Promise<void
 async function frameConfig(frameId: string): Promise<ViewConfig> {
   const state = useOutlineStore.getState();
   const { frameConfigOf } = await import("@/lib/view-config");
-  const { schemaOf } = await import("@/lib/schema");
+  const { schemaOf } = await import("@kb/ui-sdk");
   return frameConfigOf(state.nodes.get(frameId), schemaOf(state));
 }
 

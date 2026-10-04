@@ -1,5 +1,5 @@
 import type { FrameViewKey } from "@kb/views";
-import type { FamilyView } from "@/lib/view-key";
+import type { FamilyView } from "@kb/ui-sdk";
 
 type FrameViewSource = () => readonly FamilyView<FrameViewKey>[];
 

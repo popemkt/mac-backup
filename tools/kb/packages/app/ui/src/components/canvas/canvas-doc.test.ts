@@ -1,4 +1,11 @@
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import {
+  clearAllowedRefIdsCache,
+  schemaOf,
+  SYSTEM_IDS,
+  type NodeMap,
+  type OutlineNode,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { describe, expect, test } from "vitest";
 import {
   isNativeEdgeBound,
@@ -15,8 +22,6 @@ import {
   isValidNativeTarget,
   syncDocOnRev,
 } from "./canvas-api";
-import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
-import { clearAllowedRefIdsCache } from "@/lib/field-type";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {

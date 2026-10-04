@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { Group, PerspectiveCamera, WebGPUCoordinateSystem } from "three/webgpu";
 import { EmphasisFade } from "@/lib/graph-fade";
-import type { LensNode } from "@/lib/graph-lens";
+import type { LensNode } from "@kb/ui-sdk";
 import { topologyOf } from "./force3d-emphasis";
 import { LabelLayer, focusDisc } from "./force3d-labels";
 import { GRAPH_THEMES } from "./graph-themes";

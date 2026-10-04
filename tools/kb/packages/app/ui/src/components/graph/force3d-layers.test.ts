@@ -7,8 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { Color, PerspectiveCamera, Scene } from "three/webgpu";
 import { uniform } from "three/tsl";
-import type { LensEdge, LensNode } from "@/lib/graph-lens";
-import { TIMING_FALLBACK } from "@/lib/timing";
+import { TIMING_FALLBACK, type LensEdge, type LensNode } from "@kb/ui-sdk";
 import type { SceneStage } from "@/scene/gpu/stage";
 import { GraphLayers, type Force3dSettings } from "./force3d-layers";
 

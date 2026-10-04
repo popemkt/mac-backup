@@ -16,7 +16,7 @@ import {
   withRotation,
   type CanvasNode,
 } from "@kb/canvas";
-import { cn, hasText, isOutside, PopoverShell } from "@/sdk";
+import { cn, hasText, isOutside, PopoverShell } from "@kb/ui-sdk";
 import { CANVAS_COLOR_PRESETS } from "./canvas-color";
 
 export interface ItemInspectorProps {

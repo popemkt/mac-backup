@@ -1,6 +1,6 @@
 import type { CanvasDoc } from "@kb/canvas";
 import type { CanvasSelection } from "./canvas-selection";
-import type { OutlineNode } from "@/sdk";
+import type { OutlineNode } from "@kb/ui-sdk";
 
 /** What the 3D canvas draws: the document, the store its cards read, and the shared selection. */
 export interface CanvasSceneContent {

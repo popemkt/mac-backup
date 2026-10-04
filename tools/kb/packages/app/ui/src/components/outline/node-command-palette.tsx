@@ -3,23 +3,29 @@ import { createPortal } from "react-dom";
 import { HashIcon, LinkSimpleIcon, PlusIcon, TextTIcon } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
 import { mutations } from "@/actions/mutations";
-import { cn } from "@/lib/cn";
 import {
-  listNodeCommands,
+  asInstance,
+  cn,
+  CREATE_ROW_ID,
+  emptyValueForType,
+  nodeCandidates,
+  PickerList,
+  pickerRows,
+  resolveFieldTypeById,
+  schemaOf,
+  SYSTEM_IDS,
+  usePickerKeys,
   type CommandContext,
   type NodeCommandStep,
+  type NodeMap,
   type PaletteSurface,
-} from "@/lib/commands";
-import { asInstance } from "@/lib/dom";
-import { emptyValueForType, resolveFieldTypeById } from "@/lib/field-type";
-import { nodeCandidates } from "@/lib/refs";
-import { CREATE_ROW_ID, pickerRows, type PickerCandidate, type PickerRow } from "@/lib/picker";
-import { usePickerKeys } from "@/lib/use-picker";
-import { PickerList } from "@/components/ui/picker-list";
-import { SYSTEM_IDS, type NodeMap } from "@/lib/types";
+  type PickerCandidate,
+  type PickerRow,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
+import { listNodeCommands } from "@/lib/commands";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { currentWorkspace } from "@/stores/workspace.store";
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";

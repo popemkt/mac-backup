@@ -10,13 +10,17 @@ import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DatascriptIndex, runQuery } from "@/ds";
+import {
+  Bullet,
+  DatascriptIndex,
+  runQuery,
+  SYSTEM_IDS,
+  wireToOutlineMap,
+  type OutlineNode,
+} from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { resultNodeIds } from "@/lib/query-node";
-import { wireToOutlineMap } from "@/lib/graph-view";
-import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
-import { Bullet } from "./bullet";
 
 const TODO_EDN = `[:find ?id ?text
   :where [?n :f/${SYSTEM_IDS.typeField} ?t]

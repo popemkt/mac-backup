@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { PickerList } from "@/components/ui/picker-list";
-import { pickerRows, type PickerCandidate } from "@/lib/picker";
+import { PickerList, pickerRows, type PickerCandidate } from "@kb/ui-sdk";
 
 const noop = (): void => undefined;
 

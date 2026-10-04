@@ -11,11 +11,15 @@
  * branch.
  */
 import { mutations } from "@/actions/mutations";
-import { rowTextOf, shownNode, shownNodeId } from "@/lib/contextual-ref";
-import { childInstanceKey } from "@/lib/instance-key";
-import { schemaOf } from "@/lib/schema";
+import {
+  childInstanceKey,
+  rowTextOf,
+  schemaOf,
+  shownNode,
+  shownNodeId,
+  WORKSPACE_ROOT_ID,
+} from "@kb/ui-sdk";
 import type { SelectionKeyAction } from "@/lib/selection-keymap";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { enterFields } from "@/lib/value-slot-nav";
 

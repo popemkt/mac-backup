@@ -24,15 +24,15 @@ import { CANVAS_COLOR_PRESETS, type CanvasColorPresetId } from "./canvas-color";
 import { isPicture, type FacePicture } from "./canvas-face-pictures";
 import {
   assetSrcUrl,
-  type ColorToken,
   graphDisplayText,
   graphLabelFont,
   hasText,
-  type OutlineNode,
   readTokenColor,
   toRenderableColor,
   wrapGraphLabel,
-} from "@/sdk";
+  type ColorToken,
+  type OutlineNode,
+} from "@kb/ui-sdk";
 
 /** What a card shows, independent of how it is drawn. */
 export type CardFace =

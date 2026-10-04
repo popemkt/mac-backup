@@ -4,7 +4,7 @@ import { edgePropPresent } from "./canvas-api";
 import { resolveCanvasColor } from "./canvas-color";
 import type { CanvasSelection } from "./canvas-selection";
 import type { PointerState } from "./canvas-pointer";
-import { hasText, type OutlineNode } from "@/sdk";
+import { hasText, type OutlineNode } from "@kb/ui-sdk";
 import { clientToCanvas } from "./canvas-camera";
 
 interface CanvasEdgeLayerProps {

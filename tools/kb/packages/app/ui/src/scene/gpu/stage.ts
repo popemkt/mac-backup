@@ -75,7 +75,7 @@ import { disposeGraph } from "@/scene/gpu/dispose";
 import { colorUniform, type TslNode } from "@/scene/gpu/tsl";
 import type { ScenePalette } from "@/scene/palette";
 import { BLOOM_THRESHOLD } from "@/scene/shade-ops";
-import { approachRate, approachShare, clampStep, type Timing } from "@/lib/timing";
+import { approachRate, approachShare, clampStep, type Timing } from "@kb/ui-sdk";
 
 /** The device pixel ratio a stage never exceeds (P3). */
 const MAX_PIXEL_RATIO = 2;

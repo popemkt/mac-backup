@@ -10,10 +10,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { Result } from "effect";
 import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
-import { ViewSlot } from "@/components/ui/view-slot";
-import { syncUiPlugins } from "@/lib/plugins";
+import { lensReport, syncUiPlugins, ViewSlot } from "@kb/ui-sdk";
 import { paramsFromProps, NeighbourhoodView, type NeighbourhoodParams } from "@kb/views";
-import { lensReport } from "@/lib/graph-lens";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import type * as GraphAdapters from "./graph-adapters";

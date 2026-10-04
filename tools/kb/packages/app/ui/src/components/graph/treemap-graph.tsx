@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { hierarchy, treemap } from "d3-hierarchy";
-import type { LensNode } from "@/lib/graph-lens";
+import type { LensNode } from "@kb/ui-sdk";
 import { graphNodeAlpha } from "@/lib/graph-dim";
 import { selectionFromNode } from "./graph-selection";
 import type { ParamsOf, TreemapView } from "@kb/views";

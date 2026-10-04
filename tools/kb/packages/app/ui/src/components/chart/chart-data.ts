@@ -6,7 +6,7 @@
 import { useMemo } from "react";
 import { queryDefOf, type PropValue } from "@kb/model";
 import { chartRecords } from "@kb/chart";
-import { useQueryRows, type QueryRecords } from "@/sdk";
+import { useQueryRows, type QueryRecords } from "@kb/ui-sdk";
 
 export type ChartData =
   /** There is nothing to draw, and why: no source, or a source that is no query node. */

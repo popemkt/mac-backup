@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { type LensRenderer, isRendererKey, type RendererKey } from "@kb/views";
-import { ViewPoint, familyViews, useContributions } from "@/lib/plugins";
-import type { FamilyView } from "@/lib/view-key";
+import { familyViews, useContributions, ViewPoint, type FamilyView } from "@kb/ui-sdk";
 
 /** The renderers whose views are provided, in their pickers' order. */
 export function useRenderers(): readonly FamilyView<RendererKey<unknown>>[] {

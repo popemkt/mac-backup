@@ -5,7 +5,7 @@ import type { CanvasSelection } from "./canvas-selection";
 import type { PointerResult, PointerState, ResizeCorner } from "./canvas-pointer";
 import type { ToolState } from "./canvas-tool";
 import { GRID_STEP } from "./canvas-snap";
-import { cn, type OutlineNode } from "@/sdk";
+import { cn, type OutlineNode } from "@kb/ui-sdk";
 
 interface CanvasStageProps {
   doc: CanvasDoc;

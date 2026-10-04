@@ -1,6 +1,5 @@
 import type { ComponentType } from "react";
-import { WorkspaceState } from "@/components/ui/workspace-state";
-import type { ViewProps } from "@/lib/plugins";
+import { WorkspaceState, type ViewProps } from "@kb/ui-sdk";
 import type {
   ParamsOf,
   ClusterView,

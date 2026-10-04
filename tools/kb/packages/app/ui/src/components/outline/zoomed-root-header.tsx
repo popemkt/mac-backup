@@ -1,19 +1,23 @@
 import { useCallback, useState } from "react";
 import { LockSimpleIcon } from "@phosphor-icons/react";
-import { cn } from "@/lib/cn";
-import { rowText, rowTextReadOnlyReason } from "@/lib/contextual-ref";
-import { schemaOf } from "@/lib/schema";
-import type { OutlineNode } from "@/lib/types";
-import { isSysPrefixed } from "@/lib/types";
-import { nodeTagColors, tagColorAlpha } from "@/lib/tag-color";
+import {
+  cn,
+  hasText,
+  isSysPrefixed,
+  nodeTagColors,
+  rowText,
+  rowTextReadOnlyReason,
+  schemaOf,
+  TagChipGroup,
+  tagColorAlpha,
+  type OutlineNode,
+} from "@kb/ui-sdk";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useOpenNode } from "@/stores/follow";
 import { FieldsSection } from "./fields-section";
-import { TagChipGroup } from "./tag-chip";
 import { ViewToolbar } from "./view-toolbar";
 import { NodeContent } from "./node-content";
-import { hasText } from "@/lib/text";
 
 /**
  * D13: everything is a node — the zoomed page title edits in place with

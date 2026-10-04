@@ -3,8 +3,9 @@
  * query node is (its field, its EDN and limit) is `@kb/model`'s
  * `query-node.ts`, read the same way by the server.
  */
+import { getLiveClient } from "@/api/live";
 import type { KbWsClient, SubscriptionSink } from "@/api/ws";
-import type { NodeMap } from "@/lib/types";
+import type { NodeMap, QueryRowsSubscribe } from "@kb/ui-sdk";
 
 /**
  * Map raw datalog rows to result node ids: first column value per row that
@@ -53,6 +54,10 @@ export function subscribeQueryNode(
   client.subscribe(id, edn, sink);
   return () => client.unsubscribe(id);
 }
+
+/** {@link subscribeQueryNode} over the page's live socket. */
+export const subscribeLiveQueryNode: QueryRowsSubscribe = (nodeId, subscriber, edn, sink) =>
+  subscribeQueryNode(getLiveClient(), nodeId, subscriber, edn, sink);
 
 /** Default definition for palette-minted query nodes. */
 export const DEFAULT_QUERY_EDN = "[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]";

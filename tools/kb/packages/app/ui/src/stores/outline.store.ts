@@ -1,30 +1,37 @@
 import { create } from "zustand";
-import { DatascriptIndex, type KbIndex } from "@/ds";
-import { loadExpandedIds, resolveProps, saveExpandedIds, wireToOutlineMap } from "@/lib/graph-view";
-import { resolveVisibleProps } from "@/lib/field-visibility";
-import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
-import { MAIN_OUTLINE_HOST, isProjectedInstance, outlineInstanceKey } from "@/lib/instance-key";
+import {
+  DatascriptIndex,
+  isProjectedInstance,
+  isSysPrefixed,
+  loadExpandedIds,
+  logWarn,
+  MAIN_OUTLINE_HOST,
+  outlineInstanceKey,
+  resolveProps,
+  resolveVisibleProps,
+  rowTextReadOnlyReason,
+  saveExpandedIds,
+  schemaOf,
+  SYSTEM_IDS,
+  toast,
+  wireToOutlineMap,
+  WORKSPACE_ROOT_ID,
+  type FamilyView,
+  type KbIndex,
+  type NodeMap,
+  type OutlineNode,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import { isQueryNode } from "@kb/model";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
-import { toast } from "@/lib/toast";
 import { mergeTx } from "@/lib/tx";
 import {
   collectVisibleInstances,
   neighborVisibleInstance,
   type VisibleInstance,
 } from "@/lib/visible-instances";
-import {
-  SYSTEM_IDS,
-  WORKSPACE_ROOT_ID,
-  isSysPrefixed,
-  type NodeMap,
-  type OutlineNode,
-} from "@/lib/types";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
-import { logWarn } from "@/lib/log";
 import type { FrameViewKey } from "@kb/views";
-import type { FamilyView } from "@/lib/view-key";
 import { providedFrameViews } from "@/stores/frame-views";
 import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "@/stores/outline-hosts";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";

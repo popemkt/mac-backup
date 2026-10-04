@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { COLOR_TOKEN_FALLBACKS, oklchToRgb, toRenderableColor } from "./css-color";
+import {
+  COLOR_TOKEN_FALLBACKS,
+  DESIGN_SYSTEM_IDS,
+  oklchToRgb,
+  toRenderableColor,
+} from "@kb/ui-sdk";
 import { readDesignSystemSheets } from "./design-system-sheets";
-import { DESIGN_SYSTEM_IDS } from "./theme";
 
 /**
  * Canvas consumers parse only hex and integer `rgb()`/`rgba()` (the strict

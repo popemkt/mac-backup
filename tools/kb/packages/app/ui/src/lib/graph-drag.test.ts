@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NodeDrag, type DragLayout, type DragSurface, type LayoutPoint } from "./graph-drag";
-import { POINTER_SLOP } from "./pointer-slop";
+import { POINTER_SLOP } from "@kb/ui-sdk";
 
 function rig() {
   const calls: string[] = [];

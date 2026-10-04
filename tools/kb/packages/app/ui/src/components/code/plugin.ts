@@ -2,7 +2,7 @@ import { lazy } from "react";
 import { Effect } from "effect";
 import { CodeView, DEFAULT_GRANT, codeExtension, codePlugin } from "@kb/code";
 import { definePlugin } from "@kb/plugin";
-import { BrowserHostService, ViewPoint, provideView } from "@/sdk";
+import { BrowserHostService, provideView, ViewPoint } from "@kb/ui-sdk";
 
 /** The code view's page, in a chunk of its own. */
 const CodePage = lazy(() =>

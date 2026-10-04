@@ -21,7 +21,7 @@ once, in `DESIGN.md` →
   `tools/kb/packages/<layer>/<name>` named `@kb/<name>`, with one curated
   barrel at `src/index.ts`. Its two axes have two homes: the **layer** is the
   folder it sits in (`domain`, `contract`, `infrastructure`, `application`,
-  `extension`, `app`, `test-support` — exactly the `LAYER_ALLOWS` keys), and
+  `kit`, `extension`, `app`, `test-support` — exactly the `LAYER_ALLOWS` keys), and
   the **scope** is one `scope:*` tag in its `nx` key. A `layer:*` tag is a
   duplicate of the folder and fails `workspace-shape`. There is
   no alias map — `@kb/*` resolve as workspace packages, and a package name
@@ -33,8 +33,8 @@ once, in `DESIGN.md` →
   `bun run verify` (the entry point a human or CI runs; what it runs is its
   definition in `package.json`, stated nowhere else), `bun run typecheck`
   (authoritative zero-error `tsc --noEmit` per package via Nx),
-  `bun run test`, `bun run test:ui`, `bun run test:render`. Two runners split by package: everything but `@kb/ui` runs
-  on `bun test`; the browser package runs on Vitest. See `tools/kb/DESIGN.md`.
+  `bun run test`, `bun run test:ui`, `bun run test:render`. Two runners split by package: every `scope:browser`
+  package runs on Vitest, everything else on `bun test`. See `tools/kb/DESIGN.md`.
 - Admission: `.githooks/pre-commit` runs `verify`, the generated-docs check
   and the `.kb/assets` ownership check against a reconstructed **index
   snapshot**, not the working tree, so an unstaged fix cannot mask a staged

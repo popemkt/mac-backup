@@ -18,9 +18,9 @@ import {
 
 /**
  * The zones that leave `@kb/ui` as extension UI halves, fenced to themselves
- * and the sdk (DESIGN-UI.md → Extension UI halves). Each is a red fixture: a
- * file there reaching a store, a sibling's `lib` helper or an action breaks
- * the matrix, and the same file reaching the sdk does not.
+ * and `@kb/ui-sdk` (DESIGN-UI.md → Extension UI halves). Each is a red
+ * fixture: a file there reaching a store, a shell `lib` module or an action
+ * breaks the matrix, and the same file reaching the sdk package does not.
  */
 const EXTENSION_ZONES = [
   "components/agent",
@@ -106,8 +106,10 @@ describe("ui-boundaries", () => {
       expect(fixtureBreaches(zone, 'import { mutations } from "@/actions/mutations";\n')).toEqual([
         `${zone} -> actions`,
       ]);
-      expect(fixtureBreaches(zone, 'import { cn } from "@/lib/cn";\n')).toEqual([`${zone} -> lib`]);
-      expect(fixtureBreaches(zone, 'import { cn, browserHost } from "@/sdk";\n')).toEqual([
+      expect(fixtureBreaches(zone, 'import { loadManifest } from "@/lib/manifest";\n')).toEqual([
+        `${zone} -> lib`,
+      ]);
+      expect(fixtureBreaches(zone, 'import { cn, browserHost } from "@kb/ui-sdk";\n')).toEqual([
         undefined,
       ]);
     }

@@ -1,14 +1,15 @@
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
-import type { NodeMap } from "@/lib/types";
-import { describe, expect, it } from "vitest";
-import { present } from "@kb/model";
-import { fixtureGraph } from "@/api/fixture-graph";
 import {
   isFieldNodeHidden,
   isIntrinsicSystemPropKey,
   resolveVisibleProps,
-} from "@/lib/field-visibility";
-import { wireToOutlineMap } from "@/lib/graph-view";
+  schemaOf,
+  wireToOutlineMap,
+  type NodeMap,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
+import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { planSetFieldHidden } from "@/actions/plan";
 import { useOutlineStore } from "@/stores/outline.store";
 

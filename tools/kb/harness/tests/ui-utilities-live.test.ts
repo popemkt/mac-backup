@@ -5,7 +5,7 @@ import { __unstable__loadDesignSystem } from "@tailwindcss/node";
 import { Scanner } from "@tailwindcss/oxide";
 import { parseSync } from "oxc-parser";
 import { UI_SRC } from "../src/constraints.ts";
-import { uiSourceFiles } from "../src/ui-imports.ts";
+import { bundleSourceFiles } from "../src/ui-imports.ts";
 import { WORKSPACE_ROOT } from "../src/workspace.ts";
 
 /**
@@ -17,7 +17,8 @@ import { WORKSPACE_ROOT } from "../src/workspace.ts";
  * but compiles to nothing: the element silently loses its style. Which
  * utilities exist is a question only Tailwind can answer, so this asks it.
  * Tailwind's own `Scanner` (the one the build uses) extracts the candidates
- * from the UI source, and each is compiled twice — against stock Tailwind
+ * from the page's source (`@kb/ui` and every browser package its bundle
+ * compiles), and each is compiled twice — against stock Tailwind
  * and against `index.css`. A candidate stock Tailwind turns into CSS and kb's
  * stylesheet does not is dead in kb.
  *
@@ -63,7 +64,7 @@ interface NotAClass {
 
 const NOT_CLASSES: readonly NotAClass[] = [
   // tailwind-merge's theme key for the elevation names.
-  { file: "lib/cn.ts", candidate: "shadow", context: "shadow: [...ELEVATIONS]" },
+  { file: "@kb/ui-sdk/src/lib/cn.ts", candidate: "shadow", context: "shadow: [...ELEVATIONS]" },
   // Prose in the Light study's description.
   { file: "components/lab/studies.ts", candidate: "shadow", context: "watch the soft shadow and" },
 ];
@@ -130,12 +131,12 @@ async function deadSites(
     .toSorted();
 }
 
-/** The UI's non-test modules, comments blanked, keyed by path under src. */
+/** The page's non-test modules, comments blanked, keyed as the bundle keys them. */
 function uiSources(): Map<string, string> {
   const sources = new Map<string, string>();
-  for (const file of uiSourceFiles().filter((f) => !/\.test\.tsx?$/.test(f))) {
-    const path = join(UI_ROOT, file);
-    sources.set(file, withoutComments(path, readFileSync(path, "utf8")));
+  for (const { key, path } of bundleSourceFiles()) {
+    if (/\.test\.tsx?$/.test(key)) continue;
+    sources.set(key, withoutComments(path, readFileSync(path, "utf8")));
   }
   return sources;
 }
@@ -156,8 +157,8 @@ describe("ui-utilities-live", () => {
 
   test("an exemption covers its occurrence only, not the file", async () => {
     const content = 'const t = { shadow: [...ELEVATIONS] };\nconst c = "shadow";';
-    const fixture = new Map([["lib/cn.ts", content]]);
-    expect(await deadSites(fixture, NOT_CLASSES)).toEqual(["lib/cn.ts:2: shadow"]);
+    const fixture = new Map([["@kb/ui-sdk/src/lib/cn.ts", content]]);
+    expect(await deadSites(fixture, NOT_CLASSES)).toEqual(["@kb/ui-sdk/src/lib/cn.ts:2: shadow"]);
   });
 
   test("positions are exact after non-ASCII text: lines and exemptions hold", async () => {
@@ -170,13 +171,13 @@ describe("ui-utilities-live", () => {
       'const c = "shadow";',
       'const d = "— text-sm/6";',
     ].join("\n");
-    for (const hit of occurrencesIn("lib/cn.ts", content)) {
+    for (const hit of occurrencesIn("@kb/ui-sdk/src/lib/cn.ts", content)) {
       expect(content.slice(hit.offset, hit.offset + hit.candidate.length)).toBe(hit.candidate);
     }
-    const fixture = new Map([["lib/cn.ts", content]]);
+    const fixture = new Map([["@kb/ui-sdk/src/lib/cn.ts", content]]);
     expect(await deadSites(fixture, NOT_CLASSES)).toEqual([
-      "lib/cn.ts:4: shadow",
-      "lib/cn.ts:5: text-sm/6",
+      "@kb/ui-sdk/src/lib/cn.ts:4: shadow",
+      "@kb/ui-sdk/src/lib/cn.ts:5: text-sm/6",
     ]);
   });
 

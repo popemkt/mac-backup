@@ -26,10 +26,16 @@ import {
   LayoutView,
   type LayoutTree,
 } from "@kb/views";
-import { MAIN_PANE } from "@/lib/pane";
-import { getPath, navigate, nodePath, replacePath, subscribePath } from "@/lib/router";
-import { toast } from "@/lib/toast";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import {
+  getPath,
+  MAIN_PANE,
+  navigate,
+  nodePath,
+  replacePath,
+  subscribePath,
+  toast,
+  WORKSPACE_ROOT_ID,
+} from "@kb/ui-sdk";
 import { proposeView } from "@/lib/propose-view";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";

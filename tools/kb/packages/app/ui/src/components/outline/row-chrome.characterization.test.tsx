@@ -12,12 +12,10 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { syncUiPlugins } from "@/lib/plugins";
+import { queryResultInstanceKey, syncUiPlugins, SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { outlineUiPlugin } from "./plugin";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
-import { queryResultInstanceKey } from "@/lib/instance-key";
-import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";

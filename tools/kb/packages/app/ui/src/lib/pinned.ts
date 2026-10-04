@@ -32,8 +32,7 @@
  * (`sys.f.onto.member` + the Unpin control on the ontology page): different
  * field, different mechanism, same English word. Nothing here touches those.
  */
-import { contextualTargetOf } from "@/lib/contextual-ref";
-import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
+import { contextualTargetOf, SYSTEM_IDS, type NodeMap, type OutlineNode } from "@kb/ui-sdk";
 
 /** Child ids of the Pinned list, in stored order. Empty when it is unseeded. */
 export function pinnedRefIds(nodes: NodeMap): string[] {
