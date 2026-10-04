@@ -1970,9 +1970,6 @@ end).
   has landed.
 
 Today's drift from this contract is marked where it sits:
-- seed ids in core: GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]];
-- view text: GAP [[01M41H2ZG7C0SV1DYZE6MMKPFE]];
-- the code snapshot the runtime binds: GAP [[01M41H2ZS8FH55DCW3S9ZGPWPY]];
 - feature view keys in `@kb/views`: GAP [[01M41H30342XZPX3CXZJTMPBYW]];
 - feature keys contributed through core's declaration: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]];
 - UI zones: GAP [[01M41H30C2RSD2FGVYBT5HAG48]];

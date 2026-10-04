@@ -664,6 +664,39 @@ pushed back, this is what was picked:
   reaches that catalog only through the child `chartPlugin()`.
 - `kb ext list` now lists chart.
 
+**Note from the doing (E8).** Where the plan was silent, or the code
+pushed back, this is what was picked:
+- **The figure asks two core references, not one.** The plan said
+  `layers.ts` keeps only the engine. But a snapshot also calls actions, and
+  only the runtime has an invoke core. So the runtime binds a second core
+  reference, `ReadInvoke` (`@kb/contracts`), beside `UntrustedEngine`
+  (`@kb/sandbox`). `ReadInvoke` is the invoke core as a read: it refuses a
+  write before the core. It is named for what it gives, not for the code
+  view. The figure draws nothing unless both references are bound, so the
+  page, which binds neither, shows text only. This landed first, as its own
+  restructure, while the text was still in core.
+- **No server package, and no plugin option.** Decision 7 says a family
+  asks a core reference for its engine and never binds one. So
+  `codePlugin()` takes no engine, as `chartPlugin` takes a painter, and it
+  is the server's entry as it is. Its text always carries a figure, and the
+  host's bindings decide whether it draws. A chart's text has no figure
+  without a painter.
+- **The grant's shape is the sandbox's.** `CodeGrant` and `READ_SCOPES`
+  were in `code.ts`. But `grantRefusal`, the capability host and the digest
+  decide by them, and the sandbox is core. So they moved to `@kb/sandbox`,
+  which no longer depends on `@kb/views`. `DEFAULT_GRANT`, which a code view
+  reads when it names no grant, stays with the view in `@kb/code`.
+- **New sanctioned breaches.** `components/code/code-page.tsx` and
+  `plugin.ts` import `@kb/code`. They are named rows of
+  `EXTENSION_ROOT_BREACHES` until `@kb/code-ui` (E12).
+- **The extension contract's code subject.** The runtime's subject test
+  holds the code family's figure to the HTML its code draws under
+  `kbRuntimeLayer`, and to null where nothing is bound.
+- **Gaps.** The seed-id, view-text and runtime-binding gaps are closed. The
+  feature-model, catalog-key, root-fence and UI-zone gaps are narrowed to
+  what remains.
+- `kb ext list` now lists code.
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D
