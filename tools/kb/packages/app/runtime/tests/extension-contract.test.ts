@@ -104,6 +104,38 @@ describe("the contract's seed, view and text promises have a subject", () => {
     expect(texts.map(({ bare }) => bare)).toEqual([null]);
     expect(texts.map(({ snapshot }) => snapshot)).toEqual(["<p>Drawn</p>"]);
   });
+
+  test("lab declares a view and no seed, and the server names its page through the family", async () => {
+    const lab = BUNDLED_EXTENSIONS.find(({ declaration }) => declaration.name === "lab");
+    expect(lab?.declaration.seed).toBeUndefined();
+    expect(lab?.declaration.views?.map((view) => view.key.id)).toEqual(["lab.page"]);
+    expect(lab?.declaration.views?.map((view) => view.text)).toEqual([undefined]);
+    const ctx = await openKb(root);
+    // The option the fold derives from the family's key, where E4b froze it.
+    const options = ctx.index.getNode(SYSTEM_IDS.viewsRoot)?.children ?? [];
+    const at = options.indexOf("sys.view.lab.page");
+    expect(options.slice(at - 1, at + 2)).toEqual([
+      "sys.view.canvas.page",
+      "sys.view.lab.page",
+      "sys.view.code.view",
+    ]);
+    const added = await invoke(ctx, {
+      id: "node.add",
+      input: {
+        id: "v.lab",
+        text: "",
+        props: [{ field: SYSTEM_IDS.viewField, value: { t: "ref", v: "sys.view.lab.page" } }],
+      },
+    });
+    expect(added.status).toBe("succeeded");
+    const rendered = await invoke(ctx, { id: "render.view", input: { id: "v.lab", format: "md" } });
+    // The registry's catalog holds the key, so the page reads as the lab's, in the generic text.
+    expect(rendered).toMatchObject({ status: "succeeded", output: { name: "Lab view" } });
+    const { content } = (rendered.status === "succeeded" ? rendered.output : {}) as {
+      content?: string;
+    };
+    expect(content).toContain("Lab view (lab.page), view node v.lab.");
+  });
 });
 
 const plugin = (name: string) => definePlugin({ name, apply: () => Effect.void });

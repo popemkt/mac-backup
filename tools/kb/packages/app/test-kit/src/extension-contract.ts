@@ -16,9 +16,10 @@
  *   settings, and so does its figure where it draws one.
  *
  * Chart and code are the families with a subject for the seed, view and
- * text promises. What a figure draws needs the host's painter or engine, so
- * the runtime's tests assert each one's drawn figure by name. Until canvas
- * moves, core still seeds the canvas's fields
+ * text promises, and lab, which seeds nothing and has no text of its own,
+ * for the view promise. What a figure draws needs the host's painter or
+ * engine, so the runtime's tests assert each one's drawn figure by name.
+ * Until canvas moves, core still seeds the canvas's fields
  * (GAP [[01M39F3MR3HT2NR553FY8CRD6X]]) and catalogues its views through its
  * declaration (GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]). The browser
  * half — every view a family gives the UI has a key in the page's catalog —
