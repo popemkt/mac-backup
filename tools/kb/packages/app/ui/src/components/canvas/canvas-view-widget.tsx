@@ -13,13 +13,13 @@
  */
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { CanvasGroupNode, CanvasProjectionKind } from "@kb/canvas";
+import type { CanvasViewPresetName } from "@kb/contracts";
 import {
   CANVAS_VIEW_PRESETS,
   lensOf,
   presetOf,
   screenAxes,
   type CanvasView,
-  type CanvasViewPreset,
 } from "./canvas-camera";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
@@ -47,7 +47,7 @@ type Axis = "x" | "y" | "z";
 /** The view from each axis end; none from under the floor. */
 const END_VIEWS: Record<
   Axis,
-  { readonly plus: CanvasViewPreset; readonly minus: CanvasViewPreset | null }
+  { readonly plus: CanvasViewPresetName; readonly minus: CanvasViewPresetName | null }
 > = {
   x: { plus: "right", minus: "left" },
   y: { plus: "front", minus: "back" },
@@ -64,7 +64,7 @@ interface AxisEnd {
   readonly x: number;
   readonly y: number;
   readonly toward: number;
-  readonly view: CanvasViewPreset | null;
+  readonly view: CanvasViewPresetName | null;
 }
 
 function axisEnds(view: CanvasView): AxisEnd[] {
@@ -94,7 +94,13 @@ function viewName(view: CanvasView, in3d: boolean): string {
   return `${preset === null ? "Free" : CANVAS_VIEW_PRESETS[preset].label} · ${lens}`;
 }
 
-function AxisGizmo({ view, onLook }: { view: CanvasView; onLook: (p: CanvasViewPreset) => void }) {
+function AxisGizmo({
+  view,
+  onLook,
+}: {
+  view: CanvasView;
+  onLook: (p: CanvasViewPresetName) => void;
+}) {
   const ends = axisEnds(view);
   return (
     <div

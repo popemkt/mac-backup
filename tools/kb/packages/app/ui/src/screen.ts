@@ -17,6 +17,7 @@ import {
   SCREEN_APPLIED,
   ScreenStateSchema,
   screenRejected,
+  type CanvasViewTarget,
   type ScreenAck,
   type ScreenCommand,
   type ScreenState,
@@ -112,6 +113,68 @@ function openNode(pane: string, id: string): ScreenAck {
   return openRoute(pane, nodePath(id));
 }
 
+/** How long a navigate with a camera waits for the view it opened to report, ms. */
+const VIEW_WAIT_MS = 1500;
+
+/** One pane's view as the screen store holds it. */
+type PaneView = ReturnType<typeof useScreenStore.getState>["panes"][string];
+
+/**
+ * The view in `pane` once `ready` says it is the one wanted, or undefined
+ * when none is within {@link VIEW_WAIT_MS}: a view opened by navigating
+ * reports only once it has mounted.
+ */
+function viewWhen(pane: string, ready: (view: PaneView | undefined) => boolean) {
+  return new Promise<PaneView | undefined>((resolve) => {
+    const now = useScreenStore.getState().panes[pane];
+    if (ready(now)) {
+      resolve(now);
+      return;
+    }
+    const timer = setTimeout(() => {
+      off();
+      resolve(undefined);
+    }, VIEW_WAIT_MS);
+    const off = useScreenStore.subscribe((state) => {
+      const view = state.panes[pane];
+      if (!ready(view)) return;
+      clearTimeout(timer);
+      off();
+      resolve(view);
+    });
+  });
+}
+
+/** Point the camera of `view` at `target`; a view with no camera says so. */
+function lookIn(view: PaneView | undefined, target: CanvasViewTarget) {
+  if (view === undefined) return screenRejected("the open view has no camera to point");
+  return view.carryOut({ kind: "look", target });
+}
+
+/**
+ * A navigate: the pane goes where it says, then, given a camera target, the
+ * view it shows — the one it opened, once that has reported — points its
+ * camera there.
+ */
+function navigate(
+  pane: string,
+  { to, camera }: Extract<ScreenCommand, { kind: "navigate" }>,
+): ScreenAck | Promise<ScreenAck> {
+  const before = useScreenStore.getState().panes[pane]?.owner;
+  const opened =
+    to === undefined
+      ? SCREEN_APPLIED
+      : "node" in to
+        ? openNode(pane, to.node)
+        : openRoute(pane, to.route);
+  if (camera === undefined || opened.outcome !== "applied") return opened;
+  if (to === undefined) return lookIn(useScreenStore.getState().panes[pane], camera);
+  // A node opens as the view showing it; a route as whatever view mounts there.
+  const shown = (view: PaneView | undefined) =>
+    view !== undefined && ("node" in to ? view.report.subject === to.node : view.owner !== before);
+  return viewWhen(pane, shown).then((view) => lookIn(view, camera));
+}
+
 /**
  * Carry out one of the server's screen commands in this tab: a navigate
  * itself, and every other command through the view in the pane it names,
@@ -124,11 +187,7 @@ function carryOut(command: ScreenCommand): ScreenAck | Promise<ScreenAck> {
   if (!ids.includes(pane)) {
     return screenRejected(`no pane ${pane}; this tab has ${ids.join(", ")}`);
   }
-  if (command.kind === "navigate") {
-    return "node" in command.to
-      ? openNode(pane, command.to.node)
-      : openRoute(pane, command.to.route);
-  }
+  if (command.kind === "navigate") return navigate(pane, command);
   const view = useScreenStore.getState().panes[pane];
   if (view === undefined) return screenRejected("the open view takes no selection");
   return view.carryOut({

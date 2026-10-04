@@ -8,7 +8,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { CanvasDoc } from "@kb/canvas";
-import type { CanvasView } from "./canvas-camera";
+import type { CanvasViewTarget, ScreenAck } from "@kb/contracts";
+import { viewOfPan, type CanvasView, type CanvasViewportControls } from "./canvas-camera";
 import { EMPTY_SELECTION } from "./canvas-selection";
 import { useScreenStore } from "@/stores/screen.store";
 import { useCanvasScreen } from "./use-canvas-screen";
@@ -23,8 +24,22 @@ const doc: CanvasDoc = {
   nodes: [
     { id: "near", type: "text", text: "", x: 0, y: 0, width: 100, height: 50 },
     { id: "far", type: "text", text: "", x: 5000, y: 0, width: 100, height: 50 },
+    { id: "frame", type: "group", x: 0, y: 200, width: 300, height: 200, rotation: { x: 90 } },
   ],
   edges: [],
+};
+
+const SIZE = { width: 800, height: 600 };
+/** Where each camera target was shown: the views the viewport was pointed at. */
+let shownViews: CanvasView[] = [];
+const viewport: CanvasViewportControls = {
+  zoomBy: () => {},
+  zoomTo: () => {},
+  frame: () => {},
+  faceOn: () => {},
+  look: () => {},
+  toggleLens: () => {},
+  show: (view) => shownViews.push(view),
 };
 
 let root: Root;
@@ -64,6 +79,8 @@ function report(shown: "2d" | "3d", settled3d: CanvasView | null) {
       stage,
       selection: EMPTY_SELECTION,
       setSelection: () => {},
+      camera: () => ({ view: viewOfPan({ x: 10, y: 20 }, 1, SIZE), size: SIZE }),
+      viewport,
     });
     return null;
   }
@@ -83,5 +100,38 @@ describe("the canvas screen report", () => {
     const canvas = report("3d", view);
     expect(canvas?.projection).toBe("3d");
     expect(canvas?.pose).toEqual(view);
+  });
+});
+
+describe("a camera target", () => {
+  function look(target: CanvasViewTarget): ScreenAck {
+    report("2d", null);
+    const view = Object.values(useScreenStore.getState().panes)[0];
+    const answer = view?.carryOut({ kind: "look", target });
+    if (answer === undefined || answer instanceof Promise) throw new Error("no answer now");
+    return answer;
+  }
+
+  beforeEach(() => {
+    shownViews = [];
+  });
+
+  it("frames the items it names, through the showing camera", () => {
+    expect(look({ items: ["far"] })).toEqual({ outcome: "applied" });
+    expect(shownViews[0]).toMatchObject({ x: 5050, y: 25, yaw: 0, pitch: 0 });
+  });
+
+  it("looks at a frame alone face-on, as go to frame does: a wall from in front", () => {
+    expect(look({ items: ["frame"] })).toEqual({ outcome: "applied" });
+    expect(shownViews[0]?.pitch).toBeCloseTo(Math.PI / 2, 6);
+  });
+
+  it("looks from a preset, and refuses an item the canvas does not hold", () => {
+    expect(look({ preset: "front" })).toEqual({ outcome: "applied" });
+    expect(shownViews[0]?.pitch).toBeCloseTo(Math.PI / 2, 6);
+    expect(look({ items: ["ghost"] })).toEqual({
+      outcome: "rejected",
+      reason: "no item ghost on this canvas",
+    });
   });
 });

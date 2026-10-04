@@ -44,7 +44,10 @@ export const uiNavigateDef = {
   title: "Navigate a tab",
   description:
     "Open a node (`node`) or a route (`route`) in a kb UI tab, the most recently active by " +
-    "default. Answers whether a live tab applied it within `timeoutMs`.",
+    "default, and/or point the camera of the canvas it shows (`camera`): items to frame (one " +
+    "frame alone is looked at face-on), a view preset to look from (top, front, right, back, " +
+    "left, oblique), both, or a pose as ui.screen reports one — to show the person something. " +
+    "Answers whether a live tab applied it within `timeoutMs`.",
   mode: { kind: "write" } as const,
   inputSchema: UiNavigateInputSchema,
   outputSchema: ScreenReceiptSchema,

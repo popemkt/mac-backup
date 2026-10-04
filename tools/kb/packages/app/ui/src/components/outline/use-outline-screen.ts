@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { SCREEN_APPLIED, screenRejected, type ScreenAck } from "@kb/contracts";
-import { outlineInstanceKey, type PaneSelection } from "@kb/ui-sdk";
+import { outlineInstanceKey, type PaneCommand, type PaneSelection } from "@kb/ui-sdk";
 import { usePaneScreen } from "@/stores/screen.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { outlineHostOfInstance } from "@/stores/outline-hosts";
@@ -69,12 +69,15 @@ export function useOutlineScreen(root: string | undefined): void {
   const selected = useOutlineStore((s) =>
     outlineHostOfInstance(s.selectedInstanceKey) === host ? s.selectedNodeId : null,
   );
-  const select = useCallback(
-    (command: PaneSelection) => selectInOutline(host, root === undefined, command),
+  const carryOut = useCallback(
+    (command: PaneCommand) =>
+      command.kind === "select"
+        ? selectInOutline(host, root === undefined, command)
+        : screenRejected("the outline has no camera to point"),
     [host, root],
   );
   usePaneScreen(
     { subject: root ?? zoomRoot, focused, selection: selected === null ? [] : [selected] },
-    select,
+    carryOut,
   );
 }

@@ -212,6 +212,7 @@ const CALLS: readonly ActionInvocation[] = [
   { id: "ui.screen", input: { tab: MISSING_TAB } },
   { id: "ui.navigate", input: { route: "/canvas" } },
   { id: "ui.navigate", input: {} },
+  { id: "ui.navigate", input: { camera: { preset: "front" } } },
   { id: "ui.select", input: { selection: [] } },
   { id: "ui.select", input: { tab: MISSING_TAB, focus: "sys.tag" } },
 ];

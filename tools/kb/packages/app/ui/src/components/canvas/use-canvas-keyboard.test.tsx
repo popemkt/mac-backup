@@ -243,6 +243,7 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
       look: (preset: string) => log.push(`look=${preset}`),
       toggleLens: () => log.push("lens"),
       faceOn: (item: { id: string }) => log.push(`faceOn=${item.id}`),
+      show: () => log.push("show"),
     },
     chooseProjection: (kind: string) => log.push(`projection=${kind}`),
     openViewMenu: () => log.push("viewMenu"),

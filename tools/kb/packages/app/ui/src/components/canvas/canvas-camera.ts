@@ -25,13 +25,20 @@ import {
   boxTop,
   faceStands,
   frameCorners,
+  isGroupNode,
   itemFrame,
   rayIntoItem,
   type CanvasAxes,
+  type CanvasNode,
   type CanvasPickItem,
   type CanvasPose,
   type CanvasVec,
 } from "@kb/canvas";
+import {
+  CANVAS_VIEW_PRESET_NAMES,
+  type CanvasViewPresetName,
+  type CanvasViewTarget,
+} from "@kb/contracts";
 
 export interface CanvasPoint {
   x: number;
@@ -101,13 +108,21 @@ export interface CanvasViewportControls {
    */
   faceOn(item: CanvasHitItem): void;
   /** Look from `preset`; the top-down 2D view enters 3D for any other. */
-  look(preset: CanvasViewPreset): void;
+  look(preset: CanvasViewPresetName): void;
+  /**
+   * Look as `view` looks, flying there: what every other look is. The
+   * top-down 2D view frames a top view itself and enters 3D for any other.
+   */
+  show(view: CanvasView): void;
   /** Swap between perspective and orthographic; from 2D, enter 3D in perspective. */
   toggleLens(): void;
 }
 
 /** What the 2D canvas's own camera answers: the rest is a way into 3D. */
-export type FlatViewportControls = Omit<CanvasViewportControls, "look" | "toggleLens" | "faceOn">;
+export type FlatViewportControls = Omit<
+  CanvasViewportControls,
+  "look" | "toggleLens" | "faceOn" | "show"
+>;
 
 /** Where an orthographic eye stands behind the focus plane, canvas units (any far point will do). */
 const ORTHO_STANDOFF = 1e6;
@@ -507,6 +522,38 @@ export function faceOnView(
   return fitView([item], size, { ...from, yaw, pitch: clampPitch(pitch) });
 }
 
+/**
+ * The view a camera target names, from `from` (the showing camera) on a
+ * viewport of `size` (`CanvasViewTarget` in `@kb/contracts`): a pose
+ * exactly; else turned to the preset, if one is named, and framing the
+ * items, if any are — a frame alone, with no preset, looked at face-on, as
+ * "go to frame" does. Null when an item it names is not in `items`, or
+ * there is nothing to frame.
+ */
+export function viewOfTarget(
+  target: CanvasViewTarget,
+  items: readonly CanvasNode[],
+  size: ViewSize,
+  from: CanvasView,
+): CanvasView | null {
+  if (target.pose !== undefined) return target.pose;
+  const turned = target.preset === undefined ? from : presetView(from, target.preset);
+  if (target.items === undefined) return turned;
+  const named = target.items.map((id) => items.find((item) => item.id === id));
+  const found = named.filter((item) => item !== undefined);
+  if (found.length < named.length) return null;
+  const [only] = found;
+  if (
+    found.length === 1 &&
+    only !== undefined &&
+    isGroupNode(only) &&
+    target.preset === undefined
+  ) {
+    return faceOnView(only, size, from);
+  }
+  return fitView(found, size, turned);
+}
+
 /** Whether `view` looks straight down with the screen along x and y: what the 2D view can show. */
 export function isTopView(view: CanvasView): boolean {
   return view.pitch < FROM_TOP && Math.abs(turn(view.yaw, 0)) < FROM_TOP;
@@ -640,8 +687,6 @@ export function withLens(view: CanvasView, lens: CanvasLens): CanvasView {
  * opens at in 3D. Each side is named for where the eye stands — `front` on
  * the +y side, looking across the floor with x to the right; `right` on +x.
  */
-const CANVAS_VIEW_PRESET_KINDS = ["top", "front", "right", "back", "left", "oblique"] as const;
-export type CanvasViewPreset = (typeof CANVAS_VIEW_PRESET_KINDS)[number];
 
 interface ViewPresetSpec {
   readonly label: string;
@@ -649,7 +694,7 @@ interface ViewPresetSpec {
   readonly pitch: number;
 }
 
-export const CANVAS_VIEW_PRESETS: { readonly [P in CanvasViewPreset]: ViewPresetSpec } = {
+export const CANVAS_VIEW_PRESETS: { readonly [P in CanvasViewPresetName]: ViewPresetSpec } = {
   top: { label: "Top", yaw: 0, pitch: 0 },
   front: { label: "Front", yaw: 0, pitch: MAX_PITCH },
   right: { label: "Right", yaw: -Math.PI / 2, pitch: MAX_PITCH },
@@ -659,18 +704,18 @@ export const CANVAS_VIEW_PRESETS: { readonly [P in CanvasViewPreset]: ViewPreset
 };
 
 /** `from` turned to look from `preset`, its focus, zoom and lens kept. */
-export function presetView(from: CanvasView, preset: CanvasViewPreset): CanvasView {
+export function presetView(from: CanvasView, preset: CanvasViewPresetName): CanvasView {
   const { yaw, pitch } = CANVAS_VIEW_PRESETS[preset];
   return { ...from, yaw, pitch };
 }
 
 /** The preset `view` looks from, if it is one (to a hair); null for any other orbit. */
-export function presetOf(view: CanvasView): CanvasViewPreset | null {
-  const near = (preset: CanvasViewPreset) => {
+export function presetOf(view: CanvasView): CanvasViewPresetName | null {
+  const near = (preset: CanvasViewPresetName) => {
     const spec = CANVAS_VIEW_PRESETS[preset];
     return Math.abs(turn(view.yaw, spec.yaw)) < 1e-3 && Math.abs(view.pitch - spec.pitch) < 1e-3;
   };
-  return CANVAS_VIEW_PRESET_KINDS.find(near) ?? null;
+  return CANVAS_VIEW_PRESET_NAMES.find(near) ?? null;
 }
 
 /** One canvas axis as the camera sees it: its screen direction, and how far it points at the eye. */

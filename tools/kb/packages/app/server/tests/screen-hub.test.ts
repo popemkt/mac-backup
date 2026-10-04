@@ -74,6 +74,7 @@ describe("ScreenHub", () => {
         timeoutMs: 5000,
         node: undefined,
         route: "/",
+        camera: undefined,
       }),
     );
     expect(receipt).toEqual({ outcome: "no-tab", tab: "tab.a" });

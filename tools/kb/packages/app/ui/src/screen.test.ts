@@ -243,6 +243,34 @@ describe("the tab's screen", () => {
     });
   });
 
+  it("hands a camera target to the open view, or to the one a navigate opens once it reports", async () => {
+    const { plugin, carryOut } = tab();
+    syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, canvasUiPlugin, layoutUiPlugin, plugin]);
+    const look = vi.fn((): ScreenAck => ({ outcome: "applied" }));
+    report(look);
+    expect(carryOut({ kind: "navigate", camera: { preset: "front" } })).toEqual({
+      outcome: "applied",
+    });
+    expect(look).toHaveBeenCalledWith({ kind: "look", target: { preset: "front" } });
+    // Opened by node, it waits for the view showing that node.
+    const later = carryOut({
+      kind: "navigate",
+      to: { node: "n.root-a" },
+      camera: { items: ["x"] },
+    });
+    useScreenStore.setState({
+      panes: {
+        main: {
+          report: { subject: "n.root-a", focused: null, selection: [] },
+          carryOut: look,
+          owner: Symbol("opened"),
+        },
+      },
+    });
+    expect(await later).toEqual({ outcome: "applied" });
+    expect(look).toHaveBeenLastCalledWith({ kind: "look", target: { items: ["x"] } });
+  });
+
   it("refuses a pane it does not have", () => {
     const { plugin, carryOut } = tab();
     syncUiPlugins([outlineUiPlugin, plugin]);

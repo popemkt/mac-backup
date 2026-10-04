@@ -1,6 +1,6 @@
 import { Context, type Effect } from "effect";
 import { z } from "zod";
-import { present, type DomainError } from "@kb/model";
+import type { DomainError } from "@kb/model";
 
 /**
  * Screen state: what each open kb UI tab shows, and the commands that move
@@ -18,20 +18,61 @@ import { present, type DomainError } from "@kb/model";
  * turntable orbit and the lens; in 2D the top view, orthographic), and the
  * ids of the items any part of which is on screen.
  */
+const CanvasPoseSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  z: z.number(),
+  zoom: z.number(),
+  yaw: z.number(),
+  pitch: z.number(),
+  fov: z.number(),
+});
+
 export const CanvasScreenSchema = z.object({
   projection: z.enum(["2d", "3d"]),
-  pose: z.object({
-    x: z.number(),
-    y: z.number(),
-    z: z.number(),
-    zoom: z.number(),
-    yaw: z.number(),
-    pitch: z.number(),
-    fov: z.number(),
-  }),
+  pose: CanvasPoseSchema,
   visible: z.array(z.string()),
 });
 export type CanvasScreen = z.infer<typeof CanvasScreenSchema>;
+
+/**
+ * The orientations a canvas camera looks from (Blender's numpad views, plan
+ * 2026-10-02 decision 9): from the top, level from each side — each named
+ * for where the eye stands, front on the +y side — and the oblique look a
+ * canvas first opens at in 3D. The canvas camera's table of them is typed
+ * over these names.
+ */
+export const CANVAS_VIEW_PRESET_NAMES = [
+  "top",
+  "front",
+  "right",
+  "back",
+  "left",
+  "oblique",
+] as const;
+export type CanvasViewPresetName = (typeof CANVAS_VIEW_PRESET_NAMES)[number];
+
+/**
+ * What a canvas camera is pointed at: a pose exactly (as `ui.screen`
+ * reports one), or a preset to look from, items to frame, or both — the
+ * preset's orientation, framing the items. Items alone are framed as the
+ * camera is turned now, and a frame alone is looked at face-on (go to
+ * frame); a preset alone keeps what is looked at and how near.
+ */
+export const CanvasViewTargetSchema = z
+  .strictObject({
+    items: z.array(z.string().min(1)).min(1).optional(),
+    preset: z.enum(CANVAS_VIEW_PRESET_NAMES).optional(),
+    pose: CanvasPoseSchema.optional(),
+  })
+  .refine(
+    (target) =>
+      target.pose === undefined
+        ? target.items !== undefined || target.preset !== undefined
+        : target.items === undefined && target.preset === undefined,
+    { message: "give a pose, or a preset, items or both" },
+  );
+export type CanvasViewTarget = z.infer<typeof CanvasViewTargetSchema>;
 
 /**
  * One pane of a tab: the workspace's panes (Tana-style panels, splits and
@@ -115,11 +156,18 @@ export type NavigateTarget = z.infer<typeof NavigateTargetSchema>;
 
 /** A command a tab carries out. `pane` absent means the tab's active pane. */
 export const ScreenCommandSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("navigate"),
-    pane: z.string().min(1).optional(),
-    to: NavigateTargetSchema,
-  }),
+  z
+    .object({
+      kind: z.literal("navigate"),
+      pane: z.string().min(1).optional(),
+      /** Where the pane goes; absent, it stays where it is. */
+      to: NavigateTargetSchema.optional(),
+      /** What the camera of the canvas it shows then looks at. */
+      camera: CanvasViewTargetSchema.optional(),
+    })
+    .refine((command) => command.to !== undefined || command.camera !== undefined, {
+      message: "a navigate goes somewhere, points the camera, or both",
+    }),
   z.object({
     kind: z.literal("select"),
     pane: z.string().min(1).optional(),
@@ -196,10 +244,15 @@ export const UiNavigateInputSchema = z
     ...commandTargetShape,
     node: omittable(z.string().min(1)),
     route: omittable(z.string().startsWith("/")),
+    camera: omittable(CanvasViewTargetSchema),
   })
-  .refine((input) => (input.node === undefined) !== (input.route === undefined), {
-    message: "give exactly one of node or route",
-  });
+  .refine((input) => input.node === undefined || input.route === undefined, {
+    message: "give one of node or route, not both",
+  })
+  .refine(
+    (input) => input.node !== undefined || input.route !== undefined || input.camera !== undefined,
+    { message: "give a node or a route, a camera, or both" },
+  );
 export type UiNavigateInput = z.output<typeof UiNavigateInputSchema>;
 
 export const UiSelectInputSchema = z
@@ -214,12 +267,15 @@ export const UiSelectInputSchema = z
 export type UiSelectInput = z.output<typeof UiSelectInputSchema>;
 
 /** The command a `ui.navigate` input asks its tab to carry out. */
-export function navigateCommand({ pane, node, route }: UiNavigateInput): ScreenCommand {
-  const to: NavigateTarget =
-    node === undefined
-      ? { route: present(route, "ui.navigate input names neither node nor route") }
-      : { node };
-  return { kind: "navigate", ...(pane === undefined ? {} : { pane }), to };
+export function navigateCommand({ pane, node, route, camera }: UiNavigateInput): ScreenCommand {
+  const to: NavigateTarget | undefined =
+    node !== undefined ? { node } : route !== undefined ? { route } : undefined;
+  return {
+    kind: "navigate",
+    ...(pane === undefined ? {} : { pane }),
+    ...(to === undefined ? {} : { to }),
+    ...(camera === undefined ? {} : { camera }),
+  };
 }
 
 /** The command a `ui.select` input asks its tab to carry out. */

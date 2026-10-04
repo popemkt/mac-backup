@@ -2301,9 +2301,18 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   take the command (answered at once, not after the wait). `timeout` says only that
   no answer came in time: the tab may still carry the command out, and its
   late answer is dropped. `ui.navigate` takes a
-  `node`, opened at its node route in the pane, or a `route`; `ui.select`
-  takes a `selection`, a `focus`, or both, and the open view carries them
-  out or says why it cannot.
+  `node`, opened at its node route in the pane, or a `route`, and a
+  `camera` target for the canvas the pane then shows (`CanvasViewTarget`:
+  a pose as `ui.screen` reports one, or a view preset, items to frame, or
+  both; a frame alone is looked at face-on, as "go to frame" does), or the
+  camera alone for the canvas already open — so an agent can *show* the
+  person something (plan 2026-10-02, decision 16). Given a node or a route,
+  the camera goes to the view the navigate opened once it reports, and a
+  view with no camera refuses it. `ui.select`
+  takes a `selection`, a `focus`, or both. Every command but a navigate's
+  own move is the open view's to carry out or refuse, through the one
+  handler it registers for its pane (`PaneCommand`), and its answer may come
+  later than the command (a camera that waits for its view).
 - **No approval.** The two commands change what one tab shows, never the
   graph or the workspace, and a person undoes either with one gesture.
   Approval would also keep them off MCP and WebMCP (`listedOn`), the

@@ -238,18 +238,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     };
     opens[chooser]();
   };
-  useCanvasScreen({
-    canvasId,
-    doc,
-    pan,
-    zoom,
-    shown: projection.shown,
-    settled3d: projection.settled3d,
-    stage: stageRef,
-    selection,
-    setSelection,
-  });
-
   const {
     addKbNode,
     onDoubleClickStage,
@@ -292,6 +280,19 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   }, [dispatchPointer]);
 
   const viewport = projection.viewportOf(viewportControls);
+  useCanvasScreen({
+    canvasId,
+    doc,
+    pan,
+    zoom,
+    shown: projection.shown,
+    settled3d: projection.settled3d,
+    stage: stageRef,
+    selection,
+    setSelection,
+    camera: projection.camera,
+    viewport,
+  });
   const modal = pointerState.drag?.kind === "transform" && pointerState.drag.modal;
   const modalDrag = modal ? pointerState.drag : null;
   /** Present mode steps through the frames, flying to each face-on; past either end it stays. */

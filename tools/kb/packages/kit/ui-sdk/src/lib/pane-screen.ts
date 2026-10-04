@@ -6,7 +6,7 @@
  * screen store and the page's `BrowserHost` are two bindings of one body.
  */
 import { useEffect, useRef, useState } from "react";
-import type { CanvasScreen, ScreenAck } from "@kb/contracts";
+import type { CanvasScreen, CanvasViewTarget, ScreenAck } from "@kb/contracts";
 import { usePane } from "./pane";
 
 /** What the view in a pane says about what it shows. */
@@ -27,9 +27,12 @@ export interface PaneSelection {
 
 /**
  * A screen command as the view in its pane receives it: the commands the
- * view, not the tab, carries out.
+ * view, not the tab, carries out — a `ui.select`, and the camera target of
+ * a `ui.navigate` (`look`), which a view with no camera refuses.
  */
-type PaneCommand = { readonly kind: "select" } & PaneSelection;
+export type PaneCommand =
+  | ({ readonly kind: "select" } & PaneSelection)
+  | { readonly kind: "look"; readonly target: CanvasViewTarget };
 
 /**
  * How the view carries out the commands sent to it; its answer, now or once

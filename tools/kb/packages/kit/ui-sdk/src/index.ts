@@ -284,6 +284,7 @@ export {
   type PaneReport,
   type PaneScreenPort,
   type PaneCarryOut,
+  type PaneCommand,
   type PaneSelection,
   usePaneScreenThrough,
 } from "./lib/pane-screen";

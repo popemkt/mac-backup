@@ -6,6 +6,7 @@ import {
   type ServerMessage,
 } from "../src/protocol.ts";
 import {
+  CanvasViewTargetSchema,
   UiNavigateInputSchema,
   UiSelectInputSchema,
   navigateCommand,
@@ -156,7 +157,7 @@ describe("screen messages on /ws", () => {
 });
 
 describe("ui.* inputs and the commands they become", () => {
-  test("ui.navigate takes exactly one of node or route", () => {
+  test("ui.navigate takes one of node or route, a camera, or both", () => {
     expect(UiNavigateInputSchema.safeParse({ node: "n.a" }).success).toBe(true);
     expect(UiNavigateInputSchema.safeParse({ route: "/canvas" }).success).toBe(true);
     expect(UiNavigateInputSchema.safeParse({}).success).toBe(false);
@@ -165,6 +166,20 @@ describe("ui.* inputs and the commands they become", () => {
     expect(UiNavigateInputSchema.safeParse({ node: "n.a", route: null, tab: null }).success).toBe(
       true,
     );
+    expect(UiNavigateInputSchema.safeParse({ camera: { preset: "front" } }).success).toBe(true);
+    expect(
+      UiNavigateInputSchema.safeParse({ node: "n.c", camera: { items: ["a"], preset: "top" } })
+        .success,
+    ).toBe(true);
+  });
+
+  test("a camera target is a pose, or a preset, items or both", () => {
+    const pose = { x: 0, y: 0, z: 0, zoom: 1, yaw: 0, pitch: 0, fov: 0 };
+    expect(CanvasViewTargetSchema.safeParse({ pose }).success).toBe(true);
+    expect(CanvasViewTargetSchema.safeParse({ pose, preset: "top" }).success).toBe(false);
+    expect(CanvasViewTargetSchema.safeParse({}).success).toBe(false);
+    expect(CanvasViewTargetSchema.safeParse({ items: [] }).success).toBe(false);
+    expect(CanvasViewTargetSchema.safeParse({ preset: "under" }).success).toBe(false);
   });
 
   test("ui.select takes a selection, a focus, or both", () => {
@@ -187,6 +202,8 @@ describe("ui.* inputs and the commands they become", () => {
     });
     const route = UiNavigateInputSchema.parse({ route: "/graph", pane: null });
     expect(navigateCommand(route)).toEqual({ kind: "navigate", to: { route: "/graph" } });
+    const look = UiNavigateInputSchema.parse({ camera: { items: ["a"] } });
+    expect(navigateCommand(look)).toEqual({ kind: "navigate", camera: { items: ["a"] } });
     const select = UiSelectInputSchema.parse({ tab: "t", focus: "n.a", selection: null });
     expect(selectCommand(select)).toEqual({ kind: "select", focus: "n.a" });
   });

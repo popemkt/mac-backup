@@ -18,7 +18,8 @@
  */
 import type { CanvasProjectionKind } from "@kb/canvas";
 import type { CanvasTool, CanvasToolPick } from "./canvas-tool";
-import { CANVAS_VIEW_PRESETS, ZOOM_STEP, type CanvasViewPreset } from "./canvas-camera";
+import type { CanvasViewPresetName } from "@kb/contracts";
+import { CANVAS_VIEW_PRESETS, ZOOM_STEP } from "./canvas-camera";
 import type { CanvasAxis, TransformKey, TransformMode } from "./canvas-transform-input";
 
 export interface CanvasKeyEvent {
@@ -45,7 +46,7 @@ export type CanvasIntent =
   | { type: "zoomBy"; factor: number }
   | { type: "zoomTo"; zoom: number }
   | { type: "frame"; scope: "all" | "selection" }
-  | { type: "look"; preset: CanvasViewPreset }
+  | { type: "look"; preset: CanvasViewPresetName }
   | { type: "toggleLens" }
   | { type: "projection"; kind: CanvasProjectionKind }
   | { type: "viewMenu" }
@@ -104,7 +105,7 @@ export interface CanvasViewCommand {
 }
 
 const look = (
-  preset: CanvasViewPreset,
+  preset: CanvasViewPresetName,
   hint: string,
   chords: readonly ViewChord[],
 ): CanvasViewCommand => ({

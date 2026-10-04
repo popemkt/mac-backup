@@ -1,10 +1,23 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { CanvasDoc, CanvasProjectionKind } from "@kb/canvas";
-import { SCREEN_APPLIED, screenRejected, type CanvasScreen, type ScreenAck } from "@kb/contracts";
-import { poseOfView, viewOfPan, type CanvasView } from "./canvas-camera";
+import {
+  SCREEN_APPLIED,
+  screenRejected,
+  type CanvasScreen,
+  type CanvasViewTarget,
+  type ScreenAck,
+} from "@kb/contracts";
+import {
+  poseOfView,
+  viewOfPan,
+  viewOfTarget,
+  type CanvasView,
+  type CanvasViewportControls,
+  type ViewSize,
+} from "./canvas-camera";
 import { visibleItemIds } from "./canvas-visible";
 import type { CanvasSelection } from "./canvas-selection";
-import { usePaneScreen, type PaneSelection } from "@kb/ui-sdk";
+import { usePaneScreen, type PaneCommand, type PaneSelection } from "@kb/ui-sdk";
 
 interface CanvasScreenInput {
   readonly canvasId: string;
@@ -17,6 +30,9 @@ interface CanvasScreenInput {
   readonly stage: RefObject<HTMLElement | null>;
   readonly selection: CanvasSelection;
   readonly setSelection: (selection: CanvasSelection) => void;
+  /** The showing camera and its viewport, and how it is pointed: what a camera target moves. */
+  readonly camera: () => { readonly view: CanvasView; readonly size: ViewSize };
+  readonly viewport: CanvasViewportControls;
 }
 
 interface Observed {
@@ -59,7 +75,9 @@ function useStageSize(stage: RefObject<HTMLElement | null>): { width: number; he
 /**
  * Report the canvas's part of the screen — the canvas node, its selected
  * items, the camera of the projection showing and the items it shows — and
- * carry out a `ui.select` of item ids. A canvas has no focus to move. In 3D
+ * carry out a `ui.select` of item ids, and a `ui.navigate`'s camera target
+ * through the showing camera (`viewOfTarget`, then `show`). A canvas has no
+ * focus to move. In 3D
  * the camera is reported as it comes to rest, not on every frame of a drag.
  */
 export function useCanvasScreen({
@@ -72,6 +90,8 @@ export function useCanvasScreen({
   stage,
   selection,
   setSelection,
+  camera,
+  viewport,
 }: CanvasScreenInput): void {
   const { width, height } = useStageSize(stage);
   const size = { width, height };
@@ -91,6 +111,21 @@ export function useCanvasScreen({
     });
     return SCREEN_APPLIED;
   };
+  /** Point the showing camera at a target, as the view menu and present mode point it. */
+  const look = (target: CanvasViewTarget): ScreenAck => {
+    const now = camera();
+    const goal = viewOfTarget(target, doc.nodes, now.size, now.view);
+    if (goal === null) {
+      const missing = (target.items ?? []).filter((id) => !doc.nodes.some((n) => n.id === id));
+      return screenRejected(
+        missing.length > 0 ? `no item ${missing.join(", ")} on this canvas` : "nothing to look at",
+      );
+    }
+    viewport.show(goal);
+    return SCREEN_APPLIED;
+  };
+  const carryOut = (command: PaneCommand): ScreenAck =>
+    command.kind === "select" ? select(command) : look(command.target);
   usePaneScreen(
     {
       subject: canvasId,
@@ -103,6 +138,6 @@ export function useCanvasScreen({
         visible: visibleItemIds(doc.nodes, view, size),
       },
     },
-    select,
+    carryOut,
   );
 }

@@ -10,11 +10,13 @@ import {
 import {
   faceOnView,
   isTopView,
+  panOfView,
   poseOfView,
   presetView,
   screenToPlane,
   viewOfPan,
   withLens,
+  type CanvasLens,
   type CanvasPoint,
   type CanvasView,
   type CanvasViewportControls,
@@ -59,6 +61,47 @@ function sizeOf(stage: HTMLDivElement | null): ViewSize {
   return { width: Math.max(1, stage.clientWidth), height: Math.max(1, stage.clientHeight) };
 }
 
+/** What the 2D view's looks read and do: the page's camera, and its ways in and across. */
+interface FlatLooks {
+  readonly current: () => CanvasView;
+  readonly size: () => ViewSize;
+  /** The lens the canvas was last seen through in depth. */
+  readonly depthLens: () => CanvasLens;
+  /** Enter 3D looking from a view: the handover flies there from the top. */
+  readonly enterLookingFrom: (view: CanvasView) => void;
+  /** Set the 2D view's pan and zoom. */
+  readonly face: (pan: CanvasPoint, zoom: number) => void;
+}
+
+/**
+ * The 2D camera's answers to a view, a preset, a lens or a face-on look:
+ * 2D is the top view through the orthographic lens, so it shows a top view
+ * itself and any other look is a way into 3D. A preset keeps the lens the
+ * canvas was last seen through in depth.
+ */
+function lookFromTop(flat: FlatViewportControls, page: FlatLooks): CanvasViewportControls {
+  /** The top view through the lens the canvas was last seen through in depth. */
+  const inDepth = () => withLens(page.current(), page.depthLens());
+  const show = (view: CanvasView) => {
+    if (!isTopView(view)) {
+      page.enterLookingFrom(view);
+      return;
+    }
+    const flatView = panOfView(view, page.size());
+    page.face(flatView.pan, flatView.zoom);
+  };
+  return {
+    ...flat,
+    show,
+    faceOn: (item) => {
+      const facing = faceOnView(item, page.size(), inDepth());
+      if (facing !== null) show(facing);
+    },
+    look: (preset) => show(presetView(inDepth(), preset)),
+    toggleLens: () => page.enterLookingFrom(withLens(page.current(), "perspective")),
+  };
+}
+
 export function useCanvasProjection(context: ProjectionContext) {
   const { doc, pan, zoom, stage, setCamera, setZoom, dispatchPointer } = context;
   const [rig] = useState(
@@ -68,6 +111,11 @@ export function useCanvasProjection(context: ProjectionContext) {
   const [handover] = useState(() => new CanvasHandover(rig, readTiming(), UNMOUNTED));
   /** The 3D view as it last came to rest: what the screen state reports. */
   const [settled3d, setSettled3d] = useState<CanvasView | null>(null);
+  /** Set the 2D view's pan and zoom. */
+  const face = (next: CanvasPoint, nextZoom: number) => {
+    dispatchPointer({ type: "pan/set", pan: next });
+    setZoom(nextZoom);
+  };
   // What the handover reads when it acts: the page as of its last commit.
   useLayoutEffect(() => {
     const pose = doc.camera?.pose;
@@ -75,10 +123,7 @@ export function useCanvasProjection(context: ProjectionContext) {
       flat: () => ({ pan, zoom }),
       size: () => sizeOf(stage.current),
       pose: () => pose,
-      face: (next, nextZoom) => {
-        dispatchPointer({ type: "pan/set", pan: next });
-        setZoom(nextZoom);
-      },
+      face,
       arrived: (arrivedZoom) => {
         setZoom(arrivedZoom);
         setSettled3d(rig.view);
@@ -126,28 +171,12 @@ export function useCanvasProjection(context: ProjectionContext) {
     setCamera(cameraLookingFrom(doc.camera, "3d", poseOfView(view)));
   };
 
-  /**
-   * The 2D camera's answers to a preset, a lens or a face-on look: 2D is the top view
-   * through the orthographic lens, so any other look is a way into 3D. A
-   * preset keeps the lens the canvas was last seen through in depth.
-   */
-  const lookFromTop = (flat: FlatViewportControls): CanvasViewportControls => {
-    /** The top view through the lens the canvas was last seen through in depth. */
-    const inDepth = () =>
-      withLens(current(), doc.camera?.pose?.fov === 0 ? "orthographic" : "perspective");
-    return {
-      ...flat,
-      faceOn: (item) => {
-        const facing = faceOnView(item, size(), inDepth());
-        if (facing === null) return;
-        if (isTopView(facing)) flat.frame([item]);
-        else enterLookingFrom(facing);
-      },
-      look: (preset) => {
-        if (preset !== "top") enterLookingFrom(presetView(inDepth(), preset));
-      },
-      toggleLens: () => enterLookingFrom(withLens(current(), "perspective")),
-    };
+  const flatLooks: FlatLooks = {
+    current,
+    size,
+    depthLens: () => (doc.camera?.pose?.fov === 0 ? "orthographic" : "perspective"),
+    enterLookingFrom,
+    face,
   };
 
   return {
@@ -176,6 +205,6 @@ export function useCanvasProjection(context: ProjectionContext) {
     flatView: (): CanvasView => viewOfPan(pan, zoom, size()),
     /** The showing camera's answers to the keymap and the view widget, given the 2D ones. */
     viewportOf: (flatControls: FlatViewportControls): CanvasViewportControls =>
-      in3d ? rig.controls(size, onViewSettled) : lookFromTop(flatControls),
+      in3d ? rig.controls(size, onViewSettled) : lookFromTop(flatControls, flatLooks),
   };
 }

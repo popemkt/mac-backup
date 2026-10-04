@@ -102,6 +102,7 @@ export {
   ScreenAckSchema,
   ScreenCommandSchema,
   ScreenListSchema,
+  CANVAS_VIEW_PRESET_NAMES,
   ScreenReceiptSchema,
   ScreenStateSchema,
   Screens,
@@ -116,6 +117,8 @@ export {
 } from "./screen.ts";
 export type {
   CanvasScreen,
+  CanvasViewPresetName,
+  CanvasViewTarget,
   NavigateTarget,
   PaneScreen,
   ScreenAck,

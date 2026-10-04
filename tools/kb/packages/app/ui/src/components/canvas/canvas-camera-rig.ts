@@ -166,6 +166,7 @@ export class CanvasCameraRig {
         if (facing !== null) this.flyTo(facing, settled);
       },
       look: (preset) => this.flyTo(presetView(this.current, preset), settled),
+      show: (view) => this.flyTo(view, settled),
       toggleLens: () => {
         const other = lensOf(this.current) === "perspective" ? "orthographic" : "perspective";
         this.flyTo(withLens(this.current, other), settled);
