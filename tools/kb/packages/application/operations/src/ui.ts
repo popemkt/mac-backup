@@ -1,6 +1,7 @@
 /**
- * `ui.screen`, `ui.navigate`, `ui.select`: what the open kb UI tabs show, and
- * the two commands that move them (`DESIGN.md` → Screen state).
+ * `ui.screen`, `ui.navigate`, `ui.select`, `ui.capture`: what the open kb UI
+ * tabs show, the two commands that move them, and the one that draws a
+ * canvas's picture (`DESIGN.md` → Screen state).
  *
  * They touch no store. Each reads or drives the {@link Screens} port the
  * invoke tip provides: the `kb ui` server holds the tabs, and every other
@@ -8,20 +9,23 @@
  * same, so the CLI, MCP, HTTP and WebMCP list them and return the same
  * receipt for them, and they run through the one invoke path.
  *
- * The two commands are writes, because they change what a person sees, and
- * they need no approval; `DESIGN.md` → Screen state says why.
+ * The two commands that move a tab are writes, because they change what a
+ * person sees, and they need no approval; `DESIGN.md` → Screen state says
+ * why. A capture moves nothing a person sees: it is a read.
  */
 import { Effect } from "effect";
 import {
   ScreenListSchema,
   ScreenReceiptSchema,
   Screens,
+  UiCaptureInputSchema,
   UiNavigateInputSchema,
   UiScreenInputSchema,
   UiSelectInputSchema,
   type ActionDefinition,
   type ScreenList,
   type ScreenReceipt,
+  type UiCaptureInput,
   type UiNavigateInput,
   type UiScreenInput,
   type UiSelectInput,
@@ -64,6 +68,26 @@ export const uiSelectDef = {
   inputSchema: UiSelectInputSchema,
   outputSchema: ScreenReceiptSchema,
 } satisfies ActionDefinition;
+
+export const uiCaptureDef = {
+  id: "ui.capture",
+  title: "Capture a canvas",
+  description:
+    "Have the canvas open in a kb UI tab (the most recently active by default) draw what its " +
+    "camera would see from `view` — items to frame, a view preset (top, front, right, back, " +
+    "left, oblique), both, or a pose — without moving the person's camera, and keep it as a PNG " +
+    "file; the receipt's `capture.path` is where it is. A canvas showing 2D draws it through its " +
+    "3D scene (2D is that scene's top view). Answers `no-tab` when no tab is open.",
+  mode: { kind: "read" } as const,
+  inputSchema: UiCaptureInputSchema,
+  outputSchema: ScreenReceiptSchema,
+} satisfies ActionDefinition;
+
+export const uiCaptureEffect = Effect.fn("ui.capture")(function* (
+  input: UiCaptureInput,
+): Effect.fn.Return<ScreenReceipt, DomainError, Screens> {
+  return yield* (yield* Screens).capture(input);
+});
 
 export const uiScreenEffect = Effect.fn("ui.screen")(function* (
   input: UiScreenInput,

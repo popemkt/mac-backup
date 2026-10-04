@@ -10,11 +10,12 @@ import {
   noTabReceipt,
   type ScreenList,
   type ScreenReceipt,
+  type UiCaptureInput,
   type UiNavigateInput,
   type UiSelectInput,
 } from "@kb/contracts";
 import { domainError, type DomainError } from "@kb/model";
-import { uiNavigateDef, uiScreenDef, uiSelectDef } from "@kb/operations";
+import { uiCaptureDef, uiNavigateDef, uiScreenDef, uiSelectDef } from "@kb/operations";
 import { canonicalRoot, readUiPresence } from "@kb/workspace-fs";
 
 /** How much longer than the command's own wait the server gets to answer. */
@@ -136,7 +137,7 @@ export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, Fi
         return output.data;
       });
 
-      const command = (id: string, input: UiNavigateInput | UiSelectInput) =>
+      const command = (id: string, input: UiNavigateInput | UiSelectInput | UiCaptureInput) =>
         ask<ScreenReceipt>(
           id,
           input,
@@ -156,6 +157,7 @@ export function remoteScreensLayer(root: string): Layer.Layer<Screens, never, Fi
           ).pipe(Effect.provide(context)),
         navigate: (input) => command(uiNavigateDef.id, input),
         select: (input) => command(uiSelectDef.id, input),
+        capture: (input) => command(uiCaptureDef.id, input),
       });
     }),
   );

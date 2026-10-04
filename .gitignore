@@ -54,6 +54,11 @@ tools/kb/ui/node_modules/
 # committed nor backed up.
 .kb/ui.json
 
+# kb canvas captures — the pictures `ui.capture` had a tab draw, kept for an
+# agent to open by path. Runtime state like ui.json: the newest few are kept,
+# none is committed or backed up.
+.kb/captures/
+
 # kb transaction tail — the JSONL store's durable log of what changed, in what
 # order. State, not intent: the nodes are the repo's content and this is how
 # they got there, so it is a backup concern (docs/backup-strategy.md) and never

@@ -75,7 +75,7 @@ export {
   renderViewsDef,
 } from "./render.ts";
 export { noteStoreSynced, persistEffect, reloadEffect } from "./session.ts";
-export { uiNavigateDef, uiScreenDef, uiSelectDef } from "./ui.ts";
+export { uiCaptureDef, uiNavigateDef, uiScreenDef, uiSelectDef } from "./ui.ts";
 export {
   coreActions,
   isomorphicActions,

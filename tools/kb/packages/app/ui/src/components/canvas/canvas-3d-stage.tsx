@@ -9,6 +9,7 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import type { CanvasDoc, CanvasNode } from "@kb/canvas";
 import type { CanvasPoint, ViewSize } from "./canvas-camera";
+import type { CanvasPainter } from "./canvas-capture";
 import type { CanvasPlace } from "./canvas-faces";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasPointerEvent } from "./canvas-pointer";
@@ -37,6 +38,8 @@ export interface Canvas3dStageProps {
   readonly onReady: () => void;
   /** The scene could not start; the page stays in 2D. */
   readonly onError: (error: Error) => void;
+  /** The mounted scene, which draws pictures, as it comes and goes (null once it has gone). */
+  readonly onPainter: (painter: CanvasPainter | null) => void;
   /** A press on a card: select or toggle what it reaches, then `startMove` to carry that. */
   readonly onCardPress: (
     card: CanvasNode,
@@ -239,6 +242,11 @@ export default function Canvas3dStage(props: Canvas3dStageProps) {
   const [scene, setScene] = useState<CanvasScene | null>(null);
   useMountedScene(host, props, reducedMotion, setScene);
   useSceneGestures(host, props, scene);
+  const painted = useEffectEvent((painter: CanvasPainter | null) => props.onPainter(painter));
+  useEffect(() => {
+    painted(scene);
+    return () => painted(null);
+  }, [scene]);
 
   useEffect(() => scene?.setContent({ doc, nodes, selection }), [scene, doc, nodes, selection]);
   useEffect(() => scene?.setGizmo(props.gizmo), [scene, props.gizmo]);

@@ -97,6 +97,16 @@ export class GizmoLayer {
     if (this.controls.object !== this.proxy) this.controls.attach(this.proxy);
   }
 
+  /** Take the handles out of the picture for a while; answers how to put them back. */
+  hide(): () => void {
+    const helper = this.controls.getHelper();
+    const shown = helper.visible;
+    helper.visible = false;
+    return () => {
+      helper.visible = shown;
+    };
+  }
+
   /** Give the controls the camera that draws `view`: the stage's, or its orthographic twin. */
   follow(view: CanvasView, size: ViewSize, orthographic: boolean): void {
     if (!orthographic) {

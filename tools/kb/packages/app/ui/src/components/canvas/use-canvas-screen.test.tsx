@@ -8,7 +8,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { CanvasDoc } from "@kb/canvas";
-import type { CanvasViewTarget, ScreenAck } from "@kb/contracts";
+import { SCREEN_APPLIED, type CanvasViewTarget, type ScreenAck } from "@kb/contracts";
 import { viewOfPan, type CanvasView, type CanvasViewportControls } from "./canvas-camera";
 import { EMPTY_SELECTION } from "./canvas-selection";
 import { useScreenStore } from "@/stores/screen.store";
@@ -32,6 +32,8 @@ const doc: CanvasDoc = {
 const SIZE = { width: 800, height: 600 };
 /** Where each camera target was shown: the views the viewport was pointed at. */
 let shownViews: CanvasView[] = [];
+/** The views pictures were drawn from. */
+let drawnViews: CanvasView[] = [];
 const viewport: CanvasViewportControls = {
   zoomBy: () => {},
   zoomTo: () => {},
@@ -81,6 +83,10 @@ function report(shown: "2d" | "3d", settled3d: CanvasView | null) {
       setSelection: () => {},
       camera: () => ({ view: viewOfPan({ x: 10, y: 20 }, 1, SIZE), size: SIZE }),
       viewport,
+      capture: (view) => {
+        drawnViews.push(view);
+        return Promise.resolve(SCREEN_APPLIED);
+      },
     });
     return null;
   }
@@ -133,5 +139,18 @@ describe("a camera target", () => {
       outcome: "rejected",
       reason: "no item ghost on this canvas",
     });
+  });
+
+  it("a capture draws from the target, or the camera as it is, and moves no camera", async () => {
+    drawnViews = [];
+    report("2d", null);
+    const view = Object.values(useScreenStore.getState().panes)[0];
+    expect(await view?.carryOut({ kind: "capture", view: { items: ["far"] } })).toEqual({
+      outcome: "applied",
+    });
+    expect(await view?.carryOut({ kind: "capture" })).toEqual({ outcome: "applied" });
+    expect(drawnViews[0]).toMatchObject({ x: 5050, y: 25 });
+    expect(drawnViews[1]).toMatchObject({ yaw: 0, pitch: 0, fov: 0 });
+    expect(shownViews).toEqual([]);
   });
 });

@@ -109,10 +109,12 @@ export {
   TabScreenSchema,
   UiNavigateInputSchema,
   UiScreenInputSchema,
+  UiCaptureInputSchema,
   UiSelectInputSchema,
   navigateCommand,
   noTabReceipt,
   screenRejected,
+  captureCommand,
   selectCommand,
 } from "./screen.ts";
 export type {
@@ -122,14 +124,17 @@ export type {
   NavigateTarget,
   PaneScreen,
   ScreenAck,
+  ScreenCapture,
   ScreenCommand,
   ScreenList,
+  ScreenPicture,
   ScreenReceipt,
   ScreenState,
   ScreensPort,
   TabScreen,
   UiNavigateInput,
   UiScreenInput,
+  UiCaptureInput,
   UiSelectInput,
 } from "./screen.ts";
 export { KbCtx, KbStore, kbCtxLayer, kbStoreLayer } from "./session.ts";

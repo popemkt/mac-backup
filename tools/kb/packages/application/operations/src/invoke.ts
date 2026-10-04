@@ -67,6 +67,8 @@ import {
   renderViewsDef,
 } from "./render.ts";
 import {
+  uiCaptureDef,
+  uiCaptureEffect,
   uiNavigateDef,
   uiNavigateEffect,
   uiScreenDef,
@@ -133,6 +135,7 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(uiScreenDef, uiScreenEffect),
   coreNative(uiNavigateDef, uiNavigateEffect),
   coreNative(uiSelectDef, uiSelectEffect),
+  coreNative(uiCaptureDef, uiCaptureEffect),
   coreNative(sandboxTrustDef, sandboxTrustEffect),
   coreNative(sandboxUntrustDef, sandboxUntrustEffect),
   coreNative(sandboxTrustedDef, sandboxTrustedEffect),

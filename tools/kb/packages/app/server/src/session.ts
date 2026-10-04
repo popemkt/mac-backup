@@ -11,6 +11,8 @@ import {
   type WireNode,
 } from "@kb/contracts";
 import type { KbNode, KbTx } from "@kb/model";
+import { bunFileSystemLayer } from "@kb/runtime";
+import { keepCapture } from "@kb/workspace-fs";
 import { ScreenHub } from "./screens.ts";
 
 /** Bun.serve websocket attachment (server boundary only). */
@@ -103,11 +105,14 @@ export class SubscriptionHub {
   private ctx: KbContext;
   private readonly channels: ChannelDirectory;
   private readonly unsubscribe: () => void;
-  /** The screens of the connections that are UI tabs. */
-  readonly screens = new ScreenHub();
+  /** The screens of the connections that are UI tabs; the pictures they draw kept under the root. */
+  readonly screens: ScreenHub;
 
   constructor(ctx: KbContext, channels: ChannelDirectory = NO_CHANNELS) {
     this.ctx = ctx;
+    this.screens = new ScreenHub((name, picture) =>
+      keepCapture(ctx.root, name, picture).pipe(Effect.provide(bunFileSystemLayer)),
+    );
     this.channels = channels;
     this.unsubscribe = ctx.log.subscribe((tx) => {
       // The log calls back synchronously from inside the commit; the sends it

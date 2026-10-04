@@ -61,6 +61,19 @@ function sizeOf(stage: HTMLDivElement | null): ViewSize {
   return { width: Math.max(1, stage.clientWidth), height: Math.max(1, stage.clientHeight) };
 }
 
+/** A hold on a count: taken now, let go once, however often the answer is called. */
+function holdOnce(setHeld: (change: (held: number) => number) => void) {
+  return (): (() => void) => {
+    setHeld((held) => held + 1);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      setHeld((held) => held - 1);
+    };
+  };
+}
+
 /** What the 2D view's looks read and do: the page's camera, and its ways in and across. */
 interface FlatLooks {
   readonly current: () => CanvasView;
@@ -111,6 +124,8 @@ export function useCanvasProjection(context: ProjectionContext) {
   const [handover] = useState(() => new CanvasHandover(rig, readTiming(), UNMOUNTED));
   /** The 3D view as it last came to rest: what the screen state reports. */
   const [settled3d, setSettled3d] = useState<CanvasView | null>(null);
+  /** How many pictures want the 3D scene mounted, whichever projection shows. */
+  const [held, setHeld] = useState(0);
   /** Set the 2D view's pan and zoom. */
   const face = (next: CanvasPoint, nextZoom: number) => {
     dispatchPointer({ type: "pan/set", pan: next });
@@ -184,8 +199,10 @@ export function useCanvasProjection(context: ProjectionContext) {
     target,
     shown: state.shown,
     settled3d,
-    /** The 3D layer is mounted: showing, about to, or fading out. */
-    mounted3d: in3d || state.phase !== null,
+    /** The 3D layer is mounted: showing, about to, fading out, or held for a picture. */
+    mounted3d: in3d || state.phase !== null || held > 0,
+    /** Keep the 3D scene mounted, unseen in 2D, until the answer is called: a picture's. */
+    holdScene: holdOnce(setHeld),
     entry: state.entry,
     choose,
     onSceneReady: () => handover.ready(target),

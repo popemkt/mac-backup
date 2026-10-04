@@ -1,4 +1,5 @@
 export { assetsLayer } from "./assets.ts";
+export { keepCapture } from "./captures.ts";
 export { ASSETS_URL_PREFIX, assetsDir, queriesDir, resolveAssetFile } from "./paths.ts";
 export { savedQueriesLayer } from "./saved-queries.ts";
 export { canonicalRoot, clearUiPresence, readUiPresence, writeUiPresence } from "./ui-presence.ts";

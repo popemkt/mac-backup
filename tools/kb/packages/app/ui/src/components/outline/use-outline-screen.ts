@@ -73,7 +73,7 @@ export function useOutlineScreen(root: string | undefined): void {
     (command: PaneCommand) =>
       command.kind === "select"
         ? selectInOutline(host, root === undefined, command)
-        : screenRejected("the outline has no camera to point"),
+        : screenRejected("the outline has no camera: open a canvas"),
     [host, root],
   );
   usePaneScreen(

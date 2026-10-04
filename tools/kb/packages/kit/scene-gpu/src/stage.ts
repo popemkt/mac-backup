@@ -79,6 +79,13 @@ const MAX_PIXEL_RATIO = 2;
 
 export type SceneToneMapping = "agx" | "aces" | "none";
 
+/** A picture of a stage's canvas: a PNG, and its size in pixels. */
+interface StagePicture {
+  readonly png: Blob;
+  readonly width: number;
+  readonly height: number;
+}
+
 const TONE_MAPPINGS: Record<SceneToneMapping, ToneMapping> = {
   agx: AgXToneMapping,
   aces: ACESFilmicToneMapping,
@@ -261,6 +268,8 @@ function frameLoop(
     last = -1;
     void renderer.setAnimationLoop(wanted ? draw : null);
   };
+  /** Who waits for the next frame to be drawn. */
+  const waiting: (() => void)[] = [];
   function draw(now: number): void {
     const dt = reduced || last < 0 ? 0 : clampStep((now - last) / 1000);
     last = now;
@@ -270,6 +279,7 @@ function frameLoop(
     moving = frame(dt, elapsed);
     render();
     sync();
+    for (const resume of waiting.splice(0)) resume();
   }
   const invalidate = () => {
     moving = true;
@@ -293,6 +303,16 @@ function frameLoop(
   return {
     draw,
     invalidate,
+    /**
+     * A frame drawn from now: one is asked for, and `after` runs in the same
+     * task, right after it is drawn — before it is shown, while the canvas
+     * still holds it — and this answers what `after` did.
+     */
+    drawn: <T>(after: () => T) =>
+      new Promise<T>((resolve) => {
+        waiting.push(() => resolve(after()));
+        invalidate();
+      }),
     setFrame: (next: StageFrame) => {
       frame = next;
     },
@@ -317,6 +337,27 @@ function frameLoop(
       void renderer.setAnimationLoop(null);
     },
   };
+}
+
+/**
+ * The next frame `canvas` draws, as a PNG: drawn, shown, then copied. A
+ * view that wants a picture of something else sets its frame to draw that
+ * until the picture is taken. `drawn` runs a step in the task that draws a
+ * frame, right after it is drawn.
+ */
+async function pictureOf(
+  canvas: HTMLCanvasElement,
+  drawn: <T>(after: () => T) => Promise<T>,
+): Promise<StagePicture> {
+  // One frame to build what the new view draws, then the one copied — in the task that drew it,
+  // since a WebGPU canvas lets go of a frame once it has been shown.
+  await drawn(() => undefined);
+  const bitmap = await drawn(() => createImageBitmap(canvas));
+  const { width, height } = canvas;
+  const copy = new OffscreenCanvas(width, height);
+  copy.getContext("bitmaprenderer")?.transferFromImageBitmap(bitmap);
+  const png = await copy.convertToBlob({ type: "image/png" });
+  return { png, width, height };
 }
 
 async function createStage(host: HTMLElement, options: StageOptions) {
@@ -385,6 +426,8 @@ async function createStage(host: HTMLElement, options: StageOptions) {
       scene.fogNode = fog(colors.ground, rangeFogFactor(range.near, range.far).mul(range.amount));
       return range;
     },
+    /** The next frame the view draws, as a PNG (`pictureOf`). */
+    picture: () => pictureOf(renderer.domElement, loop.drawn),
     /** Compile every shader, draw once unseen, then fade the canvas in (P2). */
     reveal: () => {
       // Every scene compiles on the hidden first frame. A compile ahead of it

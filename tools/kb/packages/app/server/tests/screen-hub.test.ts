@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { ScreenState, ServerMessage } from "@kb/contracts";
 import { FAKE_TAB_SCREEN } from "@kb/test-kit";
-import { ScreenHub } from "../src/screens.ts";
+import { ScreenHub, type KeepPicture } from "../src/screens.ts";
 import { ClientGone, type ClientSend } from "../src/session.ts";
 
 const run = Effect.runPromise;
@@ -35,9 +35,18 @@ function routes(hub: ScreenHub) {
 
 const at = (route: string): ScreenState => ({ ...FAKE_TAB_SCREEN, route });
 
+/** Keeps nothing: says where a picture would be, so a receipt can be read. */
+const keptAt: KeepPicture = (name, picture) =>
+  Effect.succeed({
+    mime: picture.mime,
+    path: `/kept/${name}.png`,
+    width: picture.width,
+    height: picture.height,
+  });
+
 describe("ScreenHub", () => {
   test("a tab id belongs to the first live connection that publishes it", async () => {
-    const hub = new ScreenHub();
+    const hub = new ScreenHub(keptAt);
     const first = socket();
     const second = socket();
     await run(hub.publish("c1", "tab.a", first.send, at("/")));
@@ -47,7 +56,7 @@ describe("ScreenHub", () => {
   });
 
   test("a late close from an old connection does not forget the tab a new one owns", async () => {
-    const hub = new ScreenHub();
+    const hub = new ScreenHub(keptAt);
     await run(hub.publish("c1", "tab.a", socket().send, at("/")));
     await run(hub.drop("c1"));
     await run(hub.publish("c2", "tab.a", socket().send, at("/canvas")));
@@ -56,7 +65,7 @@ describe("ScreenHub", () => {
   });
 
   test("a connection is one tab: publishing under a new id gives up the old one", async () => {
-    const hub = new ScreenHub();
+    const hub = new ScreenHub(keptAt);
     const send = socket().send;
     await run(hub.publish("c1", "tab.a", send, at("/")));
     await run(hub.publish("c1", "tab.b", send, at("/graph")));
@@ -64,7 +73,7 @@ describe("ScreenHub", () => {
   });
 
   test("a command whose socket will not take it is no-tab at once, not a timeout", async () => {
-    const hub = new ScreenHub();
+    const hub = new ScreenHub(keptAt);
     await run(hub.publish("c1", "tab.a", gone, at("/")));
     const started = Date.now();
     const receipt = await run(
@@ -79,5 +88,35 @@ describe("ScreenHub", () => {
     );
     expect(receipt).toEqual({ outcome: "no-tab", tab: "tab.a" });
     expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  test("a capture the tab answers with a picture is answered with the file it is kept in", async () => {
+    const hub = new ScreenHub(keptAt);
+    const { send, frames } = socket();
+    await run(hub.publish("c1", "tab.a", send, at("/canvas")));
+    const receipt = Effect.runPromise(
+      hub.port.capture({
+        tab: undefined,
+        pane: undefined,
+        timeoutMs: 5000,
+        view: { preset: "top" },
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const [frame] = frames;
+    expect(frame).toMatchObject({
+      op: "screen-command",
+      command: { kind: "capture", view: { preset: "top" } },
+    });
+    const id = frame?.op === "screen-command" ? frame.id : "";
+    const picture = { mime: "image/png" as const, data: "iVBORw0KGgo=", width: 4, height: 3 };
+    await run(hub.ack("c1", id, { outcome: "applied", picture }));
+    const answered = await receipt;
+    expect(answered).toMatchObject({
+      outcome: "applied",
+      tab: "tab.a",
+      capture: { mime: "image/png", width: 4, height: 3 },
+    });
+    expect(answered.outcome === "applied" ? answered.capture?.path : "").toStartWith("/kept/");
   });
 });

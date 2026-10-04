@@ -33,6 +33,8 @@ interface CanvasScreenInput {
   /** The showing camera and its viewport, and how it is pointed: what a camera target moves. */
   readonly camera: () => { readonly view: CanvasView; readonly size: ViewSize };
   readonly viewport: CanvasViewportControls;
+  /** Draw what a view sees, as a picture, the camera left where it is. */
+  readonly capture: (view: CanvasView) => Promise<ScreenAck>;
 }
 
 interface Observed {
@@ -92,6 +94,7 @@ export function useCanvasScreen({
   setSelection,
   camera,
   viewport,
+  capture,
 }: CanvasScreenInput): void {
   const { width, height } = useStageSize(stage);
   const size = { width, height };
@@ -111,21 +114,26 @@ export function useCanvasScreen({
     });
     return SCREEN_APPLIED;
   };
-  /** Point the showing camera at a target, as the view menu and present mode point it. */
-  const look = (target: CanvasViewTarget): ScreenAck => {
+  /** The view a camera target names, from the showing camera; or why there is none. */
+  const viewOf = (target: CanvasViewTarget | undefined): CanvasView | ScreenAck => {
     const now = camera();
+    if (target === undefined) return now.view;
     const goal = viewOfTarget(target, doc.nodes, now.size, now.view);
-    if (goal === null) {
-      const missing = (target.items ?? []).filter((id) => !doc.nodes.some((n) => n.id === id));
-      return screenRejected(
-        missing.length > 0 ? `no item ${missing.join(", ")} on this canvas` : "nothing to look at",
-      );
-    }
+    if (goal !== null) return goal;
+    const missing = (target.items ?? []).filter((id) => !doc.nodes.some((n) => n.id === id));
+    return screenRejected(
+      missing.length > 0 ? `no item ${missing.join(", ")} on this canvas` : "nothing to look at",
+    );
+  };
+  const carryOut = (command: PaneCommand): ScreenAck | Promise<ScreenAck> => {
+    if (command.kind === "select") return select(command);
+    const goal = viewOf(command.kind === "look" ? command.target : command.view);
+    if ("outcome" in goal) return goal;
+    // A look points the showing camera, as the view menu and present mode do; a capture leaves it.
+    if (command.kind === "capture") return capture(goal);
     viewport.show(goal);
     return SCREEN_APPLIED;
   };
-  const carryOut = (command: PaneCommand): ScreenAck =>
-    command.kind === "select" ? select(command) : look(command.target);
   usePaneScreen(
     {
       subject: canvasId,

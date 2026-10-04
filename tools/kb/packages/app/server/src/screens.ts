@@ -2,6 +2,7 @@ import { Deferred, Effect, Layer, Option } from "effect";
 import {
   SCREEN_COMMAND_TIMEOUT_MS,
   Screens,
+  captureCommand,
   navigateCommand,
   noTabReceipt,
   selectCommand,
@@ -9,13 +10,16 @@ import {
   type ExtensionRow,
   type KbContext,
   type ScreenAck,
+  type ScreenCapture,
   type ScreenCommand,
+  type ScreenPicture,
   type ScreenReceipt,
   type ScreenState,
   type ScreensPort,
   type ServerMessage,
   type TabScreen,
 } from "@kb/contracts";
+import { freshId, type DomainError } from "@kb/model";
 import { kbRuntimeLayer } from "@kb/runtime";
 import type { ClientSend } from "./session.ts";
 
@@ -34,8 +38,15 @@ interface Tab {
 interface Pending {
   readonly tab: string;
   readonly connection: string;
-  readonly answer: Deferred.Deferred<ScreenReceipt>;
+  /** The tab's answer, or null when the tab is gone and never will answer. */
+  readonly answer: Deferred.Deferred<ScreenAck | null>;
 }
+
+/** Where a picture a tab drew is kept, and what the receipt then says of it. */
+export type KeepPicture = (
+  name: string,
+  picture: ScreenPicture,
+) => Effect.Effect<ScreenCapture, DomainError>;
 
 /**
  * The screens of the UI tabs connected to this `kb ui`: the one place they
@@ -58,6 +69,12 @@ export class ScreenHub {
   private readonly tabs = new Map<string, Tab>();
   private readonly pending = new Map<string, Pending>();
   private clock = 0;
+  private readonly keep: KeepPicture;
+
+  /** `keep` keeps the picture a tab answers a capture with (`.kb/captures/`, for `kb ui`). */
+  constructor(keep: KeepPicture) {
+    this.keep = keep;
+  }
 
   /** `connection` publishes `state` as the tab `tab`; refused when another connection owns it. */
   publish(
@@ -87,7 +104,7 @@ export class ScreenHub {
     return Effect.suspend(() => {
       const pending = this.pending.get(id);
       if (pending === undefined || pending.connection !== connection) return Effect.void;
-      return Deferred.succeed(pending.answer, { ...result, tab: pending.tab }).pipe(Effect.asVoid);
+      return Deferred.succeed(pending.answer, result).pipe(Effect.asVoid);
     });
   }
 
@@ -120,11 +137,9 @@ export class ScreenHub {
   /** Every pending command `which` picks gets `no-tab`: its tab is gone. */
   private settle(which: (pending: Pending) => boolean): Effect.Effect<void> {
     const gone = [...this.pending.values()].filter(which);
-    return Effect.forEach(
-      gone,
-      (pending) => Deferred.succeed(pending.answer, noTabReceipt(pending.tab)),
-      { discard: true },
-    );
+    return Effect.forEach(gone, (pending) => Deferred.succeed(pending.answer, null), {
+      discard: true,
+    });
   }
 
   /** The live tabs, most recently active first; ties keep the order they arrived in. */
@@ -144,19 +159,33 @@ export class ScreenHub {
     const live = target === undefined ? undefined : this.tabs.get(target);
     if (target === undefined || live === undefined) return noTabReceipt(tab);
     const id = crypto.randomUUID();
-    const answer = yield* Deferred.make<ScreenReceipt>();
+    const answer = yield* Deferred.make<ScreenAck | null>();
     const frame: ServerMessage = { op: "screen-command", id, command };
-    const timedOut: ScreenReceipt = { outcome: "timeout", tab: target, timeoutMs };
-    return yield* Effect.sync(() =>
+    const answered = yield* Effect.sync(() =>
       this.pending.set(id, { tab: target, connection: live.connection, answer }),
     ).pipe(
       Effect.andThen(live.send(JSON.stringify(frame))),
       Effect.andThen(Deferred.await(answer).pipe(Effect.timeoutOption(timeoutMs))),
-      Effect.map(Option.getOrElse(() => timedOut)),
       // The socket did not take the command: the tab is gone, and waiting would not change that.
-      Effect.catchTag("Kb/ClientGone", () => Effect.succeed(noTabReceipt(target))),
+      Effect.catchTag("Kb/ClientGone", () => Effect.succeedSome(null)),
       Effect.ensuring(Effect.sync(() => this.pending.delete(id))),
     );
+    const timedOut: ScreenReceipt = { outcome: "timeout", tab: target, timeoutMs };
+    if (Option.isNone(answered)) return timedOut;
+    return yield* this.receiptOf(target, answered.value);
+  });
+
+  /** A tab's answer as a receipt: the picture it drew for a capture kept as a file. */
+  private readonly receiptOf = Effect.fn("kb.screens.receipt")(function* (
+    this: ScreenHub,
+    tab: string,
+    ack: ScreenAck | null,
+  ): Effect.fn.Return<ScreenReceipt, DomainError> {
+    if (ack === null) return noTabReceipt(tab);
+    if (ack.outcome === "rejected") return { ...ack, tab };
+    if (ack.picture === undefined) return { outcome: "applied", tab };
+    const capture = yield* this.keep(yield* freshId, ack.picture);
+    return { outcome: "applied", tab, capture };
   });
 
   /** This hub as the {@link Screens} port the `ui.*` actions read and drive. */
@@ -172,6 +201,7 @@ export class ScreenHub {
       this.command(input.tab, navigateCommand(input), input.timeoutMs ?? SCREEN_COMMAND_TIMEOUT_MS),
     select: (input) =>
       this.command(input.tab, selectCommand(input), input.timeoutMs ?? SCREEN_COMMAND_TIMEOUT_MS),
+    capture: (input) => this.command(input.tab, captureCommand(input), input.timeoutMs),
   };
 }
 

@@ -176,14 +176,46 @@ export const ScreenCommandSchema = z.discriminatedUnion("kind", [
     /** Move the focus to this node. */
     focus: z.string().min(1).optional(),
   }),
+  z.object({
+    kind: z.literal("capture"),
+    pane: z.string().min(1).optional(),
+    /** Where the picture is taken from; absent, as the camera looks now. */
+    view: CanvasViewTargetSchema.optional(),
+  }),
 ]);
 export type ScreenCommand = z.infer<typeof ScreenCommandSchema>;
 
-const AppliedSchema = z.object({ outcome: z.literal("applied") });
+/** A picture a tab drew: a PNG, base64, and its size in pixels. */
+const ScreenPictureSchema = z.object({
+  mime: z.literal("image/png"),
+  data: z.string().min(1),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+export type ScreenPicture = z.infer<typeof ScreenPictureSchema>;
+
+/**
+ * A picture as `kb ui` keeps it: a PNG file under the root's
+ * `.kb/captures/` (runtime state, as `.kb/ui.json` is), at `path`, absolute.
+ */
+const ScreenCaptureSchema = z.object({
+  mime: z.literal("image/png"),
+  path: z.string().min(1),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+export type ScreenCapture = z.infer<typeof ScreenCaptureSchema>;
+
 const RejectedSchema = z.object({ outcome: z.literal("rejected"), reason: z.string() });
 
-/** A tab's answer to a command: it carried it out, or it could not and says why. */
-export const ScreenAckSchema = z.discriminatedUnion("outcome", [AppliedSchema, RejectedSchema]);
+/**
+ * A tab's answer to a command: it carried it out — a capture with the
+ * picture it drew — or it could not and says why.
+ */
+export const ScreenAckSchema = z.discriminatedUnion("outcome", [
+  z.object({ outcome: z.literal("applied"), picture: ScreenPictureSchema.optional() }),
+  RejectedSchema,
+]);
 export type ScreenAck = z.infer<typeof ScreenAckSchema>;
 
 /** A tab's answer that it carried the command out. */
@@ -195,13 +227,18 @@ export function screenRejected(reason: string): ScreenAck {
 }
 
 /**
- * What `ui.navigate` and `ui.select` answer. The tab's own answer, under its
- * id; `timeout` when it did not answer within `timeoutMs`; `no-tab` when no
- * live tab could take the command, with the id that was asked for, if one
- * was. A tab that closes before it answers is `no-tab` too: it is not live.
+ * What `ui.navigate`, `ui.select` and `ui.capture` answer. The tab's own
+ * answer, under its id — a capture with the picture kept as a file; `timeout`
+ * when it did not answer within `timeoutMs`; `no-tab` when no live tab could
+ * take the command, with the id that was asked for, if one was. A tab that
+ * closes before it answers is `no-tab` too: it is not live.
  */
 export const ScreenReceiptSchema = z.discriminatedUnion("outcome", [
-  AppliedSchema.extend({ tab: z.string() }),
+  z.object({
+    outcome: z.literal("applied"),
+    tab: z.string(),
+    capture: ScreenCaptureSchema.optional(),
+  }),
   RejectedSchema.extend({ tab: z.string() }),
   z.object({ outcome: z.literal("timeout"), tab: z.string(), timeoutMs: z.number().int() }),
   z.object({ outcome: z.literal("no-tab"), tab: z.string().optional() }),
@@ -216,6 +253,8 @@ export function noTabReceipt(tab: string | undefined): ScreenReceipt {
 /** How long a command waits for its tab by default, and at most. */
 export const SCREEN_COMMAND_TIMEOUT_MS = 2000;
 export const SCREEN_COMMAND_TIMEOUT_MAX_MS = 30_000;
+/** How long a capture waits by default: a tab showing 2D starts its 3D scene to draw it. */
+const SCREEN_CAPTURE_TIMEOUT_MS = 10_000;
 
 // ── the `ui.*` actions' inputs ──────────────────────────────────────────
 
@@ -266,6 +305,16 @@ export const UiSelectInputSchema = z
   });
 export type UiSelectInput = z.output<typeof UiSelectInputSchema>;
 
+export const UiCaptureInputSchema = z.object({
+  ...commandTargetShape,
+  // A capture draws before it answers, so it waits longer when the caller says nothing.
+  timeoutMs: omittable(z.number().int().min(1).max(SCREEN_COMMAND_TIMEOUT_MAX_MS)).transform(
+    (ms) => ms ?? SCREEN_CAPTURE_TIMEOUT_MS,
+  ),
+  view: omittable(CanvasViewTargetSchema),
+});
+export type UiCaptureInput = z.output<typeof UiCaptureInputSchema>;
+
 /** The command a `ui.navigate` input asks its tab to carry out. */
 export function navigateCommand({ pane, node, route, camera }: UiNavigateInput): ScreenCommand {
   const to: NavigateTarget | undefined =
@@ -288,6 +337,15 @@ export function selectCommand({ pane, selection, focus }: UiSelectInput): Screen
   };
 }
 
+/** The command a `ui.capture` input asks its tab to carry out. */
+export function captureCommand({ pane, view }: UiCaptureInput): ScreenCommand {
+  return {
+    kind: "capture",
+    ...(pane === undefined ? {} : { pane }),
+    ...(view === undefined ? {} : { view }),
+  };
+}
+
 /**
  * The screen channel as a port. The `kb ui` server is where the tabs are, so
  * its adapter is the one that holds them; every other process reaches that
@@ -301,6 +359,12 @@ export interface ScreensPort {
   navigate(input: UiNavigateInput): Effect.Effect<ScreenReceipt, DomainError>;
   /** Set a tab's selection or focus (the most recently active by default). */
   select(input: UiSelectInput): Effect.Effect<ScreenReceipt, DomainError>;
+  /**
+   * Have a tab's canvas draw what its camera sees from a view, without
+   * moving the camera, and keep the picture as a file (the most recently
+   * active tab by default).
+   */
+  capture(input: UiCaptureInput): Effect.Effect<ScreenReceipt, DomainError>;
 }
 
 export class Screens extends Context.Service<Screens, ScreensPort>()("kb/Screens") {}

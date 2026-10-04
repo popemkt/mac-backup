@@ -42,6 +42,7 @@ import { createCanvasEdgeActions } from "./use-canvas-edge-actions";
 import { useCanvasGestures } from "./use-canvas-gestures";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
 import { useCanvasScreen } from "./use-canvas-screen";
+import { useCanvasCapture } from "./canvas-capture";
 import { useCanvasSelection } from "./use-canvas-selection";
 import { listRefFields } from "./canvas-api";
 import { classifyCardPointer } from "./card-pointer";
@@ -280,6 +281,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   }, [dispatchPointer]);
 
   const viewport = projection.viewportOf(viewportControls);
+  const drawing = useCanvasCapture(projection.holdScene);
   useCanvasScreen({
     canvasId,
     doc,
@@ -292,6 +294,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setSelection,
     camera: projection.camera,
     viewport,
+    capture: drawing.capture,
   });
   const modal = pointerState.drag?.kind === "transform" && pointerState.drag.modal;
   const modalDrag = modal ? pointerState.drag : null;
@@ -494,6 +497,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 gizmo={gizmo}
                 onReady={projection.onSceneReady}
                 onError={projection.onSceneError}
+                onPainter={drawing.onPainter}
                 onCardPress={(card, press, startMove) =>
                   onCardPointerDown(card, press, { x: press.clientX, y: press.clientY }, startMove)
                 }

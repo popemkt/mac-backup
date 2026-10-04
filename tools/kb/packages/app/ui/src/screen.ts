@@ -189,6 +189,13 @@ function carryOut(command: ScreenCommand): ScreenAck | Promise<ScreenAck> {
   }
   if (command.kind === "navigate") return navigate(pane, command);
   const view = useScreenStore.getState().panes[pane];
+  if (command.kind === "capture") {
+    if (view === undefined) return screenRejected("the open view has no canvas to draw");
+    return view.carryOut({
+      kind: "capture",
+      ...(command.view === undefined ? {} : { view: command.view }),
+    });
+  }
   if (view === undefined) return screenRejected("the open view takes no selection");
   return view.carryOut({
     kind: "select",

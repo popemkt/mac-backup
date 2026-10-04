@@ -2125,7 +2125,8 @@ transaction, one step of an open canvas's history.
 | `ext.canvas.describe` / `ext.canvas.lint`         | read  | a canvas in words, at three levels of detail / its lints ([Agent verbs](#agent-verbs))                        |
 | `ext.canvas.place` / `arrange` / `connect` / `group` / `ungroup` / `promote` | write | edit a canvas by relation, one write each ([Agent verbs](#agent-verbs))              |
 | `ui.screen`                                       | read  | the open UI tabs' screen state, most recently active first ([Screen state](#screen-state))                   |
-| `ui.navigate` / `ui.select`                       | write | open a node or route / set the selection or focus in a UI tab ([Screen state](#screen-state))                |
+| `ui.navigate` / `ui.select`                       | write | open a node or route, or point a canvas camera / set the selection or focus in a UI tab ([Screen state](#screen-state)) |
+| `ui.capture`                                      | read  | have a tab's canvas draw a view as a PNG, kept under `.kb/captures/`, the camera left where it is ([Screen state](#screen-state)) |
 | `sandbox.trust` / `sandbox.untrust`               | write | trust, or stop trusting, sandboxed code on this machine by its digest; trusting asks ([Sandbox](#trust))     |
 | `sandbox.trusted`                                 | read  | which of these code digests a person trusted on this machine ([Sandbox](#trust))                             |
 
@@ -2313,6 +2314,22 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   own move is the open view's to carry out or refuse, through the one
   handler it registers for its pane (`PaneCommand`), and its answer may come
   later than the command (a camera that waits for its view).
+- **`ui.capture`** (read) has a tab's open canvas draw what its camera would
+  see from a `view` (the same `CanvasViewTarget`; absent, as it looks now)
+  without moving the person's camera, through its 3D scene: the scene draws
+  the view for two frames (one to build it, one copied as a PNG in the task
+  that drew it, since a WebGPU canvas lets go of a frame once shown), then
+  the person's view again — in 3D the person glimpses those two frames
+  (`GAP [capture-shows-a-frame]`). 2D
+  is that scene's top view, so a canvas showing 2D mounts its scene unseen
+  for as long as the picture takes. The tab answers with the PNG (its ack's
+  `picture`); the `kb ui` server keeps it under `.kb/captures/` — runtime
+  state like `.kb/ui.json`, the newest 24 kept, never committed or backed
+  up — and the receipt names the file (`capture.path`), which a local agent
+  opens to see it. A capture waits 10 s by default. With no tab it answers
+  `no-tab`, as every command does (plan "gaps": a capture needs an open
+  tab). Tool results carry the file's path, not the picture
+  (`GAP [capture-image-blocks]`).
 - **No approval.** The two commands change what one tab shows, never the
   graph or the workspace, and a person undoes either with one gesture.
   Approval would also keep them off MCP and WebMCP (`listedOn`), the
