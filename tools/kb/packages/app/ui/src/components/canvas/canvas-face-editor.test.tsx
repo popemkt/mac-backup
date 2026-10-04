@@ -101,6 +101,17 @@ describe("a face's editor in 3D", () => {
     unmount();
   });
 
+  test("seen from behind it is not shown, but keeps its focus and stays open", () => {
+    const facedDown: CanvasNode = { ...card, rotation: { x: 180 } };
+    const { rig, edits, laid } = mount(facedDown);
+    act(() => rig.jump({ ...rig.view, pitch: 0, yaw: 0 }));
+    expect(laid?.style.opacity).toBe("0");
+    expect(laid?.style.pointerEvents).toBe("none");
+    expect(document.activeElement).toBe(container.querySelector("textarea"));
+    expect(edits).toEqual(["c:open"]);
+    unmount();
+  });
+
   test("a shape's editor is its label field, open, and Escape closes it", () => {
     const shape: CanvasNode = {
       id: "s",

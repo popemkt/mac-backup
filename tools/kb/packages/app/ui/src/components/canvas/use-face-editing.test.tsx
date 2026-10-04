@@ -40,13 +40,13 @@ describe("which item's editor is open", () => {
     const rig = new CanvasCameraRig(start, TIMING_FALLBACK, true);
     const seen: { faces?: ReturnType<typeof useFaceEditing> } = {};
     const selected: string[] = [];
-    function Probe() {
+    function Probe({ deep }: { deep: boolean }) {
       const faces = useFaceEditing({
         byId: new Map([
           [card.id, card],
           [frame.id, frame],
         ]),
-        in3d,
+        in3d: deep,
         rig,
         size: () => ({ width: 1000, height: 700 }),
         settled: () => {},
@@ -60,8 +60,9 @@ describe("which item's editor is open", () => {
     }
     const container = document.createElement("div");
     root = createRoot(container);
-    act(() => root.render(<Probe />));
-    return { rig, seen, selected };
+    act(() => root.render(<Probe deep={in3d} />));
+    const show = (deep: boolean) => act(() => root.render(<Probe deep={deep} />));
+    return { rig, seen, selected, show };
   }
 
   test("a double-click in 3D opens the item's editor and looks at it face-on, then back", () => {
@@ -111,6 +112,20 @@ describe("which item's editor is open", () => {
     const { seen } = mount(false);
     act(() => seen.faces?.onEdit("gone", true));
     expect(seen.faces?.flat).toBeNull();
+    act(() => root.unmount());
+  });
+
+  test("leaving 3D hands the edit to 2D, and the hidden 3D camera is not flown back", () => {
+    const { rig, seen, show } = mount(true);
+    act(() => {
+      seen.faces?.doubleClick(card);
+    });
+    const faced = rig.view;
+    show(false);
+    expect(seen.faces?.deep).toBeNull();
+    expect(seen.faces?.flat).toBe("c");
+    act(() => seen.faces?.onEdit("c", false));
+    expect(rig.view).toEqual(faced);
     act(() => root.unmount());
   });
 

@@ -38,6 +38,11 @@ export function useFaceEditing(context: FaceEditingContext) {
   if (editing !== null && item === undefined) setEditing(null);
   /** How to come back from looking at the face being edited. */
   const comeBack = useRef<(() => void) | null>(null);
+  // Leaving 3D hands the edit to the 2D canvas, which opens the same editor
+  // in place; the 3D camera is no longer the editor's to bring back.
+  useEffect(() => {
+    if (!in3d) comeBack.current = null;
+  }, [in3d]);
   // The editor closed (or its item went): the camera comes back from the face.
   useEffect(() => {
     if (item !== undefined) return;

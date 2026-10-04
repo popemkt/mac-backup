@@ -41,13 +41,19 @@ function LaidFaceEditor({
   onChange,
 }: CanvasFaceEditorProps & { readonly item: CanvasNode }) {
   const laid = useRef<HTMLDivElement>(null);
-  /** Lay the face where the camera draws it now; hidden while it is seen from behind or edge-on. */
+  /**
+   * Lay the face where the camera draws it now. While it is seen from behind
+   * or edge-on it is not shown and takes no pointer, but keeps its focus: it
+   * is transparent, not hidden (a hidden field drops its focus, which would
+   * close the editor mid-orbit).
+   */
   const place = useEffectEvent((on: CanvasNode) => {
     const el = laid.current;
     if (el === null) return;
     const transform = faceTransform(faceFrameOf(on, on.z ?? 0, rig.view), rig.view, size());
     el.style.transform = transform ?? "";
-    el.style.visibility = transform === null ? "hidden" : "";
+    el.style.opacity = transform === null ? "0" : "";
+    el.style.pointerEvents = transform === null ? "none" : "";
   });
   useLayoutEffect(() => place(item), [item]);
   useEffect(() => rig.subscribe(() => place(item)), [rig, item]);

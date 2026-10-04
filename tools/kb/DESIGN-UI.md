@@ -1402,7 +1402,8 @@ open view of that canvas.
   by the homography that takes a rectangle to any four points, as CSS
   `matrix3d` (`canvas-face-overlay.ts`). So it fits a turned and tipped face
   through either lens, follows the camera every frame of the flight and of
-  any orbit, and is hidden while the face is seen from behind. A face
+  any orbit; while the face is seen from behind or edge-on it is not shown
+  and takes no pointer, but keeps its focus and stays open. A face
   turned upside down to the camera is edited upside down, as tldraw edits a
   turned shape in place: the turntable camera never rolls. Typing goes to
   the editor, so G, S and E type; Escape, Enter (in a label or a card) or a
@@ -1410,6 +1411,8 @@ open view of that canvas.
   unless it was taken elsewhere meanwhile (`CanvasCameraRig.visit`). A
   text card or a label placed with its tool opens its editor at once, in
   either projection, as tldraw's text does (where it lands; no flight).
+  Switching to 2D while editing hands the edit to the 2D canvas, which
+  opens the same editor in place; the 3D camera is not flown back.
 
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 a copy in any form but a canvas document's text, snap guides during keyboard nudge, edge colour
