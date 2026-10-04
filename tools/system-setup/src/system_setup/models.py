@@ -50,6 +50,15 @@ class HttpJsonCheck(StrictModel):
     success_detail: str
 
 
+class LaunchdListenerCheck(StrictModel):
+    kind: Literal["launchd_listener"]
+    label: str
+    expected_argv: list[str] = Field(min_length=1)
+    port: int = Field(ge=1, le=65535)
+    executable: str = "/bin/launchctl"
+    lsof_executable: str = "/usr/sbin/lsof"
+
+
 class OpenAIModelsCheck(StrictModel):
     kind: Literal["openai_models"]
     url: str
@@ -73,6 +82,7 @@ CheckSpec = Annotated[
     CommandCheck
     | FileCheck
     | HttpJsonCheck
+    | LaunchdListenerCheck
     | OpenAIModelsCheck
     | TailscaleDeviceCheck
     | TailscaleServiceCheck,

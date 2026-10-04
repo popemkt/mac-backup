@@ -18,7 +18,7 @@
       enable = true;
       server = {
         enable = true;
-        root = "/stuff/workspace/repos/_brain";
+        root = "/Volumes/Data/workspace/repos/_brain";
         publicOrigin = config.my.stacks.vpn.services.kb.publicOrigin;
       };
     };

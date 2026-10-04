@@ -26,7 +26,7 @@ in
         "--public-origin"
         cfg.publicOrigin
       ];
-      WorkingDirectory = cfg.root;
+      WorkingDirectory = home;
       EnvironmentVariables = {
         HOME = home;
         PATH = "${

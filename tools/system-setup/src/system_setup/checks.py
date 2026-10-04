@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import subprocess
 import urllib.error
 import urllib.request
@@ -15,6 +17,7 @@ from system_setup.models import (
     FileCheck,
     HttpJsonCheck,
     Integration,
+    LaunchdListenerCheck,
     Manifest,
     OpenAIModelsCheck,
     TailscaleDeviceCheck,
@@ -73,6 +76,44 @@ def _check_http_json(check: HttpJsonCheck) -> str:
         if actual != expected:
             raise CheckFailed(f"{path} is {actual!r}; expected {expected!r}")
     return check.success_detail
+
+
+def _check_launchd_listener(check: LaunchdListenerCheck) -> str:
+    job = f"gui/{os.getuid()}/{check.label}"
+    result = run_native([check.executable, "print", job], check=False, timeout_seconds=10)
+    if result.returncode != 0:
+        raise CheckFailed(f"launchd job {job} is not loaded; rebuild to install it")
+    pid_match = re.search(r"(?m)^\s*pid = (\d+)\s*$", result.stdout)
+    args_match = re.search(r"(?ms)^\s*arguments = \{\n(.*?)^\s*\}", result.stdout)
+    if pid_match is None or not re.search(r"(?m)^\s*state = running\s*$", result.stdout):
+        raise CheckFailed(f"launchd job {job} is not running")
+    actual_argv = (
+        []
+        if args_match is None
+        else [line.strip() for line in args_match.group(1).splitlines() if line.strip()]
+    )
+    if actual_argv != check.expected_argv:
+        raise CheckFailed(f"launchd job {job} does not run the declared command; rebuild")
+    pid = pid_match.group(1)
+    listener = run_native(
+        [
+            check.lsof_executable,
+            "-nP",
+            "-a",
+            "-p",
+            pid,
+            "-iTCP:" + str(check.port),
+            "-sTCP:LISTEN",
+            "-t",
+        ],
+        check=False,
+        timeout_seconds=10,
+    )
+    if listener.returncode != 0 or pid not in listener.stdout.split():
+        raise CheckFailed(
+            f"launchd job {job} (pid {pid}) is not listening on port {check.port}; check its logs"
+        )
+    return f"launchd job {job} runs the declared command and owns port {check.port}"
 
 
 def _check_openai_models(check: OpenAIModelsCheck) -> str:
@@ -157,6 +198,8 @@ def run_check(check: CheckSpec) -> str:
             return _check_file(check)
         if isinstance(check, HttpJsonCheck):
             return _check_http_json(check)
+        if isinstance(check, LaunchdListenerCheck):
+            return _check_launchd_listener(check)
         if isinstance(check, OpenAIModelsCheck):
             return _check_openai_models(check)
         if isinstance(check, TailscaleDeviceCheck):
