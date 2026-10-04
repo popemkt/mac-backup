@@ -129,14 +129,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — drawing a back face in 2D
 - **node** — `01M41W56GDH3M0TNGX4BDV4STR`
 
-### GAP: a frame stood up as a wall does not hold items on its face
-
-- **expected** — a frame holds items laid on its own face, whatever way it stands
-- **current** — membership is read on the floor plan only: an item joins a frame whose top view holds its centre
-- **impact** — a frame stood up as a wall cannot hold stickies on it
-- **closes** — containment measured in the frame's own plane, with 3D plan step 7's face-on text
-- **node** — `01M425V18PBXRG7PZJB4BQ0KS6`
-
 ### GAP: a layout's panes are not mentions of the nodes they show
 
 - **expected** — the nodes a layout's panes show are derived as mentions at load, so they backlink to the layout
@@ -434,7 +426,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: flat canvas items vanish in level 3D views
 
 - **expected** — flat items stay visible when the camera looks across the floor (front, side views)
-- **current** — flat cards draw an outline, so any tilted view shows them; at the exact front and side presets a flat card is still a faint hairline at floor level
+- **current** — flat cards draw an outline, so any tilted view shows them, and a billboard (the label preset, or Face the camera) stands square to the camera, so it reads in the front and side views; any other flat card seen exactly level is still a faint hairline at its plane
 - **impact** — front and side views of a canvas of flat cards look empty
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
@@ -701,14 +693,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — selecting many items in 3D means clicking each
 - **closes** — a 3D workspace step that owns the marquee, picking items by their projected boxes
 - **node** — `01M41AB88FH1G58NR7AZE0SZJF`
-
-### GAP: sphere and cone labels are not drawn in 3D
-
-- **expected** — a sphere or cone shows its text in 3D, as a billboard
-- **current** — they have no flat top for the card face, so the label is not drawn
-- **impact** — text on round solids is visible only in 2D
-- **closes** — 3D plan step 7: billboards
-- **node** — `01M41GAZJS5TD86RFSAJJB4XKD`
 
 ### GAP: stacking on and of tilted solids is approximate
 
@@ -1065,6 +1049,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Choose one carrier (the date variant, since PropValue already names it, or drop the variant), migrate stored values on open the way migrateFieldTypeValues does for type values, and list one kind for date.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39X7NQV187BDQVGH81997M5`
+
+### GAP: a frame stood up as a wall does not hold items on its face
+
+- **expected** — a frame holds items laid on its own face, whatever way it stands
+- **current** — a frame holds what lies on its face seen face-on (carried along its normal onto its plane), and a placing tool pressed on a frame that stands places on its face, turned as it is (placedOnFace, placeUnder)
+- **impact** — a frame stood up as a wall cannot hold stickies on it
+- **closes** — containment measured in the frame's own plane, with 3D plan step 7's face-on text
+- **node** — `01M425V18PBXRG7PZJB4BQ0KS6`
 
 ### GAP: a graph renderer view draws only inside a graph host
 
@@ -1433,6 +1425,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Six pinpoint disables of a rule that is error everywhere else. If any of these lists later gains a real id, the disable will read as blessed rather than as a question.
 - **closes** — A node prop is an ordered multi-value: slot 2 is slot 2, and two slots can hold equal values, so position is the only identity available and a content key would collide and remount live editors. Snap guides are a transient two-element overlay with no domain object at all. Close it by giving multi-values an id in the data model (Track 2 KbNode/prop schema work), then key on that.
 - **node** — `01M1MFP33RDP5MVB4827DR5RE7`
+
+### GAP: sphere and cone labels are not drawn in 3D
+
+- **expected** — a sphere or cone shows its text in 3D, as a billboard
+- **current** — a sphere's, a cone's and a solid billboard's face stands as a label of its words, square to the camera in front of the body (canvas-scene-labels, frontFrame)
+- **impact** — text on round solids is visible only in 2D
+- **closes** — 3D plan step 7: billboards
+- **node** — `01M41GAZJS5TD86RFSAJJB4XKD`
 
 ### GAP: store staleness is size+mtime, not a fingerprint
 

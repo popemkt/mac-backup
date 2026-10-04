@@ -51,6 +51,12 @@ function LaidFaceEditor({
   });
   useLayoutEffect(() => place(item), [item]);
   useEffect(() => rig.subscribe(() => place(item)), [rig, item]);
+  // The canvas resized: the same view projects elsewhere.
+  useEffect(() => {
+    const replace = () => place(item);
+    window.addEventListener("resize", replace);
+    return () => window.removeEventListener("resize", replace);
+  }, [item]);
   return (
     <div data-face-editor className="pointer-events-none absolute inset-0 overflow-hidden">
       <div

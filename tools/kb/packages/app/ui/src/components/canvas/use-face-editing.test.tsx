@@ -107,6 +107,13 @@ describe("which item's editor is open", () => {
     act(() => root.unmount());
   });
 
+  test("an editor whose item is gone is closed, so its return opens nothing", () => {
+    const { seen } = mount(false);
+    act(() => seen.faces?.onEdit("gone", true));
+    expect(seen.faces?.flat).toBeNull();
+    act(() => root.unmount());
+  });
+
   test("in 2D the editor is the 2D canvas's", () => {
     const { seen } = mount(false);
     act(() => seen.faces?.onEdit("c", true));

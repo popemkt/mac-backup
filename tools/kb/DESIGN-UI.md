@@ -1389,9 +1389,11 @@ open view of that canvas.
   editor is open is one page state (`use-face-editing.ts`), and the
   projection that is showing edits it: the 2D canvas in place, as it always
   did (a shape's label opens on a double-click, a text card's textarea
-  while it has focus, a card's node text while the node is active there).
+  while it has focus). A card's node text has no editor on a canvas yet:
+  the outline refuses to activate a node in a canvas instance, in either
+  projection (`GAP [canvas-card-activation]`).
   In 3D a double-click on an item steps into the group on the way to it as
-  in 2D, and otherwise, for an item with an editor (text, shape, card),
+  in 2D, and otherwise, for an item with an editor (a text card, a shape),
   selects it, opens its editor and flies face-on to it (`faceOnView`; a face
   that stands is only framed). The editor is the item's own DOM face
   (`CanvasCardFace`, laid out by its projection), laid over the 3D canvas

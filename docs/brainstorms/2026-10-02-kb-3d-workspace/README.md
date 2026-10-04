@@ -455,6 +455,40 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
       every browser, which a hardware-keyboard VR tool cannot claim
       ([§b](research.md#b-prior-art-products), takeaway 3). Labels on
       spheres and pillars are billboards.
+    - Built in step 7, with six choices made in the doing.
+      - **The overlay is laid on the face, not on a rectangle.** The DOM
+        editor is the item's own face (`CanvasCardFace`), mapped onto the
+        face's four projected corners by a homography as CSS `matrix3d`
+        (`canvas-face-overlay.ts`), every frame. It fits turned and tipped
+        faces through either lens and mid-flight, which retires the risk
+        named in the build order. The flight face-on stays, for
+        legibility, and the camera flies back only if no one moved it.
+        The turntable camera never rolls, so a face turned upside down is
+        edited upside down, as tldraw edits a turned shape in place.
+      - **Which item is edited is one page state**, and the showing
+        projection edits it. A text card placed with its tool is typed
+        into at once, in both projections.
+      - **What billboards:** a `billboard` item, and any solid whose volume
+        has no flat cap (sphere, cone): `faceStands`. Pillars keep their
+        face on their top, since a pillar is only a tall ellipse prism and
+        the record cannot tell it from one. A flat billboard is drawn and
+        picked square to the camera, rising from where it lies, so from the
+        top it is its footprint; a solid's face stands as a label in front
+        of its body. The label preset is a text card with `billboard`; its
+        "no fill" is not built (a text card has no fill field).
+      - **Images are `file` items** (the JSON Canvas type, typed), the image
+        preset, whose `file` is the `assets/…` path `asset.upload` gives
+        and markdown references; paste, drop and the image tool (a file
+        chooser, as the card tool is a node picker) all go through the
+        host's one upload. A paste is now the browser's paste event, which
+        carries files with no permission asked.
+      - **A frame holds what lies on its face seen face-on** (carried along
+        its normal), and a placing tool pressed on a frame that stands
+        places on its face, turned as it is. That closes the step-6 wall
+        gap.
+      - A card's node text is not editable on a canvas in either
+        projection: the outline refuses canvas instances. Not minted by
+        this step, only found; it is a placeholder gap.
     - **Undo.** One ring (`canvas-history`) serves both projections. A drag,
       a gizmo drag, a modal transform and an extrude are one step each. The
       camera is never in history (as today).

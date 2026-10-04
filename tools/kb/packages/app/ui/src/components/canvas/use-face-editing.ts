@@ -34,6 +34,8 @@ export function useFaceEditing(context: FaceEditingContext) {
     setEditing((current) => (on ? id : current === id ? null : current));
   }, []);
   const item = editing === null ? undefined : byId.get(editing);
+  // Its item went (deleted, undone): nothing is edited, so an undo bringing it back opens nothing.
+  if (editing !== null && item === undefined) setEditing(null);
   /** How to come back from looking at the face being edited. */
   const comeBack = useRef<(() => void) | null>(null);
   // The editor closed (or its item went): the camera comes back from the face.
