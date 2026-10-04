@@ -66,7 +66,7 @@ export { readTokenColor, toRenderableColor, type ColorToken } from "@/lib/css-co
 export { asElement, asInstance, isOutside, isTextEntry } from "@/lib/dom";
 export { graphDisplayText, graphLabelFont, wrapGraphLabel } from "@/lib/graph-label";
 export { logError, logWarn } from "@/lib/log";
-export { assetSrcUrl, mediaKindFromHref } from "@/lib/md-inline";
+export { assetSrcUrl, isAssetPath, mediaKindFromHref } from "@/lib/md-inline";
 export { prefersReducedMotion, useReducedMotion } from "@/lib/motion";
 export { usePane } from "@/lib/pane";
 export type { PaneSelection } from "@/lib/pane-screen";

@@ -1,4 +1,4 @@
-import { mediaKindFromHref } from "@/sdk";
+import { isAssetPath, mediaKindFromHref } from "@/sdk";
 
 /**
  * The pictures image faces are painted with in 3D, decoded once per source
@@ -11,11 +11,14 @@ import { mediaKindFromHref } from "@/sdk";
  */
 
 /**
- * Whether a file item's file is a picture: an image, by its extension, as
- * markdown media is told apart. Any other file shows its path.
+ * Whether a file item's file is a picture kb draws: one of its own assets
+ * (`isAssetPath`), an image by its extension, as markdown media is told
+ * apart. Any other file shows its path: a document naming a picture
+ * elsewhere would make every viewer fetch it, and in 3D its cross-origin
+ * pixels would taint the face's canvas.
  */
 export function isPicture(file: string): boolean {
-  return mediaKindFromHref(file) === "image";
+  return isAssetPath(file) && mediaKindFromHref(file) === "image";
 }
 
 /** A picture as a face can paint it: still loading, missing, or decoded. */

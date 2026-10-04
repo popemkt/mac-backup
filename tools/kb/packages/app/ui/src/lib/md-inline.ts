@@ -99,11 +99,20 @@ export function mediaKindFromHref(href: string): AssetMediaKind | null {
   return null;
 }
 
+/**
+ * Whether `href` names one of kb's own assets (`assets/…`, what
+ * `asset.upload` answers with): the only media kb draws, so a document
+ * cannot make the page fetch from elsewhere.
+ */
+export function isAssetPath(href: string): boolean {
+  return /^assets\/\S/i.test(href.trim());
+}
+
 /** Asset hrefs become /assets/… for the kb ui static route. */
 export function assetSrcUrl(href: string): string {
   const h = href.trim();
   if (h.startsWith("/")) return h;
-  if (/^assets\//i.test(h)) return `/${h}`;
+  if (isAssetPath(h)) return `/${h}`;
   return h;
 }
 
@@ -345,9 +354,7 @@ function parseOnce(text: string): InlineSpan[] {
         const urlEnd = parseUrlAfterParen(text, close + 1);
         const href = urlEnd > close ? text.slice(close + 2, urlEnd) : "";
         const kind =
-          urlEnd > close && /^assets\//i.test(href.trim()) && isSafeHref(href)
-            ? mediaKindFromHref(href)
-            : null;
+          urlEnd > close && isAssetPath(href) && isSafeHref(href) ? mediaKindFromHref(href) : null;
         if (kind) {
           flush();
           out.push({
