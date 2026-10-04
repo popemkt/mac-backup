@@ -1,20 +1,32 @@
 /**
- * Which view owns which path, as the built-in UI plugins' routes resolve it —
- * the route table that used to be a closed union in `lib/router`, now asserted
- * over the contributions that replaced it.
+ * Which view owns which path, as the UI plugins a page loads by default
+ * resolve it — the route table that used to be a closed union in
+ * `lib/router`, now asserted over the contributions that replaced it — and
+ * which families' browser entries the page loads for what the server reports.
  */
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { definePlugin, makeKernel } from "@kb/plugin";
-import { GearIcon } from "@phosphor-icons/react";
+import { makeKernel } from "@kb/plugin";
+import { BUNDLED_FAMILIES } from "@kb/bundled";
+import { extensionRow, type ExtensionRow } from "@kb/contracts";
+import { labExtension } from "@kb/lab";
 import { RoutePoint, SidebarSectionPoint, ViewPoint, findView, matchRoute } from "@/lib/plugins";
 import { NoParams, viewKey, type OntologyView } from "@kb/views";
 import { ontologyPath } from "@/lib/router";
-import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS, uiPluginsFor } from "@/ui-plugins";
+import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS, familiesToLoad } from "@/ui-plugins";
+
+/** The browser entries of the families that are always on, as the resolver loads them. */
+const ALWAYS_ON = await Promise.all(
+  BUNDLED_FAMILIES.filter((declaration) => declaration.optional !== true).flatMap(
+    (declaration) => BROWSER_EXTENSIONS[declaration.name]?.load() ?? [],
+  ),
+);
 
 function kernelWithBuiltins() {
   const kernel = makeKernel();
-  Effect.runSync(Effect.forEach(BUILTIN_UI_PLUGINS, (plugin) => kernel.load(plugin)));
+  Effect.runSync(
+    Effect.forEach([...CORE_UI_PLUGINS, ...ALWAYS_ON], (plugin) => kernel.load(plugin)),
+  );
   return kernel;
 }
 
@@ -98,28 +110,62 @@ describe("built-in routes", () => {
   });
 });
 
-describe("optional plugins", () => {
-  const extra = definePlugin({ name: "extra", apply: () => Effect.void });
-  const optional = [{ plugin: extra, label: "extra", icon: GearIcon }];
-  const names = (enabled: string[]) => uiPluginsFor(optional, enabled).map((p) => p.name);
+/** Every bundled family as a server reports it, each loaded or not as `loaded` says. */
+function reported(loaded: (name: string) => boolean): ExtensionRow[] {
+  return BUNDLED_FAMILIES.map((declaration) =>
+    extensionRow(declaration, "bundled", loaded(declaration.name)),
+  );
+}
 
-  it("are left out until the preference names them", () => {
-    const builtins = BUILTIN_UI_PLUGINS.map((p) => p.name);
-    expect(names([])).toEqual(builtins);
-    expect(names(["unknown"])).toEqual(builtins);
-    expect(names(["extra"])).toEqual([...builtins, "extra"]);
+describe("the families the page loads", () => {
+  it("are each family the server reports loaded that the resolver has, in its order", () => {
+    expect(
+      familiesToLoad(
+        reported(() => true),
+        ["lab"],
+      ),
+    ).toEqual(["canvas", "lab", "code", "chart"]);
   });
 
-  it("never drop a built-in, whatever the preference says", () => {
-    expect(names(["outline"])).toEqual(BUILTIN_UI_PLUGINS.map((p) => p.name));
+  it("leave out a family the server reports not loaded", () => {
+    expect(
+      familiesToLoad(
+        reported((name) => name !== "chart"),
+        [],
+      ),
+    ).not.toContain("chart");
   });
-});
 
-describe("the lab", () => {
-  it("ships as an optional plugin, never as a built-in", () => {
-    expect(OPTIONAL_UI_PLUGINS.map((entry) => entry.plugin.name)).toContain("lab");
-    expect(BUILTIN_UI_PLUGINS.map((plugin) => plugin.name)).not.toContain("lab");
-    expect(uiPluginsFor(OPTIONAL_UI_PLUGINS, []).map((p) => p.name)).not.toContain("lab");
-    expect(uiPluginsFor(OPTIONAL_UI_PLUGINS, ["lab"]).map((p) => p.name)).toContain("lab");
+  it("leave out a family the server does not report at all", () => {
+    const rows = reported(() => true).filter((row) => row.name !== "code");
+    expect(familiesToLoad(rows, [])).not.toContain("code");
+  });
+
+  it("leave out a family the page has no browser entry for", () => {
+    const rows = [...reported(() => true), extensionRow({ name: "remote", label: "R" }, "x", true)];
+    expect(familiesToLoad(rows, [])).not.toContain("remote");
+    expect(familiesToLoad(rows, [])).not.toContain("docs");
+  });
+
+  it("leave out the lab until the preference names it", () => {
+    expect(labExtension.optional).toBe(true);
+    expect(
+      familiesToLoad(
+        reported(() => true),
+        [],
+      ),
+    ).not.toContain("lab");
+    expect(
+      familiesToLoad(
+        reported(() => true),
+        ["lab"],
+      ),
+    ).toContain("lab");
+  });
+
+  it("load each entry under the name it was resolved by", async () => {
+    for (const [name, extension] of Object.entries(BROWSER_EXTENSIONS)) {
+      expect((await extension.load()).name).toBe(name);
+    }
   });
 });

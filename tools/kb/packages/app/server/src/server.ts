@@ -3,11 +3,17 @@ import { join, relative } from "node:path";
 import { Cause, Effect, Exit, Scope, Stream } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
-import { UI_DEFAULT_PORT, directorySignals, type KbContext } from "@kb/contracts";
+import {
+  UI_DEFAULT_PORT,
+  directorySignals,
+  type ExtensionEntry,
+  type ExtensionRow,
+  type KbContext,
+} from "@kb/contracts";
 import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
 import { openKbEffect, writeErr, bunFileSystemLayer } from "@kb/runtime";
-import { makeKernel, type Plugin } from "@kb/plugin";
+import { makeKernel } from "@kb/plugin";
 import { clearUiPresence, queriesDir, writeUiPresence } from "@kb/workspace-fs";
 import { ensureUiBuilt, type UiBuildError, type UiEnsureResult } from "./build.ts";
 import {
@@ -44,11 +50,12 @@ export interface UiServerOptions {
    */
   uiPort?: number;
   /**
-   * The plugins this server hosts (`plugins.ts`), loaded in order after the
-   * host itself. The caller, a composition root, names them; the server
+   * The extensions this server hosts (`plugins.ts`), their plugins loaded in
+   * order after the host itself, and each reported in `kb.manifest` beside
+   * the registry's. The caller, a composition root, names them; the server
    * names none.
    */
-  plugins?: readonly Plugin[];
+  extensions?: readonly ExtensionEntry[];
 }
 
 export interface UiServerHandle {
@@ -171,6 +178,7 @@ function serveUi(deps: {
   root: string;
   ctx: KbContext;
   hub: SubscriptionHub;
+  hosted: () => readonly ExtensionRow[];
 }): Bun.Server<WsData> {
   const { ctx, hub } = deps;
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
@@ -195,7 +203,7 @@ function serveUi(deps: {
         return undefined;
       }
 
-      return handleHttpRequest(req, { root: deps.root, ctx, hub });
+      return handleHttpRequest(req, { root: deps.root, ctx, hub, hosted: deps.hosted });
     },
     websocket: {
       open(ws) {
@@ -233,11 +241,11 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const ctx = yield* openKbEffect(opts.root);
   const kernel = makeKernel();
   const hub = new SubscriptionHub(ctx, channelsOf(kernel));
-  yield* loadServerPlugins(kernel, ctx, hub.screens, opts.plugins ?? []);
+  const hosted = yield* loadServerPlugins(kernel, ctx, hub.screens, opts.extensions ?? []);
   const queries = new SavedQuerySet(ctx);
   queries.adopt(savedQueryNodes(yield* listSavedQueriesEffect(opts.root)));
 
-  const layer = serverRuntimeLayer(ctx, hub.screens);
+  const layer = serverRuntimeLayer(ctx, hub.screens, hosted);
   // The directory has to be there to be watched, and `kb ui` is the surface
   // that projects it — a root that has never saved a query would otherwise
   // never notice its first one.
@@ -250,7 +258,15 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   // The listener first: a bind that fails throws here, before the lifetime
   // owns anything, so nothing is left running behind a server that never came
   // up.
-  const server = serveUi({ hostname, port, uiPort: opts.uiPort, root: opts.root, ctx, hub });
+  const server = serveUi({
+    hostname,
+    port,
+    uiPort: opts.uiPort,
+    root: opts.root,
+    ctx,
+    hub,
+    hosted,
+  });
 
   yield* Scope.addFinalizer(
     lifetime,
@@ -327,14 +343,14 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
   devPort: number;
   uiRoot: string;
   spawn?: UiDevSpawn;
-  plugins?: readonly Plugin[];
+  extensions?: readonly ExtensionEntry[];
 }): Effect.fn.Return<UiDevServer, DomainError, FileSystem> {
   const backend = yield* startUi({
     root: opts.root,
     port: opts.backendPort,
     openBrowser: false,
     uiPort: opts.devPort,
-    plugins: opts.plugins,
+    extensions: opts.extensions,
   });
   const spawn = opts.spawn ?? bunSpawnDev;
   const child = yield* Effect.try({
@@ -370,7 +386,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
   openBrowser: boolean;
   uiRoot: string;
   ensureBuilt?: EnsureUiBuilt;
-  plugins?: readonly Plugin[];
+  extensions?: readonly ExtensionEntry[];
 }): Effect.fn.Return<{ handle: UiServerHandle; build: UiEnsureResult }, DomainError, FileSystem> {
   const ensure = opts.ensureBuilt ?? ensureUiBuilt;
   const build = yield* ensure(opts.uiRoot, UI_DIST).pipe(Effect.mapError(ensureDomainError));
@@ -378,7 +394,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
     root: opts.root,
     port: opts.port,
     openBrowser: opts.openBrowser,
-    plugins: opts.plugins,
+    extensions: opts.extensions,
   });
   return { handle, build };
 }, Effect.provide(bunFileSystemLayer));
@@ -407,8 +423,8 @@ export interface RunUiCliOptions {
   /** Injectable build-ensure step (default {@link ensureUiBuilt}). */
   ensureBuilt?: EnsureUiBuilt;
   spawnDev?: UiDevSpawn;
-  /** The plugins the server hosts ({@link UiServerOptions.plugins}). */
-  plugins?: readonly Plugin[];
+  /** The extensions the server hosts ({@link UiServerOptions.extensions}). */
+  extensions?: readonly ExtensionEntry[];
 }
 
 /**
@@ -431,7 +447,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
       devPort,
       uiRoot,
       spawn: opts.spawnDev,
-      plugins: opts.plugins,
+      extensions: opts.extensions,
     });
     writeErr(`kb ui dev server listening on ${dev.url}`);
     if (open) openBrowser(dev.url);
@@ -453,7 +469,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
     openBrowser: open,
     uiRoot,
     ensureBuilt: opts.ensureBuilt,
-    plugins: opts.plugins,
+    extensions: opts.extensions,
   });
   if (build.built) {
     writeErr(`kb ui: built UI at ${relative(process.cwd(), UI_DIST)} (${build.state})`);

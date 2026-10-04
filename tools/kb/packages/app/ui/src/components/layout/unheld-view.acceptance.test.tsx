@@ -10,9 +10,9 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { GraphSnapshot, WireNode } from "@kb/contracts";
+import { extensionRow, type GraphSnapshot, type WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
-import { BUNDLED_DECLARATIONS } from "@kb/bundled";
+import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
 import { LabView } from "@kb/lab";
 import { viewCatalogOf } from "@kb/views";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
@@ -31,6 +31,7 @@ const ISO = "2026-10-04T00:00:00.000Z";
 const SERVED = viewCatalogOf(
   BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.views ?? []),
 ).entries();
+const LOADED = BUNDLED_FAMILIES.map((declaration) => extensionRow(declaration, "bundled", true));
 
 function node(id: string, text: string, props: WireNode["props"] = {}): WireNode {
   return { id, text, props, children: [], createdAt: ISO, updatedAt: ISO };
@@ -85,7 +86,12 @@ describe("a view the server lists that the page does not hold (acceptance)", () 
     // The server lists every bundled family's views; it answers nothing else.
     setPostAction(async (invocation) =>
       invocation.id === "kb.manifest"
-        ? { status: "succeeded", id: invocation.id, output: { actions: [], views: SERVED }, rev: 1 }
+        ? {
+            status: "succeeded",
+            id: invocation.id,
+            output: { actions: [], views: SERVED, extensions: LOADED },
+            rev: 1,
+          }
         : { status: "failed", id: invocation.id, code: "unknown_action", message: "none", rev: 1 },
     );
   });

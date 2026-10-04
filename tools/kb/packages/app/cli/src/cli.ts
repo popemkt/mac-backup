@@ -45,7 +45,7 @@ import {
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
 import { bundledSeed } from "@kb/bundled";
 import { formatMode, formatReceipt } from "./format.ts";
-import { hostPlugins } from "./host-plugins.ts";
+import { hostExtensions } from "./host-plugins.ts";
 import {
   fieldsNeedingCreate,
   mapActionInvoke,
@@ -383,7 +383,7 @@ function buildProgram(): Command {
               openBrowser: opts.open !== false,
               dev: opts.dev === true,
               devPort: opts.devPort,
-              plugins: opts.agent === false ? [] : yield* hostPlugins(root),
+              extensions: opts.agent === false ? [] : yield* hostExtensions(root),
             });
           }),
       ),

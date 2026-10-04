@@ -5,7 +5,7 @@
  * so the key cannot differ between them. The lab declares no system node:
  * its view's option under `sys.views` is derived from its key, and a lab
  * page says itself in the generic text, so its view carries no text of its
- * own.
+ * own. It is optional: the off-by-default sketchbook a person switches on.
  */
 import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
@@ -14,6 +14,7 @@ import { LabView } from "./view.ts";
 export const labExtension = defineExtension({
   name: "lab",
   label: "Lab",
+  optional: true,
   views: [viewDef(LabView)],
 });
 

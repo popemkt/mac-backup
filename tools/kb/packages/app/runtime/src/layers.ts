@@ -16,6 +16,8 @@ import { bunFileSystemLayer } from "./platform.ts";
 import { DatascriptIndex, KbIndexService } from "@kb/query";
 import {
   ActionCatalog,
+  ExtensionCatalog,
+  type ExtensionRow,
   type ActionHandlerEnv,
   KbStore,
   kbCtxLayer,
@@ -62,12 +64,17 @@ import { selectStore } from "./store-selection.ts";
  * `screens` is where the tabs are. Every process but the `kb ui` server
  * reaches that server's (the default); the server holds them itself and
  * passes its own, so it never has a way to ask itself.
+ *
+ * `hosted` is what the host composes beside the registry (the `kb ui`
+ * server's agent), read at each call: the extension catalog reports it after
+ * the registry's families. A process that hosts nothing reports none.
  */
 export function kbRuntimeLayer(
   ctx: KbContext,
   screens: Layer.Layer<Screens> = remoteScreensLayer(ctx.root).pipe(
     Layer.provide(bunFileSystemLayer),
   ),
+  hosted: () => readonly ExtensionRow[] = () => [],
 ): Layer.Layer<ActionHandlerEnv> {
   const registry = registryFor(ctx.root).pipe(Effect.provide(bunFileSystemLayer));
   return Layer.mergeAll(
@@ -82,6 +89,10 @@ export function kbRuntimeLayer(
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),
+    Layer.effect(
+      ExtensionCatalog,
+      registry.pipe(Effect.map(({ families }) => [...families, ...hosted()])),
+    ),
     Layer.succeed(UntrustedEngine, quickjsEngine),
     Layer.succeed(ReadInvoke, readInvoke(ctx)),
     Layer.effect(

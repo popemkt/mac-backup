@@ -17,6 +17,7 @@ import {
   ActionResponseSchema,
   DecidedEntrySchema,
   ManifestEntrySchema,
+  extensionRow,
   listedOn,
   onWire,
   type ActionInvocation,
@@ -29,6 +30,7 @@ import {
   AGENT_CHANNEL,
   AGENT_WIRE,
   AgentEventSchema,
+  agentExtension,
   agentPlugin,
   scriptedRuntime,
   type AgentEvent,
@@ -86,6 +88,7 @@ const cli: SurfaceFactory = async (root) => {
     );
   return {
     wire: ACTION_INVOKE_WIRE,
+    host: "own",
     list: async () => manifestOf(await invokeCli({ id: "kb.manifest", input: {} })),
     invoke: invokeCli,
     close: async () => undefined,
@@ -122,6 +125,7 @@ const mcp: SurfaceFactory = async (root) => {
 
   return {
     wire: MCP_WIRE,
+    host: "own",
     list: async () => listed.map(({ action }) => action),
     invoke: async ({ id, input }) => {
       // An action MCP leaves out of tools/list is still called by its tool
@@ -167,10 +171,16 @@ const serve: ServeUi = async (root) => {
       root,
       port: 0,
       openBrowser: false,
-      plugins: [agentPlugin({ runtime: contractRuntime })],
+      extensions: [
+        { declaration: agentExtension, entry: agentPlugin({ runtime: contractRuntime }) },
+      ],
     }).pipe(Effect.provide(bunFileSystemLayer)),
   );
-  return { url: handle.url, stop: () => Effect.runPromise(handle.stop) };
+  return {
+    url: handle.url,
+    hosted: [extensionRow(agentExtension, "host", true)],
+    stop: () => Effect.runPromise(handle.stop),
+  };
 };
 
 /** `POST /api/action`, and the receipt from its response. */
@@ -189,6 +199,7 @@ async function postAction(url: string, invocation: ActionInvocation): Promise<Ac
 /** HTTP: `GET /api/manifest` is the listing; `POST /api/action` carries the envelope. */
 const http: SurfaceFactory = async (_root, ui) => ({
   wire: HTTP_WIRE,
+  host: "ui",
   list: async () =>
     z.array(ListedActionSchema).parse(await (await fetch(`${ui.url}/api/manifest`)).json()),
   invoke: (invocation) => postAction(ui.url, invocation),
@@ -222,6 +233,7 @@ const webmcp: SurfaceFactory = async (_root, ui) => {
   await adapter.settled();
   return {
     wire: WEBMCP_WIRE,
+    host: "ui",
     list: async () => page.tools().map((tool) => ({ id: tool.name, mode: modeOf(tool) })),
     invoke: async ({ id, input }) => {
       const tool = page.tool(id);
@@ -294,6 +306,7 @@ const agent: SurfaceFactory = async (_root, ui) => {
   };
   return {
     wire: AGENT_WIRE,
+    host: "ui",
     list: async () =>
       z.array(ListedActionSchema).parse(JSON.parse(await say({ list: true }, false))),
     invoke: async ({ id, input, approved }) =>

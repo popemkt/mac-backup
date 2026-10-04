@@ -13,10 +13,10 @@ import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { useRoute } from "@/lib/plugins";
-import { loadServedViews } from "@/lib/view-catalog";
+import { loadManifest } from "@/lib/manifest";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes } from "@kb/views";
-import { OPTIONAL_UI_PLUGINS, startUiPlugins } from "@/ui-plugins";
+import { startUiPlugins, useExtensionSwitches } from "@/ui-plugins";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
@@ -119,9 +119,10 @@ function SkipLink() {
 function SharedChrome() {
   const globalPaletteOpen = useUiStore((s) => s.globalPaletteOpen);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
+  const switches = useExtensionSwitches();
   return (
     <>
-      <PreferencesPopover plugins={OPTIONAL_UI_PLUGINS} />
+      <PreferencesPopover switches={switches} />
       <ViewFilterPopoverHost />
       <CommandPalette open={globalPaletteOpen} onClose={() => setGlobalPaletteOpen(false)} />
       <Toasts />
@@ -213,8 +214,8 @@ export function App() {
       hydrateFromWire(snapshot.nodes, snapshot.rev, source);
       setStatus("ready");
       ensureLiveConnection();
-      // The page's view catalog is the server's: ask which views it loaded.
-      if (source === "api") void loadServedViews();
+      // The page follows the server: ask which extensions and views it loaded.
+      if (source === "api") void loadManifest();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStatus("error");

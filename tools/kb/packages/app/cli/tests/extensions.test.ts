@@ -3,6 +3,8 @@ import { Effect } from "effect";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { openKb, invoke, registryFor, resetRegistryCache, bunFileSystemLayer } from "@kb/runtime";
+import { BUNDLED_FAMILIES } from "@kb/bundled";
+import { kbManifestDef } from "@kb/operations";
 import { main } from "../src/cli.ts";
 
 // Roots live under tests/ (not os tmpdir) so fixture extensions resolve
@@ -81,6 +83,27 @@ describe("extension loading", () => {
     expect(ids).toContain("ext.hello.greet");
     const hello = registry.extensions.find((e) => e.name === "hello");
     expect(hello?.actions.map((a) => a.def.id)).toEqual(["ext.hello.greet"]);
+  });
+
+  test("kb.manifest reports every bundled family, then a repository extension by its file", async () => {
+    const root = await tempRoot();
+    await writeExtension(root, "hello.ts", HELLO_EXT);
+    const ctx = await openKb(root);
+
+    const receipt = await invoke(ctx, { id: "kb.manifest", input: {} });
+    expect(receipt.status).toBe("succeeded");
+    const { extensions } = kbManifestDef.outputSchema.parse(
+      receipt.status === "succeeded" ? receipt.output : null,
+    );
+    expect(extensions.map(({ name, source }) => `${name} (${source})`)).toEqual([
+      ...BUNDLED_FAMILIES.map(({ name }) => `${name} (bundled)`),
+      `hello (${join(root, ".kb", "extensions", "hello.ts")})`,
+    ]);
+    expect(extensions.find(({ name }) => name === "hello")).toMatchObject({
+      label: "hello",
+      optional: false,
+      enabled: true,
+    });
   });
 
   test("broken extension warns + skips; core and other extensions survive", async () => {

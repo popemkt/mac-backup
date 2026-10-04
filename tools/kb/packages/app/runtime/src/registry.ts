@@ -7,11 +7,13 @@ import {
   declarationPlugin,
   actionToManifestEntry,
   extensionPlugin,
+  extensionRow,
   type ActionContribution,
   type ActionHandlerEnv,
   type ActionInvocation,
   type ActionReceipt,
   type ExtensionFailure,
+  type ExtensionRow,
   type KbContext,
   type ManifestEntry,
   type TemplateFn,
@@ -66,6 +68,11 @@ export interface Registry {
   manifestEntries: readonly ManifestEntry[];
   /** The views the loaded plugins contributed to `ViewKeyPoint`: what the `ViewCatalog` service holds. */
   views: ViewCatalogOf<ViewDef<unknown>>;
+  /**
+   * Every bundled family, loaded or not, then each repository extension that
+   * loaded: what `kb.manifest` reports of this registry (`ExtensionCatalog`).
+   */
+  families: readonly ExtensionRow[];
 }
 
 /**
@@ -203,7 +210,27 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   const views = viewCatalogOf(kernel.contributions(ViewKeyPoint).map(({ value }) => value));
 
-  return { kernel, actions, byId, templates, extensions, failures, manifestEntries, views };
+  // A repository extension declares nothing, so it reads as a declaration of its name alone.
+  const families: ExtensionRow[] = [
+    ...BUNDLED_EXTENSIONS.map(({ declaration }) =>
+      extensionRow(declaration, "bundled", sources.get(declaration.name) === "bundled"),
+    ),
+    ...extensions
+      .filter(({ source }) => source !== "bundled")
+      .map(({ name, source }) => extensionRow({ name, label: name }, source, true)),
+  ];
+
+  return {
+    kernel,
+    actions,
+    byId,
+    templates,
+    extensions,
+    failures,
+    manifestEntries,
+    views,
+    families,
+  };
 });
 
 const registryCache = new Map<string, Effect.Effect<Registry, never, FileSystem>>();

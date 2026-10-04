@@ -210,12 +210,11 @@ export const DockPoint = Point<Dock>()("ui.docks");
 const uiKernel = makeKernel();
 
 /**
- * A plugin the user switches on and off (Preferences → plugins). Only a
- * plugin listed as optional is ever unloaded by preference; the rest load
- * unconditionally. `label` and `icon` are how the preference row names it.
+ * An extension the person switches on and off (Preferences → plugins), by
+ * the name its plugin carries. `label` and `icon` are how the row names it.
  */
-export interface OptionalUiPlugin {
-  readonly plugin: Plugin;
+export interface ExtensionSwitch {
+  readonly name: string;
   readonly label: string;
   readonly icon: Icon;
 }

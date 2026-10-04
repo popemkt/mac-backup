@@ -10,12 +10,17 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { ChannelPoint, UiHost } from "@kb/contracts";
+import { ChannelPoint, UiHost, defineExtension, type ExtensionEntry } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { FAKE_TAB_SCREEN, FakeTab } from "@kb/test-kit";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const run = Effect.runPromise;
+
+/** `plugin` as the server is handed it: with a declaration of its name. */
+function hosted(plugin: Plugin): ExtensionEntry {
+  return { declaration: defineExtension({ name: plugin.name, label: plugin.name }), entry: plugin };
+}
 
 /** A channel that answers every frame with what it can see: the data, the peer's tab, a receipt. */
 function echoPlugin(dropped: string[]): Plugin {
@@ -58,7 +63,12 @@ describe("plugin channels", () => {
     root = await mkdtemp(join(tmpdir(), "kb-channels-"));
     dropped.length = 0;
     handle = await run(
-      startUi({ root, port: 0, openBrowser: false, plugins: [failing, echoPlugin(dropped)] }),
+      startUi({
+        root,
+        port: 0,
+        openBrowser: false,
+        extensions: [hosted(failing), hosted(echoPlugin(dropped))],
+      }),
     );
   });
 
@@ -121,7 +131,9 @@ describe("plugin channels", () => {
           Effect.acquireRelease(Effect.void, () => Effect.sync(() => void (released = true))),
         ),
     });
-    const other = await run(startUi({ root, port: 0, openBrowser: false, plugins: [scoped] }));
+    const other = await run(
+      startUi({ root, port: 0, openBrowser: false, extensions: [hosted(scoped)] }),
+    );
     await run(other.stop);
     expect(released).toBe(true);
   });

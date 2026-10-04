@@ -35,12 +35,14 @@ import { NoParams, localIdOf, viewCatalogOf, viewKey } from "@kb/views";
 import { ViewKeyPoint } from "@kb/contracts";
 import { pageCatalogOf } from "@/lib/view-catalog";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
-import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS } from "@/ui-plugins";
+import { agentPlugin } from "@/agent";
+import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS } from "@/ui-plugins";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 
 const ALL_PLUGINS: readonly Plugin[] = [
-  ...BUILTIN_UI_PLUGINS,
-  ...OPTIONAL_UI_PLUGINS.map((entry) => entry.plugin),
+  ...CORE_UI_PLUGINS,
+  ...(await Promise.all(Object.values(BROWSER_EXTENSIONS).map((extension) => extension.load()))),
+  agentPlugin,
 ];
 
 /** A kernel holding every plugin the UI can hold. */

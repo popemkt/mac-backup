@@ -6,7 +6,8 @@
  * declaration ({@link declarationPlugin}), so the seed, the catalog and the
  * name cannot differ between hosts.
  */
-import { Effect } from "effect";
+import { Context, Effect } from "effect";
+import { z } from "zod";
 import type { KbNode } from "@kb/model";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { ViewKeyPoint, type ViewDef } from "./view-catalog.ts";
@@ -15,6 +16,12 @@ export interface ExtensionDeclaration {
   /** The family's name: the one home of it, which its plugins and its manifest row read. */
   readonly name: string;
   readonly label: string;
+  /**
+   * Off until the person switches it on. Whether it is on is the server's
+   * decision, never the browser's: the registry loads an optional family
+   * only while it is on, and `kb.manifest.extensions` reports it either way.
+   */
+  readonly optional?: boolean;
   /**
    * The system nodes the family seeds, under frozen ids. Only a bundled
    * family's declaration is folded into the seed; a host or repository
@@ -48,3 +55,49 @@ export function declarationPlugin(declaration: ExtensionDeclaration): Plugin {
       ),
   });
 }
+
+/**
+ * A family as a host composes it: the declaration that names it, and the
+ * plugin that host loads for it. The server's bundled families and the
+ * `kb ui` host's own extensions (the agent) are both this shape, so both
+ * report through {@link extensionRow}.
+ */
+export interface ExtensionEntry {
+  readonly declaration: ExtensionDeclaration;
+  readonly entry: Plugin;
+}
+
+/**
+ * One extension as a host reports it (`kb.manifest.extensions`): what the
+ * page follows. `enabled` says the host holds it loaded; `source` is
+ * `bundled`, `host` (composed by `kb ui`) or a repository extension's path.
+ */
+export const ExtensionRowSchema = z.object({
+  name: z.string(),
+  label: z.string(),
+  optional: z.boolean(),
+  enabled: z.boolean(),
+  source: z.string(),
+});
+
+export type ExtensionRow = z.infer<typeof ExtensionRowSchema>;
+
+/** A declaration's row, as the host that composes it from `source` reports it. */
+export function extensionRow(
+  declaration: ExtensionDeclaration,
+  source: string,
+  enabled: boolean,
+): ExtensionRow {
+  return {
+    name: declaration.name,
+    label: declaration.label,
+    optional: declaration.optional === true,
+    enabled,
+    source,
+  };
+}
+
+/** The extensions the host composes, loaded or not: what `kb.manifest` reports. */
+export class ExtensionCatalog extends Context.Service<ExtensionCatalog, readonly ExtensionRow[]>()(
+  "kb/ExtensionCatalog",
+) {}

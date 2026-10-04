@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { DESIGN_SYSTEMS } from "@/lib/theme";
 import { usePrefsStore, type ThemePref, type WidthPref } from "@/stores/prefs.store";
 import { isOutside } from "@/lib/dom";
-import type { OptionalUiPlugin } from "@/lib/plugins";
+import type { ExtensionSwitch } from "@/lib/plugins";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "@/components/ui/pref-field-row";
 import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
@@ -28,10 +28,10 @@ const PLUGIN_OPTIONS: readonly EnumOption<"off" | "on">[] = [
 ];
 
 export function PreferencesPopover({
-  plugins,
+  switches,
 }: {
-  /** The optional UI plugins, one on/off row each; none, no section. */
-  plugins: readonly OptionalUiPlugin[];
+  /** The optional extensions, one on/off row each; none, no section. */
+  switches: readonly ExtensionSwitch[];
 }) {
   const open = useUiStore((s) => s.prefsOpen);
   const setOpen = useUiStore((s) => s.setPrefsOpen);
@@ -60,13 +60,13 @@ export function PreferencesPopover({
       <ThemeRow />
       <DesignSystemRow />
       <WidthRow />
-      {plugins.length > 0 ? (
+      {switches.length > 0 ? (
         <section aria-label="plugins">
           <h3 className="px-1.5 pb-1 pt-2 text-meta uppercase tracking-wide text-foreground/30">
             plugins
           </h3>
-          {plugins.map((entry) => (
-            <PluginRow key={entry.plugin.name} entry={entry} />
+          {switches.map((entry) => (
+            <PluginRow key={entry.name} entry={entry} />
           ))}
         </section>
       ) : null}
@@ -158,8 +158,8 @@ function WidthRow() {
   );
 }
 
-function PluginRow({ entry }: { entry: OptionalUiPlugin }) {
-  const name = entry.plugin.name;
+function PluginRow({ entry }: { entry: ExtensionSwitch }) {
+  const { name } = entry;
   const enabled = usePrefsStore((s) => s.enabledPlugins.includes(name));
   const setPluginEnabled = usePrefsStore((s) => s.setPluginEnabled);
   return (

@@ -1864,14 +1864,16 @@ list of plugin names), and it is edited in Preferences → plugins as one
 on/off row per optional plugin. There is one mechanism, not a second path
 beside the built-ins:
 
-- `ui-plugins.ts` lists `BUILTIN_UI_PLUGINS` (always loaded) and
-  `OPTIONAL_UI_PLUGINS` (each with the label and icon its preference row
-  shows). `uiPluginsFor` turns the preference into the set of plugins the
-  kernel should hold, and a built-in cannot be switched off by it.
+- `ui-plugins.ts` holds `CORE_UI_PLUGINS` (always loaded) and the
+  `BROWSER_EXTENSIONS` resolver ([Extension UI halves](#extension-ui-halves)).
+  `familiesToLoad` turns the server's report and the preference into the
+  families whose browser entries the kernel should hold: an optional family
+  (the lab) only while the preference names it. The agent's UI is switched
+  by the preference alone.
 - `lib/plugins.ts` → `syncUiPlugins` converges the UI kernel on that set:
   it loads what is missing and unloads each top-level plugin no longer
-  listed. `startUiPlugins` runs it at boot and again whenever the preference
-  changes, including from another tab.
+  listed. `startUiPlugins` runs it at boot and again whenever the server's
+  report or the preference changes, including from another tab.
 - Unloading closes the plugin's scope, so its routes, views and sidebar
   section leave the kernel and every `useContributions` reader re-renders
   without a reload. A slot that embedded one of its views shows its fallback. A path the plugin owned then resolves like any unmatched path: it

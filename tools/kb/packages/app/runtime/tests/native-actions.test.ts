@@ -5,7 +5,14 @@ import { join } from "node:path";
 import { Effect, Exit, Fiber, Layer, Stream } from "effect";
 import { kbRuntimeLayer, openKbEffect } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
-import { ActionCatalog, KbCtx, KbStore, ViewCatalog, templateRegistryLayer } from "@kb/contracts";
+import {
+  ActionCatalog,
+  ExtensionCatalog,
+  KbCtx,
+  KbStore,
+  ViewCatalog,
+  templateRegistryLayer,
+} from "@kb/contracts";
 import { viewCatalogOf } from "@kb/views";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { remoteScreensLayer } from "../src/screens.ts";
@@ -239,6 +246,7 @@ export default actions;
             templateRegistryLayer(new Map()),
             Layer.succeed(ActionCatalog, []),
             Layer.succeed(ViewCatalog, viewCatalogOf([])),
+            Layer.succeed(ExtensionCatalog, []),
             savedQueriesLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             legacyDocsViewsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             assetsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),

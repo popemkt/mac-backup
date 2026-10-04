@@ -14,6 +14,7 @@ import type { KbIndexService } from "@kb/query";
 import type { Screens } from "./screen.ts";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
+import type { ExtensionCatalog } from "./declaration.ts";
 import type { ViewCatalog } from "./view-catalog.ts";
 import type { Assets, CodeTrust, LegacyDocsViews, SavedQueries } from "./workspace.ts";
 
@@ -74,6 +75,7 @@ export type ActionHandlerEnv =
   | TemplateRegistry
   | ActionCatalog
   | ViewCatalog
+  | ExtensionCatalog
   | SavedQueries
   | LegacyDocsViews
   | Assets

@@ -132,7 +132,8 @@ describe("lab plugin (acceptance)", () => {
 
   it("switched on, contributes its row and page; switched off, both leave live", async () => {
     await act(async () => usePrefsStore.getState().setPluginEnabled("lab", true));
-    await settle();
+    // The lab's entry is a lazy chunk: wait for it to load.
+    await until(() => labRow() !== undefined);
     expect(labRow()).toBeDefined();
 
     await act(async () => navigate("/lab"));

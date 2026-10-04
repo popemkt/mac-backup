@@ -6,6 +6,7 @@ import {
   noTabReceipt,
   selectCommand,
   type ActionHandlerEnv,
+  type ExtensionRow,
   type KbContext,
   type ScreenAck,
   type ScreenCommand,
@@ -174,10 +175,15 @@ export class ScreenHub {
   };
 }
 
-/** The runtime the `kb ui` server runs actions in: the root's runtime over the screens it holds. */
+/**
+ * The runtime the `kb ui` server runs actions in: the root's runtime over the
+ * screens it holds, reporting the extensions it hosts (`hosted`) beside the
+ * registry's.
+ */
 export function serverRuntimeLayer(
   ctx: KbContext,
   screens: ScreenHub,
+  hosted?: () => readonly ExtensionRow[],
 ): Layer.Layer<ActionHandlerEnv> {
-  return kbRuntimeLayer(ctx, Layer.succeed(Screens, screens.port));
+  return kbRuntimeLayer(ctx, Layer.succeed(Screens, screens.port), hosted);
 }

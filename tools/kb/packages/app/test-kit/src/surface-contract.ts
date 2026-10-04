@@ -7,7 +7,8 @@
  * sidebar agent's tools) is a way to reach it and
  * must add nothing and drop nothing. It lists the same ids with the same
  * declared modes, and for the same call it returns the same receipt as the
- * invoke core. A guarantee kept by one surface and broken by another is
+ * invoke core of the composition it reaches (a `kb ui` also reports the
+ * extensions it hosts). A guarantee kept by one surface and broken by another is
  * exactly what this suite catches, so it is not a per-adapter test.
  *
  * Every property runs against a fresh scratch root. That root holds one
@@ -31,6 +32,7 @@ import {
   type ActionInvocation,
   type ActionMode,
   type ActionReceipt,
+  type ExtensionRow,
   type SurfaceWire,
 } from "@kb/contracts";
 import {
@@ -40,7 +42,14 @@ import {
   approvalPoliciesOf,
   type ApprovalPolicy,
 } from "@kb/model";
-import { bunFileSystemLayer, invoke, manifest, openKb } from "@kb/runtime";
+import {
+  bunFileSystemLayer,
+  invoke,
+  invokeReceiptEffect,
+  kbRuntimeLayer,
+  manifest,
+  openKb,
+} from "@kb/runtime";
 import { FakeTab } from "./fake-tab.ts";
 
 /** One listed action, as a surface's own listing states it. */
@@ -69,6 +78,12 @@ export interface ActionSurface {
    * The properties below prove the declaration by behaviour.
    */
   readonly wire: SurfaceWire;
+  /**
+   * Whose composition answers a call: the root's `kb ui` (`ui`), which also
+   * reports the extensions it hosts, or the surface's own process (`own`),
+   * which hosts none. The invoke core it is held to is that composition's.
+   */
+  readonly host: "ui" | "own";
   close(): Promise<void>;
 }
 
@@ -76,6 +91,8 @@ export interface ActionSurface {
 export interface LiveUi {
   /** Where it listens, `http://host:port`. */
   readonly url: string;
+  /** The extensions it hosts beside the registry's, as its `kb.manifest` reports them. */
+  readonly hosted: readonly ExtensionRow[];
   stop(): Promise<void>;
 }
 
@@ -294,8 +311,11 @@ function overSurfaces(
             Effect.scoped(
               Effect.gen(function* () {
                 const surface = yield* openSurface(open, root, ui);
+                const hosted = surface.host === "ui" ? ui.hosted : [];
                 const core = (invocation: ActionInvocation) =>
-                  Effect.promise(() => invoke(ctx, onWire(surface.wire, invocation)));
+                  invokeReceiptEffect(ctx, onWire(surface.wire, invocation)).pipe(
+                    Effect.provide(kbRuntimeLayer(ctx, undefined, () => hosted)),
+                  );
                 const via = (invocation: ActionInvocation) =>
                   Effect.promise(() => surface.invoke(invocation));
                 yield* check({ name, surface, root, policies, core, via });

@@ -12,7 +12,7 @@
  * list, so a family that joins it is held to the same promises as the rest.
  */
 import { BUNDLED_FAMILIES } from "@kb/bundled";
-import type { ExtensionDeclaration } from "@kb/contracts";
+import type { ExtensionDeclaration, ExtensionEntry } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
 import { chartServerPlugin } from "@kb/chart-vega";
 import { codePlugin } from "@kb/code";
@@ -20,12 +20,6 @@ import { canvasPlugin } from "@kb/ext-canvas";
 import { checkPlugin } from "@kb/ext-check";
 import { docsPlugin } from "@kb/ext-docs";
 import { labPlugin } from "@kb/lab";
-
-/** One bundled family: the declaration that names it, and the plugin the server loads for it. */
-export interface BundledExtension {
-  readonly declaration: ExtensionDeclaration;
-  readonly entry: Plugin;
-}
 
 /**
  * Each declaration paired with the entry of the same name, in the
@@ -35,7 +29,7 @@ export interface BundledExtension {
 export function serverEntriesFor(
   declarations: readonly ExtensionDeclaration[],
   entries: readonly Plugin[],
-): readonly BundledExtension[] {
+): readonly ExtensionEntry[] {
   const unmatched = new Map(entries.map((entry) => [entry.name, entry]));
   const paired = declarations.map((declaration) => {
     const entry = unmatched.get(declaration.name);
@@ -51,8 +45,7 @@ export function serverEntriesFor(
   return paired;
 }
 
-// Named apart from the browser's list: GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]]
-export const BUNDLED_EXTENSIONS: readonly BundledExtension[] = serverEntriesFor(BUNDLED_FAMILIES, [
+export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BUNDLED_FAMILIES, [
   docsPlugin,
   canvasPlugin,
   labPlugin(),

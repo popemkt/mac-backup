@@ -54,12 +54,14 @@ Lazy chunks: graph, canvas, ontology, lab — each surfaces file lazy-loads its
 page; each lab study's three.js scene is a further dynamic import.
 Outline stays eager (primary path).
 
-The plugins above are built-in and always loaded. An optional plugin is listed
-in `OPTIONAL_UI_PLUGINS` instead, and the `enabledPlugins` preference decides
-whether it is loaded; both lists reach the kernel through the one
-`syncUiPlugins` call, so an optional plugin is written exactly like a built-in
-one. See DESIGN-UI.md → Optional UI plugins, and → The lab for the first
-one and the Lab principles its studies follow.
+The core plugins (`CORE_UI_PLUGINS` in `src/ui-plugins.ts`) are always
+loaded. A family's plugin (canvas, lab, code, chart) is its browser entry,
+found by the `BROWSER_EXTENSIONS` resolver under the family's declared name,
+and loaded when the server reports the family loaded in `kb.manifest`; an
+optional family (the lab) is its own chunk. Every plugin reaches the kernel
+through the one `syncUiPlugins` call, so a family's plugin is written exactly
+like a core one. See DESIGN-UI.md → Extension UI halves and → Optional UI
+plugins, and → The lab for the Lab principles its studies follow.
 
 ## Error isolation
 

@@ -7,6 +7,7 @@ import {
   listingOf,
   onWire,
   type ActionResponse,
+  type ExtensionRow,
   type KbContext,
   type ServerIdentity,
   type SurfaceWire,
@@ -36,6 +37,8 @@ export interface UiHttpDeps {
   root: string;
   ctx: KbContext;
   hub: SubscriptionHub;
+  /** The extensions the server hosts beside the registry's, as it reports them; none when absent. */
+  hosted?: () => readonly ExtensionRow[];
 }
 
 function jsonResponse(
@@ -182,7 +185,7 @@ const handleHttpRequestEffect = (
 export function handleHttpRequest(req: Request, deps: UiHttpDeps): Promise<Response> {
   return Effect.runPromise(
     handleHttpRequestEffect(req, deps).pipe(
-      Effect.provide(serverRuntimeLayer(deps.ctx, deps.hub.screens)),
+      Effect.provide(serverRuntimeLayer(deps.ctx, deps.hub.screens, deps.hosted)),
       Effect.map(HttpServerResponse.toWeb),
     ),
   );
