@@ -57,6 +57,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — every known root has run views.migrate; then delete LegacyDocsViewsPort and readLegacyDocsViews
 - **node** — `01M3YM5YCHGX6S04KN4G75B9RF`
 
+### GAP: ⌘Z in an open canvas undoes edits made elsewhere
+
+- **expected** — undo history tracks who authored each step, so a person's ⌘Z undoes their own edits, not an agent's or another tab's concurrent edit
+- **current** — canvas-history.ts adoptStored pushes every remote edit into the local history as a step
+- **impact** — after an agent edits, the person's ⌘Z reverts the agent's change, not their own
+- **closes** — authored history steps
+- **node** — `01M42Q9JB86BVSVHSQRZ5HW07X`
+
 ### GAP: 3D canvas card textures have no memory budget or culling
 
 - **expected** — card textures are budgeted and culled or LOD'd by visibility and screen size
@@ -72,6 +80,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — In 3D a relationship repeated many times looks like a single one, and a dense graph at device pixel ratio 2 draws hairline links that can be faint.
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
+
+### GAP: a 3D capture briefly shows two frames
+
+- **expected** — no visible flash
+- **current** — a 3D capture briefly shows two frames
+- **impact** — the person sees a flash while an agent captures
+- **closes** — a render-target readback
+- **node** — `01M42Q9HYATJ1XEZNJGXAGMAKC`
 
 ### GAP: a call's actor and approval are declared by the caller, not proven
 
@@ -555,6 +571,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
 - **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
 
+### GAP: only text cards can be promoted to nodes
+
+- **expected** — shapes promotable
+- **current** — text cards only
+- **impact** — shapes stay unpromotable
+- **closes** — shapes show their node
+- **node** — `01M42Q9H3RA1FHZYYYP2M9QJ4V`
+
 ### GAP: only view.propose checks a view node's settings against its key
 
 - **expected** — every write of a view node, from any action, is checked by its view key
@@ -635,6 +659,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Each site can render stale values or cascade renders. The ratchet stops new ones, but the existing 59 stay until drained.
 - **closes** — Drain per component with the UI suite (bun run test:ui) as the guard, re-snapshot the ledger, and promote each rule to error when its count reaches 0.
 - **node** — `01M35NJQPKW5YVNVFFAFAYXPFH`
+
+### GAP: relations read world-aligned bounds, not volumes
+
+- **expected** — volume-exact relations (oriented boxes)
+- **current** — relations read world-aligned bounds
+- **impact** — a turned or round item reads larger than it is
+- **closes** — oriented-box and volume tests
+- **node** — `01M42Q9GJKTE064D3SG8JEPA4M`
 
 ### GAP: repository extensions cannot ship UI
 
@@ -965,6 +997,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A new accidental cross-zone import can pass without a reviewed architectural decision.
 - **closes** — After R1 settles, inventory the production UI import graph, remove unused permissions without touching the view-keys zone concurrently, and add a red fixture per removed edge.
 - **node** — `01M3F8EJSWHS38PMSSQ2BVN8DG`
+
+### GAP: ui.capture hands an agent a file path, not the image
+
+- **expected** — the image inside the tool result
+- **current** — a file path
+- **impact** — the sidebar agent and remote hosts cannot see the capture
+- **closes** — mcpToolResult sends image content
+- **node** — `01M42Q9HJJ0H5GDGXKJ2CW5HEC`
 
 ### GAP: untrusted sandbox code runs on the frame's main thread
 

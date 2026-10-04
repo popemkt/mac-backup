@@ -40,6 +40,7 @@ export const canvasContent = (doc: CanvasDoc) =>
  * moved on, so it changes nothing. A change of the camera alone is view
  * state, taken in with no step.
  */
+// GAP [[01M42Q9JB86BVSVHSQRZ5HW07X]]
 export function adoptStored(
   h: CanvasHistory,
   stored: CanvasDoc,

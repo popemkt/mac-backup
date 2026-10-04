@@ -83,8 +83,8 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
      with no node.
    - **Promote to node** is the `ext.canvas.promote` action. It creates a
      node from the item's text (with no parent, per D6), sets `nodeId` and
-     drops the item's own text. Node first, then layout, as D6 orders it;
-     an orphan node is harmless.
+     drops the item's own text. The node and the card are one transaction
+     (a failed canvas write leaves no node), so promote is one undo step.
    - This respects the owner's deferral: nothing becomes a node unless
      someone promotes it. It also keeps D6's door open. Step 7b is then a
      *policy* (promote at creation) plus moving the layout onto the view
@@ -563,8 +563,8 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
         with `connectItems`, the verb's function.
       - **Promote takes text cards only.** A shape shows its label, not a
         node, so promoting one would hide its words
-        (`GAP [promote-shapes]`). The node is made first with `node.add`
-        (D6), then the card, in two transactions.
+        (`GAP [[01M42Q9H3RA1FHZYYYP2M9QJ4V]]`). The node and the card are written in
+        one transaction (`planNodeAddEffect` into the canvas write's `also`).
       - **Approval is the invoke core's, per action.** Each verb is its own
         id; a policy on `ext.canvas.*` or `every write` covers them all. A
         policy on `tx.apply` alone does not reach the verbs, which write
@@ -580,8 +580,8 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
       - **`ui.capture` keeps a file, not bytes in the receipt**: the server
         writes `.kb/captures/<ulid>.png` and answers its path, so a local
         agent opens it; tool results carrying the image itself are
-        `GAP [capture-image-blocks]`. In 3D the person glimpses the two
-        frames drawn for it (`GAP [capture-shows-a-frame]`); in 2D the scene
+        `GAP [[01M42Q9HJJ0H5GDGXKJ2CW5HEC]]`. In 3D the person glimpses the two
+        frames drawn for it (`GAP [[01M42Q9HYATJ1XEZNJGXAGMAKC]]`); in 2D the scene
         is mounted unseen, so nothing shows.
 
 ## Build order

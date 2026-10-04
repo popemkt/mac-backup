@@ -18,7 +18,7 @@ import { CanvasRelationError } from "./relations.ts";
  */
 // A shape shows its label, not a node, so promoting one would hide its
 // words; only text cards promote.
-// GAP [promote-shapes]
+// GAP [[01M42Q9H3RA1FHZYYYP2M9QJ4V]]
 export function promotableText(doc: CanvasDoc, id: string): string {
   const item = doc.nodes.find((node) => node.id === id);
   if (item === undefined) throw new CanvasRelationError(`no item ${id} on this canvas`);

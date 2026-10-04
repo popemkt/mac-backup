@@ -288,7 +288,7 @@ function cameraFacer(layers: readonly { face(axes: CanvasAxes): void }[]) {
  * Pictures of the scene, taken one at a time: while one is taken the frame
  * draws its view (`posing`) instead of the rig's, without the gizmo, and
  * then the rig's again. The rig never moves; the canvas shows the picture's
- * view for the frames taken. GAP [capture-shows-a-frame]
+ * view for the frames taken. GAP [[01M42Q9HYATJ1XEZNJGXAGMAKC]]
  */
 function picturesOf(stage: SceneStage, gizmo: GizmoLayer) {
   let posing: CanvasView | null = null;

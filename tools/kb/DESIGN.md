@@ -2068,7 +2068,7 @@ transaction, one step of an open canvas's history.
   own axes — left and right along x, north and south along y (north up the
   page), above and below along z — never the camera's or an item's own, and
   a turned item is compared by the box bounding it along them (`boxBounds`;
-  `GAP [relations-read-bounds]`). `describe` says "a is `side` of b, `gap`
+  `GAP [[01M42Q9GJKTE064D3SG8JEPA4M]]`). `describe` says "a is `side` of b, `gap`
   apart" exactly when `place` would have put a there: the side along which
   their bounds stand farthest apart (`directionFrom`), and two items that no
   direction parts overlap (`overlaps`). A flat item at a solid's base is in
@@ -2320,7 +2320,7 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   the view for two frames (one to build it, one copied as a PNG in the task
   that drew it, since a WebGPU canvas lets go of a frame once shown), then
   the person's view again — in 3D the person glimpses those two frames
-  (`GAP [capture-shows-a-frame]`). 2D
+  (`GAP [[01M42Q9HYATJ1XEZNJGXAGMAKC]]`). 2D
   is that scene's top view, so a canvas showing 2D mounts its scene unseen
   for as long as the picture takes. The tab answers with the PNG (its ack's
   `picture`); the `kb ui` server keeps it under `.kb/captures/` — runtime
@@ -2329,7 +2329,7 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   opens to see it. A capture waits 10 s by default. With no tab it answers
   `no-tab`, as every command does (plan "gaps": a capture needs an open
   tab). Tool results carry the file's path, not the picture
-  (`GAP [capture-image-blocks]`).
+  (`GAP [[01M42Q9HJJ0H5GDGXKJ2CW5HEC]]`).
 - **No approval.** The two commands change what one tab shows, never the
   graph or the workspace, and a person undoes either with one gesture.
   Approval would also keep them off MCP and WebMCP (`listedOn`), the

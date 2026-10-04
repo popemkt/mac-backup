@@ -15,7 +15,7 @@
  */
 // Relations and overlaps read an item's world-aligned bounds, not its
 // volume, so a turned item or a round solid reads larger than it is.
-// GAP [relations-read-bounds]
+// GAP [[01M42Q9GJKTE064D3SG8JEPA4M]]
 import { boxBounds, type CanvasBounds, type CanvasVec } from "./box.ts";
 import { canvasDepth, isGroupNode, type CanvasNode, type CanvasSide } from "./doc.ts";
 

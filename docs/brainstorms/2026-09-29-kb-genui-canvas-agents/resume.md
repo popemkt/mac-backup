@@ -12,13 +12,39 @@ update-cost fix. Each was reviewed by GPT-6.1 Sol before merge; every gap it
 named is minted and written as an id, and the gaps it closed are marked
 done. Main is pushed.
 
+**Merged since last update:**
+
+- 3D steps 3-8. Milestones 1 and 2 are done.
+- The extension-boundaries plan
+  ([../2026-10-04-kb-extension-boundaries/README.md](../2026-10-04-kb-extension-boundaries/README.md))
+  through E0-E12, including E4b, E9 lab and E10b.
+
+## Next, when the owner's quota is back
+
+- E9b: canvas vocabulary out of core.
+- E13: `@kb/canvas-ui`. The canvas card text-binding gap
+  `01M41MHRD7MF4NP23EE294B69C` must land before it.
+- E14: close gaps, flip the rule's enforcement.
+- 3D step 9 (connectors) and step 10 (formats: JSON Canvas export, GLB).
+- The deferred step 7b (items become nodes), still the owner's call.
+
+## Open questions
+
+- The test:ui count: the landing report saw 2218 in `@kb/ui`, against the
+  builder's 2404 across packages. Confirm the nx per-package total (the step 8
+  landing summed 2399 across the packages, 2213 of them in `@kb/ui`).
+- A flaky `canvas-camera.test.ts` timeout.
+
+## Agent routing in quota mode
+
+Sonnet builds and lands, GPT-6.1 Sol reviews.
+
 ## 3D workspace
 
 Plan, research and owner answers in
 [../2026-10-02-kb-3d-workspace/README.md](../2026-10-02-kb-3d-workspace/README.md).
-Steps 0 (three r186), 1 (ground camera) and 2 (item model) are merged.
-Step 3 (solids, completing Milestone 1) is building. Then steps 4–10 in the
-plan's order.
+Steps 0-8 are merged (Milestones 1 and 2). Steps 9 (connectors) and 10
+(formats) remain, and the deferred 7b.
 
 ## How each step lands
 
