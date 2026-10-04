@@ -929,6 +929,65 @@ pushed back, this is what was picked:
   the host's props, because the surface names the node its text belongs
   to.
 
+**Note from the doing (E13).** The plan called E13 a path move. The code
+pushed back on its tests, and this is what was picked:
+- **One package, eager as before.** `@kb/canvas-ui` (`scope:browser`,
+  `family:canvas`) is the whole of `components/canvas`, 2D and 3D. The
+  canvas is always on, so, as with the chart and the code view in E12,
+  `ui-plugins.ts` loads `canvasUiPlugin` from the main bundle. The list
+  page, the canvas page and the 3D stage stay chunks of their own, and the
+  lazy fence keeps three behind the 3D stage. The barrel names only the
+  entry.
+- **The tests could not stay with the shell.** E12 kept a half's tests
+  that drive the real shell in `@kb/ui`, reaching the half through its
+  barrel. For the canvas that would put the canvas page or the 3D scene in
+  the barrel, which is in the main bundle, and the lazy fence goes red. A
+  test cannot go round the barrel either, because `public-surface` refuses
+  a deep or relative import. So the tests move with the canvas, and three
+  restructures came first, each its own commit:
+  - **`@kb/ui-test-kit`** (`packages/test-support`, `scope:browser`) is a
+    browser test's world, beside `@kb/test-kit`, and joins
+    `TEST_WORLD_PACKAGES`. It holds the happy-dom globals and the GPU and
+    2D-canvas stand-ins, which moved there from `@kb/ui`'s
+    `test-support/`. The `test-support` layer may now reach the kit layer.
+    The stylesheet's scan check now names only the browser packages the
+    page is built from (`@kb/ui`'s dependencies), because a test kit is
+    in no bundle.
+  - **Two suites are run by each package.** `sceneContract(scenes)` and
+    `storiesRender(modules)` (the catalog smoke) moved from `@kb/ui`'s
+    test files into the kit. `@kb/ui` runs them over the lab, the 3D
+    graph and its catalog. `@kb/canvas-ui` runs them over the 3D canvas
+    and the `TextCard` story. Storybook serves the `-ui` packages'
+    stories beside the catalog. The scene suite reads three's classes
+    when a test runs, because the file that runs it mocks `three/webgpu`
+    with the kit's own stand-ins.
+  - **A test host.** `testBrowserHost()` is a `BrowserHost` over a graph
+    the test sets. It has one active node with its caret, and it holds
+    the pane reports views make. Every other gesture is inert, and any
+    member can be replaced. `testHostPlugin` provides it. Five canvas
+    tests drove the shell's host and read its stores. They now hold the
+    canvas to the port: they check the instance it activates and the
+    report it holds, not the outline's state. The shell's side, that
+    activation accepts a canvas instance, was already the outline's
+    `lib/instance-key.test.ts`.
+- **The harness shrank.** The canvas's rows left `EXTENSION_ROOT_BREACHES`,
+  which now holds only the CLI's three bins. `CORE_BROWSER_HALVES` is
+  empty. The `components/canvas` zone, `extensionRow` and the
+  extension-zone fixture in `ui-boundaries` are gone, because no zone
+  leaves `@kb/ui` any more.
+- **Smaller moves.** The comments that named `@/scene/host`,
+  `@/scene/gpu/stage` and `components/canvas/…` now name the packages.
+  The dead `components/canvas/index.tsx` barrel and its Knip ignore are
+  gone. The 3D stage's `import.meta.env` check takes `vite/client` types
+  from the package's own `vite-env.d.ts`, which drained Knip's root
+  `vite` debt. `@kb/ui` keeps `@kb/canvas` in its manifest, because the
+  root keys `BROWSER_EXTENSIONS` by the declaration's name.
+- **Not done here.** The bullet-kind gap `01M436DVSEHKNYWSF2MR07HPMR` stays
+  open. A kind that a family contributes needs a point that the pure
+  `bulletAppearance` and the graph's GPU glyph atlas (`BULLET_GLYPHS`, set
+  ahead of time) both read. That is a design, not a move. The canvas
+  screen protocol is untouched (E19).
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D
