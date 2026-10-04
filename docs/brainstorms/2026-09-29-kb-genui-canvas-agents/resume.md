@@ -26,10 +26,10 @@ Owner's priority: finish extension isolation first, then the rest.
 1. **Extension isolation** (plans:
    [README](../2026-10-04-kb-extension-boundaries/README.md),
    [sdk.md](../2026-10-04-kb-extension-boundaries/sdk.md)). Landed: E0-E12,
-   E9b, the card text-binding gap. In flight: E13 (`@kb/canvas-ui`), E15a
-   (`GraphWrites`; ext-check and ext-docs leave `@kb/operations`). Left, in
-   rounds of two: E15b + E17, E15c + E16, E18, then E14 (close gaps, flip
-   the rule to `harness`).
+   E9b, the card text-binding gap, E13 (`@kb/canvas-ui`) and E15a
+   (`GraphWrites`; ext-check and ext-docs left `@kb/operations`); main at
+   5ec154a2. Left, in rounds of two: E15b + E17, E15c + E16, E18, then
+   E14 (close gaps, flip the rule to `harness`).
 2. **Dependency upgrades** (survey:
    [../2026-10-04-kb-upgrades/README.md](../2026-10-04-kb-upgrades/README.md)),
    after isolation so the lockfile does not fight the builders:
