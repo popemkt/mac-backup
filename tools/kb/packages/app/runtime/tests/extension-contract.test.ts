@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
-import { ViewKeyPoint, defineExtension } from "@kb/contracts";
+import { ActionPoint, ViewKeyPoint, defineExtension } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
 import { definePlugin, makeKernel } from "@kb/plugin";
 import { extensionContract } from "@kb/test-kit";
@@ -138,6 +138,57 @@ describe("the contract's seed, view and text promises have a subject", () => {
       content?: string;
     };
     expect(content).toContain("Lab view (lab.page), view node v.lab.");
+  });
+
+  test("canvas declares its tag, its field and two views, and its server entry holds both halves", async () => {
+    const canvas = BUNDLED_EXTENSIONS.find(({ declaration }) => declaration.name === "canvas");
+    expect(canvas?.declaration.seed?.("2026-01-01T00:00:00.000Z").map((node) => node.id)).toEqual([
+      "sys.f.canvas",
+      "sys.tag.canvas",
+    ]);
+    expect(canvas?.declaration.views?.map((view) => view.key.id)).toEqual([
+      "canvas.list",
+      "canvas.page",
+    ]);
+    expect(canvas?.declaration.views?.map((view) => view.text)).toEqual([undefined, undefined]);
+    // The server's entry is the family's actions with its shared plugin as a child.
+    const held = await Effect.runPromise(
+      Effect.gen(function* () {
+        const kernel = makeKernel();
+        if (canvas !== undefined) yield* kernel.load(canvas.entry);
+        const views = kernel.contributions(ViewKeyPoint).map(({ id }) => id);
+        const actions = kernel.contributions(ActionPoint).map(({ id }) => id);
+        yield* kernel.shutdown;
+        return { views, actions };
+      }),
+    );
+    expect(held.views).toEqual(["canvas.list", "canvas.page"]);
+    expect(held.actions).toContain("ext.canvas.tx.apply");
+    const ctx = await openKb(root);
+    // Core's options first, then the canvas's, where E4b froze them.
+    const options = ctx.index.getNode(SYSTEM_IDS.viewsRoot)?.children ?? [];
+    const at = options.indexOf("sys.view.canvas.list");
+    expect(options.slice(at - 1, at + 3)).toEqual([
+      "sys.view.layout.node",
+      "sys.view.canvas.list",
+      "sys.view.canvas.page",
+      "sys.view.lab.page",
+    ]);
+    const added = await invoke(ctx, {
+      id: "node.add",
+      input: {
+        id: "v.canvases",
+        text: "",
+        props: [{ field: SYSTEM_IDS.viewField, value: { t: "ref", v: "sys.view.canvas.list" } }],
+      },
+    });
+    expect(added.status).toBe("succeeded");
+    const rendered = await invoke(ctx, {
+      id: "render.view",
+      input: { id: "v.canvases", format: "md" },
+    });
+    // The registry's catalog holds the family's key, so the list reads as the canvas's.
+    expect(rendered).toMatchObject({ status: "succeeded", output: { name: "Canvases view" } });
   });
 });
 
