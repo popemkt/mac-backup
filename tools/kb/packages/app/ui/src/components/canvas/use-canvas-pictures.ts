@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import type { CanvasDoc } from "@kb/canvas";
-import { browserHost, logError } from "@/sdk";
+import { logError } from "@/sdk";
 import { screenToPlane, type CanvasPoint } from "./canvas-camera";
 import { imageFilesOf, placePictures, type PictureWrite } from "./canvas-media";
 import type { CanvasSelection } from "./canvas-selection";
@@ -10,6 +10,8 @@ interface PicturesContext {
   readonly docRef: RefObject<CanvasDoc>;
   readonly schedulePersist: (doc: CanvasDoc) => void;
   readonly setSelection: (selection: CanvasSelection) => void;
+  /** The host's one upload (`uploadAsset`): an asset's `assets/…` path, or null. */
+  readonly upload: (file: File) => Promise<string | null>;
   /** The showing camera and its viewport: where a viewport point is on the floor. */
   readonly camera: () => TransformCamera;
   /** Where the pointer last was over the canvas, as a viewport point. */
@@ -20,14 +22,23 @@ interface PicturesContext {
   readonly stage: RefObject<HTMLElement | null>;
 }
 
+/** Whether a drag carries files: those the browser would otherwise open in place of the page. */
+const carriesFiles = (data: DataTransfer) => data.types.includes("Files");
+
+/** Whether a drag carries a picture: its items say their kind and type before the drop. */
+const carriesPicture = (data: DataTransfer) =>
+  [...data.items].some((item) => item.kind === "file" && item.type.startsWith("image/"));
+
 /**
  * The canvas page's ways in for pictures (`canvas-media`): a paste lands at
  * the pointer, a drop where it is let go, and the image tool's file chooser
  * at the placement point, each through whichever projection is showing.
+ * Every drag of files is the canvas's: a picture is placed, and any other
+ * file is refused rather than opened by the browser in place of the page.
  */
 export function useCanvasPictures(context: PicturesContext) {
   const write: PictureWrite = {
-    upload: (file) => browserHost().uploadAsset(file),
+    upload: context.upload,
     doc: () => context.docRef.current,
     persist: context.schedulePersist,
     select: context.setSelection,
@@ -61,18 +72,19 @@ export function useCanvasPictures(context: PicturesContext) {
       });
       input.click();
     },
-    /** A drag of files over the canvas may drop them. */
+    /** A drag of files over the canvas: one carrying a picture may drop, any other may not. */
     onDragOver: (event: React.DragEvent) => {
-      if (!event.dataTransfer.types.includes("Files")) return;
+      if (!carriesFiles(event.dataTransfer)) return;
       event.preventDefault();
-      event.dataTransfer.dropEffect = "copy";
+      event.dataTransfer.dropEffect = carriesPicture(event.dataTransfer) ? "copy" : "none";
     },
-    /** Pictures dropped on the canvas land where they were let go. */
+    /** Files dropped on the canvas: the pictures land where they were let go, the rest are dropped. */
     onDrop: (event: React.DragEvent) => {
+      if (!carriesFiles(event.dataTransfer)) return;
+      event.preventDefault();
       const pictures = imageFilesOf(event.dataTransfer.files);
       const rect = context.stage.current?.getBoundingClientRect();
       if (pictures.length === 0 || rect === undefined) return;
-      event.preventDefault();
       place(pictures, floorAt({ x: event.clientX - rect.left, y: event.clientY - rect.top }));
     },
   };
