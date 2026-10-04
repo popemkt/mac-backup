@@ -27,6 +27,14 @@ done. Main is pushed.
 - E14: close gaps, flip the rule's enforcement.
 - 3D step 9 (connectors) and step 10 (formats: JSON Canvas export, GLB).
 - The deferred step 7b (items become nodes), still the owner's call.
+- Proposed, not yet approved: make the sidebar agent configurable as a node.
+  Today `@kb/agent-claude` runs the owner's local Claude Code (`claude` on
+  PATH, their login's default model, `settingSources: []`, kb actions only
+  over the in-process `kb` MCP server, `dontAsk`, 40 steps, 30 min).
+  `ClaudeRuntimeOptions` takes `model` and `executable`, but
+  `cli/src/host-plugins.ts` passes only `cwd`; the only switch is
+  `kb ui --no-agent`. Recommended shape: a model field on a
+  `sys.extension.agent` node, read live, like the lab switch.
 
 ## Open questions
 
@@ -37,7 +45,10 @@ done. Main is pushed.
 
 ## Agent routing in quota mode
 
-Sonnet builds and lands, GPT-6.1 Sol reviews.
+Sonnet builds and lands, GPT-6.1 Sol reviews. Brief Sol with an exact
+`git diff <base> <branch>` range; a range description once got the wrong
+commits reviewed. Verify a builder's branch with
+`git -C <worktree> branch --show-current`, not its report.
 
 ## 3D workspace
 
@@ -48,10 +59,12 @@ Steps 0-8 are merged (Milestones 1 and 2). Steps 9 (connectors) and 10
 
 ## How each step lands
 
-Opus builds in its own worktree; GPT-6.1 Sol reviews; rebase onto main;
+A builder (Opus, or Sonnet in quota mode) works in its own worktree; GPT-6.1 Sol reviews; rebase onto main;
 `bun install` in tools/kb; `bun run verify`, `bun run test`,
-`bun run test:ui`; fast-forward; mint its `GAP [GAP-…]` placeholders
-(`grep -rn 'GAP \[[A-Z]' tools/kb | grep -v 'GAP \[\['`), close what it
+`bun run test:ui` (trust the exit code and the absence of an `Errors` line,
+not the pass count: unhandled rejections once hid behind a green total);
+fast-forward; mint its `GAP […]` placeholders
+(`grep -rnE 'GAP \[[a-zA-Z]' tools/kb | grep -v 'GAP \[\['`), close what it
 closed, open both stores once to take new seeds (`kb search x` and
 `kb --root tools/kb search x`), `docs.materialize`, commit, push, restart
 `kb ui`. Check `git config --get core.hooksPath` points at .githooks.
