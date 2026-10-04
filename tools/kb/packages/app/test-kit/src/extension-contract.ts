@@ -15,11 +15,12 @@
  * - every text body its entry contributes renders its key's default
  *   settings, and so does its figure where it draws one.
  *
- * Chart is the first family with a subject for the seed, view and text
- * promises. Code, lab and the canvas vocabulary are still seeded and
- * catalogued through core's declaration until they move (E8, E9):
- * GAP [[01M41H2Z7B5GCJXHCRYBS7M3YH]] (seed) and GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]
- * (views). The browser half — every view a family gives the UI has a key in
+ * Chart and code are the families with a subject for the seed, view and
+ * text promises; what a figure draws needs the host's painter or engine, so
+ * the runtime's tests assert each one's drawn figure by name. The canvas's
+ * fields are still seeded by core (GAP [[01M39F3MR3HT2NR553FY8CRD6X]]), and the
+ * lab and canvas views catalogued through core's declaration
+ * (GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]]), until they move (E9). The browser half — every view a family gives the UI has a key in
  * the page's catalog — is the UI's view contract (`view-contract.test.tsx`
  * in `@kb/ui`), which runs over the page kernel.
  */

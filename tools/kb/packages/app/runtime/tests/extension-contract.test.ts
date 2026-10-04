@@ -10,6 +10,7 @@ import { definePlugin, makeKernel } from "@kb/plugin";
 import { extensionContract } from "@kb/test-kit";
 import { BUNDLED_EXTENSIONS, serverEntriesFor } from "../src/bundled.ts";
 import { invoke } from "../src/invoke.ts";
+import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 
 /** A spec that draws the count of a query's rows: one bar, whatever the columns. */
@@ -61,6 +62,47 @@ describe("the contract's seed, view and text promises have a subject", () => {
     );
     // A painted figure, not the null a host without a painter, or a chart with no rows, draws.
     expect(figures.map((figure) => figure?.includes("<svg") ?? false)).toEqual([true]);
+  });
+
+  test("code declares a seed and a view, and on the runtime its figure is a snapshot", async () => {
+    const code = BUNDLED_EXTENSIONS.find(({ declaration }) => declaration.name === "code");
+    expect(code?.declaration.seed?.("2026-01-01T00:00:00.000Z").map((node) => node.id)).toEqual([
+      "sys.f.code",
+      "sys.f.code.grant",
+    ]);
+    expect(code?.declaration.views?.map((view) => view.key.id)).toEqual(["code.view"]);
+    const ctx = await openKb(root);
+    const added = await invoke(ctx, { id: "node.add", input: { id: "n.subject", text: "Drawn" } });
+    expect(added.status).toBe("succeeded");
+    const params = {
+      source: "n.subject",
+      code: 'const node = await kb.node(kb.subject); kb.draw(["p", {}, node.text]);',
+      grant: { reads: "subject", actions: [] },
+    };
+    const texts = await Effect.runPromise(
+      Effect.gen(function* () {
+        const kernel = makeKernel();
+        if (code !== undefined) yield* kernel.load(code.entry);
+        const views = kernel.contributions(ViewKeyPoint).map(({ value }) => value);
+        yield* kernel.shutdown;
+        return yield* Effect.forEach(views, (view) =>
+          Effect.gen(function* () {
+            const figure = view.text?.figure?.(ctx, params, null) ?? Effect.succeed(null);
+            return {
+              body: view.text?.body(ctx, params, null).join("\n") ?? "",
+              // The page binds no engine: the same figure draws nothing there.
+              bare: yield* figure,
+              snapshot: yield* figure.pipe(Effect.provide(kbRuntimeLayer(ctx))),
+            };
+          }),
+        );
+      }),
+    );
+    expect(texts.map(({ body }) => body.includes(`\`\`\`js\n${params.code}\n\`\`\``))).toEqual([
+      true,
+    ]);
+    expect(texts.map(({ bare }) => bare)).toEqual([null]);
+    expect(texts.map(({ snapshot }) => snapshot)).toEqual(["<p>Drawn</p>"]);
   });
 });
 
