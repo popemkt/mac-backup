@@ -4,8 +4,8 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import { CANVAS_IDS, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
-import { syncUiPlugins, SYSTEM_IDS, WORKSPACE_ROOT_ID, type OutlineNode } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { syncUiPlugins, SYSTEM_IDS, type OutlineNode } from "@kb/ui-sdk";
+import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 
 const { persistCanvasDoc } = vi.hoisted(() => ({
   persistCanvasDoc: vi
@@ -19,10 +19,10 @@ vi.mock("./canvas-api", async (importOriginal) => {
 });
 
 import { CanvasPage } from "./canvas-page";
-import { browserHostUiPlugin } from "@/browser-host";
 
-// The canvas reaches the shell through the page's host, as when the app boots.
-beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+// The canvas reads its node through the page's host: here, a test host.
+const host = testBrowserHost();
+beforeAll(() => syncUiPlugins([testHostPlugin(host)]));
 afterAll(() => syncUiPlugins([]));
 
 const initialDoc: CanvasDoc = {
@@ -95,20 +95,7 @@ describe("CanvasPage pointer interactions", () => {
 
   beforeEach(() => {
     persistCanvasDoc.mockClear();
-    useOutlineStore.setState({
-      nodes: new Map([[canvasNode.id, canvasNode]]),
-      wireNodes: [],
-      index: null,
-      rev: 0,
-      rootNodeId: WORKSPACE_ROOT_ID,
-      homeRootId: WORKSPACE_ROOT_ID,
-      activeNodeId: null,
-      activeInstanceKey: null,
-      selectedNodeId: null,
-      selectedInstanceKey: null,
-      loadSource: null,
-      loadError: null,
-    });
+    host.setNodes([canvasNode]);
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
@@ -231,7 +218,7 @@ describe("CanvasPage pointer interactions", () => {
         [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
       },
     };
-    useOutlineStore.setState({ nodes: new Map([[node.id, node]]) });
+    host.setNodes([node]);
     await act(async () => {
       root.render(<CanvasPage canvasId="canvas" />);
     });
@@ -300,7 +287,7 @@ describe("CanvasPage pointer interactions", () => {
         [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
       },
     };
-    useOutlineStore.setState({ nodes: new Map([[node.id, node]]) });
+    host.setNodes([node]);
     await act(async () => {
       root.render(<CanvasPage canvasId="canvas" />);
     });
@@ -349,7 +336,7 @@ describe("CanvasPage pointer interactions", () => {
         [CANVAS_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(framed) }],
       },
     };
-    useOutlineStore.setState({ nodes: new Map([[node.id, node]]) });
+    host.setNodes([node]);
     await act(async () => {
       root.render(<CanvasPage canvasId="canvas" />);
     });

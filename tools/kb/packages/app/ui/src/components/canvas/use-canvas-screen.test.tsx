@@ -11,13 +11,14 @@ import type { CanvasDoc } from "@kb/canvas";
 import { SCREEN_APPLIED, type CanvasViewTarget, type ScreenAck } from "@kb/contracts";
 import { viewOfPan, type CanvasView, type CanvasViewportControls } from "./canvas-camera";
 import { EMPTY_SELECTION } from "./canvas-selection";
-import { useScreenStore } from "@/stores/screen.store";
 import { useCanvasScreen } from "./use-canvas-screen";
-import { browserHostUiPlugin } from "@/browser-host";
 import { syncUiPlugins } from "@kb/ui-sdk";
+import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 
-// The canvas reaches the shell through the page's host, as when the app boots.
-beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+// The canvas reports its pane through the page's host: here, a test host,
+// which holds the report and its carry-out as the shell's screen does.
+const host = testBrowserHost();
+beforeAll(() => syncUiPlugins([testHostPlugin(host)]));
 afterAll(() => syncUiPlugins([]));
 
 const doc: CanvasDoc = {
@@ -91,7 +92,7 @@ function report(shown: "2d" | "3d", settled3d: CanvasView | null) {
     return null;
   }
   act(() => root.render(createElement(Host)));
-  return Object.values(useScreenStore.getState().panes)[0]?.report.canvas;
+  return host.reports()[0]?.report.canvas;
 }
 
 describe("the canvas screen report", () => {
@@ -112,7 +113,7 @@ describe("the canvas screen report", () => {
 describe("a camera target", () => {
   function look(target: CanvasViewTarget): ScreenAck {
     report("2d", null);
-    const view = Object.values(useScreenStore.getState().panes)[0];
+    const view = host.reports()[0];
     const answer = view?.carryOut({ kind: "look", target });
     if (answer === undefined || answer instanceof Promise) throw new Error("no answer now");
     return answer;
@@ -144,7 +145,7 @@ describe("a camera target", () => {
   it("a capture draws from the target, or the camera as it is, and moves no camera", async () => {
     drawnViews = [];
     report("2d", null);
-    const view = Object.values(useScreenStore.getState().panes)[0];
+    const view = host.reports()[0];
     expect(await view?.carryOut({ kind: "capture", view: { items: ["far"] } })).toEqual({
       outcome: "applied",
     });

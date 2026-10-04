@@ -4,15 +4,14 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import type { CanvasDoc } from "@kb/canvas";
-import { fixtureGraph } from "@/api/fixture-graph";
-import { useOutlineStore } from "@/stores/outline.store";
 import { CanvasPage } from "./canvas-page";
 import type * as CanvasApi from "./canvas-api";
-import { browserHostUiPlugin } from "@/browser-host";
-import { syncUiPlugins } from "@kb/ui-sdk";
+import { syncUiPlugins, type OutlineNode } from "@kb/ui-sdk";
+import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 
-// The canvas reaches the shell through the page's host, as when the app boots.
-beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+// The canvas reads its node through the page's host: here, a test host.
+const host = testBrowserHost();
+beforeAll(() => syncUiPlugins([testHostPlugin(host)]));
 afterAll(() => syncUiPlugins([]));
 
 const doc: CanvasDoc = {
@@ -28,6 +27,19 @@ vi.mock("./canvas-api", async (original) => ({
   syncDocOnRev: () => {},
   persistCanvasDoc: vi.fn(async () => {}),
 }));
+
+/** The node the canvas is drawn for; its document is the mocked read above. */
+const canvasNode: OutlineNode = {
+  id: "canvas",
+  text: "Gestures",
+  parentId: null,
+  children: [],
+  collapsed: false,
+  props: {},
+  tags: [],
+  createdAt: "2026-09-05T00:00:00.000Z",
+  updatedAt: "2026-09-05T00:00:00.000Z",
+};
 
 describe("canvas gestures", () => {
   let dom: Window;
@@ -52,8 +64,8 @@ describe("canvas gestures", () => {
     dom.HTMLElement.prototype.setPointerCapture = () => {};
   });
   beforeEach(() => {
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
-    const canvasId = present(fixtureGraph.nodes[0], "fixture node").id;
+    host.setNodes([canvasNode]);
+    const canvasId = canvasNode.id;
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);

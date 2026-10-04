@@ -70,15 +70,14 @@ import {
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasSelection } from "./canvas-selection";
 import { syncUiPlugins, TIMING_FALLBACK } from "@kb/ui-sdk";
-import { fakeCanvasContexts } from "@kb/ui-test-kit";
+import { fakeCanvasContexts, testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import type { CardLook } from "./canvas-card-face";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
 import { FIRST_GIZMO } from "./canvas-gizmo";
 import type * as ThreeWebGpu from "three/webgpu";
-import { browserHostUiPlugin } from "@/browser-host";
 
-// The canvas reaches the shell through the page's host, as when the app boots.
-beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+// The canvas reaches the page only through its host: here, a test host.
+beforeAll(() => syncUiPlugins([testHostPlugin(testBrowserHost())]));
 afterAll(() => syncUiPlugins([]));
 
 vi.mock("three/webgpu", async (importOriginal) => ({

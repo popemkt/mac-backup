@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@kb/plugin": "workspace:*",
     "@kb/scene": "workspace:*",
+    "@kb/ui-sdk": "workspace:*",
     "happy-dom": "catalog:",
     "three": "catalog:",
     "vitest": "catalog:"
