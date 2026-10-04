@@ -73,6 +73,7 @@ function LaidFaceEditor({
         <CanvasCardFace
           card={item}
           box={{ left: 0, top: 0, width: item.width, height: item.height }}
+          projection="3d"
           editing
           onEdit={(on) => onEdit(item.id, on)}
           selection={EMPTY_SELECTION}

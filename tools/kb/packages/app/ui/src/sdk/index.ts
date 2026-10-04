@@ -67,6 +67,7 @@ export { asElement, asInstance, isOutside, isTextEntry } from "@/lib/dom";
 export { graphDisplayText, graphLabelFont, wrapGraphLabel } from "@/lib/graph-label";
 export { logError, logWarn } from "@/lib/log";
 export { assetSrcUrl, isAssetPath, mediaKindFromHref } from "@/lib/md-inline";
+export { canvasInstanceKey } from "@/lib/instance-key";
 export { prefersReducedMotion, useReducedMotion } from "@/lib/motion";
 export { usePane } from "@/lib/pane";
 export type { PaneSelection } from "@/lib/pane-screen";

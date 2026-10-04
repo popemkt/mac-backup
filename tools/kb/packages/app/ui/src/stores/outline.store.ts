@@ -3,7 +3,7 @@ import { DatascriptIndex, type KbIndex } from "@/ds";
 import { loadExpandedIds, resolveProps, saveExpandedIds, wireToOutlineMap } from "@/lib/graph-view";
 import { resolveVisibleProps } from "@/lib/field-visibility";
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
-import { MAIN_OUTLINE_HOST, isInsideQueryResults, outlineInstanceKey } from "@/lib/instance-key";
+import { MAIN_OUTLINE_HOST, isProjectedInstance, outlineInstanceKey } from "@/lib/instance-key";
 import { isQueryNode } from "@kb/model";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
 import { schemaOf, type SchemaIndex } from "@/lib/schema";
@@ -601,11 +601,12 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       get().expandAncestors(id);
       const revealed = get();
       const key = resolveActivateKey(id, instanceKey, revealed.nodes, revealed.selectedInstanceKey);
-      // Reference instances are projected by query components, so their exact
-      // visibility is only knowable once that component mounts. The mounted-host
+      // Projected instances (query rows, canvas cards) are drawn by the component
+      // that mounts them, so their exact
+      // visibility is only knowable once it mounts. The mounted-host
       // half of the registry below validates them after React commits.
       if (
-        !isInsideQueryResults(key) &&
+        !isProjectedInstance(key) &&
         !revealed.getVisibleInstances(walkHostOf(key)).some((item) => item.instanceKey === key)
       ) {
         if (import.meta.env.DEV) logWarn(`kb: refused unreachable focus target: ${key}`);

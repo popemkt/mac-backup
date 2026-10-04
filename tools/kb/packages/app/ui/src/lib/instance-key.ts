@@ -51,11 +51,23 @@ export function outlineInstanceKey(
 }
 
 /**
- * Every instance a query projects carries this prefix, and so does everything
- * nested under one (`childInstanceKey` appends to it).
+ * Every instance drawn somewhere other than an outline's walk of the tree
+ * carries this prefix — a query's projected rows, a node shown on a canvas —
+ * and so does everything nested under one (`childInstanceKey` appends to it).
  */
 const PROJECTION_PREFIX = "ref:";
 const QUERY_RESULT_PREFIX = `${PROJECTION_PREFIX}query:`;
+const CANVAS_PREFIX = `${PROJECTION_PREFIX}canvas:`;
+
+/**
+ * A node shown by canvas card `cardId`, as the projection `projection` (2D
+ * or 3D) draws it: a projected instance, so the outline's walk of the tree
+ * does not decide whether it is on screen — the card mounting its text does.
+ * Each projection's is its own, so the one showing edits it alone.
+ */
+export function canvasInstanceKey(projection: string, cardId: string, nodeId: string): string {
+  return `${CANVAS_PREFIX}${projection}:${cardId}/${nodeId}`;
+}
 
 /**
  * Query-result / reference-container instance. It names its query, not its
@@ -67,11 +79,12 @@ export function queryResultInstanceKey(queryNodeId: string, nodeId: string): str
 }
 
 /**
- * The instance sits somewhere inside a query's projected rows — a result row
- * or one of its descendants. Their visibility is decided by the query
- * component that mounts them, not by the outline walk alone.
+ * The instance is projected: drawn somewhere other than an outline's walk of
+ * the tree — inside a query's projected rows (a result row or one of its
+ * descendants), or on a canvas. Its visibility is decided by the component
+ * that mounts it, not by the outline walk.
  */
-export function isInsideQueryResults(instanceKey: string): boolean {
+export function isProjectedInstance(instanceKey: string): boolean {
   return instanceKey.startsWith(PROJECTION_PREFIX);
 }
 

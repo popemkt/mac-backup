@@ -2,6 +2,7 @@ import { classifyCardPointer } from "./card-pointer";
 import {
   asInstance,
   browserHost,
+  canvasInstanceKey,
   Bullet,
   cn,
   NodeRow,
@@ -15,11 +16,6 @@ import { useNodeTextHostBinding } from "@/stores/node-text-host-binding"; // GAP
 import type { FaceLayout } from "./canvas-face";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
-
-/** Stable instance key for a kb-node card on a canvas. */
-function canvasCardInstanceKey(cardId: string, nodeId: string): string {
-  return `canvas:${cardId}:${nodeId}`;
-}
 
 interface KbCardProps extends FaceLayout {
   card: CanvasKbNode;
@@ -79,6 +75,7 @@ function useNodeEdit(
 /** kb-node card: layout shell + shared NodeRow / NodeTextHost / TagChips. */
 export function KbNodeCard({
   card,
+  projection,
   box,
   editing,
   onEdit,
@@ -90,7 +87,7 @@ export function KbNodeCard({
   onPortDown,
 }: KbCardProps) {
   const node = useNode(card.nodeId);
-  const instanceKey = canvasCardInstanceKey(card.id, card.nodeId);
+  const instanceKey = canvasInstanceKey(projection, card.id, card.nodeId);
   const isActive = useIsActive(card.nodeId, instanceKey);
   const binding = useNodeTextHostBinding(instanceKey);
 

@@ -486,9 +486,10 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
         its normal), and a placing tool pressed on a frame that stands
         places on its face, turned as it is. That closes the step-6 wall
         gap.
-      - A card's node text is not editable on a canvas in either
-        projection: the outline refuses canvas instances. Not minted by
-        this step, only found; it is a placeholder gap.
+      - A card's node text was not editable on any canvas: the outline
+        refused canvas instances. Fixed in the doing: the node a card shows
+        is a projected instance, one per projection (`canvasInstanceKey`),
+        which the outline activates as it does a query's rows.
     - **Undo.** One ring (`canvas-history`) serves both projections. A drag,
       a gizmo drag, a modal transform and an extrude are one step each. The
       camera is never in history (as today).

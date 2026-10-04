@@ -9,6 +9,7 @@
  */
 import {
   frameCorners,
+  isKbNode,
   isShapeNode,
   isTextNode,
   type CanvasFrame,
@@ -16,13 +17,9 @@ import {
 } from "@kb/canvas";
 import { projectPoint, type CanvasView, type ViewSize } from "./canvas-camera";
 
-/** Whether `item` has an editor a face can open: words of its own, or a shape's label. */
-// A card's node text is not one: the outline refuses to activate a node in a
-// canvas instance ("not visible in this outline"), in 2D as in 3D, so its
-// editor would open and never take the caret.
-// GAP [canvas-card-activation]
+/** Whether `item` has an editor a face can open: words of its own, a shape's label, or a card's node text. */
 export function hasEditor(item: CanvasNode): boolean {
-  return isTextNode(item) || isShapeNode(item);
+  return isTextNode(item) || isShapeNode(item) || isKbNode(item);
 }
 
 interface Point {

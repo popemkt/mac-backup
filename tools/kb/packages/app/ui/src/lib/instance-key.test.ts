@@ -1,8 +1,9 @@
 import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/api/fixture-graph";
 import {
+  canvasInstanceKey,
   childInstanceKey,
-  isInsideQueryResults,
+  isProjectedInstance,
   isQueryResultInstance,
   outlineInstanceKey,
   queryResultInstanceKey,
@@ -43,9 +44,20 @@ describe("render-instance identity", () => {
     expect(isQueryResultInstance(nested)).toBe(false);
     expect(isQueryResultInstance(tree)).toBe(false);
     // …but the whole projected subtree is inside the query's results.
-    expect(isInsideQueryResults(result)).toBe(true);
-    expect(isInsideQueryResults(nested)).toBe(true);
-    expect(isInsideQueryResults(tree)).toBe(false);
+    expect(isProjectedInstance(result)).toBe(true);
+    expect(isProjectedInstance(nested)).toBe(true);
+    expect(isProjectedInstance(tree)).toBe(false);
+  });
+
+  it("a node on a canvas is a projected instance, one per projection, which activation accepts", () => {
+    const flat = canvasInstanceKey("2d", "card", "n.root-a");
+    const deep = canvasInstanceKey("3d", "card", "n.root-a");
+    expect(flat).not.toBe(deep);
+    expect(isProjectedInstance(flat)).toBe(true);
+    expect(isQueryResultInstance(flat)).toBe(false);
+    useOutlineStore.getState().activateNode("n.root-a", 0, deep);
+    expect(useOutlineStore.getState().activeInstanceKey).toBe(deep);
+    expect(useOutlineStore.getState().activeNodeId).toBe("n.root-a");
   });
 
   it("activate binds editing to one instance when the same nodeId appears twice", () => {

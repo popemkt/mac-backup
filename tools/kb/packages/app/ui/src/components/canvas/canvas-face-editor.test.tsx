@@ -71,10 +71,9 @@ describe("a face's editor in 3D", () => {
   test("only an item with words of its own, a label or a node has an editor", () => {
     expect(hasEditor(card)).toBe(true);
     expect(hasEditor({ id: "f", type: "group", x: 0, y: 0, width: 1, height: 1 })).toBe(false);
-    // GAP [canvas-card-activation]: a card's node text cannot take the caret on a canvas.
     expect(
       hasEditor({ id: "k", type: "kb-node", nodeId: "n", x: 0, y: 0, width: 1, height: 1 }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       hasEditor({ id: "i", type: "file", file: "assets/a.png", x: 0, y: 0, width: 1, height: 1 }),
     ).toBe(false);

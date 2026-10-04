@@ -126,6 +126,7 @@ function CanvasItemBody({
 /** An item's face: the card of its kind, laid out where its projection says (`box`). */
 export function CanvasCardFace({
   card,
+  projection,
   box,
   editing,
   onEdit,
@@ -137,7 +138,7 @@ export function CanvasCardFace({
   onPortDown,
   onCardPointerDown: handleCardPointerDown,
 }: CanvasFaceProps) {
-  const layout = { box, editing, onEdit };
+  const layout = { projection, box, editing, onEdit };
   const resizeHandler = (event: React.PointerEvent, corner: ResizeCorner) => {
     onResizeStart(card.id, corner, { x: event.clientX, y: event.clientY });
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -299,6 +300,7 @@ function CanvasItemView(props: CanvasCardViewProps) {
       <CanvasCardFace
         {...props}
         box={cardBoxStyle(card)}
+        projection="2d"
         editing={props.editing === card.id}
         onEdit={(on) => props.onEdit(card.id, on)}
       />

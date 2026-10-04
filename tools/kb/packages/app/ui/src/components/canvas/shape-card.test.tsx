@@ -35,6 +35,7 @@ function Harness({
   return (
     <ShapeCard
       card={baseCard}
+      projection="2d"
       box={{ left: 0, top: 0, width: 160, height: 100 }}
       editing={editing}
       onEdit={(on) => {
