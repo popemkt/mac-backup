@@ -221,6 +221,30 @@ describe("render.view by view node id", () => {
     expect(ctx.index.getNode(FRAME)?.text).toBe("Todos");
   });
 
+  test("a code view's page refuses a write its grant names, and runs a read it names", async () => {
+    const code = [
+      "let added;",
+      'try { await kb.invoke("node.add", { id: "n.sneak", text: "sneak" }); added = "added"; }',
+      "catch (e) { added = e.code; }",
+      // Spelled in two parts, so the view node holding this code is no match.
+      'const found = await kb.invoke("graph.search", { text: "Sh" + "ip it" });',
+      'kb.draw(["ul", {}, ["li", {}, added], ["li", {}, String(found.rows.length)]]);',
+    ].join("\n");
+    await mustInvoke("view.propose", {
+      view: "code.view",
+      params: { code, grant: { reads: "subject", actions: ["node.add", "graph.search"] } },
+      host: FRAME,
+      id: "v.guard",
+    });
+    const before = ctx.nodes.length;
+    const html = await render({ id: "v.guard" });
+    // The write is refused before the invoke core, so the store gains nothing;
+    // the read the grant names runs, and finds the one node it searches for.
+    expect(html.content).toContain("<ul><li>forbidden</li><li>1</li></ul>");
+    expect(ctx.index.getNode("n.sneak")).toBeUndefined();
+    expect(ctx.nodes.length).toBe(before);
+  });
+
   test("a code view whose code loops says so on its page", async () => {
     await mustInvoke("view.propose", {
       view: "code.view",
