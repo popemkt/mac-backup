@@ -542,6 +542,47 @@ on vanilla three, the scene kit and one three addon, `TransformControls`.
     - There is no code execution against the canvas until step 9's sandbox.
       Blender MCP's `execute_code` is mode C territory
       ([§f](research.md#f-agent-notes-brief)).
+    - Built in step 8, with eight choices made in the doing (what each verb
+      does is DESIGN.md → Canvas documents → Agent verbs).
+      - **Directions are the canvas's own axes**, never the camera's or an
+        item's: left/right x, north/south y (north up the page), above/below
+        z. A turned item is compared by the box bounding it along them.
+        One rule describes and places (`directionFrom`), and a property test
+        proves an item placed `side` of another is described `side` of it.
+        `overlaps` is "no direction parts them", so lints, nudges and
+        descriptions cannot disagree.
+      - **`near` keeps the item level with its target** (bases aligned, as
+        alignment snap aligns them) rather than landing it: landing on a box
+        beside the target made "right of X" read as "above X". Off the edge
+        of a shelf it stays level and the lints say it floats. `at` with no
+        height lands as a carry lands; `in` a frame lying flat lands on the
+        floor under it, as a placing tool does.
+      - **Snapping moved into `@kb/canvas`** (`snap.ts`, with volume picking,
+        `pick.ts`), a restructure first, so the server lands and stacks by
+        the gestures' own code. The pointer's edge drag now makes its edge
+        with `connectItems`, the verb's function.
+      - **Promote takes text cards only.** A shape shows its label, not a
+        node, so promoting one would hide its words
+        (`GAP [promote-shapes]`). The node is made first with `node.add`
+        (D6), then the card, in two transactions.
+      - **Approval is the invoke core's, per action.** Each verb is its own
+        id; a policy on `ext.canvas.*` or `every write` covers them all. A
+        policy on `tx.apply` alone does not reach the verbs, which write
+        through the family's write core, not through that action.
+      - **An agent's verb is one undo step in an open canvas.** The canvas
+        used to take in store changes silently, so ⌘Z after an agent's write
+        undid the person's previous step with it. A content change from
+        elsewhere is now one history step (`adoptStored`).
+      - **A camera target is one shape for `ui.navigate` and `ui.capture`**
+        (`CanvasViewTarget`): a pose, or a preset, items or both; a frame
+        alone is looked at face-on. The showing camera gains one member,
+        `show(view)`, which 2D's face-on and preset looks now use too.
+      - **`ui.capture` keeps a file, not bytes in the receipt**: the server
+        writes `.kb/captures/<ulid>.png` and answers its path, so a local
+        agent opens it; tool results carrying the image itself are
+        `GAP [capture-image-blocks]`. In 3D the person glimpses the two
+        frames drawn for it (`GAP [capture-shows-a-frame]`); in 2D the scene
+        is mounted unseen, so nothing shows.
 
 ## Build order
 
@@ -579,7 +620,11 @@ selection).
 - ~~2D draws a tilted solid's top face, not its true silhouette.~~ Not
   minted: step 4 draws the silhouette (decision 4).
 - A canvas with GLB models is not portable through git alone.
-- `ui.capture` needs an open tab.
+- `ui.capture` needs an open tab. Step 8 also minted: relations read
+  world-aligned bounds, not volumes (`relations-read-bounds`); only text
+  cards promote (`promote-shapes`); a capture answers a file path, not an
+  image block (`capture-image-blocks`); a capture in 3D shows its frames
+  (`capture-shows-a-frame`).
 
 ## Owner answers (2026-10-02)
 
