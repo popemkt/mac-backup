@@ -111,7 +111,17 @@ export {
   OntologyScopeView,
   type OntologyView,
 } from "./ontology.ts";
-export { DOCS_NAMESPACE, DocsMarkdownParams, DocsMarkdownView, docsSpecOf } from "./docs.ts";
+export {
+  DOCS_NAMESPACE,
+  DocsMarkdownParams,
+  DocsMarkdownView,
+  docsSpecOf,
+  docsViewNamed,
+  docsViewsOf,
+  type DocsView,
+  type DocsViewFault,
+  type DocsViews,
+} from "./docs.ts";
 export {
   viewCatalogOf,
   type CatalogItem,

@@ -29,8 +29,7 @@ export {
   textHasAssetRef,
 } from "./assets.ts";
 export { GENERATED_HEADER, renderViewEffect } from "./docs/docs.ts";
-export { renderText } from "./docs/text.ts";
-export { DocsError, docsViewEffect, docsViewsEffect, type DocsViews } from "./docs/views.ts";
+export { DocsError, docsViewEffect, docsViewsEffect } from "./docs/views.ts";
 export {
   UsageError,
   fieldsNeedingCreate,
