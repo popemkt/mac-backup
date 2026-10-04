@@ -72,7 +72,6 @@
   "devDependencies": {
     "@kb/ui-test-kit": "workspace:*",
     "@storybook/addon-a11y": "catalog:",
-    "@storybook/react": "catalog:",
     "@storybook/react-vite": "catalog:",
     "@tailwindcss/node": "catalog:",
     "@tailwindcss/oxide": "catalog:",

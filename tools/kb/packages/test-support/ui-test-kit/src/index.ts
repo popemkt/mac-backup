@@ -3,8 +3,9 @@
  * (DESIGN.md → Workspace shape), as `@kb/test-kit` is for the rest: a
  * happy-dom window installed on the globals and taken off again, the
  * stand-ins for the GPU and the 2D canvas that happy-dom lacks, the scene
- * contract each package runs over the scenes it registers, and a
- * `BrowserHost` a UI half's tests hold the half to. `@kb/ui`'s
+ * contract each package runs over the scenes it registers, the catalog
+ * smoke each runs over its stories, and a `BrowserHost` a UI half's tests
+ * hold the half to. `@kb/ui`'s
  * tests and each family's UI half's tests import it, so a stand-in has one
  * home whichever package the code under test sits in.
  */
@@ -18,3 +19,4 @@ export {
   type HeldReport,
   type TestBrowserHost,
 } from "./browser-host";
+export { storiesRender, type StoryModule } from "./stories-render";
