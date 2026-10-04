@@ -35,6 +35,8 @@ import { CanvasStage } from "./canvas-stage";
 import { CanvasViewWidget } from "./canvas-view-widget";
 import { useCanvasDoc } from "./use-canvas-doc";
 import { useCanvasPictures } from "./use-canvas-pictures";
+import { CanvasFaceEditor } from "./canvas-face-editor";
+import { useFaceEditing } from "./use-face-editing";
 import { createCanvasEdgeActions } from "./use-canvas-edge-actions";
 import { useCanvasGestures } from "./use-canvas-gestures";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
@@ -115,12 +117,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [gizmo, setGizmo] = useState<GizmoChoice>(FIRST_GIZMO);
-  /** The item whose editor is open, in whichever projection shows it; null when none is. */
-  const [editing, setEditing] = useState<string | null>(null);
-  /** An item's editor opened, or closed (and any other item's stays as it is). */
-  const onEdit = useCallback((id: string, on: boolean) => {
-    setEditing((current) => (on ? id : current === id ? null : current));
-  }, []);
   /** The frame present mode stands at, by id, so a frame added or taken away elsewhere moves no slide; null when not presenting. */
   const [presentId, setPresentId] = useState<string | null>(null);
 
@@ -221,6 +217,15 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     pointerAt,
     placementPoint: projection.placementPoint,
     stage: stageRef,
+  });
+  const faces = useFaceEditing({
+    byId,
+    in3d,
+    rig: projection.rig,
+    size: () => projection.camera().size,
+    settled: projection.onViewSettled,
+    select: (id) => setSelection(selNode(id)),
+    enter,
   });
   /** What a tool placed with something chosen first opens: a card's node picker, an image's file chooser. */
   const choose = (chooser: CanvasChooser) => {
@@ -456,8 +461,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
               onCardPointerDown(card, event, anchor, (id) => startMoveForSelection(event, id));
             }}
             handleEdgeClick={onEdgeClick}
-            editing={editing}
-            onEdit={onEdit}
+            editing={faces.flat}
+            onEdit={faces.onEdit}
           />
         </div>
         {projection.mounted3d && (
@@ -484,7 +489,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 onCardPress={(card, press, startMove) =>
                   onCardPointerDown(card, press, { x: press.clientX, y: press.clientY }, startMove)
                 }
-                onCardDoubleClick={enter}
+                onCardDoubleClick={faces.doubleClick}
                 dispatchPointer={dispatchPointer}
                 onTapEmpty={(world, press) => {
                   const client = { x: press.clientX, y: press.clientY };
@@ -500,6 +505,13 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             </Suspense>
           </div>
         )}
+        <CanvasFaceEditor
+          item={faces.deep}
+          rig={projection.rig}
+          size={() => projection.camera().size}
+          onEdit={faces.onEdit}
+          onChange={(item) => schedulePersist(upsertCanvasNode(docRef.current, item))}
+        />
         <CanvasViewWidget
           rig={projection.rig}
           in3d={in3d}

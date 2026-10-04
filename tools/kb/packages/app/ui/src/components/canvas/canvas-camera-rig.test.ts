@@ -28,6 +28,32 @@ describe("the canvas camera rig", () => {
     expect(arrive).toHaveBeenCalledTimes(1);
   });
 
+  test("its destination is a flight's goal, and the view itself when still", () => {
+    const rig = new CanvasCameraRig(flat, TIMING_FALLBACK, false);
+    expect(rig.destination).toEqual(flat);
+    rig.flyTo(deep);
+    rig.step(TIMING_FALLBACK.arrive / 2);
+    expect(rig.destination).toEqual(deep);
+    rig.orbitBy(10, 0);
+    expect(rig.destination).toEqual(rig.view);
+  });
+
+  test("a visit flies to its goal and back, unless the camera was taken elsewhere", () => {
+    const rig = new CanvasCameraRig(flat, TIMING_FALLBACK, true);
+    const settled = vi.fn();
+    const back = rig.visit(deep, settled);
+    expect(rig.view).toEqual(deep);
+    back();
+    expect(rig.view).toEqual(flat);
+    expect(settled).toHaveBeenCalledTimes(1);
+    const again = rig.visit(deep, settled);
+    rig.orbitBy(30, 0);
+    const moved = rig.view;
+    again();
+    expect(rig.view).toEqual(moved);
+    expect(settled).toHaveBeenCalledTimes(1);
+  });
+
   test("a delayed flight holds still first", () => {
     const rig = new CanvasCameraRig(flat, TIMING_FALLBACK, false);
     rig.flyTo(deep, undefined, 0.2);

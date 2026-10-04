@@ -25,14 +25,19 @@ import {
   TOP_AXES,
   boxFrame,
   boxToLocal,
+  boxToWorld,
   boxTop,
   directionToLocal,
+  faceShare,
   faceStands,
   frameCorners,
+  frontFrame,
   itemFrame,
   onFootprint,
   type CanvasAxes,
   type CanvasBox,
+  type CanvasFrame,
+  type CanvasNode,
   type CanvasPose,
   type CanvasShapeKind,
   type CanvasVec,
@@ -244,6 +249,25 @@ const vecOf = ([x, y, z]: Vec): CanvasVec => ({ x, y, z });
 
 /** A viewport for a question about directions alone, which no viewport's size changes. */
 const AXES_ONLY: ViewSize = { width: 1, height: 1 };
+
+/**
+ * The plane an item's face is shown on as `view` sees it, as its frame: a
+ * flat billboard standing square to the camera, a solid's standing face in
+ * front of it (`frontFrame`), and any other face where it lies on the item
+ * (`faceShare`: a prism's top, a flat item's own plane), turned with it.
+ * What a face's editor is laid over in 3D.
+ */
+export function faceFrameOf(item: CanvasNode, z: number, view: CanvasView): CanvasFrame {
+  const axes = viewAxes(view);
+  if (faceStands(item) && (item.depth ?? 0) > 0) return frontFrame(item, axes, z);
+  const frame = itemFrame(item, axes, z);
+  const lift = (faceShare(item) * 2 - 1) * frame.half.z;
+  return {
+    centre: boxToWorld(frame, { x: 0, y: 0, z: lift }),
+    half: { x: frame.half.x, y: frame.half.y, z: 0 },
+    matrix: frame.matrix,
+  };
+}
 
 /** The twelve edges of {@link itemCorners}: the base ring, the top ring, and the four uprights. */
 const BOX_EDGES: readonly (readonly [number, number])[] = [

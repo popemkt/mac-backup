@@ -124,7 +124,7 @@ function CanvasItemBody({
 }
 
 /** An item's face: the card of its kind, laid out where its projection says (`box`). */
-function CanvasCardFace({
+export function CanvasCardFace({
   card,
   box,
   editing,

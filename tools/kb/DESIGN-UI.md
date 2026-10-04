@@ -1376,9 +1376,30 @@ open view of that canvas.
   wheel pans and a pinch zooms about the cursor (`canvas-scene-gestures.ts`).
   A card let go where its plane is edge-on stays where the drag last had it,
   and a tap that moved no camera saves no pose; a pose equal to the saved one
-  is not written again. Text is edited in 2D; edge labels and resize handles
-  are 2D only. Texture memory and culling for very large canvases are not
-  built (`GAP [[01M3S5DDC3JYX8871YMJ7C6PAN]]`).
+  is not written again. Edge labels and resize handles are 2D only. Texture
+  memory and culling for very large canvases are not built
+  (`GAP [[01M3S5DDC3JYX8871YMJ7C6PAN]]`).
+- **Editing a face in 3D** (plan 2026-10-02, decision 14). Which item's
+  editor is open is one page state (`use-face-editing.ts`), and the
+  projection that is showing edits it: the 2D canvas in place, as it always
+  did (a shape's label opens on a double-click, a text card's textarea
+  while it has focus, a card's node text while the node is active there).
+  In 3D a double-click on an item steps into the group on the way to it as
+  in 2D, and otherwise, for an item with an editor (text, shape, card),
+  selects it, opens its editor and flies face-on to it (`faceOnView`; a face
+  that stands is only framed). The editor is the item's own DOM face
+  (`CanvasCardFace`, laid out by its projection), laid over the 3D canvas
+  exactly on the plane its face is drawn on (`faceFrameOf`): its four
+  corners go through the camera model and the element is mapped onto them
+  by the homography that takes a rectangle to any four points, as CSS
+  `matrix3d` (`canvas-face-overlay.ts`). So it fits a turned and tipped face
+  through either lens, follows the camera every frame of the flight and of
+  any orbit, and is hidden while the face is seen from behind. A face
+  turned upside down to the camera is edited upside down, as tldraw edits a
+  turned shape in place: the turntable camera never rolls. Typing goes to
+  the editor, so G, S and E type; Escape, Enter (in a label or a card) or a
+  press elsewhere closes it, and the camera flies back to where it was —
+  unless it was taken elsewhere meanwhile (`CanvasCameraRig.visit`).
 
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 a copy in any form but a canvas document's text, snap guides during keyboard nudge, edge colour

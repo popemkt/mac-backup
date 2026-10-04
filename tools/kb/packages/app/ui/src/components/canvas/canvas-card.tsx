@@ -213,10 +213,12 @@ export function TextCard({
   onPortDown,
 }: TextCardProps) {
   const field = useRef<HTMLTextAreaElement>(null);
-  // Opened from the page: the textarea takes focus.
+  // Opened from the page: the textarea takes focus, its caret after the words.
   useEffect(() => {
     const el = field.current;
-    if (editing && el !== null && el.ownerDocument.activeElement !== el) el.focus();
+    if (!editing || el === null || el.ownerDocument.activeElement === el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
   }, [editing]);
   return (
     <div
@@ -244,6 +246,10 @@ export function TextCard({
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => onEdit(true)}
         onBlur={() => onEdit(false)}
+        onKeyDown={(e) => {
+          // Escape leaves the text, as tldraw's does; what was typed stays.
+          if (e.key === "Escape") e.currentTarget.blur();
+        }}
         onPointerDown={(e) => e.stopPropagation()}
       />
       <CanvasPorts onPortDown={onPortDown} />

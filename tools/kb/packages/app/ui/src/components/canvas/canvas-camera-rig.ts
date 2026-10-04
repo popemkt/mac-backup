@@ -18,6 +18,7 @@ import {
   lensOf,
   lerpView,
   orbitView,
+  poseOfView,
   panView,
   presetView,
   withLens,
@@ -27,6 +28,7 @@ import {
   type CanvasViewportControls,
   type ViewSize,
 } from "./canvas-camera";
+import { posesAgree } from "@kb/canvas";
 import { easeAt, type Timing } from "@/sdk";
 
 interface Flight {
@@ -68,6 +70,11 @@ export class CanvasCameraRig {
     return this.flight !== null;
   }
 
+  /** Where the camera comes to rest: a flight's goal, or the view itself. */
+  get destination(): CanvasView {
+    return this.flight?.to ?? this.current;
+  }
+
   setReducedMotion(reduced: boolean): void {
     this.reduced = reduced;
     if (reduced && this.flight !== null) this.land(this.flight);
@@ -92,6 +99,19 @@ export class CanvasCameraRig {
     }
     this.flight = flight;
     this.wake();
+  }
+
+  /**
+   * Fly to `goal` for a while — to look at a face being edited — and answer
+   * how to come back: back to where the camera was coming to rest, unless it
+   * has been taken elsewhere since; `settled` runs once it is back.
+   */
+  visit(goal: CanvasView, settled: () => void): () => void {
+    const back = this.destination;
+    this.flyTo(goal);
+    return () => {
+      if (posesAgree(poseOfView(this.destination), poseOfView(goal))) this.flyTo(back, settled);
+    };
   }
 
   orbitBy(dx: number, dy: number): void {
