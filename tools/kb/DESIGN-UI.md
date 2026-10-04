@@ -1858,32 +1858,36 @@ placement `page`. It owns no route: a node opens it through
 
 ### Optional UI plugins
 
-Some UI plugins are off until the user switches them on. Which ones are on
-is a device preference, `enabledPlugins` in `localStorage["kb-prefs"]` (a
-list of plugin names), and it is edited in Preferences → plugins as one
-on/off row per optional plugin. There is one mechanism, not a second path
-beside the built-ins:
+Some extensions are off until a person switches them on (the lab), and
+some are there only when the server hosts them (the agent). Neither is a
+browser preference: the server decides, and the page follows
+`kb.manifest.extensions` ([DESIGN → Extension families](DESIGN.md#extension-families)).
+There is one mechanism, not a second path beside the core plugins:
 
 - `ui-plugins.ts` holds `CORE_UI_PLUGINS` (always loaded) and the
   `BROWSER_EXTENSIONS` resolver ([Extension UI halves](#extension-ui-halves)).
-  `familiesToLoad` turns the server's report and the preference into the
-  families whose browser entries the kernel should hold: an optional family
-  (the lab) only while the preference names it. The agent's UI is switched
-  by the preference alone.
+  `familiesToLoad` turns the server's report into the families whose
+  browser entries the kernel should hold: each reported loaded that the
+  resolver has. Until a server answers, the page reads the bundled list as
+  a server over a store with no switch written, so the lab is off and no
+  agent is reported.
+- Preferences → plugins has one on/off row per optional extension the page
+  can draw, showing what the server reports. Choosing calls
+  `extension.switch` and reads the manifest again; the row shows the
+  server's answer, never the choice. A switch written anywhere else (another
+  tab, the CLI) reaches the page's graph, and the page reads the manifest
+  again.
 - `lib/plugins.ts` → `syncUiPlugins` converges the UI kernel on that set:
   it loads what is missing and unloads each top-level plugin no longer
   listed. `startUiPlugins` runs it at boot and again whenever the server's
-  report or the preference changes, including from another tab.
+  report changes.
 - Unloading closes the plugin's scope, so its routes, views and sidebar
   section leave the kernel and every `useContributions` reader re-renders
   without a reload. A slot that embedded one of its views shows its fallback. A path the plugin owned then resolves like any unmatched path: it
   is not found (`components/ui/not-found.tsx`).
-- Off by default means absent from the list. A name with no plugin behind it
-  is inert, so shipping or retiring an optional plugin needs no migration.
-
-This preference is a second switch beside the server's. The contract below
-replaces it with a server-side decision that the browser follows:
-GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]].
+- A family the server reports that the page has no entry for is inert: its
+  views are listed by the server's entries and open as "cannot be shown
+  here". An entry the server does not report is never loaded.
 
 ### Extension UI halves
 
@@ -1942,7 +1946,8 @@ the shell.
 
 The lab (`components/lab`, `/lab`) is an off-by-default sketchbook for
 real-time 3D: a place to study effects, lighting, polish and motion before
-anything reaches a working view. It is the first optional UI plugin (above).
+anything reaches a working view. It is the first optional family: off until
+a person switches it on, on the server (above).
 Its view key, `lab.page`, and the list of its studies are the lab family's
 (`@kb/lab`, [DESIGN → Extension families](DESIGN.md#extension-families)).
 Its studies are exercises, not product features: a study **may** read the

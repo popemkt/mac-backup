@@ -128,6 +128,9 @@ describe("the contract's seed, view and text promises have a subject", () => {
       },
     });
     expect(added.status).toBe("succeeded");
+    // The lab is optional, so the registry holds its key only while the store has it on.
+    const on = await invoke(ctx, { id: "extension.switch", input: { name: "lab", on: true } });
+    expect(on.status).toBe("succeeded");
     const rendered = await invoke(ctx, { id: "render.view", input: { id: "v.lab", format: "md" } });
     // The registry's catalog holds the key, so the page reads as the lab's, in the generic text.
     expect(rendered).toMatchObject({ status: "succeeded", output: { name: "Lab view" } });

@@ -5,26 +5,32 @@
  *
  * The page holds a resolver, not a second list (DESIGN-UI.md → Extension UI
  * halves): the core plugins are always loaded, and a family's browser entry
- * is loaded when the server reports that family loaded, in `kb.manifest`.
- * Until a server answers, the page is its own server, reading the one bundled
- * list. Every plugin reaches the kernel through `syncUiPlugins`.
+ * is loaded exactly when the server reports that family loaded, in
+ * `kb.manifest`. Whether an optional family is on is the server's decision,
+ * so the page's switch for it asks the server (`extension.switch`) and then
+ * follows the report. Until a server answers, the page is its own server: it
+ * reads the one bundled list as a store with no switch written. Every plugin
+ * reaches the kernel through `syncUiPlugins`.
  *
- * The lab is still switched in the browser's preference, and the agent's UI
- * follows the preference alone, not the server that hosts it:
- * GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]]. The feature plugins are zones of this
- * package: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
+ * The feature plugins are zones of this package: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
  */
 import { useSyncExternalStore } from "react";
-import { ChatCircleDotsIcon, PuzzlePieceIcon } from "@phosphor-icons/react";
+import { agentExtension } from "@kb/agent";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
 import { codeExtension } from "@kb/code";
-import { declarationPlugin, extensionRow, type ExtensionRow } from "@kb/contracts";
+import {
+  NO_SWITCHES,
+  declarationPlugin,
+  extensionNodeId,
+  extensionRow,
+  familyOn,
+  type ExtensionRow,
+} from "@kb/contracts";
 import { labExtension } from "@kb/lab";
-import { coreExtension } from "@kb/operations";
+import { coreExtension, extensionSwitchDef } from "@kb/operations";
 import type { Plugin } from "@kb/plugin";
-import { agentPlugin } from "@/agent";
 import { browserHostUiPlugin } from "@/browser-host";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
 import { chartUiPlugin } from "@/components/chart/plugin";
@@ -34,10 +40,12 @@ import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { logWarn } from "@/lib/log";
-import { servedManifest, subscribeManifest } from "@/lib/manifest";
+import { loadManifest, servedManifest, subscribeManifest } from "@/lib/manifest";
 import { syncUiPlugins, type ExtensionSwitch } from "@/lib/plugins";
+import { toast } from "@/lib/toast";
 import { screenUiPlugin } from "@/screen";
-import { usePrefsStore } from "@/stores/prefs.store";
+import { invoke } from "@/session/runtime";
+import { useOutlineStore } from "@/stores/outline.store";
 import { webMcpUiPlugin } from "@/webmcp";
 
 /**
@@ -63,7 +71,8 @@ export interface BrowserExtension {
 /**
  * The browser entry of each family the page can draw, keyed by the name its
  * declaration gives it. A family that is always on loads from the main
- * bundle; an optional one is its own chunk, fetched when it is first on.
+ * bundle. One that is on only when the server says so (the optional lab, the
+ * agent a `kb ui` hosts) is its own chunk, fetched when it is first on.
  */
 export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension>> = {
   [canvasExtension.name]: { load: () => Promise.resolve(canvasUiPlugin) },
@@ -72,11 +81,16 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension>> = {
   },
   [codeExtension.name]: { load: () => Promise.resolve(codeUiPlugin) },
   [chartExtension.name]: { load: () => Promise.resolve(chartUiPlugin) },
+  [agentExtension.name]: { load: () => import("@/agent").then(({ agentPlugin }) => agentPlugin) },
 };
 
-/** The bundled families as the page reads them while no server answers: every one loaded. */
+/**
+ * The bundled families as the page reads them while no server answers: a
+ * server over a store with no switch written, so an optional family is off.
+ * It hosts nothing, so it reports no agent.
+ */
 const OWN_EXTENSIONS: readonly ExtensionRow[] = BUNDLED_FAMILIES.map((declaration) =>
-  extensionRow(declaration, "bundled", true),
+  extensionRow(declaration, "bundled", familyOn(declaration, NO_SWITCHES, logWarn)),
 );
 
 /** The extensions the page follows: the server's report, else its own reading. */
@@ -86,35 +100,23 @@ function followedExtensions(): readonly ExtensionRow[] {
 
 /**
  * The families whose browser entry the page loads, in the order reported:
- * each one reported loaded that the resolver has, less an optional one the
- * preference has off.
+ * each one reported loaded that the resolver has. A family the server did
+ * not load, or does not report, has no UI on the page.
  */
 export function familiesToLoad(
   rows: readonly ExtensionRow[],
-  enabled: readonly string[],
   resolver: Readonly<Record<string, BrowserExtension>> = BROWSER_EXTENSIONS,
 ): readonly string[] {
   return rows
     .filter((row) => row.enabled && Object.hasOwn(resolver, row.name))
-    .filter((row) => !row.optional || enabled.includes(row.name))
     .map((row) => row.name);
 }
 
-/** The agent's UI, switched in the preference. */
-const AGENT_SWITCH: ExtensionSwitch = {
-  name: agentPlugin.name,
-  label: "agent",
-  icon: ChatCircleDotsIcon,
-};
-
-/** The switches for these rows: each optional family the resolver has, then the agent's. */
+/** The switches for these rows: each optional family the page can draw, on as the server reports it. */
 function switchesFor(rows: readonly ExtensionRow[]): readonly ExtensionSwitch[] {
-  return [
-    ...rows
-      .filter((row) => row.optional && Object.hasOwn(BROWSER_EXTENSIONS, row.name))
-      .map((row) => ({ name: row.name, label: row.label, icon: PuzzlePieceIcon })),
-    AGENT_SWITCH,
-  ];
+  return rows
+    .filter((row) => row.optional && Object.hasOwn(BROWSER_EXTENSIONS, row.name))
+    .map(({ name, label, enabled }) => ({ name, label, on: enabled }));
 }
 
 let switchesMemo: {
@@ -131,6 +133,17 @@ function currentSwitches(): readonly ExtensionSwitch[] {
 /** The switches Preferences offers now, re-read when the server's report moves. */
 export function useExtensionSwitches(): readonly ExtensionSwitch[] {
   return useSyncExternalStore(subscribeManifest, currentSwitches, currentSwitches);
+}
+
+/**
+ * Switch an optional family on the server, then read its report again, which
+ * the page follows. A refusal is shown, and the page stays as the server has
+ * it.
+ */
+export async function switchExtension(name: string, on: boolean): Promise<void> {
+  const receipt = await invoke(extensionSwitchDef.id, { name, on });
+  if (receipt.status === "failed") toast(receipt.message);
+  await loadManifest();
 }
 
 /** Load one family's browser entry, held to the name it was resolved by. */
@@ -154,32 +167,44 @@ let generation = 0;
  * entries load first, so the kernel moves once; a newer convergence that
  * starts meanwhile wins, and this one is dropped.
  */
-async function converge(rows: readonly ExtensionRow[], enabled: readonly string[]): Promise<void> {
+async function converge(rows: readonly ExtensionRow[]): Promise<void> {
   const mine = ++generation;
-  const entries = await Promise.all(familiesToLoad(rows, enabled).map(loadEntry));
+  const entries = await Promise.all(familiesToLoad(rows).map(loadEntry));
   if (mine !== generation) return;
-  syncUiPlugins([
-    ...CORE_UI_PLUGINS,
-    ...entries.filter((entry) => entry !== null),
-    ...(enabled.includes(agentPlugin.name) ? [agentPlugin] : []),
-  ]);
+  syncUiPlugins([...CORE_UI_PLUGINS, ...entries.filter((entry) => entry !== null)]);
+}
+
+/** The optional families' switch nodes. */
+const SWITCH_NODES = BUNDLED_FAMILIES.filter((declaration) => declaration.optional === true).map(
+  (declaration) => extensionNodeId(declaration.name),
+);
+
+/** Where the page's graph has each switch node now: its version, joined. */
+function switchVersions(): string {
+  const { nodes } = useOutlineStore.getState();
+  return SWITCH_NODES.map((id) => nodes.get(id)?.updatedAt ?? "").join("\n");
 }
 
 /**
  * Load the UI's plugins, then keep the kernel in step with the server's
- * report and the preference: a family the report or the preference drops is
- * unloaded, and its pages and sidebar section leave with it, without a
- * reload. Returns the unsubscribe.
+ * report: a family the report drops is unloaded, and its pages and sidebar
+ * section leave with it, without a reload. A switch written anywhere (another
+ * tab, the CLI) reaches this page's graph, and the page reads the server's
+ * report again. Returns the unsubscribe.
  */
 export function startUiPlugins(): () => void {
-  const sync = () => void converge(followedExtensions(), usePrefsStore.getState().enabledPlugins);
+  const sync = () => void converge(followedExtensions());
   sync();
   const unsubscribeManifest = subscribeManifest(sync);
-  const unsubscribePrefs = usePrefsStore.subscribe((next, previous) => {
-    if (next.enabledPlugins !== previous.enabledPlugins) sync();
+  let switches = switchVersions();
+  const unsubscribeGraph = useOutlineStore.subscribe(() => {
+    const next = switchVersions();
+    if (next === switches) return;
+    switches = next;
+    if (servedManifest() !== null) void loadManifest();
   });
   return () => {
     unsubscribeManifest();
-    unsubscribePrefs();
+    unsubscribeGraph();
   };
 }

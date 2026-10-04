@@ -15,7 +15,7 @@ import {
   kbRuntimeLayer,
   openKbEffect,
   invokeReceiptEffect,
-  registryFor,
+  sessionRegistry,
   type ActionHandlerEnv,
   resolveRootEffect,
   RootNotFoundError,
@@ -743,20 +743,29 @@ function buildProgram(): Command {
   const ext = program.command("ext").description("Extension operations");
   ext
     .command("list")
-    .description("List loaded extensions (bundled + .kb/extensions) and their actions")
+    .description(
+      "List the extensions (bundled + .kb/extensions), each on or off, and the actions of those loaded",
+    )
     .action(
       kbAction((ctx, globals) =>
         Effect.gen(function* () {
-          const registry = yield* registryFor(ctx.root);
+          const registry = yield* sessionRegistry(ctx);
+          // What kb.manifest reports, each with the actions it registered when loaded.
+          const listed = registry.families.map((family) => ({
+            ...family,
+            actions: registry.extensions.find(({ name }) => name === family.name)?.actions ?? [],
+          }));
           if (globals.json === true) {
             writeOut(
               JSON.stringify({
                 status: "succeeded",
                 id: "ext.list",
                 output: {
-                  extensions: registry.extensions.map((e) => ({
+                  extensions: listed.map((e) => ({
                     name: e.name,
                     source: e.source,
+                    optional: e.optional,
+                    enabled: e.enabled,
                     actions: e.actions.map((a) => ({
                       id: a.def.id,
                       title: a.def.title,
@@ -771,8 +780,8 @@ function buildProgram(): Command {
             return EXIT_OK;
           }
           const lines: string[] = [];
-          for (const e of registry.extensions) {
-            lines.push(`${e.name} (${e.source})`);
+          for (const e of listed) {
+            lines.push(`${e.name} (${e.source}${e.enabled ? "" : ", off"})`);
             for (const a of e.actions) {
               const alias = a.aliases.length > 0 ? ` (alias: ${a.aliases.join(", ")})` : "";
               lines.push(`  ${a.def.id}${alias} — ${a.def.title} [${formatMode(a.def.mode)}]`);

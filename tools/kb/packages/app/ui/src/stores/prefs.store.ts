@@ -37,12 +37,6 @@ export interface Prefs {
   width: WidthPref;
   /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */
   sidebarOpen: boolean;
-  /**
-   * The optional UI plugins switched on, by plugin name. Optional plugins are
-   * off until named here; a name with no plugin behind it is inert, so a
-   * plugin that ships later (or is removed) needs no migration.
-   */
-  enabledPlugins: readonly string[];
 }
 
 export const PREFS_STORAGE_KEY = "kb-prefs";
@@ -51,6 +45,9 @@ export const PREFS_STORAGE_KEY = "kb-prefs";
  * `showAllFields` used to live here as one device-wide switch. Debug field
  * visibility is per node now (`stores/debug-fields.store`), so a stale key in
  * an existing payload is ignored on read and dropped on the next write.
+ *
+ * `enabledPlugins` went the same way: whether an optional extension is on is
+ * the server's decision now (`extension.switch`), not the device's.
  */
 
 /** Default open on large viewports; closed on narrow (first visit / missing key). */
@@ -67,7 +64,6 @@ export const DEFAULT_PREFS: Prefs = {
   designSystem: DEFAULT_DESIGN_SYSTEM,
   width: "centered",
   sidebarOpen: true,
-  enabledPlugins: [],
 };
 
 /**
@@ -79,7 +75,6 @@ const StoredPrefsSchema = z.object({
   designSystem: z.enum(DESIGN_SYSTEM_IDS).catch(DEFAULT_PREFS.designSystem),
   width: z.enum(WIDTHS).catch(DEFAULT_PREFS.width),
   sidebarOpen: z.boolean().optional().catch(undefined),
-  enabledPlugins: z.array(z.string()).catch([]),
 });
 
 /** The persisted preferences out of anything that carries them (the store state). */
@@ -89,7 +84,6 @@ function prefsOf(source: Prefs): Prefs {
     designSystem: source.designSystem,
     width: source.width,
     sidebarOpen: source.sidebarOpen,
-    enabledPlugins: source.enabledPlugins,
   };
 }
 
@@ -162,8 +156,6 @@ interface PrefsState extends Prefs {
   setWidth: (width: WidthPref) => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
-  /** Switch one optional UI plugin on or off; the shell loads or unloads it. */
-  setPluginEnabled: (name: string, enabled: boolean) => void;
 }
 
 export const usePrefsStore = create<PrefsState>((set, get) => {
@@ -192,10 +184,6 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
     setWidth: (width) => commit({ width }),
     setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
     toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),
-    setPluginEnabled: (name, enabled) => {
-      const others = get().enabledPlugins.filter((candidate) => candidate !== name);
-      commit({ enabledPlugins: enabled ? [...others, name] : others });
-    },
   };
 });
 

@@ -8,10 +8,10 @@ import { BrowserHostService, DockPoint } from "@/sdk";
 
 /**
  * The agent sidebar: a dock that chats with the agent the `kb ui` server
- * hosts (`@kb/agent`). Optional and off by default, like the lab: it is in
- * `OPTIONAL_UI_PLUGINS`, so its dock and its toggle exist only while the
- * preference has it on. The shell hands it its ports (`src/agent.ts`), so
- * this folder reaches neither the socket nor the invoke path itself.
+ * hosts (`@kb/agent`). The page loads it only while the server reports that
+ * it hosts the agent (`ui-plugins.ts`), so its dock and its toggle exist
+ * only then. The shell hands it its ports (`src/agent.ts`), so this folder
+ * reaches neither the socket nor the invoke path itself.
  */
 export function agentUiPlugin(ports: AgentPorts): Plugin {
   return definePlugin({

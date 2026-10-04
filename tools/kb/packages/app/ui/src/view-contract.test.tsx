@@ -1,6 +1,6 @@
 /**
  * The view contract (DESIGN-UI.md → UI points: routes and views), run over
- * every view the built-in and optional UI plugins contribute. A view joins
+ * every view the core plugins and every browser entry contribute. A view joins
  * by being registered; a promise one view breaks turns this suite red.
  *
  * It checks what a view must keep in each placement it offers (a view that
@@ -35,14 +35,12 @@ import { NoParams, localIdOf, viewCatalogOf, viewKey } from "@kb/views";
 import { ViewKeyPoint } from "@kb/contracts";
 import { pageCatalogOf } from "@/lib/view-catalog";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
-import { agentPlugin } from "@/agent";
 import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS } from "@/ui-plugins";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 
 const ALL_PLUGINS: readonly Plugin[] = [
   ...CORE_UI_PLUGINS,
   ...(await Promise.all(Object.values(BROWSER_EXTENSIONS).map((extension) => extension.load()))),
-  agentPlugin,
 ];
 
 /** A kernel holding every plugin the UI can hold. */

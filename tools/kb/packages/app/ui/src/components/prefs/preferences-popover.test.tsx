@@ -1,11 +1,10 @@
 /**
- * The plugins section of Preferences: one on/off row per optional plugin,
- * bound to the `enabledPlugins` preference, and no section at all when there
- * is nothing optional to switch.
+ * The plugins section of Preferences: one on/off row per optional extension,
+ * showing what the server reports and asking for the switch, and no section
+ * at all when there is nothing optional to switch.
  */
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { GearIcon } from "@phosphor-icons/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
@@ -14,7 +13,8 @@ import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PreferencesPopover } from "./preferences-popover";
 
-const OPTIONAL = [{ name: "extra", label: "extra", icon: GearIcon }];
+const off = [{ name: "extra", label: "Extra", on: false }];
+const on = [{ name: "extra", label: "Extra", on: true }];
 
 describe("PreferencesPopover plugins", () => {
   let dom: InstalledDom;
@@ -27,7 +27,6 @@ describe("PreferencesPopover plugins", () => {
     container = dom.window.document.createElement("div") as unknown as HTMLElement;
     dom.window.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
-    usePrefsStore.setState({ enabledPlugins: [] });
     useUiStore.getState().setPrefsOpen(true);
   });
 
@@ -37,31 +36,40 @@ describe("PreferencesPopover plugins", () => {
     dom.restore();
   });
 
-  it("lists each optional plugin as off by default, and switches it on and off", () => {
-    act(() => root.render(createElement(PreferencesPopover, { switches: OPTIONAL })));
-    const select = present(
-      container.querySelector<HTMLSelectElement>('[data-testid="plugin-extra"]'),
-      "plugin row",
-    );
-    expect(select.value).toBe("off");
+  it("shows each optional extension as reported, and asks for the switch", () => {
+    const asked: [string, boolean][] = [];
+    const onSwitch = (name: string, next: boolean) => void asked.push([name, next]);
+    act(() => root.render(createElement(PreferencesPopover, { switches: off, onSwitch })));
+    const select = () =>
+      present(
+        container.querySelector<HTMLSelectElement>('[data-testid="plugin-extra"]'),
+        "plugin row",
+      );
+    expect(container.textContent).toContain("Extra");
+    expect(select().value).toBe("off");
 
     act(() => {
-      select.value = "on";
-      select.dispatchEvent(new dom.window.Event("change", { bubbles: true }) as unknown as Event);
+      select().value = "on";
+      select().dispatchEvent(new dom.window.Event("change", { bubbles: true }) as unknown as Event);
     });
-    expect(usePrefsStore.getState().enabledPlugins).toEqual(["extra"]);
-    expect(select.value).toBe("on");
+    expect(asked).toEqual([["extra", true]]);
 
+    // The row shows what the server then reports, not what was asked.
+    act(() => root.render(createElement(PreferencesPopover, { switches: on, onSwitch })));
+    expect(select().value).toBe("on");
     act(() => {
-      select.value = "off";
-      select.dispatchEvent(new dom.window.Event("change", { bubbles: true }) as unknown as Event);
+      select().value = "off";
+      select().dispatchEvent(new dom.window.Event("change", { bubbles: true }) as unknown as Event);
     });
-    expect(usePrefsStore.getState().enabledPlugins).toEqual([]);
+    expect(asked).toEqual([
+      ["extra", true],
+      ["extra", false],
+    ]);
   });
 
   it("offers one live swatch per design system and switches to the one clicked", () => {
     usePrefsStore.setState({ designSystem: "kb" });
-    act(() => root.render(createElement(PreferencesPopover, { switches: [] })));
+    act(() => root.render(createElement(PreferencesPopover, { switches: [], onSwitch: () => {} })));
     const radios = [...container.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
     expect(radios.map((r) => r.dataset.testid)).toEqual(
       DESIGN_SYSTEMS.map((system) => `design-system-${system.id}`),
@@ -82,7 +90,7 @@ describe("PreferencesPopover plugins", () => {
   });
 
   it("has no plugins section when nothing is optional", () => {
-    act(() => root.render(createElement(PreferencesPopover, { switches: [] })));
+    act(() => root.render(createElement(PreferencesPopover, { switches: [], onSwitch: () => {} })));
     expect(container.querySelector('[aria-label="plugins"]')).toBeNull();
     expect(container.querySelector('[role="dialog"]')).not.toBeNull();
   });

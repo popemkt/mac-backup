@@ -38,9 +38,10 @@ outline view), never by importing a sibling folder's components.
 | `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`    | Canvases (30)          |
 | `lab`      | `lab.page` `/lab[/<study>]` (optional, off by default)   | Lab (40)               |
 
-The optional `agent` plugin (`components/agent`, bound to the page by
-`src/agent.ts`) contributes no view either: it contributes the agent's chat
-dock, which the shell draws through `src/docks.tsx` (DESIGN-UI.md → Docks).
+The `agent` plugin (`components/agent`, bound to the page by `src/agent.ts`)
+contributes no view either: it contributes the agent's chat dock, which the
+shell draws through `src/docks.tsx` (DESIGN-UI.md → Docks). It is loaded only
+while the server reports that it hosts the agent.
 
 One built-in plugin, `webmcp` (`src/webmcp.ts`), contributes no view: it
 registers the page's WebMCP tools (DESIGN.md → Surfaces).
@@ -55,13 +56,14 @@ page; each lab study's three.js scene is a further dynamic import.
 Outline stays eager (primary path).
 
 The core plugins (`CORE_UI_PLUGINS` in `src/ui-plugins.ts`) are always
-loaded. A family's plugin (canvas, lab, code, chart) is its browser entry,
-found by the `BROWSER_EXTENSIONS` resolver under the family's declared name,
-and loaded when the server reports the family loaded in `kb.manifest`; an
-optional family (the lab) is its own chunk. Every plugin reaches the kernel
-through the one `syncUiPlugins` call, so a family's plugin is written exactly
-like a core one. See DESIGN-UI.md → Extension UI halves and → Optional UI
-plugins, and → The lab for the Lab principles its studies follow.
+loaded. A family's plugin (canvas, lab, code, chart, agent) is its browser
+entry, found by the `BROWSER_EXTENSIONS` resolver under the family's declared
+name, and loaded exactly when the server reports the family loaded in
+`kb.manifest`. The lab, switched on the server, and the agent, hosted by the
+server, are each their own chunk. Every plugin reaches the kernel through the
+one `syncUiPlugins` call, so a family's plugin is written exactly like a core
+one. See DESIGN-UI.md → Extension UI halves and → Optional UI plugins, and →
+The lab for the Lab principles its studies follow.
 
 ## Error isolation
 

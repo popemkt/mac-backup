@@ -14,9 +14,10 @@ import {
 
 /**
  * The lab: stylised real-time 3D projections of the graph, tried here before
- * anything reaches a working view. Optional and off by default — it is in
- * `OPTIONAL_UI_PLUGINS`, not the built-ins — so its view, its route and its
- * sidebar row exist only while the preference has it on.
+ * anything reaches a working view. Optional and off by default: the server
+ * loads the lab family only while a person has it switched on, and the page
+ * loads this entry only while the server reports it (`ui-plugins.ts`), so
+ * its view, its route and its sidebar row exist only then.
  *
  * It is the lab family's page entry, so it loads the family's shared plugin
  * as a child: the lab page's key reaches the page kernel's catalog from the

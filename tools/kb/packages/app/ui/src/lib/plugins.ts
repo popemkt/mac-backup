@@ -210,13 +210,14 @@ export const DockPoint = Point<Dock>()("ui.docks");
 const uiKernel = makeKernel();
 
 /**
- * An extension the person switches on and off (Preferences → plugins), by
- * the name its plugin carries. `label` and `icon` are how the row names it.
+ * An optional extension the person switches on and off (Preferences →
+ * plugins), by its name, as the server reports it: `on` is whether the
+ * server has it loaded, and `label` is how the row names it.
  */
 export interface ExtensionSwitch {
   readonly name: string;
   readonly label: string;
-  readonly icon: Icon;
+  readonly on: boolean;
 }
 
 function reportFailure(name: string, verb: "load" | "unload", cause: Cause.Cause<unknown>): void {

@@ -50,6 +50,14 @@ export {
   extensionRow,
 } from "./declaration.ts";
 export type { ExtensionDeclaration, ExtensionEntry, ExtensionRow } from "./declaration.ts";
+export {
+  EXTENSION_ENABLED_FIELD,
+  NO_SWITCHES,
+  extensionNodeId,
+  familyOn,
+  switchWrites,
+} from "./extension-switch.ts";
+export type { NodeLookup } from "./extension-switch.ts";
 export { ViewCatalog, ViewKeyPoint, viewDef } from "./view-catalog.ts";
 export type { ViewDef, ViewText } from "./view-catalog.ts";
 export type { Channel, ChannelPeer, UiHostService } from "./channel.ts";

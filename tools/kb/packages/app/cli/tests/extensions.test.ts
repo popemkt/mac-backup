@@ -180,6 +180,8 @@ describe("kb ext list", () => {
     expect(human.out).toContain("ext.canvas.tx.apply");
     expect(human.out).toContain("ext.hello.greet");
     expect(human.out).toContain("! broken.ts");
+    // An optional family the store has not switched on is listed, as off.
+    expect(human.out).toContain("lab (bundled, off)");
 
     resetRegistryCache();
     const json = await runCli(["--root", root, "--json", "ext", "list"]);

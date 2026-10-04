@@ -8,10 +8,14 @@ import {
   actionToManifestEntry,
   extensionPlugin,
   extensionRow,
+  familyOn,
+  NO_SWITCHES,
+  type NodeLookup,
   type ActionContribution,
   type ActionHandlerEnv,
   type ActionInvocation,
   type ActionReceipt,
+  type ExtensionEntry,
   type ExtensionFailure,
   type ExtensionRow,
   type KbContext,
@@ -140,12 +144,13 @@ function registeredTemplate(contribution: Contribution<TemplateFn>): RegisteredT
 
 /**
  * The registry is a reading of the kernel: load core, the bundled extensions
- * and the repo's `.kb/extensions`, then derive every table from the points
- * they contributed to. A plugin that cannot load (a clash, a throwing module)
- * is reported and leaves nothing behind.
+ * the store has on (`on`) and the repo's `.kb/extensions`, then derive every
+ * table from the points they contributed to. A plugin that cannot load (a
+ * clash, a throwing module) is reported and leaves nothing behind.
  */
 const buildRegistry = Effect.fnUntraced(function* (
   root: string | null,
+  on: readonly ExtensionEntry[],
 ): Effect.fn.Return<Registry, never, FileSystem> {
   const kernel = makeKernel();
   const failures: ExtensionFailure[] = [];
@@ -164,7 +169,7 @@ const buildRegistry = Effect.fnUntraced(function* (
     );
 
   yield* load(corePlugin, "core");
-  for (const { entry } of BUNDLED_EXTENSIONS) yield* load(entry, "bundled");
+  for (const { entry } of on) yield* load(entry, "bundled");
   if (root !== null) {
     const discovered = yield* discoverExtensions(root);
     failures.push(...discovered.failures);
@@ -237,24 +242,39 @@ const registryCache = new Map<string, Effect.Effect<Registry, never, FileSystem>
 const NO_ROOT_KEY = "no-root";
 
 /**
- * Registry for a kb root: core actions + bundled extensions +
- * `.kb/extensions/*.ts`. Cached per root for the process lifetime
- * (extension changes need a restart). `null` root = core + bundled only.
+ * Registry for a kb root: core actions + the bundled extensions its store
+ * has on + `.kb/extensions/*.ts`. An optional family is on while the store
+ * `nodeOf` reads says so (`familyOn`); with no store, every optional family
+ * is off. Cached per root and per set of families on, for the process
+ * lifetime (extension changes need a restart), so switching a family is a
+ * new key, and switching it back finds the old registry. `null` root = core
+ * + bundled only.
  */
 export const registryFor = Effect.fn("kb.registryFor")(function* (
   root: string | null,
+  nodeOf: NodeLookup = NO_SWITCHES,
 ): Effect.fn.Return<Registry, never, FileSystem> {
-  const key = root ?? NO_ROOT_KEY;
+  const unread: string[] = [];
+  const on = BUNDLED_EXTENSIONS.filter(({ declaration }) =>
+    familyOn(declaration, nodeOf, (warning) => unread.push(`${declaration.name}: ${warning}`)),
+  );
+  const key = [root ?? NO_ROOT_KEY, ...on.map(({ declaration }) => declaration.name)].join("\0");
   let registry = registryCache.get(key);
   if (registry === undefined) {
+    for (const warning of unread) writeErr(`kb: extension switch ${warning} (read as off)`);
     // `Effect.cached` is what makes the entry a build-once value rather than a
     // recipe: concurrent callers share the one in-flight build, as the cached
     // Promise did.
-    registry = yield* Effect.cached(buildRegistry(root));
+    registry = yield* Effect.cached(buildRegistry(root, on));
     registryCache.set(key, registry);
   }
   return yield* registry;
 });
+
+/** The registry a session runs in: its root's, as its own store switches the families. */
+export function sessionRegistry(ctx: KbContext): Effect.Effect<Registry, never, FileSystem> {
+  return registryFor(ctx.root, (id) => ctx.index.getNode(id));
+}
 
 /** Test hook: drop cached registries so fresh roots re-discover extensions. */
 export function resetRegistryCache(): void {
@@ -270,13 +290,13 @@ export const manifest = Effect.fn("kb.manifest")(function* (
 /** True when the registered action dispatches through an Effect handler. */
 /**
  * Invoke over the discovered registry. The invoke core lives in
- * `@kb/operations` (`invokeWith`); this binds it to `registryFor(ctx.root)`.
+ * `@kb/operations` (`invokeWith`); this binds it to the session's registry.
  */
 export const invokeEffect = Effect.fn("kb.invoke")(function* (
   ctx: KbContext,
   invocation: ActionInvocation,
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, ActionHandlerEnv> {
-  const registry = yield* registryFor(ctx.root);
+  const registry = yield* sessionRegistry(ctx);
   return yield* invokeWith(registry.byId, ctx, invocation);
 });
 
@@ -284,7 +304,7 @@ export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(function* (
   ctx: KbContext,
   invocation: ActionInvocation,
 ): Effect.fn.Return<ActionReceipt, never, ActionHandlerEnv> {
-  const registry = yield* registryFor(ctx.root);
+  const registry = yield* sessionRegistry(ctx);
   return yield* invokeReceiptWith(registry.byId, ctx, invocation);
 });
 

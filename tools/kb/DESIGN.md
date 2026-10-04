@@ -1752,7 +1752,8 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   model context, and the tools a turn hands the agent's model, less what
   `listedOn` leaves out for its declared wire and actor. For the same call,
   each returns the invoke core's receipt for that call made by its actor,
-  unless its wire cannot make the
+  from the composition it reaches (a `kb ui` also reports the extensions it
+  hosts, so its `kb.manifest` lists the agent), unless its wire cannot make the
   call at all, which only an action it leaves out may be (WebMCP cannot call
   a tool it never registered). An approved call runs only through a surface
   whose wire carries the approval. One policy decides the same on every
@@ -1882,6 +1883,17 @@ end).
   **Optional is a server-side load decision:** a family switched off is not
   loaded by the registry, so its views leave the catalog. There is never a
   second switch in the browser.
+  - **The switch is a node.** An optional family is on while the store's
+    `sys.extension.<name>` node carries `true` in the checkbox field
+    `sys.f.extension.enabled` (`familyOn`, `@kb/contracts`). Neither node is
+    seeded: `extension.switch` writes them the first time a person switches
+    the family (`switchWrites`), so opening a store never writes them, and a
+    store without them has every optional family off. The registry is
+    cached per root and per set of families on, so a switch takes effect on
+    the next call.
+  - `kb ui` hosts the agent unless it is started with `--no-agent`, and
+    reports it beside the bundled families. That flag is the agent's one
+    switch: a page served without the agent never offers its dock.
 - **The seed is the bundled fold, never a loaded registry.**
   `ensureSystemSeed(nodes, seed)` runs at open, before any registry
   exists. `openKbEffect` passes it `bundledSeed(at)` (`@kb/bundled`, a
@@ -1976,7 +1988,6 @@ Today's drift from this contract is marked where it sits:
 - feature view keys in `@kb/views`: GAP [[01M41H30342XZPX3CXZJTMPBYW]];
 - feature keys contributed through core's declaration: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]];
 - UI zones: GAP [[01M41H30C2RSD2FGVYBT5HAG48]];
-- the unbridged lists: GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]];
 - open composition roots: GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
 - canvas: GAP [[01M39F3MR3HT2NR553FY8CRD6X]].
 
@@ -2044,7 +2055,8 @@ that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 | `render.view`                                     | read  | render a docs view (a `docs.markdown` view node, by name) to html or md                                      |
 | `render.views`                                    | read  | list the docs view names available to `render.view`                                                          |
 | `views.migrate`                                   | write | rewrite a store written before view nodes to them and import `.kb/views` ([View nodes](#view-nodes))         |
-| `kb.manifest`                                     | read  | list every registered action as its manifest entry (MCP's `kb_manifest`)                                     |
+| `kb.manifest`                                     | read  | list every registered action as its manifest entry (MCP's `kb_manifest`), the view catalog and the extensions ([Extension families](#extension-families)) |
+| `extension.switch`                                | write | turn an optional extension on or off for this kb: the registry loads it, or leaves it out, from the next call ([Extension families](#extension-families)) |
 | `ext.docs.materialize` (alias `docs.materialize`) | write | render the docs views → write md (bundled extension)                                                         |
 | `ext.docs.check` (alias `docs.check`)             | read  | materialize to memory, diff vs disk (bundled extension)                                                      |
 | `ext.canvas.tx.apply`                             | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension)                                      |
@@ -2347,7 +2359,9 @@ The sidebar agent lives outside core, in packages that core never imports
   of a session, as Claude Code does.
 - **`kb ui` hosts the agent over the local Claude** (`claudeRuntime`), and
   `--no-agent` leaves it out. The CLI is the composition root that names
-  it, and it loads the agent packages only for `kb ui`.
+  it, and it loads the agent packages only for `kb ui`. The server reports
+  the agent in `kb.manifest.extensions`, and the page offers the agent's
+  dock only while it is reported ([Extension families](#extension-families)).
   - The adapter runs Claude Code through the Claude Agent SDK under the
     login the person already has. kb configures no API key and reads none.
   - It uses the `claude` on PATH. Failing that, it uses the SDK's bundled

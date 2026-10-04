@@ -6,7 +6,7 @@
  * declaration. It is the server's composition root for extensions, the one
  * file of this package that may import an extension package
  * (`EXTENSION_ROOTS` in `harness/src/constraints.ts`), and the registry
- * loads what it resolves.
+ * loads each one the store has on.
  *
  * The `extensionContract` suite (`@kb/test-kit`) runs over the resolved
  * list, so a family that joins it is held to the same promises as the rest.

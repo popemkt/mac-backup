@@ -16,7 +16,7 @@ import { useRoute } from "@/lib/plugins";
 import { loadManifest } from "@/lib/manifest";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes } from "@kb/views";
-import { startUiPlugins, useExtensionSwitches } from "@/ui-plugins";
+import { startUiPlugins, switchExtension, useExtensionSwitches } from "@/ui-plugins";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
@@ -122,7 +122,10 @@ function SharedChrome() {
   const switches = useExtensionSwitches();
   return (
     <>
-      <PreferencesPopover switches={switches} />
+      <PreferencesPopover
+        switches={switches}
+        onSwitch={(name, on) => void switchExtension(name, on)}
+      />
       <ViewFilterPopoverHost />
       <CommandPalette open={globalPaletteOpen} onClose={() => setGlobalPaletteOpen(false)} />
       <Toasts />

@@ -1,6 +1,6 @@
 import { THEME_GLYPHS } from "@/lib/theme-glyphs";
 import { useEffect, useRef } from "react";
-import { ArrowsHorizontalIcon, SwatchesIcon } from "@phosphor-icons/react";
+import { ArrowsHorizontalIcon, PuzzlePieceIcon, SwatchesIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { DESIGN_SYSTEMS } from "@/lib/theme";
 import { usePrefsStore, type ThemePref, type WidthPref } from "@/stores/prefs.store";
@@ -21,7 +21,7 @@ const WIDTH_OPTIONS: readonly EnumOption<WidthPref>[] = [
   { value: "full", label: "full" },
 ];
 
-/** Off first: an optional plugin is off until it is switched on. */
+/** Off first: an optional extension is off until it is switched on. */
 const PLUGIN_OPTIONS: readonly EnumOption<"off" | "on">[] = [
   { value: "off", label: "off" },
   { value: "on", label: "on" },
@@ -29,9 +29,12 @@ const PLUGIN_OPTIONS: readonly EnumOption<"off" | "on">[] = [
 
 export function PreferencesPopover({
   switches,
+  onSwitch,
 }: {
   /** The optional extensions, one on/off row each; none, no section. */
   switches: readonly ExtensionSwitch[];
+  /** Ask for one switched on or off; the row shows what the server then reports. */
+  onSwitch: (name: string, on: boolean) => void;
 }) {
   const open = useUiStore((s) => s.prefsOpen);
   const setOpen = useUiStore((s) => s.setPrefsOpen);
@@ -66,7 +69,7 @@ export function PreferencesPopover({
             plugins
           </h3>
           {switches.map((entry) => (
-            <PluginRow key={entry.name} entry={entry} />
+            <PluginRow key={entry.name} entry={entry} onSwitch={onSwitch} />
           ))}
         </section>
       ) : null}
@@ -158,18 +161,22 @@ function WidthRow() {
   );
 }
 
-function PluginRow({ entry }: { entry: ExtensionSwitch }) {
+function PluginRow({
+  entry,
+  onSwitch,
+}: {
+  entry: ExtensionSwitch;
+  onSwitch: (name: string, on: boolean) => void;
+}) {
   const { name } = entry;
-  const enabled = usePrefsStore((s) => s.enabledPlugins.includes(name));
-  const setPluginEnabled = usePrefsStore((s) => s.setPluginEnabled);
   return (
-    <PrefFieldRow icon={entry.icon} label={entry.label}>
+    <PrefFieldRow icon={PuzzlePieceIcon} label={entry.label}>
       <EnumSelect
         className={POPOVER_VALUE_CLASS}
-        value={enabled ? "on" : "off"}
+        value={entry.on ? "on" : "off"}
         options={PLUGIN_OPTIONS}
         testId={`plugin-${name}`}
-        onChange={(next) => setPluginEnabled(name, next === "on")}
+        onChange={(next) => onSwitch(name, next === "on")}
       />
     </PrefFieldRow>
   );

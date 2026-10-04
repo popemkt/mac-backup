@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import { makeKernel } from "@kb/plugin";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { extensionRow, type ExtensionRow } from "@kb/contracts";
+import { agentExtension } from "@kb/agent";
 import { labExtension } from "@kb/lab";
 import { RoutePoint, SidebarSectionPoint, ViewPoint, findView, matchRoute } from "@/lib/plugins";
 import { NoParams, viewKey, type OntologyView } from "@kb/views";
@@ -118,49 +119,33 @@ function reported(loaded: (name: string) => boolean): ExtensionRow[] {
 }
 
 describe("the families the page loads", () => {
+  const AGENT = extensionRow(agentExtension, "host", true);
+
   it("are each family the server reports loaded that the resolver has, in its order", () => {
-    expect(
-      familiesToLoad(
-        reported(() => true),
-        ["lab"],
-      ),
-    ).toEqual(["canvas", "lab", "code", "chart"]);
+    expect(familiesToLoad([...reported(() => true), AGENT])).toEqual([
+      "canvas",
+      "lab",
+      "code",
+      "chart",
+      "agent",
+    ]);
   });
 
-  it("leave out a family the server reports not loaded", () => {
-    expect(
-      familiesToLoad(
-        reported((name) => name !== "chart"),
-        [],
-      ),
-    ).not.toContain("chart");
+  it("leave out a family the server reports not loaded: the lab while it is off", () => {
+    expect(labExtension.optional).toBe(true);
+    expect(familiesToLoad(reported((name) => name !== "lab"))).toEqual(["canvas", "code", "chart"]);
   });
 
-  it("leave out a family the server does not report at all", () => {
-    const rows = reported(() => true).filter((row) => row.name !== "code");
-    expect(familiesToLoad(rows, [])).not.toContain("code");
+  it("leave out a family the server does not report: the agent of a server that hosts none", () => {
+    expect(familiesToLoad(reported(() => true))).not.toContain("agent");
+    expect(familiesToLoad([...reported(() => true), { ...AGENT, enabled: false }])).not.toContain(
+      "agent",
+    );
   });
 
   it("leave out a family the page has no browser entry for", () => {
     const rows = [...reported(() => true), extensionRow({ name: "remote", label: "R" }, "x", true)];
-    expect(familiesToLoad(rows, [])).not.toContain("remote");
-    expect(familiesToLoad(rows, [])).not.toContain("docs");
-  });
-
-  it("leave out the lab until the preference names it", () => {
-    expect(labExtension.optional).toBe(true);
-    expect(
-      familiesToLoad(
-        reported(() => true),
-        [],
-      ),
-    ).not.toContain("lab");
-    expect(
-      familiesToLoad(
-        reported(() => true),
-        ["lab"],
-      ),
-    ).toContain("lab");
+    expect(familiesToLoad(rows)).toEqual(["canvas", "lab", "code", "chart"]);
   });
 
   it("load each entry under the name it was resolved by", async () => {

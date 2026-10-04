@@ -42,7 +42,7 @@ import {
   savedQueriesLayer,
 } from "@kb/workspace-fs";
 import { noteStoreSynced } from "@kb/operations";
-import { invokeReceiptEffect, receiptFromError, registryFor } from "./registry.ts";
+import { invokeReceiptEffect, receiptFromError, sessionRegistry } from "./registry.ts";
 import { remoteScreensLayer } from "./screens.ts";
 import { selectStore } from "./store-selection.ts";
 
@@ -76,7 +76,7 @@ export function kbRuntimeLayer(
   ),
   hosted: () => readonly ExtensionRow[] = () => [],
 ): Layer.Layer<ActionHandlerEnv> {
-  const registry = registryFor(ctx.root).pipe(Effect.provide(bunFileSystemLayer));
+  const registry = sessionRegistry(ctx).pipe(Effect.provide(bunFileSystemLayer));
   return Layer.mergeAll(
     bunFileSystemLayer,
     kbStoreLayer(ctx.store),
@@ -110,7 +110,7 @@ export function kbRuntimeLayer(
 function readInvoke(ctx: KbContext): ReadInvoker {
   return (invocation: ActionInvocation) =>
     Effect.gen(function* () {
-      const registry = yield* registryFor(ctx.root);
+      const registry = yield* sessionRegistry(ctx);
       const mode = registry.byId.get(invocation.id)?.def.mode;
       if (mode !== undefined && mode.kind !== "read") {
         return failed(

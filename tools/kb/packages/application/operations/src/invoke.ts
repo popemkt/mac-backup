@@ -55,6 +55,7 @@ import {
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
+import { extensionSwitchDef, extensionSwitchEffect } from "./extensions.ts";
 import { kbManifestDef, kbManifestEffect } from "./manifest.ts";
 import { viewsMigrateDef, viewsMigrateEffect } from "./views-migrate.ts";
 import { viewProposeDef, viewProposeEffect } from "./view-propose.ts";
@@ -119,7 +120,7 @@ export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[]
 /**
  * The actions that reach a service only the invoke tip's composition root can
  * provide: a workspace port (saved queries, views, assets, code trust), the registry's
- * own catalog, or the screens of the UI tabs.
+ * own catalogs (actions, views, extensions), or the screens of the UI tabs.
  */
 const portActions: readonly RegisteredAction[] = [
   coreNative(graphRunDef, graphRunEffect),
@@ -127,6 +128,7 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(renderViewDef, renderViewActionEffect),
   coreNative(renderViewsDef, renderViewsActionEffect),
   coreNative(kbManifestDef, kbManifestEffect),
+  coreNative(extensionSwitchDef, extensionSwitchEffect),
   coreNative(viewsMigrateDef, viewsMigrateEffect),
   coreNative(uiScreenDef, uiScreenEffect),
   coreNative(uiNavigateDef, uiNavigateEffect),

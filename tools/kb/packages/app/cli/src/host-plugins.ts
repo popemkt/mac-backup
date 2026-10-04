@@ -4,10 +4,10 @@
  * file of this package that may import an extension package
  * (`EXTENSION_ROOTS` in `harness/src/constraints.ts`); the server names none
  * (DESIGN.md → Plugin channels). Each is handed over with its declaration,
- * so the server reports it in `kb.manifest` beside the registry's. They load
- * on demand, so no other command pays for the agent packages.
- *
- * A second switch beside the browser's preference: GAP [[01M41H30N0SV4QE5R8VQQ1K4ZA]]
+ * so the server reports it in `kb.manifest` beside the registry's, and the
+ * page offers the agent only then: `kb ui --no-agent` is the agent's one
+ * switch. They load on demand, so no other command pays for the agent
+ * packages.
  */
 import { Effect } from "effect";
 import type { ExtensionEntry } from "@kb/contracts";
