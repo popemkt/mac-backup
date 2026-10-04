@@ -14,7 +14,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Generated docs are data | CLAUDE.md#kb--repo-knowledge-base | repo | Files under docs/kb are materialized from kb nodes; the data is edited and the file is regenerated, never the other way round. | hook | — |
 | Lab principles: measured bounds | tools/kb/DESIGN-UI.md#lab-principles | tools/kb packages/app/ui lab scene | The measurable lab principles hold as tests: the timing tokens are mirrored and inside their bounds (follow 300–600ms, ambient periods 8s or more; M5, M4), Embers pops within its budget (M4), and each study either runs on three's WebGL2 fallback without WebGPU or says why it cannot start (T1). | ci | — |
 | Compiler strictness contract | tools/kb/DESIGN.md#compiler-strictness-contract | tools/kb | One base tsconfig owns strictness; the DESIGN.md table is the contract, packages declare only their delta, and a rejected flag is recorded with its measured count. | harness | — |
-| Core names no feature | tools/kb/DESIGN.md#extension-families | tools/kb packages | Every extension package belongs to one family, tagged with the name the family declares once, and imports another extension package only of its own family. An app package imports an extension package only from a composition-root file (EXTENSION_ROOTS), never re-exported, or from a file named as a deferred breach; and every extension package is loaded, by a value import, by a root of each host its scope runs in. Not checked yet: that core packages hold no feature vocabulary (the open extension-boundaries gaps), and that the browser follows one list bridged to the server's (gap 01M41H30N0SV4QE5R8VQQ1K4ZA, steps E10 and E12). | harness | — |
+| Core names no feature | tools/kb/DESIGN.md#extension-families | tools/kb packages | Every extension package belongs to one family, tagged with the name the family declares once, and imports another extension package only of its own family. An app package imports an extension package only from a composition-root file (EXTENSION_ROOTS), never re-exported, or from a file named as a deferred breach; and every extension package is loaded, by a value import, by a root of each host its scope runs in. Not checked yet: that core packages hold no feature vocabulary (the open extension-boundaries gaps), and that each family's browser half is a -ui package paired with BROWSER_EXTENSIONS (gap 01M41H30C2RSD2FGVYBT5HAG48, step E12). | harness | — |
 | Coverage is a signal | tools/kb/DESIGN.md#testing-doctrine | tools/kb | Coverage is reported and never a threshold; chasing a percentage manufactures exactly the noise the testing doctrine forbids. | harness | — |
 | Design tokens: every class is live | tools/kb/DESIGN-UI.md#design-tokens | tools/kb packages/app/ui | Every class the UI writes emits CSS under kb's stylesheet. The token bridge resets Tailwind's own scales, so a default step (text-sm, shadow-xl, rounded-3xl) reads like a class and compiles to nothing; Tailwind itself, not a pattern list, decides which classes are dead. | harness | — |
 | Drift markers | CLAUDE.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | harness | — |
@@ -787,8 +787,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not packages
 
 - **expected** — each is the browser package of its family, built against @kb/ui-sdk, and @kb/ui holds the shell and core views only
-- **current** — components/{chart,code,lab,agent} and src/agent.ts live in @kb/ui (reaching the shell through the sdk zone); @kb/ui depends on @kb/agent, @kb/chart, @kb/chart-vega, @kb/code and @kb/lab; the optional lab and agent plugins are statically imported by ui-plugins.ts
-- **impact** — adding or removing a feature's UI edits @kb/ui, and optional plugins ship in the main bundle
+- **current** — components/{chart,code,lab,agent} and src/agent.ts live in @kb/ui (reaching the shell through the sdk zone); @kb/ui depends on @kb/agent, @kb/chart, @kb/chart-vega, @kb/code and @kb/lab; ui-plugins.ts resolves each family's browser entry from these zones (the lab and the agent as import() chunks), not from a -ui package
+- **impact** — adding or removing a feature's UI edits @kb/ui, and the harness cannot pair a family with a -ui package in BROWSER_EXTENSIONS
 - **closes** — the sdk zone with restricted UI_ALLOWS rows, @kb/ui-sdk (01M3EZRFTS1W8SB97GFJAWD92X), then one -ui package per family; canvas is 01M39F3MR3HT2NR553FY8CRD6X
 - **node** — `01M41H30C2RSD2FGVYBT5HAG48`
 
@@ -880,14 +880,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
 - **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
 - **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
-
-### GAP: the server and browser plugin lists are not bridged
-
-- **expected** — the server registry is the one list of loaded extensions; the browser loads the browser entry of each extension the manifest reports; optional is a server-side load decision on the extension's declaration, reported by the manifest
-- **current** — BUNDLED_EXTENSIONS (packages/app/runtime/src/bundled.ts), the CLI's agent wiring (packages/app/cli/src/host-plugins.ts) and BUILTIN_UI_PLUGINS/OPTIONAL_UI_PLUGINS (packages/app/ui/src/ui-plugins.ts) each name extensions on their own; the agent has two switches, --no-agent and the enabledPlugins preference; the server always loads the lab family (labPlugin()), so kb.manifest always lists lab.page, while the page loads the lab's UI only under the enabledPlugins preference, off by default
-- **impact** — an extension can be on in one host and off in the other with nothing reporting it; the agent sidebar can be switched on against a server that runs no agent, which answers unknown_channel; the server's catalog lists lab.page while the page has the lab off, so an agent can propose a view the page does not draw
-- **closes** — defineExtension per family, kb.manifest.extensions with enabled, and a browser resolver keyed by family name; the lab's off-by-default becomes a server-side setting that the registry loads by and the manifest reports, and its Preferences row writes that setting (E10, E10b)
-- **node** — `01M41H30N0SV4QE5R8VQQ1K4ZA`
 
 ### GAP: the sigma renderer's lifecycle effect carries 32 branches
 
@@ -1597,6 +1589,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an agent sees which kind of view is open but not which saved view node or its settings; ui.navigate cannot open a given view node
 - **closes** — the UI routes by view node (roadmap step 6 panes hold a ref to a view node) and the screen reports that id
 - **node** — `01M3YMCV7ZWR83DCCPQQS7PHNT`
+
+### GAP: the server and browser plugin lists are not bridged
+
+- **expected** — the server registry is the one list of loaded extensions; the browser loads the browser entry of each extension the manifest reports; optional is a server-side load decision on the extension's declaration, reported by the manifest
+- **current** — Closed by E10 and E10b of the extension-boundaries plan. kb.manifest reports extensions: every bundled family with whether the registry loaded it, each repository extension, and what kb ui hosts (the agent), through one row shape (extensionRow) over one host shape (ExtensionEntry). The page loads the browser entry of each family the manifest reports loaded, through BROWSER_EXTENSIONS, a resolver keyed by declaration name (packages/app/ui/src/ui-plugins.ts), and reads the bundled list as its own server until one answers. The lab's off-by-default is a node, sys.extension.lab with the checkbox field sys.f.extension.enabled, written only by extension.switch (never seeded), which the registry loads by; the agent's one switch is kb ui --no-agent. The enabledPlugins preference is gone. What remains is the UI halves as packages (E12), gap 01M41H30C2RSD2FGVYBT5HAG48.
+- **impact** — an extension can be on in one host and off in the other with nothing reporting it; the agent sidebar can be switched on against a server that runs no agent, which answers unknown_channel; the server's catalog lists lab.page while the page has the lab off, so an agent can propose a view the page does not draw
+- **closes** — defineExtension per family, kb.manifest.extensions with enabled, and a browser resolver keyed by family name; the lab's off-by-default becomes a server-side setting that the registry loads by and the manifest reports, and its Preferences row writes that setting (E10, E10b)
+- **node** — `01M41H30N0SV4QE5R8VQQ1K4ZA`
 
 ### GAP: the Sky borrows the graph's toScreen across the UI zones until it moves to scene/gpu/screen.ts
 

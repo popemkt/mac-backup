@@ -731,6 +731,48 @@ was picked:
   close at E9b. The root-fence and UI-zone gaps name the lab's breaches.
 - `kb ext list` now lists lab.
 
+**Note from the doing (E10, E10b).** Where the plan said "E10 decides", or
+was silent, this is what was picked:
+- **The switch is a node, never seeded.** An optional family is on while
+  the store's `sys.extension.<name>` node carries `true` in the checkbox
+  field `sys.f.extension.enabled`. `familyOn` reads it and `switchWrites`
+  writes it, both beside the declaration in `@kb/contracts`, through
+  `@kb/model`'s node-config slots. The only writer is a new core action,
+  `extension.switch`, which mints the field and the node the first time a
+  family is switched. So the seed golden is unchanged, opening never
+  writes, and a store without the node has the lab off. A switch that
+  does not read as a checkbox reads as off, and the registry logs it.
+  Flip it with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
+- **The registry is keyed by what is on.** `registryFor(root, nodeOf)`
+  loads each bundled family `familyOn` admits and caches per root and per
+  set of families on, so a switch takes effect on the next call and
+  switching back finds the old registry. Every session reaches it through
+  `sessionRegistry(ctx)`.
+- **One host shape.** The `kb ui` server is handed `ExtensionEntry`s
+  (`{declaration, entry}`), the same shape as the bundled list, and
+  reports each through `extensionRow`, `enabled` while its kernel holds the
+  plugin active. `kb.manifest.extensions` is the bundled rows (loaded or
+  not), then repository extensions, then what the host holds.
+- **The agent is not optional.** Its one switch is `kb ui --no-agent`; the
+  page offers its dock only while the manifest reports it. Marking it
+  optional would have added a second switch beside the flag.
+- **The surface contract names the composition.** A `kb ui` reports the
+  agent it hosts, so its `kb.manifest` differs from a CLI's. Each surface
+  now says whether the root's `kb ui` or its own process answers, and is
+  held to that composition's invoke core.
+- **The page.** `lib/manifest.ts` is the one home of the served manifest;
+  the view catalog and the plugin set both follow it. Until a server
+  answers, the page reads `BUNDLED_FAMILIES` as a store with no switch
+  written. The lab and the agent are `import()` chunks. A switch written
+  elsewhere reaches the page's graph, and the page reads the manifest
+  again. Preferences rows show what the server reports, under one generic
+  icon, since an icon per family would be browser metadata no row needs.
+- **`kb ext list`** lists every family, an optional one as `off` until
+  switched on.
+- **Gaps.** The bridge gap is closed. The UI-zones gap is narrowed (the
+  lab and agent are no longer in the main bundle), and the rule's "not
+  checked yet" now names the `-ui` pairing of E12.
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D
