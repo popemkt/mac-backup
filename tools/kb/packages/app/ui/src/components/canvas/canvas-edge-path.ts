@@ -31,7 +31,7 @@ const SIDES: { readonly [S in CanvasSide]: { readonly x: number; readonly y: num
 // A flat billboard stands up in 3D, but an edge meets it at its box's side
 // on the floor, where it lies; and a turned billboard's anchors turn with a
 // rotation it does not draw. Anchors on what is drawn come with 3D plan step 9.
-// GAP [billboard-edge-anchors]
+// GAP [[01M42G18TDCMPK7BKD9GKS74RT]]
 export function sideAnchor(node: CanvasNode, side: CanvasSide = "right"): SideAnchor {
   const frame = boxFrame(node);
   const unit = SIDES[side];

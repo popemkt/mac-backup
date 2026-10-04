@@ -465,6 +465,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3KA3AM9KQZCX6N73YKV3HB5`
 
+### GAP: in 3D, edges to a billboard meet the floor below it
+
+- **expected** — an edge attaches to what is drawn: a billboard's standing face, a label's front
+- **current** — edges attach at the billboard's footprint on the floor
+- **impact** — in 3D, an edge to a label or standing billboard runs to the floor beneath it
+- **closes** — 3D plan step 9: anchors on solids and billboards
+- **node** — `01M42G18TDCMPK7BKD9GKS74RT`
+
 ### GAP: KbIndex is DataScript in memory on both stores; sqlite holds nodes but answers no queries
 
 - **expected** — A KbIndex backed by the sqlite store — queries compiled from the query IR to SQL and answered by the database that already holds the nodes, so a sqlite root does not rebuild a whole DataScript db on every open.
