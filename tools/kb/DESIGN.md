@@ -2050,7 +2050,7 @@ end).
 Today's drift from this contract is marked where it sits:
 - a family a host composes (the agent) is switched only where that host
   runs, because only there does `ExtensionCatalog` list it:
-  GAP [host-family-switch-anywhere], minted at merge;
+  GAP [[01M43H3T8XEMTNBARC024PZD2W]];
 - the CLI's report bins, which import their family's output schema:
   GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
 - extensions that still reach core's use cases (`@kb/operations`):

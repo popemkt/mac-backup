@@ -850,7 +850,7 @@ code pushed back, this is what was picked:
 - **What the switch cannot reach yet.** A family a host composes is in
   `ExtensionCatalog` only where that host runs, so `extension.switch` for
   the agent works through `kb ui` (Preferences, or its HTTP), and the CLI
-  answers `not_found`. Placeholder `GAP [host-family-switch-anywhere]` at
+  answers `not_found`. Placeholder `GAP [[01M43H3T8XEMTNBARC024PZD2W]]` at
   the lookup in `operations/src/extensions.ts`, to mint at merge:
   - *expected:* every surface can write any family's switch, a hosted one
     included, and `kb ext list` lists it;

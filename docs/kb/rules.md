@@ -137,6 +137,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — list nested panes in the screen state with their own ids
 - **node** — `01M411FPSNN7B18JQ62RKB8ZXW`
 
+### GAP: a family a host composes is switched only where that host runs
+
+- **expected** — every surface can write any family's switch, a hosted one included, and kb ext list lists it
+- **current** — only a process that composes the family lists it in ExtensionCatalog, so only kb ui can switch the agent; the CLI's extension.switch answers not_found (operations/src/extensions.ts)
+- **impact** — the agent cannot be switched off before kb ui first runs with it, except from the page
+- **closes** — the host families' declarations reported (not loaded) by every process, or the agent's declaration joining the bundled list with a host half that only kb ui loads
+- **node** — `01M43H3T8XEMTNBARC024PZD2W`
+
 ### GAP: a flat item turned face-down shows its face mirrored in 2D
 
 - **expected** — 2D shows a face-down flat card's blank back, as 3D does

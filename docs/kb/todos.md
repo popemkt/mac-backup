@@ -92,10 +92,6 @@
 
 ## (other)
 
-### doing
-
-- E10c · every cleanly extracted family can be switched off through the one extension switch (canvas, chart, code, lab, agent; --no-agent folds into it). Plan: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md
-
 ### todo
 
 - 3D step 10 · formats: JSON Canvas export, GLB
@@ -127,6 +123,7 @@
 
 ### done
 
+- E10c · every cleanly extracted family can be switched off through the one extension switch (canvas, chart, code, lab, agent; --no-agent folds into it). Plan: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md
 - outline perf: a graph update or expand re-renders every row (63 ms at 1x, ~660 ms at 6x CPU) — fix candidate memo, per-row selectors, coalesce WS updates, content-visibility
 
 ### later
