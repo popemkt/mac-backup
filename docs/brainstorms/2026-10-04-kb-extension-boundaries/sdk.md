@@ -286,3 +286,8 @@ and planned after E13, at a 3D step boundary.
    extension builds in this workspace, `tsc` already catches each break.
    The allowlist earns its cost the day an extension is built against
    `@kb/*` outside this repo.
+
+**Owner's answers (2026-10-04).** Both recommendations taken: the shared
+SDK is the `contract` layer with the `domain` vocabulary (no `@kb/sdk`
+package), and no symbol-level allowlist until an extension builds outside
+this workspace.
