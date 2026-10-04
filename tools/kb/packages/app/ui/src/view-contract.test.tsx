@@ -40,7 +40,11 @@ import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 
 const ALL_PLUGINS: readonly Plugin[] = [
   ...CORE_UI_PLUGINS,
-  ...(await Promise.all(Object.values(BROWSER_EXTENSIONS).map((extension) => extension.load()))),
+  ...(await Promise.all(
+    Object.values(BROWSER_EXTENSIONS).flatMap((extension) =>
+      extension === null ? [] : [extension.load()],
+    ),
+  )),
 ];
 
 /** A kernel holding every plugin the UI can hold. */

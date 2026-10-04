@@ -1877,6 +1877,17 @@ There is one mechanism, not a second path beside the core plugins:
   server's answer, never the choice. A switch written anywhere else (another
   tab, the CLI) reaches the page's graph, and the page reads the manifest
   again.
+- **The `enabledPlugins` preference is gone.** It used to keep the lab and
+  the agent on per device, in `localStorage["kb-prefs"]`; a stale key is
+  ignored on read and dropped on the next write. A browser that had the
+  lab on sees it off until it is switched on for the kb, from Preferences
+  or with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
+  The agent needs nothing: `kb ui` hosts it unless started with `--no-agent`.
+- **Until a server answers, the workspace waits.** A page served by `kb ui`
+  opens its workspace only once the manifest has landed and the plugins it
+  reports are loaded, so a layout never shows a lab view, or any family's
+  view, as unavailable on the way. An offline page has no server to wait
+  for and opens on its own reading.
 - `lib/plugins.ts` → `syncUiPlugins` converges the UI kernel on that set:
   it loads what is missing and unloads each top-level plugin no longer
   listed. `startUiPlugins` runs it at boot and again whenever the server's

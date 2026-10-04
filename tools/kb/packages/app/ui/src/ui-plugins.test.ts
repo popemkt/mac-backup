@@ -150,7 +150,33 @@ describe("the families the page loads", () => {
 
   it("load each entry under the name it was resolved by", async () => {
     for (const [name, extension] of Object.entries(BROWSER_EXTENSIONS)) {
-      expect((await extension.load()).name).toBe(name);
+      if (extension !== null) expect((await extension.load()).name).toBe(name);
     }
+  });
+});
+
+describe("the resolver", () => {
+  it("names every bundled family: an entry, or null for a family with no browser half", () => {
+    const missing = BUNDLED_FAMILIES.filter(({ name }) => !Object.hasOwn(BROWSER_EXTENSIONS, name));
+    expect(missing.map(({ name }) => name)).toEqual([]);
+  });
+
+  it("has an entry for every family that provides a view, since the page draws its views", () => {
+    const viewless = BUNDLED_FAMILIES.filter(({ views }) => (views ?? []).length > 0).filter(
+      ({ name }) => BROWSER_EXTENSIONS[name] === null,
+    );
+    expect(viewless.map(({ name }) => name)).toEqual([]);
+  });
+
+  it("declares exactly the server-only families as having no browser half", () => {
+    const serverOnly = Object.entries(BROWSER_EXTENSIONS)
+      .filter(([, extension]) => extension === null)
+      .map(([name]) => name);
+    expect(serverOnly.toSorted()).toEqual(["check", "docs"]);
+  });
+
+  it("names nothing beyond the bundled families and the agent a kb ui hosts", () => {
+    const known = new Set([...BUNDLED_FAMILIES.map(({ name }) => name), agentExtension.name]);
+    expect(Object.keys(BROWSER_EXTENSIONS).filter((name) => !known.has(name))).toEqual([]);
   });
 });

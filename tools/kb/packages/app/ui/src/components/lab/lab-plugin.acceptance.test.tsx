@@ -6,7 +6,10 @@
  * Switched on from Preferences, the row asks the server (`extension.switch`),
  * the server loads the lab and reports it, and the row and `/lab` appear;
  * switched off again, both leave live — no reload — and the mounted study is
- * disposed. Nothing is kept in the browser's preferences.
+ * disposed. Nothing is kept in the browser's preferences. A switch written
+ * elsewhere (another tab, the CLI) reaches the page's graph, and the page
+ * follows it live. And until the server has answered, the page holds its
+ * workspace rather than show the lab as missing on the way.
  *
  * The server is a stand-in that answers the manifest from one switch. The
  * study's scene is a stand-in too: happy-dom has no GPU, and what is under
@@ -17,7 +20,14 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
-import { extensionRow, type ActionInvocation, type GraphSnapshot } from "@kb/contracts";
+import {
+  EXTENSION_ENABLED_FIELD,
+  extensionNodeId,
+  extensionRow,
+  type ActionInvocation,
+  type GraphSnapshot,
+  type WireNode,
+} from "@kb/contracts";
 import { viewCatalogOf } from "@kb/views";
 import type { LabScene } from "@/components/lab/kit/contract";
 
@@ -46,6 +56,7 @@ const { setPostAction } = await import("@/api/action");
 const { navigate } = await import("@/lib/router");
 const { servedManifest } = await import("@/lib/manifest");
 const { useUiStore } = await import("@/stores/ui.store");
+const { useOutlineStore } = await import("@/stores/outline.store");
 
 const ISO = "2026-09-24T00:00:00.000Z";
 
@@ -56,8 +67,15 @@ function snapshot(): GraphSnapshot {
   };
 }
 
-/** The server: every bundled family loaded, the lab only while it is switched on. */
-const server = { lab: false, switches: [] as unknown[] };
+/**
+ * The server: every bundled family loaded, the lab only while it is switched
+ * on. While `hold` is pending, it has not answered the manifest yet.
+ */
+const server = {
+  lab: false,
+  switches: [] as unknown[],
+  hold: null as Promise<void> | null,
+};
 
 function loaded(name: string): boolean {
   return name !== "lab" || server.lab;
@@ -77,6 +95,7 @@ function manifest() {
 
 async function answer(invocation: ActionInvocation) {
   if (invocation.id === "kb.manifest") {
+    if (server.hold !== null) await server.hold;
     return { status: "succeeded" as const, id: invocation.id, output: manifest(), rev: 1 };
   }
   if (invocation.id === "extension.switch") {
@@ -171,6 +190,7 @@ describe("lab plugin, switched on the server (acceptance)", () => {
   beforeEach(() => {
     server.lab = false;
     server.switches = [];
+    server.hold = null;
   });
 
   afterEach(() => {
@@ -198,6 +218,33 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     });
   }
 
+  // First, while the page has never heard a manifest: it would otherwise
+  // read the bundled list as its own server, where the lab is off.
+  it("holds the workspace until the server answers, so /lab is never shown missing on the way", async () => {
+    server.lab = true;
+    const manifestAnswered = Promise.withResolvers<void>();
+    server.hold = manifestAnswered.promise;
+    dom.history.pushState({}, "", "/lab");
+    container = dom.document.createElement("div") as unknown as HTMLDivElement;
+    dom.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+    await act(async () => {
+      root.render(<App />);
+    });
+    await settle();
+    // The frame before the manifest: the workspace is pending, not a missing page.
+    expect(servedManifest()).toBeNull();
+    expect(container.textContent).toContain("Opening your workspace");
+    expect(notFound()).toBeNull();
+    expect(study()).toBeNull();
+
+    const mounted = scene.mounted;
+    await act(async () => manifestAnswered.resolve());
+    await until(() => scene.mounted > mounted);
+    expect(notFound()).toBeNull();
+    expect(study()?.getAttribute("data-lab-study")).toBe("embers");
+  });
+
   it("is off while the server has it off: no row, /lab not found, and its switch shows off", async () => {
     await boot();
     expect(reportedLab()).toBe(false);
@@ -217,8 +264,40 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     expect(labRow()).toBeDefined();
   });
 
+  it("follows a switch written elsewhere, live, without a reload", async () => {
+    await boot();
+    expect(labRow()).toBeUndefined();
+    // Another tab, or the CLI, switches the lab on: the server loads it, and
+    // the switch node reaches this page's graph as any write does.
+    const switchNode = (on: boolean, at: string): WireNode => ({
+      id: extensionNodeId("lab"),
+      text: "Lab",
+      props: { [EXTENSION_ENABLED_FIELD]: [{ t: "bool", v: on }] },
+      children: [],
+      createdAt: ISO,
+      updatedAt: at,
+    });
+    server.lab = true;
+    act(() =>
+      useOutlineStore.getState().applyTx([switchNode(true, "2026-09-24T00:00:01.000Z")], []),
+    );
+    await until(() => labRow() !== undefined);
+    expect(reportedLab()).toBe(true);
+    expect(labRow()).toBeDefined();
+    expect(server.switches).toEqual([]);
+
+    server.lab = false;
+    act(() =>
+      useOutlineStore.getState().applyTx([switchNode(false, "2026-09-24T00:00:02.000Z")], []),
+    );
+    await until(() => labRow() === undefined);
+    expect(reportedLab()).toBe(false);
+    expect(labRow()).toBeUndefined();
+  });
+
   it("switched on from Preferences, the server loads it and the page follows; switched off, both leave live", async () => {
     await boot();
+    const { mounted, disposed } = scene;
     await choose("on");
     expect(server.switches).toEqual([{ name: "lab", on: true }]);
     // The page asked the server, heard it back, and loaded the lab's chunk.
@@ -230,9 +309,9 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     act(() => useUiStore.getState().setPrefsOpen(false));
     await act(async () => navigate("/lab"));
     // The page is a lazy chunk: wait for it (and the scene it mounts) to arrive.
-    await until(() => scene.mounted > 0);
+    await until(() => scene.mounted > mounted);
     expect(study()?.getAttribute("data-lab-study")).toBe("embers");
-    expect(scene.mounted).toBe(1);
+    expect(scene.mounted).toBe(mounted + 1);
 
     await choose("off");
     expect(server.switches).toEqual([
@@ -245,6 +324,6 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     expect(study()).toBeNull();
     expect(notFound()).not.toBeNull();
     // Unloading tore the page down, and the page gave its scene back.
-    expect(scene.disposed).toBe(1);
+    expect(scene.disposed).toBe(disposed + 1);
   });
 });

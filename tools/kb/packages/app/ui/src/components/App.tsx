@@ -16,7 +16,12 @@ import { useRoute } from "@/lib/plugins";
 import { loadManifest } from "@/lib/manifest";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes } from "@kb/views";
-import { startUiPlugins, switchExtension, useExtensionSwitches } from "@/ui-plugins";
+import {
+  extensionsSettled,
+  startUiPlugins,
+  switchExtension,
+  useExtensionSwitches,
+} from "@/ui-plugins";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
@@ -215,10 +220,16 @@ export function App() {
     try {
       const { snapshot, source } = await loadGraph();
       hydrateFromWire(snapshot.nodes, snapshot.rev, source);
+      // The page follows the server: ask which extensions and views it loaded,
+      // and open the workspace only once their plugins are in, so a layout
+      // never shows one of their views as unavailable on the way. Offline, the
+      // page is its own server, and its own reading is already in.
+      if (source === "api") {
+        await loadManifest();
+        await extensionsSettled();
+      }
       setStatus("ready");
       ensureLiveConnection();
-      // The page follows the server: ask which extensions and views it loaded.
-      if (source === "api") void loadManifest();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setStatus("error");

@@ -19,6 +19,7 @@ import { agentExtension } from "@kb/agent";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
+import { checkExtension } from "@kb/check";
 import { codeExtension } from "@kb/code";
 import {
   NO_SWITCHES,
@@ -28,6 +29,7 @@ import {
   familyOn,
   type ExtensionRow,
 } from "@kb/contracts";
+import { docsExtension } from "@kb/docs";
 import { labExtension } from "@kb/lab";
 import { coreExtension, extensionSwitchDef } from "@kb/operations";
 import type { Plugin } from "@kb/plugin";
@@ -69,16 +71,20 @@ export interface BrowserExtension {
 }
 
 /**
- * The browser entry of each family the page can draw, keyed by the name its
- * declaration gives it. A family that is always on loads from the main
- * bundle. One that is on only when the server says so (the optional lab, the
- * agent a `kb ui` hosts) is its own chunk, fetched when it is first on.
+ * The browser entry of each family, keyed by the name its declaration gives
+ * it. A family that is always on loads from the main bundle. One that is on
+ * only when the server says so (the optional lab, the agent a `kb ui` hosts)
+ * is its own chunk, fetched when it is first on. A family with no browser
+ * half is listed too, as `null`, so a bundled family is never left out by
+ * omission: the resolver's test holds every bundled family to an entry.
  */
-export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension>> = {
+export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> = {
+  [docsExtension.name]: null,
   [canvasExtension.name]: { load: () => Promise.resolve(canvasUiPlugin) },
   [labExtension.name]: {
     load: () => import("@/components/lab/plugin").then(({ labUiPlugin }) => labUiPlugin),
   },
+  [checkExtension.name]: null,
   [codeExtension.name]: { load: () => Promise.resolve(codeUiPlugin) },
   [chartExtension.name]: { load: () => Promise.resolve(chartUiPlugin) },
   [agentExtension.name]: { load: () => import("@/agent").then(({ agentPlugin }) => agentPlugin) },
@@ -103,19 +109,21 @@ function followedExtensions(): readonly ExtensionRow[] {
  * each one reported loaded that the resolver has. A family the server did
  * not load, or does not report, has no UI on the page.
  */
-export function familiesToLoad(
-  rows: readonly ExtensionRow[],
-  resolver: Readonly<Record<string, BrowserExtension>> = BROWSER_EXTENSIONS,
-): readonly string[] {
+export function familiesToLoad(rows: readonly ExtensionRow[]): readonly string[] {
   return rows
-    .filter((row) => row.enabled && Object.hasOwn(resolver, row.name))
+    .filter((row) => row.enabled && browserEntry(row.name) !== null)
     .map((row) => row.name);
+}
+
+/** The browser entry the page has for a family: null when it has none, or the family has no browser half. */
+function browserEntry(name: string): BrowserExtension | null {
+  return Object.hasOwn(BROWSER_EXTENSIONS, name) ? (BROWSER_EXTENSIONS[name] ?? null) : null;
 }
 
 /** The switches for these rows: each optional family the page can draw, on as the server reports it. */
 function switchesFor(rows: readonly ExtensionRow[]): readonly ExtensionSwitch[] {
   return rows
-    .filter((row) => row.optional && Object.hasOwn(BROWSER_EXTENSIONS, row.name))
+    .filter((row) => row.optional && browserEntry(row.name) !== null)
     .map(({ name, label, enabled }) => ({ name, label, on: enabled }));
 }
 
@@ -148,8 +156,8 @@ export async function switchExtension(name: string, on: boolean): Promise<void> 
 
 /** Load one family's browser entry, held to the name it was resolved by. */
 async function loadEntry(name: string): Promise<Plugin | null> {
-  const extension = BROWSER_EXTENSIONS[name];
-  if (extension === undefined) return null;
+  const extension = browserEntry(name);
+  if (extension === null) return null;
   try {
     const plugin = await extension.load();
     if (plugin.name === name) return plugin;
@@ -161,6 +169,8 @@ async function loadEntry(name: string): Promise<Plugin | null> {
 }
 
 let generation = 0;
+/** The latest convergence, done once the kernel holds what it was started for. */
+let settling: Promise<void> = Promise.resolve();
 
 /**
  * Converge the kernel on the core plugins plus the entries for `rows`. The
@@ -186,6 +196,16 @@ function switchVersions(): string {
 }
 
 /**
+ * Done once the kernel holds the plugins for the extensions the page follows
+ * now: the latest convergence, and any started while it ran.
+ */
+export async function extensionsSettled(): Promise<void> {
+  const current = settling;
+  await current;
+  if (current !== settling) await extensionsSettled();
+}
+
+/**
  * Load the UI's plugins, then keep the kernel in step with the server's
  * report: a family the report drops is unloaded, and its pages and sidebar
  * section leave with it, without a reload. A switch written anywhere (another
@@ -193,7 +213,9 @@ function switchVersions(): string {
  * report again. Returns the unsubscribe.
  */
 export function startUiPlugins(): () => void {
-  const sync = () => void converge(followedExtensions());
+  const sync = () => {
+    settling = converge(followedExtensions());
+  };
   sync();
   const unsubscribeManifest = subscribeManifest(sync);
   let switches = switchVersions();
