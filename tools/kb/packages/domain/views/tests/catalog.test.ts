@@ -53,4 +53,18 @@ describe("view catalog", () => {
     expect(board.keyOf("outline.nope")).toBeNull();
     expect(board.itemOf("outline.board")?.key).toBe(OutlineBoardView);
   });
+
+  test("lists a view it holds no key for by its entry, never as a key", () => {
+    const [entry] = viewCatalogOf([{ key: OutlineBoardView }]).entries();
+    const listing = viewCatalogOf([], entry === undefined ? [] : [entry]);
+    expect(listing.keyOf("sys.view.outline.board")).toBeNull();
+    expect(listing.items).toEqual([]);
+    expect(listing.entries()).toEqual([]);
+    expect(listing.listedOf("sys.view.outline.board")?.label).toBe("Board");
+    expect(listing.listedOf("outline.board")?.id).toBe("outline.board");
+    expect(listing.listedOf("outline.nope")).toBeNull();
+    const held = viewCatalogOf([{ key: OutlineBoardView }]);
+    // A held view is listed by the entry its key derives, the one `entries()` lists.
+    expect(held.listedOf("outline.board") === held.entries()[0]).toBe(true);
+  });
 });

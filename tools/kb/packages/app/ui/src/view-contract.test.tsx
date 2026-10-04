@@ -31,7 +31,7 @@ import {
   type ProvidedView,
 } from "@/lib/plugins";
 import { MAX_VIEW_DEPTH } from "@/lib/view-key";
-import { NoParams, localIdOf, viewKey } from "@kb/views";
+import { NoParams, localIdOf, viewCatalogOf, viewKey } from "@kb/views";
 import { ViewKeyPoint } from "@kb/contracts";
 import { pageCatalogOf } from "@/lib/view-catalog";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
@@ -53,12 +53,10 @@ const KERNEL = (() => {
 /** Every view the UI can hold, with the plugin that owns it. */
 const VIEWS = KERNEL.contributions(ViewPoint);
 
-/** The view ids a server running every bundled family lists in `kb.manifest`. */
-const SERVED = new Set(
-  BUNDLED_DECLARATIONS.flatMap((declaration) =>
-    (declaration.views ?? []).map((view) => view.key.id),
-  ),
-);
+/** The views a server running every bundled family lists in `kb.manifest`. */
+const SERVED = viewCatalogOf(
+  BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.views ?? []),
+).entries();
 
 /** The page's catalog, as a page served by that server derives it; what it leaves out. */
 const UNLISTED: string[] = [];

@@ -35,7 +35,11 @@ export interface CatalogItem {
   readonly key: ViewKey<unknown>;
 }
 
-/** The views one host knows, in the order they were contributed. */
+/**
+ * The views one host knows, in the order they were contributed. A host may
+ * also list views it holds no key for: the page lists every view the server
+ * lists, and draws only those a loaded plugin holds the key of.
+ */
 export interface ViewCatalogOf<D extends CatalogItem> {
   readonly items: readonly D[];
   /**
@@ -47,6 +51,12 @@ export interface ViewCatalogOf<D extends CatalogItem> {
   keyOf(view: string): ViewKey<unknown> | null;
   /** Every view as `kb.manifest` lists it, in {@link items}' order. */
   entries(): readonly ViewCatalogEntry[];
+  /**
+   * The view `view` names as the host lists it, whether or not it holds its
+   * key: a held view's entry, else the entry of a view it lists without one.
+   * Null for a view it does not list.
+   */
+  listedOf(view: string): ViewCatalogEntry | null;
 }
 
 /** The JSON Schema of a key's params, with its definitions inlined under `$defs`. */
@@ -76,14 +86,30 @@ function entryOf(key: ViewKey<unknown>): ViewCatalogEntry {
   return entry;
 }
 
-/** The catalog of `items`, looked up by view id or option. */
-export function viewCatalogOf<D extends CatalogItem>(items: readonly D[]): ViewCatalogOf<D> {
+/** The view id `view` names: its id as given, or the id its option names. */
+function idOf(view: string): string {
+  return viewIdOfOption(view) ?? view;
+}
+
+/**
+ * The catalog of `items`, looked up by view id or option, also listing
+ * `unheld`: views the host lists but holds no key for.
+ */
+export function viewCatalogOf<D extends CatalogItem>(
+  items: readonly D[],
+  unheld: readonly ViewCatalogEntry[] = [],
+): ViewCatalogOf<D> {
   const byId = new Map<string, D>(items.map((item) => [item.key.id, item]));
-  const itemOf = (view: string): D | null => byId.get(viewIdOfOption(view) ?? view) ?? null;
+  const unheldById = new Map(unheld.map((entry) => [entry.id, entry]));
+  const itemOf = (view: string): D | null => byId.get(idOf(view)) ?? null;
   return {
     items,
     itemOf,
     keyOf: (view) => itemOf(view)?.key ?? null,
     entries: () => items.map((item) => entryOf(item.key)),
+    listedOf: (view) => {
+      const item = itemOf(view);
+      return item === null ? (unheldById.get(idOf(view)) ?? null) : entryOf(item.key);
+    },
   };
 }

@@ -5,7 +5,9 @@
  * page holds the key objects, because decoding params needs code; the server
  * says which of them are loaded. So there is one catalog, read on the server
  * and bridged here, and a page action such as `view.propose` checks against
- * the server's list.
+ * the server's list. A view the server lists that no plugin on the page
+ * holds is still listed, by the server's entry, so the page can name it and
+ * say it cannot draw it here.
  *
  * Until a server answers — an offline page on its fixtures, or before the
  * manifest arrives — the page is its own server, and its kernel's views are
@@ -15,7 +17,7 @@ import { useSyncExternalStore } from "react";
 import { ViewKeyPoint, type ViewDef } from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import type { Contribution } from "@kb/plugin";
-import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
+import { viewCatalogOf, type ViewCatalogEntry, type ViewCatalogOf } from "@kb/views";
 import { postAction } from "@/api/action";
 import { logWarn } from "@/lib/log";
 import { pointReader, subscribeUiKernel } from "@/lib/plugins";
@@ -24,27 +26,33 @@ type PageCatalog = ViewCatalogOf<ViewDef<unknown>>;
 
 /**
  * The page's catalog from what its kernel holds and what the server lists
- * (`served`, null while no server has answered). A key the page holds that
- * the server does not list is reported through `report`, never listed.
+ * (`served`, its `kb.manifest` entries, null while no server has answered).
+ * A key the page holds that the server does not list is reported through
+ * `report`, never listed; a view the server lists that the page holds no key
+ * for is listed by the server's entry.
  */
 export function pageCatalogOf(
   held: readonly ViewDef<unknown>[],
-  served: ReadonlySet<string> | null,
+  served: readonly ViewCatalogEntry[] | null,
   report: (viewId: string) => void,
 ): PageCatalog {
   if (served === null) return viewCatalogOf(held);
-  const listed = held.filter((view) => served.has(view.key.id));
-  for (const view of held) if (!served.has(view.key.id)) report(view.key.id);
-  return viewCatalogOf(listed);
+  const servedIds = new Set(served.map((entry) => entry.id));
+  const heldIds = new Set<string>(held.map((view) => view.key.id));
+  for (const view of held) if (!servedIds.has(view.key.id)) report(view.key.id);
+  return viewCatalogOf(
+    held.filter((view) => servedIds.has(view.key.id)),
+    served.filter((entry) => !heldIds.has(entry.id)),
+  );
 }
 
-let served: ReadonlySet<string> | null = null;
+let served: readonly ViewCatalogEntry[] | null = null;
 const servedListeners = new Set<() => void>();
 const reported = new Set<string>();
 
-/** Record the view ids the server lists (null: no server answers), and tell the readers. */
-function setServedViews(ids: readonly string[] | null): void {
-  served = ids === null ? null : new Set(ids);
+/** Record the views the server lists (null: no server answers), and tell the readers. */
+function setServedViews(entries: readonly ViewCatalogEntry[] | null): void {
+  served = entries;
   for (const listener of servedListeners) listener();
 }
 
@@ -68,7 +76,7 @@ export async function loadServedViews(): Promise<void> {
     logWarn(`[kb/views] kb.manifest answered with no view catalog: ${manifest.error.message}`);
     return;
   }
-  setServedViews(manifest.data.views.map((view) => view.id));
+  setServedViews(manifest.data.views);
 }
 
 function reportUnlisted(viewId: string): void {
@@ -80,7 +88,7 @@ function reportUnlisted(viewId: string): void {
 const readHeld = pointReader(ViewKeyPoint);
 let memo: {
   held: readonly Contribution<ViewDef<unknown>>[];
-  served: ReadonlySet<string> | null;
+  served: readonly ViewCatalogEntry[] | null;
   catalog: PageCatalog;
 } | null = null;
 
@@ -127,4 +135,5 @@ export const livePageCatalog: PageCatalog = {
   itemOf: (view) => pageCatalog().itemOf(view),
   keyOf: (view) => pageCatalog().keyOf(view),
   entries: () => pageCatalog().entries(),
+  listedOf: (view) => pageCatalog().listedOf(view),
 };
