@@ -16,7 +16,7 @@ import { frameConfigOf } from "@/lib/view-config";
 import { OutlineCardsView, OutlineTableView, paramsFrom } from "@kb/views";
 import { Result } from "effect";
 import { useOutlineStore } from "@/stores/outline.store";
-import { installDomGlobals } from "@/test-support/dom-globals";
+import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs } from "@/fixtures/view-fields";
 import { BoardCardsView } from "./board-cards-view";

@@ -5,7 +5,7 @@
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { CanvasNode, CanvasTextNode } from "@kb/canvas";
 import { CanvasCameraRig } from "./canvas-camera-rig";

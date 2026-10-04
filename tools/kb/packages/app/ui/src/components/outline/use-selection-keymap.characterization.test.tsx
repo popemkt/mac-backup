@@ -15,7 +15,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
-import { installDomGlobals } from "@/test-support/dom-globals";
+import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useSelectionKeymap } from "./use-selection-keymap";
 import { outlineUiPlugin } from "@/components/outline/plugin";

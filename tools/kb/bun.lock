@@ -235,6 +235,7 @@
         "zustand": "catalog:",
       },
       "devDependencies": {
+        "@kb/ui-test-kit": "workspace:*",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/react": "catalog:",
         "@storybook/react-vite": "catalog:",
@@ -764,6 +765,13 @@
         "playwright": "catalog:",
       },
     },
+    "packages/test-support/ui-test-kit": {
+      "name": "@kb/ui-test-kit",
+      "version": "0.0.0",
+      "dependencies": {
+        "happy-dom": "catalog:",
+      },
+    },
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@0.2.8",
@@ -1158,6 +1166,8 @@
     "@kb/ui": ["@kb/ui@workspace:packages/app/ui"],
 
     "@kb/ui-sdk": ["@kb/ui-sdk@workspace:packages/kit/ui-sdk"],
+
+    "@kb/ui-test-kit": ["@kb/ui-test-kit@workspace:packages/test-support/ui-test-kit"],
 
     "@kb/views": ["@kb/views@workspace:packages/domain/views"],
 

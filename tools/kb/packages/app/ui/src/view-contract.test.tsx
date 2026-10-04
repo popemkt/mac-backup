@@ -34,7 +34,7 @@ import { setPostAction } from "@/api/action";
 import { NoParams, localIdOf, viewCatalogOf, viewKey } from "@kb/views";
 import { ViewKeyPoint } from "@kb/contracts";
 import { pageCatalogOf } from "@/lib/view-catalog";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS } from "@/ui-plugins";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 

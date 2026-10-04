@@ -641,6 +641,7 @@
   "@kb/tx-log" = copyPathToStore ./packages/infrastructure/tx-log;
   "@kb/ui" = copyPathToStore ./packages/app/ui;
   "@kb/ui-sdk" = copyPathToStore ./packages/kit/ui-sdk;
+  "@kb/ui-test-kit" = copyPathToStore ./packages/test-support/ui-test-kit;
   "@kb/views" = copyPathToStore ./packages/domain/views;
   "@kb/webmcp" = copyPathToStore ./packages/app/webmcp;
   "@kb/workspace-fs" = copyPathToStore ./packages/infrastructure/workspace-fs;

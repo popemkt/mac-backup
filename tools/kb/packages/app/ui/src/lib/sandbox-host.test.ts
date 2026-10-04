@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { succeeded, type ActionInvocation } from "@kb/contracts";
 import { ENGINE_LIMITS, type RunStatus } from "@kb/sandbox";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import type { SandboxRun } from "@kb/ui-sdk";
 import { hostSandboxFrame } from "./sandbox-host";
 

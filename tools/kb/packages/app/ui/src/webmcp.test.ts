@@ -21,7 +21,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { setBrowserLink, waitForBrowserPushes } from "@/session/runtime";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { webMcpUiPlugin } from "@/webmcp";
 
 /** An action as `kb.manifest` lists it to an agent on a root with no policies: its mode decides. */

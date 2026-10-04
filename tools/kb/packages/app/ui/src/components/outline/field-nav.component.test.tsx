@@ -8,7 +8,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import {
   outlineInstanceKey,

@@ -15,7 +15,7 @@ import {
   type CanvasNode,
   type CanvasShapeNode,
 } from "@kb/canvas";
-import { fakeCanvasContexts } from "@/test-support/fake-gpu";
+import { fakeCanvasContexts } from "@kb/ui-test-kit";
 import type { CardLook } from "./canvas-card-face";
 import { LabelLayer } from "./canvas-scene-labels";
 import { fromThree } from "./canvas-scene-space";

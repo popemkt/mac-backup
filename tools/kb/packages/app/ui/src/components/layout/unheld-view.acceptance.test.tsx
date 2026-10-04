@@ -15,7 +15,7 @@ import { extensionRow, type GraphSnapshot, type WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
 import { viewCatalogOf, type ViewCatalogEntry } from "@kb/views";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 
 const { App } = await import("@/components/App");
 const { PaneSwitcher } = await import("@/components/layout/pane-switcher");

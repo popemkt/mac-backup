@@ -7,7 +7,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { DESIGN_SYSTEMS } from "@kb/ui-sdk";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";

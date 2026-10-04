@@ -7,7 +7,7 @@ import { act, createElement, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import type { CanvasDoc } from "@kb/canvas";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { useCanvasPictures } from "./use-canvas-pictures";
 
 const png = (name: string) => new File(["png"], name, { type: "image/png" });

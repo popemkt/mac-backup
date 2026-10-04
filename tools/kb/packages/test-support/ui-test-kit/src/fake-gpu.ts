@@ -8,7 +8,7 @@
  * ```ts
  * vi.mock("three/webgpu", async (importOriginal) => ({
  *   ...(await importOriginal<typeof ThreeWebGpu>()),
- *   ...(await import("@/test-support/fake-gpu")).FAKE_WEBGPU,
+ *   ...(await import("@kb/ui-test-kit")).FAKE_WEBGPU,
  * }));
  * ```
  */

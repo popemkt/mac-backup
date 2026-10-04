@@ -11,7 +11,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { agentExtension } from "@kb/agent";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { extensionRow, type ActionInvocation, type GraphSnapshot } from "@kb/contracts";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 
 const { App } = await import("@/components/App");
 const { setFetchGraphSnapshot } = await import("@/api/graph");

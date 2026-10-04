@@ -32,7 +32,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { FieldRow } from "./field-row";
 import { longDateLabel, relativeDateLabel } from "@/lib/date-display";

@@ -22,7 +22,7 @@ import { nodeCandidates, outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } 
 import type * as UiSdk from "@kb/ui-sdk";
 import { resolveRowChrome } from "@/lib/row-chrome";
 import type * as RowChrome from "@/lib/row-chrome";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { outlineUiPlugin } from "./plugin";

@@ -11,7 +11,7 @@
  * - a scene whose start fails gives its stage back.
  *
  * happy-dom has no GPU, so three's renderer and post chain are the stand-ins
- * in `@/test-support/fake-gpu`, which count what they are asked to do; every
+ * in `@kb/ui-test-kit`, which count what they are asked to do; every
  * other three class, every TSL node graph and every scene's own code is the
  * real thing.
  */
@@ -21,13 +21,13 @@ import { LAB_STUDIES, type LabSceneInit } from "@kb/lab-ui";
 import { TIMING_FALLBACK, type LensEdge, type LensNode } from "@kb/ui-sdk";
 import { LENS_THEMES } from "@kb/views";
 import type { SceneHandle, ScenePalette } from "@kb/scene";
-import { fakeCanvasContexts, gpu, renders, type FakeRenderer } from "@/test-support/fake-gpu";
+import { fakeCanvasContexts, gpu, renders, type FakeRenderer } from "@kb/ui-test-kit";
 import { BufferGeometry, Material, Object3D, Sprite } from "three/webgpu";
 import type * as ThreeWebGpu from "three/webgpu";
 
 vi.mock("three/webgpu", async (importOriginal) => ({
   ...(await importOriginal<typeof ThreeWebGpu>()),
-  ...(await import("@/test-support/fake-gpu")).FAKE_WEBGPU,
+  ...(await import("@kb/ui-test-kit")).FAKE_WEBGPU,
 }));
 
 const palette: ScenePalette = {

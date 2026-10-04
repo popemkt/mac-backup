@@ -8,7 +8,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Effect } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { definePlugin, type Plugin } from "@kb/plugin";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import {
   provideRoute,
   provideView,

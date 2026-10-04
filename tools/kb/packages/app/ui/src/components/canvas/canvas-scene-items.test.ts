@@ -6,7 +6,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import { Window } from "happy-dom";
 import type { CanvasDoc, CanvasNode } from "@kb/canvas";
-import { fakeCanvasContexts } from "@/test-support/fake-gpu";
+import { fakeCanvasContexts } from "@kb/ui-test-kit";
 import type { CardLook } from "./canvas-card-face";
 import { ItemLayer } from "./canvas-scene-items";
 

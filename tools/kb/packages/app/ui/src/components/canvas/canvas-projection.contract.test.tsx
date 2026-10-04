@@ -25,7 +25,7 @@
  *   its members where it carried them.
  *
  * The 2D projection is the real DOM stage; the 3D one is the real scene on
- * the GPU stand-ins (`@/test-support/fake-gpu`). A projection joins by its
+ * the GPU stand-ins (`@kb/ui-test-kit`). A projection joins by its
  * registration: the table below must list exactly the registry.
  */
 import { act, createElement } from "react";
@@ -70,7 +70,7 @@ import {
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasSelection } from "./canvas-selection";
 import { syncUiPlugins, TIMING_FALLBACK } from "@kb/ui-sdk";
-import { fakeCanvasContexts } from "@/test-support/fake-gpu";
+import { fakeCanvasContexts } from "@kb/ui-test-kit";
 import type { CardLook } from "./canvas-card-face";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
 import { FIRST_GIZMO } from "./canvas-gizmo";
@@ -83,7 +83,7 @@ afterAll(() => syncUiPlugins([]));
 
 vi.mock("three/webgpu", async (importOriginal) => ({
   ...(await importOriginal<typeof ThreeWebGpu>()),
-  ...(await import("@/test-support/fake-gpu")).FAKE_WEBGPU,
+  ...(await import("@kb/ui-test-kit")).FAKE_WEBGPU,
 }));
 
 /** A shape item of `shape`, before it has an id or a place. */

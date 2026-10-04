@@ -294,12 +294,17 @@ export function isIsomorphicScope(scope: string): boolean {
 /**
  * What a test builds its world from, which a test file may import whatever
  * layer it sits in: `@kb/test-kit`, where the DST harness, the scenario
- * runners and the contract suites live, and `@kb/bundled`, the seed kb ships
- * (`bundledSeed()`), from which a test makes a fresh store. As production
- * edges both would be domain → app, so only test files and devDependencies
- * may name them.
+ * runners and the contract suites live; `@kb/bundled`, the seed kb ships
+ * (`bundledSeed()`), from which a test makes a fresh store; and
+ * `@kb/ui-test-kit`, a browser test's DOM and GPU stand-ins. As production
+ * edges each would point the wrong way (domain → app, app → test-support),
+ * so only test files and devDependencies may name them.
  */
-const TEST_WORLD_PACKAGES: ReadonlySet<string> = new Set(["@kb/test-kit", "@kb/bundled"]);
+const TEST_WORLD_PACKAGES: ReadonlySet<string> = new Set([
+  "@kb/test-kit",
+  "@kb/bundled",
+  "@kb/ui-test-kit",
+]);
 
 /**
  * A test file, by its package-relative path: anything in the package's own

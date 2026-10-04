@@ -56,7 +56,7 @@ packages/
   application/     operations
   extension/       canvas  ext-canvas  ext-check  ext-docs
   app/             client  runtime  server  cli  mcp  webmcp  ui  test-kit
-  test-support/    render-tests
+  test-support/    render-tests  ui-test-kit
 ```
 
 The direction rules live in exactly one place, `harness/src/constraints.ts`,
@@ -146,7 +146,8 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
   - `bun run verify` → typecheck + lint + format check + harness; Knip admission
     runs through the harness ratchet until its lane reaches zero
 - **Two runners, split by package, not by file.** Every `scope:browser`
-  package (`@kb/ui`, the kit, each family's UI half) runs on Vitest, because
+  package (`@kb/ui`, the kit, each family's UI half, and `@kb/ui-test-kit`,
+  the DOM and GPU stand-ins their tests share) runs on Vitest, because
   its suite needs happy-dom, `vi.mock` hoisting and fake timers; everything
   else runs on `bun test`. `bunfig.toml`'s `pathIgnorePatterns` keeps the
   browser packages out of `bun test` by folder instead of naming files, and
