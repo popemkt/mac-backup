@@ -7,10 +7,11 @@ import {
   familyOn,
   type ExtensionEntry,
   type ExtensionRow,
+  type NodeLookup,
   type KbContext,
   type UiHostService,
 } from "@kb/contracts";
-import { definePlugin, syncPlugins, type Kernel } from "@kb/plugin";
+import { definePlugin, syncPlugins, type Kernel, type Plugin } from "@kb/plugin";
 import { receiptFromError } from "@kb/operations";
 import { writeErr } from "@kb/runtime";
 import { serverInvoke } from "./invoke.ts";
@@ -37,13 +38,13 @@ export function channelsOf(kernel: Kernel): ChannelDirectory {
 }
 
 /**
- * The extensions the server was handed, composed as its store switches them
+ * The extensions a host was handed, composed as its store switches them
  * (`familyOn`, the one decision every host makes): `converge` loads each one
  * the store has on and unloads each one it has off, through `syncPlugins`;
  * `rows` converges, then reports each one's row, enabled while the kernel
  * holds its plugin active. Converging before a report means a switch the
- * store holds is what the server reports, whoever wrote it and however the
- * server heard of it.
+ * store holds is what the host reports, whoever wrote it and however the
+ * host heard of it.
  */
 interface HostedExtensions {
   readonly converge: Effect.Effect<void>;
@@ -74,20 +75,21 @@ function uiHost(
 }
 
 /**
- * Provide the host into `kernel`, then compose each extension the store has
- * on, in order. A plugin that fails to load is reported and skipped, and so
- * is one still waiting for a service: neither stops the server, as an
- * extension that fails never stops core. Returns how the server keeps them
- * composed and reports them ({@link HostedExtensions}).
+ * Compose `extensions` into `kernel` as the store `nodeOf` reads switches
+ * them, beside `held`: the plugins the host holds whatever the store says,
+ * given how the host reports (the server's `UiHost`, first). A plugin that
+ * fails either way is reported and skipped, and so is one still waiting for
+ * a service: neither stops the host, as an extension that fails never stops
+ * core. The kernel moves only when the switches do, so a plugin that failed
+ * is tried again when it is switched, not at every report.
  */
-export const loadServerPlugins = Effect.fn("kb.ui.loadPlugins")(function* (
+const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
   kernel: Kernel,
-  ctx: KbContext,
-  screens: ScreenHub,
   extensions: readonly ExtensionEntry[],
-) {
+  nodeOf: NodeLookup,
+  held: (rows: Effect.Effect<readonly ExtensionRow[]>) => readonly Plugin[],
+): Effect.fn.Return<HostedExtensions> {
   const lock = yield* Semaphore.make(1);
-  const nodeOf = (id: string) => ctx.index.getNode(id);
   const rows: Effect.Effect<readonly ExtensionRow[]> = Effect.suspend(() => converge).pipe(
     Effect.andThen(
       Effect.sync(() => {
@@ -103,14 +105,7 @@ export const loadServerPlugins = Effect.fn("kb.ui.loadPlugins")(function* (
       }),
     ),
   );
-  // The host is the first thing the kernel holds, and it is held whatever the store says.
-  const host = definePlugin({
-    name: "ui-host",
-    namespace: "",
-    apply: (plugin) => plugin.provide(UiHost, uiHost(ctx, screens, rows)),
-  });
-  // The names composed last: the kernel moves only when the store's switches do, so a
-  // plugin that failed is tried again when it is switched, not at every report.
+  const base = held(rows);
   let composed: string | null = null;
   const converge: Effect.Effect<void> = lock.withPermit(
     Effect.gen(function* () {
@@ -120,7 +115,7 @@ export const loadServerPlugins = Effect.fn("kb.ui.loadPlugins")(function* (
       const names = on.map(({ declaration }) => declaration.name).join("\0");
       if (names === composed) return;
       composed = names;
-      const failures = yield* syncPlugins(kernel, [host, ...on.map(({ entry }) => entry)]);
+      const failures = yield* syncPlugins(kernel, [...base, ...on.map(({ entry }) => entry)]);
       for (const { name, verb, cause } of failures) {
         const failure = Cause.squash(cause);
         const why = failure instanceof Error ? failure.message : String(failure);
@@ -137,5 +132,29 @@ export const loadServerPlugins = Effect.fn("kb.ui.loadPlugins")(function* (
     converge,
     rows,
     switches: new Set(extensions.map(({ declaration }) => extensionNodeId(declaration.name))),
-  } satisfies HostedExtensions;
+  };
 });
+
+/**
+ * The server's composition: its `UiHost` first, then each extension its
+ * store has on ({@link composeHosted}).
+ */
+export function loadServerPlugins(
+  kernel: Kernel,
+  ctx: KbContext,
+  screens: ScreenHub,
+  extensions: readonly ExtensionEntry[],
+): Effect.Effect<HostedExtensions> {
+  return composeHosted(
+    kernel,
+    extensions,
+    (id) => ctx.index.getNode(id),
+    (rows) => [
+      definePlugin({
+        name: "ui-host",
+        namespace: "",
+        apply: (plugin) => plugin.provide(UiHost, uiHost(ctx, screens, rows)),
+      }),
+    ],
+  );
+}
