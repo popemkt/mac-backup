@@ -41,6 +41,10 @@ interface CanvasStageProps {
     anchor?: { x: number; y: number },
   ) => void;
   handleEdgeClick: (edge: CanvasEdge, event: React.MouseEvent) => void;
+  /** The item being edited, or null. */
+  editing: string | null;
+  /** An item's editor opened or closed. */
+  onEdit: (id: string, editing: boolean) => void;
 }
 
 /** The guides across the floor, which the top view draws; a guide up the z axis has no line here. */
@@ -96,6 +100,8 @@ export function CanvasStage({
   onDoubleClickStage,
   handleCardPointerDown,
   handleEdgeClick,
+  editing,
+  onEdit,
 }: CanvasStageProps) {
   return (
     <div
@@ -174,6 +180,8 @@ export function CanvasStage({
           onRotateStart={onRotateStart}
           onPortDown={onPortDown}
           onCardPointerDown={handleCardPointerDown}
+          editing={editing}
+          onEdit={onEdit}
         />
       </div>
     </div>

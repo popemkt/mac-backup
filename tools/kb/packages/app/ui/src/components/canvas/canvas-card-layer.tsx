@@ -18,6 +18,7 @@ import type { CanvasSelection } from "./canvas-selection";
 import type { ResizeCorner } from "./canvas-pointer";
 import { classifyCardPointer } from "./card-pointer";
 import { cardBoxStyle } from "./canvas-card-box";
+import type { FaceLayout } from "./canvas-face";
 import { resolveCanvasColor } from "./canvas-color";
 import { cn, hasText } from "@/sdk";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
@@ -38,9 +39,16 @@ interface CanvasCardLayerProps {
     event: React.PointerEvent,
     anchor?: { x: number; y: number },
   ) => void;
+  /** The item being edited, or null. */
+  editing: string | null;
+  /** An item's editor opened or closed. */
+  onEdit: (id: string, editing: boolean) => void;
 }
 
 type CanvasCardViewProps = Omit<CanvasCardLayerProps, "doc"> & { card: CanvasNode };
+
+/** What an item's face is drawn from: the card, the page's handlers, and where it is laid. */
+type CanvasFaceProps = Omit<CanvasCardViewProps, "editing" | "onEdit"> & FaceLayout;
 
 /** An item's top view (`topView`) as SVG path data in canvas units. */
 function topViewPath(card: CanvasNode): string {
@@ -112,9 +120,12 @@ function CanvasItemBody({
   );
 }
 
-/** An item's face: the card of its kind, laid out on its footprint box (`cardBoxStyle`). */
+/** An item's face: the card of its kind, laid out where its projection says (`box`). */
 function CanvasCardFace({
   card,
+  box,
+  editing,
+  onEdit,
   selection,
   onCardSelect,
   onCardChange,
@@ -122,7 +133,8 @@ function CanvasCardFace({
   onRotateStart,
   onPortDown,
   onCardPointerDown: handleCardPointerDown,
-}: CanvasCardViewProps) {
+}: CanvasFaceProps) {
+  const layout = { box, editing, onEdit };
   const resizeHandler = (event: React.PointerEvent, corner: ResizeCorner) => {
     onResizeStart(card.id, corner, { x: event.clientX, y: event.clientY });
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -145,7 +157,7 @@ function CanvasCardFace({
           "group/card absolute rounded-md border border-dashed bg-foreground/[0.02]",
           isSelected ? "border-primary/40" : "border-foreground/10",
         )}
-        style={cardBoxStyle(card)}
+        style={box}
         onPointerDown={(e) => {
           if (classifyCardPointer(e.target, undefined) === "chrome") return;
           e.stopPropagation();
@@ -167,6 +179,7 @@ function CanvasCardFace({
   if (isTextNode(card)) {
     return (
       <TextCard
+        {...layout}
         card={card}
         selected={isSelected}
         onSelect={() => {
@@ -187,6 +200,7 @@ function CanvasCardFace({
   if (isShapeNode(card)) {
     return (
       <ShapeCard
+        {...layout}
         card={card}
         selected={isSelected}
         onSelect={(anchor) => {
@@ -214,7 +228,7 @@ function CanvasCardFace({
           "group/card absolute rounded-md border bg-background px-2 py-1 text-label text-foreground/40",
           isSelected ? "border-primary/40" : "border-foreground/[0.06]",
         )}
-        style={cardBoxStyle(card)}
+        style={box}
         onPointerDown={(e) => {
           e.stopPropagation();
           handleCardPointerDown(card, e);
@@ -232,6 +246,7 @@ function CanvasCardFace({
   }
   return (
     <KbNodeCard
+      {...layout}
       card={card}
       selected={isSelected}
       onSelect={() => {
@@ -262,7 +277,12 @@ function CanvasItemView(props: CanvasCardViewProps) {
           onCardPointerDown(card, e, { x: e.clientX, y: e.clientY });
         }}
       />
-      <CanvasCardFace {...props} />
+      <CanvasCardFace
+        {...props}
+        box={cardBoxStyle(card)}
+        editing={props.editing === card.id}
+        onEdit={(on) => props.onEdit(card.id, on)}
+      />
     </div>
   );
 }

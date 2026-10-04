@@ -425,6 +425,8 @@ const mount2d: Mount = async (view) => {
           onDoubleClickStage: noop,
           handleCardPointerDown: noop,
           handleEdgeClick: noop,
+          editing: null,
+          onEdit: noop,
         }),
       ),
     );

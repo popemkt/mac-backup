@@ -1,8 +1,10 @@
 /**
- * ShapeCard wires the label-edit draft machine (Esc cancel / Enter commit).
- * Draft semantics are unit-tested in shape-label-edit.test.ts.
+ * ShapeCard wires the label-edit draft machine (Esc cancel / Enter commit)
+ * to the page's edit: a double-click asks the page to open the editor, and
+ * the editor tells the page when it closes. Draft semantics are unit-tested
+ * in shape-label-edit.test.ts.
  */
-import { act } from "react";
+import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,6 +22,35 @@ const baseCard: CanvasShapeNode = {
   width: 160,
   height: 100,
 };
+
+/** The card with the page's edit state, as the canvas page holds it. */
+function Harness({
+  onLabelChange,
+  onEdit,
+}: {
+  onLabelChange: (label: string) => void;
+  onEdit: (editing: boolean) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <ShapeCard
+      card={baseCard}
+      box={{ left: 0, top: 0, width: 160, height: 100 }}
+      editing={editing}
+      onEdit={(on) => {
+        onEdit(on);
+        setEditing(on);
+      }}
+      selected
+      onSelect={() => {}}
+      onLabelChange={onLabelChange}
+      onMoveStart={() => {}}
+      onResizeStart={() => {}}
+      onRotateStart={() => {}}
+      onPortDown={() => {}}
+    />
+  );
+}
 
 describe("ShapeCard label edit wiring", () => {
   let root: Root;
@@ -46,33 +77,47 @@ describe("ShapeCard label edit wiring", () => {
     container.remove();
   });
 
-  it("double-click opens draft input seeded with card.label", () => {
-    const onLabelChange = vi.fn();
-    act(() => {
-      root.render(
-        <ShapeCard
-          card={baseCard}
-          selected
-          onSelect={() => {}}
-          onLabelChange={onLabelChange}
-          onMoveStart={() => {}}
-          onResizeStart={() => {}}
-          onRotateStart={() => {}}
-          onPortDown={() => {}}
-        />,
-      );
-    });
+  const input = () =>
+    container.querySelector<HTMLInputElement>('[data-testid="shape-label-input"]');
 
+  function openEditor(onLabelChange = vi.fn(), onEdit = vi.fn()) {
+    act(() => {
+      root.render(<Harness onLabelChange={onLabelChange} onEdit={onEdit} />);
+    });
     const shell = present(container.querySelector(".group\\/card"), "shape shell");
     expect(shell.textContent).toContain("Prior");
-    expect(container.querySelector('[data-testid="shape-label-input"]')).toBeNull();
+    expect(input()).toBeNull();
     act(() => {
       shell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
     });
+    return { onLabelChange, onEdit };
+  }
 
-    const input = container.querySelector('[data-testid="shape-label-input"]') as HTMLInputElement;
-    expect(input).toBeTruthy();
-    expect(input.value).toBe("Prior");
+  const key = (k: string) =>
+    act(() => {
+      input()?.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true }));
+    });
+
+  it("double-click asks the page to open the draft input, seeded with card.label", () => {
+    const { onLabelChange, onEdit } = openEditor();
+    expect(onEdit).toHaveBeenCalledWith(true);
+    expect(input()?.value).toBe("Prior");
+    expect(onLabelChange).not.toHaveBeenCalled();
+  });
+
+  it("Escape closes the editor without writing", () => {
+    const { onLabelChange, onEdit } = openEditor();
+    key("Escape");
+    expect(input()).toBeNull();
+    expect(onEdit).toHaveBeenLastCalledWith(false);
+    expect(onLabelChange).not.toHaveBeenCalled();
+  });
+
+  it("Enter with an unchanged draft closes the editor and writes nothing", () => {
+    const { onLabelChange, onEdit } = openEditor();
+    key("Enter");
+    expect(input()).toBeNull();
+    expect(onEdit).toHaveBeenLastCalledWith(false);
     expect(onLabelChange).not.toHaveBeenCalled();
   });
 });

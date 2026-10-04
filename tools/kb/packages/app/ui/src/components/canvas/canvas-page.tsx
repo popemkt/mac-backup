@@ -114,6 +114,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [gizmo, setGizmo] = useState<GizmoChoice>(FIRST_GIZMO);
+  /** The item whose editor is open, in whichever projection shows it; null when none is. */
+  const [editing, setEditing] = useState<string | null>(null);
+  /** An item's editor opened, or closed (and any other item's stays as it is). */
+  const onEdit = useCallback((id: string, on: boolean) => {
+    setEditing((current) => (on ? id : current === id ? null : current));
+  }, []);
   /** The frame present mode stands at, by id, so a frame added or taken away elsewhere moves no slide; null when not presenting. */
   const [presentId, setPresentId] = useState<string | null>(null);
 
@@ -423,6 +429,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
               onCardPointerDown(card, event, anchor, (id) => startMoveForSelection(event, id));
             }}
             handleEdgeClick={onEdgeClick}
+            editing={editing}
+            onEdit={onEdit}
           />
         </div>
         {projection.mounted3d && (

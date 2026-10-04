@@ -37,6 +37,9 @@ export const Idle: Story = {
     onResizeStart: noop,
     onRotateStart: noop,
     onPortDown: noopPort,
+    box: { left: 0, top: 0, width: 200, height: 80 },
+    editing: false,
+    onEdit: noop,
   },
 };
 
@@ -50,6 +53,9 @@ export const Selected: Story = {
     onResizeStart: noop,
     onRotateStart: noop,
     onPortDown: noopPort,
+    box: { left: 0, top: 0, width: 200, height: 80 },
+    editing: false,
+    onEdit: noop,
   },
 };
 
@@ -63,5 +69,8 @@ export const Empty: Story = {
     onResizeStart: noop,
     onRotateStart: noop,
     onPortDown: noopPort,
+    box: { left: 0, top: 0, width: 200, height: 80 },
+    editing: false,
+    onEdit: noop,
   },
 };

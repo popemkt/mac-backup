@@ -1,5 +1,4 @@
 import { classifyCardPointer } from "./card-pointer";
-import { cardBoxStyle } from "./canvas-card-box";
 import {
   asInstance,
   browserHost,
@@ -10,9 +9,10 @@ import {
   useIsActive,
   useNode,
 } from "@/sdk";
-import { useCallback } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef } from "react";
 import type { CanvasKbNode, CanvasTextNode } from "@kb/canvas";
 import { useNodeTextHostBinding } from "@/stores/node-text-host-binding"; // GAP [[01M41MHRD7MF4NP23EE294B69C]]
+import type { FaceLayout } from "./canvas-face";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
 
@@ -21,7 +21,7 @@ function canvasCardInstanceKey(cardId: string, nodeId: string): string {
   return `canvas:${cardId}:${nodeId}`;
 }
 
-interface KbCardProps {
+interface KbCardProps extends FaceLayout {
   card: CanvasKbNode;
   selected: boolean;
   onSelect: () => void;
@@ -51,9 +51,37 @@ function handleCanvasNodeKeyDown(
   }
 }
 
+/**
+ * The editor of a node's text in one instance, kept with the page's edit: an
+ * opening activates the node there, its caret at the end of its text, and
+ * the node entering or leaving the instance opens or closes it.
+ */
+function useNodeEdit(
+  editing: boolean,
+  onEdit: (editing: boolean) => void,
+  isActive: boolean,
+  activate: () => void,
+): void {
+  const open = useEffectEvent(() => {
+    if (!isActive) activate();
+  });
+  useEffect(() => {
+    if (editing) open();
+  }, [editing]);
+  const wasActive = useRef(isActive);
+  useEffect(() => {
+    if (wasActive.current === isActive) return;
+    wasActive.current = isActive;
+    onEdit(isActive);
+  }, [isActive, onEdit]);
+}
+
 /** kb-node card: layout shell + shared NodeRow / NodeTextHost / TagChips. */
 export function KbNodeCard({
   card,
+  box,
+  editing,
+  onEdit,
   selected,
   onSelect,
   onMoveStart,
@@ -72,12 +100,15 @@ export function KbNodeCard({
     },
     [card.nodeId, instanceKey],
   );
+  useNodeEdit(editing, onEdit, isActive, () => {
+    if (node !== undefined) handleActivate(node.text.length);
+  });
 
   if (!node) {
     return (
       <div
         className="absolute rounded-md border border-destructive/30 bg-background px-2 py-1 text-label text-destructive"
-        style={cardBoxStyle(card)}
+        style={box}
       >
         missing {card.nodeId}
       </div>
@@ -90,7 +121,7 @@ export function KbNodeCard({
         "group/card absolute rounded-xl border bg-background shadow-raised",
         selected ? "border-primary/70 ring-2 ring-primary/15" : "border-foreground/12",
       )}
-      style={cardBoxStyle(card)}
+      style={box}
       onPointerDown={(e) => {
         const intent = classifyCardPointer(e.target, ".node-content");
         if (intent === "chrome") return;
@@ -156,7 +187,7 @@ export function KbNodeCard({
   );
 }
 
-interface TextCardProps {
+interface TextCardProps extends FaceLayout {
   card: CanvasTextNode;
   selected: boolean;
   onSelect: () => void;
@@ -167,8 +198,12 @@ interface TextCardProps {
   onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
+/** A text card: its editor is its textarea, open while it has focus. */
 export function TextCard({
   card,
+  box,
+  editing,
+  onEdit,
   selected,
   onSelect,
   onChange,
@@ -177,13 +212,19 @@ export function TextCard({
   onRotateStart,
   onPortDown,
 }: TextCardProps) {
+  const field = useRef<HTMLTextAreaElement>(null);
+  // Opened from the page: the textarea takes focus.
+  useEffect(() => {
+    const el = field.current;
+    if (editing && el !== null && el.ownerDocument.activeElement !== el) el.focus();
+  }, [editing]);
   return (
     <div
       className={cn(
         "group/card absolute rounded-xl border bg-background p-3 shadow-raised",
         selected ? "border-primary/40" : "border-foreground/12",
       )}
-      style={cardBoxStyle(card)}
+      style={box}
       onPointerDown={(e) => {
         const intent = classifyCardPointer(e.target, "textarea");
         if (intent === "chrome") return;
@@ -197,9 +238,12 @@ export function TextCard({
       }}
     >
       <textarea
+        ref={field}
         className="h-full w-full resize-none bg-transparent text-ui outline-none"
         value={card.text}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={() => onEdit(true)}
+        onBlur={() => onEdit(false)}
         onPointerDown={(e) => e.stopPropagation()}
       />
       <CanvasPorts onPortDown={onPortDown} />

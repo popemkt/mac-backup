@@ -9,7 +9,7 @@ import {
 } from "@kb/canvas";
 import { resolveCanvasColor } from "./canvas-color";
 import { classifyCardPointer } from "./card-pointer";
-import { cardBoxStyle } from "./canvas-card-box";
+import type { FaceLayout } from "./canvas-face";
 import { cn, hasText, textOr } from "@/sdk";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
 import { CanvasPorts } from "./canvas-ports";
@@ -22,7 +22,7 @@ import {
   type LabelEditState,
 } from "./shape-label-edit";
 
-interface ShapeCardProps {
+interface ShapeCardProps extends FaceLayout {
   card: CanvasShapeNode;
   selected: boolean;
   onSelect: (anchor: { x: number; y: number }) => void;
@@ -112,33 +112,36 @@ function ShapeChrome({
  * sphere's box are open canvas, exactly as the camera model's `hitTest`
  * says.
  */
-export function ShapeCard({
-  card,
-  selected,
-  onSelect,
-  onLabelChange,
-  onMoveStart,
-  onResizeStart,
-  onRotateStart,
-  onPortDown,
-}: ShapeCardProps) {
+/**
+ * The label's editor: a draft the page opens and closes (`editing`), which
+ * starts from the label each time it opens; Enter or a blur commits it,
+ * Escape drops it, and either tells the page it closed.
+ */
+function useLabelEditor(
+  label: string,
+  editing: boolean,
+  onEdit: (editing: boolean) => void,
+  onLabelChange: (label: string) => void,
+  inputRef: React.RefObject<HTMLInputElement | null>,
+) {
   const [edit, setEdit] = useState<LabelEditState>(() =>
-    cancelLabelEdit(startLabelEdit(card.label ?? "")),
+    editing ? startLabelEdit(label) : cancelLabelEdit(startLabelEdit(label)),
   );
+  const [opened, setOpened] = useState(editing);
+  if (opened !== editing) {
+    setOpened(editing);
+    setEdit(editing ? startLabelEdit(label) : cancelLabelEdit(edit));
+  }
   const editRef = useRef(edit);
   editRef.current = edit;
-  const inputRef = useRef<HTMLInputElement>(null);
   /** Guards blur after Enter commit / Escape cancel (input unmount). */
   const endEditRef = useRef<"idle" | "committing" | "canceling">("idle");
 
   useEffect(() => {
-    if (edit.editing) inputRef.current?.focus();
-  }, [edit.editing]);
-
-  const beginEdit = useCallback(() => {
+    if (!editing) return;
     endEditRef.current = "idle";
-    setEdit(startLabelEdit(card.label ?? ""));
-  }, [card.label]);
+    inputRef.current?.focus();
+  }, [editing, inputRef]);
 
   const commit = useCallback(() => {
     if (endEditRef.current !== "idle") {
@@ -149,14 +152,35 @@ export function ShapeCard({
     const result = commitLabelEdit(editRef.current);
     setEdit(result.state);
     if (result.persist !== null) onLabelChange(result.persist);
-  }, [onLabelChange]);
+    onEdit(false);
+  }, [onLabelChange, onEdit]);
 
   const cancel = useCallback(() => {
     if (endEditRef.current !== "idle") return;
     endEditRef.current = "canceling";
     setEdit(cancelLabelEdit(editRef.current));
-  }, []);
+    onEdit(false);
+  }, [onEdit]);
 
+  const type = (draft: string) => setEdit((s) => typeLabelDraft(s, draft));
+  return { open: editing && edit.editing, draft: edit.draft, type, commit, cancel };
+}
+
+export function ShapeCard({
+  card,
+  box,
+  editing,
+  onEdit,
+  selected,
+  onSelect,
+  onLabelChange,
+  onMoveStart,
+  onResizeStart,
+  onRotateStart,
+  onPortDown,
+}: ShapeCardProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const editor = useLabelEditor(card.label ?? "", editing, onEdit, onLabelChange, inputRef);
   const d = svgPathData(
     shapeOutline(card.shape, card.width, card.height, cornerRadius(card, readCornerRadii())),
   );
@@ -164,7 +188,7 @@ export function ShapeCard({
     // The box is only a frame: the footprint inside it is what the pointer hits.
     <div
       className="group/card pointer-events-none absolute"
-      style={cardBoxStyle(card)}
+      style={box}
       onPointerDown={(e) => {
         const intent = classifyCardPointer(e.target, "input");
         if (intent === "chrome") return;
@@ -179,7 +203,7 @@ export function ShapeCard({
       onDoubleClick={(e) => {
         e.stopPropagation();
         onSelect({ x: e.clientX, y: e.clientY });
-        beginEdit();
+        onEdit(true);
       }}
     >
       <ShapeChrome card={card} d={d} selected={selected} />
@@ -188,21 +212,21 @@ export function ShapeCard({
         className="pointer-events-auto absolute inset-0 flex items-center justify-center px-4"
         style={{ clipPath: `path("${d}")` }}
       >
-        {edit.editing ? (
+        {editor.open ? (
           <input
             ref={inputRef}
             data-testid="shape-label-input"
             className="w-full truncate bg-transparent text-center text-ui text-foreground/85 outline-none"
-            value={edit.draft}
-            onChange={(e) => setEdit((s) => typeLabelDraft(s, e.target.value))}
-            onBlur={commit}
+            value={editor.draft}
+            onChange={(e) => editor.type(e.target.value)}
+            onBlur={editor.commit}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                commit();
+                editor.commit();
               } else if (e.key === "Escape") {
                 e.preventDefault();
-                cancel();
+                editor.cancel();
               }
               e.stopPropagation();
             }}
