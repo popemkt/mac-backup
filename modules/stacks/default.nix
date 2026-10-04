@@ -11,6 +11,7 @@
   imports = [
     ./ai-agents
     ./browsers
+    ./kb
     ./office-docs.nix
     ./vpn
   ];

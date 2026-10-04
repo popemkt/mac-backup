@@ -14,6 +14,7 @@ _:
       cognee.server.enable = true;
     };
     browsers.enable = true;
+    kb.enable = true;
     office-docs.enable = true;
     vpn = {
       enable = true;
