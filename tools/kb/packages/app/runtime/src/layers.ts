@@ -75,7 +75,7 @@ export function kbRuntimeLayer(
   screens: Layer.Layer<Screens> = remoteScreensLayer(ctx.root).pipe(
     Layer.provide(bunFileSystemLayer),
   ),
-  hosted: () => readonly ExtensionRow[] = () => [],
+  hosted: Effect.Effect<readonly ExtensionRow[]> = Effect.succeed([]),
 ): Layer.Layer<ActionHandlerEnv> {
   const registry = sessionRegistry(ctx).pipe(Effect.provide(bunFileSystemLayer));
   return Layer.mergeAll(
@@ -93,7 +93,9 @@ export function kbRuntimeLayer(
     Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),
     Layer.effect(
       ExtensionCatalog,
-      registry.pipe(Effect.map(({ families }) => [...families, ...hosted()])),
+      Effect.all([registry, hosted]).pipe(
+        Effect.map(([{ families }, rows]) => [...families, ...rows]),
+      ),
     ),
     Layer.succeed(UntrustedEngine, quickjsEngine),
     Layer.succeed(ReadInvoke, readInvoke(ctx)),

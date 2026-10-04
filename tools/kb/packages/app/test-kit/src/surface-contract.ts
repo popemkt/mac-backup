@@ -316,7 +316,7 @@ function overSurfaces(
                 const hosted = surface.host === "ui" ? ui.hosted : [];
                 const core = (invocation: ActionInvocation) =>
                   invokeReceiptEffect(ctx, onWire(surface.wire, invocation)).pipe(
-                    Effect.provide(kbRuntimeLayer(ctx, undefined, () => hosted)),
+                    Effect.provide(kbRuntimeLayer(ctx, undefined, Effect.succeed(hosted))),
                   );
                 const via = (invocation: ActionInvocation) =>
                   Effect.promise(() => surface.invoke(invocation));
