@@ -17,8 +17,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
-import { LAB_STUDIES } from "@/components/lab/studies";
-import type { LabSceneInit } from "@/components/lab/kit/contract";
+import { LAB_STUDIES, type LabSceneInit } from "@kb/lab-ui";
 import { TIMING_FALLBACK, type LensEdge, type LensNode } from "@kb/ui-sdk";
 import { LENS_THEMES } from "@kb/views";
 import type { SceneHandle, ScenePalette } from "@kb/scene";

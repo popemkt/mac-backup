@@ -1,0 +1,37 @@
+{
+  "name": "@kb/lab-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@kb/contracts": "workspace:*",
+    "@kb/lab": "workspace:*",
+    "@kb/plugin": "workspace:*",
+    "@kb/scene": "workspace:*",
+    "@kb/scene-gpu": "workspace:*",
+    "@kb/ui-sdk": "workspace:*",
+    "@phosphor-icons/react": "catalog:",
+    "effect": "catalog:",
+    "react": "catalog:",
+    "three": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/three": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:browser",
+      "family:lab"
+    ]
+  }
+}

@@ -179,11 +179,8 @@ export interface SanctionedExtensionImport {
  * feature fails, and a named file that no longer imports it fails too: the
  * list is frozen and can only shrink, like a ratchet's baseline.
  *
- * - The lab's UI half, `components/lab`, reads its family's key and studies
- *   and loads its shared plugin; it leaves with `@kb/lab-ui` (step E12 of
- *   the extension-boundaries plan).
  * - The canvas's UI half, `components/canvas` and its story, leaves with
- *   `@kb/canvas-ui` (E13).
+ *   `@kb/canvas-ui` (step E13 of the extension-boundaries plan).
  * - The docs and check pre-commit entries parse their family's output
  *   schema to print it: they leave when the family's report reaches them
  *   through the registry instead.
@@ -193,16 +190,6 @@ export const EXTENSION_ROOT_BREACHES: Readonly<
   Record<string, readonly SanctionedExtensionImport[]>
 > = {
   "@kb/ui": [
-    {
-      target: "@kb/lab",
-      files: [
-        "src/components/lab/lab-page.tsx",
-        "src/components/lab/plugin.ts",
-        "src/components/lab/routes.ts",
-        "src/components/lab/studies.ts",
-        "src/components/lab/surfaces.tsx",
-      ],
-    },
     {
       target: "@kb/canvas",
       files: [
@@ -286,9 +273,8 @@ export const BROWSER_HALF_SUFFIX = "-ui";
  * family and not listed here fails, and a listed one that no longer is a
  * surface fails too, so the list can only shrink.
  */
-// The lab half: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
 // The canvas half: GAP [[01M39F3MR3HT2NR553FY8CRD6X]]
-export const CORE_BROWSER_HALVES: ReadonlySet<string> = new Set(["canvas", "lab"]);
+export const CORE_BROWSER_HALVES: ReadonlySet<string> = new Set(["canvas"]);
 
 /**
  * The isomorphism fence. A `scope:shared` package runs in the browser too, so
@@ -408,7 +394,6 @@ export const UI_SRC = "packages/app/ui/src";
 type UiSurface =
   | "canvas"
   | "graph"
-  | "lab"
   | "layout"
   | "ontology"
   | "outline"
@@ -419,7 +404,6 @@ type UiSurface =
 export const UI_SURFACES: readonly UiSurface[] = [
   "canvas",
   "graph",
-  "lab",
   "layout",
   "ontology",
   "outline",
@@ -524,7 +508,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "primitives",
     "components/canvas",
     "components/graph",
-    "components/lab",
     "components/layout",
     "components/ontology",
     "components/outline",
@@ -565,8 +548,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   // whose three the lazy fence keeps behind the projection's own chunk.
   "components/canvas": extensionRow("components/canvas"),
   "components/graph": ["components/graph", "primitives", "stores", "actions", "lib"],
-  // The lab's studies stand on the scene kit, and on the shell through the host.
-  "components/lab": extensionRow("components/lab"),
   "components/ontology": ["components/ontology", "primitives", "stores", "actions", "lib"],
   // Panes and layouts: a pane draws whatever page its path resolves to, by
   // route and view key, so it imports no other surface.

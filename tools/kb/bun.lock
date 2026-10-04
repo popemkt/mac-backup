@@ -198,6 +198,7 @@
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
         "@kb/lab": "workspace:*",
+        "@kb/lab-ui": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
         "@kb/plugin": "workspace:*",
@@ -589,6 +590,28 @@
       "devDependencies": {
         "@kb/bundled": "workspace:*",
         "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/lab-ui": {
+      "name": "@kb/lab-ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/lab": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/scene": "workspace:*",
+        "@kb/scene-gpu": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "three": "catalog:",
+      },
+      "devDependencies": {
+        "@types/react": "catalog:",
+        "@types/three": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/infrastructure/sandbox-quickjs": {
@@ -1090,6 +1113,8 @@
     "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/contract/ext-sdk"],
 
     "@kb/lab": ["@kb/lab@workspace:packages/extension/lab"],
+
+    "@kb/lab-ui": ["@kb/lab-ui@workspace:packages/extension/lab-ui"],
 
     "@kb/mcp": ["@kb/mcp@workspace:packages/app/mcp"],
 

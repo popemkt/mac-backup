@@ -2025,19 +2025,19 @@ the shell.
   three, so a 3D host can mount a scene without carrying three itself
   ([The lab](#the-lab)).
 - **Until a half is a package, its zone carries the fence.** A feature zone
-  still in `@kb/ui` (`components/{lab,canvas}`) may reach
+  still in `@kb/ui` (`components/canvas`) may reach
   only itself, `@kb/ui-sdk` and the scene kit.
   `UI_ALLOWS` in `harness/src/constraints.ts` states the rows, and each
-  zone's row is deleted when its package leaves. GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
-  (lab) and GAP [[01M39F3MR3HT2NR553FY8CRD6X]] (canvas)
-  record the distance.
+  zone's row is deleted when its package leaves. The chart, code, agent and
+  lab halves are packages; GAP [[01M39F3MR3HT2NR553FY8CRD6X]] records the
+  canvas's distance.
 - **The lazy fence follows packages.** `UI_LAZY_ONLY` applies to the import
   closure from `UI_ENTRY`, walking into `scope:browser` workspace packages
   too, so a chart page moved out of `app/ui` is still fenced from Vega.
 
 ### The lab
 
-The lab (`components/lab`, `/lab`) is an off-by-default sketchbook for
+The lab (`@kb/lab-ui`, `/lab`) is an off-by-default sketchbook for
 real-time 3D: a place to study effects, lighting, polish and motion before
 anything reaches a working view. It is the first optional family: off until
 a person switches it on, on the server (above).
@@ -2096,7 +2096,7 @@ warmth, domain-warped haze and heat shimmer a study asks for — never a flat
 fill), `starfield` and `dispose`. The timing vocabulary (the motion tokens,
 springs, eases) is `@kb/ui-sdk`'s `lib/timing.ts`, beside `lib/motion.ts`,
 because DOM motion reads it too.
-What only the lab needs stays in `components/lab/kit`: `study`
+What only the lab needs stays in `@kb/lab-ui`'s `kit`: `study`
 (`mountStudy`: a study's side of `mountScene`, and the theme hand-off), `palette` (the
 `--lab-*` roles), `pan`, `pan-control` and `velocity` (drag-to-turn with
 momentum, the pointer's smoothed speed; a press is a pan or a grab of what

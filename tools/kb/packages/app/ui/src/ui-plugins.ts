@@ -12,7 +12,8 @@
  * reads the one bundled list as a store with no switch written. Every plugin
  * reaches the kernel through `syncUiPlugins`.
  *
- * The feature plugins are zones of this package: GAP [[01M41H30C2RSD2FGVYBT5HAG48]]
+ * Each family's browser entry comes from its `-ui` package, except the canvas,
+ * still a zone of this package: GAP [[01M39F3MR3HT2NR553FY8CRD6X]]
  */
 import { useSyncExternalStore } from "react";
 import { ulid } from "ulid";
@@ -113,7 +114,7 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null
   [docsExtension.name]: null,
   [canvasExtension.name]: { load: () => Promise.resolve(canvasUiPlugin) },
   [labExtension.name]: {
-    load: () => import("@/components/lab/plugin").then(({ labUiPlugin }) => labUiPlugin),
+    load: () => import("@kb/lab-ui").then(({ labUiPlugin }) => labUiPlugin),
   },
   [checkExtension.name]: null,
   [codeExtension.name]: { load: () => Promise.resolve(codeUiPlugin) },

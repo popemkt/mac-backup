@@ -33,6 +33,7 @@
     "@kb/contracts": "workspace:*",
     "@kb/docs": "workspace:*",
     "@kb/lab": "workspace:*",
+    "@kb/lab-ui": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
     "@kb/plugin": "workspace:*",

@@ -23,10 +23,10 @@ import {
  * list is the import graph's to answer, and a new study or renderer needs no
  * edit here.
  *
- * Red cases: add `import { Color } from "three"` to `components/lab/routes.ts`
- * (always loaded, through the lab plugin) or to `components/graph/graph-page.tsx`
+ * Red cases: add `import { Color } from "three"` to `@kb/lab-ui`'s `routes.ts`
+ * (always loaded with the lab plugin) or to `components/graph/graph-page.tsx`
  * (the graph's route chunk); turn `studies.ts`'s
- * `import("@/components/lab/embers/scene")` or graph-adapters' lazy 3D host
+ * `import("./embers/scene")` or graph-adapters' lazy 3D host
  * into a static import.
  */
 
@@ -162,7 +162,7 @@ describe("ui-lazy-fence", () => {
       "  Vector3,",
       '} from "three/webgpu"; // GAP [[g.multi]]',
     ].join("\n");
-    const sites = uiImportSitesIn("components/lab/probe.ts", source).map(
+    const sites = uiImportSitesIn("components/graph/probe.ts", source).map(
       ({ specifier, kind, line, gap }) => ({ specifier, kind, line, gap }),
     );
     expect(sites).toEqual([

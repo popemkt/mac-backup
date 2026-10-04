@@ -22,10 +22,7 @@ import {
  * fixture: a file there reaching a store, a shell `lib` module or an action
  * breaks the matrix, and the same file reaching the sdk package does not.
  */
-const EXTENSION_ZONES = [
-  "components/canvas",
-  "components/lab",
-] as const satisfies readonly UiZone[];
+const EXTENSION_ZONES = ["components/canvas"] as const satisfies readonly UiZone[];
 
 /**
  * How each import of `source`, written in a file of `zone`, breaks the matrix.

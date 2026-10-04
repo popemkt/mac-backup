@@ -66,7 +66,7 @@ const NOT_CLASSES: readonly NotAClass[] = [
   // tailwind-merge's theme key for the elevation names.
   { file: "@kb/ui-sdk/src/lib/cn.ts", candidate: "shadow", context: "shadow: [...ELEVATIONS]" },
   // Prose in the Light study's description.
-  { file: "components/lab/studies.ts", candidate: "shadow", context: "watch the soft shadow and" },
+  { file: "@kb/lab-ui/src/studies.ts", candidate: "shadow", context: "watch the soft shadow and" },
 ];
 
 /** A scanned occurrence: which file, which 1-based line, which candidate. */

@@ -1998,7 +1998,6 @@ end).
 Today's drift from this contract is marked where it sits:
 - feature view keys in `@kb/views`: GAP [[01M41H30342XZPX3CXZJTMPBYW]];
 - feature keys contributed through core's declaration: GAP [[01M3YM5XYZ4VHEK39RNQ6WWRPK]];
-- UI zones: GAP [[01M41H30C2RSD2FGVYBT5HAG48]];
 - open composition roots: GAP [[01M41H30Y60D3G9WJJX6NFQD2T]];
 - canvas: GAP [[01M39F3MR3HT2NR553FY8CRD6X]].
 

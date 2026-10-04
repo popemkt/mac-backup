@@ -832,6 +832,38 @@ pushed back, this is what was picked:
   files that name the old `@/scene` paths wait for E13, because 3D step 8
   was editing the canvas at the time.
 
+**Note from the doing (E12).** Where the plan was silent, or the code
+pushed back, this is what was picked:
+- **One package per family half**: `@kb/chart-ui`, `@kb/code-ui`,
+  `@kb/agent-ui` and `@kb/lab-ui`, each `scope:browser` with its family's
+  tag. The chart and the code view load from the main bundle, as before.
+  The agent and the lab are `import()` chunks. The chart page, the Vega
+  canvas, the code page, the lab page and each study's scene keep chunks of
+  their own.
+- **The browser half is checked.** `browserHalfProblems` holds a
+  `scope:browser` extension package to `@kb/<family>-ui` and a `-ui` package
+  to `scope:browser`. A surface of `@kb/ui` named for a family is a deferred
+  breach in `CORE_BROWSER_HALVES`, which now lists only the canvas and can
+  only shrink. With pairing, the browser root loads each family's UI from
+  the one package named for it, so the rule's "not checked yet" names only
+  core's remaining feature vocabulary.
+- **The agent's ports live in the root.** `src/agent.ts` bound the agent's
+  UI to the page's socket, socket state and settled invoke path. That
+  binding names a feature, so it moved into `ui-plugins.ts`, which builds
+  the agent's entry once, the first time it loads.
+- **`@kb/agent` stays in `@kb/ui`'s manifest.** The plan said it would
+  leave. But the root keys `BROWSER_EXTENSIONS` by the imported
+  declaration's name (E10) and names the agent's channel in its ports, as it
+  names every family's declaration. `@kb/chart-vega` did leave.
+- **Tests that drive a half against the real shell stay in `@kb/ui`**, at
+  its `src` root: the chart page, the agent dock, the agent host and lab
+  acceptance tests, the scene contract, and Embers' heat against every
+  design system's sheets. A `-ui` barrel names only what those tests need,
+  and never a lazy module, because that would make it eager. So the chart
+  test draws its view from the view point instead of importing the page.
+  The lab acceptance test mocks the Embers scene module by path, because
+  the lab page loads it by itself.
+
 ## 3D sequencing
 
 3D step 3 (solids, Milestone 1) landed on main at `bad8a5c7`, and no 3D

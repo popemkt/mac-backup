@@ -12,9 +12,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 |---|---|---|---|---|---|
 | Admission gate | CLAUDE.md#gate-run-first | repo | Every session and every commit records admission through the one gate script; a missing tool is restored, never worked around. | hook | — |
 | Generated docs are data | CLAUDE.md#kb--repo-knowledge-base | repo | Files under docs/kb are materialized from kb nodes; the data is edited and the file is regenerated, never the other way round. | hook | — |
-| Lab principles: measured bounds | tools/kb/DESIGN-UI.md#lab-principles | tools/kb packages/app/ui lab scene | The measurable lab principles hold as tests: the timing tokens are mirrored and inside their bounds (follow 300–600ms, ambient periods 8s or more; M5, M4), Embers pops within its budget (M4), and each study either runs on three's WebGL2 fallback without WebGPU or says why it cannot start (T1). | ci | — |
+| Lab principles: measured bounds | tools/kb/DESIGN-UI.md#lab-principles | tools/kb packages/extension/lab-ui lab scene | The measurable lab principles hold as tests: the timing tokens are mirrored and inside their bounds (follow 300–600ms, ambient periods 8s or more; M5, M4), Embers pops within its budget (M4), and each study either runs on three's WebGL2 fallback without WebGPU or says why it cannot start (T1). | ci | — |
 | Compiler strictness contract | tools/kb/DESIGN.md#compiler-strictness-contract | tools/kb | One base tsconfig owns strictness; the DESIGN.md table is the contract, packages declare only their delta, and a rejected flag is recorded with its measured count. | harness | — |
-| Core names no feature | tools/kb/DESIGN.md#extension-families | tools/kb packages | Every extension package belongs to one family, tagged with the name the family declares once, and imports another extension package only of its own family. An app package imports an extension package only from a composition-root file (EXTENSION_ROOTS), never re-exported, or from a file named as a deferred breach; and every extension package is loaded, by a value import, by a root of each host its scope runs in. Not checked yet: that core packages hold no feature vocabulary (the open extension-boundaries gaps), and that each family's browser half is a -ui package paired with BROWSER_EXTENSIONS (gap 01M41H30C2RSD2FGVYBT5HAG48, step E12). | harness | — |
+| Core names no feature | tools/kb/DESIGN.md#extension-families | tools/kb packages | Every extension package belongs to one family, tagged with the name the family declares once, and imports another extension package only of its own family. An app package imports an extension package only from a composition-root file (EXTENSION_ROOTS), never re-exported, or from a file named as a deferred breach; every extension package is loaded, by a value import, by a root of each host its scope runs in; and a family's browser half is its one @kb/<family>-ui package, a surface of @kb/ui named for a family being a deferred breach (CORE_BROWSER_HALVES). Not checked yet: that core packages hold no feature vocabulary (the open extension-boundaries gaps). | harness | — |
 | Coverage is a signal | tools/kb/DESIGN.md#testing-doctrine | tools/kb | Coverage is reported and never a threshold; chasing a percentage manufactures exactly the noise the testing doctrine forbids. | harness | — |
 | Design tokens: every class is live | tools/kb/DESIGN-UI.md#design-tokens | tools/kb packages/app/ui | Every class the UI writes emits CSS under kb's stylesheet. The token bridge resets Tailwind's own scales, so a default step (text-sm, shadow-xl, rounded-3xl) reads like a class and compiles to nothing; Tailwind itself, not a pattern list, decides which classes are dead. | harness | — |
 | Drift markers | CLAUDE.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | harness | — |
@@ -42,7 +42,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Domain typing — one canonical schema | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | A shared shape is declared once and referenced; an inline re-declaration of it is a divergence waiting to drop a field. | prose | — |
 | Effect v4 idiom | tools/kb/AGENTS.md#effect | tools/kb | Read the shipped Effect AGENTS.md before writing Effect code; the v4 non-negotiables listed there are not optional and v3 memory is wrong. | prose | effect-tsgo's effectFnOpportunity, promoted to error in the src/ lane of tsconfig.iso.json. Today it is off, and switching it on does not help yet: in effect-tsgo 0.40.0 it reports nothing through tsc, not even at error on a probe function that only returns an Effect.gen, so it has no sites to count. The other non-negotiables are partly held by errors that already run (outdatedApi, missingReturnYieldStar), which does not make the rule checked. |
 | Kinds, roles and options | tools/kb/DESIGN.md#kinds-roles-and-options | tools/kb | A supertag says what a node is; a behaviour is a field; an option set is children. Strip the behaviour and ask whether the node is still that thing. | prose | A lint rejecting a new supertag that templates no fields would close the option-set clause (@kb/model kinds.test.ts pins it for the seed); the strip test itself stays a reviewer judgement. |
-| Lab principles | tools/kb/DESIGN-UI.md#lab-principles | tools/kb packages/app/ui lab scene graph | Every lab study follows the motion (M1–M7), light and colour (L1–L5), composition (P1–P5) and technology (T1: WebGPU plus TSL only) principles and is built from the one scene kit (@kb/scene and @kb/scene-gpu), which the 3D graph stands on too; a study's info card cites the principles by id and never restates them. | prose | The measured bounds are their own rule (Lab principles: measured bounds). What is left is judgement: a render-lane frame-budget and reduced-motion-still check would close P3 and M7; composition and light stay a review verdict. |
+| Lab principles | tools/kb/DESIGN-UI.md#lab-principles | tools/kb packages/extension/lab-ui packages/kit lab scene graph | Every lab study follows the motion (M1–M7), light and colour (L1–L5), composition (P1–P5) and technology (T1: WebGPU plus TSL only) principles and is built from the one scene kit (@kb/scene and @kb/scene-gpu), which the 3D graph stands on too; a study's info card cites the principles by id and never restates them. | prose | The measured bounds are their own rule (Lab principles: measured bounds). What is left is judgement: a render-lane frame-budget and reduced-motion-still check would close P3 and M7; composition and light stay a review verdict. |
 | One contract, every implementation | AGENTS.md#one-contract-every-implementation | repo | A behaviour one implementation of a port guarantees is a guarantee of the port: stated once in the spec and proved by one contract suite that runs over every implementation. | prose | A harness check that every port with more than one implementation has a contract suite run over its whole registry. Not built yet, because half the ports are not discoverable: the store and tail ports are nominal (class … implements), but the scene handle, the graph renderers and the design systems are object-literal registries, so a check over implements clauses alone would read as covering the rule while missing them. The first step is one registry form every port declares. Found while looking: storeContract and logContract run over JsonlStore and SqliteStore (and their tails), but not over the UI's BrowserStore or tx-log's MemoryTxTail. |
 | Property selection | tools/kb/DESIGN.md#testing-doctrine | tools/kb tests | A property states a falsifiable domain claim and is exercised from the rejecting side. TAUTOLOGY, STRUCTURAL and quantifier theatre are review verdicts cited by name. | prose | — |
 | Spec-first changes | tools/kb/DESIGN.md#spec-first-changes | tools/kb | The design doc is edited before the code it describes, in the same change and earlier in commit order. If the section cannot be written, the code cannot be written. | prose | — |
@@ -550,9 +550,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: nothing confines feature imports to a composition root's bundled list
 
 - **expected** — an app package imports an extension package only from its one bundled-extensions file, and the harness checks it
-- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches are the rows of EXTENSION_ROOT_BREACHES: @kb/ui's components/lab (@kb/lab, since the lab's vocabulary left core in E9), components/canvas and catalog/canvas-card.stories.tsx (@kb/canvas), and @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it. The chart's, the code view's and the agent's rows left with @kb/chart-ui, @kb/code-ui and @kb/agent-ui (E12).
+- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches are the rows of EXTENSION_ROOT_BREACHES: @kb/ui's components/canvas and catalog/canvas-card.stories.tsx (@kb/canvas), and @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it. The chart's, the code view's, the agent's and the lab's rows left with their -ui packages (E12).
 - **impact** — the next move out of core can silently regrow a hardwired import, and a feature can be wired from anywhere
-- **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the agent, chart, code and lab UIs with @kb/agent-ui, @kb/chart-ui, @kb/code-ui and @kb/lab-ui (E12), the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
+- **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
 - **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
 
 ### GAP: only view.propose checks a view node's settings against its key
@@ -566,9 +566,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: orbit controls stand in the lab kit, not the scene kit
 
 - **expected** — Orbit (a pan read as a bearing round a target, plus a dolly and flights) is a scene-kit view control any 3D view can use, beside the stage.
-- **current** — components/lab/kit/orbit.ts, used by the Sky, Glass, River and Ocean studies; the 3D graph flies its camera with its own force3d-flight.
+- **current** — @kb/lab-ui's kit/orbit.ts, used by the Sky, Glass, River and Ocean studies; the 3D graph flies its camera with its own force3d-flight.
 - **impact** — The graph cannot take the lab's orbit without a lab import; two camera-control mechanisms.
-- **closes** — WP4 folds kit/orbit.ts into scene/ with the lab kit's view controls, and the graph's flight and the orbit share one camera rig.
+- **closes** — WP4 folds kit/orbit.ts into the scene kit with the lab kit's view controls, and the graph's flight and the orbit share one camera rig.
 - **node** — `01M3E9QZ3D6EG2W2MERM93ABNA`
 
 ### GAP: outline zoom is one per tab, not one per pane
@@ -775,14 +775,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — the canvas zone keeps one reach into the shell's stores, so @kb/canvas-ui cannot leave @kb/ui until it is replaced
 - **closes** — a NodeTextHost binding in @kb/ui-sdk over BrowserHost, then canvas-card uses it and the GAP marker goes; it must land before the canvas leaves @kb/ui (E13 of the extension-boundaries plan)
 - **node** — `01M41MHRD7MF4NP23EE294B69C`
-
-### GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not packages
-
-- **expected** — each is the browser package of its family, built against @kb/ui-sdk, and @kb/ui holds the shell and core views only
-- **current** — components/lab lives in @kb/ui, reaching the shell only through @kb/ui-sdk and the scene kit; @kb/ui depends on @kb/lab for it; ui-plugins.ts resolves the lab's browser entry from that zone (as an import() chunk), and CORE_BROWSER_HALVES sanctions it. The chart's, the code view's and the agent's halves are @kb/chart-ui, @kb/code-ui and @kb/agent-ui (E12).
-- **impact** — adding or removing a feature's UI edits @kb/ui, and the harness cannot pair a family with a -ui package in BROWSER_EXTENSIONS
-- **closes** — one -ui package per family, built against @kb/ui-sdk (E12 of the extension-boundaries plan); canvas is 01M39F3MR3HT2NR553FY8CRD6X
-- **node** — `01M41H30C2RSD2FGVYBT5HAG48`
 
 ### GAP: the CLI has no relative dates (today, next fri)
 
@@ -1474,6 +1466,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Highest-complexity handler in the canvas; clipboard parsing and selection maths are unreachable from tests.
 - **closes** — Same treatment as the outline keydown gap: pure chord mapping, separate appliers, clipboard parsing already has parseCanvasDoc to lean on.
 - **node** — `01M1MGCS6A29HT51G40W5TEEYK`
+
+### GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not packages
+
+- **expected** — each is the browser package of its family, built against @kb/ui-sdk, and @kb/ui holds the shell and core views only
+- **current** — Closed by E12 of the extension-boundaries plan. The chart, code, agent and lab UIs are @kb/chart-ui, @kb/code-ui, @kb/agent-ui and @kb/lab-ui (packages/extension, scope:browser, built against @kb/ui-sdk); ui-plugins.ts loads each through BROWSER_EXTENSIONS under its family's declared name (the agent and the lab as import() chunks), and their zones are gone from UI_ALLOWS. The harness holds each family's browser half to its one -ui package; the canvas's half is still a zone, gap 01M39F3MR3HT2NR553FY8CRD6X.
+- **impact** — adding or removing a feature's UI edits @kb/ui, and the harness cannot pair a family with a -ui package in BROWSER_EXTENSIONS
+- **closes** — one -ui package per family, built against @kb/ui-sdk (E12 of the extension-boundaries plan); canvas is 01M39F3MR3HT2NR553FY8CRD6X
+- **node** — `01M41H30C2RSD2FGVYBT5HAG48`
 
 ### GAP: the cluster renderer's lifecycle effect carries 28 branches
 

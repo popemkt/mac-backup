@@ -93,7 +93,7 @@
   --axis-x: var(--canvas-color-1);
   --axis-y: var(--canvas-color-4);
   --axis-z: var(--canvas-color-5);
-  /* Lab palette (components/lab, Lab principles L1): one violet hue family
+  /* Lab palette (@kb/lab-ui, Lab principles L1): one violet hue family
    * and one accent, the app's own primary. Light: a lavender daylight. */
   --lab-ground: oklch(0.955 0.02 292);
   --lab-edge: oklch(0.87 0.04 290);

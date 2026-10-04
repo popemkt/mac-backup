@@ -1,0 +1,78 @@
+import { describe, expect, it } from "vitest";
+import { float } from "three/tsl";
+import { colorUniform } from "@kb/scene-gpu";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
+import type { LabGraph } from "../lab-graph";
+import { Entrance } from "../kit/entrance";
+import { NodeStars, stepConstellation } from "./stars";
+
+const colors = {
+  ground: colorUniform(),
+  edge: colorUniform(),
+  hue: colorUniform(),
+  ink: colorUniform(),
+  accent: colorUniform(),
+};
+
+const node = (id: string) => ({
+  id,
+  label: id,
+  degree: 1,
+  cluster: "c",
+  recency: 0.5,
+  glint: false,
+});
+const graph: LabGraph = {
+  nodes: [node("a"), node("b")],
+  edges: [{ source: "a", target: "b" }],
+};
+
+function stars(): NodeStars {
+  const u = {
+    time: float(0),
+    twinkle: float(0),
+    hover: float(-1),
+    spikes: float(1),
+    lines: float(0),
+  };
+  return new NodeStars(colors, u, graph, new Entrance(TIMING_FALLBACK));
+}
+
+describe("the Sky's constellation lines", () => {
+  it("under reduced motion, are hidden on the same draw that lets them go", () => {
+    const s = stars();
+    s.constellation(0);
+    expect(s.lines.visible).toBe(true);
+    expect(s.fadeLines(0, 8, 0, true)).toBe(1);
+    s.constellation(-1);
+    expect(s.fadeLines(1, 8, 0, true)).toBe(0);
+    expect(s.lines.visible).toBe(false);
+  });
+
+  it("see a let-go on the frame it happens: the hover settles before the fade", () => {
+    const s = stars();
+    s.constellation(0);
+    // The pointer left the star this frame: the hover lets the lines go.
+    const hover = { frame: () => s.constellation(-1) };
+    const opacity = stepConstellation(
+      { hover, stars: s },
+      { opacity: 1, rate: 8, dt: 0, reduced: true, holding: false },
+    );
+    expect(opacity).toBe(0);
+    expect(s.lines.visible).toBe(false);
+  });
+
+  it("with motion, stay drawn while they fade out, then hide", () => {
+    const s = stars();
+    s.constellation(0);
+    s.constellation(-1);
+    const fading = s.fadeLines(1, 8, 1 / 60, false);
+    expect(fading).toBeGreaterThan(0);
+    expect(fading).toBeLessThan(1);
+    expect(s.lines.visible).toBe(true);
+    let opacity = fading;
+    for (let i = 0; i < 120; i++) opacity = s.fadeLines(opacity, 8, 1 / 60, false);
+    expect(opacity).toBe(0);
+    expect(s.lines.visible).toBe(false);
+  });
+});

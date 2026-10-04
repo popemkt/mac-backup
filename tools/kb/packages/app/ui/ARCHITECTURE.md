@@ -116,7 +116,6 @@ components/
   graph/                  renderers + toolbar (lazy page)
   canvas/                 page + cards (lazy)
   ontology/               scope + definition pages (lazy)
-  lab/                    optional 3D studies: kit/ + one folder per study (lazy)
   sidebar/, palette/, prefs/, ui/
 catalog/                  story modules + smoke tests (dev/test only)
 stores/, lib/, api/, actions/
@@ -126,7 +125,9 @@ The UI points, the primitives, the page's pure helpers, `BrowserHost` and the
 one `@kb/query` seam are the `@kb/ui-sdk` package (`packages/kit/ui-sdk`),
 which a family's UI half builds against and the shell builds on too. The
 scene kit every real-time 3D view stands on is `@kb/scene` and, for what is
-three, `@kb/scene-gpu` (`packages/kit`).
+three, `@kb/scene-gpu` (`packages/kit`). Each family's UI half is its own package
+(`packages/extension/<family>-ui`: chart, code, agent, lab), loaded by
+`src/ui-plugins.ts`; the canvas is still `components/canvas`.
 
 Colocate tests as `*.test.ts(x)` next to the unit. Catalog stories are
 `catalog/<name>.stories.tsx` in Storybook CSF3 format.
