@@ -8,7 +8,8 @@
  *
  * Neither node is seeded. `extension.switch` writes them the first time a
  * person switches the family, so opening a store never writes them, and a
- * store without them has every optional family off.
+ * store without them has every optional family as its declaration has it by
+ * default.
  */
 import { Schema } from "effect";
 import {
@@ -34,33 +35,37 @@ export function extensionNodeId(name: string): string {
 /** How a store finds a node by id. */
 export type NodeLookup = (id: string) => KbNode | undefined;
 
-/** A store with no switch written: every optional family off. */
+/** A store with no switch written: every optional family as it is by default. */
 export const NO_SWITCHES: NodeLookup = () => undefined;
 
-/** A family's node as a config: whether it is on, off when it does not say. */
-const SWITCH: ConfigSlots<{ enabled: boolean }> = {
-  enabled: oneOf({
-    fields: [EXTENSION_ENABLED_FIELD],
-    read: firstBool(EXTENSION_ENABLED_FIELD),
-    write: writeBool(EXTENSION_ENABLED_FIELD),
-    schema: Schema.Boolean,
-    fallback: false,
-  }),
-};
+/** A family's node as a config: whether it is on, `byDefault` when it does not say. */
+function switchSlots(byDefault: boolean): ConfigSlots<{ enabled: boolean }> {
+  return {
+    enabled: oneOf({
+      fields: [EXTENSION_ENABLED_FIELD],
+      read: firstBool(EXTENSION_ENABLED_FIELD),
+      write: writeBool(EXTENSION_ENABLED_FIELD),
+      schema: Schema.Boolean,
+      fallback: byDefault,
+    }),
+  };
+}
 
 /**
  * Whether the store `nodeOf` reads has the family on: an optional one by its
- * switch, any other always. A switch that does not read as a checkbox is
- * off, and `report` hears why.
+ * switch, or by its declared default where none is written; a required one
+ * always, whatever its node says. A switch that does not read as a checkbox
+ * reads as the default, and `report` hears why.
  */
 export function familyOn(
   declaration: ExtensionDeclaration,
   nodeOf: NodeLookup,
   report: (warning: string) => void,
 ): boolean {
-  if (declaration.optional !== true) return true;
+  if (declaration.optional === undefined) return true;
   const props = nodeOf(extensionNodeId(declaration.name))?.props;
-  return decodeNodeConfig(SWITCH, props, report)("enabled");
+  const slots = switchSlots(declaration.optional.byDefault === "on");
+  return decodeNodeConfig(slots, props, report)("enabled");
 }
 
 /**
@@ -80,7 +85,8 @@ export function switchWrites(
       : [];
   const id = extensionNodeId(family.name);
   const existing = nodeOf(id);
-  const props = encodeNodeConfig(SWITCH, { enabled: on });
+  // A written switch holds its value whatever the default, which only a read consults.
+  const props = encodeNodeConfig(switchSlots(on), { enabled: on });
   const node: KbNode =
     existing === undefined
       ? { id, text: family.label, props, children: [], createdAt: at, updatedAt: at }

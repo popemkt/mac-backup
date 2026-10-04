@@ -123,7 +123,8 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null
 
 /**
  * The bundled families as the page reads them while no server answers: a
- * server over a store with no switch written, so an optional family is off.
+ * server over a store with no switch written, so an optional family is as
+ * its declaration has it by default.
  * It hosts nothing, so it reports no agent.
  */
 const OWN_EXTENSIONS: readonly ExtensionRow[] = BUNDLED_FAMILIES.map((declaration) =>
@@ -215,15 +216,16 @@ async function converge(rows: readonly ExtensionRow[]): Promise<void> {
   syncUiPlugins([...CORE_UI_PLUGINS, ...entries.filter((entry) => entry !== null)]);
 }
 
-/** The optional families' switch nodes. */
-const SWITCH_NODES = BUNDLED_FAMILIES.filter((declaration) => declaration.optional === true).map(
-  (declaration) => extensionNodeId(declaration.name),
-);
-
-/** Where the page's graph has each switch node now: its version, joined. */
+/**
+ * Where the page's graph has the switch node of each optional family it
+ * follows now: its version, joined.
+ */
 function switchVersions(): string {
   const { nodes } = useOutlineStore.getState();
-  return SWITCH_NODES.map((id) => nodes.get(id)?.updatedAt ?? "").join("\n");
+  return followedExtensions()
+    .filter((row) => row.optional)
+    .map((row) => nodes.get(extensionNodeId(row.name))?.updatedAt ?? "")
+    .join("\n");
 }
 
 /**

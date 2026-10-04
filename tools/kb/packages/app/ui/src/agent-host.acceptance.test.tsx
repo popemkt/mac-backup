@@ -10,7 +10,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { agentExtension } from "@kb/agent";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
-import { extensionRow, type ActionInvocation, type GraphSnapshot } from "@kb/contracts";
+import {
+  NO_SWITCHES,
+  extensionRow,
+  familyOn,
+  type ActionInvocation,
+  type GraphSnapshot,
+} from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 
 const { App } = await import("@/components/App");
@@ -42,7 +48,11 @@ async function answer(invocation: ActionInvocation) {
   }
   const extensions = [
     ...BUNDLED_FAMILIES.map((declaration) =>
-      extensionRow(declaration, "bundled", declaration.optional !== true),
+      extensionRow(
+        declaration,
+        "bundled",
+        familyOn(declaration, NO_SWITCHES, () => {}),
+      ),
     ),
     ...(server.agent ? [extensionRow(agentExtension, "host", true)] : []),
   ];

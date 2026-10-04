@@ -8,7 +8,7 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { makeKernel } from "@kb/plugin";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
-import { extensionRow, type ExtensionRow } from "@kb/contracts";
+import { NO_SWITCHES, extensionRow, familyOn, type ExtensionRow } from "@kb/contracts";
 import { agentExtension } from "@kb/agent";
 import { labExtension } from "@kb/lab";
 import {
@@ -22,9 +22,9 @@ import {
 import { NoParams, viewKey, type OntologyView } from "@kb/views";
 import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS, familiesToLoad } from "@/ui-plugins";
 
-/** The browser entries of the families that are always on, as the resolver loads them. */
+/** The browser entries of the families on in a store with no switch written, as the resolver loads them. */
 const ALWAYS_ON = await Promise.all(
-  BUNDLED_FAMILIES.filter((declaration) => declaration.optional !== true).flatMap(
+  BUNDLED_FAMILIES.filter((declaration) => familyOn(declaration, NO_SWITCHES, () => {})).flatMap(
     (declaration) => BROWSER_EXTENSIONS[declaration.name]?.load() ?? [],
   ),
 );
@@ -138,7 +138,7 @@ describe("the families the page loads", () => {
   });
 
   it("leave out a family the server reports not loaded: the lab while it is off", () => {
-    expect(labExtension.optional).toBe(true);
+    expect(labExtension.optional).toEqual({ byDefault: "off" });
     expect(familiesToLoad(reported((name) => name !== "lab"))).toEqual(["canvas", "code", "chart"]);
   });
 

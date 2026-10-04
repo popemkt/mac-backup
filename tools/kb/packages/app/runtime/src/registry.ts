@@ -244,8 +244,8 @@ const NO_ROOT_KEY = "no-root";
 /**
  * Registry for a kb root: core actions + the bundled extensions its store
  * has on + `.kb/extensions/*.ts`. An optional family is on while the store
- * `nodeOf` reads says so (`familyOn`); with no store, every optional family
- * is off. Cached per root and per set of families on, for the process
+ * `nodeOf` reads says so, or by its declared default where it says nothing
+ * (`familyOn`); with no store, every optional family is as it is by default. Cached per root and per set of families on, for the process
  * lifetime (extension changes need a restart), so switching a family is a
  * new key, and switching it back finds the old registry. `null` root = core
  * + bundled only.
@@ -261,7 +261,7 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
   const key = [root ?? NO_ROOT_KEY, ...on.map(({ declaration }) => declaration.name)].join("\0");
   let registry = registryCache.get(key);
   if (registry === undefined) {
-    for (const warning of unread) writeErr(`kb: extension switch ${warning} (read as off)`);
+    for (const warning of unread) writeErr(`kb: extension switch ${warning} (read as its default)`);
     // `Effect.cached` is what makes the entry a build-once value rather than a
     // recipe: concurrent callers share the one in-flight build, as the cached
     // Promise did.
