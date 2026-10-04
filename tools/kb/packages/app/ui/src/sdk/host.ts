@@ -80,7 +80,13 @@ export interface BrowserHost {
   readonly replaceField: (nodeId: string, fieldId: string, values: PropValue[]) => Promise<void>;
   /** Set a node's text, through the page's one write path. */
   readonly updateNodeContent: (nodeId: string, text: string) => Promise<void>;
-  /** Attach a file to a node; false when it could not be attached. */
+  /**
+   * Store a file as an asset through `asset.upload`; the `assets/…` path it
+   * is referenced by (markdown's `![](assets/…)`, a canvas image's `file`),
+   * or null when it could not be stored (the page has said why).
+   */
+  readonly uploadAsset: (file: File) => Promise<string | null>;
+  /** Attach a file to a node (`uploadAsset`, then a markdown reference); false when it could not be attached. */
   readonly attachFileToNode: (nodeId: string, file: File) => Promise<boolean>;
   /** Take a tag off a node. */
   readonly removeTag: (nodeId: string, tagId: string) => Promise<void>;

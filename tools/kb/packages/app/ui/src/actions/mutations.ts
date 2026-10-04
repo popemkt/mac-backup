@@ -529,17 +529,17 @@ export const mutations = {
   },
 
   /**
-   * W6a: upload a file via `asset.upload`, then append `![alt](assets/…)`
-   * markdown to the node text.
+   * W6a: store a file's bytes as an asset through `asset.upload`, the one
+   * way bytes enter `.kb/assets/`; the `assets/…` path that markdown and a
+   * canvas image both reference it by, or null (told by a toast) when it
+   * could not be stored.
    */
-  async attachFileToNode(nodeId: string, file: File): Promise<boolean> {
-    if (!guardSysWrite(nodeId)) return false;
+  async uploadAsset(file: File): Promise<string | null> {
     const store = useOutlineStore.getState();
     if (store.loadSource === "fixtures" || store.loadSource === null) {
       toast("Cannot upload assets without a live kb server");
-      return false;
+      return null;
     }
-
     try {
       const buf = new Uint8Array(await file.arrayBuffer());
       let binary = "";
@@ -551,19 +551,35 @@ export const mutations = {
       });
       if (receipt.status === "failed") {
         toast(receipt.message);
-        return false;
+        return null;
       }
       const out = AssetUploadOutputSchema.safeParse(receipt.output);
       if (!out.success) {
         toast("asset.upload returned no path");
-        return false;
+        return null;
       }
+      return out.data.path;
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err));
+      return null;
+    }
+  },
+
+  /**
+   * W6a: upload a file (`uploadAsset`), then append `![alt](assets/…)`
+   * markdown to the node text.
+   */
+  async attachFileToNode(nodeId: string, file: File): Promise<boolean> {
+    if (!guardSysWrite(nodeId)) return false;
+    const path = await mutations.uploadAsset(file);
+    if (path === null) return false;
+    try {
       // The whole graph, not the projection: the row may be a reference whose
       // target sits outside the current scope, and its text must not be read
       // as empty and overwritten.
       const node = useOutlineStore.getState().wireNodes.find((n) => n.id === nodeId);
       const alt = file.name.replace(/\.[^.]+$/, "") || "file";
-      const md = `![${alt}](${out.data.path})`;
+      const md = `![${alt}](${path})`;
       const next =
         node === undefined || node.text.trim() === ""
           ? md
