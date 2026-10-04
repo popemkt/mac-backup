@@ -340,14 +340,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — view nodes (roadmap step 2), then canvas as a view type
 - **node** — `01M3S5DD5W4B3BSZMA6DE8ZVP8`
 
-### GAP: canvas UI still lives in @kb/ui, not in a canvas browser plugin
-
-- **expected** — Canvas is three packages around one concept, one scope:* tag each, never one package with two entries. @kb/canvas (scope:shared, no dependencies) owns the JSON Canvas document. @kb/ext-canvas (scope:backend) is the backend plugin: ext.canvas.tx.apply plus the #canvas tag and sys.f.canvas field seeds, which leave @kb/model's systemSeedNodes because the system seed is core, not every view kb ships. A browser plugin package (scope:browser) contributes the canvas surfaces and sidebar section to the browser kernel. Both plugins depend on @kb/plugin and @kb/canvas, and neither names the other by a string literal.
-- **current** — The canvas UI is a built-in UI plugin in packages/app/ui/src/components/canvas, its former lib/canvas-* modules included; it reaches the shell only through @kb/ui-sdk and the scene kit, its node card's text host included (useNodeTextBinding over BrowserHost). Its seed and ids are the canvas family's (@kb/canvas, E9b); the UI calls the action by the string ext.canvas.tx.apply.
-- **impact** — An extension cannot own its UI, so canvas is only nominally an extension, and removing ext-canvas leaves a canvas UI with no backend.
-- **closes** — Move components/canvas into a browser package @kb/canvas-ui built against @kb/ui-sdk (E13 of the extension-boundaries plan); move the canvas keys, ids and seed into @kb/canvas's shared plugin (E9b), not @kb/ext-canvas. The harness keeps one scope per package; no per-entry scope.
-- **node** — `01M39F3MR3HT2NR553FY8CRD6X`
-
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
 
 - **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
@@ -574,7 +566,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: nothing confines feature imports to a composition root's bundled list
 
 - **expected** — an app package imports an extension package only from its one bundled-extensions file, and the harness checks it
-- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches are the rows of EXTENSION_ROOT_BREACHES: @kb/ui's components/canvas and catalog/canvas-card.stories.tsx (@kb/canvas), and @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it. The chart's, the code view's, the agent's and the lab's rows left with their -ui packages (E12).
+- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches are the rows of EXTENSION_ROOT_BREACHES: @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it. Every family's UI rows left with its -ui package (E12, and the canvas at E13); E18 of the extension SDK plan removes the CLI rows.
 - **impact** — the next move out of core can silently regrow a hardwired import, and a feature can be wired from anywhere
 - **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
 - **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
@@ -884,7 +876,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the outline's bullet kit keeps a copy of the canvas tag id
 
 - **expected** — the canvas family contributes its bullet kind (tag id and glyph) through a point the kit's bullet-mode reads, so the kit names no family
-- **current** — kit/ui-sdk/src/lib/bullet-mode.ts copies sys.tag.canvas, held equal to CANVAS_IDS.canvasTag by components/canvas/canvas-bullet.test.ts, because the kit may not import a family
+- **current** — kit/ui-sdk/src/lib/bullet-mode.ts copies sys.tag.canvas, held equal to CANVAS_IDS.canvasTag by @kb/canvas-ui's canvas-bullet.test.ts, because the kit may not import a family; closing it needs a point both the pure bullet function and the graph's GPU glyph atlas read
 - **impact** — a mirror held by a test: renaming the canvas tag id fails a test instead of flowing through, and a second family with its own bullet kind would add a second copy
 - **closes** — a bullet-kind point in @kb/ui-sdk that families contribute to, after E13 moves the canvas UI into @kb/canvas-ui
 - **node** — `01M436DVSEHKNYWSF2MR07HPMR`
@@ -1188,6 +1180,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The move and up handlers each re-derive the drag kind's meaning, so they can disagree.
 - **closes** — Falls out of the onPointerMove gap: one state machine owns both.
 - **node** — `01M1MGCT80E1FMXMEAEATS1VER`
+
+### GAP: canvas UI still lives in @kb/ui, not in a canvas browser plugin
+
+- **expected** — Canvas is three packages around one concept, one scope:* tag each, never one package with two entries. @kb/canvas (scope:shared, no dependencies) owns the JSON Canvas document. @kb/ext-canvas (scope:backend) is the backend plugin: ext.canvas.tx.apply plus the #canvas tag and sys.f.canvas field seeds, which leave @kb/model's systemSeedNodes because the system seed is core, not every view kb ships. A browser plugin package (scope:browser) contributes the canvas surfaces and sidebar section to the browser kernel. Both plugins depend on @kb/plugin and @kb/canvas, and neither names the other by a string literal.
+- **current** — Closed by E13. The canvas UI is @kb/canvas-ui (packages/extension/canvas-ui, scope:browser, family:canvas), built against @kb/ui-sdk and the scene kit, loaded by ui-plugins.ts; CORE_BROWSER_HALVES is empty.
+- **impact** — An extension cannot own its UI, so canvas is only nominally an extension, and removing ext-canvas leaves a canvas UI with no backend.
+- **closes** — Move components/canvas into a browser package @kb/canvas-ui built against @kb/ui-sdk (E13 of the extension-boundaries plan); move the canvas keys, ids and seed into @kb/canvas's shared plugin (E9b), not @kb/ext-canvas. The harness keeps one scope per package; no per-entry scope.
+- **node** — `01M39F3MR3HT2NR553FY8CRD6X`
 
 ### GAP: caret geometry is an outline internal two zones reach for
 
