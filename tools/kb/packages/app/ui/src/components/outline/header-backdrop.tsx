@@ -1,4 +1,7 @@
 import { tagColorAlpha } from "@kb/ui-sdk";
+import { usePrefsStore } from "@/stores/prefs.store";
+import { UnicornBackdrop } from "./unicorn-backdrop";
+import "./header-backdrop.css";
 
 /**
  * The ambient wash behind a page's head: a soft radial tint of `color`,
@@ -6,6 +9,7 @@ import { tagColorAlpha } from "@kb/ui-sdk";
  * header paints its tag's colour; home, which has no tag, paints the accent.
  */
 export function HeaderBackdrop({ color }: { color: string }) {
+  const backdrop = usePrefsStore((s) => s.headerBackdrop);
   // The wash spreads 60px past the head on each side, which inside the main
   // region's `overflow-x: auto` is 60px of sideways scroll. So it paints in a
   // box of the head's own width that clips horizontally (`clip`, which, unlike
@@ -13,8 +17,8 @@ export function HeaderBackdrop({ color }: { color: string }) {
   // Only the wash is clipped, never the editor: a wide table must still scroll.
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 overflow-x-clip"
-      style={{ top: "-40px", bottom: "-30px" }}
+      className="kb-header-backdrop pointer-events-none overflow-x-clip"
+      data-backdrop={backdrop}
       aria-hidden="true"
       data-header-wash="true"
     >
@@ -29,6 +33,7 @@ export function HeaderBackdrop({ color }: { color: string }) {
             `${tagColorAlpha(color, 2)} 40%, transparent 80%)`,
         }}
       />
+      {backdrop === "unicorn" && <UnicornBackdrop />}
     </div>
   );
 }

@@ -2,7 +2,6 @@ import { useCallback, useState } from "react";
 import { LockSimpleIcon } from "@phosphor-icons/react";
 import {
   cn,
-  hasText,
   isSysPrefixed,
   nodeTagColors,
   rowText,
@@ -123,7 +122,7 @@ export function ZoomedRootHeader({
       data-frame-id={node.id}
     >
       <div className="relative pl-7 pt-1">
-        {hasText(washColor) && <HeaderBackdrop color={washColor} />}
+        <HeaderBackdrop color={washColor ?? "var(--primary)"} />
 
         <div className="group/header relative flex min-h-9 items-center justify-between gap-2">
           <EditableTitle node={node} />

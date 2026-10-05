@@ -1,6 +1,8 @@
 import {
   cn,
   DESIGN_SYSTEMS,
+  HEADER_BACKDROPS,
+  HEADER_BACKDROP_LABELS,
   EnumSelect,
   isOutside,
   POPOVER_VALUE_CLASS,
@@ -69,6 +71,7 @@ export function PreferencesPopover({
       <ThemeRow />
       <DesignSystemRow />
       <WidthRow />
+      <HeaderBackdropRow />
       {switches.length > 0 ? (
         <section aria-label="plugins">
           <h3 className="px-1.5 pb-1 pt-2 text-meta uppercase tracking-wide text-foreground/30">
@@ -162,6 +165,21 @@ function WidthRow() {
         value={width}
         options={WIDTH_OPTIONS}
         onChange={setWidth}
+      />
+    </PrefFieldRow>
+  );
+}
+
+function HeaderBackdropRow() {
+  const backdrop = usePrefsStore((s) => s.headerBackdrop);
+  const setBackdrop = usePrefsStore((s) => s.setHeaderBackdrop);
+  return (
+    <PrefFieldRow icon={SwatchesIcon} label="header">
+      <EnumSelect
+        className={POPOVER_VALUE_CLASS}
+        value={backdrop}
+        options={HEADER_BACKDROPS.map((value) => ({ value, label: HEADER_BACKDROP_LABELS[value] }))}
+        onChange={setBackdrop}
       />
     </PrefFieldRow>
   );

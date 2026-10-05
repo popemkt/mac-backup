@@ -9,6 +9,14 @@ export type ThemePref = (typeof THEMES)[number];
 export const WIDTHS = ["centered", "full"] as const;
 export type WidthPref = (typeof WIDTHS)[number];
 
+/** Decorative treatment of the shared page header, independent of its design system. */
+export const HEADER_BACKDROPS = ["gradient", "unicorn"] as const;
+export type HeaderBackdropPref = (typeof HEADER_BACKDROPS)[number];
+export const DEFAULT_HEADER_BACKDROP: HeaderBackdropPref = "unicorn";
+export const HEADER_BACKDROP_LABELS: Record<HeaderBackdropPref, string> = {
+  gradient: "Gradient",
+  unicorn: "Unicorn",
+};
 /**
  * The design systems (DESIGN-UI.md → Design tokens → Design systems), in
  * picker order, the default first. Each id other than the default names one

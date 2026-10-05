@@ -1,0 +1,152 @@
+{
+  "history": [
+    {
+      "layerType": "flattened",
+      "id": "flat_0",
+      "compiledFragmentShaders": [
+        "#version 300 es\n// Copyright (c) Unicorn Studio. Licensed under the Unicorn Studio Commercial License.\n// Unauthorized copying, redistribution, or use in competing products is prohibited.\nprecision highp float;\nin vec2 vTextureCoord;\nin vec3 vVertexPosition;\n\nuniform vec2 uMousePos;\nuniform float uL0_ElemOpacity;\nuniform vec2 uL1_MousePos;\nuniform vec2 uResolution;\nuniform float uL1_Time;\nuniform float uL1_ElemOpacity;\n\nconst float PI = 3.14159265359;\nconst float TAU = 6.28318530718;\nconst mat3 GOLD = mat3(\n-0.571464913, +0.814921382, +0.096597072,\n-0.278044873, -0.303026659, +0.911518454,\n+0.772087367, +0.494042493, +0.399753815);\nconst mat3 GOLD_PHI = mat3(\n-0.924648, -0.449886, 1.249265,\n1.318571, -0.490308, 0.800377,\n0.156297, 1.474868, 0.646816);\nconst mat3 ROT1 = mat3(-0.57, 0.81, 0.10, -0.28, -0.30, 0.91, 0.77, 0.49, 0.40);\nconst mat3 ROT2 = mat3(0.1746, -0.6561, 0.7314, 0.9452, 0.3072, 0.0211, -0.2389, 0.6865, 0.6863);\nconst int ITERATIONS = 40;\n\nout vec4 fragColor;\n\nvec2 rotate_L0(vec2 coord, float angle) {\nfloat s = sin(angle);\nfloat c = cos(angle);\nreturn vec2(\ncoord.x * c - coord.y * s,\ncoord.x * s + coord.y * c\n);\n}\nvec3 getBgColor_L0(vec2 uv) {\nreturn vec3(0, 0, 0);\n}\nfloat interleavedGradientNoise_L1(vec2 st) {\nreturn fract(52.9829189 * fract(dot(st, vec2(0.06711056, 0.00583715))));\n}\nvec3 hue_L1(float t) {\nreturn vec3(0.5) + 0.5 * cos(TAU * t + vec3(0.0, 2.0, 4.0));\n}\nfloat dot_noise_L1(vec3 p) {\nreturn dot(cos(GOLD * p), sin(GOLD_PHI * p));\n}\nfloat sdCircle_L1(vec2 uv, vec2 scale) {\nvec2 scaledUv = uv / scale;\nreturn length(scaledUv) - 1.0;\n}\nmat2 rot_L1(float a) {\nreturn mat2(cos(a),-sin(a),sin(a),cos(a));\n}\nfloat getDistance_L1(vec2 uv, float scale) {\nvec2 finalScale = scale * vec2(1.0 - -0.9500 * 0.5, 1.0 + -0.9500 * 0.5);\nfinalScale *= mix(0.8, 1.2, 0.6300);\nreturn sdCircle_L1(uv, finalScale);\n}\nfloat density_L1(vec3 q, float amplitude, float depth, vec2 skew) {\nfloat d = 0.0;\nfloat fd = 0.0;\nq.xy = (q.xy - 0.5) * skew + 0.5;\nq.z = q.z * depth;\nfloat n = dot_noise_L1(q * vec3(1.6, 0.8, 1.1)) * 0.9;\nd += amplitude * n;\nfloat val = d * 0.5 + 0.5;\nfd += max(0.0, val) * amplitude;\nq = (ROT1 * (q * vec3(0.8, 1.6, 0.9))) * 2.2 + vec3(1.025, 0.575, 0.425);\namplitude *= 0.5 + 0.5 * (n * 0.5);\nn = dot_noise_L1(q) * 0.9;\nd += amplitude * n;\nval = d * 0.5 + 0.5;\nfd += (val * val) * amplitude;\nq = (ROT2 * (q * vec3(1.6, 0.8, 1.1))) * 2.6 + vec3(2.05, 1.15, 0.85);\namplitude *= 0.5 + 0.5 * abs(n);\nn = dot_noise_L1(q) * 1.1;\nd += amplitude * n;\nval = d * 0.5 + 0.5;\nfd += (val * val) * amplitude;\nreturn fd;\n}\n\nvec4 computeLayer_L0(vec2 uv) {\nvec2 pos = vec2(0.2195121951219512, 0.7606271777003484) + mix(vec2(0), (uMousePos-0.5), 0.0000);\nuv -= pos;\nuv /= max(0.5000*2., 1e-5);\nuv = rotate_L0(uv, (0.0000 - 0.5) * 2. * PI);\nvec4 color = vec4(getBgColor_L0(uv), 1.0) * 1.0000;\nreturn color;\n}\nvec4 computeLayer_L1(vec2 uv, vec4 prevLayerColor) {\nvec2 aspect = vec2(uResolution.x / uResolution.y, 1.0);\nvec4 bg = prevLayerColor;\nvec2 pos = vec2(0.5218611697844401, -0.09594435960768921) + (uL1_MousePos - 0.5) * 0.1100;\nfloat mDist = length(uv * aspect - vec2(0.5218611697844401, -0.09594435960768921) * aspect + (uL1_MousePos - 0.5) * aspect);\nmDist = smoothstep(0.0, 0.5, (0.05/mDist) * 2.0);\nvec2 sdfUv = (uv - vec2(0.5218611697844401, -0.09594435960768921) - vec2(0, -0.02)) * aspect;\nfloat angleRad = 0.0027 * -TAU;\nmat2 rotationMatrix = rot_L1(angleRad);\nsdfUv = rotationMatrix * sdfUv;\nvec2 mouseOffset = rotationMatrix * ((uL1_MousePos - 0.5) * 0.0000 * aspect);\nsdfUv -= mouseOffset;\nfloat sdf = getDistance_L1(sdfUv, 1.5200);\nfloat ampSdf = smoothstep(0.1, 0.6300 * 1.5, -sdf);\nvec3 col = vec3(0.0);\nfloat transmittance = 1.0;\nfloat depthClip = 0.0000;\nint emptySteps = 0;\nfloat accumulatedLight = 0.0;\nbool hit = false;\nif(ampSdf > 0.0) {\nvec2 uvCentered = (uv - vec2(0.5218611697844401, -0.09594435960768921)) * aspect;\nvec3 ro = vec3(pos.x, pos.y, -3.0);\nvec3 rd = normalize(vec3(uvCentered, 1.0));\nfloat MAX_DIST = 1.0 + (0.8400 * 2.0);\nfloat baseStep = MAX_DIST / float(ITERATIONS);\nfloat ign = interleavedGradientNoise_L1(uResolution * vTextureCoord);\nfloat t = baseStep * ign;\nfloat wrappedTime = (uL1_Time) * 0.05 + 0.0000 * 50.0;\nfloat lightScale = baseStep * mix(2.0, 36.0, 1.0000);\nfloat absorptionScale = baseStep * mix(1.0, 8.0, 1.0000);\nfloat scale = mix(2.0, 8.0, 0.7800);\nfloat lastDensity = 0.0;\nfloat ampBase = mix(0.2, 1.2, 0.3000) * 2.0;\nfloat amplitude = mix(ampBase, ampBase * ampSdf, depthClip);\nvec3 q_ro = ro * scale + vec3(-vec3(0, 0, 1).x, vec3(0, 0, 1).y, vec3(0, 0, 1).z + (0.8400 * 2.0)) * wrappedTime;\nvec3 q_rd = rd * scale;\nfloat maxDepthFull = MAX_DIST;\nfloat maxDepthClipped = MAX_DIST * (0.2 + 0.8 * ampSdf * ampSdf);\nfloat maxDepth = mix(maxDepthFull, maxDepthClipped, depthClip);\nfloat densityThreshold = 0.001;\nfloat saturationThreshold = 0.33;\nint maxEmptySteps = 20;\nfloat depth = mix(1.0, 0.001, 0.8400);\nvec2 skew = vec2(1.0 - 0.6000 * 0.5, 1.0 + 0.6000 * 0.5);\nfor(int i = 0;\ni < ITERATIONS;\ni++) {\nif(transmittance < 0.01 || t > maxDepth) break;\nif(!hit && emptySteps > maxEmptySteps) break;\nif(accumulatedLight > saturationThreshold) break;\nfloat step = ro.z + rd.z * t;\nvec3 q = q_ro + q_rd * t;\nfloat d = density_L1(q, amplitude, depth, skew);\nfloat dr = t / maxDepth;\nfloat stepSS = smoothstep(-3.0, -2.0, step);\nfloat zFadeFull = stepSS * (1.0 - dr * dr);\nfloat zFadeClipped = stepSS * (1.0 - dr * dr * (1.0 - ampSdf));\nfloat zFade = mix(zFadeFull, zFadeClipped, depthClip);\nd *= zFade;\nlastDensity = d;\nif(d > densityThreshold) {\nfloat densityMask = smoothstep(densityThreshold, 0.5, d);\nfloat coreMask = smoothstep(0.2, 0.8, d);\nfloat rim = densityMask * (1.0 - coreMask);\nfloat colorMix = smoothstep(0.0, 1.0, d);\nfloat depthLight = 1.0 - dr * 0.35;\nvec3 lightColor = mix(vec3(0.21176470588235294, 0.1568627450980392, 0.6901960784313725), vec3(0.8588235294117647, 0.47058823529411764, 1), colorMix);\nvec3 iridescence = hue_L1(colorMix + d);\nlightColor += (iridescence * rim * (1.0 - coreMask)) * 0.5;\nfloat emission = rim * d * depthLight * transmittance * lightScale;\ncol += lightColor * emission;\ntransmittance *= 1.0 - clamp(d * absorptionScale, 0.0, 1.0);\nhit = true;\n}\nemptySteps++;\nt += baseStep;\n}\n}\nfloat maskStrength = mix(ampSdf, 1.0, depthClip);\ncol = (col * maskStrength);\nvec3 blended;\nfloat alpha = 1.0;\ntransmittance = mix(1.0, transmittance, maskStrength);\nblended = col + bg.rgb * transmittance;\nalpha = max(bg.a, 1.0 - transmittance);\n- transmittance;\nvec4 color = vec4(blended, alpha) * 1.0000;\nreturn color;\n}\n\nvoid main() {\nvec2 uv = vTextureCoord;\nvec4 result = vec4(0.0);\nvec4 c0 = computeLayer_L0(uv);\nc0 *= uL0_ElemOpacity;\nresult = c0 + result * (1.0 - c0.a);\nvec4 c1 = computeLayer_L1(uv, result);\nc1 *= uL1_ElemOpacity;\nresult = c1 + result * (1.0 - c1.a);\nfragColor = result;\n}"
+      ],
+      "compiledVertexShaders": [
+        "#version 300 es\n// Copyright (c) Unicorn Studio. Licensed under the Unicorn Studio Commercial License.\n// Unauthorized copying, redistribution, or use in competing products is prohibited.\nprecision highp float;\nin vec3 aVertexPosition;\nin vec2 aTextureCoord;\nuniform mat4 uMVMatrix;\nuniform mat4 uPMatrix;\nout vec2 vTextureCoord;\nout vec3 vVertexPosition;\nvoid main() {\ngl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);\nvVertexPosition = aVertexPosition;\nvTextureCoord = aTextureCoord;\n}"
+      ],
+      "sublayers": [
+        {
+          "id": "81fb6e0d-f294-4311-902a-209bc775415b",
+          "publicId": "gradient",
+          "layerType": "effect",
+          "type": "gradient",
+          "sublayerIndex": 0,
+          "opacity": 1,
+          "animating": false
+        },
+        {
+          "id": "95263bba-d1b0-44b2-b72a-6677a7f21d81",
+          "publicId": "nebula",
+          "layerType": "effect",
+          "type": "nebula_v2",
+          "sublayerIndex": 1,
+          "opacity": 1,
+          "animating": true
+        }
+      ],
+      "data": {
+        "uniforms": {
+          "resolution": {
+            "name": "uResolution",
+            "type": "2f",
+            "value": {
+              "type": "Vec2",
+              "_x": 1080,
+              "_y": 1080
+            }
+          },
+          "mousePos": {
+            "name": "uMousePos",
+            "type": "2f",
+            "value": {
+              "type": "Vec2",
+              "_x": 0.5,
+              "_y": 0.5
+            }
+          },
+          "L0_elemOpacity": {
+            "name": "uL0_ElemOpacity",
+            "type": "1f",
+            "value": 1
+          },
+          "L1_time": {
+            "name": "uL1_Time",
+            "type": "1f",
+            "value": 0
+          },
+          "L1_elemOpacity": {
+            "name": "uL1_ElemOpacity",
+            "type": "1f",
+            "value": 1
+          },
+          "L1_mousePos": {
+            "name": "uL1_MousePos",
+            "type": "2f",
+            "value": {
+              "type": "Vec2",
+              "_x": 0.5,
+              "_y": 0.5
+            }
+          }
+        },
+        "textures": [],
+        "timeUniforms": [
+          {
+            "key": "L1_time",
+            "speed": 0.25,
+            "animating": true
+          }
+        ],
+        "mouseUniforms": [
+          {
+            "key": "L1_mousePos",
+            "momentum": 1,
+            "spring": 0,
+            "trackAxes": "x"
+          }
+        ],
+        "hasMouseTracking": true,
+        "hasVideoSublayers": false,
+        "estimatedSublayerWorkRaw": 337.81992794234236,
+        "occlusion": {
+          "candidateLayers": 0
+        }
+      },
+      "states": {
+        "appear": [],
+        "scroll": [],
+        "hover": [],
+        "mousemove": []
+      },
+      "breakpoints": [],
+      "userDownsample": 1,
+      "visible": true
+    },
+    {
+      "breakpoints": [],
+      "visible": true,
+      "aspectRatio": 1,
+      "userDownsample": 1,
+      "layerType": "effect",
+      "type": "stars",
+      "usesPingPong": false,
+      "texture": false,
+      "animating": false,
+      "mouseMomentum": 1,
+      "mouseSpring": 0,
+      "isMask": 0,
+      "compiledFragmentShaders": [
+        "#version 300 es\n// Copyright (c) Unicorn Studio. Licensed under the Unicorn Studio Commercial License.\n// Unauthorized copying, redistribution, or use in competing products is prohibited.\nprecision highp float;in vec2 vTextureCoord;uniform sampler2D uTexture;\nuniform float uTime;uniform vec2 uMousePos;\nuniform vec2 uResolution;vec4 applyLayerMix(vec4 color, vec4 bg, float amount) {\ncolor.rgb = mix(bg.rgb, color.rgb, amount);\ncolor.a = max(bg.a, amount);\nreturn color;\n}out vec4 fragColor;const float PI = 3.14159265359;float luma(vec4 color) {\nreturn 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;\n}vec2 hash(vec2 p) {\np = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));\nreturn fract(sin(p) * 18.5453);\n}mat2 rot(float a) {\nreturn mat2(cos(a),-sin(a),sin(a),cos(a));\n}vec3 hue(float h, float angle) {\nreturn vec3(0.5) + 0.5 * cos(h + 2.0 * PI * angle + vec3(0, 2, 4));\n}vec4 getStarLayer(vec2 baseUV, float scaleMult, vec2 offset) {\nvec2 scaleRatio = vec2(1080) * vec2(uResolution.x/uResolution.y, 1);\nvec2 pos = vec2(0.5, 0.5) + mix(vec2(0), (uMousePos-0.5), 0.0000);\nvec2 uv = (baseUV - pos) * scaleRatio * 0.2500 * scaleMult * 0.01 * rot(0.0000 * PI * 2.) + offset;\nfloat time = (uTime * 0.0005);vec2 i_uv = floor(uv);\nvec2 f_uv = fract(uv);\nvec2 point = vec2(0);vec3 d = vec3(1e10);\nvec2 closestPoint;for (int y = -1; y <= 1; y++) {\nfor (int x = -1; x <= 1; x++) {\nvec2 tile_offset = vec2(float(x), float(y));\nvec2 o = hash(i_uv + tile_offset + vec2(time * 0.05));\ntile_offset += o - f_uv;float dist = dot(tile_offset, tile_offset);\nif (dist < d.x) {\nd.y = d.x;\nd.x = dist;\nclosestPoint = tile_offset;\npoint = o;\n} else if (dist < d.y) {\nd.y = dist;\n}\n}\n}d = sqrt(d);\nfloat r = sqrt(d.x);vec2 toCenter = closestPoint;\nvec2 toCenterRot45 = toCenter * rot(-PI/4.);vec2 closestPointOriginal = closestPoint * rot(-abs(0.0000) * PI * 2.) / (0.2500 * scaleMult * 0.01) / scaleRatio + baseUV;vec4 closestPointCol = texture(uTexture, closestPointOriginal);\nfloat closestPointR = luma(closestPointCol);\nfloat mixThresh = mix(1., closestPointR, 0.9900);\nfloat stepThresh = step(0.9900, closestPointR);\nclosestPointR = mixThresh;float crossShape;\nfloat crossShape2;\ncrossShape = min(abs(toCenter.x), abs(toCenter.y));\ncrossShape2 = min(abs(toCenterRot45.x), abs(toCenterRot45.y));\nfloat proximityFactor = sqrt(d.y) - sqrt(d.x);\nfloat radialGradient = (1.0 - length(toCenter)) * closestPointR * (0.5400 * 1.5);\nfloat flare = 1.0 - smoothstep(-0.5, 1.0, 0.5500);\ncrossShape = 1.0 - smoothstep(-0.04, 0.04 * (proximityFactor - flare) * closestPointR * closestPointR, crossShape);\ncrossShape += 1.0 - smoothstep(-0.04, 0.04 * (proximityFactor - flare) * closestPointR * closestPointR, crossShape2);vec3 cross = mix(vec3(crossShape), vec3(crossShape) * hue(closestPointR, proximityFactor*5.), 0.7500);\nvec3 bloom = vec3(smoothstep(0., 4., radialGradient * proximityFactor));\nvec3 rgb = mix(vec3(1, 1, 1), mix(vec3(1, 1, 1), closestPointCol.rgb, 0.5), 0.9900);\nreturn vec4(rgb * (cross + bloom) * 10., (cross.r + bloom.r) * 10. * rgb.r);\n}void main() {\nvec4 stars = getStarLayer(vTextureCoord, 1.0, vec2(0.0));\nstars += getStarLayer(vTextureCoord, 1.3, vec2(12.5)) * smoothstep(0.0, 0.5, 1.0000);stars += getStarLayer(vTextureCoord, 1.6, vec2(41.8)) * smoothstep(0.5, 1.0, 1.0000);vec4 bg = texture(uTexture, vTextureCoord);\nvec4 color = applyLayerMix(bg + stars, bg, max(bg.a, stars.a));\nfragColor = color;}"
+      ],
+      "compiledVertexShaders": [
+        "#version 300 es\n// Copyright (c) Unicorn Studio. Licensed under the Unicorn Studio Commercial License.\n// Unauthorized copying, redistribution, or use in competing products is prohibited.\nprecision mediump float;in vec3 aVertexPosition;\nin vec2 aTextureCoord;uniform mat4 uMVMatrix;\nuniform mat4 uPMatrix;\nuniform mat4 uTextureMatrix;out vec2 vTextureCoord;\nout vec3 vVertexPosition;void main() {\ngl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);\nvTextureCoord = (uTextureMatrix * vec4(aTextureCoord, 0.0, 1.0)).xy;\n}"
+      ],
+      "speed": 0.25,
+      "trackMouse": 0,
+      "trackAxes": "x",
+      "data": {
+        "depth": false,
+        "uniforms": {},
+        "isBackground": false
+      },
+      "id": "f6798054-9129-433c-b506-c93a97534c19",
+      "publicId": "sparkle"
+    }
+  ],
+  "options": {
+    "name": "US Home",
+    "fps": 60,
+    "dpi": 1.5,
+    "scale": 1,
+    "includeLogo": false,
+    "isProduction": false,
+    "flatten": true
+  },
+  "version": "2.1.12",
+  "id": "NpqhDtrApa7I9Yg80CDb"
+}

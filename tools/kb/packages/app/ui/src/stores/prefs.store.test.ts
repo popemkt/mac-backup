@@ -85,21 +85,25 @@ describe("loadPrefs", () => {
   it("parses valid values and rejects unknown ones", () => {
     expect(
       prefs.loadPrefs(
-        '{"theme":"dark","designSystem":"paper","width":"full","sidebarOpen":false}',
+        '{"theme":"dark","designSystem":"paper","width":"full","sidebarOpen":false,"headerBackdrop":"gradient"}',
         1280,
       ),
     ).toEqual({
       theme: "dark",
       designSystem: "paper",
+      headerBackdrop: "gradient",
       width: "full",
       sidebarOpen: false,
     });
-    expect(prefs.loadPrefs('{"theme":"neon","designSystem":"comic","width":"wide"}', 1280)).toEqual(
-      {
-        ...prefs.DEFAULT_PREFS,
-        sidebarOpen: true,
-      },
-    );
+    expect(
+      prefs.loadPrefs(
+        '{"theme":"neon","designSystem":"comic","width":"wide","headerBackdrop":"noise"}',
+        1280,
+      ),
+    ).toEqual({
+      ...prefs.DEFAULT_PREFS,
+      sidebarOpen: true,
+    });
   });
 
   it("ignores a stale enabledPlugins key (the server switches extensions now)", () => {
@@ -148,11 +152,13 @@ describe("usePrefsStore", () => {
     prefs.usePrefsStore.getState().setTheme("dark");
     prefs.usePrefsStore.getState().setDesignSystem("terminal");
     prefs.usePrefsStore.getState().setWidth("full");
+    prefs.usePrefsStore.getState().setHeaderBackdrop("gradient");
     prefs.usePrefsStore.getState().setSidebarOpen(false);
     const raw = (g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY);
     expect(JSON.parse(present(raw, "raw json"))).toEqual({
       theme: "dark",
       designSystem: "terminal",
+      headerBackdrop: "gradient",
       width: "full",
       sidebarOpen: false,
     });

@@ -10,15 +10,10 @@
       ]
     },
     "packages/app/cli": {
-      "entry": [
-        "src/bin/*.ts"
-      ]
+      "entry": ["src/bin/*.ts"]
     },
     "packages/contract/ext-sdk": {
-      "entry": [
-        "scripts/generate.ts",
-        "tests/*.test.ts"
-      ]
+      "entry": ["scripts/generate.ts", "tests/*.test.ts"]
     },
     "packages/test-support/render-tests": {
       "entry": [
@@ -29,21 +24,13 @@
       ]
     },
     "packages/app/ui": {
-      "entry": [
-        "vite.sandbox.config.ts",
-        "src/sandbox/frame.ts"
-      ]
+      "entry": ["vite.sandbox.config.ts", "src/sandbox/frame.ts"]
     },
     "packages/app/test-kit": {
-      "entry": [
-        "tests/*.test.ts",
-        "tests/run-many.ts"
-      ]
+      "entry": ["tests/*.test.ts", "tests/run-many.ts"]
     }
   },
-  "ignore": [
-    "packages/contract/ext-sdk/src/surface.ts"
-  ],
+  "ignore": ["packages/contract/ext-sdk/src/surface.ts", "packages/app/ui/public/vendor/**"],
   "ignoreFiles": [
     "packages/app/ui/src/api/queries.ts",
     "packages/app/ui/src/components/canvas/index.tsx"

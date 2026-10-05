@@ -3,6 +3,9 @@ import { create } from "zustand";
 import {
   appearanceOf,
   DEFAULT_DESIGN_SYSTEM,
+  DEFAULT_HEADER_BACKDROP,
+  HEADER_BACKDROPS,
+  type HeaderBackdropPref,
   DESIGN_SYSTEM_IDS,
   hasText,
   SIDEBAR_REGION_SELECTOR,
@@ -34,6 +37,7 @@ export interface Prefs {
    */
   designSystem: DesignSystemId;
   width: WidthPref;
+  headerBackdrop: HeaderBackdropPref;
   /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */
   sidebarOpen: boolean;
 }
@@ -62,6 +66,7 @@ export const DEFAULT_PREFS: Prefs = {
   theme: "system",
   designSystem: DEFAULT_DESIGN_SYSTEM,
   width: "centered",
+  headerBackdrop: DEFAULT_HEADER_BACKDROP,
   sidebarOpen: true,
 };
 
@@ -73,6 +78,7 @@ const StoredPrefsSchema = z.object({
   theme: z.enum(THEMES).catch(DEFAULT_PREFS.theme),
   designSystem: z.enum(DESIGN_SYSTEM_IDS).catch(DEFAULT_PREFS.designSystem),
   width: z.enum(WIDTHS).catch(DEFAULT_PREFS.width),
+  headerBackdrop: z.enum(HEADER_BACKDROPS).catch(DEFAULT_PREFS.headerBackdrop),
   sidebarOpen: z.boolean().optional().catch(undefined),
 });
 
@@ -82,6 +88,7 @@ function prefsOf(source: Prefs): Prefs {
     theme: source.theme,
     designSystem: source.designSystem,
     width: source.width,
+    headerBackdrop: source.headerBackdrop,
     sidebarOpen: source.sidebarOpen,
   };
 }
@@ -153,6 +160,7 @@ interface PrefsState extends Prefs {
   setTheme: (theme: ThemePref) => void;
   setDesignSystem: (designSystem: DesignSystemId) => void;
   setWidth: (width: WidthPref) => void;
+  setHeaderBackdrop: (headerBackdrop: HeaderBackdropPref) => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
 }
@@ -181,6 +189,7 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
       transitionTheme(() => commit({ designSystem }), changesAppearance);
     },
     setWidth: (width) => commit({ width }),
+    setHeaderBackdrop: (headerBackdrop) => commit({ headerBackdrop }),
     setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
     toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),
   };

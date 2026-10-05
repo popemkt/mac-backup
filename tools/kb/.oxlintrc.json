@@ -1,15 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "eslint",
-    "typescript",
-    "react",
-    "import",
-    "unicorn",
-    "oxc",
-    "promise",
-    "node"
-  ],
+  "plugins": ["eslint", "typescript", "react", "import", "unicorn", "oxc", "promise", "node"],
   "jsPlugins": [
     {
       "name": "anti-slop",
@@ -31,7 +22,8 @@
     "**/dist/**",
     "**/node_modules/**",
     "**/storybook-static/**",
-    "**/ext-sdk/generated/**"
+    "**/ext-sdk/generated/**",
+    "**/public/vendor/**"
   ],
   "categories": {
     "correctness": "error",
@@ -44,9 +36,7 @@
     "import/no-unassigned-import": [
       "error",
       {
-        "allow": [
-          "**/*.css"
-        ]
+        "allow": ["**/*.css"]
       }
     ],
     "typescript/ban-ts-comment": [
@@ -97,24 +87,15 @@
     "eslint/default-case": "error",
     "eslint/no-console": "error",
     "eslint/complexity": "error",
-    "eslint/max-depth": [
-      "error",
-      5
-    ],
-    "eslint/max-nested-callbacks": [
-      "error",
-      4
-    ],
+    "eslint/max-depth": ["error", 5],
+    "eslint/max-nested-callbacks": ["error", 4],
     "eslint/max-lines-per-function": [
       "warn",
       {
         "max": 120
       }
     ],
-    "eslint/max-params": [
-      "error",
-      5
-    ],
+    "eslint/max-params": ["error", 5],
     "eslint/max-lines": [
       "error",
       {
@@ -167,9 +148,7 @@
       }
     },
     {
-      "files": [
-        "**/*.d.ts"
-      ],
+      "files": ["**/*.d.ts"],
       "rules": {
         "typescript/no-extraneous-class": "off"
       }

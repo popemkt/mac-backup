@@ -1,0 +1,40 @@
+.kb-header-backdrop {
+  position: absolute;
+  inset-inline: 0;
+  top: -40px;
+  bottom: -30px;
+}
+
+.kb-header-backdrop[data-backdrop="unicorn"] {
+  position: relative;
+  inset: auto;
+  height: 168px;
+  margin-top: -8px;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    var(--foreground) 8%,
+    var(--foreground) 86%,
+    transparent
+  );
+}
+
+.kb-unicorn-backdrop {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  aspect-ratio: 1430 / 666;
+  opacity: 0.65;
+}
+
+.dark .kb-unicorn-backdrop {
+  opacity: 1;
+  mix-blend-mode: screen;
+}
+
+.kb-unicorn-backdrop canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

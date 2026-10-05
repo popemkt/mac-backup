@@ -2342,6 +2342,23 @@ id; the preference's schema, the picker and the command read it.
 Nothing else changes: layers 2 and 3, the components, the picker and the
 command all follow the registry and the tokens.
 
+### Header backdrops
+
+The shared `HeaderBackdrop` owns the home and zoomed node header treatment.
+`headerBackdrop` is a device preference, independent of the design system:
+`unicorn` (default) shows the original Unicorn Studio homepage scene in a
+168px band above the content; `gradient` retains the ambient tag/accent wash.
+The vocabulary lives with the other appearance values in `@kb/ui-sdk`.
+
+The exported scene and matching runtime are served from `public/vendor/unicorn`;
+its README records their sources. Preserve these upstream assets unmodified.
+The canvas retains the reference scene's aspect ratio and crops its lower
+section, rather than compressing the rays and stars. It has no pointer targets,
+pauses for reduced motion, background tabs and offscreen headers, and is
+released when its header unmounts or the preference changes. A failed load or
+unavailable WebGL leaves the gradient fallback. Rendering needs no external
+requests. Preferences exposes the same choice through its existing enum row.
+
 ### Type scale
 
 One step per font size the UI sets. A step sets font-size only; leading stays
