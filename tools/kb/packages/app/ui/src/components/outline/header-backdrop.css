@@ -1,10 +1,20 @@
-/* Each effect supplies its frame; none adds layout space. */
+/* Each effect supplies its frame and the breathing room above its content. */
 .kb-header-backdrop {
   position: absolute;
   left: 50%;
   width: 100%;
   transform: translateX(-50%);
   overflow: hidden;
+}
+
+.kb-header-backdrop[data-backdrop="unicorn"] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    var(--foreground) 16%,
+    var(--foreground) 84%,
+    transparent
+  );
 }
 
 .kb-unicorn-backdrop {
@@ -14,22 +24,13 @@
   width: max(720px, 100%);
   aspect-ratio: 1430 / 666;
   transform: translateX(-50%);
-  mask-image:
-    linear-gradient(
-      to bottom,
-      transparent,
-      var(--foreground) 5%,
-      var(--foreground) 72%,
-      transparent
-    ),
-    linear-gradient(
-      to right,
-      transparent,
-      var(--foreground) 20%,
-      var(--foreground) 80%,
-      transparent
-    );
-  mask-composite: intersect;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    var(--foreground) 5%,
+    var(--foreground) 72%,
+    transparent
+  );
   mix-blend-mode: multiply;
 }
 
@@ -45,9 +46,38 @@
   width: 100%;
   height: 100%;
   display: block;
-  filter: invert(1) hue-rotate(180deg);
+  filter: invert(1) grayscale(1) sepia(1) saturate(1.8) brightness(1.1);
 }
 
 .dark .kb-unicorn-backdrop canvas {
   filter: none;
+}
+
+/* The same flowing scene becomes sunlight on a light page. */
+.kb-unicorn-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  --sun-y: 52px;
+  background:
+    radial-gradient(
+      circle 38px at 58% var(--sun-y),
+      color-mix(in oklab, var(--background) 65%, var(--header-sun)) 0%,
+      color-mix(in oklab, var(--header-sun) 75%, transparent) 50%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse 200px 130px at 58% var(--sun-y),
+      color-mix(in oklab, var(--header-sun) 45%, transparent),
+      transparent 100%
+    );
+  filter: blur(2px);
+}
+
+.kb-header-backdrop[data-direction="up"] .kb-unicorn-backdrop::after {
+  --sun-y: calc(100% - 52px);
+}
+
+.dark .kb-unicorn-backdrop::after {
+  display: none;
 }

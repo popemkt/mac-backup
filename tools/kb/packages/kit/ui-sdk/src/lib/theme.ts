@@ -28,6 +28,7 @@ export const HEADER_BACKDROP_PRESENTATION: Record<
   HeaderBackdropPref,
   {
     directions: readonly BackdropDirection[];
+    space: number;
     height: number;
     maxWidth: number;
     offset: number;
@@ -35,6 +36,7 @@ export const HEADER_BACKDROP_PRESENTATION: Record<
   }
 > = {
   gradient: {
+    space: 0,
     directions: [],
     height: 160,
     maxWidth: 1120,
@@ -42,6 +44,7 @@ export const HEADER_BACKDROP_PRESENTATION: Record<
     opacity: { subtle: 0.5, soft: 0.75, vivid: 1 },
   },
   unicorn: {
+    space: 160,
     directions: BACKDROP_DIRECTIONS,
     height: 500,
     maxWidth: 960,

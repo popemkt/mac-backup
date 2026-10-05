@@ -16,30 +16,36 @@ export function HeaderBackdrop({ color }: { color: string }) {
   const opacity = presentation.opacity[strength];
   return (
     <div
-      className="kb-header-backdrop pointer-events-none"
-      data-backdrop={backdrop}
-      data-direction={direction}
-      style={{
-        height: presentation.height,
-        maxWidth: presentation.maxWidth,
-        top: presentation.offset,
-      }}
+      className="kb-header-backdrop-space relative pointer-events-none"
+      style={{ height: `min(${presentation.space}px, 24vw)` }}
       aria-hidden="true"
-      data-header-wash="true"
     >
       <div
-        className="kb-header-tint absolute inset-y-0"
+        className="kb-header-backdrop pointer-events-none"
+        data-backdrop={backdrop}
+        data-direction={direction}
         style={{
-          opacity,
-          left: 0,
-          right: 0,
-          background:
-            `radial-gradient(ellipse 60% 70% at 50% 35%, ` +
-            `${tagColorAlpha(color, 9.4)} 0%, ` +
-            `${tagColorAlpha(color, 4)} 40%, transparent 80%)`,
+          height: presentation.height,
+          maxWidth: presentation.maxWidth,
+          top: presentation.offset,
         }}
-      />
-      {backdrop === "unicorn" && <UnicornBackdrop opacity={opacity} />}
+        aria-hidden="true"
+        data-header-wash="true"
+      >
+        <div
+          className="kb-header-tint absolute inset-y-0"
+          style={{
+            opacity,
+            left: 0,
+            right: 0,
+            background:
+              `radial-gradient(ellipse 60% 70% at 50% 35%, ` +
+              `${tagColorAlpha(color, 9.4)} 0%, ` +
+              `${tagColorAlpha(color, 4)} 40%, transparent 80%)`,
+          }}
+        />
+        {backdrop === "unicorn" && <UnicornBackdrop opacity={opacity} />}
+      </div>
     </div>
   );
 }

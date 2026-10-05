@@ -2351,18 +2351,21 @@ command all follow the registry and the tokens.
 The shared `HeaderBackdrop` owns the home and zoomed node header treatment.
 `headerBackdrop` is a device preference, independent of the design system:
 `unicorn` (the default) shows the original Unicorn Studio homepage scene;
-`gradient` shows an ambient tag/accent wash. Both are absolute background
-lights with no layout footprint. A bounded source width and feathered mask
+`gradient` shows an ambient tag/accent wash. The effect paints behind the
+content; its presentation profile reserves breathing room above the title when
+needed. A bounded source width and feathered mask
 keep the light from stretching across full-width pages or ending at visible edges.
 
-Each effect declares its height, bounded width, vertical offset, and strength
-response and supported directions in `HEADER_BACKDROP_PRESENTATION`. The gradient retains its compact
+Each effect declares its reserved space, height, bounded width, vertical offset,
+strength response and supported directions in `HEADER_BACKDROP_PRESENTATION`.
+The gradient retains its compact
 wash; the aurora gets a taller frame that includes its stars. Feathering belongs
 to the scene frame, so the gradient is not masked twice.
 
 Presentation belongs to the shared backdrop: `backdropStrength` selects
 `subtle` (default), `soft`, or `vivid`; `backdropDirection` selects `down`
-(default, vertically inverted) or `up`. The vocabulary and presentation profiles live alongside the other appearance values in `@kb/ui-sdk`; Preferences
+(default, vertically inverted) or `up`. The vocabulary and presentation profiles live alongside the other appearance
+values in `@kb/ui-sdk`; Preferences
 uses those values, and the device store validates and persists them. Older stored
 preferences acquire the presentation defaults without resetting other choices.
 Future effects use this same presentation owner.
@@ -2370,8 +2373,9 @@ Future effects use this same presentation owner.
 The exported scene and matching runtime are served from `public/vendor/unicorn`;
 its README records their sources. Preserve those upstream assets unmodified.
 The canvas retains the reference scene's aspect ratio. Dark pages blend its
-light with screen; light pages invert its luminance and use multiply to avoid
-a dark canvas rectangle. It has no pointer targets,
+light with screen. Light pages turn the flowing rays into warm sunlight, with a
+soft solar core and halo painted by `--header-sun`; multiply blending keeps the
+canvas ground transparent on the page. It has no pointer targets,
 pauses for reduced motion, background tabs and offscreen headers, and is released
 when the header unmounts or the preference changes. Failed loading or unavailable
 WebGL leaves the gradient fallback. Rendering needs no external requests.
