@@ -323,6 +323,11 @@ export { hasText, textOr } from "./lib/text";
 export {
   type Appearance,
   appearanceOf,
+  BACKDROP_STRENGTHS,
+  BACKDROP_OPACITY,
+  BACKDROP_DIRECTIONS,
+  type BackdropStrength,
+  type BackdropDirection,
   DEFAULT_DESIGN_SYSTEM,
   DEFAULT_HEADER_BACKDROP,
   HEADER_BACKDROPS,

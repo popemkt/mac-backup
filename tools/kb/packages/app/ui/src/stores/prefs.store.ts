@@ -2,6 +2,10 @@ import { z } from "zod";
 import { create } from "zustand";
 import {
   appearanceOf,
+  BACKDROP_STRENGTHS,
+  BACKDROP_DIRECTIONS,
+  type BackdropStrength,
+  type BackdropDirection,
   DEFAULT_DESIGN_SYSTEM,
   DEFAULT_HEADER_BACKDROP,
   HEADER_BACKDROPS,
@@ -38,6 +42,8 @@ export interface Prefs {
   designSystem: DesignSystemId;
   width: WidthPref;
   headerBackdrop: HeaderBackdropPref;
+  backdropStrength: BackdropStrength;
+  backdropDirection: BackdropDirection;
   /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */
   sidebarOpen: boolean;
 }
@@ -67,6 +73,8 @@ export const DEFAULT_PREFS: Prefs = {
   designSystem: DEFAULT_DESIGN_SYSTEM,
   width: "centered",
   headerBackdrop: DEFAULT_HEADER_BACKDROP,
+  backdropStrength: "subtle",
+  backdropDirection: "down",
   sidebarOpen: true,
 };
 
@@ -79,6 +87,8 @@ const StoredPrefsSchema = z.object({
   designSystem: z.enum(DESIGN_SYSTEM_IDS).catch(DEFAULT_PREFS.designSystem),
   width: z.enum(WIDTHS).catch(DEFAULT_PREFS.width),
   headerBackdrop: z.enum(HEADER_BACKDROPS).catch(DEFAULT_PREFS.headerBackdrop),
+  backdropStrength: z.enum(BACKDROP_STRENGTHS).catch(DEFAULT_PREFS.backdropStrength),
+  backdropDirection: z.enum(BACKDROP_DIRECTIONS).catch(DEFAULT_PREFS.backdropDirection),
   sidebarOpen: z.boolean().optional().catch(undefined),
 });
 
@@ -89,6 +99,8 @@ function prefsOf(source: Prefs): Prefs {
     designSystem: source.designSystem,
     width: source.width,
     headerBackdrop: source.headerBackdrop,
+    backdropStrength: source.backdropStrength,
+    backdropDirection: source.backdropDirection,
     sidebarOpen: source.sidebarOpen,
   };
 }
@@ -161,6 +173,8 @@ interface PrefsState extends Prefs {
   setDesignSystem: (designSystem: DesignSystemId) => void;
   setWidth: (width: WidthPref) => void;
   setHeaderBackdrop: (headerBackdrop: HeaderBackdropPref) => void;
+  setBackdropStrength: (strength: BackdropStrength) => void;
+  setBackdropDirection: (direction: BackdropDirection) => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
 }
@@ -190,6 +204,8 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
     },
     setWidth: (width) => commit({ width }),
     setHeaderBackdrop: (headerBackdrop) => commit({ headerBackdrop }),
+    setBackdropStrength: (backdropStrength) => commit({ backdropStrength }),
+    setBackdropDirection: (backdropDirection) => commit({ backdropDirection }),
     setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
     toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),
   };

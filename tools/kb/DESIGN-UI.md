@@ -2346,18 +2346,25 @@ command all follow the registry and the tokens.
 
 The shared `HeaderBackdrop` owns the home and zoomed node header treatment.
 `headerBackdrop` is a device preference, independent of the design system:
-`unicorn` (default) shows the original Unicorn Studio homepage scene in a
-168px band above the content; `gradient` retains the ambient tag/accent wash.
-The vocabulary lives with the other appearance values in `@kb/ui-sdk`.
+`unicorn` (the default) shows the original Unicorn Studio homepage scene;
+`gradient` shows an ambient tag/accent wash. Both are absolute background
+lights with no layout footprint. A bounded source width and elliptical mask
+keep the light from stretching across full-width pages or ending at visible edges.
+
+Presentation belongs to the shared backdrop: `backdropStrength` selects
+`subtle` (default), `soft`, or `vivid`; `backdropDirection` selects `down`
+(default, vertically inverted) or `up`. The vocabulary and strength-to-opacity
+mapping live alongside the other appearance values in `@kb/ui-sdk`; Preferences
+uses those values, and the device store validates and persists them. Older stored
+preferences acquire the presentation defaults without resetting other choices.
+Future effects use this same presentation owner.
 
 The exported scene and matching runtime are served from `public/vendor/unicorn`;
-its README records their sources. Preserve these upstream assets unmodified.
-The canvas retains the reference scene's aspect ratio and crops its lower
-section, rather than compressing the rays and stars. It has no pointer targets,
-pauses for reduced motion, background tabs and offscreen headers, and is
-released when its header unmounts or the preference changes. A failed load or
-unavailable WebGL leaves the gradient fallback. Rendering needs no external
-requests. Preferences exposes the same choice through its existing enum row.
+its README records their sources. Preserve those upstream assets unmodified.
+The canvas retains the reference scene's aspect ratio. It has no pointer targets,
+pauses for reduced motion, background tabs and offscreen headers, and is released
+when the header unmounts or the preference changes. Failed loading or unavailable
+WebGL leaves the gradient fallback. Rendering needs no external requests.
 
 ### Type scale
 

@@ -92,6 +92,8 @@ describe("loadPrefs", () => {
       theme: "dark",
       designSystem: "paper",
       headerBackdrop: "gradient",
+      backdropStrength: "subtle",
+      backdropDirection: "down",
       width: "full",
       sidebarOpen: false,
     });
@@ -103,6 +105,23 @@ describe("loadPrefs", () => {
     ).toEqual({
       ...prefs.DEFAULT_PREFS,
       sidebarOpen: true,
+    });
+  });
+
+  it("validates backdrop presentation independently of other preferences", () => {
+    expect(
+      prefs.loadPrefs('{"theme":"dark","backdropStrength":"vivid","backdropDirection":"up"}', 1280),
+    ).toEqual({
+      ...prefs.DEFAULT_PREFS,
+      theme: "dark",
+      backdropStrength: "vivid",
+      backdropDirection: "up",
+    });
+    expect(
+      prefs.loadPrefs('{"theme":"dark","backdropStrength":2,"backdropDirection":"sideways"}', 1280),
+    ).toEqual({
+      ...prefs.DEFAULT_PREFS,
+      theme: "dark",
     });
   });
 
@@ -153,12 +172,16 @@ describe("usePrefsStore", () => {
     prefs.usePrefsStore.getState().setDesignSystem("terminal");
     prefs.usePrefsStore.getState().setWidth("full");
     prefs.usePrefsStore.getState().setHeaderBackdrop("gradient");
+    prefs.usePrefsStore.getState().setBackdropStrength("soft");
+    prefs.usePrefsStore.getState().setBackdropDirection("up");
     prefs.usePrefsStore.getState().setSidebarOpen(false);
     const raw = (g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY);
     expect(JSON.parse(present(raw, "raw json"))).toEqual({
       theme: "dark",
       designSystem: "terminal",
       headerBackdrop: "gradient",
+      backdropStrength: "soft",
+      backdropDirection: "up",
       width: "full",
       sidebarOpen: false,
     });

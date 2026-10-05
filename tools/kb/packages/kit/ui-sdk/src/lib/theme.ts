@@ -17,6 +17,17 @@ export const HEADER_BACKDROP_LABELS: Record<HeaderBackdropPref, string> = {
   gradient: "Gradient",
   unicorn: "Unicorn",
 };
+/** Presentation controls shared by every header effect. */
+export const BACKDROP_STRENGTHS = ["subtle", "soft", "vivid"] as const;
+export type BackdropStrength = (typeof BACKDROP_STRENGTHS)[number];
+export const BACKDROP_OPACITY: Record<BackdropStrength, number> = {
+  subtle: 0.12,
+  soft: 0.24,
+  vivid: 0.45,
+};
+export const BACKDROP_DIRECTIONS = ["down", "up"] as const;
+export type BackdropDirection = (typeof BACKDROP_DIRECTIONS)[number];
+
 /**
  * The design systems (DESIGN-UI.md → Design tokens → Design systems), in
  * picker order, the default first. Each id other than the default names one

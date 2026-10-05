@@ -1,5 +1,7 @@
 import {
   cn,
+  BACKDROP_STRENGTHS,
+  BACKDROP_DIRECTIONS,
   DESIGN_SYSTEMS,
   HEADER_BACKDROPS,
   HEADER_BACKDROP_LABELS,
@@ -72,6 +74,8 @@ export function PreferencesPopover({
       <DesignSystemRow />
       <WidthRow />
       <HeaderBackdropRow />
+      <BackdropStrengthRow />
+      <BackdropDirectionRow />
       {switches.length > 0 ? (
         <section aria-label="plugins">
           <h3 className="px-1.5 pb-1 pt-2 text-meta uppercase tracking-wide text-foreground/30">
@@ -180,6 +184,36 @@ function HeaderBackdropRow() {
         value={backdrop}
         options={HEADER_BACKDROPS.map((value) => ({ value, label: HEADER_BACKDROP_LABELS[value] }))}
         onChange={setBackdrop}
+      />
+    </PrefFieldRow>
+  );
+}
+
+function BackdropStrengthRow() {
+  const strength = usePrefsStore((s) => s.backdropStrength);
+  const setStrength = usePrefsStore((s) => s.setBackdropStrength);
+  return (
+    <PrefFieldRow icon={SwatchesIcon} label="strength">
+      <EnumSelect
+        className={POPOVER_VALUE_CLASS}
+        value={strength}
+        options={BACKDROP_STRENGTHS.map((value) => ({ value, label: value }))}
+        onChange={setStrength}
+      />
+    </PrefFieldRow>
+  );
+}
+
+function BackdropDirectionRow() {
+  const direction = usePrefsStore((s) => s.backdropDirection);
+  const setDirection = usePrefsStore((s) => s.setBackdropDirection);
+  return (
+    <PrefFieldRow icon={SwatchesIcon} label="direction">
+      <EnumSelect
+        className={POPOVER_VALUE_CLASS}
+        value={direction}
+        options={BACKDROP_DIRECTIONS.map((value) => ({ value, label: value }))}
+        onChange={setDirection}
       />
     </PrefFieldRow>
   );
