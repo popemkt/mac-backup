@@ -3,7 +3,8 @@
  * not to how many rows are on screen.
  *
  * - A one-node change re-renders that node's row, not every row: rows read
- *   the graph through `useGraphRead` (`stores/graph-read.ts`).
+ *   the graph through `useGraphRead` (`stores/graph-read.ts`, over the kit's
+ *   `lib/graph-read`).
  * - Expanding or collapsing re-renders the toggled row and mounts or unmounts
  *   its subtree; its siblings stay as they were.
  * - Moving the selection re-renders the two rows it moves between.
@@ -21,7 +22,7 @@ import { nodeCandidates, outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } 
 import type * as UiSdk from "@kb/ui-sdk";
 import { resolveRowChrome } from "@/lib/row-chrome";
 import type * as RowChrome from "@/lib/row-chrome";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { outlineUiPlugin } from "./plugin";

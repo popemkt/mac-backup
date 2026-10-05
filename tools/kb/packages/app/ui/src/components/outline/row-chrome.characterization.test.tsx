@@ -15,7 +15,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { queryResultInstanceKey, syncUiPlugins, SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { outlineUiPlugin } from "./plugin";
 import type { WireNode } from "@kb/contracts";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";

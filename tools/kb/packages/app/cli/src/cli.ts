@@ -388,7 +388,6 @@ function buildProgram(): Command {
     .option("--dev-port <n>", "Vite dev server port (default 5173)", toInt)
     .option("--public-origin <url>", "browser origin when served through a reverse proxy", toOrigin)
     .option("--no-open", "do not open a browser")
-    .option("--no-agent", "do not host the sidebar agent (the local Claude bridge)")
     .action(
       cliAction(
         (
@@ -400,7 +399,6 @@ function buildProgram(): Command {
               devPort?: number;
               publicOrigin?: string;
               open?: boolean;
-              agent?: boolean;
             },
           ],
         ) =>
@@ -414,7 +412,7 @@ function buildProgram(): Command {
               dev: opts.dev === true,
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
-              extensions: opts.agent === false ? [] : yield* hostExtensions(root),
+              extensions: yield* hostExtensions(root),
             });
           }),
       ),

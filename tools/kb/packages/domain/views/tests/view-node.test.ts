@@ -9,8 +9,8 @@ import { Result } from "effect";
 import { SYSTEM_IDS } from "@kb/model";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
-  CanvasView,
   NeighbourhoodView,
+  OntologyScopeView,
   OutlineBoardView,
   OutlineSnippetView,
   issueText,
@@ -75,8 +75,9 @@ describe("viewNodeFor", () => {
     expect(problems(OutlineSnippetView, { root: "n.a", depth: 2, maxRows: 6 })).toEqual([
       "depth: a view node of outline.snippet cannot hold this setting; it reads back as: 1",
     ]);
-    expect(problems(CanvasView, { id: "n.canvas" })).toEqual([
-      "id: a view node of canvas.page cannot hold this setting; it reads back as: Missing key",
+    expect(problems(OntologyScopeView, { id: "n.onto", view: "outline" })).toEqual([
+      "id: a view node of ontology.scope cannot hold this setting; it reads back as: Missing key",
+      "view: a view node of ontology.scope cannot hold this setting; it reads back as: Missing key",
     ]);
   });
 

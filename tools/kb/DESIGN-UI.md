@@ -375,16 +375,18 @@ per row:
   replaces and keeps a node's object when the node projects to the same
   value, so a node's identity changes exactly when what it shows does; the
   schema does the same per snapshot.
-- A row reads the graph through `useGraphRead` (`stores/graph-read.ts`):
-  the outline, schema and index as views that record which ids were asked
-  for (a walk records the whole map, a query the index generation). The view
-  is renewed, and the row re-renders, only when one of those reads changed —
-  an outline entry by identity, a schema entry by `sameMeaning`, since a
-  schema reader never asks about expansion. Reads always answer from the
-  store's current maps, so a read added later is never stale. It is a
-  selector over the one store, not a second copy of it. The rows, their
-  text host binding, their fields section and the list frame view read
-  this way; focus, selection and caret placement are selected per instance
+- A row reads the graph through a tracked read (`useGraphReadThrough`,
+  `@kb/ui-sdk` → `lib/graph-read`, over a `GraphSource`; the shell's
+  `useGraphRead` binds it to the outline store): the outline, schema and
+  index as views that record which ids were asked for (a walk records the
+  whole map, a query the index generation). The view is renewed, and the
+  row re-renders, only when one of those reads changed — an outline entry
+  by identity, a schema entry by `sameMeaning`, since a schema reader never
+  asks about expansion. Reads always answer from the source's current maps,
+  so a read added later is never stale. It is a selector over the one
+  store, not a second copy of it. The rows, their text host binding
+  (`useNodeTextBindingThrough` over a `NodeTextPort`), their fields section
+  and the list frame view read this way; focus, selection and caret placement are selected per instance
   (`activeNodeId === nodeId && activeInstanceKey === instanceKey`), not as
   store-wide values.
 
@@ -1018,7 +1020,7 @@ links.
 The canvas is a thinking surface (draw.io lineage), and this wave made direct
 manipulation feel professional rather than merely functional.
 
-- **Selection is a set.** `components/canvas/canvas-selection.ts` owns one
+- **Selection is a set.** `canvas-ui/src/canvas-selection.ts` owns one
   `CanvasSelection { nodeIds, edgeIds }` with single / Shift-toggle /
   rubber-band marquee / `Cmd+A`. Dragging any card in a multi-selection
   translates all of them. Delete/Backspace removes every selected node and edge
@@ -1048,7 +1050,7 @@ manipulation feel professional rather than merely functional.
   into its texture (`canvas-face-pictures.ts`: one load per source, its
   faces repainted when it settles, a source no face shows let go). A missing
   asset says so in both; assets are backup-owned and never committed.
-- **Undo/redo.** `components/canvas/canvas-history.ts` is an immutable ring buffer
+- **Undo/redo.** `canvas-ui/src/canvas-history.ts` is an immutable ring buffer
   (`MAX_HISTORY` = 30) with reference-equality skip; `Cmd+Z` /
   `Cmd+Shift+Z` / `Cmd+Y`. An edit the store brings from elsewhere —
   another tab's, or an agent's canvas verb, each one canvas write — is one
@@ -1087,7 +1089,7 @@ manipulation feel professional rather than merely functional.
   snap, and a typed value is never snapped.
   `Shift+1` zoom-to-fit frames the
   bounding box with 40px padding. Zoom range is 0.1–3.0 (`MIN_ZOOM`/`MAX_ZOOM`).
-- **Sticky tools.** `components/canvas/canvas-tool.ts` is a pure reducer: picking a tool is
+- **Sticky tools.** `canvas-ui/src/canvas-tool.ts` is a pure reducer: picking a tool is
   one-shot (it returns to `select` after placing), double-clicking the tool icon
   makes it **sticky** for repeated placement, `Escape` always returns to select.
   Tools: select (V), text (T), rect (R), ellipse (O / C), diamond (D),
@@ -1204,7 +1206,7 @@ manipulation feel professional rather than merely functional.
 
 #### Projections
 
-A canvas is drawn through one camera model, `components/canvas/canvas-camera.ts`. The
+A canvas is drawn through one camera model, `canvas-ui/src/canvas-camera.ts`. The
 canvas plane is the floor, with z up, as in Blender. A view is a focus point
 in canvas space, a zoom measured on the plane through that focus, a
 turntable orbit (`yaw` about z; `pitch` from 0, the top view, to π/2, level
@@ -1229,14 +1231,13 @@ size), which decides where a moved or resized card goes — so one reading
 serves both projections.
 
 Two projections hold that camera (`CANVAS_PROJECTIONS`,
-`components/canvas/canvas-projections.ts`): **2D**, from the top and
+`canvas-ui/src/canvas-projections.ts`): **2D**, from the top and
 orthographic, drawn as DOM cards over SVG edges; and **3D**, on its
 turntable through a perspective or an orthographic lens, drawn on the scene
 kit's stage
-(`components/canvas/canvas-scene.ts` and its card and edge layers, the
-canvas's only three modules, loaded in their own chunk; the harness's
-`components/canvas/3d` zone is the only part of the canvas that may reach the
-scene kit). A projection declares only how it holds the camera
+(`canvas-scene.ts` and its card and edge layers in `@kb/canvas-ui`, the
+canvas's only three modules, loaded in their own chunk behind the lazy
+fence). A projection declares only how it holds the camera
 (`settle`) and the view it opens at when it takes over (`arrive`: the saved
 pose, or the same focus and zoom turned to the oblique preset, in
 perspective). The document's
@@ -1261,7 +1262,7 @@ open view of that canvas.
   ellipse, and turned items: flat and solid, spun about z and tilted. The 3D scene also joins the scene
   contract, whose disposal check covers every geometry and material a scene
   drew with.
-- **One camera in motion.** `components/canvas/canvas-camera-rig.ts` holds the view the 3D
+- **One camera in motion.** `canvas-ui/src/canvas-camera-rig.ts` holds the view the 3D
   scene draws with: gestures move it at once, flights ease over
   `--motion-duration-arrive` on `--motion-settle`, and under reduced motion
   a flight lands at once. The keymap's zoom and frame reach whichever camera
@@ -1272,7 +1273,7 @@ open view of that canvas.
   orientations (`CANVAS_VIEW_PRESETS`): top, front, right, back, left (each
   named for where the eye stands; front is the +y side) and the oblique look
   a canvas first opens at. One table of view commands
-  (`CANVAS_VIEW_COMMANDS`, `components/canvas/canvas-keymap.ts`) serves the keymap and the
+  (`CANVAS_VIEW_COMMANDS`, `canvas-ui/src/canvas-keymap.ts`) serves the keymap and the
   view menu, and both reach the camera through `CanvasViewportControls`:
   numpad 7 / 1 / 3 look from the top, front and right (⌃ for back and left;
   there is no view from under the floor), numpad 5 swaps the lens, ⇧1 frames
@@ -1940,9 +1941,10 @@ placement `page`. It owns no route: a node opens it through
 
 ### Optional UI plugins
 
-Some extensions are off until a person switches them on (the lab), and
-some are there only when the server hosts them (the agent). Neither is a
-browser preference: the server decides, and the page follows
+Every optional family (canvas, chart, code, the lab, the agent) is on or
+off as its store says, the lab off by default and the rest on, and the
+agent is there only when a `kb ui` hosts it. None is a browser
+preference: the server decides, and the page follows
 `kb.manifest.extensions` ([DESIGN → Extension families](DESIGN.md#extension-families)).
 There is one mechanism, not a second path beside the core plugins:
 
@@ -1951,10 +1953,10 @@ There is one mechanism, not a second path beside the core plugins:
   `familiesToLoad` turns the server's report into the families whose
   browser entries the kernel should hold: each reported loaded that the
   resolver has. Until a server answers, the page reads the bundled list as
-  a server over a store with no switch written, so the lab is off and no
-  agent is reported.
-- Preferences → plugins has one on/off row per optional extension the page
-  can draw, showing what the server reports. Choosing calls
+  a server over a store with no switch written, so each family is as it is
+  by default and no agent is reported.
+- Preferences → plugins has one on/off row per optional extension the
+  server reports, showing what it reports. Choosing calls
   `extension.switch` and reads the manifest again; the row shows the
   server's answer, never the choice. A switch written anywhere else (another
   tab, the CLI) reaches the page's graph, and the page reads the manifest
@@ -1964,7 +1966,7 @@ There is one mechanism, not a second path beside the core plugins:
   ignored on read and dropped on the next write. A browser that had the
   lab on sees it off until it is switched on for the kb, from Preferences
   or with `kb action-invoke '{"id":"extension.switch","input":{"name":"lab","on":true}}'`.
-  The agent needs nothing: `kb ui` hosts it unless started with `--no-agent`.
+  The agent needs nothing: it is on by default, and switched like the rest.
 - **Until a server answers, the workspace waits.** A page served by `kb ui`
   opens its workspace only once the manifest has landed and the plugins it
   reports are loaded, so a layout never shows a lab view, or any family's
@@ -2022,20 +2024,22 @@ the shell.
     and the sandbox host. It is a subscribe, reads and gestures, never
     hooks: a hook selected from a service at run time is one React cannot
     check. The sdk's own hooks (`useNode`, `useAppearance`, `useFollow`, …)
-    are built over it once, with `useSyncExternalStore`.
+    are built over it once, with `useSyncExternalStore`. It is also a
+    `NodeTextPort` (tracked graph reads, the caret hand-off, the text-host
+    registry), so a half binds a `NodeTextHost` with `useNodeTextBinding`
+    through the same body (`useNodeTextBindingThrough`) the shell binds its
+    own with, over its stores.
 
   The sdk never imports the shell's stores. The 3D scene kit is two kit
   packages beside it, for canvas 3D, the lab and the core `graph.force3d`
   renderer: `@kb/scene`, which touches no GPU, and `@kb/scene-gpu`, which is
   three, so a 3D host can mount a scene without carrying three itself
   ([The lab](#the-lab)).
-- **Until a half is a package, its zone carries the fence.** A feature zone
-  still in `@kb/ui` (`components/canvas`) may reach
-  only itself, `@kb/ui-sdk` and the scene kit.
-  `UI_ALLOWS` in `harness/src/constraints.ts` states the rows, and each
-  zone's row is deleted when its package leaves. The chart, code, agent and
-  lab halves are packages; GAP [[01M39F3MR3HT2NR553FY8CRD6X]] records the
-  canvas's distance.
+- **Every half is a package.** The chart, code, agent, lab and canvas halves
+  are `@kb/<family>-ui` packages, so `UI_ALLOWS` in
+  `harness/src/constraints.ts` holds the shell's zones only. A half's tests
+  hold it to `BrowserHost` through `@kb/ui-test-kit`'s test host, never to
+  the shell's stores; the shell's side of the port is tested in `@kb/ui`.
 - **The lazy fence follows packages.** `UI_LAZY_ONLY` applies to the import
   closure from `UI_ENTRY`, walking into `scope:browser` workspace packages
   too, so a chart page moved out of `app/ui` is still fenced from Vega.

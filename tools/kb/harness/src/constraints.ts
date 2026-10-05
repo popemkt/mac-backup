@@ -45,7 +45,8 @@ export const LAYER_ALLOWS: Record<string, readonly string[]> = {
   extension: ["domain", "contract", "application", "kit", "extension"],
   // From a composition root only: EXTENSION_ROOTS.
   app: ["domain", "contract", "infrastructure", "application", "kit", "extension", "app"],
-  "test-support": ["domain", "app"],
+  // The UI test kit's scene contract holds the scene kit's handle.
+  "test-support": ["domain", "kit", "app"],
 };
 
 export const SCOPE_ALLOWS: Record<string, readonly string[]> = {
@@ -179,8 +180,6 @@ export interface SanctionedExtensionImport {
  * feature fails, and a named file that no longer imports it fails too: the
  * list is frozen and can only shrink, like a ratchet's baseline.
  *
- * - The canvas's UI half, `components/canvas` and its story, leaves with
- *   `@kb/canvas-ui` (step E13 of the extension-boundaries plan).
  * - The docs and check pre-commit entries parse their family's output
  *   schema to print it: they leave when the family's report reaches them
  *   through the registry instead.
@@ -189,69 +188,6 @@ export interface SanctionedExtensionImport {
 export const EXTENSION_ROOT_BREACHES: Readonly<
   Record<string, readonly SanctionedExtensionImport[]>
 > = {
-  "@kb/ui": [
-    {
-      target: "@kb/canvas",
-      files: [
-        "src/catalog/canvas-card.stories.tsx",
-        "src/components/canvas/canvas-3d-stage.tsx",
-        "src/components/canvas/canvas-api.ts",
-        "src/components/canvas/canvas-camera-rig.ts",
-        "src/components/canvas/canvas-camera.ts",
-        "src/components/canvas/canvas-card-box.ts",
-        "src/components/canvas/canvas-card-face.ts",
-        "src/components/canvas/canvas-card-layer.tsx",
-        "src/components/canvas/canvas-card.tsx",
-        "src/components/canvas/canvas-edge-layer.tsx",
-        "src/components/canvas/canvas-edge-link.ts",
-        "src/components/canvas/canvas-edge-path.ts",
-        "src/components/canvas/canvas-face-editor.tsx",
-        "src/components/canvas/canvas-face-overlay.ts",
-        "src/components/canvas/canvas-face.ts",
-        "src/components/canvas/canvas-faces.ts",
-        "src/components/canvas/canvas-gizmo.ts",
-        "src/components/canvas/canvas-handover.ts",
-        "src/components/canvas/canvas-history.ts",
-        "src/components/canvas/canvas-image-card.tsx",
-        "src/components/canvas/canvas-keymap.ts",
-        "src/components/canvas/canvas-media.ts",
-        "src/components/canvas/canvas-overlays.tsx",
-        "src/components/canvas/canvas-page.tsx",
-        "src/components/canvas/canvas-pointer.ts",
-        "src/components/canvas/canvas-ports.tsx",
-        "src/components/canvas/canvas-projections.ts",
-        "src/components/canvas/canvas-scene-content.ts",
-        "src/components/canvas/canvas-scene-edges.ts",
-        "src/components/canvas/canvas-scene-gestures.ts",
-        "src/components/canvas/canvas-scene-gizmo.ts",
-        "src/components/canvas/canvas-scene-items.ts",
-        "src/components/canvas/canvas-scene-labels.ts",
-        "src/components/canvas/canvas-scene-solids.ts",
-        "src/components/canvas/canvas-scene-space.ts",
-        "src/components/canvas/canvas-scene.ts",
-        "src/components/canvas/canvas-selection.ts",
-        "src/components/canvas/canvas-stage.tsx",
-        "src/components/canvas/canvas-tool.ts",
-        "src/components/canvas/canvas-toolbar.tsx",
-        "src/components/canvas/canvas-transform-guides.tsx",
-        "src/components/canvas/canvas-transform-input.ts",
-        "src/components/canvas/canvas-view-widget.tsx",
-        "src/components/canvas/canvas-visible.ts",
-        "src/components/canvas/edge-inspector.tsx",
-        "src/components/canvas/item-inspector.tsx",
-        "src/components/canvas/shape-card.tsx",
-        "src/components/canvas/use-canvas-doc.ts",
-        "src/components/canvas/use-canvas-edge-actions.ts",
-        "src/components/canvas/use-canvas-gestures.ts",
-        "src/components/canvas/use-canvas-keyboard.ts",
-        "src/components/canvas/use-canvas-pictures.ts",
-        "src/components/canvas/use-canvas-projection.ts",
-        "src/components/canvas/use-canvas-screen.ts",
-        "src/components/canvas/use-canvas-selection.ts",
-        "src/components/canvas/use-face-editing.ts",
-      ],
-    },
-  ],
   "@kb/cli": [
     { target: "@kb/ext-check", files: ["src/bin/check-audit.ts"] },
     { target: "@kb/ext-docs", files: ["src/bin/docs-check.ts", "src/bin/docs-materialize.ts"] },
@@ -272,8 +208,9 @@ export const BROWSER_HALF_SUFFIX = "-ui";
  * family and not listed here fails, and a listed one that no longer is a
  * surface fails too, so the list can only shrink.
  */
-// The canvas half: GAP [[01M39F3MR3HT2NR553FY8CRD6X]]
-export const CORE_BROWSER_HALVES: ReadonlySet<string> = new Set(["canvas"]);
+// Every family's browser half is its package now; the list stays the place a
+// deferred one would be named.
+export const CORE_BROWSER_HALVES: ReadonlySet<string> = new Set<string>();
 
 /**
  * The isomorphism fence. A `scope:shared` package runs in the browser too, so
@@ -290,12 +227,17 @@ export function isIsomorphicScope(scope: string): boolean {
 /**
  * What a test builds its world from, which a test file may import whatever
  * layer it sits in: `@kb/test-kit`, where the DST harness, the scenario
- * runners and the contract suites live, and `@kb/bundled`, the seed kb ships
- * (`bundledSeed()`), from which a test makes a fresh store. As production
- * edges both would be domain → app, so only test files and devDependencies
- * may name them.
+ * runners and the contract suites live; `@kb/bundled`, the seed kb ships
+ * (`bundledSeed()`), from which a test makes a fresh store; and
+ * `@kb/ui-test-kit`, a browser test's DOM and GPU stand-ins. As production
+ * edges each would point the wrong way (domain → app, app → test-support),
+ * so only test files and devDependencies may name them.
  */
-const TEST_WORLD_PACKAGES: ReadonlySet<string> = new Set(["@kb/test-kit", "@kb/bundled"]);
+const TEST_WORLD_PACKAGES: ReadonlySet<string> = new Set([
+  "@kb/test-kit",
+  "@kb/bundled",
+  "@kb/ui-test-kit",
+]);
 
 /**
  * A test file, by its package-relative path: anything in the package's own
@@ -390,18 +332,9 @@ export const SANCTIONED_TSCONFIG_DELTAS: Record<string, Record<string, string>> 
 export const UI_SRC = "packages/app/ui/src";
 
 /** A surface folder under `components/`: one page family and its chrome. */
-type UiSurface =
-  | "canvas"
-  | "graph"
-  | "layout"
-  | "ontology"
-  | "outline"
-  | "palette"
-  | "prefs"
-  | "sidebar";
+type UiSurface = "graph" | "layout" | "ontology" | "outline" | "palette" | "prefs" | "sidebar";
 
 export const UI_SURFACES: readonly UiSurface[] = [
-  "canvas",
   "graph",
   "layout",
   "ontology",
@@ -464,17 +397,6 @@ export function uiZoneOf(file: string): UiZone {
 }
 
 /**
- * The row of a zone that leaves `@kb/ui` as an extension's UI half
- * (DESIGN-UI.md → Extension UI halves): itself alone. Everything it uses of
- * the shell comes from `@kb/ui-sdk`, and its 3D from the scene kit, which are
- * package edges and not zones, so what it uses is listed once, in those
- * packages' barrels. The row is deleted when its package leaves.
- */
-function extensionRow(self: UiZone): readonly UiZone[] {
-  return [self];
-}
-
-/**
  * Who may import whom inside the UI. Read as `UI_ALLOWS[zoneOf(importer)]`
  * must contain `zoneOf(imported)`; a zone always contains itself, spelled out
  * rather than implied, because "own surface" is a row of the original table.
@@ -505,7 +427,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   shell: [
     "shell",
     "primitives",
-    "components/canvas",
     "components/graph",
     "components/layout",
     "components/ontology",
@@ -535,7 +456,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "fixtures",
     "lib",
     "primitives",
-    "components/canvas",
     "components/graph",
     "components/ontology",
     "components/outline",
@@ -543,9 +463,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "components/prefs",
     "components/sidebar",
   ],
-  // The canvas and its 3D projection; the projection stands on the scene kit,
-  // whose three the lazy fence keeps behind the projection's own chunk.
-  "components/canvas": extensionRow("components/canvas"),
   "components/graph": ["components/graph", "primitives", "stores", "actions", "lib"],
   "components/ontology": ["components/ontology", "primitives", "stores", "actions", "lib"],
   // Panes and layouts: a pane draws whatever page its path resolves to, by

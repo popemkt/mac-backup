@@ -3,11 +3,12 @@ import {
   NodeTextHost,
   rowText,
   shownNodeId,
+  useNodeTextBindingThrough,
   type NodeTextHostBinding,
   type NodeTextHostProps,
   type OutlineNode,
 } from "@kb/ui-sdk";
-import { useNodeTextHostBinding } from "@/stores/node-text-host-binding";
+import { nodeTextPort } from "@/stores/node-text-port";
 
 /**
  * Outline surface binding of the shared node text host.
@@ -23,11 +24,14 @@ import { useNodeTextHostBinding } from "@/stores/node-text-host-binding";
 export function NodeContent({
   node,
   ...props
-}: Omit<NodeTextHostProps, keyof NodeTextHostBinding | "nodeId" | "content" | "onChange"> & {
+}: Omit<
+  NodeTextHostProps,
+  keyof NodeTextHostBinding | "nodeId" | "content" | "onChange" | "onAttachFile" | "onRemoveTag"
+> & {
   /** The row's node, as the surface renders it (a projection may pass its own map). */
   node: OutlineNode;
 }) {
-  const binding = useNodeTextHostBinding(props.instanceKey);
+  const binding = useNodeTextBindingThrough(nodeTextPort, props.instanceKey);
   const content = rowText(node, binding.schema);
   const textNodeId = shownNodeId(node);
   return (

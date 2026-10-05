@@ -181,7 +181,7 @@ function serveUi(deps: {
   root: string;
   ctx: KbContext;
   hub: SubscriptionHub;
-  hosted: () => readonly ExtensionRow[];
+  hosted: Effect.Effect<readonly ExtensionRow[]>;
 }): Bun.Server<WsData> {
   const { ctx, hub } = deps;
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
@@ -250,10 +250,16 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const kernel = makeKernel();
   const hub = new SubscriptionHub(ctx, channelsOf(kernel));
   const hosted = yield* loadServerPlugins(kernel, ctx, hub.screens, opts.extensions ?? []);
+  // A switch written anywhere reaches this session's log; the server composes what it says.
+  const fork = Effect.runForkWith(yield* Effect.context());
+  const unsubscribeSwitches = ctx.log.subscribe((tx) => {
+    const ids = [...tx.ops.upserts.map(({ id }) => id), ...tx.ops.deletes];
+    if (ids.some((id) => hosted.switches.has(id))) fork(hosted.converge);
+  });
   const queries = new SavedQuerySet(ctx);
   queries.adopt(savedQueryNodes(yield* listSavedQueriesEffect(opts.root)));
 
-  const layer = serverRuntimeLayer(ctx, hub.screens, hosted);
+  const layer = serverRuntimeLayer(ctx, hub.screens, hosted.rows);
   // The directory has to be there to be watched, and `kb ui` is the surface
   // that projects it — a root that has never saved a query would otherwise
   // never notice its first one.
@@ -274,7 +280,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     root: opts.root,
     ctx,
     hub,
-    hosted,
+    hosted: hosted.rows,
   });
 
   yield* Scope.addFinalizer(
@@ -285,6 +291,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     }),
   );
   // Each plugin's scope closes with the server's: what it forked stops with it.
+  yield* Scope.addFinalizer(lifetime, Effect.sync(unsubscribeSwitches));
   yield* Scope.addFinalizer(lifetime, kernel.shutdown);
 
   // The store says when it moved; the server never names its files. The first

@@ -4,7 +4,6 @@ import * as FileSystem from "effect/FileSystem";
 import { canonicalJsonl, fieldTypeValue } from "@kb/model";
 import {
   kbCtxLayer,
-  kbStoreLayer,
   type EffectStore,
   type KbContext,
   type KbTxLog,
@@ -12,7 +11,9 @@ import {
   type TxTail,
 } from "@kb/contracts";
 import type { KbNode, KbTx, StoreTx } from "@kb/model";
-import { checkAuditEffect, checkSyncEffect, type Finding } from "../src/index.ts";
+import { checkAuditEffect, type Finding } from "../src/index.ts";
+import { buildCheckModel } from "../src/model.ts";
+import { enforcementSyncs } from "../src/sync.ts";
 
 const ROOT = "/repo";
 const AT = "2026-09-06T00:00:00.000Z";
@@ -178,7 +179,7 @@ function fixtureContext(initial: readonly KbNode[]) {
       return index.storedNodes();
     },
   };
-  return { ctx, store, log };
+  return { ctx, log };
 }
 
 function matchGlob(path: string, pattern: string): boolean {
@@ -358,20 +359,13 @@ describe("ext.check.audit", () => {
       ...rule,
       props: { ...rule.props, "f.enforcement": [{ t: "ref", v: "v.prose" }] },
     }));
-    const { ctx, store } = fixtureContext(input.nodes);
-    return Effect.runPromise(
-      Effect.gen(function* () {
-        const synced = yield* checkSyncEffect({});
-        const audited = yield* checkAuditEffect({});
-        return { synced, audited };
-      }).pipe(
-        Effect.provide(
-          Layer.mergeAll(kbCtxLayer(ctx), kbStoreLayer(store), fileLayer(input.files)),
-        ),
-      ),
-    ).then((output) => {
-      expect(output.synced.updated).toEqual(["rule.one"]);
-      expect(output.audited).toEqual({ clean: true, findings: [] });
+    // What sync writes goes through the host's `GraphWrites`; the decision
+    // is this family's, so it is checked here on the graph it would leave.
+    const upserts = enforcementSyncs(buildCheckModel(input.nodes), AT);
+    expect(upserts.map((entry) => entry.id)).toEqual(["rule.one"]);
+    const synced = { ...input, nodes: applyTx(input.nodes, { upserts, deletes: [] }) };
+    return audit(synced).then((findings) => {
+      expect(findings).toEqual([]);
       return undefined;
     });
   });
@@ -386,17 +380,7 @@ describe("ext.check.audit", () => {
       ...rule,
       props: { ...rule.props, "f.enforcement": [{ t: "ref", v: "v.prose" }] },
     }));
-    const { ctx, store } = fixtureContext(input.nodes);
-    return Effect.runPromise(
-      checkSyncEffect({}).pipe(
-        Effect.provide(
-          Layer.mergeAll(kbCtxLayer(ctx), kbStoreLayer(store), fileLayer(input.files)),
-        ),
-      ),
-    ).then((synced) => {
-      expect(synced.updated).toEqual([]);
-      return undefined;
-    });
+    expect(enforcementSyncs(buildCheckModel(input.nodes), AT)).toEqual([]);
   });
 
   test("audit is pure", () => {

@@ -2,7 +2,8 @@
  * The agent's dock through the real App follows the server that hosts the
  * agent: a page whose `kb.manifest` reports the agent loaded (a `kb ui` that
  * hosts it) offers the Agent toggle, and a page whose server reports none
- * (`kb ui --no-agent`) offers none, whatever this browser chose before.
+ * (the agent switched off, or a server that hosts none) offers none,
+ * whatever this browser chose before.
  * There is no second switch in the browser.
  */
 import { act } from "react";
@@ -10,8 +11,14 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { agentExtension } from "@kb/agent";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
-import { extensionRow, type ActionInvocation, type GraphSnapshot } from "@kb/contracts";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import {
+  NO_SWITCHES,
+  extensionRow,
+  familyOn,
+  type ActionInvocation,
+  type GraphSnapshot,
+} from "@kb/contracts";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 
 const { App } = await import("@/components/App");
 const { setFetchGraphSnapshot } = await import("@/api/graph");
@@ -42,7 +49,11 @@ async function answer(invocation: ActionInvocation) {
   }
   const extensions = [
     ...BUNDLED_FAMILIES.map((declaration) =>
-      extensionRow(declaration, "bundled", declaration.optional !== true),
+      extensionRow(
+        declaration,
+        "bundled",
+        familyOn(declaration, NO_SWITCHES, () => {}),
+      ),
     ),
     ...(server.agent ? [extensionRow(agentExtension, "host", true)] : []),
   ];

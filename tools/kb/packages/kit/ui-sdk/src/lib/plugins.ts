@@ -20,11 +20,12 @@ import {
   type ReactElement,
 } from "react";
 import type { Icon } from "@phosphor-icons/react";
-import { Cause, Effect, Exit } from "effect";
+import { Cause, Effect } from "effect";
 import { present } from "@kb/model";
 import {
   Point,
   makeKernel,
+  syncPlugins,
   type Contribution,
   type ContributionEntry,
   type Plugin,
@@ -219,32 +220,19 @@ export interface ExtensionSwitch {
   readonly on: boolean;
 }
 
-function reportFailure(name: string, verb: "load" | "unload", cause: Cause.Cause<unknown>): void {
-  const failure = Cause.squash(cause);
-  toast(
-    `UI plugin ${name} failed to ${verb}: ${failure instanceof Error ? failure.message : String(failure)}`,
-  );
-}
-
 /**
- * Converge the UI kernel on exactly `plugins`: load each one not yet loaded,
- * and unload each top-level plugin no longer listed — its routes, views and
- * sidebar section go with it, live, because the kernel ties every
- * contribution to the plugin's scope. A plugin that fails is reported and
- * leaves nothing behind; the rest of the UI still loads.
+ * Converge the UI kernel on exactly `plugins` (`syncPlugins`, the one
+ * convergence every host uses): a top-level plugin no longer listed unloads,
+ * and its routes, views and sidebar section go with it, live. A plugin that
+ * fails is reported and leaves nothing behind; the rest of the UI still
+ * loads.
  */
 export function syncUiPlugins(plugins: readonly Plugin[]): void {
-  const wanted = new Set(plugins.map((plugin) => plugin.name));
-  for (const state of uiKernel.plugins()) {
-    if (state.parent !== null || wanted.has(state.name)) continue;
-    const exit = Effect.runSyncExit(uiKernel.unload(state.name));
-    if (Exit.isFailure(exit)) reportFailure(state.name, "unload", exit.cause);
-  }
-  const loaded = new Set(uiKernel.plugins().map((plugin) => plugin.name));
-  for (const plugin of plugins) {
-    if (loaded.has(plugin.name)) continue;
-    const exit = Effect.runSyncExit(uiKernel.load(plugin));
-    if (Exit.isFailure(exit)) reportFailure(plugin.name, "load", exit.cause);
+  for (const { name, verb, cause } of Effect.runSync(syncPlugins(uiKernel, plugins))) {
+    const failure = Cause.squash(cause);
+    toast(
+      `UI plugin ${name} failed to ${verb}: ${failure instanceof Error ? failure.message : String(failure)}`,
+    );
   }
 }
 

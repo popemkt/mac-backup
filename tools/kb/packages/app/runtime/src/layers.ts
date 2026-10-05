@@ -41,15 +41,16 @@ import {
   readLegacyDocsViews,
   savedQueriesLayer,
 } from "@kb/workspace-fs";
-import { noteStoreSynced } from "@kb/operations";
+import { graphWritesLayer, noteStoreSynced } from "@kb/operations";
 import { invokeReceiptEffect, receiptFromError, sessionRegistry } from "./registry.ts";
 import { remoteScreensLayer } from "./screens.ts";
 import { selectStore } from "./store-selection.ts";
 
 /**
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
- * the workspace ports backed by `.kb/` on disk + the UI tabs' screens, held
- * by the `kb ui` serving the root + the view catalog the registry's plugins
+ * core's write path over that session (`GraphWrites`) + the workspace ports
+ * backed by `.kb/` on disk + the UI tabs' screens, held by the `kb ui`
+ * serving the root + the view catalog the registry's plugins
  * contributed + QuickJS as the engine untrusted code runs on and the invoke
  * core as a read (`UntrustedEngine` and `ReadInvoke`, which a view's figure
  * runs code on and calls actions through) + the render templates and the action
@@ -74,13 +75,14 @@ export function kbRuntimeLayer(
   screens: Layer.Layer<Screens> = remoteScreensLayer(ctx.root).pipe(
     Layer.provide(bunFileSystemLayer),
   ),
-  hosted: () => readonly ExtensionRow[] = () => [],
+  hosted: Effect.Effect<readonly ExtensionRow[]> = Effect.succeed([]),
 ): Layer.Layer<ActionHandlerEnv> {
   const registry = sessionRegistry(ctx).pipe(Effect.provide(bunFileSystemLayer));
   return Layer.mergeAll(
     bunFileSystemLayer,
     kbStoreLayer(ctx.store),
     kbCtxLayer(ctx),
+    graphWritesLayer.pipe(Layer.provide(Layer.merge(kbCtxLayer(ctx), kbStoreLayer(ctx.store)))),
     Layer.succeed(KbIndexService, ctx.index),
     savedQueriesLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
@@ -91,7 +93,9 @@ export function kbRuntimeLayer(
     Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),
     Layer.effect(
       ExtensionCatalog,
-      registry.pipe(Effect.map(({ families }) => [...families, ...hosted()])),
+      Effect.all([registry, hosted]).pipe(
+        Effect.map(([{ families }, rows]) => [...families, ...rows]),
+      ),
     ),
     Layer.succeed(UntrustedEngine, quickjsEngine),
     Layer.succeed(ReadInvoke, readInvoke(ctx)),

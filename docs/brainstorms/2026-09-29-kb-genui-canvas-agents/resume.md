@@ -19,33 +19,17 @@ done. Main is pushed.
   ([../2026-10-04-kb-extension-boundaries/README.md](../2026-10-04-kb-extension-boundaries/README.md))
   through E0-E12, including E4b, E9 lab and E10b.
 
-## Next, when the owner's quota is back
+## To do, in order
 
-- E9b: canvas vocabulary out of core.
-- E13: `@kb/canvas-ui`. The canvas card text-binding gap
-  `01M41MHRD7MF4NP23EE294B69C` must land before it.
-- E14: close gaps, flip the rule's enforcement.
-- 3D step 9 (connectors) and step 10 (formats: JSON Canvas export, GLB).
-- The deferred step 7b (items become nodes), still the owner's call.
-- Proposed, not yet approved: make the sidebar agent configurable as a node.
-  Today `@kb/agent-claude` runs the owner's local Claude Code (`claude` on
-  PATH, their login's default model, `settingSources: []`, kb actions only
-  over the in-process `kb` MCP server, `dontAsk`, 40 steps, 30 min).
-  `ClaudeRuntimeOptions` takes `model` and `executable`, but
-  `cli/src/host-plugins.ts` passes only `cwd`; the only switch is
-  `kb ui --no-agent`. Recommended shape: a model field on a
-  `sys.extension.agent` node, read live, like the lab switch.
+The ordered work queue is data in kb: the todo
+`01M43DRVEQY02RTSX3XYWB8TG1` ("kb work queue, in order") and its
+children, each with a status. Read it with
+`kb backlinks 01M43DRVEQY02RTSX3XYWB8TG1` or open it in `kb ui`. Change
+order or status there, not here.
 
-## Open questions
+## Agent routing
 
-- The test:ui count: the landing report saw 2218 in `@kb/ui`, against the
-  builder's 2404 across packages. Confirm the nx per-package total (the step 8
-  landing summed 2399 across the packages, 2213 of them in `@kb/ui`).
-- A flaky `canvas-camera.test.ts` timeout.
-
-## Agent routing in quota mode
-
-Sonnet builds and lands, GPT-6.1 Sol reviews. Brief Sol with an exact
+Opus builds; Sonnet only investigates and checks; GPT-6.1 Sol reviews; the main session lands. Brief Sol with an exact
 `git diff <base> <branch>` range; a range description once got the wrong
 commits reviewed. Verify a builder's branch with
 `git -C <worktree> branch --show-current`, not its report.

@@ -16,6 +16,7 @@ import {
   toast,
   wireToOutlineMap,
   WORKSPACE_ROOT_ID,
+  type CaretIntent,
   type FamilyView,
   type KbIndex,
   type NodeMap,
@@ -52,12 +53,6 @@ export interface ActivateOpts {
    */
   x?: number | null;
 }
-
-/** A one-shot request for a mounted text host to place its caret. */
-export type CaretIntent = {
-  instanceKey: string;
-  at: number | "end" | { x: number };
-};
 
 interface OutlineState {
   nodes: NodeMap;

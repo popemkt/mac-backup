@@ -12,6 +12,7 @@ import {
 } from "@kb/model";
 import type { KbIndexService } from "@kb/query";
 import type { Screens } from "./screen.ts";
+import type { GraphWrites } from "./graph-writes.ts";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
 import type { ExtensionCatalog } from "./declaration.ts";
@@ -70,6 +71,7 @@ export function asObjectSchema(
 export type ActionHandlerEnv =
   | KbCtx
   | KbStore
+  | GraphWrites
   | KbIndexService
   | FileSystem
   | TemplateRegistry
@@ -247,10 +249,13 @@ export class ActionCatalog extends Context.Service<ActionCatalog, readonly Manif
 export type ReadInvoker = (invocation: ActionInvocation) => Effect.Effect<ActionReceipt>;
 
 /**
- * How a read reaches the invoke core. Drawing a view's page is a read, so a
- * figure that calls actions (a code view's snapshot) calls them through
- * this, and every call it makes must be a read too. A host that provides
- * none has no invoke core under its reads, and such a figure draws nothing.
+ * How a read reaches the invoke core from code the core is already running.
+ * Drawing a view's page is a read, so a figure that calls actions (a code
+ * view's snapshot) calls them through this; a family's action that needs a
+ * view's rendered bytes (`ext.docs.*`) asks `render.view` through it, the
+ * backbone every surface asks. Every call made through it must be a read. A
+ * host that provides none has no invoke core under its reads: such a figure
+ * draws nothing, and such an action fails.
  */
 export const ReadInvoke = Context.Reference<ReadInvoker | null>("kb/ReadInvoke", {
   defaultValue: () => null,

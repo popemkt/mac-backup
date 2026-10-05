@@ -8,10 +8,9 @@ import { definePlugin } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
 import { proposeView } from "@/lib/propose-view";
 import { subscribeLiveQueryNode } from "@/lib/query-node";
-import { BrowserHostService, schemaOf, type BrowserHost } from "@kb/ui-sdk";
+import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import { invoke } from "@/session/runtime";
-import { followFrom } from "@/stores/follow";
 import { useOutlineStore } from "@/stores/outline.store";
 import {
   appearanceIn,
@@ -19,6 +18,7 @@ import {
   toggleSidebarFrom,
   usePrefsStore,
 } from "@/stores/prefs.store";
+import { nodeTextPort } from "@/stores/node-text-port";
 import { refInkIn } from "@/stores/ref-ink";
 import { paneScreenPort } from "@/stores/screen.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -28,6 +28,9 @@ import { useWorkspaceStore } from "@/stores/workspace.store";
 const SOURCES = [useOutlineStore, usePrefsStore, useUiStore] as const;
 
 const host: BrowserHost = {
+  // A node text port is what the shell binds its own text hosts through, so
+  // the host is that port, listened to over every store its reads answer from.
+  ...nodeTextPort,
   subscribe: (listener) => {
     const unsubscribes = SOURCES.map((store) => store.subscribe(listener));
     return () => {
@@ -35,13 +38,10 @@ const host: BrowserHost = {
     };
   },
   node: (id) => useOutlineStore.getState().nodes.get(id),
-  nodes: () => useOutlineStore.getState().nodes,
-  schema: () => schemaOf(useOutlineStore.getState()),
   isActive: (nodeId, instanceKey) => {
     const { activeNodeId, activeInstanceKey } = useOutlineStore.getState();
     return activeNodeId === nodeId && activeInstanceKey === instanceKey;
   },
-  index: () => useOutlineStore.getState().index,
   wireNodes: () => useOutlineStore.getState().wireNodes,
   live: () => useUiStore.getState().wsStatus === "open",
   subscribeQuery: subscribeLiveQueryNode,
@@ -52,11 +52,9 @@ const host: BrowserHost = {
   sidebarOpen: sidebarOpenIn,
   toggleSidebar: toggleSidebarFrom,
   refInk: () => refInkIn(useOutlineStore.getState()),
-  follow: followFrom,
   zoomTo: (id) => useOutlineStore.getState().zoomTo(id),
   activateNode: (nodeId, cursorPos, instanceKey) =>
     useOutlineStore.getState().activateNode(nodeId, cursorPos, instanceKey),
-  selectNode: (nodeId, instanceKey) => useOutlineStore.getState().selectNode(nodeId, instanceKey),
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),
   replaceField: (nodeId, fieldId, values) => mutations.replaceField(nodeId, fieldId, values),
   updateNodeContent: (nodeId, text) => mutations.updateNodeContent(nodeId, text),

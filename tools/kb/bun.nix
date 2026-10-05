@@ -606,6 +606,7 @@
   "@kb/agent-ui" = copyPathToStore ./packages/extension/agent-ui;
   "@kb/bundled" = copyPathToStore ./packages/app/bundled;
   "@kb/canvas" = copyPathToStore ./packages/extension/canvas;
+  "@kb/canvas-ui" = copyPathToStore ./packages/extension/canvas-ui;
   "@kb/chart" = copyPathToStore ./packages/extension/chart;
   "@kb/chart-ui" = copyPathToStore ./packages/extension/chart-ui;
   "@kb/chart-vega" = copyPathToStore ./packages/extension/chart-vega;
@@ -641,6 +642,7 @@
   "@kb/tx-log" = copyPathToStore ./packages/infrastructure/tx-log;
   "@kb/ui" = copyPathToStore ./packages/app/ui;
   "@kb/ui-sdk" = copyPathToStore ./packages/kit/ui-sdk;
+  "@kb/ui-test-kit" = copyPathToStore ./packages/test-support/ui-test-kit;
   "@kb/views" = copyPathToStore ./packages/domain/views;
   "@kb/webmcp" = copyPathToStore ./packages/app/webmcp;
   "@kb/workspace-fs" = copyPathToStore ./packages/infrastructure/workspace-fs;

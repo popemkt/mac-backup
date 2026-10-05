@@ -17,7 +17,7 @@ import { coreExtension } from "@kb/operations";
 import type { ScreenTab } from "@/api/live";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { browserHostUiPlugin } from "@/browser-host";
-import { canvasUiPlugin } from "@/components/canvas/plugin";
+import { canvasUiPlugin } from "@kb/canvas-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { getPath, navigate, syncUiPlugins, type PaneCarryOut } from "@kb/ui-sdk";
@@ -26,7 +26,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { useScreenStore } from "@/stores/screen.store";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes, singlePane } from "@kb/views";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 
 function tab(page: () => Window | null = () => window) {
   const published: ScreenState[] = [];

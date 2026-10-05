@@ -16,12 +16,15 @@
  *   beside this one; a plain click toggles where the bullet can toggle, and
  *   follows where it cannot.
  *
- * Carrying a follow out — zooming, jumping, opening a tab — needs the store,
- * so it is `useFollow` (stores/follow.ts), and a primitive takes it as a prop.
+ * Carrying a follow out — zooming, jumping, opening a tab — needs the page,
+ * so a {@link CarryOutFollow} does it (the shell's `followFrom`, which
+ * `BrowserHost.follow` is), `useFollowThrough` binds one to where the caller
+ * is drawn, and a primitive takes the result as a prop.
  */
-import { createContext, type MouseEvent as ReactMouseEvent } from "react";
+import { createContext, useCallback, useContext, type MouseEvent as ReactMouseEvent } from "react";
 import { asElement } from "./dom";
 import { INLINE_TEXT_CLASSES, KB_REF_ID_ATTR } from "./md-edit";
+import { usePane } from "./pane";
 
 /** Where a pointer goes: a node in this graph, or a location outside it. */
 export type FollowTarget = { kind: "node"; id: string } | { kind: "href"; href: string };
@@ -45,6 +48,26 @@ export const nodeTarget = (id: string): FollowTarget => ({ kind: "node", id });
  * to the node instead. None means the zoom.
  */
 export const OpenNodeContext = createContext<((id: string) => void) | null>(null);
+
+/** Where a follow is carried out from: the caller's pane, and how the page around it opens a node. */
+export interface FollowFrom {
+  readonly pane: string;
+  /** Open a node as the page around the caller (`OpenNodeContext`); null means the outline's zoom. */
+  readonly open: ((id: string) => void) | null;
+}
+
+/** Carry out a follow from where its caller is drawn. */
+export type CarryOutFollow = (at: FollowFrom, target: FollowTarget, how: FollowHow) => void;
+
+/** How a pointer is followed from where the caller is drawn, carried out by `carryOut`. */
+export function useFollowThrough(carryOut: CarryOutFollow): Follow {
+  const open = useContext(OpenNodeContext);
+  const pane = usePane();
+  return useCallback<Follow>(
+    (target, how) => carryOut({ pane, open }, target, how),
+    [carryOut, open, pane],
+  );
+}
 
 /** What an element in rendered content points at, if it is a pointer segment. */
 type PointerHit =

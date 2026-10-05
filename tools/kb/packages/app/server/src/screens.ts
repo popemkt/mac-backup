@@ -213,7 +213,7 @@ export class ScreenHub {
 export function serverRuntimeLayer(
   ctx: KbContext,
   screens: ScreenHub,
-  hosted?: () => readonly ExtensionRow[],
+  hosted?: Effect.Effect<readonly ExtensionRow[]>,
 ): Layer.Layer<ActionHandlerEnv> {
   return kbRuntimeLayer(ctx, Layer.succeed(Screens, screens.port), hosted);
 }

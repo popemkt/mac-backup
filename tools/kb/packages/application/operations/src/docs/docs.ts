@@ -3,7 +3,8 @@ import { SYSTEM_IDS, present, type NodeId } from "@kb/model";
 
 import type { KbContext, TemplateContext } from "@kb/contracts";
 import { KbCtx, SavedQueries, TemplateRegistry } from "@kb/contracts";
-import { DocsError, type LoadedView } from "./views.ts";
+import type { DocsView } from "@kb/views";
+import { DocsError } from "./views.ts";
 
 export { DocsError, docsViewEffect, docsViewsEffect } from "./views.ts";
 
@@ -27,7 +28,7 @@ function templateContext(ctx: KbContext): TemplateContext {
 
 /** The EDN a docs view renders: its own query, or the saved query it names, read now. */
 const viewEdnEffect = Effect.fn("docs.viewEdn")(function* (
-  view: LoadedView,
+  view: DocsView,
 ): Effect.fn.Return<string, DocsError, SavedQueries> {
   if (view.spec.query !== undefined) return view.spec.query;
   const name = view.spec.savedQuery;
@@ -53,7 +54,7 @@ const viewEdnEffect = Effect.fn("docs.viewEdn")(function* (
 
 /** Render one view to its final file content (header + template output). */
 export const renderViewEffect = Effect.fn("docs.renderView")(function* (
-  view: LoadedView,
+  view: DocsView,
 ): Effect.fn.Return<string, DocsError, KbCtx | SavedQueries | TemplateRegistry> {
   const ctx = yield* KbCtx;
   const templates = yield* TemplateRegistry;

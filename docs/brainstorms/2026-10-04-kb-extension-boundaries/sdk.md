@@ -74,7 +74,7 @@ as not checked yet:
   `CanvasScreenSchema` and `CANVAS_VIEW_PRESET_NAMES` in
   `contracts/src/screen.ts`, and `ui.capture` ("Capture a canvas") in
   `operations/src/ui.ts`. No step and no gap covers this yet:
-  `GAP [screen-protocol-names-canvas]`.
+  `GAP [[01M43AT0V9HHVS7ZAEPWXEGE7F]]`.
 
 ## 2. The SDK for the shared and server half
 
@@ -242,7 +242,7 @@ and planned after E13, at a 3D step boundary.
 
 **Gaps to mint at sign-off**, with markers at the sites named in
 `current`:
-- `GAP [extensions-reach-core-use-cases]`
+- `GAP [[01M439W857BD9QQTBEQ5X5D06D]]`
   - *expected:* an extension package builds on `domain`, `contract`, `kit`
     and its own family only. Core's write path and render backbone reach
     it as contract services.
@@ -254,13 +254,13 @@ and planned after E13, at a 3D step boundary.
     Changing `persistEffect` or the docs render edits three families, and
     a new extension can reach any use case.
   - *closes:* E15a–E15c.
-- `GAP [family-helpers-copied]`
+- `GAP [[01M43ASYY0EC1E4TYFXYXHZEME]]`
   - *expected:* a helper that two families need has one home in the layer
     they share.
   - *current:* the three pairs in the §2 table.
   - *impact:* a fix to one copy silently misses the other.
   - *closes:* E16.
-- `GAP [screen-protocol-names-canvas]`
+- `GAP [[01M43AT0V9HHVS7ZAEPWXEGE7F]]`
   - *expected:* core's screen protocol carries a pane's view state
     opaquely, and the canvas family contributes its own part.
   - *current:* `PaneScreen.canvas`, `CanvasScreenSchema` and
@@ -291,3 +291,33 @@ and planned after E13, at a 3D step boundary.
 SDK is the `contract` layer with the `domain` vocabulary (no `@kb/sdk`
 package), and no symbol-level allowlist until an extension builds outside
 this workspace.
+
+**Note from the doing (E15a).**
+- **Rendering goes through `ReadInvoke`; no `DocsRender` port.** ext-docs
+  gets each view's bytes from `render.view {name, format: "md"}`, which
+  returns exactly what the materializer wrote before, so `docs/kb/*` is
+  byte-identical and `docs.check` is clean. It does not list through
+  `render.views`: that action returns names only, and the materializer
+  also needs each view's `output` path and the per-view warnings. Both
+  come from one pure reader, `docsViewsOf` and `docsViewNamed`, moved into
+  `@kb/views` beside the docs view key. `render.views` and core's
+  `docs.view(s)` read the same function, so this is a bridge, not a mirror,
+  and the warnings survive with no new port.
+- **`GraphWrites` is `commit(tx)` only, for now.** `planNodeAdd` would have
+  had no caller until ext-canvas `verbs.ts` moves, so it is a dead seam
+  until then. E15b adds it together with that caller, and moves
+  `node.add`'s input schema to contracts so the two share it. The binding
+  is `graphWritesLayer` in `@kb/operations`, built from `KbCtx` and
+  `KbStore`, so a test that substitutes the store substitutes the port's
+  store too.
+- **One binding, so no shared suite yet.** `kbRuntimeLayer` is the only
+  binding, and `graph-writes.test.ts` (`app/runtime`) holds its promises.
+  ext-check did not get a test double: `ext.check.sync` split into its
+  decision (`enforcementSyncs`), tested on the graph it would leave, and one
+  `commit`. `check-sync.test.ts` (`app/runtime`) runs the action end to end
+  on a temp store. A second binding has to turn `graph-writes.test.ts` into
+  a suite.
+- **The gap is not minted yet.** After E15a, the importers that
+  `GAP [[01M439W857BD9QQTBEQ5X5D06D]]` names are only ext-canvas
+  `write.ts` and `verbs.ts`. They are left unmarked because E15a does not
+  touch ext-canvas. DESIGN.md → Extension families lists the gap.

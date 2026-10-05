@@ -33,6 +33,7 @@ import {
 import type { ActionEffectHandler, EffectStore } from "@kb/contracts";
 import type { StoreTx } from "@kb/model";
 import { MemoryTxTail } from "@kb/tx-log";
+import { graphWritesLayer } from "@kb/operations";
 
 /** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
 async function tempRoot(): Promise<string> {
@@ -252,6 +253,11 @@ export default actions;
             assetsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             codeTrustLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             remoteScreensLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
+            graphWritesLayer.pipe(
+              Layer.provide(
+                Layer.merge(Layer.succeed(KbCtx, ctx), Layer.succeed(KbStore, fakeStore)),
+              ),
+            ),
           ),
         ),
       ),

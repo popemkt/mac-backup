@@ -16,4 +16,6 @@
 export { runUiCli, startUi } from "./server.ts";
 export type { UiServerHandle, UiServerOptions } from "./server.ts";
 export { HTTP_WIRE } from "./http.ts";
+export { composeHosted } from "./plugins.ts";
+export type { HostedExtensions } from "./plugins.ts";
 export { kbDataRoot } from "./paths.ts";

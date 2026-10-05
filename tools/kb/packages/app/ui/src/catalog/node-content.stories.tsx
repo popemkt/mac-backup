@@ -16,8 +16,6 @@ const binding: NodeTextHostBinding = {
   registerTextHost: noop,
   unregisterTextHost: noop,
   setNodePaletteOpen: noop,
-  onAttachFile: noop,
-  onRemoveTag: noop,
 };
 
 const oneTag = [{ id: "tag.todo", name: "todo", color: "#3b82f6" }];
@@ -42,6 +40,8 @@ const meta = {
     onActivate: noopActivate,
     onChange: noop,
     onKeyDown: noop,
+    onAttachFile: noop,
+    onRemoveTag: noop,
     ...binding,
   },
 } satisfies Meta<typeof NodeTextHost>;

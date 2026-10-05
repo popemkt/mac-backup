@@ -16,7 +16,8 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
  * `kb ui`'s serving concern, not the viewer's.
  */
 const config: StorybookConfig = {
-  stories: ["../src/catalog/**/*.stories.tsx"],
+  // The catalog, and each family UI half's own stories beside its components.
+  stories: ["../src/catalog/**/*.stories.tsx", "../../../extension/*-ui/src/**/*.stories.tsx"],
   framework: {
     name: "@storybook/react-vite",
     options: {},

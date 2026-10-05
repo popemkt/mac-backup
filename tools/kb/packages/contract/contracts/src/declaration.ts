@@ -17,11 +17,14 @@ export interface ExtensionDeclaration {
   readonly name: string;
   readonly label: string;
   /**
-   * Off until the person switches it on. Whether it is on is the server's
-   * decision, never the browser's: the registry loads an optional family
-   * only while it is on, and `kb.manifest.extensions` reports it either way.
+   * The family can be switched, and is `byDefault` in a store where no one
+   * has switched it. Whether it is on is the server's decision, never the
+   * browser's: a host loads an optional family only while it is on
+   * (`familyOn`), and `kb.manifest.extensions` reports it either way. A
+   * family without it is required: on wherever it is composed, whatever its
+   * switch node says.
    */
-  readonly optional?: boolean;
+  readonly optional?: { readonly byDefault: "on" | "off" };
   /**
    * The system nodes the family seeds, under frozen ids. Only a bundled
    * family's declaration is folded into the seed; a host or repository
@@ -91,7 +94,7 @@ export function extensionRow(
   return {
     name: declaration.name,
     label: declaration.label,
-    optional: declaration.optional === true,
+    optional: declaration.optional !== undefined,
     enabled,
     source,
   };

@@ -7,7 +7,7 @@ import { schemaOf, SYSTEM_IDS, type NodeMap, type OutlineNode, type SchemaIndex 
 import { describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
-import { installDomGlobals } from "@/test-support/dom-globals";
+import { installDomGlobals } from "@kb/ui-test-kit";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TagFieldsConfigView } from "./tag-fields-config";
 import { resolveTagFields, type TagFieldRef } from "./tag-fields";

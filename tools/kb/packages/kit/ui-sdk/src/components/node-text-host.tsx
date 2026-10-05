@@ -25,34 +25,33 @@ import { PickerList } from "./picker-list";
 import { nearestOffsetForX, offsetFromPoint } from "../lib/caret";
 import { TagChipGroup } from "./tag-chip";
 
-/** Caret command a mounted host consumes — structurally the store's CaretIntent. */
-type NodeTextHostCaretAt = number | "end" | { x: number };
+/** Where a caret placement puts the caret: an offset, the end, or a column to keep. */
+export type CaretAt = number | "end" | { x: number };
 
-interface NodeTextHostPendingCaret {
+/** A one-shot request for the text host mounted in `instanceKey` to place its caret. */
+export interface CaretIntent {
   instanceKey: string;
-  at: NodeTextHostCaretAt;
+  at: CaretAt;
 }
 
 /**
- * Everything the host needs that is not its view props: store reads, store
- * actions, and the two mutation callbacks the surface supplies (stores may
- * not import actions).
+ * Everything the host needs that is not its view props: its reads of the
+ * graph and of the caret hand-off, and its gestures. A surface takes it from
+ * `useNodeTextBindingThrough` (`node-text-port.ts`), never piece by piece.
  */
 export interface NodeTextHostBinding {
   nodes: NodeMap;
   /** What a reference's target resolves against (`rowTextReadOnlyReason`). */
   schema: SchemaIndex;
-  pendingCaret: NodeTextHostPendingCaret | null;
+  pendingCaret: CaretIntent | null;
   /** Follow a pointer in the text (`useFollow`). */
   onFollow: Follow;
-  consumeCaret: (instanceKey: string) => NodeTextHostPendingCaret | null;
-  placeCaret: (instanceKey: string, at: NodeTextHostCaretAt) => void;
-  selectNode: (id: string | null, instanceKey?: string) => void;
+  consumeCaret: (instanceKey: string) => CaretIntent | null;
+  placeCaret: (instanceKey: string, at: CaretAt) => void;
+  selectNode: (id: string, instanceKey?: string) => void;
   registerTextHost: (instanceKey: string) => void;
   unregisterTextHost: (instanceKey: string) => void;
   setNodePaletteOpen: (open: boolean) => void;
-  onAttachFile: (file: File) => void;
-  onRemoveTag: (tagId: string) => void;
 }
 
 export interface NodeTextHostProps extends NodeTextHostBinding {
@@ -69,13 +68,16 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
   onActivate: (cursorPos?: number) => void;
   onChange: (content: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
+  /** The surface's writes: the text's node is the surface's to name (`shownNodeId`). */
+  onAttachFile: (file: File) => void;
+  onRemoveTag: (tagId: string) => void;
 }
 
 /**
  * Put the caret where a placement asks, in the serialized text, and show the
  * markup it lands in. Returns the offset it took.
  */
-function seatCaret(el: HTMLElement, at: NodeTextHostCaretAt, length: number): number {
+function seatCaret(el: HTMLElement, at: CaretAt, length: number): number {
   let placed = at === "end" ? length : typeof at === "number" ? at : 0;
   setCaretSerializedOffset(el, placed);
   // Column preservation across vertical navigation (D11): nudge the caret to

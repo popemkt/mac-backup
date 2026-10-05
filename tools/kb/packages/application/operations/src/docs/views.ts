@@ -1,14 +1,7 @@
 import { Effect, Result } from "effect";
 import { KbCtx } from "@kb/contracts";
-import {
-  docsViewNameError,
-  docsViewNameOf,
-  isDocsView,
-  type DocsViewSpec,
-  type FailureCode,
-  type KbNode,
-} from "@kb/model";
-import { DocsMarkdownView, docsSpecOf, issueText, paramsIssues } from "@kb/views";
+import type { FailureCode } from "@kb/model";
+import { docsViewNamed, docsViewsOf, type DocsView, type DocsViews } from "@kb/views";
 
 /** Typed failure for docs operations; registry maps it to a receipt. */
 export class DocsError extends Error {
@@ -23,95 +16,21 @@ export class DocsError extends Error {
   }
 }
 
-/**
- * A docs view: a view node naming `docs.markdown` (DESIGN.md → Kinds, roles
- * and options → View nodes), by the name it goes by — its text — and the
- * spec its params hold.
- */
-export interface LoadedView {
-  name: string;
-  /** The docs view node. */
-  id: string;
-  spec: DocsViewSpec;
-}
-
-/**
- * The docs view a view node is, read through its view's key
- * (`DocsMarkdownView`), or every param it cannot be read without.
- */
-function loadedView(node: KbNode): LoadedView | DocsError {
-  const name = docsViewNameOf(node);
-  const params = paramsIssues(
-    DocsMarkdownView,
-    DocsMarkdownView.config.read(node.props, null, ignore),
-  );
-  if (Result.isSuccess(params)) return { name, id: node.id, spec: docsSpecOf(params.success) };
-  return new DocsError(
-    "invalid_input",
-    `view ${name} is invalid: ${params.failure.map(issueText).join("; ")}`,
-    { name, issues: params.failure },
-  );
-}
-
-/** The docs key reads each setting as stored, so it has nothing to report. */
-function ignore(): void {}
-
-/**
- * Every docs view node — a view node whose view is `docs.markdown` — sorted
- * by name, as the view it is or, by the name it goes by, why it cannot be
- * one: its name is no workspace name or another docs view goes by it too
- * (`docsViewNameError`), or a param it cannot be read without is missing.
- */
-function readDocsViews(nodes: readonly KbNode[]): {
-  views: LoadedView[];
-  failures: Map<string, DocsError>;
-} {
-  const docs = nodes
-    .filter(isDocsView)
-    .toSorted((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
-  const views: LoadedView[] = [];
-  const failures = new Map<string, DocsError>();
-  for (const node of docs) {
-    const name = docsViewNameOf(node);
-    const nameError = docsViewNameError(node, docs);
-    const view =
-      nameError === null
-        ? loadedView(node)
-        : new DocsError("invalid_input", `view ${name}: ${nameError}`, { name, id: node.id });
-    if (!(view instanceof DocsError)) views.push(view);
-    else if (!failures.has(name)) failures.set(name, view);
-  }
-  return { views, failures };
-}
-
-/** The docs views that can be read, and a line for each docs view node that cannot. */
-export interface DocsViews {
-  readonly views: readonly LoadedView[];
-  readonly warnings: readonly string[];
-}
-
-/**
- * Every docs view, sorted by name. One that cannot be read is a warning, not
- * a failure: it leaves the rest to `docs.check`, pre-commit and MCP's
- * resource list.
- */
+/** Every docs view in the session, read by `docsViewsOf` (`@kb/views`). */
 export const docsViewsEffect = Effect.fn("docs.views")(function* (): Effect.fn.Return<
   DocsViews,
   never,
   KbCtx
 > {
-  const { views, failures } = readDocsViews((yield* KbCtx).nodes);
-  return { views, warnings: [...failures.values()].map((failure) => failure.message) };
+  return docsViewsOf((yield* KbCtx).nodes);
 });
 
-/** The docs view `name` names, or why there is none it can be. */
+/** The docs view `name` names, or why there is none it can be (`docsViewNamed`). */
 export const docsViewEffect = Effect.fn("docs.view")(function* (
   name: string,
-): Effect.fn.Return<LoadedView, DocsError, KbCtx> {
-  const { views, failures } = readDocsViews((yield* KbCtx).nodes);
-  const view = views.find((candidate) => candidate.name === name);
-  if (view !== undefined) return view;
-  return yield* Effect.fail(
-    failures.get(name) ?? new DocsError("not_found", `view not found: ${name}`, { name }),
-  );
+): Effect.fn.Return<DocsView, DocsError, KbCtx> {
+  const view = docsViewNamed((yield* KbCtx).nodes, name);
+  if (Result.isSuccess(view)) return view.success;
+  const { code, message, details } = view.failure;
+  return yield* Effect.fail(new DocsError(code, message, details));
 });

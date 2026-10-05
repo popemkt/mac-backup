@@ -1,9 +1,10 @@
-import { useCallback, useContext } from "react";
+import { useContext } from "react";
 import {
   nodePath,
   OpenNodeContext,
-  usePane,
+  useFollowThrough,
   type Follow,
+  type FollowFrom,
   type FollowHow,
   type FollowTarget,
 } from "@kb/ui-sdk";
@@ -27,12 +28,7 @@ export function useOpenNode(): (id: string) => void {
  * same one. One owner, every call site.
  */
 export function useFollow(): Follow {
-  const open = useContext(OpenNodeContext);
-  const pane = usePane();
-  return useCallback<Follow>(
-    (target, how) => followFrom({ pane, open }, target, how),
-    [open, pane],
-  );
+  return useFollowThrough(followFrom);
 }
 
 /**
@@ -40,11 +36,7 @@ export function useFollow(): Follow {
  * `open` (`OpenNodeContext`), else the outline's zoom. `useFollow` and the
  * page's `BrowserHost` both carry a follow out through it.
  */
-export function followFrom(
-  at: { readonly pane: string; readonly open: ((id: string) => void) | null },
-  target: FollowTarget,
-  how: FollowHow,
-): void {
+export function followFrom(at: FollowFrom, target: FollowTarget, how: FollowHow): void {
   if (target.kind === "href") {
     window.open(target.href, "_blank", "noopener,noreferrer");
     return;

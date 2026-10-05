@@ -1,0 +1,46 @@
+{
+  "name": "@kb/canvas-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@kb/canvas": "workspace:*",
+    "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
+    "@kb/scene": "workspace:*",
+    "@kb/scene-gpu": "workspace:*",
+    "@kb/ui-sdk": "workspace:*",
+    "@kb/views": "workspace:*",
+    "@phosphor-icons/react": "catalog:",
+    "effect": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "three": "catalog:",
+    "ulid": "catalog:"
+  },
+  "devDependencies": {
+    "@kb/ui-test-kit": "workspace:*",
+    "@storybook/react-vite": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@types/three": "catalog:",
+    "happy-dom": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:browser",
+      "family:canvas"
+    ]
+  }
+}

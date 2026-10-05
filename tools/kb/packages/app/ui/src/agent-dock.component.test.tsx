@@ -12,7 +12,7 @@ import { failed, succeeded, type ActionInvocation, type ActionReceipt } from "@k
 import type { AgentEvent, AgentRequest } from "@kb/agent";
 import { browserHostUiPlugin } from "@/browser-host";
 import { syncUiPlugins } from "@kb/ui-sdk";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { AgentDock, attachChat, useChat, type AgentPorts } from "@kb/agent-ui";
 
 interface Stand {

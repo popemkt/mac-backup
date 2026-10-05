@@ -137,6 +137,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — list nested panes in the screen state with their own ids
 - **node** — `01M411FPSNN7B18JQ62RKB8ZXW`
 
+### GAP: a family a host composes is switched only where that host runs
+
+- **expected** — every surface can write any family's switch, a hosted one included, and kb ext list lists it
+- **current** — only a process that composes the family lists it in ExtensionCatalog, so only kb ui can switch the agent; the CLI's extension.switch answers not_found (operations/src/extensions.ts)
+- **impact** — the agent cannot be switched off before kb ui first runs with it, except from the page
+- **closes** — the host families' declarations reported (not loaded) by every process, or the agent's declaration joining the bundled list with a host half that only kb ui loads
+- **node** — `01M43H3T8XEMTNBARC024PZD2W`
+
 ### GAP: a flat item turned face-down shows its face mirrored in 2D
 
 - **expected** — 2D shows a face-down flat card's blank back, as 3D does
@@ -340,14 +348,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — view nodes (roadmap step 2), then canvas as a view type
 - **node** — `01M3S5DD5W4B3BSZMA6DE8ZVP8`
 
-### GAP: canvas UI still lives in @kb/ui, not in a canvas browser plugin
-
-- **expected** — Canvas is three packages around one concept, one scope:* tag each, never one package with two entries. @kb/canvas (scope:shared, no dependencies) owns the JSON Canvas document. @kb/ext-canvas (scope:backend) is the backend plugin: ext.canvas.tx.apply plus the #canvas tag and sys.f.canvas field seeds, which leave @kb/model's systemSeedNodes because the system seed is core, not every view kb ships. A browser plugin package (scope:browser) contributes the canvas surfaces and sidebar section to the browser kernel. Both plugins depend on @kb/plugin and @kb/canvas, and neither names the other by a string literal.
-- **current** — The canvas UI is a built-in UI plugin in packages/app/ui/src/components/canvas, its former lib/canvas-* modules included; it reaches the shell only through @kb/ui-sdk and the scene kit except one sanctioned store import (01M41MHRD7MF4NP23EE294B69C); sys.tag.canvas and sys.f.canvas are seeded by core; the UI calls the action by the string ext.canvas.tx.apply.
-- **impact** — An extension cannot own its UI, so canvas is only nominally an extension, and removing ext-canvas leaves a canvas UI with no backend.
-- **closes** — Move components/canvas into a browser package @kb/canvas-ui built against @kb/ui-sdk (E13 of the extension-boundaries plan); move the canvas keys, ids and seed into @kb/canvas's shared plugin (E9b), not @kb/ext-canvas. The harness keeps one scope per package; no per-entry scope.
-- **node** — `01M39F3MR3HT2NR553FY8CRD6X`
-
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
 
 - **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
@@ -380,6 +380,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Interactive use is bounded by cold start, and the derived snapshot cache exists mostly to work around it.
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
+
+### GAP: core's screen protocol names the canvas
+
+- **expected** — core's screen protocol carries a pane's view state opaquely and the canvas family contributes its own part
+- **current** — PaneScreen.canvas, CanvasScreenSchema and CANVAS_VIEW_PRESET_NAMES live in @kb/contracts, and ui.capture in @kb/operations is 'Capture a canvas'
+- **impact** — screen state is the next feature vocabulary in core that no check sees, and it grows with every 3D camera step
+- **closes** — E19 of the extension SDK plan, after E13, at a 3D step boundary
+- **node** — `01M43AT0V9HHVS7ZAEPWXEGE7F`
 
 ### GAP: Durable browser invocation replay
 
@@ -423,21 +431,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Domain typing — one canonical schema
 - **node** — `01M1PJWF4G6W4122ZE4K67319V`
 
-### GAP: feature view models live in core packages
+### GAP: extensions reach core's use cases (@kb/operations)
 
-- **expected** — @kb/views holds the view-key mechanism and core views; the chart, code, lab and canvas keys and helpers live in their family's shared package
-- **current** — packages/domain/views/src/canvas.ts is listed in core's declaration (coreExtension); the chart's key, spec and row cap left for @kb/chart (E7), the code view's key and settings for @kb/code (E8), and the lab page's key and studies for @kb/lab (E9)
-- **impact** — a canvas view change edits @kb/views, a domain package, apart from the canvas family that owns the canvas document
-- **closes** — the canvas keys' move into @kb/canvas (E9b)
-- **node** — `01M41H30342XZPX3CXZJTMPBYW`
-
-### GAP: feature view options are seeded through core's declaration, not by the families that own the views
-
-- **expected** — each plugin that provides a view contributes its key to the view point (ViewKeyPoint) through its own family's declaration, and the ViewCatalog service and the sys.views option nodes are both readings of the declared keys
-- **current** — the catalog is a reading of ViewKeyPoint, every option derives from a declared key, and the chart, code and lab families' declarations list their own keys, but core's declaration (coreExtension, packages/application/operations/src/core-extension.ts) lists the canvas keys, so core seeds their options and contributes their keys
-- **impact** — a new view plugin must also edit the core table; a third-party view cannot add its option without touching core
-- **closes** — canvas's declaration lists its own views (E9b), when the last feature key leaves core's declaration
-- **node** — `01M3YM5XYZ4VHEK39RNQ6WWRPK`
+- **expected** — an extension package builds on domain, contract, kit and its own family only; core's write path and render backbone reach it as contract services (GraphWrites, ReadInvoke)
+- **current** — LAYER_ALLOWS.extension admits application; ext-canvas write.ts and verbs.ts import @kb/operations (ext-check and ext-docs left it at E15a)
+- **impact** — core's use cases are an extension API nobody declared: changing persistEffect edits a family, and a new extension can reach any use case
+- **closes** — E15b moves ext-canvas onto GraphWrites; E15c drops application from LAYER_ALLOWS.extension
+- **node** — `01M439W857BD9QQTBEQ5X5D06D`
 
 ### GAP: flat canvas items vanish in level 3D views
 
@@ -463,6 +463,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Adding a renderer means editing the page, which is exactly the coupling capabilitiesFor was introduced to remove.
 - **closes** — Move the remaining renderer-specific branches behind RendererCapabilities and render one <GraphCanvasFrame> for every renderer.
 - **node** — `01M1MGCFTMWY5EYHEWP9QVH8Z9`
+
+### GAP: helpers two families need are copied between them
+
+- **expected** — a helper that two families need has one home in the layer they share
+- **current** — three copied pairs (propText/tagIdsNamed, cell, BUTTON), listed in the sdk plan's section 2 table
+- **impact** — a fix to one copy silently misses the other
+- **closes** — E16 of the extension SDK plan
+- **node** — `01M43ASYY0EC1E4TYFXYXHZEME`
 
 ### GAP: hierarchicalLayout mixes forest construction with placement in 21 branches
 
@@ -566,7 +574,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: nothing confines feature imports to a composition root's bundled list
 
 - **expected** — an app package imports an extension package only from its one bundled-extensions file, and the harness checks it
-- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches are the rows of EXTENSION_ROOT_BREACHES: @kb/ui's components/canvas and catalog/canvas-card.stories.tsx (@kb/canvas), and @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it. The chart's, the code view's, the agent's and the lab's rows left with their -ui packages (E12).
+- **current** — EXTENSION_ROOTS (tools/kb/harness/src/constraints.ts) fences every app import of an extension package to runtime/src/bundled.ts, cli/src/host-plugins.ts, ui/src/ui-plugins.ts and bundled/src/index.ts, with a red fixture; the breaches are the rows of EXTENSION_ROOT_BREACHES: @kb/cli's bin/check-audit.ts, bin/docs-check.ts and bin/docs-materialize.ts, which parse their family's output schema to print it. Every family's UI rows left with its -ui package (E12, and the canvas at E13); E18 of the extension SDK plan removes the CLI rows.
 - **impact** — the next move out of core can silently regrow a hardwired import, and a feature can be wired from anywhere
 - **closes** — each row of EXTENSION_ROOT_BREACHES deleted as its importer leaves core: the canvas UI with @kb/canvas-ui (E13), and the docs and check entries once the family's report reaches them through the registry rather than its schema; a row no import matches already fails
 - **node** — `01M41H30Y60D3G9WJJX6NFQD2T`
@@ -800,14 +808,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
 
-### GAP: the canvas's node card edits text through the outline's store binding
-
-- **expected** — the canvas kb-node card edits a node's text in place through @kb/ui-sdk: a NodeTextHost binding built over BrowserHost (graph reads, caret hand-off, text-host registry and node palette as host reads and gestures), so the canvas zone names no store
-- **current** — packages/app/ui/src/components/canvas/canvas-card.tsx imports useNodeTextHostBinding from stores/node-text-host-binding, which reads the outline store through tracked graph reads, to drive @kb/ui-sdk's NodeTextHost primitive; the sdk has no equivalent, so this one import is a sanctioned UI_ALLOWS breach
-- **impact** — the canvas zone keeps one reach into the shell's stores, so @kb/canvas-ui cannot leave @kb/ui until it is replaced
-- **closes** — a NodeTextHost binding in @kb/ui-sdk over BrowserHost, then canvas-card uses it and the GAP marker goes; it must land before the canvas leaves @kb/ui (E13 of the extension-boundaries plan)
-- **node** — `01M41MHRD7MF4NP23EE294B69C`
-
 ### GAP: the CLI has no relative dates (today, next fri)
 
 - **expected** — Every surface parses the same date phrases the UI's DateEditor accepts.
@@ -880,6 +880,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Generalise the relink to any declared package whose bin links are missing (or move it to the owning stack), and add || warn to the install. The marker could not be placed: npm-global.nix had uncommitted user edits.
 - **rule** — Module boundaries
 - **node** — `01M3E9V5JS5VS5ZRT14510BN4D`
+
+### GAP: the outline's bullet kit keeps a copy of the canvas tag id
+
+- **expected** — the canvas family contributes its bullet kind (tag id and glyph) through a point the kit's bullet-mode reads, so the kit names no family
+- **current** — kit/ui-sdk/src/lib/bullet-mode.ts copies sys.tag.canvas, held equal to CANVAS_IDS.canvasTag by @kb/canvas-ui's canvas-bullet.test.ts, because the kit may not import a family; closing it needs a point both the pure bullet function and the graph's GPU glyph atlas read
+- **impact** — a mirror held by a test: renaming the canvas tag id fails a test instead of flowing through, and a second family with its own bullet kind would add a second copy
+- **closes** — a bullet-kind point in @kb/ui-sdk that families contribute to, after E13 moves the canvas UI into @kb/canvas-ui
+- **node** — `01M436DVSEHKNYWSF2MR07HPMR`
 
 ### GAP: the palette index pre-sizes its arrays with new Array(n)
 
@@ -1181,6 +1189,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Falls out of the onPointerMove gap: one state machine owns both.
 - **node** — `01M1MGCT80E1FMXMEAEATS1VER`
 
+### GAP: canvas UI still lives in @kb/ui, not in a canvas browser plugin
+
+- **expected** — Canvas is three packages around one concept, one scope:* tag each, never one package with two entries. @kb/canvas (scope:shared, no dependencies) owns the JSON Canvas document. @kb/ext-canvas (scope:backend) is the backend plugin: ext.canvas.tx.apply plus the #canvas tag and sys.f.canvas field seeds, which leave @kb/model's systemSeedNodes because the system seed is core, not every view kb ships. A browser plugin package (scope:browser) contributes the canvas surfaces and sidebar section to the browser kernel. Both plugins depend on @kb/plugin and @kb/canvas, and neither names the other by a string literal.
+- **current** — Closed by E13. The canvas UI is @kb/canvas-ui (packages/extension/canvas-ui, scope:browser, family:canvas), built against @kb/ui-sdk and the scene kit, loaded by ui-plugins.ts; CORE_BROWSER_HALVES is empty.
+- **impact** — An extension cannot own its UI, so canvas is only nominally an extension, and removing ext-canvas leaves a canvas UI with no backend.
+- **closes** — Move components/canvas into a browser package @kb/canvas-ui built against @kb/ui-sdk (E13 of the extension-boundaries plan); move the canvas keys, ids and seed into @kb/canvas's shared plugin (E9b), not @kb/ext-canvas. The harness keeps one scope per package; no per-entry scope.
+- **node** — `01M39F3MR3HT2NR553FY8CRD6X`
+
 ### GAP: caret geometry is an outline internal two zones reach for
 
 - **expected** — Caret geometry is a primitive: pure DOM math over a contenteditable, with no store and no component, so it belongs in the UI's leaf zone beside the other lib/ helpers.
@@ -1206,6 +1222,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A cross-extension dependency could pass boundaries and couple independently loadable plugins.
 - **closes** — Decide a canonical package-family identity and teach the import graph check to verify extension-to-extension edges against it, with a red cross-family fixture and a green canvas fixture.
 - **node** — `01M3F923QWH9HSAW61VNFWHANV`
+
+### GAP: feature view models live in core packages
+
+- **expected** — @kb/views holds the view-key mechanism and core views; the chart, code, lab and canvas keys and helpers live in their family's shared package
+- **current** — Closed at E9b: the canvas view model (keys, ids, seed) left @kb/views for @kb/canvas, the last feature view model to leave core; core's declaration names core views only.
+- **impact** — a canvas view change edits @kb/views, a domain package, apart from the canvas family that owns the canvas document
+- **closes** — the canvas keys' move into @kb/canvas (E9b)
+- **node** — `01M41H30342XZPX3CXZJTMPBYW`
+
+### GAP: feature view options are seeded through core's declaration, not by the families that own the views
+
+- **expected** — each plugin that provides a view contributes its key to the view point (ViewKeyPoint) through its own family's declaration, and the ViewCatalog service and the sys.views option nodes are both readings of the declared keys
+- **current** — Closed at E9b: the canvas family's declaration (@kb/canvas) lists its own keys and seed; core's declaration lists core's keys only, and SYSTEM_IDS is core-only.
+- **impact** — a new view plugin must also edit the core table; a third-party view cannot add its option without touching core
+- **closes** — canvas's declaration lists its own views (E9b), when the last feature key leaves core's declaration
+- **node** — `01M3YM5XYZ4VHEK39RNQ6WWRPK`
 
 ### GAP: FieldRow branches 27 ways over field type and edit state
 
@@ -1506,6 +1538,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Highest-complexity handler in the canvas; clipboard parsing and selection maths are unreachable from tests.
 - **closes** — Same treatment as the outline keydown gap: pure chord mapping, separate appliers, clipboard parsing already has parseCanvasDoc to lean on.
 - **node** — `01M1MGCS6A29HT51G40W5TEEYK`
+
+### GAP: the canvas's node card edits text through the outline's store binding
+
+- **expected** — the canvas kb-node card edits a node's text in place through @kb/ui-sdk: a NodeTextHost binding built over BrowserHost (graph reads, caret hand-off, text-host registry and node palette as host reads and gestures), so the canvas zone names no store
+- **current** — Closed before E13 of the extension-boundaries plan. NodeTextHost's binding is @kb/ui-sdk's: useNodeTextBindingThrough over a NodeTextPort (tracked graph reads, caret hand-off, text-host registry, node palette, follow). The shell's stores are one binding (stores/node-text-port.ts) and BrowserHost, which extends NodeTextPort and is built on that binding, is the other; canvas-card binds through useNodeTextBinding (the host), and the canvas zone imports nothing of the shell.
+- **impact** — the canvas zone keeps one reach into the shell's stores, so @kb/canvas-ui cannot leave @kb/ui until it is replaced
+- **closes** — a NodeTextHost binding in @kb/ui-sdk over BrowserHost, then canvas-card uses it and the GAP marker goes; it must land before the canvas leaves @kb/ui (E13 of the extension-boundaries plan)
+- **node** — `01M41MHRD7MF4NP23EE294B69C`
 
 ### GAP: the chart, code, lab and agent UIs are zones of @kb/ui, not packages
 

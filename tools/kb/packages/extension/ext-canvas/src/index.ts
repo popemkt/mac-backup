@@ -2,7 +2,8 @@ import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { KbCtx, extensionPlugin, type ExtensionAction, type KbStore } from "@kb/contracts";
-import { canvasExtension } from "@kb/canvas";
+import { canvasExtension, canvasPlugin } from "@kb/canvas";
+import { definePlugin } from "@kb/plugin";
 import { LintDiffSchema } from "./lints.ts";
 import { CANVAS_VERBS } from "./verbs.ts";
 import {
@@ -104,5 +105,16 @@ const actions: ExtensionAction[] = [
   ...CANVAS_VERBS,
 ];
 
-/** The canvas family's server entry: `ext.canvas.*`, named by the family's declaration. */
-export const canvasPlugin = extensionPlugin({ name: canvasExtension.name, actions, templates: [] });
+/** The family's actions, `ext.canvas.*`, as the plugin that contributes them. */
+const canvasActions = extensionPlugin({ name: canvasExtension.name, actions, templates: [] });
+
+/**
+ * The canvas family's server entry, named by the family's declaration: its
+ * actions, with the family's shared plugin (its views) loaded as a child, as
+ * the page's entry loads it beside the surfaces.
+ */
+export const canvasServerPlugin = definePlugin({
+  ...canvasActions,
+  apply: (ctx) =>
+    Effect.all([canvasActions.apply(ctx), ctx.plugin(canvasPlugin())], { discard: true }),
+});

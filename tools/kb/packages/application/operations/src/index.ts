@@ -28,9 +28,8 @@ export {
   mediaKindFromExt,
   textHasAssetRef,
 } from "./assets.ts";
-export { GENERATED_HEADER, renderViewEffect } from "./docs/docs.ts";
-export { renderText } from "./docs/text.ts";
-export { DocsError, docsViewEffect, docsViewsEffect, type DocsViews } from "./docs/views.ts";
+export { GENERATED_HEADER } from "./docs/docs.ts";
+export { DocsError } from "./docs/views.ts";
 export {
   UsageError,
   fieldsNeedingCreate,
@@ -75,6 +74,7 @@ export {
   renderViewsActionEffect,
   renderViewsDef,
 } from "./render.ts";
+export { graphWritesLayer } from "./graph-writes.ts";
 export { noteStoreSynced, persistEffect, reloadEffect } from "./session.ts";
 export { uiCaptureDef, uiNavigateDef, uiScreenDef, uiSelectDef } from "./ui.ts";
 export {

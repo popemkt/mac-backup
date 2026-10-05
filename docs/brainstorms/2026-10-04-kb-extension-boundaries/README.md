@@ -469,6 +469,7 @@ day, M a few days, L a week.
 | E9 | **lab and canvas vocabulary:** create `@kb/lab` (key and seed). Canvas keys, ids and seed move into `@kb/canvas`, which closes the seed half of `01M39F3MR3HT2NR553FY8CRD6X`. The in-`app/ui` lab and canvas plugins load their shared plugins as children. The last feature key leaves core, closing `01M3YM5XYZ4VHEK39RNQ6WWRPK`. `SYSTEM_IDS` is now core only | move | M | low: canvas imports change from `@kb/views` to `@kb/canvas` (about 8 files) |
 | E10 | **Bridge:** add `optional` to `defineExtension`, `kb.manifest.extensions` (with `enabled`) and the `BROWSER_EXTENSIONS` resolver keyed by declaration name; `syncUiPlugins` follows the manifest. Decide where the server-side on/off setting lives | restructure | S–M | none |
 | E10b | The agent dock is offered only when the server runs the agent, and an optional family (lab) is switched on and off on the server, not in browser prefs | change | S | none |
+| E10c | **Every family can be switched off** through E10b's one switch: canvas, chart, code and the agent become optional (on by default; the lab stays off by default), the default is part of each declaration, `kb ui --no-agent` goes, the `kb ui` host composes what it hosts as its store switches it, a view of a family switched off opens as unavailable, and `extensionContract` holds every family to the switch. Docs and check stay required | change (after four restructures and a fix) | M | none |
 | E11 | **Packages:** `@kb/ui-sdk` from the sdk zone and `@kb/scene` from the `scene` zone (layer per owner question 3); the lazy fence walks packages | move | M | low: an import-path rewrite in canvas/3d, mechanical |
 | E12 | **UI halves:** `@kb/chart-ui`, `@kb/code-ui`, `@kb/agent-ui` and `@kb/lab-ui` (one commit each). Their zones leave `UI_ALLOWS`, and `@kb/agent` and the Vega dependency leave `@kb/ui`'s manifest | move | S each | none (disjoint from canvas) |
 | E13 | **`@kb/canvas-ui`** from `components/canvas` (including 3D). Closes `01M39F3MR3HT2NR553FY8CRD6X` and lets `01M3EZRFTS1W8SB97GFJAWD92X` close | move | M | **yes**: a path move, mechanical after E3 |
@@ -731,6 +732,48 @@ was picked:
   close at E9b. The root-fence and UI-zone gaps name the lab's breaches.
 - `kb ext list` now lists lab.
 
+**Note from the doing (E9b, canvas).** The canvas half of E9 landed after
+3D step 8 and E10–E12. Where the plan was silent, or the code pushed back,
+this is what was picked:
+- **`@kb/canvas` holds the vocabulary.** `CANVAS_IDS` (`sys.tag.canvas`,
+  `sys.f.canvas`), the `canvas.list` and `canvas.page` keys, the seed, and
+  the declaration's `seed` and `views`. `canvasPlugin()` is the shared
+  plugin. Canvas views say themselves in the generic text, so they carry
+  no text, as the lab's do. `SYSTEM_IDS` and `systemSeedNodes` now hold
+  core's ids only, and `@kb/views` holds core's keys only.
+- **A family's seed needs core's tag rule.** Core built its three tags by
+  hand. `seededTag` (`@kb/model`), beside `seededField`, became exported
+  mechanism in its own commit, before the move, as `seededField` did at E7.
+- **The server entry is the actions plus the shared plugin.** The canvas is
+  the first family with both actions and views. `@kb/ext-canvas`'s entry,
+  renamed `canvasServerPlugin` after `chartServerPlugin`, is its
+  `ext.canvas.*` actions with `canvasPlugin()` loaded as a child, as
+  `corePlugin` loads core's declaration. The page's canvas plugin loads
+  `canvasPlugin()` as a child and takes its name from the declaration.
+- **The golden is byte-identical.** Canvas already sits after docs in
+  `BUNDLED_FAMILIES`, which is where E4b put its views, and the golden is
+  keyed by id, so the seed's array order does not reach it.
+- **The breach list grew by three files.** `components/canvas`'s
+  `plugin.ts`, `routes.ts` and `surfaces.tsx` read the keys from `@kb/views`
+  before. They now import `@kb/canvas`, so they are named rows of
+  `EXTENSION_ROOT_BREACHES` until `@kb/canvas-ui` (E13). The lab grew the
+  list the same way at E9.
+- **One piece of canvas vocabulary stays in core, under a new gap.** The
+  outline's bullet resolves a node typed by `sys.tag.canvas` to the canvas
+  kind and its glyph in `@kb/ui-sdk`, and a kit may not import a family. A
+  kind contributed by the family would need a bullet point and a glyph
+  atlas built from contributions, which is a design of its own. So the kit
+  keeps a copy of the frozen id under `GAP [[01M436DVSEHKNYWSF2MR07HPMR]]`, and a test
+  in `components/canvas` holds the copy to `CANVAS_IDS`.
+- **Not moved: the screen contract.** 3D step 8 put a canvas pane's camera
+  (`CanvasScreenSchema`, `CanvasViewTarget`) in `@kb/contracts` and the
+  `ui.capture` and `ui.navigate` texts in `@kb/operations`. That is screen
+  state, not view vocabulary, so it is outside E9b. Whether it is canvas
+  vocabulary in core is an owner question.
+- **Gaps.** The feature-model gap `01M41H30342XZPX3CXZJTMPBYW` and the
+  catalog-key gap `01M3YM5XYZ4VHEK39RNQ6WWRPK` close, and the seed half of
+  `01M39F3MR3HT2NR553FY8CRD6X` is done, which stays open for E13.
+
 **Note from the doing (E10, E10b).** Where the plan said "E10 decides", or
 was silent, this is what was picked:
 - **The switch is a node, never seeded.** An optional family is on while
@@ -781,6 +824,76 @@ was silent, this is what was picked:
 - **Gaps.** The bridge gap is closed. The UI-zones gap is narrowed (the
   lab and agent are no longer in the main bundle), and the rule's "not
   checked yet" now names the `-ui` pairing of E12.
+
+**Note from the doing (E10c).** The owner asked for every family that is
+cleanly an extension to be switchable. It landed after E13 and E15a, as
+four restructures, a fix and a change. Where the brief was silent, or the
+code pushed back, this is what was picked:
+- **The default is the declaration's.** `optional: boolean` became
+  `optional: { byDefault: "on" | "off" }`, so a store with no switch
+  written has each family as its declaration says. A switch that does not
+  read as a checkbox reads as that default. Canvas, chart, code and the
+  agent are `"on"`, the lab `"off"`. There is no table of defaults
+  elsewhere, and the manifest row still says only `optional`.
+- **One convergence, every host.** The page's `syncUiPlugins` rule moved to
+  `@kb/plugin` as `syncPlugins`, and the `kb ui` host now uses it too:
+  `composeHosted` composes the extensions it was handed as `familyOn`
+  admits them, again whenever its log carries a write to one of their
+  switch nodes, and before each report, so the manifest always says what
+  the store holds. The registry keeps its cache keyed by the families on.
+  So every host makes the one decision with the one rule, and switching
+  the agent off and on is live, as the lab's is.
+- **`--no-agent` is gone, not kept as an override.** An override for one
+  process would be a second switch that the manifest reports and Preferences
+  cannot see. `kb ui` always hands the agent over, and the store says
+  whether it is hosted.
+- **What the switch cannot reach yet.** A family a host composes is in
+  `ExtensionCatalog` only where that host runs, so `extension.switch` for
+  the agent works through `kb ui` (Preferences, or its HTTP), and the CLI
+  answers `not_found`. Placeholder `GAP [[01M43H3T8XEMTNBARC024PZD2W]]` at
+  the lookup in `operations/src/extensions.ts`, to mint at merge:
+  - *expected:* every surface can write any family's switch, a hosted one
+    included, and `kb ext list` lists it;
+  - *current:* only a process that composes the family lists it, so only
+    `kb ui` can switch the agent;
+  - *impact:* the agent cannot be switched off before `kb ui` first runs
+    with it, except from the page;
+  - *closes:* the host families' declarations reported (not loaded) by
+    every process, or the agent's declaration joining the bundled list
+    with a host half that only `kb ui` loads.
+- **A view of a family switched off opens as unavailable.** Since E10b a
+  lab view node with the lab off resolved to "Node not found", because the
+  server no longer lists the view. `viewNamed` (`@kb/views`) names a view by
+  its listing, else by its option node, which the seed holds whatever
+  loads. `resolveNodeView` and the pane switcher both read it. That is the
+  one unavailable state of fb4fc354, now reached from either side.
+- **Docs and check stay required.** Docs owns the templates (`rules`,
+  `todos`) that core's `docs.markdown` views render with, so with docs off
+  a core view would break instead of reading as unavailable. Check derives
+  the rules index's enforcement. Both run the repository's gates
+  (`docs.check` in the hook, `check:audit` in `verify`). A required family
+  is on whatever its node says, and `extension.switch` refuses it. A
+  runtime test writes both switches off by hand and shows both gates still
+  run, so a gate cannot read as clean because its family was switched
+  away.
+- **The contract holds the switch.** `extensionContract(declaration, entry,
+  host)` takes a `SwitchingHost`, the host that composes the family over a
+  store lookup: the registry for the bundled families, and `composeHosted`
+  for the agent. Every family is held to its default composition. An
+  optional one is held to off, on, off and on again on the same host,
+  neither held nor reported while off. A required one is held to ignoring
+  a hand-written off. The page's half is a case in `ui-plugins.test.ts`
+  over every switchable family with a browser half: reported off, its
+  views, routes, sidebar, docks and commands leave the page kernel, and
+  reported on they return.
+- **Preferences lists every optional family the server reports**, whether
+  or not it has a browser half, because the switch is the server's.
+- **Not changed.** Canvas, chart and code still load from the main bundle
+  when on, as before. Switching them off removes them from the kernel, not
+  from the bytes the page downloads. A `#canvas` node keeps its canvas
+  bullet while the canvas is off, because that vocabulary is still in the
+  kit (gap `01M436DVSEHKNYWSF2MR07HPMR`), and following it reaches a path
+  no plugin owns, which is not found.
 
 **Note from the doing (E11).** Where the plan was silent, or the code
 pushed back, this is what was picked:
@@ -863,6 +976,88 @@ pushed back, this is what was picked:
   test draws its view from the view point instead of importing the page.
   The lab acceptance test mocks the Embers scene module by path, because
   the lab page loads it by itself.
+
+**Note from the doing (card text binding).** Gap
+`01M41MHRD7MF4NP23EE294B69C` is closed, ahead of E13.
+- **One body over a port, not a second binding.** The node text host's
+  binding (`useNodeTextBindingThrough`), the tracked graph read
+  (`useGraphReadThrough` over a `GraphSource`) and the follow
+  (`useFollowThrough`) moved into `@kb/ui-sdk`, each over a port, as
+  `usePaneScreenThrough` did in E3. The shell's stores are one binding
+  (`stores/node-text-port.ts`, `outlineGraph`, `followFrom`). `BrowserHost`
+  extends `NodeTextPort` and the page builds it on the shell's port, so its
+  graph reads, caret hand-off, text-host registry, `selectNode` and
+  `follow` have one home each.
+- **Why the outline keeps the store binding.** Binding the outline through
+  the host would make every outline test load the host plugin. With the
+  port, both sides run the same body, and only the source differs.
+- **The card binds through the host** (`useNodeTextBinding`), so the canvas
+  zone imports nothing of the shell. A test swaps in a recording host and
+  checks that the card's caret hand-off and text-host registry go through
+  it.
+- **Smaller moves.** `CaretIntent` is the sdk's, and the store imports it.
+  The text writes (`onAttachFile`, `onRemoveTag`) moved from the binding to
+  the host's props, because the surface names the node its text belongs
+  to.
+
+**Note from the doing (E13).** The plan called E13 a path move. The code
+pushed back on its tests, and this is what was picked:
+- **One package, eager as before.** `@kb/canvas-ui` (`scope:browser`,
+  `family:canvas`) is the whole of `components/canvas`, 2D and 3D. The
+  canvas is always on, so, as with the chart and the code view in E12,
+  `ui-plugins.ts` loads `canvasUiPlugin` from the main bundle. The list
+  page, the canvas page and the 3D stage stay chunks of their own, and the
+  lazy fence keeps three behind the 3D stage. The barrel names only the
+  entry.
+- **The tests could not stay with the shell.** E12 kept a half's tests
+  that drive the real shell in `@kb/ui`, reaching the half through its
+  barrel. For the canvas that would put the canvas page or the 3D scene in
+  the barrel, which is in the main bundle, and the lazy fence goes red. A
+  test cannot go round the barrel either, because `public-surface` refuses
+  a deep or relative import. So the tests move with the canvas, and three
+  restructures came first, each its own commit:
+  - **`@kb/ui-test-kit`** (`packages/test-support`, `scope:browser`) is a
+    browser test's world, beside `@kb/test-kit`, and joins
+    `TEST_WORLD_PACKAGES`. It holds the happy-dom globals and the GPU and
+    2D-canvas stand-ins, which moved there from `@kb/ui`'s
+    `test-support/`. The `test-support` layer may now reach the kit layer.
+    The stylesheet's scan check now names only the browser packages the
+    page is built from (`@kb/ui`'s dependencies), because a test kit is
+    in no bundle.
+  - **Two suites are run by each package.** `sceneContract(scenes)` and
+    `storiesRender(modules)` (the catalog smoke) moved from `@kb/ui`'s
+    test files into the kit. `@kb/ui` runs them over the lab, the 3D
+    graph and its catalog. `@kb/canvas-ui` runs them over the 3D canvas
+    and the `TextCard` story. Storybook serves the `-ui` packages'
+    stories beside the catalog. The scene suite reads three's classes
+    when a test runs, because the file that runs it mocks `three/webgpu`
+    with the kit's own stand-ins.
+  - **A test host.** `testBrowserHost()` is a `BrowserHost` over a graph
+    the test sets. It has one active node with its caret, and it holds
+    the pane reports views make. Every other gesture is inert, and any
+    member can be replaced. `testHostPlugin` provides it. Five canvas
+    tests drove the shell's host and read its stores. They now hold the
+    canvas to the port: they check the instance it activates and the
+    report it holds, not the outline's state. The shell's side, that
+    activation accepts a canvas instance, was already the outline's
+    `lib/instance-key.test.ts`.
+- **The harness shrank.** The canvas's rows left `EXTENSION_ROOT_BREACHES`,
+  which now holds only the CLI's three bins. `CORE_BROWSER_HALVES` is
+  empty. The `components/canvas` zone, `extensionRow` and the
+  extension-zone fixture in `ui-boundaries` are gone, because no zone
+  leaves `@kb/ui` any more.
+- **Smaller moves.** The comments that named `@/scene/host`,
+  `@/scene/gpu/stage` and `components/canvas/…` now name the packages.
+  The dead `components/canvas/index.tsx` barrel and its Knip ignore are
+  gone. The 3D stage's `import.meta.env` check takes `vite/client` types
+  from the package's own `vite-env.d.ts`, which drained Knip's root
+  `vite` debt. `@kb/ui` keeps `@kb/canvas` in its manifest, because the
+  root keys `BROWSER_EXTENSIONS` by the declaration's name.
+- **Not done here.** The bullet-kind gap `01M436DVSEHKNYWSF2MR07HPMR` stays
+  open. A kind that a family contributes needs a point that the pure
+  `bulletAppearance` and the graph's GPU glyph atlas (`BULLET_GLYPHS`, set
+  ahead of time) both read. That is a design, not a move. The canvas
+  screen protocol is untouched (E19).
 
 ## 3D sequencing
 

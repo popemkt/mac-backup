@@ -63,6 +63,7 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/plugin": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@kb/webmcp": "workspace:*",
         "@modelcontextprotocol/sdk": "catalog:",
@@ -190,6 +191,7 @@
         "@kb/agent-ui": "workspace:*",
         "@kb/bundled": "workspace:*",
         "@kb/canvas": "workspace:*",
+        "@kb/canvas-ui": "workspace:*",
         "@kb/chart": "workspace:*",
         "@kb/chart-ui": "workspace:*",
         "@kb/check": "workspace:*",
@@ -235,8 +237,8 @@
         "zustand": "catalog:",
       },
       "devDependencies": {
+        "@kb/ui-test-kit": "workspace:*",
         "@storybook/addon-a11y": "catalog:",
-        "@storybook/react": "catalog:",
         "@storybook/react-vite": "catalog:",
         "@tailwindcss/node": "catalog:",
         "@tailwindcss/oxide": "catalog:",
@@ -430,10 +432,46 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/views": "workspace:*",
+        "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/bundled": "workspace:*",
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
+      },
+    },
+    "packages/extension/canvas-ui": {
+      "name": "@kb/canvas-ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/canvas": "workspace:*",
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/scene": "workspace:*",
+        "@kb/scene-gpu": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "@kb/views": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+        "three": "catalog:",
+        "ulid": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/ui-test-kit": "workspace:*",
+        "@storybook/react-vite": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@types/three": "catalog:",
+        "happy-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/extension/chart": {
@@ -541,6 +579,7 @@
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
+        "@kb/plugin": "workspace:*",
         "effect": "catalog:",
         "zod": "catalog:",
       },
@@ -555,7 +594,6 @@
         "@kb/check": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
-        "@kb/operations": "workspace:*",
         "effect": "catalog:",
         "zod": "catalog:",
       },
@@ -570,7 +608,7 @@
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
         "@kb/model": "workspace:*",
-        "@kb/operations": "workspace:*",
+        "@kb/views": "workspace:*",
         "effect": "catalog:",
         "zod": "catalog:",
       },
@@ -757,6 +795,26 @@
         "@types/bun": "catalog:",
         "effect": "catalog:",
         "playwright": "catalog:",
+      },
+    },
+    "packages/test-support/ui-test-kit": {
+      "name": "@kb/ui-test-kit",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/plugin": "workspace:*",
+        "@kb/scene": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "@storybook/react": "catalog:",
+        "happy-dom": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+        "three": "catalog:",
+        "vitest": "catalog:",
+      },
+      "devDependencies": {
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@types/three": "catalog:",
       },
     },
   },
@@ -1084,6 +1142,8 @@
 
     "@kb/canvas": ["@kb/canvas@workspace:packages/extension/canvas"],
 
+    "@kb/canvas-ui": ["@kb/canvas-ui@workspace:packages/extension/canvas-ui"],
+
     "@kb/chart": ["@kb/chart@workspace:packages/extension/chart"],
 
     "@kb/chart-ui": ["@kb/chart-ui@workspace:packages/extension/chart-ui"],
@@ -1153,6 +1213,8 @@
     "@kb/ui": ["@kb/ui@workspace:packages/app/ui"],
 
     "@kb/ui-sdk": ["@kb/ui-sdk@workspace:packages/kit/ui-sdk"],
+
+    "@kb/ui-test-kit": ["@kb/ui-test-kit@workspace:packages/test-support/ui-test-kit"],
 
     "@kb/views": ["@kb/views@workspace:packages/domain/views"],
 

@@ -14,7 +14,7 @@ import { LabView } from "./view.ts";
 export const labExtension = defineExtension({
   name: "lab",
   label: "Lab",
-  optional: true,
+  optional: { byDefault: "off" },
   views: [viewDef(LabView)],
 });
 

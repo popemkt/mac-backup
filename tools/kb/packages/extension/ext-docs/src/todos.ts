@@ -1,6 +1,5 @@
 import type { KbNode, NodeId } from "@kb/model";
-import type { TemplateContext } from "@kb/contracts";
-import { renderText } from "@kb/operations";
+import { renderText, type TemplateContext } from "@kb/contracts";
 
 /**
  * The `todos` template: repo-doc policy, not core mechanism. Registered as

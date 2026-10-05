@@ -7,6 +7,10 @@
  * "cannot be shown here" state naming the view by the server's label, never
  * as a node that is not found; and the pane switcher names it "Sketch", not
  * by its id.
+ *
+ * A view of a family the server has switched off (the lab, here) is listed
+ * nowhere, but its option node is seeded whatever loads: it opens as the
+ * same state, named by that option, and the switcher names it the same way.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -14,8 +18,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { extensionRow, type GraphSnapshot, type WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
+import { LabView, labExtension } from "@kb/lab";
 import { viewCatalogOf, type ViewCatalogEntry } from "@kb/views";
-import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 
 const { App } = await import("@/components/App");
 const { PaneSwitcher } = await import("@/components/layout/pane-switcher");
@@ -34,15 +39,25 @@ const SKETCH: ViewCatalogEntry = {
   settings: {},
 };
 
-/** What the server lists in `kb.manifest`: every bundled family's views, and the sketch board. */
+/** The family the server has switched off. */
+const OFF = labExtension.name;
+
+/**
+ * What the server lists in `kb.manifest`: the views of every bundled family
+ * it loaded, which is all but the lab, and the sketch board.
+ */
 const SERVED = [
   ...viewCatalogOf(
-    BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.views ?? []),
+    BUNDLED_DECLARATIONS.filter(({ name }) => name !== OFF).flatMap(
+      (declaration) => declaration.views ?? [],
+    ),
   ).entries(),
   SKETCH,
 ];
 const LOADED = [
-  ...BUNDLED_FAMILIES.map((declaration) => extensionRow(declaration, "bundled", true)),
+  ...BUNDLED_FAMILIES.map((declaration) =>
+    extensionRow(declaration, "bundled", declaration.name !== OFF),
+  ),
   extensionRow({ name: "sketch", label: "sketch" }, "/root/.kb/extensions/sketch.ts", true),
 ];
 
@@ -59,6 +74,10 @@ function snapshot(): GraphSnapshot {
       }),
       // Untitled, so what names it is its view.
       node("v.sketch", "", { [SYSTEM_IDS.viewField]: [{ t: "ref", v: SKETCH.option }] }),
+      node("n.studio", "Studio", { [SYSTEM_IDS.viewsField]: [{ t: "ref", v: "v.lab" }] }),
+      node("v.lab", "", { [SYSTEM_IDS.viewField]: [{ t: "ref", v: LabView.option }] }),
+      // The lab's option, as the bundled seed holds it whether the lab is on or not.
+      node(LabView.option, LabView.label),
     ],
   };
 }
@@ -72,7 +91,7 @@ async function until(ready: () => boolean, ms = 3000): Promise<void> {
   }
 }
 
-describe("a view the server lists that the page does not hold (acceptance)", () => {
+describe("a view the page cannot draw (acceptance)", () => {
   let dom: InstalledDom;
   let container: HTMLElement;
   let root: Root;
@@ -145,14 +164,21 @@ describe("a view the server lists that the page does not hold (acceptance)", () 
     expect(container.querySelector('[data-not-found="Node"]')).toBeNull();
   });
 
-  it("names the sketch view node Sketch in the pane switcher", async () => {
+  it("opens a view node of a family switched off as the view it cannot show here, named by its option", async () => {
+    expect(pageCatalog().listedOf(LabView.option)).toBeNull();
+    await act(async () => navigate("/node/n.studio/v.lab"));
+    await until(() => container.textContent.includes("This view cannot be shown here"));
+    expect(container.textContent).toContain(`${LabView.label}: its plugin is not loaded`);
+    expect(container.querySelector('[data-not-found="Node"]')).toBeNull();
+  });
+
+  /** The labels the pane switcher offers for `path`, shown for a host titled `title`. */
+  async function switcherLabels(path: string, title: string): Promise<string[]> {
     const menuRoot = dom.window.document.createElement("div") as unknown as HTMLElement;
     dom.window.document.body.appendChild(menuRoot as unknown as never);
     const switcher = createRoot(menuRoot);
     await act(async () => {
-      switcher.render(
-        <PaneSwitcher path="/node/n.host/v.sketch" title="Studies" onChoose={() => {}} />,
-      );
+      switcher.render(<PaneSwitcher path={path} title={title} onChoose={() => {}} />);
     });
     const button = menuRoot.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]');
     await act(async () => button?.click());
@@ -160,9 +186,20 @@ describe("a view the server lists that the page does not hold (acceptance)", () 
     const labels = [...(menu?.querySelectorAll('[role="menuitemradio"]') ?? [])].map((item) =>
       item.textContent.trim(),
     );
-    expect(labels).toContain("Sketch");
-    expect(labels).not.toContain("v.sketch");
     act(() => switcher.unmount());
     menuRoot.remove();
+    return labels;
+  }
+
+  it("names the sketch view node Sketch in the pane switcher", async () => {
+    const labels = await switcherLabels("/node/n.host/v.sketch", "Studies");
+    expect(labels).toContain("Sketch");
+    expect(labels).not.toContain("v.sketch");
+  });
+
+  it("names a view node of a family switched off by its option in the pane switcher", async () => {
+    const labels = await switcherLabels("/node/n.studio/v.lab", "Studio");
+    expect(labels).toContain(LabView.label);
+    expect(labels).not.toContain("v.lab");
   });
 });

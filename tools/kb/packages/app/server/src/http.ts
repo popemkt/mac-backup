@@ -38,7 +38,7 @@ export interface UiHttpDeps {
   ctx: KbContext;
   hub: SubscriptionHub;
   /** The extensions the server hosts beside the registry's, as it reports them; none when absent. */
-  hosted?: () => readonly ExtensionRow[];
+  hosted?: Effect.Effect<readonly ExtensionRow[]>;
 }
 
 function jsonResponse(

@@ -6,12 +6,14 @@
  */
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { makeKernel } from "@kb/plugin";
+import { makeKernel, syncPlugins, type Contribution, type Kernel } from "@kb/plugin";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
-import { extensionRow, type ExtensionRow } from "@kb/contracts";
+import { NO_SWITCHES, extensionRow, familyOn, type ExtensionRow } from "@kb/contracts";
 import { agentExtension } from "@kb/agent";
 import { labExtension } from "@kb/lab";
 import {
+  CommandPoint,
+  DockPoint,
   findView,
   matchRoute,
   ontologyPath,
@@ -22,9 +24,9 @@ import {
 import { NoParams, viewKey, type OntologyView } from "@kb/views";
 import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS, familiesToLoad } from "@/ui-plugins";
 
-/** The browser entries of the families that are always on, as the resolver loads them. */
+/** The browser entries of the families on in a store with no switch written, as the resolver loads them. */
 const ALWAYS_ON = await Promise.all(
-  BUNDLED_FAMILIES.filter((declaration) => declaration.optional !== true).flatMap(
+  BUNDLED_FAMILIES.filter((declaration) => familyOn(declaration, NO_SWITCHES, () => {})).flatMap(
     (declaration) => BROWSER_EXTENSIONS[declaration.name]?.load() ?? [],
   ),
 );
@@ -138,7 +140,7 @@ describe("the families the page loads", () => {
   });
 
   it("leave out a family the server reports not loaded: the lab while it is off", () => {
-    expect(labExtension.optional).toBe(true);
+    expect(labExtension.optional).toEqual({ byDefault: "off" });
     expect(familiesToLoad(reported((name) => name !== "lab"))).toEqual(["canvas", "code", "chart"]);
   });
 
@@ -185,4 +187,49 @@ describe("the resolver", () => {
     const known = new Set([...BUNDLED_FAMILIES.map(({ name }) => name), agentExtension.name]);
     expect(Object.keys(BROWSER_EXTENSIONS).filter((name) => !known.has(name))).toEqual([]);
   });
+});
+
+/** Everything `kernel` holds at the points a browser half contributes to, that `name`'s plugins made. */
+function ownedBy(kernel: Kernel, name: string): readonly string[] {
+  const held: readonly Contribution<unknown>[] = [
+    ...kernel.contributions(ViewPoint),
+    ...kernel.contributions(RoutePoint),
+    ...kernel.contributions(SidebarSectionPoint),
+    ...kernel.contributions(DockPoint),
+    ...kernel.contributions(CommandPoint),
+  ];
+  return held
+    .filter(({ owner }) => owner === name || owner.startsWith(`${name}/`))
+    .map(({ id }) => id);
+}
+
+describe("an optional family switched off on the server", () => {
+  const SWITCHABLE = [...BUNDLED_FAMILIES, agentExtension].filter(
+    ({ name, optional }) => optional !== undefined && BROWSER_EXTENSIONS[name] !== null,
+  );
+
+  it("is any family that can be switched and has a browser half", () => {
+    expect(SWITCHABLE.map(({ name }) => name)).toEqual(["canvas", "lab", "code", "chart", "agent"]);
+  });
+
+  for (const family of SWITCHABLE) {
+    it(`${family.name}: the page drops its browser half and everything it contributed, and takes it back when switched on`, async () => {
+      const kernel = makeKernel();
+      for (const on of [true, false, true]) {
+        const rows = [
+          ...reported((name) => name !== family.name || on),
+          extensionRow(agentExtension, "host", agentExtension.name !== family.name || on),
+        ];
+        const entries = await Promise.all(
+          familiesToLoad(rows).flatMap((name) => BROWSER_EXTENSIONS[name]?.load() ?? []),
+        );
+        const failures = await Effect.runPromise(
+          syncPlugins(kernel, [...CORE_UI_PLUGINS, ...entries]),
+        );
+        expect(failures).toEqual([]);
+        expect({ on, holds: ownedBy(kernel, family.name).length > 0 }).toEqual({ on, holds: on });
+      }
+      await Effect.runPromise(kernel.shutdown);
+    });
+  }
 });

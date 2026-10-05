@@ -16,7 +16,7 @@ import type { ExtensionDeclaration, ExtensionEntry } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
 import { chartServerPlugin } from "@kb/chart-vega";
 import { codePlugin } from "@kb/code";
-import { canvasPlugin } from "@kb/ext-canvas";
+import { canvasServerPlugin } from "@kb/ext-canvas";
 import { checkPlugin } from "@kb/ext-check";
 import { docsPlugin } from "@kb/ext-docs";
 import { labPlugin } from "@kb/lab";
@@ -47,7 +47,7 @@ export function serverEntriesFor(
 
 export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BUNDLED_FAMILIES, [
   docsPlugin,
-  canvasPlugin,
+  canvasServerPlugin,
   labPlugin(),
   checkPlugin,
   codePlugin(),

@@ -31,7 +31,7 @@ import {
 } from "@kb/ui-sdk";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
-import { installDomGlobals } from "@/test-support/dom-globals";
+import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useNodeKeyDown } from "./use-node-keydown";
 import { outlineUiPlugin } from "@/components/outline/plugin";

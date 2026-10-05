@@ -4,7 +4,8 @@
  * name, seed and views; the bundled seed folds it, and both hosts' entries
  * are built from {@link chartPlugin}, so the key, the seed and the text body
  * cannot differ between them. Only the painter does: the server's entry
- * (`@kb/chart-vega`) hands it Vega, and the page's hands it none.
+ * (`@kb/chart-vega`) hands it Vega, and the page's hands it none. It is
+ * optional and on by default.
  */
 import { declarationPlugin, defineExtension, viewDef, type ViewDef } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
@@ -20,6 +21,7 @@ function chartViews(painter: ChartPainter | null): readonly ViewDef<unknown>[] {
 export const chartExtension = defineExtension({
   name: "chart",
   label: "Chart",
+  optional: { byDefault: "on" },
   seed: chartSeedNodes,
   views: chartViews(null),
 });

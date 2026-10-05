@@ -25,8 +25,9 @@ import {
  *   every `scope:browser` project. A browser package that `bun test` skipped
  *   and `test:ui` never reached would hold tests nothing runs.
  * - **The scan.** Tailwind's automatic detection reads `@kb/ui`'s own folder,
- *   so `index.css` names each other browser package with `@source`; a class a
- *   package writes outside it compiles to nothing.
+ *   so `index.css` names each other browser package the page is built from
+ *   (a `dependencies` entry of `@kb/ui`, not a test's `devDependencies` one)
+ *   with `@source`; a class a package writes outside it compiles to nothing.
  *
  * Red case: drop `"**\/packages/kit/**"` from `bunfig.toml`, the `test` script
  * from `@kb/ui-sdk`, or the `@source` line from `index.css`.
@@ -66,8 +67,10 @@ describe("browser-scope", () => {
   test("the stylesheet scans every browser package", () => {
     const css = readFileSync(join(UI_SRC_ROOT, "index.css"), "utf8");
     const sources = [...css.matchAll(/^@source "([^"]+)";$/gm)].map((m) => m[1] ?? "");
+    const page = packages.find(({ name }) => name === "@kb/ui");
+    const built = new Set(Object.keys(page?.manifest.dependencies ?? {}));
     const unscanned = packages
-      .filter(({ name, manifest }) => name !== "@kb/ui" && isBrowser(tagsOf(manifest)))
+      .filter(({ name, manifest }) => built.has(name) && isBrowser(tagsOf(manifest)))
       .filter(({ dir }) => {
         // A source file of the package, named as index.css names paths: from its folder.
         const probe = relative(UI_SRC_ROOT, join(PACKAGES_ROOT, dir, "src", "probe.tsx"));
@@ -76,6 +79,7 @@ describe("browser-scope", () => {
         );
       })
       .map(({ name }) => name);
+    expect(built.size, "@kb/ui's dependencies").toBeGreaterThan(0);
     expect(unscanned, "browser packages no @source in index.css names").toEqual([]);
   });
 });

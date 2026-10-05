@@ -11,9 +11,14 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@kb/contracts": "workspace:*"
+    "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
+    "@kb/views": "workspace:*",
+    "effect": "catalog:"
   },
   "devDependencies": {
+    "@kb/bundled": "workspace:*",
     "@types/bun": "catalog:",
     "fast-check": "catalog:"
   },

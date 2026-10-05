@@ -84,6 +84,26 @@ export function seededField(
 }
 
 /**
+ * A system tag as a seed declares it, core's or a family's: a node typed
+ * `sys.tag` whose `sys.f.fields` templates `fields`, in order. The template
+ * is what a node tagged with it is offered to fill, so a tag and the fields
+ * it stands for are declared together.
+ */
+export function seededTag(id: string, text: string, fields: readonly string[], at: string): KbNode {
+  return {
+    id,
+    text,
+    props: {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+      [SYSTEM_IDS.fieldsField]: fields.map((field) => ({ t: "ref", v: field })),
+    },
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+}
+
+/**
  * Core's system nodes, the seed core's declaration contributes. Idempotent —
  * same ids every time. A store is never seeded with these alone: it is
  * seeded with the fold of every bundled declaration ({@link foldSeed}),
@@ -374,14 +394,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ],
   });
 
-  // Canvas nodes (C1): #canvas tag templating sys.f.canvas (JSON Canvas 1.0 str).
-  const canvasField = singleField(SYSTEM_IDS.canvasField, "canvas", "text");
   // A layout view's arrangement (`layout.grid`): its pane tree as JSON text.
   const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text");
-  const canvasTag = mk(SYSTEM_IDS.canvasTag, "canvas", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
-    [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.canvasField }],
-  });
 
   // Ontologies (r5 core): #ontology tag templating the sys.f.onto.* algebra.
   // No default ontology is seeded — an empty ontology list is a legitimate
@@ -438,17 +452,19 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     children: [SYSTEM_IDS.approvalPoliciesView],
   };
 
-  const ontologyTag = mk(SYSTEM_IDS.ontologyTag, "ontology", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
-    [SYSTEM_IDS.fieldsField]: [
-      { t: "ref", v: SYSTEM_IDS.ontoIncludeField },
-      { t: "ref", v: SYSTEM_IDS.ontoMemberField },
-      { t: "ref", v: SYSTEM_IDS.ontoExcludeField },
-      { t: "ref", v: SYSTEM_IDS.ontoExtendsField },
-      { t: "ref", v: SYSTEM_IDS.ontoQueryField },
-      { t: "ref", v: SYSTEM_IDS.ontoClosureField },
+  const ontologyTag = seededTag(
+    SYSTEM_IDS.ontologyTag,
+    "ontology",
+    [
+      SYSTEM_IDS.ontoIncludeField,
+      SYSTEM_IDS.ontoMemberField,
+      SYSTEM_IDS.ontoExcludeField,
+      SYSTEM_IDS.ontoExtendsField,
+      SYSTEM_IDS.ontoQueryField,
+      SYSTEM_IDS.ontoClosureField,
     ],
-  });
+    at,
+  );
 
   /*
    * Approval policies (DESIGN.md → Action registry → Approval). `#approval-policy`
@@ -469,14 +485,16 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...singleField(SYSTEM_IDS.approvalDecisionField, "approval.decision", "ref"),
     children: decisionOptions.map((option) => option.id),
   };
-  const approvalPolicyTag = mk(SYSTEM_IDS.approvalPolicyTag, "approval-policy", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
-    [SYSTEM_IDS.fieldsField]: [
-      { t: "ref", v: SYSTEM_IDS.approvalMatchField },
-      { t: "ref", v: SYSTEM_IDS.approvalActorField },
-      { t: "ref", v: SYSTEM_IDS.approvalDecisionField },
+  const approvalPolicyTag = seededTag(
+    SYSTEM_IDS.approvalPolicyTag,
+    "approval-policy",
+    [
+      SYSTEM_IDS.approvalMatchField,
+      SYSTEM_IDS.approvalActorField,
+      SYSTEM_IDS.approvalDecisionField,
     ],
-  });
+    at,
+  );
   /*
    * The defaults the owner chose: an agent, and sandboxed code, is asked before
    * it deletes a node and before a store-wide rewrite; an agent is asked
@@ -619,9 +637,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     lensLinkStyleField,
     ...linkStyleOptions,
     lensAllMentions,
-    canvasField,
     layoutField,
-    canvasTag,
     ontoIncludeField,
     ontoMemberField,
     ontoExcludeField,
