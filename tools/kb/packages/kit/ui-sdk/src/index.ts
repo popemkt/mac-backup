@@ -332,7 +332,7 @@ export {
   type Appearance,
   appearanceOf,
   BACKDROP_STRENGTHS,
-  BACKDROP_OPACITY,
+  HEADER_BACKDROP_PRESENTATION,
   BACKDROP_DIRECTIONS,
   type BackdropStrength,
   type BackdropDirection,

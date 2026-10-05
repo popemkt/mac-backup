@@ -1,33 +1,40 @@
-/* A bounded light source behind the header, independent of page width. */
+/* Each effect supplies its frame; none adds layout space. */
 .kb-header-backdrop {
   position: absolute;
   left: 50%;
-  top: -72px;
-  width: min(1120px, 100%);
-  height: 320px;
+  width: 100%;
   transform: translateX(-50%);
   overflow: hidden;
-  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, var(--foreground) 15%, transparent 100%);
 }
 
 .kb-unicorn-backdrop {
   position: absolute;
   left: 50%;
-  bottom: 0;
+  top: 20px;
   width: max(720px, 100%);
   aspect-ratio: 1430 / 666;
   transform: translateX(-50%);
-  filter: blur(2px);
+  mask-image:
+    linear-gradient(
+      to bottom,
+      transparent,
+      var(--foreground) 5%,
+      var(--foreground) 72%,
+      transparent
+    ),
+    linear-gradient(
+      to right,
+      transparent,
+      var(--foreground) 20%,
+      var(--foreground) 80%,
+      transparent
+    );
+  mask-composite: intersect;
+  mix-blend-mode: multiply;
 }
 
-.kb-header-backdrop[data-direction="down"] .kb-header-tint {
+.kb-header-backdrop[data-direction="down"] .kb-unicorn-backdrop canvas {
   transform: scaleY(-1);
-}
-
-.kb-header-backdrop[data-direction="down"] .kb-unicorn-backdrop {
-  top: 0;
-  bottom: auto;
-  transform: translateX(-50%) scaleY(-1);
 }
 
 .dark .kb-unicorn-backdrop {
@@ -38,4 +45,9 @@
   width: 100%;
   height: 100%;
   display: block;
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.dark .kb-unicorn-backdrop canvas {
+  filter: none;
 }

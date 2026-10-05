@@ -20,13 +20,35 @@ export const HEADER_BACKDROP_LABELS: Record<HeaderBackdropPref, string> = {
 /** Presentation controls shared by every header effect. */
 export const BACKDROP_STRENGTHS = ["subtle", "soft", "vivid"] as const;
 export type BackdropStrength = (typeof BACKDROP_STRENGTHS)[number];
-export const BACKDROP_OPACITY: Record<BackdropStrength, number> = {
-  subtle: 0.12,
-  soft: 0.24,
-  vivid: 0.45,
-};
 export const BACKDROP_DIRECTIONS = ["down", "up"] as const;
 export type BackdropDirection = (typeof BACKDROP_DIRECTIONS)[number];
+
+/** Each effect owns its framing and response to the shared strength control. */
+export const HEADER_BACKDROP_PRESENTATION: Record<
+  HeaderBackdropPref,
+  {
+    directions: readonly BackdropDirection[];
+    height: number;
+    maxWidth: number;
+    offset: number;
+    opacity: Record<BackdropStrength, number>;
+  }
+> = {
+  gradient: {
+    directions: [],
+    height: 160,
+    maxWidth: 1120,
+    offset: -40,
+    opacity: { subtle: 0.5, soft: 0.75, vivid: 1 },
+  },
+  unicorn: {
+    directions: BACKDROP_DIRECTIONS,
+    height: 500,
+    maxWidth: 960,
+    offset: -8,
+    opacity: { subtle: 0.35, soft: 0.5, vivid: 0.75 },
+  },
+};
 
 /**
  * The design systems (DESIGN-UI.md → Design tokens → Design systems), in

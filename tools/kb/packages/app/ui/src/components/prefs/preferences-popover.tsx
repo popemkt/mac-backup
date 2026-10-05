@@ -1,7 +1,7 @@
 import {
   cn,
   BACKDROP_STRENGTHS,
-  BACKDROP_DIRECTIONS,
+  HEADER_BACKDROP_PRESENTATION,
   DESIGN_SYSTEMS,
   HEADER_BACKDROPS,
   HEADER_BACKDROP_LABELS,
@@ -207,12 +207,15 @@ function BackdropStrengthRow() {
 function BackdropDirectionRow() {
   const direction = usePrefsStore((s) => s.backdropDirection);
   const setDirection = usePrefsStore((s) => s.setBackdropDirection);
+  const backdrop = usePrefsStore((s) => s.headerBackdrop);
+  const directions = HEADER_BACKDROP_PRESENTATION[backdrop].directions;
+  if (directions.length === 0) return null;
   return (
     <PrefFieldRow icon={SwatchesIcon} label="direction">
       <EnumSelect
         className={POPOVER_VALUE_CLASS}
         value={direction}
-        options={BACKDROP_DIRECTIONS.map((value) => ({ value, label: value }))}
+        options={directions.map((value) => ({ value, label: value }))}
         onChange={setDirection}
       />
     </PrefFieldRow>

@@ -3,7 +3,7 @@ import { logWarn, useReducedMotion } from "@kb/ui-sdk";
 import { createUnicornScene, type UnicornScene } from "@/lib/unicorn-scene";
 
 /** Decorative scene: no hit targets, and no animation while hidden or reduced. */
-export function UnicornBackdrop() {
+export function UnicornBackdrop({ opacity }: { opacity: number }) {
   const host = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
 
@@ -47,5 +47,12 @@ export function UnicornBackdrop() {
     };
   }, [reducedMotion]);
 
-  return <div ref={host} className="kb-unicorn-backdrop" data-scene-state="loading" />;
+  return (
+    <div
+      ref={host}
+      className="kb-unicorn-backdrop"
+      style={{ opacity }}
+      data-scene-state="loading"
+    />
+  );
 }
