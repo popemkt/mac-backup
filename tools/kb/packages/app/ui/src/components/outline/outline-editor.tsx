@@ -10,7 +10,8 @@ import { useFrameView } from "./use-frame-views";
 import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
-import { HeaderWash, ZoomedRootHeader } from "./zoomed-root-header";
+import { ZoomedRootHeader } from "./zoomed-root-header";
+import { HeaderBackdrop } from "./header-backdrop";
 import { useSelectionKeymap } from "./use-selection-keymap";
 import { setOutlineHost } from "@/stores/outline-hosts";
 import { useLeadsOutlines, useOutlineHost } from "./outline-host";
@@ -104,7 +105,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
   return (
     <div className="outline-editor px-2 pb-40">
       <div className="relative">
-        <HeaderWash color="var(--primary)" />
+        <HeaderBackdrop color="var(--primary)" />
         <div className="relative">
           <Breadcrumbs root={rootProp} />
         </div>
