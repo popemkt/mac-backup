@@ -1,0 +1,8 @@
+{
+  "name": "agent-artifacts",
+  "version": "0.1.0",
+  "description": "See every skill, agent, command, hook, MCP server, plugin and setting active in a session (/artifacts), and switch named profiles of them per repo (/agent-profile)",
+  "author": { "name": "Hoang Nguyen Gia" },
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}

@@ -1,0 +1,9 @@
+{
+  "description": "This dotfiles repo: no frontend, video or iii skills, no Sigrid or Telegram plugins; kb's .mcp.json server stays off",
+  "plugins": {
+    "sigrid@sigrid-ai-toolkit": false,
+    "telegram@claude-plugins-official": false
+  },
+  "mcpjson": { "disable": ["kb"] },
+  "skills": { "deny": ["iii-*", "hyperframes*", "gsap", "animejs", "lottie", "three", "typegpu", "waapi", "css-animations", "website-to-hyperframes", "frontend-design*", "hallmark"] }
+}

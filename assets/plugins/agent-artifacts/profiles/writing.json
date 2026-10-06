@@ -1,0 +1,6 @@
+{
+  "description": "Prose repos: only the general agents, no build, video or animation skills, no code-intelligence MCP",
+  "skills": { "deny": ["iii-*", "hyperframes*", "gsap", "animejs", "lottie", "three", "typegpu", "waapi", "css-animations", "website-to-hyperframes", "gitnexus-*", "codebase-memory"] },
+  "agents": { "allow": ["Explore", "general-purpose", "Plan", "claude"] },
+  "tools": { "deny": ["mcp__serena__*", "mcp__plugin_sigrid_sigrid__*", "NotebookEdit"] }
+}

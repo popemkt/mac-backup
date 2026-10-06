@@ -1,0 +1,14 @@
+{
+  "name": "dotfiles",
+  "owner": { "name": "Hoang Nguyen Gia" },
+  "metadata": {
+    "description": "Claude Code plugins tracked in the dotfiles repo, read in place from assets/plugins"
+  },
+  "plugins": [
+    {
+      "name": "agent-artifacts",
+      "source": "./agent-artifacts",
+      "description": "See every skill, agent, command, hook, MCP server, plugin and setting active in a session, and switch named profiles of them per repo"
+    }
+  ]
+}
