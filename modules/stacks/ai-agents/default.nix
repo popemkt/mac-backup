@@ -22,6 +22,7 @@ let
 in
 {
   imports = [
+    ./claude-mods.nix # Claude Code UI mods (function-hook plugins)
     ./cli-proxy-api.nix # local OAuth provider proxy (loopback :8317)
     # Alternative/companion: OmniRoute (https://github.com/diegosouzapw/OmniRoute)
     # npm i -g omniroute → dashboard/API :20128 — not installed; note only.
