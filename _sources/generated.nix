@@ -16,10 +16,10 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.15";
+    version = "8.0.17";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.15/CLIProxyAPI_8.0.15_darwin_aarch64.tar.gz";
-      sha256 = "sha256-kP5tMJYTszUgufCHRoKd1sT9+7uzU/QawB5OlPFo98Q=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.17/CLIProxyAPI_8.0.17_darwin_aarch64.tar.gz";
+      sha256 = "sha256-1JUgaMQTBg46jAgsxhb+5wfHAaAb6+xZxFkDvOQCvp0=";
     };
   };
   cursor-cli = {
@@ -48,10 +48,10 @@
   };
   vite-plus = {
     pname = "vite-plus";
-    version = "1.0.0";
+    version = "1.1.0";
     src = fetchurl {
-      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.0.0/vp-aarch64-apple-darwin.tar.gz";
-      sha256 = "sha256-MJ1CVQNIqhVuNKmi626eixxYhhJrFM2aiPQtFYqUSzU=";
+      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.1.0/vp-aarch64-apple-darwin.tar.gz";
+      sha256 = "sha256-m1qx83UPW4BqJb3zLpJscjtSBUAE10hyNAj4TmgfVnU=";
     };
   };
 }
