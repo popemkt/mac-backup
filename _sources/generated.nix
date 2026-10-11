@@ -8,18 +8,18 @@
 {
   chat2db = {
     pname = "chat2db";
-    version = "5.3.7";
+    version = "5.3.8";
     src = fetchurl {
-      url = "https://github.com/OtterMind/Chat2DB/releases/download/v5.3.7/Chat2DB-Community-5.3.7-arm64.dmg";
-      sha256 = "sha256-RCDOllW346ak55Cea4JIzrQB6ZL1m7cOTyxEpB5v+Mo=";
+      url = "https://github.com/OtterMind/Chat2DB/releases/download/v5.3.8/Chat2DB-Community-5.3.8-arm64.dmg";
+      sha256 = "sha256-dX5M18I1boEPtKPeGwmz3i2Mstjg9vzVouUfWmPev7U=";
     };
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.17";
+    version = "8.0.23";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.17/CLIProxyAPI_8.0.17_darwin_aarch64.tar.gz";
-      sha256 = "sha256-1JUgaMQTBg46jAgsxhb+5wfHAaAb6+xZxFkDvOQCvp0=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.23/CLIProxyAPI_8.0.23_darwin_aarch64.tar.gz";
+      sha256 = "sha256-PAVrQuxMgNBqdNPFq/R64K2wYoXjL1zzGim90HAX/rM=";
     };
   };
   cursor-cli = {
@@ -32,18 +32,18 @@
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.11.0";
+    version = "0.11.505";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.11.0/GenOffice-0.11.0-arm64.dmg";
-      sha256 = "sha256-sUb1bVNfUdIUGE+Sb6FQQSKizgRfKVgbSdyGVVWzdWo=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.11.505/GenOffice-0.11.505-arm64.dmg";
+      sha256 = "sha256-niPse7Gyx1d/3Qr19sLf9JA9LZgxj4gkRDL9Ldu+wkU=";
     };
   };
   logseq-nightly = {
     pname = "logseq-nightly";
-    version = "2.0.2-alpha+nightly.20261003";
+    version = "2.0.2-alpha+nightly.20261010";
     src = fetchurl {
-      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.2-alpha+nightly.20261003.zip";
-      sha256 = "sha256-+HAcZhvhUll40v2aJXujm4yCIpd1ftTneCzzUZ3pHW4=";
+      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.2-alpha+nightly.20261010.zip";
+      sha256 = "sha256-GxYOe+/IjxKndo2oIlI/Pza9Q4h6Y8Q68w8XogoSN7s=";
     };
   };
   vite-plus = {
