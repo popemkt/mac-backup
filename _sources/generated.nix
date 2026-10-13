@@ -16,10 +16,10 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.23";
+    version = "8.0.27";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.23/CLIProxyAPI_8.0.23_darwin_aarch64.tar.gz";
-      sha256 = "sha256-PAVrQuxMgNBqdNPFq/R64K2wYoXjL1zzGim90HAX/rM=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.27/CLIProxyAPI_8.0.27_darwin_aarch64.tar.gz";
+      sha256 = "sha256-2b9Y224H0PWHokirxKEJkXj77B1lnYdMlh2MrzSVoJ4=";
     };
   };
   cursor-cli = {
@@ -32,18 +32,18 @@
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.11.505";
+    version = "0.11.564";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.11.505/GenOffice-0.11.505-arm64.dmg";
-      sha256 = "sha256-niPse7Gyx1d/3Qr19sLf9JA9LZgxj4gkRDL9Ldu+wkU=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.11.564/GenOffice-0.11.564-arm64.dmg";
+      sha256 = "sha256-aeTHlFOKnqUCUMqNVZahvEtzGY2YGkYCAumUyOJNiBc=";
     };
   };
   logseq-nightly = {
     pname = "logseq-nightly";
-    version = "2.0.2-alpha+nightly.20261010";
+    version = "2.0.2-alpha+nightly.20261012";
     src = fetchurl {
-      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.2-alpha+nightly.20261010.zip";
-      sha256 = "sha256-GxYOe+/IjxKndo2oIlI/Pza9Q4h6Y8Q68w8XogoSN7s=";
+      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.2-alpha+nightly.20261012.zip";
+      sha256 = "sha256-Hj/5H6uHkZivPmLqRhmyaPj/HvtNnZ5/PPscW89TXyw=";
     };
   };
   vite-plus = {
