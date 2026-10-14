@@ -6,13 +6,14 @@ repository owns. Why the host has this shape is stated once, in the
 [plan's Decision section](shared-nixos-server-plan.md#decision); this file is
 only the procedure.
 
-Work on the `feat/shared-server-minimal` branch and open a pull request. Never
-push to `main`. Commit the restructure and the additions separately, as
-[AGENTS.md](../AGENTS.md) requires.
+Everything needed is on `main`; start from an up-to-date checkout of it
+(`git pull`). Commit the restructure and the additions separately, as
+[AGENTS.md](../AGENTS.md) requires, and push to `main` once the host has
+switched successfully.
 
 ## Where things stand
 
-Done on the Mac, on this branch:
+Done on the Mac, already on `main`:
 
 - `modules/stacks/default.nix` is the platform-neutral stack index (the vpn
   schema and the `extra.*` fold). `modules/stacks/darwin.nix` adds the
