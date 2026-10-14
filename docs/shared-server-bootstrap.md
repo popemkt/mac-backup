@@ -115,8 +115,14 @@ sudo nixos-rebuild switch --flake ~/.dotfiles#shared-server  # make it the boot 
 `test` first: if networking or the console breaks, a reboot returns to the
 installer configuration. After `switch`, the previous generation stays in the
 boot menu, and `sudo nixos-rebuild switch --rollback` undoes it. From then on
-the repository owns the system; `/etc/nixos/configuration.nix` is no longer
-read and can stay as a reference.
+the repository owns the system and `/etc/nixos/configuration.nix` is no longer
+read. Move it aside so a plain `nixos-rebuild switch` fails loudly instead of
+quietly rebuilding the installer configuration, and rebuild with the `rebuild`
+alias (`sudo nixos-rebuild switch --flake ~/.dotfiles`) from then on:
+
+```bash
+sudo mv /etc/nixos /etc/nixos.installer
+```
 
 ## Manual steps after the switch
 
