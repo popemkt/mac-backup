@@ -124,19 +124,25 @@ alias (`sudo nixos-rebuild switch --flake ~/.dotfiles`) from then on:
 sudo mv /etc/nixos /etc/nixos.installer
 ```
 
-## Manual steps after the switch
+## Secrets and manual steps after the switch
 
 These are control-plane or secret state and never belong in the repo.
 
-1. `sudo passwd bytetum` sets a temporary password; bytetum changes it with
-   `passwd` on first login.
-2. `sudo tailscale up`, then in the Tailscale console tag the machine
-   `tag:shared-server` and create `svc:t3-popemkt` and `svc:t3-bytetum`.
-   Merge the policy change so the workflow applies it. The full sequence is
+1. **Secrets go through a file the agent never reads.** Run
+   `scripts/shared-server-secrets init`, then ask the person to fill in
+   `~/shared-server-secrets.env` themselves. Do not open, print, or grep that
+   file: anything an agent reads enters its transcript. When they say it is
+   filled, run `scripts/shared-server-secrets apply`, which sets the
+   passwords, joins the tailnet with the auth key, and deletes the file. If
+   it fails, report the error and leave the file for the person to fix.
+2. The auth key carries `tag:shared-server`, so the tag must be in the merged
+   policy first. In the Tailscale console create `svc:t3-popemkt` and
+   `svc:t3-bytetum`, then rerun the policy workflow so its auto-approver sees
+   them. The full sequence is
    [First Tailnet Or Replacement Host](tailscale.md#first-tailnet-or-replacement-host).
 3. Each person, in their own account: sign in to Claude Code (`claude`) and
    Codex (`codex`), then pair their devices with their T3 Code server
-   (`t3 pair`).
+   (`t3 pair`). bytetum changes the temporary password with `passwd`.
 
 ## Done when
 
