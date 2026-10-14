@@ -23,6 +23,7 @@
       };
     };
     office-docs.enable = true;
+    t3-code.enable = true;
     vpn = {
       enable = true;
       # The home kb UI listens on loopback; Tailscale provides its HTTPS name.

@@ -13,7 +13,7 @@ in
     # Intent layer: functional stacks contributing to my.pkgs.* channel lists
     # and their per-tool daemons/config (ai-agents owns cli-proxy-api,
     # headroom, hermes).
-    ../../stacks
+    ../../stacks/darwin.nix
     ./external-workspace.nix
     ./homebrew.nix
     ./input-sources.nix

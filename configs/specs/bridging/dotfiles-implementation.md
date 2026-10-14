@@ -28,7 +28,7 @@ Operator procedure lives in `../../README.md`.
 | External enrollment + readiness | Nix + Python (`uv2nix`) | `modules/darwin/system/system-setup/default.nix`, `tools/system-setup/` |
 | macOS-only shell helpers + rebuild | home-manager | `modules/darwin/home-manager/default.nix` |
 | External workspace + data symlinks | nix-darwin + home-manager | `modules/darwin/system/external-workspace.nix` |
-| Private app exposure | Tailscale Services + nix-darwin | `modules/stacks/vpn/tailscale-services.nix` + `hosts/<hostname>/default.nix` |
+| Private app exposure | Tailscale Services + nix-darwin | `modules/stacks/vpn/services-reconcile.nix` + `hosts/<hostname>/default.nix` |
 | Central Cognee server/client split | nix-darwin + uv + Tailscale | `modules/stacks/ai-agents/cognee/server.nix`, `cognee/client.nix`, host declarations |
 | GUI app configs | Mackup → iCloud | `modules/darwin/home-manager/mackup.nix` → `home.file.".mackup.cfg"` |
 | Raw configs (specs, Archon) | git-tracked files | `configs/` |
@@ -144,7 +144,7 @@ they live in their own repos and can't be restored from a version string.
 | CLIProxyAPI logs | `~/Library/Logs/cli-proxy-api.{out,err}.log` | `modules/stacks/ai-agents/cli-proxy-api.nix` |
 | `claudex` command | Zsh function with process-scoped Sol and CLIProxyAPI environment | `modules/darwin/home-manager/default.nix` |
 | Setup manifest | generated `/etc/system-setup/integrations.json`; Pydantic-validated at runtime | `modules/darwin/system/system-setup/default.nix` |
-| Tailscale Service reconciliation | root launchd daemon after Tailscale is online | `modules/stacks/vpn/tailscale-services.nix` |
+| Tailscale Service reconciliation | root launchd daemon after Tailscale is online | `modules/stacks/vpn/services-reconcile.nix` |
 | Tailscale Service declarations | typed `my.stacks.vpn.services` host inventory | `modules/stacks/vpn/default.nix`, `hosts/<hostname>/default.nix` |
 | Cognee server | API/UI/databases/models and loopback gateway on `popemkt-personal` | `modules/stacks/ai-agents/cognee/server.nix` |
 | Cognee remote client | pinned loopback MCP bridge plus agent enrollment/configuration | `modules/stacks/ai-agents/cognee/client.nix` |
@@ -158,7 +158,7 @@ they live in their own repos and can't be restored from a version string.
 | Functional need | Implementation | File |
 |---|---|---|
 | Stable service identity | attribute name becomes `svc:<name>` | host `my.stacks.vpn.services` declaration |
-| HTTPS and TailVIP endpoint | generated `tailscale serve --service` invocation | `modules/stacks/vpn/tailscale-services.nix` |
+| HTTPS and TailVIP endpoint | generated `tailscale serve --service` invocation | `modules/stacks/vpn/services-reconcile.nix` |
 | Local app isolation | target must resolve to `127.0.0.1` or `localhost` | module assertion |
 | Removed-service cleanup | root-owned managed-service inventory under `/var/db` | module launchd implementation |
 | Network authorization | Tailscale grant targeting `svc:<name>` | tailnet policy |

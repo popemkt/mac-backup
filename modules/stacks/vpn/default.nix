@@ -1,8 +1,9 @@
 { config, lib, ... }:
 
-# VPN stack: the Tailscale mesh. Comprehensive — owns its schema, the app
-# cask (install-only, gated on enable), and the service-hosting daemon
-# (tailscale-services.nix, active when enable && services are declared).
+# VPN stack: the Tailscale mesh. This file owns the schema, which every
+# platform shares. The client install and the service-hosting job (active
+# when enable && services are declared) are per platform: ./darwin.nix and
+# ./nixos.nix, both running ./services-reconcile.nix.
 #
 #   my.stacks.vpn.enable = true;              # just the app/CLI
 #   my.stacks.vpn = {
@@ -15,10 +16,6 @@ let
   cfg = config.my.stacks.vpn;
 in
 {
-  imports = [
-    ./tailscale-services.nix
-  ];
-
   options.my.stacks.vpn = mkStack {
     description = "VPN / Tailscale mesh (app + hosted services)";
     componentOptions = {
@@ -100,9 +97,5 @@ in
         );
       };
     };
-  };
-
-  config = lib.mkIf cfg.enable {
-    my.pkgs.casks = [ "tailscale-app" ];
   };
 }

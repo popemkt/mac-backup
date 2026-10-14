@@ -111,8 +111,6 @@ in
         "rowboat"
         # Use the fully-qualified tap path. Bare "orca" is the unrelated Plotly cask.
         "stablyai/orca/orca"
-        # T3 Code: agent harness control surface (mobile, web, Electron desktop). Official cask.
-        "t3-code"
         # Traycer Desktop: control surface for agentic coding (tap: traycerai/traycer).
         "traycerai/traycer/traycer-desktop"
         "vorssaint/tap/vorssaint"

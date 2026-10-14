@@ -24,7 +24,7 @@ still declared and surfaced by `system-setup`.
 | Direct release packages | nvfetcher + Nix | upstream versions, assets, and hashes | `nvfetcher.toml` + `_sources/` + `pkgs/` |
 | Behavior modules | nix-darwin + home-manager | Headroom, CLIProxyAPI, Hermes, external workspace, input sources | `modules/stacks/ai-agents/` (AI daemons) + `modules/darwin/system/` |
 | External enrollment | Nix-built Python application | OAuth, device identity, SaaS approvals, generated keys, readiness | `modules/darwin/system/system-setup/default.nix` |
-| Private service exposure | Tailscale Services + nix-darwin | stable service identities, TailVIP endpoints, HTTPS termination | `modules/stacks/vpn/tailscale-services.nix` + host declarations |
+| Private service exposure | Tailscale Services + nix-darwin | stable service identities, TailVIP endpoints, HTTPS termination | `modules/stacks/vpn/services-reconcile.nix` + host declarations |
 | GUI app configs | Mackup → iCloud | portable app preferences and kb media | `applications_to_sync` in `modules/darwin/home-manager/mackup.nix` |
 | Raw configs | `configs/` | Raycast export, login items snapshot, specs, Archon workflows | manual import on restore |
 | Manual | — | SSH keys, standalone app sign-ins, Hermes plist, editable uv tools | per-restore checklist |

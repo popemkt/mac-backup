@@ -7,12 +7,14 @@
 # A stack is either a single file (office-docs.nix) or a folder with a
 # default.nix plus sibling modules (ai-agents/) when it grows config,
 # services, or per-tool files.
+#
+# This file is the part every platform shares: the stacks whose schema is
+# platform-neutral, and the `extra.*` fold. A platform index (./darwin.nix,
+# ./nixos.nix) imports it and adds that platform's stacks and service
+# implementations. A stack moves here when its schema stops naming one
+# platform.
 {
   imports = [
-    ./ai-agents
-    ./browsers
-    ./kb
-    ./office-docs.nix
     ./vpn
   ];
 

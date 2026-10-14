@@ -24,6 +24,7 @@
     browsers.enable = true;
     kb.enable = true;
     office-docs.enable = true;
+    t3-code.enable = true;
     vpn.enable = true;
   };
 
