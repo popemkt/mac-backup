@@ -7,6 +7,7 @@
   "tagOwners": {
     "tag:home-server": ["autogroup:admin"],
     "tag:orca-host": ["autogroup:admin"],
+    "tag:shared-server": ["autogroup:admin"],
   },
 
   "grants": [

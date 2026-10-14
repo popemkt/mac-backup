@@ -91,8 +91,8 @@ flake` is rejected, add `nix.settings.experimental-features = [ "nix-command"
      file, declares both users, enables the `t3-code` and `vpn` stacks.
      Ports are a host choice; for example 3773 for popemkt and 3774 for
      bytetum.
-   - `configs/tailscale/policy.hujson`: `tag:shared-server` in `tagOwners`,
-     auto-approval of `svc:t3-popemkt` and `svc:t3-bytetum` for that tag, and
+   - `configs/tailscale/policy.hujson`: `tag:shared-server` is already in
+     `tagOwners` and applied. Add auto-approval of `svc:t3-popemkt` and `svc:t3-bytetum` for that tag, and
      a grant from `autogroup:member` to both services on `tcp:443`.
    - `docs/tailscale.md`: add the two services to its Services table.
    - Validate CI's Linux gap: `.github/workflows/validate.yml` runs on macOS
@@ -135,8 +135,8 @@ These are control-plane or secret state and never belong in the repo.
    filled, run `scripts/shared-server-secrets apply`, which sets the
    passwords, joins the tailnet with the auth key, and deletes the file. If
    it fails, report the error and leave the file for the person to fix.
-2. The auth key carries `tag:shared-server`, so the tag must be in the merged
-   policy first. In the Tailscale console create `svc:t3-popemkt` and
+2. `tag:shared-server` is already in the applied policy, so a tagged auth key
+   can be generated at any time. In the Tailscale console create `svc:t3-popemkt` and
    `svc:t3-bytetum`, then rerun the policy workflow so its auto-approver sees
    them. The full sequence is
    [First Tailnet Or Replacement Host](tailscale.md#first-tailnet-or-replacement-host).
