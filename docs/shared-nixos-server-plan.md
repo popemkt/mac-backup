@@ -2,20 +2,29 @@
 
 ## Decision
 
-Use one physical NixOS server with a shared host base and one declarative NixOS
-container per person. The host owns hardware, networking, Tailscale, container
-lifecycle, and backup scheduling. Each container owns its users, Home Manager
-configuration, application services, credentials, and persistent data.
+Revised 2026-10-14. One physical NixOS host, `shared-server`, with two
+ordinary user accounts, `popemkt` and `bytetum`. Software is shared through the
+Nix store; data is separated by home directory. Both accounts are in `wheel`,
+so both people administer the host and can read each other's files. Passwords
+are set on the machine with `passwd` and never committed. There is no SSH
+login: each person works through their own T3 Code server, reached over
+Tailscale, and the laptop's own console is the recovery path.
 
-This supports simultaneous use and multiple instances of the same software
-without running separate virtual machines. Containers share the host kernel;
-private networking lets both environments use the same internal application
-ports. Memory and CPU limits are explicit policy choices rather than fixed VM
-allocations.
+Each user runs one headless T3 Code server as a systemd user service, with
+Claude Code and Codex installed per user from npm (so they track the latest
+releases) and run through `nix-ld`. The host is the only tailnet node. It
+publishes each T3 Code server as a Tailscale Service, and both people may
+reach both services.
 
+Per-person NixOS containers, as described in the sections below, are deferred,
+not dropped. They become worth their cost when someone needs root in their own
+space, two instances on one port, or isolation between people. A home
+directory moves into a container later without redoing the host.
+
+The machine-side procedure is [the bootstrap guide](shared-server-bootstrap.md).
 The editable [runtime and repository diagram](diagrams/shared-nixos-server.tldraw)
-shows this proposed arrangement. It is a design artifact, not a declaration that
-the server has been provisioned. Existing Mac configurations remain supported.
+shows the current target on page 05 and the earlier container design on
+pages 01 to 04. Existing Mac configurations remain supported.
 
 ## Ownership and isolation
 
