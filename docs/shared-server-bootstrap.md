@@ -11,6 +11,20 @@ Everything needed is on `main`; start from an up-to-date checkout of it
 [AGENTS.md](../AGENTS.md) requires, and push to `main` once the host has
 switched successfully.
 
+## Where the repository lives
+
+At `~/.dotfiles` in the account of whoever edits it: `/home/popemkt/.dotfiles`
+now, and `/home/bytetum/.dotfiles` if bytetum edits the configuration later.
+`~/.dotfiles` is a repo invariant on every host (backups, the `rebuild`
+command and the drift audit assume it), so do not move it to a shared path
+such as `/srv`. One configuration still manages the whole machine, both users
+included; the clone is only where it is edited. GitHub `main` is the source of
+truth: `git pull` before every rebuild, because the last rebuild decides what
+is live.
+
+Clone it with `gh repo clone popemkt/mac-backup ~/.dotfiles` and run
+`git config core.hooksPath .githooks` so commits pass the repo's gate.
+
 ## Where things stand
 
 Done on the Mac, already on `main`:
@@ -85,6 +99,9 @@ flake` is rejected, add `nix.settings.experimental-features = [ "nix-command"
      `@openai/codex` to `my.pkgs.npmGlobals` and depends on `nix-ld`. The
      service runs `t3 serve --host 127.0.0.1 --port <port> --no-browser`
      with Node on its `PATH` (see "Writing an executor" in AGENTS.md).
+   - `modules/nixos/home-manager/default.nix`: its `rebuild` alias uses
+     plain `sudo nixos-rebuild`; change it to the `--sudo` form described
+     under "Take over the machine".
    - `modules/nixos/system/`: the host base (nix settings, nix-ld, lid
      handling, editor, git and gh).
    - `hosts/shared-server/default.nix`: imports the base and the hardware
@@ -108,9 +125,14 @@ flake` is rejected, add `nix.settings.experimental-features = [ "nix-command"
 ## Take over the machine
 
 ```bash
-sudo nixos-rebuild test --flake ~/.dotfiles#shared-server    # activate, no boot entry
-sudo nixos-rebuild switch --flake ~/.dotfiles#shared-server  # make it the boot default
+nixos-rebuild test --flake ~/.dotfiles#shared-server --sudo    # activate, no boot entry
+nixos-rebuild switch --flake ~/.dotfiles#shared-server --sudo  # make it the boot default
 ```
+
+`--sudo` builds as the repository's owner and only activates as root. Plain
+`sudo nixos-rebuild` makes root read a repository it does not own, which
+recent Nix refuses with "repository path is not owned by current user". On a
+NixOS older than nixos-rebuild-ng the flag is `--use-remote-sudo`.
 
 `test` first: if networking or the console breaks, a reboot returns to the
 installer configuration. After `switch`, the previous generation stays in the
@@ -118,7 +140,7 @@ boot menu, and `sudo nixos-rebuild switch --rollback` undoes it. From then on
 the repository owns the system and `/etc/nixos/configuration.nix` is no longer
 read. Move it aside so a plain `nixos-rebuild switch` fails loudly instead of
 quietly rebuilding the installer configuration, and rebuild with the `rebuild`
-alias (`sudo nixos-rebuild switch --flake ~/.dotfiles`) from then on:
+alias (`nixos-rebuild switch --flake ~/.dotfiles --sudo`) from then on:
 
 ```bash
 sudo mv /etc/nixos /etc/nixos.installer
