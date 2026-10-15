@@ -16,26 +16,26 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.27";
+    version = "8.0.29";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.27/CLIProxyAPI_8.0.27_darwin_aarch64.tar.gz";
-      sha256 = "sha256-2b9Y224H0PWHokirxKEJkXj77B1lnYdMlh2MrzSVoJ4=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.29/CLIProxyAPI_8.0.29_darwin_aarch64.tar.gz";
+      sha256 = "sha256-cPy5Kn4EXcvLUsxjhU73I8HLd8cgkj+qRdYIHu7OIdA=";
     };
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.10.01-e373342";
+    version = "2026.10.14-941492e";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.10.01-e373342/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-Yp5R3kOgt/s7hvXrx+V59999+UGznynoKUXN51AUWvw=";
+      url = "https://downloads.cursor.com/lab/2026.10.14-941492e/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-xtni6qGx4kIhUX4LQgax8Vk3kubw2KUum1B7vnqwzHc=";
     };
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.11.564";
+    version = "0.11.727";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.11.564/GenOffice-0.11.564-arm64.dmg";
-      sha256 = "sha256-aeTHlFOKnqUCUMqNVZahvEtzGY2YGkYCAumUyOJNiBc=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.11.727/GenOffice-0.11.727-arm64.dmg";
+      sha256 = "sha256-fWODcJYd6pYKat+9exrnyDwMtcB6CWJAniy5H1J3sjU=";
     };
   };
   logseq-nightly = {
@@ -48,10 +48,10 @@
   };
   vite-plus = {
     pname = "vite-plus";
-    version = "1.1.0";
+    version = "1.2.0";
     src = fetchurl {
-      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.1.0/vp-aarch64-apple-darwin.tar.gz";
-      sha256 = "sha256-m1qx83UPW4BqJb3zLpJscjtSBUAE10hyNAj4TmgfVnU=";
+      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.2.0/vp-aarch64-apple-darwin.tar.gz";
+      sha256 = "sha256-pN2Itda559+pNpT6EeXSchOuFjBSrk/V9DAXIwZL744=";
     };
   };
 }
