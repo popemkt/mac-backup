@@ -52,7 +52,7 @@ const mb = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`;
 import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
-import { typeRefsOf } from "@kb/model";
+import { isWritableField, typeRefsOf } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
@@ -71,6 +71,16 @@ function guardSysWrite(id: string): boolean {
   if (!isSysPrefixed(id)) return true;
   toast("System nodes (sys.*) are read-only");
   return false;
+}
+
+/**
+ * Block a value write the invoke core would refuse, with the same toast: a
+ * field's values on a system node are written only where the field
+ * configures that node (`isWritableField`).
+ */
+function guardFieldWrite(nodeId: string, fieldId: string): boolean {
+  const field = wire().find((n) => n.id === fieldId);
+  return isWritableField(nodeId, field) || guardSysWrite(nodeId);
 }
 
 function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
@@ -415,12 +425,12 @@ export const mutations: PageWrites = {
     value: PropValue,
     oldValue?: PropValue,
   ): Promise<void> {
-    if (!guardSysWrite(nodeId)) return;
+    if (!guardFieldWrite(nodeId, fieldId)) return;
     await applyPlan(planSetProp(wire(), nodeId, fieldId, value, oldValue));
   },
 
   async removeProp(nodeId: string, fieldId: string, value?: PropValue): Promise<void> {
-    if (!guardSysWrite(nodeId)) return;
+    if (!guardFieldWrite(nodeId, fieldId)) return;
     await applyPlan(planUnsetProp(wire(), nodeId, fieldId, value));
   },
 

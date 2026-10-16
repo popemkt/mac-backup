@@ -49,6 +49,8 @@ export {
 export type { Cardinality, FieldType } from "./field-type.ts";
 export { conformsToType, migrateDateValues, normalizeUrl, parseTypedValue } from "./field-value.ts";
 export type { NumberSeparators, ParseContext, ParsedValue } from "./field-value.ts";
+export { configuredBy, isWritableField, systemWriteRefusal } from "./system-write.ts";
+export type { NodeOf } from "./system-write.ts";
 export {
   addDays,
   addMonths,

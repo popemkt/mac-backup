@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { cardinalityOf } from "@kb/model";
+import { cardinalityOf, isWritableField } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
   browserHost,
@@ -10,7 +10,6 @@ import {
   type Follow,
   formatPropValue,
   IconButton,
-  isSysPrefixed,
   isValueMismatch,
   type PropValue,
   resolveFieldTypeById,
@@ -440,7 +439,7 @@ export function NodeField({
         fieldType={fieldType}
         values={values}
         context={context}
-        readOnly={isSysPrefixed(nodeId) || debug}
+        readOnly={!isWritableField(nodeId, context.schema.get(fieldId)) || debug}
         onFollow={follow}
         instanceKey={instanceKey}
       />

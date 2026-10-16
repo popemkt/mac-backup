@@ -11,6 +11,7 @@ import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
   cardinalityValue,
+  childrenTargetQuery,
   fieldTypeValue,
   type FieldType,
 } from "./field-type.ts";
@@ -491,6 +492,13 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * an optional family's node holds; no extension is named here.
    */
   const extensionsRoot = mk(SYSTEM_IDS.extensionsRoot, "Extensions");
+  // A field that is an extension's setting names it: one of that list's children.
+  const configuresField = refQueryField(
+    SYSTEM_IDS.configuresField,
+    "configures",
+    childrenTargetQuery(SYSTEM_IDS.extensionsRoot),
+    SINGLE,
+  );
   const extensionEnabledField = singleField(
     SYSTEM_IDS.extensionEnabledField,
     "enabled",
@@ -556,6 +564,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     approvalPoliciesPin,
     extensionsRoot,
     extensionEnabledField,
+    configuresField,
   ];
 }
 

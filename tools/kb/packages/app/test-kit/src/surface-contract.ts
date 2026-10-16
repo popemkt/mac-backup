@@ -40,6 +40,7 @@ import {
   DECISION_OPTION_IDS,
   SYSTEM_IDS,
   approvalPoliciesOf,
+  extensionNodeId,
   type ApprovalPolicy,
 } from "@kb/model";
 import {
@@ -112,6 +113,23 @@ const DENIED_ACTION = "ext.gated.blocked";
 const ASKED_ACTION = "ext.gated.checked";
 /** One of the seeded default policies. */
 const SEEDED_POLICY = "approval.agent-delete";
+
+/** An extension's node every store holds (core's), and a field the root declares a setting of it. */
+const EXTENSION_NODE = extensionNodeId("core");
+const SETTING_FIELD = "f.surface-contract-setting";
+
+/** The root's setting: a field that configures core's node, as a family's own field would. */
+const SETTING_INVOCATION: ActionInvocation = {
+  id: "node.add",
+  input: {
+    id: SETTING_FIELD,
+    text: "surface contract setting",
+    props: [
+      { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.field } },
+      { field: SYSTEM_IDS.configuresField, value: { t: "ref", v: EXTENSION_NODE } },
+    ],
+  },
+};
 
 /** The one tab connected to the root's `kb ui`, which applies every command it gets. */
 const CONTRACT_TAB = "tab.surface-contract";
@@ -211,6 +229,17 @@ const CALLS: readonly ActionInvocation[] = [
   { id: ASKED_ACTION, input: {} },
   // A write to a policy asks whatever the policies say, and writes nothing when refused.
   { id: "node.update", input: { id: SEEDED_POLICY, text: "agents never ask" } },
+  // An extension's switch is not one of its settings: its one writer is extension.switch.
+  {
+    id: "node.update",
+    input: {
+      id: EXTENSION_NODE,
+      setProps: [
+        { field: SYSTEM_IDS.extensionEnabledField, value: { t: "bool", v: false } },
+        { field: SETTING_FIELD, value: { t: "str", v: "beside the switch" } },
+      ],
+    },
+  },
   { id: "ui.screen", input: {} },
   { id: "ui.screen", input: { tab: MISSING_TAB } },
   { id: "ui.navigate", input: { route: "/canvas" } },
@@ -304,8 +333,8 @@ function overSurfaces(
       Effect.gen(function* () {
         const root = yield* scratchRoot;
         const ctx = yield* Effect.promise(() => openKb(root));
-        for (const policy of POLICIES) {
-          const written = yield* Effect.promise(() => invoke(ctx, policyInvocation(policy)));
+        for (const invocation of [...POLICIES.map(policyInvocation), SETTING_INVOCATION]) {
+          const written = yield* Effect.promise(() => invoke(ctx, invocation));
           expect(written.status).toBe("succeeded");
         }
         const policies = approvalPoliciesOf(ctx.nodes);
@@ -455,6 +484,46 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
             asked: agent ? refusal("approval_required", asked) : "ran",
             // The exact allow is the command line's; an agent's pattern allow lowers nothing.
             declared: agent ? refusal("approval_required", declared) : "ran",
+          });
+        }),
+      ),
+  ],
+  [
+    "every surface writes an extension's setting on its node as it writes any field, " +
+      "and nothing else of that node",
+    (set) =>
+      overSurfaces(set, ({ name, surface, via }) =>
+        Effect.gen(function* () {
+          const write = (value: string): ActionInvocation => ({
+            id: "node.update",
+            input: {
+              id: EXTENSION_NODE,
+              setProps: [{ field: SETTING_FIELD, value: { t: "str", v: value } }],
+              unsetProps: [{ field: SETTING_FIELD }],
+            },
+          });
+          const receipt = yield* via(write(name));
+          if (receipt === null) {
+            // Only a surface that cannot reach the write at all may not make it.
+            const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
+            expect({ name, listed: listed.has("node.update") }).toEqual({ name, listed: false });
+            return;
+          }
+          expect({ name, status: receipt.status }).toEqual({ name, status: "succeeded" });
+          // Read back through the surface: the session the contract opened has not seen the write.
+          const read = yield* via({ id: "node.get", input: { id: EXTENSION_NODE, depth: 0 } });
+          expect({ name, read: read?.status === "succeeded" ? read.output : read }).toMatchObject({
+            name,
+            read: { node: { text: "Core", props: { [SETTING_FIELD]: [{ t: "str", v: name }] } } },
+          });
+          // The same node is still write-protected beyond its settings.
+          const renamed = yield* via({
+            id: "node.update",
+            input: { id: EXTENSION_NODE, text: "renamed" },
+          });
+          expect({ name, code: renamed?.status === "failed" ? renamed.code : "ran" }).toEqual({
+            name,
+            code: "forbidden",
           });
         }),
       ),

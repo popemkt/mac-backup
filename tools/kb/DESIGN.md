@@ -496,7 +496,12 @@ type PropValue =
   badge list back as membership reports every supertag as untagged, which is
   what once left `sys.f.onto.include` with an empty allowed set. Write
   protection is a third, separate concern (`isSysPrefixed` + `--force`);
-  referencing a `sys.*` node as a _value_ is not a write to it.
+  referencing a `sys.*` node as a _value_ is not a write to it. The one
+  write a person makes to a `sys.*` node without `--force` is a value of a
+  field that configures it (`sys.f.configures`, [Extension
+  families](#extension-families) → configuration), stated once in
+  `@kb/model`'s `system-write.ts` and checked against every commit's
+  upserts (`assertSystemWrites`).
 - **System nodes**, seeded on init, are ordinary nodes with reserved ids:
   `sys.field` (the type of fields), `sys.tag` (the type of tags),
   `sys.f.type` (the "type/tag" field), `sys.f.fields` (tag→templated fields).
@@ -1860,8 +1865,10 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   a tool it never registered). An approved call runs only through a surface
   whose wire carries the approval. One policy decides the same on every
   surface: a denial refuses, an ask refuses an unapproved call, and only a
-  policy naming the action lowers its declared approval; and no surface
-  writes a policy without a person behind the call. These are
+  policy naming the action lowers its declared approval; no surface
+  writes a policy without a person behind the call; and every surface
+  writes an extension's setting on its node, and nothing else of that node
+  (Extension families → configuration). These are
   properties of `surfaceContract` in `@kb/test-kit`
   (`surface-contract.ts`). They run over all surfaces at once, from
   `packages/app/cli/tests/surface-contract.test.ts`, and a new surface joins
@@ -2040,6 +2047,44 @@ end).
   - **The data stays.** Switching a family writes only its switch node: its
     nodes and its seed are untouched, and a view of it opens as
     unavailable, by its option (below).
+- **An extension's configuration is fields on its node** (gap 1 of the
+  [Cordis survey](../../docs/brainstorms/2026-10-16-kb-cordis-layers/README.md)).
+  - **The field nodes are the schema.** A setting is a field node that
+    carries `sys.f.configures`, a ref to the extension's node (one of
+    `sys.extensions`' children). The family seeds it with its declaration's
+    other nodes, and reads it with `ConfigSlots` (`decodeNodeConfig`), the
+    mechanism its switch is read with (`familyOn`). There is no second
+    registry of settings: which fields configure the agent is a query.
+  - **A setting is written like any field.** `node.update`, the page's field
+    rows and `kb set` write its values on the extension's node,
+    though the node is `sys.*`, because the write rule
+    (`systemWriteRefusal`, `@kb/model`) admits exactly the values of fields
+    that configure the node being written. Its text, its children, its rank
+    and every other field stay write-protected, and so does the switch,
+    whose one writer stays `extension.switch`: it refuses a required family
+    and the seeded policies ask an agent before it. The invoke core checks
+    every commit against the rule, on the server and on the page's replica,
+    and the page's field rows read `isWritableField` to offer an edit only
+    where it would land. `surfaceContract` holds every surface to it.
+  - **Two classes of setting**, after DeepSeek Harness's "volatile" split:
+    - *Read per call.* The plugin reads its node when it needs the value
+      (the agent's provider, at the start of each turn), so a change applies
+      to the next call and nothing re-applies. Every setting today is of
+      this class.
+    - *Read at apply.* A value a plugin reads only in `apply` holds until it
+      is applied again. The one such value today is the switch, which every
+      host re-applies by unloading and loading the family (`syncPlugins`,
+      the registry's cache key per set of families on); `composeHosted`
+      already converges on any write to an extension's node. A kernel
+      `reconfigure(name)` for any other setting of this class, re-applying
+      a held plugin and keeping the old one when the new `apply` fails, is
+      not built, because no setting needs it. A placeholder gap, to mint at
+      merge: *expected:* a setting read at apply re-applies its plugin on
+      every host when its value changes, atomically; *current:* only the
+      switch is read at apply, and no kernel `reconfigure` exists;
+      *impact:* a family that needs one must read its setting per call;
+      *closes:* `Kernel.reconfigure` and a contract property over the
+      registry, the `kb ui` host and the page, built with that setting.
 - **The seed is the bundled fold, never a loaded registry.**
   `ensureSystemSeed(nodes, seed)` runs at open, before any registry
   exists. `openKbEffect` passes it `bundledSeed(at)` (`@kb/bundled`, a

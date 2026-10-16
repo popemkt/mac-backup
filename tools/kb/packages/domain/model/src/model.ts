@@ -268,6 +268,13 @@ export const SYSTEM_IDS = {
    * Absent is its declared default; `extension.switch` is its one writer.
    */
   extensionEnabledField: "sys.f.extension.enabled",
+  /**
+   * On a field node: the extension whose setting it is (ref, one, to one of
+   * `sys.extensions`' children). Its values on that extension's node are
+   * written like any field's (`system-write.ts`), and the extension reads
+   * them as its configuration.
+   */
+  configuresField: "sys.f.configures",
 } as const;
 
 /**

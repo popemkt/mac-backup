@@ -308,3 +308,34 @@ On the branch that followed the projection-families work (base `3e77dcb3`).
   test that exercised them. DESIGN.md → Core boundary & extensions says the
   kernel has no events, and that an event key returns with its first
   consumer, emitted by the kernel.
+- **Gap 1: the write path and the per-call class; `reconfigure` not
+  built.**
+  - Every extension's node is seeded: the fold derives
+    `sys.extension.<name>` for each declaration, core's included, under a
+    list node `sys.extensions`, as view options sit under `sys.views`. Core
+    seeds the switch field, so `extension.switch` writes one prop on a node
+    that exists. This is the family-contributions plan's C2 without its
+    tag: a tag templating nothing fails the kinds rule
+    (`domain/model/tests/kinds.test.ts`), and list membership is the
+    carrier that rule names.
+  - A setting is a field node carrying `sys.f.configures` (a ref to an
+    extension's node). The family seeds it and decodes it with
+    `ConfigSlots`, beside the switch, so there is no second registry.
+  - The write rule is one function, `systemWriteRefusal` (`@kb/model`): a
+    `sys.*` node may change only in the values of fields that configure it.
+    `assertSystemWrites` replaces `assertNoSysUpsert` and the input-shaped
+    pre-check in `node.update`, so the invoke core on the server and on the
+    page's replica applies it to every commit. The page's field rows and
+    write path read `isWritableField`. The switch stays with
+    `extension.switch`, because the required-family refusal and the
+    agent-asks policy live there.
+  - `surfaceContract` gains the cross-surface property: every surface
+    writes a setting on an extension's node through `node.update`, and
+    nothing else of that node, the switch included.
+  - Read per call is the class every setting has, the agent's provider
+    first. Read at apply has one member, the switch, which every host
+    already re-applies by load and unload. A kernel `reconfigure(name)`
+    with no setting to re-apply would be the dead seam Rule 1 forbids, so
+    it waits, as a placeholder gap in DESIGN.md → Extension families →
+    configuration. `composeHosted` already converges on any write to an
+    extension's node, so the trigger needs no widening.

@@ -21,7 +21,7 @@ import {
 } from "@kb/model";
 import { issueText, viewNodeFor } from "@kb/views";
 import {
-  assertNoSysUpsert,
+  assertSystemWrites,
   cloneNode,
   insertChild,
   placedRank,
@@ -117,7 +117,9 @@ export const viewProposeEffect = Effect.fn("view.propose")(function* (
   const upserts: KbNode[] = [node];
   if (list !== undefined) upserts.push(insertChild(list, id, at));
   if (host !== null) upserts.push(naming(host, id, input.default, at));
-  yield* syncDomain(() => assertNoSysUpsert(upserts, false, "view.propose"));
+  yield* syncDomain(() =>
+    assertSystemWrites(upserts, (seen) => ctx.index.getNode(seen), false, "view.propose"),
+  );
 
   yield* persistEffect(ctx, { upserts, deletes: [] });
   return {
