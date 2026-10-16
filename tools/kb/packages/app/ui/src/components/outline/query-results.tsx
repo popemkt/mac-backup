@@ -14,7 +14,7 @@ import {
 } from "@kb/ui-sdk";
 import { queryDefOf } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
-import { useOutlineNode, useOutlineNodes } from "@/components/outline/outline.store";
+import { useOutlineNode, useOutlineNodes } from "./outline.store";
 import { FrameViewSlot } from "./frame-view-slot";
 
 interface QueryResultItem {

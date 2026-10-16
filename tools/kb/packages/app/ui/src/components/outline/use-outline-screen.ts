@@ -7,8 +7,8 @@ import {
   usePageGraph,
   usePaneScreen,
 } from "@kb/ui-sdk";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
-import { outlineHostOfInstance } from "@/components/outline/outline-hosts";
+import { useOutlineStore, outlineNodes } from "./outline.store";
+import { outlineHostOfInstance } from "./outline-hosts";
 import { useOutlineHost } from "./outline-host";
 
 /**

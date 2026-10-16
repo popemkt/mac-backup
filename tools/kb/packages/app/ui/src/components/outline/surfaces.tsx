@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { HouseIcon, PushPinIcon } from "@phosphor-icons/react";
-import { OutlineColumn } from "@/components/outline/outline-column";
-import { useOutlineScreen } from "@/components/outline/use-outline-screen";
+import { OutlineColumn } from "./outline-column";
+import { useOutlineScreen } from "./use-outline-screen";
 import { OutlineView, type OutlineParams } from "@kb/views";
 import {
   browserHost,
@@ -18,7 +18,7 @@ import {
   ViewErrorBoundary,
   type ViewProps,
 } from "@kb/ui-sdk";
-import { useOutlineNodes } from "@/components/outline/outline.store";
+import { useOutlineNodes } from "./outline.store";
 
 /**
  * The outline: at its `root` when it has one (a node opened in a pane), else

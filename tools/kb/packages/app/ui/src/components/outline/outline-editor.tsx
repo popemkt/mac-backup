@@ -8,8 +8,8 @@ import {
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { projectsRows } from "@kb/views";
-import { useOutlineNode, outlineNodes } from "@/components/outline/outline.store";
-import { createTransientNode } from "@/components/outline/editing-writes";
+import { useOutlineNode, outlineNodes } from "./outline.store";
+import { createTransientNode } from "./editing-writes";
 import { Breadcrumbs } from "./breadcrumbs";
 import { FrameViewSlot } from "./frame-view-slot";
 import { useFrameView } from "./use-frame-views";
@@ -19,7 +19,7 @@ import { SchemaSection } from "./schema-section";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { HeaderBackdrop } from "./header-backdrop";
 import { useSelectionKeymap } from "./use-selection-keymap";
-import { setOutlineHost } from "@/components/outline/outline-hosts";
+import { setOutlineHost } from "./outline-hosts";
 import { useLeadsOutlines, useOutlineHost } from "./outline-host";
 
 /**

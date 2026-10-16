@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseTypedValue } from "@kb/model";
 import { FIELD_TYPES, SYSTEM_IDS } from "@kb/ui-sdk";
-import {
-  EDITOR_MODES,
-  toggledValue,
-  VALUE_KINDS,
-  valueKindOf,
-} from "@/components/outline/value-kind";
+import { EDITOR_MODES, toggledValue, VALUE_KINDS, valueKindOf } from "./value-kind";
 
 describe("value kinds", () => {
   it("every declared type is a kind, and a field may name its own", () => {

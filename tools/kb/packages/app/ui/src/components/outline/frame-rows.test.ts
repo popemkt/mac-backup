@@ -15,8 +15,8 @@ import {
 import { Effect, Schema } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { describe, expect, it } from "vitest";
-import { frameRows, type FrameRowsInput } from "@/components/outline/frame-rows";
-import { outlineUiPlugin } from "@/components/outline/plugin";
+import { frameRows, type FrameRowsInput } from "./frame-rows";
+import { outlineUiPlugin } from "./plugin";
 import { isFrameViewKey, OutlineTableView } from "@kb/views";
 import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
 

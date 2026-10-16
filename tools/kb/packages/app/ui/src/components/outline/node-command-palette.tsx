@@ -24,7 +24,7 @@ import {
   usePageGraph,
   usePickerKeys,
 } from "@kb/ui-sdk";
-import { useOutlineStore, useOutlineNodes } from "@/components/outline/outline.store";
+import { useOutlineStore, useOutlineNodes } from "./outline.store";
 
 /** The command list, or one of the pickers a command hands the palette to. */
 type PaletteStep = "commands" | NodeCommandStep;

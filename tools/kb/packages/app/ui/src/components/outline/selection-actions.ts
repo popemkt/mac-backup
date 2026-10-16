@@ -10,7 +10,7 @@
  * no row here fails the build, so adding an action adds a row rather than a
  * branch.
  */
-import { createNodeBefore, createTransientNode } from "@/components/outline/editing-writes";
+import { createNodeBefore, createTransientNode } from "./editing-writes";
 import {
   browserHost,
   childInstanceKey,
@@ -19,9 +19,9 @@ import {
   shownNodeId,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
-import type { SelectionKeyAction } from "@/components/outline/selection-keymap";
-import { outlineSource, useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
-import { enterFields } from "@/components/outline/value-slot-nav";
+import type { SelectionKeyAction } from "./selection-keymap";
+import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
+import { enterFields } from "./value-slot-nav";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;
 

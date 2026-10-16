@@ -7,8 +7,8 @@ import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/components/outline/outline.store";
-import { outlineUiPlugin } from "@/components/outline/plugin";
+import { useOutlineStore } from "./outline.store";
+import { outlineUiPlugin } from "./plugin";
 import { brokenOntology, ontologyWire } from "@/test-support/ontology-wire";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 

@@ -14,7 +14,7 @@ import {
   usePageGraph,
 } from "@kb/ui-sdk";
 import { serializeViewFilter, type ViewFilter } from "@kb/views";
-import { outlineNodes, useOutlineNode } from "@/components/outline/outline.store";
+import { outlineNodes, useOutlineNode } from "./outline.store";
 import { useFrameViewNode } from "./use-frame-views";
 import { listFilterFieldOptions } from "./view-filter-fields";
 

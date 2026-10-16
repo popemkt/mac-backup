@@ -30,17 +30,12 @@ import {
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import {
-  outlineSource,
-  useOutlineStore,
-  outlineNodes,
-  useOutlineNode,
-} from "@/components/outline/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes, useOutlineNode } from "./outline.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useNodeKeyDown } from "./use-node-keydown";
-import { outlineUiPlugin } from "@/components/outline/plugin";
+import { outlineUiPlugin } from "./plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the

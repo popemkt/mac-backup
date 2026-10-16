@@ -9,7 +9,7 @@
  * Exhaustiveness is the mapped type: a new `EditingIntent` variant with no row
  * here fails the build.
  */
-import { mergeWithPrevious } from "@/components/outline/editing-writes";
+import { mergeWithPrevious } from "./editing-writes";
 import {
   browserHost,
   refInkOf,
@@ -18,9 +18,9 @@ import {
   serializeEditable,
   setCaretSerializedOffset,
 } from "@kb/ui-sdk";
-import { outlineSource, useOutlineStore } from "@/components/outline/outline.store";
+import { outlineSource, useOutlineStore } from "./outline.store";
 import type { EditingIntent } from "./editing-keymap";
-import { enterFields } from "@/components/outline/value-slot-nav";
+import { enterFields } from "./value-slot-nav";
 
 type IntentOf<T extends EditingIntent["type"]> = Extract<EditingIntent, { type: T }>;
 

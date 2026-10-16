@@ -13,7 +13,7 @@ import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { fieldContextOf, type PropValue } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource } from "@/components/outline/outline.store";
+import { outlineSource } from "./outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { FieldValueStack } from "./fields-section";
 

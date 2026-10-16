@@ -5,8 +5,8 @@ import {
   type SelectionKeyAction,
   type SelectionKeyEvent,
   type SelectionNodeInfo,
-} from "@/components/outline/selection-keymap";
-import type { VisibleInstance } from "@/components/outline/visible-instances";
+} from "./selection-keymap";
+import type { VisibleInstance } from "./visible-instances";
 
 const instances: VisibleInstance[] = [
   { nodeId: "a", instanceKey: "tree/a" },

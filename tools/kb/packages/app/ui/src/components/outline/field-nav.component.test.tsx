@@ -17,9 +17,9 @@ import {
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { useOutlineStore, outlineNodes } from "./outline.store";
 import { NodeBlock } from "./node-block";
-import { outlineUiPlugin } from "@/components/outline/plugin";
+import { outlineUiPlugin } from "./plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the

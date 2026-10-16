@@ -8,8 +8,8 @@ import {
   monthLabel,
   todayLocal,
   weekdayInitials,
-} from "@/components/outline/date-display";
-import { calendarWeeks, dateEditorIntent, sameDay } from "@/components/outline/date-calendar";
+} from "./date-display";
+import { calendarWeeks, dateEditorIntent, sameDay } from "./date-calendar";
 
 export interface DateEditorProps {
   /** What the input starts with: the stored date, or input the slot kept. */

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { logWarn, useReducedMotion } from "@kb/ui-sdk";
-import { createUnicornScene, type UnicornScene } from "@/components/outline/unicorn-scene";
+import { createUnicornScene, type UnicornScene } from "./unicorn-scene";
 
 /** Decorative scene: no hit targets, and no animation while hidden or reduced. */
 export function UnicornBackdrop({ opacity }: { opacity: number }) {

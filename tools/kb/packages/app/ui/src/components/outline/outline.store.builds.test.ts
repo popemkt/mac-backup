@@ -12,7 +12,7 @@ import type { WireNode } from "@kb/contracts";
 import { schemaOf, wireToOutlineMap } from "@kb/ui-sdk";
 import type * as UiSdk from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineNodes, useOutlineStore } from "@/components/outline/outline.store";
+import { outlineNodes, useOutlineStore } from "./outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { node, ontologyWire } from "@/test-support/ontology-wire";
 

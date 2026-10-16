@@ -1,4 +1,4 @@
-import { OutlineEditor } from "@/components/outline/outline-editor";
+import { OutlineEditor } from "./outline-editor";
 import { cn, usePrefs } from "@kb/ui-sdk";
 
 /** The one content column: centered 768px or fluid, per the width pref. */

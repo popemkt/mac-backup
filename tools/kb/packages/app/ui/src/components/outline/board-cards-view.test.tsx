@@ -21,7 +21,7 @@ import { framedAs, viewFieldNodes, type FrameViewName } from "@/fixtures/view-fi
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, outlineNodes } from "@/components/outline/outline.store";
+import { outlineSource, outlineNodes } from "./outline.store";
 import { pageCommandApi } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -38,13 +38,9 @@ import {
   paramsFrom,
 } from "@kb/views";
 import { Result } from "effect";
-import { collectVisibleInstances } from "@/components/outline/visible-instances";
-import { outlineUiPlugin } from "@/components/outline/plugin";
-import {
-  applyViewFilters,
-  flattenBoardOrder,
-  groupChildrenForBoard,
-} from "@/components/outline/frame-layout";
+import { collectVisibleInstances } from "./visible-instances";
+import { outlineUiPlugin } from "./plugin";
+import { applyViewFilters, flattenBoardOrder, groupChildrenForBoard } from "./frame-layout";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the

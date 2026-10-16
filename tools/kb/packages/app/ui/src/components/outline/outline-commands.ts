@@ -5,7 +5,7 @@
  * by id like any other.
  */
 import { SYSTEM_IDS, type Command } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/components/outline/outline.store";
+import { useOutlineStore } from "./outline.store";
 
 export const OUTLINE_COMMANDS: readonly Command[] = [
   {

@@ -20,12 +20,12 @@ import {
   useFollow,
   useGraphRead,
 } from "@kb/ui-sdk";
-import { outlineSource, useOutlineStore } from "@/components/outline/outline.store";
+import { outlineSource, useOutlineStore } from "./outline.store";
 import { fieldGlyphOf } from "./value-views";
 import { ValueSlot } from "./value-slot";
 import { FieldPicker, type FieldHandle } from "./field-picker";
-import { VALUE_KINDS, valueKindOf } from "@/components/outline/value-kind";
-import { arriveAt, slotAt } from "@/components/outline/value-slot-nav";
+import { VALUE_KINDS, valueKindOf } from "./value-kind";
+import { arriveAt, slotAt } from "./value-slot-nav";
 
 interface FieldsSectionProps {
   nodeId: string;

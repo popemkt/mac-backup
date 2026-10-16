@@ -13,7 +13,7 @@ import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineNodes } from "@/components/outline/outline.store";
+import { outlineNodes } from "./outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { FrameViewSlot } from "./frame-view-slot";
 import { outlineUiPlugin } from "./plugin";

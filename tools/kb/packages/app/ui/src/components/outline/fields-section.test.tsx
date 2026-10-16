@@ -16,7 +16,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
-import { FieldValueStack } from "@/components/outline/fields-section";
+import { FieldValueStack } from "./fields-section";
 import { bundledSeed } from "@kb/bundled";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */

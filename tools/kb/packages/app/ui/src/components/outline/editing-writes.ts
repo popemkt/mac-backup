@@ -5,7 +5,7 @@
  * focus leaves it still empty (Tana, r1 §3.3), and "the row above" is the one
  * the outline draws above (r1 D09).
  */
-import { useOutlineStore } from "@/components/outline/outline.store";
+import { useOutlineStore } from "./outline.store";
 import { browserHost } from "@kb/ui-sdk";
 
 /** The minted id, marked transient; null when the write was refused. */

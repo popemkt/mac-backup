@@ -1,9 +1,5 @@
 import { useMemo } from "react";
-import {
-  useOutlineStore,
-  useOutlineNode,
-  useOutlineNodes,
-} from "@/components/outline/outline.store";
+import { useOutlineStore, useOutlineNode, useOutlineNodes } from "./outline.store";
 import {
   browserHost,
   Bullet,

@@ -9,10 +9,10 @@ import {
   verticalArrowDecision,
   type VerticalNavDecision,
 } from "@kb/ui-sdk";
-import { outlineSource, useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { applyEditingIntent } from "./editing-intents";
 import { mapEditingKey, type EditingKeyContext } from "./editing-keymap";
-import { fieldSlotCount } from "@/components/outline/value-slot-nav";
+import { fieldSlotCount } from "./value-slot-nav";
 
 export interface UseNodeKeyDownArgs {
   nodeId: string;

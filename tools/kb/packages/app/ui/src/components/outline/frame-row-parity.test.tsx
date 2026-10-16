@@ -12,7 +12,7 @@ import { outlineUiPlugin } from "./plugin";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/components/outline/outline.store";
+import { useOutlineStore } from "./outline.store";
 import { OutlineTableView } from "@kb/views";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";

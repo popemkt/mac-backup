@@ -5,7 +5,7 @@
  */
 import type { NodeMap, OutlineNode, SchemaIndex } from "@kb/ui-sdk";
 import { frameConfigOf } from "@kb/ui-sdk";
-import { resolveTableColumns } from "@/components/outline/frame-layout";
+import { resolveTableColumns } from "./frame-layout";
 
 /** `nodes` is the projection the frame's rows come from; `schema` names their fields. */
 export function listFilterFieldOptions(

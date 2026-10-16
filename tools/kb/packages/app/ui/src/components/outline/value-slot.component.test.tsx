@@ -27,7 +27,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { WireNode } from "@kb/contracts";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { ValueSlot } from "./value-slot";
-import { formatNumber, numberEditText } from "@/components/outline/number-format";
+import { formatNumber, numberEditText } from "./number-format";
 
 const noNodes: NodeMap = new Map();
 const context = fieldContextOf({ schema: schemaOfGraph(noNodes), nodes: noNodes, index: null });

@@ -17,7 +17,7 @@ import { outlineUiPlugin } from "./plugin";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { useOutlineStore, outlineNodes } from "./outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";
 import { NodeBlock } from "./node-block";

@@ -17,10 +17,10 @@ import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { childInstanceKey, outlineInstanceKey, rowTextOf, syncUiPlugins } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
-import { outlineUiPlugin } from "@/components/outline/plugin";
+import { outlineUiPlugin } from "./plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the

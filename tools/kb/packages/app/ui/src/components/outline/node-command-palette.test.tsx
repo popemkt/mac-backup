@@ -20,10 +20,10 @@ import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { isPinned, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { useOutlineStore, outlineNodes } from "./outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeCommandPalette } from "./node-command-palette";
-import { outlineUiPlugin } from "@/components/outline/plugin";
+import { outlineUiPlugin } from "./plugin";
 import { chartUiPlugin } from "@kb/chart-ui";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 

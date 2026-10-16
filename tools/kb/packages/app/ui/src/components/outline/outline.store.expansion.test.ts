@@ -8,9 +8,9 @@ import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
 import { EXPANDED_STORAGE_KEY, EXPANSION_STORAGE_KEY, syncUiPlugins } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { outlineUiPlugin } from "@/components/outline/plugin";
+import { outlineUiPlugin } from "./plugin";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineNodes, useOutlineStore } from "@/components/outline/outline.store";
+import { outlineNodes, useOutlineStore } from "./outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 

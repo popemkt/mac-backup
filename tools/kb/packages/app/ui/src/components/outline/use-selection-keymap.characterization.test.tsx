@@ -15,11 +15,11 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { useOutlineStore, outlineNodes } from "./outline.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useSelectionKeymap } from "./use-selection-keymap";
-import { outlineUiPlugin } from "@/components/outline/plugin";
+import { outlineUiPlugin } from "./plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the

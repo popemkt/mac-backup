@@ -19,7 +19,7 @@ import {
   UrlSurface,
   type ValueSurfaceProps,
 } from "./field-value";
-import { type ValueKind, valueKindOf } from "@/components/outline/value-kind";
+import { type ValueKind, valueKindOf } from "./value-kind";
 
 /**
  * One kind's presentation: the glyph its row wears, and the surface that

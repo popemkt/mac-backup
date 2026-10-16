@@ -17,9 +17,9 @@ import {
   useGraphRead,
   useNodePaletteOpen,
 } from "@kb/ui-sdk";
-import { resolveRowChrome } from "@/components/outline/row-chrome";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
-import { createTransientNode } from "@/components/outline/editing-writes";
+import { resolveRowChrome } from "./row-chrome";
+import { useOutlineStore, outlineNodes } from "./outline.store";
+import { createTransientNode } from "./editing-writes";
 
 import { FieldsSection } from "./fields-section";
 import { FrameViewSlot } from "./frame-view-slot";

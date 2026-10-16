@@ -17,12 +17,12 @@ import {
 import { OutlineListView, OutlineTableView, paramsFrom } from "@kb/views";
 import { Result } from "effect";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes } from "./outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import type { WireNode } from "@kb/contracts";
 import { TableView } from "./table-view";
 import { ViewToolbar } from "./view-toolbar";
-import { outlineUiPlugin } from "@/components/outline/plugin";
+import { outlineUiPlugin } from "./plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the

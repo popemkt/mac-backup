@@ -1,14 +1,9 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
-import {
-  BoardFrameView,
-  CardsFrameView,
-  ListFrameView,
-  TableFrameView,
-} from "@/components/outline/frame-views";
-import { matchOutline } from "@/components/outline/routes";
-import { HomeSection, OutlineSurface, PinnedSection } from "@/components/outline/surfaces";
-import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover";
+import { BoardFrameView, CardsFrameView, ListFrameView, TableFrameView } from "./frame-views";
+import { matchOutline } from "./routes";
+import { HomeSection, OutlineSurface, PinnedSection } from "./surfaces";
+import { ViewFilterPopoverHost } from "./view-filter-popover";
 import {
   OUTLINE_NAMESPACE,
   OutlineBoardView,
@@ -19,7 +14,7 @@ import {
   OutlineView,
   DEFAULT_VIEW_CONFIG,
 } from "@kb/views";
-import { OutlineSnippet } from "@/components/outline/outline-snippet";
+import { OutlineSnippet } from "./outline-snippet";
 import {
   CommandPoint,
   OverlayPoint,
@@ -33,8 +28,8 @@ import {
   ViewPoint,
 } from "@kb/ui-sdk";
 import { ListBulletsIcon, SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
-import { outlineProjection, useOutlineStore } from "@/components/outline/outline.store";
-import { OUTLINE_COMMANDS } from "@/components/outline/outline-commands";
+import { outlineProjection, useOutlineStore } from "./outline.store";
+import { OUTLINE_COMMANDS } from "./outline-commands";
 
 const { filters, sort, display, colwidth, pagesize, groupFieldId } = DEFAULT_VIEW_CONFIG;
 

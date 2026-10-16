@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { cn, type ViewProps } from "@kb/ui-sdk";
-import { useOutlineNodes } from "@/components/outline/outline.store";
+import { useOutlineNodes } from "./outline.store";
 import { snippetRows } from "./snippet-rows";
 import type { OutlineSnippetParams } from "@kb/views";
 

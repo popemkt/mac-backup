@@ -11,13 +11,13 @@ import { present } from "@kb/model";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "@/actions/mutations";
-import { createTransientNode } from "@/components/outline/editing-writes";
+import { createTransientNode } from "./editing-writes";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { useOutlineStore, outlineNodes } from "./outline.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
-import { outlineUiPlugin } from "@/components/outline/plugin";
+import { outlineUiPlugin } from "./plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the

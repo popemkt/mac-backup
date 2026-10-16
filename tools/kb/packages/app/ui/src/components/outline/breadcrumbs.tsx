@@ -8,7 +8,7 @@ import {
   usePageGraph,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
-import { useOutlineStore, useOutlineNodes } from "@/components/outline/outline.store";
+import { useOutlineStore, useOutlineNodes } from "./outline.store";
 
 /** The path from home down to `root`, home left out: a rooted outline's crumbs. */
 function pathTo(root: string, nodes: NodeMap): Array<{ id: string; text: string }> {

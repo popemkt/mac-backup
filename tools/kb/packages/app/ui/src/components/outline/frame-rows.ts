@@ -16,7 +16,7 @@ import {
   flattenBoardOrder,
   groupChildrenForBoard,
   sortChildrenForTable,
-} from "@/components/outline/frame-layout";
+} from "./frame-layout";
 
 export interface FrameRowsInput {
   frameId: string;

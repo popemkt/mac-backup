@@ -54,12 +54,9 @@ import {
   collectVisibleInstances,
   neighborVisibleInstance,
   type VisibleInstance,
-} from "@/components/outline/visible-instances";
+} from "./visible-instances";
 import type { FrameViewKey } from "@kb/views";
-import {
-  outlineHostOf,
-  outlineHostOfInstance as walkHostOf,
-} from "@/components/outline/outline-hosts";
+import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "./outline-hosts";
 
 export type { VisibleInstance };
 

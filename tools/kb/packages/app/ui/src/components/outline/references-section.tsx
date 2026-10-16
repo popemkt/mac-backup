@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { backlinkRows, type BacklinkRow } from "@/components/outline/backlinks";
+import { backlinkRows, type BacklinkRow } from "./backlinks";
 import {
   Bullet,
   MdView,
@@ -11,7 +11,7 @@ import {
   usePageGraph,
   useRefInk,
 } from "@kb/ui-sdk";
-import { useOutlineNodes } from "@/components/outline/outline.store";
+import { useOutlineNodes } from "./outline.store";
 
 /**
  * Inline "References (N)" at the bottom of a zoomed view (DESIGN-RESKIN §1.5).

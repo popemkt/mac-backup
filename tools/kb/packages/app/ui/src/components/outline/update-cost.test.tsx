@@ -20,12 +20,12 @@ import { isQueryNode } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { nodeCandidates, outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import type * as UiSdk from "@kb/ui-sdk";
-import { resolveRowChrome } from "@/components/outline/row-chrome";
-import type * as RowChrome from "@/components/outline/row-chrome";
+import { resolveRowChrome } from "./row-chrome";
+import type * as RowChrome from "./row-chrome";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { useOutlineStore, outlineNodes } from "./outline.store";
 import { outlineUiPlugin } from "./plugin";
 import { FrameViewSlot } from "./frame-view-slot";
 import { bundledSeed } from "@kb/bundled";
@@ -38,7 +38,7 @@ vi.mock("../../../../../kit/ui-sdk/src/lib/refs", async (importOriginal) => {
   return { ...actual, nodeCandidates: vi.fn(actual.nodeCandidates) };
 });
 
-vi.mock("@/components/outline/row-chrome", async (importOriginal) => {
+vi.mock("./row-chrome", async (importOriginal) => {
   const actual = await importOriginal<typeof RowChrome>();
   return { ...actual, resolveRowChrome: vi.fn(actual.resolveRowChrome) };
 });

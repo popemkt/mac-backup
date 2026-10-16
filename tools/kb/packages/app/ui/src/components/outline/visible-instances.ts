@@ -25,7 +25,7 @@ import {
   slotLink,
   slotRenders,
 } from "@kb/ui-sdk";
-import { frameRows } from "@/components/outline/frame-rows";
+import { frameRows } from "./frame-rows";
 import { isQueryNode, queryDefOf } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 

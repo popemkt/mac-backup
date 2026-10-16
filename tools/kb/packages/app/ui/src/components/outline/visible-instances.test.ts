@@ -10,13 +10,13 @@ import {
   syncUiPlugins,
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
-import { setOutlineHost } from "@/components/outline/outline-hosts";
+import { setOutlineHost } from "./outline-hosts";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { useOutlineStore, outlineNodes } from "./outline.store";
 import { OutlineListView, OutlineTableView } from "@kb/views";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { outlineUiPlugin } from "@/components/outline/plugin";
+import { outlineUiPlugin } from "./plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the

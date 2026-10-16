@@ -17,14 +17,9 @@ import {
   VALUE_KINDS,
   valueKindOf,
   type ValueKindSpec,
-} from "@/components/outline/value-kind";
-import { valueSlotIntent, type ValueSlotIntent } from "@/components/outline/value-slot-keymap";
-import {
-  arriveAt,
-  neighbourSlot,
-  registerSlot,
-  slotIndex,
-} from "@/components/outline/value-slot-nav";
+} from "./value-kind";
+import { valueSlotIntent, type ValueSlotIntent } from "./value-slot-keymap";
+import { arriveAt, neighbourSlot, registerSlot, slotIndex } from "./value-slot-nav";
 
 export interface ValueSlotProps {
   /** The stored value, or null for a slot that holds none yet. */
