@@ -9,12 +9,12 @@ import { Result } from "effect";
 import { SYSTEM_IDS } from "@kb/model";
 import {
   DEFAULT_VIEW_CONFIG,
+  OutlineSnippetView,
   OutlineTableView,
   decodeFrameConfig,
   decodeLensConfig,
   paramsFromProps,
 } from "@kb/views";
-import { NeighbourhoodView } from "@kb/graph";
 
 function collect(): { report: (w: string) => void; warnings: string[] } {
   const warnings: string[] = [];
@@ -48,7 +48,7 @@ describe("view config readers", () => {
       report,
     );
     expect(Result.getOrThrow(table).pagesize).toBe(25);
-    const shownFor = paramsFromProps(NeighbourhoodView, {}, "n.host", report);
+    const shownFor = paramsFromProps(OutlineSnippetView, {}, "n.host", report);
     expect(Result.getOrThrow(shownFor).root).toBe("n.host");
   });
 });

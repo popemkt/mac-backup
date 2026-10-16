@@ -18,7 +18,6 @@ import {
   viewNodeFor,
   type ViewKey,
 } from "@kb/views";
-import { NeighbourhoodView } from "@kb/graph";
 
 function problems(key: ViewKey<unknown>, input: unknown, host: string | null = null): string[] {
   const result = viewNodeFor(key, input, host);
@@ -82,23 +81,8 @@ describe("viewNodeFor", () => {
   });
 
   test("a view shown for its host reads its root back from what it stores", () => {
-    const settings = {
-      layout: "force",
-      spread: 150,
-      linkDistance: 60,
-      showLabels: true,
-      autorotate: false,
-      labelDensity: "medium",
-      theme: "matte",
-      linkStyle: "straight",
-    };
-    const params = {
-      root: "n.a",
-      hops: 2,
-      edges: ["mention"],
-      renderer: "sys.view.graph.tree",
-      settings,
-    };
-    expect(problems(NeighbourhoodView, params, "n.other")).toEqual([]);
+    expect(problems(OutlineSnippetView, { root: "n.a", depth: 1, maxRows: 6 }, "n.other")).toEqual(
+      [],
+    );
   });
 });

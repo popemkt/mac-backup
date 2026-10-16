@@ -9,6 +9,7 @@ import { SYSTEM_IDS, present, viewOptionId, type NodeProps } from "@kb/model";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 import {
   LayoutView,
+  OutlineSnippetView,
   OutlineView,
   closePane,
   decodeLayout,
@@ -27,7 +28,6 @@ import {
   withPanePath,
   type LayoutTree,
 } from "@kb/views";
-import { GraphView, NeighbourhoodView } from "@kb/graph";
 
 /** The catalog a server holding every bundled family lists. */
 const catalog = viewCatalogOf(
@@ -229,7 +229,7 @@ describe("what /node/<id> opens", () => {
         props: {
           [SYSTEM_IDS.viewsField]: [
             { t: "ref", v: "v.table" },
-            { t: "ref", v: "v.hood" },
+            { t: "ref", v: "v.snippet" },
           ],
         },
       },
@@ -239,17 +239,12 @@ describe("what /node/<id> opens", () => {
       { props: { [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("outline.table") }] } },
     ],
     [
-      "v.hood",
+      "v.snippet",
       {
         props: {
-          [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("graph.neighbourhood") }],
-          [SYSTEM_IDS.lensHopsField]: [{ t: "num", v: 2 }],
+          [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("outline.snippet") }],
         },
       },
-    ],
-    [
-      "v.graph",
-      { props: { [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("graph.force2d") }] } },
     ],
     [
       "v.layout",
@@ -298,9 +293,9 @@ describe("what /node/<id> opens", () => {
     ]);
 
   test("the default view type is data: a node that names no view opens as if it named it", () => {
-    const graph = withDefault(NeighbourhoodView.option);
+    const graph = withDefault(OutlineSnippetView.option);
     expect(openIn(graph, "n.plain")).toEqual({
-      target: open("n.plain", NeighbourhoodView.option),
+      target: open("n.plain", OutlineSnippetView.option),
       warnings: [],
     });
     // A node that names a view still opens in its own.
@@ -308,15 +303,15 @@ describe("what /node/<id> opens", () => {
   });
 
   test("a default view type the host holds no key for opens as that view, unavailable here", () => {
-    const off = viewCatalogOf(catalog.items.filter((item) => item.key !== NeighbourhoodView));
+    const off = viewCatalogOf(catalog.items.filter((item) => item.key !== OutlineSnippetView));
     const graph = new Map([
-      ...withDefault(NeighbourhoodView.option),
-      [NeighbourhoodView.option, { props: {}, text: "Neighbourhood" }],
+      ...withDefault(OutlineSnippetView.option),
+      [OutlineSnippetView.option, { props: {}, text: "Outline snippet" }],
     ]);
     expect(openIn(graph, "n.plain", off)).toEqual({
       target: Result.succeed({
         key: null,
-        listed: { id: "graph.neighbourhood", label: "Neighbourhood" },
+        listed: { id: "outline.snippet", label: "Outline snippet" },
         subject: "n.plain",
       }),
       warnings: [],
@@ -357,20 +352,18 @@ describe("what /node/<id> opens", () => {
   });
 
   test("a node opens through any one of its views, read for it", () => {
-    const hood = openHeld("n.frame", "v.hood");
-    expect(hood.key).toBe(NeighbourhoodView);
-    expect(hood.input).toMatchObject({ root: "n.frame", hops: 2 });
+    const snippet = openHeld("n.frame", "v.snippet");
+    expect(snippet.key).toBe(OutlineSnippetView);
+    expect(snippet.input).toMatchObject({ root: "n.frame", depth: 1 });
   });
 
   test("a node opens as a view type, by the type's option", () => {
-    const hood = openHeld("n.plain", NeighbourhoodView.option);
-    expect(hood.key).toBe(NeighbourhoodView);
-    expect(hood.input).toMatchObject({ root: "n.plain", hops: 1 });
+    const snippet = openHeld("n.plain", OutlineSnippetView.option);
+    expect(snippet.key).toBe(OutlineSnippetView);
+    expect(snippet.input).toMatchObject({ root: "n.plain", depth: 1 });
   });
 
-  test("a view node opens as itself; a renderer's page is the graph page drawing it", () => {
-    expect(openHeld("v.graph").key).toBe(GraphView);
-    expect(openHeld("v.graph").input).toEqual({ perspective: "v.graph" });
+  test("a view node opens as itself", () => {
     const layout = openHeld("v.layout");
     expect(layout.key).toBe(LayoutView);
     expect(layout.input).toEqual({ root: tabs("a") });
@@ -383,10 +376,10 @@ describe("what /node/<id> opens", () => {
   });
 
   test("a view the catalog lists without its key resolves to that listing, not a failure", () => {
-    const listed = catalog.entries().find((entry) => entry.id === "graph.neighbourhood");
-    if (listed === undefined) throw new Error("the bundled catalog lists graph.neighbourhood");
+    const listed = catalog.entries().find((entry) => entry.id === "outline.snippet");
+    if (listed === undefined) throw new Error("the bundled catalog lists outline.snippet");
     const unheld = viewCatalogOf(
-      catalog.items.filter((item) => item.key !== NeighbourhoodView),
+      catalog.items.filter((item) => item.key !== OutlineSnippetView),
       [listed],
     );
     const openUnheld = (node: string, view?: string) =>
@@ -396,13 +389,13 @@ describe("what /node/<id> opens", () => {
         (id) => nodes.get(id),
         () => {},
       );
-    expect(openUnheld("n.frame", "v.hood")).toEqual(
-      Result.succeed({ key: null, listed, subject: "v.hood", viewNode: "v.hood" }),
+    expect(openUnheld("n.frame", "v.snippet")).toEqual(
+      Result.succeed({ key: null, listed, subject: "v.snippet", viewNode: "v.snippet" }),
     );
-    expect(openUnheld("v.hood")).toEqual(
-      Result.succeed({ key: null, listed, subject: "v.hood", viewNode: "v.hood" }),
+    expect(openUnheld("v.snippet")).toEqual(
+      Result.succeed({ key: null, listed, subject: "v.snippet", viewNode: "v.snippet" }),
     );
-    expect(openUnheld("n.plain", NeighbourhoodView.option)).toEqual(
+    expect(openUnheld("n.plain", OutlineSnippetView.option)).toEqual(
       Result.succeed({ key: null, listed, subject: "n.plain" }),
     );
     expect(openUnheld("n.plain", "sys.view.nope")).toEqual(Result.fail("no view nope"));
@@ -410,10 +403,10 @@ describe("what /node/<id> opens", () => {
 
   test("a view no catalog lists resolves to its option node's name, when the graph holds the option", () => {
     // A family switched off: its views leave the catalog, but its option nodes are seeded.
-    const off = viewCatalogOf(catalog.items.filter((item) => item.key !== NeighbourhoodView));
+    const off = viewCatalogOf(catalog.items.filter((item) => item.key !== OutlineSnippetView));
     const withOption = new Map<string, { props: NodeProps; text?: string }>([
       ...nodes,
-      [NeighbourhoodView.option, { props: {}, text: "Neighbourhood" }],
+      [OutlineSnippetView.option, { props: {}, text: "Outline snippet" }],
     ]);
     const openOff = (graph: typeof withOption, node: string, view?: string) =>
       resolveNodeView(
@@ -422,14 +415,16 @@ describe("what /node/<id> opens", () => {
         (id) => graph.get(id),
         () => {},
       );
-    const listed = { id: "graph.neighbourhood", label: "Neighbourhood" };
-    expect(openOff(withOption, "n.frame", "v.hood")).toEqual(
-      Result.succeed({ key: null, listed, subject: "v.hood", viewNode: "v.hood" }),
+    const listed = { id: "outline.snippet", label: "Outline snippet" };
+    expect(openOff(withOption, "n.frame", "v.snippet")).toEqual(
+      Result.succeed({ key: null, listed, subject: "v.snippet", viewNode: "v.snippet" }),
     );
-    expect(openOff(withOption, "n.plain", NeighbourhoodView.option)).toEqual(
+    expect(openOff(withOption, "n.plain", OutlineSnippetView.option)).toEqual(
       Result.succeed({ key: null, listed, subject: "n.plain" }),
     );
     // Without the option, nothing names the view: the node's view is no view.
-    expect(openOff(nodes, "n.frame", "v.hood")).toEqual(Result.fail("v.hood is no view node"));
+    expect(openOff(nodes, "n.frame", "v.snippet")).toEqual(
+      Result.fail("v.snippet is no view node"),
+    );
   });
 });
