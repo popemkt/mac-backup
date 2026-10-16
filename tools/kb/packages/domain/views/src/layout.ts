@@ -6,8 +6,8 @@
  * views states the model; this module is its vocabulary and its pure edits.
  */
 import { Result, Schema } from "effect";
-import { SYSTEM_IDS, canonicalJson, firstRef, firstStr } from "@kb/model";
-import { encodeLensConfig } from "./lens.ts";
+import { SYSTEM_IDS, canonicalJson, firstStr } from "@kb/model";
+import { subjectRootOf, subjectRootProps } from "./subject.ts";
 import { issueText, paramsIssues, viewKey, type ConfigReport } from "./view-key.ts";
 
 /** The layout plugin's namespace and view keys: what a host imports, never the components. */
@@ -152,10 +152,10 @@ export type NodeParams = typeof NodeParams.Type;
 
 export const NodeView = viewKey(`${LAYOUT_NAMESPACE}.node`, "Node", NodeParams, {
   read: (props, host) => {
-    const node = firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined;
+    const node = subjectRootOf(props, host);
     return node === undefined ? {} : { node };
   },
-  write: ({ node }) => encodeLensConfig({ focus: node }),
+  write: ({ node }) => subjectRootProps(node),
 });
 
 // ── the tree's edits: pure, each returning a layout the schema accepts ────

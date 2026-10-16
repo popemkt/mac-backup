@@ -7,8 +7,8 @@
  * vocabulary: the key, the spec's shape, the data binding and the starter.
  */
 import { Predicate, Schema } from "effect";
-import { SYSTEM_IDS, canonicalJson, firstRef, firstStr } from "@kb/model";
-import { encodeLensConfig, viewKey, type ConfigReport } from "@kb/views";
+import { canonicalJson, firstStr } from "@kb/model";
+import { subjectRootOf, subjectRootProps, viewKey, type ConfigReport } from "@kb/views";
 import { CHART_IDS } from "./ids.ts";
 
 /** The namespace of the chart's view id: what draws it, the chart family. */
@@ -185,14 +185,14 @@ function readSpec(raw: string | undefined, report: ConfigReport): { spec?: unkno
  */
 export const ChartView = viewKey(`${CHART_NAMESPACE}.vega-lite`, "Chart", ChartParams, {
   read: (props, host, report) => {
-    const source = firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined;
+    const source = subjectRootOf(props, host);
     return {
       ...(source === undefined ? {} : { source }),
       ...readSpec(firstStr(CHART_IDS.chartField)(props), report),
     };
   },
   write: ({ source, spec }) => ({
-    ...(source === undefined ? {} : encodeLensConfig({ focus: source })),
+    ...(source === undefined ? {} : subjectRootProps(source)),
     [CHART_IDS.chartField]: [{ t: "str", v: canonicalJson(spec) }],
   }),
 });

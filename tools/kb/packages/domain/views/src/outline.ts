@@ -1,5 +1,4 @@
 import { Schema } from "effect";
-import { SYSTEM_IDS, firstRef } from "@kb/model";
 import {
   FRAME_SETTINGS,
   FRAME_VIEW_FAMILY,
@@ -8,7 +7,7 @@ import {
   type FrameViewKey,
   type FrameViewParams,
 } from "./frame.ts";
-import { encodeLensConfig } from "./lens.ts";
+import { subjectRootOf, subjectRootProps } from "./subject.ts";
 import { viewKey } from "./view-key.ts";
 
 /** The outline plugin's namespace and view keys: what a host imports, never the components. */
@@ -31,10 +30,10 @@ export type OutlineParams = typeof OutlineParams.Type;
 
 export const OutlineView = viewKey(`${OUTLINE_NAMESPACE}.main`, "Outline", OutlineParams, {
   read: (props, host) => {
-    const root = firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined;
+    const root = subjectRootOf(props, host);
     return root === undefined ? {} : { root };
   },
-  write: ({ root }) => (root === undefined ? {} : encodeLensConfig({ focus: root })),
+  write: ({ root }) => (root === undefined ? {} : subjectRootProps(root)),
 });
 
 /**
@@ -63,11 +62,11 @@ export const OutlineSnippetView = viewKey(
   OutlineSnippetParams,
   {
     read: (props, host) => ({
-      root: firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined,
+      root: subjectRootOf(props, host),
       depth: 1,
       maxRows: 6,
     }),
-    write: ({ root }) => encodeLensConfig({ focus: root }),
+    write: ({ root }) => subjectRootProps(root),
   },
 );
 

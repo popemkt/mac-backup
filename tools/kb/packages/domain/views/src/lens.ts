@@ -4,8 +4,10 @@
  *
  * What a renderer draws with is a subset of these (`LENS_SETTINGS`); what
  * extraction reads for every renderer alike (the query, the mappings, the
- * edge kinds) is the rest. The extraction itself is the UI's
- * (`@kb/ui`'s `lib/graph-lens.ts`).
+ * edge kinds) is the rest. The query and the focus are every view's subject
+ * (`subject.ts`), so the lens decodes them through the subject's slots. The
+ * extraction itself is the kit's (`@kb/ui-sdk`'s `graph-lens.ts`, over
+ * `@kb/graph`'s edge projection).
  */
 import { Schema, SchemaGetter } from "effect";
 import {
@@ -35,6 +37,7 @@ import {
   type SlotWrite,
   type Writable,
 } from "@kb/model";
+import { SUBJECT_SLOTS } from "./subject.ts";
 import type { ConfigReport } from "./view-key.ts";
 
 export type EdgeKind = "mention" | "child" | "ref-prop" | `prop:${string}`;
@@ -240,13 +243,8 @@ export type LensSetting = keyof typeof LENS_SETTINGS;
 export type LensProps = Omit<LensPerspective, "id" | "label">;
 
 const LENS_SLOTS: ConfigSlots<LensProps> = {
-  query: oneOf({
-    fields: [SYSTEM_IDS.lensQueryField],
-    read: firstStr(SYSTEM_IDS.lensQueryField),
-    write: writeStr(SYSTEM_IDS.lensQueryField),
-    schema: Schema.String,
-    fallback: "",
-  }),
+  // What every view says of its subject, decoded as every view decodes it.
+  query: SUBJECT_SLOTS.query,
   renderer: oneOf({
     fields: [SYSTEM_IDS.lensRendererField],
     read: firstRef(SYSTEM_IDS.lensRendererField),
@@ -296,13 +294,7 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
     schema: NodeCountSchema,
     fallback: DEFAULT_MAX_NODES,
   }),
-  focus: oneOf<string | null>({
-    fields: [SYSTEM_IDS.lensFocusField],
-    read: firstRef(SYSTEM_IDS.lensFocusField),
-    write: writeRef(SYSTEM_IDS.lensFocusField),
-    schema: Schema.String,
-    fallback: null,
-  }),
+  focus: SUBJECT_SLOTS.focus,
   hops: oneOf<number | null>({
     fields: [SYSTEM_IDS.lensHopsField],
     read: firstNum(SYSTEM_IDS.lensHopsField),

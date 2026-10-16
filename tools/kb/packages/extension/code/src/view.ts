@@ -7,9 +7,9 @@
  * sandbox's, `@kb/sandbox`); this module is its vocabulary.
  */
 import { Schema } from "effect";
-import { SYSTEM_IDS, canonicalJson, firstRef, firstStr } from "@kb/model";
+import { canonicalJson, firstStr } from "@kb/model";
 import { CodeGrant } from "@kb/sandbox";
-import { encodeLensConfig, viewKey, type ConfigReport } from "@kb/views";
+import { subjectRootOf, subjectRootProps, viewKey, type ConfigReport } from "@kb/views";
 import { CODE_IDS } from "./ids.ts";
 
 /** The namespace of the code view's id: what draws it, the code family. */
@@ -70,7 +70,7 @@ function readGrant(raw: string | undefined, report: ConfigReport): { grant?: unk
  */
 export const CodeView = viewKey(`${CODE_NAMESPACE}.view`, "Code", CodeParams, {
   read: (props, host, report) => {
-    const source = firstRef(SYSTEM_IDS.lensFocusField)(props) ?? host ?? undefined;
+    const source = subjectRootOf(props, host);
     return {
       ...(source === undefined ? {} : { source }),
       // The code as stored, untrimmed: what runs is what a person trusts.
@@ -79,7 +79,7 @@ export const CodeView = viewKey(`${CODE_NAMESPACE}.view`, "Code", CodeParams, {
     };
   },
   write: ({ source, code, grant }) => ({
-    ...(source === undefined ? {} : encodeLensConfig({ focus: source })),
+    ...(source === undefined ? {} : subjectRootProps(source)),
     [CODE_IDS.codeField]: [{ t: "str", v: code }],
     [CODE_IDS.codeGrantField]: [{ t: "str", v: canonicalJson(grant) }],
   }),

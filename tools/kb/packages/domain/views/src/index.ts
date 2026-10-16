@@ -116,6 +116,7 @@ export {
   type ViewCatalogOf,
 } from "./catalog.ts";
 export { viewNodeFor, type ViewNodeProposal } from "./view-node.ts";
+export { subjectRootOf, subjectRootProps } from "./subject.ts";
 export {
   LAYOUT_NAMESPACE,
   LayoutParams,
