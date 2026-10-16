@@ -467,6 +467,117 @@ outline store. The outline is always loaded on the page (`CORE_UI_PLUGINS`).
   those imports. The node's `current` text needs updating.
 - Untouched: `01M436DVSEHKNYWSF2MR07HPMR`. Its marker is accurate.
 
+## O3b–O3e: what landed
+
+Each step is a `refactor:` commit, behaviour-preserving and gated. After
+them, no production file of `components/outline/` imports `@/stores`,
+`@/actions` or `@/lib`: the outline reaches the shell through
+`@kb/ui-sdk` alone, which is what the move needs.
+
+### O3b: the page's graph and ports are the kit's
+
+- `lib/page-graph`: `PageGraphState` (what a projection reads of the graph
+  store; the store's state extends it), `GraphChange`, `ScopeSource`, and
+  what the page shows (`scopedWireNodes`, `scopedWireOf`, `shownNodesOf`,
+  `inScope`, with the one cache of a scope's view). Later commits add
+  `PageGraphPort` and `listOntologyItems` here.
+- `lib/page-ports`: `PageProjection`, `PageEditor` and their empty values.
+  A plugin provides each as a kernel **service** (`PageProjectionService`,
+  `PageEditorService`), not a point: a service has one provider, so a second
+  projection is refused as a service conflict, which is the rule a page
+  standing in one projection needs. The shell's slots follow what the kernel
+  provides (`followProvided`), and a stand-in a test installs directly stays.
+- The frame-views port is deleted: reading `ViewPoint` (`providedFrameViews`)
+  answers exactly what it answered.
+- Review follow-up: `PageEditorState` names the editor's half of
+  `NodeTextPort` as a `Pick`, and `editorTextPort` forwards it once; the
+  shell's text port spreads it.
+
+### O3c: the write path, and the frame's view
+
+- `PageWrites` (`lib/page-writes`) is the write path's port, with the
+  contract docs that sat on `mutations`; `mutations` is typed by it.
+  `BrowserHost.writes` carries it, in place of five write members it
+  restated. The graph's three writes (`setGraphRenderer`, `setLensProp`,
+  `saveGraphPerspective`) are members already, so O4c needs no new write.
+- `lib/view-config` held two concepts: reading a frame's view (`frameViewOf`,
+  `frameConfigOf`, …, which the writes read too) moves to the kit
+  (`lib/frame-view`, `lib/view-node`); laying a frame out (filters, table,
+  board) moves into the zone (`frame-layout`).
+- `resultNodeIds` joins the kit's query-rows hook. The socket binding stays
+  the shell's, reached as `subscribeQuery`.
+
+### O3d: the shell stores, as host members and homes
+
+- Outline-only libraries move into the zone: value kinds, the value slot's
+  keymap and navigation, date/number/url display, the date editor and its
+  calendar, picker recency.
+- Shared ones move to the kit: `lib/pinned` (with the Pinned rows and
+  `SidebarNavItem`), `lib/schema-zoom`, `listOntologyItems`.
+- `BrowserHost` gains `graph` (`PageGraphPort`: state, subscribe, `reach`,
+  `reached`, `drop`), `zoomHome`, `prefs()` (`Prefs` moves to the kit;
+  `theme()` was one field of it and is gone), `debugFields`,
+  `filterFrame`/`setFilterFrame`, `nodePaletteOpen`, and
+  `nodeCommands(target, palette)`. The kit's hooks read them
+  (`usePageGraph`, `usePrefs`, `useDebugFields`, `useGraphRead`,
+  `useOpenNode`, …); the test host stands in for each.
+- `PageProjection.leave` answers the empty row it minted instead of pruning
+  it: the graph store prunes it as its own transaction before it moves
+  (`leavePage`). A projection makes no write while the page moves, and an
+  outline torn down after the host (the kernel removes a service before its
+  dependents) does not reach for a host that is gone.
+
+### O3e: `FieldRow`, and the node menu
+
+- `FieldRow` is kit anatomy, handed its glyph; the outline passes its kind's
+  glyph from the value views' registry (`fieldGlyphOf`). `PrefFieldRow`
+  moves with it. The outline's field components are no longer a primitives
+  zone of their own.
+- **The node menu stays a query over the shell's one registry**, through the
+  host (`nodeCommands`), built by one builder for both palettes
+  (`pageCommandContext`). The outline's own node commands (indent, outdent,
+  "Filter…") did not move to `CommandPoint`: the menu's order is list
+  position, and a contribution lands after the default-view rows, so moving
+  them would reorder the menu. Moving them needs `CommandPoint` to carry a
+  menu order (a placeholder gap below). The same limit is why expand-all
+  and collapse-all, contributed since O3, sit after the default-view
+  commands rather than between the debug and filter commands, as Sol's
+  review noted; the order change stands until that order exists.
+
+### Tests
+
+The decision (coordinator): the outline's shell-driving tests stay in
+`@kb/ui` as page tests over the outline. What changed for them:
+- `@kb/ui`'s test setup loads the shell's host before a file's hooks, unless
+  the file's page provided it (the App does). A test that loads plugins
+  loads them behind the host (`syncPagePlugins`, 25 files). Each still loads
+  the plugins it loaded; what they assert is unchanged.
+- Tests that rendered `FieldRow` by its `fieldType` hand it that type's
+  glyph. Source assertions read the new homes.
+- The graph store's projection stand-in answers that it minted nothing, and
+  reads the revision it was handed through the state's own `rev`.
+- `UI_ALLOWS`' `test-support` row reaches `shell` (the host
+  `syncPagePlugins` loads).
+
+### Gaps
+
+- No gap id was opened in code. Placeholders, for the coordinator to mint:
+  - **GAP (placeholder): the node menu's order is list position.**
+    expected: a node command declares where it sits in the menu, and the
+    menu lists the registry's commands and every `CommandPoint` contribution
+    by it; current: the registry's static list, then the views' rows, then
+    contributions in load order, then "Filter…"; impact: a family cannot
+    contribute a node command to a slot (the outline's indent, outdent and
+    "Filter…" stay the shell's, and expand/collapse all moved after the
+    default-view rows); closes: an order on node commands.
+  - **GAP (placeholder): `test-support` reaches the outline's zone.**
+    The row the O3 zone move added (`test-support` → `components/outline`,
+    for `resetOutlineStore`, `active-text-host` and the isolation probe)
+    carries no gap. It closes with the move, when those helpers import the
+    outline's package (or the outline's own test entry) instead of a zone.
+- `01M1RXMQPVJKREGDS7D37J1MWN` is closed already; the node menu's comment
+  that cited it is gone with the context it built.
+
 ## O4a: what landed
 
 O4a is the graph's restructure, with no move. The graph visualisation (the
