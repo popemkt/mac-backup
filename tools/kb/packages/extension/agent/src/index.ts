@@ -14,6 +14,8 @@ export type {
 } from "./runtime-contract.ts";
 export type { AgentMessage, AgentOutput, AgentRuntime, AgentTurn } from "./runtime.ts";
 export { scriptedRuntime } from "./scripted.ts";
+export { stepRuntime } from "./step-loop.ts";
+export type { Step, StepCall, StepEvent, StepMessage, StepTool } from "./step-loop.ts";
 export type { ScriptStep, ScriptedRuntime } from "./scripted.ts";
 export { newTranscript, withDecision, withDisconnect, withEvent, withSent } from "./transcript.ts";
 export type { ToolEntry, ToolState, Transcript, TranscriptEntry } from "./transcript.ts";

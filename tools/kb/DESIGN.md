@@ -2766,7 +2766,18 @@ The sidebar agent lives outside core, in packages that core never imports
   one; `resume` carries the conversation into the next turn; and
   interrupting the turn while a call waits interrupts the call. The Claude
   adapter runs it over a fake `query` that drives its in-process tool
-  server as Claude Code would.
+  server as Claude Code would, and the step loop over a step played in
+  memory. `scriptedRuntime` is the bridge's double, a script rather than a
+  model behind a wire, so it is no subject.
+- **The step loop** (`stepRuntime`, `@kb/agent`) is the tool loop for an
+  adapter whose wire runs one model step and leaves the tools to its
+  caller. The adapter supplies only the step: one request over the
+  conversation so far, streaming text and the calls the model asks for.
+  The loop offers the turn's tools under their `kb mcp` names and schemas,
+  runs each call through `turn.call` in order (an approval waits per
+  call), hands the receipt back as `kb mcp` answers it, stops at
+  `MAX_STEPS`, and keeps the history a `resume` handle names in memory, a
+  new handle per turn.
 - **Every message carries the sender's screen.** The bridge asks
   `ui.screen` for the tab that the sending connection publishes as. It
   names the nodes that screen mentions (the open view's subject, the
