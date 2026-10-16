@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKbEffect, kbRuntimeLayer, invokeReceiptEffect, bunFileSystemLayer } from "@kb/runtime";
 import {
+  extractMentions,
   txIntegrityError,
   isSysPrefixed,
   type KbNode,
@@ -417,7 +418,6 @@ export function parentOf(nodes: KbNode[]): Map<string, string | null> {
 export function contentDanglingRefs(nodes: KbNode[]): string[] {
   const byId = new Set(nodes.map((n) => n.id));
   const out: string[] = [];
-  const mentionRe = /\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g;
   for (const n of nodes) {
     for (const values of Object.values(n.props)) {
       for (const v of values) {
@@ -429,10 +429,7 @@ export function contentDanglingRefs(nodes: KbNode[]): string[] {
     for (const key of Object.keys(n.props)) {
       if (!byId.has(key)) out.push(`propkey ${n.id} -> ${key}`);
     }
-    mentionRe.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = mentionRe.exec(n.text)) !== null) {
-      const target = present(m[1], "mention id").trim();
+    for (const target of extractMentions(n.text)) {
       if (!byId.has(target)) out.push(`mention ${n.id} -> ${target}`);
     }
   }

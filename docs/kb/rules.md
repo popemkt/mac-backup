@@ -549,7 +549,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: no [[ completion while editing a text field value
 
 - **expected** — Typing [[ in a text value opens the same node picker node text does.
-- **current** — Text values share the live-markdown input step but not the label still counts as a mention.
+- **current** — Text values share the live-markdown input step but not the [[ completion trigger; a typed label still counts as a mention.
 - **impact** — Linking from a text value needs the id by hand.
 - **closes** — Wire the shared picker's [[ trigger into the text value editor (one trigger, both surfaces).
 - **node** — `01M3KA394XS9DCGY9RHS151G6F`
