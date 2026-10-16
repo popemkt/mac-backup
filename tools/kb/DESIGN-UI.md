@@ -1719,8 +1719,11 @@ how the stored name resolves to the key among them.
   beside the params: how the view lays rows out (`outline`, nested; `rows`;
   `columns`). The frame's first frame view node (DESIGN.md → View nodes)
   names the view, and `frameViewOf` (`@kb/ui-sdk`'s `lib/frame-view.ts`)
-  looks that node up in the schema, resolves its view among the frame views
-  provided, the list's when the frame names none, and decodes the view
+  looks that node up in the schema (`frameViewNodeOf`, the one test of what
+  a frame's view node is, which every reader shares), resolves its view
+  among the frame views provided, the list's when the frame has no frame
+  view node (it names none, or only nodes that name no frame view), and
+  decodes the view
   node's props through that view's params, so the view gets exactly the
   settings it reads. A frame whose view node names a view not provided here
   (its family switched off) shows the kit's one "cannot be shown here" state

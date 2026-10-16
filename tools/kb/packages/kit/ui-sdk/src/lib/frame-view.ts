@@ -16,6 +16,7 @@ import {
   type ViewConfig,
 } from "@kb/views";
 import { logWarn } from "./log";
+import type { OutlineNode } from "./types";
 import type { SchemaIndex } from "./schema";
 import { viewKeyOfNode } from "./view-node";
 
@@ -45,29 +46,27 @@ interface ViewCarrier {
 }
 
 /**
- * The id of the view node a frame shows its children through: the first
- * view node its `sys.f.views` names whose view is a frame view
- * (`familyViewIdOf`, DESIGN.md → View nodes). That is its default unless it
- * names another kind of view first (a snippet, a neighbourhood), which a
- * frame edit never rewrites. Null when it names none.
+ * The view node a frame shows its children through: the first view node its
+ * `sys.f.views` names whose view is a frame view (`familyViewIdOf`, DESIGN.md
+ * → View nodes). That is its default unless it names another kind of view
+ * first (a snippet, a neighbourhood), which a frame edit never rewrites. Null
+ * when it names none.
+ *
+ * This is the one test of what a frame's view node is, so every reader (the
+ * frame's slot, its walk, its toolbar, its writes) agrees: a node that names
+ * no view (no `sys.f.view`), or names a view no option node in the graph says
+ * is a frame view, is not one, and a frame that names only such nodes has no
+ * frame view node.
  *
  * It is read from the schema, the whole graph: how a frame is shown is what
  * its content means, not content an ontology scope chooses, so a frame in a
  * scope keeps a view node that is no member of it.
  */
-export function frameViewNodeIdOf(
+export function frameViewNodeOf(
   frame: { readonly props: NodeProps } | undefined,
   schema: SchemaIndex,
-): string | null {
-  return familyViewIdOf(frame, FRAME_VIEW_FAMILY, (id) => schema.get(id));
-}
-
-/** The view node {@link frameViewNodeIdOf} names, or null. */
-function frameViewNodeOf(
-  frame: { readonly props: NodeProps } | undefined,
-  schema: SchemaIndex,
-): ViewCarrier | null {
-  const id = frameViewNodeIdOf(frame, schema);
+): OutlineNode | null {
+  const id = familyViewIdOf(frame, FRAME_VIEW_FAMILY, (node) => schema.get(node));
   return (id === null ? undefined : schema.get(id)) ?? null;
 }
 
@@ -84,13 +83,18 @@ const LIST_OPTION = viewOptionId("outline.list");
 
 /**
  * The view a frame shows its children in, among the frame views provided
- * (`views`, as `ViewPoint` lists them): the one its view node names, else,
- * when it names none, the list's, with the view node's props decoded through
- * that view's params for the frame, so it carries exactly the settings the
- * view reads. Null while the view its view node names is not provided (its
- * family switched off, or its plugin not loaded): the frame shows that it
- * cannot be shown here, and offers no rows, rather than another view. Null
- * too while not even the list is provided.
+ * (`views`, as `ViewPoint` lists them), with the view node's props decoded
+ * through that view's params for the frame, so it carries exactly the
+ * settings the view reads. Two cases differ:
+ *
+ * - A frame with no frame view node ({@link frameViewNodeOf}: it names
+ *   none, or only nodes that name no frame view) shows the list.
+ * - A frame whose view node names a frame view that is not provided (its
+ *   family switched off, or its plugin not loaded) resolves to null: the
+ *   frame shows that it cannot be shown here, and offers no rows, rather
+ *   than another view.
+ *
+ * Null too while not even the list is provided.
  */
 export function frameViewOf(
   frame: ViewCarrier | undefined,
@@ -100,7 +104,7 @@ export function frameViewOf(
   return frameViewThrough(frame, frameViewNodeOf(frame, schema), views);
 }
 
-/** {@link frameViewOf}, given the frame's view node (`frameViewNodeOf`) already looked up. */
+/** {@link frameViewOf}, given the frame's view node ({@link frameViewNodeOf}) already looked up. */
 export function frameViewThrough(
   frame: ViewCarrier | undefined,
   node: ViewCarrier | null,

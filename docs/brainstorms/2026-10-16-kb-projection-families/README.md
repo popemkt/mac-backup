@@ -1500,3 +1500,21 @@ own commit on `o4-review-followup`.
   migration is the graph's own logic. So a declared rename would close only
   half of it. Both halves wait for the declared retirement table, GAP
   [[01M3FK1PM9P96SNCSHXF0CJZRA]], with a hook for family migrations.
+
+## Sol's review of O5 and the graph cut
+
+Sol reviewed `511186d3..868221d1` (O5) and `76017abb..72f613df` (the graph
+cut), recorded as kb todo `01M539CJ4YH39Y0TM6WY6CEN23`. Each fix is its own
+commit.
+
+1. **One test of a frame's view node.** `frameViewNodeOf` (`@kb/ui-sdk`'s
+   `lib/frame-view.ts`) is the one reader: the frame's slot, its walk, its
+   toolbar and its writes all go through it. `useFrameView` no longer
+   applies an `isViewNode` check of its own. That check was dead, because
+   `familyViewIdOf` picks only a node whose `sys.f.view` names an option of
+   the frame family. The two cases are now explicit:
+   - **No frame view node:** the frame names none, or only nodes that name
+     no frame view, such as a node with no `sys.f.view`. It shows the list.
+     `node-config.policy.test.ts` covers both forms.
+   - **A frame view node naming a frame view not provided:** it shows
+     "cannot be shown here" and offers no rows.

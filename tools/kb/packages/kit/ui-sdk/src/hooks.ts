@@ -19,10 +19,9 @@ import type { PageGraphState } from "./lib/page-graph";
 import type { Appearance, Prefs, ThemePref } from "./lib/theme";
 import { useNarrowViewport } from "./lib/viewport";
 import { browserHost, type BrowserHost } from "./host";
-import { isViewNode } from "@kb/model";
 import { type FrameViewKey, isFrameViewKey } from "@kb/views";
 import { familyViews, useContributions, ViewPoint } from "./lib/plugins";
-import { type FrameView, frameViewNodeIdOf, frameViewThrough } from "./lib/frame-view";
+import { type FrameView, frameViewNodeOf, frameViewThrough } from "./lib/frame-view";
 import type { FamilyView } from "./lib/view-key";
 
 /** What `read` answers of the host, re-read whenever the host changes. */
@@ -204,28 +203,16 @@ function useFrameViewKeys(): readonly FrameViewKey[] {
 
 /**
  * The view node `frame` shows its children through, live, read from the
- * schema (the whole graph, `frameViewNodeIdOf`): the store is read for that
+ * schema (the whole graph, `frameViewNodeOf`): the store is read for that
  * one node, so a host re-renders when its view node changes and not otherwise.
  */
 export function useFrameViewNode(frame: OutlineNode | undefined): OutlineNode | undefined {
-  return usePageGraph((s) => {
-    const schema = schemaOf(s);
-    const id = frameViewNodeIdOf(frame, schema);
-    return id === null ? undefined : schema.get(id);
-  });
+  return usePageGraph((s) => frameViewNodeOf(frame, schemaOf(s)) ?? undefined);
 }
 
 /** The view `frame` shows its children in, live (`frameViewOf`). */
 export function useFrameView(frame: OutlineNode | undefined): FrameView | null {
   const views = useFrameViewKeys();
   const viewNode = useFrameViewNode(frame);
-  return useMemo(
-    () =>
-      frameViewThrough(
-        frame,
-        viewNode !== undefined && isViewNode(viewNode) ? viewNode : null,
-        views,
-      ),
-    [frame, viewNode, views],
-  );
+  return useMemo(() => frameViewThrough(frame, viewNode ?? null, views), [frame, viewNode, views]);
 }

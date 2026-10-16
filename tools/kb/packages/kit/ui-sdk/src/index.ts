@@ -221,7 +221,6 @@ export {
   frameReport,
   type FrameView,
   frameViewLabelOf,
-  frameViewNodeIdOf,
   frameViewOf,
   frameViewThrough,
   getViewConfig,

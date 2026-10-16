@@ -153,6 +153,23 @@ describe("getViewConfig reporting", () => {
     ]);
   });
 
+  it("shows the list for a frame whose view node names no view, and says nothing", () => {
+    // A node in the frame's views with no `sys.f.view` is no view node: the
+    // frame has no frame view node, so it shows the list (`frameViewNodeOf`).
+    const bare = node("v.bare", { [SYSTEM_IDS.viewSortField]: [{ t: "str", v: "text" }] });
+    const frame = node("f", { [SYSTEM_IDS.viewsField]: [{ t: "ref", v: "v.bare" }] });
+    const schema = schemaOfGraph(wireToOutlineMap([frame, bare], new Set()));
+    expect(frameViewOf(frame, schema, FRAME_VIEWS)?.key.option).toBe("sys.view.outline.list");
+    expect(warned).toEqual([]);
+  });
+
+  it("shows the list for a frame that names no view node", () => {
+    const frame = node("f", {});
+    const schema = schemaOfGraph(wireToOutlineMap([frame], new Set()));
+    expect(frameViewOf(frame, schema, FRAME_VIEWS)?.key.option).toBe("sys.view.outline.list");
+    expect(warned).toEqual([]);
+  });
+
   it("reports a colwidth map holding anything that is not a width", () => {
     expect(
       getViewConfig({
