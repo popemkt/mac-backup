@@ -8,6 +8,8 @@ import {
   ancestorsOf,
   boxCorners,
   canvasMembership,
+  carriedBy,
+  freeItems,
   isWithin,
   withMembers,
   type CanvasDoc,
@@ -108,7 +110,7 @@ export function enterToward(
  */
 export function selectAll(doc: CanvasDoc, scope: CanvasScope = null): CanvasSelection {
   const membership = canvasMembership(doc.nodes);
-  const nodeIds = new Set(membership.membersOf(scopeIn(membership, scope)));
+  const nodeIds = freeItems(doc.nodes, membership.membersOf(scopeIn(membership, scope)));
   const carried = withMembers(doc.nodes, nodeIds);
   return {
     nodeIds,
@@ -174,7 +176,8 @@ export function addNodes(sel: CanvasSelection, ids: Set<string>): CanvasSelectio
  * Cascade: edges incident to deleted nodes are also removed.
  */
 export function deleteSelected(doc: CanvasDoc, sel: CanvasSelection): CanvasDoc {
-  const deadNodes = withMembers(doc.nodes, sel.nodeIds);
+  const { items, members } = carriedBy(doc.nodes, sel.nodeIds);
+  const deadNodes = new Set([...items, ...members].map((node) => node.id));
   const deadEdges = sel.edgeIds;
   return {
     ...doc,

@@ -222,6 +222,7 @@ function describeItems(
       ...(frame === null ? {} : { frame }),
       ...(node.rotation === undefined ? {} : { rotation: node.rotation }),
       ...(node.billboard === true ? { faces: "camera" as const } : {}),
+      ...(node.locked === true ? { locked: true as const } : {}),
     });
   }
   const peripheral = [...clusters].map(([frame, { count, kinds }]) => ({ frame, count, kinds }));

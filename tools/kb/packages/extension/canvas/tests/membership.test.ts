@@ -12,6 +12,7 @@ import {
   carriedBy,
   carriedPart,
   editItem,
+  freeItems,
   groupItems,
   motionOf,
   moveBy,
@@ -28,6 +29,7 @@ import {
   turnAbout,
   ungroupItems,
   viewpointFrames,
+  withFlag,
   withMembers,
   withParent,
   type CanvasDoc,
@@ -314,5 +316,52 @@ describe("⌘G and ⌘⇧G", () => {
     expect(both.released).toEqual(["a", "b"]);
     expect(byId(both.doc, "b")).not.toHaveProperty("parent");
     expect(ungroupItems(nested, ["a"]).doc).toBe(nested);
+  });
+});
+
+describe("a locked item", () => {
+  /** `nested` with the items `locked` names locked. */
+  const lockedIn = (...locked: string[]): CanvasDoc => ({
+    ...nested,
+    nodes: nested.nodes.map((n) => (locked.includes(n.id) ? withFlag(n, "locked", true) : n)),
+  });
+
+  test("is written only when set, and a value kb cannot read round-trips", () => {
+    const doc = parseCanvasDoc(stringifyCanvasDoc(lockedIn("a")));
+    expect(byId(doc, "a")?.locked).toBe(true);
+    expect(byId(doc, "loose")).not.toHaveProperty("locked");
+    const a = byId(doc, "a");
+    if (a !== undefined) expect(withFlag(a, "locked", false)).not.toHaveProperty("locked");
+    const odd = parseCanvasDoc({ nodes: [{ ...sticky("x", 0, 0), locked: "yes" }], edges: [] });
+    expect(odd.nodes[0]?.locked).toBeUndefined();
+    expect(JSON.parse(stringifyCanvasDoc(odd)).nodes[0].locked).toBe("yes");
+  });
+
+  test("is left out of what an act takes, but rides with a frame that holds it", () => {
+    const doc = lockedIn("a", "inner");
+    expect([...freeItems(doc.nodes, ["a", "inner", "loose", "ghost"])]).toEqual(["loose"]);
+    const named = carriedBy(doc.nodes, ["a", "inner", "loose"]);
+    expect(ids(named.items)).toEqual(["loose"]);
+    expect(ids(named.members)).toEqual([]);
+    const outer = carriedBy(doc.nodes, ["outer"]);
+    expect(ids(outer.members).toSorted()).toEqual(["a", "b", "inner"]);
+  });
+
+  test("is still copied, and an edit of a locked frame still carries what it holds", () => {
+    const doc = lockedIn("inner");
+    expect([...withMembers(doc.nodes, ["inner"])].toSorted()).toEqual(["b", "inner"]);
+    expect(ids(carriedPart(doc, ["inner"]).nodes)).toEqual(["inner", "b"]);
+    const inner = byId(doc, "inner");
+    if (inner === undefined) throw new Error("no inner");
+    const moved = editItem(doc, { ...inner, x: inner.x + 50 });
+    expect(byId(moved, "b")?.x).toBe(290);
+  });
+
+  test("is not grouped, nor taken apart", () => {
+    const doc = lockedIn("inner");
+    expect(ungroupItems(doc, ["inner"]).doc).toBe(doc);
+    const grouped = groupItems(doc, ["inner", "loose"], "g");
+    expect(byId(grouped, "loose")?.parent).toBe("g");
+    expect(byId(grouped, "inner")?.parent).toBe("outer");
   });
 });

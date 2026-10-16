@@ -189,6 +189,27 @@ test("a marquee drawn across the floor selects what it covers, read through the 
   expect(to(opened.state).selection?.nodeIds).toEqual(new Set([moving.id]));
 });
 
+describe("a locked item", () => {
+  const held: CanvasDoc = { nodes: [{ ...moving, locked: true }, guide], edges: [] };
+  /** A press `event` dragged to (400, 100) and on, over `held`. */
+  const drag = (event: CanvasPointerEvent, selection = selectNode(moving.id)) => {
+    const ctx = context(held, selection);
+    const move = { type: "pointer/move", screen: { x: 400, y: 100 }, shiftKey: false } as const;
+    const started = reduce(createPointerState(), event, ctx).state;
+    return reduce(reduce(started, move, ctx).state, move, ctx);
+  };
+  const at = { x: -10, y: -10 };
+
+  test("is neither dragged nor resized, nor gathered by a marquee", () => {
+    expect(drag({ type: "move/start", id: moving.id, screen: at }).doc).toBeUndefined();
+    expect(drag({ type: "resize/start", id: moving.id, corner: "se", screen: at }).doc).toBe(
+      undefined,
+    );
+    const marquee = drag({ type: "marquee/start", screen: at, additive: false }, EMPTY_SELECTION);
+    expect(marquee.selection?.nodeIds).toEqual(new Set([guide.id]));
+  });
+});
+
 test("the release persists the snapped position the drag showed", () => {
   const started = reduce(createPointerState(), {
     type: "move/start",

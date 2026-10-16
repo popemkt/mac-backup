@@ -36,6 +36,7 @@ export {
   canvasMembership,
   carriedBy,
   carriedPart,
+  freeItems,
   editItem,
   groupItems,
   isWithin,

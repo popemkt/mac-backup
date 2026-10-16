@@ -11,6 +11,7 @@ import {
   groupItems,
   moveBy,
   orderItems,
+  withFlag,
   parseCanvasDoc,
   pasteItems,
   selectionPivot,
@@ -223,6 +224,19 @@ function arrangeSelection(
   if (stringifyCanvasDoc(next) !== stringifyCanvasDoc(doc)) context.schedulePersist(next);
 }
 
+/** The selection's items locked, or all unlocked when every one of them is locked already. */
+function toggleLock(context: CanvasKeyboardContext): void {
+  const ids = context.selRef.current.nodeIds;
+  const doc = context.docRef.current;
+  const chosen = doc.nodes.filter((node) => ids.has(node.id));
+  if (chosen.length === 0) return;
+  const on = !chosen.every((node) => node.locked === true);
+  context.schedulePersist({
+    ...doc,
+    nodes: doc.nodes.map((node) => (ids.has(node.id) ? withFlag(node, "locked", on) : node)),
+  });
+}
+
 function chooseTool(context: CanvasKeyboardContext, tool: CanvasToolPick) {
   pickTool(tool, false, context);
 }
@@ -309,6 +323,7 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
     if (frame !== undefined) context.viewport.faceOn(frame);
   },
   present: (context, intent) => context.present(intent.act),
+  lock: toggleLock,
   order: (context, intent) =>
     arrangeSelection(context, (doc, ids) => orderItems(doc, ids, intent.order)),
   flip: (context, intent) =>

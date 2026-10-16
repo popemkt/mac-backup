@@ -58,6 +58,7 @@ describe("with something selected", () => {
     [chord("5", { code: "Numpad5" }), { type: "toggleLens" }],
     [chord("`", { code: "Backquote" }), { type: "viewMenu" }],
     [chord("?", { shiftKey: true }), { type: "shortcuts" }],
+    [chord("L", { shiftKey: true }), { type: "lock" }],
     [chord("h"), { type: "tool", tool: "hand" }],
     [chord("l"), { type: "tool", tool: "line" }],
     [chord("]", { code: "BracketRight" }), { type: "order", order: "front" }],

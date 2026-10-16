@@ -5,6 +5,7 @@ import {
   canvasTop,
   carriedBy,
   connectItems,
+  freeItems,
   selectionPivot,
   settleMembership,
   sideTerminal,
@@ -322,7 +323,7 @@ function startResize(
   ctx: PointerContext,
 ): PointerResult {
   const node = ctx.byId.get(event.id);
-  if (!node) return result(state);
+  if (!node || !freeItems(ctx.doc.nodes, [event.id]).has(event.id)) return result(state);
   return result({
     ...state,
     drag: {
@@ -612,7 +613,10 @@ function reduceMove(
       {
         selection: addNodes(
           drag.baseSel,
-          pickAllIn(ctx.membership, marqueeSelect(ctx.doc.nodes, marqueeRect), ctx.scope),
+          freeItems(
+            ctx.doc.nodes,
+            pickAllIn(ctx.membership, marqueeSelect(ctx.doc.nodes, marqueeRect), ctx.scope),
+          ),
         ),
       },
     );

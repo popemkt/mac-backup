@@ -60,6 +60,8 @@ export type CanvasIntent =
   | { type: "viewpoint"; id: string }
   /** Present mode: step through the canvas's frames, one viewpoint each. */
   | { type: "present"; act: PresentAct }
+  /** The selection locked where it is, or unlocked when all of it is locked. */
+  | { type: "lock" }
   /** The selection moved in the paint order (`orderItems`). */
   | { type: "order"; order: CanvasOrder }
   /** The selection mirrored (`flipItems`). */
@@ -433,6 +435,9 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
     needsSelection: "swallow",
   }),
   shortcut("Edit", "Duplicate", { type: "duplicate" }, [{ key: "d", mod: true }], {
+    needsSelection: "swallow",
+  }),
+  shortcut("Edit", "Lock or unlock", { type: "lock" }, [{ key: "l", shift: true }], {
     needsSelection: "swallow",
   }),
   arrange("Forward one step", { type: "order", order: "forward" }, [

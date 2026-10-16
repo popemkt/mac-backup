@@ -352,6 +352,23 @@ describe("ext.canvas.arrange", () => {
     expect(stored(ctx).nodes.find((n) => n.id === "b")).toMatchObject({ x: 300, y: 200 });
   });
 
+  test("a locked item is refused by every verb that changes it, and described as locked", async () => {
+    const ctx = await canvasKb([card("a", 0, 0, { locked: true }), card("b", 300, 200)]);
+    for (const [id, input] of [
+      ["arrange", { ids: ["a", "b"], layout: "row" }],
+      ["arrange", { ids: ["a"], flip: "x" }],
+      ["group", { ids: ["a", "b"] }],
+      ["place", { items: [{ move: "a", at: { x: 900, y: 900 } }] }],
+    ] as const) {
+      const receipt = await invoke(ctx, verb(id, input));
+      expect(receipt).toMatchObject({ status: "failed", code: "invalid_input" });
+      expect(receipt.status === "failed" ? receipt.message : "").toContain("a is locked");
+    }
+    expect(stored(ctx).nodes.find((n) => n.id === "a")).toMatchObject({ x: 0, y: 0 });
+    const described = output(await invoke(ctx, verb("describe", {})));
+    expect(JSON.stringify(described)).toContain('"locked":true');
+  });
+
   test("an arrangement is exactly one of a layout, an order or a flip", async () => {
     const ctx = await canvasKb([card("a", 0, 0), card("b", 300, 200)]);
     for (const input of [

@@ -82,6 +82,10 @@ const FLAG_ROWS: { readonly [F in CanvasItemFlag]: { label: string; hint: string
     label: "Face the camera",
     hint: "In 3D its face turns to you from any side, as a label does",
   },
+  locked: {
+    label: "Locked",
+    hint: "Held where it is: nothing drags, turns, arranges or deletes it (⇧L)",
+  },
 };
 
 /** One of the item's switches (`withFlag`), as a checkbox. */
@@ -208,6 +212,7 @@ export function ItemInspector({ item, anchor, onClose, onChange }: ItemInspector
         <OpacityRow item={item} onChange={onChange} />
         <HeightRow item={item} onChange={onChange} />
         <FlagRow item={item} flag="billboard" onChange={onChange} />
+        <FlagRow item={item} flag="locked" onChange={onChange} />
         {/* A flat billboard faces the camera whatever way it is turned. */}
         {!facesCamera(item) && <RotationRow item={item} onChange={onChange} />}
       </PopoverShell>

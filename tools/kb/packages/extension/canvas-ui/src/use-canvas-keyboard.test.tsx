@@ -496,6 +496,34 @@ describe("arranging the selection", () => {
   });
 });
 
+/** Which of a document's items are locked, in its order. */
+const lockedOf = (d: CanvasDoc | undefined) => d?.nodes.map((node) => node.locked === true);
+
+describe("locking", () => {
+  const held: CanvasDoc = {
+    ...doc,
+    nodes: doc.nodes.map((node) => (node.id === "a" ? { ...node, locked: true } : node)),
+  };
+  const both = { nodeIds: new Set(["a", "b"]), edgeIds: new Set<string>() };
+
+  test("⇧L locks the selection; with all of it locked, it unlocks", () => {
+    expect(lockedOf(press({ key: "L", shiftKey: true }).docs[0])).toEqual([true, false]);
+    const some = press({ key: "L", shiftKey: true }, both, false, { doc: held });
+    expect(lockedOf(some.docs[0])).toEqual([true, true]);
+    const all = press({ key: "L", shiftKey: true }, selectNode("a"), false, { doc: held });
+    expect(lockedOf(all.docs[0])).toEqual([false, false]);
+  });
+
+  test("a locked item is not nudged, deleted, or selected by ⌘A", () => {
+    const nudged = press({ key: "ArrowRight" }, both, false, { doc: held }).docs[0];
+    expect(nudged?.nodes.map((node) => node.x)).toEqual([0, 301]);
+    const deleted = press({ key: "Delete" }, both, false, { doc: held }).docs[0];
+    expect(deleted?.nodes.map((node) => node.id)).toEqual(["a"]);
+    const all = press({ key: "a", metaKey: true }, EMPTY_SELECTION, false, { doc: held });
+    expect(all.log).toEqual(["selection=b"]);
+  });
+});
+
 describe("groups and frames", () => {
   const group = { nodeIds: new Set(["a", "b"]), edgeIds: new Set<string>() };
 

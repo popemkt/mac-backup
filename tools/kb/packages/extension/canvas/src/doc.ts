@@ -112,6 +112,14 @@ interface CanvasNodeBase {
    */
   billboard?: boolean;
   /**
+   * Whether the item is held where it is: no act that takes items — a
+   * drag, a nudge, a turn or a scale, a resize, an arrangement, a group,
+   * delete — takes it, and neither a marquee nor select-all gathers it
+   * (`./membership.ts` `freeItems`). It is still pressed, inspected and
+   * unlocked, and rides with a frame that holds it. Written only when set.
+   */
+  locked?: boolean;
+  /**
    * How the item looks beyond its colour: its fill, outline, the size, face
    * and alignment of its words, and its opacity (`./style-fields.ts`; what
    * each means, and its default, `./style.ts`). Absent, every look is its
@@ -328,7 +336,15 @@ function parseKbLink(raw: unknown): KbLink | undefined {
 }
 
 /** An item's optional fields, every kind's: JSON Canvas's colour, then kb's. */
-type ItemField = ItemNumber | "rotation" | "color" | "nodeId" | "parent" | "billboard" | "style";
+type ItemField =
+  | ItemNumber
+  | "rotation"
+  | "color"
+  | "nodeId"
+  | "parent"
+  | "billboard"
+  | "locked"
+  | "style";
 
 const ITEM_FIELDS: FieldCodecs<CanvasNodeBase, ItemField> = {
   z: { read: finite },
@@ -338,6 +354,7 @@ const ITEM_FIELDS: FieldCodecs<CanvasNodeBase, ItemField> = {
   nodeId: { read: text },
   parent: { read: text },
   billboard: { read: bool },
+  locked: { read: bool },
   style: { read: parseStyleField, write: emitStyleField },
 };
 
@@ -649,7 +666,7 @@ export function withParent<N extends CanvasNode>(node: N, parent: string | undef
 }
 
 /** An item's switches: fields that are on or absent, never written `false`. */
-export type CanvasItemFlag = "billboard";
+export type CanvasItemFlag = "billboard" | "locked";
 
 /**
  * `node` with switch `flag` on or off: on, it is written `true`; off, the

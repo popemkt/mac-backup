@@ -1330,6 +1330,9 @@ open view of that canvas.
   ⌥W, ⌥V, ⌥S top, middles and bottom (⌥ letters match by physical key,
   since ⌥ makes another character of them on a Mac); ⌥⇧H and ⌥⇧V spread
   evenly; ⇧H and ⇧V flip. An arrangement that moves nothing writes nothing.
+  ⇧L locks the selection, or unlocks it when all of it is locked; the
+  inspector's Locked switch is the same field. A locked item is pressed and
+  inspected, but no drag, handle, key or marquee takes it (`freeItems`).
   H arms the hand, with which any press pans, as Space held does
   (`pressPans`). Both reach the camera through `CanvasViewportControls`:
   numpad 7 / 1 / 3 look from the top, front and right (⌃ for back and left;

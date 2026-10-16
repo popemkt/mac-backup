@@ -38,6 +38,7 @@ import {
   connectItems,
   describeCanvas,
   flipItems,
+  freeItems,
   groupItems,
   isGroupNode,
   itemBounds,
@@ -150,10 +151,18 @@ function placedOf(doc: CanvasDoc, ids: readonly string[]): z.infer<typeof Placed
 }
 
 /** The ids of `ids` that are not items of `doc`, refused in one message. */
+/** The items a verb changes: each on this canvas, and free to take (`freeItems`). */
 function requireItems(doc: CanvasDoc, ids: readonly string[]): void {
   const missing = ids.filter((id) => !doc.nodes.some((node) => node.id === id));
   if (missing.length > 0) {
     throw new CanvasRelationError(`no item ${missing.join(", ")} on this canvas`);
+  }
+  const free = freeItems(doc.nodes, ids);
+  const locked = ids.filter((id) => !free.has(id));
+  if (locked.length > 0) {
+    throw new CanvasRelationError(
+      `${locked.join(", ")} is locked; unlock it (locked: false, through tx.apply) to change it`,
+    );
   }
 }
 
@@ -178,6 +187,7 @@ const DescribedItemSchema = z.object({
   frame: z.string().optional(),
   rotation: z.object({ x: z.number(), y: z.number(), z: z.number() }).partial().optional(),
   faces: z.literal("camera").optional(),
+  locked: z.literal(true).optional().describe("held where it is: no verb moves it until unlocked"),
   color: z.string().optional().describe("its colour: a palette name, or as written"),
   style: LooksSchema.optional().describe("the looks it draws that are not its kind's defaults"),
 });

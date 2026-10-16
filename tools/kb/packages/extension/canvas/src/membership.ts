@@ -108,20 +108,31 @@ function membersBelow(membership: CanvasMembership, groups: Iterable<string>): s
 }
 
 /**
- * What an act on some items carries: the items it names, the lead first —
- * those of them no other of them holds — and every member below them,
- * which follows them.
+ * The items among `ids` that an act may take: those on the canvas that are
+ * not locked. Every act that takes items by name or by selection — a
+ * transform, an arrangement, a group or ungroup, delete, a marquee,
+ * select-all — asks this, and only this, what a lock holds back.
+ */
+export function freeItems(nodes: readonly CanvasNode[], ids: Iterable<string>): Set<string> {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  return new Set([...ids].filter((id) => byId.has(id) && byId.get(id)?.locked !== true));
+}
+
+/**
+ * What an act on some items carries: the items it names that it may take
+ * (`freeItems`), the lead first — those of them no other of them holds —
+ * and every member below them, which follows them, locked or not.
  */
 export interface CanvasCarried {
   readonly items: readonly CanvasNode[];
   readonly members: readonly CanvasNode[];
 }
 
-/** What naming `ids` carries on a canvas of `nodes` (ids it does not hold are left out). */
+/** What an act naming `ids` carries on a canvas of `nodes` (ids it may not take are left out). */
 export function carriedBy(nodes: readonly CanvasNode[], ids: Iterable<string>): CanvasCarried {
   const membership = canvasMembership(nodes);
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const named = new Set([...ids].filter((id) => byId.has(id)));
+  const named = freeItems(nodes, ids);
   const items = [...named]
     .filter((id) => !ancestorsOf(membership, id).some((group) => named.has(group)))
     .flatMap((id) => byId.get(id) ?? []);
@@ -132,10 +143,14 @@ export function carriedBy(nodes: readonly CanvasNode[], ids: Iterable<string>): 
   return { items, members };
 }
 
-/** The ids `ids` carry: themselves and every member below them. */
+/**
+ * The ids `ids` hold: those on the canvas and every member below them,
+ * locked or not — what a copy takes, not what an act moves (`carriedBy`).
+ */
 export function withMembers(nodes: readonly CanvasNode[], ids: Iterable<string>): Set<string> {
-  const { items, members } = carriedBy(nodes, ids);
-  return new Set([...items, ...members].map((node) => node.id));
+  const on = new Set(nodes.map((node) => node.id));
+  const named = [...ids].filter((id) => on.has(id));
+  return new Set([...named, ...membersBelow(canvasMembership(nodes), named)]);
 }
 
 /**
@@ -163,8 +178,14 @@ export function editItem(doc: CanvasDoc, after: CanvasNode): CanvasDoc {
   const written = { ...doc, nodes: doc.nodes.map((node) => (node.id === after.id ? after : node)) };
   const motion = motionBetween(before, after);
   if (isStill(motion)) return written;
-  const { members } = carriedBy(doc.nodes, [after.id]);
-  return transformItems(written, members, motion);
+  // An edit writes the record it is given, locked or not; what it holds follows.
+  const held = withMembers(doc.nodes, [after.id]);
+  held.delete(after.id);
+  return transformItems(
+    written,
+    doc.nodes.filter((node) => held.has(node.id)),
+    motion,
+  );
 }
 
 /** How much of the floor a footprint covers, canvas units squared. */
@@ -287,7 +308,7 @@ export function ungroupItems(
   ids: Iterable<string>,
 ): { readonly doc: CanvasDoc; readonly released: readonly string[] } {
   const membership = canvasMembership(doc.nodes);
-  const gone = new Set([...ids].filter((id) => membership.isGroup(id)));
+  const gone = new Set([...freeItems(doc.nodes, ids)].filter((id) => membership.isGroup(id)));
   if (gone.size === 0) return { doc, released: [] };
   /** Where an item of a group that goes now belongs: the first group above that stays. */
   const home = (id: string): string | undefined =>

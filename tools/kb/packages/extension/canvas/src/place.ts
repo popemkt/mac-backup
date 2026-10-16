@@ -14,10 +14,10 @@ import { boxFrame, boxToWorld, type CanvasBounds, type CanvasVec } from "./box.t
 import { isGroupNode, withElevation, type CanvasDoc, type CanvasNode } from "./doc.ts";
 import {
   canvasMembership,
-  carriedBy,
   editItem,
   faceHolds,
   settleMembership,
+  withMembers,
 } from "./membership.ts";
 import { coversFromAbove } from "./pick.ts";
 import { placedOnFace } from "./presets.ts";
@@ -237,8 +237,8 @@ export function placeItem(
   const origin = doc.nodes.find((node) => node.id === item.id) ?? null;
   const start = origin === null ? { ...doc, nodes: [...doc.nodes, item] } : doc;
   const record = origin ?? item;
-  const { items, members } = carriedBy(start.nodes, [record.id]);
-  const carried = new Set([...items, ...members].map((node) => node.id));
+  // What it holds moves with it; a placement names its item, as an edit does.
+  const carried = withMembers(start.nodes, [record.id]);
   const target = targetOf(where);
   if (target !== null && carried.has(target)) {
     throw new CanvasRelationError(`${record.id} cannot be placed by ${target}, which it carries`);
