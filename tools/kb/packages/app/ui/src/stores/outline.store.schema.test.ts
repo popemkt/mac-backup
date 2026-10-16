@@ -18,7 +18,7 @@ import {
 } from "@kb/ui-sdk";
 import { backlinkRows } from "@/lib/backlinks";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
@@ -81,10 +81,9 @@ describe("schema lookups under an ontology scope", () => {
   });
 
   it("the projection holds members only; the schema holds the whole graph", () => {
-    const s = useOutlineStore.getState();
     const graph = useGraphStore.getState();
-    expect(s.nodes.has("f.status")).toBe(false);
-    expect(s.nodes.has(TAG)).toBe(false);
+    expect(outlineNodes().has("f.status")).toBe(false);
+    expect(outlineNodes().has(TAG)).toBe(false);
     expect(schemaOf(graph).has("f.status")).toBe(true);
     // A schema is one object per snapshot: leaving the scope, or expanding
     // and collapsing, does not make a new one (memos keyed on it survive).
@@ -96,7 +95,6 @@ describe("schema lookups under an ontology scope", () => {
   });
 
   it("an option set, its display and its allowed refs resolve as unscoped", () => {
-    const s = useOutlineStore.getState();
     const graph = useGraphStore.getState();
     const schema = schemaOf(graph);
     const field = schema.get("f.status");
@@ -113,12 +111,12 @@ describe("schema lookups under an ontology scope", () => {
     );
     expect(allowed === null ? null : [...allowed].toSorted()).toEqual(["opt.done", "opt.open"]);
     // The member's field row is named from the field node, not its raw id.
-    const member = present(s.nodes.get("n.a"), "member n.a");
+    const member = present(outlineNodes().get("n.a"), "member n.a");
     expect(resolveProps(member, schema).map((p) => p.fieldName)).toEqual(["status"]);
   });
 
   it("a member's tag chip names its non-member tag", () => {
-    const member = present(useOutlineStore.getState().nodes.get("n.a"), "member n.a");
+    const member = present(outlineNodes().get("n.a"), "member n.a");
     expect(member.tags.map((t) => [t.id, t.name])).toEqual([[TAG, "service"]]);
   });
 
@@ -130,9 +128,8 @@ describe("schema lookups under an ontology scope", () => {
   });
 
   it("a member parented by a non-member field hangs off the ontology in the breadcrumbs", () => {
-    const s = useOutlineStore.getState();
     const graph = useGraphStore.getState();
-    expect(s.nodes.get("n.opt")?.parentId).toBe("o.1");
+    expect(outlineNodes().get("n.opt")?.parentId).toBe("o.1");
     graph.zoomTo("n.opt");
     const crumbs = useOutlineStore.getState().getBreadcrumbs();
     expect(crumbs.map((c) => c.id)).not.toContain("f.list");
@@ -151,9 +148,8 @@ describe("a contextual reference under a scope", () => {
     ];
     useGraphStore.getState().hydrateFromWire(graph, 1, "fixtures");
     useGraphStore.getState().setOntologyScope("o.1");
-    const s = useOutlineStore.getState();
-    expect(s.nodes.has("n.far")).toBe(false);
-    const ref = present(s.nodes.get("n.ref"), "member reference");
+    expect(outlineNodes().has("n.far")).toBe(false);
+    const ref = present(outlineNodes().get("n.ref"), "member reference");
     expect(rowText(ref, schemaOf(useGraphStore.getState()))).toBe("far away");
   });
 });
@@ -167,9 +163,8 @@ describe("a member's backlinks under a scope", () => {
     ];
     useGraphStore.getState().hydrateFromWire(graph, 1, "fixtures");
     useGraphStore.getState().setOntologyScope("o.1");
-    const s = useOutlineStore.getState();
     const g = useGraphStore.getState();
-    expect(s.nodes.has("n.pointer")).toBe(false);
+    expect(outlineNodes().has("n.pointer")).toBe(false);
     const rows = backlinkRows(g.index, schemaOf(g), "n.a");
     expect(rows.find((r) => r.id === "n.pointer")?.text).toBe("alpha");
   });
@@ -208,7 +203,7 @@ describe("transient prune reads content, not template slots", () => {
 
   it("a blank node tagged with a templating supertag prunes on blur", () => {
     const id = transient({ [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.task" }] });
-    expect(useOutlineStore.getState().nodes.has(id)).toBe(false);
+    expect(outlineNodes().has(id)).toBe(false);
   });
 
   it("a blank node holding a value in a hidden field is kept", () => {
@@ -216,7 +211,7 @@ describe("transient prune reads content, not template slots", () => {
       [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.task" }],
       "f.secret": [{ t: "str", v: "keep me" }],
     });
-    expect(useOutlineStore.getState().nodes.has(id)).toBe(true);
+    expect(outlineNodes().has(id)).toBe(true);
   });
 });
 
@@ -225,8 +220,7 @@ describe("an unscoped schema", () => {
     useGraphStore.getState().hydrateFromWire(wire(), 1, "fixtures");
     const before = schemaOf(useGraphStore.getState());
     useOutlineStore.getState().toggleCollapse("n.a");
-    const after = useOutlineStore.getState();
-    expect(after.nodes).not.toBe(before);
+    expect(outlineNodes()).not.toBe(before);
     expect(schemaOf(useGraphStore.getState())).toBe(before);
   });
 });

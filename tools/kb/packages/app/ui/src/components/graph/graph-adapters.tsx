@@ -9,7 +9,7 @@ import type {
   TreeView,
 } from "@kb/views";
 import { GRAPH_THEMES } from "./graph-themes";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineNodes } from "@/stores/outline.store";
 import { SigmaGraph } from "./sigma-graph";
 import { ClusterGraph } from "./cluster-graph";
 import { TreeGraph } from "./tree-graph";
@@ -132,7 +132,8 @@ export function ClusterAdapter({
  */
 function useOutlineBullets(nodes: LensNode[], theme: LensTheme): LensNode[] {
   const drawsBullets = GRAPH_THEMES[theme].form === "bullet";
-  const outline = useOutlineStore((s) => (drawsBullets ? s.nodes : null));
+  const rows = useOutlineNodes();
+  const outline = drawsBullets ? rows : null;
   return useMemo(
     () =>
       outline === null

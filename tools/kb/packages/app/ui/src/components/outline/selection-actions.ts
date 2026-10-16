@@ -21,7 +21,7 @@ import {
 } from "@kb/ui-sdk";
 import type { SelectionKeyAction } from "@/lib/selection-keymap";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore } from "@/stores/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { enterFields } from "@/lib/value-slot-nav";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;
@@ -40,7 +40,7 @@ function scrollRowIntoView(nodeId: string): void {
 
 function selectParent({ nodeId }: ActionOf<"selectParent">): void {
   const store = useOutlineStore.getState();
-  const parent = store.nodes.get(nodeId)?.parentId ?? null;
+  const parent = outlineNodes().get(nodeId)?.parentId ?? null;
   if (parent === null) return;
   store.selectNode(parent);
   scrollRowIntoView(parent);
@@ -48,8 +48,7 @@ function selectParent({ nodeId }: ActionOf<"selectParent">): void {
 
 /** The children a row shows — its shown node's (`lib/contextual-ref`). */
 function shownChildren(nodeId: string): readonly string[] {
-  const store = useOutlineStore.getState();
-  const node = store.nodes.get(nodeId);
+  const node = outlineNodes().get(nodeId);
   return node ? shownNode(node, schemaOf(useGraphStore.getState())).children : [];
 }
 
@@ -63,7 +62,7 @@ function selectFirstChild({ nodeId, instanceKey }: ActionOf<"selectFirstChild">)
 
 /** 'o': directly below = first child when expanded, else next sibling (D07). */
 function createAfter({ nodeId }: ActionOf<"createAfter">): void {
-  const node = useOutlineStore.getState().nodes.get(nodeId);
+  const node = outlineNodes().get(nodeId);
   const expanded = Boolean(node && !node.collapsed && shownChildren(nodeId).length > 0);
   if (node && expanded) {
     // Under the node the row shows: a reference's first child is its target's.
@@ -84,7 +83,7 @@ function append({ nodeId, instanceKey, char }: ActionOf<"append">): void {
 
 /** Open the page of the node the row shows — a reference's original. */
 function zoom({ nodeId }: ActionOf<"zoom">): void {
-  const node = useOutlineStore.getState().nodes.get(nodeId);
+  const node = outlineNodes().get(nodeId);
   useGraphStore.getState().zoomTo(node ? shownNodeId(node) : nodeId);
 }
 

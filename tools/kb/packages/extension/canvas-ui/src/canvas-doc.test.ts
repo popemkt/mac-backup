@@ -1,10 +1,10 @@
 import {
   clearAllowedRefIdsCache,
-  schemaOf,
   SYSTEM_IDS,
   type NodeMap,
   type OutlineNode,
   type SchemaIndex,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { describe, expect, test } from "vitest";
 import {
@@ -26,7 +26,7 @@ import {
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+  return schemaOfGraph(nodes);
 }
 
 /** An outline node with nothing but an id, a text and props. */

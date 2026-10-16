@@ -16,7 +16,7 @@ import { resolveRowChrome } from "@/lib/row-chrome";
 import { useUiStore } from "@/stores/ui.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { useGraphRead } from "@/stores/graph-read";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { mutations } from "@/actions/mutations";
 
@@ -227,7 +227,7 @@ export const NodeBlock = memo(function NodeBlock({
  */
 function CreateChildStrip({ parentId, depth }: { parentId: string; depth: number }) {
   const handleCreateChild = useCallback(() => {
-    const parent = useOutlineStore.getState().nodes.get(parentId);
+    const parent = outlineNodes().get(parentId);
     const lastChild = parent?.children.at(-1) ?? null;
     void mutations.createTransientNode(parentId, lastChild);
   }, [parentId]);

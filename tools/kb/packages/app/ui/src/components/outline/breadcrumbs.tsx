@@ -2,7 +2,7 @@ import { useContext, useMemo } from "react";
 import { CaretRightIcon, HouseIcon } from "@phosphor-icons/react";
 import { cn, OpenNodeContext, WORKSPACE_ROOT_ID, type NodeMap } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, useOutlineNodes } from "@/stores/outline.store";
 
 /** The path from home down to `root`, home left out: a rooted outline's crumbs. */
 function pathTo(root: string, nodes: NodeMap): Array<{ id: string; text: string }> {
@@ -29,7 +29,7 @@ export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
   const rootNodeId = root ?? zoomRoot;
   // getBreadcrumbs builds a fresh array; selecting it directly makes the
   // uSES snapshot unstable (infinite rerender). Derive it with useMemo.
-  const nodes = useOutlineStore((s) => s.nodes);
+  const nodes = useOutlineNodes();
   const crumbs = useMemo(
     () => (root === undefined ? useOutlineStore.getState().getBreadcrumbs() : pathTo(root, nodes)),
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- getBreadcrumbs is read off getState(), so its real inputs are named here by hand

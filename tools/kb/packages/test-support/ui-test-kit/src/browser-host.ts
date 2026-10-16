@@ -14,7 +14,7 @@ import {
   appearanceOf,
   BrowserHostService,
   refInkOf,
-  schemaOf,
+  schemaOfGraph,
   type BrowserHost,
   type CaretIntent,
   type NodeMap,
@@ -72,10 +72,9 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     for (const listener of listeners) listener();
   };
   let nodes: NodeMap = new Map();
-  // A schema is one object per graph: `schemaOf` caches by the wire list's identity.
-  let wire: readonly WireNode[] = [];
+  // A schema is one object per graph: the node map the host holds is the whole graph.
   let schema: SchemaIndex | null = null;
-  const schemaNow = () => (schema ??= schemaOf({ ontologyId: null, nodes, wireNodes: wire }));
+  const schemaNow = () => (schema ??= schemaOfGraph(nodes));
   let active: ActiveNode | null = null;
   let caret: CaretIntent | null = null;
   const held = new Map<string, HeldReport & { readonly owner: symbol }>();
@@ -83,7 +82,6 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
   const host: TestBrowserHost = {
     setNodes: (next) => {
       nodes = new Map([...next].map((node) => [node.id, node]));
-      wire = [];
       schema = null;
       notify();
     },

@@ -23,7 +23,7 @@ import { SceneGestures, type SceneGestureHost, type ScenePress } from "./canvas-
 
 export interface Canvas3dStageProps {
   readonly doc: CanvasDoc;
-  readonly nodes: Map<string, OutlineNode>;
+  readonly nodes: ReadonlyMap<string, OutlineNode>;
   readonly selection: CanvasSelection;
   readonly rig: CanvasCameraRig;
   readonly appearance: Appearance;

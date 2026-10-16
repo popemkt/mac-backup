@@ -3,7 +3,7 @@ import type { GraphSnapshot } from "@kb/contracts";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { outlineNodes } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { createLiveClient } from "./live";
 import { FakeWsSocket } from "@/test-support/ws";
@@ -96,7 +96,7 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     await deliver(socket, { op: "tx", rev: 2, upserts: [arrived], deletes: [] });
     await deliver(socket, { op: "tx", rev: 3, upserts: [], deletes: [] });
     expect(useGraphStore.getState().rev).toBe(3);
-    expect(useOutlineStore.getState().nodes.has("n.from-since")).toBe(true);
+    expect(outlineNodes().has("n.from-since")).toBe(true);
     expect(fetchStub.calls).toEqual([]);
     client.disconnect();
   });
@@ -140,7 +140,7 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     await deliver(socket, { op: "snapshot-required", head: 5 });
     expect(fetchStub.calls).toEqual(["/api/graph"]);
     await until(() => useGraphStore.getState().rev === 5);
-    expect(useOutlineStore.getState().nodes.has("n.from-resync")).toBe(true);
+    expect(outlineNodes().has("n.from-resync")).toBe(true);
     client.disconnect();
   });
 
@@ -181,8 +181,8 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     await deliver(socket, { op: "hello", rev: 1 });
 
     let updates = 0;
-    const unsubscribe = useOutlineStore.subscribe((s, prev) => {
-      if (s.nodes !== prev.nodes) updates += 1;
+    const unsubscribe = useGraphStore.subscribe((s, prev) => {
+      if (s.wireNodes !== prev.wireNodes) updates += 1;
     });
     socket.deliver({ op: "tx", rev: 2, upserts: [burstNode(2)], deletes: [] });
     socket.deliver({ op: "tx", rev: 3, upserts: [burstNode(3)], deletes: [] });
@@ -191,7 +191,7 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     await nextFrame();
     expect(updates).toBe(1);
     expect(useGraphStore.getState().rev).toBe(4);
-    expect(useOutlineStore.getState().nodes.has("n.burst-4")).toBe(true);
+    expect(outlineNodes().has("n.burst-4")).toBe(true);
     unsubscribe();
     client.disconnect();
   });

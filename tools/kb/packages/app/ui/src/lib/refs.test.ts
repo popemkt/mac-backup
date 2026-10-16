@@ -6,6 +6,7 @@ import {
   refUses,
   SYSTEM_IDS,
   type NodeMap,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { stubOutlineNode } from "@/catalog/fixtures";
 
@@ -47,7 +48,7 @@ const nodes: NodeMap = new Map([
     }),
   ],
 ]);
-const context = fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index: null });
+const context = fieldContextOf({ schema: schemaOfGraph(nodes), nodes, index: null });
 
 describe("where a picker mints a new target", () => {
   it("an option goes under its field; a tagged field's target carries the tag", () => {

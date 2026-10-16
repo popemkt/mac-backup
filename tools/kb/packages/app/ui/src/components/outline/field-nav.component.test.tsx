@@ -17,7 +17,7 @@ import {
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { NodeBlock } from "./node-block";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 
@@ -55,7 +55,7 @@ const GRAPH: WireNode[] = [
   }),
 ];
 
-const keyOf = (id: string) => outlineInstanceKey(id, useOutlineStore.getState().nodes);
+const keyOf = (id: string) => outlineInstanceKey(id, outlineNodes());
 
 async function settle(rounds = 4): Promise<void> {
   for (let i = 0; i < rounds; i += 1) {
@@ -163,9 +163,7 @@ describe("field values in the outline's keyboard path", () => {
     const alpha = await editRow("n.a", 5);
     await press(alpha, "ArrowDown");
     await press(present(focused(), "first value"), "Backspace");
-    expect(useOutlineStore.getState().nodes.get("n.a")?.props["f.note"]).toEqual([
-      { t: "str", v: "two" },
-    ]);
+    expect(outlineNodes().get("n.a")?.props["f.note"]).toEqual([{ t: "str", v: "two" }]);
     expect(focused()?.textContent).toBe("two");
   });
 

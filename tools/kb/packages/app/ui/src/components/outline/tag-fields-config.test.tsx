@@ -3,7 +3,13 @@
  * existed and were tested, but no component called them, so the CLI was the
  * only path. These lock the affordance and its reuse rule in place.
  */
-import { schemaOf, SYSTEM_IDS, type NodeMap, type OutlineNode, type SchemaIndex } from "@kb/ui-sdk";
+import {
+  SYSTEM_IDS,
+  type NodeMap,
+  type OutlineNode,
+  type SchemaIndex,
+  schemaOfGraph,
+} from "@kb/ui-sdk";
 import { describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
@@ -32,7 +38,7 @@ function schemaFor(graph: ReadonlyMap<string, TestNode>): SchemaIndex {
       },
     ]),
   );
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+  return schemaOfGraph(nodes);
 }
 
 const nodes = new Map<string, TestNode>([

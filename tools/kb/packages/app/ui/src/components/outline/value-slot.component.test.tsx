@@ -20,6 +20,7 @@ import {
   type FollowTarget,
   type NodeMap,
   type PropValue,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { FieldValueStack } from "./fields-section";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -28,12 +29,8 @@ import { stubOutlineNode } from "@/catalog/fixtures";
 import { formatNumber, numberEditText } from "@/lib/number-format";
 import { ValueSlot } from "./value-slot";
 
-const context = fieldContextOf({
-  ontologyId: null,
-  nodes: new Map() as NodeMap,
-  wireNodes: [],
-  index: null,
-});
+const noNodes: NodeMap = new Map();
+const context = fieldContextOf({ schema: schemaOfGraph(noNodes), nodes: noNodes, index: null });
 
 describe("ValueSlot gestures", () => {
   let dom: InstalledDom;
@@ -170,7 +167,7 @@ describe("ValueSlot follows like a link", () => {
   const nodes: NodeMap = new Map([
     ["n.target", stubOutlineNode({ id: "n.target", text: "Target one" })],
   ]);
-  const refContext = fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index: null });
+  const refContext = fieldContextOf({ schema: schemaOfGraph(nodes), nodes, index: null });
 
   beforeAll(() => {
     dom = installDomGlobals();
@@ -579,10 +576,10 @@ describe("a checkbox value", () => {
     text: "done",
     props: { [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("checkbox")] },
   });
+  const boxNodes: NodeMap = new Map([["f.done", boxField]]);
   const boxContext = fieldContextOf({
-    ontologyId: null,
-    nodes: new Map([["f.done", boxField]]),
-    wireNodes: [],
+    schema: schemaOfGraph(boxNodes),
+    nodes: boxNodes,
     index: null,
   });
 
@@ -676,10 +673,10 @@ describe("an option value is a chip", () => {
     },
   ];
   // The option set is the field's children, a declaration resolved by query.
+  const optionNodes = wireToOutlineMap(optionWire, new Set());
   const optionContext = fieldContextOf({
-    ontologyId: null,
-    nodes: wireToOutlineMap(optionWire, new Set()),
-    wireNodes: [],
+    schema: schemaOfGraph(optionNodes),
+    nodes: optionNodes,
     index: new DatascriptIndex(optionWire),
   });
 

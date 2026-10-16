@@ -30,7 +30,12 @@ import {
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore } from "@/stores/outline.store";
+import {
+  outlineSource,
+  useOutlineStore,
+  outlineNodes,
+  useOutlineNode,
+} from "@/stores/outline.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -54,17 +59,17 @@ interface Mods {
 
 function Host({ nodeId, instanceKey }: { nodeId: string; instanceKey: string }) {
   // Subscribed so the host re-renders as the store changes, the way a row does.
-  useOutlineStore((s) => s.nodes.get(nodeId));
+  useOutlineNode(nodeId);
   const onKeyDown = useNodeKeyDown({ nodeId, instanceKey });
   return <div data-editor="true" contentEditable onKeyDown={onKeyDown} />;
 }
 
 function keyOf(nodeId: string): string {
-  return outlineInstanceKey(nodeId, useOutlineStore.getState().nodes);
+  return outlineInstanceKey(nodeId, outlineNodes());
 }
 
 function node(id: string) {
-  return useOutlineStore.getState().nodes.get(id);
+  return outlineNodes().get(id);
 }
 
 /**

@@ -10,7 +10,7 @@ import {
   syncUiPlugins,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 
@@ -28,7 +28,7 @@ describe("render-instance identity", () => {
   beforeEach(seed);
 
   it("builds distinct keys for outline vs query-result instances", () => {
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     const treeKey = outlineInstanceKey("n.root-a", nodes);
     const refKey = queryResultInstanceKey("n.q1", "n.root-a");
     expect(treeKey).toBe("tree/n.root-a");
@@ -40,7 +40,7 @@ describe("render-instance identity", () => {
   it("reads query-result-ness from the key: the result row, not its descendants", () => {
     const result = queryResultInstanceKey("n.q1", "n.root-a");
     const nested = childInstanceKey(result, "n.child-a1");
-    const tree = outlineInstanceKey("n.root-a", useOutlineStore.getState().nodes);
+    const tree = outlineInstanceKey("n.root-a", outlineNodes());
     expect(isQueryResultInstance(result)).toBe(true);
     expect(isQueryResultInstance(nested)).toBe(false);
     expect(isQueryResultInstance(tree)).toBe(false);

@@ -85,24 +85,71 @@ queue (`01M43DRVEQY02RTSX3XYWB8TG1`), one child per step.
   (`wireNodes`, `index`, `rev`, `loadSource`, `loadError`; `hydrateFromWire`,
   `applyTx`, `syncFromIndex`, `refreshFromWire`), the write history
   (`undoStack`/`redoStack`, `recordUndo`/`applyUndo`/`applyRedo`), the zoom
-  (`rootNodeId`, `homeRootId`, `setRootNodeId`, `zoomTo`, `zoomHome`), the
+  (`rootNodeId`, `homeRootId`, `zoomTo`, `zoomHome`), the
   ontology scope (`ontologyId`, `ontologyMembers`, `ontologyWarnings`,
   `preScopeRootId`, `setOntologyScope`, `reach`), `search`, and
-  `scopedWireOf`, the one statement of what a scope shows. The schema is a
-  function of this store's snapshot (`schemaOf(useGraphStore.getState())`).
-- **Outline: `stores/outline.store.ts` (`useOutlineStore`).** The projection
-  (`nodes`, with expansion), the active and selected row and instance, the
-  caret hand-off, `focusSeq`/`focusX`, transient rows, `framePages`,
-  `frameViews`, collapse and expand, the visible-instance walk, breadcrumbs,
-  `jumpToNode`, and the text-host registry.
+  `scopedWireOf`, the one statement of what a scope shows (`inScope` answers
+  for exactly the ids a projection of it holds; `graph.store.test.ts` checks
+  that). The schema is built from this store's snapshot alone,
+  `schemaOf(useGraphStore.getState())`, once per snapshot. A fixture's
+  whole-graph node map is its own schema through a constructor of its own,
+  `schemaOfGraph`, so no caller decides what a snapshot's schema is.
+  `schemaOfGraph` refuses a scope's projection: `wireToOutlineMap` marks a
+  map it built that lacks a node of its graph, by content, so the one cast
+  stays checked.
+- **Outline: `stores/outline.store.ts` (`useOutlineStore`).** What is the
+  editor's own: `expansion` (the rows the reader opened or closed), the
+  active and selected row and instance, the caret hand-off,
+  `focusSeq`/`focusX`, transient rows, `framePages`, `frameViews`, collapse
+  and expand, the visible-instance walk, breadcrumbs, `jumpToNode`, and the
+  text-host registry.
+- **The rows are derived, not stored.** `outlineNodes()` is what the page
+  shows of the graph store's snapshot at default collapse (the schema, or
+  under a scope the scope's own projection) read through `expansion`
+  (`withExpansion`, a view that builds no map). Components read it with
+  `useOutlineNodes()`/`useOutlineNode(id)` over both stores. There is one
+  copy of the graph, so no reader can see rows of one snapshot beside
+  another. A snapshot builds one map: the schema, or the scope's projection
+  (`outline.store.builds.test.ts` counts every `wireToOutlineMap` call,
+  reads included). A row keeps its object while what it shows is unchanged:
+  the schema's object, or one open/closed object per schema node.
 - **The bridge.** Core names no projection. It defines one port,
-  `EditingProjection` (`derive`, `leave`, `arrive`), and the outline installs
-  itself into it. `derive` runs before the graph store publishes a move, so no
-  reader sees a graph alongside a projection of an older one. `leave` prunes
+  `EditingProjection` (`follow`, `leave`, `arrive`), and tells it of a move
+  **before** it moves, in one `set`. `follow` keeps the editor's own state:
+  focus that still has a row, transients, and the expansion (a row shown
+  open stays open when the move gives it children or fields). `leave` prunes
   an empty transient before the page moves, and `arrive` lands the selection
-  after. A projection installed after a load derives at once. As the outline
-  projects a snapshot, it hands its unscoped projection to `schemaOf` (whose
-  `nodes` is now optional), so no second map is built per snapshot.
+  at the root the page is moving to. Told first, the outline moves to a state
+  valid against both graph states, so a reader told in between sees nothing
+  out of step. `graph.store.test.ts` (with a stand-in projection) and
+  `outline.store.test.ts` (with the outline) pin each notification. The
+  outline plugin installs the outline's projection (`outlineProjection`)
+  while it is loaded and withdraws it on unload, beside the frame-views port,
+  so at O3 the wiring moves with the plugin as it is. One installed after a
+  load follows it as a fresh load, so a reinstalled outline reads its
+  expansion from storage again; installing the one already installed does
+  nothing. While the plugin is unloaded the rows still follow the graph, and
+  the editor's own state stays where it was.
+- **Why derivation, not batching.** Round 2 stored the projection and hid
+  its lag behind a batching layer that held store notifications for a move
+  (`publication.ts`). Each review found another edge in it: unbounded drain,
+  per-store arguments, liveness, nested throws. The lag existed only because
+  the outline kept a copy. Reading the rows from the graph removes the copy,
+  so the layer is deleted, and plain zustand notification is the only rule:
+  each store tells its listeners at each write. Undo and redo are single
+  writes to the graph store, so the rule covers them as it is.
+- **`jumpToNode` checks before it moves.** It expands the target's ancestors,
+  then checks that the row shows under the zoom or else at home, and only
+  then goes home through `zoomHome`. A row no outline shows leaves the page
+  where it was. When the target is the row being edited, the page stays put,
+  so going home never prunes the row the jump is going to. `setRootNodeId`
+  is gone.
+- **Behaviour that changed, deliberately.** Expansion is now the editor's
+  own state rather than something read back off the stored rows. It follows
+  from that, not from a new rule, that a row the reader closed stays closed
+  across graph moves even when it defaults to open; before, the next move
+  reopened it. Expansion that another tab wrote to storage is no longer
+  merged in on every transaction. It is read at load, as before.
 
 Decisions taken from how code outside the outline uses each member:
 
@@ -123,6 +170,12 @@ Decisions taken from how code outside the outline uses each member:
   only the outline draws breadcrumbs.
 - **Undo history is core.** Its entries are action-invocation pairs, and
   nothing in them is outline-specific.
+- **Tests follow the split.** `graph.store.test.ts` owns the core: the
+  replica, zoom, scope (including restoring `preScopeRootId`), search, the
+  write history and the projection port. The graph halves of the old outline
+  store tests moved there, and their outline halves stay in
+  `outline.store*.test.ts`. A graph-only reset (`resetGraphStore`) goes
+  through `replaceGraph`, a load the projection derives from.
 - **Pruning a transient is a graph write.** It goes through `applyTx` like
   every other write, rather than a second write path. Focus moves now resolve
   the host they were working in before they prune. The one visible edge is a

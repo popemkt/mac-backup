@@ -4,12 +4,12 @@
  */
 import {
   familyViews,
-  schemaOf,
   SYSTEM_IDS,
   ViewPoint,
   type NodeMap,
   type OutlineNode,
   type SchemaIndex,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { Effect, Schema } from "effect";
 import { makeKernel } from "@kb/plugin";
@@ -22,7 +22,7 @@ import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-f
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+  return schemaOfGraph(nodes);
 }
 
 /** The frame views the outline plugin provides, as its hosts see them. */
@@ -74,7 +74,7 @@ function node(
 
 /** A frame of `rowCount` rows shown as `view`, whose view node carries `settings`. */
 function graph(view: FrameViewName, settings: OutlineNode["props"], rowCount = 5): NodeMap {
-  const map: NodeMap = new Map();
+  const map = new Map<string, OutlineNode>();
   const ids: string[] = [];
   for (let i = 0; i < rowCount; i++) {
     const id = `r${i}`;

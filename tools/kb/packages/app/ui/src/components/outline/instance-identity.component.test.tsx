@@ -11,7 +11,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, queryResultInstanceKey, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -79,7 +79,7 @@ describe("instance identity (component)", () => {
   });
 
   it("clicking the tree instance activates only that data-instance-key", async () => {
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     const treeKey = outlineInstanceKey("n.root-a", nodes);
     const refKey = queryResultInstanceKey("n.q1", "n.root-a");
 
@@ -144,13 +144,13 @@ describe("instance identity (component)", () => {
     useOutlineStore.getState().activateNode(next.nodeId, 0, next.instanceKey);
     expect(useOutlineStore.getState().activeInstanceKey).toBe(refB);
     expect(useOutlineStore.getState().activeInstanceKey).not.toBe(
-      outlineInstanceKey(next.nodeId, useOutlineStore.getState().nodes),
+      outlineInstanceKey(next.nodeId, outlineNodes()),
     );
   });
 
   it("zoomed view: outlineInstanceKey matches mounted row for edit focus", async () => {
     useGraphStore.getState().zoomTo("n.root-a");
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     const childKey = outlineInstanceKey("n.child-a1", nodes);
     expect(childKey).toBe("tree/n.root-a/n.child-a1");
 
@@ -177,13 +177,7 @@ describe("instance identity (component)", () => {
   it("expanded ref children render non-ref bullets", async () => {
     const refKey = queryResultInstanceKey("n.q1", "n.root-a");
     // Expand the result node so children mount under the ref instance.
-    useOutlineStore.setState((s) => {
-      const n = s.nodes.get("n.root-a");
-      if (!n) return s;
-      const next = new Map(s.nodes);
-      next.set("n.root-a", { ...n, collapsed: false });
-      return { nodes: next };
-    });
+    useOutlineStore.setState((s) => ({ expansion: new Map(s.expansion).set("n.root-a", true) }));
 
     await act(async () => {
       root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} />);

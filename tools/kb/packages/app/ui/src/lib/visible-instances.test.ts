@@ -13,7 +13,7 @@ import {
 import { setOutlineHost } from "@/stores/outline-hosts";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { OutlineListView, OutlineTableView } from "@kb/views";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -130,15 +130,10 @@ describe("visible instances", () => {
     expect(keys).toContain("tree/n.root-a/n.child-a2");
 
     // Neighbor order follows sort projection, not children[] store order.
-    const storeKids = present(
-      useOutlineStore.getState().nodes.get("n.root-a"),
-      "n.root-a",
-    ).children;
+    const storeKids = present(outlineNodes().get("n.root-a"), "n.root-a").children;
     const sortedKeys = keys.filter((k) => storeKids.some((id) => k.endsWith(`/${id}`)));
     const texts = sortedKeys.map(
-      (k) =>
-        useOutlineStore.getState().nodes.get(present(k.split("/").at(-1), "instance id"))?.text ??
-        "",
+      (k) => outlineNodes().get(present(k.split("/").at(-1), "instance id"))?.text ?? "",
     );
     const sortedTexts = [...texts].toSorted((a, b) =>
       a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0,

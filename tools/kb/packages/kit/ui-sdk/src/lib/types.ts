@@ -52,7 +52,7 @@ export interface TagBadge {
   color: string;
 }
 
-export type NodeMap = Map<string, OutlineNode>;
+export type NodeMap = ReadonlyMap<string, OutlineNode>;
 
 export interface ResolvedProp {
   fieldId: string;

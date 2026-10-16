@@ -158,7 +158,7 @@ Do **not** split these in i9-arch (other waves own behavior). Plans only:
 | `graph/cluster-graph.tsx`          |  392 | layout + communities + render                   | compute / view                                                                                 |
 | `graph/force3d-scene.ts`           |  250 | composes the 3D scene                           | split complete: layers (`force3d-layers`), camera (`force3d-camera`), pointer (`force3d-pick`) |
 | `outline/node-content.tsx`         |  351 | text, tags, fields, query inline                | content / metadata strip                                                                       |
-| `stores/outline.store.ts`          |  682 | editor state over the graph store               | split complete: replica, history, zoom and scope moved to `graph.store`                        |
+| `stores/outline.store.ts`          |    — | editor state over the graph store               | split complete: replica, history, zoom and scope moved to `graph.store`                        |
 
 ## Production readiness notes
 

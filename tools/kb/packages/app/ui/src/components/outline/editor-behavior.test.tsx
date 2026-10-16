@@ -12,7 +12,7 @@ import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk
 import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
@@ -80,11 +80,10 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
   }
 
   it("D05: Tab into a collapsed sibling expands it and keeps focus", async () => {
-    const s0 = useOutlineStore.getState();
     // n.root-a starts collapsed (default) and precedes n.root-b.
-    expect(s0.nodes.get("n.root-a")?.collapsed).toBe(true);
+    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(true);
 
-    const bKey = outlineInstanceKey("n.root-b", s0.nodes);
+    const bKey = outlineInstanceKey("n.root-b", outlineNodes());
     act(() => {
       useOutlineStore.getState().activateNode("n.root-b", 4, bKey);
     });
@@ -95,9 +94,9 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
 
     const s1 = useOutlineStore.getState();
     // Reparented under the previously collapsed sibling…
-    expect(s1.nodes.get("n.root-b")?.parentId).toBe("n.root-a");
+    expect(outlineNodes().get("n.root-b")?.parentId).toBe("n.root-a");
     // …which auto-expanded so the row stays visible…
-    expect(s1.nodes.get("n.root-a")?.collapsed).toBe(false);
+    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(false);
     expect(s1.getVisibleNodes()).toContain("n.root-b");
     // …and focus remains on the indented node.
     expect(s1.activeNodeId).toBe("n.root-b");
@@ -107,7 +106,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     act(() => {
       useOutlineStore.getState().toggleCollapse("n.root-a");
     });
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     const childKey = outlineInstanceKey("n.child-a1", nodes);
 
     act(() => {
@@ -127,18 +126,17 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     // Key handled (not swallowed)…
     expect(prevented).toBe(true);
     // …node outdented to forest-root level (virtual workspace parent)…
-    expect(s.nodes.get("n.child-a1")?.parentId).toBe(WORKSPACE_ROOT_ID);
-    expect(present(s.nodes.get(WORKSPACE_ROOT_ID), "workspace root").children).toContain(
+    expect(outlineNodes().get("n.child-a1")?.parentId).toBe(WORKSPACE_ROOT_ID);
+    expect(present(outlineNodes().get(WORKSPACE_ROOT_ID), "workspace root").children).toContain(
       "n.child-a1",
     );
     // …still present, still focused.
-    expect(s.nodes.has("n.child-a1")).toBe(true);
+    expect(outlineNodes().has("n.child-a1")).toBe(true);
     expect(s.activeNodeId).toBe("n.child-a1");
   });
 
   it("D10: ArrowUp crosses rows without requiring offset 0", async () => {
-    const s0 = useOutlineStore.getState();
-    const cKey = outlineInstanceKey("n.root-c", s0.nodes);
+    const cKey = outlineInstanceKey("n.root-c", outlineNodes());
     // Caret parked mid-text (index 4 of "Read-only props panel…").
     act(() => {
       useOutlineStore.getState().activateNode("n.root-c", 4, cKey);
@@ -162,8 +160,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
 
   it("D14: Escape dismisses autocomplete without leaving edit mode", async () => {
     await act(async () => mutations.updateNodeContent("n.root-c", "[["));
-    const s0 = useOutlineStore.getState();
-    const cKey = outlineInstanceKey("n.root-c", s0.nodes);
+    const cKey = outlineInstanceKey("n.root-c", outlineNodes());
     act(() => {
       useOutlineStore.getState().activateNode("n.root-c", 2, cKey);
     });
@@ -206,7 +203,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     const s = useOutlineStore.getState();
     const graph = useGraphStore.getState();
     expect(graph.wireNodes.length).toBe(before);
-    expect(s.nodes.has(id)).toBe(false);
+    expect(outlineNodes().has(id)).toBe(false);
     expect(s.activeNodeId).toBe("n.root-b");
   });
 });

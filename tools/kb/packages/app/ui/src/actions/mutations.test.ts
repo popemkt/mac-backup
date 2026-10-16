@@ -5,7 +5,8 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "./mutations";
 import { waitForBrowserPushes } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { outlineNodes } from "@/stores/outline.store";
+import { resetOutlineStore } from "@/test-support/outline-store";
 
 describe("mutations invoke shared actions", () => {
   const post = vi.fn(async (invocation) => ({
@@ -18,12 +19,13 @@ describe("mutations invoke shared actions", () => {
   beforeEach(() => {
     post.mockClear();
     setPostAction(post);
+    resetOutlineStore();
     useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
   });
 
   it("indent sends one node.update and changes the local tree", async () => {
     await mutations.indentNode("n.child-a2");
-    expect(useOutlineStore.getState().nodes.get("n.child-a1")?.children).toContain("n.child-a2");
+    expect(outlineNodes().get("n.child-a1")?.children).toContain("n.child-a2");
     await waitForBrowserPushes();
     expect(post).toHaveBeenCalledWith({
       id: "node.update",

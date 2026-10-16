@@ -158,6 +158,18 @@ export function sameMeaning(a: OutlineNode, b: OutlineNode): boolean {
 
 const NO_PREVIOUS: ReadonlyMap<string, OutlineNode> = new Map();
 
+/** Every map `wireToOutlineMap` built of part of a graph: a scope's projection. */
+const partialProjections = new WeakSet<ReadonlyMap<string, OutlineNode>>();
+
+/**
+ * Whether `map` was projected from part of its graph (a node of `graph` is
+ * not in `nodes`), so it is no schema: a definition outside it would be
+ * missing (`lib/schema.ts`).
+ */
+export function isPartialProjection(map: ReadonlyMap<string, OutlineNode>): boolean {
+  return partialProjections.has(map);
+}
+
 /**
  * The outline view model for `nodes`. Each node's tag chips — names and
  * colours — and its default collapse (does it show fields?) are resolved against
@@ -177,7 +189,7 @@ export function wireToOutlineMap(
   expandedIds: Set<string>,
   graph: readonly WireNode[] = nodes,
   previous: ReadonlyMap<string, OutlineNode> = NO_PREVIOUS,
-): NodeMap {
+): Map<string, OutlineNode> {
   const byId = new Map(graph.map((n) => [n.id, n]));
   const palette = tagPalette(graph);
   const parentOf = new Map<string, string>();
@@ -185,7 +197,7 @@ export function wireToOutlineMap(
     for (const c of n.children) parentOf.set(c, n.id);
   }
 
-  const map: NodeMap = new Map();
+  const map = new Map<string, OutlineNode>();
   const keep = (next: OutlineNode): void => {
     const before = previous.get(next.id);
     map.set(next.id, before !== undefined && sameOutlineNode(before, next) ? before : next);
@@ -223,7 +235,84 @@ export function wireToOutlineMap(
     });
   }
 
+  if (nodes !== graph && graph.some((n) => !map.has(n.id))) partialProjections.add(map);
   return map;
+}
+
+/**
+ * Which rows the reader opened or closed, by id: a choice over the row's
+ * default collapse (does it show children or fields?). A row with no choice
+ * shows its default.
+ */
+export type Expansion = ReadonlyMap<string, boolean>;
+
+/** A node shown the other way from its default, one object per node. */
+const flipped = new WeakMap<OutlineNode, OutlineNode>();
+
+function shownAs(node: OutlineNode, open: boolean | undefined): OutlineNode {
+  if (open === undefined || open === !node.collapsed) return node;
+  let copy = flipped.get(node);
+  if (copy === undefined) {
+    copy = { ...node, collapsed: !open };
+    flipped.set(node, copy);
+  }
+  return copy;
+}
+
+/** `base` as `expansion` shows it, read through: no map is built. */
+class ExpansionView implements ReadonlyMap<string, OutlineNode> {
+  readonly #base: NodeMap;
+  readonly #expansion: Expansion;
+
+  constructor(base: NodeMap, expansion: Expansion) {
+    this.#base = base;
+    this.#expansion = expansion;
+  }
+
+  get size(): number {
+    return this.#base.size;
+  }
+
+  get(id: string): OutlineNode | undefined {
+    const node = this.#base.get(id);
+    return node === undefined ? undefined : shownAs(node, this.#expansion.get(id));
+  }
+
+  has(id: string): boolean {
+    return this.#base.has(id);
+  }
+
+  *entries(): MapIterator<[string, OutlineNode]> {
+    for (const [id, node] of this.#base) yield [id, shownAs(node, this.#expansion.get(id))];
+  }
+
+  keys(): MapIterator<string> {
+    return this.#base.keys();
+  }
+
+  *values(): MapIterator<OutlineNode> {
+    for (const [, node] of this.entries()) yield node;
+  }
+
+  forEach(each: (node: OutlineNode, id: string, map: NodeMap) => void): void {
+    for (const [id, node] of this.entries()) each(node, id, this);
+  }
+
+  [Symbol.iterator](): MapIterator<[string, OutlineNode]> {
+    return this.entries();
+  }
+}
+
+/**
+ * The rows of `base` (a projection at default collapse: the schema, or a
+ * scope's projection) as `expansion` opens and closes them. It is a view, not
+ * a copy: it holds no map of its own, and reads each row through `base`. A
+ * row shown as its default is `base`'s own object; one shown the other way is
+ * one object per `base` node, so a row's identity changes exactly when what
+ * it shows does, as `wireToOutlineMap`'s does.
+ */
+export function withExpansion(base: NodeMap, expansion: Expansion): NodeMap {
+  return expansion.size === 0 ? base : new ExpansionView(base, expansion);
 }
 
 export function resolveProps(

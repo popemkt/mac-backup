@@ -16,7 +16,7 @@ import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineCommandApi, useOutlineStore } from "@/stores/outline.store";
+import { outlineCommandApi, useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
@@ -71,7 +71,7 @@ function toasts(): string[] {
 }
 
 function node(id: string) {
-  return useOutlineStore.getState().nodes.get(id);
+  return outlineNodes().get(id);
 }
 
 /** The view a frame's default view node names. */

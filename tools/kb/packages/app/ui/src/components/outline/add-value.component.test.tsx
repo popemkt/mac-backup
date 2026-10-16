@@ -13,7 +13,7 @@ import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { fieldContextOf, setCaretSerializedOffset, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore } from "@/stores/outline.store";
+import { outlineSource, outlineNodes } from "@/stores/outline.store";
 import { FieldValueStack } from "./fields-section";
 
 const ISO = "2026-09-28T00:00:00.000Z";
@@ -25,7 +25,7 @@ const wire = (partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireN
   ...partial,
 });
 
-const held = () => useOutlineStore.getState().nodes.get("n.host")?.props["f.note"] ?? [];
+const held = () => outlineNodes().get("n.host")?.props["f.note"] ?? [];
 
 describe("adding a value", () => {
   let dom: InstalledDom;

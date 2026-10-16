@@ -6,7 +6,7 @@
  */
 import { schemaOf, useGraphReadThrough, type GraphRead, type GraphSource } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 
 export const outlineGraph: GraphSource = {
   subscribe: (listener) => {
@@ -17,7 +17,7 @@ export const outlineGraph: GraphSource = {
       fromOutline();
     };
   },
-  nodes: () => useOutlineStore.getState().nodes,
+  nodes: () => outlineNodes(),
   schema: () => schemaOf(useGraphStore.getState()),
   index: () => useGraphStore.getState().index,
 };

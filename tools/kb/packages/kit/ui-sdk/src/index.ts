@@ -166,7 +166,9 @@ export {
   sameMeaning,
   saveExpandedIds,
   saveIdSet,
+  type Expansion,
   wireToOutlineMap,
+  withExpansion,
 } from "./lib/graph-view";
 export {
   canvasInstanceKey,
@@ -185,8 +187,10 @@ export {
   type FieldContext,
   fieldContextOf,
   type FieldContextSource,
+  type RowSource,
   type SchemaIndex,
   schemaOf,
+  schemaOfGraph,
 } from "./lib/schema";
 export {
   DEBUG_FIELDS_STORAGE_KEY,

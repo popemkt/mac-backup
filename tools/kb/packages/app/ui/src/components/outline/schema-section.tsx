@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, useOutlineNode, useOutlineNodes } from "@/stores/outline.store";
 import { useFollow, useOpenNode } from "@/stores/follow";
 import { useRefInk } from "@/stores/ref-ink";
 import {
@@ -17,7 +17,7 @@ import { TagFieldsConfig } from "./tag-fields-config";
  * (Tana "Everything tagged #X" / nodes carrying the field).
  */
 export function SchemaSection({ nodeId }: { nodeId: string }) {
-  const node = useOutlineStore((s) => s.nodes.get(nodeId));
+  const node = useOutlineNode(nodeId);
   const queryDb = useGraphStore((s) => s.index);
   const generation = useGraphStore((s) => s.index?.generation ?? 0);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
@@ -74,7 +74,7 @@ function SchemaInstanceRow({
   onActivate: () => void;
   onZoom: () => void;
 }) {
-  const nodes = useOutlineStore((s) => s.nodes);
+  const nodes = useOutlineNodes();
   const follow = useFollow();
   const ink = useRefInk();
   const node = nodes.get(hit.id);

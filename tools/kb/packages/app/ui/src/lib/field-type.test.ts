@@ -10,13 +10,13 @@ import {
   resolveAllowedRefIdsCached,
   resolveFieldType,
   resolveFieldTypeById,
-  schemaOf,
   SYSTEM_IDS,
   wireToOutlineMap,
   WORKSPACE_ROOT_ID,
   type NodeMap,
   type OutlineNode,
   type SchemaIndex,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -26,7 +26,7 @@ import { planAddFieldTargetTag, planSetFieldTargetQuery, planSetFieldType } from
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+  return schemaOfGraph(nodes);
 }
 
 function outline(): Map<string, OutlineNode> {

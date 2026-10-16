@@ -11,7 +11,6 @@ import {
   rowText,
   rowTextOf,
   rowTextReadOnlyReason,
-  schemaOf,
   shownNode,
   shownNodeId,
   showsAncestor,
@@ -19,6 +18,7 @@ import {
   wireToOutlineMap,
   type NodeMap,
   type SchemaIndex,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
@@ -26,9 +26,9 @@ import { present } from "@kb/model";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/api/fixture-graph";
 
-/** The one constructor, over an unscoped graph: the whole map is the schema. */
+/** A whole-graph fixture map is its own schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+  return schemaOfGraph(nodes);
 }
 
 const ISO = "2026-08-08T05:00:00.000Z";
@@ -125,7 +125,7 @@ describe("contextual reference model", () => {
     const nodes = mapWith([ctxRefWire("n.ctx", "n.root-a")]);
     expect(shownNodeId(present(nodes.get("n.ctx"), "n.ctx"))).toBe("n.root-a");
     expect(shownNodeId(present(nodes.get("n.root-b"), "n.root-b"))).toBe("n.root-b");
-    const state = { ontologyId: null, nodes, wireNodes: [] };
+    const state = { schema: schemaFor(nodes), nodes };
     expect(rowTextOf(state, "n.ctx")).toEqual({ text: "Ship kb ui shell", textNodeId: "n.root-a" });
     expect(rowTextOf(state, "n.missing")).toEqual({ text: "", textNodeId: "n.missing" });
   });

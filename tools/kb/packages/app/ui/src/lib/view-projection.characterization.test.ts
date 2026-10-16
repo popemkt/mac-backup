@@ -11,12 +11,12 @@
  * unchanged through them.
  */
 import {
-  schemaOf,
   SYSTEM_IDS,
   type NodeMap,
   type OutlineNode,
   type PropValue,
   type SchemaIndex,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { stubOutlineNode } from "@/catalog/fixtures";
@@ -25,7 +25,7 @@ import { DEFAULT_VIEW_CONFIG, type SortSpec } from "@kb/views";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+  return schemaOfGraph(nodes);
 }
 
 function field(id: string, text: string, hidden = false): OutlineNode {
@@ -192,7 +192,7 @@ describe("the multi-key sort", () => {
   });
 
   it("refs order by their target's text, not by id", () => {
-    const graph: NodeMap = new Map(nodes);
+    const graph = new Map<string, OutlineNode>(nodes);
     graph.set("n.z", stubOutlineNode({ id: "n.z", text: "Alpha" }));
     graph.set("n.a", stubOutlineNode({ id: "n.a", text: "Zulu" }));
     const children = [withVal("r1", { t: "ref", v: "n.a" }), withVal("r2", { t: "ref", v: "n.z" })];

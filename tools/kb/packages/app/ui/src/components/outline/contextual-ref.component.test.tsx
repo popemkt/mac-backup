@@ -17,7 +17,7 @@ import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { childInstanceKey, outlineInstanceKey, rowTextOf, syncUiPlugins } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore } from "@/stores/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -87,7 +87,7 @@ describe("contextual reference row", () => {
   });
 
   async function render(nodeId: string) {
-    const key = outlineInstanceKey(nodeId, useOutlineStore.getState().nodes);
+    const key = outlineInstanceKey(nodeId, outlineNodes());
     await act(async () => {
       root.render(<NodeBlock nodeId={nodeId} instanceKey={key} depth={0} />);
     });
@@ -149,7 +149,7 @@ describe("contextual reference row", () => {
 
   it("is an ordinary row for instance keys and keyboard navigation", () => {
     useOutlineStore.getState().toggleCollapse("n.ctx");
-    const refKey = outlineInstanceKey("n.ctx", useOutlineStore.getState().nodes);
+    const refKey = outlineInstanceKey("n.ctx", outlineNodes());
     expect(refKey).toBe("tree/n.ctx");
     const instances = useOutlineStore.getState().getVisibleInstances();
     expect(instances.some((i) => i.instanceKey === refKey)).toBe(true);
@@ -197,9 +197,8 @@ describe("contextual reference row", () => {
       editor.textContent = "Ship kb ui shell!";
       editor.dispatchEvent(new dom.Event("input", { bubbles: true }) as unknown as Event);
     });
-    const s = useOutlineStore.getState();
-    expect(s.nodes.get("n.root-a")?.text).toBe("Ship kb ui shell!");
-    expect(s.nodes.get("n.ctx")?.text).toBe("");
+    expect(outlineNodes().get("n.root-a")?.text).toBe("Ship kb ui shell!");
+    expect(outlineNodes().get("n.ctx")?.text).toBe("");
     expect(rowTextOf(outlineSource(), "n.ctx").text).toBe("Ship kb ui shell!");
   });
 
@@ -210,9 +209,9 @@ describe("contextual reference row", () => {
         container.querySelector(`[data-instance-key="${key}"] [data-bullet-ref="true"]`),
         "bullet",
       );
-    const before = present(useOutlineStore.getState().nodes.get("n.ctx"), "n.ctx").collapsed;
+    const before = present(outlineNodes().get("n.ctx"), "n.ctx").collapsed;
     await act(async () => click(bullet()));
-    expect(useOutlineStore.getState().nodes.get("n.ctx")?.collapsed).toBe(!before);
+    expect(outlineNodes().get("n.ctx")?.collapsed).toBe(!before);
     expect(useGraphStore.getState().rootNodeId).not.toBe("n.root-a");
     await act(async () => click(bullet(), { metaKey: true }));
     expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");

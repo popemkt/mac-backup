@@ -3,7 +3,7 @@ import { SCREEN_APPLIED, screenRejected, type ScreenAck } from "@kb/contracts";
 import { outlineInstanceKey, type PaneCommand, type PaneSelection } from "@kb/ui-sdk";
 import { usePaneScreen } from "@/stores/screen.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { outlineHostOfInstance } from "@/stores/outline-hosts";
 import { useOutlineHost } from "./outline-host";
 
@@ -21,7 +21,7 @@ function selectInOutline(
   // The node's row in this outline: its place in the tree, else where a query shows it.
   const rowOf = (id: string): string | undefined => {
     const rows = useOutlineStore.getState().getVisibleInstances(host);
-    const key = outlineInstanceKey(id, useOutlineStore.getState().nodes, host);
+    const key = outlineInstanceKey(id, outlineNodes(), host);
     return (rows.find((row) => row.instanceKey === key) ?? rows.find((row) => row.nodeId === id))
       ?.instanceKey;
   };

@@ -1,10 +1,10 @@
 import {
-  schemaOf,
   SYSTEM_IDS,
   wireToOutlineMap,
   type NodeMap,
   type OutlineNode,
   type SchemaIndex,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { describe, expect, test } from "vitest";
 import type { CanvasEdge, CanvasNode } from "@kb/canvas";
@@ -13,7 +13,7 @@ import { planEdgeRelink, type EdgeRelinkContext } from "./canvas-edge-link";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+  return schemaOfGraph(nodes);
 }
 
 function wireNode(id: string, text: string, partial: Partial<WireNode> = {}): WireNode {

@@ -13,6 +13,7 @@ import {
   DatascriptIndex,
   fieldContextOf,
   fieldTypeValue,
+  schemaOfGraph,
   SYSTEM_IDS,
   wireToOutlineMap,
   type FieldContext,
@@ -56,10 +57,10 @@ const GRAPH: WireNode[] = [
 const show = (v: PropValue) => (v.t === "ref" ? v.v : JSON.stringify(v));
 
 function contextOf(graph: WireNode[]): FieldContext {
+  const nodes = wireToOutlineMap(graph, new Set());
   return fieldContextOf({
-    ontologyId: null,
-    nodes: wireToOutlineMap(graph, new Set()),
-    wireNodes: [],
+    schema: schemaOfGraph(nodes),
+    nodes,
     index: new DatascriptIndex(graph),
   });
 }

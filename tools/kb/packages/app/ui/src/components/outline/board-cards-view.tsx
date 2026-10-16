@@ -24,7 +24,7 @@ import { frameRows } from "@/lib/frame-rows";
 import { EMPTY_GROUP_KEY, resolveTableColumns } from "@/lib/view-config";
 import { OutlineBoardView, OutlineCardsView, localIdOf, type ParamsOf } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
-import { useFieldContext, useOutlineStore } from "@/stores/outline.store";
+import { useFieldContext, useOutlineStore, useOutlineNodes } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -66,7 +66,7 @@ export function BoardCardsView({
   widthPref: widthPrefProp,
 }: BoardCardsViewProps) {
   const generation = useGraphStore((s) => s.index?.generation ?? 0);
-  const storeNodes = useOutlineStore((s) => s.nodes);
+  const storeNodes = useOutlineNodes();
   const nodes = useMemo(
     () => nodesProp ?? storeNodes,
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation gates store map identity; the props path uses nodesProp

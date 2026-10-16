@@ -2,7 +2,7 @@ import { useCallback, useEffect } from "react";
 import { isTextEntry, useSlotChain, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { projectsRows } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineNode, outlineNodes } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";
 import { Breadcrumbs } from "./breadcrumbs";
@@ -26,7 +26,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
   // Rooted at its own node in a pane, else at the outline's zoom.
   const zoomRoot = useGraphStore((s) => s.rootNodeId);
   const rootNodeId = rootProp ?? zoomRoot;
-  const root = useOutlineStore((s) => s.nodes.get(rootNodeId));
+  const root = useOutlineNode(rootNodeId);
   const rootView = useFrameView(root);
   // The keyboard walk of this outline's rows starts where its root frame's slot does.
   const host = useOutlineHost();
@@ -42,10 +42,9 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
    * The zoomed container click is removed entirely; the strip has its own guard-free handler (F1).
    */
   const handleStripCreate = useCallback(() => {
-    const store = useOutlineStore.getState();
     void mutations.createTransientNode(
       rootNodeId,
-      store.nodes.get(rootNodeId)?.children.slice(-1)[0] ?? null,
+      outlineNodes().get(rootNodeId)?.children.slice(-1)[0] ?? null,
     );
   }, [rootNodeId]);
 

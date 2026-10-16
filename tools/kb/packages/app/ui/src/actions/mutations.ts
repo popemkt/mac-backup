@@ -53,7 +53,7 @@ import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
 import { typeRefsOf } from "@kb/model";
 import { useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
-import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { invoke, invokeLocal, pushInvocation, writeLocal } from "@/session/runtime";
 import type { Hold } from "@/session/replica";
 
@@ -115,10 +115,7 @@ async function editFrameView(frameId: string, edit: FrameViewEdit): Promise<void
 async function frameConfig(frameId: string): Promise<ViewConfig> {
   const { frameConfigOf } = await import("@/lib/view-config");
   const { schemaOf } = await import("@kb/ui-sdk");
-  return frameConfigOf(
-    useOutlineStore.getState().nodes.get(frameId),
-    schemaOf(useGraphStore.getState()),
-  );
+  return frameConfigOf(outlineNodes().get(frameId), schemaOf(useGraphStore.getState()));
 }
 
 /**
@@ -331,10 +328,9 @@ export const mutations = {
   async splitNode(id: string, cursor: number | "end"): Promise<void> {
     if (!guardSysWrite(id)) return;
     await prepareStructuralMutation();
-    const store = useOutlineStore.getState();
     // Expanded set from the UI outline map drives Tana first-child splits.
     const expandedIds = new Set<string>();
-    for (const n of store.nodes.values()) {
+    for (const n of outlineNodes().values()) {
       if (!n.collapsed && !isSysPrefixed(n.id)) expandedIds.add(n.id);
     }
     await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
@@ -523,7 +519,7 @@ export const mutations = {
    * `sys.*` browse has always been open.
    */
   async togglePin(nodeId: string): Promise<boolean> {
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     const pins = pinnedRefIdsFor(nodes, nodeId);
     if (pins.length > 0) {
       for (const refId of pins) {

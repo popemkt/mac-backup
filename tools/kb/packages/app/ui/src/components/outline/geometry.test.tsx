@@ -10,6 +10,7 @@ import {
   type KbIndex,
   type NodeMap,
   type PropValue,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -23,7 +24,7 @@ import { browserSource } from "@/test-support/browser-packages";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
-  return fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index });
+  return fieldContextOf({ schema: schemaOfGraph(nodes), nodes, index });
 }
 
 const outlineDir = path.dirname(fileURLToPath(import.meta.url));

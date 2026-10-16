@@ -48,7 +48,7 @@ import { logWarn, syncUiPlugins, toast, type ExtensionSwitch } from "@kb/ui-sdk"
 import { loadManifest, servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
 import { invoke, invokeSettled } from "@/session/runtime";
-import { useOutlineStore } from "@/stores/outline.store";
+import { outlineNodes, subscribeOutline } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { webMcpUiPlugin } from "@/webmcp";
 
@@ -227,7 +227,7 @@ async function converge(rows: readonly ExtensionRow[]): Promise<void> {
  * follows now: its version, joined.
  */
 function switchVersions(): string {
-  const { nodes } = useOutlineStore.getState();
+  const nodes = outlineNodes();
   return followedExtensions()
     .filter((row) => row.optional)
     .map((row) => nodes.get(extensionNodeId(row.name))?.updatedAt ?? "")
@@ -258,7 +258,7 @@ export function startUiPlugins(): () => void {
   sync();
   const unsubscribeManifest = subscribeManifest(sync);
   let switches = switchVersions();
-  const unsubscribeGraph = useOutlineStore.subscribe(() => {
+  const unsubscribeGraph = subscribeOutline(() => {
     const next = switchVersions();
     if (next === switches) return;
     switches = next;

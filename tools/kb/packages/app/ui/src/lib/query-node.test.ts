@@ -9,8 +9,9 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { querySubscriptionId, resultNodeIds, subscribeQueryNode } from "@/lib/query-node";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { FakeWsSocket } from "@/test-support/ws";
+import { resetOutlineStore } from "@/test-support/outline-store";
 import type { WireNode } from "@kb/contracts";
 
 const EDN = "[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]";
@@ -39,6 +40,7 @@ beforeEach(() => {
   } catch {
     // node env without localStorage
   }
+  resetOutlineStore();
   hydrate([queryWire()]);
 });
 
@@ -49,13 +51,13 @@ describe("queryDefOf / isQueryNode", () => {
         [SYSTEM_IDS.queryLimitField]: [{ t: "num", v: 3 }],
       }),
     ]);
-    const node = useOutlineStore.getState().nodes.get("n.q1");
+    const node = outlineNodes().get("n.q1");
     expect(isQueryNode(node)).toBe(true);
     expect(queryDefOf(node)).toEqual({ edn: EDN, limit: 3 });
   });
 
   it("null for plain nodes, and for a query node whose EDN is blank", () => {
-    const plain = useOutlineStore.getState().nodes.get("n.root-c");
+    const plain = outlineNodes().get("n.root-c");
     expect(isQueryNode(plain)).toBe(false);
     expect(queryDefOf(plain)).toBeNull();
 
@@ -67,7 +69,7 @@ describe("queryDefOf / isQueryNode", () => {
         props: { [SYSTEM_IDS.queryField]: [{ t: "str", v: "" }] },
       },
     ]);
-    const noEdn = useOutlineStore.getState().nodes.get("n.q2");
+    const noEdn = outlineNodes().get("n.q2");
     expect(isQueryNode(noEdn)).toBe(true);
     expect(queryDefOf(noEdn)).toBeNull();
   });
@@ -93,7 +95,7 @@ describe("queryDefOf / isQueryNode", () => {
         updatedAt: "2026-08-08T00:00:00.000Z",
       },
     ]);
-    const tagged = useOutlineStore.getState().nodes.get("n.tagged");
+    const tagged = outlineNodes().get("n.tagged");
     expect(isQueryNode(tagged)).toBe(false);
     expect(queryDefOf(tagged)).toBeNull();
   });
@@ -101,7 +103,7 @@ describe("queryDefOf / isQueryNode", () => {
 
 describe("resultNodeIds", () => {
   it("picks known node ids, dedupes, excludes self, applies limit", () => {
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     const rows: unknown[][] = [
       ["n.root-a", "Ship kb ui shell"],
       ["n.root-a", "duplicate"],
@@ -125,27 +127,25 @@ describe("resultNodeIds", () => {
 describe("query node collapse state (cheap-by-default)", () => {
   it("defaults collapsed, toggles without children, others still gated", () => {
     const store = useOutlineStore.getState();
-    const q1 = present(store.nodes.get("n.q1"), "n.q1");
+    const q1 = present(outlineNodes().get("n.q1"), "n.q1");
     expect(q1.collapsed).toBe(true);
     expect(q1.children).toEqual([]);
 
     store.toggleCollapse("n.q1");
-    expect(present(useOutlineStore.getState().nodes.get("n.q1"), "n.q1").collapsed).toBe(false);
+    expect(present(outlineNodes().get("n.q1"), "n.q1").collapsed).toBe(false);
 
     // Non-query leaf nodes still cannot toggle.
     useOutlineStore.getState().toggleCollapse("n.root-c");
-    expect(present(useOutlineStore.getState().nodes.get("n.root-c"), "n.root-c").collapsed).toBe(
-      false,
-    );
+    expect(present(outlineNodes().get("n.root-c"), "n.root-c").collapsed).toBe(false);
 
     useOutlineStore.getState().toggleCollapse("n.q1");
-    expect(present(useOutlineStore.getState().nodes.get("n.q1"), "n.q1").collapsed).toBe(true);
+    expect(present(outlineNodes().get("n.q1"), "n.q1").collapsed).toBe(true);
   });
 
   it("expanded state survives a tx-driven map rebuild", () => {
     const store = useOutlineStore.getState();
     store.toggleCollapse("n.q1");
-    expect(present(useOutlineStore.getState().nodes.get("n.q1"), "n.q1").collapsed).toBe(false);
+    expect(present(outlineNodes().get("n.q1"), "n.q1").collapsed).toBe(false);
     // Simulate an incoming WS tx touching an unrelated node.
     useGraphStore.getState().applyTx(
       [
@@ -161,10 +161,9 @@ describe("query node collapse state (cheap-by-default)", () => {
       [],
       { rev: 2 },
     );
-    const after = useOutlineStore.getState();
     const graph = useGraphStore.getState();
-    expect(after.nodes.get("n.new")).toBeDefined();
-    expect(present(after.nodes.get("n.q1"), "n.q1").collapsed).toBe(false);
+    expect(outlineNodes().get("n.new")).toBeDefined();
+    expect(present(outlineNodes().get("n.q1"), "n.q1").collapsed).toBe(false);
     expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
   });
 });

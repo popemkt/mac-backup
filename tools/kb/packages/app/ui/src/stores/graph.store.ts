@@ -1,10 +1,11 @@
 /**
  * The browser's live graph: the replica every projection reads, the write
- * history over it, and where the page stands in it — the zoom root and the
- * ontology scope. It names no projection. The one that edits (the outline)
- * derives its view from this store and holds a focus that navigation moves,
- * so the store asks it, through {@link EditingProjection}, to derive in the
- * same tick as the replica and to let go of and land its focus around a move.
+ * the zoom root and the
+ * ontology scope. It names no projection. The projection the page edits
+ * through derives its rows from this store when they are read, so they are
+ * never out of step with it; what the projection holds of its own — its
+ * expansion and its focus — follows each move through
+ * {@link EditingProjection}, which this store tells before it moves.
  */
 import { create } from "zustand";
 import { DatascriptIndex, toast, WORKSPACE_ROOT_ID, type KbIndex } from "@kb/ui-sdk";
@@ -57,7 +58,6 @@ interface GraphState {
   syncFromIndex: () => void;
   /** Full-snapshot resync (rev gap) that preserves zoom and scope. */
   refreshFromWire: (nodes: WireNode[], rev: number) => void;
-  setRootNodeId: (id: string) => void;
   /** Enter (id) / leave (null) an ontology scope. */
   setOntologyScope: (id: string | null) => void;
   /**
@@ -100,9 +100,8 @@ export const initialGraphState: GraphStateData = {
 };
 
 /**
- * How the replica, or the scope it is read under, moved: what a projection
- * deriving from it is told, since each move keeps a different part of what
- * the projection held.
+ * How the replica, or the scope it is read under, moved: what the projection
+ * is told, since each move keeps a different part of what it holds.
  *
  * - `load` — a fresh replica (`hydrateFromWire`); nothing carries over.
  * - `tx` — a delta was applied (`applyTx`).
@@ -113,21 +112,26 @@ export const initialGraphState: GraphStateData = {
 export type GraphChange = "load" | "tx" | "sync" | "resync" | "scope";
 
 /**
- * The projection the page edits through, as this store asks it. It derives
- * its view from the state the store is about to hold, before any reader can
- * see that state, so no reader meets a graph and a view of an older one. It
- * lets go of its focus before the page moves (an empty row it minted is
- * pruned while it is still shown), and lands it once the page has moved:
- * on the first row under a zoom, or nowhere at home.
+ * The projection the page edits through, as this store tells it of a move.
+ * Its rows are read from this store, so it is told only what its own state
+ * must do, and always before the store moves:
+ *
+ * - `follow` — the replica or scope is moving from `prev` to `next`;
+ * - `leave` — the page is about to move: let go of the focus (an empty row it
+ *   minted is pruned while it is still shown);
+ * - `arrive` — the page is moving to `root`: land the focus there.
+ *
+ * Told first, the projection moves its state to one valid against both
+ * graph states, so a reader told of it in between sees nothing out of step.
  */
-interface EditingProjection {
-  readonly derive: (change: GraphChange, next: GraphStateData) => void;
+export interface EditingProjection {
+  readonly follow: (change: GraphChange, prev: GraphStateData, next: GraphStateData) => void;
   readonly leave: () => void;
-  readonly arrive: (at: "zoom" | "home") => void;
+  readonly arrive: (at: "zoom" | "home", root: string) => void;
 }
 
 const NO_PROJECTION: EditingProjection = {
-  derive: () => undefined,
+  follow: () => undefined,
   leave: () => undefined,
   arrive: () => undefined,
 };
@@ -135,14 +139,23 @@ const NO_PROJECTION: EditingProjection = {
 let projection: EditingProjection = NO_PROJECTION;
 
 /**
- * Install the editing projection (the outline store does, once it is
- * created). One installed after a graph has loaded derives from it at once,
- * as from a fresh load.
+ * Install the editing projection, from the plugin that provides it while it is
+ * loaded. With none installed the graph moves on its own: no one is told, and
+ * what a withdrawn projection holds of its own stays as it was. One installed
+ * after a graph has loaded follows it at once, as a fresh load, so its
+ * expansion is read again from storage. Installing the one already installed
+ * does nothing.
  */
 export function provideEditingProjection(next: EditingProjection): void {
+  if (projection === next) return;
   projection = next;
   const state = useGraphStore.getState();
-  if (state.index !== null) next.derive("load", state);
+  if (state.index !== null) next.follow("load", state, state);
+}
+
+/** Uninstall `installed`, if it is still the projection this store asks. */
+export function withdrawEditingProjection(installed: EditingProjection): void {
+  if (projection === installed) projection = NO_PROJECTION;
 }
 
 /** What a scope is read from: the snapshot and the scope's resolution. */
@@ -173,8 +186,11 @@ export function scopedWireOf(state: ScopeSource): WireNode[] {
 
 const scopedIds = new WeakMap<WireNode[], Set<string>>();
 
-/** Whether the page can show `id` under its scope: the workspace, or a node of `scopedWireOf`. */
-function inScope(state: ScopeSource, id: string): boolean {
+/**
+ * Whether the page can show `id` under its scope: the workspace, or a node of
+ * `scopedWireOf` — the ids a projection of `scopedWireOf` holds.
+ */
+export function inScope(state: ScopeSource, id: string): boolean {
   if (id === WORKSPACE_ROOT_ID) return true;
   const wire = scopedWireOf(state);
   let ids = scopedIds.get(wire);
@@ -205,10 +221,20 @@ function now(): GraphState {
   return useGraphStore.getState();
 }
 
-/** Move to `patch` by `change`: the projection derives from it first, then readers see it. */
+/** Move to `patch` by `change`: the projection follows first, then the store moves once. */
 function moveTo(change: GraphChange, patch: Partial<GraphStateData>): void {
-  projection.derive(change, { ...now(), ...patch });
+  const prev = now();
+  projection.follow(change, prev, { ...prev, ...patch });
   useGraphStore.setState(patch);
+}
+
+/**
+ * Replace the whole graph state with `next`, as a load the projection follows:
+ * how a test stands a fresh, unloaded graph up.
+ */
+export function replaceGraph(next: GraphStateData): void {
+  projection.follow("load", now(), next);
+  useGraphStore.setState(next);
 }
 
 // The replica's moves.
@@ -245,7 +271,12 @@ function applyTx(upserts: WireNode[], deletes: string[], opts?: { rev?: number }
   const index = prev.index ?? new DatascriptIndex(wireNodes);
   const scope = scopeFields(wireNodes, prev.ontologyId, index);
   const next = { wireNodes, ontologyId: prev.ontologyId, ...scope };
-  moveTo("tx", { ...next, index, rev: opts?.rev ?? prev.rev, rootNodeId: clampedRoot(next, prev) });
+  moveTo("tx", {
+    ...next,
+    index,
+    rev: opts?.rev ?? prev.rev,
+    rootNodeId: clampedRoot(next, prev),
+  });
 }
 
 function syncFromIndex(): void {
@@ -316,14 +347,15 @@ function reach(id: string): boolean {
 function zoomTo(id: string): void {
   if (!reach(id)) return;
   projection.leave();
+  projection.arrive("zoom", id);
   useGraphStore.setState({ rootNodeId: id });
-  projection.arrive("zoom");
 }
 
 function zoomHome(): void {
   projection.leave();
-  useGraphStore.setState({ rootNodeId: now().homeRootId });
-  projection.arrive("home");
+  const home = now().homeRootId;
+  projection.arrive("home", home);
+  useGraphStore.setState({ rootNodeId: home });
 }
 
 function search(query: string): Array<{ id: string; text: string }> {
@@ -368,13 +400,12 @@ function applyRedo(): UndoEntry | null {
   return entry;
 }
 
-export const useGraphStore = create<GraphState>((set) => ({
+export const useGraphStore = create<GraphState>()(() => ({
   ...initialGraphState,
   hydrateFromWire,
   applyTx,
   syncFromIndex,
   refreshFromWire,
-  setRootNodeId: (id) => set({ rootNodeId: id }),
   setOntologyScope,
   reach,
   zoomTo,

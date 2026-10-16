@@ -11,7 +11,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineCommandApi, useOutlineStore } from "@/stores/outline.store";
+import { outlineCommandApi, useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
@@ -66,7 +66,7 @@ function offered(nodeId: string) {
   return listNodeCommands(context()).filter((c) => c.id.startsWith("make-default-view:"));
 }
 
-const defaultOf = (id: string) => defaultViewIdOf(useOutlineStore.getState().nodes.get(id));
+const defaultOf = (id: string) => defaultViewIdOf(outlineNodes().get(id));
 
 describe("Make default view", () => {
   const dom = { restore: () => {} };
@@ -84,10 +84,7 @@ describe("Make default view", () => {
     expect(rows.map((c) => c.label)).toEqual(["Make default view: Board view"]);
     await runCommand(present(rows[0], "a row").id, context());
     expect(defaultOf("h.page")).toBe("v.board");
-    expect(hostViewIds(useOutlineStore.getState().nodes.get("h.page"))).toEqual([
-      "v.board",
-      "v.table",
-    ]);
+    expect(hostViewIds(outlineNodes().get("h.page"))).toEqual(["v.board", "v.table"]);
     expect(defaultOf("h.other")).toBe("v.table");
     expect(offered("h.page").map((c) => c.label)).toEqual(["Make default view: Table"]);
   });

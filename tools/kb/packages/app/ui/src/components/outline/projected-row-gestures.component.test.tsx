@@ -16,7 +16,7 @@ import { frameConfigOf } from "@/lib/view-config";
 import { OutlineCardsView, OutlineTableView, paramsFrom } from "@kb/views";
 import { Result } from "effect";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore } from "@/stores/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs } from "@/fixtures/view-fields";
@@ -27,7 +27,7 @@ const RESULTS = ["n.root-b", "n.root-c"];
 
 /** What the view named `key` reads of n.root-a's config, decoded the way its host decodes it. */
 function settingsOf<P>(key: Parameters<typeof paramsFrom<P>>[0]): P {
-  const { nodes } = useOutlineStore.getState();
+  const nodes = outlineNodes();
   const schema = schemaOf(useGraphStore.getState());
   return Result.getOrThrow(paramsFrom(key, frameConfigOf(nodes.get("n.root-a"), schema)));
 }
@@ -101,13 +101,10 @@ describe("projected query-result rows behave like owned rows", () => {
   it("table: a plain bullet click toggles, ⌘-click opens the node", async () => {
     await renderTable();
     const before = useGraphStore.getState().rootNodeId;
-    const collapsed = present(
-      useOutlineStore.getState().nodes.get("n.root-b"),
-      "n.root-b",
-    ).collapsed;
+    const collapsed = present(outlineNodes().get("n.root-b"), "n.root-b").collapsed;
     await act(async () => click(bullet()));
     expect(useGraphStore.getState().rootNodeId).toBe(before);
-    expect(useOutlineStore.getState().nodes.get("n.root-b")?.collapsed).toBe(!collapsed);
+    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(!collapsed);
     await act(async () => click(bullet(), { metaKey: true }));
     expect(useGraphStore.getState().rootNodeId).toBe("n.root-b");
   });

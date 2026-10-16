@@ -22,7 +22,7 @@ import {
   syncUiPlugins,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -89,7 +89,7 @@ describe("inline formatting while editing", () => {
   });
 
   async function render(nodeId: string) {
-    const key = outlineInstanceKey(nodeId, useOutlineStore.getState().nodes);
+    const key = outlineInstanceKey(nodeId, outlineNodes());
     await act(async () => {
       root.render(<NodeBlock nodeId={nodeId} instanceKey={key} depth={0} />);
     });
@@ -168,7 +168,7 @@ describe("inline formatting while editing", () => {
       setCaretSerializedOffset(edit, 7);
       edit.dispatchEvent(new dom.Event("input", { bubbles: true }) as unknown as Event);
     });
-    expect(useOutlineStore.getState().nodes.get("n.typed")?.text).toBe("x **y**");
+    expect(outlineNodes().get("n.typed")?.text).toBe("x **y**");
     expect(edit.querySelector("strong")?.textContent).toBe("y");
     expect(getCaretSerializedOffset(edit)).toBe(7);
   });
@@ -196,13 +196,13 @@ describe("inline formatting while editing", () => {
     await act(async () => {
       edit.dispatchEvent(chord(false));
     });
-    expect(useOutlineStore.getState().nodes.get("n.typed")?.text).toBe("x **y*");
+    expect(outlineNodes().get("n.typed")?.text).toBe("x **y*");
     expect(edit.querySelector("strong")).toBeNull();
     expect(getCaretSerializedOffset(edit)).toBe(6);
     await act(async () => {
       edit.dispatchEvent(chord(true));
     });
-    expect(useOutlineStore.getState().nodes.get("n.typed")?.text).toBe("x **y**");
+    expect(outlineNodes().get("n.typed")?.text).toBe("x **y**");
     expect(edit.querySelector("strong")?.textContent).toBe("y");
   });
 
@@ -215,7 +215,7 @@ describe("inline formatting while editing", () => {
       if (isTextNode(boldText)) boldText.data = "bolder";
       edit.dispatchEvent(new dom.Event("input", { bubbles: true }) as unknown as Event);
     });
-    expect(useOutlineStore.getState().nodes.get("n.fmt")?.text).toContain("**bolder**");
+    expect(outlineNodes().get("n.fmt")?.text).toContain("**bolder**");
     // Same node: not rebuilt, so native editing state survives.
     expect(edit.querySelector("strong")?.firstChild).toBe(boldText);
   });
@@ -235,7 +235,7 @@ describe("inline formatting while editing", () => {
       setCaretSerializedOffset(edit, text.length + 1);
       edit.dispatchEvent(new dom.Event("input", { bubbles: true }) as unknown as Event);
     });
-    expect(useOutlineStore.getState().nodes.get("n.url")?.text).toBe(`${text}s`);
+    expect(outlineNodes().get("n.url")?.text).toBe(`${text}s`);
     expect(edit.querySelector("a.kb-md-link")?.getAttribute("href")).toBe("https://ex.test/graphs");
   });
 

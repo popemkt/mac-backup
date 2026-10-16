@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { schemaOf, shownNode } from "@kb/ui-sdk";
 import { isEditableTarget, mapSelectionKey } from "@/lib/selection-keymap";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { fieldSlotCount } from "@/lib/value-slot-nav";
 import { applySelectionAction } from "./selection-actions";
 
@@ -41,7 +41,7 @@ export function useSelectionKeymap(): void {
           getNextVisibleInstance: store.getNextVisibleInstance,
           fieldSlotsOf: fieldSlotCount,
           getNode: (id) => {
-            const n = store.nodes.get(id);
+            const n = outlineNodes().get(id);
             if (!n) return undefined;
             // Children are the shown node's; collapse and place are the row's.
             return {

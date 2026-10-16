@@ -2,10 +2,10 @@ import {
   isFieldNodeHidden,
   isIntrinsicSystemPropKey,
   resolveVisibleProps,
-  schemaOf,
   wireToOutlineMap,
   type NodeMap,
   type SchemaIndex,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
@@ -15,7 +15,7 @@ import { useGraphStore } from "@/stores/graph.store";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+  return schemaOfGraph(nodes);
 }
 
 function mapFromFixture() {

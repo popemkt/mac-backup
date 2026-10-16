@@ -41,7 +41,7 @@ export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
   }
 }
 
-export function listCanvasNodes(nodes: Map<string, OutlineNode>): OutlineNode[] {
+export function listCanvasNodes(nodes: ReadonlyMap<string, OutlineNode>): OutlineNode[] {
   const out: OutlineNode[] = [];
   for (const n of nodes.values()) {
     const tagged = typeRefsOf(n).includes(CANVAS_IDS.canvasTag);
@@ -51,7 +51,7 @@ export function listCanvasNodes(nodes: Map<string, OutlineNode>): OutlineNode[] 
 }
 
 function propLookupFromStore(
-  nodes: Map<string, OutlineNode>,
+  nodes: ReadonlyMap<string, OutlineNode>,
 ): (nodeId: string, fieldId: string) => ReadonlyArray<{ t: string; v: unknown }> | undefined {
   return (nodeId, fieldId) => {
     const n = nodes.get(nodeId);
@@ -61,7 +61,7 @@ function propLookupFromStore(
 
 /** `#canvas` nodes as the Canvases sidebar section lists them. */
 export function listCanvasNavItems(
-  nodes: Map<string, OutlineNode>,
+  nodes: ReadonlyMap<string, OutlineNode>,
 ): Array<{ readonly id: string; readonly label: string }> {
   return listCanvasNodes(nodes).map((n) => ({
     id: n.id,
@@ -70,7 +70,10 @@ export function listCanvasNavItems(
 }
 
 /** Render-time: native edge whose prop is still present. */
-export function edgePropPresent(edge: CanvasEdge, nodes: Map<string, OutlineNode>): boolean {
+export function edgePropPresent(
+  edge: CanvasEdge,
+  nodes: ReadonlyMap<string, OutlineNode>,
+): boolean {
   return isNativeEdgeBound(edge, propLookupFromStore(nodes));
 }
 
@@ -82,7 +85,7 @@ export function edgePropPresent(edge: CanvasEdge, nodes: Map<string, OutlineNode
  */
 export function syncDocOnRev(
   canvasId: string,
-  nodes: Map<string, OutlineNode>,
+  nodes: ReadonlyMap<string, OutlineNode>,
   opts: {
     adopt: (doc: CanvasDoc) => void;
     isBusy: () => boolean;
@@ -179,7 +182,7 @@ export async function createCanvasNode(text = "Untitled canvas"): Promise<string
 
 /** Ref fields only (fieldType=ref), excluding sys.*. */
 export function listRefFields(
-  nodes: Map<string, OutlineNode>,
+  nodes: ReadonlyMap<string, OutlineNode>,
 ): { id: string; name: string; isRef: boolean }[] {
   const out: { id: string; name: string; isRef: boolean }[] = [];
   for (const n of nodes.values()) {

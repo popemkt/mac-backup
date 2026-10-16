@@ -13,7 +13,7 @@ import {
 import { getViewConfig } from "@/lib/view-config";
 import { serializeViewFilter, type ViewFilter } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { outlineNodes, useOutlineNode } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "@/components/ui/pref-field-row";
 import { useFrameViewNode } from "./use-frame-views";
@@ -59,17 +59,13 @@ export function ViewFilterPopoverHost() {
   const frameId = useUiStore((s) => s.filterPopoverFrameId);
   const setOpenId = useUiStore((s) => s.setFilterPopoverFrameId);
   const generation = useGraphStore((s) => s.index?.generation ?? 0);
-  const frame = useOutlineStore((s) => (frameId !== null ? s.nodes.get(frameId) : undefined));
+  const frame = useOutlineNode(frameId);
   const panelRef = useRef<HTMLDivElement>(null);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
 
   const fields = useMemo(() => {
     if (frameId === null) return [];
-    return listFilterFieldOptions(
-      frameId,
-      useOutlineStore.getState().nodes,
-      schemaOf(useGraphStore.getState()),
-    );
+    return listFilterFieldOptions(frameId, outlineNodes(), schemaOf(useGraphStore.getState()));
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
   }, [frameId, generation]);
 

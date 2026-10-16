@@ -16,7 +16,7 @@ import { frameConfigOf, getViewConfig } from "@/lib/view-config";
 import { OutlineListView, OutlineTableView, paramsFrom } from "@kb/views";
 import { Result } from "effect";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore } from "@/stores/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import type { WireNode } from "@kb/contracts";
 import { TableView } from "./table-view";
@@ -103,16 +103,13 @@ function tableSettings() {
   return Result.getOrThrow(
     paramsFrom(
       OutlineTableView,
-      frameConfigOf(
-        useOutlineStore.getState().nodes.get("frame1"),
-        schemaOf(useGraphStore.getState()),
-      ),
+      frameConfigOf(outlineNodes().get("frame1"), schemaOf(useGraphStore.getState())),
     ),
   );
 }
 
 function getStoreNodes() {
-  return useOutlineStore.getState().nodes;
+  return outlineNodes();
 }
 
 describe("W7 TableView & ViewToolbar", () => {
@@ -244,9 +241,7 @@ describe("W7 TableView & ViewToolbar", () => {
   });
 
   it("sorts table render order without mutating children[] array in store", async () => {
-    const initialChildren = [
-      ...present(useOutlineStore.getState().nodes.get("frame1"), "frame1").children,
-    ];
+    const initialChildren = [...present(outlineNodes().get("frame1"), "frame1").children];
     expect(initialChildren).toEqual(["child1", "child2"]);
 
     await mutations.setViewSort("frame1", [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }]);
@@ -266,10 +261,7 @@ describe("W7 TableView & ViewToolbar", () => {
     expect(posBanana).toBeGreaterThan(-1);
     expect(posApple).toBeLessThan(posBanana);
 
-    const storeChildren = present(
-      useOutlineStore.getState().nodes.get("frame1"),
-      "frame1",
-    ).children;
+    const storeChildren = present(outlineNodes().get("frame1"), "frame1").children;
     expect(storeChildren).toEqual(["child1", "child2"]);
   });
 
@@ -278,21 +270,21 @@ describe("W7 TableView & ViewToolbar", () => {
     // Visual first row is Apple (child2); split mid-text.
     await mutations.splitNode("child2", "Apple".length);
 
-    const frame = present(useOutlineStore.getState().nodes.get("frame1"), "frame1");
+    const frame = present(outlineNodes().get("frame1"), "frame1");
     const appleIdx = frame.children.indexOf("child2");
     expect(appleIdx).toBeGreaterThanOrEqual(0);
     const insertedId = present(frame.children[appleIdx + 1], "inserted id");
     expect(insertedId).not.toBe("child1");
 
-    const apple = present(useOutlineStore.getState().nodes.get("child2"), "child2");
-    const created = present(useOutlineStore.getState().nodes.get(insertedId), "inserted");
+    const apple = present(outlineNodes().get("child2"), "child2");
+    const created = present(outlineNodes().get(insertedId), "inserted");
     expect(apple.text).toBe("Apple");
     expect(created.text).toBe(" Task");
 
     // Focus lands on new node with outline/table instance key.
     const store = useOutlineStore.getState();
     expect(store.activeNodeId).toBe(insertedId);
-    expect(store.activeInstanceKey).toBe(outlineInstanceKey(insertedId, store.nodes));
+    expect(store.activeInstanceKey).toBe(outlineInstanceKey(insertedId, outlineNodes()));
     expect(store.activeInstanceKey).toBe(`tree/frame1/${insertedId}`);
 
     // children[] still Banana then Apple then New — sort projection unchanged rule.
@@ -317,7 +309,7 @@ describe("W7 TableView & ViewToolbar", () => {
     await mutations.setColumnWidth("frame1", "f_score", 120);
 
     // The settings are the frame's view node's.
-    const props = present(useOutlineStore.getState().nodes.get("view.frame1"), "view").props;
+    const props = present(outlineNodes().get("view.frame1"), "view").props;
     expect(props[SYSTEM_IDS.viewSortField]).toEqual([
       { t: "ref", v: "f_score" },
       { t: "ref", v: SYSTEM_IDS.nodeTextField },

@@ -22,7 +22,7 @@ import { frameRows } from "@/lib/frame-rows";
 import { resolveTableColumns, type TableColumnSpec } from "@/lib/view-config";
 import { type SortSpec, type ParamsOf, OutlineTableView } from "@kb/views";
 import { useDebugFields } from "@/stores/debug-fields.store";
-import { useFieldContext, useOutlineStore } from "@/stores/outline.store";
+import { useFieldContext, useOutlineStore, useOutlineNodes } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { NodeField } from "./fields-section";
@@ -58,7 +58,7 @@ export function TableView({
   rowIds,
   isQuerySource = false,
 }: TableViewProps) {
-  const storeNodes = useOutlineStore((s) => s.nodes);
+  const storeNodes = useOutlineNodes();
   const nodes = nodesProp ?? storeNodes;
   const frameNode = nodes.get(frameId);
   // Columns are a property of the FRAME, not of any row: one header serves

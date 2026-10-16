@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { cn, type ViewProps } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineNodes } from "@/stores/outline.store";
 import { snippetRows } from "./snippet-rows";
 import type { OutlineSnippetParams } from "@kb/views";
 
@@ -9,7 +9,7 @@ const INDENT: readonly string[] = ["ps-0", "ps-3", "ps-6"];
 
 /** A read-only glimpse of the outline under a node, for a host that shows it in passing. */
 export function OutlineSnippet({ params }: ViewProps<OutlineSnippetParams>) {
-  const nodes = useOutlineStore((s) => s.nodes);
+  const nodes = useOutlineNodes();
   const rows = useMemo(() => snippetRows(nodes, params), [nodes, params]);
   if (rows.length === 0)
     return (

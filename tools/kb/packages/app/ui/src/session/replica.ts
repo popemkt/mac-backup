@@ -3,8 +3,8 @@
  * machine. DESIGN-UI.md → Replica sync states it, transition by transition;
  * this class is that table. It owns the replica's `rev`, the server image, the
  * holds of unconfirmed local writes and the phase of the stream. The socket
- * only carries messages, and the outline store only projects what this
- * machine applies.
+ * only carries messages, and the graph store only holds what this machine
+ * applies.
  */
 import type { GraphSnapshot, ServerMessage } from "@kb/contracts";
 import type { KbNode, StoreTx } from "@kb/model";

@@ -35,7 +35,7 @@
  * it on its instance path renders as a leaf.
  */
 import { instanceAncestorIds } from "./instance-key";
-import { schemaOf, type RowSource, type SchemaIndex } from "./schema";
+import type { RowSource, SchemaIndex } from "./schema";
 import type { OutlineNode } from "./types";
 import { SYSTEM_IDS, isSysPrefixed } from "./types";
 
@@ -126,7 +126,7 @@ export function rowTextOf(
 ): { readonly text: string; readonly textNodeId: string } {
   const node = state.nodes.get(nodeId);
   if (!node) return { text: "", textNodeId: nodeId };
-  return { text: rowText(node, schemaOf(state)), textNodeId: shownNodeId(node) };
+  return { text: rowText(node, state.schema), textNodeId: shownNodeId(node) };
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   SYSTEM_IDS,
   type NodeMap,
   type SchemaIndex,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -17,7 +18,7 @@ import { framedAs, viewFieldNodes, type FrameViewName } from "@/fixtures/view-fi
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineCommandApi, outlineSource, useOutlineStore } from "@/stores/outline.store";
+import { outlineCommandApi, outlineSource, outlineNodes } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { WireNode } from "@kb/contracts";
@@ -56,7 +57,7 @@ function frameViewKeys() {
 
 /** frame1's view as its host resolves it (`frameViewOf`): board or cards, with the settings it reads. */
 function columnsView() {
-  const { nodes } = useOutlineStore.getState();
+  const nodes = outlineNodes();
   const view = frameViewOf(
     nodes.get("frame1"),
     schemaOf(useGraphStore.getState()),
@@ -79,13 +80,13 @@ function columnsView() {
 
 /** The view frame1's default view node names now. */
 function viewOf(): string | null {
-  const { nodes } = useOutlineStore.getState();
+  const nodes = outlineNodes();
   return viewOptionOf(nodes.get(defaultViewIdOf(nodes.get("frame1")) ?? ""));
 }
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+  return schemaOfGraph(nodes);
 }
 
 const FRAME1: WireNode = {
@@ -186,7 +187,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   });
 
   it("zoomed-header shows the toolbar when mode ≠ list, and a quiet gear on list", () => {
-    const { nodes } = useOutlineStore.getState();
+    const nodes = outlineNodes();
     const frame = present(nodes.get("frame1"), "frame1");
     expect(frameViewOf(frame, schemaFor(nodes), frameViewKeys())?.key).toBe(OutlineBoardView);
     const html = renderToStaticMarkup(
@@ -215,7 +216,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         view: columnsView(),
-        nodes: useOutlineStore.getState().nodes,
+        nodes: outlineNodes(),
         context: fieldContextOf(outlineSource()),
         widthPref: "full",
       }),
@@ -236,7 +237,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         view: columnsView(),
-        nodes: useOutlineStore.getState().nodes,
+        nodes: outlineNodes(),
         context: fieldContextOf(outlineSource()),
       }),
     );
@@ -253,7 +254,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         view: columnsView(),
-        nodes: useOutlineStore.getState().nodes,
+        nodes: outlineNodes(),
         context: fieldContextOf(outlineSource()),
       }),
     );
@@ -285,14 +286,14 @@ describe("W7.1 BoardCardsView + toolbar", () => {
         : n,
     );
     useGraphStore.getState().hydrateFromWire(multi, 3, "fixtures");
-    const before = [...present(useOutlineStore.getState().nodes.get("frame1"), "frame1").children];
+    const before = [...present(outlineNodes().get("frame1"), "frame1").children];
     await mutations.moveBoardCard(
       "c1",
       "f_status",
       { t: "str", v: "doing" },
       { t: "str", v: "done" },
     );
-    const after = useOutlineStore.getState().nodes;
+    const after = outlineNodes();
     const c1 = present(after.get("c1"), "c1");
     expect(c1.props.f_status).toEqual([{ t: "str", v: "done" }]);
     expect(present(after.get("frame1"), "frame1").children).toEqual(before);
@@ -303,7 +304,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         view: columnsView(),
-        nodes: useOutlineStore.getState().nodes,
+        nodes: outlineNodes(),
         context: fieldContextOf(outlineSource()),
         rowIds: ["c1", "c2"],
         isQuerySource: true,
@@ -324,7 +325,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   });
 
   it("collectVisibleInstances board column order matches flattenBoardOrder", () => {
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     const frame = present(nodes.get("frame1"), "frame1");
     const kids = frame.children.map((id) => present(nodes.get(id), id));
     const cols = groupChildrenForBoard(kids, "f_status", schemaFor(nodes));
@@ -346,13 +347,13 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   });
 
   it("filter field options come from projected row tags, not global scan", () => {
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     const opts = listFilterFieldOptions("frame1", nodes, schemaFor(nodes));
     expect(opts.map((o) => o.id)).toEqual(["f_status"]);
   });
 
   it("list/table filter smoke: text + eq filters apply", () => {
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     const kids = ["c1", "c2", "c3"].map((id) => present(nodes.get(id), id));
     const textF = present(parseViewFilterEdn('{:text "Alph"}'), "text filter");
     const eqF = present(parseViewFilterEdn('{:field f_status :eq "done"}'), "eq filter");

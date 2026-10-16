@@ -17,7 +17,6 @@ import {
   fieldContextOf,
   nodeCandidates,
   resolveAllowedRefIds,
-  schemaOf,
   SYSTEM_IDS,
   wireToOutlineMap,
   WORKSPACE_ROOT_ID,
@@ -25,6 +24,7 @@ import {
   type KbIndex,
   type NodeMap,
   type SchemaIndex,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
@@ -35,11 +35,11 @@ import { ValueSlot } from "./value-slot";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+  return schemaOfGraph(nodes);
 }
 
 function contextFor(nodes: NodeMap, index: KbIndex | null): FieldContext {
-  return fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index });
+  return fieldContextOf({ schema: schemaOfGraph(nodes), nodes, index });
 }
 
 const ISO = "2026-08-08T00:00:00.000Z";

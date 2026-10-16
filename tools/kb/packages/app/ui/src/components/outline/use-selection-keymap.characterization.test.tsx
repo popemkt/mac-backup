@@ -15,7 +15,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useSelectionKeymap } from "./use-selection-keymap";
@@ -39,7 +39,7 @@ function Host() {
 }
 
 function node(id: string) {
-  return useOutlineStore.getState().nodes.get(id);
+  return outlineNodes().get(id);
 }
 
 /**
@@ -94,7 +94,7 @@ describe("selection-mode dispatcher (characterization)", () => {
 
   /** Select `nodeId` at its outline instance and mount the window keymap. */
   function selectAndMount(nodeId: string): void {
-    const instanceKey = outlineInstanceKey(nodeId, useOutlineStore.getState().nodes);
+    const instanceKey = outlineInstanceKey(nodeId, outlineNodes());
     act(() => {
       useOutlineStore.getState().selectNode(nodeId, instanceKey);
     });
@@ -121,7 +121,7 @@ describe("selection-mode dispatcher (characterization)", () => {
     await press("ArrowDown");
     expect(useOutlineStore.getState().selectedNodeId).toBe("n.root-c");
     expect(useOutlineStore.getState().selectedInstanceKey).toBe(
-      outlineInstanceKey("n.root-c", useOutlineStore.getState().nodes),
+      outlineInstanceKey("n.root-c", outlineNodes()),
     );
   });
 

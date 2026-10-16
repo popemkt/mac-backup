@@ -1,10 +1,10 @@
-import { fieldContextOf, type FieldContext, type NodeMap } from "@kb/ui-sdk";
+import { fieldContextOf, type FieldContext, type NodeMap, schemaOfGraph } from "@kb/ui-sdk";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { FieldValueStack } from "@/components/outline/fields-section";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function contextFor(nodes: NodeMap): FieldContext {
-  return fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index: null });
+  return fieldContextOf({ schema: schemaOfGraph(nodes), nodes, index: null });
 }
 
 const emptyNodes: NodeMap = new Map();

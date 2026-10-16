@@ -14,7 +14,7 @@ import { cn, type OutlineNode } from "@kb/ui-sdk";
 
 interface CanvasStageProps {
   doc: CanvasDoc;
-  nodes: Map<string, OutlineNode>;
+  nodes: ReadonlyMap<string, OutlineNode>;
   byId: Map<string, CanvasNode>;
   selection: CanvasSelection;
   pan: { x: number; y: number };

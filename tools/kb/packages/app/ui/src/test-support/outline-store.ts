@@ -1,5 +1,7 @@
+import { provideEditingProjection } from "@/stores/graph.store";
 import {
   initialOutlineState,
+  outlineProjection,
   useOutlineStore,
   type OutlineStateData,
 } from "@/stores/outline.store";
@@ -7,10 +9,17 @@ import { resetGraphStore } from "./graph-store";
 
 /**
  * Reset to a fresh clone of `initialOutlineState`, then apply test overrides.
- * The outline derives from the graph store, so it is reset on a fresh graph.
+ * The outline's rows are read from the graph store and its own state follows
+ * the graph's moves, so it is reset on a fresh graph, and installed as the
+ * graph's editing projection, as the outline plugin
+ * installs it in the page. The install is idempotent, so a reset per test
+ * installs it once, and it is contained to the test file: each file has its
+ * own module registry, so its graph store, and the projection installed on
+ * it, are the file's own.
  */
 export function resetOutlineStore(overrides?: Partial<OutlineStateData>): void {
   resetGraphStore();
+  provideEditingProjection(outlineProjection);
   useOutlineStore.setState({
     ...structuredClone(initialOutlineState),
     ...overrides,

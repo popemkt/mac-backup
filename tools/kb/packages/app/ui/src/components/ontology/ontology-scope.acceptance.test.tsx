@@ -17,7 +17,7 @@ import { setPostAction } from "@/api/action";
 import { App } from "@/components/App";
 import { navigate, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 
 const ISO = "2026-08-23T00:00:00.000Z";
 
@@ -186,7 +186,7 @@ describe("ontology scope (acceptance)", () => {
 
   it("keeps a member's internal parent/child link inside the scope", async () => {
     await goto("/o/o.infra/outline");
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     // caddy was tailscaled's child and both are members: the link survives.
     const tailscaled = present(nodes.get("n.tailscaled"), "n.tailscaled");
     const caddy = present(nodes.get("n.caddy"), "n.caddy");

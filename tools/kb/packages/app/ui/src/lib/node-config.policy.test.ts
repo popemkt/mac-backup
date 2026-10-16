@@ -14,11 +14,11 @@ import { VIEW_FAMILY_VALUES } from "@kb/model";
 import {
   familyViews,
   parsePerspective,
-  schemaOf,
   SYSTEM_IDS,
   ViewPoint,
   wireToOutlineMap,
   type PropValue,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
@@ -141,7 +141,7 @@ describe("getViewConfig reporting", () => {
     });
     const frame = node("f", { [SYSTEM_IDS.viewsField]: [{ t: "ref", v: "v.kanban" }] });
     const nodes = wireToOutlineMap([frame, viewNode, option], new Set());
-    const schema = schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+    const schema = schemaOfGraph(nodes);
     const view = frameViewOf(frame, schema, FRAME_VIEWS);
     expect(view?.key).toBe(OutlineListView);
     expect(warned).toEqual([

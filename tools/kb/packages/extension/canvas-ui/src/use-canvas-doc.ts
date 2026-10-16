@@ -107,7 +107,7 @@ function useWritePath(send: Send, applied: () => CanvasDoc) {
 interface UseCanvasDocOptions {
   canvasId: string;
   canvasNode: OutlineNode | undefined;
-  nodes: Map<string, OutlineNode>;
+  nodes: ReadonlyMap<string, OutlineNode>;
   rev: number;
   isInteracting: () => boolean;
 }

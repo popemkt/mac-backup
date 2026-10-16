@@ -9,7 +9,7 @@ import { clientToCanvas } from "./canvas-camera";
 
 interface CanvasEdgeLayerProps {
   doc: CanvasDoc;
-  nodes: Map<string, OutlineNode>;
+  nodes: ReadonlyMap<string, OutlineNode>;
   byId: Map<string, CanvasNode>;
   selection: CanvasSelection;
   pan: { x: number; y: number };

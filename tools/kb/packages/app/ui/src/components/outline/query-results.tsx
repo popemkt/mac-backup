@@ -10,7 +10,7 @@ import { queryDefOf } from "@kb/model";
 import { resultNodeIds, subscribeLiveQueryNode } from "@/lib/query-node";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineNode, useOutlineNodes } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { FrameViewSlot } from "./frame-view-slot";
 
@@ -38,8 +38,8 @@ export function QueryResultsSection({
   frameInstanceKey,
   renderNode,
 }: QueryResultsSectionProps) {
-  const node = useOutlineStore((s) => s.nodes.get(nodeId));
-  const nodes = useOutlineStore((s) => s.nodes);
+  const node = useOutlineNode(nodeId);
+  const nodes = useOutlineNodes();
   const queryDb = useGraphStore((s) => s.index);
   const generation = useGraphStore((s) => s.index?.generation ?? 0);
   const wsStatus = useUiStore((s) => s.wsStatus);

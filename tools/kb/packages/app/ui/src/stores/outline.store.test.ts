@@ -1,12 +1,13 @@
-import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
+import { outlineGraph } from "@/stores/graph-read";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
@@ -26,6 +27,18 @@ const wire = (id: string, text: string) => ({
   updatedAt: "2026-08-08T00:00:00.000Z",
 });
 
+/** Every notification any reader of the outline can get, as what it then sees. */
+function watch(look: () => void): () => void {
+  const offs = [
+    useGraphStore.subscribe(look),
+    useOutlineStore.subscribe(look),
+    outlineGraph.subscribe(look),
+  ];
+  return () => {
+    for (const off of offs) off();
+  };
+}
+
 describe("outline store (WireNode adaptation)", () => {
   beforeEach(() => {
     resetOutlineStore();
@@ -33,7 +46,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("hydrates forest roots under virtual workspace root (id-sorted)", () => {
     seed();
-    const root = present(useOutlineStore.getState().nodes.get(WORKSPACE_ROOT_ID), "workspace root");
+    const root = present(outlineNodes().get(WORKSPACE_ROOT_ID), "workspace root");
     expect(root.children).toEqual(["lens.all-mentions", "n.root-a", "n.root-b", "n.root-c"]);
     expect(root.children).not.toContain("sys.tag");
     expect(root.children).not.toContain("tag.todo");
@@ -41,26 +54,26 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("preserves ordered children arrays (no fractional order)", () => {
     seed();
-    const a = present(useOutlineStore.getState().nodes.get("n.root-a"), "n.root-a");
+    const a = present(outlineNodes().get("n.root-a"), "n.root-a");
     expect(a.children).toEqual(["n.child-a1", "n.child-a2"]);
     expect(a).not.toHaveProperty("order");
   });
 
   it("resolves tags from sys.f.type refs", () => {
     seed();
-    const a = present(useOutlineStore.getState().nodes.get("n.root-a"), "n.root-a");
+    const a = present(outlineNodes().get("n.root-a"), "n.root-a");
     expect(a.tags).toEqual([{ id: "tag.todo", name: "todo", color: expect.any(String) }]);
   });
 
   it("keeps the object of every node a transaction did not change", () => {
     seed();
-    const before = useOutlineStore.getState().nodes;
+    const before = outlineNodes();
     const target = present(
       fixtureGraph.nodes.find((n) => n.id === "n.child-a1"),
       "n.child-a1",
     );
     useGraphStore.getState().applyTx([{ ...target, text: "renamed" }], [], { rev: 2 });
-    const after = useOutlineStore.getState().nodes;
+    const after = outlineNodes();
     expect(after).not.toBe(before);
     expect(after.get("n.child-a1")).not.toBe(before.get("n.child-a1"));
     expect(after.get("n.child-a1")?.text).toBe("renamed");
@@ -69,7 +82,7 @@ describe("outline store (WireNode adaptation)", () => {
 
     // Expansion replaces only the toggled node.
     useOutlineStore.getState().toggleCollapse("n.root-a");
-    const toggled = useOutlineStore.getState().nodes;
+    const toggled = outlineNodes();
     expect([...toggled.keys()].filter((id) => toggled.get(id) !== after.get(id))).toEqual([
       "n.root-a",
     ]);
@@ -106,7 +119,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("defaults expandable nodes collapsed; visible list shows roots only", () => {
     seed();
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(true);
+    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(true);
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
       "lens.all-mentions",
       "n.root-a",
@@ -137,47 +150,44 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("defaults field-only expandable nodes collapsed", () => {
     seed();
-    expect(useOutlineStore.getState().nodes.get("n.root-b")?.collapsed).toBe(true);
+    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(true);
   });
 
   it("toggleCollapse expands field-only nodes", () => {
     seed();
     useOutlineStore.getState().toggleCollapse("n.root-b");
-    expect(useOutlineStore.getState().nodes.get("n.root-b")?.collapsed).toBe(false);
+    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(false);
   });
 
   it("does nothing when toggling a leaf without fields or children", () => {
     seed();
     useOutlineStore.getState().toggleCollapse("n.root-c");
-    expect(useOutlineStore.getState().nodes.get("n.root-c")?.collapsed).toBe(false);
+    expect(outlineNodes().get("n.root-c")?.collapsed).toBe(false);
   });
 
   it("expandAllInScope expands every expandable node in the forest", () => {
     seed();
     useOutlineStore.getState().expandAllInScope();
-    const s = useOutlineStore.getState();
-    expect(s.nodes.get("n.root-a")?.collapsed).toBe(false);
-    expect(s.nodes.get("n.root-b")?.collapsed).toBe(false);
-    expect(s.nodes.get("n.child-a2")?.collapsed).toBe(false);
+    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(false);
+    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(false);
+    expect(outlineNodes().get("n.child-a2")?.collapsed).toBe(false);
   });
 
   it("collapseAllInScope collapses expandable nodes in the current scope", () => {
     seed();
     useOutlineStore.getState().expandAllInScope();
     useOutlineStore.getState().collapseAllInScope();
-    const s = useOutlineStore.getState();
-    expect(s.nodes.get("n.root-a")?.collapsed).toBe(true);
-    expect(s.nodes.get("n.root-b")?.collapsed).toBe(true);
+    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(true);
+    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(true);
   });
 
   it("expand/collapse all respects zoomed subtree scope", () => {
     seed();
     useGraphStore.getState().zoomTo("n.root-a");
     useOutlineStore.getState().expandAllInScope();
-    const s = useOutlineStore.getState();
-    expect(s.nodes.get("n.root-a")?.collapsed).toBe(true);
-    expect(s.nodes.get("n.child-a1")?.collapsed).toBe(false);
-    expect(s.nodes.get("n.root-b")?.collapsed).toBe(true);
+    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(true);
+    expect(outlineNodes().get("n.child-a1")?.collapsed).toBe(false);
+    expect(outlineNodes().get("n.root-b")?.collapsed).toBe(true);
   });
 
   it("zoomTo selects the first visible row under the root, never the root itself", () => {
@@ -201,56 +211,35 @@ describe("outline store (WireNode adaptation)", () => {
     expect(useOutlineStore.getState().selectedNodeId).toBeNull();
   });
 
-  it("zoomTo changes root and breadcrumbs", () => {
+  it("zoomTo shows the root's breadcrumbs, and home none", () => {
     seed();
     useGraphStore.getState().zoomTo("n.root-a");
-    expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");
     expect(useOutlineStore.getState().getBreadcrumbs()).toEqual([
       { id: "n.root-a", text: "Ship kb ui shell" },
     ]);
     useGraphStore.getState().zoomHome();
-    expect(useGraphStore.getState().rootNodeId).toBe(WORKSPACE_ROOT_ID);
-  });
-
-  it("search finds by text substring", () => {
-    seed();
-    const hits = useGraphStore.getState().search("localStorage");
-    expect(hits.map((h) => h.id)).toEqual(["n.grandchild"]);
+    expect(useOutlineStore.getState().getBreadcrumbs()).toEqual([]);
   });
 
   it("getPrevious / getNext respect collapsed subtrees", () => {
     seed();
     useOutlineStore.getState().toggleCollapse("n.root-a");
     const s = useOutlineStore.getState();
-    const aKey = outlineInstanceKey("n.root-a", s.nodes);
-    const bKey = outlineInstanceKey("n.root-b", s.nodes);
+    const aKey = outlineInstanceKey("n.root-a", outlineNodes());
+    const bKey = outlineInstanceKey("n.root-b", outlineNodes());
     expect(present(s.getNextVisibleInstance(aKey), "next of n.root-a").nodeId).toBe("n.child-a1");
     expect(present(s.getPreviousVisibleInstance(bKey), "prev of n.root-b").nodeId).toBe(
       "n.child-a2",
     );
   });
 
-  it("builds a DatascriptIndex replica on hydrate", () => {
-    seed();
-    const ix = present(useGraphStore.getState().index, "index");
-    expect(ix.getNode("n.root-a")).toBeDefined();
-    expect(ix.generation).toBeGreaterThan(0);
-  });
-
   describe("applyTx (WS delta seam)", () => {
-    it("upserts new nodes and bumps rev + index generation", () => {
+    it("projects an upserted node under the workspace root", () => {
       seed();
-      const genBefore = present(useGraphStore.getState().index, "index").generation;
       useGraphStore.getState().applyTx([wire("n.new", "fresh node")], [], { rev: 2 });
-      const s = useOutlineStore.getState();
-      const graph = useGraphStore.getState();
-      expect(graph.rev).toBe(2);
-      expect(s.nodes.get("n.new")?.text).toBe("fresh node");
-      const root = present(s.nodes.get(WORKSPACE_ROOT_ID), "workspace root");
+      expect(outlineNodes().get("n.new")?.text).toBe("fresh node");
+      const root = present(outlineNodes().get(WORKSPACE_ROOT_ID), "workspace root");
       expect(root.children).toContain("n.new");
-      const ix = present(graph.index, "index");
-      expect(ix.getNode("n.new")).toBeDefined();
-      expect(ix.generation).toBeGreaterThan(genBefore);
     });
 
     it("updates existing node text in place", () => {
@@ -260,24 +249,23 @@ describe("outline store (WireNode adaptation)", () => {
         "n.root-b wire",
       );
       useGraphStore.getState().applyTx([{ ...cur, text: "renamed" }], [], { rev: 2 });
-      expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).toBe("renamed");
+      expect(outlineNodes().get("n.root-b")?.text).toBe("renamed");
     });
 
     it("deletes nodes", () => {
       seed();
       useGraphStore.getState().applyTx([], ["n.root-c"], { rev: 2 });
-      const s = useOutlineStore.getState();
-      expect(s.nodes.has("n.root-c")).toBe(false);
-      const root = present(s.nodes.get(WORKSPACE_ROOT_ID), "workspace root");
+      expect(outlineNodes().has("n.root-c")).toBe(false);
+      const root = present(outlineNodes().get(WORKSPACE_ROOT_ID), "workspace root");
       expect(root.children).not.toContain("n.root-c");
     });
 
     it("preserves collapse state across deltas", () => {
       seed();
       useOutlineStore.getState().toggleCollapse("n.root-a");
-      expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(false);
+      expect(outlineNodes().get("n.root-a")?.collapsed).toBe(false);
       useGraphStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
-      expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(false);
+      expect(outlineNodes().get("n.root-a")?.collapsed).toBe(false);
     });
 
     it("preserves zoom + selection when targets survive", () => {
@@ -290,14 +278,91 @@ describe("outline store (WireNode adaptation)", () => {
       expect(s.selectedNodeId).toBe("n.child-a1");
     });
 
-    it("falls back to home when the zoomed node is deleted", () => {
+    it("drops the selection when the zoomed node is deleted", () => {
       seed();
       useGraphStore.getState().zoomTo("n.root-c");
       useGraphStore.getState().applyTx([], ["n.root-c"], { rev: 2 });
-      const s = useOutlineStore.getState();
-      const graph = useGraphStore.getState();
-      expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
-      expect(s.selectedNodeId).toBeNull();
+      expect(useOutlineStore.getState().selectedNodeId).toBeNull();
+    });
+  });
+
+  describe("what a reader can see during a move", () => {
+    it("never the graph beside rows of another snapshot: the rows are read from it", () => {
+      seed();
+      const seen: boolean[] = [];
+      const stop = watch(() => {
+        const inGraph = useGraphStore.getState().wireNodes.some((n) => n.id === "n.new");
+        seen.push(inGraph === outlineNodes().has("n.new"));
+      });
+      useGraphStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
+      useGraphStore.getState().applyTx([], ["n.new"], { rev: 3 });
+      stop();
+      expect(seen.length).toBeGreaterThan(0);
+      expect(seen.every(Boolean)).toBe(true);
+    });
+
+    it("never a focus on a row the graph it is seen with does not show", () => {
+      seed();
+      useOutlineStore.getState().selectNode("n.root-c");
+      const seen: boolean[] = [];
+      const stop = watch(() => {
+        const { selectedNodeId } = useOutlineStore.getState();
+        seen.push(selectedNodeId === null || outlineNodes().has(selectedNodeId));
+      });
+      useGraphStore.getState().applyTx([], ["n.root-c"], { rev: 2 });
+      stop();
+      expect(seen.length).toBeGreaterThan(0);
+      expect(seen.every(Boolean)).toBe(true);
+      expect(useOutlineStore.getState().selectedNodeId).toBeNull();
+    });
+
+    it("a zoom lands the selection before the root moves: never the new root with the old one", () => {
+      seed();
+      useOutlineStore.getState().selectNode("n.root-c");
+      const seen: Array<[string, string | null]> = [];
+      const stop = watch(() =>
+        seen.push([useGraphStore.getState().rootNodeId, useOutlineStore.getState().selectedNodeId]),
+      );
+      useGraphStore.getState().zoomTo("n.root-a");
+      stop();
+      expect(seen.length).toBeGreaterThan(0);
+      expect(seen.every(([, selected]) => selected === "n.child-a1")).toBe(true);
+      expect(seen.at(-1)).toEqual(["n.root-a", "n.child-a1"]);
+    });
+
+    it("a jump out of the zoom edits the row only once the page is home and the row shows", () => {
+      // The jump scrolls its row into view after paint; there is no paint here.
+      vi.stubGlobal("requestAnimationFrame", () => 0);
+      seed();
+      useGraphStore.getState().zoomTo("n.root-b");
+      const seen: Array<[string, string | null, boolean]> = [];
+      const stop = watch(() => {
+        const outline = useOutlineStore.getState();
+        seen.push([
+          useGraphStore.getState().rootNodeId,
+          outline.activeNodeId,
+          outlineNodes().get("n.child-a2")?.collapsed === false,
+        ]);
+      });
+      useOutlineStore.getState().jumpToNode("n.grandchild");
+      stop();
+      vi.unstubAllGlobals();
+      expect(seen.length).toBeGreaterThan(0);
+      for (const [root, active, open] of seen) {
+        if (active !== null)
+          expect([root, active, open]).toEqual([WORKSPACE_ROOT_ID, "n.grandchild", true]);
+      }
+      expect(seen.at(-1)).toEqual([WORKSPACE_ROOT_ID, "n.grandchild", true]);
+    });
+
+    it("a jump to a row no outline shows leaves the page where it was", () => {
+      seed();
+      useGraphStore.getState().zoomTo("n.root-b");
+      useOutlineStore.getState().selectNode("n.root-b");
+      // A field definition is in the graph but in no outline's forest.
+      useOutlineStore.getState().jumpToNode("field.status");
+      expect(useGraphStore.getState().rootNodeId).toBe("n.root-b");
+      expect(useOutlineStore.getState().selectedNodeId).toBe("n.root-b");
     });
   });
 });

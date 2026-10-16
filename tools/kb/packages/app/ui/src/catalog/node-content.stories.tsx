@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { NodeTextHost, schemaOf, type NodeTextHostBinding } from "@kb/ui-sdk";
+import { NodeTextHost, type NodeTextHostBinding, schemaOfGraph } from "@kb/ui-sdk";
 
 const noop = (): void => undefined;
 const noopActivate = (): void => undefined;
@@ -7,7 +7,7 @@ const noopFollow = (): void => undefined;
 
 const binding: NodeTextHostBinding = {
   nodes: new Map(),
-  schema: schemaOf({ ontologyId: null, nodes: new Map(), wireNodes: [] }),
+  schema: schemaOfGraph(new Map()),
   pendingCaret: null,
   onFollow: noopFollow,
   consumeCaret: () => null,

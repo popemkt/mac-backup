@@ -1,12 +1,12 @@
 import {
   familyViews,
-  schemaOf,
   SYSTEM_IDS,
   ViewPoint,
   wireToOutlineMap,
   type NodeMap,
   type OutlineNode,
   type SchemaIndex,
+  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
@@ -44,7 +44,7 @@ const FRAME_VIEWS = (() => {
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+  return schemaOfGraph(nodes);
 }
 
 /** The schema of a graph given as wire nodes. */
@@ -234,7 +234,7 @@ describe("view-config", () => {
   });
 
   it("resolves columns from display refs or tag field fallback", () => {
-    const nodes: NodeMap = new Map();
+    const nodes = new Map<string, OutlineNode>();
     nodes.set("tag1", {
       id: "tag1",
       text: "todo",
@@ -303,7 +303,7 @@ describe("view-config", () => {
   });
 
   it("sorts children for table render projection without mutating original children array", () => {
-    const nodes: NodeMap = new Map();
+    const nodes = new Map<string, OutlineNode>();
     const c1: OutlineNode = {
       id: "c1",
       text: "Banana",
@@ -401,7 +401,7 @@ describe("view-config", () => {
   });
 
   it("applyViewFilters ANDs eq + text filters", () => {
-    const nodes: NodeMap = new Map();
+    const nodes = new Map<string, OutlineNode>();
     const a: OutlineNode = {
       id: "a",
       text: "Ship kb",
@@ -441,7 +441,7 @@ describe("view-config", () => {
   });
 
   it("groupChildrenForBoard groups by field + empty column; cards = single column", () => {
-    const nodes: NodeMap = new Map();
+    const nodes = new Map<string, OutlineNode>();
     nodes.set("field.status", {
       id: "field.status",
       text: "status",

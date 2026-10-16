@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { backlinkRows, type BacklinkRow } from "@/lib/backlinks";
 import { Bullet, MdView, NodeRow, schemaOf, TagChipGroup } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineNodes } from "@/stores/outline.store";
 import { useFollow, useOpenNode } from "@/stores/follow";
 import { useRefInk } from "@/stores/ref-ink";
 
@@ -48,7 +48,7 @@ function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
   const zoomTo = useOpenNode();
   const follow = useFollow();
   const ink = useRefInk();
-  const nodes = useOutlineStore((s) => s.nodes);
+  const nodes = useOutlineNodes();
   const node = nodes.get(row.id);
 
   const bulletNode = node ?? {

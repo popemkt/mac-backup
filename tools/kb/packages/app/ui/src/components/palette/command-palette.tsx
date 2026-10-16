@@ -7,7 +7,7 @@ import { schemaZoomKind } from "@/lib/schema-zoom";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineCommandApi, useOutlineStore } from "@/stores/outline.store";
+import { outlineCommandApi, useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -106,7 +106,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         await runCommand(hit.id, commandContext(onClose));
         return;
       }
-      const node = useOutlineStore.getState().nodes.get(hit.id);
+      const node = outlineNodes().get(hit.id);
       if (schemaZoomKind(node) || isSysPrefixed(hit.id)) {
         zoomTo(hit.id);
         return;

@@ -5,7 +5,7 @@ import { EXPANDED_STORAGE_KEY, forestRootIds, wireToOutlineMap } from "@kb/ui-sd
 import { mergeTx } from "@/lib/tx";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 
 describe("stable outline ordering", () => {
@@ -33,7 +33,7 @@ describe("stable outline ordering", () => {
   });
 
   it("root and sibling order stay byte-identical across repeated text edits", async () => {
-    const before = useOutlineStore.getState().nodes;
+    const before = outlineNodes();
     const beforeRoots = [...present(before.get("__kb_root__"), "__kb_root__").children];
     const beforeChildren = [...present(before.get("n.root-a"), "n.root-a").children];
 
@@ -41,7 +41,7 @@ describe("stable outline ordering", () => {
       await mutations.updateNodeContent("n.root-a", `Ship kb ui shell v${i}`);
     }
 
-    const after = useOutlineStore.getState().nodes;
+    const after = outlineNodes();
     const afterRoots = [...present(after.get("__kb_root__"), "__kb_root__").children];
     const afterChildren = [...present(after.get("n.root-a"), "n.root-a").children];
 
@@ -53,7 +53,7 @@ describe("stable outline ordering", () => {
     const idSorted = [...fixtureGraph.nodes].toSorted((a, b) => a.id.localeCompare(b.id));
     useGraphStore.getState().hydrateFromWire(idSorted, fixtureGraph.rev, "fixtures");
 
-    const before = useOutlineStore.getState().nodes;
+    const before = outlineNodes();
     const beforeRoots = [...present(before.get("__kb_root__"), "__kb_root__").children];
     const beforeChildren = [...present(before.get("n.root-a"), "n.root-a").children];
 
@@ -67,7 +67,7 @@ describe("stable outline ordering", () => {
       await mutations.updateNodeContent("n.root-a", `edited ${i}`);
     }
 
-    const after = useOutlineStore.getState().nodes;
+    const after = outlineNodes();
     const afterRoots = [...present(after.get("__kb_root__"), "__kb_root__").children];
     const afterChildren = [...present(after.get("n.root-a"), "n.root-a").children];
 

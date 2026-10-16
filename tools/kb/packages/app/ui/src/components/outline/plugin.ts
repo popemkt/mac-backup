@@ -29,6 +29,8 @@ import {
 } from "@kb/ui-sdk";
 import { ListBulletsIcon, SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
 import { provideFrameViews, withdrawFrameViews } from "@/stores/frame-views";
+import { provideEditingProjection, withdrawEditingProjection } from "@/stores/graph.store";
+import { outlineProjection } from "@/stores/outline.store";
 import { readFrameViews } from "@/components/outline/use-frame-views";
 
 const { filters, sort, display, colwidth, pagesize, groupFieldId } = DEFAULT_VIEW_CONFIG;
@@ -49,6 +51,15 @@ export const outlineUiPlugin = definePlugin({
         Effect.acquireRelease(
           Effect.sync(() => provideFrameViews(readFrameViews)),
           () => Effect.sync(() => withdrawFrameViews(readFrameViews)),
+        ),
+        // The page edits through the outline: the graph store tells it of each
+        // move, so its expansion and focus follow, while this plugin is
+        // loaded. Unloaded, its rows are still read from the graph, but its
+        // own state stays where it was; loaded again, it follows the graph as
+        // a fresh load, which reads the expansion from storage again.
+        Effect.acquireRelease(
+          Effect.sync(() => provideEditingProjection(outlineProjection)),
+          () => Effect.sync(() => withdrawEditingProjection(outlineProjection)),
         ),
         ctx.contribute(
           ViewPoint,

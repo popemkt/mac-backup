@@ -12,7 +12,7 @@ import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import { invoke } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import {
   appearanceIn,
   sidebarOpenIn,
@@ -38,7 +38,7 @@ const host: BrowserHost = {
       for (const unsubscribe of unsubscribes) unsubscribe();
     };
   },
-  node: (id) => useOutlineStore.getState().nodes.get(id),
+  node: (id) => outlineNodes().get(id),
   isActive: (nodeId, instanceKey) => {
     const { activeNodeId, activeInstanceKey } = useOutlineStore.getState();
     return activeNodeId === nodeId && activeInstanceKey === instanceKey;

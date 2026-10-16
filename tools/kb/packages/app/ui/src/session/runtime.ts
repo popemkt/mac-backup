@@ -22,7 +22,7 @@ import { livePageCatalog } from "@/lib/view-catalog";
 import { BrowserStore } from "./browser-store";
 import { BrowserReplica, type Hold, type ReplicaLink } from "./replica";
 
-/** How the outline store projects the session: local commits, server deltas, snapshots. */
+/** How the graph store follows the session: local commits, server deltas, snapshots. */
 export interface BrowserSessionView {
   readonly onLocalCommit: () => void;
   readonly applyServerTx: (tx: StoreTx, rev: number) => void;
@@ -60,7 +60,7 @@ function noteBrowserStoreSynced(current: BrowserSession): void {
   Effect.runSync(noteStoreSynced(current.ctx).pipe(Effect.provide(current.layer)));
 }
 
-/** Install the browser infrastructure around the outline store's one index. */
+/** Install the browser infrastructure around the graph store's one index. */
 export function replaceBrowserSession(
   nodes: readonly KbNode[],
   rev: number,
@@ -177,7 +177,7 @@ export function invokeLocal(invocation: ActionInvocation): Promise<ActionReceipt
       Effect.provide(current.layer),
     ),
   ).then((receipt) => {
-    // Only a write commits; a read leaves the outline store nothing to project.
+    // Only a write commits; a read leaves the graph store nothing to follow.
     const writes = localActions.get(invocation.id)?.def.mode.kind === "write";
     if (writes && receipt.status === "succeeded") current.onLocalCommit();
     return receipt;

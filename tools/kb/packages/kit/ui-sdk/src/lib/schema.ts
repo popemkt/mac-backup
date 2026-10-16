@@ -1,30 +1,29 @@
 /**
- * Where a node's schema is read from: the whole graph, whatever the outline
+ * Where a node's schema is read from: the whole graph, whatever a projection
  * shows.
  *
- * The outline map (`NodeMap`) is a projection — under an ontology scope it
- * holds only members, because scope decides which content the outline lists
- * and navigates to. What that content *means* is not scoped: a field's name,
+ * A projection (`NodeMap`) may hold only part of the graph — under an
+ * ontology scope only members, because scope decides which content is listed
+ * and navigated to. What that content *means* is not scoped: a field's name,
  * declared type, cardinality, hidden flag and option set, a tag's name and
  * templated fields, and the label of a ref value are resolved against every
  * node.
  *
  * So schema is a type of its own. {@link SchemaIndex} is a read-only view of the
- * whole graph that only {@link schemaOf} produces; every function that reads a
- * definition takes a `SchemaIndex`, never a `NodeMap`. Handing the projection to a
- * schema reader is then a compile error rather than a bug that only shows
- * under a scope — which is how the same bug was found four times over before
- * the type existed.
+ * whole graph; every function that reads a definition takes a `SchemaIndex`,
+ * never a `NodeMap`. Handing a projection to a schema reader is then a compile
+ * error rather than a bug that only shows under a scope — which is how the
+ * same bug was found four times over before the type existed.
  *
- * Either way the schema is one map per snapshot (`wireNodes` identity, which
- * every store transition renews), so a selector over it is referentially
- * stable. Unscoped, the projection *is* the whole graph: the first reader that
- * hands one in for a snapshot (the outline, as it projects) makes it the
- * schema. Otherwise the full map is built once.
+ * A schema is built from the graph snapshot alone ({@link schemaOf}), once per
+ * snapshot (`wireNodes` identity, which every graph move renews), so a
+ * selector over it is referentially stable and no reader decides what it is.
+ * A node map that already is a whole graph — a fixture, a story — is its own
+ * schema ({@link schemaOfGraph}).
  */
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "../query";
-import { wireToOutlineMap } from "./graph-view";
+import { isPartialProjection, wireToOutlineMap } from "./graph-view";
 import type { NodeMap, OutlineNode } from "./types";
 
 declare const schemaBrand: unique symbol;
@@ -32,39 +31,44 @@ declare const schemaBrand: unique symbol;
 /** The whole graph, read-only, as every field and tag definition is resolved. */
 export type SchemaIndex = ReadonlyMap<string, OutlineNode> & { readonly [schemaBrand]: true };
 
-/**
- * What a schema is built from: the snapshot, the scope it is read under, and,
- * when the reader holds one, its projection of that same snapshot. Unscoped,
- * the projection stands for the schema, so none is built beside it; a reader
- * without one (the graph store alone) gets the snapshot's schema all the same.
- */
+/** What a schema is built from: the graph snapshot. */
 export interface SchemaSource {
-  readonly ontologyId: string | null;
   readonly wireNodes: readonly WireNode[];
-  readonly nodes?: NodeMap;
 }
 
-const fullGraph = new WeakMap<readonly WireNode[], SchemaIndex>();
+const bySnapshot = new WeakMap<readonly WireNode[], SchemaIndex>();
 
 /**
- * The schema of a state. The one constructor: the brand is asserted here and
- * nowhere else, because this is the one place that knows the map it returns
- * is the whole graph.
+ * The whole graph last asked for: the next one built keeps its unchanged
+ * nodes (`wireToOutlineMap`), so a node's object lasts across snapshots.
  */
-export function schemaOf(state: SchemaSource): SchemaIndex {
-  const cached = fullGraph.get(state.wireNodes);
-  if (cached !== undefined) return cached;
-  // Unscoped, the projection is the whole graph, so the first projection of
-  // a snapshot is its schema. It stays the schema when a collapse or expand
-  // replaces the projection map, because nothing a schema reader asks —
-  // props, text, children, tags — changes with expansion; so a schema is one
-  // object per snapshot and memos keyed on it survive UI state changes.
-  const built =
-    state.ontologyId === null && state.nodes !== undefined
-      ? projectionAsSchema(state.nodes)
-      : wholeGraph(state);
-  fullGraph.set(state.wireNodes, built);
+let lastWholeGraph: SchemaIndex | undefined;
+
+/** The schema of a graph snapshot: every node, built once per snapshot. */
+export function schemaOf(snapshot: SchemaSource): SchemaIndex {
+  const cached = bySnapshot.get(snapshot.wireNodes);
+  if (cached !== undefined) {
+    lastWholeGraph = cached;
+    return cached;
+  }
+  const wire = [...snapshot.wireNodes];
+  const built = schemaOfGraph(wireToOutlineMap(wire, new Set(), wire, lastWholeGraph));
+  lastWholeGraph = built;
+  bySnapshot.set(snapshot.wireNodes, built);
   return built;
+}
+
+/**
+ * A node map that is the whole graph, as its schema. The brand is asserted
+ * here and nowhere else; {@link schemaOf} builds its map through it. A scope's
+ * projection is refused: it is part of the graph, and a schema is all of it.
+ */
+export function schemaOfGraph(graph: ReadonlyMap<string, OutlineNode>): SchemaIndex {
+  if (isPartialProjection(graph)) {
+    throw new Error("schemaOfGraph: a scoped projection is part of the graph, not its schema");
+  }
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a map becomes a SchemaIndex; the caller hands the whole graph
+  return graph as unknown as SchemaIndex;
 }
 
 /**
@@ -80,8 +84,9 @@ export interface FieldContext {
   readonly index: KbIndex | null;
 }
 
-/** A schema source that holds its projection: what a reader of rows by id resolves against. */
-export interface RowSource extends SchemaSource {
+/** Rows and the schema they resolve against: what a reader of rows by id takes. */
+export interface RowSource {
+  readonly schema: SchemaIndex;
   readonly nodes: NodeMap;
 }
 
@@ -93,33 +98,20 @@ export interface FieldContextSource extends RowSource {
 const contexts = new WeakMap<NodeMap, FieldContext>();
 
 /**
- * The field context of a state — the one constructor. One object per
- * projection map, so a selector over it is referentially stable.
+ * The field context of a source — the one constructor. One object per
+ * projection map, schema and index, so a selector over it is referentially
+ * stable.
  */
-export function fieldContextOf(state: FieldContextSource): FieldContext {
-  const cached = contexts.get(state.nodes);
-  if (cached !== undefined && cached.index === state.index) return cached;
+export function fieldContextOf(source: FieldContextSource): FieldContext {
+  const cached = contexts.get(source.nodes);
+  if (cached !== undefined && cached.index === source.index && cached.schema === source.schema) {
+    return cached;
+  }
   const context: FieldContext = {
-    schema: schemaOf(state),
-    outline: state.nodes,
-    index: state.index,
+    schema: source.schema,
+    outline: source.nodes,
+    index: source.index,
   };
-  contexts.set(state.nodes, context);
+  contexts.set(source.nodes, context);
   return context;
-}
-
-function projectionAsSchema(nodes: NodeMap): SchemaIndex {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a map becomes a SchemaIndex; unscoped, the projection is the whole graph
-  return nodes as unknown as SchemaIndex;
-}
-
-/** The last whole graph built: the next one keeps its unchanged nodes (`wireToOutlineMap`). */
-let lastWholeGraph: SchemaIndex | undefined;
-
-function wholeGraph(state: SchemaSource): SchemaIndex {
-  const wire = [...state.wireNodes];
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a map becomes a SchemaIndex; built from the full snapshot
-  const built = wireToOutlineMap(wire, new Set(), wire, lastWholeGraph) as unknown as SchemaIndex;
-  lastWholeGraph = built;
-  return built;
 }

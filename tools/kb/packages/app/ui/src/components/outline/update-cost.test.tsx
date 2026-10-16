@@ -25,7 +25,7 @@ import type * as RowChrome from "@/lib/row-chrome";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { outlineUiPlugin } from "./plugin";
 import { FrameViewSlot } from "./frame-view-slot";
 import { bundledSeed } from "@kb/bundled";
@@ -148,7 +148,7 @@ describe("outline update cost", () => {
   });
 
   it("re-renders only the rows the selection moves between", async () => {
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     await act(async () => {
       useOutlineStore.getState().selectNode("n.kid-1", outlineInstanceKey("n.kid-1", nodes));
     });
@@ -168,7 +168,7 @@ describe("outline update cost", () => {
     expect(nodeCandidates).not.toHaveBeenCalled();
 
     // The popup opening is what asks: the test is not blind to the call.
-    const key = outlineInstanceKey("n.typing", useOutlineStore.getState().nodes);
+    const key = outlineInstanceKey("n.typing", outlineNodes());
     await act(async () => {
       useOutlineStore.getState().activateNode("n.typing", 2, key);
     });

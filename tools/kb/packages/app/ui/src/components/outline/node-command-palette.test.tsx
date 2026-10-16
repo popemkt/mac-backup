@@ -21,7 +21,7 @@ import { isPinned } from "@/lib/pinned";
 import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeCommandPalette } from "./node-command-palette";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -147,7 +147,7 @@ describe("node command palette", () => {
     await act(async () => {
       present(pin, "pin").click();
     });
-    const nodes = useOutlineStore.getState().nodes;
+    const nodes = outlineNodes();
     expect(isPinned(nodes, "n.plain")).toBe(true);
 
     await open("n.plain");

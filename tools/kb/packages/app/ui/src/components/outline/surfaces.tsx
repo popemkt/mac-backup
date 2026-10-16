@@ -17,7 +17,7 @@ import {
 } from "@kb/ui-sdk";
 import { listPinnedNavItems } from "@/lib/sidebar-nav";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineNodes } from "@/stores/outline.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 
 /**
@@ -65,7 +65,7 @@ export function HomeSection({ route }: { readonly route: MatchedRoute | null }) 
 }
 
 export function PinnedSection({ route }: { readonly route: MatchedRoute | null }) {
-  const nodes = useOutlineStore((s) => s.nodes);
+  const nodes = useOutlineNodes();
   const zoomTo = useGraphStore((s) => s.zoomTo);
   const rootNodeId = useGraphStore((s) => s.rootNodeId);
   const pinned = useMemo(() => listPinnedNavItems(nodes), [nodes]);

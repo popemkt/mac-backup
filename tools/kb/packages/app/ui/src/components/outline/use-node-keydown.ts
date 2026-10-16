@@ -10,7 +10,7 @@ import {
   type VerticalNavDecision,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore } from "@/stores/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { fieldSlotCount } from "@/lib/value-slot-nav";
 import { applyEditingIntent } from "./editing-intents";
 import { mapEditingKey, type EditingKeyContext } from "./editing-keymap";
@@ -28,12 +28,12 @@ function readEditingContext(args: {
 }): EditingKeyContext {
   const { nodeId, instanceKey, editable } = args;
   const store = useOutlineStore.getState();
-  const live = store.nodes.get(nodeId);
+  const live = outlineNodes().get(nodeId);
   const shown = rowTextOf(outlineSource(), nodeId);
   // What the row reveals is its shown node's; open or closed is the row's.
   const content = live ? shownNode(live, schemaOf(useGraphStore.getState())) : undefined;
   const parentId = live?.parentId ?? null;
-  const parent = parentId === null ? undefined : store.nodes.get(parentId);
+  const parent = parentId === null ? undefined : outlineNodes().get(parentId);
   return {
     isQueryResult: isQueryResultInstance(instanceKey),
     nodeId,
