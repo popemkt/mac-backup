@@ -70,7 +70,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
                         const next = e.target.checked
                           ? [...perspective.edgeKinds, option.value]
                           : perspective.edgeKinds.filter((k) => k !== option.value);
-                        void browserHost().replaceField(
+                        void browserHost().writes.replaceField(
                           perspective.id,
                           SYSTEM_IDS.lensEdgeKindsField,
                           (next.length ? next : ["none"]).map(sourceValue),
