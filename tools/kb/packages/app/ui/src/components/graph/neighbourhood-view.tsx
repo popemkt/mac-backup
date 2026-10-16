@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { Result } from "effect";
 import { navigate, ViewSlot, WorkspaceState, type ViewProps } from "@kb/ui-sdk";
-import { buildTreeForest } from "@kb/graph";
+import { buildTreeForest, type NeighbourhoodParams } from "@kb/graph";
 import { extractNeighbourhood } from "@/components/graph/graph-neighbourhood";
-import { paramsFrom, type NeighbourhoodParams } from "@kb/views";
+import { paramsFrom } from "@kb/views";
 import { useAppearance } from "@/stores/prefs.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { GraphFrameContext, type GraphFrame } from "./graph-frame";

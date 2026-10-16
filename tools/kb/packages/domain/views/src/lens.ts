@@ -218,7 +218,7 @@ const SourceSchema = Schema.String;
 /**
  * The lens fields a renderer draws with, each with its one schema: what the
  * perspective's slots below validate against, and what a renderer view's
- * params are made of (`graph.ts`), so a renderer declares
+ * params are made of (`@kb/graph`'s `views.ts`), so a renderer declares
  * the settings it reads by naming them here. The mappings (`colorBy`,
  * `sizeBy`, `clusterBy`, `labelBy`), the query and the edge kinds are not
  * among them: extraction reads those, for every renderer alike.

@@ -1,8 +1,10 @@
 /**
- * Every view kb provides, as data: each view's key — its id, its option, its
- * settings as an Effect `Schema`, and how they are read from a view node's
- * props — so the UI that draws a view and the server that lists, validates
- * and renders it hold one key. DESIGN.md → Kinds, roles and options → View
+ * Core's views, as data: each view's key — its id, its option, its settings
+ * as an Effect `Schema`, and how they are read from a view node's props — so
+ * the UI that draws a view and the server that lists, validates and renders
+ * it hold one key; and the machinery every key is built with (`viewKey`, the
+ * lens and frame codecs, the resolver). The graph's keys are `@kb/graph`'s,
+ * and a family's are its shared package's. DESIGN.md → Kinds, roles and options → View
  * nodes states the model; DESIGN-UI.md → UI points: routes and views states
  * the contract a view keeps.
  */
@@ -88,23 +90,6 @@ export {
   OutlineTableView,
   OutlineView,
 } from "./outline.ts";
-export {
-  ClusterView,
-  Force2dView,
-  Force3dView,
-  GRAPH_NAMESPACE,
-  GraphParams,
-  GraphView,
-  NeighbourhoodParams,
-  NeighbourhoodView,
-  TreeView,
-  TreemapView,
-  isRendererKey,
-  type GraphChannel,
-  type RendererCapabilities,
-  type RendererKey,
-  type RendererTraits,
-} from "./graph.ts";
 export {
   ONTOLOGY_NAMESPACE,
   ONTOLOGY_VIEWS,

@@ -4,9 +4,10 @@ import {
   LENS_SETTINGS,
   decodeLensConfig,
   encodeLensConfig,
+  viewKey,
   type LensWrite,
-} from "./lens.ts";
-import { viewKey, type ViewKey } from "./view-key.ts";
+  type ViewKey,
+} from "@kb/views";
 
 /** The graph plugin's namespace and view keys: what a host imports, never the components. */
 export const GRAPH_NAMESPACE = "graph";

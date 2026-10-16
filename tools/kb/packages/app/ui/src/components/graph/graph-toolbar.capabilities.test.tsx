@@ -6,7 +6,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { GraphToolbar } from "./graph-toolbar";
-import { Force2dView, TreeView } from "@kb/views";
+import { Force2dView, TreeView } from "@kb/graph";
 import type { GraphCameraControls } from "./graph-camera-controls";
 
 describe("GraphToolbar capabilities", () => {

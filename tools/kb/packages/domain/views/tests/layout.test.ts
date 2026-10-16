@@ -8,9 +8,7 @@ import { Result } from "effect";
 import { SYSTEM_IDS, present, viewOptionId, type NodeProps } from "@kb/model";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 import {
-  GraphView,
   LayoutView,
-  NeighbourhoodView,
   OutlineView,
   closePane,
   decodeLayout,
@@ -29,6 +27,7 @@ import {
   withPanePath,
   type LayoutTree,
 } from "@kb/views";
+import { GraphView, NeighbourhoodView } from "@kb/graph";
 
 /** The catalog a server holding every bundled family lists. */
 const catalog = viewCatalogOf(

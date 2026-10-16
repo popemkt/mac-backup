@@ -278,6 +278,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/graph": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/sandbox": "workspace:*",
@@ -339,6 +340,7 @@
         "@kb/model": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/views": "workspace:*",
+        "effect": "catalog:",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -393,6 +395,7 @@
       },
       "devDependencies": {
         "@kb/bundled": "workspace:*",
+        "@kb/graph": "workspace:*",
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
       },

@@ -12,13 +12,8 @@
 import { defineExtension, viewDef } from "@kb/contracts";
 import { systemSeedNodes } from "@kb/model";
 import {
-  ClusterView,
   DocsMarkdownView,
-  Force2dView,
-  Force3dView,
-  GraphView,
   LayoutView,
-  NeighbourhoodView,
   NodeView,
   OntologyListView,
   OntologyScopeView,
@@ -28,9 +23,16 @@ import {
   OutlineSnippetView,
   OutlineTableView,
   OutlineView,
+} from "@kb/views";
+import {
+  ClusterView,
+  Force2dView,
+  Force3dView,
+  GraphView,
+  NeighbourhoodView,
   TreeView,
   TreemapView,
-} from "@kb/views";
+} from "@kb/graph";
 
 export const coreExtension = defineExtension({
   name: "core",

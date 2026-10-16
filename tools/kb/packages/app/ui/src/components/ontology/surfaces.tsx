@@ -6,9 +6,9 @@ import {
   OntologyListView,
   OntologyScopeView,
   type OntologyScopeParams,
-  GraphView,
   OutlineView,
 } from "@kb/views";
+import { GraphView } from "@kb/graph";
 import { isOntologyNode } from "@kb/model";
 import {
   navigate,

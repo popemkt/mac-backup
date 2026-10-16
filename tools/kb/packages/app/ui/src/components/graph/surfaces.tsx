@@ -1,5 +1,6 @@
 import { lazy, use, useMemo } from "react";
 import { GraphIcon } from "@phosphor-icons/react";
+import type { ParamsOf } from "@kb/views";
 import {
   GraphView,
   type ClusterView,
@@ -8,8 +9,7 @@ import {
   type GraphParams,
   type TreeView,
   type TreemapView,
-  type ParamsOf,
-} from "@kb/views";
+} from "@kb/graph";
 import {
   keptLoad,
   listPerspectiveNodes,

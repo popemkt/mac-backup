@@ -1659,9 +1659,10 @@ the consumer pending while its provider is off. Use that form only when a
 hard dependency is what you mean.
 
 **Where keys live.** Every view key kb provides, with its param types and the
-settings it reads from a view node, is data in `@kb/views`
-(`packages/domain/views`, `scope:shared`), one module per plugin namespace,
-with no React and no store. The server holds the same keys, to list, check
+settings it reads from a view node, is data in a `scope:shared` package, with
+no React and no store: core's in `@kb/views` (`packages/domain/views`), one
+module per plugin namespace; the graph's in `@kb/graph`; a family's in its
+shared package (`@kb/canvas`, …). The server holds the same keys, to list, check
 and render views (DESIGN.md → View nodes), so a key is never written twice.
 Any zone may import the package. A host imports the key and never the
 component. That is how the ontology embeds the graph and the outline
@@ -1681,7 +1682,7 @@ config is text, a view goes by its key's local id (`localIdOf`), which is
 how the stored name resolves to the key among them.
 
 - *Graph renderers.* Each renderer is a view whose `RendererKey`
-  (`@kb/views`, `graph.ts`) adds its capabilities, encodings and whether
+  (`@kb/graph`, `views.ts`) adds its capabilities, encodings and whether
   it moves links. Its params are a `Schema.Struct` of the `LENS_SETTINGS` it
   draws with, so the settings panel enables exactly the settings its params
   declare. A graph view node's `sys.f.view` names it by its key's `option`
@@ -2762,7 +2763,7 @@ reference to it) still resolves. Search, selection, legend dimming and camera po
 Ontology membership remains a separate scope on the same projection.
 
 Each renderer is a view in `ViewPoint` (UI points: routes and views →
-Families of views). Its key, in `@kb/views` (`graph.ts`), owns its settings
+Families of views). Its key, in `@kb/graph` (`views.ts`), owns its settings
 (its `params`), its supported encodings and its interaction capabilities; the
 graph plugin provides its component. The shared frame disables unsupported
 camera operations with a reason, and the settings panel disables every

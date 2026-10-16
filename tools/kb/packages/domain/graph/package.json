@@ -13,7 +13,8 @@
   "dependencies": {
     "@kb/model": "workspace:*",
     "@kb/query": "workspace:*",
-    "@kb/views": "workspace:*"
+    "@kb/views": "workspace:*",
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

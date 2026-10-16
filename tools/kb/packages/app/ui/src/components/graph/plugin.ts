@@ -11,14 +11,6 @@ import {
   TreemapRendererView,
 } from "@/components/graph/surfaces";
 import {
-  ClusterView,
-  Force2dView,
-  Force3dView,
-  GRAPH_NAMESPACE,
-  GraphView,
-  NeighbourhoodView,
-  TreeView,
-  TreemapView,
   DEFAULT_AUTOROTATE,
   DEFAULT_LABEL_DENSITY,
   DEFAULT_LAYOUT,
@@ -28,6 +20,16 @@ import {
   DEFAULT_SPREAD,
   DEFAULT_THEME,
 } from "@kb/views";
+import {
+  ClusterView,
+  Force2dView,
+  Force3dView,
+  GRAPH_NAMESPACE,
+  GraphView,
+  NeighbourhoodView,
+  TreeView,
+  TreemapView,
+} from "@kb/graph";
 import { NeighbourhoodGraph } from "@/components/graph/neighbourhood-view";
 import { provideRoute, provideView, RoutePoint, SidebarSectionPoint, ViewPoint } from "@kb/ui-sdk";
 

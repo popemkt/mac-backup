@@ -8,7 +8,8 @@ import { GraphSelectionCard } from "./graph-selection-card";
 import { capabilitiesFor } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
-import type { LensPerspective, RendererKey } from "@kb/views";
+import type { LensPerspective } from "@kb/views";
+import type { RendererKey } from "@kb/graph";
 
 /** Shared graph chrome. Renderers only own pixels and renderer-specific input;
  * the frame owns the discoverable vocabulary that surrounds every graph. */

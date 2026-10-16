@@ -9,12 +9,12 @@ import { Result } from "effect";
 import { SYSTEM_IDS } from "@kb/model";
 import {
   DEFAULT_VIEW_CONFIG,
-  NeighbourhoodView,
   OutlineTableView,
   decodeFrameConfig,
   decodeLensConfig,
   paramsFromProps,
 } from "@kb/views";
+import { NeighbourhoodView } from "@kb/graph";
 
 function collect(): { report: (w: string) => void; warnings: string[] } {
   const warnings: string[] = [];

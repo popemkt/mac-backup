@@ -1,13 +1,7 @@
 import { lazy, useMemo } from "react";
 import { outlineBulletAppearance, type LensNode } from "@kb/ui-sdk";
-import type {
-  LensTheme,
-  ParamsOf,
-  ClusterView,
-  Force2dView,
-  Force3dView,
-  TreeView,
-} from "@kb/views";
+import type { LensTheme, ParamsOf } from "@kb/views";
+import type { ClusterView, Force2dView, Force3dView, TreeView } from "@kb/graph";
 import { GRAPH_THEMES } from "./graph-themes";
 import { usePageRows } from "@/stores/page";
 import { SigmaGraph } from "./sigma-graph";

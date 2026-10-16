@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@kb/bundled": "workspace:*",
+    "@kb/graph": "workspace:*",
     "@types/bun": "catalog:",
     "fast-check": "catalog:"
   },

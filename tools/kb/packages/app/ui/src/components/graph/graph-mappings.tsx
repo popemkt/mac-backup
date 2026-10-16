@@ -3,13 +3,8 @@ import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
 import { SYSTEM_IDS } from "@kb/ui-sdk";
 import { graphBindingOptions, type GraphBindingOption } from "@/components/graph/graph-bindings";
-import {
-  sourceValue,
-  type LensPerspective,
-  TreeView,
-  TreemapView,
-  type GraphChannel,
-} from "@kb/views";
+import { sourceValue, type LensPerspective } from "@kb/views";
+import { TreeView, TreemapView, type GraphChannel } from "@kb/graph";
 import { GRAPH_SOURCE_FIELD_KINDS, type GraphSourceField, type GraphSourceKind } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { useRenderer } from "./use-renderers";

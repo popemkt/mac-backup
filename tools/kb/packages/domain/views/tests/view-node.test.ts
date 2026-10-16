@@ -9,7 +9,6 @@ import { Result } from "effect";
 import { SYSTEM_IDS } from "@kb/model";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
-  NeighbourhoodView,
   OntologyScopeView,
   OutlineBoardView,
   OutlineSnippetView,
@@ -19,6 +18,7 @@ import {
   viewNodeFor,
   type ViewKey,
 } from "@kb/views";
+import { NeighbourhoodView } from "@kb/graph";
 
 function problems(key: ViewKey<unknown>, input: unknown, host: string | null = null): string[] {
   const result = viewNodeFor(key, input, host);

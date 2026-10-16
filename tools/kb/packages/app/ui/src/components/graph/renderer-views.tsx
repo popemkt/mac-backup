@@ -1,13 +1,7 @@
 import type { ComponentType } from "react";
 import { WorkspaceState, type ViewProps } from "@kb/ui-sdk";
-import type {
-  ParamsOf,
-  ClusterView,
-  Force2dView,
-  Force3dView,
-  TreeView,
-  TreemapView,
-} from "@kb/views";
+import type { ParamsOf } from "@kb/views";
+import type { ClusterView, Force2dView, Force3dView, TreeView, TreemapView } from "@kb/graph";
 import {
   ClusterAdapter,
   Force2dAdapter,

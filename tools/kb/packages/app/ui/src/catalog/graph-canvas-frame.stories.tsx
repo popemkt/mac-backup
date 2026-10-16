@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { GraphCanvasFrame } from "@/components/graph/graph-canvas-frame";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
 import type { LensNode } from "@kb/ui-sdk";
-import { Force2dView } from "@kb/views";
+import { Force2dView } from "@kb/graph";
 
 const noop = (): void => undefined;
 
