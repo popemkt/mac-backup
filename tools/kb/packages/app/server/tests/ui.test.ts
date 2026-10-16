@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { addDocsView } from "@kb/test-kit";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -62,6 +62,28 @@ describe("kb ui server", () => {
       handle = null;
     }
     await rm(root, { recursive: true, force: true });
+  });
+
+  test("port 0 binds a free port, and presence records the URL it bound", async () => {
+    const other = await tempRoot();
+    handle = await run(startUi({ root, port: 0, openBrowser: false }));
+    const second = await run(startUi({ root: other, port: 0, openBrowser: false }));
+    try {
+      expect(handle.port).toBeGreaterThan(0);
+      expect(second.port).not.toBe(handle.port);
+      expect(handle.url).toBe(`http://127.0.0.1:${handle.port}`);
+      const recorded = JSON.parse(await readFile(join(root, ".kb", "ui.json"), "utf8")) as {
+        url: string;
+      };
+      expect(recorded.url).toBe(handle.url);
+      const identity = (await (await fetch(`${second.url}/api/identity`)).json()) as {
+        root: string;
+      };
+      expect(identity.root).toContain(other.split("/").at(-1) ?? other);
+    } finally {
+      await run(second.stop);
+      await rm(other, { recursive: true, force: true });
+    }
   });
 
   test("hello, subscribe→rows, action→tx+rows, bad message→error", async () => {

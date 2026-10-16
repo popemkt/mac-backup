@@ -2851,10 +2851,11 @@ by the current graph repair.
 ## Port
 
 Fixed default `4321`, `--port` override, auto-open browser on start, bind
-127.0.0.1 only. **Portless later** (noted as backlog): unix-domain-socket
-transport for local subscriber apps + `kb ui` finding a free port and
-registering it in `.kb/runtime.json` for discovery; browser still needs a
-TCP port, everything else can go UDS.
+127.0.0.1 only. `--port 0` binds any free port: the server prints the URL it
+bound, and `.kb/ui.json` records it, so a process that starts a server for
+another root reads its address back from presence. **Portless later** (noted
+as backlog): unix-domain-socket transport for local subscriber apps; the
+browser still needs a TCP port, everything else can go UDS.
 
 ### Field-based graph perspectives (2026-09-07)
 

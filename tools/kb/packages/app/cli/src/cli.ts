@@ -44,6 +44,7 @@ import {
 } from "@kb/model";
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
 import { bundledSeed } from "@kb/bundled";
+import { EXIT_USAGE, toInt, toOrigin, toPort } from "./arguments.ts";
 import { formatMode, formatReceipt } from "./format.ts";
 import { hostExtensions } from "./host-plugins.ts";
 import { readActionJsonEffect, readOutlineEffect } from "./input.ts";
@@ -81,7 +82,6 @@ import {
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
-const EXIT_USAGE = 2;
 
 interface GlobalOpts {
   json?: boolean;
@@ -276,30 +276,6 @@ function collect(value: string, previous: string[]): string[] {
   return previous.concat([value]);
 }
 
-const toInt = (v: string): number => Number.parseInt(v, 10);
-const toOrigin = (value: string): string => {
-  try {
-    const url = new URL(value);
-    if (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      url.username === "" &&
-      url.password === "" &&
-      url.pathname === "/" &&
-      url.search === "" &&
-      url.hash === ""
-    ) {
-      return url.origin;
-    }
-  } catch {
-    // Report malformed URLs through the same CLI usage error as non-origin URLs.
-  }
-  throw new CommanderError(
-    EXIT_USAGE,
-    "commander.invalidArgument",
-    "--public-origin must be an HTTP(S) origin, e.g. https://kb.example.com",
-  );
-};
-
 interface ForceOpts {
   force?: boolean;
 }
@@ -401,9 +377,9 @@ function buildProgram(): Command {
   program
     .command("ui")
     .description("Serve the kb browser UI + subscription backend")
-    .option("--port <n>", "backend listen port (default 4321)", toInt)
+    .option("--port <n>", "backend listen port, 0 for any free one (default 4321)", toPort)
     .option("--dev", "spawn the Vite dev server (HMR) and proxy to the backend", false)
-    .option("--dev-port <n>", "Vite dev server port (default 5173)", toInt)
+    .option("--dev-port <n>", "Vite dev server port (default 5173)", toPort)
     .option("--public-origin <url>", "browser origin when served through a reverse proxy", toOrigin)
     .option("--no-open", "do not open a browser")
     .action(

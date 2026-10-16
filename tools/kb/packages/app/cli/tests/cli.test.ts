@@ -416,6 +416,10 @@ describe("cli e2e (tmpdir)", () => {
     await kb(["init"]);
     const bad = await kb(["mv", "missing-id"]);
     expect(bad.code).toBe(2);
+    // A port is 0 (any free one) to 65535: anything else is refused before a server starts.
+    for (const port of ["70000", "abc", "-1", "1.5"]) {
+      expect((await kb(["ui", "--port", port, "--no-open"])).code).toBe(2);
+    }
   });
 
   test("action-invoke malformed JSON preserves JSON.parse diagnostics", async () => {
