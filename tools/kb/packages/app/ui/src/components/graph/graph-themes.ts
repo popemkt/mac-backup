@@ -11,7 +11,7 @@
  * looks like itself in each design system, light and dark (P5). No three.
  */
 import { toRenderableColor, type ColorToken } from "@kb/ui-sdk";
-import type { GraphLabelStyle } from "@/lib/graph-label-paint";
+import type { GraphLabelStyle } from "@/components/graph/graph-label-paint";
 import type { LensTheme } from "@kb/views";
 import type { NodeSurface } from "./force3d-light";
 
@@ -67,7 +67,7 @@ export type SolidForm = "sphere" | "cube";
 
 /**
  * What a node is drawn as: a lit solid, or the outline's bullet, drawn
- * from its one definition (`lib/bullet-mode`, `lib/bullet-gpu`).
+ * from its one definition (`lib/bullet-mode`, `components/graph/bullet-gpu`).
  */
 export type NodeForm = SolidForm | "bullet";
 

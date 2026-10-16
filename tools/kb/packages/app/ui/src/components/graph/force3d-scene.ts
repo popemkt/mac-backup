@@ -9,7 +9,7 @@
  *   direction particles, labels — one draw each;
  * - the camera (`force3d-camera`): follows the layout, flies to a selection;
  * - the pointer (`force3d-pick`): hover, select, open, and drag a node
- *   (`lib/graph-drag` over the layers' layout and `force3d-drag`'s surface).
+ *   (`components/graph/graph-drag` over the layers' layout and `force3d-drag`'s surface).
  *
  * Light (L2–L4), as the perspective's theme dresses it (`graph-themes`):
  * only glowing nodes and particles exceed 1, and bloom's threshold is 1;
@@ -23,13 +23,13 @@ import type { PerspectiveCamera } from "three/webgpu";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { SceneBackend, SceneHandle, ScenePalette } from "@kb/scene";
 import { mountScene, starfield, toScreen, type SceneStage, type ScreenPoint } from "@kb/scene-gpu";
-import type { GraphEmphasis } from "@/lib/graph-interaction";
+import type { GraphEmphasis } from "@/components/graph/graph-interaction";
 import type { LensEdge, LensNode, Timing } from "@kb/ui-sdk";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import { GraphCamera } from "./force3d-camera";
 import { GraphLayers, type Force3dSettings } from "./force3d-layers";
 import { GraphPick } from "./force3d-pick";
-import { NodeDrag } from "@/lib/graph-drag";
+import { NodeDrag } from "@/components/graph/graph-drag";
 import { sceneDragSurface } from "./force3d-drag";
 import { GRAPH_THEMES, variant, type SceneDress } from "./graph-themes";
 

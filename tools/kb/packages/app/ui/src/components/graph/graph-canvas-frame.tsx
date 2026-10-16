@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useMemo } from "react";
-import { isGraphShortcutTarget } from "@/lib/graph-interaction";
+import { isGraphShortcutTarget } from "@/components/graph/graph-interaction";
 import { hasText, type LensNode } from "@kb/ui-sdk";
 import { GraphLegend } from "./graph-legend";
 import { GraphToolbar } from "./graph-toolbar";

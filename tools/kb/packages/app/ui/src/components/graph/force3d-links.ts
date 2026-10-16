@@ -9,7 +9,7 @@
  * drawn as a few segments.
  *
  * A link's **style** is data a perspective chooses (`lens.link-style`, its
- * parts stated in `lib/graph-link-styles`): its shape, straight or curved,
+ * parts stated in `components/graph/graph-link-styles`): its shape, straight or curved,
  * and whether it flows — the same batch with dashes that drift
  * from source to target — one dash passing in the ambient period (M4), so it
  * reads as a direction, never as a hero motion; under reduced motion the
@@ -46,7 +46,7 @@ import {
 import type { ScenePalette } from "@kb/scene";
 import type { PaletteUniforms } from "@kb/scene-gpu";
 import { approach } from "@kb/ui-sdk";
-import type { LinkStyleParts } from "@/lib/graph-link-styles";
+import type { LinkStyleParts } from "@/components/graph/graph-link-styles";
 import { restingLink, type LinkTone } from "./graph-themes";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
 

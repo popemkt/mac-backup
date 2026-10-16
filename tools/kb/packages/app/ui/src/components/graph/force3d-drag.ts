@@ -1,5 +1,5 @@
 /**
- * The 3D graph's side of a node drag (`lib/graph-drag`): the surface. A
+ * The 3D graph's side of a node drag (`components/graph/graph-drag`): the surface. A
  * press suspends the orbit; once it is a drag the camera is held still
  * (`GraphCamera.hold`: no fit follows the layout, no flight moves the eye)
  * and the node follows the pointer's ray on the plane through where it was
@@ -9,7 +9,7 @@
  */
 import { Vector3, type PerspectiveCamera } from "three/webgpu";
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import type { DragSurface } from "@/lib/graph-drag";
+import type { DragSurface } from "@/components/graph/graph-drag";
 import { onFacingPlane } from "@kb/scene-gpu";
 import type { GraphCamera, GraphPlaces } from "./force3d-camera";
 

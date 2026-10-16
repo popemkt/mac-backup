@@ -1,6 +1,6 @@
 /**
  * The bullet theme's node layer: each node drawn from its own entry in the
- * bullet table (`lib/bullet-gpu`) under the shared shape uniforms, picked
+ * bullet table (`components/graph/bullet-gpu`) under the shared shape uniforms, picked
  * and labelled by as far as its bullet shows, restyled in place when a
  * bullet changes (a collapse), and giving its textures back when disposed.
  */
@@ -9,9 +9,9 @@ import { Window } from "happy-dom";
 import { CanvasTexture, Sprite, Vector4, type Node, type SpriteNodeMaterial } from "three/webgpu";
 import { colorUniform } from "@kb/scene-gpu";
 import { BULLET_GEOMETRY, bulletAppearance, bulletExtent, type LensNode } from "@kb/ui-sdk";
-import { EmphasisFade } from "@/lib/graph-fade";
+import { EmphasisFade } from "@/components/graph/graph-fade";
 import { topologyOf } from "./force3d-emphasis";
-import { BULLET_UNIFORMS, BulletTable } from "@/lib/bullet-gpu";
+import { BULLET_UNIFORMS, BulletTable } from "@/components/graph/bullet-gpu";
 import { bulletLayer } from "./force3d-bullets";
 import { GRAPH_THEMES } from "./graph-themes";
 

@@ -19,7 +19,7 @@ import {
   type LensGraph,
 } from "@kb/ui-sdk";
 import { fa2Settings } from "./fa2-layout";
-import { computeLayoutPositions } from "@/lib/graph-layouts";
+import { computeLayoutPositions } from "@/components/graph/graph-layouts";
 import {
   clusterPlacement,
   DiscSettle,

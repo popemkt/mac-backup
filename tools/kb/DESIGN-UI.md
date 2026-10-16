@@ -732,7 +732,7 @@ rather than by navigation.
   2.5s auto-settle (`SETTLE_TIMEOUT_MS`), falling back to a synchronous
   rAF-chunked loop by feature detection.
 - **Dragging a node runs the layout live**, in 2D and 3D alike: one gesture,
-  `NodeDrag` in `lib/graph-drag.ts`, over a `DragLayout` port every layout
+  `NodeDrag` in `components/graph/graph-drag.ts`, over a `DragLayout` port every layout
   implements. A press on a node suspends what else the pointer drives (the
   2D pan, the 3D orbit); past the pointer slop it is a drag, and a press
   that never passed it is a click (select, open) as before. While a node is
@@ -828,12 +828,12 @@ like themselves (P5).
   palette) reads them again when the appearance changes, while a DOM
   renderer paints live `var()`s and copies none; with a node selected, a
   hover never moves the focus — the one rule, `graphFocus` in
-  `lib/graph-interaction.ts`, which every renderer asks. The suite's table
+  `components/graph/graph-interaction.ts`, which every renderer asks. The suite's table
   must list exactly the provided renderer views, so a new renderer joins it; the 2D
   renderers need WebGL, and their rows wait on a named gap.
 - **Emphasis eases, in every renderer.** What should be lit is one
   definition (`graph-interaction`, `graph-dim`); how it gets there is one
-  mechanism, `lib/graph-fade.ts` (`EmphasisFade`): a hover's neighbourhood
+  mechanism, `components/graph/graph-fade.ts` (`EmphasisFade`): a hover's neighbourhood
   fades in over `--motion-duration-quick` and back out the same way, and
   a node in focus swells a little. 2D does it through `sigma-emphasis.ts`,
   which owns sigma's reducers; 3D through `force3d-emphasis.ts`. Sigma blends
@@ -853,15 +853,15 @@ like themselves (P5).
   (a hub ringed by its leaves is named over a leaf), so crowded clusters
   thin their own labels; label density
   also falls with the square root of the node count past 400. Labels are
-  placed in one priority, stated once in `lib/graph-label-layout.ts`
+  placed in one priority, stated once in `components/graph/graph-label-layout.ts`
   (`byLabelPriority`) and used by 2D, cluster and 3D alike: the node in
   focus, then the best-connected, then by id — so a hub is labelled before
   the leaves around it, whatever order the renderer asks in. A cluster's
   title takes its place in the same layout before any node label, so titles
   never pile on each other or on labels, and labels come in only once the
   nodes they name have arrived — one threshold, `labelArrived` in
-  `lib/graph-arrival.ts`, for 2D and 3D alike. A new
-  graph arrives from its hubs, in 2D and 3D alike (`lib/graph-arrival.ts`):
+  `components/graph/graph-arrival.ts`, for 2D and 3D alike. A new
+  graph arrives from its hubs, in 2D and 3D alike (`components/graph/graph-arrival.ts`):
   the best-connected nodes first, their neighbours one `--motion-stagger`
   per hop outward, each growing in over `--motion-duration-reveal`, so the
   whole graph has settled in 300–400ms while the layout settles (P2, M3). Cluster hulls
@@ -913,8 +913,8 @@ like themselves (P5).
   `form`), how links take their colour and gradient, and the label's
   face, weight, case, halo and placement — are the theme's, and each
   renderer realises them in its own terms; the label is painted by one
-  canvas painter wherever it is drawn (`lib/graph-label-paint.ts`), and a
-  bullet from one GPU form (`lib/bullet-gpu.ts`). The 3D scene's dress —
+  canvas painter wherever it is drawn (`components/graph/graph-label-paint.ts`), and a
+  bullet from one GPU form (`components/graph/bullet-gpu.ts`). The 3D scene's dress —
   which tokens fill the ground and its edge, the backdrop's pool, warmth
   and haze, the fog, the starfield, the grain, the bloom (and so whether
   any light may cross white at all) and the node surface — is its
@@ -968,7 +968,7 @@ like themselves (P5).
     bullet's appearance (kind, shape, glyph, halo, dot, ring, their paints
     and their geometry — box, dot, halo and ring sizes, the ring's stroke
     and dashes, the magnifier's lens and handle), and the outline's
-    `Bullet` and the graph's GPU form of it (`lib/bullet-gpu.ts`) both
+    `Bullet` and the graph's GPU form of it (`components/graph/bullet-gpu.ts`) both
     read that record, so a change to the bullet changes both. A graph
     node's appearance is `outlineBulletAppearance` of the same outline node
     the editor renders — its kind, its children, its collapsed state, its

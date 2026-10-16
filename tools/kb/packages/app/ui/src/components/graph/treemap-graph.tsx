@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { hierarchy, treemap } from "d3-hierarchy";
 import type { LensNode } from "@kb/ui-sdk";
-import { graphNodeAlpha } from "@/lib/graph-dim";
+import { graphNodeAlpha } from "@/components/graph/graph-dim";
 import { selectionFromNode } from "./graph-selection";
 import type { ParamsOf, TreemapView } from "@kb/views";
 import type { RendererProps } from "./graph-adapters";

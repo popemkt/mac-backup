@@ -3,7 +3,7 @@
  * when the theme's form is the bullet (`graph-themes`). What a bullet is
  * stays the outline's own (`lib/bullet-mode`), and the form a GPU draws it
  * in — the shape as uniforms, each node's mark, radii and paints, the colour
- * table and the glyphs' distance field — is `lib/bullet-gpu`'s, which the 3D
+ * table and the glyphs' distance field — is `components/graph/bullet-gpu`'s, which the 3D
  * graph draws from too. This is the sigma node program that draws it: one
  * instanced quad per node, each fragment measuring its distance to the
  * bullet's marks and antialiasing it over one screen pixel, so a bullet is
@@ -31,7 +31,7 @@ import {
   bulletTableKey,
   PLAIN_BULLET,
   readBulletPage,
-} from "@/lib/bullet-gpu";
+} from "@/components/graph/bullet-gpu";
 import { drawGraphHover, drawGraphLabel } from "./sigma-labels";
 
 /** The node attributes the program reads: the node's entry in the table, and its box per disc radius. */

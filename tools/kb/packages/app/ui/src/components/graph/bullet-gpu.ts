@@ -371,6 +371,7 @@ function glyphField(ctx: CanvasRenderingContext2D, font: string, scale: number):
   ctx.font = font;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  // oxlint-disable-next-line design-tokens/no-raw-design-value -- a coverage mask: only the alpha channel is read back, so no colour reaches the page
   ctx.fillStyle = "#fff";
   BULLET_GLYPHS.forEach((glyph, c) => ctx.fillText(glyph, (c + 0.5) * GLYPH_CELL, GLYPH_CELL / 2));
   const pixels = ctx.getImageData(0, 0, width, height);

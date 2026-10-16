@@ -19,7 +19,7 @@ import {
   graphFocus,
   graphNeighborhood,
   type GraphEmphasis,
-} from "@/lib/graph-interaction";
+} from "@/components/graph/graph-interaction";
 import {
   treeCameraControls,
   type GraphCameraControls,

@@ -1,5 +1,5 @@
 /**
- * The GPU form of the bullet (`lib/bullet-gpu`) is the one description
+ * The GPU form of the bullet (`components/graph/bullet-gpu`) is the one description
  * (`lib/bullet-mode`) in a shader's terms: the shape's uniforms are its
  * geometry in px of the box, each node's entry is its appearance's mark,
  * radii, colours and strengths, and a glyph's distance field keeps its edge.

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
 import { SYSTEM_IDS } from "@kb/ui-sdk";
-import { graphBindingOptions, type GraphBindingOption } from "@/lib/graph-bindings";
+import { graphBindingOptions, type GraphBindingOption } from "@/components/graph/graph-bindings";
 import {
   sourceValue,
   type LensPerspective,

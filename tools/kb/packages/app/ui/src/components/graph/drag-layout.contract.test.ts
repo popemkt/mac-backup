@@ -1,5 +1,5 @@
 /**
- * The drag layout contract (`lib/graph-drag` → `DragLayout`): what every
+ * The drag layout contract (`components/graph/graph-drag` → `DragLayout`): what every
  * graph layout promises a node drag, proved over each one.
  *
  * - **held where held**: a grabbed node stands where the drag holds it, for
@@ -19,7 +19,7 @@
  */
 import Graph from "graphology";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DragLayout, LayoutPoint } from "@/lib/graph-drag";
+import type { DragLayout, LayoutPoint } from "@/components/graph/graph-drag";
 import { createFA2Layout } from "./fa2-layout";
 import {
   serveLayout,

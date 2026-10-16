@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { Group, PerspectiveCamera, WebGPUCoordinateSystem } from "three/webgpu";
-import { EmphasisFade } from "@/lib/graph-fade";
+import { EmphasisFade } from "@/components/graph/graph-fade";
 import type { LensNode } from "@kb/ui-sdk";
 import { topologyOf } from "./force3d-emphasis";
 import { LabelLayer, focusDisc } from "./force3d-labels";
@@ -77,7 +77,7 @@ describe("a 3D label and its node's arrival", () => {
     }
   });
 
-  it("shows only once its node has arrived, as in 2D (lib/graph-arrival)", () => {
+  it("shows only once its node has arrived, as in 2D (components/graph/graph-arrival)", () => {
     const nodes: LensNode[] = [
       { id: "n", label: "a node", color: "#888", size: 3, clusterKey: "r", tags: [], degree: 1 },
     ];

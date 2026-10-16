@@ -69,7 +69,7 @@ interface SimNode {
   fz?: number | null;
 }
 
-/** The layout's side of a node drag (`lib/graph-drag`), by node index. */
+/** The layout's side of a node drag (`components/graph/graph-drag`), by node index. */
 interface LayoutDrag {
   grab(index: number): void;
   hold(index: number, x: number, y: number, z: number): void;

@@ -1,5 +1,5 @@
 /**
- * The 2D graphs' side of a node drag (`lib/graph-drag`): the surface is
+ * The 2D graphs' side of a node drag (`components/graph/graph-drag`): the surface is
  * sigma's camera — suspended while a press is down, and inverted to put the
  * node under the pointer — and a placed layout (radial, hierarchical, grid,
  * the cluster placement) only moves the node it holds. The force layout is
@@ -7,7 +7,7 @@
  */
 import type Graph from "graphology";
 import type Sigma from "sigma";
-import type { DragLayout, DragSurface, LayoutPoint } from "@/lib/graph-drag";
+import type { DragLayout, DragSurface, LayoutPoint } from "@/components/graph/graph-drag";
 
 /** Where node `id` stands in the layout now. */
 export function graphPoint(graph: Graph, id: string): LayoutPoint {

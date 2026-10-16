@@ -30,9 +30,13 @@ import {
   paintGraphLabel,
   setGraphLabelType,
   type GraphLabelStyle,
-} from "@/lib/graph-label-paint";
-import { labelArrived } from "@/lib/graph-arrival";
-import { byLabelPriority, reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
+} from "@/components/graph/graph-label-paint";
+import { labelArrived } from "@/components/graph/graph-arrival";
+import {
+  byLabelPriority,
+  reserveGraphLabel,
+  type GraphLabelBox,
+} from "@/components/graph/graph-label-layout";
 import type { ScenePalette } from "@kb/scene";
 import { pixelsPerUnit, toScreen, type ScreenPoint } from "@kb/scene-gpu";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";

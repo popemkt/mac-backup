@@ -1,4 +1,4 @@
-import { convexHull } from "@/lib/convex-hull";
+import { convexHull } from "@/components/graph/convex-hull";
 
 export interface HullPoint {
   x: number;

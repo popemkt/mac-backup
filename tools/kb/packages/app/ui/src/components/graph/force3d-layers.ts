@@ -9,13 +9,13 @@
 import { Group, type PerspectiveCamera } from "three/webgpu";
 import type { ScenePalette } from "@kb/scene";
 import { disposeGraph, type SceneStage } from "@kb/scene-gpu";
-import { EmphasisFade } from "@/lib/graph-fade";
-import { graphFocus, type GraphEmphasis } from "@/lib/graph-interaction";
+import { EmphasisFade } from "@/components/graph/graph-fade";
+import { graphFocus, type GraphEmphasis } from "@/components/graph/graph-interaction";
 import { approachRate, type LensEdge, type LensNode, type Timing } from "@kb/ui-sdk";
 import type { LensLinkStyle, LensTheme } from "@kb/views";
-import { GraphArrival, hopsFromHubs } from "@/lib/graph-arrival";
-import { byLabelPriority } from "@/lib/graph-label-layout";
-import { LINK_STYLES } from "@/lib/graph-link-styles";
+import { GraphArrival, hopsFromHubs } from "@/components/graph/graph-arrival";
+import { byLabelPriority } from "@/components/graph/graph-label-layout";
+import { LINK_STYLES } from "@/components/graph/graph-link-styles";
 import {
   particleLinks,
   setEmphasisTargets,
@@ -38,7 +38,7 @@ import { bulletLayer } from "./force3d-bullets";
 import { solidLayer, type NodeLayer, type NodeLayerInit } from "./force3d-nodes";
 import { GRAPH_THEMES, type NodeForm } from "./graph-themes";
 import type { PickField } from "./force3d-pick";
-import type { DragLayout } from "@/lib/graph-drag";
+import type { DragLayout } from "@/components/graph/graph-drag";
 
 /** Each form a theme can draw nodes in, and the layer that draws it. */
 const NODE_FORMS: Record<NodeForm, (init: NodeLayerInit) => NodeLayer> = {
@@ -246,7 +246,7 @@ export class GraphLayers {
     positions[held.i * 3 + 2] = held.z;
   }
 
-  /** The 3D layout as a node drag moves it (`lib/graph-drag`). */
+  /** The 3D layout as a node drag moves it (`components/graph/graph-drag`). */
   dragLayout(): DragLayout {
     const indexOf = (id: string) => this.topology.index.get(id);
     const moving = () => {

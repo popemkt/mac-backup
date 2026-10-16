@@ -2,7 +2,7 @@
  * The 2D bullets: each node points at its own entry in the bullet table,
  * stands as far as its disc (a halo fills it, a plain leaf's dot fills it),
  * the table is painted again only when some bullet or the page changed, and
- * the program draws from the one GPU form of the bullet (`lib/bullet-gpu`):
+ * the program draws from the one GPU form of the bullet (`components/graph/bullet-gpu`):
  * every shape uniform it declares and sets is `BULLET_UNIFORMS`', and every
  * node's attributes are its `BulletTable` entry. Drawing needs WebGL, as
  * every 2D renderer does (the renderer contract's 2D rows wait on the same
@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
 import type { NodeDisplayData, RenderParams } from "sigma/types";
 import { BULLET_GEOMETRY, bulletAppearance, bulletExtent } from "@kb/ui-sdk";
-import { BULLET_UNIFORMS, BulletTable, PLAIN_BULLET } from "@/lib/bullet-gpu";
+import { BULLET_UNIFORMS, BulletTable, PLAIN_BULLET } from "@/components/graph/bullet-gpu";
 import type * as SigmaBullets from "./sigma-bullets";
 
 const bullet = (hasChildren: boolean, collapsed: boolean) =>

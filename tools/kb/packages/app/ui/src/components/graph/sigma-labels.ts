@@ -7,7 +7,7 @@ import {
   setGraphLabelType,
   type GraphLabelInk,
   type GraphLabelStyle,
-} from "@/lib/graph-label-paint";
+} from "@/components/graph/graph-label-paint";
 import { DEFAULT_THEME } from "@kb/views";
 import { GRAPH_THEMES } from "./graph-themes";
 import {
@@ -15,7 +15,7 @@ import {
   overlapsGraphLabel,
   reserveGraphLabel,
   type GraphLabelBox,
-} from "@/lib/graph-label-layout";
+} from "@/components/graph/graph-label-layout";
 
 type LabelData = Parameters<Settings["defaultDrawNodeLabel"]>[1];
 type LabelSettings = Parameters<Settings["defaultDrawNodeLabel"]>[2];

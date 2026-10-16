@@ -21,17 +21,17 @@ import {
   type LensLinkStyle,
   type LensTheme,
 } from "@kb/views";
-import { LINK_STYLES } from "@/lib/graph-link-styles";
+import { LINK_STYLES } from "@/components/graph/graph-link-styles";
 import {
   graphEmphasisAlpha,
   graphFocus,
   graphNeighborhood,
   showsHoverCard,
   type GraphEmphasis,
-} from "@/lib/graph-interaction";
-import { computeLayoutPositions } from "@/lib/graph-layouts";
+} from "@/components/graph/graph-interaction";
+import { computeLayoutPositions } from "@/components/graph/graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
-import { NodeDrag } from "@/lib/graph-drag";
+import { NodeDrag } from "@/components/graph/graph-drag";
 import { placedDrag, sigmaDragSurface } from "./sigma-drag";
 import { clusterPlacement, DiscSettle, discRadius, discSpacing, linkWidth } from "./graph-discs";
 import { fitView } from "./graph-camera";
@@ -48,7 +48,7 @@ import {
 } from "./sigma-labels";
 import { createBulletProgram, SigmaBullets } from "./sigma-bullets";
 import { GRAPH_THEMES, restingLink, type NodeForm } from "./graph-themes";
-import { withGraphAlpha } from "@/lib/graph-dim";
+import { withGraphAlpha } from "@/components/graph/graph-dim";
 import { clusterHulls } from "./cluster-hulls";
 import { GraphTooltip } from "./graph-tooltip";
 import { sigmaEmphasis, type SigmaEmphasis } from "./sigma-emphasis";

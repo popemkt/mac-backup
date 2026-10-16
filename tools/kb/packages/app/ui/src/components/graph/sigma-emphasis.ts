@@ -5,21 +5,21 @@
  * `sigma-graph` decides each node's target presence — the shared
  * search/filter/neighbourhood alpha, times the cluster isolation — and which
  * node is in focus. This owns the node and edge reducers and moves every
- * value toward its target through `lib/graph-fade` (Lab principles M1, M5):
+ * value toward its target through `components/graph/graph-fade` (Lab principles M1, M5):
  * a hover's neighbourhood fades in over `--motion-duration-quick` and fades
  * back out the same way, instead of snapping. A new graph also arrives, rather
  * than popping in: the hubs first, then their neighbours hop by hop, each
- * node growing and brightening into place (`lib/graph-arrival`, 300–400ms in
+ * node growing and brightening into place (`components/graph/graph-arrival`, 300–400ms in
  * all) while the layout settles (P2).
  * Under reduced motion both are immediate (M7).
  *
  * Frames are drawn only while something eases; the loop stops by itself.
  */
 import type Sigma from "sigma";
-import { EmphasisFade } from "@/lib/graph-fade";
+import { EmphasisFade } from "@/components/graph/graph-fade";
 import { clampStep, readTokenColor, type Timing } from "@kb/ui-sdk";
-import { premultipliedGraphColor } from "@/lib/graph-dim";
-import { GraphArrival, hopsFromHubs, labelArrived } from "@/lib/graph-arrival";
+import { premultipliedGraphColor } from "@/components/graph/graph-dim";
+import { GraphArrival, hopsFromHubs, labelArrived } from "@/components/graph/graph-arrival";
 
 /** Presence under which a node's label is not drawn. */
 const LABEL_PRESENCE = 0.6;

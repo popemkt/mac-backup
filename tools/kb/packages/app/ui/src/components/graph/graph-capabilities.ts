@@ -1,5 +1,5 @@
 import type { LensLinkStyle, LensSetting, RendererCapabilities, RendererKey } from "@kb/views";
-import { LINK_STYLES } from "@/lib/graph-link-styles";
+import { LINK_STYLES } from "@/components/graph/graph-link-styles";
 
 export type CapabilityKey = keyof RendererCapabilities;
 
@@ -42,7 +42,7 @@ export function settingDisabledReason(
 
 /**
  * What a renderer that draws links but cannot move them says of a flowing
- * style: it draws the style's shape, still (`lib/graph-link-styles`).
+ * style: it draws the style's shape, still (`components/graph/graph-link-styles`).
  */
 export function linkStyleNote(
   renderer: RendererKey<unknown> | null,

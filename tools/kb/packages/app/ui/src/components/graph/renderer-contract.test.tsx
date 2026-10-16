@@ -22,7 +22,7 @@ import { Window } from "happy-dom";
 import { Effect, Result } from "effect";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeKernel } from "@kb/plugin";
-import { EmphasisFade } from "@/lib/graph-fade";
+import { EmphasisFade } from "@/components/graph/graph-fade";
 import { buildTreeForest, type Appearance, type LensEdge, type LensNode } from "@kb/ui-sdk";
 import { LENS_THEMES, type LensPerspective, type LensTheme } from "@kb/views";
 import type { Force3dScene } from "./force3d-scene";

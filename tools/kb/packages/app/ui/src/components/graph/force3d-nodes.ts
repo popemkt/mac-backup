@@ -151,7 +151,7 @@ export interface NodeLayerInit {
   readonly fades: Force3dFades;
   readonly theme: GraphTheme;
   readonly palette: ScenePalette;
-  /** How far each node has arrived (`lib/graph-arrival`): it grows in from the hubs. */
+  /** How far each node has arrived (`components/graph/graph-arrival`): it grows in from the hubs. */
   readonly arrival?: { readonly values: Float32Array };
 }
 

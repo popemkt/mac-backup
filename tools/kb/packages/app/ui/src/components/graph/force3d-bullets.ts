@@ -4,7 +4,7 @@
  * What a node's bullet is — its shape, paints and proportions — is the
  * outline's own definition (`lib/bullet-mode`), read off the same outline
  * node (`LensNode.bullet`), and the form a GPU draws it in is
- * `lib/bullet-gpu`'s, which the 2D graphs draw from too: the shape as
+ * `components/graph/bullet-gpu`'s, which the 2D graphs draw from too: the shape as
  * uniforms, each node's mark, radii and paints, the colour table and the
  * glyphs' distance field. The nodes are one instanced sprite facing the
  * camera: one draw, and the scene stays an orbitable 3D graph (P3). Each
@@ -63,7 +63,7 @@ import {
   bulletTableKey,
   PLAIN_BULLET,
   readBulletPage,
-} from "@/lib/bullet-gpu";
+} from "@/components/graph/bullet-gpu";
 import { linearFromSrgb, NODE_OPS, type TslNode } from "@kb/scene-gpu";
 import type { Force3dTopology } from "./force3d-emphasis";
 import { shadeNode } from "./force3d-light";

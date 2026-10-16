@@ -1,7 +1,7 @@
 /**
  * The 2D force layout: ForceAtlas2 in a web worker with a timed settle, or,
  * where there is no worker, the same settings run a chunk of iterations a
- * frame on the page. Either way it is a `DragLayout` (`lib/graph-drag`): a
+ * frame on the page. Either way it is a `DragLayout` (`components/graph/graph-drag`): a
  * held node is pinned under the pointer and the layout runs for as long as
  * it is held, so its neighbours follow; the drop unpins it, and the layout
  * cools for a short burst and stops.
@@ -9,7 +9,7 @@
 import type Graph from "graphology";
 import FA2Layout from "graphology-layout-forceatlas2/worker";
 import forceAtlas2 from "graphology-layout-forceatlas2";
-import type { DragLayout, LayoutPoint } from "@/lib/graph-drag";
+import type { DragLayout, LayoutPoint } from "@/components/graph/graph-drag";
 import { separateDiscs } from "./graph-discs";
 import { graphPoint } from "./sigma-drag";
 

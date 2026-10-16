@@ -8,7 +8,7 @@
  * the hover stale, and it is re-picked once on the next frame; a tap selects,
  * and a second tap on the same node soon after opens it.
  *
- * A press on a node is also the start of a node drag (`lib/graph-drag`): it
+ * A press on a node is also the start of a node drag (`components/graph/graph-drag`): it
  * is taken before the orbit sees it (a capture listener on the canvas, which
  * runs ahead of the orbit's own), so the orbit is suspended from the press
  * on; past the slop the node follows the pointer, and a press that became a
@@ -16,7 +16,7 @@
  * one, so its neighbourhood stays lit as it moves.
  */
 import type { PerspectiveCamera } from "three/webgpu";
-import type { NodeDrag } from "@/lib/graph-drag";
+import type { NodeDrag } from "@/components/graph/graph-drag";
 import { pixelsPerUnit, PointerField, toScreen, type ScreenPoint } from "@kb/scene-gpu";
 
 /** The smallest reach a node has under the pointer, CSS px, and the slack past its disc. */

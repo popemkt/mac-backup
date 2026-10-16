@@ -16,7 +16,7 @@ import {
 } from "@kb/ui-sdk";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { DEFAULT_THEME, type LensLinkStyle, type LensTheme } from "@kb/views";
-import { showsHoverCard, type GraphEmphasis } from "@/lib/graph-interaction";
+import { showsHoverCard, type GraphEmphasis } from "@/components/graph/graph-interaction";
 import { attachScene, readScenePalette } from "@kb/scene";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";

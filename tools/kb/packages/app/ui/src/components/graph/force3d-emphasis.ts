@@ -1,6 +1,6 @@
 /**
  * What each node and link of the 3D graph should look like right now, as
- * targets its eased emphasis (`lib/graph-fade.ts`) approaches: how present a
+ * targets its eased emphasis (`components/graph/graph-fade.ts`) approaches: how present a
  * node is (the shared search/filter/neighbourhood alpha of
  * `graph-interaction`), how brightly it glows, whether it is the node in
  * focus — and which links carry the direction particles.
@@ -11,13 +11,13 @@
  * hero motion, answering the user (M4). Pure data, no three.
  */
 import type { LensEdge, LensNode } from "@kb/ui-sdk";
-import type { EmphasisFade } from "@/lib/graph-fade";
+import type { EmphasisFade } from "@/components/graph/graph-fade";
 import {
   graphEmphasisAlpha,
   graphFocus,
   graphNeighborhood,
   type GraphEmphasis,
-} from "@/lib/graph-interaction";
+} from "@/components/graph/graph-interaction";
 
 /** The graph as the scene indexes it: node order, link pairs, incidence. */
 export interface Force3dTopology {
