@@ -24,21 +24,25 @@ import { CANVAS_SOLID_PRESETS, type CanvasProjectionKind } from "@kb/canvas";
 import { isSolidTool, solidOf, type CanvasTool, type ToolState } from "./canvas-tool";
 import { cn, isOutside } from "@kb/ui-sdk";
 import { CANVAS_PROJECTIONS } from "./canvas-projections";
+import { shortcutHint } from "./canvas-keymap";
 
-/** Every tool's name and mark: tsc asks for one per preset, so a new preset cannot go unnamed. */
+/**
+ * Every tool's name and mark: tsc asks for one per preset, so a new preset
+ * cannot go unnamed. Its key is the shortcut table's (`shortcutHint`).
+ */
 const TOOL_LOOKS: {
   readonly [T in CanvasTool]: { readonly label: string; readonly icon: ReactNode };
 } = {
-  select: { label: "Select (V)", icon: <CursorIcon size={16} /> },
-  text: { label: "Text (T)", icon: <TextTIcon size={16} /> },
+  select: { label: "Select", icon: <CursorIcon size={16} /> },
+  text: { label: "Text", icon: <TextTIcon size={16} /> },
   label: { label: "Label: faces you in 3D", icon: <TagIcon size={16} /> },
-  rect: { label: "Rectangle (R)", icon: <SquareIcon size={16} /> },
-  ellipse: { label: "Ellipse (O)", icon: <CircleIcon size={16} /> },
-  diamond: { label: "Diamond (D)", icon: <DiamondIcon size={16} /> },
-  line: { label: "Line (L)", icon: <LineSegmentIcon size={16} /> },
-  arrow: { label: "Arrow (A)", icon: <ArrowUpRightIcon size={16} /> },
-  group: { label: "Group / Frame (F)", icon: <FrameCornersIcon size={16} /> },
-  "kb-node": { label: "Add kb node (N)", icon: <PlusIcon size={16} /> },
+  rect: { label: "Rectangle", icon: <SquareIcon size={16} /> },
+  ellipse: { label: "Ellipse", icon: <CircleIcon size={16} /> },
+  diamond: { label: "Diamond", icon: <DiamondIcon size={16} /> },
+  line: { label: "Line", icon: <LineSegmentIcon size={16} /> },
+  arrow: { label: "Arrow", icon: <ArrowUpRightIcon size={16} /> },
+  group: { label: "Group / Frame", icon: <FrameCornersIcon size={16} /> },
+  "kb-node": { label: "Add kb node", icon: <PlusIcon size={16} /> },
   image: { label: "Image (or paste or drop one)", icon: <ImageIcon size={16} /> },
   box: { label: "Box", icon: <CubeIcon size={16} /> },
   pillar: { label: "Pillar", icon: <CylinderIcon size={16} /> },
@@ -82,6 +86,12 @@ const BUTTON = cn(
   "hover:bg-foreground/5 hover:text-foreground/80",
 );
 
+/** A tool's name, with the key that picks it when it has one. */
+function toolLabel(tool: CanvasTool): string {
+  const hint = shortcutHint({ type: "tool", tool });
+  return hint === "" ? TOOL_LOOKS[tool].label : `${TOOL_LOOKS[tool].label} (${hint})`;
+}
+
 function ToolButton({
   tool,
   active,
@@ -97,7 +107,8 @@ function ToolButton({
   onDoubleClick: () => void;
   children?: ReactNode;
 }) {
-  const { label, icon } = TOOL_LOOKS[tool];
+  const { icon } = TOOL_LOOKS[tool];
+  const label = toolLabel(tool);
   return (
     <button
       type="button"
@@ -196,7 +207,9 @@ function SolidTool({
               {TOOL_LOOKS[preset].label}
             </button>
           ))}
-          <div className="px-2 pt-1 pb-0.5 text-label text-foreground/35">B picks the last one</div>
+          <div className="px-2 pt-1 pb-0.5 text-label text-foreground/35">
+            {shortcutHint({ type: "tool", tool: "solid" })} picks the last one
+          </div>
         </div>
       )}
     </div>

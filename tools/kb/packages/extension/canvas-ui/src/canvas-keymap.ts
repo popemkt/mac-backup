@@ -1,23 +1,16 @@
 /**
- * The canvas keymap: chord -> canvas intent.
+ * The canvas keymap: chord -> canvas intent, as one table of shortcuts
+ * (`CANVAS_SHORTCUTS`), the single statement of the canvas's keys: the
+ * keymap matches chords against it, and the view menu, the toolbar's hints
+ * and the shortcut sheet list from it, so none of them can disagree.
  *
  * Pure, like the outline's `selection-keymap.ts`: nothing here reads a store, a ref or
  * the DOM, so the whole table is reachable from a unit test. The appliers live
- * beside the hook that owns the effects (`use-canvas-keyboard`).
- *
- * The chord maps are consulted in {@link CHORD_MAPS} order, and that order is
- * load-bearing: `⌘c` copies rather than picking the ellipse tool, `⌘d`
- * duplicates rather than picking the diamond, `Delete` deletes rather than
- * nudging, and a numpad view key looks from its view rather than picking the
- * tool of the same digit (or deleting, for numpad `.` with NumLock off).
- * During a modal transform its own map comes first and claims every chord,
- * so a digit types a value rather than picking a tool, and Escape cancels
- * the transform rather than clearing the selection. While frames are
- * presented, theirs comes next: the arrows step through them rather than
- * nudging, and Escape stops presenting.
+ * beside the hook that owns the effects (`use-canvas-keyboard`). The table's
+ * order is load-bearing; `CANVAS_SHORTCUTS` says how.
  */
 import type { CanvasProjectionKind } from "@kb/canvas";
-import type { CanvasTool, CanvasToolPick } from "./canvas-tool";
+import type { CanvasToolPick } from "./canvas-tool";
 import type { CanvasViewPresetName } from "@kb/contracts";
 import { CANVAS_VIEW_PRESETS, ZOOM_STEP } from "./canvas-camera";
 import type { CanvasAxis, TransformKey, TransformMode } from "./canvas-transform-input";
@@ -81,82 +74,6 @@ type CanvasViewIntent = Extract<
 >;
 
 /**
- * A physical chord: matched by `code` where the key's place is what counts
- * (numpad keys, whatever NumLock and the layout say) or by `key`, with
- * exactly the modifiers it names.
- */
-interface ViewChord {
-  readonly code?: string;
-  readonly key?: string;
-  readonly shift?: boolean;
-  readonly ctrl?: boolean;
-}
-
-/**
- * A view command: what it asks of the camera, what the view menu calls it,
- * the chord as the menu shows it, and the chords that ask for it. One table
- * serves the keymap and the menu, so the two cannot disagree.
- */
-export interface CanvasViewCommand {
-  readonly intent: CanvasViewIntent;
-  readonly label: string;
-  readonly hint: string;
-  readonly chords: readonly ViewChord[];
-}
-
-const look = (
-  preset: CanvasViewPresetName,
-  hint: string,
-  chords: readonly ViewChord[],
-): CanvasViewCommand => ({
-  intent: { type: "look", preset },
-  label: CANVAS_VIEW_PRESETS[preset].label,
-  hint,
-  chords,
-});
-
-/**
- * The view commands, in the view menu's order: Blender's numpad views (⌃ for
- * the opposite side; there is no view from under the floor), the lens, the
- * projections, and framing (⇧1 and ⇧2 are tldraw's, numpad `.` Blender's).
- */
-export const CANVAS_VIEW_COMMANDS: readonly CanvasViewCommand[] = [
-  look("top", "Num7", [{ code: "Numpad7" }]),
-  look("front", "Num1", [{ code: "Numpad1" }]),
-  look("right", "Num3", [{ code: "Numpad3" }]),
-  look("back", "⌃Num1", [{ code: "Numpad1", ctrl: true }]),
-  look("left", "⌃Num3", [{ code: "Numpad3", ctrl: true }]),
-  look("oblique", "", []),
-  {
-    intent: { type: "toggleLens" },
-    label: "Orthographic",
-    hint: "Num5",
-    chords: [{ code: "Numpad5" }],
-  },
-  { intent: { type: "projection", kind: "2d" }, label: "2D", hint: "", chords: [] },
-  { intent: { type: "projection", kind: "3d" }, label: "3D", hint: "", chords: [] },
-  {
-    intent: { type: "frame", scope: "all" },
-    label: "Frame all",
-    hint: "⇧1",
-    chords: [
-      { code: "Digit1", shift: true },
-      { key: "!", shift: true },
-    ],
-  },
-  {
-    intent: { type: "frame", scope: "selection" },
-    label: "Frame selection",
-    hint: "⇧2",
-    chords: [{ code: "Digit2", shift: true }, { key: "@", shift: true }, { code: "NumpadDecimal" }],
-  },
-  { intent: { type: "present", act: "start" }, label: "Present frames", hint: "", chords: [] },
-];
-
-/** The chord that opens the view menu, for keyboards without a numpad. */
-const VIEW_MENU_CHORD: ViewChord = { code: "Backquote" };
-
-/**
  * A chord the canvas claims.
  *
  * `intent: null` is a claim with nothing to do — a selection-only command
@@ -178,48 +95,157 @@ export interface CanvasKeyState {
   presenting?: boolean;
 }
 
-/** Tool shortcuts, by lowercased key. G is not one: it grabs (plan decision 9). */
-const TOOL_KEYS: Record<string, CanvasTool> = {
-  v: "select",
-  "1": "select",
-  t: "text",
-  "2": "text",
-  r: "rect",
-  "3": "rect",
-  o: "ellipse",
-  c: "ellipse",
-  "4": "ellipse",
-  d: "diamond",
-  "5": "diamond",
-  l: "line",
-  a: "arrow",
-  n: "kb-node",
-  "6": "kb-node",
-  f: "group",
-  "7": "group",
+/**
+ * A key a shortcut is pressed by: matched by `code` where the key's place
+ * is what counts (numpad keys, whatever NumLock and the layout say) or by
+ * `key` (letters in either case, unless `cased`), with the modifiers it
+ * names. ⌘ and Ctrl are one modifier (`mod`), absent meaning neither;
+ * `ctrl` is Ctrl alone. Shift absent takes either.
+ */
+interface CanvasChord {
+  readonly code?: string;
+  readonly key?: string;
+  readonly cased?: boolean;
+  readonly mod?: boolean | "any";
+  readonly ctrl?: boolean;
+  readonly shift?: boolean;
+}
+
+/** Which state a shortcut acts in: the canvas at rest, a modal transform, present mode. */
+type ShortcutMode = "rest" | "transforming" | "presenting";
+
+/** Where a shortcut is listed. */
+type CanvasShortcutSection = "Tools" | "Edit" | "View" | "Transform" | "Present";
+
+/**
+ * One canvas shortcut: what it is called, where it is listed, the chords
+ * that press it, and what it asks for — an intent, one read off the key
+ * pressed, or null, a claim with nothing to do. Every chord the canvas
+ * claims is one of these, so the keymap, the view menu, the toolbar's
+ * hints and the shortcut sheet read one statement.
+ */
+interface CanvasShortcut {
+  readonly label: string;
+  readonly section: CanvasShortcutSection;
+  readonly chords: readonly CanvasChord[];
+  readonly intent: CanvasIntent | null | ((event: CanvasKeyEvent) => CanvasIntent);
+  /** The first chord in words, as a menu or a tooltip shows it; "" for none. */
+  readonly hint: string;
+  readonly mode: ShortcutMode;
+  /** Pressed with nothing selected it does nothing: swallowed, or passed to the browser. */
+  readonly needsSelection?: "swallow" | "pass";
+  /** Whether the browser's default is prevented; Escape, for one, is left to it. */
+  readonly prevent: boolean;
+  /** In a modal transform, whether a held key acts again (Backspace); others act once. */
+  readonly repeats?: boolean;
+}
+
+/** A view command: a shortcut whose intent the camera carries out, listed in the view menu. */
+export type CanvasViewCommand = CanvasShortcut & { readonly intent: CanvasViewIntent };
+
+/** What each key is called in a hint. */
+const KEY_NAMES: Record<string, string> = {
+  " ": "Space",
+  Space: "Space",
+  Backquote: "`",
+  NumpadDecimal: "Num.",
+  Delete: "Del",
+  Backspace: "⌫",
+  Escape: "Esc",
+  Enter: "↵",
+  ArrowLeft: "←",
+  ArrowRight: "→",
+  ArrowUp: "↑",
+  ArrowDown: "↓",
+  PageUp: "PgUp",
+  PageDown: "PgDn",
 };
 
-/** The keys that begin a modal transform of the selection, by lowercased key (Blender's). */
-const TRANSFORM_KEYS: Record<string, Exclude<TransformMode, "rotate">> = {
-  g: "grab",
-  s: "scale",
-  e: "extrude",
-};
+/** A chord in words: its modifiers, then its key as the keyboard shows it. */
+function chordHint(chord: CanvasChord): string {
+  const named = chord.code ?? chord.key ?? "";
+  const key =
+    KEY_NAMES[named] ??
+    (/^Numpad\d$/.test(named)
+      ? `Num${named.slice(6)}`
+      : /^Digit\d$/.test(named)
+        ? named.slice(5)
+        : named.length === 1
+          ? named.toUpperCase()
+          : named);
+  const ctrl = chord.ctrl === true ? "⌃" : "";
+  const mod = chord.mod === true ? "⌘" : "";
+  const shift = chord.shift === true ? "⇧" : "";
+  return `${ctrl}${mod}${shift}${key}`;
+}
 
-/** Inside a modal transform: the keys that switch it (R is free there, so it rotates). */
-const MODE_KEYS: Record<string, Exclude<TransformMode, "extrude">> = {
-  g: "grab",
-  r: "rotate",
-  s: "scale",
-};
+/** A shortcut's row, its hint from its first chord unless it names one. */
+function shortcut(
+  section: CanvasShortcutSection,
+  label: string,
+  intent: CanvasShortcut["intent"],
+  chords: readonly CanvasChord[],
+  more: Partial<Omit<CanvasShortcut, "section" | "label" | "intent" | "chords">> = {},
+): CanvasShortcut {
+  const first = chords[0];
+  return {
+    section,
+    label,
+    intent,
+    chords,
+    hint: first === undefined ? "" : chordHint(first),
+    mode: "rest",
+    prevent: true,
+    ...more,
+  };
+}
 
-const AXIS_KEYS: Record<string, CanvasAxis> = { x: "x", y: "y", z: "z" };
+const view = (
+  label: string,
+  intent: CanvasViewIntent,
+  chords: readonly CanvasChord[],
+  more: Partial<CanvasShortcut> = {},
+): CanvasViewCommand => ({ ...shortcut("View", label, intent, chords, more), intent });
 
-/** What a key types into a modal transform's value. */
-const TYPED_KEY = /^[\d.-]$|^Backspace$/;
+const look = (preset: CanvasViewPresetName, chords: readonly CanvasChord[]) =>
+  view(CANVAS_VIEW_PRESETS[preset].label, { type: "look", preset }, chords);
 
-/** The solid tool's keys (plan 2026-10-02 decision 9): which solid it is is the tool state's. */
-const SOLID_TOOL_KEYS = new Set(["b", "8"]);
+/**
+ * The view commands, in the view menu's order: Blender's numpad views (⌃ for
+ * the opposite side; there is no view from under the floor), the lens, the
+ * projections, and framing (⇧1 and ⇧2 are tldraw's, numpad `.` Blender's).
+ */
+export const CANVAS_VIEW_COMMANDS: readonly CanvasViewCommand[] = [
+  look("top", [{ code: "Numpad7" }]),
+  look("front", [{ code: "Numpad1" }]),
+  look("right", [{ code: "Numpad3" }]),
+  look("back", [{ code: "Numpad1", ctrl: true }]),
+  look("left", [{ code: "Numpad3", ctrl: true }]),
+  look("oblique", []),
+  view("Orthographic", { type: "toggleLens" }, [{ code: "Numpad5" }]),
+  view("2D", { type: "projection", kind: "2d" }, []),
+  view("3D", { type: "projection", kind: "3d" }, []),
+  view("Frame all", { type: "frame", scope: "all" }, [
+    { code: "Digit1", shift: true },
+    { key: "!", shift: true },
+  ]),
+  view(
+    "Frame selection",
+    { type: "frame", scope: "selection" },
+    [{ code: "Digit2", shift: true }, { key: "@", shift: true }, { code: "NumpadDecimal" }],
+    { needsSelection: "swallow" },
+  ),
+  view("Present frames", { type: "present", act: "start" }, []),
+];
+
+/** A tool's shortcut. G is not one: it grabs (plan decision 9). */
+const tool = (label: string, pick: CanvasToolPick, keys: readonly string[]) =>
+  shortcut(
+    "Tools",
+    label,
+    { type: "tool", tool: pick },
+    keys.map((key) => ({ key })),
+  );
 
 /** One canvas unit per arrow, ten with Shift held. */
 const NUDGE_UNITS: Record<string, { dx: number; dy: number }> = {
@@ -229,196 +255,275 @@ const NUDGE_UNITS: Record<string, { dx: number; dy: number }> = {
   ArrowDown: { dx: 0, dy: 1 },
 };
 
-type ChordMap = (event: CanvasKeyEvent, state: CanvasKeyState) => CanvasKeyBinding | null;
+const nudge =
+  (step: number) =>
+  (event: CanvasKeyEvent): CanvasIntent => {
+    const unit = NUDGE_UNITS[event.key] ?? { dx: 0, dy: 0 };
+    return { type: "nudge", dx: unit.dx * step, dy: unit.dy * step };
+  };
+
+const ARROWS = Object.keys(NUDGE_UNITS);
+
+/** A modal transform's key act, as an intent. */
+const act = (key: TransformKey): CanvasIntent => ({
+  type: "transform",
+  act: { kind: "key", key },
+});
+
+const axis = (name: CanvasAxis, plane: boolean) =>
+  shortcut(
+    "Transform",
+    plane ? `Across the plane off ${name.toUpperCase()}` : `Along ${name.toUpperCase()}`,
+    act({ kind: "axis", axis: name, plane }),
+    [{ key: name, shift: plane }],
+    { mode: "transforming" },
+  );
+
+const switchTo = (mode: Exclude<TransformMode, "extrude">, key: string) =>
+  shortcut("Transform", `Switch to ${mode}`, act({ kind: "mode", mode }), [{ key }], {
+    mode: "transforming",
+  });
+
+/** What a key types into a modal transform's value. */
+const typed = (event: CanvasKeyEvent) => act({ kind: "type", key: event.key });
+
+const present = (label: string, presentAct: PresentAct, chords: readonly CanvasChord[]) =>
+  shortcut("Present", label, { type: "present", act: presentAct }, chords, {
+    mode: "presenting",
+    prevent: presentAct !== "stop",
+  });
+
+/**
+ * Every canvas shortcut, in the order a chord is matched, which is
+ * load-bearing: in a modal transform its own keys claim every chord (a
+ * digit types a value rather than picking a tool, Escape cancels it); while
+ * frames are presented their keys come next (the arrows step rather than
+ * nudge); then ⌘ chords before plain ones (`⌘c` copies rather than picking
+ * the ellipse), the view keys before Delete (numpad `.` frames the
+ * selection) and before the tools (a numpad digit with a view looks from
+ * it).
+ */
+const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
+  shortcut(
+    "Transform",
+    "Cancel",
+    { type: "transform", act: { kind: "cancel" } },
+    [{ key: "Escape", mod: "any" }],
+    { mode: "transforming", prevent: false },
+  ),
+  shortcut(
+    "Transform",
+    "Confirm",
+    { type: "transform", act: { kind: "confirm" } },
+    [{ key: "Enter", mod: "any" }],
+    { mode: "transforming" },
+  ),
+  shortcut(
+    "Transform",
+    "Free of snapping (hold)",
+    { type: "transform", act: { kind: "free" } },
+    [
+      { key: "Meta", mod: "any" },
+      { key: "Control", mod: "any" },
+    ],
+    { mode: "transforming", prevent: false },
+  ),
+  axis("x", false),
+  axis("y", false),
+  axis("z", false),
+  axis("x", true),
+  axis("y", true),
+  axis("z", true),
+  switchTo("grab", "g"),
+  switchTo("rotate", "r"),
+  switchTo("scale", "s"),
+  shortcut(
+    "Transform",
+    "Type a value",
+    typed,
+    "0123456789.-".split("").map((key) => ({ key })),
+    { mode: "transforming" },
+  ),
+  shortcut("Transform", "Erase a typed digit", typed, [{ key: "Backspace" }], {
+    mode: "transforming",
+    repeats: true,
+  }),
+  present("Next frame", "next", [
+    { key: "ArrowRight" },
+    { key: "ArrowDown" },
+    { key: "PageDown" },
+    { key: " ", shift: false },
+  ]),
+  present("Previous frame", "previous", [
+    { key: "ArrowLeft" },
+    { key: "ArrowUp" },
+    { key: "PageUp" },
+    { key: " ", shift: true },
+  ]),
+  present("Stop presenting", "stop", [{ key: "Escape" }]),
+  shortcut("Edit", "Redo", { type: "redo" }, [
+    { key: "z", mod: true, shift: true },
+    { key: "Z", mod: true, cased: true },
+    { key: "y", mod: true },
+  ]),
+  shortcut("Edit", "Undo", { type: "undo" }, [{ key: "z", mod: true, shift: false }]),
+  ...CANVAS_VIEW_COMMANDS,
+  // ⌃numpad 7 would look from under the floor: there is no such view, so it does nothing.
+  shortcut("View", "", null, [{ code: "Numpad7", ctrl: true }]),
+  shortcut("View", "View menu", { type: "viewMenu" }, [{ code: "Backquote" }]),
+  shortcut(
+    "Edit",
+    "Delete",
+    { type: "delete" },
+    [
+      { key: "Delete", mod: "any" },
+      { key: "Backspace", mod: "any" },
+    ],
+    { needsSelection: "swallow" },
+  ),
+  shortcut("Edit", "Select all", { type: "selectAll" }, [{ key: "a", mod: true }]),
+  // ⌘V is not the canvas's: the browser's paste event carries what the clipboard holds.
+  shortcut("Edit", "Copy", { type: "copy" }, [{ key: "c", mod: true }], {
+    needsSelection: "swallow",
+  }),
+  shortcut(
+    "Edit",
+    "Group into a frame",
+    { type: "group" },
+    [{ key: "g", mod: true, shift: false }],
+    {
+      needsSelection: "swallow",
+    },
+  ),
+  shortcut("Edit", "Ungroup", { type: "ungroup" }, [{ key: "g", mod: true, shift: true }], {
+    needsSelection: "swallow",
+  }),
+  shortcut("Edit", "Duplicate", { type: "duplicate" }, [{ key: "d", mod: true }], {
+    needsSelection: "swallow",
+  }),
+  shortcut("Edit", "Step out", { type: "escape" }, [{ key: "Escape", mod: "any" }], {
+    prevent: false,
+  }),
+  shortcut("View", "Pan (hold)", { type: "panModifier" }, [{ code: "Space", mod: "any" }]),
+  shortcut(
+    "Edit",
+    "Nudge",
+    nudge(1),
+    ARROWS.map((key) => ({ key, mod: "any", shift: false })),
+    { needsSelection: "pass", hint: "←↑→↓" },
+  ),
+  shortcut(
+    "Edit",
+    "Nudge ten",
+    nudge(10),
+    ARROWS.map((key) => ({ key, mod: "any", shift: true })),
+    { needsSelection: "pass", hint: "⇧←↑→↓" },
+  ),
+  shortcut(
+    "Transform",
+    "Grab",
+    { type: "transform", act: { kind: "begin", mode: "grab" } },
+    [{ key: "g", shift: false }],
+    { needsSelection: "swallow" },
+  ),
+  shortcut(
+    "Transform",
+    "Scale",
+    { type: "transform", act: { kind: "begin", mode: "scale" } },
+    [{ key: "s", shift: false }],
+    { needsSelection: "swallow" },
+  ),
+  shortcut(
+    "Transform",
+    "Extrude",
+    { type: "transform", act: { kind: "begin", mode: "extrude" } },
+    [{ key: "e", shift: false }],
+    { needsSelection: "swallow" },
+  ),
+  tool("Select", "select", ["v", "1"]),
+  tool("Text", "text", ["t", "2"]),
+  tool("Rectangle", "rect", ["r", "3"]),
+  tool("Ellipse", "ellipse", ["o", "c", "4"]),
+  tool("Diamond", "diamond", ["d", "5"]),
+  tool("Line", "line", ["l"]),
+  tool("Arrow", "arrow", ["a"]),
+  tool("Card for a node", "kb-node", ["n", "6"]),
+  tool("Frame", "group", ["f", "7"]),
+  tool("Solid (the last one made)", "solid", ["b", "8"]),
+  shortcut("View", "Zoom in", { type: "zoomBy", factor: ZOOM_STEP }, [
+    { key: "=", mod: true },
+    { key: "+", mod: true },
+  ]),
+  shortcut("View", "Zoom out", { type: "zoomBy", factor: 1 / ZOOM_STEP }, [
+    { key: "-", mod: true },
+  ]),
+  shortcut("View", "Zoom to 100%", { type: "zoomTo", zoom: 1 }, [{ key: "0", mod: true }]),
+];
 
 const mod = (event: CanvasKeyEvent) => event.metaKey === true || event.ctrlKey === true;
+
+/** Whether `event` presses `chord`. */
+function presses(chord: CanvasChord, event: CanvasKeyEvent): boolean {
+  if (chord.code !== undefined ? event.code !== chord.code : !sameKey(chord, event.key)) {
+    return false;
+  }
+  if (chord.shift !== undefined && chord.shift !== (event.shiftKey === true)) return false;
+  if (chord.ctrl === true) return event.ctrlKey === true && event.metaKey !== true;
+  return chord.mod === "any" || (chord.mod === true) === mod(event);
+}
+
+function sameKey(chord: CanvasChord, key: string): boolean {
+  if (chord.key === undefined) return false;
+  return chord.cased === true ? chord.key === key : chord.key.toLowerCase() === key.toLowerCase();
+}
 
 const claim = (intent: CanvasIntent | null, preventDefault = true): CanvasKeyBinding => ({
   intent,
   preventDefault,
 });
 
-/** A command that needs something selected: claimed either way. */
-const claimWithSelection = (intent: CanvasIntent, state: CanvasKeyState): CanvasKeyBinding =>
-  claim(state.selectionEmpty ? null : intent);
+/** The mode a state puts the canvas in, for its shortcuts. */
+const modesOf = (state: CanvasKeyState): readonly ShortcutMode[] =>
+  state.transforming
+    ? ["transforming"]
+    : state.presenting === true
+      ? ["presenting", "rest"]
+      : ["rest"];
 
-const mapHistory: ChordMap = (event) => {
-  if (!mod(event)) return null;
-  if (event.key === "z" && event.shiftKey !== true) return claim({ type: "undo" });
-  if (event.key === "Z" || (event.key === "z" && event.shiftKey === true))
-    return claim({ type: "redo" });
-  if (event.key === "y") return claim({ type: "redo" });
-  return null;
-};
-
-const mapSelection: ChordMap = (event, state) => {
-  if (event.key === "Delete" || event.key === "Backspace")
-    return claimWithSelection({ type: "delete" }, state);
-  if (mod(event) && event.key === "a") return claim({ type: "selectAll" });
-  return null;
-};
+/** What pressing `found` in `state` claims. */
+function bindingOf(found: CanvasShortcut, event: CanvasKeyEvent, state: CanvasKeyState) {
+  // A held key acts once in a modal transform: holding X would cycle the axes, a digit type dozens.
+  if (found.mode === "transforming" && event.repeat === true && found.repeats !== true) {
+    return claim(null);
+  }
+  if (found.needsSelection !== undefined && state.selectionEmpty) {
+    return claim(null, found.needsSelection === "swallow");
+  }
+  const intent = typeof found.intent === "function" ? found.intent(event) : found.intent;
+  return claim(intent, found.prevent);
+}
 
 /**
- * ⌘C copies the selection. ⌘V is not the canvas's chord: it is left to the
- * browser, whose paste event carries whatever the clipboard holds, with no
- * permission asked (`use-canvas-keyboard`).
+ * The chord's binding, or null when the canvas does not claim the chord. A
+ * modal transform claims every chord: any it has no shortcut for does
+ * nothing, its browser default kept (a held one is swallowed).
  */
-const mapClipboard: ChordMap = (event, state) => {
-  if (!mod(event)) return null;
-  if (event.key === "c") return claimWithSelection({ type: "copy" }, state);
-  return null;
-};
-
-/** ⌘G groups the selection, ⌘⇧G takes its groups apart (and the browser's find-next never runs). */
-const mapGroup: ChordMap = (event, state) => {
-  if (!mod(event) || event.key.toLowerCase() !== "g") return null;
-  return claimWithSelection({ type: event.shiftKey === true ? "ungroup" : "group" }, state);
-};
-
-const mapDuplicate: ChordMap = (event, state) => {
-  if (!mod(event) || event.key !== "d") return null;
-  return claimWithSelection({ type: "duplicate" }, state);
-};
-
-const mapCanvasState: ChordMap = (event) => {
-  // Escape is the one chord left un-prevented: a native surface may want it.
-  if (event.key === "Escape") return claim({ type: "escape" }, false);
-  if (event.code === "Space") return claim({ type: "panModifier" });
-  return null;
-};
-
-const matches = (chord: ViewChord, event: CanvasKeyEvent): boolean =>
-  (chord.code === undefined ? event.key === chord.key : event.code === chord.code) &&
-  (chord.shift === true) === (event.shiftKey === true) &&
-  (chord.ctrl === true) === (event.ctrlKey === true) &&
-  event.metaKey !== true;
-
-const mapView: ChordMap = (event, state) => {
-  if (matches(VIEW_MENU_CHORD, event)) return claim({ type: "viewMenu" });
-  const command = CANVAS_VIEW_COMMANDS.find((c) => c.chords.some((ch) => matches(ch, event)));
-  if (command === undefined) {
-    // A numpad digit with no view keeps its tool; ⌃numpad 7 (from under the floor) is no view.
-    return event.code === "Numpad7" ? claim(null) : null;
-  }
-  const { intent } = command;
-  return intent.type === "frame" && intent.scope === "selection"
-    ? claimWithSelection(intent, state)
-    : claim(intent);
-};
-
-const mapNudge: ChordMap = (event, state) => {
-  if (!event.key.startsWith("Arrow")) return null;
-  // The one claim that leaves the default alone.
-  if (state.selectionEmpty) return claim(null, false);
-  const step = event.shiftKey === true ? 10 : 1;
-  const unit = NUDGE_UNITS[event.key] ?? { dx: 0, dy: 0 };
-  return claim({ type: "nudge", dx: unit.dx * step, dy: unit.dy * step });
-};
-
-/** A tool is a plain key: with ⌘ or Ctrl held the chord is the browser's (⌘V its paste). */
-const mapTool: ChordMap = (event) => {
-  if (mod(event)) return null;
-  const key = event.key.toLowerCase();
-  if (SOLID_TOOL_KEYS.has(key)) return claim({ type: "tool", tool: "solid" });
-  const tool = TOOL_KEYS[key];
-  return tool === undefined ? null : claim({ type: "tool", tool });
-};
-
-/** G, S or E with no modifier begins a modal transform of the selection. */
-const mapTransform: ChordMap = (event, state) => {
-  if (mod(event) || event.shiftKey === true) return null;
-  const mode = TRANSFORM_KEYS[event.key.toLowerCase()];
-  return mode === undefined
-    ? null
-    : claimWithSelection({ type: "transform", act: { kind: "begin", mode } }, state);
-};
-
-/**
- * A modal transform's own keys, ahead of every other map while one is under
- * way: X Y Z (⇧ for the plane across), G R S, a typed value, ↵ to confirm,
- * Esc to cancel, ⌘ or Ctrl to suspend snapping. Any other chord is claimed
- * and does nothing, its browser default kept, so nothing else happens
- * mid-transform.
- */
-const mapModal: ChordMap = (event, state) => {
-  if (!state.transforming) return null;
-  // A held key acts once: holding X would cycle the axes, a digit type dozens. Backspace repeats.
-  if (event.repeat === true && event.key !== "Backspace") return claim(null);
-  if (event.key === "Escape") return claim({ type: "transform", act: { kind: "cancel" } }, false);
-  if (event.key === "Enter") return claim({ type: "transform", act: { kind: "confirm" } });
-  if (event.key === "Meta" || event.key === "Control")
-    return claim({ type: "transform", act: { kind: "free" } }, false);
-  if (mod(event)) return claim(null, false);
-  const key = event.key.toLowerCase();
-  const axis = AXIS_KEYS[key];
-  const plane = event.shiftKey === true;
-  if (axis !== undefined)
-    return claim({ type: "transform", act: { kind: "key", key: { kind: "axis", axis, plane } } });
-  const mode = MODE_KEYS[key];
-  if (mode !== undefined)
-    return claim({ type: "transform", act: { kind: "key", key: { kind: "mode", mode } } });
-  if (TYPED_KEY.test(event.key)) {
-    return claim({
-      type: "transform",
-      act: { kind: "key", key: { kind: "type", key: event.key } },
-    });
-  }
-  return claim(null, false);
-};
-
-/** Present mode's keys: forward and back through the frames, as a slide deck steps; Esc stops. */
-const PRESENT_KEYS: Record<string, PresentAct> = {
-  ArrowRight: "next",
-  ArrowDown: "next",
-  PageDown: "next",
-  " ": "next",
-  ArrowLeft: "previous",
-  ArrowUp: "previous",
-  PageUp: "previous",
-  Escape: "stop",
-};
-
-/** While frames are presented: their keys, ahead of nudging and of Escape's other meanings. */
-const mapPresent: ChordMap = (event, state) => {
-  if (state.presenting !== true || mod(event)) return null;
-  const act = PRESENT_KEYS[event.key];
-  if (act === undefined) return null;
-  const back = event.key === " " && event.shiftKey === true;
-  return claim({ type: "present", act: back ? "previous" : act }, act !== "stop");
-};
-
-const mapZoom: ChordMap = (event) => {
-  if (mod(event) && (event.key === "=" || event.key === "+"))
-    return claim({ type: "zoomBy", factor: ZOOM_STEP });
-  if (mod(event) && event.key === "-") return claim({ type: "zoomBy", factor: 1 / ZOOM_STEP });
-  if (mod(event) && event.key === "0") return claim({ type: "zoomTo", zoom: 1 });
-  return null;
-};
-
-const CHORD_MAPS: readonly ChordMap[] = [
-  mapModal,
-  mapPresent,
-  mapHistory,
-  mapView,
-  mapSelection,
-  mapClipboard,
-  mapGroup,
-  mapDuplicate,
-  mapCanvasState,
-  mapNudge,
-  mapTransform,
-  mapTool,
-  mapZoom,
-];
-
-/** The chord's binding, or null when the canvas does not claim the chord. */
 export function mapCanvasKey(
   event: CanvasKeyEvent,
   state: CanvasKeyState,
 ): CanvasKeyBinding | null {
-  for (const map of CHORD_MAPS) {
-    const binding = map(event, state);
-    if (binding !== null) return binding;
+  for (const mode of modesOf(state)) {
+    const found = CANVAS_SHORTCUTS.find(
+      (s) => s.mode === mode && s.chords.some((chord) => presses(chord, event)),
+    );
+    if (found !== undefined) return bindingOf(found, event, state);
   }
+  if (state.transforming) return claim(null, event.repeat === true);
   return null;
+}
+
+/** The hint of the shortcut that asks for `intent`, as a tooltip shows it; "" for none. */
+export function shortcutHint(intent: CanvasIntent): string {
+  const wanted = JSON.stringify(intent);
+  return CANVAS_SHORTCUTS.find((s) => JSON.stringify(s.intent) === wanted)?.hint ?? "";
 }

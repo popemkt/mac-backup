@@ -1319,9 +1319,11 @@ open view of that canvas.
 - **Views, the widget and the view menu.** The camera model names six
   orientations (`CANVAS_VIEW_PRESETS`): top, front, right, back, left (each
   named for where the eye stands; front is the +y side) and the oblique look
-  a canvas first opens at. One table of view commands
-  (`CANVAS_VIEW_COMMANDS`, `canvas-ui/src/canvas-keymap.ts`) serves the keymap and the
-  view menu, and both reach the camera through `CanvasViewportControls`:
+  a canvas first opens at. The view commands (`CANVAS_VIEW_COMMANDS`) are
+  rows of the canvas's one shortcut table (`CANVAS_SHORTCUTS`,
+  `canvas-ui/src/canvas-keymap.ts`), the single statement of its keys: the
+  keymap matches chords against it, and the view menu and the toolbar's key
+  hints list from it. Both reach the camera through `CanvasViewportControls`:
   numpad 7 / 1 / 3 look from the top, front and right (⌃ for back and left;
   there is no view from under the floor), numpad 5 swaps the lens, ⇧1 frames
   everything, ⇧2 and numpad `.` frame the selection, and `` ` `` opens the
