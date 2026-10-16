@@ -18,10 +18,11 @@ import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
 import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 function seed() {

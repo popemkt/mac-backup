@@ -14,7 +14,7 @@ import { outlineUiPlugin } from "@/components/outline/plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 function seed() {
@@ -128,3 +128,4 @@ describe("undo / redo (D19)", () => {
 // Minimal act shim: zustand setState is synchronous; import kept local so
 // the file also runs under plain bun without react-dom/test-utils.
 import { act } from "react";
+import { syncPagePlugins } from "@/test-support/page-plugins";

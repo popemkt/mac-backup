@@ -14,6 +14,7 @@ import { browserHostUiPlugin } from "@/browser-host";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { AgentDock, attachChat, useChat, type AgentPorts } from "@kb/agent-ui";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 interface Stand {
   readonly ports: AgentPorts;
@@ -67,7 +68,7 @@ describe("the agent dock", () => {
   afterAll(() => installed.restore());
 
   // The dock's entries follow and ink references through the page's host.
-  beforeAll(() => syncUiPlugins([browserHostUiPlugin]));
+  beforeAll(() => syncPagePlugins([browserHostUiPlugin]));
   afterAll(() => syncUiPlugins([]));
 
   function open(s: Stand): void {

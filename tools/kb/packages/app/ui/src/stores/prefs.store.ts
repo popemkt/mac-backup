@@ -1,25 +1,26 @@
 import { z } from "zod";
 import { create } from "zustand";
 import {
+  type Appearance,
   appearanceOf,
-  BACKDROP_STRENGTHS,
   BACKDROP_DIRECTIONS,
-  type BackdropStrength,
+  BACKDROP_STRENGTHS,
   type BackdropDirection,
+  type BackdropStrength,
   DEFAULT_DESIGN_SYSTEM,
   DEFAULT_HEADER_BACKDROP,
+  DESIGN_SYSTEM_IDS,
+  type DesignSystemId,
+  hasText,
   HEADER_BACKDROPS,
   type HeaderBackdropPref,
-  DESIGN_SYSTEM_IDS,
-  hasText,
+  type Prefs,
   SIDEBAR_REGION_SELECTOR,
+  type ThemePref,
   THEMES,
   useNarrowViewport,
-  WIDTHS,
-  type Appearance,
-  type DesignSystemId,
-  type ThemePref,
   type WidthPref,
+  WIDTHS,
 } from "@kb/ui-sdk";
 import { useUiStore } from "@/stores/ui.store";
 import { transitionTheme } from "@/lib/theme-transition";
@@ -30,23 +31,6 @@ import { transitionTheme } from "@/lib/theme-transition";
  * Persisted to localStorage["kb-prefs"] — device concern, never repo data.
  * index.html carries a blocking script that reads the same key pre-paint.
  */
-
-export interface Prefs {
-  theme: ThemePref;
-  /**
-   * Which design system paints the page: every layer-1 value, faces
-   * included. The UI face used to be a pref of its own (`font`); a face is a
-   * design-system value, so a stale `font` key is ignored on read and
-   * dropped on the next write.
-   */
-  designSystem: DesignSystemId;
-  width: WidthPref;
-  headerBackdrop: HeaderBackdropPref;
-  backdropStrength: BackdropStrength;
-  backdropDirection: BackdropDirection;
-  /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */
-  sidebarOpen: boolean;
-}
 
 export const PREFS_STORAGE_KEY = "kb-prefs";
 

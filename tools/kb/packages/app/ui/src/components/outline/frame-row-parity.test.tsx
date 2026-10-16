@@ -16,6 +16,7 @@ import { useOutlineStore } from "@/components/outline/outline.store";
 import { OutlineTableView } from "@kb/views";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 function seed() {
   resetOutlineStore();
@@ -31,7 +32,7 @@ describe("frame row parity (render vs nav)", () => {
 
   beforeAll(() => {
     // A frame's children are shown by the views the outline plugin provides.
-    syncUiPlugins([outlineUiPlugin]);
+    syncPagePlugins([outlineUiPlugin]);
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
     g.window = dom;

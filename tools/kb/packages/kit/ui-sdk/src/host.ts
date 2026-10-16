@@ -13,13 +13,15 @@
  */
 import { Service } from "@kb/plugin";
 import type { ActionInvocation, ActionReceipt, WireNode } from "@kb/contracts";
+import type { CommandTarget, NodeCommandListing, PaletteSurface } from "./lib/command-point";
 import type { ViewKey } from "@kb/views";
 import type { NodeTextPort } from "./components/node-text-port";
 import type { RefInk } from "./lib/md-edit";
+import type { PageGraphPort } from "./lib/page-graph";
 import type { PageWrites } from "./lib/page-writes";
 import type { PaneScreenPort } from "./lib/pane-screen";
 import { currentService } from "./lib/plugins";
-import type { Appearance, ThemePref } from "./lib/theme";
+import type { Appearance, Prefs } from "./lib/theme";
 import type { OutlineNode } from "./lib/types";
 import type { QueryRowsSubscribe } from "./lib/use-query-node-rows";
 import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
@@ -54,7 +56,8 @@ export interface BrowserHost extends NodeTextPort {
   /** Subscribe a query node's rows over the live socket, as one subscriber; returns the unsubscribe. */
   readonly subscribeQuery: QueryRowsSubscribe;
   readonly appearance: () => Appearance;
-  readonly theme: () => ThemePref;
+  /** The device-level preferences now. */
+  readonly prefs: () => Prefs;
   readonly prefsOpen: () => boolean;
   readonly setPrefsOpen: (open: boolean) => void;
   /** Whether the left rail is open, at a narrow or a wide viewport. */
@@ -69,6 +72,28 @@ export interface BrowserHost extends NodeTextPort {
   readonly refInk: () => RefInk;
   /** Zoom the outline to a node. */
   readonly zoomTo: (id: string) => void;
+  /** Zoom home: to the workspace, or to the ontology while scoped. */
+  readonly zoomHome: () => void;
+  /** The page's graph: the state a projection reads, and the moves it makes in it. */
+  readonly graph: PageGraphPort;
+  /** Which nodes show their debug fields (`sys.*` and hidden props), and the switch for one. */
+  readonly debugFields: {
+    readonly ids: () => ReadonlySet<string>;
+    readonly toggle: (nodeId: string) => void;
+  };
+  /** The frame whose filter popover is open, if any, and how to open one or close it. */
+  readonly filterFrame: () => string | null;
+  readonly setFilterFrame: (frameId: string | null) => void;
+  /** Whether the node palette is open (`setNodePaletteOpen` opens and closes it). */
+  readonly nodePaletteOpen: () => boolean;
+  /**
+   * The node menu for `target`: the registry's node commands it offers, in
+   * order, each run against the page's state as it is when it runs.
+   */
+  readonly nodeCommands: (
+    target: CommandTarget,
+    palette: PaletteSurface,
+  ) => readonly NodeCommandListing[];
   /** Start editing a node's text in one instance, with the caret at `cursorPos`. */
   readonly activateNode: (nodeId: string, cursorPos?: number, instanceKey?: string) => void;
   /** Send a pane to a path. */

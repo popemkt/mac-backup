@@ -51,6 +51,7 @@ import {
   isSysPrefixed,
   navigate,
   nodeAction,
+  type NodeCommandListing,
   nodePath,
   ontologyPath,
   type OutlineCommandApi,
@@ -526,14 +527,6 @@ function commandsFor(ctx: CommandContext): readonly Command[] {
     ...currentContributions(CommandPoint).map(({ value }) => value),
     ...NODE_COMMANDS_AFTER_VIEWS,
   ];
-}
-
-/** One row of the node menu: what to show, and what pressing it does. */
-export interface NodeCommandListing {
-  readonly id: string;
-  readonly label: string;
-  readonly icon: React.ReactNode;
-  readonly run: () => void;
 }
 
 /**

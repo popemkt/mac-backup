@@ -3,18 +3,20 @@
  * hook over the host's subscribe and reads. A feature calls these, never a
  * store, and the host holds no hook of its own (see `sdk/host.ts`).
  */
-import { useSyncExternalStore } from "react";
+import { useContext, useSyncExternalStore } from "react";
 import type { WireNode } from "@kb/contracts";
 import type { NodeTextHostBinding } from "./components/node-text-host";
 import { useNodeTextBindingThrough } from "./components/node-text-port";
 import type { KbIndex } from "./query";
-import { useFollowThrough, type Follow } from "./lib/follow";
+import { OpenNodeContext, useFollowThrough, type Follow } from "./lib/follow";
+import { useGraphReadThrough, type GraphRead } from "./lib/graph-read";
 import type { RefInk } from "./lib/md-edit";
 import { usePaneScreenThrough, type PaneCarryOut, type PaneReport } from "./lib/pane-screen";
 import type { SchemaIndex } from "./lib/schema";
 import type { NodeMap, OutlineNode } from "./lib/types";
 import { useQueryNodeRows, type QueryNodeRows } from "./lib/use-query-node-rows";
-import type { Appearance, ThemePref } from "./lib/theme";
+import type { PageGraphState } from "./lib/page-graph";
+import type { Appearance, Prefs, ThemePref } from "./lib/theme";
 import { useNarrowViewport } from "./lib/viewport";
 import { browserHost, type BrowserHost } from "./host";
 
@@ -112,8 +114,13 @@ export function useAppearance(): Appearance {
   return useHostValue((host) => host.appearance());
 }
 
+/** What `select` answers of the device-level preferences, re-read when they change. */
+export function usePrefs<T>(select: (prefs: Prefs) => T): T {
+  return useHostValue((host) => select(host.prefs()));
+}
+
 export function useTheme(): ThemePref {
-  return useHostValue((host) => host.theme());
+  return usePrefs((prefs) => prefs.theme);
 }
 
 /** Whether Preferences is open, and how to open or close it. */
@@ -130,4 +137,45 @@ export function useSidebarToggle(): {
   const narrow = useNarrowViewport();
   const open = useHostValue((host) => host.sidebarOpen(narrow));
   return { open, onToggle: (button) => browserHost().toggleSidebar(narrow, open, button) };
+}
+
+/**
+ * What `select` answers of the page's graph state, re-read when the graph
+ * moves. `select` answers a value of the state, or one built once per
+ * snapshot (`schemaOf`), so a reader re-renders only when it changes.
+ */
+export function usePageGraph<T>(select: (state: PageGraphState) => T): T {
+  const { graph } = browserHost();
+  const snapshot = () => select(graph.state());
+  return useSyncExternalStore(graph.subscribe, snapshot, snapshot);
+}
+
+/** The page's graph, read by this component: it re-renders when what it read changes. */
+export function useGraphRead(): GraphRead {
+  return useGraphReadThrough(browserHost());
+}
+
+/** Open a node as the page around the caller: its pane's location, else the zoom. */
+export function useOpenNode(): (id: string) => void {
+  return useContext(OpenNodeContext) ?? browserHost().zoomTo;
+}
+
+/** Whether a node shows its debug fields. */
+export function useDebugFields(nodeId: string): boolean {
+  return useHostValue((host) => host.debugFields.ids().has(nodeId));
+}
+
+/** Every node showing its debug fields: what a menu row reads to say which way it switches. */
+export function useDebugFieldIds(): ReadonlySet<string> {
+  return useHostValue((host) => host.debugFields.ids());
+}
+
+/** The frame whose filter popover is open, if any. */
+export function useFilterFrame(): string | null {
+  return useHostValue((host) => host.filterFrame());
+}
+
+/** Whether the node palette is open. */
+export function useNodePaletteOpen(): boolean {
+  return useHostValue((host) => host.nodePaletteOpen());
 }

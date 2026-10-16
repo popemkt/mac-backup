@@ -21,6 +21,7 @@ import { useOutlineStore, outlineNodes } from "@/components/outline/outline.stor
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";
 import { NodeBlock } from "./node-block";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 const ISO = "2026-08-08T05:00:00.000Z";
 
@@ -73,7 +74,7 @@ describe("row chrome", () => {
 
   beforeAll(() => {
     // A frame's children are shown by the views the outline plugin provides.
-    syncUiPlugins([outlineUiPlugin]);
+    syncPagePlugins([outlineUiPlugin]);
     dom = installDomGlobals();
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
   });

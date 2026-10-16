@@ -12,8 +12,9 @@ import { outlineUiPlugin } from "@/components/outline/plugin";
 import { useGraphStore } from "@/stores/graph.store";
 import { outlineNodes, useOutlineStore } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
-beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 /** Writes to the stubbed storage since the last `writes()`. */

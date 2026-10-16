@@ -20,10 +20,11 @@ import { backlinkRows } from "@/components/outline/backlinks";
 import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 const ISO = "2026-09-26T00:00:00.000Z";

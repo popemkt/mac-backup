@@ -10,35 +10,21 @@ import {
 } from "@kb/ui-sdk";
 import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
 import { buildPaletteIndex, searchPalette, type PaletteHit } from "@/lib/palette-index";
-import { useDebugFieldsStore } from "@/stores/debug-fields.store";
-import { useWorkspaceStore } from "@/stores/workspace.store";
 import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";
-import { pageCommandApi } from "@/stores/page-commands";
-import { usePrefsStore } from "@/stores/prefs.store";
-import { useUiStore } from "@/stores/ui.store";
+import { pageCommandApi, pageCommandContext } from "@/stores/page-commands";
 
 /**
- * The state a command runs against, read at the moment it runs.
- *
- * The registry is a leaf module (`lib/` reads no store), so the palette hands
- * it the stores rather than the other way round. ⌘K offers
- * only the `sys.command` nodes and none of those is a picker step, so
- * `openStep` states that rather than being wired to nothing.
+ * The state a command runs against, read at the moment it runs
+ * (`pageCommandContext`). ⌘K offers only the `sys.command` nodes and none of
+ * those is a picker step, so `openStep` states that rather than being wired
+ * to nothing.
  */
 function commandContext(onClose: () => void): CommandContext {
   const outline = pageCommandApi();
-  return {
-    target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
-    outline,
-    prefs: usePrefsStore.getState(),
-    ui: useUiStore.getState(),
-    debugFields: useDebugFieldsStore.getState(),
-    workspace: useWorkspaceStore.getState(),
-    palette: {
-      close: onClose,
-      openStep: () => toast("That command needs a selected row"),
-    },
-  };
+  return pageCommandContext(
+    { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
+    { close: onClose, openStep: () => toast("That command needs a selected row") },
+  );
 }
 
 const ROW_LIMIT = 20;

@@ -41,10 +41,11 @@ import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useNodeKeyDown } from "./use-node-keydown";
 import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 /** No graph behind the text: every reference keeps the default link colour. */

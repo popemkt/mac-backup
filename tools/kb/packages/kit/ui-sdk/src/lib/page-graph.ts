@@ -43,6 +43,28 @@ export interface PageGraphState {
   readonly ontologyMembers: Set<string> | null;
 }
 
+/**
+ * The page's graph as the shell holds it: its state now, a subscription to
+ * its moves, and the moves a projection makes in it beside the zoom.
+ */
+export interface PageGraphPort {
+  readonly state: () => PageGraphState;
+  readonly subscribe: (listener: () => void) => () => void;
+  /**
+   * Whether the page can show `id`, leaving the ontology scope when `id` is
+   * outside it: a scope is never a dead end.
+   */
+  readonly reach: (id: string) => boolean;
+  /**
+   * The state the page can show `id` in: this one, or this one with the scope
+   * left; null when neither shows it. What `reach` moves to, read without
+   * moving.
+   */
+  readonly reached: (id: string) => PageGraphState | null;
+  /** Take a row out of the replica, as a local transaction: an empty row an editor minted and left. */
+  readonly drop: (id: string) => void;
+}
+
 /** What a scope is read from: the snapshot and the scope's resolution. */
 export type ScopeSource = Pick<PageGraphState, "wireNodes" | "ontologyId" | "ontologyMembers">;
 

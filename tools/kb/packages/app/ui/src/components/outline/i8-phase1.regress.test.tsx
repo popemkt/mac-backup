@@ -23,6 +23,7 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
 import { NodeBlock } from "./node-block";
 import { OutlineEditor } from "./outline-editor";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 function seed() {
   resetOutlineStore();
@@ -41,7 +42,7 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
 
   beforeAll(() => {
     // A frame's children are shown by the views the outline plugin provides.
-    syncUiPlugins([outlineUiPlugin]);
+    syncPagePlugins([outlineUiPlugin]);
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
     g.window = dom;

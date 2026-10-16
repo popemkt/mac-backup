@@ -34,9 +34,10 @@ import type { NodeMap } from "./types";
  *
  * - `follow(change, prev, next)` — the replica or scope moves from `prev` to
  *   `next`;
- * - `leave(from)` — the page is about to leave `from`: let go of the focus.
- *   An empty row it minted is pruned while `from` still shows it, as a graph
- *   write of its own;
+ * - `leave(from)` — the page is about to leave `from`: let go of the focus,
+ *   and answer the empty row it minted that `from` still shows, if any. The
+ *   store prunes that row as a write of its own before it moves, so a
+ *   projection makes no write while the page moves;
  * - `arrive(at, to)` — the page is about to stand at `to`, zoomed to
  *   `to.rootNodeId`: land the focus there;
  * - `subscribe(listener)` — a change to what it holds of its own;
@@ -48,7 +49,7 @@ import type { NodeMap } from "./types";
  */
 export interface PageProjection {
   readonly follow: (change: GraphChange, prev: PageGraphState, next: PageGraphState) => void;
-  readonly leave: (from: PageGraphState) => void;
+  readonly leave: (from: PageGraphState) => string | null;
   readonly arrive: (at: "zoom" | "home", to: PageGraphState) => void;
   readonly subscribe: (listener: () => void) => () => void;
   readonly rows: (graph: ScopeSource) => NodeMap;
@@ -63,7 +64,7 @@ export interface PageProjection {
  */
 export const EMPTY_PROJECTION: PageProjection = {
   follow: () => undefined,
-  leave: () => undefined,
+  leave: () => null,
   arrive: () => undefined,
   subscribe: () => () => undefined,
   rows: (graph) => shownNodesOf(graph),

@@ -13,17 +13,22 @@
 import { definePlugin, type Plugin } from "@kb/plugin";
 import {
   appearanceOf,
-  BrowserHostService,
-  refInkOf,
-  schemaOfGraph,
   type BrowserHost,
+  BrowserHostService,
   type CaretIntent,
+  DEFAULT_DESIGN_SYSTEM,
+  DEFAULT_HEADER_BACKDROP,
   type NodeMap,
   type OutlineNode,
+  type PageGraphState,
   type PageWrites,
   type PaneCarryOut,
   type PaneReport,
+  type Prefs,
+  refInkOf,
   type SchemaIndex,
+  schemaOfGraph,
+  WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 
 /** One pane's report, as a view last made it. */
@@ -57,6 +62,25 @@ type WireNode = ReturnType<BrowserHost["wireNodes"]>[number];
  */
 const LIGHT = appearanceOf("kb", false);
 const NO_WIRE: WireNode[] = [];
+const PREFS: Prefs = {
+  theme: "light",
+  designSystem: DEFAULT_DESIGN_SYSTEM,
+  width: "centered",
+  headerBackdrop: DEFAULT_HEADER_BACKDROP,
+  backdropStrength: "subtle",
+  backdropDirection: "down",
+  sidebarOpen: true,
+};
+/** The graph state this host stands at: home, unscoped, with no replica of its own. */
+const AT_HOME: PageGraphState = {
+  wireNodes: NO_WIRE,
+  index: null,
+  rootNodeId: WORKSPACE_ROOT_ID,
+  homeRootId: WORKSPACE_ROOT_ID,
+  ontologyId: null,
+  ontologyMembers: null,
+};
+const NO_IDS: ReadonlySet<string> = new Set();
 
 /** What a call to this host answers: it makes none. */
 const noCall = (id: string): Promise<ActionReceipt> =>
@@ -192,13 +216,29 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     live: () => false,
     subscribeQuery: () => () => {},
     appearance: () => LIGHT,
-    theme: () => "light",
+    prefs: () => PREFS,
     prefsOpen: () => false,
     setPrefsOpen: () => {},
     sidebarOpen: () => true,
     toggleSidebar: () => {},
     refInk: () => refInkOf(schemaNow()),
     zoomTo: () => {},
+    zoomHome: () => {},
+    graph: {
+      state: () => AT_HOME,
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      reach: () => true,
+      reached: () => AT_HOME,
+      drop: () => {},
+    },
+    debugFields: { ids: () => NO_IDS, toggle: () => {} },
+    filterFrame: () => null,
+    setFilterFrame: () => {},
+    nodePaletteOpen: () => false,
+    nodeCommands: () => [],
     navigatePane: () => {},
     writes: INERT_WRITES,
     invoke: (id) => noCall(id),

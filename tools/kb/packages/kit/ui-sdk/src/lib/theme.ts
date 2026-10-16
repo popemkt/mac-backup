@@ -98,3 +98,24 @@ export interface Appearance {
 export function appearanceOf(designSystem: DesignSystemId, dark: boolean): Appearance {
   return { designSystem, dark, key: `${designSystem}:${dark ? "dark" : "light"}` };
 }
+
+/**
+ * The device-level preferences, as the shell's prefs store holds and
+ * persists them (`localStorage["kb-prefs"]`).
+ */
+export interface Prefs {
+  theme: ThemePref;
+  /**
+   * Which design system paints the page: every layer-1 value, faces
+   * included. The UI face used to be a pref of its own (`font`); a face is a
+   * design-system value, so a stale `font` key is ignored on read and
+   * dropped on the next write.
+   */
+  designSystem: DesignSystemId;
+  width: WidthPref;
+  headerBackdrop: HeaderBackdropPref;
+  backdropStrength: BackdropStrength;
+  backdropDirection: BackdropDirection;
+  /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */
+  sidebarOpen: boolean;
+}

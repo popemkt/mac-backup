@@ -73,7 +73,7 @@ export interface PaletteSurface {
  * schema rows, whose hidden props are exactly the ones worth revealing;
  * `frameId` is "which frame owns the view config" and excludes them.
  */
-interface CommandTarget {
+export interface CommandTarget {
   readonly nodeId: string | null;
   readonly frameId: string | null;
 }
@@ -113,6 +113,14 @@ export interface Command {
  * by id like any other.
  */
 export const CommandPoint = Point<Command>()("ui.commands");
+
+/** One row of the node menu: what to show, and what pressing it does. */
+export interface NodeCommandListing {
+  readonly id: string;
+  readonly label: string;
+  readonly icon: ReactNode;
+  readonly run: () => void;
+}
 
 /** Run `body` with the target row's id, or do nothing when there is none. */
 function onTarget(ctx: CommandContext, body: (nodeId: string) => void): void {

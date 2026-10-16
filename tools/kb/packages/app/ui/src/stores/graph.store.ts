@@ -136,8 +136,19 @@ export function providePageProjection(next: PageProjection): void {
  */
 export function withdrawPageProjection(leaving: PageProjection): void {
   if (pageProjection() !== leaving) return;
-  leaving.leave(now());
+  leavePage(leaving);
   installed.withdraw(leaving);
+}
+
+/**
+ * The page is about to leave where it stands: `projection` lets go of its
+ * focus, and the empty row it minted there, if any, is pruned while the page
+ * still shows it — a transaction of this store's own, which the projection
+ * follows like any other.
+ */
+function leavePage(projection: PageProjection = pageProjection()): void {
+  const minted = projection.leave(now());
+  if (minted !== null) applyTx([], [minted]);
 }
 
 /** What the page shows of the graph now (`shownNodesOf`), each row at its default collapse. */
@@ -259,7 +270,7 @@ function refreshFromWire(wireNodes: WireNode[], rev: number): void {
 
 function setOntologyScope(id: string | null): void {
   if (now().ontologyId === id) return;
-  pageProjection().leave(now());
+  leavePage();
   moveTo("scope", scopeMove(now(), id));
 }
 
@@ -321,7 +332,7 @@ function reach(id: string): boolean {
   const move = reachMove(now(), id);
   if (move === null) return false;
   if (move === "shown") return true;
-  pageProjection().leave(now());
+  leavePage();
   moveTo("scope", move);
   toast("Left the ontology to follow that node");
   return true;
@@ -332,7 +343,7 @@ function reach(id: string): boolean {
  * is, then lands at where it will be, then this store moves, in one write.
  */
 function standAt(at: "zoom" | "home", rootNodeId: string): void {
-  pageProjection().leave(now());
+  leavePage();
   pageProjection().arrive(at, { ...now(), rootNodeId });
   useGraphStore.setState({ rootNodeId });
 }

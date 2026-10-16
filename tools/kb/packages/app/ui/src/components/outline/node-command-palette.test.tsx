@@ -25,11 +25,11 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeCommandPalette } from "./node-command-palette";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { chartUiPlugin } from "@kb/chart-ui";
-import { browserHostUiPlugin } from "@/browser-host";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them; the chart contributes "Add chart".
-beforeAll(() => syncUiPlugins([browserHostUiPlugin, outlineUiPlugin, chartUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin, chartUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 const ISO = "2026-08-08T05:00:00.000Z";

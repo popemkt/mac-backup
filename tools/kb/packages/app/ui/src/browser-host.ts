@@ -6,13 +6,16 @@
  */
 import { definePlugin } from "@kb/plugin";
 import { mutations } from "@/actions/mutations";
+import { listNodeCommands } from "@/lib/commands";
 import { proposeView } from "@/lib/propose-view";
 import { subscribeLiveQueryNode } from "@/lib/query-node";
 import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import { invoke } from "@/session/runtime";
-import { useGraphStore } from "@/stores/graph.store";
+import { reachedState, useGraphStore } from "@/stores/graph.store";
 import { pageRows, subscribePage } from "@/stores/page";
+import { useDebugFieldsStore } from "@/stores/debug-fields.store";
+import { pageCommandContext } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import {
   appearanceIn,
@@ -30,7 +33,7 @@ import { useWorkspaceStore } from "@/stores/workspace.store";
  * The stores the host's reads answer from, beside the page itself (its graph,
  * projection and editor, `subscribePage`).
  */
-const SOURCES = [usePrefsStore, useUiStore] as const;
+const SOURCES = [usePrefsStore, useUiStore, useDebugFieldsStore] as const;
 
 const host: BrowserHost = {
   // A node text port is what the shell binds its own text hosts through, so
@@ -54,13 +57,29 @@ const host: BrowserHost = {
   live: () => useUiStore.getState().wsStatus === "open",
   subscribeQuery: subscribeLiveQueryNode,
   appearance: () => appearanceIn(usePrefsStore.getState()),
-  theme: () => usePrefsStore.getState().theme,
+  prefs: () => usePrefsStore.getState(),
   prefsOpen: () => useUiStore.getState().prefsOpen,
   setPrefsOpen: (open) => useUiStore.getState().setPrefsOpen(open),
   sidebarOpen: sidebarOpenIn,
   toggleSidebar: toggleSidebarFrom,
   refInk: () => refInkIn(useGraphStore.getState()),
   zoomTo: (id) => useGraphStore.getState().zoomTo(id),
+  zoomHome: () => useGraphStore.getState().zoomHome(),
+  graph: {
+    state: () => useGraphStore.getState(),
+    subscribe: (listener) => useGraphStore.subscribe(listener),
+    reach: (id) => useGraphStore.getState().reach(id),
+    reached: reachedState,
+    drop: (id) => useGraphStore.getState().applyTx([], [id]),
+  },
+  debugFields: {
+    ids: () => useDebugFieldsStore.getState().ids,
+    toggle: (nodeId) => useDebugFieldsStore.getState().toggle(nodeId),
+  },
+  filterFrame: () => useUiStore.getState().filterPopoverFrameId,
+  setFilterFrame: (frameId) => useUiStore.getState().setFilterPopoverFrameId(frameId),
+  nodePaletteOpen: () => useUiStore.getState().nodePaletteOpen,
+  nodeCommands: (target, palette) => listNodeCommands(pageCommandContext(target, palette)),
   activateNode: (nodeId, cursorPos, instanceKey) =>
     pageEditor().getState().activateNode(nodeId, cursorPos, instanceKey),
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),

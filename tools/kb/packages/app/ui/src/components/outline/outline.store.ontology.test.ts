@@ -10,10 +10,11 @@ import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/components/outline/outline.store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { brokenOntology, ontologyWire } from "@/test-support/ontology-wire";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 function hydrate(): void {

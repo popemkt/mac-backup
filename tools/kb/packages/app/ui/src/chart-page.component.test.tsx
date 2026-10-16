@@ -13,13 +13,13 @@ import type { WireNode } from "@kb/contracts";
 import { CHART_IDS, ChartView, type ChartParams } from "@kb/chart";
 import { SYSTEM_IDS } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { browserHostUiPlugin } from "@/browser-host";
 import { ViewPoint, currentContributions, findView, syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { chartUiPlugin } from "@kb/chart-ui";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 const replaceField = vi.fn((_node: string, _field: string, _values: unknown) => Promise.resolve());
 vi.mock("@/actions/mutations", () => ({
@@ -88,7 +88,7 @@ describe("chart view (component)", () => {
   afterAll(() => dom.restore());
 
   // The chart reaches the shell through the page's host, as it does when the app boots.
-  beforeAll(() => syncUiPlugins([browserHostUiPlugin, chartUiPlugin]));
+  beforeAll(() => syncPagePlugins([chartUiPlugin]));
   afterAll(() => syncUiPlugins([]));
 
   beforeEach(() => {

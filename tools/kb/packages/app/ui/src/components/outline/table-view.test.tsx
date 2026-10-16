@@ -23,10 +23,11 @@ import type { WireNode } from "@kb/contracts";
 import { TableView } from "./table-view";
 import { ViewToolbar } from "./view-toolbar";
 import { outlineUiPlugin } from "@/components/outline/plugin";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncUiPlugins([outlineUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 const mockWireNodes: WireNode[] = [

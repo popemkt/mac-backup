@@ -29,6 +29,7 @@ import { useOutlineStore, outlineNodes } from "@/components/outline/outline.stor
 import { outlineUiPlugin } from "./plugin";
 import { FrameViewSlot } from "./frame-view-slot";
 import { bundledSeed } from "@kb/bundled";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 // The `[[` popup asks from inside the kit (`NodeTextHost`), so the mock names the
 // module that answers, not the barrel that re-exports it.
@@ -83,7 +84,7 @@ describe("outline update cost", () => {
   let root: Root;
 
   beforeAll(() => {
-    syncUiPlugins([outlineUiPlugin]);
+    syncPagePlugins([outlineUiPlugin]);
     dom = installDomGlobals();
     (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
   });

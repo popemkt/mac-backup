@@ -18,6 +18,7 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { FrameViewSlot } from "./frame-view-slot";
 import { outlineUiPlugin } from "./plugin";
 import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
+import { syncPagePlugins } from "@/test-support/page-plugins";
 
 /** A frame view and the settings its view node carries. */
 type FramedView = readonly [FrameViewName, WireNode["props"]];
@@ -113,7 +114,7 @@ describe("a projected view under an ontology scope", () => {
     g.Node = dom.Node;
     g.CSS = { escape: (s: string) => s };
     // The slot draws the frame's view from the ones the outline plugin provides.
-    syncUiPlugins([outlineUiPlugin]);
+    syncPagePlugins([outlineUiPlugin]);
   });
 
   afterAll(() => {

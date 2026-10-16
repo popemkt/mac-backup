@@ -293,7 +293,10 @@ describe("the editing projection", () => {
       record({ member: "follow", change, prev, next });
       useFollowed.setState((s) => ({ rev: revOf(next), changes: [...s.changes, change] }));
     },
-    leave: (from) => record({ member: "leave", from }),
+    leave: (from) => {
+      record({ member: "leave", from });
+      return null;
+    },
     arrive: (at, to) => {
       record({ member: "arrive", at, to });
       useFollowed.setState({ root: to.rootNodeId });

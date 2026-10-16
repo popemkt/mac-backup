@@ -475,8 +475,10 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   // Test helpers: imported only by test files, which the surface rows exempt,
   // so no row names it. It reaches what it stands in for — the stores
   // `resetGraphStore` and `resetOutlineStore` reset (the outline's is its own
-  // surface's), and the `api/ws` port `FakeWsSocket` doubles.
-  "test-support": ["test-support", "stores", "components/outline", "api"],
+  // surface's), the `api/ws` port `FakeWsSocket` doubles, and the shell's
+  // host, which `syncPagePlugins` loads beside a test's plugins as the app
+  // loads it beside its own.
+  "test-support": ["test-support", "shell", "stores", "components/outline", "api"],
   primitives: ["primitives", "lib"],
   catalog: [
     "catalog",
