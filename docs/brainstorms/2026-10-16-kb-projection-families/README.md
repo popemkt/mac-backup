@@ -466,3 +466,255 @@ outline store. The outline is always loaded on the page (`CORE_UI_PLUGINS`).
   and the page's ports (`page`, `page-editor`), and the markers stay on
   those imports. The node's `current` text needs updating.
 - Untouched: `01M436DVSEHKNYWSF2MR07HPMR`. Its marker is accurate.
+
+## O4a: what landed
+
+O4a is the graph's restructure, with no move. The graph visualisation (the
+graph page, its renderers, neighbourhoods and perspectives) is still core,
+as DESIGN.md says. Every commit is a `refactor:`, behaviour-preserving and
+proven by the tests that already passed. Naming: the *graph store*
+(`stores/graph.store.ts`, the page's live replica) is core and stays core.
+*The graph* below is the visualisation.
+
+### What moved where
+
+- **The graph zone.** The helpers in `app/ui/src/lib` that only
+  `components/graph/` imports moved into that zone, with their tests:
+  - `bullet-gpu`, `convex-hull` and the `graph-*` modules (`arrival`,
+    `bindings`, `dim`, `drag`, `fade`, `interaction`, `label-layout`,
+    `label-paint`, `layouts`, `link-styles`, `neighbourhood`);
+  - `graph-sources.test.ts`;
+  - the sidebar's Graph section selector, `listPerspectiveNavItems`, from
+    `lib/sidebar-nav` to `components/graph/perspective-nav.ts`.
+
+  `UI_ALLOWS` already fenced `components/graph` (only the shell and the
+  catalog may import it), so moving the files is what brings them under the
+  fence. `constraints.ts` is unchanged. Nothing graph-specific is left in
+  `lib/`.
+- **The kit's graph-only browser exports** moved to the zone:
+  - `bulletExtent` to `bullet-gpu`;
+  - `GRAPH_LABEL_WIDTH` and `fitGraphLabel` to `graph-label-layout`.
+    `wrapGraphLabel`, which the canvas uses too, now takes its width;
+  - `graphPath` beside `matchGraph` in the graph's `routes`.
+
+  The audit was wrong about two of its graph-only exports, and both stay in
+  the kit:
+  - `keptLoad` produces the `RetryableError` that the kit's
+    `ViewErrorBoundary` retries, so it is half of a kit mechanism;
+  - `lensReport` binds the lens decoder to the kit's log, which the lab
+    needs too.
+- **`@kb/graph` (`packages/domain/graph`, `scope:shared`).** It holds the
+  graph's isomorphic code:
+  - the edge projection: `collectEdges`, `LensEdge` and `LensSource`;
+  - the tree: `buildTreeForest` and `LensTreeNode`;
+  - perspectives: `decodePerspective(node, report)` and
+    `resolvePerspective`;
+  - the view keys, moved from `@kb/views`' `graph.ts` as `views.ts`:
+    `GraphView`, the five renderer keys, `NeighbourhoodView`, their params,
+    `GRAPH_NAMESPACE`, `RendererKey` and `isRendererKey`.
+
+  The kit's `extractLensGraph` reads its edges from the package. The kit's
+  `parsePerspective` is `decodePerspective` bound to the kit's log, in the
+  way `lensConfig` binds `decodeLensConfig`. Core's declaration still lists
+  the graph's views, which it now imports from `@kb/graph`. The ids are
+  unchanged.
+
+### Why `@kb/graph` sits in the domain layer, for now
+
+The brief asked for `packages/extension/graph`. An extension package cannot
+exist before its family is declared:
+- the harness (`families.ts`) requires that its `family:` tag equals the
+  name of a `defineExtension` declaration, and that a root of each host
+  loads it;
+- once a `graph` family exists, the `components/graph` surface of `@kb/ui`
+  fails unless `CORE_BROWSER_HALVES` lists it under a gap.
+
+Declaring the family is the cut. So the package sits where the graph's
+shared code already sat (the domain's `@kb/views`), which is accurate while
+DESIGN.md lists the graph as core. Its name is the family's, so the cut
+moves the folder and adds the tag and the declaration, and no import
+changes.
+
+The view keys did move without the declaration, because core's declaration
+can list them from any shared package. Two things stay behind until O4d
+and the cut:
+- the ids: the `sys.f.lens.*` fields, `sys.graph.sources` and its options
+  (`@kb/model`'s `graph-schema.ts`), and `lens.all-mentions`;
+- the lens codec (`@kb/views`' `lens.ts`, including `EdgeKind`).
+
+Obstacles 3 and 4 below say why.
+
+### Duplicates
+
+There was no server duplicate to collapse:
+- No server or MCP code computes the graph's edges, trees or
+  perspectives.
+- `render.view` draws a graph view node as generic markdown
+  (`view-markdown.ts`): its settings, and the nodes its `lens.query` selects.
+  That reading of `lens.query` is the generic subject of any view node with
+  a query, and the outline's query views have one too. Its rules differ from
+  the graph's node set: no schema elision, and the first column rather than
+  the first known id. It is a different question, and making the two agree
+  would change what `render.view` prints, so it was left alone. It is already
+  covered by GAP `01M40X30G92A0E57C02JHQ9A1G` (a view's layout is not drawn
+  in text).
+
+Two small mirrors inside the graph were collapsed:
+- the 2D label clamp restated 220 instead of naming `GRAPH_LABEL_WIDTH`;
+- a graph path was built in the kit's router and read in the graph's
+  `routes`; both now live in `routes`.
+
+### What blocks the cut
+
+The graph reaches into the shell far less than the outline did. Its
+production code makes 16 shell imports in 8 files. The harder obstacles are
+what core and the other families name of the graph.
+
+1. **The family declaration and the hosts.** Two steps have to land
+   together, or each leaves a fence breach under a gap:
+   - `@kb/graph` moves to `packages/extension/graph`, takes
+     `family:graph` and `defineExtension({ name: "graph", optional:
+     { byDefault: "on" }, views, seed })`, and joins `BUNDLED_FAMILIES`;
+   - it gets a server entry (`app/runtime/src/bundled.ts`), and
+     `components/graph` becomes `@kb/graph-ui`, loaded by the browser
+     resolver instead of `CORE_UI_PLUGINS` (`ui-plugins.ts`).
+
+   Landing one without the other needs `CORE_BROWSER_HALVES: graph` or
+   `EXTENSION_ROOT_BREACHES` entries, each under a gap
+   (placeholder: *graph browser half*, an id to mint).
+2. **Importers of `@kb/graph` that would cross a fence once it is an
+   extension package:**
+   - `@kb/ui-sdk` (`graph-lens.ts`): a kit may not import an extension
+     package. `extractLensGraph` and the rest of the kit's lens
+     (`listPerspectiveNodes`, `parsePerspective`, `lensConfig`,
+     `lensReport`, `LensGraph`, `LensNode`, the colour, size and cluster
+     resolvers, and `queryNeighbourhood`) have to leave the kit. What they
+     build on (tag colours, `graphDisplayText`, the log) is used by other
+     families and stays in the kit, so they can go to `@kb/graph-ui`.
+   - `@kb/lab-ui`. The lab's graph study draws the graph's default
+     perspective through `extractLensGraph`, `listPerspectiveNodes`,
+     `parsePerspective` and `resolvePerspective`. The family fence forbids
+     lab → graph. Either the graph provides "the lens graph of a
+     perspective" as a service the lab injects (a hard dependency, so the
+     study is pending while the graph is off, as DESIGN-UI.md → "Views are
+     soft and services are hard" puts it), or the study reads its own lens.
+     This is a decision for the owner (placeholder gap: *lab reads the graph's lens*,
+     if it is deferred).
+   - The ontology, which is core. `components/ontology/surfaces.tsx`
+     embeds `GraphView` for the `/o/<id>/graph` tab, `@kb/views`'
+     `ONTOLOGY_VIEWS` names `"graph"`, and the kit's `ontologyPath` builds
+     the path. Core may not import the family. Either the ontology names
+     the view by its id through the catalog (soft: "cannot be shown here"
+     while the graph is off), or the graph contributes the ontology's
+     graph tab.
+   - `@kb/views`' own tests use `NeighbourhoodView` as their example of a
+     view that is not the default. A domain package may not depend on an
+     extension package, even as a devDependency, so they switch to a core
+     view such as `OntologyScopeView`.
+3. **The lens codec is shared.** `lens.ts` is one slot table, and two kinds
+   of slot share it:
+   - core's slots: `lens.focus`, which the outline's and the layout's views
+     write through `encodeLensConfig`, and `lens.query`, which
+     `view-markdown.ts` reads for every view;
+   - the graph's slots: the renderer, the settings (`LENS_SETTINGS`), the
+     mappings, `EdgeKind`, and `DEFAULT_RENDERER`, which names
+     `graph.force2d`.
+
+   The codec has to be split so that core keeps its slots and the graph's
+   move to `@kb/graph`. The renderer keys and `NeighbourhoodParams` build on
+   the graph's half.
+4. **The seed.** `systemSeedNodes` (`@kb/model`) seeds the graph's nodes:
+   the `sys.f.lens.*` fields, `sys.graph.sources` and its options (built
+   from `graph-schema.ts`, which only the graph and the lens codec read),
+   and the `lens.all-mentions` perspective. `view-migration.ts` retires the
+   legacy `#graph-perspective` tag. The ids are frozen and move into the
+   graph's declaration `seed`. The codec has to split first (3), because
+   `@kb/model` cannot import `@kb/graph`.
+5. **The graph's writes are core's.** `actions/mutations.ts` holds
+   `saveGraphPerspective`, `setGraphRenderer` and `setLensProp`, and
+   `actions/plan.ts` holds `planSetGraphRenderer` and `planSetLensProp`.
+   They need the write path as a kit port (O3c), or they become actions of
+   the graph's shared plugin.
+6. **What the zone reads of the shell** (production, 16 import sites in 8
+   files):
+   - `stores/graph.store`: `wireNodes`, `index`, `zoomTo` and
+     `ontologyMembers`. `BrowserHost` already carries the first three
+     (`useWireNodes`, `useIndex`, `zoomTo`), but not `ontologyMembers`.
+   - `stores/prefs.store` and `stores/ui.store`: the theme, the
+     appearance, the sidebar toggle and whether Preferences is open. The
+     kit's `useTheme`, `useAppearance`, `useSidebarToggle` and
+     `usePrefsOpen` already carry all of them.
+   - `stores/page` (`usePageRows`) in `graph-adapters.tsx`, where a graph
+     bullet draws the outline's bullet appearance, collapse included. This
+     waits for the page projection as a kit port (O3b).
+   - `actions/mutations`: the four writes (5).
+   - `lib/ontology-scope` (`listOntologyItems`) and the primitives
+     `components/ui/ontology-picker` and `workspace-boundary`.
+   - `lib/sidebar-nav` (the `SidebarNavItem` type).
+7. **Tests.** The zone has 37 test files. Only `graph-page.component` and
+   `neighbourhood-view.component` drive the shell (the graph store,
+   `fixtureGraph` and `resetOutlineStore`). `graph-discs` reads the
+   fixture graph, and `force3d-light` reads the design-system sheets. At
+   the shell's root, `scene-contract.test.ts` and `lab-heat.test.ts`
+   import the zone, and the catalog's two graph stories render it. These
+   are far fewer than the outline's 38.
+8. **The lazy fence.** three must stay `UI_LAZY_DEPTH` (2) dynamic imports
+   below the entry. Today the graph plugin is in `CORE_UI_PLUGINS` and
+   loads with the page. Its renderer chunk and the 3D chunk inside it are
+   the two lazy boundaries. Once the browser resolver loads `@kb/graph-ui`,
+   the depth has to be checked again (`ui-lazy-fence.test.ts`).
+
+Core names nothing else of the graph. The palette, commands, App, workspace
+and screen have no graph code, and `@kb/scene` is imported only by the zone
+and by the lab.
+
+### Proposed order
+
+Each step is a restructure, in the order of the dependencies above.
+
+- **O4b**: the zone reads the page through `BrowserHost`, using the
+  members that exist (wire nodes, index, zoom, theme, appearance, sidebar,
+  Preferences). It needs no new port and does not touch builder A's files.
+- **O4c**, after A's O3b–O3d: the remaining reads. The bullet comes through
+  the lifted page projection. `ontologyMembers` and the ontology list come
+  through a `BrowserHost` member. The graph's three writes go through the
+  write-path port or the graph's own actions.
+- **O4d**: split the lens codec (3). Core keeps `focus` and `query`; the
+  graph's slots, `EdgeKind`, `LENS_SETTINGS`, `DEFAULT_RENDERER` and
+  `graph-schema.ts` move to `@kb/graph`. `@kb/views`' tests switch their
+  example view.
+- **O4e**: the owner decides on the lab and the ontology (2). Then the
+  kit's lens (`graph-lens.ts`, `queryNeighbourhood`) moves out of the kit,
+  its pure parts into `@kb/graph`.
+- **O4f**, the cut:
+  - `@kb/graph` moves to `packages/extension/graph` with its tag and its
+    declaration (the seven views, the seed of 4, optional and on by
+    default), joins `BUNDLED_FAMILIES` and gets its server entry;
+  - `components/graph` becomes `@kb/graph-ui`, and `CORE_UI_PLUGINS`
+    drops `graphUiPlugin`;
+  - the switchable-family case in `ui-plugins.test.ts` covers the graph;
+  - DESIGN.md "What stays core" drops the graph.
+
+### Tests that changed meaning
+
+None of the existing tests changed meaning. These moved or are new:
+- **Into `@kb/graph`, rebuilt:**
+  - The perspective round trip now runs through `decodePerspective` with a
+    report that throws, so it also asserts that nothing is reported.
+  - The case "projects cycles and shared descendants once" is now built
+    over literal tree nodes rather than over nodes extracted by
+    `extractLensGraph`. It has the same ids, edges and assertions.
+- **Into `@kb/graph`, as they were:** `resolvePerspective`'s cases.
+- **New in `@kb/graph`:** cases for each edge kind, parallel-edge weight,
+  set restriction, tree focus and fallback, the label rule, and a
+  malformed prop being reported. Before this, the edge projection was
+  private and tested only through `extractLensGraph`.
+- **Moved unchanged:** the `fitGraphLabel` cases, into
+  `graph-label-layout.test.ts`, and the Graph section's case, into
+  `perspective-nav.test.ts`.
+
+### Gaps
+
+O4a opened and narrowed no gap, and no `GAP` marker in code changed. The
+two placeholders above (*graph browser half*, *lab reads the graph's lens*)
+are for the steps that would defer a fence, and only if they do.
