@@ -105,11 +105,11 @@ export interface BrowserExtension {
  * The browser entry of each family, keyed by the name its declaration gives
  * it. Whether the page loads one is the server's report, never this table.
  * How it is fetched is: a family a store always has on (the outline) or has
- * on by default (graph, canvas, code, chart) loads from the main bundle, and one off by default (the lab) or
- * hosted only by `kb ui` (the agent) is its own chunk, fetched when it is
- * first on. A family with no browser half is listed too, as `null`, so a
- * bundled family is never left out by omission: the resolver's test holds
- * every bundled family to an entry.
+ * on by default (graph, canvas, code, chart) loads from the main bundle, and
+ * one off by default (the lab) or hosted only by `kb ui` (the agent) is its
+ * own chunk, fetched when it is first on. A family with no browser half is
+ * listed too, as `null`, so a bundled family is never left out by omission:
+ * the resolver's test holds every bundled family to an entry.
  */
 export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> = {
   [outlineExtension.name]: { load: () => Promise.resolve(outlineUiPlugin) },
@@ -151,7 +151,10 @@ export function familiesToLoad(rows: readonly ExtensionRow[]): readonly string[]
     .map((row) => row.name);
 }
 
-/** The browser entry the page has for a family: null when it has none, or the family has no browser half. */
+/**
+ * The browser entry the page has for a family: null when it has none, or the
+ * family has no browser half.
+ */
 function browserEntry(name: string): BrowserExtension | null {
   return Object.hasOwn(BROWSER_EXTENSIONS, name) ? (BROWSER_EXTENSIONS[name] ?? null) : null;
 }

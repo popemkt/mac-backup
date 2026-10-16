@@ -539,8 +539,8 @@ them, no production file of `components/outline/` imports `@/stores`,
   "Filter…") did not move to `CommandPoint`: the menu's order is list
   position, and a contribution lands after the default-view rows, so moving
   them would reorder the menu. Moving them needs `CommandPoint` to carry a
-  menu order: GAP [[01M531QSQ2DJDSPYB132RQ5RBC]]. The same limit is why expand-all
-  and collapse-all, contributed since O3, sit after the default-view
+  menu order: GAP [[01M531QSQ2DJDSPYB132RQ5RBC]]. The same limit is why
+  expand-all and collapse-all, contributed since O3, sit after the default-view
   commands rather than between the debug and filter commands, as Sol's
   review noted; the order change stands until that order exists.
 
@@ -562,7 +562,8 @@ The decision (coordinator): the outline's shell-driving tests stay in
 ### Gaps
 
 - No gap id was opened in code. Placeholders, minted since by the coordinator:
-  - **GAP [[01M531QSQ2DJDSPYB132RQ5RBC]]: the node menu's order is list position.**
+  - **GAP [[01M531QSQ2DJDSPYB132RQ5RBC]]: the node menu's order is list
+    position.**
     expected: a node command declares where it sits in the menu, and the
     menu lists the registry's commands and every `CommandPoint` contribution
     by it; current: the registry's static list, then the views' rows, then
