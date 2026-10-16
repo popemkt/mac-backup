@@ -49,6 +49,7 @@ import {
   isContextualRef,
   isPinned,
   isSysPrefixed,
+  listOntologyItems,
   navigate,
   nodeAction,
   type NodeCommandListing,
@@ -60,7 +61,6 @@ import {
   toast,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
-import { listOntologyItems } from "@/lib/ontology-scope";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import {
   LayoutView,

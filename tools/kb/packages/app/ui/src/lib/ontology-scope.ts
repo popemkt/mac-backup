@@ -10,33 +10,10 @@
  * engine is deliberately out of core (r5 §2.9).
  */
 import type { WireNode } from "@kb/contracts";
-import {
-  listOntologyNodes,
-  resolveOntology,
-  type MemberReason,
-  type OntologyResolution,
-} from "@kb/model";
+import { resolveOntology, type MemberReason, type OntologyResolution } from "@kb/model";
 import { runQuery, textOr, type KbIndex, type NodeMap, type OutlineNode } from "@kb/ui-sdk";
 
 export type { MemberReason, OntologyResolution };
-
-export interface OntologyNavItem {
-  id: string;
-  label: string;
-}
-
-/**
- * `#ontology` nodes for the picker / sidebar, sorted by the label actually
- * shown (an unnamed ontology sorts as "Untitled ontology", not as its id).
- */
-export function listOntologyItems(wireNodes: WireNode[]): OntologyNavItem[] {
-  return listOntologyNodes(wireNodes)
-    .map((n) => ({
-      id: n.id,
-      label: n.text.trim() || "Untitled ontology",
-    }))
-    .toSorted((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
-}
 
 /**
  * Memoized per snapshot IDENTITY, not per `rev`.

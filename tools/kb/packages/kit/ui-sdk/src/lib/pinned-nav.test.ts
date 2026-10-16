@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { listPinnedNavItems, SYSTEM_IDS, type OutlineNode } from "@kb/ui-sdk";
+import { listPinnedNavItems } from "./pinned";
+import { SYSTEM_IDS, type OutlineNode } from "./types";
 
 function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">): OutlineNode {
   return {
@@ -14,7 +15,7 @@ function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text"
   };
 }
 
-describe("sidebar-nav selectors", () => {
+describe("the Pinned section's rows", () => {
   it("lists the Pinned list's targets, in list order", () => {
     const pinRow = (id: string, target: string) =>
       outline({

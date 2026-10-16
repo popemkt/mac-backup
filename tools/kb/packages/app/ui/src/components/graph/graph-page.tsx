@@ -9,6 +9,7 @@ import {
   extractLensGraph,
   hasText,
   lensReport,
+  listOntologyItems,
   listPerspectiveNodes,
   navigate,
   ontologyPath,
@@ -26,7 +27,6 @@ import {
   WorkspaceState,
 } from "@kb/ui-sdk";
 import { buildTreeForest, resolvePerspective } from "@kb/graph";
-import { listOntologyItems } from "@/lib/ontology-scope";
 import { OntologyPicker } from "@/components/ui/ontology-picker";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";

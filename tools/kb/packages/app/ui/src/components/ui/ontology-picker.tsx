@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
-import { cn } from "@kb/ui-sdk";
-import type { OntologyNavItem } from "@/lib/ontology-scope";
+import { cn, type SidebarNavItem } from "@kb/ui-sdk";
 
 interface OntologyPickerProps {
-  ontologies: OntologyNavItem[];
+  ontologies: SidebarNavItem[];
   activeId: string | null;
   onSelect: (id: string) => void;
   /** Rendered as the last row when a scope is active. */

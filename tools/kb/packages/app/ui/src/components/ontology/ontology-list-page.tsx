@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
-import { listOntologyItems } from "@/lib/ontology-scope";
-import { navigate, ontologyPath } from "@kb/ui-sdk";
+import { listOntologyItems, navigate, ontologyPath } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 
 /**

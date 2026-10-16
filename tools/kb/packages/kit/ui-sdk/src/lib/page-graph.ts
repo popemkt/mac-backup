@@ -10,6 +10,8 @@
  * the index and the schema stay the whole graph (r5 §2.5).
  */
 import type { WireNode } from "@kb/contracts";
+import { listOntologyNodes } from "@kb/model";
+import type { SidebarNavItem } from "../components/sidebar-row";
 import type { KbIndex } from "../query";
 import { wireToOutlineMap } from "./graph-view";
 import { schemaOf } from "./schema";
@@ -157,4 +159,18 @@ export function shownNodesOf(state: ScopeSource): NodeMap {
 /** Whether the page can show `id` under its scope: the workspace, or a row of `shownNodesOf`. */
 export function inScope(state: ScopeSource, id: string): boolean {
   return id === WORKSPACE_ROOT_ID || shownNodesOf(state).has(id);
+}
+
+/**
+ * The ontologies the page can be scoped to, for a picker or a sidebar
+ * section: the `#ontology` nodes, sorted by the label shown (an unnamed
+ * ontology sorts as "Untitled ontology", not as its id).
+ */
+export function listOntologyItems(wireNodes: WireNode[]): SidebarNavItem[] {
+  return listOntologyNodes(wireNodes)
+    .map((n) => ({
+      id: n.id,
+      label: n.text.trim() || "Untitled ontology",
+    }))
+    .toSorted((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 }

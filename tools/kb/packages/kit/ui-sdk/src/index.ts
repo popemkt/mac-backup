@@ -223,6 +223,7 @@ export { type GraphRead, type GraphSource, useGraphReadThrough } from "./lib/gra
 export {
   type GraphChange,
   inScope,
+  listOntologyItems,
   type PageGraphPort,
   type PageGraphState,
   type ScopeSource,

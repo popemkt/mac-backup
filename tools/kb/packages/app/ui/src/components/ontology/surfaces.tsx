@@ -11,6 +11,8 @@ import {
 import { GraphView } from "@kb/graph";
 import { isOntologyNode } from "@kb/model";
 import {
+  listOntologyItems,
+  type MatchedRoute,
   navigate,
   NotFound,
   ontologyPath,
@@ -19,11 +21,9 @@ import {
   SidebarSection,
   textOr,
   ViewErrorBoundary,
-  ViewSlot,
-  type MatchedRoute,
   type ViewProps,
+  ViewSlot,
 } from "@kb/ui-sdk";
-import { listOntologyNavItems } from "@/lib/sidebar-nav";
 import { useGraphStore } from "@/stores/graph.store";
 
 const OntologyPage = lazy(() =>
@@ -113,7 +113,7 @@ export function OntologyListSurface() {
 export function OntologySection({ route }: { readonly route: MatchedRoute | null }) {
   const scope = paramsOf(route, OntologyScopeView);
   const wireNodes = useGraphStore((s) => s.wireNodes);
-  const ontologies = useMemo(() => listOntologyNavItems(wireNodes), [wireNodes]);
+  const ontologies = useMemo(() => listOntologyItems(wireNodes), [wireNodes]);
   const [creating, setCreating] = useState(false);
   const onNew = async () => {
     if (creating) return;
