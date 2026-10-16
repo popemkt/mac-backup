@@ -2570,7 +2570,8 @@ system:
   does not own (`drop-shadow-*`, `inset-shadow-*`, `text-shadow-*`);
 - an arbitrary radius (`rounded-[5px]`, `rounded-t-[2px]`);
 - a Tailwind palette colour (`bg-amber-500`, `text-white`);
-- in `components/`, a hex colour literal.
+- in `components/`, and in a `.tsx` module of a family's browser half, a hex
+  colour literal.
 
 It runs in `bun run lint`. Test and tooling files are exempt — the one
 override class in `.oxlintrc.json`: tests, render specs, the harness and the

@@ -5,8 +5,11 @@ import { noRawDesignValueRule } from "./no-raw-design-value.ts";
 const tester = new RuleTester({
   languageOptions: { parserOptions: { lang: "tsx" } },
 });
-const COMPONENT = "/repo/tools/kb/packages/app/ui/src/components/outline/row.tsx";
+const COMPONENT = "/repo/tools/kb/packages/app/ui/src/components/ontology/member-row.tsx";
 const LIB = "/repo/tools/kb/packages/app/ui/src/lib/tag-color.ts";
+/** A family's browser half is flat under its `src/`: its `.tsx` modules are its components. */
+const HALF_COMPONENT = "/repo/tools/kb/packages/extension/outline-ui/src/node-block.tsx";
+const HALF_LIB = "/repo/tools/kb/packages/extension/outline-ui/src/value-kind.ts";
 
 const at = (messageId: string) => ({ messageId });
 
@@ -35,6 +38,7 @@ tester.run("design-tokens/no-raw-design-value", noRawDesignValueRule, {
     },
     // Colour data outside components (the tag-colour hash) is not UI styling.
     { code: `const PALETTE = ["#ef4444", "#f97316"];`, filename: LIB },
+    { code: `const PALETTE = ["#ef4444", "#f97316"];`, filename: HALF_LIB },
     // A '#' that is not a colour: tag text, anchors.
     { code: `const t = "#todo and #gap"; const h = "#section-2";`, filename: COMPONENT },
   ],
@@ -104,6 +108,12 @@ tester.run("design-tokens/no-raw-design-value", noRawDesignValueRule, {
       code: `const f = "#222"; const c = "bg-[#123456]";`,
       filename: COMPONENT,
       errors: [at("hexColor"), at("hexColor")],
+    },
+    {
+      name: "hex colour literal in a family half's component",
+      code: `const f = "#222";`,
+      filename: HALF_COMPONENT,
+      errors: [at("hexColor")],
     },
   ],
 });

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { GraphCanvasFrame } from "./graph-canvas-frame";
 import type { GraphCameraControls } from "./graph-camera-controls";
-import type { LensNode } from "@kb/ui-sdk";
+import { hashTagColor, type LensNode } from "@kb/ui-sdk";
 import { Force2dView } from "@kb/graph";
 
 const noop = (): void => undefined;
@@ -14,11 +14,15 @@ const controls: GraphCameraControls = {
   focusNode: () => {},
 };
 
+// The node colours are the tags', as the graph colours a node by its tag.
+const TODO = hashTagColor("todo");
+const WORK = hashTagColor("work");
+
 const nodes: LensNode[] = [
   {
     id: "n.a",
     label: "Alpha",
-    color: "#3b82f6",
+    color: TODO,
     size: 4,
     clusterKey: "todo",
     tags: ["todo"],
@@ -27,7 +31,7 @@ const nodes: LensNode[] = [
   {
     id: "n.b",
     label: "Beta",
-    color: "#3b82f6",
+    color: TODO,
     size: 4,
     clusterKey: "todo",
     tags: ["todo"],
@@ -36,7 +40,7 @@ const nodes: LensNode[] = [
   {
     id: "n.c",
     label: "Gamma",
-    color: "#22c55e",
+    color: WORK,
     size: 4,
     clusterKey: "work",
     tags: ["work"],
@@ -55,7 +59,7 @@ function FakeCanvas() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        color: "var(--color-foreground, #888)",
+        color: "var(--color-foreground)",
         opacity: 0.4,
       }}
     >

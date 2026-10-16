@@ -87,8 +87,16 @@ function classProblem(utility: string): MessageId | null {
   return null;
 }
 
+/**
+ * A module that draws UI: anything under a `components/` folder, and a `.tsx`
+ * module of a family's browser half (`@kb/<family>-ui`), which is flat under
+ * its `src/`, so its components have no folder of their own.
+ */
 function isComponentModule(filename: string): boolean {
-  return /[\\/]components[\\/]/.test(filename);
+  return (
+    /[\\/]components[\\/]/.test(filename) ||
+    /[\\/]extension[\\/][^\\/]+-ui[\\/]src[\\/].+\.tsx$/.test(filename)
+  );
 }
 
 export const noRawDesignValueRule = defineRule({
