@@ -1,4 +1,4 @@
-import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
+import { extractMentions, present, type KbNode, type NodeId, type PropValue } from "@kb/model";
 
 /**
  * `:node/mentions` is THE reference relation — "this node references that one"
@@ -14,16 +14,6 @@ import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
  * the graph's `mention` / `ref-prop` edge kinds, which label provenance and
  * scan text and props separately for exactly that reason.
  */
-
-/**
- * Mention form in text: [[node-id|label]] or [[node-id]].
- *
- * The id group excludes `[` as well as `]`/`|`: a real id is ULID/`sys.*`
- * shaped and never contains one, and excluding it lets the regex re-sync to
- * a genuine `[[id]]` marker after a stray extra `[` in surrounding prose
- * (e.g. `[[[id]]`) instead of swallowing that `[` into the captured id.
- */
-const MENTION_RE = /\[\[([^[\]|]+)(?:\|[^\]]*)?\]\]/g;
 
 export type Datom = [number | string, string, unknown, number?, boolean?];
 
@@ -193,17 +183,6 @@ export function nodeMentions(node: Pick<KbNode, "text" | "props">): NodeId[] {
   const out = extractMentions(node.text);
   for (const values of Object.values(node.props)) {
     for (const pv of values) if (pv.t === "str") out.push(...extractMentions(pv.v));
-  }
-  return out;
-}
-
-/** Extract [[id|label]] mentions from text. */
-export function extractMentions(text: string): NodeId[] {
-  const out: NodeId[] = [];
-  MENTION_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = MENTION_RE.exec(text)) !== null) {
-    out.push(present(m[1], "mention id").trim());
   }
   return out;
 }

@@ -562,7 +562,8 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
 - **Refs / `:node/mentions` (the reference relationship, carrier-independent).**
   Two things carry a reference in this model, and `:node/mentions` is emitted
   from **both**:
-  1. a wiki-link in **text** — `[[node-id|label]]` or bare `[[node-id]]` —
+  1. a wiki-link in **text** — `[[node-id|label]]` or bare `[[node-id]]`,
+     whose one grammar is `@kb/model`'s `mention.ts` (`mentionSpans`) —
      whether the text is the node's own `text` or a `{t:"str"}` value it
      holds (`nodeMentions` in `@kb/query`): a text field's value is written,
      rendered and followed exactly like node text (DESIGN-UI.md → Field

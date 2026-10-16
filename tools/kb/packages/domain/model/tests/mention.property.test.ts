@@ -1,13 +1,13 @@
 /**
- * `[[id|label]]` mention extraction (fast-check): src/foundation/query/datascript.ts's
- * extractMentions. Round trip — the ids embedded in a text are exactly the ids
+ * `[[id|label]]` mention extraction (fast-check): `@kb/model`'s mention.ts,
+ * the one grammar of the token. Round trip — the ids embedded in a text are exactly the ids
  * extracted, in order, including repeats — and noise that merely resembles the
  * marker (`[`, `]`, `|` in isolation) never becomes a phantom extra mention.
  */
 import { describe, expect, test } from "bun:test";
-import { present } from "@kb/model";
 import fc from "fast-check";
-import { extractMentions } from "../src/index/datoms.ts";
+import { extractMentions, mentionSpans, replaceMentions } from "../src/mention.ts";
+import { present } from "../src/present.ts";
 
 /** A mention id: no bracket/pipe chars, so it can never be mistaken for
  * marker syntax or a label boundary. Real ids are ULID/sys.* shaped anyway. */
@@ -89,6 +89,35 @@ describe("extractMentions properties (fast-check)", () => {
         expect(extractMentions(`[[${pad}${id}${pad}]]`)).toEqual([id]);
       }),
       { numRuns: 500 },
+    );
+  });
+
+  test("replacing every token with itself is the identity, and spans carry each label", () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.tuple(
+            idArb,
+            fc.boolean(),
+            fc.string({ maxLength: 8 }).filter((s) => !s.includes("]")),
+          ),
+          { minLength: 0, maxLength: 20 },
+        ),
+        fc.array(cleanFragmentArb, { minLength: 21, maxLength: 21 }),
+        (mentions, fragments) => {
+          let text = present(fragments[0], "expected fragments[0]");
+          mentions.forEach(([id, hasLabel, label], i) => {
+            text +=
+              withOptionalLabel(id, hasLabel, label) +
+              present(fragments[i + 1], "expected fragments[i + 1]");
+          });
+          expect(replaceMentions(text, (span) => text.slice(span.start, span.end))).toBe(text);
+          expect(mentionSpans(text).map((span) => span.label)).toEqual(
+            mentions.map(([, hasLabel, label]) => (hasLabel ? label : undefined)),
+          );
+        },
+      ),
+      { numRuns: 300 },
     );
   });
 });
