@@ -194,3 +194,48 @@ describe("listedOn", () => {
     expect(decisions.map((decision) => listedOn(cannot, decision))).toEqual([true, false, false]);
   });
 });
+
+describe("a batch is decided as the actions it is a batch of", () => {
+  const batch = (policies: readonly ApprovalPolicy[], actor?: ApprovalPolicy["actor"]) =>
+    resolveApproval(policies, {
+      action: { id: "node.addTree", mode: WRITE, batchOf: [{ id: "node.add", mode: WRITE }] },
+      actor: actor ?? undefined,
+    });
+
+  test("a policy on a batched action governs the batch, by that policy", () => {
+    const ask = policy("node.add", "ask");
+    expect(batch([ask])).toEqual({ decision: "ask", by: { policy: ask.id } });
+    const deny = policy("node.add", "deny", "agent");
+    expect(batch([deny], "agent").decision).toBe("deny");
+    expect(batch([deny], "cli").decision).toBe("allow");
+  });
+
+  test("the stricter of the batch's own decision and its parts' holds", () => {
+    expect(batch([policy("node.add", "ask"), policy("node.addTree", "allow")]).decision).toBe(
+      "ask",
+    );
+    expect(batch([policy("node.add", "allow"), policy("node.addTree", "deny")]).decision).toBe(
+      "deny",
+    );
+    expect(batch([]).decision).toBe("allow");
+  });
+
+  test("each part is decided with its own mode, not the batch's", () => {
+    const of = (part: ActionMode) =>
+      resolveApproval([], {
+        action: { id: "x.batch", mode: WRITE, batchOf: [{ id: "x.part", mode: part }] },
+        actor: "agent",
+      });
+    // The part's declared approval is a floor the batch inherits.
+    expect(of(GATED)).toEqual({ decision: "ask", by: "mode" });
+    expect(of(WRITE).decision).toBe("allow");
+    // A mode word matches the part by the part's mode.
+    const denyReads = policy("every read", "deny");
+    const read = resolveApproval([denyReads], {
+      action: { id: "x.batch", mode: WRITE, batchOf: [{ id: "x.part", mode: READ }] },
+      actor: "agent",
+    });
+    expect(read).toEqual({ decision: "deny", by: { policy: denyReads.id } });
+    expect(decide([denyReads], "x.batch", WRITE, "agent").decision).toBe("allow");
+  });
+});

@@ -5,6 +5,7 @@ export {
   ManifestEntrySchema,
   ReadInvoke,
   actionToManifestEntry,
+  approvalSubject,
   asObjectSchema,
   failed,
   isActionMode,

@@ -16,6 +16,7 @@ import {
   type ActionInvocation,
   type ActionMode,
   type ActionReceipt,
+  type BatchPart,
 } from "./actions.ts";
 
 /**
@@ -60,7 +61,12 @@ export function declaredDecision(mode: ActionMode): ApprovalDecision {
  * handler has worked it out, just before it commits — the nodes it writes.
  */
 export interface ApprovalCall {
-  readonly action: { readonly id: string; readonly mode: ActionMode };
+  readonly action: {
+    readonly id: string;
+    readonly mode: ActionMode;
+    /** The actions it is a batch of, each with its own mode (`batchPartsOf`). */
+    readonly batchOf?: readonly BatchPart[] | undefined;
+  };
   readonly actor: Actor | undefined;
   readonly writes?: readonly NodeWrite[];
 }
@@ -87,6 +93,10 @@ export interface ApprovalResolution {
  *   then one naming the actor over one naming none, then the stricter
  *   decision, so two policies that tie never depend on their order.
  * - With none, the action's declared mode decides ({@link declaredDecision}).
+ * - An action that declares itself a batch of others (`batchOf`) is decided
+ *   as itself and as each of them, each with the mode its own definition
+ *   declares, and the stricter decision holds; on a tie its own. A batch can never be allowed where
+ *   one of the calls it makes would ask or be denied.
  * - A declared approval is a floor that only a policy naming the action by its
  *   own id can lower. Its author said every call needs a person; a pattern or
  *   a mode word written for many actions does not unsay it by accident, while
@@ -107,6 +117,20 @@ export function resolveApproval(
 
 function byPolicy(policies: readonly ApprovalPolicy[], call: ApprovalCall): ApprovalResolution {
   const { action, actor } = call;
+  let decided = byPolicyAs(policies, action, actor);
+  for (const part of action.batchOf ?? []) {
+    const as = byPolicyAs(policies, part, actor);
+    if (stricterDecision(as.decision, decided.decision) !== decided.decision) decided = as;
+  }
+  return decided;
+}
+
+/** What the policies decide about a call to `action` by `actor`, the action taken as it declares itself. */
+function byPolicyAs(
+  policies: readonly ApprovalPolicy[],
+  action: { readonly id: string; readonly mode: ActionMode },
+  actor: Actor | undefined,
+): ApprovalResolution {
   const declared = declaredDecision(action.mode);
   let best: { policy: ApprovalPolicy; rank: readonly number[] } | null = null;
   for (const policy of policies) {

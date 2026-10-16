@@ -1803,6 +1803,16 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     replica and on the push lane. Its caller that sets `approved` is the
     agent sidebar's approval prompt, which makes the call as the agent's,
     with the person's answer (DESIGN-UI.md → Docks).
+- **A batch is decided as what it batches.** An action whose every call is a
+  batch of another action's calls declares the parts' ids (`batchOf` on its
+  definition). A part's mode is stated once, on the part's own definition:
+  the registry reads it from there (`batchPartsOf`), into the manifest
+  entry and into what the invoke core decides, and it refuses to register a
+  batch whose part it does not hold. The resolver decides the batch as
+  itself and as each part, each with its own declared mode, and the
+  stricter decision holds. A policy that asks before or denies an action
+  therefore governs every batch of it. A policy naming the batch can tighten
+  that decision but cannot loosen what its parts ask.
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
 - **One contract, every surface.** The CLI (`action-invoke`), MCP, HTTP,
   WebMCP and the sidebar agent each list the registry's action ids with

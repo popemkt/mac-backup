@@ -12,6 +12,7 @@ import {
   type KbContext,
   CurrentCall,
   approvalRefusal,
+  approvalSubject,
 } from "@kb/contracts";
 import {
   ActionSchemaError,
@@ -233,7 +234,7 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
   // Approval is decided here, on invoke itself, so no surface can skip it:
   // the session's policies for this call's actor, else the action's mode.
-  const action = entry.def;
+  const action = approvalSubject(entry.def, (part) => actions.get(part)?.def.mode);
   const refusal = approvalRefusal(decide(ctx, { action, actor: invocation.actor }), invocation);
   if (refusal !== null) return failed(id, refusal.code, refusal.message, refusal.details);
 

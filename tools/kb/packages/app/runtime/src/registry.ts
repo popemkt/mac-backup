@@ -123,6 +123,7 @@ function registeredAction(contribution: Contribution<ActionContribution>): Regis
       title: value.title,
       description: value.description,
       mode: value.mode,
+      ...(value.batchOf === undefined ? {} : { batchOf: value.batchOf }),
       inputSchema: value.inputSchema,
       outputSchema: value.outputSchema,
     },
@@ -182,7 +183,18 @@ const buildRegistry = Effect.fnUntraced(function* (
     writeErr(`kb: extension ${failure.file}: ${failure.error} (skipped)`);
   }
 
-  const actions = kernel.contributions(ActionPoint).map(registeredAction);
+  const contributed = kernel.contributions(ActionPoint).map(registeredAction);
+  // A batch is decided as its parts, by their own modes, so a batch whose
+  // part this registry does not hold cannot be decided: it is not registered.
+  const ids = new Set(contributed.flatMap((action) => [action.def.id, ...action.aliases]));
+  const actions = contributed.filter((action) => {
+    const missing = (action.def.batchOf ?? []).filter((part) => !ids.has(part));
+    if (missing.length === 0) return true;
+    writeErr(
+      `kb: action ${action.def.id} is a batch of ${missing.join(", ")}, not registered (skipped)`,
+    );
+    return false;
+  });
   const byId = new Map<string, RegisteredAction>();
   for (const action of actions) {
     byId.set(action.def.id, action);
@@ -204,10 +216,11 @@ const buildRegistry = Effect.fnUntraced(function* (
       templates: templateEntries.filter((template) => template.source === `ext:${name}`),
     }));
 
+  const modeOf = (id: string) => byId.get(id)?.def.mode;
   const manifestEntries: ManifestEntry[] = actions.flatMap((action) => [
-    actionToManifestEntry(action.def),
+    actionToManifestEntry(action.def, modeOf),
     ...action.aliases.map((alias) => ({
-      ...actionToManifestEntry(action.def),
+      ...actionToManifestEntry(action.def, modeOf),
       id: alias,
       aliasOf: action.def.id,
     })),

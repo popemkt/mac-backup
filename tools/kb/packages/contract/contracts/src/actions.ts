@@ -9,6 +9,7 @@ import {
   type CodedError,
   type FailureCode,
   schemaToJsonSchema,
+  present,
 } from "@kb/model";
 import type { KbIndexService } from "@kb/query";
 import type { Screens } from "./screen.ts";
@@ -135,6 +136,14 @@ export interface ActionDefinition<
   title: string;
   description: string;
   mode: ActionMode;
+  /**
+   * The ids of the actions every call of this one is a batch of: it writes
+   * what they write, so approval decides it as each of them as well as
+   * itself, and the stricter decision holds (`resolveApproval`). Only ids:
+   * each part's mode is its own definition's, and the registry resolves it
+   * ({@link batchPartsOf}). Declared by the action, never inferred.
+   */
+  batchOf?: readonly string[];
   inputSchema: TIn;
   outputSchema: TOut;
   /**
@@ -215,6 +224,8 @@ export const ManifestEntrySchema = z.object({
   title: z.string(),
   description: z.string(),
   mode: ActionModeSchema,
+  /** The actions this one is a batch of, each with its own mode ({@link batchPartsOf}). */
+  batchOf: z.array(z.object({ id: z.string(), mode: ActionModeSchema })).optional(),
   inputSchema: z.unknown(),
   outputSchema: z.unknown(),
   /** Present when this id is a compat alias for another registered id. */
@@ -222,12 +233,45 @@ export const ManifestEntrySchema = z.object({
 });
 export type ManifestEntry = z.infer<typeof ManifestEntrySchema>;
 
-export function actionToManifestEntry(def: ActionDefinition): ManifestEntry {
+/** One action a batch is a batch of, as approval weighs it: its id and its own declared mode. */
+export interface BatchPart {
+  readonly id: string;
+  readonly mode: ActionMode;
+}
+
+/** A registered action's mode by id, as the registry that holds it answers. */
+export type ModeOf = (id: string) => ActionMode | undefined;
+
+/**
+ * The parts a definition declares itself a batch of, each with the mode its
+ * own definition states, read from the registry they are registered in. The
+ * registry refuses to register a batch whose part it does not hold, so a
+ * part is always found here.
+ */
+function batchPartsOf(
+  def: Pick<ActionDefinition, "id" | "batchOf">,
+  modeOf: ModeOf,
+): BatchPart[] | undefined {
+  return def.batchOf?.map((id) => ({
+    id,
+    mode: present(modeOf(id), `${def.id} is a batch of ${id}, which the registry holds`),
+  }));
+}
+
+/** An action as approval weighs a call to it: its id, its mode, and its batch's parts. */
+export function approvalSubject(def: ActionDefinition, modeOf: ModeOf) {
+  const parts = batchPartsOf(def, modeOf);
+  return { id: def.id, mode: def.mode, ...(parts === undefined ? {} : { batchOf: parts }) };
+}
+
+export function actionToManifestEntry(def: ActionDefinition, modeOf: ModeOf): ManifestEntry {
+  const parts = batchPartsOf(def, modeOf);
   return {
     id: def.id,
     title: def.title,
     description: def.description,
     mode: def.mode,
+    ...(parts === undefined ? {} : { batchOf: parts }),
     inputSchema: schemaToJsonSchema(def.inputSchema, "input"),
     outputSchema: schemaToJsonSchema(def.outputSchema, "output"),
   };
