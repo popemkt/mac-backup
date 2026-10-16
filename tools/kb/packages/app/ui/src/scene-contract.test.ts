@@ -7,8 +7,7 @@
 import { vi } from "vitest";
 import { LAB_STUDIES, type LabSceneInit } from "@kb/lab-ui";
 import { TIMING_FALLBACK, type LensNode } from "@kb/ui-sdk";
-import type { LensEdge } from "@kb/graph";
-import { LENS_THEMES } from "@kb/views";
+import { type LensEdge, LENS_THEMES } from "@kb/graph";
 import type { ScenePalette } from "@kb/scene";
 import { sceneContract, type SceneMount } from "@kb/ui-test-kit";
 import type * as ThreeWebGpu from "three/webgpu";

@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
 import { DatascriptIndex } from "../query";
-import { buildTreeForest } from "@kb/graph";
+import {
+  buildTreeForest,
+  DEFAULT_EDGE_KINDS,
+  DEFAULT_MAX_NODES,
+  type LensPerspective,
+} from "@kb/graph";
 import {
   extractLensGraph,
   firstTagOf,
@@ -14,7 +19,6 @@ import {
   resolveSize,
   buildParentMap,
 } from "./graph-lens";
-import { DEFAULT_EDGE_KINDS, DEFAULT_MAX_NODES, type LensPerspective } from "@kb/views";
 import { SYSTEM_IDS } from "./types";
 
 const ISO = "2026-08-08T05:00:00.000Z";

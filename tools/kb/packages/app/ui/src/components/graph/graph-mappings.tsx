@@ -1,8 +1,13 @@
 import { useMemo } from "react";
 import { browserHost, SYSTEM_IDS, useWireNodes } from "@kb/ui-sdk";
 import { graphBindingOptions, type GraphBindingOption } from "@/components/graph/graph-bindings";
-import { sourceValue, type LensPerspective } from "@kb/views";
-import { TreeView, TreemapView, type GraphChannel } from "@kb/graph";
+import {
+  sourceValue,
+  type LensPerspective,
+  TreeView,
+  TreemapView,
+  type GraphChannel,
+} from "@kb/graph";
 import { GRAPH_SOURCE_FIELD_KINDS, type GraphSourceField, type GraphSourceKind } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { setLensProp } from "./lens-writes";

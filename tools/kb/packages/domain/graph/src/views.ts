@@ -1,14 +1,12 @@
 import { Schema } from "effect";
+import { subjectRootOf, viewKey, type ViewKey } from "@kb/views";
 import {
   EdgeKindSchema,
   LENS_SETTINGS,
   decodeLensConfig,
   encodeLensConfig,
-  subjectRootOf,
-  viewKey,
   type LensWrite,
-  type ViewKey,
-} from "@kb/views";
+} from "./lens.ts";
 
 /** The graph plugin's namespace and view keys: what a host imports, never the components. */
 export const GRAPH_NAMESPACE = "graph";

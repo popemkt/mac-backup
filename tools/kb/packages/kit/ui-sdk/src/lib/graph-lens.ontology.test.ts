@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { DatascriptIndex } from "../query";
 import { extractLensGraph } from "./graph-lens";
-import { DEFAULT_MAX_NODES, type LensPerspective } from "@kb/views";
+import { DEFAULT_MAX_NODES, type LensPerspective } from "@kb/graph";
 
 const ISO = "2026-08-23T00:00:00.000Z";
 

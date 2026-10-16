@@ -12,7 +12,6 @@ import {
   OutlineSnippetView,
   OutlineTableView,
   decodeFrameConfig,
-  decodeLensConfig,
   paramsFromProps,
 } from "@kb/views";
 
@@ -26,17 +25,6 @@ describe("view config readers", () => {
     const { report, warnings } = collect();
     expect(decodeFrameConfig(undefined, report)).toEqual(DEFAULT_VIEW_CONFIG);
     expect(warnings).toEqual([]);
-  });
-
-  test("a malformed lens prop is reported to the caller's sink and falls back", () => {
-    const { report, warnings } = collect();
-    const lens = decodeLensConfig(
-      { [SYSTEM_IDS.lensLayoutField]: [{ t: "str", v: "spiral" }] },
-      report,
-    );
-    expect(lens.layout).toBe("force");
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain(SYSTEM_IDS.lensLayoutField);
   });
 
   test("a key reads its params from props for the node it is shown for", () => {

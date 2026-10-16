@@ -5,9 +5,9 @@
  * What a renderer draws with is a subset of these (`LENS_SETTINGS`); what
  * extraction reads for every renderer alike (the query, the mappings, the
  * edge kinds) is the rest. The query and the focus are every view's subject
- * (`subject.ts`), so the lens decodes them through the subject's slots. The
- * extraction itself is the kit's (`@kb/ui-sdk`'s `graph-lens.ts`, over
- * `@kb/graph`'s edge projection).
+ * (`@kb/views`' `subject.ts`), so the lens decodes them through the
+ * subject's slots. The extraction itself is the kit's (`@kb/ui-sdk`'s
+ * `graph-lens.ts`, over this package's edge projection).
  */
 import { Schema, SchemaGetter } from "effect";
 import {
@@ -37,8 +37,7 @@ import {
   type SlotWrite,
   type Writable,
 } from "@kb/model";
-import { SUBJECT_SLOTS } from "./subject.ts";
-import type { ConfigReport } from "./view-key.ts";
+import { SUBJECT_SLOTS, type ConfigReport } from "@kb/views";
 
 export type EdgeKind = "mention" | "child" | "ref-prop" | `prop:${string}`;
 
@@ -221,7 +220,7 @@ const SourceSchema = Schema.String;
 /**
  * The lens fields a renderer draws with, each with its one schema: what the
  * perspective's slots below validate against, and what a renderer view's
- * params are made of (`@kb/graph`'s `views.ts`), so a renderer declares
+ * params are made of (`views.ts`), so a renderer declares
  * the settings it reads by naming them here. The mappings (`colorBy`,
  * `sizeBy`, `clusterBy`, `labelBy`), the query and the edge kinds are not
  * among them: extraction reads those, for every renderer alike.

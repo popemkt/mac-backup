@@ -23,7 +23,8 @@ import {
   type PropValue,
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
-import { DEFAULT_RENDERER, type LensPerspective, type ViewConfig } from "@kb/views";
+import type { ViewConfig } from "@kb/views";
+import { DEFAULT_RENDERER, type LensPerspective } from "@kb/graph";
 
 const ISO = "2026-08-08T05:00:00.000Z";
 

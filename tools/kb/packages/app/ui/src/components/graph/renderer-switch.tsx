@@ -1,5 +1,6 @@
 import { cn } from "@kb/ui-sdk";
-import { type LensRenderer, localIdOf } from "@kb/views";
+import { localIdOf } from "@kb/views";
+import type { LensRenderer } from "@kb/graph";
 import { useRenderers } from "./use-renderers";
 
 interface RendererSwitchProps {

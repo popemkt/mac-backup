@@ -27,18 +27,19 @@ import {
   ViewSlot,
   WorkspaceState,
 } from "@kb/ui-sdk";
-import { buildTreeForest, resolvePerspective } from "@kb/graph";
+import {
+  buildTreeForest,
+  resolvePerspective,
+  DEFAULT_RENDERER,
+  type LensPerspective,
+  type LensRenderer,
+} from "@kb/graph";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
 import { GraphCanvasFrame } from "@/components/graph/graph-canvas-frame";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "@/components/graph/graph-selection";
-import {
-  DEFAULT_RENDERER,
-  type LensPerspective,
-  type LensRenderer,
-  paramsFromProps,
-} from "@kb/views";
+import { paramsFromProps } from "@kb/views";
 import { GraphFrameContext, graphViewKey, type GraphFrame } from "./graph-frame";
 import { useRenderer } from "./use-renderers";
 import { graphPath } from "./routes";

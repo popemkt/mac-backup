@@ -24,8 +24,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { makeKernel } from "@kb/plugin";
 import { EmphasisFade } from "@/components/graph/graph-fade";
 import type { Appearance, LensNode } from "@kb/ui-sdk";
-import { buildTreeForest, type LensEdge } from "@kb/graph";
-import { LENS_THEMES, type LensPerspective, type LensTheme } from "@kb/views";
+import {
+  buildTreeForest,
+  type LensEdge,
+  LENS_THEMES,
+  type LensPerspective,
+  type LensTheme,
+} from "@kb/graph";
 import type { Force3dScene } from "./force3d-scene";
 import type { GraphFrame } from "./graph-frame";
 import type * as UiSdk from "@kb/ui-sdk";

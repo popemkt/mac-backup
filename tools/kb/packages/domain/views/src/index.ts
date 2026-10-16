@@ -26,42 +26,6 @@ export {
   type ViewPage,
 } from "./view-key.ts";
 export {
-  DEFAULT_AUTOROTATE,
-  DEFAULT_CLUSTER_BY,
-  DEFAULT_COLOR_BY,
-  DEFAULT_EDGE_KINDS,
-  DEFAULT_LABEL_DENSITY,
-  DEFAULT_LAYOUT,
-  DEFAULT_LINK_DISTANCE,
-  DEFAULT_LINK_STYLE,
-  DEFAULT_MAX_NODES,
-  DEFAULT_RENDERER,
-  DEFAULT_SHOW_LABELS,
-  DEFAULT_SIZE_BY,
-  DEFAULT_SPREAD,
-  DEFAULT_THEME,
-  EdgeKindSchema,
-  LENS_LABEL_DENSITIES,
-  LENS_LAYOUTS,
-  LENS_LINK_STYLES,
-  LENS_SETTINGS,
-  LENS_THEMES,
-  decodeLensConfig,
-  encodeLensConfig,
-  perspectiveProps,
-  sourceValue,
-  type EdgeKind,
-  type LensLabelDensity,
-  type LensLayout,
-  type LensLinkStyle,
-  type LensPerspective,
-  type LensProps,
-  type LensRenderer,
-  type LensSetting,
-  type LensTheme,
-  type LensWrite,
-} from "./lens.ts";
-export {
   DEFAULT_VIEW_CONFIG,
   FRAME_SETTINGS,
   FRAME_VIEW_FAMILY,
@@ -116,7 +80,7 @@ export {
   type ViewCatalogOf,
 } from "./catalog.ts";
 export { viewNodeFor, type ViewNodeProposal } from "./view-node.ts";
-export { subjectRootOf, subjectRootProps } from "./subject.ts";
+export { SUBJECT_SLOTS, subjectRootOf, subjectRootProps } from "./subject.ts";
 export {
   LAYOUT_NAMESPACE,
   LayoutParams,

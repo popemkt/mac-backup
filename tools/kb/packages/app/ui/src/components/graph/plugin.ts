@@ -19,8 +19,6 @@ import {
   DEFAULT_SHOW_LABELS,
   DEFAULT_SPREAD,
   DEFAULT_THEME,
-} from "@kb/views";
-import {
   ClusterView,
   Force2dView,
   Force3dView,

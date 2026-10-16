@@ -4,7 +4,8 @@
  * fields are named for the graph's lens, where they began, but they are
  * every view's: an outline, a layout, a chart and a code view are rooted by
  * `lens.focus`, and a docs view and `render.view` read `lens.query`. The
- * graph's lens (`lens.ts`) decodes them through these same slots.
+ * graph's lens (`@kb/graph`'s `lens.ts`) decodes them through these same
+ * slots.
  */
 import { Schema } from "effect";
 import {

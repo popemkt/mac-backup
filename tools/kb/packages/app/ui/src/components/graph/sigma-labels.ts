@@ -8,7 +8,7 @@ import {
   type GraphLabelInk,
   type GraphLabelStyle,
 } from "@/components/graph/graph-label-paint";
-import { DEFAULT_THEME } from "@kb/views";
+import { DEFAULT_THEME } from "@kb/graph";
 import { GRAPH_THEMES } from "./graph-themes";
 import {
   byLabelPriority,

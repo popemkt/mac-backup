@@ -5,8 +5,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { type PageWrites, type PropValue, SYSTEM_IDS, syncUiPlugins } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
-import { decodePerspective } from "@kb/graph";
-import { perspectiveProps } from "@kb/views";
+import { decodePerspective, perspectiveProps } from "@kb/graph";
 import { saveGraphPerspective, setGraphRenderer, setLensProp } from "./lens-writes";
 
 type Call = readonly [string, ...unknown[]];

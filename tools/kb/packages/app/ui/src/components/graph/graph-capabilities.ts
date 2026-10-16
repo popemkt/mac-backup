@@ -1,5 +1,4 @@
-import type { LensLinkStyle, LensSetting } from "@kb/views";
-import type { RendererCapabilities, RendererKey } from "@kb/graph";
+import type { LensLinkStyle, LensSetting, RendererCapabilities, RendererKey } from "@kb/graph";
 import { LINK_STYLES } from "@/components/graph/graph-link-styles";
 
 export type CapabilityKey = keyof RendererCapabilities;

@@ -3,7 +3,7 @@
  * (`browserHost().writes`), so the graph names no shell module to write.
  */
 import { browserHost, type PropValue, SYSTEM_IDS } from "@kb/ui-sdk";
-import { perspectiveProps, type LensPerspective } from "@kb/views";
+import { perspectiveProps, type LensPerspective } from "@kb/graph";
 
 /**
  * Persist one lens setting. The field is replaced whole in one write, so a

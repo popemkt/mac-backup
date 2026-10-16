@@ -11,7 +11,7 @@ import {
   type KbIndex,
   type LensGraph,
 } from "@kb/ui-sdk";
-import type { EdgeKind, LensPerspective } from "@kb/views";
+import type { EdgeKind, LensPerspective } from "@kb/graph";
 
 /**
  * The node-valued attribute a neighbourhood walks for an edge kind. Text

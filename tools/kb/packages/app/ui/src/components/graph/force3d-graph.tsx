@@ -13,9 +13,8 @@ import {
   type Appearance,
   type LensNode,
 } from "@kb/ui-sdk";
-import type { LensEdge } from "@kb/graph";
+import { type LensEdge, DEFAULT_THEME, type LensLinkStyle, type LensTheme } from "@kb/graph";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { DEFAULT_THEME, type LensLinkStyle, type LensTheme } from "@kb/views";
 import { showsHoverCard, type GraphEmphasis } from "@/components/graph/graph-interaction";
 import { attachScene, readScenePalette } from "@kb/scene";
 import type { GraphCameraControls } from "./graph-camera-controls";

@@ -1,14 +1,11 @@
 /**
  * A view node's subject (`subject.ts`): one reading of the node a view is
- * rooted at, and the lens decoding its query and focus through the same slots.
+ * rooted at. The graph lens decoding its query and focus through the same
+ * slots is `@kb/graph`'s `lens.test.ts`.
  */
 import { describe, expect, test } from "bun:test";
 import { SYSTEM_IDS } from "@kb/model";
-import { decodeLensConfig, encodeLensConfig, subjectRootOf, subjectRootProps } from "@kb/views";
-
-const strict = (warning: string) => {
-  throw new Error(`unexpected report: ${warning}`);
-};
+import { subjectRootOf, subjectRootProps } from "@kb/views";
 
 describe("a view's subject", () => {
   test("the root is the stored focus, else the node it is shown for, else none", () => {
@@ -17,18 +14,5 @@ describe("a view's subject", () => {
     expect(subjectRootOf(stored, "n.host")).toBe("n.root");
     expect(subjectRootOf({}, "n.host")).toBe("n.host");
     expect(subjectRootOf({}, null)).toBeUndefined();
-  });
-
-  test("the lens writes and reads its focus and query as the subject does", () => {
-    expect(encodeLensConfig({ focus: "n.root" })).toEqual(subjectRootProps("n.root"));
-    const lens = decodeLensConfig(
-      {
-        ...subjectRootProps("n.root"),
-        [SYSTEM_IDS.lensQueryField]: [{ t: "str", v: "[:find ?id]" }],
-      },
-      strict,
-    );
-    expect(lens.focus).toBe("n.root");
-    expect(lens.query).toBe("[:find ?id]");
   });
 });

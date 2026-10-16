@@ -7,20 +7,20 @@ import {
   type Appearance,
   type LensNode,
 } from "@kb/ui-sdk";
-import type { LensEdge } from "@kb/graph";
+import {
+  type LensEdge,
+  DEFAULT_THEME,
+  type LensLayout,
+  type LensLabelDensity,
+  type LensLinkStyle,
+  type LensTheme,
+} from "@kb/graph";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
 import { EdgeArrowProgram } from "sigma/rendering";
 import { EdgeCurvedArrowProgram } from "@sigma/edge-curve";
 import { createNodeBorderProgram } from "@sigma/node-border";
-import {
-  DEFAULT_THEME,
-  type LensLayout,
-  type LensLabelDensity,
-  type LensLinkStyle,
-  type LensTheme,
-} from "@kb/views";
 import { LINK_STYLES } from "@/components/graph/graph-link-styles";
 import {
   graphEmphasisAlpha,

@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 import { BLOOM_THRESHOLD, NUMBER_OPS } from "@kb/scene";
 import { DESIGN_SYSTEM_IDS, oklchToRgb, TAG_PALETTE } from "@kb/ui-sdk";
 import { readDesignSystemSheets } from "@/lib/design-system-sheets";
-import { LENS_THEMES, type LensTheme } from "@kb/views";
+import { LENS_THEMES, type LensTheme } from "@kb/graph";
 import { GLOW } from "./force3d-emphasis";
 import { peakChannel, shadeNode, type NodeLighting, type Rgb } from "./force3d-light";
 import { GRAPH_THEMES } from "./graph-themes";

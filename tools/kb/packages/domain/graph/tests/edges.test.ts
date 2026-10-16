@@ -3,7 +3,7 @@
  * within the node set, with parallel edges of one kind merged into a weight.
  */
 import { describe, expect, test } from "bun:test";
-import type { EdgeKind } from "@kb/views";
+import type { EdgeKind } from "@kb/graph";
 import { collectEdges } from "../src/index.ts";
 import { node } from "./fixtures.ts";
 

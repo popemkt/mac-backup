@@ -2,7 +2,7 @@ import { saveGraphPerspective } from "./lens-writes";
 import { useEffect, useRef, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@kb/ui-sdk";
-import type { LensPerspective } from "@kb/views";
+import type { LensPerspective } from "@kb/graph";
 
 interface PerspectivePickerProps {
   perspectives: LensPerspective[];

@@ -5,13 +5,15 @@
 import type { BulletAppearance } from "./bullet-mode";
 import type { NodeProps } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { collectEdges, decodePerspective, type LensEdge } from "@kb/graph";
 import {
+  collectEdges,
+  decodePerspective,
+  type LensEdge,
   DEFAULT_CLUSTER_BY,
   decodeLensConfig,
   type LensPerspective,
   type LensProps,
-} from "@kb/views";
+} from "@kb/graph";
 import type { KbIndex } from "../query";
 import { queryFamilyViewNodes, runQuery } from "../query";
 import { UNTAGGED_COLOR, hashTagColor, tagColorOf, tagPalette, type TagPalette } from "./tag-color";

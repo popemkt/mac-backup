@@ -103,7 +103,7 @@ export function parseViewFilterEdn(edn: string): ViewFilter | null {
 /*
  * The view frame's props, as one slot table.
  *
- * Same mechanism as `lens.ts`'s perspective table (`@kb/model`'s
+ * Same mechanism as the graph lens's table (`@kb/model`'s
  * `node-config`): a slot names the field it reads, the carrier reader that
  * projects the stored values, the writer that stores a value back, the
  * `Schema` that says what is legal, and the value used when the frame says

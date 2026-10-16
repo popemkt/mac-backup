@@ -3,12 +3,8 @@
  * lens it draws (DESIGN-UI.md → Field-based graph perspectives).
  */
 import { SYSTEM_IDS, viewOptionOf, type KbNode } from "@kb/model";
-import {
-  DEFAULT_RENDERER,
-  decodeLensConfig,
-  type ConfigReport,
-  type LensPerspective,
-} from "@kb/views";
+import type { ConfigReport } from "@kb/views";
+import { DEFAULT_RENDERER, decodeLensConfig, type LensPerspective } from "./lens.ts";
 
 /**
  * Decode a graph view node. The renderer is its view (`sys.f.view`); every

@@ -5,7 +5,7 @@
  */
 import type { KbNode } from "@kb/model";
 import { nodeMentions } from "@kb/query";
-import type { EdgeKind } from "@kb/views";
+import type { EdgeKind } from "./lens.ts";
 
 /** What the projection reads of a node: a stored node and a wire node both are one. */
 export type LensSource = Pick<KbNode, "id" | "text" | "props" | "children">;

@@ -1,7 +1,7 @@
 /** A graph view node read as its perspective, and which perspective a graph opens on. */
 import { describe, expect, test } from "bun:test";
 import { SYSTEM_IDS } from "@kb/model";
-import { perspectiveProps } from "@kb/views";
+import { perspectiveProps } from "@kb/graph";
 import { decodePerspective, resolvePerspective } from "../src/index.ts";
 import { node, perspective } from "./fixtures.ts";
 

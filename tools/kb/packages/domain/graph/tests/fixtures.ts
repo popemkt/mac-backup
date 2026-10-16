@@ -1,5 +1,5 @@
 import { SYSTEM_IDS } from "@kb/model";
-import { DEFAULT_EDGE_KINDS, DEFAULT_MAX_NODES, type LensPerspective } from "@kb/views";
+import { DEFAULT_EDGE_KINDS, DEFAULT_MAX_NODES, type LensPerspective } from "@kb/graph";
 import type { LensSource } from "../src/index.ts";
 
 /** A node as the projection reads it, with no props or children unless given. */
