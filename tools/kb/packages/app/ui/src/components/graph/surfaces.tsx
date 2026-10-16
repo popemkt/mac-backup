@@ -18,12 +18,13 @@ import {
   paramsOf,
   SidebarRow,
   SidebarSection,
+  useIndex,
+  useWireNodes,
   ViewErrorBoundary,
   type MatchedRoute,
   type ViewProps,
 } from "@kb/ui-sdk";
 import { listPerspectiveNavItems } from "./perspective-nav";
-import { useGraphStore } from "@/stores/graph.store";
 import { graphPath } from "./routes";
 
 /** The renderers' chunk: sigma and graphology stay out of the outline's bundle. */
@@ -89,8 +90,8 @@ const GraphPage = lazy(() => {
 export function GraphSurface({ params }: ViewProps<GraphParams>) {
   const perspectiveId = params.perspective ?? null;
   const ontologyId = params.ontology ?? null;
-  const wireNodes = useGraphStore((s) => s.wireNodes);
-  const index = useGraphStore((s) => s.index);
+  const wireNodes = useWireNodes();
+  const index = useIndex();
   // Not missing while the index loads: the graphs are a query over it.
   const missing = useMemo(
     () =>
@@ -118,8 +119,8 @@ export function GraphSurface({ params }: ViewProps<GraphParams>) {
 }
 
 export function GraphSection({ route }: { readonly route: MatchedRoute | null }) {
-  const wireNodes = useGraphStore((s) => s.wireNodes);
-  const index = useGraphStore((s) => s.index);
+  const wireNodes = useWireNodes();
+  const index = useIndex();
   const perspectives = useMemo(() => listPerspectiveNavItems(index, wireNodes), [index, wireNodes]);
   const graph = paramsOf(route, GraphView);
   return (

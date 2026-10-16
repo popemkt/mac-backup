@@ -1,11 +1,18 @@
 import { useCallback, useMemo, useState } from "react";
 import { Result } from "effect";
-import { navigate, ViewSlot, WorkspaceState, type ViewProps } from "@kb/ui-sdk";
+import {
+  browserHost,
+  navigate,
+  useAppearance,
+  useIndex,
+  useWireNodes,
+  ViewSlot,
+  WorkspaceState,
+  type ViewProps,
+} from "@kb/ui-sdk";
 import { buildTreeForest, type NeighbourhoodParams } from "@kb/graph";
 import { extractNeighbourhood } from "@/components/graph/graph-neighbourhood";
 import { paramsFrom } from "@kb/views";
-import { useAppearance } from "@/stores/prefs.store";
-import { useGraphStore } from "@/stores/graph.store";
 import { GraphFrameContext, type GraphFrame } from "./graph-frame";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
 import { useRenderer } from "./use-renderers";
@@ -22,9 +29,9 @@ const EMPTY = { nodes: [], edges: [], dropped: 0, queryError: null };
  */
 export function NeighbourhoodGraph({ params }: ViewProps<NeighbourhoodParams>) {
   const { root, hops, edges, renderer, settings } = params;
-  const wireNodes = useGraphStore((s) => s.wireNodes);
-  const index = useGraphStore((s) => s.index);
-  const zoomTo = useGraphStore((s) => s.zoomTo);
+  const wireNodes = useWireNodes();
+  const index = useIndex();
+  const { zoomTo } = browserHost();
   const appearance = useAppearance();
   const rendererKey = useRenderer(renderer);
 

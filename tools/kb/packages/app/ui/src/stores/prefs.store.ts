@@ -229,10 +229,6 @@ export function appearanceIn(
   return lastAppearance;
 }
 
-export function useAppearance(): Appearance {
-  return usePrefsStore(appearanceIn);
-}
-
 /**
  * The left-rail toggle's state and gesture, for the primitive that renders it
  * (`components/ui/sidebar-toggle`).

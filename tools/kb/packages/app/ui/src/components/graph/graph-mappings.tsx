@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { mutations } from "@/actions/mutations";
-import { useGraphStore } from "@/stores/graph.store";
-import { SYSTEM_IDS } from "@kb/ui-sdk";
+import { browserHost, SYSTEM_IDS, useWireNodes } from "@kb/ui-sdk";
 import { graphBindingOptions, type GraphBindingOption } from "@/components/graph/graph-bindings";
 import { sourceValue, type LensPerspective } from "@kb/views";
 import { TreeView, TreemapView, type GraphChannel } from "@kb/graph";
@@ -48,7 +47,7 @@ const CHANNELS: Record<
 };
 
 export function GraphMappings({ perspective }: { perspective: LensPerspective }) {
-  const nodes = useGraphStore((s) => s.wireNodes);
+  const nodes = useWireNodes();
   const optionsFor = useMemo(() => sourceOptionsByField(nodes), [nodes]);
   const channels = useRenderer(perspective.renderer)?.renderer.channels ?? [];
   return (
@@ -71,7 +70,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
                         const next = e.target.checked
                           ? [...perspective.edgeKinds, option.value]
                           : perspective.edgeKinds.filter((k) => k !== option.value);
-                        void mutations.replaceField(
+                        void browserHost().replaceField(
                           perspective.id,
                           SYSTEM_IDS.lensEdgeKindsField,
                           (next.length ? next : ["none"]).map(sourceValue),

@@ -2510,7 +2510,8 @@ is.
   principles L1) is layer 1 too, read the same way by `lab/kit/palette.ts` through `@kb/scene`'s `palette.ts`.
 - **Canvas renderers re-read on one signal.** A DOM utility follows a token
   change by itself; a renderer that copied a value out (a colour, the
-  graph label face) does not. `useAppearance()` (`stores/prefs.store.ts`)
+  graph label face) does not. `useAppearance()` (the kit's, over the host's
+  `appearance`, which `appearanceIn` in `stores/prefs.store.ts` answers)
   resolves everything that changes what the tokens hold, and its `key`
   changes exactly when that does. The graph page hands the key to every
   renderer (`appearanceKey`), and the lab's scene host re-reads the lab

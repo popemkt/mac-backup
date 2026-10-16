@@ -1,9 +1,8 @@
 import { lazy, useMemo } from "react";
-import { outlineBulletAppearance, type LensNode } from "@kb/ui-sdk";
+import { outlineBulletAppearance, useNodes, type LensNode } from "@kb/ui-sdk";
 import type { LensTheme, ParamsOf } from "@kb/views";
 import type { ClusterView, Force2dView, Force3dView, TreeView } from "@kb/graph";
 import { GRAPH_THEMES } from "./graph-themes";
-import { usePageRows } from "@/stores/page";
 import { SigmaGraph } from "./sigma-graph";
 import { ClusterGraph } from "./cluster-graph";
 import { TreeGraph } from "./tree-graph";
@@ -120,13 +119,13 @@ export function ClusterAdapter({
 
 /**
  * The lens's nodes, each carrying the bullet the page draws for its row —
- * read off the same row (`usePageRows`), its collapsed state included — when
+ * read off the same row (the host's `useNodes`), its collapsed state included — when
  * the theme draws nodes as the page's rows; otherwise the nodes as they are,
  * so an edit that no drawn node shows redraws nothing.
  */
 function useOutlineBullets(nodes: LensNode[], theme: LensTheme): LensNode[] {
   const drawsBullets = GRAPH_THEMES[theme].form === "bullet";
-  const rows = usePageRows();
+  const rows = useNodes();
   const outline = drawsBullets ? rows : null;
   return useMemo(
     () =>

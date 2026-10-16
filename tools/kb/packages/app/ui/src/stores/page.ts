@@ -4,7 +4,6 @@
  * rows and the editor's focus follow — the graph, the projection and the
  * editor, whichever are installed.
  */
-import { useSyncExternalStore } from "react";
 import type { NodeMap } from "@kb/ui-sdk";
 import { pageProjection, subscribeProjection, useGraphStore } from "@/stores/graph.store";
 import { subscribeEditor } from "@/stores/page-editor";
@@ -24,9 +23,4 @@ export function subscribePage(listener: () => void): () => void {
 /** The rows the page is shown and edited through now: its projection's rows of this graph. */
 export function pageRows(): NodeMap {
   return pageProjection().rows(useGraphStore.getState());
-}
-
-/** The page's rows, read by this component: it re-renders when they change. */
-export function usePageRows(): NodeMap {
-  return useSyncExternalStore(subscribePage, pageRows, pageRows);
 }

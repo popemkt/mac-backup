@@ -3,9 +3,8 @@ import { Result } from "effect";
 import { WarningIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
-import { usePrefsStore, useAppearance, useSidebarToggle } from "@/stores/prefs.store";
-import { useUiStore } from "@/stores/ui.store";
 import {
+  browserHost,
   cn,
   extractLensGraph,
   hasText,
@@ -16,6 +15,13 @@ import {
   parsePerspective,
   SidebarToggle,
   ThemeIcon,
+  useAppearance,
+  useGeneration,
+  useIndex,
+  usePrefsOpen,
+  useSidebarToggle,
+  useTheme,
+  useWireNodes,
   ViewSlot,
   WorkspaceState,
 } from "@kb/ui-sdk";
@@ -51,16 +57,15 @@ export interface GraphPageProps {
 
 // oxlint-disable-next-line complexity -- GAP [[01M1MGCFTMWY5EYHEWP9QVH8Z9]]
 export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPageProps) {
-  const wireNodes = useGraphStore((s) => s.wireNodes);
-  const queryDb = useGraphStore((s) => s.index);
-  const generation = useGraphStore((s) => s.index?.generation ?? 0);
-  const zoomTo = useGraphStore((s) => s.zoomTo);
+  const wireNodes = useWireNodes();
+  const queryDb = useIndex();
+  const generation = useGeneration();
+  const { zoomTo } = browserHost();
   const ontologyMembers = useGraphStore((s) => s.ontologyMembers);
-  const theme = usePrefsStore((s) => s.theme);
+  const theme = useTheme();
   const appearance = useAppearance();
   const sidebar = useSidebarToggle();
-  const prefsOpen = useUiStore((s) => s.prefsOpen);
-  const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
+  const [prefsOpen, setPrefsOpen] = usePrefsOpen();
 
   const [includeSystemNodes, setIncludeSystemNodes] = useState(() => {
     try {
