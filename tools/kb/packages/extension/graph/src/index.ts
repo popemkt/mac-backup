@@ -53,7 +53,6 @@ export {
   LENS_THEMES,
   decodeLensConfig,
   encodeLensConfig,
-  perspectiveProps,
   sourceValue,
   type EdgeKind,
   type LensLabelDensity,

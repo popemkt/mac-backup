@@ -12,7 +12,6 @@
  */
 import { Schema, SchemaGetter } from "effect";
 import {
-  SYSTEM_IDS,
   decodeNodeConfig,
   encodeNodeConfig,
   firstBool,
@@ -435,20 +434,6 @@ export function decodeLensConfig(props: NodeProps, report: ConfigReport): LensPr
 export function sourceValue(key: string): PropValue {
   const id = graphSourceId(key);
   return id !== null ? { t: "ref", v: id } : { t: "str", v: key };
-}
-
-/**
- * A graph view node's props for `p`: its renderer is its view, and its lens,
- * written by the slots that read it back. The renderer slot is the one a
- * neighbourhood hosts (`lens.renderer`), which a graph view node does not
- * carry: its renderer is its `sys.f.view`.
- */
-export function perspectiveProps(p: LensPerspective): Record<string, PropValue[]> {
-  const { id: _id, label: _label, renderer, ...lens } = p;
-  return {
-    [SYSTEM_IDS.viewField]: [{ t: "ref", v: renderer }],
-    ...encodeLensConfig({ ...lens, labelBy: lens.labelBy ?? DEFAULT_LABEL_BY }),
-  };
 }
 
 /** The lens props `lens` is stored as: each setting it holds, written by its slot. */

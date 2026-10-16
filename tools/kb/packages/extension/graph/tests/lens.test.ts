@@ -9,10 +9,12 @@ import { subjectRootProps } from "@kb/views";
 import {
   decodeLensConfig,
   encodeLensConfig,
-  perspectiveProps,
+  rendererParamsOf,
   type LensPerspective,
   GRAPH_IDS,
+  TreeView,
 } from "@kb/graph";
+import { savedProps } from "./fixtures.ts";
 
 function strict(): (warning: string) => void {
   return (warning) => {
@@ -55,11 +57,11 @@ describe("a graph view's lens", () => {
       theme: "matte",
       linkStyle: "straight",
     };
-    const props = perspectiveProps(perspective);
+    const props = savedProps(TreeView, perspective);
     expect(props[SYSTEM_IDS.viewField]).toEqual([{ t: "ref", v: perspective.renderer }]);
-    const { id: _id, label: _label, renderer: _renderer, ...lens } = perspective;
+    // Every param the renderer declares, the whole lens among them, reads back.
     const { renderer: hosted, ...read } = decodeLensConfig(props, strict());
-    expect(read).toEqual(lens);
+    expect(read).toMatchObject(rendererParamsOf(TreeView, perspective));
     // A graph view node's renderer is its view; it names no hosted renderer.
     expect(props[GRAPH_IDS.lensRendererField]).toBeUndefined();
     expect(hosted).toBe("sys.view.graph.force2d");

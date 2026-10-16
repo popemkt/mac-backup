@@ -1,9 +1,9 @@
 /** A graph view node read as its perspective, and which perspective a graph opens on. */
 import { describe, expect, test } from "bun:test";
 import { SYSTEM_IDS } from "@kb/model";
-import { perspectiveProps, GRAPH_IDS } from "@kb/graph";
+import { GRAPH_IDS, TreemapView } from "@kb/graph";
 import { decodePerspective, resolvePerspective } from "../src/index.ts";
-import { node, perspective } from "./fixtures.ts";
+import { node, perspective, savedProps } from "./fixtures.ts";
 
 const quiet = (warning: string) => {
   throw new Error(`unexpected report: ${warning}`);
@@ -12,7 +12,7 @@ const quiet = (warning: string) => {
 describe("decodePerspective", () => {
   test("roundtrips a saved perspective through ordinary reference-valued node fields", () => {
     const configured = perspective({
-      renderer: "sys.view.graph.treemap",
+      renderer: TreemapView.option,
       colorBy: "prop:field.team",
       labelBy: "prop:field.title",
       sizeBy: "prop:field.hours",
@@ -24,14 +24,14 @@ describe("decodePerspective", () => {
     const saved = node({
       id: configured.id,
       text: configured.label,
-      props: perspectiveProps(configured),
+      props: savedProps(TreemapView, configured),
     });
     expect(saved.props[SYSTEM_IDS.viewField]).toEqual([{ t: "ref", v: "sys.view.graph.treemap" }]);
     expect(saved.props[GRAPH_IDS.lensRendererField]).toBeUndefined();
     expect(decodePerspective(saved, quiet)).toEqual(configured);
     expect(
       decodePerspective(
-        node({ ...saved, props: perspectiveProps({ ...configured, edgeKinds: [] }) }),
+        node({ ...saved, props: savedProps(TreemapView, { ...configured, edgeKinds: [] }) }),
         quiet,
       ).edgeKinds,
     ).toEqual([]);

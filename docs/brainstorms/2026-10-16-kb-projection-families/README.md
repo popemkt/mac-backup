@@ -1551,3 +1551,9 @@ commit.
        outline.
      - closes: one rename across the workspace, done when the canvas
        packages are free to touch.
+5. **`perspectiveProps` is gone.** No production code read it: saving a
+   perspective proposes the params its renderer declares
+   (`rendererParamsOf`) through `view.propose`. Its tests now save through
+   that path (`savedProps` in `@kb/graph`'s fixtures: `rendererParamsOf`,
+   then `viewNodeFor`), so the round trip they hold is the one a saved copy
+   takes.
