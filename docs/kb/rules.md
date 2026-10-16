@@ -389,6 +389,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
+### GAP: core's declaration still declares the outline's views and provides the default view
+
+- **expected** — the outline family's declaration declares its views and provides defaultView; core's declaration names no family
+- **current** — core-extension.ts declares OutlineView and the outline's frame views and sets defaultView: OutlineView until the outline is cut out
+- **impact** — core names a family, so 'Core names no feature' is not yet true for the outline
+- **closes** — the O3 cut: @kb/outline declares the views and the default
+- **node** — `01M52J3DADW4P7YV6907ME9C50`
+
 ### GAP: core's screen protocol names the canvas
 
 - **expected** — core's screen protocol carries a pane's view state opaquely and the canvas family contributes its own part
