@@ -2,7 +2,7 @@ import { useContext, useMemo } from "react";
 import { CaretRightIcon, HouseIcon } from "@phosphor-icons/react";
 import { cn, OpenNodeContext, WORKSPACE_ROOT_ID, type NodeMap } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, useOutlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, useOutlineNodes } from "@/components/outline/outline.store";
 
 /** The path from home down to `root`, home left out: a rooted outline's crumbs. */
 function pathTo(root: string, nodes: NodeMap): Array<{ id: string; text: string }> {

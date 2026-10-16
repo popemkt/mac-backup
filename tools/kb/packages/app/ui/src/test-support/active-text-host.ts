@@ -19,7 +19,7 @@
  * as the activation instead of one commit later. That also keeps it off the
  * suite's own React root, which a `root.render` would otherwise displace.
  */
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore } from "@/components/outline/outline.store";
 
 /**
  * Start following the active row. Call in `beforeEach`; call the returned

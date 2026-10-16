@@ -447,9 +447,10 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   stores: ["stores", "lib", "api", "session"],
   fixtures: ["fixtures", "lib"],
   // Test helpers: imported only by test files, which the surface rows exempt,
-  // so no row names it. It reaches what it stands in for — the store
-  // `resetOutlineStore` resets, and the `api/ws` port `FakeWsSocket` doubles.
-  "test-support": ["test-support", "stores", "api"],
+  // so no row names it. It reaches what it stands in for — the stores
+  // `resetGraphStore` and `resetOutlineStore` reset (the outline's is its own
+  // surface's), and the `api/ws` port `FakeWsSocket` doubles.
+  "test-support": ["test-support", "stores", "components/outline", "api"],
   primitives: ["primitives", "lib"],
   catalog: [
     "catalog",

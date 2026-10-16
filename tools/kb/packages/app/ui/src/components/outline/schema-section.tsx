@@ -1,6 +1,10 @@
 import { useMemo } from "react";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, useOutlineNode, useOutlineNodes } from "@/stores/outline.store";
+import {
+  useOutlineStore,
+  useOutlineNode,
+  useOutlineNodes,
+} from "@/components/outline/outline.store";
 import { useFollow, useOpenNode } from "@/stores/follow";
 import { useRefInk } from "@/stores/ref-ink";
 import {

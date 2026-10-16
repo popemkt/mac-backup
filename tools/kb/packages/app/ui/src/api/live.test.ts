@@ -3,7 +3,7 @@ import type { GraphSnapshot } from "@kb/contracts";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineNodes, useOutlineStore } from "@/stores/outline.store";
+import { outlineNodes, useOutlineStore } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { createLiveClient } from "./live";
 import { FakeWsSocket } from "@/test-support/ws";

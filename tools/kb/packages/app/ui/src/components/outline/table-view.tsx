@@ -16,13 +16,17 @@ import {
   type NodeMap,
   type OutlineNode,
 } from "@kb/ui-sdk";
-import { resolveRowChrome } from "@/lib/row-chrome";
+import { resolveRowChrome } from "@/components/outline/row-chrome";
 import { useOutlineHost } from "./outline-host";
-import { frameRows } from "@/lib/frame-rows";
+import { frameRows } from "@/components/outline/frame-rows";
 import { resolveTableColumns, type TableColumnSpec } from "@/lib/view-config";
 import { type SortSpec, type ParamsOf, OutlineTableView } from "@kb/views";
 import { useDebugFields } from "@/stores/debug-fields.store";
-import { useFieldContext, useOutlineStore, useOutlineNodes } from "@/stores/outline.store";
+import {
+  useFieldContext,
+  useOutlineStore,
+  useOutlineNodes,
+} from "@/components/outline/outline.store";
 import { useFollow } from "@/stores/follow";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { NodeField } from "./fields-section";

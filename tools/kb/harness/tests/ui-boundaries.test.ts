@@ -28,8 +28,8 @@ import { uiImportSites, uiRepoPath, uiSourceFiles, uiViolations } from "../src/u
  * second mechanism for one rule.
  *
  * Red case: drop `// GAP [[…]]` from `lib/toast.ts:1`, or add
- * `import { useOutlineStore } from "@/stores/outline.store"` to
- * `components/outline/tag-chip.tsx`.
+ * `import { useOutlineStore } from "@/components/outline/outline.store"` to
+ * `stores/workspace.store.ts`.
  */
 describe("ui-boundaries", () => {
   test("every import inside the UI lands in a zone its importer may reach", () => {

@@ -9,7 +9,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { querySubscriptionId, resultNodeIds, subscribeQueryNode } from "@/lib/query-node";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { FakeWsSocket } from "@/test-support/ws";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import type { WireNode } from "@kb/contracts";

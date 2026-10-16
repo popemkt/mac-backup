@@ -2,7 +2,7 @@ import { useCallback, useEffect } from "react";
 import { isTextEntry, useSlotChain, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { projectsRows } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineNode, outlineNodes } from "@/stores/outline.store";
+import { useOutlineNode, outlineNodes } from "@/components/outline/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";
 import { createTransientNode } from "@/components/outline/editing-writes";
@@ -15,7 +15,7 @@ import { SchemaSection } from "./schema-section";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { HeaderBackdrop } from "./header-backdrop";
 import { useSelectionKeymap } from "./use-selection-keymap";
-import { setOutlineHost } from "@/stores/outline-hosts";
+import { setOutlineHost } from "@/components/outline/outline-hosts";
 import { useLeadsOutlines, useOutlineHost } from "./outline-host";
 
 /**

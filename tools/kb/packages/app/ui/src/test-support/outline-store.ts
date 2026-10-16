@@ -5,7 +5,7 @@ import {
   outlineProjection,
   useOutlineStore,
   type OutlineStateData,
-} from "@/stores/outline.store";
+} from "@/components/outline/outline.store";
 import { resetGraphStore } from "./graph-store";
 
 /**

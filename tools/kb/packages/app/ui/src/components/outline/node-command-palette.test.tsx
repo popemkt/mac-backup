@@ -21,7 +21,7 @@ import { isPinned } from "@/lib/pinned";
 import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeCommandPalette } from "./node-command-palette";
 import { outlineUiPlugin } from "@/components/outline/plugin";

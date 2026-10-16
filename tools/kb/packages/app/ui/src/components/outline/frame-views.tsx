@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { frameRows } from "@/lib/frame-rows";
+import { frameRows } from "@/components/outline/frame-rows";
 import { childInstanceKey, outlineInstanceKey, type ViewProps } from "@kb/ui-sdk";
 import { useGraphRead } from "@/stores/graph-read";
 import {

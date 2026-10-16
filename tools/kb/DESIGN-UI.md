@@ -264,7 +264,7 @@ split is what matters here:
 | Mode | When | Owner |
 |---|---|---|
 | **A — active edit** (caret inside node text) | typing | `components/outline/use-node-keydown.ts` |
-| **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `lib/selection-keymap.ts` + `components/outline/use-selection-keymap.ts` |
+| **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `components/outline/selection-keymap.ts` + `components/outline/use-selection-keymap.ts` |
 
 Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
 vertical caret motion, and autocomplete interception. Mode B owns
@@ -516,7 +516,7 @@ reference:
   structural chords, because its place under the query is computed rather than
   a child edge. A contextual reference is a real child whose children **are**
   its own, and creating them is the whole point. `isReferenceRow(node,
-  isQueryResult)` in `lib/row-chrome.ts` is the one answer, read by the list
+  isQueryResult)` in `components/outline/row-chrome.ts` is the one answer, read by the list
   row's chrome and by table and card rows alike. Apart from those gates a
   result row is clicked like any row in every view: a row click selects, a
   text click edits, a bullet click toggles and ⌘-click opens the node.
@@ -1882,7 +1882,7 @@ until "Save workspace".
   under its pane's outline host (`outlineHostOfPane`; the main pane's is the
   canonical `tree/`), so the same node open in two panes is two rows,
   edited one at a time. Each outline says where it is rooted and which
-  slots surround it (`stores/outline-hosts`). The keyboard walks the rows
+  slots surround it (`components/outline/outline-hosts`). The keyboard walks the rows
   of the host that a row is keyed under, and a row activated without an
   instance takes its row in the outline being worked in. The page-wide
   parts of editing (the selection keymap, undo, the node palette) are

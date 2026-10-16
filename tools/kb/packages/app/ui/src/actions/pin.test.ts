@@ -14,7 +14,7 @@ import { listPinnedNavItems } from "@/lib/sidebar-nav";
 import { contextualTargetOf, SYSTEM_IDS } from "@kb/ui-sdk";
 import { isPinned, pinnedRefIds } from "@/lib/pinned";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineNodes } from "@/stores/outline.store";
+import { outlineNodes } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 
 /** The seeded Pinned list, which the real graph always carries. */

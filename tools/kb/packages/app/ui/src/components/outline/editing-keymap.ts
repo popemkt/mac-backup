@@ -13,7 +13,7 @@
  * leaf module may not reach up here for it.
  */
 import { lookupChord, type Chord, type KeyChordEvent, type VerticalNavDecision } from "@kb/ui-sdk";
-import type { VisibleInstance } from "@/lib/visible-instances";
+import type { VisibleInstance } from "@/components/outline/visible-instances";
 
 /** What the row looks like to the keymap. Offsets are SERIALIZED offsets. */
 export interface EditingKeyContext {

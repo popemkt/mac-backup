@@ -20,7 +20,7 @@ import {
   setCaretSerializedOffset,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore } from "@/stores/outline.store";
+import { outlineSource, useOutlineStore } from "@/components/outline/outline.store";
 import { enterFields } from "@/lib/value-slot-nav";
 import type { EditingIntent } from "./editing-keymap";
 

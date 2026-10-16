@@ -5,8 +5,8 @@ import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
-import { setOutlineHost } from "@/stores/outline-hosts";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { setOutlineHost } from "@/components/outline/outline-hosts";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { pageGraph } from "@/stores/graph-read";
 

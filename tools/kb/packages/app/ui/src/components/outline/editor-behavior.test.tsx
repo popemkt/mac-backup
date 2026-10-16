@@ -13,7 +13,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "@/actions/mutations";
 import { createTransientNode } from "@/components/outline/editing-writes";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";

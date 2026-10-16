@@ -12,11 +12,11 @@ import {
   type OutlineNode,
   type SchemaIndex,
 } from "@kb/ui-sdk";
-import { resolveRowChrome } from "@/lib/row-chrome";
+import { resolveRowChrome } from "@/components/outline/row-chrome";
 import { useUiStore } from "@/stores/ui.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { useGraphRead } from "@/stores/graph-read";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { useFollow } from "@/stores/follow";
 import { createTransientNode } from "@/components/outline/editing-writes";
 

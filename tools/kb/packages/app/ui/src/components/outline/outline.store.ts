@@ -46,7 +46,7 @@ import {
   collectVisibleInstances,
   neighborVisibleInstance,
   type VisibleInstance,
-} from "@/lib/visible-instances";
+} from "@/components/outline/visible-instances";
 import type { FrameViewKey } from "@kb/views";
 import { providedFrameViews } from "@/stores/frame-views";
 import {
@@ -58,11 +58,14 @@ import {
   type GraphChange,
   type GraphStateData,
 } from "@/stores/graph.store";
-import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "@/stores/outline-hosts";
+import {
+  outlineHostOf,
+  outlineHostOfInstance as walkHostOf,
+} from "@/components/outline/outline-hosts";
 
 export type { VisibleInstance };
 
-export interface ActivateOpts {
+interface ActivateOpts {
   /**
    * Viewport x-coordinate to preserve across vertical navigation (r1 D11).
    * Consumed by NodeContent after caret placement.

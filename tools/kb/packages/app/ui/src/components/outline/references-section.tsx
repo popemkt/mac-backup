@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { backlinkRows, type BacklinkRow } from "@/lib/backlinks";
+import { backlinkRows, type BacklinkRow } from "@/components/outline/backlinks";
 import { Bullet, MdView, NodeRow, schemaOf, TagChipGroup } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineNodes } from "@/stores/outline.store";
+import { useOutlineNodes } from "@/components/outline/outline.store";
 import { useFollow, useOpenNode } from "@/stores/follow";
 import { useRefInk } from "@/stores/ref-ink";
 

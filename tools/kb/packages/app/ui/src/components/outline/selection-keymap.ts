@@ -3,7 +3,7 @@
  * Active only when a node is selected and not being edited.
  */
 import { isPrintableKey, lookupChord, type Chord, type KeyChordEvent } from "@kb/ui-sdk";
-import type { VisibleInstance } from "@/lib/visible-instances";
+import type { VisibleInstance } from "@/components/outline/visible-instances";
 
 /** Selection mode reads the same event shape every keymap reads. */
 export type SelectionKeyEvent = KeyChordEvent;

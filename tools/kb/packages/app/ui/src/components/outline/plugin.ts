@@ -33,7 +33,7 @@ import {
 import { ListBulletsIcon, SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
 import { provideFrameViews, withdrawFrameViews } from "@/stores/frame-views";
 import { providePageProjection, withdrawPageProjection } from "@/stores/graph.store";
-import { outlineProjection, useOutlineStore } from "@/stores/outline.store";
+import { outlineProjection, useOutlineStore } from "@/components/outline/outline.store";
 import { providePageEditor, withdrawPageEditor } from "@/stores/page-editor";
 import { readFrameViews } from "@/components/outline/use-frame-views";
 import { OUTLINE_COMMANDS } from "@/components/outline/outline-commands";

@@ -1,7 +1,7 @@
 /**
  * The canvas keymap: chord -> canvas intent.
  *
- * Pure, like `lib/selection-keymap.ts`: nothing here reads a store, a ref or
+ * Pure, like the outline's `selection-keymap.ts`: nothing here reads a store, a ref or
  * the DOM, so the whole table is reachable from a unit test. The appliers live
  * beside the hook that owns the effects (`use-canvas-keyboard`).
  *

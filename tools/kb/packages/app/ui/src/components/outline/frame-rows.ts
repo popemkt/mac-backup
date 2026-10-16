@@ -97,8 +97,3 @@ export function frameRows({
     hasMore: limit !== null && ordered.length > limit,
   };
 }
-
-/** Rows a frame renders, in render order. */
-export function frameRenderedRows(input: FrameRowsInput): OutlineNode[] {
-  return frameRows(input).rendered;
-}

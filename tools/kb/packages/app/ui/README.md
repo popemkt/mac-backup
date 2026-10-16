@@ -32,8 +32,10 @@ ordered remote push lane; `src/actions/{plan,mutations}.ts` plans mutations and
 uses `restoreInvocations` to build undo/redo actions from graph states;
 `src/api/ws.ts` feeds live deltas into `graphStore.applyTx`;
 `src/stores/graph.store.ts` holds the live graph, write history, zoom root and
-ontology scope, and `src/stores/outline.store.ts` the outline editor's
-projection, selection, caret and expansion;
+ontology scope, and the port of the projection the page stands in;
+`src/stores/page-editor.ts` the port of the page's editor; the outline
+provides both (`src/components/outline/outline.store.ts`: its selection,
+caret and expansion);
 `src/lib/` holds the pure, unit-tested helpers (caret/markdown, canvas
 selection + history + tools, graph lens, ontology scope, router).
 

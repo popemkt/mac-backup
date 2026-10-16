@@ -10,10 +10,10 @@ import {
   syncUiPlugins,
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
-import { setOutlineHost } from "@/stores/outline-hosts";
+import { setOutlineHost } from "@/components/outline/outline-hosts";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { OutlineListView, OutlineTableView } from "@kb/views";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { outlineUiPlugin } from "@/components/outline/plugin";

@@ -16,7 +16,7 @@ import { frameConfigOf, getViewConfig } from "@/lib/view-config";
 import { OutlineListView, OutlineTableView, paramsFrom } from "@kb/views";
 import { Result } from "effect";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import type { WireNode } from "@kb/contracts";
 import { TableView } from "./table-view";

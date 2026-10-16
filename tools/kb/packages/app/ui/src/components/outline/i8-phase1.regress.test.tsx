@@ -18,7 +18,7 @@ import { mutations, __resetPendingContentForTests } from "@/actions/mutations";
 import { createTransientNode } from "@/components/outline/editing-writes";
 import { planInsertSibling } from "@/actions/plan";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
 import { NodeBlock } from "./node-block";

@@ -18,13 +18,17 @@ import {
   type OutlineNode,
   type PropValue,
 } from "@kb/ui-sdk";
-import { isReferenceRow } from "@/lib/row-chrome";
+import { isReferenceRow } from "@/components/outline/row-chrome";
 import { useOutlineHost } from "./outline-host";
-import { frameRows } from "@/lib/frame-rows";
+import { frameRows } from "@/components/outline/frame-rows";
 import { EMPTY_GROUP_KEY, resolveTableColumns } from "@/lib/view-config";
 import { OutlineBoardView, OutlineCardsView, localIdOf, type ParamsOf } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
-import { useFieldContext, useOutlineStore, useOutlineNodes } from "@/stores/outline.store";
+import {
+  useFieldContext,
+  useOutlineStore,
+  useOutlineNodes,
+} from "@/components/outline/outline.store";
 import { useFollow } from "@/stores/follow";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { usePrefsStore } from "@/stores/prefs.store";

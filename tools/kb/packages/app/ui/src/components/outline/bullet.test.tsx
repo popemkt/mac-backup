@@ -34,7 +34,7 @@ import {
   type TagBadge,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineNodes } from "@/stores/outline.store";
+import { outlineNodes } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
 

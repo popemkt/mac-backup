@@ -17,7 +17,7 @@ import { setPostAction } from "@/api/action";
 import { App } from "@/components/App";
 import { navigate, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 
 const ISO = "2026-08-23T00:00:00.000Z";
 

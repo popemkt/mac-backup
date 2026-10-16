@@ -20,9 +20,9 @@ import {
   shownNodeId,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
-import type { SelectionKeyAction } from "@/lib/selection-keymap";
+import type { SelectionKeyAction } from "@/components/outline/selection-keymap";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { enterFields } from "@/lib/value-slot-nav";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;

@@ -10,7 +10,7 @@ import { EXPANDED_STORAGE_KEY, EXPANSION_STORAGE_KEY, syncUiPlugins } from "@kb/
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineNodes, useOutlineStore } from "@/stores/outline.store";
+import { outlineNodes, useOutlineStore } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 
 beforeAll(() => syncUiPlugins([outlineUiPlugin]));

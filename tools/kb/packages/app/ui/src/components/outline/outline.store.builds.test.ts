@@ -12,13 +12,13 @@ import type { WireNode } from "@kb/contracts";
 import { schemaOf, wireToOutlineMap } from "@kb/ui-sdk";
 import type * as UiSdk from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineNodes, useOutlineStore } from "@/stores/outline.store";
+import { outlineNodes, useOutlineStore } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { node, ontologyWire } from "@/test-support/ontology-wire";
 
 // The schema builds inside the kit, so the mock names the module that builds,
 // not the barrel that re-exports it.
-vi.mock("../../../../kit/ui-sdk/src/lib/graph-view", async (importOriginal) => {
+vi.mock("../../../../../kit/ui-sdk/src/lib/graph-view", async (importOriginal) => {
   const actual = await importOriginal<Pick<typeof UiSdk, "wireToOutlineMap">>();
   return { ...actual, wireToOutlineMap: vi.fn(actual.wireToOutlineMap) };
 });

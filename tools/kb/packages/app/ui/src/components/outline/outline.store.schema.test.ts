@@ -16,9 +16,9 @@ import {
   syncUiPlugins,
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
-import { backlinkRows } from "@/lib/backlinks";
+import { backlinkRows } from "@/components/outline/backlinks";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the

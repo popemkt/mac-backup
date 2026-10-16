@@ -18,7 +18,7 @@ import { framedAs, viewFieldNodes, type FrameViewName } from "@/fixtures/view-fi
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, outlineNodes } from "@/stores/outline.store";
+import { outlineSource, outlineNodes } from "@/components/outline/outline.store";
 import { pageCommandApi } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -42,7 +42,7 @@ import {
   paramsFrom,
 } from "@kb/views";
 import { Result } from "effect";
-import { collectVisibleInstances } from "@/lib/visible-instances";
+import { collectVisibleInstances } from "@/components/outline/visible-instances";
 import { providedFrameViews } from "@/stores/frame-views";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 

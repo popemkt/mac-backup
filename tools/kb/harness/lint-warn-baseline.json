@@ -18,7 +18,6 @@
       "exports:packages/app/ui/src/components/graph/graph-camera.ts:animateCamera": 1,
       "exports:packages/app/ui/src/components/graph/graph-camera.ts:framedPoints": 1,
       "exports:packages/app/ui/src/components/outline/field-row.tsx:FIELD_LABEL_WIDTH": 1,
-      "exports:packages/app/ui/src/lib/frame-rows.ts:frameRenderedRows": 1,
       "exports:packages/app/ui/src/lib/ontology-scope.ts:labelOf": 1,
       "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.DEFAULT_PREFS": 1,
       "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.defaultSidebarOpen": 1,
@@ -30,7 +29,6 @@
       "types:packages/app/ui/src/lib/ontology-scope.ts:MemberReason": 1,
       "types:packages/app/ui/src/lib/palette-index.ts:PaletteEntry": 1,
       "types:packages/app/ui/src/lib/palette-index.ts:PaletteEntryKind": 1,
-      "types:packages/app/ui/src/stores/outline.store.ts:ActivateOpts": 1,
       "types:packages/contract/contracts/src/actions.ts:ActionHandlerError": 1
     }
   }

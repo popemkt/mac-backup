@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { schemaOf, shownNode } from "@kb/ui-sdk";
-import { isEditableTarget, mapSelectionKey } from "@/lib/selection-keymap";
+import { isEditableTarget, mapSelectionKey } from "@/components/outline/selection-keymap";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { fieldSlotCount } from "@/lib/value-slot-nav";
 import { applySelectionAction } from "./selection-actions";
 

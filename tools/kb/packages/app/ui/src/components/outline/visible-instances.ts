@@ -22,7 +22,7 @@ import {
   type SchemaIndex,
   type SlotChain,
 } from "@kb/ui-sdk";
-import { frameRows } from "@/lib/frame-rows";
+import { frameRows } from "@/components/outline/frame-rows";
 import { isQueryNode, queryDefOf } from "@kb/model";
 import { resultNodeIds } from "@/lib/query-node";
 import { frameViewOf, type FrameView } from "@/lib/view-config";

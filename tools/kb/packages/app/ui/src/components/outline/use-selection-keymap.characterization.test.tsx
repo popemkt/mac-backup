@@ -2,7 +2,7 @@
  * Characterization of the selection-mode dispatcher (closed gap
  * [[01M1MGCDRS0K28YBF1Q86YY61S]]).
  *
- * `mapSelectionKey` is pinned as a pure table in `lib/selection-keymap.test.ts`;
+ * `mapSelectionKey` is pinned as a pure table in `selection-keymap.test.ts`;
  * this file pins the other half — what each action does to the store — by
  * driving the window keymap the way the app does. One case per
  * `SelectionKeyAction` variant, so the switch can become a record without the
@@ -15,7 +15,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useSelectionKeymap } from "./use-selection-keymap";

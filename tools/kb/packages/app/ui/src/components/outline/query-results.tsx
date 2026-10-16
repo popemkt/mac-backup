@@ -10,7 +10,7 @@ import { queryDefOf } from "@kb/model";
 import { resultNodeIds, subscribeLiveQueryNode } from "@/lib/query-node";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineNode, useOutlineNodes } from "@/stores/outline.store";
+import { useOutlineNode, useOutlineNodes } from "@/components/outline/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { FrameViewSlot } from "./frame-view-slot";
 

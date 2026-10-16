@@ -17,7 +17,7 @@ import {
 } from "@kb/ui-sdk";
 import { listPinnedNavItems } from "@/lib/sidebar-nav";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineNodes } from "@/stores/outline.store";
+import { useOutlineNodes } from "@/components/outline/outline.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 
 /**

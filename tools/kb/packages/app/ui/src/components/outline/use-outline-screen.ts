@@ -3,8 +3,8 @@ import { SCREEN_APPLIED, screenRejected, type ScreenAck } from "@kb/contracts";
 import { outlineInstanceKey, type PaneCommand, type PaneSelection } from "@kb/ui-sdk";
 import { usePaneScreen } from "@/stores/screen.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
-import { outlineHostOfInstance } from "@/stores/outline-hosts";
+import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
+import { outlineHostOfInstance } from "@/components/outline/outline-hosts";
 import { useOutlineHost } from "./outline-host";
 
 /**

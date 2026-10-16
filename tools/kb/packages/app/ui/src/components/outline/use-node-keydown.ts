@@ -10,7 +10,7 @@ import {
   type VerticalNavDecision,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineSource, useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { outlineSource, useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { fieldSlotCount } from "@/lib/value-slot-nav";
 import { applyEditingIntent } from "./editing-intents";
 import { mapEditingKey, type EditingKeyContext } from "./editing-keymap";

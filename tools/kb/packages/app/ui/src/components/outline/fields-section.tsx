@@ -18,7 +18,7 @@ import {
 } from "@kb/ui-sdk";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { useGraphRead } from "@/stores/graph-read";
-import { outlineSource, useOutlineStore } from "@/stores/outline.store";
+import { outlineSource, useOutlineStore } from "@/components/outline/outline.store";
 import { useFollow } from "@/stores/follow";
 import { arriveAt, slotAt } from "@/lib/value-slot-nav";
 import { FieldRow } from "./field-row";

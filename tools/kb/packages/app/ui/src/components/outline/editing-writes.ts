@@ -6,7 +6,7 @@
  * the outline draws above (r1 D09).
  */
 import { mutations } from "@/actions/mutations";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore } from "@/components/outline/outline.store";
 
 /** The minted id, marked transient; null when the write was refused. */
 function transient(id: string | null): string | null {

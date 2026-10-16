@@ -5,7 +5,7 @@ import { createTransientNode } from "@/components/outline/editing-writes";
 import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineNodes } from "@/stores/outline.store";
+import { outlineNodes } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
 import { cloneWire } from "@/lib/tx";

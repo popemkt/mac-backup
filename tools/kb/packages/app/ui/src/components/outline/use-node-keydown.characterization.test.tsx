@@ -35,7 +35,7 @@ import {
   useOutlineStore,
   outlineNodes,
   useOutlineNode,
-} from "@/stores/outline.store";
+} from "@/components/outline/outline.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
