@@ -16,14 +16,14 @@ import { ScrollRegion } from "./pane-frame";
 import { usePageCatalog } from "@/lib/view-catalog";
 import { useOutlineStore } from "@/stores/outline.store";
 
-/** The one "cannot be shown here" state, naming the view by its label. */
-function unavailable(label: string) {
-  return (
-    <WorkspaceState
-      title="This view cannot be shown here"
-      description={`${label}: its plugin is not loaded, or a pane around it already shows it.`}
-    />
-  );
+/** The one "cannot be shown here" state, saying why. */
+function unavailable(why: string) {
+  return <WorkspaceState title="This view cannot be shown here" description={why} />;
+}
+
+/** Why a view named `label` that this page holds no key for cannot be shown. */
+function notLoaded(label: string): string {
+  return `${label}: its plugin is not loaded, or a pane around it already shows it.`;
 }
 
 /**
@@ -48,9 +48,11 @@ export function NodeViewSurface({ params }: ViewProps<NodeParams>) {
   );
   if (Result.isFailure(target))
     return <NotFound what="Node" id={params.node} back={{ label: "Home", path: "/" }} />;
-  // A view the server lists that no plugin on this page holds the key of.
-  if (target.success.key === null) return unavailable(target.success.listed.label);
-  return <HeldView target={target.success} />;
+  const found = target.success;
+  // A view no plugin on this page draws, or a view the data names that is broken.
+  if (found.key === null)
+    return unavailable("broken" in found ? found.broken : notLoaded(found.listed.label));
+  return <HeldView target={found} />;
 }
 
 /** A view whose key the page holds: its params decoded, drawn in a slot of its own. */
@@ -66,7 +68,7 @@ function HeldView({ target }: { readonly target: HeldViewTarget }) {
       placement="page"
       subject={target.subject}
       {...(target.viewNode === undefined ? {} : { viewNode: target.viewNode })}
-      fallback={unavailable(target.key.label)}
+      fallback={unavailable(notLoaded(target.key.label))}
     />
   );
   // Framed as the route that opens the view frames it; a view no route opens fills the pane.

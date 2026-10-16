@@ -11,6 +11,10 @@
  * A view of a family the server has switched off (the lab, here) is listed
  * nowhere, but its option node is seeded whatever loads: it opens as the
  * same state, named by that option, and the switcher names it the same way.
+ *
+ * A view the data names that is broken (a host's view node that is gone, or,
+ * as in this graph, which holds no `sys.views`, a store naming no default view
+ * type) opens as the same state too, saying why, never as a node not found.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -78,6 +82,10 @@ function snapshot(): GraphSnapshot {
       node("v.lab", "", { [SYSTEM_IDS.viewField]: [{ t: "ref", v: LabView.option }] }),
       // The lab's option, as the bundled seed holds it whether the lab is on or not.
       node(LabView.option, LabView.label),
+      // A node naming no view, in a graph whose sys.views names no default view type.
+      node("n.plain", "Plain"),
+      // A host whose view node is gone.
+      node("n.orphaned", "Orphaned", { [SYSTEM_IDS.viewsField]: [{ t: "ref", v: "v.gone" }] }),
     ],
   };
 }
@@ -169,6 +177,22 @@ describe("a view the page cannot draw (acceptance)", () => {
     await act(async () => navigate("/node/n.studio/v.lab"));
     await until(() => container.textContent.includes("This view cannot be shown here"));
     expect(container.textContent).toContain(`${LabView.label}: its plugin is not loaded`);
+    expect(container.querySelector('[data-not-found="Node"]')).toBeNull();
+  });
+
+  it("opens a node naming no view, where no default view type is named, as a view it cannot show, saying why", async () => {
+    await act(async () => navigate("/node/n.plain"));
+    await until(() => container.textContent.includes("This view cannot be shown here"));
+    expect(container.textContent).toContain(
+      `sys.views names no default view type (${SYSTEM_IDS.viewDefaultField})`,
+    );
+    expect(container.querySelector('[data-not-found="Node"]')).toBeNull();
+  });
+
+  it("opens a host whose view node is gone as a view it cannot show, saying why", async () => {
+    await act(async () => navigate("/node/n.orphaned"));
+    await until(() => container.textContent.includes("This view cannot be shown here"));
+    expect(container.textContent).toContain("v.gone is no view node");
     expect(container.querySelector('[data-not-found="Node"]')).toBeNull();
   });
 

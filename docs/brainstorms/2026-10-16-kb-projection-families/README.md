@@ -79,9 +79,11 @@ queue (`01M43DRVEQY02RTSX3XYWB8TG1`), one child per step.
 
 ## O2: what landed
 
-Two restructures, each behaviour-preserving. The spec is
+Two restructures, behaviour-preserving except for the one deliberate change
+named under "A broken definition opens", then a fix-up after review. The spec is
 [DESIGN.md → View nodes](../../../tools/kb/DESIGN.md#view-nodes) (the
-default view type) and → Layout views (the resolver bullet). This section
+default view type) and → Layout views (the resolver and broken-definition
+bullets). This section
 records only why the shape is what it is.
 
 - **A view's page is its key's** (`ViewKey.page`). `resolveNodeView` used to
@@ -96,9 +98,17 @@ records only why the shape is what it is.
   `sys.view.outline.main`. When a node names no view, the resolver opens it
   as if the route had named that option, on the same code path as any named
   view type. A default whose family is off therefore resolves as unheld
-  ("cannot be shown here"). A missing or malformed default is reported
-  through `ConfigReport` and resolves as a failure (see the gap below).
-  `node-view.ts` no longer imports `OutlineView`.
+  ("cannot be shown here"). `node-view.ts` no longer imports `OutlineView`.
+- **A broken definition opens.** A missing or malformed default, like a
+  host whose view node is gone, is reported through `ConfigReport` and
+  resolves to a `BrokenViewTarget` carrying the warning. The node route draws
+  it as the existing "cannot be shown here" state with the warning as its
+  reason; one state, a reason per cause. Only a wrong location (no such
+  node, or a route `view` that names no view) still fails as not found. This
+  changes one pre-O2 behaviour on purpose: a host whose default view node is
+  gone used to open as "Node not found". The resolver tests and
+  `unheld-view.acceptance.test.tsx` hold both cases at the route. No gap is
+  left.
 - **Why a new field on `sys.views`, not an existing carrier.**
   - `sys.f.view` would turn `sys.views` into a view node.
   - `sys.f.views` names view nodes, not options. Naming a seeded template
@@ -119,16 +129,11 @@ records only why the shape is what it is.
 - **Existing stores.** A store seeded before O2 gains the field node and the
   prop through `ensureSystemSeed`, by the new-node pass and the fill-absent
   pass, as with every seed addition. That first open after O2 commits the
-  change once, and no later open writes. The seed golden was regenerated in
-  this commit, as its header requires for a deliberate seed change.
-
-Gap: `GAP [[O2-broken-view-ref]]` (placeholder). A broken view ref fails, and
-the node route draws the failure as "Node not found". This covers a host
-naming a view node that is gone, and now also a store whose default view
-type is missing or names no view type. The report carries the warning, but
-the pane says nothing true. Closes when `resolveNodeView` returns a named
-broken-ref target that the node route draws as a `WorkspaceState`. The gap
-has no `#gap` node yet, and the harness requires every code marker to name
-one. So the placeholder appears only in prose here and in DESIGN.md. Once the
-node is minted, the code marker belongs on the `named === null` failure in
-`node-view.ts`.
+  change once, and no later open writes. The store contract proves it over
+  every backend (`defaultViewTypeReachesEarlierStoreOnce`). The seed golden
+  was regenerated in the O2 commit, as its header requires for a deliberate
+  seed change.
+- **An unset default comes back.** The default is a seeded prop, so the
+  existing GAP `01M3A0ZEWWG0VEHXEM3YNKRQ0Y` (fill-absent cannot tell a key
+  never held from one unset) now covers it too: an owner who unsets it gets
+  it back on the next open. Changing it to another view type sticks.

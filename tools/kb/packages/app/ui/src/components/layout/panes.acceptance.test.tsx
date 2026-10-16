@@ -10,7 +10,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { GraphSnapshot, WireNode } from "@kb/contracts";
-import { SYSTEM_IDS } from "@kb/model";
+import { SYSTEM_IDS, present } from "@kb/model";
+import { bundledSeed } from "@kb/bundled";
 import { LayoutView, layoutPanes, type LayoutTree } from "@kb/views";
 
 const { App } = await import("@/components/App");
@@ -33,10 +34,20 @@ function layoutNode(id: string, root: LayoutTree): WireNode {
   });
 }
 
+/** The views list as the server's seed holds it: it names the default view type. */
+function seededViews(): WireNode {
+  const views = present(
+    bundledSeed(ISO).find((seeded) => seeded.id === SYSTEM_IDS.viewsRoot),
+    "the bundled seed declares sys.views",
+  );
+  return node(views.id, views.text, { props: views.props });
+}
+
 function snapshot(): GraphSnapshot {
   return {
     rev: 1,
     nodes: [
+      seededViews(),
       node("n.a", "a project", { children: ["n.b"] }),
       node("n.b", "a task", { parentId: "n.a" } as Partial<WireNode>),
       layoutNode("v.self", {

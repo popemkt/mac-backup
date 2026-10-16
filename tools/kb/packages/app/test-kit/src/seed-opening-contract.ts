@@ -75,6 +75,50 @@ export function goldenSeedOpensUnwritten(makeStore: StoreFactory): Promise<void>
   );
 }
 
+/**
+ * A store an earlier kb seeded before the default view type existed — the
+ * golden without `sys.f.view.default` and without `sys.views` naming one —
+ * gains both on its first open, in exactly one write, and no later open
+ * writes: a seed addition reaches an existing store once, through the seed's
+ * own passes (a new node, a fill-absent prop), never by a migration of its own.
+ */
+export function defaultViewTypeReachesEarlierStoreOnce(makeStore: StoreFactory): Promise<void> {
+  const field = SYSTEM_IDS.viewDefaultField;
+  const earlier = seedGoldenNodes()
+    .filter((node) => node.id !== field)
+    .map((node) =>
+      node.id === SYSTEM_IDS.viewsRoot
+        ? {
+            ...node,
+            props: Object.fromEntries(Object.entries(node.props).filter(([k]) => k !== field)),
+          }
+        : node,
+    );
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        yield* makeStore(root).commitEffect({ upserts: earlier, deletes: [] }, { at: AT });
+        const before = makeStore(root).txTail.entries().length;
+        yield* openSession(root);
+        const after = makeStore(root).txTail.entries();
+        expect(after.length).toBe(before + 1);
+        const write = after.at(-1)?.ops;
+        expect(write?.deletes).toEqual([]);
+        expect(write?.upserts.map((node) => node.id).toSorted()).toEqual(
+          [field, SYSTEM_IDS.viewsRoot].toSorted(),
+        );
+        const loaded = new Map((yield* makeStore(root).loadEffect).map((node) => [node.id, node]));
+        expect(loaded.has(field)).toBe(true);
+        expect(loaded.get(SYSTEM_IDS.viewsRoot)?.props[field]).toEqual([
+          { t: "ref", v: viewOptionId("outline.main") },
+        ]);
+        yield* opensWithoutWriting(makeStore, root);
+      }),
+    ),
+  );
+}
+
 /** Whether two lists of ids hold the same ids in the same order. */
 function sameOrder(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((id, i) => id === b[i]);

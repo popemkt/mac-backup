@@ -160,6 +160,7 @@ export {
   viewNamed,
   type HeldViewTarget,
   type NamedView,
+  type BrokenViewTarget,
   type NodeViewTarget,
   type UnheldViewTarget,
 } from "./node-view.ts";

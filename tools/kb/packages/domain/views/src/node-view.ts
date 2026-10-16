@@ -54,9 +54,31 @@ export interface UnheldViewTarget {
   readonly viewNode?: NodeId;
 }
 
-export type NodeViewTarget = HeldViewTarget | UnheldViewTarget;
+/**
+ * The view the data names for a node is broken: a host's view node that is
+ * gone or names no view kb knows, or a store default view type that is
+ * missing or names none. The node is there and opens, as a view that cannot
+ * be shown here, saying why (`broken`, the warning the resolver reported).
+ */
+export interface BrokenViewTarget {
+  readonly key: null;
+  readonly listed: null;
+  readonly broken: string;
+  readonly subject: NodeId;
+}
+
+export type NodeViewTarget = HeldViewTarget | UnheldViewTarget | BrokenViewTarget;
 
 type Catalog = Pick<ViewCatalogOf<CatalogItem>, "keyOf" | "listedOf">;
+
+/** What resolving reads: the host's catalog, the graph, and where a warning goes. */
+interface Resolving {
+  readonly catalog: Catalog;
+  readonly lookup: (id: NodeId) => Carrier | undefined;
+  readonly report: ConfigReport;
+}
+
+type Opened = Result.Result<HeldViewTarget | UnheldViewTarget, string>;
 
 /**
  * The page a view of `key` is shown on, shown for `host` through view node
@@ -82,13 +104,16 @@ function pageOf(
  * - `view` names a view node: that view node, shown for the node;
  * - no `view`, and the node is a view node: that view node, shown for no node;
  * - no `view`: the node's default view (the first view node it names), or,
- *   when it names none, the store's default view type
- *   ({@link defaultViewType}), opened as if `view` named it.
+ *   when it names none, the store's default view type, which `sys.views`
+ *   names (`defaultViewTypeOf`), opened as if `view` named it.
  *
  * A view the host holds no key for resolves to its name (`key: null`,
  * {@link viewNamed}), not to a failure: the node is there, and its view is
  * one this host cannot draw, because no plugin here draws it or its family
- * is switched off.
+ * is switched off. A view the data names that is broken is reported and
+ * resolves as one ({@link BrokenViewTarget}), never as a failure, so a broken
+ * definition never makes a node unopenable. What fails is the location
+ * only: a node that is not there, or a `view` that names no view.
  */
 export function resolveNodeView(
   params: NodeParams,
@@ -98,53 +123,59 @@ export function resolveNodeView(
 ): Result.Result<NodeViewTarget, string> {
   const node = lookup(params.node);
   if (node === undefined) return Result.fail(`no node ${params.node}`);
-  const self = params.view === undefined && isViewNode(node);
-  const named =
-    params.view ??
-    (self ? params.node : (defaultViewIdOf(node) ?? defaultViewType(lookup, report)));
-  if (named === null)
-    return Result.fail(`${params.node} names no view, and no default view type is named`);
-  const type = viewIdOfOption(named);
-  if (type !== null) {
-    const key = catalog.keyOf(type);
-    if (key === null)
-      return unheld(catalog, lookup, type, { subject: params.node }, `no view ${type}`);
-    return Result.succeed({ ...pageOf(key, {}, params.node, null, report), subject: params.node });
-  }
-  const viewId = named;
-  const view = lookup(viewId);
-  const option = viewOptionOf(view);
-  const key = option === null ? null : catalog.keyOf(option);
-  const missing = `${viewId} is no view node`;
-  if (view === undefined || option === null) return Result.fail(missing);
-  if (key === null)
-    return unheld(catalog, lookup, option, { subject: viewId, viewNode: viewId }, missing);
-  const host = self ? null : params.node;
-  return Result.succeed({
-    ...pageOf(key, view.props, host, viewId, report),
-    subject: viewId,
-    viewNode: viewId,
-  });
+  const r: Resolving = { catalog, lookup, report };
+  if (params.view !== undefined) return throughNamed(params.view, params.node, r);
+  const opened = isViewNode(node)
+    ? throughViewNode(params.node, null, r)
+    : throughDefault(node, params.node, r);
+  if (Result.isSuccess(opened)) return opened;
+  report(opened.failure);
+  return Result.succeed({ key: null, listed: null, broken: opened.failure, subject: params.node });
+}
+
+/** `node` through the view `view` names: a view type by its option, else a view node. */
+function throughNamed(view: string, node: NodeId, r: Resolving): Opened {
+  const type = viewIdOfOption(view);
+  return type === null ? throughViewNode(view, node, r) : throughType(type, node, r);
 }
 
 /**
- * The view type a node that names no view opens in: the option `sys.views`
- * names (`defaultViewTypeOf`), seeded as the outline. One that is missing, or
- * names no view type, is reported, never thrown, and the node then names no
- * view at all.
+ * `node` (carried by `carrier`) in its default view: the first view node it
+ * names, else the store's default view type.
  */
-function defaultViewType(
-  lookup: (id: NodeId) => Carrier | undefined,
-  report: ConfigReport,
-): NodeId | null {
-  const option = defaultViewTypeOf(lookup(SYSTEM_IDS.viewsRoot));
-  if (option !== null && viewIdOfOption(option) !== null) return option;
-  report(
+function throughDefault(carrier: Carrier, node: NodeId, r: Resolving): Opened {
+  const viewId = defaultViewIdOf(carrier);
+  if (viewId !== null) return throughViewNode(viewId, node, r);
+  const option = defaultViewTypeOf(r.lookup(SYSTEM_IDS.viewsRoot));
+  const type = option === null ? null : viewIdOfOption(option);
+  if (type !== null) return throughType(type, node, r);
+  return Result.fail(
     option === null
       ? `${SYSTEM_IDS.viewsRoot} names no default view type (${SYSTEM_IDS.viewDefaultField})`
       : `${SYSTEM_IDS.viewsRoot}'s default view type ${option} is no view type (${SYSTEM_IDS.viewDefaultField})`,
   );
-  return null;
+}
+
+/** `node` as view type `type`, read from an empty view node. */
+function throughType(type: string, node: NodeId, r: Resolving): Opened {
+  const key = r.catalog.keyOf(type);
+  if (key === null) return unheld(r, type, { subject: node }, `no view ${type}`);
+  return Result.succeed({ ...pageOf(key, {}, node, null, r.report), subject: node });
+}
+
+/** View node `viewId`, shown for `host` (null: shown as itself). */
+function throughViewNode(viewId: NodeId, host: NodeId | null, r: Resolving): Opened {
+  const view = r.lookup(viewId);
+  const option = viewOptionOf(view);
+  const missing = `${viewId} is no view node`;
+  if (view === undefined || option === null) return Result.fail(missing);
+  const key = r.catalog.keyOf(option);
+  if (key === null) return unheld(r, option, { subject: viewId, viewNode: viewId }, missing);
+  return Result.succeed({
+    ...pageOf(key, view.props, host, viewId, r.report),
+    subject: viewId,
+    viewNode: viewId,
+  });
 }
 
 /**
@@ -168,12 +199,11 @@ export function viewNamed(
 
 /** The view `view` names, held by no key ({@link viewNamed}), else `failure`. */
 function unheld(
-  catalog: Catalog,
-  lookup: (id: NodeId) => Carrier | undefined,
+  r: Resolving,
   view: string,
   shown: { readonly subject: NodeId; readonly viewNode?: NodeId },
   failure: string,
 ): Result.Result<UnheldViewTarget, string> {
-  const listed = viewNamed(view, catalog, lookup);
+  const listed = viewNamed(view, r.catalog, r.lookup);
   return listed === null ? Result.fail(failure) : Result.succeed({ key: null, listed, ...shown });
 }

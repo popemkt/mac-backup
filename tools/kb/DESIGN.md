@@ -887,17 +887,16 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   targets the list's own options (`VIEW_OPTION_TARGET_QUERY`), so it selects
   from the list rather than mirroring it; `defaultViewTypeOf` reads it. The
   seed names the outline (`sys.view.outline.main`, a frozen id), and a
-  store seeded before the field gets it by the seed's fill-absent pass, like
-  every seeded prop. Opening a node through it is opening it through that
-  view type by name, so a default whose family is switched off opens as
-  "cannot be shown here" like any view named so, and no code names the
-  default. A default that is missing, or names no view type, is reported
-  through the caller's `ConfigReport`, never thrown; the node then names no
-  view, which resolves as a failure the node route draws as not found, as
-  it draws a host naming a view node that is gone
-  (GAP [[O2-broken-view-ref]]). Order is not the mechanism here, as it is
-  for a host's views: the order of `sys.views` is the fold's, and a store
-  seeded earlier may hold it otherwise.
+  store seeded before the field gets it once, on its first open, by the
+  seed's own passes (a new node, a fill-absent prop), like every seed
+  addition; the store contract holds that over every backend. Opening a
+  node through it is opening it through that view type by name, so a
+  default whose family is switched off opens as "cannot be shown here"
+  like any view named so, and no code names the default. A default that is
+  missing, or names no view type, is a broken definition (Layout views,
+  below), reported and opened as one, never thrown. Order is not the
+  mechanism here, as it is for a host's views: the order of `sys.views` is
+  the fold's, and a store seeded earlier may hold it otherwise.
 - **Placement is not stored yet.** Each view is shown at the placement its
   host offers. A stored placement arrives with the hosts that read it, in
   phase A2 (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]); a field no host reads
@@ -1009,6 +1008,15 @@ layouts).
   and a graph renderer's page is the graph page drawing that view node. The
   UI's links, a pane, a dashboard's panes and `ui.navigate` all open nodes
   this way.
+- **A broken definition opens, saying why; only a wrong location fails.**
+  When the view the data names for a node is broken (a host's view node
+  that is gone or names no view kb knows, a view node naming such a view,
+  or a default view type that is missing or names none), the resolver
+  reports it through the caller's `ConfigReport` and resolves to a broken
+  target carrying that warning (`BrokenViewTarget`), which the node route
+  draws as the one "cannot be shown here" state with the warning as its
+  reason. Only a node that is not there, or a `view` in the location that
+  names no view, fails, and is drawn as not found.
 - **A layout node holds its tree as one prop.** `sys.f.layout` holds the
   tree as canonical JSON, the shape a canvas keeps its layout in, so a drag
   writes one prop atomically. "Save workspace" proposes the live

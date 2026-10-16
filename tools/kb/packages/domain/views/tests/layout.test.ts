@@ -35,6 +35,14 @@ const catalog = viewCatalogOf(
   BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.views ?? []),
 );
 
+/** What a node opens as when the view the data names for it is broken, warning `why`. */
+function broken(node: string, why: string) {
+  return {
+    target: Result.succeed({ key: null, listed: null, broken: why, subject: node }),
+    warnings: [why],
+  };
+}
+
 /** What `/node/<node>` opens over `graph` through catalog `on`, and the warnings it reports. */
 function openIn(
   graph: ReadonlyMap<string, { props: NodeProps; text?: string }>,
@@ -265,7 +273,9 @@ describe("what /node/<id> opens", () => {
   const openHeld = (node: string, view?: string) => {
     const target = Result.getOrThrow(open(node, view));
     if (target.key === null)
-      throw new Error(`${node} resolved to ${target.listed.id}, held by no key`);
+      throw new Error(
+        `${node} resolved to ${target.listed?.id ?? "a broken view"}, held by no key`,
+      );
     return target;
   };
 
@@ -314,18 +324,26 @@ describe("what /node/<id> opens", () => {
     });
   });
 
-  test("a default view type missing, or naming no view type, is reported, never thrown", () => {
-    const failure = Result.fail("n.plain names no view, and no default view type is named");
-    expect(openIn(withDefault(null), "n.plain")).toEqual({
-      target: failure,
-      warnings: [`sys.views names no default view type (${SYSTEM_IDS.viewDefaultField})`],
-    });
-    expect(openIn(withDefault("v.table"), "n.plain")).toEqual({
-      target: failure,
-      warnings: [
-        `sys.views's default view type v.table is no view type (${SYSTEM_IDS.viewDefaultField})`,
+  test("a default view type missing, or naming no view type, opens as broken, reported, never failing", () => {
+    const missing = `sys.views names no default view type (${SYSTEM_IDS.viewDefaultField})`;
+    expect(openIn(withDefault(null), "n.plain")).toEqual(broken("n.plain", missing));
+    const notAType = `sys.views's default view type v.table is no view type (${SYSTEM_IDS.viewDefaultField})`;
+    expect(openIn(withDefault("v.table"), "n.plain")).toEqual(broken("n.plain", notAType));
+  });
+
+  test("a view node the data names that is gone opens as broken; one a location names fails", () => {
+    const graph = new Map([
+      ...nodes,
+      ["n.orphaned", { props: { [SYSTEM_IDS.viewsField]: [{ t: "ref" as const, v: "v.gone" }] } }],
+      [
+        "v.unknown",
+        { props: { [SYSTEM_IDS.viewField]: [{ t: "ref" as const, v: "sys.view.nope" }] } },
       ],
-    });
+    ]);
+    expect(openIn(graph, "n.orphaned")).toEqual(broken("n.orphaned", "v.gone is no view node"));
+    expect(openIn(graph, "v.unknown")).toEqual(broken("v.unknown", "v.unknown is no view node"));
+    // The location is wrong, not the data: there is nothing to open.
+    expect(open("n.plain", "v.gone")).toEqual(Result.fail("v.gone is no view node"));
   });
 
   test("a node opens in its default view; a frame view's page is the outline at the frame", () => {

@@ -63,6 +63,8 @@ function viewAt(route: string): { key: string; node?: string } | null {
   );
   if (Result.isFailure(target)) return { key: matched.view.id };
   const found = target.success;
+  // A broken view names no view, so the pane names the route's.
+  if ("broken" in found) return { key: matched.view.id };
   const key = found.key === null ? found.listed.id : found.key.id;
   return found.viewNode === undefined ? { key } : { key, node: found.viewNode };
 }
