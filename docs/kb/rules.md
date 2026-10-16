@@ -397,14 +397,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the O4 cut (O4f): @kb/graph becomes the graph family and declares its own views
 - **node** — `01M52YKFN18S0PJR2PHHM5QTXZ`
 
-### GAP: core's declaration still declares the outline's views and provides the default view
-
-- **expected** — the outline family's declaration declares its views and provides defaultView; core's declaration names no family
-- **current** — core-extension.ts declares OutlineView and the outline's frame views and sets defaultView: OutlineView until the outline is cut out
-- **impact** — core names a family, so 'Core names no feature' is not yet true for the outline
-- **closes** — the O3 cut: @kb/outline declares the views and the default
-- **node** — `01M52J3DADW4P7YV6907ME9C50`
-
 ### GAP: core's screen protocol names the canvas
 
 - **expected** — core's screen protocol carries a pane's view state opaquely and the canvas family contributes its own part
@@ -920,6 +912,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
 - **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
 
+### GAP: the node menu's order is list position
+
+- **expected** — a node command declares where it sits in the menu, and the menu lists the registry's commands and every CommandPoint contribution by it
+- **current** — the registry's static list, then the views' rows, then contributions in load order, then 'Filter…'
+- **impact** — a family cannot contribute a node command to a slot: the outline's indent, outdent and 'Filter…' stay the shell's, and expand/collapse all sit after the default-view rows
+- **closes** — an order on node commands, read by the one menu builder
+- **node** — `01M531QSQ2DJDSPYB132RQ5RBC`
+
 ### GAP: the node palette has no "Add value to <field>" command
 
 - **expected** — The node's ⌘K menu offers "Add value to <field>" for each field the node shows, reaching the same picker the + does.
@@ -944,6 +944,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a mirror held by a test: renaming the canvas tag id fails a test instead of flowing through, and a second family with its own bullet kind would add a second copy
 - **closes** — a bullet-kind point in @kb/ui-sdk that families contribute to, after E13 moves the canvas UI into @kb/canvas-ui
 - **node** — `01M436DVSEHKNYWSF2MR07HPMR`
+
+### GAP: the outline's page tests run in the shell
+
+- **expected** — a family half's tests hold it to BrowserHost through the test host (DESIGN-UI → Extension UI halves)
+- **current** — 37 outline tests drive the shell's graph store, commands and palettes from @kb/ui's src/page-tests/outline/, over an @kb/outline-ui barrel that exports what they drive
+- **impact** — the outline-ui barrel is wider than its entry, and these tests cannot run in the package
+- **closes** — each test rewritten over the test host and moved into @kb/outline-ui, with the barrel narrowed to its entry
+- **node** — `01M531QT1YPM9NTF6NKH9BP66S`
 
 ### GAP: the palette index pre-sizes its arrays with new Array(n)
 
@@ -1270,6 +1278,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Define each core action once as a contribution and make the registry consume that canonical collection.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1PJW3WHWPCBT5BYNEQMYG98`
+
+### GAP: core's declaration still declares the outline's views and provides the default view
+
+- **expected** — the outline family's declaration declares its views and provides defaultView; core's declaration names no family
+- **current** — core-extension.ts declares OutlineView and the outline's frame views and sets defaultView: OutlineView until the outline is cut out
+- **impact** — core names a family, so 'Core names no feature' is not yet true for the outline
+- **closes** — the O3 cut: @kb/outline declares the views and the default
+- **node** — `01M52J3DADW4P7YV6907ME9C50`
 
 ### GAP: extension-to-extension permission does not enforce family ownership
 

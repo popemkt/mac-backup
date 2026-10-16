@@ -12,6 +12,7 @@ export { outlineUiPlugin } from "./plugin";
 // The outline's parts the page's own tests drive (the outline page tests in
 // `@kb/ui`, which run in the shell): its store and projection, its editor
 // and rows, its frame views and their layout, and its value editors.
+// GAP [[01M531QT1YPM9NTF6NKH9BP66S]]
 export { backlinkRows } from "./backlinks";
 export { BoardCardsView } from "./board-cards-view";
 export { longDateLabel, relativeDateLabel } from "./date-display";

@@ -536,6 +536,7 @@ function commandsFor(ctx: CommandContext): readonly Command[] {
  * silently missing row.
  */
 export function listNodeCommands(ctx: CommandContext): NodeCommandListing[] {
+  // GAP [[01M531QSQ2DJDSPYB132RQ5RBC]]
   return commandsFor(ctx)
     .filter((command) => command.scope === "node" && (command.when?.(ctx) ?? true))
     .map((command) => {
