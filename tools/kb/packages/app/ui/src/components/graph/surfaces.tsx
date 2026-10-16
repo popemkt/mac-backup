@@ -22,7 +22,7 @@ import {
   type MatchedRoute,
   type ViewProps,
 } from "@kb/ui-sdk";
-import { listPerspectiveNavItems } from "@/lib/sidebar-nav";
+import { listPerspectiveNavItems } from "./perspective-nav";
 import { useGraphStore } from "@/stores/graph.store";
 import { graphPath } from "./routes";
 
