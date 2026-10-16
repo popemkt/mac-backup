@@ -38,9 +38,61 @@ Done on the Mac, already on `main`:
   desktop app; the NixOS side does not exist yet.
 
 Done on the machine by hand, outside the repo: a NixOS 26.05 install and
-`programs.nix-ld.enable = true`. Check whether flakes are enabled; if `nix
-flake` is rejected, add `nix.settings.experimental-features = [ "nix-command"
-"flakes" ];` to `/etc/nixos/configuration.nix` and rebuild before starting.
+`programs.nix-ld.enable = true`. Flakes and the other preflight steps are in
+[Fresh machine: manual steps](#fresh-machine-manual-steps).
+
+## Fresh machine: manual steps
+
+Everything here happens before the repo is involved, and most of it needs root
+or a password. The agent cannot do these, so do them in order on a new machine.
+
+1. **Install NixOS 26.05** with the installer. Keep the generated
+   `/etc/nixos/configuration.nix` for now; the repo replaces it in
+   [Take over the machine](#take-over-the-machine).
+2. **Enable flakes.** `/etc/nixos/configuration.nix` is root-owned, so edit it
+   with sudo:
+
+   ```bash
+   sudo vim /etc/nixos/configuration.nix
+   ```
+
+   Inside the top-level `{ ... }` block, next to `programs.nix-ld.enable = true;`, add:
+
+   ```nix
+   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+   ```
+
+   Then rebuild from the installer config, and check that both features are on:
+
+   ```bash
+   sudo nixos-rebuild switch
+   nix config show experimental-features   # must list nix-command and flakes
+   ```
+
+   If `nix config show` says `nix-command` is disabled, the rebuild did not take
+   effect; do not continue until it does.
+3. **Confirm `programs.nix-ld.enable = true;`** is in the installer config, as
+   step 2 above puts it next to the flakes line.
+4. **Clone the repo and enable the commit gate:**
+
+   ```bash
+   gh repo clone popemkt/mac-backup ~/.dotfiles
+   cd ~/.dotfiles && git config core.hooksPath .githooks
+   ```
+
+5. **Tailscale console (needs an admin account):**
+   - Create the services `t3-popemkt` and `t3-bytetum`. Enter the names
+     without the `svc:` prefix; the console rejects it. The policy file refers
+     to them as `svc:t3-popemkt` and `svc:t3-bytetum`.
+   - Create an auth key with `tag:shared-server` selected, and note its expiry.
+     The key is used later by `scripts/shared-server-secrets apply`.
+   - The policy rerun (see [Secrets and manual steps after the switch](#secrets-and-manual-steps-after-the-switch))
+     only works after the service auto-approvers are on `main`.
+6. **Pick the T3 Code ports.** The defaults are `3773` (popemkt) and `3774`
+   (bytetum). Avoid `6768`, which Orca uses on the Macs.
+7. **Fill the secrets file** only after the switch, through
+   [Secrets and manual steps after the switch](#secrets-and-manual-steps-after-the-switch).
+   Do not run `apply` before the switch: the bytetum user does not exist yet.
 
 ## Target state
 
@@ -64,8 +116,8 @@ flake` is rejected, add `nix.settings.experimental-features = [ "nix-command"
    that the host still needs: the boot loader (without it the machine will not
    boot), networking (NetworkManager, so the saved Wi-Fi keeps working),
    time zone, locale, keyboard, and `system.stateVersion`.
-   `hosts/shared-server/hoang/` is an empty folder of unknown origin; ask
-   before using or deleting it.
+   If a `hosts/shared-server/hoang/` folder shows up, it is of unknown origin;
+   ask before using or deleting it. It did not exist on 2026-10-16.
 
 2. **Restructure first, as its own commit.** These are behavior-preserving
    for both Macs; prove it by evaluating both `darwinConfigurations` before
@@ -158,8 +210,8 @@ These are control-plane or secret state and never belong in the repo.
    passwords, joins the tailnet with the auth key, and deletes the file. If
    it fails, report the error and leave the file for the person to fix.
 2. `tag:shared-server` is already in the applied policy, so a tagged auth key
-   can be generated at any time. In the Tailscale console create `svc:t3-popemkt` and
-   `svc:t3-bytetum`, then rerun the policy workflow so its auto-approver sees
+   can be generated at any time. In the Tailscale console create `t3-popemkt` and
+   `t3-bytetum` (no `svc:` prefix; policy uses the prefixed form), then rerun the policy workflow so its auto-approver sees
    them. The full sequence is
    [First Tailnet Or Replacement Host](tailscale.md#first-tailnet-or-replacement-host).
 3. Each person, in their own account: sign in to Claude Code (`claude`) and
