@@ -4,6 +4,7 @@ import {
   LENS_SETTINGS,
   decodeLensConfig,
   encodeLensConfig,
+  subjectRootOf,
   viewKey,
   type LensWrite,
   type ViewKey,
@@ -59,7 +60,7 @@ export const NeighbourhoodView = viewKey(
     read: (props, host, report) => {
       const lens = decodeLensConfig(props, report);
       return {
-        root: lens.focus ?? host ?? undefined,
+        root: subjectRootOf(props, host),
         hops: lens.hops ?? 1,
         edges: lens.edgeKinds,
         renderer: lens.renderer,
