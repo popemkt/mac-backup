@@ -101,6 +101,7 @@
 - 3D step 10 · formats: JSON Canvas export, GLB
 - 3D step 9 · connectors
 - bug: graph.query reviveValue turns aggregate results into node ids — [:find ?v (count ?n) …] returns a NodeId where the count should be (any integer 1..N matching an eid is revived). Fix in p1 Phase 2f: typed projection per :find position in the query IR; DataScript adapter revives only ref-typed positions. Found by r3 (docs/kb/waves/2026-09-03/reports/datalog-vs-cypher/README.md §8)
+- Canvas P1–P5 review fixes (Sol, 2026-10-17): 6 majors + 11 minors, no blockers. Findings: docs/brainstorms/2026-10-17-kb-canvas-tldraw-parity/README.md → P1–P5 review
 - canvas.test.ts calls mkdtemp inside packages/app/runtime/tests, so an aborted run leaves kb-canvas-* directories in the tree (seen in the t2 worktree 2026-09-04); use os.tmpdir() or a try/finally rm
 - commander 15 (check the --no-* options)
 - Cordis-level plugin integration, maybe more: config as fields on sys.extension.<name> with re-apply; a graph-driven loader; a plugin view; hot reload; optional injects and lifecycle events. First a Sonnet survey, then an Opus plan (integration.md)

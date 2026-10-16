@@ -406,3 +406,31 @@ Each one is read and written through the field tables. Each keeps a value kb can
 - Decision, not a gap: an edge's dash lives in its `style.dash`, the same field an item's does. It is not a top-level edge field.
 - Process note: P4's restructure (`itemOutline` as the single outline answer) landed inside its feature commit rather than as a commit of its own.
 - The shortcut sheet lists the table. The ⌘K palette does not list canvas shortcuts.
+
+## P1–P5 review (GPT-6.1 Sol, 2026-10-17)
+
+Open; queued as todo 01M53HTFM3G5P0ZGS3TTY26NNP. No blockers. Each finding names the file and line it was read at, on `59d2a062`.
+
+### Majors
+
+1. doc.ts:544,555 writes `extra` after known fields, so a stale unread key overwrites an edit (edge color:5 set to "1" in UI writes back 5). Callers: item-style-rows.tsx:204-207, edge-inspector.tsx:25-30, canvas-page.tsx:455, canvas-edge-link.ts:95,116-121, promote.ts:44-47. Fix: the record wins — known fields written after extra, or a written key always leaves extra; prove with a round-trip property over the field tables.
+2. doc.ts:362-373, 436-465: text/label/shape/file counted as read by every kind, so a link's label is dropped, shape:"hexagon" becomes "rect", width:"w" becomes 240; records that fail parse are removed (417-419, 451), and every verb rewrites the doc, so an unrelated place deletes them. Fix: each kind keeps only keys it read, rest to extra; an unparseable record passes through opaque (or the write is refused). Unknown values must round-trip (DESIGN.md canvas section).
+3. Lock vs inspector: item-inspector.tsx:213,217 leave Height/Depth/Rotation live on a locked item; editItem (membership.ts:175-189) moves members. The hint promises nothing drags/turns. Decide one rule and make code + hint + DESIGN.md agree (recommended: geometry rows read-only while locked; non-geometry fields still editable, matching your decision that explicit edits pass).
+4. Flip doesn't negate `bend`: arrange.ts:339-342 mirrors ends via mirroredEnd (edges.ts:176-185) but arcs bow left of travel (edges.ts:226-231), default bend chord/5 → wrong side after flip. Negate arc bend (absent → -chord/5 written) and elbow bend along flipped axis; test.
+5. 2D/3D divergence in fills/inks/washes: WASH 0.14 in canvas-card-face.ts:156 vs 14 in canvas-dom-paint.ts:19; groundOf/fillCss/wordsInk duplicated; uncoloured solid fill over(ink,0.9) in 3D vs full fg in DOM; uncoloured edge lerp(face,ink,0.4) in 3D (canvas-scene-edges.ts:215) vs foreground/35 in DOM (canvas-edge-layer.tsx:262). DrawnLook (projection-probes.ts:53-64) has no colour/fill. Fix: amounts live once in canvas-style.ts, both painters resolve them, contract asserts colour + ink.
+6. 3D standing labels ignore size/align/opacity (canvas-scene-labels.ts:113-124,170-180 via paintLabel canvas-card-face.ts:676-697). Label paint takes itemPaint(...).words + opacity; look contract asserts it.
+
+### Minors
+
+7. Elbow head invisible when corner == endpoint (edges.ts:262-264, headOnLine 496-499): use nearest point distinct from tip.
+8. Heads mean different things on edges (toHead kind + toEnd worn, edges.ts:397-400) vs paths (presence = worn, paths.ts:93-98): one end-plus-head reading.
+9. ext-canvas verbs.ts input too loose: ColorSchema (28-33) accepts ""/any string; nodeId (301) no min(1), makeItem allows file:"" (presets.ts:165-169); make.line.points (346) no max; points unvalidated into paths.ts:63, presets.ts:194, withLine; bend (570) written for curve/straight. One shared points + colour validator in doc.ts used by verb schema and withLine.
+10. describe.ts:215 gives a path only its kind; no points/closed/heads, no bend/anchors for edges. Report in the same shape make.line / connect take.
+11. verbs.ts:430-435 headOrNone(x) ?? null after undefined guard, connectionLook restates head mapping: one headPatch.
+12. Head ink: canvas-item-outline.tsx:45 full fg in 2D vs canvas-card-face.ts:588 line colour/60% ink in 3D; fold into 5.
+13. canvas-keymap.ts:420,422,437 match a/c/d under ⌘ without checking shift → ⌘⇧C/⌘⇧D claimed. shift:false + keymap test.
+14. ext.canvas.promote (verbs.ts:238-250) skips requireItems → rewrites a locked card. Decide (recommended: promote is an explicit edit, allowed; state it) or refuse.
+15. deleteSelected (membership.ts:124,146; canvas-selection.ts:179-185) deletes a free frame's locked members through carriedBy; DESIGN.md says lock holds back delete. Decide + state (recommended: a locked member is not deleted with its frame — it is released to the canvas — or the frame delete is refused naming it; pick and test).
+16. arrange.ts:283-285 align/distribute snap even when nothing moves; distributeSlots (172-176) uses greatest centre not greatest max → uneven gaps; distribute <3 items reports success; arrange ignores inapplicable params silently (verbs.ts:417-446) → refuse them.
+17. Contract suites (canvas-projection.contract.test.tsx, canvas-look.contract.test.tsx) have no locked/flip/order cases; add them.
+
