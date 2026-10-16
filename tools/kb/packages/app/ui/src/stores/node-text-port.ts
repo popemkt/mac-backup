@@ -6,12 +6,12 @@
  */
 import type { NodeTextPort } from "@kb/ui-sdk";
 import { followFrom } from "@/stores/follow";
-import { outlineGraph } from "@/stores/graph-read";
+import { pageGraph } from "@/stores/graph-read";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 
 export const nodeTextPort: NodeTextPort = {
-  ...outlineGraph,
+  ...pageGraph,
   pendingCaret: (instanceKey) => {
     const caret = useOutlineStore.getState().pendingCaret;
     return caret?.instanceKey === instanceKey ? caret : null;

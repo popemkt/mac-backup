@@ -52,7 +52,7 @@ import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
 import { typeRefsOf } from "@kb/model";
-import { useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
+import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { useOutlineStore, outlineNodes } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { invoke, invokeLocal, pushInvocation, writeLocal } from "@/session/runtime";
 import type { Hold } from "@/session/replica";
@@ -115,7 +115,7 @@ async function editFrameView(frameId: string, edit: FrameViewEdit): Promise<void
 async function frameConfig(frameId: string): Promise<ViewConfig> {
   const { frameConfigOf } = await import("@/lib/view-config");
   const { schemaOf } = await import("@kb/ui-sdk");
-  return frameConfigOf(outlineNodes().get(frameId), schemaOf(useGraphStore.getState()));
+  return frameConfigOf(shownNodes().get(frameId), schemaOf(useGraphStore.getState()));
 }
 
 /**
@@ -519,8 +519,7 @@ export const mutations = {
    * `sys.*` browse has always been open.
    */
   async togglePin(nodeId: string): Promise<boolean> {
-    const nodes = outlineNodes();
-    const pins = pinnedRefIdsFor(nodes, nodeId);
+    const pins = pinnedRefIdsFor(shownNodes(), nodeId);
     if (pins.length > 0) {
       for (const refId of pins) {
         // oxlint-disable-next-line eslint/no-await-in-loop -- Sequential by contract: each delete reads the store the last wrote

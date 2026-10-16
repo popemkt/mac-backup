@@ -11,7 +11,8 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineCommandApi, useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { pageCommandApi } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
@@ -48,7 +49,7 @@ function graph(): WireNode[] {
 }
 
 function context(): CommandContext {
-  const outline = outlineCommandApi();
+  const outline = pageCommandApi();
   return {
     target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
     outline,

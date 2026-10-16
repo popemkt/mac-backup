@@ -6,8 +6,9 @@ import { buildPaletteIndex, searchPalette, type PaletteHit } from "@/lib/palette
 import { schemaZoomKind } from "@/lib/schema-zoom";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
-import { useGraphStore } from "@/stores/graph.store";
-import { outlineCommandApi, useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { shownNodes, useGraphStore } from "@/stores/graph.store";
+import { useOutlineStore } from "@/stores/outline.store";
+import { pageCommandApi } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -20,7 +21,7 @@ import { useUiStore } from "@/stores/ui.store";
  * `openStep` states that rather than being wired to nothing.
  */
 function commandContext(onClose: () => void): CommandContext {
-  const outline = outlineCommandApi();
+  const outline = pageCommandApi();
   return {
     target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
     outline,
@@ -106,7 +107,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         await runCommand(hit.id, commandContext(onClose));
         return;
       }
-      const node = outlineNodes().get(hit.id);
+      const node = shownNodes().get(hit.id);
       if (schemaZoomKind(node) || isSysPrefixed(hit.id)) {
         zoomTo(hit.id);
         return;

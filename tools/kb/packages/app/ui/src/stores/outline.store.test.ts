@@ -8,7 +8,7 @@ import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { setOutlineHost } from "@/stores/outline-hosts";
 import { outlineUiPlugin } from "@/components/outline/plugin";
-import { outlineGraph } from "@/stores/graph-read";
+import { pageGraph } from "@/stores/graph-read";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
@@ -33,7 +33,7 @@ function watch(look: () => void): () => void {
   const offs = [
     useGraphStore.subscribe(look),
     useOutlineStore.subscribe(look),
-    outlineGraph.subscribe(look),
+    pageGraph.subscribe(look),
   ];
   return () => {
     for (const off of offs) off();

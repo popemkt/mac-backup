@@ -27,7 +27,8 @@ import { listNodeCommands } from "@/lib/commands";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { currentWorkspace } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineCommandApi, useOutlineStore, useOutlineNodes } from "@/stores/outline.store";
+import { useOutlineStore, useOutlineNodes } from "@/stores/outline.store";
+import { pageCommandApi } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -203,7 +204,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
    */
   const commandCtx: CommandContext = {
     target: { nodeId: targetNodeId, frameId: targetNodeId },
-    outline: outlineCommandApi(),
+    outline: pageCommandApi(),
     prefs: usePrefsStore.getState(),
     ui: useUiStore.getState(),
     debugFields: { ids: debugIds, toggle: useDebugFieldsStore.getState().toggle },

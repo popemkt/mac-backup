@@ -18,7 +18,8 @@ import { framedAs, viewFieldNodes, type FrameViewName } from "@/fixtures/view-fi
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineCommandApi, outlineSource, outlineNodes } from "@/stores/outline.store";
+import { outlineSource, outlineNodes } from "@/stores/outline.store";
+import { pageCommandApi } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { WireNode } from "@kb/contracts";
@@ -407,7 +408,7 @@ describe("Filter… host visibility", () => {
 
     useGraphStore.getState().zoomTo("frame1");
     await act(async () => {
-      const outline = outlineCommandApi();
+      const outline = pageCommandApi();
       await runCommand(SYSTEM_IDS.cmdViewFilter, {
         target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
         outline,

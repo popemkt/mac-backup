@@ -7,6 +7,7 @@
  * projection holds of its own — its expansion and its focus — follows each
  * move through {@link EditingProjection}.
  */
+import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import {
   DatascriptIndex,
@@ -16,6 +17,7 @@ import {
   WORKSPACE_ROOT_ID,
   type KbIndex,
   type NodeMap,
+  type OutlineNode,
 } from "@kb/ui-sdk";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
@@ -228,6 +230,25 @@ export function scopedWireOf(state: ScopeSource): WireNode[] {
 export function shownNodesOf(state: ScopeSource): NodeMap {
   if (state.ontologyId === null || state.ontologyMembers === null) return schemaOf(state);
   return scopedViewOf(state, state.ontologyMembers, state.ontologyId).nodes;
+}
+
+/** What the page shows of the graph now (`shownNodesOf`), each row at its default collapse. */
+export function shownNodes(): NodeMap {
+  return shownNodesOf(useGraphStore.getState());
+}
+
+/**
+ * What the page shows of the graph, read by this component: for a reader of
+ * what a row says (its text, its props), never of whether it is open.
+ */
+export function useShownNodes(): NodeMap {
+  return useSyncExternalStore(useGraphStore.subscribe, shownNodes, shownNodes);
+}
+
+/** One node of what the page shows: this component re-renders when that node changes. */
+export function useShownNode(id: string | null): OutlineNode | undefined {
+  const read = () => (id === null ? undefined : shownNodes().get(id));
+  return useSyncExternalStore(useGraphStore.subscribe, read, read);
 }
 
 /** Whether the page can show `id` under its scope: the workspace, or a row of `shownNodesOf`. */

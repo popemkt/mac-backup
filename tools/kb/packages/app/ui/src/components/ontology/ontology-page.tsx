@@ -23,8 +23,8 @@ import { mutations } from "@/actions/mutations";
 import { MemberRow } from "@/components/ontology/member-row";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
-import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, useOutlineNodes } from "@/stores/outline.store";
+import { useGraphStore, useShownNodes } from "@/stores/graph.store";
+import { useOutlineStore } from "@/stores/outline.store";
 
 export interface OntologyPageProps {
   ontologyId: string;
@@ -39,7 +39,7 @@ export interface OntologyPageProps {
  */
 export function OntologyPage({ ontologyId }: OntologyPageProps) {
   const wireNodes = useGraphStore((s) => s.wireNodes);
-  const nodes = useOutlineNodes();
+  const nodes = useShownNodes();
   const queryDb = useGraphStore((s) => s.index);
   const generation = useGraphStore((s) => s.index?.generation ?? 0);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);

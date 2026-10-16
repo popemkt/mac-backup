@@ -37,7 +37,6 @@ import {
   type FamilyView,
   type FieldContext,
   type NodeMap,
-  type OutlineCommandApi,
   type OutlineNode,
   type FieldContextSource,
   type SchemaIndex,
@@ -285,7 +284,7 @@ export function outlineNodes(): NodeMap {
 }
 
 /** Listen for every change `outlineNodes` can follow: the graph's and this store's. */
-export function subscribeOutline(listener: () => void): () => void {
+function subscribeOutline(listener: () => void): () => void {
   const fromGraph = useGraphStore.subscribe(listener);
   const fromOutline = useOutlineStore.subscribe(listener);
   return () => {
@@ -761,28 +760,6 @@ export const outlineProjection: EditingProjection = {
   leave: (from) => pruneOutgoingTransient(null, from),
   arrive,
 };
-
-/**
- * The outline as a command drives it (`OutlineCommandApi`), read now: the
- * zoom and scope the page stands at and the graph from the graph store, the
- * selection, projection and editor verbs from this one.
- */
-export function outlineCommandApi(): OutlineCommandApi {
-  const graph = useGraphStore.getState();
-  const outline = useOutlineStore.getState();
-  return {
-    selectedNodeId: outline.selectedNodeId,
-    rootNodeId: graph.rootNodeId,
-    ontologyId: graph.ontologyId,
-    nodes: outlineNodes(),
-    wireNodes: graph.wireNodes,
-    jumpToNode: outline.jumpToNode,
-    zoomTo: graph.zoomTo,
-    expandAllInScope: outline.expandAllInScope,
-    collapseAllInScope: outline.collapseAllInScope,
-    frameViews: outline.frameViews,
-  };
-}
 
 /**
  * This outline's rows with the graph they project and its index, read now:

@@ -21,8 +21,7 @@ import {
   type NodeMap,
 } from "@kb/ui-sdk";
 import { usePageCatalog } from "@/lib/view-catalog";
-import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineNodes } from "@/stores/outline.store";
+import { useGraphStore, useShownNodes } from "@/stores/graph.store";
 
 interface Choice {
   readonly path: string;
@@ -84,7 +83,7 @@ function useSections(path: string): readonly Section[] {
   const routes = useContributions(RoutePoint);
   const views = useContributions(ViewPoint);
   const catalog = usePageCatalog();
-  const nodes = useOutlineNodes();
+  const nodes = useShownNodes();
   const rootNodeId = useGraphStore((s) => s.rootNodeId);
   const route = matchRoute(routes, path);
   const host = route === null ? null : (hostOf(route.params) ?? (path === "/" ? rootNodeId : null));
