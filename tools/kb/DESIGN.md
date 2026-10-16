@@ -1898,11 +1898,17 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   `packages/domain/plugin`, `scope:shared`; the model is DeepSeek Harness's
   Cordis). A plugin is `{ name, namespace?, inject?, apply(ctx) }`; through
   `ctx` it provides and injects typed services, contributes to typed points,
-  emits and listens to typed events, and loads children. Everything it
-  registers hangs off its Effect `Scope`, so unload closes the scope; a
-  plugin waits as `pending` until what it injects exists, and returns to
-  pending when a provider leaves. A failing `apply` is atomic: nothing it
-  registered survives.
+  and loads children. Everything it registers hangs off its Effect `Scope`,
+  so unload closes the scope; a plugin waits as `pending` until what it
+  injects exists, and returns to pending when a provider leaves. A failing
+  `apply` is atomic: nothing it registered survives.
+- **The kernel has no events.** A change to its plugins, services or
+  contributions is observed one way: `subscribe` and `version`, read
+  against `plugins()` and the points, which is how the page renders and how
+  `kb ui` reports. Cordis's `on`/`emit` was carried over and never had a
+  caller outside the kernel's own tests, so it was deleted rather than kept
+  as a second notification path. A typed event key comes back with its
+  first consumer, emitted by the kernel, not added beside `subscribe`.
 - Actions and templates are two points of that kernel, `ActionPoint` and
   `TemplatePoint` in `@kb/contracts`. Core's actions are a plugin in the root
   namespace (bare ids like `node.add`); each extension is a plugin in

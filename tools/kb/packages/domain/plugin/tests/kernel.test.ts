@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Cause, Effect, Exit } from "effect";
 import {
-  Event,
   Point,
   Service,
   definePlugin,
@@ -13,7 +12,6 @@ import {
 
 const Greetings = Point<string>()("test.greetings");
 const Counter = Service<{ readonly next: () => number }>()("test.counter");
-const Said = Event<string>()("test.said");
 
 function greeter(name: string, ...words: string[]): Plugin {
   return definePlugin({
@@ -230,45 +228,6 @@ describe("services and injection", () => {
     });
     expect(failure(kernel.load(impostor))?.reason).toBe("key-mismatch");
     expect(kernel.service(Impostor)).toBeUndefined();
-  });
-});
-
-describe("events", () => {
-  test("listeners hear emits while loaded, and a failing one fails nobody", () => {
-    const kernel = makeKernel();
-    const heard: string[] = [];
-    const listener = run(
-      kernel.load(
-        definePlugin({
-          name: "ear",
-          apply: (ctx) => ctx.on(Said, (word) => Effect.sync(() => heard.push(word))),
-        }),
-      ),
-    );
-    run(
-      kernel.load(
-        definePlugin({
-          name: "grump",
-          apply: (ctx) => ctx.on(Said, () => Effect.die("nope")),
-        }),
-      ),
-    );
-    const mouth: { say?: (word: string) => Effect.Effect<void> } = {};
-    run(
-      kernel.load(
-        definePlugin({
-          name: "mouth",
-          apply: (ctx) =>
-            Effect.sync(() => {
-              mouth.say = (word) => ctx.emit(Said, word);
-            }),
-        }),
-      ),
-    );
-    run(mouth.say?.("hi") ?? Effect.void);
-    run(listener.unload);
-    run(mouth.say?.("bye") ?? Effect.void);
-    expect(heard).toEqual(["hi"]);
   });
 });
 

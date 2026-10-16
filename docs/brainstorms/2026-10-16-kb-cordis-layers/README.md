@@ -294,3 +294,17 @@ Decide gap 3 (wire or delete), then 1, 2, 4, with 6 beside 1. Gap 5 is a doc
 change at any time; gap 7 last. Per Rule 1, each is a restructure commit first
 (a `reconfigure` entry point, labels, per-plugin listings; behaviour
 unchanged), then the behaviour.
+
+## What landed
+
+On the branch that followed the projection-families work (base `3e77dcb3`).
+
+- **Gap 3: deleted.** Neither gap 1 nor anything else in the same change
+  gave the events a consumer. The `kb ui` report already reads
+  `syncPlugins`' failures and `kernel.plugins()`, and the page renders from
+  `subscribe` and `version`, so a `plugin.loaded` event would have been a
+  second way to hear the same change. `ctx.on`, `ctx.emit`, the `Event`
+  key constructor and `EventKey` left `@kb/plugin`, with the one kernel
+  test that exercised them. DESIGN.md → Core boundary & extensions says the
+  kernel has no events, and that an event key returns with its first
+  consumer, emitted by the kernel.

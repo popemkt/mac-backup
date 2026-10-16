@@ -1,13 +1,6 @@
 import { Cause, Effect, Exit, Scope } from "effect";
 import { PluginError, type PluginErrorReason } from "./errors.ts";
-import {
-  asKeyType,
-  type AnyServiceKey,
-  type EventKey,
-  type Key,
-  type PointKey,
-  type ServiceKey,
-} from "./keys.ts";
+import { asKeyType, type AnyServiceKey, type Key, type PointKey, type ServiceKey } from "./keys.ts";
 
 /** What a plugin hands a point: a local id, optional absolute aliases, the value. */
 export interface ContributionEntry<C> {
@@ -29,8 +22,8 @@ export interface Contribution<C> {
 
 /**
  * A plugin's handle on the kernel. Everything registered through it —
- * services, contributions, listeners, children — belongs to the plugin's
- * scope, so it is undone when the plugin unloads or goes back to pending.
+ * services, contributions, children — belongs to the plugin's scope, so it
+ * is undone when the plugin unloads or goes back to pending.
  */
 export interface PluginContext {
   readonly name: string;
@@ -43,12 +36,6 @@ export interface PluginContext {
     point: PointKey<C>,
     entry: ContributionEntry<C>,
   ): Effect.Effect<Contribution<C>, PluginError>;
-  /** Listen for an event. A failing handler is reported; it never fails the emitter. */
-  on<P>(
-    event: EventKey<P>,
-    handler: (payload: P) => Effect.Effect<void, PluginError>,
-  ): Effect.Effect<void, PluginError>;
-  emit<P>(event: EventKey<P>, payload: P): Effect.Effect<void>;
   /** Load a child plugin; it unloads with this one and shares its namespace by default. */
   plugin(child: Plugin): Effect.Effect<PluginHandle, PluginError>;
 }
@@ -140,16 +127,6 @@ interface PointSlot {
   readonly byId: Map<string, Contribution<unknown>>;
 }
 
-interface Listener {
-  readonly owner: string;
-  readonly run: (payload: unknown) => Effect.Effect<void, PluginError>;
-}
-
-interface EventSlot {
-  readonly key: Key<"event", unknown>;
-  readonly listeners: Listener[];
-}
-
 function refusal(plugin: string, reason: PluginErrorReason, message: string): PluginError {
   return new PluginError({ plugin, reason, message });
 }
@@ -173,7 +150,6 @@ interface State {
   readonly entries: Map<string, Entry>;
   readonly services: Map<string, ServiceSlot>;
   readonly points: Map<string, PointSlot>;
-  readonly events: Map<string, EventSlot>;
   readonly subscribers: Set<() => void>;
   version: number;
 }
@@ -376,45 +352,6 @@ const contributeErased = Effect.fnUntraced(function* (
   return contribution;
 });
 
-const onErased = Effect.fnUntraced(function* (
-  state: State,
-  entry: Entry,
-  event: Key<"event", unknown>,
-  listener: Listener,
-) {
-  const scope = yield* scopeOf(entry);
-  const existing = state.events.get(event.name);
-  yield* claim(entry.name, existing?.key, event);
-  const slot: EventSlot = existing ?? { key: event, listeners: [] };
-  state.events.set(event.name, slot);
-  slot.listeners.push(listener);
-  yield* Scope.addFinalizer(
-    scope,
-    Effect.sync(() => {
-      slot.listeners.splice(slot.listeners.indexOf(listener), 1);
-    }),
-  );
-});
-
-const emitErased = Effect.fnUntraced(function* (
-  state: State,
-  event: Key<"event", unknown>,
-  payload: unknown,
-) {
-  const slot = state.events.get(event.name);
-  if (slot?.key !== event) return;
-  // A copy: a handler may unload a plugin and splice the list under us.
-  for (const listener of slot.listeners.slice()) {
-    const exit = yield* Effect.exit(listener.run(payload));
-    if (Exit.isFailure(exit)) {
-      yield* Effect.logWarning(
-        `kb plugin ${listener.owner}: ${event.name} handler failed`,
-        Cause.pretty(exit.cause),
-      );
-    }
-  }
-});
-
 function contextFor(state: State, entry: Entry): PluginContext {
   return {
     name: entry.name,
@@ -425,12 +362,6 @@ function contextFor(state: State, entry: Entry): PluginContext {
       contributeErased(state, entry, point, item).pipe(
         Effect.map((contribution) => ({ ...contribution, value: item.value })),
       ),
-    on: (event, handler) =>
-      onErased(state, entry, event, {
-        owner: entry.name,
-        run: (payload) => handler(asKeyType(event, payload)),
-      }),
-    emit: (event, payload) => emitErased(state, event, payload),
     plugin: (child) => loadEntry(state, child, entry),
   };
 }
@@ -445,7 +376,6 @@ export function makeKernel(): Kernel {
     entries: new Map(),
     services: new Map(),
     points: new Map(),
-    events: new Map(),
     subscribers: new Set(),
     version: 0,
   };
