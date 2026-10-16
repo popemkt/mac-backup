@@ -80,12 +80,22 @@ or a password. The agent cannot do these, so do them in order on a new machine.
    ```bash
    gh repo clone popemkt/mac-backup ~/.dotfiles
    cd ~/.dotfiles && git config core.hooksPath .githooks
+   git config user.name "<name>" && git config user.email "<email>"
    ```
+
+   A fresh machine has no Git identity, so the first commit fails without the
+   last line. Until the switch installs them, the commit gate's tools (`jq`,
+   `nixfmt`, `statix`, `deadnix`) come from the flake's dev shell: commit
+   inside `nix develop`.
 
 5. **Tailscale console (needs an admin account):**
    - Create the services `t3-popemkt` and `t3-bytetum`. Enter the names
      without the `svc:` prefix; the console rejects it. The policy file refers
      to them as `svc:t3-popemkt` and `svc:t3-bytetum`.
+   - Give each service exactly one port, `tcp:443`: the host serves HTTPS on
+     443 and proxies it to the local port. Any other port shows up as "some
+     required ports are missing". The local ports `3773`/`3774` never go in
+     the console.
    - Create an auth key with `tag:shared-server` selected, and note its expiry.
      The key is used later by `scripts/shared-server-secrets apply`.
    - The policy rerun (see [Secrets and manual steps after the switch](#secrets-and-manual-steps-after-the-switch))
@@ -102,6 +112,7 @@ or a password. The agent cannot do these, so do them in order on a new machine.
 |---|---|
 | Identity | Host name `shared-server`, `x86_64-linux`, `system.stateVersion = "26.05"` from the installer, never changed |
 | Accounts | `popemkt` and `bytetum` (`my.people`), both in `wheel` and `networkmanager`, zsh. No passwords in the repo |
+| Root | Passwordless `sudo` for `wheel`, so agents driven through T3 Code can run it. Anything an agent runs can become root |
 | Access | No `services.openssh`. The local screen (Plasma, or a text console with Ctrl+Alt+F3) is the recovery path |
 | Desktop | The installer's desktop, kept in `hosts/shared-server/default.nix`: Plasma 6 on SDDM, PipeWire sound, CUPS printing, Firefox |
 | Laptop as server | `services.logind.settings.Login.HandleLidSwitch*` = `ignore`, so closing the lid never suspends |
@@ -141,6 +152,11 @@ NixOS older than nixos-rebuild-ng the flag is `--use-remote-sudo`.
 `test` first: if networking or the console breaks, a reboot returns to the
 installer configuration.
 
+Before the host joins the tailnet, both commands report
+`tailscale-services.service` as failed and exit with status 4, after the
+reconciler waits about two minutes for a login. That is expected: the system
+is fully applied, and the unit goes green once `apply` joins the tailnet.
+
 Run the switch from a terminal that the switch does not stop. A switch never
 restarts the display manager, so a desktop terminal is safe while the new
 configuration keeps the desktop. A configuration that drops the desktop stops
@@ -165,8 +181,10 @@ These are control-plane or secret state and never belong in the repo.
 1. **Secrets go through a file the agent never reads.** Run
    `scripts/shared-server-secrets init`, then ask the person to fill in
    `~/shared-server-secrets.env` themselves. Do not open, print, or grep that
-   file: anything an agent reads enters its transcript. When they say it is
-   filled, run `scripts/shared-server-secrets apply`, which sets the
+   file: anything an agent reads enters its transcript. `init` creates it
+   owner-only; if the person recreates it, they `chmod 600` it first.
+   `apply` uses `sudo`, so before passwordless sudo is live the person runs
+   it. When they say it is filled, run `scripts/shared-server-secrets apply`, which sets the
    passwords, joins the tailnet with the auth key, and deletes the file. If
    it fails, report the error and leave the file for the person to fix.
 2. `tag:shared-server` is already in the applied policy, so a tagged auth key
@@ -175,8 +193,12 @@ These are control-plane or secret state and never belong in the repo.
    them. The full sequence is
    [First Tailnet Or Replacement Host](tailscale.md#first-tailnet-or-replacement-host).
 3. Each person, in their own account: sign in to Claude Code (`claude`) and
-   Codex (`codex`), then pair their devices with their T3 Code server
-   (`t3 pair`). bytetum changes the temporary password with `passwd`.
+   Codex (`codex`), then pair their devices with their T3 Code server.
+   Pairing runs on the server as the server's person, `t3 pair --label
+   <device>` (bytetum's: `sudo -u bytetum -i t3 pair --label <device>`); the
+   token lasts five minutes and is a credential, so the person runs it, not
+   an agent. Never add `--tailscale`: `tailscale-services` already publishes
+   the server. bytetum changes the temporary password with `passwd`.
 
 ## Done when
 

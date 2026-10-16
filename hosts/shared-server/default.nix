@@ -54,6 +54,10 @@
     };
   };
   security.rtkit.enable = true;
+  # Agents driven through T3 Code run as their person and cannot answer a
+  # password prompt, so sudo needs none here. This makes anything an agent
+  # runs able to become root.
+  security.sudo.wheelNeedsPassword = false;
   programs.firefox.enable = true;
 
   # Passwords are machine state (scripts/shared-server-secrets), never declared.
