@@ -364,3 +364,45 @@ in) → P13 → P14 → the rest.
 - **Page records inside one canvas document.**
 - **LAN sharing of a board.** kb's tabs already share one store live over
   `/ws`.
+
+## P1–P5: what landed
+
+Branch `worktree-agent-ac8eaa87f14da65c0`, built on `868221d1`. Each step is
+a restructure commit followed by a feature commit, except where noted.
+
+| Step | Commits | What it is |
+|---|---|---|
+| P1 | `37ffc6ab` refactor | One `styleOf` reader for every colour any renderer paints. |
+| P2 | `ca472c40` feat | An item's looks (`style`: fill, dash, size, font, align, valign, opacity), a named palette, and one `itemPaint` that both projections draw. |
+| P3 | `fa32e8cc` refactor, `1949ded2` fix, `7f8bc3c1` feat | An edge's route is one `@kb/canvas` reading (`edgeRoute`). Every field round-trips through one table (`fields.ts`). Edges gain anchors anywhere on the outline, `straight`, `arc` and `elbow` routes with `bend`, heads at both ends, and line looks. |
+| P4 | `1ae11764` feat | A `path` item, made by the line and arrow tools, drawn in both projections from one `itemOutline`. |
+| P5 | `00299c41` refactor, `a5ede707` feat, `d7613c06` refactor, `bfcc8c32` feat | One shortcut table. Align, distribute, flip and order. H for the hand, and a `?` sheet. One `withFlag`, then `locked`. |
+
+**Fields** (DESIGN.md, the canvas field table):
+- item `style`
+- edge `fromAnchor`/`toAnchor`, `route`, `bend`, `fromHead`/`toHead` and `style` (dash, size and opacity)
+- the `path` item's `points`, `closed`, `fromHead` and `toHead`
+- item `locked`
+
+Each one is read and written through the field tables. Each keeps a value kb cannot read until kb writes that field.
+
+**Agent.** It reaches all of this through the existing verbs:
+- `place` makes items in looks, and lines or arrows from points.
+- `connect` takes anchors, sides, route, bend, heads and looks.
+- `arrange` aligns, distributes, orders or flips.
+- `describe` reports looks, heads, routes and `locked`.
+- The verbs that change named items refuse one that is locked.
+
+**Contracts.** `canvas-look.contract.test.tsx` holds both projections to one model for:
+- item looks
+- edge route, line and heads
+- line points and heads
+
+**Placeholders (the parent mints ids):**
+- `GAP [[TBD-path-pick]]`: a path is picked by its box, not by its stroke.
+- `GAP [[TBD-path-points]]`: a path's points are set by the format or `place`. They have no handles to drag.
+- `GAP [[TBD-locked-gizmo]]`: the 3D gizmo still shows over a locked selection, though it moves nothing.
+- Decision, not a gap: the inspector still edits a locked item field by field, as `tx.apply` does. Locked holds the item against acts that take it, not against explicit edits.
+- Decision, not a gap: an edge's dash lives in its `style.dash`, the same field an item's does. It is not a top-level edge field.
+- Process note: P4's restructure (`itemOutline` as the single outline answer) landed inside its feature commit rather than as a commit of its own.
+- The shortcut sheet lists the table. The ⌘K palette does not list canvas shortcuts.
