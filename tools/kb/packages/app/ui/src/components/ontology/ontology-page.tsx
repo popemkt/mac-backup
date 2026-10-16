@@ -23,6 +23,7 @@ import { mutations } from "@/actions/mutations";
 import { MemberRow } from "@/components/ontology/member-row";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 
 export interface OntologyPageProps {
@@ -37,10 +38,10 @@ export interface OntologyPageProps {
  * that makes it legible. Schema / Relations / View (r5 §1.5) are parked.
  */
 export function OntologyPage({ ontologyId }: OntologyPageProps) {
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
+  const wireNodes = useGraphStore((s) => s.wireNodes);
   const nodes = useOutlineStore((s) => s.nodes);
-  const queryDb = useOutlineStore((s) => s.index);
-  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
+  const queryDb = useGraphStore((s) => s.index);
+  const generation = useGraphStore((s) => s.index?.generation ?? 0);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
 
   const byId = useMemo(() => new Map(wireNodes.map((n) => [n.id, n])), [wireNodes]);

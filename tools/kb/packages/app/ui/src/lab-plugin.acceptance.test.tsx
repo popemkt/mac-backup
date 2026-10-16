@@ -58,7 +58,7 @@ const { setPostAction } = await import("@/api/action");
 const { navigate } = await import("@kb/ui-sdk");
 const { servedManifest } = await import("@/lib/manifest");
 const { useUiStore } = await import("@/stores/ui.store");
-const { useOutlineStore } = await import("@/stores/outline.store");
+const { useGraphStore } = await import("@/stores/graph.store");
 
 const ISO = "2026-09-24T00:00:00.000Z";
 
@@ -280,9 +280,7 @@ describe("lab plugin, switched on the server (acceptance)", () => {
       updatedAt: at,
     });
     server.lab = true;
-    act(() =>
-      useOutlineStore.getState().applyTx([switchNode(true, "2026-09-24T00:00:01.000Z")], []),
-    );
+    act(() => useGraphStore.getState().applyTx([switchNode(true, "2026-09-24T00:00:01.000Z")], []));
     await until(() => labRow() !== undefined);
     expect(reportedLab()).toBe(true);
     expect(labRow()).toBeDefined();
@@ -290,7 +288,7 @@ describe("lab plugin, switched on the server (acceptance)", () => {
 
     server.lab = false;
     act(() =>
-      useOutlineStore.getState().applyTx([switchNode(false, "2026-09-24T00:00:02.000Z")], []),
+      useGraphStore.getState().applyTx([switchNode(false, "2026-09-24T00:00:02.000Z")], []),
     );
     await until(() => labRow() === undefined);
     expect(reportedLab()).toBe(false);

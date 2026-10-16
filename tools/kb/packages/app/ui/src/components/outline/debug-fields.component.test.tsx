@@ -12,7 +12,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { FieldsSection } from "./fields-section";
 
@@ -41,7 +41,7 @@ function graph(): WireNode[] {
 
 function seed() {
   resetOutlineStore();
-  useOutlineStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+  useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
   useDebugFieldsStore.setState({ ids: new Set() });
 }
 

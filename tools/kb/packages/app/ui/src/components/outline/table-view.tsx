@@ -5,7 +5,6 @@ import {
   bulletClickIntent,
   childInstanceKey,
   cn,
-  fieldContextOf,
   NodeRow,
   nodeTarget,
   outlineInstanceKey,
@@ -23,7 +22,7 @@ import { frameRows } from "@/lib/frame-rows";
 import { resolveTableColumns, type TableColumnSpec } from "@/lib/view-config";
 import { type SortSpec, type ParamsOf, OutlineTableView } from "@kb/views";
 import { useDebugFields } from "@/stores/debug-fields.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useFieldContext, useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { NodeField } from "./fields-section";
@@ -76,7 +75,7 @@ export function TableView({
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
-  const storeContext = useOutlineStore(fieldContextOf);
+  const storeContext = useFieldContext();
   const context = contextProp ?? storeContext;
   const schema = context.schema;
 

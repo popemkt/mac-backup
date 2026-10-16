@@ -52,12 +52,13 @@ import { findParentWire } from "@/lib/tx";
 import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
 import { typeRefsOf } from "@kb/model";
+import { useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { invoke, invokeLocal, pushInvocation, writeLocal } from "@/session/runtime";
 import type { Hold } from "@/session/replica";
 
 function wire(): WireNode[] {
-  return useOutlineStore.getState().wireNodes;
+  return useGraphStore.getState().wireNodes;
 }
 
 /** Block edits on sys.* in the UI with a toast (core also enforces). */
@@ -68,14 +69,14 @@ function guardSysWrite(id: string): boolean {
 }
 
 function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
-  useOutlineStore.getState().recordUndo({
+  useGraphStore.getState().recordUndo({
     undo: restoreInvocations(wire(), preWire),
     redo: plan.actions,
   });
 }
 
 async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promise<boolean> {
-  const localOnly = useOutlineStore.getState().loadSource !== "api";
+  const localOnly = useGraphStore.getState().loadSource !== "api";
   for (const action of actions) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- history is ordered for structural dependencies
     const receipt = localOnly ? await invokeLocal(action) : await invoke(action.id, action.input);
@@ -89,7 +90,7 @@ async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promis
 
 async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
   if (!plan) return false;
-  const preWire = useOutlineStore.getState().wireNodes;
+  const preWire = useGraphStore.getState().wireNodes;
   const result = await runOptimistic(plan);
   if (result.ok) recordHistory(preWire, plan);
   return result.ok;
@@ -112,10 +113,12 @@ async function editFrameView(frameId: string, edit: FrameViewEdit): Promise<void
 
 /** The frame settings a frame's view node holds now. */
 async function frameConfig(frameId: string): Promise<ViewConfig> {
-  const state = useOutlineStore.getState();
   const { frameConfigOf } = await import("@/lib/view-config");
   const { schemaOf } = await import("@kb/ui-sdk");
-  return frameConfigOf(state.nodes.get(frameId), schemaOf(state));
+  return frameConfigOf(
+    useOutlineStore.getState().nodes.get(frameId),
+    schemaOf(useGraphStore.getState()),
+  );
 }
 
 /**
@@ -132,7 +135,7 @@ type PendingContent = {
 const pendingContent = new Map<string, PendingContent>();
 
 async function flushContentRemote(id: string, pending: PendingContent): Promise<void> {
-  const store = useOutlineStore.getState();
+  const store = useGraphStore.getState();
   if (store.loadSource === "fixtures" || store.loadSource === null) return;
 
   try {
@@ -178,7 +181,7 @@ export const mutations = {
   async updateNodeContent(id: string, content: string): Promise<void> {
     if (!guardSysWrite(id)) return;
 
-    const store = useOutlineStore.getState();
+    const store = useGraphStore.getState();
     const prev = pendingContent.get(id);
     if (!store.wireNodes.some((node) => node.id === id)) return;
 
@@ -378,7 +381,7 @@ export const mutations = {
    */
   async indentNode(id: string, cursor?: number): Promise<void> {
     if (!guardSysWrite(id)) return;
-    const store = useOutlineStore.getState();
+    const store = useGraphStore.getState();
     const parent = findParentWire(store.wireNodes, id);
     const siblings = parent ? parent.children : forestRootIds(store.wireNodes);
     const idx = siblings.indexOf(id);
@@ -404,7 +407,7 @@ export const mutations = {
   /** Shift+Tab outdent; caret stays at its exact offset (spec §3.1). */
   async outdentNode(id: string, cursor?: number): Promise<void> {
     if (!guardSysWrite(id)) return;
-    const store = useOutlineStore.getState();
+    const store = useGraphStore.getState();
     const plan = planOutdent(store.wireNodes, id);
     if (!plan) return;
     const preWire = store.wireNodes;
@@ -426,14 +429,14 @@ export const mutations = {
 
   /** D19: undo through inverse invocations of the same shared actions. */
   async undo(): Promise<boolean> {
-    const entry = useOutlineStore.getState().applyUndo();
+    const entry = useGraphStore.getState().applyUndo();
     if (!entry) return false;
     return invokeAll(entry.undo);
   },
 
   /** D19: redo the last undone mutation. */
   async redo(): Promise<boolean> {
-    const entry = useOutlineStore.getState().applyRedo();
+    const entry = useGraphStore.getState().applyRedo();
     if (!entry) return false;
     return invokeAll(entry.redo);
   },
@@ -544,7 +547,7 @@ export const mutations = {
    * could not be stored.
    */
   async uploadAsset(file: File): Promise<string | null> {
-    const store = useOutlineStore.getState();
+    const store = useGraphStore.getState();
     if (store.loadSource === "fixtures" || store.loadSource === null) {
       toast("Cannot upload assets without a live kb server");
       return null;
@@ -593,7 +596,7 @@ export const mutations = {
       // The whole graph, not the projection: the row may be a reference whose
       // target sits outside the current scope, and its text must not be read
       // as empty and overwritten.
-      const node = useOutlineStore.getState().wireNodes.find((n) => n.id === nodeId);
+      const node = useGraphStore.getState().wireNodes.find((n) => n.id === nodeId);
       const alt = file.name.replace(/\.[^.]+$/, "") || "file";
       const md = `![${alt}](${path})`;
       const next =

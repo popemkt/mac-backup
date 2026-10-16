@@ -12,7 +12,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { fieldContextOf, type PropValue } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineSource } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { FieldValueStack } from "./fields-section";
 
@@ -24,7 +25,7 @@ function wire(partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireN
 
 function seed() {
   resetOutlineStore();
-  useOutlineStore
+  useGraphStore
     .getState()
     .hydrateFromWire(
       [
@@ -75,7 +76,7 @@ describe("ref slot focus behaviour", () => {
           fieldId="f.link"
           fieldType="ref"
           values={values}
-          context={fieldContextOf(useOutlineStore.getState())}
+          context={fieldContextOf(outlineSource())}
           readOnly={false}
           onFollow={() => undefined}
         />,

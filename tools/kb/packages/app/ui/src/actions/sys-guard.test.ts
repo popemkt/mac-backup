@@ -3,6 +3,7 @@ import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
@@ -12,7 +13,7 @@ describe("sys.* UI write-guard", () => {
   beforeEach(() => {
     resetOutlineStore();
     useUiStore.setState({ toasts: [] });
-    useOutlineStore
+    useGraphStore
       .getState()
       .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
   });
@@ -58,7 +59,7 @@ describe("sys.* UI write-guard", () => {
     };
     const sysTag = cloneWire(present(useOutlineStore.getState().nodes.get("sys.tag"), "sys.tag"));
     sysTag.children = [child.id];
-    useOutlineStore
+    useGraphStore
       .getState()
       .hydrateFromWire([...fixtureGraph.nodes, sysTag, child], fixtureGraph.rev, "fixtures");
 
@@ -83,7 +84,7 @@ describe("sys.* UI write-guard", () => {
     };
     const sysTag = cloneWire(present(useOutlineStore.getState().nodes.get("sys.tag"), "sys.tag"));
     sysTag.children = [child.id];
-    useOutlineStore
+    useGraphStore
       .getState()
       .hydrateFromWire([...fixtureGraph.nodes, sysTag, child], fixtureGraph.rev, "fixtures");
 

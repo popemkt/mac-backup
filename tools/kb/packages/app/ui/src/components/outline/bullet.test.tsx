@@ -33,6 +33,7 @@ import {
   type OutlineNode,
   type TagBadge,
 } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
@@ -252,7 +253,7 @@ describe("the outline's bullet draws the one description (lib/bullet-mode)", () 
 
 function seedRefRow() {
   resetOutlineStore();
-  useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 
 describe("reference-row bullet click parity", () => {
@@ -323,8 +324,9 @@ describe("reference-row bullet click parity", () => {
     clickBullet(bullet);
 
     const s = useOutlineStore.getState();
+    const graph = useGraphStore.getState();
     expect(present(s.nodes.get("n.root-a"), "n.root-a").collapsed).toBe(false);
-    expect(s.rootNodeId).toBe(WORKSPACE_ROOT_ID);
+    expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
   });
 
   it("a modifier click focuses the reference target without toggling", async () => {
@@ -333,7 +335,8 @@ describe("reference-row bullet click parity", () => {
     clickBullet(bullet, true);
 
     const s = useOutlineStore.getState();
-    expect(s.rootNodeId).toBe("n.root-a");
+    const graph = useGraphStore.getState();
+    expect(graph.rootNodeId).toBe("n.root-a");
     expect(present(s.nodes.get("n.root-a"), "n.root-a").collapsed).toBe(true);
   });
 });

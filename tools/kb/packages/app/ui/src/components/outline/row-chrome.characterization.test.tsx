@@ -16,6 +16,7 @@ import { queryResultInstanceKey, syncUiPlugins, SYSTEM_IDS, WORKSPACE_ROOT_ID } 
 import { outlineUiPlugin } from "./plugin";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";
@@ -85,7 +86,7 @@ describe("row chrome", () => {
 
   beforeEach(() => {
     resetOutlineStore();
-    useOutlineStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+    useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
     container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
     dom.window.document.body.appendChild(container as unknown as never);
     root = createRoot(container);

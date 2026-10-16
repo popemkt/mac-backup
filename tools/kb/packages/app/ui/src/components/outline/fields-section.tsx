@@ -18,7 +18,7 @@ import {
 } from "@kb/ui-sdk";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { useGraphRead } from "@/stores/graph-read";
-import { useOutlineStore } from "@/stores/outline.store";
+import { outlineSource, useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { arriveAt, slotAt } from "@/lib/value-slot-nav";
 import { FieldRow } from "./field-row";
@@ -234,7 +234,8 @@ function useFieldHandle({
       if (instanceKey === undefined) return;
       const s = store();
       if (way === "back") s.selectNode(nodeId, instanceKey);
-      else if (way === "up") s.activateNode(nodeId, rowTextOf(s, nodeId).text.length, instanceKey);
+      else if (way === "up")
+        s.activateNode(nodeId, rowTextOf(outlineSource(), nodeId).text.length, instanceKey);
       else {
         const next = s.getNextVisibleInstance(instanceKey);
         if (next !== null) s.activateNode(next.nodeId, 0, next.instanceKey);

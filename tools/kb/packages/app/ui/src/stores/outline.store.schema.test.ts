@@ -17,7 +17,8 @@ import {
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
 import { backlinkRows } from "@/lib/backlinks";
-import { useOutlineStore } from "./outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { useOutlineStore } from "@/stores/outline.store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
@@ -75,27 +76,29 @@ function wire(): WireNode[] {
 
 describe("schema lookups under an ontology scope", () => {
   beforeEach(() => {
-    useOutlineStore.getState().hydrateFromWire(wire(), 1, "fixtures");
-    useOutlineStore.getState().setOntologyScope("o.1");
+    useGraphStore.getState().hydrateFromWire(wire(), 1, "fixtures");
+    useGraphStore.getState().setOntologyScope("o.1");
   });
 
   it("the projection holds members only; the schema holds the whole graph", () => {
     const s = useOutlineStore.getState();
+    const graph = useGraphStore.getState();
     expect(s.nodes.has("f.status")).toBe(false);
     expect(s.nodes.has(TAG)).toBe(false);
-    expect(schemaOf(s).has("f.status")).toBe(true);
+    expect(schemaOf(graph).has("f.status")).toBe(true);
     // A schema is one object per snapshot: leaving the scope, or expanding
     // and collapsing, does not make a new one (memos keyed on it survive).
-    const scopedSchema = schemaOf(s);
-    s.setOntologyScope(null);
-    expect(schemaOf(useOutlineStore.getState())).toBe(scopedSchema);
+    const scopedSchema = schemaOf(graph);
+    graph.setOntologyScope(null);
+    expect(schemaOf(useGraphStore.getState())).toBe(scopedSchema);
     useOutlineStore.getState().toggleCollapse("n.a");
-    expect(schemaOf(useOutlineStore.getState())).toBe(scopedSchema);
+    expect(schemaOf(useGraphStore.getState())).toBe(scopedSchema);
   });
 
   it("an option set, its display and its allowed refs resolve as unscoped", () => {
     const s = useOutlineStore.getState();
-    const schema = schemaOf(s);
+    const graph = useGraphStore.getState();
+    const schema = schemaOf(graph);
     const field = schema.get("f.status");
     expect(field?.children).toEqual(["opt.open", "opt.done"]);
     expect(resolveFieldTypeById("f.status", schema)).toBe("ref");
@@ -105,8 +108,8 @@ describe("schema lookups under an ontology scope", () => {
       "f.status",
       field,
       schema,
-      s.index,
-      s.index?.generation ?? 0,
+      graph.index,
+      graph.index?.generation ?? 0,
     );
     expect(allowed === null ? null : [...allowed].toSorted()).toEqual(["opt.done", "opt.open"]);
     // The member's field row is named from the field node, not its raw id.
@@ -120,16 +123,17 @@ describe("schema lookups under an ontology scope", () => {
   });
 
   it("zooming to a non-member tag leaves the scope", () => {
-    useOutlineStore.getState().zoomTo(TAG);
-    const s = useOutlineStore.getState();
+    useGraphStore.getState().zoomTo(TAG);
+    const s = useGraphStore.getState();
     expect(s.ontologyId).toBeNull();
     expect(s.rootNodeId).toBe(TAG);
   });
 
   it("a member parented by a non-member field hangs off the ontology in the breadcrumbs", () => {
     const s = useOutlineStore.getState();
+    const graph = useGraphStore.getState();
     expect(s.nodes.get("n.opt")?.parentId).toBe("o.1");
-    s.zoomTo("n.opt");
+    graph.zoomTo("n.opt");
     const crumbs = useOutlineStore.getState().getBreadcrumbs();
     expect(crumbs.map((c) => c.id)).not.toContain("f.list");
   });
@@ -145,12 +149,12 @@ describe("a contextual reference under a scope", () => {
         [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.far" }],
       }),
     ];
-    useOutlineStore.getState().hydrateFromWire(graph, 1, "fixtures");
-    useOutlineStore.getState().setOntologyScope("o.1");
+    useGraphStore.getState().hydrateFromWire(graph, 1, "fixtures");
+    useGraphStore.getState().setOntologyScope("o.1");
     const s = useOutlineStore.getState();
     expect(s.nodes.has("n.far")).toBe(false);
     const ref = present(s.nodes.get("n.ref"), "member reference");
-    expect(rowText(ref, schemaOf(s))).toBe("far away");
+    expect(rowText(ref, schemaOf(useGraphStore.getState()))).toBe("far away");
   });
 });
 
@@ -161,11 +165,12 @@ describe("a member's backlinks under a scope", () => {
       // Not tagged, so not a member: a reference to the member n.a.
       node("n.pointer", "", { [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.a" }] }),
     ];
-    useOutlineStore.getState().hydrateFromWire(graph, 1, "fixtures");
-    useOutlineStore.getState().setOntologyScope("o.1");
+    useGraphStore.getState().hydrateFromWire(graph, 1, "fixtures");
+    useGraphStore.getState().setOntologyScope("o.1");
     const s = useOutlineStore.getState();
+    const g = useGraphStore.getState();
     expect(s.nodes.has("n.pointer")).toBe(false);
-    const rows = backlinkRows(s.index, schemaOf(s), "n.a");
+    const rows = backlinkRows(g.index, schemaOf(g), "n.a");
     expect(rows.find((r) => r.id === "n.pointer")?.text).toBe("alpha");
   });
 });
@@ -191,7 +196,7 @@ describe("transient prune reads content, not template slots", () => {
   }
 
   function transient(props: WireNode["props"]): string {
-    const store = useOutlineStore.getState();
+    const store = useGraphStore.getState();
     store.hydrateFromWire(graph(), 1, "fixtures");
     store.applyTx([node("n.new", "", props)], []);
     useOutlineStore.getState().markTransient("n.new");
@@ -217,11 +222,11 @@ describe("transient prune reads content, not template slots", () => {
 
 describe("an unscoped schema", () => {
   it("is the projection's snapshot, and a collapse does not replace it", () => {
-    useOutlineStore.getState().hydrateFromWire(wire(), 1, "fixtures");
-    const before = schemaOf(useOutlineStore.getState());
+    useGraphStore.getState().hydrateFromWire(wire(), 1, "fixtures");
+    const before = schemaOf(useGraphStore.getState());
     useOutlineStore.getState().toggleCollapse("n.a");
     const after = useOutlineStore.getState();
     expect(after.nodes).not.toBe(before);
-    expect(schemaOf(after)).toBe(before);
+    expect(schemaOf(useGraphStore.getState())).toBe(before);
   });
 });

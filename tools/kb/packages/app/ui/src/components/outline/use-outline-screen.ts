@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { SCREEN_APPLIED, screenRejected, type ScreenAck } from "@kb/contracts";
 import { outlineInstanceKey, type PaneCommand, type PaneSelection } from "@kb/ui-sdk";
 import { usePaneScreen } from "@/stores/screen.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { outlineHostOfInstance } from "@/stores/outline-hosts";
 import { useOutlineHost } from "./outline-host";
@@ -62,7 +63,7 @@ function selectInOutline(
  */
 export function useOutlineScreen(root: string | undefined): void {
   const host = useOutlineHost();
-  const zoomRoot = useOutlineStore((s) => s.rootNodeId);
+  const zoomRoot = useGraphStore((s) => s.rootNodeId);
   const focused = useOutlineStore((s) =>
     outlineHostOfInstance(s.activeInstanceKey) === host ? s.activeNodeId : null,
   );

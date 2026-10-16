@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { isTextEntry, useSlotChain, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { projectsRows } from "@kb/views";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";
@@ -23,7 +24,7 @@ import { useLeadsOutlines, useOutlineHost } from "./outline-host";
  */
 export function OutlineEditor({ root: rootProp }: { readonly root?: string | undefined }) {
   // Rooted at its own node in a pane, else at the outline's zoom.
-  const zoomRoot = useOutlineStore((s) => s.rootNodeId);
+  const zoomRoot = useGraphStore((s) => s.rootNodeId);
   const rootNodeId = rootProp ?? zoomRoot;
   const root = useOutlineStore((s) => s.nodes.get(rootNodeId));
   const rootView = useFrameView(root);

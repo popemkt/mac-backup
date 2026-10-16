@@ -11,7 +11,7 @@ import {
 } from "@kb/ui-sdk";
 import { frameViewNodeIdOf, frameViewThrough, type FrameView } from "@/lib/view-config";
 import { isFrameViewKey, type FrameViewKey } from "@kb/views";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 
 /** The frame views provided, in their pickers' order: live, as `ViewPoint` holds them. */
 export function useFrameViews(): readonly FamilyView<FrameViewKey>[] {
@@ -31,7 +31,7 @@ function useFrameViewKeys(): readonly FrameViewKey[] {
  * one node, so a host re-renders when its view node changes and not otherwise.
  */
 export function useFrameViewNode(frame: OutlineNode | undefined): OutlineNode | undefined {
-  return useOutlineStore((s) => {
+  return useGraphStore((s) => {
     const schema = schemaOf(s);
     const id = frameViewNodeIdOf(frame, schema);
     return id === null ? undefined : schema.get(id);

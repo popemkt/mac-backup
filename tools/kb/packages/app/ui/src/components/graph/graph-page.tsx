@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Result } from "effect";
 import { WarningIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { usePrefsStore, useAppearance, useSidebarToggle } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import {
@@ -52,11 +52,11 @@ export interface GraphPageProps {
 
 // oxlint-disable-next-line complexity -- GAP [[01M1MGCFTMWY5EYHEWP9QVH8Z9]]
 export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPageProps) {
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const queryDb = useOutlineStore((s) => s.index);
-  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const ontologyMembers = useOutlineStore((s) => s.ontologyMembers);
+  const wireNodes = useGraphStore((s) => s.wireNodes);
+  const queryDb = useGraphStore((s) => s.index);
+  const generation = useGraphStore((s) => s.index?.generation ?? 0);
+  const zoomTo = useGraphStore((s) => s.zoomTo);
+  const ontologyMembers = useGraphStore((s) => s.ontologyMembers);
   const theme = usePrefsStore((s) => s.theme);
   const appearance = useAppearance();
   const sidebar = useSidebarToggle();

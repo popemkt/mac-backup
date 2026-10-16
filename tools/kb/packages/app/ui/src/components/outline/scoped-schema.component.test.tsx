@@ -12,6 +12,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { FrameViewSlot } from "./frame-view-slot";
@@ -132,8 +133,8 @@ describe("a projected view under an ontology scope", () => {
 
   async function renderScoped(view: FramedView) {
     resetOutlineStore();
-    useOutlineStore.getState().hydrateFromWire(wire(view), 1, "fixtures");
-    useOutlineStore.getState().setOntologyScope("o.1");
+    useGraphStore.getState().hydrateFromWire(wire(view), 1, "fixtures");
+    useGraphStore.getState().setOntologyScope("o.1");
     const scoped = useOutlineStore.getState();
     // The premise: the schema is not in the projection.
     expect(scoped.nodes.has("f.status")).toBe(false);

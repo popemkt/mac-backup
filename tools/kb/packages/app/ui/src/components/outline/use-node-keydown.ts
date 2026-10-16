@@ -9,7 +9,8 @@ import {
   verticalArrowDecision,
   type VerticalNavDecision,
 } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineSource, useOutlineStore } from "@/stores/outline.store";
 import { fieldSlotCount } from "@/lib/value-slot-nav";
 import { applyEditingIntent } from "./editing-intents";
 import { mapEditingKey, type EditingKeyContext } from "./editing-keymap";
@@ -28,9 +29,9 @@ function readEditingContext(args: {
   const { nodeId, instanceKey, editable } = args;
   const store = useOutlineStore.getState();
   const live = store.nodes.get(nodeId);
-  const shown = rowTextOf(store, nodeId);
+  const shown = rowTextOf(outlineSource(), nodeId);
   // What the row reveals is its shown node's; open or closed is the row's.
-  const content = live ? shownNode(live, schemaOf(store)) : undefined;
+  const content = live ? shownNode(live, schemaOf(useGraphStore.getState())) : undefined;
   const parentId = live?.parentId ?? null;
   const parent = parentId === null ? undefined : store.nodes.get(parentId);
   return {
@@ -48,8 +49,8 @@ function readEditingContext(args: {
     siblingIndex: parent ? parent.children.indexOf(nodeId) : -1,
     previousInstance: store.getPreviousVisibleInstance(instanceKey),
     nextInstance: store.getNextVisibleInstance(instanceKey),
-    textLengthOf: (id) => rowTextOf(store, id).text.length,
-    ownsText: (id) => rowTextOf(store, id).textNodeId === id,
+    textLengthOf: (id) => rowTextOf(outlineSource(), id).text.length,
+    ownsText: (id) => rowTextOf(outlineSource(), id).textNodeId === id,
     readVerticalDecision: (key): VerticalNavDecision =>
       verticalArrowDecision({
         key: key === "ArrowUp" ? "ArrowUp" : "ArrowDown",

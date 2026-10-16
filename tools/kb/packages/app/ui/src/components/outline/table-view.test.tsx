@@ -15,7 +15,8 @@ import {
 import { frameConfigOf, getViewConfig } from "@/lib/view-config";
 import { OutlineListView, OutlineTableView, paramsFrom } from "@kb/views";
 import { Result } from "effect";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineSource, useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import type { WireNode } from "@kb/contracts";
 import { TableView } from "./table-view";
@@ -99,9 +100,14 @@ const mockWireNodes: WireNode[] = [
 
 /** The settings the table reads, decoded from frame1 the way its host decodes them. */
 function tableSettings() {
-  const state = useOutlineStore.getState();
   return Result.getOrThrow(
-    paramsFrom(OutlineTableView, frameConfigOf(state.nodes.get("frame1"), schemaOf(state))),
+    paramsFrom(
+      OutlineTableView,
+      frameConfigOf(
+        useOutlineStore.getState().nodes.get("frame1"),
+        schemaOf(useGraphStore.getState()),
+      ),
+    ),
   );
 }
 
@@ -111,12 +117,12 @@ function getStoreNodes() {
 
 describe("W7 TableView & ViewToolbar", () => {
   beforeEach(() => {
-    useOutlineStore.getState().hydrateFromWire(mockWireNodes, 1, "fixtures");
+    useGraphStore.getState().hydrateFromWire(mockWireNodes, 1, "fixtures");
     usePrefsStore.getState().setWidth("centered");
   });
 
   afterEach(() => {
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
     usePrefsStore.getState().setWidth("centered");
   });
 
@@ -151,7 +157,7 @@ describe("W7 TableView & ViewToolbar", () => {
         frameId: "frame1",
         settings: tableSettings(),
         nodes: getStoreNodes(),
-        context: fieldContextOf(useOutlineStore.getState()),
+        context: fieldContextOf(outlineSource()),
       }),
     );
 
@@ -171,7 +177,7 @@ describe("W7 TableView & ViewToolbar", () => {
         frameId: "frame1",
         settings: tableSettings(),
         nodes: getStoreNodes(),
-        context: fieldContextOf(useOutlineStore.getState()),
+        context: fieldContextOf(outlineSource()),
       }),
     );
     expect(html).toContain('data-field-row="true"');
@@ -184,7 +190,7 @@ describe("W7 TableView & ViewToolbar", () => {
         frameId: "frame1",
         settings: tableSettings(),
         nodes: getStoreNodes(),
-        context: fieldContextOf(useOutlineStore.getState()),
+        context: fieldContextOf(outlineSource()),
       }),
     );
     // One stack per cell, keyed by the field it shows, with one slot per value.
@@ -200,7 +206,7 @@ describe("W7 TableView & ViewToolbar", () => {
         frameId: "frame1",
         settings: tableSettings(),
         nodes: getStoreNodes(),
-        context: fieldContextOf(useOutlineStore.getState()),
+        context: fieldContextOf(outlineSource()),
         widthPref: "centered",
       }),
     );
@@ -212,7 +218,7 @@ describe("W7 TableView & ViewToolbar", () => {
         frameId: "frame1",
         settings: tableSettings(),
         nodes: getStoreNodes(),
-        context: fieldContextOf(useOutlineStore.getState()),
+        context: fieldContextOf(outlineSource()),
         widthPref: "full",
       }),
     );
@@ -228,7 +234,7 @@ describe("W7 TableView & ViewToolbar", () => {
         frameId: "frame1",
         settings: tableSettings(),
         nodes: getStoreNodes(),
-        context: fieldContextOf(useOutlineStore.getState()),
+        context: fieldContextOf(outlineSource()),
       }),
     );
 
@@ -250,7 +256,7 @@ describe("W7 TableView & ViewToolbar", () => {
         frameId: "frame1",
         settings: tableSettings(),
         nodes: getStoreNodes(),
-        context: fieldContextOf(useOutlineStore.getState()),
+        context: fieldContextOf(outlineSource()),
       }),
     );
 
@@ -305,7 +311,7 @@ describe("W7 TableView & ViewToolbar", () => {
           })
         : [n],
     );
-    useOutlineStore.getState().hydrateFromWire(legacy, 1, "fixtures");
+    useGraphStore.getState().hydrateFromWire(legacy, 1, "fixtures");
 
     await mutations.toggleViewSort("frame1", "f_score");
     await mutations.setColumnWidth("frame1", "f_score", 120);

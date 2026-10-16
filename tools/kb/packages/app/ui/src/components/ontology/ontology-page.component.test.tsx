@@ -10,7 +10,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
 import { SYSTEM_IDS } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { OntologyPage } from "./ontology-page";
 
 const ISO = "2026-08-23T00:00:00.000Z";
@@ -63,7 +63,7 @@ describe("OntologyPage (component)", () => {
   });
 
   beforeEach(() => {
-    useOutlineStore.getState().hydrateFromWire(wire(), 3, "fixtures");
+    useGraphStore.getState().hydrateFromWire(wire(), 3, "fixtures");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
@@ -128,7 +128,7 @@ describe("OntologyPage (component)", () => {
   });
 
   it("surfaces resolution warnings on the page", async () => {
-    useOutlineStore.getState().hydrateFromWire(
+    useGraphStore.getState().hydrateFromWire(
       [
         ...wire(),
         node("o.bad", "Broken", {

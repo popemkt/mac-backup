@@ -11,6 +11,7 @@ import { present } from "@kb/model";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "@/actions/mutations";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -24,7 +25,7 @@ afterAll(() => syncUiPlugins([]));
 
 function seed() {
   resetOutlineStore();
-  useOutlineStore
+  useGraphStore
     .getState()
     .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
 }
@@ -191,11 +192,11 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
   });
 
   it("§3.3: an empty transient node prunes when focus moves on", async () => {
-    const before = useOutlineStore.getState().wireNodes.length;
+    const before = useGraphStore.getState().wireNodes.length;
     const newId = await mutations.createTransientNode("n.root-c", null);
     const id = present(newId, "minted node");
     expect(useOutlineStore.getState().activeNodeId).toBe(id);
-    expect(useOutlineStore.getState().wireNodes.length).toBe(before + 1);
+    expect(useGraphStore.getState().wireNodes.length).toBe(before + 1);
 
     // Focus elsewhere → silent prune.
     await act(async () => {
@@ -203,7 +204,8 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     });
 
     const s = useOutlineStore.getState();
-    expect(s.wireNodes.length).toBe(before);
+    const graph = useGraphStore.getState();
+    expect(graph.wireNodes.length).toBe(before);
     expect(s.nodes.has(id)).toBe(false);
     expect(s.activeNodeId).toBe("n.root-b");
   });

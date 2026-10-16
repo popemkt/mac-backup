@@ -4,6 +4,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { EXPANDED_STORAGE_KEY, forestRootIds, wireToOutlineMap } from "@kb/ui-sdk";
 import { mergeTx } from "@/lib/tx";
 import { mutations } from "@/actions/mutations";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 
@@ -15,7 +16,7 @@ describe("stable outline ordering", () => {
       // node without localStorage
     }
     resetOutlineStore();
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
   });
 
   it("forest roots are sorted by id ascending", () => {
@@ -50,7 +51,7 @@ describe("stable outline ordering", () => {
 
   it("order survives JsonlStore-shaped id-sorted reload and re-edit", async () => {
     const idSorted = [...fixtureGraph.nodes].toSorted((a, b) => a.id.localeCompare(b.id));
-    useOutlineStore.getState().hydrateFromWire(idSorted, fixtureGraph.rev, "fixtures");
+    useGraphStore.getState().hydrateFromWire(idSorted, fixtureGraph.rev, "fixtures");
 
     const before = useOutlineStore.getState().nodes;
     const beforeRoots = [...present(before.get("__kb_root__"), "__kb_root__").children];
@@ -58,9 +59,9 @@ describe("stable outline ordering", () => {
 
     await mutations.updateNodeContent("n.root-a", "edited once");
 
-    const wireAfterEdit = useOutlineStore.getState().wireNodes;
+    const wireAfterEdit = useGraphStore.getState().wireNodes;
     const idSortedReload = [...wireAfterEdit].toSorted((a, b) => a.id.localeCompare(b.id));
-    useOutlineStore.getState().hydrateFromWire(idSortedReload, fixtureGraph.rev + 1, "api");
+    useGraphStore.getState().hydrateFromWire(idSortedReload, fixtureGraph.rev + 1, "api");
 
     for (let i = 0; i < 10; i++) {
       await mutations.updateNodeContent("n.root-a", `edited ${i}`);

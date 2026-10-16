@@ -16,7 +16,7 @@ import { approvalPoliciesOf } from "@kb/model";
 import type { KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { logWarn } from "@kb/ui-sdk";
 import { invokeSettled } from "@/session/runtime";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 
 /** The replica's approval policies, as one comparable value. */
@@ -26,9 +26,9 @@ function policiesKey(index: KbIndex | null): string {
 
 /** Fire `listener` when the replica's approval policies change; returns the unsubscribe. */
 function whenPoliciesChange(listener: () => void): () => void {
-  let generation = useOutlineStore.getState().index?.generation ?? -1;
-  let key = policiesKey(useOutlineStore.getState().index);
-  return useOutlineStore.subscribe(({ index }) => {
+  let generation = useGraphStore.getState().index?.generation ?? -1;
+  let key = policiesKey(useGraphStore.getState().index);
+  return useGraphStore.subscribe(({ index }) => {
     // Only a change to the graph can change a policy; anything else is not read.
     if ((index?.generation ?? -1) === generation) return;
     generation = index?.generation ?? -1;

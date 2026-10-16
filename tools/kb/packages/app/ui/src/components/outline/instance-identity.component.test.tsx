@@ -10,6 +10,7 @@ import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, queryResultInstanceKey, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
@@ -41,7 +42,7 @@ function queryWire(): WireNode {
 
 function seed(extra: WireNode[] = []) {
   resetOutlineStore();
-  useOutlineStore
+  useGraphStore
     .getState()
     .hydrateFromWire([...fixtureGraph.nodes, ...extra], fixtureGraph.rev, "fixtures");
 }
@@ -148,7 +149,7 @@ describe("instance identity (component)", () => {
   });
 
   it("zoomed view: outlineInstanceKey matches mounted row for edit focus", async () => {
-    useOutlineStore.getState().zoomTo("n.root-a");
+    useGraphStore.getState().zoomTo("n.root-a");
     const nodes = useOutlineStore.getState().nodes;
     const childKey = outlineInstanceKey("n.child-a1", nodes);
     expect(childKey).toBe("tree/n.root-a/n.child-a1");

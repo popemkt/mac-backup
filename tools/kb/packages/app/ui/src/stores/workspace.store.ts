@@ -37,7 +37,7 @@ import {
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { proposeView } from "@/lib/propose-view";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 
 export const WORKSPACE_STORAGE_KEY = "kb-workspace";
@@ -178,7 +178,7 @@ export function currentWorkspace(): WorkspaceStore {
  * keeps the node it is zoomed to (`/node/<id>`), since the zoom moves on.
  */
 function keptLayout(layout: LayoutTree): LayoutTree {
-  const zoom = useOutlineStore.getState().rootNodeId;
+  const zoom = useGraphStore.getState().rootNodeId;
   if (zoom === WORKSPACE_ROOT_ID) return layout;
   return layoutPanes(layout).reduce(
     (kept, pane) => (pane.path === "/" ? withPanePath(kept, pane.id, nodePath(zoom)) : kept),

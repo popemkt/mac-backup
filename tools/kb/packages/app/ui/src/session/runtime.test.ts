@@ -3,7 +3,7 @@ import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { DatascriptIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { invoke, invokeLocal, setBrowserLink, waitForBrowserPushes } from "@/session/runtime";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 
 describe("browser action runtime", () => {
   afterEach(() => {
@@ -12,7 +12,7 @@ describe("browser action runtime", () => {
   });
 
   it("changes the local index before the network push starts", async () => {
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
     const post = vi.fn(async (invocation) => ({
       status: "succeeded" as const,
       id: invocation.id,
@@ -25,7 +25,7 @@ describe("browser action runtime", () => {
     expect(post).not.toHaveBeenCalled();
 
     await invoked;
-    expect(useOutlineStore.getState().index?.getNode("n.root-a")?.text).toBe("local first");
+    expect(useGraphStore.getState().index?.getNode("n.root-a")?.text).toBe("local first");
     await waitForBrowserPushes();
     // The page names its own gesture: the person's.
     expect(post).toHaveBeenCalledWith({
@@ -36,21 +36,21 @@ describe("browser action runtime", () => {
   });
 
   it("answers a local read from the replica and pushes nothing", async () => {
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
     const post = vi.fn();
     setPostAction(post);
 
-    const projected = useOutlineStore.getState().wireNodes;
+    const projected = useGraphStore.getState().wireNodes;
     const receipt = await invoke("node.get", { id: "n.root-a", depth: 0 });
     expect(receipt).toMatchObject({ status: "succeeded", output: { node: { id: "n.root-a" } } });
     // A read commits nothing, so the outline is not re-projected.
-    expect(useOutlineStore.getState().wireNodes).toBe(projected);
+    expect(useGraphStore.getState().wireNodes).toBe(projected);
     await waitForBrowserPushes();
     expect(post).not.toHaveBeenCalled();
   });
 
   it("refuses a local write its field cannot hold, before anything is pushed", async () => {
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
     const post = vi.fn();
     setPostAction(post);
 
@@ -61,7 +61,7 @@ describe("browser action runtime", () => {
       setProps: [{ field: "sys.f.hidden", value: { t: "str", v: "yes" } }],
     });
     expect(receipt).toMatchObject({ status: "failed", code: "invalid_input" });
-    expect(useOutlineStore.getState().index?.getNode("n.root-a")?.props["sys.f.hidden"]).toBe(
+    expect(useGraphStore.getState().index?.getNode("n.root-a")?.props["sys.f.hidden"]).toBe(
       undefined,
     );
     await waitForBrowserPushes();
@@ -69,8 +69,8 @@ describe("browser action runtime", () => {
   });
 
   it("keeps fifty local node updates incremental", async () => {
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "fixtures");
-    const index = useOutlineStore.getState().index;
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "fixtures");
+    const index = useGraphStore.getState().index;
     expect(index).toBeInstanceOf(DatascriptIndex);
     if (!(index instanceof DatascriptIndex)) throw new Error("expected a DatascriptIndex");
     const before = index.rebuilds;
@@ -92,13 +92,13 @@ describe("browser action runtime", () => {
   });
 
   it("an equal confirming echo converges without duplicating the node", async () => {
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "fixtures");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "fixtures");
     await invokeLocal({ id: "node.update", input: { id: "n.root-a", text: "confirmed" } });
-    const local = useOutlineStore.getState().index?.getNode("n.root-a");
+    const local = useGraphStore.getState().index?.getNode("n.root-a");
     expect(local?.text).toBe("confirmed");
 
-    useOutlineStore.getState().applyTx(local ? [local] : [], [], { rev: 2 });
-    const matches = useOutlineStore
+    useGraphStore.getState().applyTx(local ? [local] : [], [], { rev: 2 });
+    const matches = useGraphStore
       .getState()
       .index?.storedNodes()
       .filter((node) => node.id === "n.root-a");
@@ -107,7 +107,7 @@ describe("browser action runtime", () => {
   });
 
   it("requests reconciliation when the remote confirmation fails", async () => {
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 7, "api");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 7, "api");
     const since = vi.fn();
     setBrowserLink({ since, fetchSnapshot: vi.fn(), retryAfter: vi.fn() });
     setPostAction(async (invocation) => ({

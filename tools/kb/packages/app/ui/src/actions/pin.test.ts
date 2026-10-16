@@ -13,6 +13,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { listPinnedNavItems } from "@/lib/sidebar-nav";
 import { contextualTargetOf, SYSTEM_IDS } from "@kb/ui-sdk";
 import { isPinned, pinnedRefIds } from "@/lib/pinned";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 
@@ -28,7 +29,7 @@ const PINNED_LIST = {
 
 function seed() {
   resetOutlineStore();
-  useOutlineStore
+  useGraphStore
     .getState()
     .hydrateFromWire(
       [
@@ -71,7 +72,7 @@ describe("pin toggle", () => {
   it("writes nothing to the pinned node itself", async () => {
     await mutations.togglePin("n.root-a");
     const wire = present(
-      useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-a"),
+      useGraphStore.getState().wireNodes.find((n) => n.id === "n.root-a"),
       "n.root-a",
     );
     const before = present(

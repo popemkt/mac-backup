@@ -24,7 +24,7 @@ import {
   type ViewProps,
 } from "@kb/ui-sdk";
 import { listOntologyNavItems } from "@/lib/sidebar-nav";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 
 const OntologyPage = lazy(() =>
   import("@/components/ontology/ontology-page").then((m) => ({ default: m.OntologyPage })),
@@ -37,15 +37,15 @@ const OntologyListPage = lazy(() =>
 
 /** The `#ontology` node the URL names, or undefined when the workspace holds none by that id. */
 function useOntologyNode(id: string) {
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
+  const wireNodes = useGraphStore((s) => s.wireNodes);
   return useMemo(() => wireNodes.find((n) => n.id === id && isOntologyNode(n)), [wireNodes, id]);
 }
 
 /** Scope chip fed from the store's resolved membership; none for an ontology that is not there. */
 export function OntologyChrome({ params }: { readonly params: OntologyScopeParams }) {
   const { id } = params;
-  const members = useOutlineStore((s) => s.ontologyMembers);
-  const warnings = useOutlineStore((s) => s.ontologyWarnings);
+  const members = useGraphStore((s) => s.ontologyMembers);
+  const warnings = useGraphStore((s) => s.ontologyWarnings);
   const onto = useOntologyNode(id);
   if (onto === undefined) return null;
   const label = textOr(onto.text.trim(), "Untitled ontology");
@@ -68,7 +68,7 @@ export function OntologyChrome({ params }: { readonly params: OntologyScopeParam
  */
 export function OntologySurface({ params }: ViewProps<OntologyScopeParams>) {
   const { id, view } = params;
-  const setOntologyScope = useOutlineStore((s) => s.setOntologyScope);
+  const setOntologyScope = useGraphStore((s) => s.setOntologyScope);
   const exists = useOntologyNode(id) !== undefined;
   useEffect(() => {
     if (!exists) return undefined;
@@ -112,7 +112,7 @@ export function OntologyListSurface() {
 
 export function OntologySection({ route }: { readonly route: MatchedRoute | null }) {
   const scope = paramsOf(route, OntologyScopeView);
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
+  const wireNodes = useGraphStore((s) => s.wireNodes);
   const ontologies = useMemo(() => listOntologyNavItems(wireNodes), [wireNodes]);
   const [creating, setCreating] = useState(false);
   const onNew = async () => {

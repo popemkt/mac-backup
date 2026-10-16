@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { planSetFieldHidden } from "@/actions/plan";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
@@ -128,8 +128,8 @@ describe("field visibility", () => {
   });
 
   it("planSetFieldHidden sets and unsets sys.f.hidden on field nodes", () => {
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
-    const wire = useOutlineStore.getState().wireNodes;
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    const wire = useGraphStore.getState().wireNodes;
 
     const hide = planSetFieldHidden(wire, "field.status", true);
     expect(hide.actions[0]).toEqual({

@@ -2,14 +2,14 @@ import { useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { navigate, ontologyPath } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 
 /**
  * All ontologies. No default ontology is seeded — an empty list is a legitimate
  * empty state, so this page also has to teach what an ontology is for.
  */
 export function OntologyListPage() {
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
+  const wireNodes = useGraphStore((s) => s.wireNodes);
   const items = useMemo(() => listOntologyItems(wireNodes), [wireNodes]);
   const [busy, setBusy] = useState(false);
 

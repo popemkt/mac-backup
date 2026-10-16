@@ -11,6 +11,7 @@ import { syncUiPlugins } from "@kb/ui-sdk";
 import { outlineUiPlugin } from "./plugin";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { OutlineTableView } from "@kb/views";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -18,7 +19,7 @@ import { NodeBlock } from "./node-block";
 
 function seed() {
   resetOutlineStore();
-  useOutlineStore
+  useGraphStore
     .getState()
     .hydrateFromWire([...fixtureGraph.nodes, ...viewFieldNodes], fixtureGraph.rev, "fixtures");
 }
@@ -60,7 +61,7 @@ describe("frame row parity (render vs nav)", () => {
 
   it("a paginated table frame navigates only to rows it renders", async () => {
     const { mutations } = await import("@/actions/mutations");
-    useOutlineStore.getState().zoomTo("n.root-a");
+    useGraphStore.getState().zoomTo("n.root-a");
     useOutlineStore.getState().toggleCollapse("n.root-a");
 
     await mutations.setFrameView("n.root-a", OutlineTableView);

@@ -19,7 +19,7 @@ import { ToolCallFailed, type ModelContextTool } from "@kb/webmcp";
 import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { setBrowserLink, waitForBrowserPushes } from "@/session/runtime";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { webMcpUiPlugin } from "@/webmcp";
@@ -93,7 +93,7 @@ describe("the page's WebMCP plugin", () => {
   });
 
   it("runs a local read on the replica and anything else on the server", async () => {
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
     const tools = installModelContext();
     const post = serverAnswering();
     setPostAction(post);
@@ -137,7 +137,7 @@ describe("the page's WebMCP plugin", () => {
   });
 
   it("reports a local write as failed when the server rejects it after the local commit", async () => {
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
     const tools = installModelContext();
     setPostAction(
       vi.fn(

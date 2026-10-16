@@ -1,6 +1,14 @@
+/**
+ * The outline editor's state: its projection of the graph (`nodes`, each node
+ * with its expansion), the row being edited and the row selected, the caret
+ * hand-off, the text-host registry, the rows it minted empty, and the pages
+ * its frames reveal. The graph it projects, the zoom root and the scope are
+ * the graph store's (`stores/graph.store.ts`); this store derives from it as
+ * its editing projection and holds no copy of it.
+ */
 import { create } from "zustand";
 import {
-  DatascriptIndex,
+  fieldContextOf,
   isProjectedInstance,
   isSysPrefixed,
   loadExpandedIds,
@@ -18,33 +26,31 @@ import {
   WORKSPACE_ROOT_ID,
   type CaretIntent,
   type FamilyView,
-  type KbIndex,
+  type FieldContext,
   type NodeMap,
+  type OutlineCommandApi,
   type OutlineNode,
+  type FieldContextSource,
   type SchemaIndex,
 } from "@kb/ui-sdk";
 import { isQueryNode } from "@kb/model";
-import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
-import { mergeTx } from "@/lib/tx";
 import {
   collectVisibleInstances,
   neighborVisibleInstance,
   type VisibleInstance,
 } from "@/lib/visible-instances";
-import type { ActionInvocation, WireNode } from "@kb/contracts";
 import type { FrameViewKey } from "@kb/views";
 import { providedFrameViews } from "@/stores/frame-views";
+import {
+  provideEditingProjection,
+  scopedWireOf,
+  useGraphStore,
+  type GraphChange,
+  type GraphStateData,
+} from "@/stores/graph.store";
 import { outlineHostOf, outlineHostOfInstance as walkHostOf } from "@/stores/outline-hosts";
-import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
 
 export type { VisibleInstance };
-
-const HISTORY_LIMIT = 50;
-
-interface UndoEntry {
-  undo: ActionInvocation[];
-  redo: ActionInvocation[];
-}
 
 export interface ActivateOpts {
   /**
@@ -55,17 +61,8 @@ export interface ActivateOpts {
 }
 
 interface OutlineState {
+  /** The outline's projection of the graph under its scope, with each node's expansion. */
   nodes: NodeMap;
-  wireNodes: WireNode[];
-  /**
-   * Query replica of the full graph. Built once in `hydrateFromWire`;
-   * `applyTx` is incremental; `rebuild` on snapshot resync. Same instance
-   * across ontology scope — only `nodes` is projected.
-   */
-  index: KbIndex | null;
-  rev: number;
-  rootNodeId: string;
-  homeRootId: string;
   /** Data-layer node id currently being edited. */
   activeNodeId: string | null;
   /** Render-instance key for the active editor (disambiguates duplicates). */
@@ -77,40 +74,13 @@ interface OutlineState {
    * is not editor state: ordinary store writes cannot make a host move.
    */
   pendingCaret: CaretIntent | null;
-  loadSource: "api" | "fixtures" | null;
-  loadError: string | null;
-  /**
-   * Active ontology scope (r5 §2.5). When set, the OUTLINE PROJECTION is
-   * restricted to resolved members; `wireNodes` and `index` stay global so
-   * mutations, backlinks, and #query nodes keep honest reach.
-   */
-  ontologyId: string | null;
-  ontologyMembers: Set<string> | null;
-  /** Non-fatal resolution warnings (cycle, bad EDN, unknown ref, cap). */
-  ontologyWarnings: string[];
-  /** rootNodeId to return to when the scope is left. */
-  preScopeRootId: string | null;
   /** Bumped on every activateNode so remounts re-place the caret. */
   focusSeq: number;
   /** Pending column-preservation target for the next activation (D11). */
   focusX: number | null;
   /** Session-minted transient node ids; empty ones prune on deactivate. */
   transientIds: Set<string>;
-  undoStack: UndoEntry[];
-  redoStack: UndoEntry[];
 
-  hydrateFromWire: (nodes: WireNode[], rev: number, source: "api" | "fixtures") => void;
-  /** Apply node-level delta (optimistic edits + WS tx). */
-  applyTx: (upserts: WireNode[], deletes: string[], opts?: { rev?: number }) => void;
-  /** Re-project after the shared local action advanced the existing index. */
-  syncFromIndex: () => void;
-  /** Full-snapshot resync (rev gap) that preserves zoom/selection/collapse. */
-  refreshFromWire: (nodes: WireNode[], rev: number) => void;
-  setRootNodeId: (id: string) => void;
-  /** Enter (id) / leave (null) an ontology scope. */
-  setOntologyScope: (id: string | null) => void;
-  zoomTo: (id: string) => void;
-  zoomHome: () => void;
   activateNode: (id: string, cursorPos?: number, instanceKey?: string, opts?: ActivateOpts) => void;
   placeCaret: (instanceKey: string, at: CaretIntent["at"]) => void;
   consumeCaret: (instanceKey: string) => CaretIntent | null;
@@ -122,15 +92,11 @@ interface OutlineState {
   expandAllInScope: () => void;
   collapseAllInScope: () => void;
   expandAncestors: (id: string) => void;
+  /** Reveal `id` in the outline: expand its ancestors, zoom out if needed, edit its row. */
   jumpToNode: (id: string) => void;
-  search: (query: string) => Array<{ id: string; text: string }>;
   /** Pages revealed per frame in paginating view modes (frame id -> pages). */
   framePages: Record<string, number>;
   revealMorePages: (frameId: string) => void;
-  /**
-   * The slots around the outline's root frame, as the outline host renders it:
-   * what the keyboard walk starts from, so it asks the slots' own rule.
-   */
   /** The frame views provided, in their pickers' order (`stores/frame-views`). */
   frameViews: () => readonly FamilyView<FrameViewKey>[];
   /** The rows outline host `host` (the main pane's by default) draws, in render order. */
@@ -141,12 +107,6 @@ interface OutlineState {
   getBreadcrumbs: () => Array<{ id: string; text: string }>;
   /** Register a session-minted transient node id (auto-prune candidate). */
   markTransient: (ids: string | string[]) => void;
-  /** Push an undo entry (trims redo tail). */
-  recordUndo: (entry: UndoEntry) => void;
-  /** Pop undoStack and move the same inverse-invocation pair to redoStack. */
-  applyUndo: () => UndoEntry | null;
-  /** Pop redoStack and move the same inverse-invocation pair to undoStack. */
-  applyRedo: () => UndoEntry | null;
 }
 
 /** Data half of `OutlineState` — every member that is not a function. */
@@ -158,29 +118,21 @@ export type OutlineStateData = {
 
 export const initialOutlineState: OutlineStateData = {
   nodes: new Map(),
-  wireNodes: [],
   framePages: {},
-  index: null,
-  rev: 0,
-  rootNodeId: WORKSPACE_ROOT_ID,
-  homeRootId: WORKSPACE_ROOT_ID,
   activeNodeId: null,
   activeInstanceKey: null,
   selectedNodeId: null,
   selectedInstanceKey: null,
   pendingCaret: null,
-  loadSource: null,
-  loadError: null,
-  ontologyId: null,
-  ontologyMembers: null,
-  ontologyWarnings: [],
-  preScopeRootId: null,
   focusSeq: 0,
   focusX: null,
   transientIds: new Set<string>(),
-  undoStack: [],
-  redoStack: [],
 };
+
+/** The schema the outline resolves against: the graph's (`schemaOf`). */
+function schemaNow(): SchemaIndex {
+  return schemaOf(useGraphStore.getState());
+}
 
 function collectExpanded(nodes: NodeMap): Set<string> {
   const ids = new Set<string>();
@@ -188,6 +140,12 @@ function collectExpanded(nodes: NodeMap): Set<string> {
     if (!n.collapsed && n.id !== WORKSPACE_ROOT_ID) ids.add(n.id);
   }
   return ids;
+}
+
+/** `expanded`, with the expansion kept in storage added to it. */
+function withStoredExpansion(expanded: Set<string>): Set<string> {
+  for (const id of loadExpandedIds()) expanded.add(id);
+  return expanded;
 }
 
 function collectSubtreeIds(nodeId: string, nodes: NodeMap, result: string[]): void {
@@ -224,60 +182,39 @@ function isExpandableOutlineNode(node: OutlineNode, schema: SchemaIndex): boolea
   return resolveProps(node, schema).length > 0;
 }
 
-interface Projection {
-  nodes: NodeMap;
-  ontologyMembers: Set<string> | null;
-  ontologyWarnings: string[];
-}
-
 /**
- * The single place a wire snapshot becomes the outline view model.
+ * The single place a graph state becomes the outline view model.
  *
- * The index is always the FULL graph — scope is a projection, not a sandbox,
- * so backlinks, `#query` nodes, and WS subscriptions keep global reach
- * (r5 §2.5). Only the array handed to `wireToOutlineMap` is restricted,
- * which is what makes keyboard nav and breadcrumbs scope for free. Search
- * goes through the index, then filters to the projection.
- *
- * `wireNodes` stays this wave: planners (`actions/plan.ts`) already read it,
- * and w5 owns the write path. `index.storedNodes()` would be a second copy
- * of the same snapshot.
+ * The graph store's index is always the FULL graph — scope is a projection,
+ * not a sandbox, so backlinks, `#query` nodes, and WS subscriptions keep
+ * global reach (r5 §2.5). Only the array handed to `wireToOutlineMap` is
+ * restricted (`scopedWireOf`), which is what makes keyboard nav and
+ * breadcrumbs scope for free.
  *
  * `previous` is the projection this one replaces; a node that projects to the
  * same value keeps its object (`wireToOutlineMap`). A fresh load has none.
  */
-function projectOutline(
-  wire: WireNode[],
-  expanded: Set<string>,
-  ontologyId: string | null,
-  index: KbIndex,
-  previous?: NodeMap,
-): Projection {
-  // `wire` is the whole graph: the projection resolves schema and the tag
+function projectOutline(graph: GraphStateData, expanded: Set<string>, previous?: NodeMap): NodeMap {
+  // `wireNodes` is the whole graph: the projection resolves schema and the tag
   // palette against it, whatever it shows (`lib/schema.ts`).
-  if (ontologyId === null) {
-    return {
-      nodes: wireToOutlineMap(wire, expanded, wire, previous),
-      ontologyMembers: null,
-      ontologyWarnings: [],
-    };
-  }
-  const resolution = resolveScope(wire, ontologyId, index, index.generation);
-  return {
-    nodes: wireToOutlineMap(
-      scopedWireNodes(wire, resolution.members, ontologyId),
-      expanded,
-      wire,
-      previous,
-    ),
-    ontologyMembers: resolution.members,
-    ontologyWarnings: resolution.warnings,
-  };
+  const nodes = wireToOutlineMap(scopedWireOf(graph), expanded, graph.wireNodes, previous);
+  // Unscoped, this projection stands for the snapshot's schema (`schemaOf`):
+  // it is handed in now, before any reader of the graph store can ask.
+  schemaOf({ ontologyId: graph.ontologyId, wireNodes: graph.wireNodes, nodes });
+  return nodes;
 }
+
+/** No row edited, none selected, no caret pending. */
+const NO_FOCUS = {
+  activeNodeId: null,
+  activeInstanceKey: null,
+  selectedNodeId: null,
+  selectedInstanceKey: null,
+} as const;
 
 /**
  * The instance to activate `id` at: the one named, else its row in the
- * outline being worked in (the host of the current selection).
+ * outline being worked in (the host of `working`, the current selection).
  */
 function resolveActivateKey(
   id: string,
@@ -318,27 +255,6 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
    */
   const mountedTextHosts = new Set<string>();
 
-  function syncFromIndex(): void {
-    const prev = get();
-    if (prev.index === null) return;
-    const wireNodes = prev.index.storedNodes();
-    const expanded = collectExpanded(prev.nodes);
-    for (const id of loadExpandedIds()) expanded.add(id);
-    const projection = projectOutline(wireNodes, expanded, prev.ontologyId, prev.index, prev.nodes);
-    const nodes = projection.nodes;
-    set({
-      wireNodes,
-      nodes,
-      ontologyMembers: projection.ontologyMembers,
-      ontologyWarnings: projection.ontologyWarnings,
-      rootNodeId: nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId,
-      selectedNodeId:
-        prev.selectedNodeId !== null && nodes.has(prev.selectedNodeId) ? prev.selectedNodeId : null,
-      activeNodeId:
-        prev.activeNodeId !== null && nodes.has(prev.activeNodeId) ? prev.activeNodeId : null,
-    });
-  }
-
   function fallBackFromMissingHost(instanceKey: string): void {
     const active = get();
     if (active.activeInstanceKey !== instanceKey || mountedTextHosts.has(instanceKey)) return;
@@ -352,234 +268,8 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     });
   }
 
-  /**
-   * Prune the outgoing active row when it is an empty session transient
-   * (r1 §3.3 auto-prune). nextId = incoming focus target; null when focus
-   * leaves the outline entirely.
-   */
-  function pruneOutgoingTransient(nextId: string | null): void {
-    const st = get();
-    const out = st.activeNodeId;
-    if (out === null || out === nextId) return;
-    const node = st.nodes.get(out);
-    if (!isPrunableTransient(node, out, st.transientIds, schemaOf(st))) return;
-    const nextWire = mergeTx(st.wireNodes, [], [out]);
-    const expanded = collectExpanded(st.nodes);
-    for (const id of loadExpandedIds()) expanded.add(id);
-    const nextTransient = new Set(st.transientIds);
-    nextTransient.delete(out);
-    const index = st.index ?? new DatascriptIndex(nextWire);
-    if (st.index !== null) {
-      ingestBrowserTx({ upserts: [], deletes: [out] });
-    }
-    const projection = projectOutline(nextWire, expanded, st.ontologyId, index, st.nodes);
-    set({
-      wireNodes: nextWire,
-      nodes: projection.nodes,
-      index,
-      ontologyMembers: projection.ontologyMembers,
-      ontologyWarnings: projection.ontologyWarnings,
-      transientIds: nextTransient,
-    });
-  }
-
-  /**
-   * A scope must never be a dead end. Navigating to a node outside the member
-   * set (⌘K palette, a `[[ref]]` out of scope) leaves the scope instead of
-   * silently doing nothing. Returns true when the target is reachable.
-   */
-  function escapeScopeFor(id: string): boolean {
-    const st = get();
-    if (st.nodes.has(id)) return true;
-    if (st.ontologyId === null) return false;
-    if (!st.wireNodes.some((n) => n.id === id)) return false;
-    get().setOntologyScope(null);
-    toast("Left the ontology to follow that node");
-    return get().nodes.has(id);
-  }
-
   return {
     ...initialOutlineState,
-
-    hydrateFromWire: (wireNodes, rev, source) => {
-      const expanded = loadExpandedIds();
-      // A fresh load starts unscoped; App re-applies the URL scope after.
-      const index = new DatascriptIndex(wireNodes);
-      replaceBrowserSession(wireNodes, rev, index, {
-        onLocalCommit: syncFromIndex,
-        applyServerTx: (tx, txRev) => get().applyTx(tx.upserts, tx.deletes, { rev: txRev }),
-        installServerSnapshot: (nodes, snapshotRev) => get().refreshFromWire(nodes, snapshotRev),
-      });
-      const projection = projectOutline(wireNodes, expanded, null, index);
-      set({
-        wireNodes,
-        nodes: projection.nodes,
-        index,
-        rev,
-        loadSource: source,
-        loadError: null,
-        rootNodeId: WORKSPACE_ROOT_ID,
-        homeRootId: WORKSPACE_ROOT_ID,
-        activeNodeId: null,
-        activeInstanceKey: null,
-        pendingCaret: null,
-        selectedNodeId: null,
-        selectedInstanceKey: null,
-        ontologyId: null,
-        ontologyMembers: null,
-        ontologyWarnings: [],
-        preScopeRootId: null,
-        transientIds: new Set<string>(),
-        undoStack: [],
-        redoStack: [],
-      });
-    },
-
-    applyTx: (upserts, deletes, opts) => {
-      const prev = get();
-      ingestBrowserTx({ upserts, deletes });
-      const nextWire = mergeTx(prev.wireNodes, upserts, deletes);
-      const expanded = collectExpanded(prev.nodes);
-      for (const id of loadExpandedIds()) expanded.add(id);
-      const nextRev = opts?.rev ?? prev.rev;
-      const index = prev.index ?? new DatascriptIndex(nextWire);
-      const projection = projectOutline(nextWire, expanded, prev.ontologyId, index, prev.nodes);
-      const nodes = projection.nodes;
-      // Deleted nodes must not remain the zoom root / selection.
-      const rootNodeId = nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId;
-      const selectedNodeId =
-        prev.selectedNodeId !== null && nodes.has(prev.selectedNodeId) ? prev.selectedNodeId : null;
-      const activeNodeId =
-        prev.activeNodeId !== null && nodes.has(prev.activeNodeId) ? prev.activeNodeId : null;
-      const transientIds = new Set<string>();
-      for (const id of prev.transientIds) {
-        if (nodes.has(id)) transientIds.add(id);
-      }
-      set({
-        wireNodes: nextWire,
-        nodes,
-        index,
-        ontologyMembers: projection.ontologyMembers,
-        ontologyWarnings: projection.ontologyWarnings,
-        rev: nextRev,
-        rootNodeId,
-        selectedNodeId,
-        selectedInstanceKey: selectedNodeId !== null ? prev.selectedInstanceKey : null,
-        activeNodeId,
-        activeInstanceKey: activeNodeId !== null ? prev.activeInstanceKey : null,
-        transientIds,
-      });
-    },
-
-    syncFromIndex,
-
-    refreshFromWire: (wireNodes, rev) => {
-      const prev = get();
-      const expanded = collectExpanded(prev.nodes);
-      const index = prev.index ?? new DatascriptIndex(wireNodes);
-      if (prev.index !== null) installBrowserNodes(wireNodes);
-      const projection = projectOutline(wireNodes, expanded, prev.ontologyId, index, prev.nodes);
-      const nodes = projection.nodes;
-      const rootNodeId = nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId;
-      const selectedNodeId =
-        prev.selectedNodeId !== null && nodes.has(prev.selectedNodeId) ? prev.selectedNodeId : null;
-      const activeNodeId =
-        prev.activeNodeId !== null && nodes.has(prev.activeNodeId) ? prev.activeNodeId : null;
-      const transientIds = new Set<string>();
-      for (const id of prev.transientIds) {
-        if (nodes.has(id)) transientIds.add(id);
-      }
-      set({
-        wireNodes,
-        nodes,
-        index,
-        ontologyMembers: projection.ontologyMembers,
-        ontologyWarnings: projection.ontologyWarnings,
-        rev,
-        rootNodeId,
-        selectedNodeId,
-        selectedInstanceKey: selectedNodeId !== null ? prev.selectedInstanceKey : null,
-        activeNodeId,
-        activeInstanceKey: activeNodeId !== null ? prev.activeInstanceKey : null,
-        transientIds,
-      });
-    },
-
-    setRootNodeId: (id) => set({ rootNodeId: id }),
-
-    setOntologyScope: (id) => {
-      const prev = get();
-      if (prev.ontologyId === id) return;
-      pruneOutgoingTransient(null);
-      const st = get();
-      const expanded = collectExpanded(st.nodes);
-      for (const eid of loadExpandedIds()) expanded.add(eid);
-      const index = st.index ?? new DatascriptIndex(st.wireNodes);
-      const projection = projectOutline(st.wireNodes, expanded, id, index, st.nodes);
-
-      if (id === null) {
-        // Leaving: return to the root the user was on before entering.
-        const restored =
-          st.preScopeRootId !== null && projection.nodes.has(st.preScopeRootId)
-            ? st.preScopeRootId
-            : WORKSPACE_ROOT_ID;
-        set({
-          ontologyId: null,
-          ontologyMembers: null,
-          ontologyWarnings: [],
-          preScopeRootId: null,
-          nodes: projection.nodes,
-          rootNodeId: restored,
-          homeRootId: WORKSPACE_ROOT_ID,
-          selectedNodeId: null,
-          selectedInstanceKey: null,
-          activeNodeId: null,
-          activeInstanceKey: null,
-        });
-        return;
-      }
-
-      // Entering: the ontology becomes both the zoom root and home, so an
-      // exit path always exists even if the previous root is not a member.
-      set({
-        ontologyId: id,
-        ontologyMembers: projection.ontologyMembers,
-        ontologyWarnings: projection.ontologyWarnings,
-        preScopeRootId: st.ontologyId === null ? st.rootNodeId : st.preScopeRootId,
-        nodes: projection.nodes,
-        rootNodeId: id,
-        homeRootId: id,
-        selectedNodeId: null,
-        selectedInstanceKey: null,
-        activeNodeId: null,
-        activeInstanceKey: null,
-      });
-    },
-
-    zoomTo: (id) => {
-      if (!escapeScopeFor(id)) return;
-      pruneOutgoingTransient(null);
-      // The zoom root is the header, not a row, so it cannot hold the
-      // selection: row keys and ⌘K would anchor on nothing visible. The
-      // selection lands on the first row under it, or nowhere.
-      set({ rootNodeId: id, activeNodeId: null, activeInstanceKey: null });
-      const first = get().getVisibleInstances()[0] ?? null;
-      set({
-        selectedNodeId: first?.nodeId ?? null,
-        selectedInstanceKey: first?.instanceKey ?? null,
-      });
-    },
-
-    zoomHome: () => {
-      pruneOutgoingTransient(null);
-      set({
-        rootNodeId: get().homeRootId,
-        selectedNodeId: null,
-        selectedInstanceKey: null,
-        activeNodeId: null,
-        activeInstanceKey: null,
-      });
-    },
 
     activateNode: (id, cursorPos, instanceKey, opts) => {
       if (!get().nodes.has(id)) return;
@@ -587,9 +277,10 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       // activation degrades to selection so no caret ever enters it (r1 D20).
       // `rowTextReadOnlyReason` owns which rows those are — sys.* text, and a
       // contextual reference whose target is gone.
-      if (rowTextReadOnlyReason(id, get().nodes.get(id), schemaOf(get())) !== null) {
-        pruneOutgoingTransient(id);
+      if (rowTextReadOnlyReason(id, get().nodes.get(id), schemaNow()) !== null) {
+        // The outline being worked in is the one the focus is leaving.
         const roKey = resolveActivateKey(id, instanceKey, get().nodes, get().selectedInstanceKey);
+        pruneOutgoingTransient(id);
         set({
           selectedNodeId: id,
           selectedInstanceKey: roKey,
@@ -667,19 +358,14 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     selectNode: (id, instanceKey) => {
       if (id === null) {
         pruneOutgoingTransient(null);
-        set({
-          selectedNodeId: null,
-          selectedInstanceKey: null,
-          activeNodeId: null,
-          activeInstanceKey: null,
-          pendingCaret: null,
-        });
+        set({ ...NO_FOCUS, pendingCaret: null });
         return;
       }
-      if (!get().nodes.has(id)) return;
-      pruneOutgoingTransient(id);
       const { nodes, selectedInstanceKey } = get();
+      if (!nodes.has(id)) return;
+      // The outline being worked in is the one the focus is leaving.
       const key = resolveActivateKey(id, instanceKey, nodes, selectedInstanceKey);
+      pruneOutgoingTransient(id);
       set({
         selectedNodeId: id,
         selectedInstanceKey: key,
@@ -693,7 +379,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const { nodes } = get();
       const node = nodes.get(id);
       if (!node) return;
-      const expandable = isExpandableOutlineNode(node, schemaOf(get()));
+      const expandable = isExpandableOutlineNode(node, schemaNow());
       if (!expandable) return;
       const next = new Map(nodes);
       next.set(id, { ...node, collapsed: !node.collapsed });
@@ -702,11 +388,11 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     },
 
     expandAllInScope: () => {
-      const { nodes, rootNodeId } = get();
-      const schema = schemaOf(get());
+      const { nodes } = get();
+      const schema = schemaNow();
       const next = new Map(nodes);
       let changed = false;
-      for (const id of scopeNodeIds(next, rootNodeId)) {
+      for (const id of scopeNodeIds(next, useGraphStore.getState().rootNodeId)) {
         const node = next.get(id);
         if (!node || !isExpandableOutlineNode(node, schema)) continue;
         if (node.collapsed) {
@@ -720,11 +406,11 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     },
 
     collapseAllInScope: () => {
-      const { nodes, rootNodeId } = get();
-      const schema = schemaOf(get());
+      const { nodes } = get();
+      const schema = schemaNow();
       const next = new Map(nodes);
       let changed = false;
-      for (const id of scopeNodeIds(next, rootNodeId)) {
+      for (const id of scopeNodeIds(next, useGraphStore.getState().rootNodeId)) {
         const node = next.get(id);
         if (!node || !isExpandableOutlineNode(node, schema)) continue;
         if (!node.collapsed) {
@@ -758,13 +444,14 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     },
 
     jumpToNode: (id) => {
-      if (id === WORKSPACE_ROOT_ID || !escapeScopeFor(id)) return;
+      const graph = useGraphStore.getState();
+      if (id === WORKSPACE_ROOT_ID || !graph.reach(id)) return;
       const { expandAncestors, activateNode } = get();
       expandAncestors(id);
       // Ensure zoom shows the node: if not under current root, go home
       const visible = get().getVisibleNodes();
       if (!visible.includes(id)) {
-        set({ rootNodeId: get().homeRootId });
+        graph.setRootNodeId(useGraphStore.getState().homeRootId);
         get().expandAncestors(id);
       }
       const key = outlineInstanceKey(id, get().nodes);
@@ -777,29 +464,19 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       });
     },
 
-    search: (query) => {
-      const { index, nodes } = get();
-      if (index === null) return [];
-      const q = query.trim();
-      if (!q) return [];
-      return index
-        .search(q, 50)
-        .filter((n) => nodes.has(n.id))
-        .map((n) => ({ id: n.id, text: n.text }));
-    },
-
     frameViews: providedFrameViews,
 
     getVisibleInstances: (host = MAIN_OUTLINE_HOST) => {
       const outline = outlineHostOf(host);
       if (outline === undefined) return [];
-      const { nodes, rootNodeId, index, framePages } = get();
+      const { nodes, framePages } = get();
+      const { rootNodeId, index } = useGraphStore.getState();
       const views = providedFrameViews().map((view) => view.key);
       return collectVisibleInstances(
         outline.root ?? rootNodeId,
         {
           nodes,
-          schema: schemaOf(get()),
+          schema: schemaNow(),
           queryDb: index,
           views,
           chain: outline.chain,
@@ -829,7 +506,8 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       neighborVisibleInstance(get().getVisibleInstances(walkHostOf(instanceKey)), instanceKey, 1),
 
     getBreadcrumbs: () => {
-      const { nodes, rootNodeId, homeRootId } = get();
+      const { nodes } = get();
+      const { rootNodeId, homeRootId } = useGraphStore.getState();
       const chain: Array<{ id: string; text: string }> = [];
       let currentId: string | null = rootNodeId;
       while (currentId !== null && currentId !== homeRootId) {
@@ -849,34 +527,149 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         return { transientIds: next };
       });
     },
-
-    recordUndo: (entry) => {
-      set((s) => ({
-        undoStack: [...s.undoStack.slice(-(HISTORY_LIMIT - 1)), entry],
-        redoStack: [],
-      }));
-    },
-
-    applyUndo: () => {
-      const st = get();
-      const entry = st.undoStack[st.undoStack.length - 1];
-      if (!entry) return null;
-      set((s) => ({
-        undoStack: s.undoStack.slice(0, -1),
-        redoStack: [...s.redoStack.slice(-(HISTORY_LIMIT - 1)), entry],
-      }));
-      return entry;
-    },
-
-    applyRedo: () => {
-      const st = get();
-      const entry = st.redoStack[st.redoStack.length - 1];
-      if (!entry) return null;
-      set((s) => ({
-        redoStack: s.redoStack.slice(0, -1),
-        undoStack: [...s.undoStack.slice(-(HISTORY_LIMIT - 1)), entry],
-      }));
-      return entry;
-    },
   };
 });
+
+/** The selected and active rows that still have a row in `nodes`. */
+function keptIds(
+  prev: OutlineStateData,
+  nodes: NodeMap,
+): Pick<OutlineStateData, "selectedNodeId" | "activeNodeId"> {
+  return {
+    selectedNodeId:
+      prev.selectedNodeId !== null && nodes.has(prev.selectedNodeId) ? prev.selectedNodeId : null,
+    activeNodeId:
+      prev.activeNodeId !== null && nodes.has(prev.activeNodeId) ? prev.activeNodeId : null,
+  };
+}
+
+/** The focus that survives a graph move to `nodes`: what still has a row there. */
+function keptFocus(prev: OutlineStateData, nodes: NodeMap): Partial<OutlineStateData> {
+  const { selectedNodeId, activeNodeId } = keptIds(prev, nodes);
+  const transientIds = new Set<string>();
+  for (const id of prev.transientIds) {
+    if (nodes.has(id)) transientIds.add(id);
+  }
+  return {
+    selectedNodeId,
+    selectedInstanceKey: selectedNodeId !== null ? prev.selectedInstanceKey : null,
+    activeNodeId,
+    activeInstanceKey: activeNodeId !== null ? prev.activeInstanceKey : null,
+    transientIds,
+  };
+}
+
+/** The outline's rows re-projected from `next`, keeping the expansion they had. */
+function reprojected(prev: OutlineStateData, next: GraphStateData): NodeMap {
+  return projectOutline(next, withStoredExpansion(collectExpanded(prev.nodes)), prev.nodes);
+}
+
+/**
+ * What each graph move leaves of the outline: the rows it reprojects (with
+ * which expansion) and the focus that survives. A fresh load keeps nothing; a
+ * server resync keeps the rows' own expansion only.
+ */
+const DERIVED: Record<
+  GraphChange,
+  (prev: OutlineStateData, next: GraphStateData) => Partial<OutlineStateData>
+> = {
+  load: (_prev, next) => ({
+    nodes: projectOutline(next, loadExpandedIds()),
+    ...NO_FOCUS,
+    pendingCaret: null,
+    transientIds: new Set<string>(),
+  }),
+  tx: (prev, next) => {
+    const nodes = reprojected(prev, next);
+    return { nodes, ...keptFocus(prev, nodes) };
+  },
+  resync: (prev, next) => {
+    const nodes = projectOutline(next, collectExpanded(prev.nodes), prev.nodes);
+    return { nodes, ...keptFocus(prev, nodes) };
+  },
+  sync: (prev, next) => {
+    const nodes = reprojected(prev, next);
+    return { nodes, ...keptIds(prev, nodes) };
+  },
+  scope: (prev, next) => ({ nodes: reprojected(prev, next), ...NO_FOCUS }),
+};
+
+/** Re-derive from `next`, the graph state `change` is about to leave the store in. */
+function derive(change: GraphChange, next: GraphStateData): void {
+  useOutlineStore.setState(DERIVED[change](useOutlineStore.getState(), next));
+}
+
+/**
+ * Prune the outgoing active row when it is an empty session transient
+ * (r1 §3.3 auto-prune). nextId = incoming focus target; null when focus
+ * leaves the outline entirely. The removal is a graph write like any
+ * other, so the projection follows it as it follows every write.
+ */
+function pruneOutgoingTransient(nextId: string | null): void {
+  const st = useOutlineStore.getState();
+  const out = st.activeNodeId;
+  if (out === null || out === nextId) return;
+  const node = st.nodes.get(out);
+  if (!isPrunableTransient(node, out, st.transientIds, schemaNow())) return;
+  useGraphStore.getState().applyTx([], [out]);
+}
+
+/** Where navigation lands the focus once the page has moved. */
+function arrive(at: "zoom" | "home"): void {
+  if (at === "home") {
+    useOutlineStore.setState({ ...NO_FOCUS });
+    return;
+  }
+  // The zoom root is the header, not a row, so it cannot hold the
+  // selection: row keys and ⌘K would anchor on nothing visible. The
+  // selection lands on the first row under it, or nowhere.
+  useOutlineStore.setState({ activeNodeId: null, activeInstanceKey: null });
+  const first = useOutlineStore.getState().getVisibleInstances()[0] ?? null;
+  useOutlineStore.setState({
+    selectedNodeId: first?.nodeId ?? null,
+    selectedInstanceKey: first?.instanceKey ?? null,
+  });
+}
+
+provideEditingProjection({ derive, leave: () => pruneOutgoingTransient(null), arrive });
+
+/**
+ * The outline as a command drives it (`OutlineCommandApi`), read now: the
+ * zoom and scope the page stands at and the graph from the graph store, the
+ * selection, projection and editor verbs from this one.
+ */
+export function outlineCommandApi(): OutlineCommandApi {
+  const graph = useGraphStore.getState();
+  const outline = useOutlineStore.getState();
+  return {
+    selectedNodeId: outline.selectedNodeId,
+    rootNodeId: graph.rootNodeId,
+    ontologyId: graph.ontologyId,
+    nodes: outline.nodes,
+    wireNodes: graph.wireNodes,
+    jumpToNode: outline.jumpToNode,
+    zoomTo: graph.zoomTo,
+    expandAllInScope: outline.expandAllInScope,
+    collapseAllInScope: outline.collapseAllInScope,
+    frameViews: outline.frameViews,
+  };
+}
+
+/**
+ * This outline's rows with the graph they project and its index, read now:
+ * what a step that knows a row only by id resolves against (`rowTextOf`,
+ * `fieldContextOf`).
+ */
+export function outlineSource(): FieldContextSource {
+  const { ontologyId, wireNodes, index } = useGraphStore.getState();
+  return { ontologyId, wireNodes, index, nodes: useOutlineStore.getState().nodes };
+}
+
+/** What field values resolve against (`fieldContextOf`): the graph's schema and index, this outline. */
+export function useFieldContext(): FieldContext {
+  const nodes = useOutlineStore((s) => s.nodes);
+  const ontologyId = useGraphStore((s) => s.ontologyId);
+  const wireNodes = useGraphStore((s) => s.wireNodes);
+  const index = useGraphStore((s) => s.index);
+  return fieldContextOf({ ontologyId, wireNodes, nodes, index });
+}

@@ -1,6 +1,7 @@
 import { useContext, useMemo } from "react";
 import { CaretRightIcon, HouseIcon } from "@phosphor-icons/react";
 import { cn, OpenNodeContext, WORKSPACE_ROOT_ID, type NodeMap } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 
 /** The path from home down to `root`, home left out: a rooted outline's crumbs. */
@@ -24,7 +25,7 @@ function pathTo(root: string, nodes: NodeMap): Array<{ id: string; text: string 
  * (`OpenNodeContext`).
  */
 export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
-  const zoomRoot = useOutlineStore((s) => s.rootNodeId);
+  const zoomRoot = useGraphStore((s) => s.rootNodeId);
   const rootNodeId = root ?? zoomRoot;
   // getBreadcrumbs builds a fresh array; selecting it directly makes the
   // uSES snapshot unstable (infinite rerender). Derive it with useMemo.
@@ -35,8 +36,8 @@ export function Breadcrumbs({ root }: { readonly root?: string | undefined }) {
     [nodes, rootNodeId, root],
   );
   const open = useContext(OpenNodeContext);
-  const zoomHomeInStore = useOutlineStore((s) => s.zoomHome);
-  const zoomToInStore = useOutlineStore((s) => s.zoomTo);
+  const zoomHomeInStore = useGraphStore((s) => s.zoomHome);
+  const zoomToInStore = useGraphStore((s) => s.zoomTo);
   const zoomTo = open ?? zoomToInStore;
   const zoomHome = open === null ? zoomHomeInStore : () => open(WORKSPACE_ROOT_ID);
   const isAtRoot = rootNodeId === WORKSPACE_ROOT_ID;

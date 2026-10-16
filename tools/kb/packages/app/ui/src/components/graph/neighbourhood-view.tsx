@@ -4,7 +4,7 @@ import { buildTreeForest, navigate, ViewSlot, WorkspaceState, type ViewProps } f
 import { extractNeighbourhood } from "@/lib/graph-neighbourhood";
 import { paramsFrom, type NeighbourhoodParams } from "@kb/views";
 import { useAppearance } from "@/stores/prefs.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { GraphFrameContext, type GraphFrame } from "./graph-frame";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
 import { useRenderer } from "./use-renderers";
@@ -21,9 +21,9 @@ const EMPTY = { nodes: [], edges: [], dropped: 0, queryError: null };
  */
 export function NeighbourhoodGraph({ params }: ViewProps<NeighbourhoodParams>) {
   const { root, hops, edges, renderer, settings } = params;
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const index = useOutlineStore((s) => s.index);
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const wireNodes = useGraphStore((s) => s.wireNodes);
+  const index = useGraphStore((s) => s.index);
+  const zoomTo = useGraphStore((s) => s.zoomTo);
   const appearance = useAppearance();
   const rendererKey = useRenderer(renderer);
 

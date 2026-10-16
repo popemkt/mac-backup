@@ -4,7 +4,8 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
-import { useOutlineStore } from "./outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { useOutlineStore } from "@/stores/outline.store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
@@ -13,7 +14,7 @@ beforeAll(() => syncUiPlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 function seed() {
-  useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 
 const wire = (id: string, text: string) => ({
@@ -58,7 +59,7 @@ describe("outline store (WireNode adaptation)", () => {
       fixtureGraph.nodes.find((n) => n.id === "n.child-a1"),
       "n.child-a1",
     );
-    useOutlineStore.getState().applyTx([{ ...target, text: "renamed" }], [], { rev: 2 });
+    useGraphStore.getState().applyTx([{ ...target, text: "renamed" }], [], { rev: 2 });
     const after = useOutlineStore.getState().nodes;
     expect(after).not.toBe(before);
     expect(after.get("n.child-a1")).not.toBe(before.get("n.child-a1"));
@@ -97,7 +98,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("FocusRegistry refuses a target outside the current visible root", () => {
     seed();
-    useOutlineStore.getState().zoomTo("n.root-b");
+    useGraphStore.getState().zoomTo("n.root-b");
     useOutlineStore.getState().activateNode("n.child-a1", 0);
     expect(useOutlineStore.getState().activeNodeId).toBeNull();
     expect(useOutlineStore.getState().pendingCaret).toBeNull();
@@ -171,7 +172,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("expand/collapse all respects zoomed subtree scope", () => {
     seed();
-    useOutlineStore.getState().zoomTo("n.root-a");
+    useGraphStore.getState().zoomTo("n.root-a");
     useOutlineStore.getState().expandAllInScope();
     const s = useOutlineStore.getState();
     expect(s.nodes.get("n.root-a")?.collapsed).toBe(true);
@@ -182,7 +183,7 @@ describe("outline store (WireNode adaptation)", () => {
   it("zoomTo selects the first visible row under the root, never the root itself", () => {
     seed();
     useUiStore.setState({ toasts: [] });
-    useOutlineStore.getState().zoomTo("n.root-a");
+    useGraphStore.getState().zoomTo("n.root-a");
     const s = useOutlineStore.getState();
     expect(s.selectedNodeId).toBe("n.child-a1");
     expect(s.getVisibleInstances().some((i) => i.instanceKey === s.selectedInstanceKey)).toBe(true);
@@ -196,24 +197,24 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("zoomTo a leaf selects nothing", () => {
     seed();
-    useOutlineStore.getState().zoomTo("n.child-a1");
+    useGraphStore.getState().zoomTo("n.child-a1");
     expect(useOutlineStore.getState().selectedNodeId).toBeNull();
   });
 
   it("zoomTo changes root and breadcrumbs", () => {
     seed();
-    useOutlineStore.getState().zoomTo("n.root-a");
-    expect(useOutlineStore.getState().rootNodeId).toBe("n.root-a");
+    useGraphStore.getState().zoomTo("n.root-a");
+    expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");
     expect(useOutlineStore.getState().getBreadcrumbs()).toEqual([
       { id: "n.root-a", text: "Ship kb ui shell" },
     ]);
-    useOutlineStore.getState().zoomHome();
-    expect(useOutlineStore.getState().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+    useGraphStore.getState().zoomHome();
+    expect(useGraphStore.getState().rootNodeId).toBe(WORKSPACE_ROOT_ID);
   });
 
   it("search finds by text substring", () => {
     seed();
-    const hits = useOutlineStore.getState().search("localStorage");
+    const hits = useGraphStore.getState().search("localStorage");
     expect(hits.map((h) => h.id)).toEqual(["n.grandchild"]);
   });
 
@@ -231,7 +232,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("builds a DatascriptIndex replica on hydrate", () => {
     seed();
-    const ix = present(useOutlineStore.getState().index, "index");
+    const ix = present(useGraphStore.getState().index, "index");
     expect(ix.getNode("n.root-a")).toBeDefined();
     expect(ix.generation).toBeGreaterThan(0);
   });
@@ -239,14 +240,15 @@ describe("outline store (WireNode adaptation)", () => {
   describe("applyTx (WS delta seam)", () => {
     it("upserts new nodes and bumps rev + index generation", () => {
       seed();
-      const genBefore = present(useOutlineStore.getState().index, "index").generation;
-      useOutlineStore.getState().applyTx([wire("n.new", "fresh node")], [], { rev: 2 });
+      const genBefore = present(useGraphStore.getState().index, "index").generation;
+      useGraphStore.getState().applyTx([wire("n.new", "fresh node")], [], { rev: 2 });
       const s = useOutlineStore.getState();
-      expect(s.rev).toBe(2);
+      const graph = useGraphStore.getState();
+      expect(graph.rev).toBe(2);
       expect(s.nodes.get("n.new")?.text).toBe("fresh node");
       const root = present(s.nodes.get(WORKSPACE_ROOT_ID), "workspace root");
       expect(root.children).toContain("n.new");
-      const ix = present(s.index, "index");
+      const ix = present(graph.index, "index");
       expect(ix.getNode("n.new")).toBeDefined();
       expect(ix.generation).toBeGreaterThan(genBefore);
     });
@@ -254,16 +256,16 @@ describe("outline store (WireNode adaptation)", () => {
     it("updates existing node text in place", () => {
       seed();
       const cur = present(
-        useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-b"),
+        useGraphStore.getState().wireNodes.find((n) => n.id === "n.root-b"),
         "n.root-b wire",
       );
-      useOutlineStore.getState().applyTx([{ ...cur, text: "renamed" }], [], { rev: 2 });
+      useGraphStore.getState().applyTx([{ ...cur, text: "renamed" }], [], { rev: 2 });
       expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).toBe("renamed");
     });
 
     it("deletes nodes", () => {
       seed();
-      useOutlineStore.getState().applyTx([], ["n.root-c"], { rev: 2 });
+      useGraphStore.getState().applyTx([], ["n.root-c"], { rev: 2 });
       const s = useOutlineStore.getState();
       expect(s.nodes.has("n.root-c")).toBe(false);
       const root = present(s.nodes.get(WORKSPACE_ROOT_ID), "workspace root");
@@ -274,25 +276,27 @@ describe("outline store (WireNode adaptation)", () => {
       seed();
       useOutlineStore.getState().toggleCollapse("n.root-a");
       expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(false);
-      useOutlineStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
+      useGraphStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
       expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(false);
     });
 
     it("preserves zoom + selection when targets survive", () => {
       seed();
-      useOutlineStore.getState().zoomTo("n.root-a");
-      useOutlineStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
+      useGraphStore.getState().zoomTo("n.root-a");
+      useGraphStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
       const s = useOutlineStore.getState();
-      expect(s.rootNodeId).toBe("n.root-a");
+      const graph = useGraphStore.getState();
+      expect(graph.rootNodeId).toBe("n.root-a");
       expect(s.selectedNodeId).toBe("n.child-a1");
     });
 
     it("falls back to home when the zoomed node is deleted", () => {
       seed();
-      useOutlineStore.getState().zoomTo("n.root-c");
-      useOutlineStore.getState().applyTx([], ["n.root-c"], { rev: 2 });
+      useGraphStore.getState().zoomTo("n.root-c");
+      useGraphStore.getState().applyTx([], ["n.root-c"], { rev: 2 });
       const s = useOutlineStore.getState();
-      expect(s.rootNodeId).toBe(WORKSPACE_ROOT_ID);
+      const graph = useGraphStore.getState();
+      expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
       expect(s.selectedNodeId).toBeNull();
     });
   });

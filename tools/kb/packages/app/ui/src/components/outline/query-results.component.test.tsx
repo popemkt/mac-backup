@@ -11,7 +11,7 @@ import type { WireNode } from "@kb/contracts";
 import type { SubscriptionSink } from "@/api/ws";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { SYSTEM_IDS } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { OutlineListView } from "@kb/views";
@@ -56,7 +56,7 @@ describe("query results: a live subscription's error (component)", () => {
   beforeEach(() => {
     sinks.clear();
     resetOutlineStore();
-    useOutlineStore
+    useGraphStore
       .getState()
       .hydrateFromWire([...fixtureGraph.nodes, queryWire()], fixtureGraph.rev, "fixtures");
     useUiStore.getState().setWsStatus("open");

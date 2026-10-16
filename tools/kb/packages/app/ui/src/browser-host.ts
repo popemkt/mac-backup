@@ -11,6 +11,7 @@ import { subscribeLiveQueryNode } from "@/lib/query-node";
 import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import { invoke } from "@/session/runtime";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import {
   appearanceIn,
@@ -25,7 +26,7 @@ import { useUiStore } from "@/stores/ui.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 
 /** The stores the host's reads answer from. */
-const SOURCES = [useOutlineStore, usePrefsStore, useUiStore] as const;
+const SOURCES = [useGraphStore, useOutlineStore, usePrefsStore, useUiStore] as const;
 
 const host: BrowserHost = {
   // A node text port is what the shell binds its own text hosts through, so
@@ -42,7 +43,7 @@ const host: BrowserHost = {
     const { activeNodeId, activeInstanceKey } = useOutlineStore.getState();
     return activeNodeId === nodeId && activeInstanceKey === instanceKey;
   },
-  wireNodes: () => useOutlineStore.getState().wireNodes,
+  wireNodes: () => useGraphStore.getState().wireNodes,
   live: () => useUiStore.getState().wsStatus === "open",
   subscribeQuery: subscribeLiveQueryNode,
   appearance: () => appearanceIn(usePrefsStore.getState()),
@@ -51,8 +52,8 @@ const host: BrowserHost = {
   setPrefsOpen: (open) => useUiStore.getState().setPrefsOpen(open),
   sidebarOpen: sidebarOpenIn,
   toggleSidebar: toggleSidebarFrom,
-  refInk: () => refInkIn(useOutlineStore.getState()),
-  zoomTo: (id) => useOutlineStore.getState().zoomTo(id),
+  refInk: () => refInkIn(useGraphStore.getState()),
+  zoomTo: (id) => useGraphStore.getState().zoomTo(id),
   activateNode: (nodeId, cursorPos, instanceKey) =>
     useOutlineStore.getState().activateNode(nodeId, cursorPos, instanceKey),
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),

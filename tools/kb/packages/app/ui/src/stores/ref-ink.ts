@@ -1,5 +1,5 @@
 import { refInkOf, schemaOf, type RefInk } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 
 /**
  * How references in rendered text are inked (`RefInk`), from the graph the
@@ -8,7 +8,7 @@ import { useOutlineStore } from "@/stores/outline.store";
  * primitives, handed it as a prop, and every surface wants the same one.
  */
 export function useRefInk(): RefInk {
-  return useOutlineStore(refInkIn);
+  return useGraphStore(refInkIn);
 }
 
 /** The ink for the graph `state` holds: one object per schema, so a reader may compare it. */

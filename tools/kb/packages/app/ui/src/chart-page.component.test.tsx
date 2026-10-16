@@ -17,7 +17,7 @@ import { browserHostUiPlugin } from "@/browser-host";
 import { ViewPoint, currentContributions, findView, syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { chartUiPlugin } from "@kb/chart-ui";
 
@@ -94,7 +94,7 @@ describe("chart view (component)", () => {
   beforeEach(() => {
     replaceField.mockClear();
     resetOutlineStore();
-    useOutlineStore
+    useGraphStore
       .getState()
       .hydrateFromWire(
         [...fixtureGraph.nodes, ...TASKS, QUERY, VIEW],
@@ -158,7 +158,7 @@ describe("chart view (component)", () => {
     await show({ source: "q.sizes", spec: BAR }, "v.chart");
     expect(text()).toContain("3 rows");
     act(() =>
-      useOutlineStore
+      useGraphStore
         .getState()
         .hydrateFromWire(
           [

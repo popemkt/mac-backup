@@ -16,10 +16,11 @@
  * under a scope — which is how the same bug was found four times over before
  * the type existed.
  *
- * Unscoped, the projection *is* the whole graph and is returned as the schema;
- * scoped, the full map is built once per snapshot (`wireNodes` identity, which
+ * Either way the schema is one map per snapshot (`wireNodes` identity, which
  * every store transition renews), so a selector over it is referentially
- * stable.
+ * stable. Unscoped, the projection *is* the whole graph: the first reader that
+ * hands one in for a snapshot (the outline, as it projects) makes it the
+ * schema. Otherwise the full map is built once.
  */
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "../query";
@@ -31,11 +32,16 @@ declare const schemaBrand: unique symbol;
 /** The whole graph, read-only, as every field and tag definition is resolved. */
 export type SchemaIndex = ReadonlyMap<string, OutlineNode> & { readonly [schemaBrand]: true };
 
-/** What a schema is built from: the store's projection and the snapshot it projects. */
+/**
+ * What a schema is built from: the snapshot, the scope it is read under, and,
+ * when the reader holds one, its projection of that same snapshot. Unscoped,
+ * the projection stands for the schema, so none is built beside it; a reader
+ * without one (the graph store alone) gets the snapshot's schema all the same.
+ */
 export interface SchemaSource {
   readonly ontologyId: string | null;
-  readonly nodes: NodeMap;
   readonly wireNodes: readonly WireNode[];
+  readonly nodes?: NodeMap;
 }
 
 const fullGraph = new WeakMap<readonly WireNode[], SchemaIndex>();
@@ -53,7 +59,10 @@ export function schemaOf(state: SchemaSource): SchemaIndex {
   // replaces the projection map, because nothing a schema reader asks —
   // props, text, children, tags — changes with expansion; so a schema is one
   // object per snapshot and memos keyed on it survive UI state changes.
-  const built = state.ontologyId === null ? projectionAsSchema(state.nodes) : wholeGraph(state);
+  const built =
+    state.ontologyId === null && state.nodes !== undefined
+      ? projectionAsSchema(state.nodes)
+      : wholeGraph(state);
   fullGraph.set(state.wireNodes, built);
   return built;
 }
@@ -71,8 +80,13 @@ export interface FieldContext {
   readonly index: KbIndex | null;
 }
 
-/** What a field context is built from: the schema's sources and the index. */
-export interface FieldContextSource extends SchemaSource {
+/** A schema source that holds its projection: what a reader of rows by id resolves against. */
+export interface RowSource extends SchemaSource {
+  readonly nodes: NodeMap;
+}
+
+/** What a field context is built from: the rows, their schema and the index. */
+export interface FieldContextSource extends RowSource {
   readonly index: KbIndex | null;
 }
 

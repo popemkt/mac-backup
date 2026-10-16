@@ -26,7 +26,8 @@ import {
 import { listNodeCommands } from "@/lib/commands";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { currentWorkspace } from "@/stores/workspace.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineCommandApi, useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -153,8 +154,8 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
   const nodes = useOutlineStore((s) => s.nodes);
-  const schema = useOutlineStore(schemaOf);
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
+  const schema = useGraphStore(schemaOf);
+  const wireNodes = useGraphStore((s) => s.wireNodes);
   const debugIds = useDebugFieldsStore((s) => s.ids);
 
   const targetNodeId = activeNodeId ?? selectedNodeId;
@@ -202,7 +203,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
    */
   const commandCtx: CommandContext = {
     target: { nodeId: targetNodeId, frameId: targetNodeId },
-    outline: useOutlineStore.getState(),
+    outline: outlineCommandApi(),
     prefs: usePrefsStore.getState(),
     ui: useUiStore.getState(),
     debugFields: { ids: debugIds, toggle: useDebugFieldsStore.getState().toggle },

@@ -13,7 +13,7 @@ vi.mock("@/session/runtime", () => ({ invoke: (id: string, input: unknown) => in
 const { getPath, navigate } = await import("@kb/ui-sdk");
 const { startWorkspace, useWorkspaceStore, WORKSPACE_STORAGE_KEY } =
   await import("@/stores/workspace.store");
-const { useOutlineStore } = await import("@/stores/outline.store");
+const { useGraphStore } = await import("@/stores/graph.store");
 
 const paths = () => layoutPanes(useWorkspaceStore.getState().layout).map((pane) => pane.path);
 
@@ -74,7 +74,7 @@ describe("the workspace", () => {
   });
 
   it("saves the arrangement as a layout node through view.propose, the zoom kept as its node", async () => {
-    useOutlineStore.setState({ rootNodeId: "n.zoomed" });
+    useGraphStore.setState({ rootNodeId: "n.zoomed" });
     useWorkspaceStore.getState().openBeside("main", "/graph");
     invoke.mockResolvedValue({
       status: "succeeded",

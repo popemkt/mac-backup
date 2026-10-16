@@ -13,7 +13,7 @@ import { createLiveClient } from "@/api/live";
 import type { KbWsClient } from "@/api/ws";
 import { __resetPendingContentForTests, mutations } from "@/actions/mutations";
 import { invoke } from "@/session/runtime";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { FakeWsSocket } from "@/test-support/ws";
 
 const X = "n.child-a1";
@@ -250,7 +250,7 @@ class Harness {
   client: KbWsClient;
 
   constructor(rev: number) {
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), rev, "api");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), rev, "api");
     setPostAction(
       (invocation) =>
         new Promise((resolve, reject) => {
@@ -300,7 +300,7 @@ class Harness {
   }
 
   visible(id: string): string | null {
-    const state = useOutlineStore.getState();
+    const state = useGraphStore.getState();
     const indexed = state.index?.getNode(id)?.text ?? null;
     const wired = state.wireNodes.find((node) => node.id === id)?.text ?? null;
     expect(wired, `wireNodes and index disagree on ${id}`).toBe(indexed);
@@ -365,7 +365,7 @@ class Harness {
     for (const [id, text] of Object.entries(want.images ?? {})) {
       expect(this.visible(id), id).toBe(text);
     }
-    if (want.rev !== undefined) expect(useOutlineStore.getState().rev).toBe(want.rev);
+    if (want.rev !== undefined) expect(useGraphStore.getState().rev).toBe(want.rev);
     if (want.fetches !== undefined) expect(this.fetches).toBe(want.fetches);
     if (want.since !== undefined) expect(this.lastSince()).toBe(want.since);
   }

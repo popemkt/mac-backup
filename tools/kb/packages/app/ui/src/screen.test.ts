@@ -22,7 +22,7 @@ import { layoutUiPlugin } from "@/components/layout/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { getPath, navigate, syncUiPlugins, type PaneCarryOut } from "@kb/ui-sdk";
 import { SCREEN_PUBLISH_MS, screenPlugin } from "@/screen";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useScreenStore } from "@/stores/screen.store";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes, singlePane } from "@kb/views";
@@ -72,7 +72,7 @@ describe("the tab's screen", () => {
   beforeEach(() => {
     dom = installDomGlobals();
     vi.useFakeTimers();
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
     // One pane at the URL, kept in step with it, as the app boots.
     useWorkspaceStore.setState({
       layout: singlePane({ id: "main", path: getPath() }),

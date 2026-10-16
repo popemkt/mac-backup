@@ -6,7 +6,8 @@ import { buildPaletteIndex, searchPalette, type PaletteHit } from "@/lib/palette
 import { schemaZoomKind } from "@/lib/schema-zoom";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineCommandApi, useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -19,7 +20,7 @@ import { useUiStore } from "@/stores/ui.store";
  * `openStep` states that rather than being wired to nothing.
  */
 function commandContext(onClose: () => void): CommandContext {
-  const outline = useOutlineStore.getState();
+  const outline = outlineCommandApi();
   return {
     target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
     outline,
@@ -46,10 +47,10 @@ interface CommandPaletteProps {
  * nxus chrome: backdrop-blur, single list, ↑↓/Enter (DESIGN-REFINE §2 W3).
  */
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
+  const wireNodes = useGraphStore((s) => s.wireNodes);
+  const generation = useGraphStore((s) => s.index?.generation ?? 0);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const zoomTo = useGraphStore((s) => s.zoomTo);
 
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);

@@ -15,7 +15,8 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineCommandApi, useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
@@ -34,7 +35,7 @@ afterAll(() => syncUiPlugins([]));
  * argument now. Every assertion below is unchanged.
  */
 async function run(commandId: string): Promise<void> {
-  const outline = useOutlineStore.getState();
+  const outline = outlineCommandApi();
   await runCommand(commandId, {
     target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
     outline,
@@ -92,7 +93,7 @@ describe("palette command routing (characterization)", () => {
 
   beforeEach(() => {
     resetOutlineStore();
-    useOutlineStore.getState().hydrateFromWire(seedGraph(), fixtureGraph.rev, "fixtures");
+    useGraphStore.getState().hydrateFromWire(seedGraph(), fixtureGraph.rev, "fixtures");
     useUiStore.setState({
       toasts: [],
       prefsOpen: false,
@@ -106,40 +107,41 @@ describe("palette command routing (characterization)", () => {
 
   it("add-node appends after the selected row", async () => {
     useOutlineStore.setState({ selectedNodeId: "n.root-b" });
-    const before = useOutlineStore.getState().wireNodes.length;
+    const before = useGraphStore.getState().wireNodes.length;
     await run(SYSTEM_IDS.cmdAddNode);
-    expect(useOutlineStore.getState().wireNodes.length).toBe(before + 1);
+    expect(useGraphStore.getState().wireNodes.length).toBe(before + 1);
   });
 
   it("add-node with nothing selected mints a root row and jumps to it", async () => {
-    const before = useOutlineStore.getState().wireNodes.length;
+    const before = useGraphStore.getState().wireNodes.length;
     await run(SYSTEM_IDS.cmdAddNode);
     const after = useOutlineStore.getState();
-    expect(after.wireNodes.length).toBe(before + 1);
+    const graph = useGraphStore.getState();
+    expect(graph.wireNodes.length).toBe(before + 1);
     expect(after.selectedNodeId).not.toBeNull();
   });
 
   it("add-tag mints a supertag and zooms to it", async () => {
     await run(SYSTEM_IDS.cmdAddTag);
-    const zoomed = useOutlineStore.getState().rootNodeId;
+    const zoomed = useGraphStore.getState().rootNodeId;
     expect(zoomed).not.toBe(WORKSPACE_ROOT_ID);
     expect(node(zoomed)?.text).toBe("untitled-tag");
   });
 
   it("define-field mints a field and zooms to it", async () => {
     await run(SYSTEM_IDS.cmdDefineField);
-    const zoomed = useOutlineStore.getState().rootNodeId;
+    const zoomed = useGraphStore.getState().rootNodeId;
     expect(node(zoomed)?.text).toBe("untitled-field");
   });
 
   it("go-query zooms to the saved-query root", async () => {
     await run(SYSTEM_IDS.cmdGoQuery);
-    expect(useOutlineStore.getState().rootNodeId).toBe(SYSTEM_IDS.queriesRoot);
+    expect(useGraphStore.getState().rootNodeId).toBe(SYSTEM_IDS.queriesRoot);
   });
 
   it("new-query mints a query node and zooms to it", async () => {
     await run(SYSTEM_IDS.cmdNewQuery);
-    const zoomed = useOutlineStore.getState().rootNodeId;
+    const zoomed = useGraphStore.getState().rootNodeId;
     expect(zoomed).not.toBe(WORKSPACE_ROOT_ID);
     expect(node(zoomed)?.props[SYSTEM_IDS.queryField]).toBeDefined();
   });
@@ -169,7 +171,7 @@ describe("palette command routing (characterization)", () => {
   });
 
   it("exit-ontology inside one returns to the root path", async () => {
-    useOutlineStore.setState({ ontologyId: "o.some" });
+    useGraphStore.setState({ ontologyId: "o.some" });
     window.history.pushState({}, "", "/o/o.some");
     await run(SYSTEM_IDS.cmdExitOntology);
     expect(window.location.pathname).toBe("/");
@@ -213,14 +215,15 @@ describe("palette command routing (characterization)", () => {
   });
 
   it("debug-show-fields prefers the selected row over the zoomed root", async () => {
-    useOutlineStore.setState({ selectedNodeId: "n.root-b", rootNodeId: "n.root-a" });
+    useOutlineStore.setState({ selectedNodeId: "n.root-b" });
+    useGraphStore.setState({ rootNodeId: "n.root-a" });
     await run(SYSTEM_IDS.cmdDebugShowFields);
     expect(useDebugFieldsStore.getState().ids.has("n.root-b")).toBe(true);
     expect(useDebugFieldsStore.getState().ids.has("n.root-a")).toBe(false);
   });
 
   it("debug-show-fields falls back to the zoomed root, and toasts with neither", async () => {
-    useOutlineStore.setState({ rootNodeId: "n.root-a" });
+    useGraphStore.setState({ rootNodeId: "n.root-a" });
     await run(SYSTEM_IDS.cmdDebugShowFields);
     expect(useDebugFieldsStore.getState().ids.has("n.root-a")).toBe(true);
 
@@ -237,7 +240,7 @@ describe("palette command routing (characterization)", () => {
   });
 
   it("the four view-as commands write the view onto the zoomed frame's view node", async () => {
-    useOutlineStore.setState({ rootNodeId: "n.root-a" });
+    useGraphStore.setState({ rootNodeId: "n.root-a" });
     for (const [commandId, mode] of [
       [SYSTEM_IDS.cmdViewAsList, "list"],
       [SYSTEM_IDS.cmdViewAsTable, "table"],
@@ -262,7 +265,7 @@ describe("palette command routing (characterization)", () => {
   });
 
   it("view-filter opens the popover on the target frame", async () => {
-    useOutlineStore.setState({ rootNodeId: "n.root-a" });
+    useGraphStore.setState({ rootNodeId: "n.root-a" });
     await run(SYSTEM_IDS.cmdViewFilter);
     expect(useUiStore.getState().filterPopoverFrameId).toBe("n.root-a");
   });

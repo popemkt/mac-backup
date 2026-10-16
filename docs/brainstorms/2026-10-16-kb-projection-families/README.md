@@ -77,6 +77,72 @@ unchanged and proven by the tests that already pass; then move.
 The ordered queue is data: the todo "Projection families" under the kb work
 queue (`01M43DRVEQY02RTSX3XYWB8TG1`), one child per step.
 
+## O1 — what landed where
+
+`stores/outline.store.ts` is split in two, behaviour unchanged.
+
+- **Core: `stores/graph.store.ts` (`useGraphStore`).** The live replica
+  (`wireNodes`, `index`, `rev`, `loadSource`, `loadError`; `hydrateFromWire`,
+  `applyTx`, `syncFromIndex`, `refreshFromWire`), the write history
+  (`undoStack`/`redoStack`, `recordUndo`/`applyUndo`/`applyRedo`), the zoom
+  (`rootNodeId`, `homeRootId`, `setRootNodeId`, `zoomTo`, `zoomHome`), the
+  ontology scope (`ontologyId`, `ontologyMembers`, `ontologyWarnings`,
+  `preScopeRootId`, `setOntologyScope`, `reach`), `search`, and
+  `scopedWireOf`, the one statement of what a scope shows. The schema is a
+  function of this store's snapshot (`schemaOf(useGraphStore.getState())`).
+- **Outline: `stores/outline.store.ts` (`useOutlineStore`).** The projection
+  (`nodes`, with expansion), the active and selected row and instance, the
+  caret hand-off, `focusSeq`/`focusX`, transient rows, `framePages`,
+  `frameViews`, collapse and expand, the visible-instance walk, breadcrumbs,
+  `jumpToNode`, and the text-host registry.
+- **The bridge.** Core names no projection. It defines one port,
+  `EditingProjection` (`derive`, `leave`, `arrive`), and the outline installs
+  itself into it. `derive` runs before the graph store publishes a move, so no
+  reader sees a graph alongside a projection of an older one. `leave` prunes
+  an empty transient before the page moves, and `arrive` lands the selection
+  after. A projection installed after a load derives at once. As the outline
+  projects a snapshot, it hands its unscoped projection to `schemaOf` (whose
+  `nodes` is now optional), so no second map is built per snapshot.
+
+Decisions taken from how code outside the outline uses each member:
+
+- **The zoom root is the page's, not the outline's.** The workspace keeps it
+  in saved layouts, the pane title and the switcher name it, commands target
+  it, and the graph and ontology pages navigate by `zoomTo`. What the outline
+  does when the zoom moves (it lets go of the focus and selects the first row)
+  goes through the port.
+- **The ontology scope is core** (the plan's "Ontology stays core as
+  mechanism"). The graph store resolves membership, and the outline projects
+  `scopedWireOf`.
+- **Selection stays the outline's**, as the O1 row says. `selectedInstanceKey`
+  is an outline row key, selection is clamped against the outline's rows, and
+  the graph's select-in-place and canvas cards reach it through the
+  `NodeTextPort`, the same port that carries the caret.
+- **`jumpToNode` stays the outline's.** "Reveal" expands ancestors and edits
+  the row, so it is an editor verb. `getBreadcrumbs` walks the projection and
+  only the outline draws breadcrumbs.
+- **Undo history is core.** Its entries are action-invocation pairs, and
+  nothing in them is outline-specific.
+- **Pruning a transient is a graph write.** It goes through `applyTx` like
+  every other write, rather than a second write path. Focus moves now resolve
+  the host they were working in before they prune. The one visible edge is a
+  selection left on the pruned row: it now clears at the prune instead of at
+  the next transaction. The only caller that leaves such a selection behind
+  is `deactivateNode`, which has none in production.
+
+Importers outside `components/outline/` that still read the outline store, so
+O3 must route around them:
+
+| Importer | Why it needs editor state |
+|---|---|
+| `browser-host.ts`, `stores/node-text-port.ts`, `stores/graph-read.ts` | The `BrowserHost`, `NodeTextPort` and `GraphSource` contracts carry the outline's projection, caret, selection and text-host registry. Canvas cards edit through them too. |
+| `actions/mutations.ts`, `actions/optimistic.ts` | Editing mutations activate rows, mark transients, read expansion and visible instances (both store imports carry GAP `01M1RXMRB7AZB7DPFR6XBPBKQ9`). |
+| `components/App.tsx` | The node-palette shortcut anchors on the active or selected row. |
+| `components/palette/command-palette.tsx` | It reveals a hit with `jumpToNode`, and the command context's `OutlineCommandApi` (`outlineCommandApi()`) mixes graph and editor members (O3a). |
+| `stores/follow.ts`, `components/ontology/ontology-page.tsx` | A "reveal" follow is `jumpToNode`. |
+| `components/graph/graph-adapters.tsx` | Graph bullets draw the outline's bullet appearance, which includes collapse. |
+| `components/layout/pane-title.ts`, `components/layout/pane-switcher.tsx`, `ui-plugins.ts` | They look up node text, views and switch versions in the scoped projection. Reading the graph store would change what they show under a scope, which is a behaviour change left to O3. |
+
 ## O2: what landed
 
 Two restructures, behaviour-preserving except for the one deliberate change

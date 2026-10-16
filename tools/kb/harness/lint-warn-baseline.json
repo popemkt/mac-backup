@@ -4,7 +4,7 @@
       "eslint/max-lines-per-function": 24,
       "react/exhaustive-effect-dependencies": 8,
       "react/globals": 1,
-      "react/hooks": 4,
+      "react/hooks": 3,
       "react/memo-dependencies": 2,
       "react/refs": 9,
       "react/set-state-in-effect": 11

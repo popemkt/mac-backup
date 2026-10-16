@@ -20,6 +20,7 @@ import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { isPinned } from "@/lib/pinned";
 import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeCommandPalette } from "./node-command-palette";
@@ -61,7 +62,7 @@ function graph(): WireNode[] {
 
 function seed() {
   resetOutlineStore();
-  useOutlineStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+  useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
   useDebugFieldsStore.setState({ ids: new Set() });
 }
 

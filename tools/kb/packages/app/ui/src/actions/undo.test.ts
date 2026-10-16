@@ -6,6 +6,7 @@ import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -17,7 +18,7 @@ afterAll(() => syncUiPlugins([]));
 
 function seed() {
   resetOutlineStore();
-  useOutlineStore
+  useGraphStore
     .getState()
     .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
 }
@@ -26,15 +27,16 @@ describe("undo / redo (D19)", () => {
   beforeEach(seed);
 
   it("restores a deleted subtree with Cmd+Z", async () => {
-    const before = useOutlineStore.getState().wireNodes.length;
+    const before = useGraphStore.getState().wireNodes.length;
     await mutations.deleteNode("n.root-b");
-    expect(useOutlineStore.getState().wireNodes.length).toBe(before - 1);
+    expect(useGraphStore.getState().wireNodes.length).toBe(before - 1);
     expect(useOutlineStore.getState().nodes.has("n.root-b")).toBe(false);
 
     await mutations.undo();
 
     const s = useOutlineStore.getState();
-    expect(s.wireNodes.length).toBe(before);
+    const graph = useGraphStore.getState();
+    expect(graph.wireNodes.length).toBe(before);
     expect(s.nodes.get("n.root-b")?.text).toBe("Search jumps to matching nodes");
     // Children of the deleted node come back too.
     expect(present(s.nodes.get(WORKSPACE_ROOT_ID), WORKSPACE_ROOT_ID).children).toContain(
@@ -44,18 +46,18 @@ describe("undo / redo (D19)", () => {
 
   it("undoes a split: minted sibling disappears again", async () => {
     await mutations.splitNode("n.root-c", 4); // "Read-only props panel…" → two rows
-    const mid = useOutlineStore.getState();
+    const mid = useGraphStore.getState();
     expect(mid.wireNodes.length).toBe(fixtureGraph.nodes.length + 1);
 
     await mutations.undo();
     const undone = useOutlineStore.getState();
-    expect(undone.wireNodes.length).toBe(fixtureGraph.nodes.length);
+    expect(useGraphStore.getState().wireNodes.length).toBe(fixtureGraph.nodes.length);
     expect(undone.nodes.get("n.root-c")?.text).toBe("Read-only props panel resolves field names");
     void mid;
 
     await mutations.redo();
     const redone = useOutlineStore.getState();
-    expect(redone.wireNodes.length).toBe(fixtureGraph.nodes.length + 1);
+    expect(useGraphStore.getState().wireNodes.length).toBe(fixtureGraph.nodes.length + 1);
     expect(redone.nodes.get("n.root-c")?.text).toBe("Read");
   });
 
@@ -116,10 +118,10 @@ describe("undo / redo (D19)", () => {
   it("a new structural mutation clears the redo stack", async () => {
     await mutations.splitNode("n.root-c", 4);
     await mutations.undo();
-    expect(useOutlineStore.getState().redoStack.length).toBeGreaterThan(0);
+    expect(useGraphStore.getState().redoStack.length).toBeGreaterThan(0);
 
     await mutations.indentNode("n.root-c");
-    expect(useOutlineStore.getState().redoStack.length).toBe(0);
+    expect(useGraphStore.getState().redoStack.length).toBe(0);
   });
 
   it("no-ops cleanly on empty stacks", async () => {

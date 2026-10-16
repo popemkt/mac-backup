@@ -19,6 +19,7 @@ import {
   switchExtension,
   useExtensionSwitches,
 } from "@/ui-plugins";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
@@ -49,8 +50,8 @@ const LOAD_SOURCE: Record<"api" | "fixtures", string> = {
  */
 function ConnectionDot() {
   const wsStatus = useUiStore((s) => s.wsStatus);
-  const rev = useOutlineStore((s) => s.rev);
-  const loadSource = useOutlineStore((s) => s.loadSource);
+  const rev = useGraphStore((s) => s.rev);
+  const loadSource = useGraphStore((s) => s.loadSource);
   const dot = WS_DOT[wsStatus];
   const source = loadSource === null ? "not loaded" : `from ${LOAD_SOURCE[loadSource]}`;
   return (
@@ -197,7 +198,7 @@ function LoadError({ error, onRetry }: { error: string | null; onRetry: () => vo
 }
 
 export function App() {
-  const hydrateFromWire = useOutlineStore((s) => s.hydrateFromWire);
+  const hydrateFromWire = useGraphStore((s) => s.hydrateFromWire);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);

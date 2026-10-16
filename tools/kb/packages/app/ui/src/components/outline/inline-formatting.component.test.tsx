@@ -21,6 +21,7 @@ import {
   setCaretSerializedOffset,
   syncUiPlugins,
 } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
@@ -64,7 +65,7 @@ describe("inline formatting while editing", () => {
 
   beforeEach(() => {
     resetOutlineStore();
-    useOutlineStore
+    useGraphStore
       .getState()
       .hydrateFromWire(
         [
@@ -258,6 +259,6 @@ describe("inline formatting while editing", () => {
     await activate("n.fmt", key, 0);
     const ref = present(editor(key).querySelector("a.kb-md-ref"), "ref");
     await act(async () => click(ref));
-    expect(useOutlineStore.getState().rootNodeId).toBe("n.root-a");
+    expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");
   });
 });

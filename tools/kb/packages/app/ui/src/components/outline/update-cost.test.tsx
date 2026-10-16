@@ -24,6 +24,7 @@ import { resolveRowChrome } from "@/lib/row-chrome";
 import type * as RowChrome from "@/lib/row-chrome";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { outlineUiPlugin } from "./plugin";
 import { FrameViewSlot } from "./frame-view-slot";
@@ -95,7 +96,7 @@ describe("outline update cost", () => {
 
   beforeEach(async () => {
     resetOutlineStore();
-    useOutlineStore.getState().hydrateFromWire(graph(), 1, "fixtures");
+    useGraphStore.getState().hydrateFromWire(graph(), 1, "fixtures");
     useOutlineStore.getState().expandAllInScope();
     container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
     dom.window.document.body.appendChild(container as unknown as never);
@@ -124,7 +125,7 @@ describe("outline update cost", () => {
   it("re-renders only the row of the node a transaction changed", async () => {
     const changed = { ...wire("n.kid-3", "Kid three"), updatedAt: "2026-08-09T00:00:00.000Z" };
     await act(async () => {
-      useOutlineStore.getState().applyTx([changed], [], { rev: 2 });
+      useGraphStore.getState().applyTx([changed], [], { rev: 2 });
     });
     expect(container.textContent).toContain("Kid three");
     expect(new Set(renderedRows())).toEqual(new Set(["n.kid-3"]));
@@ -161,7 +162,7 @@ describe("outline update cost", () => {
   it("asks for no `[[` candidates while no popup is open", async () => {
     const changed = { ...wire("n.kid-3", "Kid three"), updatedAt: "2026-08-09T00:00:00.000Z" };
     await act(async () => {
-      useOutlineStore.getState().applyTx([changed], [], { rev: 2 });
+      useGraphStore.getState().applyTx([changed], [], { rev: 2 });
     });
     expect(container.textContent).toContain("Kid three");
     expect(nodeCandidates).not.toHaveBeenCalled();

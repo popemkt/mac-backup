@@ -20,7 +20,8 @@ import {
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import type { SelectionKeyAction } from "@/lib/selection-keymap";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineSource, useOutlineStore } from "@/stores/outline.store";
 import { enterFields } from "@/lib/value-slot-nav";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;
@@ -49,7 +50,7 @@ function selectParent({ nodeId }: ActionOf<"selectParent">): void {
 function shownChildren(nodeId: string): readonly string[] {
   const store = useOutlineStore.getState();
   const node = store.nodes.get(nodeId);
-  return node ? shownNode(node, schemaOf(store)).children : [];
+  return node ? shownNode(node, schemaOf(useGraphStore.getState())).children : [];
 }
 
 /** The first child as drawn under this row instance, not at its own place. */
@@ -75,7 +76,7 @@ function createAfter({ nodeId }: ActionOf<"createAfter">): void {
 /** A printable character: activate at text end with the character appended. */
 function append({ nodeId, instanceKey, char }: ActionOf<"append">): void {
   const store = useOutlineStore.getState();
-  const { text, textNodeId } = rowTextOf(store, nodeId);
+  const { text, textNodeId } = rowTextOf(outlineSource(), nodeId);
   const nextText = text + char;
   store.activateNode(nodeId, nextText.length, instanceKey);
   void mutations.updateNodeContent(textNodeId, nextText);
@@ -83,9 +84,8 @@ function append({ nodeId, instanceKey, char }: ActionOf<"append">): void {
 
 /** Open the page of the node the row shows — a reference's original. */
 function zoom({ nodeId }: ActionOf<"zoom">): void {
-  const store = useOutlineStore.getState();
-  const node = store.nodes.get(nodeId);
-  store.zoomTo(node ? shownNodeId(node) : nodeId);
+  const node = useOutlineStore.getState().nodes.get(nodeId);
+  useGraphStore.getState().zoomTo(node ? shownNodeId(node) : nodeId);
 }
 
 /** Delete, then take the focus to the previous visible row, else the next. */

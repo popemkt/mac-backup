@@ -12,6 +12,7 @@ import {
 } from "@kb/ui-sdk";
 import { getViewConfig } from "@/lib/view-config";
 import { serializeViewFilter, type ViewFilter } from "@kb/views";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "@/components/ui/pref-field-row";
@@ -57,15 +58,18 @@ function resolveAnchorRect(frameId: string): DOMRect | null {
 export function ViewFilterPopoverHost() {
   const frameId = useUiStore((s) => s.filterPopoverFrameId);
   const setOpenId = useUiStore((s) => s.setFilterPopoverFrameId);
-  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
+  const generation = useGraphStore((s) => s.index?.generation ?? 0);
   const frame = useOutlineStore((s) => (frameId !== null ? s.nodes.get(frameId) : undefined));
   const panelRef = useRef<HTMLDivElement>(null);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
 
   const fields = useMemo(() => {
     if (frameId === null) return [];
-    const state = useOutlineStore.getState();
-    return listFilterFieldOptions(frameId, state.nodes, schemaOf(state));
+    return listFilterFieldOptions(
+      frameId,
+      useOutlineStore.getState().nodes,
+      schemaOf(useGraphStore.getState()),
+    );
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
   }, [frameId, generation]);
 

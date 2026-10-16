@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { backlinkRows, type BacklinkRow } from "@/lib/backlinks";
 import { Bullet, MdView, NodeRow, schemaOf, TagChipGroup } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow, useOpenNode } from "@/stores/follow";
 import { useRefInk } from "@/stores/ref-ink";
@@ -9,9 +10,9 @@ import { useRefInk } from "@/stores/ref-ink";
  * Inline "References (N)" at the bottom of a zoomed view (DESIGN-RESKIN §1.5).
  */
 export function ReferencesSection({ nodeId }: { nodeId: string }) {
-  const queryDb = useOutlineStore((s) => s.index);
-  const schema = useOutlineStore(schemaOf);
-  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
+  const queryDb = useGraphStore((s) => s.index);
+  const schema = useGraphStore(schemaOf);
+  const generation = useGraphStore((s) => s.index?.generation ?? 0);
 
   const backlinks = useMemo(
     (): BacklinkRow[] => backlinkRows(queryDb, schema, nodeId),

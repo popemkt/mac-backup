@@ -16,6 +16,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
 import { mutations, __resetPendingContentForTests } from "@/actions/mutations";
 import { planInsertSibling } from "@/actions/plan";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
@@ -25,7 +26,7 @@ import { OutlineEditor } from "./outline-editor";
 function seed() {
   resetOutlineStore();
   useUiStore.setState({ toasts: [], nodePaletteOpen: false, globalPaletteOpen: false });
-  useOutlineStore
+  useGraphStore
     .getState()
     .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
   __resetPendingContentForTests();
@@ -81,7 +82,7 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
     await act(async () => {
       root.render(<OutlineEditor />);
     });
-    const before = useOutlineStore.getState().wireNodes.length;
+    const before = useGraphStore.getState().wireNodes.length;
     const strip = container.querySelector('[data-create-child-zone="n.root-a"]') as HTMLElement;
     expect(strip).toBeTruthy();
     // Dispatch on the glyph to prove guard-free: glyph bubble reaches strip handler
@@ -91,12 +92,12 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
       glyph.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     });
     // In happy-dom React synthetics need explicit strip dispatch as fallback
-    if (useOutlineStore.getState().wireNodes.length === before) {
+    if (useGraphStore.getState().wireNodes.length === before) {
       await act(async () => {
         strip.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
       });
     }
-    const after = useOutlineStore.getState().wireNodes.length;
+    const after = useGraphStore.getState().wireNodes.length;
     expect(after).toBe(before + 1);
   });
 

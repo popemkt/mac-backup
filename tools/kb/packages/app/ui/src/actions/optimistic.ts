@@ -1,6 +1,7 @@
 import type { PlannedMutation } from "@/actions/plan";
 import { toast } from "@kb/ui-sdk";
 import { invoke, invokeLocal } from "@/session/runtime";
+import { useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 
 export type RunOptimisticResult = {
@@ -14,7 +15,7 @@ export async function runOptimistic(
   plan: PlannedMutation,
   opts?: { skipRemote?: boolean },
 ): Promise<RunOptimisticResult> {
-  const skipRemote = opts?.skipRemote === true || useOutlineStore.getState().loadSource !== "api";
+  const skipRemote = opts?.skipRemote === true || useGraphStore.getState().loadSource !== "api";
 
   for (const action of plan.actions) {
     // oxlint-disable-next-line eslint/no-await-in-loop -- plans are deliberately ordered (split and merge depend on prior writes)

@@ -16,7 +16,8 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { framedAs, viewFieldNodes, type FrameViewName } from "@/fixtures/view-fields";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineCommandApi, outlineSource, useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { WireNode } from "@kb/contracts";
@@ -58,7 +59,7 @@ function columnsView() {
   const { nodes } = useOutlineStore.getState();
   const view = frameViewOf(
     nodes.get("frame1"),
-    schemaOf(useOutlineStore.getState()),
+    schemaOf(useGraphStore.getState()),
     frameViewKeys(),
   );
   if (view === null) throw new Error("no frame view is provided");
@@ -165,12 +166,12 @@ const mockWire: WireNode[] = [
 
 describe("W7.1 BoardCardsView + toolbar", () => {
   beforeEach(() => {
-    useOutlineStore.getState().hydrateFromWire(mockWire, 1, "fixtures");
+    useGraphStore.getState().hydrateFromWire(mockWire, 1, "fixtures");
     useUiStore.setState({ filterPopoverFrameId: null, toasts: [] });
   });
 
   afterEach(() => {
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
   });
 
   it("ViewToolbar exposes list/table/board/cards mode buttons", () => {
@@ -215,7 +216,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
         frameId: "frame1",
         view: columnsView(),
         nodes: useOutlineStore.getState().nodes,
-        context: fieldContextOf(useOutlineStore.getState()),
+        context: fieldContextOf(outlineSource()),
         widthPref: "full",
       }),
     );
@@ -230,13 +231,13 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   });
 
   it("board with null group shows empty state + switch to cards", () => {
-    useOutlineStore.getState().hydrateFromWire(withFrame1("board", {}), 2, "fixtures");
+    useGraphStore.getState().hydrateFromWire(withFrame1("board", {}), 2, "fixtures");
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
         view: columnsView(),
         nodes: useOutlineStore.getState().nodes,
-        context: fieldContextOf(useOutlineStore.getState()),
+        context: fieldContextOf(outlineSource()),
       }),
     );
     expect(html).toContain('data-board-empty="true"');
@@ -247,13 +248,13 @@ describe("W7.1 BoardCardsView + toolbar", () => {
 
   it("cards mode renders ungrouped CSS grid (no board columns)", () => {
     // The view is the frame's own, resolved the way its host resolves it.
-    useOutlineStore.getState().hydrateFromWire(withFrame1("cards", GROUPED), 3, "fixtures");
+    useGraphStore.getState().hydrateFromWire(withFrame1("cards", GROUPED), 3, "fixtures");
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
         view: columnsView(),
         nodes: useOutlineStore.getState().nodes,
-        context: fieldContextOf(useOutlineStore.getState()),
+        context: fieldContextOf(outlineSource()),
       }),
     );
     expect(html).toContain('data-view-mode="cards"');
@@ -283,7 +284,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
           }
         : n,
     );
-    useOutlineStore.getState().hydrateFromWire(multi, 3, "fixtures");
+    useGraphStore.getState().hydrateFromWire(multi, 3, "fixtures");
     const before = [...present(useOutlineStore.getState().nodes.get("frame1"), "frame1").children];
     await mutations.moveBoardCard(
       "c1",
@@ -303,7 +304,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
         frameId: "frame1",
         view: columnsView(),
         nodes: useOutlineStore.getState().nodes,
-        context: fieldContextOf(useOutlineStore.getState()),
+        context: fieldContextOf(outlineSource()),
         rowIds: ["c1", "c2"],
         isQuerySource: true,
         widthPref: "full",
@@ -328,11 +329,11 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const kids = frame.children.map((id) => present(nodes.get(id), id));
     const cols = groupChildrenForBoard(kids, "f_status", schemaFor(nodes));
     const expected = flattenBoardOrder(cols).map((n) => n.id);
-    useOutlineStore.getState().zoomTo("frame1");
+    useGraphStore.getState().zoomTo("frame1");
     const visible = collectVisibleInstances("frame1", {
       nodes,
       schema: schemaFor(nodes),
-      queryDb: useOutlineStore.getState().index,
+      queryDb: useGraphStore.getState().index,
       views: frameViewKeys(),
       chain: [],
       pages: {},
@@ -367,7 +368,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
 
 describe("Filter… host visibility", () => {
   beforeEach(() => {
-    useOutlineStore.getState().hydrateFromWire(mockWire, 1, "fixtures");
+    useGraphStore.getState().hydrateFromWire(mockWire, 1, "fixtures");
     useUiStore.setState({ filterPopoverFrameId: null, toasts: [] });
   });
 
@@ -403,9 +404,9 @@ describe("Filter… host visibility", () => {
       root.render(createElement(ViewFilterPopoverHost));
     });
 
-    useOutlineStore.getState().zoomTo("frame1");
+    useGraphStore.getState().zoomTo("frame1");
     await act(async () => {
-      const outline = useOutlineStore.getState();
+      const outline = outlineCommandApi();
       await runCommand(SYSTEM_IDS.cmdViewFilter, {
         target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
         outline,

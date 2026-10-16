@@ -11,7 +11,7 @@ import {
 } from "@kb/ui-sdk";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useFollow } from "@/stores/follow";
 import { FieldRow } from "./field-row";
 import { resolveTagFields, type TagFieldRef } from "./tag-fields";
@@ -154,7 +154,7 @@ export function TagFieldsConfigView({
 }
 
 export function TagFieldsConfig({ tagId }: { tagId: string }) {
-  const schema = useOutlineStore(schemaOf);
+  const schema = useGraphStore(schemaOf);
   const follow = useFollow();
 
   const { template, suggestions, all } = useMemo(

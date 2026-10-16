@@ -8,6 +8,7 @@ import { KbWsClient } from "@/api/ws";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { querySubscriptionId, resultNodeIds, subscribeQueryNode } from "@/lib/query-node";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FakeWsSocket } from "@/test-support/ws";
 import type { WireNode } from "@kb/contracts";
@@ -29,7 +30,7 @@ function queryWire(id = "n.q1", extraProps: WireNode["props"] = {}): WireNode {
 }
 
 function hydrate(extra: WireNode[] = []): void {
-  useOutlineStore.getState().hydrateFromWire([...fixtureGraph.nodes, ...extra], 1, "fixtures");
+  useGraphStore.getState().hydrateFromWire([...fixtureGraph.nodes, ...extra], 1, "fixtures");
 }
 
 beforeEach(() => {
@@ -146,7 +147,7 @@ describe("query node collapse state (cheap-by-default)", () => {
     store.toggleCollapse("n.q1");
     expect(present(useOutlineStore.getState().nodes.get("n.q1"), "n.q1").collapsed).toBe(false);
     // Simulate an incoming WS tx touching an unrelated node.
-    useOutlineStore.getState().applyTx(
+    useGraphStore.getState().applyTx(
       [
         {
           id: "n.new",
@@ -161,9 +162,10 @@ describe("query node collapse state (cheap-by-default)", () => {
       { rev: 2 },
     );
     const after = useOutlineStore.getState();
+    const graph = useGraphStore.getState();
     expect(after.nodes.get("n.new")).toBeDefined();
     expect(present(after.nodes.get("n.q1"), "n.q1").collapsed).toBe(false);
-    expect(after.rootNodeId).toBe(WORKSPACE_ROOT_ID);
+    expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
   });
 });
 

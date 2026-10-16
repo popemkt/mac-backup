@@ -14,6 +14,7 @@ import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -75,7 +76,7 @@ describe("selection-mode dispatcher (characterization)", () => {
 
   beforeEach(() => {
     resetOutlineStore();
-    useOutlineStore
+    useGraphStore
       .getState()
       .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
@@ -200,7 +201,7 @@ describe("selection-mode dispatcher (characterization)", () => {
   it("zoom: Meta+. enters the row", async () => {
     selectAndMount("n.root-b");
     await press(".", { metaKey: true });
-    expect(useOutlineStore.getState().rootNodeId).toBe("n.root-b");
+    expect(useGraphStore.getState().rootNodeId).toBe("n.root-b");
   });
 
   it("createAfter: o on an expanded parent mints a child of it", async () => {
@@ -247,10 +248,10 @@ describe("selection-mode dispatcher (characterization)", () => {
 
   it("an unmapped chord leaves the store alone", async () => {
     selectAndMount("n.root-b");
-    const before = useOutlineStore.getState().wireNodes.length;
+    const before = useGraphStore.getState().wireNodes.length;
     await press("F5");
     await press("k", { metaKey: true });
-    expect(useOutlineStore.getState().wireNodes.length).toBe(before);
+    expect(useGraphStore.getState().wireNodes.length).toBe(before);
     expect(useOutlineStore.getState().selectedNodeId).toBe("n.root-b");
     expect(useOutlineStore.getState().activeNodeId).toBeNull();
   });

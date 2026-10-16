@@ -76,8 +76,8 @@ The browser replica is the server's graph as of one `rev`, with the local
 writes the server has not confirmed laid over it. One state machine,
 `BrowserReplica` in `session/replica.ts`, owns that. `KbWsClient` carries its
 messages and asks `since` on its behalf, `api/live.ts` runs the snapshot fetch
-it asks for, and the outline store projects what it applies. None of them
-reads a rev.
+it asks for, the graph store (`stores/graph.store.ts`) holds what it applies,
+and the outline store projects that. None of them reads a rev.
 
 **State.**
 
@@ -286,7 +286,7 @@ caret re-placement when a row remounts.
 
 **Undo/redo is action-level, not keystroke-level.** `actions/mutations.ts`
 `restoreInvocations` compares the graph states before and after a plan and
-derives compensating shared-action invocations. `outlineStore` keeps bounded
+derives compensating shared-action invocations. The graph store keeps bounded
 `undoStack` / `redoStack` of `{ undo, redo }` (`HISTORY_LIMIT` = 50).
 `Cmd/Ctrl+Z` binds outside editable targets, and in api mode compensation uses
 the same local invocation + ordered push lane — there is **no** server-authoritative
@@ -365,10 +365,10 @@ a handle rather than a copied path) — as one record,
 node. `Bullet` renders that record and decides nothing; the graph's bullet
 theme paints the same record (Graph → The themes), so the two cannot drift.
 
-**A row depends on what it reads, not on the graph.** The outline store
-holds the graph as whole values — the projection (`nodes`), the schema
-(`schemaOf`) and the query index — and every graph change, expand or
-collapse replaces the maps. Two properties keep that from costing a render
+**A row depends on what it reads, not on the graph.** The page holds the
+graph as whole values — the outline store's projection (`nodes`), and the
+graph store's schema (`schemaOf`) and query index — and every graph change,
+expand or collapse replaces the maps. Two properties keep that from costing a render
 per row:
 
 - The projection is persistent. `wireToOutlineMap` takes the projection it
@@ -377,7 +377,7 @@ per row:
   schema does the same per snapshot.
 - A row reads the graph through a tracked read (`useGraphReadThrough`,
   `@kb/ui-sdk` → `lib/graph-read`, over a `GraphSource`; the shell's
-  `useGraphRead` binds it to the outline store): the outline, schema and
+  `useGraphRead` binds it to the outline and graph stores): the outline, schema and
   index as views that record which ids were asked for (a walk records the
   whole map, a query the index generation). The view is renewed, and the
   row re-renders, only when one of those reads changed — an outline entry
@@ -641,10 +641,10 @@ The reading-mode consumption of the resolver documented in
 button exits it: `/o` (list), `/o/<id>` (members page), `/o/<id>/outline`,
 `/o/<id>/graph` (`lib/router.ts`, `ontologyPath()`).
 
-**Scope is a projection, not a sandbox.** `outlineStore` gained `ontologyId`,
+**Scope is a projection, not a sandbox.** The graph store holds `ontologyId`,
 `ontologyMembers`, `ontologyWarnings`, `preScopeRootId` and `setOntologyScope`,
-and every wire→outline conversion goes through a single `projectWire()` helper
-so there is one place where members are filtered. Crucially `queryDb` stays
+and what a scope shows is decided in one place, `scopedWireOf`, which every
+wire→outline conversion projects. Crucially `queryDb` stays
 built over the **full** snapshot — backlinks, `#query` nodes and WS
 subscriptions keep honest reach while the outline, search, keyboard navigation
 and breadcrumbs see members only. Membership is memoized in a `WeakMap` keyed

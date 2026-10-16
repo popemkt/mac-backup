@@ -29,7 +29,8 @@ import {
   syncUiPlugins,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineSource, useOutlineStore } from "@/stores/outline.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -83,7 +84,7 @@ async function settle(rounds = 4, delayMs = 0): Promise<void> {
 }
 
 function endOf(id: string): number {
-  return rowTextOf(useOutlineStore.getState(), id).text.length;
+  return rowTextOf(outlineSource(), id).text.length;
 }
 
 /**
@@ -95,7 +96,7 @@ function seedWithReference(): void {
     w.id === "n.root-a" ? { ...w, children: ["n.child-a1", "n.ref", "n.child-a2"] } : w,
   );
   resetOutlineStore();
-  useOutlineStore
+  useGraphStore
     .getState()
     .hydrateFromWire(
       [...wires, ...REF_SEED_WIRES, ctxRefWire("n.ref", "n.root-c")],
@@ -127,7 +128,7 @@ describe("outline editing keymap (characterization)", () => {
     // previous test would otherwise land on this test's freshly seeded graph.
     await settle();
     resetOutlineStore();
-    useOutlineStore
+    useGraphStore
       .getState()
       .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
@@ -165,7 +166,7 @@ describe("outline editing keymap (characterization)", () => {
       "characterization editor",
     );
     // What the row shows — for a contextual reference, its target's text.
-    const { text } = rowTextOf(useOutlineStore.getState(), nodeId);
+    const { text } = rowTextOf(outlineSource(), nodeId);
     renderInlineMarkdown(el, text, PLAIN_INK);
     setCaretSerializedOffset(el, cursor);
     return el;
@@ -250,9 +251,9 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("Enter is claimed and does not split", async () => {
-      const before = useOutlineStore.getState().wireNodes.length;
+      const before = useGraphStore.getState().wireNodes.length;
       expect(await press(mount("n.root-b", 3, true), "Enter")).toBe(true);
-      expect(useOutlineStore.getState().wireNodes.length).toBe(before);
+      expect(useGraphStore.getState().wireNodes.length).toBe(before);
     });
 
     it("Backspace at offset 0 is claimed and does not outdent", async () => {
@@ -308,10 +309,10 @@ describe("outline editing keymap (characterization)", () => {
     });
 
     it("Enter splits the row", async () => {
-      const before = useOutlineStore.getState().wireNodes.length;
+      const before = useGraphStore.getState().wireNodes.length;
       expect(await press(mount("n.root-c", 4, false), "Enter")).toBe(true);
       expect(node("n.root-c")?.text).toBe("Read");
-      expect(useOutlineStore.getState().wireNodes.length).toBe(before + 1);
+      expect(useGraphStore.getState().wireNodes.length).toBe(before + 1);
     });
   });
 
@@ -423,7 +424,7 @@ describe("outline editing keymap (characterization)", () => {
     it("Meta+ArrowUp on a leaf zooms to the enclosing page", async () => {
       act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
       expect(await press(mount("n.child-a1", 0, false), "ArrowUp", { metaKey: true })).toBe(true);
-      expect(useOutlineStore.getState().rootNodeId).toBe("n.root-a");
+      expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");
     });
 
     it("Meta+ArrowDown expands a collapsed parent", async () => {
@@ -443,9 +444,10 @@ describe("outline editing keymap (characterization)", () => {
       };
       expect(await press(el, "ArrowDown", { metaKey: true })).toBe(true);
       const after = useOutlineStore.getState();
+      const graph = useGraphStore.getState();
       expect(after.activeNodeId).toBe(before.active);
       expect(node("n.child-a1")?.collapsed).toBe(before.collapsed);
-      expect(after.rootNodeId).toBe(WORKSPACE_ROOT_ID);
+      expect(graph.rootNodeId).toBe(WORKSPACE_ROOT_ID);
     });
 
     it("Meta+ArrowDown on a childless but tagged row still reveals its fields", async () => {

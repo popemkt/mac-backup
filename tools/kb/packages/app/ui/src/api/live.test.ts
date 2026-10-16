@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { GraphSnapshot } from "@kb/contracts";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { fixtureGraph } from "@/api/fixture-graph";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { createLiveClient } from "./live";
@@ -67,7 +68,7 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
   });
 
   it("catches up from the tx frames the server holds — no refetch", async () => {
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, 1, "api");
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, 1, "api");
     const fetchStub = stubFetch(async () => new Response("{}"));
 
     const socket = new FakeWsSocket();
@@ -94,14 +95,14 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     };
     await deliver(socket, { op: "tx", rev: 2, upserts: [arrived], deletes: [] });
     await deliver(socket, { op: "tx", rev: 3, upserts: [], deletes: [] });
-    expect(useOutlineStore.getState().rev).toBe(3);
+    expect(useGraphStore.getState().rev).toBe(3);
     expect(useOutlineStore.getState().nodes.has("n.from-since")).toBe(true);
     expect(fetchStub.calls).toEqual([]);
     client.disconnect();
   });
 
   it("refetches the snapshot when the server answers snapshot-required", async () => {
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, 1, "api");
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, 1, "api");
 
     const serverSnapshot: GraphSnapshot = {
       rev: 5,
@@ -138,13 +139,13 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     expect(fetchStub.calls).toEqual([]);
     await deliver(socket, { op: "snapshot-required", head: 5 });
     expect(fetchStub.calls).toEqual(["/api/graph"]);
-    await until(() => useOutlineStore.getState().rev === 5);
+    await until(() => useGraphStore.getState().rev === 5);
     expect(useOutlineStore.getState().nodes.has("n.from-resync")).toBe(true);
     client.disconnect();
   });
 
   it("refetches when a restarted server cannot serve the client's rev", async () => {
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, 3, "api");
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, 3, "api");
 
     const fetchStub = stubFetch(
       async () =>
@@ -166,12 +167,12 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     expect(fetchStub.calls).toEqual([]);
     await deliver(socket, { op: "snapshot-required", head: 0 });
     expect(fetchStub.calls).toEqual(["/api/graph"]);
-    await until(() => useOutlineStore.getState().rev === fixtureGraph.rev);
+    await until(() => useGraphStore.getState().rev === fixtureGraph.rev);
     client.disconnect();
   });
 
   it("hands a burst that arrives within one frame to the replica as one store update", async () => {
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, 1, "api");
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, 1, "api");
     stubFetch(async () => new Response("{}"));
     const socket = new FakeWsSocket();
     const client = createLiveClient({ url: "ws://test/ws", makeSocket: () => socket });
@@ -189,7 +190,7 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     expect(updates).toBe(0);
     await nextFrame();
     expect(updates).toBe(1);
-    expect(useOutlineStore.getState().rev).toBe(4);
+    expect(useGraphStore.getState().rev).toBe(4);
     expect(useOutlineStore.getState().nodes.has("n.burst-4")).toBe(true);
     unsubscribe();
     client.disconnect();

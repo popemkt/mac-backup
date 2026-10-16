@@ -9,6 +9,7 @@ import {
   queryResultInstanceKey,
   syncUiPlugins,
 } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -20,7 +21,7 @@ afterAll(() => syncUiPlugins([]));
 
 function seed() {
   resetOutlineStore();
-  useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 
 describe("render-instance identity", () => {

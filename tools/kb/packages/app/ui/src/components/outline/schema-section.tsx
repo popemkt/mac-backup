@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow, useOpenNode } from "@/stores/follow";
 import { useRefInk } from "@/stores/ref-ink";
@@ -17,8 +18,8 @@ import { TagFieldsConfig } from "./tag-fields-config";
  */
 export function SchemaSection({ nodeId }: { nodeId: string }) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
-  const queryDb = useOutlineStore((s) => s.index);
-  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
+  const queryDb = useGraphStore((s) => s.index);
+  const generation = useGraphStore((s) => s.index?.generation ?? 0);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
   const zoomTo = useOpenNode();
 
@@ -53,7 +54,7 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
             key={hit.id}
             hit={hit}
             onActivate={() => {
-              useOutlineStore.getState().zoomHome();
+              useGraphStore.getState().zoomHome();
               jumpToNode(hit.id);
             }}
             onZoom={() => zoomTo(hit.id)}

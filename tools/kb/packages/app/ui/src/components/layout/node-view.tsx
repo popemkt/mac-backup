@@ -14,7 +14,7 @@ import {
 } from "@kb/ui-sdk";
 import { ScrollRegion } from "./pane-frame";
 import { usePageCatalog } from "@/lib/view-catalog";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 
 /** The one "cannot be shown here" state, saying why. */
 function unavailable(why: string) {
@@ -34,7 +34,7 @@ function notLoaded(label: string): string {
  */
 export function NodeViewSurface({ params }: ViewProps<NodeParams>) {
   // Views and their hosts are read from the whole graph, whatever scope the outline is in.
-  const schema = useOutlineStore(schemaOf);
+  const schema = useGraphStore(schemaOf);
   const catalog = usePageCatalog();
   const target = useMemo(
     () =>

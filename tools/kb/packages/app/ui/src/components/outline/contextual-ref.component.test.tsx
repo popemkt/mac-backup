@@ -16,7 +16,8 @@ import type { WireNode } from "@kb/contracts";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { childInstanceKey, outlineInstanceKey, rowTextOf, syncUiPlugins } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineSource, useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -46,7 +47,7 @@ function ctxRefWires(): WireNode[] {
 
 function seed(extra: WireNode[]) {
   resetOutlineStore();
-  useOutlineStore
+  useGraphStore
     .getState()
     .hydrateFromWire([...fixtureGraph.nodes, ...extra], fixtureGraph.rev, "fixtures");
 }
@@ -170,8 +171,9 @@ describe("contextual reference row", () => {
     await act(async () => click(textOf(key)));
     await render("n.ctx");
     const s = useOutlineStore.getState();
+    const graph = useGraphStore.getState();
     // No navigation: the caret lands in this row, on this instance.
-    expect(s.rootNodeId).not.toBe("n.root-a");
+    expect(graph.rootNodeId).not.toBe("n.root-a");
     expect(s.activeNodeId).toBe("n.ctx");
     expect(s.activeInstanceKey).toBe(key);
     const editor = present(
@@ -198,7 +200,7 @@ describe("contextual reference row", () => {
     const s = useOutlineStore.getState();
     expect(s.nodes.get("n.root-a")?.text).toBe("Ship kb ui shell!");
     expect(s.nodes.get("n.ctx")?.text).toBe("");
-    expect(rowTextOf(s, "n.ctx").text).toBe("Ship kb ui shell!");
+    expect(rowTextOf(outlineSource(), "n.ctx").text).toBe("Ship kb ui shell!");
   });
 
   it("the bullet: click opens or closes the row itself, ⌘-click opens the original", async () => {
@@ -211,9 +213,9 @@ describe("contextual reference row", () => {
     const before = present(useOutlineStore.getState().nodes.get("n.ctx"), "n.ctx").collapsed;
     await act(async () => click(bullet()));
     expect(useOutlineStore.getState().nodes.get("n.ctx")?.collapsed).toBe(!before);
-    expect(useOutlineStore.getState().rootNodeId).not.toBe("n.root-a");
+    expect(useGraphStore.getState().rootNodeId).not.toBe("n.root-a");
     await act(async () => click(bullet(), { metaKey: true }));
-    expect(useOutlineStore.getState().rootNodeId).toBe("n.root-a");
+    expect(useGraphStore.getState().rootNodeId).toBe("n.root-a");
   });
 
   it("a dangling reference stays read-only: there is no text to write to", async () => {

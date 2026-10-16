@@ -12,7 +12,8 @@ import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { fieldContextOf, setCaretSerializedOffset, SYSTEM_IDS } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineSource, useOutlineStore } from "@/stores/outline.store";
 import { FieldValueStack } from "./fields-section";
 
 const ISO = "2026-09-28T00:00:00.000Z";
@@ -43,7 +44,7 @@ describe("adding a value", () => {
 
   beforeEach(() => {
     resetOutlineStore();
-    useOutlineStore.getState().hydrateFromWire(
+    useGraphStore.getState().hydrateFromWire(
       [
         wire({ id: "n.host", text: "Host", props: { "f.note": [{ t: "str", v: "one" }] } }),
         wire({
@@ -73,7 +74,7 @@ describe("adding a value", () => {
           fieldId="f.note"
           fieldType="text"
           values={held()}
-          context={fieldContextOf(useOutlineStore.getState())}
+          context={fieldContextOf(outlineSource())}
           readOnly={false}
           onFollow={() => undefined}
         />,

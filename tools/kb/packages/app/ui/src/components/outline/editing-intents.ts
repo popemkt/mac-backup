@@ -18,7 +18,8 @@ import {
   serializeEditable,
   setCaretSerializedOffset,
 } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineSource, useOutlineStore } from "@/stores/outline.store";
 import { enterFields } from "@/lib/value-slot-nav";
 import type { EditingIntent } from "./editing-keymap";
 
@@ -39,10 +40,10 @@ function softBreak(
 ): void {
   const store = useOutlineStore.getState();
   // The row's text channel: a reference's break lands in its original.
-  const { textNodeId } = rowTextOf(store, nodeId);
+  const { textNodeId } = rowTextOf(outlineSource(), nodeId);
   const text = serializeEditable(editable);
   const next = `${text.slice(0, cursor)}\n${text.slice(cursor)}`;
-  renderInlineMarkdown(editable, next, refInkOf(schemaOf(store)));
+  renderInlineMarkdown(editable, next, refInkOf(schemaOf(useGraphStore.getState())));
   setCaretSerializedOffset(editable, cursor + 1);
   const view = editable.ownerDocument.defaultView;
   if (view) editable.dispatchEvent(new view.Event("input", { bubbles: true }));
@@ -64,7 +65,7 @@ function deleteSubtree({ nodeId, instanceKey }: IntentOf<"deleteSubtree">): void
       useOutlineStore.getState().selectNode(null);
       return;
     }
-    const at = pick === prev ? rowTextOf(useOutlineStore.getState(), pick.nodeId).text.length : 0;
+    const at = pick === prev ? rowTextOf(outlineSource(), pick.nodeId).text.length : 0;
     useOutlineStore.getState().activateNode(pick.nodeId, at, pick.instanceKey);
   });
 }
@@ -75,7 +76,11 @@ function deleteEmptyRow({ nodeId, instanceKey }: IntentOf<"deleteEmptyRow">): vo
   void mutations.deleteNode(nodeId).then(() => {
     if (!prev) return;
     const store = useOutlineStore.getState();
-    store.activateNode(prev.nodeId, rowTextOf(store, prev.nodeId).text.length, prev.instanceKey);
+    store.activateNode(
+      prev.nodeId,
+      rowTextOf(outlineSource(), prev.nodeId).text.length,
+      prev.instanceKey,
+    );
   });
 }
 
@@ -100,7 +105,7 @@ const EDITING_STEPS: EditingSteps = {
   moveDown: ({ nodeId }) => void mutations.moveNodeDown(nodeId),
   toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
   // Collapsed / leaf: jump to the enclosing page (zoomed root).
-  zoomToParent: ({ parentId }) => useOutlineStore.getState().zoomTo(parentId),
+  zoomToParent: ({ parentId }) => useGraphStore.getState().zoomTo(parentId),
   moveCaretToRow: ({ nodeId, instanceKey, cursor, x }) =>
     useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey, { x }),
   select: ({ nodeId, instanceKey }) => useOutlineStore.getState().selectNode(nodeId, instanceKey),

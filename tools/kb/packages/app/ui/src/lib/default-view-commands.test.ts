@@ -10,7 +10,8 @@ import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineCommandApi, useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
@@ -47,7 +48,7 @@ function graph(): WireNode[] {
 }
 
 function context(): CommandContext {
-  const outline = useOutlineStore.getState();
+  const outline = outlineCommandApi();
   return {
     target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
     outline,
@@ -75,7 +76,7 @@ describe("Make default view", () => {
   afterAll(() => dom.restore());
   beforeEach(() => {
     resetOutlineStore();
-    useOutlineStore.getState().hydrateFromWire(graph(), fixtureGraph.rev, "fixtures");
+    useGraphStore.getState().hydrateFromWire(graph(), fixtureGraph.rev, "fixtures");
   });
 
   it("on a host, offers each view after its default, named by text or by its view", async () => {

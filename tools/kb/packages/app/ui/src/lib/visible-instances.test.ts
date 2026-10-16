@@ -12,6 +12,7 @@ import {
 } from "@kb/ui-sdk";
 import { setOutlineHost } from "@/stores/outline-hosts";
 import type { WireNode } from "@kb/contracts";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { OutlineListView, OutlineTableView } from "@kb/views";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -44,7 +45,7 @@ function queryWire(): WireNode {
 describe("visible instances", () => {
   beforeEach(() => {
     resetOutlineStore();
-    useOutlineStore
+    useGraphStore
       .getState()
       .hydrateFromWire(
         [...fixtureGraph.nodes, ...viewFieldNodes, queryWire()],
@@ -57,11 +58,12 @@ describe("visible instances", () => {
 
   it("offers no row a slot would refuse to render: the one rule, over the same chain", () => {
     const store = useOutlineStore.getState();
+    const graph = useGraphStore.getState();
     expect(store.getVisibleInstances().length).toBeGreaterThan(0);
     // The root frame's slot inside a slot already showing it: a cycle.
     setOutlineHost(MAIN_OUTLINE_HOST, {
       root: null,
-      chain: [slotLink(OutlineListView, store.rootNodeId)],
+      chain: [slotLink(OutlineListView, graph.rootNodeId)],
     });
     expect(useOutlineStore.getState().getVisibleInstances()).toEqual([]);
     // The root frame's slot at the depth limit.
@@ -93,7 +95,7 @@ describe("visible instances", () => {
   });
 
   it("zoomed children use full-chain outline keys", () => {
-    useOutlineStore.getState().zoomTo("n.root-a");
+    useGraphStore.getState().zoomTo("n.root-a");
     useOutlineStore.getState().toggleCollapse("n.child-a2");
     const keys = useOutlineStore
       .getState()
@@ -108,7 +110,7 @@ describe("visible instances", () => {
 
   it("table-mode frame emits only sorted direct children (no grandchildren)", async () => {
     const { mutations } = await import("@/actions/mutations");
-    useOutlineStore.getState().zoomTo("n.root-a");
+    useGraphStore.getState().zoomTo("n.root-a");
     useOutlineStore.getState().toggleCollapse("n.root-a");
     // Expand would show grandchild in list mode; table must stay flat.
     useOutlineStore.getState().toggleCollapse("n.child-a2");
@@ -148,7 +150,7 @@ describe("visible instances", () => {
 describe("outlines in several panes", () => {
   beforeEach(() => {
     resetOutlineStore();
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
   });
   afterEach(() => setOutlineHost("pane:p2", null));
 

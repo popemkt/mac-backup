@@ -22,6 +22,7 @@
  */
 import { expect } from "vitest";
 import { present } from "@kb/model";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 
 const REALM_KEY = "__kbIsolationProbe";
@@ -122,7 +123,7 @@ export function probeStoreIsolation(label: string): string {
   // Whatever a neighbour did to its store, this file starts on a pristine one.
   const state = useOutlineStore.getState();
   expect(state.activeNodeId).toBeNull();
-  expect(state.wireNodes).toHaveLength(0);
+  expect(useGraphStore.getState().wireNodes).toHaveLength(0);
 
   return table(here.records);
 }

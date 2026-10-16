@@ -38,7 +38,7 @@ import {
   subscribePath,
 } from "@kb/ui-sdk";
 import { pageCatalog } from "@/lib/view-catalog";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useScreenStore } from "@/stores/screen.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 
@@ -54,7 +54,7 @@ function viewAt(route: string): { key: string; node?: string } | null {
   if (matched === null) return null;
   const opened = paramsOf(matched, NodeView);
   if (opened === null) return { key: matched.view.id };
-  const schema = schemaOf(useOutlineStore.getState());
+  const schema = schemaOf(useGraphStore.getState());
   const target = resolveNodeView(
     opened,
     pageCatalog(),
@@ -111,7 +111,7 @@ function openRoute(pane: string, route: string): ScreenAck {
 
 /** Open a node in `pane`, in its default view: the one route a node is opened by. */
 function openNode(pane: string, id: string): ScreenAck {
-  if (!schemaOf(useOutlineStore.getState()).has(id)) return screenRejected(`no node ${id}`);
+  if (!schemaOf(useGraphStore.getState()).has(id)) return screenRejected(`no node ${id}`);
   return openRoute(pane, nodePath(id));
 }
 

@@ -16,6 +16,7 @@ import { setFetchGraphSnapshot } from "@/api/graph";
 import { setPostAction } from "@/api/action";
 import { App } from "@/components/App";
 import { navigate, SYSTEM_IDS } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 
 const ISO = "2026-08-23T00:00:00.000Z";
@@ -144,7 +145,7 @@ describe("ontology scope (acceptance)", () => {
   }
 
   it("loads the workspace unscoped, showing member and non-member nodes alike", () => {
-    const store = useOutlineStore.getState();
+    const store = useGraphStore.getState();
     expect(store.loadSource).toBe("api");
     expect(store.rev).toBe(11);
     expect(store.ontologyId).toBeNull();
@@ -158,8 +159,9 @@ describe("ontology scope (acceptance)", () => {
     await goto("/o/o.infra/outline");
 
     const store = useOutlineStore.getState();
-    expect(store.ontologyId).toBe(ONTO);
-    const members = present(store.ontologyMembers, "ontology members");
+    const graph = useGraphStore.getState();
+    expect(graph.ontologyId).toBe(ONTO);
+    const members = present(graph.ontologyMembers, "ontology members");
     expect([...members].toSorted()).toEqual(["n.caddy", "n.notes", "n.oldvpn", "n.tailscaled"]);
 
     // Every rendered row is a member (the ontology itself is the scope root).
@@ -196,16 +198,16 @@ describe("ontology scope (acceptance)", () => {
 
   it("scopes search and the graph projection to members", async () => {
     await goto("/o/o.infra/outline");
-    expect(useOutlineStore.getState().search("shopping")).toEqual([]);
+    expect(useGraphStore.getState().search("shopping")).toEqual([]);
     expect(
-      useOutlineStore
+      useGraphStore
         .getState()
         .search("caddy")
         .map((r) => r.id),
     ).toEqual(["n.caddy"]);
 
     const { extractLensGraph } = await import("@kb/ui-sdk");
-    const s = useOutlineStore.getState();
+    const s = useGraphStore.getState();
     const graph = extractLensGraph(
       present(s.index, "query db"),
       s.wireNodes,
@@ -252,7 +254,7 @@ describe("ontology scope (acceptance)", () => {
     expect(container.querySelector("[data-ontology-scope-bar]")).not.toBeNull();
 
     await goto("/");
-    expect(useOutlineStore.getState().ontologyId).toBeNull();
+    expect(useGraphStore.getState().ontologyId).toBeNull();
     expect(container.querySelector("[data-ontology-scope-bar]")).toBeNull();
     expect(rowTexts()).toEqual(beforeRows);
     expect(container.innerHTML).toBe(before);
@@ -273,7 +275,7 @@ describe("ontology scope (acceptance)", () => {
 
     await goto("/o");
     await settle();
-    expect(useOutlineStore.getState().ontologyId).toBeNull();
+    expect(useGraphStore.getState().ontologyId).toBeNull();
     expect(container.textContent).toContain("Ontologies");
     expect(container.textContent).toContain("Infrastructure");
   });

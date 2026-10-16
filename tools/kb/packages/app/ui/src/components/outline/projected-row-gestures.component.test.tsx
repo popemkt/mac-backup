@@ -15,7 +15,8 @@ import { fieldContextOf, queryResultInstanceKey, schemaOf } from "@kb/ui-sdk";
 import { frameConfigOf } from "@/lib/view-config";
 import { OutlineCardsView, OutlineTableView, paramsFrom } from "@kb/views";
 import { Result } from "effect";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { outlineSource, useOutlineStore } from "@/stores/outline.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs } from "@/fixtures/view-fields";
@@ -27,7 +28,7 @@ const RESULTS = ["n.root-b", "n.root-c"];
 /** What the view named `key` reads of n.root-a's config, decoded the way its host decodes it. */
 function settingsOf<P>(key: Parameters<typeof paramsFrom<P>>[0]): P {
   const { nodes } = useOutlineStore.getState();
-  const schema = schemaOf(useOutlineStore.getState());
+  const schema = schemaOf(useGraphStore.getState());
   return Result.getOrThrow(paramsFrom(key, frameConfigOf(nodes.get("n.root-a"), schema)));
 }
 
@@ -47,7 +48,7 @@ describe("projected query-result rows behave like owned rows", () => {
 
   beforeEach(() => {
     resetOutlineStore();
-    useOutlineStore
+    useGraphStore
       .getState()
       .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
@@ -80,7 +81,7 @@ describe("projected query-result rows behave like owned rows", () => {
           settings={settingsOf(OutlineTableView)}
           rowIds={RESULTS}
           isQuerySource
-          context={fieldContextOf(useOutlineStore.getState())}
+          context={fieldContextOf(outlineSource())}
         />,
       );
     });
@@ -88,33 +89,34 @@ describe("projected query-result rows behave like owned rows", () => {
 
   it("table: a row click selects the result, it does not navigate", async () => {
     await renderTable();
-    const before = useOutlineStore.getState().rootNodeId;
+    const before = useGraphStore.getState().rootNodeId;
     await act(async () => click(row()));
     const s = useOutlineStore.getState();
-    expect(s.rootNodeId).toBe(before);
+    const graph = useGraphStore.getState();
+    expect(graph.rootNodeId).toBe(before);
     expect(s.selectedNodeId).toBe("n.root-b");
     expect(s.selectedInstanceKey).toBe(key);
   });
 
   it("table: a plain bullet click toggles, ⌘-click opens the node", async () => {
     await renderTable();
-    const before = useOutlineStore.getState().rootNodeId;
+    const before = useGraphStore.getState().rootNodeId;
     const collapsed = present(
       useOutlineStore.getState().nodes.get("n.root-b"),
       "n.root-b",
     ).collapsed;
     await act(async () => click(bullet()));
-    expect(useOutlineStore.getState().rootNodeId).toBe(before);
+    expect(useGraphStore.getState().rootNodeId).toBe(before);
     expect(useOutlineStore.getState().nodes.get("n.root-b")?.collapsed).toBe(!collapsed);
     await act(async () => click(bullet(), { metaKey: true }));
-    expect(useOutlineStore.getState().rootNodeId).toBe("n.root-b");
+    expect(useGraphStore.getState().rootNodeId).toBe("n.root-b");
   });
 
   it("cards: a row click selects the result, the bullet opens it", async () => {
     const wires = structuredClone(fixtureGraph.nodes).flatMap((w) =>
       w.id === "n.root-a" ? framedAs(w, "cards") : [w],
     );
-    useOutlineStore.getState().hydrateFromWire(wires, fixtureGraph.rev, "fixtures");
+    useGraphStore.getState().hydrateFromWire(wires, fixtureGraph.rev, "fixtures");
     await act(async () => {
       root.render(
         <BoardCardsView
@@ -122,15 +124,15 @@ describe("projected query-result rows behave like owned rows", () => {
           view={{ key: OutlineCardsView, params: settingsOf(OutlineCardsView) }}
           rowIds={RESULTS}
           isQuerySource
-          context={fieldContextOf(useOutlineStore.getState())}
+          context={fieldContextOf(outlineSource())}
         />,
       );
     });
-    const before = useOutlineStore.getState().rootNodeId;
+    const before = useGraphStore.getState().rootNodeId;
     await act(async () => click(row()));
-    expect(useOutlineStore.getState().rootNodeId).toBe(before);
+    expect(useGraphStore.getState().rootNodeId).toBe(before);
     expect(useOutlineStore.getState().selectedInstanceKey).toBe(key);
     await act(async () => click(bullet()));
-    expect(useOutlineStore.getState().rootNodeId).toBe("n.root-b");
+    expect(useGraphStore.getState().rootNodeId).toBe("n.root-b");
   });
 });

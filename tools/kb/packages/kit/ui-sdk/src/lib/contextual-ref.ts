@@ -35,7 +35,7 @@
  * it on its instance path renders as a leaf.
  */
 import { instanceAncestorIds } from "./instance-key";
-import { schemaOf, type SchemaIndex, type SchemaSource } from "./schema";
+import { schemaOf, type RowSource, type SchemaIndex } from "./schema";
 import type { OutlineNode } from "./types";
 import { SYSTEM_IDS, isSysPrefixed } from "./types";
 
@@ -121,7 +121,7 @@ export function rowText(node: OutlineNode, schema: SchemaIndex): string {
  * intent, a selection action). An unknown id reads as its own empty text.
  */
 export function rowTextOf(
-  state: SchemaSource,
+  state: RowSource,
   nodeId: string,
 ): { readonly text: string; readonly textNodeId: string } {
   const node = state.nodes.get(nodeId);

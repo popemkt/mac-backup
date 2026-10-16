@@ -1,5 +1,6 @@
 import { Predicate } from "effect";
 import { matchRoute, RoutePoint, useContributions, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 
 /** The params a page names its subject by, in the order a title prefers them. */
@@ -14,8 +15,9 @@ const SUBJECT_KEYS = ["node", "perspective", "id", "root", "view"] as const;
 export function usePaneTitle(path: string): string {
   const route = matchRoute(useContributions(RoutePoint), path);
   const subject = route === null ? undefined : subjectOf(route.params);
+  const rootNodeId = useGraphStore((s) => s.rootNodeId);
   const text = useOutlineStore((s) => {
-    const id = subject ?? (path === "/" ? s.rootNodeId : undefined);
+    const id = subject ?? (path === "/" ? rootNodeId : undefined);
     if (id === undefined) return undefined;
     if (id === WORKSPACE_ROOT_ID) return "Home";
     const node = s.nodes.get(id);

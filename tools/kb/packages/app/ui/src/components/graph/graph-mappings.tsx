@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { mutations } from "@/actions/mutations";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { SYSTEM_IDS } from "@kb/ui-sdk";
 import { graphBindingOptions, type GraphBindingOption } from "@/lib/graph-bindings";
 import {
@@ -53,7 +53,7 @@ const CHANNELS: Record<
 };
 
 export function GraphMappings({ perspective }: { perspective: LensPerspective }) {
-  const nodes = useOutlineStore((s) => s.wireNodes);
+  const nodes = useGraphStore((s) => s.wireNodes);
   const optionsFor = useMemo(() => sourceOptionsByField(nodes), [nodes]);
   const channels = useRenderer(perspective.renderer)?.renderer.channels ?? [];
   return (

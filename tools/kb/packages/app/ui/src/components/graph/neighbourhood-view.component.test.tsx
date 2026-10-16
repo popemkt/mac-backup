@@ -12,7 +12,7 @@ import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
 import { lensReport, syncUiPlugins, ViewSlot } from "@kb/ui-sdk";
 import { paramsFromProps, NeighbourhoodView, type NeighbourhoodParams } from "@kb/views";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import type * as GraphAdapters from "./graph-adapters";
 
@@ -101,7 +101,7 @@ describe("graph.neighbourhood", () => {
   beforeEach(() => {
     drawn.length = 0;
     resetOutlineStore();
-    useOutlineStore.getState().hydrateFromWire(GRAPH, 1, "fixtures");
+    useGraphStore.getState().hydrateFromWire(GRAPH, 1, "fixtures");
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);

@@ -5,7 +5,6 @@ import {
   bulletClickIntent,
   childInstanceKey,
   cn,
-  fieldContextOf,
   isQueryResultInstance,
   NodeRow,
   nodeTarget,
@@ -24,7 +23,8 @@ import { useOutlineHost } from "./outline-host";
 import { frameRows } from "@/lib/frame-rows";
 import { EMPTY_GROUP_KEY, resolveTableColumns } from "@/lib/view-config";
 import { OutlineBoardView, OutlineCardsView, localIdOf, type ParamsOf } from "@kb/views";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
+import { useFieldContext, useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -65,7 +65,7 @@ export function BoardCardsView({
   isQuerySource = false,
   widthPref: widthPrefProp,
 }: BoardCardsViewProps) {
-  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
+  const generation = useGraphStore((s) => s.index?.generation ?? 0);
   const storeNodes = useOutlineStore((s) => s.nodes);
   const nodes = useMemo(
     () => nodesProp ?? storeNodes,
@@ -83,7 +83,7 @@ export function BoardCardsView({
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
-  const storeContext = useOutlineStore(fieldContextOf);
+  const storeContext = useFieldContext();
   const context = contextProp ?? storeContext;
   const schema = context.schema;
 

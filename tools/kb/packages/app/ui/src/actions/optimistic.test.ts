@@ -4,13 +4,13 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { planSplit } from "./plan";
 import { runOptimistic } from "./optimistic";
 import { waitForBrowserPushes } from "@/session/runtime";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 
 describe("local action plans", () => {
   afterEach(() => setPostAction(null));
 
   it("runs multi-action plans locally in order and queues the same invocations", async () => {
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
     const calls: unknown[] = [];
     setPostAction(async (invocation) => {
       calls.push(invocation);
@@ -21,21 +21,21 @@ describe("local action plans", () => {
     });
 
     expect((await runOptimistic(plan)).ok).toBe(true);
-    expect(useOutlineStore.getState().index?.getNode("n.root-a")?.text).toBe("Ship");
-    expect(useOutlineStore.getState().index?.getNode("n.split")?.text).toBe(" kb ui shell");
+    expect(useGraphStore.getState().index?.getNode("n.root-a")?.text).toBe("Ship");
+    expect(useGraphStore.getState().index?.getNode("n.split")?.text).toBe(" kb ui shell");
     await waitForBrowserPushes();
     expect(calls).toEqual(plan.actions.map((action) => ({ ...action, actor: "human" })));
   });
 
   it("fixture mode runs locally without pushing", async () => {
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "fixtures");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "fixtures");
     const post = vi.fn();
     setPostAction(post);
     const result = await runOptimistic({
       actions: [{ id: "node.update", input: { id: "n.root-a", text: "offline" } }],
     });
     expect(result.ok).toBe(true);
-    expect(useOutlineStore.getState().index?.getNode("n.root-a")?.text).toBe("offline");
+    expect(useGraphStore.getState().index?.getNode("n.root-a")?.text).toBe("offline");
     expect(post).not.toHaveBeenCalled();
   });
 });

@@ -181,7 +181,13 @@ export {
 } from "./lib/instance-key";
 export { nodeCandidates, type RefCreation, refCreationOf, refSearchOf, refUses } from "./lib/refs";
 export { type GraphRead, type GraphSource, useGraphReadThrough } from "./lib/graph-read";
-export { type FieldContext, fieldContextOf, type SchemaIndex, schemaOf } from "./lib/schema";
+export {
+  type FieldContext,
+  fieldContextOf,
+  type FieldContextSource,
+  type SchemaIndex,
+  schemaOf,
+} from "./lib/schema";
 export {
   DEBUG_FIELDS_STORAGE_KEY,
   EXPANDED_STORAGE_KEY,

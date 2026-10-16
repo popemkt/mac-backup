@@ -16,6 +16,7 @@ import {
   syncUiPlugins,
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { NodeBlock } from "./node-block";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -81,7 +82,7 @@ describe("field values in the outline's keyboard path", () => {
 
   beforeEach(async () => {
     resetOutlineStore();
-    useOutlineStore.getState().hydrateFromWire(GRAPH, 1, "fixtures");
+    useGraphStore.getState().hydrateFromWire(GRAPH, 1, "fixtures");
     useOutlineStore.getState().toggleCollapse("n.a");
     container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
     dom.window.document.body.appendChild(container as unknown as never);

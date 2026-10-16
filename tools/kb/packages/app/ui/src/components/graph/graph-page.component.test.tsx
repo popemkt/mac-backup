@@ -8,7 +8,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import type * as GraphAdapters from "./graph-adapters";
 
@@ -70,7 +70,7 @@ async function settle(ready: () => boolean, reason: string): Promise<void> {
 
 function seed() {
   resetOutlineStore();
-  useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 
 describe("GraphPage (smoke)", () => {
@@ -147,7 +147,7 @@ describe("GraphPage (smoke)", () => {
           }
         : node,
     );
-    useOutlineStore.getState().hydrateFromWire(capped, fixtureGraph.rev, "fixtures");
+    useGraphStore.getState().hydrateFromWire(capped, fixtureGraph.rev, "fixtures");
     await act(async () => {
       root.render(createElement(GraphPage, { perspectiveId: SYSTEM_IDS.lensAllMentions }));
     });

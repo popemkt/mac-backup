@@ -4,6 +4,7 @@ import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "./mutations";
 import { waitForBrowserPushes } from "@/session/runtime";
+import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore } from "@/stores/outline.store";
 
 describe("mutations invoke shared actions", () => {
@@ -17,7 +18,7 @@ describe("mutations invoke shared actions", () => {
   beforeEach(() => {
     post.mockClear();
     setPostAction(post);
-    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    useGraphStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
   });
 
   it("indent sends one node.update and changes the local tree", async () => {
@@ -43,7 +44,7 @@ describe("mutations invoke shared actions", () => {
 
   it("property edits are applied through node.update", async () => {
     await mutations.updateProp("n.root-a", "sys.f.query", { t: "str", v: "[:find ?e]" });
-    expect(useOutlineStore.getState().index?.getNode("n.root-a")?.props["sys.f.query"]).toEqual([
+    expect(useGraphStore.getState().index?.getNode("n.root-a")?.props["sys.f.query"]).toEqual([
       { t: "str", v: "[:find ?e]" },
     ]);
   });
