@@ -5,6 +5,7 @@ export {
   APPROVAL_POLICIES_QUERY,
   DECISION_OPTION_IDS,
   MODE_MATCHES,
+  actsAsOwner,
   approvalPoliciesOf,
   approvalPolicyNode,
   matchSpecificity,

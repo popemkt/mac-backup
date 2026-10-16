@@ -19,6 +19,24 @@ export const ACTORS = ["human", "agent", "cli", "script"] as const;
 export type Actor = (typeof ACTORS)[number];
 
 /**
+ * The actors that act as the store's owner: a person's gesture, and the
+ * command line, which runs with the owner's own shell, so whoever runs it
+ * already holds what the owner holds. An agent and sandboxed code act for
+ * the owner and never hold the owner's capabilities: they may not set
+ * `force`, and their writes to configuration ask the owner first
+ * (DESIGN.md → Action registry → Approval).
+ */
+const OWNER_ACTORS: ReadonlySet<Actor> = new Set(["human", "cli"]);
+
+/**
+ * Whether a call by `actor` acts as the owner. A call that names no actor is
+ * code running in process, never through a surface, which is the owner's own.
+ */
+export function actsAsOwner(actor: Actor | undefined): boolean {
+  return actor === undefined || OWNER_ACTORS.has(actor);
+}
+
+/**
  * What is decided about a call, from least to most restrictive: it runs, it
  * runs once a person approves it, or it never runs. The order is the one the
  * resolver compares decisions by.

@@ -39,6 +39,7 @@ import {
   ACTOR_OPTION_IDS,
   DECISION_OPTION_IDS,
   SYSTEM_IDS,
+  actsAsOwner,
   approvalPoliciesOf,
   extensionNodeId,
   type ApprovalPolicy,
@@ -524,6 +525,29 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
           expect({ name, code: renamed?.status === "failed" ? renamed.code : "ran" }).toEqual({
             name,
             code: "forbidden",
+          });
+        }),
+      ),
+  ],
+  [
+    "force is the owner's: a surface whose caller acts for the owner sets it, and one whose " +
+      "caller acts for them is refused, whatever the policies say",
+    (set) =>
+      overSurfaces(set, ({ name, surface, via }) =>
+        Effect.gen(function* () {
+          // A forced write that changes nothing but the node's stamp.
+          const forced = yield* via({
+            id: "node.update",
+            input: { id: EXTENSION_NODE, setProps: [], force: true },
+          });
+          if (forced === null) {
+            const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
+            expect({ name, listed: listed.has("node.update") }).toEqual({ name, listed: false });
+            return;
+          }
+          expect({ name, outcome: forced.status === "failed" ? forced.code : "ran" }).toEqual({
+            name,
+            outcome: actsAsOwner(surface.wire.actor) ? "ran" : "forbidden",
           });
         }),
       ),

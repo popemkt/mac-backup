@@ -1,4 +1,5 @@
 import { Effect, Predicate } from "effect";
+import { z } from "zod";
 import {
   type ActionDefinition,
   type ActionEffectHandler,
@@ -18,6 +19,7 @@ import {
   ActionSchemaError,
   FailureCodeSchema,
   ResolveError,
+  actsAsOwner,
   ensureDomainError,
   isDomainError,
   domainError,
@@ -222,6 +224,14 @@ const parseOutput = Effect.fnUntraced(function* (def: ActionDefinition, output: 
 });
 
 /**
+ * An input that sets `force`, the override of the sys.* write guard that any
+ * action taking it declares (`node.add`, `node.update`, `node.delete`,
+ * `node.addTree`). It is the owner's capability (`actsAsOwner`), refused here,
+ * on invoke itself, so no action and no surface can hand it to an agent.
+ */
+const ForcedInputSchema = z.object({ force: z.literal(true) });
+
+/**
  * Effect invoke over a registry map — failures stay typed until a receipt mapper takes them.
  * Native handlers are composed directly (scoped); legacy Promise handlers are
  * the only path that uses `tryPromise`.
@@ -241,6 +251,13 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   if (refusal !== null) return failed(id, refusal.code, refusal.message, refusal.details);
 
   const parsed = yield* parseBySchema(entry.def.inputSchema, input);
+  if (ForcedInputSchema.safeParse(parsed).success && !actsAsOwner(invocation.actor)) {
+    return failed(
+      id,
+      "forbidden",
+      `force is the owner's to set; a call by ${invocation.actor ?? "this caller"} may not`,
+    );
+  }
   const run = dispatch(entry, ctx, parsed);
   if (run === null) return failed(id, "internal", `action has no effect or handler: ${id}`);
 

@@ -501,7 +501,9 @@ type PropValue =
   field that configures it (`sys.f.configures`, [Extension
   families](#extension-families) → configuration), stated once in
   `@kb/model`'s `system-write.ts` and checked against every commit's
-  upserts (`assertSystemWrites`).
+  upserts (`assertSystemWrites`). `force` is the owner's: the invoke core
+  refuses it from a caller that acts for the owner ([Action
+  registry](#action-registry) → Approval → actors).
 - **System nodes**, seeded on init, are ordinary nodes with reserved ids:
   `sys.field` (the type of fields), `sys.tag` (the type of tags),
   `sys.f.type` (the "type/tag" field), `sys.f.fields` (tag→templated fields).
@@ -1764,6 +1766,15 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     the owner's "a human gesture never asks" holds in the resolver, not as a
     policy row that could be edited into a confirm the UI has no way to show.
     A policy can still deny a human.
+  - **Actors: the owner, and those who act for them** (`actsAsOwner`, beside
+    `ACTORS` in `@kb/model`). A human gesture and the command line act as
+    the owner. The CLI runs with the owner's own shell, so whoever runs it
+    already holds what the owner holds. An agent and sandboxed code act for
+    the owner and never hold the owner's capabilities. A call that names no
+    actor is code in process, the owner's own. `force`, the override of
+    the `sys.*` write guard, is the owner's: the invoke core refuses an
+    input that sets it from any other caller with `forbidden`, before the
+    handler runs and whatever the policies say.
   - **Writing a policy always asks**, whatever the policies say, so no caller
     can allow itself. A write counts when it writes an `#approval-policy`
     node (tagged before or after, so tagging and untagging count) or the
@@ -1871,7 +1882,8 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   whose wire carries the approval. One policy decides the same on every
   surface: a denial refuses, an ask refuses an unapproved call, and only a
   policy naming the action lowers its declared approval; no surface
-  writes a policy without a person behind the call; and every surface
+  writes a policy without a person behind the call; `force` runs only where
+  the surface's caller acts as the owner; and every surface
   writes an extension's setting on its node, and nothing else of that node
   (Extension families → configuration). These are
   properties of `surfaceContract` in `@kb/test-kit`
