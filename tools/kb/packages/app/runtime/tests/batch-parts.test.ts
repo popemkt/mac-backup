@@ -95,6 +95,49 @@ describe("a batch's parts are registered actions that are not batches", () => {
     expect(out.failures.map((f) => f.file).toSorted()).toEqual(["x.ts", "y.ts"]);
   });
 
+  test("a plugin nested under one that is skipped is reported with it", async () => {
+    const parent = definePlugin({
+      name: "x",
+      namespace: "",
+      apply: (ctx) =>
+        Effect.gen(function* () {
+          yield* ctx.plugin(plugin("inner", [["x.inner"]]));
+          yield* ctx.contribute(ActionPoint, {
+            id: "x.batch",
+            value: {
+              title: "x.batch",
+              description: "x.batch",
+              mode: { kind: "write" },
+              batchOf: ["nope"],
+              inputSchema: z.object({}),
+              outputSchema: z.object({}),
+            },
+          });
+        }),
+    });
+    const out = await run(check(plugin("core", [["p"]]), parent));
+    expect(out.actions).toEqual(["p"]);
+    expect(out.failures).toEqual([
+      { file: "x.ts", error: expect.stringContaining("nope is not registered") },
+      { file: "x.ts", error: expect.stringMatching(/^x\/inner unloaded with x: /) },
+    ]);
+  });
+
+  test("a plugin that will not unload ends the check loudly instead of looping", async () => {
+    const kernel = makeKernel();
+    const stubborn: Kernel = { ...kernel, unload: () => Effect.void };
+    const exit = await run(
+      Effect.gen(function* () {
+        yield* kernel.load(plugin("core", [["p"]]));
+        yield* kernel.load(plugin("x", [["x.batch", ["nope"]]]));
+        return yield* Effect.exit(
+          unloadBrokenBatches(stubborn, { core: "core", sources: new Map(), failures: [] }),
+        );
+      }),
+    );
+    expect(Exit.isFailure(exit)).toBe(true);
+  });
+
   test("core breaking the rule is a programming error: it dies", async () => {
     const out = await run(check(plugin("core", [["p"], ["batch", ["nope"]]])));
     expect(Exit.isFailure(out.exit)).toBe(true);

@@ -183,8 +183,19 @@ export const unloadBrokenBatches = Effect.fnUntraced(function* (
     const error = `action ${first.contribution.id} is a batch of an action that cannot be one of its parts: ${why}`;
     const owner = rootOwner(first.contribution);
     if (owner === loaded.core) return yield* Effect.die(new Error(`core: ${error}`));
+    const inside = (name: string) => name === owner || name.startsWith(`${owner}/`);
+    const nested = kernel.plugins().filter((p) => p.name !== owner && inside(p.name));
     yield* kernel.unload(owner).pipe(Effect.orDie);
-    loaded.failures.push({ file: loaded.sources.get(owner) ?? owner, error });
+    // The fixpoint ends only because each pass takes a plugin away for good.
+    const left =
+      kernel.plugins().some((p) => inside(p.name)) ||
+      kernel.contributions(ActionPoint).some((c) => inside(c.owner));
+    if (left) return yield* Effect.die(new Error(`plugin ${owner} is still loaded after unload`));
+    const file = loaded.sources.get(owner) ?? owner;
+    loaded.failures.push({ file, error });
+    for (const child of nested) {
+      loaded.failures.push({ file, error: `${child.name} unloaded with ${owner}: ${error}` });
+    }
     loaded.sources.delete(owner);
   }
 });
