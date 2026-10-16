@@ -83,6 +83,7 @@ function uiHost(
  * core. The kernel moves only when the switches do, so a plugin that failed
  * is tried again when it is switched, not at every report.
  */
+// GAP [[01M53F2M2S6J3WW0Z0KR136J6A]] hosted plugins contribute channels, not registry actions
 export const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
   kernel: Kernel,
   extensions: readonly ExtensionEntry[],

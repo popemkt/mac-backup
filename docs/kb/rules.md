@@ -153,6 +153,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — the host families' declarations reported (not loaded) by every process, or the agent's declaration joining the bundled list with a host half that only kb ui loads
 - **node** — `01M43H3T8XEMTNBARC024PZD2W`
 
+### GAP: a family that only kb ui hosts contributes no registry actions
+
+- **expected** — a hosted family contributes registry actions where its host runs, listed and invoked like any other
+- **current** — a hosted plugin contributes channels only, so the agent family has no actions (ext.agent.models and ext.agent.check are not built)
+- **impact** — no model suggestions for a provider and no provider check, so a provider that cannot run says so only when a turn fails
+- **closes** — hosted actions in composeHosted and serverInvoke, with a contract property over kb ui, then the two actions
+- **node** — `01M53F2M2S6J3WW0Z0KR136J6A`
+
 ### GAP: a flat item turned face-down shows its face mirrored in 2D
 
 - **expected** — 2D shows a face-down flat card's blank back, as 3D does

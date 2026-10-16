@@ -2083,13 +2083,9 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
       already converges on any write to an extension's node. A kernel
       `reconfigure(name)` for any other setting of this class, re-applying
       a held plugin and keeping the old one when the new `apply` fails, is
-      not built, because no setting needs it. A placeholder gap, to mint at
-      merge: _expected:_ a setting read at apply re-applies its plugin on
-      every host when its value changes, atomically; _current:_ only the
-      switch is read at apply, and no kernel `reconfigure` exists;
-      _impact:_ a family that needs one must read its setting per call;
-      _closes:_ `Kernel.reconfigure` and a contract property over the
-      registry, the `kb ui` host and the page, built with that setting.
+      not built, because no setting needs it. It is built with the first
+      setting that does, together with a contract property over the
+      registry, the `kb ui` host and the page.
 - **The seed is the bundled fold, never a loaded registry.**
   `ensureSystemSeed(nodes, seed)` runs at open, before any registry
   exists. `openKbEffect` passes it `bundledSeed(at)` (`@kb/bundled`, a
@@ -2813,14 +2809,7 @@ The sidebar agent lives outside core, in packages that core never imports
     for `model`) and `ext.agent.check` (whether a provider can run: its
     binary, its endpoint, its credential's reference). They are read
     actions of a family that only `kb ui` hosts, and the server routes no
-    action to a hosted plugin. A placeholder gap, to mint at merge:
-    _expected:_ a hosted family contributes registry actions where its host
-    runs, listed and invoked like any other; _current:_ a hosted plugin
-    contributes channels only, so the agent has no actions; _impact:_ no
-    model suggestions and no provider check, so a provider that cannot run
-    says so only when a turn fails; _closes:_ hosted actions in
-    `composeHosted` and `serverInvoke`, with a contract property over
-    `kb ui`, then the two actions.
+    action to a hosted plugin: GAP [[01M53F2M2S6J3WW0Z0KR136J6A]].
 - **One contract, every adapter.** `agentRuntimeContract` (`@kb/agent`)
   states what the port promises once, and each adapter's tests run it with
   a model double behind the adapter's own wire, so no network and no login
