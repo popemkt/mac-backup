@@ -5,7 +5,7 @@
  * It names no projection. The projection the page stands in reads its rows
  * from this store, so they are never out of step with it; what the
  * projection holds of its own — which rows are open, and its focus — follows
- * each move through {@link PageProjection}, the port a plugin installs.
+ * each move through `PageProjection`, the port a plugin provides.
  */
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
@@ -14,7 +14,10 @@ import {
   inScope,
   shownNodesOf,
   type GraphChange,
+  EMPTY_PROJECTION,
   type PageGraphState,
+  type PageProjection,
+  PageProjectionService,
   type ScopeSource,
   toast,
   WORKSPACE_ROOT_ID,
@@ -22,7 +25,7 @@ import {
   type NodeMap,
   type OutlineNode,
 } from "@kb/ui-sdk";
-import { portSlot } from "@/stores/port-slot";
+import { followProvided, portSlot } from "@/stores/port-slot";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { resolveScope } from "@/lib/ontology-scope";
 import { mergeTx } from "@/lib/tx";
@@ -103,63 +106,6 @@ export const initialGraphState: GraphStateData = {
   redoStack: [],
 };
 
-/**
- * The projection the page stands in: what any projection the page is shown
- * and edited through offers the shell. Core names none; a plugin installs
- * one while it is loaded (`providePageProjection`). Its rows are read from
- * this store, so it holds only its own state, such as which rows are open.
- * Its editor (the caret, the text hosts, the selection) is a port of its
- * own (`stores/page-editor.ts`).
- *
- * Told of a move, for every member of that kind:
- *
- * - It is told before this store moves, and is handed every graph state it
- *   reasons about. It reads none from this store, which may still hold the
- *   state being left.
- * - It moves its own state to one valid against both the state it is handed
- *   and the one the store holds, so a reader told in between sees nothing out
- *   of step. Then this store moves, in one write.
- *
- * The members:
- *
- * - `follow(change, prev, next)` — the replica or scope moves from `prev` to
- *   `next`;
- * - `leave(from)` — the page is about to leave `from`: let go of the focus.
- *   An empty row it minted is pruned while `from` still shows it, as a graph
- *   write of its own;
- * - `arrive(at, to)` — the page is about to stand at `to`, zoomed to
- *   `to.rootNodeId`: land the focus there;
- * - `subscribe(listener)` — a change to what it holds of its own;
- * - `rows(graph)` — the rows it shows of `graph`: what the page shows
- *   (`shownNodesOf`), each open or closed as it holds them;
- * - `reveal(id)` — show `id` where the page is edited, moving the page if it
- *   must, and edit it: a follow's "reveal", a palette hit, an ontology
- *   member.
- */
-export interface PageProjection {
-  readonly follow: (change: GraphChange, prev: GraphStateData, next: GraphStateData) => void;
-  readonly leave: (from: GraphStateData) => void;
-  readonly arrive: (at: "zoom" | "home", to: GraphStateData) => void;
-  readonly subscribe: (listener: () => void) => () => void;
-  readonly rows: (graph: ScopeSource) => NodeMap;
-  readonly reveal: (id: string) => void;
-}
-
-/**
- * What the page stands in while no projection is installed: one that holds
- * nothing of its own, so it shows the rows at their default collapse and
- * reveals nothing. A stand-in projection spreads it for the members it does
- * not watch.
- */
-export const EMPTY_PROJECTION: PageProjection = {
-  follow: () => undefined,
-  leave: () => undefined,
-  arrive: () => undefined,
-  subscribe: () => () => undefined,
-  rows: (graph) => shownNodesOf(graph),
-  reveal: () => undefined,
-};
-
 const installed = portSlot<PageProjection>(EMPTY_PROJECTION);
 
 /** The projection the page stands in now: the installed one, else {@link EMPTY_PROJECTION}. */
@@ -169,8 +115,8 @@ export const pageProjection = installed.current;
 export const subscribeProjection = installed.subscribe;
 
 /**
- * Install the page's projection, from the plugin that provides it while it is
- * loaded. With none installed the graph moves on its own: no one is told, and
+ * Install the page's projection: the one a plugin provides while it is loaded
+ * (`PageProjectionService`), or a test's stand-in. With none installed the graph moves on its own: no one is told, and
  * what a withdrawn projection holds of its own stays as it was. One installed
  * after a graph has loaded follows it at once, as a fresh load: its expansion
  * is read again from storage, and its focus and transient rows start empty.
@@ -457,3 +403,6 @@ export const useGraphStore = create<GraphState>()(() => ({
   applyUndo,
   applyRedo,
 }));
+
+// The projection a plugin provides is the one this store tells.
+followProvided(PageProjectionService, providePageProjection, withdrawPageProjection);

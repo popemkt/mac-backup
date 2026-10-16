@@ -1,9 +1,12 @@
 /**
- * A port a plugin installs while it is loaded and the shell listens to:
- * one installed value at a time, else the port's empty one, and one stable
+ * A port a plugin provides while it is loaded and the shell listens to: one
+ * installed value at a time, else the port's empty one, and one stable
  * subscription that follows whichever is installed. The page's projection
- * and its editor are each one of these.
+ * and its editor are each one of these, installed from the UI kernel service
+ * a plugin provides them under (`followProvided`).
  */
+import type { ServiceKey } from "@kb/plugin";
+import { currentService, subscribeUiKernel } from "@kb/ui-sdk";
 
 /** A port the shell can listen to: it says when what it answers changes. */
 interface Observed {
@@ -55,4 +58,27 @@ export function portSlot<T extends Observed>(empty: T): PortSlot<T> {
       };
     },
   };
+}
+
+/**
+ * Keep a port installed from what the UI kernel provides under `key`: a newly
+ * provided value is installed, and one no longer provided is withdrawn. It
+ * acts only when the provided value changes, so a value installed directly —
+ * a test's stand-in — stays while the kernel moves without providing another.
+ */
+export function followProvided<T>(
+  key: ServiceKey<T>,
+  install: (value: T) => void,
+  withdraw: (value: T) => void,
+): void {
+  let provided = currentService(key);
+  if (provided !== undefined) install(provided);
+  subscribeUiKernel(() => {
+    const next = currentService(key);
+    if (next === provided) return;
+    const was = provided;
+    provided = next;
+    if (was !== undefined) withdraw(was);
+    if (next !== undefined) install(next);
+  });
 }

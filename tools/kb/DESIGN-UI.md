@@ -1721,9 +1721,10 @@ how the stored name resolves to the key among them.
   toolbar or its own row — edits it for every host that names it; a host
   that should differ names a view node of its own.
   The store's row walk (`visible-instances`) and the command registry read
-  the same enumeration through a port (`stores/frame-views`) that the
-  outline plugin wires to `ViewPoint` while it is loaded, so the store never
-  reads the kernel. The frame a view shows (its id, instance key, query rows
+  the same enumeration from the UI kernel (`@kb/ui-sdk`'s
+  `providedFrameViews`, the frame views `ViewPoint` holds now), so a frame
+  view a plugin provides is walked and offered while it is loaded and not
+  after. The frame a view shows (its id, instance key, query rows
   and depth) is not config, so it travels in the host's `FrameSubject`
   context. Every outline host (the outline's root, a row of the list, a
   query's projected results) renders a frame view through `FrameViewSlot`,

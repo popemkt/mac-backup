@@ -34,7 +34,13 @@ import {
 } from "@kb/plugin";
 import { usePath } from "./router";
 import type { FamilyView, ViewPicker } from "./view-key";
-import { localIdOf, type PlainViewKey, type ViewKey } from "@kb/views";
+import {
+  type FrameViewKey,
+  isFrameViewKey,
+  localIdOf,
+  type PlainViewKey,
+  type ViewKey,
+} from "@kb/views";
 import { toast } from "./toast";
 
 /**
@@ -298,6 +304,14 @@ export function familyViews<K extends ViewKey<unknown>>(
     listed.push({ key: value.key, picker });
   }
   return listed.toSorted((a, b) => a.picker.order - b.picker.order);
+}
+
+/**
+ * The frame views provided now, in their pickers' order: what a frame's row
+ * walk lays its rows out by and the view commands offer (`familyViews`).
+ */
+export function providedFrameViews(): readonly FamilyView<FrameViewKey>[] {
+  return familyViews(currentContributions(ViewPoint), isFrameViewKey);
 }
 
 /** A point's contributions, re-read whenever the kernel changes. */

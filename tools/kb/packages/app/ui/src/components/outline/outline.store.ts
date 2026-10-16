@@ -23,6 +23,7 @@ import {
   fieldContextOf,
   type FieldContextSource,
   type GraphChange,
+  type PageGraphState,
   isProjectedInstance,
   isSysPrefixed,
   loadExpansion,
@@ -31,6 +32,8 @@ import {
   type NodeMap,
   outlineInstanceKey,
   type OutlineNode,
+  type PageProjection,
+  providedFrameViews,
   resolveProps,
   resolveVisibleProps,
   rowTextReadOnlyReason,
@@ -51,13 +54,7 @@ import {
   type VisibleInstance,
 } from "@/components/outline/visible-instances";
 import type { FrameViewKey } from "@kb/views";
-import { providedFrameViews } from "@/stores/frame-views";
-import {
-  type GraphStateData,
-  type PageProjection,
-  reachedState,
-  useGraphStore,
-} from "@/stores/graph.store";
+import { reachedState, useGraphStore } from "@/stores/graph.store";
 import {
   outlineHostOf,
   outlineHostOfInstance as walkHostOf,
@@ -680,7 +677,7 @@ const KEPT_FOCUS: Record<
  * focus kept is on rows `next` still shows and `prev` showed, and the rows it
  * keeps open already showed open in `prev`.
  */
-function follow(change: GraphChange, prev: GraphStateData, next: GraphStateData): void {
+function follow(change: GraphChange, prev: PageGraphState, next: PageGraphState): void {
   const outline = useOutlineStore.getState();
   const schema = schemaOf(next);
   if (change === "load") {
@@ -707,7 +704,7 @@ function follow(change: GraphChange, prev: GraphStateData, next: GraphStateData)
  * null when focus leaves the outline entirely. The removal is a graph write
  * like any other, so the outline follows it as it follows every write.
  */
-function pruneOutgoingTransient(nextId: string | null, graph: GraphStateData): void {
+function pruneOutgoingTransient(nextId: string | null, graph: PageGraphState): void {
   const st = useOutlineStore.getState();
   const out = st.activeNodeId;
   if (out === null || out === nextId) return;
@@ -719,7 +716,7 @@ function pruneOutgoingTransient(nextId: string | null, graph: GraphStateData): v
 /** The rows outline host `host` draws over `graph`, opened by `expansion`. */
 function visibleInstancesOf(
   host: string,
-  graph: GraphStateData,
+  graph: PageGraphState,
   expansion: Expansion,
 ): VisibleInstance[] {
   const outline = outlineHostOf(host);
@@ -745,7 +742,7 @@ function visibleInstancesOf(
  * root is the header, not a row, so it cannot hold the selection: row keys
  * and ⌘K would anchor on nothing visible.
  */
-function arrive(at: "zoom" | "home", to: GraphStateData): void {
+function arrive(at: "zoom" | "home", to: PageGraphState): void {
   if (at === "home") {
     useOutlineStore.setState({ ...NO_FOCUS });
     return;
@@ -762,8 +759,8 @@ function arrive(at: "zoom" | "home", to: GraphStateData): void {
 
 /**
  * The outline as the projection the page stands in: installed by the outline
- * plugin while it is loaded (`providePageProjection`), beside this store as
- * the page's editor (`providePageEditor`).
+ * plugin while it is loaded (`PageProjectionService`), beside this store as
+ * the page's editor (`PageEditorService`).
  */
 export const outlineProjection: PageProjection = {
   follow,

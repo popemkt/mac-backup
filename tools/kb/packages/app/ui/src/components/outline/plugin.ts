@@ -23,6 +23,8 @@ import { OutlineSnippet } from "@/components/outline/outline-snippet";
 import {
   CommandPoint,
   OverlayPoint,
+  PageEditorService,
+  PageProjectionService,
   provideRoute,
   provideView,
   RoutePoint,
@@ -31,11 +33,7 @@ import {
   ViewPoint,
 } from "@kb/ui-sdk";
 import { ListBulletsIcon, SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
-import { provideFrameViews, withdrawFrameViews } from "@/stores/frame-views";
-import { providePageProjection, withdrawPageProjection } from "@/stores/graph.store";
 import { outlineProjection, useOutlineStore } from "@/components/outline/outline.store";
-import { providePageEditor, withdrawPageEditor } from "@/stores/page-editor";
-import { readFrameViews } from "@/components/outline/use-frame-views";
 import { OUTLINE_COMMANDS } from "@/components/outline/outline-commands";
 
 const { filters, sort, display, colwidth, pagesize, groupFieldId } = DEFAULT_VIEW_CONFIG;
@@ -117,12 +115,6 @@ export const outlineUiPlugin = definePlugin({
   apply: (ctx) =>
     Effect.all(
       [
-        // The store's row walk and the commands read the frame views through
-        // their port, wired to the UI kernel while this plugin is loaded.
-        Effect.acquireRelease(
-          Effect.sync(() => provideFrameViews(readFrameViews)),
-          () => Effect.sync(() => withdrawFrameViews(readFrameViews)),
-        ),
         // The page stands in the outline while this plugin is loaded: the
         // outline is its projection, which the graph store tells of each move
         // and the shell reads rows and reveals through, and its store is the
@@ -132,17 +124,8 @@ export const outlineUiPlugin = definePlugin({
         // was. Loaded again, it follows the graph as a fresh load: the
         // expansion is read from storage again, and the focus and transient
         // rows start empty.
-        Effect.acquireRelease(
-          Effect.sync(() => {
-            providePageProjection(outlineProjection);
-            providePageEditor(useOutlineStore);
-          }),
-          () =>
-            Effect.sync(() => {
-              withdrawPageEditor(useOutlineStore);
-              withdrawPageProjection(outlineProjection);
-            }),
-        ),
+        ctx.provide(PageProjectionService, outlineProjection),
+        ctx.provide(PageEditorService, useOutlineStore),
         ...OUTLINE_VIEWS.map((view) => ctx.contribute(ViewPoint, view)),
         ctx.contribute(
           RoutePoint,

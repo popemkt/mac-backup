@@ -53,6 +53,7 @@ export {
 } from "./lib/command-point";
 export {
   currentContributions,
+  currentService,
   type Dock,
   DockPoint,
   type ExtensionSwitch,
@@ -67,6 +68,7 @@ export {
   type Placement,
   pointReader,
   type ProvidedView,
+  providedFrameViews,
   provideRoute,
   provideView,
   type ResolvedRoute,
@@ -190,6 +192,15 @@ export {
   scopedWireOf,
   shownNodesOf,
 } from "./lib/page-graph";
+export {
+  EMPTY_EDITOR,
+  EMPTY_PROJECTION,
+  type PageEditor,
+  PageEditorService,
+  type PageEditorState,
+  type PageProjection,
+  PageProjectionService,
+} from "./lib/page-ports";
 export {
   type FieldContext,
   fieldContextOf,

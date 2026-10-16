@@ -9,8 +9,11 @@ import { create } from "zustand";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
 import {
+  EMPTY_PROJECTION,
   type GraphChange,
   inScope,
+  type PageGraphState,
+  type PageProjection,
   scopedWireOf,
   SYSTEM_IDS,
   wireToOutlineMap,
@@ -18,9 +21,7 @@ import {
 } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import {
-  EMPTY_PROJECTION,
   type GraphStateData,
-  type PageProjection,
   providePageProjection,
   useGraphStore,
   withdrawPageProjection,
@@ -259,6 +260,10 @@ describe("the write history", () => {
   });
 });
 
+/** The revision of a state the store handed on: the store hands its whole state. */
+const revOf = (state: PageGraphState): number =>
+  "rev" in state && typeof state.rev === "number" ? state.rev : -1;
+
 describe("the editing projection", () => {
   /** What the stand-in projection holds of its own: a store, as the page's projection has. */
   const useFollowed = create<{ rev: number; root: string; changes: GraphChange[] }>()(() => ({
@@ -272,11 +277,11 @@ describe("the editing projection", () => {
     | {
         readonly member: "follow";
         readonly change: GraphChange;
-        readonly prev: GraphStateData;
-        readonly next: GraphStateData;
+        readonly prev: PageGraphState;
+        readonly next: PageGraphState;
       }
-    | { readonly member: "leave"; readonly from: GraphStateData }
-    | { readonly member: "arrive"; readonly at: "zoom" | "home"; readonly to: GraphStateData };
+    | { readonly member: "leave"; readonly from: PageGraphState }
+    | { readonly member: "arrive"; readonly at: "zoom" | "home"; readonly to: PageGraphState };
   let told: Array<{ readonly told: Told; readonly held: GraphStateData }> = [];
 
   /** Record what was told, beside the state the store held when it was told. */
@@ -286,7 +291,7 @@ describe("the editing projection", () => {
     ...EMPTY_PROJECTION,
     follow: (change, prev, next) => {
       record({ member: "follow", change, prev, next });
-      useFollowed.setState((s) => ({ rev: next.rev, changes: [...s.changes, change] }));
+      useFollowed.setState((s) => ({ rev: revOf(next), changes: [...s.changes, change] }));
     },
     leave: (from) => record({ member: "leave", from }),
     arrive: (at, to) => {
@@ -341,7 +346,7 @@ describe("the editing projection", () => {
     const [entry] = told;
     if (entry?.told.member !== "follow") throw new Error("follow was not told");
     expect(entry.told.prev).toBe(entry.held);
-    expect(entry.told.next.rev).toBe(8);
+    expect(revOf(entry.told.next)).toBe(8);
     expect(entry.told.next.wireNodes).toBe(graph().wireNodes);
   });
 

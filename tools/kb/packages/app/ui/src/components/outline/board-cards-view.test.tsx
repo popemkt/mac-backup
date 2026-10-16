@@ -1,12 +1,13 @@
 import {
   fieldContextOf,
+  type NodeMap,
+  providedFrameViews,
   queryResultInstanceKey,
+  type SchemaIndex,
   schemaOf,
+  schemaOfGraph,
   syncUiPlugins,
   SYSTEM_IDS,
-  type NodeMap,
-  type SchemaIndex,
-  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -43,7 +44,6 @@ import {
 } from "@kb/views";
 import { Result } from "effect";
 import { collectVisibleInstances } from "@/components/outline/visible-instances";
-import { providedFrameViews } from "@/stores/frame-views";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the

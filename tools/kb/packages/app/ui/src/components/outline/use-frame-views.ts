@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { isViewNode } from "@kb/model";
 import {
-  currentContributions,
   familyViews,
   schemaOf,
   useContributions,
@@ -51,12 +50,4 @@ export function useFrameView(frame: OutlineNode | undefined): FrameView | null {
       ),
     [frame, viewNode, views],
   );
-}
-
-/**
- * The frame views provided in the UI kernel now: what the outline plugin wires
- * the store's frame-view port (`stores/frame-views`) to while it is loaded.
- */
-export function readFrameViews(): readonly FamilyView<FrameViewKey>[] {
-  return familyViews(currentContributions(ViewPoint), isFrameViewKey);
 }

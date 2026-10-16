@@ -2,14 +2,14 @@
  * What a command reads and drives of the page (`OutlineCommandApi`), read
  * now: the zoom, the scope and the graph from the graph store, the rows and
  * the reveal from the projection the page stands in, the selection from its
- * editor, and the frame views from their port. Both palettes run commands against it, so the context is built
+ * editor, and the frame views from the UI kernel. Both palettes run commands against it, so the context is built
  * in one place.
  */
 import type { OutlineCommandApi } from "@kb/ui-sdk";
-import { providedFrameViews } from "@/stores/frame-views";
 import { pageProjection, useGraphStore } from "@/stores/graph.store";
 import { pageRows } from "@/stores/page";
 import { pageEditor } from "@/stores/page-editor";
+import { providedFrameViews } from "@kb/ui-sdk";
 
 export function pageCommandApi(): OutlineCommandApi {
   const graph = useGraphStore.getState();
