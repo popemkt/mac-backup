@@ -293,7 +293,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: actions/ reads the page stores (graph and outline) instead of being handed state
 
 - **expected** — actions/ plans and invokes mutations against state it is given; the store is above it in UI_ALLOWS (stores may import actions, not the reverse).
-- **current** — actions/mutations.ts and actions/optimistic.ts both import useOutlineStore and call getState()/setState() to read the current wire nodes and apply optimistic results. Two import sites.
+- **current** — actions/mutations.ts and actions/optimistic.ts import the graph store (useGraphStore) and the page's editor port (stores/page, stores/page-editor) and call getState()/setState() on them; the outline store is no longer imported
 - **impact** — The action layer and the store are one cycle, so neither can be split or tested without the other; the outline-store split cannot move a field without touching actions/.
 - **closes** — Pass the wire snapshot in and return the planned effect out, letting the store apply it — the seam the optimistic path already almost has. Lands with the outline-store split.
 - **rule** — UI import matrix

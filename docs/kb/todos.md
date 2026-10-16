@@ -94,7 +94,6 @@
 
 ### doing
 
-- node.addTree · add a whole outline in one transaction (kb add --outline <file>, and the same action for MCP and the agent). Model the format on Tana Paste (%%tana%%, nested '- ' items, #tag, field:: value, ref); also look at Logseq/Roam paste and OPML import as prior art. All-or-nothing, one tx; returns the created ids
 - O3 · cut out @kb/outline + @kb/outline-ui as a required family
 - Projection families · outline and graph leave core; kb = graph wrapper + outline editing mode + viz families. Plan: docs/brainstorms/2026-10-16-kb-projection-families/README.md
 
@@ -122,6 +121,7 @@
 - O4 · cut out @kb/graph + @kb/graph-ui as an optional family
 - O5 · Table/Board/Cards leave the outline as their own family
 - Open: flaky canvas-camera.test.ts timeout; confirm the test:ui per-package total
+- Overnight plans (2026-10-17): canvas tldraw parity first, then locations, agent providers, family footprints, trace and label — start only after O3–O5. Index: docs/brainstorms/2026-10-17-kb-overnight-plans.md
 - oxlint 1.83 → 1.86 with @oxlint/plugins and oxc-parser
 - Review reconcile_claude_direct_routing.py: retire or simplify once Headroom stops mutating global ~/.claude/settings.json
 - safe minors and patches + bun audit fix (35 advisories, 15 high: rerun bun audit for the full list); drop root overrides that repeat the catalog's vite/vitest
@@ -132,6 +132,7 @@
 
 - E10c · every cleanly extracted family can be switched off through the one extension switch (canvas, chart, code, lab, agent; --no-agent folds into it). Plan: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md
 - Investigate the layers DeepSeek Harness adds on top of Cordis (DESIGN.md names it as the kernel's model): what it layers on, what kb lacks, what is worth taking
+- node.addTree · add a whole outline in one transaction (kb add --outline <file>, and the same action for MCP and the agent). Model the format on Tana Paste (%%tana%%, nested '- ' items, #tag, field:: value, ref); also look at Logseq/Roam paste and OPML import as prior art. All-or-nothing, one tx; returns the created ids
 - O0 · plan doc + queue entries
 - O1 · split outline.store by concept: graph replica, write history, navigation → core store; editor state stays the outline's
 - O2 · default view becomes data; resolveNodeView names no view
