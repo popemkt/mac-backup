@@ -232,6 +232,7 @@ export {
 export {
   EMPTY_EDITOR,
   EMPTY_PROJECTION,
+  editorTextPort,
   type PageEditor,
   PageEditorService,
   type PageEditorState,

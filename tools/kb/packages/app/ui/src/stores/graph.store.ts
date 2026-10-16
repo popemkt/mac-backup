@@ -116,8 +116,9 @@ export const subscribeProjection = installed.subscribe;
 
 /**
  * Install the page's projection: the one a plugin provides while it is loaded
- * (`PageProjectionService`), or a test's stand-in. With none installed the graph moves on its own: no one is told, and
- * what a withdrawn projection holds of its own stays as it was. One installed
+ * (`PageProjectionService`), or a test's stand-in. With none installed the
+ * graph moves on its own: no one is told, and what a withdrawn projection
+ * holds of its own stays as it was. One installed
  * after a graph has loaded follows it at once, as a fresh load: its expansion
  * is read again from storage, and its focus and transient rows start empty.
  * Installing the one already installed does nothing.

@@ -4,6 +4,9 @@ import { invoke, invokeLocal } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 
+/** The page's editor's state now: where a write lands the caret. */
+const editor = () => pageEditor().getState();
+
 export type RunOptimisticResult = {
   ok: boolean;
   focusId?: string;
@@ -28,9 +31,7 @@ export async function runOptimistic(
 
   if (plan.focusId !== undefined) {
     // Its row where the page is being edited: the editor resolves the instance.
-    pageEditor()
-      .getState()
-      .activateNode(plan.focusId, plan.focusCursor ?? 0);
+    editor().activateNode(plan.focusId, plan.focusCursor ?? 0);
   }
   return { ok: true, focusId: plan.focusId, focusCursor: plan.focusCursor };
 }

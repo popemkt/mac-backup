@@ -250,9 +250,10 @@ Pre-existing nodes remain ineligible for this cleanup.
 **Transient nodes replace ghost rows.** There is no permanent phantom bullet at
 the end of a list: `GhostNodeRow`, with its async character buffering and
 `beforeinput` interception, is deleted outright. Tana semantics instead —
-`mutations.createTransientNode` mints a *real* node synchronously through the
-normal optimistic path, records it in `outlineStore.transientIds`, and activates
-it at offset 0. The click-to-create affordance is a whitespace strip
+the outline's `createTransientNode` (`components/outline/editing-writes.ts`)
+mints a *real* node synchronously through the write path's `createEmptyNode`,
+the normal optimistic path, which activates it at offset 0, and marks it in the
+outline store's `transientIds`. The click-to-create affordance is a whitespace strip
 (`data-create-child-zone`) rendered at the end of every expanded container and
 at zoom-root level. `pruneOutgoingTransient` silently drops a session-transient
 node when focus leaves it while it is still empty; a node that existed before

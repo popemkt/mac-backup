@@ -75,25 +75,30 @@ export const EMPTY_PROJECTION: PageProjection = {
 export const PageProjectionService = Service<PageProjection>()("ui.page.projection");
 
 /**
+ * The editor's half of `NodeTextPort`: the caret hand-off, the text-host
+ * registry and the selection, which the editor answers and the shell's text
+ * port forwards to whichever editor is installed (`editorTextPort`).
+ */
+type EditorTextVerbs = Pick<
+  NodeTextPort,
+  "placeCaret" | "consumeCaret" | "registerTextHost" | "unregisterTextHost" | "selectNode"
+>;
+
+/**
  * What the shell reads of the editor's state, and the verbs it calls on it:
  * the row being edited and the row selected, each at the instance it is
- * drawn in; the one caret placement pending; the store half of
- * `NodeTextPort`'s caret hand-off, text-host registry and selection;
- * starting to edit a row (`activateNode`); and opening the rows above one so
- * it shows (`expandAncestors`, which a structural write asks before it lands
- * the caret on the row it moved).
+ * drawn in; the one caret placement pending; the editor's half of
+ * `NodeTextPort` (`EditorTextVerbs`); starting to edit a row
+ * (`activateNode`); and opening the rows above one so it shows
+ * (`expandAncestors`, which a structural write asks before it lands the caret
+ * on the row it moved).
  */
-export interface PageEditorState {
+export interface PageEditorState extends EditorTextVerbs {
   readonly activeNodeId: string | null;
   readonly activeInstanceKey: string | null;
   readonly selectedNodeId: string | null;
   readonly selectedInstanceKey: string | null;
   readonly pendingCaret: CaretIntent | null;
-  readonly placeCaret: NodeTextPort["placeCaret"];
-  readonly consumeCaret: NodeTextPort["consumeCaret"];
-  readonly registerTextHost: NodeTextPort["registerTextHost"];
-  readonly unregisterTextHost: NodeTextPort["unregisterTextHost"];
-  readonly selectNode: NodeTextPort["selectNode"];
   /** Start editing a node's text in one instance, with the caret at `cursorPos`. */
   readonly activateNode: (nodeId: string, cursorPos?: number, instanceKey?: string) => void;
   readonly expandAncestors: (id: string) => void;
@@ -129,3 +134,25 @@ export const EMPTY_EDITOR: PageEditor = { getState: () => IDLE, subscribe: () =>
 
 /** Where a plugin provides the page's editor while it is loaded. */
 export const PageEditorService = Service<PageEditor>()("ui.page.editor");
+
+/**
+ * The editor's half of a node text port, through whichever editor `editor`
+ * answers when each member is called: the caret placement addressed to an
+ * instance, and the editor's own text verbs.
+ */
+export function editorTextPort(
+  editor: () => PageEditor,
+): Pick<NodeTextPort, "pendingCaret" | keyof EditorTextVerbs> {
+  const now = () => editor().getState();
+  return {
+    pendingCaret: (instanceKey) => {
+      const caret = now().pendingCaret;
+      return caret?.instanceKey === instanceKey ? caret : null;
+    },
+    placeCaret: (instanceKey, at) => now().placeCaret(instanceKey, at),
+    consumeCaret: (instanceKey) => now().consumeCaret(instanceKey),
+    registerTextHost: (instanceKey) => now().registerTextHost(instanceKey),
+    unregisterTextHost: (instanceKey) => now().unregisterTextHost(instanceKey),
+    selectNode: (nodeId, instanceKey) => now().selectNode(nodeId, instanceKey),
+  };
+}

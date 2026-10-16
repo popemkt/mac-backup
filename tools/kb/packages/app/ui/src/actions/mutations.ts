@@ -59,6 +59,9 @@ import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6X
 import { invoke, invokeLocal, pushInvocation, writeLocal } from "@/session/runtime";
 import type { Hold } from "@/session/replica";
 
+/** The page's editor's state now: where a write lands the caret. */
+const editor = () => pageEditor().getState();
+
 function wire(): WireNode[] {
   return useGraphStore.getState().wireNodes;
 }
@@ -367,11 +370,9 @@ export const mutations: PageWrites = {
 
     // D05: reveal the new parent chain before caret restore so the row is
     // guaranteed visible; focusSeq bump re-places the caret post-remount.
-    pageEditor().getState().expandAncestors(id);
+    editor().expandAncestors(id);
     // Its row where the page is being edited, under its new parent.
-    pageEditor()
-      .getState()
-      .activateNode(id, cursor ?? 0);
+    editor().activateNode(id, cursor ?? 0);
   },
 
   async outdentNode(id: string, cursor?: number): Promise<void> {
@@ -383,9 +384,7 @@ export const mutations: PageWrites = {
     const result = await runOptimistic(plan);
     if (!result.ok) return;
     recordHistory(preWire, plan);
-    pageEditor()
-      .getState()
-      .activateNode(id, cursor ?? 0);
+    editor().activateNode(id, cursor ?? 0);
   },
 
   async moveNodeUp(id: string): Promise<void> {
