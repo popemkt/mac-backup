@@ -217,3 +217,26 @@ family equal that family's page-kernel contributions.
   `$`. The action covers it. Revisit if a query must join runtime rows.
 - **Cordis effect labels and `getEffects()`.** They are gap 4's concern.
 - **A code-defined "plugin metadata" index beside datalog.**
+
+## What landed
+
+This plan was advanced by the Cordis gap 1 and agent-provider work, on the
+branch that followed the projection-families work (base `3e77dcb3`).
+
+- **C2, without its tag.** Every declaration's node `sys.extension.<name>`
+  is seeded, core's included, by the fold. Each node derives from its
+  declaration and is named by the declaration's label.
+  - The nodes are filed under a list node `sys.extensions`, not tagged
+    `sys.tag.extension`. A tag that templates no field fails the kinds rule
+    (`domain/model/tests/kinds.test.ts`), and list membership is the
+    carrier that rule names, as with the view options under `sys.views`.
+  - C3 should key `:node/owner` on the list, or give the tag a field first.
+  - The switch field `sys.f.extension.enabled` is seeded by core.
+  - `extension.switch` writes the one prop. DESIGN.md -> Extension
+    families states this.
+- **The fold covers a family a host composes.** `HOSTED_FAMILIES`
+  (`@kb/bundled`) puts the agent's declaration in the fold and keeps it out
+  of `BUNDLED_FAMILIES`. This is the split that the data-model section says
+  this plan needs too.
+- C1 and C3 to C6 are not started.
+
