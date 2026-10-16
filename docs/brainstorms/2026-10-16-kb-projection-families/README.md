@@ -718,3 +718,113 @@ None of the existing tests changed meaning. These moved or are new:
 O4a opened and narrowed no gap, and no `GAP` marker in code changed. The
 two placeholders above (*graph browser half*, *lab reads the graph's lens*)
 are for the steps that would defer a fence, and only if they do.
+
+## O4b and O4d (first half): what landed
+
+Three `refactor:` commits, behaviour-preserving, none in builder A's files.
+
+### O4b: the graph reads the page through `BrowserHost`
+
+- **The graph plugin injects the host** (`inject: [BrowserHostService]`),
+  as the canvas, chart, code, lab and agent halves do, so it waits as
+  pending until the shell provides it. `CORE_UI_PLUGINS` loads the host
+  first, so the page is unchanged. The three tests that load the graph
+  plugin on its own now load the host plugin beside it.
+- **Reads that already had a host member moved to the kit's hooks:**
+  - the wire nodes, the index and its generation (`useWireNodes`,
+    `useIndex`, `useGeneration`);
+  - the theme, the appearance, the sidebar toggle and Preferences
+    (`useTheme`, `useAppearance`, `useSidebarToggle`, `usePrefsOpen`);
+  - `zoomTo`;
+  - the relationships checkboxes' `replaceField`;
+  - the rows a bullet is drawn from. The host's `useNodes` answers from
+    `pageRows`, as `usePageRows` did, so obstacle 6's bullet did not need
+    O3b after all.
+
+  The shell's `usePageRows` and the prefs store's `useAppearance` lost
+  their last readers and are deleted. The zone's production shell imports
+  went from 16 to 9.
+
+### O4c: what is left, after builder A lands
+
+| Read or write | Where | What it needs |
+|---|---|---|
+| The ontology scope's members (`ontologyMembers`) | `graph-page.tsx` | A host read |
+| The ontology list (`listOntologyItems`) | `graph-page.tsx` | A host read, or the pure helper moved to the kit. The ontology pages, the sidebar and the commands read it too |
+| `setGraphRenderer`, `setLensProp` | `graph-page`, `graph-mappings`, `graph-settings` | **No new member.** Each is the host's `replaceField` of one field (`planSetGraphRenderer` and `planSetLensProp` are `planReplaceField`). They become the graph's own writes in the zone, over `replaceField`. The `mutations` members, the two `plan.ts` helpers and `actions/lens-renderer.test.ts` move or go in the same commit, which is why it waits for A |
+| `saveGraphPerspective` | `perspective-picker.tsx` | A host write that adds a view node filed in the Views list with given props. `proposeView` cannot stand in: it refuses lens props beyond a renderer's params (GAP `01M40X30Q8N7NYCYHW3J0GFKY7`). The alternative is a graph action |
+| The `ontology-picker` and `workspace-boundary` primitives | `graph-page`, `graph-adapters` | Kit components |
+| `SidebarNavItem` (a type) | `perspective-nav.ts` | The kit's sidebar row shape, or a local type |
+
+I tried the `setLensProp` and `setGraphRenderer` move in O4b and reverted
+it. Leaving the `mutations` members behind would have made a second path
+for the same write, and deleting them means editing A's file.
+
+### O4d, first half: a view's subject is core's
+
+`lens.focus` and `lens.query` are every view's subject, not the graph's:
+- the outline, its snippet, the layout's node view, the chart and the code
+  view are rooted by `lens.focus`;
+- the docs views and `render.view` read `lens.query`.
+
+`@kb/views` now states the subject once, in `subject.ts`:
+- `SUBJECT_SLOTS`, the two slots;
+- `subjectRootOf(props, host)`, the root a view draws: its stored focus,
+  else the node it is shown for. Five views restated this before;
+- `subjectRootProps(root)`, how the root is stored.
+
+The five views read and write through it, and the graph's lens decodes its
+query and focus through the same slots. So no core view, and no other
+family, uses the graph's lens codec any more.
+
+### O4d, what stops before the move
+
+- **The graph's half of `lens.ts` moving to `@kb/graph`.** This covers
+  `LensPerspective`, `LensProps`, the settings and mappings, `EdgeKind`,
+  `DEFAULT_RENDERER` and `perspectiveProps`. Its only importer outside the
+  graph is `actions/mutations.ts`, where `saveGraphPerspective` imports
+  `LensPerspective` and `perspectiveProps` from `@kb/views`. `@kb/views`
+  cannot re-export them from `@kb/graph`, which depends on it. So the move
+  lands with, or after, `saveGraphPerspective` leaving `mutations` (O4c).
+- **`graph-schema.ts`.** `@kb/model`'s `systemSeedNodes` builds the graph
+  sources and the lens fields from it, and `@kb/model` cannot import
+  `@kb/graph`. It moves with the graph's seed. Splitting the seed earlier
+  (the graph's nodes as a second seed source that core's declaration folds)
+  would change the fold's order and so the seed golden. That is a
+  deliberate seed change, so it belongs to the cut (O4f), with the
+  declaration's `seed`.
+
+### O4e: recommendation, for the owner
+
+- **The lab reaches the graph through a kit service, not the graph's
+  package.**
+  - The kit (`@kb/ui-sdk`) names a service key, "the lens graph of a
+    perspective" (the default one, or one by id), in the `LensGraph` shape
+    the kit already holds. The graph's browser half provides it.
+  - The lab injects it, so the lab's graph study is pending while the graph
+    is off. That is DESIGN-UI.md's "services are hard": a study that draws
+    the graph cannot draw without it.
+  - This keeps one owner of the extraction, and the lab imports nothing of
+    the graph's family, so the family fence holds.
+  - The alternative, the lab reading its own lens, would be a second
+    extraction.
+- **The ontology names the graph's view by its id, softly.**
+  - The ontology's graph tab draws the view the catalog holds for
+    `graph.page`, by id through `ViewSlot` and the catalog. With the graph
+    off it shows the existing "cannot be shown here" state, by the option's
+    label (`viewNamed`).
+  - The `/o/<id>/graph` route segment and `ONTOLOGY_VIEWS` stay as data.
+  - This is "views are soft", and it needs no new point. The alternative,
+    the graph contributing the ontology's tab, would make the ontology's
+    routes depend on a family.
+
+### Tests that changed meaning
+
+None did:
+- the graph plugin's three tests load the host plugin, as the page does;
+- `@kb/views` gains `tests/subject.test.ts`, the root reading and the
+  lens's subject round trip.
+
+### Gaps
+
+None opened, narrowed or changed.
