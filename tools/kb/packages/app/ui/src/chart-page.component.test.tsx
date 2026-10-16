@@ -13,7 +13,7 @@ import type { WireNode } from "@kb/contracts";
 import { CHART_IDS, ChartView, type ChartParams } from "@kb/chart";
 import { SYSTEM_IDS } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { ViewPoint, currentContributions, findView, syncUiPlugins } from "@kb/ui-sdk";
+import { currentView, syncUiPlugins } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useGraphStore } from "@/stores/graph.store";
@@ -113,7 +113,7 @@ describe("chart view (component)", () => {
   });
 
   async function show(params: ChartParams, viewNode?: string): Promise<void> {
-    const page = findView(currentContributions(ViewPoint), ChartView);
+    const page = currentView(ChartView);
     if (page === null) throw new Error("the chart family's page entry provides no chart view");
     await act(async () =>
       root.render(

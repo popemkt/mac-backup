@@ -236,7 +236,7 @@ describe("view contract", () => {
     "$id",
     ({ owner, view }) => {
       it("is found by its own key", () => {
-        expect(findView(VIEWS, view.key)).toBe(view);
+        expect(findView(KERNEL, view.key)).toBe(view);
       });
 
       it("is named in data by a seeded option under sys.views, in its own family", () => {

@@ -29,6 +29,7 @@ import {
   syncPlugins,
   type Contribution,
   type ContributionEntry,
+  type Kernel,
   type Plugin,
   type PointKey,
   type ServiceKey,
@@ -344,20 +345,26 @@ function asParamsOf<P>(_key: ViewKey<P>, params: unknown): P {
   return params as P;
 }
 
-/** The view provided under `key`; null when none is, or one made with another key object. */
-export function findView<P>(
-  views: readonly Contribution<ProvidedView>[],
-  key: ViewKey<P>,
-): View<P> | null {
-  // A view answers to its key's id: the id it was contributed at, or, for a
-  // view whose frozen id another family's namespace first stored, an alias.
-  const provided = views.find((view) => view.id === key.id || view.aliases.includes(key.id))?.value;
+/**
+ * The view `kernel` provides under `key`; null when none is, or one made with
+ * another key object. A view answers to its key's id through the kernel's
+ * own lookup: the id it was contributed at, or, for a view whose frozen id
+ * another family's namespace first stored, an alias.
+ */
+export function findView<P>(kernel: Pick<Kernel, "lookup">, key: ViewKey<P>): View<P> | null {
+  const provided = kernel.lookup(ViewPoint, key.id)?.value;
   return provided?.key === key ? asViewOf(key, provided) : null;
+}
+
+/** The view provided under `key` now, for a reader outside React. */
+export function currentView<P>(key: ViewKey<P>): View<P> | null {
+  return findView(uiKernel, key);
 }
 
 /** The view provided under `key`, live: null while its owner is unloaded. */
 export function useView<P>(key: ViewKey<P>): View<P> | null {
-  return findView(useContributions(ViewPoint), key);
+  const read = useCallback(() => currentView(key), [key]);
+  return useSyncExternalStore(uiKernel.subscribe, read, read);
 }
 
 /** The params of `route` when it renders `key`, else null. */

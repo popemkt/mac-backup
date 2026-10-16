@@ -99,13 +99,12 @@ describe("built-in routes", () => {
 
   it("each render a registered view that offers the page placement", () => {
     const kernel = kernelWithBuiltins();
-    const views = kernel.contributions(ViewPoint);
     const paths = ["/", "/graph", "/o", "/o/abc/graph", "/canvas", "/canvas/abc"];
     for (const path of paths) {
       const matched = matchRoute(kernel.contributions(RoutePoint), path);
       expect(matched, path).not.toBeNull();
       expect(
-        findView(views, matched?.view ?? viewKey("none.none", "None", NoParams))?.placements,
+        findView(kernel, matched?.view ?? viewKey("none.none", "None", NoParams))?.placements,
       ).toContain("page");
     }
   });

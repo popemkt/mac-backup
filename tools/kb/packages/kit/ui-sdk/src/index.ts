@@ -67,6 +67,7 @@ export {
 } from "./lib/command-point";
 export {
   currentContributions,
+  currentView,
   currentService,
   type Dock,
   DockPoint,
