@@ -92,6 +92,11 @@
 
 ## (other)
 
+### doing
+
+- node.addTree · add a whole outline in one transaction (kb add --outline <file>, and the same action for MCP and the agent). Model the format on Tana Paste (%%tana%%, nested '- ' items, #tag, field:: value, ref); also look at Logseq/Roam paste and OPML import as prior art. All-or-nothing, one tx; returns the created ids
+- Projection families · outline and graph leave core; kb = graph wrapper + outline editing mode + viz families. Plan: docs/brainstorms/2026-10-16-kb-projection-families/README.md
+
 ### todo
 
 - 3D step 10 · formats: JSON Canvas export, GLB
@@ -111,9 +116,11 @@
 - E20 · boundary errors in the editor: an oxlint JS plugin over the harness's matrixViolation (one rule table); after the oxlint upgrade
 - Effect 4.0.0 stable with @effect/tsgo 0.48 (effect-tsgo patch runs in prepare)
 - Extension isolation, the rest (plans: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md, docs/brainstorms/2026-10-04-kb-extension-boundaries/sdk.md)
-- Investigate the layers DeepSeek Harness adds on top of Cordis (DESIGN.md names it as the kernel's model): what it layers on, what kb lacks, what is worth taking
 - kb work queue, in order (owner's priority 2026-10-04; resume notes: docs/brainstorms/2026-09-29-kb-genui-canvas-agents/resume.md)
-- node.addTree · add a whole outline in one transaction (kb add --outline <file>, and the same action for MCP and the agent). Model the format on Tana Paste (%%tana%%, nested '- ' items, #tag, field:: value, ref); also look at Logseq/Roam paste and OPML import as prior art. All-or-nothing, one tx; returns the created ids
+- O1 follow-up · expansion storage tests (two tabs one id, malformed kb-expansion, legacy first save with a change) and DESIGN-UI wording (memory vs storage merge, mixed-build rule, legacy opens equal to default drop on first save)
+- O3 · cut out @kb/outline + @kb/outline-ui as a required family
+- O4 · cut out @kb/graph + @kb/graph-ui as an optional family
+- O5 · Table/Board/Cards leave the outline as their own family
 - Open: flaky canvas-camera.test.ts timeout; confirm the test:ui per-package total
 - oxlint 1.83 → 1.86 with @oxlint/plugins and oxc-parser
 - Review reconcile_claude_direct_routing.py: retire or simplify once Headroom stops mutating global ~/.claude/settings.json
@@ -124,6 +131,11 @@
 ### done
 
 - E10c · every cleanly extracted family can be switched off through the one extension switch (canvas, chart, code, lab, agent; --no-agent folds into it). Plan: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md
+- Investigate the layers DeepSeek Harness adds on top of Cordis (DESIGN.md names it as the kernel's model): what it layers on, what kb lacks, what is worth taking
+- O0 · plan doc + queue entries
+- O1 · split outline.store by concept: graph replica, write history, navigation → core store; editor state stays the outline's
+- O2 · default view becomes data; resolveNodeView names no view
+- O3a · audit @kb/ui-sdk exports by the families that use them
 - outline perf: a graph update or expand re-renders every row (63 ms at 1x, ~660 ms at 6x CPU) — fix candidate memo, per-row selectors, coalesce WS updates, content-visibility
 
 ### later

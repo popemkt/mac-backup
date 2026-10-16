@@ -444,6 +444,7 @@ export function saveExpansionChanges(
   const open: string[] = [];
   const closed: string[] = [];
   for (const [id, isOpen] of stored) {
+    // GAP [[01M52E01JB6CFKT2M8CAS171EJ]]
     if (!keeps(id, isOpen)) continue;
     (isOpen ? open : closed).push(id);
   }

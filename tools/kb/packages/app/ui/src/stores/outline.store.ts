@@ -152,6 +152,7 @@ function schemaNow(): SchemaIndex {
  * reader left it.
  */
 function isUndoable(id: string, open: boolean, schema: SchemaIndex): boolean {
+  // GAP [[01M52E0177292798G5908A74GG]]
   const node = schema.get(id);
   // A row's default is `node.collapsed`: a choice to open is one to change it.
   return node === undefined || (open === node.collapsed && isExpandableOutlineNode(node, schema));
@@ -189,6 +190,7 @@ function changesOf(before: Expansion, after: Expansion): ExpansionChanges {
 function keptExpansion(current: Expansion, next: Expansion, schema: SchemaIndex): Expansion {
   const kept = undoable(next, schema);
   const changes = changesOf(current, kept);
+  // GAP [[01M52E01JB6CFKT2M8CAS171EJ]]
   if (changes.size > 0) {
     saveExpansionChanges(changes, (id, open) => isUndoable(id, open, schema));
   }

@@ -282,7 +282,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — an A2A adapter reading the same manifest and action modes, once a real A2A peer exists (docs/brainstorms/2026-09-29-kb-genui-canvas-agents/README.md decision 11)
 - **node** — `01M3Q53VRYS9P936DQFQDN8TGW`
 
-### GAP: actions/ reads the outline store instead of being handed state
+### GAP: actions/ reads the page stores (graph and outline) instead of being handed state
 
 - **expected** — actions/ plans and invokes mutations against state it is given; the store is above it in UI_ALLOWS (stores may import actions, not the reverse).
 - **current** — actions/mutations.ts and actions/optimistic.ts both import useOutlineStore and call getState()/setState() to read the current wire nodes and apply optimistic results. Two import sites.
@@ -602,6 +602,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The graph cannot take the lab's orbit without a lab import; two camera-control mechanisms.
 - **closes** — WP4 folds kit/orbit.ts into the scene kit with the lab kit's view controls, and the graph's flight and the orbit share one camera rig.
 - **node** — `01M3E9QZ3D6EG2W2MERM93ABNA`
+
+### GAP: outline expansion save writes derived drops and filters other tabs' choices by this tab's schema
+
+- **expected** — only the reader's gestures are written as changes, and the keeps filter applies only to the ids this tab changed
+- **current** — changesOf counts drops made by undoable as changes, and saveExpansionChanges applies keeps to every stored id using this tab's schema
+- **impact** — a tab with a stale snapshot can erase another tab's newer choice for a row it sees differently
+- **closes** — derive changes from gestures only; apply keeps to changed ids only
+- **node** — `01M52E01JB6CFKT2M8CAS171EJ`
+
+### GAP: outline expansion storage keeps choices for deleted rows forever
+
+- **expected** — a choice for a row deleted and not restored is pruned from kb-expansion
+- **current** — isUndoable keeps every choice for a row the graph does not hold, so restored rows (undo) keep theirs; nothing ever prunes
+- **impact** — storage grows with every distinct row the reader ever toggled and is re-serialised on each save
+- **closes** — prune on a delete that is not undone, restore the choice on undo
+- **node** — `01M52E0177292798G5908A74GG`
 
 ### GAP: outline zoom is one per tab, not one per pane
 
