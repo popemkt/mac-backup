@@ -21,13 +21,12 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
 import {
-  EXTENSION_ENABLED_FIELD,
   extensionRow,
   type ActionInvocation,
   type GraphSnapshot,
   type WireNode,
 } from "@kb/contracts";
-import { extensionNodeId } from "@kb/model";
+import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
 import { viewCatalogOf } from "@kb/views";
 import type { LabScene } from "@kb/lab-ui";
 
@@ -274,7 +273,7 @@ describe("lab plugin, switched on the server (acceptance)", () => {
     const switchNode = (on: boolean, at: string): WireNode => ({
       id: extensionNodeId("lab"),
       text: "Lab",
-      props: { [EXTENSION_ENABLED_FIELD]: [{ t: "bool", v: on }] },
+      props: { [SYSTEM_IDS.extensionEnabledField]: [{ t: "bool", v: on }] },
       children: [],
       createdAt: ISO,
       updatedAt: at,

@@ -5,9 +5,8 @@
  * family always, whatever a node says.
  */
 import { describe, expect, test } from "bun:test";
-import { extensionNodeId, type KbNode } from "@kb/model";
+import { SYSTEM_IDS, extensionNodeId, type KbNode } from "@kb/model";
 import {
-  EXTENSION_ENABLED_FIELD,
   NO_SWITCHES,
   defineExtension,
   familyOn,
@@ -52,7 +51,7 @@ describe("a family's switch", () => {
       {
         id: extensionNodeId(ON_BY_DEFAULT.name),
         text: "B",
-        props: { [EXTENSION_ENABLED_FIELD]: [{ t: "str", v: "yes" }] },
+        props: { [SYSTEM_IDS.extensionEnabledField]: [{ t: "str", v: "yes" }] },
         children: [],
         createdAt: AT,
         updatedAt: AT,

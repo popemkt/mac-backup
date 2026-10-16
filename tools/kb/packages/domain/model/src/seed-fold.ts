@@ -1,10 +1,11 @@
 /**
  * The bundled fold (DESIGN.md → Extension families → the seed is the bundled
- * fold): every declaration's seed nodes, the option node each declared view
- * derives under `sys.views`, and the default view type its one provider
- * declares, folded into the seed a store is opened with.
+ * fold): every declaration's seed nodes, the node each declaration derives
+ * under `sys.extensions`, the option node each declared view derives under
+ * `sys.views`, and the default view type its one provider declares, folded
+ * into the seed a store is opened with.
  */
-import { SYSTEM_IDS, type KbNode, nowIso } from "./model.ts";
+import { SYSTEM_IDS, extensionNodeId, type KbNode, nowIso } from "./model.ts";
 import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
 
 /**
@@ -26,6 +27,8 @@ export interface SeedView {
  */
 export interface SeedSource {
   readonly name: string;
+  /** What its own node (`extensionNodeId(name)`) is called. */
+  readonly label: string;
   readonly seed?: (at: string) => readonly KbNode[];
   readonly views?: readonly { readonly key: SeedView }[];
   /**
@@ -75,27 +78,59 @@ function viewOptionNode(view: SeedView, at: string): KbNode {
 }
 
 /**
- * The seed a store is opened with: every source's nodes, in source order,
+ * A source's own node, `sys.extension.<name>`, as the fold derives it: named
+ * by its label and holding nothing, so an optional family's switch reads as
+ * its declared default until someone switches it. Being one of
+ * `sys.extensions`' children is what it is, as a view's option is one of
+ * `sys.views`'.
+ */
+function extensionNode(source: SeedSource, at: string): KbNode {
+  return {
+    id: extensionNodeId(source.name),
+    text: source.label,
+    props: {},
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+}
+
+/**
+ * `nodes` with `derived` filed under the list node `rootId`, after the
+ * children it already has, and placed right after it.
+ */
+function fileUnder(nodes: readonly KbNode[], rootId: string, derived: readonly KbNode[]): KbNode[] {
+  const rootAt = nodes.findIndex((node) => node.id === rootId);
+  const root = nodes[rootAt];
+  if (root === undefined) throw new Error(`no seed source declares ${rootId}`);
+  return [
+    ...nodes.slice(0, rootAt),
+    { ...root, children: [...root.children, ...derived.map((node) => node.id)] },
+    ...derived,
+    ...nodes.slice(rootAt + 1),
+  ];
+}
+
+/**
+ * The seed a store is opened with: every source's nodes, in source order;
+ * every source's own node, a child of `sys.extensions` in the same order;
  * and every source's views as option nodes, children of `sys.views` in the
- * same order and placed right after it, with `sys.views` naming the default
- * view type its one provider declares (`defaultViewProps`). Pure data: it
- * opens nothing, and it throws on an id two sources declare, because that is
- * a bundling defect no store can repair.
+ * same order, with `sys.views` naming the default view type its one
+ * provider declares (`defaultViewProps`). Each derived node is placed right
+ * after its list. Pure data: it opens nothing, and it throws on an id two
+ * sources declare, because that is a bundling defect no store can repair.
  */
 export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()): KbNode[] {
   const nodes = sources.flatMap((source) => source.seed?.(at) ?? []);
   const options = sources.flatMap((source) =>
     (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
   );
-  const rootAt = nodes.findIndex((node) => node.id === SYSTEM_IDS.viewsRoot);
-  const root = nodes[rootAt];
-  if (root === undefined) throw new Error(`no seed source declares ${SYSTEM_IDS.viewsRoot}`);
-  const folded = [
-    ...nodes.slice(0, rootAt),
-    { ...root, children: [...root.children, ...options.map((option) => option.id)] },
-    ...options,
-    ...nodes.slice(rootAt + 1),
-  ];
+  const extensions = sources.map((source) => extensionNode(source, at));
+  const folded = fileUnder(
+    fileUnder(nodes, SYSTEM_IDS.viewsRoot, options),
+    SYSTEM_IDS.extensionsRoot,
+    extensions,
+  );
   const seen = new Set<string>();
   for (const node of folded) {
     if (seen.has(node.id)) throw new Error(`seed id ${node.id} is declared twice`);
@@ -103,6 +138,8 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
   }
   // Read once every id is known to have one owner, so a doubled source is
   // refused for its ids first.
-  const props = { ...root.props, ...defaultViewProps(sources) };
-  return folded.map((node) => (node.id === root.id ? { ...node, props } : node));
+  const defaults = defaultViewProps(sources);
+  return folded.map((node) =>
+    node.id === SYSTEM_IDS.viewsRoot ? { ...node, props: { ...node.props, ...defaults } } : node,
+  );
 }

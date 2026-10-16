@@ -12,6 +12,9 @@
  *   lists, so no family reaches the catalog past its declaration;
  * - its seed folds beside the bundled one with no id owned twice, and every
  *   view it declares has an option in that fold;
+ * - its own node is in that fold, named by its label and filed under
+ *   `sys.extensions`, and switching the family writes the switch on it and
+ *   nothing else;
  * - that fold has one provider of the default view type, which provides the
  *   view it names, and the fold refuses a default this family would provide
  *   beside another provider or name without providing it;
@@ -48,7 +51,15 @@ import {
   type ExtensionRow,
   type NodeLookup,
 } from "@kb/contracts";
-import { foldSeed, viewOptionId, type SeedSource, type SeedView } from "@kb/model";
+import {
+  SYSTEM_IDS,
+  extensionNodeId,
+  foldSeed,
+  present,
+  viewOptionId,
+  type SeedSource,
+  type SeedView,
+} from "@kb/model";
 import { makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
 import { paramsFromProps } from "@kb/views";
 import { CONTRACT_AT, openSession, scratchRoot } from "./store-session.ts";
@@ -141,7 +152,7 @@ function defaultViewPromises(declaration: ExtensionDeclaration): void {
     };
     const sources = [
       ...foldAs(declaration, providing, "keep"),
-      { name: "contract.rival", views: [{ key: rival }], defaultView: rival },
+      { name: "contract.rival", label: "Rival", views: [{ key: rival }], defaultView: rival },
     ];
     expect(() => foldSeed(sources, CONTRACT_AT)).toThrow(/provided twice/);
   });
@@ -256,6 +267,25 @@ export function extensionContract(
 
     test("its seed folds beside the bundled one with no id owned twice", () => {
       expect(() => foldSeed(foldWith(declaration), CONTRACT_AT)).not.toThrow();
+    });
+
+    test("its node is in the fold, named by its label, and switching it writes only its switch", () => {
+      const fold = foldSeed(foldWith(declaration), CONTRACT_AT);
+      const node = present(
+        fold.find(({ id }) => id === extensionNodeId(declaration.name)),
+        `${declaration.name}'s node is in the fold`,
+      );
+      expect(node).toMatchObject({ text: declaration.label, props: {}, children: [] });
+      const list = fold.find(({ id }) => id === SYSTEM_IDS.extensionsRoot);
+      expect(list?.children).toContain(node.id);
+      const seeded = new Map(fold.map((seed) => [seed.id, seed]));
+      const [written, ...more] = switchWrites(declaration, true, (id) => seeded.get(id), "later");
+      expect(more).toEqual([]);
+      expect(written).toEqual({
+        ...node,
+        props: { ...node.props, [SYSTEM_IDS.extensionEnabledField]: [{ t: "bool", v: true }] },
+        updatedAt: "later",
+      });
     });
 
     test("every view it declares has an option in the fold", () => {

@@ -256,6 +256,18 @@ export const SYSTEM_IDS = {
    */
   approvalPoliciesView: "view.approval.policies",
   approvalPoliciesPin: "pin.approval.policies",
+  /**
+   * The list whose children are the extensions' own nodes
+   * (`extensionNodeId`), core's and every family's, each derived by the fold
+   * from its declaration, so each extension is a node of the graph like any
+   * other. Being one of its children is what an extension's node is.
+   */
+  extensionsRoot: "sys.extensions",
+  /**
+   * Whether an optional family is on (checkbox, one), carried by its node.
+   * Absent is its declared default; `extension.switch` is its one writer.
+   */
+  extensionEnabledField: "sys.f.extension.enabled",
 } as const;
 
 /**

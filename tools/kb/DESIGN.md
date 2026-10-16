@@ -2019,11 +2019,13 @@ end).
     switching one off never breaks another.
   - **The switch is a node.** An optional family is on while the store's
     `sys.extension.<name>` node carries `true` in the checkbox field
-    `sys.f.extension.enabled`, and by its declared default where the store
-    holds no switch (`familyOn`, `@kb/contracts`). Neither node is seeded:
-    `extension.switch` writes them the first time a person switches the
-    family (`switchWrites`), so opening a store never writes them. A switch
-    that does not read as a checkbox reads as the default.
+    `sys.f.extension.enabled`, and by its declared default where the node
+    holds no switch (`familyOn`, `@kb/contracts`). The node is seeded for
+    every declaration in the fold, core's included, and the field by core
+    (below), but no switch is: `extension.switch` writes the field on the
+    node the first time a person switches the family (`switchWrites`), so
+    opening a store never writes one. A switch that does not read as a
+    checkbox reads as the default.
   - **Every host makes the one decision.** The registry is cached per root
     and per set of families on, so a switch takes effect on the next call.
     The `kb ui` server composes the extensions it hosts (the agent) the
@@ -2045,6 +2047,12 @@ end).
   - core's nodes, then each `BUNDLED_FAMILIES` declaration's `seed`, in
     bundled order, with `sys.views` naming the default view type its one
     provider declares (`defaultView`);
+  - each declaration's own node, `sys.extension.<name>`, derived from it as
+    a view's option is derived from its key: named by its label and filed
+    under core's list node `sys.extensions` ("Extensions"), in declaration
+    order, so every extension is a node of the graph, the hub its switch
+    and its configuration hang off. Being one of that list's children is
+    what such a node is (Kinds, roles and options), so it carries no tag;
   - pure data: it opens nothing and fails on an id declared twice, or on a
     default view type provided twice or naming a view its provider does
     not provide.
@@ -2151,6 +2159,9 @@ end).
   - it loads and unloads cleanly;
   - its entry contributes exactly the views its declaration lists;
   - its seed ids have one owner;
+  - its own node is in the fold, named by its label and filed under
+    `sys.extensions`, and switching it writes the switch on that node and
+    nothing else;
   - every view key it contributes has an option in the fold;
   - its fold has one provider of the default view type, which provides that
     view, and the fold refuses a default it would provide beside another

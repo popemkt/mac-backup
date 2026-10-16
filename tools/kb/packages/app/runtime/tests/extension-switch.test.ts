@@ -3,8 +3,9 @@
  * families → optional is a server-side load decision). The switch is the
  * family's node in the store, written only by `extension.switch`: the
  * registry loads the family while the node says so, and `kb.manifest`
- * reports what it loaded, which is what the page follows. A fresh store has
- * no switch, so the lab is off, and opening a store never writes one.
+ * reports what it loaded, which is what the page follows. A fresh store
+ * holds the lab's node with no switch on it, so the lab is off, and opening
+ * a store never writes one.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
@@ -12,13 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { BUNDLED_FAMILIES, bundledSeed } from "@kb/bundled";
-import {
-  EXTENSION_ENABLED_FIELD,
-  ReadInvoke,
-  switchWrites,
-  type ActionInvocation,
-  type ActionReceipt,
-} from "@kb/contracts";
+import { ReadInvoke, switchWrites, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
 import { SYSTEM_IDS, extensionNodeId, present, type Actor, type KbNode } from "@kb/model";
 import { kbManifestDef, persistEffect } from "@kb/operations";
 import { invoke } from "../src/invoke.ts";
@@ -45,6 +40,7 @@ function switchLab(ctx: Session, on: boolean): Promise<ActionReceipt> {
 }
 
 const LAB_NODE = extensionNodeId("lab");
+const ENABLED = SYSTEM_IDS.extensionEnabledField;
 const ISO = "2026-10-04T00:00:00.000Z";
 
 describe("the lab is switched on the server", () => {
@@ -60,13 +56,14 @@ describe("the lab is switched on the server", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  test("the seed holds no switch, so a fresh store has the lab off and the registry leaves it out", async () => {
-    const seeded = new Set(bundledSeed().map((node) => node.id));
-    expect(seeded.has(LAB_NODE)).toBe(false);
-    expect(seeded.has(EXTENSION_ENABLED_FIELD)).toBe(false);
+  test("the seed holds the lab's node with no switch, so a fresh store has the lab off and the registry leaves it out", async () => {
+    const seeded = new Map(bundledSeed().map((node) => [node.id, node]));
+    expect(seeded.get(LAB_NODE)).toMatchObject({ text: "Lab", props: {} });
+    expect(seeded.get(SYSTEM_IDS.extensionsRoot)?.children).toContain(LAB_NODE);
+    expect(seeded.has(ENABLED)).toBe(true);
 
     const ctx = await openKb(root);
-    expect(ctx.index.getNode(LAB_NODE)).toBeUndefined();
+    expect(ctx.index.getNode(LAB_NODE)?.props[ENABLED]).toBeUndefined();
     expect(await labIn(ctx)).toEqual({
       row: { name: "lab", label: "Lab", optional: true, enabled: false, source: "bundled" },
       listed: false,
@@ -82,20 +79,19 @@ describe("the lab is switched on the server", () => {
       output: { name: "lab", on: true },
     });
     expect(await labIn(ctx)).toMatchObject({ row: { enabled: true }, listed: true });
+    // The switch is the one prop the write adds.
     expect(ctx.index.getNode(LAB_NODE)).toMatchObject({
       text: "Lab",
-      props: { [EXTENSION_ENABLED_FIELD]: [{ t: "bool", v: true }] },
+      props: { [ENABLED]: [{ t: "bool", v: true }] },
     });
-    expect(ctx.index.getNode(EXTENSION_ENABLED_FIELD)?.props[SYSTEM_IDS.fieldTypeField]).toEqual([
+    expect(ctx.index.getNode(ENABLED)?.props[SYSTEM_IDS.fieldTypeField]).toEqual([
       { t: "ref", v: SYSTEM_IDS.ftCheckbox },
     ]);
 
     expect((await switchLab(ctx, false)).status).toBe("succeeded");
     expect(await labIn(ctx)).toMatchObject({ row: { enabled: false }, listed: false });
     // Off is a value of the switch, not its absence: the node stays, and says so.
-    expect(ctx.index.getNode(LAB_NODE)?.props[EXTENSION_ENABLED_FIELD]).toEqual([
-      { t: "bool", v: false },
-    ]);
+    expect(ctx.index.getNode(LAB_NODE)?.props[ENABLED]).toEqual([{ t: "bool", v: false }]);
   });
 
   test("the switch is the store's: another session over the root reads it", async () => {
@@ -114,16 +110,22 @@ describe("the lab is switched on the server", () => {
     expect((await readFile(store)).equals(before)).toBe(true);
   });
 
-  test("a switch reads the store as it is, so a stale session does not re-create another's node", async () => {
+  test("a switch reads the store as it is, so a stale session writes over another's switch, not its node", async () => {
     const stale = await openKb(root);
     const other = await openKb(root);
     expect((await switchLab(other, true)).status).toBe("succeeded");
-    const created = other.index.getNode(LAB_NODE)?.createdAt;
-    expect(created).toBeDefined();
-    expect(stale.index.getNode(LAB_NODE)).toBeUndefined();
+    const written = present(other.index.getNode(LAB_NODE), "the lab's node is seeded");
+    expect(written.props[ENABLED]).toEqual([{ t: "bool", v: true }]);
+    expect(stale.index.getNode(LAB_NODE)?.props[ENABLED]).toBeUndefined();
 
     expect((await switchLab(stale, false)).status).toBe("succeeded");
-    expect(stale.index.getNode(LAB_NODE)?.createdAt).toBe(created);
+    const { updatedAt, ...rewritten } = present(stale.index.getNode(LAB_NODE), "still there");
+    expect(updatedAt > written.updatedAt).toBe(true);
+    const { updatedAt: _before, ...kept } = written;
+    expect(rewritten).toEqual({
+      ...kept,
+      props: { ...written.props, [ENABLED]: [{ t: "bool", v: false }] },
+    });
     expect(await labIn(stale)).toMatchObject({ row: { enabled: false } });
   });
 
@@ -175,7 +177,7 @@ describe("the gates do not depend on a switch", () => {
     await Effect.runPromise(
       persistEffect(ctx, { upserts: off, deletes: [] }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
-    expect(ctx.index.getNode(extensionNodeId("docs"))?.props[EXTENSION_ENABLED_FIELD]).toEqual([
+    expect(ctx.index.getNode(extensionNodeId("docs"))?.props[ENABLED]).toEqual([
       { t: "bool", v: false },
     ]);
     const manifest = await invoke(ctx, { id: "kb.manifest", input: {} });
@@ -228,7 +230,7 @@ describe("who may switch an extension", () => {
       code: "approval_required",
       details: { policy: "approval.agent-extension-switch" },
     });
-    expect(ctx.index.getNode(LAB_NODE)).toBeUndefined();
+    expect(ctx.index.getNode(LAB_NODE)?.props[ENABLED]).toBeUndefined();
     expect((await invoke(ctx, call("agent", true))).status).toBe("succeeded");
     expect(await labIn(ctx)).toMatchObject({ row: { enabled: true } });
   });
@@ -251,7 +253,7 @@ describe("who may switch an extension", () => {
         details: { policy: "approval.script-extension-switch" },
       });
     }
-    expect(ctx.index.getNode(LAB_NODE)).toBeUndefined();
+    expect(ctx.index.getNode(LAB_NODE)?.props[ENABLED]).toBeUndefined();
   });
 
   test("a code view's figure, which invokes only as a read, cannot switch", async () => {
@@ -263,6 +265,6 @@ describe("who may switch an extension", () => {
       }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
     expect(receipt).toMatchObject({ status: "failed", code: "forbidden" });
-    expect(ctx.index.getNode(LAB_NODE)).toBeUndefined();
+    expect(ctx.index.getNode(LAB_NODE)?.props[ENABLED]).toBeUndefined();
   });
 });

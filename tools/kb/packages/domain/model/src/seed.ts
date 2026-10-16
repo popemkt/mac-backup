@@ -484,6 +484,19 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: SYSTEM_IDS.approvalPolicies }],
   });
 
+  /*
+   * Extensions (DESIGN.md → Extension families). Each one's node is derived
+   * by the fold from its declaration and filed under this list, as a view's
+   * option is under `sys.views`, so core seeds the list empty and the switch
+   * an optional family's node holds; no extension is named here.
+   */
+  const extensionsRoot = mk(SYSTEM_IDS.extensionsRoot, "Extensions");
+  const extensionEnabledField = singleField(
+    SYSTEM_IDS.extensionEnabledField,
+    "enabled",
+    "checkbox",
+  );
+
   return [
     field,
     tag,
@@ -541,6 +554,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...defaultPolicies,
     approvalPoliciesView,
     approvalPoliciesPin,
+    extensionsRoot,
+    extensionEnabledField,
   ];
 }
 
