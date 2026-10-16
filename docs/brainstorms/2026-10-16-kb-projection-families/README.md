@@ -828,3 +828,28 @@ None did:
 ### Gaps
 
 None opened, narrowed or changed.
+
+## O4 review follow-up
+
+Sol's review of O4a, O4b and the first half of O4d asked for five fixes:
+
+- **The package cycle is gone, and a cycle now fails.** `@kb/views`' tests
+  used the neighbourhood and the graph page as examples, through a
+  devDependency on `@kb/graph`, which depends on `@kb/views`.
+  - Those tests now use core's views: the outline snippet and the layout
+    view.
+  - The graph cases moved to `@kb/graph`'s `tests/views.test.ts`.
+  - That settles obstacle 2's last bullet early.
+  - `constraints.ts` states the rule (`dependencyCycles`), and
+    `boundaries.test.ts` applies it: no package reaches itself through its
+    declared dependencies. Test-world devDependencies are exempt.
+- **The neighbourhood reads its root through `subjectRootOf`.** It was the
+  sixth copy of that rule.
+- **Core's import of the graph's view keys is a recorded gap:**
+  GAP [[01M52YKFN18S0PJR2PHHM5QTXZ]], marked on the import in
+  `core-extension.ts`. It closes when the graph's declaration lists its own
+  views (O4f), beside GAP [[01M52J3DADW4P7YV6907ME9C50]] for the outline's.
+- **`bullet-gpu`'s glyph mask** is set in a named ink (`COVERAGE_INK`,
+  `"white"`), which the design-tokens rule accepts. Only its alpha is read
+  back. The pinpoint disable is gone.
+- A DESIGN.md line O4a wrote over 100 characters is rewrapped.
