@@ -49,13 +49,6 @@ export function usePath(): string {
   return useSyncExternalStore(subscribePath, getPath, () => "/");
 }
 
-export function graphPath(perspectiveId?: string | null): string {
-  if (perspectiveId !== null && perspectiveId !== undefined) {
-    return `/graph/${encodeURIComponent(perspectiveId)}`;
-  }
-  return "/graph";
-}
-
 /**
  * `/node/<id>`: a node in its default view; `/node/<id>/<view>`: the node
  * through one view (a view node it names, or a view type by its option).

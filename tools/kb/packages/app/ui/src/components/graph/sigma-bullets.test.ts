@@ -11,8 +11,13 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
 import type { NodeDisplayData, RenderParams } from "sigma/types";
-import { BULLET_GEOMETRY, bulletAppearance, bulletExtent } from "@kb/ui-sdk";
-import { BULLET_UNIFORMS, BulletTable, PLAIN_BULLET } from "@/components/graph/bullet-gpu";
+import { BULLET_GEOMETRY, bulletAppearance } from "@kb/ui-sdk";
+import {
+  BULLET_UNIFORMS,
+  BulletTable,
+  bulletExtent,
+  PLAIN_BULLET,
+} from "@/components/graph/bullet-gpu";
 import type * as SigmaBullets from "./sigma-bullets";
 
 const bullet = (hasChildren: boolean, collapsed: boolean) =>

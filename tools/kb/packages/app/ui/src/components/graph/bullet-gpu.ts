@@ -80,6 +80,24 @@ export const PLAIN_BULLET: BulletAppearance = bulletAppearance({
   childCount: 0,
 });
 
+/** How far each shape shows from the bullet's centre, px. */
+const SHAPE_EXTENT: Record<BulletShape, (a: BulletAppearance) => number> = {
+  dot: (a) => a.dotSize / 2,
+  "ref-ring": () => BULLET_GEOMETRY.ring.size / 2,
+  query: () => BULLET_GEOMETRY.icon / 2,
+  supertag: () => BULLET_GEOMETRY.icon / 2,
+  glyph: () => BULLET_GEOMETRY.icon / 2,
+};
+
+/**
+ * How far from its centre a bullet shows, in px of its 24px box: its halo
+ * when it has one, else its shape. What a renderer picks, frames and labels
+ * a drawn bullet by.
+ */
+export function bulletExtent(a: BulletAppearance): number {
+  return a.showHalo ? BULLET_HALO_RADIUS : SHAPE_EXTENT[a.shape](a);
+}
+
 type Vec4 = readonly [number, number, number, number];
 
 const { box } = BULLET_GEOMETRY;

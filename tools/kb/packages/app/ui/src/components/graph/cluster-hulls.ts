@@ -1,8 +1,8 @@
 import type Sigma from "sigma";
 import { clusterHull, clusterHullPath, HULL_PAD } from "./cluster-hull";
-import { fitGraphLabel, graphLabelFont, hashTagColor, readTokenColor } from "@kb/ui-sdk";
+import { graphLabelFont, hashTagColor, readTokenColor } from "@kb/ui-sdk";
 import { withGraphAlpha } from "@/components/graph/graph-dim";
-import type { GraphLabelBox } from "@/components/graph/graph-label-layout";
+import { fitGraphLabel, type GraphLabelBox } from "@/components/graph/graph-label-layout";
 
 /**
  * Decoration never captures input; background clicks are hit-tested by Sigma.

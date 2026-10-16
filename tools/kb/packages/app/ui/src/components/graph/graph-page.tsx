@@ -9,7 +9,6 @@ import {
   buildTreeForest,
   cn,
   extractLensGraph,
-  graphPath,
   hasText,
   lensReport,
   listPerspectiveNodes,
@@ -37,6 +36,7 @@ import {
 } from "@kb/views";
 import { GraphFrameContext, graphViewKey, type GraphFrame } from "./graph-frame";
 import { useRenderer } from "./use-renderers";
+import { graphPath } from "./routes";
 
 // GAP [[01M3EH8SRZ2NN7QZJY88CGY0T3]]
 const SYS_STORAGE_KEY = "kb-graph-include-sys";

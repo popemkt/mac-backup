@@ -22,7 +22,6 @@ import {
   type UniformNode,
 } from "three/webgpu";
 import { texture, uniform } from "three/tsl";
-import { fitGraphLabel } from "@kb/ui-sdk";
 import {
   GRAPH_LABEL_HEIGHT,
   GRAPH_LABEL_PAD,
@@ -34,6 +33,7 @@ import {
 import { labelArrived } from "@/components/graph/graph-arrival";
 import {
   byLabelPriority,
+  fitGraphLabel,
   reserveGraphLabel,
   type GraphLabelBox,
 } from "@/components/graph/graph-label-layout";

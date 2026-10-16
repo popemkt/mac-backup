@@ -53,13 +53,14 @@ import {
   vec3,
   vec4,
 } from "three/tsl";
-import { BULLET_GEOMETRY, BULLET_HALO_RADIUS, bulletExtent } from "@kb/ui-sdk";
+import { BULLET_GEOMETRY, BULLET_HALO_RADIUS } from "@kb/ui-sdk";
 import {
   BULLET_MARKS,
   BULLET_TABLE_COLUMNS,
   BULLET_UNIFORMS,
   BulletGlyphs,
   BulletTable,
+  bulletExtent,
   bulletTableKey,
   PLAIN_BULLET,
   readBulletPage,

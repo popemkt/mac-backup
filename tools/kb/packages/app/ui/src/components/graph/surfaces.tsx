@@ -11,7 +11,6 @@ import {
   type ParamsOf,
 } from "@kb/views";
 import {
-  graphPath,
   keptLoad,
   listPerspectiveNodes,
   navigate,
@@ -25,6 +24,7 @@ import {
 } from "@kb/ui-sdk";
 import { listPerspectiveNavItems } from "@/lib/sidebar-nav";
 import { useGraphStore } from "@/stores/graph.store";
+import { graphPath } from "./routes";
 
 /** The renderers' chunk: sigma and graphology stay out of the outline's bundle. */
 async function importRendererViews() {

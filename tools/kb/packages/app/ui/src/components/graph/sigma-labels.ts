@@ -1,5 +1,5 @@
 import type { Settings } from "sigma/settings";
-import { fitGraphLabel, readTokenColor } from "@kb/ui-sdk";
+import { readTokenColor } from "@kb/ui-sdk";
 import {
   GRAPH_LABEL_PAD,
   graphLabelText,
@@ -12,6 +12,8 @@ import { DEFAULT_THEME } from "@kb/views";
 import { GRAPH_THEMES } from "./graph-themes";
 import {
   byLabelPriority,
+  fitGraphLabel,
+  GRAPH_LABEL_WIDTH,
   overlapsGraphLabel,
   reserveGraphLabel,
   type GraphLabelBox,
@@ -130,7 +132,7 @@ function measured(ctx: CanvasRenderingContext2D, data: LabelData, settings: Labe
   const text = fitGraphLabel(
     graphLabelText(data.label ?? "", style),
     (value) => ctx.measureText(value).width,
-    Math.max(60, Math.min(220, viewportWidth - 24)),
+    Math.max(60, Math.min(GRAPH_LABEL_WIDTH, viewportWidth - 24)),
   );
   const width = ctx.measureText(text).width;
   // The box a label covers: its text and padding, as tall as its halo draws.

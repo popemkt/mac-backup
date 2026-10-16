@@ -50,3 +50,25 @@ export function reserveGraphLabel(box: GraphLabelBox, occupied: GraphLabelBox[])
   occupied.push(box);
   return true;
 }
+
+/** The widest a graph label is laid out, CSS pixels: a node's label, a tree's column. */
+export const GRAPH_LABEL_WIDTH = 220;
+
+/** Text space is measured in screen pixels, independently of node importance. */
+export function fitGraphLabel(
+  label: string,
+  measure: (text: string) => number,
+  maxWidth = GRAPH_LABEL_WIDTH,
+): string {
+  const line = label.replace(/\s+/g, " ").trim() || "untitled";
+  if (measure(line) <= maxWidth) return line;
+  const chars = Array.from(line);
+  let low = 0,
+    high = chars.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (measure(chars.slice(0, mid).join("") + "…") <= maxWidth) low = mid;
+    else high = mid - 1;
+  }
+  return chars.slice(0, low).join("") + "…";
+}

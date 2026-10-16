@@ -8,10 +8,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
 import { CanvasTexture, Sprite, Vector4, type Node, type SpriteNodeMaterial } from "three/webgpu";
 import { colorUniform } from "@kb/scene-gpu";
-import { BULLET_GEOMETRY, bulletAppearance, bulletExtent, type LensNode } from "@kb/ui-sdk";
+import { BULLET_GEOMETRY, bulletAppearance, type LensNode } from "@kb/ui-sdk";
 import { EmphasisFade } from "@/components/graph/graph-fade";
 import { topologyOf } from "./force3d-emphasis";
-import { BULLET_UNIFORMS, BulletTable } from "@/components/graph/bullet-gpu";
+import { BULLET_UNIFORMS, BulletTable, bulletExtent } from "@/components/graph/bullet-gpu";
 import { bulletLayer } from "./force3d-bullets";
 import { GRAPH_THEMES } from "./graph-themes";
 

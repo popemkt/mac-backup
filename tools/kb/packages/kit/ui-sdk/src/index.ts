@@ -232,7 +232,6 @@ export {
   bulletAppearance,
   type BulletAppearance,
   type BulletAppearanceInput,
-  bulletExtent,
   type BulletPaint,
   bulletRingDash,
   type BulletShape,
@@ -277,8 +276,6 @@ export {
   useFollowThrough,
 } from "./lib/follow";
 export {
-  fitGraphLabel,
-  GRAPH_LABEL_WIDTH,
   graphDisplayText,
   type GraphLabelFace,
   graphLabelFont,
@@ -322,7 +319,6 @@ export {
 export { pastSlop, POINTER_SLOP } from "./lib/pointer-slop";
 export {
   getPath,
-  graphPath,
   navigate,
   nodePath,
   ontologyPath,

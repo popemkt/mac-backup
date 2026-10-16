@@ -15,7 +15,8 @@
  * Coordinates follow d3's tree: `x` runs down the frame, `y` across it.
  */
 import { hierarchy, tree as d3Tree, type HierarchyPointNode } from "d3-hierarchy";
-import { GRAPH_LABEL_WIDTH, wrapGraphLabel, type LensTreeNode } from "@kb/ui-sdk";
+import { wrapGraphLabel, type LensTreeNode } from "@kb/ui-sdk";
+import { GRAPH_LABEL_WIDTH } from "./graph-label-layout";
 
 /** How many levels a large tree shows before anything is expanded. */
 export const OPEN_DEPTH = 2;
@@ -188,7 +189,7 @@ export function layoutForest(
   aspect: number,
 ): TreeLayout {
   const datum = (n: LensTreeNode): TreeDatum => {
-    const lines = label.show ? wrapGraphLabel(n.label, label.measure) : [];
+    const lines = label.show ? wrapGraphLabel(n.label, label.measure, GRAPH_LABEL_WIDTH) : [];
     return {
       id: n.id,
       label: n.label,
