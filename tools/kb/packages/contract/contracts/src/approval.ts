@@ -2,12 +2,15 @@ import { Context } from "effect";
 import { z } from "zod";
 import {
   APPROVAL_DECISIONS,
+  actsAsOwner,
   matchSpecificity,
   stricterDecision,
   writesApprovalPolicy,
+  writesConfiguration,
   type Actor,
   type ApprovalDecision,
   type ApprovalPolicy,
+  type NodeOf,
   type NodeWrite,
 } from "@kb/model";
 import {
@@ -69,17 +72,23 @@ export interface ApprovalCall {
   };
   readonly actor: Actor | undefined;
   readonly writes?: readonly NodeWrite[];
+  /** How the writes' fields and kinds are read: the graph before the commit. */
+  readonly nodeOf?: NodeOf;
 }
+
+/** What a governing write changes: the approval policies, or an extension's configuration. */
+export type GoverningWrite = "approval-policy" | "configuration";
 
 /** What is decided about one call, and what decided it. */
 export interface ApprovalResolution {
   readonly decision: ApprovalDecision;
   /**
    * The policy that decided (its id), the action's declared mode (`mode`),
-   * or the rule that a policy is written only with a person behind the call
-   * (`policy-write`).
+   * or the rule that a governing write is made only with a person behind
+   * the call (`{writes}`): any write to a policy, and a write to
+   * configuration by a caller acting for the owner.
    */
-  readonly by: { readonly policy: string } | "mode" | "policy-write";
+  readonly by: { readonly policy: string } | "mode" | { readonly writes: GoverningWrite };
 }
 
 /**
@@ -101,18 +110,32 @@ export interface ApprovalResolution {
  *   own id can lower. Its author said every call needs a person; a pattern or
  *   a mode word written for many actions does not unsay it by accident, while
  *   a person who names the action means it.
- * - A call that writes a policy, or the vocabulary policies are written in,
- *   asks, whatever the policies say: otherwise a caller could allow itself.
- *   That is known only from its writes, so the invoke core asks again with
- *   them just before the commit, and nothing is written when it refuses.
+ * - A governing write asks, whatever the policies say: a call that writes a
+ *   policy, or the vocabulary policies are written in (otherwise a caller
+ *   could allow itself), and a call by a caller acting for the owner
+ *   (`actsAsOwner`) that writes an extension's configuration
+ *   (`writesConfiguration`: what the code runs with, such as the endpoint a
+ *   key is sent to). That is known only from its writes, so the invoke core
+ *   asks again with them just before the commit, and nothing is written
+ *   when it refuses. A denial stays a denial.
  */
 export function resolveApproval(
   policies: readonly ApprovalPolicy[],
   call: ApprovalCall,
 ): ApprovalResolution {
   const ruled = byPolicy(policies, call);
-  if (ruled.decision === "deny" || !(call.writes ?? []).some(writesApprovalPolicy)) return ruled;
-  return { decision: "ask", by: "policy-write" };
+  if (ruled.decision === "deny") return ruled;
+  const governs = governingWrite(call);
+  return governs === null ? ruled : { decision: "ask", by: { writes: governs } };
+}
+
+/** What a call's writes govern, if anything, as the resolver weighs them. */
+function governingWrite(call: ApprovalCall): GoverningWrite | null {
+  const writes = call.writes ?? [];
+  if (writes.some(writesApprovalPolicy)) return "approval-policy";
+  const { nodeOf } = call;
+  if (actsAsOwner(call.actor) || nodeOf === undefined) return null;
+  return writes.some((write) => writesConfiguration(write, nodeOf)) ? "configuration" : null;
 }
 
 function byPolicy(policies: readonly ApprovalPolicy[], call: ApprovalCall): ApprovalResolution {
@@ -176,7 +199,7 @@ export function hasPerson(invocation: ActionInvocation): boolean {
 export interface ApprovalRefusal {
   readonly code: "forbidden" | "approval_required";
   readonly message: string;
-  readonly details?: { readonly policy: string } | { readonly writes: "approval-policy" };
+  readonly details?: { readonly policy: string } | { readonly writes: GoverningWrite };
 }
 
 /**
@@ -197,12 +220,12 @@ export function approvalRefusal(
       message: `action ${id} requires approval; this call has none`,
     };
   }
-  if (by === "policy-write") {
-    return {
-      code: "approval_required",
-      message: `action ${id} writes an approval policy, which always needs a person's approval; this call has none`,
-      details: { writes: "approval-policy" },
-    };
+  if ("writes" in by) {
+    const message =
+      by.writes === "approval-policy"
+        ? `action ${id} writes an approval policy, which always needs a person's approval; this call has none`
+        : `action ${id} writes an extension's configuration, which a call by ${invocation.actor ?? "this caller"} makes only with the owner's approval; this call has none`;
+    return { code: "approval_required", message, details: { writes: by.writes } };
   }
   if (decision === "deny") {
     return {

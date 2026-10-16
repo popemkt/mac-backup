@@ -1789,6 +1789,20 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     are refused. Every core write commits through `persistEffect`; a
     third-party extension's Promise handler that commits through the store
     port itself is trusted repo code and is not asked.
+  - **Writing configuration asks a caller acting for the owner**, whatever
+    the policies say. Configuration is what the code runs with, such as the
+    agent's provider: its endpoint and the key reference sent there.
+    Concretely, a write counts when it changes a value of an extension's
+    setting on the node it configures, or writes a node of a system kind
+    that configures an extension (`#agent-provider`, whose tag carries
+    `sys.f.configures`), tagged before or after, so minting, editing,
+    untagging and deleting one all count (`writesConfiguration`,
+    `@kb/model`). The same resolver rule weighs it, from the same commit
+    writes (`details.writes: "configuration"`). The owner's own actors (a
+    human, the CLI) write it as any node. An agent's write reaches the
+    sidebar's approval card, and sandboxed code, MCP and WebMCP are refused.
+    So no caller acting for the owner can point a key at an endpoint the
+    owner did not choose.
   - **Seeded defaults**, ordinary editable nodes filed under the query node
     `approval.policies` ("Approval policies"): an agent, and sandboxed code,
     asks before `node.delete` and before `views.migrate`, and neither may
@@ -2833,7 +2847,10 @@ The sidebar agent lives outside core, in packages that core never imports
     and `model` (text), each single-valued. The agent family seeds the
     kind, its fields and the options; the seed is in the bundled fold
     (`HOSTED_FAMILIES` in `@kb/bundled`), so every store holds them,
-    whichever process opens it.
+    whichever process opens it. The kind configures the agent
+    (`sys.f.configures` on its tag), so a provider, like the selection, is
+    configuration, and the agent writes neither without the owner's approval
+    ([Action registry](#action-registry) → Approval).
   - The selection is a setting of the agent's own node:
     `sys.f.agent.provider`, a ref to a provider, which configures
     `sys.extension.agent` and is written like any field

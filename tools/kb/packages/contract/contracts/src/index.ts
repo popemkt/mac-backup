@@ -27,6 +27,7 @@ export type {
   ApprovalCall,
   ApprovalRefusal,
   ApprovalResolution,
+  GoverningWrite,
   DecidedEntry,
   RunningCall,
   SurfaceWire,

@@ -68,6 +68,17 @@ const ADAPTER_BY_OPTION: ReadonlyMap<NodeId, string> = new Map(
   AGENT_ADAPTERS.map(({ id }) => [adapterOptionId(id), id]),
 );
 
+/** `node`, declared to configure the agent (`sys.f.configures`). */
+function configuring(node: KbNode): KbNode {
+  return {
+    ...node,
+    props: {
+      ...node.props,
+      [SYSTEM_IDS.configuresField]: [{ t: "ref", v: extensionNodeId("agent") }],
+    },
+  };
+}
+
 /** The agent family's seed: the provider kind, its fields, the adapter options, and the selection. */
 export function agentSeedNodes(at: string): readonly KbNode[] {
   const options = AGENT_ADAPTERS.map(
@@ -91,17 +102,20 @@ export function agentSeedNodes(at: string): readonly KbNode[] {
     seededField(AGENT_IDS.credentialField, "credential", "secret", at, one),
     seededField(AGENT_IDS.executableField, "executable", "text", at, one),
     seededField(AGENT_IDS.modelField, "model", "text", at, one),
-    seededTag(
-      AGENT_IDS.providerTag,
-      "agent-provider",
-      [
-        AGENT_IDS.adapterField,
-        AGENT_IDS.endpointField,
-        AGENT_IDS.credentialField,
-        AGENT_IDS.executableField,
-        AGENT_IDS.modelField,
-      ],
-      at,
+    // A provider is the agent's configuration: what it runs, where, with which key.
+    configuring(
+      seededTag(
+        AGENT_IDS.providerTag,
+        "agent-provider",
+        [
+          AGENT_IDS.adapterField,
+          AGENT_IDS.endpointField,
+          AGENT_IDS.credentialField,
+          AGENT_IDS.executableField,
+          AGENT_IDS.modelField,
+        ],
+        at,
+      ),
     ),
     // A setting of the agent's own node: written like any field, read per turn.
     seededField(AGENT_IDS.providerField, "provider", "ref", at, {

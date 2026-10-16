@@ -22,7 +22,8 @@
  * {@link isWritableField} to offer an edit only where the write would land.
  */
 import { SYSTEM_IDS, isExtensionNodeId, isSysPrefixed, type KbNode, type NodeId } from "./model.ts";
-import { refValuesOf, type NodeLike } from "./ontology.ts";
+import type { NodeWrite } from "./approval-policy.ts";
+import { refValuesOf, typeRefsOf, type NodeLike } from "./ontology.ts";
 
 /** How a write finds the nodes it is checked against: the graph before it. */
 export type NodeOf = (id: NodeId) => Pick<NodeLike, "props"> | undefined;
@@ -45,6 +46,51 @@ export function configures(
 }
 
 /**
+ * Whether the system node `id` (its node `node`) configures an extension:
+ * its `sys.f.configures` names an extension's node or their list. A field
+ * that does is a setting; a tag that does is a kind whose nodes are that
+ * extension's configuration (the agent's `#agent-provider`).
+ */
+function configuresAnExtension(id: NodeId, node: Pick<NodeLike, "props"> | undefined): boolean {
+  if (!isSysPrefixed(id)) return false;
+  return refValuesOf(node, SYSTEM_IDS.configuresField).some(
+    (target) => target === SYSTEM_IDS.extensionsRoot || isExtensionNodeId(target),
+  );
+}
+
+function sameValues(
+  a: KbNode["props"][string] | undefined,
+  b: KbNode["props"][string] | undefined,
+) {
+  return JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
+}
+
+/** The fields whose values differ between `before` and `after`. */
+function changedFields(before: KbNode | undefined, after: KbNode | undefined): string[] {
+  const fields = new Set([...Object.keys(before?.props ?? {}), ...Object.keys(after?.props ?? {})]);
+  return [...fields].filter((field) => !sameValues(before?.props[field], after?.props[field]));
+}
+
+/**
+ * Whether a write changes an extension's configuration (DESIGN.md → Action
+ * registry → Approval → configuration): a value of one of its settings on
+ * the node it configures, or a node of a kind that configures an extension
+ * (tagged before or after, so tagging and untagging count, and so does
+ * minting or deleting one). `nodeOf` reads the fields and kinds as the
+ * graph holds them before the write. What configuration holds decides what
+ * the code runs with (a provider's endpoint and the key it is sent), so a
+ * caller acting for the owner changes it only with the owner's approval.
+ */
+export function writesConfiguration(write: NodeWrite, nodeOf: NodeOf): boolean {
+  const { before, after } = write;
+  const kinds = new Set([...typeRefsOf(before), ...typeRefsOf(after)]);
+  if ([...kinds].some((kind) => configuresAnExtension(kind, nodeOf(kind)))) return true;
+  const id = after?.id ?? before?.id;
+  if (id === undefined) return false;
+  return changedFields(before, after).some((field) => configures(field, nodeOf(field), id));
+}
+
+/**
  * Whether a person may write values of the field `fieldId` (its node
  * `fieldNode`) on `nodeId` without force: on any node that is not a system
  * node, and on a system node only where the field is one of its settings.
@@ -55,13 +101,6 @@ export function isWritableField(
   fieldNode: Pick<NodeLike, "props"> | undefined,
 ): boolean {
   return !isSysPrefixed(nodeId) || configures(fieldId, fieldNode, nodeId);
-}
-
-function sameValues(
-  a: KbNode["props"][string] | undefined,
-  b: KbNode["props"][string] | undefined,
-) {
-  return JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
 }
 
 /**
@@ -87,9 +126,7 @@ export function systemWriteRefusal(
   ) {
     return protectedWrite;
   }
-  const fields = new Set([...Object.keys(before.props), ...Object.keys(next.props)]);
-  for (const field of fields) {
-    if (sameValues(before.props[field], next.props[field])) continue;
+  for (const field of changedFields(before, next)) {
     if (!isWritableField(next.id, field, fieldOf(field))) return protectedWrite;
   }
   return null;

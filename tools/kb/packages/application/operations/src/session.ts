@@ -111,7 +111,12 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
       ...tx.upserts.map((after) => ({ before: ctx.index.getNode(after.id), after })),
       ...tx.deletes.map((id) => ({ before: ctx.index.getNode(id), after: undefined })),
     ];
-    const resolution = decide(ctx, { ...call, actor: call.invocation.actor, writes });
+    const resolution = decide(ctx, {
+      ...call,
+      actor: call.invocation.actor,
+      writes,
+      nodeOf: (id) => ctx.index.getNode(id),
+    });
     const refusal = approvalRefusal(resolution, call.invocation);
     if (refusal !== null) return yield* domainError(refusal.code, refusal.message, refusal.details);
   }

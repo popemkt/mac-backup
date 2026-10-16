@@ -496,7 +496,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
   ],
   [
     "every surface writes an extension's setting on its node as it writes any field, " +
-      "and nothing else of that node",
+      "and nothing else of that node; a caller acting for the owner only with approval",
     (set) =>
       overSurfaces(set, ({ name, surface, via }) =>
         Effect.gen(function* () {
@@ -515,7 +515,19 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
             expect({ name, listed: listed.has("node.update") }).toEqual({ name, listed: false });
             return;
           }
-          expect({ name, status: receipt.status }).toEqual({ name, status: "succeeded" });
+          if (!actsAsOwner(surface.wire.actor)) {
+            // Configuration is the owner's: a caller acting for them asks first.
+            expect({ name, code: receipt.status === "failed" ? receipt.code : "ran" }).toEqual({
+              name,
+              code: "approval_required",
+            });
+            const approved = yield* via({ ...write(name), approved: true });
+            const ran = approved?.status === "succeeded";
+            expect({ name, ran }).toEqual({ name, ran: surface.wire.carriesApproval });
+            if (!ran) return;
+          } else {
+            expect({ name, status: receipt.status }).toEqual({ name, status: "succeeded" });
+          }
           // Read back through the surface: the session the contract opened has not seen the write.
           const read = yield* via({ id: "node.get", input: { id: EXTENSION_NODE, depth: 0 } });
           expect({ name, read: read?.status === "succeeded" ? read.output : read }).toMatchObject({

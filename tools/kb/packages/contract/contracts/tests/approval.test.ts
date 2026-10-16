@@ -9,6 +9,7 @@ import {
   ACTOR_OPTION_IDS,
   SYSTEM_IDS,
   approvalPolicyNode,
+  extensionNodeId,
   type ApprovalPolicy,
   type KbNode,
   type NodeWrite,
@@ -121,7 +122,7 @@ describe("resolveApproval", () => {
       actor: "agent",
       decision: "ask",
     });
-    const asks = { decision: "ask", by: "policy-write" } as const;
+    const asks = { decision: "ask", by: { writes: "approval-policy" } } as const;
     const writes: Record<string, NodeWrite> = {
       edit: { before: existing, after: { ...existing, text: "edited" } },
       remove: { before: existing, after: undefined },
@@ -146,6 +147,67 @@ describe("resolveApproval", () => {
       decide([policy("*", "deny")], "node.update", WRITE, "agent", [writes.edit as NodeWrite])
         .decision,
     ).toBe("deny");
+  });
+});
+
+describe("a write to configuration", () => {
+  const AGENT = extensionNodeId("agent");
+  const configuresAgent = { [SYSTEM_IDS.configuresField]: [{ t: "ref" as const, v: AGENT }] };
+  const GRAPH = new Map<string, KbNode>([
+    ["sys.tag.provider", node("sys.tag.provider", configuresAgent)],
+    ["sys.f.provider", node("sys.f.provider", configuresAgent)],
+  ]);
+  const provider = node("n.p", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "sys.tag.provider" }] });
+  const writes: Record<string, NodeWrite> = {
+    mint: { before: undefined, after: provider },
+    edit: { before: provider, after: { ...provider, text: "elsewhere" } },
+    untag: { before: provider, after: node("n.p") },
+    select: {
+      before: node(AGENT),
+      after: node(AGENT, { "sys.f.provider": [{ t: "ref", v: "n.p" }] }),
+    },
+  };
+  const weigh = (actor: ApprovalPolicy["actor"], write: NodeWrite) =>
+    resolveApproval([policy("*", "allow")], {
+      action: { id: "node.update", mode: WRITE },
+      actor: actor ?? undefined,
+      writes: [write],
+      nodeOf: (id) => GRAPH.get(id),
+    });
+
+  test("asks a caller acting for the owner, whatever the policies say", () => {
+    for (const [kind, write] of Object.entries(writes)) {
+      for (const actor of ["agent", "script"] as const) {
+        expect({ kind, actor, ...weigh(actor, write) }).toEqual({
+          kind,
+          actor,
+          decision: "ask",
+          by: { writes: "configuration" },
+        });
+      }
+    }
+  });
+
+  test("is the owner's own to make, and any other write stays the policies'", () => {
+    for (const write of Object.values(writes)) {
+      for (const actor of ["human", "cli", null] as const) {
+        expect(weigh(actor, write).decision).toBe("allow");
+      }
+    }
+    expect(weigh("agent", { before: node("n.q"), after: node("n.q", {}) }).decision).toBe("allow");
+  });
+
+  test("names the actor and the owner in its refusal", () => {
+    expect(
+      approvalRefusal(
+        { decision: "ask", by: { writes: "configuration" } },
+        { id: "node.update", input: {}, actor: "agent" },
+      ),
+    ).toMatchObject({
+      code: "approval_required",
+      message: expect.stringContaining("only with the owner's approval"),
+      details: { writes: "configuration" },
+    });
   });
 });
 
@@ -174,7 +236,7 @@ describe("approvalRefusal", () => {
     });
     expect(
       approvalRefusal(
-        { decision: "ask", by: "policy-write" },
+        { decision: "ask", by: { writes: "approval-policy" } },
         { id: "a", input: {}, actor: "cli" },
       ),
     ).toMatchObject({ code: "approval_required", details: { writes: "approval-policy" } });
