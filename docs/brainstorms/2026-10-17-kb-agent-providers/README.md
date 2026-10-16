@@ -389,3 +389,21 @@ the CLI root to load what it composes, so it came before A4.
   `AGENT_ADAPTERS` in the same commit. The CLIProxyAPI address was checked
   against `modules/stacks/ai-agents/cli-proxy-api.nix`: `127.0.0.1:8317`,
   `/v1`, and no client key (`api-keys = []`).
+- **A7, the chooser only.**
+  - The dock draws the agent node's `provider` field and the selected
+    provider's `model` under its header. Both use the page's field editor,
+    so there is no settings widget.
+  - Before that could happen, the field editor became a UI kernel service
+    (`FieldEditorService`, `useFieldEditor`) that the outline provides, in
+    its own refactor commit. Until then, a field was reachable only inside a
+    frame (`FrameSubject.Field`). Frame views now draw through the same
+    service, so there is one way to reach the editor.
+  - Not built:
+    - `ext.agent.models` and `ext.agent.check`. These need hosted actions,
+      and today the server routes no action to a plugin that `kb ui` hosts.
+      DESIGN.md -> Agent packages names this as a placeholder gap.
+    - The providers table. A person makes a provider by tagging a node
+      `#agent-provider`, as with any node.
+- **Not started:** A8 (this repository's provider nodes, which are data
+  writes in `.kb/nodes.jsonl` and outside this run), A9, A10. A11 landed
+  with each step instead of separately.

@@ -12,6 +12,7 @@
   "dependencies": {
     "@kb/agent": "workspace:*",
     "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
     "@phosphor-icons/react": "catalog:",

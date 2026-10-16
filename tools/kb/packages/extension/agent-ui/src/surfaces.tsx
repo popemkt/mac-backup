@@ -11,6 +11,7 @@ import {
 import { IconButton } from "@kb/ui-sdk";
 import { decideCall, restartChat, sendToAgent, stopAgent, useChat } from "./chat";
 import { Entry } from "./entries";
+import { AgentSettings } from "./settings";
 
 /** How tall the composer grows before it scrolls, in px. */
 const COMPOSER_MAX_PX = 160;
@@ -141,7 +142,7 @@ function Unreachable() {
   );
 }
 
-/** The agent's dock: its header, the conversation and the composer. */
+/** The agent's dock: its header, which model it talks to, the conversation and the composer. */
 export function AgentDock({ onClose }: { readonly onClose: () => void }) {
   const running = useChat((s) => s.transcript.running);
   const empty = useChat((s) => s.transcript.entries.length === 0);
@@ -161,6 +162,7 @@ export function AgentDock({ onClose }: { readonly onClose: () => void }) {
         />
         <IconButton label="Close the agent" icon={XIcon} size="md" onClick={onClose} />
       </header>
+      <AgentSettings />
       <Conversation />
       <Unreachable />
       <Composer />
