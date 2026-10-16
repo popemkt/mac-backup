@@ -38,11 +38,75 @@ import { OUTLINE_COMMANDS } from "@/components/outline/outline-commands";
 const { filters, sort, display, colwidth, pagesize, groupFieldId } = DEFAULT_VIEW_CONFIG;
 
 /**
- * The outline: its page, the route to it at `/`, the Home and Pinned sidebar
- * sections, its expand-all and collapse-all commands, and its four frame
- * views — each shown inline, under the row of the frame whose children it
- * lays out, and named for the toolbar, the node menu and its `sys.command`
- * node by its `picker`, in the order they are offered.
+ * The outline's views: its page, its four frame views — each shown inline,
+ * under the row of the frame whose children it lays out, and named for the
+ * toolbar, the node menu and its `sys.command` node by its `picker`, in the
+ * order they are offered — and its read-only snippet.
+ */
+const OUTLINE_VIEWS = [
+  provideView(OutlineView, {
+    placements: ["page"],
+    sample: {},
+    Component: OutlineSurface,
+  }),
+  provideView(OutlineListView, {
+    placements: ["inline"],
+    sample: { filters },
+    Component: ListFrameView,
+    picker: {
+      order: 0,
+      glyph: "≡",
+      icon: ListBulletsIcon,
+      iconWeight: "regular",
+      command: SYSTEM_IDS.cmdViewAsList,
+    },
+  }),
+  provideView(OutlineTableView, {
+    placements: ["inline"],
+    sample: { filters, sort, display, colwidth, pagesize },
+    Component: TableFrameView,
+    picker: {
+      order: 1,
+      glyph: "⊞",
+      icon: TableIcon,
+      iconWeight: "regular",
+      command: SYSTEM_IDS.cmdViewAsTable,
+    },
+  }),
+  provideView(OutlineBoardView, {
+    placements: ["inline"],
+    sample: { filters, sort, display, groupFieldId },
+    Component: BoardFrameView,
+    picker: {
+      order: 2,
+      glyph: "▥",
+      icon: SquaresFourIcon,
+      iconWeight: "regular",
+      command: SYSTEM_IDS.cmdViewAsBoard,
+    },
+  }),
+  provideView(OutlineCardsView, {
+    placements: ["inline"],
+    sample: { filters, sort, display },
+    Component: CardsFrameView,
+    picker: {
+      order: 3,
+      glyph: "▦",
+      icon: SquaresFourIcon,
+      iconWeight: "duotone",
+      command: SYSTEM_IDS.cmdViewAsCards,
+    },
+  }),
+  provideView(OutlineSnippetView, {
+    placements: ["inline"],
+    sample: { root: "n.root-a", depth: 1, maxRows: 6 },
+    Component: OutlineSnippet,
+  }),
+];
+
+/**
+ * The outline: its views, the route to its page at `/`, the Home and Pinned
+ * sidebar sections, and its expand-all and collapse-all commands.
  */
 export const outlineUiPlugin = definePlugin({
   name: OUTLINE_NAMESPACE,
@@ -66,82 +130,7 @@ export const outlineUiPlugin = definePlugin({
           Effect.sync(() => provideEditingProjection(outlineProjection)),
           () => Effect.sync(() => withdrawEditingProjection(outlineProjection)),
         ),
-        ctx.contribute(
-          ViewPoint,
-          provideView(OutlineView, {
-            placements: ["page"],
-            sample: {},
-            Component: OutlineSurface,
-          }),
-        ),
-        ctx.contribute(
-          ViewPoint,
-          provideView(OutlineListView, {
-            placements: ["inline"],
-            sample: { filters },
-            Component: ListFrameView,
-            picker: {
-              order: 0,
-              glyph: "≡",
-              icon: ListBulletsIcon,
-              iconWeight: "regular",
-              command: SYSTEM_IDS.cmdViewAsList,
-            },
-          }),
-        ),
-        ctx.contribute(
-          ViewPoint,
-          provideView(OutlineTableView, {
-            placements: ["inline"],
-            sample: { filters, sort, display, colwidth, pagesize },
-            Component: TableFrameView,
-            picker: {
-              order: 1,
-              glyph: "⊞",
-              icon: TableIcon,
-              iconWeight: "regular",
-              command: SYSTEM_IDS.cmdViewAsTable,
-            },
-          }),
-        ),
-        ctx.contribute(
-          ViewPoint,
-          provideView(OutlineBoardView, {
-            placements: ["inline"],
-            sample: { filters, sort, display, groupFieldId },
-            Component: BoardFrameView,
-            picker: {
-              order: 2,
-              glyph: "▥",
-              icon: SquaresFourIcon,
-              iconWeight: "regular",
-              command: SYSTEM_IDS.cmdViewAsBoard,
-            },
-          }),
-        ),
-        ctx.contribute(
-          ViewPoint,
-          provideView(OutlineCardsView, {
-            placements: ["inline"],
-            sample: { filters, sort, display },
-            Component: CardsFrameView,
-            picker: {
-              order: 3,
-              glyph: "▦",
-              icon: SquaresFourIcon,
-              iconWeight: "duotone",
-              command: SYSTEM_IDS.cmdViewAsCards,
-            },
-          }),
-        ),
-        ctx.contribute(
-          ViewPoint,
-          provideView(OutlineSnippetView, {
-            placements: ["inline"],
-            sample: { root: "n.root-a", depth: 1, maxRows: 6 },
-            Component: OutlineSnippet,
-          }),
-        ),
+        ...OUTLINE_VIEWS.map((view) => ctx.contribute(ViewPoint, view)),
         ctx.contribute(
           RoutePoint,
           provideRoute({
