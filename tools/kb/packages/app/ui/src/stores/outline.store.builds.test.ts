@@ -1,9 +1,9 @@
 /**
- * How many node maps a move builds, a reader's read of the rows included:
- * one per snapshot. Unscoped, the outline's rows are the schema itself, or a
- * view over it that opens and closes rows (`withExpansion`), which builds no
- * map; so the schema's build is the only pass over the wire. A toggle builds
- * nothing; a scope builds only its own, smaller projection.
+ * How many node maps a move builds, a reader's read of the rows included.
+ * Each snapshot builds the schema map. Unscoped, the outline's rows are the
+ * schema itself, or a view over it that opens and closes rows
+ * (`withExpansion`), which builds no map. A scope builds its own projection,
+ * and expanding or collapsing builds nothing.
  *
  * A build is counted where every node map is built: `wireToOutlineMap`.
  */

@@ -93,6 +93,23 @@ describe("withExpansion", () => {
   });
 });
 
+describe("schemaOf", () => {
+  it("a lookup changes nothing: a node's object does not depend on which snapshot was asked last", () => {
+    const a = snapshot();
+    const b = a.map((n) => (n.id === "n.b" ? { ...n, text: "b2" } : n));
+    const c = b.map((n) => (n.id === "n.a1" ? { ...n, text: "a1-2" } : n));
+    const sa = schemaOf({ wireNodes: a });
+    const sb = schemaOf({ wireNodes: b });
+    // Ask for the older snapshot again: a lookup, not a build.
+    expect(schemaOf({ wireNodes: a })).toBe(sa);
+    const sc = schemaOf({ wireNodes: c });
+    expect(sc.get("n.a21")).toBe(sa.get("n.a21"));
+    expect(sc.get("n.a21")).toBe(sb.get("n.a21"));
+    expect(sc.get("n.b")).toBe(sb.get("n.b"));
+    expect(sc.get("n.a1")).not.toBe(sb.get("n.a1"));
+  });
+});
+
 describe("schemaOfGraph", () => {
   it("takes a projection of the whole graph, however its wire array was handed over", () => {
     const wireNodes = snapshot();

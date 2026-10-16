@@ -261,24 +261,36 @@ describe("the editing projection", () => {
     root: "",
     changes: [] as GraphChange[],
   }));
-  let calls: string[] = [];
+
+  /** Each member as told, with the graph states it was handed: it reads nothing else. */
+  type Told =
+    | {
+        readonly member: "follow";
+        readonly change: GraphChange;
+        readonly prev: GraphStateData;
+        readonly next: GraphStateData;
+      }
+    | { readonly member: "leave"; readonly from: GraphStateData }
+    | { readonly member: "arrive"; readonly at: "zoom" | "home"; readonly to: GraphStateData };
+  let told: Array<{ readonly told: Told; readonly held: GraphStateData }> = [];
+
+  /** Record what was told, beside the state the store held when it was told. */
+  const record = (entry: Told) => told.push({ told: entry, held: graph() });
 
   const projection: EditingProjection = {
     follow: (change, prev, next) => {
-      calls.push(`follow:${change}`);
-      // It is told before the store moves: `prev` is what the store still holds.
-      expect(prev.wireNodes).toBe(graph().wireNodes);
+      record({ member: "follow", change, prev, next });
       useFollowed.setState((s) => ({ rev: next.rev, changes: [...s.changes, change] }));
     },
-    leave: () => calls.push(`leave@${graph().rootNodeId}`),
-    arrive: (at, root) => {
-      calls.push(`arrive:${at}->${root}@${graph().rootNodeId}`);
-      useFollowed.setState({ root });
+    leave: (from) => record({ member: "leave", from }),
+    arrive: (at, to) => {
+      record({ member: "arrive", at, to });
+      useFollowed.setState({ root: to.rootNodeId });
     },
   };
 
   beforeEach(() => {
-    calls = [];
+    told = [];
     useFollowed.setState({ rev: -1, root: "", changes: [] });
     provideEditingProjection(projection);
   });
@@ -316,60 +328,75 @@ describe("the editing projection", () => {
     expect(useFollowed.getState().changes).toEqual(["load", "tx", "resync", "scope"]);
   });
 
-  it("is told before the store moves, so it is never behind the graph a reader sees", () => {
+  it("follow is handed the state being left and the one the store then holds", () => {
+    hydrate();
+    told = [];
+    graph().applyTx([wire("n.new", "x")], [], { rev: 8 });
+    const [entry] = told;
+    if (entry?.told.member !== "follow") throw new Error("follow was not told");
+    expect(entry.told.prev).toBe(entry.held);
+    expect(entry.told.next.rev).toBe(8);
+    expect(entry.told.next.wireNodes).toBe(graph().wireNodes);
+  });
+
+  it("a reader never sees the projection behind the graph", () => {
     hydrate();
     const { seen, stop } = watch();
     graph().applyTx([wire("n.new", "x")], [], { rev: 8 });
     graph().refreshFromWire(graph().wireNodes, 9);
     stop();
-    // Each move tells the projection, then moves the store: one notice each.
-    expect(seen).toEqual([
-      { rev: 7, followed: 8, root: WORKSPACE_ROOT_ID, landed: "" },
-      { rev: 8, followed: 8, root: WORKSPACE_ROOT_ID, landed: "" },
-      { rev: 8, followed: 9, root: WORKSPACE_ROOT_ID, landed: "" },
-      { rev: 9, followed: 9, root: WORKSPACE_ROOT_ID, landed: "" },
-    ]);
+    expect(seen.length).toBeGreaterThan(0);
+    for (const look of seen) expect(look.followed).toBeGreaterThanOrEqual(look.rev);
+    expect(seen.at(-1)).toMatchObject({ rev: 9, followed: 9 });
   });
 
-  it("a zoom lets go of the focus, then lands it at the new root, before the root moves", () => {
+  it("a zoom hands leave the page it leaves and arrive the page it stands at", () => {
     seed();
-    calls = [];
+    told = [];
     const { seen, stop } = watch();
     graph().zoomTo("n.root-a");
     stop();
-    expect(calls).toEqual([
-      "leave@" + WORKSPACE_ROOT_ID,
-      `arrive:zoom->n.root-a@${WORKSPACE_ROOT_ID}`,
-    ]);
-    expect(seen.map((look) => [look.root, look.landed])).toEqual([
-      [WORKSPACE_ROOT_ID, "n.root-a"],
-      ["n.root-a", "n.root-a"],
-    ]);
+    expect(told.map(({ told: t }) => t.member)).toEqual(["leave", "arrive"]);
+    const [leave, arrive] = told;
+    if (leave?.told.member !== "leave" || arrive?.told.member !== "arrive") throw new Error();
+    expect(leave.told.from).toBe(leave.held);
+    expect(leave.told.from.rootNodeId).toBe(WORKSPACE_ROOT_ID);
+    expect(arrive.told.at).toBe("zoom");
+    expect(arrive.told.to).toMatchObject({ rootNodeId: "n.root-a", wireNodes: graph().wireNodes });
+    expect(graph().rootNodeId).toBe(arrive.told.to.rootNodeId);
+    // No reader sees the page at the new root before the projection landed there.
+    for (const look of seen) if (look.root === "n.root-a") expect(look.landed).toBe("n.root-a");
   });
 
-  it("going home lets go, then lands at home, before the root moves", () => {
+  it("going home hands arrive the home it stands at", () => {
     seed();
     graph().zoomTo("n.root-a");
-    calls = [];
+    told = [];
     graph().zoomHome();
-    expect(calls).toEqual(["leave@n.root-a", `arrive:home->${WORKSPACE_ROOT_ID}@n.root-a`]);
+    const [leave, arrive] = told;
+    if (leave?.told.member !== "leave" || arrive?.told.member !== "arrive") throw new Error();
+    expect(leave.told.from.rootNodeId).toBe("n.root-a");
+    expect(arrive.told.at).toBe("home");
+    expect(arrive.told.to.rootNodeId).toBe(WORKSPACE_ROOT_ID);
     expect(graph().rootNodeId).toBe(WORKSPACE_ROOT_ID);
   });
 
-  it("a scope change lets go of the focus before it is followed", () => {
+  it("a scope change lets go of the page before it is followed", () => {
     hydrate();
-    calls = [];
+    told = [];
     graph().setOntologyScope("o.1");
-    expect(calls).toEqual([`leave@${WORKSPACE_ROOT_ID}`, "follow:scope"]);
+    expect(told.map(({ told: t }) => t.member)).toEqual(["leave", "follow"]);
   });
 
-  it("one installed after a load follows it at once; one withdrawn is no longer told", () => {
+  it("one installed after a load follows it at once; one withdrawn leaves, then is no longer told", () => {
     withdrawEditingProjection(projection);
     hydrate();
     useFollowed.setState({ changes: [] });
     provideEditingProjection(projection);
     expect(useFollowed.getState().changes).toEqual(["load"]);
+    told = [];
     withdrawEditingProjection(projection);
+    expect(told.map(({ told: t }) => t.member)).toEqual(["leave"]);
     graph().applyTx([wire("n.new", "x")], []);
     expect(useFollowed.getState().changes).toEqual(["load"]);
   });

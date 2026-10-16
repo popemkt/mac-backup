@@ -160,11 +160,11 @@ export {
 export {
   forestRootIds,
   formatPropValue,
-  loadExpandedIds,
+  loadExpansion,
   loadIdSet,
   resolveProps,
   sameMeaning,
-  saveExpandedIds,
+  saveExpansion,
   saveIdSet,
   type Expansion,
   wireToOutlineMap,
@@ -193,6 +193,7 @@ export {
   schemaOfGraph,
 } from "./lib/schema";
 export {
+  COLLAPSED_STORAGE_KEY,
   DEBUG_FIELDS_STORAGE_KEY,
   EXPANDED_STORAGE_KEY,
   isSysPrefixed,

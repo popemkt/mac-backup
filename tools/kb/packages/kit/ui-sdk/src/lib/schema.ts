@@ -15,11 +15,11 @@
  * error rather than a bug that only shows under a scope — which is how the
  * same bug was found four times over before the type existed.
  *
- * A schema is built from the graph snapshot alone ({@link schemaOf}), once per
- * snapshot (`wireNodes` identity, which every graph move renews), so a
- * selector over it is referentially stable and no reader decides what it is.
- * A node map that already is a whole graph — a fixture, a story — is its own
- * schema ({@link schemaOfGraph}).
+ * A schema is built from the graph snapshot alone ({@link schemaOf}): each
+ * snapshot (`wireNodes` identity, which every graph move renews) builds one
+ * schema map, so a selector over it is referentially stable and no reader
+ * decides what it is. A node map that already is a whole graph — a fixture,
+ * a story — is its own schema ({@link schemaOfGraph}).
  */
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "../query";
@@ -36,26 +36,32 @@ export interface SchemaSource {
   readonly wireNodes: readonly WireNode[];
 }
 
-const bySnapshot = new WeakMap<readonly WireNode[], SchemaIndex>();
+interface Built {
+  readonly wire: readonly WireNode[];
+  readonly schema: SchemaIndex;
+}
 
 /**
- * The whole graph last asked for: the next one built keeps its unchanged
- * nodes (`wireToOutlineMap`), so a node's object lasts across snapshots.
+ * The schemas built last, newest first: a move's before and after, which are
+ * both read while it runs. A new one keeps the unchanged nodes of either
+ * (`wireToOutlineMap`), so a node's object lasts across snapshots whichever
+ * of the two a reader last held, and whatever order readers ask in.
  */
-let lastWholeGraph: SchemaIndex | undefined;
+let built: readonly [Built?, Built?] = [];
 
-/** The schema of a graph snapshot: every node, built once per snapshot. */
+/**
+ * The schema of a graph snapshot: every node. Asking for one of the last two
+ * snapshots built changes nothing; any other is built, from the newest.
+ */
 export function schemaOf(snapshot: SchemaSource): SchemaIndex {
-  const cached = bySnapshot.get(snapshot.wireNodes);
-  if (cached !== undefined) {
-    lastWholeGraph = cached;
-    return cached;
-  }
+  const [newest, before] = built;
+  if (newest?.wire === snapshot.wireNodes) return newest.schema;
+  if (before?.wire === snapshot.wireNodes) return before.schema;
   const wire = [...snapshot.wireNodes];
-  const built = schemaOfGraph(wireToOutlineMap(wire, new Set(), wire, lastWholeGraph));
-  lastWholeGraph = built;
-  bySnapshot.set(snapshot.wireNodes, built);
-  return built;
+  const previous = [newest?.schema, before?.schema].filter((s) => s !== undefined);
+  const schema = schemaOfGraph(wireToOutlineMap(wire, new Set(), wire, previous));
+  built = [{ wire: snapshot.wireNodes, schema }, newest];
+  return schema;
 }
 
 /**

@@ -366,13 +366,23 @@ a handle rather than a copied path) — as one record,
 node. `Bullet` renders that record and decides nothing; the graph's bullet
 theme paints the same record (Graph → The themes), so the two cannot drift.
 
+**Expansion is the reader's, per tab.** `expansion` holds a choice per row,
+open or closed, only while the reader can undo it: a choice that equals the
+row's default, or names a row that can no longer expand, is dropped on every
+write (`undoable`), so no row is held collapsed with no gesture to open it. A
+row shown open stays open when the graph gives it children or fields.
+Storage (`kb-expanded` and `kb-collapsed`, `loadExpansion`/`saveExpansion`)
+keeps exactly those choices. Each tab keeps its own expansion while it is
+open, and storage seeds it at load: another tab's choices are read at the
+next load, never merged in by a graph move.
+
 **A row depends on what it reads, not on the graph.** The page holds the
 graph as whole values — the outline's rows (`outlineNodes`), and the graph
 store's schema (`schemaOf`) and query index — and every graph change, expand
 or collapse renews them. The rows are not stored: they are read from the graph
 store's snapshot, opened and closed by the outline store's `expansion`, so no
-reader can see the rows of one snapshot beside another. Two properties keep that from costing a render
-per row:
+reader can see the rows of one snapshot beside another. Two properties keep
+that from costing a render per row:
 
 - The projection is persistent. `wireToOutlineMap` takes the map it replaces
   and keeps a node's object when the node projects to the same value, which
@@ -381,7 +391,8 @@ per row:
   map): a row shown as its default is the schema's own object, and one shown
   the other way is one object per schema node. Under a scope they are the
   scope's projection read the same way. So a node's identity changes exactly
-  when what it shows does, and a snapshot builds one map.
+  when what it shows does. Each snapshot builds the schema map, a scope
+  builds its own projection, and expanding or collapsing builds nothing.
 - A row reads the graph through a tracked read (`useGraphReadThrough`,
   `@kb/ui-sdk` → `lib/graph-read`, over a `GraphSource`; the shell's
   `useGraphRead` binds it to the outline and graph stores): the outline, schema and

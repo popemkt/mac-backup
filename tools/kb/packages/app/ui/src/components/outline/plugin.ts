@@ -54,9 +54,11 @@ export const outlineUiPlugin = definePlugin({
         ),
         // The page edits through the outline: the graph store tells it of each
         // move, so its expansion and focus follow, while this plugin is
-        // loaded. Unloaded, its rows are still read from the graph, but its
-        // own state stays where it was; loaded again, it follows the graph as
-        // a fresh load, which reads the expansion from storage again.
+        // loaded. Unloading leaves the page as a page move does (an empty row
+        // it minted is pruned); its rows are still read from the graph, and
+        // its own state stays where it was. Loaded again, it follows the graph
+        // as a fresh load: the expansion is read from storage again, and the
+        // focus and transient rows start empty.
         Effect.acquireRelease(
           Effect.sync(() => provideEditingProjection(outlineProjection)),
           () => Effect.sync(() => withdrawEditingProjection(outlineProjection)),

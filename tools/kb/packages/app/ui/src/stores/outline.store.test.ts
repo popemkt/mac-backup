@@ -6,6 +6,7 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { setOutlineHost } from "@/stores/outline-hosts";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { outlineGraph } from "@/stores/graph-read";
 
@@ -355,14 +356,66 @@ describe("outline store (WireNode adaptation)", () => {
       expect(seen.at(-1)).toEqual([WORKSPACE_ROOT_ID, "n.grandchild", true]);
     });
 
-    it("a jump to a row no outline shows leaves the page where it was", () => {
+    it("a jump to a row no outline shows changes nothing", () => {
       seed();
+      // A row under a tag definition: in the graph, in no outline's forest,
+      // with a collapsed parent a jump would otherwise open.
+      const tag = present(
+        useGraphStore.getState().wireNodes.find((n) => n.id === "tag.todo"),
+        "tag.todo",
+      );
+      useGraphStore
+        .getState()
+        .applyTx([{ ...tag, children: ["n.under-tag"] }, wire("n.under-tag", "hidden")], [], {
+          rev: 2,
+        });
       useGraphStore.getState().zoomTo("n.root-b");
       useOutlineStore.getState().selectNode("n.root-b");
-      // A field definition is in the graph but in no outline's forest.
-      useOutlineStore.getState().jumpToNode("field.status");
+      const expansion = useOutlineStore.getState().expansion;
+      useOutlineStore.getState().jumpToNode("n.under-tag");
       expect(useGraphStore.getState().rootNodeId).toBe("n.root-b");
       expect(useOutlineStore.getState().selectedNodeId).toBe("n.root-b");
+      expect(useOutlineStore.getState().expansion).toBe(expansion);
     });
+
+    it("a jump to the row being edited, in another outline, leaves the page and the row as they are", () => {
+      vi.stubGlobal("requestAnimationFrame", () => 0);
+      seed();
+      useGraphStore.getState().zoomTo("n.root-b");
+      // An outline open in another pane, rooted at `n.root-a`, edits a row the
+      // reader just minted there, still empty.
+      setOutlineHost("pane:p2", { root: "n.root-a", chain: [] });
+      const rootA = present(
+        useGraphStore.getState().wireNodes.find((n) => n.id === "n.root-a"),
+        "n.root-a",
+      );
+      useGraphStore
+        .getState()
+        .applyTx(
+          [{ ...rootA, children: [...rootA.children, "n.fresh"] }, wire("n.fresh", "")],
+          [],
+          { rev: 2 },
+        );
+      useOutlineStore.getState().markTransient("n.fresh");
+      const key = outlineInstanceKey("n.fresh", outlineNodes(), "pane:p2");
+      useOutlineStore.getState().activateNode("n.fresh", 0, key);
+      expect(useOutlineStore.getState().activeInstanceKey).toBe(key);
+
+      useOutlineStore.getState().jumpToNode("n.fresh");
+      setOutlineHost("pane:p2", null);
+      vi.unstubAllGlobals();
+      expect(useGraphStore.getState().rootNodeId).toBe("n.root-b");
+      expect(useGraphStore.getState().wireNodes.some((n) => n.id === "n.fresh")).toBe(true);
+      expect(useOutlineStore.getState().activeInstanceKey).toBe(key);
+    });
+  });
+
+  it("a deleted row being edited takes its pending caret with it", () => {
+    seed();
+    useOutlineStore.getState().activateNode("n.root-c");
+    expect(useOutlineStore.getState().pendingCaret).not.toBeNull();
+    useGraphStore.getState().applyTx([], ["n.root-c"], { rev: 2 });
+    expect(useOutlineStore.getState().activeNodeId).toBeNull();
+    expect(useOutlineStore.getState().pendingCaret).toBeNull();
   });
 });

@@ -104,32 +104,48 @@ queue (`01M43DRVEQY02RTSX3XYWB8TG1`), one child per step.
   and expand, the visible-instance walk, breadcrumbs, `jumpToNode`, and the
   text-host registry.
 - **The rows are derived, not stored.** `outlineNodes()` is what the page
-  shows of the graph store's snapshot at default collapse (the schema, or
-  under a scope the scope's own projection) read through `expansion`
-  (`withExpansion`, a view that builds no map). Components read it with
+  shows of the graph store's snapshot at default collapse, read through
+  `expansion` (`withExpansion`, a view that builds no map). What the page
+  shows is the graph store's `shownNodesOf`: the schema, or under a scope the
+  scope's own projection, which the graph store builds and caches beside
+  `scopedWireOf` (one owner, one cache). Components read the rows with
   `useOutlineNodes()`/`useOutlineNode(id)` over both stores. There is one
   copy of the graph, so no reader can see rows of one snapshot beside
-  another. A snapshot builds one map: the schema, or the scope's projection
+  another. Each snapshot builds the schema map, a scope builds its
+  projection, and expanding or collapsing builds nothing
   (`outline.store.builds.test.ts` counts every `wireToOutlineMap` call,
   reads included). A row keeps its object while what it shows is unchanged:
-  the schema's object, or one open/closed object per schema node.
+  the schema's object, or one open/closed object per schema node. A schema
+  lookup has no side effects; a new schema keeps the unchanged nodes of the
+  last two built, so identity never depends on the order of reads.
+- **Expansion keeps only undoable choices.** Every write of `expansion`
+  drops a choice that equals the row's default, or that names a row which
+  can no longer expand (`undoable`), so no row is held collapsed with no
+  gesture to open it. Storage keeps exactly those choices, open ones under
+  `kb-expanded` and closed ones under `kb-collapsed`, so a reload shows what
+  the page showed. Each tab keeps its own expansion while open; storage seeds
+  it at load (DESIGN-UI.md → "Expansion is the reader's, per tab").
 - **The bridge.** Core names no projection. It defines one port,
-  `EditingProjection` (`follow`, `leave`, `arrive`), and tells it of a move
-  **before** it moves, in one `set`. `follow` keeps the editor's own state:
-  focus that still has a row, transients, and the expansion (a row shown
-  open stays open when the move gives it children or fields). `leave` prunes
-  an empty transient before the page moves, and `arrive` lands the selection
-  at the root the page is moving to. Told first, the outline moves to a state
-  valid against both graph states, so a reader told in between sees nothing
-  out of step. `graph.store.test.ts` (with a stand-in projection) and
-  `outline.store.test.ts` (with the outline) pin each notification. The
-  outline plugin installs the outline's projection (`outlineProjection`)
-  while it is loaded and withdraws it on unload, beside the frame-views port,
-  so at O3 the wiring moves with the plugin as it is. One installed after a
-  load follows it as a fresh load, so a reinstalled outline reads its
-  expansion from storage again; installing the one already installed does
-  nothing. While the plugin is unloaded the rows still follow the graph, and
-  the editor's own state stays where it was.
+  `EditingProjection`, whose contract is stated once on the interface: each
+  member is told before the graph store moves and is handed every graph
+  state it reasons about, reading none from the store. `follow(change, prev,
+  next)` keeps the editor's own state: focus that still has a row (its
+  pending caret goes with the active row), transients, and the expansion (a
+  row shown open stays open when the move gives it children or fields).
+  `leave(from)` prunes an empty transient while `from` still shows it.
+  `arrive(at, to)` lands the selection at `to`'s zoom root. The projection
+  moves its own state to one valid against both graph states, then the graph
+  store moves in one write. `graph.store.test.ts` (with a stand-in
+  projection) asserts what each member is handed, and `outline.store.test.ts`
+  (with the outline) pins what a reader can see. The outline plugin installs
+  the outline's projection (`outlineProjection`) while it is loaded and
+  withdraws it on unload, beside the frame-views port, so at O3 the wiring
+  moves with the plugin as it is. Withdrawing calls `leave`, as a page move
+  does. One installed after a load follows it as a fresh load: a reinstalled
+  outline reads its expansion from storage again, and its focus and
+  transients start empty. Installing the one already installed does nothing.
+  While the plugin is unloaded the rows still follow the graph, and the
+  editor's own state stays where it was.
 - **Why derivation, not batching.** Round 2 stored the projection and hid
   its lag behind a batching layer that held store notifications for a move
   (`publication.ts`). Each review found another edge in it: unbounded drain,
@@ -138,18 +154,21 @@ queue (`01M43DRVEQY02RTSX3XYWB8TG1`), one child per step.
   so the layer is deleted, and plain zustand notification is the only rule:
   each store tells its listeners at each write. Undo and redo are single
   writes to the graph store, so the rule covers them as it is.
-- **`jumpToNode` checks before it moves.** It expands the target's ancestors,
-  then checks that the row shows under the zoom or else at home, and only
-  then goes home through `zoomHome`. A row no outline shows leaves the page
-  where it was. When the target is the row being edited, the page stays put,
-  so going home never prunes the row the jump is going to. `setRootNodeId`
-  is gone.
+- **`jumpToNode` checks before it moves.** It works out where the jump
+  would land without moving: the graph state that shows the target
+  (`reachedState`, the scope left if need be) with its ancestors open. It
+  checks that the row shows there under the zoom, or else at home. Only then
+  does it reach, expand and go home through `zoomHome`. A refused jump
+  changes nothing. When the target is the row being edited, in any outline,
+  the page stays put and the row keeps its instance, so going home never
+  prunes the row the jump is going to. `setRootNodeId` is gone.
 - **Behaviour that changed, deliberately.** Expansion is now the editor's
   own state rather than something read back off the stored rows. It follows
   from that, not from a new rule, that a row the reader closed stays closed
-  across graph moves even when it defaults to open; before, the next move
-  reopened it. Expansion that another tab wrote to storage is no longer
-  merged in on every transaction. It is read at load, as before.
+  across graph moves while it can still expand, even when it defaults to
+  open, and across a reload; before, the next move reopened it. Expansion
+  that another tab wrote to storage is no longer merged in on every
+  transaction. It is read at load, as before.
 
 Decisions taken from how code outside the outline uses each member:
 

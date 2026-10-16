@@ -3,7 +3,7 @@ import type { GraphSnapshot } from "@kb/contracts";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineNodes } from "@/stores/outline.store";
+import { outlineNodes, useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { createLiveClient } from "./live";
 import { FakeWsSocket } from "@/test-support/ws";
@@ -181,18 +181,26 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     await deliver(socket, { op: "hello", rev: 1 });
 
     let updates = 0;
-    const unsubscribe = useGraphStore.subscribe((s, prev) => {
+    let outlineUpdates = 0;
+    const offGraph = useGraphStore.subscribe((s, prev) => {
       if (s.wireNodes !== prev.wireNodes) updates += 1;
+    });
+    // The outline follows each graph move once: the burst is one move to it too.
+    const offOutline = useOutlineStore.subscribe(() => {
+      outlineUpdates += 1;
     });
     socket.deliver({ op: "tx", rev: 2, upserts: [burstNode(2)], deletes: [] });
     socket.deliver({ op: "tx", rev: 3, upserts: [burstNode(3)], deletes: [] });
     socket.deliver({ op: "tx", rev: 4, upserts: [burstNode(4)], deletes: [] });
     expect(updates).toBe(0);
+    expect(outlineUpdates).toBe(0);
     await nextFrame();
     expect(updates).toBe(1);
+    expect(outlineUpdates).toBe(1);
     expect(useGraphStore.getState().rev).toBe(4);
     expect(outlineNodes().has("n.burst-4")).toBe(true);
-    unsubscribe();
+    offGraph();
+    offOutline();
     client.disconnect();
   });
 });

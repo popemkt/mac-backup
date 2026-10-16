@@ -9,6 +9,7 @@ import {
 } from "./field-visibility";
 import { hasText, textOr } from "./text";
 import {
+  COLLAPSED_STORAGE_KEY,
   EXPANDED_STORAGE_KEY,
   SYSTEM_IDS,
   WORKSPACE_ROOT_ID,
@@ -156,8 +157,6 @@ export function sameMeaning(a: OutlineNode, b: OutlineNode): boolean {
   );
 }
 
-const NO_PREVIOUS: ReadonlyMap<string, OutlineNode> = new Map();
-
 /** Every map `wireToOutlineMap` built of part of a graph: a scope's projection. */
 const partialProjections = new WeakSet<ReadonlyMap<string, OutlineNode>>();
 
@@ -180,15 +179,15 @@ export function isPartialProjection(map: ReadonlyMap<string, OutlineNode>): bool
  * (`lib/schema.ts`).
  *
  * The projection is persistent: a node that projects to the value it had in
- * `previous` keeps that object, so a node's identity changes exactly when what
- * it shows does. That is what lets a reader depend on the nodes it read
+ * one of the `previous` maps keeps that object (the first such, in order), so
+ * a node's identity changes exactly when what it shows does. That is what lets a reader depend on the nodes it read
  * instead of on the whole map (`stores/graph-read.ts`).
  */
 export function wireToOutlineMap(
   nodes: WireNode[],
   expandedIds: Set<string>,
   graph: readonly WireNode[] = nodes,
-  previous: ReadonlyMap<string, OutlineNode> = NO_PREVIOUS,
+  previous: readonly ReadonlyMap<string, OutlineNode>[] = [],
 ): Map<string, OutlineNode> {
   const byId = new Map(graph.map((n) => [n.id, n]));
   const palette = tagPalette(graph);
@@ -199,8 +198,15 @@ export function wireToOutlineMap(
 
   const map = new Map<string, OutlineNode>();
   const keep = (next: OutlineNode): void => {
-    const before = previous.get(next.id);
-    map.set(next.id, before !== undefined && sameOutlineNode(before, next) ? before : next);
+    let kept = next;
+    for (const earlier of previous) {
+      const before = earlier.get(next.id);
+      if (before !== undefined && sameOutlineNode(before, next)) {
+        kept = before;
+        break;
+      }
+    }
+    map.set(next.id, kept);
   };
   const roots = forestRootIds(nodes);
   const rootSet = new Set(roots);
@@ -375,11 +381,19 @@ export function saveIdSet(key: string, ids: Set<string>): void {
   }
 }
 
-/** Load expanded ids from the one key outline expansion state reads. */
-export function loadExpandedIds(): Set<string> {
-  return loadIdSet(EXPANDED_STORAGE_KEY);
+/** The expansion kept in storage: the rows the reader opened and those it closed. */
+export function loadExpansion(): Expansion {
+  const expansion = new Map<string, boolean>();
+  for (const id of loadIdSet(EXPANDED_STORAGE_KEY)) expansion.set(id, true);
+  for (const id of loadIdSet(COLLAPSED_STORAGE_KEY)) expansion.set(id, false);
+  return expansion;
 }
 
-export function saveExpandedIds(ids: Set<string>): void {
-  saveIdSet(EXPANDED_STORAGE_KEY, ids);
+/** Keep `expansion` in storage, every choice in it, as `loadExpansion` reads it back. */
+export function saveExpansion(expansion: Expansion): void {
+  const opened = new Set<string>();
+  const closed = new Set<string>();
+  for (const [id, open] of expansion) (open ? opened : closed).add(id);
+  saveIdSet(EXPANDED_STORAGE_KEY, opened);
+  saveIdSet(COLLAPSED_STORAGE_KEY, closed);
 }

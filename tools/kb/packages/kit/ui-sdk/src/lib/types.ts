@@ -24,8 +24,10 @@ export function isSysPrefixed(id: string): boolean {
   return id.startsWith("sys.");
 }
 
-/** Node ids the user manually expanded (default is collapsed when expandable). */
+/** Node ids the reader opened (`Expansion`). */
 export const EXPANDED_STORAGE_KEY = "kb-expanded";
+/** Node ids the reader closed (`Expansion`). */
+export const COLLAPSED_STORAGE_KEY = "kb-collapsed";
 /** Node ids revealing their hidden + `sys.` field rows (per-node debug). */
 export const DEBUG_FIELDS_STORAGE_KEY = "kb-debug-fields";
 

@@ -1,14 +1,22 @@
 /**
  * The browser's live graph: the replica every projection reads, the write
- * the zoom root and the
- * ontology scope. It names no projection. The projection the page edits
- * through derives its rows from this store when they are read, so they are
- * never out of step with it; what the projection holds of its own — its
- * expansion and its focus — follows each move through
- * {@link EditingProjection}, which this store tells before it moves.
+ * history over it, and where the page stands in it — the zoom root and the
+ * ontology scope, and what the scope shows (`scopedWireOf`, `shownNodesOf`).
+ * It names no projection. The projection the page edits through reads its
+ * rows from this store, so they are never out of step with it; what the
+ * projection holds of its own — its expansion and its focus — follows each
+ * move through {@link EditingProjection}.
  */
 import { create } from "zustand";
-import { DatascriptIndex, toast, WORKSPACE_ROOT_ID, type KbIndex } from "@kb/ui-sdk";
+import {
+  DatascriptIndex,
+  schemaOf,
+  toast,
+  wireToOutlineMap,
+  WORKSPACE_ROOT_ID,
+  type KbIndex,
+  type NodeMap,
+} from "@kb/ui-sdk";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
 import { mergeTx } from "@/lib/tx";
@@ -114,20 +122,29 @@ export type GraphChange = "load" | "tx" | "sync" | "resync" | "scope";
 /**
  * The projection the page edits through, as this store tells it of a move.
  * Its rows are read from this store, so it is told only what its own state
- * must do, and always before the store moves:
+ * must do. The contract, for every member:
  *
- * - `follow` — the replica or scope is moving from `prev` to `next`;
- * - `leave` — the page is about to move: let go of the focus (an empty row it
- *   minted is pruned while it is still shown);
- * - `arrive` — the page is moving to `root`: land the focus there.
+ * - It is told before this store moves, and is handed every graph state it
+ *   reasons about. It reads none from this store, which may still hold the
+ *   state being left.
+ * - It moves its own state to one valid against both the state it is handed
+ *   and the one the store holds, so a reader told in between sees nothing out
+ *   of step. Then this store moves, in one write.
  *
- * Told first, the projection moves its state to one valid against both
- * graph states, so a reader told of it in between sees nothing out of step.
+ * The members:
+ *
+ * - `follow(change, prev, next)` — the replica or scope moves from `prev` to
+ *   `next`;
+ * - `leave(from)` — the page is about to leave `from`: let go of the focus.
+ *   An empty row it minted is pruned while `from` still shows it, as a graph
+ *   write of its own;
+ * - `arrive(at, to)` — the page is about to stand at `to`, zoomed to
+ *   `to.rootNodeId`: land the focus there.
  */
 export interface EditingProjection {
   readonly follow: (change: GraphChange, prev: GraphStateData, next: GraphStateData) => void;
-  readonly leave: () => void;
-  readonly arrive: (at: "zoom" | "home", root: string) => void;
+  readonly leave: (from: GraphStateData) => void;
+  readonly arrive: (at: "zoom" | "home", to: GraphStateData) => void;
 }
 
 const NO_PROJECTION: EditingProjection = {
@@ -142,9 +159,9 @@ let projection: EditingProjection = NO_PROJECTION;
  * Install the editing projection, from the plugin that provides it while it is
  * loaded. With none installed the graph moves on its own: no one is told, and
  * what a withdrawn projection holds of its own stays as it was. One installed
- * after a graph has loaded follows it at once, as a fresh load, so its
- * expansion is read again from storage. Installing the one already installed
- * does nothing.
+ * after a graph has loaded follows it at once, as a fresh load: its expansion
+ * is read again from storage, and its focus and transient rows start empty.
+ * Installing the one already installed does nothing.
  */
 export function provideEditingProjection(next: EditingProjection): void {
   if (projection === next) return;
@@ -153,15 +170,39 @@ export function provideEditingProjection(next: EditingProjection): void {
   if (state.index !== null) next.follow("load", state, state);
 }
 
-/** Uninstall `installed`, if it is still the projection this store asks. */
+/**
+ * Uninstall `installed`, if it is still the projection this store tells. It
+ * leaves the page first, as a page move does, so an empty row it minted is
+ * pruned rather than left behind.
+ */
 export function withdrawEditingProjection(installed: EditingProjection): void {
-  if (projection === installed) projection = NO_PROJECTION;
+  if (projection !== installed) return;
+  installed.leave(now());
+  projection = NO_PROJECTION;
 }
 
 /** What a scope is read from: the snapshot and the scope's resolution. */
-type ScopeSource = Pick<GraphStateData, "wireNodes" | "ontologyId" | "ontologyMembers">;
+export type ScopeSource = Pick<GraphStateData, "wireNodes" | "ontologyId" | "ontologyMembers">;
 
-let lastScoped: { source: ScopeSource; wire: WireNode[] } | null = null;
+/** What the last scoped snapshot shows: its wire and its rows (the one cache of a scope's view). */
+let lastScoped: { source: ScopeSource; wire: WireNode[]; nodes: NodeMap } | null = null;
+
+/** What scoped `state` shows, built once per scoped snapshot, keeping the last one's unchanged rows. */
+function scopedViewOf(state: ScopeSource, members: Set<string>, ontologyId: string) {
+  const last = lastScoped;
+  if (
+    last !== null &&
+    last.source.wireNodes === state.wireNodes &&
+    last.source.ontologyId === state.ontologyId &&
+    last.source.ontologyMembers === state.ontologyMembers
+  ) {
+    return last;
+  }
+  const wire = scopedWireNodes(state.wireNodes, members, ontologyId);
+  const nodes = wireToOutlineMap(wire, new Set(), state.wireNodes, last ? [last.nodes] : []);
+  lastScoped = { source: state, wire, nodes };
+  return lastScoped;
+}
 
 /**
  * What the page shows of the graph: the whole snapshot, or under a scope its
@@ -170,35 +211,24 @@ let lastScoped: { source: ScopeSource; wire: WireNode[] } | null = null;
  */
 export function scopedWireOf(state: ScopeSource): WireNode[] {
   if (state.ontologyId === null || state.ontologyMembers === null) return state.wireNodes;
-  const last = lastScoped;
-  if (
-    last !== null &&
-    last.source.wireNodes === state.wireNodes &&
-    last.source.ontologyId === state.ontologyId &&
-    last.source.ontologyMembers === state.ontologyMembers
-  ) {
-    return last.wire;
-  }
-  const wire = scopedWireNodes(state.wireNodes, state.ontologyMembers, state.ontologyId);
-  lastScoped = { source: state, wire };
-  return wire;
+  return scopedViewOf(state, state.ontologyMembers, state.ontologyId).wire;
 }
 
-const scopedIds = new WeakMap<WireNode[], Set<string>>();
-
 /**
- * Whether the page can show `id` under its scope: the workspace, or a node of
- * `scopedWireOf` — the ids a projection of `scopedWireOf` holds.
+ * What the page shows of the graph as rows, at default collapse: the schema
+ * itself unscoped (`schemaOf`), else the scope's projection of
+ * `scopedWireOf`. Schema and tag palette resolve against the whole graph
+ * either way (`lib/schema.ts`), and the index stays the full graph: scope is
+ * a projection, not a sandbox (r5 §2.5).
  */
+export function shownNodesOf(state: ScopeSource): NodeMap {
+  if (state.ontologyId === null || state.ontologyMembers === null) return schemaOf(state);
+  return scopedViewOf(state, state.ontologyMembers, state.ontologyId).nodes;
+}
+
+/** Whether the page can show `id` under its scope: the workspace, or a row of `shownNodesOf`. */
 export function inScope(state: ScopeSource, id: string): boolean {
-  if (id === WORKSPACE_ROOT_ID) return true;
-  const wire = scopedWireOf(state);
-  let ids = scopedIds.get(wire);
-  if (ids === undefined) {
-    ids = new Set(wire.map((n) => n.id));
-    scopedIds.set(wire, ids);
-  }
-  return ids.has(id);
+  return id === WORKSPACE_ROOT_ID || shownNodesOf(state).has(id);
 }
 
 /** The resolution of scope `ontologyId` over `wire`, as the state holds it. */
@@ -301,11 +331,14 @@ function refreshFromWire(wireNodes: WireNode[], rev: number): void {
 
 function setOntologyScope(id: string | null): void {
   if (now().ontologyId === id) return;
-  projection.leave();
-  const st = now();
+  projection.leave(now());
+  moveTo("scope", scopeMove(now(), id));
+}
+
+/** Where scope `id` (or none) puts the page from `st`. */
+function scopeMove(st: GraphStateData, id: string | null): Partial<GraphStateData> {
   const index = st.index ?? new DatascriptIndex(st.wireNodes);
   const scope = scopeFields(st.wireNodes, id, index);
-
   if (id === null) {
     // Leaving: return to the root the user was on before entering.
     const restored =
@@ -313,49 +346,64 @@ function setOntologyScope(id: string | null): void {
       inScope({ wireNodes: st.wireNodes, ontologyId: null, ...scope }, st.preScopeRootId)
         ? st.preScopeRootId
         : WORKSPACE_ROOT_ID;
-    moveTo("scope", {
+    return {
       ontologyId: null,
       ...scope,
       preScopeRootId: null,
       rootNodeId: restored,
       homeRootId: WORKSPACE_ROOT_ID,
-    });
-    return;
+    };
   }
-
   // Entering: the ontology becomes both the zoom root and home, so an
   // exit path always exists even if the previous root is not a member.
-  moveTo("scope", {
+  return {
     ontologyId: id,
     ...scope,
     preScopeRootId: st.ontologyId === null ? st.rootNodeId : st.preScopeRootId,
     rootNodeId: id,
     homeRootId: id,
-  });
+  };
+}
+
+/**
+ * The graph state in which the page can show `id`: this one, or this one with
+ * the scope left when `id` is outside it; null when neither shows it. What
+ * `reach` moves to, read without moving.
+ */
+export function reachedState(id: string): GraphStateData | null {
+  const st = now();
+  if (inScope(st, id)) return st;
+  if (st.ontologyId === null || !st.wireNodes.some((n) => n.id === id)) return null;
+  const left = { ...st, ...scopeMove(st, null) };
+  return inScope(left, id) ? left : null;
 }
 
 function reach(id: string): boolean {
-  const st = now();
-  if (inScope(st, id)) return true;
-  if (st.ontologyId === null) return false;
-  if (!st.wireNodes.some((n) => n.id === id)) return false;
+  const at = reachedState(id);
+  if (at === null) return false;
+  if (at === now()) return true;
   setOntologyScope(null);
   toast("Left the ontology to follow that node");
-  return inScope(now(), id);
+  return true;
+}
+
+/**
+ * Stand the page at `rootNodeId`: the projection lets go of where the page
+ * is, then lands at where it will be, then this store moves, in one write.
+ */
+function standAt(at: "zoom" | "home", rootNodeId: string): void {
+  projection.leave(now());
+  projection.arrive(at, { ...now(), rootNodeId });
+  useGraphStore.setState({ rootNodeId });
 }
 
 function zoomTo(id: string): void {
   if (!reach(id)) return;
-  projection.leave();
-  projection.arrive("zoom", id);
-  useGraphStore.setState({ rootNodeId: id });
+  standAt("zoom", id);
 }
 
 function zoomHome(): void {
-  projection.leave();
-  const home = now().homeRootId;
-  projection.arrive("home", home);
-  useGraphStore.setState({ rootNodeId: home });
+  standAt("home", now().homeRootId);
 }
 
 function search(query: string): Array<{ id: string; text: string }> {
