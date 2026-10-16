@@ -598,7 +598,7 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   forbids, so the fix belongs in the relation, not in the question. The carrier
   distinction survives exactly where it is a genuine lens: the graph's
   `mention` / `child` / `ref-prop` edge kinds label provenance, and each is
-  therefore read from its own carrier (`collectEdges` in `ui/src/lib/graph-lens.ts`
+  therefore read from its own carrier (`collectEdges` in `@kb/graph`, `packages/domain/graph/src/edges.ts`,
   scans text tokens — `nodeMentions`, the same reader the datoms use — children
   and ref props separately and never queries `:node/mentions`, which would
   double every prop edge).

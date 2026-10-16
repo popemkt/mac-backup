@@ -2,7 +2,8 @@
  * Pure layout position assigners for non-force modes.
  * `force` is handled by the FA2 worker; these skip it entirely (r10 §2 row 8).
  */
-import type { LensEdge, LensNode } from "@kb/ui-sdk";
+import type { LensNode } from "@kb/ui-sdk";
+import type { LensEdge } from "@kb/graph";
 import type { LensLayout } from "@kb/views";
 
 export type LayoutPoint = { x: number; y: number };

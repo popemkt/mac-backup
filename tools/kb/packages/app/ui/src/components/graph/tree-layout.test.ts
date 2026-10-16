@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LensTreeNode } from "@kb/ui-sdk";
+import type { LensTreeNode } from "@kb/graph";
 import { OPEN_DEPTH, initiallyCollapsed, layoutForest } from "./tree-layout";
 
 const node = (id: string, children: LensTreeNode[] = []): LensTreeNode => ({

@@ -3,18 +3,17 @@
  * + wire nodes, driven by a graph view node's lens props.
  */
 import type { BulletAppearance } from "./bullet-mode";
-import { viewOptionOf, type NodeProps } from "@kb/model";
+import type { NodeProps } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
+import { collectEdges, decodePerspective, type LensEdge } from "@kb/graph";
 import {
   DEFAULT_CLUSTER_BY,
-  DEFAULT_RENDERER,
   decodeLensConfig,
-  type EdgeKind,
   type LensPerspective,
   type LensProps,
 } from "@kb/views";
 import type { KbIndex } from "../query";
-import { nodeMentions, queryFamilyViewNodes, runQuery } from "../query";
+import { queryFamilyViewNodes, runQuery } from "../query";
 import { UNTAGGED_COLOR, hashTagColor, tagColorOf, tagPalette, type TagPalette } from "./tag-color";
 import { graphDisplayText } from "./graph-label";
 import { SYSTEM_IDS, isSysPrefixed } from "./types";
@@ -36,13 +35,6 @@ export interface LensNode {
   colorLabel?: string;
   /** The bullet the outline draws for this node, where a renderer draws it so (`lib/bullet-mode`). */
   bullet?: BulletAppearance;
-}
-
-export interface LensEdge {
-  source: string;
-  target: string;
-  kind: EdgeKind;
-  weight: number;
 }
 
 export interface LensGraph {
@@ -91,21 +83,11 @@ export function listPerspectiveNodes(db: KbIndex | null, wireNodes: WireNode[]):
 }
 
 /**
- * Decode a graph view node: a view node whose view is a renderer. The
- * renderer is its view (`sys.f.view`); every other lens prop is decoded by
- * its slot.
- *
- * A malformed lens prop falls back to the slot's declared default and is
- * reported through the ui log seam; it never fails the perspective, because a
- * bad prop must not make the graph unopenable.
+ * Decode a graph view node (`@kb/graph`'s `decodePerspective`), with what it
+ * had to ignore reported through the ui log seam, naming the node.
  */
 export function parsePerspective(node: WireNode): LensPerspective {
-  return {
-    id: node.id,
-    label: node.text.trim() || "Untitled",
-    ...lensConfig(node.props, node.id),
-    renderer: viewOptionOf(node) ?? DEFAULT_RENDERER,
-  };
+  return decodePerspective(node, lensReport(node.id));
 }
 
 /**
@@ -120,23 +102,6 @@ export function lensConfig(props: NodeProps, subject = ""): LensProps {
 /** Where a lens prop the UI had to ignore goes: the log, naming `subject`. */
 export function lensReport(subject = ""): (warning: string) => void {
   return (warning) => logWarn(`[graph-lens] ${subject === "" ? "" : `${subject}: `}${warning}`);
-}
-
-/**
- * The perspective a graph shows when asked for `id`: that one if it exists,
- * else the seeded all-mentions lens, else the first there is.
- */
-export function resolvePerspective(
-  perspectives: readonly LensPerspective[],
-  id: string | null,
-): LensPerspective | null {
-  const asked = id === null ? undefined : perspectives.find((p) => p.id === id);
-  return (
-    asked ??
-    perspectives.find((p) => p.id === SYSTEM_IDS.lensAllMentions) ??
-    perspectives[0] ??
-    null
-  );
 }
 
 /** parentOf map from children[] within an optional id set. */
@@ -210,59 +175,6 @@ export function resolveClusterKey(
   return resolveCluster(wire, byId, parentOf, clusterBy).key;
 }
 
-export interface LensTreeNode {
-  id: string;
-  label: string;
-  color: string;
-  size: number;
-  children: LensTreeNode[];
-}
-
-/**
- * Build a cycle-safe forest (or single tree when focus is set) over
- * children[] restricted to the lens node set.
- */
-export function buildTreeForest(
-  lensNodes: LensNode[],
-  edges: LensEdge[],
-  focusId: string | null,
-): LensTreeNode[] {
-  const byLens = new Map(lensNodes.map((n) => [n.id, n]));
-  const children = new Map<string, Set<string>>();
-  const hasParent = new Set<string>();
-  for (const edge of edges) {
-    if (!byLens.has(edge.source) || !byLens.has(edge.target)) continue;
-    const list = children.get(edge.source) ?? new Set<string>();
-    list.add(edge.target);
-    children.set(edge.source, list);
-    hasParent.add(edge.target);
-  }
-  // A tree is a spanning projection: shared descendants occur once, cycles keep
-  // a deterministic root, and the underlying relationships remain intact.
-  const seen = new Set<string>();
-  const build = (id: string): LensTreeNode | null => {
-    if (seen.has(id)) return null;
-    const meta = byLens.get(id);
-    if (!meta) return null;
-    seen.add(id);
-    return {
-      id,
-      label: meta.label,
-      color: meta.color,
-      size: meta.size,
-      children: [...(children.get(id) ?? [])].map(build).filter((n): n is LensTreeNode => !!n),
-    };
-  };
-  if (focusId !== null && byLens.has(focusId)) {
-    const root = build(focusId);
-    return root ? [root] : [];
-  }
-  const ids = [...byLens.keys()].toSorted();
-  return [...ids.filter((id) => !hasParent.has(id)), ...ids]
-    .map(build)
-    .filter((n): n is LensTreeNode => !!n);
-}
-
 /** Collect node ids from a datalog result set (first string column per row). */
 export function idsFromQueryRows(rows: unknown[][], known: Set<string>): Set<string> {
   const out = new Set<string>();
@@ -323,69 +235,6 @@ function resolveNodeSet(
     logWarn("[graph-lens] lens.query failed:", msg);
     return { nodeSet: new Set(), queryError: msg };
   }
-}
-
-function collectEdges(
-  wireNodes: WireNode[],
-  nodeSet: Set<string>,
-  kinds: Set<EdgeKind>,
-): LensEdge[] {
-  const edges: LensEdge[] = [];
-  const weights = new Map<string, number>();
-  const push = (source: string, target: string, kind: EdgeKind) => {
-    if (!nodeSet.has(source) || !nodeSet.has(target)) return;
-    if (source === target) return;
-    const key = `${kind}:${source}->${target}`;
-    const existing = weights.get(key);
-    if (existing !== undefined) {
-      weights.set(key, existing + 1);
-      const edge = edges.find((e) => e.source === source && e.target === target && e.kind === kind);
-      if (edge) edge.weight = existing + 1;
-      return;
-    }
-    weights.set(key, 1);
-    edges.push({ source, target, kind, weight: 1 });
-  };
-
-  /*
-   * The three edge kinds are provenance lenses over one relation, so each is
-   * read from its own carrier and they stay disjoint: text tokens here (the
-   * node's text and its text values, `nodeMentions`), the
-   * children array below, ref prop values after that. `:node/mentions` is
-   * deliberately NOT used — it is carrier-independent (see ds/datoms), so
-   * querying it would double every ref-prop edge as a mention as well.
-   */
-  if (kinds.has("mention")) {
-    for (const n of wireNodes) {
-      if (!nodeSet.has(n.id)) continue;
-      for (const to of new Set(nodeMentions(n))) {
-        push(n.id, to, "mention");
-      }
-    }
-  }
-
-  if (kinds.has("child")) {
-    for (const n of wireNodes) {
-      if (!nodeSet.has(n.id)) continue;
-      for (const child of n.children) {
-        push(n.id, child, "child");
-      }
-    }
-  }
-
-  if (kinds.has("ref-prop") || [...kinds].some((kind) => kind.startsWith("prop:"))) {
-    for (const n of wireNodes) {
-      if (!nodeSet.has(n.id)) continue;
-      for (const [field, values] of Object.entries(n.props)) {
-        if (!kinds.has("ref-prop") && !kinds.has(`prop:${field}`)) continue;
-        for (const pv of values) {
-          if (pv.t === "ref") push(n.id, pv.v, `prop:${field}`);
-        }
-      }
-    }
-  }
-
-  return edges;
 }
 
 function degreeMap(nodeIds: Iterable<string>, edges: LensEdge[]): Map<string, number> {

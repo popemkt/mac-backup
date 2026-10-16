@@ -5,9 +5,9 @@ import {
   readTiming,
   readTokenColor,
   type Appearance,
-  type LensEdge,
   type LensNode,
 } from "@kb/ui-sdk";
+import type { LensEdge } from "@kb/graph";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";

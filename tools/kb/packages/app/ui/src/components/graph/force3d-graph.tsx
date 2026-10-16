@@ -11,9 +11,9 @@ import {
   readTokenColor,
   useReducedMotion,
   type Appearance,
-  type LensEdge,
   type LensNode,
 } from "@kb/ui-sdk";
+import type { LensEdge } from "@kb/graph";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { DEFAULT_THEME, type LensLinkStyle, type LensTheme } from "@kb/views";
 import { showsHoverCard, type GraphEmphasis } from "@/components/graph/graph-interaction";

@@ -199,6 +199,7 @@
         "@kb/code-ui": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
+        "@kb/graph": "workspace:*",
         "@kb/lab": "workspace:*",
         "@kb/lab-ui": "workspace:*",
         "@kb/model": "workspace:*",
@@ -329,6 +330,18 @@
       "devDependencies": {
         "@types/bun": "catalog:",
         "happy-dom": "catalog:",
+      },
+    },
+    "packages/domain/graph": {
+      "name": "@kb/graph",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/model": "workspace:*",
+        "@kb/query": "workspace:*",
+        "@kb/views": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
       },
     },
     "packages/domain/model": {
@@ -636,6 +649,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/graph": "workspace:*",
         "@kb/lab": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/scene": "workspace:*",
@@ -762,6 +776,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/graph": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
@@ -1172,6 +1187,8 @@
     "@kb/ext-docs": ["@kb/ext-docs@workspace:packages/extension/ext-docs"],
 
     "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/contract/ext-sdk"],
+
+    "@kb/graph": ["@kb/graph@workspace:packages/domain/graph"],
 
     "@kb/lab": ["@kb/lab@workspace:packages/extension/lab"],
 

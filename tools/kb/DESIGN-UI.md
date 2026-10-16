@@ -765,7 +765,8 @@ rather than by navigation.
   switch is a persisted prop write (`mutations.setLensRenderer`).
 - **Directed, weighted edges.** A 2D edge is an arrow, straight or curved
   as the perspective's link style says (below); a curved pair of opposite
-  links bows apart instead of overlapping. `graph-lens.ts` deduplicates
+  links bows apart instead of overlapping. The edge projection (`@kb/graph`'s
+  `collectEdges`) deduplicates
   parallel edges into a `weight` count, and stroke width scales as
   `√weight` (`linkWidth`, in the layout's units like the discs below) —
   repeated relationships read as thicker, single links are a hairline. (3D draws one-pixel links, so weight is not yet drawn there: a

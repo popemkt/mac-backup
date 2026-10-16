@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
+    "@kb/graph": "workspace:*",
     "@kb/lab": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/scene": "workspace:*",

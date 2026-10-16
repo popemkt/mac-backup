@@ -14,11 +14,11 @@ import {
   extractLensGraph,
   listPerspectiveNodes,
   parsePerspective,
-  resolvePerspective,
   useIndex,
   useWireNodes,
   type LensGraph,
 } from "@kb/ui-sdk";
+import { resolvePerspective } from "@kb/graph";
 
 export interface LabNode {
   readonly id: string;

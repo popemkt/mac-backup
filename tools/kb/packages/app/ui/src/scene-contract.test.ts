@@ -6,7 +6,8 @@
  */
 import { vi } from "vitest";
 import { LAB_STUDIES, type LabSceneInit } from "@kb/lab-ui";
-import { TIMING_FALLBACK, type LensEdge, type LensNode } from "@kb/ui-sdk";
+import { TIMING_FALLBACK, type LensNode } from "@kb/ui-sdk";
+import type { LensEdge } from "@kb/graph";
 import { LENS_THEMES } from "@kb/views";
 import type { ScenePalette } from "@kb/scene";
 import { sceneContract, type SceneMount } from "@kb/ui-test-kit";

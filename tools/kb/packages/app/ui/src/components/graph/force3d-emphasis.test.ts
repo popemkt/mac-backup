@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { LensEdge, LensNode } from "@kb/ui-sdk";
+import type { LensNode } from "@kb/ui-sdk";
+import type { LensEdge } from "@kb/graph";
 import { EmphasisFade } from "@/components/graph/graph-fade";
 import {
   GLOW,

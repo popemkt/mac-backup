@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
 import { DatascriptIndex } from "../query";
+import { buildTreeForest } from "@kb/graph";
 import {
-  buildTreeForest,
   extractLensGraph,
   firstTagOf,
   idsFromQueryRows,
@@ -11,16 +11,10 @@ import {
   parsePerspective,
   resolveClusterKey,
   resolveColor,
-  resolvePerspective,
   resolveSize,
   buildParentMap,
 } from "./graph-lens";
-import {
-  DEFAULT_EDGE_KINDS,
-  DEFAULT_MAX_NODES,
-  perspectiveProps,
-  type LensPerspective,
-} from "@kb/views";
+import { DEFAULT_EDGE_KINDS, DEFAULT_MAX_NODES, type LensPerspective } from "@kb/views";
 import { SYSTEM_IDS } from "./types";
 
 const ISO = "2026-08-08T05:00:00.000Z";
@@ -145,19 +139,6 @@ describe("parsePerspective / listPerspectiveNodes", () => {
     expect(p.query).toBe("");
     expect(p.clusterBy).toBe("parent");
     expect(p.layout).toBe("force");
-  });
-});
-
-describe("resolvePerspective", () => {
-  const other = perspective({ id: "p.other", label: "Other" });
-  const all = perspective();
-
-  it("takes the asked-for perspective, else all-mentions, else the first", () => {
-    expect(resolvePerspective([other, all], "p.other")).toBe(other);
-    expect(resolvePerspective([other, all], "p.gone")).toBe(all);
-    expect(resolvePerspective([other, all], null)).toBe(all);
-    expect(resolvePerspective([other], null)).toBe(other);
-    expect(resolvePerspective([], "p.other")).toBeNull();
   });
 });
 
@@ -354,32 +335,6 @@ describe("extractLensGraph", () => {
 });
 
 describe("graph projection mappings", () => {
-  it("roundtrips a saved perspective through ordinary reference-valued node fields", () => {
-    const configured = perspective({
-      renderer: "sys.view.graph.treemap",
-      colorBy: "prop:field.team",
-      labelBy: "prop:field.title",
-      sizeBy: "prop:field.hours",
-      clusterBy: "prop:field.team",
-      edgeKinds: ["prop:field.depends"],
-      query: "",
-      focus: "n.a",
-    });
-    const saved = node({
-      id: configured.id,
-      text: configured.label,
-      props: perspectiveProps(configured),
-    });
-    expect(saved.props[SYSTEM_IDS.viewField]).toEqual([{ t: "ref", v: "sys.view.graph.treemap" }]);
-    expect(saved.props[SYSTEM_IDS.lensRendererField]).toBeUndefined();
-    expect(parsePerspective(saved)).toEqual(configured);
-    expect(
-      parsePerspective(
-        node({ ...saved, props: perspectiveProps({ ...configured, edgeKinds: [] }) }),
-      ).edgeKinds,
-    ).toEqual([]);
-  });
-
   it("maps a specific reference field once and uses numeric and label fields", () => {
     const nodes = [
       node({
@@ -418,27 +373,4 @@ describe("graph projection mappings", () => {
     );
     expect(combined.edges.filter((edge) => edge.kind === "prop:field.depends")).toHaveLength(1);
   });
-
-  it("projects cycles and shared descendants once without altering relationships", () => {
-    const nodes = ["a", "b", "c", "d"].map((id) => node({ id, text: id }));
-    const graph = extractLensGraph(new DatascriptIndex(nodes), nodes, perspective());
-    const edges = [
-      { source: "a", target: "b", kind: "child" as const, weight: 1 },
-      { source: "a", target: "c", kind: "child" as const, weight: 1 },
-      { source: "b", target: "d", kind: "child" as const, weight: 1 },
-      { source: "c", target: "d", kind: "child" as const, weight: 1 },
-      { source: "d", target: "a", kind: "child" as const, weight: 1 },
-    ];
-
-    expect(flatten(buildTreeForest(graph.nodes, edges, null)).toSorted()).toEqual([
-      "a",
-      "b",
-      "c",
-      "d",
-    ]);
-    expect(edges).toHaveLength(5);
-  });
 });
-
-const flatten = (forest: ReturnType<typeof buildTreeForest>): string[] =>
-  forest.flatMap((n) => [n.id, ...flatten(n.children)]);

@@ -1,10 +1,5 @@
-import {
-  graphLabelFont,
-  readTokenColor,
-  type Appearance,
-  type LensEdge,
-  type LensTreeNode,
-} from "@kb/ui-sdk";
+import { graphLabelFont, readTokenColor, type Appearance } from "@kb/ui-sdk";
+import type { LensEdge, LensTreeNode } from "@kb/graph";
 import {
   useCallback,
   useEffect,

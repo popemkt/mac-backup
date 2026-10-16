@@ -146,17 +146,13 @@ export {
   resolveVisibleProps,
 } from "./lib/field-visibility";
 export {
-  buildTreeForest,
   extractLensGraph,
   lensConfig,
-  type LensEdge,
   type LensGraph,
   type LensNode,
   lensReport,
-  type LensTreeNode,
   listPerspectiveNodes,
   parsePerspective,
-  resolvePerspective,
   resolveSize,
 } from "./lib/graph-lens";
 export {

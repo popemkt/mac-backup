@@ -6,7 +6,6 @@ import { useGraphStore } from "@/stores/graph.store";
 import { usePrefsStore, useAppearance, useSidebarToggle } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import {
-  buildTreeForest,
   cn,
   extractLensGraph,
   hasText,
@@ -15,12 +14,12 @@ import {
   navigate,
   ontologyPath,
   parsePerspective,
-  resolvePerspective,
   SidebarToggle,
   ThemeIcon,
   ViewSlot,
   WorkspaceState,
 } from "@kb/ui-sdk";
+import { buildTreeForest, resolvePerspective } from "@kb/graph";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { OntologyPicker } from "@/components/ui/ontology-picker";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
