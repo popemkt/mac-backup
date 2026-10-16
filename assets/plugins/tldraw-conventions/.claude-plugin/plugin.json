@@ -1,0 +1,8 @@
+{
+  "name": "tldraw-conventions",
+  "version": "1.0.0",
+  "description": "The owner's tldraw canvas conventions: agent ledger, styling, and a pattern library (drill-down, ...)",
+  "author": {
+    "name": "Hoang Nguyen Gia"
+  }
+}
