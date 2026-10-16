@@ -144,6 +144,52 @@ function registeredTemplate(contribution: Contribution<TemplateFn>): RegisteredT
 }
 
 /**
+ * The one rule of a batch's parts: each is a registered action that is not
+ * itself a batch. A batch is decided as itself and as each part by the
+ * part's own mode, one level deep, so a part must be there to read and must
+ * not need deciding as parts of its own.
+ *
+ * A plugin whose action breaks the rule is a plugin that cannot load: it is
+ * unloaded as a unit and reported in `failures`, the list a failed load
+ * reaches (`kb ext list`, and stderr). Unloading it can take away another
+ * batch's part, so the check runs until every batch left holds. Core
+ * breaking it is a programming error, and dies.
+ */
+export const unloadBrokenBatches = Effect.fnUntraced(function* (
+  kernel: Kernel,
+  loaded: {
+    readonly core: string;
+    readonly sources: Map<string, string>;
+    readonly failures: ExtensionFailure[];
+  },
+): Effect.fn.Return<void> {
+  for (;;) {
+    const contributions = kernel.contributions(ActionPoint);
+    const batches = new Set(
+      contributions.flatMap((c) => (c.value.batchOf === undefined ? [] : [c.id, ...c.aliases])),
+    );
+    const registered = new Set(contributions.flatMap((c) => [c.id, ...c.aliases]));
+    const broken = contributions.flatMap((c) => {
+      const bad = (c.value.batchOf ?? []).filter(
+        (part) => !registered.has(part) || batches.has(part),
+      );
+      return bad.length === 0 ? [] : [{ contribution: c, bad }];
+    });
+    const [first] = broken;
+    if (first === undefined) return undefined;
+    const why = first.bad
+      .map((part) => `${part} ${registered.has(part) ? "is itself a batch" : "is not registered"}`)
+      .join("; ");
+    const error = `action ${first.contribution.id} is a batch of an action that cannot be one of its parts: ${why}`;
+    const owner = rootOwner(first.contribution);
+    if (owner === loaded.core) return yield* Effect.die(new Error(`core: ${error}`));
+    yield* kernel.unload(owner).pipe(Effect.orDie);
+    loaded.failures.push({ file: loaded.sources.get(owner) ?? owner, error });
+    loaded.sources.delete(owner);
+  }
+});
+
+/**
  * The registry is a reading of the kernel: load core, the bundled extensions
  * the store has on (`on`) and the repo's `.kb/extensions`, then derive every
  * table from the points they contributed to. A plugin that cannot load (a
@@ -179,22 +225,13 @@ const buildRegistry = Effect.fnUntraced(function* (
     }
   }
 
+  yield* unloadBrokenBatches(kernel, { core: corePlugin.name, sources, failures });
+
   for (const failure of failures) {
     writeErr(`kb: extension ${failure.file}: ${failure.error} (skipped)`);
   }
 
-  const contributed = kernel.contributions(ActionPoint).map(registeredAction);
-  // A batch is decided as its parts, by their own modes, so a batch whose
-  // part this registry does not hold cannot be decided: it is not registered.
-  const ids = new Set(contributed.flatMap((action) => [action.def.id, ...action.aliases]));
-  const actions = contributed.filter((action) => {
-    const missing = (action.def.batchOf ?? []).filter((part) => !ids.has(part));
-    if (missing.length === 0) return true;
-    writeErr(
-      `kb: action ${action.def.id} is a batch of ${missing.join(", ")}, not registered (skipped)`,
-    );
-    return false;
-  });
+  const actions = kernel.contributions(ActionPoint).map(registeredAction);
   const byId = new Map<string, RegisteredAction>();
   for (const action of actions) {
     byId.set(action.def.id, action);

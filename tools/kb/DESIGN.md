@@ -1807,8 +1807,12 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   batch of another action's calls declares the parts' ids (`batchOf` on its
   definition; `node.addTree` is a batch of `node.add`). A part's mode is stated once, on the part's own definition:
   the registry reads it from there (`batchPartsOf`), into the manifest
-  entry and into what the invoke core decides, and it refuses to register a
-  batch whose part it does not hold. The resolver decides the batch as
+  entry and into what the invoke core decides. A part must be a registered
+  action that is not itself a batch, so a batch is decided one level deep. A
+  plugin that declares a batch breaking this is a plugin that cannot load:
+  it is unloaded as a unit and reported where a failed load is
+  (`kb ext list`). Core breaking it is a programming error
+  (`unloadBrokenBatches`). The resolver decides the batch as
   itself and as each part, each with its own declared mode, and the
   stricter decision holds. A policy that asks before or denies an action
   therefore governs every batch of it. A policy naming the batch can tighten
