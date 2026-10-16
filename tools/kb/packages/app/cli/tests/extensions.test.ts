@@ -200,6 +200,7 @@ describe("kb ext list", () => {
       "chart",
       "check",
       "code",
+      "collections",
       "docs",
       "graph",
       "hello",

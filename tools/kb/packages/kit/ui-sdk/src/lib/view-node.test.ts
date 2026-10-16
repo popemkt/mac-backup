@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SYSTEM_IDS } from "@kb/model";
-import { OutlineListView, OutlineSnippetView, OutlineTableView } from "@kb/views";
+import { OutlineListView, OutlineSnippetView, OutlineView } from "@kb/views";
 import { viewKeyOfNode } from "./view-node";
 
 const naming = (option: string) => ({
@@ -8,10 +8,10 @@ const naming = (option: string) => ({
 });
 
 describe("viewKeyOfNode", () => {
-  const keys = [OutlineListView, OutlineSnippetView, OutlineTableView];
+  const keys = [OutlineListView, OutlineSnippetView, OutlineView];
 
   it("finds the key whose option the view node names", () => {
-    expect(viewKeyOfNode(naming(OutlineTableView.option), keys)).toBe(OutlineTableView);
+    expect(viewKeyOfNode(naming(OutlineView.option), keys)).toBe(OutlineView);
     expect(viewKeyOfNode(naming(OutlineSnippetView.option), keys)).toBe(OutlineSnippetView);
   });
 

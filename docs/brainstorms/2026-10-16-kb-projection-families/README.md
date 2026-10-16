@@ -1291,3 +1291,127 @@ before this keeps its order.
     family-declared view migration.
 - **Unchanged:** the outline's page-test gap, and the node menu's order
   placeholder.
+
+## Outline cut review follow-up
+
+Sol's batched review of the outline cut asked for eight fixes. Each landed
+as its own commit, before O5.
+
+1. **One definition of a test file.** `isUiTestFile` is
+   `isPackageTestFile` over `@kb/ui`'s `src`. The zones that hold test code
+   only, `test-support` and `page-tests` (`UI_TEST_ZONES`), have no row in
+   `UI_ALLOWS`.
+   - A production file in one is a breach.
+   - A production row that names one is what holds their importers to tests.
+   - `ui-boundaries.test.ts` fails if the two definitions diverge, and if a
+     test zone holds a production file.
+2. **The outline's entry injects the host.** Tests that load it into a
+   kernel of their own load the shell's host first.
+3. **Core surfaces write through the host.** The ontology list, page and
+   section, and `lib/commands`, now write through `browserHost().writes`.
+   `browser-host.ts` is the one binding of `mutations`. The graph zone's
+   four importers were O4c's, which removed them.
+4. **No page test asserts writes against the stubs.** None of the 37 page
+   tests uses the ui-test-kit's test host or its `INERT_WRITES`: they take
+   only `installDomGlobals` from it, and they write through the shell's
+   host.
+5. **The ontology names no view.** Its scope opens in the store's default
+   view type (`resolveDefaultViewType`). The outline's keys still stay in
+   `@kb/views`, for the frame-view reason recorded under the move.
+6. **`update-cost` mocks through the kit's entry.** It mocks the row chrome
+   through `@kb/ui-sdk`'s entry, after O5's first step moved the row chrome
+   into the kit. A row reaches it there.
+7. **The fixture path is current, and the hex rule covers the halves.** The
+   design-tokens fixture names a `components/` file that exists. The hex
+   rule now also holds a `.tsx` module of a family's browser half:
+   components moved into a flat `-ui` package had escaped it.
+8. **The minted ids are cited.** The plan cites the two minted gap ids, and
+   the long comment lines are rewrapped.
+
+## O5: the collections family
+
+The table, board and cards frame views left the outline as one family,
+**collections**: `@kb/collections` (shared) and `@kb/collections-ui`
+(browser).
+
+- **One family.** The three share the frame config, the frame layout
+  (filters, sort, columns, groups), the row chrome and the cell parts. The
+  board and the cards share one component.
+- **Optional, and on by default.**
+
+### What is the outline's, and what the kit's
+
+- **The frame host is the outline's.** That is the view that shows a
+  frame's rows inline, edits each row's text and fields, and keeps how many
+  pages are revealed. The outline keeps the list (its own rendering), the
+  frame mechanism (`FrameViewSlot`, the toolbar, the filter popover) and the
+  keyboard walk.
+- **The kit holds what the frame views of both families read.**
+  - `frameRows`, the frame layout and the row chrome.
+  - The frame-view hooks.
+  - `FrameSubject`: what a host hands a frame view. That is the frame, plus
+    the host's `RowText`, `Field`, `pages` and `revealMorePages`.
+  - `NoFrame`.
+  - `BrowserHost` gains `isSelected`, `toggleCollapse` and the
+    `useIsSelected` hook. `PageEditorState` gains `toggleCollapse`.
+- **One constructor.** The outline builds the subject once
+  (`outlineFrameSubject`).
+
+### The keys
+
+The keys move to `@kb/collections` as `CollectionTableView`,
+`CollectionBoardView` and `CollectionCardsView`.
+
+- They are made by `frameViewKey`, now exported from `@kb/views`. Their
+  page is the outline at the frame.
+- **Their ids are frozen** (`outline.table`, …). The page finds a provided
+  view by contribution id, and a plugin's contributions are namespaced by
+  the plugin. So each collection view is contributed with its key's id as
+  an alias (the kernel's compat shim), and `findView` matches an alias as
+  well as the id.
+- The view contract's stand-ins provide under the key's own id, in the root
+  namespace.
+
+### Steps
+
+1. `refactor: a frame's rows, layout and row chrome are the kit's`.
+2. `refactor: a frame view lays out rows its host edits, through the kit's
+   frame subject`.
+3. The move: the packages, the keys, and the registration.
+   - **Registration:** in `BUNDLED_FAMILIES`, the server's entries and the
+     page's resolver, after the outline and before the graph in each, with
+     a static `load`. The collections come before the graph because their
+     views are frame views the outline hosts.
+   - **Seed golden regenerated:** the only change is `sys.views`' children
+     order. The outline's snippet now sits before the table, board and cards
+     options, which sit before the graph's.
+
+### Tests
+
+- **Moved to the family:** `@kb/views`' board and table cases moved to
+  `@kb/collections`' `tests/views.test.ts`. Core's catalog and kit tests now
+  use the list and the outline's own keys.
+- **Plugin loads:** page tests that need the table, board or cards load
+  `collectionsUiPlugin` beside the outline's.
+- **Rendering a view directly:** a test that renders a view directly hands
+  it the outline's frame (`outlineFrameSubject`).
+- **Expectations that now include `collections`:** the families-to-load
+  lists, `kb ext list` and the switchable list. The extension contract's
+  canvas case is unchanged: the option before the canvas's is still the
+  graph's neighbourhood.
+
+### Gaps
+
+- **Cited:** the collection views' barrel exports, the views the page tests
+  render, cite GAP [[01M531QT1YPM9NTF6NKH9BP66S]].
+- **Placeholder: the view-as command nodes are core's seed.**
+  - expected: `sys.cmd.view-as-{list,table,board,cards}` (`SYSTEM_IDS`) are
+    the families' seed.
+  - current: core's `systemSeedNodes` seeds all four, and the pickers name
+    them through `SYSTEM_IDS`.
+  - impact: a family switched off leaves its command node seeded, as data.
+  - closes: each family seeds its own command node, under an id it owns.
+- **Placeholder: core's seed holds a collection view.** The approval
+  policies view node (`view.approval.policies`) names `outline.table`.
+  - current: with the collections off, the frame shows the list.
+  - closes: when core's seed names no view of an optional family.

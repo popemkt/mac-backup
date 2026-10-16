@@ -31,6 +31,8 @@
     "@kb/check": "workspace:*",
     "@kb/code": "workspace:*",
     "@kb/code-ui": "workspace:*",
+    "@kb/collections": "workspace:*",
+    "@kb/collections-ui": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/docs": "workspace:*",
     "@kb/graph": "workspace:*",

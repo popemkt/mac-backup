@@ -32,7 +32,8 @@ import {
   usePane,
   usePrefs,
 } from "@kb/ui-sdk";
-import { OutlineBoardView, OutlineCardsView, localIdOf, type ParamsOf } from "@kb/views";
+import { localIdOf, type ParamsOf } from "@kb/views";
+import { CollectionBoardView, CollectionCardsView } from "@kb/collections";
 
 /**
  * The two column views over one component: the board groups its cards into a
@@ -40,8 +41,14 @@ import { OutlineBoardView, OutlineCardsView, localIdOf, type ParamsOf } from "@k
  * all in one grid.
  */
 type ColumnsView =
-  | { readonly key: typeof OutlineBoardView; readonly params: ParamsOf<typeof OutlineBoardView> }
-  | { readonly key: typeof OutlineCardsView; readonly params: ParamsOf<typeof OutlineCardsView> };
+  | {
+      readonly key: typeof CollectionBoardView;
+      readonly params: ParamsOf<typeof CollectionBoardView>;
+    }
+  | {
+      readonly key: typeof CollectionCardsView;
+      readonly params: ParamsOf<typeof CollectionCardsView>;
+    };
 
 interface BoardCardsViewProps {
   /** The frame the view lays out, and what its host draws each card with. */
@@ -134,7 +141,7 @@ export function BoardCardsView({
 
   if (!frameNode && !rowIds) return null;
 
-  if (view.key === OutlineBoardView && groupFieldId === null) {
+  if (view.key === CollectionBoardView && groupFieldId === null) {
     return (
       <div
         className="board-cards-view my-2 rounded-md border border-dashed border-foreground/15 px-3 py-4 text-ui text-foreground/45"
@@ -150,7 +157,7 @@ export function BoardCardsView({
           type="button"
           className="mt-2 rounded-md bg-foreground/[0.06] px-2 py-1 text-meta font-medium text-foreground/70 hover:bg-foreground/[0.1]"
           data-switch-to-cards="true"
-          onClick={() => void browserHost().writes.setFrameView(frameId, OutlineCardsView)}
+          onClick={() => void browserHost().writes.setFrameView(frameId, CollectionCardsView)}
         >
           Switch to cards
         </button>
@@ -158,13 +165,13 @@ export function BoardCardsView({
     );
   }
 
-  const breakout = view.key === OutlineBoardView && widthPref === "centered";
+  const breakout = view.key === CollectionBoardView && widthPref === "centered";
 
   return (
     <div
       className={cn(
         "board-cards-view my-2",
-        view.key === OutlineBoardView && "overflow-x-auto",
+        view.key === CollectionBoardView && "overflow-x-auto",
         breakout && "table-view-breakout",
       )}
       data-board-cards-view="true"
@@ -172,7 +179,7 @@ export function BoardCardsView({
       data-frame-id={frameId}
       data-breakout={breakout ? "centered" : undefined}
     >
-      {view.key === OutlineCardsView ? (
+      {view.key === CollectionCardsView ? (
         <div
           className="grid gap-2"
           style={{

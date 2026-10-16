@@ -6,12 +6,10 @@
  */
 import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
-import { SYSTEM_IDS } from "@kb/model";
 import {
+  decodeFrameConfig,
   DEFAULT_VIEW_CONFIG,
   OutlineSnippetView,
-  OutlineTableView,
-  decodeFrameConfig,
   paramsFromProps,
 } from "@kb/views";
 
@@ -29,13 +27,6 @@ describe("view config readers", () => {
 
   test("a key reads its params from props for the node it is shown for", () => {
     const { report } = collect();
-    const table = paramsFromProps(
-      OutlineTableView,
-      { [SYSTEM_IDS.viewPagesizeField]: [{ t: "num", v: 25 }] },
-      "n.frame",
-      report,
-    );
-    expect(Result.getOrThrow(table).pagesize).toBe(25);
     const shownFor = paramsFromProps(OutlineSnippetView, {}, "n.host", report);
     expect(Result.getOrThrow(shownFor).root).toBe("n.host");
   });

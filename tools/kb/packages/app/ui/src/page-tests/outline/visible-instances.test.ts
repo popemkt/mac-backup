@@ -12,14 +12,16 @@ import {
 } from "@kb/ui-sdk";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
-import { OutlineListView, OutlineTableView } from "@kb/views";
+import { OutlineListView } from "@kb/views";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { outlineNodes, outlineUiPlugin, setOutlineHost, useOutlineStore } from "@kb/outline-ui";
+import { CollectionTableView } from "@kb/collections";
+import { collectionsUiPlugin } from "@kb/collections-ui";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncPagePlugins([outlineUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin, collectionsUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 const TODO_EDN = `[:find ?id ?text
@@ -114,7 +116,7 @@ describe("visible instances", () => {
     // Expand would show grandchild in list mode; table must stay flat.
     useOutlineStore.getState().toggleCollapse("n.child-a2");
 
-    await mutations.setFrameView("n.root-a", OutlineTableView);
+    await mutations.setFrameView("n.root-a", CollectionTableView);
     await mutations.setViewSort("n.root-a", [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }]);
 
     const keys = useOutlineStore

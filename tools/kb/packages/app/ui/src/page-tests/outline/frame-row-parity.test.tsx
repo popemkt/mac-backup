@@ -11,10 +11,11 @@ import { syncUiPlugins } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
 import { useGraphStore } from "@/stores/graph.store";
-import { OutlineTableView } from "@kb/views";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { NodeBlock, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
+import { CollectionTableView } from "@kb/collections";
+import { collectionsUiPlugin } from "@kb/collections-ui";
 
 function seed() {
   resetOutlineStore();
@@ -30,7 +31,7 @@ describe("frame row parity (render vs nav)", () => {
 
   beforeAll(() => {
     // A frame's children are shown by the views the outline plugin provides.
-    syncPagePlugins([outlineUiPlugin]);
+    syncPagePlugins([outlineUiPlugin, collectionsUiPlugin]);
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
     g.window = dom;
@@ -63,7 +64,7 @@ describe("frame row parity (render vs nav)", () => {
     useGraphStore.getState().zoomTo("n.root-a");
     useOutlineStore.getState().toggleCollapse("n.root-a");
 
-    await mutations.setFrameView("n.root-a", OutlineTableView);
+    await mutations.setFrameView("n.root-a", CollectionTableView);
     await mutations.setViewPagesize("n.root-a", 1);
 
     await act(async () => {

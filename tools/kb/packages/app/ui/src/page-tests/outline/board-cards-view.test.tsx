@@ -28,17 +28,10 @@ import { pageCommandApi } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { WireNode } from "@kb/contracts";
-import {
-  parseViewFilterEdn,
-  OutlineBoardView,
-  OutlineCardsView,
-  OutlineListView,
-  paramsFrom,
-} from "@kb/views";
+import { OutlineListView, paramsFrom, parseViewFilterEdn } from "@kb/views";
 import { Result } from "effect";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import {
-  BoardCardsView,
   collectVisibleInstances,
   listFilterFieldOptions,
   outlineFrameSubject,
@@ -48,10 +41,12 @@ import {
   ViewToolbar,
   ZoomedRootHeader,
 } from "@kb/outline-ui";
+import { CollectionBoardView, CollectionCardsView } from "@kb/collections";
+import { BoardCardsView, collectionsUiPlugin } from "@kb/collections-ui";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncPagePlugins([outlineUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin, collectionsUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 /** The frame views provided, as the outline's hosts resolve against them. */
@@ -69,15 +64,15 @@ function columnsView() {
   );
   if (view === null) throw new Error("no frame view is provided");
   const { key, params } = view;
-  if (key === OutlineCardsView)
+  if (key === CollectionCardsView)
     return {
-      key: OutlineCardsView,
-      params: Result.getOrThrow(paramsFrom(OutlineCardsView, params)),
+      key: CollectionCardsView,
+      params: Result.getOrThrow(paramsFrom(CollectionCardsView, params)),
     };
-  if (key === OutlineBoardView)
+  if (key === CollectionBoardView)
     return {
-      key: OutlineBoardView,
-      params: Result.getOrThrow(paramsFrom(OutlineBoardView, params)),
+      key: CollectionBoardView,
+      params: Result.getOrThrow(paramsFrom(CollectionBoardView, params)),
     };
   throw new Error(`frame1 is shown in ${key.id}, not in columns`);
 }
@@ -193,9 +188,9 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   it("zoomed-header shows the toolbar when mode ≠ list, and a quiet gear on list", () => {
     const nodes = outlineNodes();
     const frame = present(nodes.get("frame1"), "frame1");
-    expect(frameViewOf(frame, schemaFor(nodes), frameViewKeys())?.key).toBe(OutlineBoardView);
+    expect(frameViewOf(frame, schemaFor(nodes), frameViewKeys())?.key).toBe(CollectionBoardView);
     const html = renderToStaticMarkup(
-      createElement(ZoomedRootHeader, { node: frame, view: OutlineBoardView }),
+      createElement(ZoomedRootHeader, { node: frame, view: CollectionBoardView }),
     );
     expect(html).toContain('data-view-toolbar="true"');
     expect(html).toContain('data-mode-button="board"');
@@ -321,10 +316,10 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   });
 
   it("setFrameView board/cards persists on the frame's view node", async () => {
-    await mutations.setFrameView("frame1", OutlineCardsView);
-    expect(viewOf()).toBe(OutlineCardsView.option);
-    await mutations.setFrameView("frame1", OutlineBoardView);
-    expect(viewOf()).toBe(OutlineBoardView.option);
+    await mutations.setFrameView("frame1", CollectionCardsView);
+    expect(viewOf()).toBe(CollectionCardsView.option);
+    await mutations.setFrameView("frame1", CollectionBoardView);
+    expect(viewOf()).toBe(CollectionBoardView.option);
     // The group setting the view node held is kept across the switch.
     expect(columnsView().params).toMatchObject({ groupFieldId: "f_status" });
   });

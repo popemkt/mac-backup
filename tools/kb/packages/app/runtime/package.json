@@ -15,6 +15,7 @@
     "@kb/bundled": "workspace:*",
     "@kb/chart-vega": "workspace:*",
     "@kb/code": "workspace:*",
+    "@kb/collections": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/ext-canvas": "workspace:*",
     "@kb/ext-check": "workspace:*",

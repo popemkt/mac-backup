@@ -120,6 +120,7 @@ export {
   type NodeTextHostProps,
 } from "./components/node-text-host";
 export { type NodeTextPort, useNodeTextBindingThrough } from "./components/node-text-port";
+export { NoFrame } from "./components/no-frame";
 export { NotFound } from "./components/not-found";
 export { PickerList } from "./components/picker-list";
 export { PrefFieldRow } from "./components/pref-field-row";

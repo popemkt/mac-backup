@@ -342,7 +342,9 @@ export function findView<P>(
   views: readonly Contribution<ProvidedView>[],
   key: ViewKey<P>,
 ): View<P> | null {
-  const provided = views.find((view) => view.id === key.id)?.value;
+  // A view answers to its key's id: the id it was contributed at, or, for a
+  // view whose frozen id another family's namespace first stored, an alias.
+  const provided = views.find((view) => view.id === key.id || view.aliases.includes(key.id))?.value;
   return provided?.key === key ? asViewOf(key, provided) : null;
 }
 

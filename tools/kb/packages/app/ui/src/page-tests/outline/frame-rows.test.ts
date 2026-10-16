@@ -18,9 +18,11 @@ import { Effect, Schema } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { browserHostUiPlugin } from "@/browser-host";
 import { describe, expect, it } from "vitest";
-import { isFrameViewKey, OutlineTableView } from "@kb/views";
+import { isFrameViewKey } from "@kb/views";
 import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
 import { outlineUiPlugin } from "@kb/outline-ui";
+import { CollectionTableView } from "@kb/collections";
+import { collectionsUiPlugin } from "@kb/collections-ui";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
@@ -32,6 +34,7 @@ const VIEWS = (() => {
   const kernel = makeKernel();
   Effect.runSync(kernel.load(browserHostUiPlugin));
   Effect.runSync(kernel.load(outlineUiPlugin));
+  Effect.runSync(kernel.load(collectionsUiPlugin));
   return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);
 })();
 
@@ -101,7 +104,7 @@ describe("which views paginate", () => {
     const paginating = VIEWS.filter((view) =>
       Object.hasOwn(Schema.decodeUnknownSync(view.params)(SETTINGS), "pagesize"),
     );
-    expect(paginating).toEqual([OutlineTableView]);
+    expect(paginating).toEqual([CollectionTableView]);
   });
 });
 

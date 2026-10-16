@@ -31,7 +31,7 @@ import {
   type ViewProps,
 } from "@kb/ui-sdk";
 import { setPostAction } from "@/api/action";
-import { NoParams, localIdOf, viewCatalogOf, viewKey } from "@kb/views";
+import { NoParams, viewCatalogOf, viewKey } from "@kb/views";
 import { ViewKeyPoint } from "@kb/contracts";
 import { pageCatalogOf } from "@/lib/view-catalog";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
@@ -80,7 +80,9 @@ function standIn(
   view: ProvidedView,
   Component: () => ReactElement,
 ): ContributionEntry<ProvidedView> {
-  return { id: localIdOf(view.key), value: { ...view, Component } };
+  // Under the key's own id, in the root namespace, whichever family's namespace
+  // the view's id was first stored under.
+  return { id: view.key.id, value: { ...view, Component } };
 }
 
 /** A provider under `view`'s own key whose component always throws. */
@@ -90,7 +92,7 @@ function throwingStandIn(owner: string, view: ProvidedView): Plugin {
   };
   return definePlugin({
     name: `${owner}.contract-stand-in`,
-    namespace: owner,
+    namespace: "",
     apply: (ctx) => ctx.contribute(ViewPoint, standIn(view, Throws)),
   });
 }
@@ -109,7 +111,7 @@ function selfEmbeddingStandIn(owner: string, view: ProvidedView): Plugin {
   );
   return definePlugin({
     name: `${owner}.contract-self-embed`,
-    namespace: owner,
+    namespace: "",
     apply: (ctx) => ctx.contribute(ViewPoint, standIn(view, Embeds)),
   });
 }

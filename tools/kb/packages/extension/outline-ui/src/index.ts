@@ -1,8 +1,9 @@
 /**
  * `@kb/outline-ui`: the outline family's browser half (DESIGN.md → Extension
- * families; DESIGN-UI.md → Outline): the outline page, its frame views, its
- * snippet, its sidebar sections and node commands. It reaches the page only
- * through `@kb/ui-sdk`'s `BrowserHost`. The page loads its entry,
+ * families; DESIGN-UI.md → Outline): the outline page, its list frame view
+ * and the frame host every frame view is shown in, its snippet, its sidebar
+ * sections and node commands. It reaches the page only through
+ * `@kb/ui-sdk`'s `BrowserHost`. The page loads its entry,
  * `outlineUiPlugin`, through `BROWSER_EXTENSIONS` under the family's declared
  * name, from the main bundle; the outline is a required family, so it is
  * always loaded.
@@ -14,7 +15,6 @@ export { outlineUiPlugin } from "./plugin";
 // and rows, its frame views and their layout, and its value editors.
 // GAP [[01M531QT1YPM9NTF6NKH9BP66S]]
 export { backlinkRows } from "./backlinks";
-export { BoardCardsView } from "./board-cards-view";
 export { longDateLabel, relativeDateLabel } from "./date-display";
 export { createTransientNode, mergeWithPrevious } from "./editing-writes";
 export { FieldsSection, FieldValueStack } from "./fields-section";
@@ -37,7 +37,6 @@ export {
 export { notePick, recentPicks } from "./picker-recency";
 export { QueryResultsSection } from "./query-results";
 export { ReferencesView } from "./references-section";
-export { TableView } from "./table-view";
 export { useNodeKeyDown } from "./use-node-keydown";
 export { useSelectionKeymap } from "./use-selection-keymap";
 export { ValueSlot } from "./value-slot";

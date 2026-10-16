@@ -132,6 +132,7 @@ describe("the families the page loads", () => {
   it("are each family the server reports loaded that the resolver has, in its order", () => {
     expect(familiesToLoad([...reported(() => true), AGENT])).toEqual([
       "outline",
+      "collections",
       "graph",
       "canvas",
       "lab",
@@ -145,6 +146,7 @@ describe("the families the page loads", () => {
     expect(labExtension.optional).toEqual({ byDefault: "off" });
     expect(familiesToLoad(reported((name) => name !== "lab"))).toEqual([
       "outline",
+      "collections",
       "graph",
       "canvas",
       "code",
@@ -161,7 +163,15 @@ describe("the families the page loads", () => {
 
   it("leave out a family the page has no browser entry for", () => {
     const rows = [...reported(() => true), extensionRow({ name: "remote", label: "R" }, "x", true)];
-    expect(familiesToLoad(rows)).toEqual(["outline", "graph", "canvas", "lab", "code", "chart"]);
+    expect(familiesToLoad(rows)).toEqual([
+      "outline",
+      "collections",
+      "graph",
+      "canvas",
+      "lab",
+      "code",
+      "chart",
+    ]);
   });
 
   it("load each entry under the name it was resolved by", async () => {
@@ -218,6 +228,7 @@ describe("an optional family switched off on the server", () => {
 
   it("is any family that can be switched and has a browser half", () => {
     expect(SWITCHABLE.map(({ name }) => name)).toEqual([
+      "collections",
       "graph",
       "canvas",
       "lab",

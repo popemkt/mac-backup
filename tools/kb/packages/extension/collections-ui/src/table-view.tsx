@@ -30,7 +30,8 @@ import {
   usePane,
   usePrefs,
 } from "@kb/ui-sdk";
-import { type SortSpec, type ParamsOf, OutlineTableView } from "@kb/views";
+import type { ParamsOf, SortSpec } from "@kb/views";
+import { CollectionTableView } from "@kb/collections";
 
 /** The Name column is the node-text field, so sorting by it names a node like any other column. */
 const NAME_COLUMN = SYSTEM_IDS.nodeTextField;
@@ -39,7 +40,7 @@ interface TableViewProps {
   /** The frame the table lays out, and what its host draws each row with. */
   frame: FrameSubject;
   /** The settings the table reads, decoded from the frame (`frameViewOf`). */
-  settings: ParamsOf<typeof OutlineTableView>;
+  settings: ParamsOf<typeof CollectionTableView>;
   nodes?: NodeMap;
   /** What field values resolve against (`fieldContextOf`); the page's graph by default. */
   context?: FieldContext;
@@ -89,7 +90,7 @@ export function TableView({
         frameId,
         nodes,
         schema,
-        view: { key: OutlineTableView, params: settings },
+        view: { key: CollectionTableView, params: settings },
         rowIds,
         pages,
       }),

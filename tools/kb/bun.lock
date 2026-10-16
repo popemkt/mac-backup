@@ -30,6 +30,7 @@
         "@kb/chart": "workspace:*",
         "@kb/check": "workspace:*",
         "@kb/code": "workspace:*",
+        "@kb/collections": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
         "@kb/graph": "workspace:*",
@@ -114,6 +115,7 @@
         "@kb/bundled": "workspace:*",
         "@kb/chart-vega": "workspace:*",
         "@kb/code": "workspace:*",
+        "@kb/collections": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/ext-canvas": "workspace:*",
         "@kb/ext-check": "workspace:*",
@@ -201,6 +203,8 @@
         "@kb/check": "workspace:*",
         "@kb/code": "workspace:*",
         "@kb/code-ui": "workspace:*",
+        "@kb/collections": "workspace:*",
+        "@kb/collections-ui": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/docs": "workspace:*",
         "@kb/graph": "workspace:*",
@@ -562,6 +566,42 @@
       },
       "devDependencies": {
         "@types/react": "catalog:",
+      },
+    },
+    "packages/extension/collections": {
+      "name": "@kb/collections",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/views": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/model": "workspace:*",
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/collections-ui": {
+      "name": "@kb/collections-ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/collections": "workspace:*",
+        "@kb/plugin": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "@kb/views": "workspace:*",
+        "@phosphor-icons/react": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "happy-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/extension/docs": {
@@ -1252,6 +1292,10 @@
     "@kb/code": ["@kb/code@workspace:packages/extension/code"],
 
     "@kb/code-ui": ["@kb/code-ui@workspace:packages/extension/code-ui"],
+
+    "@kb/collections": ["@kb/collections@workspace:packages/extension/collections"],
+
+    "@kb/collections-ui": ["@kb/collections-ui@workspace:packages/extension/collections-ui"],
 
     "@kb/contracts": ["@kb/contracts@workspace:packages/contract/contracts"],
 

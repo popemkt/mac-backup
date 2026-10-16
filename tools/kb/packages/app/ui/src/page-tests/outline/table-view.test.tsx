@@ -14,7 +14,7 @@ import {
   syncUiPlugins,
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
-import { OutlineListView, OutlineTableView, paramsFrom } from "@kb/views";
+import { OutlineListView, paramsFrom } from "@kb/views";
 import { Result } from "effect";
 import { useGraphStore } from "@/stores/graph.store";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -25,14 +25,15 @@ import {
   outlineNodes,
   outlineSource,
   outlineUiPlugin,
-  TableView,
   useOutlineStore,
   ViewToolbar,
 } from "@kb/outline-ui";
+import { CollectionTableView } from "@kb/collections";
+import { collectionsUiPlugin, TableView } from "@kb/collections-ui";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncPagePlugins([outlineUiPlugin]));
+beforeAll(() => syncPagePlugins([outlineUiPlugin, collectionsUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 const mockWireNodes: WireNode[] = [
@@ -109,7 +110,7 @@ const mockWireNodes: WireNode[] = [
 function tableSettings() {
   return Result.getOrThrow(
     paramsFrom(
-      OutlineTableView,
+      CollectionTableView,
       frameConfigOf(outlineNodes().get("frame1"), schemaOf(useGraphStore.getState())),
     ),
   );
@@ -139,11 +140,11 @@ describe("W7 TableView & ViewToolbar", () => {
 
     // The frame names no view yet, so the first switch makes its view node:
     // filed in the Views list, and named first by the frame.
-    await mutations.setFrameView("frame1", OutlineTableView);
+    await mutations.setFrameView("frame1", CollectionTableView);
 
     const viewId = present(defaultViewIdOf(getStoreNodes().get("frame1")), "the frame's view node");
     expect(getStoreNodes().get(SYSTEM_IDS.viewsList)?.children).toEqual([viewId]);
-    expect(viewOptionOf(getStoreNodes().get(viewId))).toBe(OutlineTableView.option);
+    expect(viewOptionOf(getStoreNodes().get(viewId))).toBe(CollectionTableView.option);
     expect(Object.keys(getStoreNodes().get("frame1")?.props ?? {})).toEqual([
       SYSTEM_IDS.viewsField,
     ]);

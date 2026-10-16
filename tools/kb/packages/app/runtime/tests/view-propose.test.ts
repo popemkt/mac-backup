@@ -9,10 +9,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Result } from "effect";
 import { SYSTEM_IDS, hostViewIds, type KbNode } from "@kb/model";
-import { OutlineBoardView, paramsFromProps } from "@kb/views";
+import { paramsFromProps } from "@kb/views";
 import type { KbContext } from "@kb/contracts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
+import { CollectionBoardView } from "@kb/collections";
 
 const FRAME = "n.propose-frame";
 const STATUS = "f.propose-status";
@@ -54,10 +55,10 @@ describe("view.propose", () => {
     })) as { id: string; view: string; host: string; params: unknown };
     expect(out).toMatchObject({ id: "v.board", view: "outline.board", host: FRAME, params: BOARD });
     const view = node("v.board");
-    expect(view.props[SYSTEM_IDS.viewField]).toEqual([{ t: "ref", v: OutlineBoardView.option }]);
+    expect(view.props[SYSTEM_IDS.viewField]).toEqual([{ t: "ref", v: CollectionBoardView.option }]);
     expect(node(SYSTEM_IDS.viewsList).children.at(-1)).toBe("v.board");
     expect(hostViewIds(node(FRAME))).toEqual(["v.board"]);
-    expect(paramsFromProps(OutlineBoardView, view.props, FRAME, () => {})).toEqual(
+    expect(paramsFromProps(CollectionBoardView, view.props, FRAME, () => {})).toEqual(
       Result.succeed(BOARD),
     );
   });

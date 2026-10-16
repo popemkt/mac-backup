@@ -23,22 +23,22 @@ import { browserHostUiPlugin } from "@/browser-host";
 import {
   DEFAULT_VIEW_CONFIG,
   isFrameViewKey,
+  OutlineListView,
   parseViewFilterEdn,
   serializeViewFilter,
-  OutlineBoardView,
-  OutlineCardsView,
-  OutlineListView,
-  OutlineTableView,
 } from "@kb/views";
 import type { WireNode } from "@kb/contracts";
 import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";
 import { outlineUiPlugin } from "@kb/outline-ui";
+import { CollectionBoardView, CollectionCardsView, CollectionTableView } from "@kb/collections";
+import { collectionsUiPlugin } from "@kb/collections-ui";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {
   const kernel = makeKernel();
   Effect.runSync(kernel.load(browserHostUiPlugin));
   Effect.runSync(kernel.load(outlineUiPlugin));
+  Effect.runSync(kernel.load(collectionsUiPlugin));
   return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);
 })();
 
@@ -65,9 +65,9 @@ describe("view-config", () => {
     const shownAs = (...nodes: WireNode[]) =>
       frameViewOf(nodes[0], schemaOfWires([...nodes, ...viewOptionNodes]), FRAME_VIEWS)?.key;
     for (const [name, key] of [
-      ["table", OutlineTableView],
-      ["board", OutlineBoardView],
-      ["cards", OutlineCardsView],
+      ["table", CollectionTableView],
+      ["board", CollectionBoardView],
+      ["cards", CollectionCardsView],
       ["list", OutlineListView],
     ] as const)
       expect(shownAs(...framedAs(frame, name)), name).toBe(key);
@@ -91,7 +91,7 @@ describe("view-config", () => {
       },
     };
     const cards = framedAs(frame, "cards")[1];
-    expect(shownAs(both, { ...cards, id: view.id }, second)).toBe(OutlineCardsView);
+    expect(shownAs(both, { ...cards, id: view.id }, second)).toBe(CollectionCardsView);
   });
 
   it("shows a frame through the first frame view it names, past a view of another kind", () => {
@@ -112,7 +112,7 @@ describe("view-config", () => {
       },
     };
     const schema = schemaOfWires([host, snippet, table, ...viewOptionNodes]);
-    expect(frameViewOf(host, schema, FRAME_VIEWS)?.key).toBe(OutlineTableView);
+    expect(frameViewOf(host, schema, FRAME_VIEWS)?.key).toBe(CollectionTableView);
   });
 
   it("decodes a frame's settings from its view node, not from its own props", () => {

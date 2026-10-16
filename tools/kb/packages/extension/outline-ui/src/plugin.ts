@@ -1,19 +1,11 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
-import { BoardFrameView, CardsFrameView, ListFrameView, TableFrameView } from "./frame-views";
+import { ListFrameView } from "./frame-views";
 import { matchOutline } from "./routes";
 import { HomeSection, OutlineSurface, PinnedSection } from "./surfaces";
 import { ViewFilterPopoverHost } from "./view-filter-popover";
 import { outlineExtension, outlinePlugin } from "@kb/outline";
-import {
-  OutlineBoardView,
-  OutlineCardsView,
-  OutlineListView,
-  OutlineSnippetView,
-  OutlineTableView,
-  OutlineView,
-  DEFAULT_VIEW_CONFIG,
-} from "@kb/views";
+import { OutlineListView, OutlineSnippetView, OutlineView, DEFAULT_VIEW_CONFIG } from "@kb/views";
 import { OutlineSnippet } from "./outline-snippet";
 import {
   BrowserHostService,
@@ -28,17 +20,18 @@ import {
   SYSTEM_IDS,
   ViewPoint,
 } from "@kb/ui-sdk";
-import { ListBulletsIcon, SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
+import { ListBulletsIcon } from "@phosphor-icons/react";
 import { outlineProjection, useOutlineStore } from "./outline.store";
 import { OUTLINE_COMMANDS } from "./outline-commands";
 
-const { filters, sort, display, colwidth, pagesize, groupFieldId } = DEFAULT_VIEW_CONFIG;
+const { filters } = DEFAULT_VIEW_CONFIG;
 
 /**
- * The outline's views: its page, its four frame views — each shown inline,
- * under the row of the frame whose children it lays out, and named for the
- * toolbar, the node menu and its `sys.command` node by its `picker`, in the
- * order they are offered — and its read-only snippet.
+ * The outline's views: its page, its list frame view — shown inline, under
+ * the row of the frame whose children it lays out, and named for the
+ * toolbar, the node menu and its `sys.command` node by its `picker`, first
+ * of the frame views offered — and its read-only snippet. The other frame
+ * views are the collections family's (`@kb/collections-ui`).
  */
 const OUTLINE_VIEWS = [
   provideView(OutlineView, {
@@ -56,42 +49,6 @@ const OUTLINE_VIEWS = [
       icon: ListBulletsIcon,
       iconWeight: "regular",
       command: SYSTEM_IDS.cmdViewAsList,
-    },
-  }),
-  provideView(OutlineTableView, {
-    placements: ["inline"],
-    sample: { filters, sort, display, colwidth, pagesize },
-    Component: TableFrameView,
-    picker: {
-      order: 1,
-      glyph: "⊞",
-      icon: TableIcon,
-      iconWeight: "regular",
-      command: SYSTEM_IDS.cmdViewAsTable,
-    },
-  }),
-  provideView(OutlineBoardView, {
-    placements: ["inline"],
-    sample: { filters, sort, display, groupFieldId },
-    Component: BoardFrameView,
-    picker: {
-      order: 2,
-      glyph: "▥",
-      icon: SquaresFourIcon,
-      iconWeight: "regular",
-      command: SYSTEM_IDS.cmdViewAsBoard,
-    },
-  }),
-  provideView(OutlineCardsView, {
-    placements: ["inline"],
-    sample: { filters, sort, display },
-    Component: CardsFrameView,
-    picker: {
-      order: 3,
-      glyph: "▦",
-      icon: SquaresFourIcon,
-      iconWeight: "duotone",
-      command: SYSTEM_IDS.cmdViewAsCards,
     },
   }),
   provideView(OutlineSnippetView, {

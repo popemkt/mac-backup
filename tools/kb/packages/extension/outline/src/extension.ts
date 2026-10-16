@@ -8,32 +8,19 @@
  * hosts' entries are {@link outlinePlugin}: the server's directly, the page's
  * as a child of `@kb/outline-ui`'s entry.
  *
- * Its view keys are `@kb/views`' (`outline.ts`): core's ontology page names
- * the outline's view in a slot, so the keys stay where core can read them.
+ * Its view keys are `@kb/views`' (`outline.ts`): every frame view's page is
+ * the outline at its frame (`frameViewKey`), and the collection views are
+ * another family's, which may not reach this package.
  */
 import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
-import {
-  OutlineBoardView,
-  OutlineCardsView,
-  OutlineListView,
-  OutlineSnippetView,
-  OutlineTableView,
-  OutlineView,
-} from "@kb/views";
+import { OutlineListView, OutlineSnippetView, OutlineView } from "@kb/views";
 
 export const outlineExtension = defineExtension({
   name: "outline",
   label: "Outline",
   defaultView: OutlineView,
-  views: [
-    viewDef(OutlineView),
-    viewDef(OutlineListView),
-    viewDef(OutlineTableView),
-    viewDef(OutlineBoardView),
-    viewDef(OutlineCardsView),
-    viewDef(OutlineSnippetView),
-  ],
+  views: [viewDef(OutlineView), viewDef(OutlineListView), viewDef(OutlineSnippetView)],
 });
 
 /** The outline family's shared plugin: its declaration's views, on either host. */

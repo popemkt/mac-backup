@@ -1950,7 +1950,7 @@ from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surf
 #### Extension families
 
 This is the contract for every feature kb bundles, such as the outline,
-chart, code, lab, agent, canvas, docs and check. **Core names no feature.** The reasons and
+the collections, chart, code, lab, agent, canvas, docs and check. **Core names no feature.** The reasons and
 the order of the move are in the
 [extension-boundaries plan](../../docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md).
 Where the code does not meet this contract yet, a gap says so (listed at the
@@ -1994,8 +1994,9 @@ end).
   loaded by its host, so its actions and views leave the registry, the
   catalog, MCP's tools and the agent's, and the page drops its browser
   half. There is never a second switch in the browser.
-  - **Which families can be switched.** Canvas, chart, code and the agent
-    are optional and on by default; the lab is optional and off by
+  - **Which families can be switched.** The collections (the table,
+    board and cards frame views), canvas, chart, code and the agent are
+    optional and on by default; the lab is optional and off by
     default. The outline, docs and check are required. The outline is the
     default editing mode and provides the default view type, the view a
     node opens in when it names none. Docs owns the templates core's

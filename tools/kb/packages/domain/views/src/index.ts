@@ -44,14 +44,13 @@ export {
   type ViewFilter,
 } from "./frame.ts";
 export {
+  FRAME_HOST,
+  frameViewKey,
   OUTLINE_NAMESPACE,
-  OutlineBoardView,
-  OutlineCardsView,
   OutlineListView,
   OutlineParams,
   OutlineSnippetParams,
   OutlineSnippetView,
-  OutlineTableView,
   OutlineView,
 } from "./outline.ts";
 export {

@@ -6,17 +6,15 @@
  */
 import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
-import { SYSTEM_IDS } from "@kb/model";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
-  OntologyScopeView,
-  OutlineBoardView,
-  OutlineSnippetView,
   issueText,
+  OntologyScopeView,
+  OutlineSnippetView,
   paramsFromProps,
   viewCatalogOf,
-  viewNodeFor,
   type ViewKey,
+  viewNodeFor,
 } from "@kb/views";
 
 function problems(key: ViewKey<unknown>, input: unknown, host: string | null = null): string[] {
@@ -28,8 +26,6 @@ function problems(key: ViewKey<unknown>, input: unknown, host: string | null = n
 const catalog = viewCatalogOf(
   BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.views ?? []),
 );
-
-const BOARD = { filters: [], sort: [], display: [], groupFieldId: "f.status" };
 
 describe("viewNodeFor", () => {
   test("every view that reads its defaults from an empty view node holds them", () => {
@@ -49,25 +45,6 @@ describe("viewNodeFor", () => {
         expect(back).toEqual(paramsFromProps(key, {}, "n.host", () => {}));
       }
     }
-  });
-
-  test("a proposal's props name its view, then hold its settings", () => {
-    const proposed = Result.getOrThrow(viewNodeFor(OutlineBoardView, BOARD, "n.frame"));
-    expect(proposed.props[SYSTEM_IDS.viewField]).toEqual([
-      { t: "ref", v: OutlineBoardView.option },
-    ]);
-    expect(proposed.props[SYSTEM_IDS.viewGroupField]).toEqual([{ t: "ref", v: "f.status" }]);
-  });
-
-  test("an illegal setting, a missing one and one the view does not declare are each named", () => {
-    expect(problems(OutlineBoardView, { ...BOARD, groupFieldId: 7 })).toEqual([
-      "groupFieldId: Expected string | null",
-    ]);
-    const { sort: _sort, ...unsorted } = BOARD;
-    expect(problems(OutlineBoardView, unsorted)).toEqual(["sort: Missing key"]);
-    expect(problems(OutlineBoardView, { ...BOARD, colour: "red" })).toEqual([
-      "colour: Expected no excess property",
-    ]);
   });
 
   test("a setting a view node cannot hold is named by its path", () => {

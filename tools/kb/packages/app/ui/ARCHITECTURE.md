@@ -124,10 +124,10 @@ one `@kb/query` seam are the `@kb/ui-sdk` package (`packages/kit/ui-sdk`),
 which a family's UI half builds against and the shell builds on too. The
 scene kit every real-time 3D view stands on is `@kb/scene` and, for what is
 three, `@kb/scene-gpu` (`packages/kit`). Each family's UI half is its own package
-(`packages/extension/<family>-ui`: outline, graph, chart, code, agent, lab,
-canvas), loaded by `src/ui-plugins.ts`. The outline's and the graph's tests
-that drive the page run here, under `src/page-tests/outline/` and
-`src/page-tests/graph/`.
+(`packages/extension/<family>-ui`: outline, collections, graph, chart, code,
+agent, lab, canvas), loaded by `src/ui-plugins.ts`. The outline's and the
+graph's tests that drive the page run here, under `src/page-tests/outline/`
+and `src/page-tests/graph/`, the collection views' with the outline's.
 
 Colocate tests as `*.test.ts(x)` next to the unit. Catalog stories are
 `catalog/<name>.stories.tsx` in Storybook CSF3 format.

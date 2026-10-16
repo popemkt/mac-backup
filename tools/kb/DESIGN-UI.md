@@ -1703,10 +1703,15 @@ how the stored name resolves to the key among them.
   prefetched when the graph page loads; a renderer view suspends in its own
   slot until the chunk arrives, and a failed load is tried again from that
   slot's error.
-- *Frame views.* A frame's children are shown by one of the outline's four
-  frame views, list, table, board and cards, each a view at placement
-  `inline` that the outline plugin provides. Their keys
-  (`@kb/views`, `outline.ts`) carry the one trait the row walk needs
+- *Frame views.* A frame's children are shown by one of four frame views,
+  each a view at placement `inline`: the outline's list, which nests them,
+  and the collections family's table, board and cards
+  (`@kb/collections-ui`), which lay them out as a node set inside the
+  outline that hosts the frame. Every frame view's key is made by
+  `frameViewKey` (`@kb/views`, `outline.ts`): its page is the outline at its
+  frame, and its id is frozen in the `outline.` namespace it was first
+  stored under, so a collection view answers to that id as an alias of the
+  one its plugin contributes it at. The keys carry the one trait the row walk needs
   beside the params: how the view lays rows out (`outline`, nested; `rows`;
   `columns`). The frame's first frame view node (DESIGN.md → View nodes)
   names the view, and `frameViewOf` (`@kb/ui-sdk`'s `lib/frame-view.ts`)
@@ -2096,9 +2101,9 @@ the shell.
   renderer: `@kb/scene`, which touches no GPU, and `@kb/scene-gpu`, which is
   three, so a 3D host can mount a scene without carrying three itself
   ([The lab](#the-lab)).
-- **Every half is a package.** The outline, graph, chart, code, agent, lab
-  and canvas halves are `@kb/<family>-ui` packages, so `UI_ALLOWS` in
-  `harness/src/constraints.ts` holds the shell's zones only. A half's tests
+- **Every half is a package.** The outline, collections, graph, chart,
+  code, agent, lab and canvas halves are `@kb/<family>-ui` packages, so
+  `UI_ALLOWS` in `harness/src/constraints.ts` holds the shell's zones only. A half's tests
   hold it to `BrowserHost` through `@kb/ui-test-kit`'s test host, never to
   the shell's stores; the shell's side of the port is tested in `@kb/ui`.
   The outline's tests that drive the page (its store over the shell's graph

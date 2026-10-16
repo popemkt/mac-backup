@@ -12,20 +12,15 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { fieldContextOf, frameConfigOf, queryResultInstanceKey, schemaOf } from "@kb/ui-sdk";
-import { OutlineCardsView, OutlineTableView, paramsFrom } from "@kb/views";
+import { paramsFrom } from "@kb/views";
 import { Result } from "effect";
 import { useGraphStore } from "@/stores/graph.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs } from "@/fixtures/view-fields";
-import {
-  BoardCardsView,
-  outlineFrameSubject,
-  outlineNodes,
-  outlineSource,
-  TableView,
-  useOutlineStore,
-} from "@kb/outline-ui";
+import { outlineFrameSubject, outlineNodes, outlineSource, useOutlineStore } from "@kb/outline-ui";
+import { CollectionCardsView, CollectionTableView } from "@kb/collections";
+import { BoardCardsView, TableView } from "@kb/collections-ui";
 
 const RESULTS = ["n.root-b", "n.root-c"];
 
@@ -85,7 +80,7 @@ describe("projected query-result rows behave like owned rows", () => {
             { frameId: "n.root-a", rowIds: RESULTS, isQuerySource: true, depth: 0 },
             1,
           )}
-          settings={settingsOf(OutlineTableView)}
+          settings={settingsOf(CollectionTableView)}
           context={fieldContextOf(outlineSource())}
         />,
       );
@@ -126,7 +121,7 @@ describe("projected query-result rows behave like owned rows", () => {
             { frameId: "n.root-a", rowIds: RESULTS, isQuerySource: true, depth: 0 },
             1,
           )}
-          view={{ key: OutlineCardsView, params: settingsOf(OutlineCardsView) }}
+          view={{ key: CollectionCardsView, params: settingsOf(CollectionCardsView) }}
           context={fieldContextOf(outlineSource())}
         />,
       );

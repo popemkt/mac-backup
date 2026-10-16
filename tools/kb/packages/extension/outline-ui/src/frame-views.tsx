@@ -2,31 +2,15 @@ import { useMemo } from "react";
 import {
   childInstanceKey,
   frameRows,
+  NoFrame,
   outlineInstanceKey,
   useFrameSubject,
   useGraphRead,
   type ViewProps,
 } from "@kb/ui-sdk";
-import {
-  type ParamsOf,
-  OutlineBoardView,
-  OutlineCardsView,
-  OutlineListView,
-  type OutlineTableView,
-} from "@kb/views";
-import { BoardCardsView } from "./board-cards-view";
+import { type ParamsOf, OutlineListView } from "@kb/views";
 import { NodeBlock } from "./node-block";
-import { TableView } from "./table-view";
 import { useOutlineHost } from "./outline-host";
-
-/** What a frame view shows outside an outline host: there is no frame. */
-function NoFrame() {
-  return (
-    <p className="px-1 py-0.5 text-meta text-foreground/50" data-no-frame="true">
-      No frame to show.
-    </p>
-  );
-}
 
 /**
  * The list view: a frame's children as outline rows — the same rows the
@@ -63,27 +47,4 @@ export function ListFrameView({ params }: ViewProps<ParamsOf<typeof OutlineListV
         : childInstanceKey(instanceKey, child.id);
     return <NodeBlock key={key} nodeId={child.id} instanceKey={key} depth={depth} />;
   });
-}
-
-/** The table view: the frame's rows as one sorted, paged run, a column per field. */
-export function TableFrameView({ params }: ViewProps<ParamsOf<typeof OutlineTableView>>) {
-  const subject = useFrameSubject();
-  if (subject === null) return <NoFrame />;
-  return <TableView frame={subject} settings={params} />;
-}
-
-/** The board view: the frame's rows as cards, a column per value of its group field. */
-export function BoardFrameView({ params }: ViewProps<ParamsOf<typeof OutlineBoardView>>) {
-  const subject = useFrameSubject();
-  const view = useMemo(() => ({ key: OutlineBoardView, params }), [params]);
-  if (subject === null) return <NoFrame />;
-  return <BoardCardsView frame={subject} view={view} />;
-}
-
-/** The cards view: the frame's rows as cards in one grid. */
-export function CardsFrameView({ params }: ViewProps<ParamsOf<typeof OutlineCardsView>>) {
-  const subject = useFrameSubject();
-  const view = useMemo(() => ({ key: OutlineCardsView, params }), [params]);
-  if (subject === null) return <NoFrame />;
-  return <BoardCardsView frame={subject} view={view} />;
 }

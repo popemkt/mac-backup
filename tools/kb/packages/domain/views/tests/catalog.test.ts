@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
 import { viewOptionId } from "@kb/model";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
-import { OutlineBoardView, paramsIssues, viewCatalogOf } from "@kb/views";
+import { OutlineListView, paramsIssues, viewCatalogOf } from "@kb/views";
 
 /** The catalog a server holding every bundled family lists. */
 const catalog = viewCatalogOf(
@@ -47,24 +47,24 @@ describe("view catalog", () => {
   });
 
   test("a view is found by its id or by its option, and nothing else", () => {
-    const board = viewCatalogOf([{ key: OutlineBoardView }]);
-    expect(board.keyOf("outline.board")).toBe(OutlineBoardView);
-    expect(board.keyOf("sys.view.outline.board")).toBe(OutlineBoardView);
-    expect(board.keyOf("outline.nope")).toBeNull();
-    expect(board.itemOf("outline.board")?.key).toBe(OutlineBoardView);
+    const list = viewCatalogOf([{ key: OutlineListView }]);
+    expect(list.keyOf("outline.list")).toBe(OutlineListView);
+    expect(list.keyOf("sys.view.outline.list")).toBe(OutlineListView);
+    expect(list.keyOf("outline.nope")).toBeNull();
+    expect(list.itemOf("outline.list")?.key).toBe(OutlineListView);
   });
 
   test("lists a view it holds no key for by its entry, never as a key", () => {
-    const [entry] = viewCatalogOf([{ key: OutlineBoardView }]).entries();
+    const [entry] = viewCatalogOf([{ key: OutlineListView }]).entries();
     const listing = viewCatalogOf([], entry === undefined ? [] : [entry]);
-    expect(listing.keyOf("sys.view.outline.board")).toBeNull();
+    expect(listing.keyOf("sys.view.outline.list")).toBeNull();
     expect(listing.items).toEqual([]);
     expect(listing.entries()).toEqual([]);
-    expect(listing.listedOf("sys.view.outline.board")?.label).toBe("Board");
-    expect(listing.listedOf("outline.board")?.id).toBe("outline.board");
+    expect(listing.listedOf("sys.view.outline.list")?.label).toBe("List");
+    expect(listing.listedOf("outline.list")?.id).toBe("outline.list");
     expect(listing.listedOf("outline.nope")).toBeNull();
-    const held = viewCatalogOf([{ key: OutlineBoardView }]);
+    const held = viewCatalogOf([{ key: OutlineListView }]);
     // A held view is listed by the entry its key derives, the one `entries()` lists.
-    expect(held.listedOf("outline.board") === held.entries()[0]).toBe(true);
+    expect(held.listedOf("outline.list") === held.entries()[0]).toBe(true);
   });
 });

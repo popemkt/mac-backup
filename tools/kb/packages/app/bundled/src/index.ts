@@ -16,6 +16,7 @@
  */
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
+import { collectionsExtension } from "@kb/collections";
 import { checkExtension } from "@kb/check";
 import { codeExtension } from "@kb/code";
 import type { ExtensionDeclaration } from "@kb/contracts";
@@ -33,6 +34,7 @@ import { outlineExtension } from "@kb/outline";
  */
 export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
   outlineExtension,
+  collectionsExtension,
   graphExtension,
   docsExtension,
   canvasExtension,
