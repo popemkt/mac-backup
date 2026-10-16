@@ -201,14 +201,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — let the outline page take a frame view override from the pane
 - **node** — `01M411FPKHWPRFTWDYKVXBDYSB`
 
-### GAP: a proposed graph view cannot set its query or mappings
-
-- **expected** — view.propose can set a graph view's query, focus and mappings like its renderer settings
-- **current** — only the renderer's own settings are proposable; a proposed graph view draws every node until edited
-- **impact** — an agent cannot propose a focused graph view in one call
-- **closes** — the graph lens settings get a schema that proposals compose
-- **node** — `01M40X30Q8N7NYCYHW3J0GFKY7`
-
 ### GAP: a ref value's bullet follows instead of expanding the target inline
 
 - **expected** — A ref value's bullet expands the target's children inline under the field, the way a reference row's bullet expands its target.
@@ -1177,6 +1169,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — graph views cannot be embedded outside the graph page yet
 - **closes** — plugin-composition A1 neighbourhood view hosting a renderer (roadmap step 2)
 - **node** — `01M3R5NKA34ATJKJV9GVQRS16Z`
+
+### GAP: a proposed graph view cannot set its query or mappings
+
+- **expected** — view.propose can set a graph view's query, focus and mappings like its renderer settings
+- **current** — only the renderer's own settings are proposable; a proposed graph view draws every node until edited
+- **impact** — an agent cannot propose a focused graph view in one call
+- **closes** — the graph lens settings get a schema that proposals compose
+- **node** — `01M40X30Q8N7NYCYHW3J0GFKY7`
 
 ### GAP: a UI test gates on wall-clock time and fails under machine load
 

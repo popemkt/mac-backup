@@ -1836,8 +1836,8 @@ for the whole page, beside every pane, such as a popover host that portals to
 the document. A plugin contributes it to `OverlayPoint` (`ui.overlays`) as
 `{order, Component}`, and the shell (`src/overlays.tsx`) mounts every one, in
 `order`. The first is the outline's frame filter popover host, which the
-"Filter…" command opens on a frame. The outline is a core plugin of the page
-(`CORE_UI_PLUGINS`), which every convergence loads, so its host is mounted
+"Filter…" command opens on a frame. The outline is a required family, so the
+page loads its browser half on every convergence, and its host is mounted
 on every page, as it was when the shell mounted it.
 
 The first dock is the agent's chat (`@kb/agent-ui`), the optional `agent`
