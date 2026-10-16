@@ -36,6 +36,7 @@ export const DEBUG_FIELDS_STORAGE_KEY = "kb-debug-fields";
 
 export type PropValue = WireNode["props"][string][number];
 
+// GAP [[01M53GQC1V4S043899SSX8Q47J]] the kit's node type is named for the outline
 /** Outline view model derived from WireNode + UI state. */
 export interface OutlineNode {
   id: string;

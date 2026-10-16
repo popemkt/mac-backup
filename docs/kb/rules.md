@@ -928,6 +928,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
 - **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
 
+### GAP: the kit names the frame family's default view
+
+- **expected** — Which frame view a frame with no frame view node shows is data, as sys.views names the page default (sys.f.view.default, written by the fold from the declaration that provides it).
+- **current** — @kb/ui-sdk lib/frame-view.ts names viewOptionId("outline.list") (LIST_OPTION).
+- **impact** — The kit names one family's view, and no declaration can change the frame default.
+- **closes** — The frame family's default named in data, written by the fold from the one declaration that provides it, with the extension contract's provider property over it, and existing stores filled by the seed's fill-absent pass.
+- **node** — `01M53GQBPC6PR0CPQDNC74MV3R`
+
+### GAP: the kit's node type is named for the outline
+
+- **expected** — The kit's node read model is named for what it is (a node as the page reads it), not for one family.
+- **current** — OutlineNode (@kb/ui-sdk lib/types.ts), used in 57 files, 14 of them the canvas's.
+- **impact** — Every family reads its nodes through a type named for the outline.
+- **closes** — One rename across the workspace, done when the canvas packages are free to touch.
+- **node** — `01M53GQC1V4S043899SSX8Q47J`
+
 ### GAP: the node menu's order is list position
 
 - **expected** — a node command declares where it sits in the menu, and the menu lists the registry's commands and every CommandPoint contribution by it

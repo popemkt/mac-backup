@@ -118,7 +118,6 @@
 - Extension isolation, the rest (plans: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md, docs/brainstorms/2026-10-04-kb-extension-boundaries/sdk.md)
 - kb work queue, in order (owner's priority 2026-10-04; resume notes: docs/brainstorms/2026-09-29-kb-genui-canvas-agents/resume.md)
 - O1 follow-up · expansion storage tests (two tabs one id, malformed kb-expansion, legacy first save with a change) and DESIGN-UI wording (memory vs storage merge, mixed-build rule, legacy opens equal to default drop on first save)
-- O5 + graph follow-up review fixes (Sol, 2026-10-17): (A-major) frame view: apply isViewNode once in kit frameViewNodeOf so render and keyboard walk agree; decide names-no-view case explicitly; restore or gap the node-config.policy list-fallback test; (A-minor) findView re-implements kernel lookup; view-contract stand-ins skip namespaced+alias path; kit still names the outline (LIST_OPTION outline.list default, frame-layout/frame-subject docs, OutlineNode); (B-major) delete dead perspectiveProps, move its tests onto rendererParamsOf; (B-major) saved graph copy keeps only renderer's params — carry full lens or state it in the plan; (B-minor) confirm the lab 'waits while graph off' test moved, not dropped; confirm query errors still surface after NodeLinkGraph
 - Open: flaky canvas-camera.test.ts timeout; confirm the test:ui per-package total
 - Overnight plans (2026-10-17): canvas tldraw parity first, then locations, agent providers, family footprints, trace and label — start only after O3–O5. Index: docs/brainstorms/2026-10-17-kb-overnight-plans.md
 - oxlint 1.83 → 1.86 with @oxlint/plugins and oxc-parser
@@ -139,6 +138,7 @@
 - O3a · audit @kb/ui-sdk exports by the families that use them
 - O4 · cut out @kb/graph + @kb/graph-ui as an optional family
 - O5 · Table/Board/Cards leave the outline as their own family
+- O5 + graph follow-up review fixes (Sol, 2026-10-17): (A-major) frame view: apply isViewNode once in kit frameViewNodeOf so render and keyboard walk agree; decide names-no-view case explicitly; restore or gap the node-config.policy list-fallback test; (A-minor) findView re-implements kernel lookup; view-contract stand-ins skip namespaced+alias path; kit still names the outline (LIST_OPTION outline.list default, frame-layout/frame-subject docs, OutlineNode); (B-major) delete dead perspectiveProps, move its tests onto rendererParamsOf; (B-major) saved graph copy keeps only renderer's params — carry full lens or state it in the plan; (B-minor) confirm the lab 'waits while graph off' test moved, not dropped; confirm query errors still surface after NodeLinkGraph
 - outline perf: a graph update or expand re-renders every row (63 ms at 1x, ~660 ms at 6x CPU) — fix candidate memo, per-row selectors, coalesce WS updates, content-visibility
 
 ### later

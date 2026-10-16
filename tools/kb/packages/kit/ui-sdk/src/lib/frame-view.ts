@@ -81,9 +81,9 @@ export function frameConfigOf(
 /**
  * What a frame is shown as while it has no frame view node: the list. The
  * kit names it by id because no declaration or data says which frame view
- * is the default yet; the plan records the gap, to be closed by a default
- * the frame family's data names, as `sys.views` names the page default.
+ * is the default yet.
  */
+// GAP [[01M53GQBPC6PR0CPQDNC74MV3R]] the kit names the frame family's default view
 const LIST_OPTION = viewOptionId("outline.list");
 
 /**
