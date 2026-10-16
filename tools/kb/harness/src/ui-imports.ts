@@ -19,6 +19,7 @@ import {
   UI_SRC,
   type UiZone,
   isUiTestFile,
+  isUiTestZone,
   uiZoneOf,
 } from "./constraints.ts";
 import { type ImportKind, importsOf, sourceFilesUnder } from "./import-graph.ts";
@@ -139,6 +140,7 @@ function uiViolation(site: UiImportSite): string | undefined {
   }
   if (site.targetZone === undefined || site.targetZone === site.zone) return undefined;
   if (isUiTestFile(site.file)) return undefined;
+  if (isUiTestZone(site.zone)) return `${site.zone} holds test code only, and ${site.file} is none`;
   if (UI_ALLOWS[site.zone].includes(site.targetZone)) return undefined;
   return `${site.zone} -> ${site.targetZone}`;
 }

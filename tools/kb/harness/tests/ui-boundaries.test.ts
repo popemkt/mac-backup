@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  isPackageTestFile,
+  isUiTestFile,
+  isUiTestZone,
   UI_ALLOWS,
   UI_SPECIFIER_ALLOWS,
   UI_SRC,
@@ -20,7 +23,8 @@ import { uiImportSites, uiRepoPath, uiSourceFiles, uiViolations } from "../src/u
  *      carries a `GAP [[id]]` on its line;
  *   2. no `GAP [[id]]` sits on an import that is not a breach — a sanction
  *      outliving its breach reads as covered and is not;
- *   3. `UI_ALLOWS` names exactly the zones the tree has.
+ *   3. `UI_ALLOWS` names exactly the production zones the tree has; a test
+ *      zone (`UI_TEST_ZONES`) holds test files only, and has no row.
  *
  * That a marker's id resolves to a real `#gap` node is `gap-markers-resolve`'s
  * assertion, not this file's: it already scans every `.ts`/`.tsx` in the
@@ -54,12 +58,32 @@ describe("ui-boundaries", () => {
     expect(stale, `Stale UI import gap markers:\n${stale.join("\n")}`).toEqual([]);
   });
 
-  test("UI_ALLOWS names exactly the zones present under the UI's src/", () => {
-    const present = new Set<UiZone>(uiSourceFiles().map((file) => uiZoneOf(file)));
+  test("UI_ALLOWS names exactly the production zones present under the UI's src/", () => {
+    const present = new Set<UiZone>(
+      uiSourceFiles()
+        .map((file) => uiZoneOf(file))
+        .filter((zone) => !isUiTestZone(zone)),
+    );
     const rows = Object.keys(UI_ALLOWS) as UiZone[];
     expect(rows.toSorted(), `${UI_SRC} zones and UI_ALLOWS rows must match`).toEqual(
       [...present].toSorted(),
     );
+  });
+
+  test("a UI file is a test file exactly when the package fences count it one", () => {
+    const files = [...uiSourceFiles(), "test-support/x.ts", "lib/test-support/x.ts", "x.test.ts"];
+    const disagree = files.filter(
+      (file) => isUiTestFile(file) !== isPackageTestFile(`src/${file}`),
+    );
+    expect(disagree).toEqual([]);
+    expect(isUiTestFile("test-support/x.ts")).toBe(true);
+  });
+
+  test("a test zone holds test files only", () => {
+    const production = uiSourceFiles().filter(
+      (file) => isUiTestZone(uiZoneOf(file)) && !isUiTestFile(file),
+    );
+    expect(production).toEqual([]);
   });
 
   test("every zone a row or the specifier rule names is itself a row", () => {

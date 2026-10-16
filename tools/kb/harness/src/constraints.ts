@@ -249,8 +249,8 @@ export const TEST_SUPPORT_DIR = "src/test-support/";
 /**
  * The packages with a {@link TEST_SUPPORT_DIR}, each because a check holds
  * every importer of it to a test file: `@kb/ui`'s zone matrix
- * ({@link UI_ALLOWS}), in which no zone's row names `test-support` and test
- * files are exempt. A package that grows the folder without such a check
+ * ({@link UI_ALLOWS}), in which `test-support` is a test zone, which no
+ * production row names ({@link UI_TEST_ZONES}). A package that grows the folder without such a check
  * fails, so no production file escapes a fence through it.
  */
 export const TEST_SUPPORT_PACKAGES: ReadonlySet<string> = new Set(["@kb/ui"]);
@@ -396,7 +396,22 @@ export const UI_SURFACES: readonly UiSurface[] = [
   "sidebar",
 ];
 
+/**
+ * The zones that hold test code only: `test-support`, the helpers test files
+ * share, and `page-tests`, the tests of a family's browser half that drive
+ * the page. Every file in one is a test file ({@link isUiTestFile}), which the
+ * matrix exempts, so neither has a row; a production file that imports one
+ * breaches its own row, which names neither.
+ */
+const UI_TEST_ZONES = ["test-support", "page-tests"] as const;
+export type UiTestZone = (typeof UI_TEST_ZONES)[number];
+
+export function isUiTestZone(zone: UiZone): zone is UiTestZone {
+  return (UI_TEST_ZONES as readonly UiZone[]).includes(zone);
+}
+
 export type UiZone =
+  | UiTestZone
   | "shell"
   | "primitives"
   | "lib"
@@ -405,8 +420,6 @@ export type UiZone =
   | "session"
   | "stores"
   | "fixtures"
-  | "test-support"
-  | "page-tests"
   | "catalog"
   | "sandbox"
   | `components/${UiSurface}`;
@@ -469,7 +482,7 @@ export function uiZoneOf(file: string): UiZone {
  *   together and is imported by nothing.
  */
 // GAP [[01M3F8EJSWHS38PMSSQ2BVN8DG]]
-export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
+export const UI_ALLOWS: Record<Exclude<UiZone, UiTestZone>, readonly UiZone[]> = {
   shell: [
     "shell",
     "primitives",
@@ -490,16 +503,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   session: ["lib", "api", "actions", "session"],
   stores: ["stores", "lib", "api", "session"],
   fixtures: ["fixtures", "lib"],
-  // Test helpers: imported only by test files, which the surface rows exempt,
-  // so no row names it. It reaches what it stands in for — the store
-  // `resetGraphStore` resets, the `api/ws` port `FakeWsSocket` doubles, and
-  // the shell's host, which `syncPagePlugins` loads beside a test's plugins as
-  // the app loads it beside its own.
-  "test-support": ["test-support", "shell", "stores", "api"],
-  // Tests of a family's browser half that drive the page, so they run in the
-  // shell rather than in the family's package: test files only, which every
-  // row exempts, so the row names nothing but itself.
-  "page-tests": ["page-tests"],
   primitives: ["primitives", "lib"],
   catalog: [
     "catalog",
@@ -568,8 +571,9 @@ export const UI_LAZY_DEPTH = 2;
  * Test files answer to {@link UI_SPECIFIER_ALLOWS} but not to
  * {@link UI_ALLOWS}: a test reaches for whatever it drives, and holding a
  * colocated `*.test.tsx` to its subject's row would fence the tests instead of
- * the product.
+ * the product. A UI file is a test file exactly when it is one of `@kb/ui`'s
+ * ({@link isPackageTestFile}), so the fences agree on what a test is.
  */
 export function isUiTestFile(file: string): boolean {
-  return /\.test\.tsx?$/.test(file);
+  return isPackageTestFile(`src/${file}`);
 }
