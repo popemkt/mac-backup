@@ -389,13 +389,21 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
-### GAP: core's declaration imports the graph's view keys from @kb/graph
+### GAP: core seeds the view-as command nodes for every family's views
 
-- **expected** — the graph family's declaration declares its views; core neither imports @kb/graph nor names its keys
-- **current** — core-extension.ts imports GraphView, NeighbourhoodView and the renderer keys from @kb/graph (still in domain/, before the family is declared) and lists them in core's declaration
-- **impact** — core depends on a family-in-waiting, so 'Core names no feature' is not yet true for the graph
-- **closes** — the O4 cut (O4f): @kb/graph becomes the graph family and declares its own views
-- **node** — `01M52YKFN18S0PJR2PHHM5QTXZ`
+- **expected** — each family seeds the node commands for its own views (the outline its list, collections its table, board and cards)
+- **current** — core's seed declares sys.cmd.view-as-{list,table,board,cards}
+- **impact** — core names the outline's and the collections family's views; with collections off its view-as commands are still seeded
+- **closes** — each family's declaration seeds its view-as commands, and core's seed drops them
+- **node** — `01M536CGS8JJ7XMG3F738WSNYK`
+
+### GAP: core's approval policies view is a table, a view of the optional collections family
+
+- **expected** — a core-seeded view names only a core view type, or opens through the store's default view type
+- **current** — core's seed node view.approval.policies names outline.table, now the collections family's
+- **impact** — with collections switched off the approval policies frame shows 'cannot be shown here' instead of the policies
+- **closes** — the policies view opens in a core view type (the list, or the default view type), or core's policies view moves to a family that may depend on collections
+- **node** — `01M536CH4P48SXV9B0HH8B4XTG`
 
 ### GAP: core's screen protocol names the canvas
 
@@ -454,6 +462,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — core's use cases are an extension API nobody declared: changing persistEffect edits a family, and a new extension can reach any use case
 - **closes** — E15b moves ext-canvas onto GraphWrites; E15c drops application from LAYER_ALLOWS.extension
 - **node** — `01M439W857BD9QQTBEQ5X5D06D`
+
+### GAP: family halves' page tests run in the shell (outline, collections, graph)
+
+- **expected** — a family half's tests hold it to BrowserHost through the test host (DESIGN-UI → Extension UI halves)
+- **current** — 37 outline tests in @kb/ui src/page-tests/outline/ and the graph's page and neighbourhood tests in src/page-tests/graph/ drive the shell's graph store, commands and palettes, over family barrels that export what they drive (outline-ui; collections-ui exports TableView and BoardCardsView); the graph's page test mocks seven of the package's files by path
+- **impact** — the family barrels are wider than their entries, these tests cannot run in their packages, and path mocks break on a file move
+- **closes** — each test rewritten over the ui-test-kit test host and moved into its family's -ui package, with each barrel narrowed to its entry
+- **node** — `01M531QT1YPM9NTF6NKH9BP66S`
 
 ### GAP: flat canvas items vanish in level 3D views
 
@@ -945,14 +961,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a bullet-kind point in @kb/ui-sdk that families contribute to, after E13 moves the canvas UI into @kb/canvas-ui
 - **node** — `01M436DVSEHKNYWSF2MR07HPMR`
 
-### GAP: the outline's page tests run in the shell
-
-- **expected** — a family half's tests hold it to BrowserHost through the test host (DESIGN-UI → Extension UI halves)
-- **current** — 37 outline tests drive the shell's graph store, commands and palettes from @kb/ui's src/page-tests/outline/, over an @kb/outline-ui barrel that exports what they drive
-- **impact** — the outline-ui barrel is wider than its entry, and these tests cannot run in the package
-- **closes** — each test rewritten over the test host and moved into @kb/outline-ui, with the barrel narrowed to its entry
-- **node** — `01M531QT1YPM9NTF6NKH9BP66S`
-
 ### GAP: the palette index pre-sizes its arrays with new Array(n)
 
 - **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
@@ -1278,6 +1286,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Define each core action once as a contribution and make the registry consume that canonical collection.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1PJW3WHWPCBT5BYNEQMYG98`
+
+### GAP: core's declaration imports the graph's view keys from @kb/graph
+
+- **expected** — the graph family's declaration declares its views; core neither imports @kb/graph nor names its keys
+- **current** — core-extension.ts imports GraphView, NeighbourhoodView and the renderer keys from @kb/graph (still in domain/, before the family is declared) and lists them in core's declaration
+- **impact** — core depends on a family-in-waiting, so 'Core names no feature' is not yet true for the graph
+- **closes** — the O4 cut (O4f): @kb/graph becomes the graph family and declares its own views
+- **node** — `01M52YKFN18S0PJR2PHHM5QTXZ`
 
 ### GAP: core's declaration still declares the outline's views and provides the default view
 
