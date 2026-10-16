@@ -1,4 +1,4 @@
-import { mutations } from "@/actions/mutations";
+import { saveGraphPerspective } from "./lens-writes";
 import { useEffect, useRef, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@kb/ui-sdk";
@@ -94,7 +94,7 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
                   setSaving(true);
                   setSaveError(false);
                   try {
-                    const id = await mutations.saveGraphPerspective(active, name);
+                    const id = await saveGraphPerspective(active, name);
                     if (id !== null) {
                       onSelect(id);
                       setName("");

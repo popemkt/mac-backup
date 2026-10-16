@@ -1,11 +1,11 @@
 import { useMemo } from "react";
-import { mutations } from "@/actions/mutations";
 import { browserHost, SYSTEM_IDS, useWireNodes } from "@kb/ui-sdk";
 import { graphBindingOptions, type GraphBindingOption } from "@/components/graph/graph-bindings";
 import { sourceValue, type LensPerspective } from "@kb/views";
 import { TreeView, TreemapView, type GraphChannel } from "@kb/graph";
 import { GRAPH_SOURCE_FIELD_KINDS, type GraphSourceField, type GraphSourceKind } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
+import { setLensProp } from "./lens-writes";
 import { useRenderer } from "./use-renderers";
 
 /**
@@ -104,11 +104,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
               className="mt-1 block w-full rounded-xs border border-foreground/10 bg-popover px-1.5 py-1 text-meta leading-4 text-foreground"
               value={current}
               onChange={(e) =>
-                void mutations.setLensProp(
-                  perspective.id,
-                  config.field,
-                  sourceValue(e.target.value),
-                )
+                void setLensProp(perspective.id, config.field, sourceValue(e.target.value))
               }
             >
               {optionsFor(config.field).map((o) => (
@@ -133,7 +129,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
           className="mt-1 block w-full rounded-xs border border-foreground/10 bg-transparent p-1.5 font-mono text-label text-foreground"
           onBlur={(e) => {
             if (e.target.value !== perspective.query)
-              void mutations.setLensProp(perspective.id, SYSTEM_IDS.lensQueryField, {
+              void setLensProp(perspective.id, SYSTEM_IDS.lensQueryField, {
                 t: "str",
                 v: e.target.value,
               });
@@ -152,7 +148,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
           onBlur={(e) => {
             const v = Number(e.target.value);
             if (Number.isFinite(v) && v >= 1 && v !== perspective.maxNodes)
-              void mutations.setLensProp(perspective.id, SYSTEM_IDS.lensMaxNodesField, {
+              void setLensProp(perspective.id, SYSTEM_IDS.lensMaxNodesField, {
                 t: "num",
                 v: Math.floor(v),
               });

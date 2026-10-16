@@ -131,8 +131,6 @@ const INERT_WRITES: PageWrites = {
   makeDefaultView: done,
   setFrameView: done,
   replaceField: done,
-  setGraphRenderer: done,
-  setLensProp: done,
   setViewSort: done,
   toggleViewSort: done,
   setViewDisplay: done,
@@ -158,7 +156,7 @@ const INERT_WRITES: PageWrites = {
   uploadAsset: none,
   newQueryNode: none,
   defineOntology: none,
-  saveGraphPerspective: none,
+  addViewNode: none,
 };
 
 /** A test host over an empty graph, with `overrides` in place of its members. */

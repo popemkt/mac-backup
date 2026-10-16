@@ -4,7 +4,7 @@
 import { ASSET_MAX_BYTES } from "@kb/operations";
 import { ulid } from "ulid";
 import { z } from "zod";
-import type { LensPerspective, FrameViewKey, SortSpec, ViewConfig } from "@kb/views";
+import type { FrameViewKey, SortSpec, ViewConfig } from "@kb/views";
 import type { FieldType } from "@kb/model";
 import { runOptimistic } from "@/actions/optimistic";
 import {
@@ -632,16 +632,10 @@ export const mutations: PageWrites = {
     await editFrameView(frameId, frameViewIs(view.option));
   },
 
-  async saveGraphPerspective(perspective: LensPerspective, name: string): Promise<string | null> {
-    const { perspectiveProps } = await import("@kb/views");
+  async addViewNode(text: string, props: Record<string, PropValue[]>): Promise<string | null> {
     const { planAddViewNode } = await import("@/actions/plan");
     const id = ulid();
-    const plan = planAddViewNode(
-      wire(),
-      id,
-      name.trim() || "Graph perspective",
-      perspectiveProps(perspective),
-    );
+    const plan = planAddViewNode(wire(), id, text, props);
     return plan !== null && (await applyPlan(plan)) ? id : null;
   },
 
@@ -649,18 +643,6 @@ export const mutations: PageWrites = {
     if (!guardSysWrite(nodeId)) return;
     const { planReplaceField } = await import("@/actions/plan");
     await applyPlan(planReplaceField(wire(), nodeId, fieldId, values));
-  },
-
-  async setGraphRenderer(perspectiveId: string, renderer: string): Promise<void> {
-    if (!guardSysWrite(perspectiveId)) return;
-    const { planSetGraphRenderer } = await import("@/actions/plan");
-    await applyPlan(planSetGraphRenderer(wire(), perspectiveId, renderer));
-  },
-
-  async setLensProp(perspectiveId: string, fieldId: string, value: PropValue): Promise<void> {
-    if (!guardSysWrite(perspectiveId)) return;
-    const { planSetLensProp } = await import("@/actions/plan");
-    await applyPlan(planSetLensProp(wire(), perspectiveId, fieldId, value));
   },
 
   // A frame's view settings are its frame view node's params: each edit

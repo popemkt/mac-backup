@@ -424,9 +424,6 @@ export function planSetFieldTargetQuery(n: WireNode[], id: string, edn: string |
   );
 }
 
-/** A graph view's renderer is its view: the option `sys.f.view` names. */
-export const planSetGraphRenderer = (n: WireNode[], id: string, renderer: string) =>
-  planReplaceField(n, id, SYSTEM_IDS.viewField, [{ t: "ref", v: renderer }]);
 /**
  * A new view node, filed at the end of the Views list: the one place the UI
  * files the views it makes. A view node its host stops naming, or whose host
@@ -448,8 +445,6 @@ export function planAddViewNode(
     }).actions,
   };
 }
-export const planSetLensProp = (n: WireNode[], id: string, field: string, value: PropValue) =>
-  planReplaceField(n, id, field, [value]);
 /**
  * What an edit of a frame's view writes: fields of its view node, each
  * replaced whole. The view is one of them (`sys.f.view`), its settings the

@@ -10,7 +10,7 @@
  * rejects for a refusal.
  */
 import type { FieldType } from "@kb/model";
-import type { FrameViewKey, LensPerspective, SortSpec } from "@kb/views";
+import type { FrameViewKey, SortSpec } from "@kb/views";
 import type { RefCreation } from "./refs";
 import type { PropValue } from "./types";
 
@@ -139,19 +139,15 @@ export interface PageWrites {
   readonly makeDefaultView: (hostId: string, viewId: string) => Promise<void>;
   /** Show a frame's children in `view`: its frame view node names the view's option. */
   readonly setFrameView: (frameId: string, view: FrameViewKey) => Promise<void>;
-  /** Save `perspective` as a new graph view node, filed in the Views list. */
-  readonly saveGraphPerspective: (
-    perspective: LensPerspective,
-    name: string,
+  /**
+   * Mint a view node named `text` with `props`, filed at the end of the
+   * Views list. Returns its id, or null when refused.
+   */
+  readonly addViewNode: (
+    text: string,
+    props: Record<string, PropValue[]>,
   ) => Promise<string | null>;
   readonly replaceField: (nodeId: string, fieldId: string, values: PropValue[]) => Promise<void>;
-  /** Draw a graph view node with another renderer: `renderer` is the view's option. */
-  readonly setGraphRenderer: (perspectiveId: string, renderer: string) => Promise<void>;
-  /**
-   * Persist a `sys.f.lens.*` prop. Unsets the field before set so multi-valued
-   * append cannot accumulate (r10 §1.6).
-   */
-  readonly setLensProp: (perspectiveId: string, fieldId: string, value: PropValue) => Promise<void>;
   readonly setViewSort: (frameId: string, sortSpecs: SortSpec[]) => Promise<void>;
   readonly toggleViewSort: (frameId: string, fieldId: string) => Promise<void>;
   readonly setViewDisplay: (frameId: string, displayFieldIds: string[]) => Promise<void>;

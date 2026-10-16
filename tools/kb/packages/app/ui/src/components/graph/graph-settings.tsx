@@ -1,7 +1,7 @@
 import { GraphMappings } from "./graph-mappings";
 import { useEffect, useRef, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
-import { mutations } from "@/actions/mutations";
+import { setLensProp } from "./lens-writes";
 import { cn, isOutside, SYSTEM_IDS } from "@kb/ui-sdk";
 import { GRAPH_LINK_STYLE_VALUES, GRAPH_THEME_VALUES } from "@kb/model";
 import {
@@ -37,16 +37,16 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
   }, [open]);
 
   const setStr = (field: string, v: string) => {
-    void mutations.setLensProp(perspective.id, field, { t: "str", v });
+    void setLensProp(perspective.id, field, { t: "str", v });
   };
   const setNum = (field: string, v: number) => {
-    void mutations.setLensProp(perspective.id, field, { t: "num", v });
+    void setLensProp(perspective.id, field, { t: "num", v });
   };
   const setRef = (field: string, v: string) => {
-    void mutations.setLensProp(perspective.id, field, { t: "ref", v });
+    void setLensProp(perspective.id, field, { t: "ref", v });
   };
   const setBool = (field: string, v: boolean) => {
-    void mutations.setLensProp(perspective.id, field, { t: "bool", v });
+    void setLensProp(perspective.id, field, { t: "bool", v });
   };
 
   return (

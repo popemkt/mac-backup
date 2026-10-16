@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Result } from "effect";
 import { WarningIcon } from "@phosphor-icons/react";
-import { mutations } from "@/actions/mutations";
+import { setGraphRenderer } from "./lens-writes";
 import {
   browserHost,
   cn,
@@ -258,7 +258,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
           <RendererSwitch
             value={renderer}
             onChange={(r: LensRenderer) => {
-              void mutations.setGraphRenderer(active.id, r);
+              void setGraphRenderer(active.id, r);
             }}
           />
         ) : null}
