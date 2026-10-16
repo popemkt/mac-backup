@@ -95,6 +95,7 @@
 ### doing
 
 - O3 · cut out @kb/outline + @kb/outline-ui as a required family
+- O4 · cut out @kb/graph + @kb/graph-ui as an optional family
 - Projection families · outline and graph leave core; kb = graph wrapper + outline editing mode + viz families. Plan: docs/brainstorms/2026-10-16-kb-projection-families/README.md
 
 ### todo
@@ -118,7 +119,6 @@
 - Extension isolation, the rest (plans: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md, docs/brainstorms/2026-10-04-kb-extension-boundaries/sdk.md)
 - kb work queue, in order (owner's priority 2026-10-04; resume notes: docs/brainstorms/2026-09-29-kb-genui-canvas-agents/resume.md)
 - O1 follow-up · expansion storage tests (two tabs one id, malformed kb-expansion, legacy first save with a change) and DESIGN-UI wording (memory vs storage merge, mixed-build rule, legacy opens equal to default drop on first save)
-- O4 · cut out @kb/graph + @kb/graph-ui as an optional family
 - O5 · Table/Board/Cards leave the outline as their own family
 - Open: flaky canvas-camera.test.ts timeout; confirm the test:ui per-package total
 - Overnight plans (2026-10-17): canvas tldraw parity first, then locations, agent providers, family footprints, trace and label — start only after O3–O5. Index: docs/brainstorms/2026-10-17-kb-overnight-plans.md

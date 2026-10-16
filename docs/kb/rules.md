@@ -389,6 +389,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
+### GAP: core's declaration imports the graph's view keys from @kb/graph
+
+- **expected** — the graph family's declaration declares its views; core neither imports @kb/graph nor names its keys
+- **current** — core-extension.ts imports GraphView, NeighbourhoodView and the renderer keys from @kb/graph (still in domain/, before the family is declared) and lists them in core's declaration
+- **impact** — core depends on a family-in-waiting, so 'Core names no feature' is not yet true for the graph
+- **closes** — the O4 cut (O4f): @kb/graph becomes the graph family and declares its own views
+- **node** — `01M52YKFN18S0PJR2PHHM5QTXZ`
+
 ### GAP: core's declaration still declares the outline's views and provides the default view
 
 - **expected** — the outline family's declaration declares its views and provides defaultView; core's declaration names no family
