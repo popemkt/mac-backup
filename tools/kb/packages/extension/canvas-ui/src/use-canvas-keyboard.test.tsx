@@ -44,6 +44,7 @@ interface Chord {
   metaKey?: boolean;
   ctrlKey?: boolean;
   shiftKey?: boolean;
+  altKey?: boolean;
   onInput?: boolean;
   repeat?: boolean;
 }
@@ -151,6 +152,7 @@ function press(
     metaKey: chord.metaKey ?? false,
     ctrlKey: chord.ctrlKey ?? false,
     shiftKey: chord.shiftKey ?? false,
+    altKey: chord.altKey ?? false,
     repeat: chord.repeat ?? false,
     bubbles: true,
     cancelable: true,
@@ -247,6 +249,7 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
     },
     chooseProjection: (kind: string) => log.push(`projection=${kind}`),
     openViewMenu: () => log.push("viewMenu"),
+    openShortcuts: () => log.push("shortcuts"),
   };
 
   const appliers: ((intent: CanvasIntent) => void)[] = [];
@@ -452,6 +455,44 @@ describe("the applied mutations", () => {
     expect(copiedEdge?.toNode).not.toBe("b");
     expect(next?.nodes.some((node) => node.id === copiedEdge?.fromNode)).toBe(true);
     expect(next?.nodes.some((node) => node.id === copiedEdge?.toNode)).toBe(true);
+  });
+});
+
+/** The paint order of the first document a recording wrote. */
+const order = (recording: Recording) => recording.docs[0]?.nodes.map((node) => node.id);
+
+describe("arranging the selection", () => {
+  const both = { nodeIds: new Set(["a", "b"]), edgeIds: new Set<string>() };
+
+  test("] and [ move it to the front and the back, as one change", () => {
+    expect(order(press({ key: "]", code: "BracketRight" }))).toEqual(["b", "a"]);
+    const back = press({ key: "[", code: "BracketLeft" }, selectNode("b"));
+    expect(order(back)).toEqual(["b", "a"]);
+    expect(back.log).toEqual(["persist"]);
+  });
+
+  test("an order that changes nothing writes nothing", () => {
+    expect(press({ key: "[", code: "BracketLeft" }).docs).toEqual([]);
+  });
+
+  test("⇧H flips it left for right, its edge meeting the mirrored sides", () => {
+    const flipped = press({ key: "H", shiftKey: true }, both).docs[0];
+    expect(flipped?.nodes.map((node) => node.x)).toEqual([300, 0]);
+    expect(flipped?.edges[0]).toMatchObject({ fromSide: "left", toSide: "right" });
+  });
+
+  test("⌥A lines it up on its left; ⌥⇧H, of two, leaves it", () => {
+    const aligned = press({ key: "å", code: "KeyA", altKey: true }, both).docs[0];
+    expect(aligned?.nodes.map((node) => node.x)).toEqual([0, 0]);
+    expect(press({ key: "Ó", code: "KeyH", altKey: true, shiftKey: true }, both).docs).toEqual([]);
+  });
+
+  test("? opens the shortcut sheet, selection or none", () => {
+    expect(press({ key: "?", shiftKey: true }, EMPTY_SELECTION).log).toEqual(["shortcuts"]);
+  });
+
+  test("H arms the hand", () => {
+    expect(press({ key: "h" }).log).toEqual(["tool=hand"]);
   });
 });
 

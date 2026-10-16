@@ -31,7 +31,7 @@ function harness(
     size: () => size,
     items: () => items,
     selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
-    spaceDown: () => false,
+    panning: () => false,
     placing: () => false,
     transforming: () => transforming,
     gizmo: () => gizmo,

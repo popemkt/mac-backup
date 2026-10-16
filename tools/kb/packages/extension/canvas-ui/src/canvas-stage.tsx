@@ -19,7 +19,8 @@ interface CanvasStageProps {
   selection: CanvasSelection;
   pan: { x: number; y: number };
   zoom: number;
-  spaceDown: boolean;
+  /** A press pans, whatever it lands on: Space is held, or the hand tool is armed. */
+  panning: boolean;
   toolState: ToolState;
   editingEdgeLabel: string | null;
   edgeDrag: Extract<NonNullable<PointerState["drag"]>, { kind: "edge" }> | null;
@@ -83,7 +84,7 @@ export function CanvasStage({
   selection,
   pan,
   zoom,
-  spaceDown,
+  panning,
   toolState,
   editingEdgeLabel,
   edgeDrag,
@@ -113,7 +114,7 @@ export function CanvasStage({
       data-canvas-viewport
       className={cn(
         "relative min-h-0 flex-1 overflow-hidden",
-        spaceDown
+        panning
           ? "cursor-grab"
           : toolState.tool !== "select"
             ? "cursor-crosshair"
@@ -128,7 +129,7 @@ export function CanvasStage({
       onWheel={onWheel}
       onPointerDownCapture={(event) => {
         if (onModalPress(event)) return;
-        if (event.button === 1 || spaceDown || (event.button === 0 && event.altKey)) {
+        if (event.button === 1 || panning || (event.button === 0 && event.altKey)) {
           event.preventDefault();
           event.stopPropagation();
           onPointerDownStage(event);

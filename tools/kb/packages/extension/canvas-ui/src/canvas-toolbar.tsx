@@ -8,6 +8,7 @@ import {
   CylinderIcon,
   DiamondIcon,
   FrameCornersIcon,
+  HandIcon,
   ImageIcon,
   LineSegmentIcon,
   PlusIcon,
@@ -34,6 +35,7 @@ const TOOL_LOOKS: {
   readonly [T in CanvasTool]: { readonly label: string; readonly icon: ReactNode };
 } = {
   select: { label: "Select", icon: <CursorIcon size={16} /> },
+  hand: { label: "Hand: a press pans", icon: <HandIcon size={16} /> },
   text: { label: "Text", icon: <TextTIcon size={16} /> },
   label: { label: "Label: faces you in 3D", icon: <TagIcon size={16} /> },
   rect: { label: "Rectangle", icon: <SquareIcon size={16} /> },
@@ -55,6 +57,7 @@ const TOOL_LOOKS: {
 /** The flat tools, in the strip's order; the solids sit behind one button after them. */
 const FLAT_TOOLS: readonly CanvasTool[] = [
   "select",
+  "hand",
   "text",
   "label",
   "rect",

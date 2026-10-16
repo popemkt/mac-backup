@@ -18,8 +18,8 @@ import {
   type CanvasPresetKind,
 } from "@kb/canvas";
 
-/** Select, or a tool that places its preset. */
-export type CanvasTool = "select" | CanvasPresetKind;
+/** Select, the hand (a press pans), or a tool that places its preset. */
+export type CanvasTool = "select" | "hand" | CanvasPresetKind;
 
 /** What a key or a button picks: a tool, or the solid tool (whichever solid it last made). */
 export type CanvasToolPick = CanvasTool | "solid";
@@ -36,6 +36,16 @@ export type ToolAction =
   | { type: "set-tool-sticky"; tool: CanvasToolPick }
   | { type: "escape" }
   | { type: "placed" };
+
+/** Whether `tool` places a preset, rather than taking hold of what is there. */
+function isPresetTool(tool: CanvasToolPick): tool is CanvasPresetKind {
+  return tool !== "select" && tool !== "hand" && tool !== "solid";
+}
+
+/** Whether a press pans, whatever it lands on: Space is held, or the hand tool is armed. */
+export function pressPans(state: ToolState, spaceHeld: boolean): boolean {
+  return spaceHeld || state.tool === "hand";
+}
 
 /** Whether `tool` places a solid (a preset with depth). */
 export function isSolidTool(tool: CanvasTool): tool is CanvasPresetKind {
@@ -81,7 +91,7 @@ const CHOOSERS: { readonly [P in CanvasPresetKind]?: CanvasChooser } = {
 
 /** The chooser `pick` opens, or null for a tool that is armed. */
 function chooserOf(pick: CanvasToolPick): CanvasChooser | null {
-  return pick === "select" || pick === "solid" ? null : (CHOOSERS[pick] ?? null);
+  return isPresetTool(pick) ? (CHOOSERS[pick] ?? null) : null;
 }
 
 /**
@@ -105,8 +115,8 @@ export function pickTool(
     to.choose(chooser);
     return;
   }
-  // Select places nothing, so it has nothing to repeat.
-  const repeats = sticky && pick !== "select";
+  // Select and the hand place nothing, so they have nothing to repeat.
+  const repeats = sticky && pick !== "select" && pick !== "hand";
   to.setToolState((state) =>
     reduceCanvasTool(state, { type: repeats ? "set-tool-sticky" : "set-tool", tool: pick }),
   );
@@ -117,7 +127,7 @@ export function pickTool(
  * those placed with something chosen first (`chooserOf`).
  */
 export function placesItem(tool: CanvasTool): boolean {
-  return tool !== "select" && chooserOf(tool) === null;
+  return isPresetTool(tool) && chooserOf(tool) === null;
 }
 
 /**
@@ -132,7 +142,7 @@ export function placeWithTool(
   id: string,
   face: CanvasFrame | null = null,
 ): { doc: CanvasDoc; node: CanvasNode; nextTool: CanvasTool } | null {
-  if (tool === "select" || !placesItem(tool)) return null;
+  if (!isPresetTool(tool) || !placesItem(tool)) return null;
   const preset = presetItem(tool, world, id);
   const node =
     face === null

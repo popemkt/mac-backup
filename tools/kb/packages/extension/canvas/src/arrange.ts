@@ -1,7 +1,10 @@
 /**
  * Laying items out (plan 2026-10-02, decision 16): a row, a column, a grid,
  * a ring or a stack, or layers, where an item's height follows a value its
- * node holds — a 3D view of the graph that an agent never places by hand.
+ * node holds — a 3D view of the graph that an agent never places by hand —
+ * and lined up along an edge or spread evenly. Also the other acts on a
+ * set's arrangement: the order it paints in (`orderItems`) and a mirror of
+ * it (`flipItems`).
  * Each item moves through the one transform path, carrying its members as
  * an edit of its box does (`editItem`), lands on the floor plan as a carry
  * lands (`snapToSurface`) unless the layout sets its height, and belongs
@@ -9,14 +12,34 @@
  */
 import { boxBounds, boxFrame, type CanvasBounds, type CanvasVec } from "./box.ts";
 import type { CanvasDoc, CanvasNode } from "./doc.ts";
+import { mirroredEnd } from "./edges.ts";
 import { carriedBy, editItem, settleMembership } from "./membership.ts";
 import { boundsCentre, itemBounds } from "./relations.ts";
 import { GRID_STEP, snapToSurface } from "./snap.ts";
-import { moveBy, transformItem } from "./transform.ts";
+import {
+  moveBy,
+  reflectItem,
+  selectionPivot,
+  transformItem,
+  type CanvasFlipAxis,
+} from "./transform.ts";
 
 /** The layouts, each named as an agent asks for it. */
-export const CANVAS_LAYOUTS = ["row", "column", "grid", "ring", "stack", "layers"] as const;
+export const CANVAS_LAYOUTS = [
+  "row",
+  "column",
+  "grid",
+  "ring",
+  "stack",
+  "layers",
+  "align",
+  "distribute",
+] as const;
 export type CanvasLayout = (typeof CANVAS_LAYOUTS)[number];
+
+/** The edge an `align` lines items up on: one of the set's sides, or its middle across or down. */
+export const CANVAS_ALIGN_EDGES = ["left", "centre", "right", "top", "middle", "bottom"] as const;
+export type CanvasAlignEdge = (typeof CANVAS_ALIGN_EDGES)[number];
 
 /** A value an item's layer is ordered by: a number, or words. */
 export type CanvasLayerValue = number | string;
@@ -30,6 +53,10 @@ export interface CanvasArrangement {
   readonly columns?: number;
   /** For layers: the value an item's layer is ordered by; undefined puts it on the lowest layer. */
   readonly layerOf?: (item: CanvasNode) => CanvasLayerValue | undefined;
+  /** For align: the edge lined up on; the set's left when absent. */
+  readonly edge?: CanvasAlignEdge;
+  /** For distribute: the floor axis spread along; x when absent. */
+  readonly axis?: CanvasFlipAxis;
 }
 
 /** How far apart layers stand by default, canvas units: a tall card's height and room above it. */
@@ -111,6 +138,53 @@ function stackSlots(bounds: readonly CanvasBounds[]): Slot[] {
   });
 }
 
+/** Each item's edge on the set's: across for left, centre and right, down for the rest. */
+function alignSlots(
+  bounds: readonly CanvasBounds[],
+  all: CanvasBounds,
+  edge: CanvasAlignEdge,
+): Slot[] {
+  const across = edge === "left" || edge === "centre" || edge === "right";
+  const axis = across ? "x" : "y";
+  return bounds.map((b) => {
+    const centre = boundsCentre(b);
+    const half = extentOf(b)[axis] / 2;
+    const at =
+      edge === "left" || edge === "top"
+        ? all.min[axis] + half
+        : edge === "right" || edge === "bottom"
+          ? all.max[axis] - half
+          : (all.min[axis] + all.max[axis]) / 2;
+    return across ? { x: at, y: centre.y } : { x: centre.x, y: at };
+  });
+}
+
+/**
+ * The items spread along `axis` so the room between neighbours is even,
+ * the first and the last where they stand, in the order they stand.
+ */
+function distributeSlots(bounds: readonly CanvasBounds[], axis: CanvasFlipAxis): Slot[] {
+  const order = bounds
+    .map((b, i) => ({ i, at: boundsCentre(b)[axis] }))
+    .toSorted((a, b) => a.at - b.at)
+    .map(({ i }) => i);
+  const sizes = bounds.map((b) => extentOf(b)[axis]);
+  const first = bounds[order[0] ?? 0];
+  const last = bounds[order.at(-1) ?? 0];
+  const slots: Slot[] = bounds.map((b) => boundsCentre(b));
+  if (first === undefined || last === undefined || bounds.length < 3) return slots;
+  const span = last.max[axis] - first.min[axis];
+  const room = (span - sizes.reduce((sum, s) => sum + s, 0)) / (bounds.length - 1);
+  let cursor = first.min[axis];
+  for (const i of order) {
+    const size = sizes[i] ?? 0;
+    const centre = slots[i];
+    if (centre !== undefined) slots[i] = { ...centre, [axis]: cursor + size / 2 };
+    cursor += size + room;
+  }
+  return slots;
+}
+
 /** Words and numbers in one order: numbers first, ascending, then words as a reader sorts them. */
 function byValue(a: CanvasLayerValue, b: CanvasLayerValue): number {
   if (typeof a === "number" && typeof b === "number") return a - b;
@@ -165,6 +239,8 @@ const LAYOUT_SLOTS: { readonly [L in CanvasLayout]: (input: LayoutInput) => Slot
   stack: ({ bounds }) => stackSlots(bounds),
   layers: ({ arrangement, items, bounds, gap }) =>
     layerSlots(items, bounds, gap, arrangement.layerOf ?? (() => undefined)),
+  align: ({ arrangement, bounds, all }) => alignSlots(bounds, all, arrangement.edge ?? "left"),
+  distribute: ({ arrangement, bounds }) => distributeSlots(bounds, arrangement.axis ?? "x"),
 };
 
 function slotsFor(
@@ -209,6 +285,62 @@ export function arrangeItems(
     const spot = transformItem(item, moveBy(boxFrame(item).centre, { ...by, z: rise }));
     next = editItem(next, spot);
   });
+  return settleMembership(
+    next,
+    items.map((item) => item.id),
+  );
+}
+
+/** Where a set's paint order moves it: to the front or the back, or one step either way. */
+export const CANVAS_ORDERS = ["front", "back", "forward", "backward"] as const;
+export type CanvasOrder = (typeof CANVAS_ORDERS)[number];
+
+/**
+ * `doc` with the items `ids` name, and their members, moved in the order
+ * the canvas paints in (document order, among items at one height,
+ * `paintOrder`): all of them in front of the rest or behind them, or each
+ * one step past the next item that is not moved. A frame still paints
+ * under what it holds, wherever it stands in the order.
+ */
+export function orderItems(doc: CanvasDoc, ids: readonly string[], order: CanvasOrder): CanvasDoc {
+  const { items, members } = carriedBy(doc.nodes, ids);
+  const moved = new Set([...items, ...members].map((node) => node.id));
+  if (moved.size === 0) return doc;
+  const isMoved = (node: CanvasNode | undefined) => node !== undefined && moved.has(node.id);
+  if (order === "front" || order === "back") {
+    const kept = doc.nodes.filter((node) => !moved.has(node.id));
+    const taken = doc.nodes.filter((node) => moved.has(node.id));
+    return { ...doc, nodes: order === "front" ? [...kept, ...taken] : [...taken, ...kept] };
+  }
+  const nodes = [...doc.nodes];
+  const step = order === "forward" ? 1 : -1;
+  const indices = nodes.map((_, i) => i);
+  for (const i of step === 1 ? indices.toReversed() : indices) {
+    const [here, there] = [nodes[i], nodes[i + step]];
+    if (here === undefined || there === undefined || !isMoved(here) || isMoved(there)) continue;
+    nodes[i] = there;
+    nodes[i + step] = here;
+  }
+  return { ...doc, nodes };
+}
+
+/**
+ * `doc` with the items `ids` name, and their members, mirrored along
+ * `axis` through the middle of the box round them (`reflectItem`), the
+ * edges they meet meeting them where they did, as one act.
+ */
+export function flipItems(doc: CanvasDoc, ids: readonly string[], axis: CanvasFlipAxis): CanvasDoc {
+  const { items, members } = carriedBy(doc.nodes, ids);
+  if (items.length === 0) return doc;
+  const pivot = selectionPivot(items);
+  const flipped = new Map(
+    [...items, ...members].map((node) => [node.id, reflectItem(node, axis, pivot)]),
+  );
+  const edges = doc.edges.map((edge) => {
+    const from = flipped.has(edge.fromNode) ? mirroredEnd(edge, "from", axis) : edge;
+    return flipped.has(edge.toNode) ? mirroredEnd(from, "to", axis) : from;
+  });
+  const next = { ...doc, nodes: doc.nodes.map((node) => flipped.get(node.id) ?? node), edges };
   return settleMembership(
     next,
     items.map((item) => item.id),

@@ -13,6 +13,7 @@ import {
   canvasMembership,
   connectItems,
   describeCanvas,
+  flipItems,
   directionFrom,
   facingSides,
   groupItems,
@@ -21,12 +22,14 @@ import {
   lintCanvas,
   lintDiff,
   makeItem,
+  orderItems,
   overlaps,
   parseCanvasDoc,
   placeItem,
   promoteItem,
   promotableText,
   restingOn,
+  selectionPivot,
   CanvasRelationError,
   type CanvasDoc,
   type CanvasNode,
@@ -299,6 +302,124 @@ describe("arrange", () => {
     const row = arrangeItems(d, ["o", "f"], { layout: "row" });
     expect(item(row, "m").x - item(row, "f").x).toBeCloseTo(20, 6);
     expect(canvasMembership(row.nodes).parentOf("m")).toBe("f");
+  });
+});
+
+/** Where an item's footprint is centred across. */
+const centreX = (n: CanvasNode) => n.x + n.width / 2;
+
+describe("align, spread, order and flip", () => {
+  const three = doc(card("a", 0, 0), card("b", 500, 300), card("c", 40, 900, { width: 200 }));
+  const ids = ["a", "b", "c"];
+  const at = (d: CanvasDoc, id: string) => {
+    const { x, y } = item(d, id);
+    return { x, y };
+  };
+
+  test("align lines each item's edge up on the box round the set", () => {
+    const left = arrangeItems(three, ids, { layout: "align", edge: "left" });
+    expect(ids.map((id) => item(left, id).x)).toEqual([0, 0, 0]);
+    expect(ids.map((id) => item(left, id).y)).toEqual([0, 300, 900]);
+    const right = arrangeItems(three, ids, { layout: "align", edge: "right" });
+    expect(ids.map((id) => item(right, id).x + item(right, id).width)).toEqual([600, 600, 600]);
+    const middle = arrangeItems(three, ids, { layout: "align", edge: "middle" });
+    expect(ids.map((id) => item(middle, id).y + 30)).toEqual([480, 480, 480]);
+    const centre = arrangeItems(three, ids, { layout: "align", edge: "centre" });
+    expect(item(centre, "c").x + 100).toBe(300);
+  });
+
+  test("distribute evens the room between neighbours, the ends standing still", () => {
+    const d = doc(card("a", 0, 0), card("b", 150, 0), card("c", 600, 0, { width: 200 }));
+    const spread = arrangeItems(d, ids, { layout: "distribute", axis: "x" });
+    expect(at(spread, "a")).toEqual({ x: 0, y: 0 });
+    expect(at(spread, "c")).toEqual({ x: 600, y: 0 });
+    // 800 across, 400 of it items: 200 of room either side of b.
+    expect(item(spread, "b").x).toBe(300);
+  });
+
+  test("distribute leaves two items where they are", () => {
+    const two = doc(card("a", 0, 0), card("b", 150, 40));
+    const spread = arrangeItems(two, ["a", "b"], { layout: "distribute", axis: "y" });
+    expect([at(spread, "a"), at(spread, "b")]).toEqual([at(two, "a"), at(two, "b")]);
+  });
+
+  test("order moves the set to either end, or one step past its neighbour", () => {
+    const four = doc(card("a", 0, 0), card("b", 0, 0), card("c", 0, 0), card("d", 0, 0));
+    const ordered = (order: "front" | "back" | "forward" | "backward", which: string[]) =>
+      orderItems(four, which, order).nodes.map((n) => n.id);
+    expect(ordered("front", ["a", "c"])).toEqual(["b", "d", "a", "c"]);
+    expect(ordered("back", ["d", "b"])).toEqual(["b", "d", "a", "c"]);
+    expect(ordered("forward", ["a", "b"])).toEqual(["c", "a", "b", "d"]);
+    expect(ordered("backward", ["c"])).toEqual(["a", "c", "b", "d"]);
+    expect(ordered("forward", ["d"])).toEqual(["a", "b", "c", "d"]);
+    expect(orderItems(four, ["none"], "front")).toBe(four);
+  });
+
+  test("order carries a frame's members with it", () => {
+    const d = doc(
+      frame("f", [0, 0, 200, 200]),
+      card("m", 20, 20, { parent: "f" }),
+      card("o", 400, 0),
+    );
+    expect(orderItems(d, ["f"], "front").nodes.map((n) => n.id)).toEqual(["o", "f", "m"]);
+  });
+
+  test("flip mirrors each item through the set's middle, and its turn with it", () => {
+    const flat = flipItems(doc(card("a", 0, 0), card("b", 300, 0)), ["a", "b"], "x");
+    expect([at(flat, "a"), at(flat, "b")]).toEqual([
+      { x: 300, y: 0 },
+      { x: 0, y: 0 },
+    ]);
+    const d = doc(card("a", 0, 0, { rotation: { z: 30 } }), card("b", 300, 0));
+    const flipped = flipItems(d, ["a", "b"], "x");
+    // The middle is the box round the turned corners; each centre lands across it.
+    const middle = selectionPivot(d.nodes).x;
+    expect(centreX(item(flipped, "a")) + centreX(item(d, "a"))).toBeCloseTo(2 * middle, 3);
+    expect(item(flipped, "a").rotation).toEqual({ z: -30 });
+    expect(flipItems(flipped, ["a", "b"], "x")).toEqual(d);
+  });
+
+  test("flip mirrors a line's points inside its box", () => {
+    const line = node({
+      id: "l",
+      type: "path",
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+      points: [
+        { x: 0, y: 0 },
+        { x: 1, y: 0.25 },
+      ],
+    });
+    const flipped = flipItems(doc(line), ["l"], "y");
+    expect(item(flipped, "l")).toMatchObject({
+      x: 0,
+      y: 0,
+      points: [
+        { x: 0, y: 1 },
+        { x: 1, y: 0.75 },
+      ],
+    });
+  });
+
+  test("flip keeps an edge on the side it met, mirrored, and an anchor where it was", () => {
+    const d: CanvasDoc = {
+      nodes: [card("a", 0, 0), card("b", 400, 0)],
+      edges: [
+        {
+          id: "e",
+          fromNode: "a",
+          toNode: "b",
+          fromSide: "right",
+          toAnchor: { x: 0.2, y: 0.9 },
+        },
+      ],
+    };
+    const [edge] = flipItems(d, ["a", "b"], "x").edges;
+    expect(edge).toMatchObject({ fromSide: "left", toAnchor: { x: 0.8, y: 0.9 } });
+    const [down] = flipItems(d, ["a"], "y").edges;
+    expect(down).toMatchObject({ fromSide: "right", toAnchor: { x: 0.2, y: 0.9 } });
   });
 });
 

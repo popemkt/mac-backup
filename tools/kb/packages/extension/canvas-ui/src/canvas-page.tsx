@@ -32,6 +32,7 @@ import {
 } from "@kb/ui-sdk";
 import { useCanvasProjection } from "./use-canvas-projection";
 import { CanvasOverlays } from "./canvas-overlays";
+import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasStage } from "./canvas-stage";
 import { CanvasViewWidget } from "./canvas-view-widget";
 import { useCanvasDoc } from "./use-canvas-doc";
@@ -46,7 +47,7 @@ import { useCanvasCapture } from "./canvas-capture";
 import { useCanvasSelection } from "./use-canvas-selection";
 import { listRefFields } from "./canvas-api";
 import { classifyCardPointer } from "./card-pointer";
-import { placesItem, type CanvasChooser, type ToolState } from "./canvas-tool";
+import { placesItem, pressPans, type CanvasChooser, type ToolState } from "./canvas-tool";
 import type { PresentAct } from "./canvas-keymap";
 import { FIRST_GIZMO, type GizmoChoice } from "./canvas-gizmo";
 import { viewOfPan } from "./canvas-camera";
@@ -117,6 +118,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const [spaceDown, setSpaceDown] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [toolState, setToolState] = useState<ToolState>({ tool: "select" });
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const panning = pressPans(toolState, spaceDown);
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [gizmo, setGizmo] = useState<GizmoChoice>(FIRST_GIZMO);
@@ -261,7 +264,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     pointerRef,
     pan,
     zoom,
-    spaceDown,
+    panning,
     toolState,
     dispatchPointer,
     schedulePersist,
@@ -336,6 +339,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     viewport,
     chooseProjection: projection.choose,
     openViewMenu: () => setViewMenuOpen(true),
+    openShortcuts: () => setShortcutsOpen(true),
   });
 
   const { onDeleteEdge, onFieldChange, onModeChange } = createCanvasEdgeActions({
@@ -395,7 +399,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           )}
           aria-hidden={in3d}
           onPointerDownCapture={(e) => {
-            if (modal || e.button !== 0 || spaceDown || e.altKey) return;
+            if (modal || e.button !== 0 || panning || e.altKey) return;
             const card = byId.get(cardIdAt(e.target) ?? "");
             // A press on empty canvas steps out of the group entered.
             if (card === undefined) {
@@ -440,7 +444,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             selection={selection}
             pan={pan}
             zoom={zoom}
-            spaceDown={spaceDown}
+            panning={panning}
             toolState={toolState}
             editingEdgeLabel={editingEdgeLabel}
             edgeDrag={pointerState.drag?.kind === "edge" ? pointerState.drag : null}
@@ -491,7 +495,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 selection={selection}
                 rig={projection.rig}
                 appearance={appearance}
-                spaceDown={spaceDown}
+                panning={panning}
                 placing={placesItem(toolState.tool)}
                 transforming={modal}
                 gizmo={gizmo}
@@ -545,6 +549,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             size={projection.camera().size}
           />
         )}
+        <CanvasShortcutsSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
         <CanvasOverlays
           transforming={modal}
           scope={scope === null ? null : (byId.get(scope) ?? null)}
@@ -570,18 +575,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           refFields={refFields}
           onToolChange={setTool}
           onToolDoubleClick={setToolSticky}
-          onBringToFront={() => {
-            const current = docRef.current;
-            const kept = current.nodes.filter((node) => !selection.nodeIds.has(node.id));
-            const moved = current.nodes.filter((node) => selection.nodeIds.has(node.id));
-            schedulePersist({ ...current, nodes: [...kept, ...moved] });
-          }}
-          onSendToBack={() => {
-            const current = docRef.current;
-            const moved = current.nodes.filter((node) => selection.nodeIds.has(node.id));
-            const kept = current.nodes.filter((node) => !selection.nodeIds.has(node.id));
-            schedulePersist({ ...current, nodes: [...moved, ...kept] });
-          }}
+          onBringToFront={() => applyIntent({ type: "order", order: "front" })}
+          onSendToBack={() => applyIntent({ type: "order", order: "back" })}
           onDeleteSelection={() => {
             schedulePersist(deleteSelected(docRef.current, selection));
             setSelection(EMPTY_SELECTION);

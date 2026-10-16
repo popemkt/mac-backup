@@ -285,7 +285,7 @@ function stageProps(current: CanvasDoc, scene: ProbeScene, pan: Point, zoom: num
     selection: scene.selection,
     pan,
     zoom,
-    spaceDown: false,
+    panning: false,
     onModalPress: () => false,
     toolState: { tool: "select" as const },
     editingEdgeLabel: null,

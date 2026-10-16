@@ -4,14 +4,18 @@ import { ulid } from "ulid";
 import type { CanvasDoc, CanvasNode, CanvasProjectionKind } from "@kb/canvas";
 import {
   GRID_STEP,
+  arrangeItems,
   carriedBy,
   carriedPart,
+  flipItems,
   groupItems,
   moveBy,
+  orderItems,
   parseCanvasDoc,
   pasteItems,
   selectionPivot,
   settleMembership,
+  stringifyCanvasDoc,
   transformCarried,
   ungroupItems,
 } from "@kb/canvas";
@@ -84,6 +88,8 @@ interface CanvasKeyboardContext {
   viewport: CanvasViewportControls;
   chooseProjection: (kind: CanvasProjectionKind) => void;
   openViewMenu: () => void;
+  /** Open the sheet listing every shortcut. */
+  openShortcuts: () => void;
 }
 
 /** Pasted and duplicated content lands this far from its origin. */
@@ -204,6 +210,19 @@ function nudgeSelection(context: CanvasKeyboardContext, dx: number, dy: number) 
   );
 }
 
+/** The selection's items changed by `act` as one change; nothing when nothing is selected or changes. */
+function arrangeSelection(
+  context: CanvasKeyboardContext,
+  act: (doc: CanvasDoc, ids: readonly string[]) => CanvasDoc,
+): void {
+  const ids = [...context.selRef.current.nodeIds];
+  if (ids.length === 0) return;
+  const doc = context.docRef.current;
+  const next = act(doc, ids);
+  // An arrangement that leaves every item where it was is no undo step.
+  if (stringifyCanvasDoc(next) !== stringifyCanvasDoc(doc)) context.schedulePersist(next);
+}
+
 function chooseTool(context: CanvasKeyboardContext, tool: CanvasToolPick) {
   pickTool(tool, false, context);
 }
@@ -281,6 +300,7 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
   toggleLens: (context) => context.viewport.toggleLens(),
   projection: (context, intent) => context.chooseProjection(intent.kind),
   viewMenu: (context) => context.openViewMenu(),
+  shortcuts: (context) => context.openShortcuts(),
   transform: (context, intent) => applyTransformAct(context, intent.act),
   group: groupSelection,
   ungroup: ungroupSelection,
@@ -289,6 +309,18 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
     if (frame !== undefined) context.viewport.faceOn(frame);
   },
   present: (context, intent) => context.present(intent.act),
+  order: (context, intent) =>
+    arrangeSelection(context, (doc, ids) => orderItems(doc, ids, intent.order)),
+  flip: (context, intent) =>
+    arrangeSelection(context, (doc, ids) => flipItems(doc, ids, intent.axis)),
+  align: (context, intent) =>
+    arrangeSelection(context, (doc, ids) =>
+      arrangeItems(doc, ids, { layout: "align", edge: intent.edge }),
+    ),
+  distribute: (context, intent) =>
+    arrangeSelection(context, (doc, ids) =>
+      arrangeItems(doc, ids, { layout: "distribute", axis: intent.axis }),
+    ),
 };
 
 /** Apply `intent` through the applier its kind names. */

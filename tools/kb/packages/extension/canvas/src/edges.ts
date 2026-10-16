@@ -162,6 +162,28 @@ export function withEnd(
   return next;
 }
 
+/** Each side, and the side a mirror along each floor axis makes of it. */
+const MIRRORED_SIDES: { readonly [A in "x" | "y"]: { readonly [S in CanvasSide]: CanvasSide } } = {
+  x: { left: "right", right: "left", top: "top", bottom: "bottom" },
+  y: { left: "left", right: "right", top: "bottom", bottom: "top" },
+};
+
+/**
+ * `edge` with its `end` meeting its item where it did once the item is
+ * mirrored along `axis` (`reflectItem`): its anchor, or its side, mirrored
+ * across the item's box.
+ */
+export function mirroredEnd(edge: CanvasEdge, end: EdgeEnd, axis: "x" | "y"): CanvasEdge {
+  const anchor = end === "from" ? edge.fromAnchor : edge.toAnchor;
+  if (anchor !== undefined) {
+    const mirrored =
+      axis === "x" ? { x: 1 - anchor.x, y: anchor.y } : { x: anchor.x, y: 1 - anchor.y };
+    return withEnd(edge, end, { anchor: mirrored });
+  }
+  const side = (end === "from" ? edge.fromSide : edge.toSide) ?? DEFAULT_SIDES[end];
+  return withEnd(edge, end, { side: MIRRORED_SIDES[axis][side] });
+}
+
 /** A point `reach` out of the side `terminal` faces: a curve's control there. */
 function leaving(terminal: EdgeTerminal, reach: number): { x: number; y: number } {
   return {

@@ -19,10 +19,12 @@ import {
   CANVAS_ALIGNS,
   CANVAS_DASHES,
   CANVAS_DIRECTIONS,
+  CANVAS_ALIGN_EDGES,
   CANVAS_FILLS,
   CANVAS_FONTS,
   CANVAS_HEADS,
   CANVAS_LAYOUTS,
+  CANVAS_ORDERS,
   CANVAS_PALETTE,
   CANVAS_PRESET_KINDS,
   CANVAS_ROUTES,
@@ -35,12 +37,14 @@ import {
   canvasMembership,
   connectItems,
   describeCanvas,
+  flipItems,
   groupItems,
   isGroupNode,
   itemBounds,
   itemKind,
   lintCanvas,
   makeItem,
+  orderItems,
   placeItem,
   promotableText,
   promoteItem,
@@ -458,18 +462,40 @@ const arrangeInput = z
     ids: z.array(z.string()).min(1).describe("the items, in the order laid out"),
     layout: z
       .enum(CANVAS_LAYOUTS)
+      .optional()
       .describe(
-        "row, column, grid, ring, stack (each on the one before), or layers (height by a field's value)",
+        "row, column, grid, ring, stack (each on the one before), layers (height by a field's " +
+          "value), align (on an edge), or distribute (evenly along an axis)",
       ),
+    order: z
+      .enum(CANVAS_ORDERS)
+      .optional()
+      .describe(
+        "instead of a layout: paint them in front of the rest, behind, or one step either way",
+      ),
+    flip: z
+      .enum(["x", "y"])
+      .optional()
+      .describe("instead of a layout: mirror them, left for right (x) or top for bottom (y)"),
     gap: z.number().min(0).optional().describe("room between neighbours, or between layers"),
     columns: z.number().int().positive().optional().describe("a grid's items per row"),
     field: z
       .string()
       .optional()
       .describe("layers: the field whose value on each item's node sets its layer"),
+    edge: z.enum(CANVAS_ALIGN_EDGES).optional().describe("align: the edge they line up on"),
+    axis: z.enum(["x", "y"]).optional().describe("distribute: the axis they spread along"),
   })
+  .refine(
+    (input) =>
+      [input.layout, input.order, input.flip].filter((act) => act !== undefined).length === 1,
+    { message: "arrange takes one of a layout, an order or a flip" },
+  )
   .refine((input) => input.layout !== "layers" || input.field !== undefined, {
     message: "layers take the field their values come from",
+  })
+  .refine((input) => input.layout !== "align" || input.edge !== undefined, {
+    message: "align takes the edge to line up on",
   });
 const arrangeOutput = z.object({
   canvasId: z.string(),
@@ -499,12 +525,17 @@ const canvasArrangeEffect = Effect.fn("ext.canvas.arrange")(function* (
   const fieldId =
     field === undefined ? undefined : yield* canvasStep(() => resolveFieldId(ctx.nodes, field));
   const nodes = new Map(ctx.nodes.map((node) => [node.id, node]));
+  const { layout, order, flip } = input;
   const doc = yield* canvasStep(() => {
     requireItems(before, input.ids);
+    if (order !== undefined) return orderItems(before, input.ids, order);
+    if (flip !== undefined) return flipItems(before, input.ids, flip);
     return arrangeItems(before, input.ids, {
-      layout: input.layout,
+      layout: layout ?? "row",
       ...(input.gap === undefined ? {} : { gap: input.gap }),
       ...(input.columns === undefined ? {} : { columns: input.columns }),
+      ...(input.edge === undefined ? {} : { edge: input.edge }),
+      ...(input.axis === undefined ? {} : { axis: input.axis }),
       ...(fieldId === undefined
         ? {}
         : { layerOf: (item: CanvasNode) => layerValue(nodes, item.nodeId, fieldId) }),
@@ -781,7 +812,9 @@ export const CANVAS_VERBS: ExtensionAction[] = [
     title: "Arrange items",
     description:
       "Lay items out as a row, column, grid, ring or stack, or as layers whose height follows a " +
-      "field's value on each item's node. A frame's members move with it. One write (one undo step).",
+      "field's value on each item's node; line them up on an edge or spread them evenly; or, " +
+      "instead, move them in the paint order (front, back, one step) or mirror them (flip x or " +
+      "y). A frame's members move with it. One write (one undo step).",
     mode: { kind: "write" },
     inputSchema: arrangeInput,
     outputSchema: arrangeOutput,

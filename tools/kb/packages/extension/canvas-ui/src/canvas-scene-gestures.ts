@@ -45,7 +45,7 @@ export interface SceneGestureHost {
   readonly size: () => ViewSize;
   readonly items: () => readonly CanvasNode[];
   readonly selection: () => CanvasSelection;
-  readonly spaceDown: () => boolean;
+  readonly panning: () => boolean;
   /** A tool that places an item is active. */
   readonly placing: () => boolean;
   /** A modal transform (G, S, E) is under way. */
@@ -108,7 +108,7 @@ export class SceneGestures {
       this.host.dispatch({ type: "transform/press", button: press.button, ctrlKey: press.ctrlKey });
       return false;
     }
-    const pans = press.button === 1 || press.button === 2 || this.host.spaceDown();
+    const pans = press.button === 1 || press.button === 2 || this.host.panning();
     if (!pans && press.button !== 0) return false;
     if (!pans && this.host.gizmo().press(press.local)) {
       this.gesture = { kind: "gizmo" };

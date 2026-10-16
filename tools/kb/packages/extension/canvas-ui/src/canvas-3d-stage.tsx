@@ -27,7 +27,8 @@ export interface Canvas3dStageProps {
   readonly selection: CanvasSelection;
   readonly rig: CanvasCameraRig;
   readonly appearance: Appearance;
-  readonly spaceDown: boolean;
+  /** A press pans, whatever it lands on: Space is held, or the hand tool is armed. */
+  readonly panning: boolean;
   /** A tool that places an item is active: it sees through frames to the floor. */
   readonly placing: boolean;
   /** A modal transform (G, S, E) is under way: a press ends it. */
@@ -110,7 +111,7 @@ function useSceneGestures(
       size: () => (el === null ? { width: 1, height: 1 } : sizeOf(el)),
       items: () => props.doc.nodes,
       selection: () => props.selection,
-      spaceDown: () => props.spaceDown,
+      panning: () => props.panning,
       placing: () => props.placing,
       transforming: () => props.transforming,
       gizmo: () => scene?.gizmo ?? NO_GIZMO,
@@ -180,7 +181,7 @@ const IDLE: SceneGestureHost = {
   size: () => ({ width: 1, height: 1 }),
   items: () => [],
   selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
-  spaceDown: () => false,
+  panning: () => false,
   placing: () => false,
   transforming: () => false,
   gizmo: () => NO_GIZMO,

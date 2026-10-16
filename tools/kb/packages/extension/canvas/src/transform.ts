@@ -7,7 +7,14 @@
  * those numbers and nothing else.
  */
 import { boxCorners, boxFrame, type CanvasBox, type CanvasVec } from "./box.ts";
-import { withDepth, withElevation, withRotation, type CanvasDoc, type CanvasNode } from "./doc.ts";
+import {
+  isPathNode,
+  withDepth,
+  withElevation,
+  withRotation,
+  type CanvasDoc,
+  type CanvasNode,
+} from "./doc.ts";
 import {
   IDENTITY,
   apply,
@@ -194,6 +201,47 @@ export function motionBetween(before: CanvasBox, after: CanvasBox): CanvasTransf
     // The same turn before and after is no turn, whatever float noise R·Rᵀ leaves.
     turn: turn.every((v, i) => Math.abs(v - (IDENTITY[i] ?? 0)) < 1e-9) ? IDENTITY : turn,
   };
+}
+
+/** The floor axis a flip mirrors along: x swaps left and right, y the top and the bottom. */
+export type CanvasFlipAxis = "x" | "y";
+
+/** Each flip's mirror, as a matrix in the canvas's own axes. */
+const MIRRORS: { readonly [A in CanvasFlipAxis]: CanvasMatrix } = {
+  x: [-1, 0, 0, 0, 1, 0, 0, 0, 1],
+  y: [1, 0, 0, 0, -1, 0, 0, 0, 1],
+};
+
+/**
+ * `node` mirrored along `axis` through `pivot`: its centre reflected, its
+ * turn reflected (the mirror's conjugate of it, still a turn, which a
+ * record can hold), and what it draws inside its box mirrored along the
+ * same axis of the box — a line's points. Its footprint, `z` and depth
+ * stay as they were: every footprint is symmetric across its own axes.
+ */
+export function reflectItem(node: CanvasNode, axis: CanvasFlipAxis, pivot: CanvasVec): CanvasNode {
+  const frame = boxFrame(node);
+  const mirror = MIRRORS[axis];
+  const centre = apply(mirror, {
+    x: frame.centre.x - pivot.x,
+    y: frame.centre.y - pivot.y,
+    z: 0,
+  });
+  const placed = {
+    ...node,
+    x: fine(pivot.x + centre.x - node.width / 2),
+    y: fine(pivot.y + centre.y - node.height / 2),
+  };
+  const drawn = isPathNode(placed)
+    ? {
+        ...placed,
+        points: placed.points.map((p) =>
+          axis === "x" ? { x: 1 - p.x, y: p.y } : { x: p.x, y: 1 - p.y },
+        ),
+      }
+    : placed;
+  if (node.rotation === undefined) return drawn;
+  return withRotation(drawn, rotationOfMatrix(multiply(multiply(mirror, frame.matrix), mirror)));
 }
 
 /** A transform that only moves, by `by`, about `pivot`: what a nudge of the arrow keys makes. */

@@ -337,6 +337,32 @@ describe("ext.canvas.arrange", () => {
       );
     expect(directionFrom(at("b"), at("a"))).toEqual({ direction: "right", gap: 30 });
   });
+
+  test("align, order and flip are arrangements of the same verb", async () => {
+    const ctx = await canvasKb([card("a", 0, 0), card("b", 300, 200)]);
+    const xs = () => stored(ctx).nodes.map((n) => [n.id, n.x]);
+    output(await invoke(ctx, verb("arrange", { ids: ["a", "b"], layout: "align", edge: "right" })));
+    expect(xs()).toEqual([
+      ["a", 300],
+      ["b", 300],
+    ]);
+    output(await invoke(ctx, verb("arrange", { ids: ["a"], order: "front" })));
+    expect(stored(ctx).nodes.map((n) => n.id)).toEqual(["b", "a"]);
+    output(await invoke(ctx, verb("arrange", { ids: ["b"], flip: "y" })));
+    expect(stored(ctx).nodes.find((n) => n.id === "b")).toMatchObject({ x: 300, y: 200 });
+  });
+
+  test("an arrangement is exactly one of a layout, an order or a flip", async () => {
+    const ctx = await canvasKb([card("a", 0, 0), card("b", 300, 200)]);
+    for (const input of [
+      { ids: ["a", "b"] },
+      { ids: ["a", "b"], layout: "row", order: "front" },
+      { ids: ["a", "b"], order: "back", flip: "x" },
+      { ids: ["a", "b"], layout: "align" },
+    ]) {
+      expect((await invoke(ctx, verb("arrange", input))).status).not.toBe("succeeded");
+    }
+  });
 });
 
 describe("ext.canvas.connect, group, ungroup and promote", () => {

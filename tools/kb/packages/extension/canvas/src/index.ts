@@ -73,7 +73,7 @@ export {
   transformItem,
   transformItems,
 } from "./transform.ts";
-export type { CanvasTransform } from "./transform.ts";
+export type { CanvasFlipAxis, CanvasTransform } from "./transform.ts";
 export {
   TOP_AXES,
   boxBounds,
@@ -96,8 +96,21 @@ export {
 } from "./box.ts";
 export type { CanvasAxes, CanvasBounds, CanvasBox, CanvasFrame, CanvasVec } from "./box.ts";
 export { cameraLookingFrom, posesAgree, projectionOf } from "./camera.ts";
-export { CANVAS_LAYOUTS, arrangeItems } from "./arrange.ts";
-export type { CanvasArrangement, CanvasLayerValue, CanvasLayout } from "./arrange.ts";
+export {
+  CANVAS_ALIGN_EDGES,
+  CANVAS_LAYOUTS,
+  CANVAS_ORDERS,
+  arrangeItems,
+  flipItems,
+  orderItems,
+} from "./arrange.ts";
+export type {
+  CanvasAlignEdge,
+  CanvasArrangement,
+  CanvasLayerValue,
+  CanvasLayout,
+  CanvasOrder,
+} from "./arrange.ts";
 export { connectItems } from "./connect.ts";
 export { isOpenLine, itemOutline, pathHeads, withLine } from "./paths.ts";
 export type { CanvasLinePatch } from "./paths.ts";

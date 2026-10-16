@@ -2356,7 +2356,17 @@ transaction, one step of an open canvas's history.
   (`style`); a `line` or an `arrow` may be given its points and heads
   (`line`).
 - **`arrange`** lays items out as a row, column, grid, ring or stack, or as
-  layers whose height follows a field's value on each item's node.
+  layers whose height follows a field's value on each item's node; lines
+  their edges up on the box round them (`layout: "align"`, `edge`: `left`,
+  `centre`, `right`, `top`, `middle`, `bottom`) or spreads them so the room
+  between neighbours is even (`layout: "distribute"`, `axis`); moves them
+  in the paint order (`order`: `front`, `back`, `forward`, `backward`,
+  `orderItems`); or mirrors them through the middle of their box (`flip`:
+  `x` or `y`, `flipItems`: each centre, turn and line's points mirrored, and
+  the edges they meet kept on the mirrored side or anchor). One call is
+  exactly one of a layout, an order or a flip. A frame carries its members
+  through each, and the keys (⌥A, ⌥⇧H, `]`, ⇧H and the rest) reach the same
+  functions.
 - **`connect`** draws an arrow between the sides facing each other, or
   between the sides or precise anchors it is given; routed as JSON Canvas's
   curve, straight, an arc or an elbow (`route`, `bend`), each end bare or

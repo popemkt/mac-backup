@@ -36,7 +36,7 @@ interface CanvasGestureContext {
   pointerRef: RefObject<PointerState>;
   pan: PointerState["pan"];
   zoom: number;
-  spaceDown: boolean;
+  panning: boolean;
   toolState: ToolState;
   dispatchPointer: (event: CanvasPointerEvent) => PointerResult;
   schedulePersist: (doc: CanvasDoc) => void;
@@ -65,7 +65,7 @@ type StageGestureContext = Pick<
   | "setSelection"
   | "setItemInspectorAnchor"
   | "setToolState"
-  | "spaceDown"
+  | "panning"
   | "toolState"
   | "edit"
 >;
@@ -303,11 +303,11 @@ function createStageGestures(
   screenToWorld: ScreenToWorld,
   cardAt: CardAt,
 ) {
-  const { dispatchPointer, docRef, schedulePersist, setSelection, spaceDown, toolState } = context;
+  const { dispatchPointer, docRef, schedulePersist, setSelection, panning, toolState } = context;
   const placeAt = createToolPlacement(context);
   const onPointerDownStage = (e: React.PointerEvent<HTMLDivElement>) => {
     const screen = viewportPoint(e.clientX, e.clientY, e.currentTarget);
-    if (e.button === 1 || spaceDown || (e.button === 0 && e.altKey)) {
+    if (e.button === 1 || panning || (e.button === 0 && e.altKey)) {
       dispatchPointer({ type: "pan/start", screen });
       asElement(e.target)?.setPointerCapture(e.pointerId);
       return;

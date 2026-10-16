@@ -57,6 +57,24 @@ describe("with something selected", () => {
     [chord("End", { code: "Numpad1", ctrlKey: true }), { type: "look", preset: "back" }],
     [chord("5", { code: "Numpad5" }), { type: "toggleLens" }],
     [chord("`", { code: "Backquote" }), { type: "viewMenu" }],
+    [chord("?", { shiftKey: true }), { type: "shortcuts" }],
+    [chord("h"), { type: "tool", tool: "hand" }],
+    [chord("l"), { type: "tool", tool: "line" }],
+    [chord("]", { code: "BracketRight" }), { type: "order", order: "front" }],
+    [chord("[", { code: "BracketLeft" }), { type: "order", order: "back" }],
+    [chord("‘", { code: "BracketRight", altKey: true }), { type: "order", order: "forward" }],
+    [chord("“", { code: "BracketLeft", altKey: true }), { type: "order", order: "backward" }],
+    [chord("H", { shiftKey: true }), { type: "flip", axis: "x" }],
+    [chord("V", { shiftKey: true }), { type: "flip", axis: "y" }],
+    // ⌥ makes another character of a letter on a Mac: the place on the keyboard decides.
+    [chord("å", { code: "KeyA", altKey: true }), { type: "align", edge: "left" }],
+    [chord("˙", { code: "KeyH", altKey: true }), { type: "align", edge: "centre" }],
+    [chord("∂", { code: "KeyD", altKey: true }), { type: "align", edge: "right" }],
+    [chord("∑", { code: "KeyW", altKey: true }), { type: "align", edge: "top" }],
+    [chord("√", { code: "KeyV", altKey: true }), { type: "align", edge: "middle" }],
+    [chord("ß", { code: "KeyS", altKey: true }), { type: "align", edge: "bottom" }],
+    [chord("Ó", { code: "KeyH", altKey: true, shiftKey: true }), { type: "distribute", axis: "x" }],
+    [chord("◊", { code: "KeyV", altKey: true, shiftKey: true }), { type: "distribute", axis: "y" }],
   ];
 
   test.each(table)("%o maps to %o", (event, intent) => {
@@ -161,6 +179,17 @@ describe("what the browser still gets", () => {
     ]) {
       expect(mapCanvasKey(event, empty)).toEqual({ intent: null, preventDefault: true });
     }
+  });
+
+  test("an empty selection swallows the arrange keys, and flip is not the hand", () => {
+    for (const event of [
+      chord("]", { code: "BracketRight" }),
+      chord("H", { shiftKey: true }),
+      chord("å", { code: "KeyA", altKey: true }),
+    ]) {
+      expect(mapCanvasKey(event, empty)).toEqual({ intent: null, preventDefault: true });
+    }
+    expect(mapCanvasKey(chord("h"), empty)?.intent).toEqual({ type: "tool", tool: "hand" });
   });
 
   test("an empty selection swallows an arrow without preventing it", () => {

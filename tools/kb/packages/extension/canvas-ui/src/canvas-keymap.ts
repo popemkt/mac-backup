@@ -9,7 +9,12 @@
  * beside the hook that owns the effects (`use-canvas-keyboard`). The table's
  * order is load-bearing; `CANVAS_SHORTCUTS` says how.
  */
-import type { CanvasProjectionKind } from "@kb/canvas";
+import type {
+  CanvasAlignEdge,
+  CanvasFlipAxis,
+  CanvasOrder,
+  CanvasProjectionKind,
+} from "@kb/canvas";
 import type { CanvasToolPick } from "./canvas-tool";
 import type { CanvasViewPresetName } from "@kb/contracts";
 import { CANVAS_VIEW_PRESETS, ZOOM_STEP } from "./canvas-camera";
@@ -21,6 +26,7 @@ export interface CanvasKeyEvent {
   metaKey?: boolean;
   ctrlKey?: boolean;
   shiftKey?: boolean;
+  altKey?: boolean;
   /** Held down: the browser repeating the key. */
   repeat?: boolean;
 }
@@ -43,6 +49,8 @@ export type CanvasIntent =
   | { type: "toggleLens" }
   | { type: "projection"; kind: CanvasProjectionKind }
   | { type: "viewMenu" }
+  /** The sheet that lists every shortcut. */
+  | { type: "shortcuts" }
   | { type: "transform"; act: TransformAct }
   /** ⌘G: gather the selection into a group, a frame round it. */
   | { type: "group" }
@@ -51,7 +59,15 @@ export type CanvasIntent =
   /** Look at a frame face-on: a frame is a viewpoint (plan decision 7). */
   | { type: "viewpoint"; id: string }
   /** Present mode: step through the canvas's frames, one viewpoint each. */
-  | { type: "present"; act: PresentAct };
+  | { type: "present"; act: PresentAct }
+  /** The selection moved in the paint order (`orderItems`). */
+  | { type: "order"; order: CanvasOrder }
+  /** The selection mirrored (`flipItems`). */
+  | { type: "flip"; axis: CanvasFlipAxis }
+  /** The selection lined up on an edge of the box round it. */
+  | { type: "align"; edge: CanvasAlignEdge }
+  /** The selection spread evenly along an axis. */
+  | { type: "distribute"; axis: CanvasFlipAxis };
 
 /** What a key does to present mode. */
 export type PresentAct = "start" | "next" | "previous" | "stop";
@@ -100,7 +116,7 @@ export interface CanvasKeyState {
  * is what counts (numpad keys, whatever NumLock and the layout say) or by
  * `key` (letters in either case, unless `cased`), with the modifiers it
  * names. ⌘ and Ctrl are one modifier (`mod`), absent meaning neither;
- * `ctrl` is Ctrl alone. Shift absent takes either.
+ * `ctrl` is Ctrl alone. Shift and ⌥ absent take either.
  */
 interface CanvasChord {
   readonly code?: string;
@@ -109,13 +125,14 @@ interface CanvasChord {
   readonly mod?: boolean | "any";
   readonly ctrl?: boolean;
   readonly shift?: boolean;
+  readonly alt?: boolean;
 }
 
 /** Which state a shortcut acts in: the canvas at rest, a modal transform, present mode. */
 type ShortcutMode = "rest" | "transforming" | "presenting";
 
 /** Where a shortcut is listed. */
-type CanvasShortcutSection = "Tools" | "Edit" | "View" | "Transform" | "Present";
+export type CanvasShortcutSection = "Tools" | "Edit" | "Arrange" | "View" | "Transform" | "Present";
 
 /**
  * One canvas shortcut: what it is called, where it is listed, the chords
@@ -124,7 +141,7 @@ type CanvasShortcutSection = "Tools" | "Edit" | "View" | "Transform" | "Present"
  * claims is one of these, so the keymap, the view menu, the toolbar's
  * hints and the shortcut sheet read one statement.
  */
-interface CanvasShortcut {
+export interface CanvasShortcut {
   readonly label: string;
   readonly section: CanvasShortcutSection;
   readonly chords: readonly CanvasChord[];
@@ -145,6 +162,8 @@ export type CanvasViewCommand = CanvasShortcut & { readonly intent: CanvasViewIn
 
 /** What each key is called in a hint. */
 const KEY_NAMES: Record<string, string> = {
+  BracketLeft: "[",
+  BracketRight: "]",
   " ": "Space",
   Space: "Space",
   Backquote: "`",
@@ -162,7 +181,7 @@ const KEY_NAMES: Record<string, string> = {
 };
 
 /** A chord in words: its modifiers, then its key as the keyboard shows it. */
-function chordHint(chord: CanvasChord): string {
+export function chordHint(chord: CanvasChord): string {
   const named = chord.code ?? chord.key ?? "";
   const key =
     KEY_NAMES[named] ??
@@ -170,13 +189,16 @@ function chordHint(chord: CanvasChord): string {
       ? `Num${named.slice(6)}`
       : /^Digit\d$/.test(named)
         ? named.slice(5)
-        : named.length === 1
-          ? named.toUpperCase()
-          : named);
+        : /^Key[A-Z]$/.test(named)
+          ? named.slice(3)
+          : named.length === 1
+            ? named.toUpperCase()
+            : named);
   const ctrl = chord.ctrl === true ? "⌃" : "";
   const mod = chord.mod === true ? "⌘" : "";
+  const alt = chord.alt === true ? "⌥" : "";
   const shift = chord.shift === true ? "⇧" : "";
-  return `${ctrl}${mod}${shift}${key}`;
+  return `${ctrl}${mod}${alt}${shift}${key}`;
 }
 
 /** A shortcut's row, its hint from its first chord unless it names one. */
@@ -247,6 +269,17 @@ const tool = (label: string, pick: CanvasToolPick, keys: readonly string[]) =>
     keys.map((key) => ({ key })),
   );
 
+/** An arrangement of the selection, pressed with ⌥ and a letter where the keyboard has it. */
+const arrange = (label: string, intent: CanvasIntent, chords: readonly CanvasChord[]) =>
+  shortcut("Arrange", label, intent, chords, { needsSelection: "swallow" });
+
+/** ⌥ and a letter, by its place: ⌥ makes another character of it on a Mac. */
+const altKey = (letter: string, shift = false): CanvasChord => ({
+  code: `Key${letter}`,
+  alt: true,
+  shift,
+});
+
 /** One canvas unit per arrow, ten with Shift held. */
 const NUDGE_UNITS: Record<string, { dx: number; dy: number }> = {
   ArrowLeft: { dx: -1, dy: 0 },
@@ -303,7 +336,7 @@ const present = (label: string, presentAct: PresentAct, chords: readonly CanvasC
  * selection) and before the tools (a numpad digit with a view looks from
  * it).
  */
-const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
+export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   shortcut(
     "Transform",
     "Cancel",
@@ -371,6 +404,7 @@ const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   // ⌃numpad 7 would look from under the floor: there is no such view, so it does nothing.
   shortcut("View", "", null, [{ code: "Numpad7", ctrl: true }]),
   shortcut("View", "View menu", { type: "viewMenu" }, [{ code: "Backquote" }]),
+  shortcut("View", "Keyboard shortcuts", { type: "shortcuts" }, [{ key: "?" }]),
   shortcut(
     "Edit",
     "Delete",
@@ -401,6 +435,28 @@ const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   shortcut("Edit", "Duplicate", { type: "duplicate" }, [{ key: "d", mod: true }], {
     needsSelection: "swallow",
   }),
+  arrange("Forward one step", { type: "order", order: "forward" }, [
+    { code: "BracketRight", alt: true },
+  ]),
+  arrange("Backward one step", { type: "order", order: "backward" }, [
+    { code: "BracketLeft", alt: true },
+  ]),
+  arrange("Bring to front", { type: "order", order: "front" }, [{ code: "BracketRight" }]),
+  arrange("Send to back", { type: "order", order: "back" }, [{ code: "BracketLeft" }]),
+  arrange("Spread across evenly", { type: "distribute", axis: "x" }, [altKey("H", true)]),
+  arrange("Spread down evenly", { type: "distribute", axis: "y" }, [altKey("V", true)]),
+  arrange("Align left", { type: "align", edge: "left" }, [altKey("A")]),
+  arrange("Align centres across", { type: "align", edge: "centre" }, [altKey("H")]),
+  arrange("Align right", { type: "align", edge: "right" }, [altKey("D")]),
+  arrange("Align top", { type: "align", edge: "top" }, [altKey("W")]),
+  arrange("Align middles down", { type: "align", edge: "middle" }, [altKey("V")]),
+  arrange("Align bottom", { type: "align", edge: "bottom" }, [altKey("S")]),
+  arrange("Flip left for right", { type: "flip", axis: "x" }, [
+    { key: "h", shift: true, alt: false },
+  ]),
+  arrange("Flip top for bottom", { type: "flip", axis: "y" }, [
+    { key: "v", shift: true, alt: false },
+  ]),
   shortcut("Edit", "Step out", { type: "escape" }, [{ key: "Escape", mod: "any" }], {
     prevent: false,
   }),
@@ -441,6 +497,7 @@ const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
     { needsSelection: "swallow" },
   ),
   tool("Select", "select", ["v", "1"]),
+  tool("Hand", "hand", ["h"]),
   tool("Text", "text", ["t", "2"]),
   tool("Rectangle", "rect", ["r", "3"]),
   tool("Ellipse", "ellipse", ["o", "c", "4"]),
@@ -468,6 +525,7 @@ function presses(chord: CanvasChord, event: CanvasKeyEvent): boolean {
     return false;
   }
   if (chord.shift !== undefined && chord.shift !== (event.shiftKey === true)) return false;
+  if (chord.alt !== undefined && chord.alt !== (event.altKey === true)) return false;
   if (chord.ctrl === true) return event.ctrlKey === true && event.metaKey !== true;
   return chord.mod === "any" || (chord.mod === true) === mod(event);
 }

@@ -1322,8 +1322,16 @@ open view of that canvas.
   a canvas first opens at. The view commands (`CANVAS_VIEW_COMMANDS`) are
   rows of the canvas's one shortcut table (`CANVAS_SHORTCUTS`,
   `canvas-ui/src/canvas-keymap.ts`), the single statement of its keys: the
-  keymap matches chords against it, and the view menu and the toolbar's key
-  hints list from it. Both reach the camera through `CanvasViewportControls`:
+  keymap matches chords against it, and the view menu, the toolbar's key
+  hints and the shortcut sheet (`?`, `canvas-shortcuts-sheet.tsx`, every
+  named row by section) list from it. Its Arrange rows reach `@kb/canvas`'s
+  arrangements, as the `arrange` verb does: `]` and `[` to the front and
+  back, ⌥ with them one step; ⌥A, ⌥H, ⌥D align left, centres and right,
+  ⌥W, ⌥V, ⌥S top, middles and bottom (⌥ letters match by physical key,
+  since ⌥ makes another character of them on a Mac); ⌥⇧H and ⌥⇧V spread
+  evenly; ⇧H and ⇧V flip. An arrangement that moves nothing writes nothing.
+  H arms the hand, with which any press pans, as Space held does
+  (`pressPans`). Both reach the camera through `CanvasViewportControls`:
   numpad 7 / 1 / 3 look from the top, front and right (⌃ for back and left;
   there is no view from under the floor), numpad 5 swaps the lens, ⇧1 frames
   everything, ⇧2 and numpad `.` frame the selection, and `` ` `` opens the
@@ -1460,7 +1468,8 @@ open view of that canvas.
   pace.
   A drag on empty canvas orbits the turntable (across turns the floor with
   the hand, down tips toward the top view), a tap places the current tool on the plane
-  (or clears the selection), the right or middle button or Space pans, the
+  (or clears the selection), the right or middle button, Space or the hand
+  tool pans, the
   wheel pans and a pinch zooms about the cursor (`canvas-scene-gestures.ts`).
   A card let go where its plane is edge-on stays where the drag last had it,
   and a tap that moved no camera saves no pose; a pose equal to the saved one
