@@ -53,6 +53,11 @@ const host: BrowserHost = {
     const { activeNodeId, activeInstanceKey } = pageEditor().getState();
     return activeNodeId === nodeId && activeInstanceKey === instanceKey;
   },
+  isSelected: (nodeId, instanceKey) => {
+    const { selectedNodeId, selectedInstanceKey } = pageEditor().getState();
+    return selectedNodeId === nodeId && selectedInstanceKey === instanceKey;
+  },
+  toggleCollapse: (nodeId) => pageEditor().getState().toggleCollapse(nodeId),
   wireNodes: () => useGraphStore.getState().wireNodes,
   live: () => useUiStore.getState().wsStatus === "open",
   subscribeQuery: subscribeLiveQueryNode,

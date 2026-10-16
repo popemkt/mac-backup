@@ -192,6 +192,9 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     node: (id) => nodes.get(id),
     isActive: (nodeId, instanceKey) =>
       active?.nodeId === nodeId && active.instanceKey === instanceKey,
+    // A stand-in selects nothing and has no rows to open or close.
+    isSelected: () => false,
+    toggleCollapse: () => {},
     activateNode: (nodeId, cursorPos, instanceKey) => {
       active = { nodeId, instanceKey };
       caret = instanceKey === undefined ? null : { instanceKey, at: cursorPos ?? 0 };

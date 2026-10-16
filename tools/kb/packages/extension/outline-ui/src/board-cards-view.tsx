@@ -8,11 +8,13 @@ import {
   EMPTY_GROUP_KEY,
   type FieldContext,
   frameRows,
+  type FrameSubject,
   isQueryResultInstance,
   isReferenceRow,
   type NodeMap,
   NodeRow,
   nodeTarget,
+  outlineHostOfPane,
   outlineInstanceKey,
   type OutlineNode,
   type PropValue,
@@ -23,15 +25,14 @@ import {
   TagChipGroup,
   useDebugFields,
   useFollow,
+  useGraphRead,
+  useIsActive,
+  useIsSelected,
   usePageGraph,
+  usePane,
   usePrefs,
 } from "@kb/ui-sdk";
-import { useOutlineHost } from "./outline-host";
 import { OutlineBoardView, OutlineCardsView, localIdOf, type ParamsOf } from "@kb/views";
-import { useFieldContext, useOutlineStore, useOutlineNodes } from "./outline.store";
-import { NodeField } from "./fields-section";
-import { NodeContent } from "./node-content";
-import { useNodeKeyDown } from "./use-node-keydown";
 
 /**
  * The two column views over one component: the board groups its cards into a
@@ -43,31 +44,27 @@ type ColumnsView =
   | { readonly key: typeof OutlineCardsView; readonly params: ParamsOf<typeof OutlineCardsView> };
 
 interface BoardCardsViewProps {
-  frameId: string;
+  /** The frame the view lays out, and what its host draws each card with. */
+  frame: FrameSubject;
   /** Which of the two views, with the settings it reads (`frameViewOf`). */
   view: ColumnsView;
-  frameInstanceKey?: string | undefined;
   nodes?: NodeMap;
-  /** What field values resolve against (`fieldContextOf`); the store's by default. */
+  /** What field values resolve against (`fieldContextOf`); the page's graph by default. */
   context?: FieldContext;
-  /** Query-result row ids (overrides frame children). */
-  rowIds?: readonly string[] | undefined;
-  isQuerySource?: boolean;
   widthPref?: "centered" | "full";
 }
 
 export function BoardCardsView({
-  frameId,
+  frame,
   view,
-  frameInstanceKey,
   nodes: nodesProp,
   context: contextProp,
-  rowIds,
-  isQuerySource = false,
   widthPref: widthPrefProp,
 }: BoardCardsViewProps) {
+  const { frameId, instanceKey: frameInstanceKey, rowIds, isQuerySource, RowText, Field } = frame;
   const generation = usePageGraph((s) => s.index?.generation ?? 0);
-  const storeNodes = useOutlineNodes();
+  const graph = useGraphRead();
+  const storeNodes = graph.outline;
   const nodes = useMemo(
     () => nodesProp ?? storeNodes,
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation gates store map identity; the props path uses nodesProp
@@ -79,13 +76,12 @@ export function BoardCardsView({
   const storeWidth = usePrefs((prefs) => prefs.width);
   const widthPref = widthPrefProp ?? storeWidth;
 
-  const host = useOutlineHost();
+  const host = outlineHostOfPane(usePane());
   const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes, host);
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
-  const storeContext = useFieldContext();
-  const context = contextProp ?? storeContext;
+  const context = contextProp ?? graph;
   const schema = context.schema;
 
   // Grouping and order come from the shared owner: board columns and the flat
@@ -191,6 +187,8 @@ export function BoardCardsView({
               instanceKey={instanceKeyFor(child.id)}
               displayCols={displayCols}
               context={context}
+              RowText={RowText}
+              Field={Field}
               draggable={false}
             />
           ))}
@@ -224,6 +222,8 @@ export function BoardCardsView({
                     instanceKey={instanceKeyFor(child.id)}
                     displayCols={displayCols}
                     context={context}
+                    RowText={RowText}
+                    Field={Field}
                     draggable={!isQuerySource && groupFieldId !== null}
                     onDragStart={handleCardDragStart}
                     onDragEnd={handleCardDragEnd}
@@ -243,6 +243,8 @@ const ViewCard = memo(function ViewCard({
   instanceKey,
   displayCols,
   context,
+  RowText,
+  Field,
   draggable,
   onDragStart,
   onDragEnd,
@@ -252,23 +254,17 @@ const ViewCard = memo(function ViewCard({
   displayCols: Array<{ fieldId: string; label: string }>;
   /** What the card's field values resolve against (`fieldContextOf`). */
   context: FieldContext;
+  RowText: FrameSubject["RowText"];
+  Field: FrameSubject["Field"];
   draggable: boolean;
   onDragStart?: (id: string) => void;
   onDragEnd?: () => void;
 }) {
-  const isActive = useOutlineStore(
-    (s) => s.activeNodeId === child.id && s.activeInstanceKey === instanceKey,
-  );
-  const isSelected = useOutlineStore(
-    (s) => s.selectedNodeId === child.id && s.selectedInstanceKey === instanceKey,
-  );
-  const selectNode = useOutlineStore((s) => s.selectNode);
-  const activateNode = useOutlineStore((s) => s.activateNode);
+  const isActive = useIsActive(child.id, instanceKey);
+  const isSelected = useIsSelected(child.id, instanceKey);
   const follow = useFollow();
   // The card's content is the shown node's (`lib/contextual-ref`); the card is `child`.
   const shown = shownNode(child, context.schema);
-
-  const handleKeyDown = useNodeKeyDown({ nodeId: child.id, instanceKey });
 
   return (
     <div
@@ -294,7 +290,7 @@ const ViewCard = memo(function ViewCard({
         instanceKey={instanceKey}
         isSelected={isSelected}
         isActive={isActive}
-        onRowClick={() => selectNode(child.id, instanceKey)}
+        onRowClick={() => browserHost().selectNode(child.id, instanceKey)}
         bullet={
           <Bullet
             node={shown}
@@ -309,16 +305,7 @@ const ViewCard = memo(function ViewCard({
             }}
           />
         }
-        content={
-          <NodeContent
-            node={child}
-            instanceKey={instanceKey}
-            isActive={isActive}
-            tags={[]}
-            onActivate={(pos) => activateNode(child.id, pos, instanceKey)}
-            onKeyDown={handleKeyDown}
-          />
-        }
+        content={<RowText node={child} instanceKey={instanceKey} isActive={isActive} tags={[]} />}
       />
       {shown.tags.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-0.5 pl-1">
@@ -334,7 +321,7 @@ const ViewCard = memo(function ViewCard({
       {displayCols.length > 0 && (
         <div className="mt-1 flex flex-col gap-0.5">
           {displayCols.map((col) => (
-            <NodeField
+            <Field
               key={col.fieldId}
               depth={-1}
               instanceKey={instanceKey}

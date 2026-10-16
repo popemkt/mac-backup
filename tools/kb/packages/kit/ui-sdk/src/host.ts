@@ -49,6 +49,10 @@ export interface BrowserHost extends NodeTextPort {
   readonly node: (id: string) => OutlineNode | undefined;
   /** Whether a node is being edited in this instance (`instanceKey`). */
   readonly isActive: (nodeId: string, instanceKey: string) => boolean;
+  /** Whether a node is selected in this instance (`instanceKey`). */
+  readonly isSelected: (nodeId: string, instanceKey: string) => boolean;
+  /** Open or close a row: the page's editor's expansion (`PageEditorState.toggleCollapse`). */
+  readonly toggleCollapse: (nodeId: string) => void;
   /** The graph's nodes as they came over the wire. */
   readonly wireNodes: () => WireNode[];
   /** Whether the live socket is open, so a query subscribes instead of running locally. */

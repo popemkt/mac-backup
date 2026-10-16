@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { useFrameView, useGraphRead, ViewSlot } from "@kb/ui-sdk";
-import { FrameSubjectContext, type FrameSubject } from "./frame-subject";
+import { FrameSubjectContext, useFrameView, useGraphRead, ViewSlot } from "@kb/ui-sdk";
+import { outlineFrameSubject } from "./outline-frame";
+import { useOutlineStore } from "./outline.store";
 
 const UNAVAILABLE = (
   <p className="px-1 py-0.5 text-meta text-foreground/50" data-frame-view-unavailable="true">
@@ -11,7 +12,9 @@ const UNAVAILABLE = (
 /**
  * A frame's children, shown by the view its config names, through a slot at
  * placement `inline`: the one way an outline host (the outline's root, a
- * projected frame's row, a query's results) renders a frame view.
+ * projected frame's row, a query's results) renders a frame view. The view
+ * lays the rows out; the outline edits each row's text and fields, and keeps
+ * how many pages of them are revealed (`outlineFrameSubject`).
  */
 export function FrameViewSlot({
   frameId,
@@ -28,15 +31,12 @@ export function FrameViewSlot({
 }) {
   const frame = useGraphRead().outline.get(frameId);
   const view = useFrameView(frame);
+  // The pages revealed are the outline's, so the rows a view draws are the
+  // rows its keyboard walk reaches.
+  const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
   const subject = useMemo(
-    (): FrameSubject => ({
-      frameId,
-      isQuerySource,
-      depth,
-      instanceKey,
-      rowIds,
-    }),
-    [frameId, instanceKey, rowIds, isQuerySource, depth],
+    () => outlineFrameSubject({ frameId, isQuerySource, depth, instanceKey, rowIds }, pages),
+    [frameId, instanceKey, rowIds, isQuerySource, depth, pages],
   );
   return (
     <FrameSubjectContext.Provider value={subject}>

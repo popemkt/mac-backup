@@ -20,8 +20,6 @@ import {
   type Expansion,
   type ExpansionChanges,
   type FamilyView,
-  type FieldContext,
-  fieldContextOf,
   type FieldContextSource,
   type GraphChange,
   isProjectedInstance,
@@ -45,7 +43,6 @@ import {
   shownNodesOf,
   SYSTEM_IDS,
   toast,
-  usePageGraph,
   withExpansion,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
@@ -791,12 +788,4 @@ export const outlineProjection: PageProjection = {
 export function outlineSource(): FieldContextSource {
   const graph = graphNow();
   return { schema: schemaOf(graph), index: graph.index, nodes: outlineNodes() };
-}
-
-/** What field values resolve against (`fieldContextOf`): the graph's schema and index, this outline. */
-export function useFieldContext(): FieldContext {
-  const nodes = useOutlineNodes();
-  const schema = usePageGraph(schemaOf);
-  const index = usePageGraph((s) => s.index);
-  return fieldContextOf({ schema, nodes, index });
 }

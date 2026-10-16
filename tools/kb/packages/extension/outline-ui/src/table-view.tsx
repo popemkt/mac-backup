@@ -7,9 +7,11 @@ import {
   cn,
   type FieldContext,
   frameRows,
+  type FrameSubject,
   type NodeMap,
   NodeRow,
   nodeTarget,
+  outlineHostOfPane,
   outlineInstanceKey,
   type OutlineNode,
   queryResultInstanceKey,
@@ -22,45 +24,48 @@ import {
   useDebugFields,
   useFollow,
   useFrameView,
+  useGraphRead,
+  useIsActive,
+  useIsSelected,
+  usePane,
   usePrefs,
 } from "@kb/ui-sdk";
-import { useOutlineHost } from "./outline-host";
 import { type SortSpec, type ParamsOf, OutlineTableView } from "@kb/views";
-import { useFieldContext, useOutlineStore, useOutlineNodes } from "./outline.store";
-import { NodeField } from "./fields-section";
-import { NodeContent } from "./node-content";
-import { useNodeKeyDown } from "./use-node-keydown";
 
 /** The Name column is the node-text field, so sorting by it names a node like any other column. */
 const NAME_COLUMN = SYSTEM_IDS.nodeTextField;
 
 interface TableViewProps {
-  frameId: string;
+  /** The frame the table lays out, and what its host draws each row with. */
+  frame: FrameSubject;
   /** The settings the table reads, decoded from the frame (`frameViewOf`). */
   settings: ParamsOf<typeof OutlineTableView>;
-  frameInstanceKey?: string | undefined;
   nodes?: NodeMap;
-  /** What field values resolve against (`fieldContextOf`); the store's by default. */
+  /** What field values resolve against (`fieldContextOf`); the page's graph by default. */
   context?: FieldContext;
   /** Test/override hook — defaults to prefs store width. */
   widthPref?: "centered" | "full";
-  /** Query-result row ids (overrides frame children). */
-  rowIds?: readonly string[] | undefined;
-  isQuerySource?: boolean;
 }
 
 export function TableView({
-  frameId,
+  frame,
   settings,
-  frameInstanceKey,
   nodes: nodesProp,
   context: contextProp,
   widthPref: widthPrefProp,
-  rowIds,
-  isQuerySource = false,
 }: TableViewProps) {
-  const storeNodes = useOutlineNodes();
-  const nodes = nodesProp ?? storeNodes;
+  const {
+    frameId,
+    instanceKey: frameInstanceKey,
+    rowIds,
+    isQuerySource,
+    pages,
+    revealMorePages,
+    RowText,
+    Field,
+  } = frame;
+  const graph = useGraphRead();
+  const nodes = nodesProp ?? graph.outline;
   const frameNode = nodes.get(frameId);
   // Columns are a property of the FRAME, not of any row: one header serves
   // every row, so the frame node is the only thing "per-node" can mean here.
@@ -68,16 +73,12 @@ export function TableView({
   const storeWidth = usePrefs((prefs) => prefs.width);
   const widthPref = widthPrefProp ?? storeWidth;
 
-  const host = useOutlineHost();
+  const host = outlineHostOfPane(usePane());
   const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes, host);
-
-  const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
-  const revealMorePages = useOutlineStore((s) => s.revealMorePages);
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
-  const storeContext = useFieldContext();
-  const context = contextProp ?? storeContext;
+  const context = contextProp ?? graph;
   const schema = context.schema;
 
   // Row order and pagination come from the shared owner, so the rows rendered
@@ -224,6 +225,8 @@ export function TableView({
                 childKey={childKey}
                 columns={columns}
                 context={context}
+                RowText={RowText}
+                Field={Field}
               />
             );
           })}
@@ -235,7 +238,7 @@ export function TableView({
           <button
             type="button"
             className="text-label text-foreground/50 hover:text-foreground/80 font-medium px-3 py-1 rounded-xs bg-foreground/[0.04] hover:bg-foreground/[0.08] cursor-pointer"
-            onClick={() => revealMorePages(frameId)}
+            onClick={revealMorePages}
           >
             Show more ({rows.ordered.length - displayedChildren.length} remaining)
           </button>
@@ -250,28 +253,23 @@ const TableRow = memo(function TableRow({
   childKey,
   columns,
   context,
+  RowText,
+  Field,
 }: {
   child: OutlineNode;
   childKey: string;
   columns: TableColumnSpec[];
   context: FieldContext;
+  RowText: FrameSubject["RowText"];
+  Field: FrameSubject["Field"];
 }) {
-  const isActive = useOutlineStore(
-    (s) => s.activeNodeId === child.id && s.activeInstanceKey === childKey,
-  );
-  const isSelected = useOutlineStore(
-    (s) => s.selectedNodeId === child.id && s.selectedInstanceKey === childKey,
-  );
-  const selectNode = useOutlineStore((s) => s.selectNode);
-  const activateNode = useOutlineStore((s) => s.activateNode);
-  const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
+  const isActive = useIsActive(child.id, childKey);
+  const isSelected = useIsSelected(child.id, childKey);
   const follow = useFollow();
   // The cells are the shown node's (`lib/contextual-ref`); the row is `child`.
   const shown = shownNode(child, context.schema);
   const shownView = useFrameView(shown);
   const rowDebug = useDebugFields(shown.id);
-
-  const handleKeyDown = useNodeKeyDown({ nodeId: child.id, instanceKey: childKey });
 
   // A row's own field rows follow the row's own flag — the frame's debug
   // columns say nothing about whether this node reveals its sys.* props.
@@ -296,7 +294,7 @@ const TableRow = memo(function TableRow({
           instanceKey={childKey}
           isSelected={isSelected}
           isActive={isActive}
-          onRowClick={() => selectNode(child.id, childKey)}
+          onRowClick={() => browserHost().selectNode(child.id, childKey)}
           bullet={
             <Bullet
               node={shown}
@@ -305,27 +303,20 @@ const TableRow = memo(function TableRow({
               isRef={chrome.bulletIsRef}
               onClick={(e) => {
                 const intent = bulletClickIntent(e, true);
-                if (intent === "toggle") toggleCollapse(child.id);
+                if (intent === "toggle") browserHost().toggleCollapse(child.id);
                 else follow(nodeTarget(shownNodeId(child)), intent);
               }}
             />
           }
           content={
-            <NodeContent
-              node={child}
-              instanceKey={childKey}
-              isActive={isActive}
-              tags={shown.tags}
-              onActivate={(pos) => activateNode(child.id, pos, childKey)}
-              onKeyDown={handleKeyDown}
-            />
+            <RowText node={child} instanceKey={childKey} isActive={isActive} tags={shown.tags} />
           }
         />
       </td>
 
       {columns.map((col) => (
         <td key={col.fieldId} className="px-2 py-1 align-top">
-          <NodeField
+          <Field
             valueOnly
             instanceKey={childKey}
             nodeId={shown.id}

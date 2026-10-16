@@ -60,6 +60,11 @@ export function useIsActive(nodeId: string, instanceKey: string): boolean {
   return useHostValue((host) => host.isActive(nodeId, instanceKey));
 }
 
+/** Whether a node is selected in this instance. */
+export function useIsSelected(nodeId: string, instanceKey: string): boolean {
+  return useHostValue((host) => host.isSelected(nodeId, instanceKey));
+}
+
 /**
  * Report what this view shows for the pane it is drawn in, and carry out the
  * commands sent to it with `carryOut`, until it unmounts (`lib/pane-screen`).

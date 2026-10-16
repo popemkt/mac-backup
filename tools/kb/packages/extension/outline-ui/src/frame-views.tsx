@@ -3,6 +3,7 @@ import {
   childInstanceKey,
   frameRows,
   outlineInstanceKey,
+  useFrameSubject,
   useGraphRead,
   type ViewProps,
 } from "@kb/ui-sdk";
@@ -14,7 +15,6 @@ import {
   type OutlineTableView,
 } from "@kb/views";
 import { BoardCardsView } from "./board-cards-view";
-import { useFrameSubject } from "./frame-subject";
 import { NodeBlock } from "./node-block";
 import { TableView } from "./table-view";
 import { useOutlineHost } from "./outline-host";
@@ -69,15 +69,7 @@ export function ListFrameView({ params }: ViewProps<ParamsOf<typeof OutlineListV
 export function TableFrameView({ params }: ViewProps<ParamsOf<typeof OutlineTableView>>) {
   const subject = useFrameSubject();
   if (subject === null) return <NoFrame />;
-  return (
-    <TableView
-      frameId={subject.frameId}
-      settings={params}
-      frameInstanceKey={subject.instanceKey}
-      rowIds={subject.rowIds}
-      isQuerySource={subject.isQuerySource}
-    />
-  );
+  return <TableView frame={subject} settings={params} />;
 }
 
 /** The board view: the frame's rows as cards, a column per value of its group field. */
@@ -85,15 +77,7 @@ export function BoardFrameView({ params }: ViewProps<ParamsOf<typeof OutlineBoar
   const subject = useFrameSubject();
   const view = useMemo(() => ({ key: OutlineBoardView, params }), [params]);
   if (subject === null) return <NoFrame />;
-  return (
-    <BoardCardsView
-      frameId={subject.frameId}
-      view={view}
-      frameInstanceKey={subject.instanceKey}
-      rowIds={subject.rowIds}
-      isQuerySource={subject.isQuerySource}
-    />
-  );
+  return <BoardCardsView frame={subject} view={view} />;
 }
 
 /** The cards view: the frame's rows as cards in one grid. */
@@ -101,13 +85,5 @@ export function CardsFrameView({ params }: ViewProps<ParamsOf<typeof OutlineCard
   const subject = useFrameSubject();
   const view = useMemo(() => ({ key: OutlineCardsView, params }), [params]);
   if (subject === null) return <NoFrame />;
-  return (
-    <BoardCardsView
-      frameId={subject.frameId}
-      view={view}
-      frameInstanceKey={subject.instanceKey}
-      rowIds={subject.rowIds}
-      isQuerySource={subject.isQuerySource}
-    />
-  );
+  return <BoardCardsView frame={subject} view={view} />;
 }

@@ -41,6 +41,7 @@ import {
   BoardCardsView,
   collectVisibleInstances,
   listFilterFieldOptions,
+  outlineFrameSubject,
   outlineNodes,
   outlineSource,
   outlineUiPlugin,
@@ -217,7 +218,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   it("board groups by view.group field with No status column", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
-        frameId: "frame1",
+        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
         view: columnsView(),
         nodes: outlineNodes(),
         context: fieldContextOf(outlineSource()),
@@ -238,7 +239,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     useGraphStore.getState().hydrateFromWire(withFrame1("board", {}), 2, "fixtures");
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
-        frameId: "frame1",
+        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
         view: columnsView(),
         nodes: outlineNodes(),
         context: fieldContextOf(outlineSource()),
@@ -255,7 +256,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     useGraphStore.getState().hydrateFromWire(withFrame1("cards", GROUPED), 3, "fixtures");
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
-        frameId: "frame1",
+        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
         view: columnsView(),
         nodes: outlineNodes(),
         context: fieldContextOf(outlineSource()),
@@ -305,12 +306,13 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   it("query-source board uses ref:query instance keys", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
-        frameId: "frame1",
+        frame: outlineFrameSubject(
+          { frameId: "frame1", rowIds: ["c1", "c2"], isQuerySource: true, depth: 0 },
+          1,
+        ),
         view: columnsView(),
         nodes: outlineNodes(),
         context: fieldContextOf(outlineSource()),
-        rowIds: ["c1", "c2"],
-        isQuerySource: true,
         widthPref: "full",
       }),
     );

@@ -20,6 +20,7 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { framedAs } from "@/fixtures/view-fields";
 import {
   BoardCardsView,
+  outlineFrameSubject,
   outlineNodes,
   outlineSource,
   TableView,
@@ -80,10 +81,11 @@ describe("projected query-result rows behave like owned rows", () => {
     await act(async () => {
       root.render(
         <TableView
-          frameId="n.root-a"
+          frame={outlineFrameSubject(
+            { frameId: "n.root-a", rowIds: RESULTS, isQuerySource: true, depth: 0 },
+            1,
+          )}
           settings={settingsOf(OutlineTableView)}
-          rowIds={RESULTS}
-          isQuerySource
           context={fieldContextOf(outlineSource())}
         />,
       );
@@ -120,10 +122,11 @@ describe("projected query-result rows behave like owned rows", () => {
     await act(async () => {
       root.render(
         <BoardCardsView
-          frameId="n.root-a"
+          frame={outlineFrameSubject(
+            { frameId: "n.root-a", rowIds: RESULTS, isQuerySource: true, depth: 0 },
+            1,
+          )}
           view={{ key: OutlineCardsView, params: settingsOf(OutlineCardsView) }}
-          rowIds={RESULTS}
-          isQuerySource
           context={fieldContextOf(outlineSource())}
         />,
       );

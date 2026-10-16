@@ -23,6 +23,7 @@ export { NodeBlock } from "./node-block";
 export { NodeCommandPalette } from "./node-command-palette";
 export { formatNumber, numberEditText } from "./number-format";
 export { OutlineEditor } from "./outline-editor";
+export { outlineFrameSubject } from "./outline-frame";
 export { setOutlineHost } from "./outline-hosts";
 export {
   initialOutlineState,

@@ -1732,7 +1732,15 @@ how the stored name resolves to the key among them.
   view a plugin provides is walked and offered while it is loaded and not
   after. The frame a view shows (its id, instance key, query rows
   and depth) is not config, so it travels in the host's `FrameSubject`
-  context. Every outline host (the outline's root, a row of the list, a
+  context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The subject also carries
+  what the host draws each row with: a view lays the rows out, and the host
+  edits each row's text (`RowText`) and fields (`Field`) and keeps how many
+  pages of them are revealed (`pages`, `revealMorePages`), so a frame view of
+  any family lays out rows the outline edits, and draws exactly the rows the
+  keyboard walk reaches. Its row chrome reads the page's selection and the
+  rows' expansion through `BrowserHost` (`useIsActive`, `useIsSelected`,
+  `selectNode`, `toggleCollapse`). The outline builds the subject once
+  (`outlineFrameSubject`). Every outline host (the outline's root, a row of the list, a
   query's projected results) renders a frame view through `FrameViewSlot`,
   with the frame's id as the slot's `subject`, so a list of lists is a chain
   of links for other frames, never a cycle (promise 6). A query's results

@@ -21,6 +21,7 @@ import { usePrefsStore } from "@/stores/prefs.store";
 import type { WireNode } from "@kb/contracts";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import {
+  outlineFrameSubject,
   outlineNodes,
   outlineSource,
   outlineUiPlugin,
@@ -157,7 +158,7 @@ describe("W7 TableView & ViewToolbar", () => {
   it("renders TableView with fallback columns from tag fields and asserts NodeRow reuse via data-instance-key", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frameId: "frame1",
+        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -177,7 +178,7 @@ describe("W7 TableView & ViewToolbar", () => {
   it("field cells render through shared FieldRow (valueOnly)", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frameId: "frame1",
+        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -190,7 +191,7 @@ describe("W7 TableView & ViewToolbar", () => {
   it("a cell is the outline's value stack, remove affordance and all", () => {
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frameId: "frame1",
+        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -206,7 +207,7 @@ describe("W7 TableView & ViewToolbar", () => {
   it("auto-full-width breakout when width pref is centered", () => {
     const centered = renderToStaticMarkup(
       createElement(TableView, {
-        frameId: "frame1",
+        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -218,7 +219,7 @@ describe("W7 TableView & ViewToolbar", () => {
 
     const full = renderToStaticMarkup(
       createElement(TableView, {
-        frameId: "frame1",
+        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -234,7 +235,7 @@ describe("W7 TableView & ViewToolbar", () => {
 
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frameId: "frame1",
+        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),
@@ -254,7 +255,7 @@ describe("W7 TableView & ViewToolbar", () => {
 
     const html = renderToStaticMarkup(
       createElement(TableView, {
-        frameId: "frame1",
+        frame: outlineFrameSubject({ frameId: "frame1", isQuerySource: false, depth: 0 }, 1),
         settings: tableSettings(),
         nodes: getStoreNodes(),
         context: fieldContextOf(outlineSource()),

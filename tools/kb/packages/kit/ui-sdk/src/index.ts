@@ -26,6 +26,7 @@ export {
   useGraphRead,
   useIndex,
   useIsActive,
+  useIsSelected,
   useNode,
   useNodePaletteOpen,
   useNodes,
@@ -232,6 +233,13 @@ export {
   type TableColumnSpec,
 } from "./lib/frame-layout";
 export { frameRows, type FrameRowsInput } from "./lib/frame-rows";
+export {
+  type FrameFieldProps,
+  type FrameRowTextProps,
+  type FrameSubject,
+  FrameSubjectContext,
+  useFrameSubject,
+} from "./lib/frame-subject";
 export { isReferenceRow, resolveRowChrome } from "./lib/row-chrome";
 export { type GraphRead, type GraphSource, useGraphReadThrough } from "./lib/graph-read";
 export {
