@@ -12,7 +12,7 @@
  * Pure and isomorphic: no DOM, no `URL` global (the iso preset has no DOM
  * types), no locale lookup — a surface that has a locale passes it in.
  */
-import { acceptsValueKind, fieldTypeOf, type FieldType } from "./field-type.ts";
+import { acceptsValueKind, fieldTypeOf, shownRefusedValue, type FieldType } from "./field-type.ts";
 import type { NodeLike } from "./ontology.ts";
 import type { NodeId, PropValue } from "./model.ts";
 import { parseDateInput, parseDay, type LocalDate } from "./local-date.ts";
@@ -186,10 +186,11 @@ export function valueConformanceError(
 ): string | null {
   const type = fieldTypeOf(nodes.get(fieldId)?.props);
   if (!acceptsValueKind(type, value)) {
-    return `field ${fieldId} is ${type} and cannot hold ${JSON.stringify(value)}`;
+    return `field ${fieldId} is ${type} and cannot hold ${shownRefusedValue(type, value)}`;
   }
   const form = valueFormError(type, value);
-  if (form !== null) return `field ${fieldId} is ${type}: ${JSON.stringify(value.v)} ${form}`;
+  if (form !== null)
+    return `field ${fieldId} is ${type}: ${shownRefusedValue(type, value.v)} ${form}`;
   if (value.t === "ref" && !nodes.has(value.v)) {
     return `field ${fieldId} refs missing node ${value.v}`;
   }

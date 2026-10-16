@@ -88,6 +88,27 @@ const FIELD_VALUE_KINDS: Record<FieldType, readonly PropValue["t"][]> = {
   secret: ["str"],
 };
 
+/**
+ * Whether an error may show a refused value of each type back to whoever
+ * wrote it. A secret's refused value may be the key someone pasted, and an
+ * error reaches the page, the logs and an agent's tool result, so it is never
+ * shown; every other type's is, to say what was wrong with it.
+ */
+const SHOWS_REFUSED_VALUE: Record<FieldType, boolean> = {
+  text: true,
+  number: true,
+  date: true,
+  url: true,
+  checkbox: true,
+  ref: true,
+  secret: false,
+};
+
+/** A refused value as an error about a field of `type` may name it. */
+export function shownRefusedValue(type: FieldType, value: unknown): string {
+  return SHOWS_REFUSED_VALUE[type] ? JSON.stringify(value) : "a value not shown";
+}
+
 /** Whether a value's kind is one a field of `type` may hold. */
 export function acceptsValueKind(type: FieldType, value: PropValue): boolean {
   return FIELD_VALUE_KINDS[type].includes(value.t);

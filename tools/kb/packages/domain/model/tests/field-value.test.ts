@@ -129,6 +129,17 @@ describe("a secret is where a key lives, never the key", () => {
       expect(write(key)).toContain("is not a secret reference");
     }
   });
+
+  test("a refused key is never shown back in the error", () => {
+    for (const key of ["sk-proj-abc123", "keychain:a b"]) {
+      expect(write(key)).not.toContain(key);
+    }
+    const asNumber = txIntegrityError(base, {
+      upserts: [node("n.a", { f: [{ t: "num", v: 4242 }] })],
+      deletes: [],
+    });
+    expect(asNumber).not.toContain("4242");
+  });
 });
 
 describe("one date carrier", () => {
