@@ -6,6 +6,7 @@ import {
   connectItems,
   selectionPivot,
   settleMembership,
+  sideTerminal,
   snapCarry,
   snapPrecise,
   stillAbout,
@@ -21,7 +22,6 @@ import {
   type SnapGuide,
   type SnappedTransform,
 } from "@kb/canvas";
-import { sidePoint } from "./canvas-edge-path";
 import { screenToPlane, type CanvasView, type ViewSize } from "./canvas-camera";
 import {
   ALONG_Z,
@@ -642,7 +642,7 @@ function closestPort(node: CanvasNode, px: number, py: number): CanvasSide {
   const sides: CanvasSide[] = ["top", "right", "bottom", "left"];
   let best: { side: CanvasSide; dist: number } = { side: "left", dist: Infinity };
   for (const side of sides) {
-    const point = sidePoint(node, side);
+    const point = sideTerminal(node, side).at;
     const dist = Math.hypot(point.x - px, point.y - py);
     if (dist < best.dist) best = { side, dist };
   }

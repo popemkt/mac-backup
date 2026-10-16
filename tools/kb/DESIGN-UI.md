@@ -1358,7 +1358,8 @@ open view of that canvas.
   (`topView`: the silhouette of everything it fills, the convex hull of
   its volume), which a tilted solid shows round its face and the pointer
   takes it by. Side anchors and their outward directions turn with the
-  item (`sideAnchor`), and the marquee and framing read its turned box.
+  item (`sideTerminal`, `@kb/canvas` `edges.ts`), and the marquee and
+  framing read its turned box.
 - **Looks are one paint in both projections** (`canvas-style.ts`,
   `itemPaint`): an item's style (DESIGN.md → Canvas documents) is turned
   once into what is drawn — the outline's width (by size) and dash pattern
@@ -1384,7 +1385,8 @@ open view of that canvas.
   footprint as a soft shadow on the canvas plane, which carries the 2D dot
   grid, and a selected raised item drops a stem to the floor; edges are
   lines between side anchors, halfway up a solid's side, climbing from one
-  height to the other. The ground is the
+  height to the other, through the points of the one route the 2D path
+  draws (`edgeRoute`, `routePoints`). The ground is the
   page's, edge to edge, so the crossfade is between equal grounds.
   Faces stay canvas textures on three r186: its `HTMLTexture` needs Chrome's
   HTML-in-Canvas origin trial (`copyElementImageToTexture`) and silently

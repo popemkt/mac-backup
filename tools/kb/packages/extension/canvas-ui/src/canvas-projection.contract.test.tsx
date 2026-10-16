@@ -4,7 +4,9 @@
  * over each of them with the view that projection holds.
  *
  * - it draws every item once, back to front in paint order;
- * - it draws every edge whose two ends exist, and no other;
+ * - it draws every edge whose two ends exist, and no other, along the one
+ *   route the model gives it (`edgeRoute`): from its end to its end, never
+ *   further than a hair from the route's points;
  * - it marks exactly the shared selection;
  * - every item's face is drawn where the one camera model projects it: the
  *   corners of the plane its face lies on (`faceShare`), turned with the
@@ -37,6 +39,7 @@ import {
   boxToWorld,
   carriedBy,
   directionToLocal,
+  edgeRoute,
   faceShare,
   facesCamera,
   frameCorners,
@@ -45,6 +48,7 @@ import {
   onFootprint,
   paintOrder,
   planeCorners,
+  routePoints,
   selectionPivot,
   stillAbout,
   transformCarried,
@@ -342,6 +346,22 @@ const footprintSamples = doc.nodes.flatMap((item) => {
   );
 });
 
+/** How far `p` is from the polyline through `line`, across the floor. */
+function offLine(p: { x: number; y: number }, line: readonly { x: number; y: number }[]): number {
+  let best = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const a = line[i - 1];
+    const b = line[i];
+    if (a === undefined || b === undefined) continue;
+    const [dx, dy] = [b.x - a.x, b.y - a.y];
+    const span = dx * dx + dy * dy;
+    const t =
+      span === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / span));
+    best = Math.min(best, Math.hypot(p.x - (a.x + dx * t), p.y - (a.y + dy * t)));
+  }
+  return best;
+}
+
 /** An item's face corners over the paint plane `z`, clockwise from the top left. */
 const cornersOf = (item: CanvasNode, z: number, view: CanvasView) =>
   facesCamera(item)
@@ -379,6 +399,29 @@ describe("canvas projection contract", () => {
     it("draws every edge whose two ends exist, and no other", async () => {
       const probe = await mount(view, scene);
       expect(probe.edges().toSorted()).toEqual(["e1", "e2"]);
+      probe.dispose();
+    });
+
+    it("draws every edge along its route, end to end", async () => {
+      const probe = await mount(view, scene);
+      const byId = new Map(doc.nodes.map((n) => [n.id, n]));
+      for (const edge of doc.edges) {
+        const from = byId.get(edge.fromNode);
+        const to = byId.get(edge.toNode);
+        if (from === undefined || to === undefined) continue;
+        const model = routePoints(edgeRoute(from, to, edge));
+        const drawn = probe.edgePointsOf(edge.id) ?? [];
+        expect(drawn.length, edge.id).toBeGreaterThan(1);
+        for (const [got, want] of [
+          [drawn[0], model[0]],
+          [drawn.at(-1), model.at(-1)],
+        ] as const) {
+          expect(got?.x, edge.id).toBeCloseTo(want?.x ?? Number.NaN, 3);
+          expect(got?.y, edge.id).toBeCloseTo(want?.y ?? Number.NaN, 3);
+        }
+        for (const p of drawn) expect(offLine(p, model), edge.id).toBeLessThan(1);
+        for (const p of model) expect(offLine(p, drawn), edge.id).toBeLessThan(1);
+      }
       probe.dispose();
     });
 

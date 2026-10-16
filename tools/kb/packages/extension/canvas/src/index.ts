@@ -95,6 +95,15 @@ export { cameraLookingFrom, posesAgree, projectionOf } from "./camera.ts";
 export { CANVAS_LAYOUTS, arrangeItems } from "./arrange.ts";
 export type { CanvasArrangement, CanvasLayerValue, CanvasLayout } from "./arrange.ts";
 export { connectItems } from "./connect.ts";
+export {
+  edgeRoute,
+  leaving,
+  looseRoute,
+  routeMidpoint,
+  routePoints,
+  sideTerminal,
+} from "./edges.ts";
+export type { EdgeRoute, EdgeTerminal } from "./edges.ts";
 export type { CanvasConnection } from "./connect.ts";
 export { describeCanvas, itemKind } from "./describe.ts";
 export type {

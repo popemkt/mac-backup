@@ -87,6 +87,8 @@ interface CanvasSceneInspection {
    * surface a ray meets first.
    */
   bodiesOf(id: string): readonly Object3D[];
+  /** The points an edge's line runs through, in canvas space; null for an edge not drawn. */
+  edgePointsOf(id: string): { x: number; y: number; z: number }[] | null;
   /** How an item's face is painted: the canvas its texture was painted into, and its opacity. */
   faceOf(id: string): { canvas: HTMLCanvasElement | undefined; opacity: number } | null;
   /** Item ids whose face stands as a label in front of them (`canvas-scene-labels`). */
@@ -266,6 +268,7 @@ function inspection(parts: {
     },
     bodiesOf: (id) => cards.bodiesOf(id),
     faceOf: (id) => cards.faceOf(id),
+    edgePointsOf: (id) => edges.pointsOf(id),
     labels: labels.ids,
     labelOf: (id) => allOnScreen(labels.cornersOf(id), onScreen),
   };

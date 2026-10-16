@@ -72,6 +72,8 @@ interface Probe {
   topAt(point: { x: number; y: number }): string | null;
   /** An item's look as drawn. */
   paintOf(id: string): DrawnLook | null;
+  /** The points an edge is drawn through across the floor, canvas units; null when not drawn. */
+  edgePointsOf(id: string): { x: number; y: number }[] | null;
   update(next: CanvasDoc): Promise<void>;
   dispose(): void;
 }
@@ -319,6 +321,12 @@ const mount2d: Mount = async (view, scene) => {
     topAt: (p) =>
       cards().findLast((el) => covers(el, { x: (p.x - pan.x) / zoom, y: (p.y - pan.y) / zoom }))
         ?.dataset.cardId ?? null,
+    edgePointsOf: (id) => {
+      const d = container
+        .querySelector(`[data-edge-id="${id}"] [data-edge-path]`)
+        ?.getAttribute("d");
+      return d === null || d === undefined ? null : pathPolygon(d);
+    },
     paintOf: (id) => {
       const el = card(id);
       if (el === undefined) return null;
@@ -413,6 +421,7 @@ const mount3d: Mount = async (view, probed) => {
       const [first] = raycaster.intersectObjects([...bodies.keys()], false);
       return first === undefined ? null : (bodies.get(first.object) ?? null);
     },
+    edgePointsOf: (id) => inspect().edgePointsOf(id),
     paintOf: (id) => {
       const face = inspect().faceOf(id);
       const item = current.nodes.find((n) => n.id === id);

@@ -2,12 +2,13 @@ import { describe, expect, test } from "vitest";
 import { present } from "@kb/model";
 import {
   boxFrame,
+  edgeRoute,
   parseCanvasDoc,
   presetItem,
   stringifyCanvasDoc,
+  svgPathData,
   type CanvasDoc,
 } from "@kb/canvas";
-import { edgePath } from "./canvas-edge-path";
 import {
   pickTool,
   placesItem,
@@ -97,16 +98,18 @@ describe("placeWithTool", () => {
 });
 
 describe("edge-to-shape connectivity", () => {
-  test("edgePath connects shape nodes by id geometry", () => {
+  test("an edge's route connects shape nodes by id geometry", () => {
     const from = createShapeNode("rect", 0, 0, "s-from");
     const to = createShapeNode("ellipse", 300, 40, "s-to");
-    const d = edgePath(from, to, {
-      id: "e1",
-      fromNode: from.id,
-      toNode: to.id,
-      fromSide: "right",
-      toSide: "left",
-    });
+    const d = svgPathData(
+      edgeRoute(from, to, {
+        id: "e1",
+        fromNode: from.id,
+        toNode: to.id,
+        fromSide: "right",
+        toSide: "left",
+      }).path,
+    );
     expect(d.startsWith("M ")).toBe(true);
     expect(d).toContain(`${from.x + from.width}`);
     expect(d).toContain(`${to.x}`);

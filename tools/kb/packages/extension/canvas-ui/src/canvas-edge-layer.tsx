@@ -1,11 +1,14 @@
 import {
   CANVAS_PALETTE,
+  edgeRoute,
+  looseRoute,
+  sideTerminal,
   styleOf,
+  svgPathData,
   type CanvasDoc,
   type CanvasEdge,
   type CanvasNode,
 } from "@kb/canvas";
-import { edgePath, leaving, sideAnchor, sidePoint } from "./canvas-edge-path";
 import { edgePropPresent } from "./canvas-api";
 import { paintCss, paletteToken } from "./canvas-color";
 import type { CanvasSelection } from "./canvas-selection";
@@ -108,7 +111,8 @@ function CanvasEdgeView({
   const from = byId.get(edge.fromNode);
   const to = byId.get(edge.toNode);
   if (!from || !to) return null;
-  const d = edgePath(from, to, edge);
+  const route = edgeRoute(from, to, edge);
+  const d = svgPathData(route.path);
   const selected = selection.edgeIds.has(edge.id);
   const unbound =
     edge.kbLink?.mode === "native" && !!edge.kbLink.fieldId && !edgePropPresent(edge, nodes);
@@ -121,8 +125,8 @@ function CanvasEdgeView({
 
   // Edge label midpoint
   const labelEl = (() => {
-    const a = sidePoint(from, edge.fromSide ?? "right");
-    const b = sidePoint(to, edge.toSide ?? "left");
+    const a = route.from.at;
+    const b = route.to.at;
     const mx = (a.x + b.x) / 2;
     const my = (a.y + b.y) / 2;
     if (editingEdgeLabel === edge.id) {
@@ -196,6 +200,7 @@ function CanvasEdgeView({
       />
       {/* Visible stroke */}
       <path
+        data-edge-path
         d={d}
         fill="none"
         stroke={
@@ -229,16 +234,14 @@ function GhostEdgePath({
   const stageEl = document.querySelector("[data-canvas-viewport]");
   if (!from || !stageEl) return null;
   const { width, height } = stageEl.getBoundingClientRect();
-  const anchor = sideAnchor(from, edgeDrag.fromSide);
-  const start = anchor.at;
   // The drag holds a viewport point: the viewport is its own origin.
   const viewport = { left: 0, top: 0, width, height };
   const end = clientToCanvas({ x: edgeDrag.x, y: edgeDrag.y }, viewport, pan, zoom);
-  const { x: c1x, y: c1y } = leaving(anchor, Math.max(40, Math.abs(end.x - start.x) * 0.45));
+  const route = looseRoute(sideTerminal(from, edgeDrag.fromSide), end);
   return (
     <path
       data-testid="canvas-connection-preview"
-      d={`M ${start.x} ${start.y} C ${c1x} ${c1y}, ${end.x} ${end.y}, ${end.x} ${end.y}`}
+      d={svgPathData(route.path)}
       fill="none"
       stroke="var(--primary)"
       strokeWidth={1.5}

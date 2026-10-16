@@ -1,10 +1,10 @@
 /**
- * The 3D canvas's edges (`canvas-scene`): lines between the items' side
- * anchors, bowed like their 2D bezier and climbing from one height to the
- * other, with a cone for an arrowhead. An edge is rebuilt only when what it
- * is drawn from changes (`edgeVersion`: its ends' boxes and heights, sides,
- * arrowheads, colour and selection); a drag rebuilds just the edges of the
- * cards it carries.
+ * The 3D canvas's edges (`canvas-scene`): each a line through its route's
+ * points (`edgeRoute`, `routePoints`, `@kb/canvas`) — the path the 2D canvas
+ * draws, climbing from one end's height to the other — with a cone for an
+ * arrowhead. An edge is rebuilt only when what it is drawn from changes
+ * (`edgeVersion`: its route's ends, arrowheads, colour and selection); a
+ * drag rebuilds just the edges of the cards it carries.
  */
 import {
   Color,
@@ -18,53 +18,33 @@ import {
 } from "three/webgpu";
 import { Line2 } from "three/addons/lines/webgpu/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
-import { styleOf, type CanvasEdge, type CanvasNode } from "@kb/canvas";
-import { leaving, sideAnchor, type SideAnchor } from "./canvas-edge-path";
+import {
+  edgeRoute,
+  routePoints,
+  styleOf,
+  type CanvasEdge,
+  type EdgeRoute,
+  type EdgeTerminal,
+} from "@kb/canvas";
 import { paintColor, type CardLook } from "./canvas-card-face";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 
-const SAMPLES = 28;
 const UP = new Vector3(0, 1, 0);
+/** An edge runs a hair over the planes it joins, so a flat card never covers it. */
+const LIFT = 0.5;
 
-/** The two side anchors an edge runs between (`sideAnchor`): where it starts and ends. */
-function anchorsOf(from: CanvasNode, to: CanvasNode, edge: CanvasEdge) {
-  return [
-    sideAnchor(from, edge.fromSide ?? "right"),
-    sideAnchor(to, edge.toSide ?? "left"),
-  ] as const;
+/** The route's points in three's space (canvas y flipped), a hair over its planes. */
+function edgeCurve(route: EdgeRoute): Vector3[] {
+  return routePoints(route).map((p) => new Vector3(p.x, -p.y, p.z + LIFT));
 }
 
-/** The edge's curve in three's space: the 2D bezier, climbing smoothly between the two heights. */
-function edgeCurve([from, to]: readonly [SideAnchor, SideAnchor]): Vector3[] {
-  const a = from.at;
-  const b = to.at;
-  const za = a.z;
-  const zb = b.z;
-  const reach = Math.max(40, Math.hypot(b.x - a.x, b.y - a.y) * 0.4);
-  const c1 = leaving(from, reach);
-  const c2 = leaving(to, reach);
-  const points: Vector3[] = [];
-  for (let i = 0; i <= SAMPLES; i++) {
-    const t = i / SAMPLES;
-    const u = 1 - t;
-    const x = u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x;
-    const y = u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y;
-    const z = za + (zb - za) * t * t * (3 - 2 * t);
-    points.push(new Vector3(x, -y, z + 0.5));
-  }
-  return points;
-}
+const terminalKey = ({ at, out }: EdgeTerminal) => `${at.x},${at.y},${at.z},${out.x},${out.y}`;
 
-const anchorKey = ({ at, out }: SideAnchor) => `${at.x},${at.y},${at.z},${out.x},${out.y}`;
-
-/** Everything an edge is drawn from, as a version: its anchors, ends, colour and selection. */
-function edgeVersion(
-  edge: CanvasEdge,
-  [from, to]: readonly [SideAnchor, SideAnchor],
-  selected: boolean,
-) {
+/** Everything an edge is drawn from, as a version: its route's ends, heads, colour and selection. */
+function edgeVersion(edge: CanvasEdge, route: EdgeRoute, selected: boolean) {
   const ends = `${edge.fromEnd ?? ""}>${edge.toEnd ?? ""}`;
-  return `${anchorKey(from)}|${anchorKey(to)}|${ends}|${edge.color ?? ""}|${selected ? "s" : "-"}`;
+  const at = `${terminalKey(route.from)}|${terminalKey(route.to)}`;
+  return `${at}|${ends}|${edge.color ?? ""}|${selected ? "s" : "-"}`;
 }
 
 interface DrawnEdge {
@@ -98,17 +78,37 @@ export class EdgeLayer {
       if (!from || !to) continue;
       ids.push(edge.id);
       const selected = content.selection.edgeIds.has(edge.id);
-      const anchors = anchorsOf(from, to, edge);
-      const version = edgeVersion(edge, anchors, selected);
+      const route = edgeRoute(from, to, edge);
+      const version = edgeVersion(edge, route, selected);
       if (this.drawn.get(edge.id)?.version === version) continue;
       this.drop(edge.id);
-      const group = this.draw(edge, edgeCurve(anchors), selected);
+      const group = this.draw(edge, edgeCurve(route), selected);
       this.root.add(group);
       this.drawn.set(edge.id, { group, version });
     }
     const kept = new Set(ids);
     for (const id of this.drawn.keys()) if (!kept.has(id)) this.drop(id);
     this.ids = ids;
+  }
+
+  /**
+   * Edge `id` as drawn, in canvas space (three's y flipped back): the points
+   * its line runs through, read from the line's own geometry.
+   */
+  pointsOf(id: string): { x: number; y: number; z: number }[] | null {
+    const drawn = this.drawn.get(id);
+    const line = drawn?.group.children.find((child) => child instanceof Line2);
+    if (!(line instanceof Line2)) return null;
+    const start = line.geometry.getAttribute("instanceStart");
+    const end = line.geometry.getAttribute("instanceEnd");
+    const points = Array.from({ length: start.count }, (_, i) => ({
+      x: start.getX(i),
+      y: -start.getY(i),
+      z: start.getZ(i) - LIFT,
+    }));
+    const last = end.count - 1;
+    if (last >= 0) points.push({ x: end.getX(last), y: -end.getY(last), z: end.getZ(last) - LIFT });
+    return points;
   }
 
   dispose(): void {
