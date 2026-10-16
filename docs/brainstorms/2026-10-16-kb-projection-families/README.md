@@ -1518,3 +1518,11 @@ commit.
      `node-config.policy.test.ts` covers both forms.
    - **A frame view node naming a frame view not provided:** it shows
      "cannot be shown here" and offers no rows.
+2. **`findView` goes through the kernel.** It asks the kernel's `lookup`,
+   which holds ids and aliases in one index, instead of matching them
+   again. `currentView` reads a view outside React.
+3. **The view contract's stand-ins provide as production does.** Each
+   stand-in is contributed in its owner's namespace, at the same local id
+   and with the same aliases, so a collection view's stand-in is reached
+   through the `outline.*` alias. A case holds the suite to running over
+   at least one such view.

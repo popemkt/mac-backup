@@ -16,7 +16,13 @@ import { act, use, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Effect, Result, Schema } from "effect";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { definePlugin, makeKernel, type Plugin, type ContributionEntry } from "@kb/plugin";
+import {
+  type Contribution,
+  type ContributionEntry,
+  definePlugin,
+  makeKernel,
+  type Plugin,
+} from "@kb/plugin";
 import { SYSTEM_IDS, VIEW_FAMILY_VALUES } from "@kb/model";
 import {
   findView,
@@ -75,30 +81,46 @@ const SEED = new Map(bundledSeed().map((node) => [node.id, node]));
 
 const others = (owner: string) => ALL_PLUGINS.filter((plugin) => plugin.name !== owner);
 
-/** `view` again, under its own key and picker, drawn by `Component` instead. */
-function standIn(
-  view: ProvidedView,
-  Component: () => ReactElement,
-): ContributionEntry<ProvidedView> {
-  // Under the key's own id, in the root namespace, whichever family's namespace
-  // the view's id was first stored under.
-  return { id: view.key.id, value: { ...view, Component } };
-}
+/** The namespace each plugin the UI can hold contributes under. */
+const NAMESPACES = new Map(KERNEL.plugins().map((plugin) => [plugin.name, plugin.namespace]));
 
-/** A provider under `view`'s own key whose component always throws. */
-function throwingStandIn(owner: string, view: ProvidedView): Plugin {
-  const Throws = () => {
-    throw new Error(`${view.key.id} threw`);
+/**
+ * A plugin that contributes `provided` again as its owner did: in its owner's
+ * namespace, at the same local id and with the same aliases, so a key reaches
+ * the stand-in the way it reaches the view (a collection view through the
+ * alias of the id the outline's namespace first stored it under), drawn by
+ * `Component` instead.
+ */
+function standIn(
+  name: string,
+  provided: Contribution<ProvidedView>,
+  Component: () => ReactElement,
+): Plugin {
+  const namespace = NAMESPACES.get(provided.owner) ?? "";
+  const prefix = namespace === "" ? "" : `${namespace}.`;
+  const entry: ContributionEntry<ProvidedView> = {
+    id: provided.id.slice(prefix.length),
+    aliases: provided.aliases,
+    value: { ...provided.value, Component },
   };
   return definePlugin({
-    name: `${owner}.contract-stand-in`,
-    namespace: "",
-    apply: (ctx) => ctx.contribute(ViewPoint, standIn(view, Throws)),
+    name: `${provided.owner}.${name}`,
+    namespace,
+    apply: (ctx) => ctx.contribute(ViewPoint, entry),
   });
 }
 
+/** A provider under `view`'s own key whose component always throws. */
+function throwingStandIn(provided: Contribution<ProvidedView>): Plugin {
+  const Throws = () => {
+    throw new Error(`${provided.value.key.id} threw`);
+  };
+  return standIn("contract-stand-in", provided, Throws);
+}
+
 /** A provider under `view`'s own key whose component embeds that same key again. */
-function selfEmbeddingStandIn(owner: string, view: ProvidedView): Plugin {
+function selfEmbeddingStandIn(provided: Contribution<ProvidedView>): Plugin {
+  const view = provided.value;
   const Embeds = () => (
     <div data-contract-nested="true">
       <ViewSlot
@@ -109,11 +131,7 @@ function selfEmbeddingStandIn(owner: string, view: ProvidedView): Plugin {
       />
     </div>
   );
-  return definePlugin({
-    name: `${owner}.contract-self-embed`,
-    namespace: "",
-    apply: (ctx) => ctx.contribute(ViewPoint, standIn(view, Embeds)),
-  });
+  return standIn("contract-self-embed", provided, Embeds);
 }
 
 /** Where a property that holds whatever the placement is checks a view: the first it offers. */
@@ -228,90 +246,103 @@ describe("view contract", () => {
     expect(VIEWS.length).toBeGreaterThan(0);
   });
 
+  it("runs over a view its key reaches through an alias, as the collection views are", () => {
+    // Their stand-ins are contributed the same way, so every promise below
+    // holds on the path production resolves them by.
+    const aliased = VIEWS.filter(
+      ({ id, aliases, value }) => id !== value.key.id && aliases.includes(value.key.id),
+    );
+    expect(aliased.map(({ value }) => value.key.id)).toContain("outline.table");
+  });
+
   it("holds no view key the server does not list", () => {
     expect(UNLISTED).toEqual([]);
   });
 
-  describe.each(VIEWS.map((view) => ({ id: view.id, owner: view.owner, view: view.value })))(
-    "$id",
-    ({ owner, view }) => {
-      it("is found by its own key", () => {
-        expect(findView(KERNEL, view.key)).toBe(view);
-      });
+  describe.each(
+    VIEWS.map((provided) => ({
+      id: provided.id,
+      owner: provided.owner,
+      view: provided.value,
+      provided,
+    })),
+  )("$id", ({ owner, view, provided }) => {
+    it("is found by its own key", () => {
+      expect(findView(KERNEL, view.key)).toBe(view);
+    });
 
-      it("is named in data by a seeded option under sys.views, in its own family", () => {
-        const option = SEED.get(view.key.option);
-        expect(SEED.get(SYSTEM_IDS.viewsRoot)?.children).toContain(view.key.option);
-        const family = option?.props[SYSTEM_IDS.viewFamilyField]?.[0];
-        const expected = Object.entries(VIEW_FAMILY_VALUES).find(
-          ([name]) => name === view.key.family,
-        )?.[1].id;
-        if (view.key.family !== undefined) expect(expected).toBeDefined();
-        expect(family?.v).toBe(expected);
-      });
+    it("is named in data by a seeded option under sys.views, in its own family", () => {
+      const option = SEED.get(view.key.option);
+      expect(SEED.get(SYSTEM_IDS.viewsRoot)?.children).toContain(view.key.option);
+      const family = option?.props[SYSTEM_IDS.viewFamilyField]?.[0];
+      const expected = Object.entries(VIEW_FAMILY_VALUES).find(
+        ([name]) => name === view.key.family,
+      )?.[1].id;
+      if (view.key.family !== undefined) expect(expected).toBeDefined();
+      expect(family?.v).toBe(expected);
+    });
 
-      it("is drawn under a key of the page's catalog, the one the server lists", () => {
-        expect(PAGE_CATALOG.keyOf(view.key.id)).toBe(view.key);
-      });
+    it("is drawn under a key of the page's catalog, the one the server lists", () => {
+      expect(PAGE_CATALOG.keyOf(view.key.id)).toBe(view.key);
+    });
 
-      it("declares its settings, and its sample is a legal value of them", () => {
-        const decoded = Schema.decodeUnknownResult(view.key.params)(view.sample);
-        expect(Result.isSuccess(decoded) ? null : decoded.failure.message).toBeNull();
-      });
+    it("declares its settings, and its sample is a legal value of them", () => {
+      const decoded = Schema.decodeUnknownResult(view.key.params)(view.sample);
+      expect(Result.isSuccess(decoded) ? null : decoded.failure.message).toBeNull();
+    });
 
-      it.each(view.placements)(
-        "mounts in a slot at %s, without the fallback or a crash",
-        async (placement) => {
-          await mount(view, placement);
-          await settle();
-          expectViewShown();
-        },
-      );
-
-      it("shows the fallback while its owner is unloaded, and comes back on reload", async () => {
-        await mount(view);
+    it.each(view.placements)(
+      "mounts in a slot at %s, without the fallback or a crash",
+      async (placement) => {
+        await mount(view, placement);
         await settle();
-        act(() => syncUiPlugins(others(owner)));
-        expect(shown("[data-contract-fallback]")).toBe(true);
+        expectViewShown();
+      },
+    );
+
+    it("shows the fallback while its owner is unloaded, and comes back on reload", async () => {
+      await mount(view);
+      await settle();
+      act(() => syncUiPlugins(others(owner)));
+      expect(shown("[data-contract-fallback]")).toBe(true);
+      expect(shown("[data-contract-host]")).toBe(true);
+      act(() => syncUiPlugins(ALL_PLUGINS));
+      await settle();
+      expectViewShown();
+    });
+
+    it("keeps a throw under its key inside the slot", async () => {
+      const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        act(() => syncUiPlugins([...others(owner), throwingStandIn(provided)]));
+        await mount(view);
+        expect(shown('[data-testid="view-error"]')).toBe(true);
         expect(shown("[data-contract-host]")).toBe(true);
-        act(() => syncUiPlugins(ALL_PLUGINS));
-        await settle();
-        expectViewShown();
-      });
+      } finally {
+        quiet.mockRestore();
+      }
+    });
 
-      it("keeps a throw under its key inside the slot", async () => {
-        const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
-        try {
-          act(() => syncUiPlugins([...others(owner), throwingStandIn(owner, view)]));
-          await mount(view);
-          expect(shown('[data-testid="view-error"]')).toBe(true);
-          expect(shown("[data-contract-host]")).toBe(true);
-        } finally {
-          quiet.mockRestore();
-        }
-      });
+    it("stops a provider that embeds its own key, for the same subject, at the first repeat", async () => {
+      act(() => syncUiPlugins([...others(owner), selfEmbeddingStandIn(provided)]));
+      await mount(view);
+      expect(container.querySelectorAll("[data-contract-nested]")).toHaveLength(1);
+      expect(container.querySelectorAll("[data-contract-depth-stop]")).toHaveLength(1);
+      expect(shown('[data-testid="view-error"]')).toBe(false);
+    });
 
-      it("stops a provider that embeds its own key, for the same subject, at the first repeat", async () => {
-        act(() => syncUiPlugins([...others(owner), selfEmbeddingStandIn(owner, view)]));
-        await mount(view);
-        expect(container.querySelectorAll("[data-contract-nested]")).toHaveLength(1);
-        expect(container.querySelectorAll("[data-contract-depth-stop]")).toHaveLength(1);
-        expect(shown('[data-testid="view-error"]')).toBe(false);
-      });
-
-      it("leaves nothing behind when it unmounts", async () => {
-        const body = dom.window.document.body;
-        const before = body.childNodes.length;
-        await mount(view);
-        await settle();
-        expectViewShown();
-        act(() => root.render(<></>));
-        expect(container.childNodes.length).toBe(0);
-        // Nothing it portalled or appended outside its box outlives it.
-        expect(body.childNodes.length).toBe(before);
-      });
-    },
-  );
+    it("leaves nothing behind when it unmounts", async () => {
+      const body = dom.window.document.body;
+      const before = body.childNodes.length;
+      await mount(view);
+      await settle();
+      expectViewShown();
+      act(() => root.render(<></>));
+      expect(container.childNodes.length).toBe(0);
+      // Nothing it portalled or appended outside its box outlives it.
+      expect(body.childNodes.length).toBe(before);
+    });
+  });
 
   describe("the slot", () => {
     const KEY = viewKey("contract.view", "Contract view", NoParams);
