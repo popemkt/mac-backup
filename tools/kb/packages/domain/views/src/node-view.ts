@@ -15,11 +15,9 @@ import {
   type NodeProps,
 } from "@kb/model";
 import type { CatalogItem, ViewCatalogEntry, ViewCatalogOf } from "./catalog.ts";
-import { FRAME_VIEW_FAMILY } from "./frame.ts";
-import { GraphView } from "./graph.ts";
 import { OutlineView } from "./outline.ts";
 import type { NodeParams } from "./layout.ts";
-import type { ConfigReport, ViewKey } from "./view-key.ts";
+import type { ConfigReport, ViewKey, ViewPage } from "./view-key.ts";
 
 /** What the resolver reads of a node: its props, and its text when it names a view. */
 interface Carrier {
@@ -61,10 +59,8 @@ type Catalog = Pick<ViewCatalogOf<CatalogItem>, "keyOf" | "listedOf">;
 
 /**
  * The page a view of `key` is shown on, shown for `host` through view node
- * `viewNode`: a frame view lays out a frame's rows inside the outline, so its
- * page is the outline at the frame; a graph renderer draws inside the graph
- * page, so its page is the graph page drawing that view node. Any other view
- * is its own page.
+ * `viewNode`: the page its key names (`ViewKey.page`), else the view itself,
+ * its params read from `props` for `host`.
  */
 function pageOf(
   key: ViewKey<unknown>,
@@ -72,15 +68,8 @@ function pageOf(
   host: NodeId | null,
   viewNode: NodeId | null,
   report: ConfigReport,
-): { readonly key: ViewKey<unknown>; readonly input: unknown } {
-  // The outline lays the frame out through the frame's own first frame view,
-  // so another of its frame view nodes chosen here shows that one instead.
-  // GAP [[01M411FPKHWPRFTWDYKVXBDYSB]]
-  if (key.family === FRAME_VIEW_FAMILY && host !== null)
-    return { key: OutlineView, input: { root: host } };
-  if (key.family === "graph.renderer" && viewNode !== null)
-    return { key: GraphView, input: { perspective: viewNode } };
-  return { key, input: key.config.read(props, host, report) };
+): ViewPage {
+  return key.page?.({ host, viewNode }) ?? { key, input: key.config.read(props, host, report) };
 }
 
 /**

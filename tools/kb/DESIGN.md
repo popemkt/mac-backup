@@ -987,10 +987,11 @@ layouts).
   through a named view node, read for the node; as the view node itself
   when the node is one; otherwise in the node's default view (the first it
   names) or, when it names none, as the outline rooted at it (`outline.main`
-  with `root`). A frame view's page is the outline at the frame, and a
-  graph renderer's page is the graph page drawing that view node. The UI's
-  links, a pane, a dashboard's panes and `ui.navigate` all open nodes this
-  way.
+  with `root`). A view whose page is another view's says so in its key
+  (`ViewKey.page`), so the resolver names no view: a frame view's page is
+  the outline at the frame, and a graph renderer's page is the graph page
+  drawing that view node. The UI's links, a pane, a dashboard's panes and
+  `ui.navigate` all open nodes this way.
 - **A layout node holds its tree as one prop.** `sys.f.layout` holds the
   tree as canonical JSON, the shape a canvas keeps its layout in, so a drag
   writes one prop atomically. "Save workspace" proposes the live

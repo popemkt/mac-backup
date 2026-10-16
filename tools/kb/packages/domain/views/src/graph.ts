@@ -137,6 +137,9 @@ function rendererKey<P extends LensWrite>(
     family: RENDERER_FAMILY,
     params,
     renderer: traits,
+    // A renderer draws inside the graph page, which draws the view node it is shown through.
+    page: ({ viewNode }) =>
+      viewNode === null ? null : { key: GraphView, input: { perspective: viewNode } },
   };
 }
 

@@ -55,6 +55,30 @@ export interface ViewKey<P> {
    * into what `params` decodes, and written back from params to props.
    */
   readonly config: ViewConfigCodec<P>;
+  /**
+   * The page a view of this key is shown on, when that is another view's: a
+   * frame view lays a frame's rows out inside the outline, so its page is
+   * the outline at the frame; a graph renderer draws inside the graph page.
+   * Null, or no `page`, means the view is its own page. The key's family
+   * states it, so whatever opens a node (`resolveNodeView`) names no view.
+   */
+  readonly page?: (shown: ShownFor) => ViewPage | null;
+}
+
+/**
+ * What a view is shown for: the node it is shown for (`host`, null for none)
+ * and the view node it draws (`viewNode`, null when it is shown as a view
+ * type, from no view node).
+ */
+export interface ShownFor {
+  readonly host: NodeId | null;
+  readonly viewNode: NodeId | null;
+}
+
+/** A view as a page shows it: its key, and the input its params decode from. */
+export interface ViewPage {
+  readonly key: ViewKey<unknown>;
+  readonly input: unknown;
 }
 
 /** Where a config reader sends a stored prop it had to ignore. */

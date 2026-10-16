@@ -85,6 +85,11 @@ function frameViewKey<P extends FrameViewParams>(
     }),
     family: FRAME_VIEW_FAMILY,
     rows,
+    // A frame view lays the frame's rows out inside the outline, so its page is
+    // the outline at the frame. The outline lays the frame out through the
+    // frame's own first frame view, so another of its frame view nodes chosen
+    // to open it shows that one instead. GAP [[01M411FPKHWPRFTWDYKVXBDYSB]]
+    page: ({ host }) => (host === null ? null : { key: OutlineView, input: { root: host } }),
   };
 }
 

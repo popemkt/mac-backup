@@ -17,9 +17,11 @@ export {
   type ConfigReport,
   type ParamsOf,
   type PlainViewKey,
+  type ShownFor,
   type ViewConfigCodec,
   type ViewIssue,
   type ViewKey,
+  type ViewPage,
 } from "./view-key.ts";
 export {
   DEFAULT_AUTOROTATE,
