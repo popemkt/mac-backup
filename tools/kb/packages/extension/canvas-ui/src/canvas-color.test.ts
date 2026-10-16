@@ -2,30 +2,32 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import { CANVAS_COLOR_PRESETS, resolveCanvasColor } from "./canvas-color";
+import { CANVAS_PALETTE, styleOf } from "@kb/canvas";
+import { CANVAS_SWATCHES, paintCss } from "./canvas-color";
 
 const designSystemCss = readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), "../../../app/ui/src/design-system.css"),
   "utf8",
 );
 
-describe("canvas color presets", () => {
-  test("presets 1–6 resolve to CSS custom properties", () => {
-    for (const p of CANVAS_COLOR_PRESETS) {
-      expect(resolveCanvasColor(p.id)).toBe(`var(--canvas-color-${p.id})`);
+describe("the canvas palette", () => {
+  test("each entry resolves to its CSS custom property", () => {
+    for (const p of CANVAS_SWATCHES) {
+      expect(paintCss(styleOf({ color: p.id }).color)).toBe(`var(--canvas-color-${p.id})`);
     }
   });
 
-  test("hex and unknown strings pass through", () => {
-    expect(resolveCanvasColor("#ff0000")).toBe("#ff0000");
-    expect(resolveCanvasColor("rebeccapurple")).toBe("rebeccapurple");
-    expect(resolveCanvasColor(undefined)).toBeUndefined();
+  test("hex and unknown strings pass through; none is none", () => {
+    expect(paintCss(styleOf({ color: "#ff0000" }).color)).toBe("#ff0000");
+    expect(paintCss(styleOf({ color: "rebeccapurple" }).color)).toBe("rebeccapurple");
+    expect(paintCss(styleOf({}).color)).toBeUndefined();
+    expect(paintCss(styleOf({ color: " " }).color)).toBeUndefined();
   });
 
-  test("design-system.css defines --canvas-color-1..6 under :root and .dark", () => {
-    for (const id of ["1", "2", "3", "4", "5", "6"]) {
-      const re = new RegExp(`--canvas-color-${id}:\\s*oklch\\(`);
-      expect(designSystemCss.match(re)?.length).toBeGreaterThanOrEqual(1);
+  test("design-system.css defines every entry's token under :root and .dark", () => {
+    for (const { id } of CANVAS_PALETTE) {
+      const re = new RegExp(`--canvas-color-${id}:\\s*oklch\\(`, "g");
+      expect(designSystemCss.match(re)?.length, id).toBe(2);
     }
     // both theme blocks carry the vars
     expect(designSystemCss).toMatch(

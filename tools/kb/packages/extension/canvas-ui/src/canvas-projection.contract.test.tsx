@@ -292,7 +292,7 @@ const look: CardLook = {
   ink: "rgb(20, 20, 20)",
   primary: "rgb(190, 120, 20)",
   danger: "rgb(200, 30, 30)",
-  presets: { "1": "rgb(200, 40, 40)" },
+  palette: { "1": "rgb(200, 40, 40)" },
   font: "sans-serif",
   body: 14.5,
   ui: 13,

@@ -6,8 +6,8 @@
  * The look is read from the design-system tokens at paint time (a canvas
  * cannot hold a `var()`), with the same roles the DOM cards use: the page
  * ground for the face, `--foreground` at the opacity ladder's steps for ink
- * and hairlines, `--primary` for the selection, the JSON Canvas presets for
- * shape colour, and the UI face at the body and UI steps for text.
+ * and hairlines, `--primary` for the selection, the palette's tokens for an
+ * item's colour (`styleOf`), and the UI face at the body and UI steps for text.
  */
 import {
   isFileNode,
@@ -16,11 +16,15 @@ import {
   isShapeNode,
   isTextNode,
   shapeOutline,
+  styleOf,
   tracePath,
+  CANVAS_PALETTE,
   type CanvasNode,
+  type CanvasPaint,
+  type CanvasPaletteId,
   type CanvasShapeKind,
 } from "@kb/canvas";
-import { CANVAS_COLOR_PRESETS, type CanvasColorPresetId } from "./canvas-color";
+import { paletteToken } from "./canvas-color";
 import { isPicture, type FacePicture } from "./canvas-face-pictures";
 import {
   assetSrcUrl,
@@ -46,7 +50,7 @@ export type CardFace =
       readonly kind: "shape";
       readonly shape: CanvasShapeKind;
       readonly label: string;
-      readonly color: string | undefined;
+      readonly paint: CanvasPaint | undefined;
     }
   | { readonly kind: "group"; readonly label: string }
   /** An image item's picture, from the asset its file names. */
@@ -71,7 +75,8 @@ export function cardFaceOf(
   }
   if (isTextNode(item)) return { kind: "text", text: item.text };
   if (isShapeNode(item)) {
-    return { kind: "shape", shape: item.shape, label: item.label ?? "", color: item.color };
+    const { color } = styleOf(item);
+    return { kind: "shape", shape: item.shape, label: item.label ?? "", paint: color };
   }
   if (isGroupNode(item)) return { kind: "group", label: item.label ?? "" };
   if (isFileNode(item)) {
@@ -88,8 +93,8 @@ export interface CardLook {
   readonly ink: string;
   readonly primary: string;
   readonly danger: string;
-  /** The JSON Canvas presets by id ("1"–"6"). */
-  readonly presets: Readonly<Record<string, string>>;
+  /** The palette's colours by id (`CANVAS_PALETTE`); an entry missing is painted as no colour. */
+  readonly palette: Readonly<Partial<Record<CanvasPaletteId, string>>>;
   readonly font: string;
   /** The body step (a note's text), the UI step (text cards, shape labels), the label step. */
   readonly body: number;
@@ -147,25 +152,24 @@ export function cornerRadius(item: CanvasNode, radii: CornerRadii): number {
   return isShapeNode(item) || isGroupNode(item) ? radii.shapeRadius : radii.radius;
 }
 
-/** Each JSON Canvas preset's token (`canvas-color` paints the same ones in the DOM). */
-const PRESET_TOKENS = {
-  "1": "--canvas-color-1",
-  "2": "--canvas-color-2",
-  "3": "--canvas-color-3",
-  "4": "--canvas-color-4",
-  "5": "--canvas-color-5",
-  "6": "--canvas-color-6",
-} as const satisfies Record<CanvasColorPresetId, ColorToken>;
+/** A paint as `look` colours it (the palette through its tokens), or undefined for none. */
+export function paintColor(look: CardLook, paint: CanvasPaint | undefined): string | undefined {
+  if (paint === undefined) return undefined;
+  return paint.kind === "palette" ? look.palette[paint.id] : paint.css;
+}
 
 export function readCardLook(): CardLook {
-  const presets: Record<string, string> = {};
-  for (const { id } of CANVAS_COLOR_PRESETS) presets[id] = readTokenColor(PRESET_TOKENS[id]);
+  const palette: Partial<Record<CanvasPaletteId, string>> = {};
+  for (const { id } of CANVAS_PALETTE) {
+    const token: ColorToken = paletteToken(id);
+    palette[id] = readTokenColor(token);
+  }
   return {
     face: readTokenColor("--background"),
     ink: readTokenColor("--foreground"),
     primary: readTokenColor("--primary"),
     danger: readTokenColor("--destructive"),
-    presets,
+    palette,
     font: graphLabelFont("ui"),
     body: probeLength("fontSize", "var(--type-body)", 14.5),
     ui: probeLength("fontSize", "var(--type-ui)", 13),
@@ -357,7 +361,7 @@ function paintShape(
   box: FaceBox,
   look: CardLook,
 ) {
-  const color = face.color === undefined ? undefined : (look.presets[face.color] ?? face.color);
+  const color = paintColor(look, face.paint);
   shapePath(ctx, face.shape, box, look.shapeRadius);
   ctx.fillStyle = look.face;
   ctx.fill();

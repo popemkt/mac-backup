@@ -128,6 +128,8 @@ export {
   snapToSurface,
 } from "./snap.ts";
 export type { SnapGuide, SnappedTransform } from "./snap.ts";
+export { CANVAS_PALETTE, styleOf } from "./style.ts";
+export type { CanvasPaint, CanvasPaletteId } from "./style.ts";
 export { CANVAS_IDS } from "./ids.ts";
 export { CanvasListView, CanvasParams, CanvasView } from "./view.ts";
 export { canvasExtension, canvasPlugin } from "./extension.ts";

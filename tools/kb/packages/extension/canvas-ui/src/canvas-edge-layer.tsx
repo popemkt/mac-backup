@@ -1,7 +1,13 @@
-import type { CanvasDoc, CanvasEdge, CanvasNode } from "@kb/canvas";
+import {
+  CANVAS_PALETTE,
+  styleOf,
+  type CanvasDoc,
+  type CanvasEdge,
+  type CanvasNode,
+} from "@kb/canvas";
 import { edgePath, leaving, sideAnchor, sidePoint } from "./canvas-edge-path";
 import { edgePropPresent } from "./canvas-api";
-import { resolveCanvasColor } from "./canvas-color";
+import { paintCss, paletteToken } from "./canvas-color";
 import type { CanvasSelection } from "./canvas-selection";
 import type { PointerState } from "./canvas-pointer";
 import { hasText, type OutlineNode } from "@kb/ui-sdk";
@@ -46,7 +52,7 @@ function EdgeMarkers() {
       >
         <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
       </marker>
-      {["1", "2", "3", "4", "5", "6"].map((colorId) => (
+      {CANVAS_PALETTE.map(({ id: colorId }) => (
         <marker
           key={colorId}
           id={`kb-arrow-${colorId}`}
@@ -57,7 +63,7 @@ function EdgeMarkers() {
           markerHeight="6"
           orient="auto-start-reverse"
         >
-          <path d="M 0 0 L 10 5 L 0 10 z" fill={`var(--canvas-color-${colorId})`} />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill={`var(${paletteToken(colorId)})`} />
         </marker>
       ))}
       <marker
@@ -71,7 +77,7 @@ function EdgeMarkers() {
       >
         <path d="M 10 0 L 0 5 L 10 10 z" fill="currentColor" />
       </marker>
-      {["1", "2", "3", "4", "5", "6"].map((colorId) => (
+      {CANVAS_PALETTE.map(({ id: colorId }) => (
         <marker
           key={`rev-${colorId}`}
           id={`kb-arrow-rev-${colorId}`}
@@ -82,7 +88,7 @@ function EdgeMarkers() {
           markerHeight="6"
           orient="auto-start-reverse"
         >
-          <path d="M 10 0 L 0 5 L 10 10 z" fill={`var(--canvas-color-${colorId})`} />
+          <path d="M 10 0 L 0 5 L 10 10 z" fill={`var(${paletteToken(colorId)})`} />
         </marker>
       ))}
     </defs>
@@ -106,19 +112,12 @@ function CanvasEdgeView({
   const selected = selection.edgeIds.has(edge.id);
   const unbound =
     edge.kbLink?.mode === "native" && !!edge.kbLink.fieldId && !edgePropPresent(edge, nodes);
-  const edgeColor = resolveCanvasColor(edge.color);
-  const markerEnd =
-    edge.toEnd === "none"
-      ? undefined
-      : hasText(edge.color)
-        ? `url(#kb-arrow-${edge.color})`
-        : "url(#kb-arrow)";
-  const markerStart =
-    edge.fromEnd === "arrow"
-      ? hasText(edge.color)
-        ? `url(#kb-arrow-rev-${edge.color})`
-        : "url(#kb-arrow-rev)"
-      : undefined;
+  const paint = styleOf(edge).color;
+  const edgeColor = paintCss(paint);
+  // A palette colour has its own markers; any other paints the ink's.
+  const tint = paint?.kind === "palette" ? `-${paint.id}` : "";
+  const markerEnd = edge.toEnd === "none" ? undefined : `url(#kb-arrow${tint})`;
+  const markerStart = edge.fromEnd === "arrow" ? `url(#kb-arrow-rev${tint})` : undefined;
 
   // Edge label midpoint
   const labelEl = (() => {

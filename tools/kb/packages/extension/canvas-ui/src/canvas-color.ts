@@ -1,28 +1,24 @@
-import { hasText } from "@kb/ui-sdk";
 /**
- * JSON Canvas color presets ("1"–"6") → theme CSS custom properties
- * (`--canvas-color-N` on :root / .dark). Hex and other literals pass through.
+ * The palette in the DOM: each `CANVAS_PALETTE` entry's design token
+ * (`--canvas-color-<id>` on :root and .dark), and a paint (`styleOf`) as the
+ * CSS colour it is drawn in. A literal colour passes through as written.
  */
+import { CANVAS_PALETTE, type CanvasPaint, type CanvasPaletteId } from "@kb/canvas";
 
-export const CANVAS_COLOR_PRESETS = [
-  { id: "1", label: "red", css: "var(--canvas-color-1)" },
-  { id: "2", label: "orange", css: "var(--canvas-color-2)" },
-  { id: "3", label: "yellow", css: "var(--canvas-color-3)" },
-  { id: "4", label: "green", css: "var(--canvas-color-4)" },
-  { id: "5", label: "cyan", css: "var(--canvas-color-5)" },
-  { id: "6", label: "purple", css: "var(--canvas-color-6)" },
-] as const;
+/** The token a palette entry is drawn in, in both projections. */
+export function paletteToken(id: CanvasPaletteId) {
+  return `--canvas-color-${id}` as const;
+}
 
-export type CanvasColorPresetId = (typeof CANVAS_COLOR_PRESETS)[number]["id"];
+/** The palette as the inspectors offer it: each entry, its name, and its swatch. */
+export const CANVAS_SWATCHES = CANVAS_PALETTE.map((entry) => ({
+  id: entry.id,
+  label: entry.name,
+  css: `var(${paletteToken(entry.id)})`,
+}));
 
-const PRESET_CSS: Record<string, string> = Object.fromEntries(
-  CANVAS_COLOR_PRESETS.map((p) => [p.id, p.css]),
-);
-
-/** Resolve a canvas color string to a CSS color, or undefined if unset. */
-export function resolveCanvasColor(color?: string): string | undefined {
-  if (!hasText(color)) return undefined;
-  const preset = PRESET_CSS[color];
-  if (preset !== undefined) return preset;
-  return color;
+/** A paint as a CSS colour, or undefined for none. */
+export function paintCss(paint: CanvasPaint | undefined): string | undefined {
+  if (paint === undefined) return undefined;
+  return paint.kind === "palette" ? `var(${paletteToken(paint.id)})` : paint.css;
 }

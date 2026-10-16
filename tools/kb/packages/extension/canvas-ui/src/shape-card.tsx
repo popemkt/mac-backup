@@ -3,11 +3,12 @@ import {
   CANVAS_SHAPES,
   canvasDepth,
   shapeOutline,
+  styleOf,
   svgPathData,
   type CanvasShapeNode,
   type CanvasVolume,
 } from "@kb/canvas";
-import { resolveCanvasColor } from "./canvas-color";
+import { paintCss } from "./canvas-color";
 import { classifyCardPointer } from "./card-pointer";
 import type { FaceLayout } from "./canvas-face";
 import { cn, hasText, textOr } from "@kb/ui-sdk";
@@ -73,7 +74,7 @@ function ShapeChrome({
   d: string;
   selected: boolean;
 }) {
-  const color = resolveCanvasColor(card.color);
+  const color = paintCss(styleOf(card).color);
   const stroke = color ?? "color-mix(in oklab, var(--foreground) 18%, transparent)";
   // Opaque, as the 3D face is: what stands on a shape covers it.
   const fill = `color-mix(in oklab, ${color ?? "var(--foreground)"} ${color === undefined ? 2 : 14}%, var(--background))`;

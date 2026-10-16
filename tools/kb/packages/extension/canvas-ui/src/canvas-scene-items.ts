@@ -54,6 +54,7 @@ import {
   itemShape,
   paintOrder,
   shapeOutline,
+  styleOf,
   tracePath,
   type CanvasAxes,
   type CanvasFootprint,
@@ -67,6 +68,7 @@ import {
   FACE_MARGIN,
   over,
   paintCardFace,
+  paintColor,
   type CardFace,
   type CardLook,
 } from "./canvas-card-face";
@@ -171,7 +173,7 @@ function faceVersion(face: CardFace, selected: boolean): string {
     case "note":
       return `n${mark}${fingerprint(face.text)}${face.tags.map((t) => `|${t.name}:${t.color}`).join("")}`;
     case "shape":
-      return `s${mark}${face.shape}:${face.color ?? ""}:${fingerprint(face.label)}`;
+      return `s${mark}${face.shape}:${JSON.stringify(face.paint ?? null)}:${fingerprint(face.label)}`;
     case "text":
       return `t${mark}${fingerprint(face.text)}`;
     case "image":
@@ -232,11 +234,6 @@ function paintFace(map: CanvasTexture, entry: Item, look: CardLook): CanvasTextu
     return map;
   }
   return faceMap(canvas);
-}
-
-/** The colour an item names (a JSON Canvas preset or a literal), resolved; undefined for none. */
-function colorOf(item: CanvasNode, look: CardLook): string | undefined {
-  return item.color === undefined ? undefined : (look.presets[item.color] ?? item.color);
 }
 
 /** Where `points` (x, y, z each, in pairs) stand, as fat-line positions. */
@@ -576,7 +573,7 @@ export class ItemLayer {
     this.orient(entry);
     const frame = boxFrame(item, z);
     const origin = boxToWorld(frame, { x: 0, y: 0, z: -frame.half.z });
-    const tint = colorOf(item, look);
+    const tint = paintColor(look, styleOf(item).color);
     // The body: the card stock, or its colour laid over it, a little firmer in the dark.
     entry.bodyMaterial.color.set(
       tint === undefined

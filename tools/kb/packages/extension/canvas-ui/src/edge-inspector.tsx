@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { CanvasEdge, KbLinkMode } from "@kb/canvas";
-import { CANVAS_COLOR_PRESETS } from "./canvas-color";
+import { CANVAS_SWATCHES } from "./canvas-color";
 import { cn, EnumSelect, hasText, isOutside, type EnumOption } from "@kb/ui-sdk";
 
 export interface EdgeInspectorProps {
@@ -127,7 +127,7 @@ export function EdgeInspector({
               )}
               onClick={() => onColorChange(undefined)}
             />
-            {CANVAS_COLOR_PRESETS.map((p) => (
+            {CANVAS_SWATCHES.map((p) => (
               <button
                 key={p.id}
                 type="button"

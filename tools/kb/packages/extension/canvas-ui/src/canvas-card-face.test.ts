@@ -9,7 +9,7 @@ const look: CardLook = {
   ink: "rgb(0, 0, 0)",
   primary: "rgb(200, 100, 0)",
   danger: "rgb(200, 0, 0)",
-  presets: {},
+  palette: {},
   font: "sans-serif",
   body: 14.5,
   ui: 13,

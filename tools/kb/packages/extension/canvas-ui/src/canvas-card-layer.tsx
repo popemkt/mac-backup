@@ -10,6 +10,7 @@ import {
   isTextNode,
   itemShape,
   paintOrder,
+  styleOf,
   svgPathData,
   topView,
 } from "@kb/canvas";
@@ -22,7 +23,7 @@ import type { ResizeCorner } from "./canvas-pointer";
 import { classifyCardPointer } from "./card-pointer";
 import { cardBoxStyle } from "./canvas-card-box";
 import type { FaceLayout } from "./canvas-face";
-import { resolveCanvasColor } from "./canvas-color";
+import { paintCss } from "./canvas-color";
 import { cn, hasText } from "@kb/ui-sdk";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
 import { CanvasPorts } from "./canvas-ports";
@@ -101,7 +102,7 @@ function CanvasItemBody({
   onPointerDown: (event: React.PointerEvent) => void;
 }) {
   if (canvasDepth(card) <= 0) return null;
-  const color = resolveCanvasColor(card.color) ?? "var(--foreground)";
+  const color = paintCss(styleOf(card).color) ?? "var(--foreground)";
   return (
     <svg
       aria-hidden

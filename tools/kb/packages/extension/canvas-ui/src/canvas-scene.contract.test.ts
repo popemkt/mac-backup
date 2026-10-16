@@ -60,7 +60,7 @@ sceneContract([
           ink: "rgb(230, 230, 240)",
           primary: "rgb(210, 140, 40)",
           danger: "rgb(220, 60, 60)",
-          presets: {},
+          palette: {},
           font: "sans-serif",
           body: 14.5,
           ui: 13,

@@ -18,9 +18,9 @@ import {
 } from "three/webgpu";
 import { Line2 } from "three/addons/lines/webgpu/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
-import type { CanvasEdge, CanvasNode } from "@kb/canvas";
+import { styleOf, type CanvasEdge, type CanvasNode } from "@kb/canvas";
 import { leaving, sideAnchor, type SideAnchor } from "./canvas-edge-path";
-import type { CardLook } from "./canvas-card-face";
+import { paintColor, type CardLook } from "./canvas-card-face";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 
 const SAMPLES = 28;
@@ -119,7 +119,7 @@ export class EdgeLayer {
   private colorOf(edge: CanvasEdge, selected: boolean): Color {
     const { look } = this;
     if (selected) return new Color(look.primary);
-    const preset = edge.color === undefined ? undefined : (look.presets[edge.color] ?? edge.color);
+    const preset = paintColor(look, styleOf(edge).color);
     // At rest an edge is the 2D stroke, composited over the ground.
     return preset === undefined
       ? new Color(look.face).lerp(new Color(look.ink), 0.4)

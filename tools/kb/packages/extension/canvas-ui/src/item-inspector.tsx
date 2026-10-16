@@ -17,7 +17,7 @@ import {
   type CanvasNode,
 } from "@kb/canvas";
 import { cn, hasText, isOutside, PopoverShell } from "@kb/ui-sdk";
-import { CANVAS_COLOR_PRESETS } from "./canvas-color";
+import { CANVAS_SWATCHES } from "./canvas-color";
 
 export interface ItemInspectorProps {
   item: CanvasNode;
@@ -51,7 +51,7 @@ function ColorRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChang
           )}
           onClick={() => setColor(undefined)}
         />
-        {CANVAS_COLOR_PRESETS.map((p) => (
+        {CANVAS_SWATCHES.map((p) => (
           <button
             key={p.id}
             type="button"
