@@ -904,9 +904,10 @@ Each step is a restructure, in the order of the dependencies above.
   graph's slots, `EdgeKind`, `LENS_SETTINGS`, `DEFAULT_RENDERER` and
   `graph-schema.ts` move to `@kb/graph`. `@kb/views`' tests switch their
   example view.
-- **O4e**: the owner decides on the lab and the ontology (2). Then the
-  kit's lens (`graph-lens.ts`, `queryNeighbourhood`) moves out of the kit,
-  its pure parts into `@kb/graph`.
+- **O4e** (decided; landed in O4c–O4f): the owner decides on the lab and
+  the ontology (2). Then the kit's lens (`graph-lens.ts`,
+  `queryNeighbourhood`) moves out of the kit, its pure parts into
+  `@kb/graph`.
 - **O4f**, the cut:
   - `@kb/graph` moves to `packages/extension/graph` with its tag and its
     declaration (the seven views, the seed of 4, optional and on by
@@ -1015,7 +1016,7 @@ family, uses the graph's lens codec any more.
   deliberate seed change, so it belongs to the cut (O4f), with the
   declaration's `seed`.
 
-### O4e: recommendation, for the owner
+### O4e: recommendation, for the owner (decided: taken, see O4c–O4f)
 
 - **The lab reaches the graph through a kit service, not the graph's
   package.**
@@ -1074,3 +1075,209 @@ Sol's review of O4a, O4b and the first half of O4d asked for five fixes:
   `"white"`), which the design-tokens rule accepts. Only its alpha is read
   back. The pinpoint disable is gone.
 - A DESIGN.md line O4a wrote over 100 characters is rewrapped.
+
+## O4c–O4f: what landed
+
+The graph is an optional family of two packages, on by default. Six
+`refactor:` commits, behaviour-preserving except where O4e decided otherwise
+and for the seed's view order (both below).
+
+### O4c: the graph's reads and writes go through the kit
+
+- **`WorkspaceBoundary` and `OntologyPicker` are kit components**
+  (`@kb/ui-sdk`), with their tests. `SidebarNavItem` and
+  `listOntologyItems` were the kit's already.
+- **The ontology members** come through `usePageGraph`, not the app's
+  graph store.
+- **The graph's three writes leave core's `mutations`, `plan` and
+  `PageWrites`.** They are the zone's own (`lens-writes.ts`) over
+  `browserHost().writes`, and no graph file names `mutations`:
+  - `setLensProp` and `setGraphRenderer` are `replaceField` of one field;
+  - `saveGraphPerspective` is the new generic `PageWrites.addViewNode(text,
+    props)`, a view node with given props filed in the Views list. It is
+    named for what it does, not for the graph. `planAddViewNode` was
+    already generic.
+  - `planSetGraphRenderer` and `planSetLensProp` are gone.
+
+### O4d, second half: the lens and the seed are the graph's
+
+- **`lens.ts` moves whole into `@kb/graph`.** All of it was the graph's:
+  the slot table, `LensPerspective`, the defaults, the settings schemas,
+  `decodeLensConfig`, `encodeLensConfig`, `perspectiveProps` and
+  `sourceValue`. It reads the subject's slots through `@kb/views`' newly
+  exported `SUBJECT_SLOTS`.
+- **The graph's ids are `GRAPH_IDS`** (`@kb/graph`'s `ids.ts`), with their
+  spelling kept: every lens field but the subject's two, the graph sources
+  and their kind field, and `lens.all-mentions`. `lens.query` and
+  `lens.focus` stay in `SYSTEM_IDS`, because every view reads them.
+- **`graph-schema.ts` is `@kb/graph`'s `schema.ts`**, and the graph's seed
+  nodes are `graphSeedNodes`, which the graph's declaration seeds.
+- **Two core migrations name graph ids by their spelling.** They migrate
+  graph data written before the graph was a family, so they cannot import
+  it:
+  - the seed's legacy rename of `sys.lens.all-mentions` is now a table,
+    `LEGACY_SEED_RENAMES`;
+  - the view migration names the field a perspective named its renderer
+    in, `PERSPECTIVE_RENDERER_FIELD`.
+
+  `@kb/graph`'s seed test holds both to `GRAPH_IDS`. See the placeholder
+  below.
+- **A raw colour leaves a component module.** The grey that a `fixed:`
+  colour source draws in when it names no colour is now a lens default,
+  `DEFAULT_FIXED_COLOR`.
+
+### O4e: decided, and what landed
+
+The owner took the recommendation above.
+
+- **The lab reaches the graph through `LensGraphService`.** The kit names
+  the service: the lens graph of a perspective, or of the default one.
+  - Its shape is the kit's `LensGraph`, whose edge promises only its two
+    ends (`LensGraphEdge`).
+  - The graph's browser half provides it, from its one extraction.
+  - The zone's own `GraphLens` extends the kit's shape with the
+    projection's `LensEdge`.
+  - The lab injects the service, so its studies wait, pending, while the
+    graph is off.
+  - `@kb/lab-ui` and `@kb/ui-sdk` no longer depend on `@kb/graph`.
+- **The extraction moves out of the kit.** `graph-lens.ts` and its two
+  tests are the graph's browser half's.
+  - Its pure helpers stay beside it: no server reads them, so a split
+    would have no second reader.
+  - `queryNeighbourhood` stays in the kit. It is a generic query helper
+    like `queryBacklinks`: its EDN is `@kb/query`'s, and it names no type
+    of the graph's.
+- **The ontology names the graph's page by its id** (`graph.page`, through
+  the page catalog's `keyOf`), so it imports nothing of the graph.
+  - With no key held, the tab shows the "cannot be shown here" state, by
+    the option's label (`viewNamed`).
+  - That state moves from the layout's node view into the kit
+    (`ViewUnavailable`, `ViewNotLoaded`), so both surfaces say it the same
+    way.
+
+### O4f: the cut
+
+- **`@kb/graph`** (`packages/extension/graph`, `scope:shared`,
+  `family:graph`) holds:
+  - `graphExtension`: optional and on by default, with its seven views (the
+    page, the five renderers, the neighbourhood) and its seed;
+  - `graphPlugin()`, the server's entry, and a child of the page's.
+
+  Core's declaration lists none of the graph's views and folds no graph
+  seed. `@kb/operations` no longer depends on `@kb/graph`.
+- **`@kb/graph-ui`** (`packages/extension/graph-ui`, `scope:browser`,
+  `family:graph`) holds:
+  - the old `components/graph` zone and its tests;
+  - the two graph stories, with their own smoke test;
+  - the d3-force-3d shim, which travels with its one importer by a
+    triple-slash reference, as `@kb/query`'s datascript shim does.
+
+  Its entry, `graphUiPlugin`, is named for the declaration, loads
+  `graphPlugin()` and provides `LensGraphService`.
+- **Registration.** The graph comes second, after the outline, in
+  `BUNDLED_FAMILIES`, in the server's entries and in the page's resolver
+  (a static `load`, from the main bundle). `CORE_UI_PLUGINS` no longer lists
+  it, and the graph zone is gone from `UI_SURFACES` and `UI_ALLOWS`.
+  `extensionContract` covers it as it covers every bundled family. The
+  page's switch case in `ui-plugins.test.ts` now lists the graph, and a new
+  case holds the lab pending while the graph is off.
+- **The barrel stays inside the lazy fence.** It names the entry and only
+  what the page's tests read:
+  - the lens extraction and the frame type, which the entry loads already;
+  - the 3D light arithmetic.
+
+  It names no renderer. Exporting the page or the 3D scene for a test pulled
+  three into the entry's chunk, and `ui-lazy-fence.test.ts` caught it.
+- **Three page tests stay in `@kb/ui`**, under `src/page-tests/graph/`:
+  - the page and a node's neighbourhood, over the shell's graph store. The
+    page is now drawn through a slot for the graph's view, so its lazy
+    chunk loads as it does in the app. Their `vi.mock`s name the package's
+    modules by path: seven in the page test, one in the neighbourhood test;
+  - the 3D light, checked against the shell's design-system sheets.
+
+  The shell's lens and ontology tests read the barrel too.
+- **`@kb/ui` drops the renderer dependencies** it no longer imports
+  (sigma, graphology, d3 and `@kb/scene-gpu`). The lint ratchet's knip
+  entries follow their files, and three dead exports are drained.
+
+### The seed's view order changed
+
+`sys.views` lists the graph's seven options after the outline's and before
+the canvas's. They used to be core's first ones. The seed golden was
+regenerated, and that children order is its only change. A store opened
+before this keeps its order.
+
+### Behaviour that changed, as O4e decided
+
+- The lab, switched on, waits while the graph is off: it shows nothing of
+  its own until the graph's browser half is loaded.
+- An ontology's graph tab, with the graph off, shows "This view cannot be
+  shown here" by the option's label. Before, it showed a "Graph not found"
+  page.
+
+### Tests that changed meaning
+
+- **The graph's writes:** `actions/lens-renderer.test.ts` tested the two
+  plan builders. As `lens-writes.test.ts`, it tests the three writes over a
+  test host's write port.
+- **The lens cases** of `@kb/views`' config, round-trip and subject tests
+  move to `@kb/graph`'s `lens.test.ts`. The graph seed test moves to
+  `@kb/graph`, and gains the lens fields' cardinality and type cases.
+- **Core tests that used a graph field as their example now use a core
+  one:**
+  - the store contract's single-valued field (`view.pagesize` on the
+    approval policies view);
+  - the cardinality and field-type cases;
+  - the outline's single-value stack;
+  - `@kb/query`'s view queries, which name `lens.all-mentions` by spelling;
+  - the view-migration tests, which name the legacy fields by spelling.
+- **The renderer contract** runs in `@kb/graph-ui` over the test host
+  instead of the shell's host.
+- **The disc layout test** runs over the seeded graph instead of the
+  offline fixture graph.
+- **The 3D graph's scene contract** runs beside its scene. `@kb/ui`'s scene
+  contract keeps the lab's studies.
+- **The graph page test** draws the page through a slot for `graph.page`,
+  not as a bare component.
+- **The extension contract's canvas case:** the option before the canvas's
+  is the graph's neighbourhood. `kb ext list` lists `graph`.
+- **`ui-plugins.test.ts`:** the page loads the graph as a family, second.
+- **`screen.test.ts`:** the case that names a view node's view loads the
+  graph's shared plugin beside core's declaration, where core's declaration
+  used to hold the graph's keys.
+- **The lazy-fence and UI-boundary fixtures** name a layout file instead
+  of the graph zone, which is gone.
+
+### Gaps
+
+- **Closed: GAP [[01M52YKFN18S0PJR2PHHM5QTXZ]].** Core no longer imports
+  the graph's keys. The marker is gone from `core-extension.ts`. The `#gap`
+  node is left for the coordinator to close.
+- **New placeholder: GAP (placeholder): the graph's page tests run in the
+  shell.** This is the outline's GAP [[01M531QT1YPM9NTF6NKH9BP66S]], for the
+  graph.
+  - expected: a family half's tests hold it to `BrowserHost` through the
+    test host (DESIGN-UI → Extension UI halves).
+  - current: three graph tests run from `@kb/ui`'s `src/page-tests/graph/`.
+    The page and neighbourhood tests drive the shell's graph store, and
+    mock the package's modules by path. The light test reads the shell's
+    design-system sheets. The barrel exports what they read.
+  - impact: the barrel is wider than the entry, and these tests cannot run
+    in the package.
+  - closes: the page and neighbourhood tests rewritten over the test host,
+    the light test reading the sheets through the kit, and the barrel
+    narrowed to its entry.
+- **New placeholder: GAP (placeholder): core's migrations name the graph's
+  frozen ids.**
+  - expected: a family declares the migrations of its own legacy data, as
+    it declares its seed.
+  - current: `LEGACY_SEED_RENAMES` and `PERSPECTIVE_RENDERER_FIELD` in
+    `@kb/model` spell `lens.all-mentions` and `sys.f.lens.renderer`.
+    `@kb/graph`'s seed test holds the spellings to `GRAPH_IDS`.
+  - impact: two spellings of two ids, bridged by a test rather than by an
+    import.
+  - closes: a declaration-level legacy rename (GAP
+    [[01M3FK1PM9P96SNCSHXF0CJZRA]], the seed's general retirement) and a
+    family-declared view migration.
+- **Unchanged:** the outline's page-test gap, and the node menu's order
+  placeholder.
