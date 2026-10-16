@@ -680,22 +680,41 @@ current)` is the one derivation; it keeps a moved node's rank when it still
 
 ### The plan graph
 
-A write plan (`node.add`'s `planNodeAdd`, and every plan built from it)
-reads one port, `NodeGraph` in `@kb/model` (`node-graph.ts`). The port
+A write plan (`node.add`'s `planNodeAdd`, and every plan built from it) reads
+and writes one port, `NodeGraph` in `@kb/model` (`node-graph.ts`). The port
 answers a node by id, a type's nodes by text (name resolution:
-`resolveFieldIn`, `resolveTagIn`), each node's parent and the forest roots
-in visible order (sibling groups: `groupSlots`). It is kept current as the
-plan `put`s its upserts in. The port promises one precondition and one
-behaviour: the set is a forest after every `put`, and every answer equals a
-naive reading of the node set as it now stands. There are two adapters.
-`ScannedNodes` scans an array, and it is what the array forms
-(`resolveFieldId`, `resolveTagId`, `siblingSlots`) read. `IndexedNodes`
-keeps indexes current on `put` and holds the roots in order once asked, so a
-plan that adds many nodes pays for the graph once, and each placement at the
-roots costs a binary search. `node-graph.contract.test.ts` runs the same
-properties over both, using random forests and random renames, retags,
-re-ranks, moves and additions. The port has no `delete`, because a plan only
-adds or moves nodes; `node.delete` hands its ids to the commit.
+`resolveFieldIn`, `resolveTagIn`), each node's parent, and every sibling group
+by position (`slots`, a read-only view; the roots in visible order). A plan
+writes a node whole (`put`) or files a new child under a parent
+(`insertChild`), and every answer after that includes the write. The port
+promises one precondition and one behaviour. The precondition is that the set
+is a forest after every write; a child id may name no node. The behaviour is
+that every answer equals a naive reading of the node set as it now stands,
+and nothing a reader is handed can change the graph. The port has no
+`delete`, because a plan only adds or moves nodes, and `node.delete` hands
+its ids to the commit.
+
+There are two adapters. `ScannedNodes` scans an array, as the array forms
+(`resolveFieldId`, `resolveTagId`, `siblingSlots`) do. `IndexedNodes` keeps
+indexes current as it is written. It holds each node's own working list of
+children, so filing a child appends to that list and the parent is rebuilt
+once, when it is next read, not once per child. It holds the roots in order
+once asked, so each placement at the roots costs a binary search. Two costs
+remain:
+
+- Each placement at the roots inserts into the ordered array, and that moves
+  the roots after it in memory (O(R) moves).
+- Past about 400 appends to one group within one plan, `rankBetween`'s tail
+  step grows ranks past the 12 characters a rank may hold. Each placement
+  then scans back for a usable neighbour until the commit re-spreads the
+  group (GAP [[<placeholder-plan-rank-growth>]]).
+
+`node-graph.contract.test.ts` runs the same properties over both adapters,
+using random forests with dangling children, and random renames, retags,
+re-ranks, moves and additions by either write. The graph holds stored nodes
+only. The index's virtual nodes are saved queries, never fields or tags, so
+name resolution and a field's cardinality read the same as they would from
+the index.
 
 ### Merge
 

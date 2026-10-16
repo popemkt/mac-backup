@@ -1,17 +1,18 @@
 /**
  * The `NodeGraph` contract, run over every implementation: whatever sequence
- * of `put`s a plan makes into a well-formed graph (a forest after every put)
- * — renames, retags, re-ranks, moves, additions — each one answers every
- * question exactly as a naive reading of the current node set does: `get`,
- * `typedNamed`, `parentOf`, `roots` (in visible order), `groupSlots` for
- * every group with and without an excluded member, `resolveFieldIn` /
- * `resolveTagIn`, and `siblingSlots` over its `values()`.
+ * of writes a plan makes into a well-formed graph (a forest after every
+ * write, dangling child ids allowed) — renames, retags, re-ranks, moves,
+ * additions by `put` or by `insertChild`, a dangling child coming to exist —
+ * each one answers every question exactly as a naive reading of the current
+ * node set does: `get`, `has`, `typedNamed`, `parentOf`, `slots` for every
+ * group (the roots in visible order) with and without an excluded member,
+ * `resolveFieldIn` / `resolveTagIn`, and `siblingSlots` over its `values()`.
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { SYSTEM_IDS, type KbNode, type NodeId } from "../src/model.ts";
 import { IndexedNodes, ScannedNodes, type NodeGraph } from "../src/node-graph.ts";
-import { compareRootOrder, groupSlots, siblingSlots } from "../src/order.ts";
+import { compareRootOrder, siblingSlots, type Slots } from "../src/order.ts";
 import { ResolveError, resolveFieldIn, resolveTagIn } from "../src/resolve.ts";
 
 const IMPLEMENTATIONS: Record<string, (nodes: readonly KbNode[]) => NodeGraph> = {
@@ -48,6 +49,8 @@ const nodeSpecArb = fc.record({
   order: fc.constantFrom(...RANKS),
   /** A fraction picking a parent among the earlier nodes, or none. */
   parent: fc.option(fc.double({ min: 0, max: 0.999, noNaN: true }), { nil: undefined }),
+  /** Whether the node also lists a child id that names no node. */
+  ghost: fc.boolean(),
 });
 
 type Op =
@@ -55,7 +58,9 @@ type Op =
   | { op: "retag"; at: number; kind: Kind }
   | { op: "rerank"; at: number; order: string | undefined }
   | { op: "move"; at: number; to: number | null; index: number }
-  | { op: "add"; text: string; kind: Kind; order: string | undefined; to: number | null };
+  | { op: "add"; text: string; kind: Kind; order: string | undefined; to: number | null }
+  | { op: "file"; text: string; kind: Kind; order: string | undefined; to: number; index: number }
+  | { op: "unghost"; at: number; text: string; kind: Kind };
 
 const opArb: fc.Arbitrary<Op> = fc.oneof(
   fc.record({ op: fc.constant("rename" as const), at: fc.nat(), text: fc.constantFrom(...TEXTS) }),
@@ -74,6 +79,20 @@ const opArb: fc.Arbitrary<Op> = fc.oneof(
     order: fc.constantFrom(...RANKS),
     to: fc.option(fc.nat(), { nil: null }),
   }),
+  fc.record({
+    op: fc.constant("file" as const),
+    text: fc.constantFrom(...TEXTS),
+    kind: kindArb,
+    order: fc.constantFrom(...RANKS),
+    to: fc.nat(),
+    index: fc.nat({ max: 6 }),
+  }),
+  fc.record({
+    op: fc.constant("unghost" as const),
+    at: fc.nat(),
+    text: fc.constantFrom(...TEXTS),
+    kind: kindArb,
+  }),
 );
 
 type NodeSpec = typeof nodeSpecArb extends fc.Arbitrary<infer T> ? T : never;
@@ -81,6 +100,10 @@ type NodeSpec = typeof nodeSpecArb extends fc.Arbitrary<infer T> ? T : never;
 function initialForest(specs: readonly NodeSpec[]): KbNode[] {
   const nodes = specs.map((spec, i) => makeNode(`n${i}`, spec.text, spec.kind, spec.order));
   specs.forEach((spec, i) => {
+    if (spec.ghost) {
+      const self = nodes[i];
+      if (self !== undefined) nodes[i] = { ...self, children: [...self.children, `g${i}`] };
+    }
     if (spec.parent === undefined || i === 0) return;
     const parent = nodes[Math.floor(spec.parent * i)];
     if (parent !== undefined)
@@ -95,8 +118,21 @@ class Oracle {
   constructor(nodes: readonly KbNode[]) {
     for (const n of nodes) this.nodes.set(n.id, n);
   }
-  put(node: KbNode): void {
-    this.nodes.set(node.id, node);
+  apply(write: Write): void {
+    if ("put" in write) {
+      this.nodes.set(write.put.id, write.put);
+      return;
+    }
+    const { parent, child, position, at } = write.file;
+    const node = this.nodes.get(parent);
+    if (node === undefined) return;
+    const children = [...node.children];
+    children.splice(Math.min(position, children.length), 0, child);
+    this.nodes.set(parent, { ...node, children, updatedAt: at });
+  }
+  /** Child ids some node lists that name no node. */
+  ghosts(): NodeId[] {
+    return this.all().flatMap((n) => n.children.filter((c) => !this.nodes.has(c)));
   }
   all(): KbNode[] {
     return [...this.nodes.values()];
@@ -134,25 +170,51 @@ class Oracle {
   }
 }
 
-/** The puts one op makes, in the order a plan makes them; none when the op does not apply. */
-function putsOf(op: Op, oracle: Oracle, fresh: () => NodeId): KbNode[] {
+type Write =
+  | { put: KbNode }
+  | { file: { parent: NodeId; child: NodeId; position: number; at: string } };
+
+/** The writes one op makes, in the order a plan makes them; none when the op does not apply. */
+function writesOf(op: Op, oracle: Oracle, fresh: () => NodeId): Write[] {
   const ids = [...oracle.nodes.keys()];
   const pick = (n: number): KbNode | undefined => oracle.nodes.get(ids[n % ids.length] ?? "");
   if (op.op === "add") {
     const node = makeNode(fresh(), op.text, op.kind, op.order);
     const parent = op.to === null ? undefined : pick(op.to);
     return parent === undefined
-      ? [node]
-      : [node, { ...parent, children: [...parent.children, node.id] }];
+      ? [{ put: node }]
+      : [{ put: node }, { put: { ...parent, children: [...parent.children, node.id] } }];
+  }
+  if (op.op === "file") {
+    const parent = pick(op.to);
+    if (parent === undefined) return [];
+    const node = makeNode(fresh(), op.text, op.kind, op.order);
+    const file = { parent: parent.id, child: node.id, position: op.index, at: `t${op.index}` };
+    return [{ file }, { put: node }];
+  }
+  if (op.op === "unghost") {
+    const ghosts = oracle.ghosts();
+    const ghost = ghosts[op.at % Math.max(1, ghosts.length)];
+    return ghost === undefined ? [] : [{ put: makeNode(ghost, op.text, op.kind, undefined) }];
   }
   const node = pick(op.at);
   if (node === undefined) return [];
-  if (op.op === "rename") return [{ ...node, text: op.text }];
-  if (op.op === "retag") return [{ ...node, props: propsOf(op.kind) }];
+  if (op.op === "rename") return [{ put: { ...node, text: op.text } }];
+  if (op.op === "retag") return [{ put: { ...node, props: propsOf(op.kind) } }];
   if (op.op === "rerank") {
     const { order: _drop, ...rest } = node;
-    return [op.order === undefined ? rest : { ...rest, order: op.order }];
+    return [{ put: op.order === undefined ? rest : { ...rest, order: op.order } }];
   }
+  return moveWrites(op, node, oracle, pick);
+}
+
+/** A move's writes: the old parent without the node, then the new one with it. */
+function moveWrites(
+  op: Extract<Op, { op: "move" }>,
+  node: KbNode,
+  oracle: Oracle,
+  pick: (n: number) => KbNode | undefined,
+): Write[] {
   const target = op.to === null ? undefined : pick(op.to);
   if (target !== undefined && oracle.isUnder(target.id, node.id)) return [];
   const from = oracle.parentOf(node.id);
@@ -171,8 +233,13 @@ function putsOf(op: Op, oracle: Oracle, fresh: () => NodeId): KbNode[] {
     if (i >= 0) puts[i] = moved;
     else puts.push(moved);
   }
-  return puts;
+  return puts.map((put) => ({ put }));
 }
+
+const listed = <N>(slots: Slots<N>): N[] =>
+  Array.from({ length: slots.length }, (_, i) => slots.at(i)).flatMap((n) =>
+    n === undefined ? [] : [n],
+  );
 
 function outcome(f: () => NodeId): string {
   try {
@@ -185,8 +252,9 @@ function outcome(f: () => NodeId): string {
 
 function agrees(graph: NodeGraph, oracle: Oracle): void {
   const ids = [...oracle.nodes.keys()];
-  for (const id of [...ids, "missing"]) {
+  for (const id of [...ids, ...oracle.ghosts(), "missing"]) {
     expect(graph.get(id)).toEqual(oracle.nodes.get(id));
+    expect(graph.has(id)).toBe(oracle.nodes.has(id));
     expect(graph.parentOf(id)).toBe(oracle.parentOf(id));
   }
   for (const typeId of [SYSTEM_IDS.field, SYSTEM_IDS.tag]) {
@@ -207,12 +275,14 @@ function agrees(graph: NodeGraph, oracle: Oracle): void {
       ).toEqual(expected);
     }
   }
-  expect(graph.roots().map((n) => n.id)).toEqual(oracle.roots().map((n) => n.id));
   const values = [...graph.values()];
   for (const parent of [null, ...ids]) {
-    for (const excluding of [undefined, ...ids.slice(0, 3), "missing"]) {
+    for (const excluding of [undefined, ...ids.slice(0, 4), "missing"]) {
       const expected = oracle.slots(parent, excluding);
-      expect(groupSlots(graph, parent, excluding).map((n) => n.id)).toEqual(expected);
+      const slots = graph.slots(parent, excluding);
+      expect(listed(slots).map((n) => n.id)).toEqual(expected);
+      expect(slots.length).toBe(expected.length);
+      expect(listed(slots)).toEqual(expected.flatMap((id) => oracle.nodes.get(id) ?? []));
       expect(siblingSlots(values, parent, excluding).map((n) => n.id)).toEqual(expected);
     }
   }
@@ -227,8 +297,8 @@ for (const [name, make] of Object.entries(IMPLEMENTATIONS)) {
     test("answers like a naive reading of its nodes after any sequence of puts", () => {
       fc.assert(
         fc.property(
-          fc.array(nodeSpecArb, { minLength: 1, maxLength: 10 }),
-          fc.array(opArb, { maxLength: 12 }),
+          fc.array(nodeSpecArb, { minLength: 1, maxLength: 16 }),
+          fc.array(opArb, { maxLength: 20 }),
           fc.boolean(),
           (specs, ops, askEarly) => {
             const nodes = initialForest(specs);
@@ -237,9 +307,13 @@ for (const [name, make] of Object.entries(IMPLEMENTATIONS)) {
             if (askEarly) agrees(graph, oracle);
             let next = nodes.length;
             for (const op of ops) {
-              for (const put of putsOf(op, oracle, () => `n${next++}`)) {
-                graph.put(put);
-                oracle.put(put);
+              for (const write of writesOf(op, oracle, () => `n${next++}`)) {
+                if ("put" in write) graph.put(write.put);
+                else {
+                  const { parent, child, position, at } = write.file;
+                  graph.insertChild(parent, child, position, at);
+                }
+                oracle.apply(write);
               }
               if (askEarly) agrees(graph, oracle);
             }

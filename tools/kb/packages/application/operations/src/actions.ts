@@ -18,7 +18,6 @@ import {
   isSysPrefixed,
   rankForInsert,
   IndexedNodes,
-  groupSlots,
   resolveFieldId,
   resolveFieldIn,
   resolveTagIn,
@@ -28,6 +27,7 @@ import {
   type KbNode,
   type NodeId,
   type PropValue,
+  present,
 } from "@kb/model";
 import { persistEffect } from "./session.ts";
 import { DatalogError, type KbIndex, KbIndexService } from "@kb/query";
@@ -247,6 +247,9 @@ export function cloneNode(n: KbNode): KbNode {
  * entries for one single-valued field in one call still land both, and
  * `txIntegrityError` refuses that, because it names two values for one slot.
  */
+// A field's cardinality is read from the plan graph, which holds stored
+// nodes only. A field is never virtual (the virtual nodes are saved queries),
+// so this reads what the session index would.
 function applyProps(
   graph: NodeGraph,
   props: Record<NodeId, PropValue[]>,
@@ -333,7 +336,7 @@ export function placedRank(
   node: KbNode,
   position: number | undefined,
 ): string {
-  const siblings = groupSlots(groups, parent, node.id);
+  const siblings = groups.slots(parent, node.id);
   return rankForInsert(siblings, position ?? siblings.length, node.order);
 }
 
@@ -386,17 +389,19 @@ export type NodeAddPlanInput = Omit<z.infer<typeof nodeAddDef.inputSchema>, "pro
 };
 
 /**
- * The nodes a `node.add` writes into `graph` (the new node, and its parent
- * with the child inserted), checked but not stored: what one add means,
- * stated once. It throws {@link ResolveError}; the effects below lift it.
+ * What one add means, stated once: the new node, and its parent with the
+ * child filed in, written into `graph` (checked, not stored). It returns the
+ * ids it wrote; reading them back from `graph` gives the upserts. It throws
+ * {@link ResolveError}, and a refused add writes nothing; the effects below
+ * lift it.
  */
 export function planNodeAdd(
   graph: NodeGraph,
   input: NodeAddPlanInput,
   id: NodeId,
   at: string,
-): { node: KbNode; upserts: KbNode[] } {
-  if (graph.get(id)) {
+): { node: KbNode; written: NodeId[] } {
+  if (graph.has(id)) {
     throw new ResolveError("ambiguous", `node id already exists: ${id}`, { id });
   }
 
@@ -417,16 +422,19 @@ export function planNodeAdd(
     ...draft,
     order: placedRank(graph, parentId ?? null, draft, input.position),
   };
-  const upserts: KbNode[] = [node];
-  if (parentId !== undefined) {
-    const parent = graph.get(parentId);
-    if (!parent)
-      throw new ResolveError("not_found", `node not found: ${parentId}`, { id: parentId });
-    upserts.push(insertChild(parent, id, at, input.position));
+  const written = parentId === undefined ? [id] : [id, parentId];
+  if (parentId !== undefined && !graph.has(parentId)) {
+    throw new ResolveError("not_found", `node not found: ${parentId}`, { id: parentId });
   }
-
-  assertNoSysUpsert(upserts, input.force === true, "node.add");
-  return { node, upserts };
+  assertNoSysUpsert(
+    written.map((w) => ({ id: w })),
+    input.force === true,
+    "node.add",
+  );
+  // Filed before it is put, so the node never passes through the roots.
+  if (parentId !== undefined) graph.insertChild(parentId, id, input.position, at);
+  graph.put(node);
+  return { node, written };
 }
 
 /**
@@ -441,8 +449,10 @@ export const planNodeAddEffect = Effect.fn("node.add.plan")(function* (
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
   const id = input.id ?? (yield* freshId);
-  const planned = yield* syncDomain(() => planNodeAdd(sessionGraph(ctx), input, id, at));
-  return { id, ...planned };
+  const graph = sessionGraph(ctx);
+  const { node, written } = yield* syncDomain(() => planNodeAdd(graph, input, id, at));
+  const upserts = written.map((w) => present(graph.get(w), "a written node is in the graph"));
+  return { id, node, upserts };
 });
 
 export const nodeAddEffect = Effect.fn("node.add")(function* (
@@ -479,7 +489,7 @@ function assertSysWriteAllowed(id: string, input: z.infer<typeof nodeUpdateDef.i
  * structural path can slip through without tripping it.
  */
 export function assertNoSysUpsert(
-  upserts: readonly KbNode[],
+  upserts: readonly { readonly id: NodeId }[],
   force: boolean,
   action: string,
 ): void {

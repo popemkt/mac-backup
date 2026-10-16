@@ -100,7 +100,7 @@ function refResolver(graph: NodeGraph, planned: readonly PlannedItem[]) {
   const byText = new Map<string, NodeId[]>();
   for (const { item, id } of planned) byText.set(item.text, [...(byText.get(item.text) ?? []), id]);
   return (target: string): NodeId => {
-    if (graph.get(target) !== undefined) return target;
+    if (graph.has(target)) return target;
     const local = byText.get(target) ?? [];
     const [only] = local;
     if (local.length === 1 && only !== undefined) return only;
@@ -247,7 +247,7 @@ export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
 
   for (const { item, id, parent, position } of planned) {
     const props = yield* itemProps(item, graph, resolve);
-    const { upserts } = yield* syncDomain(() =>
+    const { written: wrote } = yield* syncDomain(() =>
       planNodeAdd(
         graph,
         {
@@ -262,10 +262,7 @@ export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
         at,
       ),
     ).pipe(Effect.mapError(atLine(item.line)));
-    for (const node of upserts) {
-      graph.put(node);
-      written.add(node.id);
-    }
+    for (const w of wrote) written.add(w);
   }
 
   return {

@@ -173,12 +173,12 @@ export function compareRootOrder(a: RankSlot, b: RankSlot): number {
 
 /** The first usable rank at or after `from` that leaves room above `low`. */
 function upperBound(
-  siblings: readonly RankSlot[],
+  siblings: Slots<RankSlot>,
   from: number,
   low: string | undefined,
 ): string | undefined {
   for (let i = from; i < siblings.length; i++) {
-    const rank = usableRank(siblings[i]);
+    const rank = usableRank(siblings.at(i));
     if (rank !== undefined && (low === undefined || low < rank)) return rank;
   }
   return undefined;
@@ -196,13 +196,13 @@ function upperBound(
  * to repair ({@link rankTx}), not this function's.
  */
 export function rankForInsert(
-  siblings: readonly RankSlot[],
+  siblings: Slots<RankSlot>,
   position: number,
   current?: string,
 ): string {
   const at = Math.max(0, Math.min(position, siblings.length));
   let low: string | undefined;
-  for (let i = at - 1; i >= 0 && low === undefined; i--) low = usableRank(siblings[i]);
+  for (let i = at - 1; i >= 0 && low === undefined; i--) low = usableRank(siblings.at(i));
   const next = upperBound(siblings, at, undefined);
   const own = usableRank({ id: "", order: current });
   if (own !== undefined && (low === undefined || low < own) && (next === undefined || own < next)) {
@@ -296,62 +296,41 @@ export function rankTx(previous: readonly KbNode[], tx: StoreTx): StoreTx {
 }
 
 /**
- * What a sibling group is read from: a node by id (a parent's children are
- * its array), each node's parent, and the forest roots (which have none) in
- * visible order. A node array answers it by scanning ({@link siblingSlots});
- * a `NodeGraph` answers it as its contract says.
+ * A sibling group read by position: its length and its member at an index
+ * (0 ≤ index < length). An array is one; a `NodeGraph` hands out a view over
+ * its own lists, so reading a neighbour never copies the group.
  */
-export interface SiblingGroups<N extends RankSlot & { readonly children: readonly NodeId[] }> {
-  get(id: NodeId): N | undefined;
-  parentOf(id: NodeId): NodeId | undefined;
-  /** The forest roots, in visible order ({@link compareRootOrder}). */
-  roots(): readonly N[];
+export interface Slots<N> {
+  readonly length: number;
+  at(index: number): N | undefined;
 }
 
 /**
- * A sibling group in visible order — a parent's children, or the forest
- * roots — optionally without one member. The group a node joins, without the
- * node, is what a `position` indexes, on the server and in the UI alike.
- * Leaving out a member that is not in the group costs nothing, so placing a
- * new node at the roots reads the roots as the groups hold them.
+ * What a sibling group is read from: a parent's children, or the forest
+ * roots (which have no array) in visible order ({@link compareRootOrder}),
+ * optionally without one member. The group a node joins, without the node,
+ * is what a `position` indexes, on the server and in the UI alike. A node
+ * array answers it by scanning ({@link siblingSlots}); a `NodeGraph` answers
+ * it as its contract says.
  */
-export function groupSlots<N extends RankSlot & { readonly children: readonly NodeId[] }>(
-  groups: SiblingGroups<N>,
-  parent: NodeId | null,
-  excluding?: NodeId,
-): readonly N[] {
-  if (parent !== null) {
-    return (groups.get(parent)?.children ?? []).flatMap((id) => {
-      const member = groups.get(id);
-      return member === undefined || id === excluding ? [] : [member];
-    });
-  }
-  const roots = groups.roots();
-  const isRoot =
-    excluding !== undefined &&
-    groups.get(excluding) !== undefined &&
-    groups.parentOf(excluding) === undefined;
-  return isRoot ? roots.filter((n) => n.id !== excluding) : roots;
+export interface SiblingGroups<N extends RankSlot & { readonly children: readonly NodeId[] }> {
+  slots(parent: NodeId | null, excluding?: NodeId): Slots<N>;
 }
 
-/** {@link groupSlots} over a plain node collection, by scanning it. */
+/** A sibling group of a plain node collection, by scanning it, as an array. */
 export function siblingSlots<N extends RankSlot & { readonly children: readonly NodeId[] }>(
   nodes: Iterable<N>,
   parent: NodeId | null,
   excluding?: NodeId,
 ): N[] {
   const all = [...nodes];
-  const byId = new Map(all.map((n) => [n.id, n]));
-  const parentOf = new Map(all.flatMap((n) => n.children.map((child) => [child, n.id] as const)));
-  return [
-    ...groupSlots(
-      {
-        get: (id) => byId.get(id),
-        parentOf: (id) => parentOf.get(id),
-        roots: () => all.filter((n) => !parentOf.has(n.id)).toSorted(compareRootOrder),
-      },
-      parent,
-      excluding,
-    ),
-  ];
+  if (parent !== null) {
+    const byId = new Map(all.map((n) => [n.id, n]));
+    return (byId.get(parent)?.children ?? []).flatMap((id) => {
+      const member = byId.get(id);
+      return member === undefined || id === excluding ? [] : [member];
+    });
+  }
+  const children = new Set(all.flatMap((n) => n.children));
+  return all.filter((n) => !children.has(n.id) && n.id !== excluding).toSorted(compareRootOrder);
 }
