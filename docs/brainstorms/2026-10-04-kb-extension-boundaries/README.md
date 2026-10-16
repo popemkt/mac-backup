@@ -1210,7 +1210,9 @@ After the move, the existing gaps to amend are:
    recorded "one scope per package" decision. The alternative is one package
    with per-entry scopes, which needs per-entry tsconfig presets and
    per-entry import fences: a second boundary model.
-2. **Layout and graph: core or extension?** Recommended: core. The pane tree
+2. **Superseded 2026-10-16** for outline and graph by the
+   [projection-families plan](../2026-10-16-kb-projection-families/README.md);
+   layout stays core. **Layout and graph: core or extension?** Recommended: core. The pane tree
    is the workspace the shell is built on, and outline and graph are kb's
    default projections. `graph.force3d` is the first candidate to become an
    extension later, as a renderer contributed to a core family.
