@@ -228,8 +228,9 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     },
   },
   {
-    // Portal host (ViewFilterPopoverHost) anchors to toolbar/frame row; if no
-    // DOM host exists it toasts and clears — never a silent no-op.
+    // Portal host (the outline's ViewFilterPopoverHost overlay) anchors to
+    // toolbar/frame row; if no DOM host exists it toasts and clears — never a
+    // silent no-op.
     id: SYSTEM_IDS.cmdViewFilter,
     scope: "global",
     run: (ctx) =>

@@ -4,7 +4,7 @@ import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
 import { DockHost, DockToggles } from "@/docks";
-import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover";
+import { Overlays } from "@/overlays";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { Workspace } from "@/components/layout/workspace";
@@ -127,7 +127,7 @@ function SharedChrome() {
         switches={switches}
         onSwitch={(name, on) => void switchExtension(name, on)}
       />
-      <ViewFilterPopoverHost />
+      <Overlays />
       <CommandPalette open={globalPaletteOpen} onClose={() => setGlobalPaletteOpen(false)} />
       <Toasts />
     </>

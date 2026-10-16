@@ -8,6 +8,7 @@ import {
 } from "@/components/outline/frame-views";
 import { matchOutline } from "@/components/outline/routes";
 import { HomeSection, OutlineSurface, PinnedSection } from "@/components/outline/surfaces";
+import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover";
 import {
   OUTLINE_NAMESPACE,
   OutlineBoardView,
@@ -21,6 +22,7 @@ import {
 import { OutlineSnippet } from "@/components/outline/outline-snippet";
 import {
   CommandPoint,
+  OverlayPoint,
   provideRoute,
   provideView,
   RoutePoint,
@@ -107,7 +109,8 @@ const OUTLINE_VIEWS = [
 
 /**
  * The outline: its views, the route to its page at `/`, the Home and Pinned
- * sidebar sections, and its expand-all and collapse-all commands.
+ * sidebar sections, its expand-all and collapse-all commands, and the page
+ * overlay that hosts a frame's filter popover.
  */
 export const outlineUiPlugin = definePlugin({
   name: OUTLINE_NAMESPACE,
@@ -162,6 +165,10 @@ export const outlineUiPlugin = definePlugin({
         ...OUTLINE_COMMANDS.map((command) =>
           ctx.contribute(CommandPoint, { id: command.id, value: command }),
         ),
+        ctx.contribute(OverlayPoint, {
+          id: "view-filter",
+          value: { order: 0, Component: ViewFilterPopoverHost },
+        }),
       ],
       { discard: true },
     ),

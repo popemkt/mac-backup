@@ -206,6 +206,20 @@ export interface Dock {
 
 export const DockPoint = Point<Dock>()("ui.docks");
 
+/**
+ * A page overlay: something a plugin mounts once for the whole page, beside
+ * every pane, such as a popover host that portals to the document (the
+ * outline's frame filter is the first). The shell mounts every overlay, in
+ * `order`, and names none.
+ */
+export interface Overlay {
+  /** Lower first. */
+  readonly order: number;
+  readonly Component: ComponentType;
+}
+
+export const OverlayPoint = Point<Overlay>()("ui.overlays");
+
 /** One kernel per page: everything the UI shows is contributed to it. */
 const uiKernel = makeKernel();
 

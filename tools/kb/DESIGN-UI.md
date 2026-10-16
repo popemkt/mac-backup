@@ -1540,9 +1540,9 @@ both are answered from the node ⌘K menu rather than from a device switch.
 ### UI points: routes and views
 
 The UI is assembled from contributions to the browser's `@kb/plugin` kernel
-(`@kb/ui-sdk`'s `lib/plugins.ts`), and four points hold them: `RoutePoint`, `ViewPoint`,
-`SidebarSectionPoint` and `DockPoint`. This section is the one statement of
-the first two; [Docks](#docks) states the last.
+(`@kb/ui-sdk`'s `lib/plugins.ts`), and five points hold them: `RoutePoint`, `ViewPoint`,
+`SidebarSectionPoint`, `DockPoint` and `OverlayPoint`. This section is the one statement of
+the first two; [Docks](#docks) states the last two.
 The plan they come from is
 `docs/kb/waves/2026-09-24/briefs/plugin-composition.md`, and this is its
 phase R1.
@@ -1804,6 +1804,15 @@ draws one toggle per dock in the workspace header, in `order`, and the open
 dock in the row beside the page. At most one dock is open (`openDock` in the
 ui store, transient). Below 768px the open dock floats over the page, as the
 sidebar does. Unloading the plugin removes its toggle and its window.
+
+A page overlay is chrome too, with no toggle: something a plugin mounts once
+for the whole page, beside every pane, such as a popover host that portals to
+the document. A plugin contributes it to `OverlayPoint` (`ui.overlays`) as
+`{order, Component}`, and the shell (`src/overlays.tsx`) mounts every one, in
+`order`. The first is the outline's frame filter popover host, which the
+"Filter…" command opens on a frame. The outline is a core plugin of the page
+(`CORE_UI_PLUGINS`), which every convergence loads, so its host is mounted
+on every page, as it was when the shell mounted it.
 
 The first dock is the agent's chat (`@kb/agent-ui`), the optional `agent`
 plugin. It draws the conversation the agent channel reports

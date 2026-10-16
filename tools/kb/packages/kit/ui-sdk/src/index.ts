@@ -60,6 +60,8 @@ export {
   findView,
   type MatchedRoute,
   matchRoute,
+  type Overlay,
+  OverlayPoint,
   pageFrameOf,
   paramsOf,
   type Placement,
