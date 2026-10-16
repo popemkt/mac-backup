@@ -1557,3 +1557,26 @@ commit.
    that path (`savedProps` in `@kb/graph`'s fixtures: `rendererParamsOf`,
    then `viewNodeFor`), so the round trip they hold is the one a saved copy
    takes.
+6. **A saved graph copy keeps its whole lens.** Every renderer's params
+   start from `LensParams` (query, focus, hops, edge kinds, max nodes, and
+   the colour, label, size and cluster sources), so a copy keeps all of
+   them, and switching its renderer keeps them too. What a copy does not
+   keep is another renderer's own settings, such as a tree's layout and
+   spread on a copy saved from the 2D force view. A view node holds the
+   settings its view reads, and `viewNodeFor` refuses one its view does
+   not. Switching a copy's renderer therefore starts the new renderer's
+   settings from their defaults. The node it was copied from keeps any it
+   already held, because a renderer switch rewrites only `sys.f.view`. No
+   code changes.
+7. **Checked, nothing dropped.**
+   - **The lab case moved.** `ui-plugins.test.ts`'s "the lab, on, waits
+     while the graph is off" was rewritten in place by `20bacdf1`, which
+     made only the Sky study wait. It now holds that, with the graph off,
+     the lab offers every study but Sky, and offers Sky too once the graph
+     is on.
+   - **Query errors still reach the page.** `NodeLinkGraph` is the kit's
+     shape for the lab. The graph page reads the graph's own `GraphLens`,
+     which still carries `dropped` and `queryError`, and hands the error to
+     `GraphCanvasFrame`. A new `graph-query-error.test.tsx` holds both
+     steps: a query that cannot run is reported on the lens graph, and the
+     frame draws it in place of the canvas.
