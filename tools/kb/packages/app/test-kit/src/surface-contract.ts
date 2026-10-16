@@ -117,13 +117,18 @@ const SEEDED_POLICY = "approval.agent-delete";
 
 /** An extension's node every store holds (core's), and a field the root declares a setting of it. */
 const EXTENSION_NODE = extensionNodeId("core");
-const SETTING_FIELD = "f.surface-contract-setting";
+const SETTING_FIELD = "sys.f.surface-contract-setting";
 
-/** The root's setting: a field that configures core's node, as a family's own field would. */
+/**
+ * The root's setting: a system field that configures core's node, as a
+ * family's own seeded field would. Only a system field is a setting, so the
+ * owner mints it with force.
+ */
 const SETTING_INVOCATION: ActionInvocation = {
   id: "node.add",
   input: {
     id: SETTING_FIELD,
+    force: true,
     text: "surface contract setting",
     props: [
       { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.field } },
@@ -230,14 +235,14 @@ const CALLS: readonly ActionInvocation[] = [
   { id: ASKED_ACTION, input: {} },
   // A write to a policy asks whatever the policies say, and writes nothing when refused.
   { id: "node.update", input: { id: SEEDED_POLICY, text: "agents never ask" } },
-  // An extension's switch is not one of its settings: its one writer is extension.switch.
+  // A system field that is not one of an extension's settings is not written on its node.
   {
     id: "node.update",
     input: {
       id: EXTENSION_NODE,
       setProps: [
-        { field: SYSTEM_IDS.extensionEnabledField, value: { t: "bool", v: false } },
-        { field: SETTING_FIELD, value: { t: "str", v: "beside the switch" } },
+        { field: SYSTEM_IDS.colorField, value: { t: "str", v: "red" } },
+        { field: SETTING_FIELD, value: { t: "str", v: "beside the color" } },
       ],
     },
   },

@@ -439,7 +439,7 @@ export function NodeField({
         fieldType={fieldType}
         values={values}
         context={context}
-        readOnly={!isWritableField(nodeId, context.schema.get(fieldId)) || debug}
+        readOnly={!isWritableField(nodeId, fieldId, context.schema.get(fieldId)) || debug}
         onFollow={follow}
         instanceKey={instanceKey}
       />

@@ -2049,7 +2049,12 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     (below), but no switch is: `extension.switch` writes the field on the
     node the first time a person switches the family (`switchWrites`), so
     opening a store never writes one. A switch that does not read as a
-    checkbox reads as the default.
+    checkbox reads as the default. The field is a setting of every
+    extension's node (its `sys.f.configures` names the list
+    `sys.extensions`), so the switch is written by the same rule as any
+    setting (below), and `extension.switch` is the checked verb over that
+    write: it refuses an unknown or required family and commits through
+    `assertSystemWrites` like every other write.
   - **Every host makes the one decision.** The registry is cached per root
     and per set of families on, so a switch takes effect on the next call.
     The `kb ui` server composes the extensions it hosts (the agent) the
@@ -2066,9 +2071,13 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     unavailable, by its option (below).
 - **An extension's configuration is fields on its node** (gap 1 of the
   [Cordis survey](../../docs/brainstorms/2026-10-16-kb-cordis-layers/README.md)).
-  - **The field nodes are the schema.** A setting is a field node that
-    carries `sys.f.configures`, a ref to the extension's node (one of
-    `sys.extensions`' children). The family seeds it with its declaration's
+  - **The field nodes are the schema.** A setting is a system field node
+    that carries `sys.f.configures`, a ref to the extension's node (one of
+    `sys.extensions`' children), or to that list for a setting every
+    extension's node has (the switch). Only a system field is a setting:
+    minting or retargeting one takes the owner's `force`, so a field anyone
+    may add cannot declare itself a setting of a node it does not own
+    (`configures`, `@kb/model`). The family seeds it with its declaration's
     other nodes, and reads it with `ConfigSlots` (`decodeNodeConfig`), the
     mechanism its switch is read with (`familyOn`). There is no second
     registry of settings: which fields configure the agent is a query.
@@ -2077,9 +2086,7 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     though the node is `sys.*`, because the write rule
     (`systemWriteRefusal`, `@kb/model`) admits exactly the values of fields
     that configure the node being written. Its text, its children, its rank
-    and every other field stay write-protected, and so does the switch,
-    whose one writer stays `extension.switch`: it refuses a required family
-    and the seeded policies ask an agent before it. The invoke core checks
+    and every other field stay write-protected. The invoke core checks
     every commit against the rule, on the server and on the page's replica,
     and the page's field rows read `isWritableField` to offer an edit only
     where it would land. `surfaceContract` holds every surface to it.

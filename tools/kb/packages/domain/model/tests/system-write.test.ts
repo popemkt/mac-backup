@@ -22,8 +22,10 @@ const configures = (target: string) => ({
   [SYSTEM_IDS.configuresField]: [{ t: "ref" as const, v: target }],
 });
 const FIELDS = new Map<string, KbNode>([
-  ["f.provider", node("f.provider", configures(AGENT))],
-  ["f.elsewhere", node("f.elsewhere", configures(extensionNodeId("graph")))],
+  ["sys.f.provider", node("sys.f.provider", configures(AGENT))],
+  ["sys.f.elsewhere", node("sys.f.elsewhere", configures(extensionNodeId("graph")))],
+  ["sys.f.every", node("sys.f.every", configures(SYSTEM_IDS.extensionsRoot))],
+  ["f.minted", node("f.minted", configures(AGENT))],
   ["f.plain", node("f.plain")],
 ]);
 const fieldOf = (id: string) => FIELDS.get(id);
@@ -33,18 +35,35 @@ describe("a write to a system node", () => {
   const before = node(AGENT);
 
   test("may set and clear a field that configures that node, stamped anew", () => {
-    const set = { ...before, props: { "f.provider": ref("n.p") }, updatedAt: "later" };
+    const set = { ...before, props: { "sys.f.provider": ref("n.p") }, updatedAt: "later" };
     expect(systemWriteRefusal(before, set, fieldOf)).toBeNull();
     expect(systemWriteRefusal(set, before, fieldOf)).toBeNull();
-    expect(isWritableField(AGENT, fieldOf("f.provider"))).toBe(true);
+    expect(isWritableField(AGENT, "sys.f.provider", fieldOf("sys.f.provider"))).toBe(true);
+  });
+
+  test("may write a field that configures every extension's node, on each of them", () => {
+    for (const id of [AGENT, extensionNodeId("graph")]) {
+      expect(isWritableField(id, "sys.f.every", fieldOf("sys.f.every")), id).toBe(true);
+    }
+    // The list itself, and any other system node, is no extension's node.
+    for (const id of [SYSTEM_IDS.extensionsRoot, SYSTEM_IDS.viewsRoot]) {
+      expect(isWritableField(id, "sys.f.every", fieldOf("sys.f.every")), id).toBe(false);
+    }
   });
 
   test("may not write a field that configures another node, or none", () => {
-    for (const field of ["f.elsewhere", "f.plain", SYSTEM_IDS.extensionEnabledField]) {
+    for (const field of ["sys.f.elsewhere", "f.plain"]) {
       const next = { ...before, props: { [field]: ref("n.p") } };
       expect(systemWriteRefusal(before, next, fieldOf), field).toMatch(/write-protected/);
-      expect(isWritableField(AGENT, fieldOf(field)), field).toBe(false);
+      expect(isWritableField(AGENT, field, fieldOf(field)), field).toBe(false);
     }
+  });
+
+  test("may not write a field anyone could add that declares itself a setting", () => {
+    // Only a system field is a setting: a field that is not one names what it likes.
+    const next = { ...before, props: { "f.minted": ref("n.p") } };
+    expect(systemWriteRefusal(before, next, fieldOf)).toMatch(/write-protected/);
+    expect(isWritableField(AGENT, "f.minted", fieldOf("f.minted"))).toBe(false);
   });
 
   test("may not change its text, children or rank, nor mint one", () => {
@@ -62,6 +81,6 @@ describe("a write to a system node", () => {
     const user = node("n.user");
     expect(systemWriteRefusal(undefined, user, fieldOf)).toBeNull();
     expect(systemWriteRefusal(user, { ...user, text: "anything" }, fieldOf)).toBeNull();
-    expect(isWritableField("n.user", fieldOf("f.plain"))).toBe(true);
+    expect(isWritableField("n.user", "f.plain", fieldOf("f.plain"))).toBe(true);
   });
 });

@@ -303,6 +303,11 @@ export function extensionNodeId(name: string): NodeId {
   return `sys.extension.${name}`;
 }
 
+/** Whether `id` is an extension's own node, as {@link extensionNodeId} names one. */
+export function isExtensionNodeId(id: NodeId): boolean {
+  return id.startsWith(extensionNodeId("")) && id.length > extensionNodeId("").length;
+}
+
 /**
  * Wall-clock stamp for the non-Effect seed defaults. It reads the same
  * `Clock` the Effect path does, through the default runtime — a seeded replay

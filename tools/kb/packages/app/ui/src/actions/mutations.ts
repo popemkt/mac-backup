@@ -80,7 +80,7 @@ function guardSysWrite(id: string): boolean {
  */
 function guardFieldWrite(nodeId: string, fieldId: string): boolean {
   const field = wire().find((n) => n.id === fieldId);
-  return isWritableField(nodeId, field) || guardSysWrite(nodeId);
+  return isWritableField(nodeId, fieldId, field) || guardSysWrite(nodeId);
 }
 
 function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
