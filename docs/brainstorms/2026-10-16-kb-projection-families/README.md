@@ -539,7 +539,7 @@ them, no production file of `components/outline/` imports `@/stores`,
   "Filter…") did not move to `CommandPoint`: the menu's order is list
   position, and a contribution lands after the default-view rows, so moving
   them would reorder the menu. Moving them needs `CommandPoint` to carry a
-  menu order (a placeholder gap below). The same limit is why expand-all
+  menu order: GAP [[01M531QSQ2DJDSPYB132RQ5RBC]]. The same limit is why expand-all
   and collapse-all, contributed since O3, sit after the default-view
   commands rather than between the debug and filter commands, as Sol's
   review noted; the order change stands until that order exists.
@@ -561,8 +561,8 @@ The decision (coordinator): the outline's shell-driving tests stay in
 
 ### Gaps
 
-- No gap id was opened in code. Placeholders, for the coordinator to mint:
-  - **GAP (placeholder): the node menu's order is list position.**
+- No gap id was opened in code. Placeholders, minted since by the coordinator:
+  - **GAP [[01M531QSQ2DJDSPYB132RQ5RBC]]: the node menu's order is list position.**
     expected: a node command declares where it sits in the menu, and the
     menu lists the registry's commands and every `CommandPoint` contribution
     by it; current: the registry's static list, then the views' rows, then
@@ -570,7 +570,8 @@ The decision (coordinator): the outline's shell-driving tests stay in
     contribute a node command to a slot (the outline's indent, outdent and
     "Filter…" stay the shell's, and expand/collapse all moved after the
     default-view rows); closes: an order on node commands.
-  - **GAP (placeholder): `test-support` reaches the outline's zone.**
+  - **`test-support` reaches the outline's zone** (a placeholder, closed
+    by the move before it was minted).
     The row the O3 zone move added (`test-support` → `components/outline`,
     for `resetOutlineStore`, `active-text-host` and the isolation probe)
     carries no gap. It closes with the move, when those helpers import the
@@ -667,16 +668,15 @@ view-type pickers.
 
 - **Closed: GAP [[01M52J3DADW4P7YV6907ME9C50]].** Core no longer declares
   the outline's views or provides the default view type. The marker is gone
-  from `core-extension.ts`, and from DESIGN.md's drift list. The `#gap` node
-  is left for the coordinator to close (`.kb/nodes.jsonl` is not edited
-  here).
+  from `core-extension.ts`, and from DESIGN.md's drift list; the coordinator
+  closed the `#gap` node.
 - **Closed: the placeholder "`test-support` reaches the outline's zone".**
   There is no outline zone any more. The helpers import the package, as test
   code.
 - **Kept:** GAP [[01M52YKFN18S0PJR2PHHM5QTXZ]], core's import of the graph's
   keys, on its own line in `core-extension.ts`.
-- **New placeholder: GAP (placeholder): the outline's page tests run in the
-  shell.**
+- **New: GAP [[01M531QT1YPM9NTF6NKH9BP66S]]: the outline's page tests run in the shell**
+  (minted by the coordinator; marked in `@kb/outline-ui`'s barrel).
   - expected: a family half's tests hold it to `BrowserHost` through the
     test host (DESIGN-UI → Extension UI halves).
   - current: 37 outline tests drive the shell's graph store, commands and
@@ -686,7 +686,7 @@ view-type pickers.
     in the package.
   - closes: each test rewritten over the test host and moved into
     `@kb/outline-ui`, with the barrel narrowed to its entry.
-- **Unchanged:** the node menu's order placeholder (O3e).
+- **Unchanged:** the node menu's order, GAP [[01M531QSQ2DJDSPYB132RQ5RBC]] (O3e).
 
 ## O4a: what landed
 

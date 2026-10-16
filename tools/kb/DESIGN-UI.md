@@ -2096,8 +2096,7 @@ the shell.
   The outline's tests that drive the page (its store over the shell's graph
   store, the shell's commands and palettes) are the exception: they run in
   `@kb/ui`, under `src/page-tests/outline/`, over `@kb/outline-ui`'s barrel,
-  until each is rewritten over the test host (a gap, recorded in the
-  [projection-families plan](../../docs/brainstorms/2026-10-16-kb-projection-families/README.md)).
+  until each is rewritten over the test host: GAP [[01M531QT1YPM9NTF6NKH9BP66S]].
   The graph's are too, under `src/page-tests/graph/`: its page and a node's
   neighbourhood over the shell's graph store, and the 3D light checked
   against the shell's design-system sheets. Its barrel names only what the
