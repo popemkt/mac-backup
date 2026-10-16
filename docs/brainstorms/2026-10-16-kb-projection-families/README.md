@@ -623,8 +623,8 @@ behaviour-preserving except for the seed's view order (below).
   importing `@kb/outline-ui`. This is the coordinator's decision. They are
   their own zone, `page-tests`, with no row but itself: every one is a test
   file, and test files are exempt.
-  - Two `vi.mock`s name a module inside the package by path, as the kit
-    mock beside them already did.
+  - One `vi.mock` (`update-cost`'s row chrome) names a module inside the
+    package by path, as the kit mock beside it already did.
   - Source assertions read `browserSource("@kb/outline-ui")`.
 - **`@kb/ui`'s `src/test-support/` is test code to the harness.**
   - `isPackageTestFile` counts a package's `src/test-support/` helpers as
