@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SYSTEM_IDS, type OutlineNode } from "@kb/ui-sdk";
-import { listPinnedNavItems } from "./sidebar-nav";
+import { listPinnedNavItems, SYSTEM_IDS, type OutlineNode } from "@kb/ui-sdk";
 
 function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">): OutlineNode {
   return {

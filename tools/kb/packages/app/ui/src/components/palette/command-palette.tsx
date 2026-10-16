@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MagnifyingGlassIcon, TerminalIcon } from "@phosphor-icons/react";
-import { asInstance, cn, isSysPrefixed, toast, type CommandContext } from "@kb/ui-sdk";
+import {
+  asInstance,
+  cn,
+  type CommandContext,
+  isSysPrefixed,
+  schemaZoomKind,
+  toast,
+} from "@kb/ui-sdk";
 import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
 import { buildPaletteIndex, searchPalette, type PaletteHit } from "@/lib/palette-index";
-import { schemaZoomKind } from "@/lib/schema-zoom";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";

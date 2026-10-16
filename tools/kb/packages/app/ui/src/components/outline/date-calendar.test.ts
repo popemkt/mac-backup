@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatDay, type LocalDate } from "@kb/model";
-import { calendarWeeks, dateEditorIntent, sameDay } from "@/lib/date-calendar";
+import { calendarWeeks, dateEditorIntent, sameDay } from "@/components/outline/date-calendar";
 
 const TODAY: LocalDate = { year: 2026, month: 9, day: 28 };
 

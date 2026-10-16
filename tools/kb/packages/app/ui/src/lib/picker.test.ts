@@ -7,7 +7,7 @@ import {
   pickerRows,
   type PickerCandidate,
 } from "@kb/ui-sdk";
-import { notePick, recentPicks } from "@/lib/picker-recency";
+import { notePick, recentPicks } from "@/components/outline/picker-recency";
 
 const candidates: PickerCandidate[] = [
   { id: "n.b", label: "Beta release" },

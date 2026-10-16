@@ -17,8 +17,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
-import { isPinned } from "@/lib/pinned";
-import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
+import { isPinned, syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseTypedValue } from "@kb/model";
-import { formatNumber, numberEditText, numberSeparators } from "@/lib/number-format";
+import { formatNumber, numberEditText, numberSeparators } from "@/components/outline/number-format";
 
 describe("numbers in a locale", () => {
   it("groups for reading and not for editing", () => {

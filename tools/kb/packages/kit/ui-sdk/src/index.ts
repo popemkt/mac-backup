@@ -110,7 +110,7 @@ export { NotFound } from "./components/not-found";
 export { PickerList } from "./components/picker-list";
 export { PrefFieldRow } from "./components/pref-field-row";
 export { POPOVER_VALUE_CLASS, PopoverShell } from "./components/popover-shell";
-export { SidebarRow, SidebarSection } from "./components/sidebar-row";
+export { type SidebarNavItem, SidebarRow, SidebarSection } from "./components/sidebar-row";
 export { SidebarToggle } from "./components/sidebar-toggle";
 export { OptionChip, TagChip, TagChipGroup } from "./components/tag-chip";
 export { ThemeIcon } from "./components/theme-icon";
@@ -184,7 +184,22 @@ export {
   outlineInstanceKey,
   queryResultInstanceKey,
 } from "./lib/instance-key";
+export {
+  isPinned,
+  listPinnedNavItems,
+  listPinnedNodes,
+  pinnedRefIds,
+  pinnedRefIdsFor,
+} from "./lib/pinned";
 export { nodeCandidates, type RefCreation, refCreationOf, refSearchOf, refUses } from "./lib/refs";
+export {
+  fieldCarriersQuery,
+  queryFieldCarriers,
+  queryTaggedInstances,
+  type SchemaHit,
+  schemaZoomKind,
+  taggedInstancesQuery,
+} from "./lib/schema-zoom";
 export {
   frameConfigOf,
   frameReport,

@@ -32,7 +32,9 @@
  * (`sys.f.onto.member` + the Unpin control on the ontology page): different
  * field, different mechanism, same English word. Nothing here touches those.
  */
-import { contextualTargetOf, SYSTEM_IDS, type NodeMap, type OutlineNode } from "@kb/ui-sdk";
+import type { SidebarNavItem } from "../components/sidebar-row";
+import { contextualTargetOf } from "./contextual-ref";
+import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "./types";
 
 /** Child ids of the Pinned list, in stored order. Empty when it is unseeded. */
 export function pinnedRefIds(nodes: NodeMap): string[] {
@@ -70,4 +72,12 @@ export function listPinnedNodes(nodes: NodeMap): OutlineNode[] {
     if (target !== undefined) out.push(target);
   }
   return out;
+}
+
+/** Targets of the Pinned list, in list order, as the Pinned section lists them. */
+export function listPinnedNavItems(nodes: NodeMap): SidebarNavItem[] {
+  return listPinnedNodes(nodes).map((n) => ({
+    id: n.id,
+    label: n.text || n.id,
+  }));
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { urlLabel } from "@/lib/url-label";
+import { urlLabel } from "@/components/outline/url-label";
 
 describe("a url's label", () => {
   it("drops the scheme, www and a trailing slash", () => {

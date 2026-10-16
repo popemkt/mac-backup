@@ -6,8 +6,8 @@
  * that must keep working: a node merely *tagged* `pinned` is not pinned.
  */
 import { describe, expect, it } from "vitest";
-import { isPinned, listPinnedNodes, pinnedRefIds, pinnedRefIdsFor } from "@/lib/pinned";
-import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@kb/ui-sdk";
+import { isPinned, listPinnedNodes, pinnedRefIds, pinnedRefIdsFor } from "./pinned";
+import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "./types";
 
 function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">): OutlineNode {
   return {

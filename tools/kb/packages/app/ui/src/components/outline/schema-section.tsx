@@ -8,12 +8,15 @@ import {
 import { useFollow, useOpenNode } from "@/stores/follow";
 import { useRefInk } from "@/stores/ref-ink";
 import {
+  Bullet,
+  MdView,
+  NodeRow,
   queryFieldCarriers,
   queryTaggedInstances,
-  schemaZoomKind,
   type SchemaHit,
-} from "@/lib/schema-zoom";
-import { Bullet, MdView, NodeRow, TagChipGroup } from "@kb/ui-sdk";
+  schemaZoomKind,
+  TagChipGroup,
+} from "@kb/ui-sdk";
 import { TagFieldsConfig } from "./tag-fields-config";
 
 /**

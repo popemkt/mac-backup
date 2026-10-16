@@ -26,8 +26,8 @@ import { FieldValueStack } from "./fields-section";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WireNode } from "@kb/contracts";
 import { stubOutlineNode } from "@/catalog/fixtures";
-import { formatNumber, numberEditText } from "@/lib/number-format";
 import { ValueSlot } from "./value-slot";
+import { formatNumber, numberEditText } from "@/components/outline/number-format";
 
 const noNodes: NodeMap = new Map();
 const context = fieldContextOf({ schema: schemaOfGraph(noNodes), nodes: noNodes, index: null });

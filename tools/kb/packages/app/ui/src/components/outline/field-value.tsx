@@ -30,14 +30,14 @@ import {
   type RefInk,
 } from "@kb/ui-sdk";
 import { useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
-import { urlLabel } from "@/lib/url-label";
-import { formatNumber } from "@/lib/number-format";
 import { parseDateInput, parseDay, type ParsedValue } from "@kb/model";
-import { longDateLabel, relativeDateLabel } from "@/lib/date-display";
-import { DateEditor } from "@/components/ui/date-editor";
 import { CheckIcon, WarningIcon } from "@phosphor-icons/react";
-import type { ValueKindSpec } from "@/lib/value-kind";
 import { FieldPicker, type FieldHandle } from "./field-picker";
+import { longDateLabel, relativeDateLabel } from "@/components/outline/date-display";
+import { formatNumber } from "@/components/outline/number-format";
+import { urlLabel } from "@/components/outline/url-label";
+import type { ValueKindSpec } from "@/components/outline/value-kind";
+import { DateEditor } from "@/components/outline/date-editor";
 
 /**
  * What a slot's keymap asks of the editor it holds. Only a caret editor has

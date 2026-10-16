@@ -8,18 +8,23 @@ import {
   type PropValue,
 } from "@kb/ui-sdk";
 import type { ParsedValue } from "@kb/model";
-import {
-  EDITOR_MODES,
-  toggledValue,
-  valueKindOf,
-  VALUE_KINDS,
-  type ValueKindSpec,
-} from "@/lib/value-kind";
-import { valueSlotIntent, type ValueSlotIntent } from "@/lib/value-slot-keymap";
-import { arriveAt, neighbourSlot, registerSlot, slotIndex } from "@/lib/value-slot-nav";
 import type { EditHandle, RejectedInput } from "./field-value";
 import type { FieldHandle } from "./field-picker";
 import { VALUE_VIEWS } from "./value-views";
+import {
+  EDITOR_MODES,
+  toggledValue,
+  VALUE_KINDS,
+  valueKindOf,
+  type ValueKindSpec,
+} from "@/components/outline/value-kind";
+import { valueSlotIntent, type ValueSlotIntent } from "@/components/outline/value-slot-keymap";
+import {
+  arriveAt,
+  neighbourSlot,
+  registerSlot,
+  slotIndex,
+} from "@/components/outline/value-slot-nav";
 
 export interface ValueSlotProps {
   /** The stored value, or null for a slot that holds none yet. */

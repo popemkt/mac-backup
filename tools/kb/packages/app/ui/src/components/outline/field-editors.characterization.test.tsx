@@ -36,9 +36,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { stubOutlineNode } from "@/catalog/fixtures";
-import { longDateLabel, relativeDateLabel } from "@/lib/date-display";
 import { ValueSlot } from "./value-slot";
 import { fieldGlyphOf } from "./value-views";
+import { longDateLabel, relativeDateLabel } from "@/components/outline/date-display";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {

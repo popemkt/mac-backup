@@ -17,7 +17,7 @@ import {
   type PropValue,
   type RefCreation,
 } from "@kb/ui-sdk";
-import { notePick, recentPicks } from "@/lib/picker-recency";
+import { notePick, recentPicks } from "@/components/outline/picker-recency";
 
 const inputClass = cn(
   "w-full flex-1 rounded-sm border-none bg-transparent px-1 outline-none",

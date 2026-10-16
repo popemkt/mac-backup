@@ -2,14 +2,14 @@ import { useRef, useState } from "react";
 import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { addMonths, formatDay, parseDateInput, parseDay, type LocalDate } from "@kb/model";
 import { cn, IconButton, KB_TEXT_CLASS, useAnchoredPosition } from "@kb/ui-sdk";
-import { calendarWeeks, dateEditorIntent, sameDay } from "@/lib/date-calendar";
 import {
   firstDayOfWeek,
   longDateLabel,
   monthLabel,
   todayLocal,
   weekdayInitials,
-} from "@/lib/date-display";
+} from "@/components/outline/date-display";
+import { calendarWeeks, dateEditorIntent, sameDay } from "@/components/outline/date-calendar";
 
 export interface DateEditorProps {
   /** What the input starts with: the stored date, or input the slot kept. */

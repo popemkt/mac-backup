@@ -4,6 +4,8 @@ import { OutlineColumn } from "@/components/outline/outline-column";
 import { useOutlineScreen } from "@/components/outline/use-outline-screen";
 import { OutlineView, type OutlineParams } from "@kb/views";
 import {
+  listPinnedNavItems,
+  type MatchedRoute,
   navigate,
   nodePath,
   OpenNodeContext,
@@ -12,10 +14,8 @@ import {
   SidebarSection,
   usePane,
   ViewErrorBoundary,
-  type MatchedRoute,
   type ViewProps,
 } from "@kb/ui-sdk";
-import { listPinnedNavItems } from "@/lib/sidebar-nav";
 import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineNodes } from "@/components/outline/outline.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";

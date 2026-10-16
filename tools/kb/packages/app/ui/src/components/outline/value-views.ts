@@ -8,7 +8,6 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import type { FieldType } from "@kb/ui-sdk";
-import { valueKindOf, type ValueKind } from "@/lib/value-kind";
 import {
   CheckboxSurface,
   ColorSurface,
@@ -20,6 +19,7 @@ import {
   UrlSurface,
   type ValueSurfaceProps,
 } from "./field-value";
+import { type ValueKind, valueKindOf } from "@/components/outline/value-kind";
 
 /**
  * One kind's presentation: the glyph its row wears, and the surface that

@@ -558,8 +558,8 @@ rows, a table's cells and a card's fields are `FieldRow` chrome around the one
 `FieldValueStack`, so none of them has its own loop of editors. Each value sits
 in a **value slot** (`ValueSlot`, `components/outline/value-slot.tsx`), and
 **the slot owns every gesture**; a value's kind contributes only data. A kind
-is a row in `VALUE_KINDS` (`lib/value-kind.ts`: its editor mode, how it reads
-as text and back, when it is blank, where it points, how its values sit
+is a row in `VALUE_KINDS` (`components/outline/value-kind.ts`: its editor
+mode, how it reads as text and back, when it is blank, where it points, how its values sit
 together) and a row in the slot's view registry (its glyph and its surface).
 The surfaces in `field-value.tsx` draw and edit; none has a click or key
 handler of its own. A new type is two rows, never a component deciding its
@@ -596,11 +596,12 @@ selected. While a caret editor is open: Enter commits (Shift+Enter is a line
 break in text), Escape reverts and leaves the value focused, Tab or an arrow
 off the text's first or last character commits and moves on, and Backspace in
 an emptied value takes it out and opens the one before. A picker and the date
-editor keep their own keys. The chord tables are `lib/value-slot-keymap.ts`.
+editor keep their own keys. The chord tables are
+`components/outline/value-slot-keymap.ts`.
 The rows' keymaps pass through the values: ↓ off a row's last line (editing
 or selected) lands on its first value, ↓ from its last value goes to the next
 row, ↑ comes back the same way (`enterFields`; the order is read off the DOM
-by `lib/value-slot-nav.ts`, never kept a second time).
+by `components/outline/value-slot-nav.ts`, never kept a second time).
 
 **Adding has no line of its own.** Enter at the end of a value of a
 many-valued field commits it and opens the next value's slot; Enter on that
@@ -617,8 +618,8 @@ which holds one value by its type (`cardinalityOf`) — offers no add.
   title. Its form is `@kb/model`'s (`normalizeUrl`: http(s)/mailto, a bare
   host made https, every other scheme refused), and every surface parses
   input through the one `parseTypedValue`, which the write check agrees with.
-- **number** reads and writes in the browser's locale (`lib/number-format`),
-  grouped at rest and ungrouped while edited.
+- **number** reads and writes in the browser's locale
+  (`components/outline/number-format`), grouped at rest and ungrouped while edited.
 - **date** is a local calendar day (`@kb/model` `local-date`), labelled near
   today (Today, Fri, Oct 12), edited in `DateEditor`: typed phrases
   (`parseDateInput`: tomorrow, next fri, in 2 weeks, oct 3) with a live
@@ -1521,8 +1522,8 @@ both are answered from the node ⌘K menu rather than from a device switch.
     user who had the global switch on has no id set to migrate to, so debug
     starts off and is re-armed per node. The stale key inside
     `localStorage["kb-prefs"]` is ignored on read and dropped on next write.
-- **Pinning is listing.** `lib/pinned.ts` owns it: the seeded `pinned` node's
-  **children** are contextual references (`sys.f.ref.target`) to the pinned
+- **Pinning is listing.** `@kb/ui-sdk`'s `lib/pinned.ts` owns it: the
+  seeded `pinned` node's **children** are contextual references (`sys.f.ref.target`) to the pinned
   nodes, and that list *is* the sidebar section. `mutations.togglePin` appends
   one such child or deletes it, and nothing else. Three things follow that a
   `pinned` supertag could not give (DESIGN.md →

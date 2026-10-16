@@ -21,8 +21,8 @@ import {
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { outlineSource, useOutlineStore } from "@/components/outline/outline.store";
-import { enterFields } from "@/lib/value-slot-nav";
 import type { EditingIntent } from "./editing-keymap";
+import { enterFields } from "@/components/outline/value-slot-nav";
 
 type IntentOf<T extends EditingIntent["type"]> = Extract<EditingIntent, { type: T }>;
 

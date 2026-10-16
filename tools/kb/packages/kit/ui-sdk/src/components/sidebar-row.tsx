@@ -2,6 +2,12 @@ import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
 import { hasText } from "../lib/text";
 
+/** What a section lists: the node a row opens, and the label it shows. */
+export interface SidebarNavItem {
+  id: string;
+  label: string;
+}
+
 /** One sidebar entry. A primitive, so every plugin's section draws the same row. */
 export function SidebarRow({
   label,

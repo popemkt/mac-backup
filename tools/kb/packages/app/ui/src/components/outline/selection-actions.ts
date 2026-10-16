@@ -23,7 +23,7 @@ import {
 import type { SelectionKeyAction } from "@/components/outline/selection-keymap";
 import { useGraphStore } from "@/stores/graph.store";
 import { outlineSource, useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
-import { enterFields } from "@/lib/value-slot-nav";
+import { enterFields } from "@/components/outline/value-slot-nav";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;
 

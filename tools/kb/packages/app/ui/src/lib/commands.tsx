@@ -41,25 +41,25 @@ import { hostViewIds, isQueryNode, isViewNode, present, typeRefsOf, viewOptionOf
 import type { WireNode } from "@kb/contracts";
 import { mutations } from "@/actions/mutations";
 import {
+  type Command,
+  type CommandContext,
   CommandPoint,
   currentContributions,
   DESIGN_SYSTEM_IDS,
   isContextualRef,
+  isPinned,
   isSysPrefixed,
   navigate,
   nodeAction,
   nodePath,
   ontologyPath,
+  type OutlineCommandApi,
   SYSTEM_IDS,
+  type ThemePref,
   toast,
   WORKSPACE_ROOT_ID,
-  type Command,
-  type CommandContext,
-  type OutlineCommandApi,
-  type ThemePref,
 } from "@kb/ui-sdk";
 import { listOntologyItems } from "@/lib/ontology-scope";
-import { isPinned } from "@/lib/pinned";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import {
   LayoutView,

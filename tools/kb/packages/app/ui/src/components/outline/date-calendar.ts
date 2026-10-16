@@ -1,6 +1,6 @@
 /**
  * A date editor's month grid and its keys, as data (the pure half of
- * `components/ui/date-editor`).
+ * `components/outline/date-editor`).
  */
 import { addDays, addMonths, weekday, type LocalDate } from "@kb/model";
 import { lookupChord, type Chord, type KeyChordEvent } from "@kb/ui-sdk";

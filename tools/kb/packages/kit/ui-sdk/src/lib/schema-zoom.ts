@@ -1,7 +1,8 @@
 /**
  * Schema-page live queries for zoomed tag / field nodes (DESIGN-REFINE §2 W3).
  */
-import { runQuery, SYSTEM_IDS, type KbIndex, type OutlineNode } from "@kb/ui-sdk";
+import { runQuery, type KbIndex } from "../query";
+import { SYSTEM_IDS, type OutlineNode } from "./types";
 
 export type SchemaZoomKind = "tag" | "field" | null;
 

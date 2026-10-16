@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { valueSlotIntent, type ValueSlotKeyState } from "@/lib/value-slot-keymap";
+import { valueSlotIntent, type ValueSlotKeyState } from "@/components/outline/value-slot-keymap";
 
 const editingCaret: ValueSlotKeyState = {
   editing: true,

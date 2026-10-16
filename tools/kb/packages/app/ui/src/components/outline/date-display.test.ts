@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LocalDate } from "@kb/model";
-import { relativeDateLabel, todayLocal, weekdayInitials } from "@/lib/date-display";
+import { relativeDateLabel, todayLocal, weekdayInitials } from "@/components/outline/date-display";
 
 /** A Monday. */
 const TODAY: LocalDate = { year: 2026, month: 9, day: 28 };

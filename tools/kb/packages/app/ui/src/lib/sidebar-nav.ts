@@ -1,24 +1,11 @@
 /**
  * Pure selectors for sidebar section lists — store fixtures in, rows out.
+ * The Pinned list's are the kit's (`listPinnedNavItems`).
  * No React; sidebar.tsx only wires these to navigate/zoom.
  */
 import type { WireNode } from "@kb/contracts";
-import type { NodeMap } from "@kb/ui-sdk";
+import type { SidebarNavItem } from "@kb/ui-sdk";
 import { listOntologyItems } from "@/lib/ontology-scope";
-import { listPinnedNodes } from "@/lib/pinned";
-
-export interface SidebarNavItem {
-  id: string;
-  label: string;
-}
-
-/** Targets of the Pinned list, in list order — membership owned by lib/pinned. */
-export function listPinnedNavItems(nodes: NodeMap): SidebarNavItem[] {
-  return listPinnedNodes(nodes).map((n) => ({
-    id: n.id,
-    label: n.text || n.id,
-  }));
-}
 
 /** `#ontology` nodes for the Ontologies section. */
 export function listOntologyNavItems(wireNodes: WireNode[]): SidebarNavItem[] {

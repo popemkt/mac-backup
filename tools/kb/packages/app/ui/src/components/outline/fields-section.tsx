@@ -21,11 +21,11 @@ import { useDebugFields } from "@/stores/debug-fields.store";
 import { useGraphRead } from "@/stores/graph-read";
 import { outlineSource, useOutlineStore } from "@/components/outline/outline.store";
 import { useFollow } from "@/stores/follow";
-import { arriveAt, slotAt } from "@/lib/value-slot-nav";
 import { fieldGlyphOf } from "./value-views";
 import { ValueSlot } from "./value-slot";
 import { FieldPicker, type FieldHandle } from "./field-picker";
-import { valueKindOf, VALUE_KINDS } from "@/lib/value-kind";
+import { VALUE_KINDS, valueKindOf } from "@/components/outline/value-kind";
+import { arriveAt, slotAt } from "@/components/outline/value-slot-nav";
 
 interface FieldsSectionProps {
   nodeId: string;

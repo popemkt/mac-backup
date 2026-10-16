@@ -3,8 +3,8 @@ import { schemaOf, shownNode } from "@kb/ui-sdk";
 import { isEditableTarget, mapSelectionKey } from "@/components/outline/selection-keymap";
 import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
-import { fieldSlotCount } from "@/lib/value-slot-nav";
 import { applySelectionAction } from "./selection-actions";
+import { fieldSlotCount } from "@/components/outline/value-slot-nav";
 
 /** Window-level selection-mode keymap while a node is selected (not editing). */
 export function useSelectionKeymap(): void {

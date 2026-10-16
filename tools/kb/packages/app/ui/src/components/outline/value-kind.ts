@@ -24,8 +24,8 @@ import {
   type NodeLike,
   type ParsedValue,
 } from "@kb/model";
-import { numberEditText, numberSeparators } from "@/lib/number-format";
-import { todayLocal } from "@/lib/date-display";
+import { todayLocal } from "@/components/outline/date-display";
+import { numberEditText, numberSeparators } from "@/components/outline/number-format";
 
 /**
  * The kinds of value slot. A declared type names one; a field may name its

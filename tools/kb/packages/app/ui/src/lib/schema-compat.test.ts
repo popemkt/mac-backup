@@ -14,7 +14,7 @@ import {
 } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { fixtureGraph } from "@/api/fixture-graph";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
-import { fieldCarriersQuery, taggedInstancesQuery } from "@/lib/schema-zoom";
+import { fieldCarriersQuery, taggedInstancesQuery } from "@kb/ui-sdk";
 
 function sortRows(rows: unknown[][]): string[][] {
   return rows
