@@ -703,11 +703,14 @@ once asked, so each placement at the roots costs a binary search. Two costs
 remain:
 
 - Each placement at the roots inserts into the ordered array, and that moves
-  the roots after it in memory (O(R) moves).
-- Past about 400 appends to one group within one plan, `rankBetween`'s tail
-  step grows ranks past the 12 characters a rank may hold. Each placement
-  then scans back for a usable neighbour until the commit re-spreads the
-  group (GAP [[<placeholder-plan-rank-growth>]]).
+  the roots after it in memory (O(R) moves; GAP
+  [[01M52RTGASH2F5PVW7CK2Q50VN]]).
+- Appending to one group within one plan steps each rank after the last
+  (`rankBetween`'s tail step), and the ranks grow: 12 characters at about
+  400 appends, 58 at 2000. Past `MAX_RANK_LENGTH` (12) a rank is not
+  usable, so each later placement scans back over the whole group for a
+  usable neighbour, O(k) per item, until the commit re-spreads the group
+  (GAP [[01M52RMD1V9BW6E27RYYSH2K5X]]).
 
 `node-graph.contract.test.ts` runs the same properties over both adapters,
 using random forests with dangling children, and random renames, retags,

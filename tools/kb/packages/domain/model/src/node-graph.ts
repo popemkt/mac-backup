@@ -259,6 +259,8 @@ export class IndexedNodes implements NodeGraph {
     const node = this.#byId.get(id);
     if (node === undefined || this.#rootIds.has(id)) return;
     this.#rootIds.add(id);
+    // The insertion moves every root after it: O(R) per top-level placement.
+    // GAP [[01M52RTGASH2F5PVW7CK2Q50VN]]
     if (this.#ordered !== null) this.#ordered.splice(lowerBound(this.#ordered, node), 0, node);
   }
 

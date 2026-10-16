@@ -98,6 +98,8 @@ function stepBefore(high: string): string {
  */
 export function rankBetween(before?: string, after?: string): string {
   if (after === undefined) {
+    // Repeated tail steps grow a rank past MAX_RANK_LENGTH in one plan.
+    // GAP [[01M52RMD1V9BW6E27RYYSH2K5X]]
     return before === undefined ? digitChar(BASE / 2) : stepAfter(before);
   }
   const high = trimZeros(after);
