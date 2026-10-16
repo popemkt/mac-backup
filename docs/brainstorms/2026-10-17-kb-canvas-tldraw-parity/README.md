@@ -398,10 +398,10 @@ Each one is read and written through the field tables. Each keeps a value kb can
 - edge route, line and heads
 - line points and heads
 
-**Placeholders (the parent mints ids):**
-- `GAP [[TBD-path-pick]]`: a path is picked by its box, not by its stroke.
-- `GAP [[TBD-path-points]]`: a path's points are set by the format or `place`. They have no handles to drag.
-- `GAP [[TBD-locked-gizmo]]`: the 3D gizmo still shows over a locked selection, though it moves nothing.
+**Gaps (minted by the coordinator):**
+- GAP [[01M53H6YF9J97SFD9Y44V3NETE]]: a path is picked by its box, not by its stroke.
+- GAP [[01M53H6Z5WQACGQ8ZR14HX5EDT]]: a path's points are set by the format or `place`. They have no handles to drag.
+- GAP [[01M53H6ZWR6F960M40021EF9SW]]: the 3D gizmo still shows over a locked selection, though it moves nothing.
 - Decision, not a gap: the inspector still edits a locked item field by field, as `tx.apply` does. Locked holds the item against acts that take it, not against explicit edits.
 - Decision, not a gap: an edge's dash lives in its `style.dash`, the same field an item's does. It is not a top-level edge field.
 - Process note: P4's restructure (`itemOutline` as the single outline answer) landed inside its feature commit rather than as a commit of its own.

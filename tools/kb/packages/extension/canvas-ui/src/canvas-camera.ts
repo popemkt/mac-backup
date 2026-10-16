@@ -391,6 +391,7 @@ export function paintPlanes<T extends CanvasHitItem>(
   });
 }
 
+// GAP [[01M53H6YF9J97SFD9Y44V3NETE]] a canvas path is picked by its box, not its stroke
 /**
  * The item under a screen point: of every item whose box the eye's ray
  * enters (`paintPlanes`), the nearest. `items` are in paint order, back to

@@ -105,6 +105,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — authenticated callers per surface (a UI session token, an agent identity), checked where the actor is filled in
 - **node** — `01M413SP3QSSQJMKKDK3W3J6G8`
 
+### GAP: a canvas path is picked by its box, not its stroke
+
+- **expected** — A path item is hit where its stroke (or, closed, its fill) is drawn, within a screen tolerance, in both projections.
+- **current** — hitTest picks every item by the box the eye's ray enters (canvas-camera.ts), so a path is picked anywhere in its bounding box.
+- **impact** — Clicking empty space inside a diagonal line's box selects the line; items under that box cannot be clicked through it.
+- **closes** — A stroke-distance hit for path items in the one hitTest both projections share, with a contract case over both.
+- **node** — `01M53H6YF9J97SFD9Y44V3NETE`
+
+### GAP: a canvas path's points have no drag handles
+
+- **expected** — A selected path shows a handle on each point, dragged like a resize handle, writing points through the field table in one history step.
+- **current** — A path's points are set only by the format or the place verb; the selection shows the box's resize handles (canvas-resize-handles.tsx).
+- **impact** — A drawn line or arrow cannot be reshaped by hand, only redrawn or rescaled as a box.
+- **closes** — Point handles for path items in both projections, through one shared point-drag gesture.
+- **node** — `01M53H6Z5WQACGQ8ZR14HX5EDT`
+
 ### GAP: a chart's page runs its query twice, once for the body and once for the figure
 
 - **expected** — a view's text resolves its data once and hands it to both body and figure
@@ -846,6 +862,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — References land in the wrong group or order in every view but the outline.
 - **closes** — Those steps read shownNode while still returning row ids.
 - **node** — `01M3KA3B5V5K7GYYPAYK7G6KHG`
+
+### GAP: the 3D gizmo shows over a locked selection
+
+- **expected** — What the selection shows follows what may be done to it: a locked item shows no transform gizmo, as 2D shows it no resize handles.
+- **current** — The 3D stage shows the gizmo over any selection (canvas-3d-stage.tsx setGizmo); the gesture refuses to move a locked item, so the gizmo is inert.
+- **impact** — The gizmo offers a move that does nothing, which reads as a bug.
+- **closes** — The gizmo choice derived from the selection's locked members, one rule shared with 2D's handles.
+- **node** — `01M53H6ZWR6F960M40021EF9SW`
 
 ### GAP: the action registry is build-once per process though the kernel can unload
 

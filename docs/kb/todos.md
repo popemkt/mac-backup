@@ -94,7 +94,6 @@
 
 ### doing
 
-- Canvas parity with tldraw offline · P1–P5 (styles, edge anchors and routes, path item, lock/align/distribute, shortcut table); P6–P8 wait on the owner's questions. Plan: docs/brainstorms/2026-10-17-kb-canvas-tldraw-parity/README.md
 - Projection families · outline and graph leave core; kb = graph wrapper + outline editing mode + viz families. Plan: docs/brainstorms/2026-10-16-kb-projection-families/README.md
 
 ### todo
@@ -128,6 +127,7 @@
 
 ### done
 
+- Canvas parity with tldraw offline · P1–P5 (styles, edge anchors and routes, path item, lock/align/distribute, shortcut table); P6–P8 wait on the owner's questions. Plan: docs/brainstorms/2026-10-17-kb-canvas-tldraw-parity/README.md
 - E10c · every cleanly extracted family can be switched off through the one extension switch (canvas, chart, code, lab, agent; --no-agent folds into it). Plan: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md
 - Investigate the layers DeepSeek Harness adds on top of Cordis (DESIGN.md names it as the kernel's model): what it layers on, what kb lacks, what is worth taking
 - node.addTree · add a whole outline in one transaction (kb add --outline <file>, and the same action for MCP and the agent). Model the format on Tana Paste (%%tana%%, nested '- ' items, #tag, field:: value, ref); also look at Logseq/Roam paste and OPML import as prior art. All-or-nothing, one tx; returns the created ids

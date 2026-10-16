@@ -250,6 +250,7 @@ export default function Canvas3dStage(props: Canvas3dStageProps) {
   }, [scene]);
 
   useEffect(() => scene?.setContent({ doc, nodes, selection }), [scene, doc, nodes, selection]);
+  // GAP [[01M53H6ZWR6F960M40021EF9SW]] the 3D gizmo shows over a locked selection
   useEffect(() => scene?.setGizmo(props.gizmo), [scene, props.gizmo]);
   // By the time this runs <html> carries the new appearance, so the tokens hold its values.
   useEffect(() => {

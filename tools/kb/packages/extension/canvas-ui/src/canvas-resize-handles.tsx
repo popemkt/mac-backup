@@ -1,6 +1,7 @@
 import type { ResizeCorner } from "./canvas-pointer";
 export type CanvasCorner = ResizeCorner;
 
+// GAP [[01M53H6Z5WQACGQ8ZR14HX5EDT]] a canvas path's points have no drag handles
 /**
  * A selected card's handles, inside its face so they turn with it: a resize
  * handle at each corner, and tldraw's rotate handle on a stem above the
