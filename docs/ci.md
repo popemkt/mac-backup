@@ -132,6 +132,10 @@ that was the coverage gap.
   threshold breaks the run). It covers `@kb/model`, `@kb/query` and the CLI's
   argument mapper, and the run seeds fast-check, so its survivor list is
   reproducible. Weekly, with the survivor report as an artifact.
+- **Building the NixOS host.** `nix flake check` on the macOS runner evaluates
+  `nixosConfigurations.shared-server`, so option errors and broken module
+  wiring go red, but an x86_64-linux system cannot be built there. The build
+  is proven on the host itself (`nixos-rebuild build`) before every switch.
 
 ## Still manual
 

@@ -255,6 +255,17 @@
             })
           ];
         };
+
+      # One NixOS host = the host base + the people it lists (my.people); the
+      # NixOS base gives each an account and their Home Manager layers.
+      mkNixos =
+        hostname:
+        nixpkgs.lib.nixosSystem {
+          modules = hostBase hostname ++ [
+            home-manager.nixosModules.home-manager
+            { home-manager = homeManagerBase; }
+          ];
+        };
     in
     {
       overlays.default =
@@ -325,7 +336,12 @@
         popemkt-personal = mkDarwin "popemkt-personal";
       };
 
-      # NixOS modules are kept in-tree for future use, but this flake only
-      # exposes complete, actively maintained host configurations.
+      # ========================================================================
+      # NIXOS CONFIGURATIONS
+      # ========================================================================
+
+      nixosConfigurations = {
+        shared-server = mkNixos "shared-server";
+      };
     };
 }

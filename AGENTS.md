@@ -359,8 +359,9 @@ referenced.
 
 ## Architecture
 
-- `flake.nix` is the entry point. `mkDarwin` builds one configuration per host;
-  each attribute name is the hostname.
+- `flake.nix` is the entry point. `mkDarwin` and `mkNixos` build one
+  configuration per host from a shared host base; each attribute name is the
+  hostname.
 - `modules/options/` contains cross-cutting typed options only:
   `my.hostname` and `my.pkgs.*` channel merge targets. Identity only one
   platform has is declared by that platform (`my.{username,role}` in
@@ -387,8 +388,12 @@ referenced.
   HostName, ComputerName, and LocalHostName through `networking.*`.
 - `modules/common/home-manager/` owns cross-platform user configuration.
 - `modules/darwin/home-manager/` owns macOS-specific user behavior.
-- `modules/nixos/home-manager/` is the future Linux-specific layer and is not
-  currently built.
+- `modules/nixos/system/` is the shared NixOS base: an account and Home
+  Manager layers for each of `my.people`, plus host-wide tooling.
+  `modules/nixos/home-manager/` owns Linux-specific user behavior.
+- `users/<name>/` holds one person's own Home Manager choices, the same on
+  every host they use. A person's folder selects; shared behavior lives under
+  `modules/`.
 - `pkgs/` and `_sources/` contain custom packages backed by nvfetcher-managed
   GitHub release pins.
 - `configs/` contains raw application configuration.

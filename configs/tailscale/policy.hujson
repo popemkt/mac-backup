@@ -39,6 +39,13 @@
       "ip": ["tcp:443"],
     },
 
+    // Both people on the shared server reach both T3 Code servers.
+    {
+      "src": ["autogroup:member"],
+      "dst": ["svc:t3-popemkt", "svc:t3-bytetum"],
+      "ip": ["tcp:443"],
+    },
+
     // Preserve the pre-existing default policy until every remaining flow is
     // inventoried and covered by a narrower grant.
     {
@@ -54,6 +61,8 @@
       "svc:kb": ["tag:home-server"],
       "svc:adhoc": ["tag:home-server"],
       "svc:cognee": ["tag:home-server"],
+      "svc:t3-popemkt": ["tag:shared-server"],
+      "svc:t3-bytetum": ["tag:shared-server"],
     },
   },
 

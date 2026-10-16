@@ -27,15 +27,17 @@ Clone it with `gh repo clone popemkt/mac-backup ~/.dotfiles` and run
 
 ## Where things stand
 
-Done on the Mac, already on `main`:
+The host's configuration is written and on `main`. It evaluates on the Mac;
+it has not been built, because the Mac cannot build x86_64-linux. The first
+real build happens on this machine, in [Check before switching](#check-before-switching).
 
-- `modules/stacks/default.nix` is the platform-neutral stack index (the vpn
-  schema and the `extra.*` fold). `modules/stacks/darwin.nix` adds the
-  macOS-only stacks.
-- `modules/stacks/vpn/services-reconcile.nix` is the Tailscale Services
-  reconcile script, platform-neutral. `vpn/darwin.nix` runs it under launchd.
-- `modules/stacks/t3-code/` is its own stack. `darwin.nix` installs the
-  desktop app; the NixOS side does not exist yet.
+| Piece | Where |
+|---|---|
+| The host | `hosts/shared-server/` (installer settings, people, ports, stacks) and `nixosConfigurations.shared-server` from `mkNixos` in `flake.nix` |
+| NixOS base | `modules/nixos/system/` (accounts and Home Manager for each of `my.people`, flakes, nix-ld, zsh, vim, git, gh) |
+| T3 Code servers | `modules/stacks/t3-code/` (`instances` schema, NixOS systemd services, npm agents) |
+| Tailscale | `modules/stacks/vpn/nixos.nix` (tailscaled, Services reconcile under systemd) and `configs/tailscale/policy.hujson` |
+| Each person | `users/popemkt/`, `users/bytetum/` |
 
 Done on the machine by hand, outside the repo: a NixOS 26.05 install and
 `programs.nix-ld.enable = true`. Flakes and the other preflight steps are in
@@ -98,81 +100,30 @@ or a password. The agent cannot do these, so do them in order on a new machine.
 
 | Area | What the host has |
 |---|---|
-| Identity | Host name `shared-server`, `x86_64-linux`, `system.stateVersion` copied from the installer config and never changed |
-| Accounts | `popemkt` and `bytetum`, both `isNormalUser` and in `wheel`, `linger = true` so their services run without a login. No passwords in the repo |
+| Identity | Host name `shared-server`, `x86_64-linux`, `system.stateVersion = "26.05"` from the installer, never changed |
+| Accounts | `popemkt` and `bytetum` (`my.people`), both in `wheel` and `networkmanager`, zsh. No passwords in the repo |
 | Access | No `services.openssh`. The local console is the recovery path |
-| Laptop as server | `services.logind.lidSwitch = "ignore"` (and the external-power and docked variants), so closing the lid never suspends |
-| Binaries | `programs.nix-ld.enable = true`, plus `nix-ld.libraries` if a binary reports a missing library |
+| Laptop as server | `services.logind.settings.Login.HandleLidSwitch*` = `ignore`, so closing the lid never suspends |
+| Binaries | `programs.nix-ld.enable = true`, plus `programs.nix-ld.libraries` if a binary reports a missing library |
 | Agents | Per user, from npm into `~/.local`: `t3`, `@anthropic-ai/claude-code`, `@openai/codex` |
-| T3 Code | One `t3 serve` per user as a systemd user service, bound to `127.0.0.1` on its own port |
+| T3 Code | One `t3 serve` per person, a system service (`t3-code-popemkt`, `t3-code-bytetum`) running as that user, bound to `127.0.0.1:3773` and `:3774` |
 | Tailscale | `services.tailscale.enable`. The host advertises `svc:t3-popemkt` and `svc:t3-bytetum`; both people may reach both |
-| Tooling | Flakes, `git`, `gh`, vim as default editor |
+| Tooling | Flakes, `git`, `gh`, vim as root's editor, Neovim for users |
 
-## Build it in the repo
+## Check before switching
 
-1. **Capture the machine.** Copy `/etc/nixos/hardware-configuration.nix` to
-   `hosts/shared-server/hardware-configuration.nix`. Read
-   `/etc/nixos/configuration.nix` and carry over everything the installer set
-   that the host still needs: the boot loader (without it the machine will not
-   boot), networking (NetworkManager, so the saved Wi-Fi keeps working),
-   time zone, locale, keyboard, and `system.stateVersion`.
-   If a `hosts/shared-server/hoang/` folder shows up, it is of unknown origin;
-   ask before using or deleting it. It did not exist on 2026-10-16.
+From `~/.dotfiles` on this machine, after `git pull`:
 
-2. **Restructure first, as its own commit.** These are behavior-preserving
-   for both Macs; prove it by evaluating both `darwinConfigurations` before
-   and after.
-   - `modules/common/home-manager/` mixes portable and Mac-only settings
-     (`git.nix` uses the macOS keychain; `packages.nix` lists desktop
-     software). Split it so a Linux user can import a portable base without
-     the Mac parts. `npm-global.nix` is already portable and is the npm
-     executor the server reuses.
-   - `my.role` (`work`/`personal`) is required by Mac modules only. Do not
-     give the server a role; scope the option so a NixOS host evaluates
-     without one.
-   - In `flake.nix`, factor what `mkDarwin` shares (the `my.*` values, the
-     overlay, Home Manager defaults) so a `mkNixos` can reuse it rather than
-     copy it.
+```bash
+nix flake check --no-build
+nixos-rebuild build --flake .#shared-server
+```
 
-3. **Add the NixOS side, as a second commit.**
-   - `flake.nix`: `nixosConfigurations.shared-server` from `mkNixos`, with
-     `home-manager.nixosModules.home-manager` and both users. Keep
-     `pkgs/` packages that only build on macOS out of the Linux evaluation.
-   - `modules/stacks/nixos.nix`: imports `./default.nix`,
-     `./t3-code/nixos.nix`, `./vpn/nixos.nix`.
-   - `modules/stacks/vpn/nixos.nix`: `services.tailscale.enable`, and a
-     systemd service running `services-reconcile.nix` with
-     `${pkgs.tailscale}/bin/tailscale` and a state directory under
-     `/var/lib`.
-   - `modules/stacks/t3-code/nixos.nix`: the T3 Code server instances. Model
-     an instance once (user, port, data directory) and derive each user's
-     systemd user service and its `vpn.services` entry from it; do not write
-     the service twice. It contributes `t3`, `@anthropic-ai/claude-code` and
-     `@openai/codex` to `my.pkgs.npmGlobals` and depends on `nix-ld`. The
-     service runs `t3 serve --host 127.0.0.1 --port <port> --no-browser`
-     with Node on its `PATH` (see "Writing an executor" in AGENTS.md).
-   - `modules/nixos/home-manager/default.nix`: its `rebuild` alias uses
-     plain `sudo nixos-rebuild`; change it to the `--sudo` form described
-     under "Take over the machine".
-   - `modules/nixos/system/`: the host base (nix settings, nix-ld, lid
-     handling, editor, git and gh).
-   - `hosts/shared-server/default.nix`: imports the base and the hardware
-     file, declares both users, enables the `t3-code` and `vpn` stacks.
-     Ports are a host choice; for example 3773 for popemkt and 3774 for
-     bytetum.
-   - `configs/tailscale/policy.hujson`: `tag:shared-server` is already in
-     `tagOwners` and applied. Add auto-approval of `svc:t3-popemkt` and `svc:t3-bytetum` for that tag, and
-     a grant from `autogroup:member` to both services on `tcp:443`.
-   - `docs/tailscale.md`: add the two services to its Services table.
-   - Validate CI's Linux gap: `.github/workflows/validate.yml` runs on macOS
-     only. Record a `#gap` in kb if the NixOS host stays unchecked by CI.
-
-4. **Check before switching.**
-
-   ```bash
-   nix flake check --no-build
-   nixos-rebuild build --flake .#shared-server
-   ```
+A build failure here is a real defect in the configuration: fix it in the
+repo, commit and push, rather than patching `/etc/nixos`. The NixOS
+configuration was written without a Linux machine to build on, so expect to
+find something. Option names to suspect first: `services.logind.settings`
+and the `--sudo` flag of `nixos-rebuild`.
 
 ## Take over the machine
 

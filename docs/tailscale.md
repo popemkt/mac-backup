@@ -104,6 +104,15 @@ The ad hoc endpoint is independent of kb. Start any temporary HTTP server on
 `127.0.0.1:9001`; Tailscale serves it at the ad hoc HTTPS name for allowed
 tailnet members. It has no backend while that port is unused.
 
+The shared server (`shared-server`, tagged `tag:shared-server`) publishes one
+T3 Code server per person. Each target is derived from that instance's port in
+`hosts/shared-server/default.nix`; both people may reach both.
+
+| Service | Tailnet URL | Loopback target | Purpose |
+|---|---|---|---|
+| `svc:t3-popemkt` | `https://t3-popemkt.<tailnet-domain>` | `127.0.0.1:3773` | popemkt's T3 Code server |
+| `svc:t3-bytetum` | `https://t3-bytetum.<tailnet-domain>` | `127.0.0.1:3774` | bytetum's T3 Code server |
+
 ### First Tailnet Or Replacement Host
 
 The remaining manual control-plane steps are:
