@@ -35,6 +35,27 @@
     HandleLidSwitchDocked = "ignore";
   };
 
+  # Keep the installer's desktop (Plasma, sound, printing, Firefox): the screen
+  # is the local way in, and a switch never restarts the display manager, so
+  # one run from a desktop terminal survives activation.
+  services = {
+    xserver = {
+      enable = true;
+      xkb.layout = "us";
+    };
+    displayManager.sddm.enable = true;
+    desktopManager.plasma6.enable = true;
+    printing.enable = true;
+    pulseaudio.enable = false;
+    pipewire = {
+      enable = true;
+      alsa.enable = true;
+      pulse.enable = true;
+    };
+  };
+  security.rtkit.enable = true;
+  programs.firefox.enable = true;
+
   # Passwords are machine state (scripts/shared-server-secrets), never declared.
   my.people = [
     "popemkt"

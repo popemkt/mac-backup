@@ -102,7 +102,8 @@ or a password. The agent cannot do these, so do them in order on a new machine.
 |---|---|
 | Identity | Host name `shared-server`, `x86_64-linux`, `system.stateVersion = "26.05"` from the installer, never changed |
 | Accounts | `popemkt` and `bytetum` (`my.people`), both in `wheel` and `networkmanager`, zsh. No passwords in the repo |
-| Access | No `services.openssh`. The local console is the recovery path |
+| Access | No `services.openssh`. The local screen (Plasma, or a text console with Ctrl+Alt+F3) is the recovery path |
+| Desktop | The installer's desktop, kept in `hosts/shared-server/default.nix`: Plasma 6 on SDDM, PipeWire sound, CUPS printing, Firefox |
 | Laptop as server | `services.logind.settings.Login.HandleLidSwitch*` = `ignore`, so closing the lid never suspends |
 | Binaries | `programs.nix-ld.enable = true`, plus `programs.nix-ld.libraries` if a binary reports a missing library |
 | Agents | Per user, from npm into `~/.local`: `t3`, `@anthropic-ai/claude-code`, `@openai/codex` |
@@ -138,7 +139,15 @@ recent Nix refuses with "repository path is not owned by current user". On a
 NixOS older than nixos-rebuild-ng the flag is `--use-remote-sudo`.
 
 `test` first: if networking or the console breaks, a reboot returns to the
-installer configuration. After `switch`, the previous generation stays in the
+installer configuration.
+
+Run the switch from a terminal that the switch does not stop. A switch never
+restarts the display manager, so a desktop terminal is safe while the new
+configuration keeps the desktop. A configuration that drops the desktop stops
+Plasma, and with it the terminal running the switch; the switch then crashes
+on its next output line (exit 101), half applied, with no network and a blank
+screen until a reboot. If the desktop ever goes, run the switch from a text
+console (Ctrl+Alt+F3) instead. After `switch`, the previous generation stays in the
 boot menu, and `sudo nixos-rebuild switch --rollback` undoes it. From then on
 the repository owns the system and `/etc/nixos/configuration.nix` is no longer
 read. Move it aside so a plain `nixos-rebuild switch` fails loudly instead of
