@@ -9,8 +9,16 @@ import { Result } from "effect";
 import { SYSTEM_IDS, viewOptionId, type NodeProps } from "@kb/model";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import { issueText, paramsFromProps, resolveNodeView, viewCatalogOf, viewNodeFor } from "@kb/views";
-import { GraphView, NeighbourhoodView } from "../src/index.ts";
-import { GRAPH_IDS } from "@kb/graph";
+import {
+  GRAPH_IDS,
+  GraphView,
+  NeighbourhoodView,
+  TreeView,
+  decodeLensConfig,
+  rendererParamsOf,
+  type LensPerspective,
+} from "../src/index.ts";
+import { perspective } from "./fixtures.ts";
 
 const quiet = () => {};
 
@@ -39,6 +47,42 @@ describe("the graph's view keys", () => {
     };
     const proposed = viewNodeFor(NeighbourhoodView, params, "n.other");
     expect(Result.isFailure(proposed) ? proposed.failure.map(issueText) : []).toEqual([]);
+  });
+
+  describe("a proposed graph view", () => {
+    const lens = {
+      query: "[:find ?id :where [?n :node/id ?id]]",
+      focus: "n.root",
+      hops: 2,
+      edgeKinds: ["mention", "prop:field.depends"],
+      maxNodes: 40,
+      colorBy: "prop:field.team",
+      labelBy: "prop:field.title",
+      sizeBy: "children",
+      clusterBy: "parent",
+    } satisfies Partial<LensPerspective>;
+
+    test("sets which nodes it draws and how they map, as it sets its renderer's settings", () => {
+      const proposed = Result.getOrThrow(
+        viewNodeFor(TreeView, { ...lens, showLabels: false }, null),
+      );
+      expect(proposed.props[SYSTEM_IDS.viewField]).toEqual([{ t: "ref", v: TreeView.option }]);
+      expect(decodeLensConfig(proposed.props, quiet)).toMatchObject({ ...lens, showLabels: false });
+    });
+
+    test("holds no setting its renderer does not read", () => {
+      const proposed = viewNodeFor(TreeView, { ...lens, showLabels: true, spread: 90 }, null);
+      expect(Result.isFailure(proposed) ? proposed.failure.map((issue) => issue.path) : []).toEqual(
+        [["spread"]],
+      );
+    });
+
+    test("a perspective proposes the params its renderer declares, which read back", () => {
+      const params = rendererParamsOf(TreeView, perspective({ ...lens, spread: 90 }));
+      expect(params).not.toHaveProperty("spread");
+      const proposed = viewNodeFor(TreeView, params, null);
+      expect(Result.isFailure(proposed) ? proposed.failure.map(issueText) : []).toEqual([]);
+    });
   });
 
   describe("what /node/<id> opens", () => {

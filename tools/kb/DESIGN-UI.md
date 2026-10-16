@@ -1689,9 +1689,9 @@ how the stored name resolves to the key among them.
 
 - *Graph renderers.* Each renderer is a view whose `RendererKey`
   (`@kb/graph`, `views.ts`) adds its capabilities, encodings and whether
-  it moves links. Its params are a `Schema.Struct` of the `LENS_SETTINGS` it
-  draws with, so the settings panel enables exactly the settings its params
-  declare. A graph view node's `sys.f.view` names it by its key's `option`
+  it moves links. Its params are the lens every renderer draws through
+  (`LensParams`), then the `LENS_SETTINGS` it draws with, so the settings
+  panel enables exactly the settings its params declare. A graph view node's `sys.f.view` names it by its key's `option`
   (a neighbourhood's `lens.renderer` names the renderer it hosts the same
   way); the renderer switch lists the renderer views provided. The graph page decodes the perspective through the
   renderer's params and draws it through a `<ViewSlot>`. What the renderer

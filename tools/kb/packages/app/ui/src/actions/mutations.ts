@@ -632,13 +632,6 @@ export const mutations: PageWrites = {
     await editFrameView(frameId, frameViewIs(view.option));
   },
 
-  async addViewNode(text: string, props: Record<string, PropValue[]>): Promise<string | null> {
-    const { planAddViewNode } = await import("@/actions/plan");
-    const id = ulid();
-    const plan = planAddViewNode(wire(), id, text, props);
-    return plan !== null && (await applyPlan(plan)) ? id : null;
-  },
-
   async replaceField(nodeId: string, fieldId: string, values: PropValue[]): Promise<void> {
     if (!guardSysWrite(nodeId)) return;
     const { planReplaceField } = await import("@/actions/plan");

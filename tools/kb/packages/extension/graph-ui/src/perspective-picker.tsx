@@ -2,11 +2,13 @@ import { saveGraphPerspective } from "./lens-writes";
 import { useEffect, useRef, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@kb/ui-sdk";
-import type { LensPerspective } from "@kb/graph";
+import type { LensPerspective, RendererKey } from "@kb/graph";
 
 interface PerspectivePickerProps {
   perspectives: LensPerspective[];
   activeId: string | null;
+  /** The active perspective's renderer: what a copy of it is saved as; null while none is provided. */
+  renderer: RendererKey<unknown> | null;
   onSelect: (id: string) => void;
 }
 
@@ -14,7 +16,12 @@ interface PerspectivePickerProps {
  * Floating popover list — same anatomy as PreferencesPopover
  * (DESIGN-RESKIN §0 pattern economy: border/popover/shadow/11–12px type).
  */
-export function PerspectivePicker({ perspectives, activeId, onSelect }: PerspectivePickerProps) {
+export function PerspectivePicker({
+  perspectives,
+  activeId,
+  renderer,
+  onSelect,
+}: PerspectivePickerProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -84,7 +91,7 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
               </button>
             ))}
           </div>
-          {active ? (
+          {active && renderer ? (
             <form
               className="mt-1 space-y-2 border-t border-foreground/10 p-1.5"
               onSubmit={(e) => {
@@ -94,9 +101,9 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
                   setSaving(true);
                   setSaveError(false);
                   try {
-                    const id = await saveGraphPerspective(active, name);
-                    if (id !== null) {
-                      onSelect(id);
+                    const saved = await saveGraphPerspective(renderer, active, name);
+                    if ("id" in saved) {
+                      onSelect(saved.id);
                       setName("");
                       setOpen(false);
                     } else setSaveError(true);

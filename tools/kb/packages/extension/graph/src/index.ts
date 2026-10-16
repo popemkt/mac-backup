@@ -20,6 +20,7 @@ export {
   TreeView,
   TreemapView,
   isRendererKey,
+  rendererParamsOf,
   type GraphChannel,
   type RendererCapabilities,
   type RendererKey,

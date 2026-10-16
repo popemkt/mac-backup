@@ -4,7 +4,8 @@
  *
  * What a renderer draws with is a subset of these (`LENS_SETTINGS`); what
  * extraction reads for every renderer alike (the query, the mappings, the
- * edge kinds) is the rest. The query and the focus are every view's subject
+ * edge kinds) is the lens proper (`LensParams`), which every renderer's
+ * params compose. The query and the focus are every view's subject
  * (`@kb/views`' `subject.ts`), so the lens decodes them through the
  * subject's slots. The extraction itself is the kit's (`@kb/ui-sdk`'s
  * `graph-lens.ts`, over this package's edge projection).
@@ -228,7 +229,8 @@ const SourceSchema = Schema.String;
  * params are made of (`views.ts`), so a renderer declares
  * the settings it reads by naming them here. The mappings (`colorBy`,
  * `sizeBy`, `clusterBy`, `labelBy`), the query and the edge kinds are not
- * among them: extraction reads those, for every renderer alike.
+ * among them: extraction reads those, for every renderer alike
+ * (`LensParams`).
  */
 export const LENS_SETTINGS = {
   layout: Schema.Literals(LENS_LAYOUTS),
@@ -242,6 +244,40 @@ export const LENS_SETTINGS = {
 } satisfies { readonly [K in keyof LensPerspective]?: Schema.Decoder<LensPerspective[K]> };
 
 export type LensSetting = keyof typeof LENS_SETTINGS;
+
+/**
+ * The lens a graph view draws through: which nodes (its query, focus and
+ * hops, its edge kinds and node budget) and how they map to marks (colour,
+ * label, size, group). Extraction reads it for every renderer alike, so every
+ * renderer view's params compose it beside the settings that renderer reads
+ * (`views.ts`), and a proposed graph view sets it as it sets those. Each is
+ * optional: a view node holding none draws every node, mapped by the defaults.
+ */
+export const LensParams = Schema.Struct({
+  query: Schema.optionalKey(
+    Schema.String.annotate({ description: "EDN datalog naming the nodes drawn; empty draws all" }),
+  ),
+  focus: Schema.optionalKey(
+    Schema.NullOr(Schema.String).annotate({ description: "The node the graph is rooted at" }),
+  ),
+  hops: Schema.optionalKey(
+    Schema.NullOr(NodeCountSchema).annotate({ description: "How far from the focus it reaches" }),
+  ),
+  edgeKinds: Schema.optionalKey(
+    Schema.Array(EdgeKindSchema).annotate({ description: "The relationships drawn as links" }),
+  ),
+  maxNodes: Schema.optionalKey(NodeCountSchema),
+  colorBy: Schema.optionalKey(
+    SourceSchema.annotate({ description: "tag, fixed:<hex> or prop:<field id>" }),
+  ),
+  labelBy: Schema.optionalKey(SourceSchema.annotate({ description: "text or prop:<field id>" })),
+  sizeBy: Schema.optionalKey(
+    SourceSchema.annotate({ description: "degree, children, fixed or prop:<field id>" }),
+  ),
+  clusterBy: Schema.optionalKey(
+    SourceSchema.annotate({ description: "parent, none, tag:<id> or prop:<field id>" }),
+  ),
+});
 
 /** Everything the node itself declares; `id` and `label` come from the node. */
 export type LensProps = Omit<LensPerspective, "id" | "label">;

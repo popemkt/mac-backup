@@ -425,11 +425,11 @@ export function planSetFieldTargetQuery(n: WireNode[], id: string, edn: string |
 }
 
 /**
- * A new view node, filed at the end of the Views list: the one place the UI
- * files the views it makes. A view node its host stops naming, or whose host
+ * A new view node, filed at the end of the Views list as `view.propose` files
+ * one: how a frame's first frame view node is made. A view node its host stops naming, or whose host
  * is deleted, stays filed there. GAP [[01M3YM5Y5XYDZ1C7G0PCQ1RMK8]]
  */
-export function planAddViewNode(
+function planAddViewNode(
   nodes: WireNode[],
   id: string,
   text: string,

@@ -139,14 +139,6 @@ export interface PageWrites {
   readonly makeDefaultView: (hostId: string, viewId: string) => Promise<void>;
   /** Show a frame's children in `view`: its frame view node names the view's option. */
   readonly setFrameView: (frameId: string, view: FrameViewKey) => Promise<void>;
-  /**
-   * Mint a view node named `text` with `props`, filed at the end of the
-   * Views list. Returns its id, or null when refused.
-   */
-  readonly addViewNode: (
-    text: string,
-    props: Record<string, PropValue[]>,
-  ) => Promise<string | null>;
   readonly replaceField: (nodeId: string, fieldId: string, values: PropValue[]) => Promise<void>;
   readonly setViewSort: (frameId: string, sortSpecs: SortSpec[]) => Promise<void>;
   readonly toggleViewSort: (frameId: string, fieldId: string) => Promise<void>;

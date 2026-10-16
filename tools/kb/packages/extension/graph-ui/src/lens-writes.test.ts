@@ -1,11 +1,17 @@
 /**
- * The graph writes its view nodes through the page's write port: these tests
- * hold it to that port (a test host), not to the shell's mutations.
+ * The graph writes its view nodes through the page's host: these tests hold
+ * it to that host (a test host), not to the shell's mutations.
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { type PageWrites, type PropValue, SYSTEM_IDS, syncUiPlugins } from "@kb/ui-sdk";
+import {
+  type PageWrites,
+  type PropValue,
+  SYSTEM_IDS,
+  syncUiPlugins,
+  type ViewProposal,
+} from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
-import { decodePerspective, perspectiveProps } from "@kb/graph";
+import { decodePerspective, TreeView } from "@kb/graph";
 import { saveGraphPerspective, setGraphRenderer, setLensProp } from "./lens-writes";
 
 type Call = readonly [string, ...unknown[]];
@@ -21,13 +27,13 @@ beforeEach(() => {
       calls.push(["replaceField", nodeId, fieldId, values]);
       return Promise.resolve();
     },
-    addViewNode: (text: string, props: Record<string, PropValue[]>) => {
-      calls.push(["addViewNode", text, props]);
-      return Promise.resolve("n.view");
-    },
+  };
+  const proposeView = (proposal: ViewProposal) => {
+    calls.push(["proposeView", proposal]);
+    return Promise.resolve({ id: "n.view" });
   };
   syncUiPlugins([]);
-  syncUiPlugins([testHostPlugin({ ...host, writes })]);
+  syncUiPlugins([testHostPlugin({ ...host, writes, proposeView })]);
 });
 
 afterAll(() => syncUiPlugins([]));
@@ -59,12 +65,26 @@ describe("lens writes", () => {
     expect(calls).toEqual([["replaceField", perspective.id, "lens.field", [{ t: "num", v: 3 }]]]);
   });
 
-  it("saves a perspective as a view node of its props, named or defaulted", async () => {
-    expect(await saveGraphPerspective(perspective, "  Mine ")).toBe("n.view");
-    await saveGraphPerspective(perspective, "   ");
+  it("proposes a perspective as a view node of its renderer's params, named or defaulted", async () => {
+    expect(await saveGraphPerspective(TreeView, perspective, "  Mine ")).toEqual({ id: "n.view" });
+    await saveGraphPerspective(TreeView, perspective, "   ");
+    const { query, focus, hops, edgeKinds, maxNodes, colorBy, labelBy, sizeBy, clusterBy } =
+      perspective;
+    const params = {
+      query,
+      focus,
+      hops,
+      edgeKinds,
+      maxNodes,
+      colorBy,
+      labelBy,
+      sizeBy,
+      clusterBy,
+      showLabels: perspective.showLabels,
+    };
     expect(calls).toEqual([
-      ["addViewNode", "Mine", perspectiveProps(perspective)],
-      ["addViewNode", "Graph perspective", perspectiveProps(perspective)],
+      ["proposeView", { view: TreeView, params, text: "Mine" }],
+      ["proposeView", { view: TreeView, params, text: "Graph perspective" }],
     ]);
   });
 });

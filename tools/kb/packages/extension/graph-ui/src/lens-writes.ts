@@ -1,9 +1,10 @@
 /**
- * The graph's writes to its view nodes, each through the page's write port
- * (`browserHost().writes`), so the graph names no shell module to write.
+ * The graph's writes to its view nodes, each through the page's host: an edit
+ * through its write port (`browserHost().writes`), a new view node through
+ * `proposeView`, so the graph names no shell module to write.
  */
 import { browserHost, type PropValue, SYSTEM_IDS } from "@kb/ui-sdk";
-import { perspectiveProps, type LensPerspective } from "@kb/graph";
+import { rendererParamsOf, type LensPerspective, type RendererKey } from "@kb/graph";
 
 /**
  * Persist one lens setting. The field is replaced whole in one write, so a
@@ -18,9 +19,17 @@ export const setGraphRenderer = (perspectiveId: string, renderer: string) =>
     { t: "ref", v: renderer },
   ]);
 
-/** Save `perspective` as a new graph view node, filed in the Views list. */
-export const saveGraphPerspective = (perspective: LensPerspective, name: string) =>
-  browserHost().writes.addViewNode(
-    name.trim() || "Graph perspective",
-    perspectiveProps(perspective),
-  );
+/**
+ * Save `perspective` as a new graph view node of `renderer`: proposed as any
+ * view node is (`view.propose`), with the params the renderer declares.
+ */
+export const saveGraphPerspective = (
+  renderer: RendererKey<unknown>,
+  perspective: LensPerspective,
+  name: string,
+) =>
+  browserHost().proposeView({
+    view: renderer,
+    params: rendererParamsOf(renderer, perspective),
+    text: name.trim() || "Graph perspective",
+  });

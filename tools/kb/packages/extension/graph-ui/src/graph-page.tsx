@@ -241,6 +241,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         <PerspectivePicker
           perspectives={perspectives}
           activeId={active?.id ?? null}
+          renderer={rendererKey}
           onSelect={(id) => navigate(graphPath(id))}
         />
         {ontologies.length > 0 && ontologyId === null ? (

@@ -3,8 +3,10 @@ import { subjectRootOf, viewKey, type ViewKey } from "@kb/views";
 import {
   EdgeKindSchema,
   LENS_SETTINGS,
+  LensParams,
   decodeLensConfig,
   encodeLensConfig,
+  type LensPerspective,
   type LensWrite,
 } from "./lens.ts";
 
@@ -99,9 +101,9 @@ export interface RendererTraits {
 
 /**
  * A graph renderer's key: a view of the graph a host extracted, whose params
- * are the lens settings it reads — a `Schema.Struct` of `LENS_SETTINGS`
- * entries, so asking which settings it reads is asking its params. Its
- * `option` is what a graph view node's `sys.f.view` names it by.
+ * are the lens it draws through (`LensParams`) and the lens settings it reads
+ * — `LENS_SETTINGS` entries, so asking which settings it reads is asking its
+ * params. Its `option` is what a graph view node's `sys.f.view` names it by.
  */
 export interface RendererKey<P> extends ViewKey<P> {
   readonly family: typeof RENDERER_FAMILY;
@@ -129,9 +131,6 @@ function rendererKey<P extends LensWrite>(
     // A renderer's settings are the lens props of the perspective it draws.
     ...viewKey<P>(`${GRAPH_NAMESPACE}.${name}`, label, params, {
       read: (props, _host, report) => decodeLensConfig(props, report),
-      // A renderer writes the settings it draws with; the lens it draws (query,
-      // mappings, edge kinds) is no renderer's params, so a proposal cannot set it.
-      // GAP [[01M40X30Q8N7NYCYHW3J0GFKY7]]
       write: encodeLensConfig,
     }),
     family: RENDERER_FAMILY,
@@ -143,9 +142,32 @@ function rendererKey<P extends LensWrite>(
   };
 }
 
-/** What every renderer says of where it is shown, after what it draws. */
-function rendererDescription(draws: string): string {
-  return `${draws}. A graph renderer: a graph view node names it as its view (sys.f.view) and holds its settings; which nodes it draws is the node's lens (lens.query and the mappings), which no renderer's params declare.`;
+/**
+ * A renderer's params: the lens every renderer draws through, then the
+ * settings this one reads, described by what it draws.
+ */
+function rendererParams<const S extends Schema.Struct.Fields>(settings: S, draws: string) {
+  return Schema.Struct({ ...LensParams.fields, ...settings }).annotate({
+    description: `${draws}. A graph renderer: a graph view node names it as its view (sys.f.view) and holds its params, the lens (which nodes it draws, and how they map to marks) and this renderer's settings.`,
+  });
+}
+
+/**
+ * What `perspective` proposes as a view node of `renderer`: each param the
+ * renderer declares (the lens and its own settings), as the perspective holds
+ * it. A setting another renderer reads is not this view's, so it is not held.
+ */
+export function rendererParamsOf(
+  renderer: RendererKey<unknown>,
+  perspective: LensPerspective,
+): Record<string, unknown> {
+  const held = new Map<string, unknown>(Object.entries(perspective));
+  return Object.fromEntries(
+    Object.keys(renderer.params.fields).flatMap((param) => {
+      const value = held.get(param);
+      return value === undefined ? [] : [[param, value]];
+    }),
+  );
 }
 
 const standard: RendererCapabilities = {
@@ -163,13 +185,16 @@ const standard: RendererCapabilities = {
 export const Force2dView = rendererKey(
   "force2d",
   "2D",
-  Schema.Struct({
-    layout: LENS_SETTINGS.layout,
-    labelDensity: LENS_SETTINGS.labelDensity,
-    showLabels: LENS_SETTINGS.showLabels,
-    theme: LENS_SETTINGS.theme,
-    linkStyle: LENS_SETTINGS.linkStyle,
-  }).annotate({ description: rendererDescription("Force-directed 2D") }),
+  rendererParams(
+    {
+      layout: LENS_SETTINGS.layout,
+      labelDensity: LENS_SETTINGS.labelDensity,
+      showLabels: LENS_SETTINGS.showLabels,
+      theme: LENS_SETTINGS.theme,
+      linkStyle: LENS_SETTINGS.linkStyle,
+    },
+    "Force-directed 2D",
+  ),
   {
     capabilities: { ...standard, drag: true },
     channels: ["relationships", "color", "label", "size"],
@@ -180,9 +205,7 @@ export const Force2dView = rendererKey(
 export const TreeView = rendererKey(
   "tree",
   "Tree",
-  Schema.Struct({ showLabels: LENS_SETTINGS.showLabels }).annotate({
-    description: rendererDescription("A spanning tree of the chosen edges"),
-  }),
+  rendererParams({ showLabels: LENS_SETTINGS.showLabels }, "A spanning tree of the chosen edges"),
   {
     capabilities: { ...standard, drag: false },
     channels: ["relationships", "color", "label"],
@@ -193,12 +216,15 @@ export const TreeView = rendererKey(
 export const ClusterView = rendererKey(
   "cluster",
   "Cluster",
-  Schema.Struct({
-    labelDensity: LENS_SETTINGS.labelDensity,
-    showLabels: LENS_SETTINGS.showLabels,
-    theme: LENS_SETTINGS.theme,
-    linkStyle: LENS_SETTINGS.linkStyle,
-  }).annotate({ description: rendererDescription("The 2D force layout, grouped into hulls") }),
+  rendererParams(
+    {
+      labelDensity: LENS_SETTINGS.labelDensity,
+      showLabels: LENS_SETTINGS.showLabels,
+      theme: LENS_SETTINGS.theme,
+      linkStyle: LENS_SETTINGS.linkStyle,
+    },
+    "The 2D force layout, grouped into hulls",
+  ),
   {
     capabilities: { ...standard, drag: true },
     channels: ["relationships", "color", "label", "size", "group"],
@@ -209,15 +235,18 @@ export const ClusterView = rendererKey(
 export const Force3dView = rendererKey(
   "force3d",
   "3D",
-  Schema.Struct({
-    spread: LENS_SETTINGS.spread,
-    linkDistance: LENS_SETTINGS.linkDistance,
-    labelDensity: LENS_SETTINGS.labelDensity,
-    showLabels: LENS_SETTINGS.showLabels,
-    autorotate: LENS_SETTINGS.autorotate,
-    theme: LENS_SETTINGS.theme,
-    linkStyle: LENS_SETTINGS.linkStyle,
-  }).annotate({ description: rendererDescription("Force-directed 3D") }),
+  rendererParams(
+    {
+      spread: LENS_SETTINGS.spread,
+      linkDistance: LENS_SETTINGS.linkDistance,
+      labelDensity: LENS_SETTINGS.labelDensity,
+      showLabels: LENS_SETTINGS.showLabels,
+      autorotate: LENS_SETTINGS.autorotate,
+      theme: LENS_SETTINGS.theme,
+      linkStyle: LENS_SETTINGS.linkStyle,
+    },
+    "Force-directed 3D",
+  ),
   {
     capabilities: { ...standard, drag: false },
     linkMotion: true,
@@ -229,9 +258,10 @@ export const Force3dView = rendererKey(
 export const TreemapView = rendererKey(
   "treemap",
   "Treemap",
-  Schema.Struct({ showLabels: LENS_SETTINGS.showLabels }).annotate({
-    description: rendererDescription("Area by the size encoding, boxed by the group encoding"),
-  }),
+  rendererParams(
+    { showLabels: LENS_SETTINGS.showLabels },
+    "Area by the size encoding, boxed by the group encoding",
+  ),
   {
     capabilities: { ...standard, fit: false, zoom: false, reset: false, focus: false },
     channels: ["color", "size", "group", "label"],

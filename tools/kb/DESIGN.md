@@ -894,11 +894,13 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   `node.update` is not checked against its view's settings
   (GAP [[01M40X308W34T0PGSN12S9K2K2]]). The frame toolbar's edits need no check of their
   own, because each writes one setting through its slot (`frameSettingWrite`),
-  which reads back what it writes. A graph view proposed this way holds its
-  renderer's settings only: which nodes it draws (`lens.query`, the
-  mappings, the edge kinds) is the graph host's lens, which no renderer's
-  params declare, so it draws every node until edited
-  (GAP [[01M40X30Q8N7NYCYHW3J0GFKY7]]).
+  which reads back what it writes. A graph view's params are its renderer's:
+  the lens every renderer draws through (`@kb/graph`'s `LensParams`: the
+  query, focus and hops, the edge kinds, the node budget and the mappings),
+  then the settings that renderer reads, so a proposed graph view sets which
+  nodes it draws as it sets how. The graph page saves a copy of a
+  perspective the same way: proposed as a view node of its renderer, with
+  the params that renderer declares (`rendererParamsOf`).
 - **A view node renders as markdown where a surface shows text only.**
   `render.view` takes a docs view by name or any view node by id (exactly
   one), shown for `host` (by default the one node naming it). A docs view
