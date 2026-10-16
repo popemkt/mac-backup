@@ -37,6 +37,11 @@ export function text(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
+/** A boolean, or undefined. */
+export function bool(v: unknown): boolean | undefined {
+  return typeof v === "boolean" ? v : undefined;
+}
+
 /** A value from `allowed`, or undefined: membership that narrows to the type. */
 export function oneOf<T extends string>(allowed: readonly T[], raw: unknown): T | undefined {
   return allowed.find((value) => value === raw);

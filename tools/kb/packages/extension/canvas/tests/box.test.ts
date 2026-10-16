@@ -22,7 +22,7 @@ import {
   itemFrame,
   parseCanvasDoc,
   stringifyCanvasDoc,
-  withBillboard,
+  withFlag,
   type CanvasAxes,
   type CanvasBox,
   type CanvasNode,
@@ -165,17 +165,19 @@ describe("billboards", () => {
     expect(faceStands(shape("cone", 10))).toBe(true);
     // Flat, a sphere is its footprint, which carries its face.
     expect(faceStands(shape("sphere", 0))).toBe(false);
-    expect(faceStands(withBillboard(shape("rect", 10), true))).toBe(true);
+    expect(faceStands(withFlag(shape("rect", 10), "billboard", true))).toBe(true);
   });
 
   test("billboard is written only when set, and a value kb cannot read round-trips", () => {
     const [on] = parseCanvasDoc(raw(true)).nodes;
     expect(on?.billboard).toBe(true);
-    const off = on === undefined ? undefined : withBillboard(on, false);
+    const off = on === undefined ? undefined : withFlag(on, "billboard", false);
     expect(off).not.toHaveProperty("billboard");
     const odd = parseCanvasDoc(raw("yes"));
     expect(JSON.parse(stringifyCanvasDoc(odd)).nodes[0].billboard).toBe("yes");
     const [read] = odd.nodes;
-    expect(read === undefined ? undefined : withBillboard(read, true).extra).toBeUndefined();
+    expect(
+      read === undefined ? undefined : withFlag(read, "billboard", true).extra,
+    ).toBeUndefined();
   });
 });

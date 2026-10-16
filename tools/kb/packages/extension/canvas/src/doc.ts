@@ -15,6 +15,7 @@ import { emitCanvasCamera, parseCanvasCamera, type CanvasCamera } from "./camera
 import { dropExtra } from "./extra.ts";
 import {
   fieldKeys,
+  bool,
   finite,
   isRecord,
   oneOf,
@@ -336,7 +337,7 @@ const ITEM_FIELDS: FieldCodecs<CanvasNodeBase, ItemField> = {
   color: { read: text },
   nodeId: { read: text },
   parent: { read: text },
-  billboard: { read: (raw) => (typeof raw === "boolean" ? raw : undefined) },
+  billboard: { read: bool },
   style: { read: parseStyleField, write: emitStyleField },
 };
 
@@ -358,7 +359,7 @@ const ITEM_OWN_KEYS: ReadonlySet<string> = new Set([
 type PathField = "closed" | "fromHead" | "toHead";
 
 const PATH_FIELDS: FieldCodecs<CanvasPathNode, PathField> = {
-  closed: { read: (raw) => (typeof raw === "boolean" ? raw : undefined) },
+  closed: { read: bool },
   fromHead: { read: (raw) => oneOf(CANVAS_HEADS, raw) },
   toHead: { read: (raw) => oneOf(CANVAS_HEADS, raw) },
 };
@@ -647,16 +648,19 @@ export function withParent<N extends CanvasNode>(node: N, parent: string | undef
   return dropExtra(next, "parent");
 }
 
+/** An item's switches: fields that are on or absent, never written `false`. */
+export type CanvasItemFlag = "billboard";
+
 /**
- * `node` with its face turned to the camera, or not: set, it is written
- * `true`; cleared, it carries no `billboard`. A value set here supersedes one
- * this version could not read.
+ * `node` with switch `flag` on or off: on, it is written `true`; off, the
+ * item carries no such field. A value set here supersedes one this version
+ * could not read.
  */
-export function withBillboard<N extends CanvasNode>(node: N, on: boolean): N {
+export function withFlag<N extends CanvasNode>(node: N, flag: CanvasItemFlag, on: boolean): N {
   const next = { ...node };
-  if (on) next.billboard = true;
-  else delete next.billboard;
-  return dropExtra(next, "billboard");
+  if (on) next[flag] = true;
+  else delete next[flag];
+  return dropExtra(next, flag);
 }
 
 /** The height of an item's top surface: what is stacked on it stands there (`boxTop`). */

@@ -12,11 +12,12 @@ import {
   isShapeNode,
   isTextNode,
   styleOf,
-  withBillboard,
+  withFlag,
   withDepth,
   withElevation,
   withRotation,
   withStyle,
+  type CanvasItemFlag,
   type CanvasNode,
 } from "@kb/canvas";
 import { isOutside, PopoverShell } from "@kb/ui-sdk";
@@ -75,23 +76,30 @@ function HeightRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChan
   );
 }
 
-/**
- * Whether the item's face turns to the camera in 3D (`billboard`): a flat
- * item stands square to the screen, a solid shows its face in front of it.
- */
-function FacingRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChange">) {
+/** How the inspector names an item's switch, and what it says it does. */
+const FLAG_ROWS: { readonly [F in CanvasItemFlag]: { label: string; hint: string } } = {
+  billboard: {
+    label: "Face the camera",
+    hint: "In 3D its face turns to you from any side, as a label does",
+  },
+};
+
+/** One of the item's switches (`withFlag`), as a checkbox. */
+function FlagRow({
+  item,
+  flag,
+  onChange,
+}: Pick<ItemInspectorProps, "item" | "onChange"> & { flag: CanvasItemFlag }) {
+  const { label, hint } = FLAG_ROWS[flag];
   return (
-    <label
-      className="flex items-center justify-between px-1.5 pb-1.5"
-      title="In 3D its face turns to you from any side, as a label does"
-    >
-      <span className="text-meta text-foreground/50">Face the camera</span>
+    <label className="flex items-center justify-between px-1.5 pb-1.5" title={hint}>
+      <span className="text-meta text-foreground/50">{label}</span>
       <input
         type="checkbox"
-        aria-label="Face the camera"
+        aria-label={label}
         className="h-3.5 w-3.5 accent-primary"
-        checked={item.billboard === true}
-        onChange={(e) => onChange(withBillboard(item, e.target.checked))}
+        checked={item[flag] === true}
+        onChange={(e) => onChange(withFlag(item, flag, e.target.checked))}
       />
     </label>
   );
@@ -199,7 +207,7 @@ export function ItemInspector({ item, anchor, onClose, onChange }: ItemInspector
         <LookRows item={item} onChange={onChange} />
         <OpacityRow item={item} onChange={onChange} />
         <HeightRow item={item} onChange={onChange} />
-        <FacingRow item={item} onChange={onChange} />
+        <FlagRow item={item} flag="billboard" onChange={onChange} />
         {/* A flat billboard faces the camera whatever way it is turned. */}
         {!facesCamera(item) && <RotationRow item={item} onChange={onChange} />}
       </PopoverShell>
