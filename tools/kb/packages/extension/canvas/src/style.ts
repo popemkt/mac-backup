@@ -170,12 +170,13 @@ export function writtenLooks(record: CanvasNode | CanvasEdge): CanvasLooks {
 export type CanvasLooksPatch = { readonly [K in keyof CanvasLooks]?: CanvasLooks[K] | undefined };
 
 /**
- * `item` with `patch` applied to its looks. A look set to its kind's
- * default, or to undefined, is written as no look at all, so an item put
- * back leaves the document as it was; one set here supersedes a value this
- * version could not read, and an item with no look left carries no `style`.
+ * `item` — an item or an edge — with `patch` applied to its looks. A look
+ * set to its kind's default, or to undefined, is written as no look at all,
+ * so one put back leaves the document as it was; one set here supersedes a
+ * value this version could not read, and a record with no look left
+ * carries no `style`.
  */
-export function withStyle<N extends CanvasNode>(item: N, patch: CanvasLooksPatch): N {
+export function withStyle<N extends CanvasNode | CanvasEdge>(item: N, patch: CanvasLooksPatch): N {
   const defaults = defaultsOf(item);
   const before = styleField(item);
   /** A look as it is written after the patch: absent when it is the default. */

@@ -149,6 +149,30 @@ test("an edge drag that ends on another card's port binds them, read on the floo
   expect(ended.selection?.edgeIds).toEqual(new Set(["e"]));
 });
 
+test("an edge let go with ⌘ held lands precisely where it was dropped on the outline", () => {
+  const started = reduce(
+    createPointerState(),
+    { type: "edge/start", fromCardId: moving.id, fromSide: "right", screen: { x: 100, y: 30 } },
+    context(doc, EMPTY_SELECTION),
+  ).state;
+  // A quarter of the way along the guide's top edge.
+  const ended = reduce(
+    started,
+    {
+      type: "pointer/end",
+      screen: { x: 225, y: 2 },
+      edgeTargetId: guide.id,
+      edgeId: "e",
+      edgeBindingId: "bind",
+      free: true,
+    },
+    context(doc, EMPTY_SELECTION),
+  );
+  expect(ended.doc?.edges).toEqual([
+    expect.objectContaining({ toAnchor: { x: 0.25, y: 0.033 }, toSide: "top" }),
+  ]);
+});
+
 test("a marquee drawn across the floor selects what it covers, read through the camera", () => {
   const panned = viewOfPan({ x: 40, y: 40 }, 2, size);
   const ctx = context(doc, EMPTY_SELECTION, panned);

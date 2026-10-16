@@ -1,10 +1,11 @@
 /**
- * An item's look as both projections paint it (`itemPaint`): `styleOf`'s
- * looks turned into what a painter draws with — an outline's width and dash
- * pattern in canvas units, the type step and face its words are set in (as
- * design tokens), where they sit, its fill and its opacity. The DOM canvas
- * and the 3D faces read only this, so a look means one thing in both, and
- * the projection contract holds them to it.
+ * An item's or an edge's look as both projections paint it (`itemPaint`,
+ * `edgePaint`): `styleOf`'s looks turned into what a painter draws with — a
+ * line's width and dash pattern in canvas units, the type step and face
+ * words are set in (as design tokens), where they sit, a fill, the length of
+ * an edge's heads, and an opacity. The DOM canvas and the 3D scene read only
+ * this, so a look means one thing in both, and the look contract holds them
+ * to it.
  */
 import {
   drawsGround,
@@ -12,6 +13,7 @@ import {
   styleOf,
   type CanvasAlign,
   type CanvasDash,
+  type CanvasEdge,
   type CanvasFill,
   type CanvasFont,
   type CanvasNode,
@@ -22,6 +24,15 @@ import {
 
 /** How heavy an outline is drawn at each size, canvas units. */
 const STROKE_WIDTHS: { readonly [S in CanvasSize]: number } = { s: 0.75, m: 1, l: 2, xl: 3.5 };
+
+/** How heavy an edge's line is drawn at each size, canvas units: a connector reads over outlines. */
+const EDGE_WIDTHS: { readonly [S in CanvasSize]: number } = { s: 1, m: 1.5, l: 2.5, xl: 4 };
+
+/** How long an edge's heads are at each size, canvas units. */
+const HEAD_LENGTHS: { readonly [S in CanvasSize]: number } = { s: 7, m: 9, l: 12, xl: 16 };
+
+/** How much heavier a selected edge is drawn, canvas units. */
+const SELECTED_WIDEN = 1;
 
 /** The type step words are set at, at each size (`--type-*`). */
 export const TYPE_STEPS = {
@@ -59,7 +70,7 @@ function dashPattern(dash: CanvasDash, width: number): readonly number[] {
   }
 }
 
-/** How an item's outline is stroked; null when it has none. */
+/** How a line is stroked: an item's outline, an edge's line. */
 interface OutlinePaint {
   readonly dash: CanvasDash;
   readonly width: number;
@@ -112,6 +123,34 @@ export function itemPaint(item: CanvasNode): ItemPaint {
           valign: style.valign,
         }
       : null,
+    opacity: style.opacity,
+  };
+}
+
+/** Everything a painter needs of an edge's look. */
+export interface EdgePaint {
+  readonly color: CanvasPaint | undefined;
+  /** Its line; null for none (`dash: "none"`), its heads and label standing alone. */
+  readonly line: OutlinePaint | null;
+  /** How heavy its line is, and its stroked heads (a chevron, a bar), drawn or not. */
+  readonly width: number;
+  /** How long its heads are (`edgeHead`). */
+  readonly headLength: number;
+  readonly opacity: number;
+}
+
+/** An edge's look, as both projections paint it; a selected edge is drawn a little heavier. */
+export function edgePaint(edge: CanvasEdge, selected: boolean): EdgePaint {
+  const style = styleOf(edge);
+  const width = EDGE_WIDTHS[style.size] + (selected ? SELECTED_WIDEN : 0);
+  return {
+    color: style.color,
+    line:
+      style.dash === "none"
+        ? null
+        : { dash: style.dash, width, pattern: dashPattern(style.dash, width) },
+    width,
+    headLength: HEAD_LENGTHS[style.size],
     opacity: style.opacity,
   };
 }

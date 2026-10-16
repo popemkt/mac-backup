@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { styleOf, type CanvasEdge, type KbLinkMode } from "@kb/canvas";
 import { cn, EnumSelect, isOutside, type EnumOption } from "@kb/ui-sdk";
-import { ColorSwatches } from "./item-style-rows";
+import { ColorSwatches, EdgeLookRows } from "./item-style-rows";
 
 export interface EdgeInspectorProps {
   edge: CanvasEdge;
@@ -12,9 +12,8 @@ export interface EdgeInspectorProps {
   onModeChange: (mode: KbLinkMode) => void;
   onFieldChange: (fieldId: string) => void;
   onDelete: () => void;
-  onArrowChange?: (end: "fromEnd" | "toEnd", value: "none" | "arrow") => void;
-  onColorChange?: (color: string | undefined) => void;
-  onLabelChange?: (label: string) => void;
+  /** The edge changed as one step: its label, colour, route or looks. */
+  onChange: (edge: CanvasEdge) => void;
 }
 
 const LINK_MODE_OPTIONS: readonly EnumOption<KbLinkMode>[] = [
@@ -22,104 +21,25 @@ const LINK_MODE_OPTIONS: readonly EnumOption<KbLinkMode>[] = [
   { value: "native", label: "Node relationship" },
 ];
 
-export function EdgeInspector({
+/** `edge` with `key` set to `value`, or without it when `value` is blank. */
+function withText(edge: CanvasEdge, key: "label" | "color", value: string | undefined) {
+  const updated = { ...edge };
+  if (value === undefined || value === "") delete updated[key];
+  else updated[key] = value;
+  return updated;
+}
+
+/** Whether the edge draws a canvas line only, or binds a ref field between its ends' nodes. */
+function LinkRows({
   edge,
-  anchor,
   refFields,
-  onClose,
   onModeChange,
   onFieldChange,
-  onDelete,
-  onArrowChange,
-  onColorChange,
-  onLabelChange,
-}: EdgeInspectorProps) {
-  const ref = useRef<HTMLDivElement>(null);
+}: Pick<EdgeInspectorProps, "edge" | "refFields" | "onModeChange" | "onFieldChange">) {
   const mode = edge.kbLink?.mode ?? "layout";
   const fieldId = edge.kbLink?.fieldId ?? "";
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    const onDown = (e: MouseEvent) => {
-      if (isOutside(ref.current, e.target)) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("mousedown", onDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("mousedown", onDown);
-    };
-  }, [onClose]);
-
-  return createPortal(
-    <div
-      ref={ref}
-      className="fixed z-50 w-64 rounded-lg border border-foreground/10 bg-popover p-3 shadow-overlay"
-      style={{ top: anchor.y + 8, left: Math.max(8, anchor.x - 128) }}
-    >
-      <div className="mb-2 text-label font-medium text-foreground/50">Edge</div>
-
-      {/* Label */}
-      {onLabelChange && (
-        <label className="mb-2 flex flex-col gap-1 text-meta">
-          <span className="text-foreground/60">Label</span>
-          <input
-            type="text"
-            className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-meta"
-            value={edge.label ?? ""}
-            placeholder="Edge label…"
-            onChange={(e) => onLabelChange(e.target.value)}
-          />
-        </label>
-      )}
-
-      {/* Arrowheads */}
-      {onArrowChange && (
-        <div className="mb-2 flex items-center justify-between gap-2 text-meta">
-          <span className="text-foreground/60">Arrows</span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              title="Start arrow"
-              className={cn(
-                "rounded-md border px-1.5 py-0.5 text-label",
-                edge.fromEnd === "arrow"
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-foreground/10 text-foreground/50 hover:bg-foreground/5",
-              )}
-              onClick={() => onArrowChange("fromEnd", edge.fromEnd === "arrow" ? "none" : "arrow")}
-            >
-              ←
-            </button>
-            <button
-              type="button"
-              title="End arrow"
-              className={cn(
-                "rounded-md border px-1.5 py-0.5 text-label",
-                (edge.toEnd ?? "arrow") === "arrow"
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-foreground/10 text-foreground/50 hover:bg-foreground/5",
-              )}
-              onClick={() =>
-                onArrowChange("toEnd", (edge.toEnd ?? "arrow") === "arrow" ? "none" : "arrow")
-              }
-            >
-              →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Color swatches */}
-      {onColorChange && (
-        <div className="mb-2">
-          <div className="mb-1 text-meta text-foreground/60">Color</div>
-          <ColorSwatches value={styleOf(edge).color} onChange={onColorChange} small />
-        </div>
-      )}
-
+  return (
+    <>
       <label className="mb-2 flex items-center justify-between gap-2 text-meta">
         <span className="text-foreground/60">Mode</span>
         <EnumSelect
@@ -152,6 +72,73 @@ export function EdgeInspector({
           </select>
         </label>
       )}
+    </>
+  );
+}
+
+export function EdgeInspector({
+  edge,
+  anchor,
+  refFields,
+  onClose,
+  onModeChange,
+  onFieldChange,
+  onDelete,
+  onChange,
+}: EdgeInspectorProps) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    const onDown = (e: MouseEvent) => {
+      if (isOutside(ref.current, e.target)) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mousedown", onDown);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      ref={ref}
+      className="fixed z-50 w-72 rounded-lg border border-foreground/10 bg-popover p-3 shadow-overlay"
+      style={{ top: anchor.y + 8, left: Math.max(8, anchor.x - 144) }}
+    >
+      <div className="mb-2 text-label font-medium text-foreground/50">Edge</div>
+
+      <label className="mb-2 flex flex-col gap-1 text-meta">
+        <span className="text-foreground/60">Label</span>
+        <input
+          type="text"
+          className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-meta"
+          value={edge.label ?? ""}
+          placeholder="Edge label…"
+          onChange={(e) => onChange(withText(edge, "label", e.target.value))}
+        />
+      </label>
+
+      <EdgeLookRows edge={edge} onChange={onChange} />
+
+      <div className="mb-2">
+        <div className="mb-1 text-meta text-foreground/60">Color</div>
+        <ColorSwatches
+          value={styleOf(edge).color}
+          onChange={(color) => onChange(withText(edge, "color", color))}
+          small
+        />
+      </div>
+
+      <LinkRows
+        edge={edge}
+        refFields={refFields}
+        onModeChange={onModeChange}
+        onFieldChange={onFieldChange}
+      />
       <button
         type="button"
         className={cn(

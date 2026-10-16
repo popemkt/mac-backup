@@ -1,26 +1,35 @@
 /**
  * The inspector rows that set a look (`styleOf`): the palette's swatches,
- * which the item and the edge inspectors share, and one picker per look an
+ * which the item and the edge inspectors share, one picker per look an
  * item draws — its fill and outline when it draws a ground of its own, and
- * the size, face and alignment of its words when they are its own. Each
- * pick is one change (one history step), written through `withStyle`.
+ * the size, face and alignment of its words when they are its own — and an
+ * edge's route, bend, heads and line. Each pick is one change (one history
+ * step), written through `withStyle`, `withRoute` or `withHead`.
  */
 import {
   CANVAS_ALIGNS,
   CANVAS_DASHES,
   CANVAS_FILLS,
   CANVAS_FONTS,
+  CANVAS_HEADS,
+  CANVAS_ROUTES,
   CANVAS_SIZES,
   CANVAS_VALIGNS,
   drawsGround,
+  headOf,
   ownsWords,
   styleOf,
+  withHead,
+  withRoute,
   withStyle,
+  type CanvasEdge,
   type CanvasNode,
   type CanvasPaint,
+  type EdgeEnd,
 } from "@kb/canvas";
 import { cn, EnumSelect, type EnumOption } from "@kb/ui-sdk";
 import { CANVAS_SWATCHES } from "./canvas-color";
+import { NumberField } from "./number-field";
 
 /** The swatches: none, then each palette entry; the one `value` paints is marked. */
 export function ColorSwatches({
@@ -80,6 +89,20 @@ const SIZES = options(CANVAS_SIZES, { s: "S", m: "M", l: "L", xl: "XL" });
 const FONTS = options(CANVAS_FONTS, { sans: "Sans", serif: "Serif", mono: "Mono" });
 const ALIGNS = options(CANVAS_ALIGNS, { start: "Left", middle: "Centre", end: "Right" });
 const VALIGNS = options(CANVAS_VALIGNS, { top: "Top", middle: "Middle", bottom: "Bottom" });
+const ROUTES = options(CANVAS_ROUTES, {
+  curve: "Curve",
+  straight: "Straight",
+  arc: "Arc",
+  elbow: "Elbow",
+});
+const HEADS = options([...CANVAS_HEADS, "none"] as const, {
+  arrow: "Arrow",
+  open: "Open",
+  dot: "Dot",
+  diamond: "Diamond",
+  bar: "Bar",
+  none: "None",
+});
 
 const SELECT =
   "h-7 w-full rounded-md border border-foreground/10 bg-background px-1.5 text-ui text-foreground/85";
@@ -107,6 +130,66 @@ function LookPicker<T extends string>({
         testId={`look-${label.toLowerCase()}`}
       />
     </label>
+  );
+}
+
+/**
+ * How an edge runs and what it wears: its route, bent for an arc or an
+ * elbow; the head each end wears; how its line is drawn and how heavy.
+ */
+export function EdgeLookRows({
+  edge,
+  onChange,
+}: {
+  edge: CanvasEdge;
+  onChange: (edge: CanvasEdge) => void;
+}) {
+  const style = styleOf(edge);
+  const route = edge.route ?? "curve";
+  const head = (end: EdgeEnd) => headOf(edge, end) ?? "none";
+  const wear = (end: EdgeEnd) => (next: (typeof HEADS)[number]["value"]) =>
+    onChange(withHead(edge, end, next === "none" ? null : next));
+  return (
+    <div className="mb-2 flex flex-col gap-1.5" data-testid="edge-look-rows">
+      <div className="flex gap-2">
+        <LookPicker
+          label="Route"
+          value={route}
+          choices={ROUTES}
+          onChange={(next) => onChange(withRoute(edge, { route: next }))}
+        />
+        <LookPicker label="Start" value={head("from")} choices={HEADS} onChange={wear("from")} />
+        <LookPicker label="End" value={head("to")} choices={HEADS} onChange={wear("to")} />
+      </div>
+      <div className="flex gap-2">
+        <LookPicker
+          label="Line"
+          value={style.dash}
+          choices={DASHES}
+          onChange={(dash) => onChange(withStyle(edge, { dash }))}
+        />
+        <LookPicker
+          label="Size"
+          value={style.size}
+          choices={SIZES}
+          onChange={(size) => onChange(withStyle(edge, { size }))}
+        />
+        {(route === "arc" || route === "elbow") && (
+          <NumberField
+            key={`bend:${edge.bend ?? ""}`}
+            label="Bend"
+            hint={
+              route === "arc"
+                ? "How far its middle bows off the straight line, left of its way; unset, a fifth of the way across"
+                : "How far its middle run is moved off centre"
+            }
+            value={edge.bend ?? 0}
+            unit="length"
+            onCommit={(bend) => onChange(withRoute(edge, { bend }))}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 

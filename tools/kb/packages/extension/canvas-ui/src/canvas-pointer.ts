@@ -1,4 +1,5 @@
 import {
+  anchorNear,
   boxFrame,
   boxToWorld,
   canvasTop,
@@ -667,6 +668,12 @@ function finishEdge(
   const to = ctx.byId.get(event.edgeTargetId);
   if (!from || !to) return result({ ...state, drag: null });
   const world = floorAt(ctx, event.screen);
+  // Let go with ⌘ held, the end lands precisely where it was dropped on the
+  // item's outline (`anchorNear`); else at the side nearest the drop.
+  const lands =
+    event.free === true
+      ? { toAnchor: anchorNear(to, world) }
+      : { toSide: closestPort(to, world.x, world.y) };
   // The one edge record an agent's `connect` makes too, by the ports the drag chose.
   const { doc, edge } = connectItems(ctx.doc, {
     id: event.edgeId,
@@ -674,7 +681,7 @@ function finishEdge(
     from: from.id,
     to: to.id,
     fromSide: drag.fromSide,
-    toSide: closestPort(to, world.x, world.y),
+    ...lands,
   });
   return result(
     { ...state, drag: null },

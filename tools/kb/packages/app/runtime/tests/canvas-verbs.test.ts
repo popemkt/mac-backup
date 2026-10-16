@@ -333,6 +333,62 @@ describe("ext.canvas.connect, group, ungroup and promote", () => {
     ]);
   });
 
+  test("connect takes anchors, a route and bend, heads, a colour and line looks; describe reads them back", async () => {
+    const ctx = await canvasKb([card("a", 0, 0), card("b", 400, 200)]);
+    const out = output(
+      await invoke(
+        ctx,
+        verb("connect", {
+          from: "a",
+          to: "b",
+          fromAnchor: { x: 1, y: 0.25 },
+          toSide: "top",
+          route: "elbow",
+          bend: 30,
+          fromHead: "dot",
+          toHead: "open",
+          color: "green",
+          style: { dash: "dashed", size: "l" },
+        }),
+      ),
+    );
+    const [edge] = stored(ctx).edges;
+    expect(edge).toMatchObject({
+      id: out.edge,
+      fromAnchor: { x: 1, y: 0.25 },
+      fromSide: "right",
+      toSide: "top",
+      route: "elbow",
+      bend: 30,
+      fromEnd: "arrow",
+      fromHead: "dot",
+      toHead: "open",
+      color: "4",
+      style: { dash: "dashed", size: "l" },
+    });
+    const told = output(await invoke(ctx, verb("describe", {})));
+    expect(told.relations).toContainEqual(
+      expect.objectContaining({
+        kind: "linked",
+        edge: out.edge,
+        route: "elbow",
+        fromHead: "dot",
+        toHead: "open",
+        color: "green",
+        style: { dash: "dashed", size: "l" },
+      }),
+    );
+    // A bare arrival is told as none; JSON Canvas's own arrow and curve are not told at all.
+    await invoke(ctx, verb("connect", { from: "b", to: "a", toHead: "none" }));
+    const again = output(await invoke(ctx, verb("describe", {})));
+    const bare = (again.relations as Record<string, unknown>[]).find(
+      (r) => r.kind === "linked" && r.from === "b",
+    );
+    expect(bare).toMatchObject({ toHead: "none" });
+    expect(bare).not.toHaveProperty("route");
+    expect(bare).not.toHaveProperty("fromHead");
+  });
+
   test("an edge never binds kb's own fields, a node's tags among them", async () => {
     const ctx = await canvasKb();
     await invoke(ctx, { id: "node.add", input: { id: "n.a", text: "A" } });

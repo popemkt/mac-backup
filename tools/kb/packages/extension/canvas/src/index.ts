@@ -4,6 +4,9 @@
  * view keys and seed, and the declaration and shared plugin both hosts load.
  */
 export {
+  CANVAS_HEADS,
+  CANVAS_SIDES,
+  CANVAS_ROUTES,
   EMPTY_CANVAS_DOC,
   canvasDepth,
   canvasElevation,
@@ -96,14 +99,19 @@ export { CANVAS_LAYOUTS, arrangeItems } from "./arrange.ts";
 export type { CanvasArrangement, CanvasLayerValue, CanvasLayout } from "./arrange.ts";
 export { connectItems } from "./connect.ts";
 export {
+  anchorNear,
+  edgeHead,
   edgeRoute,
-  leaving,
+  headOf,
   looseRoute,
   routeMidpoint,
   routePoints,
   sideTerminal,
+  withEnd,
+  withHead,
+  withRoute,
 } from "./edges.ts";
-export type { EdgeRoute, EdgeTerminal } from "./edges.ts";
+export type { EdgeEnd, EdgeHead, EdgeRoute, EdgeRoutePatch, EdgeTerminal } from "./edges.ts";
 export type { CanvasConnection } from "./connect.ts";
 export { describeCanvas, itemKind } from "./describe.ts";
 export type {
@@ -192,8 +200,11 @@ export type { CanvasFootprint, CanvasPathSink, CanvasVolume } from "./shapes.ts"
 export type { CanvasItemSpec, CanvasPresetKind } from "./presets.ts";
 export type { CanvasCamera, CanvasPose, CanvasProjectionKind } from "./camera.ts";
 export type {
+  CanvasAnchor,
   CanvasDoc,
   CanvasEdge,
+  CanvasHead,
+  CanvasRoute,
   CanvasFileNode,
   CanvasGroupNode,
   CanvasKbNode,

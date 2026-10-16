@@ -11,12 +11,13 @@ import { createRoot } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, beforeAll } from "vitest";
 import { Raycaster, Vector3, type Object3D } from "three/webgpu";
-import type {
-  CanvasAlign,
-  CanvasDoc,
-  CanvasFont,
-  CanvasProjectionKind,
-  CanvasVAlign,
+import {
+  CANVAS_HEADS,
+  type CanvasAlign,
+  type CanvasDoc,
+  type CanvasFont,
+  type CanvasProjectionKind,
+  type CanvasVAlign,
 } from "@kb/canvas";
 import {
   cameraPose,
@@ -28,6 +29,7 @@ import {
 import { CanvasCameraRig } from "../canvas-camera-rig";
 import type { CardLook } from "../canvas-card-face";
 import { FIRST_GIZMO } from "../canvas-gizmo";
+import type { DrawnEdge } from "../canvas-scene-edges";
 import type { CanvasSelection } from "../canvas-selection";
 import {
   FLEX_PLACES,
@@ -72,8 +74,8 @@ interface Probe {
   topAt(point: { x: number; y: number }): string | null;
   /** An item's look as drawn. */
   paintOf(id: string): DrawnLook | null;
-  /** The points an edge is drawn through across the floor, canvas units; null when not drawn. */
-  edgePointsOf(id: string): { x: number; y: number }[] | null;
+  /** An edge as drawn: its line's points and stroke, its opacity, its heads; null when not drawn. */
+  edgeOf(id: string): DrawnEdge | null;
   update(next: CanvasDoc): Promise<void>;
   dispose(): void;
 }
@@ -220,6 +222,35 @@ function outline2d(el: HTMLElement): DrawnLook["outline"] {
   };
 }
 
+/** An edge as the DOM draws it: its path, its stroke, its group's opacity, and its heads' paths. */
+function edge2d(el: Element): DrawnEdge | null {
+  const path = el.querySelector("[data-edge-path]");
+  const d = path?.getAttribute("d");
+  if (path === null || d === null || d === undefined) return null;
+  const dashes = path.getAttribute("stroke-dasharray") ?? "";
+  const opacity = el.getAttribute("opacity");
+  const heads = [...el.querySelectorAll("[data-edge-head]")].flatMap((head) => {
+    const end = head.getAttribute("data-edge-head") === "from" ? "from" : "to";
+    const kind = CANVAS_HEADS.find((k) => k === head.getAttribute("data-head-kind"));
+    const outline = head.getAttribute("d");
+    if (kind === undefined || outline === null) return [];
+    const filled = (head.getAttribute("fill") ?? "none") !== "none";
+    return [{ end, kind, filled, points: pathPolygon(outline) } as const];
+  });
+  return {
+    points: pathPolygon(d),
+    line:
+      (path.getAttribute("stroke") ?? "none") === "none"
+        ? null
+        : {
+            pattern: dashes === "" ? [] : dashes.split(" ").map(Number),
+            width: Number(path.getAttribute("stroke-width")),
+          },
+    opacity: opacity === null ? 1 : Number(opacity),
+    heads,
+  };
+}
+
 /** How an item's words are set in the DOM: by the tokens their style names, and where they sit. */
 function words2d(el: HTMLElement): DrawnLook["words"] {
   const words = el.querySelector<HTMLElement>("[data-words]");
@@ -321,11 +352,9 @@ const mount2d: Mount = async (view, scene) => {
     topAt: (p) =>
       cards().findLast((el) => covers(el, { x: (p.x - pan.x) / zoom, y: (p.y - pan.y) / zoom }))
         ?.dataset.cardId ?? null,
-    edgePointsOf: (id) => {
-      const d = container
-        .querySelector(`[data-edge-id="${id}"] [data-edge-path]`)
-        ?.getAttribute("d");
-      return d === null || d === undefined ? null : pathPolygon(d);
+    edgeOf: (id) => {
+      const el = container.querySelector(`[data-edge-id="${id}"]`);
+      return el === null ? null : edge2d(el);
     },
     paintOf: (id) => {
       const el = card(id);
@@ -421,7 +450,7 @@ const mount3d: Mount = async (view, probed) => {
       const [first] = raycaster.intersectObjects([...bodies.keys()], false);
       return first === undefined ? null : (bodies.get(first.object) ?? null);
     },
-    edgePointsOf: (id) => inspect().edgePointsOf(id),
+    edgeOf: (id) => inspect().edgeOf(id),
     paintOf: (id) => {
       const face = inspect().faceOf(id);
       const item = current.nodes.find((n) => n.id === id);

@@ -21,9 +21,12 @@ import {
   CANVAS_DIRECTIONS,
   CANVAS_FILLS,
   CANVAS_FONTS,
+  CANVAS_HEADS,
   CANVAS_LAYOUTS,
   CANVAS_PALETTE,
   CANVAS_PRESET_KINDS,
+  CANVAS_ROUTES,
+  CANVAS_SIDES,
   CANVAS_SIZES,
   CANVAS_VALIGNS,
   GRID_STEP,
@@ -91,6 +94,26 @@ const LooksSchema = z
     opacity: z.number().min(0).max(1).describe("how opaque it is drawn, 0 to 1"),
   })
   .partial();
+
+/** An edge's looks (DESIGN.md → Canvas documents, `style`): what of an item's looks a line draws. */
+const EdgeLooksSchema = LooksSchema.pick({ dash: true, size: true, opacity: true }).describe(
+  "its line: dash (solid, dashed, dotted, none), size (how heavy, with its heads), opacity",
+);
+
+/** The head an edge's end wears, or none. */
+const HeadSchema = z.enum([...CANVAS_HEADS, "none"]);
+
+const RouteSchema = z
+  .enum(CANVAS_ROUTES)
+  .describe("curve (JSON Canvas's, the default), straight, arc, or elbow along the axes");
+
+/** A point of an item's box an edge's end meets, carried onto its outline. */
+const AnchorSchema = z
+  .object({
+    x: z.number().min(0).max(1).describe("0 its left edge, 1 its right"),
+    y: z.number().min(0).max(1).describe("0 its top edge, 1 its bottom"),
+  })
+  .describe("a point of the item's box, carried out from its centre onto its outline");
 
 /** An item as a write reports it: what it is and the box it now takes up. */
 const PlacedSchema = z.object({
@@ -160,6 +183,11 @@ const RelationSchema = z.union([
     edge: z.string(),
     label: z.string().optional(),
     field: z.string().optional(),
+    route: RouteSchema.optional(),
+    fromHead: HeadSchema.optional(),
+    toHead: HeadSchema.optional(),
+    color: z.string().optional(),
+    style: EdgeLooksSchema.optional(),
   }),
   z.object({
     kind: z.literal("near"),
@@ -465,6 +493,22 @@ const connectInput = z.object({
   from: z.string().min(1).describe("the item the arrow leaves"),
   to: z.string().min(1).describe("the item it points at"),
   label: z.string().optional(),
+  fromSide: z.enum(CANVAS_SIDES).optional().describe("the side it leaves by; else facing to"),
+  toSide: z.enum(CANVAS_SIDES).optional().describe("the side it arrives by; else facing from"),
+  fromAnchor: AnchorSchema.optional().describe("where it leaves, precisely; wins over fromSide"),
+  toAnchor: AnchorSchema.optional().describe("where it arrives, precisely; wins over toSide"),
+  route: RouteSchema.optional(),
+  bend: z
+    .number()
+    .optional()
+    .describe(
+      "an arc's bow off the straight line, left of travel (negative: right), or how far an " +
+        "elbow's middle run is moved; canvas units",
+    ),
+  fromHead: HeadSchema.optional().describe("the head where it leaves; default none"),
+  toHead: HeadSchema.optional().describe("the head where it arrives; default arrow"),
+  color: ColorSchema.optional(),
+  style: EdgeLooksSchema.optional(),
   bind: z
     .string()
     .optional()
@@ -514,6 +558,29 @@ function bindWrite(
   };
 }
 
+/** A head as `connect` takes it: "none" for a bare end. */
+const headOrNone = (head: z.infer<typeof HeadSchema> | undefined) =>
+  head === undefined ? undefined : head === "none" ? null : head;
+
+/** Where a connection's ends meet their items and how it is drawn, as `connectItems` takes it. */
+function connectionLook(input: z.infer<typeof connectInput>) {
+  const [fromHead, toHead] = [headOrNone(input.fromHead), headOrNone(input.toHead)];
+  const { label, fromSide, toSide, fromAnchor, toAnchor, route, bend, color, style } = input;
+  return {
+    ...(label === undefined ? {} : { label }),
+    ...(fromSide === undefined ? {} : { fromSide }),
+    ...(toSide === undefined ? {} : { toSide }),
+    ...(fromAnchor === undefined ? {} : { fromAnchor }),
+    ...(toAnchor === undefined ? {} : { toAnchor }),
+    ...(route === undefined ? {} : { route }),
+    ...(bend === undefined ? {} : { bend }),
+    ...(fromHead === undefined ? {} : { fromHead }),
+    ...(toHead === undefined ? {} : { toHead }),
+    ...(color === undefined ? {} : { color }),
+    ...(style === undefined ? {} : { style }),
+  };
+}
+
 const canvasConnectEffect = Effect.fn("ext.canvas.connect")(function* (
   input: z.infer<typeof connectInput>,
 ): Effect.fn.Return<z.infer<typeof connectOutput>, CanvasFail, WriteEnv> {
@@ -530,7 +597,7 @@ const canvasConnectEffect = Effect.fn("ext.canvas.connect")(function* (
       bindingId,
       from: input.from,
       to: input.to,
-      ...(input.label === undefined ? {} : { label: input.label }),
+      ...connectionLook(input),
       ...(fieldId === undefined ? {} : { bindField: fieldId }),
     }),
   );
@@ -700,9 +767,11 @@ export const CANVAS_VERBS: ExtensionAction[] = [
     id: "connect",
     title: "Connect two items",
     description:
-      "Draw an arrow from one item to another, between the sides facing each other. With `bind`, " +
-      "also set that ref field on the from item's node to the to item's node, once (both must stand " +
-      "for nodes).",
+      "Draw an arrow from one item to another, between the sides facing each other unless sides " +
+      "or precise anchors are given; routed as a curve, straight, an arc (bowed by `bend`) or an " +
+      "elbow; each end bare or wearing an arrow, open, dot, diamond or bar head; with a colour and " +
+      "line looks. With `bind`, also set that ref field on the from item's node to the to item's " +
+      "node, once (both must stand for nodes).",
     mode: { kind: "write" },
     inputSchema: connectInput,
     outputSchema: connectOutput,

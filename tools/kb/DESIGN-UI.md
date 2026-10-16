@@ -7,16 +7,16 @@ subscribe to live queries later. MCP Apps generative UI is phase 2.
 
 ## Decisions (from Q&A)
 
-| Decision | Choice |
-|---|---|
-| Shell | Browser app served by `kb ui` (no Electron/Tauri). **Why not Electron for "local ops like materialization":** those ops run in the `kb ui` bun server, which has full fs access — the browser only calls actions. Electron's sole trick is bundling Chromium+Node to get fs in one process; we already have a local server process. Zero gain, +200MB. |
-| Frontend build | **Vite+ (`vite-plus@0.2.8`, on npm, Evan You et al — confirmed installable)** + React 19 + Tailwind 4 + Zustand — same stack as nxus, so its outliner forks in cleanly. If vp misbehaves anywhere, its config is Vite config; plain-Vite fallback is a dependency swap. |
-| Bun's role | Runtime for the server only (`kb ui` = Bun.serve listen + WS upgrade + `Bun.file` bodies). HTTP routing, asset/static reads, SubscriptionHub message/broadcast/cleanup, and fs-watch reloads are Effect v4 programs (`@effect/platform-bun` FileSystem). **Not** `@effect/platform-bun` `BunHttpServer` as the outer server: on effect@4.0.0-beta.106 its `HttpServerRequest.upgrade` path deadlocks on the request fiber when awaiting the open deferred / forking `socket.runRaw` from that fiber (empirically verified). Protocol-preserving Bun.serve WS + Effect hub is the working single boundary. Bun ≠ bundler here; Vite builds the frontend. No Effect in the browser bundle. |
-| Reactivity | Client-side DataScript (Logseq architecture) **plus** backend subscription hub designed for third-party consumers |
-| Edit scope v1 | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks) |
-| MCP Apps | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural. |
+| Decision       | Choice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shell          | Browser app served by `kb ui` (no Electron/Tauri). **Why not Electron for "local ops like materialization":** those ops run in the `kb ui` bun server, which has full fs access — the browser only calls actions. Electron's sole trick is bundling Chromium+Node to get fs in one process; we already have a local server process. Zero gain, +200MB.                                                                                                                                                                                                                                                                                                                                   |
+| Frontend build | **Vite+ (`vite-plus@0.2.8`, on npm, Evan You et al — confirmed installable)** + React 19 + Tailwind 4 + Zustand — same stack as nxus, so its outliner forks in cleanly. If vp misbehaves anywhere, its config is Vite config; plain-Vite fallback is a dependency swap.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Bun's role     | Runtime for the server only (`kb ui` = Bun.serve listen + WS upgrade + `Bun.file` bodies). HTTP routing, asset/static reads, SubscriptionHub message/broadcast/cleanup, and fs-watch reloads are Effect v4 programs (`@effect/platform-bun` FileSystem). **Not** `@effect/platform-bun` `BunHttpServer` as the outer server: on effect@4.0.0-beta.106 its `HttpServerRequest.upgrade` path deadlocks on the request fiber when awaiting the open deferred / forking `socket.runRaw` from that fiber (empirically verified). Protocol-preserving Bun.serve WS + Effect hub is the working single boundary. Bun ≠ bundler here; Vite builds the frontend. No Effect in the browser bundle. |
+| Reactivity     | Client-side DataScript (Logseq architecture) **plus** backend subscription hub designed for third-party consumers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Edit scope v1  | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| MCP Apps       | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
-## Why bun *and* vite (your question)
+## Why bun _and_ vite (your question)
 
 The backend must be bun — kb's store/query/registry code is bun TS, and
 `kb ui` is just another surface over the same registry. The frontend is a
@@ -42,15 +42,15 @@ Server ownership lives behind the stable facade `packages/app/server/src/index.t
 re-exports the public CLI/server seam (`startUi`, `runUiCli`, …). The
 implementation modules under `packages/app/server/src/` split by concern:
 
-| Module | Owns |
-|---|---|
-| `server.ts` | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown |
-| `http.ts` | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback |
-| `invoke.ts` | how the server runs an invocation it is handed: reload, then the invoke core |
-| `session.ts` | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup) |
-| `assets.ts` | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary) |
-| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn` |
-| `paths.ts` | `KB_PKG_ROOT`, `UI_DIST` |
+| Module             | Owns                                                                             |
+| ------------------ | -------------------------------------------------------------------------------- |
+| `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown         |
+| `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback      |
+| `invoke.ts`        | how the server runs an invocation it is handed: reload, then the invoke core     |
+| `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)       |
+| `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary) |
+| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                      |
+| `paths.ts`         | `KB_PKG_ROOT`, `UI_DIST`                                                         |
 
 - **Client DataScript**: browser loads all nodes once, builds the same datom
   set the CLI builds (shared `foundation/query` code — it's isomorphic TS, no
@@ -96,18 +96,18 @@ a rev.
 **Transitions.** Each row is an event and each column a phase. "fetch" means
 `GET /api/graph`, and "fetch unless fetching" leaves an in-flight fetch alone.
 
-| Event | `live` | `catching-up(from)` | `awaiting-snapshot` |
-|---|---|---|---|
-| `tx`, rev ≤ `rev` | ignore | ignore | ignore |
-| `tx`, rev = `rev`+1 | apply | apply, → `live` | ignore: the snapshot and its `since` cover it |
-| `tx`, rev > `rev`+1 | `since(rev)`, → `catching-up(rev)` | `since(rev)` unless `from` = `rev` | ignore |
-| `hello`, head = `rev` | stay | → `live` | fetch unless fetching |
-| `hello`, head ≠ `rev` | `since(rev)`, → `catching-up(rev)` | `since(rev)` again: a new socket has no question outstanding | fetch unless fetching |
-| `snapshot-required` | fetch, → `awaiting-snapshot` | fetch, → `awaiting-snapshot` | fetch unless fetching |
-| snapshot fetched | ignore | ignore | install, `since(snapshot.rev)`, → `catching-up(snapshot.rev)` |
-| snapshot fetch failed | — | — | not fetching; retry after 500 ms, doubling to 10 s |
-| retry due | — | — | fetch unless fetching |
-| `reconcile` (a push failed) | `since(rev)`, → `catching-up(rev)` | `since(rev)` unless `from` = `rev` | ignore |
+| Event                       | `live`                             | `catching-up(from)`                                          | `awaiting-snapshot`                                           |
+| --------------------------- | ---------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------- |
+| `tx`, rev ≤ `rev`           | ignore                             | ignore                                                       | ignore                                                        |
+| `tx`, rev = `rev`+1         | apply                              | apply, → `live`                                              | ignore: the snapshot and its `since` cover it                 |
+| `tx`, rev > `rev`+1         | `since(rev)`, → `catching-up(rev)` | `since(rev)` unless `from` = `rev`                           | ignore                                                        |
+| `hello`, head = `rev`       | stay                               | → `live`                                                     | fetch unless fetching                                         |
+| `hello`, head ≠ `rev`       | `since(rev)`, → `catching-up(rev)` | `since(rev)` again: a new socket has no question outstanding | fetch unless fetching                                         |
+| `snapshot-required`         | fetch, → `awaiting-snapshot`       | fetch, → `awaiting-snapshot`                                 | fetch unless fetching                                         |
+| snapshot fetched            | ignore                             | ignore                                                       | install, `since(snapshot.rev)`, → `catching-up(snapshot.rev)` |
+| snapshot fetch failed       | —                                  | —                                                            | not fetching; retry after 500 ms, doubling to 10 s            |
+| retry due                   | —                                  | —                                                            | fetch unless fetching                                         |
+| `reconcile` (a push failed) | `since(rev)`, → `catching-up(rev)` | `since(rev)` unless `from` = `rev`                           | ignore                                                        |
 
 **Apply a frame.** The frame's upserts and deletes go into the server image.
 The visible replica takes them only for ids that no hold holds. `rev` becomes
@@ -198,6 +198,7 @@ helper; the tree algebra is a pure store over `Map<id,node>`; all data
 coupling sits in two seam files we replace with kb calls.
 
 Taking:
+
 - `outline.store.ts` (419 LOC + tests) — indent/outdent/move/fractional
   order/visible-node flattening. Adapt node shape to kb (`children` array
   instead of fractional order props — simpler, kb owns order).
@@ -251,7 +252,7 @@ Pre-existing nodes remain ineligible for this cleanup.
 the end of a list: `GhostNodeRow`, with its async character buffering and
 `beforeinput` interception, is deleted outright. Tana semantics instead —
 the outline's `createTransientNode` (`outline-ui/src/editing-writes.ts`)
-mints a *real* node synchronously through the write path's `createEmptyNode`,
+mints a _real_ node synchronously through the write path's `createEmptyNode`,
 the normal optimistic path, which activates it at offset 0, and marks it in the
 outline store's `transientIds`. The click-to-create affordance is a whitespace strip
 (`data-create-child-zone`) rendered at the end of every expanded container and
@@ -262,9 +263,9 @@ this session is never pruned, so committed content cannot evaporate.
 **Two keymaps, one row.** The authoritative tables are r1-editor.md §3.2; the
 split is what matters here:
 
-| Mode | When | Owner |
-|---|---|---|
-| **A — active edit** (caret inside node text) | typing | `outline-ui/src/use-node-keydown.ts` |
+| Mode                                             | When                         | Owner                                                                           |
+| ------------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------- |
+| **A — active edit** (caret inside node text)     | typing                       | `outline-ui/src/use-node-keydown.ts`                                            |
 | **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `outline-ui/src/selection-keymap.ts` + `outline-ui/src/use-selection-keymap.ts` |
 
 Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
@@ -279,7 +280,7 @@ neighbour) and tested.
 exposes `readCaretGeometry` (range rects → real line detection),
 `verticalArrowDecision` (pure: is this arrow a line move or a row move?) and
 `nearestOffsetForX` (column restoration), fed by `outlineStore.focusX`. Offsets
-into the *serialized markdown* — not the DOM text — come from
+into the _serialized markdown_ — not the DOM text — come from
 `lib/md-edit.ts` (`getCaretSerializedOffset` / `setCaretSerializedOffset`), a
 recursive measure that survives element boundaries and counts an atomic ref
 pill at its full token length. A layout-free environment (unit tests, headless)
@@ -302,7 +303,7 @@ markdown renders as; `renderInlineMarkdown` builds it as DOM and `InlineMarkdown
 same markup. Every source character is in that tree: a formatted segment keeps
 its delimiters (`**`, `` ` ``, `[`/`](href)`) as `.kb-md-mark` text beside the
 formatted element, hidden, so the DOM serializes back to the stored string
-byte for byte and a DOM caret position *is* a serialized offset. Entering edit
+byte for byte and a DOM caret position _is_ a serialized offset. Entering edit
 mode therefore swaps nothing visible: the row's text element becomes
 contentEditable over the same tree, a click lands where it was aimed
 (`offsetFromPoint` on the tree the editor edits), and only the segment the
@@ -336,7 +337,7 @@ its own — its label is its own spelling, so it rebuilds byte for byte, and
 field's form) — so it renders, edits and follows exactly like a markdown link,
 in node text and text field values alike. Segments are flat, so a url inside
 code, emphasis or a link's label stays what that segment makes it. A url or a
-number *value* is not markdown: its editor is its plain string, so the url
+number _value_ is not markdown: its editor is its plain string, so the url
 field's own text is never autolinked while it is typed.
 
 **Links are two kinds, told apart at a glance** (Tana's). A reference
@@ -444,7 +445,7 @@ padlock instead of failing on write.
 
 ### Contextual references (2026-08-27)
 
-Tana's *reference*, expressed with no new storage shape and no new
+Tana's _reference_, expressed with no new storage shape and no new
 widget: a **contextual reference is an ordinary node** carrying its target on
 the `sys.f.ref.target` ref field. The field is the whole declaration — no tag —
 because a node with no target is not a reference (DESIGN.md → [Kinds, roles and
@@ -457,7 +458,7 @@ a reference row's frame is simply its target.
 reference:
 
 - **Display is the target's text, verbatim.** `rowText(node, nodes)` returns
-  `node.text` for an ordinary row and the *target's* text for a reference, so the
+  `node.text` for an ordinary row and the _target's_ text for a reference, so the
   row renders through the same inline-markdown path as every other row: bold,
   code, inline refs and `assets/` media all render as content. Returning a
   `[[targetId|label]]` token instead was tried and rejected after looking at the
@@ -466,10 +467,10 @@ reference:
   renders as the `[[id]]` token, the way every other dangling ref renders, never
   a blank row and never a throw. `ReferencesSection` calls the same function, so
   a referrer whose own text is empty is not a blank line in a backlinks list.
-  What a ref *prop* buys over a hand-typed `[[id|label]]`: the hand-typed label
+  What a ref _prop_ buys over a hand-typed `[[id|label]]`: the hand-typed label
   freezes at insert time, this resolves every render.
 - **The row shows its target; its place is its own.** `shownNode(node,
-  schema)` is the one answer to "which node does this row show" — the target
+schema)` is the one answer to "which node does this row show" — the target
   for a reference, the row itself otherwise (and for a dangling reference) —
   and every content read of a row goes through it, on every surface (list row,
   table row, card) and in the keyboard walk: the text (`rowText`, the one text
@@ -484,7 +485,7 @@ reference:
   delete — so the one row↔node identity that instance keys, both keymaps,
   optimistic mutations and undo are built on is not forked, and deleting the
   row deletes the reference, never the original. Children of the target drawn
-  under a reference get instance keys under the *reference's* key
+  under a reference get instance keys under the _reference's_ key
   (`tree/…/ref/child`), so the same node shows at two places with two
   identities, exactly like a query result. The keymap's `ownsText` is the one
   place the text difference shows: Enter on a reference opens the next row
@@ -503,7 +504,7 @@ reference:
   `rowTextReadOnlyReason(id, node, schema)` owns what cannot be written: `sys.*`
   text (whether the row is the sys node or a reference to it, r1 D20) and a
   reference whose target is missing; it supplies the padlock's wording.
-  *History:* until 2026-09-27 the reference's text was read-only and a click
+  _History:_ until 2026-09-27 the reference's text was read-only and a click
   opened the original; that was rejected on the grounds that it made a
   reference a different kind of row to click and type into. Until 2026-09-28
   only the text was routed — tags, fields and children were the reference
@@ -511,13 +512,13 @@ reference:
   render as bare text; the owner's rule since is that a reference row renders
   exactly as its target would, the dashed bullet being the only difference.
 - **The bullet reuses the existing reference treatment** (dashed ring). Only the
-  bullet: a *query-result* row — read from its instance key by
+  bullet: a _query-result_ row — read from its instance key by
   `isQueryResultInstance` (`lib/instance-key.ts`), never passed as a flag —
   keeps suppressing nested query results, the create-child strip and the
   structural chords, because its place under the query is computed rather than
   a child edge. A contextual reference is a real child whose children **are**
   its own, and creating them is the whole point. `isReferenceRow(node,
-  isQueryResult)` in the kit's `lib/row-chrome.ts` is the one answer, read by the list
+isQueryResult)` in the kit's `lib/row-chrome.ts` is the one answer, read by the list
   row's chrome and by table and card rows alike. Apart from those gates a
   result row is clicked like any row in every view: a row click selects, a
   text click edits, a bullet click toggles and ⌘-click opens the node.
@@ -527,9 +528,9 @@ node's own children, if it has any, are not drawn anywhere: nothing creates
 them any more (the create-child gestures under a reference mint under the
 target), and a store written before 2026-09-28 holds none.
 
-**Creation** is a node-⌘K step, next to *Turn into query*: **Turn into
+**Creation** is a node-⌘K step, next to _Turn into query_: **Turn into
 reference…** opens the picker, which is the same picker `Add tag` and `Add field`
-use — generalized from two kinds to three, with the candidate *source* as the
+use — generalized from two kinds to three, with the candidate _source_ as the
 only difference. A reference's candidates come from `nodeCandidates`, the
 source the `[[` autocomplete and the field picker share, over the one picker
 engine (→ [Field values](#field-values-one-slot-grammar)), so no fourth node
@@ -539,8 +540,8 @@ the CLI/MCP form is in DESIGN.md.
 
 **Named gaps.** The reference node's own props — its target among them — are
 not drawn by its row, since every field row is the target's; the target is
-repointable only from the CLI or MCP (`node.update`), and *Turn into
-reference…* is withheld from a row that already is one. View filters, sort and
+repointable only from the CLI or MCP (`node.update`), and _Turn into
+reference…_ is withheld from a row that already is one. View filters, sort and
 board grouping read a row's own props, so a reference inside a table or board
 sorts and groups as an empty node. Enter at the end of an expanded reference
 opens a sibling, where an expanded ordinary row opens its first child, because
@@ -579,11 +580,11 @@ come from one row.
 
 **Three verbs, the same on every kind.**
 
-| Verb | Mouse | Keyboard |
-|---|---|---|
-| **Follow** (a ref's node, an option's page, a url) | plain click on a *pointer segment* — a ref label, an option chip, a url's link, a `[[ref]]` pill in text — exactly as in node text; ⌘/Ctrl-click anywhere on the value | ⌘Enter, at rest or editing |
-| **Edit** | plain click anywhere else in the slot; a caret lands where the click did | Enter or F2; a printable key opens it with that key typed (replacing the value; a picker starts its query with it); Space flips a checkbox |
-| **Add** (many-valued fields only) | the "+" in the trailing space of the last value, on hover or focus | Enter at the end of a typed value; the picker, which stays open |
+| Verb                                               | Mouse                                                                                                                                                                  | Keyboard                                                                                                                                   |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Follow** (a ref's node, an option's page, a url) | plain click on a _pointer segment_ — a ref label, an option chip, a url's link, a `[[ref]]` pill in text — exactly as in node text; ⌘/Ctrl-click anywhere on the value | ⌘Enter, at rest or editing                                                                                                                 |
+| **Edit**                                           | plain click anywhere else in the slot; a caret lands where the click did                                                                                               | Enter or F2; a printable key opens it with that key typed (replacing the value; a picker starts its query with it); Space flips a checkbox |
+| **Add** (many-valued fields only)                  | the "+" in the trailing space of the last value, on hover or focus                                                                                                     | Enter at the end of a typed value; the picker, which stays open                                                                            |
 
 Following is one function for every pointer in kb (`lib/follow.ts`:
 `routePointerClick`, the bullet rule `bulletClickIntent`, and `useFollow`,
@@ -706,14 +707,14 @@ members only, and resolves its rows' tag chips against the full snapshot.
 toast rather than silently doing nothing, and the scope chip
 (`⬡ Name · N members · Members/Outline/Graph · Exit`) always offers the exit.
 Members whose real parent is a non-member hang off the ontology node itself, so
-displayed depth inside a scope is *synthetic* — structural editing
+displayed depth inside a scope is _synthetic_ — structural editing
 (Tab/Shift-Tab/move) still operates on the real graph. That mismatch is a named
 follow-up, not a fixed contract.
 
 **Graph under scope** is one additive `restrictTo?: Set<string>` on
 `ExtractLensOptions`, intersected in `resolveNodeSet`; internal-edges-only falls
 out of the existing endpoint check. Ontology and perspective are orthogonal —
-the ontology picks *which nodes*, the perspective picks renderer/color-by/
+the ontology picks _which nodes_, the perspective picks renderer/color-by/
 cluster-by — and both pickers sit in the graph header.
 
 Elsewhere: an **Ontologies** sidebar section, the `⬡` bullet kind, three
@@ -723,7 +724,7 @@ Elsewhere: an **Ontologies** sidebar section, the `⬡` bullet kind, three
 ### Graph (i2)
 
 The graph is the CodeFlow-parity surface: every renderer is
-`datalog query → {nodes, edges} → renderer`, and interaction happens *in place*
+`datalog query → {nodes, edges} → renderer`, and interaction happens _in place_
 rather than by navigation.
 
 - **Select-in-place.** A single click selects: the neighbourhood stays lit,
@@ -783,7 +784,7 @@ rather than by navigation.
   recorded gap.)
 - **A 2D node is a disc in the layout's space.** Its radius is in the
   layout's own units, not in screen pixels (sigma's `itemSizesReference:
-  "positions"`), so a disc and the spacing around it scale together with
+"positions"`), so a disc and the spacing around it scale together with
   the viewport and the zoom: a small window or a zoom out never makes the
   nodes grow over each other. `graph-discs.ts` owns the relation, once:
   the lens size maps to a radius bounded against the layout's spacing
@@ -894,8 +895,8 @@ like themselves (P5).
   enforced in the shader, not assumed of the palette: a node can carry any
   stored colour (a tag colour, a `sys.f.color` taken verbatim, any swatch
   hex), so its rest is capped at white, and the rising tier's and a focus's
-  neighbours' light is a *lift* the shader caps at each fragment's own
-  headroom under white; only a *glow* (focus, hover, a search match, a hub)
+  neighbours' light is a _lift_ the shader caps at each fragment's own
+  headroom under white; only a _glow_ (focus, hover, a search match, a hub)
   may pass it. the light is written once (`shadeNode` in
   `force3d-light.ts`) over the scene kit's shading arithmetic, run as TSL
   nodes by the material and as numbers by `force3d-light.test.ts`, which checks
@@ -957,24 +958,24 @@ like themselves (P5).
   the 3D graph in every theme.
 - **The themes.** Each reads only the design system's tokens (L1), so it
   looks like itself in kb, paper and terminal, light and dark (P5):
-  - *Matte* (the default) — the studio: the card's colour pooled at the
+  - _Matte_ (the default) — the studio: the card's colour pooled at the
     focal point over the page, fine stars, range fog, a soft key and an
     ink rim, links brightening source to target, labels in the graph face
     on a soft halo of the ground. The quiet look the others are measured
     against.
-  - *Cel* — ink on paper: a flat ground with no pool, stars or fog, the key
+  - _Cel_ — ink on paper: a flat ground with no pool, stars or fog, the key
     in three hard bands under a heavy ink outline, links drawn as even ink
     strokes, bold labels on a ruled plate of the ground. No bloom: a graphic
     print does not glow; focus reads through the outline and the swell.
-  - *Fresnel* — the night instrument: a pool falling away to the frame
+  - _Fresnel_ — the night instrument: a pool falling away to the frame
     under a still haze, more and brighter stars, a quiet body under a
     bright grazing rim, links leaning toward the accent, labels in the
     monospace face, upper case and tracked, and the strongest bloom.
-  - *Glass* — the aquarium: a faint warm pool of the accent and a soft
+  - _Glass_ — the aquarium: a faint warm pool of the accent and a soft
     haze, fog that starts close so depth reads, no stars; the ground seen
     through a tinted bead with a tight glint and a thin ink edge, faint
     links, and light labels on a frosted chip.
-  - *Bullet* — the outline, in space. Every node is drawn as the outline
+  - _Bullet_ — the outline, in space. Every node is drawn as the outline
     draws its bullet, from the same definition: `lib/bullet-mode.ts` owns a
     bullet's appearance (kind, shape, glyph, halo, dot, ring, their paints
     and their geometry — box, dot, halo and ring sizes, the ring's stroke
@@ -1018,7 +1019,7 @@ like themselves (P5).
     so the disc rules above (separation, picking, label clearance) hold
     unchanged and a plain leaf is the disc it always was; a dimmed bullet
     fades as a disc does.
-  - *Cube* — the model on the bench. Every node is a cube of its colour
+  - _Cube_ — the model on the bench. Every node is a cube of its colour
     (`SOLIDS` in `force3d-nodes.ts`: the solid layer is one instanced
     draw whatever the solid, and a theme's `form` picks it), holding the
     volume of the sphere it replaces, so it is picked, framed and
@@ -1033,8 +1034,8 @@ like themselves (P5).
     a restrained bloom, even links, labels in a firmer weight of the
     graph face. In 2D a cube is the node's disc.
 - **Link styles** are one choice for both renderers: a perspective's
-  `lens.link-style` is one of its option nodes — *straight* (the default),
-  *curved*, *flow* — and `graph-link-styles.ts` states what each one means
+  `lens.link-style` is one of its option nodes — _straight_ (the default),
+  _curved_, _flow_ — and `graph-link-styles.ts` states what each one means
   as two parts, its shape (straight or curved) and its motion (still, or
   dashes drifting source to target, one passing in the ambient period,
   still under reduced motion). Flow is drawn on curves. The renderers that
@@ -1061,7 +1062,7 @@ manipulation feel professional rather than merely functional.
   `CanvasSelection { nodeIds, edgeIds }` with single / Shift-toggle /
   rubber-band marquee / `Cmd+A`. Dragging any card in a multi-selection
   translates all of them. Delete/Backspace removes every selected node and edge
-  with cascade edge removal — and deleting a kb-node *card* never touches the
+  with cascade edge removal — and deleting a kb-node _card_ never touches the
   underlying graph node.
 - **The clipboard.** ⌘C writes the selection, with its members and the
   edges among them, as a canvas document. A paste is the browser's paste
@@ -1225,10 +1226,15 @@ manipulation feel professional rather than merely functional.
   record a drag makes is `connectItems`'s (`@kb/canvas`), the one an agent's
   `ext.canvas.connect` makes, by the ports the drag chose; a live
   dashed bezier ghost during creation, smart port snapping by nearest Euclidean
-  distance, 18×18px port targets, a 20px transparent hit path under the visible
-  stroke, per-colour SVG arrowhead markers, and mid-path labels editable by
-  double-click. `EdgeInspector` toggles arrowheads per end and picks JSON Canvas
-  colours 1–6.
+  distance (let go with ⌘ held, the end lands exactly where it was dropped on
+  the item's outline: `anchorNear`), 18×18px port targets, a 20px transparent
+  hit path under the visible stroke, and labels halfway along the route
+  (`routeMidpoint`), editable by double-click. Where an end meets its item,
+  the route (curve, straight, arc, elbow) and the head each end wears are
+  `@kb/canvas` `edges.ts`'s (`edgeRoute`, `edgeHead`); an edge's line and
+  heads are drawn as `edgePaint` says (`canvas-style.ts`). `EdgeInspector`
+  picks its route and bend, the head at each end, its line's dash and size,
+  and its colour from the palette (`EdgeLookRows`).
 - **Floating selection toolbar** with Inspect (one item) / Delete /
   Bring-to-front / Send-to-back. Items paint by the height of their top
   (`z + depth`), then in document order, and the two buttons reorder the
@@ -1368,9 +1374,14 @@ open view of that canvas.
   ground and outline as one SVG outline traced from the shape table
   (`canvas-item-outline.tsx`), its words in the step's and the face's
   tokens; the 3D face paints the same into its texture and its materials
-  take the opacity. The projection contract reads both back — the stroke's
-  dash and width, the opacity, the words' face, step and alignment — and
-  holds them to `itemPaint` for every look and each kind's defaults.
+  take the opacity. An edge's look is `edgePaint`: its line's width (by
+  size, a step heavier selected) and dash pattern, its heads' length, its
+  opacity. The look contract (`canvas-look.contract.test.tsx`) reads both
+  projections back — an item's stroke dash and width, opacity, and words'
+  face, step and alignment; an edge's points along its route, its line, its
+  opacity and each head's kind and outline — and holds them to `itemPaint`
+  and `edgePaint` for every look, every route and head, and each kind's
+  defaults.
 - **Cards stay cards.** Each card's face is painted into a canvas texture as
   it looks in 2D (`canvas-card-face.ts`): its text in the face and step its
   style names (a card's in the UI face at the body step), its bullet and tag
@@ -1384,9 +1395,10 @@ open view of that canvas.
   hairline and brighten a faint wash. A raised item or a solid casts its
   footprint as a soft shadow on the canvas plane, which carries the 2D dot
   grid, and a selected raised item drops a stem to the floor; edges are
-  lines between side anchors, halfway up a solid's side, climbing from one
-  height to the other, through the points of the one route the 2D path
-  draws (`edgeRoute`, `routePoints`). The ground is the
+  lines between their ends' anchors, halfway up a solid's side, climbing
+  from one height to the other, through the points of the one route the 2D
+  path draws (`edgeRoute`, `routePoints`), dashed as its line is, with its
+  heads' outlines (`edgeHead`) laid flat at their ends. The ground is the
   page's, edge to edge, so the crossfade is between equal grounds.
   Faces stay canvas textures on three r186: its `HTMLTexture` needs Chrome's
   HTML-in-Canvas origin trial (`copyElementImageToTexture`) and silently
@@ -1498,7 +1510,7 @@ The rules that hold everywhere, so no surface re-invents them:
   records `document.activeElement` on open and restores focus on close, traps
   `Tab` inside itself, and keeps the active result scrolled into view.
 - **IME composition is never interrupted.** Field editors track
-  `compositionstart`/`compositionend` *and* check `nativeEvent.isComposing`
+  `compositionstart`/`compositionend` _and_ check `nativeEvent.isComposing`
   before treating a key as a commit, so a composing CJK/dead-key sequence is not
   swallowed by Enter.
 - **Load failures are recoverable, not raw.** An initial graph/workspace error
@@ -1506,7 +1518,7 @@ The rules that hold everywhere, so no surface re-invents them:
   behind a disclosure, rather than dumping the error.
 - **Motion is a preference.** `index.css` carries one global
   `@media (prefers-reduced-motion: reduce)` block that flattens animation,
-  transition and scroll behaviour across *every* surface — the graph cross-fade,
+  transition and scroll behaviour across _every_ surface — the graph cross-fade,
   the canvas, the outline — so an animated surface added later inherits the
   policy for free rather than opting in.
 - **Focus follows the selection.** A `NodeRow` that becomes selected takes
@@ -1540,13 +1552,13 @@ both are answered from the node ⌘K menu rather than from a device switch.
     so "per node" there can only mean the frame node that owns the view; a
     row's own field rows still follow the row's own flag. One flag, two
     honest readings of "which node".
-  - *Migration (intentional breakage, same idiom as `loadExpandedIds`):* a
+  - _Migration (intentional breakage, same idiom as `loadExpandedIds`):_ a
     user who had the global switch on has no id set to migrate to, so debug
     starts off and is re-armed per node. The stale key inside
     `localStorage["kb-prefs"]` is ignored on read and dropped on next write.
 - **Pinning is listing.** `@kb/ui-sdk`'s `lib/pinned.ts` owns it: the
   seeded `pinned` node's **children** are contextual references (`sys.f.ref.target`) to the pinned
-  nodes, and that list *is* the sidebar section. `mutations.togglePin` appends
+  nodes, and that list _is_ the sidebar section. `mutations.togglePin` appends
   one such child or deletes it, and nothing else. Three things follow that a
   `pinned` supertag could not give (DESIGN.md →
   [Kinds, roles and options](./DESIGN.md#kinds-roles-and-options)):
@@ -1554,14 +1566,14 @@ both are answered from the node ⌘K menu rather than from a device switch.
     and sorted by label. Children are ordered, and the outline's existing
     drag-reorder writes that order — the sidebar learned nothing about
     dragging, because `pinned` is an ordinary node you can open and rearrange.
-  - **One node kind, reused.** A pin *is* a contextual reference: the row the
+  - **One node kind, reused.** A pin _is_ a contextual reference: the row the
     outline already renders, backlinks already count, and ⌘K already mints.
   - **Nothing is written to the pinned node.** That is why the toggle no
     longer refuses `sys.*` targets — tagging edited the node's kind slot, so
     pinning `sys.queries` was a write to it; pointing at a node is not.
   - The list node is deliberately **not** `sys.`-prefixed, for the same reason
     `lens.all-mentions` is not: its whole purpose is to be written to.
-  - **Naming collision, deliberately not merged:** an *ontology's* pins are
+  - **Naming collision, deliberately not merged:** an _ontology's_ pins are
     `sys.f.onto.member` props with their own Unpin control on the ontology
     page. Same English word, different field, different mechanism.
 
@@ -1708,7 +1720,7 @@ keeps the views of that family that are provided, in `picker.order`. While
 config is text, a view goes by its key's local id (`localIdOf`), which is
 how the stored name resolves to the key among them.
 
-- *Graph renderers.* Each renderer is a view whose `RendererKey`
+- _Graph renderers._ Each renderer is a view whose `RendererKey`
   (`@kb/graph`, `views.ts`) adds its capabilities, encodings and whether
   it moves links. Its params are the lens every renderer draws through
   (`LensParams`), then the `LENS_SETTINGS` it draws with, so the settings
@@ -1724,7 +1736,7 @@ how the stored name resolves to the key among them.
   prefetched when the graph page loads; a renderer view suspends in its own
   slot until the chunk arrives, and a failed load is tried again from that
   slot's error.
-- *Frame views.* A frame's children are shown by one of four frame views,
+- _Frame views._ A frame's children are shown by one of four frame views,
   each a view at placement `inline`: the outline's list, which nests them,
   and the collections family's table, board and cards
   (`@kb/collections-ui`), which lay them out as a node set inside the
@@ -1809,19 +1821,19 @@ config) are deferred with the host contract, in the same gap as above.
 **Decisions.** These are the defaults R1 takes for the brief's open
 questions. Each one can be overridden.
 
-1. *Name.* The concept is called **view** (`ViewPoint`, `ViewKey`,
+1. _Name._ The concept is called **view** (`ViewPoint`, `ViewKey`,
    `ViewSlot`). "Lens" already means a graph perspective, and "embed" names
    the consumer's act, not the thing. The overlap with the outline's
    `sys.f.view.*` prefix is accepted: those modes are views now
    (Families of views).
-2. *Where built-in keys live.* In `@kb/views`, as above: the package split
+2. _Where built-in keys live._ In `@kb/views`, as above: the package split
    this decision anticipated, made so the server holds the same keys. A key
    is data, so the package never pulls in the kernel, React or a store.
-3. *Which nodes get embeds.* Per-node refs only (`sys.f.views`), decided in
+3. _Which nodes get embeds._ Per-node refs only (`sys.f.views`), decided in
    A1; DESIGN.md → Kinds, roles and options → View nodes.
-4. *Neighbourhood direction.* The union of both directions, decided in A1;
+4. _Neighbourhood direction._ The union of both directions, decided in A1;
    stated in the same section.
-5. *Isolation.* Views are trusted and run in the same realm. Each one is
+5. _Isolation._ Views are trusted and run in the same realm. Each one is
    contained by its slot's error boundary and its fallback. Untrusted code
    is the code view's, which runs in a sandbox frame inside its own view
    (Code views below; DESIGN.md → Sandbox).
@@ -1832,14 +1844,14 @@ roles and options → View nodes): its `sys.f.view` names the key whose
 the node it is shown for (`paramsFromProps`). A code caller's params are
 checked by `tsc`; nothing decodes them at the slot.
 
-- *`graph.neighbourhood`* (graph plugin; `inline`, `page`) draws the
+- _`graph.neighbourhood`_ (graph plugin; `inline`, `page`) draws the
   neighbourhood of `root` — the nodes within `hops` of it along `edges`,
   either way — by hosting a renderer view the way the graph page does: it
   extracts the graph (`extractNeighbourhood`, the page's extraction over
   that node set), provides the `GraphFrame`, and draws the renderer named by
   `renderer` with `settings` in a page-placed slot filling its box, for
   `root`. Stored, its root is `lens.focus`, else the node it is shown for.
-- *`outline.snippet`* (outline plugin; `inline`) is a read-only glimpse of
+- _`outline.snippet`_ (outline plugin; `inline`) is a read-only glimpse of
   the outline under `root`: its text, then descendants `depth` levels down,
   at most `maxRows` rows. Stored, its root is `lens.focus`, else the node it
   is shown for.
@@ -2133,6 +2145,7 @@ the shell.
   renderer: `@kb/scene`, which touches no GPU, and `@kb/scene-gpu`, which is
   three, so a 3D host can mount a scene without carrying three itself
   ([The lab](#the-lab)).
+
 - **Every half is a package.** The outline, collections, graph, chart,
   code, agent, lab and canvas halves are `@kb/<family>-ui` packages, so
   `UI_ALLOWS` in `harness/src/constraints.ts` holds the shell's zones only. A half's tests
@@ -2168,15 +2181,15 @@ on the same stage, palette and timing, never on a copy of a study.
 Seven studies, each with a collapsible info card naming its technique, the
 principles below it applies, and two to four live parameters:
 
-| study  | technique                                                        | parameters                          |
-| ------ | ---------------------------------------------------------------- | ----------------------------------- |
-| Embers | TSL compute: a GPU spatial hash grid, contact heat, pops; bloom; four looks over one heat curve (glow, toon with an inverted-hull outline, ridged-noise molten, thin-film interference); heat haze and ash | look, heat gain, cooling rate, pop threshold |
-| Sky    | a sun that lights the moon (terminator, phase and earthshine follow where they stand), node stars in a 3D volume (parallax), a domain-warped nebula, orbit controls; four-point glints, dither | glint length, nebula, earthshine, dither |
-| Glass  | sphere tracing a signed distance field: smooth-min metaballs, normals from the gradient, Fresnel, refraction traced through the glass, per-channel dispersion, Beer–Lambert absorption, a studio of light strips and ink cards | blend, index, dispersion, absorption |
-| River  | a GPU curl-noise flow field: 131 072 particles advected by one TSL compute kernel (divergence-free swirl, a meandering current, a pointer vortex, recycling), drawn as velocity-aligned streak sprites | current, eddy scale, turbulence, streak |
-| Ocean  | Gerstner waves (steepness summed to at most 1), the analytic normal and a Jacobian foam mask, one sky function read by the dome, the reflections and the distance haze; Fresnel, a subsurface cheat, an HDR glitter path | waves, wavelength, sun height, foam |
-| Light  | key/fill/rim rig, soft shadows, GTAO, tone mapping, finishes     | tone mapping, PBR/matcap, AO, key angle |
-| Motion | staggered critically damped springs against an eased tween        | settle, stagger, drive, overlap     |
+| study  | technique                                                                                                                                                                                                                      | parameters                                   |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Embers | TSL compute: a GPU spatial hash grid, contact heat, pops; bloom; four looks over one heat curve (glow, toon with an inverted-hull outline, ridged-noise molten, thin-film interference); heat haze and ash                     | look, heat gain, cooling rate, pop threshold |
+| Sky    | a sun that lights the moon (terminator, phase and earthshine follow where they stand), node stars in a 3D volume (parallax), a domain-warped nebula, orbit controls; four-point glints, dither                                 | glint length, nebula, earthshine, dither     |
+| Glass  | sphere tracing a signed distance field: smooth-min metaballs, normals from the gradient, Fresnel, refraction traced through the glass, per-channel dispersion, Beer–Lambert absorption, a studio of light strips and ink cards | blend, index, dispersion, absorption         |
+| River  | a GPU curl-noise flow field: 131 072 particles advected by one TSL compute kernel (divergence-free swirl, a meandering current, a pointer vortex, recycling), drawn as velocity-aligned streak sprites                         | current, eddy scale, turbulence, streak      |
+| Ocean  | Gerstner waves (steepness summed to at most 1), the analytic normal and a Jacobian foam mask, one sky function read by the dome, the reflections and the distance haze; Fresnel, a subsurface cheat, an HDR glitter path       | waves, wavelength, sun height, foam          |
+| Light  | key/fill/rim rig, soft shadows, GTAO, tone mapping, finishes                                                                                                                                                                   | tone mapping, PBR/matcap, AO, key angle      |
+| Motion | staggered critically damped springs against an eased tween                                                                                                                                                                     | settle, stagger, drive, overlap              |
 
 Embers keeps its theme rather than forcing a dark stage: on a light ground
 the heat ramp moves from the emissive into the surface (`heatAlbedo`: pale
@@ -2335,11 +2348,11 @@ beside that set.
 
 ### Layers
 
-| layer | file | holds | may name |
-|---|---|---|---|
-| 1. design system | `ui/src/design-system.css` (the default), `ui/src/design-systems/<id>.css` (the others) | the values a skin chooses, as plain custom properties, with the colour overrides for dark | values only |
-| 2. bridge | `ui/src/index.css`, `@theme inline` | the mapping from layer 1 into Tailwind's namespaces (`--color-*`, `--text-*`, `--font-*`, …) | layer 1 |
-| 3. component roles | `ui/src/tokens.css` | row metrics, and the classes that compose layer 1 into a role (`.kb-text` is body text at the body step, `.kb-tag` a chip at the tag step) | layer 1 |
+| layer              | file                                                                                    | holds                                                                                                                                      | may name    |
+| ------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| 1. design system   | `ui/src/design-system.css` (the default), `ui/src/design-systems/<id>.css` (the others) | the values a skin chooses, as plain custom properties, with the colour overrides for dark                                                  | values only |
+| 2. bridge          | `ui/src/index.css`, `@theme inline`                                                     | the mapping from layer 1 into Tailwind's namespaces (`--color-*`, `--text-*`, `--font-*`, …)                                               | layer 1     |
+| 3. component roles | `ui/src/tokens.css`                                                                     | row metrics, and the classes that compose layer 1 into a role (`.kb-text` is body text at the body step, `.kb-tag` a chip at the tag step) | layer 1     |
 
 Components use layer-2 utilities (`text-meta`, `bg-popover`) and layer-3
 classes (`kb-text`). The bridge is `inline`, so every utility compiles to a
@@ -2357,11 +2370,11 @@ cannot pass as tokenized while bypassing the scale.
 A design system is one complete set of layer-1 values, with a light and a
 dark variant. Three ship:
 
-| id | character |
-|---|---|
-| `kb` (default) | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners |
-| `paper` | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal |
-| `terminal` | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white |
+| id             | character                                                                                                                                                                                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kb` (default) | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                |
+| `paper`        | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                      |
+| `terminal`     | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white |
 
 **The mechanism.** `<html data-theme="<id>">` picks the system, and the
 `.dark` class picks its variant, as it always has. The default is layer 1
@@ -2370,9 +2383,13 @@ and its dark set on `.dark, .dark [data-theme="kb"]`. Every other system is
 one stylesheet, `design-systems/<id>.css`, holding exactly two blocks:
 
 ```css
-[data-theme="paper"] { /* every layer-1 value: base and light colours */ }
+[data-theme="paper"] {
+  /* every layer-1 value: base and light colours */
+}
 .dark[data-theme="paper"],
-.dark [data-theme="paper"] { /* the colours the default varies in dark */ }
+.dark [data-theme="paper"] {
+  /* the colours the default varies in dark */
+}
 ```
 
 `index.css` imports each one after `design-system.css`, so a system's base
@@ -2388,7 +2405,7 @@ the blocking script in `index.html` writes it before first paint, as it does
 the `.dark` class, so there is no flash. A stored id without a stylesheet
 paints as the default, and the store corrects it on boot. It is chosen in
 Preferences → design (one live swatch per system) or by the palette's
-*Switch design system* command (`sys.cmd.switch-design-system`), which steps
+_Switch design system_ command (`sys.cmd.switch-design-system`), which steps
 through the registry. Switching crossfades like a theme change.
 
 The UI face used to be a preference of its own (`font`: Inter or Outfit).
@@ -2398,7 +2415,7 @@ guard covers, so it was folded in: a stored `font` is ignored and dropped on
 the next write.
 
 **Canvas and WebGL** re-read on the one appearance signal (see Radius,
-borders, faces, colour → *Canvas renderers re-read on one signal*); a
+borders, faces, colour → _Canvas renderers re-read on one signal_); a
 design-system change is an appearance change like light/dark.
 
 **The registry** is `DESIGN_SYSTEM_IDS` in `lib/theme.ts`, with a label per
@@ -2407,17 +2424,17 @@ id; the preference's schema, the picker and the command read it.
 **Guards** (`lib/design-systems.test.ts`, over the stylesheets through
 `lib/design-system-sheets.ts`):
 
-- *registry ↔ stylesheets*: one stylesheet per non-default id and none
+- _registry ↔ stylesheets_: one stylesheet per non-default id and none
   without one; each holds exactly its two blocks; `index.css` imports each
   after the default and before the roles.
-- *completeness*: a system restates every token the default sets, in every
+- _completeness_: a system restates every token the default sets, in every
   variant the default sets it. Two exceptions, and only these: **shared**
   tokens (the JSON Canvas presets, `--canvas-color-*`, are document colours
   — a card saved as red is red in every skin — so no system may set them)
   and **derived** tokens (a default whose value is only `var(--other)`, such
   as `--lab-accent`, follows that token and is inherited unless restated).
   A system may set no token the default does not.
-- *contrast*: for every system and variant, each text/ground pair
+- _contrast_: for every system and variant, each text/ground pair
   (foreground on background, card, popover, secondary, accent, muted and
   sidebar surfaces; muted text; the accent as link text and as a fill;
   destructive and warning text; lab ink on lab ground) meets WCAG AA for
@@ -2432,7 +2449,7 @@ id; the preference's schema, the picker and the command read it.
   value such as `text-amber-600`) fails. Content one component mounts into another's
   element is declared in the guard's `MOUNTS`; translucent text is not yet
   checked (gap `01M3BEJDX4YP2DPHSCFS66NZK1`).
-- *tag chips*: a tag colour is data, so a chip paints inline styles that no
+- _tag chips_: a tag colour is data, so a chip paints inline styles that no
   class walk sees. The guard evaluates what `tagChipColors` returns
   (`color-mix()` in oklab, `var()` resolved per system and variant) for every
   `TAG_PALETTE` entry on every page surface, at 4.5:1. The ink's pull toward
@@ -2492,19 +2509,19 @@ WebGL leaves the gradient fallback. Rendering needs no external requests.
 One step per font size the UI sets. A step sets font-size only; leading stays
 with the element (`leading-*`, or the `.kb-text` role's `--kb-text-leading`).
 
-| step | px | typical use |
-|---|---:|---|
-| `micro` | 9 | count badges |
-| `caption` | 10 | mono ids, micro labels |
-| `label` | 11 | chrome labels, buttons, uppercase section labels |
-| `tag` | 11.5 | tag chips (`.kb-tag`) |
-| `meta` | 12 | secondary text, menu rows, toasts |
-| `ui` | 13 | inputs, palette rows, breadcrumbs |
-| `note` | 14 | empty-state notes |
-| `body` | 14.5 | node and field text (`.kb-text`) |
-| `lead` | 16 | lead paragraphs, sub-headings |
-| `heading` | 18 | section headings |
-| `title` | 20 | the zoomed-root and page titles |
+| step      |   px | typical use                                      |
+| --------- | ---: | ------------------------------------------------ |
+| `micro`   |    9 | count badges                                     |
+| `caption` |   10 | mono ids, micro labels                           |
+| `label`   |   11 | chrome labels, buttons, uppercase section labels |
+| `tag`     | 11.5 | tag chips (`.kb-tag`)                            |
+| `meta`    |   12 | secondary text, menu rows, toasts                |
+| `ui`      |   13 | inputs, palette rows, breadcrumbs                |
+| `note`    |   14 | empty-state notes                                |
+| `body`    | 14.5 | node and field text (`.kb-text`)                 |
+| `lead`    |   16 | lead paragraphs, sub-headings                    |
+| `heading` |   18 | section headings                                 |
+| `title`   |   20 | the zoomed-root and page titles                  |
 
 - **The names are ordered roles, one size each,** like Apple's text styles
   (caption, footnote, body, title). They are not t-shirt sizes. Tailwind's
@@ -2529,14 +2546,14 @@ How far a surface floats above the page, lowest first. `--elevation-<level>`
 in layer 1 is bridged as `shadow-<level>`, and Tailwind's `shadow-*` scale is
 reset.
 
-| level | used by |
-|---|---|
-| `edge` | the active segment of a segmented control |
-| `raised` | canvas cards, ports and handles, a toggle's knob, small status chips |
-| `lifted` | toasts, the ref autocomplete dropdown |
-| `floating` | floating toolbars and legends over a canvas, graph tooltips |
-| `overlay` | popovers and pickers (the popover anatomy of DESIGN-RESKIN §1.5) |
-| `modal` | the command palette |
+| level      | used by                                                              |
+| ---------- | -------------------------------------------------------------------- |
+| `edge`     | the active segment of a segmented control                            |
+| `raised`   | canvas cards, ports and handles, a toggle's knob, small status chips |
+| `lifted`   | toasts, the ref autocomplete dropdown                                |
+| `floating` | floating toolbars and legends over a canvas, graph tooltips          |
+| `overlay`  | popovers and pickers (the popover anatomy of DESIGN-RESKIN §1.5)     |
+| `modal`    | the command palette                                                  |
 
 The levels are ordered and name a height, not a component. A new surface
 picks the level it floats at. It does not get a level named after itself.
@@ -2720,19 +2737,21 @@ diff with cavecrew-reviewer, I fix and merge).
 
 New module `packages/application/operations/src/render.ts`: `render(queryRows, template, format: "html" | "md")`
 — pure functions, no deps. Consumed by three surfaces from day 1:
+
 1. md materializer (existing templates migrate onto it),
 2. web UI's rendered-view panel (saved query → html block),
 3. kb MCP registers `ui://kb/view/<name>` resources (MCP Apps extension
    shape); the `render_view` tool is the `render.view` registry action,
    projected like every other action.
-Later "apps" = new template + query pair, registered by name. On-the-fly
-generative UI (model writes the template at answer time) also lands on this
-API — the client just passes a template string instead of a name.
+   Later "apps" = new template + query pair, registered by name. On-the-fly
+   generative UI (model writes the template at answer time) also lands on this
+   API — the client just passes a template string instead of a name.
 
 ## Packaging ("app like other apps") and dist
 
 Decision: **don't commit `ui/dist`** — built artifacts in git churn every
 diff. Instead, two install shapes:
+
 - Now: checkout-based (global `kb` wrapper already installed by HM); first
   `kb ui` run builds `ui/dist` into a gitignored dir, cached until sources
   change (source fingerprint vs `ui/dist/.kb-build-hash`). Fresh machine cost:
@@ -2811,7 +2830,6 @@ Fixed default `4321`, `--port` override, auto-open browser on start, bind
 transport for local subscriber apps + `kb ui` finding a free port and
 registering it in `.kb/runtime.json` for discovery; browser still needs a
 TCP port, everything else can go UDS.
-
 
 ### Field-based graph perspectives (2026-09-07)
 

@@ -19,8 +19,12 @@ import {
   isShapeNode,
   isTextNode,
   type CanvasDoc,
+  type CanvasEdge,
+  type CanvasHead,
   type CanvasNode,
+  type CanvasRoute,
 } from "./doc.ts";
+import { headOf } from "./edges.ts";
 import { lintCanvas, type CanvasLint } from "./lint.ts";
 import { ancestorsOf, canvasMembership } from "./membership.ts";
 import { directionFrom, itemBounds, type CanvasDirection } from "./relations.ts";
@@ -96,6 +100,15 @@ export type DescribedRelation =
       readonly edge: string;
       readonly label?: string;
       readonly field?: string;
+      /** How it runs, where not JSON Canvas's curve. */
+      readonly route?: CanvasRoute;
+      /** The head an end wears ("none": bare), where not JSON Canvas's: bare leaving, an arrow arriving. */
+      readonly fromHead?: CanvasHead | "none";
+      readonly toHead?: CanvasHead | "none";
+      /** Its colour: a palette name, or as written. */
+      readonly color?: string;
+      /** The looks it draws that are not an edge's defaults. */
+      readonly style?: CanvasLooks;
     }
   | {
       readonly kind: "near";
@@ -210,6 +223,21 @@ function describeItems(
   return { items, peripheral };
 }
 
+/** How an edge is drawn, in the words `connect` takes: only what is not JSON Canvas's default. */
+function edgeLook(edge: CanvasEdge) {
+  const { color } = styleOf(edge);
+  const looks = writtenLooks(edge);
+  const fromHead: CanvasHead | "none" = headOf(edge, "from") ?? "none";
+  const toHead: CanvasHead | "none" = headOf(edge, "to") ?? "none";
+  return {
+    ...(edge.route === undefined || edge.route === "curve" ? {} : { route: edge.route }),
+    ...(fromHead === "none" ? {} : { fromHead }),
+    ...(toHead === "arrow" ? {} : { toHead }),
+    ...(color === undefined ? {} : { color: paintName(color) }),
+    ...(Object.keys(looks).length === 0 ? {} : { style: looks }),
+  };
+}
+
 /** What rests on what, what is in which frame, and what is linked: every item's, every edge's. */
 function placedRelations(doc: CanvasDoc): DescribedRelation[] {
   const membership = canvasMembership(doc.nodes);
@@ -229,6 +257,7 @@ function placedRelations(doc: CanvasDoc): DescribedRelation[] {
       edge: edge.id,
       ...(edge.label === undefined ? {} : { label: edge.label }),
       ...(edge.kbLink?.mode === "native" ? { field: edge.kbLink.fieldId } : {}),
+      ...edgeLook(edge),
     });
   }
   return relations;

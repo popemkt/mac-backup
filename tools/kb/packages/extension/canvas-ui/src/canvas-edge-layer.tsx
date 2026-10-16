@@ -1,18 +1,27 @@
+/**
+ * The 2D canvas's edges: each its route's path (`edgeRoute`, `@kb/canvas`),
+ * stroked as its look says (`edgePaint`), the heads its ends wear drawn as
+ * their own outlines (`edgeHead`) — the ones the 3D scene lays flat — and
+ * its label halfway along the route. The ghost of an edge being drawn
+ * follows the pointer.
+ */
 import {
-  CANVAS_PALETTE,
+  edgeHead,
   edgeRoute,
   looseRoute,
+  routeMidpoint,
   sideTerminal,
-  styleOf,
   svgPathData,
   type CanvasDoc,
   type CanvasEdge,
   type CanvasNode,
+  type EdgeRoute,
 } from "@kb/canvas";
 import { edgePropPresent } from "./canvas-api";
-import { paintCss, paletteToken } from "./canvas-color";
+import { paintCss } from "./canvas-color";
 import type { CanvasSelection } from "./canvas-selection";
 import type { PointerState } from "./canvas-pointer";
+import { edgePaint, type EdgePaint } from "./canvas-style";
 import { hasText, type OutlineNode } from "@kb/ui-sdk";
 import { clientToCanvas } from "./canvas-camera";
 
@@ -41,61 +50,103 @@ type CanvasEdgeViewProps = Pick<
   | "selection"
 > & { edge: CanvasEdge };
 
-function EdgeMarkers() {
+type EdgeLabelProps = Pick<
+  CanvasEdgeLayerProps,
+  "editingEdgeLabel" | "onEdgeLabelCommit" | "onEditingEdgeLabelChange"
+> & { edge: CanvasEdge; at: { x: number; y: number } };
+
+/** An edge's label, halfway along its route: a chip, or the field that edits it. */
+function EdgeLabel({
+  edge,
+  at,
+  editingEdgeLabel,
+  onEdgeLabelCommit,
+  onEditingEdgeLabelChange,
+}: EdgeLabelProps) {
+  if (editingEdgeLabel === edge.id) {
+    return (
+      <foreignObject x={at.x - 60} y={at.y - 12} width={120} height={24}>
+        <input
+          autoFocus
+          type="text"
+          className="h-full w-full rounded-xs border border-primary/40 bg-popover px-1 text-center text-label"
+          defaultValue={edge.label ?? ""}
+          onBlur={(ev) => {
+            const val = ev.currentTarget.value.trim();
+            onEdgeLabelCommit(edge, val);
+            onEditingEdgeLabelChange(null);
+          }}
+          onKeyDown={(ev) => {
+            if (ev.key === "Enter" || ev.key === "Escape") {
+              ev.currentTarget.blur();
+            }
+            ev.stopPropagation();
+          }}
+        />
+      </foreignObject>
+    );
+  }
+  if (!hasText(edge.label)) return null;
   return (
-    <defs>
-      <marker
-        id="kb-arrow"
-        viewBox="0 0 10 10"
-        refX="8"
-        refY="5"
-        markerWidth="6"
-        markerHeight="6"
-        orient="auto-start-reverse"
+    <g
+      transform={`translate(${at.x}, ${at.y})`}
+      className="cursor-pointer"
+      onDoubleClick={(ev) => {
+        ev.stopPropagation();
+        onEditingEdgeLabelChange(edge.id);
+      }}
+    >
+      <rect
+        x={-edge.label.length * 3.5 - 6}
+        y={-10}
+        width={edge.label.length * 7 + 12}
+        height={20}
+        rx={4}
+        className="fill-popover stroke-foreground/10"
+        strokeWidth={1}
+      />
+      <text
+        textAnchor="middle"
+        dominantBaseline="central"
+        className="fill-foreground/70 text-label font-medium"
+        style={{ pointerEvents: "none" }}
       >
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
-      </marker>
-      {CANVAS_PALETTE.map(({ id: colorId }) => (
-        <marker
-          key={colorId}
-          id={`kb-arrow-${colorId}`}
-          viewBox="0 0 10 10"
-          refX="8"
-          refY="5"
-          markerWidth="6"
-          markerHeight="6"
-          orient="auto-start-reverse"
-        >
-          <path d="M 0 0 L 10 5 L 0 10 z" fill={`var(${paletteToken(colorId)})`} />
-        </marker>
-      ))}
-      <marker
-        id="kb-arrow-rev"
-        viewBox="0 0 10 10"
-        refX="2"
-        refY="5"
-        markerWidth="6"
-        markerHeight="6"
-        orient="auto-start-reverse"
-      >
-        <path d="M 10 0 L 0 5 L 10 10 z" fill="currentColor" />
-      </marker>
-      {CANVAS_PALETTE.map(({ id: colorId }) => (
-        <marker
-          key={`rev-${colorId}`}
-          id={`kb-arrow-rev-${colorId}`}
-          viewBox="0 0 10 10"
-          refX="2"
-          refY="5"
-          markerWidth="6"
-          markerHeight="6"
-          orient="auto-start-reverse"
-        >
-          <path d="M 10 0 L 0 5 L 10 10 z" fill={`var(${paletteToken(colorId)})`} />
-        </marker>
-      ))}
-    </defs>
+        {edge.label}
+      </text>
+    </g>
   );
+}
+
+/** The heads an edge's ends wear, in its ink: filled, or stroked as heavy as its line. */
+function EdgeHeads({
+  edge,
+  route,
+  paint,
+  ink,
+}: {
+  edge: CanvasEdge;
+  route: EdgeRoute;
+  paint: EdgePaint;
+  ink: string;
+}) {
+  return (["from", "to"] as const).map((end) => {
+    const head = edgeHead(edge, route, end, paint.headLength);
+    if (head === null) return null;
+    return (
+      <path
+        key={end}
+        data-edge-head={end}
+        data-head-kind={head.kind}
+        d={svgPathData(head.path)}
+        fill={head.filled ? ink : "none"}
+        stroke={ink}
+        strokeWidth={head.filled ? 0 : paint.width}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="pointer-events-none transition-colors"
+      />
+    );
+  });
 }
 
 function CanvasEdgeView({
@@ -116,75 +167,21 @@ function CanvasEdgeView({
   const selected = selection.edgeIds.has(edge.id);
   const unbound =
     edge.kbLink?.mode === "native" && !!edge.kbLink.fieldId && !edgePropPresent(edge, nodes);
-  const paint = styleOf(edge).color;
-  const edgeColor = paintCss(paint);
-  // A palette colour has its own markers; any other paints the ink's.
-  const tint = paint?.kind === "palette" ? `-${paint.id}` : "";
-  const markerEnd = edge.toEnd === "none" ? undefined : `url(#kb-arrow${tint})`;
-  const markerStart = edge.fromEnd === "arrow" ? `url(#kb-arrow-rev${tint})` : undefined;
-
-  // Edge label midpoint
-  const labelEl = (() => {
-    const a = route.from.at;
-    const b = route.to.at;
-    const mx = (a.x + b.x) / 2;
-    const my = (a.y + b.y) / 2;
-    if (editingEdgeLabel === edge.id) {
-      return (
-        <foreignObject x={mx - 60} y={my - 12} width={120} height={24}>
-          <input
-            autoFocus
-            type="text"
-            className="h-full w-full rounded-xs border border-primary/40 bg-popover px-1 text-center text-label"
-            defaultValue={edge.label ?? ""}
-            onBlur={(ev) => {
-              const val = ev.currentTarget.value.trim();
-              onEdgeLabelCommit(edge, val);
-              onEditingEdgeLabelChange(null);
-            }}
-            onKeyDown={(ev) => {
-              if (ev.key === "Enter" || ev.key === "Escape") {
-                ev.currentTarget.blur();
-              }
-              ev.stopPropagation();
-            }}
-          />
-        </foreignObject>
-      );
-    }
-    if (!hasText(edge.label)) return null;
-    return (
-      <g
-        transform={`translate(${mx}, ${my})`}
-        className="cursor-pointer"
-        onDoubleClick={(ev) => {
-          ev.stopPropagation();
-          onEditingEdgeLabelChange(edge.id);
-        }}
-      >
-        <rect
-          x={-edge.label.length * 3.5 - 6}
-          y={-10}
-          width={edge.label.length * 7 + 12}
-          height={20}
-          rx={4}
-          className="fill-popover stroke-foreground/10"
-          strokeWidth={1}
-        />
-        <text
-          textAnchor="middle"
-          dominantBaseline="central"
-          className="fill-foreground/70 text-label font-medium"
-          style={{ pointerEvents: "none" }}
-        >
-          {edge.label}
-        </text>
-      </g>
-    );
-  })();
-
+  const paint = edgePaint(edge, selected);
+  const ink =
+    paintCss(paint.color) ??
+    (unbound
+      ? "color-mix(in oklab, var(--foreground) 15%, transparent)"
+      : selected
+        ? "var(--primary)"
+        : "currentColor");
   return (
-    <g key={edge.id} data-edge-id={edge.id} data-selected={selected ? "" : undefined}>
+    <g
+      key={edge.id}
+      data-edge-id={edge.id}
+      data-selected={selected ? "" : undefined}
+      opacity={paint.opacity === 1 ? undefined : paint.opacity}
+    >
       {/* Fat transparent hit area */}
       <path
         d={d}
@@ -203,22 +200,25 @@ function CanvasEdgeView({
         data-edge-path
         d={d}
         fill="none"
-        stroke={
-          edgeColor ??
-          (unbound
-            ? "color-mix(in oklab, var(--foreground) 15%, transparent)"
-            : selected
-              ? "var(--primary)"
-              : "currentColor")
+        stroke={paint.line === null ? "none" : ink}
+        strokeWidth={paint.width}
+        strokeDasharray={
+          paint.line === null || paint.line.pattern.length === 0
+            ? undefined
+            : paint.line.pattern.join(" ")
         }
-        strokeWidth={selected ? 2.5 : 1.5}
         className="pointer-events-none transition-colors"
-        markerEnd={markerEnd}
-        markerStart={markerStart}
       >
         {unbound && <title>prop no longer present — rebind?</title>}
       </path>
-      {labelEl}
+      <EdgeHeads edge={edge} route={route} paint={paint} ink={ink} />
+      <EdgeLabel
+        edge={edge}
+        at={routeMidpoint(route)}
+        editingEdgeLabel={editingEdgeLabel}
+        onEdgeLabelCommit={onEdgeLabelCommit}
+        onEditingEdgeLabelChange={onEditingEdgeLabelChange}
+      />
     </g>
   );
 }
@@ -259,7 +259,6 @@ export function CanvasEdgeLayer(props: CanvasEdgeLayerProps) {
       width={8000}
       height={8000}
     >
-      <EdgeMarkers />
       <g className="pointer-events-auto text-foreground/35">
         {props.doc.edges.map((edge) => (
           <CanvasEdgeView key={edge.id} {...props} edge={edge} />

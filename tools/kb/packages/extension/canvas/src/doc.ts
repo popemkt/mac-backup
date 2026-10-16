@@ -5,8 +5,9 @@
  * Unknown node types and extra fields round-trip (forward compatible). kb's
  * own extension fields are typed here: `nodeId`, `z`, `depth`,
  * `rotation`, `parent` and `style` on any item, `shape` on a shape item,
- * `kbLink` on an edge, and `camera` on the document (`./camera.ts`). The
- * format, as agents write it, is DESIGN.md → Canvas documents.
+ * `kbLink`, the anchors, `route`, `bend`, the heads and `style` on an edge,
+ * and `camera` on the document (`./camera.ts`). The format, as agents write
+ * it, is DESIGN.md → Canvas documents.
  */
 import { boxRotation, boxTop } from "./box.ts";
 import { emitCanvasCamera, parseCanvasCamera, type CanvasCamera } from "./camera.ts";
@@ -23,8 +24,32 @@ import {
 import { normalizeDegrees, type CanvasRotation } from "./rotation.ts";
 import { emitStyleField, parseStyleField, type CanvasStyleField } from "./style-fields.ts";
 
-export type CanvasSide = "top" | "right" | "bottom" | "left";
+/** The four sides of an item's box an edge may leave or arrive by (JSON Canvas's). */
+export const CANVAS_SIDES = ["top", "right", "bottom", "left"] as const;
+export type CanvasSide = (typeof CANVAS_SIDES)[number];
 type CanvasEdgeEnd = "none" | "arrow";
+
+/**
+ * A point of an item's box, 0–1 across it (x) and down it (y): where an
+ * edge's end meets the item, carried onto the outline its shape draws
+ * (`./edges.ts`).
+ */
+export interface CanvasAnchor {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * How an edge runs between its ends (`./edges.ts`): JSON Canvas's curve
+ * out along each end's side, a straight line, an arc, or an elbow along the
+ * canvas's axes.
+ */
+export const CANVAS_ROUTES = ["curve", "straight", "arc", "elbow"] as const;
+export type CanvasRoute = (typeof CANVAS_ROUTES)[number];
+
+/** The head an edge's end wears: JSON Canvas's filled arrow, or one kb adds. */
+export const CANVAS_HEADS = ["arrow", "open", "dot", "diamond", "bar"] as const;
+export type CanvasHead = (typeof CANVAS_HEADS)[number];
 
 export type KbLinkMode = "native" | "layout";
 
@@ -189,6 +214,30 @@ export interface CanvasEdge {
   color?: string;
   label?: string;
   kbLink?: KbLink;
+  /**
+   * Where each end meets its item, precisely; absent, its side's middle.
+   * The side nearest an anchor is written beside it, the coarse form other
+   * JSON Canvas readers keep (`./edges.ts` `withEnd`).
+   */
+  fromAnchor?: CanvasAnchor;
+  toAnchor?: CanvasAnchor;
+  /** How it runs between its ends; absent, JSON Canvas's curve. */
+  route?: CanvasRoute;
+  /**
+   * How far an arc's middle stands off the straight line, to the left of
+   * the way it runs (negative: to the right), or how far an elbow's middle
+   * run is moved off centre, in canvas units. Absent, an arc bows a fifth
+   * of the way across and an elbow turns halfway.
+   */
+  bend?: number;
+  /**
+   * Which head an end wears when its `fromEnd`/`toEnd` says it wears one;
+   * absent, JSON Canvas's arrow (`./edges.ts` `withHead`).
+   */
+  fromHead?: CanvasHead;
+  toHead?: CanvasHead;
+  /** kb's looks: an edge draws its `dash`, `size` and `opacity` (`./style.ts`). */
+  style?: CanvasStyleField;
   extra?: Record<string, unknown>;
 }
 
@@ -205,7 +254,6 @@ export const EMPTY_CANVAS_DOC: CanvasDoc = Object.freeze({
   edges: [],
 });
 
-const SIDES = ["top", "right", "bottom", "left"] as const;
 const ENDS = ["none", "arrow"] as const;
 /** kb's optional numeric item fields, written as no field at 0 (`withNumber`). */
 type ItemNumber = "z" | "depth";
@@ -332,17 +380,34 @@ function parseNode(raw: unknown): CanvasNode | null {
   return base;
 }
 
+/** An anchor as written: an object of just `x` and `y`, each from 0 to 1. */
+function parseAnchor(raw: unknown): CanvasAnchor | undefined {
+  if (!isRecord(raw) || Object.keys(raw).some((key) => key !== "x" && key !== "y")) {
+    return undefined;
+  }
+  const [x, y] = [finite(raw.x), finite(raw.y)];
+  if (x === undefined || y === undefined || x < 0 || x > 1 || y < 0 || y > 1) return undefined;
+  return { x, y };
+}
+
 /** An edge's optional fields: JSON Canvas's, then kb's. */
 type EdgeField = Exclude<keyof CanvasEdge, "id" | "fromNode" | "toNode" | "extra">;
 
 const EDGE_FIELDS: FieldCodecs<CanvasEdge, EdgeField> = {
-  fromSide: { read: (raw) => oneOf(SIDES, raw) },
-  toSide: { read: (raw) => oneOf(SIDES, raw) },
+  fromSide: { read: (raw) => oneOf(CANVAS_SIDES, raw) },
+  toSide: { read: (raw) => oneOf(CANVAS_SIDES, raw) },
   fromEnd: { read: (raw) => oneOf(ENDS, raw) },
   toEnd: { read: (raw) => oneOf(ENDS, raw) },
   color: { read: text },
   label: { read: text },
   kbLink: { read: parseKbLink },
+  fromAnchor: { read: parseAnchor, write: ({ x, y }) => ({ x, y }) },
+  toAnchor: { read: parseAnchor, write: ({ x, y }) => ({ x, y }) },
+  route: { read: (raw) => oneOf(CANVAS_ROUTES, raw) },
+  bend: { read: finite },
+  fromHead: { read: (raw) => oneOf(CANVAS_HEADS, raw) },
+  toHead: { read: (raw) => oneOf(CANVAS_HEADS, raw) },
+  style: { read: parseStyleField, write: emitStyleField },
 };
 
 const EDGE_OWN_KEYS: ReadonlySet<string> = new Set(["id", "fromNode", "toNode"]);

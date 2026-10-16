@@ -370,18 +370,7 @@ export function CanvasOverlays({
           onModeChange={onEdgeModeChange}
           onFieldChange={onEdgeFieldChange}
           onDelete={onDeleteEdge}
-          onArrowChange={(end, value) => onEdgeChange({ ...selectedEdge, [end]: value })}
-          onColorChange={(color) => {
-            const updated = { ...selectedEdge };
-            if (color === undefined) delete updated.color;
-            else updated.color = color;
-            onEdgeChange(updated);
-          }}
-          onLabelChange={(label) => {
-            const updated = { ...selectedEdge, label: label || undefined };
-            if (!label) delete updated.label;
-            onEdgeChange(updated);
-          }}
+          onChange={onEdgeChange}
         />
       )}
 

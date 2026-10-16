@@ -1,61 +1,152 @@
 /**
  * The 3D canvas's edges (`canvas-scene`): each a line through its route's
  * points (`edgeRoute`, `routePoints`, `@kb/canvas`) — the path the 2D canvas
- * draws, climbing from one end's height to the other — with a cone for an
- * arrowhead. An edge is rebuilt only when what it is drawn from changes
- * (`edgeVersion`: its route's ends, arrowheads, colour and selection); a
- * drag rebuilds just the edges of the cards it carries.
+ * draws, climbing from one end's height to the other — stroked as its look
+ * says (`edgePaint`), with the heads its ends wear (`edgeHead`) laid flat at
+ * their ends' heights: the outlines the 2D canvas draws. An edge is rebuilt
+ * only when what it is drawn from changes (`edgeVersion`); a drag rebuilds
+ * just the edges of the cards it carries.
  */
 import {
   Color,
-  ConeGeometry,
+  DoubleSide,
   Group,
   Line2NodeMaterial,
   Mesh,
   MeshBasicNodeMaterial,
-  Quaternion,
+  NormalBlending,
+  Shape,
+  ShapeGeometry,
+  Vector2,
   Vector3,
 } from "three/webgpu";
 import { Line2 } from "three/addons/lines/webgpu/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import {
+  CANVAS_HEADS,
+  edgeHead,
   edgeRoute,
+  outlinePoints,
   routePoints,
-  styleOf,
   type CanvasEdge,
+  type CanvasHead,
+  type EdgeEnd,
+  type EdgeHead,
   type EdgeRoute,
-  type EdgeTerminal,
 } from "@kb/canvas";
 import { paintColor, type CardLook } from "./canvas-card-face";
 import type { CanvasSceneContent } from "./canvas-scene-content";
+import { edgePaint, type EdgePaint } from "./canvas-style";
 
-const UP = new Vector3(0, 1, 0);
 /** An edge runs a hair over the planes it joins, so a flat card never covers it. */
 const LIFT = 0.5;
+
+type Point = { x: number; y: number };
+
+/** An edge as drawn, read back: its line, its opacity and its heads, in canvas space. */
+export interface DrawnEdge {
+  /** The points its line runs through, across the floor. */
+  readonly points: readonly Point[];
+  /** Its line's dash pattern and width; null when no line is drawn. */
+  readonly line: { readonly pattern: readonly number[]; readonly width: number } | null;
+  readonly opacity: number;
+  readonly heads: readonly {
+    readonly end: EdgeEnd;
+    readonly kind: CanvasHead;
+    readonly filled: boolean;
+    readonly points: readonly Point[];
+  }[];
+}
+
+/** How a line is stroked: its dash pattern (empty: unbroken), its width and its opacity. */
+interface Stroke {
+  readonly pattern: readonly number[];
+  readonly width: number;
+  readonly opacity: number;
+}
 
 /** The route's points in three's space (canvas y flipped), a hair over its planes. */
 function edgeCurve(route: EdgeRoute): Vector3[] {
   return routePoints(route).map((p) => new Vector3(p.x, -p.y, p.z + LIFT));
 }
 
-const terminalKey = ({ at, out }: EdgeTerminal) => `${at.x},${at.y},${at.z},${out.x},${out.y}`;
-
-/** Everything an edge is drawn from, as a version: its route's ends, heads, colour and selection. */
+/** Everything an edge is drawn from, as a version: its route, its heads and looks, and selection. */
 function edgeVersion(edge: CanvasEdge, route: EdgeRoute, selected: boolean) {
-  const ends = `${edge.fromEnd ?? ""}>${edge.toEnd ?? ""}`;
-  const at = `${terminalKey(route.from)}|${terminalKey(route.to)}`;
-  return `${at}|${ends}|${edge.color ?? ""}|${selected ? "s" : "-"}`;
+  const heads = [edge.fromEnd, edge.fromHead, edge.toEnd, edge.toHead];
+  const drawn = [route.path, route.from.at.z, route.to.at.z, heads, edge.color, edge.style];
+  return `${JSON.stringify(drawn)}|${selected ? "s" : "-"}`;
 }
 
-interface DrawnEdge {
+/** A line's points in canvas space, read from its own geometry (three's y flipped back). */
+function linePoints(line: Line2): Point[] {
+  const start = line.geometry.getAttribute("instanceStart");
+  const end = line.geometry.getAttribute("instanceEnd");
+  const points = Array.from({ length: start.count }, (_, i) => ({
+    x: start.getX(i),
+    y: -start.getY(i),
+  }));
+  const last = end.count - 1;
+  if (last >= 0) points.push({ x: end.getX(last), y: -end.getY(last) });
+  return points;
+}
+
+/** A filled head's outline in canvas space, read from its mesh's vertices. */
+function meshPoints(mesh: Mesh): Point[] {
+  const position = mesh.geometry.getAttribute("position");
+  return Array.from({ length: position.count }, (_, i) => ({
+    x: position.getX(i),
+    y: -position.getY(i),
+  }));
+}
+
+/**
+ * The material a line is drawn with. A translucent one blends over what is
+ * behind it, which a line's material does not do by default.
+ */
+function lineMaterial(color: Color, { pattern, width, opacity }: Stroke): Line2NodeMaterial {
+  const [dashSize, gapSize] = pattern;
+  return new Line2NodeMaterial({
+    color,
+    linewidth: width,
+    dashed: dashSize !== undefined,
+    ...(dashSize === undefined ? {} : { dashSize, gapSize: gapSize ?? dashSize }),
+    ...(opacity < 1
+      ? { transparent: true, opacity, blending: NormalBlending, depthWrite: false }
+      : {}),
+  });
+}
+
+/** A line through `points` (three's space), stroked as `material` says. */
+function lineThrough(points: readonly Vector3[], material: Line2NodeMaterial): Line2 {
+  const geometry = new LineGeometry();
+  geometry.setPositions(points.flatMap((p) => [p.x, p.y, p.z]));
+  const line = new Line2(geometry, material);
+  line.computeLineDistances();
+  return line;
+}
+
+/** The heads drawn in `group`, read back from their names, geometry and kind of object. */
+function headsIn(group: Group): DrawnEdge["heads"] {
+  return group.children.flatMap((child): DrawnEdge["heads"] => {
+    const [, at, named] = child.name.split(":");
+    const kind = CANVAS_HEADS.find((k) => k === named);
+    if (kind === undefined) return [];
+    const end: EdgeEnd = at === "from" ? "from" : "to";
+    // A line is a mesh of its segments too: ask it first.
+    if (child instanceof Line2) return [{ end, kind, filled: false, points: linePoints(child) }];
+    if (child instanceof Mesh) return [{ end, kind, filled: true, points: meshPoints(child) }];
+    return [];
+  });
+}
+
+interface Drawn {
   readonly group: Group;
   readonly version: string;
 }
 
 export class EdgeLayer {
   readonly root = new Group();
-  private readonly cone = new ConeGeometry(4.2, 11, 18);
-  private readonly drawn = new Map<string, DrawnEdge>();
+  private readonly drawn = new Map<string, Drawn>();
   private look: CardLook;
   ids: readonly string[] = [];
 
@@ -82,7 +173,7 @@ export class EdgeLayer {
       const version = edgeVersion(edge, route, selected);
       if (this.drawn.get(edge.id)?.version === version) continue;
       this.drop(edge.id);
-      const group = this.draw(edge, edgeCurve(route), selected);
+      const group = this.draw(edge, route, edgePaint(edge, selected), selected);
       this.root.add(group);
       this.drawn.set(edge.id, { group, version });
     }
@@ -91,65 +182,55 @@ export class EdgeLayer {
     this.ids = ids;
   }
 
-  /**
-   * Edge `id` as drawn, in canvas space (three's y flipped back): the points
-   * its line runs through, read from the line's own geometry.
-   */
-  pointsOf(id: string): { x: number; y: number; z: number }[] | null {
-    const drawn = this.drawn.get(id);
-    const line = drawn?.group.children.find((child) => child instanceof Line2);
-    if (!(line instanceof Line2)) return null;
-    const start = line.geometry.getAttribute("instanceStart");
-    const end = line.geometry.getAttribute("instanceEnd");
-    const points = Array.from({ length: start.count }, (_, i) => ({
-      x: start.getX(i),
-      y: -start.getY(i),
-      z: start.getZ(i) - LIFT,
-    }));
-    const last = end.count - 1;
-    if (last >= 0) points.push({ x: end.getX(last), y: -end.getY(last), z: end.getZ(last) - LIFT });
-    return points;
+  /** Edge `id` as drawn, read back from its line's and its heads' own geometry and materials. */
+  drawnOf(id: string): DrawnEdge | null {
+    const group = this.drawn.get(id)?.group;
+    const line = group?.children.find((child) => child.name === "line");
+    if (group === undefined || !(line instanceof Line2)) return null;
+    const { material } = line;
+    return {
+      points: linePoints(line),
+      line: line.visible
+        ? {
+            pattern: material.dashed ? [material.dashSize, material.gapSize] : [],
+            width: material.linewidth,
+          }
+        : null,
+      opacity: material.transparent ? material.opacity : 1,
+      heads: headsIn(group),
+    };
   }
 
   dispose(): void {
     for (const id of this.drawn.keys()) this.drop(id);
-    this.cone.dispose();
   }
 
-  private colorOf(edge: CanvasEdge, selected: boolean): Color {
+  /** An edge's ink, as the 2D canvas inks it: its colour, else the selection's, else the stroke's. */
+  private colorOf(paint: EdgePaint, selected: boolean): Color {
     const { look } = this;
+    const preset = paintColor(look, paint.color);
+    if (preset !== undefined) return new Color(preset);
     if (selected) return new Color(look.primary);
-    const preset = paintColor(look, styleOf(edge).color);
     // At rest an edge is the 2D stroke, composited over the ground.
-    return preset === undefined
-      ? new Color(look.face).lerp(new Color(look.ink), 0.4)
-      : new Color(preset);
+    return new Color(look.face).lerp(new Color(look.ink), 0.4);
   }
 
-  private draw(edge: CanvasEdge, points: readonly Vector3[], selected: boolean): Group {
-    const color = this.colorOf(edge, selected);
+  private draw(edge: CanvasEdge, route: EdgeRoute, paint: EdgePaint, selected: boolean): Group {
+    const color = this.colorOf(paint, selected);
     const group = new Group();
-    const geometry = new LineGeometry();
-    geometry.setPositions(points.flatMap((p) => [p.x, p.y, p.z]));
-    const line = new Line2(
-      geometry,
-      new Line2NodeMaterial({ color, linewidth: selected ? 2.4 : 1.6 }),
+    const pattern = paint.line?.pattern ?? [];
+    const line = lineThrough(
+      edgeCurve(route),
+      lineMaterial(color, { pattern, width: paint.width, opacity: paint.opacity }),
     );
+    line.name = "line";
+    line.visible = paint.line !== null;
     group.add(line);
-    if (edge.toEnd !== "none") group.add(this.arrow(points.at(-1), points.at(-2), color));
-    if (edge.fromEnd === "arrow") group.add(this.arrow(points[0], points[1], color));
+    for (const end of ["from", "to"] as const) {
+      const head = edgeHead(edge, route, end, paint.headLength);
+      if (head !== null) group.add(headObject(head, end, color, paint));
+    }
     return group;
-  }
-
-  private arrow(tip: Vector3 | undefined, before: Vector3 | undefined, color: Color): Group {
-    const holder = new Group();
-    if (tip === undefined || before === undefined) return holder;
-    const dir = tip.clone().sub(before).normalize();
-    const head = new Mesh(this.cone, new MeshBasicNodeMaterial({ color }));
-    head.quaternion.copy(new Quaternion().setFromUnitVectors(UP, dir));
-    head.position.copy(tip).addScaledVector(dir, -5.5);
-    holder.add(head);
-    return holder;
   }
 
   private drop(id: string): void {
@@ -161,9 +242,33 @@ export class EdgeLayer {
         child.geometry.dispose();
         child.material.dispose();
       } else if (child instanceof Mesh && child.material instanceof MeshBasicNodeMaterial) {
+        child.geometry.dispose();
         child.material.dispose();
       }
     });
     this.drawn.delete(id);
   }
+}
+
+/** A head laid flat at its end's height: filled as a mesh, or stroked as a line as heavy as the edge's. */
+function headObject(head: EdgeHead, end: EdgeEnd, color: Color, paint: EdgePaint): Mesh | Line2 {
+  const z = head.z + LIFT;
+  const outline = outlinePoints(head.path);
+  const name = `head:${end}:${head.kind}`;
+  if (!head.filled) {
+    const line = lineThrough(
+      outline.map(([x, y]) => new Vector3(x, -y, z)),
+      lineMaterial(color, { pattern: [], width: paint.width, opacity: paint.opacity }),
+    );
+    line.name = name;
+    return line;
+  }
+  const translucent = paint.opacity < 1 ? { transparent: true, opacity: paint.opacity } : {};
+  const mesh = new Mesh(
+    new ShapeGeometry(new Shape(outline.map(([x, y]) => new Vector2(x, -y)))),
+    new MeshBasicNodeMaterial({ color, side: DoubleSide, ...translucent }),
+  );
+  mesh.position.z = z;
+  mesh.name = name;
+  return mesh;
 }
