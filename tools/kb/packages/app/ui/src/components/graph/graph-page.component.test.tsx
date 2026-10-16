@@ -53,6 +53,7 @@ vi.mock("./graph-adapters", async (importOriginal) => {
 
 import GraphPage from "./graph-page";
 import { graphUiPlugin } from "./plugin";
+import { browserHostUiPlugin } from "@/browser-host";
 
 /**
  * Let the page settle: lazy renderer chunks resolve and effects commit, each
@@ -97,7 +98,7 @@ describe("GraphPage (smoke)", () => {
       disconnect() {}
     };
     // The page draws through the renderer views the graph plugin provides.
-    syncUiPlugins([graphUiPlugin]);
+    syncUiPlugins([browserHostUiPlugin, graphUiPlugin]);
   });
 
   afterAll(() => {

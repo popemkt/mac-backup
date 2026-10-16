@@ -34,6 +34,7 @@ vi.mock("./graph-adapters", async (importOriginal) => {
 });
 
 import { graphUiPlugin } from "./plugin";
+import { browserHostUiPlugin } from "@/browser-host";
 import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-09-30T00:00:00.000Z";
@@ -94,7 +95,7 @@ describe("graph.neighbourhood", () => {
       unobserve() {}
       disconnect() {}
     };
-    syncUiPlugins([graphUiPlugin]);
+    syncUiPlugins([browserHostUiPlugin, graphUiPlugin]);
   });
 
   afterAll(() => syncUiPlugins([]));

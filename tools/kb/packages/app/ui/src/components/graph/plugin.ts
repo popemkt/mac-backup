@@ -31,17 +31,26 @@ import {
   TreemapView,
 } from "@kb/graph";
 import { NeighbourhoodGraph } from "@/components/graph/neighbourhood-view";
-import { provideRoute, provideView, RoutePoint, SidebarSectionPoint, ViewPoint } from "@kb/ui-sdk";
+import {
+  BrowserHostService,
+  provideRoute,
+  provideView,
+  RoutePoint,
+  SidebarSectionPoint,
+  ViewPoint,
+} from "@kb/ui-sdk";
 
 /**
  * The graph: its page, the route to it (whole column, no workspace header),
  * its section, one view per renderer — each drawn in the box the page's
  * canvas gives it, from the settings its key declares, and offered by the
  * renderer switch in its picker's order — and a node's neighbourhood, which
- * hosts a renderer in a box of its own.
+ * hosts a renderer in a box of its own. It injects the page's host, as a
+ * family's browser half does, and waits as pending until the shell provides it.
  */
 export const graphUiPlugin = definePlugin({
   name: GRAPH_NAMESPACE,
+  inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(
       [

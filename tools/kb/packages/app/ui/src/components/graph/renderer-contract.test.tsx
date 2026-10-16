@@ -75,6 +75,7 @@ vi.mock("./force3d-scene", () => ({
 }));
 
 const { graphUiPlugin } = await import("./plugin");
+const { browserHostUiPlugin } = await import("@/browser-host");
 const { ViewSlot } = await import("@kb/ui-sdk");
 const { GraphFrameContext } = await import("./graph-frame");
 const { TreemapView, isRendererKey } = await import("@kb/graph");
@@ -126,6 +127,7 @@ const DARK: Appearance = { designSystem: "kb", dark: true, key: "kb:dark" };
 /** Every renderer view the graph plugin provides, by its name in `lens.renderer`. */
 const RENDERERS = (() => {
   const kernel = makeKernel();
+  Effect.runSync(kernel.load(browserHostUiPlugin));
   Effect.runSync(kernel.load(graphUiPlugin));
   const renderers = familyViews(kernel.contributions(ViewPoint), isRendererKey);
   return new Map(renderers.map(({ key }) => [localIdOf(key), key]));
@@ -231,7 +233,7 @@ describe("graph renderer contract", () => {
   const saved = new Map<string, unknown>();
 
   beforeAll(() => {
-    syncUiPlugins([graphUiPlugin]);
+    syncUiPlugins([browserHostUiPlugin, graphUiPlugin]);
     dom = new Window();
     const globals: Record<string, unknown> = {
       window: dom,
