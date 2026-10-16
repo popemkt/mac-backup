@@ -1718,12 +1718,15 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   `{kind: "read"}` changes nothing. `{kind: "write", approval?: "required"}`
   may change the graph, the workspace, or what a UI tab shows
   ([Screen state](#screen-state)). Approval can only be declared on a
-  write, so there is no read-with-approval state. The manifest publishes the
+  write, so there is no read-with-approval state. Either kind may add
+  `outsideRoot: true`: the action reaches past its kb root, to another store
+  on this machine or a process it starts. Without
+  it, an action touches only its root. The manifest publishes the
   mode, and each surface derives its behaviour from it and keeps no list of
   its own:
   - MCP: a read is `readOnlyHint` and `idempotentHint`; a write is
-    `destructiveHint`; every tool is `openWorldHint: false` (an action
-    touches only its kb root). Hints cannot express approval, and a tool name cannot
+    `destructiveHint`; a tool is `openWorldHint` exactly when its mode is
+    `outsideRoot`. Hints cannot express approval, and a tool name cannot
     be mapped back to an id, so every tool also carries `{id, mode}` under
     `_meta["kb/action"]`.
   - WebMCP: a read is `readOnlyHint`, a write is `consequentialHint`

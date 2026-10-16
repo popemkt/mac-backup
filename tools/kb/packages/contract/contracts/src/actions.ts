@@ -29,14 +29,22 @@ import type { Assets, CodeTrust, LegacyDocsViews, SavedQueries } from "./workspa
  * Approval exists only on a write, so it is part of the write arm and not a
  * flag beside the mode.
  *
+ * An action touches its own kb root and nothing else, unless its mode says
+ * `outsideRoot`: it reaches past the root, to another store on this machine
+ * or a process it starts. Either kind can, so it sits on both arms.
+ *
  * The extension loader decodes a contribution's mode through
  * {@link isActionMode}. The SDK's `ActionMode` restates it for authors, and a
  * type-level test keeps the two equal.
  */
 const ActionModeSchema = z.discriminatedUnion("kind", [
   // Strict, so a read that claims an approval is rejected, not stripped.
-  z.strictObject({ kind: z.literal("read") }),
-  z.strictObject({ kind: z.literal("write"), approval: z.literal("required").optional() }),
+  z.strictObject({ kind: z.literal("read"), outsideRoot: z.literal(true).optional() }),
+  z.strictObject({
+    kind: z.literal("write"),
+    approval: z.literal("required").optional(),
+    outsideRoot: z.literal(true).optional(),
+  }),
 ]);
 export type ActionMode = z.infer<typeof ActionModeSchema>;
 

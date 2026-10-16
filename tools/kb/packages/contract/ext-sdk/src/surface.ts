@@ -18,11 +18,12 @@
  * What invoking the action does. A `read` changes nothing. A `write` may
  * change the graph or the workspace, and `approval: "required"` means a
  * person must approve each call. kb refuses an unapproved call with
- * `approval_required`.
+ * `approval_required`. `outsideRoot: true` says the action reaches past its
+ * kb root, to another store or a process it starts.
  */
 export type ActionMode =
-  | { readonly kind: "read" }
-  | { readonly kind: "write"; readonly approval?: "required" };
+  | { readonly kind: "read"; readonly outsideRoot?: true }
+  | { readonly kind: "write"; readonly approval?: "required"; readonly outsideRoot?: true };
 
 export type FailureCode =
   | "not_found"

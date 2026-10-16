@@ -28,9 +28,9 @@ export interface McpToolHints {
 /**
  * MCP's behaviour hints, taken only from the declared mode. A read is
  * read-only and idempotent. A write is treated as possibly destructive and
- * not idempotent, because the mode claims neither. Every action, read or
- * write, touches only its kb root, never an open world of outside entities.
- * MCP has no hint for approval.
+ * not idempotent, because the mode claims neither. An action touches only
+ * its kb root unless its mode says it reaches outside it (`outsideRoot`),
+ * which is MCP's open world. MCP has no hint for approval.
  */
 export function mcpToolHints(mode: ActionMode): McpToolHints {
   const reads = mode.kind === "read";
@@ -38,7 +38,7 @@ export function mcpToolHints(mode: ActionMode): McpToolHints {
     readOnlyHint: reads,
     destructiveHint: !reads,
     idempotentHint: reads,
-    openWorldHint: false,
+    openWorldHint: mode.outsideRoot === true,
   };
 }
 
