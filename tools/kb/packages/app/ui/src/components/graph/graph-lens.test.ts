@@ -7,6 +7,7 @@ import {
   DEFAULT_EDGE_KINDS,
   DEFAULT_MAX_NODES,
   type LensPerspective,
+  GRAPH_IDS,
 } from "@kb/graph";
 import {
   extractLensGraph,
@@ -89,11 +90,11 @@ function baseGraph(): WireNode[] {
       text: "Gamma orphan",
     }),
     node({
-      id: SYSTEM_IDS.lensAllMentions,
+      id: GRAPH_IDS.lensAllMentions,
       text: "All mentions",
       props: {
         [SYSTEM_IDS.viewField]: [{ t: "ref", v: "sys.view.graph.force2d" }],
-        [SYSTEM_IDS.lensEdgeKindsField]: [
+        [GRAPH_IDS.lensEdgeKindsField]: [
           { t: "str", v: "mention" },
           { t: "str", v: "child" },
         ],
@@ -104,7 +105,7 @@ function baseGraph(): WireNode[] {
 
 function perspective(patch: Partial<LensPerspective> = {}): LensPerspective {
   return {
-    id: SYSTEM_IDS.lensAllMentions,
+    id: GRAPH_IDS.lensAllMentions,
     label: "All mentions",
     query: "",
     renderer: "sys.view.graph.force2d",
@@ -131,7 +132,7 @@ describe("parsePerspective / listPerspectiveNodes", () => {
   it("lists the view nodes whose view is a renderer, and applies defaults", () => {
     const nodes = baseGraph();
     const listed = listPerspectiveNodes(new DatascriptIndex(nodes), nodes);
-    expect(listed.map((n) => n.id)).toEqual([SYSTEM_IDS.lensAllMentions]);
+    expect(listed.map((n) => n.id)).toEqual([GRAPH_IDS.lensAllMentions]);
     expect(listPerspectiveNodes(null, nodes)).toEqual([]);
     const p = parsePerspective(present(listed[0], "listed perspective"));
     expect(p.renderer).toBe("sys.view.graph.force2d");

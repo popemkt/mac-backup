@@ -26,6 +26,7 @@ import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { OutlineListView, isFrameViewKey } from "@kb/views";
 import { outlineUiPlugin } from "@kb/outline-ui";
+import { GRAPH_IDS } from "@kb/graph";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {
@@ -67,38 +68,38 @@ describe("parsePerspective reporting", () => {
 
   it("names the node and the field when a lens prop is not a legal value", () => {
     const parsed = parsePerspective(
-      perspective({ [SYSTEM_IDS.lensLayoutField]: [{ t: "str", v: "circular" }] }),
+      perspective({ [GRAPH_IDS.lensLayoutField]: [{ t: "str", v: "circular" }] }),
     );
     expect(parsed.layout).toBe("force");
     expect(warned).toEqual([
-      `[graph-lens] lens.p: ${SYSTEM_IDS.lensLayoutField} ignored: Expected "force" | "radial" | "hierarchical" | "grid"`,
+      `[graph-lens] lens.p: ${GRAPH_IDS.lensLayoutField} ignored: Expected "force" | "radial" | "hierarchical" | "grid"`,
     ]);
   });
 
   it("reports a prop stored under a carrier the slot cannot read", () => {
     const parsed = parsePerspective(
-      perspective({ [SYSTEM_IDS.lensShowLabelsField]: [{ t: "str", v: "false" }] }),
+      perspective({ [GRAPH_IDS.lensShowLabelsField]: [{ t: "str", v: "false" }] }),
     );
     expect(parsed.showLabels).toBe(true);
     expect(warned).toEqual([
-      `[graph-lens] lens.p: ${SYSTEM_IDS.lensShowLabelsField} ignored: no readable value`,
+      `[graph-lens] lens.p: ${GRAPH_IDS.lensShowLabelsField} ignored: no readable value`,
     ]);
   });
 
   it("reports a max-nodes that is not a count, and keeps the default", () => {
     const parsed = parsePerspective(
-      perspective({ [SYSTEM_IDS.lensMaxNodesField]: [{ t: "num", v: -5 }] }),
+      perspective({ [GRAPH_IDS.lensMaxNodesField]: [{ t: "num", v: -5 }] }),
     );
     expect(parsed.maxNodes).toBe(500);
     expect(warned).toEqual([
-      `[graph-lens] lens.p: ${SYSTEM_IDS.lensMaxNodesField} ignored: Expected a value greater than 0`,
+      `[graph-lens] lens.p: ${GRAPH_IDS.lensMaxNodesField} ignored: Expected a value greater than 0`,
     ]);
   });
 
   it("reports one edge kind by index and keeps the others", () => {
     const parsed = parsePerspective(
       perspective({
-        [SYSTEM_IDS.lensEdgeKindsField]: [
+        [GRAPH_IDS.lensEdgeKindsField]: [
           { t: "str", v: "mention" },
           { t: "str", v: "bogus" },
           { t: "str", v: "child" },
@@ -107,13 +108,13 @@ describe("parsePerspective reporting", () => {
     );
     expect(parsed.edgeKinds).toEqual(["mention", "child"]);
     expect(warned).toHaveLength(1);
-    expect(warned[0]).toContain(`${SYSTEM_IDS.lensEdgeKindsField}[1] ignored`);
+    expect(warned[0]).toContain(`${GRAPH_IDS.lensEdgeKindsField}[1] ignored`);
   });
 
   it("says nothing about the `none` edge-kinds sentinel", () => {
     const parsed = parsePerspective(
       perspective({
-        [SYSTEM_IDS.lensEdgeKindsField]: [{ t: "ref", v: "sys.graph.source.none" }],
+        [GRAPH_IDS.lensEdgeKindsField]: [{ t: "ref", v: "sys.graph.source.none" }],
       }),
     );
     expect(parsed.edgeKinds).toEqual([]);

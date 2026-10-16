@@ -2,9 +2,10 @@
  * A graph perspective: a view node whose view is a renderer, read as the
  * lens it draws (DESIGN-UI.md → Field-based graph perspectives).
  */
-import { SYSTEM_IDS, viewOptionOf, type KbNode } from "@kb/model";
+import { viewOptionOf, type KbNode } from "@kb/model";
 import type { ConfigReport } from "@kb/views";
 import { DEFAULT_RENDERER, decodeLensConfig, type LensPerspective } from "./lens.ts";
+import { GRAPH_IDS } from "./ids.ts";
 
 /**
  * Decode a graph view node. The renderer is its view (`sys.f.view`); every
@@ -36,9 +37,6 @@ export function resolvePerspective(
 ): LensPerspective | null {
   const asked = id === null ? undefined : perspectives.find((p) => p.id === id);
   return (
-    asked ??
-    perspectives.find((p) => p.id === SYSTEM_IDS.lensAllMentions) ??
-    perspectives[0] ??
-    null
+    asked ?? perspectives.find((p) => p.id === GRAPH_IDS.lensAllMentions) ?? perspectives[0] ?? null
   );
 }

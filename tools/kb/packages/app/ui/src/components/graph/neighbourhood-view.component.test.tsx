@@ -13,7 +13,7 @@ import { SYSTEM_IDS } from "@kb/model";
 import { syncUiPlugins, ViewSlot } from "@kb/ui-sdk";
 import { lensReport } from "./graph-lens";
 import { paramsFromProps } from "@kb/views";
-import { NeighbourhoodView, type NeighbourhoodParams } from "@kb/graph";
+import { NeighbourhoodView, type NeighbourhoodParams, GRAPH_IDS } from "@kb/graph";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import type * as GraphAdapters from "./graph-adapters";
@@ -133,15 +133,15 @@ describe("graph.neighbourhood", () => {
 
   it("draws the node it is shown for and its neighbours, both ways, one hop out", async () => {
     const params = storedFor("n.b", {
-      [SYSTEM_IDS.lensEdgeKindsField]: [{ t: "ref", v: "sys.graph.source.containment" }],
+      [GRAPH_IDS.lensEdgeKindsField]: [{ t: "ref", v: "sys.graph.source.containment" }],
     });
     expect(await draw(params)).toEqual(["n.a", "n.b", "n.c"]);
   });
 
   it("reaches further with more hops, and along the edges it names", async () => {
     const params = storedFor("n.c", {
-      [SYSTEM_IDS.lensHopsField]: [{ t: "num", v: 2 }],
-      [SYSTEM_IDS.lensEdgeKindsField]: [
+      [GRAPH_IDS.lensHopsField]: [{ t: "num", v: 2 }],
+      [GRAPH_IDS.lensEdgeKindsField]: [
         { t: "ref", v: "sys.graph.source.containment" },
         { t: "ref", v: "sys.graph.source.mentions" },
       ],
@@ -149,7 +149,7 @@ describe("graph.neighbourhood", () => {
     // c ←child b ←child a within two hops; d mentions a, which is three away.
     expect(await draw(params)).toEqual(["n.a", "n.b", "n.c"]);
     const fromA = storedFor("n.a", {
-      [SYSTEM_IDS.lensEdgeKindsField]: [{ t: "ref", v: "sys.graph.source.mentions" }],
+      [GRAPH_IDS.lensEdgeKindsField]: [{ t: "ref", v: "sys.graph.source.mentions" }],
     });
     expect(await draw(fromA)).toEqual(["n.a", "n.d"]);
   });
@@ -157,7 +157,7 @@ describe("graph.neighbourhood", () => {
   it("draws its focus, not its host, when the view node names one", async () => {
     const params = storedFor("n.d", {
       [SYSTEM_IDS.lensFocusField]: [{ t: "ref", v: "n.c" }],
-      [SYSTEM_IDS.lensEdgeKindsField]: [{ t: "ref", v: "sys.graph.source.containment" }],
+      [GRAPH_IDS.lensEdgeKindsField]: [{ t: "ref", v: "sys.graph.source.containment" }],
     });
     expect(params.root).toBe("n.c");
     expect(await draw(params)).toEqual(["n.b", "n.c"]);
@@ -166,7 +166,7 @@ describe("graph.neighbourhood", () => {
   it("names the field when a stored view node cannot be read", () => {
     const decoded = paramsFromProps(
       NeighbourhoodView,
-      { [SYSTEM_IDS.lensHopsField]: [{ t: "num", v: 9 }] },
+      { [GRAPH_IDS.lensHopsField]: [{ t: "num", v: 9 }] },
       "n.b",
       lensReport(),
     );

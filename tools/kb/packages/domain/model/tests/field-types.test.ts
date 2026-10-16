@@ -67,7 +67,7 @@ describe("typed field seeds", () => {
     const byId = new Map(fields.map((n) => [n.id, n]));
     expect(fieldTypeOf(byId.get(SYSTEM_IDS.typeField)?.props)).toBe("ref");
     expect(fieldTypeOf(byId.get(SYSTEM_IDS.hiddenField)?.props)).toBe("checkbox");
-    expect(fieldTypeOf(byId.get(SYSTEM_IDS.lensMaxNodesField)?.props)).toBe("number");
+    expect(fieldTypeOf(byId.get(SYSTEM_IDS.queryLimitField)?.props)).toBe("number");
   });
 
   test("every field type is a plain child of the type field — no supertag", () => {

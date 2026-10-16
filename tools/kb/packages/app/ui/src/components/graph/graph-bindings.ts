@@ -1,6 +1,7 @@
-import { GRAPH_SOURCE_VALUES, type GraphSourceKind, fieldTypeOf } from "@kb/model";
+import { fieldTypeOf } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { graphDisplayText, SYSTEM_IDS } from "@kb/ui-sdk";
+import { GRAPH_SOURCE_VALUES, type GraphSourceKind } from "@kb/graph";
 
 export interface GraphBindingOption {
   value: string;

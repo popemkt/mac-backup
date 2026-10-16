@@ -34,6 +34,14 @@ type RendererName = (typeof RENDERER_NAMES)[number];
 /** A perspective that named no renderer, or one kb does not know, was drawn in 2D. */
 const DEFAULT_RENDERER: RendererName = "force2d";
 
+/**
+ * The field a perspective named its renderer in. It is the graph family's
+ * `lens.renderer` still (`@kb/graph`'s `GRAPH_IDS.lensRendererField`): ids
+ * are frozen data, so the migration names its spelling, and the graph's tests
+ * hold the two to one.
+ */
+export const PERSPECTIVE_RENDERER_FIELD = "sys.f.lens.renderer";
+
 /** `lens.renderer`'s option children before the renderers were views. Retired. */
 const LEGACY_RENDERER_OPTION = (name: RendererName) => `sys.graph.renderer.${name}`;
 
@@ -128,13 +136,13 @@ function isPerspective(node: KbNode): boolean {
  */
 function migratePerspective(node: KbNode): KbNode {
   const types = node.props[SYSTEM_IDS.typeField] ?? [];
-  const named = rendererNamed(node.props[SYSTEM_IDS.lensRendererField]?.[0]);
+  const named = rendererNamed(node.props[PERSPECTIVE_RENDERER_FIELD]?.[0]);
   let props = withField(
     node.props,
     SYSTEM_IDS.typeField,
     types.filter((v) => !(v.t === "ref" && v.v === LEGACY_PERSPECTIVE_TAG)),
   );
-  props = withField(props, SYSTEM_IDS.lensRendererField, []);
+  props = withField(props, PERSPECTIVE_RENDERER_FIELD, []);
   props = { ...props, [SYSTEM_IDS.viewField]: [rendererOption(named ?? DEFAULT_RENDERER)] };
   return { ...node, props };
 }
@@ -144,13 +152,13 @@ function migratePerspective(node: KbNode): KbNode {
  * renderer's view instead: the renderer a neighbourhood draws with.
  */
 function migrateRendererRefs(node: KbNode): KbNode {
-  const values = node.props[SYSTEM_IDS.lensRendererField];
+  const values = node.props[PERSPECTIVE_RENDERER_FIELD];
   if (values === undefined || !values.some((v) => v.t === "ref" && RETIRED.has(v.v))) return node;
   const remapped = values.map((value) => {
     const named = value.t === "ref" && RETIRED.has(value.v) ? rendererNamed(value) : null;
     return named === null ? value : rendererOption(named);
   });
-  return { ...node, props: { ...node.props, [SYSTEM_IDS.lensRendererField]: remapped } };
+  return { ...node, props: { ...node.props, [PERSPECTIVE_RENDERER_FIELD]: remapped } };
 }
 
 /**

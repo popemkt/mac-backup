@@ -1,6 +1,10 @@
-import { SYSTEM_IDS } from "@kb/model";
-import { DEFAULT_EDGE_KINDS, DEFAULT_MAX_NODES, type LensPerspective } from "@kb/graph";
-import type { LensSource } from "../src/index.ts";
+import {
+  DEFAULT_EDGE_KINDS,
+  DEFAULT_MAX_NODES,
+  GRAPH_IDS,
+  type LensPerspective,
+  type LensSource,
+} from "@kb/graph";
 
 /** A node as the projection reads it, with no props or children unless given. */
 export function node(
@@ -12,7 +16,7 @@ export function node(
 /** The seeded all-mentions perspective at every lens default, with `patch` over it. */
 export function perspective(patch: Partial<LensPerspective> = {}): LensPerspective {
   return {
-    id: SYSTEM_IDS.lensAllMentions,
+    id: GRAPH_IDS.lensAllMentions,
     label: "All mentions",
     query: "",
     renderer: "sys.view.graph.force2d",

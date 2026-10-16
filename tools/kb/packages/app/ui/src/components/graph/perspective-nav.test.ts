@@ -3,6 +3,7 @@ import type { WireNode } from "@kb/contracts";
 import { DatascriptIndex, SYSTEM_IDS } from "@kb/ui-sdk";
 import { bundledSeed } from "@kb/bundled";
 import { listPerspectiveNavItems } from "./perspective-nav";
+import { GRAPH_IDS } from "@kb/graph";
 
 const wireNode = (id: string, text: string, props: WireNode["props"] = {}): WireNode => ({
   id,
@@ -28,7 +29,7 @@ describe("the Graph section's selector", () => {
       wireNode("other", "nope"),
     ];
     expect(listPerspectiveNavItems(new DatascriptIndex(wire), wire)).toEqual([
-      { id: SYSTEM_IDS.lensAllMentions, label: "All mentions" },
+      { id: GRAPH_IDS.lensAllMentions, label: "All mentions" },
       { id: "p1", label: "Lens A" },
     ]);
     expect(listPerspectiveNavItems(null, wire)).toEqual([]);

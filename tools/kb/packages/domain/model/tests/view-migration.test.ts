@@ -10,6 +10,7 @@ import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/model.ts";
 import {
   LEGACY_PERSPECTIVE_TAG,
   LEGACY_VIEW_MODE_FIELD,
+  PERSPECTIVE_RENDERER_FIELD,
   docsViewNodeId,
   frameViewNodeId,
   legacyViewShapes,
@@ -19,6 +20,8 @@ import { defaultViewIdOf, docsViewProps, viewOptionId } from "../src/view-node.t
 import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-09-01T00:00:00.000Z";
+/** A lens setting a perspective carried, which the migration keeps: the graph's `lens.max-nodes`. */
+const LENS_MAX_NODES = "sys.f.lens.max-nodes";
 /** No legacy docs views: what a store alone migrates with. */
 const NONE = { docs: [], at: AT };
 const ref = (v: string): PropValue => ({ t: "ref", v });
@@ -41,7 +44,7 @@ function legacyVocabulary(): KbNode[] {
         [SYSTEM_IDS.fieldsField]: [ref(SYSTEM_IDS.lensQueryField)],
       },
     }),
-    node(SYSTEM_IDS.lensRendererField, {
+    node(PERSPECTIVE_RENDERER_FIELD, {
       text: "lens.renderer",
       props: { [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.field)] },
       children: RENDERERS.map(legacyOption),
@@ -62,22 +65,22 @@ describe("graph perspectives become view nodes", () => {
     ...legacyVocabulary(),
     node("tag.todo", { props: { [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.tag)] } }),
     perspective("p.tree", {
-      [SYSTEM_IDS.lensRendererField]: [ref(legacyOption("tree"))],
-      [SYSTEM_IDS.lensMaxNodesField]: [{ t: "num", v: 40 }],
+      [PERSPECTIVE_RENDERER_FIELD]: [ref(legacyOption("tree"))],
+      [LENS_MAX_NODES]: [{ t: "num", v: 40 }],
     }),
-    perspective("p.text", { [SYSTEM_IDS.lensRendererField]: [str("force3d")] }),
+    perspective("p.text", { [PERSPECTIVE_RENDERER_FIELD]: [str("force3d")] }),
     perspective("p.none", {}),
-    perspective("p.odd", { [SYSTEM_IDS.lensRendererField]: [str("sankey")] }),
+    perspective("p.odd", { [PERSPECTIVE_RENDERER_FIELD]: [str("sankey")] }),
     node("p.tagged", {
       props: {
         [SYSTEM_IDS.typeField]: [ref(LEGACY_PERSPECTIVE_TAG), ref("tag.todo")],
-        [SYSTEM_IDS.lensRendererField]: [ref(legacyOption("cluster"))],
+        [PERSPECTIVE_RENDERER_FIELD]: [ref(legacyOption("cluster"))],
       },
     }),
     node("n.neighbourhood", {
       props: {
         [SYSTEM_IDS.viewField]: [ref(viewOptionId("graph.neighbourhood"))],
-        [SYSTEM_IDS.lensRendererField]: [ref(legacyOption("treemap"))],
+        [PERSPECTIVE_RENDERER_FIELD]: [ref(legacyOption("treemap"))],
       },
     }),
   ];
@@ -88,7 +91,7 @@ describe("graph perspectives become view nodes", () => {
     expect(changed).toBe(true);
     expect(after.get("p.tree")?.props).toEqual({
       [SYSTEM_IDS.viewField]: [ref(viewOptionId("graph.tree"))],
-      [SYSTEM_IDS.lensMaxNodesField]: [{ t: "num", v: 40 }],
+      [LENS_MAX_NODES]: [{ t: "num", v: 40 }],
     });
     expect(after.get("p.text")?.props[SYSTEM_IDS.viewField]).toEqual([
       ref(viewOptionId("graph.force3d")),
@@ -107,7 +110,7 @@ describe("graph perspectives become view nodes", () => {
     // lens.all-mentions that lacked it; the tag says lens.renderer is the choice.
     const filled = perspective("p.filled", {
       [SYSTEM_IDS.viewField]: [ref(viewOptionId("graph.force2d"))],
-      [SYSTEM_IDS.lensRendererField]: [ref(legacyOption("tree"))],
+      [PERSPECTIVE_RENDERER_FIELD]: [ref(legacyOption("tree"))],
     });
     expect(migrateToViewNodes([filled], NONE).nodes[0]?.props[SYSTEM_IDS.viewField]).toEqual([
       ref(viewOptionId("graph.tree")),
@@ -122,11 +125,11 @@ describe("graph perspectives become view nodes", () => {
   test("the tag and the old renderer options are retired, and lens.renderer lets go of them", () => {
     expect(after.has(LEGACY_PERSPECTIVE_TAG)).toBe(false);
     for (const name of RENDERERS) expect(after.has(legacyOption(name))).toBe(false);
-    expect(after.get(SYSTEM_IDS.lensRendererField)?.children).toEqual([]);
+    expect(after.get(PERSPECTIVE_RENDERER_FIELD)?.children).toEqual([]);
   });
 
   test("elsewhere, a lens.renderer ref to an old option names that renderer's view", () => {
-    expect(after.get("n.neighbourhood")?.props[SYSTEM_IDS.lensRendererField]).toEqual([
+    expect(after.get("n.neighbourhood")?.props[PERSPECTIVE_RENDERER_FIELD]).toEqual([
       ref(viewOptionId("graph.treemap")),
     ]);
   });
@@ -362,7 +365,7 @@ describe("the migration, over any mix of legacy perspectives", () => {
                   ...(spec.alsoTodo ? [ref("tag.todo")] : []),
                 ],
                 ...(spec.renderer.length > 0
-                  ? { [SYSTEM_IDS.lensRendererField]: spec.renderer }
+                  ? { [PERSPECTIVE_RENDERER_FIELD]: spec.renderer }
                   : {}),
               },
             }),
@@ -375,7 +378,7 @@ describe("the migration, over any mix of legacy perspectives", () => {
         for (const spec of specs) {
           const migrated = out.get(spec.id);
           expect(migrated?.props[SYSTEM_IDS.viewField]?.length).toBe(1);
-          expect(migrated?.props[SYSTEM_IDS.lensRendererField]).toBeUndefined();
+          expect(migrated?.props[PERSPECTIVE_RENDERER_FIELD]).toBeUndefined();
           expect(migrated?.props[SYSTEM_IDS.typeField] ?? []).toEqual(
             spec.alsoTodo ? [ref("tag.todo")] : [],
           );

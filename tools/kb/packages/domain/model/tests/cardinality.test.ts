@@ -79,7 +79,7 @@ describe("cardinality: one", () => {
   });
 
   test("a legacy second value is not rechecked until the field is written", () => {
-    // Stored before the field declared itself single — like lens.all-mentions'
+    // Stored before the field declared itself single — like a graph's
     // link-distance [95, 96] — so an unrelated edit still saves.
     const legacy = node("n", { "f.single": [num(95), num(96)] });
     const renamed = { ...legacy, text: "renamed" };
@@ -93,8 +93,8 @@ describe("cardinality: one", () => {
     for (const id of [
       SYSTEM_IDS.fieldTypeField,
       SYSTEM_IDS.cardinalityField,
-      SYSTEM_IDS.lensRendererField,
-      SYSTEM_IDS.lensLinkDistanceField,
+      SYSTEM_IDS.lensFocusField,
+      SYSTEM_IDS.viewPagesizeField,
       SYSTEM_IDS.viewField,
       SYSTEM_IDS.hiddenField,
       SYSTEM_IDS.refTargetField,
@@ -104,7 +104,7 @@ describe("cardinality: one", () => {
     for (const id of [
       SYSTEM_IDS.typeField,
       SYSTEM_IDS.fieldsField,
-      SYSTEM_IDS.lensEdgeKindsField,
+      SYSTEM_IDS.viewDisplayField,
       SYSTEM_IDS.viewSortField,
       SYSTEM_IDS.ontoIncludeField,
     ]) {

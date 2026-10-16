@@ -25,12 +25,13 @@ import {
   NeighbourhoodView,
   TreeView,
   TreemapView,
+  graphSeedNodes,
 } from "@kb/graph";
 
 export const coreExtension = defineExtension({
   name: "core",
   label: "Core",
-  seed: systemSeedNodes,
+  seed: (at) => [...systemSeedNodes(at), ...graphSeedNodes(at)],
   views: [
     viewDef(GraphView),
     viewDef(Force2dView),

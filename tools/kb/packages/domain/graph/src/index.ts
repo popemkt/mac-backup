@@ -63,3 +63,20 @@ export {
   type LensTheme,
   type LensWrite,
 } from "./lens.ts";
+export { GRAPH_IDS } from "./ids.ts";
+export {
+  GRAPH_LINK_STYLE_VALUES,
+  GRAPH_SOURCE_FIELD_KINDS,
+  GRAPH_SOURCE_KINDS,
+  GRAPH_SOURCE_KIND_OPTION_IDS,
+  GRAPH_SOURCE_VALUES,
+  GRAPH_THEME_VALUES,
+  graphOptionId,
+  graphOptionKey,
+  graphSourceId,
+  graphSourceKey,
+  graphSourceTargetQuery,
+  type GraphSourceField,
+  type GraphSourceKind,
+} from "./schema.ts";
+export { graphSeedNodes } from "./seed.ts";

@@ -11,6 +11,7 @@ import {
   encodeLensConfig,
   perspectiveProps,
   type LensPerspective,
+  GRAPH_IDS,
 } from "@kb/graph";
 
 function strict(): (warning: string) => void {
@@ -23,12 +24,12 @@ describe("a graph view's lens", () => {
   test("a malformed lens prop is reported to the caller's sink and falls back", () => {
     const warnings: string[] = [];
     const lens = decodeLensConfig(
-      { [SYSTEM_IDS.lensLayoutField]: [{ t: "str", v: "spiral" }] },
+      { [GRAPH_IDS.lensLayoutField]: [{ t: "str", v: "spiral" }] },
       (w) => warnings.push(w),
     );
     expect(lens.layout).toBe("force");
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain(SYSTEM_IDS.lensLayoutField);
+    expect(warnings[0]).toContain(GRAPH_IDS.lensLayoutField);
   });
 
   test("a perspective's props read back as its lens", () => {
@@ -60,7 +61,7 @@ describe("a graph view's lens", () => {
     const { renderer: hosted, ...read } = decodeLensConfig(props, strict());
     expect(read).toEqual(lens);
     // A graph view node's renderer is its view; it names no hosted renderer.
-    expect(props[SYSTEM_IDS.lensRendererField]).toBeUndefined();
+    expect(props[GRAPH_IDS.lensRendererField]).toBeUndefined();
     expect(hosted).toBe("sys.view.graph.force2d");
   });
 

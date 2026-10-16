@@ -10,6 +10,7 @@ import { Effect } from "effect";
 import {
   LEGACY_PERSPECTIVE_TAG,
   LEGACY_VIEW_MODE_FIELD,
+  PERSPECTIVE_RENDERER_FIELD,
   SYSTEM_IDS,
   frameViewNodeId,
   present,
@@ -42,6 +43,9 @@ const node = (id: string, over: Partial<KbNode>): KbNode => ({
 /** The retired option `lens.renderer` held the tree renderer under. */
 const LEGACY_TREE = "sys.graph.renderer.tree";
 
+/** A lens setting a perspective carried, which the migration keeps: the graph's `lens.max-nodes`. */
+const LENS_MAX_NODES = "sys.f.lens.max-nodes";
+
 /** The old shape, written over a seeded store: what `views.migrate` rewrites. */
 function legacyShape(lensRenderer: KbNode): KbNode[] {
   return [
@@ -51,8 +55,8 @@ function legacyShape(lensRenderer: KbNode): KbNode[] {
     node("p.old", {
       props: {
         [SYSTEM_IDS.typeField]: [ref(LEGACY_PERSPECTIVE_TAG)],
-        [SYSTEM_IDS.lensRendererField]: [ref(LEGACY_TREE)],
-        [SYSTEM_IDS.lensMaxNodesField]: [num(40)],
+        [PERSPECTIVE_RENDERER_FIELD]: [ref(LEGACY_TREE)],
+        [LENS_MAX_NODES]: [num(40)],
       },
     }),
     node(LEGACY_VIEW_MODE_FIELD, { props: { [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.field)] } }),
@@ -86,7 +90,7 @@ export function viewsMigrateRewritesLegacyShapes(makeStore: StoreFactory): Promi
         yield* openSession(root);
         const store = makeStore(root);
         const lensRenderer = present(
-          (yield* store.loadEffect).find((n) => n.id === SYSTEM_IDS.lensRendererField),
+          (yield* store.loadEffect).find((n) => n.id === PERSPECTIVE_RENDERER_FIELD),
           "the seeded lens.renderer field",
         );
         yield* store.commitEffect(
@@ -103,10 +107,10 @@ export function viewsMigrateRewritesLegacyShapes(makeStore: StoreFactory): Promi
         const migrated = new Map((yield* store.loadEffect).map((n) => [n.id, n]));
         expect(migrated.has(LEGACY_PERSPECTIVE_TAG)).toBe(false);
         expect(migrated.has(LEGACY_TREE)).toBe(false);
-        expect(migrated.get(SYSTEM_IDS.lensRendererField)?.children).toEqual([]);
+        expect(migrated.get(PERSPECTIVE_RENDERER_FIELD)?.children).toEqual([]);
         expect(migrated.get("p.old")?.props).toEqual({
           [SYSTEM_IDS.viewField]: [ref(viewOptionId("graph.tree"))],
-          [SYSTEM_IDS.lensMaxNodesField]: [num(40)],
+          [LENS_MAX_NODES]: [num(40)],
         });
         const frameView = frameViewNodeId("f.old");
         expect(migrated.has(LEGACY_VIEW_MODE_FIELD)).toBe(false);

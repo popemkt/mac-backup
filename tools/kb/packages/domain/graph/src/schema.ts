@@ -1,4 +1,4 @@
-import { SYSTEM_IDS } from "./model.ts";
+import { GRAPH_IDS } from "./ids.ts";
 
 /**
  * Stable graph vocabulary. Graph view nodes reference these ordinary option
@@ -80,11 +80,11 @@ export const GRAPH_SOURCE_KIND_OPTION_IDS: Record<GraphSourceKind, string> = {
  * field's `targetQuery`, the graph page to build its option list.
  */
 export const GRAPH_SOURCE_FIELD_KINDS = {
-  [SYSTEM_IDS.lensColorByField]: "category",
-  [SYSTEM_IDS.lensClusterByField]: "category",
-  [SYSTEM_IDS.lensSizeByField]: "number",
-  [SYSTEM_IDS.lensLabelByField]: "label",
-  [SYSTEM_IDS.lensEdgeKindsField]: "relationship",
+  [GRAPH_IDS.lensColorByField]: "category",
+  [GRAPH_IDS.lensClusterByField]: "category",
+  [GRAPH_IDS.lensSizeByField]: "number",
+  [GRAPH_IDS.lensLabelByField]: "label",
+  [GRAPH_IDS.lensEdgeKindsField]: "relationship",
 } as const satisfies Record<string, GraphSourceKind>;
 
 export type GraphSourceField = keyof typeof GRAPH_SOURCE_FIELD_KINDS;
@@ -101,11 +101,11 @@ export type GraphSourceField = keyof typeof GRAPH_SOURCE_FIELD_KINDS;
 export function graphSourceTargetQuery(kind: GraphSourceKind): string {
   return [
     "[:find ?id :where",
-    `[?p :node/id "${SYSTEM_IDS.graphSourcesRoot}"]`,
+    `[?p :node/id "${GRAPH_IDS.graphSourcesRoot}"]`,
     "[?p :node/child ?c]",
     "[?p :node/child-order ?o]",
     "[?c :node/id ?id]",
-    `[?c :f/${SYSTEM_IDS.graphSourceKindField} ?k]`,
+    `[?c :f/${GRAPH_IDS.graphSourceKindField} ?k]`,
     `[?k :node/id "${GRAPH_SOURCE_KIND_OPTION_IDS[kind]}"]]`,
   ].join(" ");
 }

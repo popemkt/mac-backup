@@ -99,12 +99,12 @@ describe("field value stack", () => {
   });
 
   it("a single-valued field offers no second slot", () => {
-    // `sys.f.lens.link-distance` declares cardinality one in the seed.
+    // `sys.f.view.pagesize` declares cardinality one in the seed.
     const seeded = new Map(bundledSeed().map((n) => [n.id, n] as const)) as unknown as NodeMap;
     const html = renderToStaticMarkup(
       createElement(FieldValueStack, {
         nodeId: "n.1",
-        fieldId: SYSTEM_IDS.lensLinkDistanceField,
+        fieldId: SYSTEM_IDS.viewPagesizeField,
         fieldType: "number" as const,
         values: [{ t: "num", v: 96 }],
         context: contextFor(seeded),

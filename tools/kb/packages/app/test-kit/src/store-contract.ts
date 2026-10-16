@@ -767,8 +767,8 @@ function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
       Effect.gen(function* () {
         const root = yield* backendRoot(makeStore);
         const ctx = yield* openSession(root);
-        const field = SYSTEM_IDS.lensLinkDistanceField;
-        const id = SYSTEM_IDS.lensAllMentions;
+        const field = SYSTEM_IDS.viewPagesizeField;
+        const id = SYSTEM_IDS.approvalPoliciesView;
         const run = (action: { id: string; input: unknown }) =>
           invokeReceiptEffect(ctx, action).pipe(Effect.provide(kbRuntimeLayer(ctx)));
         const held = Effect.map(

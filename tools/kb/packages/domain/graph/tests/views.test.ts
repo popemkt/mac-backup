@@ -10,6 +10,7 @@ import { SYSTEM_IDS, viewOptionId, type NodeProps } from "@kb/model";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import { issueText, paramsFromProps, resolveNodeView, viewCatalogOf, viewNodeFor } from "@kb/views";
 import { GraphView, NeighbourhoodView } from "../src/index.ts";
+import { GRAPH_IDS } from "@kb/graph";
 
 const quiet = () => {};
 
@@ -51,7 +52,7 @@ describe("the graph's view keys", () => {
         {
           props: {
             [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("graph.neighbourhood") }],
-            [SYSTEM_IDS.lensHopsField]: [{ t: "num", v: 2 }],
+            [GRAPH_IDS.lensHopsField]: [{ t: "num", v: 2 }],
           },
         },
       ],

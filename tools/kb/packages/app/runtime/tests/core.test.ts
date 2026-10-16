@@ -17,6 +17,7 @@ import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";
 import { bundledSeed } from "@kb/bundled";
+import { GRAPH_IDS } from "@kb/graph";
 
 /** The `at` a test commit records; the tail wants one and none of these assert on it. */
 const TX_AT = "2026-01-01T00:00:00.000Z";
@@ -155,12 +156,12 @@ describe("system seed", () => {
     // lens.all-mentions carries a deliberately different value.
     const stored = seeded.map((n) => {
       if (n.id === SYSTEM_IDS.tag) return { ...n, props: {} };
-      if (n.id === SYSTEM_IDS.lensAllMentions) {
+      if (n.id === GRAPH_IDS.lensAllMentions) {
         return {
           ...n,
           props: {
             ...n.props,
-            [SYSTEM_IDS.lensClusterByField]: [{ t: "str" as const, v: "none" }],
+            [GRAPH_IDS.lensClusterByField]: [{ t: "str" as const, v: "none" }],
           },
         };
       }
@@ -180,8 +181,8 @@ describe("system seed", () => {
 
     // A key the store already carries is the owner's, seed default or not.
     expect(
-      present(byId.get(SYSTEM_IDS.lensAllMentions), "expected byId.get(SYSTEM_IDS.lensAllMentions)")
-        .props[SYSTEM_IDS.lensClusterByField],
+      present(byId.get(GRAPH_IDS.lensAllMentions), "expected byId.get(GRAPH_IDS.lensAllMentions)")
+        .props[GRAPH_IDS.lensClusterByField],
     ).toEqual([{ t: "str", v: "none" }]);
   });
 });

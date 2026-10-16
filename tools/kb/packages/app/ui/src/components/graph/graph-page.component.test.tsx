@@ -7,7 +7,7 @@ import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { syncUiPlugins, SYSTEM_IDS } from "@kb/ui-sdk";
+import { syncUiPlugins } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import type * as GraphAdapters from "./graph-adapters";
@@ -54,6 +54,7 @@ vi.mock("./graph-adapters", async (importOriginal) => {
 import GraphPage from "./graph-page";
 import { graphUiPlugin } from "./plugin";
 import { browserHostUiPlugin } from "@/browser-host";
+import { GRAPH_IDS } from "@kb/graph";
 
 /**
  * Let the page settle: lazy renderer chunks resolve and effects commit, each
@@ -121,7 +122,7 @@ describe("GraphPage (smoke)", () => {
     await act(async () => {
       root.render(
         createElement(GraphPage, {
-          perspectiveId: SYSTEM_IDS.lensAllMentions,
+          perspectiveId: GRAPH_IDS.lensAllMentions,
         }),
       );
     });
@@ -141,16 +142,16 @@ describe("GraphPage (smoke)", () => {
   it("reports a max-nodes cap in the header, not over the canvas chrome", async () => {
     resetOutlineStore();
     const capped = fixtureGraph.nodes.map((node) =>
-      node.id === SYSTEM_IDS.lensAllMentions
+      node.id === GRAPH_IDS.lensAllMentions
         ? {
             ...node,
-            props: { ...node.props, [SYSTEM_IDS.lensMaxNodesField]: [{ t: "num" as const, v: 2 }] },
+            props: { ...node.props, [GRAPH_IDS.lensMaxNodesField]: [{ t: "num" as const, v: 2 }] },
           }
         : node,
     );
     useGraphStore.getState().hydrateFromWire(capped, fixtureGraph.rev, "fixtures");
     await act(async () => {
-      root.render(createElement(GraphPage, { perspectiveId: SYSTEM_IDS.lensAllMentions }));
+      root.render(createElement(GraphPage, { perspectiveId: GRAPH_IDS.lensAllMentions }));
     });
     await settle(
       () => /top 2 of \d+ nodes/.test(container.querySelector("header")?.textContent ?? ""),
@@ -170,7 +171,7 @@ describe("GraphPage (smoke)", () => {
   it("hands a renderer a view key and the node set extracted for it, never the next view's key early", async () => {
     handed.length = 0;
     await act(async () => {
-      root.render(createElement(GraphPage, { perspectiveId: SYSTEM_IDS.lensAllMentions }));
+      root.render(createElement(GraphPage, { perspectiveId: GRAPH_IDS.lensAllMentions }));
       await new Promise((r) => setTimeout(r, 350));
     });
     const before = handed.at(-1);

@@ -19,7 +19,7 @@ import { LEGACY_PERSPECTIVE_TAG, migrateToViewNodes, present } from "@kb/model";
 import { getViewConfig, type PropValue, SYSTEM_IDS } from "@kb/ui-sdk";
 import { lensConfig, parsePerspective } from "@/components/graph/graph-lens";
 import type { ViewConfig } from "@kb/views";
-import { DEFAULT_RENDERER, type LensPerspective } from "@kb/graph";
+import { DEFAULT_RENDERER, type LensPerspective, GRAPH_IDS } from "@kb/graph";
 
 const ISO = "2026-08-08T05:00:00.000Z";
 
@@ -129,7 +129,7 @@ const LENS_CASES: [string, string, PropValue[], Partial<LensPerspective>][] = [
   ["query non-str", SYSTEM_IDS.lensQueryField, [{ t: "num", v: 3 }], { query: "" }],
   [
     "renderer is the view, not lens.renderer",
-    SYSTEM_IDS.lensRendererField,
+    GRAPH_IDS.lensRendererField,
     [{ t: "ref", v: "sys.view.graph.tree" }],
     {},
   ],
@@ -141,20 +141,20 @@ const LENS_CASES: [string, string, PropValue[], Partial<LensPerspective>][] = [
   ],
   [
     "colorBy source ref",
-    SYSTEM_IDS.lensColorByField,
+    GRAPH_IDS.lensColorByField,
     [{ t: "ref", v: "sys.graph.source.parent" }],
     { colorBy: "parent" },
   ],
   [
     "colorBy user field ref becomes a prop key",
-    SYSTEM_IDS.lensColorByField,
+    GRAPH_IDS.lensColorByField,
     [{ t: "ref", v: "field.team" }],
     { colorBy: "prop:field.team" },
   ],
-  ["colorBy non-str", SYSTEM_IDS.lensColorByField, [{ t: "num", v: 3 }], { colorBy: "tag" }],
+  ["colorBy non-str", GRAPH_IDS.lensColorByField, [{ t: "num", v: 3 }], { colorBy: "tag" }],
   [
     "colorBy reads the first value's carrier, then any str",
-    SYSTEM_IDS.lensColorByField,
+    GRAPH_IDS.lensColorByField,
     [
       { t: "num", v: 1 },
       { t: "str", v: "fixed:#abcdef" },
@@ -163,38 +163,38 @@ const LENS_CASES: [string, string, PropValue[], Partial<LensPerspective>][] = [
   ],
   [
     "sizeBy source ref",
-    SYSTEM_IDS.lensSizeByField,
+    GRAPH_IDS.lensSizeByField,
     [{ t: "ref", v: "sys.graph.source.child-count" }],
     { sizeBy: "children" },
   ],
   [
     "labelBy source ref",
-    SYSTEM_IDS.lensLabelByField,
+    GRAPH_IDS.lensLabelByField,
     [{ t: "ref", v: "sys.graph.source.text" }],
     { labelBy: "text" },
   ],
   [
     "clusterBy source ref",
-    SYSTEM_IDS.lensClusterByField,
+    GRAPH_IDS.lensClusterByField,
     [{ t: "ref", v: "sys.graph.source.tags" }],
     { clusterBy: "tag" },
   ],
-  ["edge kinds present but empty", SYSTEM_IDS.lensEdgeKindsField, [], { edgeKinds: [] }],
+  ["edge kinds present but empty", GRAPH_IDS.lensEdgeKindsField, [], { edgeKinds: [] }],
   [
     "edge kinds `none` sentinel",
-    SYSTEM_IDS.lensEdgeKindsField,
+    GRAPH_IDS.lensEdgeKindsField,
     [{ t: "ref", v: "sys.graph.source.none" }],
     { edgeKinds: [] },
   ],
   [
     "edge kinds unknown entry",
-    SYSTEM_IDS.lensEdgeKindsField,
+    GRAPH_IDS.lensEdgeKindsField,
     [{ t: "str", v: "bogus" }],
     { edgeKinds: [] },
   ],
   [
     "edge kinds keep recognised entries",
-    SYSTEM_IDS.lensEdgeKindsField,
+    GRAPH_IDS.lensEdgeKindsField,
     [
       { t: "str", v: "mention" },
       { t: "num", v: 5 },
@@ -202,54 +202,44 @@ const LENS_CASES: [string, string, PropValue[], Partial<LensPerspective>][] = [
     ],
     { edgeKinds: ["mention", "prop:field.depends"] },
   ],
-  ["maxNodes truncates", SYSTEM_IDS.lensMaxNodesField, [{ t: "num", v: 12.7 }], { maxNodes: 12 }],
-  ["maxNodes zero", SYSTEM_IDS.lensMaxNodesField, [{ t: "num", v: 0 }], { maxNodes: 500 }],
-  ["maxNodes negative", SYSTEM_IDS.lensMaxNodesField, [{ t: "num", v: -5 }], { maxNodes: 500 }],
-  [
-    "maxNodes as a string",
-    SYSTEM_IDS.lensMaxNodesField,
-    [{ t: "str", v: "50" }],
-    { maxNodes: 500 },
-  ],
+  ["maxNodes truncates", GRAPH_IDS.lensMaxNodesField, [{ t: "num", v: 12.7 }], { maxNodes: 12 }],
+  ["maxNodes zero", GRAPH_IDS.lensMaxNodesField, [{ t: "num", v: 0 }], { maxNodes: 500 }],
+  ["maxNodes negative", GRAPH_IDS.lensMaxNodesField, [{ t: "num", v: -5 }], { maxNodes: 500 }],
+  ["maxNodes as a string", GRAPH_IDS.lensMaxNodesField, [{ t: "str", v: "50" }], { maxNodes: 500 }],
   ["focus ref", SYSTEM_IDS.lensFocusField, [{ t: "ref", v: "n.a" }], { focus: "n.a" }],
   ["focus as a string", SYSTEM_IDS.lensFocusField, [{ t: "str", v: "n.a" }], { focus: null }],
-  [
-    "layout unknown",
-    SYSTEM_IDS.lensLayoutField,
-    [{ t: "str", v: "circular" }],
-    { layout: "force" },
-  ],
-  ["layout grid", SYSTEM_IDS.lensLayoutField, [{ t: "str", v: "grid" }], { layout: "grid" }],
-  ["layout non-str", SYSTEM_IDS.lensLayoutField, [{ t: "num", v: 1 }], { layout: "force" }],
+  ["layout unknown", GRAPH_IDS.lensLayoutField, [{ t: "str", v: "circular" }], { layout: "force" }],
+  ["layout grid", GRAPH_IDS.lensLayoutField, [{ t: "str", v: "grid" }], { layout: "grid" }],
+  ["layout non-str", GRAPH_IDS.lensLayoutField, [{ t: "num", v: 1 }], { layout: "force" }],
   [
     "labelDensity unknown",
-    SYSTEM_IDS.lensLabelDensityField,
+    GRAPH_IDS.lensLabelDensityField,
     [{ t: "str", v: "ultra" }],
     { labelDensity: "medium" },
   ],
   [
     "labelDensity low",
-    SYSTEM_IDS.lensLabelDensityField,
+    GRAPH_IDS.lensLabelDensityField,
     [{ t: "str", v: "low" }],
     { labelDensity: "low" },
   ],
-  ["spread zero", SYSTEM_IDS.lensSpreadField, [{ t: "num", v: 0 }], { spread: 150 }],
-  ["spread fractional", SYSTEM_IDS.lensSpreadField, [{ t: "num", v: 12.5 }], { spread: 12.5 }],
+  ["spread zero", GRAPH_IDS.lensSpreadField, [{ t: "num", v: 0 }], { spread: 150 }],
+  ["spread fractional", GRAPH_IDS.lensSpreadField, [{ t: "num", v: 12.5 }], { spread: 12.5 }],
   [
     "linkDistance negative",
-    SYSTEM_IDS.lensLinkDistanceField,
+    GRAPH_IDS.lensLinkDistanceField,
     [{ t: "num", v: -1 }],
     { linkDistance: 60 },
   ],
   [
     "showLabels non-bool",
-    SYSTEM_IDS.lensShowLabelsField,
+    GRAPH_IDS.lensShowLabelsField,
     [{ t: "str", v: "false" }],
     { showLabels: true },
   ],
   [
     "showLabels false",
-    SYSTEM_IDS.lensShowLabelsField,
+    GRAPH_IDS.lensShowLabelsField,
     [{ t: "bool", v: false }],
     {
       showLabels: false,
@@ -257,7 +247,7 @@ const LENS_CASES: [string, string, PropValue[], Partial<LensPerspective>][] = [
   ],
   [
     "autorotate true",
-    SYSTEM_IDS.lensAutorotateField,
+    GRAPH_IDS.lensAutorotateField,
     [{ t: "bool", v: true }],
     {
       autorotate: true,
@@ -281,7 +271,7 @@ describe("lensConfig — the renderer a graph view hosts (lens.renderer)", () =>
     ["a string is no ref, so the default", [{ t: "str", v: "sankey" }], DEFAULT_RENDERER],
     ["a number is no ref, so the default", [{ t: "num", v: 3 }], DEFAULT_RENDERER],
   ] as [string, PropValue[], string][])("%s", (_name, values, renderer) => {
-    expect(lensConfig({ [SYSTEM_IDS.lensRendererField]: values }).renderer).toBe(renderer);
+    expect(lensConfig({ [GRAPH_IDS.lensRendererField]: values }).renderer).toBe(renderer);
   });
 });
 

@@ -173,66 +173,21 @@ export const SYSTEM_IDS = {
   /** Virtual root for saved queries (.kb/queries/*.edn); never in jsonl. */
   queriesRoot: "sys.queries",
   /**
-   * Graph lenses (graph-lens module): the props of a graph view node — the
-   * renderer it names is its view, and these are that view's params.
+   * A view's subject (`@kb/views`' `subject.ts`): the query that selects its
+   * nodes and the node it draws. Named for the graph's lens, where they
+   * began; every view reads them. The graph's own lens fields are its
+   * family's (`@kb/graph`'s `GRAPH_IDS`).
    */
   lensQueryField: "sys.f.lens.query",
-  lensRendererField: "sys.f.lens.renderer",
-  lensColorByField: "sys.f.lens.color-by",
-  lensSizeByField: "sys.f.lens.size-by",
-  lensEdgeKindsField: "sys.f.lens.edge-kinds",
-  lensMaxNodesField: "sys.f.lens.max-nodes",
-  /** Cluster key mode: `tag:<id>` | `prop:<id>` | `parent` | `none`. */
-  lensClusterByField: "sys.f.lens.cluster-by",
   /** Ego/tree root for tree + local lenses (ref, single). */
   lensFocusField: "sys.f.lens.focus",
-  lensLabelByField: "sys.f.lens.label-by",
-  /** How many hops out from its focus a neighbourhood reaches (num). */
-  lensHopsField: "sys.f.lens.hops",
-  /**
-   * The shared graph source list. Its children are the ten source options, and
-   * the five source-selecting lens fields each narrow them by `kind` through a
-   * `targetQuery` — one list, five views of it, because a node has one parent.
-   *
-   * No tag on the node, same as the Pinned list: it is a list, and being the
-   * node those queries read is the whole of what it is (DESIGN -> Kinds, roles
-   * and options).
-   */
-  graphSourcesRoot: "sys.graph.sources",
-  /**
-   * Which kind of value a source option yields (category / number / label /
-   * relationship). Carried by each option node; its own four values are this
-   * field's children.
-   */
-  graphSourceKindField: "sys.f.graph.source.kind",
-  /** Layout sub-mode: `force` | `radial` | `hierarchical` | `grid` (not metro). */
-  lensLayoutField: "sys.f.lens.layout",
-  /** FA2 / force spread scale (num). */
-  lensSpreadField: "sys.f.lens.spread",
-  /** Link distance hint for force layouts (num). */
-  lensLinkDistanceField: "sys.f.lens.link-distance",
-  /** Show node labels (bool). */
-  lensShowLabelsField: "sys.f.lens.show-labels",
-  /** 3D autorotate (bool). */
-  lensAutorotateField: "sys.f.lens.autorotate",
-  /** Label density tier: `low` | `medium` | `high` (str). */
-  lensLabelDensityField: "sys.f.lens.label-density",
-  /** The graph's scene theme (ref to one of its option children). */
-  lensThemeField: "sys.f.lens.theme",
-  /** How the graph's links are drawn, in every renderer (ref to one of its option children). */
-  lensLinkStyleField: "sys.f.lens.link-style",
-  /**
-   * Default global mentions+child force2d perspective.
-   * User-editable (NOT sys-prefixed) so write-guard does not lock it.
-   */
-  lensAllMentions: "lens.all-mentions",
   /**
    * The Pinned list. Its children are contextual references to the pinned
    * nodes, so "pinned" is membership of an ordered list rather than a supertag
    * (DESIGN → Kinds, roles and options).
    *
-   * User-editable (NOT sys-prefixed), same reason as `lens.all-mentions` and a
-   * sharper one: every pin writes a child into this node, which is precisely
+   * User-editable (NOT sys-prefixed), same reason as the graph's
+   * `lens.all-mentions` and a sharper one: every pin writes a child into this node, which is precisely
    * what the `sys.*` guard exists to refuse. Being an ordinary node is also
    * what makes the list draggable in the outline — the order the sidebar reads
    * is written by the reorder the outline already has.
@@ -303,8 +258,16 @@ export const SYSTEM_IDS = {
   approvalPoliciesPin: "pin.approval.policies",
 } as const;
 
-/** Pre-fix id — migrated away by ensureSystemSeed. */
-export const LEGACY_LENS_ALL_MENTIONS = "sys.lens.all-mentions";
+/**
+ * Seeded ids renamed after stores were seeded with them, old id to new: the
+ * graph's default perspective lost its `sys.` prefix so the write guard does
+ * not lock it. Ids are frozen data, so the table names both spellings; the
+ * new one is the graph family's (`@kb/graph`'s `GRAPH_IDS.lensAllMentions`),
+ * which its tests hold to this row.
+ */
+export const LEGACY_SEED_RENAMES: Readonly<Record<string, string>> = {
+  "sys.lens.all-mentions": "lens.all-mentions",
+};
 
 /** Any reserved / seeded id under the `sys.` prefix (browse yes, break no). */
 export function isSysPrefixed(id: string): boolean {

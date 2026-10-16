@@ -59,7 +59,14 @@ export {
   weekday,
 } from "./local-date.ts";
 export type { LocalDate } from "./local-date.ts";
-export { SYSTEM_IDS, currentIso, freshId, isSysPrefixed, nowIso } from "./model.ts";
+export {
+  LEGACY_SEED_RENAMES,
+  SYSTEM_IDS,
+  currentIso,
+  freshId,
+  isSysPrefixed,
+  nowIso,
+} from "./model.ts";
 export type { KbNode, NodeId, PropValue } from "./model.ts";
 export {
   allValues,
@@ -144,20 +151,6 @@ export { applyTx, diffTx, txIntegrityError } from "./tx.ts";
 export type { KbTx, StoreTx } from "./tx.ts";
 
 export {
-  GRAPH_THEME_VALUES,
-  GRAPH_LINK_STYLE_VALUES,
-  graphOptionKey,
-  graphOptionId,
-  GRAPH_SOURCE_FIELD_KINDS,
-  GRAPH_SOURCE_KINDS,
-  GRAPH_SOURCE_KIND_OPTION_IDS,
-  GRAPH_SOURCE_VALUES,
-  graphSourceKey,
-  graphSourceId,
-  graphSourceTargetQuery,
-} from "./graph-schema.ts";
-export type { GraphSourceField, GraphSourceKind } from "./graph-schema.ts";
-export {
   DOCS_VIEW_OPTION,
   VIEW_FAMILY_VALUES,
   VIEW_NODE_TARGET_QUERY,
@@ -182,6 +175,7 @@ export type { DocsViewSpec, ViewFamily } from "./view-node.ts";
 export {
   LEGACY_PERSPECTIVE_TAG,
   LEGACY_VIEW_MODE_FIELD,
+  PERSPECTIVE_RENDERER_FIELD,
   docsViewNodeId,
   frameViewNodeId,
   legacyViewShapes,

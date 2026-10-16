@@ -1,7 +1,7 @@
 /** A graph view node read as its perspective, and which perspective a graph opens on. */
 import { describe, expect, test } from "bun:test";
 import { SYSTEM_IDS } from "@kb/model";
-import { perspectiveProps } from "@kb/graph";
+import { perspectiveProps, GRAPH_IDS } from "@kb/graph";
 import { decodePerspective, resolvePerspective } from "../src/index.ts";
 import { node, perspective } from "./fixtures.ts";
 
@@ -27,7 +27,7 @@ describe("decodePerspective", () => {
       props: perspectiveProps(configured),
     });
     expect(saved.props[SYSTEM_IDS.viewField]).toEqual([{ t: "ref", v: "sys.view.graph.treemap" }]);
-    expect(saved.props[SYSTEM_IDS.lensRendererField]).toBeUndefined();
+    expect(saved.props[GRAPH_IDS.lensRendererField]).toBeUndefined();
     expect(decodePerspective(saved, quiet)).toEqual(configured);
     expect(
       decodePerspective(
@@ -48,7 +48,7 @@ describe("decodePerspective", () => {
       node({
         id: "p",
         text: "P",
-        props: { [SYSTEM_IDS.lensMaxNodesField]: [{ t: "str", v: "x" }] },
+        props: { [GRAPH_IDS.lensMaxNodesField]: [{ t: "str", v: "x" }] },
       }),
       (warning) => reported.push(warning),
     );

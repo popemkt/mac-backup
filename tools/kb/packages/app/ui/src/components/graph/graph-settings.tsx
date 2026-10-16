@@ -2,14 +2,16 @@ import { GraphMappings } from "./graph-mappings";
 import { useEffect, useRef, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
 import { setLensProp } from "./lens-writes";
-import { cn, isOutside, SYSTEM_IDS } from "@kb/ui-sdk";
-import { GRAPH_LINK_STYLE_VALUES, GRAPH_THEME_VALUES } from "@kb/model";
+import { cn, isOutside } from "@kb/ui-sdk";
 import {
   LENS_LABEL_DENSITIES,
   LENS_LAYOUTS,
   LENS_LINK_STYLES,
   LENS_THEMES,
   type LensPerspective,
+  GRAPH_IDS,
+  GRAPH_LINK_STYLE_VALUES,
+  GRAPH_THEME_VALUES,
 } from "@kb/graph";
 import { linkStyleNote, settingDisabledReason } from "./graph-capabilities";
 import { useRenderer } from "./use-renderers";
@@ -81,7 +83,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
             reason={settingDisabledReason(renderer, "layout")}
             options={LENS_LAYOUTS.map((layout) => ({ key: layout, label: layout }))}
             value={perspective.layout}
-            onPick={(layout) => setStr(SYSTEM_IDS.lensLayoutField, layout)}
+            onPick={(layout) => setStr(GRAPH_IDS.lensLayoutField, layout)}
           />
 
           <Field
@@ -94,7 +96,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
               max={500}
               value={perspective.spread}
               className="w-full"
-              onChange={(e) => setNum(SYSTEM_IDS.lensSpreadField, Number(e.target.value))}
+              onChange={(e) => setNum(GRAPH_IDS.lensSpreadField, Number(e.target.value))}
             />
           </Field>
 
@@ -108,7 +110,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
               max={200}
               value={perspective.linkDistance}
               className="w-full"
-              onChange={(e) => setNum(SYSTEM_IDS.lensLinkDistanceField, Number(e.target.value))}
+              onChange={(e) => setNum(GRAPH_IDS.lensLinkDistanceField, Number(e.target.value))}
             />
           </Field>
 
@@ -117,7 +119,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
             reason={settingDisabledReason(renderer, "labelDensity")}
             options={LENS_LABEL_DENSITIES.map((density) => ({ key: density, label: density }))}
             value={perspective.labelDensity}
-            onPick={(density) => setStr(SYSTEM_IDS.lensLabelDensityField, density)}
+            onPick={(density) => setStr(GRAPH_IDS.lensLabelDensityField, density)}
           />
 
           <Choice
@@ -128,7 +130,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
               label: GRAPH_THEME_VALUES[look].label,
             }))}
             value={perspective.theme}
-            onPick={(look) => setRef(SYSTEM_IDS.lensThemeField, GRAPH_THEME_VALUES[look].id)}
+            onPick={(look) => setRef(GRAPH_IDS.lensThemeField, GRAPH_THEME_VALUES[look].id)}
           />
 
           <Choice
@@ -141,7 +143,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
             }))}
             value={perspective.linkStyle}
             onPick={(style) =>
-              setRef(SYSTEM_IDS.lensLinkStyleField, GRAPH_LINK_STYLE_VALUES[style].id)
+              setRef(GRAPH_IDS.lensLinkStyleField, GRAPH_LINK_STYLE_VALUES[style].id)
             }
           />
 
@@ -149,13 +151,13 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
             label="Show labels"
             reason={settingDisabledReason(renderer, "showLabels")}
             checked={perspective.showLabels}
-            onChange={(v) => setBool(SYSTEM_IDS.lensShowLabelsField, v)}
+            onChange={(v) => setBool(GRAPH_IDS.lensShowLabelsField, v)}
           />
           <Toggle
             label="Auto-rotate (3D)"
             reason={settingDisabledReason(renderer, "autorotate")}
             checked={perspective.autorotate}
-            onChange={(v) => setBool(SYSTEM_IDS.lensAutorotateField, v)}
+            onChange={(v) => setBool(GRAPH_IDS.lensAutorotateField, v)}
           />
         </div>
       ) : null}

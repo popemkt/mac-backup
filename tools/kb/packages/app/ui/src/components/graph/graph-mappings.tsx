@@ -7,8 +7,11 @@ import {
   TreeView,
   TreemapView,
   type GraphChannel,
+  GRAPH_IDS,
+  GRAPH_SOURCE_FIELD_KINDS,
+  type GraphSourceField,
+  type GraphSourceKind,
 } from "@kb/graph";
-import { GRAPH_SOURCE_FIELD_KINDS, type GraphSourceField, type GraphSourceKind } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { setLensProp } from "./lens-writes";
 import { useRenderer } from "./use-renderers";
@@ -45,10 +48,10 @@ const CHANNELS: Record<
     key: "colorBy" | "sizeBy" | "clusterBy" | "labelBy";
   }
 > = {
-  color: { label: "Color by", field: SYSTEM_IDS.lensColorByField, key: "colorBy" },
-  size: { label: "Size by", field: SYSTEM_IDS.lensSizeByField, key: "sizeBy" },
-  group: { label: "Group by", field: SYSTEM_IDS.lensClusterByField, key: "clusterBy" },
-  label: { label: "Label from", field: SYSTEM_IDS.lensLabelByField, key: "labelBy" },
+  color: { label: "Color by", field: GRAPH_IDS.lensColorByField, key: "colorBy" },
+  size: { label: "Size by", field: GRAPH_IDS.lensSizeByField, key: "sizeBy" },
+  group: { label: "Group by", field: GRAPH_IDS.lensClusterByField, key: "clusterBy" },
+  label: { label: "Label from", field: GRAPH_IDS.lensLabelByField, key: "labelBy" },
 };
 
 export function GraphMappings({ perspective }: { perspective: LensPerspective }) {
@@ -66,7 +69,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
             <fieldset key={channel} className="space-y-1">
               <legend className="mb-1 text-label text-foreground/55">Relationships</legend>
               <div className="max-h-32 space-y-1 overflow-y-auto">
-                {optionsFor(SYSTEM_IDS.lensEdgeKindsField).map((option) => (
+                {optionsFor(GRAPH_IDS.lensEdgeKindsField).map((option) => (
                   <label key={option.value} className="flex items-center gap-2 text-meta leading-4">
                     <input
                       type="checkbox"
@@ -77,7 +80,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
                           : perspective.edgeKinds.filter((k) => k !== option.value);
                         void browserHost().writes.replaceField(
                           perspective.id,
-                          SYSTEM_IDS.lensEdgeKindsField,
+                          GRAPH_IDS.lensEdgeKindsField,
                           (next.length ? next : ["none"]).map(sourceValue),
                         );
                       }}
@@ -153,7 +156,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
           onBlur={(e) => {
             const v = Number(e.target.value);
             if (Number.isFinite(v) && v >= 1 && v !== perspective.maxNodes)
-              void setLensProp(perspective.id, SYSTEM_IDS.lensMaxNodesField, {
+              void setLensProp(perspective.id, GRAPH_IDS.lensMaxNodesField, {
                 t: "num",
                 v: Math.floor(v),
               });

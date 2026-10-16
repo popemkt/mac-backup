@@ -11,8 +11,6 @@
  */
 import { Schema, SchemaGetter } from "effect";
 import {
-  GRAPH_LINK_STYLE_VALUES,
-  GRAPH_THEME_VALUES,
   SYSTEM_IDS,
   decodeNodeConfig,
   encodeNodeConfig,
@@ -20,10 +18,6 @@ import {
   firstNum,
   firstRef,
   firstStr,
-  graphOptionId,
-  graphOptionKey,
-  graphSourceId,
-  graphSourceKey,
   manyOf,
   oneOf,
   viewOptionId,
@@ -38,6 +32,15 @@ import {
   type Writable,
 } from "@kb/model";
 import { SUBJECT_SLOTS, type ConfigReport } from "@kb/views";
+import { GRAPH_IDS } from "./ids.ts";
+import {
+  GRAPH_LINK_STYLE_VALUES,
+  GRAPH_THEME_VALUES,
+  graphOptionId,
+  graphOptionKey,
+  graphSourceId,
+  graphSourceKey,
+} from "./schema.ts";
 
 export type EdgeKind = "mention" | "child" | "ref-prop" | `prop:${string}`;
 
@@ -182,14 +185,14 @@ const sourceWrite =
 const NO_EDGE_KIND = "none";
 
 const edgeKindValues = (props: NodeProps): unknown[] | undefined =>
-  props[SYSTEM_IDS.lensEdgeKindsField]?.map((value) => {
+  props[GRAPH_IDS.lensEdgeKindsField]?.map((value) => {
     const key = value.t === "ref" ? graphSourceKey(value.v) : String(value.v);
     return key === NO_EDGE_KIND ? null : key;
   });
 
 /** No edge kinds is written as the `none` option, so it reads back as none rather than unset. */
 const edgeKindsWrite = (kinds: readonly EdgeKind[]): SlotWrite => ({
-  [SYSTEM_IDS.lensEdgeKindsField]: (kinds.length > 0 ? kinds : [NO_EDGE_KIND]).map(sourceValue),
+  [GRAPH_IDS.lensEdgeKindsField]: (kinds.length > 0 ? kinds : [NO_EDGE_KIND]).map(sourceValue),
 });
 
 export const EdgeKindSchema = Schema.Union([
@@ -247,115 +250,115 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
   // What every view says of its subject, decoded as every view decodes it.
   query: SUBJECT_SLOTS.query,
   renderer: oneOf({
-    fields: [SYSTEM_IDS.lensRendererField],
-    read: firstRef(SYSTEM_IDS.lensRendererField),
-    write: writeRef(SYSTEM_IDS.lensRendererField),
+    fields: [GRAPH_IDS.lensRendererField],
+    read: firstRef(GRAPH_IDS.lensRendererField),
+    write: writeRef(GRAPH_IDS.lensRendererField),
     schema: Schema.String,
     fallback: DEFAULT_RENDERER,
   }),
   colorBy: oneOf({
-    fields: [SYSTEM_IDS.lensColorByField],
-    read: sourceKey(SYSTEM_IDS.lensColorByField),
-    write: sourceWrite(SYSTEM_IDS.lensColorByField),
+    fields: [GRAPH_IDS.lensColorByField],
+    read: sourceKey(GRAPH_IDS.lensColorByField),
+    write: sourceWrite(GRAPH_IDS.lensColorByField),
     schema: SourceSchema,
     fallback: DEFAULT_COLOR_BY,
   }),
   labelBy: oneOf<string | undefined>({
-    fields: [SYSTEM_IDS.lensLabelByField],
-    read: sourceKey(SYSTEM_IDS.lensLabelByField),
-    write: (key) => sourceWrite(SYSTEM_IDS.lensLabelByField)(key ?? DEFAULT_LABEL_BY),
+    fields: [GRAPH_IDS.lensLabelByField],
+    read: sourceKey(GRAPH_IDS.lensLabelByField),
+    write: (key) => sourceWrite(GRAPH_IDS.lensLabelByField)(key ?? DEFAULT_LABEL_BY),
     schema: SourceSchema,
     fallback: DEFAULT_LABEL_BY,
   }),
   sizeBy: oneOf({
-    fields: [SYSTEM_IDS.lensSizeByField],
-    read: sourceKey(SYSTEM_IDS.lensSizeByField),
-    write: sourceWrite(SYSTEM_IDS.lensSizeByField),
+    fields: [GRAPH_IDS.lensSizeByField],
+    read: sourceKey(GRAPH_IDS.lensSizeByField),
+    write: sourceWrite(GRAPH_IDS.lensSizeByField),
     schema: SourceSchema,
     fallback: DEFAULT_SIZE_BY,
   }),
   clusterBy: oneOf({
-    fields: [SYSTEM_IDS.lensClusterByField],
-    read: sourceKey(SYSTEM_IDS.lensClusterByField),
-    write: sourceWrite(SYSTEM_IDS.lensClusterByField),
+    fields: [GRAPH_IDS.lensClusterByField],
+    read: sourceKey(GRAPH_IDS.lensClusterByField),
+    write: sourceWrite(GRAPH_IDS.lensClusterByField),
     schema: SourceSchema,
     fallback: DEFAULT_CLUSTER_BY,
   }),
   edgeKinds: manyOf<EdgeKind>({
-    fields: [SYSTEM_IDS.lensEdgeKindsField],
+    fields: [GRAPH_IDS.lensEdgeKindsField],
     read: edgeKindValues,
     write: edgeKindsWrite,
     schema: Schema.NullOr(EdgeKindSchema),
     fallback: DEFAULT_EDGE_KINDS,
   }),
   maxNodes: oneOf({
-    fields: [SYSTEM_IDS.lensMaxNodesField],
-    read: firstNum(SYSTEM_IDS.lensMaxNodesField),
-    write: writeNum(SYSTEM_IDS.lensMaxNodesField),
+    fields: [GRAPH_IDS.lensMaxNodesField],
+    read: firstNum(GRAPH_IDS.lensMaxNodesField),
+    write: writeNum(GRAPH_IDS.lensMaxNodesField),
     schema: NodeCountSchema,
     fallback: DEFAULT_MAX_NODES,
   }),
   focus: SUBJECT_SLOTS.focus,
   hops: oneOf<number | null>({
-    fields: [SYSTEM_IDS.lensHopsField],
-    read: firstNum(SYSTEM_IDS.lensHopsField),
-    write: writeNum(SYSTEM_IDS.lensHopsField),
+    fields: [GRAPH_IDS.lensHopsField],
+    read: firstNum(GRAPH_IDS.lensHopsField),
+    write: writeNum(GRAPH_IDS.lensHopsField),
     schema: NodeCountSchema,
     fallback: null,
   }),
   layout: oneOf({
-    fields: [SYSTEM_IDS.lensLayoutField],
-    read: firstStr(SYSTEM_IDS.lensLayoutField),
-    write: writeStr(SYSTEM_IDS.lensLayoutField),
+    fields: [GRAPH_IDS.lensLayoutField],
+    read: firstStr(GRAPH_IDS.lensLayoutField),
+    write: writeStr(GRAPH_IDS.lensLayoutField),
     schema: LENS_SETTINGS.layout,
     fallback: DEFAULT_LAYOUT,
   }),
   spread: oneOf({
-    fields: [SYSTEM_IDS.lensSpreadField],
-    read: firstNum(SYSTEM_IDS.lensSpreadField),
-    write: writeNum(SYSTEM_IDS.lensSpreadField),
+    fields: [GRAPH_IDS.lensSpreadField],
+    read: firstNum(GRAPH_IDS.lensSpreadField),
+    write: writeNum(GRAPH_IDS.lensSpreadField),
     schema: LENS_SETTINGS.spread,
     fallback: DEFAULT_SPREAD,
   }),
   linkDistance: oneOf({
-    fields: [SYSTEM_IDS.lensLinkDistanceField],
-    read: firstNum(SYSTEM_IDS.lensLinkDistanceField),
-    write: writeNum(SYSTEM_IDS.lensLinkDistanceField),
+    fields: [GRAPH_IDS.lensLinkDistanceField],
+    read: firstNum(GRAPH_IDS.lensLinkDistanceField),
+    write: writeNum(GRAPH_IDS.lensLinkDistanceField),
     schema: LENS_SETTINGS.linkDistance,
     fallback: DEFAULT_LINK_DISTANCE,
   }),
   showLabels: oneOf({
-    fields: [SYSTEM_IDS.lensShowLabelsField],
-    read: firstBool(SYSTEM_IDS.lensShowLabelsField),
-    write: writeBool(SYSTEM_IDS.lensShowLabelsField),
+    fields: [GRAPH_IDS.lensShowLabelsField],
+    read: firstBool(GRAPH_IDS.lensShowLabelsField),
+    write: writeBool(GRAPH_IDS.lensShowLabelsField),
     schema: LENS_SETTINGS.showLabels,
     fallback: DEFAULT_SHOW_LABELS,
   }),
   autorotate: oneOf({
-    fields: [SYSTEM_IDS.lensAutorotateField],
-    read: firstBool(SYSTEM_IDS.lensAutorotateField),
-    write: writeBool(SYSTEM_IDS.lensAutorotateField),
+    fields: [GRAPH_IDS.lensAutorotateField],
+    read: firstBool(GRAPH_IDS.lensAutorotateField),
+    write: writeBool(GRAPH_IDS.lensAutorotateField),
     schema: LENS_SETTINGS.autorotate,
     fallback: DEFAULT_AUTOROTATE,
   }),
   labelDensity: oneOf({
-    fields: [SYSTEM_IDS.lensLabelDensityField],
-    read: firstStr(SYSTEM_IDS.lensLabelDensityField),
-    write: writeStr(SYSTEM_IDS.lensLabelDensityField),
+    fields: [GRAPH_IDS.lensLabelDensityField],
+    read: firstStr(GRAPH_IDS.lensLabelDensityField),
+    write: writeStr(GRAPH_IDS.lensLabelDensityField),
     schema: LENS_SETTINGS.labelDensity,
     fallback: DEFAULT_LABEL_DENSITY,
   }),
   theme: oneOf({
-    fields: [SYSTEM_IDS.lensThemeField],
-    read: optionKey(SYSTEM_IDS.lensThemeField, GRAPH_THEME_VALUES),
-    write: optionWrite(SYSTEM_IDS.lensThemeField, GRAPH_THEME_VALUES),
+    fields: [GRAPH_IDS.lensThemeField],
+    read: optionKey(GRAPH_IDS.lensThemeField, GRAPH_THEME_VALUES),
+    write: optionWrite(GRAPH_IDS.lensThemeField, GRAPH_THEME_VALUES),
     schema: LENS_SETTINGS.theme,
     fallback: DEFAULT_THEME,
   }),
   linkStyle: oneOf({
-    fields: [SYSTEM_IDS.lensLinkStyleField],
-    read: optionKey(SYSTEM_IDS.lensLinkStyleField, GRAPH_LINK_STYLE_VALUES),
-    write: optionWrite(SYSTEM_IDS.lensLinkStyleField, GRAPH_LINK_STYLE_VALUES),
+    fields: [GRAPH_IDS.lensLinkStyleField],
+    read: optionKey(GRAPH_IDS.lensLinkStyleField, GRAPH_LINK_STYLE_VALUES),
+    write: optionWrite(GRAPH_IDS.lensLinkStyleField, GRAPH_LINK_STYLE_VALUES),
     schema: LENS_SETTINGS.linkStyle,
     fallback: DEFAULT_LINK_STYLE,
   }),

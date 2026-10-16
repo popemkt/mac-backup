@@ -15,9 +15,10 @@
 import { describe, expect, it } from "vitest";
 import { DatascriptIndex } from "@kb/ui-sdk";
 import { parsePerspective } from "./graph-lens";
-import { GRAPH_SOURCE_VALUES, SYSTEM_IDS, allowedRefIdsOf, present, type KbNode } from "@kb/model";
+import { SYSTEM_IDS, allowedRefIdsOf, present, type KbNode } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
+import { GRAPH_IDS, GRAPH_SOURCE_VALUES } from "@kb/graph";
 
 /** Every declared view key: what the seed derives its view options from. */
 const declaredKeys = BUNDLED_DECLARATIONS.flatMap((declaration) =>
@@ -40,7 +41,7 @@ function sourceIds(...keys: (keyof typeof GRAPH_SOURCE_VALUES)[]): string[] {
 
 describe("graph option sets resolve from data", () => {
   it("lens.renderer offers the renderer views — the view options in that family", () => {
-    expect(allowed(SYSTEM_IDS.lensRendererField)).toEqual(
+    expect(allowed(GRAPH_IDS.lensRendererField)).toEqual(
       declaredKeys
         .filter((key) => key.family === "graph.renderer")
         .map((key) => key.option)
@@ -53,21 +54,21 @@ describe("graph option sets resolve from data", () => {
   });
 
   it("each source field offers the shared list narrowed to its kind", () => {
-    expect(allowed(SYSTEM_IDS.lensColorByField)).toEqual(sourceIds("tag", "parent", "none"));
-    expect(allowed(SYSTEM_IDS.lensClusterByField)).toEqual(sourceIds("tag", "parent", "none"));
-    expect(allowed(SYSTEM_IDS.lensSizeByField)).toEqual(sourceIds("degree", "children", "fixed"));
-    expect(allowed(SYSTEM_IDS.lensLabelByField)).toEqual(sourceIds("text"));
-    expect(allowed(SYSTEM_IDS.lensEdgeKindsField)).toEqual(
+    expect(allowed(GRAPH_IDS.lensColorByField)).toEqual(sourceIds("tag", "parent", "none"));
+    expect(allowed(GRAPH_IDS.lensClusterByField)).toEqual(sourceIds("tag", "parent", "none"));
+    expect(allowed(GRAPH_IDS.lensSizeByField)).toEqual(sourceIds("degree", "children", "fixed"));
+    expect(allowed(GRAPH_IDS.lensLabelByField)).toEqual(sourceIds("text"));
+    expect(allowed(GRAPH_IDS.lensEdgeKindsField)).toEqual(
       sourceIds("child", "mention", "ref-prop"),
     );
   });
 
   it("the ten options are one list, and each carries its kind", () => {
-    const list = present(byId.get(SYSTEM_IDS.graphSourcesRoot), "sys.graph.sources");
+    const list = present(byId.get(GRAPH_IDS.graphSourcesRoot), "sys.graph.sources");
     expect(list.children).toEqual(Object.values(GRAPH_SOURCE_VALUES).map((value) => value.id));
     for (const value of Object.values(GRAPH_SOURCE_VALUES)) {
       const option = present(byId.get(value.id), value.id);
-      expect(option.props[SYSTEM_IDS.graphSourceKindField], value.id).toBeDefined();
+      expect(option.props[GRAPH_IDS.graphSourceKindField], value.id).toBeDefined();
     }
   });
 });
@@ -87,9 +88,9 @@ describe("stored values outside the option set", () => {
   it("reads a prop:<id> source the narrowed picker would not offer", () => {
     const parsed = parsePerspective(
       perspective({
-        [SYSTEM_IDS.lensColorByField]: [{ t: "str", v: "prop:field.status" }],
-        [SYSTEM_IDS.lensSizeByField]: [{ t: "str", v: "prop:field.weight" }],
-        [SYSTEM_IDS.lensEdgeKindsField]: [{ t: "str", v: "prop:field.owner" }],
+        [GRAPH_IDS.lensColorByField]: [{ t: "str", v: "prop:field.status" }],
+        [GRAPH_IDS.lensSizeByField]: [{ t: "str", v: "prop:field.weight" }],
+        [GRAPH_IDS.lensEdgeKindsField]: [{ t: "str", v: "prop:field.owner" }],
       }),
     );
     expect(parsed.colorBy).toBe("prop:field.status");
@@ -100,7 +101,7 @@ describe("stored values outside the option set", () => {
   it("reads the `none` edge-kinds sentinel back as no edge kinds", () => {
     const parsed = parsePerspective(
       perspective({
-        [SYSTEM_IDS.lensEdgeKindsField]: [{ t: "ref", v: GRAPH_SOURCE_VALUES.none.id }],
+        [GRAPH_IDS.lensEdgeKindsField]: [{ t: "ref", v: GRAPH_SOURCE_VALUES.none.id }],
       }),
     );
     expect(parsed.edgeKinds).toEqual([]);

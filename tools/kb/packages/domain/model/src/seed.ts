@@ -6,17 +6,7 @@ import {
   DECISION_OPTION_IDS,
   approvalPolicyNode,
 } from "./approval-policy.ts";
-import {
-  GRAPH_LINK_STYLE_VALUES,
-  GRAPH_THEME_VALUES,
-  GRAPH_SOURCE_FIELD_KINDS,
-  GRAPH_SOURCE_KINDS,
-  GRAPH_SOURCE_KIND_OPTION_IDS,
-  GRAPH_SOURCE_VALUES,
-  graphSourceTargetQuery,
-  type GraphSourceField,
-} from "./graph-schema.ts";
-import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode, type NodeId, nowIso } from "./model.ts";
+import { LEGACY_SEED_RENAMES, SYSTEM_IDS, type KbNode, type NodeId, nowIso } from "./model.ts";
 import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
@@ -29,7 +19,6 @@ import {
   VIEW_FAMILY_VALUES,
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
-  viewFamilyTargetQuery,
   viewOptionId,
 } from "./view-node.ts";
 
@@ -301,107 +290,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "text",
   );
 
-  /*
-   * Graph vocabulary. Sources are an option *set*, declared by parenting
-   * (DESIGN -> Kinds, roles and options). They are ONE list read by five
-   * fields, and a node has one parent, so they are children of a list node
-   * (`sys.graph.sources`, no tag; the Pinned list is the precedent), they
-   * carry the `kind` that used to exist only in TypeScript, and each of the
-   * five fields selects the subset it accepts with a `targetQuery` — the
-   * shape `surface` uses to select `enforcement`'s children minus `prose`.
-   * The renderers are views, so they are options under `sys.views`.
-   */
-  // Themes and link styles are option sets of one field each, shaped
-  // like the renderers: the field's own children.
-  const themeOptions = Object.values(GRAPH_THEME_VALUES).map((value) => mk(value.id, value.label));
-  const linkStyleOptions = Object.values(GRAPH_LINK_STYLE_VALUES).map((value) =>
-    mk(value.id, value.label),
-  );
-  const sourceKindOptions = GRAPH_SOURCE_KINDS.map((kind) =>
-    mk(GRAPH_SOURCE_KIND_OPTION_IDS[kind], kind),
-  );
-  const graphSourceKindField: KbNode = {
-    ...singleField(SYSTEM_IDS.graphSourceKindField, "graph.source.kind", "ref"),
-    children: sourceKindOptions.map((option) => option.id),
-  };
-  const sourceOptions = Object.values(GRAPH_SOURCE_VALUES).map((value) =>
-    mk(value.id, value.label, {
-      [SYSTEM_IDS.graphSourceKindField]: [
-        { t: "ref", v: GRAPH_SOURCE_KIND_OPTION_IDS[value.kind] },
-      ],
-    }),
-  );
-  const graphSourcesRoot: KbNode = {
-    ...mk(SYSTEM_IDS.graphSourcesRoot, "Graph sources"),
-    children: sourceOptions.map((option) => option.id),
-  };
-  /**
-   * A lens field selecting from the shared source list, narrowed to its kind.
-   * Every source field but `edge-kinds` selects one source.
-   */
-  const sourceField = (
-    id: GraphSourceField,
-    text: string,
-    props: KbNode["props"] = SINGLE,
-  ): KbNode => refQueryField(id, text, graphSourceTargetQuery(GRAPH_SOURCE_FIELD_KINDS[id]), props);
-
-  const lensLabelByField = sourceField(SYSTEM_IDS.lensLabelByField, "lens.label-by");
-  // Graph perspectives (V0): #graph-perspective tag + lens field template.
+  // A view's subject (`lens.query`, `lens.focus`): every view's, so core's.
   const lensQueryField = singleField(SYSTEM_IDS.lensQueryField, "lens.query", "text");
-  // The renderer a graph view hosts (a neighbourhood's): one of the renderer views.
-  const lensRendererField = refQueryField(
-    SYSTEM_IDS.lensRendererField,
-    "lens.renderer",
-    viewFamilyTargetQuery("graph.renderer"),
-    SINGLE,
-  );
-  const lensColorByField = sourceField(SYSTEM_IDS.lensColorByField, "lens.color-by");
-  const lensSizeByField = sourceField(SYSTEM_IDS.lensSizeByField, "lens.size-by");
-  const lensEdgeKindsField = sourceField(SYSTEM_IDS.lensEdgeKindsField, "lens.edge-kinds", {});
-  const lensMaxNodesField = singleField(SYSTEM_IDS.lensMaxNodesField, "lens.max-nodes", "number");
-  const lensClusterByField = sourceField(SYSTEM_IDS.lensClusterByField, "lens.cluster-by");
   const lensFocusField = singleField(SYSTEM_IDS.lensFocusField, "lens.focus", "ref");
-  const lensHopsField = singleField(SYSTEM_IDS.lensHopsField, "lens.hops", "number");
-  const lensLayoutField = singleField(SYSTEM_IDS.lensLayoutField, "lens.layout", "text");
-  const lensSpreadField = singleField(SYSTEM_IDS.lensSpreadField, "lens.spread", "number");
-  const lensLinkDistanceField = singleField(
-    SYSTEM_IDS.lensLinkDistanceField,
-    "lens.link-distance",
-    "number",
-  );
-  const lensShowLabelsField = singleField(
-    SYSTEM_IDS.lensShowLabelsField,
-    "lens.show-labels",
-    "checkbox",
-  );
-  const lensAutorotateField = singleField(
-    SYSTEM_IDS.lensAutorotateField,
-    "lens.autorotate",
-    "checkbox",
-  );
-  const lensLabelDensityField = singleField(
-    SYSTEM_IDS.lensLabelDensityField,
-    "lens.label-density",
-    "text",
-  );
-  const lensThemeField: KbNode = {
-    ...refField(SYSTEM_IDS.lensThemeField, "lens.theme", undefined, SINGLE),
-    children: themeOptions.map((option) => option.id),
-  };
-  const lensLinkStyleField: KbNode = {
-    ...refField(SYSTEM_IDS.lensLinkStyleField, "lens.link-style", undefined, SINGLE),
-    children: linkStyleOptions.map((option) => option.id),
-  };
-  // The default graph: a view node whose view is the 2D renderer, and whose
-  // lens props are that renderer's params (DESIGN → View nodes).
-  const lensAllMentions = mk(SYSTEM_IDS.lensAllMentions, "All mentions", {
-    [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("graph.force2d") }],
-    [SYSTEM_IDS.lensClusterByField]: [{ t: "ref", v: GRAPH_SOURCE_VALUES.parent.id }],
-    [SYSTEM_IDS.lensEdgeKindsField]: [
-      { t: "ref", v: GRAPH_SOURCE_VALUES.mention.id },
-      { t: "ref", v: GRAPH_SOURCE_VALUES.child.id },
-    ],
-  });
 
   // A layout view's arrangement (`layout.grid`): its pane tree as JSON text.
   const layoutField = singleField(SYSTEM_IDS.layoutField, "layout", "text");
@@ -623,30 +514,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...viewFamilyOptions,
     viewsRoot,
     lensQueryField,
-    graphSourceKindField,
-    ...sourceKindOptions,
-    graphSourcesRoot,
-    ...sourceOptions,
-    lensLabelByField,
-    lensRendererField,
-    lensColorByField,
-    lensSizeByField,
-    lensEdgeKindsField,
-    lensMaxNodesField,
-    lensClusterByField,
     lensFocusField,
-    lensHopsField,
-    lensLayoutField,
-    lensSpreadField,
-    lensLinkDistanceField,
-    lensShowLabelsField,
-    lensAutorotateField,
-    lensLabelDensityField,
-    lensThemeField,
-    ...themeOptions,
-    lensLinkStyleField,
-    ...linkStyleOptions,
-    lensAllMentions,
     layoutField,
     ontoIncludeField,
     ontoMemberField,
@@ -675,7 +543,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
  * Merge `seed` (the fold of the bundled declarations, {@link foldSeed}) into
  * existing nodes without overwriting user edits to sys.* text/props.
  *
- * Also migrates the legacy default perspective `sys.lens.all-mentions` →
+ * Also migrates the seeded ids renamed since ({@link LEGACY_SEED_RENAMES}),
+ * such as the graph's default perspective `sys.lens.all-mentions` →
  * `lens.all-mentions` (user-editable). If both exist, drop the legacy id;
  * if only legacy exists, rename in place preserving text/props.
  */
@@ -695,16 +564,12 @@ export function ensureSystemSeed(
   // Migrate legacy BEFORE seeding defaults so edits on the old id are kept.
   // The seed has no general retirement: a renamed seeded node lingers in a
   // store opened elsewhere. GAP [[01M3FK1PM9P96SNCSHXF0CJZRA]]
-  const legacy = byId.get(LEGACY_LENS_ALL_MENTIONS);
-  if (legacy) {
-    if (!byId.has(SYSTEM_IDS.lensAllMentions)) {
-      byId.set(SYSTEM_IDS.lensAllMentions, {
-        ...legacy,
-        id: SYSTEM_IDS.lensAllMentions,
-      });
-    }
-    byId.delete(LEGACY_LENS_ALL_MENTIONS);
-    deletes.push(LEGACY_LENS_ALL_MENTIONS);
+  for (const [legacyId, id] of Object.entries(LEGACY_SEED_RENAMES)) {
+    const legacy = byId.get(legacyId);
+    if (legacy === undefined) continue;
+    if (!byId.has(id)) byId.set(id, { ...legacy, id });
+    byId.delete(legacyId);
+    deletes.push(legacyId);
     seeded = true;
   }
 
