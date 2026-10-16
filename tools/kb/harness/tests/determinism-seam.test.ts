@@ -56,7 +56,12 @@ const ALLOWED: Record<string, Set<string>> = {
   "Math.random(": new Set([MODEL]),
   "new Date(": new Set([MODEL]),
   "ulid(": new Set([MODEL]),
-  "nowIso(": new Set([MODEL, at("@kb/model", "src/seed.ts"), at("@kb/model", "src/example.ts")]),
+  "nowIso(": new Set([
+    MODEL,
+    at("@kb/model", "src/seed.ts"),
+    at("@kb/model", "src/seed-fold.ts"),
+    at("@kb/model", "src/example.ts"),
+  ]),
   "Date(": new Set([MODEL]),
 };
 

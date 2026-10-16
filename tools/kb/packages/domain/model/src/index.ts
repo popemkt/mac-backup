@@ -125,8 +125,8 @@ export {
   schemaToJsonSchema,
 } from "./schema-seam.ts";
 export type { ActionSchema } from "./schema-seam.ts";
-export { ensureSystemSeed, foldSeed, seededField, seededTag, systemSeedNodes } from "./seed.ts";
-export type { SeedSource, SeedView } from "./seed.ts";
+export { ensureSystemSeed, seededField, seededTag, systemSeedNodes } from "./seed.ts";
+export { foldSeed, type SeedSource, type SeedView } from "./seed-fold.ts";
 export { applyTx, diffTx, txIntegrityError } from "./tx.ts";
 export type { KbTx, StoreTx } from "./tx.ts";
 
