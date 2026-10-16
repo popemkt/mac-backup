@@ -108,7 +108,7 @@ function OntologyGraph({ ontologyId }: { readonly ontologyId: string }) {
     () => viewNamed(GRAPH_PAGE, catalog, (id) => wireNodes.find((n) => n.id === id))?.label,
     [catalog, wireNodes],
   );
-  const unavailable = <ViewNotLoaded label={label ?? "Graph"} />;
+  const unavailable = <ViewNotLoaded label={label ?? "Graph"} placement="page" />;
   if (key === null) return unavailable;
   return (
     <ViewSlot
@@ -141,14 +141,14 @@ function ScopeDefaultView({ ontologyId }: { readonly ontologyId: string }) {
     const params = paramsFrom(key, input);
     return Result.isSuccess(params) ? { key, params: params.success, subject } : null;
   }, [ontologyId, catalog, schema]);
-  if (target === null) return <ViewNotLoaded label="Default view" />;
+  if (target === null) return <ViewNotLoaded label="Default view" placement="page" />;
   return (
     <ViewSlot
       view={target.key}
       params={target.params}
       placement="page"
       subject={target.subject}
-      fallback={<ViewNotLoaded label={target.key.label} />}
+      fallback={<ViewNotLoaded label={target.key.label} placement="page" />}
     />
   );
 }

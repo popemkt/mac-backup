@@ -44,9 +44,9 @@ export function NodeViewSurface({ params }: ViewProps<NodeParams>) {
   // A view no plugin on this page draws, or a view the data names that is broken.
   if (found.key === null)
     return "broken" in found ? (
-      <ViewUnavailable why={found.broken} />
+      <ViewUnavailable why={found.broken} placement="page" />
     ) : (
-      <ViewNotLoaded label={found.listed.label} />
+      <ViewNotLoaded label={found.listed.label} placement="page" />
     );
   return <HeldView target={found} />;
 }
@@ -64,7 +64,7 @@ function HeldView({ target }: { readonly target: HeldViewTarget }) {
       placement="page"
       subject={target.subject}
       {...(target.viewNode === undefined ? {} : { viewNode: target.viewNode })}
-      fallback={<ViewNotLoaded label={target.key.label} />}
+      fallback={<ViewNotLoaded label={target.key.label} placement="page" />}
     />
   );
   // Framed as the route that opens the view frames it; a view no route opens fills the pane.

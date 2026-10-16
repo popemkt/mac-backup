@@ -1316,7 +1316,9 @@ as its own commit, before O5.
    only `installDomGlobals` from it, and they write through the shell's
    host.
 5. **The ontology names no view.** Its scope opens in the store's default
-   view type (`resolveDefaultViewType`). The outline's keys still stay in
+   view type (`resolveDefaultViewType`). With no such view held, it shows
+   the kit's `ViewNotLoaded`, as the graph's tab does, where it used to show
+   a "not found" page. The outline's keys still stay in
    `@kb/views`, for the frame-view reason recorded under the move.
 6. **`update-cost` mocks through the kit's entry.** It mocks the row chrome
    through `@kb/ui-sdk`'s entry, after O5's first step moved the row chrome
