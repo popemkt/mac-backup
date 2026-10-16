@@ -14,3 +14,16 @@ if (typeof globalThis.WebGL2RenderingContext === "undefined") {
 if (typeof globalThis.WebGLRenderingContext === "undefined") {
   (globalThis as Record<string, unknown>).WebGLRenderingContext = {};
 }
+// Neither test DOM ships IntersectionObserver. A stand-in that never reports
+// leaves an observed element counted as visible, as a browser does before its
+// first report.
+if (typeof globalThis.IntersectionObserver === "undefined") {
+  (globalThis as Record<string, unknown>).IntersectionObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  };
+}
