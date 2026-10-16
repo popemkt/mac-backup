@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import type { CanvasEdge, KbLinkMode } from "@kb/canvas";
-import { CANVAS_SWATCHES } from "./canvas-color";
-import { cn, EnumSelect, hasText, isOutside, type EnumOption } from "@kb/ui-sdk";
+import { styleOf, type CanvasEdge, type KbLinkMode } from "@kb/canvas";
+import { cn, EnumSelect, isOutside, type EnumOption } from "@kb/ui-sdk";
+import { ColorSwatches } from "./item-style-rows";
 
 export interface EdgeInspectorProps {
   edge: CanvasEdge;
@@ -116,32 +116,7 @@ export function EdgeInspector({
       {onColorChange && (
         <div className="mb-2">
           <div className="mb-1 text-meta text-foreground/60">Color</div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              aria-label="No color"
-              title="None"
-              className={cn(
-                "h-5 w-5 rounded-full border border-foreground/15 bg-background",
-                !hasText(edge.color) && "ring-2 ring-primary/50",
-              )}
-              onClick={() => onColorChange(undefined)}
-            />
-            {CANVAS_SWATCHES.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                aria-label={p.label}
-                title={p.label}
-                className={cn(
-                  "h-5 w-5 rounded-full border border-foreground/10",
-                  edge.color === p.id && "ring-2 ring-primary/50",
-                )}
-                style={{ backgroundColor: p.css }}
-                onClick={() => onColorChange(p.id)}
-              />
-            ))}
-          </div>
+          <ColorSwatches value={styleOf(edge).color} onChange={onColorChange} small />
         </div>
       )}
 

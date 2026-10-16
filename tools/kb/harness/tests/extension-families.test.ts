@@ -1,13 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import {
-  EXTENSION_ROOTS,
-  familyEdgeViolation,
-  isPackageTestFile,
-  TEST_SUPPORT_DIR,
-  TEST_SUPPORT_PACKAGES,
-} from "../src/constraints.ts";
+import { EXTENSION_ROOTS, familyEdgeViolation, isPackageTestFile } from "../src/constraints.ts";
 import {
   browserHalfProblems,
   declaredNames,
@@ -17,7 +11,7 @@ import {
   staleRootSanctions,
   unpairedExtensions,
 } from "../src/families.ts";
-import { importEdges } from "../src/import-graph.ts";
+import { importEdges, testSupportBreaches } from "../src/import-graph.ts";
 import {
   PACKAGES_ROOT,
   dependencyEntries,
@@ -139,12 +133,28 @@ describe("what counts as a test file", () => {
     expect(isPackageTestFile("src/lib/test-support/x.ts")).toBe(false);
   });
 
-  test("a package has test helpers only where a check holds their importers to tests", () => {
-    const withHelpers = workspacePackages()
-      .filter((pkg) => existsSync(join(PACKAGES_ROOT, pkg.dir, TEST_SUPPORT_DIR)))
-      .map((pkg) => pkg.name)
-      .toSorted();
-    expect(withHelpers).toEqual([...TEST_SUPPORT_PACKAGES].toSorted());
+  test("a package's test helpers are imported by its tests alone", () => {
+    const breaches = testSupportBreaches();
+    expect(breaches, breaches.join("\n")).toEqual([]);
+  });
+
+  test("a production file importing its package's test helpers is a breach", () => {
+    const root = fixtureWorkspace([
+      {
+        dir: "kit/widgets",
+        name: "@kb/widgets",
+        scope: "browser",
+        files: {
+          "src/test-support/probe.ts": "export const probe = 1;\n",
+          "src/widget.ts":
+            'import { probe } from "./test-support/probe";\nexport const w = probe;\n',
+          "src/widget.test.ts": 'import { probe } from "./test-support/probe";\nprobe;\n',
+        },
+      },
+    ]);
+    expect(testSupportBreaches(root)).toEqual([
+      "@kb/widgets src/widget.ts imports ./test-support/probe",
+    ]);
   });
 });
 

@@ -26,11 +26,12 @@ import {
   frontReach,
   paintOrder,
   type CanvasAxes,
+  type CanvasFont,
   type CanvasFrame,
   type CanvasNode,
 } from "@kb/canvas";
 import { paintPlanes } from "./canvas-camera";
-import { cardFaceOf, faceWords, paintLabel, type CardLook } from "./canvas-card-face";
+import { cardFaceOf, faceFont, faceWords, paintLabel, type CardLook } from "./canvas-card-face";
 import type { FacePicture } from "./canvas-face-pictures";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 import { faceDensity } from "./canvas-scene-items";
@@ -83,10 +84,12 @@ export class LabelLayer {
       const label = this.labels.get(item.id) ?? this.add(item.id);
       label.item = item;
       label.box = boxFrame(item, z);
-      const words = faceWords(cardFaceOf(item, content.nodes, NO_PICTURE));
+      const face = cardFaceOf(item, content.nodes, NO_PICTURE);
+      const words = faceWords(face);
+      const font = faceFont(face);
       const selected = content.selection.nodeIds.has(item.id);
-      const version = `${selected ? "s" : "-"}${item.width}x${item.height}:${words}`;
-      if (label.version !== version) this.paint(label, words, selected, version);
+      const version = `${selected ? "s" : "-"}${item.width}x${item.height}:${font}:${words}`;
+      if (label.version !== version) this.paint(label, { words, font }, selected, version);
       this.orient(label);
     }
     for (const [id, label] of this.labels) {
@@ -148,7 +151,12 @@ export class LabelLayer {
     return label;
   }
 
-  private paint(label: Label, words: string, selected: boolean, version: string): void {
+  private paint(
+    label: Label,
+    { words, font }: { readonly words: string; readonly font: CanvasFont },
+    selected: boolean,
+    version: string,
+  ): void {
     const { width, height } = label.item;
     const density = faceDensity(width, height);
     const pixelsW = Math.max(1, Math.ceil(width * density));
@@ -170,7 +178,7 @@ export class LabelLayer {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, pixelsW, pixelsH);
       ctx.setTransform(density, 0, 0, density, 0, 0);
-      paintLabel(ctx, words, { width, height, selected }, this.look);
+      paintLabel(ctx, words, { width, height, selected }, this.look, font);
     }
     label.painted.needsUpdate = true;
     label.version = version;

@@ -25,14 +25,12 @@
  *   its members where it carried them.
  *
  * The 2D projection is the real DOM stage; the 3D one is the real scene on
- * the GPU stand-ins (`@kb/ui-test-kit`). A projection joins by its
- * registration: the table below must list exactly the registry.
+ * the GPU stand-ins (`@kb/ui-test-kit`), each read by its probe
+ * (`test-support/projection-probes.ts`). A projection joins by its
+ * registration: the probe table must list exactly the registry. What each
+ * draws of an item's look is the look contract's (`canvas-look.contract`).
  */
-import { act, createElement } from "react";
-import { createRoot } from "react-dom/client";
-import { Window } from "happy-dom";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { Raycaster, Vector3, type Object3D } from "three/webgpu";
 import {
   boxFrame,
   boxToLocal,
@@ -53,27 +51,23 @@ import {
   turnAbout,
   type CanvasDoc,
   type CanvasNode,
-  type CanvasProjectionKind,
   type CanvasShapeKind,
 } from "@kb/canvas";
 import {
   cameraPose,
   hitTest,
   paintPlanes,
-  panOfView,
   projectPoint,
   screenToPlane,
   viewAxes,
   type CanvasView,
   type ViewSize,
 } from "./canvas-camera";
-import { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasSelection } from "./canvas-selection";
-import { syncUiPlugins, TIMING_FALLBACK } from "@kb/ui-sdk";
-import { fakeCanvasContexts, testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
-import type { CardLook } from "./canvas-card-face";
+import { syncUiPlugins } from "@kb/ui-sdk";
+import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
-import { FIRST_GIZMO } from "./canvas-gizmo";
+import { PROBES, PROBE_LOOK, useProbePage } from "./test-support/projection-probes";
 import type * as ThreeWebGpu from "three/webgpu";
 
 // The canvas reaches the page only through its host: here, a test host.
@@ -270,6 +264,7 @@ const doc: CanvasDoc = {
 };
 const selection: CanvasSelection = { nodeIds: new Set(["raised"]), edgeIds: new Set(["e2"]) };
 const size: ViewSize = { width: 1000, height: 700 };
+const scene = { doc, selection, size, look: PROBE_LOOK };
 /**
  * The views each projection is handed, and holds its own way: a desk tilt,
  * an oblique turn, low across the floor from the far side, and an oblique
@@ -286,314 +281,6 @@ const OVERLAPS = [
   { x: 175, y: 70, z: 40 },
   { x: 100, y: 75, z: 0 },
 ];
-
-const look: CardLook = {
-  face: "rgb(255, 255, 255)",
-  ink: "rgb(20, 20, 20)",
-  primary: "rgb(190, 120, 20)",
-  danger: "rgb(200, 30, 30)",
-  palette: { "1": "rgb(200, 40, 40)" },
-  font: "sans-serif",
-  body: 14.5,
-  ui: 13,
-  label: 11,
-  radius: 18,
-  shapeRadius: 8,
-};
-
-interface Probe {
-  /** Item ids drawn, back to front. */
-  drawn(): string[];
-  edges(): string[];
-  selected(): string[];
-  /** An item's face corners as drawn, on screen. */
-  cornersOf(id: string): { x: number; y: number }[] | null;
-  /** The item drawn on top at a screen point. */
-  topAt(point: { x: number; y: number }): string | null;
-  update(next: CanvasDoc): Promise<void>;
-  dispose(): void;
-}
-
-type Mount = (view: CanvasView) => Promise<Probe>;
-
-/** SVG path data (M, L, C, Z) as a polygon, curves flattened. */
-function pathPolygon(d: string): { x: number; y: number }[] {
-  const tokens = d.match(/[MLCZ]|-?[\d.]+(?:e-?\d+)?/g) ?? [];
-  const points: { x: number; y: number }[] = [];
-  let i = 0;
-  const num = () => Number(tokens[i++]);
-  while (i < tokens.length) {
-    const op = tokens[i++];
-    if (op === "M" || op === "L") points.push({ x: num(), y: num() });
-    else if (op === "C") {
-      const from = points.at(-1) ?? { x: 0, y: 0 };
-      const [x1, y1, x2, y2, x, y] = [num(), num(), num(), num(), num(), num()];
-      for (let s = 1; s <= 16; s++) {
-        const t = s / 16;
-        const u = 1 - t;
-        points.push({
-          x: u * u * u * from.x + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x,
-          y: u * u * u * from.y + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y,
-        });
-      }
-    }
-  }
-  return points;
-}
-
-/** Whether `p` is inside `polygon` (even-odd). */
-function inPolygon(p: { x: number; y: number }, polygon: readonly { x: number; y: number }[]) {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const a = polygon[i];
-    const b = polygon[j];
-    if (a === undefined || b === undefined) continue;
-    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-/** The clip path a card's footprint layer is drawn and hit through, as a polygon in the card's box. */
-function footprintOf(el: HTMLElement): { x: number; y: number }[] | null {
-  const layer = el.querySelector<HTMLElement>("[data-footprint]");
-  const clip = layer?.style.clipPath ?? "";
-  const d = /path\("(.*)"\)/.exec(clip)?.[1];
-  return d === undefined ? null : pathPolygon(d);
-}
-
-/** A solid's body as drawn: its path, as a polygon in canvas units. */
-function bodyOf(el: HTMLElement): { x: number; y: number }[] | null {
-  const d = el.querySelector("[data-body] path")?.getAttribute("d");
-  return d === null || d === undefined ? null : pathPolygon(d);
-}
-
-/**
- * What a browser does with a face's CSS `transform` and no perspective: the
- * `matrix3d` (column by column) about the box's centre, flattened onto the
- * screen — the 2 × 2 that x and y go through, and the shift. No transform
- * leaves the box where it is laid out.
- */
-function flattened(el: HTMLElement): {
-  a: number;
-  b: number;
-  c: number;
-  d: number;
-  e: number;
-  f: number;
-} {
-  const values = /matrix3d\(([^)]*)\)/.exec(el.style.transform)?.[1]?.split(",").map(Number);
-  if (values === undefined) return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
-  const at = (i: number) => values[i] ?? Number.NaN;
-  return { a: at(0), b: at(1), c: at(4), d: at(5), e: at(12), f: at(13) };
-}
-
-/** A face as the DOM lays it out: its box in canvas units, and its flattened transform. */
-interface LaidFace {
-  readonly x: number;
-  readonly y: number;
-  readonly w: number;
-  readonly h: number;
-  readonly m: ReturnType<typeof flattened>;
-}
-
-/** A point of the face's own box (from its top left), where the browser draws it, canvas units. */
-function drawnAt(f: LaidFace, q: { x: number; y: number }) {
-  const u = q.x - f.w / 2;
-  const v = q.y - f.h / 2;
-  return {
-    x: f.x + f.w / 2 + f.m.a * u + f.m.c * v + f.m.e,
-    y: f.y + f.h / 2 + f.m.b * u + f.m.d * v + f.m.f,
-  };
-}
-
-/** A canvas point in the face's own box, or null where the face is seen edge-on. */
-function onFace(f: LaidFace, p: { x: number; y: number }) {
-  const det = f.m.a * f.m.d - f.m.b * f.m.c;
-  if (Math.abs(det) < 1e-6) return null;
-  const dx = p.x - (f.x + f.w / 2) - f.m.e;
-  const dy = p.y - (f.y + f.h / 2) - f.m.f;
-  return {
-    x: (f.m.d * dx - f.m.c * dy) / det + f.w / 2,
-    y: (f.m.a * dy - f.m.b * dx) / det + f.h / 2,
-  };
-}
-
-const noop = () => {};
-const px = (v: string) => Number.parseFloat(v);
-
-/** The DOM stage, and the box each card is laid out in under its CSS transform. */
-const mount2d: Mount = async (view) => {
-  const { CanvasStage } = await import("./canvas-stage");
-  const container = document.createElement("div");
-  document.body.appendChild(container);
-  const root = createRoot(container);
-  const { pan, zoom } = panOfView(view, size);
-  const render = (current: CanvasDoc) =>
-    act(() =>
-      root.render(
-        createElement(CanvasStage, {
-          doc: current,
-          nodes: new Map(),
-          byId: new Map(current.nodes.map((n) => [n.id, n])),
-          selection,
-          pan,
-          zoom,
-          spaceDown: false,
-          onModalPress: () => false,
-          toolState: { tool: "select" },
-          editingEdgeLabel: null,
-          edgeDrag: null,
-          snapGuides: [],
-          marqueeRect: null,
-          onEditingEdgeLabelChange: noop,
-          onEdgeLabelCommit: noop,
-          onCardSelect: noop,
-          onCardChange: noop,
-          onResizeStart: noop,
-          onRotateStart: noop,
-          onPortDown: noop,
-          onWheel: noop,
-          onPointerDownStage: noop,
-          onPointerMove: noop,
-          onPointerCancel: noop,
-          onPointerUp: noop,
-          onDoubleClickStage: noop,
-          handleCardPointerDown: noop,
-          handleEdgeClick: noop,
-          editing: null,
-          onEdit: noop,
-        }),
-      ),
-    );
-  render(doc);
-  const cards = () => [...container.querySelectorAll<HTMLElement>("[data-card-id]")];
-  /** The face's laid-out box in canvas units, and its transform as the browser flattens it. */
-  const face = (el: HTMLElement): LaidFace | null => {
-    const laid = el.style.left === "" ? el.querySelector<HTMLElement>("[style*='left']") : el;
-    if (laid === null) return null;
-    const [x, y, w, h] = [laid.style.left, laid.style.top, laid.style.width, laid.style.height].map(
-      px,
-    ) as [number, number, number, number];
-    return { x, y, w, h, m: flattened(laid) };
-  };
-  const toScreen = (p: { x: number; y: number }) => ({
-    x: p.x * zoom + pan.x,
-    y: p.y * zoom + pan.y,
-  });
-  return {
-    drawn: () => cards().map((el) => el.dataset.cardId ?? ""),
-    edges: () =>
-      [...container.querySelectorAll<SVGElement>("[data-edge-id]")].map(
-        (el) => el.dataset.edgeId ?? "",
-      ),
-    selected: () =>
-      [...container.querySelectorAll<HTMLElement>("[data-selected]")].map(
-        (el) => el.dataset.cardId ?? el.dataset.edgeId ?? "",
-      ),
-    cornersOf: (id) => {
-      const el = cards().find((c) => c.dataset.cardId === id);
-      const f = el === undefined ? null : face(el);
-      if (f === null) return null;
-      return [
-        { x: 0, y: 0 },
-        { x: f.w, y: 0 },
-        { x: f.w, y: f.h },
-        { x: 0, y: f.h },
-      ].map((q) => toScreen(drawnAt(f, q)));
-    },
-    // Positioned siblings in one stacking context: the last one whose body or face covers the point.
-    topAt: (p) =>
-      cards().findLast((el) => {
-        const at = { x: (p.x - pan.x) / zoom, y: (p.y - pan.y) / zoom };
-        const body = bodyOf(el);
-        if (body !== null && inPolygon(at, body)) return true;
-        const f = face(el);
-        const q = f === null ? null : onFace(f, at);
-        if (f === null || q === null || q.x < 0 || q.x > f.w || q.y < 0 || q.y > f.h) return false;
-        const footprint = footprintOf(el);
-        return footprint === null || inPolygon(q, footprint);
-      })?.dataset.cardId ?? null,
-    update: async (next) => {
-      render(next);
-      await Promise.resolve();
-    },
-    dispose: () => {
-      act(() => root.unmount());
-      container.remove();
-    },
-  };
-};
-
-/** The scene on the GPU stand-ins, read back through its inspection. */
-const mount3d: Mount = async (view) => {
-  const { mountCanvasScene } = await import("./canvas-scene");
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const rig = new CanvasCameraRig(view, TIMING_FALLBACK, true);
-  const scene = await mountCanvasScene(host, {
-    rig,
-    content: { doc, nodes: new Map(), selection },
-    look,
-    palette: {
-      ground: "rgb(255, 255, 255)",
-      edge: "rgb(255, 255, 255)",
-      hue: "rgb(120, 120, 120)",
-      ink: "rgb(20, 20, 20)",
-      accent: "rgb(190, 120, 20)",
-    },
-    dark: false,
-    timing: TIMING_FALLBACK,
-    reducedMotion: true,
-    gizmo: FIRST_GIZMO,
-  });
-  scene.setRunning(true);
-  scene.resize(size.width, size.height);
-  const inspect = () => scene.inspect();
-  return {
-    drawn: () => [...inspect().items],
-    edges: () => [...inspect().edges],
-    selected: () => [...inspect().selected],
-    cornersOf: (id) => inspect().drawnOf(id)?.corners ?? null,
-    // The depth buffer's answer: the first drawn surface the ray through the point meets.
-    topAt: (p) => {
-      const bodies = new Map<Object3D, string>();
-      for (const id of inspect().items) {
-        for (const body of inspect().bodiesOf(id)) bodies.set(body, id);
-      }
-      const ray = rayThrough(view, p);
-      if (ray === null) return null;
-      const raycaster = new Raycaster(ray.origin, ray.dir);
-      const [first] = raycaster.intersectObjects([...bodies.keys()], false);
-      return first === undefined ? null : (bodies.get(first.object) ?? null);
-    },
-    update: async (next) => {
-      scene.setContent({ doc: next, nodes: new Map(), selection });
-      await Promise.resolve();
-    },
-    dispose: () => {
-      scene.dispose();
-      host.remove();
-    },
-  };
-};
-
-const PROBES: Record<CanvasProjectionKind, Mount> = { "2d": mount2d, "3d": mount3d };
-
-/**
- * The eye's ray through a screen point, in three's world (canvas y
- * flipped): from the eye in perspective, from far back square to the screen
- * through the orthographic lens. Built from the camera model alone.
- */
-function rayThrough(view: CanvasView, p: { x: number; y: number }) {
-  const floor = screenToPlane(view, size, p, -400);
-  const from = view.fov > 0 ? cameraPose(view, size).eye : screenToPlane(view, size, p, 4000);
-  if (floor === null || from === null) return null;
-  const origin = new Vector3(from.x, -from.y, from.z);
-  const dir = new Vector3(floor.x, -floor.y, floor.z).sub(origin).normalize();
-  return { origin, dir };
-}
 
 /**
  * Whether the ray through `p` meets some rectangle where its corner is
@@ -668,41 +355,7 @@ const centreOf = (item: CanvasNode) => ({
 });
 
 describe("canvas projection contract", () => {
-  const g = globalThis as Record<string, unknown>;
-  const saved = new Map<string, unknown>();
-
-  beforeAll(async () => {
-    const dom = new Window({ url: "https://kb.test/" });
-    const globals: Record<string, unknown> = {
-      window: dom,
-      document: dom.document,
-      HTMLElement: dom.HTMLElement,
-      HTMLCanvasElement: dom.HTMLCanvasElement,
-      SVGElement: dom.SVGElement,
-      Node: dom.Node,
-      getComputedStyle: dom.getComputedStyle.bind(dom),
-      requestAnimationFrame: (run: (now: number) => void) => {
-        run(0);
-        return 0;
-      },
-      cancelAnimationFrame: noop,
-      IS_REACT_ACT_ENVIRONMENT: true,
-    };
-    for (const [key, value] of Object.entries(globals)) {
-      saved.set(key, g[key]);
-      g[key] = value;
-    }
-    fakeCanvasContexts(dom.HTMLCanvasElement.prototype);
-    // Both renderers load before the clock starts: three alone takes seconds to import cold.
-    await Promise.all([import("./canvas-stage"), import("./canvas-scene")]);
-  });
-
-  afterAll(() => {
-    for (const [key, value] of saved) {
-      if (value === undefined) delete g[key];
-      else g[key] = value;
-    }
-  });
+  useProbePage();
 
   it("proves every registered projection", () => {
     expect(Object.keys(PROBES).toSorted()).toEqual(
@@ -718,25 +371,25 @@ describe("canvas projection contract", () => {
     const mount = PROBES[kind];
 
     it("draws every item once, back to front", async () => {
-      const probe = await mount(view);
+      const probe = await mount(view, scene);
       expect(probe.drawn()).toEqual(paintOrder(doc.nodes).map((n) => n.id));
       probe.dispose();
     });
 
     it("draws every edge whose two ends exist, and no other", async () => {
-      const probe = await mount(view);
+      const probe = await mount(view, scene);
       expect(probe.edges().toSorted()).toEqual(["e1", "e2"]);
       probe.dispose();
     });
 
     it("marks exactly the selection", async () => {
-      const probe = await mount(view);
+      const probe = await mount(view, scene);
       expect(probe.selected().toSorted()).toEqual(["e2", "raised"]);
       probe.dispose();
     });
 
     it("draws every item's face where the model projects it, turned, over its paint plane", async () => {
-      const probe = await mount(view);
+      const probe = await mount(view, scene);
       for (const { item, z } of paintPlanes(paintOrder(doc.nodes))) {
         const drawn = probe.cornersOf(item.id);
         expect(drawn, item.id).not.toBeNull();
@@ -750,7 +403,7 @@ describe("canvas projection contract", () => {
     });
 
     it("draws on top at every point what the model's hit test finds there", async () => {
-      const probe = await mount(view);
+      const probe = await mount(view, scene);
       const order = paintOrder(doc.nodes);
       const points = [...doc.nodes.map(centreOf), ...OVERLAPS]
         .map((p) => projectPoint(view, size, p))
@@ -764,7 +417,7 @@ describe("canvas projection contract", () => {
     });
 
     it("draws and hits each item's top view: its footprint, not its box", async () => {
-      const probe = await mount(view);
+      const probe = await mount(view, scene);
       const order = paintOrder(doc.nodes);
       const points = footprintSamples
         .map((p) => projectPoint(view, size, p))
@@ -780,7 +433,7 @@ describe("canvas projection contract", () => {
     });
 
     it("draws a frame's members where the frame's transform carried them", async () => {
-      const probe = await mount(view);
+      const probe = await mount(view, scene);
       const carried = carriedBy(doc.nodes, ["late"]);
       const t = {
         ...stillAbout(selectionPivot(carried.items)),
@@ -813,7 +466,7 @@ describe("canvas projection contract", () => {
     });
 
     it("draws a moved and turned card where it went", async () => {
-      const probe = await mount(view);
+      const probe = await mount(view, scene);
       const moved = doc.nodes.map((n) =>
         n.id === "sunk" ? { ...n, x: n.x + 120, z: 40, rotation: { x: 20, z: 40 } } : n,
       );

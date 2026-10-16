@@ -4,20 +4,23 @@ import {
   canvasDepth,
   canvasElevation,
   canvasRotation,
+  drawsGround,
   facesCamera,
   isFileNode,
   isGroupNode,
   isKbNode,
   isShapeNode,
   isTextNode,
+  styleOf,
   withBillboard,
   withDepth,
   withElevation,
   withRotation,
+  withStyle,
   type CanvasNode,
 } from "@kb/canvas";
-import { cn, hasText, isOutside, PopoverShell } from "@kb/ui-sdk";
-import { CANVAS_SWATCHES } from "./canvas-color";
+import { isOutside, PopoverShell } from "@kb/ui-sdk";
+import { ColorRow, LookRows } from "./item-style-rows";
 
 export interface ItemInspectorProps {
   item: CanvasNode;
@@ -29,54 +32,15 @@ export interface ItemInspectorProps {
 /** How deep Extrude makes a flat item: a block, not a tower; the field takes it from there. */
 const EXTRUDE_DEPTH = 40;
 
-/** The colour row: a shape's preset tint (the item kind that paints its colour). */
-function ColorRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChange">) {
-  const setColor = (color: string | undefined) => {
-    const updated = { ...item };
-    if (color === undefined) delete updated.color;
-    else updated.color = color;
-    onChange(updated);
-  };
-  return (
-    <>
-      <div className="px-1.5 pb-1 text-meta text-foreground/50">Color</div>
-      <div className="flex items-center gap-1.5 px-1.5 pb-1.5">
-        <button
-          type="button"
-          aria-label="No color"
-          title="None"
-          className={cn(
-            "h-6 w-6 rounded-full border border-foreground/15 bg-background",
-            !hasText(item.color) && "ring-2 ring-primary/50",
-          )}
-          onClick={() => setColor(undefined)}
-        />
-        {CANVAS_SWATCHES.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            aria-label={p.label}
-            title={p.label}
-            className={cn(
-              "h-6 w-6 rounded-full border border-foreground/10",
-              item.color === p.id && "ring-2 ring-primary/50",
-            )}
-            style={{ backgroundColor: p.css }}
-            onClick={() => setColor(p.id)}
-          />
-        ))}
-      </div>
-    </>
-  );
-}
-
 /**
  * How a field reads its number: a length in whole canvas units, stepped by
- * ten; an angle in degrees to a tenth, stepped by the 15° a turn snaps to.
+ * ten; an angle in degrees to a tenth, stepped by the 15° a turn snaps to;
+ * a share in whole percent, stepped by ten.
  */
 const FIELD_UNITS = {
   length: { step: 10, round: (v: number) => Math.round(v) },
   angle: { step: 15, round: (v: number) => Math.round(v * 10) / 10 },
+  percent: { step: 10, round: (v: number) => Math.round(Math.min(100, v)) },
 } as const;
 
 /**
@@ -200,6 +164,24 @@ function FacingRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChan
   );
 }
 
+/** How opaque the item is drawn (its style's opacity), in percent. */
+function OpacityRow({ item, onChange }: Pick<ItemInspectorProps, "item" | "onChange">) {
+  const percent = Math.round(styleOf(item).opacity * 100);
+  return (
+    <div className="flex px-1.5 pb-1.5">
+      <NumberField
+        key={`opacity:${percent}`}
+        label="Opacity"
+        hint="How opaque it is drawn, in percent; 100 is fully"
+        value={percent}
+        unit="percent"
+        min={0}
+        onCommit={(p) => onChange(withStyle(item, { opacity: p / 100 }))}
+      />
+    </div>
+  );
+}
+
 /** What each rotation field turns the item about. */
 const TURN_HINTS = {
   x: "Degrees about its own width axis, applied first",
@@ -280,7 +262,9 @@ export function ItemInspector({ item, anchor, onClose, onChange }: ItemInspector
         className="w-72"
         data-testid="item-inspector"
       >
-        {isShapeNode(item) && <ColorRow item={item} onChange={onChange} />}
+        {drawsGround(item) && <ColorRow item={item} onChange={onChange} />}
+        <LookRows item={item} onChange={onChange} />
+        <OpacityRow item={item} onChange={onChange} />
         <HeightRow item={item} onChange={onChange} />
         <FacingRow item={item} onChange={onChange} />
         {/* A flat billboard faces the camera whatever way it is turned. */}

@@ -14,6 +14,9 @@ import {
 import { useCallback, useEffect, useEffectEvent, useRef } from "react";
 import type { CanvasKbNode, CanvasTextNode } from "@kb/canvas";
 import type { FaceLayout } from "./canvas-face";
+import { ItemOutline } from "./canvas-item-outline";
+import { wordsInk, wordsStyle } from "./canvas-dom-paint";
+import { itemPaint } from "./canvas-style";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
 
@@ -112,13 +115,14 @@ export function KbNodeCard({
     );
   }
 
+  const paint = itemPaint(card);
   return (
     <div
       className={cn(
-        "group/card absolute rounded-xl border bg-background shadow-raised",
-        selected ? "border-primary/70 ring-2 ring-primary/15" : "border-foreground/12",
+        "group/card absolute rounded-xl",
+        paint.chrome?.fill !== "none" && "shadow-raised",
       )}
-      style={box}
+      style={{ ...box, color: wordsInk(paint, 100) }}
       onPointerDown={(e) => {
         const intent = classifyCardPointer(e.target, ".node-content");
         if (intent === "chrome") return;
@@ -131,8 +135,9 @@ export function KbNodeCard({
         onMoveStart(e);
       }}
     >
+      <ItemOutline item={card} paint={paint} selected={selected} ink={12} />
       <NodeRow
-        className="h-full overflow-auto rounded-xl bg-transparent px-3 py-3"
+        className="relative h-full overflow-auto rounded-xl bg-transparent px-3 py-3"
         depth={0}
         nodeId={card.nodeId}
         instanceKey={instanceKey}
@@ -217,13 +222,16 @@ export function TextCard({
     el.focus();
     el.setSelectionRange(el.value.length, el.value.length);
   }, [editing]);
+  const paint = itemPaint(card);
+  // Set at the top it fills the card; anywhere else it takes its words' height, placed there.
+  const top = paint.words === null || paint.words.valign === "top";
   return (
     <div
       className={cn(
-        "group/card absolute rounded-xl border bg-background p-3 shadow-raised",
-        selected ? "border-primary/40" : "border-foreground/12",
+        "group/card absolute rounded-xl p-3",
+        paint.chrome?.fill !== "none" && "shadow-raised",
       )}
-      style={box}
+      style={{ ...box, ...wordsStyle(paint.words, true) }}
       onPointerDown={(e) => {
         const intent = classifyCardPointer(e.target, "textarea");
         if (intent === "chrome") return;
@@ -236,9 +244,15 @@ export function TextCard({
         onMoveStart(e);
       }}
     >
+      <ItemOutline item={card} paint={paint} selected={selected} ink={12} />
       <textarea
         ref={field}
-        className="h-full w-full resize-none bg-transparent text-ui outline-none"
+        data-words
+        className={cn(
+          "relative w-full resize-none bg-transparent outline-none",
+          top ? "h-full" : "max-h-full [field-sizing:content]",
+        )}
+        style={{ ...wordsStyle(paint.words), color: wordsInk(paint, 100) }}
         value={card.text}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => onEdit(true)}

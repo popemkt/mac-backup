@@ -4,7 +4,7 @@
  *
  * Unknown node types and extra fields round-trip (forward compatible). kb's
  * own extension fields are typed here: `nodeId`, `z`, `depth`,
- * `rotation` and `parent` on any item, `shape` on a shape item,
+ * `rotation`, `parent` and `style` on any item, `shape` on a shape item,
  * `kbLink` on an edge, and `camera` on the document (`./camera.ts`). The
  * format, as agents write it, is DESIGN.md → Canvas documents.
  */
@@ -12,6 +12,7 @@ import { boxRotation, boxTop } from "./box.ts";
 import { emitCanvasCamera, parseCanvasCamera, type CanvasCamera } from "./camera.ts";
 import { dropExtra } from "./extra.ts";
 import { normalizeDegrees, type CanvasRotation } from "./rotation.ts";
+import { emitStyleField, parseStyleField, type CanvasStyleField } from "./style-fields.ts";
 
 export type CanvasSide = "top" | "right" | "bottom" | "left";
 type CanvasEdgeEnd = "none" | "arrow";
@@ -73,6 +74,13 @@ interface CanvasNodeBase {
    * of it (`./shapes.ts` `faceStands`). Written only when set.
    */
   billboard?: boolean;
+  /**
+   * How the item looks beyond its colour: its fill, outline, the size, face
+   * and alignment of its words, and its opacity (`./style-fields.ts`; what
+   * each means, and its default, `./style.ts`). Absent, every look is its
+   * kind's default.
+   */
+  style?: CanvasStyleField;
   /** Unrecognized fields preserved for round-trip. */
   extra?: Record<string, unknown>;
 }
@@ -215,6 +223,7 @@ const KNOWN_NODE_KEYS = new Set([
   "nodeId",
   "parent",
   "billboard",
+  "style",
   "shape",
   "file",
 ]);
@@ -313,6 +322,7 @@ function readItemFields(raw: Record<string, unknown>) {
     rotation?: Partial<CanvasRotation>;
     parent?: string;
     billboard?: boolean;
+    style?: CanvasStyleField;
   } = {};
   const unread = new Set<string>();
   for (const key of ITEM_NUMBERS) {
@@ -327,6 +337,9 @@ function readItemFields(raw: Record<string, unknown>) {
   else if (raw.parent !== undefined) unread.add("parent");
   if (typeof raw.billboard === "boolean") fields.billboard = raw.billboard;
   else if (raw.billboard !== undefined) unread.add("billboard");
+  const style = parseStyleField(raw.style);
+  if (style !== undefined) fields.style = style;
+  else if (raw.style !== undefined) unread.add("style");
   return { fields, unread };
 }
 
@@ -435,6 +448,7 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
   if (n.nodeId !== undefined) out.nodeId = n.nodeId;
   if (n.parent !== undefined) out.parent = n.parent;
   if (n.billboard !== undefined) out.billboard = n.billboard;
+  if (n.style !== undefined) out.style = emitStyleField(n.style);
   // `CanvasUnknownNode.type` is `string`, so `type === "text"` does not
   // discriminate the union — the guards this module already exports do.
   if (isTextNode(n)) out.text = n.text;

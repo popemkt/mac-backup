@@ -91,6 +91,7 @@
   --app-font-mono:
     ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --app-font-graph: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --app-font-serif: ui-serif, "New York", Charter, Georgia, serif;
   --font-weight-body: 400;
   --font-weight-ui: 500;
 }

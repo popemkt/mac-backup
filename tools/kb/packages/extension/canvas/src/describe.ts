@@ -25,6 +25,8 @@ import { lintCanvas, type CanvasLint } from "./lint.ts";
 import { ancestorsOf, canvasMembership } from "./membership.ts";
 import { directionFrom, itemBounds, type CanvasDirection } from "./relations.ts";
 import { restingOn } from "./snap.ts";
+import type { CanvasLooks } from "./style-fields.ts";
+import { paintName, styleOf, writtenLooks } from "./style.ts";
 
 /** What a solid of each shape is called; a flat one goes by its shape's own name. */
 const SOLID_NAMES = {
@@ -78,6 +80,10 @@ export interface DescribedItem {
   readonly frame?: string;
   readonly rotation?: CanvasNode["rotation"];
   readonly faces?: "camera";
+  /** Its colour by name (a palette entry's) or as written. */
+  readonly color?: string;
+  /** The looks it draws that are not its kind's defaults (`styleOf`). */
+  readonly style?: CanvasLooks;
 }
 
 /** How two items stand: `from` is `kind` `to` — on it, in it, linked to it, or `side` of it. */
@@ -187,9 +193,13 @@ function describeItems(
       continue;
     }
     const frame = membership.parentOf(node.id);
+    const { color } = styleOf(node);
+    const looks = writtenLooks(node);
     items.push({
       ...base,
       detail: "focus",
+      ...(color === undefined ? {} : { color: paintName(color) }),
+      ...(Object.keys(looks).length === 0 ? {} : { style: looks }),
       ...(node.nodeId === undefined ? {} : { nodeId: node.nodeId }),
       ...(frame === null ? {} : { frame }),
       ...(node.rotation === undefined ? {} : { rotation: node.rotation }),

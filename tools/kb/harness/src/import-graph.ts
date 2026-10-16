@@ -18,6 +18,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, posix } from "node:path";
 import { parseSync } from "oxc-parser";
+import { TEST_SUPPORT_DIR, isPackageTestFile } from "./constraints.ts";
 import { PACKAGES_ROOT, readTsconfig, workspacePackages } from "./workspace.ts";
 
 const SKIP_DIRS = new Set(["node_modules", "dist", "storybook-static", ".nx"]);
@@ -372,6 +373,22 @@ function ownerOf(packages: readonly PackageRoot[], path: string): PackageRoot | 
  * {@link importSites}, and the result is compared against `dir`, which
  * {@link packageDirs} writes with forward slashes.
  */
+/**
+ * The path under `packages/` a relative or aliased specifier lands on: an
+ * alias target is package-relative, a relative specifier relative to the
+ * importing file. Undefined for any other spelling.
+ */
+function sitePath(self: PackageRoot, site: ImportSite): string | undefined {
+  const alias = self.aliases.find(([prefix]) => site.specifier.startsWith(prefix));
+  if (alias !== undefined) {
+    return posix.normalize(posix.join(self.dir, alias[1], site.specifier.slice(alias[0].length)));
+  }
+  if (site.specifier.startsWith(".")) {
+    return posix.normalize(posix.join(self.dir, posix.dirname(site.file), site.specifier));
+  }
+  return undefined;
+}
+
 function resolveImport(packages: readonly PackageRoot[], site: ImportSite): ImportTarget {
   const self = packages.find((pkg) => pkg.name === site.source);
   if (self === undefined) throw new Error(`${site.source}: not a workspace package`);
@@ -383,18 +400,8 @@ function resolveImport(packages: readonly PackageRoot[], site: ImportSite): Impo
     return { kind: "workspace", target: name, form: subpath === undefined ? "entry" : "subpath" };
   }
 
-  // An alias target is package-relative; a relative specifier is relative to
-  // the importing file. Both end up as one path under `packages/`.
-  const alias = self.aliases.find(([prefix]) => site.specifier.startsWith(prefix));
-  let path: string;
-  if (alias !== undefined) {
-    path = posix.normalize(posix.join(self.dir, alias[1], site.specifier.slice(alias[0].length)));
-  } else if (site.specifier.startsWith(".")) {
-    path = posix.normalize(posix.join(self.dir, posix.dirname(site.file), site.specifier));
-  } else {
-    return { kind: "third-party" };
-  }
-
+  const path = sitePath(self, site);
+  if (path === undefined) return { kind: "third-party" };
   const owner = ownerOf(packages, path);
   if (owner === undefined) return { kind: "escape", path };
   if (owner.name === self.name) return { kind: "internal" };
@@ -413,6 +420,27 @@ export function resolvedImports(packagesRoot: string = PACKAGES_ROOT): ResolvedI
   }));
   if (packagesRoot === PACKAGES_ROOT) cachedResolved = resolved;
   return resolved;
+}
+
+/**
+ * Every import of a package's test helpers (`TEST_SUPPORT_DIR`) by one of its
+ * own files that is not a test (`isPackageTestFile`): a production file
+ * reaching code only its tests may hold. Each is `<package> <file> imports
+ * <specifier>`.
+ */
+export function testSupportBreaches(packagesRoot: string = PACKAGES_ROOT): string[] {
+  const packages = packageRoots(packagesRoot);
+  const breaches: string[] = [];
+  for (const site of importSites(packagesRoot)) {
+    if (isPackageTestFile(site.file)) continue;
+    const self = packages.find((pkg) => pkg.name === site.source);
+    const path = self === undefined ? undefined : sitePath(self, site);
+    if (self === undefined || path === undefined) continue;
+    if (path.startsWith(`${self.dir}/${TEST_SUPPORT_DIR}`)) {
+      breaches.push(`${site.source} ${site.file} imports ${site.specifier}`);
+    }
+  }
+  return breaches;
 }
 
 /** Every import that crosses a package boundary, however it is spelled. */

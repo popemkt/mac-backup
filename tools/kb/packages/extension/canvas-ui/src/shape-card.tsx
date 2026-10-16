@@ -1,18 +1,11 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import {
-  CANVAS_SHAPES,
-  canvasDepth,
-  shapeOutline,
-  styleOf,
-  svgPathData,
-  type CanvasShapeNode,
-  type CanvasVolume,
-} from "@kb/canvas";
-import { paintCss } from "./canvas-color";
+import { CANVAS_SHAPES, canvasDepth, type CanvasShapeNode, type CanvasVolume } from "@kb/canvas";
 import { classifyCardPointer } from "./card-pointer";
 import type { FaceLayout } from "./canvas-face";
-import { cn, hasText, textOr } from "@kb/ui-sdk";
-import { cornerRadius, readCornerRadii } from "./canvas-card-face";
+import { hasText, textOr } from "@kb/ui-sdk";
+import { ItemOutline } from "./canvas-item-outline";
+import { outlinePath, wordsInk, wordsStyle } from "./canvas-dom-paint";
+import { itemPaint } from "./canvas-style";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
 import {
@@ -59,11 +52,9 @@ const TOP_VIEW_MARKS: { readonly [V in CanvasVolume]: (id: string) => React.Reac
 };
 
 /**
- * A shape's top view: its outline, traced from the shape table
- * (`shapeOutline`) as the 3D faces and meshes trace it, filled with its
- * preset tint and stroked in its colour (a selected shape in the primary over
- * a soft halo), with a solid's top-view mark. Drawn only; the footprint the
- * pointer hits is {@link ShapeCard}'s clipped layer.
+ * A shape's top view: its outline as its look draws it (`ItemOutline`),
+ * with a solid's top-view mark. Drawn only; the footprint the pointer hits
+ * is {@link ShapeCard}'s clipped layer.
  */
 function ShapeChrome({
   card,
@@ -74,36 +65,14 @@ function ShapeChrome({
   d: string;
   selected: boolean;
 }) {
-  const color = paintCss(styleOf(card).color);
-  const stroke = color ?? "color-mix(in oklab, var(--foreground) 18%, transparent)";
-  // Opaque, as the 3D face is: what stands on a shape covers it.
-  const fill = `color-mix(in oklab, ${color ?? "var(--foreground)"} ${color === undefined ? 2 : 14}%, var(--background))`;
   const markId = useId();
   const mark =
     canvasDepth(card) > 0 ? TOP_VIEW_MARKS[CANVAS_SHAPES[card.shape].volume](markId) : null;
   return (
-    <svg
-      className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-      viewBox={`0 0 ${card.width} ${card.height}`}
-      aria-hidden
-    >
+    <ItemOutline item={card} paint={itemPaint(card)} selected={selected} ink={18}>
       {mark !== null && <defs>{mark}</defs>}
-      {selected && (
-        <path
-          d={d}
-          fill="none"
-          stroke="color-mix(in oklab, var(--primary) 15%, transparent)"
-          strokeWidth={6}
-        />
-      )}
-      <path
-        d={d}
-        fill={fill}
-        stroke={selected ? "color-mix(in oklab, var(--primary) 70%, transparent)" : stroke}
-        strokeWidth={selected ? 2 : 1}
-      />
       {mark !== null && <path d={d} fill={`url(#${markId})`} />}
-    </svg>
+    </ItemOutline>
   );
 }
 
@@ -182,9 +151,8 @@ export function ShapeCard({
 }: ShapeCardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const editor = useLabelEditor(card.label ?? "", editing, onEdit, onLabelChange, inputRef);
-  const d = svgPathData(
-    shapeOutline(card.shape, card.width, card.height, cornerRadius(card, readCornerRadii())),
-  );
+  const d = outlinePath(card);
+  const paint = itemPaint(card);
   return (
     // The box is only a frame: the footprint inside it is what the pointer hits.
     <div
@@ -210,14 +178,16 @@ export function ShapeCard({
       <ShapeChrome card={card} d={d} selected={selected} />
       <div
         data-footprint
-        className="pointer-events-auto absolute inset-0 flex items-center justify-center px-4"
-        style={{ clipPath: `path("${d}")` }}
+        data-words
+        className="pointer-events-auto absolute inset-0 px-4 py-2"
+        style={{ clipPath: `path("${d}")`, ...wordsStyle(paint.words, true) }}
       >
         {editor.open ? (
           <input
             ref={inputRef}
             data-testid="shape-label-input"
-            className="w-full truncate bg-transparent text-center text-ui text-foreground/85 outline-none"
+            className="w-full truncate bg-transparent outline-none"
+            style={{ ...wordsStyle(paint.words), color: wordsInk(paint, 85) }}
             value={editor.draft}
             onChange={(e) => editor.type(e.target.value)}
             onBlur={editor.commit}
@@ -235,10 +205,8 @@ export function ShapeCard({
           />
         ) : (
           <span
-            className={cn(
-              "max-w-full truncate text-center text-ui",
-              hasText(card.label) ? "text-foreground/85" : "text-foreground/25",
-            )}
+            className="max-w-full truncate"
+            style={{ color: wordsInk(paint, hasText(card.label) ? 85 : 25) }}
           >
             {textOr(card.label, "Label")}
           </span>

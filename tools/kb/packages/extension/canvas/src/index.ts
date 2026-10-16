@@ -128,8 +128,34 @@ export {
   snapToSurface,
 } from "./snap.ts";
 export type { SnapGuide, SnappedTransform } from "./snap.ts";
-export { CANVAS_PALETTE, styleOf } from "./style.ts";
-export type { CanvasPaint, CanvasPaletteId } from "./style.ts";
+export {
+  CANVAS_PALETTE,
+  canvasColor,
+  drawsGround,
+  ownsWords,
+  paintName,
+  styleOf,
+  withStyle,
+  writtenLooks,
+} from "./style.ts";
+export type { CanvasLooksPatch, CanvasPaint, CanvasPaletteId, CanvasStyle } from "./style.ts";
+export {
+  CANVAS_ALIGNS,
+  CANVAS_DASHES,
+  CANVAS_FILLS,
+  CANVAS_FONTS,
+  CANVAS_SIZES,
+  CANVAS_VALIGNS,
+} from "./style-fields.ts";
+export type {
+  CanvasAlign,
+  CanvasDash,
+  CanvasFill,
+  CanvasFont,
+  CanvasLooks,
+  CanvasSize,
+  CanvasVAlign,
+} from "./style-fields.ts";
 export { CANVAS_IDS } from "./ids.ts";
 export { CanvasListView, CanvasParams, CanvasView } from "./view.ts";
 export { canvasExtension, canvasPlugin } from "./extension.ts";

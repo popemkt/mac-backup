@@ -10,7 +10,15 @@
  * home whichever package the code under test sits in.
  */
 export { installDomGlobals, type InstalledDom } from "./dom-globals";
-export { FAKE_WEBGPU, fakeCanvasContexts, gpu, renders, type FakeRenderer } from "./fake-gpu";
+export {
+  FAKE_WEBGPU,
+  fakeCanvasContexts,
+  gpu,
+  paintedOps,
+  renders,
+  type FakeRenderer,
+  type PaintedOp,
+} from "./fake-gpu";
 export { sceneContract, type SceneMount } from "./scene-contract";
 export {
   testBrowserHost,

@@ -81,6 +81,7 @@
   --app-font: ui-serif, "New York", Charter, "Iowan Old Style", Cambria, serif;
   --app-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --app-font-graph: ui-serif, "New York", Charter, Cambria, serif;
+  --app-font-serif: ui-serif, "New York", Charter, "Iowan Old Style", Cambria, serif;
   --font-weight-body: 400;
   --font-weight-ui: 500;
 }

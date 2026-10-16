@@ -169,16 +169,18 @@ function fingerprint(text: string): number {
 /** What a face shows, as a version: changes exactly when it must be repainted (size aside). */
 function faceVersion(face: CardFace, selected: boolean): string {
   const mark = selected ? "s" : "-";
+  const look = "style" in face ? fingerprint(JSON.stringify(face.style)) : 0;
   switch (face.kind) {
     case "note":
-      return `n${mark}${fingerprint(face.text)}${face.tags.map((t) => `|${t.name}:${t.color}`).join("")}`;
+      return `n${mark}${look}${fingerprint(face.text)}${face.tags.map((t) => `|${t.name}:${t.color}`).join("")}`;
     case "shape":
-      return `s${mark}${face.shape}:${JSON.stringify(face.paint ?? null)}:${fingerprint(face.label)}`;
+      return `s${mark}${look}${face.shape}:${fingerprint(face.label)}`;
     case "text":
-      return `t${mark}${fingerprint(face.text)}`;
+      return `t${mark}${look}${fingerprint(face.text)}`;
     case "image":
       return `i${mark}${face.picture.state}:${face.src}`;
     case "group":
+      return `g${mark}${look}${fingerprint(face.label)}`;
     case "missing":
     case "other":
       return `${face.kind}${mark}${fingerprint(face.label)}`;
@@ -355,6 +357,16 @@ export class ItemLayer {
       [-width / 2, -height / 2],
     ].map(([x = 0, y = 0]) => entry.group.localToWorld(new Vector3(x, y, face)));
     return { z: entry.group.position.z, corners };
+  }
+
+  /**
+   * How item `id`'s face is painted: the canvas its texture was painted
+   * into, and the opacity its materials draw it at (its style's).
+   */
+  faceOf(id: string): { canvas: HTMLCanvasElement | undefined; opacity: number } | null {
+    const entry = this.items.get(id);
+    if (entry === undefined) return null;
+    return { canvas: FACE_CANVASES.get(entry.map), opacity: entry.bodyMaterial.opacity };
   }
 
   /**
@@ -573,7 +585,18 @@ export class ItemLayer {
     this.orient(entry);
     const frame = boxFrame(item, z);
     const origin = boxToWorld(frame, { x: 0, y: 0, z: -frame.half.z });
-    const tint = paintColor(look, styleOf(item).color);
+    const { color, opacity } = styleOf(item);
+    const tint = paintColor(look, color);
+    // Its style's opacity, on every surface it draws; a translucent one blends.
+    for (const material of [
+      entry.faces.flat,
+      entry.faces.solid,
+      entry.bodyMaterial,
+      entry.edgeMaterial,
+    ]) {
+      material.opacity = opacity;
+      material.transparent = material === entry.faces.flat || opacity < 1;
+    }
     // The body: the card stock, or its colour laid over it, a little firmer in the dark.
     entry.bodyMaterial.color.set(
       tint === undefined

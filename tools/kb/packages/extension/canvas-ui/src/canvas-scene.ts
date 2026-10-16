@@ -87,6 +87,8 @@ interface CanvasSceneInspection {
    * surface a ray meets first.
    */
   bodiesOf(id: string): readonly Object3D[];
+  /** How an item's face is painted: the canvas its texture was painted into, and its opacity. */
+  faceOf(id: string): { canvas: HTMLCanvasElement | undefined; opacity: number } | null;
   /** Item ids whose face stands as a label in front of them (`canvas-scene-labels`). */
   readonly labels: readonly string[];
   /** A standing label's corners on the canvas, CSS pixels, clockwise from its top left; null when out of view. */
@@ -263,6 +265,7 @@ function inspection(parts: {
       return drawn === null || corners === null ? null : { z: drawn.z, corners };
     },
     bodiesOf: (id) => cards.bodiesOf(id),
+    faceOf: (id) => cards.faceOf(id),
     labels: labels.ids,
     labelOf: (id) => allOnScreen(labels.cornersOf(id), onScreen),
   };

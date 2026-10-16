@@ -2,7 +2,8 @@ import { parseInlineMd } from "./md-inline";
 
 /**
  * A graph label face, read from the design system: the graph face
- * (`--app-font-graph`, the default), the UI face or the monospace one.
+ * (`--app-font-graph`, the default), the UI face, the monospace one or the
+ * serif (`--app-font-serif`, which a canvas item's words may be set in).
  *
  * A canvas `font` string cannot hold a `var()`, so renderers that paint on
  * canvas resolve the token here when they draw; DOM labels use the
@@ -10,7 +11,7 @@ import { parseInlineMd } from "./md-inline";
  * family keeps measuring deterministic.
  */
 export function graphLabelFont(face: GraphLabelFace = "graph"): string {
-  const fallback = face === "mono" ? "monospace" : "sans-serif";
+  const fallback = face === "mono" ? "monospace" : face === "serif" ? "serif" : "sans-serif";
   if (typeof document === "undefined") return fallback;
   const value = getComputedStyle(document.documentElement)
     .getPropertyValue(FACE_TOKEN[face])
@@ -19,11 +20,12 @@ export function graphLabelFont(face: GraphLabelFace = "graph"): string {
 }
 
 /** Which of the design system's faces a canvas label is set in. */
-export type GraphLabelFace = "graph" | "ui" | "mono";
+export type GraphLabelFace = "graph" | "ui" | "mono" | "serif";
 const FACE_TOKEN: Record<GraphLabelFace, string> = {
   graph: "--app-font-graph",
   ui: "--app-font",
   mono: "--app-font-mono",
+  serif: "--app-font-serif",
 };
 /** Wrap tree text into measured columns; long words split without losing text. */
 export function wrapGraphLabel(

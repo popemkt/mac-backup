@@ -26,6 +26,9 @@ import type { FaceLayout } from "./canvas-face";
 import { paintCss } from "./canvas-color";
 import { cn, hasText } from "@kb/ui-sdk";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
+import { ItemOutline } from "./canvas-item-outline";
+import { wordsInk, wordsStyle } from "./canvas-dom-paint";
+import { itemPaint } from "./canvas-style";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles } from "./canvas-resize-handles";
 
@@ -156,12 +159,10 @@ export function CanvasCardFace({
   const isSelected = selection.nodeIds.has(card.id);
 
   if (isGroupNode(card)) {
+    const paint = itemPaint(card);
     return (
       <div
-        className={cn(
-          "group/card absolute rounded-md border border-dashed bg-foreground/[0.02]",
-          isSelected ? "border-primary/40" : "border-foreground/10",
-        )}
+        className="group/card absolute"
         style={box}
         onPointerDown={(e) => {
           if (classifyCardPointer(e.target, undefined) === "chrome") return;
@@ -169,8 +170,15 @@ export function CanvasCardFace({
           handleCardPointerDown(card, e);
         }}
       >
+        <ItemOutline item={card} paint={paint} selected={isSelected} ink={14} />
         {hasText(card.label) && (
-          <div className="px-2 py-1 text-label text-foreground/40">{card.label}</div>
+          <div
+            data-words
+            className="relative h-full px-2 py-1"
+            style={{ ...wordsStyle(paint.words, true), color: wordsInk(paint, 40) }}
+          >
+            {card.label}
+          </div>
         )}
         <CanvasResizeHandles
           selected={isSelected}
@@ -285,11 +293,19 @@ export function CanvasCardFace({
   );
 }
 
-/** One item: its body (a solid's top view) under its face, both taking the pointer for it. */
+/**
+ * One item: its body (a solid's top view) under its face, both taking the
+ * pointer for it, drawn at its style's opacity.
+ */
 function CanvasItemView(props: CanvasCardViewProps) {
   const { card, selection, onCardPointerDown } = props;
+  const { opacity } = itemPaint(card);
   return (
-    <div data-card-id={card.id} data-selected={selection.nodeIds.has(card.id) ? "" : undefined}>
+    <div
+      data-card-id={card.id}
+      data-selected={selection.nodeIds.has(card.id) ? "" : undefined}
+      style={opacity < 1 ? { opacity } : undefined}
+    >
       <CanvasItemBody
         card={card}
         onPointerDown={(e) => {

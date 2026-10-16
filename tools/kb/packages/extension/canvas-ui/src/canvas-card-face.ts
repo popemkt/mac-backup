@@ -7,7 +7,9 @@
  * cannot hold a `var()`), with the same roles the DOM cards use: the page
  * ground for the face, `--foreground` at the opacity ladder's steps for ink
  * and hairlines, `--primary` for the selection, the palette's tokens for an
- * item's colour (`styleOf`), and the UI face at the body and UI steps for text.
+ * item's colour, and the faces and type steps its style names. An item's
+ * style reaches the painter as the 2D canvas reads it (`itemPaint`): its
+ * fill, its outline's width and dash, and how its words are set.
  */
 import {
   isFileNode,
@@ -16,9 +18,9 @@ import {
   isShapeNode,
   isTextNode,
   shapeOutline,
-  styleOf,
   tracePath,
   CANVAS_PALETTE,
+  type CanvasFont,
   type CanvasNode,
   type CanvasPaint,
   type CanvasPaletteId,
@@ -26,6 +28,15 @@ import {
 } from "@kb/canvas";
 import { paletteToken } from "./canvas-color";
 import { isPicture, type FacePicture } from "./canvas-face-pictures";
+import {
+  TEXT_ALIGNS,
+  TYPE_STEPS,
+  itemPaint,
+  type CanvasTypeStep,
+  type FONT_FACES,
+  type ItemPaint,
+  type WordsPaint,
+} from "./canvas-style";
 import {
   assetSrcUrl,
   graphDisplayText,
@@ -38,21 +49,22 @@ import {
   type OutlineNode,
 } from "@kb/ui-sdk";
 
-/** What a card shows, independent of how it is drawn. */
+/** What a card shows, independent of how it is drawn; `style` is how its look paints it. */
 export type CardFace =
   | {
       readonly kind: "note";
       readonly text: string;
       readonly tags: readonly { readonly name: string; readonly color: string }[];
+      readonly style: ItemPaint;
     }
-  | { readonly kind: "text"; readonly text: string }
+  | { readonly kind: "text"; readonly text: string; readonly style: ItemPaint }
   | {
       readonly kind: "shape";
       readonly shape: CanvasShapeKind;
       readonly label: string;
-      readonly paint: CanvasPaint | undefined;
+      readonly style: ItemPaint;
     }
-  | { readonly kind: "group"; readonly label: string }
+  | { readonly kind: "group"; readonly label: string; readonly style: ItemPaint }
   /** An image item's picture, from the asset its file names. */
   | { readonly kind: "image"; readonly src: string; readonly picture: FacePicture }
   | { readonly kind: "missing"; readonly label: string }
@@ -71,14 +83,14 @@ export function cardFaceOf(
     const node = nodes.get(item.nodeId);
     if (node === undefined) return { kind: "missing", label: `missing ${item.nodeId}` };
     const text = graphDisplayText(node.text, (id) => nodes.get(id)?.text);
-    return { kind: "note", text, tags: node.tags.map((t) => ({ name: t.name, color: t.color })) };
+    const tags = node.tags.map((t) => ({ name: t.name, color: t.color }));
+    return { kind: "note", text, tags, style: itemPaint(item) };
   }
-  if (isTextNode(item)) return { kind: "text", text: item.text };
+  if (isTextNode(item)) return { kind: "text", text: item.text, style: itemPaint(item) };
   if (isShapeNode(item)) {
-    const { color } = styleOf(item);
-    return { kind: "shape", shape: item.shape, label: item.label ?? "", paint: color };
+    return { kind: "shape", shape: item.shape, label: item.label ?? "", style: itemPaint(item) };
   }
-  if (isGroupNode(item)) return { kind: "group", label: item.label ?? "" };
+  if (isGroupNode(item)) return { kind: "group", label: item.label ?? "", style: itemPaint(item) };
   if (isFileNode(item)) {
     if (!isPicture(item.file)) return { kind: "other", label: item.file };
     const src = assetSrcUrl(item.file);
@@ -95,11 +107,12 @@ export interface CardLook {
   readonly danger: string;
   /** The palette's colours by id (`CANVAS_PALETTE`); an entry missing is painted as no colour. */
   readonly palette: Readonly<Partial<Record<CanvasPaletteId, string>>>;
-  readonly font: string;
-  /** The body step (a note's text), the UI step (text cards, shape labels), the label step. */
+  /** The design system's faces, by the font a style names (`FONT_FACES`). */
+  readonly faces: Readonly<Record<CanvasFont, string>>;
+  /** The body step, a card's text: its node's words, set as the outline sets them. */
   readonly body: number;
-  readonly ui: number;
-  readonly label: number;
+  /** The type steps a style's sizes set words at (`TYPE_STEPS`), pixels. */
+  readonly steps: Readonly<Record<CanvasTypeStep, number>>;
   /** `rounded-xl`, the card radius, and `rounded-md`, a shape's. */
   readonly radius: number;
   readonly shapeRadius: number;
@@ -158,11 +171,28 @@ export function paintColor(look: CardLook, paint: CanvasPaint | undefined): stri
   return paint.kind === "palette" ? look.palette[paint.id] : paint.css;
 }
 
+/** Each step's size as the browser resolves its token, with the default system's as fallback. */
+const STEP_FALLBACK: Readonly<Record<CanvasTypeStep, number>> = {
+  "--type-label": 11,
+  "--type-ui": 13,
+  "--type-heading": 18,
+  "--type-title": 20,
+};
+
+/** Which of `graphLabelFont`'s faces each font's token is. */
+const FONT_LABEL_FACE = { sans: "ui", serif: "serif", mono: "mono" } as const satisfies {
+  readonly [F in keyof typeof FONT_FACES]: Parameters<typeof graphLabelFont>[0];
+};
+
 export function readCardLook(): CardLook {
   const palette: Partial<Record<CanvasPaletteId, string>> = {};
   for (const { id } of CANVAS_PALETTE) {
     const token: ColorToken = paletteToken(id);
     palette[id] = readTokenColor(token);
+  }
+  const steps = { ...STEP_FALLBACK };
+  for (const step of Object.values(TYPE_STEPS)) {
+    steps[step] = probeLength("fontSize", `var(${step})`, STEP_FALLBACK[step]);
   }
   return {
     face: readTokenColor("--background"),
@@ -170,10 +200,13 @@ export function readCardLook(): CardLook {
     primary: readTokenColor("--primary"),
     danger: readTokenColor("--destructive"),
     palette,
-    font: graphLabelFont("ui"),
+    faces: {
+      sans: graphLabelFont(FONT_LABEL_FACE.sans),
+      serif: graphLabelFont(FONT_LABEL_FACE.serif),
+      mono: graphLabelFont(FONT_LABEL_FACE.mono),
+    },
     body: probeLength("fontSize", "var(--type-body)", 14.5),
-    ui: probeLength("fontSize", "var(--type-ui)", 13),
-    label: probeLength("fontSize", "var(--type-label)", 11),
+    steps,
     ...readCornerRadii(),
   };
 }
@@ -221,22 +254,6 @@ function roundedRect(ctx: Ctx, w: number, h: number, r: number): void {
   ctx.roundRect(0, 0, w, h, Math.min(r, w / 2, h / 2));
 }
 
-/** A raised card: its shadow, face, hairline, and the selection ring when selected. */
-function paintSurface(ctx: Ctx, box: FaceBox, look: CardLook, fill: string, radius: number) {
-  ctx.save();
-  ctx.shadowColor = alpha(look.ink, 0.1);
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetY = 2;
-  roundedRect(ctx, box.width, box.height, radius);
-  ctx.fillStyle = look.face;
-  ctx.fill();
-  ctx.restore();
-  roundedRect(ctx, box.width, box.height, radius);
-  ctx.fillStyle = fill;
-  ctx.fill();
-  paintOutline(ctx, box, look, radius, over(look, look.ink, 0.12));
-}
-
 function paintOutline(ctx: Ctx, box: FaceBox, look: CardLook, radius: number, stroke: string) {
   if (box.selected) {
     ctx.save();
@@ -251,6 +268,90 @@ function paintOutline(ctx: Ctx, box: FaceBox, look: CardLook, radius: number, st
   ctx.lineWidth = box.selected ? 1.5 : 1;
   ctx.strokeStyle = box.selected ? over(look, look.primary, 0.75) : stroke;
   ctx.stroke();
+}
+
+/** A raised card with no style of its own (a missing card, an unknown item): face and hairline. */
+function paintSurface(ctx: Ctx, box: FaceBox, look: CardLook, radius: number) {
+  ctx.save();
+  ctx.shadowColor = alpha(look.ink, 0.1);
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetY = 2;
+  roundedRect(ctx, box.width, box.height, radius);
+  ctx.fillStyle = look.face;
+  ctx.fill();
+  ctx.restore();
+  paintOutline(ctx, box, look, radius, over(look, look.ink, 0.12));
+}
+
+/** How a chrome is painted: its outline's path, its ink when uncoloured, and whether it casts. */
+interface ChromeSpec {
+  readonly shape: CanvasShapeKind;
+  readonly radius: number;
+  /** How much of the foreground an uncoloured outline is drawn with, 0–1. */
+  readonly ink: number;
+  /** Whether a filled ground casts the card's soft shadow. */
+  readonly raised: boolean;
+}
+
+/** How much of its colour a semi fill washes over the ground. */
+const WASH = 0.14;
+
+/** The colour an item's ground is filled with, or null for none. */
+function groundOf(style: ItemPaint, look: CardLook): string | null {
+  const color = paintColor(look, style.color);
+  switch (style.chrome?.fill) {
+    case "none":
+    case undefined:
+      return null;
+    case "solid":
+      return color ?? over(look, look.ink, 0.9);
+    case "semi":
+    default:
+      return color === undefined ? look.face : over(look, color, WASH);
+  }
+}
+
+/**
+ * An item's chrome as its style says (`itemPaint`, as the 2D outline draws
+ * it): its ground, filled and casting when raised, and its outline at its
+ * width and dash, in its colour or the foreground at `spec.ink`; selected,
+ * in the primary over a soft halo.
+ */
+function paintChrome(ctx: Ctx, style: ItemPaint, box: FaceBox, look: CardLook, spec: ChromeSpec) {
+  const path = () => {
+    ctx.beginPath();
+    tracePath(ctx, shapeOutline(spec.shape, box.width, box.height, spec.radius));
+  };
+  const ground = groundOf(style, look);
+  if (ground !== null) {
+    ctx.save();
+    if (spec.raised) {
+      ctx.shadowColor = alpha(look.ink, 0.1);
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 2;
+    }
+    path();
+    ctx.fillStyle = ground;
+    ctx.fill();
+    ctx.restore();
+  }
+  const outline = style.chrome?.outline ?? null;
+  const color = paintColor(look, style.color);
+  if (box.selected) {
+    path();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = over(look, look.primary, 0.15);
+    ctx.stroke();
+  }
+  if (outline === null && !box.selected) return;
+  path();
+  ctx.setLineDash(outline?.pattern ?? []);
+  ctx.lineWidth = box.selected ? Math.max(2, outline?.width ?? 0) : (outline?.width ?? 0);
+  ctx.strokeStyle = box.selected
+    ? over(look, look.primary, 0.7)
+    : (color ?? over(look, look.ink, spec.ink));
+  ctx.stroke();
+  ctx.setLineDash([]);
 }
 
 /**
@@ -273,8 +374,8 @@ function wrapText(ctx: Ctx, text: string, width: number, max: number): string[] 
   return kept;
 }
 
-function setFont(ctx: Ctx, look: CardLook, size: number, weight = 400): void {
-  ctx.font = `${weight} ${size}px ${look.font}`;
+function setFont(ctx: Ctx, face: string, size: number, weight = 400): void {
+  ctx.font = `${weight} ${size}px ${face}`;
 }
 
 /** Tag chips right-aligned on the first line; returns how much of the line they took. */
@@ -284,9 +385,10 @@ function paintTags(
   { right, top, line }: { readonly right: number; readonly top: number; readonly line: number },
   look: CardLook,
 ): number {
-  setFont(ctx, look, look.label, 500);
+  const size = look.steps["--type-label"];
+  setFont(ctx, look.faces.sans, size, 500);
   let x = right;
-  const h = Math.min(line - 4, look.label + 7);
+  const h = Math.min(line - 4, size + 7);
   for (const tag of tags.toReversed()) {
     const w = ctx.measureText(tag.name).width + 12;
     x -= w;
@@ -307,6 +409,54 @@ function paintLines(ctx: Ctx, lines: readonly string[], x: number, top: number, 
   lines.forEach((text, i) => ctx.fillText(text, x, top + line * i + line / 2));
 }
 
+/** The ink words are set in: the ground's on a solid fill, the foreground's otherwise, at `amount`. */
+function wordsInk(style: ItemPaint, look: CardLook, amount: number): string {
+  if (style.chrome?.fill !== "solid") return over(look, look.ink, amount);
+  return paintColor(look, style.color) === undefined ? look.face : alpha(look.face, amount);
+}
+
+/** Where words are set inside a box: its padding across and up and down, and the most lines. */
+interface WordsBox {
+  readonly padX: number;
+  readonly padY: number;
+  readonly leading: number;
+  readonly max: number;
+  readonly weight?: number;
+}
+
+/**
+ * `text` set in `box` as `words` says: its face at its step, aligned across
+ * the line (`TEXT_ALIGNS`, as the DOM aligns it) and placed up and down it,
+ * wrapped to the box.
+ */
+function paintWords(
+  ctx: Ctx,
+  text: string,
+  words: WordsPaint,
+  ink: string,
+  { box, look, at }: { box: FaceBox; look: CardLook; at: WordsBox },
+): void {
+  const size = look.steps[words.step];
+  setFont(ctx, look.faces[words.font], size, at.weight);
+  const line = size * at.leading;
+  const room = box.height - at.padY * 2;
+  const max = Math.max(1, Math.min(at.max, Math.floor(room / line)));
+  const lines = wrapText(ctx, text, Math.max(20, box.width - at.padX * 2), max);
+  const tall = line * lines.length;
+  const top =
+    words.valign === "top"
+      ? at.padY
+      : words.valign === "bottom"
+        ? box.height - at.padY - tall
+        : (box.height - tall) / 2;
+  const align = TEXT_ALIGNS[words.align];
+  const x = align === "left" ? at.padX : align === "right" ? box.width - at.padX : box.width / 2;
+  ctx.fillStyle = ink;
+  ctx.textAlign = align;
+  paintLines(ctx, lines, x, top, line);
+  ctx.textAlign = "left";
+}
+
 const PAD = 12;
 
 function paintNote(
@@ -315,7 +465,12 @@ function paintNote(
   box: FaceBox,
   look: CardLook,
 ) {
-  paintSurface(ctx, box, look, look.face, look.radius);
+  paintChrome(ctx, face.style, box, look, {
+    shape: "rect",
+    radius: look.radius,
+    ink: 0.12,
+    raised: true,
+  });
   const line = look.body * 1.6;
   const bulletX = PAD + 8;
   const textX = PAD + 20;
@@ -328,12 +483,24 @@ function paintNote(
   ctx.arc(bulletX, PAD + line / 2, 3, 0, Math.PI * 2);
   ctx.fillStyle = tint ?? over(look, look.ink, 0.45);
   ctx.fill();
-  setFont(ctx, look, look.body);
+  setFont(ctx, look.faces.sans, look.body);
   const width = box.width - textX - PAD - (taken > 0 ? taken + 6 : 0);
   const max = Math.max(1, Math.floor((box.height - PAD * 2) / line));
   const text = hasText(face.text) ? face.text : "untitled";
-  ctx.fillStyle = over(look, look.ink, hasText(face.text) ? 0.85 : 0.3);
+  ctx.fillStyle = wordsInk(face.style, look, hasText(face.text) ? 0.85 : 0.3);
   paintLines(ctx, wrapText(ctx, text, Math.max(20, width), max), textX, PAD, line);
+}
+
+/** The words of an item that owns them, set by its style; nothing for one that does not. */
+function paintOwnWords(
+  ctx: Ctx,
+  text: string,
+  style: ItemPaint,
+  ink: number,
+  { box, look, at }: { box: FaceBox; look: CardLook; at: WordsBox },
+): void {
+  if (style.words === null) return;
+  paintWords(ctx, text, style.words, wordsInk(style, look, ink), { box, look, at });
 }
 
 function paintText(
@@ -342,17 +509,17 @@ function paintText(
   box: FaceBox,
   look: CardLook,
 ) {
-  paintSurface(ctx, box, look, look.face, look.radius);
-  setFont(ctx, look, look.ui);
-  const line = look.ui * 1.5;
-  const max = Math.max(1, Math.floor((box.height - PAD * 2) / line));
-  ctx.fillStyle = over(look, look.ink, 0.85);
-  paintLines(ctx, wrapText(ctx, face.text, box.width - PAD * 2, max), PAD, PAD, line);
-}
-
-function shapePath(ctx: Ctx, shape: CanvasShapeKind, box: FaceBox, radius: number): void {
-  ctx.beginPath();
-  tracePath(ctx, shapeOutline(shape, box.width, box.height, radius));
+  paintChrome(ctx, face.style, box, look, {
+    shape: "rect",
+    radius: look.radius,
+    ink: 0.12,
+    raised: true,
+  });
+  paintOwnWords(ctx, face.text, face.style, 0.85, {
+    box,
+    look,
+    at: { padX: PAD, padY: PAD, leading: 1.5, max: Infinity },
+  });
 }
 
 function paintShape(
@@ -361,27 +528,18 @@ function paintShape(
   box: FaceBox,
   look: CardLook,
 ) {
-  const color = paintColor(look, face.paint);
-  shapePath(ctx, face.shape, box, look.shapeRadius);
-  ctx.fillStyle = look.face;
-  ctx.fill();
-  ctx.fillStyle = color === undefined ? over(look, look.ink, 0.02) : over(look, color, 0.14);
-  ctx.fill();
-  ctx.lineWidth = box.selected ? 2 : 1.5;
-  ctx.strokeStyle = box.selected
-    ? over(look, look.primary, 0.75)
-    : color === undefined
-      ? over(look, look.ink, 0.18)
-      : color;
-  ctx.stroke();
-  setFont(ctx, look, look.ui);
+  paintChrome(ctx, face.style, box, look, {
+    shape: face.shape,
+    radius: look.shapeRadius,
+    ink: 0.18,
+    raised: false,
+  });
   const label = hasText(face.label) ? face.label : "Label";
-  ctx.fillStyle = over(look, look.ink, hasText(face.label) ? 0.85 : 0.25);
-  ctx.textAlign = "center";
-  const lines = wrapText(ctx, label, box.width - PAD * 2.5, 3);
-  const line = look.ui * 1.4;
-  paintLines(ctx, lines, box.width / 2, box.height / 2 - (line * lines.length) / 2, line);
-  ctx.textAlign = "left";
+  paintOwnWords(ctx, label, face.style, hasText(face.label) ? 0.85 : 0.25, {
+    box,
+    look,
+    at: { padX: PAD * 1.25, padY: 8, leading: 1.4, max: 3 },
+  });
 }
 
 function paintGroup(
@@ -391,18 +549,18 @@ function paintGroup(
   look: CardLook,
 ) {
   // A shade firmer than the DOM frame's: a hairline this faint vanishes at a slant.
-  roundedRect(ctx, box.width, box.height, look.shapeRadius);
-  ctx.fillStyle = over(look, look.ink, 0.035);
-  ctx.fill();
-  ctx.setLineDash([6, 5]);
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = box.selected ? over(look, look.primary, 0.55) : over(look, look.ink, 0.24);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  paintChrome(ctx, face.style, box, look, {
+    shape: "rect",
+    radius: look.shapeRadius,
+    ink: 0.24,
+    raised: false,
+  });
   if (!hasText(face.label)) return;
-  setFont(ctx, look, look.label, 500);
-  ctx.fillStyle = over(look, look.ink, 0.45);
-  paintLines(ctx, [face.label], 8, 4, look.label * 1.8);
+  paintOwnWords(ctx, face.label, face.style, 0.45, {
+    box,
+    look,
+    at: { padX: 8, padY: 4, leading: 1.8, max: 1, weight: 500 },
+  });
 }
 
 /**
@@ -453,17 +611,29 @@ export function faceWords(face: CardFace): string {
   }
 }
 
+/** The face a standing label's words are set in: its style's, or the UI face. */
+export function faceFont(face: CardFace): CanvasFont {
+  return "style" in face ? (face.style.words?.font ?? "sans") : "sans";
+}
+
 /**
- * A standing face's label (`faceStands`): `words` set in the UI face at the
- * UI step, centred in a box of the face's size, on a pill of card stock so
- * it reads over whatever is behind it — a solid's body is its surface, so
- * the label paints no card. Selected, the pill wears the selection ring.
+ * A standing face's label (`faceStands`): `words` set in `font` at the UI
+ * step, centred in a box of the face's size, on a pill of card stock so it
+ * reads over whatever is behind it — a solid's body is its surface, so the
+ * label paints no card. Selected, the pill wears the selection ring.
  * Nothing at all for no words.
  */
-export function paintLabel(ctx: Ctx, words: string, box: FaceBox, look: CardLook): void {
+export function paintLabel(
+  ctx: Ctx,
+  words: string,
+  box: FaceBox,
+  look: CardLook,
+  font: CanvasFont = "sans",
+): void {
   if (!hasText(words)) return;
-  setFont(ctx, look, look.ui, 500);
-  const line = look.ui * 1.4;
+  const size = look.steps["--type-ui"];
+  setFont(ctx, look.faces[font], size, 500);
+  const line = size * 1.4;
   const lines = wrapText(ctx, words, box.width - PAD * 2, 3);
   const wide = Math.max(...lines.map((l) => ctx.measureText(l).width));
   const pill = { width: Math.min(box.width, wide + PAD * 2), height: line * lines.length + PAD };
@@ -487,10 +657,11 @@ export function paintLabel(ctx: Ctx, words: string, box: FaceBox, look: CardLook
 }
 
 function paintPlain(ctx: Ctx, label: string, box: FaceBox, look: CardLook, ink: string) {
-  paintSurface(ctx, box, look, look.face, look.radius);
-  setFont(ctx, look, look.label);
+  paintSurface(ctx, box, look, look.radius);
+  const size = look.steps["--type-label"];
+  setFont(ctx, look.faces.sans, size);
   ctx.fillStyle = ink;
-  paintLines(ctx, [label], PAD, PAD / 2, look.label * 1.8);
+  paintLines(ctx, [label], PAD, PAD / 2, size * 1.8);
 }
 
 /** Paint `face` for a card of `box`'s size into `ctx`, whose origin is the card's corner. */

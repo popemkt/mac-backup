@@ -241,19 +241,11 @@ const TEST_WORLD_PACKAGES: ReadonlySet<string> = new Set([
 
 /**
  * A package's test helpers, by package-relative folder: the modules its test
- * files share, which only its test files import. The packages that have one
- * are {@link TEST_SUPPORT_PACKAGES}.
+ * files share, which only its test files import. Any package may have one:
+ * `testSupportBreaches` (`import-graph.ts`) holds every importer of it to a
+ * test file, so no production file escapes a fence through it.
  */
 export const TEST_SUPPORT_DIR = "src/test-support/";
-
-/**
- * The packages with a {@link TEST_SUPPORT_DIR}, each because a check holds
- * every importer of it to a test file: `@kb/ui`'s zone matrix
- * ({@link UI_ALLOWS}), in which `test-support` is a test zone, which no
- * production row names ({@link UI_TEST_ZONES}). A package that grows the folder without such a check
- * fails, so no production file escapes a fence through it.
- */
-export const TEST_SUPPORT_PACKAGES: ReadonlySet<string> = new Set(["@kb/ui"]);
 
 /**
  * A test file, by its package-relative path: anything in the package's own

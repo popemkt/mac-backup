@@ -76,15 +76,41 @@ export const FAKE_WEBGPU = { WebGPURenderer: FakeRenderer, RenderPipeline: FakeP
 export const renders = (renderer: FakeRenderer): number => renderer.post?.renders ?? 0;
 
 /**
+ * What a stand-in 2D context was asked to paint since its canvas was last
+ * cleared: each stroke with the dash and width set for it, and each run of
+ * words with the font, alignment and baseline position set for it — what a
+ * contract reads a painted texture back by.
+ */
+export type PaintedOp =
+  | { readonly op: "stroke"; readonly pattern: readonly number[]; readonly width: number }
+  | { readonly op: "text"; readonly font: string; readonly align: string; readonly y: number };
+
+const PAINTED = new WeakMap<HTMLCanvasElement, PaintedOp[]>();
+
+/** What `canvas` was asked to paint since it was last cleared (`PaintedOp`). */
+export function paintedOps(canvas: HTMLCanvasElement): readonly PaintedOp[] {
+  return PAINTED.get(canvas) ?? [];
+}
+
+/**
  * A 2D context that accepts every call and measures text at 6px a character,
- * enough for a scene to paint its textures (and read a blank glyph back).
+ * enough for a scene to paint its textures (and read a blank glyph back),
+ * and records what it strokes and the words it sets (`paintedOps`).
  */
 const noop = () => {};
 
 function fake2d(canvas: HTMLCanvasElement) {
   const gradient = { addColorStop: () => {} };
+  const ops = PAINTED.get(canvas) ?? [];
+  PAINTED.set(canvas, ops);
+  const state = { pattern: [] as readonly number[], width: 1, font: "", align: "start" };
   const known: Record<string, unknown> = {
     canvas,
+    setLineDash: (pattern: readonly number[]) => (state.pattern = [...pattern]),
+    clearRect: () => (ops.length = 0),
+    stroke: () => ops.push({ op: "stroke", pattern: state.pattern, width: state.width }),
+    fillText: (_text: string, _x: number, y: number) =>
+      ops.push({ op: "text", font: state.font, align: state.align, y }),
     measureText: (text: string) => ({ width: text.length * 6 }),
     getImageData: (_x: number, _y: number, width: number, height: number) => ({
       width,
@@ -98,12 +124,19 @@ function fake2d(canvas: HTMLCanvasElement) {
     get: (target, key) =>
       typeof key !== "string"
         ? undefined
-        : key in target
-          ? target[key]
-          : /^[a-z]+[A-Z]|^(fill|stroke|scale|save|restore|translate|rotate|arc)/.test(key)
-            ? noop
-            : undefined,
-    set: () => true,
+        : key === "lineWidth"
+          ? state.width
+          : key in target
+            ? target[key]
+            : /^[a-z]+[A-Z]|^(fill|stroke|scale|save|restore|translate|rotate|arc)/.test(key)
+              ? noop
+              : undefined,
+    set: (_target, key, value) => {
+      if (key === "lineWidth" && typeof value === "number") state.width = value;
+      if (key === "font" && typeof value === "string") state.font = value;
+      if (key === "textAlign" && typeof value === "string") state.align = value;
+      return true;
+    },
   });
 }
 

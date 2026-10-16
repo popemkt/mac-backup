@@ -186,6 +186,48 @@ describe("ext.canvas.describe and lint", () => {
     );
   });
 
+  test("an item is made in its looks, its colour by name; describe tells them back", async () => {
+    const ctx = await canvasKb([card("a", 0, 0)]);
+    output(
+      await invoke(
+        ctx,
+        verb("place", {
+          items: [
+            {
+              make: {
+                id: "ref",
+                text: "a reference",
+                color: "grey",
+                style: { dash: "dashed", font: "mono", opacity: 0.5 },
+              },
+              near: "a",
+              side: "right",
+            },
+            { make: { id: "own", preset: "rect", color: "red" }, near: "a", side: "south" },
+          ],
+        }),
+      ),
+    );
+    const doc = stored(ctx);
+    const made = (id: string) =>
+      present(
+        doc.nodes.find((n) => n.id === id),
+        id,
+      );
+    expect(made("ref").style).toEqual({ dash: "dashed", font: "mono", opacity: 0.5 });
+    // A palette name is written as the JSON Canvas preset other readers know.
+    expect(made("own").color).toBe("1");
+    const out = output(await invoke(ctx, verb("describe", {})));
+    expect(out.items).toContainEqual(
+      expect.objectContaining({
+        id: "ref",
+        color: "grey",
+        style: { dash: "dashed", font: "mono", opacity: 0.5 },
+      }),
+    );
+    expect(out.items).toContainEqual(expect.objectContaining({ id: "own", color: "red" }));
+  });
+
   test("lint reads the lints; tx.apply's receipt carries the ones it made", async () => {
     const ctx = await canvasKb([box("a", 0, 0)]);
     const applied = output(

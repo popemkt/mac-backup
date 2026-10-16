@@ -1234,7 +1234,11 @@ manipulation feel professional rather than merely functional.
   (`z + depth`), then in document order, and the two buttons reorder the
   document (`paintOrder`, DESIGN.md → Canvas documents).
 - **The item inspector** (`item-inspector.tsx`) shows the rows that apply to
-  the item: a shape's colour, every item's height — Lift (`z`) and Depth,
+  the item: its colour among the palette's swatches and its looks
+  (`item-style-rows.tsx`: fill and outline for an item that draws its own
+  ground, size, and the face and alignment of words that are its own, each
+  a pick of the look's values through `withStyle`), its opacity in percent,
+  every item's height — Lift (`z`) and Depth,
   with Extrude (a sticky becomes a block, a rectangle a box) and Flatten —
   and its Rotation, degrees about X, Y and Z in that order, each field
   committed as one change. A shape opens it where it is pressed, in
@@ -1355,10 +1359,21 @@ open view of that canvas.
   its volume), which a tilted solid shows round its face and the pointer
   takes it by. Side anchors and their outward directions turn with the
   item (`sideAnchor`), and the marquee and framing read its turned box.
+- **Looks are one paint in both projections** (`canvas-style.ts`,
+  `itemPaint`): an item's style (DESIGN.md → Canvas documents) is turned
+  once into what is drawn — the outline's width (by size) and dash pattern
+  in canvas units, the type step and face (as tokens) its words are set in,
+  where they sit, its fill and its opacity. The DOM draws every kind's
+  ground and outline as one SVG outline traced from the shape table
+  (`canvas-item-outline.tsx`), its words in the step's and the face's
+  tokens; the 3D face paints the same into its texture and its materials
+  take the opacity. The projection contract reads both back — the stroke's
+  dash and width, the opacity, the words' face, step and alignment — and
+  holds them to `itemPaint` for every look and each kind's defaults.
 - **Cards stay cards.** Each card's face is painted into a canvas texture as
-  it looks in 2D (`canvas-card-face.ts`): its text in the UI face at the body
-  step, its bullet and tag chips, its shape and preset colour, the selection
-  ring. A face is repainted only when what it shows changes; a resized card
+  it looks in 2D (`canvas-card-face.ts`): its text in the face and step its
+  style names (a card's in the UI face at the body step), its bullet and tag
+  chips, its shape, fill, outline and colour, the selection ring. A face is repainted only when what it shows changes; a resized card
   keeps its face stretched until sizes hold still, faces painted before the
   page's fonts arrived are repainted once they do, and texture density
   follows the display's pixel ratio up to a cap. Edges are rebuilt only when

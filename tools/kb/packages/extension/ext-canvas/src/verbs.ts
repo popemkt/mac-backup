@@ -16,9 +16,16 @@ import { KbCtx, Screens, type ExtensionAction, type KbStore } from "@kb/contract
 import { planNodeAddEffect } from "@kb/operations";
 import { freshId, isSysPrefixed, resolveFieldId, type KbNode } from "@kb/model";
 import {
+  CANVAS_ALIGNS,
+  CANVAS_DASHES,
   CANVAS_DIRECTIONS,
+  CANVAS_FILLS,
+  CANVAS_FONTS,
   CANVAS_LAYOUTS,
+  CANVAS_PALETTE,
   CANVAS_PRESET_KINDS,
+  CANVAS_SIZES,
+  CANVAS_VALIGNS,
   GRID_STEP,
   CanvasRelationError,
   arrangeItems,
@@ -63,6 +70,27 @@ const Direction = z
     "along the canvas's own axes, never the camera's: left/right along x, north/south along y " +
       "(north is up the page in 2D), above/below up off the floor",
   );
+
+/** A colour as an agent names one: a palette entry by name, a JSON Canvas preset, or a hex. */
+const ColorSchema = z
+  .string()
+  .describe(
+    `a palette colour by name (${CANVAS_PALETTE.map((p) => p.name).join(", ")}), ` +
+      "a JSON Canvas preset 1–6, or a hex; a name is written as its preset",
+  );
+
+/** An item's looks beyond its colour (DESIGN.md → Canvas documents, `style`); each defaults by kind. */
+const LooksSchema = z
+  .object({
+    fill: z.enum(CANVAS_FILLS).describe("its ground: none, semi (a wash of its colour), solid"),
+    dash: z.enum(CANVAS_DASHES).describe("its outline: solid, dashed, dotted, or none"),
+    size: z.enum(CANVAS_SIZES).describe("how large its words and how heavy its outline"),
+    font: z.enum(CANVAS_FONTS).describe("the face its own words are set in"),
+    align: z.enum(CANVAS_ALIGNS).describe("its words across its box"),
+    valign: z.enum(CANVAS_VALIGNS).describe("its words up and down its box"),
+    opacity: z.number().min(0).max(1).describe("how opaque it is drawn, 0 to 1"),
+  })
+  .partial();
 
 /** An item as a write reports it: what it is and the box it now takes up. */
 const PlacedSchema = z.object({
@@ -119,6 +147,8 @@ const DescribedItemSchema = z.object({
   frame: z.string().optional(),
   rotation: z.object({ x: z.number(), y: z.number(), z: z.number() }).partial().optional(),
   faces: z.literal("camera").optional(),
+  color: z.string().optional().describe("its colour: a palette name, or as written"),
+  style: LooksSchema.optional().describe("the looks it draws that are not its kind's defaults"),
 });
 
 const RelationSchema = z.union([
@@ -262,7 +292,8 @@ const MakeSchema = z
       .string()
       .optional()
       .describe("its words: a text card's text, a shape's or frame's label"),
-    color: z.string().optional(),
+    color: ColorSchema.optional(),
+    style: LooksSchema.optional().describe("its looks beyond its colour"),
     nodeId: z.string().optional().describe("the node it stands for (a card needs one)"),
     file: z.string().optional().describe("an image's asset path, assets/…"),
     width: z.number().positive().optional(),
@@ -619,7 +650,8 @@ export const CANVAS_VERBS: ExtensionAction[] = [
     title: "Describe a canvas",
     description:
       "Say what is on a canvas for an agent that cannot see it: each item's kind, words and box " +
-      "(min/max along x right, y down the page, z up), and how items stand: on, in a frame, linked, " +
+      "(min/max along x right, y down the page, z up), its colour and the looks it draws that are " +
+      "not its kind's defaults, and how items stand: on, in a frame, linked, " +
       "and near by a side in plain words (left, right, north, south, above, below — the canvas's own " +
       "axes). Items in focus are in full, the rest on screen blurred, what is off screen counted per " +
       "frame; with no focus and no open tab every item is in full. Also its lints and camera.",

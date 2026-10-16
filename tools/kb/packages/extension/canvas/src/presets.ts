@@ -29,6 +29,7 @@ import {
 } from "./doc.ts";
 import { CanvasRelationError } from "./relations.ts";
 import { apply, rotationOfMatrix } from "./rotation.ts";
+import { canvasColor, withStyle, type CanvasLooksPatch } from "./style.ts";
 
 /** An item before it is placed: no id, no position, and no meaning yet. */
 type Unplaced<N extends CanvasNode> = N extends unknown
@@ -113,12 +114,14 @@ export const CANVAS_PRESET_KINDS: readonly CanvasPresetKind[] = PRESET_KINDS;
  * What a new item is asked for in words, as an agent asks: a preset, the
  * words it shows (a text card's text, a shape's or a frame's label), and
  * any of its look and size. A card needs the node it shows, a picture the
- * asset it shows.
+ * asset it shows. A colour may be named ("red") or written as JSON Canvas
+ * writes one ("1", a hex); its looks are `style.ts`'s.
  */
 export interface CanvasItemSpec {
   readonly preset: CanvasPresetKind;
   readonly text?: string;
   readonly color?: string;
+  readonly style?: CanvasLooksPatch;
   readonly nodeId?: string;
   readonly file?: string;
   readonly width?: number;
@@ -149,10 +152,11 @@ export function makeItem(spec: CanvasItemSpec, id: string): CanvasNode {
     y: 0,
     ...(spec.width === undefined ? {} : { width: Math.max(1, spec.width) }),
     ...(spec.height === undefined ? {} : { height: Math.max(1, spec.height) }),
-    ...(spec.color === undefined ? {} : { color: spec.color }),
+    ...(spec.color === undefined ? {} : { color: canvasColor(spec.color) }),
     ...(spec.nodeId === undefined ? {} : { nodeId: spec.nodeId }),
   };
-  const deep = spec.depth === undefined ? sized : withDepth(sized, spec.depth);
+  const styled = spec.style === undefined ? sized : withStyle(sized, spec.style);
+  const deep = spec.depth === undefined ? styled : withDepth(styled, spec.depth);
   if (spec.text === undefined) return deep;
   if (isTextNode(deep)) return { ...deep, text: spec.text };
   if (isShapeNode(deep) || isGroupNode(deep)) return { ...deep, label: spec.text };

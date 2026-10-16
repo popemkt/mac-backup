@@ -16,10 +16,9 @@ const look: CardLook = {
   primary: "rgb(190, 120, 20)",
   danger: "rgb(200, 30, 30)",
   palette: {},
-  font: "sans-serif",
+  faces: { sans: "sans-serif", serif: "serif", mono: "monospace" },
   body: 14.5,
-  ui: 13,
-  label: 11,
+  steps: { "--type-label": 11, "--type-ui": 13, "--type-heading": 18, "--type-title": 20 },
   radius: 18,
   shapeRadius: 8,
 };
