@@ -4,7 +4,8 @@
  * packages.
  */
 import { vi } from "vitest";
-import { TIMING_FALLBACK, type LensNode } from "@kb/ui-sdk";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
+import type { LensNode } from "./graph-lens";
 import { type LensEdge, LENS_THEMES } from "@kb/graph";
 import type { ScenePalette } from "@kb/scene";
 import { sceneContract, type SceneMount } from "@kb/ui-test-kit";

@@ -10,7 +10,7 @@
  * principle L2). Particles run along the focused node's links alone: one
  * hero motion, answering the user (M4). Pure data, no three.
  */
-import type { LensNode } from "@kb/ui-sdk";
+import type { LensNode } from "./graph-lens";
 import type { LensEdge } from "@kb/graph";
 import type { EmphasisFade } from "./graph-fade";
 import {

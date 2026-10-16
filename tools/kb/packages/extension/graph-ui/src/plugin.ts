@@ -33,7 +33,7 @@ import { NeighbourhoodGraph } from "./neighbourhood-view";
 import { lensGraphs } from "./graph-lens";
 import {
   BrowserHostService,
-  LensGraphService,
+  NodeLinkGraphService,
   provideRoute,
   provideView,
   RoutePoint,
@@ -48,7 +48,7 @@ import {
  * renderer switch in its picker's order — and a node's neighbourhood, which
  * hosts a renderer in a box of its own. It injects the page's host, as a
  * family's browser half does, and waits as pending until the shell provides it.
- * It provides the lens graph of a perspective (`LensGraphService`) for the
+ * It provides the lens graph of a perspective (`NodeLinkGraphService`) for the
  * halves that draw the graph without being it.
  *
  * It is the graph family's page entry, so it loads the family's shared
@@ -62,7 +62,7 @@ export const graphUiPlugin = definePlugin({
     Effect.all(
       [
         ctx.plugin(graphPlugin()),
-        ctx.provide(LensGraphService, lensGraphs),
+        ctx.provide(NodeLinkGraphService, lensGraphs),
         ctx.contribute(
           ViewPoint,
           provideView(GraphView, { placements: ["page"], sample: {}, Component: GraphSurface }),

@@ -25,7 +25,8 @@ import { makeKernel } from "@kb/plugin";
 import { EmphasisFade } from "./graph-fade";
 import type { Force3dScene } from "./force3d-scene";
 import type { GraphFrame } from "./graph-frame";
-import type { Appearance, LensNode } from "@kb/ui-sdk";
+import type { Appearance } from "@kb/ui-sdk";
+import type { LensNode } from "./graph-lens";
 import {
   buildTreeForest,
   type LensEdge,

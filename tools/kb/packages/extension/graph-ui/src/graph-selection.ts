@@ -3,7 +3,7 @@
  * from a lens node. Lives beside the card that displays it rather than inside
  * it, so every renderer imports the shape from one place.
  */
-import type { LensNode } from "@kb/ui-sdk";
+import type { LensNode } from "./graph-lens";
 
 export interface GraphSelection {
   nodeId: string;

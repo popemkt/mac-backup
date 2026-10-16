@@ -168,12 +168,12 @@ export {
   resolveVisibleProps,
 } from "./lib/field-visibility";
 export {
-  type LensGraph,
-  type LensGraphEdge,
-  type LensGraphs,
-  LensGraphService,
-  type LensNode,
-} from "./lib/lens-graph";
+  type NodeLinkEdge,
+  type NodeLinkGraph,
+  type NodeLinkGraphs,
+  NodeLinkGraphService,
+  type NodeLinkNode,
+} from "./lib/node-link";
 export {
   forestRootIds,
   formatPropValue,

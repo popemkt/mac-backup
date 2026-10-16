@@ -2,7 +2,7 @@
  * `@kb/graph-ui`: the graph family's browser half (DESIGN.md → Extension
  * families; DESIGN-UI.md → Field-based graph perspectives): the graph page,
  * its renderers, a node's neighbourhood, its sidebar section and the lens
- * extraction, which it also answers for other halves (`LensGraphService`).
+ * extraction, which it also answers for other halves (`NodeLinkGraphService`).
  * It reaches the page only through `@kb/ui-sdk`'s `BrowserHost`. The page
  * loads its entry, `graphUiPlugin`, through `BROWSER_EXTENSIONS` under the
  * family's declared name, from the main bundle; the graph is optional and on

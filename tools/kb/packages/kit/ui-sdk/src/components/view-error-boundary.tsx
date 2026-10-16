@@ -54,7 +54,7 @@ interface ViewErrorBoundaryState {
 }
 
 /**
- * Localized boundary for lazy Graph / Canvas chunks.
+ * Localized boundary for a lazily loaded view's chunk.
  * Shell chrome (sidebar, header, palette) stays outside this tree.
  */
 export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErrorBoundaryState> {

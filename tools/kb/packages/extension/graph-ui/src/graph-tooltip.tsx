@@ -1,4 +1,4 @@
-import type { LensNode } from "@kb/ui-sdk";
+import type { LensNode } from "./graph-lens";
 
 /** The card's widest extent: `max-w-72`, plus the room it keeps from the host's edge. */
 const CARD_REACH = "18rem + 8px";

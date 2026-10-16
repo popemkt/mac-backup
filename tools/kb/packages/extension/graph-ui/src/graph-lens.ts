@@ -2,7 +2,7 @@
  * The graph's lens: the extract of {nodes, edges} from the page's index and
  * wire nodes, driven by a graph view node's lens props. It is the one
  * extraction: the graph page draws it, and it answers the kit's
- * `LensGraphService` for any other half that reads the graph (the lab).
+ * `NodeLinkGraphService` for any other half that reads the graph (the lab).
  */
 import type { NodeProps } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
@@ -21,11 +21,12 @@ import {
   graphDisplayText,
   hashTagColor,
   isSysPrefixed,
+  type BulletAppearance,
   type KbIndex,
-  type LensGraph,
-  type LensGraphs,
-  type LensNode,
   logWarn,
+  type NodeLinkGraph,
+  type NodeLinkGraphs,
+  type NodeLinkNode,
   queryFamilyViewNodes,
   runQuery,
   SYSTEM_IDS,
@@ -36,11 +37,35 @@ import {
 } from "@kb/ui-sdk";
 
 /**
- * The lens graph as the graph draws it: the kit's shape (`LensGraph`), with
- * each edge the projection's own (`@kb/graph`'s `LensEdge`), kind included.
+ * A node as the graph draws it: the kit's node-link node (`NodeLinkNode`),
+ * with what the lens mapped it to.
  */
-export interface GraphLens extends LensGraph {
+export interface LensNode extends NodeLinkNode {
+  color: string;
+  size: number;
+  /** Human presentation of the cluster identity, resolved before renderer projection. */
+  clusterLabel?: string;
+  tags: string[];
+  tagIds?: string[];
+  weight?: number;
+  colorKey?: string;
+  colorLabel?: string;
+  /** The bullet the outline draws for this node, where a renderer draws it so (`lib/bullet-mode`). */
+  bullet?: BulletAppearance;
+}
+
+/**
+ * The lens graph as the graph draws it: the kit's node-link graph
+ * (`NodeLinkGraph`), with each node the graph's (`LensNode`) and each edge
+ * the projection's own (`@kb/graph`'s `LensEdge`), kind included.
+ */
+export interface GraphLens extends NodeLinkGraph {
+  nodes: LensNode[];
   edges: LensEdge[];
+  /** Nodes dropped by max-nodes cap. */
+  dropped: number;
+  /** Query parse/exec error message, if any. */
+  queryError: string | null;
 }
 
 function isTagNode(node: WireNode | undefined): boolean {
@@ -383,15 +408,15 @@ export function extractLensGraph(
 }
 
 /**
- * The lens graphs the graph answers for the page (`LensGraphService`): a
- * perspective's, else the default one's the graph page opens on, by the same
- * extraction the page draws.
+ * The node-link graphs the graph answers for the page
+ * (`NodeLinkGraphService`): a graph view node's lens graph, else the default
+ * perspective's the graph page opens on, by the same extraction the page draws.
  */
-export const lensGraphs: LensGraphs = {
-  ofPerspective: (index, wireNodes, perspectiveId) => {
+export const lensGraphs: NodeLinkGraphs = {
+  ofView: (index, wireNodes, viewId) => {
     const perspective = resolvePerspective(
       listPerspectiveNodes(index, wireNodes).map(parsePerspective),
-      perspectiveId,
+      viewId,
     );
     return perspective === null ? null : extractLensGraph(index, wireNodes, perspective);
   },

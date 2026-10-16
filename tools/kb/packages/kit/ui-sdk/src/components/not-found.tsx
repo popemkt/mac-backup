@@ -4,7 +4,7 @@ import { navigate } from "../lib/router";
 /**
  * The one not-found state, for every route: a path no surface owns, and an
  * id a surface owns the shape of but the workspace does not hold (a canvas,
- * an ontology, a graph perspective). It draws no chrome of the thing it did
+ * an ontology, a view node). It draws no chrome of the thing it did
  * not find, and always offers one way back.
  */
 export function NotFound({

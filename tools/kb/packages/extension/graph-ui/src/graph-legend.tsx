@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FunnelIcon, XIcon } from "@phosphor-icons/react";
-import { cn, type LensNode } from "@kb/ui-sdk";
+import { cn } from "@kb/ui-sdk";
+import type { LensNode } from "./graph-lens";
 
 interface GraphLegendProps {
   nodes: LensNode[];

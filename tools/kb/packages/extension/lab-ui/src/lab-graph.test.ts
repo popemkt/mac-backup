@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import type { LensGraph, LensNode } from "@kb/ui-sdk";
+import type { NodeLinkGraph, NodeLinkNode } from "@kb/ui-sdk";
 import { glintCount, toLabGraph } from "./lab-graph";
 import { starPoint } from "./sky/layout";
 import { labPath, matchLab } from "./routes";
 import { LAB_SCENE_IDS } from "@kb/lab";
 
-function lensNode(id: string, degree = 1, clusterKey = "root"): LensNode {
-  return { id, label: id, color: "#888", size: 3, clusterKey, tags: [], degree };
+function graphNode(id: string, degree = 1, clusterKey = "root"): NodeLinkNode {
+  return { id, label: id, clusterKey, degree };
 }
 
 function wire(id: string, updatedAt: string): WireNode {
@@ -17,11 +17,9 @@ function wire(id: string, updatedAt: string): WireNode {
 describe("toLabGraph", () => {
   it("ranks recency from the wire nodes and makes the newest few glint", () => {
     const ids = Array.from({ length: 10 }, (_, i) => `n${i}`);
-    const lens: LensGraph = {
-      nodes: ids.map((id) => lensNode(id)),
+    const lens: NodeLinkGraph = {
+      nodes: ids.map((id) => graphNode(id)),
       edges: [{ source: "n0", target: "n1" }],
-      dropped: 0,
-      queryError: null,
     };
     const wires = ids.map((id, i) =>
       wire(id, `2026-09-${String(10 + i).padStart(2, "0")}T00:00:00Z`),

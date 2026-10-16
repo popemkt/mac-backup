@@ -90,8 +90,8 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
  * aria-label inside its own JSX, with its paints and sizes in class strings.
  * This record now carries all of it — what the bullet is, what paints each
  * surface, and how big each part is — so every renderer of a bullet draws
- * the same thing: the outline's `Bullet` in the DOM, and the graph's bullet
- * theme on the GPU (`@kb/graph-ui`\'s `bullet-gpu`). A renderer decides nothing.
+ * the same thing: the outline's `Bullet` in the DOM, and any view that draws
+ * bullets on the GPU. A renderer decides nothing.
  */
 export type BulletShape = "supertag" | "query" | "ref-ring" | "glyph" | "dot";
 

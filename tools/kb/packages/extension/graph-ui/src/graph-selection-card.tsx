@@ -1,4 +1,4 @@
-import type { LensNode } from "@kb/ui-sdk";
+import type { LensNode } from "./graph-lens";
 
 interface GraphSelectionCardProps {
   nodeId: string;

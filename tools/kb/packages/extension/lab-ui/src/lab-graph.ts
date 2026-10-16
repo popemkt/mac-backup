@@ -2,10 +2,10 @@
  * The graph, for a lab study that chooses to read it (the Sky does; the lab
  * does not require it).
  *
- * There is no lab data path. The nodes and edges are the lens graph of the
- * default perspective the graph page opens on, over the page's wire nodes and
- * index, which the graph's browser half answers (`LensGraphService`), so a
- * node the graph hides the lab hides too. The lab adds only what the wire
+ * There is no lab data path. The nodes and edges are the node-link graph of
+ * the default view the graph opens on, over the page's wire nodes and index,
+ * which the graph's browser half answers (`NodeLinkGraphService`), so a node
+ * the graph hides the lab hides too. The lab adds only what the wire
  * node already carries and the lens does not: how recently each node
  * changed. Only a study that reads the graph asks, and it is offered only
  * while the graph provides the service (`LabStudyPoint`).
@@ -14,10 +14,10 @@ import { useMemo } from "react";
 import type { WireNode } from "@kb/contracts";
 import {
   currentService,
-  LensGraphService,
+  NodeLinkGraphService,
   useIndex,
   useWireNodes,
-  type LensGraph,
+  type NodeLinkGraph,
 } from "@kb/ui-sdk";
 
 export interface LabNode {
@@ -52,7 +52,7 @@ function updatedMs(node: WireNode | undefined): number {
   return Number.isNaN(ms) ? 0 : ms;
 }
 
-export function toLabGraph(lens: LensGraph, wireNodes: readonly WireNode[]): LabGraph {
+export function toLabGraph(lens: NodeLinkGraph, wireNodes: readonly WireNode[]): LabGraph {
   const wire = new Map(wireNodes.map((node) => [node.id, node]));
   const byRecency = lens.nodes
     .map((node) => ({ id: node.id, at: updatedMs(wire.get(node.id)) }))
@@ -77,19 +77,19 @@ export function toLabGraph(lens: LensGraph, wireNodes: readonly WireNode[]): Lab
 /** No graph: what a study is drawn from while the index loads, or there is no perspective. */
 export const NO_GRAPH: LabGraph = { nodes: [], edges: [] };
 
-/** The graph's lens graphs. Only a study offered by the lab's graph child asks, so it is held. */
-function lensGraphs() {
-  const graphs = currentService(LensGraphService);
-  if (graphs === undefined) throw new Error("no LensGraphService: the graph is not loaded");
+/** The graph's node-link graphs. Only a study offered by the lab's graph child asks, so it is held. */
+function nodeLinkGraphs() {
+  const graphs = currentService(NodeLinkGraphService);
+  if (graphs === undefined) throw new Error("no NodeLinkGraphService: the graph is not loaded");
   return graphs;
 }
 
-/** The lab's graph: the default perspective's lens over the live store. */
+/** The lab's graph: the default view's node-link graph over the live store. */
 export function useLabGraph(): LabGraph {
   const wireNodes = useWireNodes();
   const index = useIndex();
   return useMemo(() => {
-    const lens = index === null ? null : lensGraphs().ofPerspective(index, wireNodes, null);
+    const lens = index === null ? null : nodeLinkGraphs().ofView(index, wireNodes, null);
     return lens === null ? NO_GRAPH : toLabGraph(lens, wireNodes);
   }, [wireNodes, index]);
 }

@@ -5,8 +5,8 @@ import {
   readTiming,
   readTokenColor,
   type Appearance,
-  type LensNode,
 } from "@kb/ui-sdk";
+import type { LensNode } from "./graph-lens";
 import {
   type LensEdge,
   DEFAULT_THEME,

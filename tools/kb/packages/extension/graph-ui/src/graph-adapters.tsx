@@ -1,5 +1,6 @@
 import { lazy, useMemo } from "react";
-import { outlineBulletAppearance, useNodes, WorkspaceBoundary, type LensNode } from "@kb/ui-sdk";
+import { outlineBulletAppearance, useNodes, WorkspaceBoundary } from "@kb/ui-sdk";
+import type { LensNode } from "./graph-lens";
 import type { ParamsOf } from "@kb/views";
 import type { LensTheme, ClusterView, Force2dView, Force3dView, TreeView } from "@kb/graph";
 import { GRAPH_THEMES } from "./graph-themes";

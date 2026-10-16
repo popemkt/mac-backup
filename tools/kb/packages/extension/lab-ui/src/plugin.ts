@@ -7,7 +7,7 @@ import { LAB_STUDIES } from "./studies";
 import { LabSection, LabSurface } from "./surfaces";
 import {
   BrowserHostService,
-  LensGraphService,
+  NodeLinkGraphService,
   provideRoute,
   provideView,
   RoutePoint,
@@ -28,7 +28,7 @@ function studies(readsGraph: boolean) {
  */
 const labGraphStudies = definePlugin({
   name: "graph-studies",
-  inject: [LensGraphService],
+  inject: [NodeLinkGraphService],
   apply: (ctx) =>
     Effect.all(
       studies(true).map((entry) => ctx.contribute(LabStudyPoint, entry)),
@@ -43,7 +43,7 @@ const labGraphStudies = definePlugin({
  * loads this entry only while the server reports it (`ui-plugins.ts`), so
  * its view, its route and its sidebar row exist only then. Each study is
  * offered at `LabStudyPoint`: a study that reads the graph by the lab's graph
- * child, which injects the graph's `LensGraphService` and so waits, pending,
+ * child, which injects the graph's `NodeLinkGraphService` and so waits, pending,
  * while the graph is off; every other study by the lab itself.
  *
  * It is the lab family's page entry, so it loads the family's shared plugin

@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { GraphCanvasFrame } from "./graph-canvas-frame";
 import type { GraphCameraControls } from "./graph-camera-controls";
-import { hashTagColor, type LensNode } from "@kb/ui-sdk";
+import { hashTagColor } from "@kb/ui-sdk";
+import type { LensNode } from "./graph-lens";
 import { Force2dView } from "@kb/graph";
 
 const noop = (): void => undefined;

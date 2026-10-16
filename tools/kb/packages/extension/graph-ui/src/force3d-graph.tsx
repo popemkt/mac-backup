@@ -6,13 +6,8 @@
  * appearance and reduced motion. A new perspective is a new scene. This
  * module is the lazy chunk `graph-adapters` imports.
  */
-import {
-  readTiming,
-  readTokenColor,
-  useReducedMotion,
-  type Appearance,
-  type LensNode,
-} from "@kb/ui-sdk";
+import { readTiming, readTokenColor, useReducedMotion, type Appearance } from "@kb/ui-sdk";
+import type { LensNode } from "./graph-lens";
 import { type LensEdge, DEFAULT_THEME, type LensLinkStyle, type LensTheme } from "@kb/graph";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { showsHoverCard, type GraphEmphasis } from "./graph-interaction";

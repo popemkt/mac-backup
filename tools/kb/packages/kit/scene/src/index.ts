@@ -1,7 +1,7 @@
 /**
  * `@kb/scene`: the scene kit every real-time 3D view stands on (DESIGN-UI.md
- * → The lab): the lab's studies, the canvas's 3D projection and the core
- * `graph.force3d` renderer alike, so no view owns a copy. Mechanism only: it
+ * → The lab): the lab's studies, the canvas's 3D projection and any 3D
+ * renderer a family provides alike, so no view owns a copy. Mechanism only: it
  * reads tokens and timing from `@kb/ui-sdk` and knows no surface.
  *
  * This package is the part that touches no GPU: the scene host every view's
