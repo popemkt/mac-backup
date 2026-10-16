@@ -2,35 +2,29 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { HashIcon, LinkSimpleIcon, PlusIcon, TextTIcon } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
-import { mutations } from "@/actions/mutations";
 import {
   asInstance,
+  browserHost,
   cn,
   CREATE_ROW_ID,
   emptyValueForType,
   nodeCandidates,
-  PickerList,
-  pickerRows,
-  resolveFieldTypeById,
-  schemaOf,
-  SYSTEM_IDS,
-  usePickerKeys,
-  type CommandContext,
   type NodeCommandStep,
   type NodeMap,
   type PaletteSurface,
   type PickerCandidate,
+  PickerList,
   type PickerRow,
+  pickerRows,
+  resolveFieldTypeById,
   type SchemaIndex,
+  schemaOf,
+  SYSTEM_IDS,
+  useDebugFieldIds,
+  usePageGraph,
+  usePickerKeys,
 } from "@kb/ui-sdk";
-import { listNodeCommands } from "@/lib/commands";
-import { useDebugFieldsStore } from "@/stores/debug-fields.store";
-import { currentWorkspace } from "@/stores/workspace.store";
-import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore, useOutlineNodes } from "@/components/outline/outline.store";
-import { pageCommandApi } from "@/stores/page-commands";
-import { usePrefsStore } from "@/stores/prefs.store";
-import { useUiStore } from "@/stores/ui.store";
 
 /** The command list, or one of the pickers a command hands the palette to. */
 type PaletteStep = "commands" | NodeCommandStep;
@@ -90,8 +84,8 @@ const PICKERS: Record<NodeCommandStep, Picker> = {
     createLabel: (name) => `Create tag "${name}"`,
     candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.tag),
     commit: async ({ targetNodeId, pickedId, creating, name }) => {
-      const tagId = creating ? await mutations.defineTag(name) : pickedId;
-      if (tagId !== null) await mutations.addTag(targetNodeId, tagId);
+      const tagId = creating ? await browserHost().writes.defineTag(name) : pickedId;
+      if (tagId !== null) await browserHost().writes.addTag(targetNodeId, tagId);
     },
   },
   "add-field": {
@@ -101,11 +95,11 @@ const PICKERS: Record<NodeCommandStep, Picker> = {
     createLabel: (name) => `Create field "${name}"`,
     candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.field),
     commit: async ({ targetNodeId, schema, pickedId, creating, name }) => {
-      const fieldId = creating ? await mutations.defineField(name) : pickedId;
+      const fieldId = creating ? await browserHost().writes.defineField(name) : pickedId;
       if (fieldId === null) return;
       // An empty typed value is what makes the row appear and focusable; the
       // field's own declared type decides which editor that row gets.
-      await mutations.updateProp(
+      await browserHost().writes.updateProp(
         targetNodeId,
         fieldId,
         emptyValueForType(resolveFieldTypeById(fieldId, schema)),
@@ -122,7 +116,7 @@ const PICKERS: Record<NodeCommandStep, Picker> = {
     commit: async ({ targetNodeId, pickedId }) => {
       // The whole creation gesture, and nothing but existing primitives: point
       // the target field at the picked node. The field is the kind.
-      await mutations.updateProp(targetNodeId, SYSTEM_IDS.refTargetField, {
+      await browserHost().writes.updateProp(targetNodeId, SYSTEM_IDS.refTargetField, {
         t: "ref",
         v: pickedId,
       });
@@ -140,7 +134,7 @@ export interface NodeCommandPaletteProps {
 /**
  * The node menu: layout over two queries.
  *
- * Which commands a row offers is `listNodeCommands`, and what a picker step
+ * Which commands a row offers is the host's `nodeCommands`, and what a picker step
  * shows and writes is {@link PICKERS}. This component measures the anchor,
  * keeps the highlight, and renders — it decides nothing about the command set
  * (closed gap [[01M1MGCF0ECBDEPTHPKMSQ4YFD]]).
@@ -155,9 +149,8 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
   const nodes = useOutlineNodes();
-  const schema = useGraphStore(schemaOf);
-  const wireNodes = useGraphStore((s) => s.wireNodes);
-  const debugIds = useDebugFieldsStore((s) => s.ids);
+  const schema = usePageGraph(schemaOf);
+  const wireNodes = usePageGraph((s) => s.wireNodes);
 
   const targetNodeId = activeNodeId ?? selectedNodeId;
 
@@ -197,22 +190,13 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
 
   const palette: PaletteSurface = { close: onClose, openStep: goToStep };
 
-  /**
-   * The state a command runs against. The registry is a leaf module, so the
-   * palette hands it the stores rather than the other way round (GAP
-   * [[01M1RXMQPVJKREGDS7D37J1MWN]]).
-   */
-  const commandCtx: CommandContext = {
-    target: { nodeId: targetNodeId, frameId: targetNodeId },
-    outline: pageCommandApi(),
-    prefs: usePrefsStore.getState(),
-    ui: useUiStore.getState(),
-    debugFields: { ids: debugIds, toggle: useDebugFieldsStore.getState().toggle },
-    workspace: currentWorkspace(),
+  // The menu is read against the page as it is now; a row whose label says
+  // which way it switches (debug fields) re-reads when the switch moves.
+  useDebugFieldIds();
+  const commands = browserHost().nodeCommands(
+    { nodeId: targetNodeId, frameId: targetNodeId },
     palette,
-  };
-
-  const commands = listNodeCommands(commandCtx);
+  );
   const picker = step === "commands" ? null : PICKERS[step];
 
   // Commands and a picker step's candidates are both rows of the one picker

@@ -1,7 +1,6 @@
 import { useEffect } from "react";
-import { schemaOf, shownNode } from "@kb/ui-sdk";
+import { browserHost, shownNode } from "@kb/ui-sdk";
 import { isEditableTarget, mapSelectionKey } from "@/components/outline/selection-keymap";
-import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { applySelectionAction } from "./selection-actions";
 import { fieldSlotCount } from "@/components/outline/value-slot-nav";
@@ -46,7 +45,7 @@ export function useSelectionKeymap(): void {
             // Children are the shown node's; collapse and place are the row's.
             return {
               collapsed: n.collapsed,
-              childIds: shownNode(n, schemaOf(useGraphStore.getState())).children,
+              childIds: shownNode(n, browserHost().schema()).children,
               parentId: n.parentId,
             };
           },

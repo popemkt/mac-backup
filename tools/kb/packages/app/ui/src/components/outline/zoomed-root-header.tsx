@@ -4,15 +4,15 @@ import {
   cn,
   isSysPrefixed,
   nodeTagColors,
+  type OutlineNode,
   rowText,
   rowTextReadOnlyReason,
   schemaOf,
   TagChipGroup,
-  type OutlineNode,
+  useOpenNode,
+  usePageGraph,
 } from "@kb/ui-sdk";
 import { projectsRows, type FrameViewKey } from "@kb/views";
-import { useGraphStore } from "@/stores/graph.store";
-import { useOpenNode } from "@/stores/follow";
 import { FieldsSection } from "./fields-section";
 import { ViewToolbar } from "./view-toolbar";
 import { NodeContent } from "./node-content";
@@ -23,7 +23,7 @@ import { HeaderBackdrop } from "./header-backdrop";
  * header typography. sys.* roots stay read-only behind a padlock.
  */
 function EditableTitle({ node }: { node: OutlineNode }) {
-  const schema = useGraphStore(schemaOf);
+  const schema = usePageGraph(schemaOf);
   // The same text channel as a row: what it shows and whether it can be
   // written are the row rules (`lib/contextual-ref`), not a second copy.
   const readOnly = rowTextReadOnlyReason(node.id, node, schema) !== null;

@@ -118,7 +118,7 @@
     "react/refs": "warn",
     "react/exhaustive-effect-dependencies": "warn",
     "react/set-state-in-effect": "warn",
-    "react/hooks": "warn",
+    "react/hooks": "error",
     "react/memo-dependencies": "warn",
     "react/globals": "warn"
   },

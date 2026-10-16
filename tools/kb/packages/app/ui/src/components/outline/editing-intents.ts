@@ -9,17 +9,15 @@
  * Exhaustiveness is the mapped type: a new `EditingIntent` variant with no row
  * here fails the build.
  */
-import { mutations } from "@/actions/mutations";
 import { mergeWithPrevious } from "@/components/outline/editing-writes";
 import {
+  browserHost,
   refInkOf,
   renderInlineMarkdown,
   rowTextOf,
-  schemaOf,
   serializeEditable,
   setCaretSerializedOffset,
 } from "@kb/ui-sdk";
-import { useGraphStore } from "@/stores/graph.store";
 import { outlineSource, useOutlineStore } from "@/components/outline/outline.store";
 import type { EditingIntent } from "./editing-keymap";
 import { enterFields } from "@/components/outline/value-slot-nav";
@@ -44,11 +42,11 @@ function softBreak(
   const { textNodeId } = rowTextOf(outlineSource(), nodeId);
   const text = serializeEditable(editable);
   const next = `${text.slice(0, cursor)}\n${text.slice(cursor)}`;
-  renderInlineMarkdown(editable, next, refInkOf(schemaOf(useGraphStore.getState())));
+  renderInlineMarkdown(editable, next, refInkOf(browserHost().schema()));
   setCaretSerializedOffset(editable, cursor + 1);
   const view = editable.ownerDocument.defaultView;
   if (view) editable.dispatchEvent(new view.Event("input", { bubbles: true }));
-  void mutations.updateNodeContent(textNodeId, next);
+  void browserHost().writes.updateNodeContent(textNodeId, next);
   store.activateNode(nodeId, cursor + 1, instanceKey);
 }
 
@@ -60,52 +58,58 @@ function deleteSubtree({ nodeId, instanceKey }: IntentOf<"deleteSubtree">): void
   const store = useOutlineStore.getState();
   const prev = store.getPreviousVisibleInstance(instanceKey);
   const next = store.getNextVisibleInstance(instanceKey);
-  void mutations.deleteNode(nodeId).then(() => {
-    const pick = prev ?? next;
-    if (!pick) {
-      useOutlineStore.getState().selectNode(null);
-      return;
-    }
-    const at = pick === prev ? rowTextOf(outlineSource(), pick.nodeId).text.length : 0;
-    useOutlineStore.getState().activateNode(pick.nodeId, at, pick.instanceKey);
-  });
+  void browserHost()
+    .writes.deleteNode(nodeId)
+    .then(() => {
+      const pick = prev ?? next;
+      if (!pick) {
+        useOutlineStore.getState().selectNode(null);
+        return;
+      }
+      const at = pick === prev ? rowTextOf(outlineSource(), pick.nodeId).text.length : 0;
+      useOutlineStore.getState().activateNode(pick.nodeId, at, pick.instanceKey);
+    });
 }
 
 /** An empty leaf: delete it and focus the end of the previous visible row. */
 function deleteEmptyRow({ nodeId, instanceKey }: IntentOf<"deleteEmptyRow">): void {
   const prev = useOutlineStore.getState().getPreviousVisibleInstance(instanceKey);
-  void mutations.deleteNode(nodeId).then(() => {
-    if (!prev) return;
-    const store = useOutlineStore.getState();
-    store.activateNode(
-      prev.nodeId,
-      rowTextOf(outlineSource(), prev.nodeId).text.length,
-      prev.instanceKey,
-    );
-  });
+  void browserHost()
+    .writes.deleteNode(nodeId)
+    .then(() => {
+      if (!prev) return;
+      const store = useOutlineStore.getState();
+      store.activateNode(
+        prev.nodeId,
+        rowTextOf(outlineSource(), prev.nodeId).text.length,
+        prev.instanceKey,
+      );
+    });
 }
 
 function mergeNextIn({ nodeId, instanceKey, nextNodeId, caret }: IntentOf<"mergeNextIn">): void {
-  void mutations.mergeNextIntoThis(nodeId, nextNodeId).then(() => {
-    useOutlineStore.getState().activateNode(nodeId, caret, instanceKey);
-  });
+  void browserHost()
+    .writes.mergeNextIntoThis(nodeId, nextNodeId)
+    .then(() => {
+      useOutlineStore.getState().activateNode(nodeId, caret, instanceKey);
+    });
 }
 
 const EDITING_STEPS: EditingSteps = {
   claim: () => {},
   softBreak,
-  split: ({ nodeId, cursor }) => void mutations.splitNode(nodeId, cursor),
-  indent: ({ nodeId, cursor }) => void mutations.indentNode(nodeId, cursor),
-  outdent: ({ nodeId, cursor }) => void mutations.outdentNode(nodeId, cursor),
+  split: ({ nodeId, cursor }) => void browserHost().writes.splitNode(nodeId, cursor),
+  indent: ({ nodeId, cursor }) => void browserHost().writes.indentNode(nodeId, cursor),
+  outdent: ({ nodeId, cursor }) => void browserHost().writes.outdentNode(nodeId, cursor),
   deleteSubtree,
   deleteEmptyRow,
   mergeIntoPrevious: ({ nodeId, instanceKey }) => void mergeWithPrevious(nodeId, instanceKey),
   mergeNextIn,
-  moveUp: ({ nodeId }) => void mutations.moveNodeUp(nodeId),
-  moveDown: ({ nodeId }) => void mutations.moveNodeDown(nodeId),
+  moveUp: ({ nodeId }) => void browserHost().writes.moveNodeUp(nodeId),
+  moveDown: ({ nodeId }) => void browserHost().writes.moveNodeDown(nodeId),
   toggleCollapse: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
   // Collapsed / leaf: jump to the enclosing page (zoomed root).
-  zoomToParent: ({ parentId }) => useGraphStore.getState().zoomTo(parentId),
+  zoomToParent: ({ parentId }) => browserHost().zoomTo(parentId),
   moveCaretToRow: ({ nodeId, instanceKey, cursor, x }) =>
     useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey, { x }),
   select: ({ nodeId, instanceKey }) => useOutlineStore.getState().selectNode(nodeId, instanceKey),

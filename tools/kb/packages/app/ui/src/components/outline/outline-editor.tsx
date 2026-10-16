@@ -1,10 +1,14 @@
 import { useCallback, useEffect } from "react";
-import { isTextEntry, useSlotChain, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import {
+  browserHost,
+  isTextEntry,
+  useNodePaletteOpen,
+  usePageGraph,
+  useSlotChain,
+  WORKSPACE_ROOT_ID,
+} from "@kb/ui-sdk";
 import { projectsRows } from "@kb/views";
-import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineNode, outlineNodes } from "@/components/outline/outline.store";
-import { useUiStore } from "@/stores/ui.store";
-import { mutations } from "@/actions/mutations";
 import { createTransientNode } from "@/components/outline/editing-writes";
 import { Breadcrumbs } from "./breadcrumbs";
 import { FrameViewSlot } from "./frame-view-slot";
@@ -25,7 +29,7 @@ import { useLeadsOutlines, useOutlineHost } from "./outline-host";
  */
 export function OutlineEditor({ root: rootProp }: { readonly root?: string | undefined }) {
   // Rooted at its own node in a pane, else at the outline's zoom.
-  const zoomRoot = useGraphStore((s) => s.rootNodeId);
+  const zoomRoot = usePageGraph((s) => s.rootNodeId);
   const rootNodeId = rootProp ?? zoomRoot;
   const root = useOutlineNode(rootNodeId);
   const rootView = useFrameView(root);
@@ -144,8 +148,8 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
  * outline that leads renders it (`useLeadsOutlines`).
  */
 function OutlinePageKeys() {
-  const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
-  const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
+  const nodePaletteOpen = useNodePaletteOpen();
+  const setNodePaletteOpen = browserHost().setNodePaletteOpen;
   useSelectionKeymap();
   useUndoRedoKeymap();
   return <NodeCommandPalette open={nodePaletteOpen} onClose={() => setNodePaletteOpen(false)} />;
@@ -162,8 +166,8 @@ function useUndoRedoKeymap(): void {
       if (!mod || e.key.toLowerCase() !== "z") return;
       if (isTextEntry(e.target)) return;
       e.preventDefault();
-      if (e.shiftKey) void mutations.redo();
-      else void mutations.undo();
+      if (e.shiftKey) void browserHost().writes.redo();
+      else void browserHost().writes.undo();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

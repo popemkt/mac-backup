@@ -1,21 +1,20 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FunnelIcon, PlusIcon, TextTIcon, XIcon } from "@phosphor-icons/react";
-import { mutations } from "@/actions/mutations";
 import {
+  browserHost,
   type EnumOption,
   EnumSelect,
   getViewConfig,
   POPOVER_VALUE_CLASS,
   PopoverShell,
   PrefFieldRow,
-  schemaOf,
   toast,
+  useFilterFrame,
+  usePageGraph,
 } from "@kb/ui-sdk";
 import { serializeViewFilter, type ViewFilter } from "@kb/views";
-import { useGraphStore } from "@/stores/graph.store";
 import { outlineNodes, useOutlineNode } from "@/components/outline/outline.store";
-import { useUiStore } from "@/stores/ui.store";
 import { useFrameViewNode } from "./use-frame-views";
 import { listFilterFieldOptions } from "./view-filter-fields";
 
@@ -56,16 +55,16 @@ function resolveAnchorRect(frameId: string): DOMRect | null {
  * Filter… is visible regardless of nested-frame hover opacity.
  */
 export function ViewFilterPopoverHost() {
-  const frameId = useUiStore((s) => s.filterPopoverFrameId);
-  const setOpenId = useUiStore((s) => s.setFilterPopoverFrameId);
-  const generation = useGraphStore((s) => s.index?.generation ?? 0);
+  const frameId = useFilterFrame();
+  const setOpenId = browserHost().setFilterFrame;
+  const generation = usePageGraph((s) => s.index?.generation ?? 0);
   const frame = useOutlineNode(frameId);
   const panelRef = useRef<HTMLDivElement>(null);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
 
   const fields = useMemo(() => {
     if (frameId === null) return [];
-    return listFilterFieldOptions(frameId, outlineNodes(), schemaOf(useGraphStore.getState()));
+    return listFilterFieldOptions(frameId, outlineNodes(), browserHost().schema());
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
   }, [frameId, generation]);
 
@@ -131,10 +130,13 @@ export function ViewFilterPopoverHost() {
     if (kind === "text") {
       const text = value.trim();
       if (!text) return;
-      void mutations.addViewFilter(frameId, serializeViewFilter({ kind: "text", text, raw: "" }));
+      void browserHost().writes.addViewFilter(
+        frameId,
+        serializeViewFilter({ kind: "text", text, raw: "" }),
+      );
     } else {
       if (!fieldId || !value.trim()) return;
-      void mutations.addViewFilter(
+      void browserHost().writes.addViewFilter(
         frameId,
         serializeViewFilter({
           kind: "eq",
@@ -176,7 +178,7 @@ export function ViewFilterPopoverHost() {
                   <button
                     type="button"
                     className="flex h-5 w-5 items-center justify-center rounded-sm text-foreground/30 hover:text-foreground/60"
-                    onClick={() => void mutations.removeViewFilter(frameId, raw)}
+                    onClick={() => void browserHost().writes.removeViewFilter(frameId, raw)}
                     aria-label="Remove filter"
                   >
                     <XIcon size={11} weight="bold" />

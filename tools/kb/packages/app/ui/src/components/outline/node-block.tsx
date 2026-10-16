@@ -8,16 +8,17 @@ import {
   NodeRow,
   nodeTarget,
   outlineInstanceKey,
-  shownNode,
   type OutlineNode,
   type SchemaIndex,
+  shownNode,
+  useDebugFields,
+  useFilterFrame,
+  useFollow,
+  useGraphRead,
+  useNodePaletteOpen,
 } from "@kb/ui-sdk";
 import { resolveRowChrome } from "@/components/outline/row-chrome";
-import { useUiStore } from "@/stores/ui.store";
-import { useDebugFields } from "@/stores/debug-fields.store";
-import { useGraphRead } from "@/stores/graph-read";
 import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
-import { useFollow } from "@/stores/follow";
 import { createTransientNode } from "@/components/outline/editing-writes";
 
 import { FieldsSection } from "./fields-section";
@@ -67,7 +68,7 @@ export const NodeBlock = memo(function NodeBlock({
   // instance key, the keymaps — stays `nodeId`.
   const { shown, shownId } = rowShows(nodeId, node, schema);
   const showDebugFields = useDebugFields(shownId);
-  const filterOpen = useUiStore((s) => s.filterPopoverFrameId === shownId);
+  const filterOpen = useFilterFrame() === shownId;
 
   const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, outline);
   // Focus is this instance's or not: a row re-renders when it gains or loses
@@ -78,7 +79,7 @@ export const NodeBlock = memo(function NodeBlock({
   const isSelected = useOutlineStore(
     (s) => s.selectedNodeId === nodeId && s.selectedInstanceKey === instanceKey,
   );
-  const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
+  const nodePaletteOpen = useNodePaletteOpen();
   const isPaletteAnchor = nodePaletteOpen && (isSelected || isActive);
 
   // The one bullet rule (`bulletClickIntent`), reference rows included: a

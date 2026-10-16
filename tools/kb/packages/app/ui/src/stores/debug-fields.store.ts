@@ -37,8 +37,3 @@ export const useDebugFieldsStore = create<DebugFieldsState>((set, get) => ({
     set({ ids: next });
   },
 }));
-
-/** Selector for one node — the shape every component consumer wants. */
-export function useDebugFields(nodeId: string): boolean {
-  return useDebugFieldsStore((s) => s.ids.has(nodeId));
-}

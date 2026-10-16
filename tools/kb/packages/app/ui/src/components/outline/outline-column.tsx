@@ -1,10 +1,9 @@
 import { OutlineEditor } from "@/components/outline/outline-editor";
-import { cn } from "@kb/ui-sdk";
-import { usePrefsStore } from "@/stores/prefs.store";
+import { cn, usePrefs } from "@kb/ui-sdk";
 
 /** The one content column: centered 768px or fluid, per the width pref. */
 export function OutlineColumn({ root }: { readonly root?: string | undefined }) {
-  const width = usePrefsStore((s) => s.width);
+  const width = usePrefs((prefs) => prefs.width);
   return (
     <div
       className={cn("kb-shell w-full", width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8")}

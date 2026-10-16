@@ -5,8 +5,8 @@
  * focus leaves it still empty (Tana, r1 §3.3), and "the row above" is the one
  * the outline draws above (r1 D09).
  */
-import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/components/outline/outline.store";
+import { browserHost } from "@kb/ui-sdk";
 
 /** The minted id, marked transient; null when the write was refused. */
 function transient(id: string | null): string | null {
@@ -23,12 +23,12 @@ export async function createTransientNode(
   parentId: string,
   afterSiblingId: string | null,
 ): Promise<string | null> {
-  return transient(await mutations.createEmptyNode(parentId, afterSiblingId));
+  return transient(await browserHost().writes.createEmptyNode(parentId, afterSiblingId));
 }
 
 /** A transient sibling directly ABOVE the anchor, focused ('O' key). */
 export async function createNodeBefore(beforeId: string): Promise<string | null> {
-  return transient(await mutations.createEmptyNodeBefore(beforeId));
+  return transient(await browserHost().writes.createEmptyNodeBefore(beforeId));
 }
 
 /**
@@ -41,5 +41,5 @@ export async function mergeWithPrevious(id: string, instanceKey?: string): Promi
     instanceKey === undefined
       ? null
       : (useOutlineStore.getState().getPreviousVisibleInstance(instanceKey)?.nodeId ?? null);
-  await mutations.mergeWithPrevious(id, previous);
+  await browserHost().writes.mergeWithPrevious(id, previous);
 }

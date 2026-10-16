@@ -1,18 +1,25 @@
 import { useMemo } from "react";
 import { backlinkRows, type BacklinkRow } from "@/components/outline/backlinks";
-import { Bullet, MdView, NodeRow, schemaOf, TagChipGroup } from "@kb/ui-sdk";
-import { useGraphStore } from "@/stores/graph.store";
+import {
+  Bullet,
+  MdView,
+  NodeRow,
+  schemaOf,
+  TagChipGroup,
+  useFollow,
+  useOpenNode,
+  usePageGraph,
+  useRefInk,
+} from "@kb/ui-sdk";
 import { useOutlineNodes } from "@/components/outline/outline.store";
-import { useFollow, useOpenNode } from "@/stores/follow";
-import { useRefInk } from "@/stores/ref-ink";
 
 /**
  * Inline "References (N)" at the bottom of a zoomed view (DESIGN-RESKIN §1.5).
  */
 export function ReferencesSection({ nodeId }: { nodeId: string }) {
-  const queryDb = useGraphStore((s) => s.index);
-  const schema = useGraphStore(schemaOf);
-  const generation = useGraphStore((s) => s.index?.generation ?? 0);
+  const queryDb = usePageGraph((s) => s.index);
+  const schema = usePageGraph(schemaOf);
+  const generation = usePageGraph((s) => s.index?.generation ?? 0);
 
   const backlinks = useMemo(
     (): BacklinkRow[] => backlinkRows(queryDb, schema, nodeId),

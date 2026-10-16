@@ -1,21 +1,13 @@
-import { useContext } from "react";
 import {
-  nodePath,
-  OpenNodeContext,
-  useFollowThrough,
   type Follow,
   type FollowFrom,
   type FollowHow,
   type FollowTarget,
+  nodePath,
+  useFollowThrough,
 } from "@kb/ui-sdk";
 import { pageProjection, useGraphStore } from "@/stores/graph.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
-
-/** Open a node as the page around the caller: its pane's location, or the zoom. */
-export function useOpenNode(): (id: string) => void {
-  const zoomTo = useGraphStore((s) => s.zoomTo);
-  return useContext(OpenNodeContext) ?? zoomTo;
-}
 
 /**
  * Carry out a follow (`lib/follow`): a node opens as the pane's page, is

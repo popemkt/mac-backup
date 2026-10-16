@@ -1,14 +1,13 @@
-import { mutations } from "@/actions/mutations";
 import {
+  browserHost,
   NodeTextHost,
-  rowText,
-  shownNodeId,
-  useNodeTextBindingThrough,
   type NodeTextHostBinding,
   type NodeTextHostProps,
   type OutlineNode,
+  rowText,
+  shownNodeId,
+  useNodeTextBinding,
 } from "@kb/ui-sdk";
-import { nodeTextPort } from "@/stores/node-text-port";
 
 /**
  * Outline surface binding of the shared node text host.
@@ -31,7 +30,7 @@ export function NodeContent({
   /** The row's node, as the surface renders it (a projection may pass its own map). */
   node: OutlineNode;
 }) {
-  const binding = useNodeTextBindingThrough(nodeTextPort, props.instanceKey);
+  const binding = useNodeTextBinding(props.instanceKey);
   const content = rowText(node, binding.schema);
   const textNodeId = shownNodeId(node);
   return (
@@ -41,13 +40,13 @@ export function NodeContent({
       nodeId={node.id}
       content={content}
       onChange={(next) => {
-        if (next !== content) void mutations.updateNodeContent(textNodeId, next);
+        if (next !== content) void browserHost().writes.updateNodeContent(textNodeId, next);
       }}
       onAttachFile={(file) => {
-        void mutations.attachFileToNode(textNodeId, file);
+        void browserHost().writes.attachFileToNode(textNodeId, file);
       }}
       onRemoveTag={(tagId) => {
-        void mutations.removeTag(textNodeId, tagId);
+        void browserHost().writes.removeTag(textNodeId, tagId);
       }}
     />
   );

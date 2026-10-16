@@ -1,9 +1,7 @@
 import { useCallback, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
-import { cn } from "@kb/ui-sdk";
+import { browserHost, cn, useFilterFrame } from "@kb/ui-sdk";
 import { type FrameViewKey, localIdOf } from "@kb/views";
-import { mutations } from "@/actions/mutations";
-import { useUiStore } from "@/stores/ui.store";
 import { useFrameViews } from "./use-frame-views";
 
 interface ViewToolbarProps {
@@ -21,8 +19,8 @@ interface ViewToolbarProps {
 /** One button per frame view provided, in its picker's order; the stored name is the key's local id. */
 export function ViewToolbar({ frameId, view, className, tucked = false }: ViewToolbarProps) {
   const options = useFrameViews();
-  const filterOpen = useUiStore((s) => s.filterPopoverFrameId === frameId);
-  const setFilterFrame = useUiStore((s) => s.setFilterPopoverFrameId);
+  const filterOpen = useFilterFrame() === frameId;
+  const setFilterFrame = browserHost().setFilterFrame;
   const [expanded, setExpanded] = useState(false);
   const showChrome = !tucked || expanded || filterOpen;
 
@@ -30,7 +28,7 @@ export function ViewToolbar({ frameId, view, className, tucked = false }: ViewTo
     (next: FrameViewKey, e: React.MouseEvent) => {
       e.stopPropagation();
       if (next !== view) {
-        void mutations.setFrameView(frameId, next);
+        void browserHost().writes.setFrameView(frameId, next);
       }
     },
     [frameId, view],

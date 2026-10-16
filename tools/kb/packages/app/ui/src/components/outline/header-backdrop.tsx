@@ -1,5 +1,4 @@
-import { HEADER_BACKDROP_PRESENTATION, tagColorAlpha } from "@kb/ui-sdk";
-import { usePrefsStore } from "@/stores/prefs.store";
+import { HEADER_BACKDROP_PRESENTATION, tagColorAlpha, usePrefs } from "@kb/ui-sdk";
 import { UnicornBackdrop } from "./unicorn-backdrop";
 import "./header-backdrop.css";
 
@@ -9,9 +8,9 @@ import "./header-backdrop.css";
  * header paints its tag's colour; home, which has no tag, paints the accent.
  */
 export function HeaderBackdrop({ color }: { color: string }) {
-  const backdrop = usePrefsStore((s) => s.headerBackdrop);
-  const strength = usePrefsStore((s) => s.backdropStrength);
-  const direction = usePrefsStore((s) => s.backdropDirection);
+  const backdrop = usePrefs((prefs) => prefs.headerBackdrop);
+  const strength = usePrefs((prefs) => prefs.backdropStrength);
+  const direction = usePrefs((prefs) => prefs.backdropDirection);
   const presentation = HEADER_BACKDROP_PRESENTATION[backdrop];
   const opacity = presentation.opacity[strength];
   return (

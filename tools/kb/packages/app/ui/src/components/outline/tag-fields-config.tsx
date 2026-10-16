@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import {
+  browserHost,
   cn,
   FieldRow,
   type Follow,
@@ -8,12 +9,11 @@ import {
   PickerList,
   pickerRows,
   schemaOf,
+  useFollow,
+  usePageGraph,
   usePickerKeys,
 } from "@kb/ui-sdk";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
-import { mutations } from "@/actions/mutations";
-import { useGraphStore } from "@/stores/graph.store";
-import { useFollow } from "@/stores/follow";
 import { fieldGlyphOf } from "./value-views";
 import { resolveTagFields, type TagFieldRef } from "./tag-fields";
 
@@ -156,7 +156,7 @@ export function TagFieldsConfigView({
 }
 
 export function TagFieldsConfig({ tagId }: { tagId: string }) {
-  const schema = useGraphStore(schemaOf);
+  const schema = usePageGraph(schemaOf);
   const follow = useFollow();
 
   const { template, suggestions, all } = useMemo(
@@ -170,17 +170,17 @@ export function TagFieldsConfig({ tagId }: { tagId: string }) {
       suggestions={suggestions}
       readOnly={isSysPrefixed(tagId)}
       onFollow={follow}
-      onRemove={(fieldId) => void mutations.removeTagField(tagId, fieldId)}
+      onRemove={(fieldId) => void browserHost().writes.removeTagField(tagId, fieldId)}
       onAdd={(name) => {
         void (async () => {
           // Reuse an existing field with this name rather than minting a
           // duplicate; two fields called "status" would silently split every
           // query written against them.
           const existing = all.find((f) => f.name.toLowerCase() === name.toLowerCase());
-          const fieldId = existing?.id ?? (await mutations.defineField(name));
+          const fieldId = existing?.id ?? (await browserHost().writes.defineField(name));
           if (fieldId === null) return;
           if (!template.some((f) => f.id === fieldId)) {
-            await mutations.addTagField(tagId, fieldId);
+            await browserHost().writes.addTagField(tagId, fieldId);
           }
         })();
       }}

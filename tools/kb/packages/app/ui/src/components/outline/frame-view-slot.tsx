@@ -1,6 +1,5 @@
 import { useMemo } from "react";
-import { ViewSlot } from "@kb/ui-sdk";
-import { useGraphRead } from "@/stores/graph-read";
+import { useGraphRead, ViewSlot } from "@kb/ui-sdk";
 import { FrameSubjectContext, type FrameSubject } from "./frame-subject";
 import { useFrameView } from "./use-frame-views";
 

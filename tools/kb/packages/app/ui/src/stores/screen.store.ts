@@ -8,12 +8,7 @@
  * and the reporting hook are `lib/pane-screen`'s; this is where reports are held.
  */
 import { create } from "zustand";
-import {
-  usePaneScreenThrough,
-  type PaneReport,
-  type PaneScreenPort,
-  type PaneCarryOut,
-} from "@kb/ui-sdk";
+import type { PaneCarryOut, PaneReport, PaneScreenPort } from "@kb/ui-sdk";
 
 /** One pane's view: what it reports and how it carries out commands. */
 interface PaneView {
@@ -51,12 +46,3 @@ export const paneScreenPort: PaneScreenPort = {
     }
   },
 };
-
-/**
- * Report `report` for the pane this view is drawn in, and carry out its
- * commands with `carryOut`, until the view unmounts. A report equal to the last
- * one is not news.
- */
-export function usePaneScreen(report: PaneReport, carryOut: PaneCarryOut): void {
-  usePaneScreenThrough(paneScreenPort, report, carryOut);
-}

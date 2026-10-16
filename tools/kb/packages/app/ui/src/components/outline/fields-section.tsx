@@ -1,8 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { cardinalityOf } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
-import { mutations } from "@/actions/mutations";
 import {
+  browserHost,
   cn,
   type FieldContext,
   FieldRow,
@@ -16,11 +16,11 @@ import {
   resolveFieldTypeById,
   resolveProps,
   rowTextOf,
+  useDebugFields,
+  useFollow,
+  useGraphRead,
 } from "@kb/ui-sdk";
-import { useDebugFields } from "@/stores/debug-fields.store";
-import { useGraphRead } from "@/stores/graph-read";
 import { outlineSource, useOutlineStore } from "@/components/outline/outline.store";
-import { useFollow } from "@/stores/follow";
 import { fieldGlyphOf } from "./value-views";
 import { ValueSlot } from "./value-slot";
 import { FieldPicker, type FieldHandle } from "./field-picker";
@@ -111,7 +111,9 @@ export function FieldValueStack({
             context={context}
             field={field}
             onFollow={onFollow}
-            onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next, value)}
+            onCommit={(next: PropValue) =>
+              void browserHost().writes.updateProp(nodeId, fieldId, next, value)
+            }
             onRemove={() => field.remove(value)}
           />
         </ValueItem>
@@ -226,9 +228,9 @@ function useFieldHandle({
   const field: FieldHandle = {
     values,
     many,
-    add: (value) => void mutations.updateProp(nodeId, fieldId, value),
-    remove: (value) => void mutations.removeProp(nodeId, fieldId, value),
-    create: (creation, name) => mutations.createRefTarget(creation, name),
+    add: (value) => void browserHost().writes.updateProp(nodeId, fieldId, value),
+    remove: (value) => void browserHost().writes.removeProp(nodeId, fieldId, value),
+    create: (creation, name) => browserHost().writes.createRefTarget(creation, name),
     openPicker: (query = "") => setPicker({ query }),
     addSlot: () => setPending((ids) => [...ids, (nextPending.current += 1)]),
     leave: (way) => {

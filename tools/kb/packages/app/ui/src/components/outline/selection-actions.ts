@@ -10,18 +10,16 @@
  * no row here fails the build, so adding an action adds a row rather than a
  * branch.
  */
-import { mutations } from "@/actions/mutations";
 import { createNodeBefore, createTransientNode } from "@/components/outline/editing-writes";
 import {
+  browserHost,
   childInstanceKey,
   rowTextOf,
-  schemaOf,
   shownNode,
   shownNodeId,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import type { SelectionKeyAction } from "@/components/outline/selection-keymap";
-import { useGraphStore } from "@/stores/graph.store";
 import { outlineSource, useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { enterFields } from "@/components/outline/value-slot-nav";
 
@@ -50,7 +48,7 @@ function selectParent({ nodeId }: ActionOf<"selectParent">): void {
 /** The children a row shows — its shown node's (`lib/contextual-ref`). */
 function shownChildren(nodeId: string): readonly string[] {
   const node = outlineNodes().get(nodeId);
-  return node ? shownNode(node, schemaOf(useGraphStore.getState())).children : [];
+  return node ? shownNode(node, browserHost().schema()).children : [];
 }
 
 /** The first child as drawn under this row instance, not at its own place. */
@@ -79,13 +77,13 @@ function append({ nodeId, instanceKey, char }: ActionOf<"append">): void {
   const { text, textNodeId } = rowTextOf(outlineSource(), nodeId);
   const nextText = text + char;
   store.activateNode(nodeId, nextText.length, instanceKey);
-  void mutations.updateNodeContent(textNodeId, nextText);
+  void browserHost().writes.updateNodeContent(textNodeId, nextText);
 }
 
 /** Open the page of the node the row shows — a reference's original. */
 function zoom({ nodeId }: ActionOf<"zoom">): void {
   const node = outlineNodes().get(nodeId);
-  useGraphStore.getState().zoomTo(node ? shownNodeId(node) : nodeId);
+  browserHost().zoomTo(node ? shownNodeId(node) : nodeId);
 }
 
 /** Delete, then take the focus to the previous visible row, else the next. */
@@ -93,14 +91,16 @@ function deleteRow({ nodeId, instanceKey }: ActionOf<"delete">): void {
   const store = useOutlineStore.getState();
   const prev = store.getPreviousVisibleInstance(instanceKey);
   const next = store.getNextVisibleInstance(instanceKey);
-  void mutations.deleteNode(nodeId).then(() => {
-    const pick = prev ?? next;
-    if (pick) {
-      useOutlineStore.getState().selectNode(pick.nodeId, pick.instanceKey);
-      return;
-    }
-    useOutlineStore.getState().selectNode(null);
-  });
+  void browserHost()
+    .writes.deleteNode(nodeId)
+    .then(() => {
+      const pick = prev ?? next;
+      if (pick) {
+        useOutlineStore.getState().selectNode(pick.nodeId, pick.instanceKey);
+        return;
+      }
+      useOutlineStore.getState().selectNode(null);
+    });
 }
 
 const SELECTION_STEPS: SelectionSteps = {
@@ -116,10 +116,10 @@ const SELECTION_STEPS: SelectionSteps = {
   expand: ({ nodeId }) => useOutlineStore.getState().toggleCollapse(nodeId),
   selectParent,
   selectFirstChild,
-  indent: ({ nodeId }) => void mutations.indentNode(nodeId),
-  outdent: ({ nodeId }) => void mutations.outdentNode(nodeId),
-  moveUp: ({ nodeId }) => void mutations.moveNodeUp(nodeId),
-  moveDown: ({ nodeId }) => void mutations.moveNodeDown(nodeId),
+  indent: ({ nodeId }) => void browserHost().writes.indentNode(nodeId),
+  outdent: ({ nodeId }) => void browserHost().writes.outdentNode(nodeId),
+  moveUp: ({ nodeId }) => void browserHost().writes.moveNodeUp(nodeId),
+  moveDown: ({ nodeId }) => void browserHost().writes.moveNodeDown(nodeId),
   zoom,
   createAfter,
   createBefore: ({ nodeId }) => void createNodeBefore(nodeId),

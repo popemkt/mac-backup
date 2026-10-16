@@ -1,33 +1,33 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { mutations } from "@/actions/mutations";
 import {
+  browserHost,
   Bullet,
   bulletClickIntent,
   childInstanceKey,
   cn,
+  type FieldContext,
+  type NodeMap,
   NodeRow,
   nodeTarget,
   outlineInstanceKey,
+  type OutlineNode,
   queryResultInstanceKey,
   shownNode,
   shownNodeId,
   SYSTEM_IDS,
-  type FieldContext,
-  type NodeMap,
-  type OutlineNode,
+  useDebugFields,
+  useFollow,
+  usePrefs,
 } from "@kb/ui-sdk";
 import { resolveRowChrome } from "@/components/outline/row-chrome";
 import { useOutlineHost } from "./outline-host";
 import { frameRows } from "@/components/outline/frame-rows";
 import { type SortSpec, type ParamsOf, OutlineTableView } from "@kb/views";
-import { useDebugFields } from "@/stores/debug-fields.store";
 import {
   useFieldContext,
   useOutlineStore,
   useOutlineNodes,
 } from "@/components/outline/outline.store";
-import { useFollow } from "@/stores/follow";
-import { usePrefsStore } from "@/stores/prefs.store";
 import { NodeField } from "./fields-section";
 import { NodeContent } from "./node-content";
 import { useNodeKeyDown } from "./use-node-keydown";
@@ -68,7 +68,7 @@ export function TableView({
   // Columns are a property of the FRAME, not of any row: one header serves
   // every row, so the frame node is the only thing "per-node" can mean here.
   const debugColumns = useDebugFields(frameId);
-  const storeWidth = usePrefsStore((s) => s.width);
+  const storeWidth = usePrefs((prefs) => prefs.width);
   const widthPref = widthPrefProp ?? storeWidth;
 
   const host = useOutlineHost();
@@ -134,7 +134,7 @@ export function TableView({
         const delta = me.clientX - startX;
         const finalWidth = Math.max(60, initialWidth + delta);
         setResizing(null);
-        void mutations.setColumnWidth(frameId, colId, finalWidth);
+        void browserHost().writes.setColumnWidth(frameId, colId, finalWidth);
       };
 
       window.addEventListener("mousemove", handleMouseMove);
@@ -145,7 +145,7 @@ export function TableView({
 
   const handleHeaderSortClick = useCallback(
     (fieldId: string) => {
-      void mutations.toggleViewSort(frameId, fieldId);
+      void browserHost().writes.toggleViewSort(frameId, fieldId);
     },
     [frameId],
   );

@@ -5,7 +5,7 @@
  * and index. The page's `BrowserHost` answers its
  * graph reads from this same source.
  */
-import { schemaOf, useGraphReadThrough, type GraphRead, type GraphSource } from "@kb/ui-sdk";
+import { type GraphSource, schemaOf } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 import { pageRows, subscribePage } from "@/stores/page";
 
@@ -15,8 +15,3 @@ export const pageGraph: GraphSource = {
   schema: () => schemaOf(useGraphStore.getState()),
   index: () => useGraphStore.getState().index,
 };
-
-/** The graph, read by this component: it re-renders when what it read changes. */
-export function useGraphRead(): GraphRead {
-  return useGraphReadThrough(pageGraph);
-}

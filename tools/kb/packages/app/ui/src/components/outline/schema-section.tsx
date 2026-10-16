@@ -1,13 +1,11 @@
 import { useMemo } from "react";
-import { useGraphStore } from "@/stores/graph.store";
 import {
   useOutlineStore,
   useOutlineNode,
   useOutlineNodes,
 } from "@/components/outline/outline.store";
-import { useFollow, useOpenNode } from "@/stores/follow";
-import { useRefInk } from "@/stores/ref-ink";
 import {
+  browserHost,
   Bullet,
   MdView,
   NodeRow,
@@ -16,6 +14,10 @@ import {
   type SchemaHit,
   schemaZoomKind,
   TagChipGroup,
+  useFollow,
+  useOpenNode,
+  usePageGraph,
+  useRefInk,
 } from "@kb/ui-sdk";
 import { TagFieldsConfig } from "./tag-fields-config";
 
@@ -25,8 +27,8 @@ import { TagFieldsConfig } from "./tag-fields-config";
  */
 export function SchemaSection({ nodeId }: { nodeId: string }) {
   const node = useOutlineNode(nodeId);
-  const queryDb = useGraphStore((s) => s.index);
-  const generation = useGraphStore((s) => s.index?.generation ?? 0);
+  const queryDb = usePageGraph((s) => s.index);
+  const generation = usePageGraph((s) => s.index?.generation ?? 0);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
   const zoomTo = useOpenNode();
 
@@ -61,7 +63,7 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
             key={hit.id}
             hit={hit}
             onActivate={() => {
-              useGraphStore.getState().zoomHome();
+              browserHost().zoomHome();
               jumpToNode(hit.id);
             }}
             onZoom={() => zoomTo(hit.id)}

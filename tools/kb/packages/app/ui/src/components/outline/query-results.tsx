@@ -10,14 +10,11 @@ import {
   indentStyle,
   queryResultInstanceKey,
   resultNodeIds,
-  useQueryNodeRows,
+  useQueryRows,
 } from "@kb/ui-sdk";
 import { queryDefOf } from "@kb/model";
-import { subscribeLiveQueryNode } from "@/lib/query-node";
 import { projectsRows, type FrameViewKey } from "@kb/views";
-import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineNode, useOutlineNodes } from "@/components/outline/outline.store";
-import { useUiStore } from "@/stores/ui.store";
 import { FrameViewSlot } from "./frame-view-slot";
 
 interface QueryResultItem {
@@ -46,21 +43,10 @@ export function QueryResultsSection({
 }: QueryResultsSectionProps) {
   const node = useOutlineNode(nodeId);
   const nodes = useOutlineNodes();
-  const queryDb = useGraphStore((s) => s.index);
-  const generation = useGraphStore((s) => s.index?.generation ?? 0);
-  const wsStatus = useUiStore((s) => s.wsStatus);
-
   const def = queryDefOf(node);
   const edn = def?.edn ?? null;
 
-  const { rows, error } = useQueryNodeRows({
-    nodeId,
-    edn,
-    live: wsStatus === "open",
-    index: queryDb,
-    generation,
-    subscribe: subscribeLiveQueryNode,
-  });
+  const { rows, error } = useQueryRows({ nodeId, edn });
 
   if (!def || edn === null) return null;
 

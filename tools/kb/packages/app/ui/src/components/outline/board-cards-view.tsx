@@ -1,36 +1,36 @@
 import { memo, useCallback, useMemo, useState } from "react";
-import { mutations } from "@/actions/mutations";
 import {
+  browserHost,
   Bullet,
   bulletClickIntent,
   childInstanceKey,
   cn,
+  type FieldContext,
   isQueryResultInstance,
+  type NodeMap,
   NodeRow,
   nodeTarget,
   outlineInstanceKey,
+  type OutlineNode,
+  type PropValue,
   queryResultInstanceKey,
   shownNode,
   shownNodeId,
   TagChipGroup,
-  type FieldContext,
-  type NodeMap,
-  type OutlineNode,
-  type PropValue,
+  useDebugFields,
+  useFollow,
+  usePageGraph,
+  usePrefs,
 } from "@kb/ui-sdk";
 import { isReferenceRow } from "@/components/outline/row-chrome";
 import { useOutlineHost } from "./outline-host";
 import { frameRows } from "@/components/outline/frame-rows";
 import { OutlineBoardView, OutlineCardsView, localIdOf, type ParamsOf } from "@kb/views";
-import { useGraphStore } from "@/stores/graph.store";
 import {
   useFieldContext,
   useOutlineStore,
   useOutlineNodes,
 } from "@/components/outline/outline.store";
-import { useFollow } from "@/stores/follow";
-import { useDebugFields } from "@/stores/debug-fields.store";
-import { usePrefsStore } from "@/stores/prefs.store";
 import { NodeField } from "./fields-section";
 import { NodeContent } from "./node-content";
 import { useNodeKeyDown } from "./use-node-keydown";
@@ -69,7 +69,7 @@ export function BoardCardsView({
   isQuerySource = false,
   widthPref: widthPrefProp,
 }: BoardCardsViewProps) {
-  const generation = useGraphStore((s) => s.index?.generation ?? 0);
+  const generation = usePageGraph((s) => s.index?.generation ?? 0);
   const storeNodes = useOutlineNodes();
   const nodes = useMemo(
     () => nodesProp ?? storeNodes,
@@ -79,7 +79,7 @@ export function BoardCardsView({
   const frameNode = nodes.get(frameId);
   // Same rule as the table: displayed columns belong to the frame.
   const debugColumns = useDebugFields(frameId);
-  const storeWidth = usePrefsStore((s) => s.width);
+  const storeWidth = usePrefs((prefs) => prefs.width);
   const widthPref = widthPrefProp ?? storeWidth;
 
   const host = useOutlineHost();
@@ -133,7 +133,7 @@ export function BoardCardsView({
       if (oldVal && columnValue && JSON.stringify(oldVal) === JSON.stringify(columnValue)) {
         return;
       }
-      void mutations.moveBoardCard(dragNodeId, groupFieldId, oldVal, columnValue);
+      void browserHost().writes.moveBoardCard(dragNodeId, groupFieldId, oldVal, columnValue);
       setDragNodeId(null);
     },
     [dragNodeId, groupFieldId, isQuerySource, nodes],
@@ -157,7 +157,7 @@ export function BoardCardsView({
           type="button"
           className="mt-2 rounded-md bg-foreground/[0.06] px-2 py-1 text-meta font-medium text-foreground/70 hover:bg-foreground/[0.1]"
           data-switch-to-cards="true"
-          onClick={() => void mutations.setFrameView(frameId, OutlineCardsView)}
+          onClick={() => void browserHost().writes.setFrameView(frameId, OutlineCardsView)}
         >
           Switch to cards
         </button>

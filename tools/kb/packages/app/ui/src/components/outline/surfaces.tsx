@@ -4,6 +4,7 @@ import { OutlineColumn } from "@/components/outline/outline-column";
 import { useOutlineScreen } from "@/components/outline/use-outline-screen";
 import { OutlineView, type OutlineParams } from "@kb/views";
 import {
+  browserHost,
   listPinnedNavItems,
   type MatchedRoute,
   navigate,
@@ -12,13 +13,12 @@ import {
   paramsOf,
   SidebarRow,
   SidebarSection,
+  usePageGraph,
   usePane,
   ViewErrorBoundary,
   type ViewProps,
 } from "@kb/ui-sdk";
-import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineNodes } from "@/components/outline/outline.store";
-import { useWorkspaceStore } from "@/stores/workspace.store";
 
 /**
  * The outline: at its `root` when it has one (a node opened in a pane), else
@@ -27,10 +27,10 @@ import { useWorkspaceStore } from "@/stores/workspace.store";
  * at `/` show the same node. GAP [[01M411FP5AGQ4VB5SGJWCJAN66]]
  */
 export function OutlineSurface({ params }: ViewProps<OutlineParams>) {
-  const zoomRoot = useGraphStore((s) => s.rootNodeId);
+  const zoomRoot = usePageGraph((s) => s.rootNodeId);
   const { root } = params;
   const pane = usePane();
-  const navigatePane = useWorkspaceStore((s) => s.navigatePane);
+  const navigatePane = browserHost().navigatePane;
   const open = useMemo(
     () => (root === undefined ? null : (id: string) => navigatePane(pane, nodePath(id))),
     [root, pane, navigatePane],
@@ -46,9 +46,9 @@ export function OutlineSurface({ params }: ViewProps<OutlineParams>) {
 }
 
 export function HomeSection({ route }: { readonly route: MatchedRoute | null }) {
-  const zoomHome = useGraphStore((s) => s.zoomHome);
-  const rootNodeId = useGraphStore((s) => s.rootNodeId);
-  const homeRootId = useGraphStore((s) => s.homeRootId);
+  const zoomHome = browserHost().zoomHome;
+  const rootNodeId = usePageGraph((s) => s.rootNodeId);
+  const homeRootId = usePageGraph((s) => s.homeRootId);
   return (
     <SidebarSection>
       <SidebarRow
@@ -66,8 +66,8 @@ export function HomeSection({ route }: { readonly route: MatchedRoute | null }) 
 
 export function PinnedSection({ route }: { readonly route: MatchedRoute | null }) {
   const nodes = useOutlineNodes();
-  const zoomTo = useGraphStore((s) => s.zoomTo);
-  const rootNodeId = useGraphStore((s) => s.rootNodeId);
+  const zoomTo = browserHost().zoomTo;
+  const rootNodeId = usePageGraph((s) => s.rootNodeId);
   const pinned = useMemo(() => listPinnedNavItems(nodes), [nodes]);
   const onOutline = paramsOf(route, OutlineView) !== null;
   return (
