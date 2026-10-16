@@ -14,6 +14,7 @@ import {
 } from "@kb/ui-sdk";
 import { Effect, Schema } from "effect";
 import { makeKernel } from "@kb/plugin";
+import { browserHostUiPlugin } from "@/browser-host";
 import { describe, expect, it } from "vitest";
 import { isFrameViewKey, OutlineTableView } from "@kb/views";
 import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
@@ -27,6 +28,7 @@ function schemaFor(nodes: NodeMap): SchemaIndex {
 /** The frame views the outline plugin provides, as its hosts see them. */
 const VIEWS = (() => {
   const kernel = makeKernel();
+  Effect.runSync(kernel.load(browserHostUiPlugin));
   Effect.runSync(kernel.load(outlineUiPlugin));
   return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);
 })();

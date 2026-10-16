@@ -16,6 +16,7 @@ import {
 } from "@kb/views";
 import { OutlineSnippet } from "./outline-snippet";
 import {
+  BrowserHostService,
   CommandPoint,
   OverlayPoint,
   PageEditorService,
@@ -105,12 +106,15 @@ const OUTLINE_VIEWS = [
  * sidebar sections, its expand-all and collapse-all commands, and the page
  * overlay that hosts a frame's filter popover.
  *
- * It is the outline family's page entry, so it loads the family's shared
+ * It reaches the page through the host (its projection and editor read the
+ * graph through it), so it injects `BrowserHostService` and applies after the
+ * host. It is the outline family's page entry, so it loads the family's shared
  * plugin as a child: the outline views' keys reach the page kernel's catalog
  * from the family, as the server's do.
  */
 export const outlineUiPlugin = definePlugin({
   name: outlineExtension.name,
+  inject: [BrowserHostService],
   apply: (ctx) =>
     Effect.all(
       [

@@ -25,12 +25,14 @@ import { parsePerspective } from "@kb/graph-ui";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { OutlineListView, isFrameViewKey } from "@kb/views";
+import { browserHostUiPlugin } from "@/browser-host";
 import { outlineUiPlugin } from "@kb/outline-ui";
 import { GRAPH_IDS } from "@kb/graph";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {
   const kernel = makeKernel();
+  Effect.runSync(kernel.load(browserHostUiPlugin));
   Effect.runSync(kernel.load(outlineUiPlugin));
   return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);
 })();

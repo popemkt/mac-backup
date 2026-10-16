@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
+import { browserHostUiPlugin } from "@/browser-host";
 import {
   DEFAULT_VIEW_CONFIG,
   isFrameViewKey,
@@ -38,6 +39,7 @@ import {
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {
   const kernel = makeKernel();
+  Effect.runSync(kernel.load(browserHostUiPlugin));
   Effect.runSync(kernel.load(outlineUiPlugin));
   return familyViews(kernel.contributions(ViewPoint), isFrameViewKey).map(({ key }) => key);
 })();

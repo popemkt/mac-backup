@@ -608,9 +608,10 @@ behaviour-preserving except for the seed's view order (below).
   - the two field-value stories, with their own smoke test.
 
   Its entry, `outlineUiPlugin`, is named for the declaration and loads
-  `outlinePlugin()` as a child. It injects nothing: it reads the host only
-  while it renders, as it did in the zone, so a test that loads it without
-  the host still loads it.
+  `outlinePlugin()` as a child. It injects `BrowserHostService`, as the
+  other halves do: the projection and editor it provides read the graph
+  through the host (corrected after review; the cut first said it injected
+  nothing).
 
   The barrel exports the entry and the parts the page tests drive.
 - **Registration.**
