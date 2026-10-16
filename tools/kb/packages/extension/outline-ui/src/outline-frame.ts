@@ -1,5 +1,4 @@
 import type { FrameSubject } from "@kb/ui-sdk";
-import { NodeField } from "./fields-section";
 import { FrameRowText } from "./frame-row-text";
 import { useOutlineStore } from "./outline.store";
 
@@ -21,6 +20,5 @@ export function outlineFrameSubject(frame: OutlineFrame, pages: number): FrameSu
     pages,
     revealMorePages: () => useOutlineStore.getState().revealMorePages(frame.frameId),
     RowText: FrameRowText,
-    Field: NodeField,
   };
 }

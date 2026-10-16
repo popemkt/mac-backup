@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState, type ComponentType } from "react";
 import {
   browserHost,
   Bullet,
@@ -7,6 +7,7 @@ import {
   cn,
   EMPTY_GROUP_KEY,
   type FieldContext,
+  type FieldEditorProps,
   frameRows,
   type FrameSubject,
   isQueryResultInstance,
@@ -24,6 +25,7 @@ import {
   shownNodeId,
   TagChipGroup,
   useDebugFields,
+  useFieldEditor,
   useFollow,
   useGraphRead,
   useIsActive,
@@ -68,7 +70,8 @@ export function BoardCardsView({
   context: contextProp,
   widthPref: widthPrefProp,
 }: BoardCardsViewProps) {
-  const { frameId, instanceKey: frameInstanceKey, rowIds, isQuerySource, RowText, Field } = frame;
+  const { frameId, instanceKey: frameInstanceKey, rowIds, isQuerySource, RowText } = frame;
+  const Field = useFieldEditor();
   const generation = usePageGraph((s) => s.index?.generation ?? 0);
   const graph = useGraphRead();
   const storeNodes = graph.outline;
@@ -262,7 +265,7 @@ const ViewCard = memo(function ViewCard({
   /** What the card's field values resolve against (`fieldContextOf`). */
   context: FieldContext;
   RowText: FrameSubject["RowText"];
-  Field: FrameSubject["Field"];
+  Field: ComponentType<FieldEditorProps>;
   draggable: boolean;
   onDragStart?: (id: string) => void;
   onDragEnd?: () => void;

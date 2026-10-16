@@ -91,6 +91,7 @@ export {
   subscribeUiKernel,
   syncUiPlugins,
   useContributions,
+  useService,
   useRoute,
   ViewPoint,
   type ViewProps,
@@ -235,8 +236,8 @@ export {
   type TableColumnSpec,
 } from "./lib/frame-layout";
 export { frameRows, type FrameRowsInput } from "./lib/frame-rows";
+export { type FieldEditorProps, FieldEditorService, useFieldEditor } from "./lib/field-editor";
 export {
-  type FrameFieldProps,
   type FrameRowTextProps,
   type FrameSubject,
   FrameSubjectContext,

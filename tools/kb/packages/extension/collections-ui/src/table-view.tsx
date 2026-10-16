@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import {
   browserHost,
   Bullet,
@@ -6,6 +6,7 @@ import {
   childInstanceKey,
   cn,
   type FieldContext,
+  type FieldEditorProps,
   frameRows,
   type FrameSubject,
   type NodeMap,
@@ -22,6 +23,7 @@ import {
   SYSTEM_IDS,
   type TableColumnSpec,
   useDebugFields,
+  useFieldEditor,
   useFollow,
   useFrameView,
   useGraphRead,
@@ -63,8 +65,8 @@ export function TableView({
     pages,
     revealMorePages,
     RowText,
-    Field,
   } = frame;
+  const Field = useFieldEditor();
   const graph = useGraphRead();
   const nodes = nodesProp ?? graph.outline;
   const frameNode = nodes.get(frameId);
@@ -262,7 +264,7 @@ const TableRow = memo(function TableRow({
   columns: TableColumnSpec[];
   context: FieldContext;
   RowText: FrameSubject["RowText"];
-  Field: FrameSubject["Field"];
+  Field: ComponentType<FieldEditorProps>;
 }) {
   const isActive = useIsActive(child.id, childKey);
   const isSelected = useIsSelected(child.id, childKey);

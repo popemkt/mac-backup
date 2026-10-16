@@ -1,7 +1,8 @@
 /**
  * What a frame view is shown for: the frame whose rows it lays out, where its
- * host draws it, and what the host draws each row's text and fields with
- * (DESIGN-UI.md → Outline editor → frames). A frame view's params are the
+ * host draws it, and what the host draws each row's text with
+ * (DESIGN-UI.md → Outline editor → frames). A row's fields are drawn with
+ * the page's field editor (`useFieldEditor`), as every surface draws them. A frame view's params are the
  * settings it reads; this is the frame they are applied to, and none of it is
  * config, so it travels beside the params, never in them.
  *
@@ -11,8 +12,7 @@
  * another family lays out rows the host edits.
  */
 import { createContext, useContext, type ComponentType } from "react";
-import type { FieldContext } from "./schema";
-import type { OutlineNode, PropValue, TagBadge } from "./types";
+import type { OutlineNode, TagBadge } from "./types";
 
 /** A row's text, as the host edits it, inside the view's own row chrome. */
 export interface FrameRowTextProps {
@@ -21,19 +21,6 @@ export interface FrameRowTextProps {
   readonly isActive: boolean;
   /** The tags the view shows inline with the text; none when it shows them apart. */
   readonly tags: TagBadge[];
-}
-
-/** One field of a row, as the host edits it. */
-export interface FrameFieldProps {
-  readonly nodeId: string;
-  readonly fieldId: string;
-  readonly label: string;
-  readonly values: PropValue[];
-  readonly context: FieldContext;
-  readonly instanceKey: string;
-  /** Only the value, without the field's label (a table cell). */
-  readonly valueOnly?: boolean;
-  readonly depth?: number;
 }
 
 export interface FrameSubject {
@@ -50,7 +37,6 @@ export interface FrameSubject {
   /** Reveal one more page of the frame's rows. */
   readonly revealMorePages: () => void;
   readonly RowText: ComponentType<FrameRowTextProps>;
-  readonly Field: ComponentType<FrameFieldProps>;
 }
 
 /** Only a frame's host provides it; a frame view outside one has no frame to show. */

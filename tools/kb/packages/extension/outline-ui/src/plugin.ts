@@ -10,6 +10,7 @@ import { OutlineSnippet } from "./outline-snippet";
 import {
   BrowserHostService,
   CommandPoint,
+  FieldEditorService,
   OverlayPoint,
   PageEditorService,
   PageProjectionService,
@@ -21,6 +22,7 @@ import {
   ViewPoint,
 } from "@kb/ui-sdk";
 import { ListBulletsIcon } from "@phosphor-icons/react";
+import { NodeField } from "./fields-section";
 import { outlineProjection, useOutlineStore } from "./outline.store";
 import { OUTLINE_COMMANDS } from "./outline-commands";
 
@@ -87,6 +89,8 @@ export const outlineUiPlugin = definePlugin({
         // rows start empty.
         ctx.provide(PageProjectionService, outlineProjection),
         ctx.provide(PageEditorService, useOutlineStore),
+        // Its field row is the page's field editor, wherever a field is drawn.
+        ctx.provide(FieldEditorService, NodeField),
         ...OUTLINE_VIEWS.map((view) => ctx.contribute(ViewPoint, view)),
         ctx.contribute(
           RoutePoint,

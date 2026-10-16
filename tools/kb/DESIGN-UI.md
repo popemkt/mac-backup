@@ -1747,8 +1747,12 @@ how the stored name resolves to the key among them.
   and depth) is not config, so it travels in the host's `FrameSubject`
   context (`@kb/ui-sdk`'s `lib/frame-subject.ts`). The subject also carries
   what the host draws each row with: a view lays the rows out, and the host
-  edits each row's text (`RowText`) and fields (`Field`) and keeps how many
-  pages of them are revealed (`pages`, `revealMorePages`), so a frame view of
+  edits each row's text (`RowText`) and keeps how many pages of them are
+  revealed (`pages`, `revealMorePages`). A row's fields are drawn with the
+  page's field editor (`useFieldEditor`, the `FieldEditorService` the
+  outline provides while it is loaded), the one editor every surface that
+  shows a field draws it with, a frame view's cells and cards and the
+  agent's settings in its dock alike. So a frame view of
   any family lays out rows the outline edits, and draws exactly the rows the
   keyboard walk reaches. Its row chrome reads the page's selection and the
   rows' expansion through `BrowserHost` (`useIsActive`, `useIsSelected`,

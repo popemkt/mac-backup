@@ -13,6 +13,7 @@
  */
 import {
   createElement,
+  useCallback,
   useMemo,
   useSyncExternalStore,
   type ComponentType,
@@ -312,6 +313,12 @@ export function familyViews<K extends ViewKey<unknown>>(
  */
 export function providedFrameViews(): readonly FamilyView<FrameViewKey>[] {
   return familyViews(currentContributions(ViewPoint), isFrameViewKey);
+}
+
+/** A service as provided now, or undefined while none is; re-read whenever the kernel changes. */
+export function useService<S>(key: ServiceKey<S>): S | undefined {
+  const read = useCallback(() => uiKernel.service(key), [key]);
+  return useSyncExternalStore(uiKernel.subscribe, read, read);
 }
 
 /** A point's contributions, re-read whenever the kernel changes. */
