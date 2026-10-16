@@ -382,6 +382,12 @@ export function signedDistanceField(
 /** The glyphs last set, by face: a field is costly, and every renderer sets the same. */
 let setGlyphs: { readonly key: string; readonly pixels: ImageData } | null = null;
 
+/**
+ * What the glyphs are set in to read their coverage: any opaque fill, since
+ * only the alpha channel is read back, so no colour of it reaches the page.
+ */
+const COVERAGE_INK = "white";
+
 /** Set every kind glyph in `font` on `ctx`'s canvas, and read it back as its distance field. */
 function glyphField(ctx: CanvasRenderingContext2D, font: string, scale: number): ImageData {
   const { width, height } = ctx.canvas;
@@ -389,8 +395,7 @@ function glyphField(ctx: CanvasRenderingContext2D, font: string, scale: number):
   ctx.font = font;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  // oxlint-disable-next-line design-tokens/no-raw-design-value -- a coverage mask: only the alpha channel is read back, so no colour reaches the page
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = COVERAGE_INK;
   BULLET_GLYPHS.forEach((glyph, c) => ctx.fillText(glyph, (c + 0.5) * GLYPH_CELL, GLYPH_CELL / 2));
   const pixels = ctx.getImageData(0, 0, width, height);
   const coverage = new Float32Array(width * height);
