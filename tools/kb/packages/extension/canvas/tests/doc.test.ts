@@ -131,6 +131,31 @@ describe("elevation and depth", () => {
     expect(withElevation(item, 0).extra).toBeUndefined();
   });
 
+  test("every field kb knows but cannot read is kept verbatim, on an item and an edge", () => {
+    const raw = {
+      nodes: [
+        { id: "a", type: "text", x: 0, y: 0, width: 1, height: 1, text: "", color: 3, nodeId: 7 },
+        { id: "b", type: "text", x: 0, y: 0, width: 1, height: 1, text: "", billboard: "yes" },
+      ],
+      edges: [
+        {
+          id: "e",
+          fromNode: "a",
+          toNode: "b",
+          fromSide: "middle",
+          toEnd: "triangle",
+          label: 4,
+          kbLink: { via: "query" },
+        },
+      ],
+    };
+    const doc = parseCanvasDoc(raw);
+    expect(doc.nodes[0]?.color).toBeUndefined();
+    expect(doc.edges[0]?.fromSide).toBeUndefined();
+    expect(doc.edges[0]?.kbLink).toBeUndefined();
+    expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
+  });
+
   test("depth survives on an item type kb does not know", () => {
     const raw = {
       nodes: [{ id: "f", type: "file", file: "a.md", x: 0, y: 0, width: 9, height: 9, z: -40 }],

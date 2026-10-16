@@ -11,6 +11,7 @@
  */
 // GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]
 import { dropExtra } from "./extra.ts";
+import { isRecord, readFields, writeFields, type FieldCodecs } from "./fields.ts";
 
 /** How a canvas is drawn: from the top and orthographic, or in depth on a turntable. */
 export type CanvasProjectionKind = "2d" | "3d";
@@ -43,14 +44,9 @@ export interface CanvasCamera {
   extra?: Record<string, unknown>;
 }
 
-const KNOWN_CAMERA_KEYS = new Set(["projection", "pose"]);
 const POSE_KEYS = ["x", "y", "z", "zoom", "yaw", "pitch"] as const;
 /** A lens no camera could hold, degrees: it is read as no lens at all. */
 const MAX_FOV = 179;
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
 
 function finite(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
@@ -66,6 +62,21 @@ function parsePose(raw: unknown): CanvasPose | undefined {
   return pose;
 }
 
+/** A pose as written: its six numbers, then its lens when it has one. */
+function emitPose(pose: CanvasPose): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const key of POSE_KEYS) out[key] = pose[key];
+  if (pose.fov !== undefined) out.fov = pose.fov;
+  return out;
+}
+
+/** A camera's optional fields (`./fields.ts`): where it stands. */
+const CAMERA_FIELDS: FieldCodecs<CanvasCamera, "pose"> = {
+  pose: { read: parsePose, write: emitPose },
+};
+
+const CAMERA_OWN_KEYS: ReadonlySet<string> = new Set(["projection"]);
+
 /**
  * A camera read from a document's `camera` value, or undefined when it is not
  * one — the caller then keeps the raw value as an unknown field, so a camera
@@ -76,26 +87,15 @@ export function parseCanvasCamera(raw: unknown): CanvasCamera | undefined {
   const projection = PROJECTIONS.find((p) => p === raw.projection);
   if (projection === undefined) return undefined;
   const camera: CanvasCamera = { projection };
-  const pose = parsePose(raw.pose);
-  if (pose) camera.pose = pose;
-  const extra: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(raw)) {
-    if (!KNOWN_CAMERA_KEYS.has(k) || (k === "pose" && !pose)) extra[k] = v;
-  }
-  if (Object.keys(extra).length > 0) camera.extra = extra;
+  const extra = readFields(CAMERA_FIELDS, raw, camera, CAMERA_OWN_KEYS);
+  if (extra) camera.extra = extra;
   return camera;
 }
 
 /** The camera as JSON. A known field wins over an unknown one of the same name. */
 export function emitCanvasCamera(camera: CanvasCamera): Record<string, unknown> {
   const out: Record<string, unknown> = { ...camera.extra, projection: camera.projection };
-  if (camera.pose) {
-    const pose: Record<string, number> = {};
-    for (const key of POSE_KEYS) pose[key] = camera.pose[key];
-    if (camera.pose.fov !== undefined) pose.fov = camera.pose.fov;
-    out.pose = pose;
-  }
-  return out;
+  return writeFields(CAMERA_FIELDS, camera, out);
 }
 
 /** The projection a camera opens in; no camera is 2D. */

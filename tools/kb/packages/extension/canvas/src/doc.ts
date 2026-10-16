@@ -11,6 +11,15 @@
 import { boxRotation, boxTop } from "./box.ts";
 import { emitCanvasCamera, parseCanvasCamera, type CanvasCamera } from "./camera.ts";
 import { dropExtra } from "./extra.ts";
+import {
+  finite,
+  isRecord,
+  oneOf,
+  readFields,
+  text,
+  writeFields,
+  type FieldCodecs,
+} from "./fields.ts";
 import { normalizeDegrees, type CanvasRotation } from "./rotation.ts";
 import { emitStyleField, parseStyleField, type CanvasStyleField } from "./style-fields.ts";
 
@@ -165,15 +174,6 @@ const SHAPE_KINDS = [
   "cone",
 ] as const satisfies readonly CanvasShapeKind[];
 
-/**
- * Membership that narrows. A `Set<string>.has()` proves nothing to the type
- * system, which is why every caller used to re-assert the literal it had just
- * checked; the allowed values are the type, so read them back from the list.
- */
-function oneOf<T extends string>(allowed: readonly T[], raw: unknown): T | undefined {
-  return allowed.find((value) => value === raw);
-}
-
 function normalizeShapeKind(raw: unknown): CanvasShapeKind {
   return oneOf(SHAPE_KINDS, raw) ?? "rect";
 }
@@ -207,37 +207,8 @@ export const EMPTY_CANVAS_DOC: CanvasDoc = Object.freeze({
 
 const SIDES = ["top", "right", "bottom", "left"] as const;
 const ENDS = ["none", "arrow"] as const;
-const KNOWN_NODE_KEYS = new Set([
-  "id",
-  "type",
-  "x",
-  "y",
-  "width",
-  "height",
-  "z",
-  "depth",
-  "rotation",
-  "color",
-  "text",
-  "label",
-  "nodeId",
-  "parent",
-  "billboard",
-  "style",
-  "shape",
-  "file",
-]);
-/**
- * kb's optional numeric item fields. Each is read when it holds a finite
- * number; a value this version cannot read (another writer's) stays an
- * unknown field, untouched, until kb writes that field itself.
- */
-const ITEM_NUMBERS = ["z", "depth"] as const;
-type ItemNumber = (typeof ITEM_NUMBERS)[number];
-
-function finite(v: unknown): number | undefined {
-  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
-}
+/** kb's optional numeric item fields, written as no field at 0 (`withNumber`). */
+type ItemNumber = "z" | "depth";
 
 const AXES = ["x", "y", "z"] as const;
 
@@ -257,37 +228,9 @@ function parseRotation(raw: unknown): Partial<CanvasRotation> | undefined {
   }
   return angles;
 }
-const KNOWN_EDGE_KEYS = new Set([
-  "id",
-  "fromNode",
-  "toNode",
-  "fromSide",
-  "toSide",
-  "fromEnd",
-  "toEnd",
-  "color",
-  "label",
-  "kbLink",
-]);
-const KNOWN_DOC_KEYS = new Set(["nodes", "edges"]);
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
 
 function asNum(v: unknown, fallback = 0): number {
-  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
-}
-
-function collectExtra(
-  raw: Record<string, unknown>,
-  known: Set<string>,
-): Record<string, unknown> | undefined {
-  const extra: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(raw)) {
-    if (!known.has(k)) extra[k] = v;
-  }
-  return Object.keys(extra).length > 0 ? extra : undefined;
+  return finite(v) ?? fallback;
 }
 
 function parseKbLink(raw: unknown): KbLink | undefined {
@@ -312,48 +255,40 @@ function parseKbLink(raw: unknown): KbLink | undefined {
   };
 }
 
-/**
- * kb's own optional item fields as written — the numbers, the turn and the
- * group — and the ones present that this version cannot read, which stay
- * unknown fields.
- */
-function readItemFields(raw: Record<string, unknown>) {
-  const fields: Partial<Record<ItemNumber, number>> & {
-    rotation?: Partial<CanvasRotation>;
-    parent?: string;
-    billboard?: boolean;
-    style?: CanvasStyleField;
-  } = {};
-  const unread = new Set<string>();
-  for (const key of ITEM_NUMBERS) {
-    const value = finite(raw[key]);
-    if (value !== undefined) fields[key] = value;
-    else if (raw[key] !== undefined) unread.add(key);
-  }
-  const rotation = parseRotation(raw.rotation);
-  if (rotation !== undefined) fields.rotation = rotation;
-  else if (raw.rotation !== undefined) unread.add("rotation");
-  if (typeof raw.parent === "string") fields.parent = raw.parent;
-  else if (raw.parent !== undefined) unread.add("parent");
-  if (typeof raw.billboard === "boolean") fields.billboard = raw.billboard;
-  else if (raw.billboard !== undefined) unread.add("billboard");
-  const style = parseStyleField(raw.style);
-  if (style !== undefined) fields.style = style;
-  else if (raw.style !== undefined) unread.add("style");
-  return { fields, unread };
-}
+/** An item's optional fields, every kind's: JSON Canvas's colour, then kb's. */
+type ItemField = ItemNumber | "rotation" | "color" | "nodeId" | "parent" | "billboard" | "style";
+
+const ITEM_FIELDS: FieldCodecs<CanvasNodeBase, ItemField> = {
+  z: { read: finite },
+  depth: { read: finite },
+  rotation: { read: parseRotation, write: (rotation) => ({ ...rotation }) },
+  color: { read: text },
+  nodeId: { read: text },
+  parent: { read: text },
+  billboard: { read: (raw) => (typeof raw === "boolean" ? raw : undefined) },
+  style: { read: parseStyleField, write: emitStyleField },
+};
+
+/** What an item's kind reads itself: its box, and the fields only some kinds carry. */
+const ITEM_OWN_KEYS: ReadonlySet<string> = new Set([
+  "id",
+  "type",
+  "x",
+  "y",
+  "width",
+  "height",
+  "text",
+  "label",
+  "shape",
+  "file",
+]);
 
 function parseNode(raw: unknown): CanvasNode | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.type !== "string") {
     return null;
   }
-  const { fields, unread } = readItemFields(raw);
-  const extra = collectExtra(
-    raw,
-    unread.size === 0
-      ? KNOWN_NODE_KEYS
-      : new Set([...KNOWN_NODE_KEYS].filter((key) => !unread.has(key))),
-  );
+  const fields: Partial<Pick<CanvasNodeBase, ItemField>> = {};
+  const extra = readFields(ITEM_FIELDS, raw, fields, ITEM_OWN_KEYS);
   const base = {
     id: raw.id,
     type: raw.type,
@@ -362,8 +297,6 @@ function parseNode(raw: unknown): CanvasNode | null {
     width: asNum(raw.width, 240),
     height: asNum(raw.height, 80),
     ...fields,
-    ...(typeof raw.color === "string" ? { color: raw.color } : {}),
-    ...(typeof raw.nodeId === "string" ? { nodeId: raw.nodeId } : {}),
     ...(extra ? { extra } : {}),
   };
   if (raw.type === "text") {
@@ -399,6 +332,21 @@ function parseNode(raw: unknown): CanvasNode | null {
   return base;
 }
 
+/** An edge's optional fields: JSON Canvas's, then kb's. */
+type EdgeField = Exclude<keyof CanvasEdge, "id" | "fromNode" | "toNode" | "extra">;
+
+const EDGE_FIELDS: FieldCodecs<CanvasEdge, EdgeField> = {
+  fromSide: { read: (raw) => oneOf(SIDES, raw) },
+  toSide: { read: (raw) => oneOf(SIDES, raw) },
+  fromEnd: { read: (raw) => oneOf(ENDS, raw) },
+  toEnd: { read: (raw) => oneOf(ENDS, raw) },
+  color: { read: text },
+  label: { read: text },
+  kbLink: { read: parseKbLink },
+};
+
+const EDGE_OWN_KEYS: ReadonlySet<string> = new Set(["id", "fromNode", "toNode"]);
+
 function parseEdge(raw: unknown): CanvasEdge | null {
   if (
     !isRecord(raw) ||
@@ -413,19 +361,7 @@ function parseEdge(raw: unknown): CanvasEdge | null {
     fromNode: raw.fromNode,
     toNode: raw.toNode,
   };
-  const fromSide = oneOf(SIDES, raw.fromSide);
-  if (fromSide !== undefined) edge.fromSide = fromSide;
-  const toSide = oneOf(SIDES, raw.toSide);
-  if (toSide !== undefined) edge.toSide = toSide;
-  const fromEnd = oneOf(ENDS, raw.fromEnd);
-  if (fromEnd !== undefined) edge.fromEnd = fromEnd;
-  const toEnd = oneOf(ENDS, raw.toEnd);
-  if (toEnd !== undefined) edge.toEnd = toEnd;
-  if (typeof raw.color === "string") edge.color = raw.color;
-  if (typeof raw.label === "string") edge.label = raw.label;
-  const kbLink = parseKbLink(raw.kbLink);
-  if (kbLink) edge.kbLink = kbLink;
-  const extra = collectExtra(raw, KNOWN_EDGE_KEYS);
+  const extra = readFields(EDGE_FIELDS, raw, edge, EDGE_OWN_KEYS);
   if (extra) edge.extra = extra;
   return edge;
 }
@@ -439,16 +375,7 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
     width: n.width,
     height: n.height,
   };
-  for (const key of ITEM_NUMBERS) {
-    const value = n[key];
-    if (value !== undefined) out[key] = value;
-  }
-  if (n.rotation !== undefined) out.rotation = { ...n.rotation };
-  if (n.color !== undefined) out.color = n.color;
-  if (n.nodeId !== undefined) out.nodeId = n.nodeId;
-  if (n.parent !== undefined) out.parent = n.parent;
-  if (n.billboard !== undefined) out.billboard = n.billboard;
-  if (n.style !== undefined) out.style = emitStyleField(n.style);
+  writeFields(ITEM_FIELDS, n, out);
   // `CanvasUnknownNode.type` is `string`, so `type === "text"` does not
   // discriminate the union — the guards this module already exports do.
   if (isTextNode(n)) out.text = n.text;
@@ -468,16 +395,17 @@ function emitEdge(e: CanvasEdge): Record<string, unknown> {
     fromNode: e.fromNode,
     toNode: e.toNode,
   };
-  if (e.fromSide !== undefined) out.fromSide = e.fromSide;
-  if (e.toSide !== undefined) out.toSide = e.toSide;
-  if (e.fromEnd !== undefined) out.fromEnd = e.fromEnd;
-  if (e.toEnd !== undefined) out.toEnd = e.toEnd;
-  if (e.color !== undefined) out.color = e.color;
-  if (e.label !== undefined) out.label = e.label;
-  if (e.kbLink) out.kbLink = e.kbLink;
+  writeFields(EDGE_FIELDS, e, out);
   if (e.extra) Object.assign(out, e.extra);
   return out;
 }
+
+/** The document's optional fields: how it is looked at (`./camera.ts`). */
+const DOC_FIELDS: FieldCodecs<CanvasDoc, "camera"> = {
+  camera: { read: parseCanvasCamera, write: emitCanvasCamera },
+};
+
+const DOC_OWN_KEYS: ReadonlySet<string> = new Set(["nodes", "edges"]);
 
 /** Parse a JSON Canvas document from a string or object. Throws on invalid JSON. */
 export function parseCanvasDoc(input: unknown): CanvasDoc {
@@ -500,15 +428,9 @@ export function parseCanvasDoc(input: unknown): CanvasDoc {
       if (parsed) edges.push(parsed);
     }
   }
-  const camera = parseCanvasCamera(raw.camera);
-  // A camera this version cannot read stays an unknown field, untouched.
-  const extra = collectExtra(raw, camera ? new Set([...KNOWN_DOC_KEYS, "camera"]) : KNOWN_DOC_KEYS);
-  return {
-    nodes,
-    edges,
-    ...(camera ? { camera } : {}),
-    ...(extra ? { extra } : {}),
-  };
+  const fields: Partial<Pick<CanvasDoc, "camera">> = {};
+  const extra = readFields(DOC_FIELDS, raw, fields, DOC_OWN_KEYS);
+  return { nodes, edges, ...fields, ...(extra ? { extra } : {}) };
 }
 
 export function stringifyCanvasDoc(doc: CanvasDoc): string {
@@ -517,8 +439,7 @@ export function stringifyCanvasDoc(doc: CanvasDoc): string {
     edges: doc.edges.map(emitEdge),
   };
   if (doc.extra) Object.assign(out, doc.extra);
-  if (doc.camera) out.camera = emitCanvasCamera(doc.camera);
-  return JSON.stringify(out);
+  return JSON.stringify(writeFields(DOC_FIELDS, doc, out));
 }
 
 /** An item's elevation: the height of its base above the floor, 0 when it has none. */
