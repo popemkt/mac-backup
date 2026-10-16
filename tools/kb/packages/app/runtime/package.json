@@ -20,6 +20,7 @@
     "@kb/ext-check": "workspace:*",
     "@kb/ext-docs": "workspace:*",
     "@kb/ext-sdk": "workspace:*",
+    "@kb/graph": "workspace:*",
     "@kb/lab": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
@@ -37,7 +38,6 @@
   },
   "devDependencies": {
     "@kb/canvas": "workspace:*",
-    "@kb/graph": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:",
     "zod": "catalog:"

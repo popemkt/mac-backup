@@ -30,13 +30,13 @@ the server holds too. A view embeds another plugin's view with `<ViewSlot>`
 and that view's key from `@kb/views` (an ontology's outline view is the
 outline view), never by importing a sibling folder's components.
 
-| plugin     | views and the routes to them                             | sidebar                |
-| ---------- | -------------------------------------------------------- | ---------------------- |
-| `outline`  | `outline.main` `/`                                       | Home (0), Pinned (100) |
-| `graph`    | `graph.page` `/graph[/<perspective>]`                    | Graph (10)             |
-| `ontology` | `ontology.list` `/o`, `ontology.scope` `/o/<id>[/outline | /graph]`               | Ontologies (20) |
-| `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`    | Canvases (30)          |
-| `lab`      | `lab.page` `/lab[/<study>]` (optional, off by default)   | Lab (40)               |
+| plugin     | views and the routes to them                                    | sidebar                |
+| ---------- | --------------------------------------------------------------- | ---------------------- |
+| `outline`  | `outline.main` `/`                                              | Home (0), Pinned (100) |
+| `graph`    | `graph.page` `/graph[/<perspective>]` (optional, on by default) | Graph (10)             |
+| `ontology` | `ontology.list` `/o`, `ontology.scope` `/o/<id>[/outline        | /graph]`               | Ontologies (20) |
+| `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`           | Canvases (30)          |
+| `lab`      | `lab.page` `/lab[/<study>]` (optional, off by default)          | Lab (40)               |
 
 The `agent` plugin (`@kb/agent-ui`, bound to the page's ports in `src/ui-plugins.ts`)
 contributes no view either: it contributes the agent's chat dock, which the
@@ -56,7 +56,7 @@ page; each lab study's three.js scene is a further dynamic import.
 Outline stays eager (primary path).
 
 The core plugins (`CORE_UI_PLUGINS` in `src/ui-plugins.ts`) are always
-loaded. A family's plugin (canvas, lab, code, chart, agent) is its browser
+loaded. A family's plugin (outline, graph, canvas, lab, code, chart, agent) is its browser
 entry, found by the `BROWSER_EXTENSIONS` resolver under the family's declared
 name, and loaded exactly when the server reports the family loaded in
 `kb.manifest`. The lab, switched on the server, and the agent, hosted by the
@@ -112,7 +112,6 @@ event handlers — never in the render body.
 ```
 components/
   App.tsx                 shell only (routing + chrome composition)
-  graph/                  renderers + toolbar (lazy page)
   canvas/                 page + cards (lazy)
   ontology/               scope + definition pages (lazy)
   sidebar/, palette/, prefs/, ui/
@@ -125,9 +124,10 @@ one `@kb/query` seam are the `@kb/ui-sdk` package (`packages/kit/ui-sdk`),
 which a family's UI half builds against and the shell builds on too. The
 scene kit every real-time 3D view stands on is `@kb/scene` and, for what is
 three, `@kb/scene-gpu` (`packages/kit`). Each family's UI half is its own package
-(`packages/extension/<family>-ui`: outline, chart, code, agent, lab, canvas),
-loaded by `src/ui-plugins.ts`. The outline's tests that drive the page run here,
-under `src/page-tests/outline/`.
+(`packages/extension/<family>-ui`: outline, graph, chart, code, agent, lab,
+canvas), loaded by `src/ui-plugins.ts`. The outline's and the graph's tests
+that drive the page run here, under `src/page-tests/outline/` and
+`src/page-tests/graph/`.
 
 Colocate tests as `*.test.ts(x)` next to the unit. Catalog stories are
 `catalog/<name>.stories.tsx` in Storybook CSF3 format.
@@ -148,15 +148,15 @@ Do **not** split these in i9-arch (other waves own behavior). Plans only:
 | File                                  | ~LOC | Responsibilities (too many)                     | Future split                                                                                   |
 | ------------------------------------- | ---: | ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `canvas/canvas-page.tsx`              |  297 | selectors, pointer reducer wiring, composition  | split complete: doc, keyboard, gestures, selection, edge actions, stage, overlays              |
-| `graph/sigma-graph.tsx`               |  540 | sigma lifecycle, events, styling, camera bridge | host / event bridge / style applicator                                                         |
+| `graph-ui/sigma-graph.tsx`            |  540 | sigma lifecycle, events, styling, camera bridge | host / event bridge / style applicator                                                         |
 | `ontology/ontology-page.tsx`          |  532 | definition editor + members + warnings          | page / members panel / warning strip                                                           |
 | `outline-ui/field-value.tsx`          |  481 | every field type editor + autocomplete          | one file per type or `editors/` folder                                                         |
 | `outline-ui/table-view.tsx`           |  473 | grid, sort, inline edit, columns                | grid shell / cell editors                                                                      |
 | `outline-ui/board-cards-view.tsx`     |  418 | board layout + empty states + cards             | board / column / card                                                                          |
 | `components/App.tsx`                  |  410 | boot, routing, chrome, ontology shell           | keep thin; extract route switcher                                                              |
 | `outline-ui/node-command-palette.tsx` |  393 | index + UI + actions                            | index hook / palette UI                                                                        |
-| `graph/cluster-graph.tsx`             |  392 | layout + communities + render                   | compute / view                                                                                 |
-| `graph/force3d-scene.ts`              |  250 | composes the 3D scene                           | split complete: layers (`force3d-layers`), camera (`force3d-camera`), pointer (`force3d-pick`) |
+| `graph-ui/cluster-graph.tsx`          |  392 | layout + communities + render                   | compute / view                                                                                 |
+| `graph-ui/force3d-scene.ts`           |  250 | composes the 3D scene                           | split complete: layers (`force3d-layers`), camera (`force3d-camera`), pointer (`force3d-pick`) |
 | `outline-ui/node-content.tsx`         |  351 | text, tags, fields, query inline                | content / metadata strip                                                                       |
 | `outline-ui/outline.store.ts`         |    — | editor state over the graph store               | split complete: replica, history, zoom and scope moved to `graph.store`                        |
 

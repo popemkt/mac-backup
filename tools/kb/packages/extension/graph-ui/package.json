@@ -1,0 +1,55 @@
+{
+  "name": "@kb/graph-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@kb/contracts": "workspace:*",
+    "@kb/graph": "workspace:*",
+    "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
+    "@kb/scene": "workspace:*",
+    "@kb/scene-gpu": "workspace:*",
+    "@kb/ui-sdk": "workspace:*",
+    "@kb/views": "workspace:*",
+    "@phosphor-icons/react": "catalog:",
+    "@sigma/edge-curve": "catalog:",
+    "@sigma/node-border": "catalog:",
+    "d3-force-3d": "catalog:",
+    "d3-hierarchy": "catalog:",
+    "effect": "catalog:",
+    "graphology": "catalog:",
+    "graphology-layout-forceatlas2": "catalog:",
+    "graphology-layout-noverlap": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "sigma": "catalog:",
+    "three": "catalog:"
+  },
+  "devDependencies": {
+    "@kb/bundled": "workspace:*",
+    "@kb/ui-test-kit": "workspace:*",
+    "@storybook/react-vite": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/d3-hierarchy": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@types/three": "catalog:",
+    "happy-dom": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:browser",
+      "family:graph"
+    ]
+  }
+}

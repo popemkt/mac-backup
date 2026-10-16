@@ -24,7 +24,7 @@ import {
  * edit here.
  *
  * Red cases: add `import { Color } from "three"` to `@kb/lab-ui`'s `routes.ts`
- * (always loaded with the lab plugin) or to `components/graph/graph-page.tsx`
+ * (always loaded with the lab plugin) or to `@kb/graph-ui`'s `graph-page.tsx`
  * (the graph's route chunk); turn `studies.ts`'s
  * `import("./embers/scene")` or graph-adapters' lazy 3D host
  * into a static import.
@@ -71,24 +71,24 @@ describe("ui-lazy-fence", () => {
     ];
     expect(lazyFenceBreaches(inEntry, entry)).toEqual(["main.tsx -> lib/a.ts -> three"]);
 
-    // The graph page is a route chunk: lazily loaded, but on every visit.
-    const graphPage = "components/graph/graph-page.tsx";
+    // A surface's page is a route chunk: lazily loaded, but on every visit.
+    const routePage = "components/layout/page.tsx";
     const inRoute = [
-      site(entry, "@/components/graph/graph-page", "lazy", graphPage),
-      site(graphPage, "three", "eager"),
+      site(entry, "@/components/layout/page", "lazy", routePage),
+      site(routePage, "three", "eager"),
     ];
-    expect(lazyFenceBreaches(inRoute, entry)).toEqual([`main.tsx => ${graphPage} -> three`]);
+    expect(lazyFenceBreaches(inRoute, entry)).toEqual([`main.tsx => ${routePage} -> three`]);
 
     // One eager path is enough: the shortest path decides, not the one drawn.
-    const host = "components/graph/force3d-graph.tsx";
+    const host = "components/layout/scene-host.tsx";
     const bypassed = [
-      site(entry, "@/components/graph/graph-page", "lazy", graphPage),
-      site(graphPage, "./force3d-graph", "lazy", host),
-      site(graphPage, "./force3d-graph", "eager", host),
+      site(entry, "@/components/layout/page", "lazy", routePage),
+      site(routePage, "./scene-host", "lazy", host),
+      site(routePage, "./scene-host", "eager", host),
       site(host, "three/webgpu", "eager"),
     ];
     expect(lazyFenceBreaches(bypassed, entry)).toEqual([
-      `main.tsx => ${graphPage} -> ${host} -> three/webgpu`,
+      `main.tsx => ${routePage} -> ${host} -> three/webgpu`,
     ]);
 
     // A top-level import("three") fetches three with the chunk that issues
@@ -100,22 +100,22 @@ describe("ui-lazy-fence", () => {
     ];
     expect(lazyFenceBreaches(lazyInEntry, entry)).toEqual(["main.tsx -> lib/a.ts => three"]);
     const lazyInRoute = [
-      site(entry, "@/components/graph/graph-page", "lazy", graphPage),
-      site(graphPage, "three", "lazy"),
+      site(entry, "@/components/layout/page", "lazy", routePage),
+      site(routePage, "three", "lazy"),
     ];
-    expect(lazyFenceBreaches(lazyInRoute, entry)).toEqual([`main.tsx => ${graphPage} => three`]);
-    const hostChunk = "components/graph/force3d-graph.tsx";
+    expect(lazyFenceBreaches(lazyInRoute, entry)).toEqual([`main.tsx => ${routePage} => three`]);
+    const hostChunk = "components/layout/scene-host.tsx";
     const lazyInHost = [
-      site(entry, "@/components/graph/graph-page", "lazy", graphPage),
-      site(graphPage, "./force3d-graph", "lazy", hostChunk),
+      site(entry, "@/components/layout/page", "lazy", routePage),
+      site(routePage, "./scene-host", "lazy", hostChunk),
       site(hostChunk, "three", "lazy"),
     ];
     expect(lazyFenceBreaches(lazyInHost, entry)).toEqual([]);
 
     const fenced = [
-      site(entry, "@/components/graph/graph-page", "lazy", graphPage),
-      site(graphPage, "./force3d-graph", "lazy", host),
-      site(graphPage, "@/lib/b", "type", "lib/b.ts"),
+      site(entry, "@/components/layout/page", "lazy", routePage),
+      site(routePage, "./scene-host", "lazy", host),
+      site(routePage, "@/lib/b", "type", "lib/b.ts"),
       site(host, "three/webgpu", "eager"),
       site("lib/b.ts", "three", "eager"),
     ];
@@ -162,7 +162,7 @@ describe("ui-lazy-fence", () => {
       "  Vector3,",
       '} from "three/webgpu"; // GAP [[g.multi]]',
     ].join("\n");
-    const sites = uiImportSitesIn("components/graph/probe.ts", source).map(
+    const sites = uiImportSitesIn("components/layout/probe.ts", source).map(
       ({ specifier, kind, line, gap }) => ({ specifier, kind, line, gap }),
     );
     expect(sites).toEqual([

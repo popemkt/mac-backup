@@ -1,13 +1,12 @@
 /**
  * The scene contract (`sceneContract`, `@kb/ui-test-kit`) over the scenes the
- * page registers: each lab study in `LAB_STUDIES` and the 3D graph in every
- * theme. A new study joins by being registered; the 3D canvas runs the same
- * suite in `@kb/canvas-ui`.
+ * page registers: each lab study in `LAB_STUDIES`. A new study joins by being
+ * registered; the 3D canvas and the 3D graph run the same suite in
+ * `@kb/canvas-ui` and `@kb/graph-ui`.
  */
 import { vi } from "vitest";
 import { LAB_STUDIES, type LabSceneInit } from "@kb/lab-ui";
-import { TIMING_FALLBACK, type LensNode } from "@kb/ui-sdk";
-import { type LensEdge, LENS_THEMES } from "@kb/graph";
+import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import type { ScenePalette } from "@kb/scene";
 import { sceneContract, type SceneMount } from "@kb/ui-test-kit";
 import type * as ThreeWebGpu from "three/webgpu";
@@ -25,18 +24,10 @@ const palette: ScenePalette = {
   accent: "rgb(210, 140, 40)",
 };
 
-const lensNodes: LensNode[] = ["a", "b", "c", "d"].map((id, i) => ({
-  id,
-  label: `node ${id}`,
-  color: "#6366f1",
-  size: 3 + i,
-  clusterKey: "r",
-  tags: [],
-  degree: i,
-}));
-const lensEdges: LensEdge[] = [
-  { source: "a", target: "b", kind: "mention", weight: 1 },
-  { source: "b", target: "c", kind: "mention", weight: 2 },
+const graphNodes = ["a", "b", "c", "d"].map((id, i) => ({ id, label: `node ${id}`, degree: i }));
+const graphEdges = [
+  { source: "a", target: "b" },
+  { source: "b", target: "c" },
 ];
 
 function labInit(reducedMotion: boolean): LabSceneInit {
@@ -47,7 +38,7 @@ function labInit(reducedMotion: boolean): LabSceneInit {
     timing: TIMING_FALLBACK,
     values: {},
     graph: {
-      nodes: lensNodes.map((n, i) => ({
+      nodes: graphNodes.map((n, i) => ({
         id: n.id,
         label: n.label,
         degree: n.degree,
@@ -55,47 +46,19 @@ function labInit(reducedMotion: boolean): LabSceneInit {
         recency: i / 4,
         glint: i === 3,
       })),
-      edges: lensEdges.map((e) => ({ source: e.source, target: e.target })),
+      edges: graphEdges,
     },
     onHover: () => {},
     onOpen: () => {},
   };
 }
 
-/** Every registered scene: the lab's studies and the 3D graph. */
-const SCENES: readonly (readonly [string, SceneMount])[] = [
-  ...Object.entries(LAB_STUDIES).map(([id, study]): readonly [string, SceneMount] => [
+/** Every registered scene: the lab's studies. */
+const SCENES: readonly (readonly [string, SceneMount])[] = Object.entries(LAB_STUDIES).map(
+  ([id, study]): readonly [string, SceneMount] => [
     `lab study ${id}`,
     async (host, reduced) => (await study.load())(host, labInit(reduced)),
-  ]),
-  ...LENS_THEMES.map((theme): readonly [string, SceneMount] => [
-    `3D graph, ${theme} theme`,
-    async (host, reduced) => {
-      const { mountForce3d } = await import("@/components/graph/force3d-scene");
-      return mountForce3d(host, {
-        nodes: lensNodes,
-        edges: lensEdges,
-        settings: {
-          spread: 150,
-          linkDistance: 60,
-          autorotate: true,
-          showLabels: true,
-          labelTopN: 4,
-          theme,
-          linkStyle: "straight",
-        },
-        emphasis: { selectedNodeId: null },
-        palette,
-        link: "rgba(230, 230, 240, 0.3)",
-        dark: true,
-        reducedMotion: reduced,
-        timing: TIMING_FALLBACK,
-        onSelect: () => {},
-        onOpen: () => {},
-        onHover: () => {},
-      });
-    },
-  ]),
-];
+  ],
+);
 
 sceneContract(SCENES);

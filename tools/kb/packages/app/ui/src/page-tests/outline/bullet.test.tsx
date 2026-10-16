@@ -204,7 +204,7 @@ function bulletDoc(node: OutlineNode, isRef = false): Document {
 
 const px = (value: number) => `${value}px`;
 
-// The graph's bullet shaders take the same numbers (`components/graph/bullet-gpu`), so the
+// The graph's bullet shaders take the same numbers (`@kb/graph-ui`\'s `bullet-gpu`), so the
 // outline and the graph draw one bullet.
 describe("the outline's bullet draws the one description (lib/bullet-mode)", () => {
   it("a collapsed parent: the halo at the stated inset, the parent dot at its size", () => {

@@ -2099,7 +2099,8 @@ end).
 - **What stays core** is mechanism, plus the projections the shell is built
   from:
   - the store, datalog, kernel, subscriptions and the render backbone;
-  - the graph (`graph.force3d` included) and ontology families;
+  - the ontology family. The graph is a family of its own (`@kb/graph`,
+    `@kb/graph-ui`), optional and on by default;
   - layout (`layout.grid`, `layout.node`, `sys.f.layout`), because the pane
     tree is the workspace;
   - the docs view type (`docs.markdown`). `@kb/ext-docs` owns the templates
@@ -2168,7 +2169,13 @@ Today's drift from this contract is marked where it sits:
 - extensions that still reach core's use cases (`@kb/operations`):
   GAP [[01M439W857BD9QQTBEQ5X5D06D]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
-  frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]].
+  frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]];
+- core's two migrations of graph data written before the graph was a
+  family, which name the graph's frozen ids by their spelling
+  (`LEGACY_SEED_RENAMES` for `lens.all-mentions`, and
+  `PERSPECTIVE_RENDERER_FIELD`), held to `GRAPH_IDS` by `@kb/graph`'s seed
+  test: a gap placeholder in the
+  [projection-families plan](../../docs/brainstorms/2026-10-16-kb-projection-families/README.md).
 
 ### Canvas documents
 

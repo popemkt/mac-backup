@@ -5,7 +5,8 @@
  * itself in where it has one. It is the first declaration the seed fold
  * reads, and both hosts load its views through `declarationPlugin`. A
  * feature's views are its family's declaration's, never core's: the outline's,
- * and the default view type it provides, are `@kb/outline`'s.
+ * and the default view type it provides, are `@kb/outline`'s, and the
+ * graph's, with its seed, are `@kb/graph`'s.
  */
 import { defineExtension, viewDef } from "@kb/contracts";
 import { systemSeedNodes } from "@kb/model";
@@ -16,30 +17,12 @@ import {
   OntologyListView,
   OntologyScopeView,
 } from "@kb/views";
-// GAP [[01M52YKFN18S0PJR2PHHM5QTXZ]]
-import {
-  ClusterView,
-  Force2dView,
-  Force3dView,
-  GraphView,
-  NeighbourhoodView,
-  TreeView,
-  TreemapView,
-  graphSeedNodes,
-} from "@kb/graph";
 
 export const coreExtension = defineExtension({
   name: "core",
   label: "Core",
-  seed: (at) => [...systemSeedNodes(at), ...graphSeedNodes(at)],
+  seed: systemSeedNodes,
   views: [
-    viewDef(GraphView),
-    viewDef(Force2dView),
-    viewDef(TreeView),
-    viewDef(ClusterView),
-    viewDef(Force3dView),
-    viewDef(TreemapView),
-    viewDef(NeighbourhoodView),
     viewDef(OntologyListView),
     viewDef(OntologyScopeView),
     viewDef(DocsMarkdownView),

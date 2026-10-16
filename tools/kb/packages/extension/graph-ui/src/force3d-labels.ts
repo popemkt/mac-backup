@@ -1,0 +1,280 @@
+/**
+ * The 3D graph's labels: a sprite per labelled node, its text painted once
+ * into a texture in the graph face with a halo of the ground behind it, so it
+ * stays legible over links and other nodes. Each frame the labels are placed
+ * in screen space in the shared label priority (`byLabelPriority`: focus,
+ * then degree) and a label that
+ * would overlap one already placed, fall off the frame, or sit behind the
+ * camera is hidden — the same reservation the 2D renderers use. A label's
+ * opacity follows its node's eased emphasis.
+ *
+ * Textures are made when a label is first needed and kept until the palette
+ * or the graph changes; a hover never repaints one.
+ */
+import {
+  CanvasTexture,
+  SRGBColorSpace,
+  Sprite,
+  SpriteNodeMaterial,
+  Vector3,
+  type Group,
+  type PerspectiveCamera,
+  type UniformNode,
+} from "three/webgpu";
+import { texture, uniform } from "three/tsl";
+import {
+  GRAPH_LABEL_HEIGHT,
+  GRAPH_LABEL_PAD,
+  graphLabelText,
+  paintGraphLabel,
+  setGraphLabelType,
+  type GraphLabelStyle,
+} from "./graph-label-paint";
+import { labelArrived } from "./graph-arrival";
+import {
+  byLabelPriority,
+  fitGraphLabel,
+  reserveGraphLabel,
+  type GraphLabelBox,
+} from "./graph-label-layout";
+import type { ScenePalette } from "@kb/scene";
+import { pixelsPerUnit, toScreen, type ScreenPoint } from "@kb/scene-gpu";
+import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
+
+const FONT_SIZE = 12;
+const HEIGHT = GRAPH_LABEL_HEIGHT;
+/** Canvas pixels per CSS pixel, before the device ratio. */
+const OVERSAMPLE = 2;
+
+interface Label {
+  readonly node: number;
+  readonly sprite: Sprite;
+  readonly width: number;
+  readonly box: GraphLabelBox;
+  readonly opacity: UniformNode<"float", number>;
+  dispose(): void;
+}
+
+function paint(text: string, palette: ScenePalette, style: GraphLabelStyle) {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (ctx === null) throw new Error("Canvas 2D context unavailable");
+  const scale = OVERSAMPLE * Math.min(window.devicePixelRatio || 1, 2);
+  setGraphLabelType(ctx, style, FONT_SIZE);
+  const label = fitGraphLabel(graphLabelText(text, style), (t) => ctx.measureText(t).width);
+  const width = Math.ceil(ctx.measureText(label).width) + GRAPH_LABEL_PAD * 2;
+  canvas.width = width * scale;
+  canvas.height = HEIGHT * scale;
+  ctx.scale(scale, scale);
+  setGraphLabelType(ctx, style, FONT_SIZE);
+  paintGraphLabel(ctx, label, { x: GRAPH_LABEL_PAD, y: HEIGHT / 2, width }, style, {
+    text: palette.ink,
+    ground: palette.ground,
+  });
+  const map = new CanvasTexture(canvas);
+  map.colorSpace = SRGBColorSpace;
+  return { map, width };
+}
+
+/**
+ * The screen box a node in focus keeps clear of other labels: the disc its
+ * world `radius` covers round its point, or none when the point is not in
+ * view (`toScreen`) — a node behind the eye, or between the eye and the near
+ * plane, would otherwise blank every label while the camera dollies through
+ * it. A new box per node, so two nodes in focus keep two discs.
+ */
+export function focusDisc(
+  world: { readonly x: number; readonly y: number; readonly z: number },
+  radius: number,
+  camera: PerspectiveCamera,
+  size: { readonly width: number; readonly height: number },
+): GraphLabelBox | null {
+  const at: ScreenPoint = { x: 0, y: 0, depth: 0 };
+  if (!toScreen(world, camera, size, at)) return null;
+  const r = radius * pixelsPerUnit(camera, size.height, at.depth);
+  if (!Number.isFinite(r)) return null;
+  return { x: at.x - r, y: at.y - r, width: 2 * r, height: 2 * r };
+}
+
+/**
+ * The screen box a label covers, written into `box`: centred above its
+ * anchor, or starting at it and centred on it vertically when it stands
+ * beside its node.
+ */
+function placeBox(box: GraphLabelBox, at: ScreenPoint, width: number, beside: boolean): void {
+  box.x = beside ? at.x - 3 : at.x - width / 2 - 3;
+  box.y = beside ? at.y - HEIGHT / 2 - 2 : at.y - HEIGHT * 1.15 - 2;
+  box.width = width + 6;
+  box.height = HEIGHT + 4;
+}
+
+/** Whether `box` lies wholly inside a frame of `size`. */
+function within(
+  box: GraphLabelBox,
+  size: { readonly width: number; readonly height: number },
+): boolean {
+  return (
+    box.x >= 0 && box.y >= 0 && box.x + box.width <= size.width && box.y + box.height <= size.height
+  );
+}
+
+/**
+ * Where the labelled nodes are this frame, how far each has arrived, and how
+ * big each is. The owner hands the same object every frame (its fields read
+ * through), so placing labels allocates nothing (P3).
+ */
+export interface LabelledNodes {
+  readonly positions: Float32Array;
+  readonly arrival: Float32Array;
+  readonly radius: (i: number) => number;
+}
+
+export class LabelLayer {
+  private readonly labels = new Map<number, Label>();
+  private readonly occupied: GraphLabelBox[] = [];
+  private readonly order: Label[] = [];
+  private readonly point = new Vector3();
+  private readonly up = new Vector3();
+  private readonly right = new Vector3();
+  private readonly screen: ScreenPoint = { x: 0, y: 0, depth: 0 };
+  private pixelScale = 1;
+  private readonly group: Group;
+  private topology: Force3dTopology;
+  private palette: ScenePalette;
+  private style: GraphLabelStyle;
+
+  constructor(
+    group: Group,
+    topology: Force3dTopology,
+    palette: ScenePalette,
+    style: GraphLabelStyle,
+  ) {
+    this.group = group;
+    this.topology = topology;
+    this.palette = palette;
+    this.style = style;
+  }
+
+  /** Which nodes carry a label now; others' sprites are hidden, not dropped. */
+  want(nodes: ReadonlySet<number>): void {
+    const beside = this.style.placement === "right";
+    for (const i of nodes) {
+      if (this.labels.has(i)) continue;
+      const node = this.topology.nodes[i];
+      if (node === undefined) continue;
+      const { map, width } = paint(node.label, this.palette, this.style);
+      const opacity = uniform(1);
+      const material = new SpriteNodeMaterial({
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
+      material.fog = false;
+      material.sizeAttenuation = false;
+      const sample = texture(map);
+      material.colorNode = sample.rgb;
+      material.opacityNode = sample.a.mul(opacity);
+      const sprite = new Sprite(material);
+      if (beside) sprite.center.set(0, 0.5);
+      else sprite.center.set(0.5, -0.15);
+      sprite.renderOrder = 10;
+      sprite.scale.set(width * this.pixelScale, HEIGHT * this.pixelScale, 1);
+      this.group.add(sprite);
+      this.labels.set(i, {
+        node: i,
+        sprite,
+        width,
+        box: { x: 0, y: 0, width: 0, height: 0 },
+        opacity,
+        dispose: () => {
+          map.dispose();
+          material.dispose();
+        },
+      });
+    }
+    this.order.length = 0;
+    for (const label of this.labels.values()) {
+      label.sprite.visible = false;
+      if (nodes.has(label.node)) this.order.push(label);
+    }
+  }
+
+  /** The camera's field of view and the viewport height set a CSS pixel's size. */
+  resize(camera: PerspectiveCamera, height: number): void {
+    this.pixelScale = (2 * Math.tan((camera.fov * Math.PI) / 360)) / Math.max(1, height);
+    for (const label of this.labels.values())
+      label.sprite.scale.set(label.width * this.pixelScale, HEIGHT * this.pixelScale, 1);
+  }
+
+  /** Place, reserve and fade every wanted label for this frame. */
+  frame(
+    nodes: LabelledNodes,
+    camera: PerspectiveCamera,
+    { width, height }: { readonly width: number; readonly height: number },
+    fades: Force3dFades,
+  ): void {
+    const { positions, arrival, radius } = nodes;
+    const focus = fades.focus.values;
+    // A label stands just above its node's silhouette, whatever the node's
+    // size, or just right of it, as a row's text stands beside its bullet.
+    const beside = this.style.placement === "right";
+    this.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    this.right.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    const away = beside ? this.right : this.up;
+    const rank = (label: Label) => {
+      const node = this.topology.nodes[label.node];
+      return { id: node?.id ?? "", degree: node?.degree ?? 0, focus: focus[label.node] ?? 0 };
+    };
+    this.order.sort((a, b) => byLabelPriority(rank(a), rank(b)));
+    this.occupied.length = 0;
+    const size = { width, height };
+    // The node in focus keeps its own disc: no other label is laid over it.
+    for (const label of this.order) {
+      const i = label.node;
+      if ((focus[i] ?? 0) < 0.5) continue;
+      this.point.set(positions[i * 3] ?? 0, positions[i * 3 + 1] ?? 0, positions[i * 3 + 2] ?? 0);
+      const disc = focusDisc(this.point, radius(i), camera, size);
+      if (disc !== null) this.occupied.push(disc);
+    }
+    for (const label of this.order) {
+      const i = label.node;
+      this.point
+        .set(positions[i * 3] ?? 0, positions[i * 3 + 1] ?? 0, positions[i * 3 + 2] ?? 0)
+        .addScaledVector(away, radius(i));
+      label.sprite.position.copy(this.point);
+      const inView = toScreen(this.point, camera, size, this.screen);
+      const box = label.box;
+      placeBox(box, this.screen, label.width, beside);
+      const present = fades.dim.values[i] ?? 1;
+      const ready = inView && present > 0.5 && labelArrived(arrival[i] ?? 1);
+      label.sprite.visible = ready && within(box, size) && reserveGraphLabel(box, this.occupied);
+      label.opacity.value = Math.min(1, (present - 0.5) * 2);
+    }
+  }
+
+  /** How many labels are shown this frame. */
+  visibleCount(): number {
+    return this.order.filter((label) => label.sprite.visible).length;
+  }
+
+  /** A new palette, graph or style: every texture is repainted on next want. */
+  reset(
+    topology: Force3dTopology,
+    palette: ScenePalette,
+    style: GraphLabelStyle = this.style,
+  ): void {
+    this.dispose();
+    this.topology = topology;
+    this.palette = palette;
+    this.style = style;
+  }
+
+  dispose(): void {
+    for (const label of this.labels.values()) {
+      this.group.remove(label.sprite);
+      label.dispose();
+    }
+    this.labels.clear();
+    this.order.length = 0;
+  }
+}

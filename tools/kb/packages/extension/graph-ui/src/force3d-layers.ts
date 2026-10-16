@@ -1,0 +1,490 @@
+/**
+ * The 3D graph's drawn state: the topology, where its nodes are, the layout
+ * that moves them, the eased emphasis, and the three layers drawn from them
+ * — nodes (`force3d-nodes`), links and particles (`force3d-links`), labels
+ * (`force3d-labels`). A new graph rebuilds the layers together and frees the
+ * old ones through the scene kit's `disposeGraph`; the same shape with new
+ * encodings only restyles them.
+ */
+import { Group, type PerspectiveCamera } from "three/webgpu";
+import type { ScenePalette } from "@kb/scene";
+import { disposeGraph, type SceneStage } from "@kb/scene-gpu";
+import { EmphasisFade } from "./graph-fade";
+import { graphFocus, type GraphEmphasis } from "./graph-interaction";
+import { approachRate, type LensNode, type Timing } from "@kb/ui-sdk";
+import type { LensEdge, LensLinkStyle, LensTheme } from "@kb/graph";
+import { GraphArrival, hopsFromHubs } from "./graph-arrival";
+import { byLabelPriority } from "./graph-label-layout";
+import { LINK_STYLES } from "./graph-link-styles";
+import {
+  particleLinks,
+  setEmphasisTargets,
+  topologyOf,
+  type Force3dFades,
+  type Force3dTopology,
+} from "./force3d-emphasis";
+import type { GraphPlaces } from "./force3d-camera";
+import { LabelLayer } from "./force3d-labels";
+import { startLayout3d, type Layout3d } from "./force3d-layout";
+import {
+  MAX_PARTICLE_LINKS,
+  linkLayer,
+  particleLayer,
+  type LinkLayer,
+  type ParticleLayer,
+  type ParticleMotion,
+} from "./force3d-links";
+import { bulletLayer } from "./force3d-bullets";
+import { solidLayer, type NodeLayer, type NodeLayerInit } from "./force3d-nodes";
+import { GRAPH_THEMES, type NodeForm } from "./graph-themes";
+import type { PickField } from "./force3d-pick";
+import type { DragLayout } from "./graph-drag";
+
+/** Each form a theme can draw nodes in, and the layer that draws it. */
+const NODE_FORMS: Record<NodeForm, (init: NodeLayerInit) => NodeLayer> = {
+  sphere: solidLayer("sphere"),
+  cube: solidLayer("cube"),
+  bullet: bulletLayer,
+};
+
+export interface Force3dSettings {
+  readonly spread: number;
+  readonly linkDistance: number;
+  /** The scene's theme (`lens.theme`, stated in `graph-themes`). */
+  readonly theme: LensTheme;
+  /** How the links are drawn (`lens.link-style`). */
+  readonly linkStyle: LensLinkStyle;
+  readonly autorotate: boolean;
+  readonly showLabels: boolean;
+  readonly labelTopN: number;
+}
+
+/** Spiral seed placement for a node with no position yet. */
+function seed(index: number, out: Float32Array): void {
+  out[index * 3] = Math.cos(index * 2.4) * Math.sqrt(index + 1) * 12;
+  out[index * 3 + 1] = Math.sin(index * 2.4) * Math.sqrt(index + 1) * 12;
+  out[index * 3 + 2] = Math.sin(index) * 30;
+}
+
+function topologyKey(nodes: readonly LensNode[], edges: readonly LensEdge[]): string {
+  return (
+    nodes.map((n) => n.id).join("|") + "/" + edges.map((e) => `${e.source}>${e.target}`).join("|")
+  );
+}
+
+/** The new positions: a node that stays keeps where it was, a new one is seeded. */
+function carryPositions(
+  was: Force3dTopology,
+  old: Float32Array,
+  next: Force3dTopology,
+): Float32Array {
+  const previous = new Map(was.nodes.map((n, i) => [n.id, i]));
+  const positions = new Float32Array(next.nodes.length * 3);
+  next.nodes.forEach((node, i) => {
+    const at = previous.get(node.id);
+    if (at !== undefined && at * 3 + 2 < old.length) {
+      positions[i * 3] = old[at * 3] ?? 0;
+      positions[i * 3 + 1] = old[at * 3 + 1] ?? 0;
+      positions[i * 3 + 2] = old[at * 3 + 2] ?? 0;
+    } else seed(i, positions);
+  });
+  return positions;
+}
+
+export interface GraphLayersInit {
+  readonly nodes: readonly LensNode[];
+  readonly edges: readonly LensEdge[];
+  readonly settings: Force3dSettings;
+  readonly emphasis: GraphEmphasis;
+  readonly palette: ScenePalette;
+  /** `--graph-edge`: a resting link's colour and alpha. */
+  readonly link: string;
+  readonly timing: Timing;
+}
+
+export class GraphLayers {
+  topology: Force3dTopology;
+  positions: Float32Array = new Float32Array(0);
+  settings: Force3dSettings;
+  emphasis: GraphEmphasis;
+  hovered: string | null = null;
+  /** The layout is still moving the nodes. */
+  laying = false;
+  /** Positions or emphasis changed since the layers were last written. */
+  moved = true;
+  readonly fades: Force3dFades;
+  private readonly stage: SceneStage;
+  private readonly group = new Group();
+  /** Each drawn layer in a group of its own, so one can be redrawn alone. */
+  private readonly nodeGroup = new Group();
+  private readonly linkGroup = new Group();
+  private readonly particleGroup = new Group();
+  private readonly labels: LabelLayer;
+  private readonly particleRate: number;
+  private nodes: NodeLayer | null = null;
+  private links: LinkLayer | null = null;
+  private particles: ParticleLayer | null = null;
+  private readonly timing: Timing;
+  /** A new graph grows in from its hubs. */
+  private readonly arrival: GraphArrival;
+  private layout: Layout3d | null = null;
+  private palette: ScenePalette;
+  private link: string;
+  private key = "";
+  /** Node indices by label priority: who is labelled at rest. */
+  private byPriority: number[] = [];
+  /**
+   * The node a drag holds, and where: written into the positions as the
+   * pointer moves and again over every set the layout posts, which was
+   * computed a move behind.
+   */
+  private held: { i: number; x: number; y: number; z: number } | null = null;
+
+  constructor(stage: SceneStage, init: GraphLayersInit) {
+    this.stage = stage;
+    this.settings = init.settings;
+    this.emphasis = init.emphasis;
+    this.palette = init.palette;
+    this.link = init.link;
+    this.topology = topologyOf(init.nodes, init.edges);
+    const quick = init.timing.quick;
+    this.fades = {
+      dim: new EmphasisFade(0, quick),
+      glow: new EmphasisFade(0, quick),
+      lift: new EmphasisFade(0, quick, 0),
+      focus: new EmphasisFade(0, quick, 0),
+    };
+    this.timing = init.timing;
+    this.arrival = new GraphArrival(init.timing);
+    this.particleRate = approachRate(init.timing.reveal);
+    stage.scene.add(this.group);
+    this.group.add(this.linkGroup, this.nodeGroup, this.particleGroup);
+    this.labels = new LabelLayer(
+      this.group,
+      this.topology,
+      this.palette,
+      GRAPH_THEMES[this.settings.theme].labels,
+    );
+    this.setGraph(init.nodes, init.edges);
+  }
+
+  /** How far each node has arrived (1: in place). */
+  arrived(): Float32Array {
+    return this.arrival.values;
+  }
+
+  /**
+   * What the labels are placed from: one object, its fields repointed when
+   * the graph is rebuilt, so a frame hands it over without allocating.
+   */
+  private readonly labelled: {
+    positions: Float32Array;
+    arrival: Float32Array;
+    radius: (i: number) => number;
+  } = {
+    positions: new Float32Array(0),
+    arrival: new Float32Array(0),
+    radius: (i) => this.radius(i),
+  };
+
+  /** World radius of node `i` now. */
+  readonly radius = (i: number): number => this.nodes?.radius(i) ?? 4;
+
+  /** Where the nodes are, as the camera frames them. */
+  places(): GraphPlaces {
+    return {
+      positions: () => this.positions,
+      count: () => this.topology.nodes.length,
+      indexOf: (id) => this.topology.index.get(id) ?? -1,
+      neighbours: (i) =>
+        (this.topology.incident[i] ?? []).map((l) => {
+          const a = this.topology.links[l * 2] ?? i;
+          return a === i ? (this.topology.links[l * 2 + 1] ?? i) : a;
+        }),
+      radius: this.radius,
+      labelOf: (id) => this.topology.nodes[this.topology.index.get(id) ?? -1]?.label,
+    };
+  }
+
+  /** The nodes as picking sees them: a dimmed node cannot be picked. */
+  pickField(): PickField {
+    return {
+      positions: () => this.positions,
+      count: () => this.topology.nodes.length,
+      radius: this.radius,
+      present: (i) => (this.fades.dim.values[i] ?? 1) >= 0.5,
+      idOf: (i) => this.topology.nodes[i]?.id,
+    };
+  }
+
+  private startLayout(): void {
+    this.layout?.dispose();
+    this.laying = true;
+    const { spread, linkDistance } = this.settings;
+    this.layout = startLayout3d(
+      {
+        positions: this.positions,
+        links: this.topology.links,
+        params: { spread, linkDistance },
+        live: !this.stage.reduced(),
+      },
+      (next, running) => {
+        this.positions.set(next);
+        this.placeHeld();
+        this.laying = running;
+        this.moved = true;
+        this.stage.invalidate();
+      },
+    );
+  }
+
+  private placeHeld(): void {
+    const { held, positions } = this;
+    if (held === null || held.i * 3 + 2 >= positions.length) return;
+    positions[held.i * 3] = held.x;
+    positions[held.i * 3 + 1] = held.y;
+    positions[held.i * 3 + 2] = held.z;
+  }
+
+  /** The 3D layout as a node drag moves it (`graph-drag`). */
+  dragLayout(): DragLayout {
+    const indexOf = (id: string) => this.topology.index.get(id);
+    const moving = () => {
+      this.laying = true;
+      this.moved = true;
+      this.stage.invalidate();
+    };
+    return {
+      grab: (id) => {
+        const i = indexOf(id);
+        if (i === undefined) return;
+        const { positions } = this;
+        const [x, y, z] = [positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]];
+        this.held = { i, x: x ?? 0, y: y ?? 0, z: z ?? 0 };
+        this.layout?.grab(i);
+        moving();
+      },
+      hold: (id, at) => {
+        const { held } = this;
+        if (held === null || indexOf(id) !== held.i) return;
+        this.held = { i: held.i, x: at.x, y: at.y, z: at.z ?? held.z };
+        this.placeHeld();
+        this.layout?.hold(held.i, at.x, at.y, at.z ?? held.z);
+        moving();
+      },
+      drop: (id) => {
+        const { held } = this;
+        if (held === null || indexOf(id) !== held.i) return;
+        this.held = null;
+        this.layout?.drop(held.i);
+        moving();
+      },
+    };
+  }
+
+  private rank(): void {
+    this.byPriority = this.topology.nodes
+      .map((node, i) => ({ i, id: node.id, degree: node.degree }))
+      .toSorted(byLabelPriority)
+      .map((n) => n.i);
+  }
+
+  private build(nodes: readonly LensNode[], edges: readonly LensEdge[]): void {
+    const was = this.topology;
+    this.held = null;
+    this.topology = topologyOf(nodes, edges);
+    this.positions = carryPositions(was, this.positions, this.topology);
+    const count = this.topology.nodes.length;
+    this.fades.dim.reset(count);
+    this.fades.glow.reset(count, 0);
+    this.fades.lift.reset(count, 0);
+    this.fades.focus.reset(count, 0);
+    this.arrival.start(
+      hopsFromHubs(
+        count,
+        (i) => this.topology.nodes[i]?.degree ?? 0,
+        (i) => this.places().neighbours(i),
+      ),
+      !this.stage.reduced(),
+    );
+    this.labelled.positions = this.positions;
+    this.labelled.arrival = this.arrival.values;
+    this.drawNodes();
+    this.drawLinks(false);
+    this.drawParticles(false);
+    this.labels.reset(this.topology, this.palette);
+    this.labels.resize(this.stage.camera, this.stage.renderer.domElement.clientHeight || 1);
+    this.rank();
+    this.startLayout();
+    this.refresh();
+  }
+
+  /**
+   * The drawn layers, each redrawn alone when what it is built from changes,
+   * freeing the old one: nodes and labels for a new theme, links for a new theme or style or
+   * curve, particles for a new curve. A redrawn layer takes the graph as it
+   * stands — positions, emphasis, arrival — and `carry` hands it the motion
+   * of the one it replaces (the flow's dashes, the particles' fade and phase),
+   * so nothing jumps, moves or arrives again.
+   */
+  private drawNodes(): void {
+    this.nodes?.dispose();
+    disposeGraph(this.nodeGroup);
+    const { colors } = this.stage;
+    const theme = GRAPH_THEMES[this.settings.theme];
+    this.nodes = NODE_FORMS[theme.form]({
+      topology: this.topology,
+      colors,
+      fades: this.fades,
+      theme,
+      palette: this.palette,
+      arrival: this.arrival,
+    });
+    this.nodeGroup.add(this.nodes.mesh);
+    this.moved = true;
+  }
+
+  private drawLinks(carry: boolean): void {
+    const flowPhase = carry ? this.links?.flowPhase() : undefined;
+    disposeGraph(this.linkGroup);
+    const ambientPeriod = this.timing.ambientPeriod;
+    this.links = linkLayer(this.topology, this.fades, {
+      ...LINK_STYLES[this.settings.linkStyle],
+      tone: GRAPH_THEMES[this.settings.theme].links,
+      ambientPeriod,
+      ...(flowPhase === undefined ? {} : { flowPhase }),
+    });
+    this.links.setPalette(this.palette, this.link);
+    this.linkGroup.add(this.links.lines);
+    this.moved = true;
+  }
+
+  private drawParticles(carry: boolean): void {
+    const motion = carry ? this.particles?.motion() : undefined;
+    disposeGraph(this.particleGroup);
+    const { colors } = this.stage;
+    const { curved } = LINK_STYLES[this.settings.linkStyle];
+    this.particles = particleLayer(this.topology, colors, curved, motion);
+    this.particleGroup.add(this.particles.sprite);
+  }
+
+  /** The flow's dashes and the particles' motion now (a render spec, a test). */
+  motion(): { readonly flowPhase: number; readonly particles: ParticleMotion | undefined } {
+    return { flowPhase: this.links?.flowPhase() ?? 0, particles: this.particles?.motion() };
+  }
+
+  setGraph(nodes: readonly LensNode[], edges: readonly LensEdge[]): void {
+    const next = topologyKey(nodes, edges);
+    if (next !== this.key) {
+      this.key = next;
+      this.build(nodes, edges);
+      return;
+    }
+    // Same shape: only what is drawn changed (colour, size, label).
+    this.topology = { ...this.topology, nodes };
+    this.nodes?.restyle(nodes);
+    this.labels.reset(this.topology, this.palette);
+    this.rank();
+    this.refresh();
+  }
+
+  setSettings(next: Force3dSettings): void {
+    const previous = this.settings;
+    this.settings = next;
+    const themed = next.theme !== previous.theme;
+    if (themed) {
+      this.drawNodes();
+      this.labels.reset(this.topology, this.palette, GRAPH_THEMES[next.theme].labels);
+    }
+    if (themed || next.linkStyle !== previous.linkStyle) {
+      this.drawLinks(true);
+      const curve = LINK_STYLES[next.linkStyle].curved !== LINK_STYLES[previous.linkStyle].curved;
+      if (curve) this.drawParticles(true);
+    }
+    if (next.spread !== previous.spread || next.linkDistance !== previous.linkDistance) {
+      this.laying = true;
+      this.layout?.reheat({ spread: next.spread, linkDistance: next.linkDistance });
+    }
+    this.refresh();
+  }
+
+  setPalette(palette: ScenePalette, link: string): void {
+    this.palette = palette;
+    this.link = link;
+    this.links?.setPalette(palette, link);
+    this.nodes?.setPalette(palette);
+    this.labels.reset(this.topology, palette);
+    this.refresh();
+  }
+
+  /** Every node's emphasis targets, the particles and the labelled set, for the state now. */
+  refresh(): void {
+    const { topology, emphasis, hovered, fades, settings } = this;
+    setEmphasisTargets(topology, emphasis, hovered, fades);
+    if (this.stage.reduced()) {
+      fades.dim.snap();
+      fades.glow.snap();
+      fades.lift.snap();
+      fades.focus.snap();
+    }
+    const active = graphFocus(emphasis.selectedNodeId, hovered);
+    this.particles?.setLinks(particleLinks(topology, active, MAX_PARTICLE_LINKS));
+    const wanted = new Set<number>();
+    if (settings.showLabels) {
+      for (const i of this.byPriority.slice(0, settings.labelTopN)) wanted.add(i);
+      for (const id of [active, ...(emphasis.highlightIds ?? [])]) {
+        const i = id === null ? undefined : topology.index.get(id);
+        if (i !== undefined) wanted.add(i);
+      }
+    }
+    this.labels.want(wanted);
+    this.moved = true;
+    this.stage.invalidate();
+  }
+
+  resize(camera: PerspectiveCamera, height: number): void {
+    this.labels.resize(camera, height);
+    this.moved = true;
+  }
+
+  /** Ease the emphasis and write the layers for this frame; whether anything still moves. */
+  frame(
+    dt: number,
+    camera: PerspectiveCamera,
+    viewport: { width: number; height: number },
+  ): boolean {
+    const reduced = this.stage.reduced();
+    const { fades } = this;
+    const dimmed = fades.dim.step(dt, reduced);
+    const glowed = fades.glow.step(dt, reduced);
+    const lifted = fades.lift.step(dt, reduced);
+    const focused = fades.focus.step(dt, reduced);
+    const arriving = this.arrival.step(dt, reduced);
+    const fading = dimmed || glowed || lifted || focused || arriving;
+    if (this.moved || fading) {
+      this.nodes?.update(this.positions);
+      this.links?.update(this.positions);
+      this.moved = false;
+    }
+    const particles = this.particles?.step(dt, this.positions, reduced, this.particleRate) ?? false;
+    const flowing = this.links?.step(dt, reduced) ?? false;
+    this.labels.frame(this.labelled, camera, viewport, fades);
+    return this.laying || fading || particles || flowing;
+  }
+
+  /** Mark the layers stale so the next frame rewrites them (the camera moved them on screen). */
+  touch(): void {
+    this.moved = true;
+  }
+
+  particleCount(): number {
+    return this.particles?.count() ?? 0;
+  }
+
+  dispose(): void {
+    this.nodes?.dispose();
+    this.layout?.dispose();
+    this.layout = null;
+    this.labels.dispose();
+  }
+}

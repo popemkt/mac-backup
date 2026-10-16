@@ -386,10 +386,9 @@ export const SANCTIONED_TSCONFIG_DELTAS: Record<string, Record<string, string>> 
 export const UI_SRC = "packages/app/ui/src";
 
 /** A surface folder under `components/`: one page family and its chrome. */
-type UiSurface = "graph" | "layout" | "ontology" | "palette" | "prefs" | "sidebar";
+type UiSurface = "layout" | "ontology" | "palette" | "prefs" | "sidebar";
 
 export const UI_SURFACES: readonly UiSurface[] = [
-  "graph",
   "layout",
   "ontology",
   "palette",
@@ -474,7 +473,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   shell: [
     "shell",
     "primitives",
-    "components/graph",
     "components/layout",
     "components/ontology",
     "components/palette",
@@ -508,13 +506,11 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "fixtures",
     "lib",
     "primitives",
-    "components/graph",
     "components/ontology",
     "components/palette",
     "components/prefs",
     "components/sidebar",
   ],
-  "components/graph": ["components/graph", "primitives", "stores", "actions", "lib"],
   "components/ontology": ["components/ontology", "primitives", "stores", "actions", "lib"],
   // Panes and layouts: a pane draws whatever page its path resolves to, by
   // route and view key, so it imports no other surface.

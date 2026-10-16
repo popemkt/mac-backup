@@ -17,6 +17,7 @@
     "@kb/code": "workspace:*",
     "@kb/contracts": "workspace:*",
     "@kb/docs": "workspace:*",
+    "@kb/graph": "workspace:*",
     "@kb/lab": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",

@@ -132,6 +132,7 @@ describe("the families the page loads", () => {
   it("are each family the server reports loaded that the resolver has, in its order", () => {
     expect(familiesToLoad([...reported(() => true), AGENT])).toEqual([
       "outline",
+      "graph",
       "canvas",
       "lab",
       "code",
@@ -144,6 +145,7 @@ describe("the families the page loads", () => {
     expect(labExtension.optional).toEqual({ byDefault: "off" });
     expect(familiesToLoad(reported((name) => name !== "lab"))).toEqual([
       "outline",
+      "graph",
       "canvas",
       "code",
       "chart",
@@ -159,7 +161,7 @@ describe("the families the page loads", () => {
 
   it("leave out a family the page has no browser entry for", () => {
     const rows = [...reported(() => true), extensionRow({ name: "remote", label: "R" }, "x", true)];
-    expect(familiesToLoad(rows)).toEqual(["outline", "canvas", "lab", "code", "chart"]);
+    expect(familiesToLoad(rows)).toEqual(["outline", "graph", "canvas", "lab", "code", "chart"]);
   });
 
   it("load each entry under the name it was resolved by", async () => {
@@ -215,7 +217,14 @@ describe("an optional family switched off on the server", () => {
   );
 
   it("is any family that can be switched and has a browser half", () => {
-    expect(SWITCHABLE.map(({ name }) => name)).toEqual(["canvas", "lab", "code", "chart", "agent"]);
+    expect(SWITCHABLE.map(({ name }) => name)).toEqual([
+      "graph",
+      "canvas",
+      "lab",
+      "code",
+      "chart",
+      "agent",
+    ]);
   });
 
   for (const family of SWITCHABLE) {
@@ -238,4 +247,23 @@ describe("an optional family switched off on the server", () => {
       await Effect.runPromise(kernel.shutdown);
     });
   }
+
+  it("the lab, on, waits while the graph is off: its studies draw the graph's lens graph", async () => {
+    const kernel = makeKernel();
+    for (const graphOn of [false, true]) {
+      const rows = reported((name) => name !== "graph" || graphOn);
+      const entries = await Promise.all(
+        familiesToLoad(rows).flatMap((name) => BROWSER_EXTENSIONS[name]?.load() ?? []),
+      );
+      const failures = await Effect.runPromise(
+        syncPlugins(kernel, [...CORE_UI_PLUGINS, ...entries]),
+      );
+      expect(failures).toEqual([]);
+      expect({ graphOn, lab: ownedBy(kernel, "lab").length > 0 }).toEqual({
+        graphOn,
+        lab: graphOn,
+      });
+    }
+    await Effect.runPromise(kernel.shutdown);
+  });
 });

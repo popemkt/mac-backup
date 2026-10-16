@@ -91,7 +91,7 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
  * This record now carries all of it — what the bullet is, what paints each
  * surface, and how big each part is — so every renderer of a bullet draws
  * the same thing: the outline's `Bullet` in the DOM, and the graph's bullet
- * theme on the GPU (`components/graph/bullet-gpu`). A renderer decides nothing.
+ * theme on the GPU (`@kb/graph-ui`\'s `bullet-gpu`). A renderer decides nothing.
  */
 export type BulletShape = "supertag" | "query" | "ref-ring" | "glyph" | "dot";
 

@@ -738,7 +738,7 @@ rather than by navigation.
   2.5s auto-settle (`SETTLE_TIMEOUT_MS`), falling back to a synchronous
   rAF-chunked loop by feature detection.
 - **Dragging a node runs the layout live**, in 2D and 3D alike: one gesture,
-  `NodeDrag` in `components/graph/graph-drag.ts`, over a `DragLayout` port every layout
+  `NodeDrag` in `graph-ui/src/graph-drag.ts`, over a `DragLayout` port every layout
   implements. A press on a node suspends what else the pointer drives (the
   2D pan, the 3D orbit); past the pointer slop it is a drag, and a press
   that never passed it is a click (select, open) as before. While a node is
@@ -835,12 +835,12 @@ like themselves (P5).
   palette) reads them again when the appearance changes, while a DOM
   renderer paints live `var()`s and copies none; with a node selected, a
   hover never moves the focus — the one rule, `graphFocus` in
-  `components/graph/graph-interaction.ts`, which every renderer asks. The suite's table
+  `graph-ui/src/graph-interaction.ts`, which every renderer asks. The suite's table
   must list exactly the provided renderer views, so a new renderer joins it; the 2D
   renderers need WebGL, and their rows wait on a named gap.
 - **Emphasis eases, in every renderer.** What should be lit is one
   definition (`graph-interaction`, `graph-dim`); how it gets there is one
-  mechanism, `components/graph/graph-fade.ts` (`EmphasisFade`): a hover's neighbourhood
+  mechanism, `graph-ui/src/graph-fade.ts` (`EmphasisFade`): a hover's neighbourhood
   fades in over `--motion-duration-quick` and back out the same way, and
   a node in focus swells a little. 2D does it through `sigma-emphasis.ts`,
   which owns sigma's reducers; 3D through `force3d-emphasis.ts`. Sigma blends
@@ -860,15 +860,15 @@ like themselves (P5).
   (a hub ringed by its leaves is named over a leaf), so crowded clusters
   thin their own labels; label density
   also falls with the square root of the node count past 400. Labels are
-  placed in one priority, stated once in `components/graph/graph-label-layout.ts`
+  placed in one priority, stated once in `graph-ui/src/graph-label-layout.ts`
   (`byLabelPriority`) and used by 2D, cluster and 3D alike: the node in
   focus, then the best-connected, then by id — so a hub is labelled before
   the leaves around it, whatever order the renderer asks in. A cluster's
   title takes its place in the same layout before any node label, so titles
   never pile on each other or on labels, and labels come in only once the
   nodes they name have arrived — one threshold, `labelArrived` in
-  `components/graph/graph-arrival.ts`, for 2D and 3D alike. A new
-  graph arrives from its hubs, in 2D and 3D alike (`components/graph/graph-arrival.ts`):
+  `graph-ui/src/graph-arrival.ts`, for 2D and 3D alike. A new
+  graph arrives from its hubs, in 2D and 3D alike (`graph-ui/src/graph-arrival.ts`):
   the best-connected nodes first, their neighbours one `--motion-stagger`
   per hop outward, each growing in over `--motion-duration-reveal`, so the
   whole graph has settled in 300–400ms while the layout settles (P2, M3). Cluster hulls
@@ -920,8 +920,8 @@ like themselves (P5).
   `form`), how links take their colour and gradient, and the label's
   face, weight, case, halo and placement — are the theme's, and each
   renderer realises them in its own terms; the label is painted by one
-  canvas painter wherever it is drawn (`components/graph/graph-label-paint.ts`), and a
-  bullet from one GPU form (`components/graph/bullet-gpu.ts`). The 3D scene's dress —
+  canvas painter wherever it is drawn (`graph-ui/src/graph-label-paint.ts`), and a
+  bullet from one GPU form (`graph-ui/src/bullet-gpu.ts`). The 3D scene's dress —
   which tokens fill the ground and its edge, the backdrop's pool, warmth
   and haze, the fog, the starfield, the grain, the bloom (and so whether
   any light may cross white at all) and the node surface — is its
@@ -975,7 +975,7 @@ like themselves (P5).
     bullet's appearance (kind, shape, glyph, halo, dot, ring, their paints
     and their geometry — box, dot, halo and ring sizes, the ring's stroke
     and dashes, the magnifier's lens and handle), and the outline's
-    `Bullet` and the graph's GPU form of it (`components/graph/bullet-gpu.ts`) both
+    `Bullet` and the graph's GPU form of it (`graph-ui/src/bullet-gpu.ts`) both
     read that record, so a change to the bullet changes both. A graph
     node's appearance is `outlineBulletAppearance` of the same outline node
     the editor renders — its kind, its children, its collapsed state, its
@@ -2084,12 +2084,12 @@ the shell.
     the kit's too, so a projection and the shell read it through one cache.
 
   The sdk never imports the shell's stores. The 3D scene kit is two kit
-  packages beside it, for canvas 3D, the lab and the core `graph.force3d`
+  packages beside it, for canvas 3D, the lab and the graph's `graph.force3d`
   renderer: `@kb/scene`, which touches no GPU, and `@kb/scene-gpu`, which is
   three, so a 3D host can mount a scene without carrying three itself
   ([The lab](#the-lab)).
-- **Every half is a package.** The outline, chart, code, agent, lab and
-  canvas halves are `@kb/<family>-ui` packages, so `UI_ALLOWS` in
+- **Every half is a package.** The outline, graph, chart, code, agent, lab
+  and canvas halves are `@kb/<family>-ui` packages, so `UI_ALLOWS` in
   `harness/src/constraints.ts` holds the shell's zones only. A half's tests
   hold it to `BrowserHost` through `@kb/ui-test-kit`'s test host, never to
   the shell's stores; the shell's side of the port is tested in `@kb/ui`.
@@ -2098,6 +2098,11 @@ the shell.
   `@kb/ui`, under `src/page-tests/outline/`, over `@kb/outline-ui`'s barrel,
   until each is rewritten over the test host (a gap, recorded in the
   [projection-families plan](../../docs/brainstorms/2026-10-16-kb-projection-families/README.md)).
+  The graph's are too, under `src/page-tests/graph/`: its page and a node's
+  neighbourhood over the shell's graph store, and the 3D light checked
+  against the shell's design-system sheets. Its barrel names only what the
+  entry already loads, and the light arithmetic, so the page tests pull no
+  renderer into the entry's chunk.
 - **The lazy fence follows packages.** `UI_LAZY_ONLY` applies to the import
   closure from `UI_ENTRY`, walking into `scope:browser` workspace packages
   too, so a chart page moved out of `app/ui` is still fenced from Vega.

@@ -19,6 +19,7 @@ import { codePlugin } from "@kb/code";
 import { canvasServerPlugin } from "@kb/ext-canvas";
 import { checkPlugin } from "@kb/ext-check";
 import { docsPlugin } from "@kb/ext-docs";
+import { graphPlugin } from "@kb/graph";
 import { labPlugin } from "@kb/lab";
 import { outlinePlugin } from "@kb/outline";
 
@@ -48,6 +49,7 @@ export function serverEntriesFor(
 
 export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BUNDLED_FAMILIES, [
   outlinePlugin(),
+  graphPlugin(),
   docsPlugin,
   canvasServerPlugin,
   labPlugin(),

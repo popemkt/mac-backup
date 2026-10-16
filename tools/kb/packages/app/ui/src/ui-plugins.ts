@@ -32,6 +32,8 @@ import {
   type ExtensionRow,
 } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
+import { graphExtension } from "@kb/graph";
+import { graphUiPlugin } from "@kb/graph-ui";
 import { labExtension } from "@kb/lab";
 import { outlineExtension } from "@kb/outline";
 import { outlineUiPlugin } from "@kb/outline-ui";
@@ -42,7 +44,6 @@ import { browserHostUiPlugin } from "@/browser-host";
 import { canvasUiPlugin } from "@kb/canvas-ui";
 import { chartUiPlugin } from "@kb/chart-ui";
 import { codeUiPlugin } from "@kb/code-ui";
-import { graphUiPlugin } from "@/components/graph/plugin";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { logWarn, syncUiPlugins, toast, type ExtensionSwitch } from "@kb/ui-sdk";
@@ -60,7 +61,6 @@ import { webMcpUiPlugin } from "@/webmcp";
 export const CORE_UI_PLUGINS: readonly Plugin[] = [
   declarationPlugin(coreExtension),
   browserHostUiPlugin,
-  graphUiPlugin,
   ontologyUiPlugin,
   layoutUiPlugin,
   webMcpUiPlugin,
@@ -105,7 +105,7 @@ export interface BrowserExtension {
  * The browser entry of each family, keyed by the name its declaration gives
  * it. Whether the page loads one is the server's report, never this table.
  * How it is fetched is: a family a store always has on (the outline) or has
- * on by default (canvas, code, chart) loads from the main bundle, and one off by default (the lab) or
+ * on by default (graph, canvas, code, chart) loads from the main bundle, and one off by default (the lab) or
  * hosted only by `kb ui` (the agent) is its own chunk, fetched when it is
  * first on. A family with no browser half is listed too, as `null`, so a
  * bundled family is never left out by omission: the resolver's test holds
@@ -113,6 +113,7 @@ export interface BrowserExtension {
  */
 export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> = {
   [outlineExtension.name]: { load: () => Promise.resolve(outlineUiPlugin) },
+  [graphExtension.name]: { load: () => Promise.resolve(graphUiPlugin) },
   [docsExtension.name]: null,
   [canvasExtension.name]: { load: () => Promise.resolve(canvasUiPlugin) },
   [labExtension.name]: {

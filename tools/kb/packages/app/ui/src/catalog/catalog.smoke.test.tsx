@@ -15,9 +15,7 @@ import * as bulletStories from "./bullet.stories";
 import * as tagChipStories from "./tag-chip.stories";
 import * as tagChipGroupStories from "./tag-chip-group.stories";
 import * as nodeRowStories from "./node-row.stories";
-import * as graphToolbarStories from "./graph-toolbar.stories";
 import * as nodeContentStories from "./node-content.stories";
-import * as graphCanvasFrameStories from "./graph-canvas-frame.stories";
 import * as pickerListStories from "./picker-list.stories";
 import { browserSource } from "@/test-support/browser-packages";
 import { storiesRender } from "@kb/ui-test-kit";
@@ -29,9 +27,7 @@ storiesRender([
   { name: "tag-chip", mod: tagChipStories },
   { name: "tag-chip-group", mod: tagChipGroupStories },
   { name: "node-row", mod: nodeRowStories },
-  { name: "graph-toolbar", mod: graphToolbarStories },
   { name: "node-content", mod: nodeContentStories },
-  { name: "graph-canvas-frame", mod: graphCanvasFrameStories },
   { name: "picker-list", mod: pickerListStories },
 ]);
 
@@ -52,7 +48,9 @@ describe("surface error-boundary wiring (App)", () => {
     expect(
       readFileSync(path.join(browserSource("@kb/outline-ui"), "surfaces.tsx"), "utf8"),
     ).toContain('title="Outline crashed"');
-    expect(read("components/graph/surfaces.tsx")).toContain('title="Graph crashed"');
+    expect(
+      readFileSync(path.join(browserSource("@kb/graph-ui"), "surfaces.tsx"), "utf8"),
+    ).toContain('title="Graph crashed"');
     expect(
       readFileSync(path.join(browserSource("@kb/canvas-ui"), "surfaces.tsx"), "utf8"),
     ).toContain('title="Canvas crashed"');

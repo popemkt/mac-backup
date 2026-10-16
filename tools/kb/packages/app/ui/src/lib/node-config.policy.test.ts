@@ -21,7 +21,7 @@ import {
   ViewPoint,
   wireToOutlineMap,
 } from "@kb/ui-sdk";
-import { parsePerspective } from "@/components/graph/graph-lens";
+import { parsePerspective } from "@kb/graph-ui";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { OutlineListView, isFrameViewKey } from "@kb/views";
