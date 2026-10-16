@@ -16,6 +16,7 @@ export { graphUiPlugin } from "./plugin";
 // already, and the 3D look's light arithmetic, checked against the shell's
 // design-system sheets. Nothing here may pull a renderer into the entry's
 // chunk (`ui-lazy-fence.test.ts`).
+// GAP [[01M531QT1YPM9NTF6NKH9BP66S]]
 export { GLOW } from "./force3d-emphasis";
 export { peakChannel, shadeNode, type NodeLighting, type Rgb } from "./force3d-light";
 export type { GraphFrame } from "./graph-frame";
