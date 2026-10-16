@@ -56,6 +56,7 @@ const FILLED: Record<FieldType, PropValue> = {
   url: { t: "str", v: "https://example.com" },
   checkbox: { t: "bool", v: true },
   ref: { t: "ref", v: "n.target" },
+  secret: { t: "str", v: "env:KB_TEST_KEY" },
 };
 
 function editorHtml(
@@ -102,13 +103,20 @@ const EDITOR_MARKER: Record<FieldType, string> = {
   date: 'data-value-slot="date"',
   checkbox: 'aria-checked="true"',
   ref: 'data-node-row="true"',
+  secret: 'data-editable-text="true"',
 };
 
 describe("every declared type routes to one editor (display)", () => {
-  it("covers all six declared types", () => {
+  it("covers all seven declared types", () => {
     expect([...FIELD_TYPES].toSorted()).toEqual(
-      ["checkbox", "date", "number", "ref", "text", "url"].toSorted(),
+      ["checkbox", "date", "number", "ref", "secret", "text", "url"].toSorted(),
     );
+  });
+
+  it("a secret shows its reference plainly, and never as a link", () => {
+    const secret = editorHtml("secret", { t: "str", v: "keychain:kb/openai" });
+    expect(secret).toContain("keychain:kb/openai");
+    expect(secret).not.toContain("underline");
   });
 
   for (const fieldType of FIELD_TYPES) {
@@ -174,6 +182,7 @@ describe("the empty slot of each type", () => {
     date: 'data-empty-placeholder="true"',
     checkbox: 'aria-checked="false"',
     ref: 'data-ref-slot="closed"',
+    secret: 'data-empty-placeholder="true"',
   };
 
   for (const fieldType of FIELD_TYPES) {

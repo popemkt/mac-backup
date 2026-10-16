@@ -77,6 +77,8 @@ export const SYSTEM_IDS = {
   ftUrl: "sys.ft.url",
   ftCheckbox: "sys.ft.checkbox",
   ftRef: "sys.ft.ref",
+  /** A reference to where a key lives (`env:…`, `keychain:…`), never the key (`secret-ref.ts`). */
+  ftSecret: "sys.ft.secret",
   /**
    * How many values a field holds — a ref to one of the two option nodes
    * below, which are this field's own children (the option-set shape, like

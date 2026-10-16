@@ -16,6 +16,11 @@ import { acceptsValueKind, fieldTypeOf, type FieldType } from "./field-type.ts";
 import type { NodeLike } from "./ontology.ts";
 import type { NodeId, PropValue } from "./model.ts";
 import { parseDateInput, parseDay, type LocalDate } from "./local-date.ts";
+import { parseSecretRef } from "./secret-ref.ts";
+
+/** Why a secret field refuses what it was handed: it holds where a key is, not a key. */
+const NOT_A_SECRET_REF =
+  "is not a secret reference (env:NAME or keychain:service[/account]); a key is never stored";
 
 /** The schemes a url value may carry: the ones a link in kb may open. */
 const LINK_SCHEME = /^(https?:\/\/|mailto:)/i;
@@ -117,6 +122,11 @@ export function parseTypedValue(
     }
     case "text":
       return ok({ t: "str", v: raw });
+    case "secret": {
+      const text = raw.trim();
+      if (text === "" || parseSecretRef(text) !== null) return ok({ t: "str", v: text });
+      return refuse(`input ${NOT_A_SECRET_REF}`);
+    }
     default: {
       const unhandled: never = type;
       throw new Error(`unhandled field type: ${String(unhandled)}`);
@@ -127,12 +137,21 @@ export function parseTypedValue(
 /**
  * Why a value of an accepted kind is still not in its type's form, or null.
  * A url must be a link in canonical form (`normalizeUrl` of itself), a date a
- * real local `YYYY-MM-DD`; either may be unset.
+ * real local `YYYY-MM-DD`, a secret a reference to where a key lives; each
+ * may be unset.
  */
 function valueFormError(type: FieldType, value: PropValue): string | null {
   if (type === "date" && value.t === "str" && value.v !== "" && parseDay(value.v) === null) {
     const date = parseDateInput(value.v);
     return date === null ? "is not a date" : `is not in date form (${date})`;
+  }
+  if (
+    type === "secret" &&
+    value.t === "str" &&
+    value.v !== "" &&
+    parseSecretRef(value.v) === null
+  ) {
+    return NOT_A_SECRET_REF;
   }
   if (type === "url" && value.t === "str" && normalizeUrl(value.v) !== value.v) {
     const href = normalizeUrl(value.v);

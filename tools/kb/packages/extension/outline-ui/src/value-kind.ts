@@ -165,6 +165,15 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
   },
   ref: REF,
   option: { ...REF, layout: "inline" },
+  // Where a key lives, as plain text: the form check refuses a key itself.
+  secret: {
+    editor: "caret",
+    text: asText,
+    parse: (text) => parseTypedValue(text, "secret"),
+    isBlank: isBlankScalar,
+    layout: "stack",
+    follow: nowhere,
+  },
   color: {
     editor: "swatch",
     text: asText,

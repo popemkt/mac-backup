@@ -114,9 +114,10 @@ const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
 
 /**
  * What a caret surface shows at rest: text's inline markdown, a url's link,
- * or a number grouped in the locale's separators.
+ * a number grouped in the locale's separators, or the plain string (a
+ * secret's reference).
  */
-type CaretDisplay = "markdown" | "link" | "number";
+type CaretDisplay = "markdown" | "link" | "number" | "plain";
 
 /**
  * A value that is text, edited in place by the same live preview node text
@@ -434,6 +435,11 @@ export function TextSurface(props: ValueSurfaceProps) {
 /** A url: a link at rest, labelled short. */
 export function UrlSurface(props: ValueSurfaceProps) {
   return <CaretValue {...props} display="link" />;
+}
+
+/** A secret: the reference to where its key lives, plain; never a key. */
+export function SecretSurface(props: ValueSurfaceProps) {
+  return <CaretValue {...props} display="plain" />;
 }
 
 /** A number: grouped in the locale's separators at rest. */

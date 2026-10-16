@@ -22,6 +22,7 @@ import {
 } from "../src/index.ts";
 import { normalizeUrl, valueConformanceError } from "../src/field-value.ts";
 import { parseDay } from "../src/local-date.ts";
+import { parseSecretRef } from "../src/secret-ref.ts";
 import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -50,9 +51,18 @@ const typeArb = fc.option(fc.constantFrom(...FIELD_TYPES), { nil: null });
 function expectedOk(type: FieldType | null, value: PropValue): boolean {
   if (!acceptsValueKind(type ?? "text", value)) return false;
   // A url is held only as a link in canonical form, a date only as a real
-  // local YYYY-MM-DD; either may be unset.
+  // local YYYY-MM-DD; each may be unset.
   if (type === "url" && value.t === "str" && normalizeUrl(value.v) !== value.v) return false;
   if (type === "date" && value.t === "str" && value.v !== "" && parseDay(value.v) === null) {
+    return false;
+  }
+  // A secret is held only as a reference to where a key lives.
+  if (
+    type === "secret" &&
+    value.t === "str" &&
+    value.v !== "" &&
+    parseSecretRef(value.v) === null
+  ) {
     return false;
   }
   return value.t !== "ref" || value.v === TARGET;

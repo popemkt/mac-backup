@@ -12,6 +12,7 @@ import {
   fieldTypeValue,
   migrateDateValues,
   normalizeUrl,
+  parseSecretRef,
   parseTypedValue,
   txIntegrityError,
   type KbNode,
@@ -102,6 +103,31 @@ describe("every surface agrees on a value's form", () => {
       ok: true,
       value: { t: "str", v: "https://example.com" },
     });
+  });
+});
+
+describe("a secret is where a key lives, never the key", () => {
+  const base = [node("f", { [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("secret")] })];
+  const write = (v: string) =>
+    txIntegrityError(base, { upserts: [node("n.a", { f: [{ t: "str", v }] })], deletes: [] });
+
+  test("a reference is accepted by the parser and the write check, unset included", () => {
+    for (const ref of ["env:OPENAI_API_KEY", "keychain:kb-openai", "keychain:kb/me", ""]) {
+      expect(parseTypedValue(ref, "secret")).toEqual({ ok: true, value: { t: "str", v: ref } });
+      expect(write(ref)).toBeNull();
+    }
+    expect(parseSecretRef("keychain:kb/me")).toEqual({
+      kind: "keychain",
+      service: "kb",
+      account: "me",
+    });
+  });
+
+  test("a pasted key is refused at write, by every surface, before it reaches a store", () => {
+    for (const key of ["sk-proj-abc123", "env:", "env:1BAD", "keychain:", "keychain:a b"]) {
+      expect(parseTypedValue(key, "secret").ok).toBe(false);
+      expect(write(key)).toContain("is not a secret reference");
+    }
   });
 });
 

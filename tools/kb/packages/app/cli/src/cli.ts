@@ -29,6 +29,7 @@ import {
 import {
   type DomainError,
   type FailureCode,
+  FIELD_TYPES,
   ResolveError,
   SYSTEM_IDS,
   currentIso,
@@ -645,7 +646,7 @@ function buildProgram(): Command {
     .action(kbAction((ctx, globals) => runPlanEffect(ctx, mapFieldList(), globals)));
   field
     .command("type")
-    .description("Set sys.f.fieldType on a field (text|number|date|url|checkbox|ref)")
+    .description(`Set sys.f.fieldType on a field (${FIELD_TYPES.join("|")})`)
     .argument("<field>", "field name or id")
     .argument("<type>", "field type")
     .action(

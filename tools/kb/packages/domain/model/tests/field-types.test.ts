@@ -232,6 +232,7 @@ describe("accepted value kinds", () => {
       url: ["str"],
       checkbox: ["bool"],
       ref: ["ref"],
+      secret: ["str"],
     });
   });
 });

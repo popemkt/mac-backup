@@ -523,11 +523,14 @@ type PropValue =
 - **A written value conforms to its field, or the write fails.** Tags never
   restrict which fields a node carries; a field's declared type does restrict
   what it holds. Each type accepts fixed value kinds (`acceptsValueKind` in
-  `field-type.ts`, the one table the UI's mismatch hint also reads): text and
-  url → `str`, number → `num`, checkbox → `bool`, ref → `ref`, and date →
-  `str` (a local `YYYY-MM-DD`; the legacy `{t:"date"}` carrier is rewritten on
-  open). A value of the right kind must also be in its type's form (`field-value.ts`,
-  the one statement of it: a url is a canonical link, `normalizeUrl`), and every
+  `field-type.ts`, the one table the UI's mismatch hint also reads): text,
+  url and secret → `str`, number → `num`, checkbox → `bool`, ref → `ref`, and
+  date → `str` (a local `YYYY-MM-DD`; the legacy `{t:"date"}` carrier is
+  rewritten on open). A value of the right kind must also be in its type's form
+  (`field-value.ts`, the one statement of it: a url is a canonical link,
+  `normalizeUrl`; a secret is a reference to where a key lives, `env:NAME` or
+  `keychain:<service>[/<account>]` (`secret-ref.ts`), never the key, so a
+  pasted key is refused before it can reach a committed store), and every
   surface parses raw input through the same `parseTypedValue`. A `ref` must
   also name a node the graph stores. The check (`valueConformanceError`) is part of
   `txIntegrityError`, so it runs where outline integrity already runs —

@@ -149,6 +149,7 @@ const FIELD_TYPE_SPEC: Record<FieldType, FieldTypeSpec> = {
   url: { empty: { t: "str", v: "" } },
   checkbox: { empty: { t: "bool", v: false } },
   ref: { empty: { t: "ref", v: "" } },
+  secret: { empty: { t: "str", v: "" } },
 };
 
 /**

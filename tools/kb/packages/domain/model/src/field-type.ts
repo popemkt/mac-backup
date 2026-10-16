@@ -33,6 +33,7 @@ export const FIELD_TYPE_OPTION_IDS = {
   url: SYSTEM_IDS.ftUrl,
   checkbox: SYSTEM_IDS.ftCheckbox,
   ref: SYSTEM_IDS.ftRef,
+  secret: SYSTEM_IDS.ftSecret,
 } as const;
 
 export type FieldType = keyof typeof FIELD_TYPE_OPTION_IDS;
@@ -48,6 +49,7 @@ export const FIELD_TYPES: readonly FieldType[] = [
   "url",
   "checkbox",
   "ref",
+  "secret",
 ];
 
 /** Option node id → declared type. */
@@ -82,6 +84,8 @@ const FIELD_VALUE_KINDS: Record<FieldType, readonly PropValue["t"][]> = {
   url: ["str"],
   checkbox: ["bool"],
   ref: ["ref"],
+  // A reference is a string in its own form (`valueFormError`), never the key it names.
+  secret: ["str"],
 };
 
 /** Whether a value's kind is one a field of `type` may hold. */

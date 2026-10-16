@@ -5,6 +5,7 @@ import {
   PaletteIcon,
   TextTIcon,
   CheckSquareIcon,
+  KeyIcon,
   type Icon,
 } from "@phosphor-icons/react";
 import type { FieldType } from "@kb/ui-sdk";
@@ -15,6 +16,7 @@ import {
   NumberSurface,
   OptionSurface,
   RefSurface,
+  SecretSurface,
   TextSurface,
   UrlSurface,
   type ValueSurfaceProps,
@@ -52,6 +54,7 @@ export const VALUE_VIEWS: Readonly<Record<ValueKind, ValueView>> = {
   ref: { icon: LinkSimpleIcon, Surface: RefSurface },
   option: { icon: LinkSimpleIcon, Surface: OptionSurface },
   color: { icon: PaletteIcon, Surface: ColorSurface },
+  secret: { icon: KeyIcon, Surface: SecretSurface },
 };
 
 /** The glyph a field's row wears. */
