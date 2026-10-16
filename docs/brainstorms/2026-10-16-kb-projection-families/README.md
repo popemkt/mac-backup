@@ -1106,7 +1106,9 @@ and for the seed's view order (both below).
   - `saveGraphPerspective` is the new generic `PageWrites.addViewNode(text,
     props)`, a view node with given props filed in the Views list. It is
     named for what it does, not for the graph. `planAddViewNode` was
-    already generic.
+    already generic. *Superseded by the
+    [review follow-up](#o4-review-follow-up): `addViewNode` is gone, and
+    the save goes through `view.propose`.*
   - `planSetGraphRenderer` and `planSetLensProp` are gone.
 
 ### O4d, second half: the lens and the seed are the graph's
@@ -1148,7 +1150,9 @@ The owner took the recommendation above.
   - The zone's own `GraphLens` extends the kit's shape with the
     projection's `LensEdge`.
   - The lab injects the service, so its studies wait, pending, while the
-    graph is off.
+    graph is off. *Superseded by the
+    [review follow-up](#o4-review-follow-up): only Sky waits, and the
+    service is the kit's `NodeLinkGraphService`.*
   - `@kb/lab-ui` and `@kb/ui-sdk` no longer depend on `@kb/graph`.
 - **The extraction moves out of the kit.** `graph-lens.ts` and its two
   tests are the graph's browser half's.
@@ -1220,7 +1224,9 @@ before this keeps its order.
 ### Behaviour that changed, as O4e decided
 
 - The lab, switched on, waits while the graph is off: it shows nothing of
-  its own until the graph's browser half is loaded.
+  its own until the graph's browser half is loaded. *Superseded by the
+  [review follow-up](#o4-review-follow-up): the lab loads and offers
+  every study but Sky, which waits.*
 - An ontology's graph tab, with the graph off, shows "This view cannot be
   shown here" by the option's label. Before, it showed a "Graph not found"
   page.
@@ -1438,3 +1444,59 @@ The keys move to `@kb/collections` as `CollectionTableView`,
     reads only filters, so the three columns, their widths and the page size
     would go. The store's default view type is a page view, not a frame
     view, so it cannot lay out a frame's rows.
+
+## O4 review follow-up
+
+The second review of the graph cut found seven things to fix, each now its
+own commit on `o4-review-followup`.
+
+- **Only the lab's graph study waits for the graph.** The lab no longer
+  injects the graph's service. Its studies are offered at a lab point
+  (`LabStudyPoint`). A study that reads the graph (`LabStudy.readsGraph`,
+  only Sky) is offered by a child plugin of the lab that injects the
+  service, so it is the only one pending while the graph is off. The lab
+  page names a study that waits as waiting for the graph.
+  `ui-plugins.test.ts` asserts that with the graph off the lab offers every
+  study but Sky, and offers Sky once the graph is on.
+- **A proposed graph view sets its lens.** Every renderer's params compose
+  `LensParams` beside the settings it reads. `LensParams` holds the query,
+  focus, hops, edge kinds, node budget and mappings, each optional. So
+  `view.propose` can set which nodes a graph view draws.
+  - This closes GAP [[01M40X30Q8N7NYCYHW3J0GFKY7]]. Its marker is gone, and
+    the `#gap` node is left for the coordinator to close.
+  - `saveGraphPerspective` proposes a view node of the active renderer
+    through `browserHost().proposeView`, with the params that renderer
+    declares (`rendererParamsOf`).
+  - `PageWrites.addViewNode`, the unchecked second path, is deleted.
+  - Changed behaviour: a saved copy holds only its renderer's params, so a
+    tree copy no longer carries spread or link distance.
+- **The kit says no graph.** The kit's service is now the shape its reader
+  reads, in `lib/node-link.ts`:
+  - `NodeLinkNode`: id, label, degree and cluster key;
+  - `NodeLinkEdge`, `NodeLinkGraph`, and `NodeLinkGraphs.ofView(…, viewId)`;
+  - the service key `NodeLinkGraphService` (`"ui.node-link"`).
+
+  `@kb/graph-ui` owns the full `LensNode`, which extends `NodeLinkNode`, and
+  `GraphLens`. Four kit comments that named the graph are generic now.
+- **The ontology's graph id has one home.** `@kb/views` holds
+  `ONTOLOGY_GRAPH_VIEW`, beside `ONTOLOGY_VIEWS`, and `@kb/graph`'s views
+  test holds it equal to `GraphView.id`. With the graph off, the tab names
+  the view by the label the catalog gives it, else by its id: no literal.
+- **Core's seed test names no graph id.** The fill-absent case over All
+  mentions moves to `@kb/graph`'s seed test. Core's version keeps sys.tag
+  and uses the approval policies' table view.
+- **Stale references fixed:**
+  - `CORE_UI_PLUGINS` in DESIGN-UI;
+  - the `edges.ts` path in DESIGN;
+  - `app/ui/ARCHITECTURE.md`;
+  - a test name in `force3d-labels.test.ts`;
+  - a query source in `schema-compat.test.ts`;
+  - `node-update-props.test.ts`, which now uses core's views.
+- **The graph-ui barrel's test exports carry
+  GAP [[01M531QT1YPM9NTF6NKH9BP66S]].** That gap now covers every family.
+- **Left as is: core's migrations name the graph's frozen ids**, the
+  placeholder above. The family could declare the rename table, but
+  `PERSPECTIVE_RENDERER_FIELD` is read by core's view migration, and that
+  migration is the graph's own logic. So a declared rename would close only
+  half of it. Both halves wait for the declared retirement table, GAP
+  [[01M3FK1PM9P96SNCSHXF0CJZRA]], with a hook for family migrations.
