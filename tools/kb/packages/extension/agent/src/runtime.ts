@@ -42,6 +42,14 @@ export type AgentOutput =
   | { readonly kind: "text"; readonly delta: string }
   | { readonly kind: "session"; readonly resume: string };
 
+/**
+ * At most this many model steps per message, so a confused loop ends: an
+ * adapter whose backend runs the tool loop hands it the bound, and one that
+ * runs the loop itself stops there. Either way the turn ends with an
+ * {@link AgentRuntimeError}.
+ */
+export const MAX_STEPS = 40;
+
 /** A turn the backend could not run or finish: not logged in, no binary, a model error. */
 export class AgentRuntimeError extends Schema.TaggedError<AgentRuntimeError>()(
   "Kb/AgentRuntimeError",

@@ -2,6 +2,7 @@ import { Effect, Stream } from "effect";
 import type { Options, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import {
   AgentRuntimeError,
+  MAX_STEPS,
   userTurnText,
   type AgentOutput,
   type AgentRuntime,
@@ -25,9 +26,6 @@ import { KB_TOOL_SERVER, kbToolServer } from "./tool-server.ts";
  */
 const CALL_TIMEOUT_MS = 30 * 60_000;
 
-/** At most this many model steps per message, so a confused loop ends. */
-const MAX_STEPS = 40;
-
 export interface ClaudeRuntimeOptions {
   /**
    * Where Claude Code runs: the kb root. It also keeps its session files for
@@ -42,7 +40,28 @@ export interface ClaudeRuntimeOptions {
    * checkout's `node_modules` has.
    */
   readonly executable?: string;
+  /**
+   * How a turn reaches Claude Code: the SDK's `query`, loaded when the first
+   * turn runs. The runtime contract hands it a fake that plays a model over
+   * the same messages, so everything else here runs as it does for real.
+   */
+  readonly query?: ClaudeQuery;
 }
+
+/** The part of the SDK's `query` a turn uses: start a session, read its messages. */
+export type ClaudeQuery = (params: {
+  readonly prompt: string;
+  readonly options: Options;
+}) => AsyncIterable<SDKMessage>;
+
+/** The SDK's own `query`, imported on first use so no other command pays for it. */
+const sdkQuery = Effect.tryPromise({
+  try: () => import("@anthropic-ai/claude-agent-sdk"),
+  catch: (error) =>
+    new AgentRuntimeError({
+      message: `the Claude Agent SDK did not load: ${messageOf(error)}`,
+    }),
+}).pipe(Effect.map((sdk): ClaudeQuery => sdk.query));
 
 /** What one SDK message says to the bridge; most say nothing. */
 function outputsOf(message: SDKMessage, wrote: { text: boolean }): readonly AgentOutput[] {
@@ -122,20 +141,14 @@ export function claudeRuntime(options: ClaudeRuntimeOptions): AgentRuntime {
     turn: (turn) =>
       Stream.unwrap(
         Effect.gen(function* () {
-          const sdk = yield* Effect.tryPromise({
-            try: () => import("@anthropic-ai/claude-agent-sdk"),
-            catch: (error) =>
-              new AgentRuntimeError({
-                message: `the Claude Agent SDK did not load: ${messageOf(error)}`,
-              }),
-          });
+          const query = options.query ?? (yield* sdkQuery);
           // Aborted when the stream ends for any reason, a cancel included:
           // Claude Code stops, and so does any call still running.
           const abort = yield* Effect.acquireRelease(
             Effect.sync(() => new AbortController()),
             (controller) => Effect.sync(() => controller.abort()),
           );
-          const messages = sdk.query({
+          const messages = query({
             prompt: userTurnText(turn.message),
             options: queryOptions(options, turn, abort),
           });
