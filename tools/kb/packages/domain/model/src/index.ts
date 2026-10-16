@@ -63,6 +63,7 @@ export {
   LEGACY_SEED_RENAMES,
   SYSTEM_IDS,
   currentIso,
+  extensionNodeId,
   freshId,
   isSysPrefixed,
   nowIso,

@@ -54,7 +54,6 @@ export type { ExtensionDeclaration, ExtensionEntry, ExtensionRow } from "./decla
 export {
   EXTENSION_ENABLED_FIELD,
   NO_SWITCHES,
-  extensionNodeId,
   familyOn,
   switchWrites,
 } from "./extension-switch.ts";

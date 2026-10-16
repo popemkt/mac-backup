@@ -15,12 +15,11 @@ import { BUNDLED_FAMILIES, bundledSeed } from "@kb/bundled";
 import {
   EXTENSION_ENABLED_FIELD,
   ReadInvoke,
-  extensionNodeId,
   switchWrites,
   type ActionInvocation,
   type ActionReceipt,
 } from "@kb/contracts";
-import { SYSTEM_IDS, present, type Actor, type KbNode } from "@kb/model";
+import { SYSTEM_IDS, extensionNodeId, present, type Actor, type KbNode } from "@kb/model";
 import { kbManifestDef, persistEffect } from "@kb/operations";
 import { invoke } from "../src/invoke.ts";
 import { kbRuntimeLayer } from "../src/layers.ts";

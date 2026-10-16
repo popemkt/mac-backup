@@ -15,6 +15,7 @@ import { Schema } from "effect";
 import {
   decodeNodeConfig,
   encodeNodeConfig,
+  extensionNodeId,
   firstBool,
   oneOf,
   seededField,
@@ -26,11 +27,6 @@ import type { ExtensionDeclaration } from "./declaration.ts";
 
 /** The checkbox field a family's node says it is on with. */
 export const EXTENSION_ENABLED_FIELD = "sys.f.extension.enabled";
-
-/** The node that holds a family's switch. */
-export function extensionNodeId(name: string): string {
-  return `sys.extension.${name}`;
-}
 
 /** How a store finds a node by id. */
 export type NodeLookup = (id: string) => KbNode | undefined;

@@ -2,7 +2,6 @@ import { Cause, Effect, Semaphore } from "effect";
 import {
   ChannelPoint,
   UiHost,
-  extensionNodeId,
   extensionRow,
   familyOn,
   type ExtensionEntry,
@@ -11,6 +10,7 @@ import {
   type KbContext,
   type UiHostService,
 } from "@kb/contracts";
+import { extensionNodeId } from "@kb/model";
 import { definePlugin, syncPlugins, type Kernel, type Plugin } from "@kb/plugin";
 import { receiptFromError } from "@kb/operations";
 import { writeErr } from "@kb/runtime";

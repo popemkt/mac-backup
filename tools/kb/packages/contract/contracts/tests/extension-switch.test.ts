@@ -5,12 +5,11 @@
  * family always, whatever a node says.
  */
 import { describe, expect, test } from "bun:test";
-import type { KbNode } from "@kb/model";
+import { extensionNodeId, type KbNode } from "@kb/model";
 import {
   EXTENSION_ENABLED_FIELD,
   NO_SWITCHES,
   defineExtension,
-  extensionNodeId,
   familyOn,
   switchWrites,
   type NodeLookup,

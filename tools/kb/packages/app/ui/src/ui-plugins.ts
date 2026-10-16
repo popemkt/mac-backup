@@ -28,7 +28,6 @@ import { collectionsUiPlugin } from "@kb/collections-ui";
 import {
   NO_SWITCHES,
   declarationPlugin,
-  extensionNodeId,
   extensionRow,
   familyOn,
   type ExtensionRow,
@@ -38,6 +37,7 @@ import { graphExtension } from "@kb/graph";
 import { graphUiPlugin } from "@kb/graph-ui";
 import { labExtension } from "@kb/lab";
 import { outlineExtension } from "@kb/outline";
+import { extensionNodeId } from "@kb/model";
 import { outlineUiPlugin } from "@kb/outline-ui";
 import { coreExtension, extensionSwitchDef } from "@kb/operations";
 import type { Plugin } from "@kb/plugin";

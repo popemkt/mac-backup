@@ -275,6 +275,14 @@ export function isSysPrefixed(id: string): boolean {
 }
 
 /**
+ * The node of the extension named `name`, core and every family alike: its
+ * switch (DESIGN.md → Extension families) and the fields that configure it.
+ */
+export function extensionNodeId(name: string): NodeId {
+  return `sys.extension.${name}`;
+}
+
+/**
  * Wall-clock stamp for the non-Effect seed defaults. It reads the same
  * `Clock` the Effect path does, through the default runtime — a seeded replay
  * passes `at` explicitly instead, and the determinism seam guard is what says

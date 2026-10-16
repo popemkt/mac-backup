@@ -22,12 +22,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
 import {
   EXTENSION_ENABLED_FIELD,
-  extensionNodeId,
   extensionRow,
   type ActionInvocation,
   type GraphSnapshot,
   type WireNode,
 } from "@kb/contracts";
+import { extensionNodeId } from "@kb/model";
 import { viewCatalogOf } from "@kb/views";
 import type { LabScene } from "@kb/lab-ui";
 
