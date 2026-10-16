@@ -94,8 +94,7 @@
 
 ### doing
 
-- O4 · cut out @kb/graph + @kb/graph-ui as an optional family
-- O5 · Table/Board/Cards leave the outline as their own family
+- Canvas parity with tldraw offline · P1–P5 (styles, edge anchors and routes, path item, lock/align/distribute, shortcut table); P6–P8 wait on the owner's questions. Plan: docs/brainstorms/2026-10-17-kb-canvas-tldraw-parity/README.md
 - Projection families · outline and graph leave core; kb = graph wrapper + outline editing mode + viz families. Plan: docs/brainstorms/2026-10-16-kb-projection-families/README.md
 
 ### todo
@@ -137,6 +136,8 @@
 - O2 · default view becomes data; resolveNodeView names no view
 - O3 · cut out @kb/outline + @kb/outline-ui as a required family
 - O3a · audit @kb/ui-sdk exports by the families that use them
+- O4 · cut out @kb/graph + @kb/graph-ui as an optional family
+- O5 · Table/Board/Cards leave the outline as their own family
 - outline perf: a graph update or expand re-renders every row (63 ms at 1x, ~660 ms at 6x CPU) — fix candidate memo, per-row selectors, coalesce WS updates, content-visibility
 
 ### later
