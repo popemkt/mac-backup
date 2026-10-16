@@ -12,6 +12,9 @@
  *   lists, so no family reaches the catalog past its declaration;
  * - its seed folds beside the bundled one with no id owned twice, and every
  *   view it declares has an option in that fold;
+ * - that fold has one provider of the default view type, which provides the
+ *   view it names, and the fold refuses a default this family would provide
+ *   beside another provider or name without providing it;
  * - every text body its entry contributes renders its key's default
  *   settings, and so does its figure where it draws one;
  * - its host composes it as the store switches it ({@link SwitchingHost}):
@@ -45,7 +48,7 @@ import {
   type ExtensionRow,
   type NodeLookup,
 } from "@kb/contracts";
-import { foldSeed, viewOptionId } from "@kb/model";
+import { foldSeed, viewOptionId, type SeedSource, type SeedView } from "@kb/model";
 import { makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
 import { paramsFromProps } from "@kb/views";
 import { CONTRACT_AT, openSession, scratchRoot } from "./store-session.ts";
@@ -101,6 +104,57 @@ function foldWith(declaration: ExtensionDeclaration): readonly ExtensionDeclarat
   return BUNDLED_DECLARATIONS.includes(declaration)
     ? BUNDLED_DECLARATIONS
     : [...BUNDLED_DECLARATIONS, declaration];
+}
+
+/** `declaration`'s fold with `declaration` replaced by `as`, and every other source's default kept or dropped. */
+function foldAs(
+  declaration: ExtensionDeclaration,
+  as: SeedSource,
+  others: "keep" | "drop",
+): readonly SeedSource[] {
+  return [
+    ...foldWith(declaration)
+      .filter((source) => source !== declaration)
+      .map((source) => (others === "keep" ? source : { ...source, defaultView: undefined })),
+    as,
+  ];
+}
+
+/** The default view type promises: one provider, which provides it, and the fold's refusals. */
+function defaultViewPromises(declaration: ExtensionDeclaration): void {
+  test("its fold has one provider of the default view type, which provides that view", () => {
+    const providers = foldWith(declaration).filter((source) => source.defaultView !== undefined);
+    expect(providers.map((source) => source.name)).toHaveLength(1);
+    for (const { views, defaultView } of providers) {
+      const provided = (views ?? []).map(({ key }): string => key.id);
+      expect(provided).toContain(defaultView?.id ?? "none");
+    }
+  });
+
+  test("the fold refuses a default it provides beside another provider", () => {
+    const own: SeedView = { id: `${declaration.name}.contract-default`, label: "Own" };
+    const rival: SeedView = { id: "contract.rival-default", label: "Rival" };
+    const providing: SeedSource = {
+      ...declaration,
+      views: [...(declaration.views ?? []), { key: own }],
+      defaultView: own,
+    };
+    const sources = [
+      ...foldAs(declaration, providing, "keep"),
+      { name: "contract.rival", views: [{ key: rival }], defaultView: rival },
+    ];
+    expect(() => foldSeed(sources, CONTRACT_AT)).toThrow(/provided twice/);
+  });
+
+  test("the fold refuses a default it names without providing that view", () => {
+    const stray: SeedSource = {
+      ...declaration,
+      defaultView: { id: `${declaration.name}.contract-unprovided`, label: "Unprovided" },
+    };
+    expect(() => foldSeed(foldAs(declaration, stray, "drop"), CONTRACT_AT)).toThrow(
+      /provides no such view/,
+    );
+  });
 }
 
 /** The switch promises: how the family's host composes it as the store switches it. */
@@ -236,6 +290,7 @@ export function extensionContract(
         ),
       ));
 
+    defaultViewPromises(declaration);
     switchPromises(declaration, entry, host);
   });
 }

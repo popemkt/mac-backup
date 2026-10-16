@@ -246,10 +246,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * them by — the shape of the graph sources. The options themselves are not
    * core's to list: each is derived from a declared view's key when the seed
    * is folded ({@link foldSeed}), so the list node is seeded empty here.
-   * It names the view type a node that names no view opens in
-   * (`sys.f.view.default`): the outline, by its frozen option id, which
-   * core's declaration provides today and the outline family's will when it
-   * is cut out, without the id changing.
+   * The view type a node that names no view opens in (`sys.f.view.default`)
+   * is not core's to name either: the fold writes it from the one
+   * declaration that provides it ({@link SeedSource.defaultView}).
    */
   const viewFamilyOptions = Object.values(VIEW_FAMILY_VALUES).map((value) =>
     mk(value.id, value.label),
@@ -258,9 +257,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...singleField(SYSTEM_IDS.viewFamilyField, "view.family", "ref"),
     children: viewFamilyOptions.map((option) => option.id),
   };
-  const viewsRoot = mk(SYSTEM_IDS.viewsRoot, "View types", {
-    [SYSTEM_IDS.viewDefaultField]: [{ t: "ref", v: viewOptionId("outline.main") }],
-  });
+  const viewsRoot = mk(SYSTEM_IDS.viewsRoot, "View types");
 
   const refField = (id: string, text: string, targetTag?: string, props: KbNode["props"] = {}) =>
     typedField(id, text, "ref", {

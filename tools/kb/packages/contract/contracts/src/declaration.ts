@@ -9,6 +9,7 @@
 import { Context, Effect } from "effect";
 import { z } from "zod";
 import type { KbNode } from "@kb/model";
+import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { ViewKeyPoint, type ViewDef } from "./view-catalog.ts";
 
@@ -33,6 +34,13 @@ export interface ExtensionDeclaration {
   readonly seed?: (at: string) => readonly KbNode[];
   /** The views the family provides; the seed derives each one's option node from its key. */
   readonly views?: readonly ViewDef<unknown>[];
+  /**
+   * The view type a node that names no view opens in, when this family is
+   * the one that provides it: one of its own `views`, by its key. The seed
+   * writes it as `sys.views`' default (`sys.f.view.default`), and refuses a
+   * second provider, so the shell names no view.
+   */
+  readonly defaultView?: ViewKey<unknown>;
 }
 
 /** A family's declaration, as written in its shared package. */

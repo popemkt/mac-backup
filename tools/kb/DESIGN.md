@@ -885,18 +885,25 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
 - **A node that names no view opens in the default view type, which is
   data.** `sys.views` names it in `sys.f.view.default` (ref, one), which
   targets the list's own options (`VIEW_OPTION_TARGET_QUERY`), so it selects
-  from the list rather than mirroring it; `defaultViewTypeOf` reads it. The
-  seed names the outline (`sys.view.outline.main`, a frozen id), and a
-  store seeded before the field gets it once, on its first open, by the
-  seed's own passes (a new node, a fill-absent prop), like every seed
-  addition; the store contract holds that over every backend. Opening a
-  node through it is opening it through that view type by name, so a
-  default whose family is switched off opens as "cannot be shown here"
-  like any view named so, and no code names the default. A default that is
-  missing, or names no view type, is a broken definition (Layout views,
-  below), reported and opened as one, never thrown. Order is not the
-  mechanism here, as it is for a host's views: the order of `sys.views` is
-  the fold's, and a store seeded earlier may hold it otherwise.
+  from the list rather than mirroring it; `defaultViewTypeOf` reads it.
+  - **Who names it.** The seed names the outline (`sys.view.outline.main`, a
+    frozen id). The fold writes it from the one declaration that provides
+    it: `defaultView`, a key of that declaration's own `views`. So core's
+    seed names no view. The fold refuses a second provider, and a provider
+    that names a view it does not provide (Extension families).
+  - **Existing stores.** A store seeded before the field gets it once, on
+    its first open, by the seed's own passes (a new node, a fill-absent
+    prop), like every seed addition. The store contract holds that over
+    every backend.
+  - **Opening through it.** Opening a node through the default is opening it
+    through that view type by name. A default whose family is switched off
+    therefore opens as "cannot be shown here", like any view named so, and
+    no code names the default. A default that is missing, or names no view
+    type, is a broken definition (Layout views, below), reported and opened
+    as one, never thrown.
+  - **Not order.** Order is not the mechanism here, as it is for a host's
+    views: the order of `sys.views` is the fold's, and a store seeded earlier
+    may hold it otherwise.
 - **Placement is not stored yet.** Each view is shown at the placement its
   host offers. A stored placement arrives with the hosts that read it, in
   phase A2 (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]); a field no host reads
@@ -1900,9 +1907,10 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK |
 
 - **A family declares itself once.** `defineExtension({name, label,
-  optional?, seed?, views?})` in `@kb/<family>` is the one home of its name
+  optional?, seed?, views?, defaultView?})` in `@kb/<family>` is the one home of its name
   and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
-  its state in a store where no one has switched it):
+  its state in a store where no one has switched it), and, for the one
+  family that provides it, of the default view type (View nodes):
   - every entry plugin takes its `name` from the declaration;
   - so do the manifest row and the browser resolver's key;
   - the package's `family:<name>` tag is checked equal to it.
@@ -1963,8 +1971,11 @@ end).
   exists. `openKbEffect` passes it `bundledSeed(at)` (`@kb/bundled`, a
   `scope:shared` package so the page folds the same seed), which is:
   - core's nodes, then each `BUNDLED_FAMILIES` declaration's `seed`, in
-    bundled order;
-  - pure data: it opens nothing and fails on an id declared twice.
+    bundled order, with `sys.views` naming the default view type its one
+    provider declares (`defaultView`);
+  - pure data: it opens nothing and fails on an id declared twice, or on a
+    default view type provided twice or naming a view its provider does
+    not provide.
 
   Host and repository plugins contribute no seed, so every surface seeds the
   same set whatever it loads, and a failed extension load never shrinks the
@@ -2066,6 +2077,9 @@ end).
   - its entry contributes exactly the views its declaration lists;
   - its seed ids have one owner;
   - every view key it contributes has an option in the fold;
+  - its fold has one provider of the default view type, which provides that
+    view, and the fold refuses a default it would provide beside another
+    provider, or name without providing the view;
   - every text body renders its key's defaults;
   - its host composes it as its declaration has it by default where no
     switch is written; an optional family switched off is neither held nor
@@ -2089,7 +2103,9 @@ Today's drift from this contract is marked where it sits:
 - extensions that still reach core's use cases (`@kb/operations`):
   GAP [[01M439W857BD9QQTBEQ5X5D06D]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
-  frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]].
+  frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]];
+- core's declaration, which still declares the outline's views and
+  provides the default view type: GAP [[01M52J3DADW4P7YV6907ME9C50]].
 
 ### Canvas documents
 

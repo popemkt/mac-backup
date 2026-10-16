@@ -4,7 +4,10 @@
  * seed derives their options under `sys.views`, with the text a view says
  * itself in where it has one. It is the first declaration the seed fold
  * reads, and both hosts load its views through `declarationPlugin`. A
- * feature's views are its family's declaration's, never core's.
+ * feature's views are its family's declaration's, never core's. The outline,
+ * the default editing mode, is still declared here, so this declaration
+ * provides the default view type (`defaultView`) until the outline's own
+ * declaration does; the option id it names is frozen either way.
  */
 import { defineExtension, viewDef } from "@kb/contracts";
 import { systemSeedNodes } from "@kb/model";
@@ -33,6 +36,10 @@ export const coreExtension = defineExtension({
   name: "core",
   label: "Core",
   seed: systemSeedNodes,
+  // Core still declares the outline's views and provides the default view
+  // type, until the outline's own declaration does.
+  // GAP [[01M52J3DADW4P7YV6907ME9C50]]
+  defaultView: OutlineView,
   views: [
     viewDef(OutlineView),
     viewDef(OutlineListView),
