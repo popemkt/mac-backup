@@ -250,7 +250,7 @@ export function cloneNode(n: KbNode): KbNode {
 function applyProps(
   graph: NodeGraph,
   props: Record<NodeId, PropValue[]>,
-  entries: z.infer<typeof PropInputSchema>[],
+  entries: readonly PropEntry[],
 ): void {
   const replaced = new Set<NodeId>();
   for (const e of entries) {
@@ -374,14 +374,25 @@ function pullSubtree(ctx: KbContext, id: NodeId, depth: number): unknown {
   return walk(node, depth);
 }
 
+/** One prop a write names: a field (by name or id) and the value it gains. */
+export interface PropEntry {
+  field: string;
+  value: PropValue;
+}
+
+/** What one add says, whoever says it: `node.add`'s input, its props as values of the model. */
+export type NodeAddPlanInput = Omit<z.infer<typeof nodeAddDef.inputSchema>, "props" | "id"> & {
+  props?: readonly PropEntry[] | undefined;
+};
+
 /**
  * The nodes a `node.add` writes into `graph` (the new node, and its parent
  * with the child inserted), checked but not stored: what one add means,
  * stated once. It throws {@link ResolveError}; the effects below lift it.
  */
-function planNodeAdd(
+export function planNodeAdd(
   graph: NodeGraph,
-  input: z.infer<typeof nodeAddDef.inputSchema>,
+  input: NodeAddPlanInput,
   id: NodeId,
   at: string,
 ): { node: KbNode; upserts: KbNode[] } {

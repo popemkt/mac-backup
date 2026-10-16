@@ -200,6 +200,9 @@ const CALLS: readonly ActionInvocation[] = [
   },
   { id: "render.views", input: {} },
   { id: "render.view", input: { id: "lens.all-mentions", format: "md" } },
+  // An outline kb refuses writes nothing: a line that does not parse, a ref nothing names.
+  { id: "node.addTree", input: { outline: "- a\n    - b\n  - c" } },
+  { id: "node.addTree", input: { outline: "- see [[n.surface-contract-missing]]" } },
   // A proposal kb refuses writes nothing, so every surface sees the same refusal.
   { id: "view.propose", input: { view: "outline.nope" } },
   { id: "view.propose", input: { view: "outline.board", params: { groupFieldId: 7 } } },

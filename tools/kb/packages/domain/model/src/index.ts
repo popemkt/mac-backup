@@ -23,6 +23,8 @@ export {
 } from "./errors.ts";
 export { extractMentions, mentionSpans, replaceMentions } from "./mention.ts";
 export type { MentionSpan } from "./mention.ts";
+export { OUTLINE_HEADER, outlineFieldNames, parseOutline } from "./outline.ts";
+export type { OutlineField, OutlineItem, OutlineParse, OutlineValue } from "./outline.ts";
 export { mergeNodeSets } from "./merge.ts";
 export type { MergeConflict, MergeConflictReason, MergeResult } from "./merge.ts";
 export { present } from "./present.ts";

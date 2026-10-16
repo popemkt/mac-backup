@@ -14,11 +14,19 @@ import {
   type KbNode,
   type PropValue,
   LIST_ONTOLOGIES_QUERY,
+  outlineFieldNames,
+  parseOutline,
 } from "@kb/model";
 
 export interface PlannedAction {
   id: string;
   input: unknown;
+  /**
+   * The fields the input names, when planning it already read them (an
+   * outline's field lines, read by the one outline parser while planning);
+   * otherwise `fieldsNeedingCreate` reads them from the input's prop entries.
+   */
+  fields?: readonly string[];
 }
 
 /** A field named on argv (by name or id) → the type its values are parsed as. */
@@ -99,6 +107,30 @@ export function mapAdd(opts: {
       ...(opts.tags && opts.tags.length > 0 ? { tags: opts.tags } : {}),
       ...(props.length > 0 ? { props } : {}),
       ...(opts.id !== undefined ? { id: opts.id } : {}),
+      ...(opts.force === true ? { force: true } : {}),
+    },
+  };
+}
+
+/**
+ * `kb add --outline`: the whole outline text, placed like `kb add`'s one
+ * node. Planning reads its field lines once, for `--create`; an outline that
+ * does not parse names none, and the action reports why.
+ */
+export function mapAddTree(opts: {
+  outline: string;
+  parent?: string;
+  position?: number;
+  force?: boolean;
+}): PlannedAction {
+  const parsed = parseOutline(opts.outline);
+  return {
+    id: "node.addTree",
+    fields: parsed.ok ? outlineFieldNames(parsed.items) : [],
+    input: {
+      outline: opts.outline,
+      ...(opts.parent !== undefined ? { parent: opts.parent } : {}),
+      ...(opts.position !== undefined ? { position: opts.position } : {}),
       ...(opts.force === true ? { force: true } : {}),
     },
   };
@@ -365,8 +397,13 @@ export function mapActionInvoke(raw: unknown): ActionInvocation {
   return parsed.data;
 }
 
-/** Fields referenced by a planned apply that may need --create minting. */
+/**
+ * Fields referenced by a planned apply that may need --create minting: those
+ * the plan already read ({@link PlannedAction.fields}), else the prop entries
+ * of `node.add` / `node.update`.
+ */
 export function fieldsNeedingCreate(plan: PlannedAction): string[] {
+  if (plan.fields !== undefined) return [...plan.fields];
   const input = plan.input;
   if (!Predicate.isObject(input)) return [];
   const entries = [input.props, input.setProps].flatMap((list) =>

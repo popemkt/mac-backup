@@ -2,7 +2,6 @@
 import { Command, CommanderError } from "commander";
 import { Cause, Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { text as readStream } from "node:stream/consumers";
 import { join } from "node:path";
 import {
   UI_DEFAULT_PORT,
@@ -46,10 +45,12 @@ import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
 import { bundledSeed } from "@kb/bundled";
 import { formatMode, formatReceipt } from "./format.ts";
 import { hostExtensions } from "./host-plugins.ts";
+import { readActionJsonEffect, readOutlineEffect } from "./input.ts";
 import {
   fieldsNeedingCreate,
   mapActionInvoke,
   mapAdd,
+  mapAddTree,
   mapBacklinks,
   mapChildren,
   mapFieldDefine,
@@ -205,6 +206,7 @@ function ensureFieldsEffect(
 ): Effect.Effect<ActionReceipt | null, DomainError, ActionHandlerEnv> {
   return Effect.gen(function* () {
     if (!create) return null;
+    // Minted in their own transactions, before the write. GAP [[01M52F7X4YQ7W3TJHVPBBXARGP]]
     for (const name of fieldsNeedingCreate(plan)) {
       if (isSysPrefixed(name) || name === "type" || name === "fields") {
         continue;
@@ -269,42 +271,6 @@ export function runPlanEffect(
  */
 export const ACTION_INVOKE_WIRE: SurfaceWire = { carriesApproval: true, actor: "cli" };
 
-/**
- * Parse action-invoke JSON text with native JSON.parse diagnostics, then leave
- * structural/action Schema validation to mapActionInvoke + invokeReceiptEffect.
- */
-function parseActionJson(text: string): Effect.Effect<unknown, UsageError> {
-  return Effect.try({
-    try: () => JSON.parse(text) as unknown,
-    catch: (err) =>
-      new UsageError({
-        message: `invalid JSON: ${err instanceof Error ? err.message : String(err)}`,
-      }),
-  });
-}
-
-/**
- * Read action-invoke JSON from an argv blob or stdin ("-").
- * Empty stdin → UsageError (exit 2). Genuine stdin I/O failures fold through
- * the one DomainError mapper and stay exit 1, matching pre-Effect CLI behavior.
- */
-function readActionJsonEffect(arg: string): Effect.Effect<unknown, UsageError | DomainError> {
-  if (arg === "-") {
-    return Effect.gen(function* () {
-      const raw = yield* Effect.tryPromise({
-        try: () => readStream(process.stdin),
-        catch: ensureDomainError,
-      });
-      const text = raw.trim();
-      if (!text) {
-        return yield* new UsageError({ message: "action-invoke: empty stdin" });
-      }
-      return yield* parseActionJson(text);
-    });
-  }
-  return parseActionJson(arg);
-}
-
 function collect(value: string, previous: string[]): string[] {
   return previous.concat([value]);
 }
@@ -345,6 +311,57 @@ interface AddOpts extends IdOpts, ForceOpts {
   tag: string[];
   prop: string[];
   create?: boolean;
+  outline?: string;
+}
+
+/**
+ * `kb add`: one node from argv (`node.add`), or a whole outline from a file or
+ * stdin (`node.addTree`), placed by the same `--parent` / `--position`. An
+ * outline carries its own text, tags, fields and ids, so the flags that would
+ * say them again are refused rather than merged.
+ */
+function addEffect(
+  ctx: KbContext,
+  globals: GlobalOpts,
+  text: string | undefined,
+  opts: AddOpts,
+): Effect.Effect<number, Error, ActionHandlerEnv> {
+  return Effect.gen(function* () {
+    const create = { create: opts.create === true };
+    if (opts.outline === undefined) {
+      if (text === undefined) {
+        return yield* new UsageError({ message: "kb add: missing <text> (or --outline <file>)" });
+      }
+      const plan = mapAdd({
+        text,
+        parent: opts.parent,
+        position: opts.position,
+        tags: opts.tag,
+        props: opts.prop.map((arg) => parsePropArg(arg, declaredTypes(ctx.nodes))),
+        id: opts.id,
+        force: opts.force === true,
+      });
+      return yield* runPlanEffect(ctx, plan, globals, create);
+    }
+    if (
+      text !== undefined ||
+      opts.tag.length > 0 ||
+      opts.prop.length > 0 ||
+      opts.id !== undefined
+    ) {
+      return yield* new UsageError({
+        message: "kb add --outline takes text, tags, fields and ids from the outline itself",
+      });
+    }
+    const outline = yield* readOutlineEffect(opts.outline);
+    const plan = mapAddTree({
+      outline,
+      parent: opts.parent,
+      position: opts.position,
+      force: opts.force === true,
+    });
+    return yield* runPlanEffect(ctx, plan, globals, create);
+  });
 }
 interface SetOpts extends ForceOpts {
   create?: boolean;
@@ -494,8 +511,9 @@ function buildProgram(): Command {
 
   program
     .command("add")
-    .description("Create a node")
-    .argument("<text>", "node text")
+    .description("Create a node, or a whole outline in one transaction (--outline)")
+    .argument("[text]", "node text")
+    .option("--outline <file>", "add an outline (Tana Paste) from a file, or - for stdin")
     .option("--parent <id>", "parent node id")
     .option("--position <n>", "child index", toInt)
     .option("--tag <name>", "tag name (repeatable)", collect, [])
@@ -504,21 +522,8 @@ function buildProgram(): Command {
     .option("--create", "mint missing fields", false)
     .option("--force", "allow minting or parenting under sys.* nodes", false)
     .action(
-      kbAction((ctx, globals, [text, opts]: [string, AddOpts]) =>
-        runPlanEffect(
-          ctx,
-          mapAdd({
-            text,
-            parent: opts.parent,
-            position: opts.position,
-            tags: opts.tag,
-            props: opts.prop.map((arg) => parsePropArg(arg, declaredTypes(ctx.nodes))),
-            id: opts.id,
-            force: opts.force === true,
-          }),
-          globals,
-          { create: opts.create === true },
-        ),
+      kbAction((ctx, globals, [text, opts]: [string | undefined, AddOpts]) =>
+        addEffect(ctx, globals, text, opts),
       ),
     );
 

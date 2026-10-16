@@ -57,6 +57,7 @@ import {
   tagDefineEffect,
 } from "./actions.ts";
 import { extensionSwitchDef, extensionSwitchEffect } from "./extensions.ts";
+import { nodeAddTreeDef, nodeAddTreeEffect } from "./node-add-tree.ts";
 import { kbManifestDef, kbManifestEffect } from "./manifest.ts";
 import { viewsMigrateDef, viewsMigrateEffect } from "./views-migrate.ts";
 import { viewProposeDef, viewProposeEffect } from "./view-propose.ts";
@@ -109,6 +110,7 @@ function coreNative<R>(def: ActionDefinition, effect: ActionEffectHandler<R>): R
 /** The actions every runtime can run from its own store and index. */
 export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[] = [
   coreNative(nodeAddDef, nodeAddEffect),
+  coreNative(nodeAddTreeDef, nodeAddTreeEffect),
   coreNative(nodeUpdateDef, nodeUpdateEffect),
   coreNative(nodeDeleteDef, nodeDeleteEffect),
   coreNative(nodeGetDef, nodeGetEffect),

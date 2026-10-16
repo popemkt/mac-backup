@@ -429,6 +429,70 @@ describe("cli e2e (tmpdir)", () => {
     expect(msg).not.toContain("Expected a valid JSON string");
   });
 
+  test("add --outline <file> lands the outline under --parent as one node.addTree", async () => {
+    await kb(["init", "--bare"]);
+    await kb(["tag", "define", "todo"]);
+    const host = JSON.parse((await kb(["add", "Host", "--id", "n.host"])).stdout).output.id;
+    const file = join(root, "plan.md");
+    await writeFile(file, "%%tana%%\n- Plan #todo\n  - estimate:: 3\n  - Step\n- See [[Plan]]\n");
+
+    const added = await kb(["add", "--outline", file, "--parent", host, "--create"]);
+    expect(added.code).toBe(0);
+    const receipt = JSON.parse(added.stdout);
+    expect(receipt).toMatchObject({ status: "succeeded", id: "node.addTree" });
+    const [plan, step, see] = receipt.output.ids as [string, string, string];
+    expect(receipt.output.lines).toEqual({ "2": plan, "4": step, "5": see });
+
+    const got = JSON.parse((await kb(["get", host, "--depth", "2"])).stdout).output.node;
+    expect(got.children.map((c: { id: string }) => c.id)).toEqual([plan, see]);
+    expect(got.children[1].text).toBe(`See [[${plan}|Plan]]`);
+    // --create minted the outline's one missing field, as `kb add --create` does.
+    expect(Object.values(got.children[0].props)).toContainEqual([{ t: "str", v: "3" }]);
+  });
+
+  test("add --outline - reads stdin; it refuses <text>, --tag, --prop and --id", async () => {
+    await kb(["init", "--bare"]);
+    const prevStdin = process.stdin;
+    Object.defineProperty(process, "stdin", {
+      value: (async function* () {
+        yield Buffer.from("- one\n  - two\n");
+      })(),
+      configurable: true,
+      writable: true,
+    });
+    try {
+      const added = await kb(["add", "--outline", "-"]);
+      expect(added.code).toBe(0);
+      expect(JSON.parse(added.stdout).output.ids).toHaveLength(2);
+    } finally {
+      Object.defineProperty(process, "stdin", {
+        value: prevStdin,
+        configurable: true,
+        writable: true,
+      });
+    }
+    const file = join(root, "o.md");
+    await writeFile(file, "- a\n");
+    for (const extra of [["text"], ["--tag", "x"], ["--prop", "a=b"], ["--id", "n.x"]]) {
+      const refused = await kb(["add", "--outline", file, ...extra]);
+      expect(refused.code).toBe(2);
+    }
+    expect((await kb(["add"])).code).toBe(2);
+    expect((await kb(["add", "--outline", join(root, "missing.md")])).code).toBe(2);
+  });
+
+  test("add --outline with a broken line exits 1 and writes nothing", async () => {
+    await kb(["init", "--bare"]);
+    const before = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
+    const file = join(root, "broken.md");
+    await writeFile(file, "- fine\n  - [[Nobody]]\n");
+    const refused = await kb(["add", "--outline", file]);
+    expect(refused.code).toBe(1);
+    expect(JSON.parse(refused.stdout)).toMatchObject({ status: "failed", code: "not_found" });
+    expect(JSON.parse(refused.stdout).message).toContain("outline line 2:");
+    expect(await readFile(join(root, ".kb", "nodes.jsonl"), "utf8")).toBe(before);
+  });
+
   test("action-invoke stdin I/O failure exits 1, not UsageError 2", async () => {
     await kb(["init"]);
     const prevStdin = process.stdin;

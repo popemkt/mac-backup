@@ -54,6 +54,12 @@ function formatNodeAdd(output: unknown): string {
   return `added ${asString(o?.id)}${suffix}`;
 }
 
+function formatNodeAddTree(output: unknown): string {
+  const lines = asObject(asObject(output)?.lines) ?? {};
+  const rows = Object.entries(lines).map(([line, id]) => `  line ${line}  ${asString(id)}`);
+  return [`added ${rows.length} node${rows.length === 1 ? "" : "s"}`, ...rows].join("\n");
+}
+
 function formatNodeUpdate(output: unknown): string {
   const o = asObject(output);
   if (o?.deleted === true) return `deleted ${asString(o.id)}`;
@@ -75,6 +81,7 @@ function formatSuccess(actionId: string, output: unknown, command?: string): str
     return formatGraphResult(output);
   }
   if (actionId === "node.add") return formatNodeAdd(output);
+  if (actionId === "node.addTree") return formatNodeAddTree(output);
   if (actionId === "node.update") return formatNodeUpdate(output);
   if (actionId === "field.define" || actionId === "tag.define")
     return formatDefine(actionId, output);

@@ -1805,7 +1805,7 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     with the person's answer (DESIGN-UI.md → Docks).
 - **A batch is decided as what it batches.** An action whose every call is a
   batch of another action's calls declares the parts' ids (`batchOf` on its
-  definition). A part's mode is stated once, on the part's own definition:
+  definition; `node.addTree` is a batch of `node.add`). A part's mode is stated once, on the part's own definition:
   the registry reads it from there (`batchPartsOf`), into the manifest
   entry and into what the invoke core decides, and it refuses to register a
   batch whose part it does not hold. The resolver decides the batch as
@@ -2244,6 +2244,7 @@ transaction, one step of an open canvas's history.
 | Action                                            | Mode  | Does                                                                                                         |
 | ------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------ |
 | `node.add`                                        | write | create (text, props by field name/id, parent, position, tags)                                                |
+| `node.addTree`                                    | write | create a whole outline from outline paste text in one transaction (`kb add --outline`; [Outline paste](#outline-paste--nodeaddtree)) |
 | `node.update`                                     | write | edit text / set-unset props / move                                                                           |
 | `node.delete`                                     | write | delete a node, its descendants with it unless `descendants: "reparent"` (`kb rm`)                           |
 | `node.get`                                        | read  | pull subtree to depth N                                                                                      |
@@ -2274,6 +2275,104 @@ transaction, one step of an open canvas's history.
 its output always carries the node. Deleting is its own action because it is
 the write a caller most needs to name on its own: an approval policy matches
 an action by its id ([Action registry](#action-registry)).
+
+### Outline paste — `node.addTree`
+
+`node.addTree` takes `{outline, parent?, position?, force?}` and creates every
+item of the outline as one transaction. Each item is planned by `node.add`'s
+own planner (`planNodeAdd`): the same tag and field resolvers, value parser
+(`parseTypedValue`), cardinality, placement and sys.* guard. The plans fold
+over one working graph ([The plan graph](#the-plan-graph): `IndexedNodes`,
+indexed once and kept current as each step puts its upserts in), so each add
+sees the ones before it. Planning therefore costs the outline's size, not the
+outline times the store, and each top-level item placed at the roots costs a
+binary search. Two things go
+beyond a `node.add`, and both happen before an item is planned. First, refs
+in text and values are resolved and rewritten (below), and a dangling ref is
+refused, which `node.add` never checks. Second, a field that holds one value
+and is given a second by one item is refused at that line, where the commit's
+integrity check would refuse it with no line. The result is committed once
+through `persistEffect`, so the integrity check runs once over the whole
+tree, the transaction tail gains one record, and undo takes it back in one
+step. A failure that belongs to a line writes nothing, and its message
+starts `outline line N:` (`details.line`). Only the commit's own checks, the
+integrity check and approval, answer for the outline as a whole.
+
+The output is `ids` (every created node in tree order: an item, then its
+children) and `lines` (each item's 1-based source line → its id). Top-level
+items go under `parent` (the forest roots when omitted) at `position`,
+`position + 1`, …, or at the end, where one `node.add` would put the first.
+The action declares itself a batch of `node.add` (`batchOf`), so approval
+decides it as `node.add` too ([Action registry](#action-registry)). The syntax
+is `@kb/model`'s `parseOutline` (`outline.ts`), a pure parser that resolves
+nothing. The action is in the isomorphic registry, so the CLI (`kb add
+--outline <file>`, `-` for stdin), MCP (`node_addTree`), WebMCP, the sidebar
+agent and the page's own invoke all reach the same handler.
+
+The format is a subset of Tana Paste:
+
+- An optional first line `%%tana%%`. Blank lines are skipped. CRLF reads as LF.
+- Every other line is a `- ` item (a bare `-` is an empty item). Indentation
+  nests. Spaces, tabs or both work, provided every child of one line has the
+  same indent. Any other indent is refused at its line: one between two
+  levels, siblings that mix tabs and spaces, or a line indented less than the
+  first item.
+- `#tag` and `#[[multi word tag]]` at the start of the text or after
+  whitespace are removed from the text and applied as tags by name or id, as
+  `kb add --tag` does. A bare name is letters, digits, `_` and `-`, with `.`
+  allowed inside it but not at its end (`#v1.2` is one tag, while `#todo.`
+  is `todo` followed by a full stop). A tag that does not exist is refused,
+  because no surface mints tags implicitly.
+- An item whose text is `name:: value` is a field of the item above it, not a
+  node. `name::` followed by nested `- value` items holds several values, and
+  an inline value may be combined with nested ones. Each value is read as the
+  field's declared type, as `--prop` does. A field that does not exist is
+  refused, and `kb add --outline --create` mints it first, as
+  `kb add --create` does. `::` makes a field only when whitespace or the end
+  of the line follows it, so `a::b` stays text.
+- `[[id]]` and `[[id|label]]` in text and in values are the ordinary ref form
+  ([Data model](#data-model--everything-is-a-node)). A target that is a stored
+  node's id is kept as written. Otherwise it must be the exact text (tags
+  removed) of one item of the same outline, earlier or later, and it is
+  rewritten to `[[<new id>|label]]`. A ref field's value is one ref: a token
+  on its own, or a bare id or item text (`owner:: Ada`). Text around a token
+  is refused. **An unresolved ref fails the whole outline** (`not_found`), and
+  a name two items share fails it (`ambiguous`). No ref is guessed by
+  searching existing nodes' text, and no ref creates a node.
+
+Kept as text, because kb gives none of them a meaning: todo checkboxes
+(`[ ]`, `[x]`; a task model is a choice, not universal), headings (`!! `,
+`# `), inline markdown, and a `#tag` inside a field value. A `#` that does not
+start a word (`C#`, a URL's `/#frag`) is also text.
+
+Refused at their line:
+
+- Tana dates (`[[date:…]]`); write the date as a date field's value instead.
+- Other `%%…%%` directives.
+- Any line that is not a `- ` item: paragraphs, multi-line text, `*` or
+  numbered bullets.
+- A field with no value, a field directly under the top level, and a field
+  used as another field's value.
+- Children under a field value. Tana and Logseq let a value be a node, but kb
+  does not.
+
+Prior art. **Logseq and Roam** markdown outlines share this grammar's core
+(`- ` nesting, `#tag`, `#[[tag]]`, `key:: value`, `[[ref]]`), so they paste
+through this parser and are not a second format. Where they differ, the
+difference is refused or kept as text, never translated. Logseq's property
+lines without a bullet are refused. `((block-uuid))` refs and Roam
+`{{macros}}` stay text, except that a macro wrapping a ref, like
+`{{[[TODO]]}}`, is refused as an unresolved ref. A page ref that names no
+item is refused instead of creating a page. **OPML** is parked: it needs an
+XML parser in the isomorphic domain, and its attributes map to nothing past
+`text`. When it is wanted, it should be a converter to outline paste, not a
+second write path.
+
+`--create` mints missing fields through `field.define` before the outline's
+own transaction, as it does for `kb add`. An outline that then fails keeps
+those fields. The all-or-nothing promise therefore covers the outline's nodes
+and props, but not fields minted on the command line
+(GAP [[01M52F7X4YQ7W3TJHVPBBXARGP]]).
 
 ## Materialization
 

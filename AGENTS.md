@@ -214,6 +214,7 @@ can subscribe to live datalog queries over its `/ws` endpoint (see protocol in
 
 ```bash
 kb add "Fix drift audit" --tag todo --prop status=doing   # alias for bun tools/kb/packages/app/cli/src/main.ts
+kb add --outline plan.md --parent <id>   # a whole outline (Tana Paste) in one tx; tools/kb/DESIGN.md → Outline paste
 kb search "drift" --json
 kb query '[:find ?id ?text :where [?n :f/sys.f.type ?t] [?t :node/text "todo"] [?n :node/id ?id] [?n :node/text ?text]]'
 kb query '[:find ?from ?text :where [?e :node/mentions ?m] [?m :node/id "n.root-a"] [?e :node/id ?from] [?e :node/text ?text]]'
