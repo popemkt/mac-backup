@@ -7,8 +7,8 @@ import {
   OntologyScopeView,
   type OntologyScopeParams,
   OutlineView,
+  viewNamed,
 } from "@kb/views";
-import { GraphView } from "@kb/graph";
 import { isOntologyNode } from "@kb/model";
 import {
   listOntologyItems,
@@ -23,7 +23,9 @@ import {
   ViewErrorBoundary,
   type ViewProps,
   ViewSlot,
+  ViewNotLoaded,
 } from "@kb/ui-sdk";
+import { usePageCatalog } from "@/lib/view-catalog";
 import { useGraphStore } from "@/stores/graph.store";
 
 const OntologyPage = lazy(() =>
@@ -82,15 +84,7 @@ export function OntologySurface({ params }: ViewProps<OntologyScopeParams>) {
   const missing = (what: string) => (
     <NotFound what={what} back={{ label: "Ontology", path: ontologyPath(id) }} />
   );
-  if (view === "graph")
-    return (
-      <ViewSlot
-        view={GraphView}
-        params={{ ontology: id }}
-        placement="page"
-        fallback={missing("Graph")}
-      />
-    );
+  if (view === "graph") return <OntologyGraph ontologyId={id} />;
   return (
     <ViewErrorBoundary title="Ontology crashed" resetKey={`${id}:${view}`}>
       {view === "page" ? (
@@ -99,6 +93,34 @@ export function OntologySurface({ params }: ViewProps<OntologyScopeParams>) {
         <ViewSlot view={OutlineView} params={{}} placement="page" fallback={missing("Outline")} />
       )}
     </ViewErrorBoundary>
+  );
+}
+
+/**
+ * The graph's page, by its id: the graph is a family that may be off, so the
+ * ontology names its view softly, through the page's catalog, and imports
+ * nothing of it. While the graph is off its view is listed by no key, and the
+ * tab says it cannot be shown here, by the label its option node carries.
+ */
+const GRAPH_PAGE = "graph.page";
+
+function OntologyGraph({ ontologyId }: { readonly ontologyId: string }) {
+  const catalog = usePageCatalog();
+  const wireNodes = useGraphStore((s) => s.wireNodes);
+  const key = catalog.keyOf(GRAPH_PAGE);
+  const label = useMemo(
+    () => viewNamed(GRAPH_PAGE, catalog, (id) => wireNodes.find((n) => n.id === id))?.label,
+    [catalog, wireNodes],
+  );
+  const unavailable = <ViewNotLoaded label={label ?? "Graph"} />;
+  if (key === null) return unavailable;
+  return (
+    <ViewSlot
+      view={key}
+      params={{ ontology: ontologyId }}
+      placement="page"
+      fallback={unavailable}
+    />
   );
 }
 

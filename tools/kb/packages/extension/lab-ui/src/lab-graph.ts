@@ -2,23 +2,22 @@
  * The graph, for a lab study that chooses to read it (the Sky does; the lab
  * does not require it).
  *
- * There is no lab data path. The nodes and edges are `extractLensGraph` over
- * the outline store's wire nodes and index, through the same default
- * perspective the graph page opens on (`resolvePerspective`), so a node the
- * graph hides the lab hides too. The lab adds only what the wire node already carries and the lens does not:
- * how recently each node changed.
+ * There is no lab data path. The nodes and edges are the lens graph of the
+ * default perspective the graph page opens on, over the page's wire nodes and
+ * index, which the graph's browser half answers (`LensGraphService`), so a
+ * node the graph hides the lab hides too. The lab adds only what the wire
+ * node already carries and the lens does not: how recently each node
+ * changed. The lab injects the service, so it waits while the graph is off.
  */
 import { useMemo } from "react";
 import type { WireNode } from "@kb/contracts";
 import {
-  extractLensGraph,
-  listPerspectiveNodes,
-  parsePerspective,
+  currentService,
+  LensGraphService,
   useIndex,
   useWireNodes,
   type LensGraph,
 } from "@kb/ui-sdk";
-import { resolvePerspective } from "@kb/graph";
 
 export interface LabNode {
   readonly id: string;
@@ -79,11 +78,12 @@ export function useLabGraph(): LabGraph {
   const wireNodes = useWireNodes();
   const index = useIndex();
   return useMemo(() => {
-    const perspective = resolvePerspective(
-      listPerspectiveNodes(index, wireNodes).map(parsePerspective),
-      null,
-    );
-    if (index === null || perspective === null) return { nodes: [], edges: [] };
-    return toLabGraph(extractLensGraph(index, wireNodes, perspective), wireNodes);
+    const lens =
+      index === null
+        ? null
+        : currentService(LensGraphService)?.ofPerspective(index, wireNodes, null);
+    return lens === null || lens === undefined
+      ? { nodes: [], edges: [] }
+      : toLabGraph(lens, wireNodes);
   }, [wireNodes, index]);
 }

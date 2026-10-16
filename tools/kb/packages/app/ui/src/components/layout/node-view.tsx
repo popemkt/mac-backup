@@ -9,22 +9,14 @@ import {
   schemaOf,
   useContributions,
   ViewSlot,
+  ViewNotLoaded,
+  ViewUnavailable,
   WorkspaceState,
   type ViewProps,
 } from "@kb/ui-sdk";
 import { ScrollRegion } from "./pane-frame";
 import { usePageCatalog } from "@/lib/view-catalog";
 import { useGraphStore } from "@/stores/graph.store";
-
-/** The one "cannot be shown here" state, saying why. */
-function unavailable(why: string) {
-  return <WorkspaceState title="This view cannot be shown here" description={why} />;
-}
-
-/** Why a view named `label` that this page holds no key for cannot be shown. */
-function notLoaded(label: string): string {
-  return `${label}: its plugin is not loaded, or a pane around it already shows it.`;
-}
 
 /**
  * `/node/<id>[/<view>]`: a node in its default view, or through one view
@@ -51,7 +43,11 @@ export function NodeViewSurface({ params }: ViewProps<NodeParams>) {
   const found = target.success;
   // A view no plugin on this page draws, or a view the data names that is broken.
   if (found.key === null)
-    return unavailable("broken" in found ? found.broken : notLoaded(found.listed.label));
+    return "broken" in found ? (
+      <ViewUnavailable why={found.broken} />
+    ) : (
+      <ViewNotLoaded label={found.listed.label} />
+    );
   return <HeldView target={found} />;
 }
 
@@ -68,7 +64,7 @@ function HeldView({ target }: { readonly target: HeldViewTarget }) {
       placement="page"
       subject={target.subject}
       {...(target.viewNode === undefined ? {} : { viewNode: target.viewNode })}
-      fallback={unavailable(notLoaded(target.key.label))}
+      fallback={<ViewNotLoaded label={target.key.label} />}
     />
   );
   // Framed as the route that opens the view frames it; a view no route opens fills the pane.

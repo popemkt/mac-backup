@@ -89,6 +89,8 @@ export type LensLinkStyle = keyof typeof GRAPH_LINK_STYLE_VALUES;
 export const DEFAULT_EDGE_KINDS: EdgeKind[] = ["mention", "child"];
 export const DEFAULT_MAX_NODES = 500;
 export const DEFAULT_COLOR_BY = "tag";
+/** What a `fixed:` colour source that names no colour draws in. */
+export const DEFAULT_FIXED_COLOR = "#888888";
 export const DEFAULT_SIZE_BY = "degree";
 /** A graph that names no label source labels its nodes by their text. */
 const DEFAULT_LABEL_BY = "text";

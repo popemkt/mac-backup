@@ -5,6 +5,7 @@ import { matchLab } from "./routes";
 import { LabSection, LabSurface } from "./surfaces";
 import {
   BrowserHostService,
+  LensGraphService,
   provideRoute,
   provideView,
   RoutePoint,
@@ -17,7 +18,9 @@ import {
  * anything reaches a working view. Optional and off by default: the server
  * loads the lab family only while a person has it switched on, and the page
  * loads this entry only while the server reports it (`ui-plugins.ts`), so
- * its view, its route and its sidebar row exist only then.
+ * its view, its route and its sidebar row exist only then. Its studies draw
+ * the graph's lens graph, so it injects the graph's `LensGraphService` and
+ * waits, pending, while the graph is off.
  *
  * It is the lab family's page entry, so it loads the family's shared plugin
  * as a child: the lab page's key reaches the page kernel's catalog from the
@@ -25,7 +28,7 @@ import {
  */
 export const labUiPlugin = definePlugin({
   name: labExtension.name,
-  inject: [BrowserHostService],
+  inject: [BrowserHostService, LensGraphService],
   apply: (ctx) =>
     Effect.all(
       [

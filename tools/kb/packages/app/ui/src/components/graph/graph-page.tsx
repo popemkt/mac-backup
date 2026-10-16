@@ -5,15 +5,11 @@ import { setGraphRenderer } from "./lens-writes";
 import {
   browserHost,
   cn,
-  extractLensGraph,
   hasText,
-  lensReport,
   listOntologyItems,
-  listPerspectiveNodes,
   navigate,
   OntologyPicker,
   ontologyPath,
-  parsePerspective,
   SidebarToggle,
   ThemeIcon,
   useAppearance,
@@ -27,6 +23,7 @@ import {
   ViewSlot,
   WorkspaceState,
 } from "@kb/ui-sdk";
+import { extractLensGraph, lensReport, listPerspectiveNodes, parsePerspective } from "./graph-lens";
 import {
   buildTreeForest,
   resolvePerspective,

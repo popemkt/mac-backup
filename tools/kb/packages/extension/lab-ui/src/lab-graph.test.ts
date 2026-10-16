@@ -19,7 +19,7 @@ describe("toLabGraph", () => {
     const ids = Array.from({ length: 10 }, (_, i) => `n${i}`);
     const lens: LensGraph = {
       nodes: ids.map((id) => lensNode(id)),
-      edges: [{ source: "n0", target: "n1", kind: "child", weight: 1 }],
+      edges: [{ source: "n0", target: "n1" }],
       dropped: 0,
       queryError: null,
     };

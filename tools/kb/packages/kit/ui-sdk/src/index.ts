@@ -130,6 +130,7 @@ export { useRevealMarkup } from "./components/use-reveal-markup";
 export { ViewErrorBoundary } from "./components/view-error-boundary";
 export { WorkspaceBoundary } from "./components/workspace-boundary";
 export { WorkspaceState } from "./components/workspace-state";
+export { ViewNotLoaded, ViewUnavailable } from "./components/view-unavailable";
 
 // The graph as the page holds it: nodes, values, the schema and its field
 // types, references, instances, perspectives, and the replica's one query seam.
@@ -162,15 +163,12 @@ export {
   resolveVisibleProps,
 } from "./lib/field-visibility";
 export {
-  extractLensGraph,
-  lensConfig,
   type LensGraph,
+  type LensGraphEdge,
+  type LensGraphs,
+  LensGraphService,
   type LensNode,
-  lensReport,
-  listPerspectiveNodes,
-  parsePerspective,
-  resolveSize,
-} from "./lib/graph-lens";
+} from "./lib/lens-graph";
 export {
   forestRootIds,
   formatPropValue,
@@ -273,6 +271,7 @@ export {
   DatascriptIndex,
   type KbIndex,
   queryBacklinks,
+  queryFamilyViewNodes,
   queryNeighbourhood,
   queryRecords,
   type QueryRecords,
@@ -397,6 +396,8 @@ export {
   tagColorAlpha,
   tagColorOf,
   tagPalette,
+  type TagPalette,
+  UNTAGGED_COLOR,
 } from "./lib/tag-color";
 export { hasText, textOr } from "./lib/text";
 export {

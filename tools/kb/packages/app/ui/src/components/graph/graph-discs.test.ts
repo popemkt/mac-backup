@@ -11,13 +11,8 @@ import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import {
-  DatascriptIndex,
-  extractLensGraph,
-  parsePerspective,
-  resolveSize,
-  type LensGraph,
-} from "@kb/ui-sdk";
+import { DatascriptIndex } from "@kb/ui-sdk";
+import { extractLensGraph, type GraphLens, parsePerspective, resolveSize } from "./graph-lens";
 import { fa2Settings } from "./fa2-layout";
 import { computeLayoutPositions } from "@/components/graph/graph-layouts";
 import {
@@ -60,7 +55,7 @@ function medianNearest(discs: readonly Disc[]): number {
 }
 
 /** The lens graph as sigma receives it, laid out and settled as the 2D renderer does. */
-function settled(lens: LensGraph): Graph {
+function settled(lens: GraphLens): Graph {
   const graph = new Graph({ multi: true, type: "directed" });
   lens.nodes.forEach((n, i) =>
     graph.addNode(n.id, {
@@ -76,7 +71,7 @@ function settled(lens: LensGraph): Graph {
   return graph;
 }
 
-function fixtureLens(): LensGraph {
+function fixtureLens(): GraphLens {
   const nodes = fixtureGraph.nodes;
   const lens = present(
     nodes.find((n) => n.id === "lens.all-mentions"),
@@ -88,7 +83,7 @@ function fixtureLens(): LensGraph {
 }
 
 /** Six hubs of eighty leaves each, and a few links between the hubs. */
-function denseLens(): LensGraph {
+function denseLens(): GraphLens {
   const hubs = Array.from({ length: 6 }, (_, h) => `hub.${h}`);
   const leaves = hubs.flatMap((hub) => Array.from({ length: 80 }, (_, i) => `${hub}.${i}`));
   const edges = [

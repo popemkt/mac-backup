@@ -656,7 +656,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
-        "@kb/graph": "workspace:*",
         "@kb/lab": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/scene": "workspace:*",
@@ -820,7 +819,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
-        "@kb/graph": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",

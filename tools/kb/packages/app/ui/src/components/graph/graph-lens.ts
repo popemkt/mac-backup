@@ -1,51 +1,46 @@
 /**
- * V0 graph-lens module — pure extract of {nodes, edges} from client DataScript
- * + wire nodes, driven by a graph view node's lens props.
+ * The graph's lens: the extract of {nodes, edges} from the page's index and
+ * wire nodes, driven by a graph view node's lens props. It is the one
+ * extraction: the graph page draws it, and it answers the kit's
+ * `LensGraphService` for any other half that reads the graph (the lab).
  */
-import type { BulletAppearance } from "./bullet-mode";
 import type { NodeProps } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import {
   collectEdges,
   decodePerspective,
+  resolvePerspective,
   type LensEdge,
   DEFAULT_CLUSTER_BY,
+  DEFAULT_FIXED_COLOR,
   decodeLensConfig,
   type LensPerspective,
   type LensProps,
 } from "@kb/graph";
-import type { KbIndex } from "../query";
-import { queryFamilyViewNodes, runQuery } from "../query";
-import { UNTAGGED_COLOR, hashTagColor, tagColorOf, tagPalette, type TagPalette } from "./tag-color";
-import { graphDisplayText } from "./graph-label";
-import { SYSTEM_IDS, isSysPrefixed } from "./types";
-import { logWarn } from "./log";
+import {
+  graphDisplayText,
+  hashTagColor,
+  isSysPrefixed,
+  type KbIndex,
+  type LensGraph,
+  type LensGraphs,
+  type LensNode,
+  logWarn,
+  queryFamilyViewNodes,
+  runQuery,
+  SYSTEM_IDS,
+  tagColorOf,
+  tagPalette,
+  type TagPalette,
+  UNTAGGED_COLOR,
+} from "@kb/ui-sdk";
 
-export interface LensNode {
-  id: string;
-  label: string;
-  color: string;
-  size: number;
-  clusterKey: string;
-  /** Human presentation of the cluster identity, resolved before renderer projection. */
-  clusterLabel?: string;
-  tags: string[];
-  tagIds?: string[];
-  degree: number;
-  weight?: number;
-  colorKey?: string;
-  colorLabel?: string;
-  /** The bullet the outline draws for this node, where a renderer draws it so (`lib/bullet-mode`). */
-  bullet?: BulletAppearance;
-}
-
-export interface LensGraph {
-  nodes: LensNode[];
+/**
+ * The lens graph as the graph draws it: the kit's shape (`LensGraph`), with
+ * each edge the projection's own (`@kb/graph`'s `LensEdge`), kind included.
+ */
+export interface GraphLens extends LensGraph {
   edges: LensEdge[];
-  /** Nodes dropped by max-nodes cap. */
-  dropped: number;
-  /** Query parse/exec error message, if any. */
-  queryError: string | null;
 }
 
 function isTagNode(node: WireNode | undefined): boolean {
@@ -76,7 +71,10 @@ export function firstTagOf(
  * The graphs: the view nodes whose view is a renderer, by the query that says
  * so (`familyViewNodesQuery`), in label order. None while the index loads.
  */
-export function listPerspectiveNodes(db: KbIndex | null, wireNodes: WireNode[]): WireNode[] {
+export function listPerspectiveNodes(
+  db: KbIndex | null,
+  wireNodes: readonly WireNode[],
+): WireNode[] {
   if (db === null) return [];
   const ids = new Set(queryFamilyViewNodes(db, "graph.renderer"));
   return wireNodes
@@ -107,7 +105,10 @@ export function lensReport(subject = ""): (warning: string) => void {
 }
 
 /** parentOf map from children[] within an optional id set. */
-export function buildParentMap(wireNodes: WireNode[], nodeSet?: Set<string>): Map<string, string> {
+export function buildParentMap(
+  wireNodes: readonly WireNode[],
+  nodeSet?: Set<string>,
+): Map<string, string> {
   const parentOf = new Map<string, string>();
   for (const n of wireNodes) {
     if (nodeSet && !nodeSet.has(n.id)) continue;
@@ -216,7 +217,7 @@ export interface ExtractLensOptions {
 
 function resolveNodeSet(
   db: KbIndex,
-  wireNodes: WireNode[],
+  wireNodes: readonly WireNode[],
   perspective: LensPerspective,
   opts: ExtractLensOptions = {},
 ): { nodeSet: Set<string>; queryError: string | null } {
@@ -276,8 +277,7 @@ export function resolveColor(
   palette: TagPalette = tagPalette(byId),
 ): string {
   if (colorBy.startsWith("fixed:")) {
-    const hex = colorBy.slice("fixed:".length).trim() || "#888888";
-    return hex;
+    return colorBy.slice("fixed:".length).trim() || DEFAULT_FIXED_COLOR;
   }
   if (colorBy.startsWith("prop:") || colorBy === "parent" || colorBy === "none") {
     return hashTagColor(resolveCluster(wire, byId, parentOf, colorBy).key);
@@ -310,10 +310,10 @@ function resolveMeasure(wire: WireNode, sizeBy: string, degree: number): number 
 
 export function extractLensGraph(
   db: KbIndex,
-  wireNodes: WireNode[],
+  wireNodes: readonly WireNode[],
   perspective: LensPerspective,
   opts: ExtractLensOptions = {},
-): LensGraph {
+): GraphLens {
   const byId = new Map(wireNodes.map((n) => [n.id, n]));
   const { nodeSet, queryError } = resolveNodeSet(db, wireNodes, perspective, opts);
   const kinds = new Set(perspective.edgeKinds);
@@ -381,3 +381,18 @@ export function extractLensGraph(
   }
   return { nodes: nodes.toSorted((a, b) => a.id.localeCompare(b.id)), edges, dropped, queryError };
 }
+
+/**
+ * The lens graphs the graph answers for the page (`LensGraphService`): a
+ * perspective's, else the default one's the graph page opens on, by the same
+ * extraction the page draws.
+ */
+export const lensGraphs: LensGraphs = {
+  ofPerspective: (index, wireNodes, perspectiveId) => {
+    const perspective = resolvePerspective(
+      listPerspectiveNodes(index, wireNodes).map(parsePerspective),
+      perspectiveId,
+    );
+    return perspective === null ? null : extractLensGraph(index, wireNodes, perspective);
+  },
+};

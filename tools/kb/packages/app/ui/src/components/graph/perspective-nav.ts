@@ -1,6 +1,7 @@
 /** The sidebar's Graph section, as rows: a pure selector, store fixtures in. */
 import type { WireNode } from "@kb/contracts";
-import { listPerspectiveNodes, type KbIndex, type SidebarNavItem } from "@kb/ui-sdk";
+import type { KbIndex, SidebarNavItem } from "@kb/ui-sdk";
+import { listPerspectiveNodes } from "./graph-lens";
 
 /** The graph view nodes (view nodes whose view is a renderer), for the Graph section. */
 export function listPerspectiveNavItems(

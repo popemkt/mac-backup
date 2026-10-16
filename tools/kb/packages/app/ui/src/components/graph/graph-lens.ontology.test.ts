@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { DatascriptIndex } from "../query";
+import { DatascriptIndex } from "@kb/ui-sdk";
 import { extractLensGraph } from "./graph-lens";
 import { DEFAULT_MAX_NODES, type LensPerspective } from "@kb/graph";
 

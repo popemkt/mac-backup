@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { DatascriptIndex } from "../query";
+import { DatascriptIndex, SYSTEM_IDS } from "@kb/ui-sdk";
 import {
   buildTreeForest,
   DEFAULT_EDGE_KINDS,
@@ -19,7 +19,6 @@ import {
   resolveSize,
   buildParentMap,
 } from "./graph-lens";
-import { SYSTEM_IDS } from "./types";
 
 const ISO = "2026-08-08T05:00:00.000Z";
 

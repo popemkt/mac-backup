@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
-import type { Appearance, LensGraph } from "@kb/ui-sdk";
+import type { Appearance } from "@kb/ui-sdk";
+import type { GraphLens } from "./graph-lens";
 import type { LensTreeNode, LensPerspective } from "@kb/graph";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
@@ -11,7 +12,7 @@ import type { GraphSelection } from "./graph-selection";
  * of it is config — so it travels beside the params, never in them.
  */
 export interface GraphFrame {
-  lensGraph: LensGraph;
+  lensGraph: GraphLens;
   forest: LensTreeNode[];
   /** The perspective's identity: a renderer keeps its layout while it holds. */
   layoutKey: string;

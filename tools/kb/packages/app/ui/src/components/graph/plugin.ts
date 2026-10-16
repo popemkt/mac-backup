@@ -29,8 +29,10 @@ import {
   TreemapView,
 } from "@kb/graph";
 import { NeighbourhoodGraph } from "@/components/graph/neighbourhood-view";
+import { lensGraphs } from "@/components/graph/graph-lens";
 import {
   BrowserHostService,
+  LensGraphService,
   provideRoute,
   provideView,
   RoutePoint,
@@ -45,6 +47,8 @@ import {
  * renderer switch in its picker's order — and a node's neighbourhood, which
  * hosts a renderer in a box of its own. It injects the page's host, as a
  * family's browser half does, and waits as pending until the shell provides it.
+ * It provides the lens graph of a perspective (`LensGraphService`) for the
+ * halves that draw the graph without being it.
  */
 export const graphUiPlugin = definePlugin({
   name: GRAPH_NAMESPACE,
@@ -52,6 +56,7 @@ export const graphUiPlugin = definePlugin({
   apply: (ctx) =>
     Effect.all(
       [
+        ctx.provide(LensGraphService, lensGraphs),
         ctx.contribute(
           ViewPoint,
           provideView(GraphView, { placements: ["page"], sample: {}, Component: GraphSurface }),

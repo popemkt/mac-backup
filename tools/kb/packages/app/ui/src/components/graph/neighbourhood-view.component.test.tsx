@@ -10,7 +10,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { Result } from "effect";
 import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
-import { lensReport, syncUiPlugins, ViewSlot } from "@kb/ui-sdk";
+import { syncUiPlugins, ViewSlot } from "@kb/ui-sdk";
+import { lensReport } from "./graph-lens";
 import { paramsFromProps } from "@kb/views";
 import { NeighbourhoodView, type NeighbourhoodParams } from "@kb/graph";
 import { useGraphStore } from "@/stores/graph.store";

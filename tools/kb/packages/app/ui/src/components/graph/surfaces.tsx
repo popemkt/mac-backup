@@ -12,7 +12,6 @@ import {
 } from "@kb/graph";
 import {
   keptLoad,
-  listPerspectiveNodes,
   navigate,
   NotFound,
   paramsOf,
@@ -24,6 +23,7 @@ import {
   type MatchedRoute,
   type ViewProps,
 } from "@kb/ui-sdk";
+import { listPerspectiveNodes } from "./graph-lens";
 import { listPerspectiveNavItems } from "./perspective-nav";
 import { graphPath } from "./routes";
 

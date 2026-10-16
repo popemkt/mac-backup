@@ -206,7 +206,7 @@ describe("ontology scope (acceptance)", () => {
         .map((r) => r.id),
     ).toEqual(["n.caddy"]);
 
-    const { extractLensGraph } = await import("@kb/ui-sdk");
+    const { extractLensGraph } = await import("@/components/graph/graph-lens");
     const s = useGraphStore.getState();
     const graph = extractLensGraph(
       present(s.index, "query db"),
