@@ -684,6 +684,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — put the host in the query-row instance key
 - **node** — `01M411FPC839XBJJ873V1VYYYD`
 
+### GAP: rankBetween grows ranks by a digit per tail append within one plan
+
+- **expected** — appending many siblings in one plan keeps rank length bounded (e.g. rank allocation that spreads appended ranks)
+- **current** — rankBetween bumps one digit per tail append; after ~400 appends to one group in a single plan ranks pass 12 characters and placement scans back for a usable neighbour until the commit re-spreads the group
+- **impact** — one outline paste with several hundred siblings under one parent slows per item; the counted plan test stops at 350
+- **closes** — a rank allocation in order.ts with bounded growth for repeated appends, proven by the plan test at thousands of siblings
+- **node** — `01M52RMD1V9BW6E27RYYSH2K5X`
+
 ### GAP: reach is recognised only inside the query subset parseEdn models
 
 - **expected** — (reach ...) works in any datalog query: parseEdn keeps where-clauses it does not model (predicates, not/or, _ wildcards, 2-element patterns) and sections like :with/:keys/:limit as opaque IR the compiler emits verbatim, so the parser never has to fall a whole query back to raw.
