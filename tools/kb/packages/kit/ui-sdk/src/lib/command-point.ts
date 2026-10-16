@@ -25,8 +25,6 @@ export interface OutlineCommandApi {
   readonly wireNodes: WireNode[];
   jumpToNode: (id: string) => void;
   zoomTo: (id: string) => void;
-  expandAllInScope: () => void;
-  collapseAllInScope: () => void;
   /** The frame views provided, in their pickers' order. */
   frameViews: () => readonly FamilyView<FrameViewKey>[];
 }

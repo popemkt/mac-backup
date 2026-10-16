@@ -1,7 +1,7 @@
 /**
  * What a command reads and drives of the page (`OutlineCommandApi`), read
  * now: the zoom, the scope and the graph from the graph store, the selection,
- * the rows and the editor's verbs from the outline, and the frame views from
+ * the rows and the reveal from the outline, and the frame views from
  * their port. Both palettes run commands against it, so the context is built
  * in one place.
  */
@@ -21,8 +21,6 @@ export function pageCommandApi(): OutlineCommandApi {
     wireNodes: graph.wireNodes,
     jumpToNode: outline.jumpToNode,
     zoomTo: graph.zoomTo,
-    expandAllInScope: outline.expandAllInScope,
-    collapseAllInScope: outline.collapseAllInScope,
     frameViews: providedFrameViews,
   };
 }

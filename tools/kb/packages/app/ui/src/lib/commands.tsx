@@ -227,12 +227,6 @@ const GLOBAL_COMMANDS: readonly Command[] = [
       ctx.debugFields.toggle(nodeId);
     },
   },
-  { id: SYSTEM_IDS.cmdExpandAll, scope: "global", run: (ctx) => ctx.outline.expandAllInScope() },
-  {
-    id: SYSTEM_IDS.cmdCollapseAll,
-    scope: "global",
-    run: (ctx) => ctx.outline.collapseAllInScope(),
-  },
   {
     // Portal host (ViewFilterPopoverHost) anchors to toolbar/frame row; if no
     // DOM host exists it toasts and clears — never a silent no-op.

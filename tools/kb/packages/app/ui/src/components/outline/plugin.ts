@@ -20,6 +20,7 @@ import {
 } from "@kb/views";
 import { OutlineSnippet } from "@/components/outline/outline-snippet";
 import {
+  CommandPoint,
   provideRoute,
   provideView,
   RoutePoint,
@@ -32,14 +33,16 @@ import { provideFrameViews, withdrawFrameViews } from "@/stores/frame-views";
 import { provideEditingProjection, withdrawEditingProjection } from "@/stores/graph.store";
 import { outlineProjection } from "@/stores/outline.store";
 import { readFrameViews } from "@/components/outline/use-frame-views";
+import { OUTLINE_COMMANDS } from "@/components/outline/outline-commands";
 
 const { filters, sort, display, colwidth, pagesize, groupFieldId } = DEFAULT_VIEW_CONFIG;
 
 /**
  * The outline: its page, the route to it at `/`, the Home and Pinned sidebar
- * sections, and its four frame views — each shown inline, under the row of the
- * frame whose children it lays out, and named for the toolbar, the node menu
- * and its `sys.command` node by its `picker`, in the order they are offered.
+ * sections, its expand-all and collapse-all commands, and its four frame
+ * views — each shown inline, under the row of the frame whose children it
+ * lays out, and named for the toolbar, the node menu and its `sys.command`
+ * node by its `picker`, in the order they are offered.
  */
 export const outlineUiPlugin = definePlugin({
   name: OUTLINE_NAMESPACE,
@@ -157,6 +160,9 @@ export const outlineUiPlugin = definePlugin({
           id: "pinned",
           value: { order: 100, Component: PinnedSection },
         }),
+        ...OUTLINE_COMMANDS.map((command) =>
+          ctx.contribute(CommandPoint, { id: command.id, value: command }),
+        ),
       ],
       { discard: true },
     ),
