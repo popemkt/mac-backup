@@ -20,7 +20,7 @@ import {
   useExtensionSwitches,
 } from "@/ui-plugins";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { pageEditor } from "@/stores/page-editor";
 import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store";
@@ -238,7 +238,7 @@ export function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const o = useOutlineStore.getState();
+      const o = pageEditor().getState();
       const action = matchGlobalShortcut(e, {
         rowAnchored: o.activeNodeId !== null || o.selectedNodeId !== null,
       });

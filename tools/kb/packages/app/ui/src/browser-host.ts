@@ -12,7 +12,8 @@ import { BrowserHostService, type BrowserHost } from "@kb/ui-sdk";
 import { hostSandboxFrame, invokeAsScript, isTrusted, setTrusted } from "@/lib/sandbox-host";
 import { invoke } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { pageRows, subscribePage } from "@/stores/page";
+import { pageEditor } from "@/stores/page-editor";
 import {
   appearanceIn,
   sidebarOpenIn,
@@ -25,22 +26,28 @@ import { paneScreenPort } from "@/stores/screen.store";
 import { useUiStore } from "@/stores/ui.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 
-/** The stores the host's reads answer from. */
-const SOURCES = [useGraphStore, useOutlineStore, usePrefsStore, useUiStore] as const;
+/**
+ * The stores the host's reads answer from, beside the page itself (its graph,
+ * projection and editor, `subscribePage`).
+ */
+const SOURCES = [usePrefsStore, useUiStore] as const;
 
 const host: BrowserHost = {
   // A node text port is what the shell binds its own text hosts through, so
   // the host is that port, listened to over every store its reads answer from.
   ...nodeTextPort,
   subscribe: (listener) => {
-    const unsubscribes = SOURCES.map((store) => store.subscribe(listener));
+    const unsubscribes = [
+      subscribePage(listener),
+      ...SOURCES.map((store) => store.subscribe(listener)),
+    ];
     return () => {
       for (const unsubscribe of unsubscribes) unsubscribe();
     };
   },
-  node: (id) => outlineNodes().get(id),
+  node: (id) => pageRows().get(id),
   isActive: (nodeId, instanceKey) => {
-    const { activeNodeId, activeInstanceKey } = useOutlineStore.getState();
+    const { activeNodeId, activeInstanceKey } = pageEditor().getState();
     return activeNodeId === nodeId && activeInstanceKey === instanceKey;
   },
   wireNodes: () => useGraphStore.getState().wireNodes,
@@ -55,7 +62,7 @@ const host: BrowserHost = {
   refInk: () => refInkIn(useGraphStore.getState()),
   zoomTo: (id) => useGraphStore.getState().zoomTo(id),
   activateNode: (nodeId, cursorPos, instanceKey) =>
-    useOutlineStore.getState().activateNode(nodeId, cursorPos, instanceKey),
+    pageEditor().getState().activateNode(nodeId, cursorPos, instanceKey),
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),
   replaceField: (nodeId, fieldId, values) => mutations.replaceField(nodeId, fieldId, values),
   updateNodeContent: (nodeId, text) => mutations.updateNodeContent(nodeId, text),

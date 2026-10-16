@@ -30,8 +30,9 @@ import {
 } from "@kb/ui-sdk";
 import { ListBulletsIcon, SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
 import { provideFrameViews, withdrawFrameViews } from "@/stores/frame-views";
-import { provideEditingProjection, withdrawEditingProjection } from "@/stores/graph.store";
-import { outlineProjection } from "@/stores/outline.store";
+import { providePageProjection, withdrawPageProjection } from "@/stores/graph.store";
+import { outlineProjection, useOutlineStore } from "@/stores/outline.store";
+import { providePageEditor, withdrawPageEditor } from "@/stores/page-editor";
 import { readFrameViews } from "@/components/outline/use-frame-views";
 import { OUTLINE_COMMANDS } from "@/components/outline/outline-commands";
 
@@ -119,16 +120,25 @@ export const outlineUiPlugin = definePlugin({
           Effect.sync(() => provideFrameViews(readFrameViews)),
           () => Effect.sync(() => withdrawFrameViews(readFrameViews)),
         ),
-        // The page edits through the outline: the graph store tells it of each
-        // move, so its expansion and focus follow, while this plugin is
-        // loaded. Unloading leaves the page as a page move does (an empty row
-        // it minted is pruned); its rows are still read from the graph, and
-        // its own state stays where it was. Loaded again, it follows the graph
-        // as a fresh load: the expansion is read from storage again, and the
-        // focus and transient rows start empty.
+        // The page stands in the outline while this plugin is loaded: the
+        // outline is its projection, which the graph store tells of each move
+        // and the shell reads rows and reveals through, and its store is the
+        // page's editor. Unloading leaves the page as a page move does (an
+        // empty row it minted is pruned), and the shell then reads no
+        // projection and no editor; the outline's own state stays where it
+        // was. Loaded again, it follows the graph as a fresh load: the
+        // expansion is read from storage again, and the focus and transient
+        // rows start empty.
         Effect.acquireRelease(
-          Effect.sync(() => provideEditingProjection(outlineProjection)),
-          () => Effect.sync(() => withdrawEditingProjection(outlineProjection)),
+          Effect.sync(() => {
+            providePageProjection(outlineProjection);
+            providePageEditor(useOutlineStore);
+          }),
+          () =>
+            Effect.sync(() => {
+              withdrawPageEditor(useOutlineStore);
+              withdrawPageProjection(outlineProjection);
+            }),
         ),
         ...OUTLINE_VIEWS.map((view) => ctx.contribute(ViewPoint, view)),
         ctx.contribute(

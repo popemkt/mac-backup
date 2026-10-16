@@ -6,8 +6,7 @@ import { buildPaletteIndex, searchPalette, type PaletteHit } from "@/lib/palette
 import { schemaZoomKind } from "@/lib/schema-zoom";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
-import { shownNodes, useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { pageProjection, shownNodes, useGraphStore } from "@/stores/graph.store";
 import { pageCommandApi } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -50,7 +49,6 @@ interface CommandPaletteProps {
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const wireNodes = useGraphStore((s) => s.wireNodes);
   const generation = useGraphStore((s) => s.index?.generation ?? 0);
-  const jumpToNode = useOutlineStore((s) => s.jumpToNode);
   const zoomTo = useGraphStore((s) => s.zoomTo);
 
   const [query, setQuery] = useState("");
@@ -112,9 +110,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         zoomTo(hit.id);
         return;
       }
-      jumpToNode(hit.id);
+      pageProjection().reveal(hit.id);
     },
-    [onClose, zoomTo, jumpToNode],
+    [onClose, zoomTo],
   );
 
   const onKeyDown = useCallback(

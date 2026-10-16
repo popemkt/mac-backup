@@ -9,7 +9,7 @@ import type {
   TreeView,
 } from "@kb/views";
 import { GRAPH_THEMES } from "./graph-themes";
-import { useOutlineNodes } from "@/stores/outline.store";
+import { usePageRows } from "@/stores/page";
 import { SigmaGraph } from "./sigma-graph";
 import { ClusterGraph } from "./cluster-graph";
 import { TreeGraph } from "./tree-graph";
@@ -125,14 +125,14 @@ export function ClusterAdapter({
 }
 
 /**
- * The lens's nodes, each carrying the bullet the outline draws for it — read
- * off the same outline node, its collapsed state included — when the theme
- * draws nodes as the outline does; otherwise the nodes as they are, so an
- * outline edit that no drawn node shows redraws nothing.
+ * The lens's nodes, each carrying the bullet the page draws for its row —
+ * read off the same row (`usePageRows`), its collapsed state included — when
+ * the theme draws nodes as the page's rows; otherwise the nodes as they are,
+ * so an edit that no drawn node shows redraws nothing.
  */
 function useOutlineBullets(nodes: LensNode[], theme: LensTheme): LensNode[] {
   const drawsBullets = GRAPH_THEMES[theme].form === "bullet";
-  const rows = useOutlineNodes();
+  const rows = usePageRows();
   const outline = drawsBullets ? rows : null;
   return useMemo(
     () =>

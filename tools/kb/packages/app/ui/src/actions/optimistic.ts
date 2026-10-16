@@ -2,7 +2,7 @@ import type { PlannedMutation } from "@/actions/plan";
 import { toast } from "@kb/ui-sdk";
 import { invoke, invokeLocal } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
-import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
+import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 
 export type RunOptimisticResult = {
   ok: boolean;
@@ -27,8 +27,10 @@ export async function runOptimistic(
   }
 
   if (plan.focusId !== undefined) {
-    // Its row in the outline being worked in: the store resolves the instance.
-    useOutlineStore.getState().activateNode(plan.focusId, plan.focusCursor ?? 0);
+    // Its row where the page is being edited: the editor resolves the instance.
+    pageEditor()
+      .getState()
+      .activateNode(plan.focusId, plan.focusCursor ?? 0);
   }
   return { ok: true, focusId: plan.focusId, focusCursor: plan.focusCursor };
 }

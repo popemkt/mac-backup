@@ -8,8 +8,7 @@ import {
   type FollowHow,
   type FollowTarget,
 } from "@kb/ui-sdk";
-import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { pageProjection, useGraphStore } from "@/stores/graph.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 
 /** Open a node as the page around the caller: its pane's location, or the zoom. */
@@ -43,6 +42,6 @@ export function followFrom(at: FollowFrom, target: FollowTarget, how: FollowHow)
     return;
   }
   if (how === "beside") useWorkspaceStore.getState().openBeside(at.pane, nodePath(target.id));
-  else if (how === "reveal") useOutlineStore.getState().jumpToNode(target.id);
+  else if (how === "reveal") pageProjection().reveal(target.id);
   else (at.open ?? useGraphStore.getState().zoomTo)(target.id);
 }

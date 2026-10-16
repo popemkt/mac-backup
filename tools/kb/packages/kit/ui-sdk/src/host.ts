@@ -43,7 +43,7 @@ export type ProposedView = { readonly id: string } | { readonly refused: string 
  * (`useNodeTextBinding`) as the shell binds its own through its stores.
  */
 export interface BrowserHost extends NodeTextPort {
-  /** A node of the graph, as the outline holds it. */
+  /** A node of the graph, as the page shows it: a row of the projection it stands in. */
   readonly node: (id: string) => OutlineNode | undefined;
   /** Whether a node is being edited in this instance (`instanceKey`). */
   readonly isActive: (nodeId: string, instanceKey: string) => boolean;

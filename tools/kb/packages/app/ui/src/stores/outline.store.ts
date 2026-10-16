@@ -54,7 +54,7 @@ import {
   shownNodesOf,
   useGraphStore,
   type ScopeSource,
-  type EditingProjection,
+  type PageProjection,
   type GraphChange,
   type GraphStateData,
 } from "@/stores/graph.store";
@@ -256,8 +256,6 @@ function isExpandableOutlineNode(node: OutlineNode, schema: SchemaIndex): boolea
   if (isQueryNode(node)) return true;
   return resolveProps(node, schema).length > 0;
 }
-
-/** What the outline shows of the graph is read from: the snapshot and its scope. */
 
 /** The last rows read: the shown rows of one graph state through one expansion. */
 let lastRows: { readonly base: NodeMap; readonly expansion: Expansion; rows: NodeMap } | null =
@@ -522,41 +520,7 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
 
     expandAncestors: (id) => choose(ancestorsToOpen(outlineNodes(), id)),
 
-    jumpToNode: (id) => {
-      // Where the jump would land, checked before anything moves: the graph
-      // state that shows `id` (the scope left if need be), its ancestors open.
-      const at = id === WORKSPACE_ROOT_ID ? null : reachedState(id);
-      if (at === null) return;
-      const expansion = undoable(
-        withChoices(get().expansion, ancestorsToOpen(rowsOf(at, get().expansion), id)),
-        schemaOf(at),
-      );
-      const shows = (rootNodeId: string) =>
-        visibleInstancesOf(MAIN_OUTLINE_HOST, { ...at, rootNodeId }, expansion).some(
-          (row) => row.nodeId === id,
-        );
-      // The row being edited is shown where it is edited: the page stays put,
-      // so going home never prunes the row the jump is going to.
-      const editing = get().activeNodeId === id;
-      const goesHome = !editing && !shows(at.rootNodeId);
-      if (goesHome && !shows(at.homeRootId)) {
-        toast("That node is not visible in this outline");
-        return;
-      }
-      useGraphStore.getState().reach(id);
-      get().expandAncestors(id);
-      if (goesHome) useGraphStore.getState().zoomHome();
-      // The row being edited keeps the instance it is edited at.
-      const key =
-        (editing ? get().activeInstanceKey : null) ?? outlineInstanceKey(id, outlineNodes());
-      get().activateNode(id, 0, key);
-      // scroll into view after paint — instance key beats bare nodeId
-      requestAnimationFrame(() => {
-        document
-          .querySelector(`[data-instance-key="${CSS.escape(key)}"]`)
-          ?.scrollIntoView({ block: "center", behavior: "smooth" });
-      });
-    },
+    jumpToNode: revealNode,
 
     frameViews: providedFrameViews,
 
@@ -606,6 +570,48 @@ export const useOutlineStore = create<OutlineState>()((set, get) => {
     },
   };
 });
+
+/**
+ * Reveal `id` in the outline: expand its ancestors, zoom out if needed, edit
+ * its row. The store's `jumpToNode` and the projection's `reveal` are this
+ * one function.
+ */
+function revealNode(id: string): void {
+  const outline = useOutlineStore.getState;
+  // Where the jump would land, checked before anything moves: the graph
+  // state that shows `id` (the scope left if need be), its ancestors open.
+  const at = id === WORKSPACE_ROOT_ID ? null : reachedState(id);
+  if (at === null) return;
+  const expansion = undoable(
+    withChoices(outline().expansion, ancestorsToOpen(rowsOf(at, outline().expansion), id)),
+    schemaOf(at),
+  );
+  const shows = (rootNodeId: string) =>
+    visibleInstancesOf(MAIN_OUTLINE_HOST, { ...at, rootNodeId }, expansion).some(
+      (row) => row.nodeId === id,
+    );
+  // The row being edited is shown where it is edited: the page stays put,
+  // so going home never prunes the row the jump is going to.
+  const editing = outline().activeNodeId === id;
+  const goesHome = !editing && !shows(at.rootNodeId);
+  if (goesHome && !shows(at.homeRootId)) {
+    toast("That node is not visible in this outline");
+    return;
+  }
+  useGraphStore.getState().reach(id);
+  outline().expandAncestors(id);
+  if (goesHome) useGraphStore.getState().zoomHome();
+  // The row being edited keeps the instance it is edited at.
+  const key =
+    (editing ? outline().activeInstanceKey : null) ?? outlineInstanceKey(id, outlineNodes());
+  outline().activateNode(id, 0, key);
+  // scroll into view after paint — instance key beats bare nodeId
+  requestAnimationFrame(() => {
+    document
+      .querySelector(`[data-instance-key="${CSS.escape(key)}"]`)
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+}
 
 /** The selected and active rows that still have a row in `nodes`. */
 function keptIds(
@@ -752,13 +758,17 @@ function arrive(at: "zoom" | "home", to: GraphStateData): void {
 }
 
 /**
- * The outline as the graph store's editing projection: installed by the
- * outline plugin while it is loaded (`provideEditingProjection`).
+ * The outline as the projection the page stands in: installed by the outline
+ * plugin while it is loaded (`providePageProjection`), beside this store as
+ * the page's editor (`providePageEditor`).
  */
-export const outlineProjection: EditingProjection = {
+export const outlineProjection: PageProjection = {
   follow,
   leave: (from) => pruneOutgoingTransient(null, from),
   arrive,
+  subscribe: useOutlineStore.subscribe,
+  rows: (graph) => rowsOf(graph, useOutlineStore.getState().expansion),
+  reveal: revealNode,
 };
 
 /**

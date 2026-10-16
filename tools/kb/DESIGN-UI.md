@@ -402,7 +402,8 @@ that from costing a render per row:
   builds its own projection, and expanding or collapsing builds nothing.
 - A row reads the graph through a tracked read (`useGraphReadThrough`,
   `@kb/ui-sdk` → `lib/graph-read`, over a `GraphSource`; the shell's
-  `useGraphRead` binds it to the outline and graph stores): the outline, schema and
+  `useGraphRead` binds it to the graph store and the projection the page
+  stands in, `pageGraph`): the outline, schema and
   index as views that record which ids were asked for (a walk records the
   whole map, a query the index generation). The view is renewed, and the
   row re-renders, only when one of those reads changed — an outline entry

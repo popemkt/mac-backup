@@ -1,23 +1,17 @@
 /**
  * The page's graph as a graph source (`@kb/ui-sdk` → `lib/graph-read`):
- * what a row's tracked read of the graph answers from — the outline's
- * projection, and the graph store's schema and index. The page's `BrowserHost` answers its
+ * what a row's tracked read of the graph answers from — the rows of the
+ * projection the page stands in (`pageRows`), and the graph store's schema
+ * and index. The page's `BrowserHost` answers its
  * graph reads from this same source.
  */
 import { schemaOf, useGraphReadThrough, type GraphRead, type GraphSource } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
+import { pageRows, subscribePage } from "@/stores/page";
 
 export const pageGraph: GraphSource = {
-  subscribe: (listener) => {
-    const fromGraph = useGraphStore.subscribe(listener);
-    const fromOutline = useOutlineStore.subscribe(listener);
-    return () => {
-      fromGraph();
-      fromOutline();
-    };
-  },
-  nodes: () => outlineNodes(),
+  subscribe: subscribePage,
+  nodes: pageRows,
   schema: () => schemaOf(useGraphStore.getState()),
   index: () => useGraphStore.getState().index,
 };

@@ -48,7 +48,7 @@ export interface GraphRead extends FieldContext {
 export interface GraphSource {
   /** Listen for any change to what this source's reads answer; returns the unsubscribe. */
   readonly subscribe: (listener: () => void) => () => void;
-  /** Every node of the graph, as the outline holds them. */
+  /** Every node of the graph, as the page shows them: the rows of the projection it stands in. */
   readonly nodes: () => NodeMap;
   /** The graph's schema: fields, tags and their types. */
   readonly schema: () => SchemaIndex;

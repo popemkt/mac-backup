@@ -53,7 +53,8 @@ import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
 import { typeRefsOf } from "@kb/model";
 import { shownNodes, useGraphStore } from "@/stores/graph.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
-import { useOutlineStore, outlineNodes } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
+import { pageRows } from "@/stores/page"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
+import { pageEditor } from "@/stores/page-editor"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { invoke, invokeLocal, pushInvocation, writeLocal } from "@/session/runtime";
 import type { Hold } from "@/session/replica";
 
@@ -325,9 +326,9 @@ export const mutations = {
   async splitNode(id: string, cursor: number | "end"): Promise<void> {
     if (!guardSysWrite(id)) return;
     await prepareStructuralMutation();
-    // Expanded set from the UI outline map drives Tana first-child splits.
+    // Expanded set from the page's rows drives Tana first-child splits.
     const expandedIds = new Set<string>();
-    for (const n of outlineNodes().values()) {
+    for (const n of pageRows().values()) {
       if (!n.collapsed && !isSysPrefixed(n.id)) expandedIds.add(n.id);
     }
     await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
@@ -387,10 +388,11 @@ export const mutations = {
 
     // D05: reveal the new parent chain before caret restore so the row is
     // guaranteed visible; focusSeq bump re-places the caret post-remount.
-    const next = useOutlineStore.getState();
-    next.expandAncestors(id);
-    // Its row in the outline being worked in, under its new parent.
-    useOutlineStore.getState().activateNode(id, cursor ?? 0);
+    pageEditor().getState().expandAncestors(id);
+    // Its row where the page is being edited, under its new parent.
+    pageEditor()
+      .getState()
+      .activateNode(id, cursor ?? 0);
   },
 
   /** Shift+Tab outdent; caret stays at its exact offset (spec §3.1). */
@@ -403,7 +405,9 @@ export const mutations = {
     const result = await runOptimistic(plan);
     if (!result.ok) return;
     recordHistory(preWire, plan);
-    useOutlineStore.getState().activateNode(id, cursor ?? 0);
+    pageEditor()
+      .getState()
+      .activateNode(id, cursor ?? 0);
   },
 
   async moveNodeUp(id: string): Promise<void> {

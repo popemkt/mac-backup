@@ -2,10 +2,10 @@
  * The browser's live graph: the replica every projection reads, the write
  * history over it, and where the page stands in it — the zoom root and the
  * ontology scope, and what the scope shows (`scopedWireOf`, `shownNodesOf`).
- * It names no projection. The projection the page edits through reads its
- * rows from this store, so they are never out of step with it; what the
- * projection holds of its own — its expansion and its focus — follows each
- * move through {@link EditingProjection}.
+ * It names no projection. The projection the page stands in reads its rows
+ * from this store, so they are never out of step with it; what the
+ * projection holds of its own — which rows are open, and its focus — follows
+ * each move through {@link PageProjection}, the port a plugin installs.
  */
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
@@ -19,6 +19,7 @@ import {
   type NodeMap,
   type OutlineNode,
 } from "@kb/ui-sdk";
+import { portSlot } from "@/stores/port-slot";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
 import { mergeTx } from "@/lib/tx";
@@ -122,9 +123,14 @@ export const initialGraphState: GraphStateData = {
 export type GraphChange = "load" | "tx" | "sync" | "resync" | "scope";
 
 /**
- * The projection the page edits through, as this store tells it of a move.
- * Its rows are read from this store, so it is told only what its own state
- * must do. The contract, for every member:
+ * The projection the page stands in: what any projection the page is shown
+ * and edited through offers the shell. Core names none; a plugin installs
+ * one while it is loaded (`providePageProjection`). Its rows are read from
+ * this store, so it holds only its own state, such as which rows are open.
+ * Its editor (the caret, the text hosts, the selection) is a port of its
+ * own (`stores/page-editor.ts`).
+ *
+ * Told of a move, for every member of that kind:
  *
  * - It is told before this store moves, and is handed every graph state it
  *   reasons about. It reads none from this store, which may still hold the
@@ -141,46 +147,70 @@ export type GraphChange = "load" | "tx" | "sync" | "resync" | "scope";
  *   An empty row it minted is pruned while `from` still shows it, as a graph
  *   write of its own;
  * - `arrive(at, to)` — the page is about to stand at `to`, zoomed to
- *   `to.rootNodeId`: land the focus there.
+ *   `to.rootNodeId`: land the focus there;
+ * - `subscribe(listener)` — a change to what it holds of its own;
+ * - `rows(graph)` — the rows it shows of `graph`: what the page shows
+ *   (`shownNodesOf`), each open or closed as it holds them;
+ * - `reveal(id)` — show `id` where the page is edited, moving the page if it
+ *   must, and edit it: a follow's "reveal", a palette hit, an ontology
+ *   member.
  */
-export interface EditingProjection {
+export interface PageProjection {
   readonly follow: (change: GraphChange, prev: GraphStateData, next: GraphStateData) => void;
   readonly leave: (from: GraphStateData) => void;
   readonly arrive: (at: "zoom" | "home", to: GraphStateData) => void;
+  readonly subscribe: (listener: () => void) => () => void;
+  readonly rows: (graph: ScopeSource) => NodeMap;
+  readonly reveal: (id: string) => void;
 }
 
-const NO_PROJECTION: EditingProjection = {
+/**
+ * What the page stands in while no projection is installed: one that holds
+ * nothing of its own, so it shows the rows at their default collapse and
+ * reveals nothing. A stand-in projection spreads it for the members it does
+ * not watch.
+ */
+export const EMPTY_PROJECTION: PageProjection = {
   follow: () => undefined,
   leave: () => undefined,
   arrive: () => undefined,
+  subscribe: () => () => undefined,
+  rows: (graph) => shownNodesOf(graph),
+  reveal: () => undefined,
 };
 
-let projection: EditingProjection = NO_PROJECTION;
+const installed = portSlot<PageProjection>(EMPTY_PROJECTION);
+
+/** The projection the page stands in now: the installed one, else {@link EMPTY_PROJECTION}. */
+export const pageProjection = installed.current;
+
+/** Listen for a change to what the projection holds of its own, or to which one is installed. */
+export const subscribeProjection = installed.subscribe;
 
 /**
- * Install the editing projection, from the plugin that provides it while it is
+ * Install the page's projection, from the plugin that provides it while it is
  * loaded. With none installed the graph moves on its own: no one is told, and
  * what a withdrawn projection holds of its own stays as it was. One installed
  * after a graph has loaded follows it at once, as a fresh load: its expansion
  * is read again from storage, and its focus and transient rows start empty.
  * Installing the one already installed does nothing.
  */
-export function provideEditingProjection(next: EditingProjection): void {
-  if (projection === next) return;
-  projection = next;
+export function providePageProjection(next: PageProjection): void {
+  if (pageProjection() === next) return;
+  installed.install(next);
   const state = useGraphStore.getState();
   if (state.index !== null) next.follow("load", state, state);
 }
 
 /**
- * Uninstall `installed`, if it is still the projection this store tells. It
- * leaves the page first, as a page move does, so an empty row it minted is
- * pruned rather than left behind.
+ * Uninstall `leaving`, if it is still the one this store tells. It leaves
+ * the page first, as a page move does, so an empty row it minted is pruned
+ * rather than left behind.
  */
-export function withdrawEditingProjection(installed: EditingProjection): void {
-  if (projection !== installed) return;
-  installed.leave(now());
-  projection = NO_PROJECTION;
+export function withdrawPageProjection(leaving: PageProjection): void {
+  if (pageProjection() !== leaving) return;
+  leaving.leave(now());
+  installed.withdraw(leaving);
 }
 
 /** What a scope is read from: the snapshot and the scope's resolution. */
@@ -279,7 +309,7 @@ function now(): GraphState {
 /** Move to `patch` by `change`: the projection follows first, then the store moves once. */
 function moveTo(change: GraphChange, patch: Partial<GraphStateData>): void {
   const prev = now();
-  projection.follow(change, prev, { ...prev, ...patch });
+  pageProjection().follow(change, prev, { ...prev, ...patch });
   useGraphStore.setState(patch);
 }
 
@@ -288,7 +318,7 @@ function moveTo(change: GraphChange, patch: Partial<GraphStateData>): void {
  * how a test stands a fresh, unloaded graph up.
  */
 export function replaceGraph(next: GraphStateData): void {
-  projection.follow("load", now(), next);
+  pageProjection().follow("load", now(), next);
   useGraphStore.setState(next);
 }
 
@@ -356,7 +386,7 @@ function refreshFromWire(wireNodes: WireNode[], rev: number): void {
 
 function setOntologyScope(id: string | null): void {
   if (now().ontologyId === id) return;
-  projection.leave(now());
+  pageProjection().leave(now());
   moveTo("scope", scopeMove(now(), id));
 }
 
@@ -418,7 +448,7 @@ function reach(id: string): boolean {
   const move = reachMove(now(), id);
   if (move === null) return false;
   if (move === "shown") return true;
-  projection.leave(now());
+  pageProjection().leave(now());
   moveTo("scope", move);
   toast("Left the ontology to follow that node");
   return true;
@@ -429,8 +459,8 @@ function reach(id: string): boolean {
  * is, then lands at where it will be, then this store moves, in one write.
  */
 function standAt(at: "zoom" | "home", rootNodeId: string): void {
-  projection.leave(now());
-  projection.arrive(at, { ...now(), rootNodeId });
+  pageProjection().leave(now());
+  pageProjection().arrive(at, { ...now(), rootNodeId });
   useGraphStore.setState({ rootNodeId });
 }
 

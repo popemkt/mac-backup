@@ -11,12 +11,13 @@ import { present } from "@kb/model";
 import { SYSTEM_IDS, wireToOutlineMap, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import {
+  EMPTY_PROJECTION,
   inScope,
-  provideEditingProjection,
+  providePageProjection,
   scopedWireOf,
   useGraphStore,
-  withdrawEditingProjection,
-  type EditingProjection,
+  withdrawPageProjection,
+  type PageProjection,
   type GraphChange,
   type GraphStateData,
 } from "@/stores/graph.store";
@@ -277,7 +278,8 @@ describe("the editing projection", () => {
   /** Record what was told, beside the state the store held when it was told. */
   const record = (entry: Told) => told.push({ told: entry, held: graph() });
 
-  const projection: EditingProjection = {
+  const projection: PageProjection = {
+    ...EMPTY_PROJECTION,
     follow: (change, prev, next) => {
       record({ member: "follow", change, prev, next });
       useFollowed.setState((s) => ({ rev: next.rev, changes: [...s.changes, change] }));
@@ -292,9 +294,9 @@ describe("the editing projection", () => {
   beforeEach(() => {
     told = [];
     useFollowed.setState({ rev: -1, root: "", changes: [] });
-    provideEditingProjection(projection);
+    providePageProjection(projection);
   });
-  afterEach(() => withdrawEditingProjection(projection));
+  afterEach(() => withdrawPageProjection(projection));
 
   /** Every notification either store sends, as the pair of states it lets a reader see. */
   function watch(): {
@@ -389,13 +391,13 @@ describe("the editing projection", () => {
   });
 
   it("one installed after a load follows it at once; one withdrawn leaves, then is no longer told", () => {
-    withdrawEditingProjection(projection);
+    withdrawPageProjection(projection);
     hydrate();
     useFollowed.setState({ changes: [] });
-    provideEditingProjection(projection);
+    providePageProjection(projection);
     expect(useFollowed.getState().changes).toEqual(["load"]);
     told = [];
-    withdrawEditingProjection(projection);
+    withdrawPageProjection(projection);
     expect(told.map(({ told: t }) => t.member)).toEqual(["leave"]);
     graph().applyTx([wire("n.new", "x")], []);
     expect(useFollowed.getState().changes).toEqual(["load"]);

@@ -23,8 +23,7 @@ import { mutations } from "@/actions/mutations";
 import { MemberRow } from "@/components/ontology/member-row";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
-import { useGraphStore, useShownNodes } from "@/stores/graph.store";
-import { useOutlineStore } from "@/stores/outline.store";
+import { pageProjection, useGraphStore, useShownNodes } from "@/stores/graph.store";
 
 export interface OntologyPageProps {
   ontologyId: string;
@@ -42,7 +41,6 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   const nodes = useShownNodes();
   const queryDb = useGraphStore((s) => s.index);
   const generation = useGraphStore((s) => s.index?.generation ?? 0);
-  const jumpToNode = useOutlineStore((s) => s.jumpToNode);
 
   const byId = useMemo(() => new Map(wireNodes.map((n) => [n.id, n])), [wireNodes]);
   const onto = byId.get(ontologyId);
@@ -208,7 +206,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
                 labelOf={labelFor}
                 onOpen={(id) => {
                   navigate("/");
-                  jumpToNode(id);
+                  pageProjection().reveal(id);
                 }}
                 onPin={(id) => void mutations.ontologyAddMember(ontologyId, id)}
                 onUnpin={(id) => void mutations.ontologyRemoveMember(ontologyId, id)}
