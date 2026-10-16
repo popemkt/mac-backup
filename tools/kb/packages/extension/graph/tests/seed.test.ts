@@ -36,7 +36,7 @@ describe("the graph's seed", () => {
     for (const id of [
       SYSTEM_IDS.lensQueryField,
       GRAPH_IDS.lensRendererField,
-      GRAPH_IDS.lensColorByField,
+      GRAPH_IDS.lensEdgeKindsField,
       GRAPH_IDS.lensSizeByField,
       GRAPH_IDS.lensEdgeKindsField,
       GRAPH_IDS.lensMaxNodesField,
@@ -96,6 +96,34 @@ describe("the graph's seed", () => {
     const again = ensureSystemSeed(first.nodes, bundledSeed());
     expect(again.seeded).toBe(false);
     expect(again.nodes.length).toBe(first.nodes.length);
+  });
+
+  test("the seed fills a lens key a stored perspective lacks, and keeps one it carries", () => {
+    // An older store: All mentions predates its edge kinds, and its owner
+    // ungrouped it.
+    const stored = bundledSeed().map((n) => {
+      if (n.id !== GRAPH_IDS.lensAllMentions) return n;
+      const { [GRAPH_IDS.lensEdgeKindsField]: _absent, ...props } = n.props;
+      return {
+        ...n,
+        props: { ...props, [GRAPH_IDS.lensClusterByField]: [{ t: "str" as const, v: "none" }] },
+      };
+    });
+    const seeded = present(
+      bundledSeed().find((n) => n.id === GRAPH_IDS.lensAllMentions),
+      "All mentions",
+    );
+
+    const result = ensureSystemSeed(stored, bundledSeed());
+    const kept = present(
+      result.nodes.find((n) => n.id === GRAPH_IDS.lensAllMentions),
+      "All mentions",
+    );
+    expect(seeded.props[GRAPH_IDS.lensEdgeKindsField]).toHaveLength(2);
+    expect(kept.props[GRAPH_IDS.lensEdgeKindsField]).toEqual(
+      seeded.props[GRAPH_IDS.lensEdgeKindsField],
+    );
+    expect(kept.props[GRAPH_IDS.lensClusterByField]).toEqual([{ t: "str", v: "none" }]);
   });
 
   test("core's migrations name the graph's ids as the graph spells them", () => {

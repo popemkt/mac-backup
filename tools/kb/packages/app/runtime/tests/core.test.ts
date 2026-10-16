@@ -9,6 +9,7 @@ import {
   present,
   SYSTEM_IDS,
   txIntegrityError,
+  viewOptionId,
   type KbNode,
 } from "@kb/model";
 import { JsonlStore } from "@kb/store-jsonl";
@@ -17,7 +18,6 @@ import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";
 import { bundledSeed } from "@kb/bundled";
-import { GRAPH_IDS } from "@kb/graph";
 
 /** The `at` a test commit records; the tail wants one and none of these assert on it. */
 const TX_AT = "2026-01-01T00:00:00.000Z";
@@ -152,19 +152,13 @@ describe("system seed", () => {
       "expected seeded.find((n) => n.id === SYSTEM_IDS.tag)",
     );
 
-    // An older store: sys.tag predates its field template, and
-    // lens.all-mentions carries a deliberately different value.
+    // An older store: sys.tag predates its field template, and the
+    // approval policies' table view is shown as a list by its owner.
+    const owned = [{ t: "ref" as const, v: viewOptionId("outline.list") }];
     const stored = seeded.map((n) => {
       if (n.id === SYSTEM_IDS.tag) return { ...n, props: {} };
-      if (n.id === GRAPH_IDS.lensAllMentions) {
-        return {
-          ...n,
-          props: {
-            ...n.props,
-            [GRAPH_IDS.lensClusterByField]: [{ t: "str" as const, v: "none" }],
-          },
-        };
-      }
+      if (n.id === SYSTEM_IDS.approvalPoliciesView)
+        return { ...n, props: { ...n.props, [SYSTEM_IDS.viewField]: owned } };
       return n;
     });
 
@@ -181,9 +175,10 @@ describe("system seed", () => {
 
     // A key the store already carries is the owner's, seed default or not.
     expect(
-      present(byId.get(GRAPH_IDS.lensAllMentions), "expected byId.get(GRAPH_IDS.lensAllMentions)")
-        .props[GRAPH_IDS.lensClusterByField],
-    ).toEqual([{ t: "str", v: "none" }]);
+      present(byId.get(SYSTEM_IDS.approvalPoliciesView), "the approval policies' view").props[
+        SYSTEM_IDS.viewField
+      ],
+    ).toEqual(owned);
   });
 });
 
