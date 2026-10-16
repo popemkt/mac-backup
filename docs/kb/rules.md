@@ -668,6 +668,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a rounded-rect hit volume in the shape table
 - **node** — `01M41GAZ88QXRS7M85S0JN0ZW1`
 
+### GAP: placing a top-level item inserts into the plan graph's ordered roots array
+
+- **expected** — placing an item at the forest roots costs O(log R) in a plan (an ordered structure with logarithmic insert)
+- **current** — IndexedNodes keeps the roots in one ordered array and splices into it, moving the rest in memory: O(R) per top-level placement
+- **impact** — an outline paste with many top-level items over a store with many roots does R work per item (a memmove; small constant)
+- **closes** — an ordered structure with logarithmic insert for the roots in node-graph.ts, counted in the plan test
+- **node** — `01M52RTGASH2F5PVW7CK2Q50VN`
+
 ### GAP: PropValue still carries the legacy {t:"date"} variant
 
 - **expected** — PropValue has one carrier per value; dates are {t:"str"} only.
