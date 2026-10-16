@@ -4,8 +4,6 @@ _:
   programs.git = {
     enable = true;
     settings = {
-      user.name = "Hoang Nguyen Gia";
-      user.email = "hoangng71299@gmail.com";
       init.defaultBranch = "main";
       pull.rebase = true;
       push.autoSetupRemote = true;
@@ -18,8 +16,6 @@ _:
       };
       merge.conflictStyle = "diff3";
       diff.colorMoved = "default";
-      credential.helper = "manager";
-      credential.credentialStore = "keychain";
       alias = {
         s = "status";
         co = "checkout";

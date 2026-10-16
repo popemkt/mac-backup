@@ -15,6 +15,7 @@ in
     # headroom, hermes).
     ../../stacks/darwin.nix
     ./external-workspace.nix
+    ./identity.nix
     ./homebrew.nix
     ./input-sources.nix
     ./system-setup

@@ -54,16 +54,25 @@
     }:
     let
       system = "aarch64-darwin";
+      # Systems the repo's own tooling (dev shell, formatter) runs on: the
+      # Macs and the NixOS server.
+      toolingSystems = [
+        "aarch64-darwin"
+        "x86_64-linux"
+      ];
       username = "popemkt";
-      pkgs = import nixpkgs {
-        inherit system;
-        config.allowUnfreePredicate =
-          pkg:
-          builtins.elem (nixpkgs.lib.getName pkg) [
-            "chat2db"
-            "cursor-cli"
-          ];
-      };
+      pkgsFor =
+        system:
+        import nixpkgs {
+          inherit system;
+          config.allowUnfreePredicate =
+            pkg:
+            builtins.elem (nixpkgs.lib.getName pkg) [
+              "chat2db"
+              "cursor-cli"
+            ];
+        };
+      pkgs = pkgsFor system;
       localPackages = import ./pkgs {
         inherit
           pkgs
@@ -188,41 +197,50 @@
             touch "$out"
           '';
 
-      # One Darwin host = shared system module + host dir (hosts/<hostname>).
-      # Host identity lives in the typed `my.*` options (modules/options/my.nix),
+      # What every host shares, whatever its platform: the typed options,
+      # its name, the tailnet it joins, and this repo's package overlay.
+      # Host identity lives in the typed `my.*` options (modules/options),
       # not in specialArgs.
+      hostBase = hostname: [
+        (./hosts + "/${hostname}")
+        ./modules/options
+        {
+          my = {
+            inherit hostname;
+            stacks.vpn = {
+              tailnetDomain = "taild98079.ts.net";
+              knownDevices = {
+                work = "100.114.213.27";
+                pocoF8Pro = "100.70.17.62";
+                xiaomiPad7 = "100.124.163.25";
+              };
+            };
+          };
+          nixpkgs.overlays = [ self.overlays.default ];
+        }
+      ];
+
+      # Home Manager as every host runs it; hosts add their users.
+      homeManagerBase = {
+        useGlobalPkgs = true;
+        useUserPackages = true;
+        backupFileExtension = "backup";
+        # Preserve the latest pre-managed file without failing when a
+        # previous activation already created the fixed-name backup.
+        overwriteBackup = true;
+      };
+
+      # One Darwin host = the host base + one primary user, popemkt.
       mkDarwin =
         hostname:
         nix-darwin.lib.darwinSystem {
-          modules = [
-            (./hosts + "/${hostname}")
-
-            ./modules/options
-            {
-              my = {
-                inherit username hostname;
-                stacks.vpn = {
-                  tailnetDomain = "taild98079.ts.net";
-                  knownDevices = {
-                    work = "100.114.213.27";
-                    pocoF8Pro = "100.70.17.62";
-                    xiaomiPad7 = "100.124.163.25";
-                  };
-                };
-              };
-              nixpkgs.overlays = [ self.overlays.default ];
-            }
+          modules = hostBase hostname ++ [
+            { my = { inherit username; }; }
 
             home-manager.darwinModules.home-manager
             (_: {
               users.users.${username}.home = "/Users/${username}";
-              home-manager = {
-                useGlobalPkgs = true;
-                useUserPackages = true;
-                backupFileExtension = "backup";
-                # Preserve the latest pre-managed file without failing when a
-                # previous activation already created the fixed-name backup.
-                overwriteBackup = true;
+              home-manager = homeManagerBase // {
                 users.${username} = _: {
                   home.stateVersion = "24.05";
                   programs.home-manager.enable = true;
@@ -230,6 +248,7 @@
                   imports = [
                     ./modules/common/home-manager
                     ./modules/darwin/home-manager
+                    (./users + "/${username}")
                   ];
                 };
               };
@@ -270,21 +289,31 @@
         program = "${githubSources}/bin/github-sources";
       };
 
-      devShells.${system}.default = pkgs.mkShell {
-        # `bun` is the one kb runs on everywhere: this shell (so the
-        # pre-commit hook), CI's kb job, and `pkgs/kb`'s build.
-        packages = with pkgs; [
-          actionlint
-          bun
-          deadnix
-          nixfmt
-          nvfetcher
-          shellcheck
-          statix
-        ];
-      };
+      devShells = nixpkgs.lib.genAttrs toolingSystems (
+        system:
+        let
+          pkgs = pkgsFor system;
+        in
+        {
+          default = pkgs.mkShell {
+            # `bun` is the one kb runs on everywhere: this shell (so the
+            # pre-commit hook), CI's kb job, and `pkgs/kb`'s build. The gate's
+            # hard tools (intent/gate.sh) all come from here.
+            packages = with pkgs; [
+              actionlint
+              bun
+              deadnix
+              jq
+              nixfmt
+              nvfetcher
+              shellcheck
+              statix
+            ];
+          };
+        }
+      );
 
-      formatter.${system} = pkgs.nixfmt;
+      formatter = nixpkgs.lib.genAttrs toolingSystems (system: (pkgsFor system).nixfmt);
 
       # ========================================================================
       # DARWIN (macOS) CONFIGURATIONS

@@ -16,9 +16,6 @@ _:
       ls = "eza";
       cat = "bat";
 
-      # Dotfiles maintenance
-      dump-login-items = "bash ~/.dotfiles/scripts/dump-login-items.sh";
-
       # Git
       gs = "git status";
       gd = "git diff";
@@ -87,10 +84,6 @@ _:
         echo "       npmg update-all"
         echo "       npmg list"
         echo "       npmg outdated"
-      }
-
-      sysaudit() {
-        "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh"
       }
     '';
 

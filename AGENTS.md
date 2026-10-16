@@ -250,13 +250,13 @@ Rules for agents:
 | Add software belonging to a functional stack | `modules/stacks/<stack>` and its matching `my.pkgs.*` channel list |
 | Add a functional stack | Declare `options.my.stacks.<name> = mkStack { ... }`, add its config, import it from the stack index for its platform (`modules/stacks/default.nix` when its schema is shared, otherwise `darwin.nix` or `nixos.nix`), then enable it in `hosts/<hostname>/default.nix` |
 | Add an unpacked browser extension checkout | `modules/stacks/browsers/` + `system-setup enroll <id>`; Load unpacked stays manual |
-| Add a CLI tool without a stack fit | `modules/common/home-manager/packages.nix` |
+| Add a CLI tool without a stack fit | `modules/common/home-manager/packages.nix` (every user, every platform); a build for macOS only goes in `modules/darwin/home-manager/packages.nix` |
 | Add a GUI cask without a stack fit | `modules/darwin/system/homebrew.nix` → `homebrew.casks` |
 | Add a brew formula without a stack fit | `modules/darwin/system/homebrew.nix` → `homebrew.brews` |
 | Add a macOS system setting | `modules/darwin/system/default.nix` → `system.defaults` |
 | Add a shell alias | `modules/common/home-manager/shell.nix` |
 | Add macOS-only Home Manager config | `modules/darwin/home-manager/default.nix` |
-| Change Git config | `modules/common/home-manager/git.nix` |
+| Change Git config | `modules/common/home-manager/git.nix`; a person's identity in `users/<name>/default.nix` |
 | Add an npm global | the owning stack's `my.pkgs.npmGlobals`; without a stack fit, the base list in `modules/common/home-manager/npm-global.nix` |
 | Add a uv tool | the owning module's `uvTools`, plus an entry in `_sources/uv-pins.json` |
 | Hold a uv tool at a version | set `track = "manual"` on its `_sources/uv-pins.json` entry |
@@ -362,7 +362,9 @@ referenced.
 - `flake.nix` is the entry point. `mkDarwin` builds one configuration per host;
   each attribute name is the hostname.
 - `modules/options/` contains cross-cutting typed options only:
-  `my.{username,hostname,role}` and `my.pkgs.*` channel merge targets. System
+  `my.hostname` and `my.pkgs.*` channel merge targets. Identity only one
+  platform has is declared by that platform (`my.{username,role}` in
+  `modules/darwin/system/identity.nix`). System
   modules read `config.my.*`; Home Manager reads `osConfig.my.*`. Per-stack
   options live with their stack, not here, and do not use `specialArgs`.
 - `modules/stacks/` is the intent layer: vertical functional slices such as

@@ -9,7 +9,9 @@
   imports = [
     ./agent-plugins.nix
     ./bun-global.nix
+    ./git.nix
     ./mackup.nix
+    ./packages.nix
   ];
 
   # ============================================================================
@@ -58,6 +60,8 @@
 
   };
 
+  programs.zsh.shellAliases.dump-login-items = "bash ~/.dotfiles/scripts/dump-login-items.sh";
+
   programs.zsh.initContent = lib.mkAfter ''
     fpath=(/opt/homebrew/share/zsh/site-functions $fpath)
 
@@ -88,6 +92,11 @@
     # CLT-only installs do not expose the macOS SDK automatically. Native
     # extensions such as hnswlib need this path during compilation.
     export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)"
+
+    # Drift audit: what this Mac runs versus what the repo declares.
+    sysaudit() {
+      "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh"
+    }
 
     # Delegate to the checked-out script so workflow changes take effect without
     # another Home Manager activation.

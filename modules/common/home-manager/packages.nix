@@ -1,5 +1,8 @@
 { pkgs, ... }:
 
+# Packages every user gets on every platform. Builds that exist for one
+# platform only belong to that platform's module
+# (modules/darwin/home-manager/packages.nix).
 {
   home.packages = with pkgs; [
     # Dev essentials
@@ -16,10 +19,6 @@
     tmux
     tldr
     gh # GitHub CLI
-    cursor-cli # Cursor terminal agent (`agent` / `cursor-agent`)
-    vite-plus # Unified Vite-based web toolchain (`vp`)
-    logseq-nightly # ARM64 app from Logseq's moving nightly GitHub release
-    chat2db # AI database client / SQL workspace (GitHub release DMG)
     sqlite
     kubectl
     yt-dlp
