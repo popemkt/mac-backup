@@ -280,3 +280,189 @@ records only why the shape is what it is.
   existing GAP `01M3A0ZEWWG0VEHXEM3YNKRQ0Y` (fill-absent cannot tell a key
   never held from one unset) now covers it too: an owner who unsets it gets
   it back on the next open. Changing it to another view type sticks.
+
+## O3: what landed
+
+O3 landed its restructures and stopped before the move, as Rule 1 allows
+("if the clean version is too big for the moment, say so and stop"). The
+outline is still a surface of `@kb/ui`, and it is not a half-moved family:
+- no `@kb/outline` or `@kb/outline-ui` package exists yet;
+- `BUNDLED_FAMILIES` and the resolver are unchanged;
+- DESIGN.md "What stays core" still lists the outline, because that is
+  still true.
+
+Every commit is a `refactor:`, behaviour-preserving and proven by the tests
+that already passed. Review round 1 reshaped the port design, below.
+
+### The two ports
+
+The shell read the outline store for two different things. Each now has a
+core port, and the outline implements both directly:
+
+- **`PageProjection`** (`stores/graph.store.ts`): what any projection the
+  page stands in offers the shell.
+  - Lifecycle: the graph store tells it of moves (`follow`, `leave`,
+    `arrive`), as in O1.
+  - Observation: `subscribe`, and `rows(graph)`, what the page shows with
+    each row open or closed as the projection holds it.
+  - `reveal(id)`: the one gesture every surface makes on it.
+
+  `EMPTY_PROJECTION` is what the page stands in while none is installed.
+- **`PageEditor`** (`stores/page-editor.ts`): the half of the page that
+  holds a caret. It is a store, read as it is (`getState`, `subscribe`).
+  Its state carries:
+  - the focus;
+  - the pending caret;
+  - the store half of the kit's `NodeTextPort` (caret hand-off, text-host
+    registry, selection), whose shell adapter (`stores/node-text-port.ts`)
+    it feeds;
+  - `activateNode`;
+  - `expandAncestors`, which a structural write asks before it lands the
+    caret on the row it moved. `reveal` cannot take its place, because a
+    reveal moves the zoom and drops the caret position.
+
+  The kit already held the port shape (`NodeTextPort`). What the shell
+  installs is its store, so no new kit interface was minted.
+- **One mechanism, `stores/port-slot.ts`,** holds an installed value or the
+  port's empty one, behind a stable subscription. Both ports use it.
+- **`stores/page.ts`** reads the page as a whole: `pageRows()`,
+  `usePageRows()`, and `subscribePage` over the graph, the projection and
+  the editor.
+
+How the outline implements them:
+- Its store is the page's editor, installed as it is (`useOutlineStore`).
+- `outlineProjection` is its move handlers, the store's `subscribe`, its
+  rows read through its expansion, and `revealNode`. `revealNode` is the
+  jump's body, lifted out of the store so that the store's `jumpToNode` and
+  the projection's `reveal` are one function.
+- There is no forwarding object.
+
+The outline-only verbs left the core ports:
+- **Transient marking** is the outline's editing rule, not a fact about a
+  write. The write path mints and focuses (`createEmptyNode`,
+  `createEmptyNodeBefore`). The outline's gestures (`createTransientNode`,
+  `createNodeBefore`, in `components/outline/editing-writes.ts`) mark what
+  they mint.
+- **"The row above"** is the row the outline draws above. The write path
+  takes the node (`mergeWithPrevious(id, previousId)`), and the outline's
+  `mergeWithPrevious(id, instanceKey)` resolves it.
+- **Expand all and collapse all** are commands the outline contributes
+  through `CommandPoint` (`components/outline/outline-commands.ts`). The
+  command context drops `expandAllInScope` and `collapseAllInScope`.
+
+### Where each O1 obstacle's concept now lives
+
+| Former importer | Concept | Home |
+|---|---|---|
+| `browser-host.ts`, `stores/node-text-port.ts`, `stores/graph-read.ts` | the page's rows; the focus and caret hand-off; activation | `pageRows`/`subscribePage` (`pageGraph` was `outlineGraph`), and `PageEditor` |
+| `actions/mutations.ts`, `actions/optimistic.ts` | focus after a write; which rows are open for a split; a reparented row shown | `PageEditor` (`activateNode`, `expandAncestors`) and `pageRows`. Transient marking and "the row above" moved to the outline (above). |
+| `components/App.tsx` (palette shortcut) | the focus | `PageEditor`. Selection stays the editor's: it is not workspace-level, because it is an instance key of the outline's rows. |
+| `components/App.tsx` (`ViewFilterPopoverHost`, found in O3) | something mounted once for the page | `OverlayPoint` (kit). The outline is in `CORE_UI_PLUGINS`, which every convergence loads, so the host is mounted on every page, as before. |
+| `components/palette/command-palette.tsx` | reveal; what a command reads | `PageProjection.reveal`, and `pageCommandApi()`, the one builder both palettes use |
+| `stores/follow.ts`, `components/ontology/ontology-page.tsx` | reveal; a member's label | `PageProjection.reveal`; `useShownNodes()` |
+| `components/graph/graph-adapters.tsx` | a row's bullet, collapse included | `usePageRows()`, with the kit's `outlineBulletAppearance` as the pure function of the row |
+| `components/layout/pane-title.ts`, `pane-switcher.tsx`, `ui-plugins.ts` | what a node says | `shownNodes()`, `useShownNodes()` and `useShownNode()`: the same scoped rows, which none of these read for collapse |
+
+The outline's own modules now sit in `components/outline/`:
+- `outline.store` and `outline-hosts`;
+- `row-chrome`, `visible-instances`, `selection-keymap`, `frame-rows`,
+  `backlinks` and `unicorn-scene`.
+
+So `UI_ALLOWS` fails any store, lib or other surface that imports outline
+code. Outside the outline, only the shell's composition root and test
+support install or reset it.
+
+### The default view seed
+
+The default view type moves out of core's seed. A declaration's
+`defaultView`, one of its own `views` by key, is what the fold writes as
+`sys.f.view.default`. The extension contract (`@kb/test-kit`) holds two
+promises over every family:
+- the fold has one provider, and it provides the view it names;
+- the fold refuses a default a family would provide beside another
+  provider, or name without providing the view.
+
+Core's declaration still provides it, because it still declares the
+outline's views: GAP [[01M52J3DADW4P7YV6907ME9C50]]. The field moves with
+those views at the cut, a one-line change. Why it does not stay in core's
+seed:
+- The bar is that core names no family, and a literal option id in
+  `systemSeedNodes` names one.
+- Why not in the outline's own seed nodes: `sys.views` is core's node, and
+  the fold refuses an id two sources declare.
+- So the fold derives the default from a declaration, the way it already
+  derives each option from a key. The seed it folds is unchanged: the
+  golden and every store stay as they are.
+
+The fold first moved to its own module (`seed-fold.ts`), so that `seed.ts`
+stays under the file limit.
+
+### What blocks the move
+
+The outline's production code still imports about 95 sites of shell modules
+that `@kb/ui-sdk` does not carry. The narrower ports removed core's reach
+into the outline; they did not change how far the outline reaches into
+core. Each of these needs a kit-level home first:
+
+1. **The graph store as a kit port.** The outline derives its rows and
+   moves from the graph store's state:
+   - `shownNodesOf`, `reachedState`, `schemaOf(state)`;
+   - `reach`, `zoomHome`, and `applyTx` for a prune;
+   - the `GraphStateData`, `GraphChange` and `ScopeSource` types that type
+     `PageProjection`.
+
+   That is 19 import sites. `PageProjection`, `PageEditor` and their
+   installs must then be reachable from a family, through `BrowserHost` or
+   a point. Both are now narrow, so lifting them is mostly lifting the
+   graph-state types.
+2. **The page's write path as a kit port.** `mutations` has 12 import sites
+   and about 30 members; `BrowserHost` carries 5. Beside it:
+   - `lib/view-config` (7 sites) and `lib/query-node`;
+   - `lib/commands`: the node menu runs the core registry, which still holds
+     the outline's node commands (indent and outdent, the frame views'
+     "View as").
+3. **Shell stores the outline reads directly**: `ui.store`, `prefs.store`,
+   `debug-fields.store`, `follow`, `graph-read`, `workspace.store`,
+   `ref-ink`, `screen.store`, `frame-views`, `node-text-port`,
+   `page-commands` and `page-editor`. Each needs a `BrowserHost` member or a
+   kit home.
+4. **The field primitives.** Preferences (core) draws `FieldRow`, whose
+   glyph comes from the outline's value-views registry. The fix is to split
+   the row's anatomy (kit, given its glyph) from the glyph registry
+   (outline). That changes `FieldRow`'s props and the tests that render it.
+5. **The tests.** 38 of the outline's 46 test files drive the real shell:
+   the graph store, the write path, the fixture graph and the test-support
+   resets. This count did not shrink with the ports: those tests depend on
+   what the outline reads of the shell (items 1–3), not on what the shell
+   reads of the outline. In `@kb/outline-ui` they could import none of it,
+   because a half's tests hold it to `BrowserHost` through
+   `@kb/ui-test-kit`. They must either stay in `@kb/ui` as page tests over
+   `@kb/outline-ui`, or wait for a test host that carries ports 1–3.
+
+Proposed order, each step a restructure:
+- O3b: lift `PageProjection`, `PageEditor` and the graph-state types into
+  the kit, with their installs reachable through a point.
+- O3c: the write path as a kit port behind `BrowserHost`.
+- O3d: the shell stores the outline reads, as `BrowserHost` members.
+- O3e: split `FieldRow`, and contribute the outline's node commands through
+  `CommandPoint` in their current order.
+- Then the move: `@kb/outline` (declaration, keys, seed and `defaultView`)
+  and `@kb/outline-ui` (the zone and the O3a exports).
+
+### Behaviour that changed
+
+Behaviour changed only in a state the page never reaches. While the outline
+plugin is unloaded, the shell reads the empty projection and editor (rows at
+default collapse, no focus, a `reveal` that does nothing) instead of the
+outline store. The outline is always loaded on the page (`CORE_UI_PLUGINS`).
+
+### Gaps
+
+- Opened, by the coordinator: `01M52J3DADW4P7YV6907ME9C50` (core's
+  declaration still declares the outline's views and provides the default
+  view). It is marked at `core-extension.ts` and listed in DESIGN.md's drift.
+- Narrowed: `01M1RXMRB7AZB7DPFR6XBPBKQ9` (actions read the page stores).
+  `actions/` no longer imports the outline store. It reads the graph store
+  and the page's ports (`page`, `page-editor`), and the markers stay on
+  those imports. The node's `current` text needs updating.
+- Untouched: `01M436DVSEHKNYWSF2MR07HPMR`. Its marker is accurate.
