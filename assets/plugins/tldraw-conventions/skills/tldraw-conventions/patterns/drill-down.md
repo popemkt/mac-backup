@@ -40,8 +40,10 @@ the board is a graph of zoom levels, not a single giant canvas.
 - **Navigation is data + one handler.** A badge is a locked control shape with
   `meta.drill = { to: '<pageId>', focus?: '<shapeId>' }`. One board script handles every control
   carrying `meta.drill` — switch page, then zoom to `focus` or fit the page. Never a handler per
-  badge. Build it from the `clickable-card-or-button-ui` recipe (see `tldraw-offline`); tell the
-  user the badges are locked.
+  badge. Use [drill-down.main.js](drill-down.main.js) as the board's `script/main.js` (verified;
+  extend, don't clobber, an existing script). It arms on `pointer_down` and navigates on
+  `pointer_up` — switching page on down lets the select tool finish the click on whatever sits
+  under the cursor on the new page. Tell the user the badges are locked.
 - **Page order** — root overview first, item pages grouped after their primary parent in breadcrumb
   order, `Agents` and `Audit log` last.
 
