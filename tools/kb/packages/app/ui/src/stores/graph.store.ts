@@ -11,9 +11,12 @@ import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import {
   DatascriptIndex,
-  schemaOf,
+  inScope,
+  shownNodesOf,
+  type GraphChange,
+  type PageGraphState,
+  type ScopeSource,
   toast,
-  wireToOutlineMap,
   WORKSPACE_ROOT_ID,
   type KbIndex,
   type NodeMap,
@@ -21,7 +24,7 @@ import {
 } from "@kb/ui-sdk";
 import { portSlot } from "@/stores/port-slot";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
-import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
+import { resolveScope } from "@/lib/ontology-scope";
 import { mergeTx } from "@/lib/tx";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
 
@@ -33,28 +36,18 @@ interface UndoEntry {
   redo: ActionInvocation[];
 }
 
-interface GraphState {
-  wireNodes: WireNode[];
-  /**
-   * Query replica of the full graph. Built once in `hydrateFromWire`;
-   * `applyTx` is incremental; `rebuild` on snapshot resync. Same instance
-   * across ontology scope — scope is a projection, not a sandbox.
-   */
-  index: KbIndex | null;
+/**
+ * The store: the page's graph state (`PageGraphState`) and the rest of what
+ * it holds. The index is built once in `hydrateFromWire`, `applyTx` is
+ * incremental, and a snapshot resync rebuilds it; it is the same instance
+ * across an ontology scope, so writes, backlinks and #query nodes keep honest
+ * reach while what the page shows is restricted to the scope's members
+ * (`scopedWireOf`).
+ */
+interface GraphState extends PageGraphState {
   rev: number;
   loadSource: "api" | "fixtures" | null;
   loadError: string | null;
-  /** The node the page is zoomed to: the root a pane at "/" shows. */
-  rootNodeId: string;
-  /** Where "home" zooms to: the workspace, or the ontology while scoped. */
-  homeRootId: string;
-  /**
-   * Active ontology scope (r5 §2.5). When set, what the page shows is
-   * restricted to resolved members (`scopedWireOf`); `wireNodes` and `index`
-   * stay global so mutations, backlinks, and #query nodes keep honest reach.
-   */
-  ontologyId: string | null;
-  ontologyMembers: Set<string> | null;
   /** Non-fatal resolution warnings (cycle, bad EDN, unknown ref, cap). */
   ontologyWarnings: string[];
   /** rootNodeId to return to when the scope is left. */
@@ -109,18 +102,6 @@ export const initialGraphState: GraphStateData = {
   undoStack: [],
   redoStack: [],
 };
-
-/**
- * How the replica, or the scope it is read under, moved: what the projection
- * is told, since each move keeps a different part of what it holds.
- *
- * - `load` — a fresh replica (`hydrateFromWire`); nothing carries over.
- * - `tx` — a delta was applied (`applyTx`).
- * - `sync` — the shared local action advanced the index (`syncFromIndex`).
- * - `resync` — a full server snapshot replaced the graph (`refreshFromWire`).
- * - `scope` — the ontology scope was entered or left (`setOntologyScope`).
- */
-export type GraphChange = "load" | "tx" | "sync" | "resync" | "scope";
 
 /**
  * The projection the page stands in: what any projection the page is shown
@@ -213,55 +194,6 @@ export function withdrawPageProjection(leaving: PageProjection): void {
   installed.withdraw(leaving);
 }
 
-/** What a scope is read from: the snapshot and the scope's resolution. */
-export type ScopeSource = Pick<GraphStateData, "wireNodes" | "ontologyId" | "ontologyMembers">;
-
-/** What the last scoped snapshot shows: its wire and its rows (the one cache of a scope's view). */
-let lastScoped: { source: ScopeSource; wire: WireNode[]; nodes: NodeMap } | null = null;
-
-/** What scoped `state` shows, built once per scoped snapshot, keeping the last one's unchanged rows. */
-function scopedViewOf(
-  state: ScopeSource,
-  members: Set<string>,
-  ontologyId: string,
-): { readonly source: ScopeSource; readonly wire: WireNode[]; readonly nodes: NodeMap } {
-  const last = lastScoped;
-  if (
-    last !== null &&
-    last.source.wireNodes === state.wireNodes &&
-    last.source.ontologyId === state.ontologyId &&
-    last.source.ontologyMembers === state.ontologyMembers
-  ) {
-    return last;
-  }
-  const wire = scopedWireNodes(state.wireNodes, members, ontologyId);
-  const nodes = wireToOutlineMap(wire, new Set(), state.wireNodes, last ? [last.nodes] : []);
-  lastScoped = { source: state, wire, nodes };
-  return lastScoped;
-}
-
-/**
- * What the page shows of the graph: the whole snapshot, or under a scope its
- * members hung off the ontology (`scopedWireNodes`). The one array a
- * projection projects, so what the scope shows is decided once.
- */
-export function scopedWireOf(state: ScopeSource): WireNode[] {
-  if (state.ontologyId === null || state.ontologyMembers === null) return state.wireNodes;
-  return scopedViewOf(state, state.ontologyMembers, state.ontologyId).wire;
-}
-
-/**
- * What the page shows of the graph as rows, at default collapse: the schema
- * itself unscoped (`schemaOf`), else the scope's projection of
- * `scopedWireOf`. Schema and tag palette resolve against the whole graph
- * either way (`lib/schema.ts`), and the index stays the full graph: scope is
- * a projection, not a sandbox (r5 §2.5).
- */
-export function shownNodesOf(state: ScopeSource): NodeMap {
-  if (state.ontologyId === null || state.ontologyMembers === null) return schemaOf(state);
-  return scopedViewOf(state, state.ontologyMembers, state.ontologyId).nodes;
-}
-
 /** What the page shows of the graph now (`shownNodesOf`), each row at its default collapse. */
 export function shownNodes(): NodeMap {
   return shownNodesOf(useGraphStore.getState());
@@ -279,11 +211,6 @@ export function useShownNodes(): NodeMap {
 export function useShownNode(id: string | null): OutlineNode | undefined {
   const read = () => (id === null ? undefined : shownNodes().get(id));
   return useSyncExternalStore(useGraphStore.subscribe, read, read);
-}
-
-/** Whether the page can show `id` under its scope: the workspace, or a row of `shownNodesOf`. */
-export function inScope(state: ScopeSource, id: string): boolean {
-  return id === WORKSPACE_ROOT_ID || shownNodesOf(state).has(id);
 }
 
 /** The resolution of scope `ontologyId` over `wire`, as the state holds it. */

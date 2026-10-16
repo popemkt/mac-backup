@@ -183,6 +183,14 @@ export {
 export { nodeCandidates, type RefCreation, refCreationOf, refSearchOf, refUses } from "./lib/refs";
 export { type GraphRead, type GraphSource, useGraphReadThrough } from "./lib/graph-read";
 export {
+  type GraphChange,
+  inScope,
+  type PageGraphState,
+  type ScopeSource,
+  scopedWireOf,
+  shownNodesOf,
+} from "./lib/page-graph";
+export {
   type FieldContext,
   fieldContextOf,
   type FieldContextSource,

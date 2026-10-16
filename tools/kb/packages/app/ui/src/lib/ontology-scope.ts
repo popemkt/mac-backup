@@ -39,47 +39,6 @@ export function listOntologyItems(wireNodes: WireNode[]): OntologyNavItem[] {
 }
 
 /**
- * Restrict a wire snapshot to an ontology's members.
- *
- * Each surviving member is cloned with `children` filtered to members only, so
- * a member's non-member children vanish rather than dangling in the outline
- * map. The ontology node itself is kept as the scope ROOT (it is never a
- * member): members not nested under another member hang off it, so the scoped
- * outline has exactly one top and always offers a way back out.
- */
-export function scopedWireNodes(
-  wireNodes: WireNode[],
-  members: Set<string>,
-  ontologyId: string,
-): WireNode[] {
-  const out: WireNode[] = [];
-  const memberIds: string[] = [];
-  for (const node of wireNodes) {
-    if (node.id === ontologyId) continue;
-    if (!members.has(node.id)) continue;
-    memberIds.push(node.id);
-    out.push({
-      ...node,
-      children: node.children.filter((c) => members.has(c)),
-    });
-  }
-  const onto = wireNodes.find((n) => n.id === ontologyId);
-  if (onto) {
-    // Members not nested under another member hang off the scope root, so the
-    // outline forest has a single visible top: the ontology.
-    const nested = new Set<string>();
-    for (const n of out) {
-      for (const c of n.children) nested.add(c);
-    }
-    out.unshift({
-      ...onto,
-      children: memberIds.filter((id) => !nested.has(id)),
-    });
-  }
-  return out;
-}
-
-/**
  * Memoized per snapshot IDENTITY, not per `rev`.
  *
  * `rev` is the server's counter and does NOT move for a local optimistic edit,

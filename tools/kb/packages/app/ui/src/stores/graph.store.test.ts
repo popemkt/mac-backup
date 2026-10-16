@@ -8,18 +8,22 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { create } from "zustand";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { SYSTEM_IDS, wireToOutlineMap, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import {
+  type GraphChange,
+  inScope,
+  scopedWireOf,
+  SYSTEM_IDS,
+  wireToOutlineMap,
+  WORKSPACE_ROOT_ID,
+} from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import {
   EMPTY_PROJECTION,
-  inScope,
+  type GraphStateData,
+  type PageProjection,
   providePageProjection,
-  scopedWireOf,
   useGraphStore,
   withdrawPageProjection,
-  type PageProjection,
-  type GraphChange,
-  type GraphStateData,
 } from "@/stores/graph.store";
 import { resetGraphStore } from "@/test-support/graph-store";
 import { brokenOntology, node, ontologyWire, secondOntology } from "@/test-support/ontology-wire";

@@ -7,7 +7,7 @@
  *
  * The outline's rows are not stored. They are derived when read
  * (`outlineNodes`): what the page shows of the graph at default collapse (the
- * graph store's `shownNodesOf`: the schema, or a scope's projection), opened
+ * kit's `shownNodesOf`: the schema, or a scope's projection), opened
  * and closed by this store's `expansion`. So no reader can see the rows of
  * one snapshot beside another: there is one copy of the graph, and the rows
  * are a view of it.
@@ -15,31 +15,34 @@
 import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import {
-  fieldContextOf,
-  isProjectedInstance,
-  isSysPrefixed,
-  loadExpansion,
-  logWarn,
-  MAIN_OUTLINE_HOST,
-  outlineInstanceKey,
-  resolveProps,
-  resolveVisibleProps,
-  rowTextReadOnlyReason,
-  saveExpansionChanges,
-  schemaOf,
-  SYSTEM_IDS,
-  toast,
-  withExpansion,
-  WORKSPACE_ROOT_ID,
   type CaretIntent,
   type Expansion,
   type ExpansionChanges,
   type FamilyView,
   type FieldContext,
-  type NodeMap,
-  type OutlineNode,
+  fieldContextOf,
   type FieldContextSource,
+  type GraphChange,
+  isProjectedInstance,
+  isSysPrefixed,
+  loadExpansion,
+  logWarn,
+  MAIN_OUTLINE_HOST,
+  type NodeMap,
+  outlineInstanceKey,
+  type OutlineNode,
+  resolveProps,
+  resolveVisibleProps,
+  rowTextReadOnlyReason,
+  saveExpansionChanges,
   type SchemaIndex,
+  schemaOf,
+  type ScopeSource,
+  shownNodesOf,
+  SYSTEM_IDS,
+  toast,
+  withExpansion,
+  WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
 import { isQueryNode } from "@kb/model";
 import {
@@ -50,13 +53,10 @@ import {
 import type { FrameViewKey } from "@kb/views";
 import { providedFrameViews } from "@/stores/frame-views";
 import {
-  reachedState,
-  shownNodesOf,
-  useGraphStore,
-  type ScopeSource,
-  type PageProjection,
-  type GraphChange,
   type GraphStateData,
+  type PageProjection,
+  reachedState,
+  useGraphStore,
 } from "@/stores/graph.store";
 import {
   outlineHostOf,
