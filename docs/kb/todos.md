@@ -95,6 +95,7 @@
 ### doing
 
 - node.addTree · add a whole outline in one transaction (kb add --outline <file>, and the same action for MCP and the agent). Model the format on Tana Paste (%%tana%%, nested '- ' items, #tag, field:: value, ref); also look at Logseq/Roam paste and OPML import as prior art. All-or-nothing, one tx; returns the created ids
+- O3 · cut out @kb/outline + @kb/outline-ui as a required family
 - Projection families · outline and graph leave core; kb = graph wrapper + outline editing mode + viz families. Plan: docs/brainstorms/2026-10-16-kb-projection-families/README.md
 
 ### todo
@@ -118,7 +119,6 @@
 - Extension isolation, the rest (plans: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md, docs/brainstorms/2026-10-04-kb-extension-boundaries/sdk.md)
 - kb work queue, in order (owner's priority 2026-10-04; resume notes: docs/brainstorms/2026-09-29-kb-genui-canvas-agents/resume.md)
 - O1 follow-up · expansion storage tests (two tabs one id, malformed kb-expansion, legacy first save with a change) and DESIGN-UI wording (memory vs storage merge, mixed-build rule, legacy opens equal to default drop on first save)
-- O3 · cut out @kb/outline + @kb/outline-ui as a required family
 - O4 · cut out @kb/graph + @kb/graph-ui as an optional family
 - O5 · Table/Board/Cards leave the outline as their own family
 - Open: flaky canvas-camera.test.ts timeout; confirm the test:ui per-package total
