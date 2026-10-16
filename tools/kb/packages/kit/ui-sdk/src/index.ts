@@ -183,6 +183,15 @@ export {
   queryResultInstanceKey,
 } from "./lib/instance-key";
 export { nodeCandidates, type RefCreation, refCreationOf, refSearchOf, refUses } from "./lib/refs";
+export {
+  frameConfigOf,
+  frameReport,
+  type FrameView,
+  frameViewNodeIdOf,
+  frameViewOf,
+  frameViewThrough,
+  getViewConfig,
+} from "./lib/frame-view";
 export { type GraphRead, type GraphSource, useGraphReadThrough } from "./lib/graph-read";
 export {
   type GraphChange,
@@ -223,7 +232,11 @@ export {
   type TagBadge,
   WORKSPACE_ROOT_ID,
 } from "./lib/types";
-export { type QueryRowsSubscribe, useQueryNodeRows } from "./lib/use-query-node-rows";
+export {
+  type QueryRowsSubscribe,
+  resultNodeIds,
+  useQueryNodeRows,
+} from "./lib/use-query-node-rows";
 export {
   DatascriptIndex,
   type KbIndex,

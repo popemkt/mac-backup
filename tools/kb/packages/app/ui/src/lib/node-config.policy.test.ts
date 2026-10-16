@@ -13,18 +13,19 @@ import type { WireNode } from "@kb/contracts";
 import { VIEW_FAMILY_VALUES } from "@kb/model";
 import {
   familyViews,
+  frameViewOf,
+  getViewConfig,
   parsePerspective,
+  type PropValue,
+  schemaOfGraph,
   SYSTEM_IDS,
   ViewPoint,
   wireToOutlineMap,
-  type PropValue,
-  schemaOfGraph,
 } from "@kb/ui-sdk";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { OutlineListView, isFrameViewKey } from "@kb/views";
-import { frameViewOf, getViewConfig } from "@/lib/view-config";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {

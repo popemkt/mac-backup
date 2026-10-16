@@ -21,7 +21,6 @@ import {
 import { isReferenceRow } from "@/components/outline/row-chrome";
 import { useOutlineHost } from "./outline-host";
 import { frameRows } from "@/components/outline/frame-rows";
-import { EMPTY_GROUP_KEY, resolveTableColumns } from "@/lib/view-config";
 import { OutlineBoardView, OutlineCardsView, localIdOf, type ParamsOf } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
 import {
@@ -35,6 +34,7 @@ import { usePrefsStore } from "@/stores/prefs.store";
 import { NodeField } from "./fields-section";
 import { NodeContent } from "./node-content";
 import { useNodeKeyDown } from "./use-node-keydown";
+import { EMPTY_GROUP_KEY, resolveTableColumns } from "@/components/outline/frame-layout";
 
 /**
  * The two column views over one component: the board groups its cards into a

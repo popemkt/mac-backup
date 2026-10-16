@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { runQuery, type KbIndex } from "../query";
+import type { NodeMap } from "./types";
 
 /** Where a query node's subscribed rows go. */
 interface QueryRowsSink {
@@ -30,9 +31,10 @@ export interface QueryNodeRows {
  *
  * Both halves live here rather than in the component that renders them. A
  * surface renders what it is given; opening and closing a server subscription
- * is transport lifecycle, and running datalog belongs above the query seam (`query.ts`) —
- * `lib/query-node.ts` stays pure system-node modeling, and this is the one
- * place that turns a query node's EDN into rows.
+ * is transport lifecycle, and running datalog belongs above the query seam
+ * (`query.ts`) — `@kb/model`'s `query-node.ts` stays pure system-node
+ * modeling, and this is the one place that turns a query node's EDN into
+ * rows, and its rows into the nodes they name (`resultNodeIds`).
  *
  * `generation` is the index's mutation counter: the local query re-runs when
  * the replica advances, which `index` alone cannot express because it is the
@@ -89,4 +91,26 @@ export function useQueryNodeRows(input: {
   }, [liveEdn, edn, index, generation]);
 
   return liveEdn === null ? local : { rows: liveRows, error: liveError };
+}
+
+/**
+ * Map raw datalog rows to result node ids: first column value per row that
+ * names a known node. Dedupes, drops the query node itself, applies limit.
+ */
+export function resultNodeIds(
+  rows: unknown[][],
+  nodes: NodeMap,
+  opts: { limit?: number | null; excludeId?: string } = {},
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const limit = opts.limit ?? null;
+  for (const row of rows) {
+    const id = row.find((v): v is string => typeof v === "string" && nodes.has(v));
+    if (id === undefined || seen.has(id) || id === opts.excludeId) continue;
+    seen.add(id);
+    out.push(id);
+    if (limit !== null && out.length >= limit) break;
+  }
+  return out;
 }

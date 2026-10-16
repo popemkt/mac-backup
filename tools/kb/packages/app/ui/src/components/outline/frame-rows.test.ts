@@ -4,18 +4,18 @@
  */
 import {
   familyViews,
-  SYSTEM_IDS,
-  ViewPoint,
+  frameViewOf,
   type NodeMap,
   type OutlineNode,
   type SchemaIndex,
   schemaOfGraph,
+  SYSTEM_IDS,
+  ViewPoint,
 } from "@kb/ui-sdk";
 import { Effect, Schema } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { describe, expect, it } from "vitest";
 import { frameRows, type FrameRowsInput } from "@/components/outline/frame-rows";
-import { frameViewOf } from "@/lib/view-config";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { isFrameViewKey, OutlineTableView } from "@kb/views";
 import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";

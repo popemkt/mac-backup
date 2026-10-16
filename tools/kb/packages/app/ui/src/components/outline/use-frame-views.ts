@@ -1,14 +1,16 @@
 import { useMemo } from "react";
 import { isViewNode } from "@kb/model";
 import {
+  type FamilyView,
   familyViews,
+  type FrameView,
+  frameViewNodeIdOf,
+  frameViewThrough,
+  type OutlineNode,
   schemaOf,
   useContributions,
   ViewPoint,
-  type FamilyView,
-  type OutlineNode,
 } from "@kb/ui-sdk";
-import { frameViewNodeIdOf, frameViewThrough, type FrameView } from "@/lib/view-config";
 import { isFrameViewKey, type FrameViewKey } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
 

@@ -9,15 +9,14 @@
  *
  * Pure: pagination state is passed in as `pages`, never read from a store.
  */
-import type { NodeMap, OutlineNode, SchemaIndex } from "@kb/ui-sdk";
+import type { FrameView, NodeMap, OutlineNode, SchemaIndex } from "@kb/ui-sdk";
 import {
   applyViewFilters,
+  type BoardColumn,
   flattenBoardOrder,
   groupChildrenForBoard,
   sortChildrenForTable,
-  type BoardColumn,
-  type FrameView,
-} from "@/lib/view-config";
+} from "@/components/outline/frame-layout";
 
 export interface FrameRowsInput {
   frameId: string;

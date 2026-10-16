@@ -1703,9 +1703,9 @@ how the stored name resolves to the key among them.
   (`@kb/views`, `outline.ts`) carry the one trait the row walk needs
   beside the params: how the view lays rows out (`outline`, nested; `rows`;
   `columns`). The frame's first frame view node (DESIGN.md → View nodes)
-  names the view, and `frameViewOf` (`lib/view-config.ts`) looks that node
-  up in the schema, resolves its view among the frame views provided, falling
-  back to the list's, and decodes the view node's props through that
+  names the view, and `frameViewOf` (`@kb/ui-sdk`'s `lib/frame-view.ts`)
+  looks that node up in the schema, resolves its view among the frame views
+  provided, falling back to the list's, and decodes the view node's props through that
   view's params, so the view gets exactly the settings it reads; a host
   that already selected the view node from the store (`useFrameView`) hands
   it to `frameViewThrough`, the same resolution without the lookup. What

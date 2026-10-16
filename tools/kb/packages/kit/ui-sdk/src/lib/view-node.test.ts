@@ -1,18 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { SYSTEM_IDS } from "@kb/model";
-import { OutlineSnippetView } from "@kb/views";
-import { NeighbourhoodView, TreeView } from "@kb/graph";
-import { viewKeyOfNode } from "@/lib/view-node";
+import { OutlineListView, OutlineSnippetView, OutlineTableView } from "@kb/views";
+import { viewKeyOfNode } from "./view-node";
 
 const naming = (option: string) => ({
   props: { [SYSTEM_IDS.viewField]: [{ t: "ref" as const, v: option }] },
 });
 
 describe("viewKeyOfNode", () => {
-  const keys = [NeighbourhoodView, OutlineSnippetView, TreeView];
+  const keys = [OutlineListView, OutlineSnippetView, OutlineTableView];
 
   it("finds the key whose option the view node names", () => {
-    expect(viewKeyOfNode(naming(TreeView.option), keys)).toBe(TreeView);
+    expect(viewKeyOfNode(naming(OutlineTableView.option), keys)).toBe(OutlineTableView);
     expect(viewKeyOfNode(naming(OutlineSnippetView.option), keys)).toBe(OutlineSnippetView);
   });
 

@@ -7,12 +7,13 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { framedAs, viewFieldNodes } from "@/fixtures/view-fields";
 import {
   fieldContextOf,
+  frameConfigOf,
+  getViewConfig,
   outlineInstanceKey,
   schemaOf,
   syncUiPlugins,
   SYSTEM_IDS,
 } from "@kb/ui-sdk";
-import { frameConfigOf, getViewConfig } from "@/lib/view-config";
 import { OutlineListView, OutlineTableView, paramsFrom } from "@kb/views";
 import { Result } from "effect";
 import { useGraphStore } from "@/stores/graph.store";

@@ -3,8 +3,8 @@ import { Result } from "effect";
 import { SYSTEM_IDS } from "@kb/model";
 import type { NodeMap, OutlineNode } from "@kb/ui-sdk";
 import { paramsFromProps, OutlineSnippetView } from "@kb/views";
-import { frameReport } from "@/lib/view-config";
 import { snippetRows } from "./snippet-rows";
+import { frameReport } from "@kb/ui-sdk";
 
 const AT = "2026-09-30T00:00:00.000Z";
 const node = (id: string, children: string[] = [], text = id): OutlineNode => ({

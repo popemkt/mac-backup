@@ -13,13 +13,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   Bullet,
   DatascriptIndex,
+  type OutlineNode,
+  resultNodeIds,
   runQuery,
   SYSTEM_IDS,
   wireToOutlineMap,
-  type OutlineNode,
 } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { resultNodeIds } from "@/lib/query-node";
 import type { WireNode } from "@kb/contracts";
 
 const TODO_EDN = `[:find ?id ?text

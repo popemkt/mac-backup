@@ -20,8 +20,8 @@ import {
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { stubOutlineNode } from "@/catalog/fixtures";
-import { resolveTableColumns, sortChildrenForTable } from "./view-config";
 import { DEFAULT_VIEW_CONFIG, type SortSpec } from "@kb/views";
+import { resolveTableColumns, sortChildrenForTable } from "@/components/outline/frame-layout";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {

@@ -1,24 +1,18 @@
 import {
   familyViews,
-  SYSTEM_IDS,
-  ViewPoint,
-  wireToOutlineMap,
+  frameConfigOf,
+  frameViewOf,
+  getViewConfig,
   type NodeMap,
   type OutlineNode,
   type SchemaIndex,
   schemaOfGraph,
+  SYSTEM_IDS,
+  ViewPoint,
+  wireToOutlineMap,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import {
-  applyViewFilters,
-  frameConfigOf,
-  frameViewOf,
-  getViewConfig,
-  groupChildrenForBoard,
-  resolveTableColumns,
-  sortChildrenForTable,
-} from "./view-config";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
@@ -34,6 +28,12 @@ import {
 } from "@kb/views";
 import type { WireNode } from "@kb/contracts";
 import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";
+import {
+  applyViewFilters,
+  groupChildrenForBoard,
+  resolveTableColumns,
+  sortChildrenForTable,
+} from "@/components/outline/frame-layout";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {

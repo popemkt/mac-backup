@@ -1,5 +1,7 @@
 import {
   fieldContextOf,
+  frameViewOf,
+  getViewConfig,
   type NodeMap,
   providedFrameViews,
   queryResultInstanceKey,
@@ -29,13 +31,6 @@ import { ViewToolbar } from "./view-toolbar";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { listFilterFieldOptions } from "./view-filter-fields";
 import {
-  applyViewFilters,
-  flattenBoardOrder,
-  frameViewOf,
-  getViewConfig,
-  groupChildrenForBoard,
-} from "@/lib/view-config";
-import {
   parseViewFilterEdn,
   OutlineBoardView,
   OutlineCardsView,
@@ -45,6 +40,11 @@ import {
 import { Result } from "effect";
 import { collectVisibleInstances } from "@/components/outline/visible-instances";
 import { outlineUiPlugin } from "@/components/outline/plugin";
+import {
+  applyViewFilters,
+  flattenBoardOrder,
+  groupChildrenForBoard,
+} from "@/components/outline/frame-layout";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

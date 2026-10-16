@@ -7,25 +7,26 @@
  */
 import {
   childInstanceKey,
+  type FrameView,
+  frameViewOf,
   hasText,
   isQueryResultInstance,
+  type KbIndex,
   MAIN_OUTLINE_HOST,
+  type NodeMap,
   outlineInstanceKey,
   queryResultInstanceKey,
+  resultNodeIds,
   runQuery,
+  type SchemaIndex,
   shownNode,
   showsAncestor,
+  type SlotChain,
   slotLink,
   slotRenders,
-  type KbIndex,
-  type NodeMap,
-  type SchemaIndex,
-  type SlotChain,
 } from "@kb/ui-sdk";
 import { frameRows } from "@/components/outline/frame-rows";
 import { isQueryNode, queryDefOf } from "@kb/model";
-import { resultNodeIds } from "@/lib/query-node";
-import { frameViewOf, type FrameView } from "@/lib/view-config";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 
 export type VisibleInstance = {

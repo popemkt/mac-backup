@@ -19,7 +19,6 @@ import {
 import { resolveRowChrome } from "@/components/outline/row-chrome";
 import { useOutlineHost } from "./outline-host";
 import { frameRows } from "@/components/outline/frame-rows";
-import { resolveTableColumns, type TableColumnSpec } from "@/lib/view-config";
 import { type SortSpec, type ParamsOf, OutlineTableView } from "@kb/views";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import {
@@ -33,6 +32,7 @@ import { NodeField } from "./fields-section";
 import { NodeContent } from "./node-content";
 import { useNodeKeyDown } from "./use-node-keydown";
 import { useFrameView } from "./use-frame-views";
+import { resolveTableColumns, type TableColumnSpec } from "@/components/outline/frame-layout";
 
 /** The Name column is the node-text field, so sorting by it names a node like any other column. */
 const NAME_COLUMN = SYSTEM_IDS.nodeTextField;

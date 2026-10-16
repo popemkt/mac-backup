@@ -4,7 +4,8 @@
  * component so the popover file exports components only.
  */
 import type { NodeMap, OutlineNode, SchemaIndex } from "@kb/ui-sdk";
-import { frameConfigOf, resolveTableColumns } from "@/lib/view-config";
+import { frameConfigOf } from "@kb/ui-sdk";
+import { resolveTableColumns } from "@/components/outline/frame-layout";
 
 /** `nodes` is the projection the frame's rows come from; `schema` names their fields. */
 export function listFilterFieldOptions(

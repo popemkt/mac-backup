@@ -5,9 +5,15 @@
  * (W7.1 / W8e).
  */
 import type { ReactNode } from "react";
-import { hasText, indentStyle, queryResultInstanceKey, useQueryNodeRows } from "@kb/ui-sdk";
+import {
+  hasText,
+  indentStyle,
+  queryResultInstanceKey,
+  resultNodeIds,
+  useQueryNodeRows,
+} from "@kb/ui-sdk";
 import { queryDefOf } from "@kb/model";
-import { resultNodeIds, subscribeLiveQueryNode } from "@/lib/query-node";
+import { subscribeLiveQueryNode } from "@/lib/query-node";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineNode, useOutlineNodes } from "@/components/outline/outline.store";

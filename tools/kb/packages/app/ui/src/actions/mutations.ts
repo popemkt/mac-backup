@@ -115,8 +115,7 @@ async function editFrameView(frameId: string, edit: FrameViewEdit): Promise<void
 
 /** The frame settings a frame's view node holds now. */
 async function frameConfig(frameId: string): Promise<ViewConfig> {
-  const { frameConfigOf } = await import("@/lib/view-config");
-  const { schemaOf } = await import("@kb/ui-sdk");
+  const { frameConfigOf, schemaOf } = await import("@kb/ui-sdk");
   return frameConfigOf(shownNodes().get(frameId), schemaOf(useGraphStore.getState()));
 }
 

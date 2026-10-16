@@ -3,14 +3,14 @@ import { createPortal } from "react-dom";
 import { FunnelIcon, PlusIcon, TextTIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import {
+  type EnumOption,
   EnumSelect,
+  getViewConfig,
   POPOVER_VALUE_CLASS,
   PopoverShell,
   schemaOf,
   toast,
-  type EnumOption,
 } from "@kb/ui-sdk";
-import { getViewConfig } from "@/lib/view-config";
 import { serializeViewFilter, type ViewFilter } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
 import { outlineNodes, useOutlineNode } from "@/components/outline/outline.store";
