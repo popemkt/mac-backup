@@ -21,7 +21,10 @@ import type { NamedNodes } from "./resolve.ts";
  * `node.delete` plans nothing over a graph — it hands its ids to the commit.
  *
  * Nothing a reader is handed can change the graph: a node is the graph's
- * copy, and a group is a read-only view.
+ * copy, and a group is a read-only view. **A view is valid until the next
+ * write**: it reads the graph's own lists rather than a copy, so reading one
+ * after a write would see a group that has moved under it, and it throws
+ * instead. A reader that writes asks for the group again.
  *
  * Two implementations meet this one contract (`node-graph.contract.test.ts`
  * runs the same properties over both): {@link ScannedNodes} answers every
@@ -35,6 +38,7 @@ export interface NodeGraph extends NamedNodes, SiblingGroups<KbNode> {
   has(id: NodeId): boolean;
   typedNamed(typeId: NodeId, text: string): readonly KbNode[];
   parentOf(id: NodeId): NodeId | undefined;
+  /** A sibling group, as a view valid until the next write (it throws after one). */
   slots(parent: NodeId | null, excluding?: NodeId): Slots<KbNode>;
   /** Every node, in no promised order. */
   values(): Iterable<KbNode>;
@@ -49,6 +53,32 @@ export interface NodeGraph extends NamedNodes, SiblingGroups<KbNode> {
 
 const hasType = (node: KbNode, typeId: NodeId): boolean => typeRefsOf(node).includes(typeId);
 
+/**
+ * A positional view over `length` members read by `at`, valid while
+ * `written()` still returns `version`: the one shape both implementations
+ * hand out, so a view read after a write fails the same way on each.
+ */
+function view<N>(
+  length: number,
+  at: (index: number) => N | undefined,
+  version: number,
+  written: () => number,
+): Slots<N> {
+  const current = (): void => {
+    if (written() !== version) throw new Error("a sibling group view was read after a write");
+  };
+  return {
+    get length() {
+      current();
+      return length;
+    },
+    at: (index) => {
+      current();
+      return at(index);
+    },
+  };
+}
+
 /** `list` with `child` at `position`, or at the end when it is omitted or past it. */
 function withChild(list: readonly NodeId[], child: NodeId, position: number | undefined): NodeId[] {
   const at = position === undefined || position > list.length ? list.length : position;
@@ -58,6 +88,7 @@ function withChild(list: readonly NodeId[], child: NodeId, position: number | un
 /** {@link NodeGraph} by scanning an array: every answer reads the whole set. */
 export class ScannedNodes implements NodeGraph {
   #nodes: readonly KbNode[];
+  #version = 0;
 
   /** Reads `nodes` as given; a write writes a copy, so the caller's array is never written. */
   constructor(nodes: readonly KbNode[]) {
@@ -81,7 +112,13 @@ export class ScannedNodes implements NodeGraph {
   }
 
   slots(parent: NodeId | null, excluding?: NodeId): Slots<KbNode> {
-    return siblingSlots(this.#nodes, parent, excluding);
+    const group = siblingSlots(this.#nodes, parent, excluding);
+    return view(
+      group.length,
+      (i) => group[i],
+      this.#version,
+      () => this.#version,
+    );
   }
 
   values(): Iterable<KbNode> {
@@ -91,6 +128,7 @@ export class ScannedNodes implements NodeGraph {
   put(node: KbNode): void {
     const at = this.#nodes.findIndex((n) => n.id === node.id);
     this.#nodes = at < 0 ? [...this.#nodes, node] : this.#nodes.with(at, node);
+    this.#version++;
   }
 
   insertChild(parent: NodeId, child: NodeId, position: number | undefined, at: string): void {
@@ -102,8 +140,11 @@ export class ScannedNodes implements NodeGraph {
 
 const nameKey = (typeId: NodeId, text: string): string => `${typeId}\u0000${text}`;
 
+/** What `IndexedNodes` stores of a node: everything but its children, which it keeps apart. */
+type Shell = Omit<KbNode, "children">;
+
 /** The index at which `node` sits, or would be inserted, in `sorted` (visible root order). */
-function lowerBound(sorted: readonly KbNode[], node: KbNode): number {
+function lowerBound(sorted: readonly Shell[], node: Shell): number {
   let lo = 0;
   let hi = sorted.length;
   while (lo < hi) {
@@ -121,28 +162,36 @@ function lowerBound(sorted: readonly KbNode[], node: KbNode): number {
  * count of a parent's dangling children, and the roots — put in visible
  * order the first time they are asked for, and kept in it after.
  *
+ * A node is stored as two halves that never disagree: its shell (everything
+ * but its children) and its children list, the only record of them. `get`
+ * is the one place they are joined, and the joined node is kept until the
+ * next write to either half, so no read can see children the graph no
+ * longer holds.
+ *
  * What a plan pays, per node it adds: filing it under a parent appends to
  * that parent's list (amortised O(1); a position mid-list moves the rest),
  * and reading a neighbour's rank reads one slot of a view. A parent's node
- * is rebuilt with its children once, when it is next read, not once per
- * child. Placing a node at the forest roots costs a binary search and one
- * array insertion, which moves the roots after it — O(R) in memory moves,
- * the one cost left that grows with the store.
+ * is joined once when it is next read, not once per child. Placing a node at
+ * the forest roots costs a binary search and one array insertion, which
+ * moves the roots after it — O(R) in memory moves, the one cost left that
+ * grows with the store (`#root`).
  */
 export class IndexedNodes implements NodeGraph {
-  /** Each node as last put; its `children` lag {@link #children} while it is in {@link #stale}. */
-  readonly #byId = new Map<NodeId, KbNode>();
-  /** Each node's own children list, written in place by `insertChild`. */
+  /** Each node without its children. */
+  readonly #shells = new Map<NodeId, Shell>();
+  /** Each node's children, written in place by `insertChild`: the only record of them. */
   readonly #children = new Map<NodeId, NodeId[]>();
-  /** Nodes whose children grew since they were stored, with the stamp of the last growth. */
-  readonly #stale = new Map<NodeId, string>();
+  /** Each node joined with its children, as last read; dropped by any write to either half. */
+  readonly #joined = new Map<NodeId, KbNode>();
   readonly #named = new Map<string, Set<NodeId>>();
   readonly #parentOf = new Map<NodeId, NodeId>();
   /** For each parent, how many of its children name no node. */
   readonly #dangling = new Map<NodeId, number>();
   readonly #rootIds = new Set<NodeId>();
   /** The roots in visible order, once asked for; kept in order by every write after that. */
-  #ordered: KbNode[] | null = null;
+  #ordered: Shell[] | null = null;
+  /** Bumped by every write: a view handed out before it is no longer valid. */
+  #version = 0;
 
   static of(nodes: Iterable<KbNode>): IndexedNodes {
     const graph = new IndexedNodes();
@@ -151,17 +200,17 @@ export class IndexedNodes implements NodeGraph {
   }
 
   get(id: NodeId): KbNode | undefined {
-    const node = this.#byId.get(id);
-    const at = this.#stale.get(id);
-    if (node === undefined || at === undefined) return node;
-    const fresh = { ...node, children: [...(this.#children.get(id) ?? [])], updatedAt: at };
-    this.#byId.set(id, fresh);
-    this.#stale.delete(id);
-    return fresh;
+    const joined = this.#joined.get(id);
+    if (joined !== undefined) return joined;
+    const shell = this.#shells.get(id);
+    if (shell === undefined) return undefined;
+    const node: KbNode = { ...shell, children: [...(this.#children.get(id) ?? [])] };
+    this.#joined.set(id, node);
+    return node;
   }
 
   has(id: NodeId): boolean {
-    return this.#byId.has(id);
+    return this.#shells.has(id);
   }
 
   typedNamed(typeId: NodeId, text: string): KbNode[] {
@@ -176,29 +225,43 @@ export class IndexedNodes implements NodeGraph {
   slots(parent: NodeId | null, excluding?: NodeId): Slots<KbNode> {
     const member = excluding !== undefined && this.has(excluding) ? excluding : undefined;
     const excluded = member !== undefined && this.#parentOf.get(member) === (parent ?? undefined);
+    let ids: { readonly length: number; at(index: number): NodeId | undefined };
     if (parent === null) {
       this.#ordered ??= [...this.#rootIds]
-        .flatMap((id) => this.#byId.get(id) ?? [])
+        .flatMap((id) => this.#shells.get(id) ?? [])
         .toSorted(compareRootOrder);
       const roots = this.#ordered;
-      if (excluded) {
-        return roots.flatMap((n) => (n.id === member ? [] : (this.get(n.id) ?? [])));
-      }
-      return { length: roots.length, at: (i) => this.#viewed(roots[i]?.id) };
+      ids = { length: roots.length, at: (i) => roots[i]?.id };
+    } else {
+      const list = this.#children.get(parent) ?? [];
+      ids = list;
+      if ((this.#dangling.get(parent) ?? 0) > 0) ids = list.filter((id) => this.has(id));
     }
-    const ids = this.#children.get(parent) ?? [];
-    if (excluded || (this.#dangling.get(parent) ?? 0) > 0) {
-      return ids.flatMap((id) => (id === member ? [] : (this.get(id) ?? [])));
+    if (excluded) {
+      const kept = Array.from({ length: ids.length }, (_, i) => ids.at(i)).filter(
+        (id) => id !== member,
+      );
+      ids = kept;
     }
-    return { length: ids.length, at: (i) => this.#viewed(ids[i]) };
+    const members = ids;
+    return view(
+      members.length,
+      (i) => {
+        const id = members.at(i);
+        return id === undefined ? undefined : this.get(id);
+      },
+      this.#version,
+      () => this.#version,
+    );
   }
 
   values(): Iterable<KbNode> {
-    return [...this.#byId.keys()].flatMap((id) => this.get(id) ?? []);
+    return [...this.#shells.keys()].flatMap((id) => this.get(id) ?? []);
   }
 
   put(node: KbNode): void {
-    const old = this.#byId.get(node.id);
+    this.#version++;
+    const old = this.#shells.get(node.id);
     this.#unroot(node.id);
     if (old !== undefined) {
       for (const typeId of typeRefsOf(old)) {
@@ -215,9 +278,10 @@ export class IndexedNodes implements NodeGraph {
       const parent = this.#parentOf.get(node.id);
       if (parent !== undefined) this.#addDangling(parent, -1);
     }
-    this.#byId.set(node.id, node);
-    this.#stale.delete(node.id);
-    this.#children.set(node.id, [...node.children]);
+    const { children, ...shell } = node;
+    this.#shells.set(node.id, shell);
+    this.#children.set(node.id, [...children]);
+    this.#joined.delete(node.id);
     for (const typeId of typeRefsOf(node)) {
       const key = nameKey(typeId, node.text);
       const ids = this.#named.get(key) ?? new Set<NodeId>();
@@ -225,8 +289,8 @@ export class IndexedNodes implements NodeGraph {
       this.#named.set(key, ids);
     }
     let dangling = 0;
-    for (const child of node.children) {
-      if (!this.#byId.has(child)) dangling++;
+    for (const child of children) {
+      if (!this.#shells.has(child)) dangling++;
       this.#unroot(child);
       this.#parentOf.set(child, node.id);
     }
@@ -236,18 +300,16 @@ export class IndexedNodes implements NodeGraph {
 
   insertChild(parent: NodeId, child: NodeId, position: number | undefined, at: string): void {
     const list = this.#children.get(parent);
-    if (list === undefined) return;
+    const shell = this.#shells.get(parent);
+    if (list === undefined || shell === undefined) return;
+    this.#version++;
     if (position === undefined || position >= list.length) list.push(child);
     else list.splice(Math.max(0, position), 0, child);
-    this.#stale.set(parent, at);
+    this.#shells.set(parent, { ...shell, updatedAt: at });
+    this.#joined.delete(parent);
     this.#unroot(child);
     this.#parentOf.set(child, parent);
-    if (!this.#byId.has(child)) this.#addDangling(parent, 1);
-  }
-
-  /** A group member as a reader sees it: the node with its current children. */
-  #viewed(id: NodeId | undefined): KbNode | undefined {
-    return id === undefined ? undefined : this.get(id);
+    if (!this.#shells.has(child)) this.#addDangling(parent, 1);
   }
 
   #addDangling(parent: NodeId, delta: number): void {
@@ -256,20 +318,20 @@ export class IndexedNodes implements NodeGraph {
 
   /** Make `id` a root, if it is a stored node, in its place in the visible order. */
   #root(id: NodeId): void {
-    const node = this.#byId.get(id);
-    if (node === undefined || this.#rootIds.has(id)) return;
+    const shell = this.#shells.get(id);
+    if (shell === undefined || this.#rootIds.has(id)) return;
     this.#rootIds.add(id);
     // The insertion moves every root after it: O(R) per top-level placement.
     // GAP [[01M52RTGASH2F5PVW7CK2Q50VN]]
-    if (this.#ordered !== null) this.#ordered.splice(lowerBound(this.#ordered, node), 0, node);
+    if (this.#ordered !== null) this.#ordered.splice(lowerBound(this.#ordered, shell), 0, shell);
   }
 
   /** Take `id` out of the roots, finding it by the version the order holds. */
   #unroot(id: NodeId): void {
     if (!this.#rootIds.delete(id)) return;
-    const node = this.#byId.get(id);
-    if (this.#ordered === null || node === undefined) return;
-    const at = lowerBound(this.#ordered, node);
+    const shell = this.#shells.get(id);
+    if (this.#ordered === null || shell === undefined) return;
+    const at = lowerBound(this.#ordered, shell);
     if (this.#ordered[at]?.id === id) this.#ordered.splice(at, 1);
   }
 }

@@ -690,7 +690,9 @@ writes a node whole (`put`) or files a new child under a parent
 promises one precondition and one behaviour. The precondition is that the set
 is a forest after every write; a child id may name no node. The behaviour is
 that every answer equals a naive reading of the node set as it now stands,
-and nothing a reader is handed can change the graph. The port has no
+and nothing a reader is handed can change the graph. A group view is valid
+until the next write: it reads the graph's own lists, so reading it after a
+write throws rather than answering from a group that has moved. The port has no
 `delete`, because a plan only adds or moves nodes, and `node.delete` hands
 its ids to the commit.
 
@@ -698,7 +700,10 @@ There are two adapters. `ScannedNodes` scans an array, as the array forms
 (`resolveFieldId`, `resolveTagId`, `siblingSlots`) do. `IndexedNodes` keeps
 indexes current as it is written. It holds each node's own working list of
 children, so filing a child appends to that list and the parent is rebuilt
-once, when it is next read, not once per child. It holds the roots in order
+once, when it is next read, not once per child. That list is the only record
+of a node's children: the node itself is stored without them, and `get` is
+the one place the two are joined, so no read sees children the graph no
+longer holds. It holds the roots in order
 once asked, so each placement at the roots costs a binary search. Two costs
 remain:
 

@@ -324,6 +324,22 @@ for (const [name, make] of Object.entries(IMPLEMENTATIONS)) {
       );
     });
 
+    test("a group view held across a write throws instead of answering", () => {
+      const graph = make([
+        { ...makeNode("a", "a", "plain", "b"), children: ["c"] },
+        makeNode("c", "c", "plain", undefined),
+      ]);
+      const roots = graph.slots(null);
+      const children = graph.slots("a");
+      expect(children.at(0)?.id).toBe("c");
+      graph.insertChild("a", "d", 0, "t1");
+      expect(() => children.at(0)).toThrow("read after a write");
+      expect(() => children.length).toThrow("read after a write");
+      graph.put(makeNode("b", "b", "plain", "h"));
+      expect(() => roots.at(0)).toThrow("read after a write");
+      expect(graph.slots(null).length).toBe(2);
+    });
+
     test("never writes the array it was built from", () => {
       const nodes = [makeNode("a", "a", "plain", "b")];
       const graph = make(nodes);

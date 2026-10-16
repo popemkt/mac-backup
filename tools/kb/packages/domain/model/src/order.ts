@@ -300,7 +300,9 @@ export function rankTx(previous: readonly KbNode[], tx: StoreTx): StoreTx {
 /**
  * A sibling group read by position: its length and its member at an index
  * (0 ≤ index < length). An array is one; a `NodeGraph` hands out a view over
- * its own lists, so reading a neighbour never copies the group.
+ * its own lists, so reading a neighbour never copies the group. A view is
+ * read before the next write to what it views, never across one: a
+ * `NodeGraph` view throws when read after its graph is written.
  */
 export interface Slots<N> {
   readonly length: number;
