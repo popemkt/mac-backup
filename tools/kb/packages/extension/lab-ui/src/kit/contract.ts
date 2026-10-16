@@ -101,6 +101,11 @@ export interface LabStudy {
   /** The principles it applies, and how, in this study's own terms. */
   readonly rules: readonly { readonly id: LabRuleId; readonly how: string }[];
   readonly controls: readonly LabControl[];
+  /**
+   * The study draws the graph's lens graph (`LabSceneInit.graph`), so it is
+   * shown only while the graph is on (`LabStudyPoint`).
+   */
+  readonly readsGraph?: true;
   /** Extra teaching UI beside the card (the motion study's curve panel). */
   readonly Panel?: ComponentType<{ readonly values: LabControlValues; readonly timing: Timing }>;
   readonly load: () => Promise<MountLabScene>;

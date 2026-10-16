@@ -2,7 +2,8 @@
  * The lab page: one study, full frame, under a thin header, with the study's
  * info card over it. This module and everything below it load only when
  * `/lab` is opened, and each study's three.js code loads only when that
- * study is shown.
+ * study is shown. The studies shown are those offered at `LabStudyPoint`:
+ * one that reads the graph waits, named, while the graph is off.
  */
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -15,15 +16,17 @@ import {
   useAppearance,
   usePrefsOpen,
   useReducedMotion,
+  useContributions,
   useSidebarToggle,
   useTheme,
   WorkspaceState,
 } from "@kb/ui-sdk";
-import { initialValues, type LabControlValue, type LabHover } from "./kit/contract";
+import { initialValues, type LabControlValue, type LabHover, type LabStudy } from "./kit/contract";
+import { LabStudyPoint } from "./kit/study-point";
 import { InfoCard } from "./kit/info-card";
 import type { SceneBackend } from "@kb/scene";
 import { SceneHost } from "./kit/scene-host";
-import { useLabGraph } from "./lab-graph";
+import { NO_GRAPH, useLabGraph, type LabGraph } from "./lab-graph";
 import { labPath } from "./routes";
 import { LAB_SCENE_IDS, type LabSceneId } from "@kb/lab";
 import { LAB_STUDIES } from "./studies";
@@ -87,16 +90,45 @@ function HoverLabel({ hover }: { hover: LabHover }) {
   );
 }
 
+interface StudyProps {
+  readonly scene: LabSceneId;
+  readonly onBackend: (b: SceneBackend | null) => void;
+}
+
+/**
+ * The open study, as it is offered now: a study that reads the graph draws
+ * the graph's lens graph, every other one none; a study not offered (one
+ * that reads the graph, while the graph is off) says what it waits for.
+ */
+function OfferedStudy({ scene, onBackend }: StudyProps) {
+  const offered = useContributions(LabStudyPoint).find(({ value }) => value.scene === scene);
+  if (offered === undefined)
+    return (
+      <WorkspaceState
+        title={`${LAB_STUDIES[scene].label} draws the graph`}
+        description="It waits while the graph is off: switch the graph on in Preferences."
+      />
+    );
+  const { study } = offered.value;
+  return study.readsGraph === true ? (
+    <GraphStudy scene={scene} study={study} onBackend={onBackend} />
+  ) : (
+    <Study scene={scene} study={study} graph={NO_GRAPH} onBackend={onBackend} />
+  );
+}
+
+/** A study that reads the graph, drawn from the graph's lens graph. */
+function GraphStudy(props: StudyProps & { readonly study: LabStudy }) {
+  return <Study {...props} graph={useLabGraph()} />;
+}
+
 /** One open study: its scene, its card, its values. Remounted per study. */
 function Study({
   scene,
+  study,
+  graph,
   onBackend,
-}: {
-  scene: LabSceneId;
-  onBackend: (b: SceneBackend | null) => void;
-}) {
-  const study = LAB_STUDIES[scene];
-  const graph = useLabGraph();
+}: StudyProps & { readonly study: LabStudy; readonly graph: LabGraph }) {
   const appearance = useAppearance();
   const reducedMotion = useReducedMotion();
   const timing = useMemo(() => readTiming(), []);
@@ -146,7 +178,7 @@ export default function LabPage({ scene }: { scene: LabSceneId }) {
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[var(--lab-ground)]">
       <LabHeader scene={scene} backend={backend} />
       <div className="absolute inset-0">
-        <Study key={scene} scene={scene} onBackend={setBackend} />
+        <OfferedStudy key={scene} scene={scene} onBackend={setBackend} />
       </div>
     </div>
   );

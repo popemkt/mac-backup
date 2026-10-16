@@ -76,6 +76,7 @@ export const LAB_STUDIES: Record<LabSceneId, LabStudy> = {
   },
   sky: {
     label: "Sky",
+    readsGraph: true,
     technique: "A sun that lights the moon, stars in 3D, a domain-warped nebula, orbit controls",
     teaches:
       "Drag the sky to orbit, scroll to dolly; drag the sun, the moon or a star to move it. The moon is shaded by the sun's direction from each point of it, so its terminator and phase follow the two bodies; the night side keeps a little earthshine. Near constellations slide across far ones: parallax is depth. Turn dither off to see a dark gradient band.",

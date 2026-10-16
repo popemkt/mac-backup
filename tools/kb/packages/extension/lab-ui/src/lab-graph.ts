@@ -7,7 +7,8 @@
  * index, which the graph's browser half answers (`LensGraphService`), so a
  * node the graph hides the lab hides too. The lab adds only what the wire
  * node already carries and the lens does not: how recently each node
- * changed. The lab injects the service, so it waits while the graph is off.
+ * changed. Only a study that reads the graph asks, and it is offered only
+ * while the graph provides the service (`LabStudyPoint`).
  */
 import { useMemo } from "react";
 import type { WireNode } from "@kb/contracts";
@@ -73,17 +74,22 @@ export function toLabGraph(lens: LensGraph, wireNodes: readonly WireNode[]): Lab
   return { nodes, edges: lens.edges.map(({ source, target }) => ({ source, target })) };
 }
 
+/** No graph: what a study is drawn from while the index loads, or there is no perspective. */
+export const NO_GRAPH: LabGraph = { nodes: [], edges: [] };
+
+/** The graph's lens graphs. Only a study offered by the lab's graph child asks, so it is held. */
+function lensGraphs() {
+  const graphs = currentService(LensGraphService);
+  if (graphs === undefined) throw new Error("no LensGraphService: the graph is not loaded");
+  return graphs;
+}
+
 /** The lab's graph: the default perspective's lens over the live store. */
 export function useLabGraph(): LabGraph {
   const wireNodes = useWireNodes();
   const index = useIndex();
   return useMemo(() => {
-    const lens =
-      index === null
-        ? null
-        : currentService(LensGraphService)?.ofPerspective(index, wireNodes, null);
-    return lens === null || lens === undefined
-      ? { nodes: [], edges: [] }
-      : toLabGraph(lens, wireNodes);
+    const lens = index === null ? null : lensGraphs().ofPerspective(index, wireNodes, null);
+    return lens === null ? NO_GRAPH : toLabGraph(lens, wireNodes);
   }, [wireNodes, index]);
 }

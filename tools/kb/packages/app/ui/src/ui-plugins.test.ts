@@ -10,7 +10,8 @@ import { makeKernel, syncPlugins, type Contribution, type Kernel } from "@kb/plu
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { NO_SWITCHES, extensionRow, familyOn, type ExtensionRow } from "@kb/contracts";
 import { agentExtension } from "@kb/agent";
-import { labExtension } from "@kb/lab";
+import { LAB_SCENE_IDS, labExtension } from "@kb/lab";
+import { LAB_STUDIES, LabStudyPoint } from "@kb/lab-ui";
 import {
   CommandPoint,
   DockPoint,
@@ -259,7 +260,7 @@ describe("an optional family switched off on the server", () => {
     });
   }
 
-  it("the lab, on, waits while the graph is off: its studies draw the graph's lens graph", async () => {
+  it("the lab, on, shows every study while the graph is off but Sky, which reads the graph", async () => {
     const kernel = makeKernel();
     for (const graphOn of [false, true]) {
       const rows = reported((name) => name !== "graph" || graphOn);
@@ -270,10 +271,13 @@ describe("an optional family switched off on the server", () => {
         syncPlugins(kernel, [...CORE_UI_PLUGINS, ...entries]),
       );
       expect(failures).toEqual([]);
-      expect({ graphOn, lab: ownedBy(kernel, "lab").length > 0 }).toEqual({
-        graphOn,
-        lab: graphOn,
-      });
+      expect(ownedBy(kernel, "lab").length).toBeGreaterThan(0);
+      const offered = kernel.contributions(LabStudyPoint).map(({ value }) => value.scene);
+      const graphStudies = LAB_SCENE_IDS.filter((id) => LAB_STUDIES[id].readsGraph === true);
+      expect(graphStudies).toEqual(["sky"]);
+      expect(offered.toSorted()).toEqual(
+        LAB_SCENE_IDS.filter((id) => graphOn || id !== "sky").toSorted(),
+      );
     }
     await Effect.runPromise(kernel.shutdown);
   });

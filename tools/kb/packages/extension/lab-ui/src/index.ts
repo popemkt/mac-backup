@@ -6,11 +6,12 @@
  * only while the server reports the lab switched on.
  *
  * Also named here, for `@kb/ui`'s tests that hold the lab to the page: the
- * registered studies and the scene interface they implement (the scene
+ * point the studies are offered at, the registered studies and the scene interface they implement (the scene
  * contract runs over them), and Embers' heat arithmetic (checked against
  * every design system's accent).
  */
 export { labUiPlugin } from "./plugin";
+export { LabStudyPoint } from "./kit/study-point";
 export { LAB_STUDIES } from "./studies";
 export type { LabScene, LabSceneInit } from "./kit/contract";
 export {
