@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import { mutations } from "@/actions/mutations";
-import { listOntologyItems, navigate, ontologyPath } from "@kb/ui-sdk";
+import { browserHost, listOntologyItems, navigate, ontologyPath } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
 
 /**
@@ -16,7 +15,7 @@ export function OntologyListPage() {
     if (busy) return;
     setBusy(true);
     try {
-      const id = await mutations.defineOntology();
+      const id = await browserHost().writes.defineOntology();
       if (id !== null) navigate(ontologyPath(id));
     } finally {
       setBusy(false);

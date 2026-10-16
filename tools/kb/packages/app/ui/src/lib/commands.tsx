@@ -39,8 +39,8 @@ import {
 } from "@phosphor-icons/react";
 import { hostViewIds, isQueryNode, isViewNode, present, typeRefsOf, viewOptionOf } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { mutations } from "@/actions/mutations";
 import {
+  browserHost,
   type Command,
   type CommandContext,
   CommandPoint,
@@ -111,7 +111,7 @@ function withFrame(ctx: CommandContext, body: (frameId: string) => void | Promis
 }
 
 async function setGlobalFrameView(ctx: CommandContext, view: FrameViewKey): Promise<void> {
-  await withFrame(ctx, (frameId) => mutations.setFrameView(frameId, view));
+  await withFrame(ctx, (frameId) => browserHost().writes.setFrameView(frameId, view));
 }
 
 /** The ontology to enter: the selected or zoomed one, else the first. */
@@ -135,18 +135,18 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     run: async (ctx) => {
       const selected = ctx.outline.selectedNodeId;
       if (selected !== null && !isSysPrefixed(selected)) {
-        await mutations.createNodeAfter(selected);
+        await browserHost().writes.createNodeAfter(selected);
         return;
       }
       const newId = ulid();
-      if (await mutations.addRootNode("Untitled", newId)) ctx.outline.jumpToNode(newId);
+      if (await browserHost().writes.addRootNode("Untitled", newId)) ctx.outline.jumpToNode(newId);
     },
   },
   {
     id: SYSTEM_IDS.cmdAddTag,
     scope: "global",
     run: async (ctx) => {
-      const id = await mutations.defineTag("untitled-tag");
+      const id = await browserHost().writes.defineTag("untitled-tag");
       if (id !== null) ctx.outline.zoomTo(id);
     },
   },
@@ -154,7 +154,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     id: SYSTEM_IDS.cmdDefineField,
     scope: "global",
     run: async (ctx) => {
-      const id = await mutations.defineField("untitled-field");
+      const id = await browserHost().writes.defineField("untitled-field");
       if (id !== null) ctx.outline.zoomTo(id);
     },
   },
@@ -169,7 +169,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     id: SYSTEM_IDS.cmdNewQuery,
     scope: "global",
     run: async (ctx) => {
-      const newId = await mutations.newQueryNode();
+      const newId = await browserHost().writes.newQueryNode();
       if (newId !== null) ctx.outline.zoomTo(newId);
     },
   },
@@ -177,7 +177,7 @@ const GLOBAL_COMMANDS: readonly Command[] = [
     id: SYSTEM_IDS.cmdNewOntology,
     scope: "global",
     run: async () => {
-      const id = await mutations.defineOntology();
+      const id = await browserHost().writes.defineOntology();
       if (id !== null) navigate(ontologyPath(id));
     },
   },
@@ -291,7 +291,7 @@ const NODE_COMMANDS: readonly Command[] = [
       nodeAction(ctx, (nodeId) => {
         // Setting the field is the whole gesture: the field is the kind, so
         // there is no tag to apply alongside it and nothing to keep in sync.
-        void mutations.updateProp(nodeId, SYSTEM_IDS.queryField, {
+        void browserHost().writes.updateProp(nodeId, SYSTEM_IDS.queryField, {
           t: "str",
           v: DEFAULT_QUERY_EDN,
         });
@@ -330,7 +330,7 @@ const NODE_COMMANDS: readonly Command[] = [
     run: (ctx) =>
       nodeAction(ctx, (nodeId) => {
         void (async () => {
-          if (!(await mutations.makeSupertag(nodeId))) return;
+          if (!(await browserHost().writes.makeSupertag(nodeId))) return;
           // A supertag is schema, so it leaves the outline forest the moment it
           // becomes one. Zoom to it rather than letting the row vanish — and
           // its field template is the next thing anyone wants anyway.
@@ -373,13 +373,13 @@ const NODE_COMMANDS: readonly Command[] = [
     id: "indent",
     scope: "node",
     chrome: () => ({ label: "Indent", icon: <ArrowRightIcon size={14} /> }),
-    run: (ctx) => nodeAction(ctx, (nodeId) => void mutations.indentNode(nodeId)),
+    run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.indentNode(nodeId)),
   },
   {
     id: "outdent",
     scope: "node",
     chrome: () => ({ label: "Outdent", icon: <ArrowBendUpLeftIcon size={14} /> }),
-    run: (ctx) => nodeAction(ctx, (nodeId) => void mutations.outdentNode(nodeId)),
+    run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.outdentNode(nodeId)),
   },
   {
     // Pinning is listing (lib/pinned); the label is the current state so the
@@ -398,7 +398,7 @@ const NODE_COMMANDS: readonly Command[] = [
         ),
       };
     },
-    run: (ctx) => nodeAction(ctx, (nodeId) => void mutations.togglePin(nodeId)),
+    run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.togglePin(nodeId)),
   },
   {
     // Per node, never global: the answer is about the node you are looking at
@@ -419,7 +419,7 @@ const NODE_COMMANDS: readonly Command[] = [
     id: "delete",
     scope: "node",
     chrome: () => ({ label: "Delete node", icon: <TrashIcon size={14} /> }),
-    run: (ctx) => nodeAction(ctx, (nodeId) => void mutations.deleteNode(nodeId)),
+    run: (ctx) => nodeAction(ctx, (nodeId) => void browserHost().writes.deleteNode(nodeId)),
   },
 ];
 
@@ -459,7 +459,7 @@ function frameViewCommands(ctx: CommandContext): {
             icon: Icon === undefined ? null : <Icon size={14} weight={picker.iconWeight} />,
           };
         },
-        run: (c) => nodeAction(c, (nodeId) => void mutations.setFrameView(nodeId, key)),
+        run: (c) => nodeAction(c, (nodeId) => void browserHost().writes.setFrameView(nodeId, key)),
       }),
     ),
   };
@@ -509,7 +509,7 @@ function defaultViewCommands(ctx: CommandContext): readonly Command[] {
       chrome: () => ({ label, icon: <StarIcon size={14} /> }),
       run: async (c) => {
         c.palette.close();
-        await mutations.makeDefaultView(hostId, viewId);
+        await browserHost().writes.makeDefaultView(hostId, viewId);
       },
     }),
   );

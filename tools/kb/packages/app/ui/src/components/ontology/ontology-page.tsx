@@ -9,6 +9,7 @@ import {
   wouldCreateExtendsCycle,
 } from "@kb/model";
 import {
+  browserHost,
   cn,
   hasText,
   navigate,
@@ -19,7 +20,6 @@ import {
   tagPalette,
   textOr,
 } from "@kb/ui-sdk";
-import { mutations } from "@/actions/mutations";
 import { MemberRow } from "@/components/ontology/member-row";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
@@ -121,7 +121,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
                 key={tagId}
                 label={`#${labelFor(tagId)}`}
                 color={tagColorOf(tagId, tagPalette(wireNodes))}
-                onRemove={() => void mutations.ontologyRemoveInclude(ontologyId, tagId)}
+                onRemove={() => void browserHost().writes.ontologyRemoveInclude(ontologyId, tagId)}
                 removeLabel={`Remove include ${labelFor(tagId)}`}
               />
             ))
@@ -131,7 +131,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
             title="Include tag"
             candidates={tagCandidates}
             emptyHint="No tags defined yet"
-            onPick={(id) => void mutations.ontologyAddInclude(ontologyId, id)}
+            onPick={(id) => void browserHost().writes.ontologyAddInclude(ontologyId, id)}
           />
         </DefinitionRow>
 
@@ -143,7 +143,9 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
               <Chip
                 key={parentId}
                 label={`⬡ ${labelFor(parentId)}`}
-                onRemove={() => void mutations.ontologyRemoveExtends(ontologyId, parentId)}
+                onRemove={() =>
+                  void browserHost().writes.ontologyRemoveExtends(ontologyId, parentId)
+                }
                 removeLabel={`Remove extends ${labelFor(parentId)}`}
               />
             ))
@@ -153,7 +155,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
             title="Extend ontology"
             candidates={ontologyCandidates}
             emptyHint="No other ontologies yet"
-            onPick={(id) => void mutations.ontologyAddExtends(ontologyId, id)}
+            onPick={(id) => void browserHost().writes.ontologyAddExtends(ontologyId, id)}
           />
         </DefinitionRow>
 
@@ -172,7 +174,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
               { key: "descendants", label: "descendants" },
             ]}
             value={closure}
-            onChange={(v) => void mutations.ontologySetClosure(ontologyId, v)}
+            onChange={(v) => void browserHost().writes.ontologySetClosure(ontologyId, v)}
           />
           <span className="text-label text-foreground/30">pull whole subtrees of members in</span>
         </DefinitionRow>
@@ -208,9 +210,9 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
                   navigate("/");
                   pageProjection().reveal(id);
                 }}
-                onPin={(id) => void mutations.ontologyAddMember(ontologyId, id)}
-                onUnpin={(id) => void mutations.ontologyRemoveMember(ontologyId, id)}
-                onExclude={(id) => void mutations.ontologyExclude(ontologyId, id)}
+                onPin={(id) => void browserHost().writes.ontologyAddMember(ontologyId, id)}
+                onUnpin={(id) => void browserHost().writes.ontologyRemoveMember(ontologyId, id)}
+                onExclude={(id) => void browserHost().writes.ontologyExclude(ontologyId, id)}
               />
             ))}
           </div>
@@ -227,7 +229,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
                 row={row}
                 labelOf={labelFor}
                 excluded
-                onRestore={(id) => void mutations.ontologyUnexclude(ontologyId, id)}
+                onRestore={(id) => void browserHost().writes.ontologyUnexclude(ontologyId, id)}
               />
             ))}
           </div>
@@ -268,14 +270,14 @@ function OntologyTitle({ id, text }: { id: string; text: string }) {
         onFocus={() => setEditing(true)}
         onChange={(e) => {
           setDraft(e.target.value);
-          void mutations.updateNodeContent(id, e.target.value);
+          void browserHost().writes.updateNodeContent(id, e.target.value);
         }}
         onBlur={() => setEditing(false)}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.preventDefault();
             setDraft(text);
-            void mutations.updateNodeContent(id, text);
+            void browserHost().writes.updateNodeContent(id, text);
             e.currentTarget.blur();
             return;
           }
@@ -419,7 +421,7 @@ function QueryEditor({
   const commit = () => {
     setEditing(false);
     if (draft.trim() === value.trim()) return;
-    void mutations.ontologySetQuery(ontologyId, draft);
+    void browserHost().writes.ontologySetQuery(ontologyId, draft);
   };
 
   return (

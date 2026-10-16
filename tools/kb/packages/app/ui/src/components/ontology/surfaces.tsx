@@ -1,6 +1,5 @@
 import { lazy, useEffect, useMemo, useState } from "react";
 import { HexagonIcon, PlusIcon } from "@phosphor-icons/react";
-import { mutations } from "@/actions/mutations";
 import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
 import {
   OntologyListView,
@@ -11,6 +10,7 @@ import {
 } from "@kb/views";
 import { isOntologyNode } from "@kb/model";
 import {
+  browserHost,
   listOntologyItems,
   type MatchedRoute,
   navigate,
@@ -141,7 +141,7 @@ export function OntologySection({ route }: { readonly route: MatchedRoute | null
     if (creating) return;
     setCreating(true);
     try {
-      const id = await mutations.defineOntology();
+      const id = await browserHost().writes.defineOntology();
       if (id !== null) navigate(ontologyPath(id));
     } finally {
       setCreating(false);
