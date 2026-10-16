@@ -1366,6 +1366,14 @@ open view of that canvas.
   takes it by. Side anchors and their outward directions turn with the
   item (`sideTerminal`, `@kb/canvas` `edges.ts`), and the marquee and
   framing read its turned box.
+- **A line is an item** (`path`, `@kb/canvas` `paths.ts`): the line and
+  arrow tools (L, A) place one across a box, which moves, resizes and turns
+  as any item's does. Its outline is its line (`itemOutline`, the one
+  answer both projections stroke every item's chrome from), drawn as heavy
+  as an edge, and its open ends wear the heads an edge wears
+  (`pathHeads`, `headOnLine`): the DOM draws them in its outline's SVG, the
+  3D face paints them into its texture. The look contract reads both back
+  along the line and each head.
 - **Looks are one paint in both projections** (`canvas-style.ts`,
   `itemPaint`): an item's style (DESIGN.md → Canvas documents) is turned
   once into what is drawn — the outline's width (by size) and dash pattern

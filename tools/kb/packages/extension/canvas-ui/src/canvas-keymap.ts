@@ -191,6 +191,8 @@ const TOOL_KEYS: Record<string, CanvasTool> = {
   "4": "ellipse",
   d: "diamond",
   "5": "diamond",
+  l: "line",
+  a: "arrow",
   n: "kb-node",
   "6": "kb-node",
   f: "group",

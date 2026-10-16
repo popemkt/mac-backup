@@ -461,20 +461,16 @@ function headPath(kind: CanvasHead, tip: Pt, dir: Pt, length: number): CanvasPat
 const STROKED_HEADS: ReadonlySet<CanvasHead> = new Set(["open", "bar"]);
 
 /**
- * The head `edge`'s `end` wears on `route`, `length` long, or null for
- * none: its tip on the end's point, pointing the way the route runs into it
- * (out of the route at the end it leaves). Both projections draw this
- * outline: the DOM as a path, the scene flat at the end's height.
+ * The head of `kind` worn at `end` of the line through `points`, `length`
+ * long: its tip on the end's point, pointing the way the line runs into it
+ * (out of the line at the end it leaves). Null for a line of one point.
  */
-export function edgeHead(
-  edge: CanvasEdge,
-  route: EdgeRoute,
+export function headOnLine(
+  kind: CanvasHead,
+  points: readonly CanvasVec[],
   end: EdgeEnd,
   length: number,
 ): EdgeHead | null {
-  const kind = headOf(edge, end);
-  if (kind === null) return null;
-  const points = routePoints(route);
   const [tip, before] = end === "to" ? [points.at(-1), points.at(-2)] : [points[0], points[1]];
   if (tip === undefined || before === undefined) return null;
   const span = Math.hypot(tip.x - before.x, tip.y - before.y) || 1;
@@ -485,4 +481,19 @@ export function edgeHead(
     filled: !STROKED_HEADS.has(kind),
     z: tip.z,
   };
+}
+
+/**
+ * The head `edge`'s `end` wears on `route`, `length` long, or null for
+ * none (`headOnLine`). Both projections draw this outline: the DOM as a
+ * path, the scene flat at the end's height.
+ */
+export function edgeHead(
+  edge: CanvasEdge,
+  route: EdgeRoute,
+  end: EdgeEnd,
+  length: number,
+): EdgeHead | null {
+  const kind = headOf(edge, end);
+  return kind === null ? null : headOnLine(kind, routePoints(route), end, length);
 }

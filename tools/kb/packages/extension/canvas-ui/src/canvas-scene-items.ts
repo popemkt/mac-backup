@@ -181,6 +181,10 @@ function faceVersion(face: CardFace, selected: boolean): string {
       return `i${mark}${face.picture.state}:${face.src}`;
     case "group":
       return `g${mark}${look}${fingerprint(face.label)}`;
+    case "path": {
+      const { points, closed, fromHead, toHead } = face.path;
+      return `p${mark}${look}${fingerprint(JSON.stringify([points, closed, fromHead, toHead]))}`;
+    }
     case "missing":
     case "other":
       return `${face.kind}${mark}${fingerprint(face.label)}`;

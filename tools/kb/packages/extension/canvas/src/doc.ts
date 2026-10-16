@@ -5,7 +5,8 @@
  * Unknown node types and extra fields round-trip (forward compatible). kb's
  * own extension fields are typed here: `nodeId`, `z`, `depth`,
  * `rotation`, `parent` and `style` on any item, `shape` on a shape item,
- * `kbLink`, the anchors, `route`, `bend`, the heads and `style` on an edge,
+ * `points`, `closed` and the heads on a `path` item, `kbLink`, the
+ * anchors, `route`, `bend`, the heads and `style` on an edge,
  * and `camera` on the document (`./camera.ts`). The format, as agents write
  * it, is DESIGN.md → Canvas documents.
  */
@@ -13,6 +14,7 @@ import { boxRotation, boxTop } from "./box.ts";
 import { emitCanvasCamera, parseCanvasCamera, type CanvasCamera } from "./camera.ts";
 import { dropExtra } from "./extra.ts";
 import {
+  fieldKeys,
   finite,
   isRecord,
   oneOf,
@@ -158,6 +160,22 @@ export interface CanvasFileNode extends CanvasNodeBase {
   file: string;
 }
 
+/**
+ * A line drawn through points, kb's own item type: a line, or an arrow when
+ * its ends wear heads. Its points are anchors of its box (0–1 across and
+ * down it, `CanvasAnchor`), so it moves, resizes and turns as its box does.
+ * Closed, its last point joins its first and it may be filled.
+ */
+export interface CanvasPathNode extends CanvasNodeBase {
+  type: "path";
+  /** At least two, in the order the line runs. */
+  points: readonly CanvasAnchor[];
+  closed?: boolean;
+  /** The head each end wears; absent, none. */
+  fromHead?: CanvasHead;
+  toHead?: CanvasHead;
+}
+
 /** Opaque passthrough for link/future types. */
 interface CanvasUnknownNode extends CanvasNodeBase {
   type: string;
@@ -169,6 +187,7 @@ export type CanvasNode =
   | CanvasKbNode
   | CanvasShapeNode
   | CanvasFileNode
+  | CanvasPathNode
   | CanvasUnknownNode;
 
 export function isKbNode(n: CanvasNode): n is CanvasKbNode {
@@ -189,6 +208,10 @@ export function isShapeNode(n: CanvasNode): n is CanvasShapeNode {
 
 export function isFileNode(n: CanvasNode): n is CanvasFileNode {
   return n.type === "file" && "file" in n;
+}
+
+export function isPathNode(n: CanvasNode): n is CanvasPathNode {
+  return n.type === "path" && "points" in n;
 }
 
 const SHAPE_KINDS = [
@@ -331,12 +354,57 @@ const ITEM_OWN_KEYS: ReadonlySet<string> = new Set([
   "file",
 ]);
 
+/** A path item's fields beyond its points. */
+type PathField = "closed" | "fromHead" | "toHead";
+
+const PATH_FIELDS: FieldCodecs<CanvasPathNode, PathField> = {
+  closed: { read: (raw) => (typeof raw === "boolean" ? raw : undefined) },
+  fromHead: { read: (raw) => oneOf(CANVAS_HEADS, raw) },
+  toHead: { read: (raw) => oneOf(CANVAS_HEADS, raw) },
+};
+
+const PATH_FIELD_KEYS: ReadonlySet<string> = new Set(fieldKeys(PATH_FIELDS));
+const PATH_OWN_KEYS: ReadonlySet<string> = new Set([
+  ...ITEM_OWN_KEYS,
+  "points",
+  ...PATH_FIELD_KEYS,
+]);
+
+/** A path's points as written: at least two anchors of its box; anything else is unreadable. */
+function parsePoints(raw: unknown): CanvasAnchor[] | undefined {
+  if (!Array.isArray(raw) || raw.length < 2) return undefined;
+  const points: CanvasAnchor[] = [];
+  for (const point of raw) {
+    const anchor = parseAnchor(point);
+    if (anchor === undefined) return undefined;
+    points.push(anchor);
+  }
+  return points;
+}
+
+/**
+ * A path item's own fields as written, and what in them kb cannot read;
+ * undefined when its points cannot be read, which leaves it an item of a
+ * type kb does not know, kept as written.
+ */
+function readPath(raw: Record<string, unknown>) {
+  const points = parsePoints(raw.points);
+  if (points === undefined) return undefined;
+  const fields: Partial<Pick<CanvasPathNode, PathField>> = {};
+  const others = new Set(Object.keys(raw).filter((key) => !PATH_FIELD_KEYS.has(key)));
+  const extra = readFields(PATH_FIELDS, raw, fields, others);
+  return { points, fields, extra };
+}
+
 function parseNode(raw: unknown): CanvasNode | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.type !== "string") {
     return null;
   }
+  const path = raw.type === "path" ? readPath(raw) : undefined;
   const fields: Partial<Pick<CanvasNodeBase, ItemField>> = {};
-  const extra = readFields(ITEM_FIELDS, raw, fields, ITEM_OWN_KEYS);
+  const own = path === undefined ? ITEM_OWN_KEYS : PATH_OWN_KEYS;
+  const itemExtra = readFields(ITEM_FIELDS, raw, fields, own);
+  const extra = path?.extra === undefined ? itemExtra : { ...itemExtra, ...path.extra };
   const base = {
     id: raw.id,
     type: raw.type,
@@ -376,6 +444,7 @@ function parseNode(raw: unknown): CanvasNode | null {
   if (raw.type === "file") {
     return { ...base, type: "file", file: typeof raw.file === "string" ? raw.file : "" };
   }
+  if (path !== undefined) return { ...base, type: "path", points: path.points, ...path.fields };
   // link / future — opaque passthrough
   return base;
 }
@@ -450,6 +519,10 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
     if (n.label !== undefined) out.label = n.label;
   }
   if (isFileNode(n)) out.file = n.file;
+  if (isPathNode(n)) {
+    out.points = n.points.map(({ x, y }) => ({ x, y }));
+    writeFields(PATH_FIELDS, n, out);
+  }
   if (n.extra) Object.assign(out, n.extra);
   return out;
 }

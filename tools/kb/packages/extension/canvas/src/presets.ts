@@ -15,6 +15,7 @@ import {
   canvasDepth,
   canvasElevation,
   isGroupNode,
+  isPathNode,
   isShapeNode,
   isTextNode,
   withDepth,
@@ -24,9 +25,11 @@ import {
   type CanvasGroupNode,
   type CanvasKbNode,
   type CanvasNode,
+  type CanvasPathNode,
   type CanvasShapeNode,
   type CanvasTextNode,
 } from "./doc.ts";
+import { withLine, type CanvasLinePatch } from "./paths.ts";
 import { CanvasRelationError } from "./relations.ts";
 import { apply, rotationOfMatrix } from "./rotation.ts";
 import { canvasColor, withStyle, type CanvasLooksPatch } from "./style.ts";
@@ -59,6 +62,27 @@ const CANVAS_PRESETS = {
   group: { type: "group", width: 300, height: 200 } satisfies Unplaced<CanvasGroupNode>,
   /** A card: a text card showing a node, so it is placed with one. */
   "kb-node": { type: "kb-node", width: 280, height: 72 } satisfies Unplaced<CanvasKbNode>,
+  /** A line across its box, left to right; it turns and stretches as its box does. */
+  line: {
+    type: "path",
+    points: [
+      { x: 0, y: 0.5 },
+      { x: 1, y: 0.5 },
+    ],
+    width: 200,
+    height: 24,
+  } satisfies Unplaced<CanvasPathNode>,
+  /** An arrow free of any item: a line whose far end wears an arrowhead. */
+  arrow: {
+    type: "path",
+    points: [
+      { x: 0, y: 0.5 },
+      { x: 1, y: 0.5 },
+    ],
+    toHead: "arrow",
+    width: 200,
+    height: 24,
+  } satisfies Unplaced<CanvasPathNode>,
   /** A picture: a file item showing an image asset, so it is placed with one (`imageItem`). */
   image: { type: "file", file: "", width: 320, height: 240 } satisfies Unplaced<CanvasFileNode>,
   box: shape("rect", { width: 120, height: 120, depth: 120 }),
@@ -115,11 +139,13 @@ export const CANVAS_PRESET_KINDS: readonly CanvasPresetKind[] = PRESET_KINDS;
  * words it shows (a text card's text, a shape's or a frame's label), and
  * any of its look and size. A card needs the node it shows, a picture the
  * asset it shows. A colour may be named ("red") or written as JSON Canvas
- * writes one ("1", a hex); its looks are `style.ts`'s.
+ * writes one ("1", a hex); its looks are `style.ts`'s. A line or an arrow
+ * may be given its points and heads (`line`).
  */
 export interface CanvasItemSpec {
   readonly preset: CanvasPresetKind;
   readonly text?: string;
+  readonly line?: CanvasLinePatch;
   readonly color?: string;
   readonly style?: CanvasLooksPatch;
   readonly nodeId?: string;
@@ -155,12 +181,20 @@ export function makeItem(spec: CanvasItemSpec, id: string): CanvasNode {
     ...(spec.color === undefined ? {} : { color: canvasColor(spec.color) }),
     ...(spec.nodeId === undefined ? {} : { nodeId: spec.nodeId }),
   };
-  const styled = spec.style === undefined ? sized : withStyle(sized, spec.style);
+  const lined = spec.line === undefined ? sized : lineOf(sized, spec.line, spec.preset);
+  const styled = spec.style === undefined ? lined : withStyle(lined, spec.style);
   const deep = spec.depth === undefined ? styled : withDepth(styled, spec.depth);
   if (spec.text === undefined) return deep;
   if (isTextNode(deep)) return { ...deep, text: spec.text };
   if (isShapeNode(deep) || isGroupNode(deep)) return { ...deep, label: spec.text };
   throw new CanvasRelationError(`a ${spec.preset} shows no words of its own`);
+}
+
+/** `item` drawn as the line `patch` says; throws for an item that is no line. */
+function lineOf(item: CanvasNode, patch: CanvasLinePatch, preset: CanvasPresetKind): CanvasNode {
+  if (!isPathNode(item))
+    throw new CanvasRelationError(`a ${preset} is no line: it takes no points`);
+  return withLine(item, patch);
 }
 
 /** How far off a face an item placed on it stands, canvas units: clear of it, so the two never fight. */

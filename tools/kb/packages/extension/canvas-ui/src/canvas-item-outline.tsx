@@ -1,11 +1,12 @@
 /**
- * An item's chrome in 2D: its outline traced from the shape table
- * (`shapeOutline`, as the 3D faces trace it), filled and stroked as its
- * look says (`itemPaint`), and its words set as it says — the one way every
- * kind of item draws its ground, its edge and its type in the DOM.
+ * An item's chrome in 2D: its outline (`itemOutline`, as the 3D faces trace
+ * it: its shape's, or a line's through its points), filled and stroked as
+ * its look says (`itemPaint`), with the heads a line's ends wear
+ * (`pathHeads`) — the one way every kind of item draws its ground and its
+ * edge in the DOM.
  */
 import type { ReactNode } from "react";
-import type { CanvasNode } from "@kb/canvas";
+import { pathHeads, svgPathData, type CanvasNode } from "@kb/canvas";
 import { paintCss } from "./canvas-color";
 import { fillCss, outlinePath } from "./canvas-dom-paint";
 import type { ItemPaint } from "./canvas-style";
@@ -39,6 +40,9 @@ export function ItemOutline({
       ? "none"
       : (color ?? `color-mix(in oklab, var(--foreground) ${ink}%, transparent)`);
   const width = outline?.width ?? 0;
+  const drawn = selected ? "color-mix(in oklab, var(--primary) 70%, transparent)" : stroke;
+  // A head is inked as the line is, or in the foreground where the line draws none.
+  const headInk = drawn === "none" ? "var(--foreground)" : drawn;
   return (
     <svg
       data-outline
@@ -58,12 +62,24 @@ export function ItemOutline({
         data-outline-path
         d={d}
         fill={fillCss(chrome, color)}
-        stroke={selected ? "color-mix(in oklab, var(--primary) 70%, transparent)" : stroke}
+        stroke={drawn}
         strokeWidth={selected ? Math.max(2, width) : width}
         strokeDasharray={
           outline === null || outline.pattern.length === 0 ? undefined : outline.pattern.join(" ")
         }
       />
+      {paint.heads !== null &&
+        pathHeads(item, item.width, item.height, paint.heads.length).map(({ end, head }) => (
+          <path
+            key={end}
+            data-item-head={end}
+            data-head-kind={head.kind}
+            d={svgPathData(head.path)}
+            fill={head.filled ? headInk : "none"}
+            stroke={headInk}
+            strokeWidth={head.filled ? 0 : Math.max(width, 1)}
+          />
+        ))}
       {children}
     </svg>
   );

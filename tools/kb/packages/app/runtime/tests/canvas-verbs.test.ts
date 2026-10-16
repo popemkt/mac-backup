@@ -137,6 +137,50 @@ describe("ext.canvas.place", () => {
     expect(out.lints).toEqual({ new: [], resolved: [] });
   });
 
+  test("places a free arrow through the points it is given, wearing the heads it is given", async () => {
+    const ctx = await canvasKb([card("a", 0, 0)]);
+    output(
+      await invoke(
+        ctx,
+        verb("place", {
+          items: [
+            {
+              make: {
+                id: "ar",
+                preset: "arrow",
+                width: 240,
+                height: 80,
+                line: {
+                  points: [
+                    { x: 0, y: 1 },
+                    { x: 1, y: 0 },
+                  ],
+                  fromHead: "dot",
+                  toHead: "none",
+                },
+              },
+              near: "a",
+              side: "right",
+            },
+          ],
+        }),
+      ),
+    );
+    const placed = stored(ctx).nodes.find((n) => n.id === "ar");
+    expect(placed).toMatchObject({
+      type: "path",
+      width: 240,
+      points: [
+        { x: 0, y: 1 },
+        { x: 1, y: 0 },
+      ],
+      fromHead: "dot",
+    });
+    expect(placed).not.toHaveProperty("toHead");
+    const told = output(await invoke(ctx, verb("describe", {})));
+    expect(told.items).toContainEqual(expect.objectContaining({ id: "ar", kind: "arrow" }));
+  });
+
   test("an item that is not there is refused, and nothing is written", async () => {
     const ctx = await canvasKb([card("a", 0, 0)]);
     const before = stored(ctx);

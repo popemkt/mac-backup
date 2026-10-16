@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  ArrowUpRightIcon,
   CaretRightIcon,
   CircleIcon,
   CubeIcon,
@@ -8,6 +9,7 @@ import {
   DiamondIcon,
   FrameCornersIcon,
   ImageIcon,
+  LineSegmentIcon,
   PlusIcon,
   RowsIcon,
   SphereIcon,
@@ -33,6 +35,8 @@ const TOOL_LOOKS: {
   rect: { label: "Rectangle (R)", icon: <SquareIcon size={16} /> },
   ellipse: { label: "Ellipse (O)", icon: <CircleIcon size={16} /> },
   diamond: { label: "Diamond (D)", icon: <DiamondIcon size={16} /> },
+  line: { label: "Line (L)", icon: <LineSegmentIcon size={16} /> },
+  arrow: { label: "Arrow (A)", icon: <ArrowUpRightIcon size={16} /> },
   group: { label: "Group / Frame (F)", icon: <FrameCornersIcon size={16} /> },
   "kb-node": { label: "Add kb node (N)", icon: <PlusIcon size={16} /> },
   image: { label: "Image (or paste or drop one)", icon: <ImageIcon size={16} /> },
@@ -52,6 +56,8 @@ const FLAT_TOOLS: readonly CanvasTool[] = [
   "rect",
   "ellipse",
   "diamond",
+  "line",
+  "arrow",
   "group",
   "kb-node",
   "image",

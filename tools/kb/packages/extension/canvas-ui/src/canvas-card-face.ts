@@ -15,8 +15,11 @@ import {
   isFileNode,
   isGroupNode,
   isKbNode,
+  isPathNode,
   isShapeNode,
   isTextNode,
+  itemOutline,
+  pathHeads,
   shapeOutline,
   tracePath,
   CANVAS_PALETTE,
@@ -24,6 +27,8 @@ import {
   type CanvasNode,
   type CanvasPaint,
   type CanvasPaletteId,
+  type CanvasPathCommand,
+  type CanvasPathNode,
   type CanvasShapeKind,
 } from "@kb/canvas";
 import { paletteToken } from "./canvas-color";
@@ -65,6 +70,8 @@ export type CardFace =
       readonly style: ItemPaint;
     }
   | { readonly kind: "group"; readonly label: string; readonly style: ItemPaint }
+  /** A line: its points and the heads its ends wear, drawn across its box. */
+  | { readonly kind: "path"; readonly path: CanvasPathNode; readonly style: ItemPaint }
   /** An image item's picture, from the asset its file names. */
   | { readonly kind: "image"; readonly src: string; readonly picture: FacePicture }
   | { readonly kind: "missing"; readonly label: string }
@@ -91,6 +98,7 @@ export function cardFaceOf(
     return { kind: "shape", shape: item.shape, label: item.label ?? "", style: itemPaint(item) };
   }
   if (isGroupNode(item)) return { kind: "group", label: item.label ?? "", style: itemPaint(item) };
+  if (isPathNode(item)) return { kind: "path", path: item, style: itemPaint(item) };
   if (isFileNode(item)) {
     if (!isPicture(item.file)) return { kind: "other", label: item.file };
     const src = assetSrcUrl(item.file);
@@ -285,8 +293,8 @@ function paintSurface(ctx: Ctx, box: FaceBox, look: CardLook, radius: number) {
 
 /** How a chrome is painted: its outline's path, its ink when uncoloured, and whether it casts. */
 interface ChromeSpec {
-  readonly shape: CanvasShapeKind;
-  readonly radius: number;
+  /** The outline filling the face's box (`itemOutline`). */
+  readonly outline: readonly CanvasPathCommand[];
   /** How much of the foreground an uncoloured outline is drawn with, 0–1. */
   readonly ink: number;
   /** Whether a filled ground casts the card's soft shadow. */
@@ -320,7 +328,7 @@ function groundOf(style: ItemPaint, look: CardLook): string | null {
 function paintChrome(ctx: Ctx, style: ItemPaint, box: FaceBox, look: CardLook, spec: ChromeSpec) {
   const path = () => {
     ctx.beginPath();
-    tracePath(ctx, shapeOutline(spec.shape, box.width, box.height, spec.radius));
+    tracePath(ctx, spec.outline);
   };
   const ground = groundOf(style, look);
   if (ground !== null) {
@@ -466,8 +474,7 @@ function paintNote(
   look: CardLook,
 ) {
   paintChrome(ctx, face.style, box, look, {
-    shape: "rect",
-    radius: look.radius,
+    outline: shapeOutline("rect", box.width, box.height, look.radius),
     ink: 0.12,
     raised: true,
   });
@@ -510,8 +517,7 @@ function paintText(
   look: CardLook,
 ) {
   paintChrome(ctx, face.style, box, look, {
-    shape: "rect",
-    radius: look.radius,
+    outline: shapeOutline("rect", box.width, box.height, look.radius),
     ink: 0.12,
     raised: true,
   });
@@ -529,8 +535,7 @@ function paintShape(
   look: CardLook,
 ) {
   paintChrome(ctx, face.style, box, look, {
-    shape: face.shape,
-    radius: look.shapeRadius,
+    outline: shapeOutline(face.shape, box.width, box.height, look.shapeRadius),
     ink: 0.18,
     raised: false,
   });
@@ -550,8 +555,7 @@ function paintGroup(
 ) {
   // A shade firmer than the DOM frame's: a hairline this faint vanishes at a slant.
   paintChrome(ctx, face.style, box, look, {
-    shape: "rect",
-    radius: look.shapeRadius,
+    outline: shapeOutline("rect", box.width, box.height, look.shapeRadius),
     ink: 0.24,
     raised: false,
   });
@@ -561,6 +565,43 @@ function paintGroup(
     look,
     at: { padX: 8, padY: 4, leading: 1.8, max: 1, weight: 500 },
   });
+}
+
+/**
+ * A line: its outline the line through its points (`itemOutline`), stroked
+ * as its look says, and the heads its ends wear (`pathHeads`) in the ink
+ * the line is drawn in, as the DOM inks them.
+ */
+function paintPath(
+  ctx: Ctx,
+  face: Extract<CardFace, { kind: "path" }>,
+  box: FaceBox,
+  look: CardLook,
+) {
+  const ink = 0.6;
+  paintChrome(ctx, face.style, box, look, {
+    outline: itemOutline(face.path, box.width, box.height, 0),
+    ink,
+    raised: false,
+  });
+  if (face.style.heads === null) return;
+  const color = box.selected
+    ? over(look, look.primary, 0.7)
+    : (paintColor(look, face.style.color) ?? over(look, look.ink, ink));
+  const width = Math.max(face.style.chrome?.outline?.width ?? 0, 1);
+  for (const { head } of pathHeads(face.path, box.width, box.height, face.style.heads.length)) {
+    ctx.beginPath();
+    tracePath(ctx, head.path);
+    if (head.filled) {
+      ctx.fillStyle = color;
+      ctx.fill();
+    } else {
+      ctx.setLineDash([]);
+      ctx.lineWidth = width;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    }
+  }
 }
 
 /**
@@ -600,6 +641,7 @@ export function faceWords(face: CardFace): string {
     case "text":
       return face.text;
     case "image":
+    case "path":
       return "";
     case "shape":
     case "group":
@@ -678,6 +720,9 @@ export function paintCardFace(ctx: Ctx, face: CardFace, box: FaceBox, look: Card
       break;
     case "group":
       paintGroup(ctx, face, box, look);
+      break;
+    case "path":
+      paintPath(ctx, face, box, look);
       break;
     case "image":
       paintImage(ctx, face, box, look);

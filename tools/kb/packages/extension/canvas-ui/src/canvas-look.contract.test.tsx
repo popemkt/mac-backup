@@ -25,8 +25,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   edgeHead,
   edgeRoute,
+  isPathNode,
+  itemOutline,
   outlinePoints,
   ownsWords,
+  pathHeads,
   routePoints,
   type CanvasDoc,
   type CanvasEdge,
@@ -142,9 +145,59 @@ const doc: CanvasDoc = {
       rotation: { z: 20 },
       style: { valign: "middle", size: "s" },
     }),
+    // Lines: plain, an arrow worn at both ends and turned, and one that closes.
+    {
+      id: "line",
+      type: "path",
+      points: [
+        { x: 0, y: 0.5 },
+        { x: 1, y: 0.5 },
+      ],
+      x: 0,
+      y: 600,
+      width: 200,
+      height: 24,
+    },
+    {
+      id: "arrowed",
+      type: "path",
+      points: [
+        { x: 0, y: 1 },
+        { x: 0.5, y: 0 },
+        { x: 1, y: 0.8 },
+      ],
+      fromHead: "dot",
+      toHead: "open",
+      rotation: { z: 30 },
+      color: "1",
+      x: 240,
+      y: 580,
+      width: 180,
+      height: 90,
+      style: { dash: "dashed", size: "l", opacity: 0.6 },
+    },
+    {
+      id: "closed",
+      type: "path",
+      points: [
+        { x: 0, y: 0 },
+        { x: 1, y: 0.2 },
+        { x: 0.4, y: 1 },
+      ],
+      closed: true,
+      toHead: "arrow",
+      x: 460,
+      y: 580,
+      width: 140,
+      height: 100,
+      style: { fill: "solid", dash: "dotted" },
+    },
   ],
   edges: [],
 };
+
+/** What the look contract reads an item's look by: its own words, or the line it is. */
+const looked = (item: CanvasNode) => ownsWords(item) || isPathNode(item);
 const selection: CanvasSelection = { nodeIds: new Set(), edgeIds: new Set() };
 const size: ViewSize = { width: 1000, height: 700 };
 const scene = { doc, selection, size, look: PROBE_LOOK };
@@ -289,7 +342,7 @@ describe("canvas look contract", () => {
 
     it("draws every item's look as its style says, every look and each kind's defaults", async () => {
       const probe = await PROBES[kind](view, scene);
-      for (const item of doc.nodes.filter(ownsWords)) {
+      for (const item of doc.nodes.filter(looked)) {
         expect(probe.paintOf(item.id), item.id).toEqual(modelLook(item));
       }
       probe.dispose();
@@ -340,6 +393,27 @@ describe("canvas look contract", () => {
           const ring = head.filled ? closed : (points: readonly Point[]) => points;
           alongside(ring(got), ring(model), `${edge.id} ${end}`);
         }
+      }
+      probe.dispose();
+    });
+
+    it("draws a line through its points, with the heads its open ends wear", async () => {
+      const probe = await PROBES[kind](view, scene);
+      for (const item of doc.nodes.filter(isPathNode)) {
+        const paint = itemPaint(item);
+        const model = outlinePoints(itemOutline(item, item.width, item.height, 0)).map(
+          ([x, y]) => ({ x, y }),
+        );
+        const drawn = probe.lineOf(item.id);
+        const ring = item.closed === true ? closed : (points: readonly Point[]) => points;
+        alongside(ring(drawn?.line ?? []), ring(model), item.id);
+        const heads = pathHeads(item, item.width, item.height, paint.heads?.length ?? 0);
+        expect(drawn?.heads.length, item.id).toBe(heads.length);
+        heads.forEach(({ end, head }, i) => {
+          const outline = outlinePoints(head.path).map(([x, y]) => ({ x, y }));
+          const shape = head.filled ? closed : (points: readonly Point[]) => points;
+          alongside(shape(drawn?.heads[i] ?? []), shape(outline), `${item.id} ${end}`);
+        });
       }
       probe.dispose();
     });

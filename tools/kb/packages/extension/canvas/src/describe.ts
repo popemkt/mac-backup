@@ -16,6 +16,7 @@ import {
   isFileNode,
   isGroupNode,
   isKbNode,
+  isPathNode,
   isShapeNode,
   isTextNode,
   type CanvasDoc,
@@ -48,6 +49,10 @@ export function itemKind(item: CanvasNode): string {
   if (isFileNode(item)) return "image";
   if (isTextNode(item)) return item.billboard === true ? "label" : "text";
   if (isShapeNode(item)) return canvasDepth(item) > 0 ? SOLID_NAMES[item.shape] : item.shape;
+  if (isPathNode(item)) {
+    if (item.closed === true) return "outline";
+    return item.fromHead === undefined && item.toHead === undefined ? "line" : "arrow";
+  }
   return item.type;
 }
 

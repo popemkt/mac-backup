@@ -63,6 +63,12 @@ export interface DrawnLook {
   } | null;
 }
 
+/** A line item as drawn, in its box's own units. */
+interface DrawnLine {
+  readonly line: readonly Point[];
+  readonly heads: readonly (readonly Point[])[];
+}
+
 interface Probe {
   /** Item ids drawn, back to front. */
   drawn(): string[];
@@ -76,6 +82,8 @@ interface Probe {
   paintOf(id: string): DrawnLook | null;
   /** An edge as drawn: its line's points and stroke, its opacity, its heads; null when not drawn. */
   edgeOf(id: string): DrawnEdge | null;
+  /** A line item as drawn in its own box: the points of its line, and each head's, from end first. */
+  lineOf(id: string): DrawnLine | null;
   update(next: CanvasDoc): Promise<void>;
   dispose(): void;
 }
@@ -356,6 +364,14 @@ const mount2d: Mount = async (view, scene) => {
       const el = container.querySelector(`[data-edge-id="${id}"]`);
       return el === null ? null : edge2d(el);
     },
+    lineOf: (id) => {
+      const d = card(id)?.querySelector("[data-outline-path]")?.getAttribute("d");
+      if (d === null || d === undefined) return null;
+      const heads = [...(card(id)?.querySelectorAll("[data-item-head]") ?? [])].map((head) =>
+        pathPolygon(head.getAttribute("d") ?? ""),
+      );
+      return { line: pathPolygon(d), heads };
+    },
     paintOf: (id) => {
       const el = card(id);
       if (el === undefined) return null;
@@ -451,6 +467,17 @@ const mount3d: Mount = async (view, probed) => {
       return first === undefined ? null : (bodies.get(first.object) ?? null);
     },
     edgeOf: (id) => inspect().edgeOf(id),
+    // The face's line is its first stroke; what is painted after it, the heads.
+    lineOf: (id) => {
+      const canvas = inspect().faceOf(id)?.canvas;
+      if (canvas === undefined) return null;
+      const ops = paintedOps(canvas);
+      const first = ops.findIndex((o) => o.op === "stroke");
+      const line = ops[first];
+      if (line === undefined || line.op !== "stroke") return null;
+      const heads = ops.slice(first + 1).flatMap((o) => (o.op === "text" ? [] : [o.points]));
+      return { line: line.points, heads };
+    },
     paintOf: (id) => {
       const face = inspect().faceOf(id);
       const item = current.nodes.find((n) => n.id === id);

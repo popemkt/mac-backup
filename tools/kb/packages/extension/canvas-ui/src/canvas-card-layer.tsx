@@ -6,6 +6,7 @@ import {
   isFileNode,
   isGroupNode,
   isKbNode,
+  isPathNode,
   isShapeNode,
   isTextNode,
   itemShape,
@@ -232,6 +233,28 @@ export function CanvasCardFace({
         onRotateStart={rotateHandler}
         onPortDown={portHandler(card.id)}
       />
+    );
+  }
+  if (isPathNode(card)) {
+    // A line is its chrome: its outline is the line, and what its ends wear.
+    return (
+      <div
+        className="group/card absolute"
+        style={box}
+        onPointerDown={(e) => {
+          if (classifyCardPointer(e.target, undefined) === "chrome") return;
+          e.stopPropagation();
+          handleCardPointerDown(card, e);
+        }}
+      >
+        <ItemOutline item={card} paint={itemPaint(card)} selected={isSelected} ink={60} />
+        <CanvasResizeHandles
+          selected={isSelected}
+          onResizeStart={resizeHandler}
+          onRotateStart={rotateHandler}
+        />
+        <CanvasPorts onPortDown={portHandler(card.id)} />
+      </div>
     );
   }
   if (isFileNode(card) && isPicture(card.file)) {

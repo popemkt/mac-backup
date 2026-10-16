@@ -16,6 +16,7 @@ export {
   isGroupNode,
   isKbNode,
   isNativeEdgeBound,
+  isPathNode,
   isShapeNode,
   isTextNode,
   parseCanvasDoc,
@@ -98,6 +99,8 @@ export { cameraLookingFrom, posesAgree, projectionOf } from "./camera.ts";
 export { CANVAS_LAYOUTS, arrangeItems } from "./arrange.ts";
 export type { CanvasArrangement, CanvasLayerValue, CanvasLayout } from "./arrange.ts";
 export { connectItems } from "./connect.ts";
+export { isOpenLine, itemOutline, pathHeads, withLine } from "./paths.ts";
+export type { CanvasLinePatch } from "./paths.ts";
 export {
   anchorNear,
   edgeHead,
@@ -196,7 +199,7 @@ export {
   topView,
   tracePath,
 } from "./shapes.ts";
-export type { CanvasFootprint, CanvasPathSink, CanvasVolume } from "./shapes.ts";
+export type { CanvasFootprint, CanvasPathCommand, CanvasPathSink, CanvasVolume } from "./shapes.ts";
 export type { CanvasItemSpec, CanvasPresetKind } from "./presets.ts";
 export type { CanvasCamera, CanvasPose, CanvasProjectionKind } from "./camera.ts";
 export type {
@@ -209,6 +212,7 @@ export type {
   CanvasGroupNode,
   CanvasKbNode,
   CanvasNode,
+  CanvasPathNode,
   CanvasShapeKind,
   CanvasShapeNode,
   CanvasSide,

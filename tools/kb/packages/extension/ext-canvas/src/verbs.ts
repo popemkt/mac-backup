@@ -103,6 +103,10 @@ const EdgeLooksSchema = LooksSchema.pick({ dash: true, size: true, opacity: true
 /** The head an edge's end wears, or none. */
 const HeadSchema = z.enum([...CANVAS_HEADS, "none"]);
 
+/** A head as a verb takes it: "none" for a bare end. */
+const headOrNone = (head: z.infer<typeof HeadSchema> | undefined) =>
+  head === undefined ? undefined : head === "none" ? null : head;
+
 const RouteSchema = z
   .enum(CANVAS_ROUTES)
   .describe("curve (JSON Canvas's, the default), straight, arc, or elbow along the axes");
@@ -322,6 +326,19 @@ const MakeSchema = z
       .describe("its words: a text card's text, a shape's or frame's label"),
     color: ColorSchema.optional(),
     style: LooksSchema.optional().describe("its looks beyond its colour"),
+    line: z
+      .object({
+        points: z
+          .array(AnchorSchema)
+          .min(2)
+          .optional()
+          .describe("the points it runs through, in its box, in order; default left to right"),
+        closed: z.boolean().optional().describe("its last point joins its first"),
+        fromHead: HeadSchema.optional().describe("the head at its first point; default none"),
+        toHead: HeadSchema.optional().describe("the head at its last point; an arrow's is arrow"),
+      })
+      .optional()
+      .describe("a line's or an arrow's points and heads (preset line or arrow)"),
     nodeId: z.string().optional().describe("the node it stands for (a card needs one)"),
     file: z.string().optional().describe("an image's asset path, assets/…"),
     width: z.number().positive().optional(),
@@ -403,8 +420,19 @@ function itemOf(doc: CanvasDoc, p: Placement, id: string): CanvasNode {
   if (doc.nodes.some((node) => node.id === id)) {
     throw new CanvasRelationError(`an item ${id} is already on this canvas`);
   }
-  const { id: _given, preset, ...spec } = make;
-  return makeItem({ ...spec, preset: preset ?? "text" }, id);
+  const { id: _given, preset, line, ...spec } = make;
+  const lined =
+    line === undefined
+      ? {}
+      : {
+          line: {
+            ...(line.points === undefined ? {} : { points: line.points }),
+            ...(line.closed === undefined ? {} : { closed: line.closed }),
+            ...(line.fromHead === undefined ? {} : { fromHead: headOrNone(line.fromHead) ?? null }),
+            ...(line.toHead === undefined ? {} : { toHead: headOrNone(line.toHead) ?? null }),
+          },
+        };
+  return makeItem({ ...spec, ...lined, preset: preset ?? "text" }, id);
 }
 
 const canvasPlaceEffect = Effect.fn("ext.canvas.place")(function* (
@@ -557,10 +585,6 @@ function bindWrite(
     also: (at) => [withPropOps(nodes, link.sourceNodeId, { set }, at)],
   };
 }
-
-/** A head as `connect` takes it: "none" for a bare end. */
-const headOrNone = (head: z.infer<typeof HeadSchema> | undefined) =>
-  head === undefined ? undefined : head === "none" ? null : head;
 
 /** Where a connection's ends meet their items and how it is drawn, as `connectItems` takes it. */
 function connectionLook(input: z.infer<typeof connectInput>) {

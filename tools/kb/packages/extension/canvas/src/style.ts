@@ -14,6 +14,7 @@ import { dropExtra } from "./extra.ts";
 import {
   isGroupNode,
   isKbNode,
+  isPathNode,
   isShapeNode,
   isTextNode,
   type CanvasEdge,
@@ -97,11 +98,13 @@ const DEFAULT_LOOKS: Required<CanvasLooks> = {
 
 /**
  * The looks that differ by kind: a frame is a dashed outline round what it
- * holds, its name small in its corner; a shape's label sits in its middle.
+ * holds, its name small in its corner; a shape's label sits in its middle;
+ * a line is a line, unfilled even when it closes.
  */
 function kindLooks(record: CanvasNode | CanvasEdge): Partial<CanvasLooks> {
   if ("fromNode" in record) return {};
   if (isGroupNode(record)) return { fill: "none", dash: "dashed", size: "s" };
+  if (isPathNode(record)) return { fill: "none" };
   if (isShapeNode(record)) return { align: "middle", valign: "middle" };
   return {};
 }
@@ -148,11 +151,11 @@ export function ownsWords(item: CanvasNode): boolean {
 
 /**
  * Whether an item draws a ground and an outline of its own, filled and
- * stroked as its style says: everything that owns its words, and a card. A
- * picture's ground is its picture.
+ * stroked as its style says: everything that owns its words, a card, and a
+ * line (its outline the line itself). A picture's ground is its picture.
  */
 export function drawsGround(item: CanvasNode): boolean {
-  return ownsWords(item) || isKbNode(item);
+  return ownsWords(item) || isKbNode(item) || isPathNode(item);
 }
 
 /** The looks `record` draws that are not its kind's defaults: what it says of itself. */

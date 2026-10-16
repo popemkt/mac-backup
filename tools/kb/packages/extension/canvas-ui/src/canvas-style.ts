@@ -9,6 +9,8 @@
  */
 import {
   drawsGround,
+  isOpenLine,
+  isPathNode,
   ownsWords,
   styleOf,
   type CanvasAlign,
@@ -25,10 +27,13 @@ import {
 /** How heavy an outline is drawn at each size, canvas units. */
 const STROKE_WIDTHS: { readonly [S in CanvasSize]: number } = { s: 0.75, m: 1, l: 2, xl: 3.5 };
 
-/** How heavy an edge's line is drawn at each size, canvas units: a connector reads over outlines. */
-const EDGE_WIDTHS: { readonly [S in CanvasSize]: number } = { s: 1, m: 1.5, l: 2.5, xl: 4 };
+/**
+ * How heavy a line that is the whole drawing — an edge's, a path item's —
+ * is drawn at each size, canvas units: it reads over the outlines it joins.
+ */
+const LINE_WIDTHS: { readonly [S in CanvasSize]: number } = { s: 1, m: 1.5, l: 2.5, xl: 4 };
 
-/** How long an edge's heads are at each size, canvas units. */
+/** How long the heads a line's ends wear are at each size, canvas units. */
 const HEAD_LENGTHS: { readonly [S in CanvasSize]: number } = { s: 7, m: 9, l: 12, xl: 16 };
 
 /** How much heavier a selected edge is drawn, canvas units. */
@@ -100,20 +105,24 @@ export interface ItemPaint {
   readonly chrome: ChromePaint | null;
   /** Null for an item whose words are not its own (`ownsWords`): a card's, a picture. */
   readonly words: WordsPaint | null;
+  /** How long the heads its ends wear are (`pathHeads`); null for an item with no ends. */
+  readonly heads: { readonly length: number } | null;
   readonly opacity: number;
 }
 
 /** An item's look, as both projections paint it. */
 export function itemPaint(item: CanvasNode): ItemPaint {
   const style = styleOf(item);
-  const width = STROKE_WIDTHS[style.size];
+  // A line is its outline: drawn as heavy as an edge, never filled while it runs open.
+  const width = (isPathNode(item) ? LINE_WIDTHS : STROKE_WIDTHS)[style.size];
   const outline =
     style.dash === "none"
       ? null
       : { dash: style.dash, width, pattern: dashPattern(style.dash, width) };
+  const open = isOpenLine(item);
   return {
     color: style.color,
-    chrome: drawsGround(item) ? { fill: style.fill, outline } : null,
+    chrome: drawsGround(item) ? { fill: open ? "none" : style.fill, outline } : null,
     words: ownsWords(item)
       ? {
           step: TYPE_STEPS[style.size],
@@ -123,6 +132,7 @@ export function itemPaint(item: CanvasNode): ItemPaint {
           valign: style.valign,
         }
       : null,
+    heads: open ? { length: HEAD_LENGTHS[style.size] } : null,
     opacity: style.opacity,
   };
 }
@@ -142,7 +152,7 @@ export interface EdgePaint {
 /** An edge's look, as both projections paint it; a selected edge is drawn a little heavier. */
 export function edgePaint(edge: CanvasEdge, selected: boolean): EdgePaint {
   const style = styleOf(edge);
-  const width = EDGE_WIDTHS[style.size] + (selected ? SELECTED_WIDEN : 0);
+  const width = LINE_WIDTHS[style.size] + (selected ? SELECTED_WIDEN : 0);
   return {
     color: style.color,
     line:

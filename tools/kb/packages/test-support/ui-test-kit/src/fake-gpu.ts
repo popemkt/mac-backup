@@ -75,15 +75,28 @@ export const FAKE_WEBGPU = { WebGPURenderer: FakeRenderer, RenderPipeline: FakeP
 /** How many frames a stand-in renderer's post chain has drawn. */
 export const renders = (renderer: FakeRenderer): number => renderer.post?.renders ?? 0;
 
+/** A point a painted path passes through, in the context's own units (before any transform). */
+type PaintedPoint = { readonly x: number; readonly y: number };
+
 /**
  * What a stand-in 2D context was asked to paint since its canvas was last
- * cleared: each stroke with the dash and width set for it, and each run of
+ * cleared: each stroke with the dash and width set for it and each fill,
+ * with the points of the path it painted (curves sampled), and each run of
  * words with the font, alignment and baseline position set for it — what a
  * contract reads a painted texture back by.
  */
 export type PaintedOp =
-  | { readonly op: "stroke"; readonly pattern: readonly number[]; readonly width: number }
+  | {
+      readonly op: "stroke";
+      readonly pattern: readonly number[];
+      readonly width: number;
+      readonly points: readonly PaintedPoint[];
+    }
+  | { readonly op: "fill"; readonly points: readonly PaintedPoint[] }
   | { readonly op: "text"; readonly font: string; readonly align: string; readonly y: number };
+
+/** How many points a painted cubic is sampled at. */
+const CURVE_SAMPLES = 12;
 
 const PAINTED = new WeakMap<HTMLCanvasElement, PaintedOp[]>();
 
@@ -104,11 +117,28 @@ function fake2d(canvas: HTMLCanvasElement) {
   const ops = PAINTED.get(canvas) ?? [];
   PAINTED.set(canvas, ops);
   const state = { pattern: [] as readonly number[], width: 1, font: "", align: "start" };
+  let path: PaintedPoint[] = [];
   const known: Record<string, unknown> = {
     canvas,
     setLineDash: (pattern: readonly number[]) => (state.pattern = [...pattern]),
     clearRect: () => (ops.length = 0),
-    stroke: () => ops.push({ op: "stroke", pattern: state.pattern, width: state.width }),
+    beginPath: () => (path = []),
+    moveTo: (x: number, y: number) => path.push({ x, y }),
+    lineTo: (x: number, y: number) => path.push({ x, y }),
+    // oxlint-disable-next-line max-params -- the canvas 2D context's own signature, which it stands in for
+    bezierCurveTo: (x1: number, y1: number, x2: number, y2: number, x: number, y: number) => {
+      const from = path.at(-1) ?? { x, y };
+      for (let i = 1; i <= CURVE_SAMPLES; i++) {
+        const t = i / CURVE_SAMPLES;
+        const u = 1 - t;
+        const at = (a: number, b: number, c: number, d: number) =>
+          u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d;
+        path.push({ x: at(from.x, x1, x2, x), y: at(from.y, y1, y2, y) });
+      }
+    },
+    stroke: () =>
+      ops.push({ op: "stroke", pattern: state.pattern, width: state.width, points: [...path] }),
+    fill: () => ops.push({ op: "fill", points: [...path] }),
     fillText: (_text: string, _x: number, y: number) =>
       ops.push({ op: "text", font: state.font, align: state.align, y }),
     measureText: (text: string) => ({ width: text.length * 6 }),

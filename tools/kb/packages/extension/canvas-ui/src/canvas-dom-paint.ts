@@ -5,7 +5,7 @@
  * kind's words read these, so a look is turned into CSS once.
  */
 import type { CSSProperties } from "react";
-import { itemShape, shapeOutline, svgPathData, type CanvasNode } from "@kb/canvas";
+import { itemOutline, svgPathData, type CanvasNode } from "@kb/canvas";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
 import {
   FLEX_PLACES,
@@ -21,7 +21,7 @@ const WASH = 14;
 /** An item's outline as SVG path data in its own box: what its chrome draws and its footprint clips. */
 export function outlinePath(item: CanvasNode): string {
   return svgPathData(
-    shapeOutline(itemShape(item), item.width, item.height, cornerRadius(item, readCornerRadii())),
+    itemOutline(item, item.width, item.height, cornerRadius(item, readCornerRadii())),
   );
 }
 
