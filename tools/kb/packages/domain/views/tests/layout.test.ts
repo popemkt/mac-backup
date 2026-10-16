@@ -20,6 +20,7 @@ import {
   normalizeLayout,
   openBeside,
   paramsFromProps,
+  resolveDefaultViewType,
   resolveNodeView,
   sameLayout,
   singlePane,
@@ -316,6 +317,25 @@ describe("what /node/<id> opens", () => {
       }),
       warnings: [],
     });
+  });
+
+  test("a surface's default view is the default view type, for no node, as a node naming none opens", () => {
+    const at = (graph: ReadonlyMap<string, { props: NodeProps; text?: string }>) =>
+      resolveDefaultViewType(
+        "o.scope",
+        catalog,
+        (id) => graph.get(id),
+        () => {},
+      );
+    expect(at(nodes)).toEqual(Result.succeed({ key: OutlineView, input: {}, subject: "o.scope" }));
+    expect(at(withDefault(OutlineSnippetView.option))).toEqual(
+      Result.succeed({
+        key: OutlineSnippetView,
+        input: { root: undefined, depth: 1, maxRows: 6 },
+        subject: "o.scope",
+      }),
+    );
+    expect(Result.isFailure(at(withDefault(null)))).toBe(true);
   });
 
   test("a default view type missing, or naming no view type, opens as broken, reported, never failing", () => {

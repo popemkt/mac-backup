@@ -1,22 +1,26 @@
 import { lazy, useEffect, useMemo, useState } from "react";
+import { Result } from "effect";
 import { HexagonIcon, PlusIcon } from "@phosphor-icons/react";
 import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
 import {
   OntologyListView,
   OntologyScopeView,
   type OntologyScopeParams,
-  OutlineView,
+  paramsFrom,
+  resolveDefaultViewType,
   viewNamed,
 } from "@kb/views";
 import { isOntologyNode } from "@kb/model";
 import {
   browserHost,
   listOntologyItems,
+  logWarn,
   type MatchedRoute,
   navigate,
   NotFound,
   ontologyPath,
   paramsOf,
+  schemaOf,
   SidebarRow,
   SidebarSection,
   textOr,
@@ -80,18 +84,10 @@ export function OntologySurface({ params }: ViewProps<OntologyScopeParams>) {
 
   if (!exists)
     return <NotFound what="Ontology" id={id} back={{ label: "All ontologies", path: "/o" }} />;
-  // Shown only while the plugin that owns an embedded view is off.
-  const missing = (what: string) => (
-    <NotFound what={what} back={{ label: "Ontology", path: ontologyPath(id) }} />
-  );
   if (view === "graph") return <OntologyGraph ontologyId={id} />;
   return (
     <ViewErrorBoundary title="Ontology crashed" resetKey={`${id}:${view}`}>
-      {view === "page" ? (
-        <OntologyPage ontologyId={id} />
-      ) : (
-        <ViewSlot view={OutlineView} params={{}} placement="page" fallback={missing("Outline")} />
-      )}
+      {view === "page" ? <OntologyPage ontologyId={id} /> : <ScopeDefaultView ontologyId={id} />}
     </ViewErrorBoundary>
   );
 }
@@ -120,6 +116,39 @@ function OntologyGraph({ ontologyId }: { readonly ontologyId: string }) {
       params={{ ontology: ontologyId }}
       placement="page"
       fallback={unavailable}
+    />
+  );
+}
+
+/**
+ * The scope's nodes as a node that names no view opens: the store's default
+ * view type (`resolveDefaultViewType`), shown for no node, so the ontology
+ * names no other plugin's view. Its plugin off, or the data naming none, it
+ * says which it cannot show, as the graph's tab does.
+ */
+function ScopeDefaultView({ ontologyId }: { readonly ontologyId: string }) {
+  const schema = useGraphStore(schemaOf);
+  const catalog = usePageCatalog();
+  const target = useMemo(() => {
+    const resolved = resolveDefaultViewType(
+      ontologyId,
+      catalog,
+      (node) => schema.get(node),
+      (warning) => logWarn(`[kb/ontology] ${ontologyId}: ${warning}`),
+    );
+    if (Result.isFailure(resolved) || resolved.success.key === null) return null;
+    const { key, input, subject } = resolved.success;
+    const params = paramsFrom(key, input);
+    return Result.isSuccess(params) ? { key, params: params.success, subject } : null;
+  }, [ontologyId, catalog, schema]);
+  if (target === null) return <ViewNotLoaded label="Default view" />;
+  return (
+    <ViewSlot
+      view={target.key}
+      params={target.params}
+      placement="page"
+      subject={target.subject}
+      fallback={<ViewNotLoaded label={target.key.label} />}
     />
   );
 }

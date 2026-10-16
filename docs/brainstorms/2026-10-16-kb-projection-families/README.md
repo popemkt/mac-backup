@@ -601,6 +601,14 @@ behaviour-preserving except for the seed's view order (below).
   moves to the family is one core can no longer name. There is no seed to
   move either: the outline's views are its only seed, and the fold derives
   their options.
+  - After review, the ontology page names no view: its scope opens in the
+    store's default view type (`resolveDefaultViewType`, the reader a node
+    naming no view opens through). The keys still stay, for another
+    reason: a frame view's page is the outline at its frame
+    (`frameViewKey`'s `page` names `OutlineView`), and O5 gives the table,
+    board and cards to a family of their own, which may not reach the
+    outline's package. The frame-view key mechanism and the outline's page
+    key are core's for as long as frame views of two families page into it.
 - **`@kb/outline-ui`** (`packages/extension/outline-ui`, `scope:browser`,
   `family:outline`) holds:
   - every production file of the old `components/outline/` zone;

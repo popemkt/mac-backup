@@ -136,7 +136,7 @@ export function resolveNodeView(
 /** `node` through the view `view` names: a view type by its option, else a view node. */
 function throughNamed(view: string, node: NodeId, r: Resolving): Opened {
   const type = viewIdOfOption(view);
-  return type === null ? throughViewNode(view, node, r) : throughType(type, node, r);
+  return type === null ? throughViewNode(view, node, r) : throughType(type, node, node, r);
 }
 
 /**
@@ -146,9 +146,18 @@ function throughNamed(view: string, node: NodeId, r: Resolving): Opened {
 function throughDefault(carrier: Carrier, node: NodeId, r: Resolving): Opened {
   const viewId = defaultViewIdOf(carrier);
   if (viewId !== null) return throughViewNode(viewId, node, r);
+  return throughDefaultType(node, node, r);
+}
+
+/**
+ * The store's default view type, which `sys.views` names
+ * (`defaultViewTypeOf`), shown for `host` (null: for no node) in a slot shown
+ * for `subject`.
+ */
+function throughDefaultType(host: NodeId | null, subject: NodeId, r: Resolving): Opened {
   const option = defaultViewTypeOf(r.lookup(SYSTEM_IDS.viewsRoot));
   const type = option === null ? null : viewIdOfOption(option);
-  if (type !== null) return throughType(type, node, r);
+  if (type !== null) return throughType(type, host, subject, r);
   return Result.fail(
     option === null
       ? `${SYSTEM_IDS.viewsRoot} names no default view type (${SYSTEM_IDS.viewDefaultField})`
@@ -156,11 +165,26 @@ function throughDefault(carrier: Carrier, node: NodeId, r: Resolving): Opened {
   );
 }
 
-/** `node` as view type `type`, read from an empty view node. */
-function throughType(type: string, node: NodeId, r: Resolving): Opened {
+/**
+ * What a surface that shows "a scope's nodes as a node opens" shows: the
+ * store's default view type, for no node, in a slot shown for `subject` (the
+ * ontology a scope is of). The same reader a node that names no view opens
+ * through, so the surface names no view itself.
+ */
+export function resolveDefaultViewType(
+  subject: NodeId,
+  catalog: Catalog,
+  lookup: (id: NodeId) => Carrier | undefined,
+  report: ConfigReport,
+): Result.Result<HeldViewTarget | UnheldViewTarget, string> {
+  return throughDefaultType(null, subject, { catalog, lookup, report });
+}
+
+/** View type `type`, read from an empty view node, shown for `host` in a slot shown for `subject`. */
+function throughType(type: string, host: NodeId | null, subject: NodeId, r: Resolving): Opened {
   const key = r.catalog.keyOf(type);
-  if (key === null) return unheld(r, type, { subject: node }, `no view ${type}`);
-  return Result.succeed({ ...pageOf(key, {}, node, null, r.report), subject: node });
+  if (key === null) return unheld(r, type, { subject }, `no view ${type}`);
+  return Result.succeed({ ...pageOf(key, {}, host, null, r.report), subject });
 }
 
 /** View node `viewId`, shown for `host` (null: shown as itself). */

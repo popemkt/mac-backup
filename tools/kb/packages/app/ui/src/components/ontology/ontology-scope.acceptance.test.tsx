@@ -11,6 +11,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { GraphSnapshot, WireNode } from "@kb/contracts";
+import { bundledSeed } from "@kb/bundled";
 import { present } from "@kb/model";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { setPostAction } from "@/api/action";
@@ -39,6 +40,7 @@ const ONTO = "o.infra";
  *  pinned:   "tunnel notes"
  *  query:    "old vpn doc"
  *  outside:  "shopping list", "acl file"
+ *  seeded:   the view types, which name the default the scope opens in
  */
 function snapshot(): GraphSnapshot {
   return {
@@ -58,6 +60,10 @@ function snapshot(): GraphSnapshot {
       node("n.notes", "tunnel notes"),
       node("n.oldvpn", "old vpn doc"),
       node("n.shopping", "shopping list"),
+      present(
+        bundledSeed(ISO).find((seeded) => seeded.id === SYSTEM_IDS.viewsRoot),
+        "the seed's view types",
+      ),
       node(ONTO, "Infrastructure", {
         [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.ontologyTag }],
         [SYSTEM_IDS.ontoIncludeField]: [{ t: "ref", v: SVC }],

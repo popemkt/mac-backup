@@ -106,6 +106,7 @@ export {
   type SplitDirection,
 } from "./layout.ts";
 export {
+  resolveDefaultViewType,
   resolveNodeView,
   viewNamed,
   type HeldViewTarget,
