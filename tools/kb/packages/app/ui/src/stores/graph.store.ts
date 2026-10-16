@@ -188,7 +188,11 @@ export type ScopeSource = Pick<GraphStateData, "wireNodes" | "ontologyId" | "ont
 let lastScoped: { source: ScopeSource; wire: WireNode[]; nodes: NodeMap } | null = null;
 
 /** What scoped `state` shows, built once per scoped snapshot, keeping the last one's unchanged rows. */
-function scopedViewOf(state: ScopeSource, members: Set<string>, ontologyId: string) {
+function scopedViewOf(
+  state: ScopeSource,
+  members: Set<string>,
+  ontologyId: string,
+): { readonly source: ScopeSource; readonly wire: WireNode[]; readonly nodes: NodeMap } {
   const last = lastScoped;
   if (
     last !== null &&
@@ -366,23 +370,35 @@ function scopeMove(st: GraphStateData, id: string | null): Partial<GraphStateDat
 }
 
 /**
+ * How the page reaches `id` from `st`: it shows it already (`"shown"`), it
+ * leaves the scope (that move), or no scope shows it (null). Derived once;
+ * `reach` makes the move and `reachedState` reads where it lands.
+ */
+function reachMove(st: GraphStateData, id: string): "shown" | Partial<GraphStateData> | null {
+  if (inScope(st, id)) return "shown";
+  if (st.ontologyId === null || !st.wireNodes.some((n) => n.id === id)) return null;
+  const move = scopeMove(st, null);
+  return inScope({ ...st, ...move }, id) ? move : null;
+}
+
+/**
  * The graph state in which the page can show `id`: this one, or this one with
  * the scope left when `id` is outside it; null when neither shows it. What
  * `reach` moves to, read without moving.
  */
 export function reachedState(id: string): GraphStateData | null {
   const st = now();
-  if (inScope(st, id)) return st;
-  if (st.ontologyId === null || !st.wireNodes.some((n) => n.id === id)) return null;
-  const left = { ...st, ...scopeMove(st, null) };
-  return inScope(left, id) ? left : null;
+  const move = reachMove(st, id);
+  if (move === null) return null;
+  return move === "shown" ? st : { ...st, ...move };
 }
 
 function reach(id: string): boolean {
-  const at = reachedState(id);
-  if (at === null) return false;
-  if (at === now()) return true;
-  setOntologyScope(null);
+  const move = reachMove(now(), id);
+  if (move === null) return false;
+  if (move === "shown") return true;
+  projection.leave(now());
+  moveTo("scope", move);
   toast("Left the ontology to follow that node");
   return true;
 }

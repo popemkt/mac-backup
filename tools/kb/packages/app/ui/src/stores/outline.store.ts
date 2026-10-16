@@ -25,7 +25,7 @@ import {
   resolveProps,
   resolveVisibleProps,
   rowTextReadOnlyReason,
-  saveExpansion,
+  saveExpansionChanges,
   schemaOf,
   SYSTEM_IDS,
   toast,
@@ -33,6 +33,7 @@ import {
   WORKSPACE_ROOT_ID,
   type CaretIntent,
   type Expansion,
+  type ExpansionChanges,
   type FamilyView,
   type FieldContext,
   type NodeMap,
@@ -53,6 +54,7 @@ import {
   reachedState,
   shownNodesOf,
   useGraphStore,
+  type ScopeSource,
   type EditingProjection,
   type GraphChange,
   type GraphStateData,
@@ -144,30 +146,52 @@ function schemaNow(): SchemaIndex {
 }
 
 /**
- * `expansion` with only the choices the reader can still undo: each for a row
- * that can expand and shown other than its default. A choice equal to the
- * default, or for a row that cannot expand (or is gone), is dropped, so no
- * row is held collapsed with no gesture to open it, and what storage keeps
- * means what the outline shows. Every write of the expansion goes through it.
+ * Whether the reader can still undo choosing `open` for row `id`: the row can
+ * expand and `open` is not its default. A row the graph does not hold now
+ * keeps its choice, so a row deleted and restored (an undo) comes back as the
+ * reader left it.
+ */
+function isUndoable(id: string, open: boolean, schema: SchemaIndex): boolean {
+  const node = schema.get(id);
+  // A row's default is `node.collapsed`: a choice to open is one to change it.
+  return node === undefined || (open === node.collapsed && isExpandableOutlineNode(node, schema));
+}
+
+/**
+ * `expansion` with only the choices the reader can still undo
+ * (`isUndoable`), so no row is held collapsed with no gesture to open it.
+ * Every expansion the outline holds goes through it.
  */
 function undoable(expansion: Expansion, schema: SchemaIndex): Expansion {
   let kept: Map<string, boolean> | null = null;
   for (const [id, open] of expansion) {
-    const node = schema.get(id);
-    // A row's default is `node.collapsed`: a choice to open is one to change it.
-    if (node !== undefined && open === node.collapsed && isExpandableOutlineNode(node, schema)) {
-      continue;
-    }
+    if (isUndoable(id, open, schema)) continue;
     kept ??= new Map(expansion);
     kept.delete(id);
   }
   return kept ?? expansion;
 }
 
-/** `next` made `undoable`, kept in storage when it is not `current`. */
+/** What this tab changed from `before` to `after`: each id's choice now, or null where it has none. */
+function changesOf(before: Expansion, after: Expansion): ExpansionChanges {
+  const changes = new Map<string, boolean | null>();
+  for (const [id, open] of after) if (before.get(id) !== open) changes.set(id, open);
+  for (const id of before.keys()) if (!after.has(id)) changes.set(id, null);
+  return changes;
+}
+
+/**
+ * `next` made `undoable`. What this tab changed is applied onto storage's
+ * current expansion, never a snapshot of this tab's, so another tab's
+ * choices survive; storage drops the choices that are no longer undoable on
+ * the way.
+ */
 function keptExpansion(current: Expansion, next: Expansion, schema: SchemaIndex): Expansion {
   const kept = undoable(next, schema);
-  if (kept !== current) saveExpansion(kept);
+  const changes = changesOf(current, kept);
+  if (changes.size > 0) {
+    saveExpansionChanges(changes, (id, open) => isUndoable(id, open, schema));
+  }
   return kept;
 }
 
@@ -233,7 +257,6 @@ function isExpandableOutlineNode(node: OutlineNode, schema: SchemaIndex): boolea
 }
 
 /** What the outline shows of the graph is read from: the snapshot and its scope. */
-type ShownSource = Parameters<typeof shownNodesOf>[0];
 
 /** The last rows read: the shown rows of one graph state through one expansion. */
 let lastRows: { readonly base: NodeMap; readonly expansion: Expansion; rows: NodeMap } | null =
@@ -243,7 +266,7 @@ let lastRows: { readonly base: NodeMap; readonly expansion: Expansion; rows: Nod
  * The outline's rows over `graph`: what the page shows of it (`shownNodesOf`),
  * as `expansion` opens it.
  */
-function rowsOf(graph: ShownSource, expansion: Expansion): NodeMap {
+function rowsOf(graph: ScopeSource, expansion: Expansion): NodeMap {
   const base = shownNodesOf(graph);
   if (lastRows?.base === base && lastRows.expansion === expansion) return lastRows.rows;
   const rows = withExpansion(base, expansion);
@@ -652,7 +675,8 @@ function follow(change: GraphChange, prev: GraphStateData, next: GraphStateData)
   const schema = schemaOf(next);
   if (change === "load") {
     useOutlineStore.setState({
-      expansion: keptExpansion(outline.expansion, loadExpansion(), schema),
+      // A load writes nothing: storage is read, as every tab left it.
+      expansion: undoable(loadExpansion(), schema),
       ...NO_FOCUS,
       pendingCaret: null,
       transientIds: new Set<string>(),

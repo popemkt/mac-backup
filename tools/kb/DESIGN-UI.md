@@ -368,13 +368,20 @@ theme paints the same record (Graph → The themes), so the two cannot drift.
 
 **Expansion is the reader's, per tab.** `expansion` holds a choice per row,
 open or closed, only while the reader can undo it: a choice that equals the
-row's default, or names a row that can no longer expand, is dropped on every
-write (`undoable`), so no row is held collapsed with no gesture to open it. A
-row shown open stays open when the graph gives it children or fields.
-Storage (`kb-expanded` and `kb-collapsed`, `loadExpansion`/`saveExpansion`)
-keeps exactly those choices. Each tab keeps its own expansion while it is
+row's default, or names a row that can no longer expand, is dropped
+(`undoable`), so no row is held collapsed with no gesture to open it. A row
+the graph does not hold now keeps its choice, so a row restored by an undo
+comes back as the reader left it. A row shown open stays open when the graph
+gives it children or fields. Each tab keeps its own expansion while it is
 open, and storage seeds it at load: another tab's choices are read at the
-next load, never merged in by a graph move.
+next load, never merged in by a graph move. Storage is shared, so a save
+applies only the ids this tab changed onto what storage holds at that moment
+(`saveExpansionChanges`), never a snapshot of the tab's, and drops stored
+choices that are no longer undoable on the way. A load writes nothing. The
+stored form is one key, `kb-expansion`, holding `{ open, closed }` and
+written in one `setItem`. While it is absent, the legacy `kb-expanded` (open
+ids) is read in its place. The legacy key is never written or deleted, so a
+tab on an older build still reads it.
 
 **A row depends on what it reads, not on the graph.** The page holds the
 graph as whole values — the outline's rows (`outlineNodes`), and the graph

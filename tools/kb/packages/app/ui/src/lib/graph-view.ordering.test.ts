@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { EXPANDED_STORAGE_KEY, forestRootIds, wireToOutlineMap } from "@kb/ui-sdk";
+import { forestRootIds, loadExpansion, wireToOutlineMap } from "@kb/ui-sdk";
 import { mergeTx } from "@/lib/tx";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
@@ -75,11 +75,10 @@ describe("stable outline ordering", () => {
     expect(afterChildren).toEqual(beforeChildren);
   });
 
-  it("expanded ids persist in kb-expanded localStorage", () => {
+  it("expanded ids persist in localStorage", () => {
     if (typeof localStorage === "undefined") return;
     useOutlineStore.getState().toggleCollapse("n.root-a");
-    const raw = present(localStorage.getItem(EXPANDED_STORAGE_KEY), "expanded ids");
-    const ids: string[] = JSON.parse(raw);
+    const ids = [...loadExpansion()].filter(([, open]) => open).map(([id]) => id);
     expect(ids).toContain("n.root-a");
 
     const remapped = wireToOutlineMap(fixtureGraph.nodes, new Set(ids));

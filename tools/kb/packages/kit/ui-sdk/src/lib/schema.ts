@@ -43,9 +43,10 @@ interface Built {
 
 /**
  * The schemas built last, newest first: a move's before and after, which are
- * both read while it runs. A new one keeps the unchanged nodes of either
- * (`wireToOutlineMap`), so a node's object lasts across snapshots whichever
- * of the two a reader last held, and whatever order readers ask in.
+ * both read while it runs. A new one reuses, per node, the object of the
+ * first of them that holds an equal node (`wireToOutlineMap`), so a node's
+ * identity changes exactly when its content does, whatever order readers ask
+ * in.
  */
 let built: readonly [Built?, Built?] = [];
 

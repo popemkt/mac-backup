@@ -1,3 +1,4 @@
+import { Option, Schema } from "effect";
 import type { SchemaIndex } from "./schema";
 import type { WireNode } from "@kb/contracts";
 import { compareRootOrder, hasQueryDef, typeRefsOf } from "@kb/model";
@@ -9,8 +10,8 @@ import {
 } from "./field-visibility";
 import { hasText, textOr } from "./text";
 import {
-  COLLAPSED_STORAGE_KEY,
   EXPANDED_STORAGE_KEY,
+  EXPANSION_STORAGE_KEY,
   SYSTEM_IDS,
   WORKSPACE_ROOT_ID,
   isSysPrefixed,
@@ -180,8 +181,9 @@ export function isPartialProjection(map: ReadonlyMap<string, OutlineNode>): bool
  *
  * The projection is persistent: a node that projects to the value it had in
  * one of the `previous` maps keeps that object (the first such, in order), so
- * a node's identity changes exactly when what it shows does. That is what lets a reader depend on the nodes it read
- * instead of on the whole map (`stores/graph-read.ts`).
+ * a node's identity changes exactly when what it shows does. That is what
+ * lets a reader depend on the nodes it read instead of on the whole map
+ * (`stores/graph-read.ts`).
  */
 export function wireToOutlineMap(
   nodes: WireNode[],
@@ -381,19 +383,73 @@ export function saveIdSet(key: string, ids: Set<string>): void {
   }
 }
 
-/** The expansion kept in storage: the rows the reader opened and those it closed. */
-export function loadExpansion(): Expansion {
+/** The stored form of an expansion: the ids opened and the ids closed. */
+const StoredExpansion = Schema.Struct({
+  open: Schema.Array(Schema.String),
+  closed: Schema.Array(Schema.String),
+});
+
+const decodeStoredExpansion = Schema.decodeUnknownOption(Schema.fromJsonString(StoredExpansion));
+
+/** The `{ open, closed }` stored under `kb-expansion`, or null when it is absent or unreadable. */
+function readStoredExpansion(): Map<string, boolean> | null {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(EXPANSION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+  if (!hasText(raw)) return null;
+  const stored = Option.getOrNull(decodeStoredExpansion(raw));
+  if (stored === null) return null;
   const expansion = new Map<string, boolean>();
-  for (const id of loadIdSet(EXPANDED_STORAGE_KEY)) expansion.set(id, true);
-  for (const id of loadIdSet(COLLAPSED_STORAGE_KEY)) expansion.set(id, false);
+  for (const id of stored.open) expansion.set(id, true);
+  for (const id of stored.closed) expansion.set(id, false);
   return expansion;
 }
 
-/** Keep `expansion` in storage, every choice in it, as `loadExpansion` reads it back. */
-export function saveExpansion(expansion: Expansion): void {
-  const opened = new Set<string>();
-  const closed = new Set<string>();
-  for (const [id, open] of expansion) (open ? opened : closed).add(id);
-  saveIdSet(EXPANDED_STORAGE_KEY, opened);
-  saveIdSet(COLLAPSED_STORAGE_KEY, closed);
+/**
+ * The expansion kept in storage, shared by every tab: `kb-expansion`, or,
+ * while no build has written that, the legacy `kb-expanded` open ids. A read
+ * writes nothing.
+ */
+export function loadExpansion(): Expansion {
+  return (
+    readStoredExpansion() ??
+    new Map([...loadIdSet(EXPANDED_STORAGE_KEY)].map((id) => [id, true] as const))
+  );
+}
+
+/**
+ * A tab's changes to its expansion, by id: the choice it now holds, or null
+ * where it holds none.
+ */
+export type ExpansionChanges = ReadonlyMap<string, boolean | null>;
+
+/**
+ * Apply `changes` onto the expansion storage holds now, never a snapshot of
+ * this tab's: another tab's choices for other rows survive. Every stored
+ * choice `keeps` refuses is dropped on the way. One write, so the stored
+ * form is never half-written.
+ */
+export function saveExpansionChanges(
+  changes: ExpansionChanges,
+  keeps: (id: string, open: boolean) => boolean,
+): void {
+  const stored = new Map(loadExpansion());
+  for (const [id, open] of changes) {
+    if (open === null) stored.delete(id);
+    else stored.set(id, open);
+  }
+  const open: string[] = [];
+  const closed: string[] = [];
+  for (const [id, isOpen] of stored) {
+    if (!keeps(id, isOpen)) continue;
+    (isOpen ? open : closed).push(id);
+  }
+  try {
+    localStorage.setItem(EXPANSION_STORAGE_KEY, JSON.stringify({ open, closed }));
+  } catch {
+    // ignore quota / private mode
+  }
 }

@@ -164,7 +164,8 @@ export {
   loadIdSet,
   resolveProps,
   sameMeaning,
-  saveExpansion,
+  saveExpansionChanges,
+  type ExpansionChanges,
   saveIdSet,
   type Expansion,
   wireToOutlineMap,
@@ -193,9 +194,9 @@ export {
   schemaOfGraph,
 } from "./lib/schema";
 export {
-  COLLAPSED_STORAGE_KEY,
   DEBUG_FIELDS_STORAGE_KEY,
   EXPANDED_STORAGE_KEY,
+  EXPANSION_STORAGE_KEY,
   isSysPrefixed,
   type NodeMap,
   type OutlineNode,

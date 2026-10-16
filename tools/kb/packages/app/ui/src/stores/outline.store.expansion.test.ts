@@ -6,7 +6,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { COLLAPSED_STORAGE_KEY, EXPANDED_STORAGE_KEY, syncUiPlugins } from "@kb/ui-sdk";
+import { EXPANDED_STORAGE_KEY, EXPANSION_STORAGE_KEY, syncUiPlugins } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { useGraphStore } from "@/stores/graph.store";
@@ -15,6 +15,14 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 
 beforeAll(() => syncUiPlugins([outlineUiPlugin]));
 afterAll(() => syncUiPlugins([]));
+
+/** Writes to the stubbed storage since the last `writes()`. */
+let writeCount = 0;
+function writes(): number {
+  const count = writeCount;
+  writeCount = 0;
+  return count;
+}
 
 /** A tab's storage, to read back what the outline kept and to write as another tab would. */
 function memoryStorage(): Storage {
@@ -30,6 +38,7 @@ function memoryStorage(): Storage {
       items.delete(key);
     },
     setItem: (key, value) => {
+      writeCount += 1;
       items.set(key, value);
     },
   };
@@ -43,6 +52,16 @@ const wireOf = (id: string): WireNode =>
     id,
   );
 const collapsed = (id: string) => present(outlineNodes().get(id), id).collapsed;
+
+/** The expansion storage holds, as `kb-expansion` keeps it. */
+function stored(): { open: string[]; closed: string[] } {
+  return JSON.parse(localStorage.getItem(EXPANSION_STORAGE_KEY) ?? '{"open":[],"closed":[]}');
+}
+
+/** Another tab's write: its whole stored expansion. */
+function anotherTabStores(open: string[], closed: string[] = []): void {
+  localStorage.setItem(EXPANSION_STORAGE_KEY, JSON.stringify({ open, closed }));
+}
 
 /** A fresh load of the graph the page holds now, as a reload reads it. */
 function reload(): void {
@@ -94,23 +113,34 @@ describe("expansion keeps only choices the reader can undo", () => {
     expect(collapsed("n.root-c")).toBe(true);
     expect(outline().expansion.get("n.root-c")).toBe(false);
     // Storage keeps the closed choice, so a reload shows it closed too.
-    expect(localStorage.getItem(COLLAPSED_STORAGE_KEY)).toContain("n.root-c");
+    expect(stored().closed).toContain("n.root-c");
 
     // The tag goes: the row cannot expand, so no choice can hold it closed.
     graph().applyTx([{ ...tagged, props: {} }], [], { rev: 3 });
     expect(collapsed("n.root-c")).toBe(false);
     expect(outline().expansion.has("n.root-c")).toBe(false);
-    expect(localStorage.getItem(COLLAPSED_STORAGE_KEY)).not.toContain("n.root-c");
+    expect(stored().closed).not.toContain("n.root-c");
     reload();
     expect(collapsed("n.root-c")).toBe(false);
+  });
+
+  it("a row deleted and restored by an undo comes back as the reader left it", () => {
+    outline().toggleCollapse("n.child-a2");
+    expect(collapsed("n.child-a2")).toBe(false);
+    const parent = wireOf("n.root-a");
+    const row = wireOf("n.child-a2");
+    graph().applyTx([{ ...parent, children: ["n.child-a1"] }], ["n.child-a2"], { rev: 2 });
+    expect(outline().expansion.get("n.child-a2")).toBe(true);
+    graph().applyTx([parent, row], [], { rev: 3 });
+    expect(collapsed("n.child-a2")).toBe(false);
+    expect(stored().open).toContain("n.child-a2");
   });
 
   it("storage holds exactly the outline's choices", () => {
     outline().toggleCollapse("n.root-a");
     outline().toggleCollapse("n.child-a2");
     outline().toggleCollapse("n.child-a2");
-    const opened: string[] = JSON.parse(localStorage.getItem(EXPANDED_STORAGE_KEY) ?? "[]");
-    const closed: string[] = JSON.parse(localStorage.getItem(COLLAPSED_STORAGE_KEY) ?? "[]");
+    const { open: opened, closed } = stored();
     const held = [...outline().expansion];
     expect(new Set(opened)).toEqual(new Set(held.filter(([, open]) => open).map(([id]) => id)));
     expect(new Set(closed)).toEqual(new Set(held.filter(([, open]) => !open).map(([id]) => id)));
@@ -122,10 +152,48 @@ describe("each tab keeps its own expansion while open; storage seeds it at load"
   it("another tab's write is not merged in by a graph move, and is read at the next load", () => {
     expect(collapsed("n.root-a")).toBe(true);
     // Another tab opens `n.root-a`: it writes the shared storage.
-    localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify(["n.root-a"]));
+    anotherTabStores(["n.root-a"]);
     graph().applyTx([{ ...wireOf("n.root-c"), text: "renamed" }], [], { rev: 2 });
     expect(collapsed("n.root-a")).toBe(true);
     reload();
     expect(collapsed("n.root-a")).toBe(false);
+  });
+
+  it("a choice this tab makes keeps the other tab's choices: a save writes changes, not a snapshot", () => {
+    anotherTabStores(["n.child-a2"]);
+    outline().toggleCollapse("n.root-a");
+    expect(stored().open.toSorted()).toEqual(["n.child-a2", "n.root-a"]);
+    reload();
+    expect(collapsed("n.root-a")).toBe(false);
+    expect(collapsed("n.child-a2")).toBe(false);
+  });
+
+  it("a load writes nothing", () => {
+    outline().toggleCollapse("n.root-a");
+    writes();
+    reload();
+    expect(writes()).toBe(0);
+  });
+});
+
+describe("the legacy stored form", () => {
+  it("is read whole while no build has written the current one, and is not rewritten", () => {
+    vi.stubGlobal("localStorage", memoryStorage());
+    // Open by default: a leaf (`n.child-a1`); collapsed by default: rows with
+    // children (`n.root-a`, `n.child-a2`) or a field value (`n.root-b`).
+    const legacy = JSON.stringify(["n.root-a", "n.child-a1", "n.child-a2"]);
+    localStorage.setItem(EXPANDED_STORAGE_KEY, legacy);
+    writes();
+    reload();
+    expect(writes()).toBe(0);
+    expect(collapsed("n.root-a")).toBe(false);
+    expect(collapsed("n.child-a1")).toBe(false);
+    expect(collapsed("n.child-a2")).toBe(false);
+    expect(collapsed("n.root-b")).toBe(true);
+    expect(collapsed("n.root-c")).toBe(false);
+    // The open default is no choice to keep.
+    expect(outline().expansion.has("n.child-a1")).toBe(false);
+    expect(localStorage.getItem(EXPANSION_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(EXPANDED_STORAGE_KEY)).toBe(legacy);
   });
 });

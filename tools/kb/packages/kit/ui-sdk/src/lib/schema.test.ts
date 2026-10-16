@@ -110,6 +110,20 @@ describe("schemaOf", () => {
   });
 });
 
+describe("schemaOf identity follows content", () => {
+  it("a, then b, then a again: back at a's content, every node is a's object again", () => {
+    const a = snapshot();
+    const sa = schemaOf({ wireNodes: a });
+    const b = a.map((n) => (n.id === "n.b" ? { ...n, text: "b2" } : n));
+    const sb = schemaOf({ wireNodes: b });
+    expect(sb.get("n.b")).not.toBe(sa.get("n.b"));
+    // A new snapshot with a's content: built, not looked up.
+    const again = schemaOf({ wireNodes: a.map((n) => ({ ...n })) });
+    expect(again).not.toBe(sa);
+    for (const [id, node] of sa) expect(again.get(id)).toBe(node);
+  });
+});
+
 describe("schemaOfGraph", () => {
   it("takes a projection of the whole graph, however its wire array was handed over", () => {
     const wireNodes = snapshot();

@@ -24,10 +24,13 @@ export function isSysPrefixed(id: string): boolean {
   return id.startsWith("sys.");
 }
 
-/** Node ids the reader opened (`Expansion`). */
+/** The reader's expansion, `{ open, closed }` node ids (`loadExpansion`). */
+export const EXPANSION_STORAGE_KEY = "kb-expansion";
+/**
+ * The legacy form: node ids the reader opened. Read when `kb-expansion` is
+ * absent, and never written or deleted, so an older build still reads it.
+ */
 export const EXPANDED_STORAGE_KEY = "kb-expanded";
-/** Node ids the reader closed (`Expansion`). */
-export const COLLAPSED_STORAGE_KEY = "kb-collapsed";
 /** Node ids revealing their hidden + `sys.` field rows (per-node debug). */
 export const DEBUG_FIELDS_STORAGE_KEY = "kb-debug-fields";
 

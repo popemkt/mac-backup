@@ -116,15 +116,20 @@ queue (`01M43DRVEQY02RTSX3XYWB8TG1`), one child per step.
   (`outline.store.builds.test.ts` counts every `wireToOutlineMap` call,
   reads included). A row keeps its object while what it shows is unchanged:
   the schema's object, or one open/closed object per schema node. A schema
-  lookup has no side effects; a new schema keeps the unchanged nodes of the
-  last two built, so identity never depends on the order of reads.
-- **Expansion keeps only undoable choices.** Every write of `expansion`
+  lookup has no side effects; a new schema reuses, per node, the object of
+  the first of the last two built that holds an equal node, so identity
+  changes exactly when content does, whatever the order of reads.
+- **Expansion keeps only undoable choices.** The outline's `expansion`
   drops a choice that equals the row's default, or that names a row which
   can no longer expand (`undoable`), so no row is held collapsed with no
-  gesture to open it. Storage keeps exactly those choices, open ones under
-  `kb-expanded` and closed ones under `kb-collapsed`, so a reload shows what
-  the page showed. Each tab keeps its own expansion while open; storage seeds
-  it at load (DESIGN-UI.md → "Expansion is the reader's, per tab").
+  gesture to open it. A row the graph does not hold now keeps its choice, so
+  an undo that restores it restores its expansion. Storage is shared by
+  tabs: a save applies only the ids this tab changed onto what storage holds
+  then, in one write of the one `kb-expansion` key, and a load writes
+  nothing. The legacy `kb-expanded` key is read while `kb-expansion` is
+  absent and never written or deleted. Each tab keeps its own expansion
+  while open; storage seeds it at load (DESIGN-UI.md → "Expansion is the
+  reader's, per tab").
 - **The bridge.** Core names no projection. It defines one port,
   `EditingProjection`, whose contract is stated once on the interface: each
   member is told before the graph store moves and is handed every graph
@@ -167,8 +172,8 @@ queue (`01M43DRVEQY02RTSX3XYWB8TG1`), one child per step.
   from that, not from a new rule, that a row the reader closed stays closed
   across graph moves while it can still expand, even when it defaults to
   open, and across a reload; before, the next move reopened it. Expansion
-  that another tab wrote to storage is no longer merged in on every
-  transaction. It is read at load, as before.
+  that another tab wrote to storage is no longer merged into an open tab on
+  every transaction. It is read at load, and no tab's save erases it.
 
 Decisions taken from how code outside the outline uses each member:
 
