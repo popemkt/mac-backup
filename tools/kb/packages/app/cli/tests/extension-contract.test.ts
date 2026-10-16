@@ -1,13 +1,16 @@
 import { Effect } from "effect";
-import { agentExtension, agentPlugin, scriptedRuntime } from "@kb/agent";
-import { NO_SWITCHES, UiHost, failed, type NodeLookup } from "@kb/contracts";
+import { DEFAULT_ADAPTER, agentExtension, agentPlugin, scriptedRuntime } from "@kb/agent";
+import { NO_SECRETS, NO_SWITCHES, UiHost, failed, type NodeLookup } from "@kb/contracts";
 import { definePlugin, makeKernel } from "@kb/plugin";
 import { composeHosted, type HostedExtensions } from "@kb/server";
 import { extensionContract, type SwitchingHost } from "@kb/test-kit";
 
 const AGENT = {
   declaration: agentExtension,
-  entry: agentPlugin({ runtime: scriptedRuntime(() => []) }),
+  entry: agentPlugin({
+    adapters: [{ id: DEFAULT_ADAPTER, runtime: () => scriptedRuntime(() => []) }],
+    secrets: NO_SECRETS,
+  }),
 };
 
 /**

@@ -33,6 +33,7 @@ const supertags = seed.filter((node) => typeRefsOf(node).includes(SYSTEM_IDS.tag
 describe("kinds, roles and options", () => {
   test("the seed ships supertags at all — otherwise the rest is vacuous", () => {
     expect(supertags.map((node) => node.text).toSorted()).toEqual([
+      "agent-provider",
       "approval-policy",
       "canvas",
       "ontology",

@@ -3,14 +3,19 @@
  * that plays the model through the adapter's own tool server.
  */
 import { describe, expect, test } from "bun:test";
-import { agentRuntimeContract } from "@kb/agent";
-import { claudeRuntime } from "../src/claude.ts";
+import { DEFAULT_PROVIDER, agentRuntimeContract } from "@kb/agent";
+import { NO_SECRETS } from "@kb/contracts";
+import { claudeAdapter } from "../src/claude.ts";
 import { fakeClaude } from "./fake-query.ts";
 
 agentRuntimeContract(
   {
     name: "claude-agent-sdk",
-    runtime: (model) => claudeRuntime({ cwd: "/", executable: "claude", query: fakeClaude(model) }),
+    runtime: (model) =>
+      claudeAdapter({ cwd: "/", query: fakeClaude(model) }).runtime(
+        { ...DEFAULT_PROVIDER, executable: "claude" },
+        NO_SECRETS,
+      ),
   },
   { describe, test, same: (observed, expected) => expect(observed).toEqual(expected) },
 );

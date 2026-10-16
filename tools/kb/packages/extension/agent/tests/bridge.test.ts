@@ -9,6 +9,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import {
   ChannelPoint,
+  NO_SECRETS,
   UiHost,
   failed,
   succeeded,
@@ -25,6 +26,7 @@ import {
   AGENT_CHANNEL,
   AGENT_SYSTEM_PROMPT,
   AgentEventSchema,
+  DEFAULT_ADAPTER,
   MAX_CONVERSATIONS_PER_CONNECTION,
   agentPlugin,
   scriptedRuntime,
@@ -127,7 +129,14 @@ function harness(script: (text: string) => readonly ScriptStep[]): Harness {
       definePlugin({ name: "host", apply: (ctx) => ctx.provide(UiHost, fakeHost(invoked)) }),
     ),
   );
-  Effect.runSync(kernel.load(agentPlugin({ runtime })));
+  Effect.runSync(
+    kernel.load(
+      agentPlugin({
+        adapters: [{ id: DEFAULT_ADAPTER, runtime: () => runtime }],
+        secrets: NO_SECRETS,
+      }),
+    ),
+  );
   const channel = kernel.lookup(ChannelPoint, AGENT_CHANNEL)?.value;
   if (channel === undefined) throw new Error("the agent plugin owns no channel");
   return { kernel, channel, runtime, invoked };

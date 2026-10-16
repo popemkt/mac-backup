@@ -26,6 +26,7 @@
       "name": "@kb/bundled",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/agent": "workspace:*",
         "@kb/canvas": "workspace:*",
         "@kb/chart": "workspace:*",
         "@kb/check": "workspace:*",
@@ -392,6 +393,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "effect": "catalog:",
         "zod": "catalog:",

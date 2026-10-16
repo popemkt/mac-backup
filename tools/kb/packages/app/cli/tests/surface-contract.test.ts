@@ -17,6 +17,7 @@ import {
   ActionResponseSchema,
   DecidedEntrySchema,
   ManifestEntrySchema,
+  NO_SECRETS,
   extensionRow,
   listedOn,
   onWire,
@@ -30,6 +31,7 @@ import {
   AGENT_CHANNEL,
   AGENT_WIRE,
   AgentEventSchema,
+  DEFAULT_ADAPTER,
   agentExtension,
   agentPlugin,
   scriptedRuntime,
@@ -172,7 +174,13 @@ const serve: ServeUi = async (root) => {
       port: 0,
       openBrowser: false,
       extensions: [
-        { declaration: agentExtension, entry: agentPlugin({ runtime: contractRuntime }) },
+        {
+          declaration: agentExtension,
+          entry: agentPlugin({
+            adapters: [{ id: DEFAULT_ADAPTER, runtime: () => contractRuntime }],
+            secrets: NO_SECRETS,
+          }),
+        },
       ],
     }).pipe(Effect.provide(bunFileSystemLayer)),
   );

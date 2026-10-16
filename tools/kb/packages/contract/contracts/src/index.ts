@@ -133,6 +133,8 @@ export type {
   UiSelectInput,
 } from "./screen.ts";
 export { KbCtx, KbStore, kbCtxLayer, kbStoreLayer } from "./session.ts";
+export { NO_SECRETS, SecretError } from "./secrets.ts";
+export type { SecretSource } from "./secrets.ts";
 export { GraphWrites } from "./graph-writes.ts";
 export type { GraphWritesPort } from "./graph-writes.ts";
 export { TX_TAIL_KEEP_ENTRIES, TX_TAIL_MAX_ENTRIES, TxOrigin, VIRTUAL_ORIGIN } from "./tx-log.ts";

@@ -9,6 +9,7 @@ import {
   type Channel,
   type ChannelPeer,
   type ManifestEntry,
+  type SecretSource,
   type UiHostService,
 } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
@@ -21,7 +22,8 @@ import {
   type AgentEvent,
   type AgentRequest,
 } from "./protocol.ts";
-import type { AgentOutput, AgentRuntime } from "./runtime.ts";
+import { chooseProvider, type Chosen } from "./selection.ts";
+import type { AgentAdapter, AgentOutput } from "./runtime.ts";
 
 /**
  * The bridge: the agent plugin the `kb ui` server hosts. It owns the
@@ -64,8 +66,9 @@ interface Conversation {
   readonly id: string;
   /** The connection that started it; no other may speak in it. */
   readonly connection: string;
-  /** The runtime's handle on the conversation so far. */
+  /** The runtime's handle on the conversation so far, and the provider that minted it. */
   resume: string | undefined;
+  provider: string | undefined;
   turn: Fiber.Fiber<void> | null;
   readonly waiting: Map<string, Waiting>;
 }
@@ -76,17 +79,25 @@ function messageOf(cause: Cause.Cause<unknown>): string {
   return typeof error === "string" ? error : String(error);
 }
 
+/** What the bridge runs its turns with: the host's adapters, and where keys are read. */
+interface Backends {
+  readonly adapters: ReadonlyMap<string, AgentAdapter>;
+  readonly secrets: SecretSource;
+  /** A runtime per provider as written, built on first use, so a resume handle keeps its meaning. */
+  readonly runtimes: Map<string, Chosen["runtime"]>;
+}
+
 class Bridge {
   /** Least recently spoken-in first: speaking re-inserts, so Map order is the eviction order. */
   private readonly conversations = new Map<string, Conversation>();
   private readonly host: UiHostService;
-  private readonly runtime: AgentRuntime;
+  private readonly backends: Backends;
   /** The plugin's scope: every turn runs in it, so unloading the plugin stops them. */
   private readonly scope: Scope.Scope;
 
-  constructor(host: UiHostService, runtime: AgentRuntime, scope: Scope.Scope) {
+  constructor(host: UiHostService, backends: Backends, scope: Scope.Scope) {
     this.host = host;
-    this.runtime = runtime;
+    this.backends = backends;
     this.scope = scope;
   }
 
@@ -149,6 +160,7 @@ class Bridge {
       id,
       connection: peer.connection,
       resume: undefined,
+      provider: undefined,
       turn: null,
       waiting: new Map(),
     };
@@ -182,10 +194,24 @@ class Bridge {
   }
 
   private turn(peer: ChannelPeer, conversation: Conversation, text: string) {
-    const { host, runtime } = this;
+    const { host, backends } = this;
     const call = (byId: ReadonlyMap<string, ManifestEntry>) => (action: string, input: unknown) =>
       this.call(peer, conversation, byId.get(action), action, input);
+    const tell = (notice: string) =>
+      send(peer, { type: "notice", conversation: conversation.id, text: notice });
     return Effect.gen(function* () {
+      // The selection is read per turn: a provider chosen mid-conversation runs the next one.
+      const chosen = yield* chooseProvider(host, backends);
+      yield* Effect.forEach(chosen.warnings, tell, { discard: true });
+      const { runtime } = chosen;
+      if (conversation.provider !== chosen.key) {
+        // A resume handle means something only to the provider that minted it.
+        if (conversation.resume !== undefined) {
+          yield* tell(`${chosen.label} runs this conversation now, so it starts afresh.`);
+        }
+        conversation.resume = undefined;
+        conversation.provider = chosen.key;
+      }
       const screen = yield* screenContext(host, peer.tab());
       const manifest = yield* host.invoke(onWire(AGENT_WIRE, { id: "kb.manifest", input: {} }));
       const tools = listingOf(AGENT_WIRE, manifest);
@@ -275,18 +301,29 @@ function turnEnd(conversation: string, exit: Exit.Exit<unknown, unknown>): Agent
 }
 
 /**
- * The agent plugin over `runtime`: a channel, `agent.chat`, in a `kb ui`
- * server that provides {@link UiHost}. Anywhere else it waits, pending, and
- * does nothing.
+ * The agent plugin over the host's `adapters`: a channel, `agent.chat`, in a
+ * `kb ui` server that provides {@link UiHost}. Each turn runs on the
+ * provider the agent's node selects (`sys.f.agent.provider`), read at the
+ * start of the turn, or on the default adapter where none is selected; a
+ * key it refers to is read through `secrets`. Anywhere else it waits,
+ * pending, and does nothing.
  */
-export function agentPlugin(options: { readonly runtime: AgentRuntime }): Plugin {
+export function agentPlugin(options: {
+  readonly adapters: readonly AgentAdapter[];
+  readonly secrets: SecretSource;
+}): Plugin {
   return definePlugin({
     name: agentExtension.name,
     inject: [UiHost],
     apply: (ctx) =>
       Effect.gen(function* () {
         const host = yield* ctx.get(UiHost);
-        const bridge = new Bridge(host, options.runtime, yield* Effect.scope);
+        const backends: Backends = {
+          adapters: new Map(options.adapters.map((adapter) => [adapter.id, adapter])),
+          secrets: options.secrets,
+          runtimes: new Map(),
+        };
+        const bridge = new Bridge(host, backends, yield* Effect.scope);
         yield* ctx.contribute(ChannelPoint, { id: AGENT_CHANNEL_ID, value: bridge.channel });
       }),
   });

@@ -1,5 +1,6 @@
 import { Schema, type Effect, type Stream } from "effect";
-import type { ActionReceipt, ManifestEntry } from "@kb/contracts";
+import type { ActionReceipt, ManifestEntry, SecretSource } from "@kb/contracts";
+import type { AdapterId, ProviderConfig } from "./provider.ts";
 
 /**
  * The agent runtime: the port every agent backend is an adapter of (the
@@ -64,4 +65,15 @@ export interface AgentRuntime {
    * cancels the turn, including a tool call still waiting for the person.
    */
   readonly turn: (turn: AgentTurn) => Stream.Stream<AgentOutput, AgentRuntimeError>;
+}
+
+/**
+ * Code that runs a provider's turns over one wire: one of `AGENT_ADAPTERS`
+ * by its frozen id. The bridge builds a runtime once per provider as it is
+ * written, so a `resume` handle keeps its meaning across turns; a key the
+ * provider refers to is resolved through `secrets` when a turn needs it.
+ */
+export interface AgentAdapter {
+  readonly id: AdapterId;
+  readonly runtime: (provider: ProviderConfig, secrets: SecretSource) => AgentRuntime;
 }

@@ -335,3 +335,47 @@ would be the parallel mechanism Rule 1 forbids.
 - **Threads as nodes.** That is GAP [[01M40WSVNKVH3ZY8QE0GN5DY8X]], a
   separate piece of work.
 - **Per-agent scoped tools.** A non-adoption in the Cordis survey.
+
+## What landed
+
+On the branch that followed the projection-families work (base `3e77dcb3`),
+after the Cordis survey's gaps 3 and 1. Order: A1, A2, A3, A6, A5. A5 needs
+the CLI root to load what it composes, so it came before A4.
+
+- **A1.** The Claude adapter takes `query` as a dependency, defaulting to
+  the SDK, which is imported lazily. `MAX_STEPS` moved to `@kb/agent`.
+- **A2.** `agentRuntimeContract` (`@kb/agent`, `runtime-contract.ts`) has
+  the nine properties under [The contract suite](#the-contract-suite). It
+  runs over Claude with a fake `query`, which drives the adapter's real
+  in-process tool server through `InMemoryTransport`. The interrupt
+  property found a real hang: closing the stream waited on a pending tool
+  call. The adapter now aborts before it closes the iterator.
+  `scriptedRuntime` is not a subject. It is a script, not a model behind a
+  wire, so the bridge's tests remain its proof.
+- **A3.** `stepRuntime` (`step-loop.ts`) is the tool loop for a wire that
+  runs one step. The contract runs over it with a step played in memory.
+- **A6.** The `secret` field type (`sys.ft.secret`; `secret-ref.ts` and
+  `field-value.ts` in `@kb/model`) refuses anything that is not
+  `env:NAME` or `keychain:<service>[/<account>]` on every surface.
+  `SecretSource` (`@kb/contracts`) and `systemSecrets` (`@kb/runtime`) were
+  delivered with A5, the first code to read a secret.
+- **A5.**
+  - The agent's declaration seeds the provider tag, its five fields, the
+    adapter options, and `sys.f.agent.provider`, which configures
+    `sys.extension.agent`. The seed is in the fold through a new list,
+    `HOSTED_FAMILIES` (`@kb/bundled`), and stays out of `BUNDLED_FAMILIES`,
+    as owner question 3 recommended. A CLI test checks that `kb ui` hands
+    over exactly that list.
+  - `agentPlugin({adapters, secrets})`. The selection is read at the start
+    of each turn (`chooseProvider`), the gap-1 read-per-call class, and
+    falls back to today's Claude. One runtime is kept per provider *as
+    written*. When the provider changes, its settings included, the next
+    turn starts afresh with a `notice`. A missing provider node and a
+    missing adapter fail the turn with a message.
+  - `claudeAdapter` maps `model` and `executable` to the SDK's options. It
+    maps `endpoint` to `ANTHROPIC_BASE_URL` and the resolved credential to
+    `ANTHROPIC_API_KEY`, laid over this process's environment, because the
+    SDK replaces the environment it is given. This is meant for a gateway
+    to Claude. Routing Claude Code to other models stays a non-adoption.
+  - `AGENT_ADAPTERS` lists only the adapters that exist. A host-composition
+    test holds `kb ui` to every id, and `AdapterId` types an adapter's `id`.

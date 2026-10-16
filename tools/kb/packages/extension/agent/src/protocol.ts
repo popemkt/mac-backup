@@ -77,6 +77,8 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     outcome: z.enum(["done", "cancelled", "failed"]),
     message: z.string().optional(),
   }),
+  /** Something the person should know about the turn, such as which provider now runs it. */
+  z.object({ type: z.literal("notice"), conversation, text: z.string() }),
   /** A request the bridge did not take, and why. */
   z.object({ type: z.literal("refused"), conversation: z.string().optional(), reason: z.string() }),
 ]);

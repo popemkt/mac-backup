@@ -164,6 +164,8 @@ export function withEvent(transcript: Transcript, event: AgentEvent): Transcript
       }
       return ended;
     }
+    case "notice":
+      return notice(transcript, "quiet", event.text);
     case "refused":
       return notice({ ...transcript, running: false }, "error", event.reason);
     default: {

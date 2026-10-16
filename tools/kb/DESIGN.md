@@ -530,7 +530,9 @@ type PropValue =
   (`field-value.ts`, the one statement of it: a url is a canonical link,
   `normalizeUrl`; a secret is a reference to where a key lives, `env:NAME` or
   `keychain:<service>[/<account>]` (`secret-ref.ts`), never the key, so a
-  pasted key is refused before it can reach a committed store), and every
+  pasted key is refused before it can reach a committed store; only the
+  process that needs the key reads it, through its `SecretSource`, as
+  [Agent packages](#agent-packages) → providers states), and every
   surface parses raw input through the same `parseTypedValue`. A `ref` must
   also name a node the graph stores. The check (`valueConformanceError`) is part of
   `txIntegrityError`, so it runs where outline integrity already runs —
@@ -1048,7 +1050,7 @@ layouts).
 
 - **The params are the tree.** `{root}`, where a layout is tabs
   (`{tabs: [pane, …], active?}`) or a split (`{split: row | column,
-  children: [≥2 layouts], sizes?}`). A split inside a row is a column and
+children: [≥2 layouts], sizes?}`). A split inside a row is a column and
   the other way round, so one arrangement has one spelling. `sizes` are
   fractions summing to 1, and are left out when the shares are even. Pane
   ids are unique in the tree and hold no `/`. The schema refuses any other
@@ -1174,7 +1176,7 @@ text, its page's snapshot and its two seed fields. It runs in the sandbox
 ([Sandbox](#sandbox)), which is core.
 
 - **The params are a source, the code and a grant.** `{source?, code,
-  grant}`: the code is one text prop, `sys.f.code`, held and read
+grant}`: the code is one text prop, `sys.f.code`, held and read
   untrimmed, because what runs is what a person trusts; the grant
   (`{reads, actions}`, [Sandbox → Grants](#grants-and-the-script-actor)) is
   canonical JSON in `sys.f.code.grant`, absent meaning the default (read the
@@ -1979,14 +1981,14 @@ end).
   the isomorphism fence are per package. A family has up to three packages,
   each flat under `packages/extension/`:
 
-  | Package | Scope | Holds |
-  |---|---|---|
-  | `@kb/<family>` | shared | ids, view keys, seed nodes, text bodies, the family's declaration and its **shared plugin** |
-  | `@kb/<family>-ui` | browser | views, routes, sidebar sections, docks and commands, built against `@kb/ui-sdk` ([DESIGN-UI → Extension UI halves](DESIGN-UI.md#extension-ui-halves)) |
-  | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK |
+  | Package                  | Scope                            | Holds                                                                                                                                                 |
+  | ------------------------ | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `@kb/<family>`           | shared                           | ids, view keys, seed nodes, text bodies, the family's declaration and its **shared plugin**                                                           |
+  | `@kb/<family>-ui`        | browser                          | views, routes, sidebar sections, docks and commands, built against `@kb/ui-sdk` ([DESIGN-UI → Extension UI halves](DESIGN-UI.md#extension-ui-halves)) |
+  | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-  optional?, seed?, views?, defaultView?})` in `@kb/<family>` is the one home of its name
+optional?, seed?, views?, defaultView?})` in `@kb/<family>` is the one home of its name
   and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
   its state in a store where no one has switched it), and, for the one
   family that provides it, of the default view type (View nodes):
@@ -2004,7 +2006,7 @@ end).
   package. The server resolves each one's entry by the name the entry takes
   from it (`BUNDLED_EXTENSIONS`, `app/runtime`), and fails at load on a
   family with no entry or an entry with no family. `kb.manifest.extensions` reports each one as `{name, label, optional,
-  enabled, source}`. The `kb ui` server adds the host plugins it loaded,
+enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   such as the agent, to the same report. The browser loads the browser
   entry of each family the manifest reports as enabled, through a resolver
   keyed by family name ([DESIGN-UI → Extension UI halves](DESIGN-UI.md#extension-ui-halves)).
@@ -2070,11 +2072,11 @@ end).
     and the page's field rows read `isWritableField` to offer an edit only
     where it would land. `surfaceContract` holds every surface to it.
   - **Two classes of setting**, after DeepSeek Harness's "volatile" split:
-    - *Read per call.* The plugin reads its node when it needs the value
+    - _Read per call._ The plugin reads its node when it needs the value
       (the agent's provider, at the start of each turn), so a change applies
       to the next call and nothing re-applies. Every setting today is of
       this class.
-    - *Read at apply.* A value a plugin reads only in `apply` holds until it
+    - _Read at apply._ A value a plugin reads only in `apply` holds until it
       is applied again. The one such value today is the switch, which every
       host re-applies by unloading and loading the family (`syncPlugins`,
       the registry's cache key per set of families on); `composeHosted`
@@ -2082,19 +2084,21 @@ end).
       `reconfigure(name)` for any other setting of this class, re-applying
       a held plugin and keeping the old one when the new `apply` fails, is
       not built, because no setting needs it. A placeholder gap, to mint at
-      merge: *expected:* a setting read at apply re-applies its plugin on
-      every host when its value changes, atomically; *current:* only the
+      merge: _expected:_ a setting read at apply re-applies its plugin on
+      every host when its value changes, atomically; _current:_ only the
       switch is read at apply, and no kernel `reconfigure` exists;
-      *impact:* a family that needs one must read its setting per call;
-      *closes:* `Kernel.reconfigure` and a contract property over the
+      _impact:_ a family that needs one must read its setting per call;
+      _closes:_ `Kernel.reconfigure` and a contract property over the
       registry, the `kb ui` host and the page, built with that setting.
 - **The seed is the bundled fold, never a loaded registry.**
   `ensureSystemSeed(nodes, seed)` runs at open, before any registry
   exists. `openKbEffect` passes it `bundledSeed(at)` (`@kb/bundled`, a
   `scope:shared` package so the page folds the same seed), which is:
   - core's nodes, then each `BUNDLED_FAMILIES` declaration's `seed`, in
-    bundled order, with `sys.views` naming the default view type its one
-    provider declares (`defaultView`);
+    bundled order, then each `HOSTED_FAMILIES` one's (a family a host
+    composes beside the registry, such as `kb ui`'s agent: its code is that
+    host's, its seed is every store's), with `sys.views` naming the default
+    view type its one provider declares (`defaultView`);
   - each declaration's own node, `sys.extension.<name>`, derived from it as
     a view's option is derived from its key: named by its label and filed
     under core's list node `sys.extensions` ("Extensions"), in declaration
@@ -2105,10 +2109,12 @@ end).
     default view type provided twice or naming a view its provider does
     not provide.
 
-  Host and repository plugins contribute no seed, so every surface seeds the
+  Repository plugins contribute no seed, and a host's own seeds through its
+  declaration in the fold, never through the plugin, so every surface seeds the
   same set whatever it loads, and a failed extension load never shrinks the
   seed. Opening a store with a family switched off neither deletes nor
   rewrites that family's nodes: the data outlives the code.
+
 - **Ids are frozen data.** `sys.f.chart`, `sys.views` options and the rest
   keep their spelling when their declaring package changes, so no store
   migrates and opening still never writes. A rename goes through an explicit
@@ -2134,8 +2140,9 @@ end).
 
   So `view.propose`, `render.view` and the manifest see only what is loaded,
   on both hosts.
+
 - **A view's text is part of its contribution.** `ViewDef.text = {body,
-  figure?}`. `viewText` looks the view up in the catalog and falls back to
+figure?}`. `viewText` looks the view up in the catalog and falls back to
   the generic body. `renderViewNodeEffect` stays the one function behind
   `render.view` and `ui://kb/view/*`.
 - **A painter belongs to the view that paints with it; an engine belongs to
@@ -2161,6 +2168,7 @@ end).
     transaction log move with it.
 
   `graph-writes.test.ts` (`app/runtime`) holds this over the binding.
+
 - **What stays core** is mechanism, plus the projections the shell is built
   from:
   - the store, datalog, kernel, subscriptions and the render backbone;
@@ -2229,6 +2237,7 @@ end).
   has landed.
 
 Today's drift from this contract is marked where it sits:
+
 - a family a host composes (the agent) is switched only where that host
   runs, because only there does `ExtensionCatalog` list it:
   GAP [[01M43H3T8XEMTNBARC024PZD2W]];
@@ -2264,18 +2273,18 @@ The canvas plane is the floor: x runs to the right and y down the page as
 the top view (2D) shows them, and z points up off the floor, all in the same
 units. kb's extension fields:
 
-| On       | Field    | Meaning                                                                                                   |
-| -------- | -------- | --------------------------------------------------------------------------------------------------------- |
-| item     | `nodeId` | what the item means: the store node it stands for. Any item may carry one; a `kb-node` card needs one, and its text and tags render live from the store |
-| item     | `shape`  | what fills a `shape` item's box: `rect`, `ellipse`, `diamond`, `sphere` or `cone`. Flat, its outline; with depth, a box, an elliptic cylinder, a diamond prism, an ellipsoid or a cone. Any other item fills its box as a `rect` |
-| item     | `z`      | elevation: the height of the item's base above the floor. Absent is 0, the canvas plane, and 0 is written as absent |
-| item     | `depth`  | how far the item rises from its base. Absent is 0, flat, and 0 is written as absent; extruding sets this and nothing else |
-| item     | `rotation` | `{ x?, y?, z? }`: how the item's box is turned about its centre, in degrees about x, then y, then z, each about the canvas's fixed axes (Blender's XYZ Euler; `@kb/canvas` `rotation.ts` owns the order). Right-handed in canvas coordinates, so with y down the page a positive `z` turns clockwise from the top, as CSS `rotate` does. An absent angle is 0, kb writes only the angles that are not 0 and each within (-180, 180], and an unturned item has no `rotation` |
-| item     | `parent` | the group the item belongs to: a `group` item's id. Groups nest, and a group carries its members — what moves, turns, scales, deletes or copies it does so to them, rewriting their world coordinates. One that names no group, or would make the item its own member, is not honoured (the item belongs to the canvas) and is kept as written. kb sets it where an item is placed or let go: of the frames no smaller than it whose face holds its centre seen face-on (carried along the frame's normal onto its plane: a frame on the floor holds what stands over it, one stood up as a wall what is laid on its face), the one nested deepest (then the one drawn on top), or none (`@kb/canvas` `membership.ts`) |
-| item     | `billboard` | `true`: in 3D the item's face turns to the camera. A flat item is drawn and picked standing square to the screen, rising from where it lies (from the top it is its footprint, so its `rotation` is not drawn); a solid keeps its body and shows its face in front of it, as a sphere's or a cone's always does (`faceStands`). Absent is false, and it is written only when set |
-| item     | `file`   | a `file` item's picture (the JSON Canvas field, typed): the `assets/…` path `asset.upload` answers with, the same one markdown's `![](assets/…)` names, so a picture on a canvas and in a note are one asset. Only an `assets/…` image is drawn as a picture; any other file — a URL elsewhere included, which would make every viewer fetch it — shows its path. Its `subpath` round-trips as an unknown field |
-| edge     | `kbLink` | the one-shot native bind of a drawn edge ([INSPIRATIONS](INSPIRATIONS.md): edges are drawings)            |
-| document | `camera` | `{ projection: "2d" \| "3d", pose? }`: which projection the canvas opens in, and its last 3D pose; absent is 2D |
+| On       | Field       | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| item     | `nodeId`    | what the item means: the store node it stands for. Any item may carry one; a `kb-node` card needs one, and its text and tags render live from the store                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| item     | `shape`     | what fills a `shape` item's box: `rect`, `ellipse`, `diamond`, `sphere` or `cone`. Flat, its outline; with depth, a box, an elliptic cylinder, a diamond prism, an ellipsoid or a cone. Any other item fills its box as a `rect`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| item     | `z`         | elevation: the height of the item's base above the floor. Absent is 0, the canvas plane, and 0 is written as absent                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| item     | `depth`     | how far the item rises from its base. Absent is 0, flat, and 0 is written as absent; extruding sets this and nothing else                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| item     | `rotation`  | `{ x?, y?, z? }`: how the item's box is turned about its centre, in degrees about x, then y, then z, each about the canvas's fixed axes (Blender's XYZ Euler; `@kb/canvas` `rotation.ts` owns the order). Right-handed in canvas coordinates, so with y down the page a positive `z` turns clockwise from the top, as CSS `rotate` does. An absent angle is 0, kb writes only the angles that are not 0 and each within (-180, 180], and an unturned item has no `rotation`                                                                                                                                                                                                                                            |
+| item     | `parent`    | the group the item belongs to: a `group` item's id. Groups nest, and a group carries its members — what moves, turns, scales, deletes or copies it does so to them, rewriting their world coordinates. One that names no group, or would make the item its own member, is not honoured (the item belongs to the canvas) and is kept as written. kb sets it where an item is placed or let go: of the frames no smaller than it whose face holds its centre seen face-on (carried along the frame's normal onto its plane: a frame on the floor holds what stands over it, one stood up as a wall what is laid on its face), the one nested deepest (then the one drawn on top), or none (`@kb/canvas` `membership.ts`) |
+| item     | `billboard` | `true`: in 3D the item's face turns to the camera. A flat item is drawn and picked standing square to the screen, rising from where it lies (from the top it is its footprint, so its `rotation` is not drawn); a solid keeps its body and shows its face in front of it, as a sphere's or a cone's always does (`faceStands`). Absent is false, and it is written only when set                                                                                                                                                                                                                                                                                                                                       |
+| item     | `file`      | a `file` item's picture (the JSON Canvas field, typed): the `assets/…` path `asset.upload` answers with, the same one markdown's `![](assets/…)` names, so a picture on a canvas and in a note are one asset. Only an `assets/…` image is drawn as a picture; any other file — a URL elsewhere included, which would make every viewer fetch it — shows its path. Its `subpath` round-trips as an unknown field                                                                                                                                                                                                                                                                                                        |
+| edge     | `kbLink`    | the one-shot native bind of a drawn edge ([INSPIRATIONS](INSPIRATIONS.md): edges are drawings)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| document | `camera`    | `{ projection: "2d" \| "3d", pose? }`: which projection the canvas opens in, and its last 3D pose; absent is 2D                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 A `pose` is `{ x, y, z, zoom, yaw, pitch, fov? }`: the point looked at,
 screen pixels per canvas unit on the plane through it, the turntable orbit
@@ -2349,34 +2358,34 @@ transaction, one step of an open canvas's history.
 
 ## Operations (verticals)
 
-| Action                                            | Mode  | Does                                                                                                         |
-| ------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------ |
-| `node.add`                                        | write | create (text, props by field name/id, parent, position, tags)                                                |
-| `node.addTree`                                    | write | create a whole outline from outline paste text in one transaction (`kb add --outline`; [Outline paste](#outline-paste--nodeaddtree)) |
-| `node.update`                                     | write | edit text / set-unset props / move                                                                           |
-| `node.delete`                                     | write | delete a node, its descendants with it unless `descendants: "reparent"` (`kb rm`)                           |
-| `node.get`                                        | read  | pull subtree to depth N                                                                                      |
-| `field.define` / `tag.define`                     | write | mint field/tag nodes (sugar over node.add)                                                                   |
-| `graph.query`                                     | read  | raw datalog → JSON rows                                                                                      |
-| `graph.run`                                       | read  | execute saved query from `.kb/queries/`                                                                      |
-| `graph.search`                                    | read  | text/prop filter convenience                                                                                 |
-| `ontology.members`                                | read  | resolve an `#ontology` node's membership, with provenance ([Ontologies](#ontologies--a-lens-over-the-graph)) |
-| `asset.upload`                                    | write | write opaque bytes to `.kb/assets/<ulid>.<ext>`, at most `ASSET_MAX_BYTES` (25 MiB, the one limit a page also checks before reading a file); returns the `assets/…` markdown path |
-| `render.view`                                     | read  | render a docs view (a `docs.markdown` view node, by name) to html or md                                      |
-| `render.views`                                    | read  | list the docs view names available to `render.view`                                                          |
-| `views.migrate`                                   | write | rewrite a store written before view nodes to them and import `.kb/views` ([View nodes](#view-nodes))         |
-| `kb.manifest`                                     | read  | list every registered action as its manifest entry (MCP's `kb_manifest`), the view catalog and the extensions ([Extension families](#extension-families)) |
-| `extension.switch`                                | write | turn an optional extension on or off for this kb: the registry loads it, or leaves it out, from the next call ([Extension families](#extension-families)) |
-| `ext.docs.materialize` (alias `docs.materialize`) | write | render the docs views → write md (bundled extension)                                                         |
-| `ext.docs.check` (alias `docs.check`)             | read  | materialize to memory, diff vs disk (bundled extension)                                                      |
-| `ext.canvas.tx.apply`                             | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension); answers the lints it made and cleared |
-| `ext.canvas.describe` / `ext.canvas.lint`         | read  | a canvas in words, at three levels of detail / its lints ([Agent verbs](#agent-verbs))                        |
-| `ext.canvas.place` / `arrange` / `connect` / `group` / `ungroup` / `promote` | write | edit a canvas by relation, one write each ([Agent verbs](#agent-verbs))              |
-| `ui.screen`                                       | read  | the open UI tabs' screen state, most recently active first ([Screen state](#screen-state))                   |
-| `ui.navigate` / `ui.select`                       | write | open a node or route, or point a canvas camera / set the selection or focus in a UI tab ([Screen state](#screen-state)) |
-| `ui.capture`                                      | read  | have a tab's canvas draw a view as a PNG, kept under `.kb/captures/`, the camera left where it is ([Screen state](#screen-state)) |
-| `sandbox.trust` / `sandbox.untrust`               | write | trust, or stop trusting, sandboxed code on this machine by its digest; trusting asks ([Sandbox](#trust))     |
-| `sandbox.trusted`                                 | read  | which of these code digests a person trusted on this machine ([Sandbox](#trust))                             |
+| Action                                                                       | Mode  | Does                                                                                                                                                                              |
+| ---------------------------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node.add`                                                                   | write | create (text, props by field name/id, parent, position, tags)                                                                                                                     |
+| `node.addTree`                                                               | write | create a whole outline from outline paste text in one transaction (`kb add --outline`; [Outline paste](#outline-paste--nodeaddtree))                                              |
+| `node.update`                                                                | write | edit text / set-unset props / move                                                                                                                                                |
+| `node.delete`                                                                | write | delete a node, its descendants with it unless `descendants: "reparent"` (`kb rm`)                                                                                                 |
+| `node.get`                                                                   | read  | pull subtree to depth N                                                                                                                                                           |
+| `field.define` / `tag.define`                                                | write | mint field/tag nodes (sugar over node.add)                                                                                                                                        |
+| `graph.query`                                                                | read  | raw datalog → JSON rows                                                                                                                                                           |
+| `graph.run`                                                                  | read  | execute saved query from `.kb/queries/`                                                                                                                                           |
+| `graph.search`                                                               | read  | text/prop filter convenience                                                                                                                                                      |
+| `ontology.members`                                                           | read  | resolve an `#ontology` node's membership, with provenance ([Ontologies](#ontologies--a-lens-over-the-graph))                                                                      |
+| `asset.upload`                                                               | write | write opaque bytes to `.kb/assets/<ulid>.<ext>`, at most `ASSET_MAX_BYTES` (25 MiB, the one limit a page also checks before reading a file); returns the `assets/…` markdown path |
+| `render.view`                                                                | read  | render a docs view (a `docs.markdown` view node, by name) to html or md                                                                                                           |
+| `render.views`                                                               | read  | list the docs view names available to `render.view`                                                                                                                               |
+| `views.migrate`                                                              | write | rewrite a store written before view nodes to them and import `.kb/views` ([View nodes](#view-nodes))                                                                              |
+| `kb.manifest`                                                                | read  | list every registered action as its manifest entry (MCP's `kb_manifest`), the view catalog and the extensions ([Extension families](#extension-families))                         |
+| `extension.switch`                                                           | write | turn an optional extension on or off for this kb: the registry loads it, or leaves it out, from the next call ([Extension families](#extension-families))                         |
+| `ext.docs.materialize` (alias `docs.materialize`)                            | write | render the docs views → write md (bundled extension)                                                                                                                              |
+| `ext.docs.check` (alias `docs.check`)                                        | read  | materialize to memory, diff vs disk (bundled extension)                                                                                                                           |
+| `ext.canvas.tx.apply`                                                        | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension); answers the lints it made and cleared                                                                    |
+| `ext.canvas.describe` / `ext.canvas.lint`                                    | read  | a canvas in words, at three levels of detail / its lints ([Agent verbs](#agent-verbs))                                                                                            |
+| `ext.canvas.place` / `arrange` / `connect` / `group` / `ungroup` / `promote` | write | edit a canvas by relation, one write each ([Agent verbs](#agent-verbs))                                                                                                           |
+| `ui.screen`                                                                  | read  | the open UI tabs' screen state, most recently active first ([Screen state](#screen-state))                                                                                        |
+| `ui.navigate` / `ui.select`                                                  | write | open a node or route, or point a canvas camera / set the selection or focus in a UI tab ([Screen state](#screen-state))                                                           |
+| `ui.capture`                                                                 | read  | have a tab's canvas draw a view as a PNG, kept under `.kb/captures/`, the camera left where it is ([Screen state](#screen-state))                                                 |
+| `sandbox.trust` / `sandbox.untrust`                                          | write | trust, or stop trusting, sandboxed code on this machine by its digest; trusting asks ([Sandbox](#trust))                                                                          |
+| `sandbox.trusted`                                                            | read  | which of these code digests a person trusted on this machine ([Sandbox](#trust))                                                                                                  |
 
 **Breaking change (roadmap step 5c), with no alias:** deleting is
 `node.delete`. `node.update` no longer takes `delete` or `descendants`, and
@@ -2652,7 +2661,7 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   `camera` target for the canvas the pane then shows (`CanvasViewTarget`:
   a pose as `ui.screen` reports one, or a view preset, items to frame, or
   both; a frame alone is looked at face-on, as "go to frame" does), or the
-  camera alone for the canvas already open — so an agent can *show* the
+  camera alone for the canvas already open — so an agent can _show_ the
   person something (plan 2026-10-02, decision 16). Given a node or a route,
   the camera goes to the view the navigate opened once it reports, and a
   view with no camera refuses it. `ui.select`
@@ -2738,13 +2747,13 @@ A plugin can hold its own conversation with the connections of `kb ui`
 The sidebar agent lives outside core, in packages that core never imports
 (roadmap decision 8). They reach the surfaces through the hosts' kernels.
 
-| Package | Layer, scope | Holds |
-| --- | --- | --- |
-| `@kb/agent` | extension, shared | the runtime port, the channel's protocol, the bridge plugin, the prompt, the transcript the sidebar draws, and a scripted runtime |
-| `@kb/agent-claude` | extension, backend | the port's adapter over the local Claude Agent SDK |
+| Package            | Layer, scope       | Holds                                                                                                                                                                                                    |
+| ------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@kb/agent`        | extension, shared  | the runtime port, the adapter port, the provider nodes and the selection, the channel's protocol, the bridge plugin, the prompt, the transcript the sidebar draws, the step loop, and a scripted runtime |
+| `@kb/agent-claude` | extension, backend | the `claude-agent-sdk` adapter, over the Claude Agent SDK                                                                                                                                                |
 
-- **The bridge is a plugin of `kb ui`.** `agentPlugin({runtime})` injects
-  `UiHost` and owns the channel `agent.chat`
+- **The bridge is a plugin of `kb ui`.** `agentPlugin({adapters, secrets})`
+  injects `UiHost` and owns the channel `agent.chat`
   ([Plugin channels](#plugin-channels)). Anywhere else it waits, pending,
   and does nothing.
 - **The runtime is a port**, and each backend is an adapter of it.
@@ -2757,6 +2766,40 @@ The sidebar agent lives outside core, in packages that core never imports
   tools, approval and the prompt. A runtime owns only how one turn of a
   model runs. ACP or another provider would be a further adapter, not a
   fork. Tests run on `scriptedRuntime`.
+- **Providers are nodes; adapters are code.**
+  - An `#agent-provider` node is one model a person configured. Its fields
+    are `adapter` (one of that field's own option children, one per id in
+    `AGENT_ADAPTERS`), `endpoint` (url), `credential` (secret), `executable`
+    and `model` (text), each single-valued. The agent family seeds the
+    kind, its fields and the options; the seed is in the bundled fold
+    (`HOSTED_FAMILIES` in `@kb/bundled`), so every store holds them,
+    whichever process opens it.
+  - The selection is a setting of the agent's own node:
+    `sys.f.agent.provider`, a ref to a provider, which configures
+    `sys.extension.agent` and is written like any field
+    ([Extension families](#extension-families)). Nothing selected is the
+    default: `claude-agent-sdk` with nothing written, which is kb's agent as
+    it always ran.
+  - The selection is read per call, at the start of each turn
+    (`chooseProvider`), so nothing re-applies when it changes. The bridge
+    builds one runtime per provider as written and keeps it, so a `resume`
+    handle keeps its meaning. When the provider a conversation ran on
+    changes, its selection or any of its settings, the next turn starts
+    afresh and the bridge says so with a `notice`. A selection naming no
+    node, a setting that does not read (each read as its default, with a
+    notice), and an adapter the host lacks are said in the turn, not
+    hidden.
+  - An adapter (`AgentAdapter`) turns a provider's settings into a runtime.
+    The host's composition implements every id in `AGENT_ADAPTERS`, and its
+    test holds it to that list.
+  - **kb stores no key.** It reads one only through a reference a person
+    wrote, in the process that needs it. A credential is resolved when a
+    turn starts (`resolveCredential`), through the `SecretSource`
+    (`@kb/contracts`) the composition root binds. `kb ui` binds
+    `systemSecrets` (`@kb/runtime`): `env:` reads its environment, and
+    `keychain:` asks `security` on macOS or `secret-tool` on Linux. A
+    failure names the reference, never a value, and the page never holds a
+    key.
 - **One contract, every adapter.** `agentRuntimeContract` (`@kb/agent`)
   states what the port promises once, and each adapter's tests run it with
   a model double behind the adapter's own wire, so no network and no login
@@ -2819,17 +2862,25 @@ The sidebar agent lives outside core, in packages that core never imports
   Nothing is written to the store. Threads kept as nodes are the
   canonical shape (GAP [[01M40WSVNKVH3ZY8QE0GN5DY8X]]). A backend may keep its own record
   of a session, as Claude Code does.
-- **`kb ui` hosts the agent over the local Claude** (`claudeRuntime`) while
-  its store has the agent on, which it is by default; `extension.switch`
-  turns it off like any optional family. The CLI is the composition root
-  that names it, and it loads the agent packages only for `kb ui`. The
-  server reports the agent in `kb.manifest.extensions`, and the page
-  offers the agent's dock only while it is reported on
-  ([Extension families](#extension-families)).
-  - The adapter runs Claude Code through the Claude Agent SDK under the
-    login the person already has. kb configures no API key and reads none.
-  - It uses the `claude` on PATH. Failing that, it uses the SDK's bundled
-    binary, which only a checkout's `node_modules` holds.
+- **`kb ui` hosts the agent over its adapters** (`hostAgentAdapters` in
+  `cli/src/host-plugins.ts`) while its store has the agent on, which it is
+  by default; `extension.switch` turns it off like any optional family.
+  The CLI is the composition root that names it, and it loads the agent
+  packages only for `kb ui`. The server reports the agent in
+  `kb.manifest.extensions`, and the page offers the agent's dock only
+  while it is reported on ([Extension families](#extension-families)).
+- **The `claude-agent-sdk` adapter** (`claudeAdapter`) runs Claude Code
+  through the Claude Agent SDK.
+  - With nothing written on its provider, it runs under the login the
+    person already has, in this process's environment, and kb reads no
+    key. A provider's `model` and `executable` are Claude Code's; its
+    `endpoint` is `ANTHROPIC_BASE_URL`, a gateway to Claude (Claude Code
+    over another vendor's models is not supported), and its resolved
+    `credential` is `ANTHROPIC_API_KEY`, laid over this process's
+    environment, which the SDK would otherwise replace.
+  - It uses the provider's `executable`, else the `claude` on PATH.
+    Failing that, it uses the SDK's bundled binary, which only a
+    checkout's `node_modules` holds.
   - The model's only tools are the turn's, served by an in-process MCP
     server built for each turn. They have the names, hints and results
     of `kb mcp` (`mcp-tool.ts` in contracts), and none is deferred behind
@@ -3002,6 +3053,7 @@ neither engine could run inside a conformant host's iframe. The code view's
 figure asks two core references, each a `Reference` that is null by
 default, and draws nothing unless both are bound. `kbRuntimeLayer` binds
 both:
+
 - `UntrustedEngine` (`@kb/sandbox`) is the engine the code runs on. The
   runtime binds QuickJS, so a snapshot is untrusted whatever this machine
   trusts.
@@ -3018,15 +3070,15 @@ code, its grant and where it runs.
 
 Each threat, the fences against it, and the tests that pin them.
 
-| Threat | Fences | Pinned by |
-| --- | --- | --- |
-| Escape from QuickJS | The guest realm is QuickJS's alone, in its own WebAssembly instance per run, reaching the host only through the string pipe; in the browser a second fence, the opaque-origin frame and its CSP; on the server (snapshots) the WebAssembly sandbox alone, with only read actions behind it | contract: no network, no timers, no raw pipe (`sandboxContract`); `kb ui` serves the frame sandboxed (`request-guard.test.ts`) |
-| Frame origin and CSP | `sandbox="allow-scripts"` without `allow-same-origin`, repeated as the CSP's `sandbox`; `script-src 'self' 'wasm-unsafe-eval'`, no `'unsafe-inline'` script and no `'unsafe-eval'`; `frame-ancestors 'self'` | `capability.test.ts` (the policy), `request-guard.test.ts` (served with it) |
-| postMessage spoofing | The page hears only its frame's own window and decodes every message; the frame hears only its parent; the page posts nothing to a frame that loaded a second document | `sandbox-host.test.ts` |
-| Exfiltration | `connect-src`, images, fonts, media, forms and frames `'none'`, inherited by the trusted Worker; the drawing allowlist drops every element and attribute that loads or navigates, so the one navigation a CSP cannot forbid has nothing to start it | `drawing.test.ts`; contract: no network |
-| Prompt-injected writes | The grant names every action the code may call; each call meets the policies as `script` (asked before deletes and rewrites, denied trust, a policy write always asks); the guest cannot set `approved` or its actor; a snapshot refuses every write | contract: outside the grant never reaches the invoke core, approval cannot be self-granted; `capability.test.ts`; `approval.test.ts` (runtime); `view-render.test.ts` (a snapshot's write is forbidden) |
-| Denial of service | Turn deadline (interrupt, watchdog), heap and stack caps in QuickJS, message rate and size, waiting-call bound, drawing bound, the page's own rate limit on the frame | contract: infinite loop, loop in a handler, memory bomb, flood, oversized, waiting calls; QuickJS heap and stack tests; `sandbox-host.test.ts` (flood) |
-| Trust spoofing | The digest is over exactly what runs, computed by the host from the code it runs; trust is local state, per machine, never committed; only a human gesture trusts | `capability.test.ts` (digest covers every character and the grant); `approval.test.ts` (who may trust; an edited digest is untrusted; nothing written to the store); `trust.test.ts` (per machine) |
+| Threat                 | Fences                                                                                                                                                                                                                                                                                     | Pinned by                                                                                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Escape from QuickJS    | The guest realm is QuickJS's alone, in its own WebAssembly instance per run, reaching the host only through the string pipe; in the browser a second fence, the opaque-origin frame and its CSP; on the server (snapshots) the WebAssembly sandbox alone, with only read actions behind it | contract: no network, no timers, no raw pipe (`sandboxContract`); `kb ui` serves the frame sandboxed (`request-guard.test.ts`)                                                                          |
+| Frame origin and CSP   | `sandbox="allow-scripts"` without `allow-same-origin`, repeated as the CSP's `sandbox`; `script-src 'self' 'wasm-unsafe-eval'`, no `'unsafe-inline'` script and no `'unsafe-eval'`; `frame-ancestors 'self'`                                                                               | `capability.test.ts` (the policy), `request-guard.test.ts` (served with it)                                                                                                                             |
+| postMessage spoofing   | The page hears only its frame's own window and decodes every message; the frame hears only its parent; the page posts nothing to a frame that loaded a second document                                                                                                                     | `sandbox-host.test.ts`                                                                                                                                                                                  |
+| Exfiltration           | `connect-src`, images, fonts, media, forms and frames `'none'`, inherited by the trusted Worker; the drawing allowlist drops every element and attribute that loads or navigates, so the one navigation a CSP cannot forbid has nothing to start it                                        | `drawing.test.ts`; contract: no network                                                                                                                                                                 |
+| Prompt-injected writes | The grant names every action the code may call; each call meets the policies as `script` (asked before deletes and rewrites, denied trust, a policy write always asks); the guest cannot set `approved` or its actor; a snapshot refuses every write                                       | contract: outside the grant never reaches the invoke core, approval cannot be self-granted; `capability.test.ts`; `approval.test.ts` (runtime); `view-render.test.ts` (a snapshot's write is forbidden) |
+| Denial of service      | Turn deadline (interrupt, watchdog), heap and stack caps in QuickJS, message rate and size, waiting-call bound, drawing bound, the page's own rate limit on the frame                                                                                                                      | contract: infinite loop, loop in a handler, memory bomb, flood, oversized, waiting calls; QuickJS heap and stack tests; `sandbox-host.test.ts` (flood)                                                  |
+| Trust spoofing         | The digest is over exactly what runs, computed by the host from the code it runs; trust is local state, per machine, never committed; only a human gesture trusts                                                                                                                          | `capability.test.ts` (digest covers every character and the grant); `approval.test.ts` (who may trust; an edited digest is untrusted; nothing written to the store); `trust.test.ts` (per machine)      |
 
 What the sandbox does not promise: `approved` and the actor are declared,
 not proven (GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]); a Worker's heap is not

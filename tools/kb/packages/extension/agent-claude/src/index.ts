@@ -1,2 +1,2 @@
-export { claudeRuntime } from "./claude.ts";
-export type { ClaudeQuery, ClaudeRuntimeOptions } from "./claude.ts";
+export { claudeAdapter } from "./claude.ts";
+export type { ClaudeQuery } from "./claude.ts";
