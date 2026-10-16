@@ -76,3 +76,59 @@ unchanged and proven by the tests that already pass; then move.
 
 The ordered queue is data: the todo "Projection families" under the kb work
 queue (`01M43DRVEQY02RTSX3XYWB8TG1`), one child per step.
+
+## O2: what landed
+
+Two restructures, each behaviour-preserving. The spec is
+[DESIGN.md → View nodes](../../../tools/kb/DESIGN.md#view-nodes) (the
+default view type) and → Layout views (the resolver bullet). This section
+records only why the shape is what it is.
+
+- **A view's page is its key's** (`ViewKey.page`). `resolveNodeView` used to
+  switch on two families to find a view's page: a frame view shows on the
+  outline at the frame, and a renderer shows on the graph page. Each family's
+  key builder now states that (`frameViewKey` in `outline.ts`,
+  `rendererKey` in `graph.ts`), so the resolver names no family. When O3 and
+  O4 cut the families out, the statement moves with their keys.
+- **The default view type is data.** `sys.views` carries
+  `sys.f.view.default`, a single ref whose targets are the list's own options
+  (`VIEW_OPTION_TARGET_QUERY`). Core's seed sets it to
+  `sys.view.outline.main`. When a node names no view, the resolver opens it
+  as if the route had named that option, on the same code path as any named
+  view type. A default whose family is off therefore resolves as unheld
+  ("cannot be shown here"). A missing or malformed default is reported
+  through `ConfigReport` and resolves as a failure (see the gap below).
+  `node-view.ts` no longer imports `OutlineView`.
+- **Why a new field on `sys.views`, not an existing carrier.**
+  - `sys.f.view` would turn `sys.views` into a view node.
+  - `sys.f.views` names view nodes, not options. Naming a seeded template
+    view node instead would change the resolved `subject` and `viewNode`,
+    which is a behaviour change.
+  - Order (the first option is the default, mirroring how a host's default
+    is its first view) is refused for two reasons. The order of `sys.views`
+    is the fold's, and a store seeded earlier may hold another order (this
+    repository's store does, and `viewTypeOrderSurvivesOpening` keeps it).
+    It would also tie the default to `BUNDLED_FAMILIES` order at O3.
+  - The refusal of an explicit `default` on hosts does not apply here. The
+    field selects from the list it lives on and cannot name anything else,
+    so it is not a mirror of that list.
+- **Seed ownership is core's for now.** `systemSeedNodes` names the frozen
+  option id, the same way `view.approval.policies` names
+  `sys.view.outline.table`. At O3 the option's provider becomes the outline
+  family's declaration, while the ref and the id stay as they are.
+- **Existing stores.** A store seeded before O2 gains the field node and the
+  prop through `ensureSystemSeed`, by the new-node pass and the fill-absent
+  pass, as with every seed addition. That first open after O2 commits the
+  change once, and no later open writes. The seed golden was regenerated in
+  this commit, as its header requires for a deliberate seed change.
+
+Gap: `GAP [[O2-broken-view-ref]]` (placeholder). A broken view ref fails, and
+the node route draws the failure as "Node not found". This covers a host
+naming a view node that is gone, and now also a store whose default view
+type is missing or names no view type. The report carries the warning, but
+the pane says nothing true. Closes when `resolveNodeView` returns a named
+broken-ref target that the node route draws as a `WorkspaceState`. The gap
+has no `#gap` node yet, and the harness requires every code marker to name
+one. So the placeholder appears only in prose here and in DESIGN.md. Once the
+node is minted, the code marker belongs on the `named === null` failure in
+`node-view.ts`.

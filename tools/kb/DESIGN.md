@@ -882,6 +882,22 @@ The vocabulary is `@kb/model`'s `view-node.ts`; the plan it comes from is
   explicit `default` ref was the alternative and is refused: it is a second
   field that can name a view the host does not list, and it would have to be
   kept in step with the list by hand — a mirror.
+- **A node that names no view opens in the default view type, which is
+  data.** `sys.views` names it in `sys.f.view.default` (ref, one), which
+  targets the list's own options (`VIEW_OPTION_TARGET_QUERY`), so it selects
+  from the list rather than mirroring it; `defaultViewTypeOf` reads it. The
+  seed names the outline (`sys.view.outline.main`, a frozen id), and a
+  store seeded before the field gets it by the seed's fill-absent pass, like
+  every seeded prop. Opening a node through it is opening it through that
+  view type by name, so a default whose family is switched off opens as
+  "cannot be shown here" like any view named so, and no code names the
+  default. A default that is missing, or names no view type, is reported
+  through the caller's `ConfigReport`, never thrown; the node then names no
+  view, which resolves as a failure the node route draws as not found, as
+  it draws a host naming a view node that is gone
+  (GAP [[O2-broken-view-ref]]). Order is not the mechanism here, as it is
+  for a host's views: the order of `sys.views` is the fold's, and a store
+  seeded earlier may hold it otherwise.
 - **Placement is not stored yet.** Each view is shown at the placement its
   host offers. A stored placement arrives with the hosts that read it, in
   phase A2 (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]); a field no host reads
@@ -986,12 +1002,13 @@ layouts).
   through a named view type, read for the node from an empty view node;
   through a named view node, read for the node; as the view node itself
   when the node is one; otherwise in the node's default view (the first it
-  names) or, when it names none, as the outline rooted at it (`outline.main`
-  with `root`). A view whose page is another view's says so in its key
-  (`ViewKey.page`), so the resolver names no view: a frame view's page is
-  the outline at the frame, and a graph renderer's page is the graph page
-  drawing that view node. The UI's links, a pane, a dashboard's panes and
-  `ui.navigate` all open nodes this way.
+  names) or, when it names none, through the store's default view type, as
+  if the node named it (View nodes, above: seeded as the outline). A view
+  whose page is another view's says so in its key (`ViewKey.page`), so the
+  resolver names no view: a frame view's page is the outline at the frame,
+  and a graph renderer's page is the graph page drawing that view node. The
+  UI's links, a pane, a dashboard's panes and `ui.navigate` all open nodes
+  this way.
 - **A layout node holds its tree as one prop.** `sys.f.layout` holds the
   tree as canonical JSON, the shape a canvas keeps its layout in, so a drag
   writes one prop atomically. "Save workspace" proposes the live

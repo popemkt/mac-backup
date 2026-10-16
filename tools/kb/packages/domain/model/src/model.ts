@@ -154,6 +154,11 @@ export const SYSTEM_IDS = {
   viewFamilyField: "sys.f.view.family",
   /** The view nodes a host names, in order; the first is its default. */
   viewsField: "sys.f.views",
+  /**
+   * The view type a node that names no view opens in: a ref to one of
+   * `sys.views`' options, carried by `sys.views` and seeded.
+   */
+  viewDefaultField: "sys.f.view.default",
   /** A docs view's template: the name of a template an extension registers (text). */
   viewTemplateField: "sys.f.view.template",
   /** A docs view's output: the repo-relative markdown path it is written to (text). */

@@ -1,10 +1,17 @@
 /**
  * The bundled seed fold (DESIGN.md → Extension families → the seed is the
  * bundled fold): each declared view's option is derived from its key, in
- * declaration order, and an id two declarations claim is refused.
+ * declaration order, `sys.views` names the default view type, and an id two
+ * declarations claim is refused.
  */
 import { describe, expect, test } from "bun:test";
-import { SYSTEM_IDS, VIEW_FAMILY_VALUES, foldSeed, viewOptionId } from "@kb/model";
+import {
+  SYSTEM_IDS,
+  VIEW_FAMILY_VALUES,
+  defaultViewTypeOf,
+  foldSeed,
+  viewOptionId,
+} from "@kb/model";
 import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -30,6 +37,14 @@ describe("bundled seed", () => {
         key.family === undefined ? undefined : VIEW_FAMILY_VALUES[key.family].id,
       );
     }
+  });
+
+  test("sys.views names the default view type: a declared view's option, the outline's", () => {
+    const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
+    const named = defaultViewTypeOf(seed.get(SYSTEM_IDS.viewsRoot)) ?? "none";
+    expect(declaredKeys.map((key) => key.option)).toContain(named);
+    // The id is frozen data: whichever declaration provides the outline, it is this one.
+    expect(named).toBe(viewOptionId("outline.main"));
   });
 
   test("an id two declarations claim is refused", () => {

@@ -247,6 +247,10 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * them by — the shape of the graph sources. The options themselves are not
    * core's to list: each is derived from a declared view's key when the seed
    * is folded ({@link foldSeed}), so the list node is seeded empty here.
+   * It names the view type a node that names no view opens in
+   * (`sys.f.view.default`): the outline, by its frozen option id, which
+   * core's declaration provides today and the outline family's will when it
+   * is cut out, without the id changing.
    */
   const viewFamilyOptions = Object.values(VIEW_FAMILY_VALUES).map((value) =>
     mk(value.id, value.label),
@@ -255,7 +259,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...singleField(SYSTEM_IDS.viewFamilyField, "view.family", "ref"),
     children: viewFamilyOptions.map((option) => option.id),
   };
-  const viewsRoot = mk(SYSTEM_IDS.viewsRoot, "View types");
+  const viewsRoot = mk(SYSTEM_IDS.viewsRoot, "View types", {
+    [SYSTEM_IDS.viewDefaultField]: [{ t: "ref", v: viewOptionId("outline.main") }],
+  });
 
   const refField = (id: string, text: string, targetTag?: string, props: KbNode["props"] = {}) =>
     typedField(id, text, "ref", {
@@ -283,6 +289,13 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // The view a node is (one option), and the view nodes a host names (many, in order).
   const viewField = refQueryField(SYSTEM_IDS.viewField, "view", VIEW_OPTION_TARGET_QUERY, SINGLE);
   const viewsField = refQueryField(SYSTEM_IDS.viewsField, "views", VIEW_NODE_TARGET_QUERY);
+  // The view type a node that names no view opens in (one option), held by `sys.views`.
+  const viewDefaultField = refQueryField(
+    SYSTEM_IDS.viewDefaultField,
+    "view.default",
+    VIEW_OPTION_TARGET_QUERY,
+    SINGLE,
+  );
   // A docs view's params beside its subject (`lens.query`): which template, written where.
   const viewTemplateField = singleField(SYSTEM_IDS.viewTemplateField, "view.template", "text");
   const viewOutputField = singleField(SYSTEM_IDS.viewOutputField, "view.output", "text");
@@ -606,6 +619,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     nodeTextField,
     viewField,
     viewsField,
+    viewDefaultField,
     viewTemplateField,
     viewOutputField,
     viewSavedQueryField,

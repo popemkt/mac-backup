@@ -5,8 +5,8 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { Result } from "effect";
-import { SYSTEM_IDS, viewOptionId, type NodeProps } from "@kb/model";
-import { BUNDLED_DECLARATIONS } from "@kb/bundled";
+import { SYSTEM_IDS, present, viewOptionId, type NodeProps } from "@kb/model";
+import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
 import {
   GraphView,
   LayoutView,
@@ -34,6 +34,22 @@ import {
 const catalog = viewCatalogOf(
   BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.views ?? []),
 );
+
+/** What `/node/<node>` opens over `graph` through catalog `on`, and the warnings it reports. */
+function openIn(
+  graph: ReadonlyMap<string, { props: NodeProps; text?: string }>,
+  node: string,
+  on: Parameters<typeof resolveNodeView>[1] = catalog,
+) {
+  const warnings: string[] = [];
+  const target = resolveNodeView(
+    { node },
+    on,
+    (id) => graph.get(id),
+    (w) => warnings.push(w),
+  );
+  return { target, warnings };
+}
 
 const pane = (id: string, path = `/node/${id}`) => ({ id, path });
 const tabs = (...ids: string[]): LayoutTree => {
@@ -192,7 +208,13 @@ describe("layout edits", () => {
 });
 
 describe("what /node/<id> opens", () => {
+  /** The views list as every store is seeded with it: it names the default view type. */
+  const seededViews = present(
+    bundledSeed().find((node) => node.id === SYSTEM_IDS.viewsRoot),
+    "the bundled seed declares sys.views",
+  );
   const nodes = new Map<string, { props: NodeProps }>([
+    [SYSTEM_IDS.viewsRoot, { props: seededViews.props }],
     ["n.plain", { props: {} }],
     [
       "n.frame",
@@ -247,10 +269,63 @@ describe("what /node/<id> opens", () => {
     return target;
   };
 
-  test("a node that names no view opens as the outline at it", () => {
+  test("a node that names no view opens in the seeded default view type: the outline at it", () => {
     expect(open("n.plain")).toEqual(
       Result.succeed({ key: OutlineView, input: { root: "n.plain" }, subject: "n.plain" }),
     );
+  });
+
+  /** `nodes` with `sys.views` naming `option` as the default view type (none for null). */
+  const withDefault = (option: string | null) =>
+    new Map<string, { props: NodeProps; text?: string }>([
+      ...nodes,
+      [
+        SYSTEM_IDS.viewsRoot,
+        {
+          props:
+            option === null ? {} : { [SYSTEM_IDS.viewDefaultField]: [{ t: "ref", v: option }] },
+        },
+      ],
+    ]);
+
+  test("the default view type is data: a node that names no view opens as if it named it", () => {
+    const graph = withDefault(NeighbourhoodView.option);
+    expect(openIn(graph, "n.plain")).toEqual({
+      target: open("n.plain", NeighbourhoodView.option),
+      warnings: [],
+    });
+    // A node that names a view still opens in its own.
+    expect(openIn(graph, "n.frame").target).toEqual(open("n.frame"));
+  });
+
+  test("a default view type the host holds no key for opens as that view, unavailable here", () => {
+    const off = viewCatalogOf(catalog.items.filter((item) => item.key !== NeighbourhoodView));
+    const graph = new Map([
+      ...withDefault(NeighbourhoodView.option),
+      [NeighbourhoodView.option, { props: {}, text: "Neighbourhood" }],
+    ]);
+    expect(openIn(graph, "n.plain", off)).toEqual({
+      target: Result.succeed({
+        key: null,
+        listed: { id: "graph.neighbourhood", label: "Neighbourhood" },
+        subject: "n.plain",
+      }),
+      warnings: [],
+    });
+  });
+
+  test("a default view type missing, or naming no view type, is reported, never thrown", () => {
+    const failure = Result.fail("n.plain names no view, and no default view type is named");
+    expect(openIn(withDefault(null), "n.plain")).toEqual({
+      target: failure,
+      warnings: [`sys.views names no default view type (${SYSTEM_IDS.viewDefaultField})`],
+    });
+    expect(openIn(withDefault("v.table"), "n.plain")).toEqual({
+      target: failure,
+      warnings: [
+        `sys.views's default view type v.table is no view type (${SYSTEM_IDS.viewDefaultField})`,
+      ],
+    });
   });
 
   test("a node opens in its default view; a frame view's page is the outline at the frame", () => {

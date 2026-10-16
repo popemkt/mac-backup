@@ -150,6 +150,7 @@ export {
   VIEW_NODE_TARGET_QUERY,
   VIEW_OPTION_TARGET_QUERY,
   defaultViewIdOf,
+  defaultViewTypeOf,
   familyViewIdOf,
   docsViewNameError,
   docsViewNameOf,

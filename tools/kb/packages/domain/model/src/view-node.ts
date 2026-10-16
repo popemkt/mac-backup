@@ -71,6 +71,16 @@ export function defaultViewIdOf(node: Carrier | undefined): NodeId | null {
 }
 
 /**
+ * The view type a node that names no view opens in: the option `views` (the
+ * `sys.views` list) names in `sys.f.view.default`, or null when it names
+ * none. It is data, seeded like every system node, so which view is the
+ * default is the graph's to say and no code names it.
+ */
+export function defaultViewTypeOf(views: Carrier | undefined): NodeId | null {
+  return firstRefOf(views, SYSTEM_IDS.viewDefaultField);
+}
+
+/**
  * A host's views with `viewId` first and the rest in their order: what
  * making it the host's default writes, as one replacement of `sys.f.views`.
  */

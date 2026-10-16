@@ -6,7 +6,9 @@
  */
 import { Result } from "effect";
 import {
+  SYSTEM_IDS,
   defaultViewIdOf,
+  defaultViewTypeOf,
   isViewNode,
   viewIdOfOption,
   viewOptionId,
@@ -15,7 +17,6 @@ import {
   type NodeProps,
 } from "@kb/model";
 import type { CatalogItem, ViewCatalogEntry, ViewCatalogOf } from "./catalog.ts";
-import { OutlineView } from "./outline.ts";
 import type { NodeParams } from "./layout.ts";
 import type { ConfigReport, ViewKey, ViewPage } from "./view-key.ts";
 
@@ -33,7 +34,7 @@ export interface HeldViewTarget {
   readonly key: ViewKey<unknown>;
   readonly input: unknown;
   readonly subject: NodeId;
-  /** The view node it shows, when it shows one (not a view type, not the outline). */
+  /** The view node it shows, when it shows one (not a view type). */
   readonly viewNode?: NodeId;
 }
 
@@ -81,7 +82,8 @@ function pageOf(
  * - `view` names a view node: that view node, shown for the node;
  * - no `view`, and the node is a view node: that view node, shown for no node;
  * - no `view`: the node's default view (the first view node it names), or,
- *   when it names none, the outline at the node.
+ *   when it names none, the store's default view type
+ *   ({@link defaultViewType}), opened as if `view` named it.
  *
  * A view the host holds no key for resolves to its name (`key: null`,
  * {@link viewNamed}), not to a failure: the node is there, and its view is
@@ -96,17 +98,20 @@ export function resolveNodeView(
 ): Result.Result<NodeViewTarget, string> {
   const node = lookup(params.node);
   if (node === undefined) return Result.fail(`no node ${params.node}`);
-  const type = params.view === undefined ? null : viewIdOfOption(params.view);
+  const self = params.view === undefined && isViewNode(node);
+  const named =
+    params.view ??
+    (self ? params.node : (defaultViewIdOf(node) ?? defaultViewType(lookup, report)));
+  if (named === null)
+    return Result.fail(`${params.node} names no view, and no default view type is named`);
+  const type = viewIdOfOption(named);
   if (type !== null) {
     const key = catalog.keyOf(type);
     if (key === null)
       return unheld(catalog, lookup, type, { subject: params.node }, `no view ${type}`);
     return Result.succeed({ ...pageOf(key, {}, params.node, null, report), subject: params.node });
   }
-  const self = params.view === undefined && isViewNode(node);
-  const viewId = params.view ?? (self ? params.node : defaultViewIdOf(node));
-  if (viewId === null)
-    return Result.succeed({ key: OutlineView, input: { root: params.node }, subject: params.node });
+  const viewId = named;
   const view = lookup(viewId);
   const option = viewOptionOf(view);
   const key = option === null ? null : catalog.keyOf(option);
@@ -120,6 +125,26 @@ export function resolveNodeView(
     subject: viewId,
     viewNode: viewId,
   });
+}
+
+/**
+ * The view type a node that names no view opens in: the option `sys.views`
+ * names (`defaultViewTypeOf`), seeded as the outline. One that is missing, or
+ * names no view type, is reported, never thrown, and the node then names no
+ * view at all.
+ */
+function defaultViewType(
+  lookup: (id: NodeId) => Carrier | undefined,
+  report: ConfigReport,
+): NodeId | null {
+  const option = defaultViewTypeOf(lookup(SYSTEM_IDS.viewsRoot));
+  if (option !== null && viewIdOfOption(option) !== null) return option;
+  report(
+    option === null
+      ? `${SYSTEM_IDS.viewsRoot} names no default view type (${SYSTEM_IDS.viewDefaultField})`
+      : `${SYSTEM_IDS.viewsRoot}'s default view type ${option} is no view type (${SYSTEM_IDS.viewDefaultField})`,
+  );
+  return null;
 }
 
 /**
