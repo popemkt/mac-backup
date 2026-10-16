@@ -1,13 +1,32 @@
 import { useMemo } from "react";
-import { FrameSubjectContext, useFrameView, useGraphRead, ViewSlot } from "@kb/ui-sdk";
+import {
+  frameViewLabelOf,
+  FrameSubjectContext,
+  type OutlineNode,
+  schemaOf,
+  useFrameView,
+  useFrameViewNode,
+  useGraphRead,
+  usePageGraph,
+  ViewNotLoaded,
+  ViewSlot,
+  ViewUnavailable,
+} from "@kb/ui-sdk";
 import { outlineFrameSubject } from "./outline-frame";
 import { useOutlineStore } from "./outline.store";
 
-const UNAVAILABLE = (
-  <p className="px-1 py-0.5 text-meta text-foreground/50" data-frame-view-unavailable="true">
-    This view is not available.
-  </p>
-);
+/**
+ * A frame whose view node names a view not provided here: the kit's "cannot be
+ * shown here" state, inline, naming the view by its option node.
+ */
+function UnheldFrameView({ viewNode }: { readonly viewNode: OutlineNode | undefined }) {
+  const label = frameViewLabelOf(viewNode, usePageGraph(schemaOf));
+  return label === null ? (
+    <ViewUnavailable why="Its view node names no view this graph holds." placement="inline" />
+  ) : (
+    <ViewNotLoaded label={label} placement="inline" />
+  );
+}
 
 /**
  * A frame's children, shown by the view its config names, through a slot at
@@ -31,6 +50,7 @@ export function FrameViewSlot({
 }) {
   const frame = useGraphRead().outline.get(frameId);
   const view = useFrameView(frame);
+  const viewNode = useFrameViewNode(frame);
   // The pages revealed are the outline's, so the rows a view draws are the
   // rows its keyboard walk reaches.
   const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
@@ -41,13 +61,13 @@ export function FrameViewSlot({
   return (
     <FrameSubjectContext.Provider value={subject}>
       {view === null ? (
-        UNAVAILABLE
+        <UnheldFrameView viewNode={viewNode} />
       ) : (
         <ViewSlot
           view={view.key}
           params={view.params}
           placement="inline"
-          fallback={UNAVAILABLE}
+          fallback={<ViewNotLoaded label={view.key.label} placement="inline" />}
           subject={frameId}
         />
       )}

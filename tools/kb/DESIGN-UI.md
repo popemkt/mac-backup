@@ -1716,8 +1716,12 @@ how the stored name resolves to the key among them.
   `columns`). The frame's first frame view node (DESIGN.md → View nodes)
   names the view, and `frameViewOf` (`@kb/ui-sdk`'s `lib/frame-view.ts`)
   looks that node up in the schema, resolves its view among the frame views
-  provided, falling back to the list's, and decodes the view node's props through that
-  view's params, so the view gets exactly the settings it reads; a host
+  provided, the list's when the frame names none, and decodes the view
+  node's props through that view's params, so the view gets exactly the
+  settings it reads. A frame whose view node names a view not provided here
+  (its family switched off) shows the kit's one "cannot be shown here" state
+  (`ViewNotLoaded`, drawn inline), named by its option node, and offers the
+  row walk no rows; its view node stays. A host
   that already selected the view node from the store (`useFrameView`) hands
   it to `frameViewThrough`, the same resolution without the lookup. What
   `frameRows` does with the rows follows from the params: every view

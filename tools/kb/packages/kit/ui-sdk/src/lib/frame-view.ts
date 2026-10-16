@@ -84,10 +84,13 @@ const LIST_OPTION = viewOptionId("outline.list");
 
 /**
  * The view a frame shows its children in, among the frame views provided
- * (`views`, as `ViewPoint` lists them): the one its view node names, else the
- * list's, with the view node's props decoded through that view's params for
- * the frame, so it carries exactly the settings the view reads. Null while
- * not even the list is provided.
+ * (`views`, as `ViewPoint` lists them): the one its view node names, else,
+ * when it names none, the list's, with the view node's props decoded through
+ * that view's params for the frame, so it carries exactly the settings the
+ * view reads. Null while the view its view node names is not provided (its
+ * family switched off, or its plugin not loaded): the frame shows that it
+ * cannot be shown here, and offers no rows, rather than another view. Null
+ * too while not even the list is provided.
  */
 export function frameViewOf(
   frame: ViewCarrier | undefined,
@@ -104,8 +107,10 @@ export function frameViewThrough(
   views: readonly FrameViewKey[],
 ): FrameView | null {
   const asked = viewKeyOfNode(node ?? undefined, views);
-  if (node !== null && asked === null)
-    logWarn(`[view-config] ${node.id} ignored: ${viewOptionOf(node)} is no frame view provided`);
+  if (node !== null && asked === null) {
+    logWarn(`[view-config] ${node.id}: ${viewOptionOf(node)} is no frame view provided here`);
+    return null;
+  }
   const key = asked ?? views.find((view) => view.option === LIST_OPTION);
   if (key === undefined) return null;
   const params = paramsFromProps(key, node?.props ?? {}, frame?.id ?? null, frameReport);
@@ -113,4 +118,18 @@ export function frameViewThrough(
   // Unreachable while every setting is decoded by the schema the params are made of.
   logWarn(`[view-config] ${key.id} cannot read this frame: ${params.failure}`);
   return null;
+}
+
+/**
+ * The label of the view a frame's view node names, read from that view's
+ * option node, which the seed names every view by whether or not its plugin
+ * is loaded: how a frame says which view it cannot show here. Null when the
+ * node names no option the graph holds.
+ */
+export function frameViewLabelOf(
+  node: ViewCarrier | undefined,
+  schema: SchemaIndex,
+): string | null {
+  const option = viewOptionOf(node);
+  return (option === null ? undefined : schema.get(option)?.text) ?? null;
 }

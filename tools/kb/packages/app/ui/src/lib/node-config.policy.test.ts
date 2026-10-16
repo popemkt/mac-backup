@@ -24,7 +24,7 @@ import {
 import { parsePerspective } from "@kb/graph-ui";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
-import { OutlineListView, isFrameViewKey } from "@kb/views";
+import { isFrameViewKey } from "@kb/views";
 import { browserHostUiPlugin } from "@/browser-host";
 import { outlineUiPlugin } from "@kb/outline-ui";
 import { GRAPH_IDS } from "@kb/graph";
@@ -135,7 +135,7 @@ describe("getViewConfig reporting", () => {
     expect(warned).toEqual([]);
   });
 
-  it("reports a frame view node whose view is not provided, and shows the list", () => {
+  it("reports a frame view node whose view is not provided, and shows no view in its place", () => {
     // A frame view whose plugin is not loaded: its option says it is one.
     const option = node("sys.view.outline.kanban", {
       [SYSTEM_IDS.viewFamilyField]: [{ t: "ref", v: VIEW_FAMILY_VALUES["outline.frame"].id }],
@@ -146,10 +146,10 @@ describe("getViewConfig reporting", () => {
     const frame = node("f", { [SYSTEM_IDS.viewsField]: [{ t: "ref", v: "v.kanban" }] });
     const nodes = wireToOutlineMap([frame, viewNode, option], new Set());
     const schema = schemaOfGraph(nodes);
-    const view = frameViewOf(frame, schema, FRAME_VIEWS);
-    expect(view?.key).toBe(OutlineListView);
+    // The frame says it cannot be shown here (`FrameViewSlot`), and its walk offers no rows.
+    expect(frameViewOf(frame, schema, FRAME_VIEWS)).toBeNull();
     expect(warned).toEqual([
-      "[view-config] v.kanban ignored: sys.view.outline.kanban is no frame view provided",
+      "[view-config] v.kanban: sys.view.outline.kanban is no frame view provided here",
     ]);
   });
 

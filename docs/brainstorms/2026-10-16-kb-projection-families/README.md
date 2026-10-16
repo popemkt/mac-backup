@@ -1388,6 +1388,20 @@ The keys move to `@kb/collections` as `CollectionTableView`,
      order. The outline's snippet now sits before the table, board and cards
      options, which sit before the graph's.
 
+4. `feat: a frame whose view is switched off says it cannot be shown here`.
+   This is the one behaviour change.
+   - Before: a frame whose view node named a view not provided fell back to
+     the list, with a warning.
+   - Now: it shows the kit's "This view cannot be shown here" state
+     (`ViewNotLoaded`), named by the view's option node, and the keyboard
+     walk offers it no rows. That state, which the node view and the
+     ontology's graph tab already use, is drawn at its slot's placement: a
+     workspace state at `page`, one line at `inline`. Every caller names
+     its placement.
+   - A frame that names no view still shows the list.
+   - The view node stays, and the view returns with its family
+     (`collections-off.test.tsx`).
+
 ### Tests
 
 - **Moved to the family:** `@kb/views`' board and table cases moved to
@@ -1415,5 +1429,6 @@ The keys move to `@kb/collections` as `CollectionTableView`,
   - closes: each family seeds its own command node, under an id it owns.
 - **Placeholder: core's seed holds a collection view.** The approval
   policies view node (`view.approval.policies`) names `outline.table`.
-  - current: with the collections off, the frame shows the list.
+  - current: with the collections off, the frame shows that it cannot be
+    shown here.
   - closes: when core's seed names no view of an optional family.
