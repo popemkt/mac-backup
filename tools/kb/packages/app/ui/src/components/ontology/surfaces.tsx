@@ -3,6 +3,7 @@ import { Result } from "effect";
 import { HexagonIcon, PlusIcon } from "@phosphor-icons/react";
 import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
 import {
+  ONTOLOGY_GRAPH_VIEW,
   OntologyListView,
   OntologyScopeView,
   type OntologyScopeParams,
@@ -93,22 +94,21 @@ export function OntologySurface({ params }: ViewProps<OntologyScopeParams>) {
 }
 
 /**
- * The graph's page, by its id: the graph is a family that may be off, so the
- * ontology names its view softly, through the page's catalog, and imports
- * nothing of it. While the graph is off its view is listed by no key, and the
- * tab says it cannot be shown here, by the label its option node carries.
+ * The graph's page, by its id (`ONTOLOGY_GRAPH_VIEW`), through the page's
+ * catalog. While the graph is off its view is listed by no key, and the tab
+ * says it cannot be shown here, by the label the catalog names it by (its
+ * option node's), else by its id.
  */
-const GRAPH_PAGE = "graph.page";
-
 function OntologyGraph({ ontologyId }: { readonly ontologyId: string }) {
   const catalog = usePageCatalog();
   const wireNodes = useGraphStore((s) => s.wireNodes);
-  const key = catalog.keyOf(GRAPH_PAGE);
+  const key = catalog.keyOf(ONTOLOGY_GRAPH_VIEW);
   const label = useMemo(
-    () => viewNamed(GRAPH_PAGE, catalog, (id) => wireNodes.find((n) => n.id === id))?.label,
+    () =>
+      viewNamed(ONTOLOGY_GRAPH_VIEW, catalog, (id) => wireNodes.find((n) => n.id === id))?.label,
     [catalog, wireNodes],
   );
-  const unavailable = <ViewNotLoaded label={label ?? "Graph"} placement="page" />;
+  const unavailable = <ViewNotLoaded label={label ?? ONTOLOGY_GRAPH_VIEW} placement="page" />;
   if (key === null) return unavailable;
   return (
     <ViewSlot

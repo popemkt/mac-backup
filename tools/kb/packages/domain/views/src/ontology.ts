@@ -8,6 +8,14 @@ export const ONTOLOGY_NAMESPACE = "ontology";
 export const ONTOLOGY_VIEWS = ["page", "outline", "graph"] as const;
 export type OntologyView = (typeof ONTOLOGY_VIEWS)[number];
 
+/**
+ * The view the `graph` projection embeds, by id: the graph family's page.
+ * The family may be off, so the ontology names it softly, through the page's
+ * catalog, and imports nothing of it; the family's tests hold this id to its
+ * key's (`@kb/graph`'s `GraphView`).
+ */
+export const ONTOLOGY_GRAPH_VIEW = "graph.page";
+
 export const OntologyScopeParams = Schema.Struct({
   /** The `#ontology` node's id. */
   id: Schema.String,

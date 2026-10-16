@@ -8,7 +8,14 @@ import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
 import { SYSTEM_IDS, viewOptionId, type NodeProps } from "@kb/model";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
-import { issueText, paramsFromProps, resolveNodeView, viewCatalogOf, viewNodeFor } from "@kb/views";
+import {
+  ONTOLOGY_GRAPH_VIEW,
+  issueText,
+  paramsFromProps,
+  resolveNodeView,
+  viewCatalogOf,
+  viewNodeFor,
+} from "@kb/views";
 import {
   GRAPH_IDS,
   GraphView,
@@ -23,6 +30,10 @@ import { perspective } from "./fixtures.ts";
 const quiet = () => {};
 
 describe("the graph's view keys", () => {
+  test("an ontology's graph projection embeds the graph's page, by its id", () => {
+    expect(ONTOLOGY_GRAPH_VIEW).toBe(GraphView.id);
+  });
+
   test("a neighbourhood with no stored focus is rooted at the node it is shown for", () => {
     const shownFor = paramsFromProps(NeighbourhoodView, {}, "n.host", quiet);
     expect(Result.getOrThrow(shownFor).root).toBe("n.host");

@@ -54,6 +54,7 @@ export {
   OutlineView,
 } from "./outline.ts";
 export {
+  ONTOLOGY_GRAPH_VIEW,
   ONTOLOGY_NAMESPACE,
   ONTOLOGY_VIEWS,
   OntologyListView,
