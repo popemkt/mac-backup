@@ -678,6 +678,25 @@ current)` is the one derivation; it keeps a moved node's rank when it still
   that it holds the old shapes, and `views.migrate` rewrites them
   ([View nodes](#view-nodes)).
 
+### The plan graph
+
+A write plan (`node.add`'s `planNodeAdd`, and every plan built from it)
+reads one port, `NodeGraph` in `@kb/model` (`node-graph.ts`). The port
+answers a node by id, a type's nodes by text (name resolution:
+`resolveFieldIn`, `resolveTagIn`), each node's parent and the forest roots
+in visible order (sibling groups: `groupSlots`). It is kept current as the
+plan `put`s its upserts in. The port promises one precondition and one
+behaviour: the set is a forest after every `put`, and every answer equals a
+naive reading of the node set as it now stands. There are two adapters.
+`ScannedNodes` scans an array, and it is what the array forms
+(`resolveFieldId`, `resolveTagId`, `siblingSlots`) read. `IndexedNodes`
+keeps indexes current on `put` and holds the roots in order once asked, so a
+plan that adds many nodes pays for the graph once, and each placement at the
+roots costs a binary search. `node-graph.contract.test.ts` runs the same
+properties over both, using random forests and random renames, retags,
+re-ranks, moves and additions. The port has no `delete`, because a plan only
+adds or moves nodes; `node.delete` hands its ids to the commit.
+
 ### Merge
 
 `mergeNodeSets(base, ours, theirs)` is the one three-way merge of two node

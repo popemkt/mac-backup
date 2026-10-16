@@ -17,9 +17,13 @@ import {
   freshId,
   isSysPrefixed,
   rankForInsert,
+  IndexedNodes,
+  groupSlots,
   resolveFieldId,
-  siblingSlots,
-  resolveTagId,
+  resolveFieldIn,
+  resolveTagIn,
+  type NodeGraph,
+  type SiblingGroups,
   type DomainError,
   type KbNode,
   type NodeId,
@@ -207,6 +211,18 @@ function nodeById(ctx: KbContext, id: NodeId): KbNode | undefined {
   return ctx.index.getNode(id);
 }
 
+/**
+ * The session's stored graph as a write plan reads it (`NodeGraph`), indexed
+ * once per invocation that needs it: a plan that writes several nodes in one
+ * transaction `put`s each step's upserts into the same graph, so every step
+ * sees what the steps before it wrote. Only stored nodes are in it — the
+ * index's virtual nodes never reach the store, so a plan never reads one as a
+ * parent or a taken id.
+ */
+export function sessionGraph(ctx: KbContext): IndexedNodes {
+  return IndexedNodes.of(ctx.nodes);
+}
+
 export function requireNode(ctx: KbContext, id: NodeId): KbNode {
   const n = nodeById(ctx, id);
   if (!n) throw new ResolveError("not_found", `node not found: ${id}`, { id });
@@ -232,14 +248,14 @@ export function cloneNode(n: KbNode): KbNode {
  * `txIntegrityError` refuses that, because it names two values for one slot.
  */
 function applyProps(
-  ctx: KbContext,
+  graph: NodeGraph,
   props: Record<NodeId, PropValue[]>,
   entries: z.infer<typeof PropInputSchema>[],
 ): void {
   const replaced = new Set<NodeId>();
   for (const e of entries) {
-    const fieldId = resolveFieldId(ctx.nodes, e.field);
-    const single = cardinalityOf(nodeById(ctx, fieldId)?.props) === "one";
+    const fieldId = resolveFieldIn(graph, e.field);
+    const single = cardinalityOf(graph.get(fieldId)?.props) === "one";
     const list = single && !replaced.has(fieldId) ? [] : (props[fieldId] ?? []);
     if (single) replaced.add(fieldId);
     list.push(e.value);
@@ -306,18 +322,18 @@ export function insertChild(
 
 /**
  * The rank a node takes when it is placed at `position` in the sibling group
- * under `parent` (the forest roots when null), read from `nodes` — the state
+ * under `parent` (the forest roots when null), read from `groups` — the state
  * before the placement, which is why the node itself is excluded. The one
  * owner of the answer is `@kb/model`'s `rankForInsert`; the store's commit
  * settles it again against whatever it merges into.
  */
 export function placedRank(
-  nodes: Iterable<KbNode>,
+  groups: SiblingGroups<KbNode>,
   parent: NodeId | null,
   node: KbNode,
   position: number | undefined,
 ): string {
-  const siblings = siblingSlots(nodes, parent, node.id);
+  const siblings = groupSlots(groups, parent, node.id);
   return rankForInsert(siblings, position ?? siblings.length, node.order);
 }
 
@@ -359,10 +375,54 @@ function pullSubtree(ctx: KbContext, id: NodeId, depth: number): unknown {
 }
 
 /**
- * The nodes a `node.add` would write (the new node, and its parent with the
- * child inserted), checked but not stored. `nodeAddEffect` persists them; a
- * caller whose write must land with another (a canvas card and its node)
- * hands them to that write instead, so the two commit as one transaction.
+ * The nodes a `node.add` writes into `graph` (the new node, and its parent
+ * with the child inserted), checked but not stored: what one add means,
+ * stated once. It throws {@link ResolveError}; the effects below lift it.
+ */
+function planNodeAdd(
+  graph: NodeGraph,
+  input: z.infer<typeof nodeAddDef.inputSchema>,
+  id: NodeId,
+  at: string,
+): { node: KbNode; upserts: KbNode[] } {
+  if (graph.get(id)) {
+    throw new ResolveError("ambiguous", `node id already exists: ${id}`, { id });
+  }
+
+  const props: Record<NodeId, PropValue[]> = {};
+  if (input.props) applyProps(graph, props, input.props);
+  if (input.tags) {
+    for (const tagName of input.tags) {
+      const tagId = resolveTagIn(graph, tagName);
+      const list = props[SYSTEM_IDS.typeField] ?? [];
+      list.push({ t: "ref", v: tagId });
+      props[SYSTEM_IDS.typeField] = list;
+    }
+  }
+
+  const draft: KbNode = { id, text: input.text, props, children: [], createdAt: at, updatedAt: at };
+  const parentId = input.parent;
+  const node: KbNode = {
+    ...draft,
+    order: placedRank(graph, parentId ?? null, draft, input.position),
+  };
+  const upserts: KbNode[] = [node];
+  if (parentId !== undefined) {
+    const parent = graph.get(parentId);
+    if (!parent)
+      throw new ResolveError("not_found", `node not found: ${parentId}`, { id: parentId });
+    upserts.push(insertChild(parent, id, at, input.position));
+  }
+
+  assertNoSysUpsert(upserts, input.force === true, "node.add");
+  return { node, upserts };
+}
+
+/**
+ * {@link planNodeAdd} over the session's graph. `nodeAddEffect` persists
+ * what it plans; a caller whose write must land with another (a canvas card
+ * and its node) hands the upserts to that write instead, so the two commit
+ * as one transaction.
  */
 export const planNodeAddEffect = Effect.fn("node.add.plan")(function* (
   input: z.infer<typeof nodeAddDef.inputSchema>,
@@ -370,40 +430,8 @@ export const planNodeAddEffect = Effect.fn("node.add.plan")(function* (
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
   const id = input.id ?? (yield* freshId);
-  if (nodeById(ctx, id)) {
-    return yield* domainError("ambiguous", `node id already exists: ${id}`, {
-      id,
-    });
-  }
-
-  const props: Record<NodeId, PropValue[]> = {};
-  yield* syncDomain(() => {
-    if (input.props) applyProps(ctx, props, input.props);
-    if (input.tags) {
-      for (const tagName of input.tags) {
-        const tagId = resolveTagId(ctx.nodes, tagName);
-        const list = props[SYSTEM_IDS.typeField] ?? [];
-        list.push({ t: "ref", v: tagId });
-        props[SYSTEM_IDS.typeField] = list;
-      }
-    }
-  });
-
-  const draft: KbNode = { id, text: input.text, props, children: [], createdAt: at, updatedAt: at };
-  const parentId = input.parent;
-  const node: KbNode = {
-    ...draft,
-    order: placedRank(ctx.nodes, parentId ?? null, draft, input.position),
-  };
-  const upserts: KbNode[] = [node];
-  if (parentId !== undefined) {
-    const parent = yield* syncDomain(() => cloneNode(requireNode(ctx, parentId)));
-    upserts.push(insertChild(parent, id, at, input.position));
-  }
-
-  yield* syncDomain(() => assertNoSysUpsert(upserts, input.force === true, "node.add"));
-
-  return { id, node, upserts };
+  const planned = yield* syncDomain(() => planNodeAdd(sessionGraph(ctx), input, id, at));
+  return { id, ...planned };
 });
 
 export const nodeAddEffect = Effect.fn("node.add")(function* (
@@ -484,12 +512,16 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
 
   const node = yield* syncDomain(() => cloneNode(requireNode(ctx, input.id)));
   const upserts: KbNode[] = [];
+  // Indexed at most once, and only when a prop or a placement needs it: a
+  // text edit reads no graph.
+  let built: IndexedNodes | undefined;
+  const graph = (): IndexedNodes => (built ??= sessionGraph(ctx));
 
   yield* syncDomain(() => {
     if (input.text !== undefined) node.text = input.text;
     if (input.unsetProps) {
       for (const u of input.unsetProps) {
-        const fieldId = resolveFieldId(ctx.nodes, u.field);
+        const fieldId = resolveFieldIn(graph(), u.field);
         if (u.value === undefined) {
           delete node.props[fieldId];
         } else {
@@ -500,7 +532,7 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
       }
     }
     // Remove old values before adding replacements in the same node update.
-    if (input.setProps) applyProps(ctx, node.props, input.setProps);
+    if (input.setProps) applyProps(graph(), node.props, input.setProps);
   });
 
   // A placement is a move to `parent` (null: the forest roots), or — with
@@ -521,7 +553,7 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
         { id: input.id, parent: placement },
       );
     }
-    node.order = placedRank(ctx.nodes, placement, node, input.position);
+    node.order = placedRank(graph(), placement, node, input.position);
     upserts.push(...detachFromParents(ctx.nodes, input.id, at));
     if (placement !== null) {
       const parent = yield* syncDomain(

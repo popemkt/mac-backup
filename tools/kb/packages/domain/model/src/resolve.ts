@@ -1,6 +1,6 @@
 import type { FailureCode } from "./failure.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
-import { typeRefsOf } from "./ontology.ts";
+import { ScannedNodes } from "./node-graph.ts";
 
 /** Resolve failures; codes are the FailureCodeSchema subset used by lookup/move. */
 export type ResolveErrorCode = Extract<
@@ -20,23 +20,29 @@ export class ResolveError extends Error {
   }
 }
 
-function hasType(node: KbNode, typeId: NodeId): boolean {
-  return typeRefsOf(node).includes(typeId);
+/**
+ * What name resolution asks of a graph: a node by id, and the nodes of one
+ * type that carry one text. Every `NodeGraph` answers it; the array forms
+ * ({@link resolveFieldId}) read it through `ScannedNodes`.
+ */
+export interface NamedNodes {
+  get(id: NodeId): { readonly id: NodeId } | undefined;
+  typedNamed(typeId: NodeId, text: string): readonly { readonly id: NodeId }[];
 }
 
 /**
  * Unique-text lookup among nodes typed as `sys.field` or `sys.tag`.
  * Accepts an id (sys.* or ULID) as a passthrough when it exists.
  */
-function resolveNamed(nodes: KbNode[], nameOrId: string, kind: "field" | "tag"): NodeId {
+function resolveNamed(graph: NamedNodes, nameOrId: string, kind: "field" | "tag"): NodeId {
   const typeId = kind === "field" ? SYSTEM_IDS.field : SYSTEM_IDS.tag;
   // An explicit id always wins, typed or not: `hasType` and the old sys.*
   // special case both fell through to the same answer, so neither ever
   // decided anything.
-  const byId = nodes.find((n) => n.id === nameOrId);
+  const byId = graph.get(nameOrId);
   if (byId) return byId.id;
 
-  const matches = nodes.filter((n) => n.text === nameOrId && hasType(n, typeId));
+  const matches = graph.typedNamed(typeId, nameOrId);
   if (matches.length === 0) {
     throw new ResolveError("not_found", `${kind} not found: ${nameOrId}`, { nameOrId, kind });
   }
@@ -69,12 +75,22 @@ const FIELD_ID_ALIASES: Record<string, NodeId> = {
   [SYSTEM_IDS.targetQueryField]: SYSTEM_IDS.targetQueryField,
 };
 
-export function resolveFieldId(nodes: KbNode[], nameOrId: string): NodeId {
+/** A field by name or id, in any graph that answers {@link NamedNodes}. */
+export function resolveFieldIn(graph: NamedNodes, nameOrId: string): NodeId {
   const aliased = FIELD_ID_ALIASES[nameOrId];
   if (aliased !== undefined) return aliased;
-  return resolveNamed(nodes, nameOrId, "field");
+  return resolveNamed(graph, nameOrId, "field");
+}
+
+/** A tag by name or id, in any graph that answers {@link NamedNodes}. */
+export function resolveTagIn(graph: NamedNodes, nameOrId: string): NodeId {
+  return resolveNamed(graph, nameOrId, "tag");
+}
+
+export function resolveFieldId(nodes: KbNode[], nameOrId: string): NodeId {
+  return resolveFieldIn(new ScannedNodes(nodes), nameOrId);
 }
 
 export function resolveTagId(nodes: KbNode[], nameOrId: string): NodeId {
-  return resolveNamed(nodes, nameOrId, "tag");
+  return resolveTagIn(new ScannedNodes(nodes), nameOrId);
 }

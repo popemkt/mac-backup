@@ -105,18 +105,28 @@ export {
   wouldCreateExtendsCycle,
 } from "./ontology.ts";
 export type { MemberReason, NodeLike, OntologyResolution } from "./ontology.ts";
+export { IndexedNodes, ScannedNodes } from "./node-graph.ts";
+export type { NodeGraph } from "./node-graph.ts";
 export {
   compareRootOrder,
+  groupSlots,
   rankBetween,
   rankForInsert,
   rankOf,
   rankTx,
   siblingSlots,
 } from "./order.ts";
-export type { NodeRank, RankSlot } from "./order.ts";
+export type { NodeRank, RankSlot, SiblingGroups } from "./order.ts";
 export { hasQueryDef, isQueryNode, queryDefOf } from "./query-node.ts";
 export type { QueryNodeDef } from "./query-node.ts";
-export { ResolveError, resolveFieldId, resolveTagId } from "./resolve.ts";
+export {
+  ResolveError,
+  resolveFieldId,
+  resolveFieldIn,
+  resolveTagId,
+  resolveTagIn,
+} from "./resolve.ts";
+export type { NamedNodes } from "./resolve.ts";
 export {
   ActionSchemaError,
   isActionSchema,

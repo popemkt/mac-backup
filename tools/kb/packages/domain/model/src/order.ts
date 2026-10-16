@@ -296,23 +296,62 @@ export function rankTx(previous: readonly KbNode[], tx: StoreTx): StoreTx {
 }
 
 /**
+ * What a sibling group is read from: a node by id (a parent's children are
+ * its array), each node's parent, and the forest roots (which have none) in
+ * visible order. A node array answers it by scanning ({@link siblingSlots});
+ * a `NodeGraph` answers it as its contract says.
+ */
+export interface SiblingGroups<N extends RankSlot & { readonly children: readonly NodeId[] }> {
+  get(id: NodeId): N | undefined;
+  parentOf(id: NodeId): NodeId | undefined;
+  /** The forest roots, in visible order ({@link compareRootOrder}). */
+  roots(): readonly N[];
+}
+
+/**
  * A sibling group in visible order — a parent's children, or the forest
  * roots — optionally without one member. The group a node joins, without the
  * node, is what a `position` indexes, on the server and in the UI alike.
+ * Leaving out a member that is not in the group costs nothing, so placing a
+ * new node at the roots reads the roots as the groups hold them.
  */
+export function groupSlots<N extends RankSlot & { readonly children: readonly NodeId[] }>(
+  groups: SiblingGroups<N>,
+  parent: NodeId | null,
+  excluding?: NodeId,
+): readonly N[] {
+  if (parent !== null) {
+    return (groups.get(parent)?.children ?? []).flatMap((id) => {
+      const member = groups.get(id);
+      return member === undefined || id === excluding ? [] : [member];
+    });
+  }
+  const roots = groups.roots();
+  const isRoot =
+    excluding !== undefined &&
+    groups.get(excluding) !== undefined &&
+    groups.parentOf(excluding) === undefined;
+  return isRoot ? roots.filter((n) => n.id !== excluding) : roots;
+}
+
+/** {@link groupSlots} over a plain node collection, by scanning it. */
 export function siblingSlots<N extends RankSlot & { readonly children: readonly NodeId[] }>(
   nodes: Iterable<N>,
   parent: NodeId | null,
   excluding?: NodeId,
 ): N[] {
   const all = [...nodes];
-  if (parent !== null) {
-    const byId = new Map(all.map((n) => [n.id, n]));
-    return (byId.get(parent)?.children ?? []).flatMap((id) => {
-      const member = byId.get(id);
-      return member === undefined || id === excluding ? [] : [member];
-    });
-  }
-  const children = new Set(all.flatMap((n) => n.children));
-  return all.filter((n) => !children.has(n.id) && n.id !== excluding).toSorted(compareRootOrder);
+  const byId = new Map(all.map((n) => [n.id, n]));
+  const parentOf = new Map(all.flatMap((n) => n.children.map((child) => [child, n.id] as const)));
+  return [
+    ...groupSlots(
+      {
+        get: (id) => byId.get(id),
+        parentOf: (id) => parentOf.get(id),
+        roots: () => all.filter((n) => !parentOf.has(n.id)).toSorted(compareRootOrder),
+      },
+      parent,
+      excluding,
+    ),
+  ];
 }

@@ -25,6 +25,7 @@ import {
   cloneNode,
   insertChild,
   placedRank,
+  sessionGraph,
   requireNode,
   syncDomain,
 } from "./actions.ts";
@@ -111,7 +112,7 @@ export const viewProposeEffect = Effect.fn("view.propose")(function* (
   };
   const node: KbNode = {
     ...draft,
-    order: placedRank(ctx.nodes, list?.id ?? null, draft, undefined),
+    order: placedRank(sessionGraph(ctx), list?.id ?? null, draft, undefined),
   };
   const upserts: KbNode[] = [node];
   if (list !== undefined) upserts.push(insertChild(list, id, at));
