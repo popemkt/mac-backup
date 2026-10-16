@@ -1,11 +1,10 @@
 /**
  * Single owner of "which rows does this frame show, in what order".
  *
- * A frame is any node acting as a container: an outline parent, a projected
- * table/board/cards frame, or a query node presenting its results. Every
- * consumer resolves rows here — NodeBlock (list children), TableView,
- * BoardCardsView, and the visible-instance walk that drives keyboard
- * navigation — so rendered order and navigable order cannot drift.
+ * A frame is any node acting as a container: a parent, a frame laid out flat
+ * by its view, or a query node presenting its results. Every frame view and
+ * its host's keyboard walk resolve rows here, so rendered order and
+ * navigable order cannot drift.
  *
  * Pure: pagination state is passed in as `pages`, never read from a store.
  */

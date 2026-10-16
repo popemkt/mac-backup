@@ -1526,3 +1526,28 @@ commit.
    and with the same aliases, so a collection view's stand-in is reached
    through the `outline.*` alias. A case holds the suite to running over
    at least one such view.
+4. **The kit's frame docs name no family.** `frame-layout.ts`,
+   `frame-subject.ts` and `frame-rows.ts` describe frame views and their
+   host, not the outline's components or the collections' views. Two
+   things still name the outline, and are left as gaps:
+   - **Placeholder: the kit names the frame family's default view.**
+     - expected: which frame view a frame with no frame view node shows is
+       data, as `sys.views` names the page default (`sys.f.view.default`,
+       written by the fold from the declaration that provides it).
+     - current: `@kb/ui-sdk`'s `lib/frame-view.ts` names
+       `viewOptionId("outline.list")` (`LIST_OPTION`).
+     - impact: the kit names one family's view, and no declaration can
+       change the default.
+     - closes: the frame family's default named in data, written by the
+       fold from the one declaration that provides it, with the extension
+       contract's provider property over it, and an existing store
+       filled by the seed's fill-absent pass.
+   - **Placeholder: the kit's node type is named for the outline.**
+     - expected: the kit's node read model is named for what it is (a node
+       as the page reads it), not for one family.
+     - current: `OutlineNode` (`@kb/ui-sdk`'s `lib/types.ts`), used in 57
+       files, 14 of them the canvas's.
+     - impact: every family reads its nodes through a type named for the
+       outline.
+     - closes: one rename across the workspace, done when the canvas
+       packages are free to touch.

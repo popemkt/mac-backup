@@ -1,8 +1,10 @@
 /**
- * How the outline's frame views lay a frame's rows out: the filters every
- * one of them applies, the table's columns and sort, and the board's
- * columns. Which view a frame is shown in, and the settings its view node
- * holds, are the kit's (`frameViewOf`, `frameConfigOf`).
+ * How a frame view lays a frame's rows out, by the settings it reads: the
+ * filters every frame view applies, the field columns and sort of a view
+ * that shows rows as a table, and the columns a field groups rows into, in
+ * the order they flatten to. Which view a frame is shown
+ * in, and the settings its view node holds, are `frameViewOf` and
+ * `frameConfigOf`.
  */
 import type { SortSpec, ViewFilter } from "@kb/views";
 import { isSysPrefixed, type OutlineNode, type PropValue, SYSTEM_IDS } from "./types";

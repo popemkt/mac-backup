@@ -6,10 +6,11 @@
  * settings it reads; this is the frame they are applied to, and none of it is
  * config, so it travels beside the params, never in them.
  *
- * The host is the view that shows a frame's rows inline (the outline: its
- * root, a projected frame's row, a query's results). A frame view lays the
- * rows out; editing a row's text and its fields is the host's, so a view of
- * another family lays out rows the host edits.
+ * The host is the view that shows a frame's rows inline wherever a frame
+ * sits (at its root, in a projected frame's row, under a query's results),
+ * and builds this subject for each. A frame view lays the rows out; editing
+ * a row's text is the host's, so a frame view of any family lays out rows
+ * its host edits.
  */
 import { createContext, useContext, type ComponentType } from "react";
 import type { OutlineNode, TagBadge } from "./types";

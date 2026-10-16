@@ -78,7 +78,12 @@ export function frameConfigOf(
   return getViewConfig(frameViewNodeOf(frame, schema)?.props);
 }
 
-/** What a frame is shown as while its view node names no frame view: the list. */
+/**
+ * What a frame is shown as while it has no frame view node: the list. The
+ * kit names it by id because no declaration or data says which frame view
+ * is the default yet; the plan records the gap, to be closed by a default
+ * the frame family's data names, as `sys.views` names the page default.
+ */
 const LIST_OPTION = viewOptionId("outline.list");
 
 /**
