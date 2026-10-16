@@ -5,8 +5,8 @@ import { forestRootIds, loadExpansion, wireToOutlineMap } from "@kb/ui-sdk";
 import { mergeTx } from "@/lib/tx";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
 
 describe("stable outline ordering", () => {
   beforeEach(() => {

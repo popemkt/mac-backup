@@ -21,7 +21,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { DEFAULT_VIEW_CONFIG, type SortSpec } from "@kb/views";
-import { resolveTableColumns, sortChildrenForTable } from "@/components/outline/frame-layout";
+import { resolveTableColumns, sortChildrenForTable } from "@kb/outline-ui";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {

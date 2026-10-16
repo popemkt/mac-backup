@@ -9,10 +9,10 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { querySubscriptionId, subscribeQueryNode } from "@/lib/query-node";
 import { resultNodeIds, SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { FakeWsSocket } from "@/test-support/ws";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import type { WireNode } from "@kb/contracts";
+import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
 
 const EDN = "[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]";
 

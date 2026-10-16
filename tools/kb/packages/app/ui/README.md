@@ -34,7 +34,7 @@ uses `restoreInvocations` to build undo/redo actions from graph states;
 `src/stores/graph.store.ts` holds the live graph, write history, zoom root and
 ontology scope, and the port of the projection the page stands in;
 `src/stores/page-editor.ts` the port of the page's editor; the outline
-provides both (`src/components/outline/outline.store.ts`: its selection,
+provides both (`@kb/outline-ui`'s `outline.store.ts`: its selection,
 caret and expansion);
 `src/lib/` holds the pure, unit-tested helpers (caret/markdown, canvas
 selection + history + tools, graph lens, ontology scope, router).

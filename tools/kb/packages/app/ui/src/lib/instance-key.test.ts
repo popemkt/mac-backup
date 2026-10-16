@@ -10,10 +10,9 @@ import {
   syncUiPlugins,
 } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { outlineUiPlugin } from "@/components/outline/plugin";
 import { syncPagePlugins } from "@/test-support/page-plugins";
+import { outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

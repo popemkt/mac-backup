@@ -240,13 +240,34 @@ const TEST_WORLD_PACKAGES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * A package's test helpers, by package-relative folder: the modules its test
+ * files share, which only its test files import. The packages that have one
+ * are {@link TEST_SUPPORT_PACKAGES}.
+ */
+export const TEST_SUPPORT_DIR = "src/test-support/";
+
+/**
+ * The packages with a {@link TEST_SUPPORT_DIR}, each because a check holds
+ * every importer of it to a test file: `@kb/ui`'s zone matrix
+ * ({@link UI_ALLOWS}), in which no zone's row names `test-support` and test
+ * files are exempt. A package that grows the folder without such a check
+ * fails, so no production file escapes a fence through it.
+ */
+export const TEST_SUPPORT_PACKAGES: ReadonlySet<string> = new Set(["@kb/ui"]);
+
+/**
  * A test file, by its package-relative path: anything in the package's own
- * `tests/` or `tests-render/` folder, or a `*.test.ts(x)` anywhere. A
- * `tests/` folder deeper in `src/` is production code like the rest of
- * `src/`, so no file escapes a fence by where it is nested.
+ * `tests/` or `tests-render/` folder or its {@link TEST_SUPPORT_DIR}, or a
+ * `*.test.ts(x)` anywhere. A `tests/` folder deeper in `src/` is production
+ * code like the rest of `src/`, so no file escapes a fence by where it is
+ * nested.
  */
 export function isPackageTestFile(file: string): boolean {
-  return /^(?:tests|tests-render)\//.test(file) || /\.test\.tsx?$/.test(file);
+  return (
+    /^(?:tests|tests-render)\//.test(file) ||
+    file.startsWith(TEST_SUPPORT_DIR) ||
+    /\.test\.tsx?$/.test(file)
+  );
 }
 
 /** Test files may import a {@link TEST_WORLD_PACKAGES} package without inverting the production matrix. */
@@ -365,13 +386,12 @@ export const SANCTIONED_TSCONFIG_DELTAS: Record<string, Record<string, string>> 
 export const UI_SRC = "packages/app/ui/src";
 
 /** A surface folder under `components/`: one page family and its chrome. */
-type UiSurface = "graph" | "layout" | "ontology" | "outline" | "palette" | "prefs" | "sidebar";
+type UiSurface = "graph" | "layout" | "ontology" | "palette" | "prefs" | "sidebar";
 
 export const UI_SURFACES: readonly UiSurface[] = [
   "graph",
   "layout",
   "ontology",
-  "outline",
   "palette",
   "prefs",
   "sidebar",
@@ -387,6 +407,7 @@ export type UiZone =
   | "stores"
   | "fixtures"
   | "test-support"
+  | "page-tests"
   | "catalog"
   | "sandbox"
   | `components/${UiSurface}`;
@@ -456,7 +477,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "components/graph",
     "components/layout",
     "components/ontology",
-    "components/outline",
     "components/palette",
     "components/prefs",
     "components/sidebar",
@@ -473,12 +493,15 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   stores: ["stores", "lib", "api", "session"],
   fixtures: ["fixtures", "lib"],
   // Test helpers: imported only by test files, which the surface rows exempt,
-  // so no row names it. It reaches what it stands in for — the stores
-  // `resetGraphStore` and `resetOutlineStore` reset (the outline's is its own
-  // surface's), the `api/ws` port `FakeWsSocket` doubles, and the shell's
-  // host, which `syncPagePlugins` loads beside a test's plugins as the app
-  // loads it beside its own.
-  "test-support": ["test-support", "shell", "stores", "components/outline", "api"],
+  // so no row names it. It reaches what it stands in for — the store
+  // `resetGraphStore` resets, the `api/ws` port `FakeWsSocket` doubles, and
+  // the shell's host, which `syncPagePlugins` loads beside a test's plugins as
+  // the app loads it beside its own.
+  "test-support": ["test-support", "shell", "stores", "api"],
+  // Tests of a family's browser half that drive the page, so they run in the
+  // shell rather than in the family's package: test files only, which every
+  // row exempts, so the row names nothing but itself.
+  "page-tests": ["page-tests"],
   primitives: ["primitives", "lib"],
   catalog: [
     "catalog",
@@ -487,7 +510,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "primitives",
     "components/graph",
     "components/ontology",
-    "components/outline",
     "components/palette",
     "components/prefs",
     "components/sidebar",
@@ -500,7 +522,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   // The sandbox frame's own script, a separate build that runs in the frame:
   // it reaches nothing of the page, and nothing of the page reaches it.
   sandbox: ["sandbox"],
-  "components/outline": ["components/outline", "primitives", "stores", "actions", "lib"],
   "components/palette": ["components/palette", "primitives", "stores", "actions", "lib"],
   "components/prefs": ["components/prefs", "primitives", "stores", "actions", "lib"],
   "components/sidebar": ["components/sidebar", "primitives", "stores", "actions", "lib"],

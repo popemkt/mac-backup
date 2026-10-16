@@ -183,11 +183,11 @@ describe("the contract's seed, view and text promises have a subject", () => {
     expect(held.views).toEqual(["canvas.list", "canvas.page"]);
     expect(held.actions).toContain("ext.canvas.tx.apply");
     const ctx = await openKb(root);
-    // Core's options first, then the canvas's, where E4b froze them.
+    // Core's options first, then the outline's, then the canvas's.
     const options = ctx.index.getNode(SYSTEM_IDS.viewsRoot)?.children ?? [];
     const at = options.indexOf("sys.view.canvas.list");
     expect(options.slice(at - 1, at + 3)).toEqual([
-      "sys.view.layout.node",
+      "sys.view.outline.snippet",
       "sys.view.canvas.list",
       "sys.view.canvas.page",
       "sys.view.lab.page",

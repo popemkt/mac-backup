@@ -4,13 +4,10 @@
 import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
-import { mergeWithPrevious } from "@/components/outline/editing-writes";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { outlineUiPlugin } from "@/components/outline/plugin";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
@@ -129,3 +126,4 @@ describe("undo / redo (D19)", () => {
 // the file also runs under plain bun without react-dom/test-utils.
 import { act } from "react";
 import { syncPagePlugins } from "@/test-support/page-plugins";
+import { mergeWithPrevious, outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";

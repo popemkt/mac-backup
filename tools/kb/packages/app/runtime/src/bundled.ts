@@ -20,6 +20,7 @@ import { canvasServerPlugin } from "@kb/ext-canvas";
 import { checkPlugin } from "@kb/ext-check";
 import { docsPlugin } from "@kb/ext-docs";
 import { labPlugin } from "@kb/lab";
+import { outlinePlugin } from "@kb/outline";
 
 /**
  * Each declaration paired with the entry of the same name, in the
@@ -46,6 +47,7 @@ export function serverEntriesFor(
 }
 
 export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BUNDLED_FAMILIES, [
+  outlinePlugin(),
   docsPlugin,
   canvasServerPlugin,
   labPlugin(),

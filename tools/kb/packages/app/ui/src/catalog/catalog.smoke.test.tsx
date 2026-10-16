@@ -15,8 +15,6 @@ import * as bulletStories from "./bullet.stories";
 import * as tagChipStories from "./tag-chip.stories";
 import * as tagChipGroupStories from "./tag-chip-group.stories";
 import * as nodeRowStories from "./node-row.stories";
-import * as fieldValueStories from "./field-value.stories";
-import * as fieldValueStackStories from "./field-value-stack.stories";
 import * as graphToolbarStories from "./graph-toolbar.stories";
 import * as nodeContentStories from "./node-content.stories";
 import * as graphCanvasFrameStories from "./graph-canvas-frame.stories";
@@ -31,8 +29,6 @@ storiesRender([
   { name: "tag-chip", mod: tagChipStories },
   { name: "tag-chip-group", mod: tagChipGroupStories },
   { name: "node-row", mod: nodeRowStories },
-  { name: "field-value", mod: fieldValueStories },
-  { name: "field-value-stack", mod: fieldValueStackStories },
   { name: "graph-toolbar", mod: graphToolbarStories },
   { name: "node-content", mod: nodeContentStories },
   { name: "graph-canvas-frame", mod: graphCanvasFrameStories },
@@ -53,7 +49,9 @@ describe("surface error-boundary wiring (App)", () => {
       readFileSync(path.join(browserSource("@kb/ui-sdk"), "components/view-slot.tsx"), "utf8"),
     ).toContain('title="View crashed"');
     // Each built-in page owns its boundary, beside the surface that renders it.
-    expect(read("components/outline/surfaces.tsx")).toContain('title="Outline crashed"');
+    expect(
+      readFileSync(path.join(browserSource("@kb/outline-ui"), "surfaces.tsx"), "utf8"),
+    ).toContain('title="Outline crashed"');
     expect(read("components/graph/surfaces.tsx")).toContain('title="Graph crashed"');
     expect(
       readFileSync(path.join(browserSource("@kb/canvas-ui"), "surfaces.tsx"), "utf8"),

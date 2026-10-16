@@ -1949,8 +1949,8 @@ from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surf
 
 #### Extension families
 
-This is the contract for every feature kb bundles, such as chart, code, lab,
-agent, canvas, docs and check. **Core names no feature.** The reasons and
+This is the contract for every feature kb bundles, such as the outline,
+chart, code, lab, agent, canvas, docs and check. **Core names no feature.** The reasons and
 the order of the move are in the
 [extension-boundaries plan](../../docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md).
 Where the code does not meet this contract yet, a gap says so (listed at the
@@ -1996,10 +1996,12 @@ end).
   half. There is never a second switch in the browser.
   - **Which families can be switched.** Canvas, chart, code and the agent
     are optional and on by default; the lab is optional and off by
-    default. Docs and check are required: docs owns the templates core's
+    default. The outline, docs and check are required. The outline is the
+    default editing mode and provides the default view type, the view a
+    node opens in when it names none. Docs owns the templates core's
     `docs.markdown` views render with, so with docs off a core view would
-    break rather than read as unavailable, and the two run the repository's
-    gates (`docs.check`, `check:audit`). A required family is on wherever it
+    break rather than read as unavailable, and docs and check run the
+    repository's gates (`docs.check`, `check:audit`). A required family is on wherever it
     is composed whatever its node says, and `extension.switch` refuses it,
     so no gate can read as clean because its family was switched away.
   - **The family is the unit.** Every package of a family follows the one
@@ -2097,7 +2099,7 @@ end).
 - **What stays core** is mechanism, plus the projections the shell is built
   from:
   - the store, datalog, kernel, subscriptions and the render backbone;
-  - the outline, graph (`graph.force3d` included) and ontology families;
+  - the graph (`graph.force3d` included) and ontology families;
   - layout (`layout.grid`, `layout.node`, `sys.f.layout`), because the pane
     tree is the workspace;
   - the docs view type (`docs.markdown`). `@kb/ext-docs` owns the templates
@@ -2115,8 +2117,10 @@ end).
     family;
   - an `app` package imports an extension package only from its composition
     root's bundled-extensions file (`EXTENSION_ROOTS`), and a root
-    re-exports none. Tests (the package's `tests/` folder and `*.test.*`
-    files) are exempt. A breach that is known and deferred is a file named
+    re-exports none. Tests (the package's `tests/` folder, `*.test.*`
+    files, and the helpers in its `src/test-support/` folder, which a
+    package has only where a check holds every importer of it to a test,
+    `TEST_SUPPORT_PACKAGES`) are exempt. A breach that is known and deferred is a file named
     in `EXTENSION_ROOT_BREACHES`, under a gap: a file not named fails, and a
     named file that no longer imports the feature fails;
   - every extension package is loaded, by a value import, by the root of
@@ -2164,9 +2168,7 @@ Today's drift from this contract is marked where it sits:
 - extensions that still reach core's use cases (`@kb/operations`):
   GAP [[01M439W857BD9QQTBEQ5X5D06D]];
 - the outline's canvas bullet, which the kit names by the canvas tag's
-  frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]];
-- core's declaration, which still declares the outline's views and
-  provides the default view type: GAP [[01M52J3DADW4P7YV6907ME9C50]].
+  frozen id: GAP [[01M436DVSEHKNYWSF2MR07HPMR]].
 
 ### Canvas documents
 

@@ -1,12 +1,12 @@
 import { providePageProjection } from "@/stores/graph.store";
 import { providePageEditor } from "@/stores/page-editor";
+import { resetGraphStore } from "./graph-store";
 import {
   initialOutlineState,
   outlineProjection,
-  useOutlineStore,
   type OutlineStateData,
-} from "@/components/outline/outline.store";
-import { resetGraphStore } from "./graph-store";
+  useOutlineStore,
+} from "@kb/outline-ui";
 
 /**
  * Reset to a fresh clone of `initialOutlineState`, then apply test overrides.

@@ -11,7 +11,6 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { pageCommandApi } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -25,6 +24,7 @@ import {
 } from "@/lib/commands";
 import type { CommandContext } from "@kb/ui-sdk";
 import { bundledSeed } from "@kb/bundled";
+import { outlineNodes, useOutlineStore } from "@kb/outline-ui";
 
 const AT = "2026-09-30T00:00:00.000Z";
 

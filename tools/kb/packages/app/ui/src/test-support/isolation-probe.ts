@@ -23,7 +23,7 @@
 import { expect } from "vitest";
 import { present } from "@kb/model";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore } from "@/components/outline/outline.store";
+import { useOutlineStore } from "@kb/outline-ui";
 
 const REALM_KEY = "__kbIsolationProbe";
 

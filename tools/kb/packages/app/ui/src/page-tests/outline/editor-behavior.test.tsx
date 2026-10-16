@@ -1,0 +1,214 @@
+/**
+ * r1-editor §5.3 — end-to-end behavioral scenarios for the defect table.
+ * D05 collapsed-indent · D08 first-child backspace · D10 wrapped-line
+ * vertical nav · D14 autocomplete dismissal · §3.3 transient auto-prune.
+ */
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { Window } from "happy-dom";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
+import { outlineInstanceKey, syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
+import { fixtureGraph } from "@/api/fixture-graph";
+import { mutations } from "@/actions/mutations";
+import { useGraphStore } from "@/stores/graph.store";
+import { mountActiveTextHost } from "@/test-support/active-text-host";
+import { resetOutlineStore } from "@/test-support/outline-store";
+import { syncPagePlugins } from "@/test-support/page-plugins";
+import {
+  createTransientNode,
+  NodeBlock,
+  outlineNodes,
+  outlineUiPlugin,
+  useOutlineStore,
+} from "@kb/outline-ui";
+
+// The outline runs as the app boots it: its frame views provided, and the
+// store's row walk wired to them.
+beforeAll(() => syncPagePlugins([outlineUiPlugin]));
+afterAll(() => syncUiPlugins([]));
+
+function seed() {
+  resetOutlineStore();
+  useGraphStore
+    .getState()
+    .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
+}
+
+function fireKey(el: Element, key: string): boolean {
+  const ev = new KeyboardEvent("keydown", {
+    key,
+    bubbles: true,
+    cancelable: true,
+  });
+  el.dispatchEvent(ev);
+  return ev.defaultPrevented;
+}
+
+describe("editor behavior scenarios (r1 §5.3)", () => {
+  let dom: Window;
+  let container: HTMLDivElement;
+  let root: Root;
+  let unmountTextHost: () => void;
+
+  beforeAll(() => {
+    dom = new Window();
+    const g = globalThis as Record<string, unknown>;
+    g.window = dom;
+    g.document = dom.document;
+    g.HTMLElement = dom.HTMLElement;
+    g.KeyboardEvent = dom.KeyboardEvent;
+    g.MouseEvent = dom.MouseEvent;
+    g.Node = dom.Node;
+    g.CSS = { escape: (s: string) => s };
+  });
+
+  beforeEach(() => {
+    seed();
+    container = dom.document.createElement("div") as unknown as HTMLDivElement;
+    dom.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+    // These scenarios activate rows they never render. In the app every visible
+    // row mounts a text host; without one the store drops the active row 250 ms
+    // later, which on a loaded machine lands before the assertion.
+    unmountTextHost = mountActiveTextHost();
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    unmountTextHost();
+  });
+
+  function editorEl(instanceKey: string): HTMLElement | null {
+    return container.querySelector(`[data-instance-key="${instanceKey}"] [contenteditable="true"]`);
+  }
+
+  it("D05: Tab into a collapsed sibling expands it and keeps focus", async () => {
+    // n.root-a starts collapsed (default) and precedes n.root-b.
+    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(true);
+
+    const bKey = outlineInstanceKey("n.root-b", outlineNodes());
+    act(() => {
+      useOutlineStore.getState().activateNode("n.root-b", 4, bKey);
+    });
+
+    await act(async () => {
+      await mutations.indentNode("n.root-b");
+    });
+
+    const s1 = useOutlineStore.getState();
+    // Reparented under the previously collapsed sibling…
+    expect(outlineNodes().get("n.root-b")?.parentId).toBe("n.root-a");
+    // …which auto-expanded so the row stays visible…
+    expect(outlineNodes().get("n.root-a")?.collapsed).toBe(false);
+    expect(s1.getVisibleNodes()).toContain("n.root-b");
+    // …and focus remains on the indented node.
+    expect(s1.activeNodeId).toBe("n.root-b");
+  });
+
+  it("D08: Backspace at index 0 of a first child outdents instead of swallowing", async () => {
+    act(() => {
+      useOutlineStore.getState().toggleCollapse("n.root-a");
+    });
+    const nodes = outlineNodes();
+    const childKey = outlineInstanceKey("n.child-a1", nodes);
+
+    act(() => {
+      useOutlineStore.getState().activateNode("n.child-a1", 0, childKey);
+    });
+    await act(async () => {
+      root.render(<NodeBlock nodeId="n.child-a1" instanceKey={childKey} depth={0} />);
+    });
+
+    const freshEditor = present(editorEl(childKey), "editor");
+    let prevented = false;
+    await act(async () => {
+      prevented = fireKey(freshEditor, "Backspace");
+    });
+
+    const s = useOutlineStore.getState();
+    // Key handled (not swallowed)…
+    expect(prevented).toBe(true);
+    // …node outdented to forest-root level (virtual workspace parent)…
+    expect(outlineNodes().get("n.child-a1")?.parentId).toBe(WORKSPACE_ROOT_ID);
+    expect(present(outlineNodes().get(WORKSPACE_ROOT_ID), "workspace root").children).toContain(
+      "n.child-a1",
+    );
+    // …still present, still focused.
+    expect(outlineNodes().has("n.child-a1")).toBe(true);
+    expect(s.activeNodeId).toBe("n.child-a1");
+  });
+
+  it("D10: ArrowUp crosses rows without requiring offset 0", async () => {
+    const cKey = outlineInstanceKey("n.root-c", outlineNodes());
+    // Caret parked mid-text (index 4 of "Read-only props panel…").
+    act(() => {
+      useOutlineStore.getState().activateNode("n.root-c", 4, cKey);
+    });
+
+    await act(async () => {
+      root.render(<NodeBlock nodeId="n.root-c" instanceKey={cKey} depth={0} />);
+    });
+    const el = present(editorEl(cKey), "editor");
+
+    let prevented = false;
+    await act(async () => {
+      prevented = fireKey(el, "ArrowUp");
+    });
+
+    const s = useOutlineStore.getState();
+    expect(prevented).toBe(true);
+    // Previous visible row activated even though cursor ≠ 0.
+    expect(s.activeNodeId).toBe("n.root-b");
+  });
+
+  it("D14: Escape dismisses autocomplete without leaving edit mode", async () => {
+    await act(async () => mutations.updateNodeContent("n.root-c", "[["));
+    const cKey = outlineInstanceKey("n.root-c", outlineNodes());
+    act(() => {
+      useOutlineStore.getState().activateNode("n.root-c", 2, cKey);
+    });
+
+    await act(async () => {
+      root.render(<NodeBlock nodeId="n.root-c" instanceKey={cKey} depth={0} />);
+    });
+
+    // Popup open with candidates.
+    expect(container.querySelector('[role="listbox"]')).toBeTruthy();
+    const el = present(editorEl(cKey), "editor");
+
+    await act(async () => {
+      fireKey(el, "Escape");
+    });
+    await act(async () => {
+      root.render(<NodeBlock nodeId="n.root-c" instanceKey={cKey} depth={0} />);
+    });
+
+    const s = useOutlineStore.getState();
+    // Popup dismissed…
+    expect(container.querySelector('[role="listbox"]')).toBeNull();
+    // …but the row never dropped to selection mode.
+    expect(s.activeNodeId).toBe("n.root-c");
+    expect(s.selectedNodeId).toBe("n.root-c");
+  });
+
+  it("§3.3: an empty transient node prunes when focus moves on", async () => {
+    const before = useGraphStore.getState().wireNodes.length;
+    const newId = await createTransientNode("n.root-c", null);
+    const id = present(newId, "minted node");
+    expect(useOutlineStore.getState().activeNodeId).toBe(id);
+    expect(useGraphStore.getState().wireNodes.length).toBe(before + 1);
+
+    // Focus elsewhere → silent prune.
+    await act(async () => {
+      useOutlineStore.getState().activateNode("n.root-b", 0);
+    });
+
+    const s = useOutlineStore.getState();
+    const graph = useGraphStore.getState();
+    expect(graph.wireNodes.length).toBe(before);
+    expect(outlineNodes().has(id)).toBe(false);
+    expect(s.activeNodeId).toBe("n.root-b");
+  });
+});

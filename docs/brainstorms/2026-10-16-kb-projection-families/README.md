@@ -578,6 +578,116 @@ The decision (coordinator): the outline's shell-driving tests stay in
 - `01M1RXMQPVJKREGDS7D37J1MWN` is closed already; the node menu's comment
   that cited it is gone with the context it built.
 
+## The outline move: what landed
+
+The outline is a required family of two packages. One `refactor:` commit,
+behaviour-preserving except for the seed's view order (below).
+
+### What moved where
+
+- **`@kb/outline`** (`packages/extension/outline`, `scope:shared`,
+  `family:outline`) holds the family's declaration, `outlineExtension`, and
+  its shared plugin, `outlinePlugin()`.
+  - The declaration has no `optional`, so it is required, and
+    `extension.switch` refuses it.
+  - It provides the default view type (`defaultView: OutlineView`).
+  - It lists the outline's six views.
+  - Core's declaration lists none of them now, and no longer provides the
+    default.
+- **The keys stay in `@kb/views`** (`outline.ts`). This deviates from
+  "keys in `@kb/outline`": core's ontology page names the outline's view in
+  a `ViewSlot` (an ontology's outline view is the outline view). A key that
+  moves to the family is one core can no longer name. There is no seed to
+  move either: the outline's views are its only seed, and the fold derives
+  their options.
+- **`@kb/outline-ui`** (`packages/extension/outline-ui`, `scope:browser`,
+  `family:outline`) holds:
+  - every production file of the old `components/outline/` zone;
+  - the zone's 16 tests that need no shell;
+  - the two field-value stories, with their own smoke test.
+
+  Its entry, `outlineUiPlugin`, is named for the declaration and loads
+  `outlinePlugin()` as a child. It injects nothing: it reads the host only
+  while it renders, as it did in the zone, so a test that loads it without
+  the host still loads it.
+
+  The barrel exports the entry and the parts the page tests drive.
+- **Registration.**
+  - `BUNDLED_FAMILIES` lists the outline first.
+  - The server's entries list `outlinePlugin()` first.
+  - The page's resolver gives the outline a static `load`, and
+    `CORE_UI_PLUGINS` no longer lists it.
+  - The outline's views and seed are unchanged, so its option ids and
+    `sys.f.view.default` are unchanged too.
+- **The 37 page tests** live in `@kb/ui` under `src/page-tests/outline/`,
+  importing `@kb/outline-ui`. This is the coordinator's decision. They are
+  their own zone, `page-tests`, with no row but itself: every one is a test
+  file, and test files are exempt.
+  - Two `vi.mock`s name a module inside the package by path, as the kit
+    mock beside them already did.
+  - Source assertions read `browserSource("@kb/outline-ui")`.
+- **`@kb/ui`'s `src/test-support/` is test code to the harness.**
+  - `isPackageTestFile` counts a package's `src/test-support/` helpers as
+    tests.
+  - `TEST_SUPPORT_PACKAGES` names the packages allowed one: those whose
+    importers a check holds to tests. For `@kb/ui`, that check is the zone
+    matrix, where no row names `test-support`.
+  - A package that grows the folder without such a check fails.
+  - So `resetOutlineStore`, the active text host and the isolation probe
+    import `@kb/outline-ui` through the composition-root fence's test
+    exemption.
+  - The `test-support` row no longer reaches an outline zone.
+
+### The seed's view order changed
+
+`sys.views` lists core's options first, then each family's, in bundled
+order. The outline's six options used to be core's first ones. Now they come
+after core's (after `layout.node`) and before the canvas's. The seed golden
+(`app/test-kit/src/seed.golden.jsonl`) was regenerated. Its only change is
+that children order, and the default view's id is the same.
+
+A store opened before this keeps its order (`viewTypeOrderSurvivesOpening`).
+Only a fresh store lists the outline's view types after core's, in the
+view-type pickers.
+
+### Tests that changed meaning
+
+- The runtime's gates test: the required families are `outline`, `docs`
+  and `check`, and it writes all three off by hand.
+- The extension contract's canvas case: the option before the canvas's is
+  the outline snippet.
+- `kb ext list` lists `outline`.
+- `ui-plugins.test.ts`: the page loads the outline as a family, first.
+- The catalog smoke no longer holds the field-value stories; the outline's
+  own smoke does.
+- The harness: a `src/test-support/` helper is a test file, and only
+  `TEST_SUPPORT_PACKAGES` may have the folder.
+
+### Gaps
+
+- **Closed: GAP [[01M52J3DADW4P7YV6907ME9C50]].** Core no longer declares
+  the outline's views or provides the default view type. The marker is gone
+  from `core-extension.ts`, and from DESIGN.md's drift list. The `#gap` node
+  is left for the coordinator to close (`.kb/nodes.jsonl` is not edited
+  here).
+- **Closed: the placeholder "`test-support` reaches the outline's zone".**
+  There is no outline zone any more. The helpers import the package, as test
+  code.
+- **Kept:** GAP [[01M52YKFN18S0PJR2PHHM5QTXZ]], core's import of the graph's
+  keys, on its own line in `core-extension.ts`.
+- **New placeholder: GAP (placeholder): the outline's page tests run in the
+  shell.**
+  - expected: a family half's tests hold it to `BrowserHost` through the
+    test host (DESIGN-UI → Extension UI halves).
+  - current: 37 outline tests drive the shell's graph store, commands and
+    palettes from `@kb/ui`'s `src/page-tests/outline/`, over a barrel that
+    exports what they drive.
+  - impact: the barrel is wider than the entry, and these tests cannot run
+    in the package.
+  - closes: each test rewritten over the test host and moved into
+    `@kb/outline-ui`, with the barrel narrowed to its entry.
+- **Unchanged:** the node menu's order placeholder (O3e).
+
 ## O4a: what landed
 
 O4a is the graph's restructure, with no move. The graph visualisation (the

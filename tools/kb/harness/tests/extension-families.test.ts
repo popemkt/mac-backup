@@ -1,7 +1,13 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { EXTENSION_ROOTS, familyEdgeViolation, isPackageTestFile } from "../src/constraints.ts";
+import {
+  EXTENSION_ROOTS,
+  familyEdgeViolation,
+  isPackageTestFile,
+  TEST_SUPPORT_DIR,
+  TEST_SUPPORT_PACKAGES,
+} from "../src/constraints.ts";
 import {
   browserHalfProblems,
   declaredNames,
@@ -129,6 +135,16 @@ describe("what counts as a test file", () => {
     expect(isPackageTestFile("src/lib/x.test.tsx")).toBe(true);
     expect(isPackageTestFile("src/lib/tests/x.ts")).toBe(false);
     expect(isPackageTestFile("src/tests-render/x.ts")).toBe(false);
+    expect(isPackageTestFile("src/test-support/x.ts")).toBe(true);
+    expect(isPackageTestFile("src/lib/test-support/x.ts")).toBe(false);
+  });
+
+  test("a package has test helpers only where a check holds their importers to tests", () => {
+    const withHelpers = workspacePackages()
+      .filter((pkg) => existsSync(join(PACKAGES_ROOT, pkg.dir, TEST_SUPPORT_DIR)))
+      .map((pkg) => pkg.name)
+      .toSorted();
+    expect(withHelpers).toEqual([...TEST_SUPPORT_PACKAGES].toSorted());
   });
 });
 

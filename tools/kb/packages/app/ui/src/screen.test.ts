@@ -19,7 +19,6 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { browserHostUiPlugin } from "@/browser-host";
 import { canvasUiPlugin } from "@kb/canvas-ui";
 import { layoutUiPlugin } from "@/components/layout/plugin";
-import { outlineUiPlugin } from "@/components/outline/plugin";
 import { getPath, navigate, syncUiPlugins, type PaneCarryOut } from "@kb/ui-sdk";
 import { SCREEN_PUBLISH_MS, screenPlugin } from "@/screen";
 import { useGraphStore } from "@/stores/graph.store";
@@ -27,6 +26,7 @@ import { useScreenStore } from "@/stores/screen.store";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";
 import { layoutPanes, singlePane } from "@kb/views";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
+import { outlineUiPlugin } from "@kb/outline-ui";
 
 function tab(page: () => Window | null = () => window) {
   const published: ScreenState[] = [];

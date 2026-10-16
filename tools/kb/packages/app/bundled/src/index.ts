@@ -23,6 +23,7 @@ import { docsExtension } from "@kb/docs";
 import { labExtension } from "@kb/lab";
 import { foldSeed, type KbNode } from "@kb/model";
 import { coreExtension } from "@kb/operations";
+import { outlineExtension } from "@kb/outline";
 
 /**
  * Every bundled family, in the order the registry loads them. The order is
@@ -30,6 +31,7 @@ import { coreExtension } from "@kb/operations";
  * `sys.views`, after core's.
  */
 export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
+  outlineExtension,
   docsExtension,
   canvasExtension,
   labExtension,

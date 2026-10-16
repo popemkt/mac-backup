@@ -28,7 +28,7 @@ import { uiImportSites, uiRepoPath, uiSourceFiles, uiViolations } from "../src/u
  * second mechanism for one rule.
  *
  * Red case: drop `// GAP [[…]]` from `lib/toast.ts:1`, or add
- * `import { useOutlineStore } from "@/components/outline/outline.store"` to
+ * `import GraphPage from "@/components/graph/graph-page"` to
  * `stores/workspace.store.ts`.
  */
 describe("ui-boundaries", () => {

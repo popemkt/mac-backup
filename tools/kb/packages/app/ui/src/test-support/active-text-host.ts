@@ -1,3 +1,4 @@
+import { useOutlineStore } from "@kb/outline-ui";
 /**
  * A registered text host for whatever row the store says is active.
  *
@@ -19,7 +20,6 @@
  * as the activation instead of one commit later. That also keeps it off the
  * suite's own React root, which a `root.render` would otherwise displace.
  */
-import { useOutlineStore } from "@/components/outline/outline.store";
 
 /**
  * Start following the active row. Call in `beforeEach`; call the returned

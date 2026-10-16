@@ -33,6 +33,8 @@ import {
 } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
 import { labExtension } from "@kb/lab";
+import { outlineExtension } from "@kb/outline";
+import { outlineUiPlugin } from "@kb/outline-ui";
 import { coreExtension, extensionSwitchDef } from "@kb/operations";
 import type { Plugin } from "@kb/plugin";
 import { getLiveClient } from "@/api/live";
@@ -43,7 +45,6 @@ import { codeUiPlugin } from "@kb/code-ui";
 import { graphUiPlugin } from "@/components/graph/plugin";
 import { layoutUiPlugin } from "@/components/layout/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
-import { outlineUiPlugin } from "@/components/outline/plugin";
 import { logWarn, syncUiPlugins, toast, type ExtensionSwitch } from "@kb/ui-sdk";
 import { loadManifest, servedManifest, subscribeManifest } from "@/lib/manifest";
 import { screenUiPlugin } from "@/screen";
@@ -59,7 +60,6 @@ import { webMcpUiPlugin } from "@/webmcp";
 export const CORE_UI_PLUGINS: readonly Plugin[] = [
   declarationPlugin(coreExtension),
   browserHostUiPlugin,
-  outlineUiPlugin,
   graphUiPlugin,
   ontologyUiPlugin,
   layoutUiPlugin,
@@ -104,14 +104,15 @@ export interface BrowserExtension {
 /**
  * The browser entry of each family, keyed by the name its declaration gives
  * it. Whether the page loads one is the server's report, never this table.
- * How it is fetched is: a family a store has on by default (canvas, code,
- * chart) loads from the main bundle, and one off by default (the lab) or
+ * How it is fetched is: a family a store always has on (the outline) or has
+ * on by default (canvas, code, chart) loads from the main bundle, and one off by default (the lab) or
  * hosted only by `kb ui` (the agent) is its own chunk, fetched when it is
  * first on. A family with no browser half is listed too, as `null`, so a
  * bundled family is never left out by omission: the resolver's test holds
  * every bundled family to an entry.
  */
 export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null>> = {
+  [outlineExtension.name]: { load: () => Promise.resolve(outlineUiPlugin) },
   [docsExtension.name]: null,
   [canvasExtension.name]: { load: () => Promise.resolve(canvasUiPlugin) },
   [labExtension.name]: {

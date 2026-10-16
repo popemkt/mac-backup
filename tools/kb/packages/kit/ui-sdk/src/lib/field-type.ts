@@ -135,7 +135,7 @@ export function clearAllowedRefIdsCache(): void {
  * the graph, owned by `@kb/model` (`acceptsValueKind`), and the mismatch hint
  * below reads it rather than keeping a copy. Neither is the *editor*: it is
  * React, and this module is read by code that has no DOM.
- * `components/outline/field-value` keys the editor registry by the same union.
+ * `@kb/outline-ui`'s `field-value` keys the editor registry by the same union.
  */
 interface FieldTypeSpec {
   /** Starter value for an empty typed editor. */

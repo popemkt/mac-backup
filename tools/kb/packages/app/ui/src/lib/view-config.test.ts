@@ -15,7 +15,6 @@ import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
-import { outlineUiPlugin } from "@/components/outline/plugin";
 import {
   DEFAULT_VIEW_CONFIG,
   isFrameViewKey,
@@ -31,9 +30,10 @@ import { framedAs, viewOptionNodes } from "@/fixtures/view-fields";
 import {
   applyViewFilters,
   groupChildrenForBoard,
+  outlineUiPlugin,
   resolveTableColumns,
   sortChildrenForTable,
-} from "@/components/outline/frame-layout";
+} from "@kb/outline-ui";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {

@@ -627,6 +627,8 @@
   "@kb/mcp" = copyPathToStore ./packages/app/mcp;
   "@kb/model" = copyPathToStore ./packages/domain/model;
   "@kb/operations" = copyPathToStore ./packages/application/operations;
+  "@kb/outline" = copyPathToStore ./packages/extension/outline;
+  "@kb/outline-ui" = copyPathToStore ./packages/extension/outline-ui;
   "@kb/plugin" = copyPathToStore ./packages/domain/plugin;
   "@kb/query" = copyPathToStore ./packages/domain/query;
   "@kb/render-tests" = copyPathToStore ./packages/test-support/render-tests;

@@ -1,0 +1,43 @@
+{
+  "name": "@kb/outline-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
+    "@kb/outline": "workspace:*",
+    "@kb/plugin": "workspace:*",
+    "@kb/ui-sdk": "workspace:*",
+    "@kb/views": "workspace:*",
+    "@phosphor-icons/react": "catalog:",
+    "effect": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@kb/bundled": "workspace:*",
+    "@kb/ui-test-kit": "workspace:*",
+    "@storybook/react-vite": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "happy-dom": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:browser",
+      "family:outline"
+    ]
+  }
+}

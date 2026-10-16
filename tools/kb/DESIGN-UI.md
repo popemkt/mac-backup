@@ -250,7 +250,7 @@ Pre-existing nodes remain ineligible for this cleanup.
 **Transient nodes replace ghost rows.** There is no permanent phantom bullet at
 the end of a list: `GhostNodeRow`, with its async character buffering and
 `beforeinput` interception, is deleted outright. Tana semantics instead —
-the outline's `createTransientNode` (`components/outline/editing-writes.ts`)
+the outline's `createTransientNode` (`outline-ui/src/editing-writes.ts`)
 mints a *real* node synchronously through the write path's `createEmptyNode`,
 the normal optimistic path, which activates it at offset 0, and marks it in the
 outline store's `transientIds`. The click-to-create affordance is a whitespace strip
@@ -264,8 +264,8 @@ split is what matters here:
 
 | Mode | When | Owner |
 |---|---|---|
-| **A — active edit** (caret inside node text) | typing | `components/outline/use-node-keydown.ts` |
-| **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `components/outline/selection-keymap.ts` + `components/outline/use-selection-keymap.ts` |
+| **A — active edit** (caret inside node text) | typing | `outline-ui/src/use-node-keydown.ts` |
+| **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `outline-ui/src/selection-keymap.ts` + `outline-ui/src/use-selection-keymap.ts` |
 
 Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
 vertical caret motion, and autocomplete interception. Mode B owns
@@ -420,7 +420,7 @@ that from costing a render per row:
 So a one-node change re-renders that node's row (and the list frame view
 above it, which renders the same memoized children); an expand re-renders
 the toggled row and mounts its subtree; moving the selection re-renders the
-two rows it moves between. `components/outline/update-cost.test.tsx` pins
+two rows it moves between. `@kb/ui`'s `page-tests/outline/update-cost.test.tsx` pins
 all three. The `[[` candidates (`nodeCandidates`, label order derived once
 per map) are computed only while a popup is open.
 
@@ -517,7 +517,7 @@ reference:
   structural chords, because its place under the query is computed rather than
   a child edge. A contextual reference is a real child whose children **are**
   its own, and creating them is the whole point. `isReferenceRow(node,
-  isQueryResult)` in `components/outline/row-chrome.ts` is the one answer, read by the list
+  isQueryResult)` in `outline-ui/src/row-chrome.ts` is the one answer, read by the list
   row's chrome and by table and card rows alike. Apart from those gates a
   result row is clicked like any row in every view: a row click selects, a
   text click edits, a bullet click toggles and ⌘-click opens the node.
@@ -554,12 +554,12 @@ row and a target, and the global palette has no two-step for that.
 ### Field values: one slot grammar
 
 A node's field values are drawn by one component on every surface —
-`NodeField` (`components/outline/fields-section.tsx`): the outline's field
+`NodeField` (`outline-ui/src/fields-section.tsx`): the outline's field
 rows, a table's cells and a card's fields are `FieldRow` chrome around the one
 `FieldValueStack`, so none of them has its own loop of editors. Each value sits
-in a **value slot** (`ValueSlot`, `components/outline/value-slot.tsx`), and
+in a **value slot** (`ValueSlot`, `outline-ui/src/value-slot.tsx`), and
 **the slot owns every gesture**; a value's kind contributes only data. A kind
-is a row in `VALUE_KINDS` (`components/outline/value-kind.ts`: its editor
+is a row in `VALUE_KINDS` (`outline-ui/src/value-kind.ts`: its editor
 mode, how it reads as text and back, when it is blank, where it points, how its values sit
 together) and a row in the slot's view registry (its glyph and its surface).
 The surfaces in `field-value.tsx` draw and edit; none has a click or key
@@ -598,11 +598,11 @@ break in text), Escape reverts and leaves the value focused, Tab or an arrow
 off the text's first or last character commits and moves on, and Backspace in
 an emptied value takes it out and opens the one before. A picker and the date
 editor keep their own keys. The chord tables are
-`components/outline/value-slot-keymap.ts`.
+`outline-ui/src/value-slot-keymap.ts`.
 The rows' keymaps pass through the values: ↓ off a row's last line (editing
 or selected) lands on its first value, ↓ from its last value goes to the next
 row, ↑ comes back the same way (`enterFields`; the order is read off the DOM
-by `components/outline/value-slot-nav.ts`, never kept a second time).
+by `outline-ui/src/value-slot-nav.ts`, never kept a second time).
 
 **Adding has no line of its own.** Enter at the end of a value of a
 many-valued field commits it and opens the next value's slot; Enter on that
@@ -620,7 +620,7 @@ which holds one value by its type (`cardinalityOf`) — offers no add.
   host made https, every other scheme refused), and every surface parses
   input through the one `parseTypedValue`, which the write check agrees with.
 - **number** reads and writes in the browser's locale
-  (`components/outline/number-format`), grouped at rest and ungrouped while edited.
+  (`outline-ui/src/number-format`), grouped at rest and ungrouped while edited.
 - **date** is a local calendar day (`@kb/model` `local-date`), labelled near
   today (Today, Fri, Oct 12), edited in `DateEditor`: typed phrases
   (`parseDateInput`: tomorrow, next fri, in 2 weeks, oct 3) with a live
@@ -1891,7 +1891,7 @@ until "Save workspace".
   under its pane's outline host (`outlineHostOfPane`; the main pane's is the
   canonical `tree/`), so the same node open in two panes is two rows,
   edited one at a time. Each outline says where it is rooted and which
-  slots surround it (`components/outline/outline-hosts`). The keyboard walks the rows
+  slots surround it (`outline-ui/src/outline-hosts`). The keyboard walks the rows
   of the host that a row is keyed under, and a row activated without an
   instance takes its row in the outline being worked in. The page-wide
   parts of editing (the selection keymap, undo, the node palette) are
@@ -2036,8 +2036,8 @@ compiles from source. It builds against `@kb/ui-sdk` and nothing else of
 the shell.
 
 - **The browser holds a resolver, not a second list.**
-  - `CORE_UI_PLUGINS` holds the shell's own projections: outline, graph,
-    ontology, layout, webmcp and screen.
+  - `CORE_UI_PLUGINS` holds the shell's own projections: graph, ontology,
+    layout, webmcp and screen.
   - `BROWSER_EXTENSIONS: Record<family, {load: () => Promise<Plugin>}>` maps
     a family, keyed by its declaration's `name`, to its browser entry.
   - `syncUiPlugins` converges the page kernel on the core plugins, plus the
@@ -2088,11 +2088,16 @@ the shell.
   renderer: `@kb/scene`, which touches no GPU, and `@kb/scene-gpu`, which is
   three, so a 3D host can mount a scene without carrying three itself
   ([The lab](#the-lab)).
-- **Every half is a package.** The chart, code, agent, lab and canvas halves
-  are `@kb/<family>-ui` packages, so `UI_ALLOWS` in
+- **Every half is a package.** The outline, chart, code, agent, lab and
+  canvas halves are `@kb/<family>-ui` packages, so `UI_ALLOWS` in
   `harness/src/constraints.ts` holds the shell's zones only. A half's tests
   hold it to `BrowserHost` through `@kb/ui-test-kit`'s test host, never to
   the shell's stores; the shell's side of the port is tested in `@kb/ui`.
+  The outline's tests that drive the page (its store over the shell's graph
+  store, the shell's commands and palettes) are the exception: they run in
+  `@kb/ui`, under `src/page-tests/outline/`, over `@kb/outline-ui`'s barrel,
+  until each is rewritten over the test host (a gap, recorded in the
+  [projection-families plan](../../docs/brainstorms/2026-10-16-kb-projection-families/README.md)).
 - **The lazy fence follows packages.** `UI_LAZY_ONLY` applies to the import
   closure from `UI_ENTRY`, walking into `scope:browser` workspace packages
   too, so a chart page moved out of `app/ui` is still fenced from Vega.

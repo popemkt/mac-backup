@@ -16,16 +16,15 @@ import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useWorkspaceStore } from "@/stores/workspace.store";
 import { useGraphStore } from "@/stores/graph.store";
-import { useOutlineStore, outlineNodes } from "@/components/outline/outline.store";
 import { pageCommandApi } from "@/stores/page-commands";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@kb/ui-test-kit";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
-import { outlineUiPlugin } from "@/components/outline/plugin";
 import { bundledSeed } from "@kb/bundled";
 import { syncPagePlugins } from "@/test-support/page-plugins";
+import { outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.

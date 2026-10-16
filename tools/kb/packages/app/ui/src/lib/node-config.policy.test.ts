@@ -24,8 +24,8 @@ import {
 } from "@kb/ui-sdk";
 import { Effect } from "effect";
 import { makeKernel } from "@kb/plugin";
-import { outlineUiPlugin } from "@/components/outline/plugin";
 import { OutlineListView, isFrameViewKey } from "@kb/views";
+import { outlineUiPlugin } from "@kb/outline-ui";
 
 /** The frame views the outline plugin provides, as its hosts resolve against them. */
 const FRAME_VIEWS = (() => {

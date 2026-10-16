@@ -8,8 +8,8 @@
 # is red too, file parallelism is not the mechanism.
 #
 #   src/test-support/pairing-counts.sh 10 \
-#     src/components/outline/use-node-keydown.characterization.test.tsx \
-#     src/components/outline/editor-behavior.test.tsx
+#     src/page-tests/outline/use-node-keydown.characterization.test.tsx \
+#     src/page-tests/outline/editor-behavior.test.tsx
 #
 # Run from packages/app/ui. Logs land in a temp dir the script prints.
 set -u

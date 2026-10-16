@@ -5,8 +5,8 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { mutations } from "./mutations";
 import { waitForBrowserPushes } from "@/session/runtime";
 import { useGraphStore } from "@/stores/graph.store";
-import { outlineNodes } from "@/components/outline/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { outlineNodes } from "@kb/outline-ui";
 
 describe("mutations invoke shared actions", () => {
   const post = vi.fn(async (invocation) => ({
