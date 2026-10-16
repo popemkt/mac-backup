@@ -5,6 +5,7 @@ import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineNode, outlineNodes } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";
+import { createTransientNode } from "@/components/outline/editing-writes";
 import { Breadcrumbs } from "./breadcrumbs";
 import { FrameViewSlot } from "./frame-view-slot";
 import { useFrameView } from "./use-frame-views";
@@ -42,7 +43,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
    * The zoomed container click is removed entirely; the strip has its own guard-free handler (F1).
    */
   const handleStripCreate = useCallback(() => {
-    void mutations.createTransientNode(
+    void createTransientNode(
       rootNodeId,
       outlineNodes().get(rootNodeId)?.children.slice(-1)[0] ?? null,
     );

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
+import { createTransientNode } from "@/components/outline/editing-writes";
 import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
 import { useGraphStore } from "@/stores/graph.store";
@@ -38,7 +39,7 @@ describe("sys.* UI write-guard", () => {
   });
 
   it("transient create under a sys.* parent returns null with a toast", async () => {
-    const newId = await mutations.createTransientNode("sys.f.query", null);
+    const newId = await createTransientNode("sys.f.query", null);
     expect(newId).toBeNull();
     expect(outlineNodes().has("sys.f.query")).toBe(true);
     expect(useUiStore.getState().toasts.some((t) => /sys\.\*/.test(t.text))).toBe(true);
@@ -61,7 +62,7 @@ describe("sys.* UI write-guard", () => {
       .getState()
       .hydrateFromWire([...fixtureGraph.nodes, sysTag, child], fixtureGraph.rev, "fixtures");
 
-    const newId = await mutations.createTransientNode("sys.tag", child.id);
+    const newId = await createTransientNode("sys.tag", child.id);
     expect(newId).toBeNull();
     expect(outlineNodes().has("n.under-sys")).toBe(true);
     expect(useUiStore.getState().toasts.some((t) => /sys\.\*/.test(t.text))).toBe(true);
@@ -105,7 +106,7 @@ describe("sys.* UI write-guard", () => {
 
   it("transient create under a normal parent still works", async () => {
     const before = present(outlineNodes().get("n.root-c"), "n.root-c").children;
-    const newId = await mutations.createTransientNode("n.root-c", null);
+    const newId = await createTransientNode("n.root-c", null);
     expect(newId).not.toBeNull();
     const after = present(outlineNodes().get("n.root-c"), "n.root-c").children;
     expect(after.length).toBe(before.length + 1);

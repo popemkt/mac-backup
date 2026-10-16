@@ -11,6 +11,7 @@
  * branch.
  */
 import { mutations } from "@/actions/mutations";
+import { createNodeBefore, createTransientNode } from "@/components/outline/editing-writes";
 import {
   childInstanceKey,
   rowTextOf,
@@ -66,10 +67,10 @@ function createAfter({ nodeId }: ActionOf<"createAfter">): void {
   const expanded = Boolean(node && !node.collapsed && shownChildren(nodeId).length > 0);
   if (node && expanded) {
     // Under the node the row shows: a reference's first child is its target's.
-    void mutations.createTransientNode(shownNodeId(node), null);
+    void createTransientNode(shownNodeId(node), null);
     return;
   }
-  void mutations.createTransientNode(node?.parentId ?? WORKSPACE_ROOT_ID, nodeId);
+  void createTransientNode(node?.parentId ?? WORKSPACE_ROOT_ID, nodeId);
 }
 
 /** A printable character: activate at text end with the character appended. */
@@ -121,7 +122,7 @@ const SELECTION_STEPS: SelectionSteps = {
   moveDown: ({ nodeId }) => void mutations.moveNodeDown(nodeId),
   zoom,
   createAfter,
-  createBefore: ({ nodeId }) => void mutations.createNodeBefore(nodeId),
+  createBefore: ({ nodeId }) => void createNodeBefore(nodeId),
   append,
   delete: deleteRow,
 };

@@ -10,6 +10,7 @@
  * here fails the build.
  */
 import { mutations } from "@/actions/mutations";
+import { mergeWithPrevious } from "@/components/outline/editing-writes";
 import {
   refInkOf,
   renderInlineMarkdown,
@@ -98,8 +99,7 @@ const EDITING_STEPS: EditingSteps = {
   outdent: ({ nodeId, cursor }) => void mutations.outdentNode(nodeId, cursor),
   deleteSubtree,
   deleteEmptyRow,
-  mergeIntoPrevious: ({ nodeId, instanceKey }) =>
-    void mutations.mergeWithPrevious(nodeId, instanceKey),
+  mergeIntoPrevious: ({ nodeId, instanceKey }) => void mergeWithPrevious(nodeId, instanceKey),
   mergeNextIn,
   moveUp: ({ nodeId }) => void mutations.moveNodeUp(nodeId),
   moveDown: ({ nodeId }) => void mutations.moveNodeDown(nodeId),

@@ -18,7 +18,7 @@ import { useDebugFields } from "@/stores/debug-fields.store";
 import { useGraphRead } from "@/stores/graph-read";
 import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
-import { mutations } from "@/actions/mutations";
+import { createTransientNode } from "@/components/outline/editing-writes";
 
 import { FieldsSection } from "./fields-section";
 import { FrameViewSlot } from "./frame-view-slot";
@@ -229,7 +229,7 @@ function CreateChildStrip({ parentId, depth }: { parentId: string; depth: number
   const handleCreateChild = useCallback(() => {
     const parent = outlineNodes().get(parentId);
     const lastChild = parent?.children.at(-1) ?? null;
-    void mutations.createTransientNode(parentId, lastChild);
+    void createTransientNode(parentId, lastChild);
   }, [parentId]);
 
   return (

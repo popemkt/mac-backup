@@ -15,6 +15,7 @@ import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
 import { mutations, __resetPendingContentForTests } from "@/actions/mutations";
+import { createTransientNode } from "@/components/outline/editing-writes";
 import { planInsertSibling } from "@/actions/plan";
 import { useGraphStore } from "@/stores/graph.store";
 import { useOutlineStore, outlineNodes } from "@/stores/outline.store";
@@ -105,7 +106,7 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
     // n.child-a2 has child n.grandchild and is collapsed by default
     expect(outlineNodes().get("n.child-a2")?.collapsed).toBe(true);
     const beforeParentChildren = [...present(outlineNodes().get("n.root-a"), "n.root-a").children];
-    const newId = await mutations.createTransientNode("n.root-a", "n.child-a2");
+    const newId = await createTransientNode("n.root-a", "n.child-a2");
     const id = present(newId, "minted node");
     const rootA = present(outlineNodes().get("n.root-a"), "n.root-a");
     const childA2 = present(outlineNodes().get("n.child-a2"), "n.child-a2");
@@ -156,7 +157,7 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
 
   it("F4/B4: only an explicit CaretIntent can move the caret", async () => {
     // Simulate the transient-create path with fixtures (no network delay) — verify single activation
-    const newId = await mutations.createTransientNode("n.root-c", null);
+    const newId = await createTransientNode("n.root-c", null);
     const id = present(newId, "minted node");
     const s1 = useOutlineStore.getState();
     expect(s1.activeNodeId).toBe(id);
@@ -293,7 +294,7 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
   });
 
   it("F15: '/' at offset 0 of empty node opens node palette (Mode A)", async () => {
-    const newId = await mutations.createTransientNode("n.root-c", null);
+    const newId = await createTransientNode("n.root-c", null);
     const id = present(newId, "minted node");
     const key = outlineInstanceKey(id, outlineNodes());
     await act(async () => {

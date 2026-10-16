@@ -4,6 +4,7 @@
 import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
+import { mergeWithPrevious } from "@/components/outline/editing-writes";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
 import { useGraphStore } from "@/stores/graph.store";
@@ -99,7 +100,7 @@ describe("undo / redo (D19)", () => {
     const s = useOutlineStore.getState();
     expect(s.getPreviousVisibleInstance(bKey)?.nodeId).toBe("n.grandchild");
 
-    await mutations.mergeWithPrevious("n.root-b", bKey);
+    await mergeWithPrevious("n.root-b", bKey);
     expect(outlineNodes().has("n.root-b")).toBe(false);
     expect(outlineNodes().get("n.grandchild")?.text).toContain("Search jumps to matching nodes");
 

@@ -226,14 +226,13 @@ export const mutations = {
   },
 
   /**
-   * Tana transient create (r1 §3.3): mint a REAL empty node immediately
-   * (root, first child, or after sibling), mark it auto-prune candidate,
-   * and activate it at offset 0. Replaces the detached ghost row entirely.
+   * Mint a real empty node at once (root, first child, or after sibling)
+   * and activate it at offset 0, through the plan's focus. Returns its id,
+   * or null when refused. Whether an empty minted row is pruned when focus
+   * leaves it is the editor's rule, not the write's (the outline's
+   * `createTransientNode`, r1 §3.3).
    */
-  async createTransientNode(
-    parentId: string,
-    afterSiblingId: string | null,
-  ): Promise<string | null> {
+  async createEmptyNode(parentId: string, afterSiblingId: string | null): Promise<string | null> {
     const newId = ulid();
     let ok = false;
     if (parentId === WORKSPACE_ROOT_ID) {
@@ -249,17 +248,16 @@ export const mutations = {
       ok = await applyPlan(planAddChild(wire(), parentId, newId, ""));
     }
     if (!ok) return null;
-    useOutlineStore.getState().markTransient(newId);
     // F4: single activation via runOptimistic — no post-await re-activation.
     return newId;
   },
 
-  /** Create a sibling directly ABOVE the anchor and activate it ('O' key). */
-  async createNodeBefore(beforeId: string): Promise<string | null> {
+  /** Mint an empty sibling directly ABOVE the anchor and activate it ('O' key). */
+  async createEmptyNodeBefore(beforeId: string): Promise<string | null> {
     if (!guardSysWrite(beforeId)) return null;
     const parent = findParentWire(wire(), beforeId);
     if (!parent) {
-      return mutations.createTransientNode(WORKSPACE_ROOT_ID, beforeId);
+      return mutations.createEmptyNode(WORKSPACE_ROOT_ID, beforeId);
     }
     if (!guardSysWrite(parent.id)) return null;
     const siblings = parent.children;
@@ -274,7 +272,6 @@ export const mutations = {
     }
     const ok = await applyPlan(plan);
     if (!ok) return null;
-    useOutlineStore.getState().markTransient(newId);
     return newId;
   },
   async addTagField(tagId: string, fieldId: string): Promise<void> {
@@ -343,10 +340,7 @@ export const mutations = {
   },
 
   /**
-   * Backspace-merge. When the caller has render context it passes
-   * instanceKey so the target resolves through the VISIBLE tree (r1 D09):
-   * a preceding sibling with expanded children merges into its deepest
-   * last descendant — what the user sees directly above the caret.
+   * Merge the next row into this one (Delete at the end of a row).
    */
   async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
     if (!guardSysWrite(thisId) || !guardSysWrite(nextId)) return;
@@ -356,16 +350,15 @@ export const mutations = {
     await applyPlan(plan);
   },
 
-  async mergeWithPrevious(id: string, instanceKey?: string): Promise<void> {
+  /**
+   * Backspace-merge: into `previousId`, the node its caller draws directly
+   * above (r1 D09), else into the previous node of the graph.
+   */
+  async mergeWithPrevious(id: string, previousId: string | null = null): Promise<void> {
     if (!guardSysWrite(id)) return;
     await prepareStructuralMutation();
     let plan: PlannedMutation | null = null;
-    if (instanceKey !== undefined) {
-      const prevInst = useOutlineStore.getState().getPreviousVisibleInstance(instanceKey);
-      if (prevInst && prevInst.nodeId !== id) {
-        plan = planMergeInto(wire(), id, prevInst.nodeId);
-      }
-    }
+    if (previousId !== null && previousId !== id) plan = planMergeInto(wire(), id, previousId);
     if (!plan) plan = planMergeWithPrevious(wire(), id);
     await applyPlan(plan);
   },
