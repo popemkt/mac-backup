@@ -10,8 +10,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import type { FollowHow, FollowTarget } from "@kb/ui-sdk";
-import { FieldRow } from "./field-row";
+import { fieldGlyphOf } from "./value-views";
 import { TagFieldsConfigView } from "./tag-fields-config";
+import { FieldRow } from "@kb/ui-sdk";
 
 describe("a field row's glyph", () => {
   let dom: InstalledDom;
@@ -45,6 +46,7 @@ describe("a field row's glyph", () => {
     await act(async () => {
       root.render(
         createElement(FieldRow, {
+          icon: fieldGlyphOf("text", "f.status"),
           fieldId: "f.status",
           label: "status",
           onFollow: (target, how) => followed.push([target, how]),
@@ -82,7 +84,11 @@ describe("a field row's glyph", () => {
   it("is inert where the row stands for no field node", () => {
     // A preference row has a glyph and a label, but no field to open.
     const html = renderToStaticMarkup(
-      createElement(FieldRow, { label: "Theme", children: createElement("span", null, "kb") }),
+      createElement(FieldRow, {
+        icon: fieldGlyphOf("text"),
+        label: "Theme",
+        children: createElement("span", null, "kb"),
+      }),
     );
     expect(html).not.toContain("<button");
     expect(html).not.toContain("data-field-configure");

@@ -19,14 +19,15 @@
 import {
   emptyValueForType,
   FIELD_TYPES,
-  fieldContextOf,
-  SYSTEM_IDS,
   type FieldContext,
+  fieldContextOf,
+  FieldRow,
   type FieldType,
   type KbIndex,
   type NodeMap,
   type PropValue,
   schemaOfGraph,
+  SYSTEM_IDS,
 } from "@kb/ui-sdk";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -35,9 +36,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { stubOutlineNode } from "@/catalog/fixtures";
-import { FieldRow } from "./field-row";
 import { longDateLabel, relativeDateLabel } from "@/lib/date-display";
 import { ValueSlot } from "./value-slot";
+import { fieldGlyphOf } from "./value-views";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
@@ -204,7 +205,7 @@ describe("a field may name its own editor, whatever its type says", () => {
     const row = renderToStaticMarkup(
       createElement(FieldRow, {
         label: "color",
-        fieldType: "text",
+        icon: fieldGlyphOf("text", SYSTEM_IDS.colorField),
         fieldId: SYSTEM_IDS.colorField,
         children: "value",
       }),

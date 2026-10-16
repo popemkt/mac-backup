@@ -570,7 +570,11 @@ is the field's own button (`FieldRow`, labelled "Configure field <name>"). A
 field is a node and its page is where it is configured — its type, its
 target, its values' kinds — so the glyph follows the field the way a bullet
 follows its node: a plain click opens it, ⌘/Ctrl-click reveals it. A row that
-stands for no field node (a preference) draws the glyph inert.
+stands for no field node (a preference) draws the glyph inert. `FieldRow` is
+the row's anatomy, a primitive of `@kb/ui-sdk` that prefs renders too
+(`PrefFieldRow`); it is handed its glyph. A field's glyph is its kind's row
+in the value views' registry (`fieldGlyphOf`), so the glyph and the editor
+come from one row.
 
 **Three verbs, the same on every kind.**
 

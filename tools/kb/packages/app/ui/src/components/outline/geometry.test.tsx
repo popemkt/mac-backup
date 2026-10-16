@@ -4,11 +4,12 @@
  * indent / bullet-slot / content-padding geometry from the token source.
  */
 import {
-  fieldContextOf,
-  NodeRow,
   type FieldContext,
+  fieldContextOf,
+  FieldRow,
   type KbIndex,
   type NodeMap,
+  NodeRow,
   type PropValue,
   schemaOfGraph,
 } from "@kb/ui-sdk";
@@ -18,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { FieldRow } from "./field-row";
+import { fieldGlyphOf } from "./value-views";
 import { ValueSlot } from "./value-slot";
 import { browserSource } from "@/test-support/browser-packages";
 
@@ -154,7 +155,7 @@ describe("Row decorations start at the indent, not the container edge", () => {
     const html = renderToStaticMarkup(
       createElement(FieldRow, {
         depth: 2,
-        fieldType: "text",
+        icon: fieldGlyphOf("text", "f.value"),
         fieldId: "f.value",
         label: "status",
         children: createElement("span", null, "doing"),
@@ -186,11 +187,13 @@ describe("Row decorations start at the indent, not the container edge", () => {
   });
 
   it("every indented surface reads the one indent owner", () => {
-    for (const name of ["field-row.tsx", "node-block.tsx", "query-results.tsx"]) {
+    for (const name of ["node-block.tsx", "query-results.tsx"]) {
       expect(readOutlineSource(name)).toMatch(
         /\b(?:indentStyle|guideLineStyle)\b[^;]*from "@kb\/ui-sdk"/,
       );
     }
-    expect(readPrimitiveSource("node-row.tsx")).toMatch(/from "\.\.\/lib\/indent"/);
+    for (const name of ["node-row.tsx", "field-row.tsx"]) {
+      expect(readPrimitiveSource(name)).toMatch(/from "\.\.\/lib\/indent"/);
+    }
   });
 });

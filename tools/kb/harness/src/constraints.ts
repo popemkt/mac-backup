@@ -397,14 +397,7 @@ export type UiZone =
  * a file; the list is a path prefix set so a colocated `*.test.tsx` or a
  * second file of the same component lands in the same zone as its subject.
  */
-const UI_PRIMITIVES: readonly string[] = [
-  "components/ui/",
-  "components/outline/field-row",
-  "components/outline/field-value",
-  "components/outline/value-slot",
-  "components/outline/value-views",
-  "components/outline/field-picker",
-];
+const UI_PRIMITIVES: readonly string[] = ["components/ui/"];
 
 /**
  * A file's zone, from its path relative to {@link UI_SRC}.

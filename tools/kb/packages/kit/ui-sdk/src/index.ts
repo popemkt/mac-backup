@@ -94,6 +94,7 @@ export { ViewSlot } from "./components/view-slot";
 // The primitives.
 export { Bullet } from "./components/bullet";
 export { type EnumOption, EnumSelect } from "./components/enum-select";
+export { FieldRow } from "./components/field-row";
 export { IconButton } from "./components/icon-button";
 export { InlineMarkdown, MdView } from "./components/md-view";
 export { NodeRow } from "./components/node-row";
@@ -107,6 +108,7 @@ export {
 export { type NodeTextPort, useNodeTextBindingThrough } from "./components/node-text-port";
 export { NotFound } from "./components/not-found";
 export { PickerList } from "./components/picker-list";
+export { PrefFieldRow } from "./components/pref-field-row";
 export { POPOVER_VALUE_CLASS, PopoverShell } from "./components/popover-shell";
 export { SidebarRow, SidebarSection } from "./components/sidebar-row";
 export { SidebarToggle } from "./components/sidebar-toggle";

@@ -8,6 +8,7 @@ import {
   getViewConfig,
   POPOVER_VALUE_CLASS,
   PopoverShell,
+  PrefFieldRow,
   schemaOf,
   toast,
 } from "@kb/ui-sdk";
@@ -15,7 +16,6 @@ import { serializeViewFilter, type ViewFilter } from "@kb/views";
 import { useGraphStore } from "@/stores/graph.store";
 import { outlineNodes, useOutlineNode } from "@/components/outline/outline.store";
 import { useUiStore } from "@/stores/ui.store";
-import { PrefFieldRow } from "@/components/ui/pref-field-row";
 import { useFrameViewNode } from "./use-frame-views";
 import { listFilterFieldOptions } from "./view-filter-fields";
 

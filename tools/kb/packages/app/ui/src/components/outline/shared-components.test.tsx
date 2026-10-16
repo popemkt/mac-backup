@@ -8,8 +8,8 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CircleHalfIcon } from "@phosphor-icons/react";
-import { FieldRow } from "./field-row";
-import { hashTagColor, TagChip, tagChipColors, TagChipGroup } from "@kb/ui-sdk";
+import { fieldGlyphOf } from "./value-views";
+import { FieldRow, hashTagColor, TagChip, tagChipColors, TagChipGroup } from "@kb/ui-sdk";
 import { browserSource } from "@/test-support/browser-packages";
 
 const outlineDir = path.dirname(fileURLToPath(import.meta.url));
@@ -123,7 +123,7 @@ describe("shared outline components (W8b)", () => {
     const html = renderToStaticMarkup(
       createElement(FieldRow, {
         depth: 0,
-        fieldType: "number",
+        icon: fieldGlyphOf("number"),
         label: "count",
         mismatch: true,
         children: createElement("span", null, "abc"),
@@ -137,7 +137,7 @@ describe("shared outline components (W8b)", () => {
     const outlineHtml = renderToStaticMarkup(
       createElement(FieldRow, {
         depth: 0,
-        fieldType: "text",
+        icon: fieldGlyphOf("text"),
         label: "status",
         children: createElement("span", null, "doing"),
       }),
@@ -173,7 +173,7 @@ describe("shared outline components (W8b)", () => {
     expect(importsFromKit(readOutlineSource("references-section.tsx"), "TagChip\\w*")).toBe(true);
     expect(importsFromKit(readOutlineSource("field-value.tsx"), "NodeRow")).toBe(true);
     expect(importsFromKit(readOutlineSource("field-value.tsx"), "TagChip\\w*")).toBe(true);
-    expect(readOutlineSource("fields-section.tsx")).toMatch(/from "\.\/field-row"/);
+    expect(importsFromKit(readOutlineSource("fields-section.tsx"), "FieldRow")).toBe(true);
     // W8b + import/no-cycle: query results render via the shared NodeBlock, so
     // the recursive node<->query pair must not be a static import cycle. The
     // renderer is inverted (node-block passes renderNode into query-results).

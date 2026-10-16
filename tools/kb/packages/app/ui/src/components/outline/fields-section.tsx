@@ -4,24 +4,25 @@ import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import {
   cn,
+  type FieldContext,
+  FieldRow,
+  type FieldType,
+  type Follow,
   formatPropValue,
   IconButton,
   isSysPrefixed,
   isValueMismatch,
+  type PropValue,
   resolveFieldTypeById,
   resolveProps,
   rowTextOf,
-  type FieldContext,
-  type FieldType,
-  type Follow,
-  type PropValue,
 } from "@kb/ui-sdk";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { useGraphRead } from "@/stores/graph-read";
 import { outlineSource, useOutlineStore } from "@/components/outline/outline.store";
 import { useFollow } from "@/stores/follow";
 import { arriveAt, slotAt } from "@/lib/value-slot-nav";
-import { FieldRow } from "./field-row";
+import { fieldGlyphOf } from "./value-views";
 import { ValueSlot } from "./value-slot";
 import { FieldPicker, type FieldHandle } from "./field-picker";
 import { valueKindOf, VALUE_KINDS } from "@/lib/value-kind";
@@ -424,7 +425,7 @@ export function NodeField({
     <FieldRow
       depth={depth}
       valueOnly={valueOnly}
-      fieldType={fieldType}
+      icon={fieldGlyphOf(fieldType, fieldId)}
       fieldId={fieldId}
       label={label}
       debug={debug}

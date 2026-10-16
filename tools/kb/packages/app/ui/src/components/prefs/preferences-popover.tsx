@@ -1,17 +1,18 @@
 import {
-  cn,
   BACKDROP_STRENGTHS,
-  HEADER_BACKDROP_PRESENTATION,
+  cn,
   DESIGN_SYSTEMS,
-  HEADER_BACKDROPS,
-  HEADER_BACKDROP_LABELS,
+  type EnumOption,
   EnumSelect,
+  type ExtensionSwitch,
+  HEADER_BACKDROP_LABELS,
+  HEADER_BACKDROP_PRESENTATION,
+  HEADER_BACKDROPS,
   isOutside,
   POPOVER_VALUE_CLASS,
   PopoverShell,
+  PrefFieldRow,
   THEME_GLYPHS,
-  type EnumOption,
-  type ExtensionSwitch,
   type ThemePref,
   type WidthPref,
 } from "@kb/ui-sdk";
@@ -19,7 +20,6 @@ import { useEffect, useRef } from "react";
 import { ArrowsHorizontalIcon, PuzzlePieceIcon, SwatchesIcon } from "@phosphor-icons/react";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
-import { PrefFieldRow } from "@/components/ui/pref-field-row";
 
 const THEME_OPTIONS: readonly EnumOption<ThemePref>[] = [
   { value: "system", label: "system" },

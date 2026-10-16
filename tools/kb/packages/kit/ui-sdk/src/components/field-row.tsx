@@ -1,23 +1,18 @@
-import { WarningIcon } from "@phosphor-icons/react";
-import {
-  cn,
-  followHowOf,
-  IconButton,
-  indentStyle,
-  nodeTarget,
-  type FieldType,
-  type Follow,
-} from "@kb/ui-sdk";
-import { fieldGlyphOf, type FieldGlyph } from "./value-views";
+import { WarningIcon, type Icon } from "@phosphor-icons/react";
+import { cn } from "../lib/cn";
+import { followHowOf, nodeTarget, type Follow } from "../lib/follow";
+import { indentStyle } from "../lib/indent";
+import { IconButton } from "./icon-button";
 
-export const FIELD_LABEL_WIDTH = 120;
+const FIELD_LABEL_WIDTH = 120;
 
 export interface FieldRowProps {
   depth?: number;
-  /** Overrides the type glyph the field's editor declares. */
-  icon?: FieldGlyph;
-  /** Declared field type (defaults text). Drives the type icon. */
-  fieldType?: FieldType;
+  /**
+   * The glyph the row wears: a field's is its editor's (the value views'
+   * registry answers it beside the editor), a preference's is its own.
+   */
+  icon: Icon;
   fieldId?: string;
   label: string;
   labelTitle?: string;
@@ -44,25 +39,15 @@ export interface FieldRowProps {
  * spread through one component.
  */
 function FieldLabel({
-  icon,
-  fieldType,
+  icon: Glyph,
   fieldId,
   label,
   labelTitle,
   debug,
   onFollow,
-}: Pick<
-  FieldRowProps,
-  "icon" | "fieldType" | "fieldId" | "label" | "labelTitle" | "debug" | "onFollow"
-> & {
-  fieldType: FieldType;
+}: Pick<FieldRowProps, "icon" | "fieldId" | "label" | "labelTitle" | "debug" | "onFollow"> & {
   debug: boolean;
 }) {
-  // The glyph is the field's editor's glyph: the registry answers "which
-  // editor" and "which icon" together, so a row cannot show one type's glyph
-  // over another type's editor. An explicit `icon` overrides it — that is
-  // what a preferences row passes.
-  const Glyph = icon ?? fieldGlyphOf(fieldType, fieldId);
   return (
     <>
       {fieldId !== undefined && onFollow !== undefined ? (
@@ -103,7 +88,7 @@ function FieldLabel({
 }
 
 /** The glyph of a row with no field node behind it: the icon button's box, drawn still. */
-function InertGlyph({ icon: Glyph }: { icon: FieldGlyph }) {
+function InertGlyph({ icon: Glyph }: { icon: Icon }) {
   return (
     <span className="flex h-6 w-6 shrink-0 items-center justify-center self-start text-foreground/25">
       <Glyph size={13} aria-hidden />
@@ -131,7 +116,6 @@ function MismatchWarning() {
 export function FieldRow({
   depth = 0,
   icon,
-  fieldType = "text",
   fieldId,
   label,
   labelTitle,
@@ -163,7 +147,6 @@ export function FieldRow({
       {!valueOnly && (
         <FieldLabel
           icon={icon}
-          fieldType={fieldType}
           fieldId={fieldId}
           label={label}
           labelTitle={labelTitle}

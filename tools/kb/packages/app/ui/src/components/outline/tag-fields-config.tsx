@@ -1,19 +1,20 @@
 import { useMemo, useRef, useState } from "react";
 import {
   cn,
+  FieldRow,
+  type Follow,
   IconButton,
   isSysPrefixed,
   PickerList,
   pickerRows,
   schemaOf,
   usePickerKeys,
-  type Follow,
 } from "@kb/ui-sdk";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useGraphStore } from "@/stores/graph.store";
 import { useFollow } from "@/stores/follow";
-import { FieldRow } from "./field-row";
+import { fieldGlyphOf } from "./value-views";
 import { resolveTagFields, type TagFieldRef } from "./tag-fields";
 
 export interface TagFieldsConfigViewProps {
@@ -94,6 +95,7 @@ export function TagFieldsConfigView({
         <FieldRow
           key={field.id}
           depth={-1}
+          icon={fieldGlyphOf("text", field.id)}
           label={field.name}
           fieldId={field.id}
           onFollow={onFollow}
