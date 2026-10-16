@@ -162,8 +162,8 @@ Do **not** split these in i9-arch (other waves own behavior). Plans only:
 
 ## Production readiness notes
 
-- Boot path: no unconditional `console.log`. Warnings in `frame-view` /
-  `graph-lens` are data-driven only.
+- Boot path: no unconditional `console.log`. Warnings in `frame-view` (and
+  in `@kb/graph-ui`'s `graph-lens`) are data-driven only.
 - A11y: interactive chrome in App/sidebar/palette generally uses
   `button` + `aria-label`. Gaps filed in the i9 handoff (NodeRow click-div,
   TextCard ports, graph search dismiss) — owned by surface waves.

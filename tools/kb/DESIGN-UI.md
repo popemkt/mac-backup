@@ -2053,8 +2053,8 @@ compiles from source. It builds against `@kb/ui-sdk` and nothing else of
 the shell.
 
 - **The browser holds a resolver, not a second list.**
-  - `CORE_UI_PLUGINS` holds the shell's own projections: graph, ontology,
-    layout, webmcp and screen.
+  - `CORE_UI_PLUGINS` holds the shell's own projections: ontology, layout,
+    webmcp and screen, beside core's declaration and the page's host.
   - `BROWSER_EXTENSIONS: Record<family, {load: () => Promise<Plugin>}>` maps
     a family, keyed by its declaration's `name`, to its browser entry.
   - `syncUiPlugins` converges the page kernel on the core plugins, plus the

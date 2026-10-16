@@ -44,7 +44,7 @@ const UI_EDN: Array<{ id: string; source: string; edn: string }> = [
   },
   {
     id: "graph-lens.todo-via-id",
-    source: "graph-lens.ts (lens.query)",
+    source: "@kb/graph-ui graph-lens.ts (lens.query)",
     edn: '[:find ?id :where [?n :node/id ?id] [?n :f/sys.f.type ?t] [?t :node/id "tag.todo"]]',
   },
   {

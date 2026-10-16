@@ -77,7 +77,7 @@ describe("a 3D label and its node's arrival", () => {
     }
   });
 
-  it("shows only once its node has arrived, as in 2D (components/graph/graph-arrival)", () => {
+  it("shows only once its node has arrived, as in 2D (graph-arrival)", () => {
     const nodes: LensNode[] = [
       { id: "n", label: "a node", color: "#888", size: 3, clusterKey: "r", tags: [], degree: 1 },
     ];
