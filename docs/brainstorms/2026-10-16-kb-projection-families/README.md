@@ -1419,16 +1419,22 @@ The keys move to `@kb/collections` as `CollectionTableView`,
 ### Gaps
 
 - **Cited:** the collection views' barrel exports, the views the page tests
-  render, cite GAP [[01M531QT1YPM9NTF6NKH9BP66S]].
-- **Placeholder: the view-as command nodes are core's seed.**
+  render, cite GAP [[01M531QT1YPM9NTF6NKH9BP66S]], now widened to every
+  family half's page tests (outline, collections, graph).
+- **The view-as command nodes are core's seed:** GAP
+  [[01M536CGS8JJ7XMG3F738WSNYK]], marked where core's seed declares them.
   - expected: `sys.cmd.view-as-{list,table,board,cards}` (`SYSTEM_IDS`) are
     the families' seed.
   - current: core's `systemSeedNodes` seeds all four, and the pickers name
     them through `SYSTEM_IDS`.
   - impact: a family switched off leaves its command node seeded, as data.
   - closes: each family seeds its own command node, under an id it owns.
-- **Placeholder: core's seed holds a collection view.** The approval
+- **Core's seed holds a collection view:** GAP
+  [[01M536CH4P48SXV9B0HH8B4XTG]], marked on the seed node. The approval
   policies view node (`view.approval.policies`) names `outline.table`.
   - current: with the collections off, the frame shows that it cannot be
     shown here.
-  - closes: when core's seed names no view of an optional family.
+  - Not closed: no core view type shows the policies without loss. The list
+    reads only filters, so the three columns, their widths and the page size
+    would go. The store's default view type is a page view, not a frame
+    view, so it cannot lay out a frame's rows.

@@ -194,7 +194,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(SYSTEM_IDS.cmdDebugShowFields, "Debug: show all fields", cmdType),
     mk(SYSTEM_IDS.cmdExpandAll, "Expand all", cmdType),
     mk(SYSTEM_IDS.cmdCollapseAll, "Collapse all", cmdType),
-    // W7.1 view mode + filter commands
+    // W7.1 view mode + filter commands. The view-as commands name the
+    // outline's and the collections' frame views, which are the families'.
+    // GAP [[01M536CGS8JJ7XMG3F738WSNYK]]
     mk(SYSTEM_IDS.cmdViewAsList, "View as: List", cmdType),
     mk(SYSTEM_IDS.cmdViewAsTable, "View as: Table", cmdType),
     mk(SYSTEM_IDS.cmdViewAsBoard, "View as: Board", cmdType),
@@ -458,6 +460,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * pinned in the sidebar; there is no settings page. The table is an
    * ordinary frame view node over the query node's results, its columns the
    * three fields, so its sort, widths and filters are edited like any view's.
+   * The table is the collections family's, which may be switched off; the
+   * list, core's other frame view, reads none of the columns, widths or page
+   * size the policies are shown by. GAP [[01M536CH4P48SXV9B0HH8B4XTG]]
    */
   const approvalPoliciesView = mk(SYSTEM_IDS.approvalPoliciesView, "", {
     [SYSTEM_IDS.viewField]: [{ t: "ref", v: viewOptionId("outline.table") }],
