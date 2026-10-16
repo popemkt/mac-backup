@@ -1,6 +1,7 @@
 /**
  * The extensions `kb ui` hosts: the sidebar agent, over the adapters this
- * host implements. This file is the CLI's composition root for extensions,
+ * host implements (Claude Code through its SDK, and any OpenAI-compatible
+ * chat endpoint). This file is the CLI's composition root for extensions,
  * the one file of this package that may import an extension package
  * (`EXTENSION_ROOTS` in `harness/src/constraints.ts`); the server names none
  * (DESIGN.md → Plugin channels). Each is handed over with its declaration:
@@ -20,8 +21,10 @@ import { systemSecrets } from "@kb/runtime";
 export const hostAgentAdapters = Effect.fn("kb.cli.hostAgentAdapters")(function* (
   root: string,
 ): Effect.fn.Return<readonly AgentAdapter[]> {
-  const { claudeAdapter } = yield* Effect.promise(() => import("@kb/agent-claude"));
-  return [claudeAdapter({ cwd: root })];
+  const [{ claudeAdapter }, { openAiChatAdapter }] = yield* Effect.promise(() =>
+    Promise.all([import("@kb/agent-claude"), import("@kb/agent-openai")]),
+  );
+  return [claudeAdapter({ cwd: root }), openAiChatAdapter()];
 });
 
 export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (

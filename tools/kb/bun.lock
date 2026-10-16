@@ -53,6 +53,7 @@
       "dependencies": {
         "@kb/agent": "workspace:*",
         "@kb/agent-claude": "workspace:*",
+        "@kb/agent-openai": "workspace:*",
         "@kb/bundled": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@kb/ext-check": "workspace:*",
@@ -410,6 +411,18 @@
         "@kb/agent": "workspace:*",
         "@kb/contracts": "workspace:*",
         "@modelcontextprotocol/sdk": "catalog:",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/agent-openai": {
+      "name": "@kb/agent-openai",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/agent": "workspace:*",
+        "@kb/contracts": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {
@@ -1270,6 +1283,8 @@
     "@kb/agent": ["@kb/agent@workspace:packages/extension/agent"],
 
     "@kb/agent-claude": ["@kb/agent-claude@workspace:packages/extension/agent-claude"],
+
+    "@kb/agent-openai": ["@kb/agent-openai@workspace:packages/extension/agent-openai"],
 
     "@kb/agent-ui": ["@kb/agent-ui@workspace:packages/extension/agent-ui"],
 

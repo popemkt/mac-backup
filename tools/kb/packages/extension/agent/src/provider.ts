@@ -50,6 +50,7 @@ export interface AdapterOption {
  */
 export const AGENT_ADAPTERS = [
   { id: "claude-agent-sdk", label: "Claude Agent SDK" },
+  { id: "openai-chat", label: "OpenAI-compatible chat" },
 ] as const satisfies readonly AdapterOption[];
 
 /** An adapter's frozen id: what a provider's adapter option names, and what an adapter implements. */

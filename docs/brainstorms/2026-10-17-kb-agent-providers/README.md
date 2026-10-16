@@ -379,3 +379,13 @@ the CLI root to load what it composes, so it came before A4.
     to Claude. Routing Claude Code to other models stays a non-adoption.
   - `AGENT_ADAPTERS` lists only the adapters that exist. A host-composition
     test holds `kb ui` to every id, and `AdapterId` types an adapter's `id`.
+- **A4.** `@kb/agent-openai` (`scope:shared`, `family:agent`) is a step over
+  Chat Completions SSE, decoded with Schema. Its `fetch` is a narrow
+  injectable type, so the contract runs over a fake that reads the
+  adapter's real request bodies and streams events back, split mid-line and
+  with arguments split across chunks. That replaces the planned Bun HTTP
+  server: the same wire bytes, with no port. It is selectable, because A5
+  landed first. `kb ui` composes it, and `openai-chat` joined
+  `AGENT_ADAPTERS` in the same commit. The CLIProxyAPI address was checked
+  against `modules/stacks/ai-agents/cli-proxy-api.nix`: `127.0.0.1:8317`,
+  `/v1`, and no client key (`api-keys = []`).

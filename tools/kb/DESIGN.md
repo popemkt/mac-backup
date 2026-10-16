@@ -2751,6 +2751,7 @@ The sidebar agent lives outside core, in packages that core never imports
 | ------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@kb/agent`        | extension, shared  | the runtime port, the adapter port, the provider nodes and the selection, the channel's protocol, the bridge plugin, the prompt, the transcript the sidebar draws, the step loop, and a scripted runtime |
 | `@kb/agent-claude` | extension, backend | the `claude-agent-sdk` adapter, over the Claude Agent SDK                                                                                                                                                |
+| `@kb/agent-openai` | extension, shared  | the `openai-chat` adapter, a step over Chat Completions                                                                                                                                                  |
 
 - **The bridge is a plugin of `kb ui`.** `agentPlugin({adapters, secrets})`
   injects `UiHost` and owns the channel `agent.chat`
@@ -2812,8 +2813,10 @@ The sidebar agent lives outside core, in packages that core never imports
   one; `resume` carries the conversation into the next turn; and
   interrupting the turn while a call waits interrupts the call. The Claude
   adapter runs it over a fake `query` that drives its in-process tool
-  server as Claude Code would, and the step loop over a step played in
-  memory. `scriptedRuntime` is the bridge's double, a script rather than a
+  server as Claude Code would; `openai-chat` over a fake `fetch` that
+  reads its request bodies and streams server-sent events back, text in
+  pieces and arguments split across chunks; and the step loop over a step
+  played in memory. `scriptedRuntime` is the bridge's double, a script rather than a
   model behind a wire, so it is no subject.
 - **The step loop** (`stepRuntime`, `@kb/agent`) is the tool loop for an
   adapter whose wire runs one model step and leaves the tools to its
@@ -2824,6 +2827,18 @@ The sidebar agent lives outside core, in packages that core never imports
   call), hands the receipt back as `kb mcp` answers it, stops at
   `MAX_STEPS`, and keeps the history a `resume` handle names in memory, a
   new handle per turn.
+- **The `openai-chat` adapter** (`openAiChatAdapter`, `@kb/agent-openai`)
+  is a step for the step loop over any endpoint that speaks OpenAI's Chat
+  Completions, such as CLIProxyAPI (`http://127.0.0.1:8317/v1`, the
+  `ai-agents` stack's) or Ollama's `/v1`. A provider names the endpoint
+  (the base, ending `/v1`) and the model, and lacking either fails the
+  turn saying which. A step is one streamed POST to
+  `<endpoint>/chat/completions`, with the turn's tools as functions; a
+  credential that resolves is a bearer token, read as each step starts.
+  The server-sent events are decoded with Schema: text is passed on as it
+  arrives, a call's pieces are joined by index and handed to the loop when
+  the step ends, and a failed response or an error event ends the turn
+  with what it said. `fetch` is the platform's unless a test hands it one.
 - **Every message carries the sender's screen.** The bridge asks
   `ui.screen` for the tab that the sending connection publishes as. It
   names the nodes that screen mentions (the open view's subject, the
@@ -2869,7 +2884,7 @@ The sidebar agent lives outside core, in packages that core never imports
   packages only for `kb ui`. The server reports the agent in
   `kb.manifest.extensions`, and the page offers the agent's dock only
   while it is reported on ([Extension families](#extension-families)).
-- **The `claude-agent-sdk` adapter** (`claudeAdapter`) runs Claude Code
+- **The `claude-agent-sdk` adapter** (`claudeAdapter`, `@kb/agent-claude`) runs Claude Code
   through the Claude Agent SDK.
   - With nothing written on its provider, it runs under the login the
     person already has, in this process's environment, and kb reads no

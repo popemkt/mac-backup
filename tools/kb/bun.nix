@@ -603,6 +603,7 @@
   };
   "@kb/agent" = copyPathToStore ./packages/extension/agent;
   "@kb/agent-claude" = copyPathToStore ./packages/extension/agent-claude;
+  "@kb/agent-openai" = copyPathToStore ./packages/extension/agent-openai;
   "@kb/agent-ui" = copyPathToStore ./packages/extension/agent-ui;
   "@kb/bundled" = copyPathToStore ./packages/app/bundled;
   "@kb/canvas" = copyPathToStore ./packages/extension/canvas;
