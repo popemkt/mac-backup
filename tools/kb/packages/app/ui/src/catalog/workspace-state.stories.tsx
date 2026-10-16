@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { WorkspaceState } from "@kb/ui-sdk";
-import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
+import { WorkspaceBoundary, WorkspaceState } from "@kb/ui-sdk";
 
 const meta = {
   title: "Workspace/WorkspaceState",

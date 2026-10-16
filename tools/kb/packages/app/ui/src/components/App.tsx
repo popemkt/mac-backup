@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { cn, hasText, SidebarToggle, ThemeIcon, useRoute, ViewErrorBoundary } from "@kb/ui-sdk";
+import {
+  cn,
+  hasText,
+  SidebarToggle,
+  ThemeIcon,
+  useRoute,
+  ViewErrorBoundary,
+  WorkspaceBoundary,
+} from "@kb/ui-sdk";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
@@ -8,7 +16,6 @@ import { Overlays } from "@/overlays";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { Workspace } from "@/components/layout/workspace";
-import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { loadManifest } from "@/lib/manifest";
 import { startWorkspace, useWorkspaceStore } from "@/stores/workspace.store";

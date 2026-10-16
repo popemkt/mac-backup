@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
-import { cn, type SidebarNavItem } from "@kb/ui-sdk";
+import { cn } from "../lib/cn";
+import type { SidebarNavItem } from "./sidebar-row";
 
 interface OntologyPickerProps {
   ontologies: SidebarNavItem[];

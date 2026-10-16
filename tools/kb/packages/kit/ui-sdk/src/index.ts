@@ -120,6 +120,7 @@ export { NotFound } from "./components/not-found";
 export { PickerList } from "./components/picker-list";
 export { PrefFieldRow } from "./components/pref-field-row";
 export { POPOVER_VALUE_CLASS, PopoverShell } from "./components/popover-shell";
+export { OntologyPicker } from "./components/ontology-picker";
 export { type SidebarNavItem, SidebarRow, SidebarSection } from "./components/sidebar-row";
 export { SidebarToggle } from "./components/sidebar-toggle";
 export { OptionChip, TagChip, TagChipGroup } from "./components/tag-chip";
@@ -127,6 +128,7 @@ export { ThemeIcon } from "./components/theme-icon";
 export { useAnchoredPosition } from "./components/use-anchored-position";
 export { useRevealMarkup } from "./components/use-reveal-markup";
 export { ViewErrorBoundary } from "./components/view-error-boundary";
+export { WorkspaceBoundary } from "./components/workspace-boundary";
 export { WorkspaceState } from "./components/workspace-state";
 
 // The graph as the page holds it: nodes, values, the schema and its field

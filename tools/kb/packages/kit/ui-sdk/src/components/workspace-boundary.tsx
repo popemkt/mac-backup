@@ -1,5 +1,5 @@
 import { Suspense, type ReactNode } from "react";
-import { WorkspaceState } from "@kb/ui-sdk";
+import { WorkspaceState } from "./workspace-state";
 
 /** Data and lazy code share one loading surface, then one undelayed reveal. */
 export function WorkspaceBoundary({

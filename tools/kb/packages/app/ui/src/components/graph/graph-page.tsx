@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Result } from "effect";
 import { WarningIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
-import { useGraphStore } from "@/stores/graph.store";
 import {
   browserHost,
   cn,
@@ -12,6 +11,7 @@ import {
   listOntologyItems,
   listPerspectiveNodes,
   navigate,
+  OntologyPicker,
   ontologyPath,
   parsePerspective,
   SidebarToggle,
@@ -19,6 +19,7 @@ import {
   useAppearance,
   useGeneration,
   useIndex,
+  usePageGraph,
   usePrefsOpen,
   useSidebarToggle,
   useTheme,
@@ -27,7 +28,6 @@ import {
   WorkspaceState,
 } from "@kb/ui-sdk";
 import { buildTreeForest, resolvePerspective } from "@kb/graph";
-import { OntologyPicker } from "@/components/ui/ontology-picker";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
 import { GraphCanvasFrame } from "@/components/graph/graph-canvas-frame";
@@ -61,7 +61,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   const queryDb = useIndex();
   const generation = useGeneration();
   const { zoomTo } = browserHost();
-  const ontologyMembers = useGraphStore((s) => s.ontologyMembers);
+  const ontologyMembers = usePageGraph((s) => s.ontologyMembers);
   const theme = useTheme();
   const appearance = useAppearance();
   const sidebar = useSidebarToggle();

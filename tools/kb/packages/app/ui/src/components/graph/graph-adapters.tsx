@@ -1,12 +1,11 @@
 import { lazy, useMemo } from "react";
-import { outlineBulletAppearance, useNodes, type LensNode } from "@kb/ui-sdk";
+import { outlineBulletAppearance, useNodes, WorkspaceBoundary, type LensNode } from "@kb/ui-sdk";
 import type { LensTheme, ParamsOf } from "@kb/views";
 import type { ClusterView, Force2dView, Force3dView, TreeView } from "@kb/graph";
 import { GRAPH_THEMES } from "./graph-themes";
 import { SigmaGraph } from "./sigma-graph";
 import { ClusterGraph } from "./cluster-graph";
 import { TreeGraph } from "./tree-graph";
-import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import type { GraphFrame } from "./graph-frame";
 const Force3dGraph = lazy(() => import("./force3d-graph"));
 
