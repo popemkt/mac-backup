@@ -260,6 +260,39 @@ export function isTestWorldDevDependency(target: string): boolean {
 }
 
 /**
+ * The package graph is acyclic: no package reaches itself through the
+ * dependencies the manifests declare. A test-world edge
+ * ({@link isTestWorldDevDependency}) is left out, because a test builds its
+ * world from the composition it sits under, so that edge points up by design.
+ * The matrix cannot see a cycle between two packages it lets reach each other
+ * (two `domain` packages, say), so this is its own rule. Each cycle found is
+ * one path, its first package repeated at the end.
+ */
+export function dependencyCycles(
+  edges: readonly { readonly source: string; readonly target: string }[],
+): string[][] {
+  const next = new Map<string, string[]>();
+  for (const { source, target } of edges) {
+    if (isTestWorldDevDependency(target)) continue;
+    next.set(source, [...(next.get(source) ?? []), target]);
+  }
+  const cycles: string[][] = [];
+  const done = new Set<string>();
+  const visit = (name: string, path: readonly string[]): void => {
+    const at = path.indexOf(name);
+    if (at !== -1) {
+      cycles.push([...path.slice(at), name]);
+      return;
+    }
+    if (done.has(name)) return;
+    for (const target of next.get(name) ?? []) visit(target, [...path, name]);
+    done.add(name);
+  };
+  for (const name of [...next.keys()].toSorted()) visit(name, []);
+  return cycles;
+}
+
+/**
  * `tsconfig.base.json` is the strictness contract and nothing else. Three
  * runtime presets reach it, and a package picks one — by the `scope` tag it
  * already carries, not by a name restated per package.

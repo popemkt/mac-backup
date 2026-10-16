@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   RUNTIME_ONLY_SPECIFIERS,
+  dependencyCycles,
   isIsomorphicScope,
   isTestWorldDevDependency,
   matrixViolation,
@@ -90,6 +91,29 @@ describe("boundaries", () => {
       }
     }
     expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  test("the declared package graph has no cycle", () => {
+    // Red case: add `"@kb/graph": "workspace:*"` to @kb/views' devDependencies;
+    // @kb/graph depends on @kb/views. The matrix allows both edges (domain to
+    // domain, shared to shared), so only this check sees the loop.
+    const cycles = dependencyCycles(declaredEdges()).map((cycle) => cycle.join(" -> "));
+    expect(cycles, cycles.join("\n")).toEqual([]);
+  });
+
+  test("a cycle is found, and a test-world edge is not one", () => {
+    expect(
+      dependencyCycles([
+        { source: "@kb/a", target: "@kb/b" },
+        { source: "@kb/b", target: "@kb/a" },
+      ]),
+    ).toEqual([["@kb/a", "@kb/b", "@kb/a"]]);
+    expect(
+      dependencyCycles([
+        { source: "@kb/a", target: "@kb/bundled" },
+        { source: "@kb/bundled", target: "@kb/a" },
+      ]),
+    ).toEqual([]);
   });
 
   test("no harness file imports product code", () => {
