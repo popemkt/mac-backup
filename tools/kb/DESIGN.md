@@ -2754,6 +2754,19 @@ The sidebar agent lives outside core, in packages that core never imports
   tools, approval and the prompt. A runtime owns only how one turn of a
   model runs. ACP or another provider would be a further adapter, not a
   fork. Tests run on `scriptedRuntime`.
+- **One contract, every adapter.** `agentRuntimeContract` (`@kb/agent`)
+  states what the port promises once, and each adapter's tests run it with
+  a model double behind the adapter's own wire, so no network and no login
+  is needed. For each: text arrives in order and the turn ends; a `session`
+  is emitted; the model is offered exactly the turn's tools, by their
+  `kb mcp` names; a call reaches `turn.call` once, by action id with its
+  input, and its receipt reaches the model; a tool not in the turn's
+  answers `unknown_action` and is never invoked; a backend error is an
+  `AgentRuntimeError`; a loop that never stops ends at `MAX_STEPS` with
+  one; `resume` carries the conversation into the next turn; and
+  interrupting the turn while a call waits interrupts the call. The Claude
+  adapter runs it over a fake `query` that drives its in-process tool
+  server as Claude Code would.
 - **Every message carries the sender's screen.** The bridge asks
   `ui.screen` for the tab that the sending connection publishes as. It
   names the nodes that screen mentions (the open view's subject, the

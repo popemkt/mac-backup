@@ -95,6 +95,28 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * `messages`, aborting the turn before the session is told to stop when the
+ * stream ends early. Closing the stream asks the iterator to `return`, which
+ * may wait on the step in flight, and that step may be a tool call waiting
+ * for the person; aborting first interrupts the call, so the turn ends at
+ * once, as the port promises.
+ */
+function abortingFirst<A>(messages: AsyncIterable<A>, abort: AbortController): AsyncIterable<A> {
+  return {
+    [Symbol.asyncIterator]: () => {
+      const iterator = messages[Symbol.asyncIterator]();
+      return {
+        next: () => iterator.next(),
+        return: (value?: unknown) => {
+          abort.abort();
+          return iterator.return?.(value) ?? Promise.resolve({ done: true, value: undefined });
+        },
+      };
+    },
+  };
+}
+
 /** The `claude` this machine runs, unless the caller named one. */
 function executableFor(options: ClaudeRuntimeOptions): string | undefined {
   return options.executable ?? Bun.which("claude") ?? undefined;
@@ -148,10 +170,13 @@ export function claudeRuntime(options: ClaudeRuntimeOptions): AgentRuntime {
             Effect.sync(() => new AbortController()),
             (controller) => Effect.sync(() => controller.abort()),
           );
-          const messages = query({
-            prompt: userTurnText(turn.message),
-            options: queryOptions(options, turn, abort),
-          });
+          const messages = abortingFirst(
+            query({
+              prompt: userTurnText(turn.message),
+              options: queryOptions(options, turn, abort),
+            }),
+            abort,
+          );
           const wrote = { text: false };
           return Stream.fromAsyncIterable(
             messages,

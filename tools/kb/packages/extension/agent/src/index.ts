@@ -4,6 +4,14 @@ export { AGENT_SYSTEM_PROMPT, userTurnText } from "./prompt.ts";
 export { AGENT_CHANNEL, AGENT_WIRE, AgentEventSchema, AgentRequestSchema } from "./protocol.ts";
 export type { AgentEvent, AgentRequest } from "./protocol.ts";
 export { AgentRuntimeError, MAX_STEPS } from "./runtime.ts";
+export { agentRuntimeContract } from "./runtime-contract.ts";
+export type {
+  ContractRunner,
+  ModelDouble,
+  ModelMove,
+  ModelSight,
+  RuntimeSubject,
+} from "./runtime-contract.ts";
 export type { AgentMessage, AgentOutput, AgentRuntime, AgentTurn } from "./runtime.ts";
 export { scriptedRuntime } from "./scripted.ts";
 export type { ScriptStep, ScriptedRuntime } from "./scripted.ts";
