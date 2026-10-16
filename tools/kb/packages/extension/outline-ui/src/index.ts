@@ -18,14 +18,6 @@ export { BoardCardsView } from "./board-cards-view";
 export { longDateLabel, relativeDateLabel } from "./date-display";
 export { createTransientNode, mergeWithPrevious } from "./editing-writes";
 export { FieldsSection, FieldValueStack } from "./fields-section";
-export {
-  applyViewFilters,
-  flattenBoardOrder,
-  groupChildrenForBoard,
-  resolveTableColumns,
-  sortChildrenForTable,
-} from "./frame-layout";
-export { frameRows, type FrameRowsInput } from "./frame-rows";
 export { FrameViewSlot } from "./frame-view-slot";
 export { NodeBlock } from "./node-block";
 export { NodeCommandPalette } from "./node-command-palette";
@@ -44,7 +36,6 @@ export {
 export { notePick, recentPicks } from "./picker-recency";
 export { QueryResultsSection } from "./query-results";
 export { ReferencesView } from "./references-section";
-export { resolveRowChrome } from "./row-chrome";
 export { TableView } from "./table-view";
 export { useNodeKeyDown } from "./use-node-keydown";
 export { useSelectionKeymap } from "./use-selection-keymap";

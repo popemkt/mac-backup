@@ -1,7 +1,6 @@
 import { useMemo } from "react";
-import { useGraphRead, ViewSlot } from "@kb/ui-sdk";
+import { useFrameView, useGraphRead, ViewSlot } from "@kb/ui-sdk";
 import { FrameSubjectContext, type FrameSubject } from "./frame-subject";
-import { useFrameView } from "./use-frame-views";
 
 const UNAVAILABLE = (
   <p className="px-1 py-0.5 text-meta text-foreground/50" data-frame-view-unavailable="true">

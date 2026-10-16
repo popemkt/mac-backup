@@ -1,8 +1,7 @@
 import { useCallback, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
-import { browserHost, cn, useFilterFrame } from "@kb/ui-sdk";
+import { browserHost, cn, useFilterFrame, useFrameViews } from "@kb/ui-sdk";
 import { type FrameViewKey, localIdOf } from "@kb/views";
-import { useFrameViews } from "./use-frame-views";
 
 interface ViewToolbarProps {
   frameId: string;

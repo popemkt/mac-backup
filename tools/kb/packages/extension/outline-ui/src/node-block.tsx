@@ -9,21 +9,21 @@ import {
   nodeTarget,
   outlineInstanceKey,
   type OutlineNode,
+  resolveRowChrome,
   type SchemaIndex,
   shownNode,
   useDebugFields,
   useFilterFrame,
   useFollow,
+  useFrameView,
   useGraphRead,
   useNodePaletteOpen,
 } from "@kb/ui-sdk";
-import { resolveRowChrome } from "./row-chrome";
 import { useOutlineStore, outlineNodes } from "./outline.store";
 import { createTransientNode } from "./editing-writes";
 
 import { FieldsSection } from "./fields-section";
 import { FrameViewSlot } from "./frame-view-slot";
-import { useFrameView } from "./use-frame-views";
 import { NodeContent } from "./node-content";
 import { QueryResultsSection } from "./query-results";
 import { useNodeKeyDown } from "./use-node-keydown";

@@ -11,17 +11,13 @@
  * "expandable" must not promise more than the render gates deliver, which is
  * why it is derived from them rather than asked separately.
  */
-import {
-  isContextualRef,
-  isQueryResultInstance,
-  resolveProps,
-  shownNode,
-  showsAncestor,
-  type OutlineNode,
-  type SchemaIndex,
-} from "@kb/ui-sdk";
 import { isQueryNode } from "@kb/model";
 import { projectsRows, type FrameViewKey } from "@kb/views";
+import { isContextualRef, shownNode, showsAncestor } from "./contextual-ref";
+import { isQueryResultInstance } from "./instance-key";
+import { resolveProps } from "./graph-view";
+import type { OutlineNode } from "./types";
+import type { SchemaIndex } from "./schema";
 
 export interface RowChrome {
   /**

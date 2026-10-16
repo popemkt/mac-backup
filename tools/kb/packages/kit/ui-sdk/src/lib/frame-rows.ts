@@ -9,7 +9,6 @@
  *
  * Pure: pagination state is passed in as `pages`, never read from a store.
  */
-import type { FrameView, NodeMap, OutlineNode, SchemaIndex } from "@kb/ui-sdk";
 import {
   applyViewFilters,
   type BoardColumn,
@@ -17,6 +16,9 @@ import {
   groupChildrenForBoard,
   sortChildrenForTable,
 } from "./frame-layout";
+import type { FrameView } from "./frame-view";
+import type { NodeMap, OutlineNode } from "./types";
+import type { SchemaIndex } from "./schema";
 
 export interface FrameRowsInput {
   frameId: string;

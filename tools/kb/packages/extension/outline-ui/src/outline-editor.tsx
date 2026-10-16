@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import {
   browserHost,
   isTextEntry,
+  useFrameView,
   useNodePaletteOpen,
   usePageGraph,
   useSlotChain,
@@ -12,7 +13,6 @@ import { useOutlineNode, outlineNodes } from "./outline.store";
 import { createTransientNode } from "./editing-writes";
 import { Breadcrumbs } from "./breadcrumbs";
 import { FrameViewSlot } from "./frame-view-slot";
-import { useFrameView } from "./use-frame-views";
 import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";

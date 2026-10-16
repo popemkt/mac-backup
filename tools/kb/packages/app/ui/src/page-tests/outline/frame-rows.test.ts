@@ -4,6 +4,8 @@
  */
 import {
   familyViews,
+  frameRows,
+  type FrameRowsInput,
   frameViewOf,
   type NodeMap,
   type OutlineNode,
@@ -18,7 +20,7 @@ import { browserHostUiPlugin } from "@/browser-host";
 import { describe, expect, it } from "vitest";
 import { isFrameViewKey, OutlineTableView } from "@kb/views";
 import { framedAs, viewOptionNodes, type FrameViewName } from "@/fixtures/view-fields";
-import { frameRows, type FrameRowsInput, outlineUiPlugin } from "@kb/outline-ui";
+import { outlineUiPlugin } from "@kb/outline-ui";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {

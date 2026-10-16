@@ -5,8 +5,11 @@ import {
   bulletClickIntent,
   childInstanceKey,
   cn,
+  EMPTY_GROUP_KEY,
   type FieldContext,
+  frameRows,
   isQueryResultInstance,
+  isReferenceRow,
   type NodeMap,
   NodeRow,
   nodeTarget,
@@ -14,6 +17,7 @@ import {
   type OutlineNode,
   type PropValue,
   queryResultInstanceKey,
+  resolveTableColumns,
   shownNode,
   shownNodeId,
   TagChipGroup,
@@ -22,15 +26,12 @@ import {
   usePageGraph,
   usePrefs,
 } from "@kb/ui-sdk";
-import { isReferenceRow } from "./row-chrome";
 import { useOutlineHost } from "./outline-host";
-import { frameRows } from "./frame-rows";
 import { OutlineBoardView, OutlineCardsView, localIdOf, type ParamsOf } from "@kb/views";
 import { useFieldContext, useOutlineStore, useOutlineNodes } from "./outline.store";
 import { NodeField } from "./fields-section";
 import { NodeContent } from "./node-content";
 import { useNodeKeyDown } from "./use-node-keydown";
-import { EMPTY_GROUP_KEY, resolveTableColumns } from "./frame-layout";
 
 /**
  * The two column views over one component: the board groups its cards into a

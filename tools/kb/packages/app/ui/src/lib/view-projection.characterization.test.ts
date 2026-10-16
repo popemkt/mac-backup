@@ -11,17 +11,18 @@
  * unchanged through them.
  */
 import {
-  SYSTEM_IDS,
   type NodeMap,
   type OutlineNode,
   type PropValue,
+  resolveTableColumns,
   type SchemaIndex,
   schemaOfGraph,
+  sortChildrenForTable,
+  SYSTEM_IDS,
 } from "@kb/ui-sdk";
 import { describe, expect, it } from "vitest";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { DEFAULT_VIEW_CONFIG, type SortSpec } from "@kb/views";
-import { resolveTableColumns, sortChildrenForTable } from "@kb/outline-ui";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {

@@ -19,6 +19,9 @@ export {
   useDebugFields,
   useFilterFrame,
   useFollow,
+  useFrameView,
+  useFrameViewNode,
+  useFrameViews,
   useGeneration,
   useGraphRead,
   useIndex,
@@ -219,6 +222,17 @@ export {
   frameViewThrough,
   getViewConfig,
 } from "./lib/frame-view";
+export {
+  applyViewFilters,
+  EMPTY_GROUP_KEY,
+  flattenBoardOrder,
+  groupChildrenForBoard,
+  resolveTableColumns,
+  sortChildrenForTable,
+  type TableColumnSpec,
+} from "./lib/frame-layout";
+export { frameRows, type FrameRowsInput } from "./lib/frame-rows";
+export { isReferenceRow, resolveRowChrome } from "./lib/row-chrome";
 export { type GraphRead, type GraphSource, useGraphReadThrough } from "./lib/graph-read";
 export {
   type GraphChange,

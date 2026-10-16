@@ -4,15 +4,10 @@
  * columns. Which view a frame is shown in, and the settings its view node
  * holds, are the kit's (`frameViewOf`, `frameConfigOf`).
  */
-import {
-  isSysPrefixed,
-  SYSTEM_IDS,
-  textOr,
-  type OutlineNode,
-  type PropValue,
-  type SchemaIndex,
-} from "@kb/ui-sdk";
 import type { SortSpec, ViewFilter } from "@kb/views";
+import { isSysPrefixed, type OutlineNode, type PropValue, SYSTEM_IDS } from "./types";
+import { textOr } from "./text";
+import type { SchemaIndex } from "./schema";
 
 function propValueKey(v: PropValue, _schema: SchemaIndex): string {
   if (v.t === "ref") return `ref:${v.v}`;

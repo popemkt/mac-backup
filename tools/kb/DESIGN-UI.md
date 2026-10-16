@@ -517,7 +517,7 @@ reference:
   structural chords, because its place under the query is computed rather than
   a child edge. A contextual reference is a real child whose children **are**
   its own, and creating them is the whole point. `isReferenceRow(node,
-  isQueryResult)` in `outline-ui/src/row-chrome.ts` is the one answer, read by the list
+  isQueryResult)` in the kit's `lib/row-chrome.ts` is the one answer, read by the list
   row's chrome and by table and card rows alike. Apart from those gates a
   result row is clicked like any row in every view: a row click selects, a
   text click edits, a bullet click toggles and ⌘-click opens the node.

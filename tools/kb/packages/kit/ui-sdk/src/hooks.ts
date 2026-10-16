@@ -3,7 +3,7 @@
  * hook over the host's subscribe and reads. A feature calls these, never a
  * store, and the host holds no hook of its own (see `sdk/host.ts`).
  */
-import { useContext, useSyncExternalStore } from "react";
+import { useContext, useMemo, useSyncExternalStore } from "react";
 import type { WireNode } from "@kb/contracts";
 import type { NodeTextHostBinding } from "./components/node-text-host";
 import { useNodeTextBindingThrough } from "./components/node-text-port";
@@ -12,13 +12,18 @@ import { OpenNodeContext, useFollowThrough, type Follow } from "./lib/follow";
 import { useGraphReadThrough, type GraphRead } from "./lib/graph-read";
 import type { RefInk } from "./lib/md-edit";
 import { usePaneScreenThrough, type PaneCarryOut, type PaneReport } from "./lib/pane-screen";
-import type { SchemaIndex } from "./lib/schema";
+import { schemaOf, type SchemaIndex } from "./lib/schema";
 import type { NodeMap, OutlineNode } from "./lib/types";
 import { useQueryNodeRows, type QueryNodeRows } from "./lib/use-query-node-rows";
 import type { PageGraphState } from "./lib/page-graph";
 import type { Appearance, Prefs, ThemePref } from "./lib/theme";
 import { useNarrowViewport } from "./lib/viewport";
 import { browserHost, type BrowserHost } from "./host";
+import { isViewNode } from "@kb/model";
+import { type FrameViewKey, isFrameViewKey } from "@kb/views";
+import { familyViews, useContributions, ViewPoint } from "./lib/plugins";
+import { type FrameView, frameViewNodeIdOf, frameViewThrough } from "./lib/frame-view";
+import type { FamilyView } from "./lib/view-key";
 
 /** What `read` answers of the host, re-read whenever the host changes. */
 function useHostValue<T>(read: (host: BrowserHost) => T): T {
@@ -178,4 +183,44 @@ export function useFilterFrame(): string | null {
 /** Whether the node palette is open. */
 export function useNodePaletteOpen(): boolean {
   return useHostValue((host) => host.nodePaletteOpen());
+}
+
+/** The frame views provided, in their pickers' order: live, as `ViewPoint` holds them. */
+export function useFrameViews(): readonly FamilyView<FrameViewKey>[] {
+  const views = useContributions(ViewPoint);
+  return useMemo(() => familyViews(views, isFrameViewKey), [views]);
+}
+
+/** Just their keys: what a frame's view node resolves against (`frameViewOf`). */
+function useFrameViewKeys(): readonly FrameViewKey[] {
+  const views = useFrameViews();
+  return useMemo(() => views.map((view) => view.key), [views]);
+}
+
+/**
+ * The view node `frame` shows its children through, live, read from the
+ * schema (the whole graph, `frameViewNodeIdOf`): the store is read for that
+ * one node, so a host re-renders when its view node changes and not otherwise.
+ */
+export function useFrameViewNode(frame: OutlineNode | undefined): OutlineNode | undefined {
+  return usePageGraph((s) => {
+    const schema = schemaOf(s);
+    const id = frameViewNodeIdOf(frame, schema);
+    return id === null ? undefined : schema.get(id);
+  });
+}
+
+/** The view `frame` shows its children in, live (`frameViewOf`). */
+export function useFrameView(frame: OutlineNode | undefined): FrameView | null {
+  const views = useFrameViewKeys();
+  const viewNode = useFrameViewNode(frame);
+  return useMemo(
+    () =>
+      frameViewThrough(
+        frame,
+        viewNode !== undefined && isViewNode(viewNode) ? viewNode : null,
+        views,
+      ),
+    [frame, viewNode, views],
+  );
 }

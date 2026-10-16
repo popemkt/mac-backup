@@ -1,6 +1,11 @@
 import { useMemo } from "react";
-import { frameRows } from "./frame-rows";
-import { childInstanceKey, outlineInstanceKey, useGraphRead, type ViewProps } from "@kb/ui-sdk";
+import {
+  childInstanceKey,
+  frameRows,
+  outlineInstanceKey,
+  useGraphRead,
+  type ViewProps,
+} from "@kb/ui-sdk";
 import {
   type ParamsOf,
   OutlineBoardView,

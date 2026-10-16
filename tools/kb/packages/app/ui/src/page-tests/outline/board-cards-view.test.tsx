@@ -1,7 +1,10 @@
 import {
+  applyViewFilters,
   fieldContextOf,
+  flattenBoardOrder,
   frameViewOf,
   getViewConfig,
+  groupChildrenForBoard,
   type NodeMap,
   providedFrameViews,
   queryResultInstanceKey,
@@ -35,11 +38,8 @@ import {
 import { Result } from "effect";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import {
-  applyViewFilters,
   BoardCardsView,
   collectVisibleInstances,
-  flattenBoardOrder,
-  groupChildrenForBoard,
   listFilterFieldOptions,
   outlineNodes,
   outlineSource,
