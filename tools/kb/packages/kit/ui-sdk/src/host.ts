@@ -12,11 +12,11 @@
  * `useSyncExternalStore`.
  */
 import { Service } from "@kb/plugin";
-import type { PropValue } from "@kb/model";
 import type { ActionInvocation, ActionReceipt, WireNode } from "@kb/contracts";
 import type { ViewKey } from "@kb/views";
 import type { NodeTextPort } from "./components/node-text-port";
 import type { RefInk } from "./lib/md-edit";
+import type { PageWrites } from "./lib/page-writes";
 import type { PaneScreenPort } from "./lib/pane-screen";
 import { currentService } from "./lib/plugins";
 import type { Appearance, ThemePref } from "./lib/theme";
@@ -73,20 +73,8 @@ export interface BrowserHost extends NodeTextPort {
   readonly activateNode: (nodeId: string, cursorPos?: number, instanceKey?: string) => void;
   /** Send a pane to a path. */
   readonly navigatePane: (pane: string, path: string) => void;
-  /** Replace a field's values on a node, through the page's one write path. */
-  readonly replaceField: (nodeId: string, fieldId: string, values: PropValue[]) => Promise<void>;
-  /** Set a node's text, through the page's one write path. */
-  readonly updateNodeContent: (nodeId: string, text: string) => Promise<void>;
-  /**
-   * Store a file as an asset through `asset.upload`; the `assets/…` path it
-   * is referenced by (markdown's `![](assets/…)`, a canvas image's `file`),
-   * or null when it could not be stored (the page has said why).
-   */
-  readonly uploadAsset: (file: File) => Promise<string | null>;
-  /** Attach a file to a node (`uploadAsset`, then a markdown reference); false when it could not be attached. */
-  readonly attachFileToNode: (nodeId: string, file: File) => Promise<boolean>;
-  /** Take a tag off a node. */
-  readonly removeTag: (nodeId: string, tagId: string) => Promise<void>;
+  /** The page's one write path: every write a surface makes to the graph. */
+  readonly writes: PageWrites;
   /** Make one call through the browser's one invoke path and answer its receipt. */
   readonly invoke: (id: string, input: unknown) => Promise<ActionReceipt>;
   /** Where a view reports what it shows for its pane (`usePaneScreen`). */

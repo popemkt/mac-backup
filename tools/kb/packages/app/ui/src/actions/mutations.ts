@@ -38,6 +38,7 @@ import {
   SYSTEM_IDS,
   toast,
   WORKSPACE_ROOT_ID,
+  type PageWrites,
   type PropValue,
   type RefCreation,
 } from "@kb/ui-sdk";
@@ -174,8 +175,7 @@ export function __resetPendingContentForTests(): void {
   pendingContent.clear();
 }
 
-export const mutations = {
-  /** Local text action first; coalesce its ordered remote confirmation. */
+export const mutations: PageWrites = {
   async updateNodeContent(id: string, content: string): Promise<void> {
     if (!guardSysWrite(id)) return;
 
@@ -226,13 +226,6 @@ export const mutations = {
     return applyPlan(planAddChild(wire(), parentId, id, text));
   },
 
-  /**
-   * Mint a real empty node at once (root, first child, or after sibling)
-   * and activate it at offset 0, through the plan's focus. Returns its id,
-   * or null when refused. Whether an empty minted row is pruned when focus
-   * leaves it is the editor's rule, not the write's (the outline's
-   * `createTransientNode`, r1 §3.3).
-   */
   async createEmptyNode(parentId: string, afterSiblingId: string | null): Promise<string | null> {
     const newId = ulid();
     let ok = false;
@@ -253,7 +246,6 @@ export const mutations = {
     return newId;
   },
 
-  /** Mint an empty sibling directly ABOVE the anchor and activate it ('O' key). */
   async createEmptyNodeBefore(beforeId: string): Promise<string | null> {
     if (!guardSysWrite(beforeId)) return null;
     const parent = findParentWire(wire(), beforeId);
@@ -340,9 +332,6 @@ export const mutations = {
     await applyPlan(planDelete(wire(), id));
   },
 
-  /**
-   * Merge the next row into this one (Delete at the end of a row).
-   */
   async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
     if (!guardSysWrite(thisId) || !guardSysWrite(nextId)) return;
     await prepareStructuralMutation();
@@ -351,10 +340,6 @@ export const mutations = {
     await applyPlan(plan);
   },
 
-  /**
-   * Backspace-merge: into `previousId`, the node its caller draws directly
-   * above (r1 D09), else into the previous node of the graph.
-   */
   async mergeWithPrevious(id: string, previousId: string | null = null): Promise<void> {
     if (!guardSysWrite(id)) return;
     await prepareStructuralMutation();
@@ -364,11 +349,6 @@ export const mutations = {
     await applyPlan(plan);
   },
 
-  /**
-   * Tab-indent. The target parent is auto-expanded BEFORE focus restore so
-   * the reparented row never vanishes into a collapsed container (r1 D05),
-   * and the caret returns to its exact character offset (spec §3.1).
-   */
   async indentNode(id: string, cursor?: number): Promise<void> {
     if (!guardSysWrite(id)) return;
     const store = useGraphStore.getState();
@@ -395,7 +375,6 @@ export const mutations = {
       .activateNode(id, cursor ?? 0);
   },
 
-  /** Shift+Tab outdent; caret stays at its exact offset (spec §3.1). */
   async outdentNode(id: string, cursor?: number): Promise<void> {
     if (!guardSysWrite(id)) return;
     const store = useGraphStore.getState();
@@ -420,14 +399,12 @@ export const mutations = {
     await applyPlan(planMove(wire(), id, "down"));
   },
 
-  /** D19: undo through inverse invocations of the same shared actions. */
   async undo(): Promise<boolean> {
     const entry = useGraphStore.getState().applyUndo();
     if (!entry) return false;
     return invokeAll(entry.undo);
   },
 
-  /** D19: redo the last undone mutation. */
   async redo(): Promise<boolean> {
     const entry = useGraphStore.getState().applyRedo();
     if (!entry) return false;
@@ -449,12 +426,6 @@ export const mutations = {
     await applyPlan(planUnsetProp(wire(), nodeId, fieldId, value));
   },
 
-  /**
-   * Mint a node a ref field may point at, named `name`, where the field's
-   * declaration says a new target goes (`refCreationOf`): a child of the
-   * field for an option, a node carrying the field's target tag, or a
-   * top-level node for an open field. Returns its id, or null when refused.
-   */
   async createRefTarget(creation: RefCreation, name: string): Promise<string | null> {
     const id = ulid();
     if (creation.kind === "child") {
@@ -481,15 +452,6 @@ export const mutations = {
     return ok ? newId : null;
   },
 
-  /**
-   * Promote an existing node to a supertag.
-   *
-   * `sys.f.type` is the kind slot and it is multi-valued, so this appends the
-   * `sys.tag` kind and leaves any tags the node already carries alone. Note
-   * the consequence, which is the model's and not this function's: a tag node
-   * is schema, so `forestRootIds` stops listing it in the outline forest. The
-   * caller is responsible for taking the user to it.
-   */
   async makeSupertag(nodeId: string): Promise<boolean> {
     if (!guardSysWrite(nodeId)) return false;
     const node = wire().find((n) => n.id === nodeId);
@@ -503,18 +465,6 @@ export const mutations = {
     return ok ? newId : null;
   },
 
-  /**
-   * Pin / unpin a node for the sidebar's Pinned section.
-   *
-   * Pinning is *listing* (see lib/pinned): the toggle adds or removes a
-   * contextual reference under the seeded `pinned` node, and nothing here is
-   * bespoke — `node.add` with one ref prop, `deleteNode` for the row.
-   *
-   * No `guardSysWrite` on the target: nothing is written to it. The guard was
-   * there because a tag edits the node's kind slot, so pinning `sys.queries`
-   * was a write to a system node; pointing a reference at one is not, and
-   * `sys.*` browse has always been open.
-   */
   async togglePin(nodeId: string): Promise<boolean> {
     const pins = pinnedRefIdsFor(shownNodes(), nodeId);
     if (pins.length > 0) {
@@ -532,12 +482,6 @@ export const mutations = {
     return applyPlan(plan);
   },
 
-  /**
-   * W6a: store a file's bytes as an asset through `asset.upload`, the one
-   * way bytes enter `.kb/assets/`; the `assets/…` path that markdown and a
-   * canvas image both reference it by, or null (told by a toast) when it
-   * could not be stored.
-   */
   async uploadAsset(file: File): Promise<string | null> {
     const store = useGraphStore.getState();
     if (store.loadSource === "fixtures" || store.loadSource === null) {
@@ -576,10 +520,6 @@ export const mutations = {
     }
   },
 
-  /**
-   * W6a: upload a file (`uploadAsset`), then append `![alt](assets/…)`
-   * markdown to the node text.
-   */
   async attachFileToNode(nodeId: string, file: File): Promise<boolean> {
     if (!guardSysWrite(nodeId)) return false;
     const path = await mutations.uploadAsset(file);
@@ -603,7 +543,6 @@ export const mutations = {
     }
   },
 
-  /** W4: root node tagged #query with a starter sys.f.query definition. */
   async newQueryNode(text = "New query"): Promise<string | null> {
     const newId = ulid();
     const ok = await applyPlan(planNewQueryNode(text, newId));
@@ -612,7 +551,6 @@ export const mutations = {
 
   // ── ontology mutations (r5 core) ────────────────────────────────────────
 
-  /** Mint an ontology node (#ontology) and return its id. */
   async defineOntology(name = "New ontology"): Promise<string | null> {
     const newId = ulid();
     const { planDefineOntology } = await import("@/actions/plan");
@@ -644,7 +582,6 @@ export const mutations = {
     await applyPlan(planOntologyRemoveMember(wire(), ontoId, nodeId));
   },
 
-  /** Veto a node; drops a matching pin in the same plan. */
   async ontologyExclude(ontoId: string, nodeId: string): Promise<void> {
     if (!guardSysWrite(ontoId)) return;
     const { planOntologyExclude } = await import("@/actions/plan");
@@ -657,7 +594,6 @@ export const mutations = {
     await applyPlan(planOntologyUnexclude(wire(), ontoId, nodeId));
   },
 
-  /** Refuses (and says so) when the edge would close an extends cycle. */
   async ontologyAddExtends(ontoId: string, parentId: string): Promise<boolean> {
     if (!guardSysWrite(ontoId)) return false;
     const { planOntologyAddExtends } = await import("@/actions/plan");
@@ -687,20 +623,17 @@ export const mutations = {
     await applyPlan(planOntologySetClosure(wire(), ontoId, mode));
   },
 
-  /** Make `viewId` `hostId`'s default view: move it first in the host's `sys.f.views`. */
   async makeDefaultView(hostId: string, viewId: string): Promise<void> {
     if (!guardSysWrite(hostId)) return;
     const { planMakeDefaultView } = await import("@/actions/plan");
     await applyPlan(planMakeDefaultView(wire(), hostId, viewId));
   },
 
-  /** Show a frame's children in `view`: its frame view node names the view's option. */
   async setFrameView(frameId: string, view: FrameViewKey): Promise<void> {
     const { frameViewIs } = await import("@/actions/plan");
     await editFrameView(frameId, frameViewIs(view.option));
   },
 
-  /** Save `perspective` as a new graph view node, filed in the Views list. */
   async saveGraphPerspective(perspective: LensPerspective, name: string): Promise<string | null> {
     const { perspectiveProps } = await import("@kb/views");
     const { planAddViewNode } = await import("@/actions/plan");
@@ -720,17 +653,12 @@ export const mutations = {
     await applyPlan(planReplaceField(wire(), nodeId, fieldId, values));
   },
 
-  /** Draw a graph view node with another renderer: `renderer` is the view's option. */
   async setGraphRenderer(perspectiveId: string, renderer: string): Promise<void> {
     if (!guardSysWrite(perspectiveId)) return;
     const { planSetGraphRenderer } = await import("@/actions/plan");
     await applyPlan(planSetGraphRenderer(wire(), perspectiveId, renderer));
   },
 
-  /**
-   * Persist a `sys.f.lens.*` prop. Unsets the field before set so multi-valued
-   * append cannot accumulate (r10 §1.6).
-   */
   async setLensProp(perspectiveId: string, fieldId: string, value: PropValue): Promise<void> {
     if (!guardSysWrite(perspectiveId)) return;
     const { planSetLensProp } = await import("@/actions/plan");
@@ -819,5 +747,3 @@ export const mutations = {
     await applyPlan(planMoveBoardCard(wire(), nodeId, fieldId, oldValue, newValue));
   },
 };
-
-export type Mutations = typeof mutations;

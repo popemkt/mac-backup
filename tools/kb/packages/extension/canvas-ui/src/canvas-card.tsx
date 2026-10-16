@@ -162,13 +162,13 @@ export function KbNodeCard({
             tags={node.tags}
             onActivate={handleActivate}
             onChange={(text) => {
-              void browserHost().updateNodeContent(card.nodeId, text);
+              void browserHost().writes.updateNodeContent(card.nodeId, text);
             }}
             onAttachFile={(file) => {
-              void browserHost().attachFileToNode(card.nodeId, file);
+              void browserHost().writes.attachFileToNode(card.nodeId, file);
             }}
             onRemoveTag={(tagId) => {
-              void browserHost().removeTag(card.nodeId, tagId);
+              void browserHost().writes.removeTag(card.nodeId, tagId);
             }}
             onKeyDown={(event) => handleCanvasNodeKeyDown(event, card.nodeId, instanceKey)}
           />

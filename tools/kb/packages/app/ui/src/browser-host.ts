@@ -64,11 +64,7 @@ const host: BrowserHost = {
   activateNode: (nodeId, cursorPos, instanceKey) =>
     pageEditor().getState().activateNode(nodeId, cursorPos, instanceKey),
   navigatePane: (pane, path) => useWorkspaceStore.getState().navigatePane(pane, path),
-  replaceField: (nodeId, fieldId, values) => mutations.replaceField(nodeId, fieldId, values),
-  updateNodeContent: (nodeId, text) => mutations.updateNodeContent(nodeId, text),
-  uploadAsset: (file) => mutations.uploadAsset(file),
-  attachFileToNode: (nodeId, file) => mutations.attachFileToNode(nodeId, file),
-  removeTag: (nodeId, tagId) => mutations.removeTag(nodeId, tagId),
+  writes: mutations,
   invoke,
   screen: paneScreenPort,
   proposeView,

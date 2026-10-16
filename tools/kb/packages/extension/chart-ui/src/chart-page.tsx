@@ -81,7 +81,7 @@ export function ChartPage({ params, host }: ViewProps<ChartParams>) {
           toast(`The spec cannot be saved: ${checked.failure.map((i) => i.message).join("; ")}`);
           return;
         }
-        await browserHost().replaceField(
+        await browserHost().writes.replaceField(
           host.viewNode,
           CHART_IDS.chartField,
           checked.success.props[CHART_IDS.chartField] ?? [],

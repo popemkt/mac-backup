@@ -216,7 +216,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     docRef,
     schedulePersist,
     setSelection,
-    upload: (file) => browserHost().uploadAsset(file),
+    upload: (file) => browserHost().writes.uploadAsset(file),
     camera: projection.camera,
     pointerAt,
     placementPoint: projection.placementPoint,

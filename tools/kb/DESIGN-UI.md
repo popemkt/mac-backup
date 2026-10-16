@@ -2058,15 +2058,24 @@ the shell.
   - the primitives and the design tokens;
   - `BrowserHost`, a kernel service the shell provides. Through it a half
     reaches what it would otherwise take from the shell's stores, actions
-    and lib: the live graph, appearance, navigation, panes, the invoke path
-    and the sandbox host. It is a subscribe, reads and gestures, never
-    hooks: a hook selected from a service at run time is one React cannot
-    check. The sdk's own hooks (`useNode`, `useAppearance`, `useFollow`, …)
-    are built over it once, with `useSyncExternalStore`. It is also a
-    `NodeTextPort` (tracked graph reads, the caret hand-off, the text-host
-    registry), so a half binds a `NodeTextHost` with `useNodeTextBinding`
-    through the same body (`useNodeTextBindingThrough`) the shell binds its
-    own with, over its stores.
+    and lib: the live graph, the page's one write path (`writes`, the kit's
+    `PageWrites`, which `actions/mutations` implements), appearance,
+    navigation, panes, the invoke path and the sandbox host. It is a
+    subscribe, reads and gestures, never hooks: a hook selected from a
+    service at run time is one React cannot check. The sdk's own hooks
+    (`useNode`, `useAppearance`, `useFollow`, …) are built over it once,
+    with `useSyncExternalStore`. It is also a `NodeTextPort` (tracked graph
+    reads, the caret hand-off, the text-host registry), so a half binds a
+    `NodeTextHost` with `useNodeTextBinding` through the same body
+    (`useNodeTextBindingThrough`) the shell binds its own with, over its
+    stores.
+  - the page's two ports a projection provides while its plugin is loaded,
+    `PageProjectionService` and `PageEditorService` (`lib/page-ports`): the
+    projection the graph store tells of each move, and the editor the shell
+    lands the caret through. Each is a kernel service, so the page stands
+    in one projection, and the shell installs whichever is provided. What
+    the page shows of the graph (`shownNodesOf`, over `PageGraphState`) is
+    the kit's too, so a projection and the shell read it through one cache.
 
   The sdk never imports the shell's stores. The 3D scene kit is two kit
   packages beside it, for canvas 3D, the lab and the core `graph.force3d`

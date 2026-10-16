@@ -201,6 +201,7 @@ export {
   type PageProjection,
   PageProjectionService,
 } from "./lib/page-ports";
+export type { PageWrites } from "./lib/page-writes";
 export {
   type FieldContext,
   fieldContextOf,

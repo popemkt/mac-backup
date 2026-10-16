@@ -6,8 +6,9 @@
  *
  * It keeps the little a port promises: a graph the test sets, one active
  * node with the caret placement addressed to it, and the pane reports views
- * make. Every other gesture is inert, every call answers that this host
- * makes none, and a test replaces any member it watches.
+ * make. Every other gesture is inert, every write makes nothing, every call
+ * answers that this host makes none, and a test replaces any member it
+ * watches.
  */
 import { definePlugin, type Plugin } from "@kb/plugin";
 import {
@@ -19,6 +20,7 @@ import {
   type CaretIntent,
   type NodeMap,
   type OutlineNode,
+  type PageWrites,
   type PaneCarryOut,
   type PaneReport,
   type SchemaIndex,
@@ -64,6 +66,76 @@ const noCall = (id: string): Promise<ActionReceipt> =>
     code: "not_found",
     message: "this test host makes no calls",
   });
+
+/** What a write to this host answers: it makes none, and a write that names what it made names nothing. */
+const done = (): Promise<void> => Promise.resolve();
+const refused = (): Promise<boolean> => Promise.resolve(false);
+const none = (): Promise<string | null> => Promise.resolve(null);
+
+const INERT_WRITES: PageWrites = {
+  updateNodeContent: done,
+  createNodeAfter: done,
+  addTagField: done,
+  removeTagField: done,
+  setTagColor: done,
+  setFieldHidden: done,
+  setFieldType: done,
+  addFieldTargetTag: done,
+  removeFieldTargetTag: done,
+  setFieldTargetQuery: done,
+  splitNode: done,
+  deleteNode: done,
+  mergeNextIntoThis: done,
+  mergeWithPrevious: done,
+  indentNode: done,
+  outdentNode: done,
+  moveNodeUp: done,
+  moveNodeDown: done,
+  updateProp: done,
+  removeProp: done,
+  addTag: done,
+  removeTag: done,
+  ontologyAddInclude: done,
+  ontologyRemoveInclude: done,
+  ontologyAddMember: done,
+  ontologyRemoveMember: done,
+  ontologyExclude: done,
+  ontologyUnexclude: done,
+  ontologyRemoveExtends: done,
+  ontologySetQuery: done,
+  ontologySetClosure: done,
+  makeDefaultView: done,
+  setFrameView: done,
+  replaceField: done,
+  setGraphRenderer: done,
+  setLensProp: done,
+  setViewSort: done,
+  toggleViewSort: done,
+  setViewDisplay: done,
+  setColumnWidth: done,
+  setViewPagesize: done,
+  setViewGroup: done,
+  addViewFilter: done,
+  removeViewFilter: done,
+  moveBoardCard: done,
+  addRootNode: refused,
+  addChildNode: refused,
+  undo: refused,
+  redo: refused,
+  makeSupertag: refused,
+  togglePin: refused,
+  attachFileToNode: refused,
+  ontologyAddExtends: refused,
+  createEmptyNode: none,
+  createEmptyNodeBefore: none,
+  createRefTarget: none,
+  defineField: none,
+  defineTag: none,
+  uploadAsset: none,
+  newQueryNode: none,
+  defineOntology: none,
+  saveGraphPerspective: none,
+};
 
 /** A test host over an empty graph, with `overrides` in place of its members. */
 export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrowserHost {
@@ -128,11 +200,7 @@ export function testBrowserHost(overrides: Partial<BrowserHost> = {}): TestBrows
     refInk: () => refInkOf(schemaNow()),
     zoomTo: () => {},
     navigatePane: () => {},
-    replaceField: () => Promise.resolve(),
-    updateNodeContent: () => Promise.resolve(),
-    uploadAsset: () => Promise.resolve(null),
-    attachFileToNode: () => Promise.resolve(false),
-    removeTag: () => Promise.resolve(),
+    writes: INERT_WRITES,
     invoke: (id) => noCall(id),
     screen: {
       report: (pane, owner, report, carryOut) => held.set(pane, { pane, owner, report, carryOut }),
