@@ -1461,9 +1461,12 @@ the view node switches every page showing the canvas through it.
   the rig flies to the top view first and the DOM canvas takes its pan and zoom on
   arrival. A scene that cannot start leaves the canvas in 2D for the visit.
 - **Every item is a box its shape fills.** The shape table
-  (`CANVAS_SHAPES`, `@kb/canvas` `shapes.ts`) gives each shape its footprint,
-  its outline as path data and its volume; both projections trace the one
-  outline (the DOM as an SVG path and a clip path, the scene into faces and
+  (`CANVAS_SHAPES`, `@kb/canvas` `shapes.ts`) gives each shape its footprint
+  and its volume, and a footprint is its outline (`CANVAS_FOOTPRINTS`, path
+  data): what covers a point, where a ray crosses a prism and where an edge
+  meets an item are all read from that outline's polygon
+  (`footprintPolygon`), whatever the shape, concave or round. Both
+  projections trace the one outline (the DOM as an SVG path and a clip path, the scene into faces and
   meshes), and the corner radius comes from one rule (`cornerRadius`). The
   mesh builders (`canvas-scene-solids.ts`, behind the 3D stage's chunk) are the three
   side, one per volume and typed by it, built at each item's size: a prism
@@ -1483,9 +1486,10 @@ the view node switches every page showing the canvas through it.
   axes are the top view's, and with no perspective on the stage the browser
   flattens the face straight down, so it paints and hit-tests the face's
   exact top view. Under its face a solid draws its body as its top view
-  (`topView`: the silhouette of everything it fills, the convex hull of
-  its volume), which a tilted solid shows round its face and the pointer
-  takes it by. Side anchors and their outward directions turn with the
+  (`topView`: everything it fills seen from above, as pieces whose union
+  it is — a turned prism's two caps and every side between them, an
+  ellipsoid's or a cone's hull — filled nonzero, its caps stroked), which
+  a tilted solid shows round its face and the pointer takes it by. Side anchors and their outward directions turn with the
   item (`sideTerminal`, `@kb/canvas` `edges.ts`), and the marquee and
   framing read its turned box.
 - **A line is an item** (`path`, `@kb/canvas` `paths.ts`): the line and

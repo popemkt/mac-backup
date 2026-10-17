@@ -272,6 +272,8 @@ export {
   presetItem,
 } from "./presets.ts";
 export {
+  CANVAS_FOOTPRINT_KINDS,
+  CANVAS_FOOTPRINTS,
   CANVAS_SHAPES,
   faceShare,
   topFace,
@@ -287,6 +289,7 @@ export {
 export type {
   TopFace,
   CanvasFootprint,
+  CanvasTopView,
   CanvasPathCommand,
   CanvasPathSink,
   CanvasVolume,

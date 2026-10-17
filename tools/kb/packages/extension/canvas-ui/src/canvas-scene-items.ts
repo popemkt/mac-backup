@@ -53,7 +53,8 @@ import {
   facingLift,
   itemShape,
   paintOrder,
-  shapeOutline,
+  CANVAS_FOOTPRINTS,
+  CANVAS_FOOTPRINT_KINDS,
   styleOf,
   tracePath,
   type CanvasAxes,
@@ -148,7 +149,7 @@ function shadowTexture(footprint: CanvasFootprint): CanvasTexture {
     ctx.fillStyle = "rgb(0, 0, 0)";
     ctx.translate(inset, inset);
     ctx.beginPath();
-    tracePath(ctx, shapeOutline(footprint, size - inset * 2, size - inset * 2, 12));
+    tracePath(ctx, CANVAS_FOOTPRINTS[footprint](size - inset * 2, size - inset * 2, 12));
     ctx.fill();
   }
   const map = new CanvasTexture(canvas);
@@ -263,11 +264,15 @@ export class ItemLayer {
   private readonly plane = new PlaneGeometry(1, 1);
   private readonly foot = new CircleGeometry(3.2, 20);
   /** Each footprint's blurred silhouette, made once and shared by every shadow of it. */
-  private readonly shadowMaps: { readonly [F in CanvasFootprint]: CanvasTexture } = {
-    rect: shadowTexture("rect"),
-    ellipse: shadowTexture("ellipse"),
-    diamond: shadowTexture("diamond"),
-  };
+  private readonly shadowMaps = new Map<CanvasFootprint, CanvasTexture>(
+    CANVAS_FOOTPRINT_KINDS.map((footprint) => [footprint, shadowTexture(footprint)]),
+  );
+  private shadowOf(footprint: CanvasFootprint): CanvasTexture {
+    const made = this.shadowMaps.get(footprint) ?? shadowTexture(footprint);
+    this.shadowMaps.set(footprint, made);
+    return made;
+  }
+
   private readonly matcap = paletteMatcap(MATCAP_LIGHT);
   private readonly shadowStrength = uniform(0.16);
   private readonly stock = uniform(new Color());
@@ -392,7 +397,7 @@ export class ItemLayer {
     this.plane.dispose();
     this.foot.dispose();
     this.matcap.dispose();
-    for (const map of Object.values(this.shadowMaps)) map.dispose();
+    for (const map of this.shadowMaps.values()) map.dispose();
   }
 
   private paint(entry: Item, version: string): void {
@@ -462,7 +467,7 @@ export class ItemLayer {
     );
     // Seen from below, a flat card is blank stock; a solid has its own bottom.
     entry.back.visible = !raised;
-    const silhouette = this.shadowMaps[CANVAS_SHAPES[spec.shape].footprint];
+    const silhouette = this.shadowOf(CANVAS_SHAPES[spec.shape].footprint);
     entry.cast.opacityNode = texture(silhouette).a.mul(this.shadowStrength).mul(entry.shade);
     entry.cast.needsUpdate = true;
     entry.built = key;

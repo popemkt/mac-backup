@@ -59,15 +59,21 @@ type CanvasCardViewProps = Omit<CanvasCardLayerProps, "doc"> & { card: CanvasNod
 /** What an item's face is drawn from: the card, the page's handlers, and where it is laid. */
 type CanvasFaceProps = Omit<CanvasCardViewProps, "editing" | "onEdit"> & FaceLayout;
 
-/** An item's top view (`topView`) as SVG path data in canvas units. */
-function topViewPath(card: CanvasNode): string {
-  const points = topView(
-    { ...card, shape: itemShape(card) },
-    cornerRadius(card, readCornerRadii()),
-  );
-  const [first, ...rest] = points;
-  if (first === undefined) return "";
-  return svgPathData([["M", ...first], ...rest.map(([x, y]) => ["L", x, y] as const), ["Z"]]);
+/** Polygons as one SVG path's data in canvas units, a closed subpath each. */
+function polygonsPath(polygons: readonly (readonly (readonly [number, number])[])[]): string {
+  return polygons
+    .flatMap(([first, ...rest]) =>
+      first === undefined
+        ? []
+        : [svgPathData([["M", ...first], ...rest.map(([x, y]) => ["L", x, y] as const), ["Z"]])],
+    )
+    .join(" ");
+}
+
+/** An item's top view (`topView`) as path data: its pieces, filled nonzero to their union, and its rims. */
+function topViewPaths(card: CanvasNode): { readonly pieces: string; readonly rims: string } {
+  const view = topView({ ...card, shape: itemShape(card) }, cornerRadius(card, readCornerRadii()));
+  return { pieces: polygonsPath(view.pieces), rims: polygonsPath(view.rims) };
 }
 
 /**
@@ -88,7 +94,12 @@ function CanvasLiftShadow({ card }: { card: CanvasNode }) {
       height={1}
       style={{ transform: `translateY(${drop}px)` }}
     >
-      <path d={topViewPath(card)} fill="rgb(0 0 0)" style={{ filter: `blur(${blur}px)` }} />
+      <path
+        d={topViewPaths(card).pieces}
+        fill="rgb(0 0 0)"
+        fillRule="nonzero"
+        style={{ filter: `blur(${blur}px)` }}
+      />
     </svg>
   );
 }
@@ -109,6 +120,7 @@ function CanvasItemBody({
 }) {
   if (canvasDepth(card) <= 0) return null;
   const color = paintCss(styleOf(card).color) ?? "var(--foreground)";
+  const { pieces, rims } = topViewPaths(card);
   return (
     <svg
       aria-hidden
@@ -118,13 +130,18 @@ function CanvasItemBody({
       height={1}
     >
       <path
-        d={topViewPath(card)}
+        d={pieces}
         className="pointer-events-auto"
         fill={`color-mix(in oklab, ${color} 22%, var(--background))`}
+        fillRule="nonzero"
+        onPointerDown={onPointerDown}
+      />
+      <path
+        d={rims}
+        fill="none"
         stroke={`color-mix(in oklab, ${color} 45%, transparent)`}
         strokeWidth={1}
         strokeLinejoin="round"
-        onPointerDown={onPointerDown}
       />
     </svg>
   );

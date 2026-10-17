@@ -23,7 +23,13 @@ import type {
   CanvasSide,
 } from "./doc.ts";
 import { dropExtra } from "./extra.ts";
-import { CANVAS_SHAPES, itemShape, outlinePoints, type CanvasPathCommand } from "./shapes.ts";
+import {
+  CANVAS_SHAPES,
+  footprintPolygon,
+  itemShape,
+  outlinePoints,
+  type CanvasPathCommand,
+} from "./shapes.ts";
 
 /** Which end of an edge: the one it leaves, or the one it arrives at. */
 export type EdgeEnd = "from" | "to";
@@ -57,30 +63,40 @@ function anchorOf(edge: CanvasEdge, end: EdgeEnd): CanvasAnchor {
 
 /**
  * The point of a footprint, in its box's unit square (-1 to 1 each way),
- * that the ray from its centre through (`u`, `v`) leaves it at, and the
- * outline's outward normal there, in the same units.
+ * that the ray from its centre through (`u`, `v`) last leaves it at, and the
+ * outline's outward normal there, in the same units: read from the
+ * footprint's polygon (`footprintPolygon`), whatever its shape.
  */
 function onOutline(item: CanvasNode, u: number, v: number) {
   const [du, dv] = Math.hypot(u, v) < 1e-9 ? [1, 0] : [u, v];
-  switch (CANVAS_SHAPES[itemShape(item)].footprint) {
-    case "ellipse": {
-      const s = Math.hypot(du, dv);
-      return { p: { x: du / s, y: dv / s }, n: { x: du / s, y: dv / s } };
-    }
-    case "diamond": {
-      const s = Math.abs(du) + Math.abs(dv);
-      return { p: { x: du / s, y: dv / s }, n: { x: Math.sign(du), y: Math.sign(dv) } };
-    }
-    case "rect":
-    default: {
-      const s = Math.max(Math.abs(du), Math.abs(dv));
-      const across = Math.abs(du) >= Math.abs(dv);
-      return {
-        p: { x: du / s, y: dv / s },
-        n: across ? { x: Math.sign(du), y: 0 } : { x: 0, y: Math.sign(dv) },
-      };
-    }
-  }
+  const polygon = footprintPolygon(CANVAS_SHAPES[itemShape(item)].footprint);
+  // Every side the ray crosses, how far out, and that side's normal turned away from the centre.
+  const crossings = polygon.flatMap((b, i) => {
+    const [ax = 0, ay = 0] = polygon.at(i - 1) ?? [];
+    const [bx, by] = b;
+    const denom = du * (by - ay) - dv * (bx - ax);
+    if (Math.abs(denom) < 1e-12) return [];
+    const s = (ax * dv - ay * du) / denom;
+    if (s < -1e-9 || s > 1 + 1e-9) return [];
+    const side = { x: by - ay, y: -(bx - ax) };
+    const length = Math.hypot(side.x, side.y) || 1;
+    const sign = side.x * du + side.y * dv < 0 ? -1 : 1;
+    return [
+      {
+        t: (ax * (by - ay) - ay * (bx - ax)) / denom,
+        n: { x: (sign * side.x) / length, y: (sign * side.y) / length },
+      },
+    ];
+  });
+  const reach = Math.max(0, ...crossings.map(({ t }) => t));
+  // Out at a corner, the outline's normal there lies between its two sides'.
+  const n = crossings
+    .filter(({ t }) => t > reach - 1e-9)
+    .reduce((sum, { n: one }) => ({ x: sum.x + one.x, y: sum.y + one.y }), { x: 0, y: 0 });
+  const length = Math.hypot(n.x, n.y) || 1;
+  // A normal along an axis is exactly along it, not a rounding off it.
+  const unit = (c: number) => Math.round((c / length) * 1e12) / 1e12 + 0;
+  return { p: { x: du * reach, y: dv * reach }, n: { x: unit(n.x), y: unit(n.y) } };
 }
 
 /**

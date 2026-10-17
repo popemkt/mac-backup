@@ -222,10 +222,17 @@ function footprintOf(el: HTMLElement): Point[] | null {
   return d === undefined ? null : pathPolygon(d);
 }
 
-/** A solid's body as drawn: its path, as a polygon in canvas units. */
-function bodyOf(el: HTMLElement): Point[] | null {
-  const d = el.querySelector("[data-body] path")?.getAttribute("d");
-  return d === null || d === undefined ? null : pathPolygon(d);
+/**
+ * A solid's body as drawn: the subpaths of the path it is filled from (the
+ * first of its paths, nonzero, so a point is in it when it is in any), as
+ * polygons in canvas units.
+ */
+function bodyOf(el: HTMLElement): Point[][] {
+  const d = el.querySelector("[data-body] path")?.getAttribute("d") ?? "";
+  return d
+    .split(/(?=M)/)
+    .filter((part) => part.trim() !== "")
+    .map(pathPolygon);
 }
 
 /**
@@ -434,8 +441,7 @@ const mount2d: Mount = async (view, scene) => {
   const toScreen = (p: Point) => ({ x: p.x * zoom + pan.x, y: p.y * zoom + pan.y });
   /** Whether `el`'s body, or its face within its footprint, covers canvas point `at`. */
   const covers = (el: HTMLElement, at: Point) => {
-    const body = bodyOf(el);
-    if (body !== null && inPolygon(at, body)) return true;
+    if (bodyOf(el).some((piece) => inPolygon(at, piece))) return true;
     const f = laidFace(el);
     const q = f === null ? null : onFace(f, at);
     if (f === null || q === null || q.x < 0 || q.x > f.w || q.y < 0 || q.y > f.h) return false;

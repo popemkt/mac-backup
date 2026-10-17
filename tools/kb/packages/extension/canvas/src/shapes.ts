@@ -22,6 +22,7 @@
 import {
   TOP_AXES,
   boxFrame,
+  boxRotation,
   boxToWorld,
   itemFrame,
   type CanvasBox,
@@ -43,9 +44,6 @@ export type CanvasPathCommand =
   | readonly ["C", number, number, number, number, number, number]
   | readonly ["Z"];
 
-/** The ground plan a shape stands on, which its outline draws. */
-export type CanvasFootprint = "rect" | "ellipse" | "diamond";
-
 /**
  * What a shape fills its box with, given depth: its footprint carried
  * straight up (a box, an elliptic cylinder, a diamond prism), the ellipsoid
@@ -54,10 +52,32 @@ export type CanvasFootprint = "rect" | "ellipse" | "diamond";
  */
 export type CanvasVolume = "prism" | "ellipsoid" | "cone";
 
+/**
+ * A footprint's outline filling a `w` × `h` box, `radius` rounding what its
+ * look rounds: the one statement of a ground plan, which every renderer
+ * traces and every question of what it covers reads (`footprintPolygon`).
+ */
+type FootprintOutline = (w: number, h: number, radius: number) => CanvasPathCommand[];
+
 interface CanvasShapeSpec {
   readonly footprint: CanvasFootprint;
   readonly volume: CanvasVolume;
 }
+
+/** The ground plans a shape stands on, each its outline. */
+export const CANVAS_FOOTPRINTS = {
+  rect: roundedRect,
+  ellipse: (w: number, h: number) => ellipse(w, h),
+  diamond: (w: number, h: number) => diamond(w, h),
+} as const satisfies Readonly<Record<string, FootprintOutline>>;
+
+/** The ground plan a shape stands on, which its outline draws. */
+export type CanvasFootprint = keyof typeof CANVAS_FOOTPRINTS;
+
+/** Every ground plan, by name. */
+export const CANVAS_FOOTPRINT_KINDS: readonly CanvasFootprint[] = Object.keys(
+  CANVAS_FOOTPRINTS,
+).filter((kind): kind is CanvasFootprint => kind in CANVAS_FOOTPRINTS);
 
 export const CANVAS_SHAPES: { readonly [K in CanvasShapeKind]: CanvasShapeSpec } = {
   rect: { footprint: "rect", volume: "prism" },
@@ -133,23 +153,63 @@ export function faceStands(item: CanvasBox & { readonly shape?: CanvasShapeKind 
   return (item.depth ?? 0) > 0 && !VOLUME_CAPPED[CANVAS_SHAPES[item.shape ?? "rect"].volume];
 }
 
+/** The box a footprint's polygon is flattened at: fine enough that a curve strays from it by a hair. */
+const UNIT_FLATTENING = 400;
+
+const polygons = new Map<CanvasFootprint, readonly (readonly [number, number])[]>();
+
 /**
- * Whether a point is on `shape`'s footprint, given in the box's unit
- * coordinates: `u` and `v` run from -1 to 1 across it, 0 at its centre. A
- * rectangle's rounded corners are a look and are not cut off here, so
- * picking and stacking treat them as square.
+ * A footprint as a polygon in its box's unit coordinates: `u` and `v` run
+ * from -1 to 1 across it, 0 at its centre; curves flattened finely. What
+ * covers a point, where a ray crosses it and where an edge meets it are
+ * all read from this one polygon, whatever the footprint. A rectangle's
+ * rounded corners are a look and are not cut off here, so picking and
+ * stacking treat them as square.
  */
 // GAP [[01M41GAZ88QXRS7M85S0JN0ZW1]]
-export function onFootprint(shape: CanvasShapeKind, u: number, v: number): boolean {
-  switch (CANVAS_SHAPES[shape].footprint) {
-    case "ellipse":
-      return u * u + v * v <= 1;
-    case "diamond":
-      return Math.abs(u) + Math.abs(v) <= 1;
-    case "rect":
-    default:
-      return Math.abs(u) <= 1 && Math.abs(v) <= 1;
+export function footprintPolygon(
+  footprint: CanvasFootprint,
+): readonly (readonly [number, number])[] {
+  const known = polygons.get(footprint);
+  if (known !== undefined) return known;
+  const half = UNIT_FLATTENING / 2;
+  const polygon = outlinePoints(
+    CANVAS_FOOTPRINTS[footprint](UNIT_FLATTENING, UNIT_FLATTENING, 0),
+  ).map(([x, y]) => [x / half - 1, y / half - 1] as const);
+  polygons.set(footprint, polygon);
+  return polygon;
+}
+
+/** How near a side a point counts as on it, in unit coordinates. */
+const ON_SIDE = 1e-9;
+
+/**
+ * Whether (`u`, `v`) lies in `polygon`, its outline included: on a side,
+ * or inside by the even-odd rule (a ray from it crosses its sides an odd
+ * number of times).
+ */
+export function insidePolygon(
+  polygon: readonly (readonly [number, number])[],
+  u: number,
+  v: number,
+): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi = 0, yi = 0] = polygon[i] ?? [];
+    const [xj = 0, yj = 0] = polygon[j] ?? [];
+    const along = (u - xj) * (xi - xj) + (v - yj) * (yi - yj);
+    const span = (xi - xj) ** 2 + (yi - yj) ** 2;
+    const off = (u - xj) * (yi - yj) - (v - yj) * (xi - xj);
+    const onSide = span > 0 && Math.abs(off) <= ON_SIDE * Math.sqrt(span);
+    if (onSide && along >= 0 && along <= span) return true;
+    if (yi > v !== yj > v && u < ((xj - xi) * (v - yi)) / (yj - yi) + xi) inside = !inside;
   }
+  return inside;
+}
+
+/** Whether a point, in the box's unit coordinates, is on `shape`'s footprint (`footprintPolygon`). */
+export function onFootprint(shape: CanvasShapeKind, u: number, v: number): boolean {
+  return insidePolygon(footprintPolygon(CANVAS_SHAPES[shape].footprint), u, v);
 }
 
 /** How far a cubic's control points reach to draw a quarter circle. */
@@ -202,15 +262,7 @@ export function shapeOutline(
   h: number,
   radius: number,
 ): CanvasPathCommand[] {
-  switch (CANVAS_SHAPES[shape].footprint) {
-    case "ellipse":
-      return ellipse(w, h);
-    case "diamond":
-      return diamond(w, h);
-    case "rect":
-    default:
-      return roundedRect(w, h, radius);
-  }
+  return CANVAS_FOOTPRINTS[CANVAS_SHAPES[shape].footprint](w, h, radius);
 }
 
 /** A coordinate to the hundredth: plenty for a path drawn in CSS pixels. */
@@ -334,24 +386,73 @@ function hull(points: readonly Point2[]): [number, number][] {
   return [...chain(sorted), ...chain(sorted.toReversed())].map(([x, y]) => [x, y]);
 }
 
+/** A polygon in canvas units (x, y). */
+type CanvasPolygon = [number, number][];
+
+/** Twice `polygon`'s signed area: positive wound one way, negative the other. */
+function windingArea(polygon: readonly (readonly [number, number])[]): number {
+  let area = 0;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi = 0, yi = 0] = polygon[i] ?? [];
+    const [xj = 0, yj = 0] = polygon[j] ?? [];
+    area += (xj - xi) * (yj + yi);
+  }
+  return area;
+}
+
+/** `polygon` wound the one way every piece of a top view is, so their union fills nonzero. */
+const wound = (polygon: CanvasPolygon): CanvasPolygon =>
+  windingArea(polygon) < 0 ? polygon.toReversed() : polygon;
+
 /**
- * An item's top view: the outline of everything it fills, seen from
- * straight above, as a polygon in canvas units (x, y) — its footprint for an
- * unturned item, and for a turned one its volume's silhouette (the convex
- * hull of the volume, every footprint being convex). Round parts are
- * sampled finely; a rectangle's corners are rounded by `radius`.
+ * An item's top view: everything it fills, seen from straight above, in
+ * canvas units. `pieces` are polygons, each wound the same way, whose union
+ * it is (a painter fills them nonzero, and a point is in it when it is in
+ * any of them); `rims` are the outlines a painter strokes round it.
+ */
+export interface CanvasTopView {
+  readonly pieces: readonly CanvasPolygon[];
+  readonly rims: readonly CanvasPolygon[];
+}
+
+/**
+ * An item's top view (`CanvasTopView`). Unturned, or flat, it is its
+ * footprint exactly, as its plane lies; a turned prism is its two caps and
+ * every side between them, the caps its rims; a turned ellipsoid or cone,
+ * both convex, is the hull of its volume. Round parts are sampled finely;
+ * a rectangle's corners are rounded by `radius`.
  */
 export function topView(
   item: CanvasBox & { readonly shape?: CanvasShapeKind },
   radius: number,
   base = item.z ?? 0,
-): [number, number][] {
+): CanvasTopView {
   const frame = boxFrame(item, base);
-  const points = volumePoints(item.shape ?? "rect", frame.half, radius).map((local) => {
+  const { half } = frame;
+  const shape = item.shape ?? "rect";
+  const project = (local: CanvasVec): [number, number] => {
     const p = boxToWorld(frame, local);
-    return [p.x, p.y] as const;
+    return [p.x, p.y];
+  };
+  const ring = (z: number) =>
+    outlinePoints(shapeOutline(shape, half.x * 2, half.y * 2, radius)).map(([x, y]) =>
+      project({ x: x - half.x, y: y - half.y, z }),
+    );
+  if (half.z <= 0 || isUnrotated(boxRotation(item))) {
+    const plan = wound(ring(0));
+    return { pieces: [plan], rims: [plan] };
+  }
+  if (CANVAS_SHAPES[shape].volume !== "prism") {
+    const silhouette = wound(hull(volumePoints(shape, half, radius).map(project)));
+    return { pieces: [silhouette], rims: [silhouette] };
+  }
+  const [bottom, top] = [ring(-half.z), ring(half.z)];
+  const sides = bottom.map((at, i): CanvasPolygon => {
+    const next = (i + 1) % bottom.length;
+    return [at, bottom[next] ?? at, top[next] ?? at, top[i] ?? at];
   });
-  return hull(points);
+  const caps = [wound(bottom), wound(top)];
+  return { pieces: [...caps, ...sides.map(wound)], rims: caps };
 }
 
 /** Trace `commands` into `sink`, each point mapped through `at` (identity by default). */

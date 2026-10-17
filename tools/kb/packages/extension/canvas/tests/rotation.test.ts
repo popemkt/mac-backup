@@ -155,11 +155,13 @@ describe("a turned item", () => {
 
   test("its top view is its footprint unturned, and its silhouette turned", () => {
     const flat = topView({ x: 0, y: 0, width: 100, height: 60 }, 0);
-    const xs = flat.map(([x]) => x);
+    const xs = flat.pieces.flat().map(([x]) => x);
     expect([Math.min(...xs), Math.max(...xs)]).toEqual([0, 100]);
     // A cube tipped 45° about x shows its top and a side: √2 · 100 deep from above.
     const cube = { x: 0, y: 0, width: 100, height: 100, depth: 100, rotation: { x: 45 } };
-    const ys = topView(cube, 0).map(([, y]) => y);
+    const ys = topView(cube, 0)
+      .pieces.flat()
+      .map(([, y]) => y);
     expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(Math.SQRT2 * 100, 6);
     // A sphere's silhouette is its footprint however it turns.
     const ball = {
@@ -171,7 +173,9 @@ describe("a turned item", () => {
       shape: "sphere" as const,
       rotation: { x: 33, y: 71 },
     };
-    const extent = topView(ball, 0).map(([x]) => x);
+    const extent = topView(ball, 0)
+      .pieces.flat()
+      .map(([x]) => x);
     expect(Math.max(...extent) - Math.min(...extent)).toBeCloseTo(100, 0);
   });
 });

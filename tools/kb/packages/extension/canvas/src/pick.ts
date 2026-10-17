@@ -16,7 +16,7 @@ import {
   type CanvasVec,
 } from "./box.ts";
 import type { CanvasShapeKind } from "./doc.ts";
-import { CANVAS_SHAPES, onFootprint } from "./shapes.ts";
+import { CANVAS_SHAPES, footprintPolygon, insidePolygon, onFootprint } from "./shapes.ts";
 
 /** A ray in canvas space: where it starts and which way it runs. */
 export interface CanvasRay {
@@ -122,7 +122,7 @@ function volumeSpans(
   inBox: Span,
   [x, y, z]: readonly [UnitLine, UnitLine, UnitLine],
 ): Span[] {
-  const { footprint, volume } = CANVAS_SHAPES[shape];
+  const { volume } = CANVAS_SHAPES[shape];
   // X² + Y² (+ k) as a quadratic in t, for the round footprints and volumes.
   const round = (extra: UnitLine, sign: number): Span[] =>
     quadraticSpans(
@@ -130,7 +130,6 @@ function volumeSpans(
       2 * (x.at * x.per + y.at * y.per + sign * extra.at * extra.per),
       x.at ** 2 + y.at ** 2 + sign * extra.at ** 2 - (sign > 0 ? 1 : 0),
     );
-  const none: UnitLine = { at: 0, per: 0 };
   if (volume === "ellipsoid") {
     // X² + Y² + (2Z - 1)² ≤ 1: the ellipsoid the box bounds.
     return within([inBox], round({ at: 2 * z.at - 1, per: 2 * z.per }, 1));
@@ -139,21 +138,40 @@ function volumeSpans(
     // X² + Y² ≤ (1 - Z)²: the footprint at the base, narrowing to a point at the top.
     return within([inBox], round({ at: 1 - z.at, per: -z.per }, -1));
   }
-  if (footprint === "ellipse") return within([inBox], round(none, 1));
-  if (footprint === "diamond") {
-    // ±X ± Y ≤ 1: four half-spaces.
-    return [
-      [1, 1],
-      [1, -1],
-      [-1, 1],
-      [-1, -1],
-    ].reduce<Span[]>(
-      (spans, [sx = 1, sy = 1]) =>
-        within(spans, quadraticSpans(0, sx * x.per + sy * y.per, sx * x.at + sy * y.at - 1)),
-      [inBox],
-    );
+  // A prism: its footprint carried straight up, so the ray is inside it where it is over the footprint.
+  return within([inBox], footprintSpans(footprintPolygon(CANVAS_SHAPES[shape].footprint), x, y));
+}
+
+/**
+ * The stretches of the line (`x`, `y`) over `polygon`, in unit
+ * coordinates: where it crosses the polygon's sides, paired in and out, as
+ * it comes from far off outside. A line that does not move across the
+ * plan (straight down) is over it everywhere or nowhere.
+ */
+function footprintSpans(
+  polygon: readonly (readonly [number, number])[],
+  x: UnitLine,
+  y: UnitLine,
+): Span[] {
+  if (Math.abs(x.per) < 1e-12 && Math.abs(y.per) < 1e-12) {
+    return insidePolygon(polygon, x.at, y.at) ? [[-Infinity, Infinity]] : [];
   }
-  return [inBox];
+  const crossings: number[] = [];
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [ax = 0, ay = 0] = polygon[j] ?? [];
+    const [bx = 0, by = 0] = polygon[i] ?? [];
+    const denom = x.per * (by - ay) - y.per * (bx - ax);
+    if (Math.abs(denom) < 1e-12) continue;
+    const s = ((ax - x.at) * y.per - (ay - y.at) * x.per) / denom;
+    if (s < 0 || s >= 1) continue;
+    crossings.push(((ax - x.at) * (by - ay) - (ay - y.at) * (bx - ax)) / denom);
+  }
+  crossings.sort((a, b) => a - b);
+  const spans: Span[] = [];
+  for (let i = 0; i + 1 < crossings.length; i += 2) {
+    spans.push([crossings[i] ?? 0, crossings[i + 1] ?? 0]);
+  }
+  return spans;
 }
 
 /**
