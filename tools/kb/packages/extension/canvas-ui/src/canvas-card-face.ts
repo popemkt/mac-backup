@@ -23,6 +23,7 @@ import {
   shapeOutline,
   tracePath,
   CANVAS_PALETTE,
+  type CanvasAlign,
   type CanvasFont,
   type CanvasNode,
   type CanvasPaint,
@@ -30,10 +31,12 @@ import {
   type CanvasPathCommand,
   type CanvasPathNode,
   type CanvasShapeKind,
+  type CanvasVAlign,
 } from "@kb/canvas";
 import { paletteToken } from "./canvas-color";
 import { isPicture, type FacePicture } from "./canvas-face-pictures";
 import {
+  FONT_FACES,
   SELECTED_OUTLINE,
   TEXT_ALIGNS,
   TONE_TOKENS,
@@ -41,7 +44,6 @@ import {
   itemPaint,
   type CanvasTypeStep,
   type ChromePaint,
-  type FONT_FACES,
   type ItemPaint,
   type Tone,
   type ToneSource,
@@ -660,16 +662,34 @@ export function faceWords(face: CardFace): string {
   }
 }
 
-/** The face a standing label's words are set in: its style's, or the UI face. */
-export function faceFont(face: CardFace): CanvasFont {
-  return "style" in face ? (face.style.words?.font ?? "sans") : "sans";
+/** How a face's look paints it, or null for a face that has none of its own (`CardFace`). */
+export function faceLook(face: CardFace): ItemPaint | null {
+  return "style" in face ? face.style : null;
+}
+
+/** How a label sets words its look says nothing of: the UI step and face, centred. */
+const LABEL_WORDS: WordsPaint = {
+  step: "--type-ui",
+  face: FONT_FACES.sans,
+  font: "sans",
+  align: "middle",
+  valign: "middle",
+};
+
+/** Where a span of `length` sits along a run of `room` when placed `at` its start, middle or end. */
+function placed(at: CanvasAlign | CanvasVAlign, room: number, length: number): number {
+  if (at === "start" || at === "top") return 0;
+  if (at === "end" || at === "bottom") return room - length;
+  return (room - length) / 2;
 }
 
 /**
- * A standing face's label (`faceStands`): `words` set in `font` at the UI
- * step, centred in a box of the face's size, on a pill of card stock so it
- * reads over whatever is behind it — a solid's body is its surface, so the
- * label paints no card. Selected, the pill wears the selection ring.
+ * A standing face's label (`faceStands`): `words` set as its look's words
+ * are (`itemPaint`: their face and step, aligned across and placed up and
+ * down a box of the face's size) in its words' ink, on a pill of card stock
+ * so it reads over whatever is behind it — a solid's body is its surface,
+ * so the label paints no card. A face with no look of its own is set at
+ * the UI step, centred. Selected, the pill wears the selection ring.
  * Nothing at all for no words.
  */
 export function paintLabel(
@@ -677,17 +697,20 @@ export function paintLabel(
   words: string,
   box: FaceBox,
   look: CardLook,
-  font: CanvasFont = "sans",
+  style: ItemPaint | null,
 ): void {
   if (!hasText(words)) return;
-  const size = look.steps["--type-ui"];
-  setFont(ctx, look.faces[font], size, 500);
+  const set = style?.words ?? LABEL_WORDS;
+  const size = look.steps[set.step];
+  setFont(ctx, look.faces[set.font], size, 500);
   const line = size * 1.4;
   const lines = wrapText(ctx, words, box.width - PAD * 2, 3);
   const wide = Math.max(...lines.map((l) => ctx.measureText(l).width));
   const pill = { width: Math.min(box.width, wide + PAD * 2), height: line * lines.length + PAD };
+  const left = placed(set.align, box.width, pill.width);
+  const top = placed(set.valign, box.height, pill.height);
   ctx.save();
-  ctx.translate((box.width - pill.width) / 2, (box.height - pill.height) / 2);
+  ctx.translate(left, top);
   roundedRect(ctx, pill.width, pill.height, pill.height / 2);
   ctx.fillStyle = alpha(look.face, 0.92);
   ctx.fill();
@@ -699,9 +722,16 @@ export function paintLabel(
     over(look, look.ink, 0.14),
   );
   ctx.restore();
-  ctx.fillStyle = over(look, look.ink, 0.88);
-  ctx.textAlign = "center";
-  paintLines(ctx, lines, box.width / 2, box.height / 2 - (line * lines.length) / 2, line);
+  ctx.fillStyle = style === null ? over(look, look.ink, 0.88) : toneColor(look, style.ink.words);
+  const align = TEXT_ALIGNS[set.align];
+  ctx.textAlign = align;
+  const x =
+    align === "left"
+      ? left + PAD
+      : align === "right"
+        ? left + pill.width - PAD
+        : left + pill.width / 2;
+  paintLines(ctx, lines, x, top + PAD / 2, line);
   ctx.textAlign = "left";
 }
 

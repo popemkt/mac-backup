@@ -3,9 +3,10 @@
  * stands (`faceStands` in `@kb/canvas`) — a sphere's or a cone's, which have
  * no flat top to carry it, and a solid billboard's — drawn as a label square
  * to the camera in front of its body (`frontFrame`), turned again whenever
- * the view turns. A label is its face's words on a pill of card stock
- * (`paintLabel`), repainted only when they or the selection change; it is
- * a look, not a surface: the pointer takes the solid by its body.
+ * the view turns. A label is its face's words on a pill of card stock, set
+ * and inked as its look says (`paintLabel`) and drawn at its look's
+ * opacity, repainted only when they, its look or the selection change; it
+ * is a look, not a surface: the pointer takes the solid by its body.
  */
 import {
   CanvasTexture,
@@ -26,16 +27,16 @@ import {
   frontReach,
   paintOrder,
   type CanvasAxes,
-  type CanvasFont,
   type CanvasFrame,
   type CanvasNode,
 } from "@kb/canvas";
 import { paintPlanes } from "./canvas-camera";
-import { cardFaceOf, faceFont, faceWords, paintLabel, type CardLook } from "./canvas-card-face";
+import { cardFaceOf, faceLook, faceWords, paintLabel, type CardLook } from "./canvas-card-face";
 import type { FacePicture } from "./canvas-face-pictures";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 import { faceDensity } from "./canvas-scene-items";
 import { axesToThree } from "./canvas-scene-space";
+import type { ItemPaint } from "./canvas-style";
 
 interface Label {
   readonly mesh: Mesh;
@@ -43,7 +44,7 @@ interface Label {
   readonly map: ReturnType<typeof texture>;
   canvas: HTMLCanvasElement;
   painted: CanvasTexture;
-  /** What it was painted from: its words, its size and whether it was selected. */
+  /** What it was painted from: its words, its look, its size and whether it was selected. */
   version: string;
   item: CanvasNode;
   /** Its box where it stands (`boxFrame`), read when the document changes, not when the view does. */
@@ -86,10 +87,10 @@ export class LabelLayer {
       label.box = boxFrame(item, z);
       const face = cardFaceOf(item, content.nodes, NO_PICTURE);
       const words = faceWords(face);
-      const font = faceFont(face);
+      const style = faceLook(face);
       const selected = content.selection.nodeIds.has(item.id);
-      const version = `${selected ? "s" : "-"}${item.width}x${item.height}:${font}:${words}`;
-      if (label.version !== version) this.paint(label, { words, font }, selected, version);
+      const version = JSON.stringify([selected, item.width, item.height, style, words]);
+      if (label.version !== version) this.paint(label, { words, style }, selected, version);
       this.orient(label);
     }
     for (const [id, label] of this.labels) {
@@ -103,6 +104,12 @@ export class LabelLayer {
   face(axes: CanvasAxes): void {
     this.axes = axes;
     for (const label of this.labels.values()) this.orient(label);
+  }
+
+  /** Label `id`'s face as painted, and the opacity it is drawn at; null for an item with none. */
+  faceOf(id: string): { canvas: HTMLCanvasElement; opacity: number } | null {
+    const label = this.labels.get(id);
+    return label === undefined ? null : { canvas: label.canvas, opacity: label.material.opacity };
   }
 
   /** Where label `id` is drawn, in three's world: its four corners, clockwise from its top left. */
@@ -153,7 +160,7 @@ export class LabelLayer {
 
   private paint(
     label: Label,
-    { words, font }: { readonly words: string; readonly font: CanvasFont },
+    { words, style }: { readonly words: string; readonly style: ItemPaint | null },
     selected: boolean,
     version: string,
   ): void {
@@ -178,8 +185,10 @@ export class LabelLayer {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, pixelsW, pixelsH);
       ctx.setTransform(density, 0, 0, density, 0, 0);
-      paintLabel(ctx, words, { width, height, selected }, this.look, font);
+      paintLabel(ctx, words, { width, height, selected }, this.look, style);
     }
+    // Its look's opacity, once: the pill's own alpha is in the map.
+    label.material.opacity = style?.opacity ?? 1;
     label.painted.needsUpdate = true;
     label.version = version;
   }

@@ -1453,7 +1453,10 @@ open view of that canvas.
   carry it — a sphere, a cone: its top is then plain, and a label of its
   face's words on a pill of card stock (`paintLabel`) stands square to the
   camera in front of the whole body (`frontFrame`: the box's reach toward
-  the eye; `canvas-scene-labels.ts`). A label is a look, not a surface: the
+  the eye; `canvas-scene-labels.ts`). The label sets its words as its look
+  does in 2D — face, step, alignment across and place up and down, in its
+  words' ink — and is drawn at its look's opacity; the look contract holds
+  it to `itemPaint`. A label is a look, not a surface: the
   solid is picked by its body. Both turn only when the orbit does. In 2D a
   standing face shows as it always did. The inspector's "Face the camera"
   sets `billboard`, and hides the rotation a flat billboard does not draw.

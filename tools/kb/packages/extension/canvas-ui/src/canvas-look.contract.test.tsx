@@ -11,7 +11,9 @@
  * - the face and type step its own words are set in, aligned across the
  *   line and placed up and down its box;
  *
- * for every value of every look, and for each kind's defaults; and an
+ * for every value of every look, and for each kind's defaults; a face that
+ * stands in front of its solid (`faceStands`) as a label sets its words,
+ * inks them and is drawn at its opacity as its look says; and an
  * edge as its route and look say (`edgeRoute`, `edgePaint`, `edgeHead`):
  *
  * - along its route, end to end, never further than a hair from the
@@ -31,6 +33,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   edgeHead,
   edgeRoute,
+  faceStands,
   isPathNode,
   itemOutline,
   outlinePoints,
@@ -190,6 +193,20 @@ const doc: CanvasDoc = {
       height: 90,
       style: { dash: "dashed", size: "l", opacity: 0.6 },
     },
+    // A sphere's face stands in front of it as a label.
+    {
+      id: "globe",
+      type: "shape",
+      shape: "sphere",
+      label: "globe",
+      x: 660,
+      y: 200,
+      width: 140,
+      height: 120,
+      depth: 80,
+      color: "1",
+      style: { size: "l", font: "serif", align: "start", valign: "top", opacity: 0.7 },
+    },
     {
       id: "closed",
       type: "path",
@@ -210,8 +227,12 @@ const doc: CanvasDoc = {
   edges: [],
 };
 
-/** What the look contract reads an item's look by: its own words, or the line it is. */
-const looked = (item: CanvasNode) => ownsWords(item) || isPathNode(item);
+/** What the look contract reads an item's look by: its own words, or the line it is, where it lies. */
+const looked = (item: CanvasNode) => (ownsWords(item) || isPathNode(item)) && !faceStands(item);
+
+/** What a standing face's label carries of its look: its words, their ink, its opacity. */
+const labelled = (look: DrawnLook | null) =>
+  look === null ? null : { words: look.words, ink: look.ink, opacity: look.opacity };
 const selection: CanvasSelection = { nodeIds: new Set(), edgeIds: new Set() };
 const size: ViewSize = { width: 1000, height: 700 };
 const scene = { doc, selection, size, look: PROBE_LOOK };
@@ -388,6 +409,16 @@ describe("canvas look contract", () => {
       const probe = await PROBES[kind](view, scene);
       for (const item of doc.nodes.filter(looked)) {
         expect(probe.paintOf(item.id), item.id).toEqual(modelLook(item));
+      }
+      probe.dispose();
+    });
+
+    it("draws a standing face's words, their ink and its opacity as its look says", async () => {
+      const probe = await PROBES[kind](view, scene);
+      const stood = doc.nodes.filter((item) => ownsWords(item) && faceStands(item));
+      expect(stood.length).toBeGreaterThan(0);
+      for (const item of stood) {
+        expect(labelled(probe.paintOf(item.id)), item.id).toEqual(labelled(modelLook(item)));
       }
       probe.dispose();
     });
