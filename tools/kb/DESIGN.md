@@ -3722,6 +3722,12 @@ its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
 
 ### Gaps
 
+- `// GAP [[01M54DFMDJFYRDM8ZZXQB749PQ]]` (`@kb/code-ui`'s `scripts-host.tsx`).
+  Expected: a control a script draws over its view takes a press, while a
+  press anywhere else reaches the view. Current: the frame lets every
+  gesture pass, so what a script draws over a view is a picture. Closes: the
+  frame tells the page the boxes of what it drew that takes gestures, and
+  the page lets presses through only there.
 - `// GAP [[01M41DKTTRA55RA1KF4QBWQ9MF]]` (`@kb/code`'s `view.ts`). Expected: a
   person promotes a trusted code view to a view type — a `.kb/extensions`
   plugin contributing a `ViewPoint` entry with a key, settings schema and

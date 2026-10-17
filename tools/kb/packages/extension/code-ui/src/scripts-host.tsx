@@ -76,6 +76,7 @@ function RowButton({
 /** What a row needs beyond its script: the view's channels, and the layer over the view its frame lies in. */
 type RowProps = Omit<ScriptHostProps, "subjects"> & { readonly overlay: HTMLElement | null };
 
+// GAP [[01M54DFMDJFYRDM8ZZXQB749PQ]] canvas script overlays take no gestures: the frame lets every one pass
 function ScriptRow({
   subject,
   script,
