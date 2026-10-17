@@ -430,6 +430,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — view nodes (roadmap step 2), then canvas as a view type
 - **node** — `01M3S5DD5W4B3BSZMA6DE8ZVP8`
 
+### GAP: canvas PNG export has no rasteriser
+
+- **expected** — ext.canvas.export {format: png} rasterises the canvas's SVG on the server.
+- **current** — Export writes svg and json-canvas; png is refused with a message pointing to the SVG export and to ui.capture, because no dependency-light SVG rasteriser runs under Bun (none in the catalog; resvg and sharp are native).
+- **impact** — A PNG of a canvas needs an open tab (ui.capture) or an outside conversion.
+- **closes** — A WASM rasteriser in the catalog (e.g. resvg-wasm) behind the same action, or rasterising in the page.
+- **node** — `01M54EPF1QB5MKA6WRK9DF2X1Y`
+
 ### GAP: canvas script overlays take no gestures
 
 - **expected** — A control a script draws over a canvas (a button or an input anchored to an item) can be pressed, while presses anywhere else still reach the canvas under it.
