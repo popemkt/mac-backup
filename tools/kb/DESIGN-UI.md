@@ -655,7 +655,8 @@ reason, and the next edit starts from it.
 **The one node picker.** Every "which node?" in the UI is one engine
 (`lib/picker.ts`: candidates in, ranked rows out; `usePickerKeys`) and one
 list (`components/ui/picker-list.tsx`): the field picker (`FieldPicker`), the
-`[[` completion, the node palette's add-tag, add-field and reference steps,
+`[[` completion, every node-palette step (`PaletteStepPoint`; the outline's
+add-tag, add-field and reference steps among them),
 the ontology page's include/extends, the canvas's "add existing node" and the
 tag page's add-field. A query matches fuzzily (prefix, substring, id, word
 initials, a compact subsequence) and the matched letters are marked; with
@@ -2230,6 +2231,12 @@ the shell.
   - the UI points ([UI points](#ui-points-routes-and-views), [Docks](#docks)),
     `ViewSlot` and `CommandPoint`, a command contributed to the shell's
     palette and node menu;
+  - `PaletteStepPoint` (`ui.palette-steps`), a picker step a node command
+    hands the node palette to (`palette.openStep(id)`, by the contribution's
+    namespaced id): its label, placeholder and icon, its candidates, whether
+    one may be minted, and its write. The outline's own add-tag, add-field
+    and reference steps are its contributions (`outline.add-tag`, …), so a
+    family's steps come and go with it and the palette reads no closed list;
   - the primitives and the design tokens;
   - `BrowserHost`, a kernel service the shell provides. Through it a half
     reaches what it would otherwise take from the shell's stores, actions

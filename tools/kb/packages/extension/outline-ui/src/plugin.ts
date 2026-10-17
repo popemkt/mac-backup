@@ -13,6 +13,7 @@ import {
   FieldEditorService,
   OverlayPoint,
   PageEditorService,
+  PaletteStepPoint,
   PageProjectionService,
   provideRoute,
   provideView,
@@ -25,6 +26,7 @@ import { ListBulletsIcon } from "@phosphor-icons/react";
 import { NodeField } from "./fields-section";
 import { outlineProjection, useOutlineStore } from "./outline.store";
 import { OUTLINE_COMMANDS } from "./outline-commands";
+import { OUTLINE_STEPS } from "./outline-steps";
 
 const { filters } = DEFAULT_VIEW_CONFIG;
 
@@ -62,8 +64,9 @@ const OUTLINE_VIEWS = [
 
 /**
  * The outline: its views, the route to its page at `/`, the Home and Pinned
- * sidebar sections, its expand-all and collapse-all commands, and the page
- * overlay that hosts a frame's filter popover.
+ * sidebar sections, its expand-all and collapse-all commands, its node-palette
+ * steps (add a tag, a field, a reference), and the page overlay that hosts a
+ * frame's filter popover.
  *
  * It reaches the page through the host (its projection and editor read the
  * graph through it), so it injects `BrowserHostService` and applies after the
@@ -113,6 +116,7 @@ export const outlineUiPlugin = definePlugin({
         ...OUTLINE_COMMANDS.map((command) =>
           ctx.contribute(CommandPoint, { id: command.id, value: command }),
         ),
+        ...OUTLINE_STEPS.map((step) => ctx.contribute(PaletteStepPoint, step)),
         ctx.contribute(OverlayPoint, {
           id: "view-filter",
           value: { order: 0, Component: ViewFilterPopoverHost },

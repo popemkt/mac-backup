@@ -1,128 +1,37 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { HashIcon, LinkSimpleIcon, PlusIcon, TextTIcon } from "@phosphor-icons/react";
-import type { WireNode } from "@kb/contracts";
+import { PlusIcon } from "@phosphor-icons/react";
 import {
   asInstance,
   browserHost,
   cn,
   CREATE_ROW_ID,
-  emptyValueForType,
-  nodeCandidates,
-  type NodeCommandStep,
-  type NodeMap,
+  type PaletteStep,
+  PaletteStepPoint,
   type PaletteSurface,
   type PickerCandidate,
   PickerList,
   type PickerRow,
   pickerRows,
-  resolveFieldTypeById,
-  type SchemaIndex,
   schemaOf,
-  SYSTEM_IDS,
+  useContributions,
   useDebugFieldIds,
   usePageGraph,
   usePickerKeys,
 } from "@kb/ui-sdk";
+import type { Contribution } from "@kb/plugin";
 import { useOutlineStore, useOutlineNodes } from "./outline.store";
 
-/** The command list, or one of the pickers a command hands the palette to. */
-type PaletteStep = "commands" | NodeCommandStep;
-
 /**
- * One picker step, whole.
- *
- * Add-tag, add-field and add-ref are the same gesture over different node
- * kinds, and the same gesture as every other node picker (lib/picker): only
- * the candidate *source*, whether a new one may be minted, and the write
- * vary. A reference draws its candidates from `nodeCandidates`, the source
- * the `[[` autocomplete and the field picker share. Keeping them one table
- * over one engine is what stops them drifting into three pickers.
- *
- * `createLabel` absent ⇒ this kind cannot be minted from the picker.
+ * The step `id` names, or null for the command list: a step no family
+ * contributes now (its family switched off) shows the commands.
  */
-interface Picker {
-  placeholder: string;
-  stepLabel: string;
-  icon: React.ReactNode;
-  createLabel?: (name: string) => string;
-  candidates: (graph: PickerGraph) => PickerCandidate[];
-  /** At most this many rows; absent, every match. */
-  limit?: number;
-  commit: (target: PickerTarget) => Promise<void>;
+function stepOf(
+  steps: readonly Contribution<PaletteStep>[],
+  id: string | null,
+): PaletteStep | null {
+  return id === null ? null : (steps.find((step) => step.id === id)?.value ?? null);
 }
-
-interface PickerGraph {
-  nodes: NodeMap;
-  wireNodes: WireNode[];
-  /** The row the palette is anchored to — never its own candidate. */
-  anchorId: string | null;
-}
-
-interface PickerTarget {
-  targetNodeId: string;
-  /** Where field definitions are read from: the whole graph (`lib/schema.ts`). */
-  schema: SchemaIndex;
-  pickedId: string;
-  creating: boolean;
-  name: string;
-}
-
-/** Nodes whose kind slot points at `kind`, by name. */
-function nodesOfKind(wireNodes: WireNode[], kind: string): PickerCandidate[] {
-  return wireNodes
-    .filter((n) => (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === kind))
-    .map((n) => ({ id: n.id, label: n.text || n.id }))
-    .toSorted((a, b) => a.label.localeCompare(b.label));
-}
-
-const PICKERS: Record<NodeCommandStep, Picker> = {
-  "add-tag": {
-    placeholder: "Search or name a tag...",
-    stepLabel: "Add tag",
-    icon: <HashIcon size={12} weight="bold" />,
-    createLabel: (name) => `Create tag "${name}"`,
-    candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.tag),
-    commit: async ({ targetNodeId, pickedId, creating, name }) => {
-      const tagId = creating ? await browserHost().writes.defineTag(name) : pickedId;
-      if (tagId !== null) await browserHost().writes.addTag(targetNodeId, tagId);
-    },
-  },
-  "add-field": {
-    placeholder: "Search or name a field...",
-    stepLabel: "Add field",
-    icon: <TextTIcon size={12} weight="bold" />,
-    createLabel: (name) => `Create field "${name}"`,
-    candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.field),
-    commit: async ({ targetNodeId, schema, pickedId, creating, name }) => {
-      const fieldId = creating ? await browserHost().writes.defineField(name) : pickedId;
-      if (fieldId === null) return;
-      // An empty typed value is what makes the row appear and focusable; the
-      // field's own declared type decides which editor that row gets.
-      await browserHost().writes.updateProp(
-        targetNodeId,
-        fieldId,
-        emptyValueForType(resolveFieldTypeById(fieldId, schema)),
-      );
-    },
-  },
-  "add-ref": {
-    placeholder: "Search for a node to reference...",
-    stepLabel: "Reference a node",
-    icon: <LinkSimpleIcon size={12} weight="bold" />,
-    // A reference to itself is not a reference.
-    candidates: (graph) => nodeCandidates(graph.nodes, { exclude: (id) => id === graph.anchorId }),
-    limit: 12,
-    commit: async ({ targetNodeId, pickedId }) => {
-      // The whole creation gesture, and nothing but existing primitives: point
-      // the target field at the picked node. The field is the kind.
-      await browserHost().writes.updateProp(targetNodeId, SYSTEM_IDS.refTargetField, {
-        t: "ref",
-        v: pickedId,
-      });
-    },
-  },
-};
 
 const COMMANDS_PLACEHOLDER = "Type a command...";
 
@@ -135,12 +44,15 @@ export interface NodeCommandPaletteProps {
  * The node menu: layout over two queries.
  *
  * Which commands a row offers is the host's `nodeCommands`, and what a picker step
- * shows and writes is {@link PICKERS}. This component measures the anchor,
+ * shows and writes is its `PaletteStepPoint` contribution (the outline's own
+ * are `OUTLINE_STEPS`). This component measures the anchor,
  * keeps the highlight, and renders — it decides nothing about the command set
  * (closed gap [[01M1MGCF0ECBDEPTHPKMSQ4YFD]]).
  */
 export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
-  const [step, setStep] = useState<PaletteStep>("commands");
+  // The id of the picker step a command handed the palette to; null, the commands.
+  const [step, setStep] = useState<string | null>(null);
+  const steps = useContributions(PaletteStepPoint);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -174,7 +86,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
 
   useLayoutEffect(() => {
     if (open) {
-      setStep("commands");
+      setStep(null);
       setQuery("");
     }
   }, [open]);
@@ -183,7 +95,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     if (open && anchorRect) inputRef.current?.focus();
   }, [open, anchorRect]);
 
-  const goToStep = (next: PaletteStep) => {
+  const goToStep = (next: string | null) => {
     setStep(next);
     setQuery("");
   };
@@ -197,7 +109,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     { nodeId: targetNodeId, frameId: targetNodeId },
     palette,
   );
-  const picker = step === "commands" ? null : PICKERS[step];
+  const picker = stepOf(steps, step);
 
   // Commands and a picker step's candidates are both rows of the one picker
   // engine: the same matching, the same keys, the same list.
@@ -231,9 +143,9 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const keys = usePickerKeys({
     rows,
     query,
-    scope: step,
+    scope: step ?? "commands",
     onPick: handleSelect,
-    onCancel: () => (picker === null ? onClose() : goToStep("commands")),
+    onCancel: () => (picker === null ? onClose() : goToStep(null)),
   });
 
   useEffect(() => {
@@ -251,7 +163,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
 
   if (!open || !anchorRect || targetNodeId === null) return null;
 
-  const stepLabel = picker?.stepLabel ?? null;
+  const stepLabel = picker?.label ?? null;
 
   return createPortal(
     <>
@@ -276,7 +188,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
             <button
               type="button"
               className="text-caption text-foreground/30 transition-colors hover:text-foreground/50"
-              onClick={() => goToStep("commands")}
+              onClick={() => goToStep(null)}
             >
               Commands
             </button>

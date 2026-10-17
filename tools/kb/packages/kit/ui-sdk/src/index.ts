@@ -72,8 +72,8 @@ export {
 } from "./view-scripts";
 export { ViewScripts } from "./components/view-scripts";
 
-// The UI points: routes, views, sidebar sections, docks, node commands, and
-// the slot one view embeds another through.
+// The UI points: routes, views, sidebar sections, docks, node commands and
+// palette steps, and the slot one view embeds another through.
 export {
   type Command,
   type CommandContext,
@@ -81,8 +81,11 @@ export {
   type CommandTarget,
   nodeAction,
   type NodeCommandListing,
-  type NodeCommandStep,
   type OutlineCommandApi,
+  type PaletteStep,
+  type PaletteStepGraph,
+  type PaletteStepPick,
+  PaletteStepPoint,
   type PaletteSurface,
 } from "./lib/command-point";
 export {

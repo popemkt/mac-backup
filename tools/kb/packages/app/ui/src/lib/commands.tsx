@@ -274,7 +274,7 @@ const NODE_COMMANDS: readonly Command[] = [
     id: "add-tag",
     scope: "node",
     chrome: () => ({ label: "Add tag", icon: <HashIcon size={14} weight="bold" /> }),
-    run: (ctx) => ctx.palette.openStep("add-tag"),
+    run: (ctx) => ctx.palette.openStep("outline.add-tag"),
   },
   {
     id: "turn-query",
@@ -308,13 +308,13 @@ const NODE_COMMANDS: readonly Command[] = [
       const node = targetNode(ctx);
       return node !== undefined && !isContextualRef(node);
     },
-    run: (ctx) => ctx.palette.openStep("add-ref"),
+    run: (ctx) => ctx.palette.openStep("outline.add-ref"),
   },
   {
     id: "add-field",
     scope: "node",
     chrome: () => ({ label: "Add field", icon: <TextTIcon size={14} weight="bold" /> }),
-    run: (ctx) => ctx.palette.openStep("add-field"),
+    run: (ctx) => ctx.palette.openStep("outline.add-field"),
   },
   {
     // Kind slot, not badges: `resolveTags` never emits `sys.tag`, so reading

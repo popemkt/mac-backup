@@ -3,19 +3,19 @@
  * contributes one (DESIGN-UI.md → Extension UI halves). The shell's own
  * commands and the registry over them are `lib/commands.tsx`; a feature's
  * command reaches the palette and the node menu through {@link CommandPoint}
- * and needs nothing else of the shell.
+ * and needs nothing else of the shell. A picker a node command hands the node
+ * palette to is a {@link PaletteStep}, contributed through
+ * {@link PaletteStepPoint} by whichever family owns it.
  */
 import type { ReactNode } from "react";
 import { Point } from "@kb/plugin";
 import type { WireNode } from "@kb/contracts";
 import type { FrameViewKey, LayoutTree } from "@kb/views";
 import type { DesignSystemId, ThemePref, WidthPref } from "./theme";
+import type { PickerCandidate } from "./picker";
+import type { SchemaIndex } from "./schema";
 import type { NodeMap } from "./types";
 import type { FamilyView } from "./view-key";
-
-// GAP [[01M545DBMQA0RGRWZY21HT3XD9]] the outline's mention chip cannot type its reference in place
-/** The picker a node command can hand the palette to. */
-export type NodeCommandStep = "add-tag" | "add-field" | "add-ref";
 
 /** What commands read and drive on the outline store. */
 export interface OutlineCommandApi {
@@ -60,11 +60,53 @@ interface DebugFieldsCommandApi {
   toggle: (nodeId: string) => void;
 }
 
-/** The palette shell a command can dismiss or send to a picker step. */
+/** The palette shell a command can dismiss or send to a picker step, by its contribution's id. */
 export interface PaletteSurface {
   close: () => void;
-  openStep: (step: NodeCommandStep) => void;
+  openStep: (step: string) => void;
 }
+
+/** What a palette step's candidates are drawn from. */
+export interface PaletteStepGraph {
+  readonly nodes: NodeMap;
+  readonly wireNodes: readonly WireNode[];
+  /** The row the palette is anchored to: never its own candidate. */
+  readonly anchorId: string | null;
+}
+
+/** What a palette step's pick writes: the row it is about, and the candidate picked or named. */
+export interface PaletteStepPick {
+  readonly targetNodeId: string;
+  /** Where field definitions are read from: the whole graph (`lib/schema.ts`). */
+  readonly schema: SchemaIndex;
+  readonly pickedId: string;
+  readonly creating: boolean;
+  readonly name: string;
+}
+
+/**
+ * One picker step of the node palette, whole: every step is the same gesture
+ * over one picker engine (`lib/picker`), so only the candidate source,
+ * whether a new one may be minted, and the write vary.
+ */
+export interface PaletteStep {
+  readonly label: string;
+  readonly placeholder: string;
+  readonly icon: ReactNode;
+  /** Absent ⇒ nothing can be minted from the picker. */
+  readonly createLabel?: (name: string) => string;
+  readonly candidates: (graph: PaletteStepGraph) => PickerCandidate[];
+  /** At most this many rows; absent, every match. */
+  readonly limit?: number;
+  readonly commit: (pick: PaletteStepPick) => Promise<void>;
+}
+
+// GAP [[01M545DBMQA0RGRWZY21HT3XD9]] the outline's mention chip cannot type its reference in place
+/**
+ * The node palette's picker steps, by id: a node command opens one with
+ * `palette.openStep(id)`. A family's steps come and go with it.
+ */
+export const PaletteStepPoint = Point<PaletteStep>()("ui.palette-steps");
 
 /**
  * Which node a command is about.
