@@ -15,6 +15,7 @@
 # platform.
 {
   imports = [
+    ./kb
     ./t3-code
     ./vpn
   ];

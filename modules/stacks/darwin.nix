@@ -7,7 +7,7 @@ _:
     ./default.nix
     ./ai-agents
     ./browsers
-    ./kb
+    ./kb/darwin.nix
     ./office-docs.nix
     ./t3-code/darwin.nix
     ./vpn/darwin.nix

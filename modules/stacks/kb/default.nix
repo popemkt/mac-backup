@@ -5,30 +5,27 @@
   ...
 }:
 
+# kb: the repo knowledge-graph CLI, and an optional browser UI serving one
+# graph. This file owns the schema and the CLI, which every platform shares;
+# ./darwin.nix and ./nixos.nix are the platform sides.
 let
   mkStack = import ../mk-stack.nix lib;
   cfg = config.my.stacks.kb;
-  inherit (config.my) username;
 in
 {
-  imports = [
-    ./server.nix
-    ./system-setup.nix
-  ];
-
   options.my.stacks.kb = mkStack {
     description = "Knowledge graph CLI and browser UI";
     componentOptions.server = lib.mkOption {
       default = { };
       description = "A supervised browser UI serving one graph.";
       type = lib.types.submodule (
-        { config, ... }: {
+        { config, ... }:
+        {
           options = {
             enable = lib.mkEnableOption "the kb browser UI service";
             root = lib.mkOption {
               type = lib.types.str;
-              default = "/Users/${username}/.dotfiles";
-              description = "Absolute graph checkout path (containing .kb/).";
+              description = "Absolute graph checkout path (containing .kb/). The platform side defaults it.";
             };
             port = lib.mkOption {
               type = lib.types.port;
