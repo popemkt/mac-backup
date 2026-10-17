@@ -1933,8 +1933,7 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     `ACTORS` in `@kb/model`). A human gesture and the command line act as
     the owner. The CLI runs with the owner's own shell, so whoever runs it
     already holds what the owner holds. An agent and sandboxed code act for
-    the owner and never hold the owner's capabilities. A call that names no
-    actor is code in process, the owner's own. `force`, the override of
+    the owner and never hold the owner's capabilities. `force`, the override of
     the `sys.*` write guard, is the owner's: the invoke core refuses an
     input that sets it from any other caller with `forbidden`, before the
     handler runs and whatever the policies say.

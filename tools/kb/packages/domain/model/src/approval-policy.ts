@@ -30,15 +30,8 @@ export type Actor = (typeof ACTORS)[number];
 type OwnerActor = "human" | "cli";
 const OWNER_ACTORS: ReadonlySet<Actor> = new Set<OwnerActor>(["human", "cli"]);
 
-/**
- * Whether a call by `actor` acts as the owner. A call that names no actor is
- * code running in process, never through a surface, which is the owner's own.
- */
-export function actsAsOwner(actor: Actor | undefined): boolean {
-  return actor === undefined || isOwnerActor(actor);
-}
-
-function isOwnerActor(actor: Actor): actor is OwnerActor {
+/** Whether a call by `actor` acts as the owner: it is the person, or their own command line. */
+export function actsAsOwner(actor: Actor): actor is OwnerActor {
   return OWNER_ACTORS.has(actor);
 }
 
@@ -58,9 +51,8 @@ const DELEGATED: Readonly<Record<Exclude<Actor, OwnerActor>, ApprovalDecision>> 
  * owner's own actors make it as any write, and a caller acting for them as
  * `DELEGATED` says.
  */
-export function delegatedDecision(actor: Actor | undefined): ApprovalDecision {
-  if (actor === undefined || isOwnerActor(actor)) return "allow";
-  return DELEGATED[actor];
+export function delegatedDecision(actor: Actor): ApprovalDecision {
+  return actsAsOwner(actor) ? "allow" : DELEGATED[actor];
 }
 
 /**

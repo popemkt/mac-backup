@@ -76,7 +76,7 @@ function delegatesApproval(mode: ActionMode): boolean {
  * sandboxed code is denied. The family that declares the mode declares the
  * floor; no policy node has to be written for it.
  */
-export function declaredDecision(mode: ActionMode, actor: Actor | undefined): ApprovalDecision {
+export function declaredDecision(mode: ActionMode, actor: Actor): ApprovalDecision {
   const declared = requiresApproval(mode) ? "ask" : "allow";
   if (!delegatesApproval(mode)) return declared;
   return stricterDecision(declared, delegatedDecision(actor));
@@ -93,7 +93,7 @@ export interface ApprovalCall {
     /** The actions it is a batch of, each with its own mode (`batchPartsOf`). */
     readonly batchOf?: readonly BatchPart[] | undefined;
   };
-  readonly actor: Actor | undefined;
+  readonly actor: Actor;
   readonly writes?: readonly NodeWrite[];
   /** How the writes' fields, kinds and named nodes are read: the graph before the commit. */
   readonly nodeOf?: (id: NodeId) => NodeLike | undefined;
@@ -120,8 +120,8 @@ export interface ApprovalResolution {
  * The one resolver: what is decided about a call.
  *
  * - A policy applies when its `match` names the action and its actor is the
- *   call's, or it names no actor. A call that names no actor (one made in
- *   process, never through a surface) meets only the policies for every actor.
+ *   call's, or it names no actor. Every call names its actor
+ *   (`ActionInvocation`).
  * - The most specific policy wins: by its match (the action's own id, then a
  *   pattern by its literal characters, then a mode word, then a bare `*`),
  *   then one naming the actor over one naming none, then the stricter
@@ -180,7 +180,7 @@ function byPolicy(policies: readonly ApprovalPolicy[], call: ApprovalCall): Appr
 function byPolicyAs(
   policies: readonly ApprovalPolicy[],
   action: { readonly id: string; readonly mode: ActionMode },
-  actor: Actor | undefined,
+  actor: Actor,
 ): ApprovalResolution {
   const declared = declaredDecision(action.mode, actor);
   let best: { policy: ApprovalPolicy; rank: readonly number[] } | null = null;

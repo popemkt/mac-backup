@@ -10,6 +10,7 @@ import {
   SYSTEM_IDS,
   approvalPolicyNode,
   extensionNodeId,
+  type Actor,
   type ApprovalPolicy,
   type KbNode,
   type NodeWrite,
@@ -36,13 +37,14 @@ function policy(
   return { id: `p${next}`, match, actor, decision };
 }
 
+/** A call to `id` by `actor`: the owner's own command line where who calls is not the point. */
 const decide = (
   policies: readonly ApprovalPolicy[],
   id: string,
   mode: ActionMode,
-  actor?: ApprovalPolicy["actor"],
+  actor: Actor = "cli",
   writes?: readonly NodeWrite[],
-) => resolveApproval(policies, { action: { id, mode }, actor: actor ?? undefined, writes });
+) => resolveApproval(policies, { action: { id, mode }, actor, writes });
 
 const node = (id: string, props: KbNode["props"] = {}): KbNode => ({
   id,
@@ -85,12 +87,12 @@ describe("resolveApproval", () => {
     expect(decide([policy("every read", "deny")], "node.get", READ).decision).toBe("deny");
   });
 
-  test("a policy naming the actor beats one naming none; a call naming none meets only those", () => {
+  test("a policy naming the actor beats one naming none, and meets only that actor", () => {
     const anyone = policy("node.delete", "allow");
     const agent = policy("node.delete", "ask", "agent");
     expect(decide([anyone, agent], "node.delete", WRITE, "agent").by).toEqual({ policy: agent.id });
     expect(decide([anyone, agent], "node.delete", WRITE, "cli").by).toEqual({ policy: anyone.id });
-    expect(decide([agent], "node.delete", WRITE).by).toBe("mode");
+    expect(decide([agent], "node.delete", WRITE, "cli").by).toBe("mode");
   });
 
   test("two policies that tie decide the stricter, in either order", () => {
@@ -184,10 +186,10 @@ describe("a write to configuration", () => {
       after: node(AGENT, { "sys.f.provider": [{ t: "ref", v: "n.p" }] }),
     },
   };
-  const weigh = (actor: ApprovalPolicy["actor"], write: NodeWrite) =>
+  const weigh = (actor: Actor, write: NodeWrite) =>
     resolveApproval([policy("*", "allow")], {
       action: { id: "node.update", mode: WRITE },
-      actor: actor ?? undefined,
+      actor,
       writes: [write],
       nodeOf: (id) => GRAPH.get(id),
     });
@@ -254,7 +256,7 @@ describe("a write to configuration", () => {
 
   test("is the owner's own to make, and any other write stays the policies'", () => {
     for (const write of Object.values(writes)) {
-      for (const actor of ["human", "cli", null] as const) {
+      for (const actor of ["human", "cli"] as const) {
         expect(weigh(actor, write).decision).toBe("allow");
       }
     }
@@ -277,18 +279,18 @@ describe("a write to configuration", () => {
 
 const OUTSIDE: ActionMode = { kind: "write", outsideRoot: true };
 /** A call to an action that reaches outside its root, by `actor`. */
-function outsideCall(actor: ApprovalPolicy["actor"], mode: ActionMode = OUTSIDE) {
-  return { action: { id: "ext.locations.open", mode }, actor: actor ?? undefined };
+function outsideCall(actor: Actor, mode: ActionMode = OUTSIDE) {
+  return { action: { id: "ext.locations.open", mode }, actor };
 }
 
 describe("a write that reaches outside its root", () => {
   const call = outsideCall;
 
   test("asks an agent, denies sandboxed code, and runs for the owner's own actors", () => {
-    const decided = (["human", "cli", null, "agent", "script"] as const).map(
+    const decided = (["human", "cli", "agent", "script"] as const).map(
       (actor) => resolveApproval([], call(actor)).decision,
     );
-    expect(decided).toEqual(["allow", "allow", "allow", "ask", "deny"]);
+    expect(decided).toEqual(["allow", "allow", "ask", "deny"]);
     expect(
       approvalRefusal(resolveApproval([], call("script")), { id: "x", input: {}, actor: "script" }),
     ).toMatchObject({ code: "forbidden" });
@@ -314,12 +316,12 @@ describe("a write whose mode delegates its approval", () => {
   const delegated: ActionMode = { kind: "write", approval: "delegated" };
 
   test("asks an agent, denies sandboxed code, and runs for the owner's own actors, as reaching outside does", () => {
-    const decided = (["human", "cli", null, "agent", "script"] as const).map(
+    const decided = (["human", "cli", "agent", "script"] as const).map(
       (actor) => resolveApproval([], outsideCall(actor, delegated)).decision,
     );
-    expect(decided).toEqual(["allow", "allow", "allow", "ask", "deny"]);
+    expect(decided).toEqual(["allow", "allow", "ask", "deny"]);
     expect(decided).toEqual(
-      (["human", "cli", null, "agent", "script"] as const).map(
+      (["human", "cli", "agent", "script"] as const).map(
         (actor) => resolveApproval([], outsideCall(actor)).decision,
       ),
     );
@@ -383,10 +385,10 @@ describe("listedOn", () => {
 });
 
 describe("a batch is decided as the actions it is a batch of", () => {
-  const batch = (policies: readonly ApprovalPolicy[], actor?: ApprovalPolicy["actor"]) =>
+  const batch = (policies: readonly ApprovalPolicy[], actor: Actor = "cli") =>
     resolveApproval(policies, {
       action: { id: "node.addTree", mode: WRITE, batchOf: [{ id: "node.add", mode: WRITE }] },
-      actor: actor ?? undefined,
+      actor,
     });
 
   test("a policy on a batched action governs the batch, by that policy", () => {

@@ -65,7 +65,10 @@ export const kbManifestEffect = Effect.fn("kb.manifest")(function* (): Effect.fn
   ActionCatalog | ExtensionCatalog | KbCtx | ViewCatalog
 > {
   const ctx = yield* KbCtx;
-  const actor = (yield* CurrentCall)?.invocation.actor;
+  // What it decides is about the call it answers, and the invoke core runs every handler in one.
+  const call = yield* CurrentCall;
+  if (call === null) return yield* Effect.die("kb.manifest runs only as an action's handler");
+  const { actor } = call.invocation;
   const actions = (yield* ActionCatalog).map((entry) => ({
     ...entry,
     decision: decide(ctx, { action: entry, actor }).decision,
