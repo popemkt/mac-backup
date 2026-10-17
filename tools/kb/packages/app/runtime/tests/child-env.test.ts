@@ -1,8 +1,8 @@
 /**
  * What a process kb starts is given of this one's environment (`child-env.ts`):
  * a kb child gets the base and kb's own settings, never a key; a lookup gets
- * the base and the session bus; an agent runtime the base and its network,
- * and a key only where the code it runs declares it reads one; the person's own tool gets everything; and
+ * the base and the session bus; an agent runtime the base and only what its
+ * adapter declares the runtime reads; the person's own tool gets everything; and
  * an override always lands.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -48,16 +48,19 @@ describe("a child process's environment", () => {
     expect(env.KB_HOME).toBeUndefined();
   });
 
-  test("an agent runtime gets the base and its network, and a key only where its code declares it", () => {
+  test("an agent runtime gets the base, and only what its adapter declares the runtime reads", () => {
     const env = childProcessEnv("agent");
-    expect(env).toMatchObject({ HTTPS_PROXY: "http://proxy:3128", XDG_DATA_HOME: "/tmp/data" });
     expect(env.PATH).toBeDefined();
-    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
-    expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
-    expect(env.KB_HOME).toBeUndefined();
-    const declared = childProcessEnv("agent", {}, ["ANTHROPIC_API_KEY"]);
-    expect(declared.ANTHROPIC_API_KEY).toBe("sk-secret");
-    expect(declared.AWS_SECRET_ACCESS_KEY).toBeUndefined();
+    expect(env.LC_ALL).toBe("C");
+    for (const name of ["HTTPS_PROXY", "XDG_DATA_HOME", "ANTHROPIC_API_KEY", "KB_HOME"]) {
+      expect(env[name], name).toBeUndefined();
+    }
+    const declared = childProcessEnv("agent", {}, ["HTTPS_PROXY", "ANTHROPIC_API_KEY"]);
+    expect(declared).toMatchObject({
+      HTTPS_PROXY: "http://proxy:3128",
+      ANTHROPIC_API_KEY: "sk-secret",
+    });
+    expect(declared.XDG_DATA_HOME).toBeUndefined();
   });
 
   test("the person's own tool gets the whole environment", () => {

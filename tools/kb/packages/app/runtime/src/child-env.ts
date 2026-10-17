@@ -13,11 +13,11 @@
  * - `lookup`: a keychain or secret-service lookup. The base, and the session
  *   bus the freedesktop secret service answers on.
  * - `agent`: the agent runtime kb hosts for the person (Claude Code, under
- *   the sidebar agent). The base, where it keeps its state (`XDG_*`,
- *   `CLAUDE_CONFIG_DIR`), and the network it reaches through (proxies and
- *   certificates). No key of this process's reaches it unless its adapter
- *   declares it: a person's own login is the adapter's to name (`declared`),
- *   and the adapter's to pass on only to a provider that uses that login.
+ *   the sidebar agent). The base, and what its adapter declares the runtime
+ *   reads (`declared`: where it keeps its state, the network it reaches
+ *   through, the person's login), and nothing else: the person's own login
+ *   is the adapter's to name, and the adapter's to pass on only to a
+ *   provider that uses that login.
  * - `tool`: the person's own developer tool kb runs for them (Vite, under
  *   `kb ui --dev`), which runs as their shell would: the whole environment.
  */
@@ -35,18 +35,7 @@ const KEEPS: Readonly<
     names: [...BASE, "DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"],
     prefixes: BASE_PREFIXES,
   },
-  agent: {
-    names: [
-      ...BASE,
-      "HTTP_PROXY",
-      "HTTPS_PROXY",
-      "NO_PROXY",
-      "NODE_EXTRA_CA_CERTS",
-      "SSL_CERT_FILE",
-      "CLAUDE_CONFIG_DIR",
-    ],
-    prefixes: [...BASE_PREFIXES, "XDG_"],
-  },
+  agent: { names: BASE, prefixes: BASE_PREFIXES },
 };
 
 /**

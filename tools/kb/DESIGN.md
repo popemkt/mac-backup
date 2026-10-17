@@ -3446,19 +3446,22 @@ The sidebar agent lives outside core, in packages that core never imports
     is what kb gives an agent runtime (`childProcessEnv("agent")`, the one
     owner of a child's environment, handed over by the composition root):
     what a process needs to run (paths, user, locale, temporary
-    directory, terminal, proxy and CA settings, `XDG_*`,
-    `CLAUDE_CONFIG_DIR`), and the person's Claude login only because the
-    adapter declares it reads it (`CLAUDE_LOGIN_VARIABLES`, kept as
-    `declared`). The adapter passes on the login variables only while the
+    directory, terminal), and what the adapter declares Claude Code reads
+    (`CLAUDE_VARIABLES`, kept as `declared`: proxy and CA settings, the
+    `XDG_*` directories, `CLAUDE_CONFIG_DIR`, and the person's Claude
+    login), nothing else. The adapter passes on the login variables only while the
     provider names neither an endpoint nor a key. With either named, it
     holds exactly what the provider names. So no key the owner keeps in
     the `kb ui` environment reaches Claude Code, and a key goes only to
     the endpoint the provider names or to Claude's default. Which endpoint
     that is, is the owner's: a provider's binding runs only once a person
     trusted it here (providers, above).
-  - It uses the provider's `executable`, else the `claude` on PATH.
-    Failing that, it uses the SDK's bundled binary, which only a
-    checkout's `node_modules` holds.
+  - It uses the provider's `executable`, which a person trusted with its
+    binding, else the `claude` the runtime's `PATH` finds: the person's
+    own, as their shell's is, except that one inside the root is the
+    root's, so the turn fails rather than run it. Failing both, it uses
+    the SDK's bundled binary, which only a checkout's `node_modules`
+    holds.
   - The model's only tools are the turn's, served by an in-process MCP
     server built for each turn. They have the names, hints and results
     of `kb mcp` (`mcp-tool.ts` in contracts), and none is deferred behind

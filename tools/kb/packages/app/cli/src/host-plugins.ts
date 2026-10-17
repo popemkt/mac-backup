@@ -21,11 +21,11 @@ import { childProcessEnv, systemSecrets } from "@kb/runtime";
 export const hostAgentAdapters = Effect.fn("kb.cli.hostAgentAdapters")(function* (
   root: string,
 ): Effect.fn.Return<readonly AgentAdapter[]> {
-  const [{ CLAUDE_LOGIN_VARIABLES, claudeAdapter }, { openAiChatAdapter }] = yield* Effect.promise(
-    () => Promise.all([import("@kb/agent-claude"), import("@kb/agent-openai")]),
+  const [{ CLAUDE_VARIABLES, claudeAdapter }, { openAiChatAdapter }] = yield* Effect.promise(() =>
+    Promise.all([import("@kb/agent-claude"), import("@kb/agent-openai")]),
   );
   // Claude Code's environment is an agent's, with the person's login it declares it reads.
-  const env = childProcessEnv("agent", {}, CLAUDE_LOGIN_VARIABLES);
+  const env = childProcessEnv("agent", {}, CLAUDE_VARIABLES);
   return [claudeAdapter({ cwd: root, env }), openAiChatAdapter()];
 });
 

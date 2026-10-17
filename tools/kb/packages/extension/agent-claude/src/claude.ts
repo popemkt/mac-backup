@@ -1,3 +1,5 @@
+import { realpathSync } from "node:fs";
+import { sep } from "node:path";
 import { Effect, Stream } from "effect";
 import type { Options, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import {
@@ -134,10 +136,33 @@ function abortingFirst<A>(messages: AsyncIterable<A>, abort: AbortController): A
   };
 }
 
-/** The `claude` this machine runs, unless the caller named one. */
-function executableFor(options: ClaudeRuntimeOptions): string | undefined {
-  return options.executable ?? Bun.which("claude") ?? undefined;
+/** `path`'s real path, or `path` when it has none. */
+function real(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
 }
+
+/**
+ * The `claude` a turn runs: the provider's, which a person trusted with its
+ * binding, or the one the person's own `PATH` finds (the one the runtime
+ * is started with, of this process's environment). `PATH` is theirs, as
+ * their shell's is, but a `claude` it finds inside the root is the root's,
+ * and a root someone else wrote may carry one, so that one never runs.
+ */
+const executableFor = Effect.fn("kb.agent.claude.executable")(function* (
+  options: ClaudeRuntimeOptions,
+): Effect.fn.Return<string | undefined, AgentRuntimeError> {
+  if (options.executable !== undefined) return options.executable;
+  const found = Bun.which("claude", { PATH: options.inherited.PATH ?? "" });
+  if (found === null) return undefined;
+  if (!real(found).startsWith(`${real(options.cwd)}${sep}`)) return found;
+  return yield* new AgentRuntimeError({
+    message: `The claude on PATH is inside this root (${found}); name the executable on a provider instead.`,
+  });
+});
 
 /** A process environment, as `process.env` reads. */
 type Environment = Readonly<Record<string, string | undefined>>;
@@ -147,11 +172,31 @@ type Environment = Readonly<Record<string, string | undefined>>;
  * Code. They pass only to a Claude Code whose provider names neither an
  * endpoint nor a key, which is that same login.
  */
-export const CLAUDE_LOGIN_VARIABLES = [
+const CLAUDE_LOGIN_VARIABLES = [
   "ANTHROPIC_API_KEY",
   "ANTHROPIC_AUTH_TOKEN",
   "CLAUDE_CODE_OAUTH_TOKEN",
   "ANTHROPIC_BASE_URL",
+] as const;
+
+/**
+ * What Claude Code reads of the environment it is started in: where it
+ * keeps its state, the network it reaches through, and the person's login.
+ * kb's child environment keeps these of its own process for the agent
+ * runtime, and nothing else of its own beyond what any program needs.
+ */
+export const CLAUDE_VARIABLES = [
+  "CLAUDE_CONFIG_DIR",
+  "XDG_CONFIG_HOME",
+  "XDG_CACHE_HOME",
+  "XDG_DATA_HOME",
+  "XDG_STATE_HOME",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "NO_PROXY",
+  "NODE_EXTRA_CA_CERTS",
+  "SSL_CERT_FILE",
+  ...CLAUDE_LOGIN_VARIABLES,
 ] as const;
 
 /** `inherited`'s set variables, without `names`. */
@@ -190,8 +235,8 @@ function queryOptions(
   turn: AgentTurn,
   abort: AbortController,
   key: string | undefined,
+  executable: string | undefined,
 ): Options {
-  const executable = executableFor(options);
   return {
     cwd: options.cwd,
     env: environmentFor(options.inherited, options.endpoint, key),
@@ -230,6 +275,7 @@ function claudeRuntime(options: ClaudeRuntimeOptions): AgentRuntime {
         Effect.gen(function* () {
           const query = options.query ?? (yield* sdkQuery);
           const key = options.key === undefined ? undefined : yield* options.key;
+          const executable = yield* executableFor(options);
           // Aborted when the stream ends for any reason, a cancel included:
           // Claude Code stops, and so does any call still running.
           const abort = yield* Effect.acquireRelease(
@@ -239,7 +285,7 @@ function claudeRuntime(options: ClaudeRuntimeOptions): AgentRuntime {
           const messages = abortingFirst(
             query({
               prompt: userTurnText(turn.message),
-              options: queryOptions(options, turn, abort, key),
+              options: queryOptions(options, turn, abort, key, executable),
             }),
             abort,
           );

@@ -7,6 +7,9 @@
  * Claude login only while the provider names neither an endpoint nor a key.
  */
 import { describe, expect, test } from "bun:test";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Effect, Stream } from "effect";
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import { DEFAULT_PROVIDER, type ProviderConfig } from "@kb/agent";
@@ -32,13 +35,17 @@ const INHERITED = {
   ANTHROPIC_BASE_URL: "https://gateway.example",
 };
 
-function startedWith(provider: ProviderConfig, secrets: SecretSource = SECRETS) {
+function startedWith(
+  provider: ProviderConfig,
+  secrets: SecretSource = SECRETS,
+  { cwd = "/kb", env = INHERITED }: { cwd?: string; env?: typeof INHERITED } = {},
+) {
   const seen: Options[] = [];
   const query: ClaudeQuery = ({ options }) => {
     seen.push(options);
     return (async function* () {})();
   };
-  const runtime = claudeAdapter({ cwd: "/kb", query, env: INHERITED }).runtime(provider, secrets);
+  const runtime = claudeAdapter({ cwd, query, env }).runtime(provider, secrets);
   const turn = runtime.turn({
     system: "",
     message: { text: "hi", screen: null },
@@ -110,5 +117,21 @@ describe("the claude-agent-sdk adapter", () => {
     );
     expect(options).toBeUndefined();
     expect(failure).toBe("the environment variable PROXY_KEY: this process reads no keys");
+  });
+
+  test("a claude the person's PATH finds inside the root never runs", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-claude-root-"));
+    const bin = join(root, "bin");
+    await mkdir(bin);
+    await writeFile(join(bin, "claude"), "#!/bin/sh\n");
+    await chmod(join(bin, "claude"), 0o755);
+    try {
+      const env = { ...INHERITED, PATH: `${bin}:/usr/bin` };
+      const { failure, options } = await startedWith(DEFAULT_PROVIDER, SECRETS, { cwd: root, env });
+      expect(options).toBeUndefined();
+      expect(failure).toContain("The claude on PATH is inside this root");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
