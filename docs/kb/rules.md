@@ -904,14 +904,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — shear in the item record
 - **node** — `01M41W5655T0R7791KKJM4WYB2`
 
-### GAP: scripts cannot be attached to existing views
-
-- **expected** — a #script node attached to a view adds behaviour to it (overlays, reacting to the view's own events), run through the same sandbox
-- **current** — only code views run; views declare no events or overlay anchors
-- **impact** — hover panels, auto-layout and 'drop in column X sets status' (decision 5) cannot be scripted
-- **closes** — views declare their events and overlay anchors, an overlay frame, and a sys.f.scripts view setting
-- **node** — `01M41DKTE1T51M031N231VGQJR`
-
 ### GAP: search is a substring scan, no text index
 
 - **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.
@@ -1239,15 +1231,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Secondary labels, hints and counts set in translucent foreground can sit below AA in any design system without anything going red.
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
-
-### GAP: two definitions of which node is a canvas
-
-- **expected** — One reader decides whether a node is a canvas (sys.tag.canvas), and every writer and reader asks it.
-- **current** — ext-canvas write.ts assertCanvasHost also accepts a user tag whose text is "canvas", while canvasWorld and the canvas list accept only sys.tag.canvas.
-- **impact** — A write can succeed on a node the canvas list and world do not treat as a canvas.
-- **closes** — assertCanvasHost reads the one canvas predicate @kb/canvas exports; the user-tag fallback goes.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M5486ZYQCASYPS01PSVTCAH2`
 
 ### GAP: two launch paths for the kb binary
 
@@ -1784,6 +1767,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Make the virtual set a logged transaction: watch .kb/queries/ alongside .kb/nodes.jsonl, diff savedQueryNodes() across the change, and append it — or drop withVirtual and materialise saved queries as ordinary stored nodes.
 - **node** — `01M1QZNBFSTCM9V7DZT1XWEY2N`
 
+### GAP: scripts cannot be attached to existing views
+
+- **expected** — a #script node attached to a view adds behaviour to it (overlays, reacting to the view's own events), run through the same sandbox
+- **current** — only code views run; views declare no events or overlay anchors
+- **impact** — hover panels, auto-layout and 'drop in column X sets status' (decision 5) cannot be scripted
+- **closes** — views declare their events and overlay anchors, an overlay frame, and a sys.f.scripts view setting
+- **node** — `01M41DKTE1T51M031N231VGQJR`
+
 ### GAP: seven terminal .then callbacks disable promise/always-return
 
 - **expected** — promise/always-return runs with ignoreLastCallback:true, so the rule guards mid-chain callbacks (where a missing return really does break the chain) and says nothing about a terminal fire-and-forget callback.
@@ -2043,6 +2034,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Four pinpoint disables, and a port shaped so only one listener per event can ever exist. Today that is true by construction (the client owns the socket), which is why this is deferred rather than wrong.
 - **closes** — Widen WsLike to {addEventListener, removeEventListener, send, close} and update every injected fake (api/live.test.ts and the ws tests). That is a test-double contract change across the package, not a mechanical edit, so it needs its own commit.
 - **node** — `01M1MHKS8EV3DD378TZSX44EJG`
+
+### GAP: two definitions of which node is a canvas
+
+- **expected** — One reader decides whether a node is a canvas (sys.tag.canvas), and every writer and reader asks it.
+- **current** — ext-canvas write.ts assertCanvasHost also accepts a user tag whose text is "canvas", while canvasWorld and the canvas list accept only sys.tag.canvas.
+- **impact** — A write can succeed on a node the canvas list and world do not treat as a canvas.
+- **closes** — assertCanvasHost reads the one canvas predicate @kb/canvas exports; the user-tag fallback goes.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M5486ZYQCASYPS01PSVTCAH2`
 
 ### GAP: two outline components run DataScript through ds/ directly
 
