@@ -21,11 +21,14 @@ export const GRADIENT_BACKDROP: SeedBackdrop = { id: "backdrops.gradient", label
 /** Bats against a moon glow by night, swallows against a sun glow by day: the open sky. */
 export const SKY_BACKDROP: SeedBackdrop = { id: "backdrops.sky", label: "Sky" };
 
+/** A house with bats hanging under its eaves: asleep by day, stirring and flying at night. */
+export const ROOST_BACKDROP: SeedBackdrop = { id: "backdrops.roost", label: "Roost" };
+
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
   optional: { byDefault: "on" },
-  backdrops: [UNICORN_BACKDROP, GRADIENT_BACKDROP, SKY_BACKDROP],
+  backdrops: [UNICORN_BACKDROP, GRADIENT_BACKDROP, SKY_BACKDROP, ROOST_BACKDROP],
 });
 
 /** The backdrops family's shared plugin: its declaration's, on either host. */

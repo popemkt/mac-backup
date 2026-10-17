@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import {
   GRADIENT_BACKDROP,
+  ROOST_BACKDROP,
   SKY_BACKDROP,
   UNICORN_BACKDROP,
   backdropsExtension,
@@ -9,6 +10,7 @@ import {
 import { definePlugin } from "@kb/plugin";
 import { BACKDROP_DIRECTIONS } from "@kb/model";
 import { BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
+import { RoostBackdrop } from "./roost/roost-backdrop";
 import { SkyBackdrop } from "./sky/sky-backdrop";
 import { GradientBackdrop } from "./tint-backdrop";
 import { UnicornWashBackdrop } from "./unicorn-backdrop";
@@ -53,6 +55,19 @@ const sky: Omit<Backdrop, "key"> = {
   Component: SkyBackdrop,
 };
 
+/** The house with its bats: a taller frame, so the eave has the wall and the sky below it. */
+const roost: Omit<Backdrop, "key"> = {
+  presentation: {
+    space: 140,
+    directions: BACKDROP_DIRECTIONS,
+    height: 380,
+    maxWidth: 1040,
+    offset: -10,
+    opacity: { subtle: 0.62, soft: 0.84, vivid: 1 },
+  },
+  Component: RoostBackdrop,
+};
+
 /**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
@@ -67,6 +82,7 @@ export const backdropsUiPlugin = definePlugin({
         ctx.contribute(BackdropPoint, provideBackdrop(UNICORN_BACKDROP, unicorn)),
         ctx.contribute(BackdropPoint, provideBackdrop(GRADIENT_BACKDROP, gradient)),
         ctx.contribute(BackdropPoint, provideBackdrop(SKY_BACKDROP, sky)),
+        ctx.contribute(BackdropPoint, provideBackdrop(ROOST_BACKDROP, roost)),
       ],
       { discard: true },
     ),

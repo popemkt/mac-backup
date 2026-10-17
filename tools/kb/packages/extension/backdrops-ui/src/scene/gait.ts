@@ -4,7 +4,7 @@
  * the up-stroke; between beats a flier may glide with its wings held. All of
  * it is a continuous function of phase and glide, so the pose never jumps.
  */
-import { lerp, smoothstep, TAU } from "./math.ts";
+import { clamp01, lerp, smoothstep, TAU } from "./math.ts";
 
 /** The down-stroke is quicker than the recovery. */
 const SKEW = 0.07;
@@ -86,3 +86,29 @@ export const SWALLOW_GAIT: Gait = {
   spreadUp: 0.85,
   bendGain: 0.5,
 };
+
+/** `from` toward `to`: the pose of a wing between two states, for a bat that is letting go or taking hold. */
+export function blendWing(from: WingState, to: WingState, t: number): WingState {
+  return {
+    beat: lerp(from.beat, to.beat, t),
+    bend: lerp(from.bend, to.bend, t),
+    sweep: lerp(from.sweep, to.sweep, t),
+    spread: lerp(from.spread, to.spread, t),
+  };
+}
+
+/**
+ * A bat at rest, hanging: the wings brought down and round the body like a
+ * cloak (`wrap` 1) or let out a little (`wrap` 0); `stretch` unfolds one
+ * wing's worth of arm for a stretch. It is a pose of the flying figure, so
+ * letting go and taking hold are the same wing at every point between.
+ */
+export function hangState(wrap: number, stretch: number): WingState {
+  const tight = clamp01(wrap);
+  return {
+    beat: lerp(-1.2, -1.7, tight) + stretch * 2.6,
+    bend: 0,
+    sweep: lerp(-0.8, -1.35, tight) + stretch * 1.7,
+    spread: lerp(0.65, 0.3, tight) + stretch * 0.7,
+  };
+}

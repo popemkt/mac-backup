@@ -115,7 +115,7 @@ function drawEyes(
 }
 
 /** What paints a figure besides where it is: who it is, how far, how awake its eyes are. */
-interface Bearing {
+export interface Bearing {
   readonly bat: boolean;
   readonly depth: number;
   /** 0 side-on … 1 head-on. */
@@ -125,7 +125,7 @@ interface Bearing {
 }
 
 /** A figure at a placement, in the page's tone, edged by the glow, with a bat's eyes by night. */
-function paintFigure(
+export function paintFigure(
   ctx: CanvasRenderingContext2D,
   figure: Figure,
   at: Placement,
@@ -133,7 +133,7 @@ function paintFigure(
   bearing: Bearing,
 ): void {
   drawFigure(ctx, figure, at, inkOf(bearing.depth, at, lit), lit.dpr);
-  if (bearing.bat && lit.palette.dark) drawEyes(ctx, figure, at, lit, bearing);
+  if (bearing.bat) drawEyes(ctx, figure, at, lit, bearing);
   ctx.globalAlpha = 1;
 }
 

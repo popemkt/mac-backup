@@ -55,7 +55,11 @@ export type Task =
   | { readonly kind: "free" }
   | { readonly kind: "chase"; readonly target: number; readonly until: number }
   | { readonly kind: "evade"; readonly until: number }
-  | { readonly kind: "join"; readonly until: number };
+  | { readonly kind: "join"; readonly until: number }
+  /** Head for a place and slow to arrive at it: a bat returning to its perch. */
+  | { readonly kind: "perch"; readonly x: number; readonly y: number; readonly until: number }
+  /** Cross the frame in a line, past the edges, ignoring the walls: a swallow darting by. */
+  | { readonly kind: "cross"; readonly dir: 1 | -1; readonly until: number };
 
 export const FREE: Task = { kind: "free" };
 

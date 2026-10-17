@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BAT_GAIT, SWALLOW_GAIT, cycleAt, wingState } from "./gait";
+import { BAT_GAIT, SWALLOW_GAIT, blendWing, cycleAt, hangState, wingState } from "./gait";
 
 describe("cycleAt", () => {
   it("is periodic and stays in range", () => {
@@ -47,5 +47,39 @@ describe("wingState", () => {
     const glide = wingState(SWALLOW_GAIT, cycleAt(0.7), 1);
     expect(glide.beat).toBeCloseTo(SWALLOW_GAIT.glideBeat, 6);
     expect(glide.sweep).toBeCloseTo(SWALLOW_GAIT.sweepGlide, 6);
+  });
+});
+
+describe("hanging", () => {
+  it("wraps the wings forward round the body, tighter the more it wraps", () => {
+    const loose = hangState(0, 0);
+    const tight = hangState(1, 0);
+    expect(tight.sweep).toBeLessThan(loose.sweep);
+    expect(tight.spread).toBeLessThan(loose.spread);
+    expect(tight.beat).toBeLessThan(loose.beat);
+  });
+
+  it("a stretch lifts the wing out of its wrap and back, continuously", () => {
+    const rest = hangState(1, 0);
+    const out = hangState(1, 1);
+    expect(out.beat).toBeGreaterThan(rest.beat + 1);
+    let last = hangState(1, 0).beat;
+    for (let s = 0.05; s <= 1.0001; s += 0.05) {
+      const now = hangState(1, s).beat;
+      expect(now).toBeGreaterThan(last);
+      last = now;
+    }
+  });
+
+  it("letting go is a blend of one wing: the ends are the two poses, the middle between", () => {
+    const fly = wingState(BAT_GAIT, cycleAt(0.3), 0);
+    const hang = hangState(1, 0);
+    expect(blendWing(fly, hang, 0)).toEqual(fly);
+    const end = blendWing(fly, hang, 1);
+    expect(end.beat).toBeCloseTo(hang.beat, 9);
+    expect(end.sweep).toBeCloseTo(hang.sweep, 9);
+    expect(end.spread).toBeCloseTo(hang.spread, 9);
+    const half = blendWing(fly, hang, 0.5);
+    expect(half.beat).toBeCloseTo((fly.beat + hang.beat) / 2, 9);
   });
 });

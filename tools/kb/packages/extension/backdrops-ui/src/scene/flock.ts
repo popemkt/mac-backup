@@ -154,6 +154,17 @@ function taskVelocity(self: Flier, others: readonly Flier[], air: Air, pace: num
     const d = Math.hypot(dx, dy) || 1;
     return { x: (dx / d) * self.cruise * 1.7 * pace, y: (dy / d) * self.cruise * 1.7 * pace };
   }
+  if (task.kind === "perch") {
+    const dx = task.x - self.x;
+    const dy = task.y - self.y;
+    const d = Math.hypot(dx, dy) || 1;
+    // Slow as it nears, so it arrives rather than overshoots.
+    const speed = Math.min(self.cruise * 1.3, 30 + d * 1.8) * pace;
+    return { x: (dx / d) * speed, y: (dy / d) * speed };
+  }
+  if (task.kind === "cross") {
+    return { x: task.dir * self.cruise * 2 * pace, y: Math.sin(air.time * 2.3 + self.clock) * 14 };
+  }
   return null;
 }
 
@@ -166,7 +177,7 @@ function fly(self: Flier, others: readonly Flier[], air: Air, dt: number, reacti
     : (taskVelocity(self, others, air, pace) ?? desiredVelocity(self, air, pace, reactions));
   const near = neighbourPush(self, others, self.size * 3.4, 1 + 3.5 * reactions.ripple);
   const scare = pointerPush(self, reactions);
-  const wall = self.leaving ? ZERO : edgePush(self, air.arena);
+  const wall = self.leaving || self.task.kind === "cross" ? ZERO : edgePush(self, air.arena);
   const responsive = 1.5 - 0.5 * reactions.calm;
   self.vx += ((want.x - self.vx) * responsive + near.x + scare.x + wall.x) * dt;
   self.vy += ((want.y - self.vy) * responsive + near.y + scare.y + wall.y) * dt;

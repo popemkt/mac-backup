@@ -123,3 +123,48 @@ describe("flight", () => {
       expect(Math.abs((seen[i] ?? 0) - (seen[i - 1] ?? 0))).toBeLessThan(0.2);
   });
 });
+
+describe("tasks", () => {
+  it("a perching flier slows as it nears its place and arrives rather than passes", () => {
+    const { fliers, rng } = flock(11);
+    const f = fliers[0];
+    if (f === undefined) throw new Error("no flier");
+    f.x = 200;
+    f.y = 200;
+    f.vx = 0;
+    f.vy = 0;
+    const reactions = startReactions();
+    f.task = { kind: "perch", x: 420, y: 150, until: 99 };
+    let closest = Infinity;
+    let slowest = Infinity;
+    for (let t = 0; t < 12; t += 1 / 60) {
+      reactions.update(1 / 60);
+      stepFliers([f], { ...AIR, time: t }, 1 / 60, reactions, rng);
+      const d = Math.hypot(f.x - 420, f.y - 150);
+      if (d < closest) {
+        closest = d;
+        slowest = Math.hypot(f.vx, f.vy);
+      }
+    }
+    expect(closest).toBeLessThan(20);
+    expect(slowest).toBeLessThan(f.cruise * 1.1);
+  });
+
+  it("a crossing flier goes straight across the frame and out, whatever the walls", () => {
+    const { fliers, rng } = flock(12);
+    const f = fliers[0];
+    if (f === undefined) throw new Error("no flier");
+    f.x = -50;
+    f.y = 150;
+    f.vx = f.cruise * 2;
+    f.vy = 0;
+    f.task = { kind: "cross", dir: 1, until: 99 };
+    const reactions = startReactions();
+    for (let t = 0; t < 12 && f.x < 1100; t += 1 / 60) {
+      reactions.update(1 / 60);
+      stepFliers([f], { ...AIR, time: t }, 1 / 60, reactions, rng);
+      expect(f.vx).toBeGreaterThan(0);
+    }
+    expect(f.x).toBeGreaterThan(1000);
+  });
+});

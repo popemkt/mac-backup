@@ -2768,7 +2768,10 @@ exist is a plugin point, and the kit names none of them.
     direction and no feather, so it is not masked twice;
   - `backdrops.sky` is the open sky: bats against a moon glow by night,
     swallows against a sun glow by day, one backdrop with two moods, which
-    it reads from the page's appearance (see **2D scenes** below).
+    it reads from the page's appearance (see **2D scenes** below);
+  - `backdrops.roost` is a house with a long overhang and bats hanging under
+    its eave, with the sun or moon behind them: asleep by day, stirring and
+    flying at night.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
@@ -2842,6 +2845,25 @@ Sky (and Roost) are compositions over one scene kit, `@kb/backdrops-ui`'s
 - **Reactions** are eased signals (`reactions.ts`): the pointer scatters
   fliers locally and they regather; typing calms the scene; a write is a
   small stir (none while typing); a move to another page re-forms the flock.
+
+Roost is the same kit with another layout:
+
+- **The house is the light's silhouette.** Roof, post, brace and the
+  wall's right edge are the page's tone, so they are drawn by the glow that
+  sits under the overhang (wide and low, `GlowSpec.squash`). The wall
+  dissolves downward, so nothing has a foot. By night one window glows warm;
+  `direction` raises the eave (`down`) or lowers it (`up`).
+- **Hanging is a pose of the flying wing** (`hangState`, blended by `hold`
+  with the flight pose), so letting go and taking hold are one body at every
+  point between. A bat is asleep wrapped in its wings, breathing, and now and
+  then stretches, shuffles along the beam, or re-wraps; by night some keep a
+  watch with open eyes, and some peel off, circle the house and return to
+  the same perch (`perch` task: it slows to arrive). By day a bat rarely
+  drops, flutters and re-hangs, and a swallow rarely darts by (`cross`).
+- **Reactions are physical and local.** The pointer near a bat is a shiver
+  and an eye cracking (fully open by night, a glint by day); a write makes
+  one bat shuffle; navigating sends a ripple of shivers along the row;
+  typing keeps every bat still and asleep.
 
 The exported scene and matching runtime are served from `public/vendor/unicorn`;
 its README records their sources. Preserve those upstream assets unmodified.
