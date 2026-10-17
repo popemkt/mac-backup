@@ -692,6 +692,7 @@
       "devDependencies": {
         "@kb/bundled": "workspace:*",
         "@types/bun": "catalog:",
+        "fast-check": "catalog:",
       },
     },
     "packages/extension/graph-ui": {

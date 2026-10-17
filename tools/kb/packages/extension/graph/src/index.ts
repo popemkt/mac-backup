@@ -3,7 +3,8 @@
  * declaration and shared plugin, its frozen ids, schema and seed, its view
  * keys (the graph page, the renderers and a node's neighbourhood), and its
  * isomorphic projection — the edges of a node set by kind, the spanning tree
- * the tree renderers draw, the perspective a graph view node is read as, and
+ * the tree renderers draw, the paths a trace finds and the relations a
+ * suggestion offers over those edges, the perspective a graph view node is read as, and
  * the lens its settings decode by. The browser half (`@kb/graph-ui`) and the
  * server read these same values. It is not the page's live replica (the
  * graph store), which is core.
@@ -27,6 +28,31 @@ export {
   type RendererTraits,
 } from "./views.ts";
 export { collectEdges, type LensEdge, type LensSource } from "./edges.ts";
+export { adjacencyOf, projectionOf, type Adjacency, type GraphProjection } from "./projection.ts";
+export {
+  TRACE_DEFAULTS,
+  trace,
+  type TraceHop,
+  type TraceOptions,
+  type TracePath,
+  type TraceReason,
+  type TraceResult,
+} from "./trace.ts";
+export {
+  SUGGEST_DEFAULTS,
+  suggest,
+  type SuggestOptions,
+  type SuggestReasons,
+  type Suggestion,
+} from "./suggest.ts";
+export {
+  explainHop,
+  hopLabel,
+  relationOfEdge,
+  type HopLabels,
+  type Relation,
+  type RelationLabel,
+} from "./explain.ts";
 export { buildTreeForest, type LensTreeNode, type LensTreeSource } from "./tree.ts";
 export { decodePerspective, resolvePerspective } from "./perspective.ts";
 export {
