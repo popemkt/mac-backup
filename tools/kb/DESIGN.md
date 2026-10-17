@@ -2053,13 +2053,25 @@ registry, subscription hub, render backbone (docs views, template resolution,
 where, how rows become markdown, repo-specific output of any kind — lives in
 **extensions**:
 
-- An extension is a TS module in `.kb/extensions/` (repo-local = trusted)
-  whose default export is an array of **contributions**. A contribution is
+- An extension is a TS module in `.kb/extensions/` whose default export is
+  an array of **contributions**. A contribution is
   either a harman-style action (an `ActionDefinition` plus either Effect
   `effect(input)`, preferred, or a legacy Promise `handler(ctx, input)`) or a
   render **template** (`{ id, aliases?, template }`, see
   `@kb/contracts/template.ts`). The loader discriminates structurally: a
   contribution carrying a `template` function is a template.
+- **Repository extensions** (`.kb/extensions/*.ts`) run with the server's
+  reach, so a root's file is imported only once a person has trusted it on
+  this machine. Its digest is `extensionDigest` (`@kb/sandbox`, the file's
+  source in a format of its own), and trust is the root's code trust, the
+  one record sandboxed code is trusted in (`CodeTrust`, `.kb/trust.json`;
+  [Sandbox](#sandbox) → Trust), granted by the same gesture,
+  `sandbox.trust`. An untrusted file is skipped and reported with its
+  digest; an edited file is new code, untrusted until trusted again. So
+  whoever opens a root someone else wrote (a clone, a location an agent
+  asked to open) runs none of its code before they have read it. The file
+  is imported from disk after its digest is read
+  (GAP [[01M541EP41BTAVD8TJXZGNNPRW]]).
 - **Everything loads as a plugin into one kernel** (`@kb/plugin`,
   `packages/domain/plugin`, `scope:shared`; the model is DeepSeek Harness's
   Cordis). A plugin is `{ name, namespace?, inject?, apply(ctx) }`; through

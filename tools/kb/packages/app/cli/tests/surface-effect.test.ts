@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { present } from "@kb/model";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
-import { addDocsView } from "@kb/test-kit";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { addDocsView, writeTrustedExtension } from "@kb/test-kit";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Cause, Effect, Exit, Fiber } from "effect";
@@ -271,8 +271,9 @@ describe("MCP Effect surface", () => {
   test("CallTool e2e: registered rejecting handler becomes isError", async () => {
     root = await tempExtRoot();
     await mkdir(join(root, ".kb", "extensions"), { recursive: true });
-    await writeFile(
-      join(root, ".kb", "extensions", "boom.ts"),
+    await writeTrustedExtension(
+      root,
+      "boom.ts",
       `import { z } from "zod";
 export default [{
   id: "reject",

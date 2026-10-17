@@ -22,6 +22,7 @@
     "@kb/tx-log": "workspace:*",
     "@kb/views": "workspace:*",
     "@kb/webmcp": "workspace:*",
+    "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:",
     "fast-check": "catalog:"
   },

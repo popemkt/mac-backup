@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { writeTrustedExtension } from "@kb/test-kit";
 import { present } from "@kb/model";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { Effect, Exit, Fiber, Layer, Stream } from "effect";
 import { kbRuntimeLayer } from "../src/layers.ts";
@@ -81,8 +82,9 @@ describe("Effect-native action registry", () => {
     const dir = join(root, ".kb", "extensions");
     await mkdir(dir, { recursive: true });
     // Both handler kinds, so neither path can publish an unchecked result.
-    await writeFile(
-      join(dir, "liar.ts"),
+    await writeTrustedExtension(
+      root,
+      "liar.ts",
       `import { z } from "zod";
 import { Effect } from "effect";
 const actions = [
@@ -107,7 +109,6 @@ const actions = [
 ];
 export default actions;
 `,
-      "utf8",
     );
 
     const ctx = await openKb(root);
@@ -125,8 +126,9 @@ export default actions;
     const root = await makeRoot();
     const dir = join(root, ".kb", "extensions");
     await mkdir(dir, { recursive: true });
-    await writeFile(
-      join(dir, "extra.ts"),
+    await writeTrustedExtension(
+      root,
+      "extra.ts",
       `import { z } from "zod";
 import { Effect } from "effect";
 const actions = [
@@ -142,7 +144,6 @@ const actions = [
 ];
 export default actions;
 `,
-      "utf8",
     );
 
     const ctx = await openKb(root);
@@ -157,8 +158,9 @@ export default actions;
     const root = await makeRoot();
     const dir = join(root, ".kb", "extensions");
     await mkdir(dir, { recursive: true });
-    await writeFile(
-      join(dir, "legacy.ts"),
+    await writeTrustedExtension(
+      root,
+      "legacy.ts",
       `import { z } from "zod";
 const actions = [
   {
@@ -186,7 +188,6 @@ const actions = [
 ];
 export default actions;
 `,
-      "utf8",
     );
 
     const ctx = await openKb(root);
@@ -282,8 +283,9 @@ export default actions;
     await mkdir(dir, { recursive: true });
     const marker = join(root, "finalized.marker");
     const late = join(root, "late.write");
-    await writeFile(
-      join(dir, "slow.ts"),
+    await writeTrustedExtension(
+      root,
+      "slow.ts",
       `import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
@@ -313,7 +315,6 @@ const actions = [
 ];
 export default actions;
 `,
-      "utf8",
     );
 
     const ctx = await openKb(root);
@@ -338,8 +339,9 @@ export default actions;
     const dir = join(root, ".kb", "extensions");
     await mkdir(dir, { recursive: true });
     const ran = join(root, "ran.marker");
-    await writeFile(
-      join(dir, "gate.ts"),
+    await writeTrustedExtension(
+      root,
+      "gate.ts",
       `import { writeFile } from "node:fs/promises";
 import { z } from "zod";
 export default [
@@ -357,7 +359,6 @@ export default [
   },
 ];
 `,
-      "utf8",
     );
 
     const ctx = await openKb(root);

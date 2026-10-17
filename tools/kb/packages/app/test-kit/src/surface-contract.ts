@@ -20,8 +20,9 @@
  * page's WebMCP) speak to that one, and none starts a second over the same
  * root.
  */
+import { writeTrustedExtensionEffect } from "./extension-files.ts";
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -276,9 +277,7 @@ function byId(actions: readonly ListedAction[]): ListedAction[] {
 const scratchRoot = Effect.acquireRelease(
   Effect.gen(function* () {
     const root = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "kb-surface-contract-")));
-    const extensions = join(root, ".kb", "extensions");
-    yield* Effect.promise(() => mkdir(extensions, { recursive: true }));
-    yield* Effect.promise(() => writeFile(join(extensions, "gated.ts"), GATED_EXTENSION, "utf8"));
+    yield* writeTrustedExtensionEffect(root, "gated.ts", GATED_EXTENSION);
     return root;
   }),
   (root) => Effect.promise(() => rm(root, { recursive: true, force: true })),

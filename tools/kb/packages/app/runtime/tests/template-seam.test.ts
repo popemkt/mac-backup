@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -9,6 +9,7 @@ import { bunFileSystemLayer } from "../src/platform.ts";
 import { invoke } from "../src/invoke.ts";
 import { registryFor, resetRegistryCache } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
+import { writeTrustedExtension } from "@kb/test-kit";
 
 /**
  * The template seam: a `.kb/extensions/*.ts` module contributes a render
@@ -77,9 +78,7 @@ const seedShoutRootEffect = Effect.fn("test.seedShoutRoot")(function* () {
   roots.push(root);
 
   yield* Effect.promise(() => mkdir(join(root, ".kb", "extensions"), { recursive: true }));
-  yield* Effect.promise(() =>
-    writeFile(join(root, ".kb", "extensions", "loud.ts"), SHOUT_EXTENSION, "utf8"),
-  );
+  yield* Effect.promise(() => writeTrustedExtension(root, "loud.ts", SHOUT_EXTENSION));
   const ctx = yield* Effect.promise(() => openKb(root));
   yield* addDocsViewEffect(ctx, "shout", {
     output: "docs/kb/shout.md",

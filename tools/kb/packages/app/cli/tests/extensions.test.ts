@@ -1,11 +1,12 @@
 import { describe, expect, test, afterEach } from "bun:test";
 import { Effect } from "effect";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { openKb, invoke, registryFor, resetRegistryCache, bunFileSystemLayer } from "@kb/runtime";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { kbManifestDef } from "@kb/operations";
 import { main } from "../src/cli.ts";
+import { writeTrustedExtension } from "@kb/test-kit";
 
 // Roots live under tests/ (not os tmpdir) so fixture extensions resolve
 // "zod" through tools/kb/node_modules.
@@ -39,10 +40,9 @@ const actions = [
 export default actions;
 `;
 
+/** A repository extension its owner wrote and trusted. */
 async function writeExtension(root: string, file: string, content: string): Promise<void> {
-  const dir = join(root, ".kb", "extensions");
-  await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, file), content, "utf8");
+  await writeTrustedExtension(root, file, content);
 }
 
 async function runCli(args: string[]): Promise<{ code: number; out: string }> {

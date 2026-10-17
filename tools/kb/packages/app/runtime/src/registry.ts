@@ -35,6 +35,7 @@ import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
 import { BUNDLED_EXTENSIONS } from "./bundled.ts";
 import { discoverExtensions } from "./extension-loader.ts";
+import { codeTrustLayer } from "@kb/workspace-fs";
 import { writeErr } from "./output.ts";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
@@ -229,7 +230,8 @@ const buildRegistry = Effect.fnUntraced(function* (
   yield* load(corePlugin, "core");
   for (const { entry } of on) yield* load(entry, "bundled");
   if (root !== null) {
-    const discovered = yield* discoverExtensions(root);
+    // Which of the root's own extensions a person trusted is the root's record.
+    const discovered = yield* discoverExtensions(root).pipe(Effect.provide(codeTrustLayer(root)));
     failures.push(...discovered.failures);
     for (const extension of discovered.extensions) {
       yield* load(extensionPlugin(extension), extension.source);

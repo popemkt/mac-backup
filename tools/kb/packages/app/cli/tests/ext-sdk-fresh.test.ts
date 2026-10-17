@@ -1,7 +1,9 @@
 import { describe, expect, test, afterEach } from "bun:test";
+import { writeTrustedExtension } from "@kb/test-kit";
 import { Effect } from "effect";
+import { CodeTrust } from "@kb/contracts";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { KB_SDK_DTS, KB_SDK_VERSION, writeSdkDts } from "@kb/ext-sdk";
@@ -72,7 +74,15 @@ describe("kb ext sdk", () => {
     expect(onDisk).toBe(KB_SDK_DTS);
 
     const discovered = await Effect.runPromise(
-      discoverExtensions(root).pipe(Effect.provide(bunFileSystemLayer)),
+      discoverExtensions(root).pipe(
+        // A fresh root has nothing to trust.
+        Effect.provideService(CodeTrust, {
+          trusted: () => Effect.succeed([]),
+          trust: () => Effect.void,
+          untrust: () => Effect.void,
+        }),
+        Effect.provide(bunFileSystemLayer),
+      ),
     );
     expect(discovered.extensions).toEqual([]);
     expect(discovered.failures).toEqual([]);
@@ -120,11 +130,11 @@ const actions: ExtensionAction[] = [
 
 export default actions;
 `;
-    await writeFile(join(extDir, "greet.ts"), greet, "utf8");
+    await writeTrustedExtension(root, "greet.ts", greet);
 
     // Bad mode must fail typecheck against the ambient SDK.
     const bad = greet.replace('kind: "read"', 'kind: "reed"');
-    await writeFile(join(extDir, "bad-mode.ts"), bad, "utf8");
+    await writeTrustedExtension(root, "bad-mode.ts", bad);
 
     const tsc = join(import.meta.dir, "../../../../node_modules/.bin/tsc");
     const tscArgs = [
