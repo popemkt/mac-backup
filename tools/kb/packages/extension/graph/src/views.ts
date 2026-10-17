@@ -236,6 +236,7 @@ export const ClusterView = rendererKey(
   },
 );
 
+// GAP [[01M545DCC35V9CCSQQKYF80VKQ]] graph link labels are 2D only
 /** Force-directed 3D, on the scene kit. */
 export const Force3dView = rendererKey(
   "force3d",

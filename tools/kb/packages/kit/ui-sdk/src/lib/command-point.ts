@@ -13,6 +13,7 @@ import type { DesignSystemId, ThemePref, WidthPref } from "./theme";
 import type { NodeMap } from "./types";
 import type { FamilyView } from "./view-key";
 
+// GAP [[01M545DBMQA0RGRWZY21HT3XD9]] the outline's mention chip cannot type its reference in place
 /** The picker a node command can hand the palette to. */
 export type NodeCommandStep = "add-tag" | "add-field" | "add-ref";
 

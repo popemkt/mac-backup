@@ -89,6 +89,7 @@ function fieldFit(
   return allowed === null || allowed.has(target) ? "fits" : "not-allowed";
 }
 
+// GAP [[01M545DD34TP58TEN1Z6MC7ASJ]] canvas and graph each read which ref fields a relation can be typed as
 /**
  * The fields a person may type a relation to `target` as: every ref field
  * of theirs (not a system one) that allows it, by text. What a "Link as…"

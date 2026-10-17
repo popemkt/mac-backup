@@ -397,6 +397,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Fold them into canvas-style.ts when the DOM paints those parts from tones.
 - **node** — `01M540YP8CRGKHPEM3PK19MH1C`
 
+### GAP: canvas and graph each read which ref fields a relation can be typed as
+
+- **expected** — One reader of the ref fields a relation can be typed as (relationFieldsFor in @kb/model), which canvas and graph both read.
+- **current** — canvas-ui canvas-api.ts listRefFields and graph relation.ts relationFieldsFor are two readers.
+- **impact** — Drift: canvas can offer fields that the relation write refuses.
+- **closes** — Move relationFieldsFor to @kb/model and have canvas read it.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M545DD34TP58TEN1Z6MC7ASJ`
+
 ### GAP: canvas camera lives on the canvas document
 
 - **expected** — the projection (2d/3d) and saved pose are settings of the canvas's view node (roadmap decision 6)
@@ -535,6 +544,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — front and side views of a canvas of flat cards look empty
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
+
+### GAP: graph link labels are 2D only
+
+- **expected** — Force3dView declares edgeLabels and draws label billboards.
+- **current** — Only force2d and cluster draw link labels; the toggle is disabled in 3D.
+- **impact** — No relation labels in 3D.
+- **closes** — force3d draws label sprites and declares the setting.
+- **node** — `01M545DCC35V9CCSQQKYF80VKQ`
 
 ### GAP: GraphPage carries 35 branches of renderer and perspective selection
 
@@ -1058,6 +1075,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a mirror held by a test: renaming the canvas tag id fails a test instead of flowing through, and a second family with its own bullet kind would add a second copy
 - **closes** — a bullet-kind point in @kb/ui-sdk that families contribute to, after E13 moves the canvas UI into @kb/canvas-ui
 - **node** — `01M436DVSEHKNYWSF2MR07HPMR`
+
+### GAP: the outline's mention chip cannot type its reference in place
+
+- **expected** — A ui-sdk point through which a family contributes a node-palette step or chip action; graph-ui contributes "Type this reference…" behind graph.suggest-relations.
+- **current** — Chips have no menu. NodeCommandStep (add-tag | add-field | add-ref) in kit/ui-sdk/src/lib/command-point.ts is closed and owned by the outline; typing is reachable through kb relate, the agent/MCP and the graph's "Link as…".
+- **impact** — A mention cannot be typed where it is read.
+- **closes** — Add the point, make the outline palette render contributed steps, and have graph-ui contribute the step.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M545DBMQA0RGRWZY21HT3XD9`
 
 ### GAP: the page's offline family list reads only the bundled families
 
