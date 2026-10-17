@@ -319,3 +319,18 @@ was verified against the code before it was fixed.
 | L8 | minor | Presence's `pid` is written and never read. | Read or removed. |
 | L9 | minor | The detached server child gets the whole environment. | A minimal allowlist from the one child-env owner. |
 | L10 | minor | `locationsContract` overrides `serve`. | A real-`serve` case, or a named gap. |
+
+### Batch R: the re-review (main `c14236f9`)
+
+A re-review of the security fixes as they landed. Each finding was verified
+against the code before it was fixed.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| R1 | blocker | A trusted repository extension's digest covers only its own file, then `import()` runs its whole module graph, so a trusted `a.ts` importing `./helper.ts` runs a helper nobody trusted. | Trust covers what runs: the imported bytes are the verified bytes, and a relative import out of the one file is refused. A helper that is not trusted never runs (a contract property). |
+| R2 | major | `@kb/client`'s `commitChange` commits through `store.commitEffect` directly, with no system-write rule or approval, and `openClient` is published for external tools. | It commits through the one commit owner. |
+| R3 | minor | Opening a store commits its seed and migrations through `store.commitEffect` directly. | Explicit `systemWrites: "system"` commits through the owner, which becomes `commitEffect`'s one caller. |
+| R4 | minor | `persist` in `runtime/src/session.ts` exists only for tests. | Moved out of `src`. |
+| R5 | minor | `agentSeedNodes`' comment overstates the guard: a field is configuration only on a tagged node. | The comment states the tag requirement. |
+| R6 | minor | The Claude adapter passes the whole environment to the SDK child. | It uses the one child-env owner. |
+| R7 | minor | `stopChild` sends only SIGTERM. | SIGKILL after a grace period. |

@@ -292,3 +292,14 @@ All of them wait for O4. The two outline steps also wait for O3.
   about one connection is a contextual reference node, which is the existing
   kind.
 - **Typing mentions automatically, without approval.**
+
+## Review (GPT-6.1 Sol, 2026-10-17)
+
+A review of trace and label as they landed (main `c14236f9`). Each finding
+was verified against the code before it was fixed.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| T1 | major | The server and the page rank paths over different graphs: `trace.ts`'s cost and degree count every edge, the page's `tracePerspective` only the drawn nodes, and the suggestions' Adamic-Adar splits the same way. | Adjacency and degree are derived once, from the visible projection, and both sides read it; the walk's `includeSystem` flag goes, so the caller picks the node set. |
+| T2 | major | `graph.relation.type` upserts the whole node from a snapshot with no `expected`, losing a concurrent write. | It commits through `persistPlannedEffect`, planned again on conflict. |
+| T3 | owner-facing | An agent's `graph.relation.type` should ask, and the plan wanted a policy node only a person can write. | The action declares an agent floor through the mechanism the outside-root floor uses, with a contract case; no policy node. |

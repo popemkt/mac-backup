@@ -517,3 +517,15 @@ Closed: all 17 fixed (todo 01M53HV6AGD0T51E3P414VEF32 done); two body-tone gaps 
 16. arrange.ts:283-285 align/distribute snap even when nothing moves; distributeSlots (172-176) uses greatest centre not greatest max → uneven gaps; distribute <3 items reports success; arrange ignores inapplicable params silently (verbs.ts:417-446) → refuse them.
 17. Contract suites (canvas-projection.contract.test.tsx, canvas-look.contract.test.tsx) have no locked/flip/order cases; add them.
 
+
+## P6–P8 review (GPT-6.1 Sol, 2026-10-17)
+
+A review of P6–P8 as they landed (main `c14236f9`). The canvas-package
+findings (C1 `assertCanvasHost`, C4 route decode, C5 `newPage`) are the
+canvas builder's; the query seam's are below. Each finding was verified
+against the code before it was fixed.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| C2 | minor | `RefCarrier.id` in the derived table is set and read nowhere, and `derivedWith` matches a carrier by the literal `":node/mentions"`: a dead seam. | Carriers attach by their table key, and `id` goes. |
+| C3 | minor | `DatascriptIndex` falls back to `CORE_DERIVED` when no derived table is given, so a host can silently drop canvas references. | `derived` is required; every production host already passes `bundledDerived()`. |
