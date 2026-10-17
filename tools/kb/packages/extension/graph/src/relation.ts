@@ -8,6 +8,7 @@ import { Result } from "effect";
 import {
   cardinalityOf,
   relationFieldFit,
+  relationMisfit,
   type DomainError,
   type KbNode,
   type NodeId,
@@ -35,8 +36,8 @@ function refuse(
 /**
  * The source as typing the relation leaves it, or null when it already
  * holds it (typing is idempotent). The field must be a ref field, and the
- * target one it allows, by the one rule every relation reads
- * (`relationFieldFit`, `@kb/model`); a single-valued field that already points elsewhere
+ * target one it allows, and a person's own field, by the one rule every
+ * relation reads (`relationFieldFit`, `@kb/model`); a single-valued field that already points elsewhere
  * is a conflict, never silently replaced.
  */
 export function typedRelation(
@@ -51,10 +52,8 @@ export function typedRelation(
   const fieldNode = nodes.get(typing.field);
   if (fieldNode === undefined) return refuse("not_found", `field not found: ${typing.field}`);
   const fit = relationFieldFit(fieldNode, typing.target, nodes, runQuery);
-  if (fit === "not-ref")
-    return refuse("invalid_input", `${typing.field} is not a ref field, so it types no relation`);
-  if (fit === "not-allowed")
-    return refuse("invalid_input", `${typing.field} does not allow ${typing.target} as a target`);
+  if (fit !== "fits")
+    return refuse("invalid_input", relationMisfit(fit, typing.field, typing.target));
   const held = source.props[typing.field] ?? [];
   if (held.some((value) => value.t === "ref" && value.v === typing.target))
     return Result.succeed(null);

@@ -11,9 +11,16 @@
  * Pure: the fresh binding id arrives on the context, the way the pointer
  * reducer takes its edge ids, so a plan is a function of its inputs.
  */
-import type { PropValue, SchemaIndex } from "@kb/ui-sdk";
+import { relationFieldFit, relationFieldsFor } from "@kb/model";
+import {
+  runQuery,
+  type KbIndex,
+  type OutlineNode,
+  type PropValue,
+  type SchemaIndex,
+} from "@kb/ui-sdk";
 import type { CanvasEdge, CanvasNode, KbLinkMode } from "@kb/canvas";
-import { isValidNativeTarget, planNativeBind } from "./canvas-api";
+import { planNativeBind } from "./canvas-api";
 
 /** What the inspector asked for. */
 export type EdgeRelink = { kind: "mode"; mode: KbLinkMode } | { kind: "field"; fieldId: string };
@@ -22,7 +29,7 @@ export interface EdgeRelinkContext {
   byId: ReadonlyMap<string, CanvasNode>;
   /** Field definitions the link is checked against (`lib/schema.ts`). */
   nodes: SchemaIndex;
-  queryDb: Parameters<typeof isValidNativeTarget>[3];
+  queryDb: KbIndex | null;
   /** Binding id for an edge that does not have one yet. */
   bindingId: string;
 }
@@ -51,7 +58,7 @@ interface KbEndpoints {
  * Both ends, when both items carry a node, whatever they look like — a native
  * link needs a node at each end.
  */
-function kbEndpoints(edge: CanvasEdge, ctx: EdgeRelinkContext): KbEndpoints | null {
+function kbEndpoints(edge: CanvasEdge, ctx: Pick<EdgeRelinkContext, "byId">): KbEndpoints | null {
   const from = ctx.byId.get(edge.fromNode)?.nodeId;
   const to = ctx.byId.get(edge.toNode)?.nodeId;
   return from !== undefined && to !== undefined
@@ -76,9 +83,36 @@ function linkFor(
   };
 }
 
+/** What the fields an edge can bind are read against: its items, the schema and the index. */
+export type EdgeFieldContext = Pick<EdgeRelinkContext, "byId" | "nodes" | "queryDb">;
+
+/** The index's EDN runner, which a field's declared target query runs on; none without an index. */
+function runnerOf({ queryDb }: EdgeFieldContext): ((edn: string) => unknown[][]) | null {
+  return queryDb === null ? null : (edn) => runQuery(queryDb, edn);
+}
+
 /**
- * The tail both changes share: a native link only stands if the field accepts
- * the target, and it carries the prop write that binds them — skipped when the
+ * The ref fields a native link on `edge` can bind: those a relation from its
+ * source's node to its target's can be typed as (`relationFieldsFor`, the
+ * rule every relation write reads), none when an end stands for no node.
+ */
+export function edgeFields(edge: CanvasEdge, ctx: EdgeFieldContext): OutlineNode[] {
+  const endpoints = kbEndpoints(edge, ctx);
+  if (endpoints === null) return [];
+  return relationFieldsFor(ctx.nodes, endpoints.to.nodeId, runnerOf(ctx));
+}
+
+/** Whether `fieldId` can type a relation to `target`, by the one rule (`relationFieldFit`). */
+function bindsTo(fieldId: string, target: string, ctx: EdgeFieldContext): boolean {
+  const field = ctx.nodes.get(fieldId);
+  return (
+    field !== undefined && relationFieldFit(field, target, ctx.nodes, runnerOf(ctx)) === "fits"
+  );
+}
+
+/**
+ * The tail both changes share: a native link only stands if the field can
+ * type a relation to the target (`bindsTo`), and it carries the prop write that binds them — skipped when the
  * triple is already there.
  */
 function planNativeLink(
@@ -86,7 +120,7 @@ function planNativeLink(
   link: ReturnType<typeof linkFor>,
   ctx: EdgeRelinkContext,
 ): EdgeRelinkPlan {
-  if (!isValidNativeTarget(link.fieldId, link.targetNodeId, ctx.nodes, ctx.queryDb)) {
+  if (!bindsTo(link.fieldId, link.targetNodeId, ctx)) {
     return { kind: "reject", reason: NOT_ALLOWED };
   }
   const bind = planNativeBind(ctx.nodes, link.sourceNodeId, link.fieldId, link.targetNodeId);

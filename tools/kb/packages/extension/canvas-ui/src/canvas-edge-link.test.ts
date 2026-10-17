@@ -9,7 +9,7 @@ import {
 import { describe, expect, test } from "vitest";
 import type { CanvasEdge, CanvasNode } from "@kb/canvas";
 import type { WireNode } from "@kb/contracts";
-import { planEdgeRelink, type EdgeRelinkContext } from "./canvas-edge-link";
+import { edgeFields, planEdgeRelink, type EdgeRelinkContext } from "./canvas-edge-link";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
@@ -233,5 +233,64 @@ describe("choosing a field", () => {
     expect(
       planEdgeRelink(edge("c1", "c2", layoutLink), { kind: "field", fieldId: "" }, ctx()),
     ).toEqual({ kind: "reject", reason: "Target not allowed for this ref field" });
+  });
+});
+
+describe("the fields an edge offers are the fields its write accepts", () => {
+  /** n.t is a #todo; f.todo allows only #todos; sys.f.kept is kb's own ref field. */
+  const schema = schemaFor(
+    wireToOutlineMap(
+      [
+        wireNode("n.a", "A"),
+        wireNode("n.b", "B"),
+        wireNode("n.t", "T", { props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "tag.todo" }] } }),
+        fieldNode("f.link", "link", "ref"),
+        fieldNode("f.note", "note", "text"),
+        fieldNode("sys.f.kept", "kept", "ref"),
+        wireNode("f.todo", "todo", {
+          props: {
+            [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+            [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "ref" }],
+            [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: "tag.todo" }],
+          },
+        }),
+      ],
+      new Set(),
+    ),
+  );
+  const toward = (target: string) =>
+    ctx({
+      nodes: schema,
+      byId: new Map([
+        ["c1", { id: "c1", type: "kb-node", nodeId: "n.a", x: 0, y: 0, width: 280, height: 72 }],
+        ["c2", { id: "c2", type: "kb-node", nodeId: target, x: 400, y: 0, width: 280, height: 72 }],
+      ]),
+    });
+  const offered = (target: string) => edgeFields(edge("c1", "c2"), toward(target)).map((f) => f.id);
+
+  test("a field allowing the target is offered; a text field, kb's own and a target it refuses are not", () => {
+    expect(offered("n.b")).toEqual(["f.link"]);
+    expect(offered("n.t")).toEqual(["f.link", "f.todo"]);
+  });
+
+  test("for every field and target, it is offered exactly when choosing it writes", () => {
+    for (const target of ["n.b", "n.t"]) {
+      for (const field of schema.keys()) {
+        const plan = planEdgeRelink(
+          edge("c1", "c2"),
+          { kind: "field", fieldId: field },
+          toward(target),
+        );
+        expect([target, field, plan.kind === "write"]).toEqual([
+          target,
+          field,
+          offered(target).includes(field),
+        ]);
+      }
+    }
+  });
+
+  test("an edge whose end stands for no node offers nothing", () => {
+    expect(edgeFields(edge("s1", "s2"), ctx())).toEqual([]);
   });
 });

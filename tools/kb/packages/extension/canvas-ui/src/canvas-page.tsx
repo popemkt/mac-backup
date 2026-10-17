@@ -51,6 +51,7 @@ import { useCanvasDoc } from "./use-canvas-doc";
 import { useCanvasPictures } from "./use-canvas-pictures";
 import { CanvasFaceEditor } from "./canvas-face-editor";
 import { useFaceEditing } from "./use-face-editing";
+import { edgeFields } from "./canvas-edge-link";
 import { createCanvasEdgeActions } from "./use-canvas-edge-actions";
 import { useCanvasGestures } from "./use-canvas-gestures";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
@@ -58,7 +59,7 @@ import { useCanvasScreen } from "./use-canvas-screen";
 import { CanvasScriptLayout } from "./canvas-script-layout";
 import { useCanvasCapture } from "./canvas-capture";
 import { useCanvasSelection } from "./use-canvas-selection";
-import { createCanvasNode, listRefFields } from "./canvas-api";
+import { createCanvasNode } from "./canvas-api";
 import { CANVAS_LIST_PATH, canvasPath } from "./routes";
 import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
 import { linkStep } from "./canvas-links";
@@ -230,7 +231,11 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
     [applyPointerResult, byId, docRef, membership, scope, selRef],
   );
 
-  const refFields = useMemo(() => listRefFields(nodes), [nodes]);
+  const refFields = useMemo(
+    () =>
+      selectedEdgeObj === null ? [] : edgeFields(selectedEdgeObj, { byId, nodes: schema, queryDb }),
+    [selectedEdgeObj, byId, schema, queryDb],
+  );
 
   const stageRef = useRef<HTMLDivElement>(null);
   const projection = useCanvasProjection({

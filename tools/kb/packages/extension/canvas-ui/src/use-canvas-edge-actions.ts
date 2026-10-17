@@ -3,8 +3,7 @@ import { ulid } from "ulid";
 import type { CanvasDoc, CanvasEdge, CanvasNode, KbLinkMode } from "@kb/canvas";
 import { removeCanvasEdge, upsertCanvasEdge } from "@kb/canvas";
 import type { useCanvasDoc } from "./use-canvas-doc";
-import type { isValidNativeTarget } from "./canvas-api";
-import { planEdgeRelink, type EdgeRelink } from "./canvas-edge-link";
+import { planEdgeRelink, type EdgeRelink, type EdgeRelinkContext } from "./canvas-edge-link";
 import { type CanvasSelection, EMPTY_SELECTION } from "./canvas-selection";
 import { toast } from "@kb/ui-sdk";
 
@@ -12,8 +11,8 @@ interface CanvasEdgeActionContext {
   selectedEdge: CanvasEdge | null;
   byId: Map<string, CanvasNode>;
   docRef: RefObject<CanvasDoc>;
-  nodes: Parameters<typeof isValidNativeTarget>[2];
-  queryDb: Parameters<typeof isValidNativeTarget>[3];
+  nodes: EdgeRelinkContext["nodes"];
+  queryDb: EdgeRelinkContext["queryDb"];
   flushPersist: ReturnType<typeof useCanvasDoc>["flushPersist"];
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
   setInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;

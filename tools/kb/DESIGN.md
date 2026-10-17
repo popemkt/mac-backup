@@ -1746,12 +1746,17 @@ layer), so neither is computed by DataScript. Plan and prior art:
 - **Typing a relation** (`graph.relation.type {source, target, field}`) is
   saying what a connection means: it adds one ref prop of `field` from
   source to target in one transaction and leaves the text, mention and all,
-  as it was (`typedRelation`). It refuses a field that is not a ref, a
-  target the field does not allow (through `allowedRefIdsOf`, the one
-  resolver; the write check does not enforce it yet, as Data model records),
-  and a full one-valued field (`conflict`, never a silent replace); typing a
-  relation already held writes nothing. `relationFieldsFor` lists the fields
-  that may type one to a target, by the same rule. The action declares no
+  as it was (`typedRelation`). Which fields can type a relation to a target
+  is `@kb/model`'s one rule, `relationFieldFit`: a person's own field (not
+  a `sys.*` one), a ref field, that allows the target (through
+  `allowedRefIdsOf`, the one resolver; the write check does not enforce it
+  yet, as Data model records). Every relation write refuses what it refuses,
+  in its words (`relationMisfit`): this action, and a canvas edge's native
+  bind (`ext.canvas.connect`'s `bind`, the edge inspector's field). Every
+  picker offers what it accepts (`relationFieldsFor`): the graph's "Link
+  as…" and the edge inspector's field menu, so nothing is offered that a
+  write refuses. A full one-valued field is a `conflict`, never a silent
+  replace; typing a relation already held writes nothing. The action declares no
   approval, so the command line and a person's gesture never ask; an agent
   asks where the repository's policy says so (`#approval-policy` matching
   `ext.graph.relation.type` for the agent, deciding `ask`), one relation per
@@ -2731,7 +2736,8 @@ transaction, one step of an open canvas's history.
   wearing a head (`fromHead`, `toHead`: `arrow`, `open`, `dot`, `diamond`,
   `bar`, or `none`), in a colour and line looks (`style`: `dash`, `size`,
   `opacity`). `bind` also sets a ref field on the source's node, once, in
-  the same transaction. What the format would not read back is refused
+  the same transaction: a field a relation to the arrival's node can be
+  typed as (`relationFieldFit`), and nothing else. What the format would not read back is refused
   before any write: a colour that is no palette name, preset or hex
   (`canvasColor`), a line's points the format would not read
   (`parseLinePoints`, through `withLine`), a card with no node or a picture

@@ -229,5 +229,6 @@ export {
   relationFieldFit,
   relationFieldsFor,
   relationInverseOf,
+  relationMisfit,
   type RelationFieldFit,
 } from "./relation.ts";

@@ -49,7 +49,7 @@ interface CanvasOverlaysProps {
   inspectorAnchor: { x: number; y: number } | null;
   itemInspectorAnchor: { x: number; y: number } | null;
   pickerOpen: boolean;
-  refFields: { id: string; name: string; isRef: boolean }[];
+  refFields: readonly { readonly id: string; readonly text: string }[];
   onToolChange: (tool: CanvasTool) => void;
   onToolDoubleClick: (tool: CanvasTool) => void;
   onBringToFront: () => void;

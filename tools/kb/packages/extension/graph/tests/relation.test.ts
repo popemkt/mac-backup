@@ -69,11 +69,13 @@ describe("typedRelation", () => {
     expect(type("f.influences", "b", after)).toEqual(Result.succeed(null));
   });
 
-  test("refuses a field that is no ref, a target it does not allow, and a full one-valued field", () => {
+  test("refuses a field that is no ref, a system field, a target it does not allow, and a full one-valued field", () => {
     expect(code(type("f.note"))).toBe("invalid_input");
     expect(code(type("f.about", "c"))).toBe("invalid_input");
     expect(code(type("f.about", "b"))).toBe("typed");
     expect(code(type("f.missing"))).toBe("not_found");
+    const kept = new Map(nodes).set("sys.f.kept", fieldNode("sys.f.kept", "ref"));
+    expect(code(type("sys.f.kept", "b", kept))).toBe("invalid_input");
     const owned = new Map(nodes).set(
       "a",
       kb({ id: "a", text: "A", props: { "f.owner": [{ t: "ref", v: "c" }] } }),

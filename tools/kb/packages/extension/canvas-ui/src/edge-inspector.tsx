@@ -7,7 +7,8 @@ import { ColorSwatches, EdgeLookRows } from "./item-style-rows";
 export interface EdgeInspectorProps {
   edge: CanvasEdge;
   anchor: { x: number; y: number };
-  refFields: { id: string; name: string; isRef: boolean }[];
+  /** The ref fields a native link on this edge can bind (`edgeFields`). */
+  refFields: readonly { readonly id: string; readonly text: string }[];
   onClose: () => void;
   onModeChange: (mode: KbLinkMode) => void;
   onFieldChange: (fieldId: string) => void;
@@ -65,8 +66,7 @@ function LinkRows({
             <option value="">Select field…</option>
             {refFields.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.name}
-                {f.isRef ? "" : " (not ref)"}
+                {f.text}
               </option>
             ))}
           </select>

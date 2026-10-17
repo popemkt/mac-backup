@@ -1,11 +1,4 @@
-import {
-  clearAllowedRefIdsCache,
-  SYSTEM_IDS,
-  type NodeMap,
-  type OutlineNode,
-  type SchemaIndex,
-  schemaOfGraph,
-} from "@kb/ui-sdk";
+import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@kb/ui-sdk";
 import { describe, expect, test } from "vitest";
 import {
   CANVAS_IDS,
@@ -20,14 +13,8 @@ import {
   hasPropRef,
   listCanvasNavItems,
   planNativeBind,
-  isValidNativeTarget,
   syncDocOnRev,
 } from "./canvas-api";
-
-/** The one constructor, over an unscoped graph: the whole map is the schema. */
-function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOfGraph(nodes);
-}
 
 /** An outline node with nothing but an id, a text and props. */
 function outline(id: string, text: string, props: OutlineNode["props"] = {}): OutlineNode {
@@ -232,63 +219,6 @@ describe("one-shot bind", () => {
     expect(planNativeBind(nodes, "s", "f", "other").setProps).toEqual([
       { field: "f", value: { t: "ref", v: "other" } },
     ]);
-  });
-
-  test("isValidNativeTarget respects targetTag", () => {
-    clearAllowedRefIdsCache();
-    const nodes = new Map<string, OutlineNode>([
-      [
-        "f.rel",
-        {
-          id: "f.rel",
-          text: "rel",
-          parentId: null,
-          children: [],
-          collapsed: false,
-          props: {
-            [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-            [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "ref" }],
-            [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: "tag.todo" }],
-          },
-          createdAt: "",
-          updatedAt: "",
-          tags: [],
-        },
-      ],
-      [
-        "n.ok",
-        {
-          id: "n.ok",
-          text: "ok",
-          parentId: null,
-          children: [],
-          collapsed: false,
-          // Tag membership is the prop; the badge is what the row renders from
-          // it. Only the prop makes this node a #todo — a fixture carrying the
-          // badge alone described a state wireToOutlineMap cannot produce.
-          props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "tag.todo" }] },
-          createdAt: "",
-          updatedAt: "",
-          tags: [{ id: "tag.todo", name: "todo", color: "#000" }],
-        },
-      ],
-      [
-        "n.bad",
-        {
-          id: "n.bad",
-          text: "bad",
-          parentId: null,
-          children: [],
-          collapsed: false,
-          props: {},
-          createdAt: "",
-          updatedAt: "",
-          tags: [],
-        },
-      ],
-    ]);
-    expect(isValidNativeTarget("f.rel", "n.ok", schemaFor(nodes), null)).toBe(true);
-    expect(isValidNativeTarget("f.rel", "n.bad", schemaFor(nodes), null)).toBe(false);
   });
 });
 

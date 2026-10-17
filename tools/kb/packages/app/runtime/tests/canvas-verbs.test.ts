@@ -642,6 +642,44 @@ describe("ext.canvas.connect, group, ungroup and promote", () => {
     expect(ctx.nodes.find((n) => n.id === "n.a")?.props[SYSTEM_IDS.typeField]).toBeUndefined();
   });
 
+  test("an edge binds only a field a relation to its arrival can be typed as, as the inspector offers", async () => {
+    const ctx = await canvasKb();
+    await invoke(ctx, { id: "field.define", input: { name: "about", id: "f.about" } });
+    await invoke(ctx, { id: "field.define", input: { name: "note", id: "f.note" } });
+    await invoke(ctx, {
+      id: "node.update",
+      input: {
+        id: "f.about",
+        setProps: [
+          { field: SYSTEM_IDS.fieldTypeField, value: fieldTypeValue("ref") },
+          { field: SYSTEM_IDS.targetTagField, value: { t: "ref", v: "t.idea" } },
+        ],
+      },
+    });
+    await invoke(ctx, { id: "node.add", input: { id: "n.a", text: "A" } });
+    await invoke(ctx, { id: "node.add", input: { id: "n.b", text: "B" } });
+    await invoke(ctx, {
+      id: "ext.canvas.tx.apply",
+      input: {
+        canvasId: "n.canvas",
+        doc: {
+          nodes: [
+            card("a", 0, 0, { type: "kb-node", nodeId: "n.a" }),
+            card("b", 400, 0, { type: "kb-node", nodeId: "n.b" }),
+          ],
+          edges: [],
+        },
+      },
+    });
+    // f.about allows only #ideas, and f.note is no ref field: neither types a relation to n.b.
+    for (const bind of ["about", "note"]) {
+      const receipt = await invoke(ctx, verb("connect", { from: "a", to: "b", bind }));
+      expect(receipt).toMatchObject({ status: "failed", code: "invalid_input" });
+    }
+    expect(stored(ctx).edges).toEqual([]);
+    expect(ctx.nodes.find((n) => n.id === "n.a")?.props).toEqual({});
+  });
+
   test("a verb refuses a canvas whose document kb cannot read, rather than write over it", async () => {
     const ctx = await canvasKb();
     await invoke(ctx, {

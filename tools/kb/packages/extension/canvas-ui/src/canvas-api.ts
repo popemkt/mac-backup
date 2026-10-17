@@ -5,17 +5,7 @@
  * ext.canvas.tx.apply; afterward the edge does not track/own the prop.
  * Bound vs unbound is computed at render time only (no reconciler writes).
  */
-import {
-  browserHost,
-  isSysPrefixed,
-  logError,
-  resolveAllowedRefIds,
-  resolveFieldType,
-  type KbIndex,
-  type OutlineNode,
-  type PropValue,
-  type SchemaIndex,
-} from "@kb/ui-sdk";
+import { browserHost, logError, type OutlineNode, type PropValue } from "@kb/ui-sdk";
 import { ulid } from "ulid";
 import {
   CANVAS_IDS,
@@ -27,7 +17,6 @@ import {
   type CanvasDoc,
   type CanvasEdge,
 } from "@kb/canvas";
-import { SYSTEM_IDS, typeRefsOf } from "@kb/model";
 
 export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
   if (!node) return { nodes: [], edges: [] };
@@ -122,20 +111,6 @@ export function planNativeBind(
   };
 }
 
-export function isValidNativeTarget(
-  fieldId: string,
-  targetNodeId: string,
-  schema: SchemaIndex,
-  queryDb: KbIndex | null,
-): boolean {
-  const field = schema.get(fieldId);
-  if (!field) return false;
-  if (resolveFieldType(field) !== "ref") return false;
-  const allowed = resolveAllowedRefIds(field, schema, queryDb);
-  if (allowed === null) return true;
-  return allowed.has(targetNodeId);
-}
-
 /**
  * Persist canvas JSON (+ optional one-shot prop ops) atomically on the server.
  * A single node.update cannot reproduce this action: it replaces the canvas
@@ -184,20 +159,4 @@ export async function createCanvasNode(
     return null;
   }
   return id;
-}
-
-// GAP [[01M545DD34TP58TEN1Z6MC7ASJ]] canvas and graph each read which ref fields a relation can be typed as
-/** Ref fields only (fieldType=ref), excluding sys.*. */
-export function listRefFields(
-  nodes: ReadonlyMap<string, OutlineNode>,
-): { id: string; name: string; isRef: boolean }[] {
-  const out: { id: string; name: string; isRef: boolean }[] = [];
-  for (const n of nodes.values()) {
-    if (!typeRefsOf(n).includes(SYSTEM_IDS.field)) continue;
-    // DISPLAY: the native-bind field menu lists a user's own ref fields.
-    if (isSysPrefixed(n.id)) continue;
-    if (resolveFieldType(n) !== "ref") continue;
-    out.push({ id: n.id, name: n.text, isRef: true });
-  }
-  return out.toSorted((a, b) => a.name.localeCompare(b.name));
 }

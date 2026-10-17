@@ -38,6 +38,12 @@ const nodes = new Map(
     fieldNode("f.note", "text"),
     fieldNode("f.about", "ref", { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: "t.idea" }] }),
     fieldNode("f.owner", "ref"),
+    fieldNode("sys.f.kept", "ref"),
+    kb({
+      id: "f.loose",
+      text: "loose",
+      props: { [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")] },
+    }),
   ].map((n) => [n.id, n]),
 );
 const noQuery = () => [];
@@ -54,6 +60,11 @@ describe("relationFieldFit", () => {
     expect(fit("f.about", "c")).toBe("not-allowed");
     expect(fit("f.note", "b")).toBe("not-ref");
   });
+
+  test("a system field, and a node that is no field, type no relation", () => {
+    expect(fit("sys.f.kept", "c")).toBe("system");
+    expect(fit("f.loose", "c")).toBe("not-field");
+  });
 });
 
 describe("relationFieldsFor", () => {
@@ -61,5 +72,14 @@ describe("relationFieldsFor", () => {
     const ids = (target: string) => relationFieldsFor(nodes, target, noQuery).map((f) => f.id);
     expect(ids("b")).toEqual(["f.about", "f.influences", "f.owner"]);
     expect(ids("c")).toEqual(["f.influences", "f.owner"]);
+  });
+
+  test("offers exactly the nodes the rule says fit, for every target", () => {
+    for (const target of nodes.keys()) {
+      const offered = new Set(relationFieldsFor(nodes, target, noQuery).map((f) => f.id));
+      for (const node of nodes.values()) {
+        expect([node.id, offered.has(node.id)]).toEqual([node.id, fit(node.id, target) === "fits"]);
+      }
+    }
   });
 });
