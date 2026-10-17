@@ -70,8 +70,9 @@ describe("MCP surface", () => {
     // The seeded policies ask an agent before it deletes or rewrites the
     // store, or switches an extension, and MCP cannot carry approval, so
     // those are not tools; nor is trusting code, which the seed denies to an
-    // agent; nor a write that reaches outside the root, which asks an agent by
-    // its mode (the locations family's register, forget and open).
+    // agent; nor a write whose mode delegates approval, which asks an agent:
+    // the locations family's register, forget and open (outside the root),
+    // and typing a relation.
     const asked = new Set([
       "node_delete",
       "views_migrate",
@@ -83,6 +84,8 @@ describe("MCP surface", () => {
       "location_register",
       "location_forget",
       "location_open",
+      "ext_graph_relation_type",
+      "graph_relation_type",
     ]);
     for (const entry of await run(manifest(root))) {
       const tool = entry.id.replaceAll(".", "_");

@@ -291,6 +291,28 @@ describe("a write that reaches outside its root", () => {
   });
 });
 
+describe("a write whose mode delegates its approval", () => {
+  const delegated: ActionMode = { kind: "write", approval: "delegated" };
+
+  test("asks an agent, denies sandboxed code, and runs for the owner's own actors, as reaching outside does", () => {
+    const decided = (["human", "cli", null, "agent", "script"] as const).map(
+      (actor) => resolveApproval([], outsideCall(actor, delegated)).decision,
+    );
+    expect(decided).toEqual(["allow", "allow", "allow", "ask", "deny"]);
+    expect(decided).toEqual(
+      (["human", "cli", null, "agent", "script"] as const).map(
+        (actor) => resolveApproval([], outsideCall(actor)).decision,
+      ),
+    );
+  });
+
+  test("a write that requires approval still asks the owner's own actors", () => {
+    const required: ActionMode = { kind: "write", approval: "required", outsideRoot: true };
+    expect(resolveApproval([], outsideCall("cli", required)).decision).toBe("ask");
+    expect(resolveApproval([], outsideCall("script", required)).decision).toBe("deny");
+  });
+});
+
 describe("approvalRefusal", () => {
   test("a denied call is forbidden, whoever stands behind it", () => {
     const refusal = approvalRefusal(

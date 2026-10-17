@@ -28,8 +28,10 @@ import type { KbRoots } from "./roots.ts";
  * the workspace, or what a UI tab shows. A write can also require approval, meaning a person must
  * have approved the call. The invoke core refuses an unapproved call to such
  * an action ({@link requiresApproval}), so no surface can skip the check.
- * Approval exists only on a write, so it is part of the write arm and not a
- * flag beside the mode.
+ * A write can instead delegate approval (`"delegated"`): the owner's own
+ * actors run it, an agent asks, and sandboxed code is denied
+ * (`declaredDecision`). Approval exists only on a write, so it is part of
+ * the write arm and not a flag beside the mode.
  *
  * An action touches its own kb root and nothing else, unless its mode says
  * `outsideRoot`: it reaches past the root, to another store on this machine
@@ -44,7 +46,7 @@ const ActionModeSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("read"), outsideRoot: z.literal(true).optional() }),
   z.strictObject({
     kind: z.literal("write"),
-    approval: z.literal("required").optional(),
+    approval: z.enum(["required", "delegated"]).optional(),
     outsideRoot: z.literal(true).optional(),
   }),
 ]);

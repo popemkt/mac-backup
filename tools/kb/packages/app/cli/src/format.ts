@@ -7,6 +7,7 @@ export function formatMode(mode: ActionMode): string {
   return [
     mode.kind,
     ...(requiresApproval(mode) ? ["approval required"] : []),
+    ...(mode.kind === "write" && mode.approval === "delegated" ? ["an agent asks"] : []),
     ...(mode.outsideRoot === true ? ["outside its root"] : []),
   ].join(", ");
 }

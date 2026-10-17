@@ -58,17 +58,26 @@ export function onWire(wire: SurfaceWire, invocation: ActionInvocation): ActionI
 }
 
 /**
+ * Whether a write's mode delegates its approval: it says so
+ * (`approval: "delegated"`), or it reaches outside its root (`outsideRoot`:
+ * another store on this machine, or a process it starts), which always
+ * does.
+ */
+function delegatesApproval(mode: ActionMode): boolean {
+  return mode.kind === "write" && (mode.approval === "delegated" || mode.outsideRoot === true);
+}
+
+/**
  * What an action's own mode decides about a call to it by `actor`: `ask`
- * where it requires approval, and for a write that reaches outside its root
- * (`outsideRoot`: another store on this machine, or a process it starts) at
- * least what a governing write needs from that actor (`delegatedDecision`):
- * the owner's own actors run it, an agent asks, sandboxed code is denied.
- * The family that declares the mode declares the floor; no policy node has
- * to be written for it.
+ * where it requires approval, and where it delegates approval
+ * (`delegatesApproval`) at least what a governing write needs from that
+ * actor (`delegatedDecision`): the owner's own actors run it, an agent asks,
+ * sandboxed code is denied. The family that declares the mode declares the
+ * floor; no policy node has to be written for it.
  */
 export function declaredDecision(mode: ActionMode, actor: Actor | undefined): ApprovalDecision {
   const declared = requiresApproval(mode) ? "ask" : "allow";
-  if (mode.kind !== "write" || mode.outsideRoot !== true) return declared;
+  if (!delegatesApproval(mode)) return declared;
   return stricterDecision(declared, delegatedDecision(actor));
 }
 

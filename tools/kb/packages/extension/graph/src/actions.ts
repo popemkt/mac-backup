@@ -202,8 +202,10 @@ export const GRAPH_ACTIONS: readonly ExtensionAction[] = [
       "Say what a connection means: add one ref prop of a ref field from source to target, in " +
       "one transaction, leaving the text (and any mention of the target) as it is. The field " +
       "node's text is the relation's label. Refuses a field that is not a ref and a target the " +
-      "field does not allow; typing a relation the source already holds writes nothing",
-    mode: { kind: "write" },
+      "field does not allow; typing a relation the source already holds writes nothing. " +
+      "An agent's call asks the person first",
+    // Typing a relation says what a connection means, which is the owner's to say.
+    mode: { kind: "write", approval: "delegated" },
     inputSchema: relationInput,
     outputSchema: relationOutput,
     effect: graphRelationTypeEffect,

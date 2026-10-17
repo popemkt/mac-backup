@@ -1852,18 +1852,22 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
 
 - `ActionDefinition { id, title, description, mode, inputSchema, outputSchema, effect? }` — JSON Schemas via `z.toJSONSchema`, never hand-written; the inputSchema is published as the side a caller sends, the outputSchema as the side the action returns. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
 - **Mode**: every action states once, as a required field, what invoking it does.
-  `{kind: "read"}` changes nothing. `{kind: "write", approval?: "required"}`
-  may change the graph, the workspace, or what a UI tab shows
+  `{kind: "read"}` changes nothing.
+  `{kind: "write", approval?: "required" | "delegated"}` may change the
+  graph, the workspace, or what a UI tab shows
   ([Screen state](#screen-state)). Approval can only be declared on a
-  write, so there is no read-with-approval state. Either kind may add
-  `outsideRoot: true`: the action reaches past its kb root, to another store
-  on this machine or a process it starts. Without
-  it, an action touches only its root. A write that reaches outside is a
-  governing write by its mode: the declared decision for it is at least
-  `delegatedDecision` for the caller (`declaredDecision`), so the owner's
-  own actors run it, an agent asks and sandboxed code is denied, with no
-  policy node written, and only a policy naming the action by its own id
-  lowers it. A read that reaches outside asks nobody. The manifest publishes the
+  write, so there is no read-with-approval state. `required` asks a person
+  for every call. `delegated` makes the write a governing write by its
+  mode: the declared decision for it is at least `delegatedDecision` for
+  the caller (`declaredDecision`), so the owner's own actors run it, an
+  agent asks and sandboxed code is denied, with no policy node written, and
+  only a policy naming the action by its own id lowers it. Typing a
+  relation (`graph.relation.type`) declares it, since what a connection
+  means is the owner's to say. Either kind may add `outsideRoot: true`: the
+  action reaches past its kb root, to another store on this machine or a
+  process it starts. Without it, an action touches only its root. A write
+  that reaches outside delegates its approval as `delegated` does, whatever
+  else it declares; a read that reaches outside asks nobody. The manifest publishes the
   mode, and each surface derives its behaviour from it and keeps no list of
   its own:
   - MCP: a read is `readOnlyHint` and `idempotentHint`; a write is
