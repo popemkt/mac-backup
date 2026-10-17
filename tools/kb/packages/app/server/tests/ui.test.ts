@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { addDocsView, pointHomeAt } from "@kb/test-kit";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -110,6 +110,37 @@ describe("kb ui server", () => {
       expect(receipt.output.rows).toEqual([
         expect.objectContaining({ current: true, status: "served", url: handle.url }),
       ]);
+    } finally {
+      restoreHome();
+    }
+  });
+
+  test("a server a person opened keeps its page token in their home, for them alone, until it stops", async () => {
+    const home = join(root, "home");
+    const restoreHome = pointHomeAt(home);
+    try {
+      const unopened = await run(startUi({ root: await tempRoot(), port: 0, openBrowser: false }));
+      await run(unopened.stop);
+      expect(await readdir(join(home, ".kb", "pages")).catch(() => [])).toEqual([]);
+      const opened = await run(
+        startUi({
+          root,
+          port: 0,
+          openBrowser: false,
+          openedBy: { carriesApproval: true, actor: "cli" },
+        }),
+      );
+      const dir = join(home, ".kb", "pages");
+      const [file] = await readdir(dir);
+      const kept = join(dir, file ?? "");
+      expect((await stat(dir)).mode & 0o777).toBe(0o700);
+      expect((await stat(kept)).mode & 0o777).toBe(0o600);
+      expect(JSON.parse(await readFile(kept, "utf8"))).toEqual({
+        url: opened.url,
+        token: opened.pageToken,
+      });
+      await run(opened.stop);
+      expect(await readdir(dir)).toEqual([]);
     } finally {
       restoreHome();
     }

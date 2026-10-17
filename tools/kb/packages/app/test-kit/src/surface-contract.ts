@@ -96,6 +96,8 @@ export interface ActionSurface {
 export interface LiveUi {
   /** Where it listens, `http://host:port`. */
   readonly url: string;
+  /** Its page: `url` carrying the page token it minted (`pageUrlOf`). */
+  readonly page: string;
   /** The extensions it hosts beside the registry's, as its `kb.manifest` reports them. */
   readonly hosted: readonly ExtensionRow[];
   stop(): Promise<void>;
@@ -294,7 +296,7 @@ function serveRoot(serve: ServeUi, root: string) {
   return Effect.acquireRelease(
     Effect.gen(function* () {
       const ui = yield* Effect.promise(() => serve(root));
-      return { ui, tab: yield* FakeTab.open(ui.url, CONTRACT_TAB) };
+      return { ui, tab: yield* FakeTab.open(ui.page, CONTRACT_TAB) };
     }),
     ({ ui, tab }) => tab.close.pipe(Effect.andThen(Effect.promise(() => ui.stop()))),
   );

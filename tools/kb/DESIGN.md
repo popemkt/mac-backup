@@ -2025,11 +2025,11 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     A call stated from outside kb (an HTTP body, `kb action-invoke`'s JSON)
     is read by `requestOnWire`, which refuses one that states what its
     wire does not let it (`forbidden`), so its caller hears it rather than
-    find it ignored. Over HTTP the server takes a request as the page's
-    only when it carries an Origin, which the request guard holds to the
-    UI's own; one with none is a local program's (`HTTP_WIRE`): an agent's
-    call, the more cautious caller, and never an approved one, since no
-    person stands behind it there. **Every call names its actor**: what a
+    find it ignored. Over HTTP and `/ws` the server takes a request as the
+    page's only when it carries this run's page token (below); one with
+    none is a local program's (`HTTP_WIRE`), whatever Origin it sends: an
+    agent's call, the more cautious caller, and never an approved one,
+    since nothing shows a person stands behind it. **Every call names its actor**: what a
     caller sends is an `ActionRequest`, whose actor it may leave out, and
     what the invoke core takes is an `ActionInvocation`, whose actor the
     type requires, so the compiler finds any caller that names none. A call
@@ -2046,23 +2046,51 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     core and is refused. MCP's `tools/list` and each agent turn read it
     afresh, and the page's WebMCP lists again when its replica's policies
     change.
-  - **What an approval floor binds.** It binds a caller that reaches kb
-    through a surface that says who it is: the sidebar agent, MCP, WebMCP,
-    a script, and a local program over HTTP. Those cannot say they are
-    someone else, or that a person approved them. It does not bind a
-    program with the owner's shell: such a program can run `kb` as the
-    owner, edit `.kb/nodes.jsonl` directly, or send the page's Origin
-    itself, and the CLI's wire, the owner's own, is not a security
-    boundary. So an agent given a shell holds what the owner holds, and the
-    floors are for an agent that acts only through kb's surfaces. Nor does
-    kb prove a gesture: the page's word that a person approved a call, or
-    made it, is declared, not proven (`// GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]`
-    in `approval.ts`). Who can reach `kb ui`'s HTTP and `/ws` is decided by its
-    one request guard (`app/server/src/guard.ts`, applied before `/ws` and
-    every `/api/*` route). A request passes only when its `Host` names this
-    server, which stops DNS rebinding. It must also carry no `Origin` (a local
-    program) or the UI's own. A `POST /api/action` must also be
-    `application/json`, so a page on another site cannot reach it at all.
+  - **The page token.** `kb ui` mints a random token when it starts and
+    holds it in memory (`app/server/src/guard.ts`). It opens and prints the
+    page URL with the token in the fragment (`#token=…`, `pageUrlOf` in
+    `@kb/contracts`), which a browser never sends in a request, so a
+    program that fetches the page does not get it, and no body the server
+    serves carries it. The page moves it into the tab's sessionStorage and
+    out of the address bar, so a reload keeps it, and sends it on every
+    `/api` request (`x-kb-page-token`) and on the `/ws` handshake, as a
+    second WebSocket subprotocol beside `kb`, since a browser cannot set a
+    header there. The request guard compares it in constant time: this
+    run's token is the page's wire (`PAGE_WIRE`), another (forged, or from
+    an earlier run) is refused, and none is a local program's wire. A
+    socket on a local program's wire reads (subscribe, watch, catch up) and
+    may not publish a tab's screen or speak on a plugin channel. An opener
+    in another process gets the token from the person's home, never from
+    the root: a `kb ui` a person opened keeps it in their home store's
+    `.kb/pages/`, a file readable by them alone, removed when it stops
+    (`writePageToken` in `@kb/workspace-fs`). `location.open` hands the
+    page URL (`open`) only to the owner's own call, the person's or their
+    CLI's, so `kb open` and the sidebar open a tab with a fresh fragment;
+    any other caller is given the bare URL, since a token an agent held
+    could be written into a node, where a program that only reads the
+    graph would find it. A tab opened without a token is a local program's
+    page: it reads, and the server asks for what an agent asks for.
+  - **What an approval floor binds.** A program with the owner's shell or
+    files is the owner: it can read the page token, run `kb`, or edit
+    `.kb/nodes.jsonl` directly, and the CLI's wire, the owner's own, is not
+    a security boundary. So an agent given a shell holds what the owner
+    holds. The floors bind everything else: the sidebar agent, MCP,
+    WebMCP and a script, which reach kb only through surfaces that say who
+    they are, and a program that reaches kb only over the network, or any
+    web page, which has no token and so calls on the agent's wire. None of
+    those can say it is someone else, or that a person approved it. The
+    page URL is also in the arguments of the browser `kb ui` starts, which
+    a program that can list this machine's processes can read; such a
+    program is not a network-only one. Nor does kb prove a gesture: the
+    page's word that a person approved a call, or made it, is declared,
+    not proven (`// GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]` in `approval.ts`).
+    Who can reach `kb ui`'s HTTP and `/ws` at all is decided by the same
+    request guard, applied before `/ws` and every `/api/*` route. A request
+    passes only when its `Host` names this server, which stops DNS
+    rebinding. It must also carry no `Origin` (a local program) or the UI's
+    own, which keeps other sites' pages out. A `POST /api/action` must also
+    be `application/json`, so a page on another site cannot reach it at
+    all.
   - The browser's one invoke path takes the whole envelope, on the local
     replica and on the push lane. Its caller that sets `approved` is the
     agent sidebar's approval prompt, which makes the call as the agent's,

@@ -35,6 +35,9 @@ const server = await Effect.runPromise(
   }),
 );
 console.log(`render harness UI: ${server.url} (scratch root: ${scratchRoot})`);
+// The harness reads this line: a tab opened at it holds the page token, as
+// one `kb ui` opens does (harness-server.ts).
+console.log(`render harness page: ${server.page}`);
 
 const stop = async () => {
   await Effect.runPromise(server.stop);

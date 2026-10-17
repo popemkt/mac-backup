@@ -10,6 +10,7 @@ import { handleHttpRequest } from "../src/http.ts";
 import { UI_DIST } from "../src/paths.ts";
 import { listSavedQueries, savedQueryNodes } from "../src/saved-queries.ts";
 import { rowsHash, SubscriptionHub } from "../src/session.ts";
+import { HTTP_WIRE } from "../src/guard.ts";
 
 const { assetContentType, serveKbAsset, serveStatic } = assets;
 
@@ -124,7 +125,7 @@ describe("ui session boundary", () => {
         frames.push(text);
       });
 
-    await Effect.runPromise(hub.addClient("c1", send));
+    await Effect.runPromise(hub.addClient("c1", send, HTTP_WIRE));
     expect(hub.clientCount).toBe(1);
     // rev 1, not 0: `rev` is the store's durable counter now, and opening a
     // fresh root seeds it — which is a recorded transaction like any other.
@@ -173,19 +174,35 @@ describe("ui http boundary", () => {
     const deps = { root, ctx, hub };
     const jsonCt = "application/json;charset=utf-8";
 
-    const graph = await handleHttpRequest(new Request("http://127.0.0.1/api/graph"), deps);
+    const graph = await handleHttpRequest(
+      new Request("http://127.0.0.1/api/graph"),
+      HTTP_WIRE,
+      deps,
+    );
     expect(graph.status).toBe(200);
     expect(graph.headers.get("Content-Type")).toBe(jsonCt);
 
-    const queries = await handleHttpRequest(new Request("http://127.0.0.1/api/queries"), deps);
+    const queries = await handleHttpRequest(
+      new Request("http://127.0.0.1/api/queries"),
+      HTTP_WIRE,
+      deps,
+    );
     expect(queries.status).toBe(200);
     expect(queries.headers.get("Content-Type")).toBe(jsonCt);
 
-    const manifest = await handleHttpRequest(new Request("http://127.0.0.1/api/manifest"), deps);
+    const manifest = await handleHttpRequest(
+      new Request("http://127.0.0.1/api/manifest"),
+      HTTP_WIRE,
+      deps,
+    );
     expect(manifest.status).toBe(200);
     expect(manifest.headers.get("Content-Type")).toBe(jsonCt);
 
-    const api404 = await handleHttpRequest(new Request("http://127.0.0.1/api/nope"), deps);
+    const api404 = await handleHttpRequest(
+      new Request("http://127.0.0.1/api/nope"),
+      HTTP_WIRE,
+      deps,
+    );
     expect(api404.status).toBe(404);
     expect(api404.headers.get("Content-Type")).toBeNull();
     expect(await api404.text()).toBe("not found");
@@ -196,6 +213,7 @@ describe("ui http boundary", () => {
         body: "not-json",
         headers: { "content-type": "application/json" },
       }),
+      HTTP_WIRE,
       deps,
     );
     expect(badJson.status).toBe(400);
@@ -203,7 +221,7 @@ describe("ui http boundary", () => {
     const badBody = (await badJson.json()) as { code: string };
     expect(badBody.code).toBe("invalid_input");
 
-    const fallback = await handleHttpRequest(new Request("http://127.0.0.1/"), deps);
+    const fallback = await handleHttpRequest(new Request("http://127.0.0.1/"), HTTP_WIRE, deps);
     // Built UI → 200 SPA; unbuilt → 503 ui_not_built.
     if (fallback.status === 503) {
       expect(fallback.headers.get("Content-Type")).toBe(jsonCt);
@@ -224,7 +242,7 @@ describe("ui http boundary", () => {
       Effect.die(new Error("asset-read-failed")),
     );
     try {
-      const res = await handleHttpRequest(new Request("http://127.0.0.1/assets/x.png"), {
+      const res = await handleHttpRequest(new Request("http://127.0.0.1/assets/x.png"), HTTP_WIRE, {
         root,
         ctx,
         hub,
@@ -253,11 +271,15 @@ describe("ui http boundary", () => {
     const ctx = await openKb(root);
     const hub = new SubscriptionHub(ctx);
 
-    const queries = await handleHttpRequest(new Request("http://127.0.0.1/api/queries"), {
-      root,
-      ctx,
-      hub,
-    });
+    const queries = await handleHttpRequest(
+      new Request("http://127.0.0.1/api/queries"),
+      HTTP_WIRE,
+      {
+        root,
+        ctx,
+        hub,
+      },
+    );
     expect(queries.status).toBe(200);
     const body = (await queries.json()) as { name: string }[];
     expect(body.map((q) => q.name)).toEqual(["good"]);
@@ -275,6 +297,7 @@ describe("ui http boundary", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id: "graph.query", input: { query: "not [valid" } }),
       }),
+      HTTP_WIRE,
       { root, ctx, hub },
     );
     expect(res.status).toBe(200);
@@ -302,6 +325,7 @@ describe("ui http boundary", () => {
           input: { text: "evil", parent: "sys.tag" },
         }),
       }),
+      HTTP_WIRE,
       { root, ctx, hub },
     );
     expect(res.status).toBe(200);
@@ -331,6 +355,7 @@ describe("ui http boundary", () => {
           },
         }),
       }),
+      HTTP_WIRE,
       { root, ctx, hub },
     );
     expect(res.status).toBe(200);

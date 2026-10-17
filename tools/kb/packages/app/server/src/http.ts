@@ -2,7 +2,6 @@ import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
-  PAGE_WIRE,
   TxOrigin,
   listingOf,
   onWire,
@@ -17,28 +16,11 @@ import type { ActionHandlerEnv } from "@kb/runtime";
 import { SANDBOX_FRAME_HEADERS, SANDBOX_FRAME_PATH, sandboxFrameDocument } from "@kb/sandbox";
 import { canonicalRoot } from "@kb/workspace-fs";
 import * as assets from "./assets.ts";
+import { HTTP_WIRE } from "./guard.ts";
 import { serverInvoke } from "./invoke.ts";
 import { listSavedQueriesEffect } from "./saved-queries.ts";
 import { serverRuntimeLayer } from "./screens.ts";
 import type { SubscriptionHub } from "./session.ts";
-
-/**
- * HTTP's wire for a local program: a request with no Origin, which a
- * browser never sends to `POST /api/action` (the CLI's relay, curl, another
- * app). Its calls are an agent's, the more cautious caller: one cannot say
- * it is someone else, or that a person approved it, since no person stands
- * behind it here. The UI's own page is the page's wire (`PAGE_WIRE`).
- */
-export const HTTP_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent" };
-
-/**
- * Whose wire a request to the API is: the page's when it carries an Origin,
- * which the request guard has already held to the UI's own, else a local
- * program's.
- */
-function wireOf(req: Request): SurfaceWire {
-  return req.headers.get("origin") === null ? HTTP_WIRE : PAGE_WIRE;
-}
 
 /** Match Bun/Web `Response.json` Content-Type exactly. */
 const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
@@ -111,6 +93,7 @@ const JSON_READS: ReadonlyMap<string, JsonRead> = new Map<string, JsonRead>([
  */
 const handleHttpRequestEffect = (
   req: Request,
+  wire: SurfaceWire,
   deps: UiHttpDeps,
 ): Effect.Effect<HttpServerResponse.HttpServerResponse, never, ActionHandlerEnv> =>
   Effect.gen(function* () {
@@ -122,15 +105,15 @@ const handleHttpRequestEffect = (
       return jsonResponse(yield* read(deps));
     }
 
-    // The request guard (`guard.ts`) has already refused another site's page,
-    // so only the UI and local programs reach this.
+    // The request guard (`guard.ts`) has already refused another site's page
+    // and a stale page token, and said whose wire this is: the page's when
+    // it carries this run's token, else a local program's.
     if (url.pathname === "/api/action" && req.method === "POST") {
       const body = yield* Effect.tryPromise(() => req.json()).pipe(Effect.option);
       if (Option.isNone(body)) {
         return invalidInput("request body must be JSON");
       }
 
-      const wire = wireOf(req);
       const made = requestOnWire(wire, body.value);
       if ("invalid" in made) return invalidInput(made.invalid);
       if ("refused" in made) {
@@ -193,13 +176,18 @@ const handleHttpRequestEffect = (
   );
 
 /**
- * Promise facade for the HTTP layer: runs the routing Effect against the
+ * Promise facade for the HTTP layer: runs the routing Effect, for a request
+ * the guard let through on `wire`, against the
  * server's runtime Layer (FileSystem + store + session + templates + the
  * screens this server holds) and converts the response to a Web `Response`.
  */
-export function handleHttpRequest(req: Request, deps: UiHttpDeps): Promise<Response> {
+export function handleHttpRequest(
+  req: Request,
+  wire: SurfaceWire,
+  deps: UiHttpDeps,
+): Promise<Response> {
   return Effect.runPromise(
-    handleHttpRequestEffect(req, deps).pipe(
+    handleHttpRequestEffect(req, wire, deps).pipe(
       Effect.provide(serverRuntimeLayer(deps.ctx, deps.hub.screens, deps.hosted)),
       Effect.map(HttpServerResponse.toWeb),
     ),

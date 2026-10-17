@@ -20,6 +20,7 @@ import { DatascriptIndex, type KbIndex } from "@kb/query";
 import type { KbNode } from "@kb/model";
 import { handleHttpRequest } from "../src/http.ts";
 import { SubscriptionHub } from "../src/session.ts";
+import { HTTP_WIRE } from "../src/guard.ts";
 
 /** The `at` a test commit records; the tail wants one and none of these assert on it. */
 const TX_AT = "2026-01-01T00:00:00.000Z";
@@ -61,6 +62,7 @@ describe("index rebuilds on the interactive path", () => {
           method: "POST",
           body: JSON.stringify({ id: "node.add", input: { text: "edited", id: "n.edit" } }),
         }),
+        HTTP_WIRE,
         deps,
       );
       expect(res.status).toBe(200);

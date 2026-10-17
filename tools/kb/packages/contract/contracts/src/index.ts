@@ -88,6 +88,15 @@ export type {
   LoadedExtension,
 } from "./extension.ts";
 export {
+  PAGE_PROTOCOL,
+  PAGE_TOKEN_HEADER,
+  offeredPageToken,
+  pageProtocols,
+  pageTokenOf,
+  pageUrlOf,
+  withoutPageToken,
+} from "./page-token.ts";
+export {
   ActionResponseSchema,
   ClientMessageSchema,
   GraphSnapshotSchema,

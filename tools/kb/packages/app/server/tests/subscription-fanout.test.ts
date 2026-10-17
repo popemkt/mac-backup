@@ -17,6 +17,7 @@ import { openKb } from "@kb/runtime";
 import type { KbIndex } from "@kb/query";
 import { handleHttpRequest } from "../src/http.ts";
 import { SubscriptionHub } from "../src/session.ts";
+import { HTTP_WIRE } from "../src/guard.ts";
 
 const SHARED = "[:find ?id :where [?n :node/id ?id]]";
 const OTHER = "[:find ?t :where [?n :node/text ?t]]";
@@ -47,7 +48,7 @@ describe("subscription fan-out", () => {
 
       // Three subscriptions over two queries, spread across two clients.
       for (const clientId of ["c1", "c2"]) {
-        await Effect.runPromise(hub.addClient(clientId, send));
+        await Effect.runPromise(hub.addClient(clientId, send, HTTP_WIRE));
         await Effect.runPromise(
           hub.handleMessage(clientId, JSON.stringify({ op: "subscribe", id: "s", query: SHARED })),
         );
@@ -62,6 +63,7 @@ describe("subscription fan-out", () => {
           method: "POST",
           body: JSON.stringify({ id: "node.add", input: { text: "edited", id: "n.edit" } }),
         }),
+        HTTP_WIRE,
         { root: dir, ctx, hub },
       );
       expect(res.status).toBe(200);

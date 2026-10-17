@@ -15,6 +15,7 @@ import type { ServerMessage } from "@kb/contracts";
 import { SYSTEM_IDS, fieldTypeValue, type PropValue } from "@kb/model";
 import { handleHttpRequest } from "../src/http.ts";
 import { SubscriptionHub } from "../src/session.ts";
+import { HTTP_WIRE } from "../src/guard.ts";
 
 type TxFrame = Extract<ServerMessage, { op: "tx" }>;
 
@@ -36,16 +37,20 @@ async function served() {
         method: "POST",
         body: JSON.stringify({ id, input }),
       }),
+      HTTP_WIRE,
       deps,
     );
     return { http: response.status, receipt: (await response.json()) as Record<string, unknown> };
   };
   const frames: unknown[] = [];
   await Effect.runPromise(
-    hub.addClient("watcher", (text) =>
-      Effect.sync(() => {
-        frames.push(JSON.parse(text));
-      }),
+    hub.addClient(
+      "watcher",
+      (text) =>
+        Effect.sync(() => {
+          frames.push(JSON.parse(text));
+        }),
+      HTTP_WIRE,
     ),
   );
   await Effect.runPromise(

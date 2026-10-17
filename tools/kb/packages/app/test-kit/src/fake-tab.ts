@@ -9,6 +9,8 @@ import { present } from "@kb/model";
 import {
   SCREEN_APPLIED,
   ServerMessageSchema,
+  pageProtocols,
+  pageTokenOf,
   type ClientMessage,
   type ScreenAck,
   type ScreenCommand,
@@ -77,16 +79,21 @@ export class FakeTab {
   }
 
   /**
-   * Connect to the `kb ui` at `url` as the tab `id`, and publish `screen`.
-   * With `null` it publishes none, and the connection is no tab at all.
+   * Connect to a `kb ui` as the tab `id` of its page at `page` (the URL
+   * carrying its page token, `pageUrlOf`), and publish `screen`. With `null`
+   * it publishes none, and the connection is no tab at all.
    */
   static open(
-    url: string,
+    page: string,
     id: string,
     screen: ScreenState | null = FAKE_TAB_SCREEN,
   ): Effect.Effect<FakeTab> {
     return Effect.gen(function* () {
-      const socket = new WebSocket(`${url.replace(/^http/, "ws")}/ws`);
+      const token = pageTokenOf(page);
+      const socket = new WebSocket(
+        `${new URL(page).origin.replace(/^http/, "ws")}/ws`,
+        token === null ? [] : pageProtocols(token),
+      );
       const tab = new FakeTab(id, socket);
       yield* tab.#exchange(null, (msg) => msg.op === "hello");
       if (screen !== null) yield* tab.publish(screen);

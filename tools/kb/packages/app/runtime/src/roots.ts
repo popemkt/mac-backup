@@ -1,6 +1,7 @@
 /**
  * The {@link KbRoots} port on this machine's filesystem: the home store is
- * where `currentHome` says, a path is probed by
+ * where `currentHome` says, and a server's page URL is the one it kept there
+ * (`pageUrlFor`), a path is probed by
  * what the directory holds (the store chosen by presence, as opening chooses
  * it), a root is served when `.kb/ui.json` names a server that answers for
  * it (`servingUi`), a session over another root is opened exactly as this
@@ -13,7 +14,7 @@ import { Effect, Layer } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { KbRoots, type RootProbe } from "@kb/contracts";
 import { ensureDomainError, type DomainError } from "@kb/model";
-import { canonicalRoot, currentHome, servingUi } from "@kb/workspace-fs";
+import { canonicalRoot, currentHome, pageUrlFor, servingUi } from "@kb/workspace-fs";
 import { openKbEffect } from "./open.ts";
 import { oneStartPerRoot, selfLaunch, serveRoot } from "./serve.ts";
 import { createStore, storeBackendAt } from "./store-selection.ts";
@@ -64,6 +65,11 @@ export const kbRootsLayer: Layer.Layer<KbRoots, never, FileSystem> = Layer.effec
       home: currentHome,
       probe: (path) => probeRoot(path).pipe(Effect.provide(context)),
       served: (root) => servingUi(root).pipe(Effect.provide(context)),
+      page: (url) =>
+        currentHome.pipe(
+          Effect.flatMap((home) => pageUrlFor(home, url)),
+          Effect.provide(context),
+        ),
       create: (root) => createRoot(root).pipe(Effect.provide(context)),
       // GAP [[01M39XVZCR684Y1V9FXNDT44D5]]: the store opened here is never
       // released, as no selected store is; a sqlite root keeps its connection.

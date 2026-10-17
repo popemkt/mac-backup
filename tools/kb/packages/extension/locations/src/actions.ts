@@ -88,6 +88,14 @@ export const locationRegisterDef = {
 export const LocationOpenedSchema = z.object({
   /** The `kb ui` serving the root now. */
   url: z.string(),
+  /**
+   * Where a browser opens the root. For the owner's own call (the person,
+   * their command line) it is the page URL: `url` carrying the page token
+   * its server kept for them (DESIGN.md → Surfaces → The page token). Any
+   * other caller is given `url`, since a token it held could be written
+   * where a program that only reads the graph would find it.
+   */
+  open: z.string(),
   /** The root's canonical path. */
   path: z.string(),
 });
@@ -98,7 +106,7 @@ export const locationOpenDef = {
   aliases: [LOCATION_ACTIONS.open],
   title: "Open location",
   description:
-    "The URL of a `kb ui` serving the location `id`, the kb root at `path`, or (given neither) the person's home store. A root already served answers its server's URL and is ranked first; one that is closed gets a `kb ui` started for it, which keeps running after the call and ranks its root first itself. Refuses a location that is missing or not a store, and a server that does not answer in about ten seconds.",
+    "The URL of a `kb ui` serving the location `id`, the kb root at `path`, or (given neither) the person's home store, and where a browser opens it: for the person's own call, the page URL carrying that server's page token. A root already served answers its server's URL and is ranked first; one that is closed gets a `kb ui` started for it, which keeps running after the call and ranks its root first itself. Refuses a location that is missing or not a store, and a server that does not answer in about ten seconds.",
   mode: { kind: "write", outsideRoot: true },
   inputSchema: z
     .object({

@@ -20,7 +20,13 @@ import {
   scriptedRuntime,
 } from "@kb/agent";
 import { BUNDLED_FAMILIES, HOSTED_FAMILIES } from "@kb/bundled";
-import { NO_SECRETS, type ExtensionEntry, type ExtensionRow } from "@kb/contracts";
+import {
+  NO_SECRETS,
+  PAGE_TOKEN_HEADER,
+  pageTokenOf,
+  type ExtensionEntry,
+  type ExtensionRow,
+} from "@kb/contracts";
 import { kbManifestDef } from "@kb/operations";
 import { bunFileSystemLayer } from "@kb/runtime";
 import { startUi } from "@kb/server";
@@ -34,28 +40,33 @@ const AGENT: ExtensionEntry = {
   }),
 };
 
-/** A person's call to `url`'s server, over HTTP as the page makes it; its receipt's body. */
-async function call(url: string, id: string, input: unknown): Promise<Record<string, unknown>> {
+/** A person's call from the page at `page`, over HTTP as the page makes it; its receipt's body. */
+async function call(page: string, id: string, input: unknown): Promise<Record<string, unknown>> {
+  const url = new URL(page).origin;
   const response = await fetch(`${url}/api/action`, {
     method: "POST",
-    headers: { "content-type": "application/json", origin: new URL(url).origin },
+    headers: {
+      "content-type": "application/json",
+      origin: url,
+      [PAGE_TOKEN_HEADER]: pageTokenOf(page) ?? "",
+    },
     body: JSON.stringify({ id, input, actor: "human" }),
   });
   return (await response.json()) as Record<string, unknown>;
 }
 
-/** The extensions `url`'s server reports, as the page asks. */
-async function reportedAt(url: string): Promise<readonly ExtensionRow[]> {
-  const body = await call(url, kbManifestDef.id, {});
+/** The extensions the server of the page at `page` reports, as the page asks. */
+async function reportedAt(page: string): Promise<readonly ExtensionRow[]> {
+  const body = await call(page, kbManifestDef.id, {});
   expect(body.status).toBe("succeeded");
   return kbManifestDef.outputSchema.parse(body.output).extensions;
 }
 
-/** Run `against` on a `kb ui` over `root` hosting `extensions`. */
+/** Run `against` on the page of a `kb ui` over `root` hosting `extensions`. */
 async function served<T>(
   root: string,
   extensions: readonly ExtensionEntry[],
-  against: (url: string) => Promise<T>,
+  against: (page: string) => Promise<T>,
 ): Promise<T> {
   const handle = await Effect.runPromise(
     startUi({ root, port: 0, openBrowser: false, extensions }).pipe(
@@ -63,7 +74,7 @@ async function served<T>(
     ),
   );
   try {
-    return await against(handle.url);
+    return await against(handle.page);
   } finally {
     await Effect.runPromise(handle.stop);
   }
@@ -118,13 +129,13 @@ describe("kb ui reports the extensions it hosts", () => {
   });
 
   test("switched off, the server stops hosting the agent, live; switched on, it hosts it again", async () => {
-    await served(root, [AGENT], async (url) => {
-      const agentAt = async () => (await reportedAt(url)).find((row) => row.name === "agent");
-      expect(await call(url, "extension.switch", { name: "agent", on: false })).toMatchObject({
+    await served(root, [AGENT], async (page) => {
+      const agentAt = async () => (await reportedAt(page)).find((row) => row.name === "agent");
+      expect(await call(page, "extension.switch", { name: "agent", on: false })).toMatchObject({
         status: "succeeded",
       });
       expect(await agentAt()).toMatchObject({ optional: true, enabled: false });
-      expect(await call(url, "extension.switch", { name: "agent", on: true })).toMatchObject({
+      expect(await call(page, "extension.switch", { name: "agent", on: true })).toMatchObject({
         status: "succeeded",
       });
       expect(await agentAt()).toMatchObject({ enabled: true });
@@ -132,8 +143,8 @@ describe("kb ui reports the extensions it hosts", () => {
   });
 
   test("a store with the agent switched off starts without it", async () => {
-    await served(root, [AGENT], (url) =>
-      call(url, "extension.switch", { name: "agent", on: false }),
+    await served(root, [AGENT], (page) =>
+      call(page, "extension.switch", { name: "agent", on: false }),
     );
     const rows = await reportedBy(root, [AGENT]);
     expect(rows.find((row) => row.name === "agent")).toMatchObject({ enabled: false });

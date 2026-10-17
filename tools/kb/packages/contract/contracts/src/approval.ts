@@ -111,8 +111,8 @@ export function requestOnWire(
  * the calls the page makes for others (the agent sidebar's, WebMCP's, the
  * scripts it hosts), each naming its actor, and a call that names none is
  * the person's gesture. The server takes a call as the page's only when it
- * carries the UI's own Origin, which a browser always sends and another
- * site's page cannot (the request guard).
+ * carries this run's page token (`page-token.ts`), which the page has from
+ * the URL that opened it and nothing the server serves carries.
  */
 export const PAGE_WIRE: SurfaceWire = { carriesApproval: true, actor: "human", relays: true };
 

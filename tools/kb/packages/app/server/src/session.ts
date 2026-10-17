@@ -2,8 +2,11 @@ import { Effect, Schema } from "effect";
 import {
   type Channel,
   type ChannelPeer,
+  type ClientMessage,
   type KbContext,
+  type SurfaceWire,
   ClientMessageSchema,
+  PAGE_WIRE,
   GraphSnapshotSchema,
   WireNodeSchema,
   type GraphSnapshot,
@@ -19,7 +22,17 @@ import { ScreenHub } from "./screens.ts";
 export type WsData = {
   /** This connection, and no other. */
   clientId: string;
+  /** Whose connection it is, as the request guard found its handshake. */
+  wire: SurfaceWire;
 };
+
+/**
+ * The frames only the page sends: publishing a tab's screen and answering
+ * for it, and speaking on a plugin channel (the agent's, whose turns run as
+ * the person's agent). A connection on a local program's wire reads, by
+ * subscribing, watching and catching up, and does nothing else.
+ */
+const PAGE_OPS: ReadonlySet<ClientMessage["op"]> = new Set(["screen", "screen-ack", "channel"]);
 
 /** A frame could not be handed to the socket: the client has gone. */
 export class ClientGone extends Schema.TaggedError<ClientGone>()("Kb/ClientGone", {}) {}
@@ -36,6 +49,8 @@ interface ClientState {
   send: (text: string) => Effect.Effect<void>;
   /** The handle itself, for the screens, which need to know a frame was taken. */
   deliver: ClientSend;
+  /** Whose connection it is ({@link WsData.wire}). */
+  wire: SurfaceWire;
   watchTx: boolean;
   /** subscription id → { query, lastHash } */
   subs: Map<string, { query: string; lastHash: string }>;
@@ -143,10 +158,10 @@ export class SubscriptionHub {
     });
   }
 
-  /** Register a client and send the connection `hello`. */
-  addClient(clientId: string, deliver: ClientSend): Effect.Effect<void> {
+  /** Register a client on `wire` and send the connection `hello`. */
+  addClient(clientId: string, deliver: ClientSend, wire: SurfaceWire): Effect.Effect<void> {
     const send = (text: string) => Effect.ignore(deliver(text));
-    this.clients.set(clientId, { send, deliver, watchTx: false, subs: new Map() });
+    this.clients.set(clientId, { send, deliver, wire, watchTx: false, subs: new Map() });
     return send(JSON.stringify({ op: "hello", rev: this.ctx.log.head }));
   }
 
@@ -204,6 +219,16 @@ export class SubscriptionHub {
     }
 
     const msg = result.data;
+    if (PAGE_OPS.has(msg.op) && client.wire !== PAGE_WIRE) {
+      return client.send(
+        JSON.stringify({
+          op: "error",
+          ...(msg.op === "channel" ? { id: msg.channel } : {}),
+          code: "forbidden",
+          message: `only the kb ui page may send ${msg.op}: its handshake offers this run's page token`,
+        }),
+      );
+    }
     switch (msg.op) {
       case "ping":
         return client.send(JSON.stringify({ op: "pong" }));

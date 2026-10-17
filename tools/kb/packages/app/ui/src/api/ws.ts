@@ -20,6 +20,7 @@ import {
   type ScreenState,
 } from "@kb/contracts";
 import { getClientOrigin } from "@/api/action";
+import { socketProtocols } from "@/api/page-token";
 import type { GraphMessage } from "@/session/replica";
 
 export type WsStatus = "idle" | "connecting" | "open" | "closed";
@@ -112,7 +113,7 @@ function defaultUrl(): string {
  * the handlers.
  */
 function defaultMakeSocket(url: string): WsLike {
-  return new WebSocket(url);
+  return new WebSocket(url, socketProtocols());
 }
 
 export class KbWsClient {

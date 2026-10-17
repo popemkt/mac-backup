@@ -38,6 +38,11 @@ export interface KbRootsPort {
   readonly probe: (path: string) => Effect.Effect<RootProbe, DomainError>;
   /** The URL of the `kb ui` that serves `root` now, or null (presence, checked by asking it). */
   readonly served: (root: string) => Effect.Effect<string | null, DomainError>;
+  /**
+   * The URL that opens the page of the `kb ui` at `url` (`pageUrlOf`), from
+   * the page token it kept in the person's home; null when it kept none.
+   */
+  readonly page: (url: string) => Effect.Effect<string | null, DomainError>;
   /** Make `root` a kb root with an empty store, creating its directory, unless it is one. */
   readonly create: (root: string) => Effect.Effect<void, DomainError>;
   /** A session over `root`, opened as every surface opens one: its store chosen by presence, seeded. */

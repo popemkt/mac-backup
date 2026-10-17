@@ -65,6 +65,8 @@ async function freePort(): Promise<number> {
  */
 export async function startHarness(): Promise<{
   url: string;
+  /** The URL that opens the page as `kb ui` opens it: carrying its page token. */
+  page: string;
   stop: () => Promise<void>;
 }> {
   const port = await freePort();
@@ -74,16 +76,24 @@ export async function startHarness(): Promise<{
   // name it, and the harness is the override's reason to exist.
   const server = spawn("bun", ["tests-render/server.ts", String(port)], {
     cwd: process.cwd(),
-    stdio: "inherit",
+    stdio: ["ignore", "pipe", "inherit"],
     env: { ...process.env, KB_UI_DIST: HARNESS_UI_DIST },
   });
   const url = `http://127.0.0.1:${port}`;
+  // The server says its page on its own line (server.ts); the rest is passed on.
+  const said: { page?: string } = {};
+  server.stdout.setEncoding("utf8");
+  server.stdout.on("data", (chunk: string) => {
+    process.stdout.write(chunk);
+    said.page ??= /render harness page: (\S+)/.exec(chunk)?.[1];
+  });
 
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     try {
       const response = await fetch(`${url}/api/graph`);
-      if (response.ok) return { url, stop: () => stop(server) };
+      if (response.ok && said.page !== undefined)
+        return { url, page: said.page, stop: () => stop(server) };
     } catch {
       // The process needs a moment to load the data root and bind its port.
     }

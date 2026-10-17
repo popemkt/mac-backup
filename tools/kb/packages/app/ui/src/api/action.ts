@@ -1,6 +1,7 @@
 /** POST /api/action — the receipt and, on success, the rev it committed at (protocol.ts). */
 
 import { ActionResponseSchema, type ActionRequest, type ActionResponse } from "@kb/contracts";
+import { pageHeaders } from "@/api/page-token";
 
 export type { ActionRequest, ActionResponse };
 
@@ -21,7 +22,11 @@ export function getClientOrigin(): string {
 async function defaultPostAction(invocation: ActionRequest): Promise<ActionResponse> {
   const res = await fetch("/api/action", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-KB-Origin": getClientOrigin() },
+    headers: {
+      ...pageHeaders(),
+      "Content-Type": "application/json",
+      "X-KB-Origin": getClientOrigin(),
+    },
     body: JSON.stringify(invocation),
   });
   const json: unknown = await res.json().catch(() => null);

@@ -18,9 +18,11 @@ import {
   DecidedEntrySchema,
   ManifestEntrySchema,
   NO_SECRETS,
+  PAGE_TOKEN_HEADER,
   extensionRow,
   listedOn,
   onWire,
+  pageTokenOf,
   type ActionRequest,
   type ActionReceipt,
 } from "@kb/contracts";
@@ -187,25 +189,26 @@ const serve: ServeUi = async (root) => {
   );
   return {
     url: handle.url,
+    page: handle.page,
     hosted: [extensionRow(agentExtension, "host", true)],
     stop: () => Effect.runPromise(handle.stop),
   };
 };
 
 /**
- * `POST /api/action`, and the receipt from its response: as the UI's page
- * sends it, with the UI's own Origin, or as a local program does, with none.
+ * `POST /api/action` from `at`, and the receipt from its response: from the
+ * UI's page (its URL carries the page token), as the page sends it, with the
+ * token and the UI's own Origin; from the server's bare URL, as a local
+ * program does, with neither.
  */
-async function postAction(
-  url: string,
-  invocation: ActionRequest,
-  from: "page" | "program",
-): Promise<ActionReceipt> {
+async function postAction(at: string, invocation: ActionRequest): Promise<ActionReceipt> {
+  const token = pageTokenOf(at);
+  const url = new URL(at).origin;
   const res = await fetch(`${url}/api/action`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...(from === "page" ? { origin: new URL(url).origin } : {}),
+      ...(token === null ? {} : { origin: url, [PAGE_TOKEN_HEADER]: token }),
     },
     body: JSON.stringify(invocation),
   });
@@ -217,7 +220,7 @@ async function postAction(
 
 /**
  * HTTP, as a local program reaches it: `GET /api/manifest` is the listing,
- * and `POST /api/action` takes a call with no Origin, which no person
+ * and `POST /api/action` takes a call with no page token, which no person
  * approves, so a call the contract says a person approved is made as it can
  * be made here, without it.
  */
@@ -226,7 +229,7 @@ const http: SurfaceFactory = async (_root, ui) => ({
   host: "ui",
   list: async () =>
     z.array(ListedActionSchema).parse(await (await fetch(`${ui.url}/api/manifest`)).json()),
-  invoke: ({ approved: _approved, ...invocation }) => postAction(ui.url, invocation, "program"),
+  invoke: ({ approved: _approved, ...invocation }) => postAction(ui.url, invocation),
   close: async () => undefined,
 });
 
@@ -250,7 +253,7 @@ const webmcp: SurfaceFactory = async (_root, ui) => {
   const page = new FakeModelContext();
   const adapter = startWebMcp({
     modelContext: () => page,
-    invoke: (invocation) => postAction(ui.url, invocation, "page"),
+    invoke: (invocation) => postAction(ui.page, invocation),
     report: (message) => {
       throw new Error(message);
     },
@@ -296,7 +299,7 @@ function agentEvents(tab: FakeTab, from: number, conversation: string): AgentEve
  */
 const agent: SurfaceFactory = async (_root, ui) => {
   // A connection that publishes no screen, so the root's one tab stays the contract's own.
-  const tab = await Effect.runPromise(FakeTab.open(ui.url, "sidebar.surface-contract", null));
+  const tab = await Effect.runPromise(FakeTab.open(ui.page, "sidebar.surface-contract", null));
   let turns = 0;
   const say = async (ask: unknown, approved: boolean): Promise<string> => {
     turns += 1;
@@ -316,7 +319,7 @@ const agent: SurfaceFactory = async (_root, ui) => {
         );
         if (call === undefined) throw new Error(`approval for a call never made: ${event.call}`);
         const invocation = onWire(AGENT_WIRE, { id: call.action, input: call.input, approved });
-        const receipt = await postAction(ui.url, invocation, "page");
+        const receipt = await postAction(ui.page, invocation);
         tab.say(AGENT_CHANNEL, { type: "receipt", conversation, call: event.call, receipt });
       }
       const end = events.find((event) => event.type === "turn-end");

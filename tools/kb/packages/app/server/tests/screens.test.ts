@@ -70,7 +70,7 @@ describe("screen state", () => {
   const tabs: FakeTab[] = [];
 
   async function tab(id: string, state?: ScreenState): Promise<FakeTab> {
-    const opened = await run(FakeTab.open(handle.url, id, state));
+    const opened = await run(FakeTab.open(handle.page, id, state));
     tabs.push(opened);
     return opened;
   }
@@ -299,7 +299,7 @@ describe("screen state with no kb ui", () => {
   test("a presence file whose port another root's kb ui now holds names no tabs", async () => {
     const other = await mkdtemp(join(tmpdir(), "kb-screens-other-"));
     const elsewhere = await run(startUi({ root: other, port: 0, openBrowser: false }));
-    const stranger = await run(FakeTab.open(elsewhere.url, "tab.stranger"));
+    const stranger = await run(FakeTab.open(elsewhere.page, "tab.stranger"));
     try {
       const ctx = await openKb(root);
       await writePresence(root, elsewhere.url);

@@ -48,20 +48,27 @@ export interface GpuFacts {
 }
 
 export const test = base.extend<{
-  harness: { url: string };
+  harness: { url: string; page: string };
   gpu: GpuFacts;
 }>({
   // oxlint-disable-next-line no-empty-pattern -- Playwright reads fixture deps from the destructuring pattern
   harness: async ({}, provide) => {
     const harness = await startHarness();
     try {
-      await provide({ url: harness.url });
+      await provide({ url: harness.url, page: harness.page });
     } finally {
       await harness.stop();
     }
   },
   baseURL: async ({ harness }, provide) => {
     await provide(harness.url);
+  },
+  // A test's tab is the page: it opens once at the URL carrying the page
+  // token, which the page keeps for the tab, so the paths a test goes to
+  // after it are the page's too.
+  page: async ({ page, harness }, provide) => {
+    await page.goto(harness.page);
+    await provide(page);
   },
   gpu: async ({ context, harness }, provide) => {
     // `navigator.gpu` exists only in a secure context; the harness origin

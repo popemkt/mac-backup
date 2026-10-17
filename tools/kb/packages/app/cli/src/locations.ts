@@ -172,7 +172,7 @@ export function locationCommands(program: Command): void {
           const receipt = yield* call(ctx, "location.open", input);
           const url =
             receipt.status === "succeeded" && Predicate.isObject(receipt.output)
-              ? text(receipt.output.url)
+              ? text(receipt.output.open)
               : "";
           if (url !== "" && globals.json !== true && opts.browser !== false) {
             const { openBrowser } = yield* Effect.promise(() => import("@kb/server"));
