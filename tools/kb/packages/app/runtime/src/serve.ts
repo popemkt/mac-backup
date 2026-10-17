@@ -33,6 +33,8 @@ export interface UiLaunch {
 /** About ten seconds: enough for a server whose UI is built, and it is told when it is not. */
 const START_TIMEOUT_MS = 10_000;
 const POLL_MS = 100;
+/** How long a child that never served gets to stop on SIGTERM before it is killed. */
+const STOP_GRACE_MS = 2000;
 /** How much of the log a failed start reports. */
 const TAIL_CHARS = 2000;
 
@@ -74,18 +76,31 @@ function startChild(
   }
 }
 
-/**
- * Stop a child that never served, and whatever it started (a UI build): it
- * was started detached, so it leads its own process group.
- */
-function stopChild(child: ChildProcess): void {
+/** Send `signal` to the child's process group: it was started detached, so it leads one. */
+function signalGroup(child: ChildProcess, signal: NodeJS.Signals): void {
   if (child.pid === undefined) return;
   try {
-    process.kill(-child.pid, "SIGTERM");
+    process.kill(-child.pid, signal);
   } catch {
     // Already gone.
   }
 }
+
+/**
+ * Stop a child that never served, and whatever it started (a UI build):
+ * SIGTERM, a grace period for it to exit, then SIGKILL for what is left of
+ * its group, so a child that ignores SIGTERM does not outlive its start.
+ */
+const stopChild = Effect.fn("kb.serve.stop")(function* (
+  child: ChildProcess,
+  exited: () => boolean,
+): Effect.fn.Return<void> {
+  signalGroup(child, "SIGTERM");
+  yield* Effect.gen(function* () {
+    while (!exited()) yield* Effect.sleep(POLL_MS);
+  }).pipe(Effect.timeoutOption(STOP_GRACE_MS));
+  signalGroup(child, "SIGKILL");
+});
 
 /** The end of the log, or a note that there is nothing in it. */
 const logTail = Effect.fn("kb.serve.tail")(function* (
@@ -123,7 +138,7 @@ export const serveRoot = Effect.fn("kb.serve")(function* (
       catch: (err) => domainError("internal", `kb ui could not start for ${root}: ${String(err)}`),
     }),
     (child, exit) =>
-      Exit.isSuccess(exit) || ended !== null ? Effect.void : Effect.sync(() => stopChild(child)),
+      Exit.isSuccess(exit) || ended !== null ? Effect.void : stopChild(child, () => ended !== null),
   );
   const answered = yield* Effect.gen(function* () {
     for (;;) {

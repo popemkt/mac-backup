@@ -129,6 +129,32 @@ describe("starting a kb ui for a root", () => {
   });
 });
 
+describe("stopping a child that never served", () => {
+  beforeEach(async () => {
+    scratch = await realpath(await mkdtemp(join(tmpdir(), "kb-serve-")));
+    root = join(scratch, "root");
+    await mkdir(join(scratch, "pkg"));
+    await mkdir(root);
+  });
+  afterEach(() => rm(scratch, { recursive: true, force: true }));
+
+  test("a child that ignores SIGTERM is killed once its grace has passed", async () => {
+    const pidFile = join(scratch, "child.pid");
+    const script = [
+      `require("node:fs").writeFileSync(${JSON.stringify(pidFile)}, String(process.pid))`,
+      "process.on('SIGTERM', () => {})",
+      "setInterval(() => {}, 1000)",
+    ].join("; ");
+    const message = await failureOf(
+      serveRoot(root, launch([process.execPath, "-e", script], 500)).pipe(
+        Effect.provide(bunFileSystemLayer),
+      ),
+    );
+    expect(message).toContain("so it was stopped");
+    expect(await exitsWithin(Number(await readFile(pidFile, "utf8")), 1000)).toBe(true);
+  }, 10_000);
+});
+
 describe("one start per root", () => {
   test("a start for a root that is already starting waits for it and gets its answer", async () => {
     const started: string[] = [];

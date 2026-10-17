@@ -3420,7 +3420,8 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   seconds; that server ranks its root first itself, so a start that fails
   ranks nothing. A start that exits first or does not answer in time fails
   `internal` with the log's tail, and a child that has not served by then
-  is stopped with its process group: until it serves it belongs to the
+  is stopped with its process group (SIGTERM, then SIGKILL once a short
+  grace has passed): until it serves it belongs to the
   start, so a failed or interrupted start leaves no server behind.
   Concurrent opens of one root in one process are one start
   (`oneStartPerRoot`); across processes they are not yet
