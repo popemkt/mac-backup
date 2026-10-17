@@ -7,6 +7,7 @@ import {
   usePageGraph,
   useSlotChain,
   WORKSPACE_ROOT_ID,
+  PageBackdrop,
 } from "@kb/ui-sdk";
 import { projectsRows } from "@kb/views";
 import { useOutlineNode, outlineNodes } from "./outline.store";
@@ -17,7 +18,6 @@ import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
 import { ZoomedRootHeader } from "./zoomed-root-header";
-import { HeaderBackdrop } from "./header-backdrop";
 import { useSelectionKeymap } from "./use-selection-keymap";
 import { setOutlineHost } from "./outline-hosts";
 import { useLeadsOutlines, useOutlineHost } from "./outline-host";
@@ -110,7 +110,7 @@ export function OutlineEditor({ root: rootProp }: { readonly root?: string | und
   return (
     <div className="outline-editor px-2 pb-40">
       <div className="relative">
-        <HeaderBackdrop color="var(--primary)" />
+        <PageBackdrop color="var(--primary)" />
         <div className="relative">
           <Breadcrumbs root={rootProp} />
         </div>

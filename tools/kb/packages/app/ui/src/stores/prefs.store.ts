@@ -8,12 +8,9 @@ import {
   type BackdropDirection,
   type BackdropStrength,
   DEFAULT_DESIGN_SYSTEM,
-  DEFAULT_HEADER_BACKDROP,
   DESIGN_SYSTEM_IDS,
   type DesignSystemId,
   hasText,
-  HEADER_BACKDROPS,
-  type HeaderBackdropPref,
   type Prefs,
   SIDEBAR_REGION_SELECTOR,
   type ThemePref,
@@ -56,7 +53,7 @@ export const DEFAULT_PREFS: Prefs = {
   theme: "system",
   designSystem: DEFAULT_DESIGN_SYSTEM,
   width: "centered",
-  headerBackdrop: DEFAULT_HEADER_BACKDROP,
+  headerBackdrop: "",
   backdropStrength: "subtle",
   backdropDirection: "down",
   sidebarOpen: true,
@@ -70,7 +67,8 @@ const StoredPrefsSchema = z.object({
   theme: z.enum(THEMES).catch(DEFAULT_PREFS.theme),
   designSystem: z.enum(DESIGN_SYSTEM_IDS).catch(DEFAULT_PREFS.designSystem),
   width: z.enum(WIDTHS).catch(DEFAULT_PREFS.width),
-  headerBackdrop: z.enum(HEADER_BACKDROPS).catch(DEFAULT_PREFS.headerBackdrop),
+  // Any id: which backdrops exist is the page kernel's, and an id none answers to shows the first.
+  headerBackdrop: z.string().catch(DEFAULT_PREFS.headerBackdrop),
   backdropStrength: z.enum(BACKDROP_STRENGTHS).catch(DEFAULT_PREFS.backdropStrength),
   backdropDirection: z.enum(BACKDROP_DIRECTIONS).catch(DEFAULT_PREFS.backdropDirection),
   sidebarOpen: z.boolean().optional().catch(undefined),
@@ -156,7 +154,7 @@ interface PrefsState extends Prefs {
   setTheme: (theme: ThemePref) => void;
   setDesignSystem: (designSystem: DesignSystemId) => void;
   setWidth: (width: WidthPref) => void;
-  setHeaderBackdrop: (headerBackdrop: HeaderBackdropPref) => void;
+  setHeaderBackdrop: (headerBackdrop: string) => void;
   setBackdropStrength: (strength: BackdropStrength) => void;
   setBackdropDirection: (direction: BackdropDirection) => void;
   setSidebarOpen: (open: boolean) => void;

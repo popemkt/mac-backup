@@ -50,6 +50,7 @@ import { BUNDLED_DECLARATIONS, derivedOf } from "@kb/bundled";
 import {
   ActionPoint,
   NO_SWITCHES,
+  holdsFamily,
   ViewKeyPoint,
   switchWrites,
   type ExtensionDeclaration,
@@ -285,7 +286,9 @@ function switchPromises(
       Effect.map(({ row, kernel }) => ({
         enabled: row?.enabled,
         optional: row?.optional,
-        held: kernel.contributionsOf(entry.name).length > 0,
+        // Held means loaded: a family may contribute nothing on this host (its
+        // backdrops are the page's), and still be held.
+        held: holdsFamily({ source: host.source, kernel }, entry.name),
       })),
     );
 

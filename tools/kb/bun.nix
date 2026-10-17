@@ -605,6 +605,8 @@
   "@kb/agent-claude" = copyPathToStore ./packages/extension/agent-claude;
   "@kb/agent-openai" = copyPathToStore ./packages/extension/agent-openai;
   "@kb/agent-ui" = copyPathToStore ./packages/extension/agent-ui;
+  "@kb/backdrops" = copyPathToStore ./packages/extension/backdrops;
+  "@kb/backdrops-ui" = copyPathToStore ./packages/extension/backdrops-ui;
   "@kb/bundled" = copyPathToStore ./packages/app/bundled;
   "@kb/canvas" = copyPathToStore ./packages/extension/canvas;
   "@kb/canvas-ui" = copyPathToStore ./packages/extension/canvas-ui;

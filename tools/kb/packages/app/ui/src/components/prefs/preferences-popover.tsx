@@ -1,19 +1,19 @@
 import {
+  BackdropPoint,
   BACKDROP_STRENGTHS,
+  chosenBackdrop,
   cn,
   DESIGN_SYSTEMS,
   type EnumOption,
   EnumSelect,
   type ExtensionSwitch,
-  HEADER_BACKDROP_LABELS,
-  HEADER_BACKDROP_PRESENTATION,
-  HEADER_BACKDROPS,
   isOutside,
   POPOVER_VALUE_CLASS,
   PopoverShell,
   PrefFieldRow,
   THEME_GLYPHS,
   type ThemePref,
+  useContributions,
   type WidthPref,
 } from "@kb/ui-sdk";
 import { useEffect, useRef } from "react";
@@ -174,15 +174,19 @@ function WidthRow() {
   );
 }
 
+/** The one backdrop picker: every backdrop contributed to `BackdropPoint`, by its label. */
 function HeaderBackdropRow() {
-  const backdrop = usePrefsStore((s) => s.headerBackdrop);
+  const backdrops = useContributions(BackdropPoint);
+  const choice = usePrefsStore((s) => s.headerBackdrop);
   const setBackdrop = usePrefsStore((s) => s.setHeaderBackdrop);
+  const chosen = chosenBackdrop(backdrops, choice);
+  if (chosen === null) return null;
   return (
     <PrefFieldRow icon={SwatchesIcon} label="header">
       <EnumSelect
         className={POPOVER_VALUE_CLASS}
-        value={backdrop}
-        options={HEADER_BACKDROPS.map((value) => ({ value, label: HEADER_BACKDROP_LABELS[value] }))}
+        value={chosen.id}
+        options={backdrops.map(({ id, value }) => ({ value: id, label: value.label }))}
         onChange={setBackdrop}
       />
     </PrefFieldRow>
@@ -207,8 +211,9 @@ function BackdropStrengthRow() {
 function BackdropDirectionRow() {
   const direction = usePrefsStore((s) => s.backdropDirection);
   const setDirection = usePrefsStore((s) => s.setBackdropDirection);
-  const backdrop = usePrefsStore((s) => s.headerBackdrop);
-  const directions = HEADER_BACKDROP_PRESENTATION[backdrop].directions;
+  const backdrops = useContributions(BackdropPoint);
+  const choice = usePrefsStore((s) => s.headerBackdrop);
+  const directions = chosenBackdrop(backdrops, choice)?.value.presentation.directions ?? [];
   if (directions.length === 0) return null;
   return (
     <PrefFieldRow icon={SwatchesIcon} label="direction">

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kb/agent": "workspace:*",
+    "@kb/backdrops": "workspace:*",
     "@kb/canvas": "workspace:*",
     "@kb/chart": "workspace:*",
     "@kb/check": "workspace:*",

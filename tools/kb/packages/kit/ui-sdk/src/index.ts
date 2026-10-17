@@ -69,6 +69,11 @@ export {
   currentContributions,
   currentView,
   currentService,
+  type Backdrop,
+  BackdropPoint,
+  chosenBackdrop,
+  type BackdropPresentation,
+  type BackdropProps,
   type Dock,
   DockPoint,
   type ExtensionSwitch,
@@ -107,6 +112,7 @@ export {
 } from "./lib/view-key";
 export { useSlotChain } from "./components/slot-chain";
 export { ViewSlot } from "./components/view-slot";
+export { PageBackdrop } from "./components/page-backdrop";
 
 // The primitives.
 export { Bullet } from "./components/bullet";
@@ -430,15 +436,10 @@ export {
   type Appearance,
   appearanceOf,
   BACKDROP_STRENGTHS,
-  HEADER_BACKDROP_PRESENTATION,
   BACKDROP_DIRECTIONS,
   type BackdropStrength,
   type BackdropDirection,
   DEFAULT_DESIGN_SYSTEM,
-  DEFAULT_HEADER_BACKDROP,
-  HEADER_BACKDROPS,
-  HEADER_BACKDROP_LABELS,
-  type HeaderBackdropPref,
   type Prefs,
   DESIGN_SYSTEM_IDS,
   DESIGN_SYSTEMS,

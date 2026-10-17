@@ -11,12 +11,12 @@ import {
   TagChipGroup,
   useOpenNode,
   usePageGraph,
+  PageBackdrop,
 } from "@kb/ui-sdk";
 import { projectsRows, type FrameViewKey } from "@kb/views";
 import { FieldsSection } from "./fields-section";
 import { ViewToolbar } from "./view-toolbar";
 import { NodeContent } from "./node-content";
-import { HeaderBackdrop } from "./header-backdrop";
 
 /**
  * D13: everything is a node — the zoomed page title edits in place with
@@ -122,7 +122,7 @@ export function ZoomedRootHeader({
       data-frame-id={node.id}
     >
       <div className="relative pl-7 pt-1">
-        <HeaderBackdrop color={washColor ?? "var(--primary)"} />
+        <PageBackdrop color={washColor ?? "var(--primary)"} node={node} />
 
         <div className="group/header relative flex min-h-9 items-center justify-between gap-2">
           <EditableTitle node={node} />

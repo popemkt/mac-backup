@@ -18,6 +18,8 @@ import { useSyncExternalStore } from "react";
 import { ulid } from "ulid";
 import { AGENT_CHANNEL, agentExtension } from "@kb/agent";
 import type { AgentPorts } from "@kb/agent-ui";
+import { backdropsExtension } from "@kb/backdrops";
+import { backdropsUiPlugin } from "@kb/backdrops-ui";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
@@ -110,7 +112,7 @@ export interface BrowserExtension {
  * The browser entry of each family, keyed by the name its declaration gives
  * it. Whether the page loads one is the server's report, never this table.
  * How it is fetched is: a family a store always has on (the outline) or has
- * on by default (collections, graph, canvas, code, chart, locations) loads
+ * on by default (collections, graph, canvas, code, chart, locations, backdrops) loads
  * from the main bundle, and one off by default (the lab) or hosted only by
  * `kb ui` (the agent) is its own chunk, fetched when it is first on. A family with no
  * browser half is listed too, as `null`, so a bundled family is never left
@@ -129,6 +131,7 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null
   [codeExtension.name]: { load: () => Promise.resolve(codeUiPlugin) },
   [chartExtension.name]: { load: () => Promise.resolve(chartUiPlugin) },
   [locationsExtension.name]: { load: () => Promise.resolve(locationsUiPlugin) },
+  [backdropsExtension.name]: { load: () => Promise.resolve(backdropsUiPlugin) },
   [agentExtension.name]: { load: loadAgentEntry },
 };
 

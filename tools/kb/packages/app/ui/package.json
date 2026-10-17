@@ -23,6 +23,8 @@
     "@fontsource-variable/outfit": "catalog:",
     "@kb/agent": "workspace:*",
     "@kb/agent-ui": "workspace:*",
+    "@kb/backdrops": "workspace:*",
+    "@kb/backdrops-ui": "workspace:*",
     "@kb/bundled": "workspace:*",
     "@kb/canvas": "workspace:*",
     "@kb/canvas-ui": "workspace:*",

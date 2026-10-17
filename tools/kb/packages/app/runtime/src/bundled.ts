@@ -14,6 +14,7 @@
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import type { ExtensionDeclaration, ExtensionEntry } from "@kb/contracts";
 import type { Plugin } from "@kb/plugin";
+import { backdropsPlugin } from "@kb/backdrops";
 import { chartServerPlugin } from "@kb/chart-vega";
 import { codePlugin } from "@kb/code";
 import { collectionsPlugin } from "@kb/collections";
@@ -60,4 +61,5 @@ export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BU
   codePlugin(),
   chartServerPlugin,
   locationsPlugin,
+  backdropsPlugin(),
 ]);

@@ -16,6 +16,7 @@
  * family declares itself in its shared package, never its server one.
  */
 import { agentExtension } from "@kb/agent";
+import { backdropsExtension } from "@kb/backdrops";
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
 import { collectionsExtension } from "@kb/collections";
@@ -47,6 +48,7 @@ export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
   codeExtension,
   chartExtension,
   locationsExtension,
+  backdropsExtension,
 ];
 
 /**

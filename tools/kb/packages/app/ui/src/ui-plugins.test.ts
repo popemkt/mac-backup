@@ -138,6 +138,7 @@ describe("the families the page loads", () => {
       "code",
       "chart",
       "locations",
+      "backdrops",
       "agent",
     ]);
   });
@@ -152,6 +153,7 @@ describe("the families the page loads", () => {
       "code",
       "chart",
       "locations",
+      "backdrops",
     ]);
   });
 
@@ -173,6 +175,7 @@ describe("the families the page loads", () => {
       "code",
       "chart",
       "locations",
+      "backdrops",
     ]);
   });
 
@@ -227,6 +230,7 @@ describe("an optional family switched off on the server", () => {
       "code",
       "chart",
       "locations",
+      "backdrops",
       "agent",
     ]);
   });

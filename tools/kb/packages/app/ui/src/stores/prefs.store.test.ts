@@ -99,7 +99,7 @@ describe("loadPrefs", () => {
     });
     expect(
       prefs.loadPrefs(
-        '{"theme":"neon","designSystem":"comic","width":"wide","headerBackdrop":"noise"}',
+        '{"theme":"neon","designSystem":"comic","width":"wide","headerBackdrop":7}',
         1280,
       ),
     ).toEqual({

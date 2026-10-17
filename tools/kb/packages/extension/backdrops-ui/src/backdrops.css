@@ -1,13 +1,9 @@
-/* Each effect supplies its frame and the breathing room above its content. */
-.kb-header-backdrop {
-  position: absolute;
-  left: 50%;
-  width: 100%;
-  transform: translateX(-50%);
-  overflow: hidden;
-}
-
-.kb-header-backdrop[data-backdrop="unicorn"] {
+/*
+ * The page head frames every backdrop (`PageBackdrop`, `@kb/ui-sdk`); the
+ * unicorn's frame is feathered at its sides, and the tint's is not, so the
+ * wash is not masked twice.
+ */
+.kb-header-backdrop[data-backdrop="backdrops.unicorn"] {
   mask-image: linear-gradient(
     to right,
     transparent,

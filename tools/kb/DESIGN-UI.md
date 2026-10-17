@@ -2580,29 +2580,47 @@ id; the preference's schema, the picker and the command read it.
 Nothing else changes: layers 2 and 3, the components, the picker and the
 command all follow the registry and the tokens.
 
-### Header backdrops
+### Page-head backdrops
 
-The shared `HeaderBackdrop` owns the home and zoomed node header treatment.
-`headerBackdrop` is a device preference, independent of the design system:
-`unicorn` (the default) shows the original Unicorn Studio homepage scene;
-`gradient` shows an ambient tag/accent wash. The effect paints behind the
-content; its presentation profile reserves breathing room above the title when
-needed. A bounded source width and feathered mask
-keep the light from stretching across full-width pages or ending at visible edges.
+A page head paints an ambient backdrop behind its content. Which backdrops
+exist is a plugin point, and the kit names none of them.
 
-Each effect declares its reserved space, height, bounded width, vertical offset,
-strength response and supported directions in `HEADER_BACKDROP_PRESENTATION`.
-The gradient retains its compact
-wash; the aurora gets a taller frame that includes its stars. Feathering belongs
-to the scene frame, so the gradient is not masked twice.
+- **The point.** `BackdropPoint` (`ui.backdrops`, `@kb/ui-sdk`, beside
+  `ViewPoint`, `DockPoint` and `OverlayPoint`) holds one `Backdrop` per
+  contribution: its `label`, its `presentation` and its `Component`. The
+  presentation is how a head frames it: the breathing room it reserves
+  above the title (`space`), its frame's `height`, bounded `maxWidth` and
+  vertical `offset`, the `directions` it can face (none for one with no
+  direction), and its `opacity` at each strength. The component receives
+  what the head knows (`BackdropProps`): its colour (the shown node's tag
+  colour, else the accent), the node it shows if any, the strength, the
+  direction and the opacity at that strength.
+- **One slot.** `PageBackdrop` (`@kb/ui-sdk`) is the one page-head slot.
+  It frames the chosen backdrop by its presentation, behind the head's
+  content, and renders nothing when nothing is contributed. Any page head
+  renders it with its colour and its node; the outline's home head and its
+  zoomed head are the heads that do today. A choice that names no loaded
+  backdrop shows the first contributed one (`chosenBackdrop`).
+- **kb's backdrops are a family's.** The `backdrops` family
+  (`@kb/backdrops`, `@kb/backdrops-ui`; optional, on by default)
+  contributes the two kb ships, the unicorn first:
+  - `backdrops.unicorn` is the Unicorn Studio homepage scene over the wash,
+    in a taller frame that keeps its stars, feathered at its sides;
+  - `backdrops.gradient` is the compact tag/accent wash alone, with no
+    direction and no feather, so it is not masked twice.
 
-Presentation belongs to the shared backdrop: `backdropStrength` selects
-`subtle` (default), `soft`, or `vivid`; `backdropDirection` selects `down`
-(default, vertically inverted) or `up`. The vocabulary and presentation profiles live alongside the other appearance
-values in `@kb/ui-sdk`; Preferences
-uses those values, and the device store validates and persists them. Older stored
-preferences acquire the presentation defaults without resetting other choices.
-Future effects use this same presentation owner.
+  They are page ambience, owned by no view family, so not by the outline,
+  whose heads only render the slot.
+- **One picker.** Preferences lists every contribution by its label; there
+  is no second list of backdrops anywhere.
+- **The presentation controls** are shared by every backdrop: strength
+  (`subtle` default, `soft`, `vivid`) and direction (`down` default,
+  vertically inverted, or `up`; offered only for a backdrop that has
+  directions).
+- **The choice** is a device preference: `headerBackdrop` holds the chosen
+  backdrop's id (the bare ids a device stored before, `unicorn` and
+  `gradient`, are the family's aliases), and `backdropStrength` and
+  `backdropDirection` the controls.
 
 The exported scene and matching runtime are served from `public/vendor/unicorn`;
 its README records their sources. Preserve those upstream assets unmodified.
@@ -2611,8 +2629,8 @@ light with screen. Light pages turn the flowing rays into warm sunlight, with a
 soft solar core and halo painted by `--header-sun`; multiply blending keeps the
 canvas ground transparent on the page. It has no pointer targets,
 pauses for reduced motion, background tabs and offscreen headers, and is released
-when the header unmounts or the preference changes. Failed loading or unavailable
-WebGL leaves the gradient fallback. Rendering needs no external requests.
+when the header unmounts or the choice changes. Failed loading or unavailable
+WebGL leaves the wash it paints over. Rendering needs no external requests.
 
 ### Type scale
 

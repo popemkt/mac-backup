@@ -2217,7 +2217,8 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   catalog, MCP's tools and the agent's, and the page drops its browser
   half. There is never a second switch in the browser.
   - **Which families can be switched.** The collections (the table,
-    board and cards frame views), canvas, chart, code and the agent are
+    board and cards frame views), canvas, chart, code, the page-head
+    backdrops (DESIGN-UI.md → Page-head backdrops) and the agent are
     optional and on by default; the lab is optional and off by
     default. The outline, docs and check are required. The outline is the
     default editing mode and provides the default view type, the view a

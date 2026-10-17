@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
-import { logWarn, useReducedMotion } from "@kb/ui-sdk";
+import { logWarn, useReducedMotion, type BackdropProps } from "@kb/ui-sdk";
+import { TintBackdrop } from "./tint-backdrop";
 import { createUnicornScene, type UnicornScene } from "./unicorn-scene";
 
 /** Decorative scene: no hit targets, and no animation while hidden or reduced. */
-export function UnicornBackdrop({ opacity }: { opacity: number }) {
+function UnicornBackdrop({ opacity }: { opacity: number }) {
   const host = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
 
@@ -54,5 +55,15 @@ export function UnicornBackdrop({ opacity }: { opacity: number }) {
       style={{ opacity }}
       data-scene-state="loading"
     />
+  );
+}
+
+/** The unicorn backdrop: the scene over the wash. */
+export function UnicornWashBackdrop({ color, opacity }: BackdropProps) {
+  return (
+    <>
+      <TintBackdrop color={color} opacity={opacity} />
+      <UnicornBackdrop opacity={opacity} />
+    </>
   );
 }

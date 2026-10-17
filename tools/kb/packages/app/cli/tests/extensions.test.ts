@@ -197,6 +197,7 @@ describe("kb ext list", () => {
     expect(parsed.status).toBe("succeeded");
     const names = parsed.output.extensions.map((e) => e.name).toSorted();
     expect(names).toEqual([
+      "backdrops",
       "canvas",
       "chart",
       "check",

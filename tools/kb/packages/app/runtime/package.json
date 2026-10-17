@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@effect/platform-bun": "catalog:",
+    "@kb/backdrops": "workspace:*",
     "@kb/bundled": "workspace:*",
     "@kb/chart-vega": "workspace:*",
     "@kb/code": "workspace:*",

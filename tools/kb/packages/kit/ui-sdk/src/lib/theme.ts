@@ -9,49 +9,15 @@ export type ThemePref = (typeof THEMES)[number];
 export const WIDTHS = ["centered", "full"] as const;
 export type WidthPref = (typeof WIDTHS)[number];
 
-/** Decorative treatment of the shared page header, independent of its design system. */
-export const HEADER_BACKDROPS = ["gradient", "unicorn"] as const;
-export type HeaderBackdropPref = (typeof HEADER_BACKDROPS)[number];
-export const DEFAULT_HEADER_BACKDROP: HeaderBackdropPref = "unicorn";
-export const HEADER_BACKDROP_LABELS: Record<HeaderBackdropPref, string> = {
-  gradient: "Gradient",
-  unicorn: "Unicorn",
-};
-/** Presentation controls shared by every header effect. */
+/**
+ * The presentation controls every page-head backdrop answers to
+ * (`BackdropPoint`): how strong it is, and which way it faces. Which
+ * backdrops exist is the point's, never a list here.
+ */
 export const BACKDROP_STRENGTHS = ["subtle", "soft", "vivid"] as const;
 export type BackdropStrength = (typeof BACKDROP_STRENGTHS)[number];
 export const BACKDROP_DIRECTIONS = ["down", "up"] as const;
 export type BackdropDirection = (typeof BACKDROP_DIRECTIONS)[number];
-
-/** Each effect owns its framing and response to the shared strength control. */
-export const HEADER_BACKDROP_PRESENTATION: Record<
-  HeaderBackdropPref,
-  {
-    directions: readonly BackdropDirection[];
-    space: number;
-    height: number;
-    maxWidth: number;
-    offset: number;
-    opacity: Record<BackdropStrength, number>;
-  }
-> = {
-  gradient: {
-    space: 0,
-    directions: [],
-    height: 160,
-    maxWidth: 1120,
-    offset: -40,
-    opacity: { subtle: 0.5, soft: 0.75, vivid: 1 },
-  },
-  unicorn: {
-    space: 160,
-    directions: BACKDROP_DIRECTIONS,
-    height: 500,
-    maxWidth: 960,
-    offset: -8,
-    opacity: { subtle: 0.35, soft: 0.5, vivid: 0.75 },
-  },
-};
 
 /**
  * The design systems (DESIGN-UI.md → Design tokens → Design systems), in
@@ -113,7 +79,8 @@ export interface Prefs {
    */
   designSystem: DesignSystemId;
   width: WidthPref;
-  headerBackdrop: HeaderBackdropPref;
+  /** The chosen page-head backdrop, by its id in `BackdropPoint`; empty, the first contributed. */
+  headerBackdrop: string;
   backdropStrength: BackdropStrength;
   backdropDirection: BackdropDirection;
   /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */

@@ -45,6 +45,8 @@ import {
   type ViewKey,
 } from "@kb/views";
 import { toast } from "./toast";
+import type { BackdropDirection, BackdropStrength } from "./theme";
+import type { OutlineNode } from "./types";
 
 /**
  * Where a host renders a view: `page` fills the box the host gives it (the
@@ -228,6 +230,63 @@ export interface Overlay {
 }
 
 export const OverlayPoint = Point<Overlay>()("ui.overlays");
+
+/**
+ * How a page head frames a backdrop: the breathing room it reserves above
+ * the head's content, its frame's height, bounded width and vertical offset,
+ * the directions it can face (none, when it has no direction), and how
+ * opaque it is at each strength.
+ */
+export interface BackdropPresentation {
+  readonly space: number;
+  readonly height: number;
+  readonly maxWidth: number;
+  readonly offset: number;
+  readonly directions: readonly BackdropDirection[];
+  readonly opacity: Readonly<Record<BackdropStrength, number>>;
+}
+
+/** What a page head tells the backdrop it shows. */
+export interface BackdropProps {
+  /** The head's colour: the shown node's tag colour, else the accent. */
+  readonly color: string;
+  /** The node the head shows, when it shows one. */
+  readonly node: OutlineNode | undefined;
+  readonly strength: BackdropStrength;
+  readonly direction: BackdropDirection;
+  /** The presentation's opacity at `strength`. */
+  readonly opacity: number;
+}
+
+/**
+ * A page-head backdrop: the ambience painted behind a page's head
+ * (DESIGN-UI.md → Page-head backdrops). Every page head renders the chosen
+ * one through one slot (`PageBackdrop`) and names none; Preferences lists
+ * every contribution by its `label`.
+ */
+export interface Backdrop {
+  readonly label: string;
+  readonly presentation: BackdropPresentation;
+  readonly Component: ComponentType<BackdropProps>;
+}
+
+export const BackdropPoint = Point<Backdrop>()("ui.backdrops");
+
+/**
+ * The backdrop `id` names among `backdrops`, by its id or one of its aliases;
+ * the first contributed when it names none of them (unset, or a backdrop
+ * whose plugin is not loaded). Null only when nothing is contributed.
+ */
+export function chosenBackdrop(
+  backdrops: readonly Contribution<Backdrop>[],
+  id: string,
+): Contribution<Backdrop> | null {
+  return (
+    backdrops.find((backdrop) => backdrop.id === id || backdrop.aliases.includes(id)) ??
+    backdrops[0] ??
+    null
+  );
+}
 
 /** One kernel per page: everything the UI shows is contributed to it. */
 const uiKernel = makeKernel();
