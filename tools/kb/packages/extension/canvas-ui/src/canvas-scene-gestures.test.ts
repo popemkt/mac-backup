@@ -130,6 +130,7 @@ describe("gestures over the 3D canvas", () => {
       press: () => true,
       drag: () => transform,
       release,
+      reach: () => null,
     };
     const { gestures, events } = harness(() => tilted, [card], gizmo);
     const at = centre();

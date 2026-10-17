@@ -227,6 +227,7 @@ function drivenGizmo(
       gizmo.release();
       redraw();
     },
+    reach: () => gizmo.reach(view(), size),
   };
 }
 

@@ -66,7 +66,7 @@ import { linkStep } from "./canvas-links";
 import { classifyCardPointer } from "./card-pointer";
 import { placesItem, pressPans, type CanvasChooser, type ToolState } from "./canvas-tool";
 import type { PresentAct } from "./canvas-keymap";
-import { FIRST_GIZMO, type GizmoChoice } from "./canvas-gizmo";
+import { FIRST_GIZMO, NO_GIZMO, type GizmoChoice, type SceneGizmo } from "./canvas-gizmo";
 import { viewOfPan } from "./canvas-camera";
 import { placeUnder } from "./canvas-faces";
 import type { TransformCamera } from "./canvas-transform-input";
@@ -148,6 +148,8 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [gizmo, setGizmo] = useState<GizmoChoice>(FIRST_GIZMO);
+  /** The mounted scene's gizmo, whose handles a script's drawing never lies over. */
+  const [sceneGizmo, setSceneGizmo] = useState<SceneGizmo>(NO_GIZMO);
   /** The frame present mode stands at, by id, so a frame added or taken away elsewhere moves no slide; null when not presenting. */
   const [presentId, setPresentId] = useState<string | null>(null);
 
@@ -647,7 +649,10 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
                 gizmo={gizmo}
                 onReady={projection.onSceneReady}
                 onError={projection.onSceneError}
-                onPainter={drawing.onPainter}
+                onScene={(mounted) => {
+                  drawing.onPainter(mounted);
+                  setSceneGizmo(mounted?.gizmo ?? NO_GIZMO);
+                }}
                 onCardPress={(card, press, startMove) =>
                   pressCard(card, press, { x: press.clientX, y: press.clientY }, startMove)
                 }
@@ -700,6 +705,8 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
           rig={projection.rig}
           in3d={in3d}
           flatView={projection.flatView()}
+          selected={selection.nodeIds}
+          gizmo={sceneGizmo}
           width={projection.camera().size.width}
           height={projection.camera().size.height}
           doc={doc}

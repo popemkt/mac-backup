@@ -1,3 +1,4 @@
+import { CORNER_HANDLE_SIZE, ROTATE_HANDLE } from "./canvas-chrome";
 import type { ResizeCorner } from "./canvas-pointer";
 export type CanvasCorner = ResizeCorner;
 
@@ -23,12 +24,14 @@ export function CanvasResizeHandles({
         <div
           key={corner}
           data-resize={corner}
-          className="pointer-events-auto absolute z-30 flex h-4 w-4 items-center justify-center"
+          className="pointer-events-auto absolute z-30 flex items-center justify-center"
           style={{
-            top: corner.startsWith("n") ? -8 : undefined,
-            bottom: corner.startsWith("s") ? -8 : undefined,
-            left: corner.endsWith("w") ? -8 : undefined,
-            right: corner.endsWith("e") ? -8 : undefined,
+            width: CORNER_HANDLE_SIZE,
+            height: CORNER_HANDLE_SIZE,
+            top: corner.startsWith("n") ? -CORNER_HANDLE_SIZE / 2 : undefined,
+            bottom: corner.startsWith("s") ? -CORNER_HANDLE_SIZE / 2 : undefined,
+            left: corner.endsWith("w") ? -CORNER_HANDLE_SIZE / 2 : undefined,
+            right: corner.endsWith("e") ? -CORNER_HANDLE_SIZE / 2 : undefined,
             cursor: corner === "nw" || corner === "se" ? "nwse-resize" : "nesw-resize",
           }}
           onPointerDown={(event) => {
@@ -45,7 +48,12 @@ export function CanvasResizeHandles({
       <div
         data-rotate
         title="Rotate (⌘ for free angles)"
-        className="pointer-events-auto absolute -top-9 left-1/2 z-30 flex h-9 w-6 -translate-x-1/2 cursor-grab flex-col items-center"
+        className="pointer-events-auto absolute left-1/2 z-30 flex -translate-x-1/2 cursor-grab flex-col items-center"
+        style={{
+          top: -ROTATE_HANDLE.height,
+          width: ROTATE_HANDLE.width,
+          height: ROTATE_HANDLE.height,
+        }}
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           event.preventDefault();

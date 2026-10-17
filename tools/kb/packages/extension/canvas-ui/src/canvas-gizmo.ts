@@ -7,7 +7,7 @@
  * other handle's.
  */
 import type { CanvasTransform } from "@kb/canvas";
-import type { CanvasPoint } from "./canvas-camera";
+import type { CanvasPoint, ScreenRect } from "./canvas-camera";
 
 /** What the gizmo's handles do: move, rotate or scale the selection. */
 export type GizmoMode = "move" | "rotate" | "scale";
@@ -44,6 +44,8 @@ export interface SceneGizmo {
   drag(local: CanvasPoint): CanvasTransform | null;
   /** Let go of the handle. */
   release(): void;
+  /** Where on screen its handles take a press, now: the meshes `hover` hits, projected; null while it shows none. */
+  reach(): ScreenRect | null;
 }
 
 /**
@@ -62,4 +64,5 @@ export const NO_GIZMO: SceneGizmo = {
   press: () => false,
   drag: () => null,
   release: () => {},
+  reach: () => null,
 };

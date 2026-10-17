@@ -3904,8 +3904,15 @@ system, one runner, one trust.
   wide as they reach), and the scripts host masks its overlay layer off
   every one of them (`overlayMask`): what a script draws shows only where
   the view takes no press, so a press always reaches what is drawn where
-  it lands. The canvas's are each item's rectangle and each edge's route
-  projected through the camera (`edgeScreenLines`), in either projection.
+  it lands. The canvas's are everywhere its pointer reaches something
+  (`pressRegions`): each item's rectangle grown by the chrome its
+  projection draws round it (`PressChrome`: in 2D the ports on every card,
+  and a selected card's corner and rotate handles, whose geometry is the
+  one `canvas-chrome` states and the handles are drawn by), each edge's
+  route projected through the camera (`edgeScreenLines`) and, in 2D, its
+  label, and the 3D gizmo's handles, the bounds of the meshes its own
+  picking hits (`SceneGizmo.reach`). The view's chrome above the scripts'
+  layer (toolbars, inspectors) paints over any drawing already.
 - **Once, on request** (tldraw's exec): `ext.code.script.run` runs a
   trusted `#script` against a node until it is quiet (`snapshotRun`, with
   `CoreInvoke` as `write`), on the host's engine, each call the script's.

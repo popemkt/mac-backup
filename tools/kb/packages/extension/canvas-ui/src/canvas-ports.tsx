@@ -1,5 +1,6 @@
 import type { CanvasSide } from "@kb/canvas";
 import { cn } from "@kb/ui-sdk";
+import { PORT_SIZE } from "./canvas-chrome";
 
 /** Shared, unclipped connection targets for every canvas card. */
 export function CanvasPorts({
@@ -14,12 +15,13 @@ export function CanvasPorts({
       data-port={side}
       aria-label={`Connect ${side}`}
       className={cn(
-        "pointer-events-auto absolute z-20 flex h-6 w-6 items-center justify-center rounded-full text-foreground/35 opacity-0 transition-opacity group-hover/card:opacity-100 group-focus-within/card:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-primary hover:text-primary",
+        "pointer-events-auto absolute z-20 flex items-center justify-center rounded-full text-foreground/35 opacity-0 transition-opacity group-hover/card:opacity-100 group-focus-within/card:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-primary hover:text-primary",
         side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
         side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
         side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
         side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
       )}
+      style={{ width: PORT_SIZE, height: PORT_SIZE }}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         event.preventDefault();

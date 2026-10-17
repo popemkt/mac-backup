@@ -2153,9 +2153,11 @@ lies over the whole view, under the view's chrome and see-through, and lets
 every gesture pass: what a script draws is a picture over the view, and an
 element it anchors to an item (`data-anchor`) stands on that item as the
 shown projection draws it, following the camera in 2D and 3D
-(`canvas-script-layout.tsx`). The layer is masked off every item and every
-edge, so a script's drawing shows only on open canvas and never passes for
-a control over something a press would reach.
+(`canvas-script-layout.tsx`). The layer is masked off everywhere a press
+reaches something (`pressRegions`): every item and the ports and handles
+round it, every edge and its label, and the 3D gizmo; so a script's drawing
+shows only on open canvas and never passes for a control over something a
+press would reach.
 
 ### Optional UI plugins
 

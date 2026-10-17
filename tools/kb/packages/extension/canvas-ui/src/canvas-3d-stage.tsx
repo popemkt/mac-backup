@@ -14,12 +14,15 @@ import type { CanvasPlace } from "./canvas-faces";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import type { CanvasSelection } from "./canvas-selection";
-import { NO_GIZMO, type GizmoChoice } from "./canvas-gizmo";
+import { NO_GIZMO, type GizmoChoice, type SceneGizmo } from "./canvas-gizmo";
 import { readTiming, useReducedMotion, type Appearance, type OutlineNode } from "@kb/ui-sdk";
 import { attachScene, readScenePalette } from "@kb/scene";
 import { readCardLook } from "./canvas-card-face";
 import { mountCanvasScene, type CanvasScene } from "./canvas-scene";
 import { SceneGestures, type SceneGestureHost, type ScenePress } from "./canvas-scene-gestures";
+
+/** The mounted scene as the page reaches it: what draws its pictures, and its gizmo. */
+export type MountedScene = CanvasPainter & { readonly gizmo: SceneGizmo };
 
 export interface Canvas3dStageProps {
   readonly doc: CanvasDoc;
@@ -39,8 +42,8 @@ export interface Canvas3dStageProps {
   readonly onReady: () => void;
   /** The scene could not start; the page stays in 2D. */
   readonly onError: (error: Error) => void;
-  /** The mounted scene, which draws pictures, as it comes and goes (null once it has gone). */
-  readonly onPainter: (painter: CanvasPainter | null) => void;
+  /** The mounted scene, as it comes and goes (null once it has gone). */
+  readonly onScene: (scene: MountedScene | null) => void;
   /** A press on a card: select or toggle what it reaches, then `startMove` to carry that. */
   readonly onCardPress: (
     card: CanvasNode,
@@ -243,10 +246,10 @@ export default function Canvas3dStage(props: Canvas3dStageProps) {
   const [scene, setScene] = useState<CanvasScene | null>(null);
   useMountedScene(host, props, reducedMotion, setScene);
   useSceneGestures(host, props, scene);
-  const painted = useEffectEvent((painter: CanvasPainter | null) => props.onPainter(painter));
+  const mounted = useEffectEvent((next: MountedScene | null) => props.onScene(next));
   useEffect(() => {
-    painted(scene);
-    return () => painted(null);
+    mounted(scene);
+    return () => mounted(null);
   }, [scene]);
 
   useEffect(() => scene?.setContent({ doc, nodes, selection }), [scene, doc, nodes, selection]);

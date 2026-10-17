@@ -7,7 +7,13 @@
 import { describe, expect, test } from "vitest";
 import { PerspectiveCamera, Scene, Vector3 } from "three/webgpu";
 import { rotationOfMatrix, type CanvasNode } from "@kb/canvas";
-import { cameraPose, type CanvasView } from "./canvas-camera";
+import {
+  PERSPECTIVE_FOV,
+  cameraPose,
+  presetView,
+  type CanvasView,
+  type ScreenRect,
+} from "./canvas-camera";
 import { GizmoLayer } from "./canvas-scene-gizmo";
 import type { GizmoChoice } from "./canvas-gizmo";
 
@@ -47,6 +53,10 @@ const around = (r: number, degrees: number) => ({
   y: size.height / 2 + r * Math.sin((degrees * Math.PI) / 180),
 });
 
+/** Whether `at` is in `box`, within a pixel. */
+const inside = (at: { x: number; y: number }, box: ScreenRect) =>
+  at.x >= box.left - 1 && at.x <= box.right + 1 && at.y >= box.top - 1 && at.y <= box.bottom + 1;
+
 describe("the gizmo bridge", () => {
   test("dragging the move arrow right moves the selection right, and up the page moves it -y", () => {
     const right = gizmoOn({ mode: "move", space: "global" });
@@ -85,4 +95,57 @@ describe("the gizmo bridge", () => {
     layer.setTarget([], { mode: "move", space: "global" });
     expect(layer.press(top, size, around(60, 0))).toBe(false);
   });
+
+  test("its reach holds every point where its picking finds a handle, in either lens and every mode", () => {
+    const oblique = { ...presetView(top, "oblique"), fov: PERSPECTIVE_FOV };
+    for (const view of [top, oblique]) {
+      for (const mode of ["move", "rotate", "scale"] as const) {
+        const layer = gizmoAt(view, { mode, space: "global" });
+        const reach = layer.reach(view, size);
+        expect(reach, mode).not.toBeNull();
+        if (reach === null) continue;
+        // A box round the handles, never the whole stage.
+        expect((reach.right - reach.left) * (reach.bottom - reach.top)).toBeLessThan(
+          (size.width * size.height) / 2,
+        );
+        let hits = 0;
+        for (let x = 0; x <= size.width; x += 6) {
+          for (let y = 0; y <= size.height; y += 6) {
+            if (!layer.hover(view, size, { x, y })) continue;
+            hits += 1;
+            expect(inside({ x, y }, reach), `${mode} at ${x},${y}`).toBe(true);
+          }
+        }
+        expect(hits, mode).toBeGreaterThan(0);
+      }
+    }
+    // With nothing selected it shows no handles, and reaches nothing.
+    const bare = gizmoAt(top, { mode: "move", space: "global" }, []);
+    expect(bare.reach(top, size)).toBeNull();
+  });
 });
+
+/** A gizmo on `items` under `view`, its stage camera aimed as the scene aims it. */
+function gizmoAt(view: CanvasView, choice: GizmoChoice, items: CanvasNode[] = [crate]) {
+  const scene = new Scene();
+  const camera = new PerspectiveCamera();
+  const pose = cameraPose(view, size);
+  camera.position.set(pose.eye.x, -pose.eye.y, pose.eye.z);
+  camera.up.set(pose.up.x, -pose.up.y, pose.up.z);
+  const target = new Vector3(pose.target.x, -pose.target.y, pose.target.z);
+  camera.lookAt(target);
+  camera.aspect = size.width / size.height;
+  if (view.fov > 0) {
+    camera.fov = view.fov;
+    const distance = camera.position.distanceTo(target);
+    camera.near = Math.max(1, distance * 0.02);
+    camera.far = distance * 8 + 40_000;
+    camera.updateProjectionMatrix();
+  }
+  camera.updateMatrixWorld();
+  const layer = new GizmoLayer(scene, camera);
+  layer.follow(view, size, view.fov === 0);
+  layer.setTarget(items, choice);
+  scene.updateMatrixWorld(true);
+  return layer;
+}

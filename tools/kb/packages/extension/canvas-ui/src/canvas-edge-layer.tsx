@@ -25,6 +25,7 @@ import type { CanvasSelection } from "./canvas-selection";
 import type { PointerState } from "./canvas-pointer";
 import { hasText, type OutlineNode } from "@kb/ui-sdk";
 import { clientToCanvas } from "./canvas-camera";
+import { LABEL_FIELD, labelChip } from "./canvas-chrome";
 
 interface CanvasEdgeLayerProps {
   doc: CanvasDoc;
@@ -66,7 +67,12 @@ function EdgeLabel({
 }: EdgeLabelProps) {
   if (editingEdgeLabel === edge.id) {
     return (
-      <foreignObject x={at.x - 60} y={at.y - 12} width={120} height={24}>
+      <foreignObject
+        x={at.x - LABEL_FIELD.width / 2}
+        y={at.y - LABEL_FIELD.height / 2}
+        width={LABEL_FIELD.width}
+        height={LABEL_FIELD.height}
+      >
         <input
           autoFocus
           type="text"
@@ -98,10 +104,7 @@ function EdgeLabel({
       }}
     >
       <rect
-        x={-edge.label.length * 3.5 - 6}
-        y={-10}
-        width={edge.label.length * 7 + 12}
-        height={20}
+        {...labelChip(edge.label)}
         rx={4}
         className="fill-popover stroke-foreground/10"
         strokeWidth={1}

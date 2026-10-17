@@ -21,6 +21,7 @@
  * screen's height away.
  */
 import {
+  Box3,
   Matrix4,
   Object3D,
   OrthographicCamera,
@@ -37,7 +38,14 @@ import {
   type CanvasTransform,
   type CanvasVec,
 } from "@kb/canvas";
-import { screenRay, type CanvasPoint, type CanvasView, type ViewSize } from "./canvas-camera";
+import {
+  projectPoint,
+  screenRay,
+  type CanvasPoint,
+  type CanvasView,
+  type ScreenRect,
+  type ViewSize,
+} from "./canvas-camera";
 import type { GizmoChoice, GizmoMode } from "./canvas-gizmo";
 import { fromThree, matrixFromThree, matrixToThree, toThree } from "./canvas-scene-space";
 
@@ -45,6 +53,21 @@ import { fromThree, matrixFromThree, matrixToThree, toThree } from "./canvas-sce
 const CONTROLS_MODE = { move: "translate", rotate: "rotate", scale: "scale" } as const satisfies {
   readonly [M in GizmoMode]: string;
 };
+
+/** The controls' gizmo, which holds each mode's picker: the meshes its picking hits. */
+type PickerHolder = Object3D & { readonly picker: Readonly<Record<string, Object3D | undefined>> };
+
+function holdsPickers(object: Object3D): object is PickerHolder {
+  return "picker" in object && typeof object.picker === "object" && object.picker !== null;
+}
+
+/** The eight corners of `box`. */
+function cornersOf(box: Box3): Vector3[] {
+  const { min, max } = box;
+  return [0, 1, 2, 3, 4, 5, 6, 7].map(
+    (i) => new Vector3(i & 1 ? max.x : min.x, i & 2 ? max.y : min.y, i & 4 ? max.z : min.z),
+  );
+}
 
 /** Where a drag began: the stand-in's place and turn, and the pivot in canvas space. */
 interface Grip {
@@ -179,6 +202,37 @@ export class GizmoLayer {
   release(): void {
     this.controls.pointerUp(null);
     this.grip = null;
+  }
+
+  /**
+   * Where on screen its handles take a press under `view`: the bounds of the
+   * meshes its picking hits (the mode's picker, the ones shown from this
+   * camera), projected through the camera model; null while it shows none.
+   */
+  reach(view: CanvasView, size: ViewSize): ScreenRect | null {
+    const helper = this.controls.getHelper();
+    // Detached, the controls hide their helper: no handle shows.
+    if (!helper.visible) return null;
+    helper.updateMatrixWorld(true);
+    const box = new Box3();
+    for (const holder of helper.children.filter(holdsPickers)) {
+      for (const mesh of holder.picker[this.controls.mode]?.children ?? []) {
+        if (mesh.visible) box.expandByObject(mesh);
+      }
+    }
+    if (box.isEmpty()) return null;
+    const drawn = cornersOf(box)
+      .map((corner) => projectPoint(view, size, fromThree(corner)))
+      .filter((point) => point !== null);
+    if (drawn.length === 0) return null;
+    const xs = drawn.map((point) => point.x);
+    const ys = drawn.map((point) => point.y);
+    return {
+      left: Math.min(...xs),
+      top: Math.min(...ys),
+      right: Math.max(...xs),
+      bottom: Math.max(...ys),
+    };
   }
 
   dispose(): void {

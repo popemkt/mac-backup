@@ -16,6 +16,7 @@
  * view it opens at when it takes over from another.
  */
 import type { CanvasPose, CanvasProjectionKind } from "@kb/canvas";
+import { chromeReach, labelReach } from "./canvas-chrome";
 import {
   PERSPECTIVE_FOV,
   heldOrbit,
@@ -38,6 +39,21 @@ export interface CanvasProjection {
    * canvas has one, otherwise the same focus and zoom held its own way.
    */
   readonly arrive: (from: CanvasView, saved: CanvasPose | undefined) => CanvasView;
+  /** What it draws round items and edges that a press reaches past them. */
+  readonly chrome: PressChrome;
+}
+
+/**
+ * The chrome a projection draws round what it shows, which a press reaches
+ * past an item's face and an edge's line (`pressRegions`).
+ */
+export interface PressChrome {
+  /** How far an item's chrome reaches past its face, canvas units: its ports, and when selected its handles. */
+  readonly item: (selected: boolean) => number;
+  /** How far an edge's label reaches about its route's middle, canvas units; null where none is drawn. */
+  readonly label: (
+    label: string,
+  ) => { readonly halfWidth: number; readonly halfHeight: number } | null;
 }
 
 const flat = (view: CanvasView): CanvasView => ({ ...view, yaw: 0, pitch: 0, fov: 0 });
@@ -52,6 +68,8 @@ const BY_KIND: { readonly [K in CanvasProjectionKind]: CanvasProjection & { read
     title: "Flat: the top view, cards edited in place",
     settle: flat,
     arrive: (from) => flat(from),
+    // The DOM stage's ports, handles and label chips (`canvas-chrome`).
+    chrome: { item: chromeReach, label: labelReach },
   },
   "3d": {
     kind: "3d",
@@ -65,6 +83,8 @@ const BY_KIND: { readonly [K in CanvasProjectionKind]: CanvasProjection & { read
           ? { ...presetView(from, "oblique"), zoom: from.zoom * 0.92, fov: PERSPECTIVE_FOV }
           : viewOfPose(saved, PERSPECTIVE_FOV),
       ),
+    // The scene draws no chrome on items or edges; its gizmo's reach is the scene's own.
+    chrome: { item: () => 0, label: () => null },
   },
 };
 
