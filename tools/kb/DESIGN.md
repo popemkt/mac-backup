@@ -3315,9 +3315,12 @@ The sidebar agent lives outside core, in packages that core never imports
     a gateway to Claude (Claude Code over another vendor's models is not
     supported), and its resolved `credential` is `ANTHROPIC_API_KEY`.
   - **Claude Code's environment is explicit, never this process's.** It
-    holds what a process needs to run (paths, user, locale, temporary
-    directory, terminal, proxy and CA settings, `CLAUDE_CONFIG_DIR`).
-    It holds the person's own Claude login variables only while the
+    is what kb gives an agent runtime (`childProcessEnv("agent")`, the one
+    owner of a child's environment, handed over by the composition root):
+    what a process needs to run (paths, user, locale, temporary
+    directory, terminal, proxy and CA settings, `XDG_*`,
+    `CLAUDE_CONFIG_DIR`) and the person's Claude login. The adapter passes
+    on the login variables only while the
     provider names neither an endpoint nor a key. With either named, it
     holds exactly what the provider names. So no key the owner keeps in
     the `kb ui` environment reaches Claude Code, and a key goes only to

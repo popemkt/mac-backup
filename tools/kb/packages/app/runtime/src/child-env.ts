@@ -12,10 +12,16 @@
  *   so no key of this process's reaches a server over it.
  * - `lookup`: a keychain or secret-service lookup. The base, and the session
  *   bus the freedesktop secret service answers on.
+ * - `agent`: the agent runtime kb hosts for the person (Claude Code, under
+ *   the sidebar agent). The base, where it keeps its state (`XDG_*`,
+ *   `CLAUDE_CONFIG_DIR`), the network it reaches through (proxies and
+ *   certificates), and the person's own Claude login, which the adapter
+ *   passes on only to a provider that names neither an endpoint nor a key.
+ *   No other key of this process's reaches it.
  * - `tool`: the person's own developer tool kb runs for them (Vite, under
  *   `kb ui --dev`), which runs as their shell would: the whole environment.
  */
-export type ChildKind = "kb" | "lookup" | "tool";
+export type ChildKind = "kb" | "lookup" | "agent" | "tool";
 
 /** What any program needs to run as this user. */
 const BASE = ["PATH", "HOME", "USER", "LOGNAME", "SHELL", "TMPDIR", "TZ", "LANG", "TERM"];
@@ -28,6 +34,22 @@ const KEEPS: Readonly<
   lookup: {
     names: [...BASE, "DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"],
     prefixes: BASE_PREFIXES,
+  },
+  agent: {
+    names: [
+      ...BASE,
+      "HTTP_PROXY",
+      "HTTPS_PROXY",
+      "NO_PROXY",
+      "NODE_EXTRA_CA_CERTS",
+      "SSL_CERT_FILE",
+      "CLAUDE_CONFIG_DIR",
+      "ANTHROPIC_API_KEY",
+      "ANTHROPIC_AUTH_TOKEN",
+      "CLAUDE_CODE_OAUTH_TOKEN",
+      "ANTHROPIC_BASE_URL",
+    ],
+    prefixes: [...BASE_PREFIXES, "XDG_"],
   },
 };
 

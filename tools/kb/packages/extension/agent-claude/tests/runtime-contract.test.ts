@@ -12,7 +12,7 @@ agentRuntimeContract(
   {
     name: "claude-agent-sdk",
     runtime: (model) =>
-      claudeAdapter({ cwd: "/", query: fakeClaude(model) }).runtime(
+      claudeAdapter({ cwd: "/", query: fakeClaude(model), env: {} }).runtime(
         { ...DEFAULT_PROVIDER, executable: "claude" },
         NO_SECRETS,
       ),

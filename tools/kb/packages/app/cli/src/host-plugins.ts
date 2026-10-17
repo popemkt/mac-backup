@@ -15,7 +15,7 @@
 import { Effect } from "effect";
 import type { AgentAdapter } from "@kb/agent";
 import type { ExtensionEntry } from "@kb/contracts";
-import { systemSecrets } from "@kb/runtime";
+import { childProcessEnv, systemSecrets } from "@kb/runtime";
 
 /** The adapter for each of `AGENT_ADAPTERS`, running in `root`; the test holds it to every one. */
 export const hostAgentAdapters = Effect.fn("kb.cli.hostAgentAdapters")(function* (
@@ -24,7 +24,7 @@ export const hostAgentAdapters = Effect.fn("kb.cli.hostAgentAdapters")(function*
   const [{ claudeAdapter }, { openAiChatAdapter }] = yield* Effect.promise(() =>
     Promise.all([import("@kb/agent-claude"), import("@kb/agent-openai")]),
   );
-  return [claudeAdapter({ cwd: root }), openAiChatAdapter()];
+  return [claudeAdapter({ cwd: root, env: childProcessEnv("agent") }), openAiChatAdapter()];
 });
 
 export const hostExtensions = Effect.fn("kb.cli.hostExtensions")(function* (

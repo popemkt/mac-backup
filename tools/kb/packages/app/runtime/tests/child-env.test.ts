@@ -1,7 +1,8 @@
 /**
  * What a process kb starts is given of this one's environment (`child-env.ts`):
  * a kb child gets the base and kb's own settings, never a key; a lookup gets
- * the base and the session bus; the person's own tool gets everything; and
+ * the base and the session bus; an agent runtime the base, its network and
+ * its login, never another key; the person's own tool gets everything; and
  * an override always lands.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -9,6 +10,8 @@ import { childProcessEnv } from "../src/child-env.ts";
 
 const SET = {
   ANTHROPIC_API_KEY: "sk-secret",
+  AWS_SECRET_ACCESS_KEY: "aws-secret",
+  HTTPS_PROXY: "http://proxy:3128",
   KB_HOME: "/tmp/home",
   XDG_DATA_HOME: "/tmp/data",
   DBUS_SESSION_BUS_ADDRESS: "unix:path=/tmp/bus",
@@ -42,6 +45,18 @@ describe("a child process's environment", () => {
     expect(env.DBUS_SESSION_BUS_ADDRESS).toBe("unix:path=/tmp/bus");
     expect(env.PATH).toBeDefined();
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(env.KB_HOME).toBeUndefined();
+  });
+
+  test("an agent runtime gets the base, its network and its login, and no other key", () => {
+    const env = childProcessEnv("agent");
+    expect(env).toMatchObject({
+      ANTHROPIC_API_KEY: "sk-secret",
+      HTTPS_PROXY: "http://proxy:3128",
+      XDG_DATA_HOME: "/tmp/data",
+    });
+    expect(env.PATH).toBeDefined();
+    expect(env.AWS_SECRET_ACCESS_KEY).toBeUndefined();
     expect(env.KB_HOME).toBeUndefined();
   });
 

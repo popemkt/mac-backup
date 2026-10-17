@@ -2,9 +2,9 @@
  * What a provider's settings become for Claude Code: its model and binary as
  * options, its endpoint as `ANTHROPIC_BASE_URL`, and its credential resolved
  * when the turn starts and handed over as `ANTHROPIC_API_KEY`. Claude Code's
- * environment is explicit: what a process needs to run, plus the person's
- * own Claude login only while the provider names neither an endpoint nor a
- * key, and never anything else of this process's.
+ * environment is explicit: the one kb gives an agent runtime (what it holds
+ * is `childProcessEnv("agent")`'s, tested with it), with the person's own
+ * Claude login only while the provider names neither an endpoint nor a key.
  */
 import { describe, expect, test } from "bun:test";
 import { Effect, Stream } from "effect";
@@ -24,14 +24,12 @@ const SECRETS: SecretSource = {
  * Run one turn of `provider`: the options Claude Code was started with, if it
  * was, and the turn's failure, if it failed.
  */
-/** The process environment the adapter chooses from: a login, a runtime path, and a stray key. */
+/** The environment kb gives an agent runtime: a runtime path and the person's login. */
 const INHERITED = {
   PATH: "/usr/bin",
   HOME: "/home/me",
   ANTHROPIC_API_KEY: "sk-login",
   ANTHROPIC_BASE_URL: "https://gateway.example",
-  AWS_SECRET_ACCESS_KEY: "aws-secret",
-  GITHUB_TOKEN: "ghp-secret",
 };
 
 function startedWith(provider: ProviderConfig, secrets: SecretSource = SECRETS) {
@@ -56,7 +54,7 @@ function startedWith(provider: ProviderConfig, secrets: SecretSource = SECRETS) 
 }
 
 describe("the claude-agent-sdk adapter", () => {
-  test("a provider with nothing written runs the person's own login, and nothing else of the environment", async () => {
+  test("a provider with nothing written runs the person's own login", async () => {
     const { options } = await startedWith({ ...DEFAULT_PROVIDER, executable: "claude" });
     expect(options?.env).toEqual({
       PATH: "/usr/bin",
@@ -78,7 +76,7 @@ describe("the claude-agent-sdk adapter", () => {
     });
     expect(options?.model).toBe("sonnet");
     expect(options?.pathToClaudeCodeExecutable).toBe("/opt/claude");
-    // Exactly what the provider names: none of the person's login, nothing stray.
+    // Exactly what the provider names: none of the person's login.
     expect(options?.env).toEqual({
       PATH: "/usr/bin",
       HOME: "/home/me",

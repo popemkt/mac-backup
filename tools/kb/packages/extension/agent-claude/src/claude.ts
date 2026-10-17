@@ -143,36 +143,6 @@ function executableFor(options: ClaudeRuntimeOptions): string | undefined {
 type Environment = Readonly<Record<string, string | undefined>>;
 
 /**
- * What of this process's environment any Claude Code runs with: what a
- * process needs to run (its paths, user, locale, temporary directory and
- * terminal), the network it reaches through, and where Claude Code keeps
- * its own state. Nothing else reaches it, so a key the owner keeps in this
- * environment for another tool is never handed to a provider.
- */
-const RUNTIME_VARIABLES = [
-  "PATH",
-  "HOME",
-  "USER",
-  "LOGNAME",
-  "SHELL",
-  "TMPDIR",
-  "LANG",
-  "LC_ALL",
-  "LC_CTYPE",
-  "TERM",
-  "XDG_CONFIG_HOME",
-  "XDG_DATA_HOME",
-  "XDG_CACHE_HOME",
-  "XDG_STATE_HOME",
-  "HTTP_PROXY",
-  "HTTPS_PROXY",
-  "NO_PROXY",
-  "NODE_EXTRA_CA_CERTS",
-  "SSL_CERT_FILE",
-  "CLAUDE_CONFIG_DIR",
-] as const;
-
-/**
  * The person's own Claude login and endpoint, as they set them for Claude
  * Code. They pass only to a Claude Code whose provider names neither an
  * endpoint nor a key, which is that same login.
@@ -184,20 +154,21 @@ const LOGIN_VARIABLES = [
   "ANTHROPIC_BASE_URL",
 ] as const;
 
-function picked(inherited: Environment, names: readonly string[]): Record<string, string> {
+/** `inherited`'s set variables, without `names`. */
+function without(inherited: Environment, names: readonly string[]): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const name of names) {
-    const value = inherited[name];
-    if (value !== undefined) env[name] = value;
+  for (const [name, value] of Object.entries(inherited)) {
+    if (value !== undefined && !names.includes(name)) env[name] = value;
   }
   return env;
 }
 
 /**
- * The environment Claude Code runs in, explicit, never this process's whole
- * one (the SDK replaces the environment it is given rather than merging it).
- * With a provider that names neither an endpoint nor a key, it is the
- * person's own login. With one that names either, it is exactly what the
+ * The environment Claude Code runs in, explicit (the SDK replaces the
+ * environment it is given rather than merging it): the one kb gives an
+ * agent runtime (`inherited`, chosen by kb's child-environment owner), and
+ * of it the person's own login only with a provider that names neither an
+ * endpoint nor a key. With one that names either, it is exactly what the
  * provider names and none of the person's login, so a key goes only to the
  * endpoint the provider names, or to Claude's own default.
  */
@@ -208,8 +179,7 @@ function environmentFor(
 ): Record<string, string> {
   const own = endpoint === undefined && key === undefined;
   return {
-    ...picked(inherited, RUNTIME_VARIABLES),
-    ...(own ? picked(inherited, LOGIN_VARIABLES) : {}),
+    ...without(inherited, own ? [] : LOGIN_VARIABLES),
     ...(endpoint === undefined ? {} : { ANTHROPIC_BASE_URL: endpoint }),
     ...(key === undefined ? {} : { ANTHROPIC_API_KEY: key }),
   };
@@ -297,11 +267,10 @@ function claudeRuntime(options: ClaudeRuntimeOptions): AgentRuntime {
 export function claudeAdapter(options: {
   readonly cwd: string;
   readonly query?: ClaudeQuery;
-  /** The environment Claude Code's is chosen from; absent is this process's. */
-  readonly env?: Environment;
+  /** The environment kb gives an agent runtime, which Claude Code's is chosen from. */
+  readonly env: Environment;
 }): AgentAdapter {
-  // oxlint-disable-next-line node/no-process-env -- the environment Claude Code's own is chosen from, by name
-  const inherited = options.env ?? process.env;
+  const inherited = options.env;
   return {
     id: "claude-agent-sdk",
     runtime: (provider, secrets) =>
