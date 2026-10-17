@@ -45,6 +45,7 @@ import {
 } from "./command.ts";
 import { formatMode, formatReceipt } from "./format.ts";
 import { locationCommands } from "./locations.ts";
+import { relationCommands } from "./relations.ts";
 import { hostExtensions } from "./host-plugins.ts";
 import { readActionJsonEffect, readOutlineEffect } from "./input.ts";
 import {
@@ -729,6 +730,7 @@ function buildProgram(): Command {
     );
 
   locationCommands(program);
+  relationCommands(program);
 
   program
     .command("action-invoke")
