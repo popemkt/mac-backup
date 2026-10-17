@@ -413,15 +413,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Fold them into canvas-style.ts when the DOM paints those parts from tones.
 - **node** — `01M540YP8CRGKHPEM3PK19MH1C`
 
-### GAP: canvas and graph each read which ref fields a relation can be typed as
-
-- **expected** — One reader of the ref fields a relation can be typed as (relationFieldsFor in @kb/model), which canvas and graph both read.
-- **current** — canvas-ui canvas-api.ts listRefFields and graph relation.ts relationFieldsFor are two readers.
-- **impact** — Drift: canvas can offer fields that the relation write refuses.
-- **closes** — Move relationFieldsFor to @kb/model and have canvas read it.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M545DD34TP58TEN1Z6MC7ASJ`
-
 ### GAP: canvas and graph pages have no page head for the backdrop
 
 - **expected** — Every page that has a head renders PageBackdrop, the one page-head slot; canvas and graph pages show the chosen backdrop as the outline does.
@@ -1116,15 +1107,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a bullet-kind point in @kb/ui-sdk that families contribute to, after E13 moves the canvas UI into @kb/canvas-ui
 - **node** — `01M436DVSEHKNYWSF2MR07HPMR`
 
-### GAP: the outline's mention chip cannot type its reference in place
-
-- **expected** — A ui-sdk point through which a family contributes a node-palette step or chip action; graph-ui contributes "Type this reference…" behind graph.suggest-relations.
-- **current** — Chips have no menu. NodeCommandStep (add-tag | add-field | add-ref) in kit/ui-sdk/src/lib/command-point.ts is closed and owned by the outline; typing is reachable through kb relate, the agent/MCP and the graph's "Link as…".
-- **impact** — A mention cannot be typed where it is read.
-- **closes** — Add the point, make the outline palette render contributed steps, and have graph-ui contribute the step.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M545DBMQA0RGRWZY21HT3XD9`
-
 ### GAP: the page and client derive refs and ownership from the bundled fold only
 
 - **expected** — Every host's index derives its refs and owners from the root's fold, repository extensions included.
@@ -1440,6 +1422,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The visual contract of a bullet is untestable without rendering, and it is the single most-read affordance in the outline.
 - **closes** — Extract bulletAppearance(node, state) returning a small record, and drive both the element and its classes from it.
 - **node** — `01M1MGCMX698XJ0VDCSVQBGSQB`
+
+### GAP: canvas and graph each read which ref fields a relation can be typed as
+
+- **expected** — One reader of the ref fields a relation can be typed as (relationFieldsFor in @kb/model), which canvas and graph both read.
+- **current** — canvas-ui canvas-api.ts listRefFields and graph relation.ts relationFieldsFor are two readers.
+- **impact** — Drift: canvas can offer fields that the relation write refuses.
+- **closes** — Move relationFieldsFor to @kb/model and have canvas read it.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M545DD34TP58TEN1Z6MC7ASJ`
 
 ### GAP: canvas cards render outline's NodeContent
 
@@ -1961,6 +1952,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The outline's entire editing contract lives in one function; every editing bug fix lands in the same place, and the merge/split rules cannot be tested without a live editor.
 - **closes** — Split into mapEditingKey (pure, chord -> intent) and applyEditingIntent, mirroring selection-keymap. Do it with the same wave that tables mapSelectionKey so the outline ends with one keymap mechanism, not two.
 - **node** — `01M1MGCQKVQCG3H9YYCWQX0A0Y`
+
+### GAP: the outline's mention chip cannot type its reference in place
+
+- **expected** — A ui-sdk point through which a family contributes a node-palette step or chip action; graph-ui contributes "Type this reference…" behind graph.suggest-relations.
+- **current** — Chips have no menu. NodeCommandStep (add-tag | add-field | add-ref) in kit/ui-sdk/src/lib/command-point.ts is closed and owned by the outline; typing is reachable through kb relate, the agent/MCP and the graph's "Link as…".
+- **impact** — A mention cannot be typed where it is read.
+- **closes** — Add the point, make the outline palette render contributed steps, and have graph-ui contribute the step.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M545DBMQA0RGRWZY21HT3XD9`
 
 ### GAP: the preferences popover renders outline's PrefFieldRow
 
