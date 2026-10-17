@@ -73,7 +73,8 @@ export interface SceneGestureHost {
 
 type Gesture =
   | { readonly kind: "gizmo" }
-  | { readonly kind: "card" }
+  /** A drag the pointer reducer carries, every move and the release sent on to it: a card's move. */
+  | { readonly kind: "carried" }
   | {
       readonly kind: "orbit" | "pan";
       x: number;
@@ -122,7 +123,7 @@ export class SceneGestures {
     const taken = hit !== undefined && this.host.takes(hit) ? hit : undefined;
     const card = taken === undefined ? hit : undefined;
     if (card !== undefined) {
-      this.gesture = { kind: "card" };
+      this.gesture = { kind: "carried" };
       this.host.cardPress(card, press, (id) => {
         const along = press.altKey ? { along: ALONG_Z } : {};
         this.host.dispatch({ type: "move/start", id, screen: press.local, ...along });
@@ -154,7 +155,7 @@ export class SceneGestures {
       if (transform !== null) this.host.dispatch({ type: "transform/move", transform, free });
       return "grabbing";
     }
-    if (g.kind === "card") {
+    if (g.kind === "carried") {
       this.host.dispatch({ type: "pointer/move", screen: press.local, shiftKey, free });
       return "grabbing";
     }
@@ -171,7 +172,7 @@ export class SceneGestures {
     const g = this.gesture;
     this.gesture = null;
     if (g === null) return;
-    if (g.kind === "gizmo" || g.kind === "card") {
+    if (g.kind === "gizmo" || g.kind === "carried") {
       if (g.kind === "gizmo") this.host.gizmo().release();
       const { shiftKey } = press;
       this.host.dispatch(
