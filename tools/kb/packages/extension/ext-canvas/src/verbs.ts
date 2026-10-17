@@ -396,6 +396,12 @@ const arrangeInput = z
       [input.layout, input.order, input.flip].filter((act) => act !== undefined).length === 1,
     { message: "arrange takes one of a layout, an order or a flip" },
   )
+  .refine(
+    (input) =>
+      input.layout !== undefined ||
+      [input.gap, input.columns, input.field, input.edge, input.axis].every((p) => p === undefined),
+    { message: "an order or a flip takes no layout's gap, columns, field, edge or axis" },
+  )
   .refine((input) => input.layout !== "layers" || input.field !== undefined, {
     message: "layers take the field their values come from",
   })

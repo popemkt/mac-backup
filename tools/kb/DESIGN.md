@@ -2412,16 +2412,21 @@ transaction, one step of an open canvas's history.
   layers whose height follows a field's value on each item's node; lines
   their edges up on the box round them (`layout: "align"`, `edge`: `left`,
   `centre`, `right`, `top`, `middle`, `bottom`) or spreads them so the room
-  between neighbours is even (`layout: "distribute"`, `axis`); moves them
+  between neighbours is even (`layout: "distribute"`, `axis`: three items
+  or more, the ones reaching furthest each way standing still, so the set
+  keeps its extent); moves them
   in the paint order (`order`: `front`, `back`, `forward`, `backward`,
   `orderItems`); or mirrors them through the middle of their box (`flip`:
   `x` or `y`, `flipItems`: each centre, turn and line's points mirrored, and
   the edges they meet kept on the mirrored side or anchor, and an edge
   mirrored whole bowed the mirrored way: an arc's `bend`, and an elbow's
   along the flipped axis, negated, `mirroredEdge`). One call is
-  exactly one of a layout, an order or a flip. A frame carries its members
-  through each, and the keys (⌥A, ⌥⇧H, `]`, ⇧H and the rest) reach the same
-  functions.
+  exactly one of a layout, an order or a flip, and a layout is refused a
+  param it does not read or fewer items than it lays out (`LAYOUT_TAKES`)
+  rather than ignoring them; an item a layout leaves where it stands is not
+  touched. A frame carries its members through each, and the keys (⌥A,
+  ⌥⇧H, `]`, ⇧H and the rest) reach the same functions; a key asking an
+  arrangement the selection cannot take does nothing.
 - **`connect`** draws an arrow between the sides facing each other, or
   between the sides or precise anchors it is given; routed as JSON Canvas's
   curve, straight, an arc or an elbow (`route`, `bend`), each end bare or

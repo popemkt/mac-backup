@@ -14,7 +14,7 @@ import { boxBounds, boxFrame, type CanvasBounds, type CanvasVec } from "./box.ts
 import type { CanvasDoc, CanvasNode } from "./doc.ts";
 import { mirroredEdge } from "./edges.ts";
 import { carriedBy, editItem, settleMembership } from "./membership.ts";
-import { boundsCentre, itemBounds } from "./relations.ts";
+import { CanvasRelationError, boundsCentre, itemBounds } from "./relations.ts";
 import { GRID_STEP, snapToSurface } from "./snap.ts";
 import {
   moveBy,
@@ -57,6 +57,50 @@ export interface CanvasArrangement {
   readonly edge?: CanvasAlignEdge;
   /** For distribute: the floor axis spread along; x when absent. */
   readonly axis?: CanvasFlipAxis;
+}
+
+/** What an arrangement may say beyond its layout. */
+type ArrangementParam = Exclude<keyof CanvasArrangement, "layout">;
+
+/** Every param an arrangement may say, by what it is called to a person. */
+const ARRANGEMENT_PARAMS = [
+  ["gap", "gap"],
+  ["columns", "columns"],
+  ["layerOf", "layer values (a field)"],
+  ["edge", "edge"],
+  ["axis", "axis"],
+] as const satisfies readonly (readonly [ArrangementParam, string])[];
+
+/**
+ * What each layout reads, and the fewest items it lays out: an
+ * arrangement saying anything else, or naming fewer items, is refused
+ * (`arrangeItems`), rather than ignored.
+ */
+const LAYOUT_TAKES: {
+  readonly [L in CanvasLayout]: { readonly params: readonly ArrangementParam[]; least: number };
+} = {
+  row: { params: ["gap"], least: 1 },
+  column: { params: ["gap"], least: 1 },
+  grid: { params: ["gap", "columns"], least: 1 },
+  ring: { params: ["gap"], least: 1 },
+  stack: { params: [], least: 1 },
+  layers: { params: ["gap", "layerOf"], least: 1 },
+  align: { params: ["edge"], least: 1 },
+  // The first and the last stay where they stand: spreading needs one between them.
+  distribute: { params: ["axis"], least: 3 },
+};
+
+/** Throws `CanvasRelationError` for an arrangement of `count` items its layout does not take. */
+function refuseUntaken(arrangement: CanvasArrangement, count: number): void {
+  const { layout } = arrangement;
+  const takes = LAYOUT_TAKES[layout];
+  const stray = ARRANGEMENT_PARAMS.flatMap(([param, words]) =>
+    arrangement[param] !== undefined && !takes.params.includes(param) ? [words] : [],
+  );
+  if (stray.length > 0) throw new CanvasRelationError(`${layout} takes no ${stray.join(", ")}`);
+  if (count < takes.least) {
+    throw new CanvasRelationError(`${layout} lays out ${takes.least} items or more, not ${count}`);
+  }
 }
 
 /** How far apart layers stand by default, canvas units: a tall card's height and room above it. */
@@ -160,19 +204,29 @@ function alignSlots(
 }
 
 /**
- * The items spread along `axis` so the room between neighbours is even,
- * the first and the last where they stand, in the order they stand.
+ * The items spread along `axis` so the room between neighbours is even:
+ * the one reaching furthest back first and the one reaching furthest on
+ * last, both where they stand, so the set keeps its extent, and the rest
+ * between them in the order their centres stand.
  */
 function distributeSlots(bounds: readonly CanvasBounds[], axis: CanvasFlipAxis): Slot[] {
-  const order = bounds
+  const byCentre = bounds
     .map((b, i) => ({ i, at: boundsCentre(b)[axis] }))
     .toSorted((a, b) => a.at - b.at)
     .map(({ i }) => i);
+  const reach = (pick: (a: number, b: number) => boolean, side: "min" | "max") =>
+    byCentre.reduce((best, i) =>
+      pick(bounds[i]?.[side][axis] ?? 0, bounds[best]?.[side][axis] ?? 0) ? i : best,
+    );
+  const head = reach((a, b) => a < b, "min");
+  const tail = reach((a, b) => a > b, "max");
+  const order =
+    head === tail ? byCentre : [head, ...byCentre.filter((i) => i !== head && i !== tail), tail];
   const sizes = bounds.map((b) => extentOf(b)[axis]);
-  const first = bounds[order[0] ?? 0];
-  const last = bounds[order.at(-1) ?? 0];
+  const first = bounds[order[0] ?? head];
+  const last = bounds[order.at(-1) ?? head];
   const slots: Slot[] = bounds.map((b) => boundsCentre(b));
-  if (first === undefined || last === undefined || bounds.length < 3) return slots;
+  if (first === undefined || last === undefined) return slots;
   const span = last.max[axis] - first.min[axis];
   const room = (span - sizes.reduce((sum, s) => sum + s, 0)) / (bounds.length - 1);
   let cursor = first.min[axis];
@@ -257,7 +311,10 @@ function slotsFor(
 /**
  * `doc` with the items `ids` name laid out by `arrangement`, in the order
  * named — a group's members follow it, and an id inside a named group is
- * carried by it rather than laid out itself. The set keeps its top left (a
+ * carried by it rather than laid out itself; an item its slot leaves where
+ * it stands is not touched. Throws `CanvasRelationError` for an
+ * arrangement its layout does not take (`LAYOUT_TAKES`): a param it does
+ * not read, or fewer items than it lays out. The set keeps its top left (a
  * ring and a stack their centre). Across the floor plan each lands as a
  * carry does, on what is under it; a stack and layers set its base.
  */
@@ -269,6 +326,7 @@ export function arrangeItems(
   const { items, members } = carriedBy(doc.nodes, ids);
   const all = boxBounds(items);
   if (all === null) return doc;
+  refuseUntaken(arrangement, items.length);
   const carried = new Set([...items, ...members].map((node) => node.id));
   const others = doc.nodes.filter((node) => !carried.has(node.id));
   const bounds = items.map(itemBounds);
@@ -280,6 +338,8 @@ export function arrangeItems(
     if (slot === undefined || b === undefined) return;
     const centre = boundsCentre(b);
     const by = { x: slot.x - centre.x, y: slot.y - centre.y };
+    // An item its slot leaves where it stands is left as it is: no landing, no edit.
+    if (Math.hypot(by.x, by.y) < 1e-9 && (slot.base === undefined || slot.base === b.min.z)) return;
     const rise =
       slot.base === undefined ? snapToSurface(item, others, by.x, by.y).dz : slot.base - b.min.z;
     const spot = transformItem(item, moveBy(boxFrame(item).centre, { ...by, z: rise }));

@@ -4,6 +4,7 @@ import { ulid } from "ulid";
 import type { CanvasDoc, CanvasNode, CanvasProjectionKind } from "@kb/canvas";
 import {
   GRID_STEP,
+  CanvasRelationError,
   arrangeItems,
   carriedBy,
   carriedPart,
@@ -219,7 +220,14 @@ function arrangeSelection(
   const ids = [...context.selRef.current.nodeIds];
   if (ids.length === 0) return;
   const doc = context.docRef.current;
-  const next = act(doc, ids);
+  let next: CanvasDoc;
+  try {
+    next = act(doc, ids);
+  } catch (error) {
+    // An arrangement the selection cannot take (spreading two items) is a key that does nothing.
+    if (error instanceof CanvasRelationError) return;
+    throw error;
+  }
   // An arrangement that leaves every item where it was is no undo step.
   if (stringifyCanvasDoc(next) !== stringifyCanvasDoc(doc)) context.schedulePersist(next);
 }

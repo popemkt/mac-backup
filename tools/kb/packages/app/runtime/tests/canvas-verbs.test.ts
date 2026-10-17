@@ -410,6 +410,9 @@ describe("ext.canvas.arrange", () => {
       { ids: ["a", "b"], layout: "row", order: "front" },
       { ids: ["a", "b"], order: "back", flip: "x" },
       { ids: ["a", "b"], layout: "align" },
+      { ids: ["a", "b"], layout: "distribute", axis: "x" },
+      { ids: ["a", "b"], layout: "row", edge: "left" },
+      { ids: ["a", "b"], order: "front", gap: 10 },
     ]) {
       expect((await invoke(ctx, verb("arrange", input))).status).not.toBe("succeeded");
     }

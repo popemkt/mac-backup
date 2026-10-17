@@ -346,10 +346,50 @@ describe("align, spread, order and flip", () => {
     expect(item(spread, "b").x).toBe(300);
   });
 
-  test("distribute leaves two items where they are", () => {
+  test("distribute refuses fewer than three items: there is nothing between the ends to spread", () => {
     const two = doc(card("a", 0, 0), card("b", 150, 40));
-    const spread = arrangeItems(two, ["a", "b"], { layout: "distribute", axis: "y" });
-    expect([at(spread, "a"), at(spread, "b")]).toEqual([at(two, "a"), at(two, "b")]);
+    expect(() => arrangeItems(two, ["a", "b"], { layout: "distribute", axis: "y" })).toThrow(
+      CanvasRelationError,
+    );
+  });
+
+  test("distribute keeps the set's extent when a wide item reaches past the last centre", () => {
+    // c's centre (450) is before b's (520), but c reaches furthest: c stays last, b moves between.
+    const d = doc(
+      card("a", 0, 0),
+      card("b", 500, 0, { width: 40 }),
+      card("c", 200, 0, { width: 500 }),
+    );
+    const spread = arrangeItems(d, ids, { layout: "distribute", axis: "x" });
+    const span = (id: string) => ({
+      min: item(spread, id).x,
+      max: item(spread, id).x + item(spread, id).width,
+    });
+    expect(span("a").min).toBe(0);
+    expect(span("c").max).toBe(700);
+    // 700 across, 640 of it items: 30 of room either side of b.
+    expect(span("b").min - span("a").max).toBeCloseTo(30, 6);
+    expect(span("c").min - span("b").max).toBeCloseTo(30, 6);
+  });
+
+  test("an item already where its layout puts it is left as it is, not landed on what is under it", () => {
+    // b hangs over a solid, already on the set's left edge.
+    const raised = card("b", 0, 300, { z: 200 });
+    const d = doc(card("a", 0, 0), raised, box("solid", -10, 290));
+    const aligned = arrangeItems(d, ["a", "b"], { layout: "align", edge: "left" });
+    expect(item(aligned, "b")).toEqual(raised);
+  });
+
+  test("a layout refuses what it does not read", () => {
+    expect(() => arrangeItems(three, ids, { layout: "row", edge: "left" })).toThrow(
+      CanvasRelationError,
+    );
+    expect(() => arrangeItems(three, ids, { layout: "align", edge: "left", gap: 10 })).toThrow(
+      /align takes no gap/,
+    );
+    expect(() => arrangeItems(three, ids, { layout: "stack", layerOf: () => 1 })).toThrow(
+      /layer values/,
+    );
   });
 
   test("order moves the set to either end, or one step past its neighbour", () => {
