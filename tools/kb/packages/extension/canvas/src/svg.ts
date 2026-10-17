@@ -124,6 +124,7 @@ function style(declarations: Readonly<Record<string, string | undefined>>): stri
     .join("; ");
 }
 
+// GAP [[01M54QTGRJYJZ7W5SXDP4356QW]] the export carries the default design system's tokens, not the one core's setting chooses
 /** Every token the painting says, with its default-system value, as the SVG's own rule. */
 function tokenRule(): string {
   const colours = [
