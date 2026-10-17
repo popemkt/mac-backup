@@ -16,7 +16,8 @@
     "@kb/plugin": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/views": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@kb/bundled": "workspace:*",

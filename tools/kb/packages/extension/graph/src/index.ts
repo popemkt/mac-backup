@@ -108,4 +108,17 @@ export {
   type GraphSourceField,
   type GraphSourceKind,
 } from "./schema.ts";
-export { graphExtension, graphPlugin } from "./extension.ts";
+export { graphExtension, graphPlugin, graphServerPlugin } from "./extension.ts";
+export { GRAPH_ACTIONS, graphSuggestEffect, graphTraceEffect } from "./actions.ts";
+export {
+  DEFAULT_TRACE_KINDS,
+  hopLabelsOf,
+  suggestOf,
+  traceOf,
+  type SuggestRequest,
+  type SuggestedNode,
+  type TraceAnswer,
+  type TraceRequest,
+  type TracedHop,
+  type TracedPath,
+} from "./read.ts";

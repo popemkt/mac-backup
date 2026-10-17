@@ -3,12 +3,14 @@
  * Extension families). The declaration is the one home of the family's
  * name, seed and views: the graph page, its five renderers in the order the
  * renderer switch offers them, and a node's neighbourhood. The bundled seed
- * folds it, and both hosts' entries are {@link graphPlugin}: the server's
- * directly, the page's as a child of `@kb/graph-ui`'s entry. It is optional
- * and on by default.
+ * folds it. The page's entry loads {@link graphPlugin} as a child of
+ * `@kb/graph-ui`'s; the server's is {@link graphServerPlugin}, the same views
+ * with the family's actions. It is optional and on by default.
  */
-import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
-import type { Plugin } from "@kb/plugin";
+import { Effect } from "effect";
+import { declarationPlugin, defineExtension, extensionPlugin, viewDef } from "@kb/contracts";
+import { definePlugin, type Plugin } from "@kb/plugin";
+import { GRAPH_ACTIONS } from "./actions.ts";
 import { graphSeedNodes } from "./seed.ts";
 import {
   ClusterView,
@@ -39,4 +41,22 @@ export const graphExtension = defineExtension({
 /** The graph family's shared plugin: its declaration's views, on either host. */
 export function graphPlugin(): Plugin {
   return declarationPlugin(graphExtension);
+}
+
+/**
+ * The graph family's server entry: its actions, `ext.graph.*`, with the
+ * shared plugin loaded as a child. The actions are isomorphic too (they
+ * read `KbCtx` and run `read.ts`), but only the server dispatches actions;
+ * the page answers the same reads by calling `read.ts` over its replica.
+ */
+export function graphServerPlugin(): Plugin {
+  const actions = extensionPlugin({
+    name: graphExtension.name,
+    actions: GRAPH_ACTIONS,
+    templates: [],
+  });
+  return definePlugin({
+    ...actions,
+    apply: (ctx) => Effect.all([actions.apply(ctx), ctx.plugin(graphPlugin())], { discard: true }),
+  });
 }

@@ -20,7 +20,7 @@ import { collectionsPlugin } from "@kb/collections";
 import { canvasServerPlugin } from "@kb/ext-canvas";
 import { checkPlugin } from "@kb/ext-check";
 import { docsPlugin } from "@kb/ext-docs";
-import { graphPlugin } from "@kb/graph";
+import { graphServerPlugin } from "@kb/graph";
 import { labPlugin } from "@kb/lab";
 import { locationsPlugin } from "@kb/locations-fs";
 import { outlinePlugin } from "@kb/outline";
@@ -52,7 +52,7 @@ export function serverEntriesFor(
 export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BUNDLED_FAMILIES, [
   outlinePlugin(),
   collectionsPlugin(),
-  graphPlugin(),
+  graphServerPlugin(),
   docsPlugin,
   canvasServerPlugin,
   labPlugin(),
