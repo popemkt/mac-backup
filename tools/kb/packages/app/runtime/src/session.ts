@@ -3,7 +3,8 @@ import type { KbContext } from "@kb/contracts";
 import type { KbNode, StoreTx } from "@kb/model";
 import { persistEffect, reloadEffect } from "@kb/operations";
 import { bunFileSystemLayer } from "./platform.ts";
-import { kbRuntimeLayer, openKbEffect } from "./layers.ts";
+import { kbRuntimeLayer } from "./layers.ts";
+import { openKbEffect } from "./open.ts";
 
 /**
  * Promise-shaped session API. The only place that runs a kb Effect against a

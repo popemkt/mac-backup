@@ -16,7 +16,7 @@ import { JsonlStore } from "@kb/store-jsonl";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { SqliteStore } from "@kb/store-sqlite";
 import { createStore, migrateStore, selectStore } from "../src/store-selection.ts";
-import { openKbEffect } from "../src/layers.ts";
+import { openKbEffect } from "../src/open.ts";
 
 const AT = "2026-01-01T00:00:00.000Z";
 

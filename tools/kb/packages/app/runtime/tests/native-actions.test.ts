@@ -3,7 +3,8 @@ import { present } from "@kb/model";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Effect, Exit, Fiber, Layer, Stream } from "effect";
-import { kbRuntimeLayer, openKbEffect } from "../src/layers.ts";
+import { kbRuntimeLayer } from "../src/layers.ts";
+import { openKbEffect } from "../src/open.ts";
 import { openKb } from "../src/session.ts";
 import {
   ActionCatalog,
