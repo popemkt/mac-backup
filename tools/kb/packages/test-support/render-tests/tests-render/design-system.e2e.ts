@@ -1,8 +1,9 @@
 // Deliberately .e2e.ts: Bun's recursive unit-test discovery must not load it.
 //
-// The design-system switch in a real engine. What each stylesheet sets is held
-// to its contract by `ui/src/lib/design-systems.test.ts`, which reads the CSS
-// as data; what only a browser can show is that choosing a system in the
+// The design-system switch in a real engine. What each contributed system's
+// sheet sets is held to its contract by
+// `ui/src/design-system-point.contract.test.tsx`, which reads the CSS as data;
+// what only a browser can show is that choosing a system in the
 // preferences paints the whole page with it. So for every system the picker
 // offers, in light and in dark, the root's computed `--background` and
 // `--primary` must equal the ones the system's own live swatch resolves —
@@ -67,7 +68,8 @@ for (const scheme of ["light", "dark"] as const) {
     // A switch that changed nothing would pass the check above for every id.
     expect(new Set(painted.values()).size, JSON.stringify([...painted])).toBe(ids.length);
 
-    // The choice is a device preference: it survives a reload.
+    // The choice is core's setting, and the painter's record paints it again
+    // before the graph loads: it survives a reload.
     const last = ids.at(-1) ?? "";
     await page.reload();
     await expect

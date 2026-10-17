@@ -2,7 +2,8 @@
  * The bundled fold (DESIGN.md → Extension families → the seed is the bundled
  * fold): every declaration's seed nodes, the node each declaration derives
  * under `sys.extensions`, the option node each declared view derives under
- * `sys.views`, the option node each declared option (a backdrop) derives
+ * `sys.views`, the option node each declared option (a backdrop, a design
+ * system) derives
  * under the field of its kind, and the default view type its one provider
  * declares, folded
  * into the seed a store is opened with, together with which declaration
@@ -11,6 +12,7 @@
 import { approvalPolicyNode, type ApprovalPolicy } from "./approval-policy.ts";
 import { BACKDROP_OPTIONS, type SeedBackdrop } from "./backdrop.ts";
 import { declaredOptionId, type DeclaredOptions, type SeedOption } from "./declared-option.ts";
+import { DESIGN_SYSTEM_OPTIONS } from "./design-system.ts";
 import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, nowIso } from "./model.ts";
 import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
 
@@ -39,6 +41,8 @@ export interface SeedSource {
   readonly views?: readonly { readonly key: SeedView }[];
   /** The page-head backdrops it contributes; the fold derives each one's option node. */
   readonly backdrops?: readonly SeedBackdrop[];
+  /** The design systems it contributes; the fold derives each one's option node. */
+  readonly designSystems?: readonly SeedOption[];
   /**
    * The approval policies it declares, each a denial: the fold derives each
    * one's node under the list of every policy, editable as any is. A source
@@ -116,7 +120,10 @@ function policyNode(source: SeedSource, { text, ...policy }: SeedPolicy, at: str
 const DECLARED_KINDS: readonly {
   readonly kind: DeclaredOptions;
   readonly of: (source: SeedSource) => readonly SeedOption[] | undefined;
-}[] = [{ kind: BACKDROP_OPTIONS, of: (source) => source.backdrops }];
+}[] = [
+  { kind: BACKDROP_OPTIONS, of: (source) => source.backdrops },
+  { kind: DESIGN_SYSTEM_OPTIONS, of: (source) => source.designSystems },
+];
 
 /** The option node that names the declared `option` among `kind`'s, a child of its field. */
 function declaredOptionNode(kind: DeclaredOptions, option: SeedOption, at: string): KbNode {
@@ -182,7 +189,7 @@ export interface FoldedSeed {
  * every source's own node, a child of `sys.extensions` in the same order;
  * and every source's views as option nodes, children of `sys.views` in the
  * same order; every source's declared options as option nodes, children of
- * the field of their kind (`sys.f.backdrop`) in the same order; with
+ * the field of their kind (`sys.f.backdrop`, `sys.f.design-system`) in the same order; with
  * `sys.views` naming the default view type its one provider declares (`defaultViewProps`). Each derived node is placed right
  * after its list. Each node's owner comes with it ({@link FoldedSeed}).
  * Pure data: it opens nothing, and it throws on an id two sources declare,

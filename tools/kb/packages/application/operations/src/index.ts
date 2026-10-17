@@ -20,7 +20,7 @@ export {
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
-export { coreExtension } from "./core-extension.ts";
+export { KB_DESIGN_SYSTEM, coreExtension } from "./core-extension.ts";
 export { nodeAddTreeDef, nodeAddTreeEffect, planNodeAddTreeEffect } from "./node-add-tree.ts";
 export {
   ASSET_MAX_BYTES,

@@ -564,6 +564,18 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...singleField(SYSTEM_IDS.backdropDirectionField, "backdrop.direction", "ref", configuresCore),
     children: directionOptions.map((option) => option.id),
   };
+  /*
+   * The design system the page is painted in (DESIGN-UI.md → Design tokens
+   * → Design systems): a setting of core's node, since the page is core's.
+   * Its options are derived from the declared systems, core's default
+   * among them, when the seed is folded, so the field is seeded with none.
+   */
+  const designSystemField = singleField(
+    SYSTEM_IDS.designSystemField,
+    "designSystem",
+    "ref",
+    configuresCore,
+  );
 
   return [
     field,
@@ -631,6 +643,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...strengthOptions,
     backdropDirectionField,
     ...directionOptions,
+    designSystemField,
   ];
 }
 

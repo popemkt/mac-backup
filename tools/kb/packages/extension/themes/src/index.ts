@@ -5,4 +5,9 @@
  * themselves are page stylesheets, so they live in the browser half,
  * `@kb/themes-ui`.
  */
-export { themesExtension, themesPlugin } from "./extension.ts";
+export {
+  PAPER_DESIGN_SYSTEM,
+  TERMINAL_DESIGN_SYSTEM,
+  themesExtension,
+  themesPlugin,
+} from "./extension.ts";

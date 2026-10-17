@@ -1,5 +1,6 @@
 import { extensionNodeId, SYSTEM_IDS } from "@kb/model";
 import {
+  chooseDesignSystem,
   cn,
   DesignSystemPoint,
   type EnumOption,
@@ -20,6 +21,7 @@ import {
 } from "@kb/ui-sdk";
 import { useEffect, useRef } from "react";
 import { ArrowsHorizontalIcon, PuzzlePieceIcon, SwatchesIcon } from "@phosphor-icons/react";
+import { mutations } from "@/actions/mutations";
 import { useDesignSystemStore } from "@/stores/design-system.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -116,7 +118,6 @@ function ThemeRow() {
 function DesignSystemRow() {
   const systems = useContributions(DesignSystemPoint);
   const current = useDesignSystemStore((s) => s.painted);
-  const setDesignSystem = usePrefsStore((s) => s.setDesignSystem);
   return (
     <PrefFieldRow icon={SwatchesIcon} label="design">
       <div
@@ -133,7 +134,7 @@ function DesignSystemRow() {
               role="radio"
               aria-checked={checked}
               data-testid={`design-system-${system.id}`}
-              onClick={() => setDesignSystem(system.id)}
+              onClick={() => void chooseDesignSystem(mutations, system.id)}
               className="group flex min-w-0 flex-1 flex-col items-stretch gap-1"
             >
               <span

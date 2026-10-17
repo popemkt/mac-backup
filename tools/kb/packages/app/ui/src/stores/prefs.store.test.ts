@@ -83,26 +83,21 @@ describe("loadPrefs", () => {
   });
 
   it("parses valid values and rejects unknown ones", () => {
-    expect(
-      prefs.loadPrefs(
-        '{"theme":"dark","designSystem":"paper","width":"full","sidebarOpen":false}',
-        1280,
-      ),
-    ).toEqual({
+    expect(prefs.loadPrefs('{"theme":"dark","width":"full","sidebarOpen":false}', 1280)).toEqual({
       theme: "dark",
-      designSystem: "paper",
       width: "full",
       sidebarOpen: false,
     });
-    expect(prefs.loadPrefs('{"theme":"neon","designSystem":7,"width":"wide"}', 1280)).toEqual({
+    expect(prefs.loadPrefs('{"theme":"neon","width":"wide"}', 1280)).toEqual({
       ...prefs.DEFAULT_PREFS,
       sidebarOpen: true,
     });
   });
 
-  it("holds any design-system id: which are contributed is the page's to say", () => {
-    // An id nobody contributes paints the default (the design-system contract).
-    expect(prefs.loadPrefs('{"designSystem":"comic"}', 1280).designSystem).toBe("comic");
+  it("ignores the retired designSystem pref: the design system is core's setting now", () => {
+    const loaded = prefs.loadPrefs('{"theme":"dark","designSystem":"themes.paper"}', 1280);
+    expect(loaded).toEqual({ ...prefs.DEFAULT_PREFS, theme: "dark" });
+    expect("designSystem" in loaded).toBe(false);
   });
 
   it("ignores the retired backdrop prefs: the backdrop is core's settings now", () => {
@@ -160,13 +155,11 @@ describe("resolveDark", () => {
 describe("usePrefsStore", () => {
   it("persists setter changes to localStorage[kb-prefs]", () => {
     prefs.usePrefsStore.getState().setTheme("dark");
-    prefs.usePrefsStore.getState().setDesignSystem("terminal");
     prefs.usePrefsStore.getState().setWidth("full");
     prefs.usePrefsStore.getState().setSidebarOpen(false);
     const raw = (g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY);
     expect(JSON.parse(present(raw, "raw json"))).toEqual({
       theme: "dark",
-      designSystem: "terminal",
       width: "full",
       sidebarOpen: false,
     });
@@ -181,9 +174,8 @@ describe("usePrefsStore", () => {
   });
 
   it("applies the theme class and the width to <html>, and leaves data-theme to the painter", () => {
-    prefs.usePrefsStore.getState().setTheme("dark");
     (g.document as Document).documentElement.setAttribute("data-theme", "painted");
-    prefs.usePrefsStore.getState().setDesignSystem("kb");
+    prefs.usePrefsStore.getState().setTheme("dark");
     const root = (
       g.document as {
         documentElement: {
@@ -239,25 +231,24 @@ describe("initPrefs cross-tab sync", () => {
   it("storage event updates store state and re-applies html attrs", () => {
     (g.localStorage as Storage).setItem(
       prefs.PREFS_STORAGE_KEY,
-      JSON.stringify({ theme: "dark", designSystem: "kb", width: "full" }),
+      JSON.stringify({ theme: "dark", width: "full" }),
     );
 
     prefs.initPrefs();
 
     (g.localStorage as Storage).setItem(
       prefs.PREFS_STORAGE_KEY,
-      JSON.stringify({ theme: "light", designSystem: "paper", width: "centered" }),
+      JSON.stringify({ theme: "light", width: "centered" }),
     );
 
     (g.window as ReturnType<typeof fakeWindow>).dispatchEvent({
       type: "storage",
       key: prefs.PREFS_STORAGE_KEY,
-      newValue: '{"theme":"light","designSystem":"paper","width":"centered"}',
+      newValue: '{"theme":"light","width":"centered"}',
     });
 
     expect(prefs.usePrefsStore.getState()).toMatchObject({
       theme: "light",
-      designSystem: "paper",
       width: "centered",
     });
 

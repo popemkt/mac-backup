@@ -8,7 +8,7 @@
  */
 import { Context, Effect } from "effect";
 import { z } from "zod";
-import type { KbNode, SeedBackdrop, SeedPolicy } from "@kb/model";
+import type { KbNode, SeedBackdrop, SeedOption, SeedPolicy } from "@kb/model";
 import type { FieldRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
@@ -49,6 +49,13 @@ export interface ExtensionDeclaration {
    * choosing one is writing that field.
    */
   readonly backdrops?: readonly SeedBackdrop[];
+  /**
+   * The design systems the family contributes (DESIGN-UI.md → Design
+   * tokens → Design systems), each by the id its page contribution answers
+   * to: the seed derives each one's option node under
+   * `sys.f.design-system`, so choosing one is writing that field.
+   */
+  readonly designSystems?: readonly SeedOption[];
   /**
    * The approval policies the family declares, each a denial (`SeedPolicy`):
    * the seed derives each one's node under the list of every policy. A family

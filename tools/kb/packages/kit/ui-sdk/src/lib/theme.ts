@@ -34,15 +34,13 @@ export function appearanceOf(designSystem: string, dark: boolean): Appearance {
  */
 export interface Prefs {
   theme: ThemePref;
-  /**
-   * Which design system paints the page, by its id (null: none chosen):
-   * every layer-1 value, faces included. Any id is held; the page paints
-   * the contributed one it names, else the default (`chosenDeclared`). The
-   * UI face used to be a
-   * pref of its own (`font`); a face is a design-system value, so a stale
-   * `font` key is ignored on read and dropped on the next write.
+  /*
+   * Which design system paints the page was a pref here (`designSystem`).
+   * It is core's setting now (DESIGN-UI.md → Design tokens → Design
+   * systems), so a stale key is ignored on read and dropped on the next
+   * write. So was the UI face before it (`font`): a face is a design-system
+   * value.
    */
-  designSystem: string | null;
   width: WidthPref;
   /*
    * The page-head backdrop, its strength and its direction were prefs here

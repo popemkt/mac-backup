@@ -2,24 +2,36 @@
  * The design-system contract (DESIGN-UI.md → Design tokens → Design
  * systems): every design system contributed to `DesignSystemPoint` — core's
  * default, the page's families' and a plugin's own — answers to its key's
- * id and is labelled; its sheet holds only its own two blocks, and with
+ * id, and is declared, so the seed holds its option, labelled, under
+ * `sys.f.design-system`; its sheet holds only its own two blocks, and with
  * layer 1 its id names exactly one base block and one dark block (the
  * default's are layer 1's own); it restates every token layer 1 sets, in
  * every variant layer 1 sets it, except the shared and the derived ones,
  * and sets no shared and no unknown token; every layer-1 token resolves for
  * it in light and in dark, and every colour among them parses; the painter
- * adds its sheet after every sheet on the page, and choosing it paints the
- * page in it; a choice nobody contributes, or a system whose plugin
- * unloads, paints the default.
+ * adds its sheet after every sheet on the page; choosing it is writing
+ * core's setting, in Preferences or anywhere, and the page is then painted
+ * in it; a choice nobody contributes, or a system whose plugin unloads,
+ * paints the default.
  *
  * A system with a missing token, a block under another id, a shared token
  * of its own, or a sheet the page never adds fails here; the rejecting
  * cases below hold the checks to that.
  */
 import { act, createElement } from "react";
+import { Effect } from "effect";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { SeedOption } from "@kb/model";
+import { BUNDLED_DECLARATIONS } from "@kb/bundled";
+import { declarationPlugin, defineExtension, type WireNode } from "@kb/contracts";
+import {
+  SYSTEM_IDS,
+  designSystemOptionId,
+  extensionNodeId,
+  foldSeed,
+  type KbNode,
+  type SeedOption,
+} from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import {
   browserHost,
@@ -31,6 +43,7 @@ import {
   type DesignSystem,
 } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { designSystemsUiPlugin } from "@/design-systems";
 import {
@@ -44,7 +57,7 @@ import {
   SHEET_ATTRIBUTE,
   startDesignSystems,
 } from "@/stores/design-system.store";
-import { usePrefsStore } from "@/stores/prefs.store";
+import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PAGE_FAMILIES, sheetsOf } from "@/test-support/design-systems";
 import { syncPagePlugins } from "@/test-support/page-plugins";
@@ -77,11 +90,43 @@ const PLAIN_KEY: SeedOption = { id: "plain.plain", label: "Plain" };
 const PLAIN_SHEET =
   block(baseSelector(PLAIN_KEY.id), restated(LAYER1.base)) +
   block(darkSelector(PLAIN_KEY.id), restated(LAYER1.dark));
+/** A family of the test's own: it declares its system, and its page plugin contributes it. */
+const plainExtension = defineExtension({
+  name: "plain",
+  label: "Plain",
+  designSystems: [PLAIN_KEY],
+});
 const plainPlugin = definePlugin({
   name: "plain",
   apply: (ctx) =>
-    ctx.contribute(DesignSystemPoint, provideDesignSystem(PLAIN_KEY, { stylesheet: PLAIN_SHEET })),
+    Effect.all(
+      [
+        ctx.plugin(declarationPlugin(plainExtension)),
+        ctx.contribute(
+          DesignSystemPoint,
+          provideDesignSystem(PLAIN_KEY, { stylesheet: PLAIN_SHEET }),
+        ),
+      ],
+      { discard: true },
+    ),
 });
+
+const AT = "2026-01-01T00:00:00.000Z";
+const CORE = extensionNodeId("core");
+/** The seed of the bundled families and the test's own. */
+const SEED = foldSeed([...BUNDLED_DECLARATIONS, plainExtension], AT).nodes;
+
+/** The graph of that seed, with core's node choosing the design system `id` (none: nothing chosen). */
+function choosing(id?: string): void {
+  const settings: KbNode["props"] =
+    id === undefined
+      ? {}
+      : { [SYSTEM_IDS.designSystemField]: [{ t: "ref", v: designSystemOptionId(id) }] };
+  const nodes: WireNode[] = SEED.map((node) =>
+    node.id === CORE ? { ...node, props: { ...node.props, ...settings } } : node,
+  );
+  act(() => useGraphStore.getState().hydrateFromWire(nodes, 1, "fixtures"));
+}
 
 /** Everything the contract says `id` breaks, read from `sheets`; none for a sound system. */
 function contractFailures(sheets: DesignSystemSheets, id: string): readonly string[] {
@@ -148,12 +193,13 @@ describe("every contributed design system", () => {
     bundled.id = "bundled";
     document.head.appendChild(bundled);
     syncPagePlugins([designSystemsUiPlugin, ...PAGE_FAMILIES, plainPlugin]);
+    choosing();
     stop = startDesignSystems();
   });
   afterAll(() => {
     stop();
-    usePrefsStore.getState().setDesignSystem(null);
     syncUiPlugins([]);
+    useGraphStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
     g.localStorage = savedStorage;
     installed.restore();
   });
@@ -166,10 +212,13 @@ describe("every contributed design system", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("answers to its key's id, and is labelled", () => {
+  it("answers to its declared id, and the seed holds its option, labelled, under the design-system field", () => {
+    const field = SEED.find((node) => node.id === SYSTEM_IDS.designSystemField);
     for (const { id, value } of currentContributions(DesignSystemPoint)) {
       expect(id).toBe(value.key.id);
-      expect(value.key.label.length, id).toBeGreaterThan(0);
+      const option = SEED.find((node) => node.id === designSystemOptionId(value.key.id));
+      expect(option?.text, id).toBe(value.key.label);
+      expect(field?.children).toContain(option?.id);
     }
   });
 
@@ -190,7 +239,7 @@ describe("every contributed design system", () => {
 
   it("paints the page once chosen, and the appearance names it", () => {
     for (const { key, stylesheet } of contributed()) {
-      act(() => usePrefsStore.getState().setDesignSystem(key.id));
+      choosing(key.id);
       expect(html().getAttribute("data-theme")).toBe(key.id);
       expect(browserHost().appearance().designSystem).toBe(key.id);
       expect(JSON.parse(localStorage.getItem(PAINTED_STORAGE_KEY) ?? "null")).toEqual({
@@ -201,16 +250,16 @@ describe("every contributed design system", () => {
   });
 
   it("with nothing chosen, or a choice nobody contributes, the default", () => {
-    act(() => usePrefsStore.getState().setDesignSystem(PLAIN_KEY.id));
-    act(() => usePrefsStore.getState().setDesignSystem(null));
+    choosing(PLAIN_KEY.id);
+    choosing();
     expect(html().getAttribute("data-theme")).toBe("kb");
-    act(() => usePrefsStore.getState().setDesignSystem(PLAIN_KEY.id));
-    act(() => usePrefsStore.getState().setDesignSystem("gone.gone"));
+    choosing(PLAIN_KEY.id);
+    choosing("gone.gone");
     expect(html().getAttribute("data-theme")).toBe("kb");
   });
 
   it("whose plugin unloads: its sheet leaves the page, and a page it painted falls to the default", () => {
-    act(() => usePrefsStore.getState().setDesignSystem(PLAIN_KEY.id));
+    choosing(PLAIN_KEY.id);
     act(() => syncPagePlugins([designSystemsUiPlugin, ...PAGE_FAMILIES]));
     expect(sheetOf(PLAIN_KEY.id)).toBeUndefined();
     expect(html().getAttribute("data-theme")).toBe("kb");
@@ -262,6 +311,7 @@ describe("every contributed design system", () => {
     let root: Root;
 
     beforeAll(() => {
+      choosing();
       useUiStore.getState().setPrefsOpen(true);
       container = document.createElement("div");
       document.body.appendChild(container);
@@ -289,11 +339,19 @@ describe("every contributed design system", () => {
       ).toEqual(contributed().map(({ key }) => key.id));
     });
 
-    it("is chosen there, and the page and the swatch then show it", () => {
+    it("is chosen there by writing core's setting, which the page and the swatch then show", async () => {
       const swatch = swatches().find(
         (candidate) => candidate.getAttribute("data-testid") === `design-system-${PLAIN_KEY.id}`,
       );
-      act(() => (swatch as HTMLElement | undefined)?.click());
+      await act(async () => {
+        (swatch as HTMLElement | undefined)?.click();
+        // The write settles a task later, as a gesture's does.
+        await new Promise((settle) => setTimeout(settle, 0));
+      });
+      const core = useGraphStore.getState().index?.getNode(CORE);
+      expect(core?.props[SYSTEM_IDS.designSystemField]).toEqual([
+        { t: "ref", v: designSystemOptionId(PLAIN_KEY.id) },
+      ]);
       expect(html().getAttribute("data-theme")).toBe(PLAIN_KEY.id);
       expect(swatch?.getAttribute("aria-checked")).toBe("true");
     });

@@ -16,8 +16,8 @@ import { useUiStore } from "@/stores/ui.store";
 import { transitionTheme } from "@/lib/theme-transition";
 
 /**
- * Device-level preferences (DESIGN-RESKIN §1.7): theme / design system /
- * width, the sidebar, and which optional UI plugins are switched on.
+ * Device-level preferences (DESIGN-RESKIN §1.7): theme / width and the
+ * sidebar.
  * Persisted to localStorage["kb-prefs"] — device concern, never repo data.
  * index.html carries a blocking script that reads the same key pre-paint.
  */
@@ -33,6 +33,8 @@ export const PREFS_STORAGE_KEY = "kb-prefs";
  * the server's decision now (`extension.switch`), not the device's. So did
  * the page-head backdrop's three keys (`headerBackdrop`, `backdropStrength`,
  * `backdropDirection`): they are core's settings now (`sys.f.backdrop*`).
+ * So did `designSystem`: which design system paints the page is core's
+ * setting now (`sys.f.design-system`).
  */
 
 /** Default open on large viewports; closed on narrow (first visit / missing key). */
@@ -46,7 +48,6 @@ export function defaultSidebarOpen(
 
 export const DEFAULT_PREFS: Prefs = {
   theme: "system",
-  designSystem: null,
   width: "centered",
   sidebarOpen: true,
 };
@@ -57,8 +58,6 @@ export const DEFAULT_PREFS: Prefs = {
  */
 const StoredPrefsSchema = z.object({
   theme: z.enum(THEMES).catch(DEFAULT_PREFS.theme),
-  // Any id: which ones are contributed is the page's to know, not the payload's.
-  designSystem: z.string().nullable().catch(DEFAULT_PREFS.designSystem),
   width: z.enum(WIDTHS).catch(DEFAULT_PREFS.width),
   sidebarOpen: z.boolean().optional().catch(undefined),
 });
@@ -67,7 +66,6 @@ const StoredPrefsSchema = z.object({
 function prefsOf(source: Prefs): Prefs {
   return {
     theme: source.theme,
-    designSystem: source.designSystem,
     width: source.width,
     sidebarOpen: source.sidebarOpen,
   };
@@ -141,7 +139,6 @@ interface PrefsState extends Prefs {
   /** Live device signal, never persisted as an intentional preference. */
   systemDark: boolean;
   setTheme: (theme: ThemePref) => void;
-  setDesignSystem: (designSystem: string | null) => void;
   setWidth: (width: WidthPref) => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -164,8 +161,6 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
         document.documentElement.classList.contains("dark") !== dark;
       transitionTheme(() => commit({ theme }), changesAppearance);
     },
-    // The painter crossfades the change, whoever makes it.
-    setDesignSystem: (designSystem) => commit({ designSystem }),
     setWidth: (width) => commit({ width }),
     setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
     toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),

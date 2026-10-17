@@ -3,8 +3,9 @@
  * fold): a thing a family names on its declaration and its page plugin
  * contributes, chosen by a ref to the option node the seed fold derives for
  * it under the field that chooses it, as a view type is chosen by its option
- * under `sys.views`. A page-head backdrop is one kind; every kind is read the
- * same way, so a stale choice falls through the same way for each.
+ * under `sys.views`. Page-head backdrops are one kind and design systems
+ * another; every kind is read the same way, so a stale choice falls through
+ * the same way for each.
  */
 import { firstRef } from "./node-config.ts";
 import type { KbNode, NodeId } from "./model.ts";

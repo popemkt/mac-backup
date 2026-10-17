@@ -168,6 +168,7 @@ export {
   BACKDROP_DIRECTION_OPTION_IDS,
   BACKDROP_STRENGTHS,
   BACKDROP_STRENGTH_OPTION_IDS,
+  BACKDROP_OPTIONS,
   backdropChoice,
   backdropOptionId,
   type BackdropChoice,
@@ -189,6 +190,11 @@ export {
   type SeedSource,
   type SeedView,
 } from "./seed-fold.ts";
+export {
+  DESIGN_SYSTEM_OPTIONS,
+  designSystemChoice,
+  designSystemOptionId,
+} from "./design-system.ts";
 export {
   declaredChoice,
   declaredOptionId,

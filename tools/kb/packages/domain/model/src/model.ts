@@ -292,6 +292,12 @@ export const SYSTEM_IDS = {
   backdropField: "sys.f.backdrop",
   backdropStrengthField: "sys.f.backdrop.strength",
   backdropDirectionField: "sys.f.backdrop.direction",
+  /**
+   * The design system the page is painted in (`design-system.ts`): a ref to
+   * one of its field's children, the declared systems' options. A setting
+   * of core's node.
+   */
+  designSystemField: "sys.f.design-system",
 } as const;
 
 /**

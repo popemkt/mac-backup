@@ -9,7 +9,14 @@
  * to an argument.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { SYSTEM_IDS, defaultViewIdOf, viewOptionId, viewOptionOf } from "@kb/model";
+import {
+  SYSTEM_IDS,
+  defaultViewIdOf,
+  designSystemOptionId,
+  extensionNodeId,
+  viewOptionId,
+  viewOptionOf,
+} from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { syncUiPlugins, WORKSPACE_ROOT_ID } from "@kb/ui-sdk";
@@ -84,6 +91,13 @@ function node(id: string) {
 function shownAs(frameId: string): string | null {
   const viewId = defaultViewIdOf(node(frameId));
   return viewId === null ? null : viewOptionOf(node(viewId));
+}
+
+/** Core's design-system setting as the graph holds it. */
+function chosenDesignSystem() {
+  return useGraphStore.getState().index?.getNode(extensionNodeId("core"))?.props[
+    SYSTEM_IDS.designSystemField
+  ];
 }
 
 describe("palette command routing (characterization)", () => {
@@ -197,14 +211,16 @@ describe("palette command routing (characterization)", () => {
     expect(usePrefsStore.getState().theme).toBe("light");
   });
 
-  it("switch-design-system steps through the registry and wraps", async () => {
-    usePrefsStore.getState().setDesignSystem("kb");
+  it("switch-design-system steps core's setting through the contributed systems and wraps", async () => {
+    // Nothing chosen: the page shows the default, and the step is from it.
     await run(SYSTEM_IDS.cmdSwitchDesignSystem);
-    expect(usePrefsStore.getState().designSystem).toBe("themes.paper");
+    expect(chosenDesignSystem()).toEqual([{ t: "ref", v: designSystemOptionId("themes.paper") }]);
     await run(SYSTEM_IDS.cmdSwitchDesignSystem);
-    expect(usePrefsStore.getState().designSystem).toBe("themes.terminal");
+    expect(chosenDesignSystem()).toEqual([
+      { t: "ref", v: designSystemOptionId("themes.terminal") },
+    ]);
     await run(SYSTEM_IDS.cmdSwitchDesignSystem);
-    expect(usePrefsStore.getState().designSystem).toBe("kb");
+    expect(chosenDesignSystem()).toEqual([{ t: "ref", v: designSystemOptionId("kb") }]);
   });
 
   it("toggle-width flips centered and full", async () => {

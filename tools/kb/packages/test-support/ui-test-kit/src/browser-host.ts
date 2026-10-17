@@ -62,7 +62,6 @@ const LIGHT = appearanceOf("kb", false);
 const NO_WIRE: WireNode[] = [];
 const PREFS: Prefs = {
   theme: "light",
-  designSystem: null,
   width: "centered",
   sidebarOpen: true,
 };

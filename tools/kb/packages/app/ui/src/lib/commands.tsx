@@ -37,14 +37,22 @@ import {
   TextTIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
-import { hostViewIds, isQueryNode, isViewNode, present, typeRefsOf, viewOptionOf } from "@kb/model";
+import {
+  extensionNodeId,
+  hostViewIds,
+  isQueryNode,
+  isViewNode,
+  present,
+  typeRefsOf,
+  viewOptionOf,
+} from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import {
   browserHost,
   type Command,
   type CommandContext,
   CommandPoint,
-  chosenDeclared,
+  chooseDesignSystem,
   currentContributions,
   DesignSystemPoint,
   isContextualRef,
@@ -57,6 +65,7 @@ import {
   nodePath,
   ontologyPath,
   type OutlineCommandApi,
+  shownDesignSystem,
   SYSTEM_IDS,
   type ThemePref,
   toast,
@@ -210,13 +219,14 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   {
     id: SYSTEM_IDS.cmdSwitchDesignSystem,
     scope: "global",
-    run: (ctx) => {
-      // Through the contributed systems from the one shown, so a stale choice steps from the default.
+    // Through the contributed systems from the one shown, so a stale choice steps from the default.
+    run: async () => {
+      const host = browserHost();
       const contributed = currentContributions(DesignSystemPoint);
-      const shown = chosenDeclared(contributed, ctx.prefs.designSystem);
+      const shown = shownDesignSystem(contributed, host.node(extensionNodeId("core"))?.props);
       if (shown === null) return;
       const ids = contributed.map(({ value }) => value.key.id);
-      ctx.prefs.setDesignSystem(nextIn(ids, shown.value.key.id));
+      await chooseDesignSystem(host.writes, nextIn(ids, shown.value.key.id));
     },
   },
   {

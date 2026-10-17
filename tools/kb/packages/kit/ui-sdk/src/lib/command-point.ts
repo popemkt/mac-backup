@@ -32,10 +32,8 @@ export interface OutlineCommandApi {
 
 interface PrefsCommandApi {
   readonly theme: ThemePref;
-  readonly designSystem: string | null;
   readonly width: WidthPref;
   setTheme: (theme: ThemePref) => void;
-  setDesignSystem: (designSystem: string | null) => void;
   setWidth: (width: WidthPref) => void;
 }
 

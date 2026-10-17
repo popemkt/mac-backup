@@ -1,28 +1,48 @@
 /**
  * The bundled seed fold (DESIGN.md → Extension families → the seed is the
  * bundled fold): each declared view's option is derived from its key, in
- * declaration order, as is each declared backdrop's under `sys.f.backdrop`
- * and each declared policy's under the list of every policy (a denial only),
+ * declaration order, as is each declared option's under its kind's field
+ * (a backdrop's under `sys.f.backdrop`, a design system's under
+ * `sys.f.design-system`) and each declared policy's under the list of every
+ * policy (a denial only),
  * `sys.views` names the default view type, and an id two declarations claim
  * is refused.
  */
 import { describe, expect, test } from "bun:test";
 import {
+  BACKDROP_OPTIONS,
+  DESIGN_SYSTEM_OPTIONS,
   SYSTEM_IDS,
   VIEW_FAMILY_VALUES,
   approvalPoliciesOf,
-  backdropOptionId,
+  declaredOptionId,
   defaultViewTypeOf,
   extensionNodeId,
   foldSeed,
   viewOptionId,
 } from "@kb/model";
+import type { ExtensionDeclaration } from "@kb/contracts";
 import { BUNDLED_DECLARATIONS, bundledOwners, bundledSeed } from "@kb/bundled";
 
 const AT = "2026-01-01T00:00:00.000Z";
 const declaredKeys = BUNDLED_DECLARATIONS.flatMap((declaration) =>
   (declaration.views ?? []).map((view) => view.key),
 );
+
+/** Each kind of declared option, and where a declaration lists its things. */
+const DECLARED_KINDS = [
+  { kind: BACKDROP_OPTIONS, of: (declaration: ExtensionDeclaration) => declaration.backdrops },
+  {
+    kind: DESIGN_SYSTEM_OPTIONS,
+    of: (declaration: ExtensionDeclaration) => declaration.designSystems,
+  },
+];
+
+/** The option nodes `declaration` owns, of every declared kind. */
+const declaredOptionsOf = (declaration: ExtensionDeclaration) =>
+  DECLARED_KINDS.flatMap(({ kind, of }) =>
+    (of(declaration) ?? []).map((option) => declaredOptionId(kind, option.id)),
+  );
 
 describe("bundled seed", () => {
   test("sys.views lists one option per declared view, in declaration order", () => {
@@ -44,17 +64,20 @@ describe("bundled seed", () => {
     }
   });
 
-  test("sys.f.backdrop lists one option per declared backdrop, labelled, in declaration order", () => {
-    const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
-    const declared = BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.backdrops ?? []);
-    expect(declared.length).toBeGreaterThan(0);
-    expect(seed.get(SYSTEM_IDS.backdropField)?.children).toEqual(
-      declared.map((backdrop) => backdropOptionId(backdrop.id)),
-    );
-    for (const backdrop of declared) {
-      expect(seed.get(backdropOptionId(backdrop.id))?.text).toBe(backdrop.label);
-    }
-  });
+  test.each(DECLARED_KINDS)(
+    "$kind.field lists one option per declared thing, labelled, in declaration order",
+    ({ kind, of }) => {
+      const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
+      const declared = BUNDLED_DECLARATIONS.flatMap((declaration) => of(declaration) ?? []);
+      expect(declared.length).toBeGreaterThan(0);
+      expect(seed.get(kind.field)?.children).toEqual(
+        declared.map((option) => declaredOptionId(kind, option.id)),
+      );
+      for (const option of declared) {
+        expect(seed.get(declaredOptionId(kind, option.id))?.text).toBe(option.label);
+      }
+    },
+  );
 
   test("sys.views names the default view type: a declared view's option, the outline's", () => {
     const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
@@ -104,7 +127,7 @@ describe("bundled seed", () => {
       const owned = [
         ...(declaration.seed?.(AT) ?? []).map((node) => node.id),
         ...(declaration.views ?? []).map((view) => viewOptionId(view.key.id)),
-        ...(declaration.backdrops ?? []).map((backdrop) => backdropOptionId(backdrop.id)),
+        ...declaredOptionsOf(declaration),
         ...(declaration.policies ?? []).map((policy) => policy.id),
         extensionNodeId(declaration.name),
       ];
