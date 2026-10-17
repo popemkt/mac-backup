@@ -272,6 +272,8 @@ export function SigmaGraph(props: SigmaGraphProps) {
     const placed = placedDrag(graph);
     const drag = new NodeDrag(() => layoutRef.current ?? placed, sigmaDragSurface(sigma));
     let suppressClick = false;
+    /** The node the last click landed on, which a double-click must land on again to open. */
+    let clicked: string | null = null;
     const markCamera = () => {
       cameraIntent.current = true;
     };
@@ -290,12 +292,9 @@ export function SigmaGraph(props: SigmaGraphProps) {
       setTooltip(null);
       refresh();
     });
-    sigma.on("clickNode", ({ node, event }) => {
-      if (suppressClick) {
-        suppressClick = false;
-        return;
-      }
-      const native = asInstance(event.original, MouseEvent);
+    const clickNode = (node: string, original: unknown) => {
+      clicked = node;
+      const native = asInstance(original, MouseEvent);
       if (native?.metaKey === true || native?.ctrlKey === true) {
         live.current.onNodeOpen(node);
         return;
@@ -307,12 +306,26 @@ export function SigmaGraph(props: SigmaGraphProps) {
       }
       const meta = live.current.nodes.find((n) => n.id === node);
       if (meta) live.current.onSelectionChange?.(selectionFromNode(meta));
+    };
+    sigma.on("clickNode", ({ node, event }) => {
+      if (suppressClick) {
+        suppressClick = false;
+        clicked = null;
+        return;
+      }
+      clickNode(node, event.original);
     });
+    // Sigma reads any second click inside its timeout as a double-click,
+    // wherever it lands: only one whose first click hit this node opens it;
+    // any other is the click it is (select A, then click or shift-click B).
     sigma.on("doubleClickNode", ({ node, event }) => {
       event.preventSigmaDefault();
-      live.current.onNodeOpen(node);
+      if (clicked === node) live.current.onNodeOpen(node);
+      else clickNode(node, event.original);
+      clicked = null;
     });
     sigma.on("clickStage", ({ event }) => {
+      clicked = null;
       if (suppressClick) {
         suppressClick = false;
         return;

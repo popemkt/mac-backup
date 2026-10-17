@@ -235,9 +235,10 @@ test("force2d traces from the selection to a shift-clicked node and lights the p
   await selectRenderer(page, "force2d");
   const host = "[data-sigma-container]";
   const first = await sigmaPagePoint(page, host, "render.fixture.node.1");
-  await page.mouse.click(first.x, first.y);
-  await expect(page.getByTestId("graph-selection-card")).toContainText("Fixture node 1");
   const second = await sigmaPagePoint(page, host, "render.fixture.node.2");
+  // Both clicks inside sigma's double-click window: a second click on another
+  // node is that click (here a trace), never a double-click that opens it.
+  await page.mouse.click(first.x, first.y);
   await page.keyboard.down("Shift");
   await page.mouse.click(second.x, second.y);
   await page.keyboard.up("Shift");
