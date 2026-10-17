@@ -147,7 +147,7 @@ export function paintRays(palette: ScenePalette, size: number, dpr: number): HTM
   const rays = ctx.createConicGradient(0.3, half, half);
   for (let i = 0; i <= wedges * 2; i++) {
     const strength = i % 2 === 0 ? 0 : 0.5 + 0.5 * Math.sin(i * 1.7);
-    rays.addColorStop(i / (wedges * 2), css(palette.core, 0.16 * strength));
+    rays.addColorStop(i / (wedges * 2), css(palette.core, 0.06 * strength));
   }
   ctx.fillStyle = rays;
   ctx.fillRect(0, 0, size, size);

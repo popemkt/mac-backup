@@ -14,9 +14,9 @@ describe("houseOf", () => {
         const { eave } = houseOf(width, height, direction, true);
         expect(eave.y).toBeGreaterThan(0);
         expect(eave.y).toBeLessThan(height);
-        expect(eave.from).toBeGreaterThan(0);
+        expect(eave.from).toBeGreaterThan(width * 0.2);
         expect(eave.to).toBeGreaterThan(eave.from + width * 0.2);
-        expect(eave.to).toBeLessThan(width);
+        expect(eave.to).toBeLessThan(width * 0.75);
       }
     }
   });
@@ -37,13 +37,27 @@ describe("houseOf", () => {
     }
   });
 
-  it("is made of closed shapes with finite points, and a window on its wall", () => {
+  it("keeps the window, the one warm thing, on the wall away from the reading column", () => {
+    for (const [width, height] of sizes) {
+      const { window } = houseOf(width, height, "down", true);
+      expect(window.x).toBeGreaterThan(width * 0.7);
+    }
+  });
+
+  it("is made of closed shapes with finite points, each fade running away from the page's tone", () => {
     const house = houseOf(1040, 380, "down", true);
-    for (const poly of [...house.roof, ...house.posts, house.wall]) {
+    for (const poly of [
+      house.roof.poly,
+      house.wall.poly,
+      house.post.poly,
+      house.brace,
+      ...house.crisp,
+    ]) {
       expect(poly.length).toBeGreaterThanOrEqual(6);
       expect(poly.length % 2).toBe(0);
       expect(poly.every(Number.isFinite)).toBe(true);
     }
-    expect(house.window.x).toBeLessThan(house.eave.from);
+    expect(house.roof.to.y).toBeLessThan(house.roof.from.y);
+    expect(house.post.to.y).toBeGreaterThan(house.post.from.y);
   });
 });

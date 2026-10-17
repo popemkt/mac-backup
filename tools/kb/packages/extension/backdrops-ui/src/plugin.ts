@@ -50,7 +50,7 @@ const sky: Omit<Backdrop, "key"> = {
     height: 360,
     maxWidth: 1040,
     offset: -10,
-    opacity: { subtle: 0.6, soft: 0.82, vivid: 1 },
+    opacity: { subtle: 0.45, soft: 0.68, vivid: 0.88 },
   },
   Component: SkyBackdrop,
 };
@@ -63,7 +63,7 @@ const roost: Omit<Backdrop, "key"> = {
     height: 380,
     maxWidth: 1040,
     offset: -10,
-    opacity: { subtle: 0.62, soft: 0.84, vivid: 1 },
+    opacity: { subtle: 0.5, soft: 0.7, vivid: 0.9 },
   },
   Component: RoostBackdrop,
 };

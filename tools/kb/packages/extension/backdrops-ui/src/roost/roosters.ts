@@ -46,7 +46,7 @@ export interface Rooster {
 }
 
 /** How far below the eave a hanging bat's centre sits, in body lengths. */
-const HANG_DROP = 0.5;
+const HANG_DROP = 0.62;
 /** How a hanging bat points: nose straight down (nose-up positive). */
 export const HANG_TILT = -Math.PI / 2;
 
@@ -67,7 +67,7 @@ export function spawnRoosters(
   return slots.map((x, id) => {
     const flier = newFlier(rng, id, "bat", 0.1, { x, y: eaveY });
     flier.life = 1e9;
-    flier.size = rng.range(27, 41);
+    flier.size = rng.range(24, 35);
     flier.turn = rng.chance(0.5) ? 1 : -1;
     return {
       id,

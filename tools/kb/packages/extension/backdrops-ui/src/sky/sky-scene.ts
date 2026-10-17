@@ -26,8 +26,8 @@ import type { Reactions } from "../scene/reactions";
 import { seededRng, type Rng } from "../scene/rng";
 
 /** Fliers at each strength, before quality scales them. */
-const FLOCK = { subtle: 7, soft: 11, vivid: 16 } as const;
-const MOTES = { subtle: 20, soft: 32, vivid: 44 } as const;
+const FLOCK = { subtle: 4, soft: 6, vivid: 9 } as const;
+const MOTES = { subtle: 14, soft: 22, vivid: 30 } as const;
 const WISP_WIDTH = 380;
 const WISP_HEIGHT = 64;
 /** Depths the flock is spread over: three layers, nearest to farthest. */
@@ -65,18 +65,19 @@ function skyLayout(config: SceneConfig): GlowSpec {
   const { width, height, direction, palette } = config;
   const scale = Math.min(1, width / 800);
   return {
-    x: width * 0.6,
+    x: width * 0.63,
     y: height * (direction === "down" ? 0.34 : 0.66),
     reach: Math.min(width * 0.52, height * 1.25),
     disc: (palette.dark ? 34 : 38) * scale,
     squash: 1,
-    intensity: 1,
+    power: palette.dark ? 4.2 : 3,
+    intensity: palette.dark ? 1 : 1.4,
     washFrom: direction === "down" ? "top" : "bottom",
   };
 }
 
 function flockSize(config: SceneConfig): number {
-  return Math.max(4, Math.round(FLOCK[config.strength] * config.quality));
+  return Math.max(3, Math.round(FLOCK[config.strength] * config.quality));
 }
 
 function spawnFlock(rng: Rng, config: SceneConfig, glow: GlowSpec, count: number): Flier[] {
@@ -134,7 +135,7 @@ function airOf(sky: Sky, world: World): Air {
     anchor: {
       x: world.glow.x + Math.sin(sky.time * 0.05) * width * 0.1 + sky.drift.x,
       y: world.glow.y + Math.cos(sky.time * 0.037) * height * 0.07 + sky.drift.y,
-      radius: Math.min(width * 0.29, height * 0.8),
+      radius: Math.min(width * 0.33, height * 0.9),
     },
   };
 }

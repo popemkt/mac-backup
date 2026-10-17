@@ -27,8 +27,13 @@ describe("featherOf", () => {
     const down = featherOf(1000, 400, "down");
     const up = featherOf(1000, 400, "up");
     expect(down.at(0, 200)).toBe(0);
-    expect(down.at(500, 200)).toBe(1);
-    expect(down.at(500, 400)).toBe(0);
-    expect(down.at(500, 330)).toBeLessThan(up.at(500, 330));
+    expect(down.at(600, 200)).toBe(1);
+    expect(down.at(600, 400)).toBe(0);
+    expect(down.at(600, 330)).toBeLessThan(up.at(600, 330));
+  });
+
+  it("keeps the scene faint over the reading column on the left", () => {
+    const f = featherOf(1000, 400, "down");
+    expect(f.at(150, 200)).toBeLessThan(0.3 * f.at(600, 200));
   });
 });

@@ -30,7 +30,7 @@ import { css } from "../scene/palette";
 import { paintFigure, paintFlier, type Lit } from "../scene/paint-flier";
 import type { Reactions } from "../scene/reactions";
 import { seededRng, type Rng } from "../scene/rng";
-import { houseOf, type House } from "./house";
+import { houseOf, type Faded, type House } from "./house";
 import {
   HANG_TILT,
   advance,
@@ -43,7 +43,7 @@ import {
   type RoostWorld,
 } from "./roosters";
 
-const BATS = { subtle: 5, soft: 8, vivid: 11 } as const;
+const BATS = { subtle: 4, soft: 7, vivid: 10 } as const;
 const MOTES = { subtle: 14, soft: 24, vivid: 34 } as const;
 
 interface World {
@@ -116,7 +116,7 @@ function airOf(world: World, time: number): Air {
   return {
     arena: { width, height },
     time,
-    anchor: { x: width * 0.58, y: world.house.eave.y + height * 0.1, radius: width * 0.2 },
+    anchor: { x: width * 0.47, y: world.house.eave.y + height * 0.1, radius: width * 0.19 },
   };
 }
 
@@ -220,7 +220,7 @@ function centroid(poly: Poly): { x: number; y: number } {
 
 const IDENTITY: Placement = { x: 0, y: 0, size: 1, tilt: 0, mirror: 1, squash: 1 };
 
-/** One piece of the house in the page's tone, with a rim on the edge toward the light. */
+/** A crisp piece of the house in the page's tone, with a rim on the edge toward the light. */
 function drawPiece(ctx: CanvasRenderingContext2D, world: World, poly: Poly, lit: Lit): void {
   const { house, config } = world;
   const at = centroid(poly);
@@ -235,71 +235,62 @@ function drawPiece(ctx: CanvasRenderingContext2D, world: World, poly: Poly, lit:
     dx: (gx / d) * 1.1,
     dy: (gy / d) * 1.1,
   };
-  drawFigure(
-    ctx,
-    figure,
-    IDENTITY,
-    { body: css(config.palette.body), membrane: 1, alpha: 1, rim },
-    lit.dpr,
-  );
+  const ink = { body: css(config.palette.body), membrane: 1, alpha: 1, rim };
+  drawFigure(ctx, figure, IDENTITY, ink, lit.dpr);
 }
 
-/** The wall: the page's tone at the eave, dissolving into the sky below, so no foot shows. */
-function drawWall(ctx: CanvasRenderingContext2D, world: World, lit: Lit): void {
-  const { wall } = world.house;
-  let top = Infinity;
-  let bottom = -Infinity;
-  for (let i = 1; i < wall.length; i += 2) {
-    top = Math.min(top, wall[i] ?? 0);
-    bottom = Math.max(bottom, wall[i] ?? 0);
-  }
+/** A shape that is the page's tone at one end and nothing at the other: it has no edge to cut the sky with. */
+function drawFaded(ctx: CanvasRenderingContext2D, world: World, faded: Faded, lit: Lit): void {
+  const { poly, from, to } = faded;
+  const tone = world.config.palette.body;
   ctx.setTransform(lit.dpr, 0, 0, lit.dpr, 0, 0);
-  const fade = ctx.createLinearGradient(0, top, 0, bottom);
-  fade.addColorStop(0, css(world.config.palette.body, 1));
-  fade.addColorStop(0.55, css(world.config.palette.body, 0.8));
-  fade.addColorStop(1, css(world.config.palette.body, 0));
+  const fade = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+  fade.addColorStop(0, css(tone, 1));
+  fade.addColorStop(0.45, css(tone, 0.7));
+  fade.addColorStop(0.85, css(tone, 0));
+  fade.addColorStop(1, css(tone, 0));
   ctx.fillStyle = fade;
   ctx.beginPath();
-  for (let i = 0; i < wall.length; i += 2) {
-    if (i === 0) ctx.moveTo(wall[0] ?? 0, wall[1] ?? 0);
-    else ctx.lineTo(wall[i] ?? 0, wall[i + 1] ?? 0);
+  for (let i = 0; i < poly.length; i += 2) {
+    if (i === 0) ctx.moveTo(poly[0] ?? 0, poly[1] ?? 0);
+    else ctx.lineTo(poly[i] ?? 0, poly[i + 1] ?? 0);
   }
   ctx.closePath();
   ctx.fill();
 }
 
-/** The house, in the page's tone: only the light behind it, and a rim on the edge toward it, draws it. */
+/** The house, in the page's tone: only the light behind it, and a rim on the crisp eave, draws it. */
 function drawHouse(ctx: CanvasRenderingContext2D, world: World, lit: Lit): void {
-  for (const poly of [...world.house.roof, ...world.house.posts]) drawPiece(ctx, world, poly, lit);
-  drawWall(ctx, world, lit);
+  const { house } = world;
+  drawFaded(ctx, world, house.roof, lit);
+  drawFaded(ctx, world, house.wall, lit);
+  drawFaded(ctx, world, house.post, lit);
+  for (const poly of [house.brace, ...house.crisp]) drawPiece(ctx, world, poly, lit);
 }
 
-/** The one lit window of a night: warm, softly breathing, its frame in the page's own tone. */
+/** The one lit window of a night: small, warm, softly breathing, the frame in the page's own tone. */
 function drawWindow(ctx: CanvasRenderingContext2D, world: World, time: number, lit: Lit): void {
   if (!lit.palette.dark) return;
   const { x, y, width, height } = world.house.window;
   const glow = 0.82 + 0.1 * Math.sin(time * 0.9) + 0.05 * Math.sin(time * 2.3 + 1);
   const fade = world.feather.at(x + width / 2, y + height / 2);
+  const cx = x + width / 2;
+  const cy = y + height / 2;
   ctx.setTransform(lit.dpr, 0, 0, lit.dpr, 0, 0);
-  const bloom = ctx.createRadialGradient(
-    x + width / 2,
-    y + height / 2,
-    0,
-    x + width / 2,
-    y + height / 2,
-    width * 2.4,
-  );
-  bloom.addColorStop(0, css(lit.palette.window, 0.22 * glow * fade));
+  const bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, width * 3.2);
+  bloom.addColorStop(0, css(lit.palette.window, 0.2 * glow * fade));
+  bloom.addColorStop(0.4, css(lit.palette.window, 0.07 * glow * fade));
   bloom.addColorStop(1, css(lit.palette.window, 0));
   ctx.fillStyle = bloom;
-  ctx.fillRect(x - width * 2.4, y - width * 2.4, width * 6, height + width * 4.8);
-  ctx.fillStyle = css(lit.palette.window, 0.55 * glow * fade);
+  ctx.fillRect(cx - width * 3.2, cy - width * 3.2, width * 6.4, width * 6.4);
+  const pane = ctx.createRadialGradient(cx, cy, 0, cx, cy, height * 0.75);
+  pane.addColorStop(0, css(lit.palette.window, 0.62 * glow * fade));
+  pane.addColorStop(1, css(lit.palette.window, 0.34 * glow * fade));
+  ctx.fillStyle = pane;
   ctx.fillRect(x, y, width, height);
-  ctx.fillStyle = css(lit.palette.body);
-  ctx.globalAlpha = fade;
-  ctx.fillRect(x + width / 2 - 1.2, y, 2.4, height);
-  ctx.fillRect(x, y + height * 0.46, width, 2.4);
-  ctx.globalAlpha = 1;
+  ctx.fillStyle = css(lit.palette.body, 0.7 * fade);
+  ctx.fillRect(cx - 0.6, y, 1.2, height);
+  ctx.fillRect(x, y + height * 0.46, width, 1.2);
 }
 
 /** One hanging, letting-go or flying rooster, in whichever pose its hold gives it. */

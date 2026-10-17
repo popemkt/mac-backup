@@ -68,8 +68,8 @@ export function depthScale(depth: number): { size: number; speed: number; veil: 
   return { size: 1 - 0.5 * depth, speed: 1 - 0.45 * depth, veil: 1 - 0.5 * depth };
 }
 
-const BAT_SIZE: readonly [number, number] = [34, 52];
-const SWALLOW_SIZE: readonly [number, number] = [26, 38];
+const BAT_SIZE: readonly [number, number] = [28, 42];
+const SWALLOW_SIZE: readonly [number, number] = [20, 29];
 
 /** A new flier of `species` at `depth`, with a personality of its own. */
 export function newFlier(

@@ -87,7 +87,8 @@ export function batFigure(state: WingState, facing: number): Figure {
     wound([0.37, -0.12, 0.3, -0.44, 0.48, -0.18]),
     wound([0.48, -0.14, 0.55, -0.42, 0.6, -0.08]),
     wound([-0.3, 0.08, -0.58, 0.3, -0.48, 0.36, -0.24, 0.22]),
-    wound(ellipse({ cx: -0.2, cy: 0.22, rx: 0.07, ry: 0.035, rotation: 0.6 })),
+    wound([-0.22, 0.1, -0.44, 0.18, -0.45, 0.14, -0.26, 0.06]),
+    wound([-0.18, 0.2, -0.4, 0.28, -0.41, 0.24, -0.22, 0.16]),
   ];
   const eyes = [
     { x: 0.5 - 0.07 * facing, y: -0.05, r: 0.032, weight: 1 },

@@ -106,9 +106,9 @@ export function blendWing(from: WingState, to: WingState, t: number): WingState 
 export function hangState(wrap: number, stretch: number): WingState {
   const tight = clamp01(wrap);
   return {
-    beat: lerp(-1.2, -1.7, tight) + stretch * 2.6,
+    beat: lerp(-1.4, -2.1, tight) + stretch * 3.2,
     bend: 0,
-    sweep: lerp(-0.8, -1.35, tight) + stretch * 1.7,
-    spread: lerp(0.65, 0.3, tight) + stretch * 0.7,
+    sweep: lerp(-1.0, -1.5, tight) + stretch * 2,
+    spread: lerp(0.5, 0.12, tight) + stretch * 0.8,
   };
 }

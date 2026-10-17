@@ -86,14 +86,15 @@ export function paletteOf(tokens: SceneTokens, tint: Rgb | null, dark: boolean):
       window: mix(tokens.primary, { r: 255, g: 196, b: 104 }, 0.5),
     };
   }
-  const core = mix(tokens.sun, toward, 0.08);
-  const halo = mix(mix(body, tokens.sun, 0.62), toward, 0.12);
+  // A pale warm bloom, not a sticker: the sun is light, so its core is the page lit a little gold.
+  const core = mix(mix(tokens.sun, body, 0.42), toward, 0.06);
+  const halo = mix(mix(body, tokens.sun, 0.4), toward, 0.1);
   return {
     dark,
     body,
     core,
     halo,
-    sky: mix(body, mix(tokens.sun, toward, 0.2), 0.3),
+    sky: mix(body, mix(tokens.sun, toward, 0.2), 0.2),
     rim: lift(core, 0.3),
     eye: mix(tokens.primary, tokens.foreground, 0.2),
     eyeHot: lift(tokens.sun, 0.4),

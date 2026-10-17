@@ -6,7 +6,6 @@
  */
 import { css, type ScenePalette } from "./palette.ts";
 import type { Feather } from "./feather.ts";
-import { smoothstep } from "./math.ts";
 import type { Rng } from "./rng.ts";
 
 export interface GlowSpec {
@@ -19,6 +18,8 @@ export interface GlowSpec {
   readonly disc: number;
   /** Vertical compression of the glow's reach: 1 round, above 1 a wide, low glow (a sun on a horizon). */
   readonly squash: number;
+  /** How fast the light falls away: higher keeps it near its source (a night's moon), lower spreads it (a day's sun). */
+  readonly power: number;
   /** 0..1: how bright the light is. */
   readonly intensity: number;
   /** Which way the broad wash lies: toward the top (`down` backdrops) or the bottom. */
@@ -28,24 +29,24 @@ export interface GlowSpec {
 /** How bright the light is at (x, y), 0..1: what an actor's rim and veil read. */
 export function glowAt(spec: GlowSpec, x: number, y: number): number {
   const d = Math.hypot(x - spec.x, (y - spec.y) * spec.squash);
-  const fall = 1 - smoothstep(spec.disc * 0.4, spec.reach, d);
-  return fall * fall * spec.intensity;
+  return falloff(d, spec.reach, spec.power) * spec.intensity;
 }
 
-/** The eased falloff of every soft layer: 1 at the centre, 0 at `reach`, no visible edge. */
-function falloff(distance: number, reach: number): number {
+/** The eased falloff of every soft layer: 1 at the centre, 0 at `reach`, no visible edge; `power` how fast. */
+function falloff(distance: number, reach: number, power: number): number {
   const t = distance / reach;
-  if (t >= 1) return 0;
-  const k = 1 - t;
-  return k * k * k;
+  return t >= 1 ? 0 : (1 - t) ** power;
 }
 
 /**
- * The soft part of the light, computed per pixel in floats and rounded with
- * noise: an 8-bit gradient stepping through very low alphas bands visibly on
- * a dark page, so the glow is never drawn as a canvas gradient. Layered like
- * light: the broad wash, the halo, the light's own reach. The frame's
- * feather is multiplied in before rounding, so the fade dithers with it.
+ * The soft part of the light, computed per pixel in floats and dithered: an
+ * 8-bit gradient stepping through very low alphas bands visibly on a dark
+ * page, and a transparent canvas cannot be dithered at all (the browser
+ * rounds its premultiplied colour), so the glow is never drawn as a canvas
+ * gradient and never as a faint alpha. It is composited against the page's
+ * own tone here, in floats, and the *colour* is rounded with noise; the
+ * alpha is only the frame's feather, so the edge dissolves into the page.
+ * Layered like light: the broad wash, the halo, the light's own reach.
  */
 function paintField(
   spec: GlowSpec,
@@ -63,28 +64,31 @@ function paintField(
   if (ctx === null) return canvas;
   const image = ctx.createImageData(width, height);
   const data = image.data;
-  const { sky, halo, core } = palette;
+  const { sky, halo, core, body } = palette;
+  const { power } = spec;
+  const heart = palette.dark ? 0.5 : 0.28;
   for (let y = 0; y < height; y++) {
-    const wash = 0.2 * spec.intensity * falloff(spec.washFrom === "top" ? y : height - y, height);
+    const wash =
+      0.04 * spec.intensity * falloff(spec.washFrom === "top" ? y : height - y, height, 3);
     for (let x = 0; x < width; x++) {
       const d = Math.hypot(x - spec.x, (y - spec.y) * spec.squash);
-      const aHalo = 0.72 * spec.intensity * falloff(d, spec.reach);
-      const aCore = 0.62 * spec.intensity * falloff(d, spec.reach * 0.42);
-      // Over, bottom to top: wash, halo, core.
-      const a1 = wash;
-      const a2 = aHalo + a1 * (1 - aHalo);
-      const a3 = aCore + a2 * (1 - aCore);
-      if (a3 <= 0.0005) continue;
-      const w1 = a1 * (1 - aHalo) * (1 - aCore);
-      const w2 = aHalo * (1 - aCore);
-      const r = (sky.r * w1 + halo.r * w2 + core.r * aCore) / a3;
-      const g = (sky.g * w1 + halo.g * w2 + core.g * aCore) / a3;
-      const b = (sky.b * w1 + halo.b * w2 + core.b * aCore) / a3;
+      const aHalo = Math.min(1, 0.72 * spec.intensity * falloff(d, spec.reach, power));
+      const aCore = Math.min(1, heart * spec.intensity * falloff(d, spec.reach * 0.4, power));
+      // Over, bottom to top, against the page: wash, halo, core.
+      let r = body.r + (sky.r - body.r) * wash;
+      let g = body.g + (sky.g - body.g) * wash;
+      let b = body.b + (sky.b - body.b) * wash;
+      r += (halo.r - r) * aHalo;
+      g += (halo.g - g) * aHalo;
+      b += (halo.b - b) * aHalo;
+      r += (core.r - r) * aCore;
+      g += (core.g - g) * aCore;
+      b += (core.b - b) * aCore;
       const i = (y * width + x) * 4;
-      data[i] = r;
-      data[i + 1] = g;
-      data[i + 2] = b;
-      data[i + 3] = Math.floor(a3 * feather.at(x, y) * 255 + rng.next());
+      data[i] = Math.floor(r + rng.next());
+      data[i + 1] = Math.floor(g + rng.next());
+      data[i + 2] = Math.floor(b + rng.next());
+      data[i + 3] = Math.floor(feather.at(x, y) * 255 + rng.next());
     }
   }
   ctx.putImageData(image, 0, 0);
@@ -156,11 +160,20 @@ export function paintGlow(
   ctx.imageSmoothingEnabled = true;
   ctx.scale(dpr, dpr);
 
-  // The disc: the moon or sun itself, softly edged; high alpha, so it needs no dither.
-  const disc = ctx.createRadialGradient(spec.x, spec.y, 0, spec.x, spec.y, spec.disc * 1.06);
-  disc.addColorStop(0, css(palette.core, 0.9 * spec.intensity));
-  disc.addColorStop(0.88, css(palette.core, 0.82 * spec.intensity));
-  disc.addColorStop(1, css(palette.core, 0));
+  // The disc: a moon is a softly edged disc; a sun is only a brighter bloom, never a sticker.
+  const bloom = !palette.dark;
+  const radius = spec.disc * (bloom ? 2.1 : 1.06);
+  const disc = ctx.createRadialGradient(spec.x, spec.y, 0, spec.x, spec.y, radius);
+  if (bloom) {
+    disc.addColorStop(0, css(palette.core, 0.5 * spec.intensity));
+    disc.addColorStop(0.35, css(palette.core, 0.34 * spec.intensity));
+    disc.addColorStop(0.7, css(palette.core, 0.1 * spec.intensity));
+    disc.addColorStop(1, css(palette.core, 0));
+  } else {
+    disc.addColorStop(0, css(palette.core, 0.9 * spec.intensity));
+    disc.addColorStop(0.88, css(palette.core, 0.82 * spec.intensity));
+    disc.addColorStop(1, css(palette.core, 0));
+  }
   ctx.fillStyle = disc;
   ctx.fillRect(0, 0, width, height);
   paintMaria(ctx, spec, palette);
