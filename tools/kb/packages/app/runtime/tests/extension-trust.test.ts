@@ -185,6 +185,50 @@ describe("a root's repository extensions", () => {
       expect(await said()).toBe("edited since");
     });
 
+    test("a file outside the root that imports one inside it is refused, however deep, and the root's never runs", async () => {
+      const mark = join(root, "ran");
+      await writeFile(join(root, "carried.ts"), helper(mark));
+      // Outside the root: a file that imports one the root carries, and one that imports that file.
+      const elsewhere = await mkdtemp(join(tmpdir(), "kb-outside-"));
+      await writeFile(
+        join(elsewhere, "inner.ts"),
+        `import ${JSON.stringify(join(root, "carried.ts"))};\n`,
+      );
+      await writeFile(join(elsewhere, "outer.ts"), `import "./inner.ts";\n`);
+      await writeTrustedExtension(
+        root,
+        "hello.ts",
+        extension(`import ${JSON.stringify(join(elsewhere, "outer.ts"))};`),
+      );
+      const { failures } = await registry();
+      expect(failures).toEqual([
+        { file: "hello.ts", error: expect.stringContaining("no person approved") },
+      ]);
+      expect(existsSync(mark)).toBe(false);
+      await rm(elsewhere, { recursive: true, force: true });
+    });
+
+    test.each([
+      ["by its absolute path", (outside: string) => outside],
+      ["through a link the root carries", (_outside: string, link: string) => link],
+    ])("code outside the root, imported %s, is not the root's: it loads", async (_how, pick) => {
+      const mark = join(root, "ran");
+      const elsewhere = await mkdtemp(join(tmpdir(), "kb-outside-"));
+      const outside = join(elsewhere, "installed.ts");
+      await writeFile(outside, helper(mark));
+      await mkdir(join(root, "vendor"), { recursive: true });
+      const link = join(root, "vendor", "installed.ts");
+      await symlink(outside, link);
+      await writeTrustedExtension(
+        root,
+        "hello.ts",
+        extension(`import ${JSON.stringify(pick(outside, link))};`),
+      );
+      expect(await loads()).toBe(true);
+      expect(existsSync(mark)).toBe(true);
+      await rm(elsewhere, { recursive: true, force: true });
+    });
+
     test("an extension that is a link out of the extensions directory is refused, and never runs", async () => {
       const mark = join(root, "ran");
       await writeFile(join(root, "outside.ts"), extension(helper(mark)));

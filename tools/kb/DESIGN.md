@@ -2154,14 +2154,20 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   whoever opens a root someone else wrote (a clone, a location an agent
   asked to open) runs none of its code before they have read it, and an
   untrusted module's declaration is neither seeded nor loaded. Trust
-  covers what it loads. An extension is its one file and the packages
+  covers what it loads. An extension is its one file and the code
   installed outside the root: each import it names as a literal (a
   statement, a re-export, an `import()`, a `require`) is resolved as Bun
   resolves it from the file, path aliases and import maps the root
-  configures included (`rootCarriedImport`), and one that resolves into the
-  root (another file, a package in the root's own `node_modules`, a link to
-  either) or does not resolve refuses the file before anything is
-  imported. An extension is a file of its directory: one whose real path
+  configures included (`rootCarriedImport`), and so is each import of every
+  file that resolves to, at any depth, outside the root as well. One that
+  resolves into the root (another file, a package in the root's own
+  `node_modules`, a link to either, or a file the root carries that code
+  outside it imports) refuses the file before anything is imported, and so
+  does an import of the extension's own that does not resolve. Where code
+  is, is its real path: a file outside the root, named by its absolute
+  path or reached through a link the root carries, is not the root's, and
+  loads as an installed package does, since a root someone else wrote
+  cannot write it. An extension is a file of its directory: one whose real path
   is outside `.kb/extensions` (a link out) is refused. What is imported is
   the source whose digest was trusted, not the file as it is by then: it is
   imported as its real path and that digest, and a Bun load hook matching

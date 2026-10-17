@@ -1,6 +1,6 @@
 import { Effect, Predicate, Result } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { dirname, join, sep } from "node:path";
+import { dirname, extname, join, sep } from "node:path";
 import { decodeContribution, decodeDeclaration, isTemplateContribution } from "@kb/ext-sdk";
 import {
   CodeTrust,
@@ -32,11 +32,12 @@ import { importVerified } from "./verified-import.ts";
  * opens a root someone else wrote — a location opened for an agent, a clone
  * — runs none of its code until they have looked at it.
  *
- * Trust covers what it loads. An extension is its one file and the
- * packages installed outside the root: each import it names is resolved as
- * Bun resolves it, and one that reaches code the root carries, a helper or
- * a package, however the root configures resolution, refuses the file
- * before anything is imported (`rootCarriedImport`). An extension is a
+ * Trust covers what it loads. An extension is its one file and the code
+ * installed outside the root: each import it names, and each import of
+ * what that loads at any depth, is resolved as Bun resolves it, and one
+ * that reaches code the root carries, a helper or a package, however the
+ * root configures resolution, refuses the file before anything is imported
+ * (`rootCarriedImport`). An extension is a
  * file of its directory: a link to a file outside it is refused. What is
  * imported is the source whose digest was read, not the file as it is by
  * then (`importVerified`). What it loads or evaluates when it runs is what
@@ -57,7 +58,35 @@ interface TrustedFile {
   readonly digest: string;
 }
 
-const transpiler = new Bun.Transpiler({ loader: "ts" });
+/** How Bun reads a module, by its file's extension; one it does not read as code imports nothing. */
+const LOADERS: Readonly<Record<string, "ts" | "tsx" | "js" | "jsx">> = {
+  ".ts": "ts",
+  ".mts": "ts",
+  ".cts": "ts",
+  ".tsx": "tsx",
+  ".js": "js",
+  ".mjs": "js",
+  ".cjs": "js",
+  ".jsx": "jsx",
+};
+const transpilers = new Map<string, Bun.Transpiler>();
+
+/** What `source`, the module at `path`, imports as literals; none when Bun does not read it as code. */
+function literalImports(source: string, path: string): readonly string[] {
+  const loader = LOADERS[extname(path)];
+  if (loader === undefined) return [];
+  let transpiler = transpilers.get(loader);
+  if (transpiler === undefined) {
+    transpiler = new Bun.Transpiler({ loader });
+    transpilers.set(loader, transpiler);
+  }
+  try {
+    return transpiler.scanImports(source).map(({ path: specifier }) => specifier);
+  } catch {
+    // Bun cannot read it, so it cannot load it either.
+    return [];
+  }
+}
 
 /** Where Bun resolves `specifier` from `dir`: a real path's file, a built-in's name, or null. */
 function resolved(specifier: string, dir: string): string | null {
@@ -69,12 +98,15 @@ function resolved(specifier: string, dir: string): string | null {
 }
 
 /**
- * Why an import `source` names would load code the root carries, or null.
- * Each import it names as a literal (a statement, a re-export, an
- * `import()`, a `require`) is resolved as Bun resolves it from `path`, the
- * extension's real path, path aliases and import maps the root configures
- * included, and must resolve, to a built-in or to a real path outside
- * `within` (the root, and its extensions directory when that is elsewhere).
+ * Why loading the extension at `path`, whose source is `source`, would load
+ * code the root carries, or null. Each import it names as a literal (a
+ * statement, a re-export, an `import()`, a `require`) is resolved as Bun
+ * resolves it, path aliases and import maps the root configures included,
+ * and so is each import of every file that resolves to, at any depth:
+ * none may resolve into `within` (the root, and its extensions directory
+ * when that is elsewhere), the approved file's bytes aside. The extension's
+ * own imports must resolve; one a file outside the root names and Bun
+ * cannot resolve loads nothing, as it would fail there too.
  */
 const rootCarriedImport = Effect.fn("kb.rootCarriedImport")(function* (
   source: string,
@@ -82,13 +114,26 @@ const rootCarriedImport = Effect.fn("kb.rootCarriedImport")(function* (
   within: readonly string[],
 ): Effect.fn.Return<string | null, never, FileSystem> {
   const fs = yield* FileSystem;
-  for (const { path: specifier } of transpiler.scanImports(source)) {
-    const file = resolved(specifier, dirname(path));
-    if (file === null) return `imports ${specifier}, which does not resolve from it`;
-    if (!file.startsWith(sep)) continue;
-    const real = yield* fs.realPath(file).pipe(Effect.orElseSucceed(() => file));
-    if (within.some((dir) => real.startsWith(`${dir}${sep}`))) {
-      return `imports ${specifier} (${real}), code the root carries that no person approved`;
+  const seen = new Set([path]);
+  const pending = [{ from: path, source }];
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    const { from } = next;
+    for (const specifier of literalImports(next.source, from)) {
+      const file = resolved(specifier, dirname(from));
+      if (file === null) {
+        if (from === path) return `imports ${specifier}, which does not resolve from it`;
+        continue;
+      }
+      if (!file.startsWith(sep)) continue;
+      const real = yield* fs.realPath(file).pipe(Effect.orElseSucceed(() => file));
+      if (within.some((dir) => real.startsWith(`${dir}${sep}`))) {
+        const through = from === path ? "" : `, through ${from}`;
+        return `imports ${specifier} (${real})${through}, code the root carries that no person approved`;
+      }
+      if (seen.has(real)) continue;
+      seen.add(real);
+      const text = yield* fs.readFileString(real).pipe(Effect.orElseSucceed(() => ""));
+      pending.push({ from: real, source: text });
     }
   }
   return null;
