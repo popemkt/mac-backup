@@ -7,7 +7,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import type { CanvasNode, CanvasTextNode } from "@kb/canvas";
+import { boxFrame, boxToWorld, type CanvasNode, type CanvasTextNode } from "@kb/canvas";
 import { CanvasCameraRig } from "./canvas-camera-rig";
 import { CanvasFaceEditor } from "./canvas-face-editor";
 import { hasEditor } from "./canvas-face-overlay";
@@ -24,6 +24,9 @@ const card: CanvasTextNode = {
   rotation: { x: -30, z: 20 },
 };
 const size = { width: 1000, height: 700 };
+
+/** The middle of an item's top edge, as it stands. */
+const topOf = (item: CanvasNode) => boxToWorld(boxFrame(item), { x: 0, y: -item.height / 2, z: 0 });
 
 describe("a face's editor in 3D", () => {
   let root: Root;
@@ -87,6 +90,43 @@ describe("a face's editor in 3D", () => {
     expect(edits).toEqual(["c:open"]);
     act(() => field?.blur());
     expect(edits).toEqual(["c:open", "c:closed"]);
+    unmount();
+  });
+
+  test("a note grows down to fit what is typed in it, from its top edge as it stands", () => {
+    const { writes } = mount();
+    const field = container.querySelector("textarea");
+    if (field === null) throw new Error("no editor");
+    const type = (text: string, scroll: number) => {
+      // happy-dom lays nothing out: the field says how far its words run past it.
+      Object.defineProperty(field, "scrollHeight", { value: scroll, configurable: true });
+      Object.defineProperty(field, "clientHeight", { value: 56, configurable: true });
+      // Past React's own value tracking, as a keystroke is: React DOM loaded before this
+      // window, so it hears a change on the key's release.
+      let owner: object | null = Object.getPrototypeOf(field) as object | null;
+      while (owner !== null && !Object.hasOwn(owner, "value")) {
+        owner = Object.getPrototypeOf(owner) as object | null;
+      }
+      act(() => {
+        if (owner !== null) Reflect.set(owner, "value", text, field);
+        field.dispatchEvent(new window.Event("input", { bubbles: true }));
+        field.dispatchEvent(new window.Event("keyup", { bubbles: true }));
+      });
+    };
+    type("words fit", 56);
+    expect(writes.at(-1)).toMatchObject({ text: "words fit", height: 80 });
+    type("words, and more words than fit", 96);
+    const grown = writes.at(-1);
+    expect(grown).toMatchObject({
+      text: "words, and more words than fit",
+      width: 200,
+      height: 120,
+    });
+    // Turned, it grew along its own down: its top edge stayed where it was.
+    const [was, now] = [topOf(card), topOf(grown ?? card)];
+    expect(now.x).toBeCloseTo(was.x, 6);
+    expect(now.y).toBeCloseTo(was.y, 6);
+    expect(now.z).toBeCloseTo(was.z, 6);
     unmount();
   });
 

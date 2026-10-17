@@ -1649,6 +1649,12 @@ the view node switches every page showing the canvas through it.
   either projection, as tldraw's text does (where it lands; no flight).
   Switching to 2D while editing hands the edit to the 2D canvas, which
   opens the same editor in place; the 3D camera is not flown back.
+- **A note grows to fit its words** (tldraw's note). A text card's editor
+  is its textarea in both projections (above), so it is the one place that
+  measures them: typing past the card's bottom grows it down by what ran
+  over, from its top edge as it stands (`withBox`, `@kb/canvas`
+  `transform.ts`, the box a resize gives a turned item too). It never
+  shrinks under a box it was given; resizing it smaller is still a resize.
 
 Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 a copy in any form but a canvas document's text, snap guides during keyboard nudge, edge colour

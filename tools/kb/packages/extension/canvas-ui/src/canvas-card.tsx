@@ -12,7 +12,7 @@ import {
   useNodeTextBinding,
 } from "@kb/ui-sdk";
 import { useCallback, useEffect, useEffectEvent, useRef } from "react";
-import { type CanvasKbNode, type CanvasTextNode, itemPaint } from "@kb/canvas";
+import { type CanvasKbNode, type CanvasTextNode, itemPaint, withBox } from "@kb/canvas";
 import type { FaceLayout } from "./canvas-face";
 import { ItemOutline } from "./canvas-item-outline";
 import { inkStyle, wordsStyle } from "./canvas-dom-paint";
@@ -192,14 +192,27 @@ interface TextCardProps extends FaceLayout {
   card: CanvasTextNode;
   selected: boolean;
   onSelect: () => void;
-  onChange: (text: string) => void;
+  /** The card as edited: its words, and its box grown to hold them. */
+  onChange: (card: CanvasTextNode) => void;
   onMoveStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent, corner: CanvasCorner) => void;
   onRotateStart: (e: React.PointerEvent) => void;
   onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
-/** A text card: its editor is its textarea, open while it has focus. */
+/**
+ * `card` with the words `field` now holds, grown down to hold them all: a
+ * note grows to fit its text, from its top edge as it stands (`withBox`),
+ * and never shrinks under a box it was given.
+ */
+function edited(card: CanvasTextNode, field: HTMLTextAreaElement): CanvasTextNode {
+  const next = { ...card, text: field.value };
+  const over = field.scrollHeight - field.clientHeight;
+  if (over <= 0) return next;
+  return withBox(next, { x: card.x, y: card.y, width: card.width, height: card.height + over });
+}
+
+/** A text card: its editor is its textarea, open while it has focus; it grows to fit its words. */
 export function TextCard({
   card,
   box,
@@ -253,7 +266,7 @@ export function TextCard({
         )}
         style={{ ...wordsStyle(paint.words), ...inkStyle(paint.ink.words) }}
         value={card.text}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(edited(card, e.currentTarget))}
         onFocus={() => onEdit(true)}
         onBlur={() => onEdit(false)}
         onKeyDown={(e) => {

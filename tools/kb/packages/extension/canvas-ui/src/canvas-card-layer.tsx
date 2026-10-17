@@ -220,7 +220,7 @@ export function CanvasCardFace({
             onCardSelect(card);
           }
         }}
-        onChange={(text) => onCardChange({ ...card, text })}
+        onChange={onCardChange}
         onMoveStart={(e) => {
           handleCardPointerDown(card, e);
         }}
