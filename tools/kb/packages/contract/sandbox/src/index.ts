@@ -18,6 +18,7 @@ export {
   callTargets,
   NODE_READ,
   grantRefusal,
+  subjectReach,
   withinSubject,
   type GrantScope,
 } from "./grant.ts";

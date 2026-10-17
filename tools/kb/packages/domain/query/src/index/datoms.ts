@@ -64,6 +64,36 @@ export interface NodeDatoms {
   refs: Set<NodeId>;
 }
 
+/** What each derived attribute's carriers read off `node`: the ids it points at by them, in order. */
+function carriedBy(
+  node: KbNode,
+  derived: readonly DerivedRef[],
+): { readonly attr: string; readonly ids: readonly NodeId[] }[] {
+  return derived.map(({ attr, carriers }) => ({
+    attr,
+    ids: carriers.flatMap((carrier) => [...carrier.refsOf(node)]),
+  }));
+}
+
+/** Every id `node` points at (`NodeDatoms.refs`), given what its carriers read. */
+function pointedAt(node: KbNode, carried: ReturnType<typeof carriedBy>): Set<NodeId> {
+  const refs = new Set<NodeId>(node.children);
+  for (const values of Object.values(node.props)) {
+    for (const pv of values) if (pv.t === "ref") refs.add(pv.v);
+  }
+  for (const { ids } of carried) for (const id of ids) refs.add(id);
+  return refs;
+}
+
+/**
+ * Every id `node` points at — a child, a ref value, or any carrier of a
+ * derived attribute — resolvable or not: the `refs` of its datoms, read
+ * without building them, so a node only planned can be asked too.
+ */
+export function nodeRefs(node: KbNode, derived: readonly DerivedRef[]): Set<NodeId> {
+  return pointedAt(node, carriedBy(node, derived));
+}
+
 /**
  * One node → its datoms: what it states, then each derived ref attribute in
  * `derived` from its carriers. Pure in (node, ids, derived): the index owns
@@ -74,7 +104,8 @@ export function nodeToDatoms(node: KbNode, ids: IdMap, derived: readonly Derived
   const datoms: Datom[] = [];
   const attrs = new Set<string>();
   const refAttrs = new Set<string>();
-  const refs = new Set<NodeId>();
+  const carried = carriedBy(node, derived);
+  const refs = pointedAt(node, carried);
 
   datoms.push([eid, ":node/id", node.id]);
   datoms.push([eid, ":node/text", node.text]);
@@ -85,7 +116,6 @@ export function nodeToDatoms(node: KbNode, ids: IdMap, derived: readonly Derived
   const childEids: number[] = [];
   for (let i = 0; i < node.children.length; i++) {
     const childId = present(node.children[i], `child ${i} of ${node.id}`);
-    refs.add(childId);
     const childEid = ids.toEid.get(childId);
     if (childEid === undefined) continue;
     childEids.push(childEid);
@@ -99,7 +129,6 @@ export function nodeToDatoms(node: KbNode, ids: IdMap, derived: readonly Derived
   for (const [fieldId, values] of Object.entries(node.props)) {
     const attr = fieldAttr(fieldId);
     for (const pv of values) {
-      if (pv.t === "ref") refs.add(pv.v);
       const datomValue = propDatomValue(pv, ids);
       attrs.add(attr);
       if (datomValue.isRef) refAttrs.add(attr);
@@ -110,14 +139,11 @@ export function nodeToDatoms(node: KbNode, ids: IdMap, derived: readonly Derived
   // One datom per (source, target) and attribute, whichever carrier produced
   // it: a derived attr is a set, so a duplicate would be a duplicate datom
   // rather than a no-op.
-  for (const { attr, carriers } of derived) {
+  for (const { attr, ids: carriedIds } of carried) {
     const targets = new Set<number>();
-    for (const carrier of carriers) {
-      for (const id of carrier.refsOf(node)) {
-        refs.add(id);
-        const target = ids.toEid.get(id);
-        if (target !== undefined) targets.add(target);
-      }
+    for (const id of carriedIds) {
+      const target = ids.toEid.get(id);
+      if (target !== undefined) targets.add(target);
     }
     for (const target of targets) datoms.push([eid, attr, target]);
   }

@@ -80,3 +80,15 @@ describe("mentions in text values", () => {
     expect(mentions(index)).toEqual([["a", "b"]]);
   });
 });
+
+describe("what a node points at", () => {
+  test("a planned node is read as a stored one is: children, ref values, text tokens", () => {
+    const index = new DatascriptIndex([node("b")], { derived: derivedWith({}) });
+    const planned = node("new", {
+      text: "see [[b]]",
+      children: ["c"],
+      props: { f_link: [{ t: "ref", v: "d" }], f_note: [{ t: "str", v: "[[e]]" }] },
+    });
+    expect([...index.referencesOf(planned)].toSorted()).toEqual(["b", "c", "d", "e"]);
+  });
+});

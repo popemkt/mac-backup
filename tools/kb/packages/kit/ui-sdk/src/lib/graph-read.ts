@@ -193,6 +193,9 @@ class IndexRead implements KbIndex {
   getNode(...args: Parameters<KbIndex["getNode"]>): ReturnType<KbIndex["getNode"]> {
     return this.#read().getNode(...args);
   }
+  referencesOf(...args: Parameters<KbIndex["referencesOf"]>): ReturnType<KbIndex["referencesOf"]> {
+    return this.#read().referencesOf(...args);
+  }
   allNodes(): ReturnType<KbIndex["allNodes"]> {
     return this.#read().allNodes();
   }

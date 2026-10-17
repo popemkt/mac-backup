@@ -50,20 +50,27 @@ export interface GrantScope {
 /** How many nodes a subject walk visits before it gives up and refuses. */
 const MAX_SUBJECT_WALK = 50_000;
 
-/** Whether `id` is `subject` or a node under it, walking down from the subject. */
-export function withinSubject(scope: GrantScope, id: string): boolean {
+/**
+ * The nodes a run reaches: its subject and every node under it, walking
+ * down from the subject; none when it runs for no node. The walk stops after
+ * `MAX_SUBJECT_WALK` nodes, and what it did not visit is out of reach.
+ */
+export function subjectReach(scope: GrantScope): ReadonlySet<string> {
   const { subject, node } = scope;
-  if (subject === null) return false;
   const seen = new Set<string>();
-  const stack = [subject];
+  const stack = subject === null ? [] : [subject];
   while (stack.length > 0 && seen.size < MAX_SUBJECT_WALK) {
     const at = stack.pop();
     if (at === undefined || seen.has(at)) continue;
-    if (at === id) return true;
     seen.add(at);
     stack.push(...(node(at)?.children ?? []));
   }
-  return false;
+  return seen;
+}
+
+/** Whether `id` is `subject` or a node under it (`subjectReach`). */
+export function withinSubject(scope: GrantScope, id: string): boolean {
+  return subjectReach(scope).has(id);
 }
 
 const decodeNodeId = Schema.decodeUnknownOption(Schema.Struct({ id: Schema.String }));
@@ -128,7 +135,8 @@ export function grantRefusal(
     return `${action} declares no node it acts on that a subject could hold, so no code may call it`;
   }
   if (targets.length === 0) return `this call of ${action} names no node it acts on`;
-  const outside = targets.filter((id) => !withinSubject(scope, id));
+  const reach = subjectReach(scope);
+  const outside = targets.filter((id) => !reach.has(id));
   if (outside.length === 0) return null;
   return scope.subject === null
     ? `${action} acts on ${outside.map(named).join(", ")}, and this code runs for no node`

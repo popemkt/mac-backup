@@ -4,7 +4,14 @@ import * as d from "datascript";
 import { present, type KbNode, type NodeId, type StoreTx } from "@kb/model";
 import { datascriptExecutor, pull as dsPull, query as dsQuery, runIr } from "../datascript.ts";
 import type { Ir } from "../ir/ir.ts";
-import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
+import {
+  type Datom,
+  type DatascriptDb,
+  type IdMap,
+  nodeRefs,
+  nodeToDatoms,
+  schemaFor,
+} from "./datoms.ts";
 import type { DerivedRef } from "./derived.ts";
 import type { KbIndex } from "./index.ts";
 
@@ -179,6 +186,10 @@ export class DatascriptIndex implements KbIndex {
 
   pull(pattern: string, id: NodeId): unknown {
     return dsPull(this.#datascriptDb(), pattern, id);
+  }
+
+  referencesOf(node: KbNode): ReadonlySet<NodeId> {
+    return nodeRefs(node, this.#derived);
   }
 
   getNode(id: NodeId): KbNode | undefined {

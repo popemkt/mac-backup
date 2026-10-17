@@ -53,6 +53,14 @@ export interface KbIndex {
 
   getNode(id: NodeId): KbNode | undefined;
 
+  /**
+   * The ids `node` points at, read as the index reads references: its
+   * children, its ref values and every carrier of its derived relations
+   * (`DerivedRef`), resolvable or not. Asked of any node, stored or only planned, so a
+   * write can be read for what it would point at before it lands.
+   */
+  referencesOf(node: KbNode): ReadonlySet<NodeId>;
+
   /** Every node the index answers over — stored plus virtual. */
   allNodes(): Iterable<KbNode>;
 

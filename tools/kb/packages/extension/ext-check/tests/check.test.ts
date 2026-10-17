@@ -155,6 +155,9 @@ function fixtureContext(initial: readonly KbNode[]) {
     getNode(id: string) {
       return indexed.find((entry) => entry.id === id);
     },
+    referencesOf() {
+      return new Set<string>();
+    },
     allNodes() {
       return indexed;
     },
