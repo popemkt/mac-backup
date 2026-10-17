@@ -25,7 +25,7 @@
 import { boxFrame } from "./box.ts";
 import { pinLost } from "./comments.ts";
 import { canvasElevation, isGroupNode, type CanvasDoc, type CanvasNode } from "./doc.ts";
-import type { CanvasItemLink } from "./links.ts";
+import { itemLead, type CanvasItemLink } from "./links.ts";
 import { canvasMembership, faceHolds } from "./membership.ts";
 import { unreachablePages } from "./pages.ts";
 import { isSolid, overlaps } from "./relations.ts";
@@ -166,7 +166,8 @@ function commentLints(canvasId: string, doc: CanvasDoc, world: CanvasWorld): Can
 /** The lints on where `doc`'s items lead: each dead link, then each page of its board no link reaches. */
 function linkLints(canvasId: string, doc: CanvasDoc, world: CanvasWorld): CanvasLint[] {
   const dead = doc.nodes.flatMap((node) => {
-    const why = node.link === undefined ? undefined : deadLink(node.link, doc, world);
+    const lead = itemLead(node);
+    const why = lead === undefined ? undefined : deadLink(lead, doc, world);
     return why === undefined
       ? []
       : [{ rule: "dead-link" as const, ids: [node.id], message: `${node.id} ${why}` }];

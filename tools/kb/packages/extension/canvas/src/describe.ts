@@ -30,7 +30,7 @@ import {
   type CanvasShapeKind,
   type CanvasSide,
 } from "./doc.ts";
-import type { CanvasItemLink } from "./links.ts";
+import { isLinkNode, itemLead, linkCard, type CanvasItemLink } from "./links.ts";
 import { headOf, routeBends } from "./edges.ts";
 import { lintCanvas, type CanvasLint } from "./lint.ts";
 import type { CanvasWorld } from "./world.ts";
@@ -78,12 +78,13 @@ const MAX_WORDS = 120;
 const cut = (text: string) =>
   text.length <= MAX_WORDS ? text : `${text.slice(0, MAX_WORDS - 1)}…`;
 
-/** What an item says: its text, its label, its node's text, or its picture's file. */
+/** What an item says: its text, its label, its node's text, its page's title, or its picture's file. */
 function itemWords(item: CanvasNode, world: CanvasWorld): string {
   if (isTextNode(item)) return item.text;
   if ((isShapeNode(item) || isGroupNode(item)) && item.label !== undefined) return item.label;
   if (item.nodeId !== undefined) return world.textOf(item.nodeId) ?? "";
   if (isFileNode(item)) return item.file;
+  if (isLinkNode(item)) return linkCard(item.url).title;
   return "";
 }
 
@@ -251,13 +252,14 @@ function describeItems(
     const frame = membership.parentOf(node.id);
     const { color } = styleOf(node);
     const looks = writtenLooks(node);
+    const lead = itemLead(node);
     items.push({
       ...base,
       detail: "focus",
       ...(color === undefined ? {} : { color: paintName(color) }),
       ...(Object.keys(looks).length === 0 ? {} : { style: looks }),
       ...(node.nodeId === undefined ? {} : { nodeId: node.nodeId }),
-      ...(node.link === undefined ? {} : { link: node.link }),
+      ...(lead === undefined ? {} : { link: lead }),
       ...(frame === null ? {} : { frame }),
       ...(node.rotation === undefined ? {} : { rotation: node.rotation }),
       ...(node.billboard === true ? { faces: "camera" as const } : {}),

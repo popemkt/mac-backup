@@ -100,6 +100,8 @@ export interface LookProbe {
   edgeOf(id: string): DrawnEdge | null;
   /** A line item as drawn in its own box: the points of its line, and each mark's, in `itemMarks` order. */
   lineOf(id: string): DrawnLine | null;
+  /** The words an item's face shows, run together in the order drawn; null when not drawn. */
+  textOf(id: string): string | null;
   update(next: CanvasDoc): Promise<void>;
   dispose(): void;
 }
@@ -486,6 +488,7 @@ const mount2d: Mount = async (view, scene) => {
       }));
       return { line: pathPolygon(d), marks };
     },
+    textOf: (id) => card(id)?.textContent ?? null,
     paintOf: (id) => {
       const el = card(id);
       if (el === undefined) return null;
@@ -601,6 +604,13 @@ const mount3d: Mount = async (view, probed) => {
         .flatMap((o) => (o.op === "text" ? [] : [{ points: o.points, color: hexOf(o.color) }]));
       return { line: line.points, marks };
     },
+    textOf: (id) => {
+      const canvas = inspect().faceOf(id)?.canvas;
+      if (canvas === undefined) return null;
+      return paintedOps(canvas)
+        .map((o) => (o.op === "text" ? o.text : ""))
+        .join("");
+    },
     paintOf: (id) => {
       const face = inspect().faceOf(id);
       const item = current.nodes.find((n) => n.id === id);
@@ -689,6 +699,7 @@ export function mountSvg(scene: ProbeScene): Promise<LookProbe> {
       }));
       return { line: pathPolygon(d), marks };
     },
+    textOf: (id) => item(id)?.textContent ?? null,
     paintOf: (id) => {
       const el = item(id);
       if (el === null) return null;

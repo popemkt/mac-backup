@@ -25,6 +25,7 @@ import {
   type CanvasNode,
 } from "./doc.ts";
 import { edgeHead, edgeRoute, routeMidpoint, routePoints } from "./edges.ts";
+import { isLinkNode, linkCard } from "./links.ts";
 import { paintOrder } from "./membership.ts";
 import {
   CARD_BODY_FALLBACK,
@@ -257,6 +258,14 @@ function placement(item: CanvasNode): string {
   return `translate(${round(cx)} ${round(cy)}) matrix(${turn}) translate(${round(-item.width / 2)} ${round(-item.height / 2)})`;
 }
 
+/** A card's words: its node's text, or its page's title over its host; null for an item that is no card. */
+function cardWords(item: CanvasNode, source: SvgSource): string | null {
+  if (isKbNode(item)) return source.textOf(item.nodeId) ?? "";
+  if (!isLinkNode(item)) return null;
+  const { title, host } = linkCard(item.url);
+  return host === "" ? title : `${title}\n${host}`;
+}
+
 /** One item, in its own box: its chrome, its picture, and its words. */
 function itemElement(item: CanvasNode, source: SvgSource): string {
   const paint = itemPaint(item);
@@ -272,13 +281,14 @@ function itemElement(item: CanvasNode, source: SvgSource): string {
     );
   }
   const box = { w: item.width, h: item.height };
+  const card = cardWords(item, source);
   if (paint.words !== null) {
     const size = TYPE_STEP_FALLBACKS[paint.words.step];
     parts.push(wordsElement(ownWords(item), box, { ...paint.words, size, ink: paint.ink.words }));
-  } else if (isKbNode(item)) {
-    // A card's words are its node's, set as the outline sets them.
+  } else if (card !== null) {
+    // A card's words are its node's, or its page's, set as the outline sets them.
     parts.push(
-      wordsElement(source.textOf(item.nodeId) ?? "", box, {
+      wordsElement(card, box, {
         align: "start",
         valign: "top",
         face: FONT_FACES.sans,

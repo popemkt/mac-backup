@@ -97,6 +97,7 @@ export type PaintedOp =
   | { readonly op: "fill"; readonly color: string; readonly points: readonly PaintedPoint[] }
   | {
       readonly op: "text";
+      readonly text: string;
       readonly color: string;
       readonly font: string;
       readonly align: string;
@@ -160,8 +161,8 @@ function fake2d(canvas: HTMLCanvasElement) {
         points: [...path],
       }),
     fill: () => ops.push({ op: "fill", color: state.fill, points: [...path] }),
-    fillText: (_text: string, _x: number, y: number) =>
-      ops.push({ op: "text", color: state.fill, font: state.font, align: state.align, y }),
+    fillText: (text: string, _x: number, y: number) =>
+      ops.push({ op: "text", text, color: state.fill, font: state.font, align: state.align, y }),
     measureText: (text: string) => ({ width: text.length * 6 }),
     getImageData: (_x: number, _y: number, width: number, height: number) => ({
       width,

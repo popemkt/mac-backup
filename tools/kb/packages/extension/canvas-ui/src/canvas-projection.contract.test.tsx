@@ -180,6 +180,15 @@ const doc: CanvasDoc = {
     { id: "slab", ...solid("rect"), x: -200, y: 120, width: 160, height: 80, z: 100, depth: 12 },
     // Outlines that turn back on themselves: a flat star, a hexagonal prism, a turned arrow block.
     { id: "star", ...solid("star"), x: 920, y: 0, width: 140, height: 133 },
+    {
+      id: "bookmark",
+      type: "link",
+      url: "https://kb.test/a-page",
+      x: 1100,
+      y: 0,
+      width: 200,
+      height: 70,
+    },
     { id: "hex", ...solid("hexagon"), x: 760, y: 390, width: 120, height: 90, depth: 50 },
     {
       id: "pointer",

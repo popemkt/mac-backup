@@ -37,8 +37,10 @@ import {
   edgeRoute,
   faceStands,
   flipItems,
+  isLinkNode,
   isPathNode,
   isShapeNode,
+  linkCard,
   itemOutline,
   outlinePoints,
   ownsWords,
@@ -258,6 +260,17 @@ const doc: CanvasDoc = {
       height: 100,
       style: { dash: "dashed", size: "l" },
     },
+    // A link is a card for its page, named from its address.
+    {
+      id: "page",
+      type: "link",
+      url: "https://www.example.org/docs/canvas-guide.html",
+      x: 840,
+      y: 340,
+      width: 240,
+      height: 72,
+    },
+    { id: "bare", type: "link", url: "https://kb.test/", x: 840, y: 440, width: 200, height: 72 },
   ],
   edges: [],
 };
@@ -574,6 +587,17 @@ describe("canvas look contract", () => {
     it("draws a line through its points, with the heads its open ends wear", async () => {
       const probe = await mount(scene);
       expectLinesAsModel(probe, doc);
+      probe.dispose();
+    });
+
+    it("draws a link as a card: its page's title over its host, from the address alone", async () => {
+      const probe = await mount(scene);
+      for (const item of doc.nodes.filter(isLinkNode)) {
+        const { title, host } = linkCard(item.url);
+        const said = probe.textOf(item.id) ?? "";
+        expect(said, item.id).toContain(title);
+        expect(said, item.id).toContain(host);
+      }
       probe.dispose();
     });
 

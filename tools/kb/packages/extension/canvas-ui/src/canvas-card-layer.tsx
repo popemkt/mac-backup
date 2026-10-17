@@ -6,6 +6,7 @@ import {
   isFileNode,
   isGroupNode,
   isKbNode,
+  isLinkNode,
   isPathNode,
   isShapeNode,
   isTextNode,
@@ -21,6 +22,7 @@ import {
 } from "@kb/canvas";
 import { KbNodeCard, TextCard } from "./canvas-card";
 import { ImageCard } from "./canvas-image-card";
+import { LinkCard } from "./canvas-link-card";
 import { ShapeCard } from "./shape-card";
 import type { CanvasSelection } from "./canvas-selection";
 import type { ResizeCorner } from "./canvas-pointer";
@@ -279,6 +281,22 @@ export function CanvasCardFace({
   if (isFileNode(card) && isPictureFile(card.file)) {
     return (
       <ImageCard
+        card={card}
+        box={box}
+        selected={isSelected}
+        onSelect={() => {
+          if (!selection.nodeIds.has(card.id)) onCardSelect(card);
+        }}
+        onMoveStart={(e) => handleCardPointerDown(card, e)}
+        onResizeStart={resizeHandler}
+        onRotateStart={rotateHandler}
+        onPortDown={portHandler(card.id)}
+      />
+    );
+  }
+  if (isLinkNode(card)) {
+    return (
+      <LinkCard
         card={card}
         box={box}
         selected={isSelected}

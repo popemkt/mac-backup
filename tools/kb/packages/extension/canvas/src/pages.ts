@@ -8,6 +8,7 @@
  */
 import type { NodeId } from "@kb/model";
 import type { CanvasDoc } from "./doc.ts";
+import { itemLead } from "./links.ts";
 import type { CanvasWorld } from "./world.ts";
 
 const isCanvas = (world: CanvasWorld, id: NodeId) => world.docOf(id) !== undefined;
@@ -50,11 +51,10 @@ export function nextPageName(taken: readonly string[]): string {
 
 /** The pages each page's items lead to (`link`), in its document. */
 function linkedPages(doc: CanvasDoc, pages: ReadonlySet<NodeId>): NodeId[] {
-  return doc.nodes.flatMap((item) =>
-    item.link !== undefined && "node" in item.link && pages.has(item.link.node)
-      ? [item.link.node]
-      : [],
-  );
+  return doc.nodes.flatMap((item) => {
+    const lead = itemLead(item);
+    return lead !== undefined && "node" in lead && pages.has(lead.node) ? [lead.node] : [];
+  });
 }
 
 /** The pages of `id`'s board that no chain of links leads to from the board. */

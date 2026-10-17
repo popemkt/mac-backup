@@ -60,6 +60,7 @@ interface KindInks {
 /** Each kind's inks (`KindInks`); a file, and a kind kb passes through unread, take `OTHER_INKS`. */
 const KIND_INKS: Readonly<Partial<Record<CanvasNode["type"], KindInks>>> = {
   "kb-node": { outline: 0.12, words: 1, hint: 0.3 },
+  link: { outline: 0.12, words: 1, hint: 0.3 },
   text: { outline: 0.12, words: 1, hint: 0.3 },
   shape: { outline: 0.18, words: 0.85, hint: 0.25 },
   // A frame's hairline stays firm enough to read when seen at a slant.

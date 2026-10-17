@@ -13,7 +13,7 @@
 import { isAssetPath, mediaKindFromHref } from "@kb/model";
 import { boxRotation, boxTop } from "./box.ts";
 import { dropExtra } from "./extra.ts";
-import { parseItemLink, type CanvasItemLink } from "./links.ts";
+import { isLinkNode, parseItemLink, type CanvasItemLink, type CanvasLinkNode } from "./links.ts";
 import {
   fieldKeys,
   bool,
@@ -68,7 +68,7 @@ interface KbLink {
   bindingId: string;
 }
 
-interface CanvasNodeBase {
+export interface CanvasNodeBase {
   id: string;
   type: string;
   x: number;
@@ -202,7 +202,7 @@ export interface CanvasPathNode extends CanvasNodeBase {
   toHead?: CanvasHead;
 }
 
-/** Opaque passthrough for link/future types. */
+/** Opaque passthrough for types kb does not read. */
 interface CanvasUnknownNode extends CanvasNodeBase {
   type: string;
 }
@@ -214,6 +214,7 @@ export type CanvasNode =
   | CanvasShapeNode
   | CanvasFileNode
   | CanvasPathNode
+  | CanvasLinkNode
   | CanvasUnknownNode;
 
 export function isKbNode(n: CanvasNode): n is CanvasKbNode {
@@ -502,6 +503,16 @@ const ITEM_KINDS: Readonly<Record<string, ItemKind>> = {
     ["shape"],
     isShapeNode,
     (item, f) => ({ ...item, ...f, type: "shape", shape: f.shape ?? "rect" }),
+  ),
+  link: itemKind<CanvasLinkNode, "url">(
+    { url: { read: text } },
+    ["url"],
+    isLinkNode,
+    (item, f) => ({
+      ...item,
+      type: "link",
+      url: f.url ?? "",
+    }),
   ),
   file: itemKind<CanvasFileNode, "file">(
     { file: { read: text } },

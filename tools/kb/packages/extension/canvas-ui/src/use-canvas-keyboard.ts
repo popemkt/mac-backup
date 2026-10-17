@@ -13,6 +13,7 @@ import {
   moveBy,
   orderItems,
   withFlag,
+  itemLead,
   pasteItems,
   selectionPivot,
   settleMembership,
@@ -248,7 +249,8 @@ function toggleLock(context: CanvasKeyboardContext): void {
 /** Where the one item selected leads, followed; nothing when more are selected or it leads nowhere. */
 function followSelection(context: CanvasKeyboardContext): void {
   const [id, ...more] = context.selRef.current.nodeIds;
-  const link = id === undefined || more.length > 0 ? undefined : context.byId.get(id)?.link;
+  const item = id === undefined || more.length > 0 ? undefined : context.byId.get(id);
+  const link = item === undefined ? undefined : itemLead(item);
   if (link !== undefined) context.follow(link);
 }
 

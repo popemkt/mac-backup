@@ -7,6 +7,7 @@ import {
   isFileNode,
   isGroupNode,
   isKbNode,
+  isLinkNode,
   isShapeNode,
   isTextNode,
   styleOf,
@@ -177,6 +178,7 @@ function titleOf(item: CanvasNode): string {
   if (isFileNode(item)) return "Image";
   if (isKbNode(item)) return "Card";
   if (isGroupNode(item)) return "Frame";
+  if (isLinkNode(item)) return "Link";
   return "Item";
 }
 

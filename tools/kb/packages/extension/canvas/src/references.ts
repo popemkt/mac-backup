@@ -8,14 +8,18 @@
  */
 import type { NodeId, PropValue } from "@kb/model";
 import { parseCanvasDoc, type CanvasDoc } from "./doc.ts";
+import { itemLead } from "./links.ts";
 
 /** The node ids `doc` points at, in document order, with repeats. */
 function docReferences(doc: CanvasDoc): NodeId[] {
   return [
-    ...doc.nodes.flatMap((item) => [
-      ...(item.nodeId === undefined ? [] : [item.nodeId]),
-      ...(item.link !== undefined && "node" in item.link ? [item.link.node] : []),
-    ]),
+    ...doc.nodes.flatMap((item) => {
+      const lead = itemLead(item);
+      return [
+        ...(item.nodeId === undefined ? [] : [item.nodeId]),
+        ...(lead !== undefined && "node" in lead ? [lead.node] : []),
+      ];
+    }),
     ...doc.edges.flatMap((edge) =>
       edge.kbLink === undefined ? [] : [edge.kbLink.sourceNodeId, edge.kbLink.targetNodeId],
     ),

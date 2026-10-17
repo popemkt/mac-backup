@@ -21,6 +21,7 @@ import {
   type CanvasEdge,
   type CanvasNode,
 } from "./doc.ts";
+import { isLinkNode } from "./links.ts";
 import {
   CANVAS_LOOKS,
   isEmptyStyle,
@@ -170,11 +171,12 @@ export function ownsWords(item: CanvasNode): boolean {
 
 /**
  * Whether an item draws a ground and an outline of its own, filled and
- * stroked as its style says: everything that owns its words, a card, and a
- * line (its outline the line itself). A picture's ground is its picture.
+ * stroked as its style says: everything that owns its words, a card (a
+ * node's, or a link's), and a line (its outline the line itself). A
+ * picture's ground is its picture.
  */
 export function drawsGround(item: CanvasNode): boolean {
-  return ownsWords(item) || isKbNode(item) || isPathNode(item);
+  return ownsWords(item) || isKbNode(item) || isLinkNode(item) || isPathNode(item);
 }
 
 /** The looks `record` draws that are not its kind's defaults: what it says of itself. */

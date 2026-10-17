@@ -159,8 +159,8 @@ export type { MermaidDiagram, MermaidReport } from "./mermaid.ts";
 export type { SvgSource } from "./svg.ts";
 export { isOpenLine, itemMarks, itemOutline, pathHeads, withLine } from "./paths.ts";
 export type { CanvasLinePatch, CanvasMark } from "./paths.ts";
-export { isLinkUrl, withLink } from "./links.ts";
-export type { CanvasItemLink } from "./links.ts";
+export { isLinkNode, isLinkUrl, itemLead, linkCard, withLink } from "./links.ts";
+export type { CanvasItemLink, CanvasLinkCard, CanvasLinkNode } from "./links.ts";
 export {
   anchorNear,
   edgeHead,

@@ -86,8 +86,8 @@ describe("canvas doc (UI alias)", () => {
           nodes: [
             {
               id: "f1",
-              type: "link",
-              url: "https://example.com",
+              type: "embed",
+              src: "https://example.com",
               x: 0,
               y: 0,
               width: 10,
@@ -98,8 +98,8 @@ describe("canvas doc (UI alias)", () => {
         }),
       ),
     );
-    expect(again.nodes[0]?.type).toBe("link");
-    expect(again.nodes[0]?.extra?.url).toBe("https://example.com");
+    expect(again.nodes[0]?.type).toBe("embed");
+    expect(again.nodes[0]?.extra?.src).toBe("https://example.com");
   });
 
   test("shape node round-trip; a kind kb does not know is kept, not drawn as a rect", () => {

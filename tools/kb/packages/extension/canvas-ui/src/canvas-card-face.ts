@@ -15,11 +15,13 @@ import {
   isFileNode,
   isGroupNode,
   isKbNode,
+  isLinkNode,
   isPathNode,
   isShapeNode,
   isTextNode,
   itemOutline,
   itemMarks,
+  linkCard,
   shapeOutline,
   tracePath,
   CANVAS_PALETTE,
@@ -81,6 +83,13 @@ export type CardFace =
       readonly style: ItemPaint;
     }
   | { readonly kind: "group"; readonly label: string; readonly style: ItemPaint }
+  /** A link item's card: its page's title over its host (`linkCard`). */
+  | {
+      readonly kind: "link";
+      readonly title: string;
+      readonly host: string;
+      readonly style: ItemPaint;
+    }
   /** A line: its points and the heads its ends wear, drawn across its box. */
   | { readonly kind: "path"; readonly path: CanvasPathNode; readonly style: ItemPaint }
   /** An image item's picture, from the asset its file names. */
@@ -111,6 +120,7 @@ export function cardFaceOf(
   }
   if (isGroupNode(item)) return { kind: "group", label: item.label ?? "", style: itemPaint(item) };
   if (isPathNode(item)) return { kind: "path", path: item, style: itemPaint(item) };
+  if (isLinkNode(item)) return { kind: "link", ...linkCard(item.url), style: itemPaint(item) };
   if (isFileNode(item)) {
     if (!isPictureFile(item.file)) return { kind: "other", label: item.file };
     const src = assetSrcUrl(item.file);
@@ -503,6 +513,29 @@ function paintNote(
   paintLines(ctx, wrapText(ctx, text, Math.max(20, width), max), textX, PAD, line);
 }
 
+/** A link's card: its title over its host, with a card's chrome, in its words' and its hint's ink. */
+function paintLink(
+  ctx: Ctx,
+  face: Extract<CardFace, { kind: "link" }>,
+  box: FaceBox,
+  look: CardLook,
+) {
+  paintChrome(ctx, face.style, box, look, {
+    outline: shapeOutline("rect", box.width, box.height, look.radius),
+    raised: true,
+  });
+  const line = look.body * 1.6;
+  const width = Math.max(20, box.width - PAD * 2);
+  const { ink } = face.style;
+  setFont(ctx, look.faces.sans, look.body, 500);
+  ctx.fillStyle = toneColor(look, ink.words);
+  paintLines(ctx, wrapText(ctx, face.title, width, 1), PAD, PAD, line);
+  if (face.host === "") return;
+  setFont(ctx, look.faces.sans, look.steps["--type-label"]);
+  ctx.fillStyle = toneColor(look, ink.hint);
+  paintLines(ctx, wrapText(ctx, face.host, width, 1), PAD, PAD + line, line);
+}
+
 /**
  * The words of an item that owns them, set by its style in its words' ink,
  * or `hint` standing in for none in its placeholder's; nothing for an item
@@ -654,6 +687,8 @@ export function faceWords(face: CardFace): string {
     case "image":
     case "path":
       return "";
+    case "link":
+      return face.title;
     case "shape":
     case "group":
     case "missing":
@@ -762,6 +797,9 @@ export function paintCardFace(ctx: Ctx, face: CardFace, box: FaceBox, look: Card
       break;
     case "path":
       paintPath(ctx, face, box, look);
+      break;
+    case "link":
+      paintLink(ctx, face, box, look);
       break;
     case "image":
       paintImage(ctx, face, box, look);
