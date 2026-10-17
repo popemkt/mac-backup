@@ -407,3 +407,17 @@ the CLI root to load what it composes, so it came before A4.
 - **Not started:** A8 (this repository's provider nodes, which are data
   writes in `.kb/nodes.jsonl` and outside this run), A9, A10. A11 landed
   with each step instead of separately.
+
+## Review (GPT-6.1 Sol, 2026-10-17)
+
+A security review of batch S as it landed (main `0db1f307`). Each finding
+was verified against the code before it was fixed.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| S1 | blocker | The selection reads its provider node by id without checking the `#agent-provider` tag, and only the tag and the selection field configure the agent, so a provider's endpoint, credential, executable and adapter could be written on an untagged node with no approval, then selected by a reference the owner approves without seeing them. Canvas prop ops also write any field, `sys.*` included. | The selection requires the tag; every provider field configures the agent; canvas writes meet the system-write rule (S4); the approval card shows what a provider runs with. |
+| S2 | major | `openai-chat` follows redirects, so https can be sent to http or another origin. | `redirect: "error"` in the default send and in the request contract, with a contract test. |
+| S3 | major | The step timeout covers the headers only; the error body is unbounded and the stream has no idle timeout. | A per-step abort tied to the step's scope, an idle timeout per chunk, a bounded error body, and a stalled-body contract property. |
+| S4 | major (Rule 1) | The system-write guard lives in callers, not in `persistEffect`, so some commits skip it (ext-check sync, `views.migrate`, canvas writes). | The check moves into `persistEffect`, its one owner; legitimately system writers say so, never by skipping it. |
+| S5 | minor | The keychain child inherits the whole environment. | A minimal allowlist from the one child-env owner. |
+| S6 | minor | SSE line length is uncapped. | Lines are capped, failing `internal`. |

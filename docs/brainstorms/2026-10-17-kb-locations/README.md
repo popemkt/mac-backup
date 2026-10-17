@@ -301,3 +301,21 @@ with the Cordis gap-1 work only if that work also edits the mode type.
 - **A `kb://` URL handler.** It needs OS registration. Later, if wanted.
 - **Cross-store queries, or refs between locations.**
 - **Dropping missing locations silently**, as Obsidian reportedly does.
+
+## Review (GPT-6.1 Sol, 2026-10-17)
+
+A security review of batch L as it landed (main `0db1f307`). Each finding
+was verified against the code before it was fixed.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| L1 | blocker | `location.open` starts a `kb ui` over any store the probe accepts, and that server imports the root's `.kb/extensions/*.ts`, so an agent could run code it chose with no trust check. | An agent's register, forget and open ask, by a floor the family declares; a root's repository extensions load only when that root is trusted, through the existing code trust. |
+| L2 | major | Agents register, forget and open with no approval, though DESIGN.md says they ask: a write with no policy and no declared approval is allowed. | The floor of L1, with a contract case. |
+| L3 | major | The URL in `.kb/ui.json` is checked only for its root, then navigated to and fetched. | `servingUi` accepts only a loopback `http://` URL with a port. |
+| L4 | minor | A start that times out leaves its child running, which later ranks its root, though a failed start should rank nothing. | The child is killed on timeout. |
+| L5 | minor | Two opens of one closed root start two servers. | One start per root at a time. |
+| L6 | minor | Concurrent home writes lose updates: `commitHome` commits without `expected`, and the list is rewritten from a snapshot. | The read fingerprint is passed as `expected`, and a conflict retries. |
+| L7 | minor | Two registration paths, one called by a string alias with no wire (actor undefined, read as the owner). | One registration owner, through the normal wire. |
+| L8 | minor | Presence's `pid` is written and never read. | Read or removed. |
+| L9 | minor | The detached server child gets the whole environment. | A minimal allowlist from the one child-env owner. |
+| L10 | minor | `locationsContract` overrides `serve`. | A real-`serve` case, or a named gap. |
