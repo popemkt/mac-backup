@@ -1,5 +1,10 @@
 import { Predicate, Schema } from "effect";
-import { ActionRequestSchema, isValidWorkspaceName, type ActionRequest } from "@kb/contracts";
+import {
+  isValidWorkspaceName,
+  requestOnWire,
+  type ActionRequest,
+  type SurfaceWire,
+} from "@kb/contracts";
 import { LIST_FIELDS_QUERY, LIST_TAGS_QUERY, backlinksQuery } from "@kb/query";
 import {
   FIELD_TYPES,
@@ -387,14 +392,16 @@ export function mapChildren(id: string): PlannedAction {
   };
 }
 
-export function mapActionInvoke(raw: unknown): ActionRequest {
-  const parsed = ActionRequestSchema.safeParse(raw);
-  if (!parsed.success) {
-    throw new UsageError({
-      message: 'action-invoke expects JSON object with string "id" and optional "input"',
-    });
-  }
-  return parsed.data;
+/** The request `raw` makes on `wire` (`requestOnWire`); a usage error when it makes none. */
+export function mapActionInvoke(raw: unknown, wire: SurfaceWire): ActionRequest {
+  const made = requestOnWire(wire, raw);
+  if ("request" in made) return made.request;
+  throw new UsageError({
+    message:
+      "refused" in made
+        ? made.refused
+        : 'action-invoke expects JSON object with string "id" and optional "input"',
+  });
 }
 
 /**

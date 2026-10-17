@@ -26,6 +26,7 @@ import {
 } from "@kb/operations";
 import { SYSTEM_IDS, fieldTypeValue, type FieldType, type KbNode } from "@kb/model";
 import { main } from "../src/cli.ts";
+import { ACTION_INVOKE_WIRE } from "../src/command.ts";
 import { bundledSeed } from "@kb/bundled";
 
 describe("arg → invocation mapping", () => {
@@ -120,13 +121,16 @@ describe("arg → invocation mapping", () => {
     expect(mapChildren("n1").input).toEqual({ id: "n1", depth: 1 });
   });
 
-  test("mapActionInvoke requires id", () => {
-    expect(mapActionInvoke({ id: "node.get", input: { id: "x" } })).toEqual({
+  test("mapActionInvoke requires id, and refuses an actor or a script's reach the call states", () => {
+    expect(mapActionInvoke({ id: "node.get", input: { id: "x" } }, ACTION_INVOKE_WIRE)).toEqual({
       id: "node.get",
       input: { id: "x" },
     });
-    expect(mapActionInvoke({ id: "graph.query" }).input).toEqual({});
-    expect(() => mapActionInvoke({})).toThrow();
+    expect(mapActionInvoke({ id: "graph.query" }, ACTION_INVOKE_WIRE).input).toEqual({});
+    expect(() => mapActionInvoke({}, ACTION_INVOKE_WIRE)).toThrow();
+    expect(() => mapActionInvoke({ id: "node.get", actor: "human" }, ACTION_INVOKE_WIRE)).toThrow(
+      "cannot state actor",
+    );
   });
 
   test("parseFieldValue reads an argument as the declared type, never by its shape", () => {

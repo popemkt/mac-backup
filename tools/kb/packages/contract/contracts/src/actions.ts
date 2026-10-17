@@ -184,17 +184,20 @@ export interface ActionDefinition<
  * tool call, the CLI's verbs plan one) constructs this same shape. An absent
  * or `null` input is the empty input.
  *
- * `approved` is the caller's statement that a person approved this call. It
- * sits on the envelope, not in the input, because it is about the call and
- * not an argument to the action. A surface can pass approval only if its wire
- * format has an envelope around the input. HTTP and `action-invoke` do. An
- * MCP tool call does not: its arguments are the input. So through MCP, an
- * action whose mode requires approval gets an `approval_required` receipt.
+ * `approved` is the statement that a person approved this call. It sits on
+ * the envelope, not in the input, because it is about the call and not an
+ * argument to the action. It survives only on a wire that carries approval
+ * (`onWire`): the page's, `kb action-invoke`'s. An MCP tool call has no
+ * envelope, its arguments being the input, and a local program's HTTP
+ * request has no person behind it, so there an action whose mode requires
+ * approval gets an `approval_required` receipt.
  *
- * `actor` is who makes the call, declared the same way and for the same
- * reason. A request may name none; a surface fills in its own (`onWire`),
- * so only a surface with an envelope lets its caller say, and what reaches
- * the invoke core is an {@link ActionInvocation}, which always names one.
+ * `actor` is who makes the call, and `script` a script's reach. The surface
+ * says who calls: a request's own survive only on a wire that relays calls
+ * others make (the page's, kb's own in process), and one stated from
+ * outside kb where its wire does not let it is refused (`requestOnWire`).
+ * What reaches the invoke core is an {@link ActionInvocation}, which always
+ * names an actor.
  */
 export const ActionRequestSchema = z.object({
   id: z.string().min(1),
@@ -206,8 +209,9 @@ export const ActionRequestSchema = z.object({
   actor: z.enum(ACTORS).optional(),
   /**
    * A script's call: what its run may reach — the node it runs for and its
-   * grant — stamped by the host that answers the guest (`answerToolCall`),
-   * never by the guest. The invoke core decides the call against it.
+   * grant — stamped by the host that answers the guest (`answerToolCall`)
+   * on the call its wire made, never by the guest. The invoke core decides
+   * the call against it.
    */
   script: z.object({ subject: z.string().nullable(), grant: z.unknown() }).optional(),
 });

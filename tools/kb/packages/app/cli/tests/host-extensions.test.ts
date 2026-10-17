@@ -38,7 +38,7 @@ const AGENT: ExtensionEntry = {
 async function call(url: string, id: string, input: unknown): Promise<Record<string, unknown>> {
   const response = await fetch(`${url}/api/action`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", origin: new URL(url).origin },
     body: JSON.stringify({ id, input, actor: "human" }),
   });
   return (await response.json()) as Record<string, unknown>;

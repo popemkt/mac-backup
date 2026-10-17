@@ -17,6 +17,7 @@ import {
   type ShownConfiguration,
 } from "@kb/model";
 import {
+  ActionRequestSchema,
   ManifestEntrySchema,
   requiresApproval,
   type ActionInvocation,
@@ -42,21 +43,78 @@ import {
 export interface SurfaceWire {
   /** Whether a call on this wire has an envelope that can carry `approved`. */
   readonly carriesApproval: boolean;
-  /**
-   * Who a call on this wire is made by when the invocation does not say. A
-   * wire with no envelope (MCP, WebMCP) can never say otherwise.
-   */
+  /** Who a call on this wire is made by. */
   readonly actor: Actor;
+  /**
+   * Whether the wire relays calls others make, each naming who makes it and,
+   * for a script's call, its reach: the page's, which carries the person's
+   * gestures, the agent it hosts, WebMCP's tools and the scripts it runs. A
+   * call on any other wire is made by the wire's own actor.
+   */
+  readonly relays?: true;
+}
+
+/** What a call may state of itself beyond the action and its input. */
+const STATED = ["approved", "actor", "script"] as const;
+type Stated = (typeof STATED)[number];
+
+/**
+ * Whether a call on `wire` may state `what`: that a person approved it,
+ * where the wire carries approval, and who makes it and a script's reach,
+ * where it relays them. The surface owns who calls, so a caller can never
+ * say it is someone else, or that a person approved what no person saw.
+ */
+function mayState(wire: SurfaceWire, what: Stated): boolean {
+  return what === "approved" ? wire.carriesApproval : wire.relays === true;
 }
 
 /**
- * The invocation as it reaches the invoke core from `wire`: the actor it
- * declares, or else the wire's. Every surface hands the core its calls
- * through this, so no call arrives without the actor its surface stated.
+ * The invocation as it reaches the invoke core from `wire`: made by the
+ * wire's actor, or, on a wire that relays, by the actor the call names,
+ * and carrying only what the wire lets a call state (`mayState`). Every
+ * surface hands the core its calls through this.
  */
 export function onWire(wire: SurfaceWire, request: ActionRequest): ActionInvocation {
-  return { ...request, actor: request.actor ?? wire.actor };
+  const { approved, actor, script, ...call } = request;
+  return {
+    ...call,
+    ...(approved !== undefined && mayState(wire, "approved") ? { approved } : {}),
+    ...(script !== undefined && mayState(wire, "script") ? { script } : {}),
+    actor: actor !== undefined && mayState(wire, "actor") ? actor : wire.actor,
+  };
 }
+
+/**
+ * The request `raw` makes on `wire`, a call's envelope as it arrives from
+ * outside kb (an HTTP body, `kb action-invoke`'s JSON), or why it may not
+ * be made: a call that states what its wire does not let it is refused, so
+ * its caller hears it rather than finding it ignored.
+ */
+export function requestOnWire(
+  wire: SurfaceWire,
+  raw: unknown,
+):
+  | { readonly request: ActionRequest }
+  | { readonly invalid: string }
+  | { readonly refused: string } {
+  const parsed = ActionRequestSchema.safeParse(raw);
+  if (!parsed.success) return { invalid: parsed.error.issues.map((i) => i.message).join("; ") };
+  const stated = STATED.filter((what) => parsed.data[what] !== undefined && !mayState(wire, what));
+  if (stated.length === 0) return { request: parsed.data };
+  return {
+    refused: `a call here cannot state ${stated.join(" or ")}: this surface says who calls, and a person approves only through a surface they control`,
+  };
+}
+
+/**
+ * The page's wire: what the UI sends, in the person's browser. It relays
+ * the calls the page makes for others (the agent sidebar's, WebMCP's, the
+ * scripts it hosts), each naming its actor, and a call that names none is
+ * the person's gesture. The server takes a call as the page's only when it
+ * carries the UI's own Origin, which a browser always sends and another
+ * site's page cannot (the request guard).
+ */
+export const PAGE_WIRE: SurfaceWire = { carriesApproval: true, actor: "human", relays: true };
 
 /**
  * Whether a write's mode delegates its approval: it says so

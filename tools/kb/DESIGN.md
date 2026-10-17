@@ -2009,21 +2009,32 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     call that asks is always refused over MCP and WebMCP.
   - The wire also names its **actor**, who a call on it is made by: `human`
     (a gesture in the UI), `agent` (the sidebar agent, MCP, WebMCP), `cli`,
-    or `script` (code in the sandbox, [Sandbox](#sandbox)). The actor rides the envelope beside `approved` and is declared
-    the same way, not proven. Every surface hands the invoke core its calls
-    through `onWire`, which fills in the wire's actor where the envelope
-    names none, so only a wire with an envelope (HTTP, `kb action-invoke`)
-    lets a caller say otherwise. HTTP's own actor is `agent`, the more
-    cautious one, because the page names its gestures `human` and a local
-    program that does not say is not taken for a person. **Every call names
-    its actor**: what a caller sends is an `ActionRequest`, whose actor it
-    may leave out, and what the invoke core takes is an `ActionInvocation`,
-    whose actor the type requires, so the compiler finds any caller that
-    names none. kb's own code calling in process through the runtime's
-    `invoke` edge does so on `IN_PROCESS_WIRE`, as `cli`: it runs with what
-    the owner runs it with, as the command line does. A call an action
-    makes while another runs (`CoreInvoke`) is made by that one's actor
-    (`callWithin`, [Grants](#grants-and-the-script-actor)).
+    or `script` (code in the sandbox, [Sandbox](#sandbox)). **The surface
+    says who calls, never the call.** Every surface hands the invoke core
+    its calls through `onWire`, which makes each its wire's actor's and
+    keeps of it only what the wire lets a call state (`mayState`): that a
+    person approved it, where the wire carries approval, and who makes it
+    and a script's reach, only where the wire relays calls others make. Two
+    wires relay, by what they are. The page's (`PAGE_WIRE`) carries the
+    person's gestures and the calls the page makes for others (the agent
+    sidebar's call the person approved, WebMCP's tools, the scripts it
+    hosts, stamped by their host), each naming its actor; a call that names
+    none is the person's. kb's own code calling in process through the
+    runtime's `invoke` edge (`IN_PROCESS_WIRE`, as `cli`) relays too: only
+    code already running in the process, with its whole reach, calls there.
+    A call stated from outside kb (an HTTP body, `kb action-invoke`'s JSON)
+    is read by `requestOnWire`, which refuses one that states what its
+    wire does not let it (`forbidden`), so its caller hears it rather than
+    find it ignored. Over HTTP the server takes a request as the page's
+    only when it carries an Origin, which the request guard holds to the
+    UI's own; one with none is a local program's (`HTTP_WIRE`): an agent's
+    call, the more cautious caller, and never an approved one, since no
+    person stands behind it there. **Every call names its actor**: what a
+    caller sends is an `ActionRequest`, whose actor it may leave out, and
+    what the invoke core takes is an `ActionInvocation`, whose actor the
+    type requires, so the compiler finds any caller that names none. A call
+    an action makes while another runs (`CoreInvoke`) is made by that one's
+    actor (`callWithin`, [Grants](#grants-and-the-script-actor)).
   - **Listings are honest.** Each surface declares what its wire carries
     once, as a `SurfaceWire` (`MCP_WIRE`, `HTTP_WIRE`, …), and lists by
     calling `kb.manifest` on that wire. `kb.manifest` lists every action and
@@ -2035,13 +2046,18 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     core and is refused. MCP's `tools/list` and each agent turn read it
     afresh, and the page's WebMCP lists again when its replica's policies
     change.
-  - `approved` and the actor are things the caller declares, not a security
-    boundary. Policies prevent accidents, not a determined local caller.
-    kb has no way to check that a person really approved the call, or who
-    made it (`// GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]` in `approval.ts`). The gate
-    means only that a caller must say so deliberately and cannot end up
-    approving by accident. Anyone who can reach a surface that carries the
-    flag can set it. Who can reach `kb ui`'s HTTP and `/ws` is decided by its
+  - **What an approval floor binds.** It binds a caller that reaches kb
+    through a surface that says who it is: the sidebar agent, MCP, WebMCP,
+    a script, and a local program over HTTP. Those cannot say they are
+    someone else, or that a person approved them. It does not bind a
+    program with the owner's shell: such a program can run `kb` as the
+    owner, edit `.kb/nodes.jsonl` directly, or send the page's Origin
+    itself, and the CLI's wire, the owner's own, is not a security
+    boundary. So an agent given a shell holds what the owner holds, and the
+    floors are for an agent that acts only through kb's surfaces. Nor does
+    kb prove a gesture: the page's word that a person approved a call, or
+    made it, is declared, not proven (`// GAP [[01M413SP3QSSQJMKKDK3W3J6G8]]`
+    in `approval.ts`). Who can reach `kb ui`'s HTTP and `/ws` is decided by its
     one request guard (`app/server/src/guard.ts`, applied before `/ws` and
     every `/api/*` route). A request passes only when its `Host` names this
     server, which stops DNS rebinding. It must also carry no `Origin` (a local

@@ -2,10 +2,11 @@ import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
-  ActionRequestSchema,
+  PAGE_WIRE,
   TxOrigin,
   listingOf,
   onWire,
+  requestOnWire,
   type ActionResponse,
   type HostedFamilies,
   type KbContext,
@@ -22,13 +23,22 @@ import { serverRuntimeLayer } from "./screens.ts";
 import type { SubscriptionHub } from "./session.ts";
 
 /**
- * HTTP's wire: `POST /api/action` takes the invocation envelope, so it carries
- * `approved` and may name its actor, and `GET /api/manifest` lists every
- * action (`listedOn` in `@kb/contracts`). A call that names no actor is taken as an
- * agent's: the UI names its own (`human` for a gesture), and a local program
- * that does not say is treated as the more cautious of the two.
+ * HTTP's wire for a local program: a request with no Origin, which a
+ * browser never sends to `POST /api/action` (the CLI's relay, curl, another
+ * app). Its calls are an agent's, the more cautious caller: one cannot say
+ * it is someone else, or that a person approved it, since no person stands
+ * behind it here. The UI's own page is the page's wire (`PAGE_WIRE`).
  */
-export const HTTP_WIRE: SurfaceWire = { carriesApproval: true, actor: "agent" };
+export const HTTP_WIRE: SurfaceWire = { carriesApproval: false, actor: "agent" };
+
+/**
+ * Whose wire a request to the API is: the page's when it carries an Origin,
+ * which the request guard has already held to the UI's own, else a local
+ * program's.
+ */
+function wireOf(req: Request): SurfaceWire {
+  return req.headers.get("origin") === null ? HTTP_WIRE : PAGE_WIRE;
+}
 
 /** Match Bun/Web `Response.json` Content-Type exactly. */
 const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
@@ -120,12 +130,17 @@ const handleHttpRequestEffect = (
         return invalidInput("request body must be JSON");
       }
 
-      const parsed = ActionRequestSchema.safeParse(body.value);
-      if (!parsed.success) {
-        return invalidInput(parsed.error.issues.map((i) => i.message).join("; "));
+      const wire = wireOf(req);
+      const made = requestOnWire(wire, body.value);
+      if ("invalid" in made) return invalidInput(made.invalid);
+      if ("refused" in made) {
+        return jsonResponse(
+          { status: "failed", id: "unknown", code: "forbidden", message: made.refused },
+          { status: 403 },
+        );
       }
 
-      const receipt = yield* serverInvoke(ctx, onWire(HTTP_WIRE, parsed.data)).pipe(
+      const receipt = yield* serverInvoke(ctx, onWire(wire, made.request)).pipe(
         Effect.provideService(TxOrigin, req.headers.get("x-kb-origin") ?? undefined),
       );
       // The head once the invocation has committed: the rev a client waits

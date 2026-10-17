@@ -5,7 +5,7 @@ import {
   type KbContext,
   type KbCtx,
   type KbStore,
-  type SurfaceWire,
+  PAGE_WIRE,
   ViewCatalog,
   failed,
   kbCtxLayer,
@@ -47,14 +47,6 @@ let pushTail = Promise.resolve();
  * index (`IsomorphicActionEnv`), whether they read or write.
  */
 const localActions = new Map(isomorphicActions.map((action) => [action.def.id, action]));
-
-/**
- * The page's own lane. Its envelope carries `approved` and the actor, and a
- * call that names no actor is the person's gesture. A call the page makes for
- * someone else says so: WebMCP's tools and the agent sidebar's approved call
- * name `agent`.
- */
-const PAGE_WIRE: SurfaceWire = { carriesApproval: true, actor: "human" };
 
 function noteBrowserStoreSynced(current: BrowserSession): void {
   Effect.runSync(noteStoreSynced(current.ctx).pipe(Effect.provide(current.layer)));

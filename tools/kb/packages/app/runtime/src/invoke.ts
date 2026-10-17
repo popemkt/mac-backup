@@ -12,9 +12,11 @@ import { invokeReceiptEffect, receiptFromError } from "./registry.ts";
 /**
  * The wire of kb's own code calling in this process, through {@link invoke}:
  * the owner's, as the command line is, since it runs with what the owner
- * runs it with. A call that says who makes it keeps that.
+ * runs it with. It relays: a call that says who makes it keeps that, since
+ * only code already running in this process, with its whole reach, makes
+ * one here.
  */
-export const IN_PROCESS_WIRE: SurfaceWire = { carriesApproval: true, actor: "cli" };
+export const IN_PROCESS_WIRE: SurfaceWire = { carriesApproval: true, actor: "cli", relays: true };
 
 /**
  * Invoke an action in this process, made as its request says or else as

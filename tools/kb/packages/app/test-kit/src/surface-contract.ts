@@ -30,6 +30,7 @@ import { makeKernel } from "@kb/plugin";
 import {
   listedOn,
   onWire,
+  requestOnWire,
   resolveApproval,
   type ActionRequest,
   type ActionMode,
@@ -638,6 +639,43 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
           // Approved, it runs exactly where the wire carries the approval.
           const ran = approved?.status === "succeeded";
           expect({ name, ran }).toEqual({ name, ran: surface.wire.carriesApproval });
+        }),
+      ),
+  ],
+  [
+    "no call says who makes it, that a person approved it, or a script's reach, beyond what its wire lets it state",
+    (set) =>
+      overSurfaces(set, ({ name, surface }) =>
+        Effect.sync(() => {
+          const { wire } = surface;
+          const other = wire.actor === "human" ? "script" : "human";
+          const claims = {
+            id: "node.get",
+            input: { id: EXTENSION_NODE },
+            actor: other,
+            approved: true,
+            script: { subject: EXTENSION_NODE, grant: {} },
+          } as const;
+          const made = onWire(wire, claims);
+          expect({ name, actor: made.actor, script: made.script }).toEqual({
+            name,
+            actor: wire.relays === true ? other : wire.actor,
+            script: wire.relays === true ? claims.script : undefined,
+          });
+          expect({ name, approved: made.approved }).toEqual({
+            name,
+            approved: wire.carriesApproval ? true : undefined,
+          });
+          // Stated from outside kb, a claim the wire does not let it make is refused, not ignored.
+          const stated = requestOnWire(wire, claims);
+          expect({ name, refused: "refused" in stated }).toEqual({
+            name,
+            refused: wire.relays !== true,
+          });
+          expect({ name, plain: "request" in requestOnWire(wire, { id: "node.get" }) }).toEqual({
+            name,
+            plain: true,
+          });
         }),
       ),
   ],

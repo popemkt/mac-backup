@@ -52,13 +52,11 @@ export const answerToolCall = Effect.fn("sandbox.answerToolCall")(function* (
   limits: SandboxLimits,
   call: ToolCall,
 ): Effect.fn.Return<ToolResult> {
-  const receipt = yield* host.invoke(
-    onWire(SCRIPT_WIRE, {
-      id: call.name,
-      input: call.arguments ?? {},
-      script: { subject: scope.subject, grant: scope.grant },
-    }),
-  );
+  // The run's reach is the host's to stamp, on the call its wire made.
+  const receipt = yield* host.invoke({
+    ...onWire(SCRIPT_WIRE, { id: call.name, input: call.arguments ?? {} }),
+    script: { subject: scope.subject, grant: scope.grant },
+  });
   const result = mcpToolResult(receipt);
   const size = result.content.reduce((total, block) => total + block.text.length, 0);
   if (size <= limits.maxResultChars) return result;

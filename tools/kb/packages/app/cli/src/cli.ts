@@ -655,7 +655,7 @@ function buildProgram(): Command {
       kbAction((ctx, globals, [jsonArg]: [string]) =>
         Effect.gen(function* () {
           const raw = yield* readActionJsonEffect(jsonArg);
-          const invocation = onWire(ACTION_INVOKE_WIRE, mapActionInvoke(raw));
+          const invocation = onWire(ACTION_INVOKE_WIRE, mapActionInvoke(raw, ACTION_INVOKE_WIRE));
           const receipt = yield* invokeReceiptEffect(ctx, invocation);
           writeOut(formatReceipt(receipt, { json: globals.json === true }));
           return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;

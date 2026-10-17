@@ -192,11 +192,21 @@ const serve: ServeUi = async (root) => {
   };
 };
 
-/** `POST /api/action`, and the receipt from its response. */
-async function postAction(url: string, invocation: ActionRequest): Promise<ActionReceipt> {
+/**
+ * `POST /api/action`, and the receipt from its response: as the UI's page
+ * sends it, with the UI's own Origin, or as a local program does, with none.
+ */
+async function postAction(
+  url: string,
+  invocation: ActionRequest,
+  from: "page" | "program",
+): Promise<ActionReceipt> {
   const res = await fetch(`${url}/api/action`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(from === "page" ? { origin: new URL(url).origin } : {}),
+    },
     body: JSON.stringify(invocation),
   });
   const response = ActionResponseSchema.parse(await res.json());
@@ -205,13 +215,18 @@ async function postAction(url: string, invocation: ActionRequest): Promise<Actio
   return receipt;
 }
 
-/** HTTP: `GET /api/manifest` is the listing; `POST /api/action` carries the envelope. */
+/**
+ * HTTP, as a local program reaches it: `GET /api/manifest` is the listing,
+ * and `POST /api/action` takes a call with no Origin, which no person
+ * approves, so a call the contract says a person approved is made as it can
+ * be made here, without it.
+ */
 const http: SurfaceFactory = async (_root, ui) => ({
   wire: HTTP_WIRE,
   host: "ui",
   list: async () =>
     z.array(ListedActionSchema).parse(await (await fetch(`${ui.url}/api/manifest`)).json()),
-  invoke: (invocation) => postAction(ui.url, invocation),
+  invoke: ({ approved: _approved, ...invocation }) => postAction(ui.url, invocation, "program"),
   close: async () => undefined,
 });
 
@@ -235,7 +250,7 @@ const webmcp: SurfaceFactory = async (_root, ui) => {
   const page = new FakeModelContext();
   const adapter = startWebMcp({
     modelContext: () => page,
-    invoke: (invocation) => postAction(ui.url, invocation),
+    invoke: (invocation) => postAction(ui.url, invocation, "page"),
     report: (message) => {
       throw new Error(message);
     },
@@ -301,7 +316,7 @@ const agent: SurfaceFactory = async (_root, ui) => {
         );
         if (call === undefined) throw new Error(`approval for a call never made: ${event.call}`);
         const invocation = onWire(AGENT_WIRE, { id: call.action, input: call.input, approved });
-        const receipt = await postAction(ui.url, invocation);
+        const receipt = await postAction(ui.url, invocation, "page");
         tab.say(AGENT_CHANNEL, { type: "receipt", conversation, call: event.call, receipt });
       }
       const end = events.find((event) => event.type === "turn-end");

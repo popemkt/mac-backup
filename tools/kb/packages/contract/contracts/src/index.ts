@@ -25,6 +25,8 @@ export {
   listedOn,
   listingOf,
   onWire,
+  PAGE_WIRE,
+  requestOnWire,
   resolveApproval,
 } from "./approval.ts";
 export type {
