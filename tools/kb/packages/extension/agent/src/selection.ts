@@ -81,18 +81,31 @@ function bindingOf(config: ProviderConfig): ProviderBinding | null {
   return { adapter, endpoint, credential, executable };
 }
 
-/** A binding as the person checks it: the key, where it goes, and what starts. */
-function bindingText({ endpoint, credential, executable }: ProviderBinding): string {
+/**
+ * A binding as the person checks it: the key, where it goes, what starts,
+ * and the person's own login it is handed (`login`, the adapter's one
+ * answer, which its runtime keeps).
+ */
+function bindingText(
+  { endpoint, credential, executable }: ProviderBinding,
+  login: readonly string[],
+): string {
   const ref = credential === null ? null : parseSecretRef(credential);
   const key = ref === null ? (credential ?? "no key") : secretRefLabel(ref);
   const sends = `sends ${key} to ${endpoint ?? "its adapter's own endpoint"}`;
-  return executable === null ? sends : `${sends}, and runs ${executable}`;
+  const runs = executable === null ? sends : `${sends}, and runs ${executable}`;
+  return login.length === 0 ? runs : `${runs}, handing it your own login (${login.join(", ")})`;
 }
 
-/** Fails the turn unless a person trusted `binding` on this machine. */
+/**
+ * Fails the turn unless a person trusted `binding` on this machine; the
+ * refusal states it whole, the person's own login it is handed (`login`)
+ * included.
+ */
 const requireTrusted = Effect.fn("kb.agent.requireTrusted")(function* (
   host: UiHostService,
   binding: ProviderBinding,
+  login: readonly string[],
   name: string,
 ): Effect.fn.Return<void, AgentRuntimeError> {
   const digest = yield* providerDigest(binding);
@@ -106,7 +119,7 @@ const requireTrusted = Effect.fn("kb.agent.requireTrusted")(function* (
     : Effect.fail(
         new AgentRuntimeError({
           message:
-            `${name} ${bindingText(binding)}: not trusted on this machine (${digest}). ` +
+            `${name} ${bindingText(binding, login)}: not trusted on this machine (${digest}). ` +
             "Trust it with sandbox.trust once you have checked them.",
         }),
       );
@@ -181,7 +194,9 @@ export const chooseProvider = Effect.fn("kb.agent.chooseProvider")(function* (
     });
   }
   const binding = bindingOf(config);
-  if (binding !== null) yield* requireTrusted(host, binding, label ?? "The provider");
+  if (binding !== null) {
+    yield* requireTrusted(host, binding, adapter.login(config), label ?? "The provider");
+  }
   let runtime = backends.runtimes.get(key);
   if (runtime === undefined) {
     runtime = adapter.runtime(config, boundTo(config.credential, backends.secrets));

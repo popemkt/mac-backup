@@ -11,6 +11,7 @@ import {
   type AgentOutput,
   type AgentRuntime,
   type AgentTurn,
+  type ProviderConfig,
 } from "@kb/agent";
 import { KB_TOOL_SERVER, kbToolServer } from "./tool-server.ts";
 
@@ -59,6 +60,8 @@ interface ClaudeRuntimeOptions {
   readonly key?: Effect.Effect<string | undefined, AgentRuntimeError>;
   /** This process's environment, which Claude Code's is chosen from. */
   readonly inherited: Environment;
+  /** The person's login variables it keeps of `inherited` (`loginFor`). */
+  readonly login: readonly string[];
   /**
    * How a turn reaches Claude Code: the SDK's `query`, loaded when the first
    * turn runs. The runtime contract hands it a fake that plays a model over
@@ -219,12 +222,15 @@ function without(inherited: Environment, names: readonly string[]): Record<strin
  */
 function environmentFor(
   inherited: Environment,
+  login: readonly string[],
   endpoint: string | undefined,
   key: string | undefined,
 ): Record<string, string> {
-  const own = endpoint === undefined && key === undefined;
   return {
-    ...without(inherited, own ? [] : CLAUDE_LOGIN_VARIABLES),
+    ...without(
+      inherited,
+      CLAUDE_LOGIN_VARIABLES.filter((name) => !login.includes(name)),
+    ),
     ...(endpoint === undefined ? {} : { ANTHROPIC_BASE_URL: endpoint }),
     ...(key === undefined ? {} : { ANTHROPIC_API_KEY: key }),
   };
@@ -239,7 +245,7 @@ function queryOptions(
 ): Options {
   return {
     cwd: options.cwd,
-    env: environmentFor(options.inherited, options.endpoint, key),
+    env: environmentFor(options.inherited, options.login, options.endpoint, key),
     ...(options.model === undefined ? {} : { model: options.model }),
     ...(executable === undefined ? {} : { pathToClaudeCodeExecutable: executable }),
     systemPrompt: turn.system,
@@ -310,6 +316,16 @@ function claudeRuntime(options: ClaudeRuntimeOptions): AgentRuntime {
  * with what each provider writes; `query` is the SDK's unless a test hands
  * it a fake.
  */
+/**
+ * The person's own Claude login a provider's Claude Code is handed: all of
+ * it while the provider names neither an endpoint nor a key, since it is
+ * then that same login, whatever executable it runs; none otherwise, so a
+ * key goes only where the provider sends it.
+ */
+function loginFor(provider: ProviderConfig): readonly string[] {
+  return provider.endpoint === null && provider.credential === null ? CLAUDE_LOGIN_VARIABLES : [];
+}
+
 export function claudeAdapter(options: {
   readonly cwd: string;
   readonly query?: ClaudeQuery;
@@ -319,10 +335,12 @@ export function claudeAdapter(options: {
   const inherited = options.env;
   return {
     id: "claude-agent-sdk",
+    login: loginFor,
     runtime: (provider, secrets) =>
       claudeRuntime({
         cwd: options.cwd,
         inherited,
+        login: loginFor(provider),
         ...(options.query === undefined ? {} : { query: options.query }),
         ...(provider.model === null ? {} : { model: provider.model }),
         ...(provider.executable === null ? {} : { executable: provider.executable }),

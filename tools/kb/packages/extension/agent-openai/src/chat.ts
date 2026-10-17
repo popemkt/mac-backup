@@ -413,6 +413,8 @@ export function openAiChatAdapter(
   };
   return {
     id: "openai-chat",
+    // A chat endpoint is handed its own key alone, never the person's login.
+    login: () => [],
     runtime: (provider, secrets) =>
       stepRuntime({
         name: "OpenAI-compatible chat",

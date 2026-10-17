@@ -178,7 +178,7 @@ const serve: ServeUi = async (root) => {
         {
           declaration: agentExtension,
           entry: agentPlugin({
-            adapters: [{ id: DEFAULT_ADAPTER, runtime: () => contractRuntime }],
+            adapters: [{ id: DEFAULT_ADAPTER, login: () => [], runtime: () => contractRuntime }],
             secrets: NO_SECRETS,
           }),
         },

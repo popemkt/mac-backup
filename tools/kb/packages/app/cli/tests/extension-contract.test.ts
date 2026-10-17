@@ -8,7 +8,7 @@ import { extensionContract, scratchRoot, type SwitchingHost } from "@kb/test-kit
 const AGENT = {
   declaration: agentExtension,
   entry: agentPlugin({
-    adapters: [{ id: DEFAULT_ADAPTER, runtime: () => scriptedRuntime(() => []) }],
+    adapters: [{ id: DEFAULT_ADAPTER, login: () => [], runtime: () => scriptedRuntime(() => []) }],
     secrets: NO_SECRETS,
   }),
 };

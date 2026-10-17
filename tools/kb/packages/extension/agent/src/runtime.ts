@@ -76,4 +76,11 @@ export interface AgentRuntime {
 export interface AgentAdapter {
   readonly id: AdapterId;
   readonly runtime: (provider: ProviderConfig, secrets: SecretSource) => AgentRuntime;
+  /**
+   * The person's own login, by the variables that hold it, that this
+   * adapter's runtime hands what `provider` runs; none unless the provider
+   * uses that login. The one answer, which the runtime keeps and the
+   * consent a person gives a provider states.
+   */
+  readonly login: (provider: ProviderConfig) => readonly string[];
 }

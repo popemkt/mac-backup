@@ -132,7 +132,7 @@ function harness(script: (text: string) => readonly ScriptStep[]): Harness {
   Effect.runSync(
     kernel.load(
       agentPlugin({
-        adapters: [{ id: DEFAULT_ADAPTER, runtime: () => runtime }],
+        adapters: [{ id: DEFAULT_ADAPTER, login: () => [], runtime: () => runtime }],
         secrets: NO_SECRETS,
       }),
     ),

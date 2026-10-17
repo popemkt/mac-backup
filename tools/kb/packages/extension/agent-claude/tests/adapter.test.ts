@@ -119,6 +119,30 @@ describe("the claude-agent-sdk adapter", () => {
     expect(failure).toBe("the environment variable PROXY_KEY: this process reads no keys");
   });
 
+  test("the login it says a provider is handed is the login Claude Code's environment keeps", async () => {
+    const adapter = claudeAdapter({ cwd: "/kb", env: INHERITED });
+    const login = ["ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"];
+    for (const provider of [
+      { ...DEFAULT_PROVIDER, executable: "/opt/claude" },
+      { ...DEFAULT_PROVIDER, endpoint: "https://gateway.example/v1" },
+      { ...DEFAULT_PROVIDER, credential: "env:PROXY_KEY" },
+    ]) {
+      const { options } = await startedWith(provider);
+      const handed = adapter.login(provider);
+      // Of the person's login INHERITED holds, Claude Code keeps exactly what the adapter says.
+      const kept = login.filter(
+        (name) => options?.env?.[name] === INHERITED[name as keyof typeof INHERITED],
+      );
+      expect({ provider, kept }).toEqual({
+        provider,
+        kept: login.filter((name) => handed.includes(name)),
+      });
+    }
+    expect(adapter.login({ ...DEFAULT_PROVIDER, executable: "/opt/claude" })).toContain(
+      "ANTHROPIC_API_KEY",
+    );
+  });
+
   test("a claude the person's PATH finds inside the root never runs", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-claude-root-"));
     const bin = join(root, "bin");

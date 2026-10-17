@@ -3423,8 +3423,11 @@ The sidebar agent lives outside core, in packages that core never imports
     trust (`CodeTrust`, [Sandbox](#sandbox) → Trust), granted by the same
     gesture, `sandbox.trust`. A provider that binds any of them runs a turn
     only once its binding is trusted here (`chooseProvider`); until then
-    the turn fails naming the key and where it goes, together, and the
-    digest to trust, which is what the person approves. A provider that
+    the turn fails naming the key and where it goes, together, what it
+    runs, the person's own login it is handed, and the digest to trust,
+    which is what the person approves. Which login a provider is handed is
+    its adapter's one answer (`AgentAdapter.login`), which its runtime
+    keeps and the refusal states, so the two cannot differ. A provider that
     binds nothing (the adapter as it runs with no settings, the person's
     own Claude login) needs none. A provider node is data, and a store a
     root carries may hold one someone else wrote (a clone pointing a key
@@ -3572,7 +3575,7 @@ The sidebar agent lives outside core, in packages that core never imports
     (`CLAUDE_VARIABLES`, kept as `declared`: proxy and CA settings, the
     `XDG_*` directories, `CLAUDE_CONFIG_DIR`, and the person's Claude
     login), nothing else. The adapter passes on the login variables only while the
-    provider names neither an endpoint nor a key. With either named, it
+    provider names neither an endpoint nor a key (`loginFor`, its `login`). With either named, it
     holds exactly what the provider names. So no key the owner keeps in
     the `kb ui` environment reaches Claude Code, and a key goes only to
     the endpoint the provider names or to Claude's default. Which endpoint

@@ -94,13 +94,18 @@ afterEach(async () => {
  * none); `trusted` is the digests a person trusted here, every one unless
  * it says.
  */
-function rig(adapters: "one" | "none" = "one", trusted?: ReadonlySet<string>): Rig {
+function rig(
+  adapters: "one" | "none" = "one",
+  trusted?: ReadonlySet<string>,
+  login: readonly string[] = [],
+): Rig {
   const store = new Map<string, WireNode>();
   const built: ProviderConfig[] = [];
   const sources: SecretSource[] = [];
   const runtimes: ScriptedRuntime[] = [];
   const adapter: AgentAdapter = {
     id: DEFAULT_ADAPTER,
+    login: () => login,
     runtime: (config, secrets) => {
       built.push(config);
       sources.push(secrets);
@@ -279,6 +284,25 @@ describe("the provider a turn runs on", () => {
     expect(await new Peer().turn(r.channel, "hi")).toMatchObject({
       outcome: "failed",
       message: expect.stringContaining("to https://elsewhere.example/v1: not trusted"),
+    });
+  });
+
+  test("a provider whose adapter hands it the person's login says so where it asks to be trusted", async () => {
+    const r = rig("one", new Set(), ["CLAUDE_CODE_OAUTH_TOKEN"]);
+    r.store.set(
+      "n.own",
+      node("n.own", "My claude", {
+        [SYSTEM_IDS.typeField]: ref(AGENT_IDS.providerTag),
+        [AGENT_IDS.adapterField]: ref(adapterOptionId(DEFAULT_ADAPTER)),
+        [AGENT_IDS.executableField]: str("/opt/claude"),
+      }),
+    );
+    select(r.store, "n.own");
+    expect(await new Peer().turn(r.channel, "hi")).toMatchObject({
+      outcome: "failed",
+      message: expect.stringContaining(
+        "My claude sends no key to its adapter's own endpoint, and runs /opt/claude, handing it your own login (CLAUDE_CODE_OAUTH_TOKEN): not trusted",
+      ),
     });
   });
 

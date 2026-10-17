@@ -29,7 +29,7 @@ import { hostAgentAdapters, hostExtensions } from "../src/host-plugins.ts";
 const AGENT: ExtensionEntry = {
   declaration: agentExtension,
   entry: agentPlugin({
-    adapters: [{ id: DEFAULT_ADAPTER, runtime: () => scriptedRuntime(() => []) }],
+    adapters: [{ id: DEFAULT_ADAPTER, login: () => [], runtime: () => scriptedRuntime(() => []) }],
     secrets: NO_SECRETS,
   }),
 };
