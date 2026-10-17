@@ -54,6 +54,11 @@ export interface DiagramSpec {
  */
 export const DIAGRAM_LIMITS = { boxes: 200, links: 400 } as const;
 
+/** Why a diagram past `DIAGRAM_LIMITS` in `part` is refused, when it has `has` of them. */
+export function pastDiagramLimit(part: keyof typeof DIAGRAM_LIMITS, has: number | string): string {
+  return `this diagram has ${has} ${part}; one draws ${DIAGRAM_LIMITS[part]} at most`;
+}
+
 /** The room between one rank and the next, canvas units: enough for a link and its label. */
 const RANK_GAP = 120;
 /** The room between neighbours in a rank: enough for two links leaving one box to part. */
@@ -136,12 +141,7 @@ export function diagramDoc(spec: DiagramSpec, mint: () => string): CanvasDoc {
   );
   if (over.length > 0) {
     throw new CanvasRelationError(
-      over
-        .map(
-          (part) =>
-            `this diagram has ${spec[part].length} ${part}; one draws ${DIAGRAM_LIMITS[part]} at most`,
-        )
-        .join("; "),
+      over.map((part) => pastDiagramLimit(part, spec[part].length)).join("; "),
     );
   }
   const items = new Map(spec.boxes.map((box) => [box.key, makeItem(box.item, box.key)]));

@@ -17,6 +17,7 @@ import { CoreInvoke, type ExtensionAction, type KbCtx, type KbStore } from "@kb/
 import {
   DIAGRAM_FLOWS,
   DIAGRAM_LIMITS,
+  MERMAID_TEXT_LIMIT,
   diagramDoc,
   mermaidDiagram,
   type DiagramFlow,
@@ -41,6 +42,7 @@ const diagramInput = z
     mermaid: z
       .string()
       .min(1)
+      .max(MERMAID_TEXT_LIMIT)
       .optional()
       .describe("Mermaid flowchart text (flowchart TD, LR, …); each box is a shape"),
     kinds: z

@@ -6,12 +6,27 @@
  * label, heads and a line. A box shape kb has no equivalent for is drawn as
  * its nearest; a statement kb reads nothing of (a subgraph, a class, a
  * style, a click) is reported with its line, never dropped silently.
+ *
+ * Reading is bounded: text past `MERMAID_TEXT_LIMIT` is refused unread, and
+ * reading stops the moment the boxes named or the links drawn pass
+ * `DIAGRAM_LIMITS`, so a statement that joins two long groups is refused
+ * before it multiplies into their every pair.
  */
-import type { DiagramBox, DiagramFlow, DiagramLink, DiagramSpec } from "./diagram.ts";
+import {
+  DIAGRAM_LIMITS,
+  pastDiagramLimit,
+  type DiagramBox,
+  type DiagramFlow,
+  type DiagramLink,
+  type DiagramSpec,
+} from "./diagram.ts";
 import type { CanvasHead } from "./doc.ts";
 import type { CanvasPresetKind } from "./presets.ts";
 import { CanvasRelationError } from "./relations.ts";
 import type { CanvasLooksPatch } from "./style.ts";
+
+/** The most characters of flowchart text kb reads: more than a diagram within `DIAGRAM_LIMITS` needs. */
+export const MERMAID_TEXT_LIMIT = 64 * 1024;
 
 /** What did not come across, by the line it is on. */
 export interface MermaidReport {
@@ -116,10 +131,17 @@ interface ReadBox {
 /** A link as read, before its ends are known. */
 type ReadLink = Omit<DiagramLink, "from" | "to"> & { readonly crossed: boolean };
 
+/** One link a statement writes, from every box of one group to every box of the next. */
+interface Hop {
+  readonly from: readonly ReadBox[];
+  readonly link: Omit<DiagramLink, "from" | "to">;
+  readonly to: readonly ReadBox[];
+}
+
 /** What one statement says, or why it could not be read. */
 interface Statement {
   readonly boxes: readonly ReadBox[];
-  readonly links: readonly DiagramLink[];
+  readonly hops: readonly Hop[];
   readonly notes: readonly string[];
 }
 
@@ -279,13 +301,13 @@ function readLink(reading: Reading, at: number): { link: ReadLink; at: number } 
   };
 }
 
-/** One statement: boxes, and the links between each group and the next. */
+/** One statement: boxes, and the link between each group and the next. */
 function readStatement(text: string): Statement | null {
   const reading: Reading = { text, closerless: text.length + 1 };
   const first = readGroup(text, 0);
   if (first === null) return null;
   const boxes = [...first.boxes];
-  const links: DiagramLink[] = [];
+  const hops: Hop[] = [];
   const notes = [...first.notes];
   let group = first;
   for (;;) {
@@ -295,13 +317,44 @@ function readStatement(text: string): Statement | null {
     if (next === null) return null;
     const { crossed, ...link } = read.link;
     if (crossed) notes.push("kb has no cross head: it is drawn as a bar");
-    for (const from of group.boxes)
-      for (const to of next.boxes) links.push({ ...link, from: from.key, to: to.key });
+    hops.push({ from: group.boxes, link, to: next.boxes });
     boxes.push(...next.boxes);
     notes.push(...next.notes);
     group = next;
   }
-  return text.slice(group.at).trim() === "" ? { boxes, links, notes } : null;
+  return text.slice(group.at).trim() === "" ? { boxes, hops, notes } : null;
+}
+
+/** A group's boxes by key, once each: a box named twice in a group is one box. */
+const keysOf = (group: readonly ReadBox[]): string[] => [...new Set(group.map((box) => box.key))];
+
+/**
+ * The links `hops` on `line` draw, each pair of their groups' boxes, added to
+ * `links`; a box linking to itself is reported instead. Throws the moment
+ * `links` passes `DIAGRAM_LIMITS`, before the rest of the pairs are made.
+ */
+function drawHops(
+  hops: readonly Hop[],
+  line: number,
+  links: DiagramLink[],
+  reported: MermaidReport[],
+): void {
+  for (const { from, link, to } of hops) {
+    for (const source of keysOf(from)) {
+      for (const target of keysOf(to)) {
+        if (source === target) {
+          reported.push({ line, note: `${source} links to itself: not drawn` });
+          continue;
+        }
+        links.push({ ...link, from: source, to: target });
+        if (links.length > DIAGRAM_LIMITS.links) {
+          throw new CanvasRelationError(
+            pastDiagramLimit("links", `more than ${DIAGRAM_LIMITS.links}`),
+          );
+        }
+      }
+    }
+  }
 }
 
 /** Each line's statements, split at `;` outside quotes, with the line each is on. */
@@ -350,6 +403,11 @@ function collectBoxes(read: readonly ReadBox[]): Map<string, ReadBox> {
  * or RL) or that names no box.
  */
 export function mermaidDiagram(text: string): MermaidDiagram {
+  if (text.length > MERMAID_TEXT_LIMIT) {
+    throw new CanvasRelationError(
+      `this flowchart is ${text.length} characters; kb reads ${MERMAID_TEXT_LIMIT} at most`,
+    );
+  }
   const [header, ...statements] = statementsOf(bodyLines(text));
   const heading = /^(?:flowchart|graph)(?:\s+(\w+))?$/i.exec(header?.text ?? "");
   if (heading === null) {
@@ -360,6 +418,7 @@ export function mermaidDiagram(text: string): MermaidDiagram {
     throw new CanvasRelationError(`a flowchart runs TD, TB, BT, LR or RL, not ${heading[1]}`);
   const reported: MermaidReport[] = [];
   const read: ReadBox[] = [];
+  const named = new Set<string>();
   const links: DiagramLink[] = [];
   for (const { line, text: statement } of statements) {
     const word = /^\S+/.exec(statement)?.[0] ?? "";
@@ -373,12 +432,12 @@ export function mermaidDiagram(text: string): MermaidDiagram {
       continue;
     }
     read.push(...said.boxes);
-    reported.push(...said.notes.map((note) => ({ line, note })));
-    for (const link of said.links) {
-      if (link.from === link.to)
-        reported.push({ line, note: `${link.from} links to itself: not drawn` });
-      else links.push(link);
+    for (const box of said.boxes) named.add(box.key);
+    if (named.size > DIAGRAM_LIMITS.boxes) {
+      throw new CanvasRelationError(pastDiagramLimit("boxes", `more than ${DIAGRAM_LIMITS.boxes}`));
     }
+    reported.push(...said.notes.map((note) => ({ line, note })));
+    drawHops(said.hops, line, links, reported);
   }
   const boxes = collectBoxes(read);
   if (boxes.size === 0) throw new CanvasRelationError("the flowchart names no box");

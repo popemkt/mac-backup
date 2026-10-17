@@ -12,7 +12,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CANVAS_IDS, isShapeNode, parseCanvasDoc, type CanvasDoc } from "@kb/canvas";
+import {
+  CANVAS_IDS,
+  MERMAID_TEXT_LIMIT,
+  isShapeNode,
+  parseCanvasDoc,
+  type CanvasDoc,
+} from "@kb/canvas";
 import type { ActionInvocation, ActionReceipt } from "@kb/contracts";
 import { SYSTEM_IDS, fieldTypeValue, present } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
@@ -216,7 +222,7 @@ describe("ext.canvas.diagram", () => {
     expect(out.reported).toEqual(["line 3: kb draws no style"]);
   });
 
-  test("refuses both sources or neither, a query naming no node, and text no flowchart, writing nothing", async () => {
+  test("refuses both sources or neither, a query naming no node, text no flowchart and text past the cap, writing nothing", async () => {
     const ctx = await graphKb();
     const before = ctx.nodes.length;
     for (const input of [
@@ -224,6 +230,7 @@ describe("ext.canvas.diagram", () => {
       {},
       { query: '[:find ?id :where [?n :node/id ?id] [(= ?id "nowhere")]]' },
       { mermaid: "sequenceDiagram\nA->>B: hi" },
+      { mermaid: `flowchart TD\nA${" ".repeat(MERMAID_TEXT_LIMIT)}` },
     ]) {
       const refused = await invoke(ctx, { id: "ext.canvas.diagram", input });
       expect(refused.status).toBe("failed");

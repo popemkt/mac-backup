@@ -2915,7 +2915,12 @@ answers `{canvasId, items, edges, reported}`.
   dashed, thick is heavy) are kept. Statements kb draws nothing for — a
   subgraph, a class, a style, a click — are reported by line. The text is
   read in one pass: each pattern is matched in place, and a labelled link's
-  label runs to the first space a closer follows.
+  label runs to the first space a closer follows. Reading is bounded: text
+  past `MERMAID_TEXT_LIMIT` (64 KiB, the action's input schema states the
+  same bound) is refused unread, and reading stops the moment the boxes it
+  names or the links it draws pass `DIAGRAM_LIMITS`, so two long groups
+  joined by one link are refused before they multiply into their every
+  pair. A box named twice in one group is one box.
 - **One layout.** Both sources are one `DiagramSpec`, drawn by `diagramDoc`
   (`@kb/canvas` `diagram.ts`), which refuses a spec past `DIAGRAM_LIMITS`
   (200 boxes, 400 links) whichever source made it; a query is refused by

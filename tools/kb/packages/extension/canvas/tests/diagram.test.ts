@@ -8,6 +8,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   DIAGRAM_LIMITS,
+  MERMAID_TEXT_LIMIT,
   diagramDoc,
   isShapeNode,
   mermaidDiagram,
@@ -182,18 +183,54 @@ describe("reading mermaid stays linear", () => {
 });
 
 describe("one cap on every diagram", () => {
-  test("a spec past the boxes or links a diagram draws is refused, whichever text made it", () => {
-    const many = Array.from({ length: DIAGRAM_LIMITS.boxes + 1 }, (_, i) => `N${i}`);
-    expect(() => mermaidDiagram(`flowchart TD\n${many.join("\n")}`)).not.toThrow();
-    expect(() =>
-      diagramDoc(mermaidDiagram(`flowchart TD\n${many.join("\n")}`).spec, () => "x"),
-    ).toThrow(`one draws ${DIAGRAM_LIMITS.boxes} at most`);
+  const many = Array.from({ length: DIAGRAM_LIMITS.boxes + 1 }, (_, i) => `N${i}`);
+
+  test("a spec past the boxes or links a diagram draws is refused, whichever source made it", () => {
+    expect(() => diagramDoc({ flow: "down", boxes: many.map(card), links: [] }, () => "x")).toThrow(
+      `one draws ${DIAGRAM_LIMITS.boxes} at most`,
+    );
     const chain = many.slice(0, 30);
     const links = chain
-      .flatMap((a) => chain.filter((b) => b !== a).map((b) => `${a} --> ${b}`))
+      .flatMap((from) => chain.filter((to) => to !== from).map((to) => ({ from, to })))
       .slice(0, DIAGRAM_LIMITS.links + 1);
+    expect(() => diagramDoc({ flow: "down", boxes: chain.map(card), links }, () => "x")).toThrow(
+      `one draws ${DIAGRAM_LIMITS.links} at most`,
+    );
+  });
+
+  test("mermaid stops reading once the boxes it names pass the cap", () => {
+    expect(() => mermaidDiagram(`flowchart TD\n${many.join("\n")}`)).toThrow(
+      `more than ${DIAGRAM_LIMITS.boxes} boxes; one draws ${DIAGRAM_LIMITS.boxes} at most`,
+    );
     expect(() =>
-      diagramDoc(mermaidDiagram(`flowchart TD\n${links.join("\n")}`).spec, () => "x"),
-    ).toThrow(`one draws ${DIAGRAM_LIMITS.links} at most`);
+      mermaidDiagram(`flowchart TD\n${many.slice(0, DIAGRAM_LIMITS.boxes).join("\n")}`),
+    ).not.toThrow();
+  });
+
+  test("mermaid stops once the links it draws pass the cap, before two groups multiply out", () => {
+    const left = many.slice(0, 100).join(" & ");
+    const right = many.slice(100, 200).join(" & ");
+    // Every pair of the two groups is 10,000 links; reading stops at the 401st.
+    expect(() => mermaidDiagram(`flowchart TD\n${left} --> ${right}`)).toThrow(
+      `more than ${DIAGRAM_LIMITS.links} links; one draws ${DIAGRAM_LIMITS.links} at most`,
+    );
+    const pairs = many
+      .slice(0, 21)
+      .flatMap((from) => many.slice(21, 41).map((to) => `${from} --> ${to}`))
+      .slice(0, DIAGRAM_LIMITS.links);
+    expect(mermaidDiagram(`flowchart TD\n${pairs.join("\n")}`).spec.links).toHaveLength(
+      DIAGRAM_LIMITS.links,
+    );
+  });
+
+  test("a box named twice in one group is one box, so its links are drawn once", () => {
+    expect(mermaidDiagram("flowchart TD\nA & A --> B").spec.links).toEqual([
+      { from: "A", to: "B" },
+    ]);
+  });
+
+  test("flowchart text past MERMAID_TEXT_LIMIT is refused unread", () => {
+    const text = `flowchart TD\nA${" ".repeat(MERMAID_TEXT_LIMIT)}`;
+    expect(() => mermaidDiagram(text)).toThrow(`kb reads ${MERMAID_TEXT_LIMIT} at most`);
   });
 });
