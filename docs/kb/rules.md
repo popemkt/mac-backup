@@ -1193,6 +1193,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1M08VKDXG6AFZHQPW5M2GRF`
 
+### GAP: two processes that start a kb ui for one root at once can start two servers
+
+- **expected** — Starts for one root are single-flight across processes: a start holds a pidfile lock under the root's .kb, re-checks presence once it holds the lock, and only then spawns.
+- **current** — oneStartPerRoot (runtime/src/serve.ts) makes concurrent starts in one process one start; two processes (kb open and the page's server) can each spawn a server at once, the later presence write wins and the other runs on, unlisted.
+- **impact** — An extra unsupervised kb ui can be left running over the root; neither data nor security is affected (both serve the same root on loopback, the guard applies to both).
+- **closes** — A generic pidfile lock with a home both store-jsonl (its nodes write lock) and runtime may import (not infrastructure: infra cannot import infra), e.g. a backend contract-layer package; KbRoots.serve holds it around the re-check and the spawn.
+- **node** — `01M545PFJ3285JNXYHKVCM50Z7`
+
 ### GAP: two scripts read Nix settings by scraping source with awk
 
 - **expected** — Scripts read declared state one way: evaluating the host configuration, as the drift audit already does for every package channel.
