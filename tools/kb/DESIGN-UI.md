@@ -2761,11 +2761,14 @@ exist is a plugin point, and the kit names none of them.
   be chosen.
 - **kb's backdrops are a family's.** The `backdrops` family
   (`@kb/backdrops`, `@kb/backdrops-ui`; optional, on by default) declares
-  and contributes the two kb ships, the unicorn first:
+  and contributes the backdrops kb ships, the unicorn first:
   - `backdrops.unicorn` is the Unicorn Studio homepage scene over the wash,
     in a taller frame that keeps its stars, feathered at its sides;
   - `backdrops.gradient` is the compact tag/accent wash alone, with no
-    direction and no feather, so it is not masked twice.
+    direction and no feather, so it is not masked twice;
+  - `backdrops.sky` is the open sky: bats against a moon glow by night,
+    swallows against a sun glow by day, one backdrop with two moods, which
+    it reads from the page's appearance (see **2D scenes** below).
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
@@ -2806,6 +2809,39 @@ exist is a plugin point, and the kit names none of them.
   - Choosing a backdrop writes core's setting, and the row and the slot
     then show it.
   - A page's own node chooses for that page over core's.
+
+#### 2D scenes
+
+Sky (and Roost) are compositions over one scene kit, `@kb/backdrops-ui`'s
+`scene/`: nothing about light, bodies, flight or time is stated twice.
+
+- **The silhouette trick.** Every actor is filled with the page's own
+  background tone (`--background`, so Paper and Terminal paint their own),
+  and a soft glow behind them is the only thing that reveals one: an outline
+  where it crosses the light, nearly nothing away from it. A thin rim, the
+  figure laid a hair toward the light under its body, catches the edge that
+  faces the glow, and a far actor is veiled toward the haze. The palette is
+  derived from the tokens and the head's colour (`paletteOf`), never
+  authored.
+- **No frame.** The glow is computed per pixel with the frame's feather
+  baked in and rounded with noise (`paintGlow`), so no edge shows and a dark
+  page does not band; actors fade by the same feather where they stand.
+- **Bodies are poses.** A bat or swallow is built from a wing beat in three
+  dimensions (`wing.ts`, `gait.ts`): a planform swung about the body's axis,
+  tip lagging root, seen from slightly above, so fingers fold on the
+  up-stroke and a far wing rises over the back. Gliding and beating are one
+  continuous parameter.
+- **Flight** is a light flocking model with a wander of each flier's own
+  (`flock.ts`), over three depths, with rare moments (a chase, a straggler
+  catching up) on exponentially spaced waits (`moments.ts`).
+- **The stage** (`stage.ts`) owns the canvas, a time-based loop (`dt`
+  clamped, so any frame rate moves the same and a stall resumes without a
+  leap), the pause (`watchPlayback`), the declared pointer and activity, and
+  a frame-cost meter: over its 2 ms budget it lowers detail rather than
+  costing the page. Under reduced motion it draws one still composition.
+- **Reactions** are eased signals (`reactions.ts`): the pointer scatters
+  fliers locally and they regather; typing calms the scene; a write is a
+  small stir (none while typing); a move to another page re-forms the flock.
 
 The exported scene and matching runtime are served from `public/vendor/unicorn`;
 its README records their sources. Preserve those upstream assets unmodified.

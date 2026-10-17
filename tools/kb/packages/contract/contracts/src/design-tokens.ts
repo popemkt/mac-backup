@@ -14,6 +14,8 @@ const TOKEN_FALLBACK = {
   "--muted": "#f5f5f5",
   "--muted-foreground": "#737373",
   "--primary": "#c27c0e",
+  // The warm light of a sun on a light page (a backdrop's day light).
+  "--header-sun": "#f7c948",
   "--border": "#e5e5e5",
   "--popover": "#fff",
   "--popover-foreground": "#222",

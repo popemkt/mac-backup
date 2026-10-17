@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import {
   GRADIENT_BACKDROP,
+  SKY_BACKDROP,
   UNICORN_BACKDROP,
   backdropsExtension,
   backdropsPlugin,
@@ -8,6 +9,7 @@ import {
 import { definePlugin } from "@kb/plugin";
 import { BACKDROP_DIRECTIONS } from "@kb/model";
 import { BackdropPoint, provideBackdrop, type Backdrop } from "@kb/ui-sdk";
+import { SkyBackdrop } from "./sky/sky-backdrop";
 import { GradientBackdrop } from "./tint-backdrop";
 import { UnicornWashBackdrop } from "./unicorn-backdrop";
 import "./backdrops.css";
@@ -38,6 +40,19 @@ const unicorn: Omit<Backdrop, "key"> = {
   Component: UnicornWashBackdrop,
 };
 
+/** The open sky: a canvas scene that feathers into the page on every side. */
+const sky: Omit<Backdrop, "key"> = {
+  presentation: {
+    space: 120,
+    directions: BACKDROP_DIRECTIONS,
+    height: 360,
+    maxWidth: 1040,
+    offset: -10,
+    opacity: { subtle: 0.6, soft: 0.82, vivid: 1 },
+  },
+  Component: SkyBackdrop,
+};
+
 /**
  * The backdrops family's page entry: kb's page-head backdrops, contributed
  * to `BackdropPoint` (the unicorn first, the one a head shows while no
@@ -51,6 +66,7 @@ export const backdropsUiPlugin = definePlugin({
         ctx.plugin(backdropsPlugin()),
         ctx.contribute(BackdropPoint, provideBackdrop(UNICORN_BACKDROP, unicorn)),
         ctx.contribute(BackdropPoint, provideBackdrop(GRADIENT_BACKDROP, gradient)),
+        ctx.contribute(BackdropPoint, provideBackdrop(SKY_BACKDROP, sky)),
       ],
       { discard: true },
     ),

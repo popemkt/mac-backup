@@ -6,6 +6,7 @@
  */
 export {
   GRADIENT_BACKDROP,
+  SKY_BACKDROP,
   UNICORN_BACKDROP,
   backdropsExtension,
   backdropsPlugin,

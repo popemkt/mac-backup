@@ -1,0 +1,88 @@
+/**
+ * The wing beat as a cycle, and what a gait does with it. A beat is a phase
+ * that advances at the animal's own rate; the down-stroke is quicker than
+ * the up-stroke; between beats a flier may glide with its wings held. All of
+ * it is a continuous function of phase and glide, so the pose never jumps.
+ */
+import { lerp, smoothstep, TAU } from "./math.ts";
+
+/** The down-stroke is quicker than the recovery. */
+const SKEW = 0.07;
+
+export interface Cycle {
+  /** -1 (wings fully down) … 1 (fully up). */
+  readonly flap: number;
+  /** How fast the wing is rising, -1 … 1. */
+  readonly velocity: number;
+}
+
+/** The beat at `phase` (any real; the fraction is used). */
+export function cycleAt(phase: number): Cycle {
+  const a = (phase - Math.floor(phase)) * TAU;
+  const theta = a + TAU * SKEW * Math.sin(a);
+  const rate = (1 + TAU * SKEW * Math.cos(a)) / (1 + TAU * SKEW);
+  return { flap: Math.cos(theta), velocity: -Math.sin(theta) * rate };
+}
+
+/** What a species does with a beat. */
+export interface Gait {
+  /** Beat angle above horizontal at the top and bottom of the stroke, radians. */
+  readonly up: number;
+  readonly down: number;
+  /** The plane's angle while gliding, radians. */
+  readonly glideBeat: number;
+  /** Sweep back while beating and while gliding, radians. */
+  readonly sweepBeat: number;
+  readonly sweepGlide: number;
+  /** The fingers' spread at the bottom and at the top of the stroke. */
+  readonly spreadDown: number;
+  readonly spreadUp: number;
+  /** How far the tip lags the root in a stroke. */
+  readonly bendGain: number;
+}
+
+export interface WingState {
+  readonly beat: number;
+  readonly bend: number;
+  readonly sweep: number;
+  readonly spread: number;
+}
+
+/**
+ * The wing at `cycle` of `gait`, `glide` being how far it has settled into a
+ * glide (0 beating … 1 wings held). Eased by the caller, so the move from
+ * beating to gliding is continuous.
+ */
+export function wingState(gait: Gait, cycle: Cycle, glide: number): WingState {
+  const lift = (cycle.flap + 1) / 2;
+  const beating = lerp(gait.down, gait.up, lift);
+  const glideAmount = smoothstep(0, 1, glide);
+  return {
+    beat: lerp(beating, gait.glideBeat, glideAmount),
+    bend: -cycle.velocity * gait.bendGain * (1 - glideAmount),
+    sweep: lerp(gait.sweepBeat, gait.sweepGlide, glideAmount),
+    spread: lerp(lerp(gait.spreadDown, gait.spreadUp, lift), 1, glideAmount),
+  };
+}
+
+export const BAT_GAIT: Gait = {
+  up: 1.2,
+  down: -0.95,
+  glideBeat: 0.3,
+  sweepBeat: 0.28,
+  sweepGlide: 0.4,
+  spreadDown: 1,
+  spreadUp: 0.55,
+  bendGain: 0.55,
+};
+
+export const SWALLOW_GAIT: Gait = {
+  up: 0.95,
+  down: -0.8,
+  glideBeat: 0.12,
+  sweepBeat: 0.55,
+  sweepGlide: 1.1,
+  spreadDown: 1,
+  spreadUp: 0.85,
+  bendGain: 0.5,
+};

@@ -18,11 +18,14 @@ export const UNICORN_BACKDROP: SeedBackdrop = { id: "backdrops.unicorn", label: 
 /** The compact tag/accent wash alone. */
 export const GRADIENT_BACKDROP: SeedBackdrop = { id: "backdrops.gradient", label: "Gradient" };
 
+/** Bats against a moon glow by night, swallows against a sun glow by day: the open sky. */
+export const SKY_BACKDROP: SeedBackdrop = { id: "backdrops.sky", label: "Sky" };
+
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
   optional: { byDefault: "on" },
-  backdrops: [UNICORN_BACKDROP, GRADIENT_BACKDROP],
+  backdrops: [UNICORN_BACKDROP, GRADIENT_BACKDROP, SKY_BACKDROP],
 });
 
 /** The backdrops family's shared plugin: its declaration's, on either host. */

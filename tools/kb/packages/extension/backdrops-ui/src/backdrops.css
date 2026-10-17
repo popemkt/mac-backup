@@ -77,3 +77,16 @@
 .dark .kb-unicorn-backdrop::after {
   display: none;
 }
+
+/*
+ * The 2D scenes (Sky, Roost) paint on a canvas that fills the head's frame.
+ * Their edges feather inside the canvas (`scene/feather.ts`), where the
+ * dither can carry the fade; a CSS mask would band on a dark ground.
+ */
+.kb-scene-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
