@@ -2118,15 +2118,23 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   whoever opens a root someone else wrote (a clone, a location an agent
   asked to open) runs none of its code before they have read it, and an
   untrusted module's declaration is neither seeded nor loaded. Trust
-  covers what runs: an extension is its one file and the packages installed
-  outside the root, so a file that imports another file (`./lib/x.ts`,
-  `../src/x.ts`) or a package the root carries in its own `node_modules` is
-  refused before anything is imported. What is imported is the source whose
-  digest was trusted, not the file as it is by then: one Bun load hook
-  (`importVerified`) loads every module under a `.kb/extensions/` from its
-  verified bytes, and refuses any other file there, however it is reached,
-  so it never runs. Bun loads a module once per process, so a file trusted
-  again after an edit runs its new source from the next process on.
+  covers what runs. An extension is its one file and the packages
+  installed outside the root, and it names every import as a literal: a
+  file that imports another file (`./lib/x.ts`, `../src/x.ts`), a package
+  the root carries in a `node_modules` of its own (a directory or a link to
+  one elsewhere), or anything only known when it runs (a computed
+  `import()`, a `require` not called with a literal; a string that merely
+  reads like one is refused too, the safe direction) is refused before
+  anything is imported. An extension is a file of its directory: one whose
+  real path is outside `.kb/extensions` (a link out) is refused. What is
+  imported is the source whose digest was trusted, not the file as it is
+  by then: each extensions directory has one Bun load hook, matching its
+  real path and nothing else (`importVerified`), which loads a verified
+  file from its verified bytes and refuses any other file there, so it
+  never runs. Bun loads a module once per process, so a file trusted again
+  after an edit runs its new source from the next process on. Trusted code
+  still runs with the server's reach (it can start a process or read a
+  file); trust is that a person read it, and what they read is what runs.
 - **Everything loads as a plugin into one kernel** (`@kb/plugin`,
   `packages/domain/plugin`, `scope:shared`; the model is DeepSeek Harness's
   Cordis). A plugin is `{ name, namespace?, inject?, apply(ctx) }`; through

@@ -8,12 +8,14 @@
  * trusted in.
  *
  * Trust covers what runs: a helper a trusted file reaches for (another file,
- * by a static or a computed import, or a package the root carries) never
- * runs, and what is imported is the source whose digest was trusted, even
- * when the file changes after the digest is read.
+ * by a static or a computed import, inside the extensions directory or out
+ * of it, through a link or not, or a package the root carries) never runs;
+ * an extension that is a link out of the directory is refused; and what is
+ * imported is the source whose digest was trusted, even when the file, or
+ * the file a link names, changes after the digest is read.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -84,15 +86,35 @@ describe("a root's repository extensions", () => {
       [
         "a computed import of another file",
         `await import(["./lib/", "helper", ".ts"].join(""));`,
-        "is not a verified extension",
+        "only known when it runs",
       ],
-      ["a package the root carries", `import "carried";`, "from inside the root"],
+      [
+        "a computed import of a file outside the directory",
+        `await import(["..", "..", "outside.ts"].join("/"));`,
+        "only known when it runs",
+      ],
+      [
+        "a computed import of a helper that links out",
+        `await import(["./lib/", "link", ".ts"].join(""));`,
+        "only known when it runs",
+      ],
+      ["a static import of a helper that links out", `import "./lib/link.ts";`, "one file"],
+      ["a package the root carries", `import "carried";`, "the root carries"],
+      ["a package the root carries through a link", `import "linked";`, "the root carries"],
+      ["a require", `const { helped } = require("./lib/helper.ts");`, "one file"],
+      [
+        "a require of a name it builds",
+        `const r = require; r("./lib/helper.ts");`,
+        "only known when it runs",
+      ],
     ])("%s is refused, and the helper never runs", async (_how, prelude, why) => {
       const mark = join(root, "ran");
+
       // Beside the extension, where discovery does not look, and trusted by nobody.
       await mkdir(join(root, ".kb", "extensions", "lib"), { recursive: true });
       await writeFile(join(root, ".kb", "extensions", "lib", "helper.ts"), helper(mark));
       await writeFile(join(root, "outside.ts"), helper(mark));
+      await symlink(join(root, "outside.ts"), join(root, ".kb", "extensions", "lib", "link.ts"));
       const pkg = join(root, "node_modules", "carried");
       await mkdir(pkg, { recursive: true });
       await writeFile(
@@ -103,12 +125,64 @@ describe("a root's repository extensions", () => {
         join(pkg, "index.js"),
         helper(mark).replace("export const helped = true;", ""),
       );
+      // A package the root carries as a link to one outside it is the root's all the same.
+      const elsewhere = await mkdtemp(join(tmpdir(), "kb-linked-package-"));
+      await writeFile(
+        join(elsewhere, "package.json"),
+        JSON.stringify({ name: "linked", main: "index.js" }),
+      );
+      await writeFile(
+        join(elsewhere, "index.js"),
+        helper(mark).replace("export const helped = true;", ""),
+      );
+      await symlink(elsewhere, join(root, "node_modules", "linked"));
       const source = extension(prelude);
       await writeTrustedExtension(root, "hello.ts", source);
       const { failures } = await registry();
       expect(await loads()).toBe(false);
       expect(failures).toEqual([{ file: "hello.ts", error: expect.stringContaining(why) }]);
       expect(existsSync(mark)).toBe(false);
+    });
+
+    test("an extension that is a link out of the extensions directory is refused, and never runs", async () => {
+      const mark = join(root, "ran");
+      await writeFile(join(root, "outside.ts"), extension(helper(mark)));
+      await mkdir(join(root, ".kb", "extensions"), { recursive: true });
+      await trustExtension(root, extension(helper(mark)));
+      await symlink(join(root, "outside.ts"), join(root, ".kb", "extensions", "hello.ts"));
+      const { failures } = await registry();
+      expect(failures).toEqual([
+        { file: "hello.ts", error: expect.stringContaining("links out of .kb/extensions") },
+      ]);
+      expect(existsSync(mark)).toBe(false);
+    });
+
+    test("a link within the directory runs the bytes that were trusted, not its target as it is by then", async () => {
+      const dir = join(root, ".kb", "extensions", "lib");
+      await mkdir(dir, { recursive: true });
+      const target = join(dir, "hello-source.ts");
+      await writeFile(target, HELLO);
+      await symlink(target, join(root, ".kb", "extensions", "hello.ts"));
+      const swapped = HELLO.replace("hello: true", "hello: false");
+      const discovered = await Effect.runPromise(
+        discoverExtensions(root).pipe(
+          Effect.provideService(CodeTrust, {
+            // The link's target changes after its digest is read, before it is imported.
+            trusted: (digests) =>
+              Effect.sync(() => {
+                writeFileSync(target, swapped);
+                return [...digests];
+              }),
+            trust: () => Effect.void,
+            untrust: () => Effect.void,
+          }),
+          Effect.provide(bunFileSystemLayer),
+        ),
+      );
+      const [action] = discovered.extensions.flatMap(({ actions }) => actions);
+      expect(await action?.handler?.(undefined as never, undefined as never)).toEqual({
+        hello: true,
+      });
     });
 
     test("what is imported is the source that was trusted, not the file as it is by then", async () => {

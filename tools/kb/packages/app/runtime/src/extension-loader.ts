@@ -33,12 +33,15 @@ import { importVerified } from "./verified-import.ts";
  * — runs none of its code until they have looked at it.
  *
  * Trust covers what runs. An extension is its one file and the packages
- * installed outside the root: an import of another file (`./helper.ts`,
- * `../src/x.ts`) or of a package the root itself carries is code the digest
- * does not cover, so the file is refused before anything is imported
- * (`unverifiedImport`). What is imported is the source whose digest was
- * read, not the file as it is by then (`importVerified`), and a file under
- * `.kb/extensions/` reached any other way never runs.
+ * installed outside the root, and it names what it imports: an import of
+ * another file (`./helper.ts`, `../src/x.ts`), of a package the root itself
+ * carries, or of anything only known when it runs (a computed `import()`, a
+ * `require` it does not call with a literal) is code the digest does not
+ * cover, so the file is refused before anything is imported
+ * (`unverifiedImport`). An extension is a file of its directory: a link to
+ * a file outside it is refused. What is imported is the source whose digest
+ * was read, not the file as it is by then (`importVerified`), and any other
+ * file of the directory, however it is reached, never runs.
  */
 function extensionsDir(root: string): string {
   return join(root, ".kb", "extensions");
@@ -60,27 +63,44 @@ function namesFile(specifier: string): boolean {
   return /^(\.{1,2}(\/|$)|\/|file:)/.test(specifier);
 }
 
-/** Where `specifier` resolves from `dir`, or null when it does not resolve to a file. */
-function resolvedFrom(specifier: string, dir: string): string | null {
-  try {
-    return Bun.resolveSync(specifier, dir);
-  } catch {
-    return null;
-  }
+/** The package a bare specifier names (`@scope/name`, `name`), or null for a built-in. */
+function packageOf(specifier: string): string | null {
+  if (/^(node|bun):/.test(specifier)) return null;
+  const [first = "", second = ""] = specifier.split("/");
+  return first.startsWith("@") ? `${first}/${second}` : first;
+}
+
+/** Imports and `require`s in `source` whose specifier is not a literal. */
+function computedImports(source: string): number {
+  const literal = transpiler
+    .scanImports(source)
+    .filter(({ kind }) => kind === "dynamic-import" || kind === "require-call").length;
+  const js = transpiler.transformSync(source);
+  const written =
+    (js.match(/\bimport\s*\(/g) ?? []).length + (js.match(/\brequire\b/g) ?? []).length;
+  return written - literal;
 }
 
 /**
- * Why `source`, an extension in `dir` of `root`, imports code its digest
- * does not cover, or null: another file, or a package that resolves inside
- * the root (one the root carries in its own `node_modules`).
+ * Why `source` imports code its digest does not cover, or null: anything it
+ * names only when it runs, another file, or a package the root carries in a
+ * `node_modules` of its own between the extension and the root (`carrier`:
+ * where, if it does), whether that is a directory or a link to one
+ * elsewhere.
  */
-function unverifiedImport(source: string, dir: string, root: string): string | null {
+function unverifiedImport(
+  source: string,
+  carrier: (pkg: string) => string | undefined,
+): string | null {
+  if (computedImports(source) > 0)
+    return "imports what is only known when it runs; an extension names every import as a literal";
   for (const { path: specifier } of transpiler.scanImports(source)) {
     if (namesFile(specifier))
       return `imports ${specifier}; an extension is one file, and only that file is trusted`;
-    const resolved = resolvedFrom(specifier, dir);
-    if (resolved?.startsWith(`${root}${sep}`) === true)
-      return `imports ${specifier} from inside the root (${resolved}), which its trust does not cover`;
+    const pkg = packageOf(specifier);
+    const carried = pkg === null ? undefined : carrier(pkg);
+    if (carried !== undefined)
+      return `imports ${specifier}, which the root carries (${carried}), and its trust does not cover`;
   }
   return null;
 }
@@ -92,6 +112,7 @@ function unverifiedImport(source: string, dir: string, root: string): string | n
  */
 const trustedFiles = Effect.fn("kb.trustedExtensions")(function* (
   dir: string,
+  realDir: string,
   files: readonly string[],
   failures: ExtensionFailure[],
 ): Effect.fn.Return<TrustedFile[], never, FileSystem | CodeTrust> {
@@ -99,6 +120,13 @@ const trustedFiles = Effect.fn("kb.trustedExtensions")(function* (
   const read = new Map<string, TrustedFile & { readonly digest: string }>();
   for (const file of files) {
     const path = yield* fs.realPath(join(dir, file)).pipe(Effect.orElseSucceed(() => null));
+    if (path !== null && !path.startsWith(`${realDir}${sep}`)) {
+      failures.push({
+        file,
+        error: `links out of .kb/extensions (to ${path}); an extension is a file of its directory`,
+      });
+      continue;
+    }
     const source =
       path === null ? null : yield* fs.readFileString(path).pipe(Effect.orElseSucceed(() => null));
     if (path === null || source === null) failures.push({ file, error: "could not be read" });
@@ -117,6 +145,24 @@ const trustedFiles = Effect.fn("kb.trustedExtensions")(function* (
     });
     return [];
   });
+});
+
+/** Each package the `node_modules` directories `among` hold, by name, with where it is. */
+const carriedPackages = Effect.fn("kb.carriedPackages")(function* (
+  among: readonly string[],
+): Effect.fn.Return<ReadonlyMap<string, string>, never, FileSystem> {
+  const fs = yield* FileSystem;
+  const list = (dir: string) => fs.readDirectory(dir).pipe(Effect.orElseSucceed(() => []));
+  const carried = new Map<string, string>();
+  for (const modules of among) {
+    for (const entry of yield* list(modules)) {
+      if (!entry.startsWith("@")) carried.set(entry, modules);
+      else
+        for (const scoped of yield* list(join(modules, entry)))
+          carried.set(`${entry}/${scoped}`, modules);
+    }
+  }
+  return carried;
 });
 
 /**
@@ -142,19 +188,24 @@ export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
   const failures: ExtensionFailure[] = [];
   const dir = extensionsDir(root);
   const realRoot = yield* fs.realPath(root).pipe(Effect.orElseSucceed(() => root));
-  const files = yield* trustedFiles(dir, named, failures);
+  const realDir = yield* fs.realPath(dir).pipe(Effect.orElseSucceed(() => dir));
+  const files = yield* trustedFiles(dir, realDir, named, failures);
+  // The `node_modules` an extension's packages would resolve through, up to the root.
+  const carried = yield* carriedPackages(
+    [realDir, dirname(realDir), realRoot].map((at) => join(at, "node_modules")),
+  );
   for (const { file, path, source } of files) {
     const name = file.slice(0, -".ts".length);
     if (!NAME_RE.test(name)) {
       failures.push({ file, error: "extension file name must match /^[\\w][\\w.-]*$/" });
       continue;
     }
-    const reaches = unverifiedImport(source, dirname(path), realRoot);
+    const reaches = unverifiedImport(source, (pkg) => carried.get(pkg));
     if (reaches !== null) {
       failures.push({ file, error: reaches });
       continue;
     }
-    const loaded = yield* importVerified(path, source).pipe(
+    const loaded = yield* importVerified(realDir, path, source).pipe(
       Effect.map((mod) => ({ mod, error: null })),
       Effect.catch((error) => Effect.succeed({ mod: null, error })),
     );
