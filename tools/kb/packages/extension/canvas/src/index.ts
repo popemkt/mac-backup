@@ -35,6 +35,7 @@ export {
   ancestorsOf,
   canvasMembership,
   carriedBy,
+  deleteItems,
   carriedPart,
   freeItems,
   editItem,

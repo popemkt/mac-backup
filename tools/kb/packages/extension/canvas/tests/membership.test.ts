@@ -6,6 +6,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
+  deleteItems,
   boxCorners,
   boxFrame,
   canvasMembership,
@@ -355,6 +356,22 @@ describe("a locked item", () => {
     if (inner === undefined) throw new Error("no inner");
     const moved = editItem(doc, { ...inner, x: inner.x + 50 });
     expect(byId(moved, "b")?.x).toBe(290);
+  });
+
+  test("is not deleted with the frame round it: it stays, with what it holds, and is let go", () => {
+    const doc = lockedIn("inner");
+    const left = deleteItems(doc, ["outer"]);
+    // The outer frame and its free member go; the locked frame and its sticky stay where they stood.
+    expect(ids(left.nodes)).toEqual(["inner", "b", "loose"]);
+    expect(byId(left, "inner")).toMatchObject({ x: 200, y: 100 });
+    expect(byId(left, "inner")).not.toHaveProperty("parent");
+    expect(byId(left, "b")?.parent).toBe("inner");
+    // The edge that met the deleted sticky goes with it.
+    expect(left.edges).toEqual([]);
+    // Unlocked, the same delete takes all of it.
+    expect(ids(deleteItems(nested, ["outer"]).nodes)).toEqual(["loose"]);
+    // Named itself, a locked item is not deleted at all.
+    expect(deleteItems(doc, ["inner"]).nodes).toEqual(doc.nodes);
   });
 
   test("is not grouped, nor taken apart", () => {

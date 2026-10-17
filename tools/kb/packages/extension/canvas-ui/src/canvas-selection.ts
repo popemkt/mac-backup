@@ -8,7 +8,7 @@ import {
   ancestorsOf,
   boxCorners,
   canvasMembership,
-  carriedBy,
+  deleteItems,
   freeItems,
   isWithin,
   withMembers,
@@ -172,18 +172,11 @@ export function addNodes(sel: CanvasSelection, ids: Set<string>): CanvasSelectio
 }
 
 /**
- * Delete all selected nodes + edges from doc; a group goes with its members.
- * Cascade: edges incident to deleted nodes are also removed.
+ * `doc` with the selection deleted: its items as an act deletes them
+ * (`deleteItems`: a frame with its members, a locked member held back, the
+ * edges that meet them), and its edges.
  */
 export function deleteSelected(doc: CanvasDoc, sel: CanvasSelection): CanvasDoc {
-  const { items, members } = carriedBy(doc.nodes, sel.nodeIds);
-  const deadNodes = new Set([...items, ...members].map((node) => node.id));
-  const deadEdges = sel.edgeIds;
-  return {
-    ...doc,
-    nodes: doc.nodes.filter((n) => !deadNodes.has(n.id)),
-    edges: doc.edges.filter(
-      (e) => !deadEdges.has(e.id) && !deadNodes.has(e.fromNode) && !deadNodes.has(e.toNode),
-    ),
-  };
+  const left = deleteItems(doc, sel.nodeIds);
+  return { ...left, edges: left.edges.filter((edge) => !sel.edgeIds.has(edge.id)) };
 }

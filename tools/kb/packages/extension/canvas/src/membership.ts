@@ -247,6 +247,34 @@ export function settleMembership(doc: CanvasDoc, ids: Iterable<string>): CanvasD
 }
 
 /**
+ * `doc` with the items `ids` name deleted, as an act deletes them: those it
+ * may take (`freeItems`), and the members below them, with the edges that
+ * meet any of them. A locked member is held back, and what it holds with
+ * it: it stays where it stands, settled into whatever frame still holds it,
+ * or onto the canvas, as the frame round it goes.
+ */
+export function deleteItems(doc: CanvasDoc, ids: Iterable<string>): CanvasDoc {
+  const membership = canvasMembership(doc.nodes);
+  const held = new Set(doc.nodes.filter((node) => node.locked === true).map((node) => node.id));
+  const dead = new Set<string>();
+  const kept: string[] = [];
+  const queue = carriedBy(doc.nodes, ids).items.map((item) => item.id);
+  for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+    dead.add(id);
+    for (const member of membership.membersOf(id)) {
+      if (held.has(member)) kept.push(member);
+      else queue.push(member);
+    }
+  }
+  const left = {
+    ...doc,
+    nodes: doc.nodes.filter((node) => !dead.has(node.id)),
+    edges: doc.edges.filter((edge) => !dead.has(edge.fromNode) && !dead.has(edge.toNode)),
+  };
+  return settleMembership(left, kept);
+}
+
+/**
  * `doc` with `items` written in where they were placed — new items, or
  * items written over the ones of their ids — each belonging to the frame
  * that holds it there: how any item lands, whatever placed it.
