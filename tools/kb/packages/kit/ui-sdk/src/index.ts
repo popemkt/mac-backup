@@ -62,8 +62,10 @@ export { SandboxApprovalCard } from "./components/sandbox-approval-card";
 // scripts provides.
 export {
   ScriptHostService,
+  createViewAnchors,
   createViewEvents,
   type ScriptHostProps,
+  type ViewAnchors,
   type ViewEvents,
 } from "./view-scripts";
 export { ViewScripts } from "./components/view-scripts";

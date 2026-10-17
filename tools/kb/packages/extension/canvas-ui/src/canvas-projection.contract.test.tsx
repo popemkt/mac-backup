@@ -27,7 +27,10 @@
  *   and hit as any other, since a lock holds an item and is no look;
  * - nested membership: a frame paints under what belongs to it, at any
  *   depth and whatever the document order, and a frame's transform draws
- *   its members where it carried them.
+ *   its members where it carried them;
+ * - an item's anchor, where a script's drawing stands on it
+ *   (`itemScreenRects`), holds every corner of its face as drawn, and a
+ *   flat item's face fills it.
  *
  * The 2D projection is the real DOM stage; the 3D one is the real scene on
  * the GPU stand-ins (`@kb/ui-test-kit`), each read by its probe
@@ -39,6 +42,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   boxFrame,
   boxToLocal,
+  canvasDepth,
   boxToWorld,
   carriedBy,
   directionToLocal,
@@ -69,12 +73,14 @@ import {
   screenToPlane,
   viewAxes,
   type CanvasView,
+  type ScreenRect,
   type ViewSize,
 } from "./canvas-camera";
 import type { CanvasSelection } from "./canvas-selection";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
+import { itemScreenRects } from "./canvas-visible";
 import { PROBES, PROBE_LOOK, useProbePage } from "./test-support/projection-probes";
 
 type Probe = Awaited<ReturnType<(typeof PROBES)["2d"]>>;
@@ -390,6 +396,37 @@ function expectDrawnAsModel(probe: Probe, shown: CanvasDoc, view: CanvasView): v
   }
 }
 
+/**
+ * Whether `at`, an item's anchor, holds every corner of its face as `drawn`
+ * — within a pixel, since the anchor is the item at its own height and its
+ * face is drawn a hair over it — and, for a flat item, is filled by it.
+ */
+function expectAnchoredWhereDrawn(
+  item: CanvasNode,
+  drawn: readonly { x: number; y: number }[],
+  at: ScreenRect | undefined,
+): void {
+  expect(at, item.id).toBeDefined();
+  if (at === undefined) return;
+  const xs = drawn.map((p) => p.x);
+  const ys = drawn.map((p) => p.y);
+  const sides = [
+    [Math.min(...xs), at.left],
+    [Math.max(...xs), at.right],
+    [Math.min(...ys), at.top],
+    [Math.max(...ys), at.bottom],
+  ] as const;
+  const [left, right, top, bottom] = sides;
+  expect(left[0], `${item.id} left`).toBeGreaterThan(left[1] - 1);
+  expect(right[0], `${item.id} right`).toBeLessThan(right[1] + 1);
+  expect(top[0], `${item.id} top`).toBeGreaterThan(top[1] - 1);
+  expect(bottom[0], `${item.id} bottom`).toBeLessThan(bottom[1] + 1);
+  if (canvasDepth(item) > 0) return;
+  for (const [face, anchor] of sides) {
+    expect(Math.abs(face - anchor), `${item.id} fills`).toBeLessThan(1);
+  }
+}
+
 describe("canvas projection contract", () => {
   useProbePage();
 
@@ -434,6 +471,15 @@ describe("canvas projection contract", () => {
           expect(drawn?.[i]?.x, `${item.id} corner ${i}`).toBeCloseTo(model?.x ?? Number.NaN, 1);
           expect(drawn?.[i]?.y, `${item.id} corner ${i}`).toBeCloseTo(model?.y ?? Number.NaN, 1);
         });
+      }
+      probe.dispose();
+    });
+
+    it("anchors every item where it draws it: its face within, a flat face filling it", async () => {
+      const probe = await mount(view, scene);
+      const anchors = itemScreenRects(doc.nodes, view, size);
+      for (const item of doc.nodes) {
+        expectAnchoredWhereDrawn(item, probe.cornersOf(item.id) ?? [], anchors.get(item.id));
       }
       probe.dispose();
     });

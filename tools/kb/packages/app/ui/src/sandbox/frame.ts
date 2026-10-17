@@ -20,6 +20,7 @@ import {
   ToolResult,
   drawingToDom,
   notification,
+  placeAnchored,
   runGuest,
   safeThemeValue,
   type GuestRun,
@@ -27,6 +28,7 @@ import {
   type Response,
   type RunInput,
   type RunStatus,
+  type SandboxAnchors,
   type SandboxEngine,
 } from "@kb/sandbox";
 import { quickjsEngine } from "@kb/sandbox-quickjs";
@@ -130,6 +132,13 @@ function reportSize(): void {
 }
 
 let generation = 0;
+/** Where the page's view draws its things now: what anchored drawings stand on. */
+let anchors: SandboxAnchors = {};
+
+/** Stand what the guest drew on the view's things as they are drawn now. */
+function anchor(): void {
+  if (drawBox !== null) placeAnchored(drawBox, anchors);
+}
 
 function start(input: RunInput): void {
   stopRun();
@@ -147,6 +156,7 @@ function start(input: RunInput): void {
           Effect.sync(() => {
             if (mine !== generation) return;
             drawBox?.replaceChildren(...drawingToDom(document, report.nodes));
+            anchor();
             reportSize();
           }),
         log: (level, data) =>
@@ -219,6 +229,9 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
     resolve?.(message);
   } else if (message.method === MCP_APPS_METHODS.toolInput) {
     start(message.params.arguments);
+  } else if (message.method === KB_METHODS.anchors) {
+    anchors = message.params.anchors;
+    anchor();
   } else {
     const current = run;
     if (current !== null) Effect.runFork(current.guest.event(message.params));

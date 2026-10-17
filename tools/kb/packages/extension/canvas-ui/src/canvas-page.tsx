@@ -39,6 +39,7 @@ import {
   useNodes,
   useSchema,
   ViewScripts,
+  createViewAnchors,
   createViewEvents,
 } from "@kb/ui-sdk";
 import { useCanvasProjection } from "./use-canvas-projection";
@@ -54,6 +55,7 @@ import { createCanvasEdgeActions } from "./use-canvas-edge-actions";
 import { useCanvasGestures } from "./use-canvas-gestures";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
 import { useCanvasScreen } from "./use-canvas-screen";
+import { CanvasScriptAnchors } from "./canvas-script-anchors";
 import { useCanvasCapture } from "./canvas-capture";
 import { useCanvasSelection } from "./use-canvas-selection";
 import { createCanvasNode, listRefFields } from "./canvas-api";
@@ -181,6 +183,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
   } = useCanvasSelection(doc, byId, membership);
   /** The events the canvas tells its scripts (`CANVAS_EVENTS`), on one channel for its life. */
   const [scriptEvents] = useState(createViewEvents);
+  const [scriptAnchors] = useState(createViewAnchors);
   /** An item pressed, in either projection: the scripts hear it, then the press does what it does. */
   const pressCard: typeof onCardPointerDown = (card, ...rest) => {
     scriptEvents.emit({
@@ -688,7 +691,21 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
           />
         )}
         <CanvasShortcutsSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-        <ViewScripts subjects={scripted} view={CanvasView} events={scriptEvents} />
+        <CanvasScriptAnchors
+          rig={projection.rig}
+          in3d={in3d}
+          flatView={projection.flatView()}
+          width={projection.camera().size.width}
+          height={projection.camera().size.height}
+          items={doc.nodes}
+          anchors={scriptAnchors}
+        />
+        <ViewScripts
+          subjects={scripted}
+          view={CanvasView}
+          events={scriptEvents}
+          anchors={scriptAnchors}
+        />
         <CanvasOverlays
           transforming={modal}
           scope={scope === null ? null : (byId.get(scope) ?? null)}

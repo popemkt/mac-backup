@@ -4,9 +4,6 @@
  * Sandbox states the model and its threat model; this package is its
  * vocabulary and the parts every host shares.
  */
-// GAP [[01M41DKTE1T51M031N231VGQJR]] Only code views run: a #script attached to a view, its
-// overlays above that view and the view's own events wait on views declaring
-// them (DESIGN.md → Sandbox → Gaps).
 export {
   ENGINE_KINDS,
   ENGINE_LIMITS,
@@ -23,6 +20,15 @@ export {
   type GrantScope,
 } from "./grant.ts";
 export {
+  SANDBOX_ANCHOR_ATTR,
+  SandboxAnchor,
+  SandboxAnchors,
+  placeAnchored,
+  type AnchoredBox,
+  type AnchoredElement,
+} from "./anchors.ts";
+export {
+  AnchorsNotification,
   DATA_EVENT,
   DRAWING_EVENTS,
   END_REASONS,

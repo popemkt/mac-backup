@@ -21,6 +21,7 @@ import {
   answerToolCall,
   notification,
   resultMessage,
+  type SandboxAnchors,
 } from "@kb/sandbox";
 import { invoke, invokeSettled } from "@/session/runtime";
 import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "@kb/ui-sdk";
@@ -58,6 +59,8 @@ export function hostSandboxFrame(
 ): HostedFrame {
   let initialized = false;
   let open = true;
+  /** Where the view draws its things, as last told: a frame that initializes later hears it then. */
+  let anchors: SandboxAnchors = {};
   let windowStart = performance.now();
   let inWindow = 0;
   const scope = { grant: run.grant, subject: run.input.subject };
@@ -110,6 +113,7 @@ export function hostSandboxFrame(
       case MCP_APPS_METHODS.initialized:
         initialized = true;
         post(notification(MCP_APPS_METHODS.toolInput, { arguments: run.input }));
+        post(notification(KB_METHODS.anchors, { anchors }));
         break;
       case MCP_APPS_METHODS.toolsCall: {
         const { id, params } = message;
@@ -151,6 +155,10 @@ export function hostSandboxFrame(
   return {
     event: (event) => {
       if (initialized) post(notification(KB_METHODS.event, event));
+    },
+    anchor: (next) => {
+      anchors = next;
+      if (initialized) post(notification(KB_METHODS.anchors, { anchors }));
     },
     dispose,
   };

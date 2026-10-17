@@ -3492,8 +3492,8 @@ is `@kb/sandbox` (`packages/contract/sandbox`); the engines are
   `protocol.ts`). A graph read or a write is `tools/call` of a registry
   action, so a guest's call passes from hop to hop unchanged and reaches the
   invoke core like any other call. kb's own methods are `kb/draw`,
-  `kb/event`, `kb/fail` and `kb/status`. Everything a guest or a frame sends
-  is decoded before anything reads it.
+  `kb/event`, `kb/anchors`, `kb/fail` and `kb/status`. Everything a guest or
+  a frame sends is decoded before anything reads it.
 - **The guest's API is one prelude** (`prelude.ts`), run first in every
   engine above a bare string pipe (`__kb_post` out, `__kb_receive` in), so
   both engines offer the same API: `kb.subject`; `kb.node(id, depth)`
@@ -3648,11 +3648,23 @@ system, one runner, one trust.
 - **A script runs as code views do, with one difference: never untrusted.**
   It runs on the page's one runner (`SandboxFrame`, `useSandboxTrust`,
   `useSandboxPorts`), with its node as `kb.subject`, its grant, the
-  `script` actor and the view's events, hidden. A script reacts to a view
+  `script` actor and the view's events. A script reacts to a view
   on its own and may write, so it runs only once a person has trusted its
   `codeDigest` (and then in a Worker); until then it is listed with its
   code and grant and a Trust gesture, and nothing of it runs. A call that
   asks is the same card as a code view's.
+- **What it draws lies over its view.** Its frame covers the view,
+  see-through, and lets every gesture pass to the view beneath. An element
+  it draws with `data-anchor` naming a thing of the view (a canvas item's
+  id) stands on that thing's rectangle as the view draws it now: the view
+  tells where its things are (`ViewAnchors`, `createViewAnchors`), the page
+  passes it to the frame (`kb/anchors`, `SandboxAnchors`), and the frame,
+  not the guest, keeps every anchored element there (`placeAnchored`,
+  `@kb/sandbox` `anchors.ts`), so a drawing follows the camera without
+  being drawn again; one whose thing is not drawn is hidden. The canvas's
+  anchors are its items' screen bounds in whichever projection shows
+  (`itemScreenRects`), which the projection contract holds to where each
+  projection draws them (DESIGN-UI.md → Canvas → Projections).
 - **Once, on request** (tldraw's exec): `ext.code.script.run` runs a
   trusted `#script` against a node until it is quiet (`snapshotRun`, with
   `CoreInvoke` as `write`), on the host's engine, each call the script's.
@@ -3710,15 +3722,6 @@ its result, not in what it costs to run (GAP-SANDBOX-QUERY-COST).
 
 ### Gaps
 
-- `// GAP [[01M41DKTE1T51M031N231VGQJR]]` (`@kb/sandbox`'s `index.ts`). Expected: a `#script`
-  node attached to a view (`sys.f.scripts` on a view node, ref, many) runs
-  in the same sandbox with the same API, plus overlays drawn above the view
-  it is attached to and that view's own events (a drop on a board column, a
-  hover on a graph node), each a `kb/event` type a view declares. Current:
-  only code views run; the API draws only its own box and hears only its own
-  drawing's gestures and `data`. Closes: views declaring their events and
-  overlay anchors in their keys, a transparent overlay frame over a hosted
-  view, and `#script` as a view setting resolved like `sys.f.views`.
 - `// GAP [[01M41DKTTRA55RA1KF4QBWQ9MF]]` (`@kb/code`'s `view.ts`). Expected: a
   person promotes a trusted code view to a view type — a `.kb/extensions`
   plugin contributing a `ViewPoint` entry with a key, settings schema and

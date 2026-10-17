@@ -7,7 +7,14 @@
  */
 import type { ActionInvocation, ActionReceipt } from "@kb/contracts";
 import type { KbNode } from "@kb/model";
-import type { CodeGrant, KbEvent, LogLevel, RunInput, RunStatus } from "@kb/sandbox";
+import type {
+  CodeGrant,
+  KbEvent,
+  LogLevel,
+  RunInput,
+  RunStatus,
+  SandboxAnchors,
+} from "@kb/sandbox";
 
 /** One run a frame hosts: what it runs, and what its code may ask. */
 export interface SandboxRun {
@@ -32,5 +39,7 @@ export interface SandboxEvents {
 export interface HostedFrame {
   /** Tell the run `event`; it hears only the types its run declares (`RunInput.events`). */
   readonly event: (event: KbEvent) => void;
+  /** Tell the frame where its view draws its things now: what its anchored drawings stand on. */
+  readonly anchor: (anchors: SandboxAnchors) => void;
   readonly dispose: () => void;
 }

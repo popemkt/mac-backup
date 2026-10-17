@@ -5,9 +5,13 @@
  * as `kb.subject`, hearing the events the view declares. A script a person
  * has not trusted never runs: it is listed with its code and grant, and
  * trusting it is the person's gesture. A call that asks is a card, as in a
- * code view. The code family provides it to every view (`ScriptHostService`).
+ * code view. Each running script's frame lies over the whole view, see-through
+ * and letting every gesture pass, so what it draws stands over the view —
+ * on the view's things where it names them (`data-anchor`, `ViewAnchors`).
+ * The code family provides it to every view (`ScriptHostService`).
  */
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { CodeIcon } from "@phosphor-icons/react";
 import { scriptIdsOf, scriptOf, type ScriptSource } from "@kb/code";
 import { ENGINE_LIMITS, engineKindFor, type RunStatus } from "@kb/sandbox";
@@ -69,15 +73,17 @@ function RowButton({
   );
 }
 
+/** What a row needs beyond its script: the view's channels, and the layer over the view its frame lies in. */
+type RowProps = Omit<ScriptHostProps, "subjects"> & { readonly overlay: HTMLElement | null };
+
 function ScriptRow({
   subject,
   script,
   view,
   events,
-}: { readonly subject: string; readonly script: ScriptSource } & Omit<
-  ScriptHostProps,
-  "subjects"
->) {
+  anchors,
+  overlay,
+}: { readonly subject: string; readonly script: ScriptSource } & RowProps) {
   const generation = useGeneration();
   const [status, setStatus] = useState<RunStatus | null>(null);
   const [open, setOpen] = useState(false);
@@ -168,29 +174,30 @@ function ScriptRow({
           </pre>
         </div>
       ) : null}
-      {/* An untrusted script never runs; a trusted one runs while the view is shown. */}
-      {trust?.trusted === true ? (
-        <SandboxFrame
-          key={trust.digest}
-          run={run}
-          ports={ports}
-          events={told}
-          generation={generation}
-          title={`${script.label}, a sandboxed script`}
-          listen={events.listen}
-          className="pointer-events-none absolute h-0 w-0 border-0 opacity-0"
-        />
-      ) : null}
+      {/* An untrusted script never runs; a trusted one runs, over the view, while it is shown. */}
+      {trust?.trusted === true && overlay !== null
+        ? createPortal(
+            <SandboxFrame
+              run={run}
+              ports={ports}
+              events={told}
+              generation={generation}
+              title={`${script.label}, a sandboxed script`}
+              listen={events.listen}
+              anchored={anchors.listen}
+              className="pointer-events-none absolute inset-0 size-full border-0 bg-transparent"
+            />,
+            overlay,
+            trust.digest,
+          )
+        : null}
       {asking[0] === undefined ? null : <SandboxApprovalCard asking={asking[0]} />}
     </li>
   );
 }
 
 /** One attached script by its node; nothing while the node is not a script kb can run. */
-function AttachedScript({
-  attached,
-  ...rest
-}: { readonly attached: Attached } & Omit<ScriptHostProps, "subjects">) {
+function AttachedScript({ attached, ...rest }: { readonly attached: Attached } & RowProps) {
   const node = useNode(attached.script);
   const script = node === undefined ? null : scriptOf(node);
   return script === null ? null : (
@@ -198,28 +205,38 @@ function AttachedScript({
   );
 }
 
-export function ScriptsHost({ subjects, view, events }: ScriptHostProps) {
+export function ScriptsHost({ subjects, view, events, anchors }: ScriptHostProps) {
   const nodes = useNodes();
+  const [overlay, setOverlay] = useState<HTMLElement | null>(null);
   const attached: Attached[] = subjects.flatMap((subject) =>
     scriptIdsOf(nodes.get(subject)).map((script) => ({ subject, script })),
   );
   if (attached.length === 0) return null;
   return (
-    <section
-      aria-label="Scripts"
-      className="pointer-events-auto absolute bottom-3 left-3 z-20 w-80 max-w-[calc(100%-1.5rem)] rounded-md border border-foreground/10 bg-popover/95 p-2 shadow-raised"
-      data-scripts-host="true"
-    >
-      <ul className="flex flex-col gap-1.5">
-        {attached.map((one) => (
-          <AttachedScript
-            key={`${one.subject}:${one.script}`}
-            attached={one}
-            view={view}
-            events={events}
-          />
-        ))}
-      </ul>
-    </section>
+    <>
+      <div
+        ref={setOverlay}
+        className="pointer-events-none absolute inset-0 z-10 overflow-hidden"
+        data-script-overlays="true"
+      />
+      <section
+        aria-label="Scripts"
+        className="pointer-events-auto absolute bottom-3 left-3 z-20 w-80 max-w-[calc(100%-1.5rem)] rounded-md border border-foreground/10 bg-popover/95 p-2 shadow-raised"
+        data-scripts-host="true"
+      >
+        <ul className="flex flex-col gap-1.5">
+          {attached.map((one) => (
+            <AttachedScript
+              key={`${one.subject}:${one.script}`}
+              attached={one}
+              view={view}
+              events={events}
+              anchors={anchors}
+              overlay={overlay}
+            />
+          ))}
+        </ul>
+      </section>
+    </>
   );
 }

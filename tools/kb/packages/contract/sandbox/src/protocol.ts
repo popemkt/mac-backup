@@ -10,6 +10,7 @@
  */
 import { Schema } from "effect";
 import { JSON_RPC_VERSION, MCP_APPS_METHODS } from "@kb/contracts";
+import { SandboxAnchors } from "./anchors.ts";
 import { ENGINE_KINDS, SandboxLimits } from "./limits.ts";
 
 /** kb's methods beside the MCP Apps ones. */
@@ -20,6 +21,8 @@ export const KB_METHODS = {
   fail: "kb/fail",
   /** page → frame → guest, notification: something happened the guest may answer. */
   event: "kb/event",
+  /** page → frame, notification: where the view draws its things now (`SandboxAnchors`). */
+  anchors: "kb/anchors",
   /** frame → page, notification: the run started, or ended and why. */
   status: "kb/status",
 } as const;
@@ -194,8 +197,19 @@ export const FrameMessage = Schema.Union([
 ]);
 export type FrameMessage = typeof FrameMessage.Type;
 
+export const AnchorsNotification = Schema.Struct({
+  jsonrpc: JsonRpc,
+  method: Schema.Literal(KB_METHODS.anchors),
+  params: Schema.Struct({ anchors: SandboxAnchors }),
+});
+
 /** Everything a page may send its frame. */
-export const PageMessage = Schema.Union([Response, ToolInputNotification, EventNotification]);
+export const PageMessage = Schema.Union([
+  Response,
+  ToolInputNotification,
+  EventNotification,
+  AnchorsNotification,
+]);
 export type PageMessage = typeof PageMessage.Type;
 
 /** A request's answer as the wire carries it. */

@@ -12,7 +12,7 @@ import {
   type OutlineNode,
   type ScriptHostProps,
 } from "@kb/ui-sdk";
-import type { KbEvent } from "@kb/sandbox";
+import type { KbEvent, SandboxAnchors } from "@kb/sandbox";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 
 const { persistCanvasDoc, createCanvasNode } = vi.hoisted(() => ({
@@ -116,16 +116,20 @@ describe("CanvasPage pointer interactions", () => {
     vi.restoreAllMocks();
   });
 
-  it("tells the scripts host its subjects, view and events: a press, the selection, a change", async () => {
+  it("tells the scripts host its subjects, view, events and where its items are", async () => {
     const hosted: ScriptHostProps[] = [];
     const heard: KbEvent[] = [];
+    const placed: SandboxAnchors[] = [];
     const scripts = definePlugin({
       name: "scripts",
       apply: (ctx) =>
         ctx.provide(ScriptHostService, (props: ScriptHostProps) => {
           if (!hosted.includes(props)) {
             hosted.push(props);
-            if (hosted.length === 1) props.events.listen((event) => heard.push(event));
+            if (hosted.length === 1) {
+              props.events.listen((event) => heard.push(event));
+              props.anchors.listen((anchors) => placed.push(anchors));
+            }
           }
           return null;
         }),
@@ -158,6 +162,11 @@ describe("CanvasPage pointer interactions", () => {
         value: { canvas: "canvas", items: ["a"], edges: [] },
       });
       expect(heard.some((event) => event.type === "canvas.change")).toBe(true);
+      // The card's anchor went with it, its size kept.
+      const before = present(placed.find((anchors) => "a" in anchors)?.a, "first anchor");
+      const after = present(placed.at(-1)?.a, "last anchor");
+      expect(after.left).toBeGreaterThan(before.left);
+      expect(after.right - after.left).toBeCloseTo(before.right - before.left, 3);
     } finally {
       act(() => syncUiPlugins([testHostPlugin(host)]));
     }

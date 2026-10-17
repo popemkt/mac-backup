@@ -9,7 +9,7 @@ import { useEffect, useRef } from "react";
 import { DATA_EVENT, SANDBOX_FRAME_PATH, SANDBOX_IFRAME_FLAGS } from "@kb/sandbox";
 import { browserHost } from "../host";
 import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "../sandbox";
-import type { ViewEvents } from "../view-scripts";
+import type { ViewAnchors, ViewEvents } from "../view-scripts";
 
 /** How long the graph must be still before the frame hears that it changed. */
 const CHANGE_SETTLE_MS = 150;
@@ -21,6 +21,7 @@ export function SandboxFrame({
   generation,
   title,
   listen,
+  anchored,
   className = "min-h-0 w-full flex-1 border-0 bg-transparent",
 }: {
   /** What the frame runs; read once, when it mounts. */
@@ -32,22 +33,27 @@ export function SandboxFrame({
   readonly title: string;
   /** Where the run's view emits its own events, handed on to the run (`ViewEvents.listen`). */
   readonly listen?: ViewEvents["listen"];
+  /** Where the run's view says its things are, for what the run draws to stand on (`ViewAnchors.listen`). */
+  readonly anchored?: ViewAnchors["listen"];
   readonly className?: string;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const hosted = useRef<HostedFrame | null>(null);
   // Read once: the caller keys the frame by everything a run is.
-  const first = useRef({ run, ports, events, listen });
+  const first = useRef({ run, ports, events, listen, anchored });
 
   useEffect(() => {
     const element = frame.current;
     if (element === null) return undefined;
     const { run: initial, ports: given, events: told, listen: heard } = first.current;
+    const placed = first.current.anchored;
     const host = browserHost().sandbox.hostFrame(element, initial, given, told);
     hosted.current = host;
     const unlisten = heard?.((event) => host.event(event));
+    const unanchor = placed?.((anchors) => host.anchor(anchors));
     return () => {
       unlisten?.();
+      unanchor?.();
       host.dispose();
       hosted.current = null;
     };

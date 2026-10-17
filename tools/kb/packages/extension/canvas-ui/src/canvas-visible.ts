@@ -6,7 +6,7 @@ import { screenBounds, type CanvasView, type ScreenRect, type ViewSize } from ".
  * screen bounds of its box (`screenBounds`), in whichever projection holds
  * the camera. An item none of which is in front of the eye has none.
  */
-function itemScreenRects(
+export function itemScreenRects(
   items: readonly CanvasNode[],
   view: CanvasView,
   size: ViewSize,

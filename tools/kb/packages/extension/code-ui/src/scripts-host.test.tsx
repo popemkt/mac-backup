@@ -1,7 +1,8 @@
 /**
  * The scripts host runs what a view's subjects name: a trusted script on
  * the page's sandbox runner, with its node as the subject and the view's
- * events, and an untrusted one not at all.
+ * events, its frame over the view standing its drawing on the view's
+ * anchors, and an untrusted one not at all.
  */
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -10,8 +11,9 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { CODE_IDS } from "@kb/code";
 import { succeeded } from "@kb/contracts";
 import { canonicalJson } from "@kb/model";
-import { codeDigest, type KbEvent } from "@kb/sandbox";
+import { codeDigest, type KbEvent, type SandboxAnchors } from "@kb/sandbox";
 import {
+  createViewAnchors,
   createViewEvents,
   syncUiPlugins,
   type HostedFrame,
@@ -70,6 +72,8 @@ describe("the scripts host", () => {
     const trusted = await Effect.runPromise(codeDigest(TRUSTED, GRANT));
     const runs: SandboxRun[] = [];
     const heard: KbEvent[] = [];
+    const placed: SandboxAnchors[] = [];
+    const frames: HTMLIFrameElement[] = [];
     const invoked: [string, unknown][] = [];
     const host = testBrowserHost({
       invoke: (id, input) => {
@@ -77,9 +81,14 @@ describe("the scripts host", () => {
         return Promise.resolve(succeeded(id, {}));
       },
       sandbox: {
-        hostFrame: (_frame, run): HostedFrame => {
+        hostFrame: (frame, run): HostedFrame => {
           runs.push(run);
-          return { event: (event) => heard.push(event), dispose: () => {} };
+          frames.push(frame);
+          return {
+            event: (event) => heard.push(event),
+            anchor: (anchors) => placed.push(anchors),
+            dispose: () => {},
+          };
         },
         invokeAsScript: () => Promise.reject(new Error("no calls")),
         isTrusted: (digest) => Promise.resolve(digest === trusted),
@@ -98,8 +107,11 @@ describe("the scripts host", () => {
     ]);
     act(() => syncUiPlugins([testHostPlugin(host)]));
     const events = createViewEvents();
+    const anchors = createViewAnchors();
+    const here = { left: 1, top: 2, right: 30, bottom: 40 };
+    anchors.set({ a: here });
     await act(async () => {
-      root.render(createElement(ScriptsHost, { subjects: ["c"], view: View, events }));
+      root.render(createElement(ScriptsHost, { subjects: ["c"], view: View, events, anchors }));
     });
     await act(async () => new Promise((done) => setTimeout(done, 20)));
 
@@ -121,6 +133,13 @@ describe("the scripts host", () => {
     events.emit({ type: "t.ping", target: null });
     expect(heard).toEqual([{ type: "t.ping", target: null }]);
 
+    // Its frame lies over the view, letting gestures pass, and stands its drawing where the view's things are now.
+    expect(frames[0]?.closest("[data-script-overlays]")).not.toBeNull();
+    expect(frames[0]?.className).toContain("pointer-events-none");
+    expect(placed).toEqual([{ a: here }]);
+    anchors.set({});
+    expect(placed).toEqual([{ a: here }, {}]);
+
     // A person runs a trusted script once more, against its node; an untrusted one offers no run.
     const runOnce = [...container.querySelectorAll("button")].filter(
       (button) => button.textContent === "Run once",
@@ -138,7 +157,12 @@ describe("the scripts host", () => {
     act(() => syncUiPlugins([testHostPlugin(host)]));
     await act(async () => {
       root.render(
-        createElement(ScriptsHost, { subjects: ["c"], view: View, events: createViewEvents() }),
+        createElement(ScriptsHost, {
+          subjects: ["c"],
+          view: View,
+          events: createViewEvents(),
+          anchors: createViewAnchors(),
+        }),
       );
     });
     expect(container.innerHTML).toBe("");

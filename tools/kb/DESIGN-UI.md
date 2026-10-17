@@ -1345,7 +1345,9 @@ open view of that canvas.
   card where it went — from a desk tilt, an oblique orbit, low across the
   floor from the far side and through the orthographic lens, with raised,
   sunk and same-height overlapping cards, every solid shape, a flat
-  ellipse, and turned items: flat and solid, spun about z and tilted. The 3D scene also joins the scene
+  ellipse, and turned items: flat and solid, spun about z and tilted. Each
+  item's anchor, where a script's drawing stands on it (`itemScreenRects`),
+  holds its face as drawn, and a flat item's face fills it. The 3D scene also joins the scene
   contract, whose disposal check covers every geometry and material a scene
   drew with.
 - **One camera in motion.** `canvas-ui/src/canvas-camera-rig.ts` holds the view the 3D
@@ -2138,7 +2140,11 @@ name in a small panel at the view's bottom left (`scripts-host.tsx`):
 - a call that asks shows the sandbox's approval card under its row.
 
 The panel is absent when no subject names a script. A trusted script's frame
-is hidden: a script draws nothing until it has an overlay to draw into.
+lies over the whole view, under the view's chrome and see-through, and lets
+every gesture pass: what a script draws is a picture over the view, and an
+element it anchors to an item (`data-anchor`) stands on that item as the
+shown projection draws it, following the camera in 2D and 3D
+(`canvas-script-anchors.tsx`).
 
 ### Optional UI plugins
 

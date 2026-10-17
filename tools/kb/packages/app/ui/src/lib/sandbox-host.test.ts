@@ -1,6 +1,7 @@
 /**
  * The page's end of the sandbox bridge: it hears only its own frame, answers
- * the handshake and hands over the run, answers tool calls through the
+ * the handshake and hands over the run and where its view's things are,
+ * answers tool calls through the
  * capability API as the script's, and cuts off a frame that floods the page
  * or leaves its document.
  */
@@ -105,6 +106,26 @@ describe("the page as a sandbox frame's host", () => {
       jsonrpc: "2.0",
       method: "kb/event",
       params: { type: "canvas.selection", target: null, value: "a" },
+    });
+  });
+
+  it("tells the frame where its view's things are: the last told once it is up, then each change", () => {
+    const { frameSays, posted, hosted } = setup();
+    const here = { a: { left: 1, top: 2, right: 3, bottom: 4 } };
+    hosted.anchor({ gone: { left: 0, top: 0, right: 1, bottom: 1 } });
+    hosted.anchor(here);
+    expect(posted).toEqual([]);
+    frameSays(initialize);
+    frameSays(initialized);
+    expect(posted.slice(1)).toEqual([
+      expect.objectContaining({ method: "ui/notifications/tool-input" }),
+      { jsonrpc: "2.0", method: "kb/anchors", params: { anchors: here } },
+    ]);
+    hosted.anchor({});
+    expect(posted.at(-1)).toEqual({
+      jsonrpc: "2.0",
+      method: "kb/anchors",
+      params: { anchors: {} },
     });
   });
 
