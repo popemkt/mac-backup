@@ -6,6 +6,7 @@
  * remembered.
  */
 import type { APIRequestContext, Page, TestInfo } from "playwright/test";
+import { SYSTEM_IDS } from "@kb/model";
 import { expect } from "./harness-test.ts";
 
 /** What the 3D canvas's host exposes in a render build (`canvas-3d-stage`). */
@@ -109,17 +110,30 @@ export async function crossIntoDepth(
   await page.getByRole("button", { name: "2D projection" }).click();
   await expect(host).toHaveCount(0, { timeout: 5000 });
   await expect(page.locator('[data-card-id="raised"] .group\\/card')).toBeVisible();
-  const stored = await request.post("/api/action", {
-    data: { id: "node.get", input: { id: canvasId } },
-  });
-  const node = (await stored.json()) as {
-    output: { node: { props: Record<string, { v: string }[]> } };
+  // The canvas's view node remembers it is flat now, and the pose it was
+  // looked at from in depth; the document holds no camera.
+  const props = async (id: string) => {
+    const got = await request.post("/api/action", { data: { id: "node.get", input: { id } } });
+    const receipt = (await got.json()) as {
+      output?: { node: { props: Record<string, { t: string; v: string }[]> } };
+    };
+    return receipt.output?.node.props ?? {};
   };
-  const saved = JSON.parse(node.output.node.props["sys.f.canvas"]?.[0]?.v ?? "{}") as {
-    camera?: { projection: string; pose?: unknown };
+  const camera = async () => {
+    const canvas = await props(canvasId);
+    for (const view of canvas[SYSTEM_IDS.viewsField] ?? []) {
+      const held = await props(view.v);
+      if (held[SYSTEM_IDS.viewField]?.[0]?.v !== "sys.view.canvas.page") continue;
+      return {
+        projection: held["sys.f.canvas.projection"]?.[0]?.v ?? null,
+        pose: held["sys.f.canvas.pose"]?.[0]?.v !== undefined,
+        doc: "camera" in JSON.parse(canvas["sys.f.canvas"]?.[0]?.v ?? "{}"),
+      };
+    }
+    return null;
   };
-  // The canvas remembers it is flat now, and the pose it was looked at from in depth.
-  expect(saved.camera?.projection).toBe("2d");
-  expect(saved.camera?.pose).toBeDefined();
+  await expect
+    .poll(camera)
+    .toEqual({ projection: "sys.canvas-projection.2d", pose: true, doc: false });
   expect(failures).toEqual([]);
 }

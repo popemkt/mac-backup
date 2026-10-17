@@ -1,16 +1,19 @@
 /**
  * What a canvas reads of the kb around it (DESIGN.md → Canvas documents):
  * the nodes its items stand for and lead to, the canvases their links
- * name, the outline round it, where its pages are (`./pages.ts`), and the
- * comment threads on it (`./comments.ts`). Its lints and its description read kb
+ * name, the outline round it, where its pages are (`./pages.ts`), the
+ * comment threads on it (`./comments.ts`), and how its view node looks at
+ * it (`./camera.ts`). Its lints and its description read kb
  * only through a {@link CanvasWorld}, and both hosts build theirs from the
  * nodes they hold with {@link canvasWorld}, so a lint or a description
  * cannot read kb one way on the server and another in the page.
  */
 import { typeRefsOf, type KbNode, type NodeId } from "@kb/model";
+import { readCanvasCamera, type CanvasCamera } from "./camera.ts";
 import { threadsByCanvas, type CanvasThread } from "./comments.ts";
 import { EMPTY_CANVAS_DOC, parseCanvasDoc, type CanvasDoc } from "./doc.ts";
 import { CANVAS_IDS } from "./ids.ts";
+import { canvasViewIdOf } from "./view.ts";
 
 export interface CanvasWorld {
   /** A node's text; undefined when the store does not hold it. */
@@ -26,6 +29,8 @@ export interface CanvasWorld {
   readonly childrenOf: (id: NodeId) => readonly NodeId[];
   /** The comment threads on a canvas, in the order their first comments come. */
   readonly threadsOn: (canvas: NodeId) => readonly CanvasThread[];
+  /** How a canvas is looked at: its canvas view node's camera (`canvasViewIdOf`), if it holds one. */
+  readonly cameraOf: (canvas: NodeId) => CanvasCamera | undefined;
 }
 
 /** What {@link canvasWorld} reads of a node: a store's `KbNode` and the page's outline node alike. */
@@ -51,6 +56,11 @@ export function canvasWorld(nodes: Iterable<WorldNode>): CanvasWorld {
     threadsOn: (canvas) => {
       threads ??= threadsByCanvas(byId);
       return threads.get(canvas) ?? [];
+    },
+    cameraOf: (canvas) => {
+      const view = canvasViewIdOf(byId.get(canvas), (id) => byId.get(id));
+      const props = view === null ? undefined : byId.get(view)?.props;
+      return props === undefined ? undefined : readCanvasCamera(props);
     },
   };
 }

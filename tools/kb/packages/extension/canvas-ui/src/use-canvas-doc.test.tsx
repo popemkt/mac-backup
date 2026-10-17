@@ -133,27 +133,6 @@ describe("useCanvasDoc persistence", () => {
     expect(persistCanvasDoc).toHaveBeenCalledTimes(1);
   });
 
-  test("the camera is written on the edits' one path, and never undone", () => {
-    act(() => current?.schedulePersist(first));
-    act(() => current?.setCamera({ projection: "3d" }));
-    // In order with the edit before it: one write, once edits pause, carrying both.
-    expect(persistCanvasDoc).not.toHaveBeenCalled();
-    act(() => {
-      vi.advanceTimersByTime(300);
-    });
-    expect(persistCanvasDoc).toHaveBeenCalledTimes(1);
-    expect(persistCanvasDoc).toHaveBeenLastCalledWith("canvas", {
-      ...first,
-      camera: { projection: "3d" },
-    });
-    act(() => current?.schedulePersist(last));
-    act(() => current?.undo());
-    // The card goes back; the canvas stays in 3D.
-    expect(current?.doc).toEqual({ ...first, camera: { projection: "3d" } });
-    act(() => current?.undo());
-    expect(current?.doc).toEqual({ ...empty, camera: { projection: "3d" } });
-  });
-
   test("an idle hook does not persist on unmount", () => {
     expect(current?.doc).toEqual(empty);
     act(() => root.unmount());

@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { withCanvasCamera, type CanvasCamera, type CanvasDoc } from "@kb/canvas";
+import { stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import { persistCanvasDoc, readCanvasDoc, syncDocOnRev } from "./canvas-api";
 import {
   adoptStored,
-  canvasContent,
   initHistory,
   pushHistory,
   redo as redoHistory,
@@ -30,7 +29,7 @@ function useSentDocs(canvasId: string) {
   const sent = useRef<string[]>([]);
   const send: Send = useCallback(
     (doc, ...opts) => {
-      sent.current = [...sent.current.slice(1 - REMEMBERED), canvasContent(doc)];
+      sent.current = [...sent.current.slice(1 - REMEMBERED), stringifyCanvasDoc(doc)];
       return persistCanvasDoc(canvasId, doc, ...opts);
     },
     [canvasId],
@@ -39,16 +38,7 @@ function useSentDocs(canvasId: string) {
   return { send, wasSent };
 }
 
-/**
- * `next` looked at the way the canvas is now. The camera is view state, not
- * content: whatever document an edit was derived from, and wherever undo
- * goes, the view stays. Only `setCamera` and the store move it.
- */
-function keepView(now: CanvasDoc, next: CanvasDoc): CanvasDoc {
-  return withCanvasCamera(next, now.camera);
-}
-
-/** Undo and redo: a step through the history, with the view left where it is. */
+/** Undo and redo: a step through the history. */
 function useHistoryTravel(
   send: Send,
   historyRef: RefObject<CanvasHistory>,
@@ -59,9 +49,8 @@ function useHistoryTravel(
       const current = historyRef.current;
       const travelled = transform(current);
       if (travelled === current) return;
-      const next = { ...travelled, present: keepView(current.present, travelled.present) };
-      installHistory(next);
-      void send(next.present);
+      installHistory(travelled);
+      void send(travelled.present);
     },
     [send, historyRef, installHistory],
   );
@@ -70,7 +59,8 @@ function useHistoryTravel(
 /**
  * The canvas's one write path: whatever is applied is written once edits
  * pause, or at once on demand, and a pending write still goes out when the
- * canvas closes. Content edits and camera changes both take it, in order.
+ * canvas closes. How the canvas is looked at is not the document's
+ * (`use-canvas-camera`), so only edits take it.
  */
 function useWritePath(send: Send, applied: () => CanvasDoc) {
   const dirtyRef = useRef(false);
@@ -142,8 +132,7 @@ export function useCanvasDoc({
 
   const applyDoc = useCallback(
     (next: CanvasDoc) => {
-      const view = keepView(historyRef.current.present, next);
-      const updated = pushHistory(previewBase.current ?? historyRef.current, view);
+      const updated = pushHistory(previewBase.current ?? historyRef.current, next);
       previewBase.current = null;
       installHistory(updated);
     },
@@ -160,7 +149,7 @@ export function useCanvasDoc({
   const previewDoc = useCallback(
     (next: CanvasDoc) => {
       previewBase.current ??= historyRef.current;
-      applyDocSilent(keepView(historyRef.current.present, next));
+      applyDocSilent(next);
     },
     [applyDocSilent],
   );
@@ -172,15 +161,6 @@ export function useCanvasDoc({
       soon();
     },
     [applyDoc, soon],
-  );
-
-  /** Look through `camera`: written on the same path as an edit, never an undo step. */
-  const setCamera = useCallback(
-    (camera: CanvasCamera) => {
-      applyDocSilent(withCanvasCamera(historyRef.current.present, camera));
-      soon();
-    },
-    [applyDocSilent, soon],
   );
 
   const flushPersist = useCallback(
@@ -219,7 +199,6 @@ export function useCanvasDoc({
     schedulePersist,
     previewDoc,
     flushPersist,
-    setCamera,
     undo: () => travel(undoHistory),
     redo: () => travel(redoHistory),
     cancelPreview,

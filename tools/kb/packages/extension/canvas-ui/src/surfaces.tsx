@@ -27,11 +27,11 @@ export function CanvasListSurface() {
   );
 }
 
-export function CanvasSurface({ params }: ViewProps<CanvasParams>) {
+export function CanvasSurface({ params, host }: ViewProps<CanvasParams>) {
   const { id, item } = params;
   return (
     <ViewErrorBoundary title="Canvas crashed" resetKey={id}>
-      <CanvasPage canvasId={id} item={item} />
+      <CanvasPage canvasId={id} item={item} viewNode={host.viewNode} />
     </ViewErrorBoundary>
   );
 }

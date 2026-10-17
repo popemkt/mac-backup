@@ -77,6 +77,10 @@ describe("canvas family", () => {
     for (const id of [
       CANVAS_IDS.canvasTag,
       CANVAS_IDS.canvasField,
+      CANVAS_IDS.canvasProjectionField,
+      CANVAS_IDS.canvasProjection2d,
+      CANVAS_IDS.canvasProjection3d,
+      CANVAS_IDS.canvasPoseField,
       CanvasListView.option,
       CanvasView.option,
     ]) {

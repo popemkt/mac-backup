@@ -4,7 +4,7 @@
  * Projections). React reads it as an external store; nothing here knows
  * React or three.
  *
- * The document's camera names the projection a canvas opens in (`want`);
+ * The view node's camera names the projection a canvas opens in (`want`);
  * `shown` is the one drawing. They differ only while one hands over:
  *
  * - **into 3D**: the rig stands where the 2D view is (from the top, orthographic)
@@ -79,7 +79,7 @@ export class CanvasHandover {
 
   readonly snapshot = (): HandoverState => this.state;
 
-  /** The projection the document asks for; the handover moves toward it. */
+  /** The projection the camera asks for; the handover moves toward it. */
   want(target: CanvasProjectionKind): void {
     const { shown, phase } = this.state;
     const kind = this.state.failed ? "2d" : target;

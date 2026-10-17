@@ -167,6 +167,10 @@ describe("the contract's seed, view and text promises have a subject", () => {
     expect(canvas?.declaration.seed?.("2026-01-01T00:00:00.000Z").map((node) => node.id)).toEqual([
       "sys.f.canvas",
       "sys.tag.canvas",
+      "sys.f.canvas.projection",
+      "sys.canvas-projection.2d",
+      "sys.canvas-projection.3d",
+      "sys.f.canvas.pose",
       "sys.f.comment.canvas",
       "sys.f.comment.node",
       "sys.f.comment.item",

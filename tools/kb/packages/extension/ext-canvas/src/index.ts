@@ -4,6 +4,7 @@ import { z } from "zod";
 import { KbCtx, extensionPlugin, type ExtensionAction, type KbStore } from "@kb/contracts";
 import { canvasExtension, canvasPlugin } from "@kb/canvas";
 import { definePlugin } from "@kb/plugin";
+import { canvasCameraMigrate } from "./camera-migrate.ts";
 import { canvasDiagram } from "./diagram.ts";
 import { canvasExport } from "./export.ts";
 import { LintDiffSchema } from "./lints.ts";
@@ -97,8 +98,8 @@ const actions: ExtensionAction[] = [
       "(how far they rise from it; absent is flat), and a shape item's shape is rect, ellipse, diamond, " +
       "sphere or cone. Any item may carry style { fill, dash, size, font, align, valign, opacity } " +
       "(a look absent is its kind's default) and a color (a JSON Canvas preset 1–6, a palette name " +
-      "blue, pink or grey, or a hex). The document may carry a camera " +
-      "({ projection: 2d | 3d, pose? }); see DESIGN.md, Canvas documents. " +
+      "blue, pink or grey, or a hex). How a canvas is looked at is not the document's: it is its " +
+      "view node's setting (see DESIGN.md, Canvas documents, Camera). " +
       "Answers the lints the write made and cleared. To place, lay out, connect, group or promote " +
       "items by relation rather than by coordinates, use the ext.canvas verbs",
     mode: { kind: "write" },
@@ -111,6 +112,7 @@ const actions: ExtensionAction[] = [
   ...CANVAS_VERBS,
   canvasExport,
   canvasDiagram,
+  canvasCameraMigrate,
 ];
 
 /** The family's actions, `ext.canvas.*`, as the plugin that contributes them. */

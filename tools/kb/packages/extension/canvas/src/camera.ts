@@ -1,17 +1,20 @@
 /**
- * A canvas's camera: which projection it opens in, and the 3D pose it was
- * last looked at from. It is the document's `camera` key, a JSON Canvas
- * extension field; absent means 2D, today's orthographic canvas.
+ * A canvas's camera: which projection a view of it opens in, and the 3D pose
+ * it was last looked at from. It is view state, not content: it is a setting
+ * of the canvas view node showing the canvas (`./view.ts`, DESIGN.md →
+ * Canvas documents → Camera), so two views of one canvas each keep their
+ * own, and writing it never rewrites the document. No camera is 2D, today's
+ * orthographic canvas.
  *
- * This is view state, not content: the undo history leaves it out, and a
- * second view of the same canvas would want a camera of its own. It lives
- * here, in one module the document only delegates to, because canvases are
- * not views yet; once view nodes exist it becomes that view's settings and
- * this module is what moves.
+ * A view node holds it as two fields: the projection, one of the projection
+ * field's option nodes, and the pose as one JSON value. Documents written
+ * before it moved carry it under their own `camera` key, which the
+ * document keeps as an unknown field until `ext.canvas.camera.migrate`
+ * moves it onto the canvas's view node (`parseLegacyCamera`).
  */
-// GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]
-import { dropExtra } from "./extra.ts";
-import { isRecord, readFields, writeFields, writeUnread, type FieldCodecs } from "./fields.ts";
+import type { NodeId, NodeProps, PropValue } from "@kb/model";
+import { isRecord } from "./fields.ts";
+import { CANVAS_IDS } from "./ids.ts";
 
 /** How a canvas is drawn: from the top and orthographic, or in depth on a turntable. */
 export type CanvasProjectionKind = "2d" | "3d";
@@ -40,8 +43,6 @@ export interface CanvasPose {
 export interface CanvasCamera {
   projection: CanvasProjectionKind;
   pose?: CanvasPose;
-  /** Unrecognized fields preserved for round-trip. */
-  extra?: Record<string, unknown>;
 }
 
 const POSE_KEYS = ["x", "y", "z", "zoom", "yaw", "pitch"] as const;
@@ -70,32 +71,76 @@ function emitPose(pose: CanvasPose): Record<string, number> {
   return out;
 }
 
-/** A camera's optional fields (`./fields.ts`): where it stands. */
-const CAMERA_FIELDS: FieldCodecs<CanvasCamera, "pose"> = {
-  pose: { read: parsePose, write: emitPose },
+/** Each projection's option node: the projection field's children. */
+const PROJECTION_OPTIONS: Record<CanvasProjectionKind, NodeId> = {
+  "2d": CANVAS_IDS.canvasProjection2d,
+  "3d": CANVAS_IDS.canvasProjection3d,
 };
 
-const CAMERA_OWN_KEYS: ReadonlySet<string> = new Set(["projection"]);
+/** A pose as one JSON value, or undefined when the value holds none. */
+function poseOfValue(value: PropValue | undefined): CanvasPose | undefined {
+  if (value?.t !== "str") return undefined;
+  try {
+    return parsePose(JSON.parse(value.v));
+  } catch {
+    return undefined;
+  }
+}
 
 /**
- * A camera read from a document's `camera` value, or undefined when it is not
- * one — the caller then keeps the raw value as an unknown field, so a camera
- * written by a newer kb survives an older one untouched.
+ * The camera a canvas view node's props hold, or undefined when they name
+ * no projection kb knows. A value it cannot read goes to `report`.
  */
-export function parseCanvasCamera(raw: unknown): CanvasCamera | undefined {
+export function readCanvasCamera(
+  props: NodeProps,
+  report: (warning: string) => void = () => {},
+): CanvasCamera | undefined {
+  const [named] = props[CANVAS_IDS.canvasProjectionField] ?? [];
+  if (named === undefined) return undefined;
+  const projection = PROJECTIONS.find(
+    (p) => named.t === "ref" && PROJECTION_OPTIONS[p] === named.v,
+  );
+  if (projection === undefined) {
+    report(`${CANVAS_IDS.canvasProjectionField}: ${JSON.stringify(named)} names no projection`);
+    return undefined;
+  }
+  const [stored] = props[CANVAS_IDS.canvasPoseField] ?? [];
+  const pose = poseOfValue(stored);
+  if (stored !== undefined && pose === undefined)
+    report(`${CANVAS_IDS.canvasPoseField}: ${JSON.stringify(stored)} is no pose`);
+  return pose === undefined ? { projection } : { projection, pose };
+}
+
+/** The props a canvas view node holds `camera` as; no camera is none. */
+export function canvasCameraProps(camera: CanvasCamera | undefined): Record<NodeId, PropValue[]> {
+  if (camera === undefined) return {};
+  const props: Record<NodeId, PropValue[]> = {
+    [CANVAS_IDS.canvasProjectionField]: [{ t: "ref", v: PROJECTION_OPTIONS[camera.projection] }],
+  };
+  if (camera.pose !== undefined)
+    props[CANVAS_IDS.canvasPoseField] = [{ t: "str", v: JSON.stringify(emitPose(camera.pose)) }];
+  return props;
+}
+
+/** The fields a camera is written in: what writing a camera replaces on a view node. */
+export const CANVAS_CAMERA_FIELDS: readonly NodeId[] = [
+  CANVAS_IDS.canvasProjectionField,
+  CANVAS_IDS.canvasPoseField,
+];
+
+/** The key a document written before the camera moved carries it under. */
+export const LEGACY_CAMERA_KEY = "camera";
+
+/**
+ * A camera as a document's own `camera` key held it before it moved onto
+ * the view node: `{projection, pose?}`, or undefined when it is not one.
+ */
+export function parseLegacyCamera(raw: unknown): CanvasCamera | undefined {
   if (!isRecord(raw)) return undefined;
   const projection = PROJECTIONS.find((p) => p === raw.projection);
   if (projection === undefined) return undefined;
-  const camera: CanvasCamera = { projection };
-  const extra = readFields(CAMERA_FIELDS, raw, camera, CAMERA_OWN_KEYS);
-  if (extra) camera.extra = extra;
-  return camera;
-}
-
-/** The camera as JSON: its fields, then what kb could not read. */
-export function emitCanvasCamera(camera: CanvasCamera): Record<string, unknown> {
-  const out = writeFields(CAMERA_FIELDS, camera, { projection: camera.projection });
-  return writeUnread(out, camera.extra);
+  const pose = parsePose(raw.pose);
+  return pose === undefined ? { projection } : { projection, pose };
 }
 
 /** The projection a camera opens in; no camera is 2D. */
@@ -105,7 +150,6 @@ export function projectionOf(camera: CanvasCamera | undefined): CanvasProjection
 
 /**
  * `camera` opening in `projection`, looked at from `pose` when one is given.
- * A pose written here supersedes one this version could not read.
  */
 export function cameraLookingFrom(
   camera: CanvasCamera | undefined,
@@ -113,7 +157,7 @@ export function cameraLookingFrom(
   pose?: CanvasPose,
 ): CanvasCamera {
   const next: CanvasCamera = { ...camera, projection };
-  return pose === undefined ? next : dropExtra({ ...next, pose }, "pose");
+  return pose === undefined ? next : { ...next, pose };
 }
 
 /** How far two poses may differ and still be the same look, per component. */

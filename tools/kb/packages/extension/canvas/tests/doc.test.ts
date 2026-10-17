@@ -10,7 +10,6 @@ import fc from "fast-check";
 import {
   CANVAS_SHAPES,
   CANVAS_SOLID_PRESETS,
-  cameraLookingFrom,
   canvasDepth,
   canvasElevation,
   canvasTop,
@@ -26,11 +25,8 @@ import {
   shapeOutline,
   svgPathData,
   withDepth,
-  posesAgree,
   parseCanvasDoc,
-  projectionOf,
   stringifyCanvasDoc,
-  withCanvasCamera,
   withElevation,
   type CanvasDoc,
   type CanvasNode,
@@ -65,24 +61,6 @@ const nodeArb: fc.Arbitrary<CanvasNode> = fc
     ...(z === undefined ? {} : { z }),
     ...(depth === undefined ? {} : { depth: depth + 0 }),
   }));
-
-const poseArb = fc.record(
-  {
-    x: finite,
-    y: finite,
-    z: finite,
-    zoom: fc.double({ noNaN: true, min: 0.01, max: 10 }),
-    yaw: finite,
-    pitch: finite,
-    fov: fc.double({ noNaN: true, min: 0, max: 120 }),
-  },
-  { requiredKeys: ["x", "y", "z", "zoom", "yaw", "pitch"] },
-);
-
-const cameraArb = fc.record(
-  { projection: fc.constantFrom("2d" as const, "3d" as const), pose: poseArb },
-  { requiredKeys: ["projection"] },
-);
 
 /** A bare text item at elevation `z`, rising `depth`. */
 const itemAt = (id: string, z?: number, depth?: number): CanvasNode => ({
@@ -181,16 +159,6 @@ const itemEdit = (key: string) => (stale: CanvasDoc, fresh: CanvasDoc) => ({
   nodes: stale.nodes.map((n) => given(n, fresh.nodes[0], key)),
 });
 
-/** A 3D document whose camera's pose is `held`, and one given another's pose. */
-const posed = (held: unknown) => ({ nodes: [], camera: { projection: "3d", pose: held } });
-const posing = (stale: CanvasDoc, fresh: CanvasDoc) =>
-  stale.camera === undefined
-    ? stale
-    : { ...stale, camera: given(stale.camera, fresh.camera, "pose") };
-/** A document whose camera is `held`, and one given another's camera. */
-const viewed = (held: unknown) => ({ nodes: [], camera: held });
-const viewing = (stale: CanvasDoc, fresh: CanvasDoc) => given(stale, fresh, "camera");
-
 describe("the record wins over what kb kept unread", () => {
   test.each(Object.entries(ITEM_SAMPLES))("item %s", (key, value) => {
     const raw = (held: unknown) => ({ nodes: [{ ...card, [key]: held }], edges: [] });
@@ -221,28 +189,18 @@ describe("the record wins over what kb kept unread", () => {
     });
     expect(edited(raw, value, edit).nodes[0].style[key]).toEqual(value);
   });
-  test("the camera's pose, and the document's camera", () => {
-    const pose = { x: 1, y: 2, z: 3, zoom: 1, yaw: 0, pitch: 0 };
-    expect(edited(posed, pose, posing).camera.pose).toEqual(pose);
-    const camera = { projection: "3d" };
-    expect(edited(viewed, camera, viewing).camera).toEqual(camera);
-  });
   test("every look is sampled", () => {
     expect(Object.keys(STYLE_SAMPLES).toSorted()).toEqual([...CANVAS_LOOKS].toSorted());
   });
 });
 
 describe("elevation and depth", () => {
-  test("any document of flat items and solids, with a camera, reads back as itself", () => {
+  test("any document of flat items and solids reads back as itself", () => {
     fc.assert(
-      fc.property(
-        fc.array(nodeArb, { maxLength: 8 }),
-        fc.option(cameraArb, { nil: undefined }),
-        (nodes, camera) => {
-          const doc: CanvasDoc = { nodes, edges: [], ...(camera ? { camera } : {}) };
-          expect(roundTrip(doc)).toEqual(doc);
-        },
-      ),
+      fc.property(fc.array(nodeArb, { maxLength: 8 }), (nodes) => {
+        const doc: CanvasDoc = { nodes, edges: [] };
+        expect(roundTrip(doc)).toEqual(doc);
+      }),
     );
   });
 
@@ -571,87 +529,11 @@ describe("images", () => {
   });
 });
 
-describe("camera", () => {
-  test("no camera is 2D", () => {
-    expect(projectionOf(parseCanvasDoc({ nodes: [], edges: [] }).camera)).toBe("2d");
-  });
-
-  test("a camera kb cannot read is kept verbatim, and a set camera replaces it", () => {
-    const raw = { nodes: [], edges: [], camera: { projection: "vr", fov: 90 } };
+describe("a camera written into the document before it moved onto the view node", () => {
+  test("is no field of the document: it is kept as written until the migration moves it", () => {
+    const raw = { nodes: [], edges: [], camera: { projection: "3d", pose: { x: 1 } } };
     const doc = parseCanvasDoc(raw);
-    expect(doc.camera).toBeUndefined();
+    expect(doc.extra).toEqual({ camera: raw.camera });
     expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
-    const set = withCanvasCamera(doc, { projection: "3d" });
-    expect(JSON.parse(stringifyCanvasDoc(set))).toEqual({
-      nodes: [],
-      edges: [],
-      camera: { projection: "3d" },
-    });
-  });
-
-  test("unknown camera fields and an unreadable pose survive round-trip", () => {
-    const raw = {
-      nodes: [],
-      edges: [],
-      camera: { projection: "3d", pose: { x: 1 }, fov: 50 },
-    };
-    const doc = parseCanvasDoc(raw);
-    expect(doc.camera?.projection).toBe("3d");
-    expect(doc.camera?.pose).toBeUndefined();
-    expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
-  });
-
-  test("a new pose wins over an unreadable one", () => {
-    const doc = parseCanvasDoc({ nodes: [], edges: [], camera: { projection: "3d", pose: 7 } });
-    const pose = { x: 1, y: 2, z: 3, zoom: 1, yaw: 0.2, pitch: 0.4 };
-    const camera = { ...doc.camera, projection: "3d" as const, pose };
-    expect(roundTrip(withCanvasCamera(doc, camera)).camera?.pose).toEqual(pose);
-  });
-
-  test("setting the camera a document already has is the same document", () => {
-    const camera = { projection: "3d" as const };
-    const doc = withCanvasCamera({ nodes: [], edges: [] }, camera);
-    expect(withCanvasCamera(doc, camera)).toBe(doc);
-    const flat = { nodes: [], edges: [] };
-    expect(withCanvasCamera(flat, undefined)).toBe(flat);
-  });
-
-  test("clearing keeps a camera this version could not read", () => {
-    const doc = parseCanvasDoc({ nodes: [], edges: [], camera: { projection: "vr" } });
-    expect(withCanvasCamera(doc, undefined).extra?.camera).toEqual({ projection: "vr" });
-  });
-
-  test("a pose written supersedes one kb could not read", () => {
-    const doc = parseCanvasDoc({ nodes: [], edges: [], camera: { projection: "3d", pose: 7 } });
-    const pose = { x: 1, y: 2, z: 3, zoom: 1, yaw: 0.2, pitch: 0.4 };
-    const camera = cameraLookingFrom(doc.camera, "2d", pose);
-    expect(camera).toEqual({ projection: "2d", pose });
-    expect(cameraLookingFrom(doc.camera, "2d").extra).toEqual({ pose: 7 });
-  });
-
-  test("two poses agree when nothing anyone could see differs", () => {
-    const pose = { x: 100, y: 50, z: 0, zoom: 0.9, yaw: -0.3, pitch: 0.6 };
-    expect(posesAgree(pose, { ...pose, x: 100.0001, zoom: 0.90000001 })).toBe(true);
-    expect(posesAgree(pose, { ...pose, yaw: -0.31 })).toBe(false);
-    expect(posesAgree(pose, undefined)).toBe(false);
-    expect(posesAgree(undefined, undefined)).toBe(true);
-    expect(posesAgree({ ...pose, fov: 34 }, { ...pose, fov: 0 })).toBe(false);
-    expect(posesAgree({ ...pose, fov: 34 }, pose)).toBe(false);
-  });
-
-  test("a pose keeps its lens, and one it cannot read is no lens at all", () => {
-    const pose = { x: 1, y: 2, z: 3, zoom: 1, yaw: 0.2, pitch: 0.4, fov: 0 };
-    const doc = { nodes: [], edges: [], camera: { projection: "3d" as const, pose } };
-    expect(roundTrip(doc).camera?.pose).toEqual(pose);
-    const unread = parseCanvasDoc({
-      ...doc,
-      camera: { projection: "3d", pose: { ...pose, fov: -4 } },
-    });
-    expect(unread.camera?.pose).toEqual({ x: 1, y: 2, z: 3, zoom: 1, yaw: 0.2, pitch: 0.4 });
-  });
-
-  test("clearing the camera leaves the document 2D", () => {
-    const doc = withCanvasCamera({ nodes: [], edges: [] }, { projection: "3d" });
-    expect(stringifyCanvasDoc(withCanvasCamera(doc, undefined))).toBe('{"nodes":[],"edges":[]}');
   });
 });

@@ -22,6 +22,7 @@ export {
 } from "./actions.ts";
 export { KB_DESIGN_SYSTEM, coreExtension } from "./core-extension.ts";
 export { nodeAddTreeDef, nodeAddTreeEffect, planNodeAddTreeEffect } from "./node-add-tree.ts";
+export { planViewProposal, type PlannedView, type ViewProposal } from "./view-propose.ts";
 export { ASSET_MAX_BYTES, assetUploadDef, assetUploadEffect } from "./assets.ts";
 export { GENERATED_HEADER } from "./docs/docs.ts";
 export { DocsError } from "./docs/views.ts";

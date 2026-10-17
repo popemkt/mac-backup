@@ -11,6 +11,15 @@ export const CANVAS_IDS = {
    * Canvas documents.
    */
   canvasField: "sys.f.canvas",
+  /**
+   * The projection a canvas view node opens its canvas in (ref, single): one
+   * of the field's two option children. DESIGN.md → Canvas documents → Camera.
+   */
+  canvasProjectionField: "sys.f.canvas.projection",
+  canvasProjection2d: "sys.canvas-projection.2d",
+  canvasProjection3d: "sys.canvas-projection.3d",
+  /** The 3D pose a canvas view node last looked at its canvas from, as JSON (text, single). */
+  canvasPoseField: "sys.f.canvas.pose",
   /** The `#comment` tag: a node tagged with it is a comment on a canvas, or a reply to one. */
   commentTag: "sys.tag.comment",
   /** The canvas a comment is on (ref, single): what makes it the canvas's backlink. */

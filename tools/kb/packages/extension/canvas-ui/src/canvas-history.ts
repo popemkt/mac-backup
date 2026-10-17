@@ -2,7 +2,7 @@
  * Immutable undo/redo ring buffer for CanvasDoc snapshots.
  * Pure — no React deps; unit-tested standalone.
  */
-import { stringifyCanvasDoc, withCanvasCamera, type CanvasDoc } from "@kb/canvas";
+import { stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 
 const MAX_HISTORY = 30;
 
@@ -27,18 +27,13 @@ export function pushHistory(h: CanvasHistory, next: CanvasDoc): CanvasHistory {
   return { past, present: next, future: [] };
 }
 
-/** A document's content as stored, its camera left out: what an edit changes. */
-export const canvasContent = (doc: CanvasDoc) =>
-  stringifyCanvasDoc(withCanvasCamera(doc, undefined));
-
 /**
  * `h` having taken in `stored`, the document the store holds now. A change
  * of content made elsewhere — another tab's, an agent's canvas verb, each
  * one canvas write — is one step, which undo takes back as it takes back
- * the person's own. Content this canvas wrote itself (`sent`, by
- * `canvasContent`) is its own write echoing back, late: the canvas has
- * moved on, so it changes nothing. A change of the camera alone is view
- * state, taken in with no step.
+ * the person's own. A document this canvas wrote itself (`sent`, as
+ * stored) is its own write echoing back, late: the canvas has moved on, so
+ * it changes nothing.
  */
 // GAP [[01M42Q9JB86BVSVHSQRZ5HW07X]]
 export function adoptStored(
@@ -46,10 +41,9 @@ export function adoptStored(
   stored: CanvasDoc,
   sent: (content: string) => boolean,
 ): CanvasHistory {
-  const content = canvasContent(stored);
-  if (content !== canvasContent(h.present)) return sent(content) ? h : pushHistory(h, stored);
-  if (stringifyCanvasDoc(stored) === stringifyCanvasDoc(h.present)) return h;
-  return { ...h, present: stored };
+  const content = stringifyCanvasDoc(stored);
+  if (content === stringifyCanvasDoc(h.present) || sent(content)) return h;
+  return pushHistory(h, stored);
 }
 
 export function undo(h: CanvasHistory): CanvasHistory {

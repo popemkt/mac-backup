@@ -47,6 +47,7 @@ import { CanvasOverlays } from "./canvas-overlays";
 import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasStage } from "./canvas-stage";
 import { CanvasViewWidget } from "./canvas-view-widget";
+import { useCanvasCamera } from "./use-canvas-camera";
 import { useCanvasDoc } from "./use-canvas-doc";
 import { useCanvasPictures } from "./use-canvas-pictures";
 import { CanvasFaceEditor } from "./canvas-face-editor";
@@ -106,9 +107,11 @@ interface CanvasPageProps {
   canvasId: string;
   /** An item to show and select as the canvas opens: where a link to it leads. */
   item?: string;
+  /** The view node it is shown through, when its route names one: whose camera it looks through. */
+  viewNode?: string;
 }
 
-export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
+export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProps) {
   const nodes = useNodes();
   const schema = useSchema();
   const queryDb = useIndex();
@@ -134,10 +137,10 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
     schedulePersist,
     previewDoc,
     flushPersist,
-    setCamera,
     undo: undoCanvasDoc,
     redo: redoCanvasDoc,
   } = useCanvasDoc({ canvasId, canvasNode, nodes, rev, isInteracting });
+  const { camera, setCamera } = useCanvasCamera({ canvasId, viewNode, nodes });
   const appearance = useAppearance();
   const { pan, marqueeRect, snapGuides } = pointerState;
 
@@ -243,7 +246,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
 
   const stageRef = useRef<HTMLDivElement>(null);
   const projection = useCanvasProjection({
-    doc,
+    camera,
     pan,
     zoom,
     stage: stageRef,

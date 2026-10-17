@@ -76,7 +76,7 @@ function naming(host: KbNode, viewId: string, first: boolean, at: string): KbNod
 }
 
 /** What a view proposal asks for: the view's settings, the node it is shown for, and the node's own. */
-interface ViewProposal {
+export interface ViewProposal {
   readonly params: unknown;
   readonly host?: string | undefined;
   readonly text: string;
@@ -86,7 +86,7 @@ interface ViewProposal {
 }
 
 /** A planned view node: the node, what it checked as, and the tx that writes it. */
-interface PlannedView {
+export interface PlannedView {
   readonly node: KbNode;
   readonly host: KbNode | null;
   readonly params: unknown;
@@ -100,7 +100,7 @@ interface PlannedView {
  * host with it among its views. Every writer of a view node from settings
  * plans it here, so each writes what an agent's `view.propose` would.
  */
-const planViewProposal = Effect.fn("view.propose.plan")(function* (
+export const planViewProposal = Effect.fn("view.propose.plan")(function* (
   ctx: KbContext,
   key: ViewKey<unknown>,
   proposal: ViewProposal,

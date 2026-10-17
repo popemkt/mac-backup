@@ -1162,7 +1162,9 @@ manipulation feel professional rather than merely functional.
   `Cmd+Shift+Z` / `Cmd+Y`. An edit the store brings from elsewhere —
   another tab's, or an agent's canvas verb, each one canvas write — is one
   step too, which ⌘Z takes back as it takes back the person's own
-  (`adoptStored`); a change of the camera alone is taken in with no step.
+  (`adoptStored`). How the canvas is looked at is its view node's camera,
+  not the document's (DESIGN.md → Canvas documents → Camera), so no step
+  ever holds it.
 - **Direct-manipulation invariants.** A 4px pointer slop (`POINTER_SLOP` in
   `lib/pointer-slop.ts`, the one slop the scene kit's taps and a graph node's
   drag use too) kills hair-trigger moves, pointer capture on card drags and resize handles survives a fast drag,
@@ -1382,11 +1384,13 @@ canvas's only three modules, loaded in their own chunk behind the lazy
 fence). A projection declares only how it holds the camera
 (`settle`) and the view it opens at when it takes over (`arrive`: the saved
 pose, or the same focus and zoom turned to the oblique preset, in
-perspective). The document's
-`camera` names the projection a canvas opens in and its last 3D pose
-(DESIGN.md → Canvas documents); the toolbar's 2D/3D toggle writes it, the
-undo history leaves it alone, and an agent that writes it switches every
-open view of that canvas.
+perspective). The camera of the canvas view node the page shows the canvas
+through names the projection it opens in and its last 3D pose (DESIGN.md →
+Canvas documents → Camera; `use-canvas-camera.ts`): the toolbar's 2D/3D
+toggle writes it and a 3D gesture that comes to rest saves its pose, shown
+at once and written once gestures pause, the undo history never holding
+it; another view of the same canvas keeps its own, and an agent's write to
+the view node switches every page showing the canvas through it.
 
 - **One contract.** `canvas-projection.contract.test.tsx` runs one suite over
   every registered projection: each draws every item once in paint order and

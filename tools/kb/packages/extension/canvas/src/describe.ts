@@ -318,6 +318,11 @@ function placedRelations(doc: CanvasDoc): DescribedRelation[] {
 
 const pairOf = (r: { from: string; to: string }) => [r.from, r.to].toSorted().join("|");
 
+/** The description's camera: the one its view node holds, when it holds one. */
+function cameraOf(camera: CanvasCamera | undefined): { camera?: CanvasCamera } {
+  return camera === undefined ? {} : { camera };
+}
+
 /** `doc` described at the detail `options` asks for. */
 export function describeCanvas(doc: CanvasDoc, options: DescribeOptions): CanvasDescription {
   const all = new Set(doc.nodes.map((node) => node.id));
@@ -335,6 +340,6 @@ export function describeCanvas(doc: CanvasDoc, options: DescribeOptions): Canvas
     relations: [...placed.filter(touches), ...near],
     peripheral,
     lints: lintCanvas(options.canvasId, doc, options.world),
-    ...(doc.camera === undefined ? {} : { camera: doc.camera }),
+    ...cameraOf(options.world.cameraOf(options.canvasId)),
   };
 }

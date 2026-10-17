@@ -6,13 +6,12 @@
  * own extension fields are typed here: `nodeId`, `z`, `depth`,
  * `rotation`, `parent`, `link` and `style` on any item, `shape` on a shape item,
  * `points`, `closed` and the heads on a `path` item, `kbLink`, the
- * anchors, `route`, `bend`, the heads and `style` on an edge,
- * and `camera` on the document (`./camera.ts`). The format, as agents write
- * it, is DESIGN.md → Canvas documents.
+ * anchors, `route`, `bend`, the heads and `style` on an edge. How a canvas
+ * is looked at is not the document's: it is its view node's (`./camera.ts`).
+ * The format, as agents write it, is DESIGN.md → Canvas documents.
  */
 import { isAssetPath, mediaKindFromHref } from "@kb/model";
 import { boxRotation, boxTop } from "./box.ts";
-import { emitCanvasCamera, parseCanvasCamera, type CanvasCamera } from "./camera.ts";
 import { dropExtra } from "./extra.ts";
 import {
   fieldKeys,
@@ -328,8 +327,6 @@ export interface CanvasEdge {
 export interface CanvasDoc {
   nodes: CanvasNode[];
   edges: CanvasEdge[];
-  /** How the canvas is looked at; absent is 2D. View state, not content (`./camera.ts`). */
-  camera?: CanvasCamera;
   /**
    * Items and edges kb cannot read at all — no id or kind, a box that is not
    * numbers, an edge without its ends — kept as written and written back
@@ -667,12 +664,18 @@ function emitEdge(e: CanvasEdge): Record<string, unknown> {
   return writeUnread(writeFields(EDGE_FIELDS, e, out), e.extra);
 }
 
-/** The document's optional fields: how it is looked at (`./camera.ts`). */
-const DOC_FIELDS: FieldCodecs<CanvasDoc, "camera"> = {
-  camera: { read: parseCanvasCamera, write: emitCanvasCamera },
-};
-
 const DOC_OWN_KEYS: ReadonlySet<string> = new Set(["nodes", "edges"]);
+
+/** What `raw` holds beyond `own`, the keys the reader reads itself, or undefined for nothing. */
+function unknownKeys(
+  raw: Record<string, unknown>,
+  own: ReadonlySet<string>,
+): Record<string, unknown> | undefined {
+  const extra = Object.fromEntries(
+    Object.entries(raw).filter(([key, value]) => !own.has(key) && value !== undefined),
+  );
+  return Object.keys(extra).length > 0 ? extra : undefined;
+}
 
 /** Each of `list`'s entries read by `read`, and those it could not, as written. */
 function readEach<T>(list: unknown, read: (raw: unknown) => T | undefined) {
@@ -695,8 +698,7 @@ export function parseCanvasDoc(input: unknown): CanvasDoc {
   }
   const nodes = readEach(raw.nodes, parseNode);
   const edges = readEach(raw.edges, parseEdge);
-  const fields: Partial<Pick<CanvasDoc, "camera">> = {};
-  const extra = readFields(DOC_FIELDS, raw, fields, DOC_OWN_KEYS);
+  const extra = unknownKeys(raw, DOC_OWN_KEYS);
   const unread =
     nodes.unread.length === 0 && edges.unread.length === 0
       ? undefined
@@ -704,7 +706,6 @@ export function parseCanvasDoc(input: unknown): CanvasDoc {
   return {
     nodes: nodes.known,
     edges: edges.known,
-    ...fields,
     ...(unread ? { unread } : {}),
     ...(extra ? { extra } : {}),
   };
@@ -715,7 +716,7 @@ export function stringifyCanvasDoc(doc: CanvasDoc): string {
     nodes: [...doc.nodes.map(emitNode), ...(doc.unread?.nodes ?? [])],
     edges: [...doc.edges.map(emitEdge), ...(doc.unread?.edges ?? [])],
   };
-  return JSON.stringify(writeUnread(writeFields(DOC_FIELDS, doc, out), doc.extra));
+  return JSON.stringify(writeUnread(out, doc.extra));
 }
 
 /** An item's elevation: the height of its base above the floor, 0 when it has none. */
@@ -814,24 +815,6 @@ export function withFlag<N extends CanvasNode>(node: N, flag: CanvasItemFlag, on
 /** The height of an item's top surface: what is stacked on it stands there (`boxTop`). */
 export function canvasTop(node: CanvasNode): number {
   return boxTop(node);
-}
-
-/**
- * `doc` looked at through `camera` (view state only; no item changes). The
- * same document comes back when nothing changes, so reference-equal history
- * stays a no-op. Clearing keeps a camera this version could not read; setting
- * one replaces it.
- */
-export function withCanvasCamera(doc: CanvasDoc, camera: CanvasCamera | undefined): CanvasDoc {
-  if (camera === undefined) {
-    if (doc.camera === undefined) return doc;
-    const cleared = { ...doc };
-    delete cleared.camera;
-    return cleared;
-  }
-  const unread = doc.extra !== undefined && "camera" in doc.extra;
-  if (doc.camera === camera && !unread) return doc;
-  return dropExtra({ ...doc, camera }, "camera");
 }
 
 /** Immutable patch helpers. */

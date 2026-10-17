@@ -28,7 +28,6 @@ export {
   withFlag,
   withLink,
   isLinkUrl,
-  withCanvasCamera,
   withDepth,
   withElevation,
   withParent,
@@ -100,7 +99,16 @@ export {
   planeCorners,
 } from "./box.ts";
 export type { CanvasAxes, CanvasBounds, CanvasBox, CanvasFrame, CanvasVec } from "./box.ts";
-export { cameraLookingFrom, posesAgree, projectionOf } from "./camera.ts";
+export {
+  CANVAS_CAMERA_FIELDS,
+  LEGACY_CAMERA_KEY,
+  cameraLookingFrom,
+  canvasCameraProps,
+  parseLegacyCamera,
+  posesAgree,
+  projectionOf,
+  readCanvasCamera,
+} from "./camera.ts";
 export {
   CANVAS_ALIGN_EDGES,
   CANVAS_LAYOUTS,
@@ -253,7 +261,7 @@ export type {
   CanvasVAlign,
 } from "./style-fields.ts";
 export { CANVAS_IDS } from "./ids.ts";
-export { CANVAS_EVENTS, CanvasListView, CanvasParams, CanvasView } from "./view.ts";
+export { CANVAS_EVENTS, CanvasListView, CanvasParams, CanvasView, canvasViewIdOf } from "./view.ts";
 export { canvasExtension, canvasPlugin } from "./extension.ts";
 export {
   CANVAS_PRESET_KINDS,

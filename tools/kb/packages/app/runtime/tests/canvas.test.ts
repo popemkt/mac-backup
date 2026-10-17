@@ -8,6 +8,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   CANVAS_IDS,
+  CanvasView,
+  canvasViewIdOf,
+  readCanvasCamera,
   EMPTY_CANVAS_DOC,
   isFileNode,
   isNativeEdgeBound,
@@ -32,6 +35,16 @@ async function tempRoot(): Promise<string> {
   roots.push(root);
   return root;
 }
+
+/** A pose a canvas's document held before its camera moved onto its view node. */
+const LEGACY_POSE = { x: 100, y: 40, z: 0, zoom: 0.9, yaw: -0.4, pitch: 0.55 };
+/** A canvas document carrying its camera under its own key, as before the move. */
+const legacy = (camera: unknown) => JSON.stringify({ nodes: [], edges: [], camera, keep: "this" });
+const nodeIn = (ctx: Awaited<ReturnType<typeof openKb>>, id: string) =>
+  present(
+    ctx.nodes.find((n) => n.id === id),
+    id,
+  );
 
 /** The `related` field a native edge binds through: a ref field, declared as one. */
 async function defineRelatedField(ctx: Awaited<ReturnType<typeof openKb>>) {
@@ -354,35 +367,125 @@ describe("ext.canvas.tx.apply", () => {
     expect(source.props["f.related"]).toEqual([{ t: "ref", v: "n.target" }]);
   });
 
-  test("an agent sets depth and the camera through the same action", async () => {
+  test("an agent sets depth on the document, and the camera on the canvas's view node", async () => {
     const root = await tempRoot();
     const ctx = await openKb(root);
     await invoke(ctx, {
       id: "node.add",
       input: { text: "Board", id: "n.canvas", tags: ["canvas"] },
     });
-    // What an agent sends: plain JSON, depth on the item, the camera on the document.
+    // What an agent sends: plain JSON, depth on the item.
     const doc = {
       nodes: [
         { id: "near", type: "text", text: "raised", x: 0, y: 0, width: 200, height: 80, z: 160 },
         { id: "flat", type: "text", text: "plane", x: 40, y: 20, width: 200, height: 80 },
       ],
       edges: [],
-      camera: {
-        projection: "3d",
-        pose: { x: 100, y: 40, z: 0, zoom: 0.9, yaw: -0.4, pitch: 0.55 },
-      },
     };
-    const receipt = await invoke(ctx, {
+    const applied = await invoke(ctx, {
       id: "ext.canvas.tx.apply",
       input: { canvasId: "n.canvas", doc },
     });
-    expect(receipt.status).toBe("succeeded");
+    expect(applied.status).toBe("succeeded");
+    const camera = {
+      projection: "3d",
+      pose: { x: 100, y: 40, z: 0, zoom: 0.9, yaw: -0.4, pitch: 0.55 },
+    };
+    const proposed = await invoke(ctx, {
+      id: "view.propose",
+      input: { view: CanvasView.id, host: "n.canvas", params: { id: "n.canvas", ...camera } },
+    });
+    expect(proposed.status).toBe("succeeded");
     const stored = present(
       ctx.nodes.find((n) => n.id === "n.canvas"),
       "canvas",
     ).props[CANVAS_IDS.canvasField]?.[0];
     expect(JSON.parse(String(present(stored, "stored doc").v))).toEqual(doc);
+    const described = await invoke(ctx, {
+      id: "ext.canvas.describe",
+      input: { canvasId: "n.canvas" },
+    });
+    expect(described).toMatchObject({ status: "succeeded", output: { camera } });
+  });
+
+  describe("ext.canvas.camera.migrate", () => {
+    async function canvasWith(text: string) {
+      const root = await tempRoot();
+      const ctx = await openKb(root);
+      await invoke(ctx, {
+        id: "node.add",
+        input: {
+          id: "n.canvas",
+          text: "Board",
+          tags: ["canvas"],
+          props: [{ field: CANVAS_IDS.canvasField, value: { t: "str", v: text } }],
+        },
+      });
+      return ctx;
+    }
+    const docOf = (ctx: Awaited<ReturnType<typeof openKb>>) =>
+      JSON.parse(String(nodeIn(ctx, "n.canvas").props[CANVAS_IDS.canvasField]?.[0]?.v));
+    const viewOf = (ctx: Awaited<ReturnType<typeof openKb>>) =>
+      canvasViewIdOf(nodeIn(ctx, "n.canvas"), (id) => ctx.nodes.find((n) => n.id === id));
+
+    test("moves a document's camera onto a view node proposed for its canvas, once", async () => {
+      const ctx = await canvasWith(legacy({ projection: "3d", pose: LEGACY_POSE }));
+      const first = await invoke(ctx, { id: "ext.canvas.camera.migrate", input: {} });
+      expect(first).toMatchObject({
+        status: "succeeded",
+        output: { moved: ["n.canvas"], unread: [] },
+      });
+      expect(docOf(ctx)).toEqual({ nodes: [], edges: [], keep: "this" });
+      const view = present(viewOf(ctx), "the canvas's view node");
+      expect(readCanvasCamera(nodeIn(ctx, view).props)).toEqual({
+        projection: "3d",
+        pose: LEGACY_POSE,
+      });
+      const before = JSON.stringify(ctx.nodes);
+      const again = await invoke(ctx, { id: "ext.canvas.camera.migrate", input: {} });
+      expect(again).toMatchObject({ status: "succeeded", output: { moved: [], unread: [] } });
+      expect(JSON.stringify(ctx.nodes)).toBe(before);
+    });
+
+    test("sets it on the canvas's view node; a view node with a camera of its own keeps it", async () => {
+      const ctx = await canvasWith(legacy({ projection: "3d", pose: LEGACY_POSE }));
+      const own = await invoke(ctx, {
+        id: "view.propose",
+        input: { view: CanvasView.id, host: "n.canvas", params: { id: "n.canvas" } },
+      });
+      expect(own.status).toBe("succeeded");
+      await invoke(ctx, { id: "ext.canvas.camera.migrate", input: {} });
+      const view = present(viewOf(ctx), "the canvas's view node");
+      expect(readCanvasCamera(nodeIn(ctx, view).props)).toEqual({
+        projection: "3d",
+        pose: LEGACY_POSE,
+      });
+
+      const other = await canvasWith(legacy({ projection: "3d", pose: LEGACY_POSE }));
+      await invoke(other, {
+        id: "view.propose",
+        input: {
+          view: CanvasView.id,
+          host: "n.canvas",
+          params: { id: "n.canvas", projection: "2d" },
+        },
+      });
+      await invoke(other, { id: "ext.canvas.camera.migrate", input: {} });
+      const kept = present(viewOf(other), "the canvas's view node");
+      expect(readCanvasCamera(nodeIn(other, kept).props)).toEqual({ projection: "2d" });
+      expect(docOf(other).camera).toBeUndefined();
+    });
+
+    test("leaves a camera it cannot read where it is, and says so", async () => {
+      const ctx = await canvasWith(legacy({ projection: "vr" }));
+      const receipt = await invoke(ctx, { id: "ext.canvas.camera.migrate", input: {} });
+      expect(receipt).toMatchObject({
+        status: "succeeded",
+        output: { moved: [], unread: ["n.canvas"] },
+      });
+      expect(docOf(ctx).camera).toEqual({ projection: "vr" });
+      expect(viewOf(ctx)).toBeNull();
+    });
   });
 
   test("invalid doc fails without writing props", async () => {

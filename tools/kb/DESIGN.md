@@ -2639,7 +2639,7 @@ the UI, the CLI and an agent all send the whole document after their change.
 item types and fields it does not know survive a round trip untouched, and
 so does a known field holding a value it cannot read (a `z` that is not a
 finite number, a `rotation` that is not an object of finite angles, a
-`fromSide` that names no side, a `camera` or `pose` of the wrong shape) until
+`fromSide` that names no side) until
 kb writes that field itself. The record wins: a field a record holds is
 written over the unread value of the same name it was read with, however
 the record came to hold it (`writeUnread`). Each item kind reads only its
@@ -2713,7 +2713,6 @@ units. kb's extension fields:
 | edge     | `fromHead`, `toHead`                     | which head an end wears when JSON Canvas's `fromEnd`/`toEnd` says it wears one: `arrow` (absent is this), `open`, `dot`, `diamond` or `bar`. kb writes `fromEnd`/`toEnd` as `arrow` for any head and `none` for none, and a head only when it is not the arrow, so other readers draw an arrow where kb draws another head                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | edge     | `style`                                  | the item `style` object; an edge draws its `dash` (`none`: no line, its heads and label standing alone), its `size` (how heavy its line and how long its heads) and its `opacity`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | edge     | `kbLink`                                 | the one-shot native bind of a drawn edge ([INSPIRATIONS](INSPIRATIONS.md): edges are drawings)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| document | `camera`                                 | `{ projection: "2d" \| "3d", pose? }`: which projection the canvas opens in, and its last 3D pose; absent is 2D                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 A `pose` is `{ x, y, z, zoom, yaw, pitch, fov? }`: the point looked at,
 screen pixels per canvas unit on the plane through it, the turntable orbit
@@ -2731,9 +2730,34 @@ volume and turn the way it moves a card: it writes `z`, `depth` and
 `rotation` on the item and applies the document; a solid preset (box,
 pillar, sphere, cone, slab, wall) is nothing but a shape item with depth.
 
-The camera is view state, not content: the undo history leaves it out. It
-sits on the document only until canvases become view nodes, and then moves to
-that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
+#### Camera
+
+How a canvas is looked at is view state, not content, so it is not the
+document's: it is a setting of the canvas view node (`canvas.page`) that
+shows the canvas (`camera.ts`). A view node holds it as two fields: the
+projection it opens in, `sys.f.canvas.projection`, one of that field's two
+option children (2d, 3d), and the 3D pose it was last looked at from,
+`sys.f.canvas.pose`, one JSON value. No projection is 2D. Two views of one
+canvas each keep their own, and writing a camera never rewrites the
+document, so the undo history never holds it.
+
+A view node names its canvas by being shown for it (the canvas view's `id`
+is the node it is shown for, its item the route's). A canvas opened with no
+view node named (`/canvas/<id>`, an agent's `ext.canvas.describe`) is looked
+at through its own: the first of its views that is a canvas view
+(`canvasViewIdOf`). The page writes the camera it is set to onto that view
+node once gestures pause, only the fields that change; a canvas that names
+no canvas view gets one proposed for it, as `view.propose` would, the first
+time its camera is set. An agent sets it the same way: `view.propose` with
+the canvas view, or a field write on the view node.
+
+Documents written before the camera moved carry it under their own `camera`
+key, which the document keeps as a field it does not read.
+`ext.canvas.camera.migrate`, run on purpose as `views.migrate` is, moves each
+onto the canvas's view node (proposing one where the canvas names none) and
+takes the key out of the document in the same write, one planned write per
+canvas; a view node that already holds a camera keeps its own, and running
+it again writes nothing.
 
 #### Comments
 
