@@ -397,3 +397,31 @@ finding was verified with Sol's probes before it was fixed.
 | B1 | blocker | A forged Origin gets the page's wire: `wireOf` gives `PAGE_WIRE` to any request with an Origin, and the guard only compares the string, so a local program sending the UI's Origin writes an approval policy and states a script's graph-wide reach. DESIGN said both that a local program over HTTP is bound and that one can send the page's Origin. | The page's wire is proven by a per-run secret, not by its Origin: `kb ui` mints a token at start and hands the page its URL with the token in the fragment, which no request carries; the page keeps it in sessionStorage and sends it on every API call and on the `/ws` handshake. Only a request with the current token, compared in constant time, is the page's; any other is a local program's whatever its Origin, which stays the browser's CSRF and rebinding guard. DESIGN says once who is bound. |
 | B2 | blocker | The import closure can be bypassed: `resolved` cuts a resolved path at its first `?` or `#`, so in a root whose path holds a `#` a root file is taken for one outside it; and a file whose imports cannot be scanned (an outside `.js` with classic JSX) is taken to import nothing. | The query a specifier carries comes off as Bun parses it, and nothing else is cut; each file is scanned with the loader Bun reads it with; a file whose imports cannot be read refuses the extension. |
 | M3 | major | A script's write reach misses prop keys: `pointedAt` counts children and ref values but not a prop's key, so a subject script writes a prop keyed by a node outside its reach. | A prop's key points at its field node, so `pointedAt` counts it; vocabulary stays exempt through `isVocabulary`. |
+
+How each closed, as verified:
+
+- **B1.** Sol's probe reproduced it on main: a POST carrying the UI's
+  Origin wrote an approval policy and stated a script's reach (200). Now:
+  - **Without the token, whatever the Origin.** A request is an agent's.
+    Both probes are refused, and `http-wire.test.ts` pins them for a
+    forged Origin.
+  - **A wrong or earlier-run token** is refused on the API and on `/ws`.
+  - **The token is in no served body:** the page, its scripts, the
+    sandbox frame and every `GET /api/*`.
+  - **On `/ws`,** the token rides the handshake as a second subprotocol. A
+    socket without it reads but may not publish a screen or speak on a
+    channel, so it cannot drive the agent.
+  - **Openers in other processes.** These get the token from the person's
+    home store (`.kb/pages/`, 0600), written only by a `kb ui` a person
+    opened. Where the home store lives moved behind `KbRoots.home` first,
+    so the server and the family read one answer.
+  - **`location.open`.** It now answers `open`: the page URL for the
+    owner's own call (the person, the CLI), the bare URL for any other. A
+    token an agent held could be written into a node that a graph reader
+    sees.
+  - **A tab opened without a token** reads, and its writes ask as an
+    agent's do; it shows no notice of this yet.
+- **B2.** Both probes ran the outside code on main (the `#` root, the
+  classic-JSX `.js`). Both refuse now, as rows of the trust table.
+- **M3.** The probe wrote a prop keyed outside the subject on main; it is
+  refused now, as a script-reach row.
