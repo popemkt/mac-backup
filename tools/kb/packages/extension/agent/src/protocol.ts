@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ActionReceiptSchema, type SurfaceWire } from "@kb/contracts";
+import { ActionReceiptSchema, ApprovalAskSchema, type SurfaceWire } from "@kb/contracts";
 import { agentExtension } from "./extension.ts";
 
 /**
@@ -62,7 +62,7 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
    * the person: the sidebar asks, makes the call with their answer, and
    * replies with its receipt.
    */
-  z.object({ type: z.literal("approval"), conversation, call: z.string() }),
+  z.object({ type: z.literal("approval"), conversation, call: z.string(), ask: ApprovalAskSchema }),
   /** What the call answered. */
   z.object({
     type: z.literal("tool-result"),

@@ -260,6 +260,7 @@ describe("the agent bridge", () => {
       type: "approval",
       conversation: "k1",
       call: id,
+      ask: { message: "needs approval" },
     });
 
     // A receipt of another action, or for a call nobody waits on, is refused.

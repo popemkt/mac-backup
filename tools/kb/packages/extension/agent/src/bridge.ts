@@ -3,6 +3,7 @@ import {
   ChannelPoint,
   UiHost,
   failed,
+  approvalAsk,
   listingOf,
   onWire,
   type ActionReceipt,
@@ -245,11 +246,13 @@ class Bridge {
   ): Effect.Effect<ActionReceipt> {
     const { host } = this;
     const id = crypto.randomUUID();
-    const askPerson = send(peer, {
-      type: "approval",
-      conversation: conversation.id,
-      call: id,
-    }).pipe(Effect.andThen(this.person(conversation, id, action)));
+    const askPerson = (refused: ActionReceipt) =>
+      send(peer, {
+        type: "approval",
+        conversation: conversation.id,
+        call: id,
+        ask: approvalAsk(refused),
+      }).pipe(Effect.andThen(this.person(conversation, id, action)));
     return send(peer, {
       type: "tool-call",
       conversation: conversation.id,
@@ -261,7 +264,7 @@ class Bridge {
       Effect.andThen(host.invoke(onWire(AGENT_WIRE, { id: action, input }))),
       Effect.filterOrElse(
         (receipt) => receipt.status !== "failed" || receipt.code !== "approval_required",
-        () => askPerson,
+        (refused) => askPerson(refused),
       ),
       Effect.tap((receipt) =>
         send(peer, { type: "tool-result", conversation: conversation.id, call: id, receipt }),

@@ -8,6 +8,7 @@ import {
   WarningCircleIcon,
 } from "@phosphor-icons/react";
 import type { ToolEntry, TranscriptEntry } from "@kb/agent";
+import type { ApprovalAsk } from "@kb/contracts";
 import { cn, MdView, useFollow, useRefInk } from "@kb/ui-sdk";
 
 /** A value as the cards show it: JSON, two-space indented. */
@@ -116,6 +117,32 @@ function ToolCard({ entry }: { entry: ToolEntry }) {
   );
 }
 
+/**
+ * What a write to configuration runs with: each node it configures or
+ * names, and its settings as they will be (a provider's endpoint, its
+ * executable, its credential's reference), so approving a reference never
+ * approves what the person cannot see.
+ */
+function RunsWith({ configuration }: { configuration: NonNullable<ApprovalAsk["configuration"]> }) {
+  if (configuration.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-col gap-1.5" aria-label="What it runs with">
+      <span className="text-label text-foreground/50">It configures what the agent runs with:</span>
+      {configuration.map(({ node, label, settings }) => (
+        <dl key={node} className="rounded-sm bg-foreground/[0.04] px-2 py-1.5 text-caption">
+          <dt className="font-medium text-foreground/75">{label}</dt>
+          {settings.map(({ field, label: fieldLabel, values }) => (
+            <dd key={field} className="flex gap-1.5 text-foreground/65">
+              <span className="shrink-0 text-foreground/45">{fieldLabel}</span>
+              <span className="min-w-0 break-all font-mono">{values.join(", ")}</span>
+            </dd>
+          ))}
+        </dl>
+      ))}
+    </div>
+  );
+}
+
 /** A call that waits for the person: what it is, and the two answers. */
 function ApprovalCard({
   entry,
@@ -141,6 +168,7 @@ function ApprovalCard({
       <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-foreground/[0.04] px-2 py-1.5 font-mono text-caption text-foreground/65">
         {shown(entry.input)}
       </pre>
+      <RunsWith configuration={entry.ask?.configuration ?? []} />
       <div className="mt-2.5 flex items-center gap-2">
         <button
           type="button"

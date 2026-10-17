@@ -49,7 +49,7 @@ describe("the sidebar's transcript", () => {
         title: "Stamp",
         input: {},
       },
-      { type: "approval", conversation: K, call: "c1" },
+      { type: "approval", conversation: K, call: "c1", ask: { message: "asks" } },
     ]);
     expect(t.entries[1]).toMatchObject({ state: "awaiting", approval: true, decision: null });
     t = withDecision(t, "c1", "declined");
@@ -70,7 +70,7 @@ describe("the sidebar's transcript", () => {
     };
     const cancelled = play(withSent(newTranscript(K), "x"), [
       open,
-      { type: "approval", conversation: K, call: "c1" },
+      { type: "approval", conversation: K, call: "c1", ask: { message: "asks" } },
       { type: "turn-end", conversation: K, outcome: "cancelled" },
     ]);
     expect(cancelled.entries[1]).toMatchObject({ state: "stopped" });

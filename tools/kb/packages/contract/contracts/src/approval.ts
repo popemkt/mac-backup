@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   APPROVAL_DECISIONS,
   configurationDecision,
+  configurationShown,
   matchSpecificity,
   stricterDecision,
   writesApprovalPolicy,
@@ -10,8 +11,10 @@ import {
   type Actor,
   type ApprovalDecision,
   type ApprovalPolicy,
-  type NodeOf,
+  type NodeId,
+  type NodeLike,
   type NodeWrite,
+  type ShownConfiguration,
 } from "@kb/model";
 import {
   ManifestEntrySchema,
@@ -72,8 +75,8 @@ export interface ApprovalCall {
   };
   readonly actor: Actor | undefined;
   readonly writes?: readonly NodeWrite[];
-  /** How the writes' fields and kinds are read: the graph before the commit. */
-  readonly nodeOf?: NodeOf;
+  /** How the writes' fields, kinds and named nodes are read: the graph before the commit. */
+  readonly nodeOf?: (id: NodeId) => NodeLike | undefined;
 }
 
 /** What a governing write changes: the approval policies, or an extension's configuration. */
@@ -89,6 +92,8 @@ export interface ApprovalResolution {
    * configuration by a caller acting for the owner.
    */
   readonly by: { readonly policy: string } | "mode" | { readonly writes: GoverningWrite };
+  /** For a write to configuration: what it runs with, shown to the person asked. */
+  readonly shows?: readonly ShownConfiguration[];
 }
 
 /**
@@ -135,7 +140,9 @@ export function resolveApproval(
     return ruled;
   }
   const decision = configurationDecision(call.actor);
-  return decision === "allow" ? ruled : { decision, by: { writes: "configuration" } };
+  if (decision === "allow") return ruled;
+  const shows = configurationShown(writes, nodeOf);
+  return { decision, by: { writes: "configuration" }, ...(shows.length > 0 ? { shows } : {}) };
 }
 
 function byPolicy(policies: readonly ApprovalPolicy[], call: ApprovalCall): ApprovalResolution {
@@ -199,7 +206,43 @@ export function hasPerson(invocation: ActionInvocation): boolean {
 export interface ApprovalRefusal {
   readonly code: "forbidden" | "approval_required";
   readonly message: string;
-  readonly details?: { readonly policy: string } | { readonly writes: GoverningWrite };
+  readonly details?:
+    | { readonly policy: string }
+    | {
+        readonly writes: GoverningWrite;
+        /** What a write to configuration runs with ({@link ApprovalResolution.shows}). */
+        readonly configuration?: readonly ShownConfiguration[];
+      };
+}
+
+/** {@link ShownConfiguration} on a wire. */
+export const ShownConfigurationSchema = z.object({
+  node: z.string(),
+  label: z.string(),
+  settings: z.array(
+    z.object({ field: z.string(), label: z.string(), values: z.array(z.string()) }),
+  ),
+}) satisfies z.ZodType<ShownConfiguration>;
+
+/**
+ * Why a call waits for a person, as a surface shows the ask: the refusal's
+ * message, and for a write to configuration what it runs with.
+ */
+export const ApprovalAskSchema = z.object({
+  message: z.string(),
+  configuration: z.array(ShownConfigurationSchema).optional(),
+});
+export type ApprovalAsk = z.infer<typeof ApprovalAskSchema>;
+
+const ConfigurationDetailsSchema = z.object({ configuration: z.array(ShownConfigurationSchema) });
+
+/** The ask an `approval_required` receipt makes, read from the refusal it carries. */
+export function approvalAsk(receipt: ActionReceipt): ApprovalAsk {
+  if (receipt.status !== "failed") return { message: `${receipt.id} asks for approval` };
+  const details = ConfigurationDetailsSchema.safeParse(receipt.details);
+  return details.success
+    ? { message: receipt.message, configuration: details.data.configuration }
+    : { message: receipt.message };
 }
 
 /**
@@ -233,7 +276,8 @@ export function approvalRefusal(
       by.writes === "approval-policy"
         ? `action ${id} writes an approval policy, which always needs a person's approval; this call has none`
         : `action ${id} writes an extension's configuration, which a call by ${caller} makes only with the owner's approval; this call has none`;
-    return { code: "approval_required", message, details: { writes: by.writes } };
+    const shows = resolution.shows === undefined ? {} : { configuration: resolution.shows };
+    return { code: "approval_required", message, details: { writes: by.writes, ...shows } };
   }
   if (decision === "deny") {
     return {

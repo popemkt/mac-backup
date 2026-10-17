@@ -155,3 +155,60 @@ export function systemTxRefusal(
         message: `sys.* nodes are write-protected (use force to override): ${deleted}`,
       };
 }
+
+/** One setting as an approval shows it: the field, and the values it holds after the write. */
+export interface ShownSetting {
+  readonly field: NodeId;
+  readonly label: string;
+  readonly values: readonly string[];
+}
+
+/** A node whose configuration a write sets or names, as an approval shows it. */
+export interface ShownConfiguration {
+  readonly node: NodeId;
+  readonly label: string;
+  readonly settings: readonly ShownSetting[];
+}
+
+/**
+ * What a write to configuration runs with, for the person asked to approve
+ * it: each node it configures, with its settings as they will be, and each
+ * node such a setting names (the provider a selection points at), with that
+ * node's settings, since approving the reference approves what it brings.
+ * A credential shows its reference, which is all the graph ever holds.
+ */
+export function configurationShown(
+  writes: readonly NodeWrite[],
+  nodeOf: (id: NodeId) => NodeLike | undefined,
+): ShownConfiguration[] {
+  const shown = new Map<NodeId, ShownConfiguration>();
+  const valueOf = (value: KbNode["props"][string][number]): string => {
+    if (value.t === "ref") {
+      const named = nodeOf(value.v);
+      return named === undefined || named.text === "" ? value.v : `${named.text} (${value.v})`;
+    }
+    return typeof value.v === "string" ? value.v : JSON.stringify(value.v);
+  };
+  const show = (node: Pick<NodeLike, "id" | "text" | "props">): void => {
+    if (shown.has(node.id)) return;
+    const settings = Object.entries(node.props)
+      .filter(([field]) => configuresAnExtension(field, nodeOf(field)))
+      .map(([field, values]) => ({
+        field,
+        label: nodeOf(field)?.text ?? field,
+        values: values.map(valueOf),
+      }));
+    if (settings.length === 0) return;
+    shown.set(node.id, { node: node.id, label: node.text === "" ? node.id : node.text, settings });
+    for (const value of settings.flatMap(({ field }) => node.props[field] ?? [])) {
+      const named = value.t === "ref" ? nodeOf(value.v) : undefined;
+      if (named !== undefined) show(named);
+    }
+  };
+  for (const write of writes) {
+    if (!writesConfiguration(write, nodeOf)) continue;
+    const node = write.after ?? write.before;
+    if (node !== undefined) show(node);
+  }
+  return [...shown.values()];
+}

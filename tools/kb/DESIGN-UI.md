@@ -1962,7 +1962,10 @@ line that opens onto its input and receipt, a running turn's stop button, and
 a "new conversation" button that forgets the old one.
 
 **Approval** is drawn as a card that waits on a call the invoke core
-answered `approval_required` (the agent channel's `approval` event).
+answered `approval_required` (the agent channel's `approval` event). Below
+the call's input it lists what a write to configuration runs with, from the
+event's `ask`: each node it configures or names and its settings, so a
+selection's card shows the provider's endpoint and executable.
 Approve and Decline are both the same call, made by this tab as the agent's
 through the browser's one invoke path (`invokeSettled`), with `approved` set
 to the person's answer. The receipt that comes back is what the agent is

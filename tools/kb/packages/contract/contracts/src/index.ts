@@ -13,8 +13,11 @@ export {
   succeeded,
 } from "./actions.ts";
 export {
+  ApprovalAskSchema,
   CurrentCall,
   DecidedEntrySchema,
+  ShownConfigurationSchema,
+  approvalAsk,
   approvalRefusal,
   declaredDecision,
   hasPerson,
@@ -24,6 +27,7 @@ export {
   resolveApproval,
 } from "./approval.ts";
 export type {
+  ApprovalAsk,
   ApprovalCall,
   ApprovalRefusal,
   ApprovalResolution,

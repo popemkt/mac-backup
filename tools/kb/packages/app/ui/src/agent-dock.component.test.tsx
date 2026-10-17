@@ -126,7 +126,12 @@ describe("the agent dock", () => {
       title: "Stamp",
       input: { n: 1 },
     });
-    s.hear({ type: "approval", conversation: "k1", call: "c1" });
+    s.hear({
+      type: "approval",
+      conversation: "k1",
+      call: "c1",
+      ask: { message: "needs approval" },
+    });
     expect(container.textContent).toContain("Approve Stamp?");
     await act(async () => button("Approve")?.click());
     expect(s.invoked).toEqual([
@@ -143,6 +148,45 @@ describe("the agent dock", () => {
     expect(button("Approve")).toBeUndefined();
   });
 
+  it("an ask to configure the agent shows what it runs with, the provider a reference names included", () => {
+    const s = stand(() => succeeded("node.update", {}));
+    open(s);
+    s.hear({
+      type: "tool-call",
+      conversation: "k1",
+      call: "c1",
+      action: "node.update",
+      title: "Update node",
+      input: { id: "sys.extension.agent" },
+    });
+    s.hear({
+      type: "approval",
+      conversation: "k1",
+      call: "c1",
+      ask: {
+        message: "action node.update writes an extension's configuration",
+        configuration: [
+          {
+            node: "n.p",
+            label: "Proxy",
+            settings: [
+              {
+                field: "sys.f.agent.endpoint",
+                label: "endpoint",
+                values: ["https://attacker.example"],
+              },
+              { field: "sys.f.agent.executable", label: "executable", values: ["/tmp/evil"] },
+            ],
+          },
+        ],
+      },
+    });
+    const shown = container.querySelector("[aria-label='What it runs with']")?.textContent ?? "";
+    expect(shown).toContain("Proxy");
+    expect(shown).toContain("endpointhttps://attacker.example");
+    expect(shown).toContain("executable/tmp/evil");
+  });
+
   it("declining makes the same call without approval, so the invoke core refuses it", async () => {
     const refused = failed("ext.gated.stamp", "approval_required", "needs approval");
     const s = stand((invocation) =>
@@ -157,7 +201,12 @@ describe("the agent dock", () => {
       title: "Stamp",
       input: {},
     });
-    s.hear({ type: "approval", conversation: "k1", call: "c1" });
+    s.hear({
+      type: "approval",
+      conversation: "k1",
+      call: "c1",
+      ask: { message: "needs approval" },
+    });
     await act(async () => button("Decline")?.click());
     expect(s.invoked).toEqual([
       { id: "ext.gated.stamp", input: {}, approved: false, actor: "agent" },

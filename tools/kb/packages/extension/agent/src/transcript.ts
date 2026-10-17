@@ -1,4 +1,4 @@
-import type { ActionReceipt } from "@kb/contracts";
+import type { ActionReceipt, ApprovalAsk } from "@kb/contracts";
 import type { AgentEvent } from "./protocol.ts";
 
 /**
@@ -24,6 +24,8 @@ export interface ToolEntry {
   readonly input: unknown;
   /** Whether the invoke core asked for the person before the call could run. */
   readonly approval: boolean;
+  /** What it asked them: why, and what a write to configuration runs with. */
+  readonly ask: ApprovalAsk | null;
   readonly state: ToolState;
   readonly receipt: ActionReceipt | null;
   /** What the person chose, for a call that needed them. */
@@ -138,6 +140,7 @@ export function withEvent(transcript: Transcript, event: AgentEvent): Transcript
         title: event.title,
         input: event.input,
         approval: false,
+        ask: null,
         state: "running",
         receipt: null,
         decision: null,
@@ -148,6 +151,7 @@ export function withEvent(transcript: Transcript, event: AgentEvent): Transcript
       return mapTool(transcript, event.call, (entry) => ({
         ...entry,
         approval: true,
+        ask: event.ask,
         state: "awaiting",
       }));
     case "tool-result":

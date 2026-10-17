@@ -1919,7 +1919,12 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     - sandboxed code is denied, as it is the switch verb.
 
     So nothing acting for the owner can point a key at an endpoint the owner
-    did not choose.
+    did not choose. The ask says what the person approves: the refusal's
+    `details.configuration` (`configurationShown`, `@kb/model`) lists each
+    node the write configures with its settings as they will be, and each
+    node such a setting names with that node's settings, so approving a
+    selection shows the provider's endpoint, executable and credential
+    reference.
 
   - **Seeded defaults**, ordinary editable nodes filed under the query node
     `approval.policies` ("Approval policies"): an agent, and sandboxed code,
@@ -3140,7 +3145,9 @@ The sidebar agent lives outside core, in packages that core never imports
   - Every call runs at once through `UiHost.invoke`, as the agent's
     (`AGENT_WIRE`), and the bridge sends `tool-call`.
   - When the invoke core answers `approval_required`, the bridge sends
-    `approval` for that call and waits. The sidebar asks the person. It
+    `approval` for that call, with the ask the refusal makes
+    (`approvalAsk`: its message and what a configuration write runs with),
+    and waits. The sidebar asks the person. It
     then makes the call itself, through the browser's one invoke path,
     as the agent's, with `approved` set to the person's answer, and
     replies with that call's receipt. Declining is the same call without

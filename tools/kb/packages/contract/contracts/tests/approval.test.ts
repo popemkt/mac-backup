@@ -181,14 +181,56 @@ describe("a write to configuration", () => {
         ["agent", "ask"],
         ["script", "deny"],
       ] as const) {
-        expect({ kind, actor, ...weigh(actor, write) }).toEqual({
+        const { decision: decided, by } = weigh(actor, write);
+        expect({ kind, actor, decided, by }).toEqual({
           kind,
           actor,
-          decision,
+          decided: decision,
           by: { writes: "configuration" },
         });
       }
     }
+  });
+
+  test("shows what it runs with: the setting written, and what a reference brings", () => {
+    const graph = new Map<string, KbNode>([
+      ...GRAPH,
+      ["sys.f.endpoint", { ...node("sys.f.endpoint", configuresAgent), text: "endpoint" }],
+      [
+        "n.p",
+        {
+          ...node("n.p", {
+            [SYSTEM_IDS.typeField]: [{ t: "ref", v: "sys.tag.provider" }],
+            "sys.f.endpoint": [{ t: "str", v: "https://elsewhere.example/v1" }],
+          }),
+          text: "Proxy",
+        },
+      ],
+    ]);
+    const resolution = resolveApproval([], {
+      action: { id: "node.update", mode: WRITE },
+      actor: "agent",
+      writes: [writes.select ?? { before: undefined, after: undefined }],
+      nodeOf: (id) => graph.get(id),
+    });
+    expect(resolution.shows).toEqual([
+      {
+        node: AGENT,
+        label: AGENT,
+        settings: [{ field: "sys.f.provider", label: "sys.f.provider", values: ["Proxy (n.p)"] }],
+      },
+      {
+        node: "n.p",
+        label: "Proxy",
+        settings: [
+          { field: "sys.f.endpoint", label: "endpoint", values: ["https://elsewhere.example/v1"] },
+        ],
+      },
+    ]);
+    expect(approvalRefusal(resolution, { id: "node.update", input: {} })?.details).toEqual({
+      writes: "configuration",
+      configuration: resolution.shows,
+    });
   });
 
   test("is the owner's own to make, and any other write stays the policies'", () => {

@@ -82,7 +82,25 @@ describe("the agent's configuration", () => {
     const ctx = await openKb(root);
     expect(await invoke(ctx, addProvider("cli"))).toMatchObject({ status: "succeeded" });
     expect(await invoke(ctx, pointAt("https://elsewhere.example/v1", "agent"))).toMatchObject(asks);
-    expect(await invoke(ctx, select("agent"))).toMatchObject(asks);
+    const selecting = await invoke(ctx, select("agent"));
+    expect(selecting).toMatchObject(asks);
+    // The ask shows what the reference brings: the provider's endpoint.
+    expect(selecting).toMatchObject({
+      details: {
+        configuration: expect.arrayContaining([
+          expect.objectContaining({
+            node: PROVIDER,
+            settings: expect.arrayContaining([
+              {
+                field: AGENT_IDS.endpointField,
+                label: "endpoint",
+                values: ["http://127.0.0.1:8317/v1"],
+              },
+            ]),
+          }),
+        ]),
+      },
+    });
     // Nothing was written: the endpoint is still the owner's.
     expect(ctx.index.getNode(PROVIDER)?.props[AGENT_IDS.endpointField]).toEqual([
       { t: "str", v: "http://127.0.0.1:8317/v1" },
