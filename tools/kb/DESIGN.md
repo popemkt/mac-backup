@@ -544,7 +544,7 @@ type PropValue =
   also name a node the graph stores. The check (`valueConformanceError`) is part of
   `txIntegrityError`, so it runs where outline integrity already runs —
   `persistEffect`, which every action on every surface (CLI, MCP, HTTP/WS, the
-  browser's local replica) commits through, and `@kb/client`'s commit — and a
+  browser's local replica) and `@kb/client`'s commit go through — and a
   violation is the same `invalid_input` DomainError. What it checks is the
   values a transaction _writes_: those an upserted node holds that its stored
   version did not. A field may also declare how many values it holds:
@@ -1271,7 +1271,11 @@ A tool outside kb's surfaces reaches the graph through `@kb/client`
 (`packages/app/client/README.md`): a fresh read, a query over it, and a commit
 conditioned on the fingerprint that read returned — the port's own members,
 behind a Promise boundary, with no second notion of revision. It opens
-whichever store `selectStore` finds, like every other surface.
+whichever store `selectStore` finds, like every other surface, and commits
+through the one commit owner (`persistEffect`, its `expected` the caller's
+revision) in a session over what it read, so the system-write rule and
+integrity hold for it as for every surface. It never seeds: opening a root
+through kb does.
 
 The candidate second backends are **not** an open field:
 `briefs/p1-persistence.md` §0 is the canonical record of what was measured and

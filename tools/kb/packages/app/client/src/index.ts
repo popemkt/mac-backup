@@ -1,19 +1,18 @@
 import { Cause, Effect, Exit, Schema } from "effect";
-import { staleCommitError, type EffectStore } from "@kb/contracts";
+import { KbStore, TxOrigin, staleCommitError, type EffectStore } from "@kb/contracts";
 import {
   applyTx,
   byNodeId,
-  currentIso,
   domainError,
   isDomainError,
   KbNodeSchema,
   nodeParseOptions,
-  txIntegrityError,
   type DomainError,
 } from "@kb/model";
 import { bundledDerived } from "@kb/bundled";
+import { persistEffect } from "@kb/operations";
 import { DatascriptIndex, type KbIndex } from "@kb/query";
-import { selectStore, bunFileSystemLayer } from "@kb/runtime";
+import { selectStore, sessionOver, bunFileSystemLayer } from "@kb/runtime";
 import type { KbClient, QueryResult, Snapshot } from "./api.d.ts";
 
 export type { Commit, KbClient, KbNode, PropValue, QueryResult, Snapshot } from "./api.d.ts";
@@ -108,13 +107,16 @@ const runQuery = Effect.fn("kb.client.query")(function* (
 });
 
 /**
- * Validate the batch against the state it was decided on, then commit it on
- * the condition that the store is still there. The early staleness check only
- * spares a doomed integrity pass; the store's own check, inside its
- * exclusion, is the one that makes the result exact — which is also why the
- * committed snapshot is the read state with this batch applied.
+ * Commit the batch on the condition that the store is still in the state it
+ * was decided on, through the one commit owner (`persistEffect`) in a
+ * session over that state: integrity, the system-write rule and the
+ * transaction record are the same as on every other surface. The early
+ * staleness check only spares a doomed pass; the store's own check, inside
+ * its exclusion, is the one that makes the result exact — which is also why
+ * the committed snapshot is the read state with this batch applied.
  */
 const commitChange = Effect.fn("kb.client.commit")(function* (
+  root: string,
   store: EffectStore,
   change: unknown,
 ): Effect.fn.Return<Snapshot, DomainError> {
@@ -126,13 +128,10 @@ const commitChange = Effect.fn("kb.client.commit")(function* (
   if (stale !== null) return yield* stale;
 
   const tx = { upserts: input.upserts, deletes: input.deletes };
-  const invalid = txIntegrityError(current.nodes, tx);
-  if (invalid !== null) {
-    return yield* domainError("invalid_input", `invalid graph transaction: ${invalid}`);
-  }
-  const at = yield* currentIso;
-  const record = input.origin === undefined ? { at } : { at, origin: input.origin };
-  const { fingerprint, tx: applied } = yield* store.commitEffect(tx, record, current.revision);
+  const session = yield* sessionOver(root, store, current.nodes, bundledDerived());
+  const { fingerprint, tx: applied } = yield* persistEffect(session, tx, {
+    expected: current.revision,
+  }).pipe(Effect.provideService(KbStore, store), Effect.provideService(TxOrigin, input.origin));
   if (fingerprint === null) {
     return yield* domainError("internal", `store at ${store.path} cannot name its state`);
   }
@@ -153,7 +152,7 @@ function run<A>(effect: Effect.Effect<A, DomainError>): Promise<A> {
   });
 }
 
-function clientOver(store: EffectStore): KbClient {
+function clientOver(root: string, store: EffectStore): KbClient {
   const held: HeldIndex = {
     // GAP [[01M549TK1WP4E6T4QHNDRSDYQA]] the page and client derive ownership from the bundled fold only
     index: new DatascriptIndex([], { derived: bundledDerived() }),
@@ -162,7 +161,7 @@ function clientOver(store: EffectStore): KbClient {
   return {
     snapshot: () => run(readSnapshot(store)),
     query: (edn, inputs = []) => run(runQuery(store, held, edn, inputs)),
-    commit: (change) => run(commitChange(store, change)),
+    commit: (change) => run(commitChange(root, store, change)),
   };
 }
 
@@ -172,5 +171,10 @@ function clientOver(store: EffectStore): KbClient {
  * lifetime — a sqlite store keeps its connection open until the process ends.
  */
 export function openClient(root: string): Promise<KbClient> {
-  return run(selectStore(root).pipe(Effect.map(clientOver), Effect.provide(bunFileSystemLayer)));
+  return run(
+    selectStore(root).pipe(
+      Effect.map((store) => clientOver(root, store)),
+      Effect.provide(bunFileSystemLayer),
+    ),
+  );
 }

@@ -10,12 +10,12 @@ import { DatascriptIndex } from "@kb/query";
 import {
   STORE_BACKENDS,
   createStore,
+  openKbEffect,
   selectStore,
   type StoreBackend,
   bunFileSystemLayer,
 } from "@kb/runtime";
 import { KbClientError, openClient, type KbNode } from "../src/index.ts";
-import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-09-19T00:00:00.000Z";
 const roots: string[] = [];
@@ -219,8 +219,23 @@ describe.each([...STORE_BACKENDS])("over a %s store", (backend) => {
     expect(await client.snapshot()).toEqual(empty);
   });
 
-  test("a value its field's declared type does not accept is refused, and nothing is stored", async () => {
+  test("a client's write to a system node is refused, as on every surface", async () => {
     const client = await openClient(await workspace(backend));
+    const empty = await client.snapshot();
+    const forged = { ...node(SYSTEM_IDS.field, "field"), props: {} };
+    expect(
+      await codeOf(
+        client.commit({ expectedRevision: empty.revision, upserts: [forged], deletes: [] }),
+      ),
+    ).toBe("forbidden");
+    expect((await client.snapshot()).revision).toBe(empty.revision);
+  });
+
+  test("a value its field's declared type does not accept is refused, and nothing is stored", async () => {
+    // Opening the root seeds it, as every surface's opening does; the client does not.
+    const root = await workspace(backend);
+    await withFs(openKbEffect(root));
+    const client = await openClient(root);
     const empty = await client.snapshot();
     const estimate = {
       ...node("f.estimate", "estimate"),
@@ -231,7 +246,7 @@ describe.each([...STORE_BACKENDS])("over a %s store", (backend) => {
     };
     const seeded = await client.commit({
       expectedRevision: empty.revision,
-      upserts: [...bundledSeed(AT), estimate],
+      upserts: [estimate],
       deletes: [],
     });
     const task = (value: PropValue): KbNode => ({

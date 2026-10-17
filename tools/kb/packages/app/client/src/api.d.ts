@@ -51,7 +51,8 @@ export interface KbClient {
   /**
    * Apply one batch if the store is still at `expectedRevision`, and return
    * the snapshot it produced. A `conflict` means the store moved: nothing was
-   * written or recorded; read again and reconsider.
+   * written or recorded; read again and reconsider. A write to a `sys.*`
+   * node is `forbidden`, as on every kb surface.
    */
   commit(change: Commit): Promise<Snapshot>;
 }

@@ -86,6 +86,7 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
+        "@kb/operations": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/runtime": "workspace:*",
         "effect": "catalog:",
