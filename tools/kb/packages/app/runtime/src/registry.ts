@@ -6,7 +6,6 @@ import {
   ViewKeyPoint,
   declarationPlugin,
   actionToManifestEntry,
-  extensionPlugin,
   extensionRow,
   familyOn,
   NO_SWITCHES,
@@ -15,7 +14,6 @@ import {
   type ActionHandlerEnv,
   type ActionInvocation,
   type ActionReceipt,
-  type ExtensionEntry,
   type ExtensionFailure,
   type ExtensionRow,
   type KbContext,
@@ -33,9 +31,7 @@ import {
 } from "@kb/operations";
 import { viewCatalogOf, type ViewCatalogOf } from "@kb/views";
 import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
-import { BUNDLED_EXTENSIONS } from "./bundled.ts";
-import { discoverExtensions } from "./extension-loader.ts";
-import { codeTrustLayer } from "@kb/workspace-fs";
+import { resetRootFamilies, rootFamilies, type RootFamily } from "./families.ts";
 import { writeErr } from "./output.ts";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
@@ -201,17 +197,19 @@ export const unloadBrokenBatches = Effect.fnUntraced(function* (
 });
 
 /**
- * The registry is a reading of the kernel: load core, the bundled extensions
- * the store has on (`on`) and the repo's `.kb/extensions`, then derive every
- * table from the points they contributed to. A plugin that cannot load (a
- * clash, a throwing module) is reported and leaves nothing behind.
+ * The registry is a reading of the kernel: load core and each of the root's
+ * families (`rootFamilies`) the store has on (`on`), then derive every table
+ * from the points they contributed to. A plugin that cannot load (a clash,
+ * a throwing module) is reported, as is a module discovery refused
+ * (`refused`), and leaves nothing behind.
  */
 const buildRegistry = Effect.fnUntraced(function* (
-  root: string | null,
-  on: readonly ExtensionEntry[],
-): Effect.fn.Return<Registry, never, FileSystem> {
+  families: readonly RootFamily[],
+  on: readonly RootFamily[],
+  refused: readonly ExtensionFailure[],
+): Effect.fn.Return<Registry> {
   const kernel = makeKernel();
-  const failures: ExtensionFailure[] = [];
+  const failures: ExtensionFailure[] = [...refused];
   const sources = new Map<string, string>();
 
   const load = (plugin: Plugin, source: string): Effect.Effect<void> =>
@@ -227,15 +225,7 @@ const buildRegistry = Effect.fnUntraced(function* (
     );
 
   yield* load(corePlugin, "core");
-  for (const { entry } of on) yield* load(entry, "bundled");
-  if (root !== null) {
-    // Which of the root's own extensions a person trusted is the root's record.
-    const discovered = yield* discoverExtensions(root).pipe(Effect.provide(codeTrustLayer(root)));
-    failures.push(...discovered.failures);
-    for (const extension of discovered.extensions) {
-      yield* load(extensionPlugin(extension), extension.source);
-    }
-  }
+  for (const { entry, source } of on) yield* load(entry, source);
 
   yield* unloadBrokenBatches(kernel, { core: corePlugin.name, sources, failures });
 
@@ -277,15 +267,9 @@ const buildRegistry = Effect.fnUntraced(function* (
 
   const views = viewCatalogOf(kernel.contributions(ViewKeyPoint).map(({ value }) => value));
 
-  // A repository extension declares nothing, so it reads as a declaration of its name alone.
-  const families: ExtensionRow[] = [
-    ...BUNDLED_EXTENSIONS.map(({ declaration }) =>
-      extensionRow(declaration, "bundled", sources.get(declaration.name) === "bundled"),
-    ),
-    ...extensions
-      .filter(({ source }) => source !== "bundled")
-      .map(({ name, source }) => extensionRow({ name, label: name }, source, true)),
-  ];
+  const rows: ExtensionRow[] = families.map(({ declaration, source }) =>
+    extensionRow(declaration, source, sources.get(declaration.name) === source),
+  );
 
   return {
     kernel,
@@ -296,7 +280,7 @@ const buildRegistry = Effect.fnUntraced(function* (
     failures,
     manifestEntries,
     views,
-    families,
+    families: rows,
   };
 });
 
@@ -304,20 +288,22 @@ const registryCache = new Map<string, Effect.Effect<Registry, never, FileSystem>
 const NO_ROOT_KEY = "no-root";
 
 /**
- * Registry for a kb root: core actions + the bundled extensions its store
- * has on + `.kb/extensions/*.ts`. An optional family is on while the store
- * `nodeOf` reads says so, or by its declared default where it says nothing
- * (`familyOn`); with no store, every optional family is as it is by default. Cached per root and per set of families on, for the process
- * lifetime (extension changes need a restart), so switching a family is a
- * new key, and switching it back finds the old registry. `null` root = core
- * + bundled only.
+ * Registry for a kb root: core actions + each of its families
+ * (`rootFamilies`: the bundled ones, then `.kb/extensions/*.ts`) its store
+ * has on. An optional family is on while the store `nodeOf` reads says so,
+ * or by its declared default where it says nothing (`familyOn`); with no
+ * store, every optional family is as it is by default. Cached per root and
+ * per set of families on, for the process lifetime (extension changes need
+ * a restart), so switching a family is a new key, and switching it back
+ * finds the old registry. `null` root = core + bundled only.
  */
 export const registryFor = Effect.fn("kb.registryFor")(function* (
   root: string | null,
   nodeOf: NodeLookup = NO_SWITCHES,
 ): Effect.fn.Return<Registry, never, FileSystem> {
+  const { families, failures } = yield* rootFamilies(root);
   const unread: string[] = [];
-  const on = BUNDLED_EXTENSIONS.filter(({ declaration }) =>
+  const on = families.filter(({ declaration }) =>
     familyOn(declaration, nodeOf, (warning) => unread.push(`${declaration.name}: ${warning}`)),
   );
   const key = [root ?? NO_ROOT_KEY, ...on.map(({ declaration }) => declaration.name)].join("\0");
@@ -327,7 +313,7 @@ export const registryFor = Effect.fn("kb.registryFor")(function* (
     // `Effect.cached` is what makes the entry a build-once value rather than a
     // recipe: concurrent callers share the one in-flight build, as the cached
     // Promise did.
-    registry = yield* Effect.cached(buildRegistry(root, on));
+    registry = yield* Effect.cached(buildRegistry(families, on, failures));
     registryCache.set(key, registry);
   }
   return yield* registry;
@@ -341,6 +327,7 @@ export function sessionRegistry(ctx: KbContext): Effect.Effect<Registry, never, 
 /** Test hook: drop cached registries so fresh roots re-discover extensions. */
 export function resetRegistryCache(): void {
   registryCache.clear();
+  resetRootFamilies();
 }
 
 export const manifest = Effect.fn("kb.manifest")(function* (
