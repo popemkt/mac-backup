@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { cn } from "../lib/cn";
 import { hasText } from "../lib/text";
 
@@ -8,7 +8,11 @@ export interface SidebarNavItem {
   label: string;
 }
 
-/** One sidebar entry. A primitive, so every plugin's section draws the same row. */
+/**
+ * One sidebar entry. A primitive, so every plugin's section draws the same
+ * row. Its click is handed to its owner, which may read the modifier keys
+ * (⌘-click opens elsewhere).
+ */
 export function SidebarRow({
   label,
   icon,
@@ -21,7 +25,7 @@ export function SidebarRow({
   icon?: ReactNode;
   active?: boolean;
   indented?: boolean;
-  onClick: () => void;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   muted?: boolean;
 }) {
   return (
