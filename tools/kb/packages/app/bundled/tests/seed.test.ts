@@ -9,10 +9,11 @@ import {
   SYSTEM_IDS,
   VIEW_FAMILY_VALUES,
   defaultViewTypeOf,
+  extensionNodeId,
   foldSeed,
   viewOptionId,
 } from "@kb/model";
-import { BUNDLED_DECLARATIONS, bundledSeed } from "@kb/bundled";
+import { BUNDLED_DECLARATIONS, bundledOwners, bundledSeed } from "@kb/bundled";
 
 const AT = "2026-01-01T00:00:00.000Z";
 const declaredKeys = BUNDLED_DECLARATIONS.flatMap((declaration) =>
@@ -51,6 +52,25 @@ describe("bundled seed", () => {
     expect(() => foldSeed([...BUNDLED_DECLARATIONS, ...BUNDLED_DECLARATIONS], AT)).toThrow(
       /declared twice/,
     );
+  });
+
+  test("every node it seeds has one owner, the declaration it came from", () => {
+    const owners = bundledOwners();
+    expect([...owners.keys()].toSorted()).toEqual(
+      bundledSeed(AT)
+        .map((node) => node.id)
+        .toSorted(),
+    );
+    for (const declaration of BUNDLED_DECLARATIONS) {
+      const owned = [
+        ...(declaration.seed?.(AT) ?? []).map((node) => node.id),
+        ...(declaration.views ?? []).map((view) => viewOptionId(view.key.id)),
+        extensionNodeId(declaration.name),
+      ];
+      expect(owned.map((id) => [id, owners.get(id)])).toEqual(
+        owned.map((id) => [id, declaration.name]),
+      );
+    }
   });
 
   test("it is pure data: the same nodes every time", () => {

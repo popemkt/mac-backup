@@ -26,7 +26,7 @@ import { docsExtension } from "@kb/docs";
 import { graphExtension } from "@kb/graph";
 import { labExtension } from "@kb/lab";
 import { locationsExtension } from "@kb/locations";
-import { foldSeed, type KbNode } from "@kb/model";
+import { foldSeed, type KbNode, type NodeId } from "@kb/model";
 import { coreExtension } from "@kb/operations";
 import { outlineExtension } from "@kb/outline";
 import { derivedWith, type DerivedRef } from "@kb/query";
@@ -71,7 +71,16 @@ export const BUNDLED_DECLARATIONS: readonly ExtensionDeclaration[] = [
  * seeds the same nodes whatever it loads. Stamped at `at`, else now.
  */
 export function bundledSeed(at?: string): KbNode[] {
-  return foldSeed(BUNDLED_DECLARATIONS, at);
+  return foldSeed(BUNDLED_DECLARATIONS, at).nodes;
+}
+
+/**
+ * Who owns each node of that seed: the name of the declaration whose seed
+ * holds its id (DESIGN.md → Extension families → ownership). The same fold
+ * read the other way, so it cannot name a node the seed does not hold.
+ */
+export function bundledOwners(): ReadonlyMap<NodeId, string> {
+  return foldSeed(BUNDLED_DECLARATIONS).owners;
 }
 
 /**

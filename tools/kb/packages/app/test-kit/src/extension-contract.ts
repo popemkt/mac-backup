@@ -270,7 +270,7 @@ export function extensionContract(
     });
 
     test("its node is in the fold, named by its label, and switching it writes only its switch", () => {
-      const fold = foldSeed(foldWith(declaration), CONTRACT_AT);
+      const fold = foldSeed(foldWith(declaration), CONTRACT_AT).nodes;
       const node = present(
         fold.find(({ id }) => id === extensionNodeId(declaration.name)),
         `${declaration.name}'s node is in the fold`,
@@ -289,7 +289,9 @@ export function extensionContract(
     });
 
     test("every view it declares has an option in the fold", () => {
-      const seeded = new Set(foldSeed(foldWith(declaration), CONTRACT_AT).map((node) => node.id));
+      const seeded = new Set(
+        foldSeed(foldWith(declaration), CONTRACT_AT).nodes.map((node) => node.id),
+      );
       const orphans = (declaration.views ?? [])
         .map((view) => view.key.id)
         .filter((id) => !seeded.has(viewOptionId(id)));

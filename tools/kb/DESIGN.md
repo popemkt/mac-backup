@@ -2284,7 +2284,11 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     what such a node is (Kinds, roles and options), so it carries no tag;
   - pure data: it opens nothing and fails on an id declared twice, or on a
     default view type provided twice or naming a view its provider does
-    not provide.
+    not provide;
+  - its own provenance: the fold (`foldSeed`, `@kb/model`) yields each
+    node's **owner**, the declaration whose seed holds its id (its view
+    options and its own node included), read as `bundledOwners()`. It is
+    known only there, where every id is already proven to have one.
 
   Repository plugins contribute no seed, and a host's own seeds through its
   declaration in the fold, never through the plugin, so every surface seeds the

@@ -3,9 +3,10 @@
  * fold): every declaration's seed nodes, the node each declaration derives
  * under `sys.extensions`, the option node each declared view derives under
  * `sys.views`, and the default view type its one provider declares, folded
- * into the seed a store is opened with.
+ * into the seed a store is opened with, together with which declaration
+ * each folded node came from.
  */
-import { SYSTEM_IDS, extensionNodeId, type KbNode, nowIso } from "./model.ts";
+import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, nowIso } from "./model.ts";
 import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
 
 /**
@@ -112,24 +113,43 @@ function fileUnder(nodes: readonly KbNode[], rootId: string, derived: readonly K
 }
 
 /**
+ * One fold, read two ways: the seed a store is opened with, and its
+ * provenance, the name of the source each of those nodes came from. A
+ * source owns its seed nodes, the option node of each view it declares and
+ * its own node; the list nodes the derived ones are filed under stay their
+ * declarer's. The owner is known only here, where the fold already proves
+ * each id has exactly one, so nothing else keeps a second copy of it.
+ */
+export interface FoldedSeed {
+  readonly nodes: KbNode[];
+  readonly owners: ReadonlyMap<NodeId, string>;
+}
+
+/**
  * The seed a store is opened with: every source's nodes, in source order;
  * every source's own node, a child of `sys.extensions` in the same order;
  * and every source's views as option nodes, children of `sys.views` in the
  * same order, with `sys.views` naming the default view type its one
  * provider declares (`defaultViewProps`). Each derived node is placed right
- * after its list. Pure data: it opens nothing, and it throws on an id two
- * sources declare, because that is a bundling defect no store can repair.
+ * after its list. Each node's owner comes with it ({@link FoldedSeed}).
+ * Pure data: it opens nothing, and it throws on an id two sources declare,
+ * because that is a bundling defect no store can repair.
  */
-export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()): KbNode[] {
-  const nodes = sources.flatMap((source) => source.seed?.(at) ?? []);
-  const options = sources.flatMap((source) =>
-    (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
-  );
-  const extensions = sources.map((source) => extensionNode(source, at));
+export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()): FoldedSeed {
+  const parts = sources.map((source) => ({
+    name: source.name,
+    seed: source.seed?.(at) ?? [],
+    options: (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
+    own: extensionNode(source, at),
+  }));
   const folded = fileUnder(
-    fileUnder(nodes, SYSTEM_IDS.viewsRoot, options),
+    fileUnder(
+      parts.flatMap((part) => part.seed),
+      SYSTEM_IDS.viewsRoot,
+      parts.flatMap((part) => part.options),
+    ),
     SYSTEM_IDS.extensionsRoot,
-    extensions,
+    parts.map((part) => part.own),
   );
   const seen = new Set<string>();
   for (const node of folded) {
@@ -139,7 +159,14 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
   // Read once every id is known to have one owner, so a doubled source is
   // refused for its ids first.
   const defaults = defaultViewProps(sources);
-  return folded.map((node) =>
-    node.id === SYSTEM_IDS.viewsRoot ? { ...node, props: { ...node.props, ...defaults } } : node,
-  );
+  return {
+    nodes: folded.map((node) =>
+      node.id === SYSTEM_IDS.viewsRoot ? { ...node, props: { ...node.props, ...defaults } } : node,
+    ),
+    owners: new Map(
+      parts.flatMap((part) =>
+        [...part.seed, ...part.options, part.own].map((node) => [node.id, part.name] as const),
+      ),
+    ),
+  };
 }
