@@ -237,6 +237,9 @@ describe("ontology scope (acceptance)", () => {
         labelDensity: "medium",
         theme: "matte",
         linkStyle: "straight",
+        traceFrom: null,
+        traceTo: null,
+        tracePaths: null,
       },
       { restrictTo: present(s.ontologyMembers, "ontology members") },
     );

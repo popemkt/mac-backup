@@ -28,6 +28,7 @@ export function Force2dAdapter({
     setSelection,
     setControls,
     onNodeOpen,
+    trace,
   },
 }: RendererProps<ParamsOf<typeof Force2dView>>) {
   const nodes = useOutlineBullets(lensGraph.nodes, settings.theme);
@@ -48,6 +49,8 @@ export function Force2dAdapter({
       onControlsReady={setControls}
       highlightIds={searchHighlight ?? undefined}
       filterIds={filterIds ?? undefined}
+      traceIds={trace.lit ?? undefined}
+      onTraceTo={trace.to}
     />
   );
 }
@@ -94,6 +97,7 @@ export function ClusterAdapter({
     setSelection,
     setControls,
     onNodeOpen,
+    trace,
   },
 }: RendererProps<ParamsOf<typeof ClusterView>>) {
   const nodes = useOutlineBullets(lensGraph.nodes, settings.theme);
@@ -108,6 +112,8 @@ export function ClusterAdapter({
       onSelectionChange={setSelection}
       highlightIds={searchHighlight ?? undefined}
       filterIds={filterIds ?? undefined}
+      traceIds={trace.lit ?? undefined}
+      onTraceTo={trace.to}
       showLabels={settings.showLabels}
       labelDensity={settings.labelDensity}
       linkStyle={settings.linkStyle}

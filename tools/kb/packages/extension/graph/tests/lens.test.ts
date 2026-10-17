@@ -56,6 +56,9 @@ describe("a graph view's lens", () => {
       labelDensity: "high",
       theme: "matte",
       linkStyle: "straight",
+      traceFrom: "n.a",
+      traceTo: "n.b",
+      tracePaths: 2,
     };
     const props = savedProps(TreeView, perspective);
     expect(props[SYSTEM_IDS.viewField]).toEqual([{ t: "ref", v: perspective.renderer }]);

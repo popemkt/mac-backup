@@ -84,6 +84,14 @@ export interface LensPerspective {
   theme: LensTheme;
   /** How the graph's links are drawn, in every renderer (`lens.link-style`). */
   linkStyle: LensLinkStyle;
+  /**
+   * A saved trace: the paths between these two nodes are the graph's node
+   * set (`lens.trace-from`, `lens.trace-to`); either null is no trace.
+   */
+  traceFrom: string | null;
+  traceTo: string | null;
+  /** How many paths a trace draws (`lens.trace-paths`); null is trace's own default. */
+  tracePaths: number | null;
 }
 
 export type LensTheme = keyof typeof GRAPH_THEME_VALUES;
@@ -246,7 +254,7 @@ export type LensSetting = keyof typeof LENS_SETTINGS;
 
 /**
  * The lens a graph view draws through: which nodes (its query, focus and
- * hops, its edge kinds and node budget) and how they map to marks (colour,
+ * hops, a saved trace, its edge kinds and node budget) and how they map to marks (colour,
  * label, size, group). Extraction reads it for every renderer alike, so every
  * renderer view's params compose it beside the settings that renderer reads
  * (`views.ts`), and a proposed graph view sets it as it sets those. Each is
@@ -275,6 +283,20 @@ export const LensParams = Schema.Struct({
   ),
   clusterBy: Schema.optionalKey(
     SourceSchema.annotate({ description: "parent, none, tag:<id> or prop:<field id>" }),
+  ),
+  traceFrom: Schema.optionalKey(
+    Schema.NullOr(Schema.String).annotate({
+      description:
+        "A saved trace's first node: with traceTo, the paths between them are the nodes drawn",
+    }),
+  ),
+  traceTo: Schema.optionalKey(
+    Schema.NullOr(Schema.String).annotate({ description: "A saved trace's last node" }),
+  ),
+  tracePaths: Schema.optionalKey(
+    Schema.NullOr(NodeCountSchema).annotate({
+      description: "How many shortest paths a saved trace draws",
+    }),
   ),
 });
 
@@ -397,6 +419,27 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
     schema: LENS_SETTINGS.linkStyle,
     fallback: DEFAULT_LINK_STYLE,
   }),
+  traceFrom: oneOf<string | null>({
+    fields: [GRAPH_IDS.lensTraceFromField],
+    read: firstRef(GRAPH_IDS.lensTraceFromField),
+    write: writeRef(GRAPH_IDS.lensTraceFromField),
+    schema: Schema.String,
+    fallback: null,
+  }),
+  traceTo: oneOf<string | null>({
+    fields: [GRAPH_IDS.lensTraceToField],
+    read: firstRef(GRAPH_IDS.lensTraceToField),
+    write: writeRef(GRAPH_IDS.lensTraceToField),
+    schema: Schema.String,
+    fallback: null,
+  }),
+  tracePaths: oneOf<number | null>({
+    fields: [GRAPH_IDS.lensTracePathsField],
+    read: firstNum(GRAPH_IDS.lensTracePathsField),
+    write: writeNum(GRAPH_IDS.lensTracePathsField),
+    schema: NodeCountSchema,
+    fallback: null,
+  }),
 };
 
 /**
@@ -427,6 +470,9 @@ export function decodeLensConfig(props: NodeProps, report: ConfigReport): LensPr
     labelDensity: slot("labelDensity"),
     theme: slot("theme"),
     linkStyle: slot("linkStyle"),
+    traceFrom: slot("traceFrom"),
+    traceTo: slot("traceTo"),
+    tracePaths: slot("tracePaths"),
   };
 }
 

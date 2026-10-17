@@ -23,4 +23,9 @@ describe("graph emphasis", () => {
       ),
     ).toBe(0.2);
   });
+  it("a trace lights its paths in place and dims the rest, as search does", () => {
+    const traced = { traceIds: new Set(["a", "b"]) };
+    expect(graphEmphasisAlpha("a", traced, null)).toBe(1);
+    expect(graphEmphasisAlpha("z", traced, null)).toBe(0.2);
+  });
 });

@@ -50,6 +50,14 @@ export const GRAPH_IDS = {
   /** How the graph's links are drawn, in every renderer (ref to one of its option children). */
   lensLinkStyleField: "sys.f.lens.link-style",
   /**
+   * A saved trace (DESIGN-UI.md → Graph → Tracing): the node a graph view's
+   * paths start at and end at (refs, one each), and how many paths it draws
+   * (num). The view's node set is the union of the paths.
+   */
+  lensTraceFromField: "sys.f.lens.trace-from",
+  lensTraceToField: "sys.f.lens.trace-to",
+  lensTracePathsField: "sys.f.lens.trace-paths",
+  /**
    * Default global mentions+child force2d perspective.
    * User-editable (NOT sys-prefixed) so write-guard does not lock it.
    */

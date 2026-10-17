@@ -124,6 +124,9 @@ function perspective(patch: Partial<LensPerspective> = {}): LensPerspective {
     labelDensity: "medium",
     theme: "matte",
     linkStyle: "straight",
+    traceFrom: null,
+    traceTo: null,
+    tracePaths: null,
     ...patch,
   };
 }
@@ -191,6 +194,24 @@ describe("extractLensGraph", () => {
     expect(fullIds.has("sys.field")).toBe(true);
     expect(fullIds.has("tag.todo")).toBe(true);
     expect(full.nodes.length).toBeGreaterThan(elided.nodes.length);
+  });
+
+  it("a saved trace draws the paths between its ends, and nothing else", () => {
+    const db = new DatascriptIndex(nodes);
+    const traced = extractLensGraph(
+      db,
+      nodes,
+      perspective({
+        edgeKinds: ["mention", "child", "ref-prop"],
+        traceFrom: "n.a1",
+        traceTo: "n.c",
+      }),
+    );
+    // n.a1 ← n.a → n.b → n.c: the one path, ends included; the tags it carries are scaffolding.
+    expect(traced.nodes.map((n) => n.id)).toEqual(["n.a", "n.a1", "n.b", "n.c"]);
+    const none = extractLensGraph(db, nodes, perspective({ traceFrom: "n.a", traceTo: "n.c" }));
+    // Under mentions and children alone nothing reaches n.c: no path, no nodes.
+    expect(none.nodes).toEqual([]);
   });
 
   it("selects only ref-prop edges when configured", () => {

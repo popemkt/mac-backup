@@ -33,6 +33,13 @@ describe("renderer capabilities", () => {
     expect(capabilitiesFor(Force3dView).fit).toBe(true);
   });
 
+  it("the 2D renderers trace in place; the others do not", () => {
+    expect(capabilitiesFor(Force2dView).trace).toBe(true);
+    expect(capabilitiesFor(ClusterView).trace).toBe(true);
+    expect(capabilitiesFor(TreeView).trace).toBe(false);
+    expect(capabilitiesFor(Force3dView).trace).toBe(false);
+  });
+
   it("a renderer no view is provided for disables everything (never looks live)", () => {
     const c = capabilitiesFor(null);
     expect(Object.values(c).every((v) => v === false)).toBe(true);

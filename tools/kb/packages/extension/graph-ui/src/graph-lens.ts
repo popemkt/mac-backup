@@ -11,6 +11,7 @@ import {
   decodePerspective,
   isScaffolding,
   resolvePerspective,
+  traceOf,
   type LensEdge,
   DEFAULT_CLUSTER_BY,
   DEFAULT_FIXED_COLOR,
@@ -238,15 +239,44 @@ function resolveNodeSet(
   });
   const all = new Set(candidates.map((n) => n.id));
   const edn = perspective.query.trim();
-  if (!edn) return { nodeSet: all, queryError: null };
+  if (!edn) return { nodeSet: tracedSet(candidates, all, perspective), queryError: null };
   try {
     const rows = runQuery(db, edn);
-    return { nodeSet: idsFromQueryRows(rows, all), queryError: null };
+    return {
+      nodeSet: tracedSet(candidates, idsFromQueryRows(rows, all), perspective),
+      queryError: null,
+    };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logWarn("[graph-lens] lens.query failed:", msg);
     return { nodeSet: new Set(), queryError: msg };
   }
+}
+
+/**
+ * A saved trace's node set: the paths between its ends over the lens's
+ * edge kinds, within `nodeSet` (`@kb/graph`'s `traceOf`, the read the
+ * server's `graph.trace` runs). A perspective that names no trace keeps the
+ * set it has.
+ */
+function tracedSet(
+  candidates: readonly WireNode[],
+  nodeSet: Set<string>,
+  perspective: LensPerspective,
+): Set<string> {
+  const { traceFrom: from, traceTo: to } = perspective;
+  if (from === null || to === null) return nodeSet;
+  const { paths } = traceOf(
+    candidates.filter((n) => nodeSet.has(n.id)),
+    {
+      from,
+      to,
+      kinds: perspective.edgeKinds,
+      ...(perspective.tracePaths === null ? {} : { k: perspective.tracePaths }),
+      includeSystem: true,
+    },
+  );
+  return new Set(paths.flatMap((path) => path.nodes));
 }
 
 function degreeMap(nodeIds: Iterable<string>, edges: LensEdge[]): Map<string, number> {

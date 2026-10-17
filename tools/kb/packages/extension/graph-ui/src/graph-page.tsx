@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Result } from "effect";
 import { WarningIcon } from "@phosphor-icons/react";
-import { setGraphRenderer } from "./lens-writes";
+import { saveGraphPerspective, setGraphRenderer } from "./lens-writes";
 import {
   browserHost,
   cn,
@@ -39,6 +39,7 @@ import { selectionFromNode, type GraphSelection } from "./graph-selection";
 import { paramsFromProps } from "@kb/views";
 import { GraphFrameContext, graphViewKey, type GraphFrame } from "./graph-frame";
 import { useRenderer } from "./use-renderers";
+import { useGraphTrace } from "./graph-trace";
 import { graphPath } from "./routes";
 
 // GAP [[01M3EH8SRZ2NN7QZJY88CGY0T3]]
@@ -166,9 +167,34 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedNode = lensGraph.nodes.find((node) => node.id === selectedId);
   const selection = selectedNode ? selectionFromNode(selectedNode) : null;
+  const traced = useGraphTrace(active, lensGraph, wireNodes, selectedId);
+  const { trace, pick: pickTraceEnd, clear: clearTrace } = traced;
+  // While a trace waits for its end, the next node selected is that end.
   const setSelection = useCallback(
-    (value: GraphSelection | null) => setSelectedId(value?.nodeId ?? null),
-    [],
+    (value: GraphSelection | null) => {
+      if (value !== null) pickTraceEnd(value.nodeId);
+      setSelectedId(value?.nodeId ?? null);
+    },
+    [pickTraceEnd],
+  );
+  const [savingTrace, setSavingTrace] = useState(false);
+  const saveTrace = useCallback(
+    async (name: string) => {
+      if (rendererKey === null || !active || trace === null || trace.to === null) return;
+      setSavingTrace(true);
+      try {
+        const saved = await saveGraphPerspective(
+          rendererKey,
+          { ...active, traceFrom: trace.from, traceTo: trace.to },
+          name,
+        );
+        // The trace stays with the perspective it was traced in; the saved one draws it.
+        if ("id" in saved) navigate(graphPath(saved.id));
+      } finally {
+        setSavingTrace(false);
+      }
+    },
+    [trace, rendererKey, active],
   );
   const [searchHighlight, setSearchHighlight] = useState<Set<string> | null>(null);
   const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
@@ -177,7 +203,10 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
       setSelectedId(null);
   }, [lensGraph.nodes, selectedId]);
 
-  const clearSelection = useCallback(() => setSelectedId(null), []);
+  const clearSelection = useCallback(() => {
+    setSelectedId(null);
+    clearTrace();
+  }, [clearTrace]);
 
   // What the renderer view draws from, beside the settings it decodes from the perspective.
   const layoutKey = active?.id ?? "";
@@ -195,6 +224,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
       setSelection,
       setControls,
       onNodeOpen,
+      trace: traced.frame,
     }),
     [
       lensGraph,
@@ -208,6 +238,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
       selection,
       setSelection,
       onNodeOpen,
+      traced.frame,
     ],
   );
   // The renderer's settings, read off the perspective node through its key.
@@ -337,6 +368,9 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
             onFilterChange={setFilterIds}
             queryError={lensGraph.queryError}
             perspective={active}
+            trace={traced}
+            onSaveTrace={(name) => void saveTrace(name)}
+            savingTrace={savingTrace}
           >
             {lensGraph.nodes.length === 0 && !hasText(lensGraph.queryError) ? (
               <WorkspaceState

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { NO_TRACE } from "./graph-trace";
 import { Result } from "effect";
 import {
   browserHost,
@@ -71,6 +72,7 @@ export function NeighbourhoodGraph({ params }: ViewProps<NeighbourhoodParams>) {
       setSelection,
       setControls: () => undefined,
       onNodeOpen,
+      trace: NO_TRACE,
     }),
     [lensGraph, forest, layoutKey, edges, appearance, selection, setSelection, onNodeOpen],
   );

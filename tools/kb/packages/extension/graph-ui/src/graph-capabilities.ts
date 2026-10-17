@@ -12,6 +12,7 @@ export const CAPABILITY_REASONS: Record<CapabilityKey, string> = {
   selection: "Selection is not available in this renderer",
   dim: "Dim highlighting is not available in this renderer",
   drag: "Node drag is not available in this renderer",
+  trace: "Tracing is not available in this renderer",
 };
 
 const NONE: RendererCapabilities = {
@@ -23,6 +24,7 @@ const NONE: RendererCapabilities = {
   selection: false,
   dim: false,
   drag: false,
+  trace: false,
 };
 
 /** What the frame may drive; a renderer no view is provided for drives nothing. */

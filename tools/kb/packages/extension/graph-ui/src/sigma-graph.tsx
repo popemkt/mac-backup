@@ -72,6 +72,8 @@ export interface SigmaGraphProps extends GraphEmphasis {
    */
   theme?: LensTheme;
   onControlsReady?: (controls: GraphCameraControls | null) => void;
+  /** Shift-click with a node selected: trace from the selection to the clicked node. */
+  onTraceTo?: (id: string) => void;
 }
 
 /**
@@ -120,6 +122,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     selectedNodeId,
     highlightIds,
     filterIds,
+    traceIds,
     showLabels = true,
     labelDensity = "medium",
     linkStyle = "straight",
@@ -157,7 +160,10 @@ export function SigmaGraph(props: SigmaGraphProps) {
     emphasis.current?.retarget({
       active,
       narrowed:
-        active !== null || state.highlightIds !== undefined || state.filterIds !== undefined,
+        active !== null ||
+        state.highlightIds !== undefined ||
+        state.filterIds !== undefined ||
+        state.traceIds !== undefined,
       presence: (id) => {
         const a = graphEmphasisAlpha(id, state, neighborhood);
         return isolatedRef.current !== null &&
@@ -288,6 +294,11 @@ export function SigmaGraph(props: SigmaGraphProps) {
       const native = asInstance(event.original, MouseEvent);
       if (native?.metaKey === true || native?.ctrlKey === true) {
         live.current.onNodeOpen(node);
+        return;
+      }
+      const { selectedNodeId: from, onTraceTo } = live.current;
+      if (native?.shiftKey === true && onTraceTo && typeof from === "string" && from !== node) {
+        onTraceTo(node);
         return;
       }
       const meta = live.current.nodes.find((n) => n.id === node);
@@ -477,7 +488,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
   }, [linkStyle]);
   useEffect(() => {
     refresh();
-  }, [selectedNodeId, highlightIds, filterIds, isolated, refresh]);
+  }, [selectedNodeId, highlightIds, filterIds, traceIds, isolated, refresh]);
   const meta = tooltip ? nodes.find((n) => n.id === tooltip.id) : null;
   return (
     <div

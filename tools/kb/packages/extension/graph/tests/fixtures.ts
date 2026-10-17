@@ -40,6 +40,9 @@ export function perspective(patch: Partial<LensPerspective> = {}): LensPerspecti
     labelDensity: "medium",
     theme: "matte",
     linkStyle: "straight",
+    traceFrom: null,
+    traceTo: null,
+    tracePaths: null,
     ...patch,
   };
 }

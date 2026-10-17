@@ -8,6 +8,8 @@ interface GraphSelectionCardProps {
   onFocus?: () => void;
   /** Hide Focus when the active renderer cannot focus. */
   canFocus?: boolean;
+  /** Begin a trace from this node; absent where the renderer cannot trace. */
+  onTrace?: () => void;
 }
 
 /** Floating selection card shared across renderers (click selects; Open navigates). */
@@ -18,6 +20,7 @@ export function GraphSelectionCard({
   onClose,
   onFocus,
   canFocus = true,
+  onTrace,
 }: GraphSelectionCardProps) {
   const meta = nodes.find((n) => n.id === nodeId);
   if (!meta) return null;
@@ -68,6 +71,16 @@ export function GraphSelectionCard({
             onClick={onFocus}
           >
             Focus (f)
+          </button>
+        ) : null}
+        {onTrace ? (
+          <button
+            type="button"
+            className="rounded-md px-2.5 py-1 text-label font-medium text-foreground/50 transition-colors hover:bg-foreground/[0.06] hover:text-foreground/70"
+            title="Trace the paths to another node (or shift-click it)"
+            onClick={onTrace}
+          >
+            Trace to…
           </button>
         ) : null}
       </div>

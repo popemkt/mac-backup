@@ -115,6 +115,7 @@ export function TreemapGraph({
                   includedByFilter: !filterIds || filterIds.has(node.id),
                   includedBySearch: !searchHighlight || searchHighlight.has(node.id),
                   includedByFocus: true,
+                  includedByTrace: true,
                 }),
               }}
               onClick={(e) => {

@@ -4,6 +4,7 @@ import type { GraphLens } from "./graph-lens";
 import type { LensTreeNode, LensPerspective } from "@kb/graph";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
+import type { TraceFrame } from "./graph-trace";
 
 /**
  * What a graph host hands the renderer view it draws with: the graph it
@@ -29,6 +30,8 @@ export interface GraphFrame {
   setSelection: (selection: GraphSelection | null) => void;
   setControls: (controls: GraphCameraControls | null) => void;
   onNodeOpen: (id: string) => void;
+  /** The trace drawn in place, if any, and trace-to from the selection. */
+  trace: TraceFrame;
 }
 
 /** Only a graph host provides it; a renderer view outside one has nothing to draw. */

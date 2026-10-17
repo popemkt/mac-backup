@@ -80,6 +80,9 @@ describe("lens writes", () => {
       labelBy,
       sizeBy,
       clusterBy,
+      traceFrom: null,
+      traceTo: null,
+      tracePaths: null,
       showLabels: perspective.showLabels,
     };
     expect(calls).toEqual([

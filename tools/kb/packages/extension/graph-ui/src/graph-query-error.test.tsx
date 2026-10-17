@@ -39,6 +39,9 @@ const PERSPECTIVE: LensPerspective = {
   labelDensity: "medium",
   theme: "matte",
   linkStyle: "straight",
+  traceFrom: null,
+  traceTo: null,
+  tracePaths: null,
 };
 
 describe("a perspective whose query cannot run", () => {

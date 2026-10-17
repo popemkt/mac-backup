@@ -17,6 +17,7 @@
  * a WebGL2 context happy-dom lacks; their rows are todo, named by a gap.
  */
 import { act, useMemo, type ReactElement, type ReactNode } from "react";
+import { NO_TRACE } from "./graph-trace";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { Effect, Result } from "effect";
@@ -129,6 +130,9 @@ const PERSPECTIVE: LensPerspective = {
   labelDensity: "medium",
   theme: "matte",
   linkStyle: "straight",
+  traceFrom: null,
+  traceTo: null,
+  tracePaths: null,
 };
 const LIGHT: Appearance = { designSystem: "kb", dark: false, key: "kb:light" };
 const DARK: Appearance = { designSystem: "kb", dark: true, key: "kb:dark" };
@@ -203,6 +207,7 @@ function ContractHost({
       setSelection: () => {},
       setControls: () => {},
       onNodeOpen: () => {},
+      trace: NO_TRACE,
     }),
     [appearance, selected],
   );

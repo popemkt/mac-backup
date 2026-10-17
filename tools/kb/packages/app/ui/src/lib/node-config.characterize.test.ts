@@ -69,6 +69,9 @@ const ALL_DEFAULTS: LensPerspective = {
   labelDensity: "medium",
   theme: "matte",
   linkStyle: "straight",
+  traceFrom: null,
+  traceTo: null,
+  tracePaths: null,
 };
 
 describe("parsePerspective — stored nodes", () => {

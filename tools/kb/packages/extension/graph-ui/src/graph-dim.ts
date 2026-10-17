@@ -10,11 +10,13 @@ export function graphNodeAlpha(input: {
   includedByFilter: boolean;
   includedBySearch: boolean;
   includedByFocus: boolean;
+  includedByTrace: boolean;
 }): number {
   return composeGraphAlpha(
     input.includedByFilter ? 1 : 0.2,
     input.includedBySearch ? 1 : 0.2,
     input.includedByFocus ? 1 : 0.2,
+    input.includedByTrace ? 1 : 0.2,
   );
 }
 

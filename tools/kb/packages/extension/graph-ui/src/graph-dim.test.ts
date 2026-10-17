@@ -10,7 +10,21 @@ describe("graph dim", () => {
   it("keeps dimmed nodes readable when emphasis constraints overlap", () => {
     expect(composeGraphAlpha(0.2, 0.2, 1)).toBeCloseTo(0.2);
     expect(
-      graphNodeAlpha({ includedByFilter: false, includedBySearch: true, includedByFocus: false }),
+      graphNodeAlpha({
+        includedByFilter: false,
+        includedBySearch: true,
+        includedByFocus: false,
+        includedByTrace: true,
+      }),
+    ).toBeCloseTo(0.2);
+    // A trace dims what is off its paths, as search does.
+    expect(
+      graphNodeAlpha({
+        includedByFilter: true,
+        includedBySearch: true,
+        includedByFocus: true,
+        includedByTrace: false,
+      }),
     ).toBeCloseTo(0.2);
   });
 

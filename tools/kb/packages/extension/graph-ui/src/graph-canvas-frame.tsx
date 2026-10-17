@@ -6,6 +6,8 @@ import { GraphLegend } from "./graph-legend";
 import { GraphToolbar } from "./graph-toolbar";
 import { GraphCanvasError } from "./graph-canvas-error";
 import { GraphSelectionCard } from "./graph-selection-card";
+import { GraphTraceCard } from "./graph-trace-card";
+import type { GraphTraceState } from "./graph-trace";
 import { capabilitiesFor } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
@@ -26,6 +28,9 @@ export function GraphCanvasFrame({
   onFilterChange,
   queryError,
   perspective,
+  trace,
+  onSaveTrace,
+  savingTrace,
 }: {
   children: React.ReactNode;
   nodes: LensNode[];
@@ -41,6 +46,10 @@ export function GraphCanvasFrame({
   /** Surfaces resolveNodeSet failures inside the canvas (task 16c). */
   queryError?: string | null;
   perspective?: LensPerspective | null;
+  /** Trace mode, where the renderer can trace (`capabilities.trace`). */
+  trace?: GraphTraceState;
+  onSaveTrace?: (name: string) => void;
+  savingTrace?: boolean;
 }) {
   const capabilities = capabilitiesFor(renderer);
   const searchNodes = useMemo(() => nodes.map((n) => ({ id: n.id, label: n.label })), [nodes]);
@@ -92,13 +101,23 @@ export function GraphCanvasFrame({
           </button>
         </div>
       ) : null}
-      {selection && capabilities.selection ? (
+      {trace?.trace && capabilities.trace ? (
+        <GraphTraceCard
+          trace={trace.trace}
+          answer={trace.answer}
+          nodes={nodes}
+          onSave={onSaveTrace}
+          saving={savingTrace}
+          onClose={trace.clear}
+        />
+      ) : selection && capabilities.selection ? (
         <GraphSelectionCard
           nodeId={selection.nodeId}
           nodes={nodes}
           onOpen={onOpenNode}
           onClose={onClearSelection}
           canFocus={capabilities.focus}
+          onTrace={capabilities.trace && trace ? () => trace.begin(selection.nodeId) : undefined}
           onFocus={
             capabilities.focus && controls ? () => controls.focusNode(selection.nodeId) : undefined
           }

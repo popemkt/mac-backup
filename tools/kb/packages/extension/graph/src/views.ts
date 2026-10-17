@@ -86,6 +86,8 @@ export interface RendererCapabilities {
   selection: boolean;
   dim: boolean;
   drag: boolean;
+  /** Trace mode: a second node picked lights the paths to it in place (DESIGN-UI.md → Graph → Tracing). */
+  trace: boolean;
 }
 
 /** An encoding the settings panel offers a renderer: the edge kinds, or one mapping. */
@@ -179,6 +181,7 @@ const standard: RendererCapabilities = {
   selection: true,
   dim: true,
   drag: false,
+  trace: false,
 };
 
 /** Force-directed 2D, on sigma. */
@@ -196,7 +199,7 @@ export const Force2dView = rendererKey(
     "Force-directed 2D",
   ),
   {
-    capabilities: { ...standard, drag: true },
+    capabilities: { ...standard, drag: true, trace: true },
     channels: ["relationships", "color", "label", "size"],
   },
 );
@@ -226,7 +229,7 @@ export const ClusterView = rendererKey(
     "The 2D force layout, grouped into hulls",
   ),
   {
-    capabilities: { ...standard, drag: true },
+    capabilities: { ...standard, drag: true, trace: true },
     channels: ["relationships", "color", "label", "size", "group"],
   },
 );

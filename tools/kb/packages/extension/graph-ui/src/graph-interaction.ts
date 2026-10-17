@@ -1,11 +1,13 @@
 import type { LensEdge } from "@kb/graph";
 import { graphNodeAlpha } from "./graph-dim";
 
-/** One meaning of search, filtering and the selected node's neighbourhood. */
+/** One meaning of search, filtering, the selected node's neighbourhood and a trace. */
 export interface GraphEmphasis {
   selectedNodeId?: string | null;
   highlightIds?: Set<string>;
   filterIds?: Set<string>;
+  /** The nodes of a trace's paths (`@kb/graph`'s `traceOf`): lit in place, the rest dimmed. */
+  traceIds?: Set<string>;
 }
 
 /**
@@ -46,6 +48,7 @@ export function graphEmphasisAlpha(
     includedByFilter: !state.filterIds || state.filterIds.has(id),
     includedBySearch: !state.highlightIds || state.highlightIds.has(id),
     includedByFocus: !neighborhood || neighborhood.has(id),
+    includedByTrace: !state.traceIds || state.traceIds.has(id),
   });
 }
 

@@ -125,6 +125,9 @@ export function graphSeedNodes(at: string): readonly KbNode[] {
     ...themeOptions,
     optionField(GRAPH_IDS.lensLinkStyleField, "lens.link-style", linkStyleOptions),
     ...linkStyleOptions,
+    singleField(GRAPH_IDS.lensTraceFromField, "lens.trace-from", "ref"),
+    singleField(GRAPH_IDS.lensTraceToField, "lens.trace-to", "ref"),
+    singleField(GRAPH_IDS.lensTracePathsField, "lens.trace-paths", "number"),
     lensAllMentions,
   ];
 }
