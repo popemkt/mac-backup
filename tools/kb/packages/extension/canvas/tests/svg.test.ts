@@ -36,6 +36,20 @@ const doc: CanvasDoc = {
   edges: [{ id: "e", fromNode: items[0]?.id ?? "", toNode: "k", label: "l", color: "2" }],
 };
 
+/** A source for documents with no card and no edge: nothing to read. */
+const NO_SOURCE = { textOf: () => undefined, bound: () => false };
+
+/** A file item showing `path`. */
+const file = (id: string, path: string): CanvasNode => ({
+  id,
+  type: "file",
+  file: path,
+  x: 0,
+  y: 0,
+  width: 100,
+  height: 100,
+});
+
 describe("canvasSvg", () => {
   test("defines every token it paints with in its own style", () => {
     const svg = canvasSvg(doc, { textOf: () => "card", bound: () => true });
@@ -50,5 +64,49 @@ describe("canvasSvg", () => {
     const svg = canvasSvg({ nodes: [], edges: [] }, { textOf: () => undefined, bound: () => true });
     expect(svg).toContain('viewBox="0 0 48 48"');
     expect(svg).not.toContain("data-card-id");
+  });
+
+  test("holds only what XML may: a control character in words is dropped", () => {
+    const svg = canvasSvg(
+      {
+        nodes: [
+          {
+            id: "t",
+            type: "text",
+            text: "a\u0000b\u0007c\uFFFEd",
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 40,
+          },
+        ],
+        edges: [],
+      },
+      NO_SOURCE,
+    );
+    expect(svg).toContain("abcd");
+    const forbidden = Array.from(svg).filter((char) => {
+      const code = char.codePointAt(0) ?? 0;
+      return (code < 0x20 && ![0x09, 0x0a, 0x0d].includes(code)) || code === 0xfffe;
+    });
+    expect(forbidden).toEqual([]);
+  });
+
+  test("draws only kb's own pictures: any other file is never fetched", () => {
+    const svg = canvasSvg(
+      {
+        nodes: [
+          file("a", "assets/01ABC.png"),
+          file("b", "https://evil.example/x.png"),
+          file("c", "javascript:alert(1)//.png"),
+          file("d", "data:image/png;base64,AAAA"),
+        ],
+        edges: [],
+      },
+      NO_SOURCE,
+    );
+    expect([...svg.matchAll(/<image[^>]*href="([^"]*)"/g)].map((m) => m[1])).toEqual([
+      "assets/01ABC.png",
+    ]);
   });
 });

@@ -2826,8 +2826,12 @@ a file is the caller's.
     default-system value (`COLOR_TOKEN_FALLBACKS`, `TYPE_STEP_FALLBACKS`), so
     it renders anywhere, and a page that defines the tokens repaints it.
   - A card's words are its node's. A picture is referenced by its asset
-    path, not embedded, since the asset port does not read. Words are broken
-    into lines by an estimate of their width, which the DOM measures instead.
+    path, not embedded, since the asset port does not read. Only kb's own
+    pictures are drawn, by the rule the page draws by (`isPictureFile`:
+    `assets/…` and an image extension); any other file is never fetched by
+    whoever opens the file. Words are broken into lines by an estimate of
+    their width, which the DOM measures instead, and a character XML 1.0
+    may not hold is dropped, so the file always parses.
 - **`png`** is not offered. No SVG rasteriser runs under Bun without a native
   dependency (GAP 01M54EPF1QB5MKA6WRK9DF2X1Y); rasterise the SVG, or use
   `ui.capture` on an open tab.
@@ -2845,16 +2849,20 @@ answers `{canvasId, items, edges, reported}`.
   diagram draws the connections the graph draws and elides the scaffolding
   it elides; an elided id is reported. A typed relation's edge is labelled
   by its field and bound to it (`kbLink` native); a mention or a child edge
-  is drawn bare. One diagram draws 200 cards at most.
+  is drawn bare.
 - **From mermaid.** Flowchart text (`flowchart`/`graph` with TD, TB, BT, LR
   or RL) is a second parser into the same spec (`mermaidDiagram`, `@kb/canvas`
   `mermaid.ts`). A rectangle, rhombus and circle are a rect, a diamond and an
   ellipse; every other box shape is drawn as its nearest, and reported. A
   link's label, heads (`o` a dot, `x` a bar, reported) and line (dotted is
   dashed, thick is heavy) are kept. Statements kb draws nothing for — a
-  subgraph, a class, a style, a click — are reported by line.
+  subgraph, a class, a style, a click — are reported by line. The text is
+  read in one pass: each pattern is matched in place, and a labelled link's
+  label runs to the first space a closer follows.
 - **One layout.** Both sources are one `DiagramSpec`, drawn by `diagramDoc`
-  (`@kb/canvas` `diagram.ts`). A box's rank is one past the furthest box
+  (`@kb/canvas` `diagram.ts`), which refuses a spec past `DIAGRAM_LIMITS`
+  (200 boxes, 400 links) whichever source made it; a query is refused by
+  the same cap before its edges are asked for. A box's rank is one past the furthest box
   linking into it, so links run with the flow; a link closing a cycle is
   drawn but does not rank. Each rank is laid out across the flow by
   `arrangeItems` (a row, or a column when the flow runs across), its boxes

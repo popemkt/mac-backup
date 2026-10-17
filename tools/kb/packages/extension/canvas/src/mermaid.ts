@@ -71,12 +71,29 @@ const UNREAD = new Set([
   "accDescr",
 ]);
 
-const ID = /^[\p{L}\p{N}_$]+/u;
-/** A link with its label between its two halves: `-- yes -->`, `-. maybe .->`, `== sure ==>`. */
-const LINK_SPLIT =
-  /^\s*([<ox])?(--|==|-\.)\s+([^\s=.-][^]*?)\s+(-{2,}|={2,}|\.-+)(>|[ox](?![\p{L}\p{N}_]))?/u;
+/*
+ * Every pattern is sticky (`y`) and read in place at a position
+ * (`stickyAt`), never on a slice of what is left, so reading a statement
+ * is linear in its length.
+ */
+const ID = /[\p{L}\p{N}_$]+/uy;
+const SPACE = /\s*/y;
+const CLASSED = /:::[\w-]+/y;
+const AMP = /\s*&/y;
+/** How a link with its label between its halves opens, up to its label's first character: `-- `, `-. `, `== `. */
+const LINK_OPEN = /\s*([<ox])?(--|==|-\.)\s+(?=[^\s=.-])/uy;
+/** How such a link closes, after the space that ends its label: `-->`, `.->`, `==>`. */
+const LINK_CLOSE = /(-{2,}|={2,}|\.-+)(>|[ox](?![\p{L}\p{N}_]))?/uy;
 /** A link written whole, its label (if any) after it between bars: `-->`, `-.->|maybe|`, `<==>`. */
-const LINK_WHOLE = /^\s*([<ox])?(-{2,}|={2,}|-\.+-)(>|[ox](?![\p{L}\p{N}_]))?(?:\s*\|([^|]*)\|)?/u;
+const LINK_WHOLE = /\s*([<ox])?(-{2,}|={2,}|-\.+-)(>|[ox](?![\p{L}\p{N}_]))?(?:\s*\|([^|]*)\|)?/uy;
+/** A run of space, found from a position onward. */
+const SPACE_RUN = /\s+/gu;
+
+/** `pattern` (sticky or global) matched in `text` from `at`. */
+function stickyAt(pattern: RegExp, text: string, at: number): RegExpExecArray | null {
+  pattern.lastIndex = at;
+  return pattern.exec(text);
+}
 
 /** A head as mermaid writes it, at the far end and at the near end. */
 const FAR_HEADS: Readonly<Record<string, CanvasHead | null | undefined>> = {
@@ -135,8 +152,8 @@ function readBox(
   text: string,
   start: number,
 ): { box: ReadBox; at: number; notes: string[] } | null {
-  const lead = text.slice(start).match(/^\s*/)?.[0].length ?? 0;
-  const id = ID.exec(text.slice(start + lead))?.[0];
+  const lead = stickyAt(SPACE, text, start)?.[0].length ?? 0;
+  const id = stickyAt(ID, text, start + lead)?.[0];
   if (id === undefined) return null;
   let at = start + lead + id.length;
   const notes: string[] = [];
@@ -149,7 +166,7 @@ function readBox(
     at = words.at;
     if (form.nearest) notes.push(`${id}'s ${form.name} is drawn as a ${form.shape}`);
   }
-  const classed = /^:::[\w-]+/.exec(text.slice(at))?.[0];
+  const classed = stickyAt(CLASSED, text, at)?.[0];
   if (classed !== undefined) {
     notes.push(`kb reads no class: ${id}'s ${classed.slice(3)} is not drawn`);
     at += classed.length;
@@ -171,7 +188,7 @@ function readGroup(
     boxes.push(read.box);
     notes.push(...read.notes);
     at = read.at;
-    const amp = /^\s*&/.exec(text.slice(at));
+    const amp = stickyAt(AMP, text, at);
     if (amp === null) return { boxes, at, notes };
     at += amp[0].length;
   }
@@ -184,21 +201,74 @@ function lineLooks(body: string): CanvasLooksPatch | undefined {
   return undefined;
 }
 
+/** A link's parts as written: its near head, its line, its label, its far head, and where it ends. */
+interface LinkParts {
+  readonly near: string;
+  readonly body: string;
+  readonly label: string | undefined;
+  readonly far: string;
+  readonly end: number;
+}
+
+/** A link written whole at `at`, its label (if any) after it between bars. */
+function wholeLink(text: string, at: number): LinkParts | null {
+  const whole = stickyAt(LINK_WHOLE, text, at);
+  if (whole === null) return null;
+  return {
+    near: whole[1] ?? "",
+    body: whole[2] ?? "",
+    far: whole[3] ?? "",
+    label: whole[4],
+    end: at + whole[0].length,
+  };
+}
+
+/** One statement being read: its text, and from where on no labelled link can close. */
+interface Reading {
+  readonly text: string;
+  /** A position from which no space is followed by a closer: a labelled link opening there or after never closes. */
+  closerless: number;
+}
+
+/**
+ * A link with its label between its halves at `at`: the label runs to the
+ * first space a closer follows. Found by one pass over the runs of space,
+ * and a pass that finds none marks where none can be found again.
+ */
+function splitLink(reading: Reading, at: number): LinkParts | null {
+  const { text } = reading;
+  const open = stickyAt(LINK_OPEN, text, at);
+  if (open === null) return null;
+  const from = at + open[0].length;
+  if (from >= reading.closerless) return null;
+  for (let run = stickyAt(SPACE_RUN, text, from); run !== null; run = SPACE_RUN.exec(text)) {
+    const after = run.index + run[0].length;
+    const close = stickyAt(LINK_CLOSE, text, after);
+    if (close !== null) {
+      return {
+        near: open[1] ?? "",
+        body: open[2] ?? "",
+        label: text.slice(from, run.index),
+        far: close[2] ?? "",
+        end: after + close[0].length,
+      };
+    }
+    SPACE_RUN.lastIndex = after;
+  }
+  reading.closerless = from;
+  return null;
+}
+
 /** The link at `at`, and where it ends. */
-function readLink(text: string, at: number): { link: ReadLink; at: number } | null {
-  const rest = text.slice(at);
-  const split = LINK_SPLIT.exec(rest);
-  const whole = split === null ? LINK_WHOLE.exec(rest) : null;
-  const match = split ?? whole;
-  if (match === null) return null;
-  const [all, near = "", body = "", ...tail] = match;
-  const far = (split === null ? tail[0] : tail[2]) ?? "";
-  const label = split === null ? tail[1] : tail[0];
+function readLink(reading: Reading, at: number): { link: ReadLink; at: number } | null {
+  const parts = splitLink(reading, at) ?? wholeLink(reading.text, at);
+  if (parts === null) return null;
+  const { near, body, far, label, end } = parts;
   const looks = lineLooks(body);
   const fromHead = NEAR_HEADS[near];
   const toHead = far === "" ? null : FAR_HEADS[far];
   return {
-    at: at + all.length,
+    at: end,
     link: {
       crossed: near === "x" || far === "x",
       ...(label === undefined || unquoted(label) === "" ? {} : { label: unquoted(label) }),
@@ -211,6 +281,7 @@ function readLink(text: string, at: number): { link: ReadLink; at: number } | nu
 
 /** One statement: boxes, and the links between each group and the next. */
 function readStatement(text: string): Statement | null {
+  const reading: Reading = { text, closerless: text.length + 1 };
   const first = readGroup(text, 0);
   if (first === null) return null;
   const boxes = [...first.boxes];
@@ -218,7 +289,7 @@ function readStatement(text: string): Statement | null {
   const notes = [...first.notes];
   let group = first;
   for (;;) {
-    const read = readLink(text, group.at);
+    const read = readLink(reading, group.at);
     if (read === null) break;
     const next = readGroup(text, read.at);
     if (next === null) return null;

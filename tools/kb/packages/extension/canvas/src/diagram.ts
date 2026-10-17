@@ -48,6 +48,12 @@ export interface DiagramSpec {
   readonly flow: DiagramFlow;
 }
 
+/**
+ * The most boxes and links one diagram draws, whichever text made it: past
+ * it, a picture of the set is the graph's to draw, not a canvas's.
+ */
+export const DIAGRAM_LIMITS = { boxes: 200, links: 400 } as const;
+
 /** The room between one rank and the next, canvas units: enough for a link and its label. */
 const RANK_GAP = 120;
 /** The room between neighbours in a rank: enough for two links leaving one box to part. */
@@ -125,6 +131,19 @@ const extent = (bounds: CanvasBounds, axis: "x" | "y") => bounds.max[axis] - bou
  * hold, or one `connectItems` refuses.
  */
 export function diagramDoc(spec: DiagramSpec, mint: () => string): CanvasDoc {
+  const over = (["boxes", "links"] as const).filter(
+    (part) => spec[part].length > DIAGRAM_LIMITS[part],
+  );
+  if (over.length > 0) {
+    throw new CanvasRelationError(
+      over
+        .map(
+          (part) =>
+            `this diagram has ${spec[part].length} ${part}; one draws ${DIAGRAM_LIMITS[part]} at most`,
+        )
+        .join("; "),
+    );
+  }
   const items = new Map(spec.boxes.map((box) => [box.key, makeItem(box.item, box.key)]));
   for (const link of spec.links) {
     for (const end of [link.from, link.to]) {

@@ -17,6 +17,7 @@ import {
   isFileNode,
   isGroupNode,
   isKbNode,
+  isPictureFile,
   isShapeNode,
   isTextNode,
   type CanvasDoc,
@@ -89,8 +90,13 @@ const ANCHORS = {
 
 const round = (v: number) => Math.round(v * 100) / 100;
 
+/** What XML 1.0 lets a document hold: tab, line feed, carriage return, and the characters from space up, surrogates and the two non-characters aside. */
+const XML_FORBIDDEN = /[^\t\n\r\u0020-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/gu;
+
+/** `text` as XML character data or an attribute value: escaped, and without what XML may not hold. */
 function escapeXml(text: string): string {
   return text
+    .replaceAll(XML_FORBIDDEN, "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -200,9 +206,6 @@ function wordsElement(
     spans,
   );
 }
-
-/** Whether a file is a picture an `<image>` can show, by its extension. */
-const isPictureFile = (file: string) => /\.(?:png|jpe?g|gif|webp|svg|avif|bmp)$/i.test(file);
 
 /** What an item says in its own words: a text's text, a shape's or a frame's label. */
 function ownWords(item: CanvasNode): string {

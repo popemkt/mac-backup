@@ -7,6 +7,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
+  DIAGRAM_LIMITS,
   diagramDoc,
   isShapeNode,
   mermaidDiagram,
@@ -165,5 +166,34 @@ describe("mermaidDiagram", () => {
     const b = itemOf(doc, "B");
     expect(isShapeNode(b) && [b.shape, b.label]).toEqual(["diamond", "Stop"]);
     expect(styleOf(doc.edges[0] ?? { id: "", fromNode: "", toNode: "" }).dash).toBe("solid");
+  });
+});
+
+describe("reading mermaid stays linear", () => {
+  test("a labelled link that never closes, then a long run of space, is read in time", () => {
+    const started = performance.now();
+    const text = `flowchart TD\nB\nA -- x${" ".repeat(50_000)}y`;
+    expect(mermaidDiagram(text).reported).toEqual([
+      expect.objectContaining({ line: 3, note: expect.stringContaining("could not read") }),
+    ]);
+    // Read by lazy splitting, this took seconds; read in place, a millisecond or two.
+    expect(performance.now() - started).toBeLessThan(100);
+  });
+});
+
+describe("one cap on every diagram", () => {
+  test("a spec past the boxes or links a diagram draws is refused, whichever text made it", () => {
+    const many = Array.from({ length: DIAGRAM_LIMITS.boxes + 1 }, (_, i) => `N${i}`);
+    expect(() => mermaidDiagram(`flowchart TD\n${many.join("\n")}`)).not.toThrow();
+    expect(() =>
+      diagramDoc(mermaidDiagram(`flowchart TD\n${many.join("\n")}`).spec, () => "x"),
+    ).toThrow(`one draws ${DIAGRAM_LIMITS.boxes} at most`);
+    const chain = many.slice(0, 30);
+    const links = chain
+      .flatMap((a) => chain.filter((b) => b !== a).map((b) => `${a} --> ${b}`))
+      .slice(0, DIAGRAM_LIMITS.links + 1);
+    expect(() =>
+      diagramDoc(mermaidDiagram(`flowchart TD\n${links.join("\n")}`).spec, () => "x"),
+    ).toThrow(`one draws ${DIAGRAM_LIMITS.links} at most`);
   });
 });

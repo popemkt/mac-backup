@@ -16,6 +16,7 @@ import { z } from "zod";
 import { CoreInvoke, type ExtensionAction, type KbCtx, type KbStore } from "@kb/contracts";
 import {
   DIAGRAM_FLOWS,
+  DIAGRAM_LIMITS,
   diagramDoc,
   mermaidDiagram,
   type DiagramFlow,
@@ -29,9 +30,6 @@ import { CanvasTxError, canvasStep, createCanvasEffect, type CanvasFail } from "
 
 /** The action that answers the edges among a set of nodes, which the graph family provides. */
 const GRAPH_EDGES = "ext.graph.edges";
-
-/** The most cards one diagram draws: past it, a picture of the set is the graph's to draw. */
-const MAX_CARDS = 200;
 
 const diagramInput = z
   .object({
@@ -113,10 +111,11 @@ const querySpecEffect = Effect.fn("ext.canvas.diagram.query")(function* (
   if (ids.length === 0) {
     return yield* Effect.fail(new CanvasTxError("the query names no node in its first column"));
   }
-  if (ids.length > MAX_CARDS) {
+  // Refused before the graph is asked for their edges, by the cap every diagram meets.
+  if (ids.length > DIAGRAM_LIMITS.boxes) {
     return yield* Effect.fail(
       new CanvasTxError(
-        `the query names ${ids.length} nodes; a diagram draws ${MAX_CARDS} at most`,
+        `the query names ${ids.length} nodes; a diagram draws ${DIAGRAM_LIMITS.boxes} at most`,
       ),
     );
   }
