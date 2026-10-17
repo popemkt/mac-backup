@@ -49,12 +49,15 @@ describe("the code view", () => {
     );
   });
 
-  test("a grant that is not JSON is reported and the node cannot be read", () => {
-    const reported: string[] = [];
-    const props: NodeProps = { [CODE_IDS.codeGrantField]: [{ t: "str", v: "{nope" }] };
-    const params = paramsFromProps(CodeView, props, null, (w) => reported.push(w));
-    expect(Result.isFailure(params)).toBe(true);
-    expect(reported).toEqual([`${CODE_IDS.codeGrantField} is not JSON`]);
+  test("a grant that reads as none, not JSON or not a grant, is reported and the node cannot be read", () => {
+    for (const raw of ["{nope", '{"reads":"everything","actions":[]}']) {
+      const reported: string[] = [];
+      const props: NodeProps = { [CODE_IDS.codeGrantField]: [{ t: "str", v: raw }] };
+      const params = paramsFromProps(CodeView, props, null, (w) => reported.push(w));
+      expect(Result.isFailure(params)).toBe(true);
+      expect(reported).toHaveLength(1);
+      expect(reported[0]).toStartWith(`${CODE_IDS.codeGrantField} reads as no grant`);
+    }
   });
 
   test("a proposal is refused at the path of a grant it cannot hold", () => {

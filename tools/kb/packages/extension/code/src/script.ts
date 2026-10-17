@@ -5,7 +5,7 @@
  * grant in a code view's two fields and runs on the same runner, under the
  * same trust, as the `script` actor, hearing the events its view declares.
  */
-import { Result, Schema } from "effect";
+import { Result } from "effect";
 import {
   firstStr,
   refValuesOf,
@@ -14,9 +14,9 @@ import {
   type NodeId,
   type NodeLike,
 } from "@kb/model";
-import { CodeGrant } from "@kb/sandbox";
+import type { CodeGrant } from "@kb/sandbox";
 import { CODE_IDS } from "./ids.ts";
-import { DEFAULT_GRANT } from "./view.ts";
+import { grantOfText } from "./view.ts";
 
 /** A script as it runs: its node, what it is called, its code as stored, and its grant. */
 export interface ScriptSource {
@@ -31,8 +31,6 @@ export function scriptIdsOf(host: Pick<NodeLike, "props"> | undefined): NodeId[]
   return refValuesOf(host, CODE_IDS.scriptsField);
 }
 
-const decodeGrant = Schema.decodeUnknownResult(Schema.fromJsonString(CodeGrant));
-
 /**
  * `node` as a script, or null when it is none kb can run: it is not tagged
  * `#script` (so writing it is not configuration), it holds no code, or a
@@ -43,9 +41,7 @@ export function scriptOf(node: Pick<KbNode, "id" | "text" | "props">): ScriptSou
   if (!typeRefsOf(node).includes(CODE_IDS.scriptTag)) return null;
   const code = node.props[CODE_IDS.codeField]?.find((value) => value.t === "str")?.v;
   if (code === undefined || code.trim() === "") return null;
-  const raw = firstStr(CODE_IDS.codeGrantField)(node.props);
-  const grant =
-    raw === undefined || raw.trim() === "" ? Result.succeed(DEFAULT_GRANT) : decodeGrant(raw);
+  const grant = grantOfText(firstStr(CODE_IDS.codeGrantField)(node.props));
   if (Result.isFailure(grant)) return null;
   return { id: node.id, label: node.text.trim() || node.id, code, grant: grant.success };
 }

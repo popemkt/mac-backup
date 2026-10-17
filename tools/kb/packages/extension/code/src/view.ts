@@ -6,7 +6,7 @@
  * the model, and DESIGN.md → Sandbox how it runs (the grant's shape is the
  * sandbox's, `@kb/sandbox`); this module is its vocabulary.
  */
-import { Schema } from "effect";
+import { Result, Schema } from "effect";
 import { canonicalJson, firstStr } from "@kb/model";
 import { CodeGrant, DATA_EVENT, DRAWING_EVENTS } from "@kb/sandbox";
 import { subjectRootOf, subjectRootProps, viewKey, type ConfigReport } from "@kb/views";
@@ -47,15 +47,27 @@ export const CodeParams = Schema.Struct({
 });
 export type CodeParams = typeof CodeParams.Type;
 
-/** The grant a view node holds, read out of its text, else the default. */
-function readGrant(raw: string | undefined, report: ConfigReport): { grant?: unknown } {
-  if (raw === undefined || raw.trim() === "") return { grant: DEFAULT_GRANT };
-  try {
-    return { grant: JSON.parse(raw) as unknown };
-  } catch {
-    report(`${CODE_IDS.codeGrantField} is not JSON`);
-    return {};
-  }
+const decodeGrant = Schema.decodeUnknownResult(Schema.fromJsonString(CodeGrant));
+
+/**
+ * The grant code holds as text (`sys.f.code.grant`): the default when it
+ * holds none, else what it reads as, or why it reads as no grant. The one
+ * reading of it, a code view's and a script's (`scriptOf`).
+ */
+export function grantOfText(raw: string | undefined): Result.Result<CodeGrant, string> {
+  if (raw === undefined || raw.trim() === "") return Result.succeed(DEFAULT_GRANT);
+  return Result.mapError(
+    decodeGrant(raw),
+    (issue) => `${CODE_IDS.codeGrantField} reads as no grant: ${issue.message}`,
+  );
+}
+
+/** The grant a view node holds, else the default; nothing, and said, when it reads as none. */
+function readGrant(raw: string | undefined, report: ConfigReport): { grant?: CodeGrant } {
+  const grant = grantOfText(raw);
+  if (Result.isSuccess(grant)) return { grant: grant.success };
+  report(grant.failure);
+  return {};
 }
 
 // GAP [[01M41DKTTRA55RA1KF4QBWQ9MF]] Trusting a code view changes its engine only;
