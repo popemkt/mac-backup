@@ -144,6 +144,10 @@ export type {
 } from "./paint.ts";
 export { paintCss, paletteToken, toneCss } from "./paint-css.ts";
 export { canvasSvg } from "./svg.ts";
+export { DIAGRAM_FLOWS, diagramDoc } from "./diagram.ts";
+export type { DiagramBox, DiagramFlow, DiagramLink, DiagramSpec } from "./diagram.ts";
+export { mermaidDiagram } from "./mermaid.ts";
+export type { MermaidDiagram, MermaidReport } from "./mermaid.ts";
 export type { SvgSource } from "./svg.ts";
 export { isOpenLine, itemOutline, pathHeads, withLine } from "./paths.ts";
 export type { CanvasLinePatch } from "./paths.ts";

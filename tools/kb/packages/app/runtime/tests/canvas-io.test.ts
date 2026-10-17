@@ -3,15 +3,18 @@
  * documents → Export): `ext.canvas.export` answers the document as JSON
  * Canvas, every field kb does not read kept, or its top view as one SVG
  * painted by the family's painter, whose look the look contract holds
- * (`canvas-ui` `canvas-look.contract.test.tsx`).
+ * (`canvas-ui` `canvas-look.contract.test.tsx`); `ext.canvas.diagram`
+ * draws a new canvas from a query's nodes and the graph's edges among them
+ * (`ext.graph.edges`), or from mermaid text. How a diagram is laid out and
+ * mermaid read is `@kb/canvas`'s `diagram.test.ts`.
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CANVAS_IDS, parseCanvasDoc, type CanvasDoc } from "@kb/canvas";
+import { CANVAS_IDS, isShapeNode, parseCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import type { ActionInvocation, ActionReceipt } from "@kb/contracts";
-import { present } from "@kb/model";
+import { SYSTEM_IDS, fieldTypeValue, present } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
@@ -25,11 +28,16 @@ afterEach(async () => {
   resetRegistryCache();
 });
 
-/** A fresh kb holding the canvas `n.canvas` with `doc` on it, and the node `n.idea`. */
-async function canvasKb(doc: Record<string, unknown>): Promise<Kb> {
+/** A fresh kb, at a root removed after the test. */
+async function freshKb(): Promise<Kb> {
   const root = await mkdtemp(join(tmpdir(), "kb-canvas-io-"));
   roots.push(root);
-  const ctx = await openKb(root);
+  return openKb(root);
+}
+
+/** A fresh kb holding the canvas `n.canvas` with `doc` on it, and the node `n.idea`. */
+async function canvasKb(doc: Record<string, unknown>): Promise<Kb> {
+  const ctx = await freshKb();
   await invoke(ctx, { id: "node.add", input: { text: "Board", id: "n.canvas", tags: ["canvas"] } });
   await invoke(ctx, { id: "node.add", input: { text: "An idea & more", id: "n.idea" } });
   const applied = await invoke(ctx, {
@@ -40,9 +48,9 @@ async function canvasKb(doc: Record<string, unknown>): Promise<Kb> {
   return ctx;
 }
 
-function stored(ctx: Kb): CanvasDoc {
+function stored(ctx: Kb, id = "n.canvas"): CanvasDoc {
   const node = present(
-    ctx.nodes.find((n) => n.id === "n.canvas"),
+    ctx.nodes.find((n) => n.id === id),
     "canvas",
   );
   const raw = present(node.props[CANVAS_IDS.canvasField]?.[0], "canvas doc");
@@ -131,5 +139,95 @@ describe("ext.canvas.export", () => {
     const ctx = await canvasKb(DOC);
     const png = await exported(ctx, "png");
     expect(png.status).toBe("failed");
+  });
+});
+
+/** n.a mentions n.b and is related to n.c; n.c is n.b's child; f.related is the ref field. */
+async function graphKb(): Promise<Kb> {
+  const ctx = await freshKb();
+  await invoke(ctx, { id: "field.define", input: { name: "related", id: "f.related" } });
+  await invoke(ctx, {
+    id: "node.update",
+    input: {
+      id: "f.related",
+      setProps: [{ field: SYSTEM_IDS.fieldTypeField, value: fieldTypeValue("ref") }],
+    },
+  });
+  await invoke(ctx, { id: "node.add", input: { text: "B", id: "n.b" } });
+  await invoke(ctx, { id: "node.add", input: { text: "C", id: "n.c", parent: "n.b" } });
+  const a = await invoke(ctx, {
+    id: "node.add",
+    input: {
+      text: "A mentions [[n.b]]",
+      id: "n.a",
+      props: [{ field: "f.related", value: { t: "ref", v: "n.c" } }],
+    },
+  });
+  expect(a.status).toBe("succeeded");
+  return ctx;
+}
+
+const byText = (x: string, y: string) => x.localeCompare(y);
+
+describe("ext.canvas.diagram", () => {
+  const QUERY =
+    '[:find ?id :where [?n :node/id ?id] [(contains? #{"n.a" "n.b" "n.c" "f.related"} ?id)]]';
+
+  test("a query's nodes are cards, the graph's edges among them edges, a typed relation bound", async () => {
+    const ctx = await graphKb();
+    const out = output(
+      await invoke(ctx, { id: "ext.canvas.diagram", input: { query: QUERY, name: "Map" } }),
+    );
+    const canvasId = String(out.canvasId);
+    expect(ctx.nodes.find((n) => n.id === canvasId)?.text).toBe("Map");
+    const doc = stored(ctx, canvasId);
+    expect(doc.nodes.map((n) => `${n.type}:${n.nodeId}`).toSorted(byText)).toEqual([
+      "kb-node:n.a",
+      "kb-node:n.b",
+      "kb-node:n.c",
+    ]);
+    const edges = doc.edges
+      .map((e) => `${e.fromNode}->${e.toNode}:${e.kbLink?.mode}`)
+      .toSorted(byText);
+    expect(edges).toEqual(["n.a->n.b:layout", "n.a->n.c:native", "n.b->n.c:layout"]);
+    const typed = doc.edges.find((e) => e.kbLink?.mode === "native");
+    expect([typed?.label, typed?.kbLink?.fieldId]).toEqual(["related", "f.related"]);
+    // The field is scaffolding: the graph elides it, and the answer says so.
+    expect(out.reported).toEqual(["f.related is scaffolding the graph elides: not drawn"]);
+    expect([out.items, out.edges]).toEqual([3, 3]);
+  });
+
+  test("mermaid text draws its boxes and links, and reports what it does not draw", async () => {
+    const ctx = await freshKb();
+    const out = output(
+      await invoke(ctx, {
+        id: "ext.canvas.diagram",
+        input: { mermaid: "flowchart LR\n  A[Ask] -->|ok| B{Decide}\n  style A fill:#f00" },
+      }),
+    );
+    const doc = stored(ctx, String(out.canvasId));
+    expect(ctx.nodes.find((n) => n.id === out.canvasId)?.text).toBe("Diagram");
+    const decide = doc.nodes.find((n) => n.id === "B");
+    expect(decide !== undefined && isShapeNode(decide) && [decide.shape, decide.label]).toEqual([
+      "diamond",
+      "Decide",
+    ]);
+    expect(doc.edges.map((e) => [e.fromNode, e.toNode, e.label])).toEqual([["A", "B", "ok"]]);
+    expect(out.reported).toEqual(["line 3: kb draws no style"]);
+  });
+
+  test("refuses both sources or neither, a query naming no node, and text no flowchart, writing nothing", async () => {
+    const ctx = await graphKb();
+    const before = ctx.nodes.length;
+    for (const input of [
+      { query: QUERY, mermaid: "flowchart TD\nA-->B" },
+      {},
+      { query: '[:find ?id :where [?n :node/id ?id] [(= ?id "nowhere")]]' },
+      { mermaid: "sequenceDiagram\nA->>B: hi" },
+    ]) {
+      const refused = await invoke(ctx, { id: "ext.canvas.diagram", input });
+      expect(refused.status).toBe("failed");
+    }
+    expect(ctx.nodes.length).toBe(before);
   });
 });

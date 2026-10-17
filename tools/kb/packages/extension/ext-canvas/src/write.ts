@@ -3,13 +3,14 @@
  * `#canvas` node's document is read from `sys.f.canvas` and written back
  * whole, in one store transaction with whatever else the same act writes —
  * a source node's ref prop for a native edge bind. Every canvas action
- * writes through {@link commitCanvasEffect}; nothing else sets the field,
- * and every write answers what it did to the canvas's lints.
+ * writes through {@link commitCanvasEffect}, or makes a new canvas through
+ * {@link createCanvasEffect}; nothing else sets the field, and every write
+ * to a canvas answers what it did to its lints.
  */
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { KbCtx, type KbContext, type KbStore } from "@kb/contracts";
-import { persistEffect } from "@kb/operations";
+import { persistEffect, planNodeAddEffect } from "@kb/operations";
 import {
   isSysPrefixed,
   currentIso,
@@ -227,4 +228,24 @@ export const commitCanvasEffect = Effect.fn("ext.canvas.commit")(function* (
   const after = lintCanvas(write.canvasId, write.doc, canvasWorld([...ctx.nodes, ...also, canvas]));
   yield* persistEffect(ctx, { upserts: [canvas, ...also], deletes: [] });
   return { doc: docStr, lints: lintDiff(before, after) };
+});
+
+/**
+ * A new `#canvas` node called `name`, holding `doc`, filed under `parent`
+ * (the forest roots when absent), in one transaction. Answers its id.
+ */
+export const createCanvasEffect = Effect.fn("ext.canvas.create")(function* (
+  name: string,
+  doc: CanvasDoc,
+  parent?: string,
+): Effect.fn.Return<string, CanvasFail, KbCtx | KbStore | FileSystem> {
+  const ctx = yield* KbCtx;
+  const planned = yield* planNodeAddEffect({
+    text: name,
+    tags: ["canvas"],
+    props: [{ field: CANVAS_IDS.canvasField, value: { t: "str", v: stringifyCanvasDoc(doc) } }],
+    ...(parent === undefined ? {} : { parent }),
+  });
+  yield* persistEffect(ctx, { upserts: planned.upserts, deletes: [] });
+  return planned.id;
 });

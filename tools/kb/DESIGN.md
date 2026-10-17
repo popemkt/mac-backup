@@ -2792,6 +2792,37 @@ a file is the caller's.
   dependency (GAP 01M54EPF1QB5MKA6WRK9DF2X1Y); rasterise the SVG, or use
   `ui.capture` on an open tab.
 
+#### Diagram
+
+`ext.canvas.diagram {query | mermaid, flow?, name?, parent?}` draws a new
+`#canvas` from structure, through the write path (`createCanvasEffect`), and
+answers `{canvasId, items, edges, reported}`.
+
+- **From a query.** Each node the datalog query's first column names is a
+  `kb-node` card showing it. The edges among them are the graph family's own
+  projection, asked for as a read through the host's `CoreInvoke`
+  (`ext.graph.edges`, with the query's `kinds` and `includeSystem`), so a
+  diagram draws the connections the graph draws and elides the scaffolding
+  it elides; an elided id is reported. A typed relation's edge is labelled
+  by its field and bound to it (`kbLink` native); a mention or a child edge
+  is drawn bare. One diagram draws 200 cards at most.
+- **From mermaid.** Flowchart text (`flowchart`/`graph` with TD, TB, BT, LR
+  or RL) is a second parser into the same spec (`mermaidDiagram`, `@kb/canvas`
+  `mermaid.ts`). A rectangle, rhombus and circle are a rect, a diamond and an
+  ellipse; every other box shape is drawn as its nearest, and reported. A
+  link's label, heads (`o` a dot, `x` a bar, reported) and line (dotted is
+  dashed, thick is heavy) are kept. Statements kb draws nothing for — a
+  subgraph, a class, a style, a click — are reported by line.
+- **One layout.** Both sources are one `DiagramSpec`, drawn by `diagramDoc`
+  (`@kb/canvas` `diagram.ts`). A box's rank is one past the furthest box
+  linking into it, so links run with the flow; a link closing a cycle is
+  drawn but does not rank. Each rank is laid out across the flow by
+  `arrangeItems` (a row, or a column when the flow runs across), its boxes
+  ordered by where those linking into them stand, and centred on the widest
+  rank. A flow up or to the left is the flow down or to the right mirrored
+  (`flipItems`). Each link is then an edge bound to its two boxes
+  (`connectItems`). There is no second layout engine.
+
 ## Operations (verticals)
 
 | Action                                                                       | Mode  | Does                                                                                                                                                                              |

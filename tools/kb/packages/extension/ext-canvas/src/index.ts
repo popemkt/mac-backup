@@ -4,6 +4,7 @@ import { z } from "zod";
 import { KbCtx, extensionPlugin, type ExtensionAction, type KbStore } from "@kb/contracts";
 import { canvasExtension, canvasPlugin } from "@kb/canvas";
 import { definePlugin } from "@kb/plugin";
+import { canvasDiagram } from "./diagram.ts";
 import { canvasExport } from "./export.ts";
 import { LintDiffSchema } from "./lints.ts";
 import { CANVAS_VERBS } from "./verbs.ts";
@@ -107,6 +108,7 @@ const actions: ExtensionAction[] = [
   },
   ...CANVAS_VERBS,
   canvasExport,
+  canvasDiagram,
 ];
 
 /** The family's actions, `ext.canvas.*`, as the plugin that contributes them. */
