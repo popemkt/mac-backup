@@ -7,7 +7,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { makeKernel, syncPlugins, type Contribution, type Kernel } from "@kb/plugin";
-import { BUNDLED_FAMILIES } from "@kb/bundled";
+import { BUNDLED_FAMILIES, HOSTED_FAMILIES } from "@kb/bundled";
 import { NO_SWITCHES, extensionRow, familyOn, type ExtensionRow } from "@kb/contracts";
 import { agentExtension } from "@kb/agent";
 import { LAB_SCENE_IDS, labExtension } from "@kb/lab";
@@ -181,14 +181,17 @@ describe("the families the page loads", () => {
   });
 });
 
+/** Every family kb declares: the registry's bundled ones, and those a host composes. */
+const EVERY_FAMILY = [...BUNDLED_FAMILIES, ...HOSTED_FAMILIES];
+
 describe("the resolver", () => {
-  it("names every bundled family: an entry, or null for a family with no browser half", () => {
-    const missing = BUNDLED_FAMILIES.filter(({ name }) => !Object.hasOwn(BROWSER_EXTENSIONS, name));
+  it("names every family, bundled or hosted: an entry, or null for one with no browser half", () => {
+    const missing = EVERY_FAMILY.filter(({ name }) => !Object.hasOwn(BROWSER_EXTENSIONS, name));
     expect(missing.map(({ name }) => name)).toEqual([]);
   });
 
   it("has an entry for every family that provides a view, since the page draws its views", () => {
-    const viewless = BUNDLED_FAMILIES.filter(({ views }) => (views ?? []).length > 0).filter(
+    const viewless = EVERY_FAMILY.filter(({ views }) => (views ?? []).length > 0).filter(
       ({ name }) => BROWSER_EXTENSIONS[name] === null,
     );
     expect(viewless.map(({ name }) => name)).toEqual([]);
@@ -201,8 +204,8 @@ describe("the resolver", () => {
     expect(serverOnly.toSorted()).toEqual(["check", "docs"]);
   });
 
-  it("names nothing beyond the bundled families and the agent a kb ui hosts", () => {
-    const known = new Set([...BUNDLED_FAMILIES.map(({ name }) => name), agentExtension.name]);
+  it("names nothing beyond the families kb declares", () => {
+    const known = new Set(EVERY_FAMILY.map(({ name }) => name));
     expect(Object.keys(BROWSER_EXTENSIONS).filter((name) => !known.has(name))).toEqual([]);
   });
 });
