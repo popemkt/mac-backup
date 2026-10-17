@@ -343,9 +343,11 @@ pure function is not by itself a reason to write a property.
 "fail below N%" check and there will not be one. Chasing a percentage
 manufactures exactly the noise this doctrine forbids.
 
-**The mutation score is advisory.** Stryker runs weekly (`kb-mutation.yml`)
-over `@kb/model`, `@kb/query` and the CLI's argument mapper, with no
-`thresholds` block. The run seeds fast-check (`KB_FAST_CHECK_SEED`), so its
+**The mutation score is advisory.** Stryker runs weekly (`kb-mutation.yml`,
+re-testing changed code; monthly in full) over `@kb/model`, `@kb/query` and
+the CLI's argument mapper, with no `thresholds` block. A mutant is run
+against its own package's tests, the only ones that can see it (the lane's
+plan and why: `harness/src/mutation.ts`). The run seeds fast-check (`KB_FAST_CHECK_SEED`), so its
 survivor list is reproducible. It is a sensor a human reads to find a missing
 test, not a merge blocker: a gate that slow gets routed around, and a score is
 not a claim about any one change. The harness's `advisory-signals` check

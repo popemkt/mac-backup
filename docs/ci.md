@@ -5,7 +5,7 @@ Two workflows gate this repo, plus two that maintain it.
 | Workflow | Trigger | What it answers |
 |---|---|---|
 | `validate.yml` | PR, push to `main` | Is the repo green? |
-| `kb-mutation.yml` | Weekly (Mon 04:00 UTC), manual | Which mutants does the test suite fail to kill? |
+| `kb-mutation.yml` | Weekly (Mon 04:00 UTC) incremental, monthly full, manual | Which mutants does the test suite fail to kill? |
 | `update-github-sources.yml` | schedule / manual | Are the GitHub release pins current? |
 | `tailscale-policy.yml` | policy changes | Is the Tailscale ACL valid? |
 
@@ -131,7 +131,16 @@ that was the coverage gap.
   and its score is a signal rather than a gate (the harness holds that no
   threshold breaks the run). It covers `@kb/model`, `@kb/query` and the CLI's
   argument mapper, and the run seeds fast-check, so its survivor list is
-  reproducible. Weekly, with the survivor report as an artifact.
+  reproducible. It fits its jobs by design, not by timeout: the plan
+  (`tools/kb/harness/src/mutation.ts`) cuts the scope into shards of one
+  package's files against that package's tests, each estimated at no more
+  than 45 minutes, so a growing scope adds shards rather than lengthening
+  one. Each shard starts from the baseline the last run cached for the
+  branch (else the default branch's), so the weekly run re-tests only
+  mutants in changed code. A changed *test* re-tests nothing, since the
+  command runner reports no coverage; the monthly full run, a dispatch with
+  `full`, or a cache miss catches up. The merged survivor report is an
+  artifact, and the score is on the run summary.
 - **Building the NixOS host.** `nix flake check` on the macOS runner evaluates
   `nixosConfigurations.shared-server`, so option errors and broken module
   wiring go red, but an x86_64-linux system cannot be built there. The build

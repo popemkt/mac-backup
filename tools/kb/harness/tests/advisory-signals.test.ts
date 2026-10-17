@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { readBaseConfig, shardConfig } from "../src/mutation.ts";
 import { WORKSPACE_ROOT, gitWorkspaceFiles } from "../src/workspace.ts";
 
 /**
@@ -13,7 +14,8 @@ import { WORKSPACE_ROOT, gitWorkspaceFiles } from "../src/workspace.ts";
  *      `coverageThreshold`, Vitest's `coverage.thresholds`;
  *   2. Stryker's config sets no `thresholds.break`, the one setting that
  *      makes a mutation run fail on its score, and seeds fast-check, so the
- *      survivor list a human reads is the same list twice;
+ *      survivor list a human reads is the same list twice — and so does
+ *      every shard config the mutation lane derives from it;
  *   3. the mutation run is in no workflow that gates a change (`validate.yml`).
  *
  * Red cases: add `coverageThreshold = 0.8` under `[test]` in bunfig.toml; set
@@ -56,6 +58,20 @@ describe("advisory-signals", () => {
     // preload in bunfig.toml seeds fast-check when this variable is set.
     expect(config.commandRunner?.command ?? "").toMatch(/^KB_FAST_CHECK_SEED=\d+ bun test /);
     expect(read("bunfig.toml")).toContain("packages/app/test-kit/src/fast-check-seed.ts");
+    // What actually runs is a shard's config, derived from this one: it keeps
+    // both halves rather than restating them.
+    const shard = shardConfig(
+      readBaseConfig(),
+      { name: "s", mutate: [], tests: "t" },
+      {
+        full: false,
+        concurrency: 1,
+      },
+    );
+    expect(
+      (shard as { thresholds?: { break?: number | null } }).thresholds?.break ?? null,
+    ).toBeNull();
+    expect(shard.commandRunner.command).toStartWith(config.commandRunner?.command ?? "\0");
   });
 
   test("no gating workflow runs mutation testing", () => {

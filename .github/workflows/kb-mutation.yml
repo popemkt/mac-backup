@@ -1,25 +1,39 @@
 name: kb mutation
 
 # Mutation testing grades the test suite rather than the code, and it is slow
-# (tens of minutes: every mutant spawns a fresh `bun test`). It is deliberately
-# NOT part of Validate:
+# (every mutant spawns a fresh `bun test`). It is deliberately NOT part of
+# Validate:
 #
-#   - As a PR gate it would add half an hour to every push, and a gate that slow
+#   - As a PR gate it would add an hour to every push, and a gate that slow
 #     gets routed around.
 #   - Its score is a signal, not a gate (DESIGN.md → Testing doctrine), and the
 #     harness holds that: stryker.config.json sets no `thresholds.break`.
 #
 # The run is seeded (`KB_FAST_CHECK_SEED` in stryker.config.json), so every
 # mutant meets the same property data as the source it is compared with and
-# the survivor list is reproducible. So it runs weekly and on demand, and its
-# value is the survivor list in the uploaded HTML report — not the headline
-# percentage.
+# the survivor list is reproducible. Its value is the survivor list in the
+# uploaded HTML report — not the headline percentage.
+#
+# How it stays inside a job however large the scope grows is
+# tools/kb/harness/src/mutation.ts: `plan` cuts the scope into shards of one
+# package's files run against that package's tests, each at most 45 minutes
+# by its estimate, and every shard runs incrementally from the baseline the
+# last complete run cached. The weekly run so re-tests only changed code; the
+# monthly run, a dispatch with `full`, and any run with no cached baseline
+# test every mutant.
 
 on:
   schedule:
-    # Mondays 04:00 UTC.
+    # Mondays 04:00 UTC: incremental.
     - cron: '0 4 * * 1'
+    # The 1st of the month, 05:00 UTC: full.
+    - cron: '0 5 1 * *'
   workflow_dispatch:
+    inputs:
+      full:
+        description: Test every mutant, not only those in changed code
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,15 +42,19 @@ concurrency:
   group: kb-mutation-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  KB_MUTATION_FULL: ${{ github.event.schedule == '0 5 1 * *' || inputs.full == true }}
+
 jobs:
-  mutation:
+  plan:
+    # The plan times each package's tests, so it runs on the shards' runner.
     runs-on: macos-15
-    timeout-minutes: 120
-    # The flake's Bun, as in Validate's kb job.
+    timeout-minutes: 20
     defaults:
       run:
         shell: nix develop -c bash -e {0}
-
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -47,18 +65,113 @@ jobs:
       - name: Install dependencies
         run: bun install --cwd tools/kb --frozen-lockfile
 
-      - name: Mutation run
-        run: bun run test:mutation
+      - name: Plan shards
+        id: plan
+        run: echo "shards=$(bun run --silent test:mutation plan)" >> "$GITHUB_OUTPUT"
         working-directory: tools/kb
 
-      # The report is the deliverable: which mutants no test killed. Kept even
-      # when the run fails, since that is exactly when the survivor list
-      # matters.
-      - name: Upload mutation report
+  shard:
+    needs: plan
+    runs-on: macos-15
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    name: shard (${{ matrix.shard.name }})
+    # The flake's Bun, as in Validate's kb job.
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Install dependencies
+        run: bun install --cwd tools/kb --frozen-lockfile
+
+      # The baseline the last run on this branch saved, else the default
+      # branch's: the key itself never exists yet (one per run), so the
+      # newest entry by prefix wins. A miss (none saved, or GitHub evicted
+      # it after 7 days unread; each weekly save lands after that run's
+      # start, so the next Monday's restore falls inside the 7 days) leaves
+      # no baseline, and the shard tests every mutant.
+      - name: Restore baseline
+        uses: actions/cache/restore@v4
+        with:
+          path: tools/kb/reports/mutation/baseline.json
+          key: kb-mutation-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            kb-mutation-${{ github.ref_name }}-
+            kb-mutation-${{ github.event.repository.default_branch }}-
+
+      - name: Mutation run
+        run: bun run test:mutation run
+        working-directory: tools/kb
+        env:
+          KB_MUTATION_SHARD: ${{ toJSON(matrix.shard) }}
+
+      - name: Upload shard report
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          name: mutation-shard-${{ matrix.shard.name }}
+          path: tools/kb/reports/mutation/shards/
+          if-no-files-found: warn
+          retention-days: 7
+
+  report:
+    needs: [plan, shard]
+    if: always() && needs.plan.result == 'success'
+    runs-on: macos-15
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Install dependencies
+        run: bun install --cwd tools/kb --frozen-lockfile
+
+      - name: Download shard reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mutation-shard-*
+          merge-multiple: true
+          path: tools/kb/reports/mutation/shards/
+
+      # One report from every shard: the survivor list, the score on the run's
+      # summary, and the baseline the next run starts from.
+      - name: Merge reports
+        run: bun run test:mutation merge
+        working-directory: tools/kb
+
+      # The report is the deliverable: which mutants no test killed. Kept even
+      # when a shard failed, since that is exactly when the survivor list
+      # matters.
+      - name: Upload mutation report
+        uses: actions/upload-artifact@v4
+        with:
           name: mutation-report
-          path: tools/kb/reports/mutation/
+          path: |
+            tools/kb/reports/mutation/index.html
+            tools/kb/reports/mutation/baseline.json
           if-no-files-found: warn
           retention-days: 30
+
+      # Saved even when a shard failed: the files that shard owned are simply
+      # absent, so the next run tests their mutants instead of reusing them.
+      # One key per run; the next run restores the newest by prefix.
+      - name: Save baseline
+        uses: actions/cache/save@v4
+        with:
+          path: tools/kb/reports/mutation/baseline.json
+          key: kb-mutation-${{ github.ref_name }}-${{ github.run_id }}

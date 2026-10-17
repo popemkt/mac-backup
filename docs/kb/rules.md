@@ -234,6 +234,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a per-axis typed buffer in TransformInput
 - **node** — `01M420HFRQHBNYSPD0KCMJZ0Y7`
 
+### GAP: a mutant is visible only to its own package's tests
+
+- **expected** — Every test that exercises a mutated file can kill its mutants: the shard for operations/src/map.ts (the CLI's argument mapper) runs cli.test.ts too, and a shard's tests are the ones that reach its files through imports.
+- **current** — Stryker's sandbox links each package's node_modules back to the real tree, so a cross-package import resolves to unmutated source; the lane runs each shard against its own package's tests only. map.ts scores ~4.5% (13 of 287 killed by @kb/operations tests); cli.test.ts, which drives it, killed 1 with 11 load timeouts.
+- **impact** — The mutation score under-reports protection for code tested from another package, and survivors there are not actionable as missing tests; map.ts's survivor list is mostly noise.
+- **closes** — Run shards so every package resolves the mutated tree (Stryker inPlace on a throwaway checkout in CI, or a sandbox whose workspace links point inside it), then derive each shard's tests from the import graph (harness/src/import-graph.ts) instead of the package folder.
+- **node** — `01M557P6VBJE7PJXTEFHQN16RX`
+
+### GAP: a mutation shard cannot split a file that alone passes its budget
+
+- **expected** — Every shard fits SHARD_BUDGET_SECONDS: a file whose mutants alone pass it is cut into line ranges (Stryker mutate accepts file:start-end, and the instrumenter gives each mutant's line).
+- **current** — The plan deals whole files onto shards, so one file over the budget is one over-budget shard. Today's largest, model/src/svg-sanitize.ts with 516 mutants, estimates ~40 min on CI against the 45 min budget and the 120 min job timeout.
+- **impact** — One large file can grow a shard past its budget and, past ~2.5x, past the job's timeout, so that shard is cancelled and its files are retested every run.
+- **closes** — packageShards packs mutants by line range instead of by file, emitting file:start-end entries in a shard's mutate.
+- **node** — `01M558MRWHR92991GYFRC5WWXY`
+
 ### GAP: a number prop that equals a live eid reads as a ref to that node
 
 - **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.

@@ -1,9 +1,9 @@
 {
   "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
-  "_comment": "Command runner, not vitest: `bun:test` cannot load under vitest unchanged (see t1-property-mutation report). tsconfigFile points at a name that does not exist so Stryker's TSConfigPreprocessor finds nothing to parse — TS 7's native port dropped `ts.parseConfigFileTextToJson`, which that preprocessor calls unconditionally on any tracked tsconfig.json and crashes on.",
+  "_comment": "The base every shard of the mutation lane derives from (harness/src/mutation.ts): run it with `bun run test:mutation`, which narrows `mutate` to a shard's files and appends that package's tests to the command. Command runner, not vitest: `bun:test` cannot load under vitest unchanged (see t1-property-mutation report). tsconfigFile points at a name that does not exist so Stryker's TSConfigPreprocessor finds nothing to parse — TS 7's native port dropped `ts.parseConfigFileTextToJson`, which that preprocessor calls unconditionally on any tracked tsconfig.json and crashes on.",
   "testRunner": "command",
   "commandRunner": {
-    "command": "KB_FAST_CHECK_SEED=20260924 bun test packages/domain/model packages/domain/query packages/application/operations packages/app/cli/tests/cli.test.ts"
+    "command": "KB_FAST_CHECK_SEED=20260924 bun test --bail"
   },
   "coverageAnalysis": "off",
   "tsconfigFile": "stryker-tsconfig-workaround-none.json",
