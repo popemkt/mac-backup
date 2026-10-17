@@ -213,6 +213,23 @@ describe("a press with the armed tool", () => {
     expect([toolTakes("select", frame), toolTakes("hand", card)]).toEqual([false, false]);
   });
 
+  test("a stroke tool draws over anything: a press anywhere begins its stroke, and it stays armed", () => {
+    expect([toolTakes("draw", frame), toolTakes("highlight", card)]).toEqual([true, true]);
+    expect(pressWithTool(doc, "draw", { place: null, item: card }, "s")).toEqual({
+      kind: "stroke",
+      id: "s",
+      highlight: false,
+    });
+    expect(pressWithTool(doc, "highlight", { place: floor, item: null }, "s")).toEqual({
+      kind: "stroke",
+      id: "s",
+      highlight: true,
+    });
+    expect(reduceCanvasTool({ tool: "select" }, { type: "set-tool", tool: "draw" })).toEqual({
+      tool: "draw",
+    });
+  });
+
   test("the comment tool starts a thread on the item it is pressed on, or at the point", () => {
     expect(pressWithTool(doc, "comment", { place: floor, item: card }, "x")).toEqual({
       kind: "comment",

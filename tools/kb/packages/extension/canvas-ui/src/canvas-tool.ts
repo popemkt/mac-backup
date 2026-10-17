@@ -9,7 +9,10 @@
  * family picks the one last picked — the solids' (B) the solid last made;
  * the flat shapes' the rectangle, ellipse, diamond or other shape last made. The
  * comment tool (M) places a comment thread rather than an item: on the item
- * it is pressed on, or at the point.
+ * it is pressed on, or at the point. The stroke tools (`STROKE_TOOLS`: the
+ * pen, P, and the highlighter, ⇧D) draw rather than place: a press anywhere,
+ * on an item or not, begins a stroke the pointer runs (`stroke/start`,
+ * `canvas-pointer.ts`), and they stay armed for the next, as tldraw's do.
  */
 import {
   CANVAS_SHAPE_PRESETS,
@@ -26,8 +29,28 @@ import {
 } from "@kb/canvas";
 import type { CanvasPlace } from "./canvas-faces";
 
-/** Select, the hand (a press pans), the comment tool, or a tool that places its preset. */
-export type CanvasTool = "select" | "hand" | "comment" | CanvasPresetKind;
+/** The stroke tools, and the stroke each draws: the pen's, or a highlighter's. */
+const STROKE_TOOLS = {
+  draw: { highlight: false },
+  highlight: { highlight: true },
+} as const satisfies Readonly<Record<string, { readonly highlight: boolean }>>;
+
+type CanvasStrokeTool = keyof typeof STROKE_TOOLS;
+
+/** The tools that take hold of what is there: select, the hand (a press pans), the comment tool. */
+const HOLDING_TOOLS = ["select", "hand", "comment"] as const;
+
+/** A tool that takes hold, a stroke tool, or a tool that places its preset. */
+export type CanvasTool = (typeof HOLDING_TOOLS)[number] | CanvasStrokeTool | CanvasPresetKind;
+
+/** Whether `tool` is a stroke tool (`STROKE_TOOLS`). */
+const isStrokeTool = (tool: CanvasToolPick): tool is CanvasStrokeTool =>
+  Object.hasOwn(STROKE_TOOLS, tool);
+
+/** The stroke `tool` draws, or null for a tool that draws none (`STROKE_TOOLS`). */
+export function strokeOf(tool: CanvasTool): { readonly highlight: boolean } | null {
+  return isStrokeTool(tool) ? STROKE_TOOLS[tool] : null;
+}
 
 /** The tools that share one button and one pick, each family's in its picker's order. */
 export const TOOL_FAMILIES = {
@@ -60,7 +83,7 @@ function isFamily(pick: CanvasToolPick): pick is CanvasToolFamily {
 
 /** Whether `tool` places a preset, rather than taking hold of what is there. */
 function isPresetTool(tool: CanvasToolPick): tool is CanvasPresetKind {
-  return tool !== "select" && tool !== "hand" && tool !== "comment" && !isFamily(tool);
+  return !HOLDING_TOOLS.some((own) => own === tool) && !isStrokeTool(tool) && !isFamily(tool);
 }
 
 /** Whether a press pans, whatever it lands on: Space is held, or the hand tool is armed. */
@@ -196,19 +219,22 @@ export interface ToolSpot {
 /**
  * Whether a press with `tool` on `item` is the tool's rather than the
  * item's: a placing tool places on a frame it is pressed on, not into it;
- * the comment tool comments on whatever it is pressed on.
+ * the comment tool comments on whatever it is pressed on, and a stroke tool
+ * draws over it.
  */
 export function toolTakes(tool: CanvasTool, item: CanvasNode): boolean {
-  return tool === "comment" || (placesItem(tool) && isGroupNode(item));
+  return tool === "comment" || isStrokeTool(tool) || (placesItem(tool) && isGroupNode(item));
 }
 
 /**
  * What a press with a tool does where it lands: the item it placed, in the
- * document it placed it in; or where a comment it starts goes (`commentWrite`).
+ * document it placed it in; where a comment it starts goes (`commentWrite`);
+ * or a stroke it begins there, item `id`, which the pointer then runs.
  */
 export type ToolPress =
   | { readonly kind: "place"; readonly doc: CanvasDoc; readonly node: CanvasNode }
-  | { readonly kind: "comment"; readonly place: CommentPlace };
+  | { readonly kind: "comment"; readonly place: CommentPlace }
+  | { readonly kind: "stroke"; readonly id: string; readonly highlight: boolean };
 
 /**
  * What a press with `tool` at `spot` does, `id` naming anything it makes;
@@ -221,6 +247,8 @@ export function pressWithTool(
   spot: ToolSpot,
   id: string,
 ): ToolPress | null {
+  const stroke = strokeOf(tool);
+  if (stroke !== null) return { kind: "stroke", id, highlight: stroke.highlight };
   if (tool === "comment") {
     if (spot.item !== null) return { kind: "comment", place: { on: spot.item.id } };
     if (spot.place === null) return null;

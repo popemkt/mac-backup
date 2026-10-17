@@ -1206,6 +1206,7 @@ manipulation feel professional rather than merely functional.
   one-shot (it returns to `select` after placing), double-clicking the tool icon
   makes it **sticky** for repeated placement, `Escape` always returns to select.
   Tools: select (V), text (T), rect (R), ellipse (O / C), diamond (D),
+  draw (P) and highlight (⇧D, tldraw's),
   group (F), kb node (N), solid (B), comment (M); digits `1`–`8` mirror
   the same order, up to the solid. A family of tools (`TOOL_FAMILIES`,
   `canvas-tool.ts`) is tldraw's geo-tool pattern: one button wearing the
@@ -1215,7 +1216,13 @@ manipulation feel professional rather than merely functional.
   hexagon, star, cloud, the four arrows and the check box), with no key of
   its own (R, O and D pick theirs); the solids are another
   (`CANVAS_SOLID_PRESETS`: box, pillar, sphere, cone, shelf, wall), which
-  B picks. A shape is data: its outline is a row of `CANVAS_FOOTPRINTS`,
+  B picks. The stroke tools (`STROKE_TOOLS`) draw rather than place: a
+  press anywhere, on an item or not, begins a stroke in either projection
+  (2D on the stage, 3D on the floor under the pointer, where an empty drag
+  would orbit), which the shared pointer reducer runs (`stroke/start`),
+  writing the item as it goes and placing it in its frame as one history
+  step (`freehandItem`); they stay armed for the next stroke, as tldraw's
+  do. A shape is data: its outline is a row of `CANVAS_FOOTPRINTS`,
   and what it wears inside it (a check box's tick) is a mark every painter
   draws from `itemMarks`, so a new shape is a row, not a painter's case.
   One table (`TOOL_LOOKS`, typed over every tool) names and marks them. The

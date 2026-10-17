@@ -4,7 +4,9 @@ import {
   canvasTop,
   carriedBy,
   connectItems,
+  freehandItem,
   freeItems,
+  placeItems,
   selectionPivot,
   settleMembership,
   sideTerminal,
@@ -64,6 +66,8 @@ export type ResizeCorner = "nw" | "ne" | "se" | "sw";
 
 type Drag =
   | { kind: "pan"; x: number; y: number; ox: number; oy: number }
+  /** A stroke drawn by hand (the draw or the highlight tool): the floor points it has run through. */
+  | { kind: "stroke"; id: string; highlight: boolean; points: readonly Point[] }
   | {
       kind: "resize-pending";
       id: string;
@@ -174,6 +178,8 @@ export type CanvasPointerEvent =
   /** A press during a modal transform, in either projection: it confirms or cancels (`pressModal`). */
   | { type: "transform/press"; button: number; ctrlKey: boolean }
   | { type: "edge/start"; fromCardId: string; fromSide: CanvasSide; screen: Point }
+  /** A stroke drawn by hand begins at `screen`: item `id`, a highlighter's when `highlight`. */
+  | { type: "stroke/start"; id: string; highlight: boolean; screen: Point }
   | { type: "marquee/start"; screen: Point; additive: boolean }
   | { type: "pointer/move"; screen: Point; shiftKey: boolean; free?: boolean }
   | {
@@ -542,6 +548,34 @@ function pressModal(
   return pointerReduce(state, { type: "pointer/cancel" }, ctx);
 }
 
+/**
+ * The stroke `drag` run on to `screen` across the floor: its item as drawn
+ * so far (`freehandItem`), written as the pointer runs; at the end, placed
+ * in the frame it was drawn in as one history step, or nothing for a
+ * stroke that never left its first point.
+ */
+function drawStroke(
+  state: PointerState,
+  drag: Extract<Drag, { kind: "stroke" }>,
+  screen: Point,
+  ctx: PointerContext,
+  ended: boolean,
+): PointerResult {
+  const points = [...drag.points, floorAt(ctx, screen)];
+  const item = freehandItem(drag.id, points, drag.highlight);
+  if (!ended) {
+    const next = { ...state, drag: { ...drag, points } };
+    return result(
+      next,
+      item === null ? {} : { doc: upsertCanvasNode(ctx.doc, item), persist: "silent" },
+    );
+  }
+  const done = { ...state, drag: null };
+  if (item === null) return result(done, { persist: "cancel" });
+  const without = { ...ctx.doc, nodes: ctx.doc.nodes.filter((n) => n.id !== drag.id) };
+  return result(done, { doc: placeItems(without, [item]), persist: "history" });
+}
+
 function reduceMove(
   state: PointerState,
   event: Extract<CanvasPointerEvent, { type: "pointer/move" }>,
@@ -549,6 +583,7 @@ function reduceMove(
 ): PointerResult {
   const drag = state.drag;
   if (!drag) return result(state);
+  if (drag.kind === "stroke") return drawStroke(state, drag, event.screen, ctx, false);
   if (drag.kind === "pan") {
     return result({
       ...state,
@@ -725,6 +760,7 @@ function reduceEnd(
     return result({ ...state, drag: null }, { doc: final.doc ?? ctx.doc, persist: "history" });
   }
   if (drag.kind === "edge") return finishEdge(state, drag, event, ctx);
+  if (drag.kind === "stroke") return drawStroke(state, drag, event.screen, ctx, true);
   return result({ ...state, drag: null });
 }
 
@@ -819,6 +855,13 @@ export function pointerReduce(
         x: event.screen.x,
         y: event.screen.y,
       },
+    });
+  }
+  if (event.type === "stroke/start") {
+    const { id, highlight } = event;
+    return result({
+      ...state,
+      drag: { kind: "stroke", id, highlight, points: [floorAt(ctx, event.screen)] },
     });
   }
   if (event.type === "marquee/start") {

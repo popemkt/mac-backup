@@ -55,6 +55,8 @@ export interface Canvas3dStageProps {
   readonly dispatchPointer: (event: CanvasPointerEvent) => void;
   /** A tap on empty canvas, or on an item the armed tool takes: the spot the tool would take there. */
   readonly onTap: (spot: ToolSpot, press: ScenePress) => void;
+  /** A press the armed tool draws from as it goes down: whether it began a stroke. */
+  readonly onDraw: (spot: ToolSpot, press: ScenePress) => boolean;
   /** An orbit, a pan or a zoom came to rest. */
   readonly onViewSettled: () => void;
 }
@@ -124,6 +126,7 @@ function useSceneGestures(
       orbit: (dx, dy) => props.rig.orbitBy(dx, dy),
       pan: (dx, dy) => props.rig.panBy(dx, dy),
       tap: props.onTap,
+      draw: props.onDraw,
       settled: props.onViewSettled,
     });
   });
@@ -194,6 +197,7 @@ const IDLE: SceneGestureHost = {
   orbit: () => {},
   pan: () => {},
   tap: () => {},
+  draw: () => false,
   settled: () => {},
 };
 

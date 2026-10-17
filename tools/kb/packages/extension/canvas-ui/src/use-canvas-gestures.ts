@@ -259,6 +259,7 @@ function createCardGestures(dispatchPointer: CanvasGestureContext["dispatchPoint
  * there (select), so the press means something else.
  */
 function createToolPress({
+  dispatchPointer,
   docRef,
   schedulePersist,
   setInspectorAnchor,
@@ -269,9 +270,19 @@ function createToolPress({
   edit,
   comment,
 }: StageGestureContext) {
-  return (spot: ToolSpot, client: { x: number; y: number }): boolean => {
+  return (
+    spot: ToolSpot,
+    client: { x: number; y: number },
+    screen: { x: number; y: number },
+  ): boolean => {
     const pressed = pressWithTool(docRef.current, toolState.tool, spot, ulid());
     if (pressed === null) return false;
+    if (pressed.kind === "stroke") {
+      // A stroke tool stays armed: the pointer runs the stroke it began, from where it went down.
+      const { id, highlight } = pressed;
+      dispatchPointer({ type: "stroke/start", id, highlight, screen });
+      return true;
+    }
     setToolState((s) => reduceCanvasTool(s, { type: "used" }));
     if (pressed.kind === "comment") {
       comment(pressed.place, client);
@@ -321,7 +332,7 @@ function createStageGestures(
     if (e.button === 0 && isEmptyStageTarget(e.target)) {
       const client = { x: e.clientX, y: e.clientY };
       const at = { ...screenToWorld(e.clientX, e.clientY, e.currentTarget), z: 0 };
-      if (pressTool({ place: { at, face: null }, item: null }, client)) {
+      if (pressTool({ place: { at, face: null }, item: null }, client, screen)) {
         // The press keeps its focus change to itself: a text card placed here is typed into.
         e.preventDefault();
         return;

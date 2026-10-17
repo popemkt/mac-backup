@@ -275,13 +275,13 @@ export const CANVAS_VIEW_COMMANDS: readonly CanvasViewCommand[] = [
   view("Present frames", { type: "present", act: "start" }, []),
 ];
 
-/** A tool's shortcut. G is not one: it grabs (plan decision 9). */
-const tool = (label: string, pick: CanvasToolPick, keys: readonly string[]) =>
+/** A tool's shortcut: a key, or a chord where the key alone would claim another. G is not one: it grabs (plan decision 9). */
+const tool = (label: string, pick: CanvasToolPick, keys: readonly (string | CanvasChord)[]) =>
   shortcut(
     "Tools",
     label,
     { type: "tool", tool: pick },
-    keys.map((key) => ({ key })),
+    keys.map((key) => (typeof key === "string" ? { key } : key)),
   );
 
 /** An arrangement of the selection, pressed with ⌥ and a letter where the keyboard has it. */
@@ -521,7 +521,10 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   tool("Text", "text", ["t", "2"]),
   tool("Rectangle", "rect", ["r", "3"]),
   tool("Ellipse", "ellipse", ["o", "c", "4"]),
-  tool("Diamond", "diamond", ["d", "5"]),
+  // ⇧D is the highlighter's, as tldraw's.
+  tool("Diamond", "diamond", [{ key: "d", shift: false }, "5"]),
+  tool("Draw", "draw", ["p"]),
+  tool("Highlight", "highlight", [{ key: "d", shift: true }]),
   tool("Line", "line", ["l"]),
   tool("Arrow", "arrow", ["a"]),
   tool("Card for a node", "kb-node", ["n", "6"]),

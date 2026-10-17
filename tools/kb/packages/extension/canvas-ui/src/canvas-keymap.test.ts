@@ -39,6 +39,8 @@ describe("with something selected", () => {
     [chord("3"), { type: "tool", tool: "rect" }],
     [chord("c"), { type: "tool", tool: "ellipse" }],
     [chord("d"), { type: "tool", tool: "diamond" }],
+    [chord("p"), { type: "tool", tool: "draw" }],
+    [chord("D", { shiftKey: true }), { type: "tool", tool: "highlight" }],
     [chord("f"), { type: "tool", tool: "group" }],
     [chord("g"), { type: "transform", act: { kind: "begin", mode: "grab" } }],
     [chord("s"), { type: "transform", act: { kind: "begin", mode: "scale" } }],

@@ -67,13 +67,19 @@ export interface SceneGestureHost {
   readonly pan: (dx: number, dy: number) => void;
   /** A tap on empty canvas, or on an item the armed tool takes: the spot the tool would take there. */
   readonly tap: (spot: ToolSpot, press: ScenePress) => void;
+  /**
+   * A press the armed tool draws from as it goes down (a stroke tool's), on
+   * empty canvas or an item it takes: whether it began a stroke, which the
+   * pointer reducer then carries.
+   */
+  readonly draw: (spot: ToolSpot, press: ScenePress) => boolean;
   /** An orbit or a pan came to rest. */
   readonly settled: () => void;
 }
 
 type Gesture =
   | { readonly kind: "gizmo" }
-  /** A drag the pointer reducer carries, every move and the release sent on to it: a card's move. */
+  /** A drag the pointer reducer carries, every move and the release sent on to it: a card's move, a stroke. */
   | { readonly kind: "carried" }
   | {
       readonly kind: "orbit" | "pan";
@@ -122,6 +128,13 @@ export class SceneGestures {
     // The armed tool takes a press on an item it takes: a placing tool places on a frame, not into it.
     const taken = hit !== undefined && this.host.takes(hit) ? hit : undefined;
     const card = taken === undefined ? hit : undefined;
+    if (!pans && card === undefined) {
+      const place = placeUnder(this.host.view(), this.host.size(), press.local, taken);
+      if (this.host.draw({ place, item: taken ?? null }, press)) {
+        this.gesture = { kind: "carried" };
+        return true;
+      }
+    }
     if (card !== undefined) {
       this.gesture = { kind: "carried" };
       this.host.cardPress(card, press, (id) => {

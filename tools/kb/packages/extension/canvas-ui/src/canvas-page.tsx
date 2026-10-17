@@ -66,7 +66,7 @@ import { CANVAS_LIST_PATH, canvasPath } from "./routes";
 import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
 import { linkStep } from "./canvas-links";
 import { classifyCardPointer } from "./card-pointer";
-import { pressPans, toolTakes, type CanvasChooser, type ToolState } from "./canvas-tool";
+import { pressPans, strokeOf, toolTakes, type CanvasChooser, type ToolState } from "./canvas-tool";
 import { CanvasCommentPanel, CanvasCommentPins } from "./canvas-comments";
 import { useCanvasComments } from "./use-canvas-comments";
 import type { PresentAct } from "./canvas-keymap";
@@ -571,7 +571,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
             const local = { x: client.x - (rect?.left ?? 0), y: client.y - (rect?.top ?? 0) };
             if (
               toolTakes(toolState.tool, card) &&
-              pressTool({ place: placeUnder(view, size, local, card), item: card }, client)
+              pressTool({ place: placeUnder(view, size, local, card), item: card }, client, local)
             ) {
               e.preventDefault();
               e.stopPropagation();
@@ -666,13 +666,17 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
                 onCardDoubleClick={faces.doubleClick}
                 dispatchPointer={dispatchPointer}
                 onTap={(spot, press) => {
-                  if (pressTool(spot, { x: press.clientX, y: press.clientY })) return;
+                  if (pressTool(spot, { x: press.clientX, y: press.clientY }, press.local)) return;
                   if (press.shiftKey) return;
                   setScope(null);
                   setSelection(EMPTY_SELECTION);
                   setInspectorAnchor(null);
                   setItemInspectorAnchor(null);
                 }}
+                onDraw={(spot, press) =>
+                  strokeOf(toolState.tool) !== null &&
+                  pressTool(spot, { x: press.clientX, y: press.clientY }, press.local)
+                }
                 onViewSettled={projection.onViewSettled}
               />
             </Suspense>

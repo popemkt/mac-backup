@@ -41,6 +41,7 @@ function harness(
     orbit: vi.fn(),
     pan: vi.fn(),
     tap: vi.fn(),
+    draw: () => false,
     settled: vi.fn(),
   };
   return { gestures: new SceneGestures(host), events, host };
@@ -192,6 +193,29 @@ describe("groups in 3D", () => {
     const modal = harness(undefined, undefined, undefined, true);
     modal.gestures.doubleClick(press(centre()));
     expect(modal.host.cardDoubleClick).not.toHaveBeenCalled();
+  });
+});
+
+describe("a stroke tool", () => {
+  test("draws as it goes down, over an item or not: the reducer carries the stroke, no orbit", () => {
+    const { gestures, events, host } = harness();
+    const drawn: unknown[] = [];
+    gestures.bind({
+      ...host,
+      takes: () => true,
+      draw: (spot) => {
+        drawn.push(spot);
+        return true;
+      },
+    });
+    const at = centre();
+    expect(gestures.down(press(at))).toBe(true);
+    gestures.move(press({ x: at.x + 30, y: at.y + 5 }));
+    gestures.up(press({ x: at.x + 60, y: at.y }), false);
+    expect(drawn).toHaveLength(1);
+    expect(events.map((e) => e.type)).toEqual(["pointer/move", "pointer/end"]);
+    expect(host.orbit).not.toHaveBeenCalled();
+    expect(host.tap).not.toHaveBeenCalled();
   });
 });
 
