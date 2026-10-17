@@ -374,7 +374,19 @@ describe("ext.canvas.arrange", () => {
     expect(stored(ctx).nodes.find((n) => n.id === "b")).toMatchObject({ x: 300, y: 200 });
   });
 
-  test("a locked item is refused by every verb that changes it, and described as locked", async () => {
+  test("a locked card is still promoted: what it shows changes, where it stands does not", async () => {
+    const ctx = await canvasKb([card("a", 40, 60, { locked: true })]);
+    const out = output(await invoke(ctx, verb("promote", { id: "a" })));
+    expect(stored(ctx).nodes.find((n) => n.id === "a")).toMatchObject({
+      type: "kb-node",
+      nodeId: out.nodeId,
+      x: 40,
+      y: 60,
+      locked: true,
+    });
+  });
+
+  test("a locked item is refused by every verb that moves or takes it, and described as locked", async () => {
     const ctx = await canvasKb([card("a", 0, 0, { locked: true }), card("b", 300, 200)]);
     for (const [id, input] of [
       ["arrange", { ids: ["a", "b"], layout: "row" }],

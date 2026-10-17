@@ -651,6 +651,8 @@ const canvasPromoteEffect = Effect.fn("ext.canvas.promote")(function* (
   input: z.infer<typeof promoteInput>,
 ): Effect.fn.Return<z.infer<typeof promoteOutput>, CanvasFail, WriteEnv> {
   const before = yield* readCanvasEffect(input.canvasId);
+  // A locked card is promoted too: it changes what the card shows, not where
+  // it stands, as the inspector's words and node stay editable on one.
   const text = yield* canvasStep(() => promotableText(before, input.id));
   // The node and the card that shows it are one transaction: a failed canvas
   // write leaves no node behind, and the pair is one step of history.
