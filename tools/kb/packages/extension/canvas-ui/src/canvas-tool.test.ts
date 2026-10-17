@@ -37,16 +37,16 @@ describe("canvas tool reducer", () => {
   test("the solid tool picks a box first, then whichever solid was picked last", () => {
     expect(reduceCanvasTool({ tool: "select" }, { type: "set-tool", tool: "solid" })).toEqual({
       tool: "box",
-      solid: "box",
+      picked: { solid: "box" },
     });
     const sphere = reduceCanvasTool({ tool: "select" }, { type: "set-tool", tool: "sphere" });
     const placed = reduceCanvasTool(sphere, { type: "used" });
-    expect(placed).toEqual({ tool: "select", solid: "sphere" });
+    expect(placed).toEqual({ tool: "select", picked: { solid: "sphere" } });
     // A flat tool in between does not forget it.
     const text = reduceCanvasTool(placed, { type: "set-tool", tool: "text" });
     expect(reduceCanvasTool(text, { type: "set-tool", tool: "solid" })).toEqual({
       tool: "sphere",
-      solid: "sphere",
+      picked: { solid: "sphere" },
     });
   });
 });

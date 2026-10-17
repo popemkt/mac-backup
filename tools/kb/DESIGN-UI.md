@@ -1207,9 +1207,12 @@ manipulation feel professional rather than merely functional.
   makes it **sticky** for repeated placement, `Escape` always returns to select.
   Tools: select (V), text (T), rect (R), ellipse (O / C), diamond (D),
   group (F), kb node (N), solid (B), comment (M); digits `1`–`8` mirror
-  the same order, up to the solid. The solid tool is tldraw's geo-tool pattern: one button wearing
-  the solid last picked, with a picker beside it over `CANVAS_SOLID_PRESETS`
-  (box, pillar, sphere, cone, shelf, wall), and B picks that solid again.
+  the same order, up to the solid. A family of tools (`TOOL_FAMILIES`,
+  `canvas-tool.ts`) is tldraw's geo-tool pattern: one button wearing the
+  tool of the family last picked, with a picker beside it over every tool
+  of it, and picking the family picks that one again. The solids are one
+  (`CANVAS_SOLID_PRESETS`: box, pillar, sphere, cone, shelf, wall), which B
+  picks.
   One table (`TOOL_LOOKS`, typed over every tool) names and marks them. The
   numpad's digits are views, not tools (Projections → view widget). G is
   not a tool: it grabs. The label tool (a text card facing the camera,

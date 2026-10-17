@@ -22,8 +22,15 @@ import {
   TriangleIcon,
   WallIcon,
 } from "@phosphor-icons/react";
-import { CANVAS_SOLID_PRESETS, type CanvasProjectionKind } from "@kb/canvas";
-import { isSolidTool, solidOf, type CanvasTool, type ToolState } from "./canvas-tool";
+import type { CanvasProjectionKind } from "@kb/canvas";
+import {
+  TOOL_FAMILIES,
+  familyOf,
+  lastOf,
+  type CanvasTool,
+  type CanvasToolFamily,
+  type ToolState,
+} from "./canvas-tool";
 import { cn, useDismiss } from "@kb/ui-sdk";
 import { CANVAS_PROJECTIONS } from "./canvas-projections";
 import { shortcutHint } from "./canvas-keymap";
@@ -141,35 +148,44 @@ function ToolButton({
   );
 }
 
+/** What each family's picker is called. */
+const FAMILY_LOOKS: { readonly [F in CanvasToolFamily]: { readonly label: string } } = {
+  solid: { label: "Solids" },
+};
+
 /**
- * The solid tool (B): one button wearing the solid last picked, which a click
- * picks again and opens the picker beside it — box, pillar, sphere, cone,
- * shelf, wall — as tldraw's geo tool does.
+ * A family's tool (`TOOL_FAMILIES`): one button wearing the tool last
+ * picked, which a click picks again and opens the picker beside it with
+ * every tool of the family — the solids' box, pillar, sphere, cone, shelf
+ * and wall — as tldraw's geo tool does.
  */
-function SolidTool({
+function FamilyTool({
+  family,
   toolState,
   onToolChange,
   onToolDoubleClick,
-}: Pick<CanvasToolbarProps, "toolState" | "onToolChange" | "onToolDoubleClick">) {
+}: Pick<CanvasToolbarProps, "toolState" | "onToolChange" | "onToolDoubleClick"> & {
+  readonly family: CanvasToolFamily;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const solid = solidOf(toolState);
-  const active = isSolidTool(toolState.tool);
+  const last = lastOf(toolState, family);
+  const active = familyOf(toolState.tool) === family;
   // The tool's button is its trigger: its click toggles the picker.
   useDismiss(open, { inside: [ref], trigger: triggerRef }, () => setOpen(false));
   return (
     <div ref={ref} className="relative">
       <ToolButton
         ref={triggerRef}
-        tool={solid}
+        tool={last}
         active={active}
         sticky={toolState.sticky === true}
         onClick={() => {
-          onToolChange(solid);
+          onToolChange(last);
           setOpen((was) => !was);
         }}
-        onDoubleClick={() => onToolDoubleClick(solid)}
+        onDoubleClick={() => onToolDoubleClick(last)}
       >
         <CaretRightIcon
           size={7}
@@ -180,21 +196,21 @@ function SolidTool({
       {open && (
         <div
           role="menu"
-          aria-label="Solids"
-          data-testid="canvas-solid-picker"
+          aria-label={FAMILY_LOOKS[family].label}
+          data-testid={`canvas-${family}-picker`}
           className="absolute top-0 left-full ml-2 flex flex-col gap-0.5 rounded-lg border border-foreground/10 bg-popover/95 p-1 shadow-floating backdrop-blur-sm"
         >
-          {CANVAS_SOLID_PRESETS.map((preset) => (
+          {TOOL_FAMILIES[family].map((preset) => (
             <button
               key={preset}
               type="button"
               role="menuitemradio"
-              aria-checked={preset === solid}
+              aria-checked={preset === last}
               data-tool={preset}
               className={cn(
                 "flex h-8 items-center gap-2 rounded-md pr-3 pl-2 text-ui text-foreground/65 transition-colors",
                 "hover:bg-foreground/5 hover:text-foreground/90",
-                preset === solid && "bg-foreground/8 text-foreground/90",
+                preset === last && "bg-foreground/8 text-foreground/90",
               )}
               onClick={() => {
                 onToolChange(preset);
@@ -206,7 +222,7 @@ function SolidTool({
             </button>
           ))}
           <div className="px-2 pt-1 pb-0.5 text-label text-foreground/35">
-            {shortcutHint({ type: "tool", tool: "solid" })} picks the last one
+            {shortcutHint({ type: "tool", tool: family })} picks the last one
           </div>
         </div>
       )}
@@ -238,7 +254,8 @@ export function CanvasToolbar({
           onDoubleClick={() => onToolDoubleClick(tool)}
         />
       ))}
-      <SolidTool
+      <FamilyTool
+        family="solid"
         toolState={toolState}
         onToolChange={onToolChange}
         onToolDoubleClick={onToolDoubleClick}

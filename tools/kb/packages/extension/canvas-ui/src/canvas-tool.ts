@@ -4,8 +4,9 @@
  * preset's item at the point placed (`placeItems`), which belongs to the
  * frame it lands in.
  *
- * The solids share one tool, tldraw's geo-tool pattern: picking a solid
- * preset remembers it, and the solid tool (B) picks the one last made. The
+ * A family of tools shares one button, tldraw's geo-tool pattern
+ * (`TOOL_FAMILIES`): picking one of its tools remembers it, and picking the
+ * family picks the one last picked — the solids' (B) the solid last made. The
  * comment tool (M) places a comment thread rather than an item: on the item
  * it is pressed on, or at the point.
  */
@@ -26,14 +27,21 @@ import type { CanvasPlace } from "./canvas-faces";
 /** Select, the hand (a press pans), the comment tool, or a tool that places its preset. */
 export type CanvasTool = "select" | "hand" | "comment" | CanvasPresetKind;
 
-/** What a key or a button picks: a tool, or the solid tool (whichever solid it last made). */
-export type CanvasToolPick = CanvasTool | "solid";
+/** The tools that share one button and one pick, each family's in its picker's order. */
+export const TOOL_FAMILIES = {
+  solid: CANVAS_SOLID_PRESETS,
+} as const satisfies Readonly<Record<string, readonly CanvasPresetKind[]>>;
+
+export type CanvasToolFamily = keyof typeof TOOL_FAMILIES;
+
+/** What a key or a button picks: a tool, or a family (whichever of its tools was picked last). */
+export type CanvasToolPick = CanvasTool | CanvasToolFamily;
 
 export interface ToolState {
   tool: CanvasTool;
   sticky?: boolean;
-  /** The solid preset last picked, which the solid tool picks again; absent, the first. */
-  solid?: CanvasPresetKind;
+  /** Each family's tool last picked, which picking the family picks again; absent, its first. */
+  picked?: Partial<Readonly<Record<CanvasToolFamily, CanvasPresetKind>>>;
 }
 
 export type ToolAction =
@@ -42,9 +50,14 @@ export type ToolAction =
   | { type: "escape" }
   | { type: "used" };
 
+/** Whether `pick` names a family rather than a tool. */
+function isFamily(pick: CanvasToolPick): pick is CanvasToolFamily {
+  return Object.hasOwn(TOOL_FAMILIES, pick);
+}
+
 /** Whether `tool` places a preset, rather than taking hold of what is there. */
 function isPresetTool(tool: CanvasToolPick): tool is CanvasPresetKind {
-  return tool !== "select" && tool !== "hand" && tool !== "comment" && tool !== "solid";
+  return tool !== "select" && tool !== "hand" && tool !== "comment" && !isFamily(tool);
 }
 
 /** Whether a press pans, whatever it lands on: Space is held, or the hand tool is armed. */
@@ -52,24 +65,34 @@ export function pressPans(state: ToolState, spaceHeld: boolean): boolean {
   return spaceHeld || state.tool === "hand";
 }
 
-/** Whether `tool` places a solid (a preset with depth). */
-export function isSolidTool(tool: CanvasTool): tool is CanvasPresetKind {
-  return CANVAS_SOLID_PRESETS.some((preset) => preset === tool);
+/** The family `tool` belongs to, or null for a tool with a button of its own. */
+export function familyOf(tool: CanvasTool): CanvasToolFamily | null {
+  const families = Object.keys(TOOL_FAMILIES).filter((key): key is CanvasToolFamily =>
+    Object.hasOwn(TOOL_FAMILIES, key),
+  );
+  return families.find((family) => TOOL_FAMILIES[family].some((one) => one === tool)) ?? null;
 }
 
-/** The solid the solid tool picks in `state`: the last one picked, or the first. */
-export function solidOf(state: ToolState): CanvasPresetKind {
-  return state.solid ?? CANVAS_SOLID_PRESETS[0] ?? "box";
+/** The tool picking `family` picks in `state`: the one last picked, or its first (select, were it empty). */
+export function lastOf(state: ToolState, family: CanvasToolFamily): CanvasTool {
+  return state.picked?.[family] ?? TOOL_FAMILIES[family][0] ?? "select";
 }
 
-/** `state` with `pick` active (the solid tool's solid for "solid"), remembering a solid. */
+/** What `state` remembers once `tool` is picked: it, as its family's last, when it has one. */
+function remembered(state: ToolState, tool: CanvasTool): ToolState["picked"] {
+  const family = isPresetTool(tool) ? familyOf(tool) : null;
+  if (family === null || !isPresetTool(tool)) return state.picked;
+  return { ...state.picked, ...Object.fromEntries([[family, tool]]) };
+}
+
+/** `state` with `pick` active (a family's last tool for a family), remembering it in its family. */
 function activate(state: ToolState, pick: CanvasToolPick, sticky: boolean): ToolState {
-  const tool = pick === "solid" ? solidOf(state) : pick;
-  const solid = isSolidTool(tool) ? tool : state.solid;
+  const tool = isFamily(pick) ? lastOf(state, pick) : pick;
+  const picked = remembered(state, tool);
   return {
     tool,
     ...(sticky ? { sticky: true } : {}),
-    ...(solid === undefined ? {} : { solid }),
+    ...(picked === undefined ? {} : { picked }),
   };
 }
 
