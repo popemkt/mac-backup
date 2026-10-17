@@ -2793,7 +2793,10 @@ exist is a plugin point, and the kit names none of them.
     backdrop receives a `PointerSource` (`pointer.now()`): the pointer's
     place from the frame's corner, or null when it is outside. It is polled
     in the backdrop's own loop and never re-renders it, so a backdrop adds
-    no listener of its own: one per head, not one per scene.
+    no listener of its own: one per head, not one per scene. Polling reads
+    no layout: the frame's box is measured when the pointer moves, when
+    anything scrolls and when the frame's size changes, and a change of
+    size resolves again what covers it (`trackPointerOver`).
 - **One slot.** `PageBackdrop` (`@kb/ui-sdk`) is the one page-head slot.
   It frames the chosen backdrop by its presentation, behind the head's
   content, and renders nothing when nothing is contributed. Any page head

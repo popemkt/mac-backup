@@ -4,7 +4,8 @@
  * events, so the one listener sits on the smallest ancestor whose box covers
  * the frame, and reports the pointer relative to the frame, or none when it
  * is outside it. A reader polls `now()` in its own loop: the source never
- * re-renders anyone, however the pointer moves.
+ * re-renders anyone, however the pointer moves, and `now()` reads no layout,
+ * so polling it every frame forces none.
  */
 import { useEffect, useRef, useState, type RefObject } from "react";
 
@@ -46,34 +47,79 @@ export function placeOver(
   return x < 0 || y < 0 || x > box.width || y > box.height ? null : { x, y };
 }
 
+/** A pointer source that is followed until it is stopped. */
+export interface PointerTracker extends PointerSource {
+  readonly stop: () => void;
+}
+
+/**
+ * Follow the pointer over `frame` until stopped. The frame's box is measured
+ * when the pointer moves, when anything scrolls, and when the frame's box
+ * changes size, and `now()` reads only that measure. A change of the frame's
+ * box also resolves again what covers it, since the layout around it moved.
+ */
+export function trackPointerOver(frame: HTMLElement): PointerTracker {
+  let client: { x: number; y: number } | null = null;
+  let box = frame.getBoundingClientRect();
+  let cover: HTMLElement | null = null;
+  const measure = () => {
+    box = frame.getBoundingClientRect();
+  };
+  const move = (event: PointerEvent) => {
+    client = { x: event.clientX, y: event.clientY };
+    measure();
+  };
+  const leave = () => {
+    client = null;
+  };
+  const unlisten = () => {
+    cover?.removeEventListener("pointermove", move);
+    cover?.removeEventListener("pointerleave", leave);
+  };
+  const listen = () => {
+    const next = coveringAncestor(frame);
+    if (next === cover) return;
+    unlisten();
+    next.addEventListener("pointermove", move, { passive: true });
+    next.addEventListener("pointerleave", leave, { passive: true });
+    cover = next;
+  };
+  listen();
+  const view = frame.ownerDocument.defaultView;
+  view?.addEventListener("scroll", measure, { capture: true, passive: true });
+  const observer =
+    typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(() => {
+          measure();
+          listen();
+        });
+  observer?.observe(frame);
+  return {
+    now: () => (client === null ? null : placeOver(box, client)),
+    stop: () => {
+      observer?.disconnect();
+      view?.removeEventListener("scroll", measure, { capture: true });
+      unlisten();
+      client = null;
+    },
+  };
+}
+
 /** A pointer source over `frame`: one passive listener, on what covers it, while it is mounted. */
 export function usePointerOver(frame: RefObject<HTMLElement | null>): PointerSource {
-  const client = useRef<{ x: number; y: number } | null>(null);
+  const tracker = useRef<PointerTracker | null>(null);
   const [source] = useState<PointerSource>(() => ({
-    now: () => {
-      const element = frame.current;
-      const at = client.current;
-      return element === null || at === null
-        ? null
-        : placeOver(element.getBoundingClientRect(), at);
-    },
+    now: () => tracker.current?.now() ?? null,
   }));
   useEffect(() => {
     const element = frame.current;
     if (element === null) return undefined;
-    const cover = coveringAncestor(element);
-    const move = (event: PointerEvent) => {
-      client.current = { x: event.clientX, y: event.clientY };
-    };
-    const leave = () => {
-      client.current = null;
-    };
-    cover.addEventListener("pointermove", move, { passive: true });
-    cover.addEventListener("pointerleave", leave, { passive: true });
+    const tracking = trackPointerOver(element);
+    tracker.current = tracking;
     return () => {
-      cover.removeEventListener("pointermove", move);
-      cover.removeEventListener("pointerleave", leave);
-      client.current = null;
+      tracking.stop();
+      tracker.current = null;
     };
   }, [frame]);
   return source;
