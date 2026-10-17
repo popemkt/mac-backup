@@ -649,6 +649,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D plan step 9: anchors on solids and billboards
 - **node** — `01M42G18TDCMPK7BKD9GKS74RT`
 
+### GAP: itemLead trusts item.link without checking its scheme
+
+- **expected** — The rule that a canvas item's link is http(s) or a kb ref holds where it is relied on: withLink or itemLead validates it.
+- **current** — links.ts itemLead returns item.link unchecked; withLink and presets store any CanvasItemLink. Only the ext-canvas LinkSchema (isLinkUrl) and the doc re-parse on read check it.
+- **impact** — Not reachable now; a new writer that skips the schema could make a javascript: link clickable.
+- **closes** — Validate in withLink (the one writer) and make itemLead's type a checked link.
+- **node** — `01M55AE092VNPBQKGGZZHZZY9W`
+
+### GAP: kb mutation skips saving its baseline when the merge step fails
+
+- **expected** — The report job saves the next baseline even when a shard or the merge failed, as its comment says.
+- **current** — kb-mutation.yml 'Save baseline' has no if: always(), so a failed Download or Merge reports step skips it.
+- **impact** — The next weekly run misses the cache and runs in full: bounded by the shard plan, only slower.
+- **closes** — if: always() on the save step, guarded on the baseline file existing.
+- **node** — `01M55AE0NTW88HWFJ2V0ZH92KQ`
+
 ### GAP: kb.server has no NixOS side
 
 - **expected** — kb.server runs on NixOS as a supervised service for a named person, rendered from the same service declaration the macOS launchd agent comes from.
@@ -1009,6 +1025,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Hold the kernel as the session's live registry instead of a derived snapshot: the watcher calls kernel.unload/load, and byId/manifest read the points on demand.
 - **node** — `01M39F3N7TS10VJ881RNC0Z4X3`
 
+### GAP: the backdrop pointer source goes stale under a sibling overlay
+
+- **expected** — A page head's backdrop knows the pointer wherever it lies over the backdrop's box, whatever is drawn on top.
+- **current** — pointer-over.ts listens on the covering ancestor; a sibling overlay above the frame absorbs pointermove, so now() keeps the last place.
+- **impact** — The scene reacts to a stale pointer position while the pointer is over an overlay; cosmetic.
+- **closes** — Listen at the document (passive, filtered to the frame's cached box), or name the overlay as part of the cover.
+- **node** — `01M55AE121XVJTAV0WG25AZB8N`
+
 ### GAP: the browser holds the whole graph
 
 - **expected** — The UI reads through the protocol: subscriptions plus a scoped, paged snapshot, with ui/src/ds as an optional client cache behind one interface or deleted.
@@ -1178,6 +1202,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
+
+### GAP: the SVG sanitiser's CSS filter misses escaped and split @import and url()
+
+- **expected** — sanitizeSvg removes every external CSS fetch, however it is spelled: CSS escapes are decoded and each <style> element's joined text is checked as one, not per token.
+- **current** — svg-sanitize.ts safeCss runs per text token and tokenize never decodes CSS escapes, so fill:\75 rl(…), @\69mport, CDATA-split and comment-split @import survive.
+- **impact** — Contained today: SVG is served with CSP default-src 'none' and canvas pictures render as <img>. A future inline use of a sanitised SVG would fetch external CSS.
+- **closes** — Decode CSS escapes, then run safeCss over each style element's joined text; add the four vectors from Sol round 8 as rows.
+- **node** — `01M55ADZWF54Q5MN8AEXDM1W1D`
 
 ### GAP: the system seed cannot retire or rename a seeded node
 
