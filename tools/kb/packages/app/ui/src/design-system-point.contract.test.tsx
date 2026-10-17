@@ -267,6 +267,21 @@ describe("every contributed design system", () => {
     expect(html().getAttribute("data-theme")).toBe(PLAIN_KEY.id);
   });
 
+  it("before the page's plugins or its graph arrive, what the boot record painted stands", () => {
+    choosing(PLAIN_KEY.id);
+    stop();
+    act(() => syncUiPlugins([]));
+    act(() => useGraphStore.setState({ index: null }));
+    stop = startDesignSystems();
+    // Nothing contributed: the sheet the boot record added stays.
+    expect(sheetOf(PLAIN_KEY.id)?.textContent).toBe(PLAIN_SHEET);
+    // Contributed, but no graph: the choice is unknown, so no default is painted over it.
+    act(() => syncPagePlugins([designSystemsUiPlugin, ...PAGE_FAMILIES, plainPlugin]));
+    expect(html().getAttribute("data-theme")).toBe(PLAIN_KEY.id);
+    choosing(PLAIN_KEY.id);
+    expect(html().getAttribute("data-theme")).toBe(PLAIN_KEY.id);
+  });
+
   describe("the checks reject", () => {
     const broken = (stylesheet: string) =>
       contractFailures(sheetsOf([{ key: PLAIN_KEY, stylesheet }]), PLAIN_KEY.id);

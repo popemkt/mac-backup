@@ -104,10 +104,14 @@ let booted = false;
 /** The system last painted, as contributed: the same object until the choice or the kernel moves. */
 let shownLast: DesignSystem | null = null;
 
-/** Paint the page in the system shown now; nothing when it is the one already painted. */
+/**
+ * Paint the page in the system shown now; nothing when it is the one already
+ * painted. Until the graph has arrived the choice is unknown, so what the
+ * boot record painted stands rather than the default.
+ */
 function show(contributed: readonly Contribution<DesignSystem>[]): void {
+  if (useGraphStore.getState().index === null) return;
   const shown = shownIn(contributed);
-  // Nothing contributed yet: what the boot record painted stands.
   if (shown === null || shown.value === shownLast) return;
   shownLast = shown.value;
   record(shown.value);
@@ -124,10 +128,16 @@ function show(contributed: readonly Contribution<DesignSystem>[]): void {
   }
 }
 
-/** The page's contributions moved: every contributed sheet on the page, then the system shown. */
+/**
+ * The page's contributions moved: every contributed sheet on the page, then
+ * the system shown. Core contributes its default whenever its plugins are
+ * loaded, so nothing contributed means they are not yet: the boot record's
+ * sheet stands.
+ */
 function paint(): void {
   if (typeof document === "undefined") return;
   const contributed = currentContributions(DesignSystemPoint);
+  if (contributed.length === 0) return;
   syncSheets(contributed);
   show(contributed);
 }
