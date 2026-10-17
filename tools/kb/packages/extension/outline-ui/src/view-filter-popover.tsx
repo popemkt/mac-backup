@@ -109,8 +109,10 @@ export function ViewFilterPopoverHost() {
   }, [fields, fieldId]);
 
   // A filter button is a trigger: its click opens or closes its own frame's filter.
-  useDismiss(frameId !== null && anchor !== null, [panelRef, '[data-filter-button="true"]'], () =>
-    setOpenId(null),
+  useDismiss(
+    frameId !== null && anchor !== null,
+    { inside: [panelRef], trigger: '[data-filter-button="true"]' },
+    () => setOpenId(null),
   );
 
   if (frameId === null || !anchor) return null;

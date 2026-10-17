@@ -215,8 +215,8 @@ function ViewMenu({
   const items = () => [
     ...(menu.current?.querySelectorAll<HTMLButtonElement>("[role^=menuitem]:not(:disabled)") ?? []),
   ];
-  // A press on the trigger is its own: its click toggles the menu.
-  useDismiss(true, [menu, anchor], onClose);
+  // The anchor is its trigger: its click toggles the menu.
+  useDismiss(true, { inside: [menu], trigger: anchor }, onClose);
   const onKeyDown = (e: React.KeyboardEvent) => {
     const all = items();
     const at = all.findIndex((item) => item === document.activeElement);

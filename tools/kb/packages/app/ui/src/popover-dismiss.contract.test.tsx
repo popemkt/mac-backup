@@ -12,7 +12,7 @@ import { dismissContract, renderPopover } from "@kb/ui-test-kit";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { PaneSwitcher } from "@/components/layout/pane-switcher";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
-import { PreferencesPopover } from "@/components/prefs/preferences-popover";
+import { PreferencesPopover, PreferencesTrigger } from "@/components/prefs/preferences-popover";
 import { useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -22,12 +22,22 @@ const trigger = (selector: string) => () => document.querySelector<HTMLElement>(
 
 dismissContract({
   "packages/app/ui/src/components/prefs/preferences-popover.tsx": (host) => {
-    useUiStore.getState().setPrefsOpen(true);
-    return renderPopover(
+    const shown = renderPopover(
       host,
-      <PreferencesPopover switches={[]} onSwitch={noop} />,
+      <>
+        <PreferencesTrigger />
+        <PreferencesPopover switches={[]} onSwitch={noop} />
+      </>,
       find('[role="dialog"][aria-label="Preferences"]'),
+      trigger('button[data-preferences-trigger="true"]'),
     );
+    return {
+      ...shown,
+      unmount: () => {
+        useUiStore.getState().setPrefsOpen(false);
+        shown.unmount();
+      },
+    };
   },
   "packages/app/ui/src/components/ontology/ref-add-popover.tsx": (host) =>
     renderPopover(
@@ -67,6 +77,8 @@ dismissContract({
       host,
       <ViewFilterPopoverHost />,
       find('[data-testid="view-filter-popover"]'),
+      // Each frame's filter button opens its own frame's filter; the suite opens it by the store.
+      null,
     );
     await act(async () => useUiStore.getState().setFilterPopoverFrameId(frame));
     return {

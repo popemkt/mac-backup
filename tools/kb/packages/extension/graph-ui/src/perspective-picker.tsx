@@ -27,13 +27,15 @@ export function PerspectivePicker({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const active = perspectives.find((p) => p.id === activeId) ?? null;
 
-  useDismiss(open, [rootRef], () => setOpen(false));
+  useDismiss(open, { inside: [rootRef], trigger: triggerRef }, () => setOpen(false));
 
   return (
     <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         className="flex h-6 max-w-xs items-center gap-1 rounded-md px-1.5 text-ui text-foreground/70 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/85"
         aria-label="Perspective"

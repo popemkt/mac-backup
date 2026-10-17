@@ -28,12 +28,13 @@ interface GraphSettingsProps {
 export function GraphSettings({ perspective }: GraphSettingsProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const renderer = useRenderer(perspective.renderer);
   const themes = useContributions(GraphThemePoint);
   const theme = useGraphTheme(perspective.theme);
 
-  // The button is inside: its click toggles the panel.
-  useDismiss(open, [panelRef], () => setOpen(false));
+  // The button is its trigger: its click toggles the panel.
+  useDismiss(open, { inside: [panelRef], trigger: triggerRef }, () => setOpen(false));
 
   const setStr = (field: string, v: string) => {
     void setLensProp(perspective.id, field, { t: "str", v });
@@ -51,6 +52,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
   return (
     <div className="relative" ref={panelRef}>
       <button
+        ref={triggerRef}
         type="button"
         className={cn(
           "flex h-7 w-7 items-center justify-center rounded-md text-foreground/50 transition-colors hover:bg-foreground/[0.06] hover:text-foreground/80",

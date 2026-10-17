@@ -1668,13 +1668,19 @@ The rules that hold everywhere, so no surface re-invents them:
   that one opened (read in the render that opens it, before an input it
   renders takes focus). A press dismisses every popover above the one it
   lands in, so a press in a popover opened from another leaves both open,
-  and one on the page dismisses them all; a popover counts as itself its
-  panel, and its trigger where the trigger's own click toggles it (an
-  element, or a selector for triggers such as the outline's filter
-  buttons). Both are heard on the window in the capture phase, so no
+  and one on the page dismisses them all. A popover names its parts
+  (`{inside, trigger}`): what counts as itself, its panel, and its
+  trigger, the control whose own click toggles it (an element, or a
+  selector for triggers such as the outline's filter buttons), or null for
+  one nothing toggles (an inspector, a sheet a key opens). The trigger is
+  the popover's own, so a press on it dismisses nothing and its click
+  closes an open popover exactly once, rather than the press closing it and
+  the click opening it again. A trigger lives with its popover
+  (Preferences' is `PreferencesTrigger`, which the header renders). Both are heard on the window in the capture phase, so no
   handler under a press or a key keeps them from it. One contract holds it over every popover:
   `@kb/ui-test-kit`'s `dismissContract`, which each package runs over the
-  popovers it renders, keyed by each one's file; the harness's
+  popovers it renders, keyed by each one's file, every mount saying its
+  trigger, so a press and click on it is held to closing it exactly once; the harness's
   `popover-dismiss-coverage` check fails when a file calls `useDismiss` and
   no suite names it.
 - **IME composition is never interrupted.** Field editors track

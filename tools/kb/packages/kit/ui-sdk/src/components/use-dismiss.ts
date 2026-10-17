@@ -3,10 +3,23 @@ import { asElement, asInstance, isOutside } from "../lib/dom";
 
 /**
  * What a popover counts as itself, so a press there does not dismiss it: an
- * element (its panel, or the trigger whose own click toggles it), or a
- * selector for the triggers that open it.
+ * element, or a selector for the elements.
  */
 export type DismissInside = RefObject<Element | null> | string;
+
+/**
+ * A popover's parts, as dismissing reads them: what it counts as itself
+ * (`inside`: its panel, and anything a press in leaves it open), and its
+ * `trigger`, the control whose own click toggles it, or null for a popover
+ * nothing toggles (one a command, a key or a gesture opens). The trigger is
+ * the popover's own: a press on it dismisses nothing, so its click closes an
+ * open popover exactly once rather than the press closing it and the click
+ * opening it again.
+ */
+interface DismissParts {
+  readonly inside: readonly DismissInside[];
+  readonly trigger: DismissInside | null;
+}
 
 /** Whether `target` lies within any of `inside`. */
 function within(inside: readonly DismissInside[], target: EventTarget | null): boolean {
@@ -64,19 +77,23 @@ function openLayer(layer: Layer): () => void {
  * dismiss one way). The open popovers are a stack, the last opened on top.
  * While `open`, Escape dismisses the one on top, reaches nothing else, and
  * gives focus back to what had it as that one opened; a press dismisses
- * every popover above the one it lands in, `inside` counting as this one,
- * so a press in a popover opened from another leaves both open. Both are
+ * every popover above the one it lands in, its `inside` and its `trigger`
+ * counting as this one, so a press in a popover opened from another leaves
+ * both open and a press on its own trigger leaves the trigger's click to
+ * close it. Both are
  * heard on the window ahead of everything else (capture), so no handler
  * under the press or the key can keep them from the popover. Every
  * popover, menu and picker that floats over the page dismisses through here.
  */
 export function useDismiss(
   open: boolean,
-  inside: readonly DismissInside[],
+  { inside, trigger }: DismissParts,
   dismiss: () => void,
 ): void {
   const onDismiss = useEffectEvent(dismiss);
-  const holds = useEffectEvent((target: EventTarget | null) => within(inside, target));
+  const holds = useEffectEvent((target: EventTarget | null) =>
+    within(trigger === null ? inside : [...inside, trigger], target),
+  );
   // Read as it opens, before anything it renders takes focus.
   const opener = useMemo(
     () => (open && typeof document !== "undefined" ? document.activeElement : null),

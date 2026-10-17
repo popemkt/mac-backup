@@ -3,7 +3,6 @@ import {
   cn,
   hasText,
   SidebarToggle,
-  ThemeIcon,
   useRoute,
   ViewErrorBoundary,
   WorkspaceBoundary,
@@ -13,7 +12,7 @@ import { ensureLiveConnection } from "@/api/live";
 import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
 import { DockHost, DockToggles } from "@/docks";
 import { Overlays } from "@/overlays";
-import { PreferencesPopover } from "@/components/prefs/preferences-popover";
+import { PreferencesPopover, PreferencesTrigger } from "@/components/prefs/preferences-popover";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { Workspace } from "@/components/layout/workspace";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
@@ -28,7 +27,7 @@ import {
 } from "@/ui-plugins";
 import { useGraphStore } from "@/stores/graph.store";
 import { pageEditor } from "@/stores/page-editor";
-import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
+import { useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -143,9 +142,6 @@ function SharedChrome() {
 
 /** The workspace header: the sidebar toggle, connection, palette, docks and preferences. */
 function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) {
-  const theme = usePrefsStore((s) => s.theme);
-  const prefsOpen = useUiStore((s) => s.prefsOpen);
-  const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   const sidebar = useSidebarToggle();
 
@@ -160,16 +156,7 @@ function WorkspaceHeader({ status }: { status: "loading" | "ready" | "error" }) 
       <div className="flex-1" />
       <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
       <DockToggles />
-      <button
-        type="button"
-        className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
-        aria-label="Preferences"
-        title="Preferences"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={() => setPrefsOpen(!prefsOpen)}
-      >
-        <ThemeIcon theme={theme} size={15} />
-      </button>
+      <PreferencesTrigger />
     </header>
   );
 }

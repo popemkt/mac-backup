@@ -8,6 +8,7 @@ import {
   PrefFieldRow,
   type PropValue,
   THEME_GLYPHS,
+  ThemeIcon,
   type ThemePref,
   useFieldEditor,
   useGraphRead,
@@ -36,6 +37,32 @@ const PLUGIN_OPTIONS: readonly EnumOption<"off" | "on">[] = [
   { value: "on", label: "on" },
 ];
 
+/** What marks Preferences' trigger, which the popover counts as its own. */
+const TRIGGER = "data-preferences-trigger";
+
+/**
+ * The header's Preferences button: the popover's trigger, whose click opens
+ * it and, while it is open, closes it. It wears the device theme's glyph.
+ */
+export function PreferencesTrigger() {
+  const theme = usePrefsStore((s) => s.theme);
+  const open = useUiStore((s) => s.prefsOpen);
+  const setOpen = useUiStore((s) => s.setPrefsOpen);
+  return (
+    <button
+      type="button"
+      className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
+      aria-label="Preferences"
+      aria-expanded={open}
+      title="Preferences"
+      {...{ [TRIGGER]: "true" }}
+      onClick={() => setOpen(!open)}
+    >
+      <ThemeIcon theme={theme} size={15} />
+    </button>
+  );
+}
+
 export function PreferencesPopover({
   switches,
   onSwitch,
@@ -49,7 +76,7 @@ export function PreferencesPopover({
   const setOpen = useUiStore((s) => s.setPrefsOpen);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useDismiss(open, [panelRef], () => setOpen(false));
+  useDismiss(open, { inside: [panelRef], trigger: `[${TRIGGER}="true"]` }, () => setOpen(false));
 
   if (!open) return null;
 

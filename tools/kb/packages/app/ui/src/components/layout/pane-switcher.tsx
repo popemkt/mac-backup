@@ -177,8 +177,8 @@ function SwitcherMenu({
   const sections = useSections(path);
   const panel = useRef<HTMLDivElement>(null);
   const style = useAnchoredPosition(anchor, panel, true);
-  // A press on the anchor is its own: its click toggles the switcher.
-  useDismiss(true, [panel, anchor], onClose);
+  // The anchor is its trigger: its click toggles the switcher.
+  useDismiss(true, { inside: [panel], trigger: anchor }, onClose);
   return createPortal(
     <div
       ref={panel}

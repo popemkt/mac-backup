@@ -25,7 +25,8 @@ export function CanvasPopover({
     setTop(below + height > window.innerHeight - 8 ? Math.max(8, anchor.y - height - 8) : below);
   }, [anchor.y]);
 
-  useDismiss(true, [ref], onClose);
+  // An inspector or a thread opens from a gesture on the canvas: nothing toggles it.
+  useDismiss(true, { inside: [ref], trigger: null }, onClose);
 
   return createPortal(
     <div ref={ref} className="fixed z-50" style={{ top, left: Math.max(8, anchor.x - 160) }}>

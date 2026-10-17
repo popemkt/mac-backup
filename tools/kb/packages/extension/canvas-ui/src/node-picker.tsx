@@ -48,8 +48,9 @@ export function NodePicker({ onPick, onClose }: NodePickerProps) {
     onCancel: onClose,
   });
 
-  // The whole sheet is the picker's: its backdrop takes a press without closing it.
-  useDismiss(true, [sheet], onClose);
+  // The whole sheet is the picker's: its backdrop takes a press without closing
+  // it, and covers the button that opened it, so nothing toggles it.
+  useDismiss(true, { inside: [sheet], trigger: null }, onClose);
 
   return createPortal(
     <div

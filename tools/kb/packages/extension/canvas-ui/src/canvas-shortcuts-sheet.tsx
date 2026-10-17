@@ -34,7 +34,8 @@ const chordsOf = (row: CanvasShortcut): string[] =>
 
 export function CanvasShortcutsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const sheet = useRef<HTMLDivElement>(null);
-  useDismiss(open, [sheet], onClose);
+  // A key or a command opens the sheet: nothing toggles it.
+  useDismiss(open, { inside: [sheet], trigger: null }, onClose);
   if (!open) return null;
   return (
     <div

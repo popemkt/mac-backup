@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode, type Ref } from "react";
 import {
   ArrowUpRightIcon,
   CaretRightIcon,
@@ -99,6 +99,7 @@ function toolLabel(tool: CanvasTool): string {
 }
 
 function ToolButton({
+  ref,
   tool,
   active,
   sticky,
@@ -106,6 +107,7 @@ function ToolButton({
   onDoubleClick,
   children,
 }: {
+  ref?: Ref<HTMLButtonElement>;
   tool: CanvasTool;
   active: boolean;
   sticky: boolean;
@@ -117,6 +119,7 @@ function ToolButton({
   const label = toolLabel(tool);
   return (
     <button
+      ref={ref}
       type="button"
       title={label}
       aria-label={label}
@@ -150,13 +153,15 @@ function SolidTool({
 }: Pick<CanvasToolbarProps, "toolState" | "onToolChange" | "onToolDoubleClick">) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const solid = solidOf(toolState);
   const active = isSolidTool(toolState.tool);
-  // The button is inside: its click toggles the picker.
-  useDismiss(open, [ref], () => setOpen(false));
+  // The tool's button is its trigger: its click toggles the picker.
+  useDismiss(open, { inside: [ref], trigger: triggerRef }, () => setOpen(false));
   return (
     <div ref={ref} className="relative">
       <ToolButton
+        ref={triggerRef}
         tool={solid}
         active={active}
         sticky={toolState.sticky === true}

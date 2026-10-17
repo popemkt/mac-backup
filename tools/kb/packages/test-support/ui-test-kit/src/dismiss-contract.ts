@@ -7,6 +7,8 @@
  * suite (the harness's `popover-dismiss-coverage` check).
  *
  * - a press inside it leaves it open;
+ * - a press on its own trigger, while it is open, closes it exactly once:
+ *   the trigger's click closes it, and nothing opens it again;
  * - a press outside it dismisses it, even one a handler there stops;
  * - Escape dismisses it and reaches nothing else;
  * - Escape gives focus back to what had it as the popover opened;
@@ -23,6 +25,11 @@ import { installDomGlobals, type InstalledDom } from "./dom-globals";
 export interface OpenPopover {
   /** Its panel while it is open; null once it is dismissed. */
   readonly panel: () => Element | null;
+  /**
+   * The control whose click toggles it, or null for a popover nothing
+   * toggles (one a command, a key or a gesture opens): every popover says.
+   */
+  readonly trigger: (() => HTMLElement | null) | null;
   /** Take down whatever the mount rendered. */
   readonly unmount: () => void;
 }
@@ -31,19 +38,21 @@ export interface OpenPopover {
 export type PopoverMount = (host: HTMLElement) => OpenPopover | Promise<OpenPopover>;
 
 /**
- * Render `element` on `host` and, when given, press `trigger` (found in the
- * document once rendered) to open it: the popover whose panel `panel` finds.
+ * Render `element` on `host` and, when it has one, click its `trigger`
+ * (found in the document once rendered) to open it: the popover whose panel
+ * `panel` finds. Null for a popover nothing toggles, which `element` renders
+ * open.
  */
 export function renderPopover(
   host: HTMLElement,
   element: ReactElement,
   panel: () => Element | null,
-  trigger?: () => HTMLElement | null,
+  trigger: (() => HTMLElement | null) | null,
 ): OpenPopover {
   const root = createRoot(host);
   act(() => root.render(element));
-  if (trigger !== undefined) act(() => trigger()?.click());
-  return { panel, unmount: () => root.unmount() };
+  if (trigger !== null) act(() => trigger()?.click());
+  return { panel, trigger, unmount: () => root.unmount() };
 }
 
 /** Its children, until they ask to be dismissed: a popover opened by its parent's state. */
@@ -84,7 +93,7 @@ function escape(): void {
 /** A second popover, opened over the one under test. */
 function Over(): ReactNode {
   const [open, setOpen] = useState(true);
-  useDismiss(open, ["[data-over]"], () => setOpen(false));
+  useDismiss(open, { inside: ["[data-over]"], trigger: null }, () => setOpen(false));
   return open ? createElement("div", { "data-over": "" }) : null;
 }
 
@@ -119,6 +128,18 @@ export function dismissContract(popovers: Readonly<Record<string, PopoverMount>>
       const popover = await open();
       press(panelOf(popover));
       expect(popover.panel()).not.toBeNull();
+    });
+
+    it("is closed exactly once by a press on its own trigger", async () => {
+      const popover = await open();
+      panelOf(popover);
+      if (popover.trigger === null) return;
+      const trigger = popover.trigger();
+      if (trigger === null) throw new Error("the popover's trigger is not on the page");
+      // A press, then the click it ends in, as a person presses the trigger.
+      press(trigger);
+      act(() => trigger.click());
+      expect(popover.panel()).toBeNull();
     });
 
     it("is dismissed by a press outside it, even one a handler there stops", async () => {
@@ -158,8 +179,11 @@ export function dismissContract(popovers: Readonly<Record<string, PopoverMount>>
     it("is dismissed after a popover opened over it, which a press in leaves both open", async () => {
       const popover = await open();
       panelOf(popover);
-      const over = renderPopover(hostOnBody(), createElement(Over), () =>
-        document.querySelector("[data-over]"),
+      const over = renderPopover(
+        hostOnBody(),
+        createElement(Over),
+        () => document.querySelector("[data-over]"),
+        null,
       );
       try {
         press(panelOf(over));

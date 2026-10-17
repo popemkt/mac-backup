@@ -33,6 +33,7 @@ export function RefAddPopover({
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const rows = useMemo(
@@ -60,12 +61,13 @@ export function RefAddPopover({
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
-  // The button is inside: its click toggles the picker.
-  useDismiss(open, [rootRef], () => setOpen(false));
+  // The button is its trigger: its click toggles the picker.
+  useDismiss(open, { inside: [rootRef], trigger: triggerRef }, () => setOpen(false));
 
   return (
     <div ref={rootRef} className="relative inline-flex">
       <button
+        ref={triggerRef}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
