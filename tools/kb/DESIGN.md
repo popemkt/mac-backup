@@ -2444,10 +2444,11 @@ transaction, one step of an open canvas's history.
   canvas write — `tx.apply` included — answers `lints: {new, resolved}`,
   and `ext.canvas.lint` reads them.
 - **`describe`** gives each item's kind, words and box (in focus, also its
-  colour by name and the looks it draws that are not its kind's defaults)
-  and the relations — a `linked` one with the edge's route, heads, colour
-  and looks where they are not JSON Canvas's defaults, in the words
-  `connect` takes —
+  colour by name, the looks it draws that are not its kind's defaults, and
+  a line's points, closing and heads in the shape `make.line` takes) and
+  the relations — a `linked` one with the edge's sides or anchors, route
+  and bend, heads, colour and looks where they are not JSON Canvas's
+  defaults, in the words `connect` takes —
   `on`, `in`, `linked` and `near`, at three levels of detail: the items in
   focus (the `focus` asked for, else the open tab's selection, else what it
   shows) in full, the rest on screen blurred to what and where, and what is

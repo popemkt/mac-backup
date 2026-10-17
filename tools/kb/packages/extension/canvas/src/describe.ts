@@ -19,13 +19,16 @@ import {
   isPathNode,
   isShapeNode,
   isTextNode,
+  type CanvasAnchor,
   type CanvasDoc,
   type CanvasEdge,
   type CanvasHead,
   type CanvasNode,
+  type CanvasPathNode,
   type CanvasRoute,
+  type CanvasSide,
 } from "./doc.ts";
-import { headOf } from "./edges.ts";
+import { headOf, routeBends } from "./edges.ts";
 import { lintCanvas, type CanvasLint } from "./lint.ts";
 import { ancestorsOf, canvasMembership } from "./membership.ts";
 import { directionFrom, itemBounds, type CanvasDirection } from "./relations.ts";
@@ -93,6 +96,16 @@ export interface DescribedItem {
   readonly color?: string;
   /** The looks it draws that are not its kind's defaults (`styleOf`). */
   readonly style?: CanvasLooks;
+  /** A line's points, whether it closes and the heads its ends wear, as `make.line` takes them. */
+  readonly line?: DescribedLine;
+}
+
+/** A line as `place`'s `make.line` takes it: its points in its box, closed or not, each head worn. */
+export interface DescribedLine {
+  readonly points: readonly CanvasAnchor[];
+  readonly closed?: true;
+  readonly fromHead?: CanvasHead;
+  readonly toHead?: CanvasHead;
 }
 
 /** How two items stand: `from` is `kind` `to` — on it, in it, linked to it, or `side` of it. */
@@ -105,8 +118,14 @@ export type DescribedRelation =
       readonly edge: string;
       readonly label?: string;
       readonly field?: string;
-      /** How it runs, where not JSON Canvas's curve. */
+      /** Where each end meets its item, as `connect` takes it: a side, or a precise anchor. */
+      readonly fromSide?: CanvasSide;
+      readonly toSide?: CanvasSide;
+      readonly fromAnchor?: CanvasAnchor;
+      readonly toAnchor?: CanvasAnchor;
+      /** How it runs, where not JSON Canvas's curve, and its bend where its route takes one. */
       readonly route?: CanvasRoute;
+      readonly bend?: number;
       /** The head an end wears ("none": bare), where not JSON Canvas's: bare leaving, an arrow arriving. */
       readonly fromHead?: CanvasHead | "none";
       readonly toHead?: CanvasHead | "none";
@@ -223,20 +242,38 @@ function describeItems(
       ...(node.rotation === undefined ? {} : { rotation: node.rotation }),
       ...(node.billboard === true ? { faces: "camera" as const } : {}),
       ...(node.locked === true ? { locked: true as const } : {}),
+      ...(isPathNode(node) ? { line: describedLine(node) } : {}),
     });
   }
   const peripheral = [...clusters].map(([frame, { count, kinds }]) => ({ frame, count, kinds }));
   return { items, peripheral };
 }
 
-/** How an edge is drawn, in the words `connect` takes: only what is not JSON Canvas's default. */
+/** A line as `make.line` takes it (`DescribedLine`): only the heads its ends wear. */
+function describedLine(line: CanvasPathNode): DescribedLine {
+  const [fromHead, toHead] = [headOf(line, "from"), headOf(line, "to")];
+  return {
+    points: line.points.map(({ x, y }) => ({ x: round(x), y: round(y) })),
+    ...(line.closed === true ? { closed: true as const } : {}),
+    ...(fromHead === null ? {} : { fromHead }),
+    ...(toHead === null ? {} : { toHead }),
+  };
+}
+
+/** How an edge meets its items and is drawn, in the words `connect` takes: only what is not JSON Canvas's default. */
 function edgeLook(edge: CanvasEdge) {
   const { color } = styleOf(edge);
   const looks = writtenLooks(edge);
   const fromHead: CanvasHead | "none" = headOf(edge, "from") ?? "none";
   const toHead: CanvasHead | "none" = headOf(edge, "to") ?? "none";
+  const { fromSide, toSide, fromAnchor, toAnchor, bend } = edge;
   return {
+    ...(fromSide === undefined ? {} : { fromSide }),
+    ...(toSide === undefined ? {} : { toSide }),
+    ...(fromAnchor === undefined ? {} : { fromAnchor }),
+    ...(toAnchor === undefined ? {} : { toAnchor }),
     ...(edge.route === undefined || edge.route === "curve" ? {} : { route: edge.route }),
+    ...(bend === undefined || !routeBends(edge.route) ? {} : { bend }),
     ...(fromHead === "none" ? {} : { fromHead }),
     ...(toHead === "arrow" ? {} : { toHead }),
     ...(color === undefined ? {} : { color: paintName(color) }),

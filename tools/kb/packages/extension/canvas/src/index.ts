@@ -143,6 +143,7 @@ export type {
   CanvasDescription,
   DescribedCluster,
   DescribedItem,
+  DescribedLine,
   DescribedRelation,
 } from "./describe.ts";
 export { CANVAS_LINT_RULES, lintCanvas, lintDiff } from "./lint.ts";

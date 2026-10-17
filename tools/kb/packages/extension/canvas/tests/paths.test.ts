@@ -152,6 +152,29 @@ describe("made", () => {
     );
     expect(told.items[0]).toMatchObject({ id: "p", kind: "arrow" });
   });
+
+  test("a line is told back in the shape make.line takes: its points, closed or not, its heads", () => {
+    const told = describeCanvas(
+      { nodes: [line({ toHead: "open" }), line({ id: "q", closed: true })], edges: [] },
+      { nodeText: () => undefined, focus: new Set(["p", "q"]) },
+    );
+    expect(told.items.map((item) => item.line)).toEqual([
+      {
+        points: [
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+        ],
+        toHead: "open",
+      },
+      {
+        points: [
+          { x: 0, y: 1 },
+          { x: 1, y: 0 },
+        ],
+        closed: true,
+      },
+    ]);
+  });
 });
 
 describe("ends", () => {

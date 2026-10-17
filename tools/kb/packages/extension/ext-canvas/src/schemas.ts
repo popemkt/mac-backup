@@ -15,6 +15,7 @@ import {
   CANVAS_HEADS,
   CANVAS_PALETTE,
   CANVAS_ROUTES,
+  CANVAS_SIDES,
   CANVAS_SIZES,
   CANVAS_VALIGNS,
   isCanvasColor,
@@ -111,6 +112,15 @@ export const DescribedItemSchema = z.object({
   locked: z.literal(true).optional().describe("held where it is: no verb moves it until unlocked"),
   color: z.string().optional().describe("its colour: a palette name, or as written"),
   style: LooksSchema.optional().describe("the looks it draws that are not its kind's defaults"),
+  line: z
+    .object({
+      points: z.array(z.object({ x: z.number(), y: z.number() })).readonly(),
+      closed: z.literal(true).optional(),
+      fromHead: z.enum(CANVAS_HEADS).optional(),
+      toHead: z.enum(CANVAS_HEADS).optional(),
+    })
+    .optional()
+    .describe("a line's points, whether it closes and the heads it wears, as make.line takes them"),
 });
 
 export const RelationSchema = z.union([
@@ -122,10 +132,15 @@ export const RelationSchema = z.union([
     edge: z.string(),
     label: z.string().optional(),
     field: z.string().optional(),
+    fromSide: z.enum(CANVAS_SIDES).optional(),
+    toSide: z.enum(CANVAS_SIDES).optional(),
+    fromAnchor: z.object({ x: z.number(), y: z.number() }).optional(),
+    toAnchor: z.object({ x: z.number(), y: z.number() }).optional(),
     route: RouteSchema.optional(),
+    bend: z.number().optional(),
     fromHead: HeadSchema.optional(),
     toHead: HeadSchema.optional(),
-    color: ColorSchema.optional(),
+    color: z.string().optional().describe("its colour: a palette name, or as written"),
     style: EdgeLooksSchema.optional(),
   }),
   z.object({

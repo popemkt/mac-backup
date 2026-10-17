@@ -480,7 +480,11 @@ describe("ext.canvas.connect, group, ungroup and promote", () => {
       expect.objectContaining({
         kind: "linked",
         edge: out.edge,
+        fromAnchor: { x: 1, y: 0.25 },
+        fromSide: "right",
+        toSide: "top",
         route: "elbow",
+        bend: 30,
         fromHead: "dot",
         toHead: "open",
         color: "green",
