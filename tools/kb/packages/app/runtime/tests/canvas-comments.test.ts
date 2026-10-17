@@ -193,7 +193,10 @@ describe("comments on a canvas", () => {
     output(
       await invoke(ctx, {
         id: "ext.canvas.tx.apply",
-        input: { canvasId: "n.canvas", doc: { nodes: [shape("s1")], edges: [] } },
+        input: {
+          canvasId: "n.canvas",
+          doc: { nodes: [shape("s1"), card("c9", "n.other")], edges: [] },
+        },
       }),
     );
     output(await thread(ctx, "k.here", "Here", { on: "s1" }));
@@ -228,6 +231,8 @@ describe("comments on a canvas", () => {
         })
       ).status,
     ).toBe("failed");
+    // A card's thread is on its node: one beyond the subject is a reference the script may not make.
+    expect((await comment(ctx, { text: "About that", on: "c9" }, asScript)).status).toBe("failed");
     // A thread on n.canvas a person filed under n.other: a reply there reaches past the subject.
     output(
       await invoke(ctx, {

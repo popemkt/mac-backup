@@ -2743,11 +2743,13 @@ outline, which shows it as it shows any child; what it is on is its fields.
   comment of no thread on it. Resolving or reopening is `node.update` of
   `sys.f.comment.state`, as any option field is written. It is an ordinary
   write, not configuration: an agent comments, replies and resolves with no
-  approval. The verb's `targets` are the canvas and the comment it
-  answers, so a script comments only within its subject
-  ([Grants](#grants-and-the-script-actor)): a thread a person filed
-  elsewhere in the outline is past a script's reach even when it is on the
-  script's canvas.
+  approval. A script comments only within its subject
+  ([Grants](#grants-and-the-script-actor)): the verb's `targets` are the
+  canvas and the comment it answers, the commit bounds what the comment
+  points at, and the threads it answers are those it may read. So a thread
+  a person filed elsewhere in the outline is past a script's reach even on
+  the script's canvas, and so is a card whose node its subject does not
+  hold, since a card's thread is a reference to that node.
 
 #### Agent verbs
 
