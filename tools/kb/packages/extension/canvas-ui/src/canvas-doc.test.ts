@@ -115,7 +115,7 @@ describe("canvas doc (UI alias)", () => {
     expect(again.nodes[0]?.extra?.url).toBe("https://example.com");
   });
 
-  test("shape node round-trip + unknown kind → rect", () => {
+  test("shape node round-trip; a kind kb does not know is kept, not drawn as a rect", () => {
     const doc: CanvasDoc = {
       nodes: [
         {
@@ -147,7 +147,7 @@ describe("canvas doc (UI alias)", () => {
       ],
       edges: [],
     });
-    expect(fallback.nodes[0]).toMatchObject({ type: "shape", shape: "rect" });
+    expect(fallback.nodes[0]).toMatchObject({ type: "shape", extra: { shape: "star" } });
   });
 });
 

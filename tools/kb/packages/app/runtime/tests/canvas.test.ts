@@ -160,25 +160,14 @@ describe("canvas doc parse/patch round-trip", () => {
     expect(parseCanvasDoc(stringifyCanvasDoc(doc))).toEqual(doc);
   });
 
-  test("unknown shape kind falls back to rect", () => {
-    const again = parseCanvasDoc({
-      nodes: [
-        {
-          id: "s1",
-          type: "shape",
-          shape: "hexagon",
-          x: 0,
-          y: 0,
-          width: 100,
-          height: 80,
-        },
-      ],
+  test("a shape kind kb does not know is kept as written, not drawn as a rect", () => {
+    const raw = {
+      nodes: [{ id: "s1", type: "shape", shape: "hexagon", x: 0, y: 0, width: 100, height: 80 }],
       edges: [],
-    });
-    expect(again.nodes[0]).toMatchObject({
-      type: "shape",
-      shape: "rect",
-    });
+    };
+    const again = parseCanvasDoc(raw);
+    expect(again.nodes[0]).not.toHaveProperty("shape");
+    expect(JSON.parse(stringifyCanvasDoc(again))).toEqual(raw);
   });
 
   test("shape preserves extra fields on round-trip", () => {

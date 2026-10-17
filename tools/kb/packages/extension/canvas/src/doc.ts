@@ -232,10 +232,6 @@ const SHAPE_KINDS = [
   "cone",
 ] as const satisfies readonly CanvasShapeKind[];
 
-function normalizeShapeKind(raw: unknown): CanvasShapeKind {
-  return oneOf(SHAPE_KINDS, raw) ?? "rect";
-}
-
 export interface CanvasEdge {
   id: string;
   fromNode: string;
@@ -279,6 +275,12 @@ export interface CanvasDoc {
   edges: CanvasEdge[];
   /** How the canvas is looked at; absent is 2D. View state, not content (`./camera.ts`). */
   camera?: CanvasCamera;
+  /**
+   * Items and edges kb cannot read at all — no id or kind, a box that is not
+   * numbers, an edge without its ends — kept as written and written back
+   * after the ones it reads, so no edit of the rest loses them.
+   */
+  unread?: { readonly nodes: readonly unknown[]; readonly edges: readonly unknown[] };
   extra?: Record<string, unknown>;
 }
 
@@ -308,10 +310,6 @@ function parseRotation(raw: unknown): Partial<CanvasRotation> | undefined {
     angles[axis] = angle;
   }
   return angles;
-}
-
-function asNum(v: unknown, fallback = 0): number {
-  return finite(v) ?? fallback;
 }
 
 function parseKbLink(raw: unknown): KbLink | undefined {
@@ -359,36 +357,6 @@ const ITEM_FIELDS: FieldCodecs<CanvasNodeBase, ItemField> = {
   style: { read: parseStyleField, write: emitStyleField },
 };
 
-/** What an item's kind reads itself: its box, and the fields only some kinds carry. */
-const ITEM_OWN_KEYS: ReadonlySet<string> = new Set([
-  "id",
-  "type",
-  "x",
-  "y",
-  "width",
-  "height",
-  "text",
-  "label",
-  "shape",
-  "file",
-]);
-
-/** A path item's fields beyond its points. */
-type PathField = "closed" | "fromHead" | "toHead";
-
-const PATH_FIELDS: FieldCodecs<CanvasPathNode, PathField> = {
-  closed: { read: bool },
-  fromHead: { read: (raw) => oneOf(CANVAS_HEADS, raw) },
-  toHead: { read: (raw) => oneOf(CANVAS_HEADS, raw) },
-};
-
-const PATH_FIELD_KEYS: ReadonlySet<string> = new Set(fieldKeys(PATH_FIELDS));
-const PATH_OWN_KEYS: ReadonlySet<string> = new Set([
-  ...ITEM_OWN_KEYS,
-  "points",
-  ...PATH_FIELD_KEYS,
-]);
-
 /** A path's points as written: at least two anchors of its box; anything else is unreadable. */
 function parsePoints(raw: unknown): CanvasAnchor[] | undefined {
   if (!Array.isArray(raw) || raw.length < 2) return undefined;
@@ -401,71 +369,166 @@ function parsePoints(raw: unknown): CanvasAnchor[] | undefined {
   return points;
 }
 
+/** What every item is: its id, its kind, and the box it takes up. */
+type ItemBox = Pick<CanvasNodeBase, "id" | "type" | "x" | "y" | "width" | "height">;
+
+/** JSON Canvas's box, each with what an absent one is. */
+const BOX_DEFAULTS = { x: 0, y: 0, width: 240, height: 80 } as const;
+const BOX_KEYS: ReadonlySet<string> = new Set(["id", "type", ...Object.keys(BOX_DEFAULTS)]);
+
 /**
- * A path item's own fields as written, and what in them kb cannot read;
- * undefined when its points cannot be read, which leaves it an item of a
- * type kb does not know, kept as written.
+ * An item's box as written, or undefined when kb cannot place it: no id or
+ * type, or a position or size that is not a finite number. Such a record
+ * is kept as written, unread (`CanvasDoc.unread`).
  */
-function readPath(raw: Record<string, unknown>) {
-  const points = parsePoints(raw.points);
-  if (points === undefined) return undefined;
-  const fields: Partial<Pick<CanvasPathNode, PathField>> = {};
-  const others = new Set(Object.keys(raw).filter((key) => !PATH_FIELD_KEYS.has(key)));
-  const extra = readFields(PATH_FIELDS, raw, fields, others);
-  return { points, fields, extra };
+function readBox(raw: Record<string, unknown>): ItemBox | undefined {
+  if (typeof raw.id !== "string" || typeof raw.type !== "string") return undefined;
+  const box: ItemBox = { id: raw.id, type: raw.type, ...BOX_DEFAULTS };
+  for (const key of ["x", "y", "width", "height"] as const) {
+    if (raw[key] === undefined) continue;
+    const value = finite(raw[key]);
+    if (value === undefined) return undefined;
+    box[key] = value;
+  }
+  return box;
 }
 
-function parseNode(raw: unknown): CanvasNode | null {
-  if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.type !== "string") {
-    return null;
-  }
-  const path = raw.type === "path" ? readPath(raw) : undefined;
-  const fields: Partial<Pick<CanvasNodeBase, ItemField>> = {};
-  const own = path === undefined ? ITEM_OWN_KEYS : PATH_OWN_KEYS;
-  const itemExtra = readFields(ITEM_FIELDS, raw, fields, own);
-  const extra = path?.extra === undefined ? itemExtra : { ...itemExtra, ...path.extra };
-  const base = {
-    id: raw.id,
-    type: raw.type,
-    x: asNum(raw.x),
-    y: asNum(raw.y),
-    width: asNum(raw.width, 240),
-    height: asNum(raw.height, 80),
-    ...fields,
-    ...(extra ? { extra } : {}),
+/**
+ * What an item of one kind reads beyond every item's fields: its own
+ * fields, and the item they make. `read` answers undefined when a field
+ * the kind cannot be without is unreadable, which leaves the item one of a
+ * kind kb does not know, every key it holds beyond the box kept as written.
+ */
+interface ItemKind {
+  /** The keys this kind reads itself. */
+  readonly keys: ReadonlySet<string>;
+  readonly read: (
+    raw: Record<string, unknown>,
+    item: CanvasNodeBase,
+  ) => { readonly node: CanvasNode; readonly extra?: Record<string, unknown> } | undefined;
+  readonly write: (node: CanvasNode, out: Record<string, unknown>) => void;
+}
+
+/**
+ * A kind from its field table: `required` names the fields it cannot be
+ * without (an absent one takes `build`'s default, an unreadable one leaves
+ * the item a kind kb does not know); every other field it reads is optional,
+ * kept unread when kb cannot read it.
+ */
+function itemKind<N extends CanvasNode, K extends keyof N & string>(
+  codecs: FieldCodecs<N, K>,
+  required: readonly K[],
+  is: (node: CanvasNode) => node is N,
+  build: (item: CanvasNodeBase, fields: Partial<Pick<N, K>>) => N | undefined,
+): ItemKind {
+  const keys: ReadonlySet<string> = new Set(fieldKeys(codecs));
+  return {
+    keys,
+    read: (raw, item) => {
+      const fields: Partial<Pick<N, K>> = {};
+      const others = new Set(Object.keys(raw).filter((key) => !keys.has(key)));
+      const extra = readFields(codecs, raw, fields, others);
+      if (extra !== undefined && required.some((key) => Object.hasOwn(extra, key)))
+        return undefined;
+      const node = build(item, fields);
+      return node === undefined ? undefined : { node, ...(extra ? { extra } : {}) };
+    },
+    write: (node, out) => {
+      if (is(node)) writeFields(codecs, node, out);
+    },
   };
-  if (raw.type === "text") {
-    return {
-      ...base,
+}
+
+const anyHead = (raw: unknown) => oneOf(CANVAS_HEADS, raw);
+
+/** The kinds kb reads, by `type`; any other is kept as written beyond its box and item fields. */
+const ITEM_KINDS: Readonly<Record<string, ItemKind>> = {
+  text: itemKind<CanvasTextNode, "text">(
+    { text: { read: text } },
+    ["text"],
+    isTextNode,
+    (item, f) => ({
+      ...item,
       type: "text",
-      text: typeof raw.text === "string" ? raw.text : "",
-    };
-  }
-  if (raw.type === "group") {
-    return {
-      ...base,
+      text: f.text ?? "",
+    }),
+  ),
+  group: itemKind<CanvasGroupNode, "label">(
+    { label: { read: text } },
+    [],
+    isGroupNode,
+    (item, f) => ({
+      ...item,
       type: "group",
-      ...(typeof raw.label === "string" ? { label: raw.label } : {}),
-    };
+      ...f,
+    }),
+  ),
+  // A card's node is every item's `nodeId`; a card cannot be without one.
+  "kb-node": itemKind<CanvasKbNode, never>({}, [], isKbNode, (item) =>
+    item.nodeId === undefined ? undefined : { ...item, type: "kb-node", nodeId: item.nodeId },
+  ),
+  shape: itemKind<CanvasShapeNode, "shape" | "label">(
+    { shape: { read: (raw) => oneOf(SHAPE_KINDS, raw) }, label: { read: text } },
+    ["shape"],
+    isShapeNode,
+    (item, f) => ({ ...item, ...f, type: "shape", shape: f.shape ?? "rect" }),
+  ),
+  file: itemKind<CanvasFileNode, "file">(
+    { file: { read: text } },
+    ["file"],
+    isFileNode,
+    (item, f) => ({
+      ...item,
+      type: "file",
+      file: f.file ?? "",
+    }),
+  ),
+  path: itemKind<CanvasPathNode, "points" | "closed" | "fromHead" | "toHead">(
+    {
+      points: { read: parsePoints, write: (points) => points.map(({ x, y }) => ({ x, y })) },
+      closed: { read: bool },
+      fromHead: { read: anyHead },
+      toHead: { read: anyHead },
+    },
+    ["points"],
+    isPathNode,
+    (item, { points, ...f }) =>
+      points === undefined ? undefined : { ...item, ...f, type: "path", points },
+  ),
+};
+
+/** The kind `type` names, when kb reads it (a type is never one of an object's own names). */
+const kindOf = (type: string): ItemKind | undefined =>
+  Object.hasOwn(ITEM_KINDS, type) ? ITEM_KINDS[type] : undefined;
+
+/** Every item's fields read from `raw` beyond `own`, and what of the rest kb cannot read. */
+function readItem(raw: Record<string, unknown>, box: ItemBox, own: ReadonlySet<string>) {
+  const fields: Partial<Pick<CanvasNodeBase, ItemField>> = {};
+  const extra = readFields(ITEM_FIELDS, raw, fields, new Set([...BOX_KEYS, ...own]));
+  return { item: { ...box, ...fields }, extra };
+}
+
+/** Unread keys from two readers as one record, or none. */
+const joined = (a?: Record<string, unknown>, b?: Record<string, unknown>) =>
+  a === undefined && b === undefined ? undefined : { ...a, ...b };
+
+/** An item read, or undefined when kb cannot place it (kept unread by the document). */
+function parseNode(raw: unknown): CanvasNode | undefined {
+  if (!isRecord(raw)) return undefined;
+  const box = readBox(raw);
+  if (box === undefined) return undefined;
+  const kind = kindOf(box.type);
+  if (kind !== undefined) {
+    const { item, extra } = readItem(raw, box, kind.keys);
+    const read = kind.read(raw, item);
+    if (read !== undefined) {
+      const unread = joined(extra, read.extra);
+      return unread === undefined ? read.node : { ...read.node, extra: unread };
+    }
   }
-  if (raw.type === "kb-node") {
-    if (typeof raw.nodeId !== "string") return null;
-    return { ...base, type: "kb-node", nodeId: raw.nodeId };
-  }
-  if (raw.type === "shape") {
-    return {
-      ...base,
-      type: "shape",
-      shape: normalizeShapeKind(raw.shape),
-      ...(typeof raw.label === "string" ? { label: raw.label } : {}),
-    };
-  }
-  if (raw.type === "file") {
-    return { ...base, type: "file", file: typeof raw.file === "string" ? raw.file : "" };
-  }
-  if (path !== undefined) return { ...base, type: "path", points: path.points, ...path.fields };
-  // link / future — opaque passthrough
-  return base;
+  // A kind kb does not know, or one it cannot read: every key beyond the box kept.
+  const { item, extra } = readItem(raw, box, new Set());
+  return extra === undefined ? item : { ...item, extra };
 }
 
 /** An anchor as written: an object of just `x` and `y`, each from 0 to 1. */
@@ -500,14 +563,15 @@ const EDGE_FIELDS: FieldCodecs<CanvasEdge, EdgeField> = {
 
 const EDGE_OWN_KEYS: ReadonlySet<string> = new Set(["id", "fromNode", "toNode"]);
 
-function parseEdge(raw: unknown): CanvasEdge | null {
+/** An edge read, or undefined when it names no id or ends (kept unread by the document). */
+function parseEdge(raw: unknown): CanvasEdge | undefined {
   if (
     !isRecord(raw) ||
     typeof raw.id !== "string" ||
     typeof raw.fromNode !== "string" ||
     typeof raw.toNode !== "string"
   ) {
-    return null;
+    return undefined;
   }
   const edge: CanvasEdge = {
     id: raw.id,
@@ -529,19 +593,7 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
     height: n.height,
   };
   writeFields(ITEM_FIELDS, n, out);
-  // `CanvasUnknownNode.type` is `string`, so `type === "text"` does not
-  // discriminate the union — the guards this module already exports do.
-  if (isTextNode(n)) out.text = n.text;
-  if (isGroupNode(n) && n.label !== undefined) out.label = n.label;
-  if (isShapeNode(n)) {
-    out.shape = n.shape;
-    if (n.label !== undefined) out.label = n.label;
-  }
-  if (isFileNode(n)) out.file = n.file;
-  if (isPathNode(n)) {
-    out.points = n.points.map(({ x, y }) => ({ x, y }));
-    writeFields(PATH_FIELDS, n, out);
-  }
+  kindOf(n.type)?.write(n, out);
   return writeUnread(out, n.extra);
 }
 
@@ -561,6 +613,18 @@ const DOC_FIELDS: FieldCodecs<CanvasDoc, "camera"> = {
 
 const DOC_OWN_KEYS: ReadonlySet<string> = new Set(["nodes", "edges"]);
 
+/** Each of `list`'s entries read by `read`, and those it could not, as written. */
+function readEach<T>(list: unknown, read: (raw: unknown) => T | undefined) {
+  const known: T[] = [];
+  const unread: unknown[] = [];
+  for (const raw of Array.isArray(list) ? list : []) {
+    const parsed = read(raw);
+    if (parsed === undefined) unread.push(raw);
+    else known.push(parsed);
+  }
+  return { known, unread };
+}
+
 /** Parse a JSON Canvas document from a string or object. Throws on invalid JSON. */
 export function parseCanvasDoc(input: unknown): CanvasDoc {
   const raw: unknown =
@@ -568,29 +632,27 @@ export function parseCanvasDoc(input: unknown): CanvasDoc {
   if (!isRecord(raw)) {
     throw new Error("canvas doc must be an object");
   }
-  const nodes: CanvasNode[] = [];
-  if (Array.isArray(raw.nodes)) {
-    for (const n of raw.nodes) {
-      const parsed = parseNode(n);
-      if (parsed) nodes.push(parsed);
-    }
-  }
-  const edges: CanvasEdge[] = [];
-  if (Array.isArray(raw.edges)) {
-    for (const e of raw.edges) {
-      const parsed = parseEdge(e);
-      if (parsed) edges.push(parsed);
-    }
-  }
+  const nodes = readEach(raw.nodes, parseNode);
+  const edges = readEach(raw.edges, parseEdge);
   const fields: Partial<Pick<CanvasDoc, "camera">> = {};
   const extra = readFields(DOC_FIELDS, raw, fields, DOC_OWN_KEYS);
-  return { nodes, edges, ...fields, ...(extra ? { extra } : {}) };
+  const unread =
+    nodes.unread.length === 0 && edges.unread.length === 0
+      ? undefined
+      : { nodes: nodes.unread, edges: edges.unread };
+  return {
+    nodes: nodes.known,
+    edges: edges.known,
+    ...fields,
+    ...(unread ? { unread } : {}),
+    ...(extra ? { extra } : {}),
+  };
 }
 
 export function stringifyCanvasDoc(doc: CanvasDoc): string {
   const out: Record<string, unknown> = {
-    nodes: doc.nodes.map(emitNode),
-    edges: doc.edges.map(emitEdge),
+    nodes: [...doc.nodes.map(emitNode), ...(doc.unread?.nodes ?? [])],
+    edges: [...doc.edges.map(emitEdge), ...(doc.unread?.edges ?? [])],
   };
   return JSON.stringify(writeUnread(writeFields(DOC_FIELDS, doc, out), doc.extra));
 }

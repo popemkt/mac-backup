@@ -2304,7 +2304,14 @@ finite number, a `rotation` that is not an object of finite angles, a
 `fromSide` that names no side, a `camera` or `pose` of the wrong shape) until
 kb writes that field itself. The record wins: a field a record holds is
 written over the unread value of the same name it was read with, however
-the record came to hold it (`writeUnread`). Every record's optional fields — an item's, an
+the record came to hold it (`writeUnread`). Each item kind reads only its
+own fields (`ITEM_KINDS`): a `link`'s `label` is the link's, kept, not a
+shape's; a kind whose field it cannot be without is unreadable (a `shape`
+of `hexagon`, a `kb-node` with no `nodeId`) is kept as an item of a kind kb
+does not know, every key as written. A record kb cannot place at all — no
+`id` or `type`, a box that is not numbers, an edge without its ends — is
+kept unread by the document (`CanvasDoc.unread`) and written back after the
+ones it reads, so an edit of the rest never drops it. Every record's optional fields — an item's, an
 edge's, a `style`'s, the document's and its camera's — are one table each,
 read and written by one reader (`@kb/canvas` `fields.ts`), which is the only
 place that rule is applied. The `#canvas` tag

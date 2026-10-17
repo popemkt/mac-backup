@@ -16,6 +16,9 @@ import {
   canvasTop,
   imageItem,
   isFileNode,
+  isKbNode,
+  isShapeNode,
+  isTextNode,
   itemShape,
   onFootprint,
   paintOrder,
@@ -314,8 +317,10 @@ describe("elevation and depth", () => {
     const doc = parseCanvasDoc(raw);
     expect(doc.nodes.map((n) => n.nodeId)).toEqual(["n.a", "n.b", "n.c", "n.d"]);
     expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
-    // A card still needs its node: one without is not a card.
-    expect(parseCanvasDoc({ nodes: [{ id: "k", type: "kb-node" }], edges: [] }).nodes).toEqual([]);
+    // A card still needs its node: one without is not a card, but it is kept.
+    const [orphan] = parseCanvasDoc({ nodes: [{ id: "k", type: "kb-node" }], edges: [] }).nodes;
+    expect(orphan !== undefined && isKbNode(orphan)).toBe(false);
+    expect(orphan?.id).toBe("k");
   });
 
   test("back on the plane, an item carries no depth at all", () => {
@@ -414,6 +419,89 @@ describe("shapes and presets", () => {
     // A shelf is raised off the floor to stand things on; everything else stands on it.
     expect(canvasElevation(presetItem("slab", { x: 0, y: 0 }, "s"))).toBeGreaterThan(0);
     expect(canvasElevation(presetItem("box", { x: 0, y: 0 }, "b"))).toBe(0);
+  });
+});
+
+/** `value` as JSON says it: what a reader of the written document sees. */
+const asJson = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
+const KINDS = ["text", "group", "kb-node", "shape", "file", "path", "link", "x-future"];
+
+describe("what kb cannot read survives any edit of what it can", () => {
+  test("every key of any item, whatever its kind, is written back as it was", () => {
+    const keyArb = fc.string().filter((key) => key !== "__proto__");
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...KINDS),
+        fc.dictionary(keyArb, fc.jsonValue(), { maxKeys: 6 }),
+        (type, more) => {
+          const raw = asJson({ ...more, id: "a", type, x: 0, y: 0, width: 10, height: 10 });
+          const [out] = JSON.parse(stringifyCanvasDoc(parseCanvasDoc({ nodes: [raw] }))).nodes;
+          expect(out).toMatchObject(raw as object);
+        },
+      ),
+    );
+  });
+
+  test("a kind keeps what only another kind reads, and one it cannot read keeps its kind's keys", () => {
+    const raw = {
+      nodes: [
+        {
+          id: "l",
+          type: "link",
+          url: "https://kb.test",
+          label: "kb",
+          x: 0,
+          y: 0,
+          width: 9,
+          height: 9,
+        },
+        {
+          id: "t",
+          type: "text",
+          text: "a",
+          label: "kept",
+          shape: "ellipse",
+          x: 0,
+          y: 0,
+          width: 9,
+          height: 9,
+        },
+        { id: "h", type: "shape", shape: "hexagon", label: "six", x: 0, y: 0, width: 9, height: 9 },
+        { id: "n", type: "text", text: 5, x: 0, y: 0, width: 9, height: 9 },
+      ],
+      edges: [],
+    };
+    const doc = parseCanvasDoc(raw);
+    expect(doc.nodes.map((n) => isShapeNode(n) || isTextNode(n))).toEqual([
+      false,
+      true,
+      false,
+      false,
+    ]);
+    expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
+  });
+
+  test("a record kb cannot place, and an edge without its ends, are kept through an edit", () => {
+    const raw = {
+      nodes: [
+        { id: "a", type: "text", text: "a", x: 0, y: 0, width: 9, height: 9 },
+        { id: "w", type: "text", text: "w", x: 0, y: 0, width: "wide", height: 9 },
+        { type: "text", text: "no id" },
+        "not an item",
+      ],
+      edges: [
+        { id: "e", fromNode: "a", toNode: "w" },
+        { id: "half", fromNode: "a" },
+      ],
+    };
+    const doc = parseCanvasDoc(raw);
+    expect(doc.nodes.map((n) => n.id)).toEqual(["a"]);
+    expect(doc.edges.map((e) => e.id)).toEqual(["e"]);
+    const moved = { ...doc, nodes: doc.nodes.map((n) => ({ ...n, x: 40 })) };
+    const written = JSON.parse(stringifyCanvasDoc(moved));
+    expect(written.nodes.slice(1)).toEqual(raw.nodes.slice(1));
+    expect(written.edges).toEqual(raw.edges);
+    expect(written.nodes[0].x).toBe(40);
   });
 });
 

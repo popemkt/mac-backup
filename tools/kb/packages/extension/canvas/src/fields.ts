@@ -110,7 +110,8 @@ export function writeUnread(
   out: Record<string, unknown>,
   extra: Readonly<Record<string, unknown>> | undefined,
 ): Record<string, unknown> {
-  for (const [key, value] of Object.entries(extra ?? {})) if (!(key in out)) out[key] = value;
+  for (const [key, value] of Object.entries(extra ?? {}))
+    if (!Object.hasOwn(out, key)) out[key] = value;
   return out;
 }
 
