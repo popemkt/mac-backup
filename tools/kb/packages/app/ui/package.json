@@ -40,6 +40,7 @@
     "@kb/lab": "workspace:*",
     "@kb/lab-ui": "workspace:*",
     "@kb/locations": "workspace:*",
+    "@kb/locations-ui": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
     "@kb/outline": "workspace:*",

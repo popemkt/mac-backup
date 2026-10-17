@@ -94,6 +94,7 @@ describe("built-in routes", () => {
       "ontology.section",
       "canvas.section",
       "outline.pinned",
+      "locations.section",
     ]);
   });
 
@@ -138,6 +139,7 @@ describe("the families the page loads", () => {
       "lab",
       "code",
       "chart",
+      "locations",
       "agent",
     ]);
   });
@@ -151,6 +153,7 @@ describe("the families the page loads", () => {
       "canvas",
       "code",
       "chart",
+      "locations",
     ]);
   });
 
@@ -171,6 +174,7 @@ describe("the families the page loads", () => {
       "lab",
       "code",
       "chart",
+      "locations",
     ]);
   });
 
@@ -202,8 +206,7 @@ describe("the resolver", () => {
     const serverOnly = Object.entries(BROWSER_EXTENSIONS)
       .filter(([, extension]) => extension === null)
       .map(([name]) => name);
-    // The locations family has no browser half yet, so it is server-only until it does.
-    expect(serverOnly.toSorted()).toEqual(["check", "docs", "locations"]);
+    expect(serverOnly.toSorted()).toEqual(["check", "docs"]);
   });
 
   it("names nothing beyond the families kb declares", () => {
@@ -239,6 +242,7 @@ describe("an optional family switched off on the server", () => {
       "lab",
       "code",
       "chart",
+      "locations",
       "agent",
     ]);
   });

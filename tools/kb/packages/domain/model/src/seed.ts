@@ -97,7 +97,7 @@ export function seededTag(id: string, text: string, fields: readonly string[], a
  * `sys.command`, which is what ⌘K offers. Its id is the command's, so the
  * `CommandPoint` contribution that runs it is found by that id.
  */
-function seededCommand(id: string, text: string, at: string): KbNode {
+export function seededCommand(id: string, text: string, at: string): KbNode {
   return {
     id,
     text,

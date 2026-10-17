@@ -31,6 +31,7 @@
 {"children":[],"createdAt":"2026-09-04T14:47:23.640Z","id":"sys.cmd.exit-ontology","order":"3w3","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Exit ontology","updatedAt":"2026-09-04T14:47:23.640Z"}
 {"children":[],"createdAt":"2026-08-10T10:40:42.885Z","id":"sys.cmd.expand-all","order":"4dm","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Expand all","updatedAt":"2026-08-10T10:40:42.885Z"}
 {"children":[],"createdAt":"2026-08-10T10:40:42.885Z","id":"sys.cmd.go-query","order":"4v4","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Saved queries","updatedAt":"2026-08-10T10:40:42.885Z"}
+{"children":[],"createdAt":"2026-10-17T02:32:07.123Z","id":"sys.cmd.location.open","order":"zzj","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Open location…","updatedAt":"2026-10-17T02:32:07.123Z"}
 {"children":[],"createdAt":"2026-09-04T14:47:23.640Z","id":"sys.cmd.new-ontology","order":"5cn","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"New ontology","updatedAt":"2026-09-04T14:47:23.640Z"}
 {"children":[],"createdAt":"2026-08-10T10:40:42.885Z","id":"sys.cmd.new-query","order":"5u5","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"New query node","updatedAt":"2026-08-10T10:40:42.885Z"}
 {"children":[],"createdAt":"2026-08-10T10:40:42.885Z","id":"sys.cmd.preferences","order":"6bo","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Preferences","updatedAt":"2026-08-10T10:40:42.885Z"}

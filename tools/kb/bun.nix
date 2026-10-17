@@ -630,6 +630,7 @@
   "@kb/lab-ui" = copyPathToStore ./packages/extension/lab-ui;
   "@kb/locations" = copyPathToStore ./packages/extension/locations;
   "@kb/locations-fs" = copyPathToStore ./packages/extension/locations-fs;
+  "@kb/locations-ui" = copyPathToStore ./packages/extension/locations-ui;
   "@kb/mcp" = copyPathToStore ./packages/app/mcp;
   "@kb/model" = copyPathToStore ./packages/domain/model;
   "@kb/operations" = copyPathToStore ./packages/application/operations;
