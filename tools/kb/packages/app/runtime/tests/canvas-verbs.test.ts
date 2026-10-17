@@ -193,6 +193,28 @@ describe("ext.canvas.place", () => {
     expect(stored(ctx)).toEqual(before);
   });
 
+  test("what the format would not read back is refused, and nothing is written", async () => {
+    const ctx = await canvasKb([card("a", 0, 0), card("b", 300, 0)]);
+    const before = stored(ctx);
+    const far = Array.from({ length: 300 }, (_, i) => ({ x: i / 300, y: 0.5 }));
+    for (const input of [
+      verb("place", { items: [{ make: { color: "" }, near: "a", side: "right" }] }),
+      verb("place", { items: [{ make: { color: "not a colour" }, near: "a", side: "right" }] }),
+      verb("place", { items: [{ make: { preset: "kb-node", nodeId: "" }, at: { x: 0, y: 0 } }] }),
+      verb("place", { items: [{ make: { preset: "image", file: "" }, at: { x: 0, y: 0 } }] }),
+      verb("place", {
+        items: [{ make: { preset: "line", line: { points: far } }, at: { x: 0, y: 0 } }],
+      }),
+      verb("connect", { from: "a", to: "b", route: "straight", bend: 20 }),
+      verb("connect", { from: "a", to: "b", bend: 20 }),
+      verb("connect", { from: "a", to: "b", color: "chartreuse-ish" }),
+    ]) {
+      const receipt = await invoke(ctx, input);
+      expect(receipt.status, JSON.stringify(input.input)).toBe("failed");
+    }
+    expect(stored(ctx)).toEqual(before);
+  });
+
   test("a placement must name one relation", async () => {
     const ctx = await canvasKb([card("a", 0, 0)]);
     const receipt = await invoke(ctx, verb("place", { items: [{ make: {}, on: "a", in: "a" }] }));

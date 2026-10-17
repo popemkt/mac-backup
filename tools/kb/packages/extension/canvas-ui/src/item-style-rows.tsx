@@ -17,6 +17,7 @@ import {
   CANVAS_VALIGNS,
   drawsGround,
   headOf,
+  routeBends,
   ownsWords,
   styleOf,
   withHead,
@@ -174,7 +175,7 @@ export function EdgeLookRows({
           choices={SIZES}
           onChange={(size) => onChange(withStyle(edge, { size }))}
         />
-        {(route === "arc" || route === "elbow") && (
+        {routeBends(route) && (
           <NumberField
             key={`bend:${edge.bend ?? ""}`}
             label="Bend"

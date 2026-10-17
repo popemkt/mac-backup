@@ -7,6 +7,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
+  CanvasRelationError,
   anchorNear,
   connectItems,
   edgeHead,
@@ -208,6 +209,26 @@ describe("the format", () => {
     });
     expect(doc.edges[0]?.toHead).toBeUndefined();
     expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
+  });
+
+  test("only an arc or an elbow takes a bend: connect refuses one elsewhere, and a reroute drops it", () => {
+    const doc: CanvasDoc = { nodes: [rect, ellipse], edges: [] };
+    const asked = { id: "x", bindingId: "k", from: "r", to: "e", bend: 10 } as const;
+    expect(() => connectItems(doc, asked)).toThrow(CanvasRelationError);
+    expect(() => connectItems(doc, { ...asked, route: "straight" })).toThrow(CanvasRelationError);
+    const { edge: arc } = connectItems(doc, { ...asked, route: "arc" });
+    expect(arc.bend).toBe(10);
+    expect(withRoute(arc, { route: "curve" }).bend).toBeUndefined();
+    expect(withRoute(arc, { route: "elbow" }).bend).toBe(10);
+  });
+
+  test("connect refuses a colour kb does not write, and writes a named one as its preset", () => {
+    const doc: CanvasDoc = { nodes: [rect, ellipse], edges: [] };
+    const asked = { id: "x", bindingId: "k", from: "r", to: "e" } as const;
+    expect(() => connectItems(doc, { ...asked, color: "" })).toThrow(CanvasRelationError);
+    expect(() => connectItems(doc, { ...asked, color: "mauve-ish" })).toThrow(CanvasRelationError);
+    expect(connectItems(doc, { ...asked, color: "red" }).edge.color).toBe("1");
+    expect(connectItems(doc, { ...asked, color: "#AbC" }).edge.color).toBe("#AbC");
   });
 
   test("connect writes the ends, route, heads and looks it is given", () => {

@@ -40,6 +40,7 @@ import {
   flipItems,
   freeItems,
   groupItems,
+  isCanvasColor,
   isGroupNode,
   itemBounds,
   itemKind,
@@ -82,6 +83,7 @@ const Direction = z
 /** A colour as an agent names one: a palette entry by name, a JSON Canvas preset, or a hex. */
 const ColorSchema = z
   .string()
+  .refine(isCanvasColor, "a palette name, a preset 1–6, or a hex")
   .describe(
     `a palette colour by name (${CANVAS_PALETTE.map((p) => p.name).join(", ")}), ` +
       "a JSON Canvas preset 1–6, or a hex; a name is written as its preset",
@@ -111,6 +113,9 @@ const HeadSchema = z.enum([...CANVAS_HEADS, "none"]);
 /** A head as a verb takes it: "none" for a bare end. */
 const headOrNone = (head: z.infer<typeof HeadSchema> | undefined) =>
   head === undefined ? undefined : head === "none" ? null : head;
+
+/** The most points a line an agent makes runs through. */
+const MAX_LINE_POINTS = 256;
 
 const RouteSchema = z
   .enum(CANVAS_ROUTES)
@@ -204,7 +209,7 @@ const RelationSchema = z.union([
     route: RouteSchema.optional(),
     fromHead: HeadSchema.optional(),
     toHead: HeadSchema.optional(),
-    color: z.string().optional(),
+    color: ColorSchema.optional(),
     style: EdgeLooksSchema.optional(),
   }),
   z.object({
@@ -345,6 +350,7 @@ const MakeSchema = z
         points: z
           .array(AnchorSchema)
           .min(2)
+          .max(MAX_LINE_POINTS)
           .optional()
           .describe("the points it runs through, in its box, in order; default left to right"),
         closed: z.boolean().optional().describe("its last point joins its first"),
@@ -353,8 +359,8 @@ const MakeSchema = z
       })
       .optional()
       .describe("a line's or an arrow's points and heads (preset line or arrow)"),
-    nodeId: z.string().optional().describe("the node it stands for (a card needs one)"),
-    file: z.string().optional().describe("an image's asset path, assets/…"),
+    nodeId: z.string().min(1).optional().describe("the node it stands for (a card needs one)"),
+    file: z.string().min(1).optional().describe("an image's asset path, assets/…"),
     width: z.number().positive().optional(),
     height: z.number().positive().optional(),
     depth: z.number().min(0).optional().describe("how far it rises off its base; 0 is flat"),
@@ -572,7 +578,7 @@ const connectInput = z.object({
     .optional()
     .describe(
       "an arc's bow off the straight line, left of travel (negative: right), or how far an " +
-        "elbow's middle run is moved; canvas units",
+        "elbow's middle run is moved; canvas units. Only an arc or an elbow takes one",
     ),
   fromHead: HeadSchema.optional().describe("the head where it leaves; default none"),
   toHead: HeadSchema.optional().describe("the head where it arrives; default arrow"),

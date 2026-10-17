@@ -14,7 +14,7 @@ import {
   type CanvasRoute,
   type CanvasSide,
 } from "./doc.ts";
-import { withEnd, withHead, withRoute, type EdgeEnd } from "./edges.ts";
+import { routeBends, withEnd, withHead, withRoute, type EdgeEnd } from "./edges.ts";
 import { CanvasRelationError, facingSides } from "./relations.ts";
 import { canvasColor, withStyle, type CanvasLooksPatch } from "./style.ts";
 
@@ -62,7 +62,9 @@ function endAt(
 /**
  * `doc` with an arrow drawn from item `from` to item `to`, and the edge.
  * Throws `CanvasRelationError` when an end is not on the canvas, the two
- * are one item, or a bind is asked of an end that stands for no node.
+ * are one item, a bind is asked of an end that stands for no node, a bend
+ * of a route that takes none (`routeBends`), or a colour kb does not write
+ * (`canvasColor`).
  */
 export function connectItems(
   doc: CanvasDoc,
@@ -77,6 +79,9 @@ export function connectItems(
     throw new CanvasRelationError(`an edge joins two items, not ${fromId} to itself`);
   if (bindField !== undefined && (from.nodeId === undefined || to.nodeId === undefined)) {
     throw new CanvasRelationError(`a bound edge joins two items that stand for nodes`);
+  }
+  if (bend !== undefined && !routeBends(route)) {
+    throw new CanvasRelationError(`a ${route ?? "curve"} takes no bend: only an arc or an elbow`);
   }
   const facing = facingSides(from, to);
   const drawn: CanvasEdge = {

@@ -357,8 +357,12 @@ const ITEM_FIELDS: FieldCodecs<CanvasNodeBase, ItemField> = {
   style: { read: parseStyleField, write: emitStyleField },
 };
 
-/** A path's points as written: at least two anchors of its box; anything else is unreadable. */
-function parsePoints(raw: unknown): CanvasAnchor[] | undefined {
+/**
+ * A line's points as written: at least two anchors of its box; anything
+ * else is unreadable. What the format reads and every write checks a
+ * line's points by (`withLine`).
+ */
+export function parseLinePoints(raw: unknown): CanvasAnchor[] | undefined {
   if (!Array.isArray(raw) || raw.length < 2) return undefined;
   const points: CanvasAnchor[] = [];
   for (const point of raw) {
@@ -485,7 +489,7 @@ const ITEM_KINDS: Readonly<Record<string, ItemKind>> = {
   ),
   path: itemKind<CanvasPathNode, "points" | "closed" | "fromHead" | "toHead">(
     {
-      points: { read: parsePoints, write: (points) => points.map(({ x, y }) => ({ x, y })) },
+      points: { read: parseLinePoints, write: (points) => points.map(({ x, y }) => ({ x, y })) },
       closed: { read: bool },
       fromHead: { read: anyHead },
       toHead: { read: anyHead },

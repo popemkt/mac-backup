@@ -8,6 +8,7 @@
  */
 import {
   isPathNode,
+  parseLinePoints,
   type CanvasAnchor,
   type CanvasHead,
   type CanvasNode,
@@ -15,6 +16,7 @@ import {
 } from "./doc.ts";
 import { headOf, headOnLine, withHead, type EdgeEnd, type EdgeHead } from "./edges.ts";
 import { dropExtra } from "./extra.ts";
+import { CanvasRelationError } from "./relations.ts";
 import { itemShape, shapeOutline, type CanvasPathCommand } from "./shapes.ts";
 
 /** A path's points in a `w` × `h` box, its own units. */
@@ -58,11 +60,20 @@ export interface CanvasLinePatch {
 /**
  * `item`, a line, changed as `patch` says: an open line, and an end with
  * no head, written as no field; one set here supersedes a value this
- * version could not read.
+ * version could not read. Throws `CanvasRelationError` for points the
+ * format would not read back (`parseLinePoints`).
  */
 export function withLine(item: CanvasPathNode, patch: CanvasLinePatch): CanvasPathNode {
   let next: CanvasPathNode = { ...item };
-  if (patch.points !== undefined) next = { ...dropExtra(next, "points"), points: patch.points };
+  if (patch.points !== undefined) {
+    const points = parseLinePoints(patch.points);
+    if (points === undefined) {
+      throw new CanvasRelationError(
+        "a line runs through two or more points of its box, each 0–1 across and down it",
+      );
+    }
+    next = { ...dropExtra(next, "points"), points };
+  }
   if (patch.closed !== undefined) {
     next = dropExtra(next, "closed");
     if (patch.closed) next.closed = true;

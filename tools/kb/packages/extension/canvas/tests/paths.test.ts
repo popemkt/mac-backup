@@ -6,6 +6,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
+  CanvasRelationError,
   describeCanvas,
   headOf,
   isPathNode,
@@ -174,5 +175,27 @@ describe("ends", () => {
 
   test("a closed line has no ends, so wears no head", () => {
     expect(headOf(line({ closed: true, toHead: "arrow" }), "to")).toBeNull();
+  });
+});
+
+describe("writes", () => {
+  test("a line's points are checked as the format reads them: two or more, each 0–1", () => {
+    for (const points of [
+      [{ x: 0, y: 0 }],
+      [
+        { x: 0, y: 0 },
+        { x: 1.5, y: 0 },
+      ],
+    ]) {
+      expect(() => withLine(line(), { points })).toThrow(CanvasRelationError);
+    }
+    expect(
+      withLine(line(), {
+        points: [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ],
+      }).points,
+    ).toHaveLength(2);
   });
 });

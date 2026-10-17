@@ -11,6 +11,7 @@
  * or a literal CSS colour (JSON Canvas's hex), painted as written.
  */
 import { dropExtra } from "./extra.ts";
+import { CanvasRelationError } from "./relations.ts";
 import {
   isGroupNode,
   isKbNode,
@@ -71,12 +72,30 @@ function paintOf(color: string | undefined): CanvasPaint | undefined {
   return entry === undefined ? { kind: "literal", css: color } : { kind: "palette", id: entry.id };
 }
 
+/** A hex colour as JSON Canvas writes one: `#rgb` or `#rrggbb`. */
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/**
+ * Whether `color` names a colour kb writes: a palette entry by its name or
+ * its id (JSON Canvas's presets 1–6 among them), or a hex. What a verb's
+ * input and every write check a colour by (`canvasColor`).
+ */
+export function isCanvasColor(color: string): boolean {
+  return paletteEntry(color) !== undefined || HEX_COLOR.test(color.trim());
+}
+
 /**
  * A colour as kb writes it: a palette entry by its id (so "red" is written
- * "1", the JSON Canvas preset other readers know), anything else as given.
+ * "1", the JSON Canvas preset other readers know), a hex as given. Throws
+ * `CanvasRelationError` for anything else (`isCanvasColor`).
  */
 export function canvasColor(color: string): string {
-  return paletteEntry(color)?.id ?? color;
+  if (!isCanvasColor(color)) {
+    throw new CanvasRelationError(
+      `"${color}" is no colour kb writes: a palette name, a preset 1–6, or a hex`,
+    );
+  }
+  return paletteEntry(color)?.id ?? color.trim();
 }
 
 /** What a paint is called in words: a palette entry's name, or the literal colour. */

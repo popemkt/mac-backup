@@ -121,6 +121,7 @@ export {
   edgeRoute,
   headOf,
   looseRoute,
+  routeBends,
   routeMidpoint,
   routePoints,
   sideTerminal,
@@ -172,6 +173,7 @@ export type { SnapGuide, SnappedTransform } from "./snap.ts";
 export {
   CANVAS_PALETTE,
   canvasColor,
+  isCanvasColor,
   drawsGround,
   ownsWords,
   paintName,

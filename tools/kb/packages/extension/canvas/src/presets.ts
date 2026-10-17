@@ -162,10 +162,10 @@ export interface CanvasItemSpec {
  */
 export function makeItem(spec: CanvasItemSpec, id: string): CanvasNode {
   const origin = { x: 0, y: 0 };
-  if (spec.preset === "kb-node" && spec.nodeId === undefined) {
+  if (spec.preset === "kb-node" && (spec.nodeId ?? "") === "") {
     throw new CanvasRelationError("a card shows a node: give its nodeId");
   }
-  if (spec.preset === "image" && spec.file === undefined) {
+  if (spec.preset === "image" && (spec.file ?? "") === "") {
     throw new CanvasRelationError("a picture shows an asset: give its file (assets/…)");
   }
   const base =

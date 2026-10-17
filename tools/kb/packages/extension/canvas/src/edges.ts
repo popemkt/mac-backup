@@ -360,10 +360,24 @@ export interface EdgeRoutePatch {
   readonly bend?: number | undefined;
 }
 
+/** Which routes a `bend` moves: an arc's bow, an elbow's middle run; a curve and a straight line take none. */
+const ROUTE_BENDS: { readonly [R in CanvasRoute]: boolean } = {
+  curve: false,
+  straight: false,
+  arc: true,
+  elbow: true,
+};
+
+/** Whether an edge routed `route` (JSON Canvas's curve when absent) takes a `bend`. */
+export function routeBends(route: CanvasRoute | undefined): boolean {
+  return ROUTE_BENDS[route ?? "curve"];
+}
+
 /**
  * `edge` running as `patch` says. JSON Canvas's curve, and no bend, are
- * written as no field; one set here supersedes a value this version could
- * not read.
+ * written as no field, and so is a bend on a route that takes none
+ * (`routeBends`); one set here supersedes a value this version could not
+ * read.
  */
 export function withRoute(edge: CanvasEdge, patch: EdgeRoutePatch): CanvasEdge {
   let next: CanvasEdge = { ...edge };
@@ -372,10 +386,11 @@ export function withRoute(edge: CanvasEdge, patch: EdgeRoutePatch): CanvasEdge {
     if (patch.route === undefined || patch.route === "curve") delete next.route;
     else next.route = patch.route;
   }
-  if ("bend" in patch) {
+  const bend = "bend" in patch ? patch.bend : next.bend;
+  if ("bend" in patch || !routeBends(next.route)) {
     next = dropExtra(next, "bend");
-    if (patch.bend === undefined) delete next.bend;
-    else next.bend = patch.bend;
+    if (bend === undefined || !routeBends(next.route)) delete next.bend;
+    else next.bend = bend;
   }
   return next;
 }
