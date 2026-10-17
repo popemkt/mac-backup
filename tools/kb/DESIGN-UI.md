@@ -2784,7 +2784,7 @@ diff. Instead, two install shapes:
 - Clean "like other apps" shape, when the tool stabilizes: a **nix package
   in `pkgs/`** (buildable derivation: bun deps pinned via lockfile hash, vp
   build in the sandbox, wrapper binary), installed from `home.packages` like
-  chat2db/logseq-nightly. Then `rebuild` ships kb+UI as a versioned unit and
+  chat2db/logseq. Then `rebuild` ships kb+UI as a versioned unit and
   no checkout is needed. Homebrew cask adds nothing over that for a personal
   tool. Backlogged as a kb todo, not in this wave.
 

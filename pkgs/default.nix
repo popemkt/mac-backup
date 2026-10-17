@@ -37,7 +37,7 @@ in
     inherit sources;
   };
 
-  logseq-nightly = pkgs.callPackage ./logseq-nightly {
+  logseq = pkgs.callPackage ./logseq {
     inherit sources;
   };
 

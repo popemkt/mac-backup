@@ -9,10 +9,12 @@ src.webpage = "https://cursor.com/install"
 src.regex = 'downloads\.cursor\.com/lab/([0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9a-f]+)/\$\{OS\}'
 fetch.url = "https://downloads.cursor.com/lab/$ver/darwin/arm64/agent-cli-package.tar.gz"
 
-[logseq-nightly]
-src.webpage = "https://github.com/logseq/logseq/releases/expanded_assets/nightly"
-src.regex = 'Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip'
-fetch.url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-$ver.zip"
+# Stable releases only: src.github follows GitHub's latest release, which
+# excludes prereleases. The rolling `nightly` release replaces its assets
+# daily, so a pinned nightly URL 404s within a day.
+[logseq]
+src.github = "logseq/logseq"
+fetch.url = "https://github.com/logseq/logseq/releases/download/$ver/Logseq-darwin-arm64-$ver.zip"
 
 [genoffice]
 src.github_tag = "genspark-ai/genoffice"

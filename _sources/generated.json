@@ -59,20 +59,20 @@
         },
         "version": "0.11.727"
     },
-    "logseq-nightly": {
+    "logseq": {
         "cargoLock": null,
         "date": null,
         "extract": null,
-        "name": "logseq-nightly",
+        "name": "logseq",
         "passthru": null,
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-Hj/5H6uHkZivPmLqRhmyaPj/HvtNnZ5/PPscW89TXyw=",
+            "sha256": "sha256-/9bghrpvaKR0j4DqqLOCRKnPeLBcB2ND114CMP6UQLQ=",
             "type": "url",
-            "url": "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.2-alpha+nightly.20261012.zip"
+            "url": "https://github.com/logseq/logseq/releases/download/2.0.2/Logseq-darwin-arm64-2.0.2.zip"
         },
-        "version": "2.0.2-alpha+nightly.20261012"
+        "version": "2.0.2"
     },
     "vite-plus": {
         "cargoLock": null,

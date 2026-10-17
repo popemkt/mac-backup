@@ -5,7 +5,7 @@
   home.packages = with pkgs; [
     cursor-cli # Cursor terminal agent (`agent` / `cursor-agent`)
     vite-plus # Unified Vite-based web toolchain (`vp`)
-    logseq-nightly # ARM64 app from Logseq's moving nightly GitHub release
+    logseq # Logseq ARM64 app (stable GitHub release)
     chat2db # AI database client / SQL workspace (GitHub release DMG)
   ];
 }

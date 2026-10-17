@@ -38,12 +38,12 @@
       sha256 = "sha256-fWODcJYd6pYKat+9exrnyDwMtcB6CWJAniy5H1J3sjU=";
     };
   };
-  logseq-nightly = {
-    pname = "logseq-nightly";
-    version = "2.0.2-alpha+nightly.20261012";
+  logseq = {
+    pname = "logseq";
+    version = "2.0.2";
     src = fetchurl {
-      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.2-alpha+nightly.20261012.zip";
-      sha256 = "sha256-Hj/5H6uHkZivPmLqRhmyaPj/HvtNnZ5/PPscW89TXyw=";
+      url = "https://github.com/logseq/logseq/releases/download/2.0.2/Logseq-darwin-arm64-2.0.2.zip";
+      sha256 = "sha256-/9bghrpvaKR0j4DqqLOCRKnPeLBcB2ND114CMP6UQLQ=";
     };
   };
   vite-plus = {

@@ -6,7 +6,7 @@
 }:
 
 let
-  source = sources.logseq-nightly;
+  source = sources.logseq;
 in
 stdenvNoCC.mkDerivation {
   inherit (source) pname version src;
@@ -26,8 +26,8 @@ stdenvNoCC.mkDerivation {
   '';
 
   meta = {
-    description = "Privacy-first platform for knowledge sharing and management (nightly)";
-    homepage = "https://github.com/logseq/logseq/releases/tag/nightly";
+    description = "Privacy-first platform for knowledge sharing and management";
+    homepage = "https://github.com/logseq/logseq/releases";
     license = lib.licenses.agpl3Only;
     platforms = [ "aarch64-darwin" ];
     sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
