@@ -2900,8 +2900,11 @@ The sidebar agent lives outside core, in packages that core never imports
   input, and its receipt reaches the model; a tool not in the turn's
   answers `unknown_action` and is never invoked; a backend error is an
   `AgentRuntimeError`; a loop that never stops ends at `MAX_STEPS` with
-  one; `resume` carries the conversation into the next turn; and
-  interrupting the turn while a call waits interrupts the call. The Claude
+  one; `resume` carries the conversation into the next turn;
+  interrupting the turn while the model is mid-step cancels the step on
+  the adapter's wire (the SDK's abort, the request's signal), which the
+  backend hears; and interrupting the turn while a call waits interrupts
+  the call. The Claude
   adapter runs it over a fake `query` that drives its in-process tool
   server as Claude Code would; `openai-chat` over a fake `fetch` that
   reads its request bodies and streams server-sent events back, text in

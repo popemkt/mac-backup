@@ -38,11 +38,18 @@ export interface ModelSight {
   readonly step: number;
 }
 
-/** What the model does in a step, in order. A step that calls no tool ends the turn. */
+/**
+ * What the model does in a step, in order. A step that calls no tool ends
+ * the turn. A stall is a model still thinking: once its step has sent what
+ * came before, it calls `thinking`, sends nothing more until the backend
+ * hears the turn cancelled over its wire (the SDK's abort, the request's
+ * signal, the step's interruption), and then calls `cancelled`.
+ */
 export type ModelMove =
   | { readonly say: string }
   | { readonly call: string; readonly input: unknown }
-  | { readonly fail: string };
+  | { readonly fail: string }
+  | { readonly stall: { readonly thinking: () => void; readonly cancelled: () => void } };
 
 /** A model: the moves it makes for each step, given what it has been shown. */
 export type ModelDouble = (sight: ModelSight) => readonly ModelMove[];
@@ -157,6 +164,14 @@ const textOf = (outputs: readonly AgentOutput[]): string =>
 
 const sessionsOf = (outputs: readonly AgentOutput[]): readonly string[] =>
   outputs.flatMap((output) => (output.kind === "session" ? [output.resume] : []));
+
+/** Whether `effect` completes within two seconds: a wait that never hangs a property. */
+function within<A>(effect: Effect.Effect<A>): Effect.Effect<boolean> {
+  return effect.pipe(
+    Effect.as(true),
+    Effect.timeoutOrElse({ duration: 2000, orElse: () => Effect.succeed(false) }),
+  );
+}
 
 /** One property: a name, and what it observed against what it expected. */
 interface Property {
@@ -277,6 +292,41 @@ const PROPERTIES: readonly Property[] = [
             [false, true],
           ],
         };
+      }),
+  },
+  {
+    name: "interrupting the turn while the model is mid-step cancels the step on its wire",
+    check: (subject) =>
+      Effect.gen(function* () {
+        const thinking = yield* Deferred.make<void>();
+        const cancelled = yield* Deferred.make<void>();
+        const stall = {
+          // The double is called from outside any fiber (an SDK, a fetch), so it completes them directly.
+          thinking: () => void Deferred.doneUnsafe(thinking, Effect.void),
+          cancelled: () => void Deferred.doneUnsafe(cancelled, Effect.void),
+        };
+        const runtime = subject.runtime(() => [{ say: "thinking" }, { stall }]);
+        const spoke = yield* Deferred.make<void>();
+        let text = "";
+        const fiber = yield* Effect.forkChild(
+          Stream.runForEach(runtime.turn(turnOf("think", undefined, answering([]))), (output) =>
+            output.kind === "text"
+              ? Effect.sync(() => {
+                  text += output.delta;
+                }).pipe(
+                  Effect.andThen(
+                    text === "thinking" ? Deferred.succeed(spoke, undefined) : Effect.void,
+                  ),
+                )
+              : Effect.void,
+          ),
+        );
+        // Mid-step: what came before the stall has reached the turn, and the model thinks on.
+        yield* within(Effect.all([Deferred.await(thinking), Deferred.await(spoke)]));
+        yield* Fiber.interrupt(fiber);
+        // The backend hears it: the wire's own cancellation reached the model.
+        const heard = yield* within(Deferred.await(cancelled));
+        return { observed: { text, heard }, expected: { text: "thinking", heard: true } };
       }),
   },
   {

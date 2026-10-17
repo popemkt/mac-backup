@@ -68,6 +68,7 @@ export function fakeChat(model: ModelDouble): FakeChat {
     }
     const events: string[] = [delta({ role: "assistant" })];
     let index = 0;
+    const stalled = moves.find((move) => "stall" in move);
     for (const move of moves) {
       if ("say" in move) {
         for (const piece of halves(move.say)) events.push(delta({ content: piece }));
@@ -88,6 +89,28 @@ export function fakeChat(model: ModelDouble): FakeChat {
           delta({ tool_calls: [{ index: at, function: { arguments: tail } }] }),
         );
       }
+    }
+    if (stalled !== undefined && "stall" in stalled) {
+      // Thinking: the reply stays open until the request is aborted or its reader cancels.
+      let told = false;
+      const cancelled = () => {
+        if (told) return;
+        told = true;
+        stalled.stall.cancelled();
+      };
+      return Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(events.join("")));
+              init.signal.addEventListener("abort", cancelled, { once: true });
+              stalled.stall.thinking();
+            },
+            cancel: cancelled,
+          }),
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        ),
+      );
     }
     events.push(
       sse({ choices: [{ index: 0, delta: {}, finish_reason: index > 0 ? "tool_calls" : "stop" }] }),

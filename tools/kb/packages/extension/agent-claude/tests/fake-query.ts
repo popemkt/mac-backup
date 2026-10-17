@@ -60,6 +60,16 @@ export function fakeClaude(model: ModelDouble): ClaudeQuery {
               });
               return;
             }
+            if ("stall" in move) {
+              // Thinking until Claude Code is told to stop.
+              move.stall.thinking();
+              await new Promise<void>((resolve) => {
+                if (signal === undefined || signal.aborted) resolve();
+                else signal.addEventListener("abort", () => resolve(), { once: true });
+              });
+              move.stall.cancelled();
+              return;
+            }
             if ("say" in move) {
               if (!wrote)
                 yield textEvent({ type: "content_block_start", content_block: { type: "text" } });

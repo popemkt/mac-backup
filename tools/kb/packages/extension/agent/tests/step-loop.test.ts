@@ -36,21 +36,23 @@ function modelStep(model: ModelDouble): Step {
     if (failure !== undefined && "fail" in failure) {
       return Stream.fail(new AgentRuntimeError({ message: failure.fail }));
     }
-    return Stream.fromIterable(
-      moves.map(
-        (move): StepEvent =>
-          "say" in move
-            ? { kind: "text", delta: move.say }
-            : {
-                kind: "call",
-                call: {
-                  id: `call-${++calls}`,
-                  name: "call" in move ? move.call : "",
-                  input: "input" in move ? move.input : {},
-                },
-              },
-      ),
+    const stall = moves.find((move) => "stall" in move);
+    const events = Stream.fromIterable(
+      moves.flatMap((move): StepEvent[] => {
+        if ("say" in move) return [{ kind: "text", delta: move.say }];
+        if (!("call" in move)) return [];
+        return [
+          { kind: "call", call: { id: `call-${++calls}`, name: move.call, input: move.input } },
+        ];
+      }),
     );
+    if (stall === undefined || !("stall" in stall)) return events;
+    // A stalled step streams nothing more until it is interrupted.
+    const thinking = Effect.sync(() => stall.stall.thinking()).pipe(
+      Effect.andThen(Effect.never),
+      Effect.onInterrupt(() => Effect.sync(() => stall.stall.cancelled())),
+    );
+    return Stream.concat(events, Stream.fromEffect(thinking));
   };
 }
 
