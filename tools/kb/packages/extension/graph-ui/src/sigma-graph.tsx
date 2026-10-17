@@ -10,6 +10,7 @@ import type { LensNode } from "./graph-lens";
 import {
   type LensEdge,
   DEFAULT_THEME,
+  edgeKey,
   type LensLayout,
   type LensLabelDensity,
   type LensLinkStyle,
@@ -411,9 +412,9 @@ export function SigmaGraph(props: SigmaGraphProps) {
         });
     });
     if (changed)
-      edges.forEach((e, i) => {
+      edges.forEach((e) => {
         if (ids.has(e.source) && ids.has(e.target))
-          graph.addEdgeWithKey(String(i), e.source, e.target, {
+          graph.addEdgeWithKey(edgeKey(e), e.source, e.target, {
             size: linkWidth(e.weight),
             kind: e.kind,
             label: live.current.edgeLabel?.(e),
@@ -474,8 +475,8 @@ export function SigmaGraph(props: SigmaGraphProps) {
     );
     sigma.setSetting("hideEdgesOnMove", nodes.length > 1500);
     // Link labels are the edges' own attribute, keyed as the topology pass keys them.
-    edges.forEach((e, i) => {
-      const key = String(i);
+    edges.forEach((e) => {
+      const key = edgeKey(e);
       if (sigma.getGraph().hasEdge(key))
         sigma.getGraph().setEdgeAttribute(key, "label", edgeLabel?.(e));
     });

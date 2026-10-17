@@ -23,6 +23,11 @@ export interface LensEdge {
  * edge whose ends are not both in the set, or that loops onto its source, is
  * not drawn.
  */
+/** An edge's identity: its kind and its ends, the one key `collectEdges` keeps unique. */
+export function edgeKey(edge: Pick<LensEdge, "kind" | "source" | "target">): string {
+  return `${edge.kind}:${edge.source}->${edge.target}`;
+}
+
 export function collectEdges(
   nodes: readonly LensSource[],
   nodeSet: ReadonlySet<string>,
@@ -33,7 +38,7 @@ export function collectEdges(
   const push = (source: string, target: string, kind: EdgeKind) => {
     if (!nodeSet.has(source) || !nodeSet.has(target)) return;
     if (source === target) return;
-    const key = `${kind}:${source}->${target}`;
+    const key = edgeKey({ kind, source, target });
     const existing = weights.get(key);
     if (existing !== undefined) {
       weights.set(key, existing + 1);
