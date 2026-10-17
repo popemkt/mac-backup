@@ -1682,10 +1682,13 @@ layer), so neither is computed by DataScript. Plan and prior art:
   is ever written.
 - **One answer on both hosts.** `read.ts`'s `traceOf` and `suggestOf` word
   every hop and name every node over a node set. The server's actions run
-  them over the store, and the page runs them over its replica (trace mode,
-  "Related, not connected", a saved trace's node set), so the two cannot
-  disagree; `runtime/tests/graph-trace.test.ts` holds the action to the
-  local read.
+  them over the store, and the page runs them over the nodes it draws (trace
+  mode, "Related, not connected", a saved trace's node set, all through
+  `graph-lens.ts`'s `nodesWithin`), so over one node set the two answer the
+  same; `runtime/tests/graph-trace.test.ts` holds the action to the local
+  read. The node sets differ by what the page leaves undrawn: a degree
+  counts only drawn edges there, so a hub tie-break or a suggestion's score
+  can differ from the server's, never a path's length.
 - **Actions.** The family's server entry (`graphServerPlugin`) contributes
   `ext.graph.trace`, `ext.graph.suggest` (reads) and
   `ext.graph.relation.type` (a write), aliased `graph.trace`,

@@ -18,6 +18,7 @@ import {
   decodeLensConfig,
   type LensPerspective,
   type LensProps,
+  type TraceAnswer,
 } from "@kb/graph";
 import {
   graphDisplayText,
@@ -253,11 +254,35 @@ function resolveNodeSet(
   }
 }
 
+/** The nodes among `nodes` whose ids are in `ids`: what a page read of trace or suggest runs over. */
+export function nodesWithin(nodes: readonly WireNode[], ids: ReadonlySet<string>): WireNode[] {
+  return nodes.filter((node) => ids.has(node.id));
+}
+
 /**
- * A saved trace's node set: the paths between its ends over the lens's
- * edge kinds, within `nodeSet` (`@kb/graph`'s `traceOf`, the read the
- * server's `graph.trace` runs). A perspective that names no trace keeps the
- * set it has.
+ * The page's one trace read: the paths between `from` and `to` over the
+ * perspective's edge kinds and path count (`@kb/graph`'s `traceOf`, the read
+ * the server's `graph.trace` runs), among `nodes`. The nodes are already the
+ * drawn ones, so the graph's elision has been applied and none is elided again.
+ */
+export function tracePerspective(
+  nodes: readonly WireNode[],
+  perspective: LensPerspective,
+  from: string,
+  to: string,
+): TraceAnswer {
+  return traceOf(nodes, {
+    from,
+    to,
+    kinds: perspective.edgeKinds,
+    ...(perspective.tracePaths === null ? {} : { k: perspective.tracePaths }),
+    includeSystem: true,
+  });
+}
+
+/**
+ * A saved trace's node set: the paths between its ends within `nodeSet`. A
+ * perspective that names no trace keeps the set it has.
  */
 function tracedSet(
   candidates: readonly WireNode[],
@@ -266,16 +291,7 @@ function tracedSet(
 ): Set<string> {
   const { traceFrom: from, traceTo: to } = perspective;
   if (from === null || to === null) return nodeSet;
-  const { paths } = traceOf(
-    candidates.filter((n) => nodeSet.has(n.id)),
-    {
-      from,
-      to,
-      kinds: perspective.edgeKinds,
-      ...(perspective.tracePaths === null ? {} : { k: perspective.tracePaths }),
-      includeSystem: true,
-    },
-  );
+  const { paths } = tracePerspective(nodesWithin(candidates, nodeSet), perspective, from, to);
   return new Set(paths.flatMap((path) => path.nodes));
 }
 

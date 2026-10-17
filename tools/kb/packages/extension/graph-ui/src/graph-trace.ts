@@ -4,13 +4,13 @@
  * state, like search and legend dimming; saving it writes a graph view node
  * whose lens names the trace (`lens.trace-from`, `lens.trace-to`,
  * `lens.trace-paths`). It belongs to the perspective it was begun in, so
- * opening another (the saved one included) leaves it behind. The paths are `@kb/graph`'s `traceOf` over the nodes
- * drawn, the read the server's `graph.trace` runs over the store.
+ * opening another (the saved one included) leaves it behind. The paths are `tracePerspective` over the nodes
+ * drawn, the one trace read a saved trace's node set takes too.
  */
 import { useCallback, useMemo, useState } from "react";
 import type { WireNode } from "@kb/contracts";
-import { traceOf, type LensPerspective, type TraceAnswer } from "@kb/graph";
-import type { GraphLens } from "./graph-lens";
+import type { LensPerspective, TraceAnswer } from "@kb/graph";
+import { nodesWithin, tracePerspective, type GraphLens } from "./graph-lens";
 
 /** A trace begun at `from`; `to` is null while the person picks where it goes. */
 export interface GraphTrace {
@@ -59,16 +59,7 @@ export function useGraphTrace(
   const answer = useMemo(() => {
     if (trace === null || trace.to === null || perspective === null) return null;
     const drawn = new Set(lensGraph.nodes.map((node) => node.id));
-    return traceOf(
-      wireNodes.filter((node) => drawn.has(node.id)),
-      {
-        from: trace.from,
-        to: trace.to,
-        kinds: perspective.edgeKinds,
-        ...(perspective.tracePaths === null ? {} : { k: perspective.tracePaths }),
-        includeSystem: true,
-      },
-    );
+    return tracePerspective(nodesWithin(wireNodes, drawn), perspective, trace.from, trace.to);
   }, [trace, perspective, lensGraph.nodes, wireNodes]);
   const begin = useCallback((from: string) => setTrace({ from, to: null }), [setTrace]);
   const pick = useCallback(
