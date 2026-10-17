@@ -57,6 +57,14 @@ export {
 } from "./declaration.ts";
 export type { ExtensionDeclaration, ExtensionEntry, ExtensionRow } from "./declaration.ts";
 export { NO_SWITCHES, familyOn, switchWrites } from "./extension-switch.ts";
+export {
+  FOOTPRINT_SOURCES,
+  FamilyKernels,
+  FootprintRowSchema,
+  holdsFamily,
+  runtimeFootprint,
+} from "./footprint.ts";
+export type { FamilyKernel, FootprintRow, HostedFamilies } from "./footprint.ts";
 export type { NodeLookup } from "./extension-switch.ts";
 export { ViewCatalog, ViewKeyPoint, viewDef } from "./view-catalog.ts";
 export type { ViewDef, ViewText } from "./view-catalog.ts";

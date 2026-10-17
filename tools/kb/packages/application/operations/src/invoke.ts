@@ -58,7 +58,12 @@ import {
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
-import { extensionSwitchDef, extensionSwitchEffect } from "./extensions.ts";
+import {
+  extensionFootprintDef,
+  extensionFootprintEffect,
+  extensionSwitchDef,
+  extensionSwitchEffect,
+} from "./extensions.ts";
 import { nodeAddTreeDef, nodeAddTreeEffect } from "./node-add-tree.ts";
 import { kbManifestDef, kbManifestEffect } from "./manifest.ts";
 import { viewsMigrateDef, viewsMigrateEffect } from "./views-migrate.ts";
@@ -136,6 +141,7 @@ const portActions: readonly RegisteredAction[] = [
   coreNative(renderViewsDef, renderViewsActionEffect),
   coreNative(kbManifestDef, kbManifestEffect),
   coreNative(extensionSwitchDef, extensionSwitchEffect),
+  coreNative(extensionFootprintDef, extensionFootprintEffect),
   coreNative(viewsMigrateDef, viewsMigrateEffect),
   coreNative(uiScreenDef, uiScreenEffect),
   coreNative(uiNavigateDef, uiNavigateEffect),

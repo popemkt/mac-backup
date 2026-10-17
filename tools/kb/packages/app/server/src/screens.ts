@@ -7,7 +7,7 @@ import {
   noTabReceipt,
   selectCommand,
   type ActionHandlerEnv,
-  type ExtensionRow,
+  type HostedFamilies,
   type KbContext,
   type ScreenAck,
   type ScreenCapture,
@@ -213,7 +213,7 @@ export class ScreenHub {
 export function serverRuntimeLayer(
   ctx: KbContext,
   screens: ScreenHub,
-  hosted?: Effect.Effect<readonly ExtensionRow[]>,
+  hosted?: HostedFamilies,
 ): Layer.Layer<ActionHandlerEnv> {
   return kbRuntimeLayer(ctx, Layer.succeed(Screens, screens.port), hosted);
 }

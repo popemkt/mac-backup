@@ -2320,6 +2320,29 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   seed. Opening a store with a family switched off neither deletes nor
   rewrites that family's nodes: the data outlives the code.
 
+- **A family's footprint is read, never stored.** What a family adds is
+  two readings of what already exists (`FootprintRow`, `@kb/contracts`:
+  `{family, kind, id, enabled, source}`):
+  - **data rows** (`source: "seed"`): the nodes its declaration seeds, as
+    the index answers `:node/owner` (Data model), each with its kind (its
+    `sys.f.type`, else `node`). They are there whether the family is
+    loaded or not, because its seed is;
+  - **runtime rows**: what its plugins, children included, contributed to
+    a kernel (`Kernel.contributionsOf`), each with the point's name as its
+    kind (`kb.actions`, `kb.views`, `ui.routes`, …), from each kernel the
+    host holds families in (`FamilyKernels`): the registry's
+    (`registry`), and the one the `kb ui` server hosts its families in
+    (`host`). A family switched off has none.
+
+  `extension.footprint {name?}` returns them for every node under
+  `sys.extensions`, core's included, or for one; `enabled` says whether a
+  kernel of this host holds the family. `kb ext footprint <name>` prints
+  it, `kb ext list` counts it per family, and MCP and the agent get it as a
+  tool like any action. `extensionContract` holds every family to it: its
+  data rows are what it owns, loaded or not, and while its host holds it
+  its runtime rows are exactly what that kernel holds of it, each action in
+  its own `ext.<name>` namespace. A declared action list for a family that
+  is off (owner question 3) and a write footprint are not built.
 - **Ids are frozen data.** `sys.f.chart`, `sys.views` options and the rest
   keep their spelling when their declaring package changes, so no store
   migrates and opening still never writes. A rename goes through an explicit

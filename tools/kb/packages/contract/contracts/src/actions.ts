@@ -17,6 +17,7 @@ import type { GraphWrites } from "./graph-writes.ts";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
 import type { ExtensionCatalog } from "./declaration.ts";
+import type { FamilyKernels } from "./footprint.ts";
 import type { ViewCatalog } from "./view-catalog.ts";
 import type { Assets, CodeTrust, LegacyDocsViews, SavedQueries } from "./workspace.ts";
 import type { KbRoots } from "./roots.ts";
@@ -88,6 +89,7 @@ export type ActionHandlerEnv =
   | ActionCatalog
   | ViewCatalog
   | ExtensionCatalog
+  | FamilyKernels
   | SavedQueries
   | LegacyDocsViews
   | Assets

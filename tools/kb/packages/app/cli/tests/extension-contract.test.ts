@@ -33,6 +33,7 @@ function uiServerHost(): SwitchingHost {
       }),
   });
   return {
+    source: "host",
     compose: (nodeOf) =>
       Effect.gen(function* () {
         store = nodeOf;

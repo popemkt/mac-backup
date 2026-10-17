@@ -19,6 +19,9 @@
  *   seeds, a store of every backend answers `:node/owner` so, and an id its
  *   seed hands to another declaration answers that one's node, while
  *   opening the store writes nothing;
+ * - its footprint (`extension.footprint`) is its seed's rows, loaded or
+ *   not, and, only while its host holds it, exactly what that host's kernel
+ *   holds of it, each action in its own `ext.<name>` namespace;
  * - that fold has one provider of the default view type, which provides the
  *   view it names, and the fold refuses a default this family would provide
  *   beside another provider or name without providing it;
@@ -45,11 +48,13 @@ import { describe, expect, test } from "bun:test";
 import { Effect, Result } from "effect";
 import { BUNDLED_DECLARATIONS, derivedOf } from "@kb/bundled";
 import {
+  ActionPoint,
   NO_SWITCHES,
   ViewKeyPoint,
   switchWrites,
   type ExtensionDeclaration,
   type ExtensionRow,
+  type FamilyKernel,
   type NodeLookup,
 } from "@kb/contracts";
 import {
@@ -62,6 +67,7 @@ import {
   type SeedSource,
   type SeedView,
 } from "@kb/model";
+import { familyFootprint } from "@kb/operations";
 import { makeKernel, type Kernel, type Plugin } from "@kb/plugin";
 import { DatascriptIndex, type KbIndex } from "@kb/query";
 import { STORE_BACKENDS, bunFileSystemLayer, createStore } from "@kb/runtime";
@@ -77,6 +83,8 @@ import { CONTRACT_AT, openSession, scratchRoot } from "./store-session.ts";
  * without a restart.
  */
 export interface SwitchingHost {
+  /** The source its kernel's footprint rows carry. */
+  readonly source: FamilyKernel["source"];
   readonly compose: (
     nodeOf: NodeLookup,
   ) => Effect.Effect<{ readonly row: ExtensionRow | undefined; readonly kernel: Kernel }>;
@@ -214,6 +222,49 @@ function ownershipPromises(declaration: ExtensionDeclaration): void {
     expect(ownedIn(index, receiver.name)).toContain(moved.id);
     expect(ownedIn(index, declaration.name)).not.toContain(moved.id);
   });
+}
+
+/**
+ * The footprint promise: a family's rows are its seed's, whether it is
+ * loaded or not, and, only while its host holds it, exactly what that
+ * host's kernel holds of it, each action in its own namespace.
+ */
+function footprintPromises(
+  declaration: ExtensionDeclaration,
+  entry: Plugin,
+  host: SwitchingHost,
+): void {
+  test("its footprint is its seed, and while it is loaded exactly what its host holds of it", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const ctx = yield* openSession(yield* scratchRoot);
+          const states = declaration.optional === undefined ? [true] : [false, true, false];
+          for (const on of states) {
+            const { kernel } = yield* host.compose(switched(declaration, on));
+            const rows = familyFootprint(ctx.index, declaration.name, [
+              { source: host.source, kernel },
+            ]);
+            const seed = rows.filter((row) => row.source === "seed");
+            const runtime = rows.filter((row) => row.source !== "seed");
+            expect({ on, seed: seed.map((row) => [row.id, row.enabled]) }).toEqual({
+              on,
+              seed: ownedIn(ctx.index, declaration.name).map((id) => [id, on]),
+            });
+            expect({ on, runtime: runtime.map((row) => [row.kind, row.id]) }).toEqual({
+              on,
+              runtime: on
+                ? kernel.contributionsOf(entry.name).map(({ point, id }) => [point, id])
+                : [],
+            });
+            const stray = runtime
+              .filter((row) => row.kind === ActionPoint.name)
+              .filter((row) => !row.id.startsWith(`ext.${declaration.name}.`));
+            expect(stray).toEqual([]);
+          }
+        }),
+      ),
+    ));
 }
 
 /** The switch promises: how the family's host composes it as the store switches it. */
@@ -372,6 +423,7 @@ export function extensionContract(
 
     defaultViewPromises(declaration);
     ownershipPromises(declaration);
+    footprintPromises(declaration, entry, host);
     switchPromises(declaration, entry, host);
   });
 }

@@ -310,9 +310,15 @@ export function extensionNodeId(name: string): NodeId {
   return `sys.extension.${name}`;
 }
 
+/** The name of the extension whose own node `id` is, as {@link extensionNodeId} names one; none for any other id. */
+export function extensionNameOf(id: NodeId): string | undefined {
+  const prefix = extensionNodeId("");
+  return id.startsWith(prefix) && id.length > prefix.length ? id.slice(prefix.length) : undefined;
+}
+
 /** Whether `id` is an extension's own node, as {@link extensionNodeId} names one. */
 export function isExtensionNodeId(id: NodeId): boolean {
-  return id.startsWith(extensionNodeId("")) && id.length > extensionNodeId("").length;
+  return extensionNameOf(id) !== undefined;
 }
 
 /**

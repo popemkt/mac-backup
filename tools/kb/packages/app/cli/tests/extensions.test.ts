@@ -1,3 +1,4 @@
+import type { FootprintRow } from "@kb/contracts";
 import { describe, expect, test, afterEach } from "bun:test";
 import { Effect } from "effect";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -209,5 +210,46 @@ describe("kb ext list", () => {
       "outline",
     ]);
     expect(parsed.output.failures.map((f) => f.file)).toEqual(["broken.ts"]);
+  });
+});
+
+describe("kb ext footprint", () => {
+  test("prints what a family seeds and what it registered, and only its seed while it is off", async () => {
+    const root = await tempRoot();
+    const canvas = await runCli(["--root", root, "--json", "ext", "footprint", "canvas"]);
+    expect(canvas.code).toBe(0);
+    const rows = (
+      JSON.parse(canvas.out) as {
+        output: { rows: FootprintRow[] };
+      }
+    ).output.rows;
+    expect(rows).toContainEqual({
+      family: "canvas",
+      kind: "sys.field",
+      id: "sys.f.canvas",
+      enabled: true,
+      source: "seed",
+    });
+    expect(rows).toContainEqual({
+      family: "canvas",
+      kind: "kb.actions",
+      id: "ext.canvas.tx.apply",
+      enabled: true,
+      source: "registry",
+    });
+
+    const lab = await runCli(["--root", root, "ext", "footprint", "lab"]);
+    expect(lab.code).toBe(0);
+    expect(lab.out.trim().split("\n")).toEqual([
+      "lab (off): 1 contributed",
+      "  seed     node           sys.view.lab.page",
+    ]);
+
+    const listed = await runCli(["--root", root, "ext", "list"]);
+    expect(listed.out).toContain(`canvas (bundled) — contributes ${rows.length}`);
+
+    const unknown = await runCli(["--root", root, "ext", "footprint", "nope"]);
+    expect(unknown.code).toBe(1);
+    expect(unknown.out).toContain("no extension named nope");
   });
 });

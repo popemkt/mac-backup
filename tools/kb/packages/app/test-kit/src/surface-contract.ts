@@ -26,6 +26,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
+import { makeKernel } from "@kb/plugin";
 import {
   listedOn,
   onWire,
@@ -360,7 +361,12 @@ function overSurfaces(
                 const hosted = surface.host === "ui" ? ui.hosted : [];
                 const core = (invocation: ActionInvocation) =>
                   invokeReceiptEffect(ctx, onWire(surface.wire, invocation)).pipe(
-                    Effect.provide(kbRuntimeLayer(ctx, undefined, Effect.succeed(hosted))),
+                    Effect.provide(
+                      kbRuntimeLayer(ctx, undefined, {
+                        rows: Effect.succeed(hosted),
+                        kernel: makeKernel(),
+                      }),
+                    ),
                   );
                 const via = (invocation: ActionInvocation) =>
                   Effect.promise(() => surface.invoke(invocation));

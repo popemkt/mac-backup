@@ -6,6 +6,7 @@ import {
   familyOn,
   type ExtensionEntry,
   type ExtensionRow,
+  type HostedFamilies,
   type NodeLookup,
   type KbContext,
   type UiHostService,
@@ -46,9 +47,8 @@ export function channelsOf(kernel: Kernel): ChannelDirectory {
  * store holds is what the host reports, whoever wrote it and however the
  * host heard of it.
  */
-export interface HostedExtensions {
+export interface HostedExtensions extends HostedFamilies {
   readonly converge: Effect.Effect<void>;
-  readonly rows: Effect.Effect<readonly ExtensionRow[]>;
   /** The switch nodes of the extensions it was handed: a write to one is a reason to converge. */
   readonly switches: ReadonlySet<string>;
 }
@@ -59,11 +59,7 @@ function unreadSwitch(name: string): (warning: string) => void {
 }
 
 /** The server, as the service its plugins inject: the registry, run as every call is run here. */
-function uiHost(
-  ctx: KbContext,
-  screens: ScreenHub,
-  hosted: Effect.Effect<readonly ExtensionRow[]>,
-): UiHostService {
+function uiHost(ctx: KbContext, screens: ScreenHub, hosted: HostedFamilies): UiHostService {
   return {
     root: ctx.root,
     invoke: (invocation) =>
@@ -88,7 +84,7 @@ export const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
   kernel: Kernel,
   extensions: readonly ExtensionEntry[],
   nodeOf: NodeLookup,
-  held: (rows: Effect.Effect<readonly ExtensionRow[]>) => readonly Plugin[],
+  held: (hosted: HostedFamilies) => readonly Plugin[],
 ): Effect.fn.Return<HostedExtensions> {
   const lock = yield* Semaphore.make(1);
   const rows: Effect.Effect<readonly ExtensionRow[]> = Effect.suspend(() => converge).pipe(
@@ -106,7 +102,7 @@ export const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
       }),
     ),
   );
-  const base = held(rows);
+  const base = held({ rows, kernel });
   let composed: string | null = null;
   const converge: Effect.Effect<void> = lock.withPermit(
     Effect.gen(function* () {
@@ -132,6 +128,7 @@ export const composeHosted = Effect.fn("kb.ui.composeHosted")(function* (
   return {
     converge,
     rows,
+    kernel,
     switches: new Set(extensions.map(({ declaration }) => extensionNodeId(declaration.name))),
   };
 });
@@ -150,11 +147,11 @@ export function loadServerPlugins(
     kernel,
     extensions,
     (id) => ctx.index.getNode(id),
-    (rows) => [
+    (hosted) => [
       definePlugin({
         name: "ui-host",
         namespace: "",
-        apply: (plugin) => plugin.provide(UiHost, uiHost(ctx, screens, rows)),
+        apply: (plugin) => plugin.provide(UiHost, uiHost(ctx, screens, hosted)),
       }),
     ],
   );

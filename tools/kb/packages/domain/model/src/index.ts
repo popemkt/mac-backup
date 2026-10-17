@@ -78,6 +78,7 @@ export {
   LEGACY_SEED_RENAMES,
   SYSTEM_IDS,
   currentIso,
+  extensionNameOf,
   extensionNodeId,
   isExtensionNodeId,
   freshId,

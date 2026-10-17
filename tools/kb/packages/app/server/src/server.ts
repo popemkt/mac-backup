@@ -7,7 +7,7 @@ import {
   UI_DEFAULT_PORT,
   directorySignals,
   type ExtensionEntry,
-  type ExtensionRow,
+  type HostedFamilies,
   type KbContext,
   type SurfaceWire,
 } from "@kb/contracts";
@@ -195,7 +195,7 @@ function serveUi(deps: {
   root: string;
   ctx: KbContext;
   hub: SubscriptionHub;
-  hosted: Effect.Effect<readonly ExtensionRow[]>;
+  hosted: HostedFamilies;
 }): Bun.Server<WsData> {
   const { ctx, hub } = deps;
   // Built on the first request, once the listener knows its port (0 binds an ephemeral one).
@@ -273,7 +273,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const queries = new SavedQuerySet(ctx);
   queries.adopt(savedQueryNodes(yield* listSavedQueriesEffect(opts.root)));
 
-  const layer = serverRuntimeLayer(ctx, hub.screens, hosted.rows);
+  const layer = serverRuntimeLayer(ctx, hub.screens, hosted);
   // The directory has to be there to be watched, and `kb ui` is the surface
   // that projects it — a root that has never saved a query would otherwise
   // never notice its first one.
@@ -294,7 +294,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     root: opts.root,
     ctx,
     hub,
-    hosted: hosted.rows,
+    hosted,
   });
 
   yield* Scope.addFinalizer(

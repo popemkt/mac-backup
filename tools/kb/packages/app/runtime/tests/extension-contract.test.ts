@@ -21,6 +21,7 @@ const COUNT_ROWS = { mark: "bar", encoding: { y: { aggregate: "count", type: "qu
 /** The registry as the host of a bundled family: what it loads and reports over a store's switches. */
 function registryHost(name: string): SwitchingHost {
   return {
+    source: "registry",
     compose: (nodeOf) =>
       registryFor(null, nodeOf).pipe(
         Effect.map(({ families, kernel }) => ({

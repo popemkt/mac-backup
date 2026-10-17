@@ -10,6 +10,7 @@ import { openKb } from "../src/session.ts";
 import {
   ActionCatalog,
   ExtensionCatalog,
+  FamilyKernels,
   KbCtx,
   KbStore,
   ViewCatalog,
@@ -251,6 +252,7 @@ export default actions;
             Layer.succeed(ActionCatalog, []),
             Layer.succeed(ViewCatalog, viewCatalogOf([])),
             Layer.succeed(ExtensionCatalog, []),
+            Layer.succeed(FamilyKernels, []),
             savedQueriesLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             legacyDocsViewsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             assetsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),

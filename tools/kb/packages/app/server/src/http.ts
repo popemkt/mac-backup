@@ -7,7 +7,7 @@ import {
   listingOf,
   onWire,
   type ActionResponse,
-  type ExtensionRow,
+  type HostedFamilies,
   type KbContext,
   type ServerIdentity,
   type SurfaceWire,
@@ -38,7 +38,7 @@ export interface UiHttpDeps {
   ctx: KbContext;
   hub: SubscriptionHub;
   /** The extensions the server hosts beside the registry's, as it reports them; none when absent. */
-  hosted?: Effect.Effect<readonly ExtensionRow[]>;
+  hosted?: HostedFamilies;
 }
 
 function jsonResponse(

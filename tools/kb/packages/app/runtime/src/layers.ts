@@ -4,7 +4,8 @@ import { KbIndexService } from "@kb/query";
 import {
   ActionCatalog,
   ExtensionCatalog,
-  type ExtensionRow,
+  FamilyKernels,
+  type HostedFamilies,
   type ActionHandlerEnv,
   kbCtxLayer,
   kbStoreLayer,
@@ -52,15 +53,17 @@ import { remoteScreensLayer } from "./screens.ts";
  * passes its own, so it never has a way to ask itself.
  *
  * `hosted` is what the host composes beside the registry (the `kb ui`
- * server's agent), read at each call: the extension catalog reports it after
- * the registry's families. A process that hosts nothing reports none.
+ * server's agent): the extension catalog reports its rows, read at each
+ * call, after the registry's families, and its kernel is one of the
+ * `FamilyKernels` beside the registry's. A process that hosts nothing
+ * reports none.
  */
 export function kbRuntimeLayer(
   ctx: KbContext,
   screens: Layer.Layer<Screens> = remoteScreensLayer(ctx.root).pipe(
     Layer.provide(bunFileSystemLayer),
   ),
-  hosted: Effect.Effect<readonly ExtensionRow[]> = Effect.succeed([]),
+  hosted?: HostedFamilies,
 ): Layer.Layer<ActionHandlerEnv> {
   const registry = sessionRegistry(ctx).pipe(Effect.provide(bunFileSystemLayer));
   return Layer.mergeAll(
@@ -79,8 +82,17 @@ export function kbRuntimeLayer(
     Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),
     Layer.effect(
       ExtensionCatalog,
-      Effect.all([registry, hosted]).pipe(
+      Effect.all([registry, hosted?.rows ?? Effect.succeed([])]).pipe(
         Effect.map(([{ families }, rows]) => [...families, ...rows]),
+      ),
+    ),
+    Layer.effect(
+      FamilyKernels,
+      registry.pipe(
+        Effect.map(({ kernel }) => [
+          { source: "registry" as const, kernel },
+          ...(hosted === undefined ? [] : [{ source: "host" as const, kernel: hosted.kernel }]),
+        ]),
       ),
     ),
     Layer.succeed(UntrustedEngine, quickjsEngine),
