@@ -111,3 +111,12 @@ A third backdrop meant editing the kit, the outline and Preferences.
 - **A page's own backdrop has no gesture** (gap 01M54CEM0Z5SMAS7KABS7QZ67C). The slot reads the page node's
   fields, but `sys.*` props are hidden from field rows. So a page's choice can
   be written only from the CLI or MCP, or with debug fields shown.
+
+## Review round 4 (GPT-6.1 Sol, 2026-10-17): batch B
+
+A review of the backdrop point as it landed (main `c00a439a`). Each finding
+was verified against the code before it was fixed.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| B1 | minor | A stale backdrop id falls back to the wrong choice: `chosenBackdrop` returns the first backdrop for an unknown id, and `backdropChoice` takes the page's stale value first. | An unknown id counts as absent in `backdropChoice`, falling through to core as strength and direction do; a stale-id case in the contract. |

@@ -334,3 +334,23 @@ against the code before it was fixed.
 | R5 | minor | `agentSeedNodes`' comment overstates the guard: a field is configuration only on a tagged node. | The comment states the tag requirement. |
 | R6 | minor | The Claude adapter passes the whole environment to the SDK child. | It uses the one child-env owner. |
 | R7 | minor | `stopChild` sends only SIGTERM. | SIGKILL after a grace period. |
+
+R5 did not reproduce: a configuring field counts as configuration on any
+node, tagged or not, so the comment was left as it is. R6 as stated did not
+reproduce either (the SDK child got only picked variables); its fix removed
+a second allowlist instead.
+
+### Review round 4 (GPT-6.1 Sol, 2026-10-17): batch 3
+
+A review of round 3 as it landed (main `c00a439a`). Each finding was
+verified against the code before it was fixed.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| 3.1 | blocker | R1's trust closure is open: `scanImports` sees only literal specifiers and the verified load hook only paths under `.kb/extensions`, so a computed `import()` of a file outside runs unverified, and a symlinked extension loads the bytes on disk after its digest was checked. | Only the bytes that were hashed are imported, served by real path; a link that resolves out of the extensions directory is refused; every non-literal import is decided explicitly. A contract property for each escape. |
+| 3.2 | major | `env:` secret refs resolve any environment variable, and the agent child keeps the person's login variables. | Verified whether a resolved value can reach a node, a tool result or the page; an `env:` ref resolves only a name declared as a secret, and login variables reach the child only where the adapter declares it runs the person's own login. |
+| 3.3 | major | A store migration writes through `persistOwnWrite` as a system write with no expected fingerprint. | Through the commit owner with its mode justified and an expected fingerprint. |
+| 3.4 | major | Opening commits the seed and migrations with no expected revision: a lost update. | The loaded snapshot's revision is expected, and a conflict plans the migration again. |
+| 3.5 | minor | `stopChild` sends SIGKILL to the group even after a clean exit. | SIGKILL only when the group is still alive after the grace. |
+| 3.6 | minor | The server's and the page's `visibleNodes` keep scaffolding trace ends differently. | One shared function. |
+| 3.7 | minor | `bundled/src/index.ts` claims a derived table that a root's repository `refCarriers` make false. | The claim is corrected, or gap 01M549TK1WP4E6T4QHNDRSDYQA's text extended. |
