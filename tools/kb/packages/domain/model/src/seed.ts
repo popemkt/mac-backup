@@ -147,6 +147,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.cardinalityField },
       { t: "ref", v: SYSTEM_IDS.targetTagField },
       { t: "ref", v: SYSTEM_IDS.targetQueryField },
+      { t: "ref", v: SYSTEM_IDS.relationInverseField },
     ],
   });
   const typeField = typedField(SYSTEM_IDS.typeField, "type", "ref");
@@ -180,6 +181,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   };
   const targetTagField = typedField(SYSTEM_IDS.targetTagField, "targetTag", "ref");
   const targetQueryField = singleField(SYSTEM_IDS.targetQueryField, "targetQuery", "text");
+  const relationInverseField = singleField(SYSTEM_IDS.relationInverseField, "inverse", "text");
   // Deliberately NOT self-typed. `sys.f.type` is the kind slot, and a ref to
   // `sys.tag` there declares "this node is a supertag" — resolveTags skips it
   // precisely so it never renders as a chip. Listing sys.tag among selectable
@@ -537,6 +539,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...cardinalityOptions,
     targetTagField,
     targetQueryField,
+    relationInverseField,
     command,
     ...commands,
     queryField,

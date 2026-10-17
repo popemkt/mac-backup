@@ -116,6 +116,7 @@ describe("typed field seeds", () => {
       SYSTEM_IDS.cardinalityField,
       SYSTEM_IDS.targetTagField,
       SYSTEM_IDS.targetQueryField,
+      SYSTEM_IDS.relationInverseField,
     ]);
   });
 

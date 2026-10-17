@@ -93,6 +93,13 @@ export const SYSTEM_IDS = {
   targetTagField: "sys.f.targetTag",
   /** Ref constraint general form: EDN datalog of allowed node ids (wins over tag). */
   targetQueryField: "sys.f.targetQuery",
+  /**
+   * What a ref field's relation is called read against its direction
+   * ("influenced by" for "influences"): plain text on the field node. The
+   * graph's hop explanations and the outline's References read it; no
+   * inverse edge is ever written.
+   */
+  relationInverseField: "sys.f.relation.inverse",
   /** Type node for palette command nodes (DESIGN-REFINE §2 W3). */
   command: "sys.command",
   cmdAddNode: "sys.cmd.add-node",

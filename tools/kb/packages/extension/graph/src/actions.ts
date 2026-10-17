@@ -1,14 +1,16 @@
 /**
  * The graph family's actions, `ext.graph.*`, aliased bare beside core's
  * `graph.query` and `graph.search`: trace and suggest, which read the store
- * through the same functions the page reads its replica with (`read.ts`).
+ * through the same functions the page reads its replica with (`read.ts`),
+ * and typing a relation (`relation.ts`), which writes one ref prop.
  */
-import { Effect, Schema } from "effect";
+import { Effect, Result, Schema } from "effect";
 import { z } from "zod";
-import { KbCtx, type ExtensionAction, type KbContext } from "@kb/contracts";
-import { domainError, type DomainError } from "@kb/model";
+import { GraphWrites, KbCtx, type ExtensionAction, type KbContext } from "@kb/contracts";
+import { currentIso, domainError, type DomainError } from "@kb/model";
 import { EdgeKindSchema, type EdgeKind } from "./lens.ts";
 import { suggestOf, traceOf } from "./read.ts";
+import { typedRelation } from "./relation.ts";
 import { SUGGEST_DEFAULTS } from "./suggest.ts";
 import { TRACE_DEFAULTS } from "./trace.ts";
 
@@ -125,6 +127,32 @@ export const graphSuggestEffect = Effect.fn("ext.graph.suggest")(function* (
   });
 });
 
+const relationInput = z.object({
+  source: z.string().describe("The node the relation leaves"),
+  target: z.string().describe("The node it points at"),
+  field: z.string().describe("The ref field that names the relation; its text is the label"),
+});
+
+const relationOutput = z.object({
+  source: z.string(),
+  target: z.string(),
+  field: z.string(),
+  /** False when the source already held the relation. */
+  written: z.boolean(),
+});
+
+export const graphRelationTypeEffect = Effect.fn("ext.graph.relation.type")(function* (
+  input: z.infer<typeof relationInput>,
+): Effect.fn.Return<z.infer<typeof relationOutput>, DomainError, KbCtx | GraphWrites> {
+  const { index } = yield* KbCtx;
+  const nodes = new Map([...index.allNodes()].map((node) => [node.id, node]));
+  const typed = typedRelation(nodes, input, (edn) => index.runDatalog(edn), yield* currentIso);
+  if (Result.isFailure(typed)) return yield* domainError(typed.failure.code, typed.failure.message);
+  if (typed.success !== null)
+    yield* (yield* GraphWrites).commit({ upserts: [typed.success], deletes: [] });
+  return { ...input, written: typed.success !== null };
+});
+
 export const GRAPH_ACTIONS: readonly ExtensionAction[] = [
   {
     id: "trace",
@@ -150,5 +178,19 @@ export const GRAPH_ACTIONS: readonly ExtensionAction[] = [
     inputSchema: suggestInput,
     outputSchema: suggestOutput,
     effect: graphSuggestEffect,
+  },
+  {
+    id: "relation.type",
+    aliases: ["graph.relation.type"],
+    title: "Type a relation",
+    description:
+      "Say what a connection means: add one ref prop of a ref field from source to target, in " +
+      "one transaction, leaving the text (and any mention of the target) as it is. The field " +
+      "node's text is the relation's label. Refuses a field that is not a ref and a target the " +
+      "field does not allow; typing a relation the source already holds writes nothing",
+    mode: { kind: "write" },
+    inputSchema: relationInput,
+    outputSchema: relationOutput,
+    effect: graphRelationTypeEffect,
   },
 ];

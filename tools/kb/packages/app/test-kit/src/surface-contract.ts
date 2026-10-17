@@ -112,6 +112,11 @@ const APPROVAL_ACTION = "ext.gated.stamp";
 const DENIED_ACTION = "ext.gated.blocked";
 /** A plain write that a policy asks an agent about. */
 const ASKED_ACTION = "ext.gated.checked";
+/**
+ * A family's write that the repository's policy asks an agent about: typing
+ * a relation (the graph family's), which a person's gesture never asks.
+ */
+const TYPED_ACTION = "ext.graph.relation.type";
 /** One of the seeded default policies. */
 const SEEDED_POLICY = "approval.agent-delete";
 
@@ -170,7 +175,8 @@ export default [
  * ask for an agent, an exact allow that lowers the declared approval of the
  * stamp for the command line only, a pattern allow for an agent that lowers
  * nothing the stamp declares, and an allow of every write to anyone, which a
- * write to a policy ignores.
+ * write to a policy ignores; and the repository's ask before an agent types
+ * a relation.
  */
 const POLICIES: readonly Omit<ApprovalPolicy, "id">[] = [
   { match: DENIED_ACTION, actor: null, decision: "deny" },
@@ -178,6 +184,7 @@ const POLICIES: readonly Omit<ApprovalPolicy, "id">[] = [
   { match: APPROVAL_ACTION, actor: "cli", decision: "allow" },
   { match: "ext.gated.*", actor: "agent", decision: "allow" },
   { match: "node.update", actor: null, decision: "allow" },
+  { match: TYPED_ACTION, actor: "agent", decision: "ask" },
 ];
 
 /** A policy as a node, written through the invoke core with a person's approval. */
@@ -469,8 +476,8 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
           const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
           // What a call came to: "ran", its failure code, or "uncallable" where
           // the wire cannot make it at all, which only an unlisted action may be.
-          const outcome = (id: string) =>
-            Effect.map(via({ id, input: {} }), (receipt) => {
+          const outcome = (id: string, input: unknown = {}) =>
+            Effect.map(via({ id, input }), (receipt) => {
               if (receipt !== null) return receipt.status === "failed" ? receipt.code : "ran";
               expect({ name, id, listed: listed.has(id) }).toEqual({ name, id, listed: false });
               return "uncallable";
@@ -482,7 +489,13 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
           const denied = yield* outcome(DENIED_ACTION);
           const asked = yield* outcome(ASKED_ACTION);
           const declared = yield* outcome(APPROVAL_ACTION);
-          expect({ name, denied, asked, declared }).toEqual({
+          // Nodes the root does not hold: a call that runs reaches the action and is not_found.
+          const typed = yield* outcome(TYPED_ACTION, {
+            source: "n.x",
+            target: "n.y",
+            field: "f.z",
+          });
+          expect({ name, denied, asked, declared, typed }).toEqual({
             name,
             // Denied to every actor, whatever the wire.
             denied: refusal("forbidden", denied),
@@ -490,6 +503,8 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
             asked: agent ? refusal("approval_required", asked) : "ran",
             // The exact allow is the command line's; an agent's pattern allow lowers nothing.
             declared: agent ? refusal("approval_required", declared) : "ran",
+            // A family's write asks an agent under the repository's policy, as core's do.
+            typed: agent ? refusal("approval_required", typed) : "not_found",
           });
         }),
       ),

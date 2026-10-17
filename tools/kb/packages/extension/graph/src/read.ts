@@ -4,7 +4,7 @@
  * `graph.suggest`) and the page's local read run these same functions over
  * the nodes each holds, so both hosts give one answer.
  */
-import { replaceMentions } from "@kb/model";
+import { replaceMentions, SYSTEM_IDS } from "@kb/model";
 import type { LensSource } from "./edges.ts";
 import { explainHop, hopLabel, type HopLabels } from "./explain.ts";
 import type { EdgeKind } from "./lens.ts";
@@ -97,7 +97,7 @@ export function suggestOf(
 /**
  * The labels a node set gives a hop: a node by its text, with each reference
  * token read as its label (or its target's text), and a relation by its
- * field node's text.
+ * field node's text, read back by the field's inverse label when it has one.
  */
 export function hopLabelsOf(nodes: readonly LensSource[]): HopLabels {
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -109,6 +109,15 @@ export function hopLabelsOf(nodes: readonly LensSource[]): HopLabels {
   };
   return {
     textOf,
-    relationOf: (fieldId) => ({ label: textOf(fieldId), inverse: null }),
+    relationOf: (fieldId) => {
+      const inverse = byId
+        .get(fieldId)
+        ?.props[SYSTEM_IDS.relationInverseField]?.find((value) => value.t === "str")
+        ?.v.trim();
+      return {
+        label: textOf(fieldId),
+        inverse: inverse === undefined || inverse === "" ? null : inverse,
+      };
+    },
   };
 }

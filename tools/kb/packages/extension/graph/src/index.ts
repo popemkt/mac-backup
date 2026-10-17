@@ -109,7 +109,13 @@ export {
   type GraphSourceKind,
 } from "./schema.ts";
 export { graphExtension, graphPlugin, graphServerPlugin } from "./extension.ts";
-export { GRAPH_ACTIONS, graphSuggestEffect, graphTraceEffect } from "./actions.ts";
+export {
+  GRAPH_ACTIONS,
+  graphRelationTypeEffect,
+  graphSuggestEffect,
+  graphTraceEffect,
+} from "./actions.ts";
+export { typedRelation, type RelationRefusal, type RelationTyping } from "./relation.ts";
 export {
   DEFAULT_TRACE_KINDS,
   hopLabelsOf,
