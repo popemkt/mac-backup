@@ -8,6 +8,7 @@ import {
   ResolveError,
   domainError,
   domainFromResolve,
+  sanitizeSvg,
   type DomainError,
 } from "@kb/model";
 
@@ -61,6 +62,24 @@ function decodeBytes(input: string, encoding: "base64" | "utf8"): Uint8Array {
 }
 
 /**
+ * An SVG as kb keeps it: markup can carry script, so it is stored only as
+ * `sanitizeSvg` writes it back (DESIGN.md → `asset.upload`), and refused when it
+ * does not read as SVG. Any other kind is stored as it came.
+ */
+function kept(ext: string, data: Uint8Array): Uint8Array {
+  if (ext !== "svg") return data;
+  let markup: string;
+  try {
+    markup = new TextDecoder("utf-8", { fatal: true }).decode(data);
+  } catch {
+    throw new ResolveError("forbidden", "an svg asset must be UTF-8 text", {});
+  }
+  const safe = sanitizeSvg(markup);
+  if (safe === null) throw new ResolveError("forbidden", "not an SVG kb can read", {});
+  return new TextEncoder().encode(safe);
+}
+
+/**
  * The most bytes one asset holds. `asset.upload` refuses more, and a page
  * refuses a larger file before reading it (the browser reads the whole file
  * and base64s it), so a huge paste or drop cannot freeze the tab. One value,
@@ -74,7 +93,8 @@ const BYTES_INPUT_MAX = Math.ceil(ASSET_MAX_BYTES / 3) * 4 + 256;
 export const assetUploadDef = {
   id: "asset.upload",
   title: "Upload asset",
-  description: "Write opaque bytes to .kb/assets/<ulid>.<ext>; returns assets/… path for markdown",
+  description:
+    "Write bytes to .kb/assets/<ulid>.<ext>; returns assets/… path for markdown. An svg is kept only with its script, handlers and references out taken away, and refused when it is not SVG",
   mode: { kind: "write" } as const,
   inputSchema: z.object({
     /** File contents as base64 (default) or utf8. */
@@ -114,7 +134,7 @@ export const assetUploadEffect = Effect.fn("asset.upload")(function* (
           { bytes: data.byteLength, max: ASSET_MAX_BYTES },
         );
       }
-      return { ext, data };
+      return { ext, data: kept(ext, data) };
     },
     catch: (err) => {
       if (err instanceof ResolveError) return domainFromResolve(err);

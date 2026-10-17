@@ -13,7 +13,6 @@ import {
   moveBy,
   orderItems,
   withFlag,
-  parseCanvasDoc,
   pasteItems,
   selectionPivot,
   settleMembership,
@@ -46,6 +45,7 @@ import {
 import type { CanvasViewportControls } from "./canvas-camera";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import { isTextEntry } from "@kb/ui-sdk";
+import { readPastedText } from "./canvas-paste";
 
 /**
  * The canvas keyboard surface: `canvas-keymap` decides *what* a chord
@@ -61,6 +61,8 @@ interface CanvasKeyboardContext {
   pointerAt: () => { x: number; y: number };
   /** Place the pictures among pasted files at the pointer; whether there were any. */
   pastePictures: (files: Iterable<File>) => boolean;
+  /** Place pasted words at the pointer, as a text card. */
+  pasteText: (text: string) => void;
   /** A modal transform is under way. */
   transforming: () => boolean;
   /** Frames are being presented. */
@@ -129,23 +131,13 @@ function pasteDoc(source: CanvasDoc, context: CanvasKeyboardContext, selectEdges
   });
 }
 
-/** Paste `text` as canvas items; false when it is not a canvas document. */
-function pasteCanvas(text: string, context: CanvasKeyboardContext): boolean {
-  let source: CanvasDoc;
-  try {
-    source = parseCanvasDoc(text);
-  } catch {
-    return false;
-  }
-  pasteDoc(source, context, true);
-  return true;
-}
-
 /**
  * The browser's paste, which ⌘V (or Edit → Paste) raises with what the
  * clipboard holds and no permission asked: pictures become image items at
- * the pointer, and otherwise a canvas document becomes items. A field being
- * typed in keeps its own paste, and a modal transform takes none.
+ * the pointer, and otherwise its text becomes what it reads as
+ * (`readPastedText`): a canvas document its items, SVG markup a picture,
+ * other words a text card at the pointer. A field being typed in keeps its
+ * own paste, and a modal transform takes none.
  */
 function pasteClipboard(event: ClipboardEvent, context: CanvasKeyboardContext): void {
   if (isTextEntry(event.target) || context.transforming()) return;
@@ -155,8 +147,12 @@ function pasteClipboard(event: ClipboardEvent, context: CanvasKeyboardContext): 
     event.preventDefault();
     return;
   }
-  const text = data.getData("text/plain");
-  if (text !== "" && pasteCanvas(text, context)) event.preventDefault();
+  const pasted = readPastedText(data.getData("text/plain"));
+  if (pasted === null) return;
+  event.preventDefault();
+  if (pasted.kind === "canvas") pasteDoc(pasted.doc, context, true);
+  else if (pasted.kind === "svg") context.pastePictures([pasted.file]);
+  else context.pasteText(pasted.text);
 }
 
 function duplicateSelection(context: CanvasKeyboardContext) {

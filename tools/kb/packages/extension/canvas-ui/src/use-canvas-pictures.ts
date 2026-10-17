@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
-import type { CanvasDoc } from "@kb/canvas";
+import { placeItems, presetItem, type CanvasDoc } from "@kb/canvas";
+import { ulid } from "ulid";
 import { logError } from "@kb/ui-sdk";
 import { screenToPlane, type CanvasPoint } from "./canvas-camera";
 import { imageFilesOf, placePictures, type PictureWrite } from "./canvas-media";
@@ -30,8 +31,8 @@ const carriesPicture = (data: DataTransfer) =>
   [...data.items].some((item) => item.kind === "file" && item.type.startsWith("image/"));
 
 /**
- * The canvas page's ways in for pictures (`canvas-media`): a paste lands at
- * the pointer, a drop where it is let go, and the image tool's file chooser
+ * The canvas page's ways in for pictures (`canvas-media`), and for pasted
+ * words: a paste lands at the pointer, a drop where it is let go, and the image tool's file chooser
  * at the placement point, each through whichever projection is showing.
  * Every drag of files is the canvas's: a picture is placed, and any other
  * file is refused rather than opened by the browser in place of the page.
@@ -59,6 +60,14 @@ export function useCanvasPictures(context: PicturesContext) {
       const pictures = imageFilesOf(files);
       if (pictures.length > 0) place(pictures, floorAt(context.pointerAt()));
       return pictures.length > 0;
+    },
+    /** Pasted words, a text card centred at the pointer, and selected: one step to undo. */
+    pasteText: (text: string): void => {
+      const at = floorAt(context.pointerAt());
+      const card = presetItem("text", at, ulid());
+      const item = { ...card, text, x: at.x - card.width / 2, y: at.y - card.height / 2 };
+      context.schedulePersist(placeItems(context.docRef.current, [item]));
+      context.setSelection({ nodeIds: new Set([item.id]), edgeIds: new Set() });
     },
     /** The image tool's chooser: the files picked are placed at the placement point. */
     choose: (): void => {

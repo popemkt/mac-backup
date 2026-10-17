@@ -458,6 +458,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
     dispatchPointer,
     pointerAt,
     pastePictures: pictures.paste,
+    pasteText: pictures.pasteText,
     transforming: () => {
       const drag = pointerRef.current.drag;
       return drag?.kind === "transform" && drag.modal;

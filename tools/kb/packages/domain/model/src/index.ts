@@ -255,3 +255,4 @@ export {
   textHasAssetRef,
   type AssetMediaKind,
 } from "./asset.ts";
+export { sanitizeSvg } from "./svg-sanitize.ts";

@@ -1,7 +1,8 @@
 /**
  * The canvas's ways in for pictures (`use-canvas-pictures`): a drop places
  * its pictures where it lands and never lets the browser open a file in
- * place of the page; the image tool's chooser places what is picked.
+ * place of the page; the image tool's chooser places what is picked; and
+ * pasted words land as a text card under the pointer.
  */
 import { act, createElement, useEffect } from "react";
 import { createRoot } from "react-dom/client";
@@ -148,5 +149,22 @@ describe("pictures onto the canvas, by hand", () => {
     await settle();
     expect(uploads).toEqual(["c.png"]);
     expect(written[0]?.nodes[0]).toMatchObject({ file: "assets/c.png" });
+  });
+
+  test("pasted words become one text card centred on the floor under the pointer", () => {
+    const { hook, written, uploads } = pictures();
+    hook.pasteText("an idea");
+    expect(uploads).toEqual([]);
+    expect(written).toHaveLength(1);
+    expect(written[0]?.nodes).toEqual([
+      expect.objectContaining({
+        type: "text",
+        text: "an idea",
+        x: -110,
+        y: -40,
+        width: 220,
+        height: 80,
+      }),
+    ]);
   });
 });

@@ -1138,9 +1138,13 @@ manipulation feel professional rather than merely functional.
   event — ⌘V is left to the browser, as every ⌘ chord without a canvas
   command is (a tool is a plain key) — so it carries what the clipboard
   holds with no permission asked: image files become pictures at the
-  pointer, and otherwise a canvas document becomes items 24 units from
-  where they were, selected. A field keeps its own paste, and a modal
-  transform takes none.
+  pointer, and otherwise its text becomes what it reads as
+  (`canvas-paste.ts`): a canvas document with items in it becomes them, 24
+  units from where they were, selected; SVG markup becomes a picture, an
+  `.svg` file on the pictures' path, which `asset.upload` keeps sanitised
+  and the canvas shows as an image, never as markup in the page; and any
+  other words become a text card centred at the pointer, selected. A field
+  keeps its own paste, and a modal transform takes none.
 - **Pictures** (plan 2026-10-02, step 7). An image is a `file` item showing
   an asset (DESIGN.md → Canvas documents): the image preset over the one
   item record, so it moves, turns, lifts, extrudes and belongs to frames as

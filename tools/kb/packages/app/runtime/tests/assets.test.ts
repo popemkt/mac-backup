@@ -91,6 +91,30 @@ describe("asset.upload action", () => {
     await rm(root, { recursive: true, force: true });
   });
 
+  test("keeps an svg only sanitised, and refuses one that is not svg", async () => {
+    root = await mkdtemp(join(tmpdir(), "kb-asset-svg-"));
+    await mkdir(join(root, ".kb"), { recursive: true });
+    resetRegistryCache();
+    const ctx = await openKb(root);
+    const markup =
+      '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(2)</script><rect width="4"/></svg>';
+    const receipt = await invoke(ctx, {
+      id: "asset.upload",
+      input: { bytes: markup, encoding: "utf8", filename: "pasted.svg" },
+    });
+    expect(receipt.status).toBe("succeeded");
+    if (receipt.status !== "succeeded") return;
+    const { id } = receipt.output as { id: string };
+    const onDisk = await readFile(join(root, ".kb", "assets", `${id}.svg`), "utf8");
+    expect(onDisk).toBe('<svg xmlns="http://www.w3.org/2000/svg"><rect width="4"/></svg>');
+    const html = await invoke(ctx, {
+      id: "asset.upload",
+      input: { bytes: "<html><script>alert(1)</script></html>", encoding: "utf8", ext: "svg" },
+    });
+    expect(html).toMatchObject({ status: "failed", code: "forbidden" });
+    await rm(root, { recursive: true, force: true });
+  });
+
   test("rejects unsafe extensions", async () => {
     root = await mkdtemp(join(tmpdir(), "kb-asset-bad-"));
     await mkdir(join(root, ".kb"), { recursive: true });

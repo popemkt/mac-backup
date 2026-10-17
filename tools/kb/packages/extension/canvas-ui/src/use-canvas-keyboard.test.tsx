@@ -199,6 +199,7 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
       if (names.length > 0) log.push(`pictures=${names.join("+")}`);
       return names.length > 0;
     },
+    pasteText: (text: string) => log.push(`text=${text}`),
     transforming: () => transforming,
     presenting: () => around.presenting ?? false,
     present: (step: string) => log.push(`present=${step}`),
@@ -402,10 +403,26 @@ describe("clipboard", () => {
     expect(recording.defaultPrevented).toBe(true);
   });
 
-  test("a paste of a non-canvas payload changes nothing and is left to the page", () => {
-    const recording = paste("not a canvas");
-    expect(recording.log).toEqual([]);
+  test("pasted words become a text card at the pointer", () => {
+    const recording = paste("  an idea worth keeping \n");
+    expect(recording.log).toEqual(["text=an idea worth keeping"]);
+    expect(recording.defaultPrevented).toBe(true);
+  });
+
+  test("a JSON object with nothing in it is words, not a canvas", () => {
+    expect(paste('{"a":1}').log).toEqual(['text={"a":1}']);
+  });
+
+  test("pasted SVG markup becomes a picture, an svg file on the pictures' path", () => {
+    const recording = paste('<?xml version="1.0"?>\n<svg viewBox="0 0 1 1"><rect/></svg>');
+    expect(recording.log).toEqual(["pictures=pasted.svg"]);
     expect(recording.docs).toEqual([]);
+    expect(recording.defaultPrevented).toBe(true);
+  });
+
+  test("a paste of nothing but blanks changes nothing and is left to the page", () => {
+    const recording = paste("  \n ");
+    expect(recording.log).toEqual([]);
     expect(recording.defaultPrevented).toBe(false);
   });
 
