@@ -80,20 +80,28 @@ type PaintedPoint = { readonly x: number; readonly y: number };
 
 /**
  * What a stand-in 2D context was asked to paint since its canvas was last
- * cleared: each stroke with the dash and width set for it and each fill,
- * with the points of the path it painted (curves sampled), and each run of
- * words with the font, alignment and baseline position set for it — what a
- * contract reads a painted texture back by.
+ * cleared: each stroke with the colour, dash and width set for it and each
+ * fill with its colour, with the points of the path it painted (curves
+ * sampled), and each run of words with the colour, font, alignment and
+ * baseline position set for it — what a contract reads a painted texture
+ * back by.
  */
 export type PaintedOp =
   | {
       readonly op: "stroke";
+      readonly color: string;
       readonly pattern: readonly number[];
       readonly width: number;
       readonly points: readonly PaintedPoint[];
     }
-  | { readonly op: "fill"; readonly points: readonly PaintedPoint[] }
-  | { readonly op: "text"; readonly font: string; readonly align: string; readonly y: number };
+  | { readonly op: "fill"; readonly color: string; readonly points: readonly PaintedPoint[] }
+  | {
+      readonly op: "text";
+      readonly color: string;
+      readonly font: string;
+      readonly align: string;
+      readonly y: number;
+    };
 
 /** How many points a painted cubic is sampled at. */
 const CURVE_SAMPLES = 12;
@@ -116,7 +124,14 @@ function fake2d(canvas: HTMLCanvasElement) {
   const gradient = { addColorStop: () => {} };
   const ops = PAINTED.get(canvas) ?? [];
   PAINTED.set(canvas, ops);
-  const state = { pattern: [] as readonly number[], width: 1, font: "", align: "start" };
+  const state = {
+    pattern: [] as readonly number[],
+    width: 1,
+    font: "",
+    align: "start",
+    stroke: "#000",
+    fill: "#000",
+  };
   let path: PaintedPoint[] = [];
   const known: Record<string, unknown> = {
     canvas,
@@ -137,10 +152,16 @@ function fake2d(canvas: HTMLCanvasElement) {
       }
     },
     stroke: () =>
-      ops.push({ op: "stroke", pattern: state.pattern, width: state.width, points: [...path] }),
-    fill: () => ops.push({ op: "fill", points: [...path] }),
+      ops.push({
+        op: "stroke",
+        color: state.stroke,
+        pattern: state.pattern,
+        width: state.width,
+        points: [...path],
+      }),
+    fill: () => ops.push({ op: "fill", color: state.fill, points: [...path] }),
     fillText: (_text: string, _x: number, y: number) =>
-      ops.push({ op: "text", font: state.font, align: state.align, y }),
+      ops.push({ op: "text", color: state.fill, font: state.font, align: state.align, y }),
     measureText: (text: string) => ({ width: text.length * 6 }),
     getImageData: (_x: number, _y: number, width: number, height: number) => ({
       width,
@@ -165,6 +186,8 @@ function fake2d(canvas: HTMLCanvasElement) {
       if (key === "lineWidth" && typeof value === "number") state.width = value;
       if (key === "font" && typeof value === "string") state.font = value;
       if (key === "textAlign" && typeof value === "string") state.align = value;
+      if (key === "strokeStyle" && typeof value === "string") state.stroke = value;
+      if (key === "fillStyle" && typeof value === "string") state.fill = value;
       return true;
     },
   });
