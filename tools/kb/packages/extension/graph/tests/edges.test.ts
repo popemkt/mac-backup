@@ -46,13 +46,7 @@ describe("collectEdges", () => {
   test("a ref prop is not also a mention: a typed mention folds into its relation", () => {
     expect(edges("mention", "ref-prop")).toEqual([
       { source: "b", target: "c", kind: "mention", weight: 1 },
-      {
-        source: "a",
-        target: "b",
-        kind: "prop:field.depends",
-        weight: 2,
-        carriers: ["mention", "prop"],
-      },
+      { source: "a", target: "b", kind: "prop:field.depends", weight: 2 },
       { source: "a", target: "c", kind: "prop:field.owner", weight: 1 },
     ]);
   });

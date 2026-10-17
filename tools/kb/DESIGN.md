@@ -625,8 +625,7 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   one place two carriers meet is a **typed mention**: a source that both
   mentions a target and holds it in a ref field has said what the mention
   means, so the projection folds the mention into that relation's edge (its
-  weight rises by the mention's, and it carries `carriers: ["mention",
-  "prop"]`). A lens that draws mentions but not that field keeps the
+  weight rises by the mention's). A lens that draws mentions but not that field keeps the
   mention; the rule lives in the one projection, never in a renderer.
 
   Optional Logseq-style `:node/path-refs` (ancestor mentions) is backlog —

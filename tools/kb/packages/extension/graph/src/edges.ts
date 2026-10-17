@@ -16,12 +16,6 @@ export interface LensEdge {
   target: string;
   kind: EdgeKind;
   weight: number;
-  /**
-   * Set when the edge carries a mention folded into a typed relation: the
-   * source both mentions the target and holds it in a ref field, and the
-   * relation says what the mention means.
-   */
-  carriers?: readonly ["mention", "prop"];
 }
 
 /**
@@ -96,8 +90,7 @@ export function collectEdges(
 /**
  * A mention the source has also typed (it holds the target in a ref field)
  * is one connection, not two: the mention folds into the first typed
- * relation to that target, raising its weight by the mention's and marking
- * its carriers. A lens that draws mentions but not that field keeps the
+ * relation to that target, raising its weight by the mention's. A lens that draws mentions but not that field keeps the
  * mention as it is, because nothing here says what it means.
  */
 function foldTypedMentions(edges: LensEdge[]): LensEdge[] {
@@ -111,7 +104,6 @@ function foldTypedMentions(edges: LensEdge[]): LensEdge[] {
     if (mention === undefined || folded.has(mention)) continue;
     folded.add(mention);
     edge.weight += mention.weight;
-    edge.carriers = ["mention", "prop"];
   }
   return folded.size === 0 ? edges : edges.filter((edge) => !folded.has(edge));
 }
