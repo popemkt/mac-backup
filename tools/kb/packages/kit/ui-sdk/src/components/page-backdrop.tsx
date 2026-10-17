@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { usePageActivity, usePageBackdrop } from "../hooks";
+import { usePointerOver } from "../lib/pointer-over";
 import type { OutlineNode } from "../lib/types";
 
 /**
@@ -13,6 +15,8 @@ import type { OutlineNode } from "../lib/types";
 export function PageBackdrop({ color, node }: { color: string; node?: OutlineNode }) {
   const { backdrop: chosen, strength, direction } = usePageBackdrop(node);
   const activity = usePageActivity();
+  const frame = useRef<HTMLDivElement>(null);
+  const pointer = usePointerOver(frame);
   if (chosen === null) return null;
   const { presentation, Component } = chosen.value;
   const opacity = presentation.opacity[strength];
@@ -23,6 +27,7 @@ export function PageBackdrop({ color, node }: { color: string; node?: OutlineNod
       aria-hidden="true"
     >
       <div
+        ref={frame}
         className="kb-header-backdrop pointer-events-none"
         data-backdrop={chosen.id}
         data-direction={direction}
@@ -46,6 +51,7 @@ export function PageBackdrop({ color, node }: { color: string; node?: OutlineNod
           direction={direction}
           opacity={opacity}
           activity={activity}
+          pointer={pointer}
         />
       </div>
     </div>

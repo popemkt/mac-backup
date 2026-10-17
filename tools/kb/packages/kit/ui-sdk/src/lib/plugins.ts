@@ -36,6 +36,7 @@ import {
   type ServiceKey,
 } from "@kb/plugin";
 import { usePath } from "./router";
+import type { PointerSource } from "./pointer-over";
 import type { FamilyView, ViewPicker } from "./view-key";
 import {
   type FrameViewKey,
@@ -285,6 +286,11 @@ export interface BackdropProps {
   readonly opacity: number;
   /** What the owner is doing on the page now. */
   readonly activity: PageActivity;
+  /**
+   * The pointer over the backdrop's own frame, polled (`pointer.now()`): the
+   * slot owns the one listener, so a backdrop adds none.
+   */
+  readonly pointer: PointerSource;
 }
 
 /**

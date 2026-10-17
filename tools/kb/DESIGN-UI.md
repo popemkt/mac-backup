@@ -2728,8 +2728,8 @@ exist is a plugin point, and the kit names none of them.
     one with no direction), and its `opacity` at each strength.
   - The component receives what the head knows (`BackdropProps`): its
     colour (the shown node's tag colour, else the accent), the node it shows
-    if any, the strength, the direction, the opacity at that strength and
-    what the owner is doing (`activity`).
+    if any, the strength, the direction, the opacity at that strength, what
+    the owner is doing (`activity`) and where the pointer is (`pointer`).
   - **Activity is a declared input, not a listener.** `PageActivity` is
     whether a node's text is being edited (`editing`, the host's read of the
     page editor) and how many writes the graph has taken (`writes`, the
@@ -2737,8 +2737,14 @@ exist is a plugin point, and the kit names none of them.
     every backdrop the same signal (`usePageActivity`). A backdrop that
     reacts to the owner compares `writes` with the count it last saw and
     reads `editing` as a state; navigation is the `node` it is handed
-    changing. It adds no document listener for app events. The pointer over
-    its own frame is not an app event: a backdrop may read it locally.
+    changing. It adds no document listener for app events.
+  - **The pointer is declared too.** The frame is `pointer-events: none`, so
+    it hears no pointer; the slot owns the one passive listener, on the
+    smallest ancestor whose box covers the frame (`usePointerOver`). Every
+    backdrop receives a `PointerSource` (`pointer.now()`): the pointer's
+    place from the frame's corner, or null when it is outside. It is polled
+    in the backdrop's own loop and never re-renders it, so a backdrop adds
+    no listener of its own: one per head, not one per scene.
 - **One slot.** `PageBackdrop` (`@kb/ui-sdk`) is the one page-head slot.
   It frames the chosen backdrop by its presentation, behind the head's
   content, and renders nothing when nothing is contributed. Any page head

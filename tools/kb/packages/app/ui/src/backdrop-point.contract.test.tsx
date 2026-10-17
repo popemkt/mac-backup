@@ -65,15 +65,22 @@ const AT = "2026-01-01T00:00:00.000Z";
 const CORE = extensionNodeId("core");
 
 /** A plugin's own backdrop: it shows what it was handed, so the slot's props can be read back. */
-function PlainBackdrop({ color, strength, direction, opacity, activity }: BackdropProps) {
+function PlainBackdrop({ color, strength, direction, opacity, activity, pointer }: BackdropProps) {
+  const place = pointer.now();
   return (
     <i
       data-plain={`${color} ${strength} ${direction} ${opacity}`}
       data-editing={String(activity.editing)}
       data-writes={activity.writes}
+      data-pointer={place === null ? "none" : `${place.x},${place.y}`}
+      ref={(element) => {
+        if (element !== null) pointerNow = pointer.now;
+      }}
     />
   );
 }
+/** The last pointer source the plain backdrop was handed: polled by the test, as a backdrop polls it. */
+let pointerNow: () => { x: number; y: number } | null = () => null;
 const PLAIN_KEY: SeedBackdrop = { id: "plain.plain", label: "Plain" };
 const PLAIN_OPACITY = { subtle: 0.1, soft: 0.2, vivid: 0.3 };
 /** A family of the test's own: it declares its backdrop, and its page plugin contributes it. */
@@ -297,6 +304,30 @@ describe("every contributed page-head backdrop", () => {
 
     const shown = () => container.querySelector("[data-plain]");
     const writes = () => Number(shown()?.getAttribute("data-writes"));
+
+    it("is told where the pointer is over its own frame, and when it is not", () => {
+      const frame = container.querySelector<HTMLElement>(".kb-header-backdrop");
+      if (frame === null) throw new Error("the slot drew no frame");
+      // The frame has no layout in a test DOM: give it a box. The slot listens on what covers it.
+      frame.getBoundingClientRect = () =>
+        ({ left: 100, top: 40, width: 300, height: 120, right: 400, bottom: 160 }) as DOMRect;
+      const head = frame.parentElement;
+      if (head === null) throw new Error("the frame has no head around it");
+      const move = (x: number, y: number) =>
+        act(() => {
+          head.dispatchEvent(new window.MouseEvent("pointermove", { clientX: x, clientY: y }));
+        });
+      expect(pointerNow()).toBeNull();
+      move(130, 70);
+      expect(pointerNow()).toEqual({ x: 30, y: 30 });
+      move(600, 70);
+      expect(pointerNow()).toBeNull();
+      move(130, 70);
+      act(() => {
+        head.dispatchEvent(new window.MouseEvent("pointerleave"));
+      });
+      expect(pointerNow()).toBeNull();
+    });
 
     it("sees a node's text being edited, and then not", () => {
       const idle = EMPTY_EDITOR.getState();
