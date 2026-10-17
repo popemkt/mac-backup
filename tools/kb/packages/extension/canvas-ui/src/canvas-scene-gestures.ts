@@ -14,17 +14,19 @@
  *   through the canvas pointer reducer, which reads the pointer through the
  *   camera model, so a 3D drag is the same transform, history step and
  *   write as a 2D one. A double-click enters the group on the way to it.
- * - On empty canvas: a drag orbits, a tap places the current tool (or clears
- *   the selection). A placing tool sees through a frame to the floor, so a
- *   tap on one places inside it.
+ * - On empty canvas: a drag orbits, a tap is the armed tool's (or clears
+ *   the selection). The armed tool sees through an item it takes
+ *   (`toolTakes`) as through empty canvas: a placing tool through a frame,
+ *   so a tap on one places inside it.
  * - The right or middle button, or Space, pans.
  */
-import { isGroupNode, paintOrder, type CanvasNode } from "@kb/canvas";
+import { paintOrder, type CanvasNode } from "@kb/canvas";
 import { hitTest, type CanvasPoint, type CanvasView, type ViewSize } from "./canvas-camera";
-import { placeUnder, type CanvasPlace } from "./canvas-faces";
+import { placeUnder } from "./canvas-faces";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import { ALONG_Z } from "./canvas-transform-input";
 import type { SceneGizmo } from "./canvas-gizmo";
+import type { ToolSpot } from "./canvas-tool";
 import type { CanvasSelection } from "./canvas-selection";
 import { pastSlop } from "@kb/ui-sdk";
 
@@ -46,8 +48,8 @@ export interface SceneGestureHost {
   readonly items: () => readonly CanvasNode[];
   readonly selection: () => CanvasSelection;
   readonly panning: () => boolean;
-  /** A tool that places an item is active. */
-  readonly placing: () => boolean;
+  /** Whether the armed tool takes a press on `item` rather than the item (`toolTakes`). */
+  readonly takes: (item: CanvasNode) => boolean;
   /** A modal transform (G, S, E) is under way. */
   readonly transforming: () => boolean;
   /** The gizmo on the selection. */
@@ -63,8 +65,8 @@ export interface SceneGestureHost {
   readonly dispatch: (event: CanvasPointerEvent) => void;
   readonly orbit: (dx: number, dy: number) => void;
   readonly pan: (dx: number, dy: number) => void;
-  /** A tap on empty canvas, or with a placing tool on a frame: where a tool would place there (`placeUnder`). */
-  readonly tapEmpty: (place: CanvasPlace | null, press: ScenePress) => void;
+  /** A tap on empty canvas, or on an item the armed tool takes: the spot the tool would take there. */
+  readonly tap: (spot: ToolSpot, press: ScenePress) => void;
   /** An orbit or a pan came to rest. */
   readonly settled: () => void;
 }
@@ -78,8 +80,8 @@ type Gesture =
       y: number;
       readonly startX: number;
       readonly startY: number;
-      /** The frame a placing tool was pressed on, which it places on (`placeUnder`). */
-      readonly frame?: CanvasNode;
+      /** The item the armed tool was pressed on, which it takes (`toolTakes`). */
+      readonly taken?: CanvasNode;
     };
 
 /** ⌘ or Ctrl held: every snap suspended. */
@@ -116,9 +118,9 @@ export class SceneGestures {
       return true;
     }
     const hit = pans ? undefined : this.cardAt(press.local);
-    // A placing tool places on a frame it is pressed on, not into it.
-    const frame = hit !== undefined && this.host.placing() && isGroupNode(hit) ? hit : undefined;
-    const card = frame === undefined ? hit : undefined;
+    // The armed tool takes a press on an item it takes: a placing tool places on a frame, not into it.
+    const taken = hit !== undefined && this.host.takes(hit) ? hit : undefined;
+    const card = taken === undefined ? hit : undefined;
     if (card !== undefined) {
       this.gesture = { kind: "card" };
       this.host.cardPress(card, press, (id) => {
@@ -131,7 +133,7 @@ export class SceneGestures {
       // GAP [[01M41AB88FH1G58NR7AZE0SZJF]]
       const kind = pans ? "pan" : "orbit";
       const screen = { x: press.clientX, y: press.clientY };
-      this.gesture = { kind, ...screen, startX: screen.x, startY: screen.y, frame };
+      this.gesture = { kind, ...screen, startX: screen.x, startY: screen.y, taken };
     }
     return true;
   }
@@ -183,10 +185,8 @@ export class SceneGestures {
     // A tap moved no camera: on empty canvas it means the tool or the selection.
     if (tap) {
       if (g.kind === "orbit" && !cancelled) {
-        this.host.tapEmpty(
-          placeUnder(this.host.view(), this.host.size(), press.local, g.frame),
-          press,
-        );
+        const place = placeUnder(this.host.view(), this.host.size(), press.local, g.taken);
+        this.host.tap({ place, item: g.taken ?? null }, press);
       }
       return;
     }

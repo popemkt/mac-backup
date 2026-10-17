@@ -32,7 +32,7 @@ function harness(
     items: () => items,
     selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
     panning: () => false,
-    placing: () => false,
+    takes: () => false,
     transforming: () => transforming,
     gizmo: () => gizmo,
     cardPress: (pressed, _press, startMove) => startMove(pressed.id),
@@ -40,7 +40,7 @@ function harness(
     dispatch: (event) => events.push(event),
     orbit: vi.fn(),
     pan: vi.fn(),
-    tapEmpty: vi.fn(),
+    tap: vi.fn(),
     settled: vi.fn(),
   };
   return { gestures: new SceneGestures(host), events, host };
@@ -104,7 +104,7 @@ describe("gestures over the 3D canvas", () => {
     const { gestures, host } = harness();
     gestures.down(press({ x: 5, y: 5 }));
     gestures.up(press({ x: 6, y: 5 }), false);
-    expect(host.tapEmpty).toHaveBeenCalledTimes(1);
+    expect(host.tap).toHaveBeenCalledTimes(1);
     expect(host.settled).not.toHaveBeenCalled();
   });
 
@@ -155,7 +155,7 @@ describe("gestures over the 3D canvas", () => {
       { type: "transform/press", button: 0, ctrlKey: true },
     ]);
     gestures.up(press(centre()), false);
-    expect(host.tapEmpty).not.toHaveBeenCalled();
+    expect(host.tap).not.toHaveBeenCalled();
   });
 
   test("with no button held, the pointer is still told to the reducer", () => {
@@ -171,7 +171,7 @@ describe("gestures over the 3D canvas", () => {
     gestures.down(press({ x: 5, y: 5 }, { button: 2 }));
     gestures.up(press({ x: 5, y: 5 }, { button: 2 }), false);
     expect(host.settled).not.toHaveBeenCalled();
-    expect(host.tapEmpty).not.toHaveBeenCalled();
+    expect(host.tap).not.toHaveBeenCalled();
   });
 });
 
@@ -200,32 +200,32 @@ describe("a placing tool over a frame", () => {
 
   test("sees through it to the floor: a tap places, where a press would select the frame", () => {
     const { gestures, events, host } = harness(undefined, [frame]);
-    gestures.bind({ ...host, placing: () => true });
+    gestures.bind({ ...host, takes: () => true });
     const at = projectPoint(tilted, size, { x: 200, y: 100, z: 0 });
     if (at === null) throw new Error("the frame's centre is out of view");
     gestures.down(press(at));
     gestures.up(press(at), false);
-    expect(host.tapEmpty).toHaveBeenCalledTimes(1);
+    expect(host.tap).toHaveBeenCalledTimes(1);
     expect(events).toEqual([]);
     // With the select tool the same press takes hold of the frame.
     const plain = harness(undefined, [frame]);
     plain.gestures.down(press(at));
     expect(plain.events[0]).toMatchObject({ type: "move/start", id: "f" });
     // A frame lying on the floor: the place is on the floor.
-    expect(vi.mocked(host.tapEmpty).mock.calls[0]?.[0]).toMatchObject({ face: null });
+    expect(vi.mocked(host.tap).mock.calls[0]?.[0].place).toMatchObject({ face: null });
   });
 
   test("places on the face of a frame stood up as a wall, where the press meets it", () => {
     const wall: CanvasNode = { ...frame, z: 100, rotation: { x: -90 } };
     const level: CanvasView = { x: 200, y: 300, z: 100, zoom: 1, yaw: 0, pitch: 1.4, fov: 34 };
     const { gestures, host } = harness(() => level, [wall]);
-    gestures.bind({ ...host, placing: () => true });
+    gestures.bind({ ...host, takes: () => true });
     const on = { x: 180, y: 100, z: 120 };
     const at = projectPoint(level, size, on);
     if (at === null) throw new Error("the wall is out of view");
     gestures.down(press(at));
     gestures.up(press(at), false);
-    const place = vi.mocked(host.tapEmpty).mock.calls[0]?.[0];
+    const place = vi.mocked(host.tap).mock.calls[0]?.[0].place;
     expect(place?.face).not.toBeNull();
     expect(place?.at.x).toBeCloseTo(on.x, 6);
     expect(place?.at.y).toBeCloseTo(on.y, 6);

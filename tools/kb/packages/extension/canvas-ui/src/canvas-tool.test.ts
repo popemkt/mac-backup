@@ -27,9 +27,9 @@ describe("canvas tool reducer", () => {
     });
   });
 
-  test("escape and placed revert to select", () => {
+  test("escape and a used tool revert to select", () => {
     expect(reduceCanvasTool({ tool: "diamond" }, { type: "escape" })).toEqual({ tool: "select" });
-    expect(reduceCanvasTool({ tool: "ellipse" }, { type: "placed" })).toEqual({ tool: "select" });
+    expect(reduceCanvasTool({ tool: "ellipse" }, { type: "used" })).toEqual({ tool: "select" });
   });
 
   test("the solid tool picks a box first, then whichever solid was picked last", () => {
@@ -38,7 +38,7 @@ describe("canvas tool reducer", () => {
       solid: "box",
     });
     const sphere = reduceCanvasTool({ tool: "select" }, { type: "set-tool", tool: "sphere" });
-    const placed = reduceCanvasTool(sphere, { type: "placed" });
+    const placed = reduceCanvasTool(sphere, { type: "used" });
     expect(placed).toEqual({ tool: "select", solid: "sphere" });
     // A flat tool in between does not forget it.
     const text = reduceCanvasTool(placed, { type: "set-tool", tool: "text" });

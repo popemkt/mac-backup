@@ -9,6 +9,7 @@
  */
 import {
   CANVAS_SOLID_PRESETS,
+  isGroupNode,
   placeItems,
   placedOnFace,
   presetItem,
@@ -17,6 +18,7 @@ import {
   type CanvasNode,
   type CanvasPresetKind,
 } from "@kb/canvas";
+import type { CanvasPlace } from "./canvas-faces";
 
 /** Select, the hand (a press pans), or a tool that places its preset. */
 export type CanvasTool = "select" | "hand" | CanvasPresetKind;
@@ -35,7 +37,7 @@ export type ToolAction =
   | { type: "set-tool"; tool: CanvasToolPick }
   | { type: "set-tool-sticky"; tool: CanvasToolPick }
   | { type: "escape" }
-  | { type: "placed" };
+  | { type: "used" };
 
 /** Whether `tool` places a preset, rather than taking hold of what is there. */
 function isPresetTool(tool: CanvasToolPick): tool is CanvasPresetKind {
@@ -70,7 +72,7 @@ function activate(state: ToolState, pick: CanvasToolPick, sticky: boolean): Tool
 
 export function reduceCanvasTool(state: ToolState, action: ToolAction): ToolState {
   if (action.type === "escape") return activate(state, "select", false);
-  if (action.type === "placed") {
+  if (action.type === "used") {
     return state.sticky === true ? state : activate(state, "select", false);
   }
   if (action.type === "set-tool-sticky") return activate(state, action.tool, true);
@@ -149,4 +151,46 @@ export function placeWithTool(
       ? preset
       : placedOnFace(preset, face, { x: world.x, y: world.y, z: world.z ?? 0 });
   return { doc: placeItems(doc, [node]), node, nextTool: "select" };
+}
+
+/**
+ * Where a press with a tool lands, in whichever projection saw it: the
+ * place under it (on the face of a frame it was pressed on, or the floor;
+ * null when the eye's ray meets neither), and the item it was pressed on
+ * when the tool takes that item's press (`toolTakes`); null on empty canvas.
+ */
+export interface ToolSpot {
+  readonly place: CanvasPlace | null;
+  readonly item: CanvasNode | null;
+}
+
+/**
+ * Whether a press with `tool` on `item` is the tool's rather than the
+ * item's: a placing tool places on a frame it is pressed on, not into it.
+ */
+export function toolTakes(tool: CanvasTool, item: CanvasNode): boolean {
+  return placesItem(tool) && isGroupNode(item);
+}
+
+/** What a press with a tool does where it lands: the item it placed, in the document it placed it in. */
+export interface ToolPress {
+  readonly kind: "place";
+  readonly doc: CanvasDoc;
+  readonly node: CanvasNode;
+}
+
+/**
+ * What a press with `tool` at `spot` does, `id` naming anything it makes;
+ * null when the tool does nothing there, so the press means what it would
+ * with select. Every press with an armed tool goes through here.
+ */
+export function pressWithTool(
+  doc: CanvasDoc,
+  tool: CanvasTool,
+  spot: ToolSpot,
+  id: string,
+): ToolPress | null {
+  if (spot.place === null) return null;
+  const placed = placeWithTool(doc, tool, spot.place.at, id, spot.place.face);
+  return placed === null ? null : { kind: "place", doc: placed.doc, node: placed.node };
 }

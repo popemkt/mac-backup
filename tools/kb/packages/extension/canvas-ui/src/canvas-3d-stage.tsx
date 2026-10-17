@@ -10,7 +10,7 @@ import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "re
 import type { CanvasDoc, CanvasNode } from "@kb/canvas";
 import type { CanvasPoint, ViewSize } from "./canvas-camera";
 import type { CanvasPainter } from "./canvas-capture";
-import type { CanvasPlace } from "./canvas-faces";
+import { toolTakes, type CanvasTool, type ToolSpot } from "./canvas-tool";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import type { CanvasPointerEvent } from "./canvas-pointer";
 import type { CanvasSelection } from "./canvas-selection";
@@ -32,8 +32,8 @@ export interface Canvas3dStageProps {
   readonly appearance: Appearance;
   /** A press pans, whatever it lands on: Space is held, or the hand tool is armed. */
   readonly panning: boolean;
-  /** A tool that places an item is active: it sees through frames to the floor. */
-  readonly placing: boolean;
+  /** The armed tool, which sees through the items it takes (`toolTakes`). */
+  readonly tool: CanvasTool;
   /** A modal transform (G, S, E) is under way: a press ends it. */
   readonly transforming: boolean;
   /** Which transform the gizmo on the selection shows, and along which axes. */
@@ -53,8 +53,8 @@ export interface Canvas3dStageProps {
   /** A double-click on a card: into the group on the way to it (whether it went). */
   readonly onCardDoubleClick: (card: CanvasNode) => boolean;
   readonly dispatchPointer: (event: CanvasPointerEvent) => void;
-  /** A tap on empty canvas, or with a placing tool on a frame: where a tool would place there. */
-  readonly onTapEmpty: (place: CanvasPlace | null, press: ScenePress) => void;
+  /** A tap on empty canvas, or on an item the armed tool takes: the spot the tool would take there. */
+  readonly onTap: (spot: ToolSpot, press: ScenePress) => void;
   /** An orbit, a pan or a zoom came to rest. */
   readonly onViewSettled: () => void;
 }
@@ -115,7 +115,7 @@ function useSceneGestures(
       items: () => props.doc.nodes,
       selection: () => props.selection,
       panning: () => props.panning,
-      placing: () => props.placing,
+      takes: (item) => toolTakes(props.tool, item),
       transforming: () => props.transforming,
       gizmo: () => scene?.gizmo ?? NO_GIZMO,
       cardPress: props.onCardPress,
@@ -123,7 +123,7 @@ function useSceneGestures(
       dispatch: props.dispatchPointer,
       orbit: (dx, dy) => props.rig.orbitBy(dx, dy),
       pan: (dx, dy) => props.rig.panBy(dx, dy),
-      tapEmpty: props.onTapEmpty,
+      tap: props.onTap,
       settled: props.onViewSettled,
     });
   });
@@ -185,7 +185,7 @@ const IDLE: SceneGestureHost = {
   items: () => [],
   selection: () => ({ nodeIds: new Set(), edgeIds: new Set() }),
   panning: () => false,
-  placing: () => false,
+  takes: () => false,
   transforming: () => false,
   gizmo: () => NO_GIZMO,
   cardPress: () => {},
@@ -193,7 +193,7 @@ const IDLE: SceneGestureHost = {
   dispatch: () => {},
   orbit: () => {},
   pan: () => {},
-  tapEmpty: () => {},
+  tap: () => {},
   settled: () => {},
 };
 

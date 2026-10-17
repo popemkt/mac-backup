@@ -64,7 +64,7 @@ import { CANVAS_LIST_PATH, canvasPath } from "./routes";
 import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
 import { linkStep } from "./canvas-links";
 import { classifyCardPointer } from "./card-pointer";
-import { placesItem, pressPans, type CanvasChooser, type ToolState } from "./canvas-tool";
+import { pressPans, toolTakes, type CanvasChooser, type ToolState } from "./canvas-tool";
 import type { PresentAct } from "./canvas-keymap";
 import { FIRST_GIZMO, NO_GIZMO, type GizmoChoice, type SceneGizmo } from "./canvas-gizmo";
 import { viewOfPan } from "./canvas-camera";
@@ -293,7 +293,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
     onPointerMove,
     onPointerUp,
     onWheel,
-    placeAt,
+    pressTool,
     setTool,
     setToolSticky,
     startEdge,
@@ -554,17 +554,15 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
               if (!e.shiftKey) setScope(null);
               return;
             }
-            // A placing tool places inside a frame: on its face, or the floor under it (`placeUnder`).
+            // The armed tool takes a press on an item it takes (`toolTakes`): a placing tool a frame's.
             const viewportEl = e.currentTarget.querySelector<HTMLElement>("[data-canvas-viewport]");
             const client = { x: e.clientX, y: e.clientY };
             const rect = viewportEl?.getBoundingClientRect();
             const { view, size } = projection.camera();
             const local = { x: client.x - (rect?.left ?? 0), y: client.y - (rect?.top ?? 0) };
-            const place = placeUnder(view, size, local, card);
             if (
-              membership.isGroup(card.id) &&
-              place !== null &&
-              placeAt(place.at, client, place.face)
+              toolTakes(toolState.tool, card) &&
+              pressTool({ place: placeUnder(view, size, local, card), item: card }, client)
             ) {
               e.preventDefault();
               e.stopPropagation();
@@ -644,7 +642,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
                 rig={projection.rig}
                 appearance={appearance}
                 panning={panning}
-                placing={placesItem(toolState.tool)}
+                tool={toolState.tool}
                 transforming={modal}
                 gizmo={gizmo}
                 onReady={projection.onSceneReady}
@@ -658,9 +656,8 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
                 }
                 onCardDoubleClick={faces.doubleClick}
                 dispatchPointer={dispatchPointer}
-                onTapEmpty={(place, press) => {
-                  const client = { x: press.clientX, y: press.clientY };
-                  if (place !== null && placeAt(place.at, client, place.face)) return;
+                onTap={(spot, press) => {
+                  if (pressTool(spot, { x: press.clientX, y: press.clientY })) return;
                   if (press.shiftKey) return;
                   setScope(null);
                   setSelection(EMPTY_SELECTION);

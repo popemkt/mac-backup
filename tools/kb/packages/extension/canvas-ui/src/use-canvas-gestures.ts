@@ -1,14 +1,15 @@
 import { useCallback } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
-import type { CanvasDoc, CanvasFrame, CanvasSide } from "@kb/canvas";
+import type { CanvasDoc, CanvasSide } from "@kb/canvas";
 import { isShapeNode, isTextNode, paintOrder, placeItems, presetItem } from "@kb/canvas";
 import {
   pickTool,
-  placeWithTool,
+  pressWithTool,
   reduceCanvasTool,
   type CanvasChooser,
   type CanvasTool,
+  type ToolSpot,
   type ToolState,
 } from "./canvas-tool";
 import { selectNode as selNode } from "./canvas-selection";
@@ -249,11 +250,12 @@ function createCardGestures(dispatchPointer: CanvasGestureContext["dispatchPoint
 }
 
 /**
- * A press on empty canvas with a placing tool drops its item at the canvas
- * point under the press, in whichever projection saw it; false when the tool
- * places nothing (select), so the press means something else there.
+ * A press with the armed tool, at the spot it landed on in whichever
+ * projection saw it (`pressWithTool`): a placing tool drops its item there.
+ * False when the tool does nothing there (select), so the press means
+ * something else.
  */
-function createToolPlacement({
+function createToolPress({
   docRef,
   schedulePersist,
   setInspectorAnchor,
@@ -263,19 +265,15 @@ function createToolPlacement({
   toolState,
   edit,
 }: StageGestureContext) {
-  return (
-    world: { x: number; y: number; z?: number },
-    client: { x: number; y: number },
-    face: CanvasFrame | null = null,
-  ): boolean => {
-    const placed = placeWithTool(docRef.current, toolState.tool, world, ulid(), face);
-    if (!placed) return false;
-    schedulePersist(placed.doc);
-    setSelection(selNode(placed.node.id));
-    setToolState((s) => reduceCanvasTool(s, { type: "placed" }));
+  return (spot: ToolSpot, client: { x: number; y: number }): boolean => {
+    const pressed = pressWithTool(docRef.current, toolState.tool, spot, ulid());
+    if (pressed === null) return false;
+    setToolState((s) => reduceCanvasTool(s, { type: "used" }));
+    schedulePersist(pressed.doc);
+    setSelection(selNode(pressed.node.id));
     setInspectorAnchor(null);
-    setItemInspectorAnchor(isShapeNode(placed.node) ? client : null);
-    if (isTextNode(placed.node)) edit(placed.node.id);
+    setItemInspectorAnchor(isShapeNode(pressed.node) ? client : null);
+    if (isTextNode(pressed.node)) edit(pressed.node.id);
     return true;
   };
 }
@@ -304,7 +302,7 @@ function createStageGestures(
   cardAt: CardAt,
 ) {
   const { dispatchPointer, docRef, schedulePersist, setSelection, panning, toolState } = context;
-  const placeAt = createToolPlacement(context);
+  const pressTool = createToolPress(context);
   const onPointerDownStage = (e: React.PointerEvent<HTMLDivElement>) => {
     const screen = viewportPoint(e.clientX, e.clientY, e.currentTarget);
     if (e.button === 1 || panning || (e.button === 0 && e.altKey)) {
@@ -314,7 +312,8 @@ function createStageGestures(
     }
     if (e.button === 0 && isEmptyStageTarget(e.target)) {
       const client = { x: e.clientX, y: e.clientY };
-      if (placeAt(screenToWorld(e.clientX, e.clientY, e.currentTarget), client)) {
+      const at = { ...screenToWorld(e.clientX, e.clientY, e.currentTarget), z: 0 };
+      if (pressTool({ place: { at, face: null }, item: null }, client)) {
         // The press keeps its focus change to itself: a text card placed here is typed into.
         e.preventDefault();
         return;
@@ -366,7 +365,7 @@ function createStageGestures(
     onPointerDownStage,
     onPointerMove,
     onPointerUp,
-    placeAt,
+    pressTool,
   };
 }
 
