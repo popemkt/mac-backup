@@ -3004,7 +3004,9 @@ answers `{canvasId, items, edges, reported}`.
   read in one pass: each pattern is matched in place, and a labelled link's
   label runs to the first space a closer follows. Reading is bounded: text
   past `MERMAID_TEXT_LIMIT` (64 KiB, the action's input schema states the
-  same bound) is refused unread, and reading stops the moment the boxes it
+  same bound; a bound on what a read costs, not on what a diagram holds,
+  so a diagram within `DIAGRAM_LIMITS` whose labels are long can pass it)
+  is refused unread, and reading stops the moment the boxes it
   names or the links it draws pass `DIAGRAM_LIMITS`, so two long groups
   joined by one link are refused before they multiply into their every
   pair. A box named twice in one group is one box.

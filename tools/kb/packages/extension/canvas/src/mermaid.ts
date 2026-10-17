@@ -25,7 +25,12 @@ import type { CanvasPresetKind } from "./presets.ts";
 import { CanvasRelationError } from "./relations.ts";
 import type { CanvasLooksPatch } from "./style.ts";
 
-/** The most characters of flowchart text kb reads: more than a diagram within `DIAGRAM_LIMITS` needs. */
+/**
+ * The most characters of flowchart text kb reads: a bound on what one read
+ * costs, not on what a diagram may hold. A diagram within `DIAGRAM_LIMITS`
+ * whose boxes say a lot (200 boxes of 350 characters) passes it, and is
+ * refused.
+ */
 export const MERMAID_TEXT_LIMIT = 64 * 1024;
 
 /** What did not come across, by the line it is on. */

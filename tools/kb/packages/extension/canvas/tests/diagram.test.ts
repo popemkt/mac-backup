@@ -229,6 +229,15 @@ describe("one cap on every diagram", () => {
     ]);
   });
 
+  test("the text limit bounds a read, not a diagram: one within DIAGRAM_LIMITS with long labels passes it", () => {
+    const label = "x".repeat(350);
+    const boxes = Array.from({ length: DIAGRAM_LIMITS.boxes }, (_, i) => `N${i}[${label}]`);
+    const links = Array.from({ length: DIAGRAM_LIMITS.boxes - 1 }, (_, i) => `N${i} --> N${i + 1}`);
+    const text = `flowchart TD\n${[...boxes, ...links].join("\n")}`;
+    expect(text.length).toBeGreaterThan(MERMAID_TEXT_LIMIT);
+    expect(() => mermaidDiagram(text)).toThrow(`kb reads ${MERMAID_TEXT_LIMIT} at most`);
+  });
+
   test("flowchart text past MERMAID_TEXT_LIMIT is refused unread", () => {
     const text = `flowchart TD\nA${" ".repeat(MERMAID_TEXT_LIMIT)}`;
     expect(() => mermaidDiagram(text)).toThrow(`kb reads ${MERMAID_TEXT_LIMIT} at most`);
