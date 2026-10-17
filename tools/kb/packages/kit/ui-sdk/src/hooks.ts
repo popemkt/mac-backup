@@ -33,6 +33,7 @@ import {
   useContributions,
   ViewPoint,
   type Backdrop,
+  type PageActivity,
 } from "./lib/plugins";
 import type { Contribution } from "@kb/plugin";
 import { type FrameView, frameViewNodeOf, frameViewThrough } from "./lib/frame-view";
@@ -94,6 +95,21 @@ export function useSchema(): SchemaIndex {
  */
 export function useNodeTextBinding(instanceKey: string | undefined): NodeTextHostBinding {
   return useNodeTextBindingThrough(browserHost(), instanceKey);
+}
+
+/** Whether any node's text is being edited. */
+export function useEditing(): boolean {
+  return useHostValue((host) => host.editing());
+}
+
+/**
+ * What the owner is doing on the page now (`PageActivity`): the one input a
+ * backdrop reacts to, read through the host like any other page state.
+ */
+export function usePageActivity(): PageActivity {
+  const editing = useEditing();
+  const writes = useGeneration();
+  return useMemo(() => ({ editing, writes }), [editing, writes]);
 }
 
 /** Whether a node is being edited in this instance. */

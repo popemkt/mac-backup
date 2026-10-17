@@ -261,6 +261,18 @@ export interface BackdropPresentation {
   readonly opacity: Readonly<Record<BackdropStrength, number>>;
 }
 
+/**
+ * What the owner is doing on the page, as a backdrop may read it
+ * (DESIGN-UI.md → Page-head backdrops): whether a node's text is being
+ * edited, and how many writes the graph has taken. A backdrop compares the
+ * count with the one it last saw, so it needs no listener of its own for
+ * app events. Navigation is the `node` it is handed changing.
+ */
+export interface PageActivity {
+  readonly editing: boolean;
+  readonly writes: number;
+}
+
 /** What a page head tells the backdrop it shows. */
 export interface BackdropProps {
   /** The head's colour: the shown node's tag colour, else the accent. */
@@ -271,6 +283,8 @@ export interface BackdropProps {
   readonly direction: BackdropDirection;
   /** The presentation's opacity at `strength`. */
   readonly opacity: number;
+  /** What the owner is doing on the page now. */
+  readonly activity: PageActivity;
 }
 
 /**

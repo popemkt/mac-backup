@@ -1,4 +1,4 @@
-import { usePageBackdrop } from "../hooks";
+import { usePageActivity, usePageBackdrop } from "../hooks";
 import type { OutlineNode } from "../lib/types";
 
 /**
@@ -12,6 +12,7 @@ import type { OutlineNode } from "../lib/types";
  */
 export function PageBackdrop({ color, node }: { color: string; node?: OutlineNode }) {
   const { backdrop: chosen, strength, direction } = usePageBackdrop(node);
+  const activity = usePageActivity();
   if (chosen === null) return null;
   const { presentation, Component } = chosen.value;
   const opacity = presentation.opacity[strength];
@@ -44,6 +45,7 @@ export function PageBackdrop({ color, node }: { color: string; node?: OutlineNod
           strength={strength}
           direction={direction}
           opacity={opacity}
+          activity={activity}
         />
       </div>
     </div>

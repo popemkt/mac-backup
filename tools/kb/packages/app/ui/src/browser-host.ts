@@ -54,6 +54,7 @@ const host: BrowserHost = {
     const { activeNodeId, activeInstanceKey } = pageEditor().getState();
     return activeNodeId === nodeId && activeInstanceKey === instanceKey;
   },
+  editing: () => pageEditor().getState().activeNodeId !== null,
   isSelected: (nodeId, instanceKey) => {
     const { selectedNodeId, selectedInstanceKey } = pageEditor().getState();
     return selectedNodeId === nodeId && selectedInstanceKey === instanceKey;

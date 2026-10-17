@@ -42,18 +42,21 @@ import {
 import { definePlugin } from "@kb/plugin";
 import {
   BackdropPoint,
+  EMPTY_EDITOR,
   PageBackdrop,
   currentContributions,
   provideBackdrop,
   syncUiPlugins,
   type BackdropProps,
   type OutlineNode,
+  type PageEditor,
 } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { useGraphStore } from "@/stores/graph.store";
+import { providePageEditor } from "@/stores/page-editor";
 import { useUiStore } from "@/stores/ui.store";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { BROWSER_EXTENSIONS } from "@/ui-plugins";
@@ -62,8 +65,14 @@ const AT = "2026-01-01T00:00:00.000Z";
 const CORE = extensionNodeId("core");
 
 /** A plugin's own backdrop: it shows what it was handed, so the slot's props can be read back. */
-function PlainBackdrop({ color, strength, direction, opacity }: BackdropProps) {
-  return <i data-plain={`${color} ${strength} ${direction} ${opacity}`} />;
+function PlainBackdrop({ color, strength, direction, opacity, activity }: BackdropProps) {
+  return (
+    <i
+      data-plain={`${color} ${strength} ${direction} ${opacity}`}
+      data-editing={String(activity.editing)}
+      data-writes={activity.writes}
+    />
+  );
 }
 const PLAIN_KEY: SeedBackdrop = { id: "plain.plain", label: "Plain" };
 const PLAIN_OPACITY = { subtle: 0.1, soft: 0.2, vivid: 0.3 };
@@ -205,6 +214,17 @@ describe("every contributed page-head backdrop", () => {
     }
   });
 
+  it("hands its component what the owner is doing: no editing, and the writes the graph has taken", () => {
+    useGraphStore
+      .getState()
+      .hydrateFromWire(graphWith(settingsOf(PLAIN_KEY.id, "soft", "down")), 1, "fixtures");
+    const shown = slot()?.querySelector("[data-plain]");
+    expect(shown?.getAttribute("data-editing")).toBe("false");
+    expect(Number(shown?.getAttribute("data-writes"))).toBe(
+      useGraphStore.getState().index?.generation ?? 0,
+    );
+  });
+
   it("with nothing chosen, the first contributed, subtle and facing down", () => {
     useGraphStore.getState().hydrateFromWire(graphWith({}), 1, "fixtures");
     const frame = slot();
@@ -255,6 +275,52 @@ describe("every contributed page-head backdrop", () => {
       tags: [],
     };
     expect(slot(stale)?.dataset.backdrop).toBe(PLAIN_KEY.id);
+  });
+
+  describe("as the owner works", () => {
+    let container: HTMLElement;
+    let root: Root;
+
+    beforeAll(() => {
+      useGraphStore
+        .getState()
+        .hydrateFromWire(graphWith(settingsOf(PLAIN_KEY.id, "soft", "down")), 1, "fixtures");
+      container = document.createElement("div");
+      document.body.appendChild(container);
+      root = createRoot(container);
+      act(() => root.render(createElement(PageBackdrop, { color: "red" })));
+    });
+    afterAll(() => {
+      act(() => root.unmount());
+      container.remove();
+    });
+
+    const shown = () => container.querySelector("[data-plain]");
+    const writes = () => Number(shown()?.getAttribute("data-writes"));
+
+    it("sees a node's text being edited, and then not", () => {
+      const idle = EMPTY_EDITOR.getState();
+      const editor = (activeNodeId: string | null): PageEditor => ({
+        getState: () => ({ ...idle, activeNodeId }),
+        subscribe: () => () => undefined,
+      });
+      act(() => providePageEditor(editor("n.page")));
+      expect(shown()?.getAttribute("data-editing")).toBe("true");
+      act(() => providePageEditor(editor(null)));
+      expect(shown()?.getAttribute("data-editing")).toBe("false");
+      act(() => providePageEditor(EMPTY_EDITOR));
+    });
+
+    it("sees each write land as the writes count rising", async () => {
+      const before = writes();
+      await act(() =>
+        mutations.updateProp(CORE, SYSTEM_IDS.backdropStrengthField, {
+          t: "ref",
+          v: BACKDROP_STRENGTH_OPTION_IDS.vivid,
+        }),
+      );
+      expect(writes()).toBeGreaterThan(before);
+    });
   });
 
   describe("in Preferences", () => {

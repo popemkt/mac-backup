@@ -49,6 +49,8 @@ export interface BrowserHost extends NodeTextPort {
   readonly node: (id: string) => OutlineNode | undefined;
   /** Whether a node is being edited in this instance (`instanceKey`). */
   readonly isActive: (nodeId: string, instanceKey: string) => boolean;
+  /** Whether any node's text is being edited, in any instance. */
+  readonly editing: () => boolean;
   /** Whether a node is selected in this instance (`instanceKey`). */
   readonly isSelected: (nodeId: string, instanceKey: string) => boolean;
   /** Open or close a row: the page's editor's expansion (`PageEditorState.toggleCollapse`). */

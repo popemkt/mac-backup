@@ -2728,7 +2728,17 @@ exist is a plugin point, and the kit names none of them.
     one with no direction), and its `opacity` at each strength.
   - The component receives what the head knows (`BackdropProps`): its
     colour (the shown node's tag colour, else the accent), the node it shows
-    if any, the strength, the direction and the opacity at that strength.
+    if any, the strength, the direction, the opacity at that strength and
+    what the owner is doing (`activity`).
+  - **Activity is a declared input, not a listener.** `PageActivity` is
+    whether a node's text is being edited (`editing`, the host's read of the
+    page editor) and how many writes the graph has taken (`writes`, the
+    index's generation), both read through `BrowserHost`, so the slot hands
+    every backdrop the same signal (`usePageActivity`). A backdrop that
+    reacts to the owner compares `writes` with the count it last saw and
+    reads `editing` as a state; navigation is the `node` it is handed
+    changing. It adds no document listener for app events. The pointer over
+    its own frame is not an app event: a backdrop may read it locally.
 - **One slot.** `PageBackdrop` (`@kb/ui-sdk`) is the one page-head slot.
   It frames the chosen backdrop by its presentation, behind the head's
   content, and renders nothing when nothing is contributed. Any page head
