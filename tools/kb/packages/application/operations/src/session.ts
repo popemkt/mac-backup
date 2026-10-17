@@ -19,6 +19,7 @@ import {
   type StoreFingerprint,
 } from "@kb/contracts";
 import { decide } from "./approval.ts";
+import { scriptWriteRefusal } from "./script-reach.ts";
 
 /**
  * The store as this session last saw it.
@@ -119,6 +120,9 @@ export interface PersistOptions {
  * force, or by kb's own code writing its own schema, says so in
  * `systemWrites`; nothing skips the check by not calling it.
  *
+ * Inside a script's invocation, what the commit writes is bounded to the
+ * script's subject (`scriptWriteRefusal`), so no action can write past it.
+ *
  * Inside an invocation, the resolver is asked again with what the commit
  * writes (`resolveApproval`): a write to an approval policy needs a person
  * behind the call, whatever the policies say, and is refused here, before the
@@ -147,6 +151,10 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
     }
   }
   if (call !== null) {
+    const outOfReach = scriptWriteRefusal(call.invocation, tx, ctx);
+    if (outOfReach !== null) {
+      return yield* domainError("forbidden", outOfReach.message, outOfReach.details);
+    }
     const writes = [
       ...tx.upserts.map((after) => ({ before: ctx.index.getNode(after.id), after })),
       ...tx.deletes.map((id) => ({ before: ctx.index.getNode(id), after: undefined })),

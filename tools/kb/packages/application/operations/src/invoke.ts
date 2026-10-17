@@ -29,7 +29,7 @@ import {
   type DomainError,
 } from "@kb/model";
 import { decide } from "./approval.ts";
-import { scriptRefusal } from "./script-reach.ts";
+import { callWithin, scriptRefusal } from "./script-reach.ts";
 import { assetUploadDef, assetUploadEffect } from "./assets.ts";
 import {
   sandboxTrustDef,
@@ -246,8 +246,10 @@ const ForcedInputSchema = z.object({ force: z.literal(true) });
 export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   actions: ReadonlyMap<string, RegisteredAction<R>>,
   ctx: KbContext,
-  invocation: ActionInvocation,
+  asked: ActionInvocation,
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, R> {
+  // A call an action makes while another runs is made as that one's caller.
+  const invocation = callWithin(yield* CurrentCall, asked);
   const { id, input } = invocation;
   const entry = actions.get(id);
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);

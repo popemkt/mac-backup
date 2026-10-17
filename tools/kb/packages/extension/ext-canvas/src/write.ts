@@ -9,8 +9,8 @@
  */
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import { KbCtx, type KbContext, type KbStore } from "@kb/contracts";
-import { persistEffect, planNodeAddEffect } from "@kb/operations";
+import { CurrentCall, KbCtx, type KbContext, type KbStore } from "@kb/contracts";
+import { persistEffect, planNodeAddEffect, readableNodes } from "@kb/operations";
 import {
   isSysPrefixed,
   currentIso,
@@ -185,6 +185,22 @@ export const readCanvasEffect = Effect.fn("ext.canvas.read")(function* (
   return yield* parseDocEffect(raw.v, canvasId);
 });
 
+/**
+ * The nodes a canvas action reads kb through — the nodes its items stand
+ * for, the canvases their links name, the outline round it — as its call
+ * may read them (`readableNodes`), with `also`, what the same act writes,
+ * over them. Every canvas action that reads kb beyond the document reads it
+ * through these, so a script's description, lints and picture of its
+ * canvas say nothing of a node beyond its subject.
+ */
+export const readableEffect = Effect.fn("ext.canvas.readable")(function* (
+  also: readonly KbNode[] = [],
+): Effect.fn.Return<KbNode[], never, KbCtx> {
+  const ctx = yield* KbCtx;
+  const call = yield* CurrentCall;
+  return readableNodes(call?.invocation, [...ctx.nodes, ...also]);
+});
+
 /** What one canvas write commits: the document, and the other nodes the same act changes. */
 export interface CanvasWrite {
   readonly canvasId: string;
@@ -224,8 +240,16 @@ export const commitCanvasEffect = Effect.fn("ext.canvas.commit")(function* (
   canvas.updatedAt = at;
   const also = yield* canvasStep(() => write.also?.(at) ?? []);
   // Each document is linted in the kb it stands in: the one before the write, and the one it leaves.
-  const before = lintCanvas(write.canvasId, storedDoc(host), canvasWorld([...ctx.nodes, ...also]));
-  const after = lintCanvas(write.canvasId, write.doc, canvasWorld([...ctx.nodes, ...also, canvas]));
+  const before = lintCanvas(
+    write.canvasId,
+    storedDoc(host),
+    canvasWorld(yield* readableEffect(also)),
+  );
+  const after = lintCanvas(
+    write.canvasId,
+    write.doc,
+    canvasWorld(yield* readableEffect([...also, canvas])),
+  );
   yield* persistEffect(ctx, { upserts: [canvas, ...also], deletes: [] });
   return { doc: docStr, lints: lintDiff(before, after) };
 });

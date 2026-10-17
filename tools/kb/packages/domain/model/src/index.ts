@@ -244,3 +244,4 @@ export {
   relationMisfit,
   type RelationFieldFit,
 } from "./relation.ts";
+export { isVocabulary } from "./vocabulary.ts";

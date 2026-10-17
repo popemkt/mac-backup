@@ -8,10 +8,10 @@
  */
 import { Effect } from "effect";
 import { z } from "zod";
-import { KbCtx, type ExtensionAction } from "@kb/contracts";
+import type { ExtensionAction, KbCtx } from "@kb/contracts";
 import { canvasSvg, canvasWorld, isNativeEdgeBound, stringifyCanvasDoc } from "@kb/canvas";
 import { CanvasIdSchema } from "./schemas.ts";
-import { readCanvasEffect, type CanvasFail } from "./write.ts";
+import { readCanvasEffect, readableEffect, type CanvasFail } from "./write.ts";
 
 /**
  * The formats a canvas exports to.
@@ -39,14 +39,14 @@ const exportOutput = z.object({
 const canvasExportEffect = Effect.fn("ext.canvas.export")(function* (
   input: z.infer<typeof exportInput>,
 ): Effect.fn.Return<z.infer<typeof exportOutput>, CanvasFail, KbCtx> {
-  const ctx = yield* KbCtx;
   const doc = yield* readCanvasEffect(input.canvasId);
-  const byId = new Map(ctx.nodes.map((node) => [node.id, node]));
+  const readable = yield* readableEffect();
+  const byId = new Map(readable.map((node) => [node.id, node]));
   const text =
     input.format === "json-canvas"
       ? stringifyCanvasDoc(doc)
       : canvasSvg(doc, {
-          textOf: canvasWorld(ctx.nodes).textOf,
+          textOf: canvasWorld(readable).textOf,
           bound: (edge) =>
             isNativeEdgeBound(edge, (nodeId, fieldId) => byId.get(nodeId)?.props[fieldId]),
         });

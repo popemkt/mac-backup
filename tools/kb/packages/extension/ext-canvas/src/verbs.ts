@@ -77,6 +77,7 @@ import {
   CanvasTxError,
   canvasStep,
   commitCanvasEffect,
+  readableEffect,
   readCanvasEffect,
   withPropOps,
   type CanvasFail,
@@ -217,14 +218,13 @@ const canvasScreenEffect = Effect.fn("ext.canvas.screen")(function* (
 const canvasDescribeEffect = Effect.fn("ext.canvas.describe")(function* (
   input: z.infer<typeof describeInput>,
 ): Effect.fn.Return<z.infer<typeof describeOutput>, CanvasFail, KbCtx | Screens> {
-  const ctx = yield* KbCtx;
   const doc = yield* readCanvasEffect(input.canvasId);
   const screen = yield* canvasScreenEffect(input.canvasId, input.tab);
   const chosen =
     input.focus ?? (screen !== null && screen.selection.length > 0 ? screen.selection : null);
   const visible = screen === null ? undefined : new Set(screen.visible);
   const focus = chosen === null ? visible : new Set(chosen);
-  const world = canvasWorld(ctx.nodes);
+  const world = canvasWorld(yield* readableEffect());
   const scripts = yield* canvasScriptsEffect(input.canvasId, boardOf(world, input.canvasId));
   const told = describeCanvas(doc, {
     canvasId: input.canvasId,
@@ -252,9 +252,8 @@ const lintOutput = z.object({ canvasId: z.string(), lints: z.array(LintSchema).r
 const canvasLintEffect = Effect.fn("ext.canvas.lint")(function* (
   input: z.infer<typeof lintInput>,
 ): Effect.fn.Return<z.infer<typeof lintOutput>, CanvasFail, KbCtx> {
-  const ctx = yield* KbCtx;
   const doc = yield* readCanvasEffect(input.canvasId);
-  const lints = lintCanvas(input.canvasId, doc, canvasWorld(ctx.nodes));
+  const lints = lintCanvas(input.canvasId, doc, canvasWorld(yield* readableEffect()));
   return { canvasId: input.canvasId, lints };
 });
 

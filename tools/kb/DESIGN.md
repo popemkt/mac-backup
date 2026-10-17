@@ -3689,7 +3689,34 @@ is `@kb/sandbox` (`packages/contract/sandbox`); the engines are
   guest), and the invoke core decides it (`scriptRefusal` in
   `@kb/operations`, asking `grantRefusal` with `callTargets`): one place,
   which every script call reaches from the page and from the server alike.
-  `sandboxContract` and `script-run.test.ts` pin it.
+  `sandboxContract` and `script-run.test.ts` pin it. What a call names is
+  only where it starts; the bound holds on what it does, in three places:
+  - **What it writes**, at the commit (`persistEffect` asks
+    `scriptWriteRefusal`), which every write passes whichever action
+    planned it: each node the transaction deletes, and each it writes as it
+    was and as it will be, is the subject or under it, and so is each node a
+    written node comes to point at (`KbIndex.referencesOf`: a child, a ref
+    value, a `[[id]]` token, a canvas card — every carrier of the reference
+    relation). A reference already there is the script's to keep, so it may
+    move the card a person made for a node elsewhere and may not make one;
+    and a reference to the vocabulary nodes are written in (`isVocabulary`:
+    `sys.*`, a tag, a field, a field's option) is no reach, so a script tags
+    what it writes. A move or reorder that writes a parent beyond the
+    subject, a delete that detaches one, a bind that sets a field on a node
+    beyond it and a card placed for one are each refused there.
+  - **What it reads around what it names**, through `readableNodes`: for a
+    script whose grant does not read the graph, the subject and what is
+    under it in full, and every other node bare (its id, no words, fields
+    or children), so what points at it still finds it and what it says
+    stays unread. A canvas action reads kb through these (`readableEffect`
+    in `@kb/ext-canvas`): a script's description, lints and picture of its
+    canvas say nothing of a node beyond its subject.
+  - **What an action calls for it.** A call made while another runs
+    (`CoreInvoke`) is made as that one's caller (`callWithin`, in the invoke
+    core): a call a script's call makes is that script's, with its reach,
+    whatever it says, so its grant bounds it — `describe` lists a board's
+    scripts through `ext.code.script.list` only for a grant that names it.
+  `script-reach.test.ts` replays each escape through the real invoke core.
 - **`script`** is the fourth actor (`ACTORS` in `@kb/model`): code in the
   sandbox, whoever wrote it, never a person. `SCRIPT_WIRE` carries approval
   only as far as its host can put a person behind a call. Its seeded

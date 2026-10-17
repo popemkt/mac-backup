@@ -155,10 +155,26 @@ describe("approval policies in the invoke core", () => {
       code: "approval_required",
       details: { writes: "configuration" },
     });
+    // A script attaches no script: one beyond its board is out of its reach, and one on it is configuration.
     expect(await invoke(ctx, attach(asScript("n.board", "node.update")))).toMatchObject({
       status: "failed",
-      details: { writes: "configuration" },
+      code: "forbidden",
+      details: { outside: ["s.trusted"] },
     });
+    await invoke(ctx, {
+      ...mint("s.onboard", { actor: "human" }),
+      input: { id: "s.onboard", text: "badges", tags: ["script"], parent: "n.board" },
+    });
+    expect(
+      await invoke(ctx, {
+        id: "node.update",
+        input: {
+          id: "n.board",
+          setProps: [{ field: CODE_IDS.scriptsField, value: { t: "ref", v: "s.onboard" } }],
+        },
+        ...asScript("n.board", "node.update"),
+      }),
+    ).toMatchObject({ status: "failed", details: { writes: "configuration" } });
     expect(await invoke(ctx, attach({ actor: "agent", approved: true }))).toMatchObject({
       status: "succeeded",
     });
