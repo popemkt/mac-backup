@@ -21,8 +21,6 @@ import { extractMentions, type KbNode, type NodeId, type PropValue } from "@kb/m
 
 /** One way a node points at other nodes: the ids it names, resolvable or not, in order. */
 interface RefCarrier {
-  /** What the carrier is, for a reader of the table: `text-tokens`, `ref-props`, … */
-  readonly id: string;
   readonly refsOf: (node: KbNode) => Iterable<NodeId>;
 }
 
@@ -53,11 +51,10 @@ export function nodeMentions(node: Pick<KbNode, "text" | "props">): NodeId[] {
 }
 
 /** A `[[id]]` token in text, the node's own or a text value's (`nodeMentions`). */
-const TEXT_TOKENS: RefCarrier = { id: "text-tokens", refsOf: nodeMentions };
+const TEXT_TOKENS: RefCarrier = { refsOf: nodeMentions };
 
 /** A `{t:"ref"}` prop value, in any field. */
 const REF_PROPS: RefCarrier = {
-  id: "ref-props",
   refsOf: (node) =>
     Object.values(node.props).flatMap((values) =>
       values.flatMap((pv) => (pv.t === "ref" ? [pv.v] : [])),
@@ -91,7 +88,6 @@ export interface FieldRefCarrier {
 /** `carrier` as a node's carrier: what each of its values in the field points at. */
 function fieldCarrier({ field, refsOf }: FieldRefCarrier): RefCarrier {
   return {
-    id: `field:${field}`,
     refsOf: (node) => (node.props[field] ?? []).flatMap((value) => [...refsOf(value)]),
   };
 }
@@ -104,7 +100,6 @@ function fieldCarrier({ field, refsOf }: FieldRefCarrier): RefCarrier {
  */
 function ownerCarrier(owners: ReadonlyMap<NodeId, NodeId>): RefCarrier {
   return {
-    id: "seed-owner",
     refsOf: (node) => {
       const owner = owners.get(node.id);
       return owner === undefined || owner === node.id ? [] : [owner];
