@@ -65,6 +65,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — every known root has run views.migrate; then delete LegacyDocsViewsPort and readLegacyDocsViews
 - **node** — `01M3YM5YCHGX6S04KN4G75B9RF`
 
+### GAP: ⌘K "Open location…" opens the home store instead of listing locations in the palette
+
+- **expected** — ⌘K "Open location…" lists the location rows as a palette step and opens the one picked.
+- **current** — The command opens the home store (location.open with no target), whose page lists every location in its sidebar.
+- **impact** — One extra hop (a page load) to pick a location from the palette.
+- **closes** — A palette step a command can hand a list of choices to (generalise PaletteSurface.openStep / NodeCommandStep beyond add-tag/field/ref).
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M53VP7RKJG53B305MM26AYVG`
+
 ### GAP: ⌘Z in an open canvas undoes edits made elsewhere
 
 - **expected** — undo history tracks who authored each step, so a person's ⌘Z undoes their own edits, not an agent's or another tab's concurrent edit
