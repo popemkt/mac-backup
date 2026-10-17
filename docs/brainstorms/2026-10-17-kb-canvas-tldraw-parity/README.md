@@ -531,3 +531,19 @@ against the code before it was fixed.
 |---|---|---|---|
 | C2 | minor | `RefCarrier.id` in the derived table is set and read nowhere, and `derivedWith` matches a carrier by the literal `":node/mentions"`: a dead seam. | Carriers attach by their table key, and `id` goes. |
 | C3 | minor | `DatascriptIndex` falls back to `CORE_DERIVED` when no derived table is given, so a host can silently drop canvas references. | `derived` is required; every production host already passes `bundledDerived()`. |
+
+## Review round 4 (GPT-6.1 Sol, 2026-10-17): scripting
+
+Batch S: a review of canvas scripting S1–S5 as it landed (read at
+`c00a439a`). Each finding is verified against the code before it is fixed,
+on `fix/scripts-review`. Security comes before P14 comments, which wait for
+it.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| S-1 | major | The declared-events filter lives only in the guest driver (`guest.ts`); the page's host (`sandbox-host.ts`) forwards every event. Latent today. | One filter in the sandbox contract, applied at the host edge as well, so both engines and both hosts ask one function. |
+| S-2 | major | A script escapes its scope through the canvas verbs: `grantRefusal` bounds only `node.get` and `graph.query`, so a script granted `ext.canvas.place` (or `tx.apply`, whose prop ops reach any node) writes to any canvas or node. | Every action declares the nodes a call acts on (`targets`), and the grant bounds them to the script's subject in one place, the invoke core, which every script call reaches from either host; an action that declares none is no script's to call. Contract cases prove it, and the scripts panel says what is enforced. |
+| S-3 | major | Overlay clickjacking: a script's frame lies over the cards and edges with pointer events off, so it can paint a fake control over a real card and the click lands on the card. | A script's drawing lies under the canvas's interactive items, so what is on top is what a press reaches. |
+| S-4 | major | A code view's figure (`codeFigure`, `text.ts`) runs its code on render with no trust check, while `script.run` checks trust. | Verify whether untrusted code may run in the restricted engine with read-only invoke; state the model once, with a contract property, or route both through one trust gate. |
+| S-5 | minor | Nested `ext.code.script.run` calls are unbounded; each step asks for approval. | A bound on how deep a run may start another. |
+| S-6 | minor | Two grant parsers: `scriptOf` decodes with Schema, `CodeView.readGrant` with `JSON.parse`. | One decoder. |
