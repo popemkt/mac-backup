@@ -175,7 +175,7 @@ describe("canvas doc parse/patch round-trip", () => {
 
   test("a shape kind kb does not know is kept as written, not drawn as a rect", () => {
     const raw = {
-      nodes: [{ id: "s1", type: "shape", shape: "hexagon", x: 0, y: 0, width: 100, height: 80 }],
+      nodes: [{ id: "s1", type: "shape", shape: "heart", x: 0, y: 0, width: 100, height: 80 }],
       edges: [],
     };
     const again = parseCanvasDoc(raw);
