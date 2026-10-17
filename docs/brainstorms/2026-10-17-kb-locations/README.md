@@ -354,3 +354,20 @@ verified against the code before it was fixed.
 | 3.5 | minor | `stopChild` sends SIGKILL to the group even after a clean exit. | SIGKILL only when the group is still alive after the grace. |
 | 3.6 | minor | The server's and the page's `visibleNodes` keep scaffolding trace ends differently. | One shared function. |
 | 3.7 | minor | `bundled/src/index.ts` claims a derived table that a root's repository `refCarriers` make false. | The claim is corrected, or gap 01M549TK1WP4E6T4QHNDRSDYQA's text extended. |
+
+### Review round 5 (GPT-6.1 Sol, 2026-10-17)
+
+A re-verification of round 4 as it landed (main `45aa08e1`): 3.3–3.7 are
+closed; 3.1 and 3.2 are not. Sol's probes (P1–P7) are ported into the
+extension contract suite. Each finding was verified against the code
+before it was fixed. Finding 5 is the canvas builder's.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| 1 | blocker | The trust closure is textual: code the root carries outside `.kb/extensions` runs unapproved through tsconfig `paths` (P1), package `imports` (P2), `createRequire` (P3), `new Function` returning an `import` (P5), and `eval` of a file read at runtime (P4). | Resolution-based: every file Bun loads under the root goes through one load hook that serves only approved bytes, so no route that loads a module escapes it; the textual scans are deleted. Evaluating text at runtime is the approved code's own behaviour, and the model says so once. |
+| 2 | major | Bun's module cache keeps an extension by its path, so after digest B is trusted the module of digest A still runs (P6). | An extension is imported by its path and digest, so each approved digest is its own module. |
+| 3 | major | An `env:` ref reads any variable of the process. | A secret resolves only for a provider binding a person trusted on this machine. |
+| 4 | major | A provider endpoint can carry a resolved key to any https host: a provider node the root carries points at another host. | Binding a secret to an endpoint is trust: a provider's binding (endpoint, credential, executable) runs only once a person trusted its digest here. |
+| 6 | minor | The agent child keeps a broad environment, and its executable comes from `PATH`. | The child keeps what the adapter declares; the executable's source is stated. |
+| 7 | minor | An actorless call meets no actor-scoped deny, so `approval.script-run` asks rather than denies it. | The approval reading for a call that names no actor is decided and stated; the invoke plumbing is the canvas builder's. |
+| 8 | minor | A person's exact-id allow is said to lower a family's declared deny. | Which outranks which is decided, stated, and the fold and the decision agree. |
