@@ -222,10 +222,17 @@ test("force2d labels each link with its relation once the perspective turns link
   await expect.poll(labels, PAGE_READY).toEqual({ drawn: false, labels: [""] });
   const panel = page.getByTestId("graph-settings-panel");
   await page.getByTestId("graph-settings-toggle").click();
-  await panel.getByLabel("Label links").check();
+  // The box shows the perspective's setting, which a click writes through the
+  // local write path: it turns once that write lands, a task after the click,
+  // so the spec clicks and then waits for it (`check()` would demand the turn
+  // within the click itself).
+  const toggle = panel.getByLabel("Label links");
+  await toggle.click();
+  await expect(toggle).toBeChecked();
   // The fixture's links are mentions and containment, each read by its verb.
   await expect.poll(labels, PAGE_READY).toEqual({ drawn: true, labels: ["contains", "mentions"] });
-  await panel.getByLabel("Label links").uncheck();
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
   await expect.poll(labels, PAGE_READY).toEqual({ drawn: false, labels: [""] });
 });
 
