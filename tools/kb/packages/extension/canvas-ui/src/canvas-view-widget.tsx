@@ -11,7 +11,7 @@
  * key and a click cannot mean different things; under them, the canvas's
  * frames, each a viewpoint to go to.
  */
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import type { CanvasGroupNode, CanvasProjectionKind } from "@kb/canvas";
 import type { CanvasViewPresetName } from "@kb/contracts";
 import {
@@ -23,7 +23,7 @@ import {
 } from "./canvas-camera";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from "./canvas-keymap";
-import { cn, isOutside } from "@kb/ui-sdk";
+import { cn, useDismiss } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";
 import { frameName } from "./canvas-frame-name";
 import { useShownView } from "./use-shown-view";
@@ -215,13 +215,8 @@ function ViewMenu({
   const items = () => [
     ...(menu.current?.querySelectorAll<HTMLButtonElement>("[role^=menuitem]:not(:disabled)") ?? []),
   ];
-  useEffect(() => {
-    const away = (e: PointerEvent) => {
-      if (isOutside(menu.current, e.target) && isOutside(anchor.current, e.target)) onClose(false);
-    };
-    window.addEventListener("pointerdown", away, true);
-    return () => window.removeEventListener("pointerdown", away, true);
-  }, [anchor, onClose]);
+  // A press on the trigger is its own: its click toggles the menu.
+  useDismiss(true, [menu, anchor], (how) => onClose(how === "escape"));
   const onKeyDown = (e: React.KeyboardEvent) => {
     const all = items();
     const at = all.findIndex((item) => item === document.activeElement);
@@ -229,7 +224,6 @@ function ViewMenu({
     if (step !== 0) all[(at + step + all.length) % all.length]?.focus();
     else if (e.key === "Home") all[0]?.focus();
     else if (e.key === "End") all.at(-1)?.focus();
-    else if (e.key === "Escape") onClose(true);
     else return;
     // The canvas's own keys (nudge, escape) stay out of an open menu.
     e.preventDefault();

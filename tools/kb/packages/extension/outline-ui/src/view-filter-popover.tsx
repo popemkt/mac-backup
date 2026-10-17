@@ -13,6 +13,7 @@ import {
   useFilterFrame,
   useFrameViewNode,
   usePageGraph,
+  useDismiss,
 } from "@kb/ui-sdk";
 import { serializeViewFilter, type ViewFilter } from "@kb/views";
 import { outlineNodes, useOutlineNode } from "./outline.store";
@@ -91,30 +92,13 @@ export function ViewFilterPopoverHost() {
 
   useEffect(() => {
     if (frameId === null || !anchor) return undefined;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenId(null);
-    };
-    const onPointerDown = (e: PointerEvent) => {
-      const panel = panelRef.current;
-      if (panel && e.target instanceof Node && !panel.contains(e.target)) {
-        const t = e.target;
-        if (t instanceof Element && t.closest(`[data-filter-button="true"]`)) {
-          return;
-        }
-        setOpenId(null);
-      }
-    };
     const onScroll = () => {
       const rect = resolveAnchorRect(frameId);
       if (rect) setAnchor(rect);
     };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onScroll);
     return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
     };
@@ -123,6 +107,11 @@ export function ViewFilterPopoverHost() {
   useEffect(() => {
     if (!fieldId && fields[0]) setFieldId(fields[0].id);
   }, [fields, fieldId]);
+
+  // A filter button is a trigger: its click opens or closes its own frame's filter.
+  useDismiss(frameId !== null && anchor !== null, [panelRef, '[data-filter-button="true"]'], () =>
+    setOpenId(null),
+  );
 
   if (frameId === null || !anchor) return null;
 

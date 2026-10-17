@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   ArrowUpRightIcon,
   CaretRightIcon,
@@ -24,7 +24,7 @@ import {
 } from "@phosphor-icons/react";
 import { CANVAS_SOLID_PRESETS, type CanvasProjectionKind } from "@kb/canvas";
 import { isSolidTool, solidOf, type CanvasTool, type ToolState } from "./canvas-tool";
-import { cn, isOutside } from "@kb/ui-sdk";
+import { cn, useDismiss } from "@kb/ui-sdk";
 import { CANVAS_PROJECTIONS } from "./canvas-projections";
 import { shortcutHint } from "./canvas-keymap";
 
@@ -152,21 +152,8 @@ function SolidTool({
   const ref = useRef<HTMLDivElement>(null);
   const solid = solidOf(toolState);
   const active = isSolidTool(toolState.tool);
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDown = (e: MouseEvent) => {
-      if (isOutside(ref.current, e.target)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  // The button is inside: its click toggles the picker.
+  useDismiss(open, [ref], () => setOpen(false));
   return (
     <div ref={ref} className="relative">
       <ToolButton

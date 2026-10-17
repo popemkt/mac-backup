@@ -6,7 +6,6 @@ import {
   type EnumOption,
   EnumSelect,
   type ExtensionSwitch,
-  isOutside,
   POPOVER_VALUE_CLASS,
   PopoverShell,
   PrefFieldRow,
@@ -18,8 +17,9 @@ import {
   useGraphRead,
   usePageBackdrop,
   type WidthPref,
+  useDismiss,
 } from "@kb/ui-sdk";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { ArrowsHorizontalIcon, PuzzlePieceIcon, SwatchesIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useDesignSystemStore } from "@/stores/design-system.store";
@@ -55,21 +55,7 @@ export function PreferencesPopover({
   const setOpen = useUiStore((s) => s.setPrefsOpen);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    const onPointerDown = (e: PointerEvent) => {
-      if (isOutside(panelRef.current, e.target)) setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [open, setOpen]);
+  useDismiss(open, [panelRef], () => setOpen(false));
 
   if (!open) return null;
 

@@ -39,9 +39,9 @@ export function asElement(target: unknown): Element | undefined {
 }
 
 /**
- * True when an event did not land inside `container` — the dismiss condition
- * every popover and inspector asks. A missing container, or a target that is
- * not a DOM node, is outside.
+ * True when an event did not land inside `container`: what `useDismiss`
+ * asks of a press. A missing container, or a target that is not a DOM node,
+ * is outside.
  */
 export function isOutside(container: Node | null | undefined, target: unknown): boolean {
   if (container === null || container === undefined) return true;

@@ -1621,6 +1621,18 @@ The rules that hold everywhere, so no surface re-invents them:
 - **The palette behaves like a dialog.** `components/palette/command-palette.tsx`
   records `document.activeElement` on open and restores focus on close, traps
   `Tab` inside itself, and keeps the active result scrolled into view.
+- **Popovers dismiss one way.** Every popover, menu and picker that floats
+  over the page — the canvas's inspectors, comment thread, solid picker,
+  view menu, shortcuts sheet and node picker; the graph's settings and
+  perspective picker; the outline's frame filter; Preferences, the
+  ontology picker, the add-a-ref picker and the pane switcher — dismisses
+  through `@kb/ui-sdk`'s `useDismiss`, never a listener of its own. While
+  open, Escape dismisses it and reaches nothing else, and a press anywhere
+  but what it counts as itself dismisses it: its panel, and its trigger
+  where the trigger's own click toggles it (an element, or a selector for
+  triggers such as the outline's filter buttons). Both are heard on the
+  window in the capture phase, so no handler under a press or a key keeps
+  them from it.
 - **IME composition is never interrupted.** Field editors track
   `compositionstart`/`compositionend` _and_ check `nativeEvent.isComposing`
   before treating a key as a commit, so a composing CJK/dead-key sequence is not

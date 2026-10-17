@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "../lib/cn";
 import type { SidebarNavItem } from "./sidebar-row";
+import { useDismiss } from "./use-dismiss";
 
 interface OntologyPickerProps {
   ontologies: SidebarNavItem[];
@@ -29,24 +30,7 @@ export function OntologyPicker({
   const rootRef = useRef<HTMLDivElement>(null);
   const active = ontologies.find((o) => o.id === activeId) ?? null;
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    const onPointerDown = (e: PointerEvent) => {
-      const root = rootRef.current;
-      if (root && e.target instanceof Node && !root.contains(e.target)) {
-        setOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [open]);
+  useDismiss(open, [rootRef], () => setOpen(false));
 
   return (
     <div ref={rootRef} className="relative">

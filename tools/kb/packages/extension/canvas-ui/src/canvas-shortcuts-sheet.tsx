@@ -4,8 +4,8 @@
  * presses it. Opened with `?`; Escape, a press outside it or its button
  * closes it.
  */
-import { useEffect, useRef } from "react";
-import { isOutside } from "@kb/ui-sdk";
+import { useRef } from "react";
+import { useDismiss } from "@kb/ui-sdk";
 import {
   CANVAS_SHORTCUTS,
   chordHint,
@@ -34,24 +34,7 @@ const chordsOf = (row: CanvasShortcut): string[] =>
 
 export function CanvasShortcutsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const sheet = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      onClose();
-    };
-    const away = (e: PointerEvent) => {
-      if (isOutside(sheet.current, e.target)) onClose();
-    };
-    // Ahead of the canvas's own keys: Escape closes the sheet and does nothing else.
-    window.addEventListener("keydown", onKey, true);
-    window.addEventListener("pointerdown", away, true);
-    return () => {
-      window.removeEventListener("keydown", onKey, true);
-      window.removeEventListener("pointerdown", away, true);
-    };
-  }, [open, onClose]);
+  useDismiss(open, [sheet], onClose);
   if (!open) return null;
   return (
     <div

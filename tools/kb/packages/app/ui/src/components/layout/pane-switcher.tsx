@@ -4,7 +4,7 @@
  * view type a node can be shown in; then every page a route opens with
  * nothing chosen. Choosing one moves the pane; nothing is written.
  */
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { Predicate, Result } from "effect";
@@ -19,6 +19,7 @@ import {
   useContributions,
   ViewPoint,
   type NodeMap,
+  useDismiss,
 } from "@kb/ui-sdk";
 import { usePageCatalog } from "@/lib/view-catalog";
 import { useGraphStore, useShownNodes } from "@/stores/graph.store";
@@ -176,23 +177,8 @@ function SwitcherMenu({
   const sections = useSections(path);
   const panel = useRef<HTMLDivElement>(null);
   const style = useAnchoredPosition(anchor, panel, true);
-  useEffect(() => {
-    const away = (e: PointerEvent): void => {
-      const target = e.target instanceof Node ? e.target : null;
-      if (panel.current?.contains(target) === true || anchor.current?.contains(target) === true)
-        return;
-      onClose();
-    };
-    const escape = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("pointerdown", away, true);
-    window.addEventListener("keydown", escape);
-    return () => {
-      window.removeEventListener("pointerdown", away, true);
-      window.removeEventListener("keydown", escape);
-    };
-  }, [anchor, onClose]);
+  // A press on the anchor is its own: its click toggles the switcher.
+  useDismiss(true, [panel, anchor], onClose);
   return createPortal(
     <div
       ref={panel}

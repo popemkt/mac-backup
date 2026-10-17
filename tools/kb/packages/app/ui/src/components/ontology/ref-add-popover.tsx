@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  isOutside,
   PickerList,
   pickerRows,
   usePickerKeys,
   type PickerCandidate,
   type PickerRow,
+  useDismiss,
 } from "@kb/ui-sdk";
 import { PlusIcon } from "@phosphor-icons/react";
 
@@ -60,14 +60,8 @@ export function RefAddPopover({
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onPointerDown = (e: PointerEvent) => {
-      if (isOutside(rootRef.current, e.target)) setOpen(false);
-    };
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => window.removeEventListener("pointerdown", onPointerDown);
-  }, [open]);
+  // The button is inside: its click toggles the picker.
+  useDismiss(open, [rootRef], () => setOpen(false));
 
   return (
     <div ref={rootRef} className="relative inline-flex">

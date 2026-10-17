@@ -1,7 +1,7 @@
 import { saveGraphPerspective } from "./lens-writes";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
-import { cn } from "@kb/ui-sdk";
+import { cn, useDismiss } from "@kb/ui-sdk";
 import type { LensPerspective, RendererKey } from "@kb/graph";
 
 interface PerspectivePickerProps {
@@ -29,24 +29,7 @@ export function PerspectivePicker({
   const rootRef = useRef<HTMLDivElement>(null);
   const active = perspectives.find((p) => p.id === activeId) ?? null;
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    const onPointerDown = (e: PointerEvent) => {
-      const root = rootRef.current;
-      if (root && e.target instanceof Node && !root.contains(e.target)) {
-        setOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [open]);
+  useDismiss(open, [rootRef], () => setOpen(false));
 
   return (
     <div ref={rootRef} className="relative">

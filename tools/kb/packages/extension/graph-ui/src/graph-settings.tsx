@@ -1,8 +1,8 @@
 import { GraphMappings } from "./graph-mappings";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
 import { setLensProp } from "./lens-writes";
-import { cn, isOutside } from "@kb/ui-sdk";
+import { cn, useDismiss } from "@kb/ui-sdk";
 import {
   LENS_LABEL_DENSITIES,
   LENS_LAYOUTS,
@@ -29,14 +29,8 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const renderer = useRenderer(perspective.renderer);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDoc = (e: MouseEvent) => {
-      if (isOutside(panelRef.current, e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+  // The button is inside: its click toggles the panel.
+  useDismiss(open, [panelRef], () => setOpen(false));
 
   const setStr = (field: string, v: string) => {
     void setLensProp(perspective.id, field, { t: "str", v });

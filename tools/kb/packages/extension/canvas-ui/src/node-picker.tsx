@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SYSTEM_IDS, typeRefsOf } from "@kb/model";
 import {
@@ -6,6 +6,7 @@ import {
   PickerList,
   pickerRows,
   useNodes,
+  useDismiss,
   usePickerKeys,
   type PickerCandidate,
 } from "@kb/ui-sdk";
@@ -22,6 +23,7 @@ interface NodePickerProps {
 export function NodePicker({ onPick, onClose }: NodePickerProps) {
   const nodes = useNodes();
   const [q, setQ] = useState("");
+  const sheet = useRef<HTMLDivElement>(null);
 
   const candidates = useMemo(() => {
     const out: PickerCandidate[] = [];
@@ -46,16 +48,14 @@ export function NodePicker({ onPick, onClose }: NodePickerProps) {
     onCancel: onClose,
   });
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // The whole sheet is the picker's: its backdrop takes a press without closing it.
+  useDismiss(true, [sheet], onClose);
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-background/60 pt-[15vh] backdrop-blur-[1px]">
+    <div
+      ref={sheet}
+      className="fixed inset-0 z-50 flex items-start justify-center bg-background/60 pt-[15vh] backdrop-blur-[1px]"
+    >
       <div className="w-full max-w-md rounded-lg border border-foreground/10 bg-popover shadow-overlay">
         <input
           autoFocus
