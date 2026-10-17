@@ -233,8 +233,8 @@ export const commitCanvasEffect = Effect.fn("ext.canvas.commit")(function* (
   canvas.updatedAt = at;
   const also = yield* canvasStep(() => write.also?.(at) ?? []);
   // Each document is linted in the kb it stands in: the one before the write, and the one it leaves.
-  const before = lintCanvas(storedDoc(host), canvasWorld([...ctx.nodes, ...also]));
-  const after = lintCanvas(write.doc, canvasWorld([...ctx.nodes, ...also, canvas]));
+  const before = lintCanvas(write.canvasId, storedDoc(host), canvasWorld([...ctx.nodes, ...also]));
+  const after = lintCanvas(write.canvasId, write.doc, canvasWorld([...ctx.nodes, ...also, canvas]));
   yield* persistEffect(ctx, { upserts: [canvas, ...also], deletes: [] });
   return { doc: docStr, lints: lintDiff(before, after) };
 });

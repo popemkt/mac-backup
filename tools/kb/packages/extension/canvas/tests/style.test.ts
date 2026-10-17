@@ -146,7 +146,7 @@ describe("styleOf and withStyle", () => {
     expect(made.style).toEqual({ dash: "dotted", font: "mono" });
     const told = describeCanvas(
       { nodes: [{ ...made, color: "1" }], edges: [] },
-      { world: canvasWorld([]) },
+      { canvasId: "c", world: canvasWorld([]) },
     );
     expect(told.items[0]?.color).toBe("red");
     expect(told.items[0]?.style).toEqual({ dash: "dotted", font: "mono" });

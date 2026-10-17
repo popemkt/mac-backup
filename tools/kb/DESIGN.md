@@ -2436,6 +2436,19 @@ words, and a node's References and `kb backlinks` list every canvas that
 shows it with no question of their own. A value that is no canvas document
 carries none.
 
+**Pages** are nodes (`@kb/canvas` `pages.ts`). A board is a `#canvas` node
+whose parent is no canvas; its pages are itself and the canvases under it
+in the outline, reached through canvases only, in outline order
+(`canvasPages`). A page is named by its node's text and moved, ordered and
+nested as any node is, so the outline lists a board's pages with nothing of
+its own, and pages need no format change. The canvas page shows the
+board's pages as a strip (`canvas-page-strip.tsx`): a tab opens a page,
+⌥← and ⌥→ turn to the one before or after (tldraw's keys; they no longer
+nudge), and "New page" adds an empty canvas under the board. What leads
+from one page to another is an item's `link`, so a drill-down is a card
+linked to a page, and a way back is a card linked back: usage, not a
+widget. The inspector's link row offers the board's other pages as picks.
+
 An item's or an edge's JSON Canvas `color` is one of the palette's
 (`CANVAS_PALETTE`): the format's presets `1`–`6` (red, orange, yellow,
 green, cyan, purple) and the colours kb names, written by name (`blue`,
@@ -2566,11 +2579,14 @@ transaction, one step of an open canvas's history.
 - **Lints** (`lint.ts`): `overlap` (one of the two a solid), `floating`
   (raised with nothing under it and no frame face it lies on),
   `missing-end`, `missing-node`, `dead-link` (a `link` to a node the store
-  does not hold, or to an item its canvas does not hold), `missing-group`,
-  `outside-frame`. A lint reads kb only through a `CanvasWorld` (`world.ts`:
-  a node's text, a canvas's document), which both hosts build from the
-  nodes they hold with `canvasWorld`; a write lints the document before it
-  in the kb before it, and the one it writes in the kb it leaves. Every
+  does not hold, or to an item its canvas does not hold),
+  `unreachable-page` (a page of the canvas's board that no chain of links
+  leads to from the board; every page of the board says so),
+  `missing-group`, `outside-frame`. A lint reads kb only through a
+  `CanvasWorld` (`world.ts`: a node's text, a canvas's document, the
+  outline round it), which both hosts build from the nodes they hold with
+  `canvasWorld`; a write lints the document before it in the kb before it,
+  and the one it writes in the kb it leaves. Every
   canvas write — `tx.apply` included — answers `lints: {new, resolved}`,
   and `ext.canvas.lint` reads them.
 - **`describe`** gives each item's kind, words and box (in focus, also its

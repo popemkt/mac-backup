@@ -107,6 +107,34 @@ describe("CanvasPage pointer interactions", () => {
     vi.restoreAllMocks();
   });
 
+  it("a board's pages are a strip; a tab or ⌥→ opens the next, and an item named is selected", async () => {
+    const page: OutlineNode = {
+      ...canvasNode,
+      id: "p2",
+      text: "Page two",
+      parentId: "canvas",
+      props: { ...canvasNode.props },
+    };
+    host.setNodes([{ ...canvasNode, children: ["p2"] }, page]);
+    await act(async () => {
+      root.render(<CanvasPage canvasId="canvas" item="b" />);
+    });
+    const strip = present(container.querySelector("nav[aria-label='Pages']"), "page strip");
+    const tabs = [...strip.querySelectorAll("button")].map((b) => b.textContent);
+    expect(tabs).toEqual(["Characterization canvas", "Page two", "New page"]);
+    expect(strip.querySelector("[aria-current='page']")?.textContent).toBe(
+      "Characterization canvas",
+    );
+    // Arrived at item b: it is selected, so it wears its handles.
+    expect(container.querySelector('[data-card-id="b"] [data-resize]')).not.toBeNull();
+    expect(container.querySelector('[data-card-id="a"] [data-resize]')).toBeNull();
+    key({ key: "ArrowRight", altKey: true });
+    expect(window.location.pathname).toBe("/canvas/p2");
+    window.history.pushState({}, "", "/canvas/canvas");
+    act(() => [...strip.querySelectorAll("button")][1]?.click());
+    expect(window.location.pathname).toBe("/canvas/p2");
+  });
+
   it("selects, drags, marquees, pans, resizes, connects, and undoes through the DOM", async () => {
     await act(async () => {
       root.render(<CanvasPage canvasId="canvas" />);

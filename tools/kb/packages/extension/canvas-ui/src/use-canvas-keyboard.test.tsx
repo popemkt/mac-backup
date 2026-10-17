@@ -251,6 +251,7 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
     openViewMenu: () => log.push("viewMenu"),
     openShortcuts: () => log.push("shortcuts"),
     follow: (link: CanvasItemLink) => log.push(`follow=${JSON.stringify(link)}`),
+    turnPage: (step: number) => log.push(`page=${step}`),
   };
 
   const appliers: ((intent: CanvasIntent) => void)[] = [];
@@ -522,6 +523,13 @@ describe("locking", () => {
     expect(deleted?.nodes.map((node) => node.id)).toEqual(["a"]);
     const all = press({ key: "a", metaKey: true }, EMPTY_SELECTION, false, { doc: held });
     expect(all.log).toEqual(["selection=b"]);
+  });
+});
+
+describe("pages", () => {
+  test("⌥→ and ⌥← turn the page, and do not nudge", () => {
+    expect(press({ key: "ArrowRight", altKey: true }).log).toEqual(["page=1"]);
+    expect(press({ key: "ArrowLeft", altKey: true }).log).toEqual(["page=-1"]);
   });
 });
 

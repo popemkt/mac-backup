@@ -8,12 +8,13 @@ import { canvasPath } from "./routes";
 const canvas = (id: string) => ({
   id,
   text: id,
+  children: [],
   props: { [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: CANVAS_IDS.canvasTag }] },
 });
 const world = canvasWorld([
   canvas("n.here"),
   canvas("n.page"),
-  { id: "n.note", text: "note", props: {} },
+  { id: "n.note", text: "note", props: {}, children: [] },
 ]);
 
 describe("following a link", () => {

@@ -24,6 +24,7 @@ import {
 } from "@kb/canvas";
 import { isOutside, PopoverShell } from "@kb/ui-sdk";
 import { LinkRow } from "./item-link-row";
+import type { CanvasPageTab } from "./canvas-page-strip";
 import { textOfLink } from "./item-link-text";
 import { ColorRow, LookRows } from "./item-style-rows";
 import { NumberField } from "./number-field";
@@ -35,6 +36,8 @@ export interface ItemInspectorProps {
   onChange: (item: CanvasNode) => void;
   /** What the canvas reads of kb: where the item's link leads, in words. */
   world: CanvasWorld;
+  /** The board's other pages, which the item's link may lead to. */
+  pages: readonly CanvasPageTab[];
   /** Go where a link leads. */
   onFollow: (link: CanvasItemLink) => void;
 }
@@ -188,6 +191,7 @@ export function ItemInspector({
   onClose,
   onChange,
   world,
+  pages,
   onFollow,
 }: ItemInspectorProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -231,6 +235,7 @@ export function ItemInspector({
           key={`link:${textOfLink(item.link)}`}
           item={item}
           world={world}
+          pages={pages}
           onChange={onChange}
           onFollow={onFollow}
         />

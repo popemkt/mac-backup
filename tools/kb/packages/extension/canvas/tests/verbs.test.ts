@@ -62,9 +62,11 @@ const item = (d: CanvasDoc, id: string) => {
 };
 /** The rules of the lints on `d`, its store holding only node `n.here`. */
 const all = (d: CanvasDoc) =>
-  lintCanvas(d, canvasWorld([{ id: "n.here", text: "here", props: {} }])).map((l) => l.rule);
+  lintCanvas("c", d, canvasWorld([{ id: "n.here", text: "here", props: {}, children: [] }])).map(
+    (l) => l.rule,
+  );
 /** A store of one node, for a description. */
-const world = canvasWorld([{ id: "n.idea", text: "An idea", props: {} }]);
+const world = canvasWorld([{ id: "n.idea", text: "An idea", props: {}, children: [] }]);
 const where = (d: CanvasDoc, a: string, b: string) =>
   directionFrom(itemBounds(item(d, a)), itemBounds(item(d, b)));
 
@@ -590,6 +592,7 @@ describe("lints", () => {
     const page = {
       id: "n.page",
       text: "Page",
+      children: [],
       props: {
         [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: CANVAS_IDS.canvasTag }],
         [CANVAS_IDS.canvasField]: [
@@ -597,7 +600,7 @@ describe("lints", () => {
         ],
       },
     };
-    const kb = canvasWorld([page, { id: "n.note", text: "note", props: {} }]);
+    const kb = canvasWorld([page, { id: "n.note", text: "note", props: {}, children: [] }]);
     const links = [
       { node: "n.gone" },
       { node: "n.page", item: "p1" },
@@ -609,7 +612,7 @@ describe("lints", () => {
       { url: "https://tldraw.dev" },
     ];
     const linked = doc(...links.map((link, i) => card(`i${i}`, i * 200, 0, { link })));
-    const dead = lintCanvas(linked, kb).filter((lint) => lint.rule === "dead-link");
+    const dead = lintCanvas("c", linked, kb).filter((lint) => lint.rule === "dead-link");
     expect(dead.map((lint) => lint.ids[0])).toEqual(["i0", "i2", "i4", "i5"]);
     expect(dead.map((lint) => lint.message)).toEqual([
       "i0 leads to node n.gone, which is gone",
@@ -641,8 +644,8 @@ describe("lints", () => {
   });
 
   test("a diff names the lints a write made and the ones it cleared", () => {
-    const before = lintCanvas(doc(card("a", 0, 0, { z: 90 })), canvasWorld([]));
-    const after = lintCanvas(doc(card("a", 0, 0), box("b", 0, 0)), canvasWorld([]));
+    const before = lintCanvas("c", doc(card("a", 0, 0, { z: 90 })), canvasWorld([]));
+    const after = lintCanvas("c", doc(card("a", 0, 0), box("b", 0, 0)), canvasWorld([]));
     const diff = lintDiff(before, after);
     expect(diff.new.map((l) => l.rule)).toEqual(["overlap"]);
     expect(diff.resolved.map((l) => l.rule)).toEqual(["floating"]);
@@ -653,7 +656,7 @@ describe("links", () => {
   test("an item is made leading where it is asked to, and described with it", () => {
     const made = makeItem({ preset: "text", text: "go", link: { node: "n.page", item: "i" } }, "t");
     expect(made.link).toEqual({ node: "n.page", item: "i" });
-    const told = describeCanvas(doc(made), { world });
+    const told = describeCanvas(doc(made), { canvasId: "c", world });
     expect(told.items[0]?.link).toEqual({ node: "n.page", item: "i" });
   });
 });
@@ -671,7 +674,7 @@ describe("describe", () => {
   };
 
   test("in full: each item's kind, words and box, and how they stand to one another", () => {
-    const told = describeCanvas(d, { world });
+    const told = describeCanvas(d, { canvasId: "c", world });
     expect(told.items.map((i) => [i.id, i.kind, i.words])).toEqual([
       ["f", "frame", "f"],
       ["b", "box", ""],
@@ -703,6 +706,7 @@ describe("describe", () => {
 
   test("focused in full, the rest on screen blurred, what is off screen counted by frame", () => {
     const told = describeCanvas(d, {
+      canvasId: "c",
       world,
       focus: new Set(["idea"]),
       visible: new Set(["f", "b", "on", "idea"]),

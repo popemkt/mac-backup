@@ -13,6 +13,8 @@
  * - `missing-node`: an item stands for a node the store does not hold.
  * - `dead-link`: an item's link leads to a node the store does not hold,
  *   or to an item its canvas does not hold.
+ * - `unreachable-page`: a page of the canvas's board that no chain of links
+ *   leads to from the board (`./pages.ts`).
  * - `missing-group`: an item names a group that is not one (`parent`).
  * - `outside-frame`: an item belongs to a frame whose face no longer holds it.
  */
@@ -25,6 +27,7 @@ import {
   type CanvasNode,
 } from "./doc.ts";
 import { canvasMembership, faceHolds } from "./membership.ts";
+import { unreachablePages } from "./pages.ts";
 import { isSolid, overlaps } from "./relations.ts";
 import { restingOn } from "./snap.ts";
 import { baseOf } from "./transform.ts";
@@ -36,6 +39,7 @@ export const CANVAS_LINT_RULES = [
   "missing-end",
   "missing-node",
   "dead-link",
+  "unreachable-page",
   "missing-group",
   "outside-frame",
 ] as const;
@@ -80,8 +84,11 @@ function deadLink(link: CanvasItemLink, doc: CanvasDoc, world: CanvasWorld): str
     : `leads to item ${link.item}, which is not on ${where}`;
 }
 
-/** Every lint on `doc`, in a stable order, reading kb through `world`. */
-export function lintCanvas(doc: CanvasDoc, world: CanvasWorld): CanvasLint[] {
+/**
+ * Every lint on `doc`, canvas `canvasId`'s document, in a stable order,
+ * reading kb through `world` — in which `canvasId` holds `doc`.
+ */
+export function lintCanvas(canvasId: string, doc: CanvasDoc, world: CanvasWorld): CanvasLint[] {
   const lints: CanvasLint[] = [];
   const membership = canvasMembership(doc.nodes);
   const byId = new Map(doc.nodes.map((node) => [node.id, node]));
@@ -123,10 +130,6 @@ export function lintCanvas(doc: CanvasDoc, world: CanvasWorld): CanvasLint[] {
         message: `${node.id} stands for node ${node.nodeId}, which is gone`,
       });
     }
-    const dead = node.link === undefined ? undefined : deadLink(node.link, doc, world);
-    if (dead !== undefined) {
-      lints.push({ rule: "dead-link", ids: [node.id], message: `${node.id} ${dead}` });
-    }
     const parent = membership.parentOf(node.id);
     if (node.parent !== undefined && parent === null) {
       lints.push({
@@ -144,7 +147,23 @@ export function lintCanvas(doc: CanvasDoc, world: CanvasWorld): CanvasLint[] {
       });
     }
   }
-  return lints;
+  return [...lints, ...linkLints(canvasId, doc, world)];
+}
+
+/** The lints on where `doc`'s items lead: each dead link, then each page of its board no link reaches. */
+function linkLints(canvasId: string, doc: CanvasDoc, world: CanvasWorld): CanvasLint[] {
+  const dead = doc.nodes.flatMap((node) => {
+    const why = node.link === undefined ? undefined : deadLink(node.link, doc, world);
+    return why === undefined
+      ? []
+      : [{ rule: "dead-link" as const, ids: [node.id], message: `${node.id} ${why}` }];
+  });
+  const unreached = unreachablePages(world, canvasId).map((page) => ({
+    rule: "unreachable-page" as const,
+    ids: [page],
+    message: `page ${world.textOf(page) ?? page} (${page}) is reached by no link from its board`,
+  }));
+  return [...dead, ...unreached];
 }
 
 /** A lint's identity across two readings of a canvas: its rule and what it is about. */

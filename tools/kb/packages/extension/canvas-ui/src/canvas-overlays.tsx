@@ -13,6 +13,7 @@ import { CanvasToolbar } from "./canvas-toolbar";
 import { EdgeInspector } from "./edge-inspector";
 import { NodePicker } from "./node-picker";
 import { ItemInspector } from "./item-inspector";
+import type { CanvasPageTab } from "./canvas-page-strip";
 import type { CanvasSelection } from "./canvas-selection";
 import { selectionEmpty } from "./canvas-selection";
 import type { CanvasTool, ToolState } from "./canvas-tool";
@@ -65,6 +66,8 @@ interface CanvasOverlaysProps {
   onItemChange: (shape: CanvasNode) => void;
   /** What the canvas reads of kb: where an item's link leads. */
   world: CanvasWorld;
+  /** The board's other pages, which an item's link may lead to. */
+  pages: readonly CanvasPageTab[];
   /** Go where an item's link leads. */
   onFollowLink: (link: CanvasItemLink) => void;
   onPickNode: (nodeId: string) => void;
@@ -331,6 +334,7 @@ export function CanvasOverlays({
   onInspectItem,
   onItemChange,
   world,
+  pages,
   onFollowLink,
   onPickNode,
   onClosePicker,
@@ -394,6 +398,7 @@ export function CanvasOverlays({
           onClose={onCloseItemInspector}
           onChange={onItemChange}
           world={world}
+          pages={pages}
           onFollow={onFollowLink}
         />
       )}

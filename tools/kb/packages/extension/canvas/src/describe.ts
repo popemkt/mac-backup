@@ -162,7 +162,9 @@ export interface CanvasDescription {
 }
 
 export interface DescribeOptions {
-  /** The kb the canvas reads: its cards' nodes' text. */
+  /** The canvas described: the node whose document it is. */
+  readonly canvasId: string;
+  /** The kb the canvas reads, in which `canvasId` holds the document. */
   readonly world: CanvasWorld;
   /** The items in focus, in full; every item when absent. */
   readonly focus?: ReadonlySet<string>;
@@ -328,7 +330,7 @@ export function describeCanvas(doc: CanvasDoc, options: DescribeOptions): Canvas
     items,
     relations: [...placed.filter(touches), ...near],
     peripheral,
-    lints: lintCanvas(doc, options.world),
+    lints: lintCanvas(options.canvasId, doc, options.world),
     ...(doc.camera === undefined ? {} : { camera: doc.camera }),
   };
 }

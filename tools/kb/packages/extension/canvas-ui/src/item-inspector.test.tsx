@@ -69,6 +69,7 @@ describe("item inspector", () => {
         onClose: () => {},
         world: canvasWorld([]),
         onFollow: () => {},
+        pages: [],
         onChange: (next: CanvasNode) => {
           changes.push(next);
           setItem(next);
@@ -105,6 +106,7 @@ describe("item inspector", () => {
             onChange: () => {},
             world: canvasWorld([]),
             onFollow: () => {},
+            pages: [],
           }),
         ),
       );
@@ -131,6 +133,7 @@ describe("item inspector", () => {
           onChange: () => {},
           world: canvasWorld([]),
           onFollow: () => {},
+          pages: [],
         }),
       ),
     );
@@ -142,7 +145,7 @@ describe("item inspector", () => {
   test("a link says where it leads, is followed, and is cleared in one change", () => {
     const changes: CanvasNode[] = [];
     const followed: CanvasItemLink[] = [];
-    const world = canvasWorld([{ id: "n.page", text: "Page two", props: {} }]);
+    const world = canvasWorld([{ id: "n.page", text: "Page two", props: {}, children: [] }]);
     const linked: CanvasNode = { ...sticky, link: { node: "n.page", item: "i1" } };
     function Host() {
       const [item, setItem] = useState(linked);
@@ -152,6 +155,7 @@ describe("item inspector", () => {
         onClose: () => {},
         world,
         onFollow: (link: CanvasItemLink) => followed.push(link),
+        pages: [],
         onChange: (next: CanvasNode) => {
           changes.push(next);
           setItem(next);

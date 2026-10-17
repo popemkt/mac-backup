@@ -71,7 +71,9 @@ export type CanvasIntent =
   /** The selection spread evenly along an axis. */
   | { type: "distribute"; axis: CanvasFlipAxis }
   /** Where the one item selected leads (its `link`), followed. */
-  | { type: "followLink" };
+  | { type: "followLink" }
+  /** The board's next page (1) or the one before it (-1). */
+  | { type: "page"; step: 1 | -1 };
 
 /** What a key does to present mode. */
 export type PresentAct = "start" | "next" | "previous" | "stop";
@@ -448,6 +450,11 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   shortcut("Navigate", "Follow link", { type: "followLink" }, [{ key: "Enter", mod: true }], {
     needsSelection: "swallow",
   }),
+  // tldraw's: ⌥ and an arrow turns the page, so it does not nudge.
+  shortcut("Navigate", "Next page", { type: "page", step: 1 }, [{ key: "ArrowRight", alt: true }]),
+  shortcut("Navigate", "Previous page", { type: "page", step: -1 }, [
+    { key: "ArrowLeft", alt: true },
+  ]),
   arrange("Forward one step", { type: "order", order: "forward" }, [
     { code: "BracketRight", alt: true },
   ]),

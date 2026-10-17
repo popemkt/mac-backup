@@ -187,6 +187,7 @@ const canvasDescribeEffect = Effect.fn("ext.canvas.describe")(function* (
   const visible = screen === null ? undefined : new Set(screen.visible);
   const focus = chosen === null ? visible : new Set(chosen);
   const told = describeCanvas(doc, {
+    canvasId: input.canvasId,
     world: canvasWorld(ctx.nodes),
     ...(focus === undefined ? {} : { focus }),
     ...(visible === undefined ? {} : { visible }),
@@ -212,7 +213,7 @@ const canvasLintEffect = Effect.fn("ext.canvas.lint")(function* (
 ): Effect.fn.Return<z.infer<typeof lintOutput>, CanvasFail, KbCtx> {
   const ctx = yield* KbCtx;
   const doc = yield* readCanvasEffect(input.canvasId);
-  const lints = lintCanvas(doc, canvasWorld(ctx.nodes));
+  const lints = lintCanvas(input.canvasId, doc, canvasWorld(ctx.nodes));
   return { canvasId: input.canvasId, lints };
 });
 

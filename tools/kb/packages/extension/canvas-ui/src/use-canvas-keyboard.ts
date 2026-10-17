@@ -94,6 +94,8 @@ interface CanvasKeyboardContext {
   openShortcuts: () => void;
   /** Go where a link leads (`linkStep`). */
   follow: (link: CanvasItemLink) => void;
+  /** Open the board's next page (1) or the one before (-1); none past either end. */
+  turnPage: (step: 1 | -1) => void;
 }
 
 /** Pasted and duplicated content lands this far from its origin. */
@@ -354,6 +356,7 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
       arrangeItems(doc, ids, { layout: "distribute", axis: intent.axis }),
     ),
   followLink: followSelection,
+  page: (context, intent) => context.turnPage(intent.step),
 };
 
 /** Apply `intent` through the applier its kind names. */

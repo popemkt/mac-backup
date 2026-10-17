@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { withLink, type CanvasItemLink, type CanvasNode, type CanvasWorld } from "@kb/canvas";
 import { linkOfText, textOfLink } from "./item-link-text";
+import type { CanvasPageTab } from "./canvas-page-strip";
 
 /** Where `link` leads, in words. */
 function leadsTo(link: CanvasItemLink, world: CanvasWorld): string {
@@ -23,11 +24,14 @@ function leadsTo(link: CanvasItemLink, world: CanvasWorld): string {
 export function LinkRow({
   item,
   world,
+  pages,
   onChange,
   onFollow,
 }: {
   item: CanvasNode;
   world: CanvasWorld;
+  /** The board's other pages: a link to one is a pick, not typed. */
+  pages: readonly CanvasPageTab[];
   onChange: (item: CanvasNode) => void;
   onFollow: (link: CanvasItemLink) => void;
 }) {
@@ -65,6 +69,23 @@ export function LinkRow({
           }}
         />
       </label>
+      {pages.length > 0 && (
+        <select
+          aria-label="Link to a page"
+          className="h-7 rounded-md border border-foreground/10 bg-background px-1.5 text-label text-foreground/70"
+          value=""
+          onChange={(e) => {
+            if (e.target.value !== "") onChange(withLink(item, { node: e.target.value }));
+          }}
+        >
+          <option value="">Link to a page…</option>
+          {pages.map((page) => (
+            <option key={page.id} value={page.id}>
+              {page.label}
+            </option>
+          ))}
+        </select>
+      )}
       {item.link !== undefined && (
         <div className="flex items-center justify-between gap-2">
           <span className="truncate text-label text-foreground/45">

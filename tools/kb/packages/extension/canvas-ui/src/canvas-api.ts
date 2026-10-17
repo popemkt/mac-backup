@@ -165,13 +165,18 @@ export async function persistCanvasDoc(
   return true;
 }
 
-export async function createCanvasNode(text = "Untitled canvas"): Promise<string | null> {
+/** A new empty canvas, under `parent` when given (a page of its board); its id, or null when refused. */
+export async function createCanvasNode(
+  text = "Untitled canvas",
+  parent?: string,
+): Promise<string | null> {
   const id = ulid();
   const docStr = stringifyCanvasDoc(EMPTY_CANVAS_DOC);
   const receipt = await browserHost().invoke("node.add", {
     text,
     id,
     tags: [CANVAS_IDS.canvasTag],
+    ...(parent === undefined ? {} : { parent }),
     props: [{ field: CANVAS_IDS.canvasField, value: { t: "str", v: docStr } }],
   });
   if (receipt.status === "failed") {

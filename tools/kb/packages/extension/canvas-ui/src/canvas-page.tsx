@@ -11,7 +11,9 @@ import {
 } from "react";
 import type { CanvasItemLink, CanvasNode } from "@kb/canvas";
 import {
+  boardOf,
   canvasMembership,
+  canvasPages,
   canvasWorld,
   editItem,
   upsertCanvasEdge,
@@ -47,8 +49,9 @@ import { useCanvasKeyboard } from "./use-canvas-keyboard";
 import { useCanvasScreen } from "./use-canvas-screen";
 import { useCanvasCapture } from "./canvas-capture";
 import { useCanvasSelection } from "./use-canvas-selection";
-import { listRefFields } from "./canvas-api";
-import { CANVAS_LIST_PATH } from "./routes";
+import { createCanvasNode, listRefFields } from "./canvas-api";
+import { CANVAS_LIST_PATH, canvasPath } from "./routes";
+import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
 import { linkStep } from "./canvas-links";
 import { classifyCardPointer } from "./card-pointer";
 import { placesItem, pressPans, type CanvasChooser, type ToolState } from "./canvas-tool";
@@ -80,6 +83,9 @@ const Canvas3dStage = lazy(() => import("./canvas-3d-stage"));
 function cardIdAt(target: EventTarget | null): string | undefined {
   return asElement(target)?.closest<HTMLElement>("[data-card-id]")?.dataset.cardId;
 }
+
+/** Open page `id` of a board, as its tab does. */
+const openPage = (id: string) => navigate(canvasPath({ id }));
 
 interface CanvasPageProps {
   canvasId: string;
@@ -323,6 +329,25 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
     else if (step.kind === "path") navigate(step.path);
     else showItem(step.item);
   };
+  /** The pages of the board this canvas is on, each by its node's text (`canvasPages`). */
+  const pages = useMemo<CanvasPageTab[]>(
+    () =>
+      canvasPages(world, canvasId).map((id) => {
+        const text = world.textOf(id);
+        return { id, label: text === undefined || text === "" ? "Untitled page" : text };
+      }),
+    [world, canvasId],
+  );
+  /** The page `step` on from this one; none past either end. */
+  const turnPage = (step: 1 | -1) => {
+    const next = pages[pages.findIndex((page) => page.id === canvasId) + step];
+    if (next !== undefined) openPage(next.id);
+  };
+  /** A new page: a canvas under the board, opened. */
+  const newPage = async () => {
+    const id = await createCanvasNode(`Page ${pages.length + 1}`, boardOf(world, canvasId));
+    if (id !== null) openPage(id);
+  };
   /** The item the route names, shown once as the canvas opens with it on. */
   const arrived = useRef<string | null>(null);
   useEffect(() => {
@@ -374,6 +399,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
     openViewMenu: () => setViewMenuOpen(true),
     openShortcuts: () => setShortcutsOpen(true),
     follow,
+    turnPage,
   });
 
   const { onDeleteEdge, onFieldChange, onModeChange } = createCanvasEdgeActions({
@@ -423,6 +449,13 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
         </button>
         <span className="text-label text-foreground/30">{Math.round(zoom * 100)}%</span>
       </div>
+
+      <CanvasPageStrip
+        pages={pages}
+        current={canvasId}
+        onOpen={openPage}
+        onNew={() => void newPage()}
+      />
 
       <div
         ref={stageRef}
@@ -631,6 +664,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
           onInspectItem={setItemInspectorAnchor}
           onItemChange={(item) => schedulePersist(editItem(docRef.current, item))}
           world={world}
+          pages={pages.filter((page) => page.id !== canvasId)}
           onFollowLink={follow}
           onPickNode={addKbNode}
           onClosePicker={() => setPickerOpen(false)}
