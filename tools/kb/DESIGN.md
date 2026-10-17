@@ -2874,9 +2874,10 @@ The sidebar agent lives outside core, in packages that core never imports
     turn starts (`resolveCredential`), through the `SecretSource`
     (`@kb/contracts`) the composition root binds. `kb ui` binds
     `systemSecrets` (`@kb/runtime`): `env:` reads its environment, and
-    `keychain:` asks `security` on macOS or `secret-tool` on Linux. A
-    failure names the reference, never a value, and the page never holds a
-    key.
+    `keychain:` asks `security` on macOS or `secret-tool` on Linux, whose
+    process is killed if it has not answered within 30 s (the keychain may
+    ask the person first), so a turn never hangs on a lookup. A failure
+    names the reference, never a value, and the page never holds a key.
   - **The chooser is field editing.** Under the dock's header the agent's
     settings strip draws the agent node's `provider` field and the selected
     provider's `model`, each with the page's field editor

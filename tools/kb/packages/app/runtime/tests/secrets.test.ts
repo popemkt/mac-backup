@@ -16,6 +16,19 @@ function resolve(source: ReturnType<typeof systemSecrets>, ref: SecretRef) {
 }
 
 describe("systemSecrets", () => {
+  test("a keychain that never answers is given up, its lookup aborted, naming the item", async () => {
+    const signals: AbortSignal[] = [];
+    const hangs = (_argv: readonly string[], signal: AbortSignal): Promise<LookupResult> => {
+      signals.push(signal);
+      return new Promise(() => undefined);
+    };
+    const source = systemSecrets({ platform: "darwin", run: hangs, timeoutMs: 20 });
+    expect(await resolve(source, { kind: "keychain", service: "kb-proxy" })).toMatchObject({
+      failure: { message: "the keychain item kb-proxy: security did not answer within 0.02s" },
+    });
+    expect(signals.map((signal) => signal.aborted)).toEqual([true]);
+  });
+
   test("env: reads the named variable; unset or empty fails naming it", async () => {
     const source = systemSecrets({ env: { KEY: "sk-1", EMPTY: "" } });
     expect(await resolve(source, { kind: "env", name: "KEY" })).toMatchObject({ success: "sk-1" });
@@ -28,7 +41,7 @@ describe("systemSecrets", () => {
 
   test("keychain: asks security on macOS and secret-tool on Linux, and trims the newline", async () => {
     const asked: (readonly string[])[] = [];
-    const run = (argv: readonly string[]): Promise<LookupResult> => {
+    const run = (argv: readonly string[], _signal: AbortSignal): Promise<LookupResult> => {
       asked.push(argv);
       return Promise.resolve({ code: 0, stdout: "sk-2\n" });
     };
