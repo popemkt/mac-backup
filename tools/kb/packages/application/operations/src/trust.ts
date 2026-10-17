@@ -21,7 +21,7 @@ export const sandboxTrustDef = {
   id: "sandbox.trust",
   title: "Trust code",
   description:
-    "Trust sandboxed code on this machine by the digest of exactly what runs (its code and its grant), so it runs in a Worker instead of QuickJS. A person's own gesture in the kb UI; it is never written to the graph.",
+    "Trust, on this machine, by the digest of exactly what it covers: sandboxed code and its grant (it then runs in a Worker instead of QuickJS), a repository extension's source (it then runs with the server's reach, and so does what it loads or evaluates when it runs), or an agent provider's binding (the key it sends, the endpoint it sends it to, the executable it starts). A person's own gesture; it is never written to the graph.",
   mode: { kind: "write", approval: "required" } as const,
   inputSchema: z.object({ digest: Digest }),
   outputSchema: z.object({ digest: z.string(), trusted: z.literal(true) }),

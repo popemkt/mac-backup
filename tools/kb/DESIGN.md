@@ -3293,17 +3293,31 @@ The sidebar agent lives outside core, in packages that core never imports
     only what a lookup needs of the environment
     (`childProcessEnv("lookup")`), never the keys `env:` reads. A failure
     names the reference, never a value, and the page never holds a key.
-  - **Why any `env:` name may be named.** A resolved value goes to one
-    place: the provider the turn runs, as Claude Code's
-    `ANTHROPIC_API_KEY` or as the bearer of the request to its endpoint. It
-    is never written to a node, returned by a tool or sent to the page; a
-    failure reports a status and a code, never a body. The one way it comes
-    back is the provider echoing it, and that endpoint already holds it.
-    Which name a provider reads and where it sends it are configuration
-    (`credential`, `endpoint`), which an agent writes only with the owner's
-    approval, and the approval shows both (Action registry → Approval).
-    So the reference names any variable, as a person's own shell would,
-    and an allowlist beside it would be a second copy of that approval.
+  - **A provider's binding is trusted, per machine.** What a provider
+    binds when its turns run (the key its `credential` names, the
+    `endpoint` it is sent to, the `executable` it starts, and its adapter)
+    is a binding a person trusts on this machine, by its digest
+    (`providerDigest`, `@kb/sandbox`, a format of its own), in the one code
+    trust (`CodeTrust`, [Sandbox](#sandbox) → Trust), granted by the same
+    gesture, `sandbox.trust`. A provider that binds any of them runs a turn
+    only once its binding is trusted here (`chooseProvider`); until then
+    the turn fails naming the key and where it goes, together, and the
+    digest to trust, which is what the person approves. A provider that
+    binds nothing (the adapter as it runs with no settings, the person's
+    own Claude login) needs none. A provider node is data, and a store a
+    root carries may hold one someone else wrote (a clone pointing a key
+    at their host): writing one through kb is configuration, which an
+    agent asks for and a script never makes (Action registry → Approval),
+    but a node already in the store was never asked for, so it is the
+    trust, not the write, that decides what a key is sent to. Its adapter
+    is handed a secret source bound to that one reference, so a resolved
+    value is that key alone: a reference names any variable or keychain
+    item, as a person's own shell would, and which ones a machine sends,
+    and where, is the trusted bindings. The value goes only to that
+    provider (Claude Code's `ANTHROPIC_API_KEY`, or the bearer of the
+    request to its endpoint); it is never written to a node, returned by a
+    tool or sent to the page, and a failure reports a status and a code,
+    never a body.
   - **The chooser is field editing.** Under the dock's header the agent's
     settings strip draws the agent node's `provider` field and the selected
     provider's `model`, each with the page's field editor
@@ -3440,8 +3454,8 @@ The sidebar agent lives outside core, in packages that core never imports
     holds exactly what the provider names. So no key the owner keeps in
     the `kb ui` environment reaches Claude Code, and a key goes only to
     the endpoint the provider names or to Claude's default. Which endpoint
-    that is, is the owner's: a provider is configuration, which an agent
-    writes only with the owner's approval (Action registry → Approval).
+    that is, is the owner's: a provider's binding runs only once a person
+    trusted it here (providers, above).
   - It uses the provider's `executable`, else the `claude` on PATH.
     Failing that, it uses the SDK's bundled binary, which only a
     checkout's `node_modules` holds.

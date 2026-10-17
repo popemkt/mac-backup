@@ -13,6 +13,8 @@ import type { CodeGrant } from "./grant.ts";
 const DIGEST_FORMAT = "kb.sandbox/1";
 /** What a repository extension's digest covers: its source alone, since it runs with the server's reach. */
 const EXTENSION_FORMAT = "kb.extension/1";
+/** What an agent provider's digest covers: what its turns bind (where they send, which key, what they start). */
+const PROVIDER_FORMAT = "kb.provider/1";
 
 /** `sha256:` and 64 hex digits of `payload`, canonically encoded. */
 const digestOf = Effect.fnUntraced(function* (payload: unknown): Effect.fn.Return<string> {
@@ -41,6 +43,29 @@ export const extensionDigest = Effect.fn("sandbox.extensionDigest")(function* (
   source: string,
 ): Effect.fn.Return<string> {
   return yield* digestOf({ format: EXTENSION_FORMAT, code: source });
+});
+
+/** What an agent provider binds when its turns run, as its node writes it. */
+export interface ProviderBinding {
+  readonly adapter: string;
+  readonly endpoint: string | null;
+  /** A secret reference (`env:…`, `keychain:…`), never a key. */
+  readonly credential: string | null;
+  readonly executable: string | null;
+}
+
+/**
+ * The digest of an agent provider's binding: the key it sends, the endpoint
+ * it sends it to and the executable it starts, together, in a format of
+ * their own. A turn runs on a provider that binds any of them only once a
+ * person has trusted this digest on the machine, through the same trust as
+ * code (DESIGN.md → Agent packages → providers).
+ */
+export const providerDigest = Effect.fn("sandbox.providerDigest")(function* (
+  binding: ProviderBinding,
+): Effect.fn.Return<string> {
+  const { adapter, endpoint, credential, executable } = binding;
+  return yield* digestOf({ format: PROVIDER_FORMAT, adapter, endpoint, credential, executable });
 });
 
 /** Whether `text` is a digest {@link codeDigest} could have made. */

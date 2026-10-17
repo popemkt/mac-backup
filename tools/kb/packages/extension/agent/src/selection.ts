@@ -1,7 +1,16 @@
 import { Effect } from "effect";
 import { z } from "zod";
-import { WireNodeSchema, type SecretSource, type UiHostService } from "@kb/contracts";
-import { decodeNodeConfig, extensionNodeId, typeRefsOf, type NodeId } from "@kb/model";
+import { SecretError, WireNodeSchema, type SecretSource, type UiHostService } from "@kb/contracts";
+import {
+  canonicalJson,
+  decodeNodeConfig,
+  extensionNodeId,
+  parseSecretRef,
+  secretRefLabel,
+  typeRefsOf,
+  type NodeId,
+} from "@kb/model";
+import { providerDigest, type ProviderBinding } from "@kb/sandbox";
 import { agentExtension } from "./extension.ts";
 import {
   AGENT_ADAPTERS,
@@ -21,6 +30,12 @@ import { AgentRuntimeError, type AgentAdapter, type AgentRuntime } from "./runti
  * re-applies when either changes; the next turn reads them again. With
  * nothing selected, the default adapter runs as it does with no settings,
  * so a store nobody configured behaves as kb always has.
+ *
+ * A provider that binds anything (a key, the endpoint it is sent to, an
+ * executable it starts) runs only once a person has trusted that binding
+ * on this machine, by its digest (`providerDigest`), in the one trust code
+ * is trusted in: a provider node is data, and a root someone else wrote can
+ * carry one. Its adapter then resolves that one key and no other.
  */
 
 /** The provider chosen for a turn: the runtime to run it on, and how to name it. */
@@ -47,6 +62,59 @@ const readNode = Effect.fn("kb.agent.readNode")(function* (host: UiHostService, 
   const read = NodeReadSchema.safeParse(receipt.output);
   return read.success ? read.data.node : undefined;
 });
+
+const TrustedSchema = z.object({ trusted: z.array(z.string()) });
+
+/** What a provider binds, or null when it binds nothing: the adapter as it runs with no settings. */
+function bindingOf(config: ProviderConfig): ProviderBinding | null {
+  const { adapter, endpoint, credential, executable } = config;
+  if (endpoint === null && credential === null && executable === null) return null;
+  return { adapter, endpoint, credential, executable };
+}
+
+/** A binding as the person checks it: the key, where it goes, and what starts. */
+function bindingText({ endpoint, credential, executable }: ProviderBinding): string {
+  const ref = credential === null ? null : parseSecretRef(credential);
+  const key = ref === null ? (credential ?? "no key") : secretRefLabel(ref);
+  const sends = `sends ${key} to ${endpoint ?? "its adapter's own endpoint"}`;
+  return executable === null ? sends : `${sends}, and runs ${executable}`;
+}
+
+/** Fails the turn unless a person trusted `binding` on this machine. */
+const requireTrusted = Effect.fn("kb.agent.requireTrusted")(function* (
+  host: UiHostService,
+  binding: ProviderBinding,
+  name: string,
+): Effect.fn.Return<void, AgentRuntimeError> {
+  const digest = yield* providerDigest(binding);
+  const receipt = yield* host.invoke({ id: "sandbox.trusted", input: { digests: [digest] } });
+  const read = receipt.status === "succeeded" ? TrustedSchema.safeParse(receipt.output) : null;
+  const trusted = read?.success === true && read.data.trusted.includes(digest);
+  return yield* trusted
+    ? Effect.void
+    : Effect.fail(
+        new AgentRuntimeError({
+          message:
+            `${name} ${bindingText(binding)}: not trusted on this machine (${digest}). ` +
+            "Trust it with sandbox.trust once you have checked them.",
+        }),
+      );
+});
+
+/** `secrets`, resolving only the key `credential` names. */
+function boundTo(credential: string | null, secrets: SecretSource): SecretSource {
+  const bound = credential === null ? null : parseSecretRef(credential);
+  return {
+    resolve: (ref) =>
+      bound !== null && canonicalJson(ref) === canonicalJson(bound)
+        ? secrets.resolve(ref)
+        : Effect.fail(
+            new SecretError({
+              message: `${secretRefLabel(ref)}: not the key this provider is trusted to send`,
+            }),
+          ),
+  };
+}
 
 const ADAPTER_LABELS: ReadonlyMap<string, string> = new Map(
   AGENT_ADAPTERS.map(({ id, label }) => [id, label]),
@@ -101,9 +169,11 @@ export const chooseProvider = Effect.fn("kb.agent.chooseProvider")(function* (
       message: `This kb ui has no ${ADAPTER_LABELS.get(config.adapter) ?? config.adapter} adapter.`,
     });
   }
+  const binding = bindingOf(config);
+  if (binding !== null) yield* requireTrusted(host, binding, label ?? "The provider");
   let runtime = backends.runtimes.get(key);
   if (runtime === undefined) {
-    runtime = adapter.runtime(config, backends.secrets);
+    runtime = adapter.runtime(config, boundTo(config.credential, backends.secrets));
     backends.runtimes.set(key, runtime);
   }
   return { key, label: label ?? runtime.name, runtime, warnings };
