@@ -3081,7 +3081,9 @@ The sidebar agent lives outside core, in packages that core never imports
     `systemSecrets` (`@kb/runtime`): `env:` reads its environment, and
     `keychain:` asks `security` on macOS or `secret-tool` on Linux, whose
     process is killed if it has not answered within 30 s (the keychain may
-    ask the person first), so a turn never hangs on a lookup. A failure
+    ask the person first), so a turn never hangs on a lookup, and is given
+    only what a lookup needs of the environment
+    (`childProcessEnv("lookup")`), never the keys `env:` reads. A failure
     names the reference, never a value, and the page never holds a key.
   - **The chooser is field editing.** Under the dock's header the agent's
     settings strip draws the agent node's `provider` field and the selected
@@ -3295,7 +3297,10 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
 - **Opening.** A served root answers its server's URL and ranks first. A
   closed one gets `kb --root <root> ui --port 0 --no-open` started for it
   (`KbRoots.serve`, `serveRoot` in `@kb/runtime`): detached, its stderr to a
-  log file, running kb as this process runs it. The start is done when the
+  log file, running kb as this process runs it, with a kb child's
+  environment (`childProcessEnv("kb")`: what a program needs and kb's own
+  `KB_*` and `XDG_*` settings, never a key, since the root may name an
+  `env:` credential). The start is done when the
   root's presence names a server answering for it, within about ten
   seconds; that server ranks its root first itself, so a start that fails
   ranks nothing. A start that exits first or does not answer in time fails

@@ -33,7 +33,7 @@ type TxFrame = Extract<ServerMessage, { op: "tx" }>;
 async function kb(root: string, ...args: string[]): Promise<string> {
   const proc = Bun.spawn(["bun", CLI, "--root", root, ...args], {
     // The run's scratch home store (`KB_HOME`, test-kit test-home.ts) is the child's too.
-    env: childProcessEnv(),
+    env: childProcessEnv("kb"),
     stdout: "pipe",
     stderr: "pipe",
   });

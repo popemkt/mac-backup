@@ -388,7 +388,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
         cmd: "bun",
         args: ["run", "dev", "--port", String(opts.devPort)],
         cwd: join(opts.uiRoot),
-        env: childProcessEnv({
+        env: childProcessEnv("tool", {
           // Vite proxy target: /api, /assets, /ws all route to the kb backend.
           KB_UI_API_PORT: String(backend.port),
         }),

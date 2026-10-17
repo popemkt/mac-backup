@@ -43,7 +43,7 @@ export function selfLaunch(): UiLaunch {
   const [, entry] = process.argv;
   return {
     command: entry === undefined ? [process.execPath] : [process.execPath, entry],
-    env: childProcessEnv(),
+    env: childProcessEnv("kb"),
     timeoutMs: START_TIMEOUT_MS,
   };
 }

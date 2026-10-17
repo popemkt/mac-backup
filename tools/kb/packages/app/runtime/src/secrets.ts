@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { SecretError, type SecretSource } from "@kb/contracts";
 import { secretRefLabel, type SecretRef } from "@kb/model";
+import { childProcessEnv } from "./child-env.ts";
 
 /** What one keychain lookup answered: its exit code and what it printed. */
 export interface LookupResult {
@@ -56,6 +57,7 @@ const runProcess: RunLookup = (argv, signal) => {
     stdout: "pipe",
     stderr: "ignore",
     stdin: "ignore",
+    env: childProcessEnv("lookup"),
     signal,
     killSignal: "SIGKILL",
   });

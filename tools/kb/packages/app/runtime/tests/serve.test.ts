@@ -29,7 +29,10 @@ const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect);
 function launch(command: UiLaunch["command"], timeoutMs: number): UiLaunch {
   return {
     command,
-    env: childProcessEnv({ KB_PKG_ROOT: join(scratch, "pkg"), KB_HOME: join(scratch, "home") }),
+    env: childProcessEnv("kb", {
+      KB_PKG_ROOT: join(scratch, "pkg"),
+      KB_HOME: join(scratch, "home"),
+    }),
     timeoutMs,
   };
 }
