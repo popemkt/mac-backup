@@ -226,6 +226,26 @@ committed nor backed up — it is *derived-shaped*: gitignored the way
 - A tail that is missing, truncated or behind its store is a state the store
   reports (`TxTail.isCurrent`), not a failure: clients take a snapshot.
 
+## kb Home Store
+
+kb remembers the roots a person has opened, their **locations**, as nodes in
+a kb root of its own, the home store (`tools/kb/DESIGN.md` → Locations): at
+`$KB_HOME` when set, else `~/Library/Application Support/kb/home` on macOS and
+`${XDG_DATA_HOME:-~/.local/share}/kb/home` on Linux. `kb ui` and `kb init`
+register the root they open there.
+
+Decision: **state, and a regular backup concern (Time Machine).** The list is
+produced by use, not declared, so Nix never writes it: activation does not
+register this repository's stores, which register themselves the first time
+they are opened.
+
+- Not committed: it lives outside every repository.
+- Not Mackup's: a location is an absolute path on one machine, and Mackup
+  syncs between popemkt-work and popemkt-personal, so each Mac would list the
+  other's paths as missing.
+- Losing it costs the list only. The next `kb ui` over a root registers it
+  again; labels and pins set by hand are what is lost.
+
 ## App Onboarding Checklist
 
 When adding a new app or agent, classify it using this checklist:

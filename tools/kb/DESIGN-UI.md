@@ -2364,6 +2364,38 @@ fallback (each study on WebGL2 without WebGPU, or saying why it cannot
 start, in the render suite) — are tests; the lazy three chunk is the
 harness's fence above. Everything else here is prose, and its rule says so.
 
+### Locations
+
+The locations family's browser half (`@kb/locations-ui`; the model is
+DESIGN.md → [Locations](./DESIGN.md#locations)). It contributes no view and
+no route, only a sidebar section and a command, and it loads while the server
+reports the family on.
+
+- **The Locations section** sits below Pinned (`order: 110`) and draws the
+  rows `location.list` answers, in its order: pinned first, then most
+  recently opened. The current root is the active row; every row carries a
+  dot for its status (`served` success, `closed` faint, `missing` and
+  `not-a-store` warning, `broken` destructive), named for assistive
+  technology.
+- **Opening is navigation.** A click runs `location.open` and goes to the URL
+  it answers in the same tab (`location.assign`); ⌘-click (Ctrl-click) goes
+  there in a new tab. The tab is opened before the call, while the click
+  still counts as the person's gesture, and closed again when the open is
+  refused, which is shown as a toast. The section hears the click through
+  `SidebarRow`'s `onClick(event)`.
+- **A row that cannot be opened says why.** It is muted, and an indented
+  "Forget · <reason>" row under it runs `location.forget`. Re-pointing it is
+  a field edit of its path in the home store, not a gesture of the section.
+- **The section never breaks the page.** A home store that cannot be read,
+  or a page no server answers, is one muted row, "Locations unavailable",
+  with the reason; a warning (no home store yet) is one muted row.
+  Clicking either reads the list again, as regaining focus does, since the
+  servers it reports start and stop outside this page.
+- **⌘K "Open location…"** is the `sys.command` node the family seeds. It
+  opens the home store, whose own page lists every location here.
+  Listing the rows inside ⌘K waits on a palette step a command can hand a
+  list of choices to (GAP [[01M53VP7RKJG53B305MM26AYVG]]).
+
 ## Design tokens
 
 A whole design system (colour, type, faces, weights, radius, elevation,
@@ -2784,7 +2816,7 @@ diff. Instead, two install shapes:
 - Clean "like other apps" shape, when the tool stabilizes: a **nix package
   in `pkgs/`** (buildable derivation: bun deps pinned via lockfile hash, vp
   build in the sandbox, wrapper binary), installed from `home.packages` like
-  chat2db/logseq. Then `rebuild` ships kb+UI as a versioned unit and
+  chat2db/logseq-nightly. Then `rebuild` ships kb+UI as a versioned unit and
   no checkout is needed. Homebrew cask adds nothing over that for a personal
   tool. Backlogged as a kb todo, not in this wave.
 

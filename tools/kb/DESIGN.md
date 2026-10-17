@@ -3031,6 +3031,102 @@ The sidebar agent lives outside core, in packages that core never imports
   scripted model. It covers the listing, every receipt, and an approved
   call made by the person.
 
+## Locations
+
+A **location** is a kb root, a directory holding `.kb/`, that a person has
+opened. The known locations are nodes in the person's **home store**, an
+ordinary kb root of its own; the picker is a view of those nodes; and
+**opening** a location means going to the `kb ui` that serves that root,
+starting one when none does. The plan and its prior art (Logseq, Obsidian)
+are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
+
+| Package             | Layer, scope       | Holds                                                                                                                         |
+| ------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `@kb/locations`     | extension, shared  | the declaration (optional, on by default), `LOCATION_IDS`, the planned writes (`registerWrites`, `forgetWrites`), the row schema and the four action definitions |
+| `@kb/locations-fs`  | extension, backend | home resolution and the handlers, all through the `KbRoots` port                                                              |
+| `@kb/locations-ui`  | extension, browser | the Locations sidebar section and ⌘K "Open location…" (DESIGN-UI.md → [Locations](./DESIGN-UI.md#locations))                 |
+
+- **One root per process.** `startUi` binds one root for its life: its
+  store, hub, plugin kernel, query watcher and presence file. Switching is
+  therefore navigation to the process that serves the other root, never a
+  rebind. A started server binds any free port (`kb ui --port 0`) and its
+  presence records the URL it bound, which is how a starter reads it back.
+- **The home store** is `$KB_HOME` when set, else
+  `~/Library/Application Support/kb/home` on macOS and
+  `${XDG_DATA_HOME:-~/.local/share}/kb/home` elsewhere. It is a full root,
+  seeded with the bundled fold like any store, so opening it gives tables,
+  boards and queries over the locations with nothing of its own; opened, it
+  lists itself, as any root does. It is state produced by use, so it is
+  backed up and never committed (`docs/backup-strategy.md` → kb Home Store).
+- **The data is nodes.** In the home store: the tag `sys.tag.kb-location`
+  templating `sys.f.location.path` (text, one value: the canonical path,
+  symlinks resolved), and the list node `locations`, whose children are the
+  locations, most recently opened first. Recency is sibling order
+  ([Sibling ranks](#sibling-ranks)) and pinning is `#pinned`; a location's
+  label is its text, by default the directory's basename, or
+  `parent/basename` when two collide. None of these is seeded: the fold
+  seeds every store, and a `#kb-location` tag in every store would invite
+  tagging nodes no location action reads. The first register mints them in
+  the home store, as `extension.switch` mints its field. The family seeds
+  only its ⌘K command node, `sys.cmd.location.open`.
+- **Status is derived, never stored.** A row is `served`, `closed`,
+  `missing`, `not-a-store` or `broken`, with the URL when served, the
+  backend when it is a store, and a reason otherwise. Each is read from the
+  path (`KbRoots.probe`, the adapter chosen by presence as opening chooses
+  it) and from the presence file (`KbRoots.served`, which trusts only a live
+  server answering for that root). A location with no path or two paths is
+  `broken`; two locations naming one root are both listed, the second with a
+  warning. No backend, status or timestamp is kept.
+- **The actions** are namespaced `ext.locations.*`, aliased `location.*`,
+  and every one's mode says `outsideRoot`, so MCP and WebMCP report them
+  open-world ([Action registry](#action-registry) → Mode):
+
+  | Action              | Mode  | Does                                                                                                                          |
+  | ------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- |
+  | `location.list`     | read  | the rows, the home store's path, and warnings (no home yet, a duplicate). It writes to no listed store                       |
+  | `location.register` | write | `{path, label?}`: idempotent by canonical path, and ranks the location first; makes the home store when there is none        |
+  | `location.forget`   | write | `{id}`: deletes the node and its list and pinned entries from home; the directory is never touched                           |
+  | `location.open`     | write | `{id}`, `{path}` or `{}` (the home store, made when there is none): the URL of the `kb ui` serving it                         |
+
+- **Opening.** A served root answers its server's URL and ranks first. A
+  closed one gets `kb --root <root> ui --port 0 --no-open` started for it
+  (`KbRoots.serve`, `serveRoot` in `@kb/runtime`): detached, its stderr to a
+  log file, running kb as this process runs it. The start is done when the
+  root's presence names a server answering for it, within about ten
+  seconds; that server ranks its root first itself, so a start that fails
+  ranks nothing. A start that exits first or does not answer in time fails
+  `internal` with the log's tail. A missing location, or one that is not a
+  store, fails `not_found` with its reason and starts nothing. Started
+  servers keep running with no supervisor, as a `kb ui` a person starts
+  does; `kb locations` shows which are served.
+- **Registering is automatic where a person opens a root.** `kb ui` (once
+  it listens, beside the presence write) and `kb init` register their root;
+  a refusal is reported on stderr and the open goes on. No other command
+  touches home, since hooks and pre-commit run `kb` constantly.
+- **An agent asks before opening.** That is an approval policy node in the
+  store the agent works in (`match: location.open`, `actor: agent`,
+  `decision: ask`), not a declared `approval: "required"`, which would make
+  the CLI's own `kb open` fail. The agent can list locations; it never reads
+  another store's content.
+- **Surfaces.** `kb locations [--json]`, `kb locations add [path]
+  [--label]`, `kb locations forget <id|label|path>`, and `kb open
+  [location]` (by id, label or path; `--no-browser` prints the URL; with
+  none it opens the home store, the picker as a page). MCP, the agent,
+  WebMCP and `kb action-invoke` list the actions with no code of their own.
+- **A location that cannot be opened never makes a surface unopenable.**
+  The list still answers for a missing root; a stale presence file reads as
+  closed; a home store that cannot be read is said in the picker and leaves
+  the current root's page untouched.
+- **One contract.** `locationsContract` (`runtime/tests`) runs over
+  `STORE_BACKENDS` for the home store: register is idempotent by canonical
+  path, symlinks included, and ranks first; forget leaves the directory
+  byte-for-byte; status for a JSONL store, a SQLite store, a missing path, a
+  plain directory and a served root; a malformed location is `broken`;
+  listing writes no listed store; the tag and field are minted once; and
+  open over a stand-in `serve`. `serve.test.ts` starts a real
+  `kb ui --port 0` and reads its presence. The family joins
+  `extensionContract` and `surfaceContract` as every bundled family does.
+
 ## Sandbox
 
 Code that a model writes runs in a sandbox (roadmap decisions 4 and 5 in
