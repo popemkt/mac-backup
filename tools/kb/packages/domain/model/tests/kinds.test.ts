@@ -36,6 +36,7 @@ describe("kinds, roles and options", () => {
       "agent-provider",
       "approval-policy",
       "canvas",
+      "comment",
       "ontology",
       "script",
     ]);

@@ -112,6 +112,26 @@ export const LinkSchema = z
       "and an item on that canvas ({node, item}), or an item on this canvas ({item})",
   );
 
+/** Where a comment thread is pinned on its canvas (`CommentAnchor`). */
+const CommentAnchorSchema = z
+  .union([
+    z.object({ node: z.string().min(1) }).strict(),
+    z.object({ item: z.string().min(1) }).strict(),
+    z.object({ at: z.object({ x: z.number(), y: z.number() }).strict() }).strict(),
+  ])
+  .describe(
+    "where it is pinned: on a node ({node}, on every card that shows it), on an item that is no card ({item}), or at a point ({at})",
+  );
+
+const CommentTextSchema = z.object({ id: z.string(), text: z.string() });
+
+export const CommentThreadSchema = CommentTextSchema.extend({
+  canvas: z.string(),
+  anchor: CommentAnchorSchema.nullable().describe("null when its pin does not read"),
+  resolved: z.boolean(),
+  replies: z.array(CommentTextSchema).describe("its replies, the comments under it, in order"),
+});
+
 export const DescribedItemSchema = z.object({
   id: z.string(),
   kind: z.string(),

@@ -11,6 +11,7 @@
  */
 import type { CanvasBounds } from "./box.ts";
 import type { CanvasCamera } from "./camera.ts";
+import type { CanvasThread } from "./comments.ts";
 import {
   canvasDepth,
   isFileNode,
@@ -155,6 +156,8 @@ export interface DescribedCluster {
 
 export interface CanvasDescription {
   readonly items: readonly DescribedItem[];
+  /** The comment threads on the canvas, each with where it is pinned and whether it is resolved. */
+  readonly comments: readonly CanvasThread[];
   readonly relations: readonly DescribedRelation[];
   readonly peripheral: readonly DescribedCluster[];
   readonly lints: readonly CanvasLint[];
@@ -328,6 +331,7 @@ export function describeCanvas(doc: CanvasDoc, options: DescribeOptions): Canvas
   const touches = (r: { from: string; to: string }) => focus.has(r.from) || focus.has(r.to);
   return {
     items,
+    comments: options.world.threadsOn(options.canvasId),
     relations: [...placed.filter(touches), ...near],
     peripheral,
     lints: lintCanvas(options.canvasId, doc, options.world),

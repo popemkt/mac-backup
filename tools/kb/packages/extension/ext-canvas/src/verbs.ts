@@ -61,6 +61,7 @@ import {
   Bounds,
   CanvasIdSchema,
   ColorSchema,
+  CommentThreadSchema,
   DescribedItemSchema,
   LinkSchema,
   Direction,
@@ -142,6 +143,9 @@ const describeInput = z.object({
 const describeOutput = z.object({
   canvasId: z.string(),
   items: z.array(DescribedItemSchema),
+  comments: z
+    .array(CommentThreadSchema)
+    .describe("the comment threads on the canvas: resolve one by setting its comment.state"),
   relations: z.array(RelationSchema),
   peripheral: z.array(
     z.object({
@@ -235,6 +239,10 @@ const canvasDescribeEffect = Effect.fn("ext.canvas.describe")(function* (
   return {
     canvasId: input.canvasId,
     items: told.items.map((item) => ({ ...item })),
+    comments: told.comments.map((thread) => ({
+      ...thread,
+      replies: [...thread.replies],
+    })),
     relations: [...told.relations],
     peripheral: told.peripheral.map((cluster) => ({ ...cluster })),
     lints: told.lints,

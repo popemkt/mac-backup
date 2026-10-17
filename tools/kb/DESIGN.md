@@ -2701,6 +2701,41 @@ The camera is view state, not content: the undo history leaves it out. It
 sits on the document only until canvases become view nodes, and then moves to
 that view's settings (`camera.ts`, `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`).
 
+#### Comments
+
+A comment is a node (`comments.ts`), as tldraw's comments are threads on
+the canvas. A thread is a `#comment` node (`sys.tag.comment`, the canvas
+family's) whose text is what it says; its replies are its children,
+`#comment` nodes too, in order. It is placed under its canvas in the
+outline, which shows it as it shows any child; what it is on is its fields.
+
+- **Where it is pinned.** `sys.f.comment.canvas` (ref) names the canvas, so
+  the thread is the canvas's backlink. Its pin is exactly one of: a node
+  (`sys.f.comment.node`, ref), pinned on every card of the canvas that
+  shows that node and a backlink of the node too; an item that is no card,
+  by id (`sys.f.comment.item`); or a point on the canvas,
+  `sys.f.comment.at` as `x,y`. A comment on a card is on the card's node, so
+  no copy of the card's node is kept: the pin is found from the node.
+  These are ref and text fields like any other, so the reference relation
+  reads the thread through the ref-value carrier every field has, with no
+  carrier of its own. `threadProps` writes a new thread's fields, and the
+  page and the verb write threads with it.
+- **Resolved** is an option field, `sys.f.comment.state`, whose options
+  (`open`, `resolved`) are its children; resolving or reopening is writing
+  it, as any option field is written.
+- **Who wrote it** is not recorded, since the store keeps no writer for a
+  node: a comment shows its text and when it was written.
+- **Lost pins.** An open thread whose node is on no card of its canvas, or
+  whose item is gone, has lost its pin: it stays on the canvas, pinned
+  nowhere, and is linted `orphan-comment` until it is pinned again or
+  resolved. A resolved thread is history and is not flagged; a point is
+  never lost. A write that takes a pinned card away therefore answers the
+  orphan in its `lints.new`.
+- **Reading them.** `CanvasWorld.threadsOn` gives a canvas's threads with
+  their pins, state and replies; `describe` lists them (`comments`).
+- **Writing them is an ordinary write**, not configuration: an agent
+  comments, replies and resolves with no approval.
+
 #### Agent verbs
 
 An agent that cannot see a canvas edits it by relation, never by working out
@@ -2783,9 +2818,11 @@ transaction, one step of an open canvas's history.
   does not hold, or to an item its canvas does not hold),
   `unreachable-page` (a page of the canvas's board that no chain of links
   leads to from the board; every page of the board says so),
-  `missing-group`, `outside-frame`. A lint reads kb only through a
-  `CanvasWorld` (`world.ts`: a node's text, a canvas's document, the
-  outline round it), which both hosts build from the nodes they hold with
+  `missing-group`, `outside-frame`, `orphan-comment` (an open comment
+  thread whose pin is gone from the canvas, [Comments](#comments)). A lint
+  reads kb only through a `CanvasWorld` (`world.ts`: a node's text, a
+  canvas's document, the outline round it, the comment threads on it),
+  which both hosts build from the nodes they hold with
   `canvasWorld`; a write lints the document before it in the kb before it,
   and the one it writes in the kb it leaves. Every
   canvas write — `tx.apply` included — answers `lints: {new, resolved}`,

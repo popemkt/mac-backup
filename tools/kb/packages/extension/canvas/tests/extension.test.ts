@@ -36,15 +36,36 @@ function contributed() {
 }
 
 describe("canvas family", () => {
+  test("its comment ids are its own, none of core's", () => {
+    for (const id of Object.values(CANVAS_IDS)) expect(Object.values(SYSTEM_IDS)).not.toContain(id);
+  });
+
+  test("its seed has #comment templating where a thread is pinned and whether it is resolved", () => {
+    const seed = canvasExtension.seed?.(AT) ?? [];
+    const tag = seed.find((node) => node.id === CANVAS_IDS.commentTag);
+    expect(tag?.props[SYSTEM_IDS.fieldsField]?.map((value) => value.v)).toEqual([
+      CANVAS_IDS.commentCanvasField,
+      CANVAS_IDS.commentNodeField,
+      CANVAS_IDS.commentItemField,
+      CANVAS_IDS.commentAtField,
+      CANVAS_IDS.commentStateField,
+    ]);
+    const state = seed.find((node) => node.id === CANVAS_IDS.commentStateField);
+    expect(state?.children).toEqual([CANVAS_IDS.commentOpen, CANVAS_IDS.commentResolved]);
+  });
+
   test("its ids keep the spelling core seeded them under", () => {
-    expect(CANVAS_IDS).toEqual({ canvasTag: "sys.tag.canvas", canvasField: "sys.f.canvas" });
+    expect(CANVAS_IDS).toMatchObject({ canvasTag: "sys.tag.canvas", canvasField: "sys.f.canvas" });
     expect(Object.values(SYSTEM_IDS)).not.toContain(CANVAS_IDS.canvasTag);
     expect(Object.values(SYSTEM_IDS)).not.toContain(CANVAS_IDS.canvasField);
   });
 
   test("its seed is the #canvas tag templating the field its document lives in", () => {
     const seed = canvasExtension.seed?.(AT) ?? [];
-    expect(seed.map((node) => node.id)).toEqual([CANVAS_IDS.canvasField, CANVAS_IDS.canvasTag]);
+    expect(seed.map((node) => node.id).slice(0, 2)).toEqual([
+      CANVAS_IDS.canvasField,
+      CANVAS_IDS.canvasTag,
+    ]);
     const tag = seed.find((node) => node.id === CANVAS_IDS.canvasTag);
     expect(tag?.props[SYSTEM_IDS.typeField]).toEqual([{ t: "ref", v: SYSTEM_IDS.tag }]);
     expect(tag?.props[SYSTEM_IDS.fieldsField]).toEqual([{ t: "ref", v: CANVAS_IDS.canvasField }]);

@@ -186,6 +186,16 @@ export type {
 export { CANVAS_LINT_RULES, lintCanvas, lintDiff } from "./lint.ts";
 export { canvasReferences } from "./references.ts";
 export { boardOf, canvasPages, nextPageName } from "./pages.ts";
+export {
+  anchorOnItem,
+  isCommentNode,
+  pinLost,
+  pinnedItems,
+  threadProps,
+  type CanvasCommentText,
+  type CanvasThread,
+  type CommentAnchor,
+} from "./comments.ts";
 export { canvasWorld, isCanvasNode } from "./world.ts";
 export type { CanvasWorld, WorldNode } from "./world.ts";
 export type { CanvasLint, CanvasLintDiff, CanvasLintRule } from "./lint.ts";

@@ -17,8 +17,13 @@
  *   leads to from the board (`./pages.ts`).
  * - `missing-group`: an item names a group that is not one (`parent`).
  * - `outside-frame`: an item belongs to a frame whose face no longer holds it.
+ * - `orphan-comment`: an open comment thread has lost its pin — its node is
+ *   on no card of the canvas, or its item is gone (`pinLost`). It stays on
+ *   the canvas, pinned nowhere, until it is pinned again or resolved; a
+ *   resolved thread is history, and is not flagged.
  */
 import { boxFrame } from "./box.ts";
+import { pinLost } from "./comments.ts";
 import {
   canvasElevation,
   isGroupNode,
@@ -42,6 +47,7 @@ export const CANVAS_LINT_RULES = [
   "unreachable-page",
   "missing-group",
   "outside-frame",
+  "orphan-comment",
 ] as const;
 export type CanvasLintRule = (typeof CANVAS_LINT_RULES)[number];
 
@@ -147,7 +153,19 @@ export function lintCanvas(canvasId: string, doc: CanvasDoc, world: CanvasWorld)
       });
     }
   }
-  return [...lints, ...linkLints(canvasId, doc, world)];
+  return [...lints, ...linkLints(canvasId, doc, world), ...commentLints(canvasId, doc, world)];
+}
+
+/** An open thread on the canvas that has lost its pin. */
+function commentLints(canvasId: string, doc: CanvasDoc, world: CanvasWorld): CanvasLint[] {
+  return world
+    .threadsOn(canvasId)
+    .filter((thread) => !thread.resolved && pinLost(thread.anchor, doc))
+    .map((thread) => ({
+      rule: "orphan-comment" as const,
+      ids: [thread.id],
+      message: `comment ${thread.id} ("${thread.text}") has lost its pin: what it was on is not on the canvas`,
+    }));
 }
 
 /** The lints on where `doc`'s items lead: each dead link, then each page of its board no link reaches. */

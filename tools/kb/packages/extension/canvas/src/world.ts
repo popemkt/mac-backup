@@ -1,12 +1,14 @@
 /**
  * What a canvas reads of the kb around it (DESIGN.md → Canvas documents):
  * the nodes its items stand for and lead to, the canvases their links
- * name, and the outline round it, where its pages are (`./pages.ts`). Its lints and its description read kb
+ * name, the outline round it, where its pages are (`./pages.ts`), and the
+ * comment threads on it (`./comments.ts`). Its lints and its description read kb
  * only through a {@link CanvasWorld}, and both hosts build theirs from the
  * nodes they hold with {@link canvasWorld}, so a lint or a description
  * cannot read kb one way on the server and another in the page.
  */
 import { typeRefsOf, type KbNode, type NodeId } from "@kb/model";
+import { threadsByCanvas, type CanvasThread } from "./comments.ts";
 import { EMPTY_CANVAS_DOC, parseCanvasDoc, type CanvasDoc } from "./doc.ts";
 import { CANVAS_IDS } from "./ids.ts";
 
@@ -22,6 +24,8 @@ export interface CanvasWorld {
   readonly parentOf: (id: NodeId) => NodeId | undefined;
   /** A node's children, in their order. */
   readonly childrenOf: (id: NodeId) => readonly NodeId[];
+  /** The comment threads on a canvas, in the order their first comments come. */
+  readonly threadsOn: (canvas: NodeId) => readonly CanvasThread[];
 }
 
 /** What {@link canvasWorld} reads of a node: a store's `KbNode` and the page's outline node alike. */
@@ -38,11 +42,16 @@ export function canvasWorld(nodes: Iterable<WorldNode>): CanvasWorld {
     if (!docs.has(id)) docs.set(id, readDoc(byId.get(id)));
     return docs.get(id);
   };
+  let threads: Map<NodeId, CanvasThread[]> | undefined;
   return {
     textOf: (id) => byId.get(id)?.text,
     docOf,
     parentOf: (id) => parents.get(id),
     childrenOf: (id) => byId.get(id)?.children ?? [],
+    threadsOn: (canvas) => {
+      threads ??= threadsByCanvas(byId);
+      return threads.get(canvas) ?? [];
+    },
   };
 }
 

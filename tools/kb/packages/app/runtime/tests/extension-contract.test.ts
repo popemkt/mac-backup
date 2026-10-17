@@ -162,11 +162,19 @@ describe("the contract's seed, view and text promises have a subject", () => {
     expect(content).toContain("Lab view (lab.page), view node v.lab.");
   });
 
-  test("canvas declares its tag, its field and two views, and its server entry holds both halves", async () => {
+  test("canvas declares its tags, their fields and two views, and its server entry holds both halves", async () => {
     const canvas = BUNDLED_EXTENSIONS.find(({ declaration }) => declaration.name === "canvas");
     expect(canvas?.declaration.seed?.("2026-01-01T00:00:00.000Z").map((node) => node.id)).toEqual([
       "sys.f.canvas",
       "sys.tag.canvas",
+      "sys.f.comment.canvas",
+      "sys.f.comment.node",
+      "sys.f.comment.item",
+      "sys.f.comment.at",
+      "sys.f.comment.state",
+      "sys.comment-state.open",
+      "sys.comment-state.resolved",
+      "sys.tag.comment",
     ]);
     expect(canvas?.declaration.views?.map((view) => view.key.id)).toEqual([
       "canvas.list",
