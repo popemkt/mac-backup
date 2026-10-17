@@ -3579,7 +3579,10 @@ sends it more than 400 messages a second.
   The removal is a courtesy; the boundary is the frame's CSP, which the
   Worker inherits.
 - **One contract.** `sandboxContract` (`@kb/test-kit`) holds both engines,
-  from each engine's tests, to the same properties: they draw, read as the
+  from each engine's tests, for every run kb hosts — one per bundled view
+  that declares events (a code view's code, a canvas's scripts), each
+  hearing that view's events (`ViewKey.events`) and no other — to the same
+  properties: they draw, read as the
   script within the grant, a write that asks comes back
   `approval_required` and cannot be approved by the guest, no network,
   timers or raw pipe, an infinite loop (also in a handler) is interrupted, a
