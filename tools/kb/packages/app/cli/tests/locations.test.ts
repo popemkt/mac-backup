@@ -4,7 +4,7 @@
  * store `KB_HOME` names, which each test makes its own.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readdir, realpath, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pointHomeAt } from "@kb/test-kit";
@@ -87,5 +87,43 @@ describe("kb locations", () => {
     const unknown = await kb(alpha, ["--json", "locations", "forget", "nothing"]);
     expect(unknown.code).toBe(1);
     expect(JSON.parse(unknown.stdout)).toMatchObject({ code: "not_found" });
+  });
+});
+
+describe("kb open", () => {
+  test("a served location opens at its server's URL, by label or by path", async () => {
+    const alpha = await initRoot("alpha");
+    const beta = await initRoot("beta");
+    await kb(alpha, ["locations", "add", beta]);
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => Response.json({ root: beta }),
+    });
+    try {
+      const url = `http://127.0.0.1:${server.port}`;
+      await writeFile(
+        join(beta, ".kb", "ui.json"),
+        JSON.stringify({ url, pid: process.pid, root: beta }),
+      );
+      expect(await kb(alpha, ["open", "beta", "--no-browser"])).toEqual({
+        code: 0,
+        stdout: `${url}\n`,
+      });
+      expect((await kb(alpha, ["open", beta, "--no-browser"])).stdout).toBe(`${url}\n`);
+      expect((await kb(alpha, ["locations"])).stdout.split("\t")[0]).toBe("  beta");
+    } finally {
+      void server.stop(true);
+    }
+  });
+
+  test("a path that holds no store is refused, and nothing is started", async () => {
+    const alpha = await initRoot("alpha");
+    const plain = join(scratch, "plain");
+    await mkdir(plain);
+    const refused = await kb(alpha, ["--json", "open", plain, "--no-browser"]);
+    expect(refused.code).toBe(1);
+    expect(JSON.parse(refused.stdout)).toMatchObject({ status: "failed", code: "not_found" });
+    expect(await readdir(plain)).toEqual([]);
   });
 });

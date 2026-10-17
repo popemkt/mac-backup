@@ -1,7 +1,7 @@
 /**
  * The kb roots on this machine beside a session's own, as an action reaches
  * them (DESIGN.md → Locations): what is at a path, which `kb ui` serves a
- * root, and a session over a root. A port for the reason the workspace ports
+ * root, a session over a root, and a `kb ui` started for one. A port for the reason the workspace ports
  * are one: the use case (the locations family's actions) names roots, and
  * only the runtime knows how a root's store is chosen by presence, how a
  * root is opened and seeded, and how a server says which root it serves.
@@ -37,6 +37,13 @@ export interface KbRootsPort {
   readonly create: (root: string) => Effect.Effect<void, DomainError>;
   /** A session over `root`, opened as every surface opens one: its store chosen by presence, seeded. */
   readonly open: (root: string) => Effect.Effect<KbContext, DomainError>;
+  /**
+   * Start a `kb ui` serving `root` and answer its URL once it says it serves
+   * the root. The server outlives the call, as a `kb ui` a person starts
+   * does. Fails with what the server said when it stops first or does not
+   * answer in time.
+   */
+  readonly serve: (root: string) => Effect.Effect<string, DomainError>;
 }
 
 export class KbRoots extends Context.Service<KbRoots, KbRootsPort>()("kb/KbRoots") {}

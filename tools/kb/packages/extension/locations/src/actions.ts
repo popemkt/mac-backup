@@ -73,6 +73,32 @@ export const locationRegisterDef = {
   outputSchema: LocationRowSchema,
 } satisfies LocationActionDef;
 
+export const LocationOpenedSchema = z.object({
+  /** The `kb ui` serving the root now. */
+  url: z.string(),
+  /** The root's canonical path. */
+  path: z.string(),
+});
+export type LocationOpened = z.infer<typeof LocationOpenedSchema>;
+
+export const locationOpenDef = {
+  id: "open",
+  aliases: ["location.open"],
+  title: "Open location",
+  description:
+    "The URL of a `kb ui` serving the location `id`, the kb root at `path`, or (given neither) the person's home store. A root already served answers its server's URL and is ranked first; one that is closed gets a `kb ui` started for it, which keeps running after the call and ranks its root first itself. Refuses a location that is missing or not a store, and a server that does not answer in about ten seconds.",
+  mode: { kind: "write", outsideRoot: true },
+  inputSchema: z
+    .object({
+      id: z.string().min(1).optional(),
+      path: z.string().min(1).optional(),
+    })
+    .refine((input) => input.id === undefined || input.path === undefined, {
+      message: "give the location's id or a path, not both",
+    }),
+  outputSchema: LocationOpenedSchema,
+} satisfies LocationActionDef;
+
 export const locationForgetDef = {
   id: "forget",
   aliases: ["location.forget"],

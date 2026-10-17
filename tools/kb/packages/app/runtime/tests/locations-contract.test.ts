@@ -13,16 +13,29 @@
  *   there, a plain directory, and a store a live server answers for;
  * - a malformed location lists as broken, and two for one root warn;
  * - listing writes to no listed store;
- * - the tag and the field are minted once.
+ * - the tag and the field are minted once;
+ * - opening a served root answers its URL and ranks it first; opening a
+ *   closed one starts a server for it, and a start that fails ranks
+ *   nothing; opening what is missing or not a store starts nothing; opening
+ *   nothing opens the home store, and makes it when there is none.
+ *
+ * The contract never starts a real `kb ui`: `serve` is a stand-in that
+ * answers for the root as a started server would (the spawn has a test of
+ * its own, serve.test.ts).
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import type { ActionReceipt, KbContext } from "@kb/contracts";
-import { LOCATION_IDS, LocationListSchema, LocationRowSchema } from "@kb/locations";
-import { SYSTEM_IDS, type DomainError, type KbNode } from "@kb/model";
+import { KbRoots, type ActionReceipt, type KbContext } from "@kb/contracts";
+import {
+  LOCATION_IDS,
+  LocationListSchema,
+  LocationOpenedSchema,
+  LocationRowSchema,
+} from "@kb/locations";
+import { SYSTEM_IDS, domainError, type DomainError, type KbNode } from "@kb/model";
 import { writeUiPresence } from "@kb/workspace-fs";
 import { CONTRACT_AT, pointHomeAt } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
@@ -75,6 +88,10 @@ function locationsContract(homeBackend: StoreBackend): void {
     let session: KbContext | null = null;
     let restoreHome: (() => void) | undefined;
     const servers: { stop: (force: boolean) => unknown }[] = [];
+    /** The roots `serve` was asked to start a server for. */
+    let started: string[] = [];
+    /** What the stand-in `serve` does: start a server answering for the root, unless told to fail. */
+    let startFails = false;
 
     /** A server that answers as a `kb ui` serving `root`, named in the root's presence. */
     const answerFor = Effect.fn("locationsContract.answerFor")(function* (root: string) {
@@ -88,6 +105,13 @@ function locationsContract(homeBackend: StoreBackend): void {
       yield* writeUiPresence(root, url).pipe(Effect.provide(bunFileSystemLayer));
       return url;
     });
+
+    const serve = (root: string): Effect.Effect<string, DomainError> => {
+      started.push(root);
+      return startFails
+        ? domainError("internal", `kb ui for ${root} stopped (exit code 1) before it served`)
+        : answerFor(root).pipe(Effect.orDie);
+    };
 
     /** A root holding a store of `backend`, under the scratch directory. */
     const storeRoot = Effect.fn("locationsContract.storeRoot")(function* (
@@ -106,9 +130,13 @@ function locationsContract(homeBackend: StoreBackend): void {
       input: unknown,
     ): Effect.fn.Return<ActionReceipt> {
       if (session === null) throw new Error("no session: beforeEach did not run");
-      return yield* invokeReceiptEffect(session, { id, input }).pipe(
-        Effect.provide(kbRuntimeLayer(session)),
-      );
+      const ctx = session;
+      return yield* Effect.gen(function* () {
+        const roots = yield* KbRoots;
+        return yield* invokeReceiptEffect(ctx, { id, input }).pipe(
+          Effect.provideService(KbRoots, { ...roots, serve }),
+        );
+      }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
     });
 
     const output = Effect.fn("locationsContract.output")(function* (id: string, input: unknown) {
@@ -135,6 +163,8 @@ function locationsContract(homeBackend: StoreBackend): void {
           scratch = yield* Effect.promise(() => realpath(made));
           home = join(scratch, "home");
           restoreHome = pointHomeAt(home);
+          started = [];
+          startFails = false;
           yield* Effect.promise(() => mkdir(home));
           yield* createStore(home, homeBackend).pipe(Effect.provide(bunFileSystemLayer));
           session = yield* openRoot(yield* storeRoot("current"));
@@ -283,6 +313,71 @@ function locationsContract(homeBackend: StoreBackend): void {
           expect(listed.warnings).toEqual([expect.stringContaining(home)]);
           yield* register(yield* storeRoot("first"));
           expect((yield* list()).rows).toHaveLength(1);
+        }),
+      ));
+
+    const open = (input: unknown) =>
+      output("location.open", input).pipe(Effect.map((out) => LocationOpenedSchema.parse(out)));
+    const order = () => list().pipe(Effect.map(({ rows }) => rows.map((row) => row.id)));
+
+    test("opening a served root answers its URL, starts nothing, and ranks it first", () =>
+      run(
+        Effect.gen(function* () {
+          const a = yield* register(yield* storeRoot("a"));
+          yield* register(yield* storeRoot("b"));
+          const url = yield* answerFor(a.path);
+          expect(yield* open({ id: a.id })).toEqual({ url, path: a.path });
+          expect(started).toEqual([]);
+          expect((yield* order())[0]).toBe(a.id);
+        }),
+      ));
+
+    test("opening a closed root starts a server for it; a start that fails ranks nothing", () =>
+      run(
+        Effect.gen(function* () {
+          const a = yield* register(yield* storeRoot("a"));
+          const b = yield* register(yield* storeRoot("b"));
+          startFails = true;
+          const refused = yield* invoke("location.open", { id: a.id });
+          expect(refused).toMatchObject({ status: "failed", code: "internal" });
+          expect(yield* order()).toEqual([b.id, a.id]);
+          startFails = false;
+          const opened = yield* open({ path: a.path });
+          expect(started).toEqual([a.path, a.path]);
+          expect(opened.path).toBe(a.path);
+          expect((yield* list()).rows.find((row) => row.id === a.id)).toMatchObject({
+            status: "served",
+            url: opened.url,
+          });
+        }),
+      ));
+
+    test("opening what is missing or not a store fails not_found and starts nothing", () =>
+      run(
+        Effect.gen(function* () {
+          const gone = yield* register(yield* storeRoot("gone"));
+          yield* Effect.promise(() => rm(gone.path, { recursive: true }));
+          const plain = join(scratch, "plain");
+          yield* Effect.promise(() => mkdir(plain));
+          for (const input of [{ id: gone.id }, { path: plain }, { id: "no-such-location" }])
+            expect(yield* invoke("location.open", input)).toMatchObject({
+              status: "failed",
+              code: "not_found",
+            });
+          expect(started).toEqual([]);
+        }),
+      ));
+
+    test("opening nothing opens the home store, made first when there is none", () =>
+      run(
+        Effect.gen(function* () {
+          const opened = yield* open({});
+          expect(opened.path).toBe(yield* Effect.promise(() => realpath(home)));
+          expect(started).toEqual([opened.path]);
+          yield* Effect.promise(() => rm(home, { recursive: true }));
+          const made = yield* open({});
+          expect(made.path).toBe(opened.path);
+          expect((yield* homeNodes()).length).toBeGreaterThan(0);
         }),
       ));
   });

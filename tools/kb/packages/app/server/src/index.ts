@@ -13,7 +13,7 @@
  * - `saved-queries` — Effect listing of `.kb/queries/*.edn` + virtual nodes
  * - `paths` — the one place `process.env` is read for kb's install layout
  */
-export { runUiCli, startUi } from "./server.ts";
+export { openBrowser, runUiCli, startUi } from "./server.ts";
 export type { UiServerHandle, UiServerOptions } from "./server.ts";
 export { HTTP_WIRE } from "./http.ts";
 export { composeHosted } from "./plugins.ts";

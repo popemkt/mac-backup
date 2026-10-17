@@ -17,10 +17,13 @@ export {
 export {
   LOCATION_STATUSES,
   LocationListSchema,
+  LocationOpenedSchema,
   LocationRowSchema,
   locationForgetDef,
   locationListDef,
+  locationOpenDef,
   locationRegisterDef,
   type LocationList,
+  type LocationOpened,
   type LocationRow,
 } from "./actions.ts";

@@ -2,8 +2,9 @@
  * The {@link KbRoots} port on this machine's filesystem: a path is probed by
  * what the directory holds (the store chosen by presence, as opening chooses
  * it), a root is served when `.kb/ui.json` names a server that answers for
- * it (`servingUi`), and a session over another root is opened exactly as
- * this process opened its own.
+ * it (`servingUi`), a session over another root is opened exactly as this
+ * process opened its own, and the `kb ui` started for a root runs this
+ * process's own kb (`serveRoot`, `selfLaunch`).
  */
 import { resolve } from "node:path";
 import { Effect, Layer } from "effect";
@@ -12,6 +13,7 @@ import { KbRoots, type RootProbe } from "@kb/contracts";
 import { ensureDomainError, type DomainError } from "@kb/model";
 import { canonicalRoot, servingUi } from "@kb/workspace-fs";
 import { openKbEffect } from "./open.ts";
+import { selfLaunch, serveRoot } from "./serve.ts";
 import { createStore, storeBackendAt } from "./store-selection.ts";
 
 /** The store a new root is made with: the default `kb init` makes. */
@@ -54,6 +56,7 @@ export const kbRootsLayer: Layer.Layer<KbRoots, never, FileSystem> = Layer.effec
   KbRoots,
   Effect.gen(function* () {
     const context = yield* Effect.context<FileSystem>();
+    const launch = selfLaunch();
     return KbRoots.of({
       probe: (path) => probeRoot(path).pipe(Effect.provide(context)),
       served: (root) => servingUi(root).pipe(Effect.provide(context)),
@@ -61,6 +64,7 @@ export const kbRootsLayer: Layer.Layer<KbRoots, never, FileSystem> = Layer.effec
       // GAP [[01M39XVZCR684Y1V9FXNDT44D5]]: the store opened here is never
       // released, as no selected store is; a sqlite root keeps its connection.
       open: (root) => openKbEffect(root).pipe(Effect.provide(context)),
+      serve: (root) => serveRoot(root, launch).pipe(Effect.provide(context)),
     });
   }),
 );

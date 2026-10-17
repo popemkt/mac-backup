@@ -15,6 +15,7 @@ import {
   registerWrites,
   type LocationEntry,
   type LocationList,
+  type LocationOpened,
   type LocationRow,
   type LocationWrite,
 } from "@kb/locations";
@@ -175,4 +176,49 @@ export const locationForgetEffect = Effect.fn("ext.locations.forget")(function* 
     });
   yield* commitHome(home, write);
   return { id: entry.id, label: entry.label, path: entry.paths[0] ?? "" };
+});
+
+/**
+ * The root an open names: a location's path by its id, a path, or, given
+ * neither, the home store, made when there is none yet, as registering
+ * makes it.
+ */
+const openTarget = Effect.fn("ext.locations.openTarget")(function* (
+  roots: KbRootsPort,
+  input: { readonly id?: string; readonly path?: string },
+): Effect.fn.Return<string, DomainError> {
+  if (input.path !== undefined) return input.path;
+  if (input.id === undefined) {
+    const home = yield* currentHome;
+    yield* roots.create(home);
+    return home;
+  }
+  const { entry } = yield* homeEntry(roots, input.id);
+  const held = entryPath(entry);
+  if ("reason" in held)
+    return yield* domainError("not_found", `${entry.label}: ${held.reason}`, { id: entry.id });
+  return held.path;
+});
+
+/**
+ * Open a root: answer the URL of the `kb ui` serving it. A served root only
+ * moves first among the locations; a closed one gets a server started for
+ * it, and that server ranks its root first itself, as every `kb ui` does,
+ * so a start that fails ranks nothing.
+ */
+export const locationOpenEffect = Effect.fn("ext.locations.open")(function* (input: {
+  readonly id?: string;
+  readonly path?: string;
+}): Effect.fn.Return<LocationOpened, DomainError, KbRoots | KbCtx> {
+  const roots = yield* KbRoots;
+  const probe = yield* roots.probe(yield* openTarget(roots, input));
+  if (probe.state.kind !== "store")
+    return yield* domainError("not_found", `${probe.path}: ${probe.state.reason}`, {
+      path: probe.path,
+      status: probe.state.kind,
+    });
+  const served = yield* roots.served(probe.path);
+  if (served === null) return { url: yield* roots.serve(probe.path), path: probe.path };
+  yield* locationRegisterEffect({ path: probe.path });
+  return { url: served, path: probe.path };
 });

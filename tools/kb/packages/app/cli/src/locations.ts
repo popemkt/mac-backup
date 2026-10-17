@@ -1,9 +1,10 @@
 /**
- * `kb locations`: the kb roots the person has opened, kept in their home
- * store by the locations family (DESIGN.md → Locations). Each command
- * invokes the family's actions by the aliases every surface calls them by
- * (`location.list`, `location.register`, `location.forget`), so the CLI
- * imports nothing of the family, and prints what they answer.
+ * `kb locations` and `kb open`: the kb roots the person has opened, kept in
+ * their home store by the locations family (DESIGN.md → Locations). Each
+ * command invokes the family's actions by the aliases every surface calls
+ * them by (`location.list`, `location.register`, `location.forget`,
+ * `location.open`), so the CLI imports nothing of the family, and prints
+ * what they answer.
  */
 import { resolve } from "node:path";
 import type { Command } from "commander";
@@ -79,10 +80,14 @@ function report(
   return EXIT_OK;
 }
 
-/** The location `target` names: its id, else its one label, else its path. */
+/**
+ * The location `target` names: its id, else its one label, else its path.
+ * A refusal is a receipt of `action`, the call the target was for.
+ */
 const findLocation = Effect.fn("kb.cli.locations.find")(function* (
   ctx: KbContext,
   target: string,
+  action: string,
 ): Effect.fn.Return<{ id: string } | { refused: ActionReceipt }, never, ActionHandlerEnv> {
   const listed = yield* call(ctx, "location.list", {});
   if (listed.status === "failed") return { refused: listed };
@@ -97,7 +102,7 @@ const findLocation = Effect.fn("kb.cli.locations.find")(function* (
   return {
     refused: {
       status: "failed",
-      id: "location.forget",
+      id: action,
       code: found.length > 1 ? "ambiguous" : "not_found",
       message:
         found.length > 1
@@ -154,7 +159,7 @@ export function locationCommands(program: Command): void {
     .action(
       kbAction((ctx, globals, [target]: [string]) =>
         Effect.gen(function* () {
-          const found = yield* findLocation(ctx, target);
+          const found = yield* findLocation(ctx, target, "location.forget");
           if ("refused" in found) return report(found.refused, globals, () => []);
           const receipt = yield* call(ctx, "location.forget", { id: found.id });
           return report(receipt, globals, (output) =>
@@ -165,4 +170,51 @@ export function locationCommands(program: Command): void {
         }),
       ),
     );
+
+  program
+    .command("open")
+    .description("Open a location in the browser, starting a kb ui for it when none serves it")
+    .argument(
+      "[location]",
+      "its id, label or path (default: your home store, the picker as a page)",
+    )
+    .option("--no-browser", "print the URL only")
+    .action(
+      kbAction((ctx, globals, [target, opts]: [string | undefined, { browser?: boolean }]) =>
+        Effect.gen(function* () {
+          const input = yield* openInput(ctx, target);
+          if ("refused" in input) return report(input.refused, globals, () => []);
+          const receipt = yield* call(ctx, "location.open", input);
+          const url =
+            receipt.status === "succeeded" && Predicate.isObject(receipt.output)
+              ? text(receipt.output.url)
+              : "";
+          if (url !== "" && globals.json !== true && opts.browser !== false) {
+            const { openBrowser } = yield* Effect.promise(() => import("@kb/server"));
+            openBrowser(url);
+          }
+          return report(receipt, globals, () => [url]);
+        }),
+      ),
+    );
 }
+
+/** What `kb open <target>` asks to open: a location it names, else the path it is; nothing names the home store. */
+const openInput = Effect.fn("kb.cli.open.input")(function* (
+  ctx: KbContext,
+  target: string | undefined,
+): Effect.fn.Return<
+  | { readonly id: string }
+  | { readonly path: string }
+  | Record<string, never>
+  | { refused: ActionReceipt },
+  never,
+  ActionHandlerEnv
+> {
+  if (target === undefined) return {};
+  const found = yield* findLocation(ctx, target, "location.open");
+  if ("id" in found) return { id: found.id };
+  return found.refused.status === "failed" && found.refused.code === "not_found"
+    ? { path: resolve(target) }
+    : found;
+});

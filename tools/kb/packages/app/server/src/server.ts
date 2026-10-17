@@ -74,7 +74,8 @@ export interface UiServerHandle {
   stop: Effect.Effect<void>;
 }
 
-function openBrowser(url: string): void {
+/** Open `url` in the person's browser, as `kb ui` and `kb open` do. */
+export function openBrowser(url: string): void {
   const cmd =
     process.platform === "darwin"
       ? ["open", url]

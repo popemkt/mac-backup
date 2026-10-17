@@ -6,15 +6,22 @@ import { extensionPlugin, type ExtensionAction } from "@kb/contracts";
 import {
   locationForgetDef,
   locationListDef,
+  locationOpenDef,
   locationRegisterDef,
   locationsExtension,
 } from "@kb/locations";
-import { locationForgetEffect, locationListEffect, locationRegisterEffect } from "./actions.ts";
+import {
+  locationForgetEffect,
+  locationListEffect,
+  locationOpenEffect,
+  locationRegisterEffect,
+} from "./actions.ts";
 
 const actions: ExtensionAction[] = [
   { ...locationListDef, effect: locationListEffect },
   { ...locationRegisterDef, effect: locationRegisterEffect },
   { ...locationForgetDef, effect: locationForgetEffect },
+  { ...locationOpenDef, effect: locationOpenEffect },
 ];
 
 export const locationsPlugin = extensionPlugin({
