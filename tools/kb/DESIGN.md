@@ -2758,6 +2758,35 @@ transaction, one step of an open canvas's history.
   off screen counted per frame. With no tab showing the canvas, every item
   is in full. It also gives the lints, the camera and the tab's screen.
 
+#### Export
+
+`ext.canvas.export {canvasId, format}` answers a canvas as a file another
+tool opens: `{format, mediaType, text}`. It is a read, and writing the text to
+a file is the caller's.
+
+- **`json-canvas`** is the stored document (`stringifyCanvasDoc`): JSON
+  Canvas 1.0, with kb's extension fields and every field kb does not read
+  kept as they are, so it reads back whole.
+- **`svg`** is the canvas's top view as one standalone SVG, painted by the
+  family's SVG painter (`canvasSvg`, `@kb/canvas` `svg.ts`). The painter
+  lives in the family's shared package, not in core: a painter belongs to
+  the view that paints with it. It paints from the model both projections
+  paint from (`itemPaint`, `edgePaint`, each tone said as CSS by `toneCss`)
+  and places things by the rules they place by (`itemOutline`, `topFace`,
+  `edgeRoute`, `edgeHead`, `paintOrder`). The look contract holds it beside
+  the 2D and 3D projections (DESIGN-UI.md → Canvas → Looks are one paint), so
+  the export cannot drift from what people see.
+  - Colours, type steps and faces are said through the design tokens, as the
+    DOM says them. The file's own `<style>` gives each token its
+    default-system value (`COLOR_TOKEN_FALLBACKS`, `TYPE_STEP_FALLBACKS`), so
+    it renders anywhere, and a page that defines the tokens repaints it.
+  - A card's words are its node's. A picture is referenced by its asset
+    path, not embedded, since the asset port does not read. Words are broken
+    into lines by an estimate of their width, which the DOM measures instead.
+- **`png`** is not offered. No SVG rasteriser runs under Bun without a native
+  dependency (GAP 01M54EPF1QB5MKA6WRK9DF2X1Y); rasterise the SVG, or use
+  `ui.capture` on an open tab.
+
 ## Operations (verticals)
 
 | Action                                                                       | Mode  | Does                                                                                                                                                                              |

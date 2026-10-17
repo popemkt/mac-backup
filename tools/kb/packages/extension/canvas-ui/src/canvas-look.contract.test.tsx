@@ -1,9 +1,10 @@
 /**
  * The canvas look contract (DESIGN-UI.md → Canvas → Looks are one paint):
- * every projection in `CANVAS_PROJECTIONS` draws an item's look as its style
- * says (`itemPaint`), read back from what it drew — the DOM's SVG outline
- * and its words' tokens, the scene's face texture as its 2D context was asked
- * to paint it and the opacity its materials take:
+ * every projection in `CANVAS_PROJECTIONS`, and the SVG export
+ * (`canvasSvg`), draws an item's look as its style says (`itemPaint`), read
+ * back from what it drew — the DOM's SVG outline and its words' tokens, the
+ * scene's face texture as its 2D context was asked to paint it and the
+ * opacity its materials take, the export's elements and their styles:
  *
  * - its outline's dash pattern, width and colour, or no outline at all;
  * - the colour its ground is filled with, or none, and the ink its words take;
@@ -27,7 +28,8 @@
  * one tone said as CSS in the DOM and mixed into a texture in the scene
  * must come out the same colour.
  *
- * A projection that ignored a look, or drew it its own way, fails here.
+ * A painter that ignored a look, or drew it its own way, fails here, so
+ * the export cannot drift from what people see.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
@@ -60,6 +62,7 @@ import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import {
   PROBES,
   PROBE_LOOK,
+  mountSvg,
   hexOf,
   useProbePage,
   type DrawnLook,
@@ -454,19 +457,22 @@ describe("canvas look contract", () => {
     );
   });
 
-  /** Every painter the contract holds: each camera projection, from each asked view. */
+  /** Every painter the contract holds: each camera projection, from each asked view, and the SVG export. */
   const painters: readonly {
     readonly name: string;
     readonly mount: (scene: ProbeScene) => Promise<LookProbe>;
-  }[] = CANVAS_PROJECTIONS.flatMap((p) =>
-    ASKED.map((asked, i) => {
-      const view = canvasProjection(p.kind).settle(asked);
-      return {
-        name: `${p.kind}, view ${i + 1}`,
-        mount: (shown: ProbeScene) => PROBES[p.kind](view, shown),
-      };
-    }),
-  );
+  }[] = [
+    ...CANVAS_PROJECTIONS.flatMap((p) =>
+      ASKED.map((asked, i) => {
+        const view = canvasProjection(p.kind).settle(asked);
+        return {
+          name: `${p.kind}, view ${i + 1}`,
+          mount: (shown: ProbeScene) => PROBES[p.kind](view, shown),
+        };
+      }),
+    ),
+    { name: "svg export", mount: mountSvg },
+  ];
   describe.each(painters)("$name", ({ mount }) => {
     it("draws every item's look as its style says, every look and each kind's defaults", async () => {
       const probe = await mount(scene);

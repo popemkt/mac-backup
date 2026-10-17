@@ -5,6 +5,8 @@
  * stand-ins (`@kb/ui-test-kit`) — and reading back what it drew in the same
  * projection-free terms, so one property holds both to the camera model and
  * to the paint model. The geometry contract and the look contract share them.
+ * The look contract also reads the SVG export (`mountSvg`), which has no
+ * camera, the same way.
  */
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
@@ -29,7 +31,9 @@ import {
   type CanvasTypeStep,
   type Tone,
   type ToneSource,
+  canvasSvg,
 } from "@kb/canvas";
+import { edgeUnbound } from "../canvas-api";
 import {
   cameraPose,
   panOfView,
@@ -284,10 +288,26 @@ function laidFace(el: HTMLElement): LaidFace | null {
   return { x, y, w, h, m: flattened(laid) };
 }
 
-/** The outline an item's DOM chrome strokes, or null for none. */
-function outline2d(el: HTMLElement, look: CardLook): DrawnLook["outline"] {
+/** How a painter says an element's fill or stroke: as an attribute (the DOM), or in its style (the SVG export). */
+type PaintRead = (el: Element | null | undefined, property: "fill" | "stroke") => string | null;
+
+const attributePaint: PaintRead = (el, property) => el?.getAttribute(property) ?? null;
+
+/** An element's own style declarations, by property. */
+function declared(el: Element | null | undefined): Map<string, string> {
+  const declarations = (el?.getAttribute("style") ?? "").split(";").flatMap((d) => {
+    const at = d.indexOf(":");
+    return at < 0 ? [] : [[d.slice(0, at).trim(), d.slice(at + 1).trim()] as const];
+  });
+  return new Map(declarations);
+}
+
+const stylePaint: PaintRead = (el, property) => declared(el).get(property) ?? null;
+
+/** The outline an item's chrome strokes, or null for none. */
+function outline2d(el: Element, look: CardLook, read: PaintRead): DrawnLook["outline"] {
   const path = el.querySelector("[data-outline-path]");
-  const color = domColor(path?.getAttribute("stroke"), look);
+  const color = domColor(read(path, "stroke"), look);
   if (path === null || color === null) return null;
   const dashes = path.getAttribute("stroke-dasharray") ?? "";
   return {
@@ -314,8 +334,8 @@ function ink2d(el: HTMLElement, look: CardLook): string | null {
   );
 }
 
-/** An edge as the DOM draws it: its path, its stroke, its group's opacity, and its heads' paths. */
-function edge2d(el: Element, look: CardLook): DrawnEdge | null {
+/** An edge as drawn: its path, its stroke, its group's opacity, and its heads' paths. */
+function edge2d(el: Element, look: CardLook, read: PaintRead): DrawnEdge | null {
   const path = el.querySelector("[data-edge-path]");
   const d = path?.getAttribute("d");
   if (path === null || d === null || d === undefined) return null;
@@ -326,11 +346,11 @@ function edge2d(el: Element, look: CardLook): DrawnEdge | null {
     const kind = CANVAS_HEADS.find((k) => k === head.getAttribute("data-head-kind"));
     const outline = head.getAttribute("d");
     if (kind === undefined || outline === null) return [];
-    const filled = (head.getAttribute("fill") ?? "none") !== "none";
-    const color = domColor(head.getAttribute("stroke"), look) ?? "";
+    const filled = (read(head, "fill") ?? "none") !== "none";
+    const color = domColor(read(head, "stroke"), look) ?? "";
     return [{ end, kind, filled, points: pathPolygon(outline), color } as const];
   });
-  const color = domColor(path.getAttribute("stroke"), look);
+  const color = domColor(read(path, "stroke"), look);
   return {
     points: pathPolygon(d),
     line:
@@ -449,7 +469,7 @@ const mount2d: Mount = async (view, scene) => {
         ?.dataset.cardId ?? null,
     edgeOf: (id) => {
       const el = container.querySelector(`[data-edge-id="${id}"]`);
-      return el === null ? null : edge2d(el, scene.look);
+      return el === null ? null : edge2d(el, scene.look, attributePaint);
     },
     lineOf: (id) => {
       const d = card(id)?.querySelector("[data-outline-path]")?.getAttribute("d");
@@ -466,7 +486,7 @@ const mount2d: Mount = async (view, scene) => {
       const opacity = el.style.opacity === "" ? 1 : Number(el.style.opacity);
       const fill = el.querySelector("[data-outline-path]")?.getAttribute("fill");
       return {
-        outline: outline2d(el, scene.look),
+        outline: outline2d(el, scene.look, attributePaint),
         ground: domColor(fill, scene.look),
         ink: ink2d(el, scene.look),
         opacity,
@@ -607,6 +627,81 @@ const mount3d: Mount = async (view, probed) => {
     },
   };
 };
+
+/** Which baseline anchors a block of words, per place up and down, as the SVG export says it. */
+const SVG_BASELINES = { top: "hanging", middle: "central", bottom: "text-after-edge" } as const;
+
+/** How the SVG export sets an item's words: by the tokens its style names, and where they sit. */
+function wordsSvg(el: Element): DrawnLook["words"] {
+  const words = el.querySelector("[data-words]");
+  if (words === null) return null;
+  const style = declared(words);
+  const font = keyOf(FONT_FACES, tokenOf(style.get("font-family") ?? ""));
+  const size = keyOf(TYPE_STEPS, tokenOf(style.get("font-size") ?? ""));
+  const align = (["start", "middle", "end"] as const).find(
+    (a) => a === words.getAttribute("text-anchor"),
+  );
+  const valign = keyOf(SVG_BASELINES, words.getAttribute("dominant-baseline") ?? "");
+  if (font === undefined || size === undefined || align === undefined || valign === undefined) {
+    return null;
+  }
+  return { font, step: TYPE_STEPS[size], align, valign };
+}
+
+/** `doc` exported as SVG, and parsed back into a document to read. */
+function parsedSvg(doc: CanvasDoc): Document {
+  const svg = canvasSvg(doc, {
+    textOf: () => undefined,
+    bound: (edge) => !edgeUnbound(edge, new Map()),
+  });
+  return new window.DOMParser().parseFromString(svg, "image/svg+xml");
+}
+
+/**
+ * The SVG export (`canvasSvg`, `@kb/canvas`): the document painted as one
+ * SVG, parsed, and read back from its elements as the DOM stage's are. It
+ * has no camera, so it is read by what the look contract reads only.
+ */
+export function mountSvg(scene: ProbeScene): Promise<LookProbe> {
+  let holder = parsedSvg(scene.doc);
+  const item = (id: string) => holder.querySelector(`[data-card-id="${id}"]`);
+  const ids = (selector: string, attribute: string) =>
+    [...holder.querySelectorAll(selector)].map((el) => el.getAttribute(attribute) ?? "");
+  return Promise.resolve({
+    drawn: () => ids("[data-card-id]", "data-card-id"),
+    edges: () => ids("[data-edge-id]", "data-edge-id"),
+    edgeOf: (id) => {
+      const el = holder.querySelector(`[data-edge-id="${id}"]`);
+      return el === null ? null : edge2d(el, scene.look, stylePaint);
+    },
+    lineOf: (id) => {
+      const d = item(id)?.querySelector("[data-outline-path]")?.getAttribute("d");
+      if (d === null || d === undefined) return null;
+      const heads = [...(item(id)?.querySelectorAll("[data-item-head]") ?? [])].map((head) => ({
+        points: pathPolygon(head.getAttribute("d") ?? ""),
+        color: domColor(stylePaint(head, "stroke"), scene.look) ?? "",
+      }));
+      return { line: pathPolygon(d), heads };
+    },
+    paintOf: (id) => {
+      const el = item(id);
+      if (el === null) return null;
+      const opacity = el.getAttribute("opacity");
+      return {
+        outline: outline2d(el, scene.look, stylePaint),
+        ground: domColor(stylePaint(el.querySelector("[data-outline-path]"), "fill"), scene.look),
+        ink: domColor(stylePaint(el.querySelector("[data-words]"), "fill"), scene.look),
+        opacity: opacity === null ? 1 : Number(opacity),
+        words: wordsSvg(el),
+      };
+    },
+    update: async (next) => {
+      holder = parsedSvg(next);
+      await Promise.resolve();
+    },
+    dispose: noop,
+  });
+}
 
 /** One probe per registered projection: a contract proves the table lists exactly the registry. */
 export const PROBES: Record<CanvasProjectionKind, Mount> = { "2d": mount2d, "3d": mount3d };

@@ -1456,7 +1456,9 @@ open view of that canvas.
   an edge's points along its route, its line and its colour, its opacity
   and each head's kind, outline and colour — and holds them to `itemPaint`
   and `edgePaint` for every look, every route and head, and each kind's
-  defaults, colours compared resolved through one look.
+  defaults, colours compared resolved through one look. It reads the SVG
+  export (`canvasSvg`, DESIGN.md → Canvas documents → Export) the same way,
+  as a painter with no camera, so the exported file looks as the canvas does.
 - **Cards stay cards.** Each card's face is painted into a canvas texture as
   it looks in 2D (`canvas-card-face.ts`): its text in the face and step its
   style names (a card's in the UI face at the body step), its bullet and tag

@@ -143,6 +143,8 @@ export type {
   WordsPaint,
 } from "./paint.ts";
 export { paintCss, paletteToken, toneCss } from "./paint-css.ts";
+export { canvasSvg } from "./svg.ts";
+export type { SvgSource } from "./svg.ts";
 export { isOpenLine, itemOutline, pathHeads, withLine } from "./paths.ts";
 export type { CanvasLinePatch } from "./paths.ts";
 export {
