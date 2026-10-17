@@ -11,7 +11,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ActionInvocation, ActionReceipt, KbContext } from "@kb/contracts";
-import { SYSTEM_IDS, fieldTypeValue } from "@kb/model";
+import { SYSTEM_IDS, fieldTypeValue, type PropValue } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
@@ -193,6 +193,59 @@ describe("a script's reach", () => {
     expect(JSON.stringify(theirs.status === "succeeded" ? theirs.output : null)).toContain(
       "secret words",
     );
+  });
+
+  test("what a bind is refused for says nothing of a node outside its subject", async () => {
+    const ctx = await board(root);
+    await invoke(ctx, { id: "tag.define", input: { name: "hidden", id: "t.hidden" } });
+    await invoke(ctx, { id: "tag.define", input: { name: "shown", id: "t.shown" } });
+    await invoke(ctx, {
+      id: "node.update",
+      input: {
+        id: SECRET,
+        setProps: [{ field: SYSTEM_IDS.typeField, value: { t: "ref", v: "t.hidden" } }],
+      },
+    });
+    /** A ref field allowing what `target` says: a tag the secret carries, one it does not, a query naming it. */
+    const constrained = async (id: string, target: { field: string; value: PropValue }) => {
+      await invoke(ctx, { id: "field.define", input: { name: id, id } });
+      await invoke(ctx, {
+        id: "node.update",
+        input: {
+          id,
+          setProps: [{ field: SYSTEM_IDS.fieldTypeField, value: fieldTypeValue("ref") }, target],
+        },
+      });
+    };
+    await constrained("f.hidden", {
+      field: SYSTEM_IDS.targetTagField,
+      value: { t: "ref", v: "t.hidden" },
+    });
+    await constrained("f.shown", {
+      field: SYSTEM_IDS.targetTagField,
+      value: { t: "ref", v: "t.shown" },
+    });
+    await constrained("f.asked", {
+      field: SYSTEM_IDS.targetQueryField,
+      value: { t: "str", v: '[:find ?id :where [?n :node/text "secret words"] [?n :node/id ?id]]' },
+    });
+    const bind = (field: string) => ({ canvasId: CANVAS, from: "k", to: "s", bind: field });
+    const told = async (field: string) => {
+      const receipt = await invoke(ctx, asScript("ext.canvas.connect", bind(field)));
+      return receipt.status === "failed"
+        ? [receipt.code, receipt.message.replace(field, "<field>")]
+        : [receipt.status];
+    };
+    // A script's are refused alike, whatever the secret carries.
+    const answers = [await told("f.hidden"), await told("f.shown"), await told("f.asked")];
+    expect(answers[0]).toEqual(answers[1]);
+    expect(answers[2]).toEqual(answers[1]);
+    // A person's tell the fields apart: the secret is what two of them allow.
+    const persons: string[] = [];
+    for (const field of ["f.hidden", "f.shown", "f.asked"]) {
+      persons.push(statusOf(await invoke(ctx, { id: "ext.canvas.connect", input: bind(field) })));
+    }
+    expect(persons).toEqual(["succeeded", "invalid_input", "succeeded"]);
   });
 
   test("a call an action makes for a script is the script's, within its grant", async () => {

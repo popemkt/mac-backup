@@ -12,14 +12,7 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import {
-  CoreInvoke,
-  KbCtx,
-  Screens,
-  type ExtensionAction,
-  type KbContext,
-  type KbStore,
-} from "@kb/contracts";
+import { CoreInvoke, KbCtx, Screens, type ExtensionAction, type KbStore } from "@kb/contracts";
 import { planNodeAddEffect } from "@kb/operations";
 import { freshId, relationFieldFit, relationMisfit, resolveFieldId, type KbNode } from "@kb/model";
 import {
@@ -80,6 +73,7 @@ import {
   canvasStep,
   commitCanvasEffect,
   readableEffect,
+  readableQueryEffect,
   readCanvasEffect,
   withPropOps,
   type CanvasFail,
@@ -552,21 +546,29 @@ const connectOutput = z.object({
  * edge arrives at can be typed as, by the one rule every relation write and
  * the edge inspector's field menu read (`relationFieldFit`, `@kb/model`) — a
  * person's own ref field that allows the target, so kb's `sys.*` fields (a
- * node's tags among them) are never an edge's to set. An arrival that stands
- * for no node is refused by `connectItems`.
+ * node's tags among them) are never an edge's to set. The field, the target
+ * and the target query are read as the call may read them (`readableEffect`,
+ * `readableQueryEffect`), so a script learns nothing of a node beyond its
+ * subject from what a bind is refused for. An arrival that stands for no
+ * node is refused by `connectItems`.
  */
-function bindableField(ctx: KbContext, field: string, target: string | undefined): string {
-  const fieldId = resolveFieldId(ctx.nodes, field);
-  if (target === undefined) return fieldId;
-  const byId = new Map(ctx.nodes.map((node) => [node.id, node]));
-  const fieldNode = byId.get(fieldId);
-  const fit =
-    fieldNode === undefined
-      ? "not-field"
-      : relationFieldFit(fieldNode, target, byId, (edn) => ctx.index.runDatalog(edn));
-  if (fit !== "fits") throw new CanvasRelationError(relationMisfit(fit, fieldId, target));
-  return fieldId;
-}
+const bindableFieldEffect = Effect.fn("ext.canvas.connect.bind")(function* (
+  field: string,
+  target: string | undefined,
+): Effect.fn.Return<string, CanvasFail, KbCtx> {
+  const readable = yield* readableEffect();
+  const runQuery = yield* readableQueryEffect();
+  return yield* canvasStep(() => {
+    const fieldId = resolveFieldId(readable, field);
+    if (target === undefined) return fieldId;
+    const byId = new Map(readable.map((node) => [node.id, node]));
+    const fieldNode = byId.get(fieldId);
+    const fit =
+      fieldNode === undefined ? "not-field" : relationFieldFit(fieldNode, target, byId, runQuery);
+    if (fit !== "fits") throw new CanvasRelationError(relationMisfit(fit, fieldId, target));
+    return fieldId;
+  });
+});
 
 function bindWrite(
   nodes: KbNode[],
@@ -610,8 +612,7 @@ const canvasConnectEffect = Effect.fn("ext.canvas.connect")(function* (
   const before = yield* readCanvasEffect(input.canvasId);
   const bind = input.bind;
   const arrival = before.nodes.find((item) => item.id === input.to)?.nodeId;
-  const fieldId =
-    bind === undefined ? undefined : yield* canvasStep(() => bindableField(ctx, bind, arrival));
+  const fieldId = bind === undefined ? undefined : yield* bindableFieldEffect(bind, arrival);
   const id = yield* freshId;
   const bindingId = yield* freshId;
   const { doc, edge } = yield* canvasStep(() =>

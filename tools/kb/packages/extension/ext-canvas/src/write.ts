@@ -10,7 +10,7 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { CurrentCall, KbCtx, type KbContext, type KbStore } from "@kb/contracts";
-import { persistEffect, planNodeAddEffect, readableNodes } from "@kb/operations";
+import { persistEffect, planNodeAddEffect, readableNodes, readableQuery } from "@kb/operations";
 import {
   isSysPrefixed,
   currentIso,
@@ -200,6 +200,19 @@ export const readableEffect = Effect.fn("ext.canvas.readable")(function* (
   const call = yield* CurrentCall;
   return readableNodes(call?.invocation, [...ctx.nodes, ...also]);
 });
+
+/**
+ * The datalog a canvas action runs for its call, answered as the call may
+ * read it (`readableQuery`): a field's target query asked for a script that
+ * reads its subject only answers nothing about a node beyond it.
+ */
+export const readableQueryEffect = Effect.fn("ext.canvas.readableQuery")(
+  function* (): Effect.fn.Return<(edn: string) => unknown[][], never, KbCtx> {
+    const ctx = yield* KbCtx;
+    const call = yield* CurrentCall;
+    return readableQuery(call?.invocation, ctx.nodes, (edn) => ctx.index.runDatalog(edn));
+  },
+);
 
 /** What one canvas write commits: the document, and the other nodes the same act changes. */
 export interface CanvasWrite {

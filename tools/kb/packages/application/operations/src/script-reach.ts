@@ -150,28 +150,64 @@ export function scriptWriteRefusal(
   return pointed === null ? null : refuse("points at", pointed);
 }
 
+/** Whether `invocation` reads the whole graph: any call but a script's, and a script's whose grant reads it. */
+function readsGraph(invocation: ActionInvocation | undefined): boolean {
+  if (invocation?.actor !== "script") return true;
+  return Option.getOrUndefined(decodeGrant(invocation.script?.grant))?.reads === "graph";
+}
+
+/**
+ * Whether a script that does not read the graph reads the node `id` of
+ * `byId` in full: its subject and what is under it, and the vocabulary every
+ * node is written in (`isVocabulary`: a tag, a field, an option), as its
+ * writes may name them.
+ */
+function readsInFull(
+  invocation: ActionInvocation | undefined,
+  byId: ReadonlyMap<NodeId, KbNode>,
+): (id: NodeId) => boolean {
+  const node = (id: NodeId) => byId.get(id);
+  const reach = subjectReach({ subject: invocation?.script?.subject ?? null, node });
+  const parentOf = parentsAfter([...byId.keys()], node);
+  return (id) => reach.has(id) || isVocabulary(id, node, parentOf);
+}
+
 /**
  * The nodes a call may read, as it reads them, of `nodes` (of two with one
- * id, the later): every one for any call but a script's, and for a script
- * whose grant reads the graph; for any other script, its subject and what
- * is under it in full, and every other node bare — its id, with no words,
- * fields or children — so what points at it still finds it and what it says
- * stays unread. An action that reads kb around what a call names (a
- * canvas's description, its lints, its picture) reads it through these.
+ * id, the later): every one for a call that reads the graph (`readsGraph`);
+ * for any other script, what it reads in full (`readsInFull`), and every
+ * other node bare — its id, with no words, fields or children — so what
+ * points at it still finds it and what it says stays unread. An action that
+ * reads kb around what a call names (a canvas's description, its lints, its
+ * picture, the field an edge binds) reads it through these.
  */
 export function readableNodes(
   invocation: ActionInvocation | undefined,
   nodes: readonly KbNode[],
 ): KbNode[] {
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  if (invocation?.actor !== "script") return [...byId.values()];
-  const grant = Option.getOrUndefined(decodeGrant(invocation.script?.grant));
-  if (grant?.reads === "graph") return [...byId.values()];
-  const reach = subjectReach({
-    subject: invocation.script?.subject ?? null,
-    node: (id) => byId.get(id),
-  });
+  if (readsGraph(invocation)) return [...byId.values()];
+  const inFull = readsInFull(invocation, byId);
   return [...byId.values()].map((node) =>
-    reach.has(node.id) ? node : { ...node, text: "", props: {}, children: [] },
+    inFull(node.id) ? node : { ...node, text: "", props: {}, children: [] },
   );
+}
+
+/**
+ * The datalog `run` answers, as a call may read its answers over `nodes`:
+ * every row for a call that reads the graph; for any other script, only the
+ * rows that name no node it reads bare, so what a query is asked on its
+ * behalf (a field's target query) never answers about a node beyond its
+ * subject.
+ */
+export function readableQuery(
+  invocation: ActionInvocation | undefined,
+  nodes: readonly KbNode[],
+  run: (edn: string) => unknown[][],
+): (edn: string) => unknown[][] {
+  if (readsGraph(invocation)) return run;
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const inFull = readsInFull(invocation, byId);
+  const readable = (cell: unknown) => typeof cell !== "string" || !byId.has(cell) || inFull(cell);
+  return (edn) => run(edn).filter((row) => (Array.isArray(row) ? row : [row]).every(readable));
 }

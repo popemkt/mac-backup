@@ -3783,12 +3783,24 @@ is `@kb/sandbox` (`packages/contract/sandbox`); the engines are
     subject, a delete that detaches one, a bind that sets a field on a node
     beyond it and a card placed for one are each refused there.
   - **What it reads around what it names**, through `readableNodes`: for a
-    script whose grant does not read the graph, the subject and what is
-    under it in full, and every other node bare (its id, no words, fields
-    or children), so what points at it still finds it and what it says
-    stays unread. A canvas action reads kb through these (`readableEffect`
-    in `@kb/ext-canvas`): a script's description, lints and picture of its
-    canvas say nothing of a node beyond its subject.
+    script whose grant does not read the graph, what it reads in full
+    (`readsInFull`) and every other node bare (its id, no words, fields or
+    children), so what points at it still finds it and what it says stays
+    unread. It reads in full its subject and what is under it, and the
+    vocabulary: every tag, field and field option (`isVocabulary`), the one
+    rule its writes already follow, where a reference to the vocabulary is
+    no reach. The vocabulary is the schema every script reads, so text a
+    person puts in a tag's, a field's or an option's name is readable to
+    scripts. A query asked on its behalf answers only the rows that name no
+    node it reads bare (`readableQuery`). A canvas action reads kb through
+    these (`readableEffect`, `readableQueryEffect` in `@kb/ext-canvas`): a
+    script's description, lints and picture of its canvas, and what a bind
+    is refused for (the field, its target's tags, its target query), say
+    nothing of a node beyond its subject. Two things stay readable, by
+    design: whether an id exists, since a bare node keeps its id; and
+    whether a target the script reads matches a person's target query whose
+    answer depends on nodes it does not, since enforcing the constraint at
+    all says that much.
   - **What an action calls for it.** A call made while another runs
     (`CoreInvoke`) is made as that one's caller (`callWithin`, in the invoke
     core): a call a script's call makes is that script's, with its reach,
