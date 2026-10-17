@@ -189,8 +189,7 @@ export const unloadBrokenBatches = Effect.fnUntraced(function* (
     yield* kernel.unload(owner).pipe(Effect.orDie);
     // The fixpoint ends only because each pass takes a plugin away for good.
     const left =
-      kernel.plugins().some((p) => inside(p.name)) ||
-      kernel.contributions(ActionPoint).some((c) => inside(c.owner));
+      kernel.plugins().some((p) => inside(p.name)) || kernel.contributionsOf(owner).length > 0;
     if (left) return yield* Effect.die(new Error(`plugin ${owner} is still loaded after unload`));
     const file = loaded.sources.get(owner) ?? owner;
     loaded.failures.push({ file, error });

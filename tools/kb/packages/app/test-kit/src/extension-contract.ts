@@ -45,10 +45,7 @@ import { describe, expect, test } from "bun:test";
 import { Effect, Result } from "effect";
 import { BUNDLED_DECLARATIONS, derivedOf } from "@kb/bundled";
 import {
-  ActionPoint,
-  ChannelPoint,
   NO_SWITCHES,
-  TemplatePoint,
   ViewKeyPoint,
   switchWrites,
   type ExtensionDeclaration,
@@ -65,32 +62,11 @@ import {
   type SeedSource,
   type SeedView,
 } from "@kb/model";
-import { makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
+import { makeKernel, type Kernel, type Plugin } from "@kb/plugin";
 import { DatascriptIndex, type KbIndex } from "@kb/query";
 import { STORE_BACKENDS, bunFileSystemLayer, createStore } from "@kb/runtime";
 import { paramsFromProps } from "@kb/views";
 import { CONTRACT_AT, openSession, scratchRoot } from "./store-session.ts";
-
-/** Every contribution the kernel holds at the points a family contributes to. */
-function heldBy(kernel: Kernel): readonly Contribution<unknown>[] {
-  return [
-    ...kernel.contributions(ActionPoint),
-    ...kernel.contributions(TemplatePoint),
-    ...kernel.contributions(ViewKeyPoint),
-    ...kernel.contributions(ChannelPoint),
-  ];
-}
-
-function contributions(kernel: Kernel): readonly string[] {
-  return heldBy(kernel).map((contribution) => contribution.id);
-}
-
-/** The ids of what `name`'s plugin, or a child of it, contributed to `kernel`. */
-function ownedBy(kernel: Kernel, name: string): readonly string[] {
-  return heldBy(kernel)
-    .filter(({ owner }) => owner === name || owner.startsWith(`${name}/`))
-    .map((contribution) => contribution.id);
-}
 
 /**
  * A host that composes the family as a store switches it: the registry for
@@ -252,7 +228,7 @@ function switchPromises(
       Effect.map(({ row, kernel }) => ({
         enabled: row?.enabled,
         optional: row?.optional,
-        held: ownedBy(kernel, entry.name).length > 0,
+        held: kernel.contributionsOf(entry.name).length > 0,
       })),
     );
 
@@ -320,7 +296,7 @@ export function extensionContract(
           expect(kernel.plugins().filter((plugin) => plugin.status === "failed")).toEqual([]);
           yield* kernel.unload(entry.name);
           expect(kernel.plugins()).toEqual([]);
-          expect(contributions(kernel)).toEqual([]);
+          expect(kernel.contributionsOf(entry.name)).toEqual([]);
         }),
       ));
 

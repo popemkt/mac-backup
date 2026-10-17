@@ -258,4 +258,26 @@ describe("composition", () => {
     expect(ids(kernel)).toEqual([]);
     expect(kernel.plugins()).toEqual([]);
   });
+
+  test("a plugin's contributions, at every point, are its children's too, and only while loaded", () => {
+    const Farewells = Point<string>()("test.farewells");
+    const kernel = makeKernel();
+    const parent = definePlugin({
+      name: "canvas",
+      apply: Effect.fnUntraced(function* (ctx) {
+        yield* ctx.contribute(Farewells, { id: "bye", aliases: ["ciao"], value: "" });
+        yield* ctx.plugin(greeter("ui", "surface"));
+      }),
+    });
+    const handle = run(kernel.load(parent));
+    run(kernel.load(greeter("canvasish", "other")));
+    expect(kernel.contributionsOf("canvas")).toEqual([
+      { point: "test.farewells", id: "canvas.bye", aliases: ["ciao"], owner: "canvas" },
+      { point: "test.greetings", id: "canvas.surface", aliases: [], owner: "canvas/ui" },
+    ]);
+    expect(kernel.contributionsOf("canvas/ui").map((c) => c.id)).toEqual(["canvas.surface"]);
+    expect(kernel.contributionsOf("nobody")).toEqual([]);
+    run(handle.unload);
+    expect(kernel.contributionsOf("canvas")).toEqual([]);
+  });
 });

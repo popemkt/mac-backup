@@ -21,6 +21,15 @@ export interface Contribution<C> {
 }
 
 /**
+ * A contribution as one plugin's list of what it made reads it: the point it
+ * was made to, by name, and the contribution with its value left out, since
+ * one list spans every point and so every value type.
+ */
+export interface PointContribution extends Omit<Contribution<unknown>, "value"> {
+  readonly point: string;
+}
+
+/**
  * A plugin's handle on the kernel. Everything registered through it —
  * services, contributions, children — belongs to the plugin's scope, so it
  * is undone when the plugin unloads or goes back to pending.
@@ -94,6 +103,12 @@ export interface Kernel {
   readonly contributions: <C>(point: PointKey<C>) => readonly Contribution<C>[];
   /** The contribution holding `id` as its id or one of its aliases. */
   readonly lookup: <C>(point: PointKey<C>, id: string) => Contribution<C> | undefined;
+  /**
+   * Everything `owner` contributed, at every point, its children's
+   * contributions included: a child loaded by a plugin is that plugin's.
+   * Points in the order first contributed to, then each point's order.
+   */
+  readonly contributionsOf: (owner: string) => readonly PointContribution[];
   readonly service: <S>(key: ServiceKey<S>) => S | undefined;
   readonly plugins: () => readonly PluginState[];
   /** Called after every change to plugins, services or contributions. */
@@ -400,6 +415,12 @@ export function makeKernel(): Kernel {
       const item = slot?.key === point ? slot.byId.get(id) : undefined;
       return item === undefined ? undefined : { ...item, value: asKeyType(point, item.value) };
     },
+    contributionsOf: (owner) =>
+      [...state.points.values()].flatMap((slot) =>
+        slot.items
+          .filter((item) => item.owner === owner || item.owner.startsWith(`${owner}/`))
+          .map(({ id, aliases, owner: by }) => ({ point: slot.key.name, id, aliases, owner: by })),
+      ),
     service: (key) => {
       const slot = state.services.get(key.name);
       return slot?.key === key ? asKeyType(key, slot.impl) : undefined;

@@ -9,6 +9,7 @@ export type {
   PluginHandle,
   PluginState,
   PluginStatus,
+  PointContribution,
 } from "./kernel.ts";
 export { Point, Service, asKeyType } from "./keys.ts";
 export { syncPlugins } from "./sync.ts";
