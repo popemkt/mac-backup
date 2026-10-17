@@ -135,6 +135,28 @@ describe("running a script once", () => {
     expect(ctx.nodes.find((n) => n.id === "n.elsewhere")?.props["f.note"]).toBeUndefined();
   });
 
+  test("a script never starts a script run: a run is a person's act, or an agent's", async () => {
+    const ctx = await openKb(root);
+    await invoke(ctx, {
+      id: "node.add",
+      input: { text: "Board", id: "n.canvas", tags: ["canvas"] },
+    });
+    const call = {
+      ...run({ input: { script: "s.place", subject: "n.canvas" } }),
+      actor: "script" as const,
+      approved: true,
+      script: {
+        subject: "n.canvas",
+        grant: { reads: "subject", actions: ["ext.code.script.run"] },
+      },
+    };
+    expect(await invoke(ctx, call)).toMatchObject({
+      status: "failed",
+      code: "forbidden",
+      details: { policy: "approval.script-run" },
+    });
+  });
+
   test("a script calls nothing its grant does not name", async () => {
     const ctx = await openKb(root);
     await invoke(ctx, {

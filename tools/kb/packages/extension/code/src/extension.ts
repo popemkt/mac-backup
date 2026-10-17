@@ -23,6 +23,17 @@ export const codeExtension = defineExtension({
   optional: { byDefault: "on" },
   seed: codeSeedNodes,
   views: [viewDef(CodeView, codeText)],
+  // A run is a person's act or an agent's: code never starts one, so it
+  // cannot chain runs that each ask the person again.
+  policies: [
+    {
+      id: "approval.script-run",
+      text: "Sandboxed code never starts a script run",
+      match: "ext.code.script.run",
+      actor: "script",
+      decision: "deny",
+    },
+  ],
 });
 
 /** The family's actions, `ext.code.*`: running a script once. */

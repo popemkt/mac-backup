@@ -73,6 +73,8 @@ describe("approval policies", () => {
     );
     const policies = approvalPoliciesOf(seed);
     expect(policies.map(({ match, actor, decision }) => ({ match, actor, decision }))).toEqual([
+      // The code family's own, which the fold files with core's.
+      { match: "ext.code.script.run", actor: "script", decision: "deny" },
       { match: "node.delete", actor: "agent", decision: "ask" },
       { match: "views.migrate", actor: "agent", decision: "ask" },
       { match: "node.delete", actor: "script", decision: "ask" },
@@ -83,7 +85,9 @@ describe("approval policies", () => {
       { match: "extension.switch", actor: "script", decision: "deny" },
     ]);
     // Filed under the query node that lists every policy, and editable.
-    expect(byId.get(SYSTEM_IDS.approvalPolicies)?.children).toEqual(policies.map((p) => p.id));
+    expect(byId.get(SYSTEM_IDS.approvalPolicies)?.children.toSorted()).toEqual(
+      policies.map((p) => p.id).toSorted(),
+    );
     expect(policies.every((p) => !p.id.startsWith("sys."))).toBe(true);
   });
 

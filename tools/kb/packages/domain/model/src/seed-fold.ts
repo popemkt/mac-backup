@@ -7,6 +7,7 @@
  * into the seed a store is opened with, together with which declaration
  * each folded node came from.
  */
+import { approvalPolicyNode, type ApprovalPolicy } from "./approval-policy.ts";
 import { backdropOptionId, type SeedBackdrop } from "./backdrop.ts";
 import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, nowIso } from "./model.ts";
 import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
@@ -36,6 +37,13 @@ export interface SeedSource {
   readonly views?: readonly { readonly key: SeedView }[];
   /** The page-head backdrops it contributes; the fold derives each one's option node. */
   readonly backdrops?: readonly SeedBackdrop[];
+  /**
+   * The approval policies it declares, each a denial: the fold derives each
+   * one's node under the list of every policy, editable as any is. A source
+   * only forbids, never permits: the most specific policy wins, so one that
+   * asked or allowed could outrank a policy the person wrote.
+   */
+  readonly policies?: readonly SeedPolicy[];
   /**
    * The view type a node that names no view opens in: one of this source's
    * own `views`, by its key, so it selects from the list and names nothing
@@ -80,6 +88,23 @@ function viewOptionNode(view: SeedView, at: string): KbNode {
     createdAt: at,
     updatedAt: at,
   };
+}
+
+/** A policy a source declares: a denial, by its node's id and what it is called. */
+export interface SeedPolicy extends Omit<ApprovalPolicy, "decision"> {
+  readonly text: string;
+  readonly decision: "deny";
+}
+
+/** The node of a policy `source` declares; a declared policy that permits anything is refused. */
+function policyNode(source: SeedSource, { text, ...policy }: SeedPolicy, at: string): KbNode {
+  // A source written outside kb's types (a repository extension) still only forbids.
+  const decision: string = policy.decision;
+  if (decision !== "deny") {
+    throw new Error(`${source.name} declares policy ${policy.id}, which does not deny`);
+  }
+  const base = { id: policy.id, text, props: {}, children: [], createdAt: at, updatedAt: at };
+  return approvalPolicyNode(base, policy);
 }
 
 /** The option node that names `backdrop` under `sys.f.backdrop`. */
@@ -158,17 +183,22 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     seed: source.seed?.(at) ?? [],
     options: (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
     backdrops: (source.backdrops ?? []).map((backdrop) => backdropOptionNode(backdrop, at)),
+    policies: (source.policies ?? []).map((policy) => policyNode(source, policy, at)),
     own: extensionNode(source, at),
   }));
   const folded = fileUnder(
     fileUnder(
       fileUnder(
-        parts.flatMap((part) => part.seed),
-        SYSTEM_IDS.viewsRoot,
-        parts.flatMap((part) => part.options),
+        fileUnder(
+          parts.flatMap((part) => part.seed),
+          SYSTEM_IDS.viewsRoot,
+          parts.flatMap((part) => part.options),
+        ),
+        SYSTEM_IDS.backdropField,
+        parts.flatMap((part) => part.backdrops),
       ),
-      SYSTEM_IDS.backdropField,
-      parts.flatMap((part) => part.backdrops),
+      SYSTEM_IDS.approvalPolicies,
+      parts.flatMap((part) => part.policies),
     ),
     SYSTEM_IDS.extensionsRoot,
     parts.map((part) => part.own),
@@ -187,7 +217,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     ),
     owners: new Map(
       parts.flatMap((part) =>
-        [...part.seed, ...part.options, ...part.backdrops, part.own].map(
+        [...part.seed, ...part.options, ...part.backdrops, ...part.policies, part.own].map(
           (node) => [node.id, part.name] as const,
         ),
       ),

@@ -1,7 +1,8 @@
 /**
  * The bundled seed fold (DESIGN.md → Extension families → the seed is the
  * bundled fold): each declared view's option is derived from its key, in
- * declaration order, as is each declared backdrop's under `sys.f.backdrop`,
+ * declaration order, as is each declared backdrop's under `sys.f.backdrop`
+ * and each declared policy's under the list of every policy (a denial only),
  * `sys.views` names the default view type, and an id two declarations claim
  * is refused.
  */
@@ -9,6 +10,7 @@ import { describe, expect, test } from "bun:test";
 import {
   SYSTEM_IDS,
   VIEW_FAMILY_VALUES,
+  approvalPoliciesOf,
   backdropOptionId,
   defaultViewTypeOf,
   extensionNodeId,
@@ -62,6 +64,29 @@ describe("bundled seed", () => {
     expect(named).toBe(viewOptionId("outline.main"));
   });
 
+  test("a declared policy is filed with every policy, and one that does not deny is refused", () => {
+    const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
+    const declared = BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.policies ?? []);
+    expect(declared.length).toBeGreaterThan(0);
+    for (const policy of declared) {
+      expect(seed.get(SYSTEM_IDS.approvalPolicies)?.children).toContain(policy.id);
+      expect(approvalPoliciesOf([...seed.values()])).toContainEqual(
+        expect.objectContaining({ id: policy.id, decision: "deny" }),
+      );
+    }
+    const permits = {
+      name: "lenient",
+      label: "Lenient",
+      policies: [{ id: "p.allow", text: "allows", match: "*", actor: null, decision: "allow" }],
+    };
+    expect(() =>
+      foldSeed(
+        [...BUNDLED_DECLARATIONS, permits as unknown as (typeof BUNDLED_DECLARATIONS)[number]],
+        AT,
+      ),
+    ).toThrow("which does not deny");
+  });
+
   test("an id two declarations claim is refused", () => {
     expect(() => foldSeed([...BUNDLED_DECLARATIONS, ...BUNDLED_DECLARATIONS], AT)).toThrow(
       /declared twice/,
@@ -80,6 +105,7 @@ describe("bundled seed", () => {
         ...(declaration.seed?.(AT) ?? []).map((node) => node.id),
         ...(declaration.views ?? []).map((view) => viewOptionId(view.key.id)),
         ...(declaration.backdrops ?? []).map((backdrop) => backdropOptionId(backdrop.id)),
+        ...(declaration.policies ?? []).map((policy) => policy.id),
         extensionNodeId(declaration.name),
       ];
       expect(owned.map((id) => [id, owners.get(id)])).toEqual(

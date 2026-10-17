@@ -2359,6 +2359,11 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     order, so every extension is a node of the graph, the hub its switch
     and its configuration hang off. Being one of that list's children is
     what such a node is (Kinds, roles and options), so it carries no tag;
+  - each approval policy a declaration declares (`policies`), its node
+    derived and filed under core's list of every policy
+    (`approval.policies`), editable as any is. A declared policy only
+    denies: the most specific policy wins, so one that asked or allowed
+    could outrank a policy the person wrote, and the fold refuses it;
   - pure data: it opens nothing and fails on an id declared twice, or on a
     default view type provided twice or naming a view its provider does
     not provide;
@@ -3797,7 +3802,10 @@ system, one runner, one trust.
   `CoreInvoke` as `write`), on the host's engine, each call the script's.
   It asks approval as a write that requires it: a person's runs, an
   agent's only once approved, and an untrusted script is refused before
-  anything runs. The scripts panel's Run once is the person's.
+  anything runs. The scripts panel's Run once is the person's. Code never
+  starts a run: the code family declares the policy that denies it to
+  `script` (`approval.script-run`), so code cannot chain runs that each ask
+  the person again.
 - **Listed with its trust**: `ext.code.script.list` tells the scripts some
   nodes name, each with its grant and whether a person trusts it; a view's
   agent verb says which scripts run on it through it (the canvas's
