@@ -74,6 +74,6 @@ stdenvNoCC.mkDerivation {
   meta = {
     description = "Repo-native outliner datastore (CLI + browser UI)";
     mainProgram = "kb";
-    platforms = lib.platforms.darwin;
+    platforms = lib.platforms.darwin ++ lib.platforms.linux;
   };
 }

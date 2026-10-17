@@ -73,6 +73,8 @@
   });
 
   my.stacks = {
+    # The kb CLI for everyone: agents working in ~/.dotfiles keep its graph.
+    kb.enable = true;
     t3-code = {
       enable = true;
       instances = {
