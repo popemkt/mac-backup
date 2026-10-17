@@ -1271,7 +1271,7 @@ manipulation feel professional rather than merely functional.
   (`routeMidpoint`), editable by double-click. Where an end meets its item,
   the route (curve, straight, arc, elbow) and the head each end wears are
   `@kb/canvas` `edges.ts`'s (`edgeRoute`, `edgeHead`); an edge's line and
-  heads are drawn as `edgePaint` says (`canvas-style.ts`). `EdgeInspector`
+  heads are drawn as `edgePaint` says (`@kb/canvas` `paint.ts`). `EdgeInspector`
   picks its route and bend, the head at each end, its line's dash and size,
   and its colour from the palette (`EdgeLookRows`).
 - **Floating selection toolbar** with Inspect (one item) / Delete /
@@ -1429,7 +1429,7 @@ open view of that canvas.
   (`pathHeads`, `headOnLine`): the DOM draws them in its outline's SVG, the
   3D face paints them into its texture. The look contract reads both back
   along the line and each head.
-- **Looks are one paint in both projections** (`canvas-style.ts`,
+- **Looks are one paint in both projections** (`@kb/canvas` `paint.ts`,
   `itemPaint`): an item's style (DESIGN.md → Canvas documents) is turned
   once into what is drawn — the outline's width (by size) and dash pattern
   in canvas units, the type step and face (as tokens) its words are set in,
@@ -1437,11 +1437,13 @@ open view of that canvas.
   in as a **tone** (`Tone`): an amount of the ink, the ground, the primary
   or its own paint laid over the ground (or over another tone: words on a
   solid fill), composited in sRGB. Every amount lives once, in
-  `canvas-style.ts` — a semi fill's wash, each kind's outline, words and
+  `paint.ts` — a semi fill's wash, each kind's outline, words and
   placeholder ink (`KIND_INKS`), an edge's ink at rest and while its field
   is gone, the selection's stroke and halo — and the heads a line or an
   edge wears take its line's tone, drawn or not. The DOM says a tone as
-  `color-mix(in srgb, …)` of the tokens (`toneCss`); the 3D face mixes the
+  `color-mix(in srgb, …)` of the tokens (`toneCss`, `paint-css.ts`, beside
+  it in the family's shared package, so any painter that writes CSS says a
+  tone the same way); the 3D face mixes the
   tokens' resolved channels into its texture (`toneColor`). The DOM draws
   every kind's ground and outline as one SVG outline traced from the shape
   table (`canvas-item-outline.tsx`), its words in the step's and the face's
@@ -2787,8 +2789,10 @@ is.
   theme-independent tokens cover what used to be Tailwind's `black` and
   `white`: `scrim` (the dimming layer behind a modal) and `knob` (a toggle's
   knob). Canvas renderers read colour through `readTokenColor`
-  (`lib/css-color.ts`), which owns each token's no-document fallback, so no
-  component carries a colour literal. The lab's palette (`--lab-*`, Lab
+  (`lib/css-color.ts`). Each token's no-document fallback is a contract
+  (`COLOR_TOKEN_FALLBACKS`, `@kb/contracts` `design-tokens.ts`), so a
+  painter with no document, a server's included, reads the same value, and
+  no component carries a colour literal. The lab's palette (`--lab-*`, Lab
   principles L1) is layer 1 too, read the same way by `lab/kit/palette.ts` through `@kb/scene`'s `palette.ts`.
 - **Canvas renderers re-read on one signal.** A DOM utility follows a token
   change by itself; a renderer that copied a value out (a colour, the

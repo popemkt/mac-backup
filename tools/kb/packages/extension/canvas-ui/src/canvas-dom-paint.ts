@@ -5,30 +5,18 @@
  * the edges read these, so a look is turned into CSS once.
  */
 import type { CSSProperties } from "react";
-import { itemOutline, svgPathData, type CanvasNode } from "@kb/canvas";
-import { cornerRadius, readCornerRadii } from "./canvas-card-face";
-import { paintCss } from "./canvas-color";
 import {
   FLEX_PLACES,
   TEXT_ALIGNS,
-  TONE_TOKENS,
+  itemOutline,
+  svgPathData,
+  toneCss,
+  type CanvasNode,
   type Tone,
-  type ToneSource,
   type WordsPaint,
-} from "./canvas-style";
-
-/** A tone's source as a CSS colour: its token, or its paint's. */
-function sourceCss(of: ToneSource): string {
-  return typeof of === "string" ? `var(${TONE_TOKENS[of]})` : (paintCss(of) ?? "currentColor");
-}
-
-/** A tone as CSS: its share of its source mixed over what it lies on, in sRGB as the DOM composites. */
-export function toneCss(tone: Tone): string {
-  const of = sourceCss(tone.of);
-  if (tone.amount >= 1) return of;
-  const over = tone.over === undefined ? sourceCss("ground") : toneCss(tone.over);
-  return `color-mix(in srgb, ${of} ${Math.round(tone.amount * 1000) / 10}%, ${over})`;
-}
+  cornerRadius,
+} from "@kb/canvas";
+import { readCornerRadii } from "./canvas-card-face";
 
 /** The custom property the ink words are set in is said through (`inkStyle`). */
 export const INK_PROPERTY = "--canvas-ink";

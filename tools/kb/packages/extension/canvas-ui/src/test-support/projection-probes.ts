@@ -20,6 +20,15 @@ import {
   type CanvasFont,
   type CanvasProjectionKind,
   type CanvasVAlign,
+  paletteToken,
+  FLEX_PLACES,
+  FONT_FACES,
+  TEXT_ALIGNS,
+  TONE_TOKENS,
+  TYPE_STEPS,
+  type CanvasTypeStep,
+  type Tone,
+  type ToneSource,
 } from "@kb/canvas";
 import {
   cameraPose,
@@ -30,26 +39,15 @@ import {
 } from "../canvas-camera";
 import { CanvasCameraRig } from "../canvas-camera-rig";
 import { toneColor, type CardLook } from "../canvas-card-face";
-import { paletteToken } from "../canvas-color";
 import { INK_PROPERTY } from "../canvas-dom-paint";
 import { FIRST_GIZMO } from "../canvas-gizmo";
 import type { DrawnEdge } from "../canvas-scene-edges";
 import type { CanvasSelection } from "../canvas-selection";
-import {
-  FLEX_PLACES,
-  FONT_FACES,
-  TEXT_ALIGNS,
-  TONE_TOKENS,
-  TYPE_STEPS,
-  type CanvasTypeStep,
-  type Tone,
-  type ToneSource,
-} from "../canvas-style";
 import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { fakeCanvasContexts, paintedOps, type PaintedOp } from "@kb/ui-test-kit";
 
 /** What a probe mounts: the document, the shared selection, the viewport and the face look. */
-interface ProbeScene {
+export interface ProbeScene {
   readonly doc: CanvasDoc;
   readonly selection: CanvasSelection;
   readonly size: ViewSize;
@@ -87,15 +85,11 @@ interface DrawnLine {
   readonly heads: readonly { readonly points: readonly Point[]; readonly color: string }[];
 }
 
-interface Probe {
+/** What any painter drew, read back in its own terms: what the look contract holds. */
+export interface LookProbe {
   /** Item ids drawn, back to front. */
   drawn(): string[];
   edges(): string[];
-  selected(): string[];
-  /** An item's face corners as drawn, on screen. */
-  cornersOf(id: string): { x: number; y: number }[] | null;
-  /** The item drawn on top at a screen point. */
-  topAt(point: { x: number; y: number }): string | null;
   /** An item's look as drawn. */
   paintOf(id: string): DrawnLook | null;
   /** An edge as drawn: its line's points and stroke, its opacity, its heads; null when not drawn. */
@@ -104,6 +98,15 @@ interface Probe {
   lineOf(id: string): DrawnLine | null;
   update(next: CanvasDoc): Promise<void>;
   dispose(): void;
+}
+
+/** What a camera projection drew, read back: its look, and where it laid each item out on screen. */
+interface Probe extends LookProbe {
+  selected(): string[];
+  /** An item's face corners as drawn, on screen. */
+  cornersOf(id: string): { x: number; y: number }[] | null;
+  /** The item drawn on top at a screen point. */
+  topAt(point: { x: number; y: number }): string | null;
 }
 
 type Mount = (view: CanvasView, scene: ProbeScene) => Promise<Probe>;

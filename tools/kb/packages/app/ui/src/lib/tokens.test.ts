@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { ELEVATIONS, TYPE_STEPS } from "@kb/ui-sdk";
-import { browserSource, browserSources } from "@/test-support/browser-packages";
+import { browserSource, browserSources, sharedSources } from "@/test-support/browser-packages";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const kit = browserSource("@kb/ui-sdk");
@@ -144,8 +144,9 @@ describe("kb tokens", () => {
         ),
       ),
     ];
-    const readers = pageSourceFiles()
-      .map(({ file }) => file)
+    // The page runs the shared packages too, so a token they read is read.
+    const shared = sharedSources().flatMap(({ src }) => collectSourceFiles(src));
+    const readers = [...pageSourceFiles().map(({ file }) => file), ...shared]
       // A design system restates layer 1; restating a token is not reading it.
       .filter(
         (file) =>

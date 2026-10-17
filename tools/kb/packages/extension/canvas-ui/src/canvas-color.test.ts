@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import { CANVAS_PALETTE, styleOf, type CanvasEdge } from "@kb/canvas";
-import { CANVAS_SWATCHES, paintCss } from "./canvas-color";
+import { CANVAS_PALETTE, styleOf, type CanvasEdge, paintCss } from "@kb/canvas";
+import { CANVAS_SWATCHES } from "./canvas-color";
 
 /** An edge in `color`, or in none. */
 const edge = (color?: string): CanvasEdge => ({

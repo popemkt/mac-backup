@@ -6,9 +6,15 @@
  * edge in the DOM.
  */
 import type { ReactNode } from "react";
-import { pathHeads, svgPathData, type CanvasNode } from "@kb/canvas";
-import { outlinePath, toneCss } from "./canvas-dom-paint";
-import { SELECTED_OUTLINE, type ItemPaint } from "./canvas-style";
+import {
+  pathHeads,
+  svgPathData,
+  type CanvasNode,
+  toneCss,
+  SELECTED_OUTLINE,
+  type ItemPaint,
+} from "@kb/canvas";
+import { outlinePath } from "./canvas-dom-paint";
 
 /**
  * The outline, filled and stroked in its tones (`itemPaint`); a selected one

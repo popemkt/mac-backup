@@ -19,8 +19,22 @@
  * curves and a close, the subset an SVG path, a canvas 2D context and a three
  * `Shape` all speak.
  */
-import { boxFrame, boxToWorld, type CanvasBox, type CanvasVec } from "./box.ts";
-import { isShapeNode, type CanvasNode, type CanvasShapeKind } from "./doc.ts";
+import {
+  TOP_AXES,
+  boxFrame,
+  boxToWorld,
+  itemFrame,
+  type CanvasBox,
+  type CanvasVec,
+} from "./box.ts";
+import {
+  canvasDepth,
+  canvasRotation,
+  isShapeNode,
+  type CanvasNode,
+  type CanvasShapeKind,
+} from "./doc.ts";
+import { isUnrotated, type CanvasMatrix } from "./rotation.ts";
 
 /** One step of an outline: move, line, cubic curve (two controls, then the point), close. */
 export type CanvasPathCommand =
@@ -73,6 +87,27 @@ const VOLUME_FACE: { readonly [V in CanvasVolume]: number } = {
 /** How far up its box an item's face lies (0 its base, 1 its top; a flat item is all one plane). */
 export function faceShare(item: CanvasNode): number {
   return VOLUME_FACE[CANVAS_SHAPES[itemShape(item)].volume];
+}
+
+/**
+ * How the top view lays a turned item's face over its footprint box: the
+ * face's turn about the box's centre (the one rotation matrix, as
+ * `itemFrame` gives it for the top view, so a flat billboard stays
+ * unturned), and its lift off that centre along the box's own up
+ * (`faceShare`). Null for an unturned item, which is laid out as its box.
+ * Every 2D painter places a turned face by this one rule: the DOM canvas as
+ * a CSS `matrix3d`, the SVG export as the turn's top view.
+ */
+export interface TopFace {
+  readonly matrix: CanvasMatrix;
+  readonly lift: CanvasVec;
+}
+
+export function topFace(item: CanvasNode): TopFace | null {
+  if (isUnrotated(canvasRotation(item))) return null;
+  const m = itemFrame(item, TOP_AXES).matrix;
+  const up = (faceShare(item) - 0.5) * canvasDepth(item);
+  return { matrix: m, lift: { x: m[2] * up, y: m[5] * up, z: m[8] * up } };
 }
 
 /**

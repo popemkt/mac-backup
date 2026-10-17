@@ -12,11 +12,10 @@ import {
   useNodeTextBinding,
 } from "@kb/ui-sdk";
 import { useCallback, useEffect, useEffectEvent, useRef } from "react";
-import type { CanvasKbNode, CanvasTextNode } from "@kb/canvas";
+import { type CanvasKbNode, type CanvasTextNode, itemPaint } from "@kb/canvas";
 import type { FaceLayout } from "./canvas-face";
 import { ItemOutline } from "./canvas-item-outline";
 import { inkStyle, wordsStyle } from "./canvas-dom-paint";
-import { itemPaint } from "./canvas-style";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
 

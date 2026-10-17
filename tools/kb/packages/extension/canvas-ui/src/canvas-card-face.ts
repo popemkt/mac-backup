@@ -32,15 +32,17 @@ import {
   type CanvasPathNode,
   type CanvasShapeKind,
   type CanvasVAlign,
-} from "@kb/canvas";
-import { paletteToken } from "./canvas-color";
-import { isPicture, type FacePicture } from "./canvas-face-pictures";
-import {
+  paletteToken,
   FONT_FACES,
   SELECTED_OUTLINE,
   TEXT_ALIGNS,
   TONE_TOKENS,
   TYPE_STEPS,
+  TYPE_STEP_FALLBACKS,
+  CARD_BODY_FALLBACK,
+  CARD_BODY_STEP,
+  CORNER_RADII_FALLBACKS,
+  type CornerRadii,
   itemPaint,
   type CanvasTypeStep,
   type ChromePaint,
@@ -48,7 +50,8 @@ import {
   type Tone,
   type ToneSource,
   type WordsPaint,
-} from "./canvas-style";
+} from "@kb/canvas";
+import { isPicture, type FacePicture } from "./canvas-face-pictures";
 import {
   assetSrcUrl,
   graphDisplayText,
@@ -57,9 +60,9 @@ import {
   readTokenColor,
   toRenderableColor,
   wrapGraphLabel,
-  type ColorToken,
   type OutlineNode,
 } from "@kb/ui-sdk";
+import type { ColorToken } from "@kb/contracts";
 
 /** What a card shows, independent of how it is drawn; `style` is how its look paints it. */
 export type CardFace =
@@ -149,9 +152,6 @@ function probeLength(property: "fontSize" | "borderTopLeftRadius", css: string, 
   return Number.isFinite(value) ? value : fallback;
 }
 
-/** The corner radii an outline is rounded by, pixels: `rounded-xl` a card's, `rounded-md` a shape's. */
-type CornerRadii = Pick<CardLook, "radius" | "shapeRadius">;
-
 let radiiRead: { readonly skin: string | null; readonly radii: CornerRadii } | undefined;
 
 /**
@@ -165,20 +165,20 @@ export function readCornerRadii(): CornerRadii {
     radiiRead = {
       skin,
       radii: {
-        radius: probeLength("borderTopLeftRadius", "var(--radius-xl)", 18),
-        shapeRadius: probeLength("borderTopLeftRadius", "var(--radius-md)", 8),
+        radius: probeLength(
+          "borderTopLeftRadius",
+          "var(--radius-xl)",
+          CORNER_RADII_FALLBACKS.radius,
+        ),
+        shapeRadius: probeLength(
+          "borderTopLeftRadius",
+          "var(--radius-md)",
+          CORNER_RADII_FALLBACKS.shapeRadius,
+        ),
       },
     };
   }
   return radiiRead.radii;
-}
-
-/**
- * The radius an item's outline is rounded by in both projections
- * (`shapeOutline`): a shape's and a frame's, or a card's for any other item.
- */
-export function cornerRadius(item: CanvasNode, radii: CornerRadii): number {
-  return isShapeNode(item) || isGroupNode(item) ? radii.shapeRadius : radii.radius;
 }
 
 /** A paint as `look` colours it (the palette through its tokens), or undefined for none. */
@@ -186,14 +186,6 @@ export function paintColor(look: CardLook, paint: CanvasPaint | undefined): stri
   if (paint === undefined) return undefined;
   return paint.kind === "palette" ? look.palette[paint.id] : paint.css;
 }
-
-/** Each step's size as the browser resolves its token, with the default system's as fallback. */
-const STEP_FALLBACK: Readonly<Record<CanvasTypeStep, number>> = {
-  "--type-label": 11,
-  "--type-ui": 13,
-  "--type-heading": 18,
-  "--type-title": 20,
-};
 
 /** Which of `graphLabelFont`'s faces each font's token is. */
 const FONT_LABEL_FACE = { sans: "ui", serif: "serif", mono: "mono" } as const satisfies {
@@ -206,9 +198,9 @@ export function readCardLook(): CardLook {
     const token: ColorToken = paletteToken(id);
     palette[id] = readTokenColor(token);
   }
-  const steps = { ...STEP_FALLBACK };
+  const steps = { ...TYPE_STEP_FALLBACKS };
   for (const step of Object.values(TYPE_STEPS)) {
-    steps[step] = probeLength("fontSize", `var(${step})`, STEP_FALLBACK[step]);
+    steps[step] = probeLength("fontSize", `var(${step})`, TYPE_STEP_FALLBACKS[step]);
   }
   return {
     face: readTokenColor(TONE_TOKENS.ground),
@@ -221,7 +213,7 @@ export function readCardLook(): CardLook {
       serif: graphLabelFont(FONT_LABEL_FACE.serif),
       mono: graphLabelFont(FONT_LABEL_FACE.mono),
     },
-    body: probeLength("fontSize", "var(--type-body)", 14.5),
+    body: probeLength("fontSize", `var(${CARD_BODY_STEP})`, CARD_BODY_FALLBACK),
     steps,
     ...readCornerRadii(),
   };

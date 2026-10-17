@@ -59,12 +59,12 @@ import {
   type CanvasAxes,
   type CanvasFootprint,
   type CanvasNode,
+  cornerRadius,
 } from "@kb/canvas";
 import { paintPlanes } from "./canvas-camera";
 import { matcapMaterial, paletteMatcap } from "@kb/scene-gpu";
 import {
   cardFaceOf,
-  cornerRadius,
   FACE_MARGIN,
   over,
   paintCardFace,

@@ -358,13 +358,7 @@ export {
   type VerticalNavDecision,
 } from "./lib/caret";
 export { cn, ELEVATIONS, TYPE_STEPS } from "./lib/cn";
-export {
-  COLOR_TOKEN_FALLBACKS,
-  type ColorToken,
-  oklchToRgb,
-  readTokenColor,
-  toRenderableColor,
-} from "./lib/css-color";
+export { oklchToRgb, readTokenColor, toRenderableColor } from "./lib/css-color";
 export {
   asElement,
   asInstance,

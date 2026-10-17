@@ -2,12 +2,8 @@ import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  COLOR_TOKEN_FALLBACKS,
-  DESIGN_SYSTEM_IDS,
-  oklchToRgb,
-  toRenderableColor,
-} from "@kb/ui-sdk";
+import { COLOR_TOKEN_FALLBACKS } from "@kb/contracts";
+import { DESIGN_SYSTEM_IDS, oklchToRgb, toRenderableColor } from "@kb/ui-sdk";
 import { readDesignSystemSheets } from "./design-system-sheets";
 
 /**

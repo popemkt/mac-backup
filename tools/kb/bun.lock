@@ -982,6 +982,7 @@
       "name": "@kb/scene",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/contracts": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
       },
       "devDependencies": {

@@ -29,6 +29,7 @@ import {
   type CanvasAxes,
   type CanvasFrame,
   type CanvasNode,
+  type ItemPaint,
 } from "@kb/canvas";
 import { paintPlanes } from "./canvas-camera";
 import { cardFaceOf, faceLook, faceWords, paintLabel, type CardLook } from "./canvas-card-face";
@@ -36,7 +37,6 @@ import type { FacePicture } from "./canvas-face-pictures";
 import type { CanvasSceneContent } from "./canvas-scene-content";
 import { faceDensity } from "./canvas-scene-items";
 import { axesToThree } from "./canvas-scene-space";
-import type { ItemPaint } from "./canvas-style";
 
 interface Label {
   readonly mesh: Mesh;

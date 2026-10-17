@@ -8,22 +8,17 @@
  * canvas and the 3D scene read only this, so a look means one thing in both,
  * and the look contract holds them to it.
  */
-import {
-  drawsGround,
-  isOpenLine,
-  isPathNode,
-  ownsWords,
-  styleOf,
-  type CanvasAlign,
-  type CanvasDash,
-  type CanvasEdge,
-  type CanvasFill,
-  type CanvasFont,
-  type CanvasNode,
-  type CanvasPaint,
-  type CanvasSize,
-  type CanvasVAlign,
-} from "@kb/canvas";
+import { isGroupNode, isPathNode, isShapeNode, type CanvasEdge, type CanvasNode } from "./doc.ts";
+import { isOpenLine } from "./paths.ts";
+import { drawsGround, ownsWords, styleOf, type CanvasPaint } from "./style.ts";
+import type {
+  CanvasAlign,
+  CanvasDash,
+  CanvasFill,
+  CanvasFont,
+  CanvasSize,
+  CanvasVAlign,
+} from "./style-fields.ts";
 
 /** Where a tone's colour comes from: the page's ink or ground, the selection's primary, a paint. */
 export type ToneSource = "ink" | "ground" | "primary" | CanvasPaint;
@@ -112,6 +107,37 @@ export const TYPE_STEPS = {
 } as const satisfies { readonly [S in CanvasSize]: `--type-${string}` };
 
 export type CanvasTypeStep = (typeof TYPE_STEPS)[CanvasSize];
+
+/** Each step's size in the default design system, px: what a painter with no document to resolve the token against sets words at. */
+export const TYPE_STEP_FALLBACKS: Readonly<Record<CanvasTypeStep, number>> = {
+  "--type-label": 11,
+  "--type-ui": 13,
+  "--type-heading": 18,
+  "--type-title": 20,
+};
+
+/** The step a card's own words are set at: its node's words, as the outline sets them. */
+export const CARD_BODY_STEP = "--type-body";
+
+/** The card body step's size in the default design system, px. */
+export const CARD_BODY_FALLBACK = 14.5;
+
+/** The corner radii an outline is rounded by, px: `rounded-xl` a card's, `rounded-md` a shape's. */
+export interface CornerRadii {
+  readonly radius: number;
+  readonly shapeRadius: number;
+}
+
+/** The corner radii in the default design system: what a painter with no document rounds by. */
+export const CORNER_RADII_FALLBACKS: CornerRadii = { radius: 18, shapeRadius: 8 };
+
+/**
+ * The radius an item's outline is rounded by in every projection
+ * (`shapeOutline`): a shape's and a frame's, or a card's for any other item.
+ */
+export function cornerRadius(item: CanvasNode, radii: CornerRadii): number {
+  return isShapeNode(item) || isGroupNode(item) ? radii.shapeRadius : radii.radius;
+}
 
 /** The design system's face for each font (`--app-font*`). */
 export const FONT_FACES = {
@@ -278,7 +304,7 @@ export const TEXT_ALIGNS = {
   start: "left",
   middle: "center",
   end: "right",
-} as const satisfies { readonly [A in CanvasAlign]: CanvasTextAlign };
+} as const satisfies { readonly [A in CanvasAlign]: "left" | "center" | "right" };
 
 /** Where flexed content sits along an axis for each alignment, as CSS says it. */
 export const FLEX_PLACES = {

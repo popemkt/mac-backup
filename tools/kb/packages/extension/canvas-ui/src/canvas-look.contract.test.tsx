@@ -46,12 +46,14 @@ import {
   type CanvasEdge,
   type CanvasNode,
   type CanvasTextNode,
+  edgePaint,
+  itemPaint,
+  type Tone,
 } from "@kb/canvas";
 import { edgeUnbound } from "./canvas-api";
 import type { CanvasView, ViewSize } from "./canvas-camera";
 import { toneColor } from "./canvas-card-face";
 import type { CanvasSelection } from "./canvas-selection";
-import { edgePaint, itemPaint, type Tone } from "./canvas-style";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
@@ -61,10 +63,10 @@ import {
   hexOf,
   useProbePage,
   type DrawnLook,
+  type LookProbe,
+  type ProbeScene,
 } from "./test-support/projection-probes";
 import type * as ThreeWebGpu from "three/webgpu";
-
-type Probe = Awaited<ReturnType<(typeof PROBES)["2d"]>>;
 
 beforeAll(() => syncUiPlugins([testHostPlugin(testBrowserHost())]));
 afterAll(() => syncUiPlugins([]));
@@ -395,7 +397,7 @@ function modelEdge(edge: CanvasEdge) {
 }
 
 /** Whether `probe` draws every line of `shown` through its points, with the heads its open ends wear. */
-function expectLinesAsModel(probe: Probe, shown: CanvasDoc): void {
+function expectLinesAsModel(probe: LookProbe, shown: CanvasDoc): void {
   for (const item of shown.nodes.filter(isPathNode)) {
     const paint = itemPaint(item);
     const model = outlinePoints(itemOutline(item, item.width, item.height, 0)).map(([x, y]) => ({
@@ -422,7 +424,7 @@ function expectLinesAsModel(probe: Probe, shown: CanvasDoc): void {
 }
 
 /** Whether `probe` draws every edge of `shown` along its route, end to end, with its line and opacity. */
-function expectEdgesAsModel(probe: Probe, shown: CanvasDoc): void {
+function expectEdgesAsModel(probe: LookProbe, shown: CanvasDoc): void {
   const byId = new Map(shown.nodes.map((n) => [n.id, n]));
   for (const edge of shown.edges) {
     const [from, to] = [byId.get(edge.fromNode), byId.get(edge.toNode)];
@@ -452,14 +454,22 @@ describe("canvas look contract", () => {
     );
   });
 
-  const cases = CANVAS_PROJECTIONS.flatMap((p) =>
-    ASKED.map((asked, i) => [`${p.kind}, view ${i + 1}`, p.kind, asked] as const),
+  /** Every painter the contract holds: each camera projection, from each asked view. */
+  const painters: readonly {
+    readonly name: string;
+    readonly mount: (scene: ProbeScene) => Promise<LookProbe>;
+  }[] = CANVAS_PROJECTIONS.flatMap((p) =>
+    ASKED.map((asked, i) => {
+      const view = canvasProjection(p.kind).settle(asked);
+      return {
+        name: `${p.kind}, view ${i + 1}`,
+        mount: (shown: ProbeScene) => PROBES[p.kind](view, shown),
+      };
+    }),
   );
-  describe.each(cases)("%s", (_name, kind, asked) => {
-    const view = canvasProjection(kind).settle(asked);
-
+  describe.each(painters)("$name", ({ mount }) => {
     it("draws every item's look as its style says, every look and each kind's defaults", async () => {
-      const probe = await PROBES[kind](view, scene);
+      const probe = await mount(scene);
       for (const item of doc.nodes.filter(looked)) {
         expect(probe.paintOf(item.id), item.id).toEqual(modelLook(item));
       }
@@ -467,7 +477,7 @@ describe("canvas look contract", () => {
     });
 
     it("draws a standing face's words, their ink and its opacity as its look says", async () => {
-      const probe = await PROBES[kind](view, scene);
+      const probe = await mount(scene);
       const stood = doc.nodes.filter((item) => ownsWords(item) && faceStands(item));
       expect(stood.length).toBeGreaterThan(0);
       for (const item of stood) {
@@ -477,13 +487,13 @@ describe("canvas look contract", () => {
     });
 
     it("draws every edge along its route, end to end, with its line and opacity", async () => {
-      const probe = await PROBES[kind](view, edgeScene);
+      const probe = await mount(edgeScene);
       expectEdgesAsModel(probe, edgeScene.doc);
       probe.dispose();
     });
 
     it("draws the head each end wears, filled or stroked, where the model puts it", async () => {
-      const probe = await PROBES[kind](view, edgeScene);
+      const probe = await mount(edgeScene);
       const byId = new Map(joined.map((n) => [n.id, n]));
       for (const edge of wired) {
         const [from, to] = [byId.get(edge.fromNode), byId.get(edge.toNode)];
@@ -512,14 +522,14 @@ describe("canvas look contract", () => {
     });
 
     it("draws a line through its points, with the heads its open ends wear", async () => {
-      const probe = await PROBES[kind](view, scene);
+      const probe = await mount(scene);
       expectLinesAsModel(probe, doc);
       probe.dispose();
     });
 
     it("draws a mirrored line and edge as the mirror put them: points, route and heads", async () => {
-      const lines = await PROBES[kind](view, scene);
-      const edges = await PROBES[kind](view, edgeScene);
+      const lines = await mount(scene);
+      const edges = await mount(edgeScene);
       for (const axis of ["x", "y"] as const) {
         const flippedLines = flipItems(doc, ["line", "arrowed", "closed"], axis);
         await lines.update(flippedLines);
@@ -534,7 +544,7 @@ describe("canvas look contract", () => {
     });
 
     it("draws a locked item's look as any other's: a lock is no look", async () => {
-      const probe = await PROBES[kind](view, scene);
+      const probe = await mount(scene);
       const locked = { ...doc, nodes: doc.nodes.map((n) => withFlag(n, "locked", true)) };
       await probe.update(locked);
       for (const item of locked.nodes.filter(looked)) {
@@ -544,7 +554,7 @@ describe("canvas look contract", () => {
     });
 
     it("draws a look changed in the document as it now says", async () => {
-      const probe = await PROBES[kind](view, scene);
+      const probe = await mount(scene);
       const changed = doc.nodes.map((n) =>
         n.id === "plain" ? { ...n, style: { dash: "dotted" as const, font: "mono" as const } } : n,
       );

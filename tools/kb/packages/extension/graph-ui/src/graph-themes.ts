@@ -10,7 +10,8 @@
  * Values only, and only tokens for colour (Lab principle L1), so every theme
  * looks like itself in each design system, light and dark (P5). No three.
  */
-import { toRenderableColor, type ColorToken } from "@kb/ui-sdk";
+import type { ColorToken } from "@kb/contracts";
+import { toRenderableColor } from "@kb/ui-sdk";
 import type { GraphLabelStyle } from "./graph-label-paint";
 import type { LensTheme } from "@kb/graph";
 import type { NodeSurface } from "./force3d-light";

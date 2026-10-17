@@ -14,6 +14,9 @@ import {
   styleOf,
   svgPathData,
   topView,
+  paintCss,
+  itemPaint,
+  cornerRadius,
 } from "@kb/canvas";
 import { KbNodeCard, TextCard } from "./canvas-card";
 import { ImageCard } from "./canvas-image-card";
@@ -24,12 +27,10 @@ import type { ResizeCorner } from "./canvas-pointer";
 import { classifyCardPointer } from "./card-pointer";
 import { cardBoxStyle } from "./canvas-card-box";
 import type { FaceLayout } from "./canvas-face";
-import { paintCss } from "./canvas-color";
 import { cn, hasText } from "@kb/ui-sdk";
-import { cornerRadius, readCornerRadii } from "./canvas-card-face";
+import { readCornerRadii } from "./canvas-card-face";
 import { ItemOutline } from "./canvas-item-outline";
 import { inkStyle, wordsStyle } from "./canvas-dom-paint";
-import { itemPaint } from "./canvas-style";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles } from "./canvas-resize-handles";
 

@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { CANVAS_SHAPES, canvasDepth, type CanvasShapeNode, type CanvasVolume } from "@kb/canvas";
+import {
+  CANVAS_SHAPES,
+  canvasDepth,
+  type CanvasShapeNode,
+  type CanvasVolume,
+  itemPaint,
+} from "@kb/canvas";
 import { classifyCardPointer } from "./card-pointer";
 import type { FaceLayout } from "./canvas-face";
 import { hasText, textOr } from "@kb/ui-sdk";
 import { ItemOutline } from "./canvas-item-outline";
 import { inkStyle, outlinePath, wordsStyle } from "./canvas-dom-paint";
-import { itemPaint } from "./canvas-style";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
 import {

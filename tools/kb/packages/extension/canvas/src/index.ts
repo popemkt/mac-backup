@@ -116,6 +116,33 @@ export type {
   CanvasOrder,
 } from "./arrange.ts";
 export { connectItems } from "./connect.ts";
+export {
+  CARD_BODY_FALLBACK,
+  CARD_BODY_STEP,
+  CORNER_RADII_FALLBACKS,
+  cornerRadius,
+  FLEX_PLACES,
+  FONT_FACES,
+  SELECTED_OUTLINE,
+  TEXT_ALIGNS,
+  TONE_TOKENS,
+  TYPE_STEPS,
+  TYPE_STEP_FALLBACKS,
+  edgePaint,
+  itemPaint,
+} from "./paint.ts";
+export type {
+  CanvasTypeStep,
+  CornerRadii,
+  ChromePaint,
+  EdgePaint,
+  EdgeState,
+  ItemPaint,
+  Tone,
+  ToneSource,
+  WordsPaint,
+} from "./paint.ts";
+export { paintCss, paletteToken, toneCss } from "./paint-css.ts";
 export { isOpenLine, itemOutline, pathHeads, withLine } from "./paths.ts";
 export type { CanvasLinePatch } from "./paths.ts";
 export {
@@ -221,6 +248,7 @@ export {
 export {
   CANVAS_SHAPES,
   faceShare,
+  topFace,
   faceStands,
   itemShape,
   onFootprint,
@@ -230,7 +258,13 @@ export {
   topView,
   tracePath,
 } from "./shapes.ts";
-export type { CanvasFootprint, CanvasPathCommand, CanvasPathSink, CanvasVolume } from "./shapes.ts";
+export type {
+  TopFace,
+  CanvasFootprint,
+  CanvasPathCommand,
+  CanvasPathSink,
+  CanvasVolume,
+} from "./shapes.ts";
 export type { CanvasItemSpec, CanvasPresetKind } from "./presets.ts";
 export type { CanvasCamera, CanvasPose, CanvasProjectionKind } from "./camera.ts";
 export type {

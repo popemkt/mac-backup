@@ -16,12 +16,13 @@ import {
   type CanvasEdge,
   type CanvasNode,
   type EdgeRoute,
+  toneCss,
+  edgePaint,
+  type EdgePaint,
 } from "@kb/canvas";
 import { edgeUnbound } from "./canvas-api";
-import { toneCss } from "./canvas-dom-paint";
 import type { CanvasSelection } from "./canvas-selection";
 import type { PointerState } from "./canvas-pointer";
-import { edgePaint, type EdgePaint } from "./canvas-style";
 import { hasText, type OutlineNode } from "@kb/ui-sdk";
 import { clientToCanvas } from "./canvas-camera";
 

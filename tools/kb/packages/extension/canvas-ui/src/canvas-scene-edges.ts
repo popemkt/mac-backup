@@ -33,11 +33,13 @@ import {
   type EdgeEnd,
   type EdgeHead,
   type EdgeRoute,
+  edgePaint,
+  type EdgePaint,
+  type EdgeState,
 } from "@kb/canvas";
 import { edgeUnbound } from "./canvas-api";
 import { toneColor, type CardLook } from "./canvas-card-face";
 import type { CanvasSceneContent } from "./canvas-scene-content";
-import { edgePaint, type EdgePaint, type EdgeState } from "./canvas-style";
 
 /** An edge runs a hair over the planes it joins, so a flat card never covers it. */
 const LIFT = 0.5;

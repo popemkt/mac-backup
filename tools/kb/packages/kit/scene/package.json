@@ -11,6 +11,7 @@
     "test": "vp test"
   },
   "dependencies": {
+    "@kb/contracts": "workspace:*",
     "@kb/ui-sdk": "workspace:*"
   },
   "devDependencies": {
