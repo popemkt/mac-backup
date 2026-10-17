@@ -21,6 +21,10 @@ await writeFile(
   `${fixtureNodes.map((node) => JSON.stringify(node)).join("\n")}\n`,
 );
 
+// The served root registers itself as a location; it does so in a home store
+// of its own, removed with the scratch root, never in the person's.
+process.env.KB_HOME = join(scratchRoot, "home");
+
 const server = await Effect.runPromise(
   startUi({
     root: scratchRoot,

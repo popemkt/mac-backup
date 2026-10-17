@@ -12,7 +12,7 @@ import {
 } from "@kb/contracts";
 import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
-import { openKbEffect, writeErr, bunFileSystemLayer } from "@kb/runtime";
+import { openKbEffect, registerOpenedRoot, writeErr, bunFileSystemLayer } from "@kb/runtime";
 import { makeKernel } from "@kb/plugin";
 import { clearUiPresence, queriesDir, writeUiPresence } from "@kb/workspace-fs";
 import { ensureUiBuilt, type UiBuildError, type UiEnsureResult } from "./build.ts";
@@ -328,6 +328,10 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     lifetime,
     clearUiPresence(opts.root, url).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
   );
+  // A root a person serves is one of their locations. Like presence, not
+  // being listed costs the picker only, so it is reported and the server serves.
+  const unlisted = yield* registerOpenedRoot(ctx).pipe(Effect.provide(layer));
+  if (unlisted !== null) writeErr(`kb ui: this root is not among your locations: ${unlisted}`);
 
   if (openBrowserFlag) openBrowser(url);
 

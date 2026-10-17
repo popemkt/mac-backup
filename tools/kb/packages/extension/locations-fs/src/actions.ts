@@ -18,7 +18,7 @@ import {
   type LocationRow,
   type LocationWrite,
 } from "@kb/locations";
-import { resolveHomeEffect } from "./home.ts";
+import { currentHome } from "./home.ts";
 
 /** What a location is now, read from its path. */
 const rowOf = Effect.fn("ext.locations.row")(function* (
@@ -61,7 +61,7 @@ type Home =
 const openHome = Effect.fn("ext.locations.openHome")(function* (
   roots: KbRootsPort,
 ): Effect.fn.Return<Home, DomainError> {
-  const probe = yield* roots.probe(yield* resolveHomeEffect());
+  const probe = yield* roots.probe(yield* currentHome);
   if (probe.state.kind !== "store")
     return {
       path: probe.path,
@@ -125,7 +125,7 @@ export const locationRegisterEffect = Effect.fn("ext.locations.register")(functi
       path: target.path,
       status: target.state.kind,
     });
-  const homePath = yield* resolveHomeEffect();
+  const homePath = yield* currentHome;
   yield* roots.create(homePath);
   const home = yield* openHome(roots);
   if (home.session === null) return yield* domainError("internal", home.reason);

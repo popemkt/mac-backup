@@ -1,6 +1,7 @@
 export { discoverExtensions } from "./extension-loader.ts";
 export { invoke } from "./invoke.ts";
 export { kbRuntimeLayer } from "./layers.ts";
+export { registerOpenedRoot } from "./locations.ts";
 export { openKbEffect } from "./open.ts";
 export { writeErr, writeOut } from "./output.ts";
 export { bunFileSystemLayer } from "./platform.ts";

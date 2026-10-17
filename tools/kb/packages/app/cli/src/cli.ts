@@ -8,6 +8,7 @@ import {
   kbRuntimeLayer,
   openKbEffect,
   invokeReceiptEffect,
+  registerOpenedRoot,
   sessionRegistry,
   type ActionHandlerEnv,
   resolveRootEffect,
@@ -16,6 +17,7 @@ import {
   migrateStore,
   type StoreBackend,
   writeOut,
+  writeErr,
 } from "@kb/runtime";
 import {
   type DomainError,
@@ -42,6 +44,7 @@ import {
   type GlobalOpts,
 } from "./command.ts";
 import { formatMode, formatReceipt } from "./format.ts";
+import { locationCommands } from "./locations.ts";
 import { hostExtensions } from "./host-plugins.ts";
 import { readActionJsonEffect, readOutlineEffect } from "./input.ts";
 import {
@@ -329,6 +332,10 @@ function buildProgram(): Command {
             );
             examples = nodes.length;
           }
+          // The root a person makes is one of their locations; not being listed costs the picker only.
+          const unlisted = yield* registerOpenedRoot(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+          if (unlisted !== null)
+            writeErr(`kb init: this root is not among your locations: ${unlisted}`);
 
           const msg =
             globals.json === true
@@ -720,6 +727,8 @@ function buildProgram(): Command {
         }),
       ),
     );
+
+  locationCommands(program);
 
   program
     .command("action-invoke")

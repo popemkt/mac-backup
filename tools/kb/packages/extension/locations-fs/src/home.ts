@@ -6,23 +6,31 @@
  */
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { Config, Effect, Option } from "effect";
-import { domainError } from "@kb/model";
+import { Effect } from "effect";
 
-export const resolveHomeEffect = Effect.fn("ext.locations.home")(
-  function* () {
-    const set = yield* Config.option(Config.nonEmptyString("KB_HOME"));
-    if (Option.isSome(set)) return resolve(set.value);
-    if (process.platform === "darwin")
-      return join(homedir(), "Library", "Application Support", "kb", "home");
-    const data = yield* Config.option(Config.nonEmptyString("XDG_DATA_HOME"));
-    return join(
-      Option.getOrElse(data, () => join(homedir(), ".local", "share")),
-      "kb",
-      "home",
-    );
-  },
-  Effect.mapError((err) =>
-    domainError("internal", `where the home store lives cannot be read: ${err.message}`),
-  ),
+/** The home store's directory, for an environment on a platform. */
+export function homePath(
+  env: Readonly<Record<string, string | undefined>>,
+  platform: string,
+  home: string,
+): string {
+  const set = env.KB_HOME;
+  if (set !== undefined && set !== "") return resolve(set);
+  if (platform === "darwin") return join(home, "Library", "Application Support", "kb", "home");
+  const data = env.XDG_DATA_HOME;
+  return join(
+    data !== undefined && data !== "" ? data : join(home, ".local", "share"),
+    "kb",
+    "home",
+  );
+}
+
+/**
+ * The home store's directory now. The environment is read each time this
+ * runs, not once per process, so a process that names another home (a test,
+ * say) is answered with it.
+ */
+export const currentHome: Effect.Effect<string> = Effect.sync(() =>
+  // oxlint-disable-next-line node/no-process-env -- the family's one read of where the person's home store lives
+  homePath(process.env, process.platform, homedir()),
 );

@@ -3,7 +3,7 @@
  * of every backend (DESIGN.md → Locations). The home store is a kb root like
  * any other, so what the actions promise holds whichever store it is. Each property runs
  * the actions the way every surface does, through the invoke core in a
- * session over a root of their own, with the home store named by `KB_HOME`.
+ * session over a root of their own, with the home store `KB_HOME` names.
  *
  * - registering is idempotent by canonical path, so a symlinked spelling of
  *   a root finds its node;
@@ -19,12 +19,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { Effect } from "effect";
 import type { ActionReceipt, KbContext } from "@kb/contracts";
 import { LOCATION_IDS, LocationListSchema, LocationRowSchema } from "@kb/locations";
 import { SYSTEM_IDS, type DomainError, type KbNode } from "@kb/model";
 import { writeUiPresence } from "@kb/workspace-fs";
-import { CONTRACT_AT } from "@kb/test-kit";
+import { CONTRACT_AT, pointHomeAt } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
@@ -73,6 +73,7 @@ function locationsContract(homeBackend: StoreBackend): void {
     let scratch = "";
     let home = "";
     let session: KbContext | null = null;
+    let restoreHome: (() => void) | undefined;
     const servers: { stop: (force: boolean) => unknown }[] = [];
 
     /** A root holding a store of `backend`, under the scratch directory. */
@@ -92,9 +93,8 @@ function locationsContract(homeBackend: StoreBackend): void {
       input: unknown,
     ): Effect.fn.Return<ActionReceipt> {
       if (session === null) throw new Error("no session: beforeEach did not run");
-      const homeConfig = ConfigProvider.layer(ConfigProvider.fromEnvRecord({ KB_HOME: home }));
       return yield* invokeReceiptEffect(session, { id, input }).pipe(
-        Effect.provide(Layer.merge(kbRuntimeLayer(session), homeConfig)),
+        Effect.provide(kbRuntimeLayer(session)),
       );
     });
 
@@ -121,6 +121,7 @@ function locationsContract(homeBackend: StoreBackend): void {
           );
           scratch = yield* Effect.promise(() => realpath(made));
           home = join(scratch, "home");
+          restoreHome = pointHomeAt(home);
           yield* Effect.promise(() => mkdir(home));
           yield* createStore(home, homeBackend).pipe(Effect.provide(bunFileSystemLayer));
           session = yield* openRoot(yield* storeRoot("current"));
@@ -129,6 +130,7 @@ function locationsContract(homeBackend: StoreBackend): void {
     );
 
     afterEach(() => {
+      restoreHome?.();
       for (const server of servers.splice(0)) void server.stop(true);
       return rm(scratch, { recursive: true, force: true });
     });

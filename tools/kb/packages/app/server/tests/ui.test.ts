@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { addDocsView } from "@kb/test-kit";
+import { addDocsView, pointHomeAt } from "@kb/test-kit";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -83,6 +83,26 @@ describe("kb ui server", () => {
     } finally {
       await run(second.stop);
       await rm(other, { recursive: true, force: true });
+    }
+  });
+
+  test("a served root is one of the person's locations", async () => {
+    const restoreHome = pointHomeAt(join(root, "home"));
+    try {
+      handle = await run(startUi({ root, port: 0, openBrowser: false }));
+      const response = await fetch(`${handle.url}/api/action`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: "location.list", input: {} }),
+      });
+      const receipt = (await response.json()) as {
+        output: { rows: { status: string; current: boolean; url?: string }[] };
+      };
+      expect(receipt.output.rows).toEqual([
+        expect.objectContaining({ current: true, status: "served", url: handle.url }),
+      ]);
+    } finally {
+      restoreHome();
     }
   });
 
