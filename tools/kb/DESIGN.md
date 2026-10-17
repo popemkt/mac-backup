@@ -3702,6 +3702,19 @@ sends it more than 400 messages a second.
 
 ### Trust
 
+- **Where untrusted code runs.** Trust changes only the engine: untrusted
+  code runs in QuickJS, trusted code in a Worker, and both get the same API
+  and the same grant. So untrusted code runs only where its grant, the
+  approval policies and its scope bound what it does. A code view runs
+  untrusted, because it runs only when a person opens it, and it draws for
+  them. A snapshot (Snapshots, above) runs untrusted on the server, in the
+  read scope, so it writes nothing and, like every run, reaches no network.
+  A script (Scripts, below) never runs untrusted. It runs on its own,
+  whenever its view tells it something, and it may write, so a person
+  trusts its digest first, and `ext.code.script.run` refuses an untrusted
+  one before anything runs. This is the one statement of the model;
+  `view-render.test.ts` pins the snapshot (no write, no network, no timer),
+  and `script-run.test.ts` and the scripts host pin the script.
 - **Untrusted by default; trusted by a person, per digest, per machine.**
   `codeDigest` is the SHA-256 of exactly what runs: the code as stored,
   untrimmed, and its grant (`kb.sandbox/1`). The page computes it from the

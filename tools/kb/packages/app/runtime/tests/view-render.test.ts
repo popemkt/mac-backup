@@ -245,6 +245,20 @@ describe("render.view by view node id", () => {
     expect(ctx.nodes.length).toBe(before);
   });
 
+  test("a code view's page runs its code untrusted: it reaches no network and no timer", async () => {
+    await mustInvoke("view.propose", {
+      view: "code.view",
+      params: {
+        code: 'kb.draw([typeof fetch, typeof XMLHttpRequest, typeof WebSocket, typeof setTimeout].join(","))',
+        grant: { reads: "none", actions: [] },
+      },
+      host: FRAME,
+      id: "v.net",
+    });
+    const html = await render({ id: "v.net" });
+    expect(html.content).toContain("undefined,undefined,undefined,undefined");
+  });
+
   test("a code view whose code loops says so on its page", async () => {
     await mustInvoke("view.propose", {
       view: "code.view",
