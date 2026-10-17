@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { LensNode } from "./graph-lens";
 
 interface GraphSelectionCardProps {
@@ -10,6 +11,8 @@ interface GraphSelectionCardProps {
   canFocus?: boolean;
   /** Begin a trace from this node; absent where the renderer cannot trace. */
   onTrace?: () => void;
+  /** What else the card lists of this node (its related nodes). */
+  related?: ReactNode;
 }
 
 /** Floating selection card shared across renderers (click selects; Open navigates). */
@@ -21,6 +24,7 @@ export function GraphSelectionCard({
   onFocus,
   canFocus = true,
   onTrace,
+  related,
 }: GraphSelectionCardProps) {
   const meta = nodes.find((n) => n.id === nodeId);
   if (!meta) return null;
@@ -84,6 +88,7 @@ export function GraphSelectionCard({
           </button>
         ) : null}
       </div>
+      {related}
     </div>
   );
 }

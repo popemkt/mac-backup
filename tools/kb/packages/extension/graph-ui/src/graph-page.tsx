@@ -40,6 +40,7 @@ import { paramsFromProps } from "@kb/views";
 import { GraphFrameContext, graphViewKey, type GraphFrame } from "./graph-frame";
 import { useRenderer } from "./use-renderers";
 import { useGraphTrace } from "./graph-trace";
+import { useRelated } from "./graph-related";
 import { graphPath } from "./routes";
 
 // GAP [[01M3EH8SRZ2NN7QZJY88CGY0T3]]
@@ -168,6 +169,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   const selectedNode = lensGraph.nodes.find((node) => node.id === selectedId);
   const selection = selectedNode ? selectionFromNode(selectedNode) : null;
   const traced = useGraphTrace(active, lensGraph, wireNodes, selectedId);
+  const related = useRelated(queryDb, active, lensGraph, wireNodes, selectedId);
   const { trace, pick: pickTraceEnd, clear: clearTrace } = traced;
   // While a trace waits for its end, the next node selected is that end.
   const setSelection = useCallback(
@@ -369,6 +371,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
             queryError={lensGraph.queryError}
             perspective={active}
             trace={traced}
+            related={related}
             onSaveTrace={(name) => void saveTrace(name)}
             savingTrace={savingTrace}
           >

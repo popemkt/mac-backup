@@ -169,6 +169,33 @@ describe("a member's backlinks under a scope", () => {
   });
 });
 
+describe("a backlink's typed relations", () => {
+  it("word each ref field the referrer points here through from this side, and skip system fields", () => {
+    const graph = [
+      ...wire(),
+      node("f.influences", "influences", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+        [SYSTEM_IDS.relationInverseField]: [{ t: "str", v: "influenced by" }],
+      }),
+      node("f.owner", "owner", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }] }),
+      node("n.source", "Source", {
+        "f.influences": [{ t: "ref", v: "n.a" }],
+        "f.owner": [{ t: "ref", v: "n.a" }],
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: "n.a" }],
+      }),
+      node("n.mention", "mentions [[n.a]]"),
+    ];
+    useGraphStore.getState().hydrateFromWire(graph, 1, "fixtures");
+    const g = useGraphStore.getState();
+    const rows = backlinkRows(g.index, schemaOf(g), "n.a");
+    expect(rows.find((r) => r.id === "n.source")?.relations).toEqual([
+      { field: "f.influences", label: "influenced by" },
+      { field: "f.owner", label: "owner →" },
+    ]);
+    expect(rows.find((r) => r.id === "n.mention")?.relations).toEqual([]);
+  });
+});
+
 describe("transient prune reads content, not template slots", () => {
   /** A supertag templating a hidden and a visible field, and one root. */
   function graph(): WireNode[] {

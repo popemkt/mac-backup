@@ -60,6 +60,12 @@ export const GRAPH_IDS = {
   lensTraceToField: "sys.f.lens.trace-to",
   lensTracePathsField: "sys.f.lens.trace-paths",
   /**
+   * The family's setting (a field that configures `sys.extension.graph`):
+   * whether the graph and the outline offer relations to type, "Related,
+   * not connected" and "Type this reference…". A checkbox, off when absent.
+   */
+  suggestRelationsField: "sys.f.graph.suggest-relations",
+  /**
    * Default global mentions+child force2d perspective.
    * User-editable (NOT sys-prefixed) so write-guard does not lock it.
    */

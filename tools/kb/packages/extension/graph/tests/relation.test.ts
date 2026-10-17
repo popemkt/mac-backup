@@ -6,7 +6,13 @@
 import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
 import { SYSTEM_IDS, fieldTypeValue, type KbNode } from "@kb/model";
-import { hopLabelsOf, typedRelation } from "../src/index.ts";
+import {
+  GRAPH_IDS,
+  hopLabelsOf,
+  relationFieldsFor,
+  suggestsRelations,
+  typedRelation,
+} from "../src/index.ts";
 
 const AT = "2026-10-17T00:00:00.000Z";
 
@@ -80,6 +86,14 @@ describe("typedRelation", () => {
   });
 });
 
+describe("relationFieldsFor", () => {
+  test("offers the ref fields that allow the target, and only them", () => {
+    const ids = (target: string) => relationFieldsFor(nodes, target, noQuery).map((f) => f.id);
+    expect(ids("b")).toEqual(["f.about", "f.influences", "f.owner"]);
+    expect(ids("c")).toEqual(["f.influences", "f.owner"]);
+  });
+});
+
 describe("hopLabelsOf", () => {
   test("a relation is its field's text, read back by its inverse when it has one", () => {
     const labels = hopLabelsOf([...nodes.values()]);
@@ -89,5 +103,15 @@ describe("hopLabelsOf", () => {
     });
     expect(labels.relationOf("f.about")).toEqual({ label: "about", inverse: null });
     expect(labels.textOf("a")).toBe("A mentions B");
+  });
+});
+
+describe("suggestsRelations", () => {
+  test("the family's setting is off until its node says it is on", () => {
+    expect(suggestsRelations(undefined)).toBe(false);
+    expect(suggestsRelations({ props: {} })).toBe(false);
+    expect(
+      suggestsRelations({ props: { [GRAPH_IDS.suggestRelationsField]: [{ t: "bool", v: true }] } }),
+    ).toBe(true);
   });
 });

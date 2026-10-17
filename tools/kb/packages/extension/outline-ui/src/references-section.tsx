@@ -88,6 +88,15 @@ function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
       }
       content={
         <>
+          {row.relations.map((relation) => (
+            <span
+              key={relation.field}
+              className="shrink-0 rounded-xs bg-foreground/[0.05] px-1.5 py-0.5 text-caption text-foreground/50"
+              data-backlink-relation={relation.field}
+            >
+              {relation.label}
+            </span>
+          ))}
           <MdView
             text={row.text}
             className="min-w-0 flex-1 text-foreground/85"

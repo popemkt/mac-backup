@@ -36,14 +36,22 @@ describe("inline References (W8a)", () => {
       createElement(ReferencesView, {
         nodeId: "n.root-a",
         backlinks: [
-          { id: "n.referrer", text: "See root-a", tags: [] },
-          { id: "n.other", text: "Other link", tags: [] },
+          { id: "n.referrer", text: "See root-a", tags: [], relations: [] },
+          {
+            id: "n.other",
+            text: "Other link",
+            tags: [],
+            relations: [{ field: "f.influences", label: "influenced by" }],
+          },
         ],
       }),
     );
     expect(html).toContain("References (2)");
     expect(html).toContain('data-references-for="n.root-a"');
     expect(html).toContain('data-node-id="n.referrer"');
+    // A typed relation reads from this node's side, by its inverse label.
+    expect(html).toContain('data-backlink-relation="f.influences"');
+    expect(html).toContain("influenced by");
   });
 
   it("renders nothing when the node has no backlinks", () => {

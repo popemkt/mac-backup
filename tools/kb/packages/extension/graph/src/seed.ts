@@ -16,6 +16,7 @@
  */
 import {
   SYSTEM_IDS,
+  extensionNodeId,
   seededField,
   viewFamilyTargetQuery,
   type FieldType,
@@ -130,5 +131,10 @@ export function graphSeedNodes(at: string): readonly KbNode[] {
     singleField(GRAPH_IDS.lensTraceToField, "lens.trace-to", "ref"),
     singleField(GRAPH_IDS.lensTracePathsField, "lens.trace-paths", "number"),
     lensAllMentions,
+    // A setting of the family's own node: written like any field, read where it offers relations.
+    seededField(GRAPH_IDS.suggestRelationsField, "suggest relations", "checkbox", at, {
+      one: true,
+      props: { [SYSTEM_IDS.configuresField]: [{ t: "ref", v: extensionNodeId("graph") }] },
+    }),
   ];
 }

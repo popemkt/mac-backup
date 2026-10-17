@@ -8,6 +8,8 @@ import { GraphCanvasError } from "./graph-canvas-error";
 import { GraphSelectionCard } from "./graph-selection-card";
 import { GraphTraceCard } from "./graph-trace-card";
 import type { GraphTraceState } from "./graph-trace";
+import type { Related } from "./graph-related";
+import { RelatedList } from "./graph-related-list";
 import { capabilitiesFor } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
@@ -31,6 +33,7 @@ export function GraphCanvasFrame({
   trace,
   onSaveTrace,
   savingTrace,
+  related,
 }: {
   children: React.ReactNode;
   nodes: LensNode[];
@@ -50,6 +53,8 @@ export function GraphCanvasFrame({
   trace?: GraphTraceState;
   onSaveTrace?: (name: string) => void;
   savingTrace?: boolean;
+  /** The selection's related nodes, while the family's setting offers them. */
+  related?: Related | null;
 }) {
   const capabilities = capabilitiesFor(renderer);
   const searchNodes = useMemo(() => nodes.map((n) => ({ id: n.id, label: n.label })), [nodes]);
@@ -118,6 +123,7 @@ export function GraphCanvasFrame({
           onClose={onClearSelection}
           canFocus={capabilities.focus}
           onTrace={capabilities.trace && trace ? () => trace.begin(selection.nodeId) : undefined}
+          related={related ? <RelatedList related={related} /> : null}
           onFocus={
             capabilities.focus && controls ? () => controls.focusNode(selection.nodeId) : undefined
           }

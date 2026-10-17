@@ -9,9 +9,12 @@ import {
   allowedRefIdsOf,
   cardinalityOf,
   fieldTypeOf,
+  isSysPrefixed,
+  SYSTEM_IDS,
   type DomainError,
   type KbNode,
   type NodeId,
+  type NodeLike,
 } from "@kb/model";
 
 export interface RelationTyping {
@@ -51,10 +54,10 @@ export function typedRelation(
   if (!nodes.has(typing.target)) return refuse("not_found", `node not found: ${typing.target}`);
   const fieldNode = nodes.get(typing.field);
   if (fieldNode === undefined) return refuse("not_found", `field not found: ${typing.field}`);
-  if (fieldTypeOf(fieldNode.props) !== "ref")
+  const fit = fieldFit(fieldNode, typing.target, nodes, runQuery);
+  if (fit === "not-ref")
     return refuse("invalid_input", `${typing.field} is not a ref field, so it types no relation`);
-  const allowed = allowedRefIdsOf(fieldNode, nodes, runQuery);
-  if (allowed !== null && !allowed.has(typing.target))
+  if (fit === "not-allowed")
     return refuse("invalid_input", `${typing.field} does not allow ${typing.target} as a target`);
   const held = source.props[typing.field] ?? [];
   if (held.some((value) => value.t === "ref" && value.v === typing.target))
@@ -69,4 +72,41 @@ export function typedRelation(
     props: { ...source.props, [typing.field]: [...held, { t: "ref", v: typing.target }] },
     updatedAt: at,
   });
+}
+
+/**
+ * Whether `fieldNode` can type a relation to `target`: it must be a ref
+ * field, and allow the target by the one resolver every ref slot reads.
+ */
+function fieldFit(
+  fieldNode: NodeLike,
+  target: NodeId,
+  nodes: ReadonlyMap<NodeId, NodeLike>,
+  runQuery: (edn: string) => unknown[][],
+): "fits" | "not-ref" | "not-allowed" {
+  if (fieldTypeOf(fieldNode.props) !== "ref") return "not-ref";
+  const allowed = allowedRefIdsOf(fieldNode, nodes, runQuery);
+  return allowed === null || allowed.has(target) ? "fits" : "not-allowed";
+}
+
+/**
+ * The fields a person may type a relation to `target` as: every ref field
+ * of theirs (not a system one) that allows it, by text. What a "Link as…"
+ * picker offers, held to the rules `typedRelation` writes by.
+ */
+export function relationFieldsFor<N extends NodeLike>(
+  nodes: ReadonlyMap<NodeId, N>,
+  target: NodeId,
+  runQuery: (edn: string) => unknown[][],
+): N[] {
+  return [...nodes.values()]
+    .filter(
+      (node) =>
+        !isSysPrefixed(node.id) &&
+        (node.props[SYSTEM_IDS.typeField] ?? []).some(
+          (value) => value.t === "ref" && value.v === SYSTEM_IDS.field,
+        ) &&
+        fieldFit(node, target, nodes, runQuery) === "fits",
+    )
+    .toSorted((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
 }

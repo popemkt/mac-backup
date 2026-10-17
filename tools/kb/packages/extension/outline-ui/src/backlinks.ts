@@ -1,9 +1,22 @@
+import { isSysPrefixed, relationInverseOf } from "@kb/model";
 import { queryBacklinks, rowText, type KbIndex, type SchemaIndex, type TagBadge } from "@kb/ui-sdk";
+
+/**
+ * A typed relation the referrer holds to the node, worded from the node's
+ * side: the field's inverse label when it names one ("influenced by"),
+ * else its own label read toward the node ("influences →").
+ */
+interface BacklinkRelation {
+  field: string;
+  label: string;
+}
 
 export interface BacklinkRow {
   id: string;
   text: string;
   tags: TagBadge[];
+  /** The ref fields the referrer points here through; none when it only mentions the node. */
+  relations: BacklinkRelation[];
 }
 
 /**
@@ -34,6 +47,25 @@ export function backlinkRows(
         id: b.id,
         text: node ? rowText(node, schema) : b.text,
         tags: node?.tags ?? [],
+        relations: node ? relationsTo(node.props, nodeId, schema) : [],
       };
     });
+}
+
+/**
+ * The typed relations `props` hold to `nodeId`: each non-system field with
+ * a ref to it, labelled as {@link BacklinkRelation} says. A system field
+ * (a tag, a view) is scaffolding, not a relation a person named.
+ */
+function relationsTo(
+  props: Readonly<Record<string, readonly { t: string; v: unknown }[]>>,
+  nodeId: string,
+  schema: SchemaIndex,
+): BacklinkRelation[] {
+  return Object.entries(props).flatMap(([field, values]) => {
+    if (isSysPrefixed(field) || !values.some((v) => v.t === "ref" && v.v === nodeId)) return [];
+    const fieldNode = schema.get(field);
+    const inverse = relationInverseOf(fieldNode);
+    return [{ field, label: inverse ?? `${fieldNode?.text ?? field} →` }];
+  });
 }

@@ -29,6 +29,7 @@ export {
 } from "./views.ts";
 export { collectEdges, type LensEdge, type LensSource } from "./edges.ts";
 export { isScaffolding } from "./scaffolding.ts";
+export { suggestsRelations } from "./settings.ts";
 export { adjacencyOf, projectionOf, type Adjacency, type GraphProjection } from "./projection.ts";
 export {
   TRACE_DEFAULTS,
@@ -116,7 +117,12 @@ export {
   graphSuggestEffect,
   graphTraceEffect,
 } from "./actions.ts";
-export { typedRelation, type RelationRefusal, type RelationTyping } from "./relation.ts";
+export {
+  relationFieldsFor,
+  typedRelation,
+  type RelationRefusal,
+  type RelationTyping,
+} from "./relation.ts";
 export {
   DEFAULT_TRACE_KINDS,
   hopLabelsOf,
