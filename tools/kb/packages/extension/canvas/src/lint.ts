@@ -24,13 +24,8 @@
  */
 import { boxFrame } from "./box.ts";
 import { pinLost } from "./comments.ts";
-import {
-  canvasElevation,
-  isGroupNode,
-  type CanvasDoc,
-  type CanvasItemLink,
-  type CanvasNode,
-} from "./doc.ts";
+import { canvasElevation, isGroupNode, type CanvasDoc, type CanvasNode } from "./doc.ts";
+import type { CanvasItemLink } from "./links.ts";
 import { canvasMembership, faceHolds } from "./membership.ts";
 import { unreachablePages } from "./pages.ts";
 import { isSolid, overlaps } from "./relations.ts";

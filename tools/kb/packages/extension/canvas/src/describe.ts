@@ -24,13 +24,13 @@ import {
   type CanvasDoc,
   type CanvasEdge,
   type CanvasHead,
-  type CanvasItemLink,
   type CanvasNode,
   type CanvasPathNode,
   type CanvasRoute,
   type CanvasShapeKind,
   type CanvasSide,
 } from "./doc.ts";
+import type { CanvasItemLink } from "./links.ts";
 import { headOf, routeBends } from "./edges.ts";
 import { lintCanvas, type CanvasLint } from "./lint.ts";
 import type { CanvasWorld } from "./world.ts";

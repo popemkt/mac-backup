@@ -26,8 +26,6 @@ export {
   upsertCanvasEdge,
   upsertCanvasNode,
   withFlag,
-  withLink,
-  isLinkUrl,
   withDepth,
   withElevation,
   withParent,
@@ -161,6 +159,8 @@ export type { MermaidDiagram, MermaidReport } from "./mermaid.ts";
 export type { SvgSource } from "./svg.ts";
 export { isOpenLine, itemMarks, itemOutline, pathHeads, withLine } from "./paths.ts";
 export type { CanvasLinePatch, CanvasMark } from "./paths.ts";
+export { isLinkUrl, withLink } from "./links.ts";
+export type { CanvasItemLink } from "./links.ts";
 export {
   anchorNear,
   edgeHead,
@@ -304,7 +304,6 @@ export type {
   CanvasEdge,
   CanvasHead,
   CanvasItemFlag,
-  CanvasItemLink,
   CanvasRoute,
   CanvasFileNode,
   CanvasGroupNode,

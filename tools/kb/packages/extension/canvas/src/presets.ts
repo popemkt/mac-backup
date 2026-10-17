@@ -20,17 +20,16 @@ import {
   isTextNode,
   withDepth,
   withElevation,
-  withLink,
   withRotation,
   type CanvasFileNode,
   type CanvasGroupNode,
-  type CanvasItemLink,
   type CanvasKbNode,
   type CanvasNode,
   type CanvasPathNode,
   type CanvasShapeNode,
   type CanvasTextNode,
 } from "./doc.ts";
+import { withLink, type CanvasItemLink } from "./links.ts";
 import { withLine, type CanvasLinePatch } from "./paths.ts";
 import { CanvasRelationError } from "./relations.ts";
 import { apply, rotationOfMatrix } from "./rotation.ts";
