@@ -77,7 +77,13 @@ export {
   renderViewsDef,
 } from "./render.ts";
 export { graphWritesLayer } from "./graph-writes.ts";
-export { noteStoreSynced, persistEffect, reloadEffect } from "./session.ts";
+export {
+  noteStoreSynced,
+  persistEffect,
+  reloadEffect,
+  type PersistOptions,
+  type SystemWrites,
+} from "./session.ts";
 export { uiCaptureDef, uiNavigateDef, uiScreenDef, uiSelectDef } from "./ui.ts";
 export {
   coreActions,

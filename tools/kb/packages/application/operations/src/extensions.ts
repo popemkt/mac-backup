@@ -6,7 +6,7 @@
  * `kb.manifest` reports it so. The switch is a setting of every extension's
  * node, so this is the checked verb over a write `node.update` could make
  * too: it refuses a family that is unknown or not optional, and commits
- * through the same system-write rule (`assertSystemWrites`) as every write.
+ * through the same system-write rule (`persistEffect`) as every write.
  * The page's Preferences row calls it, and so may the CLI. It changes which
  * code the server loads, so the seeded approval policies ask an agent and
  * deny sandboxed code (DESIGN.md → Action registry → Approval).
@@ -21,7 +21,6 @@ import {
   type KbStore,
 } from "@kb/contracts";
 import { currentIso, domainError, type DomainError } from "@kb/model";
-import { assertSystemWrites, syncDomain } from "./actions.ts";
 import { persistEffect, reloadEffect } from "./session.ts";
 
 export const extensionSwitchDef = {
@@ -60,9 +59,6 @@ export const extensionSwitchEffect = Effect.fn("extension.switch")(function* (
   // Read the switch as the store has it now: another process may have written it first.
   yield* reloadEffect(ctx);
   const upserts = switchWrites(row, input.on, (id) => ctx.index.getNode(id), yield* currentIso);
-  yield* syncDomain(() =>
-    assertSystemWrites(upserts, (id) => ctx.index.getNode(id), false, "extension.switch"),
-  );
   yield* persistEffect(ctx, { upserts, deletes: [] });
   return { name: input.name, on: input.on };
 });

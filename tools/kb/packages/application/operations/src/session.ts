@@ -3,6 +3,7 @@ import {
   currentIso,
   type DomainError,
   domainError,
+  systemTxRefusal,
   txIntegrityError,
   type StoreTx,
 } from "@kb/model";
@@ -67,6 +68,18 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
 });
 
 /**
+ * Who answers for a commit's writes to system nodes: a person's write is
+ * `checked` against the system-write rule; the owner's force (`forced`) and
+ * kb's own code writing the schema it owns (`system`: a migration, a family
+ * minting its nodes, a fixture) are not.
+ */
+export type SystemWrites = "checked" | "forced" | "system";
+
+export interface PersistOptions {
+  readonly systemWrites?: SystemWrites;
+}
+
+/**
  * Commit a transaction and move the index with it.
  *
  * The catch-up first is not defensive noise: the store commits under a lock by
@@ -89,6 +102,13 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
  * because the same call also adopts anything another process appended in the
  * meantime — the log has one way to learn what happened, not two.
  *
+ * The commit is the one owner of the system-write rule (`systemTxRefusal`,
+ * DESIGN.md → Data model → write protection): a transaction that writes a
+ * `sys.*` node beyond what a person may write there is refused here, before
+ * the store is touched, whoever planned it. A commit made with the owner's
+ * force, or by kb's own code writing its own schema, says so in
+ * `systemWrites`; nothing skips the check by not calling it.
+ *
  * Inside an invocation, the resolver is asked again with what the commit
  * writes (`resolveApproval`): a write to an approval policy needs a person
  * behind the call, whatever the policies say, and is refused here, before the
@@ -97,6 +117,7 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
 export const persistEffect = Effect.fn("kb.persist")(function* (
   ctx: KbContext,
   tx: StoreTx,
+  { systemWrites = "checked" }: PersistOptions = {},
 ): Effect.fn.Return<void, DomainError, KbStore> {
   const store = yield* KbStore;
   const origin = yield* TxOrigin;
@@ -106,6 +127,15 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
     return yield* domainError("invalid_input", `invalid graph transaction: ${integrityError}`);
   }
   const call = yield* CurrentCall;
+  if (systemWrites === "checked") {
+    const refused = systemTxRefusal(tx, (id) => ctx.index.getNode(id));
+    if (refused !== null) {
+      return yield* domainError("forbidden", refused.message, {
+        id: refused.id,
+        ...(call === null ? {} : { action: call.invocation.id }),
+      });
+    }
+  }
   if (call !== null) {
     const writes = [
       ...tx.upserts.map((after) => ({ before: ctx.index.getNode(after.id), after })),

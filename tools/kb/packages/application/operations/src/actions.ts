@@ -15,13 +15,11 @@ import {
   domainError,
   domainFromResolve,
   freshId,
-  isSysPrefixed,
   rankForInsert,
   IndexedNodes,
   resolveFieldId,
   resolveFieldIn,
   resolveTagIn,
-  systemWriteRefusal,
   type NodeGraph,
   type SiblingGroups,
   type DomainError,
@@ -30,7 +28,7 @@ import {
   type PropValue,
   present,
 } from "@kb/model";
-import { persistEffect } from "./session.ts";
+import { persistEffect, type PersistOptions } from "./session.ts";
 import { DatalogError, type KbIndex, KbIndexService } from "@kb/query";
 
 type KbWriteEnv = KbCtx | KbStore;
@@ -427,13 +425,6 @@ export function planNodeAdd(
   if (parentId !== undefined && !graph.has(parentId)) {
     throw new ResolveError("not_found", `node not found: ${parentId}`, { id: parentId });
   }
-  const parent = parentId === undefined ? undefined : graph.get(parentId);
-  assertSystemWrites(
-    [node, ...(parent === undefined ? [] : [insertChild(parent, id, at, input.position)])],
-    (seen) => graph.get(seen),
-    input.force === true,
-    "node.add",
-  );
   // Filed before it is put, so the node never passes through the roots.
   if (parentId !== undefined) graph.insertChild(parentId, id, input.position, at);
   graph.put(node);
@@ -463,33 +454,16 @@ export const nodeAddEffect = Effect.fn("node.add")(function* (
 ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const { id, node, upserts } = yield* planNodeAddEffect(input);
-  yield* persistEffect(ctx, { upserts, deletes: [] });
+  yield* persistEffect(ctx, { upserts, deletes: [] }, forcedBy(input));
   return { id, node };
 });
 
 /**
- * Refuse a commit that writes a sys.* node beyond what a person may write
- * there (`systemWriteRefusal`, `@kb/model`) unless `force` is set: minting
- * one, or changing its text, children, rank or any field that does not
- * configure it. This is the load-bearing guard behind the sys.*
- * write-protection contract: it covers mint-id (node.add `id`), reparenting
- * under a sys.* parent (`insertChild` changes the parent), and every alias
- * that funnels into node.add / node.update. Checked against the final
- * computed upserts and the nodes as `before` holds them, so no structural
- * path can slip through without tripping it.
+ * How a node action's commit meets the system-write rule, which the commit
+ * owns (`persistEffect`): checked, unless the owner set `force`.
  */
-export function assertSystemWrites(
-  upserts: readonly KbNode[],
-  before: (id: NodeId) => KbNode | undefined,
-  force: boolean,
-  action: string,
-): void {
-  if (force) return;
-  for (const n of upserts) {
-    const refusal = systemWriteRefusal(before(n.id), n, before);
-    if (refusal === null) continue;
-    throw new ResolveError("forbidden", refusal, { id: n.id, action });
-  }
+export function forcedBy(input: { readonly force?: boolean | undefined }): PersistOptions {
+  return input.force === true ? { systemWrites: "forced" } : {};
 }
 
 export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
@@ -497,20 +471,10 @@ export const nodeDeleteEffect = Effect.fn("node.delete")(function* (
 ): Effect.fn.Return<{ id: string; deleted: true }, DomainError, KbWriteEnv> {
   const ctx = yield* KbCtx;
   const at = yield* currentIso;
-  if (isSysPrefixed(input.id) && input.force !== true) {
-    return yield* domainError(
-      "forbidden",
-      `sys.* nodes are write-protected (use force to override): ${input.id}`,
-      { id: input.id },
-    );
-  }
   const deleteIds =
     input.descendants === "reparent" ? [input.id] : collectSubtreeIds(ctx.nodes, input.id);
   const upserts = detachFromParents(ctx.nodes, input.id, at);
-  yield* syncDomain(() =>
-    assertSystemWrites(upserts, (id) => ctx.index.getNode(id), input.force === true, "node.delete"),
-  );
-  yield* persistEffect(ctx, { upserts, deletes: deleteIds });
+  yield* persistEffect(ctx, { upserts, deletes: deleteIds }, forcedBy(input));
   return { id: input.id, deleted: true };
 });
 
@@ -578,10 +542,7 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
 
   node.updatedAt = at;
   upserts.push(node);
-  yield* syncDomain(() =>
-    assertSystemWrites(upserts, (id) => ctx.index.getNode(id), input.force === true, "node.update"),
-  );
-  yield* persistEffect(ctx, { upserts, deletes: [] });
+  yield* persistEffect(ctx, { upserts, deletes: [] }, forcedBy(input));
   return { id: input.id, node };
 });
 

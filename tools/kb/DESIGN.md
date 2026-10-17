@@ -500,9 +500,14 @@ type PropValue =
   write a person makes to a `sys.*` node without `--force` is a value of a
   field that configures it (`sys.f.configures`, [Extension
   families](#extension-families) → configuration), stated once in
-  `@kb/model`'s `system-write.ts` and checked against every commit's
-  upserts (`assertSystemWrites`). `force` is the owner's: the invoke core
-  refuses it from a caller that acts for the owner ([Action
+  `@kb/model`'s `system-write.ts` and checked by the commit itself
+  (`persistEffect`, the rule's one owner, over every transaction's upserts
+  and deletes), so no action meets it by remembering to call a guard. A
+  commit that is not a person's write says which it is (`systemWrites`):
+  `forced`, the owner's `--force`, or `system`, kb's own code writing the
+  schema it owns (`views.migrate`, the locations family minting its nodes
+  in the home store, a test fixture). `force` is the owner's: the invoke
+  core refuses it from a caller that acts for the owner ([Action
   registry](#action-registry) → Approval → actors).
 - **System nodes**, seeded on init, are ordinary nodes with reserved ids:
   `sys.field` (the type of fields), `sys.tag` (the type of tags),
@@ -2177,8 +2182,8 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     extension's node (its `sys.f.configures` names the list
     `sys.extensions`), so the switch is written by the same rule as any
     setting (below), and `extension.switch` is the checked verb over that
-    write: it refuses an unknown or required family and commits through
-    `assertSystemWrites` like every other write.
+    write: it refuses an unknown or required family and commits under the
+    system-write rule like every other write.
   - **Every host makes the one decision.** The registry is cached per root
     and per set of families on, so a switch takes effect on the next call.
     The `kb ui` server composes the extensions it hosts (the agent) the

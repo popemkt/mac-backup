@@ -176,7 +176,10 @@ describe("the gates do not depend on a switch", () => {
       off.push(...switchWrites(family, false, (id) => written.get(id), ISO));
     }
     await Effect.runPromise(
-      persistEffect(ctx, { upserts: off, deletes: [] }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+      // Written by hand with the owner's force, past the switch's own write.
+      persistEffect(ctx, { upserts: off, deletes: [] }, { systemWrites: "forced" }).pipe(
+        Effect.provide(kbRuntimeLayer(ctx)),
+      ),
     );
     expect(ctx.index.getNode(extensionNodeId("docs"))?.props[ENABLED]).toEqual([
       { t: "bool", v: false },

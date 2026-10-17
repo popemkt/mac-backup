@@ -22,7 +22,14 @@ import {
   type OutlineItem,
   type ParsedValue,
 } from "@kb/model";
-import { nodeAddDef, planNodeAdd, sessionGraph, syncDomain, type PropEntry } from "./actions.ts";
+import {
+  forcedBy,
+  nodeAddDef,
+  planNodeAdd,
+  sessionGraph,
+  syncDomain,
+  type PropEntry,
+} from "./actions.ts";
 import { persistEffect } from "./session.ts";
 
 export const nodeAddTreeDef = {
@@ -160,6 +167,24 @@ const atLine =
     });
 
 /**
+ * The outline line a commit's refusal belongs to: the item it names, or the
+ * first item when it names the parent the outline is pasted under (only the
+ * top level is placed there). Null when it names neither.
+ */
+function refusedLine(
+  err: DomainError,
+  parent: NodeId | undefined,
+  lines: Readonly<Record<string, NodeId>>,
+): number | null {
+  const refused = Predicate.isObject(err.details) ? err.details.id : undefined;
+  if (typeof refused !== "string") return null;
+  const numbers = Object.keys(lines).map(Number);
+  const own = numbers.find((line) => lines[String(line)] === refused);
+  if (own !== undefined) return own;
+  return refused === parent && numbers.length > 0 ? Math.min(...numbers) : null;
+}
+
+/**
  * An item's fields as prop entries, each value read as its field's declared
  * type. A field that holds one value (`cardinalityOf`) and is given a second
  * by the same item is refused at the second value's line — the commit's
@@ -207,11 +232,12 @@ const itemProps = Effect.fnUntraced(function* (
 /**
  * The plan of `node.addTree` over `graph`, checked but not stored: every
  * item planned by `node.add`'s own planner (`planNodeAdd`: tag and field
- * resolution, cardinality, placement, the sys.* guard), each step `put`ting
+ * resolution, cardinality, placement), each step `put`ting
  * its upserts into `graph` so the next one sees them. Beyond what `node.add`
  * does, refs in text and values are resolved and rewritten first
  * (`linkText`), a dangling one is refused, and a one-valued field given two
- * values by one item is refused at its line. Any failure names its line.
+ * values by one item is refused at its line. Any failure names its line,
+ * a refusal of the commit's system-write rule included (`refusedLine`).
  */
 export const planNodeAddTreeEffect = Effect.fn("node.addTree.plan")(function* (
   input: NodeAddTreeInput,
@@ -283,6 +309,11 @@ export const nodeAddTreeEffect = Effect.fn("node.addTree")(function* (
 ): Effect.fn.Return<z.infer<typeof nodeAddTreeDef.outputSchema>, DomainError, KbCtx | KbStore> {
   const ctx = yield* KbCtx;
   const { ids, lines, upserts } = yield* planNodeAddTreeEffect(input, sessionGraph(ctx));
-  yield* persistEffect(ctx, { upserts, deletes: [] });
+  yield* persistEffect(ctx, { upserts, deletes: [] }, forcedBy(input)).pipe(
+    Effect.mapError((err) => {
+      const line = refusedLine(err, input.parent, lines);
+      return line === null ? err : atLine(line)(err);
+    }),
+  );
   return { ids, lines };
 });

@@ -16,10 +16,11 @@
  * setting like any other, and `extension.switch` writes it through the same
  * rule.
  *
- * One statement for every surface. The invoke core refuses a commit that
- * breaks it (`assertSystemWrites` in `@kb/operations`), on the server and on
- * the page's replica alike, and the page's field rows read
- * {@link isWritableField} to offer an edit only where the write would land.
+ * One statement for every surface. The commit refuses a transaction that
+ * breaks it ({@link systemTxRefusal}, read by `persistEffect` in
+ * `@kb/operations`, its one owner), on the server and on the page's replica
+ * alike, and the page's field rows read {@link isWritableField} to offer an
+ * edit only where the write would land.
  */
 import { SYSTEM_IDS, isExtensionNodeId, isSysPrefixed, type KbNode, type NodeId } from "./model.ts";
 import type { NodeWrite } from "./approval-policy.ts";
@@ -130,4 +131,26 @@ export function systemWriteRefusal(
     if (!isWritableField(next.id, field, fieldOf(field))) return protectedWrite;
   }
   return null;
+}
+
+/**
+ * Why committing `tx` over the graph `nodeOf` reads is not a person's to make
+ * without force, and which node it is refused for, or null when it is: an
+ * upsert {@link systemWriteRefusal} refuses, or the deletion of a system node.
+ */
+export function systemTxRefusal(
+  tx: { readonly upserts: readonly KbNode[]; readonly deletes: readonly NodeId[] },
+  nodeOf: (id: NodeId) => KbNode | undefined,
+): { readonly id: NodeId; readonly message: string } | null {
+  for (const next of tx.upserts) {
+    const message = systemWriteRefusal(nodeOf(next.id), next, nodeOf);
+    if (message !== null) return { id: next.id, message };
+  }
+  const deleted = tx.deletes.find((id) => isSysPrefixed(id));
+  return deleted === undefined
+    ? null
+    : {
+        id: deleted,
+        message: `sys.* nodes are write-protected (use force to override): ${deleted}`,
+      };
 }

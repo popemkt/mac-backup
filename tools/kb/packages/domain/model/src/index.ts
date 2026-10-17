@@ -54,6 +54,7 @@ export type { NumberSeparators, ParseContext, ParsedValue } from "./field-value.
 export {
   configures,
   isWritableField,
+  systemTxRefusal,
   systemWriteRefusal,
   writesConfiguration,
 } from "./system-write.ts";

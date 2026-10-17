@@ -22,5 +22,7 @@ export function persist(
   ctx: KbContext,
   tx: { upserts: KbNode[]; deletes: string[] } | StoreTx,
 ): Promise<void> {
-  return Effect.runPromise(persistEffect(ctx, tx).pipe(Effect.provide(kbRuntimeLayer(ctx))));
+  return Effect.runPromise(
+    persistEffect(ctx, tx, { systemWrites: "system" }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+  );
 }

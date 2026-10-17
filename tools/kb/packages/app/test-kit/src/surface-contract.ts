@@ -585,6 +585,37 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
       ),
   ],
   [
+    "the commit holds every action to the system-write rule: no surface renames, deletes or " +
+      "files under a system node without force, whichever action plans the write",
+    (set) =>
+      overSurfaces(set, ({ name, surface, via }) =>
+        Effect.gen(function* () {
+          const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
+          const writes: readonly ActionInvocation[] = [
+            { id: "node.update", input: { id: EXTENSION_NODE, text: "renamed" } },
+            { id: "node.delete", input: { id: EXTENSION_NODE } },
+            { id: "node.addTree", input: { outline: "- filed", parent: EXTENSION_NODE } },
+          ];
+          for (const write of writes) {
+            // Approved, so where a policy asks first the commit still decides.
+            const receipt = yield* via({ ...write, approved: true });
+            const outcome =
+              receipt === null ? "uncallable" : receipt.status === "failed" ? receipt.code : "ran";
+            // Only a surface that does not list the action may be unable to make it, and only
+            // one whose wire cannot carry the approval may stop at the ask.
+            const before =
+              (outcome === "uncallable" && !listed.has(write.id)) ||
+              (outcome === "approval_required" && !surface.wire.carriesApproval);
+            expect({ name, action: write.id, outcome }).toEqual({
+              name,
+              action: write.id,
+              outcome: before ? outcome : "forbidden",
+            });
+          }
+        }),
+      ),
+  ],
+  [
     "no surface writes a policy without a person behind the call, whatever the policies say",
     (set) =>
       overSurfaces(set, ({ name, surface, via }) =>

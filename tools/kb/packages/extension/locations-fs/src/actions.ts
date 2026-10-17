@@ -102,7 +102,9 @@ const homeEntry = Effect.fn("ext.locations.homeEntry")(function* (
 function commitHome(home: KbContext, write: LocationWrite): Effect.Effect<void, DomainError> {
   if (write.upserts.length === 0 && write.deletes.length === 0) return Effect.void;
   const tx: StoreTx = { upserts: [...write.upserts], deletes: [...write.deletes] };
-  return persistEffect(home, tx).pipe(Effect.provideService(KbStore, home.store));
+  return persistEffect(home, tx, { systemWrites: "system" }).pipe(
+    Effect.provideService(KbStore, home.store),
+  );
 }
 
 /** One warning for each well-formed location that names a root an earlier one already names. */

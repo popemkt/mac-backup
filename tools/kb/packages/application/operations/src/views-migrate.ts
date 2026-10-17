@@ -37,7 +37,8 @@ export const viewsMigrateEffect = Effect.fn("views.migrate")(function* (): Effec
   yield* reloadEffect(ctx);
   const before = ctx.nodes;
   const migration = migrateToViewNodes(before, { docs: files.views, at: yield* currentIso });
-  if (migration.changed) yield* persistEffect(ctx, diffTx(before, migration.nodes));
+  if (migration.changed)
+    yield* persistEffect(ctx, diffTx(before, migration.nodes), { systemWrites: "system" });
   // Only once the nodes are committed: a spec file is never removed before its view node exists.
   yield* legacy.retire(migration.imported);
   return {
