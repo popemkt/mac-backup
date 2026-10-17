@@ -216,9 +216,10 @@ const http: SurfaceFactory = async (_root, ui) => ({
 
 /** A tool's mode, read back from the hints alone, as a WebMCP agent sees it. */
 function modeOf(tool: ModelContextTool): ListedAction["mode"] {
-  const { readOnlyHint, consequentialHint } = tool.annotations ?? {};
-  if (readOnlyHint === true && consequentialHint !== true) return { kind: "read" };
-  if (consequentialHint === true && readOnlyHint !== true) return { kind: "write" };
+  const { readOnlyHint, consequentialHint, openWorldHint } = tool.annotations ?? {};
+  const outside = openWorldHint === true ? { outsideRoot: true as const } : {};
+  if (readOnlyHint === true && consequentialHint !== true) return { kind: "read", ...outside };
+  if (consequentialHint === true && readOnlyHint !== true) return { kind: "write", ...outside };
   throw new Error(`${tool.name}: hints name no mode`);
 }
 

@@ -2,9 +2,13 @@ import { Predicate } from "effect";
 import { requiresApproval, type ActionMode, type ActionReceipt } from "@kb/contracts";
 import { isSysPrefixed } from "@kb/model";
 
-/** An action's declared mode as one word, or two when it needs approval. */
+/** An action's declared mode: its kind, then whether it needs approval and reaches outside its root. */
 export function formatMode(mode: ActionMode): string {
-  return requiresApproval(mode) ? `${mode.kind}, approval required` : mode.kind;
+  return [
+    mode.kind,
+    ...(requiresApproval(mode) ? ["approval required"] : []),
+    ...(mode.outsideRoot === true ? ["outside its root"] : []),
+  ].join(", ");
 }
 
 export function formatReceipt(

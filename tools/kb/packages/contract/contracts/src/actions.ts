@@ -19,6 +19,7 @@ import type { TemplateRegistry } from "./template.ts";
 import type { ExtensionCatalog } from "./declaration.ts";
 import type { ViewCatalog } from "./view-catalog.ts";
 import type { Assets, CodeTrust, LegacyDocsViews, SavedQueries } from "./workspace.ts";
+import type { KbRoots } from "./roots.ts";
 
 /**
  * What invoking an action does, declared once on its definition and read by
@@ -91,6 +92,7 @@ export type ActionHandlerEnv =
   | LegacyDocsViews
   | Assets
   | CodeTrust
+  | KbRoots
   | Screens;
 
 /**

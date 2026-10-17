@@ -205,6 +205,7 @@ describe("kb ext list", () => {
       "graph",
       "hello",
       "lab",
+      "locations",
       "outline",
     ]);
     expect(parsed.output.failures.map((f) => f.file)).toEqual(["broken.ts"]);

@@ -30,6 +30,8 @@ export interface WebMcpToolAnnotations {
   readonly readOnlyHint?: boolean;
   /** Tells the browser or agent to confirm the call with the user first. */
   readonly consequentialHint?: boolean;
+  /** MCP's open world: the tool reaches past its kb root (an `outsideRoot` mode). */
+  readonly openWorldHint?: boolean;
 }
 
 /** WebMCP's `ModelContextTool` dictionary. */
@@ -133,7 +135,8 @@ export class ToolCallFailed extends Error {
 /**
  * One manifest entry as a WebMCP tool. The name is the action id, the hints
  * come from the mode alone: a read is `readOnlyHint`, a write is
- * `consequentialHint`. A call resolves to the succeeded receipt and rejects
+ * `consequentialHint`, and one that reaches outside its root is also
+ * `openWorldHint`, as over MCP. A call resolves to the succeeded receipt and rejects
  * with {@link ToolCallFailed} otherwise.
  */
 export function webMcpTool(entry: ManifestEntry, invoke: InvokeAction): ModelContextTool {
@@ -143,7 +146,11 @@ export function webMcpTool(entry: ManifestEntry, invoke: InvokeAction): ModelCon
     title: entry.title,
     description: entry.description,
     inputSchema: asObjectSchema(entry.inputSchema),
-    annotations: { readOnlyHint: reads, consequentialHint: !reads },
+    annotations: {
+      readOnlyHint: reads,
+      consequentialHint: !reads,
+      ...(entry.mode.outsideRoot === true ? { openWorldHint: true } : {}),
+    },
     execute: (input) =>
       Effect.runPromise(receiptFor(invoke, onWire(WEBMCP_WIRE, { id: entry.id, input }))).then(
         (receipt) => {

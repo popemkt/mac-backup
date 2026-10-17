@@ -82,6 +82,9 @@ describe("MCP surface", () => {
     expect(nodeAddTool?.annotations?.readOnlyHint).toBe(false);
     expect(nodeAddTool?.annotations?.idempotentHint).toBe(false);
     expect(nodeAddTool?.annotations?.openWorldHint).toBe(false);
+    // An action that reaches past its root (the person's home store) is MCP's open world.
+    const listLocations = listed.tools.find((t) => t.name === "ext_locations_list");
+    expect(listLocations?.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: true });
 
     const graphQueryTool = listed.tools.find((t) => t.name === "graph_query");
     expect(graphQueryTool?.annotations?.readOnlyHint).toBe(true);

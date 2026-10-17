@@ -21,6 +21,7 @@
     "@kb/docs": "workspace:*",
     "@kb/graph": "workspace:*",
     "@kb/lab": "workspace:*",
+    "@kb/locations": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
     "@kb/outline": "workspace:*"

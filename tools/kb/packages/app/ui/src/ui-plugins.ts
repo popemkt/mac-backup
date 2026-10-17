@@ -21,6 +21,7 @@ import type { AgentPorts } from "@kb/agent-ui";
 import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
+import { locationsExtension } from "@kb/locations";
 import { checkExtension } from "@kb/check";
 import { codeExtension } from "@kb/code";
 import { collectionsExtension } from "@kb/collections";
@@ -125,6 +126,7 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null
   [checkExtension.name]: null,
   [codeExtension.name]: { load: () => Promise.resolve(codeUiPlugin) },
   [chartExtension.name]: { load: () => Promise.resolve(chartUiPlugin) },
+  [locationsExtension.name]: null,
   [agentExtension.name]: { load: loadAgentEntry },
 };
 

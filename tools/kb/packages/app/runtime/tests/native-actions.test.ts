@@ -16,6 +16,7 @@ import {
 } from "@kb/contracts";
 import { viewCatalogOf } from "@kb/views";
 import { bunFileSystemLayer } from "../src/platform.ts";
+import { kbRootsLayer } from "../src/roots.ts";
 import { remoteScreensLayer } from "../src/screens.ts";
 import {
   assetsLayer,
@@ -254,6 +255,7 @@ export default actions;
             assetsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             codeTrustLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
             remoteScreensLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
+            kbRootsLayer.pipe(Layer.provide(bunFileSystemLayer)),
             graphWritesLayer.pipe(
               Layer.provide(
                 Layer.merge(Layer.succeed(KbCtx, ctx), Layer.succeed(KbStore, fakeStore)),

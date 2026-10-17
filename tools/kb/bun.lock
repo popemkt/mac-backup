@@ -36,6 +36,7 @@
         "@kb/docs": "workspace:*",
         "@kb/graph": "workspace:*",
         "@kb/lab": "workspace:*",
+        "@kb/locations": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
         "@kb/outline": "workspace:*",
@@ -125,6 +126,7 @@
         "@kb/ext-sdk": "workspace:*",
         "@kb/graph": "workspace:*",
         "@kb/lab": "workspace:*",
+        "@kb/locations-fs": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
         "@kb/outline": "workspace:*",
@@ -141,6 +143,7 @@
       },
       "devDependencies": {
         "@kb/canvas": "workspace:*",
+        "@kb/locations": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "zod": "catalog:",
@@ -213,6 +216,7 @@
         "@kb/graph-ui": "workspace:*",
         "@kb/lab": "workspace:*",
         "@kb/lab-ui": "workspace:*",
+        "@kb/locations": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
         "@kb/outline": "workspace:*",
@@ -762,6 +766,32 @@
         "@types/three": "catalog:",
         "vite-plus": "catalog:",
         "vitest": "catalog:",
+      },
+    },
+    "packages/extension/locations": {
+      "name": "@kb/locations",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/locations-fs": {
+      "name": "@kb/locations-fs",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/locations": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/operations": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
       },
     },
     "packages/extension/outline": {
@@ -1334,6 +1364,10 @@
     "@kb/lab": ["@kb/lab@workspace:packages/extension/lab"],
 
     "@kb/lab-ui": ["@kb/lab-ui@workspace:packages/extension/lab-ui"],
+
+    "@kb/locations": ["@kb/locations@workspace:packages/extension/locations"],
+
+    "@kb/locations-fs": ["@kb/locations-fs@workspace:packages/extension/locations-fs"],
 
     "@kb/mcp": ["@kb/mcp@workspace:packages/app/mcp"],
 

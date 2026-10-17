@@ -27,6 +27,7 @@ import {
 } from "@kb/workspace-fs";
 import { graphWritesLayer } from "@kb/operations";
 import { invokeReceiptEffect, receiptFromError, sessionRegistry } from "./registry.ts";
+import { kbRootsLayer } from "./roots.ts";
 import { remoteScreensLayer } from "./screens.ts";
 
 /**
@@ -43,7 +44,8 @@ import { remoteScreensLayer } from "./screens.ts";
  * This is where "the actions run anywhere" is paid for: the actions ask for
  * {@link SavedQueries}, {@link Assets}, `CodeTrust` and `Screens`, and this
  * composition root is the only place that says those are files under
- * `ctx.root` and a server found through it.
+ * `ctx.root` and a server found through it. `KbRoots` is the other roots on
+ * this machine, each opened as this one is.
  *
  * `screens` is where the tabs are. Every process but the `kb ui` server
  * reaches that server's (the default); the server holds them itself and
@@ -71,6 +73,7 @@ export function kbRuntimeLayer(
     assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     codeTrustLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     legacyDocsViewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
+    kbRootsLayer.pipe(Layer.provide(bunFileSystemLayer)),
     screens,
     Layer.effect(TemplateRegistry, registry.pipe(Effect.map(({ templates }) => templates))),
     Layer.effect(ViewCatalog, registry.pipe(Effect.map(({ views }) => views))),

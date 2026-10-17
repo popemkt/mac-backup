@@ -1,0 +1,85 @@
+/**
+ * The locations family's actions as every surface lists them: ids, modes and
+ * schemas, with no handler. The server's entry (`@kb/locations-fs`) gives
+ * each its handler; the page reads the row shape to draw the picker. Each
+ * is namespaced `ext.locations.*` and answers to a bare `location.*` alias.
+ *
+ * Every one reaches outside the session's root, to the person's home store
+ * and the roots it names, so its mode says `outsideRoot`, which MCP reports
+ * as the open world.
+ */
+import { z } from "zod";
+import type { ActionDefinition } from "@kb/contracts";
+
+/**
+ * What a location is now, read from its path each time and never stored:
+ * `served` by a live `kb ui`, `closed` (a store nothing serves), `missing`
+ * (nothing at the path), `not-a-store` (no `.kb` store there), or `broken`
+ * (the location node holds no path, or more than one).
+ */
+export const LOCATION_STATUSES = ["served", "closed", "missing", "not-a-store", "broken"] as const;
+
+export const LocationRowSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  /** The root's canonical path; empty for a location that holds none. */
+  path: z.string(),
+  /** Whether it is the root the call was made in. */
+  current: z.boolean(),
+  pinned: z.boolean(),
+  status: z.enum(LOCATION_STATUSES),
+  /** The `kb ui` serving it, when it is served. */
+  url: z.string().optional(),
+  /** The store's backend, when it is a store. */
+  backend: z.string().optional(),
+  /** Why it cannot be opened: missing, not a store, or broken. */
+  reason: z.string().optional(),
+});
+export type LocationRow = z.infer<typeof LocationRowSchema>;
+
+export const LocationListSchema = z.object({
+  /** The home store the locations live in. */
+  home: z.string(),
+  rows: z.array(LocationRowSchema),
+  /** What the home store holds that is not a well-formed list: no home yet, two nodes for one path. */
+  warnings: z.array(z.string()),
+});
+export type LocationList = z.infer<typeof LocationListSchema>;
+
+type LocationActionDef = ActionDefinition & { readonly aliases: readonly string[] };
+
+export const locationListDef = {
+  id: "list",
+  aliases: ["location.list"],
+  title: "List locations",
+  description:
+    "The kb roots this person has opened, from their home store, most recently opened first and pinned ones before them. Each row says whether it is served (with its URL), closed, missing or not a store, read from its path now. Reads no listed store's content.",
+  mode: { kind: "read", outsideRoot: true },
+  inputSchema: z.object({}),
+  outputSchema: LocationListSchema,
+} satisfies LocationActionDef;
+
+export const locationRegisterDef = {
+  id: "register",
+  aliases: ["location.register"],
+  title: "Register location",
+  description:
+    "Add the kb root at `path` to the person's locations, creating their home store if it is new, and rank it first. Registering a root already listed only ranks it first (and renames it when `label` is given). Refuses a path that holds no kb store.",
+  mode: { kind: "write", outsideRoot: true },
+  inputSchema: z.object({
+    path: z.string().min(1),
+    label: z.string().min(1).optional(),
+  }),
+  outputSchema: LocationRowSchema,
+} satisfies LocationActionDef;
+
+export const locationForgetDef = {
+  id: "forget",
+  aliases: ["location.forget"],
+  title: "Forget location",
+  description:
+    "Remove the location `id` from the person's locations. Its directory and its store are never touched.",
+  mode: { kind: "write", outsideRoot: true },
+  inputSchema: z.object({ id: z.string().min(1) }),
+  outputSchema: z.object({ id: z.string(), label: z.string(), path: z.string() }),
+} satisfies LocationActionDef;

@@ -154,6 +154,8 @@ export {
   SavedQueries,
   isValidWorkspaceName,
 } from "./workspace.ts";
+export { KbRoots } from "./roots.ts";
+export type { KbRootsPort, RootProbe, RootState } from "./roots.ts";
 export type {
   AssetsPort,
   CodeTrustPort,

@@ -1729,7 +1729,8 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     `outsideRoot`. Hints cannot express approval, and a tool name cannot
     be mapped back to an id, so every tool also carries `{id, mode}` under
     `_meta["kb/action"]`.
-  - WebMCP: a read is `readOnlyHint`, a write is `consequentialHint`
+  - WebMCP: a read is `readOnlyHint`, a write is `consequentialHint`, and an
+    `outsideRoot` mode adds `openWorldHint`, as over MCP
     ([Surfaces](#surfaces)).
   - `kb ext list` prints the mode.
   - The browser answers a local read without pushing it (DESIGN-UI.md →

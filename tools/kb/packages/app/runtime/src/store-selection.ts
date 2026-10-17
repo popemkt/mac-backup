@@ -101,6 +101,18 @@ function twoStoresError(root: string, found: readonly StoreBackend[]): DomainErr
 }
 
 /**
+ * Which store `root` holds, read by presence alone: its backend, null when
+ * it holds none, and a refusal when it holds two. Nothing is opened.
+ */
+export const storeBackendAt = Effect.fn("kb.storeBackendAt")(function* (
+  root: string,
+): Effect.fn.Return<StoreBackend | null, DomainError, FileSystem> {
+  const found = yield* presentBackends(root);
+  if (found.length > 1) return yield* twoStoresError(root, found);
+  return found[0] ?? null;
+});
+
+/**
  * The store this root has: sqlite when `.kb/kb.sqlite` is there, JSONL
  * otherwise, and a refusal when both are. Presence rather than configuration —
  * the answer is one bit, and a config key that disagreed with the tree would
@@ -109,9 +121,7 @@ function twoStoresError(root: string, found: readonly StoreBackend[]): DomainErr
 export const selectStore = Effect.fn("kb.selectStore")(function* (
   root: string,
 ): Effect.fn.Return<EffectStore, DomainError, FileSystem> {
-  const found = yield* presentBackends(root);
-  if (found.length > 1) return yield* twoStoresError(root, found);
-  const [name = "jsonl"] = found;
+  const name = (yield* storeBackendAt(root)) ?? "jsonl";
   // GAP [[01M39XVZCR684Y1V9FXNDT44D5]]: `release` is dropped here, so no
   // caller that selects a store can close it.
   return BACKENDS[name].open(root).store;

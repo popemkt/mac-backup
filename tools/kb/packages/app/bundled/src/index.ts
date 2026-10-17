@@ -25,6 +25,7 @@ import type { ExtensionDeclaration } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
 import { graphExtension } from "@kb/graph";
 import { labExtension } from "@kb/lab";
+import { locationsExtension } from "@kb/locations";
 import { foldSeed, type KbNode } from "@kb/model";
 import { coreExtension } from "@kb/operations";
 import { outlineExtension } from "@kb/outline";
@@ -44,6 +45,7 @@ export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
   checkExtension,
   codeExtension,
   chartExtension,
+  locationsExtension,
 ];
 
 /**

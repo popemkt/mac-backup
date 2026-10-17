@@ -22,6 +22,7 @@ import { checkPlugin } from "@kb/ext-check";
 import { docsPlugin } from "@kb/ext-docs";
 import { graphPlugin } from "@kb/graph";
 import { labPlugin } from "@kb/lab";
+import { locationsPlugin } from "@kb/locations-fs";
 import { outlinePlugin } from "@kb/outline";
 
 /**
@@ -58,4 +59,5 @@ export const BUNDLED_EXTENSIONS: readonly ExtensionEntry[] = serverEntriesFor(BU
   checkPlugin,
   codePlugin(),
   chartServerPlugin,
+  locationsPlugin,
 ]);
