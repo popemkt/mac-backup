@@ -6,7 +6,14 @@
  * same trust, as the `script` actor, hearing the events its view declares.
  */
 import { Result, Schema } from "effect";
-import { firstStr, refValuesOf, type KbNode, type NodeId, type NodeLike } from "@kb/model";
+import {
+  firstStr,
+  refValuesOf,
+  typeRefsOf,
+  type KbNode,
+  type NodeId,
+  type NodeLike,
+} from "@kb/model";
 import { CodeGrant } from "@kb/sandbox";
 import { CODE_IDS } from "./ids.ts";
 import { DEFAULT_GRANT } from "./view.ts";
@@ -27,11 +34,13 @@ export function scriptIdsOf(host: Pick<NodeLike, "props"> | undefined): NodeId[]
 const decodeGrant = Schema.decodeUnknownResult(Schema.fromJsonString(CodeGrant));
 
 /**
- * `node` as a script, or null when it is none kb can run: it holds no code,
- * or a grant that does not read as one. No grant is the default (it reads
+ * `node` as a script, or null when it is none kb can run: it is not tagged
+ * `#script` (so writing it is not configuration), it holds no code, or a
+ * grant that does not read as one. No grant is the default (it reads
  * the node it runs for, and calls nothing).
  */
 export function scriptOf(node: Pick<KbNode, "id" | "text" | "props">): ScriptSource | null {
+  if (!typeRefsOf(node).includes(CODE_IDS.scriptTag)) return null;
   const code = node.props[CODE_IDS.codeField]?.find((value) => value.t === "str")?.v;
   if (code === undefined || code.trim() === "") return null;
   const raw = firstStr(CODE_IDS.codeGrantField)(node.props);

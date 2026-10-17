@@ -10,7 +10,7 @@ import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { CODE_IDS } from "@kb/code";
 import { succeeded } from "@kb/contracts";
-import { canonicalJson } from "@kb/model";
+import { SYSTEM_IDS, canonicalJson } from "@kb/model";
 import { codeDigest, type KbEvent, type SandboxAnchors } from "@kb/sandbox";
 import {
   createViewAnchors,
@@ -47,6 +47,7 @@ const node = (id: string, text: string, props: OutlineNode["props"]): OutlineNod
 });
 const script = (id: string, code: string) =>
   node(id, id, {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: CODE_IDS.scriptTag }],
     [CODE_IDS.codeField]: [{ t: "str", v: code }],
     [CODE_IDS.codeGrantField]: [{ t: "str", v: canonicalJson(GRANT) }],
   });

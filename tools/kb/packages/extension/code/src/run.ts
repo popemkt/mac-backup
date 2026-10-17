@@ -10,9 +10,8 @@
 import { Effect } from "effect";
 import { z } from "zod";
 import { CodeTrust, CoreInvoke, KbCtx, type ExtensionAction } from "@kb/contracts";
-import { domainError, typeRefsOf, type DomainError } from "@kb/model";
+import { domainError, type DomainError } from "@kb/model";
 import { UntrustedEngine, codeDigest, snapshotRun } from "@kb/sandbox";
-import { CODE_IDS } from "./ids.ts";
 import { scriptOf } from "./script.ts";
 
 /** How long a run once may take to go quiet: longer than a snapshot, since it writes. */
@@ -41,7 +40,7 @@ const scriptRunEffect = Effect.fn("ext.code.script.run")(function* (
   const ctx = yield* KbCtx;
   const node = ctx.index.getNode(input.script);
   if (node === undefined) return yield* domainError("not_found", `no node ${input.script}`);
-  const script = typeRefsOf(node).includes(CODE_IDS.scriptTag) ? scriptOf(node) : null;
+  const script = scriptOf(node);
   if (script === null) {
     return yield* domainError("invalid_input", `${input.script} is no #script kb can run`);
   }
