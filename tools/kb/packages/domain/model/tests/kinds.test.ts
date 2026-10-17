@@ -37,6 +37,7 @@ describe("kinds, roles and options", () => {
       "approval-policy",
       "canvas",
       "ontology",
+      "script",
     ]);
   });
 

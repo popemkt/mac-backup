@@ -89,6 +89,8 @@ describe("the contract's seed, view and text promises have a subject", () => {
     expect(code?.declaration.seed?.("2026-01-01T00:00:00.000Z").map((node) => node.id)).toEqual([
       "sys.f.code",
       "sys.f.code.grant",
+      "sys.tag.script",
+      "sys.f.scripts",
     ]);
     expect(code?.declaration.views?.map((view) => view.key.id)).toEqual(["code.view"]);
     const ctx = await openKb(root);

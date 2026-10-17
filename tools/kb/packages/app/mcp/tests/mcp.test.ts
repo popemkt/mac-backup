@@ -72,7 +72,7 @@ describe("MCP surface", () => {
     // those are not tools; nor is trusting code, which the seed denies to an
     // agent; nor a write whose mode delegates approval, which asks an agent:
     // the locations family's register, forget and open (outside the root),
-    // and typing a relation.
+    // typing a relation, and running a script once.
     const asked = new Set([
       "node_delete",
       "views_migrate",
@@ -86,6 +86,7 @@ describe("MCP surface", () => {
       "location_open",
       "ext_graph_relation_type",
       "graph_relation_type",
+      "ext_code_script_run",
     ]);
     for (const entry of await run(manifest(root))) {
       const tool = entry.id.replaceAll(".", "_");
