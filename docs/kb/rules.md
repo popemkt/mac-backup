@@ -241,6 +241,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
 - **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
 
+### GAP: a repository extension has no node, switch or settings
+
+- **expected** — An extension in .kb/extensions/*.ts declares itself like a bundled family, so the store it lives in carries its sys.extension.<name> node, its switch and its settings as fields.
+- **current** — Repository plugins load into the kernel but have no declaration and contribute no seed (DESIGN.md → seed fold), so they cannot be switched off or configured as bundled families are.
+- **impact** — A local extension is always on and its configuration lives in code, not in the graph.
+- **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
+- **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
+
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
 - **expected** — a guest's graph.query has a deadline in the query layer
