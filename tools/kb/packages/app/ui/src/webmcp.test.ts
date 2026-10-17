@@ -27,7 +27,7 @@ import { webMcpUiPlugin } from "@/webmcp";
 /** An action as `kb.manifest` lists it to an agent on a root with no policies: its mode decides. */
 function entry(id: string, mode: ManifestEntry["mode"]): DecidedEntry {
   const base = { id, title: id, description: id, mode, inputSchema: {}, outputSchema: {} };
-  return { ...base, decision: declaredDecision(mode) };
+  return { ...base, decision: declaredDecision(mode, "agent") };
 }
 
 const MANIFEST = [

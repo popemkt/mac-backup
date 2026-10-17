@@ -35,7 +35,7 @@ import {
   LocationOpenedSchema,
   LocationRowSchema,
 } from "@kb/locations";
-import { SYSTEM_IDS, domainError, type DomainError, type KbNode } from "@kb/model";
+import { SYSTEM_IDS, domainError, type Actor, type DomainError, type KbNode } from "@kb/model";
 import { writeUiPresence } from "@kb/workspace-fs";
 import { CONTRACT_AT, pointHomeAt } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
@@ -128,12 +128,14 @@ function locationsContract(homeBackend: StoreBackend): void {
     const invoke = Effect.fn("locationsContract.invoke")(function* (
       id: string,
       input: unknown,
+      actor?: Actor,
     ): Effect.fn.Return<ActionReceipt> {
       if (session === null) throw new Error("no session: beforeEach did not run");
       const ctx = session;
       return yield* Effect.gen(function* () {
         const roots = yield* KbRoots;
-        return yield* invokeReceiptEffect(ctx, { id, input }).pipe(
+        const invocation = actor === undefined ? { id, input } : { id, input, actor };
+        return yield* invokeReceiptEffect(ctx, invocation).pipe(
           Effect.provideService(KbRoots, { ...roots, serve }),
         );
       }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
@@ -365,6 +367,29 @@ function locationsContract(homeBackend: StoreBackend): void {
               code: "not_found",
             });
           expect(started).toEqual([]);
+        }),
+      ));
+
+    test("an agent registers, forgets and opens only with the owner's approval; it lists freely", () =>
+      run(
+        Effect.gen(function* () {
+          const a = yield* register(yield* storeRoot("a"));
+          const b = yield* storeRoot("b");
+          const before = yield* homeNodes();
+          for (const [id, input] of [
+            ["location.register", { path: b }],
+            ["location.forget", { id: a.id }],
+            ["location.open", { id: a.id }],
+          ] as const) {
+            expect({ id, receipt: yield* invoke(id, input, "agent") }).toMatchObject({
+              id,
+              receipt: { status: "failed", code: "approval_required" },
+            });
+          }
+          expect(yield* homeNodes()).toEqual(before);
+          expect(started).toEqual([]);
+          expect((yield* invoke("location.list", {}, "agent")).status).toBe("succeeded");
+          expect((yield* invoke("location.open", { id: a.id }, "script")).status).toBe("failed");
         }),
       ));
 

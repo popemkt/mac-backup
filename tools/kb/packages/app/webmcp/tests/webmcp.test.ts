@@ -16,6 +16,7 @@ import { makeKernel } from "@kb/plugin";
 import { FakeModelContext } from "@kb/test-kit";
 import {
   ToolCallFailed,
+  WEBMCP_WIRE,
   modelContextOf,
   startWebMcp,
   webMcpPlugin,
@@ -55,7 +56,7 @@ function host(initial: readonly ManifestEntry[]) {
     if (invocation.id === "kb.manifest") {
       const decided = actions.map((action) => ({
         ...action,
-        decision: declaredDecision(action.mode),
+        decision: declaredDecision(action.mode, WEBMCP_WIRE.actor),
       }));
       return Promise.resolve({
         status: "succeeded",

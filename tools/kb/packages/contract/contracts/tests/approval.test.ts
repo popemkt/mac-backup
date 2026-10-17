@@ -256,6 +256,41 @@ describe("a write to configuration", () => {
   });
 });
 
+const OUTSIDE: ActionMode = { kind: "write", outsideRoot: true };
+/** A call to an action that reaches outside its root, by `actor`. */
+function outsideCall(actor: ApprovalPolicy["actor"], mode: ActionMode = OUTSIDE) {
+  return { action: { id: "ext.locations.open", mode }, actor: actor ?? undefined };
+}
+
+describe("a write that reaches outside its root", () => {
+  const call = outsideCall;
+
+  test("asks an agent, denies sandboxed code, and runs for the owner's own actors", () => {
+    const decided = (["human", "cli", null, "agent", "script"] as const).map(
+      (actor) => resolveApproval([], call(actor)).decision,
+    );
+    expect(decided).toEqual(["allow", "allow", "allow", "ask", "deny"]);
+    expect(
+      approvalRefusal(resolveApproval([], call("script")), { id: "x", input: {}, actor: "script" }),
+    ).toMatchObject({ code: "forbidden" });
+  });
+
+  test("is a floor that only a policy naming the action by its own id lowers", () => {
+    expect(
+      resolveApproval([policy("ext.locations.*", "allow", "agent")], call("agent")).decision,
+    ).toBe("ask");
+    expect(resolveApproval([policy("write", "allow")], call("agent")).decision).toBe("ask");
+    expect(
+      resolveApproval([policy("ext.locations.open", "allow", "agent")], call("agent")).decision,
+    ).toBe("allow");
+  });
+
+  test("a read that reaches outside its root is no governing write", () => {
+    const read: ActionMode = { kind: "read", outsideRoot: true };
+    expect(resolveApproval([], call("agent", read)).decision).toBe("allow");
+  });
+});
+
 describe("approvalRefusal", () => {
   test("a denied call is forbidden, whoever stands behind it", () => {
     const refusal = approvalRefusal(

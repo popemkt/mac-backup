@@ -70,8 +70,20 @@ describe("MCP surface", () => {
     // The seeded policies ask an agent before it deletes or rewrites the
     // store, or switches an extension, and MCP cannot carry approval, so
     // those are not tools; nor is trusting code, which the seed denies to an
-    // agent.
-    const asked = new Set(["node_delete", "views_migrate", "extension_switch", "sandbox_trust"]);
+    // agent; nor a write that reaches outside the root, which asks an agent by
+    // its mode (the locations family's register, forget and open).
+    const asked = new Set([
+      "node_delete",
+      "views_migrate",
+      "extension_switch",
+      "sandbox_trust",
+      "ext_locations_register",
+      "ext_locations_forget",
+      "ext_locations_open",
+      "location_register",
+      "location_forget",
+      "location_open",
+    ]);
     for (const entry of await run(manifest(root))) {
       const tool = entry.id.replaceAll(".", "_");
       expect({ tool, listed: names.has(tool) }).toEqual({ tool, listed: !asked.has(tool) });

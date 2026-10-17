@@ -1826,7 +1826,12 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   write, so there is no read-with-approval state. Either kind may add
   `outsideRoot: true`: the action reaches past its kb root, to another store
   on this machine or a process it starts. Without
-  it, an action touches only its root. The manifest publishes the
+  it, an action touches only its root. A write that reaches outside is a
+  governing write by its mode: the declared decision for it is at least
+  `delegatedDecision` for the caller (`declaredDecision`), so the owner's
+  own actors run it, an agent asks and sandboxed code is denied, with no
+  policy node written, and only a policy naming the action by its own id
+  lowers it. A read that reaches outside asks nobody. The manifest publishes the
   mode, and each surface derives its behaviour from it and keeps no list of
   its own:
   - MCP: a read is `readOnlyHint` and `idempotentHint`; a write is
@@ -3283,11 +3288,13 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   it listens, beside the presence write) and `kb init` register their root;
   a refusal is reported on stderr and the open goes on. No other command
   touches home, since hooks and pre-commit run `kb` constantly.
-- **An agent asks before opening.** That is an approval policy node in the
-  store the agent works in (`match: location.open`, `actor: agent`,
-  `decision: ask`), not a declared `approval: "required"`, which would make
-  the CLI's own `kb open` fail. The agent can list locations; it never reads
-  another store's content.
+- **An agent asks before it registers, forgets or opens.** Those writes
+  reach outside the root, so their mode is the floor
+  ([Action registry](#action-registry) → Mode): an agent asks and sandboxed
+  code is denied, while the CLI's own `kb open` runs. It is not a declared
+  `approval: "required"`, which would make that `kb open` fail, and no
+  policy node has to be written. The agent can list locations; it never
+  reads another store's content.
 - **Surfaces.** `kb locations [--json]`, `kb locations add [path]
   [--label]`, `kb locations forget <id|label|path>`, and `kb open
   [location]` (by id, label or path; `--no-browser` prints the URL; with

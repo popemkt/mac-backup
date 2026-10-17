@@ -57,9 +57,19 @@ export function onWire(wire: SurfaceWire, invocation: ActionInvocation): ActionI
   return { ...invocation, actor: invocation.actor ?? wire.actor };
 }
 
-/** What an action's own mode decides about a call to it: `ask` where it requires approval. */
-export function declaredDecision(mode: ActionMode): ApprovalDecision {
-  return requiresApproval(mode) ? "ask" : "allow";
+/**
+ * What an action's own mode decides about a call to it by `actor`: `ask`
+ * where it requires approval, and for a write that reaches outside its root
+ * (`outsideRoot`: another store on this machine, or a process it starts) at
+ * least what a governing write needs from that actor (`delegatedDecision`):
+ * the owner's own actors run it, an agent asks, sandboxed code is denied.
+ * The family that declares the mode declares the floor; no policy node has
+ * to be written for it.
+ */
+export function declaredDecision(mode: ActionMode, actor: Actor | undefined): ApprovalDecision {
+  const declared = requiresApproval(mode) ? "ask" : "allow";
+  if (mode.kind !== "write" || mode.outsideRoot !== true) return declared;
+  return stricterDecision(declared, delegatedDecision(actor));
 }
 
 /**
@@ -106,7 +116,8 @@ export interface ApprovalResolution {
  *   pattern by its literal characters, then a mode word, then a bare `*`),
  *   then one naming the actor over one naming none, then the stricter
  *   decision, so two policies that tie never depend on their order.
- * - With none, the action's declared mode decides ({@link declaredDecision}).
+ * - With none, the action's declared mode decides ({@link declaredDecision}),
+ *   for the call's actor.
  * - An action that declares itself a batch of others (`batchOf`) is decided
  *   as itself and as each of them, each with the mode its own definition
  *   declares, and the stricter decision holds; on a tie its own. A batch can never be allowed where
@@ -161,7 +172,7 @@ function byPolicyAs(
   action: { readonly id: string; readonly mode: ActionMode },
   actor: Actor | undefined,
 ): ApprovalResolution {
-  const declared = declaredDecision(action.mode);
+  const declared = declaredDecision(action.mode, actor);
   let best: { policy: ApprovalPolicy; rank: readonly number[] } | null = null;
   for (const policy of policies) {
     if (policy.actor !== null && policy.actor !== actor) continue;
@@ -258,6 +269,12 @@ export function approvalRefusal(
   const { decision, by } = resolution;
   if (decision === "allow" || (decision === "ask" && hasPerson(invocation))) return null;
   if (by === "mode") {
+    if (decision === "deny") {
+      return {
+        code: "forbidden",
+        message: `action ${id} reaches outside its kb root, which a call by ${invocation.actor ?? "this caller"} never does`,
+      };
+    }
     return {
       code: "approval_required",
       message: `action ${id} requires approval; this call has none`,
