@@ -65,8 +65,13 @@ describe("the agent's configuration", () => {
   test("an agent makes a provider only with the owner's approval; sandboxed code never", async () => {
     const ctx = await openKb(root);
     expect(await invoke(ctx, addProvider("agent"))).toMatchObject(asks);
+    // Code running for a node of its own, its grant naming node.add, adding the provider under it.
+    await invoke(ctx, { id: "node.add", input: { id: "n.host", text: "host" } });
+    const script = { subject: "n.host", grant: { reads: "subject", actions: ["node.add"] } };
     for (const approved of [undefined, true]) {
-      expect(await invoke(ctx, addProvider("script", { approved }))).toMatchObject({
+      const call = addProvider("script", { approved, script });
+      const under = { ...call, input: { ...(call.input as object), parent: "n.host" } };
+      expect(await invoke(ctx, under)).toMatchObject({
         status: "failed",
         code: "forbidden",
         details: { writes: "configuration" },
