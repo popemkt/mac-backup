@@ -9,6 +9,7 @@ import {
   type ExtensionEntry,
   type ExtensionRow,
   type KbContext,
+  type SurfaceWire,
 } from "@kb/contracts";
 import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
@@ -64,6 +65,12 @@ export interface UiServerOptions {
    * names none.
    */
   extensions?: readonly ExtensionEntry[];
+  /**
+   * The wire of the surface a person opened this root from (`kb ui`), whose
+   * call registers the root among their locations once the server listens.
+   * A server nobody opened a root with (a test, a harness) registers nothing.
+   */
+  openedBy?: SurfaceWire;
 }
 
 export interface UiServerHandle {
@@ -337,8 +344,10 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   );
   // A root a person serves is one of their locations. Like presence, not
   // being listed costs the picker only, so it is reported and the server serves.
-  const unlisted = yield* registerOpenedRoot(ctx).pipe(Effect.provide(layer));
-  if (unlisted !== null) writeErr(`kb ui: this root is not among your locations: ${unlisted}`);
+  if (opts.openedBy !== undefined) {
+    const unlisted = yield* registerOpenedRoot(ctx, opts.openedBy).pipe(Effect.provide(layer));
+    if (unlisted !== null) writeErr(`kb ui: this root is not among your locations: ${unlisted}`);
+  }
 
   if (openBrowserFlag) openBrowser(url);
 
@@ -372,6 +381,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
   publicOrigin?: string;
   spawn?: UiDevSpawn;
   extensions?: readonly ExtensionEntry[];
+  openedBy?: SurfaceWire;
 }): Effect.fn.Return<UiDevServer, DomainError, FileSystem> {
   const backend = yield* startUi({
     root: opts.root,
@@ -380,6 +390,7 @@ export const startDevServer = Effect.fn("kb.startDevServer")(function* (opts: {
     uiPort: opts.devPort,
     publicOrigin: opts.publicOrigin,
     extensions: opts.extensions,
+    openedBy: opts.openedBy,
   });
   const spawn = opts.spawn ?? bunSpawnDev;
   const child = yield* Effect.try({
@@ -417,6 +428,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
   publicOrigin?: string;
   ensureBuilt?: EnsureUiBuilt;
   extensions?: readonly ExtensionEntry[];
+  openedBy?: SurfaceWire;
 }): Effect.fn.Return<{ handle: UiServerHandle; build: UiEnsureResult }, DomainError, FileSystem> {
   const ensure = opts.ensureBuilt ?? ensureUiBuilt;
   const build = yield* ensure(opts.uiRoot, UI_DIST).pipe(Effect.mapError(ensureDomainError));
@@ -426,6 +438,7 @@ export const startProductionUi = Effect.fn("kb.startProductionUi")(function* (op
     openBrowser: opts.openBrowser,
     publicOrigin: opts.publicOrigin,
     extensions: opts.extensions,
+    openedBy: opts.openedBy,
   });
   return { handle, build };
 }, Effect.provide(bunFileSystemLayer));
@@ -457,6 +470,8 @@ export interface RunUiCliOptions {
   spawnDev?: UiDevSpawn;
   /** The extensions the server hosts ({@link UiServerOptions.extensions}). */
   extensions?: readonly ExtensionEntry[];
+  /** Who opened the root ({@link UiServerOptions.openedBy}). */
+  openedBy?: SurfaceWire;
 }
 
 /**
@@ -481,6 +496,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
       spawn: opts.spawnDev,
       publicOrigin: opts.publicOrigin,
       extensions: opts.extensions,
+      openedBy: opts.openedBy,
     });
     writeErr(`kb ui dev server listening on ${dev.url}`);
     if (open) openBrowser(dev.url);
@@ -504,6 +520,7 @@ export const runUiCli = Effect.fn("kb.runUiCli")(function* (
     ensureBuilt: opts.ensureBuilt,
     publicOrigin: opts.publicOrigin,
     extensions: opts.extensions,
+    openedBy: opts.openedBy,
   });
   if (build.built) {
     writeErr(`kb ui: built UI at ${relative(process.cwd(), UI_DIST)} (${build.state})`);

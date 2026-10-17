@@ -292,6 +292,7 @@ function buildProgram(): Command {
               devPort: opts.devPort,
               publicOrigin: opts.publicOrigin,
               extensions: yield* hostExtensions(root),
+              openedBy: ACTION_INVOKE_WIRE,
             });
           }),
       ),
@@ -334,7 +335,9 @@ function buildProgram(): Command {
             examples = nodes.length;
           }
           // The root a person makes is one of their locations; not being listed costs the picker only.
-          const unlisted = yield* registerOpenedRoot(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+          const unlisted = yield* registerOpenedRoot(ctx, ACTION_INVOKE_WIRE).pipe(
+            Effect.provide(kbRuntimeLayer(ctx)),
+          );
           if (unlisted !== null)
             writeErr(`kb init: this root is not among your locations: ${unlisted}`);
 

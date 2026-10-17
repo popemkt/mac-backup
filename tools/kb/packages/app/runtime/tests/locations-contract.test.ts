@@ -14,6 +14,8 @@
  * - a malformed location lists as broken, and two for one root warn;
  * - listing writes to no listed store;
  * - the tag and the field are minted once;
+ * - the root a person opens is registered on their surface's wire, so an
+ *   agent's asks;
  * - opening a served root answers its URL and ranks it first; opening a
  *   closed one starts a server for it, and a start that fails ranks
  *   nothing; opening what is missing or not a store starts nothing; opening
@@ -41,6 +43,7 @@ import { CONTRACT_AT, pointHomeAt } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
+import { registerOpenedRoot } from "../src/locations.ts";
 import { invokeReceiptEffect } from "../src/registry.ts";
 import { STORE_BACKENDS, createStore, type StoreBackend } from "../src/store-selection.ts";
 
@@ -390,6 +393,22 @@ function locationsContract(homeBackend: StoreBackend): void {
           expect(started).toEqual([]);
           expect((yield* invoke("location.list", {}, "agent")).status).toBe("succeeded");
           expect((yield* invoke("location.open", { id: a.id }, "script")).status).toBe("failed");
+        }),
+      ));
+
+    test("the root a person opens is registered as a call on their surface's wire", () =>
+      run(
+        Effect.gen(function* () {
+          if (session === null) throw new Error("no session: beforeEach did not run");
+          const ctx = session;
+          const opened = (actor: Actor) =>
+            registerOpenedRoot(ctx, { carriesApproval: true, actor }).pipe(
+              Effect.provide(kbRuntimeLayer(ctx)),
+            );
+          expect(yield* opened("agent")).toContain("approval");
+          expect((yield* list()).rows).toEqual([]);
+          expect(yield* opened("cli")).toBeNull();
+          expect((yield* list()).rows.map(({ path }) => path)).toEqual([ctx.root]);
         }),
       ));
 

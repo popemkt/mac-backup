@@ -86,10 +86,19 @@ describe("kb ui server", () => {
     }
   });
 
-  test("a served root is one of the person's locations", async () => {
+  test("a root a person serves is one of their locations; a server nobody opened lists nothing", async () => {
     const restoreHome = pointHomeAt(join(root, "home"));
     try {
-      handle = await run(startUi({ root, port: 0, openBrowser: false }));
+      const unopened = await run(startUi({ root: await tempRoot(), port: 0, openBrowser: false }));
+      await run(unopened.stop);
+      handle = await run(
+        startUi({
+          root,
+          port: 0,
+          openBrowser: false,
+          openedBy: { carriesApproval: true, actor: "cli" },
+        }),
+      );
       const response = await fetch(`${handle.url}/api/action`, {
         method: "POST",
         headers: { "content-type": "application/json" },
