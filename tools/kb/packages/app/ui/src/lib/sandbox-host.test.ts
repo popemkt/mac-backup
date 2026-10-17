@@ -94,6 +94,20 @@ describe("the page as a sandbox frame's host", () => {
     });
   });
 
+  it("hands the frame an event once it is up, and none before", () => {
+    const { frameSays, posted, hosted } = setup();
+    hosted.event({ type: "data", target: null });
+    expect(posted).toEqual([]);
+    frameSays(initialize);
+    frameSays(initialized);
+    hosted.event({ type: "canvas.selection", target: null, value: "a" });
+    expect(posted.at(-1)).toEqual({
+      jsonrpc: "2.0",
+      method: "kb/event",
+      params: { type: "canvas.selection", target: null, value: "a" },
+    });
+  });
+
   it("hears nothing from any window but its frame's", () => {
     const { from, posted } = setup();
     from({ postMessage: () => {} }, initialize);

@@ -7,7 +7,7 @@
  */
 import type { ActionInvocation, ActionReceipt } from "@kb/contracts";
 import type { KbNode } from "@kb/model";
-import type { CodeGrant, LogLevel, RunInput, RunStatus } from "@kb/sandbox";
+import type { CodeGrant, KbEvent, LogLevel, RunInput, RunStatus } from "@kb/sandbox";
 
 /** One run a frame hosts: what it runs, and what its code may ask. */
 export interface SandboxRun {
@@ -28,8 +28,9 @@ export interface SandboxEvents {
   readonly log: (level: LogLevel, text: string) => void;
 }
 
-/** A hosted frame: tell it the graph changed, or let it go. */
+/** A hosted frame: hand its run an event (the graph changed, a view's own), or let it go. */
 export interface HostedFrame {
-  readonly changed: () => void;
+  /** Tell the run `event`; it hears only the types its run declares (`RunInput.events`). */
+  readonly event: (event: KbEvent) => void;
   readonly dispose: () => void;
 }

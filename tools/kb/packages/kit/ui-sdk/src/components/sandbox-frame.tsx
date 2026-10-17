@@ -6,7 +6,7 @@
  * realm outlives the code it ran.
  */
 import { useEffect, useRef } from "react";
-import { SANDBOX_FRAME_PATH, SANDBOX_IFRAME_FLAGS } from "@kb/sandbox";
+import { DATA_EVENT, SANDBOX_FRAME_PATH, SANDBOX_IFRAME_FLAGS } from "@kb/sandbox";
 import { browserHost } from "../host";
 import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "../sandbox";
 
@@ -49,7 +49,10 @@ export function SandboxFrame({
   const startedAt = useRef(generation);
   useEffect(() => {
     if (generation === startedAt.current) return undefined;
-    const timer = window.setTimeout(() => hosted.current?.changed(), CHANGE_SETTLE_MS);
+    const timer = window.setTimeout(
+      () => hosted.current?.event({ type: DATA_EVENT, target: null }),
+      CHANGE_SETTLE_MS,
+    );
     return () => window.clearTimeout(timer);
   }, [generation]);
 
