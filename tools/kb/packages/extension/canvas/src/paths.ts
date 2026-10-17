@@ -4,7 +4,8 @@
  * edge wears (`headOnLine`, `./edges.ts`). An item's outline is one answer
  * for every kind (`itemOutline`): a path's line, or the outline its shape
  * draws (`shapeOutline`), so both projections draw a line with the chrome
- * every other item is drawn with.
+ * every other item is drawn with; what it wears beyond its outline, its
+ * heads, are its marks (`itemMarks`), which every painter inks as one.
  */
 import {
   isPathNode,
@@ -17,6 +18,7 @@ import {
 import { headOf, headOnLine, withHead, type EdgeEnd, type EdgeHead } from "./edges.ts";
 import { dropExtra } from "./extra.ts";
 import { CanvasRelationError } from "./relations.ts";
+import type { ItemPaint } from "./paint.ts";
 import { itemShape, shapeOutline, type CanvasPathCommand } from "./shapes.ts";
 
 /** A path's points in a `w` × `h` box, its own units. */
@@ -47,6 +49,25 @@ export function itemOutline(item: CanvasNode, w: number, h: number, radius: numb
 /** Whether `item` is a line that runs open, end to end: one that wears heads, and no fill. */
 export function isOpenLine(item: CanvasNode): item is CanvasPathNode {
   return isPathNode(item) && item.closed !== true;
+}
+
+/**
+ * A mark an item wears in its outline's ink, beyond its outline: filled in
+ * that ink, or stroked in it as heavy as the outline (at least 1).
+ */
+export interface CanvasMark {
+  readonly path: readonly CanvasPathCommand[];
+  readonly filled: boolean;
+}
+
+/**
+ * The marks `item` wears filling a `w` × `h` box, as `paint` (its
+ * `itemPaint`) says: the heads a line's open ends wear. Every painter draws
+ * them, after the outline, from here.
+ */
+export function itemMarks(item: CanvasNode, w: number, h: number, paint: ItemPaint): CanvasMark[] {
+  if (paint.heads === null) return [];
+  return pathHeads(item, w, h, paint.heads.length).map(({ head }) => head);
 }
 
 /** A change of a line: its points, whether it closes, and each end's head (null for none). */

@@ -83,10 +83,10 @@ export interface DrawnLook {
   } | null;
 }
 
-/** A line item as drawn, in its box's own units: its line, and each head with its colour. */
+/** A line item as drawn, in its box's own units: its line, and each mark it wears with its colour. */
 interface DrawnLine {
   readonly line: readonly Point[];
-  readonly heads: readonly { readonly points: readonly Point[]; readonly color: string }[];
+  readonly marks: readonly { readonly points: readonly Point[]; readonly color: string }[];
 }
 
 /** What any painter drew, read back in its own terms: what the look contract holds. */
@@ -98,7 +98,7 @@ export interface LookProbe {
   paintOf(id: string): DrawnLook | null;
   /** An edge as drawn: its line's points and stroke, its opacity, its heads; null when not drawn. */
   edgeOf(id: string): DrawnEdge | null;
-  /** A line item as drawn in its own box: the points of its line, and each head's, from end first. */
+  /** A line item as drawn in its own box: the points of its line, and each mark's, in `itemMarks` order. */
   lineOf(id: string): DrawnLine | null;
   update(next: CanvasDoc): Promise<void>;
   dispose(): void;
@@ -480,11 +480,11 @@ const mount2d: Mount = async (view, scene) => {
     lineOf: (id) => {
       const d = card(id)?.querySelector("[data-outline-path]")?.getAttribute("d");
       if (d === null || d === undefined) return null;
-      const heads = [...(card(id)?.querySelectorAll("[data-item-head]") ?? [])].map((head) => ({
-        points: pathPolygon(head.getAttribute("d") ?? ""),
-        color: domColor(head.getAttribute("stroke"), scene.look) ?? "",
+      const marks = [...(card(id)?.querySelectorAll("[data-item-mark]") ?? [])].map((mark) => ({
+        points: pathPolygon(mark.getAttribute("d") ?? ""),
+        color: domColor(mark.getAttribute("stroke"), scene.look) ?? "",
       }));
-      return { line: pathPolygon(d), heads };
+      return { line: pathPolygon(d), marks };
     },
     paintOf: (id) => {
       const el = card(id);
@@ -588,7 +588,7 @@ const mount3d: Mount = async (view, probed) => {
       return first === undefined ? null : (bodies.get(first.object) ?? null);
     },
     edgeOf: (id) => inspect().edgeOf(id),
-    // The face's line is its first stroke; what is painted after it, the heads.
+    // The face's line is its first stroke; what is painted after it, the marks.
     lineOf: (id) => {
       const canvas = inspect().faceOf(id)?.canvas;
       if (canvas === undefined) return null;
@@ -596,10 +596,10 @@ const mount3d: Mount = async (view, probed) => {
       const first = ops.findIndex((o) => o.op === "stroke");
       const line = ops[first];
       if (line === undefined || line.op !== "stroke") return null;
-      const heads = ops
+      const marks = ops
         .slice(first + 1)
         .flatMap((o) => (o.op === "text" ? [] : [{ points: o.points, color: hexOf(o.color) }]));
-      return { line: line.points, heads };
+      return { line: line.points, marks };
     },
     paintOf: (id) => {
       const face = inspect().faceOf(id);
@@ -683,11 +683,11 @@ export function mountSvg(scene: ProbeScene): Promise<LookProbe> {
     lineOf: (id) => {
       const d = item(id)?.querySelector("[data-outline-path]")?.getAttribute("d");
       if (d === null || d === undefined) return null;
-      const heads = [...(item(id)?.querySelectorAll("[data-item-head]") ?? [])].map((head) => ({
-        points: pathPolygon(head.getAttribute("d") ?? ""),
-        color: domColor(stylePaint(head, "stroke"), scene.look) ?? "",
+      const marks = [...(item(id)?.querySelectorAll("[data-item-mark]") ?? [])].map((mark) => ({
+        points: pathPolygon(mark.getAttribute("d") ?? ""),
+        color: domColor(stylePaint(mark, "stroke"), scene.look) ?? "",
       }));
-      return { line: pathPolygon(d), heads };
+      return { line: pathPolygon(d), marks };
     },
     paintOf: (id) => {
       const el = item(id);

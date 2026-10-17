@@ -1,13 +1,13 @@
 /**
  * An item's chrome in 2D: its outline (`itemOutline`, as the 3D faces trace
  * it: its shape's, or a line's through its points), filled and stroked as
- * its look says (`itemPaint`), with the heads a line's ends wear
- * (`pathHeads`) — the one way every kind of item draws its ground and its
+ * its look says (`itemPaint`), with the marks it wears beyond it
+ * (`itemMarks`: a line's heads) — the one way every kind of item draws its ground and its
  * edge in the DOM.
  */
 import type { ReactNode } from "react";
 import {
-  pathHeads,
+  itemMarks,
   svgPathData,
   type CanvasNode,
   toneCss,
@@ -38,9 +38,9 @@ export function ItemOutline({
   const d = outlinePath(item);
   const { outline } = chrome;
   const width = outline?.width ?? 0;
-  // A head is inked as the line is, drawn or not.
-  const headInk = toneCss(selected ? SELECTED_OUTLINE.stroke : chrome.stroke);
-  const drawn = selected || outline !== null ? headInk : "none";
+  // A mark is inked as the outline is, drawn or not.
+  const markInk = toneCss(selected ? SELECTED_OUTLINE.stroke : chrome.stroke);
+  const drawn = selected || outline !== null ? markInk : "none";
   return (
     <svg
       data-outline
@@ -66,18 +66,17 @@ export function ItemOutline({
           outline === null || outline.pattern.length === 0 ? undefined : outline.pattern.join(" ")
         }
       />
-      {paint.heads !== null &&
-        pathHeads(item, item.width, item.height, paint.heads.length).map(({ end, head }) => (
-          <path
-            key={end}
-            data-item-head={end}
-            data-head-kind={head.kind}
-            d={svgPathData(head.path)}
-            fill={head.filled ? headInk : "none"}
-            stroke={headInk}
-            strokeWidth={head.filled ? 0 : Math.max(width, 1)}
-          />
-        ))}
+      {itemMarks(item, item.width, item.height, paint).map((mark, i) => (
+        <path
+          // oxlint-disable-next-line react/no-array-index-key -- a mark is its place in the list
+          key={i}
+          data-item-mark
+          d={svgPathData(mark.path)}
+          fill={mark.filled ? markInk : "none"}
+          stroke={markInk}
+          strokeWidth={mark.filled ? 0 : Math.max(width, 1)}
+        />
+      ))}
       {children}
     </svg>
   );

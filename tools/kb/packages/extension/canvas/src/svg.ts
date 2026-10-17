@@ -42,7 +42,7 @@ import {
   type WordsPaint,
 } from "./paint.ts";
 import { paletteToken, toneCss } from "./paint-css.ts";
-import { itemOutline, pathHeads } from "./paths.ts";
+import { itemMarks, itemOutline } from "./paths.ts";
 import { svgPathData, topFace } from "./shapes.ts";
 import { CANVAS_PALETTE } from "./style.ts";
 import { CANVAS_FONTS, type CanvasFont } from "./style-fields.ts";
@@ -215,7 +215,7 @@ function ownWords(item: CanvasNode): string {
   return "";
 }
 
-/** An item's chrome: its outline filled and stroked in its tones, and the heads a line's ends wear. */
+/** An item's chrome: its outline filled and stroked in its tones, and the marks it wears (`itemMarks`). */
 function chromeElements(item: CanvasNode, paint: ItemPaint): string {
   const { chrome } = paint;
   if (chrome === null) return "";
@@ -236,19 +236,15 @@ function chromeElements(item: CanvasNode, paint: ItemPaint): string {
     "stroke-dasharray":
       outline === null || outline.pattern.length === 0 ? undefined : outline.pattern.join(" "),
   });
-  const heads =
-    paint.heads === null
-      ? []
-      : pathHeads(item, item.width, item.height, paint.heads.length).map(({ end, head }) =>
-          element("path", {
-            "data-item-head": end,
-            "data-head-kind": head.kind,
-            d: svgPathData(head.path),
-            style: style({ fill: head.filled ? ink : "none", stroke: ink }),
-            "stroke-width": head.filled ? 0 : Math.max(width, 1),
-          }),
-        );
-  return path + heads.join("");
+  const marks = itemMarks(item, item.width, item.height, paint).map((mark) =>
+    element("path", {
+      "data-item-mark": "",
+      d: svgPathData(mark.path),
+      style: style({ fill: mark.filled ? ink : "none", stroke: ink }),
+      "stroke-width": mark.filled ? 0 : Math.max(width, 1),
+    }),
+  );
+  return path + marks.join("");
 }
 
 /** Where an item's face is laid in the canvas: its box, turned about its centre as the top view turns it. */

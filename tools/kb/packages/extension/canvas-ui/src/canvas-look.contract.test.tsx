@@ -41,7 +41,7 @@ import {
   itemOutline,
   outlinePoints,
   ownsWords,
-  pathHeads,
+  itemMarks,
   routePoints,
   withFlag,
   type CanvasDoc,
@@ -399,7 +399,7 @@ function modelEdge(edge: CanvasEdge) {
   return { line, opacity: paint.opacity };
 }
 
-/** Whether `probe` draws every line of `shown` through its points, with the heads its open ends wear. */
+/** Whether `probe` draws every line of `shown` through its points, with the marks it wears (its heads). */
 function expectLinesAsModel(probe: LookProbe, shown: CanvasDoc): void {
   for (const item of shown.nodes.filter(isPathNode)) {
     const paint = itemPaint(item);
@@ -410,16 +410,16 @@ function expectLinesAsModel(probe: LookProbe, shown: CanvasDoc): void {
     const drawn = probe.lineOf(item.id);
     const ring = item.closed === true ? closed : (points: readonly Point[]) => points;
     alongside(ring(drawn?.line ?? []), ring(model), item.id);
-    const heads = pathHeads(item, item.width, item.height, paint.heads?.length ?? 0);
-    expect(drawn?.heads.length, item.id).toBe(heads.length);
-    heads.forEach(({ end, head }, i) => {
-      const outline = outlinePoints(head.path).map(([x, y]) => ({ x, y }));
-      const shape = head.filled ? closed : (points: readonly Point[]) => points;
-      const got = drawn?.heads[i];
-      alongside(shape(got?.points ?? []), shape(outline), `${item.id} ${end}`);
-      // A head is inked as its line is, drawn or not.
+    const marks = itemMarks(item, item.width, item.height, paint);
+    expect(drawn?.marks.length, item.id).toBe(marks.length);
+    marks.forEach((mark, i) => {
+      const outline = outlinePoints(mark.path).map(([x, y]) => ({ x, y }));
+      const shape = mark.filled ? closed : (points: readonly Point[]) => points;
+      const got = drawn?.marks[i];
+      alongside(shape(got?.points ?? []), shape(outline), `${item.id} mark ${i}`);
+      // A mark is inked as its outline is, drawn or not.
       const stroke = paint.chrome?.stroke;
-      expect(got?.color, `${item.id} ${end} ink`).toBe(
+      expect(got?.color, `${item.id} mark ${i} ink`).toBe(
         stroke === undefined ? undefined : colorOf(stroke),
       );
     });

@@ -1500,9 +1500,12 @@ the view node switches every page showing the canvas through it.
   as any item's does. Its outline is its line (`itemOutline`, the one
   answer both projections stroke every item's chrome from), drawn as heavy
   as an edge, and its open ends wear the heads an edge wears
-  (`pathHeads`, `headOnLine`): the DOM draws them in its outline's SVG, the
-  3D face paints them into its texture. The look contract reads both back
-  along the line and each head.
+  (`pathHeads`, `headOnLine`). Heads are an item's marks (`itemMarks`):
+  what it wears beyond its outline, in its outline's ink, filled or
+  stroked. The DOM draws them in its outline's SVG, the 3D face paints
+  them into its texture, the SVG export writes them after the outline, all
+  from `itemMarks`. The look contract reads all three back along the line
+  and each mark.
 - **Looks are one paint in both projections** (`@kb/canvas` `paint.ts`,
   `itemPaint`): an item's style (DESIGN.md → Canvas documents) is turned
   once into what is drawn — the outline's width (by size) and dash pattern

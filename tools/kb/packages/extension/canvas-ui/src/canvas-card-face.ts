@@ -19,7 +19,7 @@ import {
   isShapeNode,
   isTextNode,
   itemOutline,
-  pathHeads,
+  itemMarks,
   shapeOutline,
   tracePath,
   CANVAS_PALETTE,
@@ -574,9 +574,32 @@ function paintGroup(
 }
 
 /**
+ * The marks `item` wears (`itemMarks`), in the ink its outline is drawn in,
+ * as the DOM inks them.
+ */
+function paintMarks(ctx: Ctx, item: CanvasNode, style: ItemPaint, box: FaceBox, look: CardLook) {
+  const { chrome } = style;
+  if (chrome === null) return;
+  const color = toneColor(look, lineTone(chrome, box));
+  const width = Math.max(chrome.outline?.width ?? 0, 1);
+  for (const mark of itemMarks(item, box.width, box.height, style)) {
+    ctx.beginPath();
+    tracePath(ctx, mark.path);
+    if (mark.filled) {
+      ctx.fillStyle = color;
+      ctx.fill();
+    } else {
+      ctx.setLineDash([]);
+      ctx.lineWidth = width;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    }
+  }
+}
+
+/**
  * A line: its outline the line through its points (`itemOutline`), stroked
- * as its look says, and the heads its ends wear (`pathHeads`) in the ink
- * the line is drawn in, as the DOM inks them.
+ * as its look says, and the marks it wears: its ends' heads.
  */
 function paintPath(
   ctx: Ctx,
@@ -588,23 +611,7 @@ function paintPath(
     outline: itemOutline(face.path, box.width, box.height, 0),
     raised: false,
   });
-  const { chrome, heads } = face.style;
-  if (heads === null || chrome === null) return;
-  const color = toneColor(look, lineTone(chrome, box));
-  const width = Math.max(chrome.outline?.width ?? 0, 1);
-  for (const { head } of pathHeads(face.path, box.width, box.height, heads.length)) {
-    ctx.beginPath();
-    tracePath(ctx, head.path);
-    if (head.filled) {
-      ctx.fillStyle = color;
-      ctx.fill();
-    } else {
-      ctx.setLineDash([]);
-      ctx.lineWidth = width;
-      ctx.strokeStyle = color;
-      ctx.stroke();
-    }
-  }
+  paintMarks(ctx, face.path, face.style, box, look);
 }
 
 /**
