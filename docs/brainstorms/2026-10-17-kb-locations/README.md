@@ -375,11 +375,13 @@ before it was fixed. Finding 5 is the canvas builder's.
 ### Review round 6 (GPT-6.1 Sol, 2026-10-17)
 
 A review of round 5 as it landed (main `efd7ea16`). Each finding was
-verified against the code before it was fixed; Sol did not run B1 end to
-end. S4 is part of B1.
+verified against the code before it was fixed. B1 was run end to end
+against a real `kb ui`: a local program's `approved: true` wrote an
+approval policy, and its `actor: "cli"` made an `#agent-provider`. S4 is
+part of B1.
 
 | # | Severity | Finding | Fix |
 |---|---|---|---|
 | B1 | blocker | A call over HTTP states its own actor and approval: `ActionRequestSchema` takes `actor`, `approved` and `script` from any body, and `onWire` keeps a body's actor, so a local program posting `{"actor":"cli","approved":true}` writes configuration as the owner, and one posting `script` is taken for a script (S4). | The surface owns who calls: a wire states its actor, a call's own `actor` and `script` survive only on the page's wire, which relays calls others make, and `approved` only where the wire carries it; a body that states more is refused. The page is told apart by its Origin, which the guard already holds to the UI's own. The threat model says once what an approval floor binds, and that a shell is not bounded by it. |
-| B2 | blocker | The static import closure is one file deep: a file outside the root that the extension imports may import a file inside it (D). | The closure is walked through every resolved import at any depth, outside the root included; a resolution into the root refuses the extension. Absolute imports and links out of the root (A, B) load by design, and are stated; an edit after trust (C) is checked. |
+| B2 | blocker | The static import closure is one file deep: a file outside the root that the extension imports may import a file inside it (D). | The closure is walked through every resolved import at any depth, outside the root included; a resolution into the root refuses the extension. Absolute imports and links out of the root (A, B) load by design, and are stated and pinned. C is the existing property that a file edited between its digest read and its import runs the bytes that were read; an edit before is untrusted. |
 | M3 | major | The consent text for a provider omits that Claude Code is handed the person's own login when the provider names neither an endpoint nor a key (an executable alone). | One function answers which login variables pass, and both the environment and the consent text read it. |
