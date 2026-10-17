@@ -189,20 +189,22 @@ const PLANNED_ATTEMPTS = 3;
  * plan that replaces a whole node from what it read (a list's children, say)
  * would otherwise merge over a write another process made in between and
  * lose it. When the store moved, the plan is made again over what it now
- * holds, a few times, before the `conflict` is the caller's. Answers what
- * was committed, or null when `plan` had nothing to write.
+ * holds, a few times, before the `conflict` is the caller's. A plan may
+ * refuse (a node it needs is gone, say), and the refusal is the caller's
+ * failure. Answers what was committed, or null when `plan` had nothing to
+ * write.
  */
 export const persistPlannedEffect = Effect.fn("kb.persistPlanned")(function* <
   W extends { readonly upserts: readonly KbNode[]; readonly deletes: readonly NodeId[] },
 >(
   ctx: KbContext,
-  plan: (nodes: readonly KbNode[]) => W | null,
+  plan: (nodes: readonly KbNode[]) => Effect.Effect<W | null, DomainError>,
   options: PersistOptions = {},
 ): Effect.fn.Return<W | null, DomainError, KbStore> {
   for (let attempt = 1; ; attempt++) {
     yield* reloadEffect(ctx);
     const read = seen.get(ctx);
-    const write = plan(ctx.nodes);
+    const write = yield* plan(ctx.nodes);
     if (write === null || (write.upserts.length === 0 && write.deletes.length === 0)) return write;
     const tx: StoreTx = { upserts: [...write.upserts], deletes: [...write.deletes] };
     const committed = yield* persistEffect(ctx, tx, { ...options, expected: read }).pipe(

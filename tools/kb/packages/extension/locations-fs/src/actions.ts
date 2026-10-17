@@ -108,9 +108,9 @@ function commitHome(
   home: KbContext,
   plan: (nodes: readonly KbNode[]) => LocationWrite | null,
 ): Effect.Effect<LocationWrite | null, DomainError> {
-  return persistPlannedEffect(home, plan, { systemWrites: "system" }).pipe(
-    Effect.provideService(KbStore, home.store),
-  );
+  return persistPlannedEffect(home, (nodes) => Effect.succeed(plan(nodes)), {
+    systemWrites: "system",
+  }).pipe(Effect.provideService(KbStore, home.store));
 }
 
 /** One warning for each well-formed location that names a root an earlier one already names. */

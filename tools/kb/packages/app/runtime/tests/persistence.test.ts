@@ -524,12 +524,17 @@ function movingStore(path: string, moves: number) {
 function appendA(plans: { count: number }) {
   return (nodes: readonly KbNode[]) => {
     plans.count += 1;
-    const list = present(
-      nodes.find((n) => n.id === "n.list"),
-      "the list is there",
-    );
-    return { upserts: [{ ...list, children: [...list.children, "n.a"] }], deletes: [] };
+    return Effect.succeed(planAppend(nodes));
   };
+}
+
+/** The list with `n.a` appended, as `nodes` hold it. */
+function planAppend(nodes: readonly KbNode[]) {
+  const list = present(
+    nodes.find((n) => n.id === "n.list"),
+    "the list is there",
+  );
+  return { upserts: [{ ...list, children: [...list.children, "n.a"] }], deletes: [] };
 }
 
 describe("a write planned from what the session read", () => {
