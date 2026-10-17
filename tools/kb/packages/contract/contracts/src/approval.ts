@@ -2,7 +2,7 @@ import { Context } from "effect";
 import { z } from "zod";
 import {
   APPROVAL_DECISIONS,
-  actsAsOwner,
+  configurationDecision,
   matchSpecificity,
   stricterDecision,
   writesApprovalPolicy,
@@ -112,12 +112,13 @@ export interface ApprovalResolution {
  *   a person who names the action means it.
  * - A governing write asks, whatever the policies say: a call that writes a
  *   policy, or the vocabulary policies are written in (otherwise a caller
- *   could allow itself), and a call by a caller acting for the owner
- *   (`actsAsOwner`) that writes an extension's configuration
- *   (`writesConfiguration`: what the code runs with, such as the endpoint a
- *   key is sent to). That is known only from its writes, so the invoke core
- *   asks again with them just before the commit, and nothing is written
- *   when it refuses. A denial stays a denial.
+ *   could allow itself), and a call that writes an extension's
+ *   configuration (`writesConfiguration`: what the code runs with, such as
+ *   the endpoint a key is sent to), as `configurationDecision` says for its
+ *   actor: the owner's make it, an agent asks, sandboxed code is denied.
+ *   That is known only from its writes, so the invoke core asks again with
+ *   them just before the commit, and nothing is written when it refuses. A
+ *   denial stays a denial.
  */
 export function resolveApproval(
   policies: readonly ApprovalPolicy[],
@@ -125,17 +126,16 @@ export function resolveApproval(
 ): ApprovalResolution {
   const ruled = byPolicy(policies, call);
   if (ruled.decision === "deny") return ruled;
-  const governs = governingWrite(call);
-  return governs === null ? ruled : { decision: "ask", by: { writes: governs } };
-}
-
-/** What a call's writes govern, if anything, as the resolver weighs them. */
-function governingWrite(call: ApprovalCall): GoverningWrite | null {
   const writes = call.writes ?? [];
-  if (writes.some(writesApprovalPolicy)) return "approval-policy";
+  if (writes.some(writesApprovalPolicy)) {
+    return { decision: "ask", by: { writes: "approval-policy" } };
+  }
   const { nodeOf } = call;
-  if (actsAsOwner(call.actor) || nodeOf === undefined) return null;
-  return writes.some((write) => writesConfiguration(write, nodeOf)) ? "configuration" : null;
+  if (nodeOf === undefined || !writes.some((write) => writesConfiguration(write, nodeOf))) {
+    return ruled;
+  }
+  const decision = configurationDecision(call.actor);
+  return decision === "allow" ? ruled : { decision, by: { writes: "configuration" } };
 }
 
 function byPolicy(policies: readonly ApprovalPolicy[], call: ApprovalCall): ApprovalResolution {
@@ -221,10 +221,18 @@ export function approvalRefusal(
     };
   }
   if ("writes" in by) {
+    const caller = invocation.actor ?? "this caller";
+    if (decision === "deny") {
+      return {
+        code: "forbidden",
+        message: `action ${id} writes an extension's configuration, which a call by ${caller} never changes`,
+        details: { writes: by.writes },
+      };
+    }
     const message =
       by.writes === "approval-policy"
         ? `action ${id} writes an approval policy, which always needs a person's approval; this call has none`
-        : `action ${id} writes an extension's configuration, which a call by ${invocation.actor ?? "this caller"} makes only with the owner's approval; this call has none`;
+        : `action ${id} writes an extension's configuration, which a call by ${caller} makes only with the owner's approval; this call has none`;
     return { code: "approval_required", message, details: { writes: by.writes } };
   }
   if (decision === "deny") {

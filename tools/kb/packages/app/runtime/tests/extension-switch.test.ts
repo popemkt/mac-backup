@@ -1,9 +1,10 @@
 /**
  * An optional family is switched on the server (DESIGN.md → Extension
  * families → optional is a server-side load decision). The switch is the
- * family's node in the store, written only by `extension.switch`: the
- * registry loads the family while the node says so, and `kb.manifest`
- * reports what it loaded, which is what the page follows. A fresh store
+ * family's node in the store, a setting of every extension's node, which
+ * `extension.switch` writes by the one system-write rule: the registry
+ * loads the family while the node says so, and `kb.manifest` reports what
+ * it loaded, which is what the page follows. A fresh store
  * holds the lab's node with no switch on it, so the lab is off, and opening
  * a store never writes one.
  */
@@ -233,6 +234,38 @@ describe("who may switch an extension", () => {
     expect(ctx.index.getNode(LAB_NODE)?.props[ENABLED]).toBeUndefined();
     expect((await invoke(ctx, call("agent", true))).status).toBe("succeeded");
     expect(await labIn(ctx)).toMatchObject({ row: { enabled: true } });
+  });
+
+  test("the switch is a setting: node.update writes it by the same rule, and asks an agent as configuration", async () => {
+    const ctx = await openKb(root);
+    const write = (actor: Actor, on: boolean): ActionInvocation => ({
+      id: "node.update",
+      input: { id: LAB_NODE, setProps: [{ field: ENABLED, value: { t: "bool", v: on } }] },
+      actor,
+    });
+    expect((await invoke(ctx, write("human", true))).status).toBe("succeeded");
+    expect(await labIn(ctx)).toMatchObject({ row: { enabled: true }, listed: true });
+    expect(await invoke(ctx, write("agent", false))).toMatchObject({
+      status: "failed",
+      code: "approval_required",
+      details: { writes: "configuration" },
+    });
+    expect(await invoke(ctx, { ...write("script", false), approved: true })).toMatchObject({
+      status: "failed",
+      code: "forbidden",
+      details: { writes: "configuration" },
+    });
+    expect(await labIn(ctx)).toMatchObject({ row: { enabled: true } });
+  });
+
+  test("extension.switch mints no node: a store without the family's node is refused", async () => {
+    const ctx = await openKb(root);
+    expect(
+      (await invoke(ctx, { id: "node.delete", input: { id: LAB_NODE, force: true }, actor: "cli" }))
+        .status,
+    ).toBe("succeeded");
+    expect(await switchLab(ctx, true)).toMatchObject({ status: "failed", code: "forbidden" });
+    expect(ctx.index.getNode(LAB_NODE)).toBeUndefined();
   });
 
   test("a person's gesture and the CLI switch with no approval", async () => {

@@ -23,17 +23,43 @@ export type Actor = (typeof ACTORS)[number];
  * command line, which runs with the owner's own shell, so whoever runs it
  * already holds what the owner holds. An agent and sandboxed code act for
  * the owner and never hold the owner's capabilities: they may not set
- * `force`, and their writes to configuration ask the owner first
- * (DESIGN.md → Action registry → Approval).
+ * `force`, and they change configuration only as
+ * {@link configurationDecision} says (DESIGN.md → Action registry →
+ * Approval).
  */
-const OWNER_ACTORS: ReadonlySet<Actor> = new Set(["human", "cli"]);
+type OwnerActor = "human" | "cli";
+const OWNER_ACTORS: ReadonlySet<Actor> = new Set<OwnerActor>(["human", "cli"]);
 
 /**
  * Whether a call by `actor` acts as the owner. A call that names no actor is
  * code running in process, never through a surface, which is the owner's own.
  */
 export function actsAsOwner(actor: Actor | undefined): boolean {
-  return actor === undefined || OWNER_ACTORS.has(actor);
+  return actor === undefined || isOwnerActor(actor);
+}
+
+function isOwnerActor(actor: Actor): actor is OwnerActor {
+  return OWNER_ACTORS.has(actor);
+}
+
+/**
+ * What a write to configuration needs from a caller acting for the owner:
+ * an agent asks the owner first, and sandboxed code, which runs what no
+ * person wrote for this, never changes it.
+ */
+const DELEGATE_CONFIGURATION: Readonly<Record<Exclude<Actor, OwnerActor>, ApprovalDecision>> = {
+  agent: "ask",
+  script: "deny",
+};
+
+/**
+ * What a write to configuration needs, by who makes it: the owner's own
+ * actors make it as any write, and a caller acting for them as
+ * `DELEGATE_CONFIGURATION` says.
+ */
+export function configurationDecision(actor: Actor | undefined): ApprovalDecision {
+  if (actor === undefined || isOwnerActor(actor)) return "allow";
+  return DELEGATE_CONFIGURATION[actor];
 }
 
 /**

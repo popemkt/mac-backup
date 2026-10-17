@@ -1789,20 +1789,26 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     are refused. Every core write commits through `persistEffect`; a
     third-party extension's Promise handler that commits through the store
     port itself is trusted repo code and is not asked.
-  - **Writing configuration asks a caller acting for the owner**, whatever
-    the policies say. Configuration is what the code runs with, such as the
-    agent's provider: its endpoint and the key reference sent there.
-    Concretely, a write counts when it changes a value of an extension's
-    setting on the node it configures, or writes a node of a system kind
-    that configures an extension (`#agent-provider`, whose tag carries
-    `sys.f.configures`), tagged before or after, so minting, editing,
-    untagging and deleting one all count (`writesConfiguration`,
-    `@kb/model`). The same resolver rule weighs it, from the same commit
-    writes (`details.writes: "configuration"`). The owner's own actors (a
-    human, the CLI) write it as any node. An agent's write reaches the
-    sidebar's approval card, and sandboxed code, MCP and WebMCP are refused.
-    So no caller acting for the owner can point a key at an endpoint the
-    owner did not choose.
+  - **Writing configuration is the owner's**, whatever the policies say.
+    Configuration is what the code runs with, such as the agent's
+    provider: its endpoint and the key reference sent there. A write counts
+    when it changes a value of an extension's setting on the node it
+    configures (the switch included). It also counts when it writes a node
+    of a system kind that configures an extension: `#agent-provider`, whose
+    tag carries `sys.f.configures`. That kind may be tagged before or after,
+    so minting, editing, untagging and deleting such a node all count
+    (`writesConfiguration`, `@kb/model`). The same resolver rule weighs it,
+    from the same commit writes (`details.writes: "configuration"`). What
+    it needs depends on the actor (`configurationDecision`, beside
+    `actsAsOwner`):
+    - the owner's own actors (a human, the CLI) write it as any node;
+    - an agent asks, so its write reaches the sidebar's approval card, and
+      MCP and WebMCP, which cannot carry approval, are refused;
+    - sandboxed code is denied, as it is the switch verb.
+
+    So nothing acting for the owner can point a key at an endpoint the owner
+    did not choose.
+
   - **Seeded defaults**, ordinary editable nodes filed under the query node
     `approval.policies` ("Approval policies"): an agent, and sandboxed code,
     asks before `node.delete` and before `views.migrate`, and neither may

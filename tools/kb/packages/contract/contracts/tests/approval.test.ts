@@ -175,13 +175,16 @@ describe("a write to configuration", () => {
       nodeOf: (id) => GRAPH.get(id),
     });
 
-  test("asks a caller acting for the owner, whatever the policies say", () => {
+  test("asks an agent, and denies sandboxed code, whatever the policies say", () => {
     for (const [kind, write] of Object.entries(writes)) {
-      for (const actor of ["agent", "script"] as const) {
+      for (const [actor, decision] of [
+        ["agent", "ask"],
+        ["script", "deny"],
+      ] as const) {
         expect({ kind, actor, ...weigh(actor, write) }).toEqual({
           kind,
           actor,
-          decision: "ask",
+          decision,
           by: { writes: "configuration" },
         });
       }

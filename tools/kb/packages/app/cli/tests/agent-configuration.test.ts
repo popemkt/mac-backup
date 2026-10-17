@@ -2,9 +2,9 @@
  * The agent's configuration is the owner's (DESIGN.md → Action registry →
  * Approval → configuration): a provider node, its endpoint and key
  * reference, and the selection on the agent's node decide where a key is
- * sent, so a caller acting for the owner (an agent, sandboxed code) writes
- * them only with the owner's approval, while the owner's own actors (a
- * person, the command line) write them as any node. Run through the real
+ * sent, so an agent writes them only with the owner's approval and
+ * sandboxed code never does, while the owner's own actors (a person, the
+ * command line) write them as any node. Run through the real
  * invoke core over a store opened with the bundled seed.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
@@ -62,10 +62,15 @@ describe("the agent's configuration", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  test("an agent or sandboxed code makes a provider only with the owner's approval", async () => {
+  test("an agent makes a provider only with the owner's approval; sandboxed code never", async () => {
     const ctx = await openKb(root);
-    for (const actor of ["agent", "script"] as const) {
-      expect(await invoke(ctx, addProvider(actor)), actor).toMatchObject(asks);
+    expect(await invoke(ctx, addProvider("agent"))).toMatchObject(asks);
+    for (const approved of [undefined, true]) {
+      expect(await invoke(ctx, addProvider("script", { approved }))).toMatchObject({
+        status: "failed",
+        code: "forbidden",
+        details: { writes: "configuration" },
+      });
     }
     expect(ctx.index.getNode(PROVIDER)).toBeUndefined();
     expect(await invoke(ctx, addProvider("agent", { approved: true }))).toMatchObject({
