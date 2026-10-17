@@ -41,6 +41,16 @@ const graphs = fc
     });
   });
 
+/** A projection over generated edges, with the `sys.*` ids its scaffolding. */
+function over(edges: readonly LensEdge[]): GraphProjection {
+  const ids = edges.flatMap((e) => [e.source, e.target]);
+  return {
+    edges,
+    tags: new Map(),
+    scaffolding: new Set(ids.filter((id) => id.startsWith("sys."))),
+  };
+}
+
 function dedupe(raw: { source: string; target: string; kind: LensEdge["kind"] }[]): LensEdge[] {
   const seen = new Map<string, LensEdge>();
   for (const e of raw) seen.set(`${e.kind}:${e.source}->${e.target}`, { ...e, weight: 1 });
@@ -75,7 +85,7 @@ describe("trace", () => {
     fc.assert(
       fc.property(graphs, ({ ids, edges }) => {
         const [from, to] = [ids[0] ?? "", ids[1] ?? ""];
-        const { paths } = trace(edges, from, to, { k: 4, maxHops: 12 });
+        const { paths } = trace(over(edges), from, to, { k: 4, maxHops: 12 });
         for (const path of paths) {
           expect(path.nodes[0]).toBe(from);
           expect(path.nodes.at(-1)).toBe(to);
@@ -99,7 +109,7 @@ describe("trace", () => {
     fc.assert(
       fc.property(graphs, ({ ids, edges }) => {
         const [from, to] = [ids[0] ?? "", ids[1] ?? ""];
-        const result = trace(edges, from, to, { maxHops: 20 });
+        const result = trace(over(edges), from, to, { maxHops: 20 });
         const distance = bfsDistance(edges, from, to);
         if (distance === null) {
           expect(result.paths).toEqual([]);
@@ -112,11 +122,11 @@ describe("trace", () => {
     );
   });
 
-  test("a sys.* node is never an intermediate unless asked for", () => {
+  test("scaffolding is never an intermediate unless asked for", () => {
     fc.assert(
       fc.property(graphs, ({ ids, edges }) => {
         const [from, to] = [ids[0] ?? "", ids[1] ?? ""];
-        for (const path of trace(edges, from, to, { k: 5, maxHops: 12 }).paths)
+        for (const path of trace(over(edges), from, to, { k: 5, maxHops: 12 }).paths)
           expect(path.nodes.slice(1, -1).some((id) => id.startsWith("sys."))).toBe(false);
       }),
     );
@@ -124,8 +134,8 @@ describe("trace", () => {
       { source: "a", target: "sys.hub", kind: "child", weight: 1 },
       { source: "sys.hub", target: "b", kind: "child", weight: 1 },
     ];
-    expect(trace(viaHub, "a", "b").paths).toEqual([]);
-    expect(trace(viaHub, "a", "b", { includeSystem: true }).paths[0]?.nodes).toEqual([
+    expect(trace(over(viaHub), "a", "b").paths).toEqual([]);
+    expect(trace(over(viaHub), "a", "b", { includeSystem: true }).paths[0]?.nodes).toEqual([
       "a",
       "sys.hub",
       "b",
@@ -139,7 +149,7 @@ describe("trace", () => {
       kind: "mention",
       weight: 1,
     }));
-    const { paths } = trace(ring, "a", "c", { k: 10 });
+    const { paths } = trace(over(ring), "a", "c", { k: 10 });
     expect(paths.map((p) => p.nodes)).toEqual([
       ["a", "b", "c"],
       ["a", "e", "d", "c"],
@@ -156,14 +166,14 @@ describe("trace", () => {
         (x): LensEdge => ({ source: x, target: "hub", kind: "mention", weight: 1 }),
       ),
     ];
-    expect(trace(edges, "a", "b").paths.map((p) => p.nodes[1])).toEqual(["niche", "hub"]);
+    expect(trace(over(edges), "a", "b").paths.map((p) => p.nodes[1])).toEqual(["niche", "hub"]);
   });
 
   test("the visit cap warns and keeps what it found, and never fails", () => {
     fc.assert(
       fc.property(graphs, fc.integer({ min: 1, max: 6 }), ({ ids, edges }, cap) => {
-        const result = trace(edges, ids[0] ?? "", ids[1] ?? "", { k: 5, visitCap: cap });
-        const full = trace(edges, ids[0] ?? "", ids[1] ?? "", { k: 5 });
+        const result = trace(over(edges), ids[0] ?? "", ids[1] ?? "", { k: 5, visitCap: cap });
+        const full = trace(over(edges), ids[0] ?? "", ids[1] ?? "", { k: 5 });
         if (result.warnings.length === 0) expect(result.paths).toEqual(full.paths);
         else expect(full.paths.slice(0, result.paths.length)).toEqual([...result.paths]);
       }),
@@ -171,7 +181,7 @@ describe("trace", () => {
   });
 
   test("one node at both ends is a reason, not a path", () => {
-    expect(trace([], "a", "a").reason?.code).toBe("same-node");
+    expect(trace(over([]), "a", "a").reason?.code).toBe("same-node");
   });
 
   test("where several edges join a pair, the hop names the typed relation", () => {
@@ -180,12 +190,12 @@ describe("trace", () => {
       { source: "b", target: "a", kind: "child", weight: 1 },
       { source: "a", target: "b", kind: "prop:field.influences", weight: 1 },
     ];
-    expect(trace(edges, "a", "b").paths[0]?.hops[0]?.edge.kind).toBe("prop:field.influences");
+    expect(trace(over(edges), "a", "b").paths[0]?.hops[0]?.edge.kind).toBe("prop:field.influences");
   });
 });
 
 function projection(edges: LensEdge[], tags: Record<string, string[]> = {}): GraphProjection {
-  return { edges, tags: new Map(Object.entries(tags)) };
+  return { ...over(edges), tags: new Map(Object.entries(tags)) };
 }
 
 describe("suggest", () => {
@@ -249,6 +259,30 @@ describe("suggest", () => {
       }),
       expect.objectContaining({ id: "c", reasons: { shared: ["w"], tags: [], citedBy: [] } }),
     ]);
+  });
+
+  test("a tag node is scaffolding: no walk or suggestion goes through it unless asked", () => {
+    const nodes = [
+      node({ id: "t", text: "t", props: { "sys.f.type": [{ t: "ref", v: "sys.tag" }] } }),
+      node({ id: "a", text: "A", props: { "sys.f.type": [{ t: "ref", v: "t" }] } }),
+      node({ id: "b", text: "B", props: { "sys.f.type": [{ t: "ref", v: "t" }] } }),
+      node({
+        id: "c",
+        text: "C",
+        props: { "sys.f.type": [{ t: "ref", v: "t" }] },
+        children: ["a"],
+      }),
+      node({ id: "d", text: "D", children: ["c"] }),
+    ];
+    const tagged = projectionOf(nodes, new Set(["child", "ref-prop"]));
+    expect(suggest(tagged, "a").map((s) => s.id)).toEqual(["d"]);
+    expect(suggest(tagged, "a", { includeSystem: true }).map((s) => s.id)).toContain("b");
+    expect(trace(tagged, "a", "b", { includeSystem: true }).paths[0]?.nodes).toEqual([
+      "a",
+      "t",
+      "b",
+    ]);
+    expect(trace(tagged, "a", "b").paths).toEqual([]);
   });
 
   test("the projection reads a node's tags apart from the kinds drawn", () => {

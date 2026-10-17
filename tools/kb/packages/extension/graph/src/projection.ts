@@ -8,10 +8,16 @@
 import { isSysPrefixed, SYSTEM_IDS } from "@kb/model";
 import { collectEdges, type LensEdge, type LensSource } from "./edges.ts";
 import type { EdgeKind } from "./lens.ts";
+import { isScaffolding } from "./scaffolding.ts";
 
-/** A node set's edges by kind, and the tags each node carries. */
+/** A node set's edges by kind, the tags each node carries, and which nodes are scaffolding. */
 export interface GraphProjection {
   readonly edges: readonly LensEdge[];
+  /**
+   * The nodes the graph elides (`isScaffolding`). A walk never routes
+   * through one, and suggest never offers one, unless asked to.
+   */
+  readonly scaffolding: ReadonlySet<string>;
   /**
    * Each node's tags: the targets of its `sys.f.type` that are not system
    * nodes, read from the nodes whatever the kinds, because a shared tag is a
@@ -32,7 +38,11 @@ export function projectionOf(
     );
     if (own.length > 0) tags.set(n.id, [...new Set(own)]);
   }
-  return { edges: collectEdges(nodes, new Set(nodes.map((n) => n.id)), kinds), tags };
+  return {
+    edges: collectEdges(nodes, new Set(nodes.map((n) => n.id)), kinds),
+    scaffolding: new Set(nodes.filter(isScaffolding).map((n) => n.id)),
+    tags,
+  };
 }
 
 /** Each node's neighbours, and the edges joining it to each, either way round. */

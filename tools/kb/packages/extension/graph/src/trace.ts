@@ -9,9 +9,14 @@
  * intermediates, so a specific connector beats a hub. Yen's algorithm over a
  * Dijkstra on that pair gives the k paths, cheapest first.
  */
-import { isSysPrefixed } from "@kb/model";
 import type { LensEdge } from "./edges.ts";
-import { adjacencyOf, degreeOf, neighboursOf, type Adjacency } from "./projection.ts";
+import {
+  adjacencyOf,
+  degreeOf,
+  neighboursOf,
+  type Adjacency,
+  type GraphProjection,
+} from "./projection.ts";
 
 /** One step of a path: the edge crossed from `from` to `to`, which may point either way. */
 export interface TraceHop {
@@ -47,7 +52,7 @@ export interface TraceOptions {
   readonly k?: number;
   /** The longest path, in hops. */
   readonly maxHops?: number;
-  /** Walk through `sys.*` nodes too; by default they are never intermediates, as the graph elides them. */
+  /** Walk through the scaffolding too; by default it is never an intermediate, as the graph elides it. */
   readonly includeSystem?: boolean;
   /** How many nodes the walk may settle in all before it stops with what it has. */
   readonly visitCap?: number;
@@ -64,7 +69,7 @@ export const TRACE_DEFAULTS = {
 const EPSILON = 1e-9;
 
 export function trace(
-  edges: readonly LensEdge[],
+  projection: Pick<GraphProjection, "edges" | "scaffolding">,
   from: string,
   to: string,
   options: TraceOptions = {},
@@ -77,7 +82,14 @@ export function trace(
       warnings: [],
     };
   }
-  const walk: Walk = { adjacency: adjacencyOf(edges), to, opts, visits: 0, capped: false };
+  const walk: Walk = {
+    adjacency: adjacencyOf(projection.edges),
+    scaffolding: projection.scaffolding,
+    to,
+    opts,
+    visits: 0,
+    capped: false,
+  };
   const found = yen(walk, from);
   const warnings = walk.capped
     ? [`stopped after visiting ${opts.visitCap} nodes; these are the paths found so far`]
@@ -96,6 +108,7 @@ export function trace(
 
 interface Walk {
   readonly adjacency: Adjacency;
+  readonly scaffolding: ReadonlySet<string>;
   readonly to: string;
   readonly opts: Required<TraceOptions>;
   visits: number;
@@ -196,7 +209,7 @@ function cheapest(
       if (settled.has(next) || blockedNodes.has(next) || blockedPairs.has(pairKey(id, next)))
         continue;
       const isEnd = next === walk.to;
-      if (!isEnd && !walk.opts.includeSystem && isSysPrefixed(next)) continue;
+      if (!isEnd && !walk.opts.includeSystem && walk.scaffolding.has(next)) continue;
       const step: Cost = {
         hops: cost.hops + 1,
         hub: cost.hub + (isEnd ? 0 : Math.log(degreeOf(walk.adjacency, next))),

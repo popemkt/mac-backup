@@ -9,7 +9,6 @@
  * - the tags they share, each weighted by its rarity (idf);
  * - co-citation, a shared neighbour that points at both, Σ 1/log(1 + out z).
  */
-import { isSysPrefixed } from "@kb/model";
 import {
   adjacencyOf,
   degreeOf,
@@ -36,7 +35,7 @@ export interface Suggestion {
 
 export interface SuggestOptions {
   readonly limit?: number;
-  /** Suggest and reason through `sys.*` nodes too; by default they are elided, as trace elides them. */
+  /** Suggest and reason through the scaffolding too; by default it is elided, as trace elides it. */
   readonly includeSystem?: boolean;
 }
 
@@ -84,7 +83,7 @@ function evidenceFor(
   id: string,
   includeSystem: boolean,
 ): Map<string, { shared: string[]; citedBy: string[] }> {
-  const visible = (n: string) => includeSystem || !isSysPrefixed(n);
+  const visible = (n: string) => includeSystem || !projection.scaffolding.has(n);
   const ownTags = new Set(projection.tags.get(id) ?? []);
   const direct = new Set(neighboursOf(adjacency, id));
   const evidence = new Map<string, { shared: string[]; citedBy: string[] }>();
