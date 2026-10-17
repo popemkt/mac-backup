@@ -271,6 +271,41 @@ const doc: CanvasDoc = {
       height: 72,
     },
     { id: "bare", type: "link", url: "https://kb.test/", x: 840, y: 440, width: 200, height: 72 },
+    // A stroke drawn by hand runs smooth through its points; a highlighter's is wide and faint.
+    {
+      id: "scribble",
+      type: "path",
+      freehand: true,
+      points: [
+        { x: 0, y: 0.6 },
+        { x: 0.2, y: 0.1 },
+        { x: 0.45, y: 0.9 },
+        { x: 0.7, y: 0.2 },
+        { x: 1, y: 0.5 },
+      ],
+      x: 0,
+      y: 760,
+      width: 200,
+      height: 80,
+      style: { size: "l" },
+    },
+    {
+      id: "marker",
+      type: "path",
+      freehand: true,
+      highlight: true,
+      points: [
+        { x: 0, y: 0.6 },
+        { x: 0.2, y: 0.1 },
+        { x: 0.45, y: 0.9 },
+        { x: 0.7, y: 0.2 },
+        { x: 1, y: 0.5 },
+      ],
+      x: 240,
+      y: 760,
+      width: 200,
+      height: 60,
+    },
   ],
   edges: [],
 };
@@ -303,7 +338,12 @@ function modelLook(item: CanvasNode): DrawnLook {
     outline:
       outline === null || chrome === null
         ? null
-        : { pattern: outline.pattern, width: outline.width, color: colorOf(chrome.stroke) },
+        : {
+            pattern: outline.pattern,
+            width: outline.width,
+            color: colorOf(chrome.stroke),
+            round: chrome.round,
+          },
     ground: chrome === null || chrome.ground === null ? null : colorOf(chrome.ground),
     ink: words === null ? null : colorOf(paint.ink.words),
     opacity: paint.opacity,

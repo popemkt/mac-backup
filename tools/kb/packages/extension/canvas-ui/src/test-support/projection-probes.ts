@@ -68,6 +68,8 @@ export interface DrawnLook {
     readonly pattern: readonly number[];
     readonly width: number;
     readonly color: string;
+    /** Whether its ends and corners are round. */
+    readonly round: boolean;
   } | null;
   /** The colour its ground is filled with; null for no ground. */
   readonly ground: string | null;
@@ -323,6 +325,9 @@ function outline2d(el: Element, look: CardLook, read: PaintRead): DrawnLook["out
     pattern: dashes === "" ? [] : dashes.split(" ").map(Number),
     width: Number(path.getAttribute("stroke-width")),
     color,
+    round:
+      path.getAttribute("stroke-linecap") === "round" &&
+      path.getAttribute("stroke-linejoin") === "round",
   };
 }
 
@@ -650,7 +655,12 @@ const mount3d: Mount = async (view, probed) => {
         outline:
           stroke === undefined
             ? null
-            : { pattern: stroke.pattern, width: stroke.width, color: hexOf(stroke.color) },
+            : {
+                pattern: stroke.pattern,
+                width: stroke.width,
+                color: hexOf(stroke.color),
+                round: stroke.round,
+              },
         ground: ground === undefined ? null : hexOf(ground.color),
         ink: words === undefined ? null : hexOf(words.color),
         opacity: face.opacity,

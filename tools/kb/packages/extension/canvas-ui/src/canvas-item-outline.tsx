@@ -62,6 +62,8 @@ export function ItemOutline({
         fill={chrome.ground === null ? "none" : toneCss(chrome.ground)}
         stroke={drawn}
         strokeWidth={selected ? Math.max(SELECTED_OUTLINE.minWidth, width) : width}
+        strokeLinecap={chrome.round ? "round" : undefined}
+        strokeLinejoin={chrome.round ? "round" : undefined}
         strokeDasharray={
           outline === null || outline.pattern.length === 0 ? undefined : outline.pattern.join(" ")
         }

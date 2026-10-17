@@ -1522,7 +1522,11 @@ the view node switches every page showing the canvas through it.
   stroked. The DOM draws them in its outline's SVG, the 3D face paints
   them into its texture, the SVG export writes them after the outline, all
   from `itemMarks`. The look contract reads all three back along the line
-  and each mark.
+  and each mark. A line drawn by hand (`freehand`) is the same outline run smooth
+  (`smoothThrough`), so every painter draws it from `itemOutline` with no
+  case of its own; a line's ends and corners are round (`ChromePaint.round`,
+  read back by the look contract), and a highlighter's stroke (`highlight`)
+  is its width, its paint's opacity and its place behind its siblings.
 - **Looks are one paint in both projections** (`@kb/canvas` `paint.ts`,
   `itemPaint`): an item's style (DESIGN.md → Canvas documents) is turned
   once into what is drawn — the outline's width (by size) and dash pattern

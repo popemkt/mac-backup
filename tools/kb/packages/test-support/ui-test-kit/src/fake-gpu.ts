@@ -92,6 +92,8 @@ export type PaintedOp =
       readonly color: string;
       readonly pattern: readonly number[];
       readonly width: number;
+      /** Whether its ends and corners were round (`lineCap` and `lineJoin` both). */
+      readonly round: boolean;
       readonly points: readonly PaintedPoint[];
     }
   | { readonly op: "fill"; readonly color: string; readonly points: readonly PaintedPoint[] }
@@ -132,6 +134,8 @@ function fake2d(canvas: HTMLCanvasElement) {
     align: "start",
     stroke: "#000",
     fill: "#000",
+    cap: "butt",
+    join: "miter",
   };
   let path: PaintedPoint[] = [];
   const known: Record<string, unknown> = {
@@ -158,6 +162,7 @@ function fake2d(canvas: HTMLCanvasElement) {
         color: state.stroke,
         pattern: state.pattern,
         width: state.width,
+        round: state.cap === "round" && state.join === "round",
         points: [...path],
       }),
     fill: () => ops.push({ op: "fill", color: state.fill, points: [...path] }),
@@ -189,6 +194,8 @@ function fake2d(canvas: HTMLCanvasElement) {
       if (key === "textAlign" && typeof value === "string") state.align = value;
       if (key === "strokeStyle" && typeof value === "string") state.stroke = value;
       if (key === "fillStyle" && typeof value === "string") state.fill = value;
+      if (key === "lineCap" && typeof value === "string") state.cap = value;
+      if (key === "lineJoin" && typeof value === "string") state.join = value;
       return true;
     },
   });

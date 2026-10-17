@@ -200,6 +200,22 @@ const doc: CanvasDoc = {
       width: 200,
       height: 70,
     },
+    {
+      id: "doodle",
+      type: "path",
+      freehand: true,
+      highlight: true,
+      points: [
+        { x: 0, y: 0.5 },
+        { x: 0.3, y: 0 },
+        { x: 0.7, y: 1 },
+        { x: 1, y: 0.5 },
+      ],
+      x: 1100,
+      y: 100,
+      width: 160,
+      height: 60,
+    },
     { id: "hex", ...solid("hexagon"), x: 760, y: 390, width: 120, height: 90, depth: 50 },
     {
       id: "pointer",

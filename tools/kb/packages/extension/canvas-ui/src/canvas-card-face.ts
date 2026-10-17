@@ -370,6 +370,8 @@ function paintChrome(ctx: Ctx, style: ItemPaint, box: FaceBox, look: CardLook, s
   }
   if (outline === null && !box.selected) return;
   path();
+  ctx.lineCap = chrome.round ? "round" : "butt";
+  ctx.lineJoin = chrome.round ? "round" : "miter";
   ctx.setLineDash(outline?.pattern ?? []);
   const width = outline?.width ?? 0;
   ctx.lineWidth = box.selected ? Math.max(SELECTED_OUTLINE.minWidth, width) : width;

@@ -55,6 +55,7 @@ import {
   facingLift,
   itemShape,
   itemClips,
+  itemPaint,
   paintOrder,
   CANVAS_FOOTPRINTS,
   CANVAS_FOOTPRINT_KINDS,
@@ -403,7 +404,7 @@ export class ItemLayer {
 
   /**
    * How item `id`'s face is painted: the canvas its texture was painted
-   * into, and the opacity its materials draw it at (its style's).
+   * into, and the opacity its materials draw it at (its paint's).
    */
   faceOf(id: string): { canvas: HTMLCanvasElement | undefined; opacity: number } | null {
     const entry = this.items.get(id);
@@ -631,9 +632,10 @@ export class ItemLayer {
     this.orient(entry);
     const frame = boxFrame(item, z);
     const origin = boxToWorld(frame, { x: 0, y: 0, z: -frame.half.z });
-    const { color, opacity } = styleOf(item);
+    const { color } = styleOf(item);
+    const { opacity } = itemPaint(item);
     const tint = paintColor(look, color);
-    // Its style's opacity, on every surface it draws; a translucent one blends.
+    // Its paint's opacity (`itemPaint`), on every surface it draws; a translucent one blends.
     for (const material of [
       entry.faces.flat,
       entry.faces.solid,

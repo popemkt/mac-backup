@@ -237,6 +237,8 @@ function chromeElements(item: CanvasNode, paint: ItemPaint): string {
     "stroke-width": width,
     "stroke-dasharray":
       outline === null || outline.pattern.length === 0 ? undefined : outline.pattern.join(" "),
+    "stroke-linecap": chrome.round ? "round" : undefined,
+    "stroke-linejoin": chrome.round ? "round" : undefined,
   });
   const marks = itemMarks(item, item.width, item.height, paint).map((mark) =>
     element("path", {
