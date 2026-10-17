@@ -11,10 +11,11 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { CANVAS_IDS, parseCanvasDoc } from "@kb/canvas";
 import { CODE_IDS } from "@kb/code";
-import type { ActionInvocation } from "@kb/contracts";
+import { CoreInvoke, CurrentCall, type ActionInvocation } from "@kb/contracts";
 import { canonicalJson, present } from "@kb/model";
 import { codeDigest } from "@kb/sandbox";
 import { invoke } from "../src/invoke.ts";
+import { kbRuntimeLayer } from "../src/layers.ts";
 import { resetRegistryCache } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
 
@@ -151,6 +152,42 @@ describe("running a script once", () => {
       },
     };
     expect(await invoke(ctx, call)).toMatchObject({
+      status: "failed",
+      code: "forbidden",
+      details: { policy: "approval.script-run" },
+    });
+  });
+
+  test("nor does an action a script's call runs: the call it makes is the script's", async () => {
+    const ctx = await openKb(root);
+    await invoke(ctx, {
+      id: "node.add",
+      input: { text: "Board", id: "n.canvas", tags: ["canvas"] },
+    });
+    // An action running for a script (here, describe), which calls through its host as a write.
+    const outer: ActionInvocation = {
+      id: "ext.canvas.describe",
+      input: { canvasId: "n.canvas" },
+      actor: "script",
+      approved: true,
+      script: {
+        subject: "n.canvas",
+        grant: { reads: "subject", actions: ["ext.canvas.describe", "ext.code.script.run"] },
+      },
+    };
+    const receipt = await Effect.runPromise(
+      Effect.gen(function* () {
+        const core = present(yield* CoreInvoke, "the runtime binds CoreInvoke");
+        return yield* core(run({ approved: true }), "write");
+      }).pipe(
+        Effect.provideService(CurrentCall, {
+          invocation: outer,
+          action: { id: outer.id, mode: { kind: "read" } },
+        }),
+        Effect.provide(kbRuntimeLayer(ctx)),
+      ),
+    );
+    expect(receipt).toMatchObject({
       status: "failed",
       code: "forbidden",
       details: { policy: "approval.script-run" },

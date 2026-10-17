@@ -247,6 +247,35 @@ describe("render.view by view node id", () => {
     expect(ctx.nodes.length).toBe(before);
   });
 
+  test("a code view's page reaches no write: every write action is refused as its run calls it", async () => {
+    const manifest = (await mustInvoke("kb.manifest", {})) as {
+      actions: { id: string; mode: { kind: string } }[];
+    };
+    const writes = manifest.actions.filter((a) => a.mode.kind !== "read").map((a) => a.id);
+    expect(writes.length).toBeGreaterThan(10);
+    // Each call names the frame wherever an action takes a node, so only being a write refuses it.
+    const code = [
+      `const said = [];`,
+      `for (const id of ${JSON.stringify(writes)}) {`,
+      `  try { await kb.invoke(id, { id: kb.subject, parent: kb.subject, canvasId: kb.subject, text: "x" }); said.push(id + ":ran"); }`,
+      `  catch (e) { said.push(id + ":" + e.code + ":" + /may only read/.test(e.message)); }`,
+      `}`,
+      `kb.draw(["p", {}, said.join(" ")]);`,
+    ].join("\n");
+    await mustInvoke("view.propose", {
+      view: "code.view",
+      params: { code, grant: { reads: "graph", actions: writes } },
+      host: FRAME,
+      id: "v.writes",
+    });
+    const before = JSON.stringify(ctx.index.storedNodes());
+    const html = await render({ id: "v.writes" });
+    const said = /<p>([^<]*)<\/p>/.exec(html.content)?.[1]?.split(" ") ?? [];
+    expect(said).toEqual(writes.map((id) => `${id}:forbidden:true`));
+    // Proposing the view wrote it; the render wrote nothing.
+    expect(JSON.stringify(ctx.index.storedNodes())).toBe(before);
+  });
+
   test("a code view's page runs its code untrusted: it reaches no network and no timer", async () => {
     await mustInvoke("view.propose", {
       view: "code.view",
