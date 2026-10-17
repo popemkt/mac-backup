@@ -26,7 +26,7 @@ Operator procedure lives in `../../README.md`.
 | uv tool installs | home-manager activation | owning behavior modules, e.g. `modules/stacks/ai-agents/cognee/server.nix` |
 | Direct release packages | nvfetcher + local Nix packages | `nvfetcher.toml`, `_sources/`, `pkgs/` |
 | External enrollment + readiness | Nix + Python (`uv2nix`) | `modules/darwin/system/system-setup/default.nix`, `tools/system-setup/` |
-| macOS-only shell helpers + rebuild | home-manager | `modules/darwin/home-manager/default.nix` |
+| macOS-only shell helpers (`rebuild` is shared, in `modules/common/home-manager/shell.nix`) | home-manager | `modules/darwin/home-manager/default.nix` |
 | External workspace + data symlinks | nix-darwin + home-manager | `modules/darwin/system/external-workspace.nix` |
 | Private app exposure | Tailscale Services + nix-darwin | `modules/stacks/vpn/services-reconcile.nix` + `hosts/<hostname>/default.nix` |
 | Central Cognee server/client split | nix-darwin + uv + Tailscale | `modules/stacks/ai-agents/cognee/server.nix`, `cognee/client.nix`, host declarations |
@@ -89,7 +89,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | npmg helper | shell function | `modules/common/home-manager/shell.nix` → `initContent` |
 | sysaudit alias | calls `scripts/audit-system-discrepancies.sh` | `modules/common/home-manager/shell.nix` |
 | dump-login-items alias | calls `scripts/dump-login-items.sh` | `modules/common/home-manager/shell.nix` |
-| rebuild helper | `darwin-rebuild switch`, then read-only checks (drift audit) | `scripts/rebuild`, wrapped in `modules/darwin/home-manager/default.nix` |
+| rebuild helper | `darwin-rebuild switch` (macOS) or `nixos-rebuild switch --sudo` (NixOS); on macOS then read-only checks (drift audit) | `scripts/rebuild`, wrapped in `modules/common/home-manager/shell.nix` |
 
 ---
 

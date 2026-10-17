@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Apply this repository's Darwin configuration, then optionally run read-only checks.
+# Apply this repository's system configuration (nix-darwin on macOS, NixOS on
+# Linux), then optionally run read-only checks.
+# REBUILD_DRY_RUN=1 prints the switch command instead of running it.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,9 +12,33 @@ if [[ "${1:-}" == "--no-checks" ]]; then
   shift
 fi
 
-sudo darwin-rebuild switch --flake "$ROOT_DIR" "$@"
+case "$(uname -s)" in
+  Darwin) switch_cmd=(sudo darwin-rebuild switch --flake "$ROOT_DIR") ;;
+  # `--sudo` builds as the repository's owner and activates as root: plain
+  # `sudo nixos-rebuild` makes root read a repository it does not own.
+  Linux) switch_cmd=(nixos-rebuild switch --flake "$ROOT_DIR" --sudo) ;;
+  *)
+    echo "rebuild: unsupported platform: $(uname -s)" >&2
+    exit 1
+    ;;
+esac
+
+if [[ -n "${REBUILD_DRY_RUN:-}" ]]; then
+  printf '%q ' "${switch_cmd[@]}" "$@"
+  printf '\n'
+  exit 0
+fi
+
+# A failed switch aborts here (set -e) with its own status, before any check.
+"${switch_cmd[@]}" "$@"
 
 if [[ "$skip_checks" == true ]]; then
+  exit 0
+fi
+
+if [[ "$(uname -s)" == Linux ]]; then
+  # GAP [[01M53WTHZ1YAW03WWCCFEV0QY1]] NixOS rebuild has no drift audit.
+  echo "rebuild: drift audit and system-setup checks are macOS-only; none run on NixOS."
   exit 0
 fi
 

@@ -595,6 +595,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Admission gate
 - **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
 
+### GAP: NixOS rebuild has no drift audit
+
+- **expected** — rebuild on NixOS ends with the same read-only checks the Mac gets: a drift audit of what the host runs versus what the repo declares, and a readiness status.
+- **current** — scripts/rebuild on Linux runs nixos-rebuild switch and prints one line saying the checks are macOS-only; audit-system-discrepancies.sh and system-setup are Homebrew/nix-darwin specific.
+- **impact** — Drift on NixOS hosts (imperatively installed tools, out-of-band changes) goes unnoticed after a rebuild; the two platforms' rebuild promise differs.
+- **closes** — A NixOS-aware drift audit (and system-setup status if it applies), invoked from the Linux branch of scripts/rebuild in place of the notice.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M53WTHZ1YAW03WWCCFEV0QY1`
+
 ### GAP: no [[ completion while editing a text field value
 
 - **expected** — Typing [[ in a text value opens the same node picker node text does.

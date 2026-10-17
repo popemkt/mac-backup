@@ -98,12 +98,6 @@
       "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh"
     }
 
-    # Delegate to the checked-out script so workflow changes take effect without
-    # another Home Manager activation.
-    rebuild() {
-      "$HOME/.dotfiles/scripts/rebuild" "$@"
-    }
-
     # Prepare reviewable repository updates without mutating the live system.
     update-system() {
       local dotfiles_root="$HOME/.dotfiles"

@@ -34,6 +34,12 @@ _:
       # PATH additions
       export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 
+      # Delegate to the checked-out script so workflow changes take effect without
+      # another Home Manager activation. It picks darwin-rebuild or nixos-rebuild.
+      rebuild() {
+        "$HOME/.dotfiles/scripts/rebuild" "$@"
+      }
+
       # npm global helper (paired with modules/common/home-manager/npm-global.nix)
       npmg() {
         local config_file="$HOME/.dotfiles/modules/common/home-manager/npm-global.nix"

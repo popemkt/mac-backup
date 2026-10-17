@@ -44,7 +44,9 @@ rebuild --no-checks
 ```
 
 `rebuild` delegates to `scripts/rebuild`, so later workflow changes take effect
-from the checkout without another Home Manager activation.
+from the checkout without another Home Manager activation. It runs
+`darwin-rebuild` on macOS and `nixos-rebuild --sudo` on NixOS; the post-switch
+checks below are macOS-only.
 
 The rebuild prints a read-only external readiness report. Complete credentials,
 device enrollment, and control-plane approvals in dependency order:
