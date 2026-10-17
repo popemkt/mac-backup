@@ -3139,12 +3139,19 @@ The sidebar agent lives outside core, in packages that core never imports
   - The endpoint is `https`, or plain `http` only on this machine
     (`localhost`, `127.0.0.0/8`, `::1`), and it carries no credentials of
     its own. Otherwise the turn fails before anything is sent, so neither
-    the key nor the conversation crosses a network in the clear.
+    the key nor the conversation crosses a network in the clear. A
+    redirect is refused, never followed (`redirect: "error"` is part of the
+    request a step hands `fetch`), so a server cannot send either to
+    another origin or down to `http`.
   - A failure names the endpoint's origin, the status and, at most, a short
     error code the server sent (`model_not_found`). It never repeats what
     the server said, which may echo what it was sent.
-  - A server that does not start answering within 60 s ends the step, and
-    its request is aborted, as it is when the turn is cancelled.
+  - Every wait and read is bounded. A server that does not start
+    answering within 60 s, or sends nothing for 60 s mid-reply, ends the
+    step. An error body is read no further than 16 KiB, for its code, and a
+    server-sent line no longer than 1 MiB. The request is aborted whenever
+    the step ends (finished, failed, timed out or the turn cancelled), so
+    its connection never outlives the step.
   - `fetch` is the platform's unless a test hands it one.
 - **Every message carries the sender's screen.** The bridge asks
   `ui.screen` for the tab that the sending connection publishes as. It

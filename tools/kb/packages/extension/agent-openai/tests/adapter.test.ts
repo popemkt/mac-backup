@@ -44,12 +44,16 @@ const SECRETS: SecretSource = {
 
 /** Run one turn over `fetch`; its text, or the failure's message, and the calls it made. */
 function turnOver(
-  fetch: ChatFetch,
+  fetch: ChatFetch | undefined,
   provider: ProviderConfig = PROVIDER,
   secrets: SecretSource = NO_SECRETS,
+  timeouts: { readonly answerTimeoutMs?: number; readonly idleTimeoutMs?: number } = {},
 ) {
   const calls: { readonly action: string; readonly input: unknown }[] = [];
-  const runtime = openAiChatAdapter({ fetch }).runtime(provider, secrets);
+  const runtime = openAiChatAdapter({
+    ...(fetch === undefined ? {} : { fetch }),
+    ...timeouts,
+  }).runtime(provider, secrets);
   const turn = runtime.turn({
     system: "You are kb's agent.",
     message: { text: "hi", screen: null },
@@ -100,6 +104,10 @@ const erring: ChatFetch = () =>
       { status: 200 },
     ),
   );
+
+/** An endpoint whose one line is longer than a step reads. */
+const overlong: ChatFetch = () =>
+  Promise.resolve(new Response(`data: ${"x".repeat(1024 * 1024 + 1)}`, { status: 200 }));
 
 describe("the openai-chat adapter's wire", () => {
   test("a step posts the conversation and the tools, as functions, under the endpoint", async () => {
@@ -230,5 +238,85 @@ describe("the openai-chat adapter's wire", () => {
     );
     expect(failure).toBe("http://127.0.0.1:8317 did not answer within 0.02s");
     expect(signals.map((signal) => signal.aborted)).toEqual([true]);
+  });
+
+  test("every request refuses redirects, and the platform's fetch never follows one", async () => {
+    const chat = fakeChat(() => [{ say: "ok" }]);
+    await turnOver(chat.fetch);
+    expect(chat.requests.map(({ init }) => init.redirect)).toEqual(["error"]);
+    const elsewhere: string[] = [];
+    const target = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: (request) => (elsewhere.push(request.url), new Response("taken")),
+    });
+    const redirecting = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () =>
+        new Response(null, {
+          status: 307,
+          headers: { location: `http://127.0.0.1:${target.port}/v1/chat/completions` },
+        }),
+    });
+    try {
+      const endpoint = `http://127.0.0.1:${redirecting.port}/v1`;
+      const ended = await turnOver(undefined, { ...PROVIDER, endpoint });
+      expect(ended).toMatchObject({
+        failure: expect.stringContaining(`http://127.0.0.1:${redirecting.port} did not answer`),
+      });
+      expect(elsewhere).toEqual([]);
+    } finally {
+      void target.stop(true);
+      void redirecting.stop(true);
+    }
+  });
+
+  test("a reply that stalls mid-body ends the step, and its request is aborted", async () => {
+    const signals: AbortSignal[] = [];
+    const stalled: ChatFetch = (_url, init) => {
+      signals.push(init.signal);
+      return Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                new TextEncoder().encode('data: {"choices":[{"delta":{"content":"par"}}]}\n\n'),
+              );
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+    };
+    const ended = await turnOver(stalled, PROVIDER, NO_SECRETS, { idleTimeoutMs: 30 });
+    expect(ended).toMatchObject({ failure: "http://127.0.0.1:8317 sent nothing for 0.03s" });
+    expect(signals.map((signal) => signal.aborted)).toEqual([true]);
+  });
+
+  test("an error body is read only as far as kb needs, however long it is", async () => {
+    let pulled = 0;
+    const endless: ChatFetch = () =>
+      Promise.resolve(
+        new Response(
+          new ReadableStream({
+            pull(controller) {
+              pulled += 1;
+              controller.enqueue(new Uint8Array(64 * 1024));
+            },
+          }),
+          { status: 502 },
+        ),
+      );
+    const ended = await turnOver(endless);
+    expect(ended).toMatchObject({ failure: "http://127.0.0.1:8317 answered 502" });
+    expect(pulled).toBeLessThan(8);
+  });
+
+  test("a line longer than kb reads fails the step instead of growing", async () => {
+    const ended = await turnOver(overlong);
+    expect(ended).toMatchObject({
+      failure: "http://127.0.0.1:8317 sent a line longer than kb reads",
+    });
   });
 });

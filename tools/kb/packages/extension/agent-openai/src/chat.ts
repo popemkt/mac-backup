@@ -25,21 +25,37 @@ import type { SecretSource } from "@kb/contracts";
  * publish it) and the model; a credential, when it names one, is sent as a
  * bearer token, read when each step starts. The endpoint is `https`, or
  * plain `http` only on this machine (loopback), so neither the key nor the
- * conversation crosses a network in the clear. A failure names the
- * endpoint's origin, its status and a short error code, never what the
- * server sent back, and a server that does not answer within
- * {@link ANSWER_TIMEOUT_MS} ends the step.
+ * conversation crosses a network in the clear, and a redirect is refused
+ * rather than followed, so neither goes to an origin or a scheme the
+ * provider did not name. A failure names the endpoint's origin, its status
+ * and a short error code, never what the server sent back.
+ *
+ * Every wait is bounded: a server that does not start answering within
+ * {@link ANSWER_TIMEOUT_MS}, or sends nothing for {@link IDLE_TIMEOUT_MS}
+ * mid-reply, ends the step; an error body is read no further than
+ * {@link ERROR_BODY_BYTES}, and a line of the stream no longer than
+ * {@link LINE_BYTES}. The request is aborted whenever the step ends, by
+ * finishing, failing or being interrupted, so its connection never
+ * outlives it.
  */
 
 /** How long a step waits for the endpoint to start answering. */
 const ANSWER_TIMEOUT_MS = 60_000;
+/** How long a reply may go without sending anything before the step ends. */
+const IDLE_TIMEOUT_MS = 60_000;
+/** How much of an error body is read, for its code. */
+const ERROR_BODY_BYTES = 16 * 1024;
+/** The longest server-sent line a step reads. */
+const LINE_BYTES = 1024 * 1024;
 
-/** What a step hands `fetch`: one POST, cancelled through `signal`. */
+/** What a step hands `fetch`: one POST, never redirected, cancelled through `signal`. */
 export interface ChatRequestInit {
   readonly method: "POST";
   readonly headers: Readonly<Record<string, string>>;
   readonly body: string;
   readonly signal: AbortSignal;
+  /** A redirect fails the request: the step sends only where the provider points. */
+  readonly redirect: "error";
 }
 
 /** The part of `fetch` a step uses. The contract hands it a fake that serves a model. */
@@ -227,6 +243,55 @@ function endpointUrl(endpoint: string): URL | string {
   return `${its} must be https, or http on this machine (localhost).`;
 }
 
+/** At most `max` bytes of `response`'s body, as text; the rest is never read. */
+const boundedText = Effect.fnUntraced(function* (response: Response, max: number) {
+  const body = response.body;
+  if (body === null) return "";
+  const reader = body.getReader();
+  const bytes = new Uint8Array(max);
+  let read = 0;
+  yield* Effect.gen(function* () {
+    while (read < max) {
+      // A body that breaks off is read as far as it came.
+      const next = yield* Effect.tryPromise(() => reader.read()).pipe(
+        Effect.orElseSucceed(() => ({ done: true, value: undefined }) as const),
+      );
+      if (next.done) return;
+      const piece = next.value.subarray(0, max - read);
+      bytes.set(piece, read);
+      read += piece.byteLength;
+    }
+  }).pipe(Effect.ensuring(Effect.promise(() => reader.cancel().catch(() => undefined))));
+  return new TextDecoder().decode(bytes.subarray(0, read));
+});
+
+/**
+ * Text cut into lines, each at most `max` bytes, without the line break. A
+ * line that grows past `max` before it ends fails the stream, so a server
+ * cannot make the step hold a reply of any size in memory.
+ */
+function cappedLines<E>(
+  max: number,
+  tooLong: () => E,
+): <R>(text: Stream.Stream<string, E, R>) => Stream.Stream<string, E, R> {
+  return (text) =>
+    text.pipe(
+      Stream.mapAccumEffect(
+        () => "",
+        (pending: string, chunk: string) => {
+          const parts = `${pending}${chunk}`.split("\n");
+          const rest = parts.pop() ?? "";
+          const lines = parts.map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line));
+          const over = [rest, ...lines].some(
+            (line) => new TextEncoder().encode(line).byteLength > max,
+          );
+          return over ? Effect.fail(tooLong()) : Effect.succeed([rest, lines] as const);
+        },
+        { onHalt: (rest) => (rest === "" ? [] : [rest]) },
+      ),
+    );
+}
+
 /** A step that only fails, saying what the provider lacks. */
 function refusedStep(message: string): Step {
   return () => Stream.fail(new AgentRuntimeError({ message }));
@@ -235,12 +300,18 @@ function refusedStep(message: string): Step {
 const needs = (what: string) =>
   `An OpenAI-compatible provider needs ${what}; write it on the provider's node.`;
 
+/** How long a step waits, in each of its waits. */
+interface ChatTimeouts {
+  readonly answerMs: number;
+  readonly idleMs: number;
+}
+
 /** The step over `provider`, or one that fails saying what the provider lacks. */
 function chatStep(
   provider: ProviderConfig,
   secrets: SecretSource,
   send: ChatFetch,
-  answerTimeoutMs: number,
+  { answerMs, idleMs }: ChatTimeouts,
 ): Step {
   const { endpoint, model } = provider;
   if (endpoint === null) return refusedStep(needs("an endpoint"));
@@ -264,23 +335,31 @@ function chatStep(
           accept: "text/event-stream",
           ...(key === undefined ? {} : { authorization: `Bearer ${key}` }),
         };
+        // One request per step, aborted when the step's stream ends however it ends.
+        const request = yield* Effect.acquireRelease(
+          Effect.sync(() => new AbortController()),
+          (controller) => Effect.sync(() => controller.abort()),
+        );
+        const { signal } = request;
         const response = yield* Effect.tryPromise({
-          try: (signal) => send(url, { method: "POST", headers, body, signal }),
+          try: () => send(url, { method: "POST", headers, body, signal, redirect: "error" }),
           catch: (error) =>
             new AgentRuntimeError({ message: `${origin} did not answer: ${messageOf(error)}` }),
         }).pipe(
           Effect.timeoutOrElse({
-            duration: answerTimeoutMs,
+            duration: answerMs,
             orElse: () =>
               Effect.fail(
                 new AgentRuntimeError({
-                  message: `${origin} did not answer within ${answerTimeoutMs / 1000}s`,
+                  message: `${origin} did not answer within ${answerMs / 1000}s`,
                 }),
               ),
           }),
         );
         if (!response.ok) {
-          const said = yield* Effect.promise(() => response.text().catch(() => ""));
+          const said = yield* boundedText(response, ERROR_BODY_BYTES).pipe(
+            Effect.timeoutOrElse({ duration: answerMs, orElse: () => Effect.succeed("") }),
+          );
           const decoded = decodeErrorBody(said);
           const code = Result.isSuccess(decoded) ? codeOf(decoded.success.error) : null;
           return yield* new AgentRuntimeError({
@@ -295,8 +374,20 @@ function chatStep(
           evaluate: () => stream,
           onError: (error) => new AgentRuntimeError({ message: `${origin}: ${messageOf(error)}` }),
         }).pipe(
+          Stream.timeoutOrElse({
+            duration: idleMs,
+            orElse: () =>
+              Stream.fail(
+                new AgentRuntimeError({
+                  message: `${origin} sent nothing for ${idleMs / 1000}s`,
+                }),
+              ),
+          }),
           Stream.decodeText(),
-          Stream.splitLines,
+          cappedLines(
+            LINE_BYTES,
+            () => new AgentRuntimeError({ message: `${origin} sent a line longer than kb reads` }),
+          ),
           Stream.mapEffect(chunkOf),
           Stream.mapAccum(
             () => new Map<number, Partial>(),
@@ -311,20 +402,28 @@ function chatStep(
 /**
  * The `openai-chat` adapter. `fetch` is the platform's unless a test hands it
  * a fake that serves a model, and a step waits {@link ANSWER_TIMEOUT_MS} for
- * an answer unless a test says otherwise.
+ * an answer and {@link IDLE_TIMEOUT_MS} between pieces of it unless a test
+ * says otherwise.
  */
 export function openAiChatAdapter(
-  options: { readonly fetch?: ChatFetch; readonly answerTimeoutMs?: number } = {},
+  options: {
+    readonly fetch?: ChatFetch;
+    readonly answerTimeoutMs?: number;
+    readonly idleTimeoutMs?: number;
+  } = {},
 ): AgentAdapter {
   const send: ChatFetch =
     options.fetch ?? ((url, init) => fetch(url, { ...init, headers: { ...init.headers } }));
-  const timeout = options.answerTimeoutMs ?? ANSWER_TIMEOUT_MS;
+  const timeouts: ChatTimeouts = {
+    answerMs: options.answerTimeoutMs ?? ANSWER_TIMEOUT_MS,
+    idleMs: options.idleTimeoutMs ?? IDLE_TIMEOUT_MS,
+  };
   return {
     id: "openai-chat",
     runtime: (provider, secrets) =>
       stepRuntime({
         name: "OpenAI-compatible chat",
-        step: chatStep(provider, secrets, send, timeout),
+        step: chatStep(provider, secrets, send, timeouts),
       }),
   };
 }
