@@ -112,7 +112,6 @@ T3 Code server per person. Each target is derived from that instance's port in
 |---|---|---|---|
 | `svc:t3-popemkt` | `https://t3-popemkt.<tailnet-domain>` | `127.0.0.1:3773` | popemkt's T3 Code server |
 | `svc:t3-bytetum` | `https://t3-bytetum.<tailnet-domain>` | `127.0.0.1:3774` | bytetum's T3 Code server |
-| `svc:t3-work` | `https://t3-work.<tailnet-domain>` | `127.0.0.1:3773` on popemkt-work | the work Mac's T3 Code app server, for agents signing in to its MCP |
 
 ### First Tailnet Or Replacement Host
 

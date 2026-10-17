@@ -46,14 +46,6 @@
       "ip": ["tcp:443"],
     },
 
-    // The work Mac's T3 Code desktop server, so a coordinator agent on the
-    // shared server (and tailnet members) can drive it over HTTPS via its MCP.
-    {
-      "src": ["autogroup:member", "tag:shared-server"],
-      "dst": ["svc:t3-work"],
-      "ip": ["tcp:443"],
-    },
-
     // Preserve the pre-existing default policy until every remaining flow is
     // inventoried and covered by a narrower grant.
     {
@@ -71,9 +63,6 @@
       "svc:cognee": ["tag:home-server"],
       "svc:t3-popemkt": ["tag:shared-server"],
       "svc:t3-bytetum": ["tag:shared-server"],
-      // popemkt-work's only tag; re-tag it if another Orca host should not
-      // be able to host this service.
-      "svc:t3-work": ["tag:orca-host"],
     },
   },
 
