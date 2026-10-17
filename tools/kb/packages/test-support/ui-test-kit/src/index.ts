@@ -11,6 +11,13 @@
  */
 export { installDomGlobals, type InstalledDom } from "./dom-globals";
 export {
+  dismissContract,
+  renderPopover,
+  UntilDismissed,
+  type OpenPopover,
+  type PopoverMount,
+} from "./dismiss-contract";
+export {
   FAKE_WEBGPU,
   fakeCanvasContexts,
   gpu,

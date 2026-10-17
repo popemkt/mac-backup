@@ -1632,7 +1632,11 @@ The rules that hold everywhere, so no surface re-invents them:
   where the trigger's own click toggles it (an element, or a selector for
   triggers such as the outline's filter buttons). Both are heard on the
   window in the capture phase, so no handler under a press or a key keeps
-  them from it.
+  them from it. One contract holds it over every popover:
+  `@kb/ui-test-kit`'s `dismissContract`, which each package runs over the
+  popovers it renders, keyed by each one's file; the harness's
+  `popover-dismiss-coverage` check fails when a file calls `useDismiss` and
+  no suite names it.
 - **IME composition is never interrupted.** Field editors track
   `compositionstart`/`compositionend` _and_ check `nativeEvent.isComposing`
   before treating a key as a commit, so a composing CJK/dead-key sequence is not
