@@ -10,9 +10,8 @@ import { resolve } from "node:path";
 import type { Command } from "commander";
 import { Effect, Predicate } from "effect";
 import { onWire, type ActionReceipt, type KbContext } from "@kb/contracts";
-import { invokeReceiptEffect, writeErr, writeOut, type ActionHandlerEnv } from "@kb/runtime";
-import { EXIT_FAILED, EXIT_OK, kbAction, ACTION_INVOKE_WIRE, type GlobalOpts } from "./command.ts";
-import { formatReceipt } from "./format.ts";
+import { invokeReceiptEffect, writeErr, type ActionHandlerEnv } from "@kb/runtime";
+import { kbAction, ACTION_INVOKE_WIRE, report } from "./command.ts";
 
 /** One location row as printed: its fields read loosely, since the action's schema is the family's. */
 interface PrintedRow {
@@ -65,20 +64,6 @@ function rowLine(row: PrintedRow): string {
 
 const call = (ctx: KbContext, id: string, input: unknown) =>
   invokeReceiptEffect(ctx, onWire(ACTION_INVOKE_WIRE, { id, input }));
-
-/** Print a receipt: JSON as is under --json; else `lines` of its output, or the failure. */
-function report(
-  receipt: ActionReceipt,
-  globals: GlobalOpts,
-  lines: (output: unknown) => readonly string[],
-): number {
-  if (globals.json === true || receipt.status === "failed") {
-    writeOut(formatReceipt(receipt, { json: globals.json === true }));
-    return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
-  }
-  for (const line of lines(receipt.output)) writeOut(line);
-  return EXIT_OK;
-}
 
 /**
  * The location `target` names: its id, else its one label, else its path.

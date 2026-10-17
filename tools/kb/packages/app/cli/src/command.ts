@@ -7,7 +7,7 @@
 import { type Command, CommanderError } from "commander";
 import { Cause, Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import type { KbContext, SurfaceWire } from "@kb/contracts";
+import type { ActionReceipt, KbContext, SurfaceWire } from "@kb/contracts";
 import {
   kbRuntimeLayer,
   openKbEffect,
@@ -21,6 +21,7 @@ import {
 import { type FailureCode, ResolveError, isDomainError, receiptCodeOf } from "@kb/model";
 import { UsageError } from "@kb/operations";
 import { EXIT_USAGE } from "./arguments.ts";
+import { formatReceipt } from "./format.ts";
 
 export const EXIT_OK = 0;
 export const EXIT_FAILED = 1;
@@ -136,3 +137,21 @@ export function kbAction<A extends readonly unknown[], E>(
  * call a verb (`kb add`, `kb rm`, …) plans, is made by the command line.
  */
 export const ACTION_INVOKE_WIRE: SurfaceWire = { carriesApproval: true, actor: "cli" };
+
+/**
+ * Print a command's receipt: as is under --json, the failure as the CLI
+ * reports every one, and otherwise the `lines` a command reads its output
+ * as. The exit code is the receipt's.
+ */
+export function report(
+  receipt: ActionReceipt,
+  globals: GlobalOpts,
+  lines: (output: unknown) => readonly string[],
+): number {
+  if (globals.json === true || receipt.status === "failed") {
+    writeOut(formatReceipt(receipt, { json: globals.json === true }));
+    return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
+  }
+  for (const line of lines(receipt.output)) writeOut(line);
+  return EXIT_OK;
+}
