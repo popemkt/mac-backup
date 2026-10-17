@@ -93,6 +93,15 @@ const STROKE_WIDTHS: { readonly [S in CanvasSize]: number } = { s: 0.75, m: 1, l
  */
 const LINE_WIDTHS: { readonly [S in CanvasSize]: number } = { s: 1, m: 1.5, l: 2.5, xl: 4 };
 
+/** How heavy a highlighter's stroke is at each size, canvas units: wide enough to lie under words. */
+const HIGHLIGHT_WIDTHS: { readonly [S in CanvasSize]: number } = { s: 8, m: 14, l: 22, xl: 32 };
+
+/** How much of what a highlighter's stroke lies over still shows through it. */
+const HIGHLIGHT_OPACITY = 0.4;
+
+/** The colour a highlighter's stroke is in when its paint names none: a highlighter's yellow. */
+const HIGHLIGHT_COLOR: CanvasPaint = { kind: "palette", id: "3" };
+
 /** How long the heads a line's ends wear are at each size, canvas units. */
 const HEAD_LENGTHS: { readonly [S in CanvasSize]: number } = { s: 7, m: 9, l: 12, xl: 16 };
 
@@ -191,6 +200,8 @@ export interface ChromePaint {
   readonly outline: OutlinePaint | null;
   /** The ink its outline is drawn in, drawn or not: the heads a line wears take it too. */
   readonly stroke: Tone;
+  /** Whether its outline's ends and corners are round, as a line's are, or sharp, as a shape's. */
+  readonly round: boolean;
 }
 
 /** Everything a painter needs of an item's look. */
@@ -224,11 +235,20 @@ function wordsTone(ground: Tone | null, fill: CanvasFill, amount: number): Tone 
   return fill === "solid" && ground !== null ? tone("ground", amount, ground) : tone("ink", amount);
 }
 
+/** How heavy `item`'s outline is at each size: a highlighter's stroke, a line's, or a shape's outline. */
+function widthsOf(item: CanvasNode): { readonly [S in CanvasSize]: number } {
+  if (!isPathNode(item)) return STROKE_WIDTHS;
+  return item.highlight === true ? HIGHLIGHT_WIDTHS : LINE_WIDTHS;
+}
+
 /** An item's look, as both projections paint it. */
 export function itemPaint(item: CanvasNode): ItemPaint {
   const style = styleOf(item);
+  // A highlighter's stroke is wide and translucent, in yellow unless its paint names a colour.
+  const highlight = isPathNode(item) && item.highlight === true;
+  const color = style.color ?? (highlight ? HIGHLIGHT_COLOR : undefined);
   // A line is its outline: drawn as heavy as an edge, never filled while it runs open.
-  const width = (isPathNode(item) ? LINE_WIDTHS : STROKE_WIDTHS)[style.size];
+  const width = widthsOf(item)[style.size];
   const outline =
     style.dash === "none"
       ? null
@@ -236,10 +256,10 @@ export function itemPaint(item: CanvasNode): ItemPaint {
   const open = isOpenLine(item);
   const inks = KIND_INKS[item.type] ?? OTHER_INKS;
   const fill = open ? "none" : style.fill;
-  const ground = groundTone(fill, style.color);
-  const stroke = style.color === undefined ? tone("ink", inks.outline) : tone(style.color);
+  const ground = groundTone(fill, color);
+  const stroke = color === undefined ? tone("ink", inks.outline) : tone(color);
   return {
-    chrome: drawsGround(item) ? { fill, ground, outline, stroke } : null,
+    chrome: drawsGround(item) ? { fill, ground, outline, stroke, round: isPathNode(item) } : null,
     words: ownsWords(item)
       ? {
           step: TYPE_STEPS[style.size],
@@ -250,7 +270,7 @@ export function itemPaint(item: CanvasNode): ItemPaint {
         }
       : null,
     heads: open ? { length: HEAD_LENGTHS[style.size] } : null,
-    opacity: style.opacity,
+    opacity: style.opacity * (highlight ? HIGHLIGHT_OPACITY : 1),
     ink: { words: wordsTone(ground, fill, inks.words), hint: wordsTone(ground, fill, inks.hint) },
   };
 }

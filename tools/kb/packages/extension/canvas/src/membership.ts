@@ -15,6 +15,7 @@
 import { boxBounds, boxFrame, boxToLocal, boxTop, type CanvasBox } from "./box.ts";
 import {
   isGroupNode,
+  isPathNode,
   withElevation,
   withParent,
   type CanvasDoc,
@@ -444,9 +445,16 @@ export function viewpointFrames(
 export function paintOrder(nodes: readonly CanvasNode[]): CanvasNode[] {
   const membership = canvasMembership(nodes);
   const index = new Map(nodes.map((node, i) => [node.id, i]));
-  // Each item's place in the tree: the document index of every group above it, then its own.
-  const place = (node: CanvasNode) =>
-    [...ancestorsOf(membership, node.id).toReversed(), node.id].map((id) => index.get(id) ?? 0);
+  // Each item's place in the tree: the document index of every group above it, then its own;
+  // a highlighter's stroke goes before its siblings, behind what lies with it.
+  const behind = (node: CanvasNode) =>
+    isPathNode(node) && node.highlight === true ? nodes.length : 0;
+  const place = (node: CanvasNode) => [
+    ...ancestorsOf(membership, node.id)
+      .toReversed()
+      .map((id) => index.get(id) ?? 0),
+    (index.get(node.id) ?? 0) - behind(node),
+  ];
   const keyed = nodes.map((node) => ({ node, top: boxTop(node), place: place(node) }));
   return keyed.toSorted((a, b) => a.top - b.top || byPlace(a.place, b.place)).map((k) => k.node);
 }

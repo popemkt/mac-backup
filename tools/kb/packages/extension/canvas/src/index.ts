@@ -157,7 +157,15 @@ export type { DiagramBox, DiagramFlow, DiagramLink, DiagramSpec } from "./diagra
 export { MERMAID_TEXT_LIMIT, mermaidDiagram } from "./mermaid.ts";
 export type { MermaidDiagram, MermaidReport } from "./mermaid.ts";
 export type { SvgSource } from "./svg.ts";
-export { isOpenLine, itemMarks, itemOutline, pathHeads, withLine } from "./paths.ts";
+export {
+  freehandItem,
+  isOpenLine,
+  itemMarks,
+  itemOutline,
+  pathHeads,
+  smoothThrough,
+  withLine,
+} from "./paths.ts";
 export type { CanvasLinePatch, CanvasMark } from "./paths.ts";
 export { isLinkNode, isLinkUrl, itemLead, linkCard, withLink } from "./links.ts";
 export { inClip, itemClips } from "./clip.ts";

@@ -28,15 +28,96 @@ function pathPoints(item: CanvasPathNode, w: number, h: number) {
   return item.points.map((p) => ({ x: p.x * w, y: p.y * h, z: 0 }));
 }
 
-/** The line through a path's points in a `w` × `h` box, back to its first when closed. */
+/** A point a line runs through, its own units. */
+interface LinePoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * A smooth line through `points` (Catmull–Rom, as cubic curves): each piece
+ * leaves a point heading along the line from the point before it to the
+ * point after it, so a stroke drawn by hand reads as drawn, not as a
+ * polyline; closed, it runs on round to its first. The one smoothing every
+ * projection and the export draw a freehand line by (`itemOutline`).
+ */
+export function smoothThrough(points: readonly LinePoint[], closed: boolean): CanvasPathCommand[] {
+  const [first] = points;
+  if (first === undefined) return [];
+  const n = points.length;
+  const at = (i: number) => points[closed ? (i + n) % n : Math.min(Math.max(i, 0), n - 1)] ?? first;
+  const pieces = Array.from({ length: closed ? n : n - 1 }, (_, i): CanvasPathCommand => {
+    const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+    return [
+      "C",
+      p1.x + (p2.x - p0.x) / 6,
+      p1.y + (p2.y - p0.y) / 6,
+      p2.x - (p3.x - p1.x) / 6,
+      p2.y - (p3.y - p1.y) / 6,
+      p2.x,
+      p2.y,
+    ];
+  });
+  return [["M", first.x, first.y], ...pieces, ...(closed ? [["Z"] as const] : [])];
+}
+
+/**
+ * The line through a path's points in a `w` × `h` box, back to its first
+ * when closed: straight between them, or smooth through them when drawn by
+ * hand (`smoothThrough`).
+ */
 function pathOutline(item: CanvasPathNode, w: number, h: number): CanvasPathCommand[] {
-  const [first, ...rest] = pathPoints(item, w, h);
+  const points = pathPoints(item, w, h);
+  const closed = item.closed === true;
+  if (item.freehand === true) return smoothThrough(points, closed);
+  const [first, ...rest] = points;
   if (first === undefined) return [];
   return [
     ["M", first.x, first.y],
     ...rest.map((p): CanvasPathCommand => ["L", p.x, p.y]),
-    ...(item.closed === true ? [["Z"] as const] : []),
+    ...(closed ? [["Z"] as const] : []),
   ];
+}
+
+/** How near a stroke's point may come to the last one kept before it is dropped, canvas units. */
+const STROKE_STEP = 2;
+
+/**
+ * The path item `id` for a stroke drawn by hand through `stroke` (canvas
+ * points, in the order drawn), a highlighter's when `highlight`: its box
+ * the stroke's bounds (at least a unit each way), its points those anchors
+ * of it, each point nearer than `STROKE_STEP` to the last one kept dropped
+ * (the last always kept). Null for a stroke that never left its first
+ * point.
+ */
+export function freehandItem(
+  id: string,
+  stroke: readonly LinePoint[],
+  highlight: boolean,
+): CanvasPathNode | null {
+  const kept: LinePoint[] = [];
+  for (const [i, p] of stroke.entries()) {
+    const last = kept.at(-1);
+    const far = last === undefined || Math.hypot(p.x - last.x, p.y - last.y) >= STROKE_STEP;
+    if (far) kept.push(p);
+    else if (i === stroke.length - 1 && kept.length > 1) kept[kept.length - 1] = p;
+  }
+  if (kept.length < 2) return null;
+  const xs = kept.map((p) => p.x);
+  const ys = kept.map((p) => p.y);
+  const [x, y] = [Math.min(...xs), Math.min(...ys)];
+  const [width, height] = [Math.max(1, Math.max(...xs) - x), Math.max(1, Math.max(...ys) - y)];
+  return {
+    id,
+    type: "path",
+    x,
+    y,
+    width,
+    height,
+    points: kept.map((p) => ({ x: (p.x - x) / width, y: (p.y - y) / height })),
+    freehand: true,
+    ...(highlight ? { highlight: true } : {}),
+  };
 }
 
 /**

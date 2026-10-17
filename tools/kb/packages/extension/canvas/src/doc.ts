@@ -200,6 +200,10 @@ export interface CanvasPathNode extends CanvasNodeBase {
   /** The head each end wears; absent, none. */
   fromHead?: CanvasHead;
   toHead?: CanvasHead;
+  /** Drawn by hand: its line runs smoothly through its points (`smoothThrough`), never straight. */
+  freehand?: boolean;
+  /** A highlighter's stroke: wide, translucent, and behind what lies with it (`itemPaint`, `paintOrder`). */
+  highlight?: boolean;
 }
 
 /** Opaque passthrough for types kb does not read. */
@@ -524,12 +528,17 @@ const ITEM_KINDS: Readonly<Record<string, ItemKind>> = {
       file: f.file ?? "",
     }),
   ),
-  path: itemKind<CanvasPathNode, "points" | "closed" | "fromHead" | "toHead">(
+  path: itemKind<
+    CanvasPathNode,
+    "points" | "closed" | "fromHead" | "toHead" | "freehand" | "highlight"
+  >(
     {
       points: { read: parseLinePoints, write: (points) => points.map(({ x, y }) => ({ x, y })) },
       closed: { read: bool },
       fromHead: { read: anyHead },
       toHead: { read: anyHead },
+      freehand: { read: bool },
+      highlight: { read: bool },
     },
     ["points"],
     isPathNode,
