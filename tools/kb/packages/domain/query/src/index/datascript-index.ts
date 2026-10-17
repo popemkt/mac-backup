@@ -5,6 +5,7 @@ import { present, type KbNode, type NodeId, type StoreTx } from "@kb/model";
 import { datascriptExecutor, pull as dsPull, query as dsQuery, runIr } from "../datascript.ts";
 import type { Ir } from "../ir/ir.ts";
 import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
+import { CORE_DERIVED, type DerivedRef } from "./derived.ts";
 import type { KbIndex } from "./index.ts";
 
 /** Identity of a datom within one entity — attr plus value, compared structurally. */
@@ -51,6 +52,8 @@ export class DatascriptIndex implements KbIndex {
   /** id → the nodes pointing at it, resolvable or not */
   #refsTo = new Map<NodeId, Set<NodeId>>();
   #storedCache: { generation: number; nodes: KbNode[] } | null = null;
+  /** The derived ref attributes this index builds (`DerivedRef`). */
+  readonly #derived: readonly DerivedRef[] = CORE_DERIVED;
 
   constructor(nodes: ReadonlyArray<KbNode> = []) {
     this.rebuild(nodes);
@@ -84,14 +87,14 @@ export class DatascriptIndex implements KbIndex {
 
     const datoms: Datom[] = [];
     for (const node of merged) {
-      const built = nodeToDatoms(node, this.#ids);
+      const built = nodeToDatoms(node, this.#ids, this.#derived);
       datoms.push(...built.datoms);
       for (const attr of built.attrs) this.#attrs.add(attr);
       for (const attr of built.refAttrs) this.#refAttrs.add(attr);
       this.#setRefs(node.id, built.refs);
     }
 
-    this.#db = d.init_db(datoms, schemaFor(this.#attrs));
+    this.#db = d.init_db(datoms, schemaFor(this.#attrs, this.#derived));
     this.#rebuilds += 1;
     this.#generation += 1;
   }
@@ -128,7 +131,7 @@ export class DatascriptIndex implements KbIndex {
     const adds: unknown[] = [];
     const grown = new Set<string>();
     for (const node of restated.values()) {
-      const built = nodeToDatoms(node, this.#ids);
+      const built = nodeToDatoms(node, this.#ids, this.#derived);
       for (const attr of built.attrs) {
         if (!this.#attrs.has(attr)) grown.add(attr);
       }

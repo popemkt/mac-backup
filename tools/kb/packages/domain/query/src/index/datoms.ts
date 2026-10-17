@@ -1,19 +1,5 @@
-import { extractMentions, present, type KbNode, type NodeId, type PropValue } from "@kb/model";
-
-/**
- * `:node/mentions` is THE reference relation — "this node references that one"
- * — and it is carrier-independent by design.
- *
- * Two things carry a reference in this model: a `[[node-id]]` token in text —
- * the node's own text or any text value it holds — and a `{t:"ref"}` prop
- * value. Both are already first-class, so a question about
- * the relation ("what references X?" — `kb backlinks`, the UI's References
- * section) must not have to remember which carrier was used; asking twice and
- * unioning at every call site is the second `if` on one distinction that Rule 1
- * forbids. The carrier distinction survives only where it is genuinely a lens:
- * the graph's `mention` / `ref-prop` edge kinds, which label provenance and
- * scan text and props separately for exactly that reason.
- */
+import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
+import type { DerivedRef } from "./derived.ts";
 
 export type Datom = [number | string, string, unknown, number?, boolean?];
 
@@ -67,18 +53,23 @@ export interface NodeDatoms {
   /** the field attrs among them that hold a resolving node ref */
   refAttrs: Set<string>;
   /**
-   * Every node id this node points at through any carrier — child, `{t:"ref"}`
-   * prop, or `[[id]]` in text — whether or not the target resolves today. An
-   * unresolved target degrades to a string sentinel (props) or is dropped
-   * (children, mentions), so the datoms of this node change the moment that
+   * Every node id this node points at — a child, a `{t:"ref"}` prop, or any
+   * carrier of a derived attribute (`DerivedRef`) — whether or not the target
+   * resolves today. An unresolved target degrades to a string sentinel
+   * (props) or is dropped (children, derived refs), so the datoms of this
+   * node change the moment that
    * target starts or stops existing. The index keeps the reverse of this set
    * and re-derives the referrers on exactly those transitions.
    */
   refs: Set<NodeId>;
 }
 
-/** One node → its datoms. Pure in (node, ids): the index owns both. */
-export function nodeToDatoms(node: KbNode, ids: IdMap): NodeDatoms {
+/**
+ * One node → its datoms: what it states, then each derived ref attribute in
+ * `derived` from its carriers. Pure in (node, ids, derived): the index owns
+ * all three.
+ */
+export function nodeToDatoms(node: KbNode, ids: IdMap, derived: readonly DerivedRef[]): NodeDatoms {
   const eid = present(ids.toEid.get(node.id), `eid for ${node.id}`);
   const datoms: Datom[] = [];
   const attrs = new Set<string>();
@@ -105,33 +96,30 @@ export function nodeToDatoms(node: KbNode, ids: IdMap): NodeDatoms {
     datoms.push([eid, ":node/children", childEids]);
   }
 
-  // One mention datom per (source, target), whichever carrier produced it —
-  // `:node/mentions` is cardinality-many, so a duplicate would be a duplicate
-  // datom rather than a no-op.
-  const mentioned = new Set<number>();
-
   for (const [fieldId, values] of Object.entries(node.props)) {
     const attr = fieldAttr(fieldId);
     for (const pv of values) {
       if (pv.t === "ref") refs.add(pv.v);
       const datomValue = propDatomValue(pv, ids);
       attrs.add(attr);
-      if (datomValue.isRef) {
-        mentioned.add(datomValue.value);
-        refAttrs.add(attr);
-      }
+      if (datomValue.isRef) refAttrs.add(attr);
       datoms.push([eid, attr, datomValue.value]);
     }
   }
 
-  for (const mentionId of nodeMentions(node)) {
-    refs.add(mentionId);
-    const meid = ids.toEid.get(mentionId);
-    if (meid !== undefined) mentioned.add(meid);
-  }
-
-  for (const meid of mentioned) {
-    datoms.push([eid, ":node/mentions", meid]);
+  // One datom per (source, target) and attribute, whichever carrier produced
+  // it: a derived attr is a set, so a duplicate would be a duplicate datom
+  // rather than a no-op.
+  for (const { attr, carriers } of derived) {
+    const targets = new Set<number>();
+    for (const carrier of carriers) {
+      for (const id of carrier.refsOf(node)) {
+        refs.add(id);
+        const target = ids.toEid.get(id);
+        if (target !== undefined) targets.add(target);
+      }
+    }
+    for (const target of targets) datoms.push([eid, attr, target]);
   }
 
   return { datoms, attrs, refAttrs, refs };
@@ -149,40 +137,31 @@ export function nodeToDatoms(node: KbNode, ids: IdMap): NodeDatoms {
  *   accumulating. Props are multi-valued and a parent has one
  *   `:node/child-order` datom per child, so the two paths only agree when the
  *   schema says so. One derivation, both paths.
- * - **Ref value type**, for `:node/child` and `:node/mentions` only. A prop
+ * - **Ref value type**, for `:node/child` and each derived ref attribute
+ *   (`derived`, with the cardinality it declares) only. A prop
  *   ref is a plain eid: joins read it as an entity either way, but a field
  *   attr is the one place a *dangling* ref survives as its id string
  *   (DANGLING_REF_DECISION), and a string on a ref-typed attr is a tempid to
  *   `db_with`. Declaring those attrs ref would make the incremental path
  *   reject exactly the data the rebuild path keeps.
  */
-export function schemaFor(attrs: ReadonlySet<string>): Record<string, Record<string, string>> {
+export function schemaFor(
+  attrs: ReadonlySet<string>,
+  derived: readonly DerivedRef[],
+): Record<string, Record<string, string>> {
   const many = { ":db/cardinality": ":db.cardinality/many" };
-  const refMany = { ":db/valueType": ":db.type/ref", ...many };
+  const ref = { ":db/valueType": ":db.type/ref" };
   const schema: Record<string, Record<string, string>> = {
     ":node/id": { ":db/unique": ":db.unique/identity" },
-    ":node/child": { ...refMany },
-    ":node/mentions": { ...refMany },
+    ":node/child": { ...ref, ...many },
     ":node/child-order": { ...many },
   };
+  for (const { attr, cardinality } of derived) {
+    schema[attr] = cardinality === "many" ? { ...ref, ...many } : { ...ref };
+  }
   for (const attr of attrs) {
     if (attr in schema) continue;
     schema[attr] = { ...many };
   }
   return schema;
-}
-
-/**
- * Every id a node mentions in text: `[[id]]` tokens in its own text and in
- * each text (`{t:"str"}`) value it holds. A token is a mention wherever the
- * text lives — a text field's value is written, rendered and followed exactly
- * like node text, so it references exactly like node text. In order, with
- * repeats (a caller that wants a set dedupes).
- */
-export function nodeMentions(node: Pick<KbNode, "text" | "props">): NodeId[] {
-  const out = extractMentions(node.text);
-  for (const values of Object.values(node.props)) {
-    for (const pv of values) if (pv.t === "str") out.push(...extractMentions(pv.v));
-  }
-  return out;
 }

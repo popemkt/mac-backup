@@ -582,10 +582,16 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
      values), so a token in it references exactly like one in node text;
   2. a `{t:"ref"}` **prop value** — a typed field pointing at a node.
 
-  At datom build time each distinct target of either kind becomes one
-  `:node/mentions` ref datom on the source (deduplicated per source→target,
-  since the attribute is cardinality-many) — same shape as Logseq
-  `:block/refs` (parse-at-transact). The UI renders inactive text refs as
+  Each is a **carrier** (`RefCarrier`) of the derived attribute, and the
+  datom build reads them through one table: the derived ref attributes
+  (`DerivedRef`, `CORE_DERIVED` in `@kb/query`'s `index/derived.ts`), each
+  named once with its cardinality and the carriers that feed it. At build
+  time each distinct target any carrier names becomes one `:node/mentions`
+  ref datom on the source (deduplicated per source→target, since the
+  attribute is cardinality-many) — same shape as Logseq `:block/refs`
+  (parse-at-transact). A new way of pointing at a node is a carrier added to
+  that entry, and a new derived relation is an entry; the build has no
+  second pass beside the table. The UI renders inactive text refs as
   accent links (click = zoom, ⌘/Ctrl-click = jump); the relationship itself is
   queryable, not UI-only. Example — nodes that reference a target:
 

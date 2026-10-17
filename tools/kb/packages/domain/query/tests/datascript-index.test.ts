@@ -99,6 +99,29 @@ describe("DatascriptIndex", () => {
     expect(rows(index, MENTIONS_QUERY)).toEqual(fresh([a, b], MENTIONS_QUERY));
   });
 
+  test("a reference reads the same whichever carrier made it: a token and a ref prop to one target are one mention", () => {
+    const both = node("a", { text: "sees [[b]]", props: { "f.rel": [{ t: "ref", v: "b" }] } });
+    const viaProp = node("c", {
+      props: {
+        "f.rel": [
+          { t: "ref", v: "b" },
+          { t: "ref", v: "gone" },
+        ],
+      },
+    });
+    const index = new DatascriptIndex([node("b")]);
+    index.applyTx({ upserts: [both, viaProp], deletes: [] });
+    const expected = [
+      ["a", "b"],
+      ["c", "b"],
+    ];
+    expect(rows(index, MENTIONS_QUERY)).toEqual(expected);
+    expect(fresh([node("b"), both, viaProp], MENTIONS_QUERY)).toEqual(expected);
+    // A ref prop's target that arrives later is mentioned then, as a token's is.
+    index.applyTx({ upserts: [node("gone")], deletes: [] });
+    expect(rows(index, MENTIONS_QUERY)).toEqual([...expected, ["c", "gone"]]);
+  });
+
   test("eids are never reused, so a revived id is never the wrong node", () => {
     const index = new DatascriptIndex([node("a")]);
     index.applyTx({ upserts: [], deletes: ["a"] });
