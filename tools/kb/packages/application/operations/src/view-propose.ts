@@ -8,7 +8,13 @@
  */
 import { Effect, Result } from "effect";
 import { z } from "zod";
-import { KbCtx, ViewCatalog, type ActionDefinition, type KbStore } from "@kb/contracts";
+import {
+  KbCtx,
+  ViewCatalog,
+  type ActionDefinition,
+  type KbContext,
+  type KbStore,
+} from "@kb/contracts";
 import {
   SYSTEM_IDS,
   currentIso,
@@ -19,7 +25,7 @@ import {
   type KbNode,
   type PropValue,
 } from "@kb/model";
-import { issueText, viewNodeFor } from "@kb/views";
+import { issueText, viewNodeFor, type ViewKey } from "@kb/views";
 import {
   cloneNode,
   insertChild,
@@ -69,6 +75,69 @@ function naming(host: KbNode, viewId: string, first: boolean, at: string): KbNod
   return named;
 }
 
+/** What a view proposal asks for: the view's settings, the node it is shown for, and the node's own. */
+interface ViewProposal {
+  readonly params: unknown;
+  readonly host?: string | undefined;
+  readonly text: string;
+  /** First among the host's views, so its default. */
+  readonly default: boolean;
+  readonly id?: string | undefined;
+}
+
+/** A planned view node: the node, what it checked as, and the tx that writes it. */
+interface PlannedView {
+  readonly node: KbNode;
+  readonly host: KbNode | null;
+  readonly params: unknown;
+  readonly upserts: readonly KbNode[];
+}
+
+/**
+ * The write a view proposal makes, planned over the session's graph as it
+ * reads now: the view node `viewNodeFor` checks, filed at the end of the
+ * Views list (a store without one files it at the forest roots), and the
+ * host with it among its views. Every writer of a view node from settings
+ * plans it here, so each writes what an agent's `view.propose` would.
+ */
+const planViewProposal = Effect.fn("view.propose.plan")(function* (
+  ctx: KbContext,
+  key: ViewKey<unknown>,
+  proposal: ViewProposal,
+): Effect.fn.Return<PlannedView, DomainError> {
+  const hostId = proposal.host;
+  const host = hostId === undefined ? null : yield* syncDomain(() => requireNode(ctx, hostId));
+  const checked = viewNodeFor(key, proposal.params, host?.id ?? null);
+  if (Result.isFailure(checked))
+    return yield* domainError(
+      "invalid_input",
+      `${key.id}: ${checked.failure.map(issueText).join("; ")}`,
+      { view: key.id, issues: checked.failure },
+    );
+
+  const at = yield* currentIso;
+  const id = proposal.id ?? (yield* freshId);
+  if (ctx.index.getNode(id) !== undefined)
+    return yield* domainError("ambiguous", `node id already exists: ${id}`, { id });
+  const list = ctx.index.getNode(SYSTEM_IDS.viewsList);
+  const draft: KbNode = {
+    id,
+    text: proposal.text,
+    props: checked.success.props,
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+  const node: KbNode = {
+    ...draft,
+    order: placedRank(sessionGraph(ctx), list?.id ?? null, draft, undefined),
+  };
+  const upserts: KbNode[] = [node];
+  if (list !== undefined) upserts.push(insertChild(list, id, at));
+  if (host !== null) upserts.push(naming(host, id, proposal.default, at));
+  return { node, host, params: checked.success.params, upserts };
+});
+
 export const viewProposeEffect = Effect.fn("view.propose")(function* (
   input: ViewProposeInput,
 ): Effect.fn.Return<
@@ -84,45 +153,13 @@ export const viewProposeEffect = Effect.fn("view.propose")(function* (
       view: input.view,
       views: catalog.items.map((known) => known.key.id),
     });
-  const hostId = input.host;
-  const host = hostId === undefined ? null : yield* syncDomain(() => requireNode(ctx, hostId));
-  const proposal = viewNodeFor(key, input.params, host?.id ?? null);
-  if (Result.isFailure(proposal))
-    return yield* domainError(
-      "invalid_input",
-      `${key.id}: ${proposal.failure.map(issueText).join("; ")}`,
-      { view: key.id, issues: proposal.failure },
-    );
-
-  const at = yield* currentIso;
-  const id = input.id ?? (yield* freshId);
-  if (ctx.index.getNode(id) !== undefined)
-    return yield* domainError("ambiguous", `node id already exists: ${id}`, { id });
-  // Filed at the end of the Views list, like every view node the UI makes; a
-  // store without one files it at the forest roots.
-  const list = ctx.index.getNode(SYSTEM_IDS.viewsList);
-  const draft: KbNode = {
-    id,
-    text: input.text,
-    props: proposal.success.props,
-    children: [],
-    createdAt: at,
-    updatedAt: at,
-  };
-  const node: KbNode = {
-    ...draft,
-    order: placedRank(sessionGraph(ctx), list?.id ?? null, draft, undefined),
-  };
-  const upserts: KbNode[] = [node];
-  if (list !== undefined) upserts.push(insertChild(list, id, at));
-  if (host !== null) upserts.push(naming(host, id, input.default, at));
-
-  yield* persistEffect(ctx, { upserts, deletes: [] });
+  const planned = yield* planViewProposal(ctx, key, input);
+  yield* persistEffect(ctx, { upserts: [...planned.upserts], deletes: [] });
   return {
-    id,
+    id: planned.node.id,
     view: key.id,
-    ...(host === null ? {} : { host: host.id }),
-    params: proposal.success.params,
-    node,
+    ...(planned.host === null ? {} : { host: planned.host.id }),
+    params: planned.params,
+    node: planned.node,
   };
 });
