@@ -12,7 +12,7 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, beforeAll } from "vitest";
-import { Color, Raycaster, Vector3, type Object3D } from "three/webgpu";
+import { ClippingGroup, Color, Raycaster, Vector3, type Object3D } from "three/webgpu";
 import {
   CANVAS_HEADS,
   CANVAS_PALETTE,
@@ -343,6 +343,26 @@ function ink2d(el: HTMLElement, look: CardLook): string | null {
   );
 }
 
+/** The region an item is cut to as drawn (its `[data-item-clip]`'s CSS polygon), canvas units; null when uncut. */
+function clipOf2d(el: HTMLElement): Point[] | null {
+  const holder = el.closest<HTMLElement>("[data-item-clip]");
+  const css = holder?.style.clipPath ?? "";
+  if (css === "") return null;
+  return [...css.matchAll(/(-?[\d.e+-]+)px (-?[\d.e+-]+)px/g)].map(([, x = "0", y = "0"]) => ({
+    x: Number(x),
+    y: Number(y),
+  }));
+}
+
+/** Whether every clipping group above `object` keeps `point` as drawn: on the kept side of each plane. */
+function keptBy(object: Object3D, point: Vector3): boolean {
+  for (let at: Object3D | null = object; at !== null; at = at.parent) {
+    if (!(at instanceof ClippingGroup) || !at.enabled) continue;
+    if (at.clippingPlanes.some((plane) => plane.distanceToPoint(point) < -1e-6)) return false;
+  }
+  return true;
+}
+
 /** An edge as drawn: its path, its stroke, its group's opacity, and its heads' paths. */
 function edge2d(el: Element, look: CardLook, read: PaintRead): DrawnEdge | null {
   const path = el.querySelector("[data-edge-path]");
@@ -441,8 +461,10 @@ const mount2d: Mount = async (view, scene) => {
   const cards = () => [...container.querySelectorAll<HTMLElement>("[data-card-id]")];
   const card = (id: string) => cards().find((c) => c.dataset.cardId === id);
   const toScreen = (p: Point) => ({ x: p.x * zoom + pan.x, y: p.y * zoom + pan.y });
-  /** Whether `el`'s body, or its face within its footprint, covers canvas point `at`. */
+  /** Whether `el`'s body, or its face within its footprint, covers canvas point `at`, inside its clip. */
   const covers = (el: HTMLElement, at: Point) => {
+    const clip = clipOf2d(el);
+    if (clip !== null && !inPolygon(at, clip)) return false;
     if (bodyOf(el).some((piece) => inPolygon(at, piece))) return true;
     const f = laidFace(el);
     const q = f === null ? null : onFace(f, at);
@@ -587,7 +609,10 @@ const mount3d: Mount = async (view, probed) => {
       const ray = rayThrough(view, probed.size, p);
       if (ray === null) return null;
       const raycaster = new Raycaster(ray.origin, ray.dir);
-      const [first] = raycaster.intersectObjects([...bodies.keys()], false);
+      // A ray meets a body whatever cuts it; a hit counts where its clipping group keeps it.
+      const first = raycaster
+        .intersectObjects([...bodies.keys()], false)
+        .find((hit) => keptBy(hit.object, hit.point));
       return first === undefined ? null : (bodies.get(first.object) ?? null);
     },
     edgeOf: (id) => inspect().edgeOf(id),

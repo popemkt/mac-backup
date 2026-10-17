@@ -149,6 +149,17 @@ const doc: CanvasDoc = {
     },
     { id: "late", type: "group", label: "Late", x: 0, y: 700, width: 320, height: 200 },
     { id: "raised", type: "text", text: "raised", x: 150, y: 40, width: 200, height: 100, z: 80 },
+    // A member that spills past its frame: drawn, and hit, only inside it.
+    {
+      id: "spill",
+      type: "text",
+      text: "spills over",
+      x: 620,
+      y: 100,
+      width: 160,
+      height: 40,
+      parent: "frame",
+    },
     {
       id: "sunk",
       type: "shape",
@@ -579,6 +590,18 @@ describe("canvas projection contract", () => {
           hitTest(order, view, size, at),
         );
       }
+      probe.dispose();
+    });
+
+    it("draws and hits a frame's member only inside the frame: a frame clips what it holds", async () => {
+      const probe = await mount(view, scene);
+      const order = paintOrder(doc.nodes);
+      const at = (x: number) => projectPoint(view, size, { x, y: 120, z: 0 });
+      const [inside, outside] = [at(650), at(740)];
+      if (inside === null || outside === null) throw new Error("the spill is out of view");
+      expect(hitTest(order, view, size, inside)).toBe("spill");
+      expect(hitTest(order, view, size, outside)).not.toBe("spill");
+      for (const p of [inside, outside]) expect(probe.topAt(p)).toBe(hitTest(order, view, size, p));
       probe.dispose();
     });
 

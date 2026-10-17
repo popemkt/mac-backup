@@ -25,6 +25,7 @@ import {
   type CanvasNode,
 } from "./doc.ts";
 import { edgeHead, edgeRoute, routeMidpoint, routePoints } from "./edges.ts";
+import { itemClips } from "./clip.ts";
 import { isLinkNode, linkCard } from "./links.ts";
 import { paintOrder } from "./membership.ts";
 import {
@@ -408,9 +409,21 @@ export function canvasSvg(doc: CanvasDoc, source: SvgSource): string {
     style: style({ fill: `var(${TONE_TOKENS.ground})` }),
   });
   const edges = doc.edges.map((edge) => edgeElement(edge, byId, source)).join("");
+  const clips = itemClips(doc.nodes);
+  const cuts: string[] = [];
   const items = paintOrder(doc.nodes)
-    .map((item) => itemElement(item, source))
+    .map((item) => {
+      const drawn = itemElement(item, source);
+      const clip = clips.get(item.id);
+      if (clip === undefined) return drawn;
+      // A frame clips what it holds: the item in its canvas place, cut to where its frames reach.
+      const id = `kb-clip-${cuts.length}`;
+      const points = clip.map(([px, py]) => `${round(px)},${round(py)}`).join(" ");
+      cuts.push(element("clipPath", { id }, element("polygon", { points })));
+      return element("g", { "data-item-clip": "", "clip-path": `url(#${id})` }, drawn);
+    })
     .join("");
+  const defs = cuts.length === 0 ? "" : element("defs", {}, cuts.join(""));
   return element(
     "svg",
     {
@@ -419,6 +432,6 @@ export function canvasSvg(doc: CanvasDoc, source: SvgSource): string {
       width,
       height,
     },
-    `<style>${tokenRule()}</style>${ground}${edges}${items}`,
+    `<style>${tokenRule()}</style>${defs}${ground}${edges}${items}`,
   );
 }

@@ -27,8 +27,11 @@ import {
   frameCorners,
   isGroupNode,
   itemFrame,
+  inClip,
+  itemClips,
   rayIntoItem,
   type CanvasAxes,
+  type CanvasClip,
   type CanvasNode,
   type CanvasPickItem,
   type CanvasPose,
@@ -392,23 +395,36 @@ export function paintPlanes<T extends CanvasHitItem>(
 }
 
 // GAP [[01M53H6YF9J97SFD9Y44V3NETE]] a canvas path is picked by its box, not its stroke
+/** Each item list's clips (`itemClips`), worked out once for as long as the list is the one hit. */
+const CLIPS = new WeakMap<readonly CanvasNode[], ReadonlyMap<string, CanvasClip>>();
+
+function clipsOf(items: readonly CanvasNode[]): ReadonlyMap<string, CanvasClip> {
+  const known = CLIPS.get(items) ?? itemClips(items);
+  CLIPS.set(items, known);
+  return known;
+}
+
 /**
  * The item under a screen point: of every item whose box the eye's ray
- * enters (`paintPlanes`), the nearest. `items` are in paint order, back to
- * front.
+ * enters (`paintPlanes`) where its frames let it be drawn (`itemClips`),
+ * the nearest. `items` are in paint order, back to front.
  */
 export function hitTest(
-  items: readonly CanvasHitItem[],
+  items: readonly CanvasNode[],
   view: CanvasView,
   size: ViewSize,
   screen: CanvasPoint,
 ): string | null {
   const ray = screenRay(view, size, screen);
   const axes = viewAxes(view);
+  const clips = clipsOf(items);
   let best: { id: string; t: number } | null = null;
   for (const { item, z } of paintPlanes(items)) {
     const t = rayIntoItem(ray, item, z, axes);
-    if (t !== null && (best === null || t < best.t)) best = { id: item.id, t };
+    if (t === null || (best !== null && t >= best.t)) continue;
+    const clip = clips.get(item.id);
+    const [x, y] = [ray.origin.x + ray.dir.x * t, ray.origin.y + ray.dir.y * t];
+    if (clip === undefined || inClip(clip, x, y)) best = { id: item.id, t };
   }
   return best?.id ?? null;
 }

@@ -1,5 +1,5 @@
-import { Fragment } from "react";
-import type { CanvasDoc, CanvasNode, CanvasSide } from "@kb/canvas";
+import { useMemo, type ReactNode } from "react";
+import type { CanvasClip, CanvasDoc, CanvasNode, CanvasSide } from "@kb/canvas";
 import {
   canvasDepth,
   canvasTop,
@@ -7,6 +7,7 @@ import {
   isGroupNode,
   isKbNode,
   isLinkNode,
+  itemClips,
   isPathNode,
   isShapeNode,
   isTextNode,
@@ -385,14 +386,35 @@ function CanvasItemView(props: CanvasCardViewProps) {
   );
 }
 
+/** A clip (`itemClips`) as CSS: its polygon in canvas units, where the stage lays items out. */
+function clipPathOf(clip: CanvasClip): string {
+  const corners = clip.length < 3 ? [[0, 0] as const, [0, 0] as const, [0, 0] as const] : clip;
+  return `polygon(${corners.map(([x, y]) => `${x}px ${y}px`).join(", ")})`;
+}
+
+/**
+ * An item and its shadow, cut to where its frames reach (`itemClips`): a
+ * frame clips what it holds. An item no frame holds is drawn whole.
+ */
+// GAP [[01M556WN27H5RAH0JSHERPAW82]] a clipped frame member's 2D selection handles are cut with it
+function CanvasClipped({ clip, children }: { clip: CanvasClip | undefined; children: ReactNode }) {
+  if (clip === undefined) return children;
+  return (
+    <div data-item-clip className="absolute top-0 left-0" style={{ clipPath: clipPathOf(clip) }}>
+      {children}
+    </div>
+  );
+}
+
 export function CanvasCardLayer(props: CanvasCardLayerProps) {
+  const clips = useMemo(() => itemClips(props.doc.nodes), [props.doc.nodes]);
   return (
     <div data-canvas-stage className="contents">
       {paintOrder(props.doc.nodes).map((card) => (
-        <Fragment key={card.id}>
+        <CanvasClipped key={card.id} clip={clips.get(card.id)}>
           <CanvasLiftShadow card={card} />
           <CanvasItemView {...props} card={card} />
-        </Fragment>
+        </CanvasClipped>
       ))}
     </div>
   );

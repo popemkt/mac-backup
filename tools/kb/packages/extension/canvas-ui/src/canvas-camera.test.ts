@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { coversFromAbove } from "@kb/canvas";
+import { coversFromAbove, type CanvasNode } from "@kb/canvas";
 import {
   MAX_PITCH,
   PERSPECTIVE_FOV,
@@ -107,10 +107,17 @@ describe("perspective", () => {
   });
 });
 
+/** A plain item over `box`, as the canvas hits it. */
+const asItem = (box: CanvasHitItem): CanvasNode => ({
+  ...box,
+  type: "shape",
+  shape: box.shape ?? "rect",
+});
+
 describe("hit-testing", () => {
-  const low: CanvasHitItem = { id: "low", x: 0, y: 0, width: 200, height: 100 };
-  const high: CanvasHitItem = { id: "high", x: 100, y: 0, width: 200, height: 100, z: 150 };
-  const later: CanvasHitItem = { id: "later", x: 150, y: 20, width: 40, height: 40 };
+  const low = asItem({ id: "low", x: 0, y: 0, width: 200, height: 100 });
+  const high = asItem({ id: "high", x: 100, y: 0, width: 200, height: 100, z: 150 });
+  const later = asItem({ id: "later", x: 150, y: 20, width: 40, height: 40 });
 
   test("face-on, the item painted last wins at one depth", () => {
     const view = viewOfPan({ x: 0, y: 0 }, 1, size);
@@ -133,16 +140,16 @@ describe("hit-testing", () => {
   test("a box is hit on its side as well as its top, nearest first", () => {
     // Level from the front (the eye on the +y side), a raised box hides a flat card behind it.
     const front = { ...perspective, x: 100, y: 0, z: 60, yaw: 0, pitch: Math.PI / 2 };
-    const block: CanvasHitItem = { id: "block", x: 50, y: 100, width: 100, height: 40, depth: 120 };
-    const behind: CanvasHitItem = { id: "behind", x: 0, y: -400, width: 200, height: 10 };
+    const block = asItem({ id: "block", x: 50, y: 100, width: 100, height: 40, depth: 120 });
+    const behind = asItem({ id: "behind", x: 0, y: -400, width: 200, height: 10 });
     const at = projectPoint(front, size, { x: 100, y: 140, z: 60 }) ?? { x: 0, y: 0 };
     expect(hitTest([behind, block], front, size, at)).toBe("block");
     expect(hitTest([{ ...block, depth: 0 }], front, size, at)).toBeNull();
   });
 
   test("paint order breaks ties between equal tops, not equal bases", () => {
-    const block: CanvasHitItem = { id: "block", x: 0, y: 0, width: 10, height: 10, depth: 40 };
-    const lid: CanvasHitItem = { id: "lid", x: 0, y: 0, width: 10, height: 10, z: 40 };
+    const block = asItem({ id: "block", x: 0, y: 0, width: 10, height: 10, depth: 40 });
+    const lid = asItem({ id: "lid", x: 0, y: 0, width: 10, height: 10, z: 40 });
     const [, raised] = paintPlanes([block, lid]);
     expect(raised?.z).toBeGreaterThan(40);
     const [, apart] = paintPlanes([block, { ...lid, z: 41 }]);
@@ -155,27 +162,29 @@ describe("hit-testing", () => {
 
   test("from the top, a flat shape is hit on its footprint, not its box", () => {
     const view = viewOfPan({ x: 0, y: 0 }, 1, size);
-    const disc: CanvasHitItem = { id: "disc", x: 0, y: 0, width: 100, height: 100 };
+    const disc = asItem({ id: "disc", x: 0, y: 0, width: 100, height: 100 });
     const corner = { x: 6, y: 6 };
     expect(hitTest([disc], view, size, corner)).toBe("disc");
     for (const shape of ["ellipse", "diamond", "sphere", "cone"] as const) {
-      expect(hitTest([{ ...disc, shape }], view, size, corner), shape).toBeNull();
-      expect(hitTest([{ ...disc, shape }], view, size, { x: 50, y: 50 }), shape).toBe("disc");
+      expect(hitTest([asItem({ ...disc, shape })], view, size, corner), shape).toBeNull();
+      expect(hitTest([asItem({ ...disc, shape })], view, size, { x: 50, y: 50 }), shape).toBe(
+        "disc",
+      );
     }
   });
 
   test("level from the front, a cone narrows to its point and a sphere rounds off", () => {
     const front = { ...perspective, x: 50, y: 0, z: 50, yaw: 0, pitch: Math.PI / 2, fov: 0 };
-    const solid: CanvasHitItem = { id: "s", x: 0, y: 0, width: 100, height: 100, depth: 100 };
+    const solid = asItem({ id: "s", x: 0, y: 0, width: 100, height: 100, depth: 100 });
     const at = (x: number, z: number) => projectPoint(front, size, { x, y: 100, z }) ?? { x, y: z };
     // Near the top, off centre: inside the box, outside the cone and the sphere.
     expect(hitTest([solid], front, size, at(20, 92))).toBe("s");
-    expect(hitTest([{ ...solid, shape: "cone" }], front, size, at(20, 92))).toBeNull();
-    expect(hitTest([{ ...solid, shape: "sphere" }], front, size, at(8, 92))).toBeNull();
+    expect(hitTest([asItem({ ...solid, shape: "cone" })], front, size, at(20, 92))).toBeNull();
+    expect(hitTest([asItem({ ...solid, shape: "sphere" })], front, size, at(8, 92))).toBeNull();
     // Near the base, off centre: a cone is widest there, a sphere is not.
-    expect(hitTest([{ ...solid, shape: "cone" }], front, size, at(10, 4))).toBe("s");
-    expect(hitTest([{ ...solid, shape: "sphere" }], front, size, at(10, 4))).toBeNull();
-    expect(hitTest([{ ...solid, shape: "sphere" }], front, size, at(50, 50))).toBe("s");
+    expect(hitTest([asItem({ ...solid, shape: "cone" })], front, size, at(10, 4))).toBe("s");
+    expect(hitTest([asItem({ ...solid, shape: "sphere" })], front, size, at(10, 4))).toBeNull();
+    expect(hitTest([asItem({ ...solid, shape: "sphere" })], front, size, at(50, 50))).toBe("s");
   });
 
   test("every volume is hit exactly where a march along the ray first enters it", () => {
@@ -206,7 +215,7 @@ describe("hit-testing", () => {
         fov: rand() < 0.5 ? 0 : PERSPECTIVE_FOV,
       };
       const screen = { x: 600 + (rand() - 0.5) * 200, y: 400 + (rand() - 0.5) * 200 };
-      const hit = hitTest([{ ...item, shape }], view, size, screen);
+      const hit = hitTest([asItem({ ...item, shape })], view, size, screen);
       // March the ray through the box's neighbourhood and note where it is inside.
       const near = screenToPlane(view, size, screen, 200);
       const far = screenToPlane(view, size, screen, -100);
@@ -446,15 +455,15 @@ describe("billboards", () => {
     const above = projectPoint(front, size, { x: 100, y: 40, z: 100 });
     expect(standing).not.toBeNull();
     if (standing === null || above === null) return;
-    expect(hitTest([label], front, size, standing)).toBe("label");
-    expect(hitTest([label], front, size, above)).toBeNull();
+    expect(hitTest([asItem(label)], front, size, standing)).toBe("label");
+    expect(hitTest([asItem(label)], front, size, above)).toBeNull();
   });
 
   test("from the top it is its footprint, its turn set aside", () => {
     const top = presetView(perspective, "top");
     const corner = projectPoint(top, size, { x: 195, y: 75, z: 0 });
     expect(corner).not.toBeNull();
-    if (corner !== null) expect(hitTest([label], top, size, corner)).toBe("label");
+    if (corner !== null) expect(hitTest([asItem(label)], top, size, corner)).toBe("label");
     expect(coversFromAbove(label, { x: 195, y: 75 })).toBe(true);
   });
 

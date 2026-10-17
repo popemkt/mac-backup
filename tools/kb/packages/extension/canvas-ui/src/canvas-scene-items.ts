@@ -23,6 +23,7 @@ import {
   BackSide,
   CanvasTexture,
   CircleGeometry,
+  ClippingGroup,
   Color,
   FrontSide,
   Group,
@@ -30,6 +31,7 @@ import {
   Matrix4,
   Mesh,
   MeshBasicNodeMaterial,
+  Plane,
   PlaneGeometry,
   SRGBColorSpace,
   Vector3,
@@ -52,6 +54,7 @@ import {
   facesCamera,
   facingLift,
   itemShape,
+  itemClips,
   paintOrder,
   CANVAS_FOOTPRINTS,
   CANVAS_FOOTPRINT_KINDS,
@@ -59,6 +62,7 @@ import {
   tracePath,
   type CanvasAxes,
   type CanvasFootprint,
+  type CanvasClip,
   type CanvasNode,
   cornerRadius,
 } from "@kb/canvas";
@@ -106,6 +110,10 @@ const MATCAP_LIGHT = {
 };
 
 interface Item {
+  /** Everything it draws, cut to where its frames reach (`itemClips`). */
+  readonly clipper: ClippingGroup;
+  /** The clip it is cut to, as a key: none, ``. */
+  clipped: string;
   readonly group: Group;
   readonly body: Mesh;
   readonly back: Mesh;
@@ -133,6 +141,27 @@ interface Item {
   /** The height its base is drawn at (`paintPlanes`). */
   z: number;
   shows: { face: CardFace; selected: boolean };
+}
+
+/**
+ * The planes that stand up along `clip`'s sides, in the scene (canvas `y`
+ * runs down, the scene's up): each keeps what lies on the clip's side of
+ * it, so together they keep what stands over the region. An empty clip
+ * keeps nothing.
+ */
+function clipPlanes(clip: CanvasClip): Plane[] {
+  if (clip.length < 3) return [new Plane(new Vector3(0, 0, 1), -Number.MAX_SAFE_INTEGER)];
+  const [cx, cy] = clip
+    .reduce(([sx, sy], [x, y]) => [sx + x, sy + y], [0, 0])
+    .map((sum) => sum / clip.length);
+  return clip.map(([ax, ay], i) => {
+    const [bx, by] = clip[(i + 1) % clip.length] ?? [ax, ay];
+    // Square to the side, turned toward the middle.
+    let [nx, ny] = [-(by - ay), bx - ax];
+    if (nx * ((cx ?? 0) - ax) + ny * ((cy ?? 0) - ay) < 0) [nx, ny] = [-nx, -ny];
+    const normal = new Vector3(nx, -ny, 0).normalize();
+    return new Plane().setFromNormalAndCoplanarPoint(normal, new Vector3(ax, -ay, 0));
+  });
 }
 
 /** A soft, blurred silhouette of a footprint, which every shadow of it is stretched from. */
@@ -319,6 +348,7 @@ export class ItemLayer {
 
   sync(content: CanvasSceneContent): void {
     const items = paintOrder(content.doc.nodes);
+    const clips = itemClips(content.doc.nodes);
     const seen = new Set<string>();
     const pictured = new Set<string>();
     const picture = (src: string) => {
@@ -338,6 +368,7 @@ export class ItemLayer {
       else if (resized) this.stale.add(entry);
       this.build(entry);
       this.place(entry, z, selected);
+      this.clip(entry, clips.get(item.id));
     }
     for (const [id, entry] of this.items) {
       if (seen.has(id)) continue;
@@ -513,8 +544,12 @@ export class ItemLayer {
     stem.add(new LineSegments2(segments([0, 0, 0, 0, 0, 1]), stemMaterial));
     stem.add(new Mesh(this.foot, footMaterial));
     stem.visible = false;
-    this.root.add(group, groundShadow, stem);
+    const clipper = new ClippingGroup();
+    clipper.add(group, groundShadow, stem);
+    this.root.add(clipper);
     const entry: Item = {
+      clipper,
+      clipped: "",
       group,
       body,
       back,
@@ -664,8 +699,16 @@ export class ItemLayer {
     }
   }
 
+  /** Cut `entry` to `clip`: everything it draws keeps only what stands over the region. */
+  private clip(entry: Item, clip: CanvasClip | undefined): void {
+    const key = clip === undefined ? "" : JSON.stringify(clip);
+    if (entry.clipped === key) return;
+    entry.clipped = key;
+    entry.clipper.clippingPlanes = clip === undefined ? [] : clipPlanes(clip);
+  }
+
   private remove(entry: Item): void {
-    this.root.remove(entry.group, entry.groundShadow, entry.stem);
+    this.root.remove(entry.clipper);
     for (const material of entry.materials) material.dispose();
     entry.body.geometry.dispose();
     entry.edges.geometry.dispose();

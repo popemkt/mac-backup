@@ -1294,6 +1294,18 @@ manipulation feel professional rather than merely functional.
   else; a press outside the scope, or on empty canvas, steps out as far as
   it must, and a marquee or ⌘A selects what a press would there. A chip in
   the corner names the group entered. Both projections share all of it.
+- **Frames clip what they hold** (tldraw's frame; `@kb/canvas` `clip.ts`).
+  An item a frame holds is drawn, and hit, only where every frame above it
+  reaches, seen from above: its clip (`itemClips`) is the meeting of its
+  frames' top views, a convex region of the floor standing up through every
+  height. One model answers for every projection. The 2D stage cuts the
+  item and its shadow with a CSS `clip-path` in canvas units; the 3D scene
+  puts each item in a `ClippingGroup` whose planes stand along the clip's
+  sides; the SVG export wraps it in a `<clipPath>`; the model hit test
+  (`hitTest`) counts a hit only where the ray meets the item inside its
+  clip. The projection contract holds both projections to that hit test
+  over a member that spills past its frame, and the probes read the cut
+  each painter made.
 - **Frames are viewpoints** (decision 7): the view menu lists the canvas's
   frames (the groups that belong to no other, `viewpointFrames`) and goes
   to each face-on (`faceOnView`: the eye on the side its face points to,
