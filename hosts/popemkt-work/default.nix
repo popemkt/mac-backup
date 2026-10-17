@@ -25,7 +25,12 @@
     kb.enable = true;
     office-docs.enable = true;
     t3-code.enable = true;
-    vpn.enable = true;
+    vpn = {
+      enable = true;
+      # The T3 Code app's local server, as https://t3-work.<tailnet>: agents
+      # elsewhere sign in to its MCP, and OAuth needs TLS off loopback.
+      services.t3-work.target = "http://127.0.0.1:3773";
+    };
   };
 
   # Work-only GUI apps; merged with the shared Homebrew module.
