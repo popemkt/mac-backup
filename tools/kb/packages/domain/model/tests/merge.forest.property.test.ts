@@ -239,6 +239,52 @@ class Outcome {
   }
 }
 
+const LABELS = ["a", "b", "c", "d"];
+
+/** All 125 rooted forests on four labelled nodes, ranked by id per group. */
+function allForests(): Store[] {
+  const forests: Store[] = [];
+  const choose = (i: number, chosen: (string | null)[]): void => {
+    if (i === LABELS.length) {
+      const store: Store = new Map();
+      for (const [j, id] of LABELS.entries()) {
+        store.set(id, { text: id, parent: chosen[j] ?? null, order: "", updatedAt: T0 });
+      }
+      for (const id of LABELS) {
+        let at: string | null = id;
+        for (let step = 0; at !== null; step++) {
+          if (step > LABELS.length) return;
+          at = store.get(at)?.parent ?? null;
+        }
+      }
+      for (const parent of [null, ...LABELS]) {
+        const members = LABELS.filter((id) => store.get(id)?.parent === parent);
+        for (const [id, order] of ranksFor(members)) present(store.get(id), id).order = order;
+      }
+      forests.push(store);
+      return;
+    }
+    for (const parent of [null, ...LABELS.filter((id) => id !== LABELS[i])]) {
+      choose(i + 1, [...chosen, parent]);
+    }
+  };
+  choose(0, []);
+  return forests;
+}
+
+const FORESTS = allForests();
+
+/** A forest as each node's parent, in label order (`-` for a root). */
+const shape = (f: Store) => LABELS.map((id) => f.get(id)?.parent ?? "-").join("");
+
+/** Every node a root, and the base of the cycle found in review: a -> {c, d}. */
+const EXHAUSTIVE_BASES = ["----", "--aa"].map((want) =>
+  present(
+    FORESTS.find((f) => shape(f) === want),
+    want,
+  ),
+);
+
 describe("merge over whole forests (fast-check)", () => {
   test("never throws, and the result is always a store", () => {
     fc.assert(
@@ -249,46 +295,21 @@ describe("merge over whole forests (fast-check)", () => {
     );
   });
 
-  test("every pair of 4-node forests over a base merges to a store", () => {
-    // All 125 rooted forests on four labelled nodes, ranked by id per group.
-    const all = ["a", "b", "c", "d"];
-    const forests: Store[] = [];
-    const choose = (i: number, chosen: (string | null)[]): void => {
-      if (i === all.length) {
-        const store: Store = new Map();
-        for (const [j, id] of all.entries()) {
-          store.set(id, { text: id, parent: chosen[j] ?? null, order: "", updatedAt: T0 });
-        }
-        for (const id of all) {
-          let at: string | null = id;
-          for (let step = 0; at !== null; step++) {
-            if (step > all.length) return;
-            at = store.get(at)?.parent ?? null;
-          }
-        }
-        for (const parent of [null, ...all]) {
-          const members = all.filter((id) => store.get(id)?.parent === parent);
-          for (const [id, order] of ranksFor(members)) present(store.get(id), id).order = order;
-        }
-        forests.push(store);
-        return;
-      }
-      for (const parent of [null, ...all.filter((id) => id !== all[i])]) {
-        choose(i + 1, [...chosen, parent]);
-      }
-    };
-    choose(0, []);
-    expect(forests.length).toBe(125);
-
-    const shape = (f: Store) => all.map((id) => f.get(id)?.parent ?? "-").join("");
-    // Every node a root, and the base of the cycle found in review: a -> {c, d}.
-    const bases = ["----", "--aa"].map((want) => forests.find((f) => shape(f) === want));
-    for (const base of bases.map((b) => present(b, "base forest"))) {
-      for (const ours of forests) {
-        for (const theirs of forests) expectStore(merge(base, ours, theirs).nodes);
-      }
-    }
+  test("the exhaustive cases range over all 125 rooted forests on four nodes", () => {
+    expect(new Set(FORESTS.map(shape)).size).toBe(125);
   });
+
+  // Every pair of 4-node forests over a base merges to a store: one case
+  // per base and ours, each merging ours with every theirs.
+  for (const base of EXHAUSTIVE_BASES) {
+    describe(`every pair of 4-node forests over the base ${shape(base)}`, () => {
+      for (const ours of FORESTS) {
+        test(`ours ${shape(ours)}, against every theirs, merges to a store`, () => {
+          for (const theirs of FORESTS) expectStore(merge(base, ours, theirs).nodes);
+        });
+      }
+    });
+  }
 
   test("a concern only one side changed survives, unless a conflict names the node", () => {
     fc.assert(
