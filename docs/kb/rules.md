@@ -226,6 +226,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
 - **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
 
+### GAP: a page's own backdrop has no gesture
+
+- **expected** — A page chooses its own backdrop with the ordinary field gesture.
+- **current** — The slot reads sys.f.backdrop, .strength and .direction from the shown node before core's, but sys.* props are hidden from field rows (isIntrinsicSystemPropKey), so a page's choice is written only from the CLI, MCP or debug fields.
+- **impact** — Per-page backdrops exist in data but people cannot discover them.
+- **closes** — A setting that configures something shows as a field row wherever it is written, or the page head offers a backdrop field in its ⌘K commands.
+- **node** — `01M54CEM0Z5SMAS7KABS7QZ67C`
+
 ### GAP: a pane cannot follow another pane's focused node
 
 - **expected** — a pane spec can bind its subject to another pane's focus, so a graph pane follows the outline's focused node
@@ -405,6 +413,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move relationFieldsFor to @kb/model and have canvas read it.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M545DD34TP58TEN1Z6MC7ASJ`
+
+### GAP: canvas and graph pages have no page head for the backdrop
+
+- **expected** — Every page that has a head renders PageBackdrop, the one page-head slot; canvas and graph pages show the chosen backdrop as the outline does.
+- **current** — Only the outline's home head and a zoomed node's head render the slot; canvas and graph pages have no head, so nothing renders it there (no head was invented).
+- **impact** — The backdrop setting has no effect on canvas and graph pages.
+- **closes** — Those pages gain a head (canvas-ui, graph-ui) that renders PageBackdrop.
+- **node** — `01M54CEKJJXNDPYNT55AR6KEV8`
 
 ### GAP: canvas camera lives on the canvas document
 
