@@ -248,6 +248,29 @@ describe("a script's reach", () => {
     expect(persons).toEqual(["succeeded", "invalid_input", "succeeded"]);
   });
 
+  test("a script never types a relation, even one its grant names within its subject", async () => {
+    const ctx = await board(root);
+    const before = JSON.stringify(ctx.index.storedNodes());
+    // `relation.type` reads and writes the graph whole, and declares no node it acts on: no code's to call.
+    const grant = {
+      ...GRANT,
+      actions: [...GRANT.actions, "graph.relation.type", "ext.graph.relation.type"],
+    };
+    for (const id of ["graph.relation.type", "ext.graph.relation.type"]) {
+      for (const target of ["n.kept2", SECRET]) {
+        const receipt = await invoke(ctx, {
+          id,
+          input: { source: KEPT, target, field: "f.leads" },
+          actor: "script",
+          approved: true,
+          script: { subject: CANVAS, grant },
+        });
+        expect(statusOf(receipt)).toBe("forbidden");
+      }
+    }
+    expect(JSON.stringify(ctx.index.storedNodes())).toBe(before);
+  });
+
   test("a call an action makes for a script is the script's, within its grant", async () => {
     const ctx = await board(root);
     // describe lists the board's scripts through ext.code.script.list, which this grant does not name.
