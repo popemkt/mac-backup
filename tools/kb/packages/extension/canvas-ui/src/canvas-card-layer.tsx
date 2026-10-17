@@ -28,7 +28,7 @@ import { paintCss } from "./canvas-color";
 import { cn, hasText } from "@kb/ui-sdk";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
 import { ItemOutline } from "./canvas-item-outline";
-import { wordsInk, wordsStyle } from "./canvas-dom-paint";
+import { inkStyle, wordsStyle } from "./canvas-dom-paint";
 import { itemPaint } from "./canvas-style";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles } from "./canvas-resize-handles";
@@ -171,12 +171,12 @@ export function CanvasCardFace({
           handleCardPointerDown(card, e);
         }}
       >
-        <ItemOutline item={card} paint={paint} selected={isSelected} ink={14} />
+        <ItemOutline item={card} paint={paint} selected={isSelected} />
         {hasText(card.label) && (
           <div
             data-words
             className="relative h-full px-2 py-1"
-            style={{ ...wordsStyle(paint.words, true), color: wordsInk(paint, 40) }}
+            style={{ ...wordsStyle(paint.words, true), ...inkStyle(paint.ink.words) }}
           >
             {card.label}
           </div>
@@ -247,7 +247,7 @@ export function CanvasCardFace({
           handleCardPointerDown(card, e);
         }}
       >
-        <ItemOutline item={card} paint={itemPaint(card)} selected={isSelected} ink={60} />
+        <ItemOutline item={card} paint={itemPaint(card)} selected={isSelected} />
         <CanvasResizeHandles
           selected={isSelected}
           onResizeStart={resizeHandler}

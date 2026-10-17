@@ -15,7 +15,7 @@ import { useCallback, useEffect, useEffectEvent, useRef } from "react";
 import type { CanvasKbNode, CanvasTextNode } from "@kb/canvas";
 import type { FaceLayout } from "./canvas-face";
 import { ItemOutline } from "./canvas-item-outline";
-import { wordsInk, wordsStyle } from "./canvas-dom-paint";
+import { inkStyle, wordsStyle } from "./canvas-dom-paint";
 import { itemPaint } from "./canvas-style";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
@@ -122,7 +122,7 @@ export function KbNodeCard({
         "group/card absolute rounded-xl",
         paint.chrome?.fill !== "none" && "shadow-raised",
       )}
-      style={{ ...box, color: wordsInk(paint, 100) }}
+      style={{ ...box, ...inkStyle(paint.ink.words) }}
       onPointerDown={(e) => {
         const intent = classifyCardPointer(e.target, ".node-content");
         if (intent === "chrome") return;
@@ -135,7 +135,7 @@ export function KbNodeCard({
         onMoveStart(e);
       }}
     >
-      <ItemOutline item={card} paint={paint} selected={selected} ink={12} />
+      <ItemOutline item={card} paint={paint} selected={selected} />
       <NodeRow
         className="relative h-full overflow-auto rounded-xl bg-transparent px-3 py-3"
         depth={0}
@@ -244,7 +244,7 @@ export function TextCard({
         onMoveStart(e);
       }}
     >
-      <ItemOutline item={card} paint={paint} selected={selected} ink={12} />
+      <ItemOutline item={card} paint={paint} selected={selected} />
       <textarea
         ref={field}
         data-words
@@ -252,7 +252,7 @@ export function TextCard({
           "relative w-full resize-none bg-transparent outline-none",
           top ? "h-full" : "max-h-full [field-sizing:content]",
         )}
-        style={{ ...wordsStyle(paint.words), color: wordsInk(paint, 100) }}
+        style={{ ...wordsStyle(paint.words), ...inkStyle(paint.ink.words) }}
         value={card.text}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => onEdit(true)}

@@ -4,7 +4,7 @@ import { classifyCardPointer } from "./card-pointer";
 import type { FaceLayout } from "./canvas-face";
 import { hasText, textOr } from "@kb/ui-sdk";
 import { ItemOutline } from "./canvas-item-outline";
-import { outlinePath, wordsInk, wordsStyle } from "./canvas-dom-paint";
+import { inkStyle, outlinePath, wordsStyle } from "./canvas-dom-paint";
 import { itemPaint } from "./canvas-style";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
@@ -69,7 +69,7 @@ function ShapeChrome({
   const mark =
     canvasDepth(card) > 0 ? TOP_VIEW_MARKS[CANVAS_SHAPES[card.shape].volume](markId) : null;
   return (
-    <ItemOutline item={card} paint={itemPaint(card)} selected={selected} ink={18}>
+    <ItemOutline item={card} paint={itemPaint(card)} selected={selected}>
       {mark !== null && <defs>{mark}</defs>}
       {mark !== null && <path d={d} fill={`url(#${markId})`} />}
     </ItemOutline>
@@ -187,7 +187,7 @@ export function ShapeCard({
             ref={inputRef}
             data-testid="shape-label-input"
             className="w-full truncate bg-transparent outline-none"
-            style={{ ...wordsStyle(paint.words), color: wordsInk(paint, 85) }}
+            style={{ ...wordsStyle(paint.words), ...inkStyle(paint.ink.words) }}
             value={editor.draft}
             onChange={(e) => editor.type(e.target.value)}
             onBlur={editor.commit}
@@ -206,7 +206,7 @@ export function ShapeCard({
         ) : (
           <span
             className="max-w-full truncate"
-            style={{ color: wordsInk(paint, hasText(card.label) ? 85 : 25) }}
+            style={inkStyle(hasText(card.label) ? paint.ink.words : paint.ink.hint)}
           >
             {textOr(card.label, "Label")}
           </span>

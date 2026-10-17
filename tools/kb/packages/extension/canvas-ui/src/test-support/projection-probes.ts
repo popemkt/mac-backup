@@ -10,9 +10,11 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, beforeAll } from "vitest";
-import { Raycaster, Vector3, type Object3D } from "three/webgpu";
+import { Color, Raycaster, Vector3, type Object3D } from "three/webgpu";
 import {
   CANVAS_HEADS,
+  CANVAS_PALETTE,
+  type CanvasPaint,
   type CanvasAlign,
   type CanvasDoc,
   type CanvasFont,
@@ -27,7 +29,9 @@ import {
   type ViewSize,
 } from "../canvas-camera";
 import { CanvasCameraRig } from "../canvas-camera-rig";
-import type { CardLook } from "../canvas-card-face";
+import { toneColor, type CardLook } from "../canvas-card-face";
+import { paletteToken } from "../canvas-color";
+import { INK_PROPERTY } from "../canvas-dom-paint";
 import { FIRST_GIZMO } from "../canvas-gizmo";
 import type { DrawnEdge } from "../canvas-scene-edges";
 import type { CanvasSelection } from "../canvas-selection";
@@ -35,8 +39,11 @@ import {
   FLEX_PLACES,
   FONT_FACES,
   TEXT_ALIGNS,
+  TONE_TOKENS,
   TYPE_STEPS,
   type CanvasTypeStep,
+  type Tone,
+  type ToneSource,
 } from "../canvas-style";
 import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import { fakeCanvasContexts, paintedOps, type PaintedOp } from "@kb/ui-test-kit";
@@ -49,10 +56,21 @@ interface ProbeScene {
   readonly look: CardLook;
 }
 
-/** A look as a projection drew it, read back from what it drew. */
+/**
+ * A look as a projection drew it, read back from what it drew; every colour
+ * as `#rrggbb` (`hexOf`), however the projection said it.
+ */
 export interface DrawnLook {
-  /** The outline's dash pattern and width, canvas units; null for no outline. */
-  readonly outline: { readonly pattern: readonly number[]; readonly width: number } | null;
+  /** The outline's dash pattern and width, canvas units, and its colour; null for no outline. */
+  readonly outline: {
+    readonly pattern: readonly number[];
+    readonly width: number;
+    readonly color: string;
+  } | null;
+  /** The colour its ground is filled with; null for no ground. */
+  readonly ground: string | null;
+  /** The colour its words are set in; null for no words. */
+  readonly ink: string | null;
   readonly opacity: number;
   /** How the item's own words are set; null for an item whose words are not its own. */
   readonly words: {
@@ -63,10 +81,10 @@ export interface DrawnLook {
   } | null;
 }
 
-/** A line item as drawn, in its box's own units. */
+/** A line item as drawn, in its box's own units: its line, and each head with its colour. */
 interface DrawnLine {
   readonly line: readonly Point[];
-  readonly heads: readonly (readonly Point[])[];
+  readonly heads: readonly { readonly points: readonly Point[]; readonly color: string }[];
 }
 
 interface Probe {
@@ -101,6 +119,48 @@ function keyOf<K extends string, V>(table: Readonly<Record<K, V>>, value: V): K 
 
 /** The design token a CSS `var()` names, or undefined. */
 const tokenOf = (css: string) => /var\((--[\w-]+)\)/.exec(css)?.[1];
+
+/** A colour as `#rrggbb`, in sRGB as it was given: how both projections' colours are compared. */
+export const hexOf = (css: string) => `#${new Color(css).getHexString()}`;
+
+/** A CSS colour the DOM painted a tone's source in, read back as that source: a token, or a paint. */
+function sourceOfCss(css: string): ToneSource {
+  const token = tokenOf(css);
+  const own = token === undefined ? undefined : keyOf(TONE_TOKENS, token);
+  if (own !== undefined) return own;
+  const entry = CANVAS_PALETTE.find(({ id }) => token === paletteToken(id));
+  const paint: CanvasPaint =
+    entry === undefined ? { kind: "literal", css } : { kind: "palette", id: entry.id };
+  return paint;
+}
+
+/** `css` split at its commas outside any brackets. */
+function topLevelParts(css: string): string[] {
+  const parts = [""];
+  let depth = 0;
+  for (const ch of css) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) parts.push("");
+    else parts[parts.length - 1] += ch;
+  }
+  return parts.map((part) => part.trim());
+}
+
+/** A tone the DOM said as CSS (`toneCss`: a source, or `color-mix(in srgb, …)` of one over a tone), read back. */
+function toneOfCss(css: string): Tone {
+  const mixed = /^color-mix\(in srgb,(.*)\)$/.exec(css.trim())?.[1];
+  if (mixed === undefined) return { of: sourceOfCss(css.trim()), amount: 1 };
+  const [share = "", over = ""] = topLevelParts(mixed);
+  const [, of = "", percent = "100"] = /^(.*)\s([\d.]+)%$/.exec(share) ?? [];
+  return { of: sourceOfCss(of), amount: Number(percent) / 100, over: toneOfCss(over) };
+}
+
+/** A colour the DOM painted, resolved through `look` as the face texture resolves it; null for none. */
+function domColor(css: string | null | undefined, look: CardLook): string | null {
+  if (css === null || css === undefined || css === "" || css === "none") return null;
+  return hexOf(toneColor(look, toneOfCss(css)));
+}
 
 /** How words aligned along a line read back from CSS or a canvas's `textAlign`. */
 const alignOf = (css: string): CanvasAlign | undefined => keyOf(TEXT_ALIGNS, css);
@@ -219,19 +279,37 @@ function laidFace(el: HTMLElement): LaidFace | null {
 }
 
 /** The outline an item's DOM chrome strokes, or null for none. */
-function outline2d(el: HTMLElement): DrawnLook["outline"] {
+function outline2d(el: HTMLElement, look: CardLook): DrawnLook["outline"] {
   const path = el.querySelector("[data-outline-path]");
-  const stroke = path?.getAttribute("stroke") ?? "none";
-  if (path === null || stroke === "none") return null;
+  const color = domColor(path?.getAttribute("stroke"), look);
+  if (path === null || color === null) return null;
   const dashes = path.getAttribute("stroke-dasharray") ?? "";
   return {
     pattern: dashes === "" ? [] : dashes.split(" ").map(Number),
     width: Number(path.getAttribute("stroke-width")),
+    color,
   };
 }
 
+/** The colour an item's words are set in: the nearest colour set on them, or on what holds them. */
+function ink2d(el: HTMLElement, look: CardLook): string | null {
+  const words = el.querySelector<HTMLElement>("[data-words]");
+  if (words === null) return null;
+  const within = [words, ...words.querySelectorAll<HTMLElement>("*")];
+  const holders: HTMLElement[] = [];
+  for (let at = words.parentElement; at !== null && el.contains(at); at = at.parentElement) {
+    holders.push(at);
+  }
+  const inked = [...within, ...holders].find((w) => w.style.color !== "");
+  const color = inked?.style.color;
+  return domColor(
+    color === `var(${INK_PROPERTY})` ? inked?.style.getPropertyValue(INK_PROPERTY) : color,
+    look,
+  );
+}
+
 /** An edge as the DOM draws it: its path, its stroke, its group's opacity, and its heads' paths. */
-function edge2d(el: Element): DrawnEdge | null {
+function edge2d(el: Element, look: CardLook): DrawnEdge | null {
   const path = el.querySelector("[data-edge-path]");
   const d = path?.getAttribute("d");
   if (path === null || d === null || d === undefined) return null;
@@ -243,16 +321,19 @@ function edge2d(el: Element): DrawnEdge | null {
     const outline = head.getAttribute("d");
     if (kind === undefined || outline === null) return [];
     const filled = (head.getAttribute("fill") ?? "none") !== "none";
-    return [{ end, kind, filled, points: pathPolygon(outline) } as const];
+    const color = domColor(head.getAttribute("stroke"), look) ?? "";
+    return [{ end, kind, filled, points: pathPolygon(outline), color } as const];
   });
+  const color = domColor(path.getAttribute("stroke"), look);
   return {
     points: pathPolygon(d),
     line:
-      (path.getAttribute("stroke") ?? "none") === "none"
+      color === null
         ? null
         : {
             pattern: dashes === "" ? [] : dashes.split(" ").map(Number),
             width: Number(path.getAttribute("stroke-width")),
+            color,
           },
     opacity: opacity === null ? 1 : Number(opacity),
     heads,
@@ -362,21 +443,29 @@ const mount2d: Mount = async (view, scene) => {
         ?.dataset.cardId ?? null,
     edgeOf: (id) => {
       const el = container.querySelector(`[data-edge-id="${id}"]`);
-      return el === null ? null : edge2d(el);
+      return el === null ? null : edge2d(el, scene.look);
     },
     lineOf: (id) => {
       const d = card(id)?.querySelector("[data-outline-path]")?.getAttribute("d");
       if (d === null || d === undefined) return null;
-      const heads = [...(card(id)?.querySelectorAll("[data-item-head]") ?? [])].map((head) =>
-        pathPolygon(head.getAttribute("d") ?? ""),
-      );
+      const heads = [...(card(id)?.querySelectorAll("[data-item-head]") ?? [])].map((head) => ({
+        points: pathPolygon(head.getAttribute("d") ?? ""),
+        color: domColor(head.getAttribute("stroke"), scene.look) ?? "",
+      }));
       return { line: pathPolygon(d), heads };
     },
     paintOf: (id) => {
       const el = card(id);
       if (el === undefined) return null;
       const opacity = el.style.opacity === "" ? 1 : Number(el.style.opacity);
-      return { outline: outline2d(el), opacity, words: words2d(el) };
+      const fill = el.querySelector("[data-outline-path]")?.getAttribute("fill");
+      return {
+        outline: outline2d(el, scene.look),
+        ground: domColor(fill, scene.look),
+        ink: ink2d(el, scene.look),
+        opacity,
+        words: words2d(el),
+      };
     },
     update: async (next) => {
       render(next);
@@ -475,7 +564,9 @@ const mount3d: Mount = async (view, probed) => {
       const first = ops.findIndex((o) => o.op === "stroke");
       const line = ops[first];
       if (line === undefined || line.op !== "stroke") return null;
-      const heads = ops.slice(first + 1).flatMap((o) => (o.op === "text" ? [] : [o.points]));
+      const heads = ops
+        .slice(first + 1)
+        .flatMap((o) => (o.op === "text" ? [] : [{ points: o.points, color: hexOf(o.color) }]));
       return { line: line.points, heads };
     },
     paintOf: (id) => {
@@ -484,8 +575,17 @@ const mount3d: Mount = async (view, probed) => {
       if (face === null || face.canvas === undefined || item === undefined) return null;
       const ops = paintedOps(face.canvas);
       const stroke = ops.find((o) => o.op === "stroke");
+      // A chrome is painted first: its ground, then its outline, then the words over them.
+      const [first] = ops;
+      const ground = first?.op === "fill" ? first : undefined;
+      const words = ops.find((o) => o.op === "text");
       return {
-        outline: stroke === undefined ? null : { pattern: stroke.pattern, width: stroke.width },
+        outline:
+          stroke === undefined
+            ? null
+            : { pattern: stroke.pattern, width: stroke.width, color: hexOf(stroke.color) },
+        ground: ground === undefined ? null : hexOf(ground.color),
+        ink: words === undefined ? null : hexOf(words.color),
         opacity: face.opacity,
         words: words3d(ops, probed.look, item.height),
       };

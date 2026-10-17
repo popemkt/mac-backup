@@ -16,7 +16,7 @@ import {
   type CanvasEdge,
 } from "@kb/canvas";
 import {
-  edgePropPresent,
+  edgeUnbound,
   hasPropRef,
   listCanvasNavItems,
   planNativeBind,
@@ -166,7 +166,7 @@ describe("unbound tint computation", () => {
     },
   };
 
-  test("edgePropPresent is false when prop missing (tint path)", () => {
+  test("a native edge is unbound when its prop is missing (tint path)", () => {
     const nodes = new Map<string, OutlineNode>([
       [
         "s",
@@ -183,11 +183,11 @@ describe("unbound tint computation", () => {
         },
       ],
     ]);
-    expect(edgePropPresent(nativeEdge, nodes)).toBe(false);
+    expect(edgeUnbound(nativeEdge, nodes)).toBe(true);
     expect(isNativeEdgeBound(nativeEdge, () => undefined)).toBe(false);
   });
 
-  test("edgePropPresent is true when prop present", () => {
+  test("a native edge is bound while its prop is present", () => {
     const nodes = new Map<string, OutlineNode>([
       [
         "s",
@@ -204,7 +204,7 @@ describe("unbound tint computation", () => {
         },
       ],
     ]);
-    expect(edgePropPresent(nativeEdge, nodes)).toBe(true);
+    expect(edgeUnbound(nativeEdge, nodes)).toBe(false);
   });
 });
 

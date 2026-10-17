@@ -34,12 +34,17 @@ import {
 import { paletteToken } from "./canvas-color";
 import { isPicture, type FacePicture } from "./canvas-face-pictures";
 import {
+  SELECTED_OUTLINE,
   TEXT_ALIGNS,
+  TONE_TOKENS,
   TYPE_STEPS,
   itemPaint,
   type CanvasTypeStep,
+  type ChromePaint,
   type FONT_FACES,
   type ItemPaint,
+  type Tone,
+  type ToneSource,
   type WordsPaint,
 } from "./canvas-style";
 import {
@@ -203,9 +208,9 @@ export function readCardLook(): CardLook {
     steps[step] = probeLength("fontSize", `var(${step})`, STEP_FALLBACK[step]);
   }
   return {
-    face: readTokenColor("--background"),
-    ink: readTokenColor("--foreground"),
-    primary: readTokenColor("--primary"),
+    face: readTokenColor(TONE_TOKENS.ground),
+    ink: readTokenColor(TONE_TOKENS.ink),
+    primary: readTokenColor(TONE_TOKENS.primary),
     danger: readTokenColor("--destructive"),
     palette,
     faces: {
@@ -233,17 +238,44 @@ function channels(color: string): [number, number, number] | null {
 }
 
 /**
- * `color` at `amount` laid over the card face, composited in sRGB the way the
- * DOM does, and opaque. The GPU blends a translucent texel in linear light,
+ * `color` at `amount` laid over `base`, composited in sRGB the way the DOM
+ * does, and opaque. The GPU blends a translucent texel in linear light,
  * which turns a faint dark hairline fainter and a faint light wash brighter;
  * a colour that is already composited reads the same in both projections.
  */
-export function over(look: CardLook, color: string, amount: number): string {
-  const base = channels(look.face);
+function mixOver(base: string, color: string, amount: number): string {
+  const under = channels(base);
   const top = channels(color);
-  if (base === null || top === null) return alpha(color, amount);
-  const mix = (i: 0 | 1 | 2) => Math.round(base[i] + (top[i] - base[i]) * amount);
+  if (under === null || top === null) return alpha(color, amount);
+  const mix = (i: 0 | 1 | 2) => Math.round(under[i] + (top[i] - under[i]) * amount);
   return `rgb(${mix(0)}, ${mix(1)}, ${mix(2)})`;
+}
+
+/** `color` at `amount` laid over the card face (`mixOver`). */
+export function over(look: CardLook, color: string, amount: number): string {
+  return mixOver(look.face, color, amount);
+}
+
+/** A tone's source as `look` colours it; a palette entry it lacks is painted in the ink. */
+function sourceColor(look: CardLook, of: ToneSource): string {
+  switch (of) {
+    case "ink":
+      return look.ink;
+    case "ground":
+      return look.face;
+    case "primary":
+      return look.primary;
+    default:
+      return paintColor(look, of) ?? look.ink;
+  }
+}
+
+/** A tone as `look` colours it: its share of its source laid over what it lies on (`mixOver`). */
+export function toneColor(look: CardLook, tone: Tone): string {
+  const of = sourceColor(look, tone.of);
+  if (tone.amount >= 1) return of;
+  const under = tone.over === undefined ? look.face : toneColor(look, tone.over);
+  return mixOver(under, of, tone.amount);
 }
 
 /** How much room around a card its face texture keeps for the ring and the shadow, px. */
@@ -291,47 +323,27 @@ function paintSurface(ctx: Ctx, box: FaceBox, look: CardLook, radius: number) {
   paintOutline(ctx, box, look, radius, over(look, look.ink, 0.12));
 }
 
-/** How a chrome is painted: its outline's path, its ink when uncoloured, and whether it casts. */
+/** How a chrome is painted: its outline's path, and whether it casts. */
 interface ChromeSpec {
   /** The outline filling the face's box (`itemOutline`). */
   readonly outline: readonly CanvasPathCommand[];
-  /** How much of the foreground an uncoloured outline is drawn with, 0–1. */
-  readonly ink: number;
   /** Whether a filled ground casts the card's soft shadow. */
   readonly raised: boolean;
-}
-
-/** How much of its colour a semi fill washes over the ground. */
-const WASH = 0.14;
-
-/** The colour an item's ground is filled with, or null for none. */
-function groundOf(style: ItemPaint, look: CardLook): string | null {
-  const color = paintColor(look, style.color);
-  switch (style.chrome?.fill) {
-    case "none":
-    case undefined:
-      return null;
-    case "solid":
-      return color ?? over(look, look.ink, 0.9);
-    case "semi":
-    default:
-      return color === undefined ? look.face : over(look, color, WASH);
-  }
 }
 
 /**
  * An item's chrome as its style says (`itemPaint`, as the 2D outline draws
  * it): its ground, filled and casting when raised, and its outline at its
- * width and dash, in its colour or the foreground at `spec.ink`; selected,
- * in the primary over a soft halo.
+ * width and dash, in its tones; selected, in the primary over a soft halo.
  */
 function paintChrome(ctx: Ctx, style: ItemPaint, box: FaceBox, look: CardLook, spec: ChromeSpec) {
   const path = () => {
     ctx.beginPath();
     tracePath(ctx, spec.outline);
   };
-  const ground = groundOf(style, look);
-  if (ground !== null) {
+  const chrome = style.chrome;
+  if (chrome === null) return;
+  if (chrome.ground !== null) {
     ctx.save();
     if (spec.raised) {
       ctx.shadowColor = alpha(look.ink, 0.1);
@@ -339,25 +351,23 @@ function paintChrome(ctx: Ctx, style: ItemPaint, box: FaceBox, look: CardLook, s
       ctx.shadowOffsetY = 2;
     }
     path();
-    ctx.fillStyle = ground;
+    ctx.fillStyle = toneColor(look, chrome.ground);
     ctx.fill();
     ctx.restore();
   }
-  const outline = style.chrome?.outline ?? null;
-  const color = paintColor(look, style.color);
+  const { outline } = chrome;
   if (box.selected) {
     path();
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = over(look, look.primary, 0.15);
+    ctx.lineWidth = SELECTED_OUTLINE.haloWidth;
+    ctx.strokeStyle = toneColor(look, SELECTED_OUTLINE.halo);
     ctx.stroke();
   }
   if (outline === null && !box.selected) return;
   path();
   ctx.setLineDash(outline?.pattern ?? []);
-  ctx.lineWidth = box.selected ? Math.max(2, outline?.width ?? 0) : (outline?.width ?? 0);
-  ctx.strokeStyle = box.selected
-    ? over(look, look.primary, 0.7)
-    : (color ?? over(look, look.ink, spec.ink));
+  const width = outline?.width ?? 0;
+  ctx.lineWidth = box.selected ? Math.max(SELECTED_OUTLINE.minWidth, width) : width;
+  ctx.strokeStyle = toneColor(look, lineTone(chrome, box));
   ctx.stroke();
   ctx.setLineDash([]);
 }
@@ -417,10 +427,9 @@ function paintLines(ctx: Ctx, lines: readonly string[], x: number, top: number, 
   lines.forEach((text, i) => ctx.fillText(text, x, top + line * i + line / 2));
 }
 
-/** The ink words are set in: the ground's on a solid fill, the foreground's otherwise, at `amount`. */
-function wordsInk(style: ItemPaint, look: CardLook, amount: number): string {
-  if (style.chrome?.fill !== "solid") return over(look, look.ink, amount);
-  return paintColor(look, style.color) === undefined ? look.face : alpha(look.face, amount);
+/** The tone an outline, and the heads a line wears, are drawn in: the selection's while selected. */
+function lineTone(chrome: ChromePaint, box: FaceBox): Tone {
+  return box.selected ? SELECTED_OUTLINE.stroke : chrome.stroke;
 }
 
 /** Where words are set inside a box: its padding across and up and down, and the most lines. */
@@ -475,7 +484,6 @@ function paintNote(
 ) {
   paintChrome(ctx, face.style, box, look, {
     outline: shapeOutline("rect", box.width, box.height, look.radius),
-    ink: 0.12,
     raised: true,
   });
   const line = look.body * 1.6;
@@ -494,20 +502,27 @@ function paintNote(
   const width = box.width - textX - PAD - (taken > 0 ? taken + 6 : 0);
   const max = Math.max(1, Math.floor((box.height - PAD * 2) / line));
   const text = hasText(face.text) ? face.text : "untitled";
-  ctx.fillStyle = wordsInk(face.style, look, hasText(face.text) ? 0.85 : 0.3);
+  const { ink } = face.style;
+  ctx.fillStyle = toneColor(look, hasText(face.text) ? ink.words : ink.hint);
   paintLines(ctx, wrapText(ctx, text, Math.max(20, width), max), textX, PAD, line);
 }
 
-/** The words of an item that owns them, set by its style; nothing for one that does not. */
+/**
+ * The words of an item that owns them, set by its style in its words' ink,
+ * or `hint` standing in for none in its placeholder's; nothing for an item
+ * whose words are not its own.
+ */
 function paintOwnWords(
   ctx: Ctx,
   text: string,
   style: ItemPaint,
-  ink: number,
+  hint: string | null,
   { box, look, at }: { box: FaceBox; look: CardLook; at: WordsBox },
 ): void {
   if (style.words === null) return;
-  paintWords(ctx, text, style.words, wordsInk(style, look, ink), { box, look, at });
+  const shown = hasText(text) || hint === null ? text : hint;
+  const ink = toneColor(look, shown === text ? style.ink.words : style.ink.hint);
+  paintWords(ctx, shown, style.words, ink, { box, look, at });
 }
 
 function paintText(
@@ -518,10 +533,9 @@ function paintText(
 ) {
   paintChrome(ctx, face.style, box, look, {
     outline: shapeOutline("rect", box.width, box.height, look.radius),
-    ink: 0.12,
     raised: true,
   });
-  paintOwnWords(ctx, face.text, face.style, 0.85, {
+  paintOwnWords(ctx, face.text, face.style, null, {
     box,
     look,
     at: { padX: PAD, padY: PAD, leading: 1.5, max: Infinity },
@@ -536,11 +550,9 @@ function paintShape(
 ) {
   paintChrome(ctx, face.style, box, look, {
     outline: shapeOutline(face.shape, box.width, box.height, look.shapeRadius),
-    ink: 0.18,
     raised: false,
   });
-  const label = hasText(face.label) ? face.label : "Label";
-  paintOwnWords(ctx, label, face.style, hasText(face.label) ? 0.85 : 0.25, {
+  paintOwnWords(ctx, face.label, face.style, "Label", {
     box,
     look,
     at: { padX: PAD * 1.25, padY: 8, leading: 1.4, max: 3 },
@@ -553,14 +565,12 @@ function paintGroup(
   box: FaceBox,
   look: CardLook,
 ) {
-  // A shade firmer than the DOM frame's: a hairline this faint vanishes at a slant.
   paintChrome(ctx, face.style, box, look, {
     outline: shapeOutline("rect", box.width, box.height, look.shapeRadius),
-    ink: 0.24,
     raised: false,
   });
   if (!hasText(face.label)) return;
-  paintOwnWords(ctx, face.label, face.style, 0.45, {
+  paintOwnWords(ctx, face.label, face.style, null, {
     box,
     look,
     at: { padX: 8, padY: 4, leading: 1.8, max: 1, weight: 500 },
@@ -578,18 +588,15 @@ function paintPath(
   box: FaceBox,
   look: CardLook,
 ) {
-  const ink = 0.6;
   paintChrome(ctx, face.style, box, look, {
     outline: itemOutline(face.path, box.width, box.height, 0),
-    ink,
     raised: false,
   });
-  if (face.style.heads === null) return;
-  const color = box.selected
-    ? over(look, look.primary, 0.7)
-    : (paintColor(look, face.style.color) ?? over(look, look.ink, ink));
-  const width = Math.max(face.style.chrome?.outline?.width ?? 0, 1);
-  for (const { head } of pathHeads(face.path, box.width, box.height, face.style.heads.length)) {
+  const { chrome, heads } = face.style;
+  if (heads === null || chrome === null) return;
+  const color = toneColor(look, lineTone(chrome, box));
+  const width = Math.max(chrome.outline?.width ?? 0, 1);
+  for (const { head } of pathHeads(face.path, box.width, box.height, heads.length)) {
     ctx.beginPath();
     tracePath(ctx, head.path);
     if (head.filled) {

@@ -17,8 +17,8 @@ import {
   type CanvasNode,
   type EdgeRoute,
 } from "@kb/canvas";
-import { edgePropPresent } from "./canvas-api";
-import { paintCss } from "./canvas-color";
+import { edgeUnbound } from "./canvas-api";
+import { toneCss } from "./canvas-dom-paint";
 import type { CanvasSelection } from "./canvas-selection";
 import type { PointerState } from "./canvas-pointer";
 import { edgePaint, type EdgePaint } from "./canvas-style";
@@ -165,16 +165,9 @@ function CanvasEdgeView({
   const route = edgeRoute(from, to, edge);
   const d = svgPathData(route.path);
   const selected = selection.edgeIds.has(edge.id);
-  const unbound =
-    edge.kbLink?.mode === "native" && !!edge.kbLink.fieldId && !edgePropPresent(edge, nodes);
-  const paint = edgePaint(edge, selected);
-  const ink =
-    paintCss(paint.color) ??
-    (unbound
-      ? "color-mix(in oklab, var(--foreground) 15%, transparent)"
-      : selected
-        ? "var(--primary)"
-        : "currentColor");
+  const unbound = edgeUnbound(edge, nodes);
+  const paint = edgePaint(edge, { selected, unbound });
+  const ink = toneCss(paint.ink);
   return (
     <g
       key={edge.id}
@@ -259,7 +252,7 @@ export function CanvasEdgeLayer(props: CanvasEdgeLayerProps) {
       width={8000}
       height={8000}
     >
-      <g className="pointer-events-auto text-foreground/35">
+      <g className="pointer-events-auto">
         {props.doc.edges.map((edge) => (
           <CanvasEdgeView key={edge.id} {...props} edge={edge} />
         ))}

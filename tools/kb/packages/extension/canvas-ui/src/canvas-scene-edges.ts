@@ -34,9 +34,10 @@ import {
   type EdgeHead,
   type EdgeRoute,
 } from "@kb/canvas";
-import { paintColor, type CardLook } from "./canvas-card-face";
+import { edgeUnbound } from "./canvas-api";
+import { toneColor, type CardLook } from "./canvas-card-face";
 import type { CanvasSceneContent } from "./canvas-scene-content";
-import { edgePaint, type EdgePaint } from "./canvas-style";
+import { edgePaint, type EdgePaint, type EdgeState } from "./canvas-style";
 
 /** An edge runs a hair over the planes it joins, so a flat card never covers it. */
 const LIFT = 0.5;
@@ -47,14 +48,19 @@ type Point = { x: number; y: number };
 export interface DrawnEdge {
   /** The points its line runs through, across the floor. */
   readonly points: readonly Point[];
-  /** Its line's dash pattern and width; null when no line is drawn. */
-  readonly line: { readonly pattern: readonly number[]; readonly width: number } | null;
+  /** Its line's dash pattern, width and colour (`#rrggbb`); null when no line is drawn. */
+  readonly line: {
+    readonly pattern: readonly number[];
+    readonly width: number;
+    readonly color: string;
+  } | null;
   readonly opacity: number;
   readonly heads: readonly {
     readonly end: EdgeEnd;
     readonly kind: CanvasHead;
     readonly filled: boolean;
     readonly points: readonly Point[];
+    readonly color: string;
   }[];
 }
 
@@ -70,11 +76,11 @@ function edgeCurve(route: EdgeRoute): Vector3[] {
   return routePoints(route).map((p) => new Vector3(p.x, -p.y, p.z + LIFT));
 }
 
-/** Everything an edge is drawn from, as a version: its route, its heads and looks, and selection. */
-function edgeVersion(edge: CanvasEdge, route: EdgeRoute, selected: boolean) {
+/** Everything an edge is drawn from, as a version: its route, its heads and looks, and how it stands. */
+function edgeVersion(edge: CanvasEdge, route: EdgeRoute, state: EdgeState) {
   const heads = [edge.fromEnd, edge.fromHead, edge.toEnd, edge.toHead];
   const drawn = [route.path, route.from.at.z, route.to.at.z, heads, edge.color, edge.style];
-  return `${JSON.stringify(drawn)}|${selected ? "s" : "-"}`;
+  return JSON.stringify([drawn, state.selected, state.unbound]);
 }
 
 /** A line's points in canvas space, read from its own geometry (three's y flipped back). */
@@ -126,6 +132,9 @@ function lineThrough(points: readonly Vector3[], material: Line2NodeMaterial): L
 }
 
 /** The heads drawn in `group`, read back from their names, geometry and kind of object. */
+/** A material's colour as `#rrggbb`, in sRGB as it was given. */
+const hexOf = (color: Color) => `#${color.getHexString()}`;
+
 function headsIn(group: Group): DrawnEdge["heads"] {
   return group.children.flatMap((child): DrawnEdge["heads"] => {
     const [, at, named] = child.name.split(":");
@@ -133,8 +142,14 @@ function headsIn(group: Group): DrawnEdge["heads"] {
     if (kind === undefined) return [];
     const end: EdgeEnd = at === "from" ? "from" : "to";
     // A line is a mesh of its segments too: ask it first.
-    if (child instanceof Line2) return [{ end, kind, filled: false, points: linePoints(child) }];
-    if (child instanceof Mesh) return [{ end, kind, filled: true, points: meshPoints(child) }];
+    if (child instanceof Line2) {
+      const color = hexOf(child.material.color);
+      return [{ end, kind, filled: false, points: linePoints(child), color }];
+    }
+    if (child instanceof Mesh && child.material instanceof MeshBasicNodeMaterial) {
+      const color = hexOf(child.material.color);
+      return [{ end, kind, filled: true, points: meshPoints(child), color }];
+    }
     return [];
   });
 }
@@ -168,12 +183,15 @@ export class EdgeLayer {
       const to = byId.get(edge.toNode);
       if (!from || !to) continue;
       ids.push(edge.id);
-      const selected = content.selection.edgeIds.has(edge.id);
+      const state = {
+        selected: content.selection.edgeIds.has(edge.id),
+        unbound: edgeUnbound(edge, content.nodes),
+      };
       const route = edgeRoute(from, to, edge);
-      const version = edgeVersion(edge, route, selected);
+      const version = edgeVersion(edge, route, state);
       if (this.drawn.get(edge.id)?.version === version) continue;
       this.drop(edge.id);
-      const group = this.draw(edge, route, edgePaint(edge, selected), selected);
+      const group = this.draw(edge, route, edgePaint(edge, state));
       this.root.add(group);
       this.drawn.set(edge.id, { group, version });
     }
@@ -194,6 +212,7 @@ export class EdgeLayer {
         ? {
             pattern: material.dashed ? [material.dashSize, material.gapSize] : [],
             width: material.linewidth,
+            color: hexOf(material.color),
           }
         : null,
       opacity: material.transparent ? material.opacity : 1,
@@ -205,18 +224,8 @@ export class EdgeLayer {
     for (const id of this.drawn.keys()) this.drop(id);
   }
 
-  /** An edge's ink, as the 2D canvas inks it: its colour, else the selection's, else the stroke's. */
-  private colorOf(paint: EdgePaint, selected: boolean): Color {
-    const { look } = this;
-    const preset = paintColor(look, paint.color);
-    if (preset !== undefined) return new Color(preset);
-    if (selected) return new Color(look.primary);
-    // At rest an edge is the 2D stroke, composited over the ground.
-    return new Color(look.face).lerp(new Color(look.ink), 0.4);
-  }
-
-  private draw(edge: CanvasEdge, route: EdgeRoute, paint: EdgePaint, selected: boolean): Group {
-    const color = this.colorOf(paint, selected);
+  private draw(edge: CanvasEdge, route: EdgeRoute, paint: EdgePaint): Group {
+    const color = new Color(toneColor(this.look, paint.ink));
     const group = new Group();
     const pattern = paint.line?.pattern ?? [];
     const line = lineThrough(

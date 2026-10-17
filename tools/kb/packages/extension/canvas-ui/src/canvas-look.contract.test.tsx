@@ -5,7 +5,8 @@
  * and its words' tokens, the scene's face texture as its 2D context was asked
  * to paint it and the opacity its materials take:
  *
- * - its outline's dash pattern and width, or no outline at all;
+ * - its outline's dash pattern, width and colour, or no outline at all;
+ * - the colour its ground is filled with, or none, and the ink its words take;
  * - its opacity;
  * - the face and type step its own words are set in, aligned across the
  *   line and placed up and down its box;
@@ -15,9 +16,14 @@
  *
  * - along its route, end to end, never further than a hair from the
  *   route's points, for every route and for anchors anywhere on an outline;
- * - its line's dash pattern and width, or no line, and its opacity;
- * - the head each end wears, filled or stroked, on the outline the model
- *   gives it.
+ * - its line's dash pattern, width and colour, or no line, and its opacity,
+ *   faint where the field a native link names is gone;
+ * - the head each end wears, filled or stroked, in the line's colour, on the
+ *   outline the model gives it.
+ *
+ * Colours are compared resolved (`toneColor` through the probes' look), so
+ * one tone said as CSS in the DOM and mixed into a texture in the scene
+ * must come out the same colour.
  *
  * A projection that ignored a look, or drew it its own way, fails here.
  */
@@ -36,13 +42,21 @@ import {
   type CanvasNode,
   type CanvasTextNode,
 } from "@kb/canvas";
+import { edgeUnbound } from "./canvas-api";
 import type { CanvasView, ViewSize } from "./canvas-camera";
+import { toneColor } from "./canvas-card-face";
 import type { CanvasSelection } from "./canvas-selection";
-import { edgePaint, itemPaint } from "./canvas-style";
+import { edgePaint, itemPaint, type Tone } from "./canvas-style";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
-import { PROBES, PROBE_LOOK, useProbePage, type DrawnLook } from "./test-support/projection-probes";
+import {
+  PROBES,
+  PROBE_LOOK,
+  hexOf,
+  useProbePage,
+  type DrawnLook,
+} from "./test-support/projection-probes";
 import type * as ThreeWebGpu from "three/webgpu";
 
 beforeAll(() => syncUiPlugins([testHostPlugin(testBrowserHost())]));
@@ -208,13 +222,21 @@ const ASKED: readonly CanvasView[] = [
   { x: 320, y: 270, z: 0, zoom: 0.7, yaw: 0.6, pitch: 0.8, fov: 34 },
 ];
 
+/** A tone as the probes compare it: resolved through their look, as `#rrggbb`. */
+const colorOf = (tone: Tone) => hexOf(toneColor(PROBE_LOOK, tone));
+
 /** The look `itemPaint` says an item is drawn with, in the probes' terms. */
 function modelLook(item: CanvasNode): DrawnLook {
   const paint = itemPaint(item);
-  const outline = paint.chrome?.outline ?? null;
-  const words = paint.words;
+  const { chrome, words } = paint;
+  const outline = chrome?.outline ?? null;
   return {
-    outline: outline === null ? null : { pattern: outline.pattern, width: outline.width },
+    outline:
+      outline === null || chrome === null
+        ? null
+        : { pattern: outline.pattern, width: outline.width, color: colorOf(chrome.stroke) },
+    ground: chrome === null || chrome.ground === null ? null : colorOf(chrome.ground),
+    ink: words === null ? null : colorOf(paint.ink.words),
     opacity: paint.opacity,
     words:
       words === null
@@ -279,6 +301,21 @@ const wired: CanvasEdge[] = [
     toEnd: "none",
     style: { dash: "none" },
   },
+  // A native link whose field is gone from its node (the probes hold no nodes): drawn faint.
+  {
+    id: "unbound",
+    fromNode: "b",
+    toNode: "c",
+    route: "straight",
+    kbLink: {
+      mode: "native",
+      via: "prop",
+      fieldId: "f",
+      sourceNodeId: "s",
+      targetNodeId: "t",
+      bindingId: "k",
+    },
+  },
 ];
 const edgeScene = { ...scene, doc: { nodes: joined, edges: wired } };
 
@@ -317,11 +354,18 @@ const worn = (head: { end: string; kind: string; filled: boolean }) =>
 
 const byName = (a: string, b: string) => a.localeCompare(b);
 
-/** What the model says an edge looks like: its line and opacity, and the kind of each head. */
+/** How an edge of the contract stands: unselected, unbound when its field is gone. */
+const standing = (edge: CanvasEdge) => ({
+  selected: false,
+  unbound: edgeUnbound(edge, new Map()),
+});
+
+/** What the model says an edge looks like: its line and opacity. */
 function modelEdge(edge: CanvasEdge) {
-  const paint = edgePaint(edge, false);
+  const paint = edgePaint(edge, standing(edge));
+  const color = colorOf(paint.ink);
   const line =
-    paint.line === null ? null : { pattern: paint.line.pattern, width: paint.line.width };
+    paint.line === null ? null : { pattern: paint.line.pattern, width: paint.line.width, color };
   return { line, opacity: paint.opacity };
 }
 
@@ -378,7 +422,8 @@ describe("canvas look contract", () => {
         const [from, to] = [byId.get(edge.fromNode), byId.get(edge.toNode)];
         if (from === undefined || to === undefined) throw new Error(`no ends for ${edge.id}`);
         const route = edgeRoute(from, to, edge);
-        const length = edgePaint(edge, false).headLength;
+        const paint = edgePaint(edge, standing(edge));
+        const length = paint.headLength;
         const heads = (["from", "to"] as const).flatMap((end) => {
           const head = edgeHead(edge, route, end, length);
           return head === null ? [] : [{ end, head }];
@@ -388,7 +433,9 @@ describe("canvas look contract", () => {
           heads.map(({ end, head }) => worn({ end, ...head })).toSorted(byName),
         );
         for (const { end, head } of heads) {
-          const got = drawn.find((h) => h.end === end)?.points ?? [];
+          const wornHead = drawn.find((h) => h.end === end);
+          expect(wornHead?.color, `${edge.id} ${end} ink`).toBe(colorOf(paint.ink));
+          const got = wornHead?.points ?? [];
           const model = outlinePoints(head.path).map(([x, y]) => ({ x, y }));
           const ring = head.filled ? closed : (points: readonly Point[]) => points;
           alongside(ring(got), ring(model), `${edge.id} ${end}`);
@@ -412,7 +459,13 @@ describe("canvas look contract", () => {
         heads.forEach(({ end, head }, i) => {
           const outline = outlinePoints(head.path).map(([x, y]) => ({ x, y }));
           const shape = head.filled ? closed : (points: readonly Point[]) => points;
-          alongside(shape(drawn?.heads[i] ?? []), shape(outline), `${item.id} ${end}`);
+          const got = drawn?.heads[i];
+          alongside(shape(got?.points ?? []), shape(outline), `${item.id} ${end}`);
+          // A head is inked as its line is, drawn or not.
+          const stroke = paint.chrome?.stroke;
+          expect(got?.color, `${item.id} ${end} ink`).toBe(
+            stroke === undefined ? undefined : colorOf(stroke),
+          );
         });
       }
       probe.dispose();

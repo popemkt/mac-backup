@@ -1395,18 +1395,28 @@ open view of that canvas.
   `itemPaint`): an item's style (DESIGN.md → Canvas documents) is turned
   once into what is drawn — the outline's width (by size) and dash pattern
   in canvas units, the type step and face (as tokens) its words are set in,
-  where they sit, its fill and its opacity. The DOM draws every kind's
-  ground and outline as one SVG outline traced from the shape table
-  (`canvas-item-outline.tsx`), its words in the step's and the face's
+  where they sit, its fill and its opacity, and every colour it is drawn
+  in as a **tone** (`Tone`): an amount of the ink, the ground, the primary
+  or its own paint laid over the ground (or over another tone: words on a
+  solid fill), composited in sRGB. Every amount lives once, in
+  `canvas-style.ts` — a semi fill's wash, each kind's outline, words and
+  placeholder ink (`KIND_INKS`), an edge's ink at rest and while its field
+  is gone, the selection's stroke and halo — and the heads a line or an
+  edge wears take its line's tone, drawn or not. The DOM says a tone as
+  `color-mix(in srgb, …)` of the tokens (`toneCss`); the 3D face mixes the
+  tokens' resolved channels into its texture (`toneColor`). The DOM draws
+  every kind's ground and outline as one SVG outline traced from the shape
+  table (`canvas-item-outline.tsx`), its words in the step's and the face's
   tokens; the 3D face paints the same into its texture and its materials
   take the opacity. An edge's look is `edgePaint`: its line's width (by
   size, a step heavier selected) and dash pattern, its heads' length, its
-  opacity. The look contract (`canvas-look.contract.test.tsx`) reads both
-  projections back — an item's stroke dash and width, opacity, and words'
-  face, step and alignment; an edge's points along its route, its line, its
-  opacity and each head's kind and outline — and holds them to `itemPaint`
+  opacity and its ink. The look contract (`canvas-look.contract.test.tsx`)
+  reads both projections back — an item's stroke dash, width and colour,
+  its ground's colour, opacity, and words' ink, face, step and alignment;
+  an edge's points along its route, its line and its colour, its opacity
+  and each head's kind, outline and colour — and holds them to `itemPaint`
   and `edgePaint` for every look, every route and head, and each kind's
-  defaults.
+  defaults, colours compared resolved through one look.
 - **Cards stay cards.** Each card's face is painted into a canvas texture as
   it looks in 2D (`canvas-card-face.ts`): its text in the face and step its
   style names (a card's in the UI face at the body step), its bullet and tag

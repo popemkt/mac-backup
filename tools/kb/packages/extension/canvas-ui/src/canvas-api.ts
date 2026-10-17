@@ -69,12 +69,13 @@ export function listCanvasNavItems(
   }));
 }
 
-/** Render-time: native edge whose prop is still present. */
-export function edgePropPresent(
-  edge: CanvasEdge,
-  nodes: ReadonlyMap<string, OutlineNode>,
-): boolean {
-  return isNativeEdgeBound(edge, propLookupFromStore(nodes));
+/** Render-time: a native edge whose field is no longer on its node, which both projections draw faint. */
+export function edgeUnbound(edge: CanvasEdge, nodes: ReadonlyMap<string, OutlineNode>): boolean {
+  return (
+    edge.kbLink?.mode === "native" &&
+    !!edge.kbLink.fieldId &&
+    !isNativeEdgeBound(edge, propLookupFromStore(nodes))
+  );
 }
 
 /**

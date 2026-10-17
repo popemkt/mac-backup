@@ -1,49 +1,53 @@
 /**
  * An item's look in the DOM (`itemPaint` as CSS): its outline's path data,
- * the colour its ground is filled with, the ink and the tokens its words are
- * set in, and where they sit. The 2D chrome (`ItemOutline`) and every
- * kind's words read these, so a look is turned into CSS once.
+ * every tone it is painted in (`toneCss`), the tokens its words are set in,
+ * and where they sit. The 2D chrome (`ItemOutline`), every kind's words and
+ * the edges read these, so a look is turned into CSS once.
  */
 import type { CSSProperties } from "react";
 import { itemOutline, svgPathData, type CanvasNode } from "@kb/canvas";
 import { cornerRadius, readCornerRadii } from "./canvas-card-face";
+import { paintCss } from "./canvas-color";
 import {
   FLEX_PLACES,
   TEXT_ALIGNS,
-  type ChromePaint,
-  type ItemPaint,
+  TONE_TOKENS,
+  type Tone,
+  type ToneSource,
   type WordsPaint,
 } from "./canvas-style";
 
-/** How much of its colour a semi fill washes over the ground. */
-const WASH = 14;
+/** A tone's source as a CSS colour: its token, or its paint's. */
+function sourceCss(of: ToneSource): string {
+  return typeof of === "string" ? `var(${TONE_TOKENS[of]})` : (paintCss(of) ?? "currentColor");
+}
+
+/** A tone as CSS: its share of its source mixed over what it lies on, in sRGB as the DOM composites. */
+export function toneCss(tone: Tone): string {
+  const of = sourceCss(tone.of);
+  if (tone.amount >= 1) return of;
+  const over = tone.over === undefined ? sourceCss("ground") : toneCss(tone.over);
+  return `color-mix(in srgb, ${of} ${Math.round(tone.amount * 1000) / 10}%, ${over})`;
+}
+
+/** The custom property the ink words are set in is said through (`inkStyle`). */
+export const INK_PROPERTY = "--canvas-ink";
+
+/**
+ * Words set in `tone`: said through `INK_PROPERTY`, which keeps the
+ * `color-mix` as written in every engine — one a CSS engine short of
+ * `color-mix` (the probes' DOM) would otherwise drop from `color`, leaving
+ * the words in whatever they inherit.
+ */
+export function inkStyle(tone: Tone): CSSProperties & { readonly [INK_PROPERTY]: string } {
+  return { [INK_PROPERTY]: toneCss(tone), color: `var(${INK_PROPERTY})` };
+}
 
 /** An item's outline as SVG path data in its own box: what its chrome draws and its footprint clips. */
 export function outlinePath(item: CanvasNode): string {
   return svgPathData(
     itemOutline(item, item.width, item.height, cornerRadius(item, readCornerRadii())),
   );
-}
-
-/** The CSS colour an item's ground is filled with, or none. */
-export function fillCss(chrome: ChromePaint, color: string | undefined): string {
-  switch (chrome.fill) {
-    case "none":
-      return "none";
-    case "solid":
-      return color ?? "var(--foreground)";
-    case "semi":
-    default:
-      return color === undefined
-        ? "var(--background)"
-        : `color-mix(in oklab, ${color} ${WASH}%, var(--background))`;
-  }
-}
-
-/** The ink an item's words are set in: the ground's on a solid fill, the foreground's otherwise. */
-export function wordsInk(paint: ItemPaint, amount: number): string {
-  const ink = paint.chrome?.fill === "solid" ? "var(--background)" : "var(--foreground)";
-  return `color-mix(in oklab, ${ink} ${amount}%, transparent)`;
 }
 
 /**

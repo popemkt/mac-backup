@@ -7,42 +7,34 @@
  */
 import type { ReactNode } from "react";
 import { pathHeads, svgPathData, type CanvasNode } from "@kb/canvas";
-import { paintCss } from "./canvas-color";
-import { fillCss, outlinePath } from "./canvas-dom-paint";
-import type { ItemPaint } from "./canvas-style";
+import { outlinePath, toneCss } from "./canvas-dom-paint";
+import { SELECTED_OUTLINE, type ItemPaint } from "./canvas-style";
 
 /**
- * The outline, filled and stroked: an uncoloured one in the foreground at
- * `ink` percent; a selected one in the primary over a soft halo. Drawn only;
- * what takes the pointer is the item's own layer. An item that draws no
- * ground of its own draws nothing here.
+ * The outline, filled and stroked in its tones (`itemPaint`); a selected one
+ * in the primary over a soft halo. Drawn only; what takes the pointer is the
+ * item's own layer. An item that draws no ground of its own draws nothing
+ * here.
  */
 export function ItemOutline({
   item,
   paint,
   selected,
-  ink,
   children,
 }: {
   item: CanvasNode;
   paint: ItemPaint;
   selected: boolean;
-  ink: number;
   children?: ReactNode;
 }) {
   const { chrome } = paint;
   if (chrome === null) return null;
   const d = outlinePath(item);
-  const color = paintCss(paint.color);
   const { outline } = chrome;
-  const stroke =
-    outline === null
-      ? "none"
-      : (color ?? `color-mix(in oklab, var(--foreground) ${ink}%, transparent)`);
   const width = outline?.width ?? 0;
-  const drawn = selected ? "color-mix(in oklab, var(--primary) 70%, transparent)" : stroke;
-  // A head is inked as the line is, or in the foreground where the line draws none.
-  const headInk = drawn === "none" ? "var(--foreground)" : drawn;
+  // A head is inked as the line is, drawn or not.
+  const headInk = toneCss(selected ? SELECTED_OUTLINE.stroke : chrome.stroke);
+  const drawn = selected || outline !== null ? headInk : "none";
   return (
     <svg
       data-outline
@@ -54,16 +46,16 @@ export function ItemOutline({
         <path
           d={d}
           fill="none"
-          stroke="color-mix(in oklab, var(--primary) 15%, transparent)"
-          strokeWidth={6}
+          stroke={toneCss(SELECTED_OUTLINE.halo)}
+          strokeWidth={SELECTED_OUTLINE.haloWidth}
         />
       )}
       <path
         data-outline-path
         d={d}
-        fill={fillCss(chrome, color)}
+        fill={chrome.ground === null ? "none" : toneCss(chrome.ground)}
         stroke={drawn}
-        strokeWidth={selected ? Math.max(2, width) : width}
+        strokeWidth={selected ? Math.max(SELECTED_OUTLINE.minWidth, width) : width}
         strokeDasharray={
           outline === null || outline.pattern.length === 0 ? undefined : outline.pattern.join(" ")
         }
