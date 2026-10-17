@@ -3215,6 +3215,17 @@ The sidebar agent lives outside core, in packages that core never imports
     only what a lookup needs of the environment
     (`childProcessEnv("lookup")`), never the keys `env:` reads. A failure
     names the reference, never a value, and the page never holds a key.
+  - **Why any `env:` name may be named.** A resolved value goes to one
+    place: the provider the turn runs, as Claude Code's
+    `ANTHROPIC_API_KEY` or as the bearer of the request to its endpoint. It
+    is never written to a node, returned by a tool or sent to the page; a
+    failure reports a status and a code, never a body. The one way it comes
+    back is the provider echoing it, and that endpoint already holds it.
+    Which name a provider reads and where it sends it are configuration
+    (`credential`, `endpoint`), which an agent writes only with the owner's
+    approval, and the approval shows both (Action registry → Approval).
+    So the reference names any variable, as a person's own shell would,
+    and an allowlist beside it would be a second copy of that approval.
   - **The chooser is field editing.** Under the dock's header the agent's
     settings strip draws the agent node's `provider` field and the selected
     provider's `model`, each with the page's field editor
@@ -3344,8 +3355,9 @@ The sidebar agent lives outside core, in packages that core never imports
     owner of a child's environment, handed over by the composition root):
     what a process needs to run (paths, user, locale, temporary
     directory, terminal, proxy and CA settings, `XDG_*`,
-    `CLAUDE_CONFIG_DIR`) and the person's Claude login. The adapter passes
-    on the login variables only while the
+    `CLAUDE_CONFIG_DIR`), and the person's Claude login only because the
+    adapter declares it reads it (`CLAUDE_LOGIN_VARIABLES`, kept as
+    `declared`). The adapter passes on the login variables only while the
     provider names neither an endpoint nor a key. With either named, it
     holds exactly what the provider names. So no key the owner keeps in
     the `kb ui` environment reaches Claude Code, and a key goes only to

@@ -147,7 +147,7 @@ type Environment = Readonly<Record<string, string | undefined>>;
  * Code. They pass only to a Claude Code whose provider names neither an
  * endpoint nor a key, which is that same login.
  */
-const LOGIN_VARIABLES = [
+export const CLAUDE_LOGIN_VARIABLES = [
   "ANTHROPIC_API_KEY",
   "ANTHROPIC_AUTH_TOKEN",
   "CLAUDE_CODE_OAUTH_TOKEN",
@@ -179,7 +179,7 @@ function environmentFor(
 ): Record<string, string> {
   const own = endpoint === undefined && key === undefined;
   return {
-    ...without(inherited, own ? [] : LOGIN_VARIABLES),
+    ...without(inherited, own ? [] : CLAUDE_LOGIN_VARIABLES),
     ...(endpoint === undefined ? {} : { ANTHROPIC_BASE_URL: endpoint }),
     ...(key === undefined ? {} : { ANTHROPIC_API_KEY: key }),
   };
