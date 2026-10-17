@@ -154,6 +154,12 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
             onChange={(v) => setBool(GRAPH_IDS.lensShowLabelsField, v)}
           />
           <Toggle
+            label="Label links"
+            reason={settingDisabledReason(renderer, "edgeLabels")}
+            checked={perspective.edgeLabels}
+            onChange={(v) => setBool(GRAPH_IDS.lensEdgeLabelsField, v)}
+          />
+          <Toggle
             label="Auto-rotate (3D)"
             reason={settingDisabledReason(renderer, "autorotate")}
             checked={perspective.autorotate}

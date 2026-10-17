@@ -78,6 +78,8 @@ export interface LensPerspective {
   spread: number;
   linkDistance: number;
   showLabels: boolean;
+  /** Each link drawn with its relation's label (`lens.edge-labels`). */
+  edgeLabels: boolean;
   autorotate: boolean;
   labelDensity: LensLabelDensity;
   /** The graph's scene theme (`lens.theme`). */
@@ -114,6 +116,7 @@ export const DEFAULT_SPREAD = 150;
 export const DEFAULT_LINK_DISTANCE = 60;
 export const DEFAULT_SHOW_LABELS = true;
 export const DEFAULT_AUTOROTATE = false;
+export const DEFAULT_EDGE_LABELS = false;
 export const DEFAULT_LABEL_DENSITY: LensLabelDensity = "medium";
 export const DEFAULT_THEME: LensTheme = "matte";
 export const DEFAULT_LINK_STYLE: LensLinkStyle = "straight";
@@ -244,6 +247,7 @@ export const LENS_SETTINGS = {
   spread: DistanceSchema,
   linkDistance: DistanceSchema,
   showLabels: Schema.Boolean,
+  edgeLabels: Schema.Boolean,
   autorotate: Schema.Boolean,
   labelDensity: Schema.Literals(LENS_LABEL_DENSITIES),
   theme: Schema.Literals(LENS_THEMES),
@@ -391,6 +395,13 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
     schema: LENS_SETTINGS.showLabels,
     fallback: DEFAULT_SHOW_LABELS,
   }),
+  edgeLabels: oneOf({
+    fields: [GRAPH_IDS.lensEdgeLabelsField],
+    read: firstBool(GRAPH_IDS.lensEdgeLabelsField),
+    write: writeBool(GRAPH_IDS.lensEdgeLabelsField),
+    schema: LENS_SETTINGS.edgeLabels,
+    fallback: DEFAULT_EDGE_LABELS,
+  }),
   autorotate: oneOf({
     fields: [GRAPH_IDS.lensAutorotateField],
     read: firstBool(GRAPH_IDS.lensAutorotateField),
@@ -466,6 +477,7 @@ export function decodeLensConfig(props: NodeProps, report: ConfigReport): LensPr
     spread: slot("spread"),
     linkDistance: slot("linkDistance"),
     showLabels: slot("showLabels"),
+    edgeLabels: slot("edgeLabels"),
     autorotate: slot("autorotate"),
     labelDensity: slot("labelDensity"),
     theme: slot("theme"),

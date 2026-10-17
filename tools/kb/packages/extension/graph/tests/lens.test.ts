@@ -52,6 +52,7 @@ describe("a graph view's lens", () => {
       spread: 90,
       linkDistance: 30,
       showLabels: false,
+      edgeLabels: true,
       autorotate: true,
       labelDensity: "high",
       theme: "matte",

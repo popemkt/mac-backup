@@ -12,6 +12,7 @@ import {
 } from "./surfaces";
 import {
   DEFAULT_AUTOROTATE,
+  DEFAULT_EDGE_LABELS,
   DEFAULT_LABEL_DENSITY,
   DEFAULT_LAYOUT,
   DEFAULT_LINK_DISTANCE,
@@ -76,6 +77,7 @@ export const graphUiPlugin = definePlugin({
               layout: DEFAULT_LAYOUT,
               labelDensity: DEFAULT_LABEL_DENSITY,
               showLabels: DEFAULT_SHOW_LABELS,
+              edgeLabels: DEFAULT_EDGE_LABELS,
               theme: DEFAULT_THEME,
               linkStyle: DEFAULT_LINK_STYLE,
             },
@@ -99,6 +101,7 @@ export const graphUiPlugin = definePlugin({
             sample: {
               labelDensity: DEFAULT_LABEL_DENSITY,
               showLabels: DEFAULT_SHOW_LABELS,
+              edgeLabels: DEFAULT_EDGE_LABELS,
               theme: DEFAULT_THEME,
               linkStyle: DEFAULT_LINK_STYLE,
             },
@@ -145,6 +148,7 @@ export const graphUiPlugin = definePlugin({
                 spread: DEFAULT_SPREAD,
                 linkDistance: DEFAULT_LINK_DISTANCE,
                 showLabels: DEFAULT_SHOW_LABELS,
+                edgeLabels: DEFAULT_EDGE_LABELS,
                 autorotate: DEFAULT_AUTOROTATE,
                 labelDensity: DEFAULT_LABEL_DENSITY,
                 theme: DEFAULT_THEME,

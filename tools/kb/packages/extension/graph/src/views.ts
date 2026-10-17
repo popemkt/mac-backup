@@ -193,6 +193,7 @@ export const Force2dView = rendererKey(
       layout: LENS_SETTINGS.layout,
       labelDensity: LENS_SETTINGS.labelDensity,
       showLabels: LENS_SETTINGS.showLabels,
+      edgeLabels: LENS_SETTINGS.edgeLabels,
       theme: LENS_SETTINGS.theme,
       linkStyle: LENS_SETTINGS.linkStyle,
     },
@@ -223,6 +224,7 @@ export const ClusterView = rendererKey(
     {
       labelDensity: LENS_SETTINGS.labelDensity,
       showLabels: LENS_SETTINGS.showLabels,
+      edgeLabels: LENS_SETTINGS.edgeLabels,
       theme: LENS_SETTINGS.theme,
       linkStyle: LENS_SETTINGS.linkStyle,
     },

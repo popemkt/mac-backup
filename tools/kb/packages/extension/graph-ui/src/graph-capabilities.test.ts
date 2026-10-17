@@ -33,6 +33,13 @@ describe("renderer capabilities", () => {
     expect(capabilitiesFor(Force3dView).fit).toBe(true);
   });
 
+  it("the link-labels toggle is live only where the renderer declares the setting", () => {
+    expect(settingDisabledReason(Force2dView, "edgeLabels")).toBeUndefined();
+    expect(settingDisabledReason(ClusterView, "edgeLabels")).toBeUndefined();
+    expect(settingDisabledReason(TreeView, "edgeLabels")).toBeDefined();
+    expect(settingDisabledReason(Force3dView, "edgeLabels")).toBeDefined();
+  });
+
   it("the 2D renderers trace in place; the others do not", () => {
     expect(capabilitiesFor(Force2dView).trace).toBe(true);
     expect(capabilitiesFor(ClusterView).trace).toBe(true);

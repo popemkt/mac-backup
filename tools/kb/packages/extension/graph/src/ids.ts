@@ -41,6 +41,8 @@ export const GRAPH_IDS = {
   lensLinkDistanceField: "sys.f.lens.link-distance",
   /** Show node labels (bool). */
   lensShowLabelsField: "sys.f.lens.show-labels",
+  /** Draw each link's relation as its label (bool): the toggle, per perspective. */
+  lensEdgeLabelsField: "sys.f.lens.edge-labels",
   /** 3D autorotate (bool). */
   lensAutorotateField: "sys.f.lens.autorotate",
   /** Label density tier: `low` | `medium` | `high` (str). */

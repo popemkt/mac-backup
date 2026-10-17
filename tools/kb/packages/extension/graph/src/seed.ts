@@ -119,6 +119,7 @@ export function graphSeedNodes(at: string): readonly KbNode[] {
     singleField(GRAPH_IDS.lensSpreadField, "lens.spread", "number"),
     singleField(GRAPH_IDS.lensLinkDistanceField, "lens.link-distance", "number"),
     singleField(GRAPH_IDS.lensShowLabelsField, "lens.show-labels", "checkbox"),
+    singleField(GRAPH_IDS.lensEdgeLabelsField, "lens.edge-labels", "checkbox"),
     singleField(GRAPH_IDS.lensAutorotateField, "lens.autorotate", "checkbox"),
     singleField(GRAPH_IDS.lensLabelDensityField, "lens.label-density", "text"),
     optionField(GRAPH_IDS.lensThemeField, "lens.theme", themeOptions),

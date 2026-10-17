@@ -74,6 +74,8 @@ export interface SigmaGraphProps extends GraphEmphasis {
   onControlsReady?: (controls: GraphCameraControls | null) => void;
   /** Shift-click with a node selected: trace from the selection to the clicked node. */
   onTraceTo?: (id: string) => void;
+  /** Each link's label, its relation's (`lens.edge-labels`); absent draws no link labels. */
+  edgeLabel?: (edge: LensEdge) => string;
 }
 
 /**
@@ -123,6 +125,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     highlightIds,
     filterIds,
     traceIds,
+    edgeLabel,
     showLabels = true,
     labelDensity = "medium",
     linkStyle = "straight",
@@ -413,6 +416,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
           graph.addEdgeWithKey(String(i), e.source, e.target, {
             size: linkWidth(e.weight),
             kind: e.kind,
+            label: live.current.edgeLabel?.(e),
           });
       });
     topology.current = key;
@@ -469,6 +473,16 @@ export function SigmaGraph(props: SigmaGraphProps) {
       (labelDensity === "low" ? 0.25 : labelDensity === "high" ? 1 : 0.65) * crowd,
     );
     sigma.setSetting("hideEdgesOnMove", nodes.length > 1500);
+    // Link labels are the edges' own attribute, keyed as the topology pass keys them.
+    edges.forEach((e, i) => {
+      const key = String(i);
+      if (sigma.getGraph().hasEdge(key))
+        sigma.getGraph().setEdgeAttribute(key, "label", edgeLabel?.(e));
+    });
+    sigma.setSetting("renderEdgeLabels", edgeLabel !== undefined);
+    sigma.setSetting("edgeLabelFont", graphLabelFont(look.labels.face));
+    sigma.setSetting("edgeLabelSize", 10);
+    sigma.setSetting("edgeLabelColor", { color: readTokenColor("--muted-foreground") });
     refresh();
   }, [
     appearance,
@@ -477,6 +491,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     labelDensity,
     nodes,
     edges,
+    edgeLabel,
     layoutKey,
     layout,
     cluster,

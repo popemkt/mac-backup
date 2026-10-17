@@ -1,8 +1,17 @@
 import { lazy, useMemo } from "react";
-import { outlineBulletAppearance, useNodes, WorkspaceBoundary } from "@kb/ui-sdk";
+import { outlineBulletAppearance, useNodes, useWireNodes, WorkspaceBoundary } from "@kb/ui-sdk";
 import type { LensNode } from "./graph-lens";
 import type { ParamsOf } from "@kb/views";
-import type { LensTheme, ClusterView, Force2dView, Force3dView, TreeView } from "@kb/graph";
+import {
+  hopLabelsOf,
+  relationOfEdge,
+  type ClusterView,
+  type Force2dView,
+  type Force3dView,
+  type LensEdge,
+  type LensTheme,
+  type TreeView,
+} from "@kb/graph";
 import { GRAPH_THEMES } from "./graph-themes";
 import { SigmaGraph } from "./sigma-graph";
 import { ClusterGraph } from "./cluster-graph";
@@ -32,6 +41,7 @@ export function Force2dAdapter({
   },
 }: RendererProps<ParamsOf<typeof Force2dView>>) {
   const nodes = useOutlineBullets(lensGraph.nodes, settings.theme);
+  const edgeLabel = useEdgeLabels(settings.edgeLabels);
   return (
     <SigmaGraph
       nodes={nodes}
@@ -51,6 +61,7 @@ export function Force2dAdapter({
       filterIds={filterIds ?? undefined}
       traceIds={trace.lit ?? undefined}
       onTraceTo={trace.to}
+      edgeLabel={edgeLabel}
     />
   );
 }
@@ -101,6 +112,7 @@ export function ClusterAdapter({
   },
 }: RendererProps<ParamsOf<typeof ClusterView>>) {
   const nodes = useOutlineBullets(lensGraph.nodes, settings.theme);
+  const edgeLabel = useEdgeLabels(settings.edgeLabels);
   return (
     <ClusterGraph
       nodes={nodes}
@@ -114,6 +126,7 @@ export function ClusterAdapter({
       filterIds={filterIds ?? undefined}
       traceIds={trace.lit ?? undefined}
       onTraceTo={trace.to}
+      edgeLabel={edgeLabel}
       showLabels={settings.showLabels}
       labelDensity={settings.labelDensity}
       linkStyle={settings.linkStyle}
@@ -185,4 +198,18 @@ export function Force3dAdapter({
       />
     </WorkspaceBoundary>
   );
+}
+
+/**
+ * Each link's label while `on`: its relation's (`@kb/graph`'s
+ * `relationOfEdge`), a typed relation by its field node's text, read from
+ * the page's nodes by the labels a trace's hops are worded with.
+ */
+function useEdgeLabels(on: boolean): ((edge: LensEdge) => string) | undefined {
+  const wireNodes = useWireNodes();
+  return useMemo(() => {
+    if (!on) return undefined;
+    const labels = hopLabelsOf(wireNodes);
+    return (edge: LensEdge) => relationOfEdge(edge, labels).label;
+  }, [on, wireNodes]);
 }

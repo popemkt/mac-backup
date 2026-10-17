@@ -195,6 +195,40 @@ test("force2d draws its links in the perspective's link style, switched in place
   await expect.poll(shapes, PAGE_READY).toEqual(["straight"]);
 });
 
+test("force2d labels each link with its relation once the perspective turns link labels on", async ({
+  page,
+}) => {
+  await selectRenderer(page, "force2d");
+  await sigmaReady(page, "[data-sigma-container]");
+  const labels = () =>
+    page.locator("[data-sigma-container]").evaluate((element) => {
+      const sigma = (element as SigmaHost).__kbSigma as unknown as {
+        getGraph(): { edges(): string[]; getEdgeAttribute(id: string, name: string): unknown };
+        getSetting(name: string): unknown;
+      };
+      const graph = sigma.getGraph();
+      return {
+        drawn: sigma.getSetting("renderEdgeLabels"),
+        labels: [
+          ...new Set(
+            graph.edges().map((e) => {
+              const label = graph.getEdgeAttribute(e, "label");
+              return typeof label === "string" ? label : "";
+            }),
+          ),
+        ].toSorted(),
+      };
+    });
+  await expect.poll(labels, PAGE_READY).toEqual({ drawn: false, labels: [""] });
+  const panel = page.getByTestId("graph-settings-panel");
+  await page.getByTestId("graph-settings-toggle").click();
+  await panel.getByLabel("Label links").check();
+  // The fixture's links are mentions and containment, each read by its verb.
+  await expect.poll(labels, PAGE_READY).toEqual({ drawn: true, labels: ["contains", "mentions"] });
+  await panel.getByLabel("Label links").uncheck();
+  await expect.poll(labels, PAGE_READY).toEqual({ drawn: false, labels: [""] });
+});
+
 test("cluster paints labels and a hull spanning its members", async ({ page }) => {
   await selectRenderer(page, "cluster");
   const host = "[data-testid='cluster-graph'] > div";

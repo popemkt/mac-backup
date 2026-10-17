@@ -50,6 +50,7 @@ describe("the graph's view keys", () => {
         spread: 150,
         linkDistance: 60,
         showLabels: true,
+        edgeLabels: false,
         autorotate: false,
         labelDensity: "medium",
         theme: "matte",

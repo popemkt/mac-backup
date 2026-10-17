@@ -93,6 +93,8 @@ export function sigmaEmphasis(sigma: Sigma, timing: Timing, reduced: () => boole
       color: premultipliedGraphColor(String(data.color), alpha * Math.min(arrived(a), arrived(b))),
       size: Number(data.size) * (1 + FOCUS_WIDEN * near),
       zIndex: near > 0.5 ? 1 : 0,
+      // A receding link's label recedes with it, as a node's does.
+      label: alpha >= LABEL_PRESENCE ? data.label : "",
     };
   });
 
