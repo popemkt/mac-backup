@@ -1730,10 +1730,15 @@ layer), so neither is computed by DataScript. Plan and prior art:
   counts only drawn edges there, so a hub tie-break or a suggestion's score
   can differ from the server's, never a path's length.
 - **Actions.** The family's server entry (`graphServerPlugin`) contributes
-  `ext.graph.trace`, `ext.graph.suggest` (reads) and
+  `ext.graph.trace`, `ext.graph.suggest`, `ext.graph.edges` (reads) and
   `ext.graph.relation.type` (a write), aliased `graph.trace`,
-  `graph.suggest` and `graph.relation.type` beside core's `graph.query` and
-  `graph.search`. The CLI's `kb trace <a> <b> [--kinds …] [--k n]`,
+  `graph.suggest`, `graph.edges` and `graph.relation.type` beside core's
+  `graph.query` and `graph.search`. `graph.edges {ids, kinds?,
+  includeSystem?}` is the projection itself as a host answers it
+  (`edgesAmong`): the edges among the ids the graph shows, each with its
+  kind, weight and relation label, and which of the ids it kept. Another
+  family that draws a set's connections (a canvas diagram) asks for them
+  through it rather than importing the projection. The CLI's `kb trace <a> <b> [--kinds …] [--k n]`,
   `kb suggest <id> [--kinds …]` and `kb relate <source> <target> <field>`
   are sugar over them (`cli/src/relations.ts`), as `kb backlinks` is over
   `graph.query`; MCP, WebMCP and the agent list them as they list every

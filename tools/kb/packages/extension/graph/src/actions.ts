@@ -1,7 +1,8 @@
 /**
  * The graph family's actions, `ext.graph.*`, aliased bare beside core's
- * `graph.query` and `graph.search`: trace and suggest, which read the store
- * through the same functions the page reads its replica with (`read.ts`),
+ * `graph.query` and `graph.search`: trace, suggest and the edges among a set,
+ * which read the store through the same functions the page reads its replica
+ * with (`read.ts`),
  * and typing a relation (`relation.ts`), which writes one ref prop.
  */
 import { Effect, Result, Schema } from "effect";
@@ -9,7 +10,7 @@ import { z } from "zod";
 import { GraphWrites, KbCtx, type ExtensionAction, type KbContext } from "@kb/contracts";
 import { currentIso, domainError, type DomainError } from "@kb/model";
 import { EdgeKindSchema, type EdgeKind } from "./lens.ts";
-import { suggestOf, traceOf } from "./read.ts";
+import { edgesAmong, suggestOf, traceOf } from "./read.ts";
 import { typedRelation } from "./relation.ts";
 import { visibleNodes } from "./scaffolding.ts";
 import { SUGGEST_DEFAULTS } from "./suggest.ts";
@@ -132,6 +133,38 @@ export const graphSuggestEffect = Effect.fn("ext.graph.suggest")(function* (
   });
 });
 
+const edgesInput = z.object({
+  ids: z.array(z.string()).min(1).describe("The nodes whose edges among themselves are drawn"),
+  kinds: edgeKinds,
+  includeSystem,
+});
+
+const edgesOutput = z.object({
+  /** Of the ids named, those the graph shows, once each and in the order named. */
+  nodes: z.array(z.string()),
+  edges: z.array(
+    z.object({
+      source: z.string(),
+      target: z.string(),
+      kind: z.string(),
+      weight: z.number(),
+      label: z.string(),
+    }),
+  ),
+});
+
+export const graphEdgesEffect = Effect.fn("ext.graph.edges")(function* (
+  input: z.infer<typeof edgesInput>,
+): Effect.fn.Return<z.infer<typeof edgesOutput>, DomainError, KbCtx> {
+  const { index, nodes } = yield* KbCtx;
+  yield* existing(index, input.ids);
+  const shown = visibleNodes(nodes, { includeSystem: input.includeSystem });
+  const within = new Set(shown.map((node) => node.id));
+  return edgesOutput.parse(
+    edgesAmong(nodes, { ids: input.ids, kinds: kindsOf(input.kinds), within }),
+  );
+});
+
 const relationInput = z.object({
   source: z.string().describe("The node the relation leaves"),
   target: z.string().describe("The node it points at"),
@@ -191,6 +224,20 @@ export const GRAPH_ACTIONS: readonly ExtensionAction[] = [
     inputSchema: suggestInput,
     outputSchema: suggestOutput,
     effect: graphSuggestEffect,
+  },
+  {
+    id: "edges",
+    aliases: ["graph.edges"],
+    title: "Edges among nodes",
+    description:
+      "The relationships among a set of nodes as the graph draws them, each with its kind, its " +
+      "weight (parallel edges of one kind counted) and its label (a verb, or a typed relation's " +
+      "field). Scaffolding is elided unless includeSystem, so the answer also says which of the " +
+      "ids it kept. What a diagram or a picture of a set draws its connections from",
+    mode: { kind: "read" },
+    inputSchema: edgesInput,
+    outputSchema: edgesOutput,
+    effect: graphEdgesEffect,
   },
   {
     id: "relation.type",

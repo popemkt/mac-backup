@@ -1,10 +1,12 @@
 /**
  * The edge projection (`collectEdges`): each kind read from its own carrier,
- * within the node set, with parallel edges of one kind merged into a weight.
+ * within the node set, with parallel edges of one kind merged into a weight;
+ * and the edges among a set as a host answers them (`edgesAmong`), each
+ * named by its relation, over the nodes the host shows.
  */
 import { describe, expect, test } from "bun:test";
 import type { EdgeKind } from "@kb/graph";
-import { collectEdges } from "../src/index.ts";
+import { collectEdges, edgesAmong } from "../src/index.ts";
 import { node } from "./fixtures.ts";
 
 const nodes = [
@@ -69,5 +71,28 @@ describe("collectEdges", () => {
 
   test("an edge leaving the set is not drawn", () => {
     expect(edges("mention").some((e) => e.target === "outside")).toBe(false);
+  });
+});
+
+describe("edgesAmong", () => {
+  const named = [...nodes, node({ id: "field.depends", text: "depends on" })];
+
+  test("names each edge by its relation: a verb, or a typed relation's field", () => {
+    const answer = edgesAmong(named, { ids: ["a", "b", "c"], kinds: ["child", "ref-prop"] });
+    expect(answer.edges.map((e) => [e.source, e.target, e.label])).toEqual([
+      ["a", "c", "contains"],
+      ["a", "b", "depends on"],
+      ["a", "c", "field.owner"],
+    ]);
+  });
+
+  test("keeps the ids within what the host shows, once each and in the order named", () => {
+    const answer = edgesAmong(named, {
+      ids: ["c", "a", "c", "b"],
+      kinds: ["mention"],
+      within: new Set(["a", "c"]),
+    });
+    expect(answer.nodes).toEqual(["c", "a"]);
+    expect(answer.edges).toEqual([]);
   });
 });

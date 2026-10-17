@@ -113,6 +113,7 @@ export {
 export { graphExtension, graphPlugin, graphServerPlugin } from "./extension.ts";
 export {
   GRAPH_ACTIONS,
+  graphEdgesEffect,
   graphRelationTypeEffect,
   graphSuggestEffect,
   graphTraceEffect,
@@ -125,9 +126,13 @@ export {
 } from "./relation.ts";
 export {
   DEFAULT_TRACE_KINDS,
+  edgesAmong,
   hopLabelsOf,
   suggestOf,
   traceOf,
+  type EdgesAnswer,
+  type EdgesRequest,
+  type NamedEdge,
   type SuggestRequest,
   type SuggestedNode,
   type TraceAnswer,

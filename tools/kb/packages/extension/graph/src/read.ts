@@ -1,17 +1,17 @@
 /**
- * Trace and suggest as a host answers them: over the nodes a host holds,
- * walking only those it shows (`within`, the visible ones) and the nodes the
- * read is anchored at (a trace's ends, a suggestion's subject), whatever
- * they are, so a read that names a scaffolding node starts there on every
- * host. Every hop is
+ * Trace, suggest and the edges among a set as a host answers them: over the
+ * nodes a host holds, walking only those it shows (`within`, the visible
+ * ones) and the nodes a trace or suggestion is anchored at (a trace's ends,
+ * a suggestion's subject), whatever they are, so a read that names a
+ * scaffolding node starts there on every host. Every hop is
  * worded and every node named from all it holds — a relation's field is
  * scaffolding the walk never crosses, yet it names the hop. The server's
  * actions (`graph.trace`, `graph.suggest`) and the page's local read run
  * these same functions, so both hosts give one answer.
  */
 import { relationInverseOf, replaceMentions } from "@kb/model";
-import type { LensSource } from "./edges.ts";
-import { explainHop, hopLabel, type HopLabels } from "./explain.ts";
+import { collectEdges, type LensEdge, type LensSource } from "./edges.ts";
+import { explainHop, hopLabel, relationOfEdge, type HopLabels } from "./explain.ts";
 import type { EdgeKind } from "./lens.ts";
 import { projectionOf } from "./projection.ts";
 import { suggest, type SuggestOptions, type SuggestReasons } from "./suggest.ts";
@@ -120,6 +120,38 @@ export function suggestOf(
       text: labels.textOf(s.id),
     }),
   );
+}
+
+export interface EdgesRequest extends WithinRequest {
+  readonly ids: readonly string[];
+  readonly kinds?: readonly EdgeKind[];
+}
+
+/** An edge as a reader reads it: the projection's, named by its relation (`relationOfEdge`). */
+export interface NamedEdge extends LensEdge {
+  readonly label: string;
+}
+
+/** The ids a set keeps, and the edges among them. */
+export interface EdgesAnswer {
+  readonly nodes: readonly string[];
+  readonly edges: readonly NamedEdge[];
+}
+
+/**
+ * The edges among `ids`, as the projection draws them (`collectEdges`), each
+ * named by its relation: of `ids`, only those `within` names are kept, once
+ * each, in the order named, so what the graph elides draws no edge.
+ */
+export function edgesAmong(nodes: readonly LensSource[], request: EdgesRequest): EdgesAnswer {
+  const { ids, kinds = DEFAULT_TRACE_KINDS, within } = request;
+  const kept = [...new Set(ids)].filter((id) => within === undefined || within.has(id));
+  const labels = hopLabelsOf(nodes);
+  const edges = collectEdges(nodes, new Set(kept), new Set(kinds));
+  return {
+    nodes: kept,
+    edges: edges.map((edge) => ({ ...edge, label: relationOfEdge(edge, labels).label })),
+  };
 }
 
 /**
