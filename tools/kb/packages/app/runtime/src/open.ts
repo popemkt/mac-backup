@@ -19,8 +19,8 @@ import {
   type KbNode,
 } from "@kb/model";
 import { derivedOf } from "@kb/bundled";
-import { DatascriptIndex } from "@kb/query";
-import { KbStore, type KbContext } from "@kb/contracts";
+import { DatascriptIndex, type DerivedRef } from "@kb/query";
+import { KbStore, type EffectStore, type KbContext } from "@kb/contracts";
 import { StoreTxLog } from "@kb/tx-log";
 import { readLegacyDocsViews } from "@kb/workspace-fs";
 import { noteStoreSynced } from "@kb/operations";
@@ -48,6 +48,34 @@ const reportLegacyViews = Effect.fn("kb.open.legacyViews")(function* (
     yield* Effect.logWarning(
       `kb: ${root} holds shapes from before view nodes; run the views.migrate action: ${held.join("; ")}`,
     );
+});
+
+/**
+ * A session over `store`, the store of `root`, whose nodes are `nodes` as
+ * the store holds them now: the index built over them once, with the
+ * references the root's families derive (`derived`), the log over the
+ * store's tail, and the session marked as caught up. Opening makes one
+ * after its migrations; a surface that holds a store of its own (the
+ * client) makes one over what it read.
+ */
+const sessionOver = Effect.fn("kb.sessionOver")(function* (
+  root: string,
+  store: EffectStore,
+  nodes: readonly KbNode[],
+  derived: readonly DerivedRef[],
+): Effect.fn.Return<KbContext> {
+  const index = new DatascriptIndex([...nodes], { derived });
+  const ctx: KbContext = {
+    root,
+    store,
+    index,
+    log: new StoreTxLog(store.txTail),
+    get nodes(): KbNode[] {
+      return index.storedNodes();
+    },
+  };
+  yield* noteStoreSynced(ctx).pipe(Effect.provideService(KbStore, store));
+  return ctx;
 });
 
 /**
@@ -86,16 +114,5 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
     nodes = [...applyTx(loaded, commit.tx).values()];
   }
   yield* reportLegacyViews(root, nodes);
-  const index = new DatascriptIndex(nodes, { derived: derivedOf(declarations) });
-  const ctx: KbContext = {
-    root,
-    store,
-    index,
-    log: new StoreTxLog(store.txTail),
-    get nodes(): KbNode[] {
-      return index.storedNodes();
-    },
-  };
-  yield* noteStoreSynced(ctx).pipe(Effect.provideService(KbStore, store));
-  return ctx;
+  return yield* sessionOver(root, store, nodes, derivedOf(declarations));
 });

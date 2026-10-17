@@ -15,6 +15,7 @@ import {
   TxOrigin,
   approvalRefusal,
   type KbContext,
+  type StoreCommit,
   type StoreFingerprint,
 } from "@kb/contracts";
 import { decide } from "./approval.ts";
@@ -79,6 +80,13 @@ export type SystemWrites = "checked" | "forced" | "system";
 
 export interface PersistOptions {
   readonly systemWrites?: SystemWrites;
+  /**
+   * The state the commit lands on, or it fails `conflict` and writes
+   * nothing (the store's conditional commit): for a write decided on a
+   * state its caller read. Without it, the commit merges into whatever is
+   * there.
+   */
+  readonly expected?: StoreFingerprint;
 }
 
 /**
@@ -119,58 +127,8 @@ export interface PersistOptions {
 export const persistEffect = Effect.fn("kb.persist")(function* (
   ctx: KbContext,
   tx: StoreTx,
-  options: PersistOptions = {},
-): Effect.fn.Return<void, DomainError, KbStore> {
-  return yield* commitTx(ctx, tx, options, undefined);
-});
-
-/** How many times a planned write is planned again over a store that moved under it. */
-const PLANNED_ATTEMPTS = 3;
-
-/**
- * Commit a write planned from the graph as this session read it: `plan`
- * sees the session's nodes once it has caught up, and what it plans lands
- * only on that same state (the store's conditional commit, `expected`). A
- * plan that replaces a whole node from what it read (a list's children, say)
- * would otherwise merge over a write another process made in between and
- * lose it. When the store moved, the plan is made again over what it now
- * holds, a few times, before the `conflict` is the caller's. Answers what
- * was committed, or null when `plan` had nothing to write.
- */
-export const persistPlannedEffect = Effect.fn("kb.persistPlanned")(function* <
-  W extends { readonly upserts: readonly KbNode[]; readonly deletes: readonly NodeId[] },
->(
-  ctx: KbContext,
-  plan: (nodes: readonly KbNode[]) => W | null,
-  options: PersistOptions = {},
-): Effect.fn.Return<W | null, DomainError, KbStore> {
-  for (let attempt = 1; ; attempt++) {
-    yield* reloadEffect(ctx);
-    const read = seen.get(ctx);
-    const write = plan(ctx.nodes);
-    if (write === null || (write.upserts.length === 0 && write.deletes.length === 0)) return write;
-    const tx: StoreTx = { upserts: [...write.upserts], deletes: [...write.deletes] };
-    const committed = yield* commitTx(ctx, tx, options, read).pipe(
-      Effect.as(true),
-      Effect.catchIf(
-        (err) => err.code === "conflict" && attempt < PLANNED_ATTEMPTS,
-        () => Effect.succeed(false),
-      ),
-    );
-    if (committed) return write;
-  }
-});
-
-/**
- * {@link persistEffect}'s commit, landing only on the state `expected`
- * names when it names one ({@link persistPlannedEffect}).
- */
-const commitTx = Effect.fnUntraced(function* (
-  ctx: KbContext,
-  tx: StoreTx,
-  { systemWrites = "checked" }: PersistOptions,
-  expected: StoreFingerprint | undefined,
-): Effect.fn.Return<void, DomainError, KbStore> {
+  { systemWrites = "checked", expected }: PersistOptions = {},
+): Effect.fn.Return<StoreCommit, DomainError, KbStore> {
   const store = yield* KbStore;
   const origin = yield* TxOrigin;
   yield* reloadEffect(ctx);
@@ -218,5 +176,42 @@ const commitTx = Effect.fnUntraced(function* (
     yield* reloadEffect(ctx);
   }
   ctx.log.refresh();
-  return undefined;
+  return commit;
+});
+
+/** How many times a planned write is planned again over a store that moved under it. */
+const PLANNED_ATTEMPTS = 3;
+
+/**
+ * Commit a write planned from the graph as this session read it: `plan`
+ * sees the session's nodes once it has caught up, and what it plans lands
+ * only on that same state (the store's conditional commit, `expected`). A
+ * plan that replaces a whole node from what it read (a list's children, say)
+ * would otherwise merge over a write another process made in between and
+ * lose it. When the store moved, the plan is made again over what it now
+ * holds, a few times, before the `conflict` is the caller's. Answers what
+ * was committed, or null when `plan` had nothing to write.
+ */
+export const persistPlannedEffect = Effect.fn("kb.persistPlanned")(function* <
+  W extends { readonly upserts: readonly KbNode[]; readonly deletes: readonly NodeId[] },
+>(
+  ctx: KbContext,
+  plan: (nodes: readonly KbNode[]) => W | null,
+  options: PersistOptions = {},
+): Effect.fn.Return<W | null, DomainError, KbStore> {
+  for (let attempt = 1; ; attempt++) {
+    yield* reloadEffect(ctx);
+    const read = seen.get(ctx);
+    const write = plan(ctx.nodes);
+    if (write === null || (write.upserts.length === 0 && write.deletes.length === 0)) return write;
+    const tx: StoreTx = { upserts: [...write.upserts], deletes: [...write.deletes] };
+    const committed = yield* persistEffect(ctx, tx, { ...options, expected: read }).pipe(
+      Effect.as(true),
+      Effect.catchIf(
+        (err) => err.code === "conflict" && attempt < PLANNED_ATTEMPTS,
+        () => Effect.succeed(false),
+      ),
+    );
+    if (committed) return write;
+  }
 });
