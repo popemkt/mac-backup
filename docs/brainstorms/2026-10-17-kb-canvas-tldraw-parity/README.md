@@ -539,6 +539,13 @@ Batch S: a review of canvas scripting S1–S5 as it landed (read at
 on `fix/scripts-review`. Security comes before P14 comments, which wait for
 it.
 
+Closed: all six fixed on `fix/scripts-review`. S-1 `hears` (3ec05b74);
+S-6 `grantOfText` (6a9a72fa); S-4 by design, stated once under Sandbox →
+Trust and pinned on the render path (d692acf5); S-2 `targets` +
+`scriptRefusal` in the invoke core (a09e3bbc); S-5 the code family's
+declared `approval.script-run` denial (5b2736a7); S-3 the overlay mask
+(89feaf97, 2c4888c0).
+
 | # | Severity | Finding | Fix |
 |---|---|---|---|
 | S-1 | major | The declared-events filter lives only in the guest driver (`guest.ts`); the page's host (`sandbox-host.ts`) forwards every event. Latent today. | One filter in the sandbox contract, applied at the host edge as well, so both engines and both hosts ask one function. |
