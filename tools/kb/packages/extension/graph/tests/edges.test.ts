@@ -43,13 +43,24 @@ describe("collectEdges", () => {
     ]);
   });
 
-  test("the kinds stay disjoint: a ref prop is not also a mention", () => {
-    expect(edges("mention", "ref-prop").map((e) => `${e.kind}:${e.source}->${e.target}`)).toEqual([
-      "mention:a->b",
-      "mention:b->c",
-      "prop:field.depends:a->b",
-      "prop:field.owner:a->c",
+  test("a ref prop is not also a mention: a typed mention folds into its relation", () => {
+    expect(edges("mention", "ref-prop")).toEqual([
+      { source: "b", target: "c", kind: "mention", weight: 1 },
+      {
+        source: "a",
+        target: "b",
+        kind: "prop:field.depends",
+        weight: 2,
+        carriers: ["mention", "prop"],
+      },
+      { source: "a", target: "c", kind: "prop:field.owner", weight: 1 },
     ]);
+  });
+
+  test("a lens that draws the mention but not its field keeps the mention", () => {
+    expect(
+      edges("mention", "prop:field.owner").map((e) => `${e.kind}:${e.source}->${e.target}`),
+    ).toEqual(["mention:a->b", "mention:b->c", "prop:field.owner:a->c"]);
   });
 
   test("parallel edges of one kind are one edge, weighted by their count", () => {

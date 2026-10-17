@@ -16,6 +16,12 @@ export interface LensEdge {
   target: string;
   kind: EdgeKind;
   weight: number;
+  /**
+   * Set when the edge carries a mention folded into a typed relation: the
+   * source both mentions the target and holds it in a ref field, and the
+   * relation says what the mention means.
+   */
+  carriers?: readonly ["mention", "prop"];
 }
 
 /**
@@ -47,11 +53,12 @@ export function collectEdges(
 
   /*
    * The three edge kinds are provenance lenses over one relation, so each is
-   * read from its own carrier and they stay disjoint: text tokens here (the
-   * node's text and its text values, `nodeMentions`), the
-   * children array below, ref prop values after that. `:node/mentions` is
-   * deliberately NOT used — it is carrier-independent (see ds/datoms), so
-   * querying it would double every ref-prop edge as a mention as well.
+   * read from its own carrier: text tokens here (the node's text and its
+   * text values, `nodeMentions`), the children array below, ref prop values
+   * after that. `:node/mentions` is deliberately NOT used — it is
+   * carrier-independent (see ds/datoms), so querying it would double every
+   * ref-prop edge as a mention as well. The one place two carriers meet is
+   * a typed mention, folded at the end.
    */
   if (kinds.has("mention")) {
     for (const n of nodes) {
@@ -83,5 +90,28 @@ export function collectEdges(
     }
   }
 
-  return edges;
+  return foldTypedMentions(edges);
+}
+
+/**
+ * A mention the source has also typed (it holds the target in a ref field)
+ * is one connection, not two: the mention folds into the first typed
+ * relation to that target, raising its weight by the mention's and marking
+ * its carriers. A lens that draws mentions but not that field keeps the
+ * mention as it is, because nothing here says what it means.
+ */
+function foldTypedMentions(edges: LensEdge[]): LensEdge[] {
+  const mentions = new Map<string, LensEdge>();
+  for (const edge of edges)
+    if (edge.kind === "mention") mentions.set(`${edge.source}->${edge.target}`, edge);
+  const folded = new Set<LensEdge>();
+  for (const edge of edges) {
+    if (!edge.kind.startsWith("prop:")) continue;
+    const mention = mentions.get(`${edge.source}->${edge.target}`);
+    if (mention === undefined || folded.has(mention)) continue;
+    folded.add(mention);
+    edge.weight += mention.weight;
+    edge.carriers = ["mention", "prop"];
+  }
+  return folded.size === 0 ? edges : edges.filter((edge) => !folded.has(edge));
 }
