@@ -584,6 +584,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — force3d draws label sprites and declares the setting.
 - **node** — `01M545DCC35V9CCSQQKYF80VKQ`
 
+### GAP: graph themes are a closed set, not a declared kind
+
+- **expected** — A graphThemes kind with options under sys.f.lens.theme, a GraphThemePoint carrying the GraphTheme, lens.theme read by declaredChoice, and the renderer contract run over every contributed theme.
+- **current** — GRAPH_THEME_VALUES plus a GRAPH_THEMES Record and Schema.Literals(LENS_THEMES).
+- **impact** — No extension can add a graph look.
+- **closes** — The point plus a kind row, and decoding against contributed ids.
+- **node** — `01M54PYCJ6FGCT8SGZDZPVQW7Y`
+
 ### GAP: GraphPage carries 35 branches of renderer and perspective selection
 
 - **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
@@ -821,6 +829,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an outline paste with many top-level items over a store with many roots does R work per item (a memmove; small constant)
 - **closes** — an ordered structure with logarithmic insert for the roots in node-graph.ts, counted in the plan test
 - **node** — `01M52RTGASH2F5PVW7CK2Q50VN`
+
+### GAP: Preferences draws its own swatches for the design-system field
+
+- **expected** — The page's field editor draws sys.f.design-system in Preferences, as it draws the backdrop field, with options shown as live swatches.
+- **current** — A bespoke swatch radiogroup that writes the field through chooseDesignSystem.
+- **impact** — Two renderings of one field's options.
+- **closes** — Per-option preview rendering in the field editor.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M54PYE750E2GNTTKAVRK7GCK`
 
 ### GAP: PropValue still carries the legacy {t:"date"} variant
 
