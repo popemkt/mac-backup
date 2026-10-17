@@ -162,6 +162,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — a chart builder that writes the spec through the one chart spec check
 - **node** — `01M4187E5QQYRD8ENHQM968EEJ`
 
+### GAP: a clipped frame member's 2D selection handles are cut with it
+
+- **expected** — A frame clips what it holds, but the selection chrome of a selected member (outline halo, resize and rotate handles, ports) is drawn whole over the frame edge, in its own overlay.
+- **current** — In 2D the handles and ports live inside the item's card element, so the item's clip-path (CanvasClipped, canvas-card-layer.tsx) cuts them where the member spills past its frame. 3D is unaffected (its gizmo is not in the item's ClippingGroup).
+- **impact** — A member partly outside its frame can't be resized from a corner outside the frame in 2D; it can still be moved, nudged or resized from the inspector.
+- **closes** — The selected item's chrome is drawn in one overlay above the stage (the 2D selection layer), not inside the card, so the item's clip never reaches it.
+- **node** — `01M556WN27H5RAH0JSHERPAW82`
+
 ### GAP: a code view cannot be promoted to a view type
 
 - **expected** — the trust gesture can also promote a proven code view to an extension ViewPoint type, so mode A can use it
