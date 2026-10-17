@@ -13,7 +13,7 @@ import {
   viewOptionId,
   type KbNode,
 } from "@kb/model";
-import { DatascriptIndex, parseEdn } from "@kb/query";
+import { DatascriptIndex, derivedWith, parseEdn } from "@kb/query";
 import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -31,12 +31,15 @@ const seed = bundledSeed(AT);
 const optionIds = new Set(seed.find((node) => node.id === SYSTEM_IDS.viewsRoot)?.children);
 const options = seed.filter((node) => optionIds.has(node.id));
 
-const index = new DatascriptIndex([
-  ...seed,
-  viewNode("v.table", "outline.table"),
-  viewNode("v.tree", "graph.tree"),
-  viewNode("v.nb", "graph.neighbourhood"),
-]);
+const index = new DatascriptIndex(
+  [
+    ...seed,
+    viewNode("v.table", "outline.table"),
+    viewNode("v.tree", "graph.tree"),
+    viewNode("v.nb", "graph.neighbourhood"),
+  ],
+  { derived: derivedWith({}) },
+);
 const ids = (edn: string) =>
   index
     .runDatalog(edn)

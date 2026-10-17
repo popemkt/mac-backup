@@ -32,7 +32,7 @@ import {
   type PropValue,
   typeRefsOf,
 } from "@kb/model";
-import { DatascriptIndex } from "@kb/query";
+import { DatascriptIndex, derivedWith } from "@kb/query";
 import { bundledSeed } from "@kb/bundled";
 
 const AT = "2026-08-24T00:00:00.000Z";
@@ -42,7 +42,7 @@ const seedMap = new Map<string, KbNode>(seed.map((n) => [n.id, n]));
 
 /** The EDN runner core asks for, bound to the backend datalog engine. */
 function runnerFor(nodes: KbNode[]): (edn: string) => unknown[][] {
-  const index = new DatascriptIndex(nodes);
+  const index = new DatascriptIndex(nodes, { derived: derivedWith({}) });
   return (edn) => index.runDatalog(edn);
 }
 

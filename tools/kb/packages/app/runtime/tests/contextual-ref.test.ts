@@ -17,7 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKb } from "../src/session.ts";
 import { ensureSystemSeed, fieldTypeOf, present, SYSTEM_IDS, type KbNode } from "@kb/model";
-import { backlinksQuery, DatascriptIndex } from "@kb/query";
+import { backlinksQuery, DatascriptIndex, derivedWith } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 import { bundledSeed } from "@kb/bundled";
 
@@ -88,7 +88,9 @@ describe(":node/mentions counts ref props, not only text tokens", () => {
         [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.target" }],
       }),
     ];
-    const rows = new DatascriptIndex(nodes).runDatalog(backlinksQuery("n.target"));
+    const rows = new DatascriptIndex(nodes, { derived: derivedWith({}) }).runDatalog(
+      backlinksQuery("n.target"),
+    );
     expect(rows.map((r) => r[0])).toEqual(["n.ctx"]);
   });
 
@@ -99,7 +101,9 @@ describe(":node/mentions counts ref props, not only text tokens", () => {
         [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.target" }],
       }),
     ];
-    const rows = new DatascriptIndex(nodes).runDatalog(backlinksQuery("n.target"));
+    const rows = new DatascriptIndex(nodes, { derived: derivedWith({}) }).runDatalog(
+      backlinksQuery("n.target"),
+    );
     expect(rows.map((r) => r[0])).toEqual(["n.both"]);
   });
 
@@ -109,7 +113,9 @@ describe(":node/mentions counts ref props, not only text tokens", () => {
         [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.missing" }],
       }),
     ];
-    const rows = new DatascriptIndex(nodes).runDatalog(backlinksQuery("n.missing"));
+    const rows = new DatascriptIndex(nodes, { derived: derivedWith({}) }).runDatalog(
+      backlinksQuery("n.missing"),
+    );
     expect(rows).toEqual([]);
   });
 });

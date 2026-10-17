@@ -7,6 +7,7 @@ import {
   LIST_TAGS_QUERY,
   backlinksQuery,
   DatascriptIndex,
+  derivedWith,
   compile,
   parseEdn,
   type IrQuery,
@@ -17,7 +18,7 @@ import type { KbNode } from "@kb/model";
 import { bundledSeed } from "@kb/bundled";
 
 function indexFor(nodes: KbNode[]): DatascriptIndex {
-  return new DatascriptIndex(nodes);
+  return new DatascriptIndex(nodes, { derived: derivedWith({}) });
 }
 
 const AT = "2026-01-01T00:00:00.000Z";

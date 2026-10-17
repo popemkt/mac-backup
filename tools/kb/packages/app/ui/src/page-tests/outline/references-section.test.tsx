@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WireNode } from "@kb/contracts";
-import { DatascriptIndex, queryBacklinks } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith, queryBacklinks } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { ReferencesView } from "@kb/outline-ui";
 
@@ -26,7 +26,9 @@ function referrer(): WireNode {
 
 describe("inline References (W8a)", () => {
   it("queryBacklinks resolves [[ref]] mentions from node text", () => {
-    const db = new DatascriptIndex([...fixtureGraph.nodes, referrer()]);
+    const db = new DatascriptIndex([...fixtureGraph.nodes, referrer()], {
+      derived: derivedWith({}),
+    });
     expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toEqual(["n.referrer"]);
     expect(queryBacklinks(db, "n.root-b")).toEqual([]);
   });

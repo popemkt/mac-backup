@@ -13,6 +13,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   Bullet,
   DatascriptIndex,
+  derivedWith,
   type OutlineNode,
   resultNodeIds,
   runQuery,
@@ -52,7 +53,9 @@ function renderBullet(node: OutlineNode, isRef: boolean): string {
 describe("result row render (W4)", () => {
   it("query rows resolve to real nodes and render dashed ref bullets", () => {
     const nodes = outlineMap();
-    const db = new DatascriptIndex([...fixtureGraph.nodes, queryWire()]);
+    const db = new DatascriptIndex([...fixtureGraph.nodes, queryWire()], {
+      derived: derivedWith({}),
+    });
     const rows = runQuery(db, TODO_EDN);
     const ids = resultNodeIds(rows, nodes, { excludeId: "n.q1" });
     expect(ids.toSorted()).toEqual(["n.root-a", "n.root-b"]);

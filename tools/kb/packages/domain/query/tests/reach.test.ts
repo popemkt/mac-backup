@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode, PropValue } from "@kb/model";
-import { DatalogError, DatascriptIndex, compile, parseEdn } from "@kb/query";
+import { DatalogError, DatascriptIndex, derivedWith, compile, parseEdn } from "@kb/query";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -74,8 +74,12 @@ describe("parseEdn reads the reach form", () => {
     const edn = `[:find ?b :where ${clause}]`;
     expect(() => parseEdn(edn)).toThrow(DatalogError);
     expect(() => parseEdn(edn)).toThrow(message);
-    expect(() => new DatascriptIndex(lineage(1)).runDatalog(edn)).toThrow(DatalogError);
-    expect(() => new DatascriptIndex(lineage(1)).runDatalog(edn)).toThrow(/^reach/);
+    expect(() =>
+      new DatascriptIndex(lineage(1), { derived: derivedWith({}) }).runDatalog(edn),
+    ).toThrow(DatalogError);
+    expect(() =>
+      new DatascriptIndex(lineage(1), { derived: derivedWith({}) }).runDatalog(edn),
+    ).toThrow(/^reach/);
   });
 
   // GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]: outside the subset the whole query is raw, malformed reach too.
@@ -90,7 +94,7 @@ describe("parseEdn reads the reach form", () => {
 
 describe("reach over a ref field", () => {
   test("a 50-hop lineage is traced to the end — no cap", () => {
-    const index = new DatascriptIndex(lineage(50));
+    const index = new DatascriptIndex(lineage(50), { derived: derivedWith({}) });
     const rows = index.runDatalog(ANCESTORS("p0"));
     expect(rows).toHaveLength(50);
     expect(firstColumn(rows)).toContain("p50");
@@ -98,13 +102,13 @@ describe("reach over a ref field", () => {
   });
 
   test("a bound caps the hop count", () => {
-    const index = new DatascriptIndex(lineage(50));
+    const index = new DatascriptIndex(lineage(50), { derived: derivedWith({}) });
     expect(firstColumn(index.runDatalog(ANCESTORS("p0", " 3")))).toEqual(["p1", "p2", "p3"]);
     expect(firstColumn(index.runDatalog(ANCESTORS("p0", " 1")))).toEqual(["p1"]);
   });
 
   test("the bound end may be the target: descendants walk the edge backwards", () => {
-    const index = new DatascriptIndex(lineage(5));
+    const index = new DatascriptIndex(lineage(5), { derived: derivedWith({}) });
     const rows = index.runDatalog(
       `[:find ?id :where [?anc :node/id "p3"] (reach ?d :f/parent ?anc) [?d :node/id ?id]]`,
     );
@@ -112,11 +116,14 @@ describe("reach over a ref field", () => {
   });
 
   test("a cycle terminates, unbounded and bounded", () => {
-    const index = new DatascriptIndex([
-      node("x", { props: { parent: [ref("y")] } }),
-      node("y", { props: { parent: [ref("z")] } }),
-      node("z", { props: { parent: [ref("x")] } }),
-    ]);
+    const index = new DatascriptIndex(
+      [
+        node("x", { props: { parent: [ref("y")] } }),
+        node("y", { props: { parent: [ref("z")] } }),
+        node("z", { props: { parent: [ref("x")] } }),
+      ],
+      { derived: derivedWith({}) },
+    );
     expect(firstColumn(index.runDatalog(ANCESTORS("x")))).toEqual(["x", "y", "z"]);
     expect(firstColumn(index.runDatalog(ANCESTORS("x", " 2")))).toEqual(["y", "z"]);
     expect(firstColumn(index.runDatalog(ANCESTORS("x", " 30")))).toEqual(["x", "y", "z"]);
@@ -129,10 +136,13 @@ describe("reach over a ref field", () => {
   ] as [string, PropValue][])(
     "%s on the edge is neither followed nor returned",
     (_label, value) => {
-      const index = new DatascriptIndex([
-        node("p0", { props: { parent: [value, ref("p1")] } }),
-        node("p1", { props: { parent: [value] } }),
-      ]);
+      const index = new DatascriptIndex(
+        [
+          node("p0", { props: { parent: [value, ref("p1")] } }),
+          node("p1", { props: { parent: [value] } }),
+        ],
+        { derived: derivedWith({}) },
+      );
       expect(firstColumn(index.runDatalog(ANCESTORS("p0")))).toEqual(["p1"]);
       expect(firstColumn(index.runDatalog(ANCESTORS("p0", " 4")))).toEqual(["p1"]);
       const bare = `[:find ?a :where [?me :node/id "p1"] (reach ?me :f/parent ?a)]`;
@@ -142,30 +152,36 @@ describe("reach over a ref field", () => {
 
   // GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]: pins today's aliasing; flips to [] when refs and numbers are encoded apart.
   test("a number equal to a live eid still aliases that node", () => {
-    const index = new DatascriptIndex([
-      node("p0", { props: { parent: [{ t: "num", v: 2 }] } }),
-      node("p1"),
-    ]);
+    const index = new DatascriptIndex(
+      [node("p0", { props: { parent: [{ t: "num", v: 2 }] } }), node("p1")],
+      { derived: derivedWith({}) },
+    );
     expect(firstColumn(index.runDatalog(ANCESTORS("p0")))).toEqual(["p1"]);
   });
 
   test("a dangling ref on the lineage is skipped", () => {
-    const index = new DatascriptIndex([
-      node("p0", { props: { parent: [ref("p1")] } }),
-      node("p1", { props: { parent: [ref("deleted")] } }),
-    ]);
+    const index = new DatascriptIndex(
+      [
+        node("p0", { props: { parent: [ref("p1")] } }),
+        node("p1", { props: { parent: [ref("deleted")] } }),
+      ],
+      { derived: derivedWith({}) },
+    );
     expect(firstColumn(index.runDatalog(ANCESTORS("p0")))).toEqual(["p1"]);
   });
 });
 
 describe("reach over the structural edges", () => {
-  const index = new DatascriptIndex([
-    node("a", { text: "see [[b]]", children: ["a1"] }),
-    node("a1", { children: ["a2"] }),
-    node("a2"),
-    node("b", { props: { rel: [ref("c")] } }),
-    node("c"),
-  ]);
+  const index = new DatascriptIndex(
+    [
+      node("a", { text: "see [[b]]", children: ["a1"] }),
+      node("a1", { children: ["a2"] }),
+      node("a2"),
+      node("b", { props: { rel: [ref("c")] } }),
+      node("c"),
+    ],
+    { derived: derivedWith({}) },
+  );
 
   test(":node/mentions follows both carriers — text and ref props", () => {
     const rows = index.runDatalog(

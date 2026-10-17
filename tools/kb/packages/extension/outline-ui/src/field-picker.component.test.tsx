@@ -11,6 +11,7 @@ import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import {
   DatascriptIndex,
+  derivedWith,
   fieldContextOf,
   fieldTypeValue,
   schemaOfGraph,
@@ -61,7 +62,7 @@ function contextOf(graph: WireNode[]): FieldContext {
   return fieldContextOf({
     schema: schemaOfGraph(nodes),
     nodes,
-    index: new DatascriptIndex(graph),
+    index: new DatascriptIndex(graph, { derived: derivedWith({}) }),
   });
 }
 

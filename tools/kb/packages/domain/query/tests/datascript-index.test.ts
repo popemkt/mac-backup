@@ -39,13 +39,13 @@ function rows(index: DatascriptIndex, edn: string): string[][] {
 
 /** Same nodes, built from scratch: the answer the incremental path owes. */
 function fresh(nodes: KbNode[], edn: string): string[][] {
-  return rows(new DatascriptIndex(nodes), edn);
+  return rows(new DatascriptIndex(nodes, { derived: derivedWith({}) }), edn);
 }
 
 describe("DatascriptIndex", () => {
   test("rebuild answers datalog and owns the node lookup", () => {
     const nodes = [node("a", { text: "alpha", children: ["b"] }), node("b", { text: "beta" })];
-    const index = new DatascriptIndex(nodes);
+    const index = new DatascriptIndex(nodes, { derived: derivedWith({}) });
 
     expect(rows(index, TEXT_QUERY)).toEqual([
       ["a", "alpha"],
@@ -57,7 +57,7 @@ describe("DatascriptIndex", () => {
 
   test("an edit is incremental and matches a rebuild", () => {
     const before = [node("a", { text: "alpha" }), node("b", { text: "beta" })];
-    const index = new DatascriptIndex(before);
+    const index = new DatascriptIndex(before, { derived: derivedWith({}) });
     const builds = index.rebuilds;
     const generation = index.generation;
 
@@ -72,7 +72,7 @@ describe("DatascriptIndex", () => {
   test("a delete takes the node and every reference to it", () => {
     const a = node("a", { text: "sees [[b]]", children: ["b"] });
     const b = node("b");
-    const index = new DatascriptIndex([a, b]);
+    const index = new DatascriptIndex([a, b], { derived: derivedWith({}) });
     const builds = index.rebuilds;
     expect(rows(index, MENTIONS_QUERY)).toEqual([["a", "b"]]);
 
@@ -87,7 +87,7 @@ describe("DatascriptIndex", () => {
 
   test("a reference heals when its target arrives", () => {
     const a = node("a", { text: "sees [[b]]" });
-    const index = new DatascriptIndex([a]);
+    const index = new DatascriptIndex([a], { derived: derivedWith({}) });
     expect(rows(index, MENTIONS_QUERY)).toEqual([]);
     const builds = index.rebuilds;
 
@@ -109,7 +109,7 @@ describe("DatascriptIndex", () => {
         ],
       },
     });
-    const index = new DatascriptIndex([node("b")]);
+    const index = new DatascriptIndex([node("b")], { derived: derivedWith({}) });
     index.applyTx({ upserts: [both, viaProp], deletes: [] });
     const expected = [
       ["a", "b"],
@@ -171,7 +171,7 @@ describe("DatascriptIndex", () => {
   });
 
   test("eids are never reused, so a revived id is never the wrong node", () => {
-    const index = new DatascriptIndex([node("a")]);
+    const index = new DatascriptIndex([node("a")], { derived: derivedWith({}) });
     index.applyTx({ upserts: [], deletes: ["a"] });
     index.applyTx({ upserts: [node("c", { text: "sees [[a]]" }), node("a")], deletes: [] });
 
@@ -180,7 +180,7 @@ describe("DatascriptIndex", () => {
 
   test("a first-seen field attr falls back to one rebuild", () => {
     const a = node("a");
-    const index = new DatascriptIndex([a, node("f")]);
+    const index = new DatascriptIndex([a, node("f")], { derived: derivedWith({}) });
     const builds = index.rebuilds;
 
     const tagged = node("a", { props: { f: [{ t: "str", v: "x" }] } });
@@ -195,7 +195,7 @@ describe("DatascriptIndex", () => {
     const a = node("a", { props: { f: [{ t: "str", v: "plain" }] } });
     const f = node("f");
     const t = node("t");
-    const index = new DatascriptIndex([a, f, t]);
+    const index = new DatascriptIndex([a, f, t], { derived: derivedWith({}) });
     const builds = index.rebuilds;
 
     const reffed = node("a", { props: { f: [{ t: "ref", v: "t" }] } });
@@ -210,7 +210,7 @@ describe("DatascriptIndex", () => {
   test("a dangling prop ref keeps its id as the value, and heals in place", () => {
     const f = node("f");
     const a = node("a", { props: { f: [{ t: "ref", v: "later" }] } });
-    const index = new DatascriptIndex([a, f]);
+    const index = new DatascriptIndex([a, f], { derived: derivedWith({}) });
     const query = `[:find ?v :where [?n :node/id "a"] [?n :f/f ?v]]`;
     expect(rows(index, query)).toEqual([["later"]]);
 
@@ -227,7 +227,7 @@ describe("DatascriptIndex", () => {
   test("a multi-valued prop keeps every value across an incremental edit", () => {
     const f = node("f");
     const a = node("a", { props: { f: [{ t: "str", v: "one" }] } });
-    const index = new DatascriptIndex([a, f]);
+    const index = new DatascriptIndex([a, f], { derived: derivedWith({}) });
     const builds = index.rebuilds;
 
     const both = node("a", {
@@ -248,7 +248,7 @@ describe("DatascriptIndex", () => {
 
   test("child order survives an incremental reparent", () => {
     const nodes = [node("p", { children: ["a", "b"] }), node("a"), node("b")];
-    const index = new DatascriptIndex(nodes);
+    const index = new DatascriptIndex(nodes, { derived: derivedWith({}) });
     const builds = index.rebuilds;
 
     const reordered = node("p", { children: ["b", "a"] });
@@ -265,11 +265,14 @@ describe("DatascriptIndex", () => {
   });
 
   test("search scans text case-insensitively, sorted by id, and honours a limit", () => {
-    const index = new DatascriptIndex([
-      node("b", { text: "Drift audit" }),
-      node("a", { text: "drift marker" }),
-      node("c", { text: "unrelated" }),
-    ]);
+    const index = new DatascriptIndex(
+      [
+        node("b", { text: "Drift audit" }),
+        node("a", { text: "drift marker" }),
+        node("c", { text: "unrelated" }),
+      ],
+      { derived: derivedWith({}) },
+    );
 
     expect(index.search("DRIFT").map((n) => n.id)).toEqual(["a", "b"]);
     expect(index.search("drift", 1).map((n) => n.id)).toEqual(["a"]);
@@ -278,7 +281,7 @@ describe("DatascriptIndex", () => {
 
   test("virtual nodes answer queries and stay out of the stored projection", () => {
     const stored = node("a");
-    const index = new DatascriptIndex([stored]);
+    const index = new DatascriptIndex([stored], { derived: derivedWith({}) });
     index.withVirtual([node("sys.query.v", { text: "saved" })]);
 
     expect(rows(index, TEXT_QUERY)).toEqual([
@@ -290,7 +293,7 @@ describe("DatascriptIndex", () => {
   });
 
   test("a virtual node the store later owns stops being virtual", () => {
-    const index = new DatascriptIndex([node("a")]);
+    const index = new DatascriptIndex([node("a")], { derived: derivedWith({}) });
     index.withVirtual([node("sys.query.v", { text: "saved" })]);
 
     const real = node("sys.query.v", { text: "persisted" });
@@ -304,7 +307,7 @@ describe("DatascriptIndex", () => {
   });
 
   test("rebuild keeps the virtual set and the stored order the store gave", () => {
-    const index = new DatascriptIndex([node("b"), node("a")]);
+    const index = new DatascriptIndex([node("b"), node("a")], { derived: derivedWith({}) });
     index.withVirtual([node("sys.query.v")]);
     index.rebuild([node("b"), node("a"), node("c")]);
 
@@ -313,7 +316,9 @@ describe("DatascriptIndex", () => {
   });
 
   test("pull revives node ids", () => {
-    const index = new DatascriptIndex([node("p", { children: ["c"] }), node("c")]);
+    const index = new DatascriptIndex([node("p", { children: ["c"] }), node("c")], {
+      derived: derivedWith({}),
+    });
     const pulled = index.pull(`[:node/id :node/text {:node/child [:node/id]}]`, "p") as Record<
       string,
       unknown
@@ -323,12 +328,15 @@ describe("DatascriptIndex", () => {
 
   test("run keeps aggregate numbers typed and binds backlinks ids as inputs", () => {
     const targetId = 'target"quoted';
-    const index = new DatascriptIndex([
-      node("a", { text: `sees [[${targetId}]]`, props: { status: [{ t: "str", v: "doing" }] } }),
-      node("b", { props: { status: [{ t: "str", v: "doing" }] } }),
-      node("c", { props: { status: [{ t: "str", v: "doing" }] } }),
-      node(targetId, { text: "target" }),
-    ]);
+    const index = new DatascriptIndex(
+      [
+        node("a", { text: `sees [[${targetId}]]`, props: { status: [{ t: "str", v: "doing" }] } }),
+        node("b", { props: { status: [{ t: "str", v: "doing" }] } }),
+        node("c", { props: { status: [{ t: "str", v: "doing" }] } }),
+        node(targetId, { text: "target" }),
+      ],
+      { derived: derivedWith({}) },
+    );
     const count: IrQuery = {
       kind: "query",
       find: [

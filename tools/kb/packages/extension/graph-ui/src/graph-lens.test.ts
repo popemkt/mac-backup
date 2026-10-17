@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { DatascriptIndex, SYSTEM_IDS } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith, SYSTEM_IDS } from "@kb/ui-sdk";
 import {
   buildTreeForest,
   DEFAULT_EDGE_KINDS,
@@ -135,7 +135,10 @@ function perspective(patch: Partial<LensPerspective> = {}): LensPerspective {
 describe("parsePerspective / listPerspectiveNodes", () => {
   it("lists the view nodes whose view is a renderer, and applies defaults", () => {
     const nodes = baseGraph();
-    const listed = listPerspectiveNodes(new DatascriptIndex(nodes), nodes);
+    const listed = listPerspectiveNodes(
+      new DatascriptIndex(nodes, { derived: derivedWith({}) }),
+      nodes,
+    );
     expect(listed.map((n) => n.id)).toEqual([GRAPH_IDS.lensAllMentions]);
     expect(listPerspectiveNodes(null, nodes)).toEqual([]);
     const p = parsePerspective(present(listed[0], "listed perspective"));
@@ -158,7 +161,7 @@ describe("extractLensGraph", () => {
   });
 
   it("includes mention + child edges by default", () => {
-    const db = new DatascriptIndex(nodes);
+    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
     const g = extractLensGraph(db, nodes, perspective());
     const kinds = new Set(g.edges.map((e) => e.kind));
     expect(kinds.has("mention")).toBe(true);
@@ -179,7 +182,7 @@ describe("extractLensGraph", () => {
   });
 
   it("smart-elides sys/command/schema by default; toggle re-includes", () => {
-    const db = new DatascriptIndex(nodes);
+    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
     const elided = extractLensGraph(db, nodes, perspective());
     const elidedIds = new Set(elided.nodes.map((n) => n.id));
     expect(elidedIds.has("sys.field")).toBe(false);
@@ -198,7 +201,7 @@ describe("extractLensGraph", () => {
   });
 
   it("a saved trace draws the paths between its ends, and nothing else", () => {
-    const db = new DatascriptIndex(nodes);
+    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
     const traced = extractLensGraph(
       db,
       nodes,
@@ -216,7 +219,7 @@ describe("extractLensGraph", () => {
   });
 
   it("selects only ref-prop edges when configured", () => {
-    const db = new DatascriptIndex(nodes);
+    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
     const g = extractLensGraph(db, nodes, perspective({ edgeKinds: ["ref-prop"] }));
     expect(g.edges.every((e) => e.kind.startsWith("prop:"))).toBe(true);
     expect(g.edges).toContainEqual({
@@ -228,7 +231,7 @@ describe("extractLensGraph", () => {
   });
 
   it("filters nodes by lens.query EDN", () => {
-    const db = new DatascriptIndex(nodes);
+    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
     const g = extractLensGraph(
       db,
       nodes,
@@ -247,7 +250,7 @@ describe("extractLensGraph", () => {
 
   it("bad EDN query yields empty set and warns (never all-nodes)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const db = new DatascriptIndex(nodes);
+    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
     const g = extractLensGraph(
       db,
       nodes,
@@ -264,7 +267,7 @@ describe("extractLensGraph", () => {
 
   it("caps to highest-degree nodes and logs dropped count", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const db = new DatascriptIndex(nodes);
+    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
     const g = extractLensGraph(
       db,
       nodes,
@@ -322,7 +325,7 @@ describe("extractLensGraph", () => {
   });
 
   it("buildTreeForest: forest roots vs focus root, cycle-safe", () => {
-    const db = new DatascriptIndex(nodes);
+    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
     const g = extractLensGraph(db, nodes, perspective({ edgeKinds: ["child"] }));
     const forest = buildTreeForest(g.nodes, g.edges, null);
     const rootIds = forest.map((t) => t.id).toSorted();
@@ -337,7 +340,7 @@ describe("extractLensGraph", () => {
     // Cycle: a → a1 → a
     const cyclic = nodes.map((n) => (n.id === "n.a1" ? { ...n, children: ["n.a"] } : { ...n }));
     const g2 = extractLensGraph(
-      new DatascriptIndex(cyclic),
+      new DatascriptIndex(cyclic, { derived: derivedWith({}) }),
       cyclic,
       perspective({ edgeKinds: ["child"] }),
     );
@@ -377,7 +380,7 @@ describe("graph projection mappings", () => {
       node({ id: "c", text: "C" }),
     ];
     const graph = extractLensGraph(
-      new DatascriptIndex(nodes),
+      new DatascriptIndex(nodes, { derived: derivedWith({}) }),
       nodes,
       perspective({
         edgeKinds: ["prop:field.depends"],
@@ -393,7 +396,7 @@ describe("graph projection mappings", () => {
       weight: 16,
     });
     const combined = extractLensGraph(
-      new DatascriptIndex(nodes),
+      new DatascriptIndex(nodes, { derived: derivedWith({}) }),
       nodes,
       perspective({ edgeKinds: ["ref-prop", "prop:field.depends"] }),
     );

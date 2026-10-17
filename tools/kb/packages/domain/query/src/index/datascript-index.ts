@@ -5,7 +5,7 @@ import { present, type KbNode, type NodeId, type StoreTx } from "@kb/model";
 import { datascriptExecutor, pull as dsPull, query as dsQuery, runIr } from "../datascript.ts";
 import type { Ir } from "../ir/ir.ts";
 import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
-import { CORE_DERIVED, type DerivedRef } from "./derived.ts";
+import type { DerivedRef } from "./derived.ts";
 import type { KbIndex } from "./index.ts";
 
 /** Identity of a datom within one entity — attr plus value, compared structurally. */
@@ -21,8 +21,13 @@ function normalizeRows(raw: unknown): Array<Array<unknown>> {
 
 /** How an index is built beyond its nodes. */
 export interface IndexOptions {
-  /** The derived ref attributes it builds; `CORE_DERIVED` when absent. */
-  readonly derived?: readonly DerivedRef[];
+  /**
+   * The derived ref attributes it builds: what the host's families declare
+   * (`bundledDerived`, `derivedOf`), or the core table alone
+   * (`derivedWith({})`). Required, so no host drops a family's references by
+   * leaving it out.
+   */
+  readonly derived: readonly DerivedRef[];
 }
 
 function byId(a: KbNode, b: KbNode): number {
@@ -62,12 +67,12 @@ export class DatascriptIndex implements KbIndex {
   readonly #derived: readonly DerivedRef[];
 
   /**
-   * An index over `nodes`, deriving the ref attributes `derived` names: the
-   * core ones (`CORE_DERIVED`) when none is given. A host builds its index
-   * with what its families declare (`bundledDerived` in `@kb/bundled`).
+   * An index over `nodes`, deriving the ref attributes `derived` names. A
+   * host builds its index with what its families declare (`bundledDerived`
+   * in `@kb/bundled`).
    */
-  constructor(nodes: ReadonlyArray<KbNode> = [], options: IndexOptions = {}) {
-    this.#derived = options.derived ?? CORE_DERIVED;
+  constructor(nodes: ReadonlyArray<KbNode>, options: IndexOptions) {
+    this.#derived = options.derived;
     this.rebuild(nodes);
   }
 

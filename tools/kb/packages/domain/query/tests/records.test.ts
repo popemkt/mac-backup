@@ -3,7 +3,7 @@
  * reads its data in.
  */
 import { describe, expect, test } from "bun:test";
-import { DatascriptIndex, findColumns, queryRecords } from "@kb/query";
+import { DatascriptIndex, derivedWith, findColumns, queryRecords } from "@kb/query";
 import { SYSTEM_IDS, type KbNode } from "@kb/model";
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -46,10 +46,10 @@ describe("findColumns", () => {
 
 describe("queryRecords", () => {
   test("each row of a real query is a record keyed by its columns", () => {
-    const index = new DatascriptIndex([
-      node("t.a", "a", { [SYSTEM_IDS.queryField]: [{ t: "str", v: "x" }] }),
-      node("t.b", "b"),
-    ]);
+    const index = new DatascriptIndex(
+      [node("t.a", "a", { [SYSTEM_IDS.queryField]: [{ t: "str", v: "x" }] }), node("t.b", "b")],
+      { derived: derivedWith({}) },
+    );
     const edn = "[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]";
     const { columns, records } = queryRecords(edn, index.runDatalog(edn));
     expect(columns).toEqual(["id", "text"]);

@@ -18,7 +18,7 @@ import { join } from "node:path";
 import type { EffectStore } from "@kb/contracts";
 import { bundledSeed } from "@kb/bundled";
 import { SYSTEM_IDS, type KbNode } from "@kb/model";
-import { DatascriptIndex } from "@kb/query";
+import { DatascriptIndex, derivedWith } from "@kb/query";
 import { writeOut } from "@kb/runtime";
 import type { StoreFactory } from "./store-contract.ts";
 
@@ -90,7 +90,7 @@ function measure(store: EffectStore): Promise<ReadonlyArray<readonly [string, nu
       const loadMs = elapsedSince(started);
 
       started = performance.now();
-      const index = new DatascriptIndex(loaded);
+      const index = new DatascriptIndex(loaded, { derived: derivedWith({}) });
       const datomBuildMs = elapsedSince(started);
 
       const queryMs = timeQuery(index);

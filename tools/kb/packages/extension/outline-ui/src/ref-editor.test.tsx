@@ -13,6 +13,7 @@
  */
 import {
   DatascriptIndex,
+  derivedWith,
   FIELD_TYPE_OPTION_IDS,
   fieldContextOf,
   nodeCandidates,
@@ -87,7 +88,7 @@ function ontology(): NodeMap {
  * other, so a picker without an index legitimately resolves to nothing.
  */
 function queryDb(): DatascriptIndex {
-  return new DatascriptIndex(fieldTypeOntology());
+  return new DatascriptIndex(fieldTypeOntology(), { derived: derivedWith({}) });
 }
 
 /**
@@ -180,7 +181,12 @@ describe("ref picker candidates (declared targets win)", () => {
       }),
     ];
     const nodes = wireToOutlineMap(graph, new Set());
-    const html = renderRefSlot(nodes, new DatascriptIndex(graph), true, "f.pick");
+    const html = renderRefSlot(
+      nodes,
+      new DatascriptIndex(graph, { derived: derivedWith({}) }),
+      true,
+      "f.pick",
+    );
     expect(html).toContain('role="listbox"');
     expect(html).toContain("n.target");
     expect(html).not.toContain("n.aa-00");

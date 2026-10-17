@@ -4,10 +4,10 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode } from "@kb/model";
-import { DatascriptIndex, normalizeEdnQuery, parseEdn } from "@kb/query";
+import { DatascriptIndex, derivedWith, normalizeEdnQuery, parseEdn } from "@kb/query";
 
 function indexFor(nodes: KbNode[]): DatascriptIndex {
-  return new DatascriptIndex(nodes);
+  return new DatascriptIndex(nodes, { derived: derivedWith({}) });
 }
 
 const AT = "2026-01-01T00:00:00.000Z";

@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import {
   DatascriptIndex,
+  derivedWith,
   LIST_ALL_NODES_QUERY,
   LIST_FIELDS_QUERY,
   LIST_TAGS_QUERY,
@@ -70,7 +71,7 @@ const UI_EDN: Array<{ id: string; source: string; edn: string }> = [
 ];
 
 describe("UI datalog on DatascriptIndex", () => {
-  const index = new DatascriptIndex(fixtureGraph.nodes);
+  const index = new DatascriptIndex(fixtureGraph.nodes, { derived: derivedWith({}) });
 
   const table = UI_EDN.map((q) => ({
     id: q.id,
@@ -107,7 +108,11 @@ describe("UI datalog on DatascriptIndex", () => {
       "n.root-b",
     );
     mentioned.text = "See [[n.root-a|Ship]] for context";
-    const rows = sortRows(new DatascriptIndex(nodes).runDatalog(backlinksQuery("n.root-a")));
+    const rows = sortRows(
+      new DatascriptIndex(nodes, { derived: derivedWith({}) }).runDatalog(
+        backlinksQuery("n.root-a"),
+      ),
+    );
     expect(rows.map((r) => r[0])).toContain("n.root-b");
   });
 });

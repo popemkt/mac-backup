@@ -13,7 +13,7 @@ import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
 import { bundledSeed } from "@kb/bundled";
 import { GRAPH_IDS } from "@kb/graph";
-import { DatascriptIndex } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith } from "@kb/ui-sdk";
 import { extractLensGraph, type GraphLens, parsePerspective, resolveSize } from "./graph-lens";
 import { fa2Settings } from "./fa2-layout";
 import { computeLayoutPositions } from "./graph-layouts";
@@ -80,9 +80,14 @@ function seededLens(): GraphLens {
     nodes.find((n) => n.id === GRAPH_IDS.lensAllMentions),
     "the seeded perspective",
   );
-  return extractLensGraph(new DatascriptIndex(nodes), nodes, parsePerspective(lens), {
-    includeSystemNodes: true,
-  });
+  return extractLensGraph(
+    new DatascriptIndex(nodes, { derived: derivedWith({}) }),
+    nodes,
+    parsePerspective(lens),
+    {
+      includeSystemNodes: true,
+    },
+  );
 }
 
 /** Six hubs of eighty leaves each, and a few links between the hubs. */

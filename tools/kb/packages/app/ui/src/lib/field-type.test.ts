@@ -1,6 +1,7 @@
 import {
   clearAllowedRefIdsCache,
   DatascriptIndex,
+  derivedWith,
   emptyValueForType,
   fieldTypeValue,
   isSysPrefixed,
@@ -101,7 +102,7 @@ describe("field types", () => {
       }),
     ];
     const nodes = wireToOutlineMap(wire, new Set());
-    const qdb = new DatascriptIndex(wire);
+    const qdb = new DatascriptIndex(wire, { derived: derivedWith({}) });
     const allowed = resolveAllowedRefIds(nodes.get("field.pick"), schemaFor(nodes), qdb);
     const set = present(allowed, "allowed refs");
     expect([...set]).toEqual(["n.root-a"]);
@@ -123,7 +124,7 @@ describe("field types", () => {
       }),
     ];
     const nodes = wireToOutlineMap(wire, new Set());
-    const qdb = new DatascriptIndex(wire);
+    const qdb = new DatascriptIndex(wire, { derived: derivedWith({}) });
     const allowed = resolveAllowedRefIds(nodes.get("field.both"), schemaFor(nodes), qdb);
     const set = present(allowed, "allowed refs");
     // Query matches n.root-c only; tag.todo would have included a/b — query wins.
@@ -354,7 +355,7 @@ describe("allowed ref targets: resolution vs display", () => {
     const allowed = resolveAllowedRefIds(
       nodes.get("field.onto-ish"),
       schemaFor(nodes),
-      new DatascriptIndex(wire),
+      new DatascriptIndex(wire, { derived: derivedWith({}) }),
     );
     const set = present(allowed, "allowed refs");
     expect([...set]).toEqual([SYSTEM_IDS.typeField]);

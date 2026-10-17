@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { DatascriptIndex, queryBacklinks } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith, queryBacklinks } from "@kb/ui-sdk";
 import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
 
@@ -17,7 +17,7 @@ describe("queryBacklinks", () => {
   });
 
   it("finds nodes that mention the target via :node/mentions", () => {
-    const db = new DatascriptIndex(nodes);
+    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
     const hits = queryBacklinks(db, "n.root-a");
     expect(hits.map((h) => h.id)).toContain("n.root-b");
   });

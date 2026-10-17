@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { normalizeEdnQuery } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { fixtureGraph } from "@/api/fixture-graph";
-import { DatascriptIndex, runQuery } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith, runQuery } from "@kb/ui-sdk";
 
 describe("client datalog execution", () => {
-  const qdb = new DatascriptIndex(fixtureGraph.nodes);
+  const qdb = new DatascriptIndex(fixtureGraph.nodes, { derived: derivedWith({}) });
 
   it("normalizes keywords but not directives", () => {
     expect(normalizeEdnQuery("[:find ?id :where [?n :node/id ?id]]")).toBe(

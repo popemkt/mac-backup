@@ -304,6 +304,7 @@ export {
 } from "./lib/use-query-node-rows";
 export {
   DatascriptIndex,
+  derivedWith,
   type KbIndex,
   queryBacklinks,
   queryFamilyViewNodes,

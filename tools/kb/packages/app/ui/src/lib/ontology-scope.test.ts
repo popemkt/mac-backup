@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { DatascriptIndex, listOntologyItems, SYSTEM_IDS, wireToOutlineMap } from "@kb/ui-sdk";
+import {
+  DatascriptIndex,
+  derivedWith,
+  listOntologyItems,
+  SYSTEM_IDS,
+  wireToOutlineMap,
+} from "@kb/ui-sdk";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
 
 const ISO = "2026-08-23T00:00:00.000Z";
@@ -54,14 +60,14 @@ function graph(): WireNode[] {
 describe("resolveScope", () => {
   it("resolves membership through the shared resolver", () => {
     const wire = graph();
-    const r = resolveScope(wire, "o.1", new DatascriptIndex(wire), 1);
+    const r = resolveScope(wire, "o.1", new DatascriptIndex(wire, { derived: derivedWith({}) }), 1);
     expect([...r.members].toSorted()).toEqual(["n.a", "n.b"]);
     expect(r.warnings).toEqual([]);
   });
 
   it("memoizes per snapshot identity, not per rev", () => {
     const wire = graph();
-    const db = new DatascriptIndex(wire);
+    const db = new DatascriptIndex(wire, { derived: derivedWith({}) });
     const a = resolveScope(wire, "o.1", db, 1);
     expect(resolveScope(wire, "o.1", db, 1)).toBe(a);
     // Same rev but a NEW snapshot (an optimistic local edit) must re-resolve:
@@ -73,7 +79,12 @@ describe("resolveScope", () => {
         [SYSTEM_IDS.ontoExcludeField]: [{ t: "ref", v: "n.b" }],
       }),
     ];
-    const b = resolveScope(edited, "o.1", new DatascriptIndex(edited), 1);
+    const b = resolveScope(
+      edited,
+      "o.1",
+      new DatascriptIndex(edited, { derived: derivedWith({}) }),
+      1,
+    );
     expect(b).not.toBe(a);
     expect([...b.members]).toEqual(["n.a"]);
     // A new rev on the same array also re-resolves.
@@ -92,7 +103,7 @@ describe("resolveScope", () => {
         ],
       }),
     ];
-    const r = resolveScope(wire, "o.q", new DatascriptIndex(wire), 1);
+    const r = resolveScope(wire, "o.q", new DatascriptIndex(wire, { derived: derivedWith({}) }), 1);
     expect([...r.members]).toEqual(["n.x"]);
     expect(r.warnings).toEqual([]);
   });
@@ -104,7 +115,12 @@ describe("resolveScope", () => {
         [SYSTEM_IDS.ontoQueryField]: [{ t: "str", v: "[:find ?id :where" }],
       }),
     ];
-    const r = resolveScope(wire, "o.bad", new DatascriptIndex(wire), 1);
+    const r = resolveScope(
+      wire,
+      "o.bad",
+      new DatascriptIndex(wire, { derived: derivedWith({}) }),
+      1,
+    );
     expect(r.members.size).toBe(0);
     expect(r.warnings.some((w) => w.startsWith("onto.query failed"))).toBe(true);
   });
@@ -129,7 +145,7 @@ describe("member rows", () => {
       }),
     ];
     const map = wireToOutlineMap(wire, new Set());
-    const r = resolveScope(wire, "o", new DatascriptIndex(wire), 1);
+    const r = resolveScope(wire, "o", new DatascriptIndex(wire, { derived: derivedWith({}) }), 1);
     const rows = memberRows(r, labelOf(map));
     expect(rows.map((x) => x.label)).toEqual(["alpha", "pinned one", "zeta"]);
     const pinned = present(
@@ -155,7 +171,7 @@ describe("member rows", () => {
       }),
     ];
     const map = wireToOutlineMap(wire, new Set());
-    const r = resolveScope(wire, "o", new DatascriptIndex(wire), 1);
+    const r = resolveScope(wire, "o", new DatascriptIndex(wire, { derived: derivedWith({}) }), 1);
     expect(memberRows(r, labelOf(map))).toEqual([]);
     expect(excludedRows(r, labelOf(map)).map((x) => x.label)).toEqual(["alpha"]);
   });
@@ -171,7 +187,7 @@ describe("member rows", () => {
         [SYSTEM_IDS.ontoExcludeField]: [{ t: "ref", v: "n.a" }],
       }),
     ];
-    const r = resolveScope(wire, "o", new DatascriptIndex(wire), 1);
+    const r = resolveScope(wire, "o", new DatascriptIndex(wire, { derived: derivedWith({}) }), 1);
     // A members-only map: exactly what the ontology page holds while scoped.
     const scoped = wireToOutlineMap(
       wire.filter((n) => n.id !== "n.a"),

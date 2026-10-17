@@ -11,6 +11,7 @@ import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import {
   DatascriptIndex,
+  derivedWith,
   fieldContextOf,
   fieldTypeValue,
   SYSTEM_IDS,
@@ -757,7 +758,7 @@ describe("an option value is a chip", () => {
   const optionContext = fieldContextOf({
     schema: schemaOfGraph(optionNodes),
     nodes: optionNodes,
-    index: new DatascriptIndex(optionWire),
+    index: new DatascriptIndex(optionWire, { derived: derivedWith({}) }),
   });
 
   beforeAll(() => {

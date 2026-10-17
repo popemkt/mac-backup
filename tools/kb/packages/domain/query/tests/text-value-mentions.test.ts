@@ -6,7 +6,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode } from "@kb/model";
-import { DatascriptIndex, nodeMentions } from "@kb/query";
+import { DatascriptIndex, derivedWith, nodeMentions } from "@kb/query";
 
 function node(id: string, over: Partial<KbNode> = {}): KbNode {
   return {
@@ -43,22 +43,24 @@ describe("mentions in text values", () => {
   });
 
   test("a text value's token is a backlink, once per target", () => {
-    const index = new DatascriptIndex([
-      node("a", {
-        text: "plain",
-        props: { f_note: [{ t: "str", v: "about [[b|B]] and [[b]]" }] },
-      }),
-      node("b"),
-    ]);
+    const index = new DatascriptIndex(
+      [
+        node("a", {
+          text: "plain",
+          props: { f_note: [{ t: "str", v: "about [[b|B]] and [[b]]" }] },
+        }),
+        node("b"),
+      ],
+      { derived: derivedWith({}) },
+    );
     expect(mentions(index)).toEqual([["a", "b"]]);
   });
 
   test("editing the value moves the mention, incrementally", () => {
-    const index = new DatascriptIndex([
-      node("a", { props: { f_note: [{ t: "str", v: "[[b]]" }] } }),
-      node("b"),
-      node("c"),
-    ]);
+    const index = new DatascriptIndex(
+      [node("a", { props: { f_note: [{ t: "str", v: "[[b]]" }] } }), node("b"), node("c")],
+      { derived: derivedWith({}) },
+    );
     const builds = index.rebuilds;
     index.applyTx({
       upserts: [node("a", { props: { f_note: [{ t: "str", v: "now [[c]]" }] } })],
@@ -69,9 +71,10 @@ describe("mentions in text values", () => {
   });
 
   test("a text value's mention heals when its target arrives", () => {
-    const index = new DatascriptIndex([
-      node("a", { props: { f_note: [{ t: "str", v: "[[b]]" }] } }),
-    ]);
+    const index = new DatascriptIndex(
+      [node("a", { props: { f_note: [{ t: "str", v: "[[b]]" }] } })],
+      { derived: derivedWith({}) },
+    );
     expect(mentions(index)).toEqual([]);
     index.applyTx({ upserts: [node("b")], deletes: [] });
     expect(mentions(index)).toEqual([["a", "b"]]);

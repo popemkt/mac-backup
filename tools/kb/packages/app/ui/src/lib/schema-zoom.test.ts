@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DatascriptIndex,
+  derivedWith,
   queryFieldCarriers,
   queryTaggedInstances,
   schemaZoomKind,
@@ -9,7 +10,7 @@ import {
 import { fixtureGraph } from "@/api/fixture-graph";
 
 describe("schema zoom queries", () => {
-  const qdb = new DatascriptIndex(fixtureGraph.nodes);
+  const qdb = new DatascriptIndex(fixtureGraph.nodes, { derived: derivedWith({}) });
   const nodes = wireToOutlineMap(fixtureGraph.nodes, new Set());
 
   it("detects tag vs field zoom kinds", () => {

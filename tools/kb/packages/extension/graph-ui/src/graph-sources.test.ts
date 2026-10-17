@@ -13,7 +13,7 @@
  * rows, in the same binding the browser picker uses.
  */
 import { describe, expect, it } from "vitest";
-import { DatascriptIndex } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith } from "@kb/ui-sdk";
 import { parsePerspective } from "./graph-lens";
 import { SYSTEM_IDS, allowedRefIdsOf, present, type KbNode } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
@@ -26,7 +26,7 @@ const declaredKeys = BUNDLED_DECLARATIONS.flatMap((declaration) =>
 );
 const seed: KbNode[] = bundledSeed("2026-09-09T00:00:00.000Z");
 const byId = new Map(seed.map((node) => [node.id, node]));
-const index = new DatascriptIndex(seed);
+const index = new DatascriptIndex(seed, { derived: derivedWith({}) });
 const runner = (edn: string): unknown[][] => index.runDatalog(edn);
 
 function allowed(fieldId: string): string[] {

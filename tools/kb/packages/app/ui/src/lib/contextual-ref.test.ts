@@ -6,6 +6,7 @@
 import {
   contextualTargetOf,
   DatascriptIndex,
+  derivedWith,
   isContextualRef,
   queryBacklinks,
   rowText,
@@ -180,11 +181,10 @@ describe("the shown node", () => {
 
 describe("references section reach", () => {
   it("a contextual reference shows up in the target's backlinks", () => {
-    const db = new DatascriptIndex([
-      ...fixtureGraph.nodes,
-      ...REF_SEED_WIRES,
-      ctxRefWire("n.ctx", "n.root-a"),
-    ]);
+    const db = new DatascriptIndex(
+      [...fixtureGraph.nodes, ...REF_SEED_WIRES, ctxRefWire("n.ctx", "n.root-a")],
+      { derived: derivedWith({}) },
+    );
     expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toContain("n.ctx");
   });
 
@@ -193,7 +193,7 @@ describe("references section reach", () => {
       id: "n.referrer",
       text: "See [[n.root-a|Ship kb ui shell]] for context",
     });
-    const db = new DatascriptIndex([...fixtureGraph.nodes, referrer]);
+    const db = new DatascriptIndex([...fixtureGraph.nodes, referrer], { derived: derivedWith({}) });
     expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toEqual(["n.referrer"]);
   });
 });

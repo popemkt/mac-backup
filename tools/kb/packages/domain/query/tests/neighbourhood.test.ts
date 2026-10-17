@@ -5,7 +5,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode, PropValue } from "@kb/model";
-import { DatascriptIndex, neighbourhoodQuery, parseEdn } from "@kb/query";
+import { DatascriptIndex, derivedWith, neighbourhoodQuery, parseEdn } from "@kb/query";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -31,7 +31,7 @@ function ids(index: DatascriptIndex, edn: string): string[] {
 }
 
 describe("neighbourhoodQuery", () => {
-  const index = new DatascriptIndex(CHAIN);
+  const index = new DatascriptIndex(CHAIN, { derived: derivedWith({}) });
 
   test("compiles as reach, never as raw", () => {
     expect(parseEdn(neighbourhoodQuery("b", 2, ":f/next", "out")).kind).toBe("query");

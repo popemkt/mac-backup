@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { DatascriptIndex } from "@kb/ui-sdk";
+import { DatascriptIndex, derivedWith } from "@kb/ui-sdk";
 import { DEFAULT_EDGE_KINDS, DEFAULT_MAX_NODES, GRAPH_IDS, type LensPerspective } from "@kb/graph";
 import { extractLensGraph } from "./graph-lens";
 import { GraphCanvasFrame } from "./graph-canvas-frame";
@@ -47,7 +47,11 @@ const PERSPECTIVE: LensPerspective = {
 
 describe("a perspective whose query cannot run", () => {
   it("is reported on the graph's lens graph, which draws no nodes", () => {
-    const graph = extractLensGraph(new DatascriptIndex(NODES), NODES, PERSPECTIVE);
+    const graph = extractLensGraph(
+      new DatascriptIndex(NODES, { derived: derivedWith({}) }),
+      NODES,
+      PERSPECTIVE,
+    );
     expect(graph.queryError).not.toBeNull();
     expect(graph.nodes).toEqual([]);
   });
