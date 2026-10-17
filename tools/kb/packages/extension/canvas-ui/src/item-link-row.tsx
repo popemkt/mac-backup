@@ -21,6 +21,7 @@ function leadsTo(link: CanvasItemLink, world: CanvasWorld): string {
     : `Opens ${text || "∅"}${item}`;
 }
 
+// GAP [[01M5486YWGBMNG9G60EY4MPS0X]] people cannot pick a canvas item as a link target
 export function LinkRow({
   item,
   world,

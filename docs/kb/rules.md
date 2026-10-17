@@ -775,6 +775,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The value stack's paste handler splits on newlines for many-valued fields and appends one slot per line.
 - **node** — `01M3KA39GQ7Q8HSD0JKB46VCC5`
 
+### GAP: people cannot pick a canvas item as a link target
+
+- **expected** — The Link row offers the items of the chosen page, or "link to the selection", so a person can make {node, item} and {item} links without knowing item ids.
+- **current** — An item target is typed as #item or canvas#item; item ids are visible only to agents, through describe.
+- **impact** — People can link to pages and nodes but in practice not to a single item.
+- **closes** — An item picker in the Link row, fed by the target canvas's document through world.docOf.
+- **node** — `01M5486YWGBMNG9G60EY4MPS0X`
+
 ### GAP: picking and stacking treat rounded corners as square
 
 - **expected** — hitTest and surface snap follow the rounded rect corners that are drawn
@@ -1191,6 +1199,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Secondary labels, hints and counts set in translucent foreground can sit below AA in any design system without anything going red.
 - **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
 - **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
+
+### GAP: two definitions of which node is a canvas
+
+- **expected** — One reader decides whether a node is a canvas (sys.tag.canvas), and every writer and reader asks it.
+- **current** — ext-canvas write.ts assertCanvasHost also accepts a user tag whose text is "canvas", while canvasWorld and the canvas list accept only sys.tag.canvas.
+- **impact** — A write can succeed on a node the canvas list and world do not treat as a canvas.
+- **closes** — assertCanvasHost reads the one canvas predicate @kb/canvas exports; the user-tag fallback goes.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M5486ZYQCASYPS01PSVTCAH2`
 
 ### GAP: two launch paths for the kb binary
 

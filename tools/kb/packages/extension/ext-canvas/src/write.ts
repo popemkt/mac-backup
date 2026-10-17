@@ -70,6 +70,7 @@ function assertUserWritable(id: string): void {
   }
 }
 
+// GAP [[01M5486ZYQCASYPS01PSVTCAH2]] two definitions of which node is a canvas
 function assertCanvasHost(ctx: KbContext, id: NodeId): KbNode {
   assertUserWritable(id);
   const node = requireNode(ctx, id);
