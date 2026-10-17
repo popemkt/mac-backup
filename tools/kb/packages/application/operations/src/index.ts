@@ -80,6 +80,7 @@ export { graphWritesLayer } from "./graph-writes.ts";
 export {
   noteStoreSynced,
   persistEffect,
+  persistPlannedEffect,
   reloadEffect,
   type PersistOptions,
   type SystemWrites,

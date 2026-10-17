@@ -7,8 +7,8 @@
  */
 import { Effect } from "effect";
 import { KbCtx, KbRoots, KbStore, type KbContext, type KbRootsPort } from "@kb/contracts";
-import { currentIso, domainError, freshId, type DomainError, type StoreTx } from "@kb/model";
-import { persistEffect } from "@kb/operations";
+import { currentIso, domainError, freshId, type DomainError, type KbNode } from "@kb/model";
+import { persistPlannedEffect } from "@kb/operations";
 import {
   forgetWrites,
   locationEntries,
@@ -98,11 +98,17 @@ const homeEntry = Effect.fn("ext.locations.homeEntry")(function* (
   return { home: home.session, entry };
 });
 
-/** Commit a planned write in the home store's own session. */
-function commitHome(home: KbContext, write: LocationWrite): Effect.Effect<void, DomainError> {
-  if (write.upserts.length === 0 && write.deletes.length === 0) return Effect.void;
-  const tx: StoreTx = { upserts: [...write.upserts], deletes: [...write.deletes] };
-  return persistEffect(home, tx, { systemWrites: "system" }).pipe(
+/**
+ * Commit a write planned from the home store's nodes in its own session. A
+ * write replaces the list node whole, so it lands only on the state it was
+ * planned from, and is planned again when another process wrote home in
+ * between (`persistPlannedEffect`).
+ */
+function commitHome(
+  home: KbContext,
+  plan: (nodes: readonly KbNode[]) => LocationWrite | null,
+): Effect.Effect<LocationWrite | null, DomainError> {
+  return persistPlannedEffect(home, plan, { systemWrites: "system" }).pipe(
     Effect.provideService(KbStore, home.store),
   );
 }
@@ -151,17 +157,14 @@ export const locationRegisterEffect = Effect.fn("ext.locations.register")(functi
   yield* roots.create(homePath);
   const home = yield* openHome(roots);
   if (home.session === null) return yield* domainError("internal", home.reason);
-  const write = registerWrites(
-    home.session.nodes,
-    {
-      path: target.path,
-      id: yield* freshId,
-      ...(input.label === undefined ? {} : { label: input.label }),
-    },
-    yield* currentIso,
-  );
-  yield* commitHome(home.session, write);
-  const entry = locationEntries(home.session.nodes).find(({ id }) => id === write.id);
+  const request = {
+    path: target.path,
+    id: yield* freshId,
+    ...(input.label === undefined ? {} : { label: input.label }),
+  };
+  const at = yield* currentIso;
+  const write = yield* commitHome(home.session, (nodes) => registerWrites(nodes, request, at));
+  const entry = locationEntries(home.session.nodes).find(({ id }) => id === write?.id);
   if (entry === undefined)
     return yield* domainError("internal", `${target.path} was registered but is not listed`);
   return yield* rowOf(roots, entry, yield* currentRoot(roots));
@@ -171,12 +174,12 @@ export const locationForgetEffect = Effect.fn("ext.locations.forget")(function* 
   readonly id: string;
 }): Effect.fn.Return<{ id: string; label: string; path: string }, DomainError, KbRoots> {
   const { home, entry } = yield* homeEntry(yield* KbRoots, input.id);
-  const write = forgetWrites(home.nodes, entry.id, yield* currentIso);
+  const at = yield* currentIso;
+  const write = yield* commitHome(home, (nodes) => forgetWrites(nodes, entry.id, at));
   if (write === null)
     return yield* domainError("not_found", `no location ${input.id} in the home store`, {
       id: input.id,
     });
-  yield* commitHome(home, write);
   return { id: entry.id, label: entry.label, path: entry.paths[0] ?? "" };
 });
 

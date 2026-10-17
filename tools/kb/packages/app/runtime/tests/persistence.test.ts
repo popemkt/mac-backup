@@ -6,8 +6,8 @@ import { join } from "node:path";
 import { runWithKb } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
 import { openKb, persist, reload } from "../src/session.ts";
-import { KbStore, kbStoreLayer, type EffectStore } from "@kb/contracts";
-import { persistEffect, reloadEffect } from "@kb/operations";
+import { KbStore, kbStoreLayer, staleCommitError, type EffectStore } from "@kb/contracts";
+import { persistEffect, persistPlannedEffect, reloadEffect } from "@kb/operations";
 import { JsonlStore } from "@kb/store-jsonl";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import {
@@ -481,5 +481,90 @@ describe("virtual query preservation", () => {
     await reload(ctx);
     expect(ctx.index.getNode("sys.query.virtual")).toBeDefined();
     expect(ctx.index.getNode(SYSTEM_IDS.queriesRoot)).toBeDefined();
+  });
+});
+
+/**
+ * A store holding a list `n.list` that another process renames, `moves`
+ * times, each time between a plan and its commit.
+ */
+function movingStore(path: string, moves: number) {
+  const list: KbNode = { ...sampleNode("n.list"), children: [] };
+  let held: KbNode[] = [list, sampleNode("n.a")];
+  let revision = 0;
+  let moved = 0;
+  const store: EffectStore = {
+    path,
+    changes: Stream.never,
+    loadEffect: Effect.sync(() => [...held]),
+    fingerprint: Effect.sync(() => `revision:${revision}`),
+    txTail: new MemoryTxTail(),
+    commitEffect: (tx, _record, expected) =>
+      Effect.suspend(() => {
+        if (moved < moves) {
+          moved += 1;
+          held = held.map((n) => (n.id === "n.list" ? { ...n, text: `moved ${moved}` } : n));
+          revision += 1;
+        }
+        const base = `revision:${revision}`;
+        const stale = staleCommitError(expected, base);
+        if (stale !== null) return Effect.fail(stale);
+        const byId = new Map(held.map((n) => [n.id, n]));
+        for (const n of tx.upserts) byId.set(n.id, n);
+        held = [...byId.values()];
+        revision += 1;
+        return Effect.succeed({ base, fingerprint: `revision:${revision}`, tx });
+      }),
+  };
+  return { store, list: () => held.find((n) => n.id === "n.list") };
+}
+
+/** Append `n.a` to the list as the plan reads it, counting the plans. */
+function appendA(plans: { count: number }) {
+  return (nodes: readonly KbNode[]) => {
+    plans.count += 1;
+    const list = present(
+      nodes.find((n) => n.id === "n.list"),
+      "the list is there",
+    );
+    return { upserts: [{ ...list, children: [...list.children, "n.a"] }], deletes: [] };
+  };
+}
+
+describe("a write planned from what the session read", () => {
+  let root: string;
+  afterEach(async () => {
+    if (root) await rm(root, { recursive: true, force: true });
+  });
+
+  test("lands on the state it was planned from, and is planned again when the store moved", async () => {
+    root = await tempRoot();
+    const ctx = await openKb(root);
+    const moving = movingStore(ctx.store.path, 1);
+    const plans = { count: 0 };
+    await Effect.runPromise(
+      persistPlannedEffect(ctx, appendA(plans), { systemWrites: "system" }).pipe(
+        Effect.provide(Layer.mergeAll(kbStoreLayer(moving.store), bunFileSystemLayer)),
+      ),
+    );
+    expect(plans.count).toBe(2);
+    expect(moving.list()).toMatchObject({ text: "moved 1", children: ["n.a"] });
+  });
+
+  test("a store that keeps moving is the caller's conflict, and nothing is written", async () => {
+    root = await tempRoot();
+    const ctx = await openKb(root);
+    const moving = movingStore(ctx.store.path, 10);
+    const plans = { count: 0 };
+    const err = await Effect.runPromise(
+      Effect.flip(
+        persistPlannedEffect(ctx, appendA(plans), { systemWrites: "system" }).pipe(
+          Effect.provide(Layer.mergeAll(kbStoreLayer(moving.store), bunFileSystemLayer)),
+        ),
+      ),
+    );
+    expect(err.code).toBe("conflict");
+    expect(plans.count).toBe(3);
+    expect(moving.list()?.children).toEqual([]);
   });
 });

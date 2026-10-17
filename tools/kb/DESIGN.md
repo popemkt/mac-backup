@@ -3287,6 +3287,13 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   server answering for that root). A location with no path or two paths is
   `broken`; two locations naming one root are both listed, the second with a
   warning. No backend, status or timestamp is kept.
+- **Home writes land on what they read.** Registering and forgetting
+  replace the list node whole, so a write planned from one state would
+  merge over another process's write to it and lose it. Each is committed
+  through `persistPlannedEffect` (`@kb/operations`): planned from the home
+  session as it has caught up, committed on the condition that the store
+  is still in that state, and planned again when it is not, a few times
+  before the `conflict` is the caller's.
 - **The actions** are namespaced `ext.locations.*`, aliased `location.*`,
   and every one's mode says `outsideRoot`, so MCP and WebMCP report them
   open-world ([Action registry](#action-registry) → Mode):
