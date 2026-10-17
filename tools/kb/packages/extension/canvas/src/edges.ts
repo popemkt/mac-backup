@@ -173,7 +173,7 @@ const MIRRORED_SIDES: { readonly [A in "x" | "y"]: { readonly [S in CanvasSide]:
  * mirrored along `axis` (`reflectItem`): its anchor, or its side, mirrored
  * across the item's box.
  */
-export function mirroredEnd(edge: CanvasEdge, end: EdgeEnd, axis: "x" | "y"): CanvasEdge {
+function mirroredEnd(edge: CanvasEdge, end: EdgeEnd, axis: "x" | "y"): CanvasEdge {
   const anchor = end === "from" ? edge.fromAnchor : edge.toAnchor;
   if (anchor !== undefined) {
     const mirrored =
@@ -182,6 +182,64 @@ export function mirroredEnd(edge: CanvasEdge, end: EdgeEnd, axis: "x" | "y"): Ca
   }
   const side = (end === "from" ? edge.fromSide : edge.toSide) ?? DEFAULT_SIDES[end];
   return withEnd(edge, end, { side: MIRRORED_SIDES[axis][side] });
+}
+
+/** Whether an end faces across the canvas (along x) rather than up or down it. */
+const across = (t: EdgeTerminal) => Math.abs(t.out.x) >= Math.abs(t.out.y);
+
+/** How far an arc bows: its `bend`, or a fifth of the way across when it has none. */
+const arcBend = (edge: CanvasEdge, chord: number) => edge.bend ?? chord / 5;
+
+/**
+ * The axis an elbow's middle run is moved along by its `bend`: across when
+ * both its ends face across, down when both face up or down; none when
+ * they meet at one corner, which no bend moves.
+ */
+function elbowBendAxis(a: EdgeTerminal, b: EdgeTerminal): "x" | "y" | null {
+  if (across(a) && across(b)) return "x";
+  if (!across(a) && !across(b)) return "y";
+  return null;
+}
+
+/**
+ * `edge` bowed as it did once both its items, `from` and `to`, are
+ * mirrored along `axis`: a mirror turns left of travel into right, so an
+ * arc's bend is negated (its default written out), and so is an elbow's
+ * when its middle run moves along that axis. Read before the mirror.
+ */
+function mirroredBend(
+  edge: CanvasEdge,
+  axis: "x" | "y",
+  from: CanvasNode,
+  to: CanvasNode,
+): CanvasEdge {
+  const a = endTerminal(from, edge, "from");
+  const b = endTerminal(to, edge, "to");
+  if (edge.route === "arc") {
+    const chord = Math.hypot(b.at.x - a.at.x, b.at.y - a.at.y);
+    return withRoute(edge, { bend: -arcBend(edge, chord) });
+  }
+  if (edge.route === "elbow" && edge.bend !== undefined && elbowBendAxis(a, b) === axis) {
+    return withRoute(edge, { bend: -edge.bend });
+  }
+  return edge;
+}
+
+/**
+ * `edge` running as it did once the items `mirrored` names among its ends
+ * are mirrored along `axis` (`reflectItem`), each read as it stood: each
+ * such end meets its item where it did (`mirroredEnd`), and an edge
+ * mirrored whole bows the mirrored way (`mirroredBend`).
+ */
+export function mirroredEdge(
+  edge: CanvasEdge,
+  axis: "x" | "y",
+  mirrored: { readonly from: CanvasNode | undefined; readonly to: CanvasNode | undefined },
+): CanvasEdge {
+  const { from, to } = mirrored;
+  const bent = from !== undefined && to !== undefined ? mirroredBend(edge, axis, from, to) : edge;
+  const fromMet = from === undefined ? bent : mirroredEnd(bent, "from", axis);
+  return to === undefined ? fromMet : mirroredEnd(fromMet, "to", axis);
 }
 
 /** A point `reach` out of the side `terminal` faces: a curve's control there. */
@@ -237,9 +295,6 @@ function arcPath(a: Pt, b: Pt, bend: number): CanvasPathCommand[] {
   ];
 }
 
-/** Whether an end faces across the canvas (along x) rather than up or down it. */
-const across = (t: EdgeTerminal) => Math.abs(t.out.x) >= Math.abs(t.out.y);
-
 /**
  * An elbow: runs along the canvas's axes only, leaving and arriving along
  * the axis each side faces. Two ends that face the same way across meet by
@@ -248,13 +303,14 @@ const across = (t: EdgeTerminal) => Math.abs(t.out.x) >= Math.abs(t.out.y);
  */
 function elbowPath(a: EdgeTerminal, b: EdgeTerminal, bend: number): CanvasPathCommand[] {
   const [p, q] = [a.at, b.at];
+  const moved = elbowBendAxis(a, b);
   const corners: Pt[] =
-    across(a) && across(b)
+    moved === "x"
       ? [
           { x: (p.x + q.x) / 2 + bend, y: p.y },
           { x: (p.x + q.x) / 2 + bend, y: q.y },
         ]
-      : !across(a) && !across(b)
+      : moved === "y"
         ? [
             { x: p.x, y: (p.y + q.y) / 2 + bend },
             { x: q.x, y: (p.y + q.y) / 2 + bend },
@@ -287,7 +343,7 @@ export function edgeRoute(from: CanvasNode, to: CanvasNode, edge: CanvasEdge): E
         to: b,
       };
     case "arc":
-      return { path: arcPath(a.at, b.at, edge.bend ?? chord / 5), from: a, to: b };
+      return { path: arcPath(a.at, b.at, arcBend(edge, chord)), from: a, to: b };
     case "elbow":
       return { path: elbowPath(a, b, edge.bend ?? 0), from: a, to: b };
     case "curve":

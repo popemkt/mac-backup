@@ -12,7 +12,7 @@
  */
 import { boxBounds, boxFrame, type CanvasBounds, type CanvasVec } from "./box.ts";
 import type { CanvasDoc, CanvasNode } from "./doc.ts";
-import { mirroredEnd } from "./edges.ts";
+import { mirroredEdge } from "./edges.ts";
 import { carriedBy, editItem, settleMembership } from "./membership.ts";
 import { boundsCentre, itemBounds } from "./relations.ts";
 import { GRID_STEP, snapToSurface } from "./snap.ts";
@@ -336,10 +336,10 @@ export function flipItems(doc: CanvasDoc, ids: readonly string[], axis: CanvasFl
   const flipped = new Map(
     [...items, ...members].map((node) => [node.id, reflectItem(node, axis, pivot)]),
   );
-  const edges = doc.edges.map((edge) => {
-    const from = flipped.has(edge.fromNode) ? mirroredEnd(edge, "from", axis) : edge;
-    return flipped.has(edge.toNode) ? mirroredEnd(from, "to", axis) : from;
-  });
+  const moved = new Map([...items, ...members].map((node) => [node.id, node]));
+  const edges = doc.edges.map((edge) =>
+    mirroredEdge(edge, axis, { from: moved.get(edge.fromNode), to: moved.get(edge.toNode) }),
+  );
   const next = { ...doc, nodes: doc.nodes.map((node) => flipped.get(node.id) ?? node), edges };
   return settleMembership(
     next,

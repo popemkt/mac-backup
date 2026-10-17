@@ -2416,7 +2416,9 @@ transaction, one step of an open canvas's history.
   in the paint order (`order`: `front`, `back`, `forward`, `backward`,
   `orderItems`); or mirrors them through the middle of their box (`flip`:
   `x` or `y`, `flipItems`: each centre, turn and line's points mirrored, and
-  the edges they meet kept on the mirrored side or anchor). One call is
+  the edges they meet kept on the mirrored side or anchor, and an edge
+  mirrored whole bowed the mirrored way: an arc's `bend`, and an elbow's
+  along the flipped axis, negated, `mirroredEdge`). One call is
   exactly one of a layout, an order or a flip. A frame carries its members
   through each, and the keys (⌥A, ⌥⇧H, `]`, ⇧H and the rest) reach the same
   functions.

@@ -13,6 +13,7 @@ import {
   canvasMembership,
   connectItems,
   describeCanvas,
+  edgeRoute,
   flipItems,
   directionFrom,
   facingSides,
@@ -29,6 +30,7 @@ import {
   promoteItem,
   promotableText,
   restingOn,
+  routeMidpoint,
   selectionPivot,
   CanvasRelationError,
   type CanvasDoc,
@@ -308,6 +310,13 @@ describe("arrange", () => {
 /** Where an item's footprint is centred across. */
 const centreX = (n: CanvasNode) => n.x + n.width / 2;
 
+/** The middle of the route of `d`'s first edge, from a to b. */
+function midpointOf(d: CanvasDoc) {
+  const [edge] = d.edges;
+  if (edge === undefined) throw new Error("no edge");
+  return routeMidpoint(edgeRoute(item(d, "a"), item(d, "b"), edge));
+}
+
 describe("align, spread, order and flip", () => {
   const three = doc(card("a", 0, 0), card("b", 500, 300), card("c", 40, 900, { width: 200 }));
   const ids = ["a", "b", "c"];
@@ -420,6 +429,40 @@ describe("align, spread, order and flip", () => {
     expect(edge).toMatchObject({ fromSide: "left", toAnchor: { x: 0.8, y: 0.9 } });
     const [down] = flipItems(d, ["a"], "y").edges;
     expect(down).toMatchObject({ fromSide: "right", toAnchor: { x: 0.2, y: 0.9 } });
+  });
+
+  test.each([
+    ["an arc of its own bend", { route: "arc" }],
+    ["an arc bent", { route: "arc", bend: 30 }],
+    ["an elbow moved across", { route: "elbow", bend: 25 }],
+    ["an elbow moved down", { route: "elbow", bend: 25, fromSide: "bottom", toSide: "top" }],
+    ["a curve", {}],
+  ] as const)("flipped whole, %s runs as the mirror of where it ran", (_, look) => {
+    const d: CanvasDoc = {
+      nodes: [card("a", 0, 0), card("b", 400, 300)],
+      edges: [{ id: "e", fromNode: "a", toNode: "b", fromSide: "right", toSide: "left", ...look }],
+    };
+    for (const axis of ["x", "y"] as const) {
+      const pivot = selectionPivot(d.nodes);
+      const flipped = flipItems(d, ["a", "b"], axis);
+      const before = midpointOf(d);
+      const after = midpointOf(flipped);
+      const mirrored =
+        axis === "x"
+          ? { x: 2 * pivot.x - before.x, y: before.y }
+          : { x: before.x, y: 2 * pivot.y - before.y };
+      expect(after.x).toBeCloseTo(mirrored.x, 1);
+      expect(after.y).toBeCloseTo(mirrored.y, 1);
+    }
+  });
+
+  test("an arc with one end flipped keeps its bend", () => {
+    const d: CanvasDoc = {
+      nodes: [card("a", 0, 0), card("b", 400, 300)],
+      edges: [{ id: "e", fromNode: "a", toNode: "b", route: "arc", bend: 30 }],
+    };
+    expect(flipItems(d, ["a"], "x").edges[0]?.bend).toBe(30);
+    expect(flipItems(d, ["a", "b"], "x").edges[0]?.bend).toBe(-30);
   });
 });
 
