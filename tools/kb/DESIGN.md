@@ -2015,8 +2015,15 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     names none, so only a wire with an envelope (HTTP, `kb action-invoke`)
     lets a caller say otherwise. HTTP's own actor is `agent`, the more
     cautious one, because the page names its gestures `human` and a local
-    program that does not say is not taken for a person. A call made in
-    process names no actor and meets only the policies for every actor.
+    program that does not say is not taken for a person. **Every call names
+    its actor**: what a caller sends is an `ActionRequest`, whose actor it
+    may leave out, and what the invoke core takes is an `ActionInvocation`,
+    whose actor the type requires, so the compiler finds any caller that
+    names none. kb's own code calling in process through the runtime's
+    `invoke` edge does so on `IN_PROCESS_WIRE`, as `cli`: it runs with what
+    the owner runs it with, as the command line does. A call an action
+    makes while another runs (`CoreInvoke`) is made by that one's actor
+    (`callWithin`, [Grants](#grants-and-the-script-actor)).
   - **Listings are honest.** Each surface declares what its wire carries
     once, as a `SurfaceWire` (`MCP_WIRE`, `HTTP_WIRE`, …), and lists by
     calling `kb.manifest` on that wire. `kb.manifest` lists every action and

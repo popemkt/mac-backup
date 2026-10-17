@@ -1,6 +1,12 @@
 import { Effect } from "effect";
 import { z } from "zod";
-import { SecretError, WireNodeSchema, type SecretSource, type UiHostService } from "@kb/contracts";
+import {
+  SecretError,
+  WireNodeSchema,
+  onWire,
+  type SecretSource,
+  type UiHostService,
+} from "@kb/contracts";
 import {
   canonicalJson,
   decodeNodeConfig,
@@ -11,6 +17,7 @@ import {
   type NodeId,
 } from "@kb/model";
 import { providerDigest, type ProviderBinding } from "@kb/sandbox";
+import { AGENT_WIRE } from "./protocol.ts";
 import { agentExtension } from "./extension.ts";
 import {
   AGENT_ADAPTERS,
@@ -54,7 +61,9 @@ const NodeReadSchema = z.object({
 
 /** A node as `node.get` answers it, or undefined when the store holds none by that id. */
 const readNode = Effect.fn("kb.agent.readNode")(function* (host: UiHostService, id: NodeId) {
-  const receipt = yield* host.invoke({ id: "node.get", input: { id, depth: 0 } });
+  const receipt = yield* host.invoke(
+    onWire(AGENT_WIRE, { id: "node.get", input: { id, depth: 0 } }),
+  );
   if (receipt.status === "failed") {
     if (receipt.code === "not_found") return undefined;
     return yield* new AgentRuntimeError({ message: `reading ${id} failed: ${receipt.message}` });
@@ -87,7 +96,9 @@ const requireTrusted = Effect.fn("kb.agent.requireTrusted")(function* (
   name: string,
 ): Effect.fn.Return<void, AgentRuntimeError> {
   const digest = yield* providerDigest(binding);
-  const receipt = yield* host.invoke({ id: "sandbox.trusted", input: { digests: [digest] } });
+  const receipt = yield* host.invoke(
+    onWire(AGENT_WIRE, { id: "sandbox.trusted", input: { digests: [digest] } }),
+  );
   const read = receipt.status === "succeeded" ? TrustedSchema.safeParse(receipt.output) : null;
   const trusted = read?.success === true && read.data.trusted.includes(digest);
   return yield* trusted

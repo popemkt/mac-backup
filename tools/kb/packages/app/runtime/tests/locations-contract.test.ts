@@ -32,7 +32,7 @@ import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { KbRoots, type ActionReceipt, type KbContext } from "@kb/contracts";
+import { KbRoots, onWire, type ActionReceipt, type KbContext } from "@kb/contracts";
 import {
   LOCATION_IDS,
   LocationListSchema,
@@ -47,6 +47,7 @@ import { openKbEffect } from "../src/open.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { childProcessEnv } from "../src/child-env.ts";
 import { registerOpenedRoot } from "../src/locations.ts";
+import { IN_PROCESS_WIRE } from "../src/invoke.ts";
 import { invokeReceiptEffect } from "../src/registry.ts";
 import { serveRoot } from "../src/serve.ts";
 import { STORE_BACKENDS, createStore, type StoreBackend } from "../src/store-selection.ts";
@@ -154,7 +155,7 @@ function locationsContract(homeBackend: StoreBackend): void {
       return yield* Effect.gen(function* () {
         const roots = yield* KbRoots;
         const invocation = actor === undefined ? { id, input } : { id, input, actor };
-        return yield* invokeReceiptEffect(ctx, invocation).pipe(
+        return yield* invokeReceiptEffect(ctx, onWire(IN_PROCESS_WIRE, invocation)).pipe(
           Effect.provideService(KbRoots, { ...roots, serve }),
         );
       }).pipe(Effect.provide(kbRuntimeLayer(ctx)));

@@ -1,10 +1,10 @@
 /** POST /api/action — the receipt and, on success, the rev it committed at (protocol.ts). */
 
-import { ActionResponseSchema, type ActionInvocation, type ActionResponse } from "@kb/contracts";
+import { ActionResponseSchema, type ActionRequest, type ActionResponse } from "@kb/contracts";
 
-export type { ActionInvocation, ActionResponse };
+export type { ActionRequest, ActionResponse };
 
-export type PostActionFn = (invocation: ActionInvocation) => Promise<ActionResponse>;
+export type PostActionFn = (invocation: ActionRequest) => Promise<ActionResponse>;
 
 let postActionImpl: PostActionFn = defaultPostAction;
 
@@ -18,7 +18,7 @@ export function getClientOrigin(): string {
   return clientOrigin;
 }
 
-async function defaultPostAction(invocation: ActionInvocation): Promise<ActionResponse> {
+async function defaultPostAction(invocation: ActionRequest): Promise<ActionResponse> {
   const res = await fetch("/api/action", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-KB-Origin": getClientOrigin() },
@@ -41,6 +41,6 @@ export function setPostAction(fn: PostActionFn | null): void {
 }
 
 /** Send one invocation, its whole envelope, to the server. */
-export function postAction(invocation: ActionInvocation): Promise<ActionResponse> {
+export function postAction(invocation: ActionRequest): Promise<ActionResponse> {
   return postActionImpl(invocation);
 }

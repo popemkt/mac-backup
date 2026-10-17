@@ -26,7 +26,7 @@ import {
   type OutlineNode,
 } from "@kb/ui-sdk";
 import { followProvided, portSlot } from "@/stores/port-slot";
-import type { ActionInvocation, WireNode } from "@kb/contracts";
+import type { ActionRequest, WireNode } from "@kb/contracts";
 import { resolveScope } from "@/lib/ontology-scope";
 import { mergeTx } from "@/lib/tx";
 import { bundledDerived } from "@kb/bundled";
@@ -44,8 +44,8 @@ const HISTORY_LIMIT = 50;
 
 /** One write, as the inverse-invocation pair that undoes and redoes it. */
 interface UndoEntry {
-  undo: ActionInvocation[];
-  redo: ActionInvocation[];
+  undo: ActionRequest[];
+  redo: ActionRequest[];
 }
 
 /**

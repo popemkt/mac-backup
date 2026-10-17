@@ -282,7 +282,7 @@ export function approvalRefusal(
     if (decision === "deny") {
       return {
         code: "forbidden",
-        message: `action ${id} reaches outside its kb root, which a call by ${invocation.actor ?? "this caller"} never does`,
+        message: `action ${id} reaches outside its kb root, which a call by ${invocation.actor} never does`,
       };
     }
     return {
@@ -291,7 +291,7 @@ export function approvalRefusal(
     };
   }
   if ("writes" in by) {
-    const caller = invocation.actor ?? "this caller";
+    const caller = invocation.actor;
     if (decision === "deny") {
       return {
         code: "forbidden",
@@ -309,7 +309,7 @@ export function approvalRefusal(
   if (decision === "deny") {
     return {
       code: "forbidden",
-      message: `action ${id} is denied to ${invocation.actor ?? "this caller"} by approval policy ${by.policy}`,
+      message: `action ${id} is denied to ${invocation.actor} by approval policy ${by.policy}`,
       details: { policy: by.policy },
     };
   }

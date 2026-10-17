@@ -6,7 +6,7 @@
  * document.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { succeeded, type ActionInvocation } from "@kb/contracts";
+import { succeeded, type ActionRequest } from "@kb/contracts";
 import { ENGINE_LIMITS, type RunStatus } from "@kb/sandbox";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import type { SandboxRun } from "@kb/ui-sdk";
@@ -45,7 +45,7 @@ function fakeFrame() {
 
 function setup() {
   const fake = fakeFrame();
-  const calls: ActionInvocation[] = [];
+  const calls: ActionRequest[] = [];
   const statuses: RunStatus[] = [];
   const hosted = hostSandboxFrame(
     fake.frame as unknown as HTMLIFrameElement,

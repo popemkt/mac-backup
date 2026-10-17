@@ -36,6 +36,7 @@ function echoPlugin(dropped: string[]): Plugin {
             receive: (peer, data) =>
               Effect.gen(function* () {
                 const receipt = yield* host.invoke({
+                  actor: "human",
                   id: "node.get",
                   input: { id: "sys.tag", depth: 0 },
                 });

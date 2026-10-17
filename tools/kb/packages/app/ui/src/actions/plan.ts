@@ -1,4 +1,4 @@
-import type { ActionInvocation, WireNode } from "@kb/contracts";
+import type { ActionRequest, WireNode } from "@kb/contracts";
 import {
   familyViewIdOf,
   fieldTypeValue,
@@ -22,12 +22,12 @@ import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
 
 export interface PlannedMutation {
-  actions: ActionInvocation[];
+  actions: ActionRequest[];
   focusId?: string;
   focusCursor?: number;
 }
 
-const plan = (...actions: ActionInvocation[]): PlannedMutation => ({ actions });
+const plan = (...actions: ActionRequest[]): PlannedMutation => ({ actions });
 function requireNode(nodes: WireNode[], id: string): WireNode {
   const node = wireById(nodes).get(id);
   if (!node) throw new Error(`node not found: ${id}`);

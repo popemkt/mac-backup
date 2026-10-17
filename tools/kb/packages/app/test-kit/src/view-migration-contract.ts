@@ -18,8 +18,8 @@ import {
   type KbNode,
   type PropValue,
 } from "@kb/model";
-import type { KbContext } from "@kb/contracts";
-import { invokeReceiptEffect, kbRuntimeLayer } from "@kb/runtime";
+import { onWire, type KbContext } from "@kb/contracts";
+import { invokeReceiptEffect, IN_PROCESS_WIRE, kbRuntimeLayer } from "@kb/runtime";
 import {
   CONTRACT_AT,
   backendRoot,
@@ -71,9 +71,10 @@ function legacyShape(lensRenderer: KbNode): KbNode[] {
 
 /** Run `views.migrate` on a session, the way any surface invokes an action: did it change anything. */
 const migrate = Effect.fn("storeContract.viewsMigrate")(function* (ctx: KbContext) {
-  const receipt = yield* invokeReceiptEffect(ctx, { id: "views.migrate", input: {} }).pipe(
-    Effect.provide(kbRuntimeLayer(ctx)),
-  );
+  const receipt = yield* invokeReceiptEffect(
+    ctx,
+    onWire(IN_PROCESS_WIRE, { id: "views.migrate", input: {} }),
+  ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
   expect(receipt.status).toBe("succeeded");
   if (receipt.status !== "succeeded") throw new Error("views.migrate failed");
   const output: unknown = receipt.output;

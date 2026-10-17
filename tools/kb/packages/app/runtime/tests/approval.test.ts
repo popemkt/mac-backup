@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { z } from "zod";
-import { DecidedEntrySchema, type ActionInvocation } from "@kb/contracts";
+import { DecidedEntrySchema, type ActionRequest } from "@kb/contracts";
 import { CODE_IDS } from "@kb/code";
 import { DECISION_OPTION_IDS, SYSTEM_IDS } from "@kb/model";
 import { codeDigest } from "@kb/sandbox";
@@ -21,7 +21,7 @@ import { openKb } from "../src/session.ts";
 const ManifestSchema = z.object({ actions: z.array(DecidedEntrySchema) });
 
 /** A node.delete call for `id`, with the envelope fields a test varies. */
-const remove = (id: string, rest: Partial<ActionInvocation>): ActionInvocation => ({
+const remove = (id: string, rest: Partial<ActionRequest>): ActionRequest => ({
   id: "node.delete",
   input: { id },
   ...rest,
@@ -32,19 +32,19 @@ const remove = (id: string, rest: Partial<ActionInvocation>): ActionInvocation =
  * A call made as a script's: running for `subject`, its grant naming
  * `action`, as its host stamps it (`answerToolCall`).
  */
-const asScript = (subject: string, action: string): Partial<ActionInvocation> => ({
+const asScript = (subject: string, action: string): Partial<ActionRequest> => ({
   actor: "script",
   script: { subject, grant: { reads: "subject", actions: [action] } },
 });
 
-const mint = (id: string, rest: Partial<ActionInvocation>): ActionInvocation => ({
+const mint = (id: string, rest: Partial<ActionRequest>): ActionRequest => ({
   id: "node.add",
   input: { id, text: "badges", tags: ["script"] },
   ...rest,
 });
 
 /** Name the script `s.trusted` on the board `n.board`, as `rest` says who. */
-const attach = (rest: Partial<ActionInvocation>): ActionInvocation => ({
+const attach = (rest: Partial<ActionRequest>): ActionRequest => ({
   id: "node.update",
   input: {
     id: "n.board",
@@ -194,7 +194,7 @@ describe("approval policies in the invoke core", () => {
     const grant = { reads: "subject" as const, actions: [] };
     const digest = await Effect.runPromise(codeDigest("kb.draw('a')", grant));
     const edited = await Effect.runPromise(codeDigest("kb.draw('a');", grant));
-    const trust = (rest: Partial<ActionInvocation>): ActionInvocation => ({
+    const trust = (rest: Partial<ActionRequest>): ActionRequest => ({
       id: "sandbox.trust",
       input: { digest },
       ...rest,
@@ -233,7 +233,7 @@ describe("approval policies in the invoke core", () => {
 
   test("kb.manifest tells each actor what is decided about its own calls", async () => {
     const ctx = await openKb(root);
-    const decisions = async (actor: ActionInvocation["actor"]) => {
+    const decisions = async (actor: ActionRequest["actor"]) => {
       const receipt = await invoke(ctx, { id: "kb.manifest", input: {}, actor });
       if (receipt.status !== "succeeded") throw new Error(receipt.message);
       const actions = ManifestSchema.parse(receipt.output).actions;
@@ -252,7 +252,7 @@ describe("approval policies in the invoke core", () => {
     const policy = "approval.agent-delete";
     const textOf = () => ctx.index.getNode(policy)?.text;
     const before = textOf();
-    const edit = (rest: Partial<ActionInvocation>): ActionInvocation => ({
+    const edit = (rest: Partial<ActionRequest>): ActionRequest => ({
       id: "node.update",
       input: { id: policy, text: "agents never ask" },
       ...rest,

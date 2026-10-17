@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 import {
-  type ActionInvocation,
+  type ActionRequest,
   type ActionReceipt,
   type KbContext,
   type KbCtx,
@@ -138,7 +138,7 @@ function requireSession(): BrowserSession {
  * One ordered network lane for browser mutations. A push that carries a hold
  * settles it with its receipt (DESIGN-UI.md → Replica sync → Holds).
  */
-export function pushInvocation(invocation: ActionInvocation, hold?: Hold): Promise<ActionResponse> {
+export function pushInvocation(invocation: ActionRequest, hold?: Hold): Promise<ActionResponse> {
   const result = pushTail
     .catch(() => undefined)
     .then(() => postAction(onWire(PAGE_WIRE, invocation)));
@@ -170,7 +170,7 @@ export function waitForBrowserPushes(): Promise<void> {
  * Browser action entry point. The shared invoker is wired here once its w5
  * prerequisite export lands; port-backed actions remain server-owned.
  */
-export function invokeLocal(invocation: ActionInvocation): Promise<ActionReceipt> {
+export function invokeLocal(invocation: ActionRequest): Promise<ActionReceipt> {
   const current = requireSession();
   return Effect.runPromise(
     invokeReceiptWith(localActions, current.ctx, onWire(PAGE_WIRE, invocation)).pipe(
@@ -189,7 +189,7 @@ export function invokeLocal(invocation: ActionInvocation): Promise<ActionReceipt
  * touched until the push settles. `into` joins an open hold (typed text).
  */
 export async function writeLocal(
-  invocation: ActionInvocation,
+  invocation: ActionRequest,
   into?: Hold,
 ): Promise<{ receipt: ActionReceipt; hold?: Hold }> {
   const current = requireSession();
@@ -234,7 +234,7 @@ const done = (receipt: ActionReceipt): Invoked => ({
  * envelope, so what the invocation declares reaches the invoke core that
  * decides it, locally and on the server.
  */
-export async function invokeSettled(invocation: ActionInvocation): Promise<Invoked> {
+export async function invokeSettled(invocation: ActionRequest): Promise<Invoked> {
   const { id } = invocation;
   const local = localActions.get(id);
   if (local === undefined) return done(await pushInvocation(invocation));

@@ -31,7 +31,7 @@ import {
   listedOn,
   onWire,
   resolveApproval,
-  type ActionInvocation,
+  type ActionRequest,
   type ActionMode,
   type ActionReceipt,
   type ExtensionRow,
@@ -76,7 +76,7 @@ export interface ActionSurface {
    * make the call at all (WebMCP cannot call a tool it did not register),
    * which only an action the surface leaves out of its listing may be.
    */
-  invoke(invocation: ActionInvocation): Promise<ActionReceipt | null>;
+  invoke(invocation: ActionRequest): Promise<ActionReceipt | null>;
   /**
    * What this surface's wire can carry, as the surface itself declares it.
    * The properties below prove the declaration by behaviour.
@@ -131,7 +131,7 @@ const SETTING_FIELD = "sys.f.surface-contract-setting";
  * family's own seeded field would. Only a system field is a setting, so the
  * owner mints it with force.
  */
-const SETTING_INVOCATION: ActionInvocation = {
+const SETTING_INVOCATION: ActionRequest = {
   id: "node.add",
   input: {
     id: SETTING_FIELD,
@@ -190,7 +190,7 @@ const POLICIES: readonly Omit<ApprovalPolicy, "id">[] = [
 ];
 
 /** A policy as a node, written through the invoke core with a person's approval. */
-function policyInvocation(policy: Omit<ApprovalPolicy, "id">): ActionInvocation {
+function policyInvocation(policy: Omit<ApprovalPolicy, "id">): ActionRequest {
   return {
     id: "node.add",
     approved: true,
@@ -222,7 +222,7 @@ function policyInvocation(policy: Omit<ApprovalPolicy, "id">): ActionInvocation 
  * action, and the screen actions against the root's one tab, which answers
  * every command the same way.
  */
-const CALLS: readonly ActionInvocation[] = [
+const CALLS: readonly ActionRequest[] = [
   { id: "kb.manifest", input: {} },
   { id: "node.get", input: { id: "sys.tag", depth: 0 } },
   { id: "node.get", input: { id: "n.surface-contract-missing" } },
@@ -318,9 +318,9 @@ interface SurfaceCase {
    * The invoke core's receipt for the call, on the same root, as it arrives
    * from this surface: made by the actor the surface declares for it.
    */
-  readonly core: (invocation: ActionInvocation) => Effect.Effect<ActionReceipt>;
+  readonly core: (invocation: ActionRequest) => Effect.Effect<ActionReceipt>;
   /** The surface's receipt for the call, or `null` when its wire cannot make it. */
-  readonly via: (invocation: ActionInvocation) => Effect.Effect<ActionReceipt | null>;
+  readonly via: (invocation: ActionRequest) => Effect.Effect<ActionReceipt | null>;
 }
 
 /** What the contract runs over: how a root is served, and the surfaces by name. */
@@ -359,7 +359,7 @@ function overSurfaces(
               Effect.gen(function* () {
                 const surface = yield* openSurface(open, root, ui);
                 const hosted = surface.host === "ui" ? ui.hosted : [];
-                const core = (invocation: ActionInvocation) =>
+                const core = (invocation: ActionRequest) =>
                   invokeReceiptEffect(ctx, onWire(surface.wire, invocation)).pipe(
                     Effect.provide(
                       kbRuntimeLayer(ctx, undefined, {
@@ -368,7 +368,7 @@ function overSurfaces(
                       }),
                     ),
                   );
-                const via = (invocation: ActionInvocation) =>
+                const via = (invocation: ActionRequest) =>
                   Effect.promise(() => surface.invoke(invocation));
                 yield* check({ name, surface, root, policies, core, via });
               }),
@@ -442,7 +442,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
     (set) =>
       overSurfaces(set, ({ name, surface, core, via }) =>
         Effect.gen(function* () {
-          const call: ActionInvocation = { id: ASKED_ACTION, input: {}, approved: true };
+          const call: ActionRequest = { id: ASKED_ACTION, input: {}, approved: true };
           // Where the wire cannot carry approval, the call that arrives is the unapproved one.
           const { carriesApproval } = surface.wire;
           const arrives = carriesApproval ? call : { id: call.id, input: call.input };
@@ -520,7 +520,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
     (set) =>
       overSurfaces(set, ({ name, surface, via }) =>
         Effect.gen(function* () {
-          const write = (value: string): ActionInvocation => ({
+          const write = (value: string): ActionRequest => ({
             id: "node.update",
             input: {
               id: EXTENSION_NODE,
@@ -596,7 +596,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
       overSurfaces(set, ({ name, surface, via }) =>
         Effect.gen(function* () {
           const listed = new Set((yield* Effect.promise(() => surface.list())).map((a) => a.id));
-          const writes: readonly ActionInvocation[] = [
+          const writes: readonly ActionRequest[] = [
             { id: "node.update", input: { id: EXTENSION_NODE, text: "renamed" } },
             { id: "node.delete", input: { id: EXTENSION_NODE } },
             { id: "node.addTree", input: { outline: "- filed", parent: EXTENSION_NODE } },
@@ -626,7 +626,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (set: SurfaceSet) => Promise<v
       overSurfaces(set, ({ name, surface, via }) =>
         Effect.gen(function* () {
           // A policy that would allow every write to anyone: it lowers nothing here.
-          const edit: ActionInvocation = {
+          const edit: ActionRequest = {
             id: "node.update",
             input: { id: SEEDED_POLICY, setProps: [] },
           };

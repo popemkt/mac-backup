@@ -12,6 +12,7 @@ import {
   failed,
   type KbContext,
   CoreInvoke,
+  CurrentCall,
   type CoreInvoker,
   type Screens,
   TemplateRegistry,
@@ -25,7 +26,7 @@ import {
   legacyDocsViewsLayer,
   savedQueriesLayer,
 } from "@kb/workspace-fs";
-import { graphWritesLayer } from "@kb/operations";
+import { callWithin, graphWritesLayer } from "@kb/operations";
 import { invokeReceiptEffect, receiptFromError, sessionRegistry } from "./registry.ts";
 import { kbRootsLayer } from "./roots.ts";
 import { remoteScreensLayer } from "./screens.ts";
@@ -109,8 +110,16 @@ export function kbRuntimeLayer(
  * before the core; any other call runs through it, decided like every call.
  */
 function coreInvoke(ctx: KbContext): CoreInvoker {
-  return (invocation, scope) =>
+  return (request, scope) =>
     Effect.gen(function* () {
+      const invocation = callWithin(yield* CurrentCall, request);
+      if (invocation === null) {
+        return failed(
+          request.id,
+          "forbidden",
+          `${request.id} is called while no call runs, and names no actor to make it`,
+        );
+      }
       const registry = yield* sessionRegistry(ctx);
       const mode = registry.byId.get(invocation.id)?.def.mode;
       if (scope === "read" && mode !== undefined && mode.kind !== "read") {
@@ -124,7 +133,7 @@ function coreInvoke(ctx: KbContext): CoreInvoker {
     }).pipe(
       Effect.provide(bunFileSystemLayer),
       Effect.catchCause((cause) =>
-        Effect.succeed(receiptFromError(invocation.id, Cause.squash(cause))),
+        Effect.succeed(receiptFromError(request.id, Cause.squash(cause))),
       ),
     );
 }

@@ -266,7 +266,7 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
     return failed(
       id,
       "forbidden",
-      `force is the owner's to set; a call by ${invocation.actor ?? "this caller"} may not`,
+      `force is the owner's to set; a call by ${invocation.actor} may not`,
     );
   }
   const run = dispatch(entry, ctx, parsed);

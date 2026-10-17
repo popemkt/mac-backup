@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   ACTORS,
   FailureCodeSchema,
+  type Actor,
   type ActionSchema,
   type ActionSchemaError,
   type CodedError,
@@ -213,8 +214,12 @@ export const ActionRequestSchema = z.object({
 /** A call as a caller or a wire states it: who makes it may be left to the surface. */
 export type ActionRequest = z.output<typeof ActionRequestSchema>;
 
-/** A call as it reaches the invoke core, through a surface's wire (`onWire`). */
-export type ActionInvocation = ActionRequest;
+/**
+ * A call as it reaches the invoke core: a request with who makes it, which
+ * every surface stamps (`onWire`) and every call made while another runs
+ * takes from it, so no call reaches the core without an actor.
+ */
+export type ActionInvocation = ActionRequest & { readonly actor: Actor };
 
 export const SucceededReceiptSchema = z.object({
   status: z.literal("succeeded"),

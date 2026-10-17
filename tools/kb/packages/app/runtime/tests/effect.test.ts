@@ -7,7 +7,7 @@ import { FileSystem } from "effect/FileSystem";
 import { runWithKb, kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
 import { openKb, reload } from "../src/session.ts";
-import { KbCtx, KbStore } from "@kb/contracts";
+import { KbCtx, KbStore, onWire } from "@kb/contracts";
 import { JsonlStore } from "@kb/store-jsonl";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import {
@@ -21,7 +21,7 @@ import {
   schemaToJsonSchema,
 } from "@kb/model";
 import { DocsError, mapRenderErr } from "@kb/operations";
-import { invoke } from "../src/invoke.ts";
+import { IN_PROCESS_WIRE, invoke } from "../src/invoke.ts";
 import { invokeEffect, invokeReceiptEffect } from "../src/registry.ts";
 import { persist } from "@kb/test-kit";
 import { z } from "zod";
@@ -123,7 +123,10 @@ describe("Effect services + layers", () => {
     expect(err).toBeInstanceOf(DomainError);
 
     const receipt = await Effect.runPromise(
-      invokeEffect(ctx, { id: "node.get", input: { id: "n.missing" } }).pipe(
+      invokeEffect(
+        ctx,
+        onWire(IN_PROCESS_WIRE, { id: "node.get", input: { id: "n.missing" } }),
+      ).pipe(
         Effect.catch((e) =>
           Effect.succeed({
             status: "failed" as const,
@@ -152,10 +155,13 @@ describe("Effect services + layers", () => {
     root = await tempRoot();
     const ctx = await openKb(root);
     const viaEffect = await Effect.runPromise(
-      invokeReceiptEffect(ctx, {
-        id: "node.get",
-        input: { id: "n.missing" },
-      }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+      invokeReceiptEffect(
+        ctx,
+        onWire(IN_PROCESS_WIRE, {
+          id: "node.get",
+          input: { id: "n.missing" },
+        }),
+      ).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
     const viaPromise = await invoke(ctx, {
       id: "node.get",
@@ -168,10 +174,13 @@ describe("Effect services + layers", () => {
     }
 
     const addEffect = await Effect.runPromise(
-      invokeReceiptEffect(ctx, {
-        id: "node.add",
-        input: { text: "receipt-ok" },
-      }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+      invokeReceiptEffect(
+        ctx,
+        onWire(IN_PROCESS_WIRE, {
+          id: "node.add",
+          input: { text: "receipt-ok" },
+        }),
+      ).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
     expect(addEffect.status).toBe("succeeded");
   });

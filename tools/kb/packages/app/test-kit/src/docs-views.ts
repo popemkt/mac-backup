@@ -5,7 +5,8 @@
  */
 import { Effect } from "effect";
 import { docsViewNodeId, docsViewProps, type DocsViewSpec } from "@kb/model";
-import { invokeReceiptEffect, kbRuntimeLayer } from "@kb/runtime";
+import { invokeReceiptEffect, IN_PROCESS_WIRE, kbRuntimeLayer } from "@kb/runtime";
+import { onWire } from "@kb/contracts";
 import { openSession } from "./store-session.ts";
 
 export const addDocsView = Effect.fn("testKit.addDocsView")(function* (
@@ -17,10 +18,13 @@ export const addDocsView = Effect.fn("testKit.addDocsView")(function* (
   const props = Object.entries(docsViewProps(spec)).flatMap(([field, values]) =>
     values.map((value) => ({ field, value })),
   );
-  const receipt = yield* invokeReceiptEffect(ctx, {
-    id: "node.add",
-    input: { id: docsViewNodeId(name), text: name, props },
-  }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+  const receipt = yield* invokeReceiptEffect(
+    ctx,
+    onWire(IN_PROCESS_WIRE, {
+      id: "node.add",
+      input: { id: docsViewNodeId(name), text: name, props },
+    }),
+  ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
   if (receipt.status !== "succeeded")
     return yield* Effect.die(new Error(`docs view ${name}: ${receipt.message}`));
   return receipt;

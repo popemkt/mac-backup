@@ -15,7 +15,7 @@ import {
   NO_SWITCHES,
   extensionRow,
   familyOn,
-  type ActionInvocation,
+  type ActionRequest,
   type GraphSnapshot,
 } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
@@ -37,7 +37,7 @@ function snapshot(): GraphSnapshot {
 /** Whether the stand-in server hosts the agent. */
 const server = { agent: false };
 
-async function answer(invocation: ActionInvocation) {
+async function answer(invocation: ActionRequest) {
   if (invocation.id !== "kb.manifest") {
     return {
       status: "failed" as const,

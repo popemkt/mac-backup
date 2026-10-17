@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { CANVAS_IDS, parseCanvasDoc } from "@kb/canvas";
 import { CODE_IDS } from "@kb/code";
-import { CoreInvoke, CurrentCall, type ActionInvocation } from "@kb/contracts";
+import { CoreInvoke, CurrentCall, type ActionInvocation, type ActionRequest } from "@kb/contracts";
 import { canonicalJson, present } from "@kb/model";
 import { codeDigest } from "@kb/sandbox";
 import { invoke } from "../src/invoke.ts";
@@ -25,7 +25,7 @@ const PLACE = `await kb.invoke("ext.canvas.place", {
 });`;
 const GRANT = { reads: "subject" as const, actions: ["ext.canvas.place"] };
 
-const run = (rest: Partial<ActionInvocation> = {}): ActionInvocation => ({
+const run = (rest: Partial<ActionRequest> = {}): ActionRequest => ({
   id: "ext.code.script.run",
   input: { script: "s.place", subject: "n.canvas" },
   ...rest,

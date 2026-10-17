@@ -20,12 +20,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { BUNDLED_DECLARATIONS, BUNDLED_FAMILIES } from "@kb/bundled";
-import {
-  extensionRow,
-  type ActionInvocation,
-  type GraphSnapshot,
-  type WireNode,
-} from "@kb/contracts";
+import { extensionRow, type ActionRequest, type GraphSnapshot, type WireNode } from "@kb/contracts";
 import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
 import { viewCatalogOf } from "@kb/views";
 import type { LabScene } from "@kb/lab-ui";
@@ -94,7 +89,7 @@ function manifest() {
   };
 }
 
-async function answer(invocation: ActionInvocation) {
+async function answer(invocation: ActionRequest) {
   if (invocation.id === "kb.manifest") {
     if (server.hold !== null) await server.hold;
     return { status: "succeeded" as const, id: invocation.id, output: manifest(), rev: 1 };

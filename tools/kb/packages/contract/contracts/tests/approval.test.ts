@@ -244,7 +244,9 @@ describe("a write to configuration", () => {
         ],
       },
     ]);
-    expect(approvalRefusal(resolution, { id: "node.update", input: {} })?.details).toEqual({
+    expect(
+      approvalRefusal(resolution, { id: "node.update", input: {}, actor: "agent" })?.details,
+    ).toEqual({
       writes: "configuration",
       configuration: resolution.shows,
     });
@@ -349,7 +351,9 @@ describe("approvalRefusal", () => {
       code: "approval_required",
       details: { policy: "p" },
     });
-    expect(approvalRefusal({ decision: "ask", by: "mode" }, { id: "a", input: {} })).toEqual({
+    expect(
+      approvalRefusal({ decision: "ask", by: "mode" }, { id: "a", input: {}, actor: "agent" }),
+    ).toEqual({
       code: "approval_required",
       message: "action a requires approval; this call has none",
     });
@@ -362,7 +366,9 @@ describe("approvalRefusal", () => {
   });
 
   test("an allowed call is never refused", () => {
-    expect(approvalRefusal({ decision: "allow", by: "mode" }, { id: "a", input: {} })).toBeNull();
+    expect(
+      approvalRefusal({ decision: "allow", by: "mode" }, { id: "a", input: {}, actor: "agent" }),
+    ).toBeNull();
   });
 });
 

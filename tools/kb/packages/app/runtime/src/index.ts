@@ -1,6 +1,6 @@
 export { childProcessEnv, type ChildKind } from "./child-env.ts";
 export { discoverExtensions } from "./extension-loader.ts";
-export { invoke } from "./invoke.ts";
+export { IN_PROCESS_WIRE, invoke } from "./invoke.ts";
 export { kbRuntimeLayer } from "./layers.ts";
 export { registerOpenedRoot } from "./locations.ts";
 export { openKbEffect } from "./open.ts";

@@ -8,7 +8,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { failed, succeeded, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
+import { failed, succeeded, type ActionRequest, type ActionReceipt } from "@kb/contracts";
 import type { AgentEvent, AgentRequest } from "@kb/agent";
 import { browserHostUiPlugin } from "@/browser-host";
 import { syncUiPlugins } from "@kb/ui-sdk";
@@ -19,16 +19,16 @@ import { syncPagePlugins } from "@/test-support/page-plugins";
 interface Stand {
   readonly ports: AgentPorts;
   readonly sent: AgentRequest[];
-  readonly invoked: ActionInvocation[];
+  readonly invoked: ActionRequest[];
   /** Say `event` on the channel, as the bridge would. */
   hear: (event: AgentEvent) => void;
   /** The socket opens or closes. */
   socket: (open: boolean) => void;
 }
 
-function stand(answer: (invocation: ActionInvocation) => ActionReceipt): Stand {
+function stand(answer: (invocation: ActionRequest) => ActionReceipt): Stand {
   const sent: AgentRequest[] = [];
-  const invoked: ActionInvocation[] = [];
+  const invoked: ActionRequest[] = [];
   let sink: ((data: unknown) => void) | null = null;
   let socket: ((open: boolean) => void) | null = null;
   return {

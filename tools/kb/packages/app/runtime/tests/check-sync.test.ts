@@ -8,14 +8,14 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ActionInvocation, KbContext } from "@kb/contracts";
+import type { ActionRequest, KbContext } from "@kb/contracts";
 import { SYSTEM_IDS, fieldTypeValue } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
 import { openKb } from "../src/session.ts";
 
 const typeRef = (id: string) => ({ field: SYSTEM_IDS.typeField, value: { t: "ref", v: id } });
 
-async function must(ctx: KbContext, invocation: ActionInvocation): Promise<unknown> {
+async function must(ctx: KbContext, invocation: ActionRequest): Promise<unknown> {
   const receipt = await invoke(ctx, invocation);
   if (receipt.status !== "succeeded") throw new Error(`${invocation.id}: ${receipt.message}`);
   return receipt.output;

@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { z } from "zod";
-import { ScreenListSchema, type TabScreen, type UiHostService } from "@kb/contracts";
+import { ScreenListSchema, onWire, type TabScreen, type UiHostService } from "@kb/contracts";
+import { AGENT_WIRE } from "./protocol.ts";
 import type { AgentMessage } from "./runtime.ts";
 
 /**
@@ -43,7 +44,9 @@ const namesOf = Effect.fn("kb.agent.screenNames")(function* (
 ) {
   const names: Record<string, string> = {};
   for (const id of ids) {
-    const receipt = yield* host.invoke({ id: "node.get", input: { id, depth: 0 } });
+    const receipt = yield* host.invoke(
+      onWire(AGENT_WIRE, { id: "node.get", input: { id, depth: 0 } }),
+    );
     if (receipt.status !== "succeeded") continue;
     const read = NodeTextSchema.safeParse(receipt.output);
     if (read.success) names[id] = read.data.node.text;
@@ -61,7 +64,7 @@ export const screenContext = Effect.fn("kb.agent.screenContext")(function* (
   tab: string | null,
 ) {
   if (tab === null) return null;
-  const receipt = yield* host.invoke({ id: "ui.screen", input: { tab } });
+  const receipt = yield* host.invoke(onWire(AGENT_WIRE, { id: "ui.screen", input: { tab } }));
   if (receipt.status !== "succeeded") return null;
   const screen = ScreenListSchema.safeParse(receipt.output).data?.tabs[0];
   if (screen === undefined) return null;

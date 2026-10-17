@@ -26,7 +26,7 @@ import fc from "fast-check";
 import { Cause, Duration, Effect, Exit, Option, Queue, Stream } from "effect";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { STORE_CHANGES_POLL } from "@kb/contracts";
+import { onWire, STORE_CHANGES_POLL } from "@kb/contracts";
 import {
   applyTx,
   compareRootOrder,
@@ -41,7 +41,7 @@ import {
   type PropValue,
 } from "@kb/model";
 import { mapSet } from "@kb/operations";
-import { invokeReceiptEffect, kbRuntimeLayer } from "@kb/runtime";
+import { invokeReceiptEffect, IN_PROCESS_WIRE, kbRuntimeLayer } from "@kb/runtime";
 import {
   CONTRACT_AT,
   backendRoot,
@@ -668,10 +668,13 @@ function createdNodeKeepsItsRank(makeStore: StoreFactory): Promise<void> {
         const root = yield* backendRoot(makeStore);
         const ctx = yield* openSession(root);
         for (const text of ["first", "second"]) {
-          const receipt = yield* invokeReceiptEffect(ctx, {
-            id: "node.add",
-            input: { text },
-          }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+          const receipt = yield* invokeReceiptEffect(
+            ctx,
+            onWire(IN_PROCESS_WIRE, {
+              id: "node.add",
+              input: { text },
+            }),
+          ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
           expect(receipt.status).toBe("succeeded");
         }
         const written = yield* stateOf(makeStore(root));
@@ -702,10 +705,13 @@ function freshSessionsAppendInOrder(makeStore: StoreFactory): Promise<void> {
 
         for (const text of ["first", "second"]) {
           const ctx = yield* openSession(root);
-          const receipt = yield* invokeReceiptEffect(ctx, {
-            id: "node.add",
-            input: { text },
-          }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+          const receipt = yield* invokeReceiptEffect(
+            ctx,
+            onWire(IN_PROCESS_WIRE, {
+              id: "node.add",
+              input: { text },
+            }),
+          ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
           expect(receipt.status).toBe("succeeded");
         }
 
@@ -770,7 +776,9 @@ function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
         const field = SYSTEM_IDS.viewPagesizeField;
         const id = SYSTEM_IDS.approvalPoliciesView;
         const run = (action: { id: string; input: unknown }) =>
-          invokeReceiptEffect(ctx, action).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+          invokeReceiptEffect(ctx, onWire(IN_PROCESS_WIRE, action)).pipe(
+            Effect.provide(kbRuntimeLayer(ctx)),
+          );
         const held = Effect.map(
           makeStore(root).loadEffect,
           (nodes) => nodes.find((n) => n.id === id)?.props[field],

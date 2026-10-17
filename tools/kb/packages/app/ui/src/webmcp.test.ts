@@ -9,7 +9,7 @@ import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   declaredDecision,
-  type ActionInvocation,
+  type ActionRequest,
   type ActionResponse,
   type DecidedEntry,
   type ManifestEntry,
@@ -54,7 +54,7 @@ function installModelContext(): Map<string, ModelContextTool> {
 
 function serverAnswering() {
   return vi.fn(
-    (invocation: ActionInvocation): Promise<ActionResponse> =>
+    (invocation: ActionRequest): Promise<ActionResponse> =>
       Promise.resolve(
         invocation.id === "kb.manifest"
           ? { status: "succeeded", id: invocation.id, output: { actions: MANIFEST }, rev: 1 }
@@ -141,7 +141,7 @@ describe("the page's WebMCP plugin", () => {
     const tools = installModelContext();
     setPostAction(
       vi.fn(
-        (invocation: ActionInvocation): Promise<ActionResponse> =>
+        (invocation: ActionRequest): Promise<ActionResponse> =>
           Promise.resolve(
             invocation.id === "kb.manifest"
               ? {

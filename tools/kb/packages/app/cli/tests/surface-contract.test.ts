@@ -21,7 +21,7 @@ import {
   extensionRow,
   listedOn,
   onWire,
-  type ActionInvocation,
+  type ActionRequest,
   type ActionReceipt,
 } from "@kb/contracts";
 import { ACTION_META_KEY, MCP_WIRE, createMcpServer } from "@kb/mcp";
@@ -85,7 +85,7 @@ async function kb(root: string, args: string[]): Promise<string> {
 
 /** `kb action-invoke`: the envelope is the JSON argument, so it carries approval. */
 const cli: SurfaceFactory = async (root) => {
-  const invokeCli = async (invocation: ActionInvocation) =>
+  const invokeCli = async (invocation: ActionRequest) =>
     ActionReceiptSchema.parse(
       JSON.parse(await kb(root, ["action-invoke", JSON.stringify(invocation)])),
     );
@@ -193,7 +193,7 @@ const serve: ServeUi = async (root) => {
 };
 
 /** `POST /api/action`, and the receipt from its response. */
-async function postAction(url: string, invocation: ActionInvocation): Promise<ActionReceipt> {
+async function postAction(url: string, invocation: ActionRequest): Promise<ActionReceipt> {
   const res = await fetch(`${url}/api/action`, {
     method: "POST",
     headers: { "content-type": "application/json" },

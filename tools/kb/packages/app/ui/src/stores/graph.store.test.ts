@@ -6,7 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { create } from "zustand";
-import type { ActionInvocation, WireNode } from "@kb/contracts";
+import type { ActionRequest, WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
 import {
   EMPTY_PROJECTION,
@@ -235,8 +235,8 @@ describe("what a scope shows", () => {
 });
 
 const pair = (n: number) => ({
-  undo: [{ id: "node.update", input: { n } }] as ActionInvocation[],
-  redo: [{ id: "node.update", input: { n: -n } }] as ActionInvocation[],
+  undo: [{ id: "node.update", input: { n } }] as ActionRequest[],
+  redo: [{ id: "node.update", input: { n: -n } }] as ActionRequest[],
 });
 
 describe("the write history", () => {

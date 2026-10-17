@@ -15,10 +15,11 @@ import {
   resolveRootEffect,
   RootNotFoundError,
   bunFileSystemLayer,
+  IN_PROCESS_WIRE,
 } from "@kb/runtime";
 import { runPlanEffect } from "../src/cli.ts";
 import { mapAdd, mapGet } from "@kb/operations";
-import type { ManifestEntry } from "@kb/contracts";
+import { onWire, type ManifestEntry } from "@kb/contracts";
 import {
   callToolEffect,
   containToolResult,
@@ -131,10 +132,13 @@ describe("MCP Effect surface", () => {
     const live = await Effect.runPromise(createMcpServer(root));
     await live.close();
     const viaReceipt = await Effect.runPromise(
-      invokeReceiptEffect(ctx, {
-        id: "node.get",
-        input: { id: "missing" },
-      }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+      invokeReceiptEffect(
+        ctx,
+        onWire(IN_PROCESS_WIRE, {
+          id: "node.get",
+          input: { id: "missing" },
+        }),
+      ).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
     expect(viaReceipt.status).toBe("failed");
 

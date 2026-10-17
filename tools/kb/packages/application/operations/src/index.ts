@@ -95,4 +95,4 @@ export {
   receiptFromError,
 } from "./invoke.ts";
 export type { RegisteredAction } from "./invoke.ts";
-export { readableNodes } from "./script-reach.ts";
+export { callWithin, readableNodes } from "./script-reach.ts";

@@ -7,31 +7,46 @@
  * subject holds, as the action declares what a call acts on (`targets`).
  */
 import { Option, Schema } from "effect";
-import type { ActionDefinition, ActionInvocation, KbContext, RunningCall } from "@kb/contracts";
+import type {
+  ActionDefinition,
+  ActionInvocation,
+  ActionRequest,
+  KbContext,
+  RunningCall,
+} from "@kb/contracts";
 import { isVocabulary, type KbNode, type NodeId, type StoreTx } from "@kb/model";
 import { CodeGrant, callTargets, grantRefusal, subjectReach } from "@kb/sandbox";
 
 const decodeGrant = Schema.decodeUnknownOption(CodeGrant);
 
 /**
- * `invocation` as a call made while `outer` runs, as an action calls
- * another through its host (`CoreInvoke`): a call a script's call makes is
- * that script's, with its reach, whatever it says, so the grant follows the
- * call down; any other takes its caller's actor when it names none.
+ * `request` as a call made while `outer` runs, as an action calls another
+ * through its host (`CoreInvoke`): a call a script's call makes is that
+ * script's, with its reach, whatever it says, so the grant follows the call
+ * down; any other is made by the actor it names, or else by its caller's.
+ * Null for a request naming no actor made while nothing runs: no one makes
+ * it.
  */
+export function callWithin(outer: RunningCall | null, request: ActionInvocation): ActionInvocation;
 export function callWithin(
   outer: RunningCall | null,
-  invocation: ActionInvocation,
-): ActionInvocation {
-  if (outer === null) return invocation;
-  const { actor, script } = outer.invocation;
-  if (actor === "script") {
-    const { approved: _ignored, ...rest } = invocation;
-    return { ...rest, actor, ...(script === undefined ? {} : { script }) };
+  request: ActionRequest,
+): ActionInvocation | null;
+export function callWithin(
+  outer: RunningCall | null,
+  request: ActionRequest,
+): ActionInvocation | null {
+  const caller = outer?.invocation;
+  if (caller?.actor === "script") {
+    const { approved: _ignored, ...rest } = request;
+    return {
+      ...rest,
+      actor: "script",
+      ...(caller.script === undefined ? {} : { script: caller.script }),
+    };
   }
-  return invocation.actor === undefined && actor !== undefined
-    ? { ...invocation, actor }
-    : invocation;
+  const actor = request.actor ?? caller?.actor;
+  return actor === undefined ? null : { ...request, actor };
 }
 
 /** Why a script may not make this call, with the grant it was decided by; null when it may, or when it is no script's. */

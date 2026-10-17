@@ -3,7 +3,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openKbEffect, kbRuntimeLayer, invokeReceiptEffect, bunFileSystemLayer } from "@kb/runtime";
+import {
+  openKbEffect,
+  kbRuntimeLayer,
+  invokeReceiptEffect,
+  IN_PROCESS_WIRE,
+  bunFileSystemLayer,
+} from "@kb/runtime";
 import {
   extractMentions,
   txIntegrityError,
@@ -28,7 +34,7 @@ import {
   type PlannedAction,
 } from "@kb/operations";
 import { bundledSeed } from "@kb/bundled";
-import type { KbContext } from "@kb/contracts";
+import { onWire, type KbContext } from "@kb/contracts";
 
 /**
  * Deterministic simulation testing (DST) harness (t2-dst).
@@ -501,10 +507,13 @@ export const runScenario = Effect.fn("kb.runScenario")(function* (
       }
       const live = livestate(ctx, fieldIds, tagIds);
       const action = nextAction(rng, ctx, { ...live, fieldIds, tagIds }, i);
-      const receipt = yield* invokeReceiptEffect(ctx, {
-        id: action.id,
-        input: action.input,
-      }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+      const receipt = yield* invokeReceiptEffect(
+        ctx,
+        onWire(IN_PROCESS_WIRE, {
+          id: action.id,
+          input: action.input,
+        }),
+      ).pipe(Effect.provide(kbRuntimeLayer(ctx)));
 
       if (receipt.status === "succeeded") {
         const mintedId = mintedNodeId(receipt.output);

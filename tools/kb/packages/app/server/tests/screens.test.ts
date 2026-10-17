@@ -15,7 +15,7 @@ import {
   ActionResponseSchema,
   ScreenListSchema,
   ScreenReceiptSchema,
-  type ActionInvocation,
+  type ActionRequest,
   type ScreenState,
 } from "@kb/contracts";
 import { invoke, openKb } from "@kb/runtime";
@@ -24,7 +24,7 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const run = Effect.runPromise;
 
-async function post(handle: UiServerHandle, invocation: ActionInvocation): Promise<unknown> {
+async function post(handle: UiServerHandle, invocation: ActionRequest): Promise<unknown> {
   const res = await fetch(`${handle.url}/api/action`, {
     method: "POST",
     headers: { "content-type": "application/json" },

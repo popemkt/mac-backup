@@ -14,7 +14,10 @@ import {
   KbCtx,
   KbStore,
   ViewCatalog,
+  onWire,
   templateRegistryLayer,
+  type ActionEffectHandler,
+  type EffectStore,
 } from "@kb/contracts";
 import { viewCatalogOf } from "@kb/views";
 import { bunFileSystemLayer } from "../src/platform.ts";
@@ -27,14 +30,13 @@ import {
   savedQueriesLayer,
 } from "@kb/workspace-fs";
 import { KbIndexService } from "@kb/query";
-import { invoke } from "../src/invoke.ts";
+import { IN_PROCESS_WIRE, invoke } from "../src/invoke.ts";
 import {
   invokeReceiptEffect,
   isEffectNativeAction,
   registryFor,
   resetRegistryCache,
 } from "../src/registry.ts";
-import type { ActionEffectHandler, EffectStore } from "@kb/contracts";
 import type { StoreTx } from "@kb/model";
 import { MemoryTxTail } from "@kb/tx-log";
 import { graphWritesLayer } from "@kb/operations";
@@ -238,10 +240,13 @@ export default actions;
     };
 
     const receipt = await Effect.runPromise(
-      invokeReceiptEffect(ctx, {
-        id: "node.add",
-        input: { text: "via-substituted-store", id: "n.layer-sub" },
-      }).pipe(
+      invokeReceiptEffect(
+        ctx,
+        onWire(IN_PROCESS_WIRE, {
+          id: "node.add",
+          input: { text: "via-substituted-store", id: "n.layer-sub" },
+        }),
+      ).pipe(
         Effect.provideService(KbCtx, ctx),
         Effect.provideService(KbStore, fakeStore),
         Effect.provideService(KbIndexService, ctx.index),
@@ -321,10 +326,13 @@ export default actions;
 
     const ctx = await openKb(root);
     const fiber = Effect.runFork(
-      invokeReceiptEffect(ctx, {
-        id: "ext.slow.sleep",
-        input: { marker, late },
-      }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+      invokeReceiptEffect(
+        ctx,
+        onWire(IN_PROCESS_WIRE, {
+          id: "ext.slow.sleep",
+          input: { marker, late },
+        }),
+      ).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
     await Effect.runPromise(Effect.sleep("80 millis"));
     await Effect.runPromise(Fiber.interrupt(fiber));
