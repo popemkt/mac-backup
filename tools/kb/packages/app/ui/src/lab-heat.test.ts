@@ -20,7 +20,7 @@ import {
   type Rgb,
 } from "@kb/lab-ui";
 
-const DESIGN_SYSTEM_IDS = [...SHEETS.systems.keys()];
+const CONTRIBUTED_IDS = [...SHEETS.systems.keys()];
 
 /** An sRGB byte as a linear channel, as three stores a colour. */
 function linear(byte: number): number {
@@ -42,7 +42,7 @@ function accent(id: string, variant: Variant): Rgb {
 }
 
 /** Every appearance the lab can be shown in: each design system, light and dark. */
-const THEMES = DESIGN_SYSTEM_IDS.flatMap((id) =>
+const THEMES = CONTRIBUTED_IDS.flatMap((id) =>
   (["light", "dark"] as const).map((variant) => ({
     name: `${id} ${variant}`,
     accent: accent(id, variant),
@@ -127,7 +127,7 @@ describe("the shown temperature across an appearance change", () => {
 const luma = ([r, g, b]: Rgb) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
 describe("the light ramp (P5)", () => {
-  for (const id of DESIGN_SYSTEM_IDS) {
+  for (const id of CONTRIBUTED_IDS) {
     it(`reads on the ${id} light ground: a cold sphere is pale ash, a hot one the accent`, () => {
       const palette = {
         ground: token(id, "light", "--lab-ground"),

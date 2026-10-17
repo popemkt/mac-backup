@@ -27,7 +27,7 @@ import { browserSources } from "@/test-support/browser-packages";
 import { PAGE_DESIGN_SYSTEMS, PAGE_SHEETS as SHEETS } from "@/test-support/design-systems";
 
 const src = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DESIGN_SYSTEM_IDS = [...SHEETS.systems.keys()];
+const CONTRIBUTED_IDS = [...SHEETS.systems.keys()];
 
 /** An opaque sRGB colour, 0–255 per channel, as the browser paints it. */
 type Rgb = readonly [r: number, g: number, b: number];
@@ -91,7 +91,7 @@ describe("design systems: contrast (WCAG AA)", () => {
     expect(contrast(rgbOf("oklch(0.75 0 0)"), white)).toBeLessThan(BODY);
   });
 
-  const cases = DESIGN_SYSTEM_IDS.flatMap((id) =>
+  const cases = CONTRIBUTED_IDS.flatMap((id) =>
     (["light", "dark"] as const).map((variant) => ({ id, variant })),
   );
   it.each(cases)("$id/$variant text meets AA on its ground", ({ id, variant }) => {
@@ -471,7 +471,7 @@ const KB_LIGHT = (token: string) => SHEETS.resolve(DEFAULT_ID, "light", token);
 
 describe("design systems: contrast on composited grounds (WCAG AA)", () => {
   const { sites, unresolved } = scanUi(uiModules());
-  const cases = DESIGN_SYSTEM_IDS.flatMap((id) =>
+  const cases = CONTRIBUTED_IDS.flatMap((id) =>
     (["light", "dark"] as const).map((variant) => ({ id, variant })),
   );
 
@@ -678,7 +678,7 @@ function rawChip(color: string): { backgroundColor: string; color: string } {
 }
 
 describe("design systems: tag chips (WCAG AA)", () => {
-  const cases = DESIGN_SYSTEM_IDS.flatMap((id) =>
+  const cases = CONTRIBUTED_IDS.flatMap((id) =>
     (["light", "dark"] as const).map((variant) => ({ id, variant })),
   );
 

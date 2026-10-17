@@ -25,7 +25,7 @@ import {
   GRAPH_THEMES,
 } from "@kb/graph-ui";
 
-const DESIGN_SYSTEM_IDS = [...SHEETS.systems.keys()];
+const CONTRIBUTED_IDS = [...SHEETS.systems.keys()];
 
 /** An sRGB channel (0–1) as a linear one, as three stores a colour. */
 function linear(c: number): number {
@@ -46,7 +46,7 @@ function tokenRgb(id: string, variant: "light" | "dark", token: string): Rgb {
 
 /** Each appearance's ink (`--foreground`) and the ground a theme stands on in it. */
 const appearances = (theme: LensTheme) =>
-  DESIGN_SYSTEM_IDS.flatMap((id) =>
+  CONTRIBUTED_IDS.flatMap((id) =>
     (["light", "dark"] as const).map((variant) => ({
       name: `${id} ${variant}`,
       ink: tokenRgb(id, variant, "--foreground"),

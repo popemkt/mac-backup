@@ -873,8 +873,8 @@ rather than by navigation.
 
 The graph views apply the [Lab principles](#lab-principles); this says only
 where each one lives. Everything below reads the tokens through
-`useAppearance()`, so the three design systems in both variants each look
-like themselves (P5).
+`useAppearance()`, so every contributed design system in both variants
+looks like itself (P5).
 
 - **One renderer contract.** Every renderer view the graph plugin provides
   promises the same things, and `renderer-contract.test.tsx` proves them over
@@ -2505,7 +2505,7 @@ beside that set.
 
 | layer              | file                                                                                    | holds                                                                                                                                      | may name    |
 | ------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| 1. design system   | `ui/src/design-system.css` (the default), `ui/src/design-systems/<id>.css` (the others) | the values a skin chooses, as plain custom properties, with the colour overrides for dark                                                  | values only |
+| 1. design system   | `ui/src/design-system.css` (the default); each contributed system's sheet (the others)  | the values a skin chooses, as plain custom properties, with the colour overrides for dark                                                  | values only |
 | 2. bridge          | `ui/src/index.css`, `@theme inline`                                                     | the mapping from layer 1 into Tailwind's namespaces (`--color-*`, `--text-*`, `--font-*`, …)                                               | layer 1     |
 | 3. component roles | `ui/src/tokens.css`                                                                     | row metrics, and the classes that compose layer 1 into a role (`.kb-text` is body text at the body step, `.kb-tag` a chip at the tag step) | layer 1     |
 
@@ -2523,107 +2523,190 @@ cannot pass as tokenized while bypassing the scale.
 ### Design systems
 
 A design system is one complete set of layer-1 values, with a light and a
-dark variant. Three ship:
+dark variant. Which systems exist is a plugin point: core contributes its
+default, families contribute the rest, and the page names none of them.
+kb ships three:
 
-| id             | character                                                                                                                                                                                                                                                 |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kb` (default) | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                |
-| `paper`        | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                      |
-| `terminal`     | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white |
+| id                | from               | character                                                                                                                                                                                                                                                 |
+| ----------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kb` (default)    | core               | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                |
+| `themes.paper`    | the themes family  | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                      |
+| `themes.terminal` | the themes family  | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white |
 
-**The mechanism.** `<html data-theme="<id>">` picks the system, and the
-`.dark` class picks its variant, as it always has. The default is layer 1
-itself: `design-system.css` declares its values on `:root, [data-theme="kb"]`
-and its dark set on `.dark, .dark [data-theme="kb"]`. Every other system is
-one stylesheet, `design-systems/<id>.css`, holding exactly two blocks:
+- **The point.** `DesignSystemPoint` (`ui.design-systems`, `@kb/ui-sdk`,
+  beside `BackdropPoint`) holds one `DesignSystem` per contribution: its
+  `key` and its `stylesheet`.
+  - The key is the system as its declaration names it (`SeedOption`: an id,
+    `<family>.<local id>`, and a label). `provideDesignSystem` contributes
+    it under the key's local id, so it answers to the declared id, as a
+    backdrop does. Core's key, `kb`, has no family part: core contributes
+    it in the root namespace.
+  - The stylesheet is the CSS the page adds to paint it: exactly two
+    blocks, under its own id.
 
-```css
-[data-theme="paper"] {
-  /* every layer-1 value: base and light colours */
-}
-.dark[data-theme="paper"],
-.dark [data-theme="paper"] {
-  /* the colours the default varies in dark */
-}
-```
+    ```css
+    [data-theme="themes.paper"] {
+      /* every layer-1 value: base and light colours */
+    }
+    .dark[data-theme="themes.paper"],
+    .dark [data-theme="themes.paper"] {
+      /* the colours layer 1 varies in dark */
+    }
+    ```
 
-`index.css` imports each one after `design-system.css`, so a system's base
-block beats `.dark` (equal specificity, later source) and its dark block
-beats both (higher specificity). The selectors are attributes, not
-`html[…]`, so the same blocks paint any subtree that carries the attribute:
-the preference picker's swatches are live samples of each system, not
-pictures of it.
-
-**The preference.** `designSystem` sits in `kb-prefs` beside `theme` and
-`width` (`stores/prefs.store.ts`). `applyPrefs` writes it to `<html>`, and
-the blocking script in `index.html` writes it before first paint, as it does
-the `.dark` class, so there is no flash. A stored id without a stylesheet
-paints as the default, and the store corrects it on boot. It is chosen in
-Preferences → design (one live swatch per system) or by the palette's
-_Switch design system_ command (`sys.cmd.switch-design-system`), which steps
-through the registry. Switching crossfades like a theme change.
-
-The UI face used to be a preference of its own (`font`: Inter or Outfit).
-A face is a design-system value, and a second control over one token would
-have been a second skin mechanism beside the first, with combinations no
-guard covers, so it was folded in: a stored `font` is ignored and dropped on
-the next write.
-
-**Canvas and WebGL** re-read on the one appearance signal (see Radius,
-borders, faces, colour → _Canvas renderers re-read on one signal_); a
-design-system change is an appearance change like light/dark.
-
-**The registry** is `DESIGN_SYSTEM_IDS` in `lib/theme.ts`, with a label per
-id; the preference's schema, the picker and the command read it.
-
-**Guards** (`lib/design-systems.test.ts`, over the stylesheets through
-`lib/design-system-sheets.ts`):
-
-- _registry ↔ stylesheets_: one stylesheet per non-default id and none
-  without one; each holds exactly its two blocks; `index.css` imports each
-  after the default and before the roles.
-- _completeness_: a system restates every token the default sets, in every
-  variant the default sets it. Two exceptions, and only these: **shared**
-  tokens (the JSON Canvas presets, `--canvas-color-*`, are document colours
-  — a card saved as red is red in every skin — so no system may set them)
-  and **derived** tokens (a default whose value is only `var(--other)`, such
-  as `--lab-accent`, follows that token and is inherited unless restated).
-  A system may set no token the default does not.
-- _contrast_: for every system and variant, each text/ground pair
-  (foreground on background, card, popover, secondary, accent, muted and
-  sidebar surfaces; muted text; the accent as link text and as a fill;
-  destructive and warning text; lab ink on lab ground) meets WCAG AA for
-  body text, 4.5:1, computed from the oklch values in the CSS. There is no
-  exception list: a pair below AA fails. The same bound holds on the grounds
-  the UI composes: every element holding text is read from the JSX (classes
-  split by Tailwind's scanner), its ancestors' and its own `bg-*` tints are
-  composited in sRGB over each page surface, and its opaque text colour is
-  measured on each result — `text-primary` on `bg-primary/10`, a link in a
-  selected row's stacked tints. What a class paints is what Tailwind compiles
-  it to, and a colour class that paints no design-system token (a palette
-  value such as `text-amber-600`) fails. Content one component mounts into another's
-  element is declared in the guard's `MOUNTS`; translucent text is not yet
-  checked (gap `01M3BEJDX4YP2DPHSCFS66NZK1`).
-- _tag chips_: a tag colour is data, so a chip paints inline styles that no
-  class walk sees. The guard evaluates what `tagChipColors` returns
-  (`color-mix()` in oklab, `var()` resolved per system and variant) for every
-  `TAG_PALETTE` entry on every page surface, at 4.5:1. The ink's pull toward
-  `--foreground` is each system's `--tag-ink-mix`.
-- the lab's bloom bound (`embers/heat.test.ts`) runs over every system's
-  accent in both variants.
+    The default's stylesheet is empty: it is layer 1 itself.
+    `design-system.css` declares its values on `:root, [data-theme="kb"]`
+    and its dark set on `.dark, .dark [data-theme="kb"]`, so the default's
+    two blocks are layer 1's own.
+  - No renderer reads a value off a contribution. Canvas and WebGL
+    renderers copy token values out of the computed style, and re-read
+    them on the one appearance signal (see Radius, borders, faces, colour →
+    _Canvas renderers re-read on one signal_). A change of system is an
+    appearance change like light and dark, so the point carries no
+    per-system values beside the sheet.
+- **The painter.** `stores/design-system.store.ts` is the one owner of
+  `<html data-theme>` and of the systems' sheets on the page.
+  - It adds every contributed system's sheet as a `<style>` element
+    (`data-design-system="<id>"`) after every sheet already on the page.
+    The bundle's own stylesheet comes first, so a system's base block beats
+    layer 1's `:root` and `.dark` (equal specificity, later source), and its
+    dark block beats both (higher specificity).
+  - It adds every sheet, not only the chosen one, because Preferences'
+    swatches are live samples of each system. The selectors are
+    attributes, not `html[…]`, so the same blocks paint any subtree that
+    carries the attribute.
+  - A system whose plugin unloads takes its sheet with it, and a page it
+    painted falls to the default.
+  - It sets `data-theme` to the system shown, and crossfades a change like
+    a theme change, whoever writes the choice.
+  - It records what it painted, the id and its sheet, in
+    `localStorage["kb-design-system"]`. A blocking script at the top of
+    `<body>` in `index.html` paints that record before first paint, so a
+    non-default system does not flash the default while the page boots and
+    the graph loads. The script sits in `<body>` so that its sheet lands
+    after the bundle's stylesheet, as the painter's does; the painter
+    adopts the element. The record is derived from the last paint, and is
+    never read as the choice.
+- **A design system is declared, and its option is derived.** A family
+  lists its systems' keys on its declaration (`designSystems`, beside
+  `backdrops`). The seed fold derives one option node per key under
+  `sys.f.design-system` (`designSystemOptionId`), in declaration order and
+  owned by the family (DESIGN.md → Extension families → Declared options).
+  Core declares its default (`KB_DESIGN_SYSTEM`, `@kb/operations`). A
+  contribution whose key no declaration lists has no option, so it cannot
+  be chosen.
+- **kb's other systems are a family's.** The `themes` family
+  (`@kb/themes`, `@kb/themes-ui`; optional, on by default) declares and
+  contributes Paper and Terminal. Its sheets live under its
+  `src/design-systems/`. Switched off, the page offers the default and
+  whatever another family contributes.
+- **The choice is core's setting.** Which system paints the page is a
+  setting of core's node (`sys.extension.core`), since the page is core's
+  and names no system. Core seeds the field, `sys.f.design-system`: it
+  configures core, takes one value, and is a ref to one of its children,
+  the declared systems' options.
+  - The choice is read by `designSystemChoice` (`@kb/model`, `declaredChoice`
+    over the design-system kind) and resolved against what is contributed
+    by `shownDesignSystem` (`@kb/ui-sdk`). Where core's node chooses
+    nothing, or a system nobody contributes now, the page shows the first
+    contributed, which is core's default, since core's plugins load before
+    every family's.
+  - **Why a setting, not a preference.** A design system is a contributed
+    option, as a backdrop is, so it is chosen the way a backdrop is: one
+    choice mechanism for a thing a family declares. A choice made in one
+    tab, on another device or by the CLI (`kb set`) paints every page of
+    the knowledge base, and the option list is the field's own children.
+  - **Light, dark and system stay device preferences** (`theme` in
+    `kb-prefs`). `system` follows the OS, which a graph value cannot, and
+    the right variant depends on the room the device is in, not on the
+    knowledge base. Width stays one too.
+  - **A page has no choice of its own.** Unlike a backdrop, the system is
+    read from core's node alone: a design system skins the whole page,
+    chrome included, not one node's head.
+  - The choice was a device preference once (`designSystem` in
+    `kb-prefs`), and before that the UI face was one (`font`). A stale key
+    is ignored on read and dropped on the next write. A device that held
+    `paper` or `terminal` holds no option of the field, so it shows the
+    default until the setting is written.
+- **Two pickers write the one setting.** Preferences → design draws one
+  live swatch per contributed system, in contribution order, the one
+  painting the page checked, and a click writes core's setting
+  (`chooseDesignSystem`). The palette's _Switch design system_ command
+  (`sys.cmd.switch-design-system`) steps the setting through the
+  contributed systems from the one shown, and wraps. Core's node shows the
+  same field as a field row, as it shows any setting.
+- **The contract** (`app/ui/src/design-system-point.contract.test.tsx`)
+  runs over every contributed design system: core's default, the page's
+  families' and one from a test plugin, whose sheet restates layer 1 under
+  its own id.
+  - Each system answers to its declared id, and the seed holds its option,
+    labelled, under the design-system field.
+  - Its sheet holds only its own two blocks, and with layer 1 its id names
+    exactly one base block and one dark block.
+  - _Completeness_: it restates every token layer 1 sets, in every variant
+    layer 1 sets it. Two exceptions, and only these: **shared** tokens (the
+    JSON Canvas presets, `--canvas-color-*`, are document colours — a card
+    saved as red is red in every skin — so no sheet may set them) and
+    **derived** tokens (a layer-1 value that is only `var(--other)`, such as
+    `--lab-accent`, follows that token and is inherited unless restated). A
+    sheet sets no token layer 1 does not.
+  - Every layer-1 token resolves for it in light and in dark, and every
+    colour among them parses.
+  - The painter adds its sheet after the page's own; choosing it, by core's
+    setting or in Preferences, paints the page in it and names it in the
+    appearance; a stale choice, or its plugin unloading, paints the default.
+  - A rejecting case for each check holds the checks to failing: a missing
+    token, a block under another id, a shared or unknown token, a colour
+    that does not parse.
+- **Guards over the same list** (each reads the contributed systems through
+  `test-support/design-systems.ts`, which loads core's plugin and the
+  families on by default into a kernel of its own, so a family's new
+  system is checked with no list to update):
+  - _contrast_ (`lib/design-systems.test.ts`): for every system and
+    variant, each text/ground pair (foreground on background, card,
+    popover, secondary, accent, muted and sidebar surfaces; muted text; the
+    accent as link text and as a fill; destructive and warning text; lab
+    ink on lab ground) meets WCAG AA for body text, 4.5:1, computed from
+    the oklch values in the sheets. There is no exception list: a pair
+    below AA fails. The same bound holds on the grounds the UI composes:
+    every element holding text is read from the JSX (classes split by
+    Tailwind's scanner), its ancestors' and its own `bg-*` tints are
+    composited in sRGB over each page surface, and its opaque text colour
+    is measured on each result — `text-primary` on `bg-primary/10`, a link
+    in a selected row's stacked tints. What a class paints is what Tailwind
+    compiles it to, and a colour class that paints no design-system token
+    (a palette value such as `text-amber-600`) fails. Content one component
+    mounts into another's element is declared in the guard's `MOUNTS`;
+    translucent text is not yet checked (gap `01M3BEJDX4YP2DPHSCFS66NZK1`).
+  - _tag chips_: a tag colour is data, so a chip paints inline styles that
+    no class walk sees. The guard evaluates what `tagChipColors` returns
+    (`color-mix()` in oklab, `var()` resolved per system and variant) for
+    every `TAG_PALETTE` entry on every page surface, at 4.5:1. The ink's
+    pull toward `--foreground` is each system's `--tag-ink-mix`.
+  - the lab's bloom bound (`lab-heat.test.ts`) and the 3D graph's light
+    bound (`force3d-light.test.ts`) run over every system's accent and ink
+    in both variants.
+  - In a real engine (`design-system.e2e.ts`), choosing each system the
+    picker offers paints the root as that system's own swatch, no two
+    alike, and the choice survives a reload.
 
 **Adding a design system:**
 
-1. Add the id and its label to `lib/theme.ts`.
-2. Write `design-systems/<id>.css` with the two blocks above. Start from a
-   copy of the default's values: the completeness guard names every token
-   still missing, and the contrast guard every pair below AA.
-3. Import it in `index.css` next to the others.
+1. Declare its key on the family's declaration (`designSystems`), as
+   `<family>.<local id>`.
+2. Write its sheet under the family's `src/design-systems/` with the two
+   blocks above. Start from a copy of the default's values: the contract
+   names every token still missing, and the contrast guard every pair
+   below AA.
+3. Contribute it from the family's page plugin:
+   `ctx.contribute(DesignSystemPoint, provideDesignSystem(key, { stylesheet }))`,
+   the sheet imported as text (`./design-systems/<id>.css?raw`).
 4. Look at it: every surface in both variants, the graph renderers and the
    lab included (they read the same tokens).
 
-Nothing else changes: layers 2 and 3, the components, the picker and the
-command all follow the registry and the tokens.
+Nothing else changes: the seed derives its option, and layers 2 and 3, the
+components, the painter, the picker and the command all follow the point
+and the tokens.
 
 ### Page-head backdrops
 

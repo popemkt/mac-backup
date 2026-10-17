@@ -9,10 +9,12 @@
  * bridges these values into Tailwind's namespaces (layer 2), and `tokens.css`
  * composes them into component roles such as `.kb-text` (layer 3).
  *
- * The other design systems (`design-systems/<id>.css`) redefine these
- * properties, and only these, under `[data-theme="<id>"]`. This set also
- * answers to `[data-theme="kb"]`, so a subtree can show the default inside
- * another system (the preference picker's swatches do).
+ * This set is core's design system, the default (`kb`). Every other is
+ * contributed to `DesignSystemPoint` with a sheet that redefines these
+ * properties, and only these, under `[data-theme="<id>"]` (DESIGN-UI.md →
+ * Design tokens → Design systems). This set also answers to
+ * `[data-theme="kb"]`, so a subtree can show the default inside another
+ * system (the preference picker's swatches do).
  *
  * Palette ported from nxus apps/nxus-editor/src/styles.css (DESIGN-RESKIN
  * §1.1). Default face is Inter Variable (Tana parity). A metric-matched

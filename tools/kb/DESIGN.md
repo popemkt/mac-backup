@@ -2229,7 +2229,7 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-optional?, seed?, views?, defaultView?, refCarriers?, backdrops?})` in `@kb/<family>` is the one home of its name
+optional?, seed?, views?, defaultView?, refCarriers?, backdrops?, designSystems?})` in `@kb/<family>` is the one home of its name
   and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
   its state in a store where no one has switched it), and, for the one
   family that provides it, of the default view type (View nodes):
@@ -2257,7 +2257,8 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   half. There is never a second switch in the browser.
   - **Which families can be switched.** The collections (the table,
     board and cards frame views), canvas, chart, code, the page-head
-    backdrops (DESIGN-UI.md → Page-head backdrops) and the agent are
+    backdrops (DESIGN-UI.md → Page-head backdrops), the themes (DESIGN-UI.md
+    → Design tokens → Design systems) and the agent are
     optional and on by default; the lab is optional and off by
     default. The outline, docs and check are required. The outline is the
     default editing mode and provides the default view type, the view a
@@ -2312,7 +2313,9 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     mechanism its switch is read with (`familyOn`). There is no second
     registry of settings: which fields configure the agent is a query.
     Core's node has settings too, seeded by core: the page-head backdrop,
-    its strength and its direction (DESIGN-UI.md → Page-head backdrops).
+    its strength and its direction (DESIGN-UI.md → Page-head backdrops), and
+    the design system the page is painted in (DESIGN-UI.md → Design tokens
+    → Design systems).
   - **A setting is written like any field.** `node.update`, the page's field
     rows and `kb set` write its values on the extension's node,
     though the node is `sys.*`, because the write rule
@@ -2425,10 +2428,25 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   keep their spelling when their declaring package changes, so no store
   migrates and opening still never writes. A rename goes through an explicit
   action, never through open.
-- **Backdrops are declared as views are.** A family's `backdrops` keys
-  derive their option nodes under `sys.f.backdrop` in the fold, owned by
-  the family. Its page plugin contributes each one to `BackdropPoint`
-  under the same key ([DESIGN-UI → Page-head backdrops](DESIGN-UI.md#page-head-backdrops)).
+- **Declared options are declared as views are.** Some things a family
+  contributes to the page are chosen by a field: page-head backdrops and
+  design systems. Each is a declared option (`declared-option.ts` in
+  `@kb/model`): the declaration lists its key (`SeedOption`, an id and a
+  label), and the fold derives one option node per key, owned by the
+  family, under the field of its kind (`DeclaredOptions`: the field and the
+  prefix of its options' ids). The fold reads one table of kinds:
+  - `backdrops` → `sys.f.backdrop`, options `sys.backdrop.<id>`
+    ([DESIGN-UI → Page-head backdrops](DESIGN-UI.md#page-head-backdrops));
+  - `designSystems` → `sys.f.design-system`, options
+    `sys.design-system.<id>`
+    ([DESIGN-UI → Design systems](DESIGN-UI.md#design-systems)).
+
+  The family's page plugin contributes each one to its point under the same
+  key, so the option and the contribution are one id. A choice is a ref to
+  an option, read by `declaredChoice` nearest source first, and one whose
+  thing nobody contributes now is no choice, so it falls through. A new
+  kind is a row of that table and a field core seeds, not a second
+  mechanism.
 - **The view catalog is a point.** `ViewKeyPoint` (`kb.views`, in
   `@kb/contracts`) holds one `ViewDef<P> = {key, text?}` per view, keyed by
   view id. A family's shared plugin contributes the `views` its declaration
