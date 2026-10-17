@@ -101,10 +101,13 @@ export function derivedOf(declarations: readonly ExtensionDeclaration[]): readon
 }
 
 /**
- * The derived ref attributes every index a host builds derives: those of
- * the bundled fold, so the server's index and the page's answer References
- * and ownership alike.
+ * The derived ref attributes of the bundled fold alone, which the page and
+ * the client build their index with. The server's index derives from the
+ * root's fold (`derivedOf`), whose repository extensions add owners and
+ * `refCarriers`, so on a root that has any, References and ownership differ
+ * between the hosts.
  */
+// GAP [[01M549TK1WP4E6T4QHNDRSDYQA]] the page and client derive refs and ownership from the bundled fold only
 export function bundledDerived(): readonly DerivedRef[] {
   return derivedOf(BUNDLED_DECLARATIONS);
 }
