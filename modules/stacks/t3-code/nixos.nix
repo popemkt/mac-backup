@@ -47,6 +47,29 @@ in
       message = "my.stacks.t3-code.instances.${name}.user names ${instance.user}, which is not a declared account.";
     }) cfg.instances;
 
+    # T3's built-in browser is a prebuilt Chromium headless shell; these are the
+    # libraries it reports missing (`ldd` on it), and nix-ld exposes them to it.
+    # at-spi2-core carries atk, atk-bridge and atspi.
+    programs.nix-ld.libraries = with pkgs; [
+      alsa-lib
+      at-spi2-core
+      dbus
+      expat
+      glib
+      libgbm
+      libx11
+      libxcb
+      libxcomposite
+      libxdamage
+      libxext
+      libxfixes
+      libxkbcommon
+      libxrandr
+      nspr
+      nss
+      systemdLibs
+    ];
+
     # Installed per user by the npm executor (modules/common/home-manager/npm-global.nix).
     my.pkgs.npmGlobals = [
       "t3"
