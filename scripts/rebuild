@@ -37,8 +37,8 @@ if [[ "$skip_checks" == true ]]; then
 fi
 
 if [[ "$(uname -s)" == Linux ]]; then
-  # GAP [[01M53WTHZ1YAW03WWCCFEV0QY1]] NixOS rebuild has no drift audit.
-  echo "rebuild: drift audit and system-setup checks are macOS-only; none run on NixOS."
+  # GAP [[01M53WTHZ1YAW03WWCCFEV0QY1]] NixOS rebuild runs neither the drift audit nor system-setup.
+  echo "rebuild: the drift audit and system-setup status are not wired for NixOS yet; none ran."
   exit 0
 fi
 

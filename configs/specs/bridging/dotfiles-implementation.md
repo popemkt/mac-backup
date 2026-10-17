@@ -89,7 +89,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | npmg helper | shell function | `modules/common/home-manager/shell.nix` → `initContent` |
 | sysaudit alias | calls `scripts/audit-system-discrepancies.sh` | `modules/common/home-manager/shell.nix` |
 | dump-login-items alias | calls `scripts/dump-login-items.sh` | `modules/common/home-manager/shell.nix` |
-| rebuild helper | `darwin-rebuild switch` (macOS) or `nixos-rebuild switch --sudo` (NixOS); on macOS then read-only checks (drift audit) | `scripts/rebuild`, wrapped in `modules/common/home-manager/shell.nix` |
+| rebuild helper | `darwin-rebuild switch` (macOS) or `nixos-rebuild switch --sudo` (NixOS); on macOS then read-only checks (drift audit, `system-setup status`); not wired for NixOS yet (a `#gap` node) | `scripts/rebuild`, wrapped in `modules/common/home-manager/shell.nix` |
 
 ---
 

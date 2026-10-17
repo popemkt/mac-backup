@@ -186,7 +186,7 @@ rtk mackup restore
 
 `rebuild` applies the configuration (nix-darwin on macOS, `nixos-rebuild` on
 NixOS), installing missing declarations without upgrading anything. On macOS it
-then runs the drift audit; NixOS has no audit yet (a `#gap` node). Upgrades go through
+then runs the drift audit and `system-setup status`; neither is wired for NixOS yet (a `#gap` node). Upgrades go through
 `update-system` and `apply-system-update`; see
 [Rebuild And Update Behavior](docs/github-release-packages.md#rebuild-and-update-behavior).
 The GitHub-sources commands check, verify, or refresh direct GitHub release

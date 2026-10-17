@@ -595,12 +595,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Admission gate
 - **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
 
-### GAP: NixOS rebuild has no drift audit
+### GAP: NixOS rebuild runs neither the drift audit nor system-setup
 
-- **expected** — rebuild on NixOS ends with the same read-only checks the Mac gets: a drift audit of what the host runs versus what the repo declares, and a readiness status.
-- **current** — scripts/rebuild on Linux runs nixos-rebuild switch and prints one line saying the checks are macOS-only; audit-system-discrepancies.sh and system-setup are Homebrew/nix-darwin specific.
-- **impact** — Drift on NixOS hosts (imperatively installed tools, out-of-band changes) goes unnoticed after a rebuild; the two platforms' rebuild promise differs.
-- **closes** — A NixOS-aware drift audit (and system-setup status if it applies), invoked from the Linux branch of scripts/rebuild in place of the notice.
+- **expected** — rebuild on NixOS ends with the same read-only checks the Mac gets: a drift audit of what the host runs versus what the repo declares, and the system-setup readiness status.
+- **current** — scripts/rebuild on Linux runs nixos-rebuild switch and prints one line saying neither check is wired for NixOS yet. Both are wired for macOS only today: the drift audit reads Homebrew and darwinConfigurations, and the system-setup runtime checks have no NixOS-side dependencies (Tailscale state and so on). Neither is inherently macOS-only.
+- **impact** — Drift on NixOS hosts (imperatively installed tools, out-of-band changes) and unfinished external setup go unnoticed after a rebuild; the two platforms' rebuild promise differs.
+- **closes** — A NixOS drift audit that reads nixosConfigurations and the NixOS channels, and system-setup checks gaining NixOS runtime dependencies (Tailscale and so on) so system-setup status runs there; both invoked from the Linux branch of scripts/rebuild in place of the notice.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M53WTHZ1YAW03WWCCFEV0QY1`
 
