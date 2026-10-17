@@ -28,6 +28,10 @@ const fieldValue = (label: string) =>
 const button = (label: string) =>
   [...document.querySelectorAll("button")].find((b) => b.textContent === label);
 
+/** Whether the field labelled `label` sits in a disabled group (undefined: in none). */
+const held = (label: string) =>
+  document.querySelector(`input[aria-label='${label}']`)?.closest("fieldset")?.disabled;
+
 describe("item inspector", () => {
   const g = globalThis as Record<string, unknown>;
   const saved = new Map<string, unknown>();
@@ -81,6 +85,31 @@ describe("item inspector", () => {
     act(() => button("Flatten")?.click());
     expect(changes.at(-1)).not.toHaveProperty("depth");
     expect(changes).toHaveLength(2);
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  test("a locked item's height and turn are read-only; its looks are not", () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const render = (item: CanvasNode) =>
+      act(() =>
+        root.render(
+          createElement(ItemInspector, {
+            item,
+            anchor: { x: 200, y: 100 },
+            onClose: () => {},
+            onChange: () => {},
+          }),
+        ),
+      );
+    render({ ...sticky, locked: true });
+    expect(["Lift", "Depth", "X", "Y", "Z"].map(held)).toEqual([true, true, true, true, true]);
+    expect(button("Extrude")?.closest("fieldset")?.disabled).toBe(true);
+    expect(held("Opacity")).toBeUndefined();
+    render(sticky);
+    expect(held("Lift")).toBe(false);
     act(() => root.unmount());
     container.remove();
   });

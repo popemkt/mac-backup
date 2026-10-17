@@ -84,7 +84,7 @@ const FLAG_ROWS: { readonly [F in CanvasItemFlag]: { label: string; hint: string
   },
   locked: {
     label: "Locked",
-    hint: "Held where it is: nothing drags, turns, arranges or deletes it (⇧L)",
+    hint: "Held where it is: nothing drags, turns, arranges or deletes it, and its height and turn are read-only (⇧L)",
   },
 };
 
@@ -210,11 +210,18 @@ export function ItemInspector({ item, anchor, onClose, onChange }: ItemInspector
         {drawsGround(item) && <ColorRow item={item} onChange={onChange} />}
         <LookRows item={item} onChange={onChange} />
         <OpacityRow item={item} onChange={onChange} />
-        <HeightRow item={item} onChange={onChange} />
         <FlagRow item={item} flag="billboard" onChange={onChange} />
         <FlagRow item={item} flag="locked" onChange={onChange} />
-        {/* A flat billboard faces the camera whatever way it is turned. */}
-        {!facesCamera(item) && <RotationRow item={item} onChange={onChange} />}
+        {/* Where it stands is what a lock holds: its height and turn are read-only while locked. */}
+        <fieldset
+          disabled={item.locked === true}
+          aria-label="Place"
+          className="m-0 min-w-0 border-0 p-0 disabled:opacity-50"
+        >
+          <HeightRow item={item} onChange={onChange} />
+          {/* A flat billboard faces the camera whatever way it is turned. */}
+          {!facesCamera(item) && <RotationRow item={item} onChange={onChange} />}
+        </fieldset>
       </PopoverShell>
     </div>,
     document.body,
