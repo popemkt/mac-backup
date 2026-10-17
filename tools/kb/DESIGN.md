@@ -2105,9 +2105,16 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   digest; an edited file is new code, untrusted until trusted again. So
   whoever opens a root someone else wrote (a clone, a location an agent
   asked to open) runs none of its code before they have read it, and an
-  untrusted module's declaration is neither seeded nor loaded. The file
-  is imported from disk after its digest is read
-  (GAP [[01M541EP41BTAVD8TJXZGNNPRW]]).
+  untrusted module's declaration is neither seeded nor loaded. Trust
+  covers what runs: an extension is its one file and the packages installed
+  outside the root, so a file that imports another file (`./lib/x.ts`,
+  `../src/x.ts`) or a package the root carries in its own `node_modules` is
+  refused before anything is imported. What is imported is the source whose
+  digest was trusted, not the file as it is by then: one Bun load hook
+  (`importVerified`) loads every module under a `.kb/extensions/` from its
+  verified bytes, and refuses any other file there, however it is reached,
+  so it never runs. Bun loads a module once per process, so a file trusted
+  again after an edit runs its new source from the next process on.
 - **Everything loads as a plugin into one kernel** (`@kb/plugin`,
   `packages/domain/plugin`, `scope:shared`; the model is DeepSeek Harness's
   Cordis). A plugin is `{ name, namespace?, inject?, apply(ctx) }`; through

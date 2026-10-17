@@ -1,7 +1,6 @@
 import { Effect, Predicate, Result } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { dirname, join, sep } from "node:path";
 import { decodeContribution, decodeDeclaration, isTemplateContribution } from "@kb/ext-sdk";
 import {
   CodeTrust,
@@ -11,6 +10,7 @@ import {
   type LoadedExtension,
 } from "@kb/contracts";
 import { extensionDigest } from "@kb/sandbox";
+import { importVerified } from "./verified-import.ts";
 
 /**
  * Extension loader: discovers, imports and validates the TS modules in
@@ -31,6 +31,14 @@ import { extensionDigest } from "@kb/sandbox";
  * the gesture). An untrusted file is skipped with its digest, so whoever
  * opens a root someone else wrote — a location opened for an agent, a clone
  * — runs none of its code until they have looked at it.
+ *
+ * Trust covers what runs. An extension is its one file and the packages
+ * installed outside the root: an import of another file (`./helper.ts`,
+ * `../src/x.ts`) or of a package the root itself carries is code the digest
+ * does not cover, so the file is refused before anything is imported
+ * (`unverifiedImport`). What is imported is the source whose digest was
+ * read, not the file as it is by then (`importVerified`), and a file under
+ * `.kb/extensions/` reached any other way never runs.
  */
 function extensionsDir(root: string): string {
   return join(root, ".kb", "extensions");
@@ -38,29 +46,73 @@ function extensionsDir(root: string): string {
 
 const NAME_RE = /^[\w][\w.-]*$/;
 
+/** A trusted file: its name, its real path, and the source whose digest was trusted. */
+interface TrustedFile {
+  readonly file: string;
+  readonly path: string;
+  readonly source: string;
+}
+
+const transpiler = new Bun.Transpiler({ loader: "ts" });
+
+/** Whether an import specifier names a file rather than a package. */
+function namesFile(specifier: string): boolean {
+  return /^(\.{1,2}(\/|$)|\/|file:)/.test(specifier);
+}
+
+/** Where `specifier` resolves from `dir`, or null when it does not resolve to a file. */
+function resolvedFrom(specifier: string, dir: string): string | null {
+  try {
+    return Bun.resolveSync(specifier, dir);
+  } catch {
+    return null;
+  }
+}
+
 /**
- * The files among `files` a person has trusted here; each other one is a
- * failure that names its digest and the gesture that trusts it.
+ * Why `source`, an extension in `dir` of `root`, imports code its digest
+ * does not cover, or null: another file, or a package that resolves inside
+ * the root (one the root carries in its own `node_modules`).
+ */
+function unverifiedImport(source: string, dir: string, root: string): string | null {
+  for (const { path: specifier } of transpiler.scanImports(source)) {
+    if (namesFile(specifier))
+      return `imports ${specifier}; an extension is one file, and only that file is trusted`;
+    const resolved = resolvedFrom(specifier, dir);
+    if (resolved?.startsWith(`${root}${sep}`) === true)
+      return `imports ${specifier} from inside the root (${resolved}), which its trust does not cover`;
+  }
+  return null;
+}
+
+/**
+ * The files among `files` a person has trusted here, each with the source
+ * that was trusted; each other one is a failure that names its digest and
+ * the gesture that trusts it.
  */
 const trustedFiles = Effect.fn("kb.trustedExtensions")(function* (
   dir: string,
   files: readonly string[],
   failures: ExtensionFailure[],
-): Effect.fn.Return<string[], never, FileSystem | CodeTrust> {
+): Effect.fn.Return<TrustedFile[], never, FileSystem | CodeTrust> {
   const fs = yield* FileSystem;
-  const digests = new Map<string, string>();
+  const read = new Map<string, TrustedFile & { readonly digest: string }>();
   for (const file of files) {
-    const source = yield* fs.readFileString(join(dir, file)).pipe(Effect.orElseSucceed(() => null));
-    if (source === null) failures.push({ file, error: "could not be read" });
-    else digests.set(file, yield* extensionDigest(source));
+    const path = yield* fs.realPath(join(dir, file)).pipe(Effect.orElseSucceed(() => null));
+    const source =
+      path === null ? null : yield* fs.readFileString(path).pipe(Effect.orElseSucceed(() => null));
+    if (path === null || source === null) failures.push({ file, error: "could not be read" });
+    else read.set(file, { file, path, source, digest: yield* extensionDigest(source) });
   }
   const trusted = new Set(
-    yield* (yield* CodeTrust).trusted([...digests.values()]).pipe(Effect.orElseSucceed(() => [])),
+    yield* (yield* CodeTrust)
+      .trusted([...read.values()].map(({ digest }) => digest))
+      .pipe(Effect.orElseSucceed(() => [])),
   );
-  return [...digests].flatMap(([file, digest]) => {
+  return [...read.values()].flatMap(({ digest, ...file }) => {
     if (trusted.has(digest)) return [file];
     failures.push({
-      file,
+      file: file.file,
       error: `not trusted on this machine (${digest}); trust it with sandbox.trust once you have read it`,
     });
     return [];
@@ -88,20 +140,21 @@ export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
 
   const extensions: LoadedExtension[] = [];
   const failures: ExtensionFailure[] = [];
-  // GAP [[01M541EP41BTAVD8TJXZGNNPRW]]: the file is imported from disk after its
-  // digest is read, so a write between the two runs code nobody trusted.
-  const files = yield* trustedFiles(extensionsDir(root), named, failures);
-  for (const file of files) {
+  const dir = extensionsDir(root);
+  const realRoot = yield* fs.realPath(root).pipe(Effect.orElseSucceed(() => root));
+  const files = yield* trustedFiles(dir, named, failures);
+  for (const { file, path, source } of files) {
     const name = file.slice(0, -".ts".length);
     if (!NAME_RE.test(name)) {
       failures.push({ file, error: "extension file name must match /^[\\w][\\w.-]*$/" });
       continue;
     }
-    const path = join(extensionsDir(root), file);
-    const loaded = yield* Effect.tryPromise({
-      try: () => import(pathToFileURL(path).href) as Promise<unknown>,
-      catch: (err) => (err instanceof Error ? err.message : String(err)),
-    }).pipe(
+    const reaches = unverifiedImport(source, dirname(path), realRoot);
+    if (reaches !== null) {
+      failures.push({ file, error: reaches });
+      continue;
+    }
+    const loaded = yield* importVerified(path, source).pipe(
       Effect.map((mod) => ({ mod, error: null })),
       Effect.catch((error) => Effect.succeed({ mod: null, error })),
     );
