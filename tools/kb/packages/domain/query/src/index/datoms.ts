@@ -53,13 +53,15 @@ export interface NodeDatoms {
   /** the field attrs among them that hold a resolving node ref */
   refAttrs: Set<string>;
   /**
-   * Every node id this node points at — a child, a `{t:"ref"}` prop, or any
-   * carrier of a derived attribute (`DerivedRef`) — whether or not the target
-   * resolves today. An unresolved target degrades to a string sentinel
-   * (props) or is dropped (children, derived refs), so the datoms of this
-   * node change the moment that
-   * target starts or stops existing. The index keeps the reverse of this set
-   * and re-derives the referrers on exactly those transitions.
+   * Every node id this node points at — a child, a prop's key (its field
+   * node), a `{t:"ref"}` prop, or any carrier of a derived attribute
+   * (`DerivedRef`) — whether or not the target resolves today. An
+   * unresolved target degrades to a string sentinel (props) or is dropped
+   * (children, derived refs), so the datoms of this node change the moment
+   * that target starts or stops existing. The index keeps the reverse of
+   * this set and re-derives the referrers on those transitions; a key's
+   * field is among them though its datoms do not change, which costs only
+   * the re-derivation.
    */
   refs: Set<NodeId>;
 }
@@ -75,10 +77,15 @@ function carriedBy(
   }));
 }
 
-/** Every id `node` points at (`NodeDatoms.refs`), given what its carriers read. */
+/**
+ * Every id `node` points at (`NodeDatoms.refs`), given what its carriers
+ * read: its children, each prop's key (the field node the values are of)
+ * and each ref value.
+ */
 function pointedAt(node: KbNode, carried: ReturnType<typeof carriedBy>): Set<NodeId> {
   const refs = new Set<NodeId>(node.children);
-  for (const values of Object.values(node.props)) {
+  for (const [field, values] of Object.entries(node.props)) {
+    refs.add(field);
     for (const pv of values) if (pv.t === "ref") refs.add(pv.v);
   }
   for (const { ids } of carried) for (const id of ids) refs.add(id);

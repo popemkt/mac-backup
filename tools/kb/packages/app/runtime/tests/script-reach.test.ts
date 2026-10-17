@@ -136,6 +136,11 @@ describe("a script's reach", () => {
       { id: KEPT, setProps: [{ field: "f.leads", value: { t: "ref", v: SECRET } }] },
     ],
     [
+      "keys a prop of its own node by a node outside its subject",
+      "node.update",
+      { id: KEPT, setProps: [{ field: SECRET, value: { t: "str", v: "x" } }] },
+    ],
+    [
       "reorders its subject, writing the parent it does not hold",
       "node.update",
       { id: CANVAS, position: 0 },

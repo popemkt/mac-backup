@@ -82,13 +82,21 @@ describe("mentions in text values", () => {
 });
 
 describe("what a node points at", () => {
-  test("a planned node is read as a stored one is: children, ref values, text tokens", () => {
+  test("a planned node is read as a stored one is: children, prop keys, ref values, text tokens", () => {
     const index = new DatascriptIndex([node("b")], { derived: derivedWith({}) });
     const planned = node("new", {
       text: "see [[b]]",
       children: ["c"],
       props: { f_link: [{ t: "ref", v: "d" }], f_note: [{ t: "str", v: "[[e]]" }] },
     });
-    expect([...index.referencesOf(planned)].toSorted()).toEqual(["b", "c", "d", "e"]);
+    // A prop's key is the field node it is a value of.
+    expect([...index.referencesOf(planned)].toSorted()).toEqual([
+      "b",
+      "c",
+      "d",
+      "e",
+      "f_link",
+      "f_note",
+    ]);
   });
 });
