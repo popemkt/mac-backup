@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { BUNDLED_FAMILIES, bundledSeed } from "@kb/bundled";
-import { ReadInvoke, switchWrites, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
+import { CoreInvoke, switchWrites, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
 import { SYSTEM_IDS, extensionNodeId, present, type Actor, type KbNode } from "@kb/model";
 import { kbManifestDef, persistEffect } from "@kb/operations";
 import { invoke } from "../src/invoke.ts";
@@ -296,8 +296,8 @@ describe("who may switch an extension", () => {
     const ctx = await openKb(root);
     const receipt = await Effect.runPromise(
       Effect.gen(function* () {
-        const read = present(yield* ReadInvoke, "the runtime binds ReadInvoke");
-        return yield* read(call("script"));
+        const core = present(yield* CoreInvoke, "the runtime binds CoreInvoke");
+        return yield* core(call("script"), "read");
       }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
     expect(receipt).toMatchObject({ status: "failed", code: "forbidden" });

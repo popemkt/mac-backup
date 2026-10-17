@@ -5,12 +5,12 @@
  * On a page, above that text, the figure is what the code draws as of the
  * render (DESIGN.md → Sandbox → Snapshots): run on the host's
  * `UntrustedEngine`, whatever this machine trusts, and calling actions only
- * through its `ReadInvoke`, because drawing a page is a read. A host that
+ * through its `CoreInvoke` as a read, because drawing a page is a read. A host that
  * leaves either unbound (the page binds neither), or a run that drew
  * nothing, draws the text alone.
  */
 import { Effect } from "effect";
-import { ReadInvoke, type KbContext, type ViewText } from "@kb/contracts";
+import { CoreInvoke, type KbContext, type ViewText } from "@kb/contracts";
 import { UntrustedEngine, snapshotRun } from "@kb/sandbox";
 import type { CodeParams } from "./view.ts";
 
@@ -29,11 +29,11 @@ function grantLine({ grant }: CodeParams): string {
 /** What the code draws as of now, read-only, or null for nothing to show. */
 const codeFigure = Effect.fn("code.figure")(function* (ctx: KbContext, params: CodeParams) {
   const engine = yield* UntrustedEngine;
-  const invoke = yield* ReadInvoke;
+  const invoke = yield* CoreInvoke;
   if (engine === null || invoke === null) return null;
   const { html, end } = yield* snapshotRun(
     engine,
-    { invoke, node: (id) => ctx.index.getNode(id) },
+    { invoke: (invocation) => invoke(invocation, "read"), node: (id) => ctx.index.getNode(id) },
     { code: params.code, grant: params.grant, subject: params.source ?? null },
   );
   const note = end === null ? "" : `<p><em>${escapeText(end.message)}</em></p>`;

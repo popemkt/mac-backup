@@ -3,7 +3,7 @@ export {
   ActionInvocationSchema,
   ActionReceiptSchema,
   ManifestEntrySchema,
-  ReadInvoke,
+  CoreInvoke,
   actionToManifestEntry,
   approvalSubject,
   asObjectSchema,
@@ -45,7 +45,8 @@ export type {
   ActionInvocation,
   ActionReceipt,
   ManifestEntry,
-  ReadInvoker,
+  CoreInvoker,
+  InvokeScope,
 } from "./actions.ts";
 export { ChannelPoint, UiHost } from "./channel.ts";
 export {

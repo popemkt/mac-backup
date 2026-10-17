@@ -2438,7 +2438,7 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
   - No generic "runtime layer point" exists: nothing needs one.
 - **Core's write path and render backbone reach a family as contract
   services, never as use cases.** A docs view's bytes reach the docs
-  family through `ReadInvoke`, as `render.view` in md, which is the
+  family through `CoreInvoke` as a read, as `render.view` in md, which is the
   backbone every surface asks; which docs views a graph holds is
   `docsViewsOf` and `docsViewNamed` (`@kb/views`). `GraphWrites`
   (`@kb/contracts`) is the write path, and `kbRuntimeLayer` binds it:
@@ -3671,7 +3671,8 @@ both:
 - `UntrustedEngine` (`@kb/sandbox`) is the engine the code runs on. The
   runtime binds QuickJS, so a snapshot is untrusted whatever this machine
   trusts.
-- `ReadInvoke` (`@kb/contracts`) is the invoke core as a read. Every call is
+- `CoreInvoke` (`@kb/contracts`) is the invoke core, called with a scope; the
+  figure calls it as a read (`read`). Every call is
   made as the script's, and a call to a write is refused before the invoke
   core, because drawing a page is a read.
 

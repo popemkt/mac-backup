@@ -10,10 +10,9 @@ import {
   kbCtxLayer,
   kbStoreLayer,
   failed,
-  type ActionInvocation,
   type KbContext,
-  ReadInvoke,
-  type ReadInvoker,
+  CoreInvoke,
+  type CoreInvoker,
   type Screens,
   TemplateRegistry,
   ViewCatalog,
@@ -37,8 +36,8 @@ import { remoteScreensLayer } from "./screens.ts";
  * backed by `.kb/` on disk + the UI tabs' screens, held by the `kb ui`
  * serving the root + the view catalog the registry's plugins
  * contributed + QuickJS as the engine untrusted code runs on and the invoke
- * core as a read (`UntrustedEngine` and `ReadInvoke`, which a view's figure
- * runs code on and calls actions through) + the render templates and the action
+ * core under code it runs (`UntrustedEngine` and `CoreInvoke`, which a view's
+ * figure and a script run once run code on and call actions through) + the render templates and the action
  * catalog the registry resolved from core, bundled and `.kb/extensions`
  * contributions.
  *
@@ -96,7 +95,7 @@ export function kbRuntimeLayer(
       ),
     ),
     Layer.succeed(UntrustedEngine, quickjsEngine),
-    Layer.succeed(ReadInvoke, readInvoke(ctx)),
+    Layer.succeed(CoreInvoke, coreInvoke(ctx)),
     Layer.effect(
       ActionCatalog,
       registry.pipe(Effect.map(({ manifestEntries }) => manifestEntries)),
@@ -105,16 +104,16 @@ export function kbRuntimeLayer(
 }
 
 /**
- * The invoke core on this root, as a read (`ReadInvoke`): a call to an
- * action that writes is refused before the core, and any other runs through
- * it, decided like every call.
+ * The invoke core on this root, for code it is already running
+ * (`CoreInvoke`): within `read`, a call to an action that writes is refused
+ * before the core; any other call runs through it, decided like every call.
  */
-function readInvoke(ctx: KbContext): ReadInvoker {
-  return (invocation: ActionInvocation) =>
+function coreInvoke(ctx: KbContext): CoreInvoker {
+  return (invocation, scope) =>
     Effect.gen(function* () {
       const registry = yield* sessionRegistry(ctx);
       const mode = registry.byId.get(invocation.id)?.def.mode;
-      if (mode !== undefined && mode.kind !== "read") {
+      if (scope === "read" && mode !== undefined && mode.kind !== "read") {
         return failed(
           invocation.id,
           "forbidden",

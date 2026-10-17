@@ -301,20 +301,28 @@ export class ActionCatalog extends Context.Service<ActionCatalog, readonly Manif
 ) {}
 
 /**
- * One call through the invoke core, made as a read: a call to an action
- * that writes is refused before the core.
+ * What a call made from inside the core may do: `read` refuses a call to an
+ * action that writes before the core; `write` makes any call, decided by the
+ * core like every call.
  */
-export type ReadInvoker = (invocation: ActionInvocation) => Effect.Effect<ActionReceipt>;
+export type InvokeScope = "read" | "write";
+
+/** One call through the invoke core, within `scope`. */
+export type CoreInvoker = (
+  invocation: ActionInvocation,
+  scope: InvokeScope,
+) => Effect.Effect<ActionReceipt>;
 
 /**
- * How a read reaches the invoke core from code the core is already running.
- * Drawing a view's page is a read, so a figure that calls actions (a code
- * view's snapshot) calls them through this; a family's action that needs a
- * view's rendered bytes (`ext.docs.*`) asks `render.view` through it, the
- * backbone every surface asks. Every call made through it must be a read. A
- * host that provides none has no invoke core under its reads: such a figure
+ * How code the core is already running reaches the invoke core. Drawing a
+ * view's page is a read, so a figure that calls actions (a code view's
+ * snapshot) calls them as `read`; a family's action that needs a view's
+ * rendered bytes (`ext.docs.*`) asks `render.view` as `read`, the backbone
+ * every surface asks; a script run once on request (`script.run`) calls as
+ * `write`, each call decided as its envelope says (the `script` actor). A
+ * host that provides none has no invoke core under such calls: a figure
  * draws nothing, and such an action fails.
  */
-export const ReadInvoke = Context.Reference<ReadInvoker | null>("kb/ReadInvoke", {
+export const CoreInvoke = Context.Reference<CoreInvoker | null>("kb/CoreInvoke", {
   defaultValue: () => null,
 });

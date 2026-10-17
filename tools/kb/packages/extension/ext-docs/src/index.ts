@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { Effect, Result } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { KbCtx, ReadInvoke, extensionPlugin } from "@kb/contracts";
+import { CoreInvoke, KbCtx, extensionPlugin } from "@kb/contracts";
 import type { ExtensionAction, ExtensionTemplate } from "@kb/contracts";
 import { docsExtension } from "@kb/docs";
 import { type DomainError, domainError } from "@kb/model";
@@ -17,7 +17,7 @@ import { todos } from "./todos.ts";
  * the render backbone behind `render.view`); this extension ships the policy —
  * the templates and which md files get written where. A docs view's bytes
  * are the backbone's, reached as every surface reaches it: `render.view`,
- * called through the host's `ReadInvoke`. It is the reference for
+ * called through the host's `CoreInvoke`, as a read. It is the reference for
  * `.kb/extensions/*.ts` modules: same shape, same loading path, just
  * registered from inside the package.
  *
@@ -85,10 +85,13 @@ const renderedSchema = z.object({ content: z.string() });
 const renderedView = Effect.fn("ext.docs.render")(function* (
   view: DocsView,
 ): Effect.fn.Return<string, DomainError> {
-  const invoke = yield* ReadInvoke;
+  const invoke = yield* CoreInvoke;
   if (invoke === null)
-    return yield* domainError("internal", "rendering a docs view needs the host's ReadInvoke");
-  const receipt = yield* invoke({ id: "render.view", input: { name: view.name, format: "md" } });
+    return yield* domainError("internal", "rendering a docs view needs the host's CoreInvoke");
+  const receipt = yield* invoke(
+    { id: "render.view", input: { name: view.name, format: "md" } },
+    "read",
+  );
   if (receipt.status === "failed") {
     const code = receipt.code === "unknown_action" ? "internal" : receipt.code;
     return yield* domainError(code, receipt.message, receipt.details);
