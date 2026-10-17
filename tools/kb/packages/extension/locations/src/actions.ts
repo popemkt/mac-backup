@@ -48,9 +48,21 @@ export type LocationList = z.infer<typeof LocationListSchema>;
 
 type LocationActionDef = ActionDefinition & { readonly aliases: readonly string[] };
 
+/**
+ * The bare alias each action answers to: the name every surface calls it
+ * by. Each definition takes its own from here, and a caller that builds on
+ * the family calls by these instead of spelling them.
+ */
+export const LOCATION_ACTIONS = {
+  list: "location.list",
+  register: "location.register",
+  open: "location.open",
+  forget: "location.forget",
+} as const;
+
 export const locationListDef = {
   id: "list",
-  aliases: ["location.list"],
+  aliases: [LOCATION_ACTIONS.list],
   title: "List locations",
   description:
     "The kb roots this person has opened, from their home store, most recently opened first and pinned ones before them. Each row says whether it is served (with its URL), closed, missing or not a store, read from its path now. Reads no listed store's content.",
@@ -61,7 +73,7 @@ export const locationListDef = {
 
 export const locationRegisterDef = {
   id: "register",
-  aliases: ["location.register"],
+  aliases: [LOCATION_ACTIONS.register],
   title: "Register location",
   description:
     "Add the kb root at `path` to the person's locations, creating their home store if it is new, and rank it first. Registering a root already listed only ranks it first (and renames it when `label` is given). Refuses a path that holds no kb store.",
@@ -83,7 +95,7 @@ export type LocationOpened = z.infer<typeof LocationOpenedSchema>;
 
 export const locationOpenDef = {
   id: "open",
-  aliases: ["location.open"],
+  aliases: [LOCATION_ACTIONS.open],
   title: "Open location",
   description:
     "The URL of a `kb ui` serving the location `id`, the kb root at `path`, or (given neither) the person's home store. A root already served answers its server's URL and is ranked first; one that is closed gets a `kb ui` started for it, which keeps running after the call and ranks its root first itself. Refuses a location that is missing or not a store, and a server that does not answer in about ten seconds.",
@@ -101,7 +113,7 @@ export const locationOpenDef = {
 
 export const locationForgetDef = {
   id: "forget",
-  aliases: ["location.forget"],
+  aliases: [LOCATION_ACTIONS.forget],
   title: "Forget location",
   description:
     "Remove the location `id` from the person's locations. Its directory and its store are never touched.",

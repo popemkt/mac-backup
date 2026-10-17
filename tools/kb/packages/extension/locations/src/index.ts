@@ -15,6 +15,7 @@ export {
   type LocationWrite,
 } from "./writes.ts";
 export {
+  LOCATION_ACTIONS,
   LOCATION_STATUSES,
   LocationListSchema,
   LocationOpenedSchema,

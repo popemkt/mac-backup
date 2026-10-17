@@ -1,8 +1,8 @@
 /**
  * What the page does with the locations family's actions: list the rows,
  * open one, forget one. Each is one call through the page's invoke path
- * (`BrowserHost.invoke`), by the alias every surface calls it by, so the
- * page holds nothing of the home store itself.
+ * (`BrowserHost.invoke`), by the alias every surface calls it by
+ * (`LOCATION_ACTIONS`), so the page holds nothing of the home store itself.
  *
  * Opening leaves the page: the `kb ui` serving the other root is another
  * process at another URL (DESIGN.md → Locations). The same tab goes there;
@@ -10,7 +10,12 @@
  * person's gesture, and is closed again when the open is refused.
  */
 import type { ActionReceipt } from "@kb/contracts";
-import { LocationListSchema, LocationOpenedSchema, type LocationList } from "@kb/locations";
+import {
+  LOCATION_ACTIONS,
+  LocationListSchema,
+  LocationOpenedSchema,
+  type LocationList,
+} from "@kb/locations";
 import { toast, type BrowserHost } from "@kb/ui-sdk";
 
 /** What the section shows: the rows, or why there are none to show. */
@@ -63,7 +68,7 @@ async function call(invoke: Invoke, id: string, input: unknown): Promise<ActionR
 
 /** The home store's rows, or the refusal's message. */
 export async function listLocations(invoke: Invoke): Promise<Listing> {
-  const receipt = await call(invoke, "location.list", {});
+  const receipt = await call(invoke, LOCATION_ACTIONS.list, {});
   if (receipt.status === "failed") return { kind: "failed", message: receipt.message };
   const parsed = LocationListSchema.safeParse(receipt.output);
   return parsed.success
@@ -83,7 +88,7 @@ export async function openLocation(
   exits: PageExits = WINDOW_EXITS,
 ): Promise<void> {
   const tab = newTab ? exits.openTab() : null;
-  const receipt = await call(invoke, "location.open", target);
+  const receipt = await call(invoke, LOCATION_ACTIONS.open, target);
   const opened =
     receipt.status === "failed"
       ? { url: null, message: receipt.message }
@@ -99,6 +104,6 @@ export async function openLocation(
 
 /** Forget the location `id`: its node leaves the home store, and its directory is untouched. */
 export async function forgetLocation(invoke: Invoke, id: string): Promise<void> {
-  const receipt = await call(invoke, "location.forget", { id });
+  const receipt = await call(invoke, LOCATION_ACTIONS.forget, { id });
   if (receipt.status === "failed") toast(receipt.message);
 }
