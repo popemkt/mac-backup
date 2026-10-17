@@ -6,6 +6,7 @@ _:
 {
   imports = [
     ./my.nix
+    ./people.nix
     ./pkgs.nix
     ./uv-pins.nix
   ];

@@ -8,7 +8,7 @@
 let
   inherit (config.my) username;
   inherit (lib) mkIf mkMerge;
-  home = "/Users/${username}";
+  home = config.users.users.${username}.home;
   aiCfg = config.my.stacks.ai-agents;
   vpnCfg = config.my.stacks.vpn;
   cogneeServer = aiCfg.enable && aiCfg.cognee.server.enable;

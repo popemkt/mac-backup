@@ -10,7 +10,7 @@ let
   cfg = aiCfg.cognee.server;
   inherit (config.my) username;
 
-  home = "/Users/${username}";
+  home = config.users.users.${username}.home;
   version = config.my.uvPins."cognee".version;
   mcpVersion = config.my.uvPins."cognee-mcp".version;
   apiPort = 8000;

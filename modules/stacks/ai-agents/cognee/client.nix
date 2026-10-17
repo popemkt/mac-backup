@@ -10,7 +10,7 @@ let
   cfg = aiCfg.cognee.client;
   inherit (config.my) hostname username;
 
-  home = "/Users/${username}";
+  home = config.users.users.${username}.home;
   mcpVersion = config.my.uvPins."cognee-mcp".version;
   mcpPort = 8001;
   serviceUrl = "https://cognee.${config.my.stacks.vpn.tailnetDomain}";

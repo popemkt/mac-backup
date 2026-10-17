@@ -8,7 +8,8 @@
 let
   inherit (config.my) username;
   semanticaVersion = config.my.uvPins."semantica".version;
-  semanticaPython = "/Users/${username}/.local/share/uv/tools/semantica/bin/python";
+  home = config.users.users.${username}.home;
+  semanticaPython = "${home}/.local/share/uv/tools/semantica/bin/python";
 
   # Declarative uv tool installs owned by the Semantica boundary.
   # Contributed to my.pkgs.uvTools below so drift and update checks can read

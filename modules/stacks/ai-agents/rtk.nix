@@ -9,7 +9,7 @@ lib.mkIf config.my.stacks.ai-agents.enable {
   # current with RTK's frequent upstream releases.
   my.pkgs.brews = [ "rtk" ];
 
-  home-manager.users.${config.my.username} =
+  my.everyone =
     { lib, ... }:
     {
       # Keep Claude Code on RTK's current native hook command. RTK performs an

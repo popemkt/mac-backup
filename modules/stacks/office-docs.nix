@@ -10,7 +10,6 @@
 let
   mkStack = import ./mk-stack.nix lib;
   cfg = config.my.stacks.office-docs;
-  inherit (config.my) username;
 in
 {
   options.my.stacks.office-docs = mkStack {
@@ -20,8 +19,6 @@ in
   config = lib.mkIf cfg.enable {
     my.pkgs.brews = [ "officecli" ];
 
-    home-manager.users.${username} = {
-      home.packages = [ pkgs.genoffice ];
-    };
+    my.everyone.home.packages = [ pkgs.genoffice ];
   };
 }

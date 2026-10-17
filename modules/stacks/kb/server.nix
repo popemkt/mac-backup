@@ -8,7 +8,7 @@
 let
   stack = config.my.stacks.kb;
   cfg = stack.server;
-  home = "/Users/${config.my.username}";
+  home = config.users.users.${config.my.username}.home;
 in
 {
   config = lib.mkIf (stack.enable && cfg.enable) {

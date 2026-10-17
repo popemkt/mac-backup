@@ -7,15 +7,9 @@
 
 # The shared NixOS base: what every NixOS host here runs. A NixOS host is used
 # by the people it lists in `my.people`; each gets an account and the same Home
-# Manager layers, plus their own folder under users/.
+# Manager layers, plus their own folder under users/ (modules/options/people.nix).
 {
   imports = [ ../../stacks/nixos.nix ];
-
-  options.my.people = lib.mkOption {
-    type = lib.types.listOf lib.types.str;
-    default = [ ];
-    description = "Accounts of the people who use this host; each has a folder under users/.";
-  };
 
   config = {
     # Keep the OS host name in sync with the flake attribute, so
@@ -54,6 +48,7 @@
         ../../common/home-manager
         ../home-manager
         (../../../users + "/${name}")
+        config.my.everyone
       ];
       # Home Manager's state version starts with the host's.
       home.stateVersion = config.system.stateVersion;

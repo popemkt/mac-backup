@@ -12,7 +12,7 @@ let
   # The repo's own plugins are one folder marketplace. Claude Code reads a
   # folder marketplace's relative-path plugins in place, so an edit there
   # reaches a session with /reload-plugins and no reinstall.
-  repoMarketplace = "/Users/${config.my.username}/.dotfiles/assets/plugins";
+  repoMarketplace = "${config.users.users.${config.my.username}.home}/.dotfiles/assets/plugins";
 in
 lib.mkIf config.my.stacks.ai-agents.enable {
   my.pkgs = {

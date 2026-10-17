@@ -53,6 +53,6 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    home-manager.users.${username}.home.packages = [ pkgs.kb ];
+    my.everyone.home.packages = [ pkgs.kb ];
   };
 }

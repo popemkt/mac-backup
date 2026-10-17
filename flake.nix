@@ -228,7 +228,8 @@
         overwriteBackup = true;
       };
 
-      # One Darwin host = the host base + one primary user, popemkt.
+      # One Darwin host = the host base + one primary user, popemkt, who is
+      # the host's only person (my.people).
       mkDarwin =
         hostname:
         nix-darwin.lib.darwinSystem {
@@ -236,21 +237,27 @@
             { my = { inherit username; }; }
 
             home-manager.darwinModules.home-manager
-            (_: {
-              users.users.${username}.home = "/Users/${username}";
-              home-manager = homeManagerBase // {
-                users.${username} = _: {
-                  home.stateVersion = "24.05";
-                  programs.home-manager.enable = true;
+            (
+              { config, lib, ... }:
+              {
+                users.users = lib.genAttrs config.my.people (name: {
+                  home = "/Users/${name}";
+                });
+                home-manager = homeManagerBase // {
+                  users = lib.genAttrs config.my.people (name: {
+                    home.stateVersion = "24.05";
+                    programs.home-manager.enable = true;
 
-                  imports = [
-                    ./modules/common/home-manager
-                    ./modules/darwin/home-manager
-                    (./users + "/${username}")
-                  ];
+                    imports = [
+                      ./modules/common/home-manager
+                      ./modules/darwin/home-manager
+                      (./users + "/${name}")
+                      config.my.everyone
+                    ];
+                  });
                 };
-              };
-            })
+              }
+            )
           ];
         };
 
