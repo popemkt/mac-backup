@@ -15,6 +15,8 @@ import { Duration, Effect, Option, Queue, Schema, type Cause } from "effect";
 import { failed, succeeded, type ActionInvocation } from "@kb/contracts";
 import type { KbNode } from "@kb/model";
 import {
+  DATA_EVENT,
+  DRAWING_EVENTS,
   answerToolCall,
   drawingToHtml,
   runGuest,
@@ -98,6 +100,9 @@ function capabilityHost(invocations: ActionInvocation[]): CapabilityHost {
 
 const GRANT: CodeGrant = { reads: "subject", actions: ["node.update", ASKING_ACTION] };
 
+/** The events every run here hears: a code view's own. */
+const EVENTS = [...DRAWING_EVENTS, DATA_EVENT];
+
 const observe = Effect.fn("sandboxContract.observe")(function* (
   engine: SandboxEngine,
   code: string,
@@ -108,7 +113,7 @@ const observe = Effect.fn("sandboxContract.observe")(function* (
   const capability = capabilityHost(invocations);
   const guest = yield* runGuest(
     engine,
-    { code, subject: "subject", limits: LIMITS },
+    { code, subject: "subject", events: EVENTS, limits: LIMITS },
     {
       draw: (drawing) => Effect.asVoid(Queue.offer(drawings, drawingToHtml(drawing.nodes))),
       log: (_level, text) => Effect.sync(() => logs.push(text)),
@@ -262,6 +267,19 @@ const PROPERTIES: readonly (readonly [string, Property])[] = [
     {
       code: `kb.on("click", async () => { await kb.node(kb.subject); throw new TypeError("late"); }); kb.draw("ok");`,
       check: (o) => Effect.map(endAfterClick(o), (end) => expect(end.message).toContain("late")),
+    },
+  ],
+  [
+    "an event of a type the run does not hear never reaches the code",
+    {
+      code: `kb.on("canvas.selection", () => kb.draw("heard")); kb.on("click", () => kb.draw("clicked")); kb.draw("ready");`,
+      check: (o) =>
+        Effect.gen(function* () {
+          yield* o.drawing;
+          yield* o.guest.event({ type: "canvas.selection", target: null });
+          yield* o.guest.event(click("button-1"));
+          expect(yield* o.drawing).toBe("clicked");
+        }),
     },
   ],
   [

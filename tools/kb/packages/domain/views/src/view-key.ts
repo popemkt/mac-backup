@@ -63,6 +63,17 @@ export interface ViewKey<P> {
    * states it, so whatever opens a node (`resolveNodeView`) names no view.
    */
   readonly page?: (shown: ShownFor) => ViewPage | null;
+  /**
+   * The events the view tells code run for it (`kb/event` types, DESIGN.md
+   * → Sandbox): a code view's gestures and graph changes, a canvas's
+   * selection and changes. Code run for the view hears these and no others.
+   */
+  readonly events: readonly string[];
+}
+
+/** What a key declares beyond its settings: the events it tells code run for it (`ViewKey.events`). */
+export interface ViewDeclares {
+  readonly events?: readonly string[];
 }
 
 /**
@@ -121,8 +132,10 @@ export function viewKey<P>(
   label: string,
   params: Schema.Decoder<P>,
   config: ViewConfigCodec<P> = STORES_NOTHING,
+  declares: ViewDeclares = {},
 ): PlainViewKey<P> {
-  return { kind: "view", id, label, params, option: viewOptionId(id), config };
+  const events = declares.events ?? [];
+  return { kind: "view", id, label, params, option: viewOptionId(id), config, events };
 }
 
 /**

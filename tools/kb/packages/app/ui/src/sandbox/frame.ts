@@ -15,6 +15,7 @@ import {
   PageMessage,
   SANDBOX_DRAW_ID,
   SANDBOX_STATUS_ID,
+  DRAWING_EVENTS,
   SANDBOX_THEME_VARIABLES,
   ToolResult,
   drawingToDom,
@@ -140,7 +141,7 @@ function start(input: RunInput): void {
   const started = Scope.provide(scope)(
     runGuest(
       ENGINES[input.engine],
-      { code: input.code, subject: input.subject, limits: input.limits },
+      { code: input.code, subject: input.subject, events: input.events, limits: input.limits },
       {
         draw: (report) =>
           Effect.sync(() => {
@@ -178,7 +179,7 @@ function start(input: RunInput): void {
 
 /** A gesture on what the guest drew, as the event its handlers get. */
 function gesture(event: Event): KbEvent | null {
-  if (event.type !== "click" && event.type !== "input" && event.type !== "change") return null;
+  if (!DRAWING_EVENTS.some((type) => type === event.type)) return null;
   const target = event.target instanceof Element ? event.target : null;
   if (target === null || drawBox === null || !drawBox.contains(target)) return null;
   const named = target.closest("[id]");
@@ -199,7 +200,7 @@ function gesture(event: Event): KbEvent | null {
   return { type: event.type, target: id };
 }
 
-for (const type of ["click", "input", "change"]) {
+for (const type of DRAWING_EVENTS) {
   drawBox?.addEventListener(type, (event) => {
     const kbEvent = gesture(event);
     const current = run;

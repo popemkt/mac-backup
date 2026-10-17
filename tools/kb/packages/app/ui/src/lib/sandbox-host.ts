@@ -16,6 +16,7 @@ import {
 } from "@kb/contracts";
 import {
   FrameMessage,
+  DATA_EVENT,
   KB_METHODS,
   SANDBOX_THEME_VARIABLES,
   answerToolCall,
@@ -150,7 +151,7 @@ export function hostSandboxFrame(
 
   return {
     changed: () => {
-      if (initialized) post(notification(KB_METHODS.event, { type: "data", target: null }));
+      if (initialized) post(notification(KB_METHODS.event, { type: DATA_EVENT, target: null }));
     },
     dispose,
   };

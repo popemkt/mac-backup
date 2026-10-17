@@ -23,6 +23,8 @@ export {
   type GrantScope,
 } from "./grant.ts";
 export {
+  DATA_EVENT,
+  DRAWING_EVENTS,
   END_REASONS,
   EventNotification,
   FrameMessage,

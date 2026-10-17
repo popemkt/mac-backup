@@ -44,7 +44,8 @@ export const snapshotRun = Effect.fn("sandbox.snapshotRun")(function* (
     Effect.gen(function* () {
       const guest = yield* runGuest(
         engine,
-        { code: run.code, subject: run.subject, limits },
+        // A snapshot hands its run no events: it draws once, as of now.
+        { code: run.code, subject: run.subject, events: [], limits },
         {
           draw: (drawing) =>
             Effect.sync(() => {

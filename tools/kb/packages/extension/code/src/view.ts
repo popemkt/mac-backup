@@ -8,7 +8,7 @@
  */
 import { Schema } from "effect";
 import { canonicalJson, firstStr } from "@kb/model";
-import { CodeGrant } from "@kb/sandbox";
+import { CodeGrant, DATA_EVENT, DRAWING_EVENTS } from "@kb/sandbox";
 import { subjectRootOf, subjectRootProps, viewKey, type ConfigReport } from "@kb/views";
 import { CODE_IDS } from "./ids.ts";
 
@@ -68,19 +68,26 @@ function readGrant(raw: string | undefined, report: ConfigReport): { grant?: unk
  * (`sys.f.code.grant`, canonical JSON), and whose subject is its
  * `lens.focus`, else the node it is shown for.
  */
-export const CodeView = viewKey(`${CODE_NAMESPACE}.view`, "Code", CodeParams, {
-  read: (props, host, report) => {
-    const source = subjectRootOf(props, host);
-    return {
-      ...(source === undefined ? {} : { source }),
-      // The code as stored, untrimmed: what runs is what a person trusts.
-      code: props[CODE_IDS.codeField]?.find((value) => value.t === "str")?.v ?? STARTER_CODE,
-      ...readGrant(firstStr(CODE_IDS.codeGrantField)(props), report),
-    };
+export const CodeView = viewKey(
+  `${CODE_NAMESPACE}.view`,
+  "Code",
+  CodeParams,
+  {
+    read: (props, host, report) => {
+      const source = subjectRootOf(props, host);
+      return {
+        ...(source === undefined ? {} : { source }),
+        // The code as stored, untrimmed: what runs is what a person trusts.
+        code: props[CODE_IDS.codeField]?.find((value) => value.t === "str")?.v ?? STARTER_CODE,
+        ...readGrant(firstStr(CODE_IDS.codeGrantField)(props), report),
+      };
+    },
+    write: ({ source, code, grant }) => ({
+      ...(source === undefined ? {} : subjectRootProps(source)),
+      [CODE_IDS.codeField]: [{ t: "str", v: code }],
+      [CODE_IDS.codeGrantField]: [{ t: "str", v: canonicalJson(grant) }],
+    }),
   },
-  write: ({ source, code, grant }) => ({
-    ...(source === undefined ? {} : subjectRootProps(source)),
-    [CODE_IDS.codeField]: [{ t: "str", v: code }],
-    [CODE_IDS.codeGrantField]: [{ t: "str", v: canonicalJson(grant) }],
-  }),
-});
+  // What its code hears: gestures on what it drew, and the graph changing.
+  { events: [...DRAWING_EVENTS, DATA_EVENT] },
+);

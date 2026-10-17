@@ -79,13 +79,19 @@ export const GuestMessage = Schema.Union([
 ]);
 export type GuestMessage = typeof GuestMessage.Type;
 
+/** The gestures on what a guest drew that its frame tells it: with the id of the nearest drawn element that has one, and a control's value. */
+export const DRAWING_EVENTS = ["click", "input", "change"] as const;
+
+/** The event a run hears when the graph changed. */
+export const DATA_EVENT = "data";
+
 /**
- * Something the guest may answer: a gesture on what it drew (`click`,
- * `input`, `change`, with the id of the nearest drawn element that has one
- * and the control's value), or `data` when the graph changed.
+ * Something the guest may answer: an event the view it runs for declares
+ * (`ViewKey.events`) — a gesture on what it drew (`DRAWING_EVENTS`), `data`
+ * when the graph changed, or the view's own (a canvas's `canvas.selection`).
  */
 export const KbEvent = Schema.Struct({
-  type: Schema.Literals(["click", "input", "change", "data"]),
+  type: Schema.NonEmptyString,
   target: Schema.NullOr(Schema.String),
   value: Schema.optionalKey(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])),
 });
@@ -101,6 +107,8 @@ export const EventNotification = Schema.Struct({
 export const RunInput = Schema.Struct({
   code: Schema.String,
   subject: Schema.NullOr(Schema.String),
+  /** The event types the run hears: those its view declares (`ViewKey.events`). */
+  events: Schema.Array(Schema.NonEmptyString),
   engine: Schema.Literals(ENGINE_KINDS),
   limits: SandboxLimits,
 });

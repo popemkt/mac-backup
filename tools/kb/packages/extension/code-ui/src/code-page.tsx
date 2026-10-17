@@ -13,7 +13,7 @@ import {
   ShieldWarningIcon,
 } from "@phosphor-icons/react";
 import { ENGINE_LIMITS, engineKindFor, type EngineKind, type RunStatus } from "@kb/sandbox";
-import type { CodeParams } from "@kb/code";
+import { CodeView, type CodeParams } from "@kb/code";
 import {
   browserHost,
   cn,
@@ -192,6 +192,7 @@ export function CodePage({ params, host }: ViewProps<CodeParams>) {
       input: {
         code: params.code,
         subject: params.source ?? null,
+        events: CodeView.events,
         engine,
         limits: ENGINE_LIMITS[engine],
       },

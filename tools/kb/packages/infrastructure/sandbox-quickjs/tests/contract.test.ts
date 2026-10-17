@@ -12,7 +12,7 @@ function endOfRun(code: string, limits: SandboxLimits) {
       Effect.gen(function* () {
         const guest = yield* runGuest(
           quickjsEngine,
-          { code, subject: null, limits },
+          { code, subject: null, events: [], limits },
           {
             draw: () => Effect.void,
             log: () => Effect.void,

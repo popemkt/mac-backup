@@ -12,7 +12,13 @@ import type { SandboxRun } from "@kb/ui-sdk";
 import { hostSandboxFrame } from "./sandbox-host";
 
 const RUN: SandboxRun = {
-  input: { code: "kb.draw(1)", subject: "n.s", engine: "quickjs", limits: ENGINE_LIMITS.quickjs },
+  input: {
+    code: "kb.draw(1)",
+    subject: "n.s",
+    events: [],
+    engine: "quickjs",
+    limits: ENGINE_LIMITS.quickjs,
+  },
   grant: { reads: "subject", actions: [] },
 };
 

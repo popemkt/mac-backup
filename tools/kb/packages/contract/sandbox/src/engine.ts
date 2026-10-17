@@ -15,6 +15,8 @@ import type { EndReason, GuestEnd } from "./protocol.ts";
 export interface GuestSpec {
   readonly code: string;
   readonly subject: string | null;
+  /** The event types the run hears (`RunInput.events`); `runGuest` hands it no others. */
+  readonly events: readonly string[];
   readonly limits: SandboxLimits;
 }
 

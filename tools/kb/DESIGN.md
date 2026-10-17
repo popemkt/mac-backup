@@ -3498,8 +3498,11 @@ is `@kb/sandbox` (`packages/contract/sandbox`); the engines are
   both engines offer the same API: `kb.subject`; `kb.node(id, depth)`
   (`node.get`); `kb.query(edn)` (`graph.query`); `kb.invoke(action, input)`,
   which resolves to the output or rejects with an error carrying the
-  receipt's `code`; `kb.draw(drawing)`; `kb.on(type, handler)` for `click`,
-  `input`, `change` on what it drew and `data` when the graph changed;
+  receipt's `code`; `kb.draw(drawing)`; `kb.on(type, handler)` for the
+  events the view it runs for declares (`ViewKey.events`, carried to the
+  run as `RunInput.events`; `runGuest` hands it no others) — a code view's
+  are `click`, `input`, `change` on what it drew (`DRAWING_EVENTS`) and
+  `data` when the graph changed;
   `kb.h`; and `console`. The code is the body of an async function, so it
   may `await` at its top level, and any error it throws, now or in a
   handler, ends the run with that error's message.
@@ -3592,7 +3595,7 @@ sends it more than 400 messages a second.
   from an opaque origin, and a second file a connection.
 - It is an MCP Apps app whose host is the page: it sends `ui/initialize`,
   takes the run as `ui/notifications/tool-input` (`RunInput`: code,
-  subject, engine, limits), runs it, reports `kb/status`, and forwards the
+  subject, events, engine, limits), runs it, reports `kb/status`, and forwards the
   guest's `tools/call`. It listens only to its parent window.
 - The page's end (`lib/sandbox-host`) listens only to its own frame's
   window, answers the handshake with the theme's tokens, and answers tool

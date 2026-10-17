@@ -34,7 +34,7 @@ export interface GuestHost {
 
 /** A run as its host drives it. */
 export interface GuestRun {
-  /** Hand the guest an event. */
+  /** Hand the guest an event, when its type is one the run hears (`GuestSpec.events`). */
   readonly event: (event: KbEvent) => Effect.Effect<void>;
   /** Why the run ended, once it has. */
   readonly ended: Effect.Effect<GuestEnd>;
@@ -134,7 +134,10 @@ export const runGuest = Effect.fn("sandbox.runGuest")(function* (
   );
 
   return {
-    event: (event) => session.deliver(JSON.stringify(notification(KB_METHODS.event, event))),
+    event: (event) =>
+      spec.events.includes(event.type)
+        ? session.deliver(JSON.stringify(notification(KB_METHODS.event, event)))
+        : Effect.void,
     ended: Deferred.await(ended),
     over: Deferred.isDone(ended),
     settled: Effect.raceFirst(
