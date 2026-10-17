@@ -76,6 +76,19 @@ function locationsContract(homeBackend: StoreBackend): void {
     let restoreHome: (() => void) | undefined;
     const servers: { stop: (force: boolean) => unknown }[] = [];
 
+    /** A server that answers as a `kb ui` serving `root`, named in the root's presence. */
+    const answerFor = Effect.fn("locationsContract.answerFor")(function* (root: string) {
+      const server = Bun.serve({
+        hostname: "127.0.0.1",
+        port: 0,
+        fetch: () => Response.json({ root }),
+      });
+      servers.push(server);
+      const url = `http://127.0.0.1:${server.port}`;
+      yield* writeUiPresence(root, url).pipe(Effect.provide(bunFileSystemLayer));
+      return url;
+    });
+
     /** A root holding a store of `backend`, under the scratch directory. */
     const storeRoot = Effect.fn("locationsContract.storeRoot")(function* (
       name: string,
@@ -191,14 +204,7 @@ function locationsContract(homeBackend: StoreBackend): void {
           yield* Effect.promise(() => mkdir(plain));
           expect((yield* invoke("location.register", { path: plain })).status).toBe("failed");
           yield* Effect.promise(() => rm(gone, { recursive: true }));
-          const server = Bun.serve({
-            hostname: "127.0.0.1",
-            port: 0,
-            fetch: () => Response.json({ root: served }),
-          });
-          servers.push(server);
-          const url = `http://127.0.0.1:${server.port}`;
-          yield* writeUiPresence(served, url).pipe(Effect.provide(bunFileSystemLayer));
+          const url = yield* answerFor(served);
 
           const byPath = new Map((yield* list()).rows.map((row) => [row.path, row]));
           expect(byPath.get(jsonl)).toMatchObject({ status: "closed", backend: "jsonl" });

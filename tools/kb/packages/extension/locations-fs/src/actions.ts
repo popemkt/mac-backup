@@ -20,6 +20,15 @@ import {
 } from "@kb/locations";
 import { currentHome } from "./home.ts";
 
+/** The one path a location holds, or why it holds none to read. */
+function entryPath(entry: LocationEntry): { readonly path: string } | { readonly reason: string } {
+  const [path] = entry.paths;
+  if (path === undefined) return { reason: "the location holds no path" };
+  if (entry.paths.length > 1)
+    return { reason: `the location holds ${entry.paths.length} paths; keep one` };
+  return { path };
+}
+
 /** What a location is now, read from its path. */
 const rowOf = Effect.fn("ext.locations.row")(function* (
   roots: KbRootsPort,
@@ -27,15 +36,12 @@ const rowOf = Effect.fn("ext.locations.row")(function* (
   current: string,
 ): Effect.fn.Return<LocationRow, DomainError> {
   const { id, label, pinned } = entry;
-  const [path] = entry.paths;
-  if (path === undefined || entry.paths.length > 1) {
-    const reason =
-      path === undefined
-        ? "the location holds no path"
-        : `the location holds ${entry.paths.length} paths; keep one`;
-    return { id, label, pinned, path: path ?? "", current: false, status: "broken", reason };
+  const held = entryPath(entry);
+  if ("reason" in held) {
+    const path = entry.paths[0] ?? "";
+    return { id, label, pinned, path, current: false, status: "broken", reason: held.reason };
   }
-  const probe = yield* roots.probe(path);
+  const probe = yield* roots.probe(held.path);
   const at = { id, label, pinned, path: probe.path, current: probe.path === current };
   const { state } = probe;
   if (state.kind !== "store") return { ...at, status: state.kind, reason: state.reason };
@@ -76,6 +82,19 @@ const openHome = Effect.fn("ext.locations.openHome")(function* (
       ),
     );
   return { path: probe.path, session };
+});
+
+/** The home store's session and the location `id` in it; `not_found` when either is not there. */
+const homeEntry = Effect.fn("ext.locations.homeEntry")(function* (
+  roots: KbRootsPort,
+  id: string,
+): Effect.fn.Return<{ readonly home: KbContext; readonly entry: LocationEntry }, DomainError> {
+  const home = yield* openHome(roots);
+  if (home.session === null) return yield* domainError("not_found", home.reason);
+  const entry = locationEntries(home.session.nodes).find((each) => each.id === id);
+  if (entry === undefined)
+    return yield* domainError("not_found", `no location ${id} in the home store`, { id });
+  return { home: home.session, entry };
 });
 
 /** Commit a planned write in the home store's own session. */
@@ -148,15 +167,12 @@ export const locationRegisterEffect = Effect.fn("ext.locations.register")(functi
 export const locationForgetEffect = Effect.fn("ext.locations.forget")(function* (input: {
   readonly id: string;
 }): Effect.fn.Return<{ id: string; label: string; path: string }, DomainError, KbRoots> {
-  const roots = yield* KbRoots;
-  const home = yield* openHome(roots);
-  if (home.session === null) return yield* domainError("not_found", home.reason);
-  const entry = locationEntries(home.session.nodes).find(({ id }) => id === input.id);
-  const write = forgetWrites(home.session.nodes, input.id, yield* currentIso);
-  if (entry === undefined || write === null)
+  const { home, entry } = yield* homeEntry(yield* KbRoots, input.id);
+  const write = forgetWrites(home.nodes, entry.id, yield* currentIso);
+  if (write === null)
     return yield* domainError("not_found", `no location ${input.id} in the home store`, {
       id: input.id,
     });
-  yield* commitHome(home.session, write);
+  yield* commitHome(home, write);
   return { id: entry.id, label: entry.label, path: entry.paths[0] ?? "" };
 });
