@@ -429,14 +429,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Those pages gain a head (canvas-ui, graph-ui) that renders PageBackdrop.
 - **node** — `01M54CEKJJXNDPYNT55AR6KEV8`
 
-### GAP: canvas camera lives on the canvas document
-
-- **expected** — the projection (2d/3d) and saved pose are settings of the canvas's view node (roadmap decision 6)
-- **current** — camera {projection, pose} is a field of the JSON Canvas doc in sys.f.canvas (packages/extension/canvas/src/camera.ts)
-- **impact** — one camera per canvas, written together with its content
-- **closes** — view nodes (roadmap step 2), then canvas as a view type
-- **node** — `01M3S5DD5W4B3BSZMA6DE8ZVP8`
-
 ### GAP: canvas PNG export has no rasteriser
 
 - **expected** — ext.canvas.export {format: png} rasterises the canvas's SVG on the server.
@@ -1447,6 +1439,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move relationFieldsFor to @kb/model and have canvas read it.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M545DD34TP58TEN1Z6MC7ASJ`
+
+### GAP: canvas camera lives on the canvas document
+
+- **expected** — the projection (2d/3d) and saved pose are settings of the canvas's view node (roadmap decision 6)
+- **current** — camera {projection, pose} is a field of the JSON Canvas doc in sys.f.canvas (packages/extension/canvas/src/camera.ts)
+- **impact** — one camera per canvas, written together with its content
+- **closes** — view nodes (roadmap step 2), then canvas as a view type
+- **node** — `01M3S5DD5W4B3BSZMA6DE8ZVP8`
 
 ### GAP: canvas cards render outline's NodeContent
 
