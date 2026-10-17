@@ -58,6 +58,15 @@ export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./san
 export { useSandboxPorts, useSandboxTrust, type Asking, type SandboxTrust } from "./sandbox-run";
 export { SandboxFrame } from "./components/sandbox-frame";
 export { SandboxApprovalCard } from "./components/sandbox-approval-card";
+// A view's scripts: its event channel, and the host the family that keeps
+// scripts provides.
+export {
+  ScriptHostService,
+  createViewEvents,
+  type ScriptHostProps,
+  type ViewEvents,
+} from "./view-scripts";
+export { ViewScripts } from "./components/view-scripts";
 
 // The UI points: routes, views, sidebar sections, docks, node commands, and
 // the slot one view embeds another through.

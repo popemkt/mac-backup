@@ -208,7 +208,7 @@ export type {
   CanvasVAlign,
 } from "./style-fields.ts";
 export { CANVAS_IDS } from "./ids.ts";
-export { CanvasListView, CanvasParams, CanvasView } from "./view.ts";
+export { CANVAS_EVENTS, CanvasListView, CanvasParams, CanvasView } from "./view.ts";
 export { canvasExtension, canvasPlugin } from "./extension.ts";
 export {
   CANVAS_PRESET_KINDS,

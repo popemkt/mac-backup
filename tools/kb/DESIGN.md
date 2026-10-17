@@ -3623,6 +3623,40 @@ sends it more than 400 messages a second.
 - Promoting a code view to a view type is the same act, later
   (GAP-CODE-VIEW-PROMOTION below).
 
+### Scripts
+
+A script adds behaviour to a view, as a code view draws something: one
+system, one runner, one trust.
+
+- **A script is a node.** A `#script` node (`sys.tag.script`, the code
+  family's) keeps its code and grant in a code view's two fields
+  (`sys.f.code`, `sys.f.code.grant`); a node names its scripts in
+  `sys.f.scripts` (ref, many), read by `scriptIdsOf` as `hostViewIds` reads
+  `sys.f.views`, and `scriptOf` reads a script's code and grant
+  (`@kb/code` `script.ts`). The `#script` tag configures the code family
+  (`sys.f.configures`), so minting, editing or untagging a script is
+  configuration (Action registry → Approval): a person writes one freely,
+  an agent only with the owner's approval, a script never.
+- **A view declares what it tells a script** (`ViewKey.events`) and emits
+  it on a channel (`createViewEvents`, `@kb/ui-sdk`); it mounts
+  `ViewScripts` for the nodes it shows. The family that keeps scripts
+  provides the host that runs them (`ScriptHostService`, `ScriptsHost` in
+  `@kb/code-ui`), so the view names no script, field or runner, and the
+  host names no view. The canvas is the first such view: its board's
+  scripts run across its pages, and the page's own while it is shown.
+- **A script runs as code views do, with one difference: never untrusted.**
+  It runs on the page's one runner (`SandboxFrame`, `useSandboxTrust`,
+  `useSandboxPorts`), with its node as `kb.subject`, its grant, the
+  `script` actor and the view's events, hidden. A script reacts to a view
+  on its own and may write, so it runs only once a person has trusted its
+  `codeDigest` (and then in a Worker); until then it is listed with its
+  code and grant and a Trust gesture, and nothing of it runs. A call that
+  asks is the same card as a code view's.
+- **It writes through the view's actions.** A canvas script reads with
+  `kb.invoke("ext.canvas.describe", …)` and writes with the canvas verbs,
+  within its grant, as the `script` actor: locks, lints, approval and the
+  sys-write and configuration rules hold because they hold for the path.
+
 ### Snapshots
 
 A code view on a page (`render.view` as html, every `ui://kb/view/<id>`

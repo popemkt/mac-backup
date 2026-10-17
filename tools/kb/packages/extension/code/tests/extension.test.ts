@@ -8,6 +8,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import { ViewKeyPoint, type KbContext } from "@kb/contracts";
+import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
 import { makeKernel } from "@kb/plugin";
 import { CODE_IDS, CodeView, DEFAULT_GRANT, codeExtension, codePlugin } from "@kb/code";
 
@@ -27,12 +28,33 @@ function contributed() {
 }
 
 describe("code family", () => {
-  test("its declaration seeds the code fields under their frozen ids", () => {
+  test("its declaration seeds the code fields, the script tag and the scripts field", () => {
     expect(codeExtension.seed?.(AT).map((node) => node.id)).toEqual([
       "sys.f.code",
       "sys.f.code.grant",
+      "sys.tag.script",
+      "sys.f.scripts",
     ]);
-    expect(CODE_IDS).toEqual({ codeField: "sys.f.code", codeGrantField: "sys.f.code.grant" });
+    expect(CODE_IDS).toEqual({
+      codeField: "sys.f.code",
+      codeGrantField: "sys.f.code.grant",
+      scriptTag: "sys.tag.script",
+      scriptsField: "sys.f.scripts",
+    });
+  });
+
+  test("a script is configuration of the code family, and a node names its scripts by ref", () => {
+    const seed = codeExtension.seed?.(AT) ?? [];
+    const tag = seed.find((node) => node.id === CODE_IDS.scriptTag);
+    expect(tag?.props[SYSTEM_IDS.configuresField]).toEqual([
+      { t: "ref", v: extensionNodeId("code") },
+    ]);
+    expect(tag?.props[SYSTEM_IDS.fieldsField]).toEqual([
+      { t: "ref", v: CODE_IDS.codeField },
+      { t: "ref", v: CODE_IDS.codeGrantField },
+    ]);
+    const field = seed.find((node) => node.id === CODE_IDS.scriptsField);
+    expect(field?.props[SYSTEM_IDS.targetTagField]).toEqual([{ t: "ref", v: CODE_IDS.scriptTag }]);
   });
 
   test("its declaration lists the code view", () => {

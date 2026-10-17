@@ -11,4 +11,12 @@ export const CODE_IDS = {
    */
   codeField: "sys.f.code",
   codeGrantField: "sys.f.code.grant",
+  /**
+   * The `#script` tag: a node tagged with it is code that adds behaviour to
+   * a view, kept in the two fields above (DESIGN.md → Sandbox → Scripts).
+   * It configures the code family, so writing a script is configuration.
+   */
+  scriptTag: "sys.tag.script",
+  /** A node's scripts: the `#script` nodes run for it while a view shows it (ref, many). */
+  scriptsField: "sys.f.scripts",
 } as const;

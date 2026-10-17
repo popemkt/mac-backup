@@ -93,7 +93,8 @@ export const DATA_EVENT = "data";
 export const KbEvent = Schema.Struct({
   type: Schema.NonEmptyString,
   target: Schema.NullOr(Schema.String),
-  value: Schema.optionalKey(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])),
+  /** What the event carries: a control's value, or a view's own (a canvas's selected ids). */
+  value: Schema.optionalKey(Schema.Json),
 });
 export type KbEvent = typeof KbEvent.Type;
 

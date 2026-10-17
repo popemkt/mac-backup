@@ -3,6 +3,7 @@
  * the route, so a view node stores none; this module is their vocabulary.
  */
 import { Schema } from "effect";
+import { DATA_EVENT } from "@kb/sandbox";
 import { NoParams, viewKey } from "@kb/views";
 
 /** The namespace of the canvas views' ids: what draws them, the canvas family. */
@@ -26,5 +27,26 @@ export const CanvasListView = viewKey(
   NoParams.annotate({ description: "Every canvas in the workspace. It reads no settings." }),
 );
 
-/** One canvas, which owns its own viewport. */
-export const CanvasView = viewKey(`${CANVAS_NAMESPACE}.page`, "Canvas", CanvasParams);
+/**
+ * What a canvas tells the scripts run for it (DESIGN.md → Sandbox →
+ * Scripts), each a `kb/event` type:
+ * - `canvas.selection`: the items and edges now selected
+ *   (`value: {canvas, items, edges}`);
+ * - `canvas.change`: its document changed (`value: {canvas, lints}`, the
+ *   lints the change made and cleared);
+ * - `canvas.item.click`: an item was pressed (`target` its id,
+ *   `value: {canvas}`);
+ * - `canvas.page`: the page shown changed (`target` the page's node,
+ *   `value: {board}`).
+ */
+export const CANVAS_EVENTS = {
+  selection: "canvas.selection",
+  change: "canvas.change",
+  itemClick: "canvas.item.click",
+  page: "canvas.page",
+} as const;
+
+/** One canvas, which owns its own viewport; its scripts hear its events and the graph changing. */
+export const CanvasView = viewKey(`${CANVAS_NAMESPACE}.page`, "Canvas", CanvasParams, undefined, {
+  events: [...Object.values(CANVAS_EVENTS), DATA_EVENT],
+});

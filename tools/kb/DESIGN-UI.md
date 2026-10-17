@@ -2121,6 +2121,23 @@ placement `page`. It owns no route: a node opens it through
   which every run it hosts uses. The code's console goes to the
   page's log seam.
 
+### Scripts
+
+A view that runs scripts (DESIGN.md → Sandbox → Scripts; the canvas is the
+first) mounts the code family's host, which lists the scripts its subjects
+name in a small panel at the view's bottom left (`scripts-host.tsx`):
+
+- each script by its node's text and how it stands — "Not trusted: it does
+  not run", running, or the end's sentence;
+- **Review** opens its code and what its grant lets it ask; **Trust** calls
+  `sandbox.trust` with the digest of exactly that code and grant, as the
+  page's own (human) call, and the script starts; **Stop trusting** stops
+  it;
+- a call that asks shows the sandbox's approval card under its row.
+
+The panel is absent when no subject names a script. A trusted script's frame
+is hidden: a script draws nothing until it has an overlay to draw into.
+
 ### Optional UI plugins
 
 Every optional family (canvas, chart, code, the lab, the agent) is on or

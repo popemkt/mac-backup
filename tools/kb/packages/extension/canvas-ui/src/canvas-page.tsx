@@ -9,10 +9,14 @@ import {
   useRef,
   useState,
 } from "react";
-import type { CanvasItemLink, CanvasNode } from "@kb/canvas";
+import type { CanvasDoc, CanvasItemLink, CanvasLint, CanvasNode } from "@kb/canvas";
 import {
+  CANVAS_EVENTS,
+  CanvasView,
   boardOf,
   canvasMembership,
+  lintCanvas,
+  lintDiff,
   nextPageName,
   canvasPages,
   canvasWorld,
@@ -34,6 +38,8 @@ import {
   useIndex,
   useNodes,
   useSchema,
+  ViewScripts,
+  createViewEvents,
 } from "@kb/ui-sdk";
 import { useCanvasProjection } from "./use-canvas-projection";
 import { CanvasOverlays } from "./canvas-overlays";
@@ -84,6 +90,9 @@ const Canvas3dStage = lazy(() => import("./canvas-3d-stage"));
 function cardIdAt(target: EventTarget | null): string | undefined {
   return asElement(target)?.closest<HTMLElement>("[data-card-id]")?.dataset.cardId;
 }
+
+/** A lint as a script is told it: plain data. */
+const told = ({ rule, ids, message }: CanvasLint) => ({ rule, ids: [...ids], message });
 
 /** Open page `id` of a board, as its tab does. */
 const openPage = (id: string) => navigate(canvasPath({ id }));
@@ -170,6 +179,17 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
     setItemInspectorAnchor,
     itemInspectorAnchor,
   } = useCanvasSelection(doc, byId, membership);
+  /** The events the canvas tells its scripts (`CANVAS_EVENTS`), on one channel for its life. */
+  const [scriptEvents] = useState(createViewEvents);
+  /** An item pressed, in either projection: the scripts hear it, then the press does what it does. */
+  const pressCard: typeof onCardPointerDown = (card, ...rest) => {
+    scriptEvents.emit({
+      type: CANVAS_EVENTS.itemClick,
+      target: card.id,
+      value: { canvas: canvasId },
+    });
+    onCardPointerDown(card, ...rest);
+  };
 
   const applyPointerResult = useCallback(
     (next: PointerResult) => {
@@ -314,6 +334,43 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
   });
   /** What the canvas reads of kb around it: where its links lead. */
   const world = useMemo(() => canvasWorld(nodes.values()), [nodes]);
+  const board = boardOf(world, canvasId);
+  /** The nodes whose scripts run here: the board's, across its pages, and this page's. */
+  const scripted = useMemo(
+    () => (board === canvasId ? [canvasId] : [board, canvasId]),
+    [board, canvasId],
+  );
+  useEffect(() => {
+    scriptEvents.emit({
+      type: CANVAS_EVENTS.selection,
+      target: null,
+      value: { canvas: canvasId, items: [...selection.nodeIds], edges: [...selection.edgeIds] },
+    });
+  }, [scriptEvents, canvasId, selection]);
+  useEffect(() => {
+    scriptEvents.emit({ type: CANVAS_EVENTS.page, target: canvasId, value: { board } });
+  }, [scriptEvents, canvasId, board]);
+  /** The lints of the document the scripts last heard about, so a change says what it made and cleared. */
+  const heardLints = useRef<{
+    readonly canvas: string;
+    readonly doc: CanvasDoc;
+    readonly lints: CanvasLint[];
+  } | null>(null);
+  useEffect(() => {
+    const before = heardLints.current;
+    // The world moving under the same document is no change to it.
+    if (before?.canvas === canvasId && before.doc === doc) return;
+    const lints = lintCanvas(canvasId, doc, world);
+    heardLints.current = { canvas: canvasId, doc, lints };
+    // The first document of a page is where it stands, not a change.
+    if (before?.canvas !== canvasId) return;
+    const { new: made, resolved } = lintDiff(before.lints, lints);
+    scriptEvents.emit({
+      type: CANVAS_EVENTS.change,
+      target: null,
+      value: { canvas: canvasId, lints: { new: made.map(told), resolved: resolved.map(told) } },
+    });
+  }, [scriptEvents, canvasId, doc, world]);
   /** An item on this canvas shown and selected; nothing when it is not on it. */
   const showItem = (id: string) => {
     const shown = byId.get(id);
@@ -509,7 +566,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
             if (pressReaches(card)) return;
             e.preventDefault();
             e.stopPropagation();
-            onCardPointerDown(card, e, undefined, (id) => startMoveForSelection(e, id));
+            pressCard(card, e, undefined, (id) => startMoveForSelection(e, id));
           }}
           onDoubleClickCapture={(e) => {
             const card = byId.get(cardIdAt(e.target) ?? "");
@@ -554,7 +611,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
             onPointerCancel={cancelPointer}
             onDoubleClickStage={onDoubleClickStage}
             handleCardPointerDown={(card, event, anchor) => {
-              onCardPointerDown(card, event, anchor, (id) => startMoveForSelection(event, id));
+              pressCard(card, event, anchor, (id) => startMoveForSelection(event, id));
             }}
             handleEdgeClick={onEdgeClick}
             editing={faces.flat}
@@ -584,7 +641,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
                 onError={projection.onSceneError}
                 onPainter={drawing.onPainter}
                 onCardPress={(card, press, startMove) =>
-                  onCardPointerDown(card, press, { x: press.clientX, y: press.clientY }, startMove)
+                  pressCard(card, press, { x: press.clientX, y: press.clientY }, startMove)
                 }
                 onCardDoubleClick={faces.doubleClick}
                 dispatchPointer={dispatchPointer}
@@ -631,6 +688,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
           />
         )}
         <CanvasShortcutsSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+        <ViewScripts subjects={scripted} view={CanvasView} events={scriptEvents} />
         <CanvasOverlays
           transforming={modal}
           scope={scope === null ? null : (byId.get(scope) ?? null)}

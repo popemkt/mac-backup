@@ -3,8 +3,16 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
-import { CANVAS_IDS, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
-import { syncUiPlugins, SYSTEM_IDS, type OutlineNode } from "@kb/ui-sdk";
+import { CANVAS_IDS, CanvasView, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
+import { definePlugin } from "@kb/plugin";
+import {
+  ScriptHostService,
+  syncUiPlugins,
+  SYSTEM_IDS,
+  type OutlineNode,
+  type ScriptHostProps,
+} from "@kb/ui-sdk";
+import type { KbEvent } from "@kb/sandbox";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 
 const { persistCanvasDoc, createCanvasNode } = vi.hoisted(() => ({
@@ -106,6 +114,53 @@ describe("CanvasPage pointer interactions", () => {
     act(() => root.unmount());
     container.remove();
     vi.restoreAllMocks();
+  });
+
+  it("tells the scripts host its subjects, view and events: a press, the selection, a change", async () => {
+    const hosted: ScriptHostProps[] = [];
+    const heard: KbEvent[] = [];
+    const scripts = definePlugin({
+      name: "scripts",
+      apply: (ctx) =>
+        ctx.provide(ScriptHostService, (props: ScriptHostProps) => {
+          if (!hosted.includes(props)) {
+            hosted.push(props);
+            if (hosted.length === 1) props.events.listen((event) => heard.push(event));
+          }
+          return null;
+        }),
+    });
+    act(() => syncUiPlugins([testHostPlugin(host), scripts]));
+    try {
+      await act(async () => {
+        root.render(<CanvasPage canvasId="canvas" />);
+      });
+      const last = present(hosted.at(-1), "script host props");
+      expect(last.subjects).toEqual(["canvas"]);
+      expect(last.view).toBe(CanvasView);
+      const cardA = present(
+        container.querySelector('[data-card-id="a"] .group\\/card'),
+        "first card",
+      );
+      dispatchPointer(cardA, "pointerdown", { button: 0, clientX: 60, clientY: 60 });
+      dispatchPointer(cardA, "pointermove", { button: 0, clientX: 90, clientY: 60 });
+      dispatchPointer(cardA, "pointermove", { button: 0, clientX: 100, clientY: 60 });
+      dispatchPointer(cardA, "pointerup", { button: 0, clientX: 100, clientY: 60 });
+      await settle();
+      expect(heard).toContainEqual({
+        type: "canvas.item.click",
+        target: "a",
+        value: { canvas: "canvas" },
+      });
+      expect(heard).toContainEqual({
+        type: "canvas.selection",
+        target: null,
+        value: { canvas: "canvas", items: ["a"], edges: [] },
+      });
+      expect(heard.some((event) => event.type === "canvas.change")).toBe(true);
+    } finally {
+      act(() => syncUiPlugins([testHostPlugin(host)]));
+    }
   });
 
   it("a board's pages are a strip; a tab or ⌥→ opens the next, and an item named is selected", async () => {

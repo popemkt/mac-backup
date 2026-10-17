@@ -2,10 +2,13 @@ import { lazy } from "react";
 import { Effect } from "effect";
 import { CodeView, DEFAULT_GRANT, codeExtension, codePlugin } from "@kb/code";
 import { definePlugin } from "@kb/plugin";
-import { BrowserHostService, provideView, ViewPoint } from "@kb/ui-sdk";
+import { BrowserHostService, provideView, ScriptHostService, ViewPoint } from "@kb/ui-sdk";
 
 /** The code view's page, in a chunk of its own. */
 const CodePage = lazy(() => import("./code-page").then((m) => ({ default: m.CodePage })));
+
+/** The host of a view's scripts, in a chunk of its own: a view with no scripts loads none of it. */
+const ScriptsHost = lazy(() => import("./scripts-host").then((m) => ({ default: m.ScriptsHost })));
 
 /**
  * Code views (generative UI mode C): the `code.view` view, a view node's
@@ -17,6 +20,10 @@ const CodePage = lazy(() => import("./code-page").then((m) => ({ default: m.Code
  * as a child: the code view's key reaches the page kernel's catalog from the
  * family, as the server's does, and with no engine bound on the page its
  * isomorphic actions show a code view as its text.
+ *
+ * Scripts are code too, so it provides the host that runs any view's
+ * scripts (`ScriptHostService`): a view emits its events and names the
+ * nodes it shows, and this family finds and runs their scripts.
  */
 export const codeUiPlugin = definePlugin({
   name: codeExtension.name,
@@ -25,6 +32,7 @@ export const codeUiPlugin = definePlugin({
     Effect.all(
       [
         ctx.plugin(codePlugin()),
+        ctx.provide(ScriptHostService, ScriptsHost),
         ctx.contribute(
           ViewPoint,
           provideView(CodeView, {

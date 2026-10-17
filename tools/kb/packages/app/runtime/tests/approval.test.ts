@@ -26,6 +26,13 @@ const remove = (id: string, rest: Partial<ActionInvocation>): ActionInvocation =
   ...rest,
 });
 
+/** A node.add call minting the script `id`, with the envelope fields a test varies. */
+const mint = (id: string, rest: Partial<ActionInvocation>): ActionInvocation => ({
+  id: "node.add",
+  input: { id, text: "badges", tags: ["script"] },
+  ...rest,
+});
+
 describe("approval policies in the invoke core", () => {
   let root: string;
   beforeEach(async () => {
@@ -70,6 +77,32 @@ describe("approval policies in the invoke core", () => {
     expect(
       await invoke(ctx, { id: "node.add", input: { text: "plain" }, actor: "script" }),
     ).toMatchObject({ status: "succeeded" });
+  });
+
+  test("a script is configuration: an agent writes one with approval, a script never, a person freely", async () => {
+    const ctx = await openKb(root);
+    expect(await invoke(ctx, mint("s.agent", { actor: "agent" }))).toMatchObject({
+      status: "failed",
+      code: "approval_required",
+      details: { writes: "configuration" },
+    });
+    expect(await invoke(ctx, mint("s.agent", { actor: "agent", approved: true }))).toMatchObject({
+      status: "succeeded",
+    });
+    expect(await invoke(ctx, mint("s.script", { actor: "script" }))).toMatchObject({
+      status: "failed",
+      details: { writes: "configuration" },
+    });
+    expect(
+      await invoke(ctx, {
+        id: "node.update",
+        input: { id: "s.agent", text: "rewritten" },
+        actor: "script",
+      }),
+    ).toMatchObject({ status: "failed", details: { writes: "configuration" } });
+    expect(await invoke(ctx, mint("s.person", { actor: "human" }))).toMatchObject({
+      status: "succeeded",
+    });
   });
 
   test("only a person trusts code, by the digest of what runs, and never in the graph", async () => {

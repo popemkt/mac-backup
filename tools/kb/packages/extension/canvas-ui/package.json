@@ -27,6 +27,7 @@
     "ulid": "catalog:"
   },
   "devDependencies": {
+    "@kb/sandbox": "workspace:*",
     "@kb/ui-test-kit": "workspace:*",
     "@storybook/react-vite": "catalog:",
     "@types/bun": "catalog:",

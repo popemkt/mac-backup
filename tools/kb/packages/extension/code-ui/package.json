@@ -7,7 +7,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test"
   },
   "dependencies": {
     "@kb/code": "workspace:*",
@@ -19,7 +20,15 @@
     "react": "catalog:"
   },
   "devDependencies": {
-    "@types/react": "catalog:"
+    "@kb/model": "workspace:*",
+    "@kb/ui-test-kit": "workspace:*",
+    "@kb/views": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "happy-dom": "catalog:",
+    "react-dom": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   },
   "nx": {
     "tags": [

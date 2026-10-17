@@ -494,6 +494,7 @@
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
+        "@kb/sandbox": "workspace:*",
         "@kb/views": "workspace:*",
         "effect": "catalog:",
       },
@@ -523,6 +524,7 @@
         "ulid": "catalog:",
       },
       "devDependencies": {
+        "@kb/sandbox": "workspace:*",
         "@kb/ui-test-kit": "workspace:*",
         "@storybook/react-vite": "catalog:",
         "@types/bun": "catalog:",
@@ -619,7 +621,15 @@
         "react": "catalog:",
       },
       "devDependencies": {
+        "@kb/model": "workspace:*",
+        "@kb/ui-test-kit": "workspace:*",
+        "@kb/views": "workspace:*",
         "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "happy-dom": "catalog:",
+        "react-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/extension/collections": {
