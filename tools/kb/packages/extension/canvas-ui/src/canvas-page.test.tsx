@@ -7,15 +7,16 @@ import { CANVAS_IDS, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import { syncUiPlugins, SYSTEM_IDS, type OutlineNode } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 
-const { persistCanvasDoc } = vi.hoisted(() => ({
+const { persistCanvasDoc, createCanvasNode } = vi.hoisted(() => ({
   persistCanvasDoc: vi
     .fn<(canvasId: string, doc: CanvasDoc, opts?: unknown) => Promise<boolean>>()
     .mockResolvedValue(true),
+  createCanvasNode: vi.fn<(text?: string, parent?: string) => Promise<string | null>>(),
 }));
 
 vi.mock("./canvas-api", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
-  return { ...actual, persistCanvasDoc };
+  return { ...actual, persistCanvasDoc, createCanvasNode };
 });
 
 import { CanvasPage } from "./canvas-page";
@@ -133,6 +134,29 @@ describe("CanvasPage pointer interactions", () => {
     window.history.pushState({}, "", "/canvas/canvas");
     act(() => [...strip.querySelectorAll("button")][1]?.click());
     expect(window.location.pathname).toBe("/canvas/p2");
+  });
+
+  it("new page makes one page however often it is pressed, under the next free name", async () => {
+    const making = Promise.withResolvers<string | null>();
+    createCanvasNode.mockReturnValue(making.promise);
+    const page: OutlineNode = { ...canvasNode, id: "p3", text: "Page 2", parentId: "canvas" };
+    host.setNodes([{ ...canvasNode, children: ["p3"] }, page]);
+    await act(async () => {
+      root.render(<CanvasPage canvasId="canvas" />);
+    });
+    const create = () =>
+      [...container.querySelectorAll("nav[aria-label='Pages'] button")]
+        .find((b) => b.textContent === "New page")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    act(() => {
+      create();
+    });
+    act(() => {
+      create();
+    });
+    expect(createCanvasNode.mock.calls).toEqual([["Page 3", "canvas"]]);
+    await act(async () => making.resolve("p4"));
+    expect(window.location.pathname).toBe("/canvas/p4");
   });
 
   it("selects, drags, marquees, pans, resizes, connects, and undoes through the DOM", async () => {

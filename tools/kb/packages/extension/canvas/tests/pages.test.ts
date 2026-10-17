@@ -10,6 +10,7 @@ import {
   canvasPages,
   canvasWorld,
   lintCanvas,
+  nextPageName,
   stringifyCanvasDoc,
   type CanvasItemLink,
 } from "../src/index.ts";
@@ -74,5 +75,11 @@ describe("pages", () => {
     expect(unreachable("b")).toEqual(["p3"]);
     expect(unreachable("p11")).toEqual(["p3"]);
     expect(unreachable("p2")).toEqual([]);
+  });
+
+  test("a new page takes the next name no page has", () => {
+    expect(nextPageName(["Board"])).toBe("Page 2");
+    expect(nextPageName(["Board", "Page 3"])).toBe("Page 4");
+    expect(nextPageName(["Board", "Page 2", "Page 3"])).toBe("Page 4");
   });
 });

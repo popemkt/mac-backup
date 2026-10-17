@@ -36,6 +36,18 @@ export function canvasPages(world: CanvasWorld, id: NodeId): NodeId[] {
   return pages;
 }
 
+/**
+ * The name a new page takes among pages named `taken`: "Page N", N the
+ * page it will be, or the next number no page is named by — so a page
+ * deleted from the middle never makes a new one repeat a name.
+ */
+export function nextPageName(taken: readonly string[]): string {
+  const names = new Set(taken);
+  let n = taken.length + 1;
+  while (names.has(`Page ${String(n)}`)) n += 1;
+  return `Page ${String(n)}`;
+}
+
 /** The pages each page's items lead to (`link`), in its document. */
 function linkedPages(doc: CanvasDoc, pages: ReadonlySet<NodeId>): NodeId[] {
   return doc.nodes.flatMap((item) =>

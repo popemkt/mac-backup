@@ -13,6 +13,7 @@ import type { CanvasItemLink, CanvasNode } from "@kb/canvas";
 import {
   boardOf,
   canvasMembership,
+  nextPageName,
   canvasPages,
   canvasWorld,
   editItem,
@@ -343,10 +344,19 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
     const next = pages[pages.findIndex((page) => page.id === canvasId) + step];
     if (next !== undefined) openPage(next.id);
   };
-  /** A new page: a canvas under the board, opened. */
+  /** Whether a new page is being made: a second press waits for it rather than making another. */
+  const makingPage = useRef(false);
+  /** A new page: a canvas under the board, named by the next free name, opened. */
   const newPage = async () => {
-    const id = await createCanvasNode(`Page ${pages.length + 1}`, boardOf(world, canvasId));
-    if (id !== null) openPage(id);
+    if (makingPage.current) return;
+    makingPage.current = true;
+    try {
+      const name = nextPageName(pages.map((page) => page.label));
+      const id = await createCanvasNode(name, boardOf(world, canvasId));
+      if (id !== null) openPage(id);
+    } finally {
+      makingPage.current = false;
+    }
   };
   /** The item the route names, shown once as the canvas opens with it on. */
   const arrived = useRef<string | null>(null);
