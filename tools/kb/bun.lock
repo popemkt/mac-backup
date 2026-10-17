@@ -921,6 +921,7 @@
       "name": "@kb/themes-ui",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/themes": "workspace:*",
         "@kb/ui-sdk": "workspace:*",

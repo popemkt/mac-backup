@@ -1,14 +1,15 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
 import { themesExtension, themesPlugin } from "@kb/themes";
-import { DesignSystemPoint, provideDesignSystem, type DesignSystemKey } from "@kb/ui-sdk";
+import type { SeedOption } from "@kb/model";
+import { DesignSystemPoint, provideDesignSystem } from "@kb/ui-sdk";
 import paper from "./design-systems/paper.css?raw";
 import terminal from "./design-systems/terminal.css?raw";
 
 /** Warm off-white and ink, an ink-blue accent and the platform serif. */
-const PAPER: DesignSystemKey = { id: "themes.paper", label: "Paper" };
+const PAPER: SeedOption = { id: "themes.paper", label: "Paper" };
 /** Dark-first phosphor green, one monospace face throughout. */
-const TERMINAL: DesignSystemKey = { id: "themes.terminal", label: "Terminal" };
+const TERMINAL: SeedOption = { id: "themes.terminal", label: "Terminal" };
 
 /**
  * The themes family's page entry: Paper and Terminal, each contributed to

@@ -189,6 +189,12 @@ export {
   type SeedSource,
   type SeedView,
 } from "./seed-fold.ts";
+export {
+  declaredChoice,
+  declaredOptionId,
+  type DeclaredOptions,
+  type SeedOption,
+} from "./declared-option.ts";
 export { applyTx, diffTx, txIntegrityError } from "./tx.ts";
 export type { KbTx, StoreTx } from "./tx.ts";
 

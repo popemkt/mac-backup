@@ -8,10 +8,11 @@
  * contributed: what the page paints while no contributed system is chosen.
  */
 import { definePlugin } from "@kb/plugin";
-import { DesignSystemPoint, provideDesignSystem, type DesignSystemKey } from "@kb/ui-sdk";
+import type { SeedOption } from "@kb/model";
+import { DesignSystemPoint, provideDesignSystem } from "@kb/ui-sdk";
 
 /** Core's default: layer 1, under its own id. */
-const KB_DESIGN_SYSTEM: DesignSystemKey = { id: "kb", label: "kb" };
+const KB_DESIGN_SYSTEM: SeedOption = { id: "kb", label: "kb" };
 
 export const designSystemsUiPlugin = definePlugin({
   name: "design-systems",

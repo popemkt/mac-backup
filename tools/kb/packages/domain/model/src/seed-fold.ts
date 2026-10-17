@@ -2,13 +2,15 @@
  * The bundled fold (DESIGN.md → Extension families → the seed is the bundled
  * fold): every declaration's seed nodes, the node each declaration derives
  * under `sys.extensions`, the option node each declared view derives under
- * `sys.views`, the option node each declared backdrop derives under
- * `sys.f.backdrop`, and the default view type its one provider declares, folded
+ * `sys.views`, the option node each declared option (a backdrop) derives
+ * under the field of its kind, and the default view type its one provider
+ * declares, folded
  * into the seed a store is opened with, together with which declaration
  * each folded node came from.
  */
 import { approvalPolicyNode, type ApprovalPolicy } from "./approval-policy.ts";
-import { backdropOptionId, type SeedBackdrop } from "./backdrop.ts";
+import { BACKDROP_OPTIONS, type SeedBackdrop } from "./backdrop.ts";
+import { declaredOptionId, type DeclaredOptions, type SeedOption } from "./declared-option.ts";
 import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, nowIso } from "./model.ts";
 import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
 
@@ -107,11 +109,20 @@ function policyNode(source: SeedSource, { text, ...policy }: SeedPolicy, at: str
   return approvalPolicyNode(base, policy);
 }
 
-/** The option node that names `backdrop` under `sys.f.backdrop`. */
-function backdropOptionNode(backdrop: SeedBackdrop, at: string): KbNode {
+/**
+ * Each kind of declared option the fold derives, in the order its options
+ * are filed, and where a source lists the things of that kind.
+ */
+const DECLARED_KINDS: readonly {
+  readonly kind: DeclaredOptions;
+  readonly of: (source: SeedSource) => readonly SeedOption[] | undefined;
+}[] = [{ kind: BACKDROP_OPTIONS, of: (source) => source.backdrops }];
+
+/** The option node that names the declared `option` among `kind`'s, a child of its field. */
+function declaredOptionNode(kind: DeclaredOptions, option: SeedOption, at: string): KbNode {
   return {
-    id: backdropOptionId(backdrop.id),
-    text: backdrop.label,
+    id: declaredOptionId(kind, option.id),
+    text: option.label,
     props: {},
     children: [],
     createdAt: at,
@@ -157,7 +168,7 @@ function fileUnder(nodes: readonly KbNode[], rootId: string, derived: readonly K
  * One fold, read two ways: the seed a store is opened with, and its
  * provenance, the name of the source each of those nodes came from. A
  * source owns its seed nodes, the option node of each view and each
- * backdrop it declares, and its own node; the list nodes the derived ones are filed under stay their
+ * declared option it declares, and its own node; the list nodes the derived ones are filed under stay their
  * declarer's. The owner is known only here, where the fold already proves
  * each id has exactly one, so nothing else keeps a second copy of it.
  */
@@ -170,9 +181,9 @@ export interface FoldedSeed {
  * The seed a store is opened with: every source's nodes, in source order;
  * every source's own node, a child of `sys.extensions` in the same order;
  * and every source's views as option nodes, children of `sys.views` in the
- * same order; every source's backdrops as option nodes, children of
- * `sys.f.backdrop` in the same order; with `sys.views` naming the default view type its one
- * provider declares (`defaultViewProps`). Each derived node is placed right
+ * same order; every source's declared options as option nodes, children of
+ * the field of their kind (`sys.f.backdrop`) in the same order; with
+ * `sys.views` naming the default view type its one provider declares (`defaultViewProps`). Each derived node is placed right
  * after its list. Each node's owner comes with it ({@link FoldedSeed}).
  * Pure data: it opens nothing, and it throws on an id two sources declare,
  * because that is a bundling defect no store can repair.
@@ -182,21 +193,29 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     name: source.name,
     seed: source.seed?.(at) ?? [],
     options: (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
-    backdrops: (source.backdrops ?? []).map((backdrop) => backdropOptionNode(backdrop, at)),
+    declared: DECLARED_KINDS.map(({ kind, of }) =>
+      (of(source) ?? []).map((option) => declaredOptionNode(kind, option, at)),
+    ),
     policies: (source.policies ?? []).map((policy) => policyNode(source, policy, at)),
     own: extensionNode(source, at),
   }));
+  const withViews = fileUnder(
+    parts.flatMap((part) => part.seed),
+    SYSTEM_IDS.viewsRoot,
+    parts.flatMap((part) => part.options),
+  );
+  const withDeclared = DECLARED_KINDS.reduce(
+    (nodes, { kind }, row) =>
+      fileUnder(
+        nodes,
+        kind.field,
+        parts.flatMap((part) => part.declared[row] ?? []),
+      ),
+    withViews,
+  );
   const folded = fileUnder(
     fileUnder(
-      fileUnder(
-        fileUnder(
-          parts.flatMap((part) => part.seed),
-          SYSTEM_IDS.viewsRoot,
-          parts.flatMap((part) => part.options),
-        ),
-        SYSTEM_IDS.backdropField,
-        parts.flatMap((part) => part.backdrops),
-      ),
+      withDeclared,
       SYSTEM_IDS.approvalPolicies,
       parts.flatMap((part) => part.policies),
     ),
@@ -217,7 +236,7 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     ),
     owners: new Map(
       parts.flatMap((part) =>
-        [...part.seed, ...part.options, ...part.backdrops, ...part.policies, part.own].map(
+        [...part.seed, ...part.options, ...part.declared.flat(), ...part.policies, part.own].map(
           (node) => [node.id, part.name] as const,
         ),
       ),

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/themes": "workspace:*",
     "@kb/ui-sdk": "workspace:*",

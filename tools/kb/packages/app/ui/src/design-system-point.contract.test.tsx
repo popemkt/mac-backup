@@ -19,6 +19,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { SeedOption } from "@kb/model";
 import { definePlugin } from "@kb/plugin";
 import {
   browserHost,
@@ -28,7 +29,6 @@ import {
   provideDesignSystem,
   syncUiPlugins,
   type DesignSystem,
-  type DesignSystemKey,
 } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
@@ -73,7 +73,7 @@ const block = (selector: string, decls: readonly (readonly [string, string])[]) 
   `${selector} {\n${decls.map(([token, value]) => `  ${token}: ${value};`).join("\n")}\n}\n`;
 
 /** A plugin's own system: layer 1's values restated under its id, so it is complete by construction. */
-const PLAIN_KEY: DesignSystemKey = { id: "plain.plain", label: "Plain" };
+const PLAIN_KEY: SeedOption = { id: "plain.plain", label: "Plain" };
 const PLAIN_SHEET =
   block(baseSelector(PLAIN_KEY.id), restated(LAYER1.base)) +
   block(darkSelector(PLAIN_KEY.id), restated(LAYER1.dark));

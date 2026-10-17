@@ -45,7 +45,7 @@ import {
   type ViewKey,
 } from "@kb/views";
 import { toast } from "./toast";
-import type { BackdropDirection, BackdropStrength, SeedBackdrop } from "@kb/model";
+import type { BackdropDirection, BackdropStrength, SeedBackdrop, SeedOption } from "@kb/model";
 import type { OutlineNode } from "./types";
 
 /**
@@ -310,21 +310,15 @@ export function provideBackdrop(
  * system paints while its plugin is loaded and is gone when it unloads.
  */
 export interface DesignSystem {
-  readonly key: DesignSystemKey;
+  readonly key: SeedOption;
   readonly stylesheet: string;
-}
-
-/** A design system as its family names it: its id and what a picker calls it. */
-export interface DesignSystemKey {
-  readonly id: string;
-  readonly label: string;
 }
 
 export const DesignSystemPoint = Point<DesignSystem>()("ui.design-systems");
 
 /** The design system its family names `key`, as its page plugin contributes it (`provideBackdrop`). */
 export function provideDesignSystem(
-  key: DesignSystemKey,
+  key: SeedOption,
   system: Omit<DesignSystem, "key">,
 ): ContributionEntry<DesignSystem> {
   return provideDeclared({ key, ...system });
@@ -338,7 +332,7 @@ export function provideDesignSystem(
  * family part and is contributed as it is.
  */
 interface Keyed {
-  readonly key: { readonly id: string };
+  readonly key: SeedOption;
 }
 
 function provideDeclared<T extends Keyed>(value: T): ContributionEntry<T> {

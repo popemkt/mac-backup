@@ -6,32 +6,30 @@
  * to one of its field's children: the backdrops are the options the seed
  * fold derives from the families' declarations, as it derives views'.
  */
+import {
+  declaredChoice,
+  declaredOptionId,
+  type DeclaredOptions,
+  type SeedOption,
+} from "./declared-option.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
 import { firstRef } from "./node-config.ts";
 
 /**
- * A backdrop as a declaration names it: its id, `<family>.<local id>`, the
- * id its contribution answers to in the page's backdrop point, and the
- * label its option node carries. The option is derived from it and never
- * declared a second time.
+ * A backdrop as a declaration names it: a declared option, whose id its
+ * contribution answers to in the page's backdrop point.
  */
-export interface SeedBackdrop {
-  readonly id: string;
-  readonly label: string;
-}
+export type SeedBackdrop = SeedOption;
 
-const BACKDROP_OPTION_PREFIX = "sys.backdrop.";
+/** The backdrops' options: the children of `sys.f.backdrop`. */
+export const BACKDROP_OPTIONS: DeclaredOptions = {
+  field: SYSTEM_IDS.backdropField,
+  prefix: "sys.backdrop.",
+};
 
 /** The option node that names the backdrop `id` under `sys.f.backdrop`. */
 export function backdropOptionId(id: string): NodeId {
-  return `${BACKDROP_OPTION_PREFIX}${id}`;
-}
-
-/** The backdrop id the option node `optionId` names; none for any other id. */
-function backdropIdOf(optionId: NodeId | undefined): string | undefined {
-  return optionId?.startsWith(BACKDROP_OPTION_PREFIX) === true
-    ? optionId.slice(BACKDROP_OPTION_PREFIX.length)
-    : undefined;
+  return declaredOptionId(BACKDROP_OPTIONS, id);
 }
 
 export const BACKDROP_STRENGTHS = ["subtle", "soft", "vivid"] as const;
@@ -87,12 +85,8 @@ export function backdropChoice(
   const held = sources.filter((props): props is Props => props !== undefined);
   const first = <V>(read: (props: Props) => V | undefined): V | undefined =>
     held.map(read).find((value) => value !== undefined);
-  const backdrop = first((props) => {
-    const id = backdropIdOf(firstRef(SYSTEM_IDS.backdropField)(props));
-    return id !== undefined && contributed.includes(id) ? id : undefined;
-  });
   return {
-    backdrop: backdrop ?? null,
+    backdrop: declaredChoice(BACKDROP_OPTIONS, held, contributed),
     strength:
       first((props) =>
         optionOf(
