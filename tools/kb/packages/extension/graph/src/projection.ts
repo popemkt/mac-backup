@@ -3,21 +3,16 @@
  * its undirected view, with the edges that join each pair kept whole, so a
  * walk is free to cross an edge against its direction and still say which
  * way the edge points. Trace and suggest both read it, over the edges
- * `collectEdges` projects.
+ * `collectEdges` projects among the nodes the caller chose
+ * (`visibleNodes`), so its adjacency and every degree are of those nodes.
  */
 import { isSysPrefixed, SYSTEM_IDS } from "@kb/model";
 import { collectEdges, type LensEdge, type LensSource } from "./edges.ts";
 import type { EdgeKind } from "./lens.ts";
-import { isScaffolding } from "./scaffolding.ts";
 
-/** A node set's edges by kind, the tags each node carries, and which nodes are scaffolding. */
+/** A node set's edges by kind, and the tags each node carries. */
 export interface GraphProjection {
   readonly edges: readonly LensEdge[];
-  /**
-   * The nodes the graph elides (`isScaffolding`). A walk never routes
-   * through one, and suggest never offers one, unless asked to.
-   */
-  readonly scaffolding: ReadonlySet<string>;
   /**
    * Each node's tags: the targets of its `sys.f.type` that are not system
    * nodes, read from the nodes whatever the kinds, because a shared tag is a
@@ -40,7 +35,6 @@ export function projectionOf(
   }
   return {
     edges: collectEdges(nodes, new Set(nodes.map((n) => n.id)), kinds),
-    scaffolding: new Set(nodes.filter(isScaffolding).map((n) => n.id)),
     tags,
   };
 }

@@ -9,9 +9,9 @@ import type { WireNode } from "@kb/contracts";
 import {
   collectEdges,
   decodePerspective,
-  isScaffolding,
   resolvePerspective,
   traceOf,
+  visibleNodes,
   type LensEdge,
   DEFAULT_CLUSTER_BY,
   DEFAULT_FIXED_COLOR,
@@ -216,7 +216,7 @@ export function idsFromQueryRows(rows: unknown[][], known: Set<string>): Set<str
 }
 
 export interface ExtractLensOptions {
-  /** When true, keep the scaffolding (`@kb/graph`'s `isScaffolding`). Default false. */
+  /** When true, keep the scaffolding (`@kb/graph`'s `visibleNodes`). Default false. */
   includeSystemNodes?: boolean;
   /**
    * Ontology scope: intersect the lens node set with these ids, so the graph
@@ -234,10 +234,9 @@ function resolveNodeSet(
 ): { nodeSet: Set<string>; queryError: string | null } {
   const includeSystem = opts.includeSystemNodes === true;
   const restrictTo = opts.restrictTo;
-  const candidates = wireNodes.filter((n) => {
-    if (restrictTo && !restrictTo.has(n.id)) return false;
-    return includeSystem || !isScaffolding(n);
-  });
+  const candidates = visibleNodes(wireNodes, { includeSystem }).filter(
+    (n) => !restrictTo || restrictTo.has(n.id),
+  );
   const all = new Set(candidates.map((n) => n.id));
   const edn = perspective.query.trim();
   if (!edn) return { nodeSet: tracedSet(candidates, all, perspective), queryError: null };
@@ -254,19 +253,16 @@ function resolveNodeSet(
   }
 }
 
-/** The nodes among `nodes` whose ids are in `ids`: what a page read of trace or suggest runs over. */
-export function nodesWithin(nodes: readonly WireNode[], ids: ReadonlySet<string>): WireNode[] {
-  return nodes.filter((node) => ids.has(node.id));
-}
-
 /**
  * The page's one trace read: the paths between `from` and `to` over the
  * perspective's edge kinds and path count (`@kb/graph`'s `traceOf`, the read
- * the server's `graph.trace` runs), among `nodes`. The nodes are already the
- * drawn ones, so the graph's elision has been applied and none is elided again.
+ * the server's `graph.trace` runs), walking only `drawn`, the nodes the
+ * graph's elision (`visibleNodes`) chose, as the server's read chooses its
+ * own, and naming hops from every node the page holds.
  */
 export function tracePerspective(
   nodes: readonly WireNode[],
+  drawn: ReadonlySet<string>,
   perspective: LensPerspective,
   from: string,
   to: string,
@@ -275,8 +271,8 @@ export function tracePerspective(
     from,
     to,
     kinds: perspective.edgeKinds,
+    within: drawn,
     ...(perspective.tracePaths === null ? {} : { k: perspective.tracePaths }),
-    includeSystem: true,
   });
 }
 
@@ -291,7 +287,7 @@ function tracedSet(
 ): Set<string> {
   const { traceFrom: from, traceTo: to } = perspective;
   if (from === null || to === null) return nodeSet;
-  const { paths } = tracePerspective(nodesWithin(candidates, nodeSet), perspective, from, to);
+  const { paths } = tracePerspective(candidates, nodeSet, perspective, from, to);
   return new Set(paths.flatMap((path) => path.nodes));
 }
 

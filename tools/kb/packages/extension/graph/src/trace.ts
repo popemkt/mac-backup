@@ -54,8 +54,6 @@ export interface TraceOptions {
   readonly k?: number;
   /** The longest path, in hops. */
   readonly maxHops?: number;
-  /** Walk through the scaffolding too; by default it is never an intermediate, as the graph elides it. */
-  readonly includeSystem?: boolean;
   /** How many nodes the walk may settle in all before it stops with what it has. */
   readonly visitCap?: number;
 }
@@ -63,7 +61,6 @@ export interface TraceOptions {
 export const TRACE_DEFAULTS = {
   k: 3,
   maxHops: 6,
-  includeSystem: false,
   visitCap: 50_000,
 } as const satisfies Required<TraceOptions>;
 
@@ -71,7 +68,7 @@ export const TRACE_DEFAULTS = {
 const EPSILON = 1e-9;
 
 export function trace(
-  projection: Pick<GraphProjection, "edges" | "scaffolding">,
+  projection: Pick<GraphProjection, "edges">,
   from: string,
   to: string,
   options: TraceOptions = {},
@@ -86,7 +83,6 @@ export function trace(
   }
   const walk: Walk = {
     adjacency: adjacencyOf(projection.edges),
-    scaffolding: projection.scaffolding,
     to,
     opts,
     visits: 0,
@@ -113,7 +109,6 @@ export function trace(
 
 interface Walk {
   readonly adjacency: Adjacency;
-  readonly scaffolding: ReadonlySet<string>;
   readonly to: string;
   readonly opts: Required<TraceOptions>;
   visits: number;
@@ -214,7 +209,6 @@ function cheapest(
       if (settled.has(next) || blockedNodes.has(next) || blockedPairs.has(pairKey(id, next)))
         continue;
       const isEnd = next === walk.to;
-      if (!isEnd && !walk.opts.includeSystem && walk.scaffolding.has(next)) continue;
       const step: Cost = {
         hops: cost.hops + 1,
         hub: cost.hub + (isEnd ? 0 : Math.log(degreeOf(walk.adjacency, next))),

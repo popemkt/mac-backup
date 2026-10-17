@@ -10,7 +10,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ActionInvocation, KbContext } from "@kb/contracts";
-import { suggestOf, traceOf } from "@kb/graph";
+import { suggestOf, traceOf, visibleNodes } from "@kb/graph";
 import { ACTOR_OPTION_IDS, DECISION_OPTION_IDS, SYSTEM_IDS, fieldTypeValue } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
 import { openKb } from "../src/session.ts";
@@ -59,7 +59,11 @@ describe("graph.trace", () => {
     const input = { from: "a", to: "d" };
     const bare = await must(ctx, { id: "graph.trace", input });
     expect(await must(ctx, { id: "ext.graph.trace", input })).toEqual(bare);
-    expect(bare).toEqual(JSON.parse(JSON.stringify(traceOf(ctx.nodes, input))));
+    // The page walks the nodes it drew, the visible ones, and names hops from all.
+    const drawn = new Set(visibleNodes(ctx.nodes).map((node) => node.id));
+    expect(bare).toEqual(
+      JSON.parse(JSON.stringify(traceOf(ctx.nodes, { ...input, within: drawn }))),
+    );
     const sentences = (bare as { paths: { hops: { sentence: string }[] }[] }).paths[0]?.hops.map(
       (hop) => hop.sentence,
     );
@@ -93,7 +97,14 @@ describe("graph.suggest", () => {
     await seed(ctx);
     const output = await must(ctx, { id: "graph.suggest", input: { id: "a" } });
     expect(output).toEqual(
-      JSON.parse(JSON.stringify({ suggestions: suggestOf(ctx.nodes, { id: "a" }) })),
+      JSON.parse(
+        JSON.stringify({
+          suggestions: suggestOf(ctx.nodes, {
+            id: "a",
+            within: new Set(visibleNodes(ctx.nodes).map((node) => node.id)),
+          }),
+        }),
+      ),
     );
     expect((output as { suggestions: { id: string }[] }).suggestions.map((s) => s.id)).toContain(
       "e",

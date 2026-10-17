@@ -10,7 +10,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { WireNode } from "@kb/contracts";
 import type { LensPerspective, TraceAnswer } from "@kb/graph";
-import { nodesWithin, tracePerspective, type GraphLens } from "./graph-lens";
+import { tracePerspective, type GraphLens } from "./graph-lens";
 
 /** A trace begun at `from`; `to` is null while the person picks where it goes. */
 export interface GraphTrace {
@@ -59,7 +59,7 @@ export function useGraphTrace(
   const answer = useMemo(() => {
     if (trace === null || trace.to === null || perspective === null) return null;
     const drawn = new Set(lensGraph.nodes.map((node) => node.id));
-    return tracePerspective(nodesWithin(wireNodes, drawn), perspective, trace.from, trace.to);
+    return tracePerspective(wireNodes, drawn, perspective, trace.from, trace.to);
   }, [trace, perspective, lensGraph.nodes, wireNodes]);
   const begin = useCallback((from: string) => setTrace({ from, to: null }), [setTrace]);
   const pick = useCallback(

@@ -35,13 +35,10 @@ export interface Suggestion {
 
 export interface SuggestOptions {
   readonly limit?: number;
-  /** Suggest and reason through the scaffolding too; by default it is elided, as trace elides it. */
-  readonly includeSystem?: boolean;
 }
 
 export const SUGGEST_DEFAULTS = {
   limit: 10,
-  includeSystem: false,
 } as const satisfies Required<SuggestOptions>;
 
 /** The best-scored candidates for `id`, highest first and then by id, so the order is deterministic. */
@@ -54,7 +51,7 @@ export function suggest(
   const adjacency = adjacencyOf(projection.edges);
   const arrows = arrowsOf(projection.edges);
   const idf = rarityOf(projection.tags);
-  const evidence = evidenceFor(projection, adjacency, arrows, id, opts.includeSystem);
+  const evidence = evidenceFor(projection, adjacency, arrows, id);
   const ownTags = new Set(projection.tags.get(id) ?? []);
   const scored: Suggestion[] = [];
   for (const [candidate, entry] of evidence) {
@@ -81,15 +78,13 @@ function evidenceFor(
   adjacency: Adjacency,
   arrows: Arrows,
   id: string,
-  includeSystem: boolean,
 ): Map<string, { shared: string[]; citedBy: string[] }> {
-  const visible = (n: string) => includeSystem || !projection.scaffolding.has(n);
   const ownTags = new Set(projection.tags.get(id) ?? []);
   const direct = new Set(neighboursOf(adjacency, id));
   const evidence = new Map<string, { shared: string[]; citedBy: string[] }>();
-  for (const z of [...direct].filter(visible)) {
+  for (const z of direct) {
     for (const candidate of neighboursOf(adjacency, z)) {
-      if (candidate === id || direct.has(candidate) || !visible(candidate)) continue;
+      if (candidate === id || direct.has(candidate)) continue;
       const entry = evidence.get(candidate) ?? { shared: [], citedBy: [] };
       evidence.set(candidate, entry);
       const isSharedTag = ownTags.has(z) && (projection.tags.get(candidate) ?? []).includes(z);

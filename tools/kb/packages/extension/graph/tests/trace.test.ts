@@ -1,6 +1,8 @@
 /**
  * Trace, suggest and explainHop over the edge projection, as properties over
- * generated graphs plus the worked cases that pin their words.
+ * generated graphs plus the worked cases that pin their words. A walk is
+ * over the nodes it is given; which nodes the graph shows is `visibleNodes`,
+ * and a read over the visible nodes ranks paths the same on every host.
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
@@ -11,6 +13,8 @@ import {
   projectionOf,
   suggest,
   trace,
+  traceOf,
+  visibleNodes,
   type GraphProjection,
   type HopLabels,
   type LensEdge,
@@ -41,14 +45,9 @@ const graphs = fc
     });
   });
 
-/** A projection over generated edges, with the `sys.*` ids its scaffolding. */
+/** A projection over generated edges. */
 function over(edges: readonly LensEdge[]): GraphProjection {
-  const ids = edges.flatMap((e) => [e.source, e.target]);
-  return {
-    edges,
-    tags: new Map(),
-    scaffolding: new Set(ids.filter((id) => id.startsWith("sys."))),
-  };
+  return { edges, tags: new Map() };
 }
 
 function dedupe(raw: { source: string; target: string; kind: LensEdge["kind"] }[]): LensEdge[] {
@@ -57,7 +56,7 @@ function dedupe(raw: { source: string; target: string; kind: LensEdge["kind"] }[
   return [...seen.values()];
 }
 
-/** The reference distance: plain BFS over the undirected view, with system nodes never intermediates. */
+/** The reference distance: plain BFS over the undirected view. */
 function bfsDistance(edges: readonly LensEdge[], from: string, to: string): number | null {
   const adjacency = adjacencyOf(edges);
   const depth = new Map([[from, 0]]);
@@ -65,7 +64,6 @@ function bfsDistance(edges: readonly LensEdge[], from: string, to: string): numb
   for (let at = queue.shift(); at !== undefined; at = queue.shift()) {
     const d = depth.get(at) ?? 0;
     if (at === to) return d;
-    if (at !== from && at.startsWith("sys.")) continue;
     for (const next of adjacency.get(at)?.keys() ?? []) {
       if (depth.has(next)) continue;
       depth.set(next, d + 1);
@@ -122,24 +120,33 @@ describe("trace", () => {
     );
   });
 
-  test("scaffolding is never an intermediate unless asked for", () => {
-    fc.assert(
-      fc.property(graphs, ({ ids, edges }) => {
-        const [from, to] = [ids[0] ?? "", ids[1] ?? ""];
-        for (const path of trace(over(edges), from, to, { k: 5, maxHops: 12 }).paths)
-          expect(path.nodes.slice(1, -1).some((id) => id.startsWith("sys."))).toBe(false);
-      }),
-    );
-    const viaHub: LensEdge[] = [
-      { source: "a", target: "sys.hub", kind: "child", weight: 1 },
-      { source: "sys.hub", target: "b", kind: "child", weight: 1 },
+  test("a read over the visible nodes never routes through scaffolding, and asked, does", () => {
+    const nodes = [
+      node({ id: "a", text: "A", children: ["sys.hub"] }),
+      node({ id: "sys.hub", text: "hub", children: ["b"] }),
+      node({ id: "b", text: "B" }),
     ];
-    expect(trace(over(viaHub), "a", "b").paths).toEqual([]);
-    expect(trace(over(viaHub), "a", "b", { includeSystem: true }).paths[0]?.nodes).toEqual([
-      "a",
-      "sys.hub",
-      "b",
-    ]);
+    const request = { from: "a", to: "b", kinds: ["child"] } as const;
+    const shown = visibleNodes(nodes, { keeping: ["a", "b"] });
+    expect(traceOf(shown, request).paths).toEqual([]);
+    const whole = visibleNodes(nodes, { includeSystem: true });
+    expect(traceOf(whole, request).paths[0]?.nodes).toEqual(["a", "sys.hub", "b"]);
+  });
+
+  test("a hub the graph elides costs nothing: degree is of the nodes the read is given", () => {
+    // a—x—b and a—y—b, and x is also a sys.* node's child: elided, it makes x no hub.
+    const nodes = [
+      node({ id: "a", text: "A", children: ["x", "y"] }),
+      node({ id: "x", text: "X", children: ["b"] }),
+      node({ id: "y", text: "Y", children: ["b"] }),
+      node({ id: "b", text: "B" }),
+      node({ id: "sys.s", text: "s", children: ["x"] }),
+    ];
+    const request = { from: "a", to: "b", kinds: ["child"], k: 2 } as const;
+    const server = traceOf(visibleNodes(nodes, { keeping: ["a", "b"] }), request);
+    const page = traceOf(visibleNodes(nodes), request);
+    expect(server).toEqual(page);
+    expect(server.paths.map((path) => path.hubCost)).toEqual([Math.log(2), Math.log(2)]);
   });
 
   test("cycles terminate, and the paths stay simple", () => {
@@ -220,7 +227,6 @@ describe("suggest", () => {
         for (const s of suggest(projection(edges), id, { limit: 50 })) {
           expect(s.id).not.toBe(id);
           expect(direct.has(s.id)).toBe(false);
-          expect(s.id.startsWith("sys.")).toBe(false);
         }
       }),
     );
@@ -274,7 +280,7 @@ describe("suggest", () => {
     ]);
   });
 
-  test("a tag node is scaffolding: no walk or suggestion goes through it unless asked", () => {
+  test("a tag node is scaffolding: no walk or suggestion over the visible nodes goes through it", () => {
     const nodes = [
       node({ id: "t", text: "t", props: { "sys.f.type": [{ t: "ref", v: "sys.tag" }] } }),
       node({ id: "a", text: "A", props: { "sys.f.type": [{ t: "ref", v: "t" }] } }),
@@ -287,15 +293,13 @@ describe("suggest", () => {
       }),
       node({ id: "d", text: "D", children: ["c"] }),
     ];
-    const tagged = projectionOf(nodes, new Set(["child", "ref-prop"]));
-    expect(suggest(tagged, "a").map((s) => s.id)).toEqual(["d"]);
-    expect(suggest(tagged, "a", { includeSystem: true }).map((s) => s.id)).toContain("b");
-    expect(trace(tagged, "a", "b", { includeSystem: true }).paths[0]?.nodes).toEqual([
-      "a",
-      "t",
-      "b",
-    ]);
-    expect(trace(tagged, "a", "b").paths).toEqual([]);
+    const kinds = new Set(["child", "ref-prop"] as const);
+    const shown = projectionOf(visibleNodes(nodes, { keeping: ["a", "b"] }), kinds);
+    const whole = projectionOf(nodes, kinds);
+    expect(suggest(shown, "a").map((s) => s.id)).toEqual(["d"]);
+    expect(suggest(whole, "a").map((s) => s.id)).toContain("b");
+    expect(trace(whole, "a", "b").paths[0]?.nodes).toEqual(["a", "t", "b"]);
+    expect(trace(shown, "a", "b").paths).toEqual([]);
   });
 
   test("the projection reads a node's tags apart from the kinds drawn", () => {

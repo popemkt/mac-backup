@@ -11,6 +11,7 @@ import { currentIso, domainError, type DomainError } from "@kb/model";
 import { EdgeKindSchema, type EdgeKind } from "./lens.ts";
 import { suggestOf, traceOf } from "./read.ts";
 import { typedRelation } from "./relation.ts";
+import { visibleNodes } from "./scaffolding.ts";
 import { SUGGEST_DEFAULTS } from "./suggest.ts";
 import { TRACE_DEFAULTS, TRACE_REASON_CODES } from "./trace.ts";
 
@@ -113,7 +114,10 @@ export const graphTraceEffect = Effect.fn("ext.graph.trace")(function* (
 ): Effect.fn.Return<z.infer<typeof traceOutput>, DomainError, KbCtx> {
   const { index, nodes } = yield* KbCtx;
   yield* existing(index, [input.from, input.to]);
-  const answer = traceOf(nodes, { ...input, kinds: kindsOf(input.kinds) });
+  const { includeSystem: whole, kinds, ...request } = input;
+  const shown = visibleNodes(nodes, { includeSystem: whole, keeping: [input.from, input.to] });
+  const within = new Set(shown.map((node) => node.id));
+  const answer = traceOf(nodes, { ...request, kinds: kindsOf(kinds), within });
   return traceOutput.parse(answer);
 });
 
@@ -122,8 +126,11 @@ export const graphSuggestEffect = Effect.fn("ext.graph.suggest")(function* (
 ): Effect.fn.Return<z.infer<typeof suggestOutput>, DomainError, KbCtx> {
   const { index, nodes } = yield* KbCtx;
   yield* existing(index, [input.id]);
+  const { includeSystem: whole, kinds, ...request } = input;
+  const shown = visibleNodes(nodes, { includeSystem: whole, keeping: [input.id] });
+  const within = new Set(shown.map((node) => node.id));
   return suggestOutput.parse({
-    suggestions: suggestOf(nodes, { ...input, kinds: kindsOf(input.kinds) }),
+    suggestions: suggestOf(nodes, { ...request, kinds: kindsOf(kinds), within }),
   });
 });
 

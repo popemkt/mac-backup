@@ -1,8 +1,10 @@
 /**
- * Trace and suggest as a host answers them: over a node set, with every hop
- * worded and every node named. The server's actions (`graph.trace`,
- * `graph.suggest`) and the page's local read run these same functions over
- * the nodes each holds, so both hosts give one answer.
+ * Trace and suggest as a host answers them: over the nodes a host holds,
+ * walking only those it shows (`within`, the visible ones), with every hop
+ * worded and every node named from all it holds — a relation's field is
+ * scaffolding the walk never crosses, yet it names the hop. The server's
+ * actions (`graph.trace`, `graph.suggest`) and the page's local read run
+ * these same functions, so both hosts give one answer.
  */
 import { relationInverseOf, replaceMentions } from "@kb/model";
 import type { LensSource } from "./edges.ts";
@@ -41,16 +43,26 @@ export interface TraceAnswer {
   readonly warnings: readonly string[];
 }
 
-export interface TraceRequest extends TraceOptions {
+/** The nodes a read may walk, by id; absent, every node it is given. */
+interface WithinRequest {
+  readonly within?: ReadonlySet<string>;
+}
+
+export interface TraceRequest extends TraceOptions, WithinRequest {
   readonly from: string;
   readonly to: string;
   readonly kinds?: readonly EdgeKind[];
 }
 
+/** The nodes among `nodes` a read walks: those `within` names, or all of them. */
+function walked(nodes: readonly LensSource[], within: ReadonlySet<string> | undefined) {
+  return within === undefined ? nodes : nodes.filter((node) => within.has(node.id));
+}
+
 export function traceOf(nodes: readonly LensSource[], request: TraceRequest): TraceAnswer {
-  const { from, to, kinds = DEFAULT_TRACE_KINDS, ...options } = request;
+  const { from, to, kinds = DEFAULT_TRACE_KINDS, within, ...options } = request;
   const labels = hopLabelsOf(nodes);
-  const result = trace(projectionOf(nodes, new Set(kinds)), from, to, options);
+  const result = trace(projectionOf(walked(nodes, within), new Set(kinds)), from, to, options);
   return {
     paths: result.paths.map((path) => ({
       nodes: path.nodes,
@@ -77,7 +89,7 @@ export interface SuggestedNode {
   readonly reasons: SuggestReasons;
 }
 
-export interface SuggestRequest extends SuggestOptions {
+export interface SuggestRequest extends SuggestOptions, WithinRequest {
   readonly id: string;
   readonly kinds?: readonly EdgeKind[];
 }
@@ -86,9 +98,9 @@ export function suggestOf(
   nodes: readonly LensSource[],
   request: SuggestRequest,
 ): readonly SuggestedNode[] {
-  const { id, kinds = DEFAULT_TRACE_KINDS, ...options } = request;
+  const { id, kinds = DEFAULT_TRACE_KINDS, within, ...options } = request;
   const labels = hopLabelsOf(nodes);
-  return suggest(projectionOf(nodes, new Set(kinds)), id, options).map((s) => ({
+  return suggest(projectionOf(walked(nodes, within), new Set(kinds)), id, options).map((s) => ({
     ...s,
     text: labels.textOf(s.id),
   }));

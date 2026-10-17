@@ -18,7 +18,7 @@ import {
 } from "@kb/graph";
 import { extensionNodeId } from "@kb/model";
 import { browserHost, runQuery, type KbIndex } from "@kb/ui-sdk";
-import { nodesWithin, type GraphLens } from "./graph-lens";
+import type { GraphLens } from "./graph-lens";
 
 /** How many suggestions the card lists. */
 const RELATED_LIMIT = 5;
@@ -46,10 +46,10 @@ export function useRelated(
   return useMemo(() => {
     if (!on || db === null || perspective === null || selectedId === null) return null;
     const drawn = new Set(lensGraph.nodes.map((node) => node.id));
-    const suggestions = suggestOf(nodesWithin(wireNodes, drawn), {
+    const suggestions = suggestOf(wireNodes, {
       id: selectedId,
+      within: drawn,
       kinds: perspective.edgeKinds,
-      includeSystem: true,
       limit: RELATED_LIMIT,
     });
     const byId = new Map(wireNodes.map((node) => [node.id, node]));

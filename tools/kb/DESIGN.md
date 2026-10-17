@@ -1676,14 +1676,18 @@ layer), so neither is computed by DataScript. Plan and prior art:
 `docs/brainstorms/2026-10-17-kb-trace-and-label/README.md`.
 
 - **The projection, walked.** `projectionOf(nodes, kinds)` is
-  `collectEdges` over a node set, the tags each node carries (the non-system
-  targets of its `sys.f.type`, read whatever the kinds), and its
-  scaffolding: the nodes the graph elides (`isScaffolding` — `sys.*`
-  nodes, commands, tag and field nodes), one predicate the renderers' node
-  set reads too. Both reads walk its undirected view (`adjacencyOf`) and keep
-  each edge whole, so a hop crosses an edge either way and still says which
-  way it points. A scaffolding node is never an intermediate, or a
-  suggestion, unless the caller asks (`includeSystem`).
+  `collectEdges` over a node set and the tags each node carries (the
+  non-system targets of its `sys.f.type`, read whatever the kinds). Both
+  reads walk its undirected view (`adjacencyOf`) and keep each edge whole,
+  so a hop crosses an edge either way and still says which way it points.
+- **The caller picks the nodes.** A read walks exactly the nodes it is
+  given, and its adjacency and every degree are of those nodes. Which nodes
+  the graph shows is `visibleNodes` (`isScaffolding` — `sys.*` nodes,
+  commands, tag and field nodes — elided unless `includeSystem`, and the
+  nodes a read names kept), the one function the renderers' node set reads
+  too. The page reads over the nodes it drew; `graph.trace` and
+  `graph.suggest` over the visible nodes and their ends, so a hub the graph
+  elides costs nothing on either host and both rank paths alike.
 - **Trace** (`trace`) is the k shortest simple paths between two nodes
   (Yen over a Dijkstra). Cost is hops; a tie goes to the lower sum of
   `log(degree)` over the intermediates, so a specific connector beats a hub
