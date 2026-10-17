@@ -632,6 +632,28 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   means, so the projection folds the mention into that relation's edge (its
   weight rises by the mention's). A lens that draws mentions but not that field keeps the
   mention; the rule lives in the one projection, never in a renderer.
+- **`:node/owner` (who seeds a node), derived, never stored.** The second
+  entry of the derived table: a seeded node's owner is the declaration whose
+  seed holds its id (Extension families → the seed's provenance), and the
+  datom points at that declaration's node under `sys.extensions`
+  (`sys.extension.<name>`), cardinality one. Its one carrier closes over
+  the owners the host hands the index (`derivedWith({owners})`, fed by
+  `bundledDerived()` on every host that builds an index: the runtime's
+  open, the client, the page's replica), so an index handed none derives
+  none, and a family node is never its own owner. It is never a prop:
+  `node.get` shows nothing new, opening writes nothing, and a seed id that
+  moves to another family's declaration answers its new owner on the next
+  build with no migration. The same carrier feeds `:node/mentions`, because
+  a seeded node points at its family as surely as a ref does: a family's
+  node lists what it seeds among its References, and `kb backlinks
+  sys.extension.<name>` answers it.
+
+  ```clojure
+  ; who owns sys.f.canvas
+  [:find ?label :where [?f :node/id "sys.f.canvas"] [?f :node/owner ?e] [?e :node/text ?label]]
+  ; what canvas seeds
+  [:find ?id :where [?e :node/id "sys.extension.canvas"] [?n :node/owner ?e] [?n :node/id ?id]]
+  ```
 
   Optional Logseq-style `:node/path-refs` (ancestor mentions) is backlog —
   add only when a real query needs hierarchy-scoped reach.
@@ -1591,7 +1613,9 @@ same lane. One path to a client, whatever a node's provenance.
   ```
 
   `<edge>` is any node-valued attribute: `:node/mentions` (the reference
-  relation, either carrier), `:node/child`, or `:f/<fieldId>` for a ref field.
+  relation, any carrier), `:node/owner` (who seeds it), `:node/child`, or
+  `:f/<fieldId>` for a ref field. A find position bound as the value of a
+  derived attribute is a node, as one bound by `:node/child` is.
   A list headed `reach` with a keyword in the edge slot is this form. If it is
   malformed (an end that is not a variable, a bound that is not a positive
   integer, extra arguments) in a query the subset otherwise covers, that is a

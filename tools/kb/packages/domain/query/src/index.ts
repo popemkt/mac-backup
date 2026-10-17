@@ -4,7 +4,7 @@ export type { EdnExecutor } from "./datascript.ts";
 export { DatascriptIndex } from "./index/datascript-index.ts";
 export type { IndexOptions } from "./index/datascript-index.ts";
 export { derivedWith, nodeMentions } from "./index/derived.ts";
-export type { DerivedRef, FieldRefCarrier } from "./index/derived.ts";
+export type { DerivedRef, DerivedSources, FieldRefCarrier } from "./index/derived.ts";
 export { KbIndexService } from "./index/index.ts";
 export type { KbIndex } from "./index/index.ts";
 export { compile, normalizeEdnQuery } from "./ir/compile.ts";

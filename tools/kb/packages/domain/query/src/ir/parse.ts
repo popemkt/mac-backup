@@ -1,5 +1,6 @@
 import { present } from "@kb/model";
 import { DatalogError } from "../datalog-error.ts";
+import { CORE_DERIVED } from "../index/derived.ts";
 import type {
   Clause,
   FindPos,
@@ -431,7 +432,13 @@ function collapseChildOrder(where: Clause[]): Clause[] {
   return out;
 }
 
-const REF_ATTRS = new Set([":node/id", ":node/child", ":node/mentions", ":node/children"]);
+/** The attrs whose value is a node: the stated ones, and every derived ref attribute. */
+const REF_ATTRS = new Set<string>([
+  ":node/id",
+  ":node/child",
+  ":node/children",
+  ...CORE_DERIVED.map(({ attr }) => attr),
+]);
 
 function inferFindTypes(find: FindPos[], where: Clause[]): FindPos[] {
   const nodeRefs = collectNodeRefVars(where);

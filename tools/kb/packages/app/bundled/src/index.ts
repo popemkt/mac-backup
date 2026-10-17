@@ -26,7 +26,7 @@ import { docsExtension } from "@kb/docs";
 import { graphExtension } from "@kb/graph";
 import { labExtension } from "@kb/lab";
 import { locationsExtension } from "@kb/locations";
-import { foldSeed, type KbNode, type NodeId } from "@kb/model";
+import { extensionNodeId, foldSeed, type KbNode, type NodeId } from "@kb/model";
 import { coreExtension } from "@kb/operations";
 import { outlineExtension } from "@kb/outline";
 import { derivedWith, type DerivedRef } from "@kb/query";
@@ -84,11 +84,25 @@ export function bundledOwners(): ReadonlyMap<NodeId, string> {
 }
 
 /**
- * The derived ref attributes every index a host builds derives: the core
- * ones, with the reference relation also fed by each field a bundled
- * declaration says carries references (`refCarriers`). Pure data, like the
- * seed, so the server's index and the page's answer References alike.
+ * The derived ref attributes an index over `declarations`' fold derives:
+ * the core ones, with the reference relation also fed by each field a
+ * declaration says carries references (`refCarriers`), and each node the
+ * fold seeds owned by its declaration's node under `sys.extensions`
+ * (`:node/owner`). Pure data, like the fold.
+ */
+export function derivedOf(declarations: readonly ExtensionDeclaration[]): readonly DerivedRef[] {
+  const { owners } = foldSeed(declarations);
+  return derivedWith({
+    fields: declarations.flatMap((declaration) => declaration.refCarriers ?? []),
+    owners: new Map([...owners].map(([id, owner]) => [id, extensionNodeId(owner)] as const)),
+  });
+}
+
+/**
+ * The derived ref attributes every index a host builds derives: those of
+ * the bundled fold, so the server's index and the page's answer References
+ * and ownership alike.
  */
 export function bundledDerived(): readonly DerivedRef[] {
-  return derivedWith(BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.refCarriers ?? []));
+  return derivedOf(BUNDLED_DECLARATIONS);
 }

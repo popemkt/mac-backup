@@ -64,9 +64,16 @@ const REF_PROPS: RefCarrier = {
     ),
 };
 
-/** The derived ref attributes every index builds: the reference relation, fed by text and ref props. */
+/**
+ * The derived ref attributes every index builds:
+ * - `:node/mentions`, the reference relation, fed by text and ref props;
+ * - `:node/owner`, the declaration a seeded node came from, as its family's
+ *   node. It is fed only by the owners a host hands the index
+ *   (`derivedWith`), so an index built without them derives none.
+ */
 export const CORE_DERIVED: readonly DerivedRef[] = [
   { attr: ":node/mentions", cardinality: "many", carriers: [TEXT_TOKENS, REF_PROPS] },
+  { attr: ":node/owner", cardinality: "one", carriers: [] },
 ];
 
 /**
@@ -89,11 +96,44 @@ function fieldCarrier({ field, refsOf }: FieldRefCarrier): RefCarrier {
   };
 }
 
-/** `CORE_DERIVED` with the reference relation also fed by each of `fields` (`FieldRefCarrier`). */
-export function derivedWith(fields: readonly FieldRefCarrier[]): readonly DerivedRef[] {
-  return CORE_DERIVED.map((entry) =>
-    entry.attr === ":node/mentions"
-      ? { ...entry, carriers: [...entry.carriers, ...fields.map(fieldCarrier)] }
-      : entry,
-  );
+/**
+ * Each seeded node's owner, as the id of the node it is owned by: the
+ * family node (`sys.extension.<name>`) of the declaration whose seed holds
+ * it. A family's own node is one of its seed's, but a node is never its own
+ * owner, so it carries none.
+ */
+function ownerCarrier(owners: ReadonlyMap<NodeId, NodeId>): RefCarrier {
+  return {
+    id: "seed-owner",
+    refsOf: (node) => {
+      const owner = owners.get(node.id);
+      return owner === undefined || owner === node.id ? [] : [owner];
+    },
+  };
+}
+
+/** What the families of a host add to `CORE_DERIVED`, read from their declarations and their fold. */
+export interface DerivedSources {
+  /** The fields they say carry references (`FieldRefCarrier`). */
+  readonly fields?: readonly FieldRefCarrier[];
+  /** Who owns each node they seed, as the owner's node id (`ownerCarrier`). */
+  readonly owners?: ReadonlyMap<NodeId, NodeId>;
+}
+
+/**
+ * `CORE_DERIVED`, each entry fed by what `sources` add to it: each field
+ * carrier feeds the reference relation, and the owners feed `:node/owner`
+ * and, an owner being a node its seed points at, the reference relation too,
+ * so a family's node lists what it seeds among its References.
+ */
+export function derivedWith({ fields = [], owners }: DerivedSources): readonly DerivedRef[] {
+  const owner = owners === undefined ? [] : [ownerCarrier(owners)];
+  const fed: Readonly<Record<DerivedRef["attr"], readonly RefCarrier[]>> = {
+    ":node/mentions": [...fields.map(fieldCarrier), ...owner],
+    ":node/owner": owner,
+  };
+  return CORE_DERIVED.map((entry) => ({
+    ...entry,
+    carriers: [...entry.carriers, ...(fed[entry.attr] ?? [])],
+  }));
 }

@@ -15,6 +15,10 @@
  * - its own node is in that fold, named by its label and filed under
  *   `sys.extensions`, and switching the family writes the switch on it and
  *   nothing else;
+ * - it owns what it seeds: the fold names it the owner of each node it
+ *   seeds, a store of every backend answers `:node/owner` so, and an id its
+ *   seed hands to another declaration answers that one's node, while
+ *   opening the store writes nothing;
  * - that fold has one provider of the default view type, which provides the
  *   view it names, and the fold refuses a default this family would provide
  *   beside another provider or name without providing it;
@@ -39,7 +43,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { Effect, Result } from "effect";
-import { BUNDLED_DECLARATIONS } from "@kb/bundled";
+import { BUNDLED_DECLARATIONS, derivedOf } from "@kb/bundled";
 import {
   ActionPoint,
   ChannelPoint,
@@ -53,6 +57,7 @@ import {
 } from "@kb/contracts";
 import {
   SYSTEM_IDS,
+  ensureSystemSeed,
   extensionNodeId,
   foldSeed,
   present,
@@ -61,6 +66,8 @@ import {
   type SeedView,
 } from "@kb/model";
 import { makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
+import { DatascriptIndex, type KbIndex } from "@kb/query";
+import { STORE_BACKENDS, bunFileSystemLayer, createStore } from "@kb/runtime";
 import { paramsFromProps } from "@kb/views";
 import { CONTRACT_AT, openSession, scratchRoot } from "./store-session.ts";
 
@@ -165,6 +172,71 @@ function defaultViewPromises(declaration: ExtensionDeclaration): void {
     expect(() => foldSeed(foldAs(declaration, stray, "drop"), CONTRACT_AT)).toThrow(
       /provides no such view/,
     );
+  });
+}
+
+/** The ids `index` holds owned by `owner`'s node. */
+function ownedIn(index: KbIndex, owner: string): readonly string[] {
+  const edn = `[:find ?id :where [?e :node/id ${JSON.stringify(extensionNodeId(owner))}] [?n :node/owner ?e] [?n :node/id ?id]]`;
+  return index
+    .runDatalog(edn)
+    .flatMap(([id]) => (typeof id === "string" ? [id] : []))
+    .toSorted();
+}
+
+/**
+ * The ownership promises: the fold says what the family seeds, every store
+ * answers it as `:node/owner`, and an id that moves to another declaration
+ * changes its answer without a write.
+ */
+function ownershipPromises(declaration: ExtensionDeclaration): void {
+  const own = extensionNodeId(declaration.name);
+  const { owners } = foldSeed(foldWith(declaration), CONTRACT_AT);
+  const seeded = [...owners].flatMap(([id, owner]) => (owner === declaration.name ? [id] : []));
+
+  for (const backend of STORE_BACKENDS) {
+    test(`its seed is owned by it, and a ${backend} store answers so when reopened`, () =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            expect(seeded).toContain(own);
+            const root = yield* scratchRoot;
+            yield* createStore(root, backend).pipe(Effect.provide(bunFileSystemLayer));
+            yield* openSession(root);
+            const reopened = yield* openSession(root);
+            // Its own node is the owner, never owned.
+            expect(ownedIn(reopened.index, declaration.name)).toEqual(
+              seeded.filter((id) => id !== own).toSorted(),
+            );
+          }),
+        ),
+      ));
+  }
+
+  const [moved] = declaration.seed?.(CONTRACT_AT) ?? [];
+  const receiver = foldWith(declaration).find((source) => source !== declaration);
+  if (moved === undefined || receiver === undefined) return;
+  test("an id its seed hands to another declaration is answered by that one, and opening writes nothing", () => {
+    const before = foldSeed(foldWith(declaration), CONTRACT_AT).nodes;
+    const after = foldWith(declaration).map((source) =>
+      source === declaration
+        ? {
+            ...source,
+            seed: (at: string) => (source.seed?.(at) ?? []).filter(({ id }) => id !== moved.id),
+          }
+        : source === receiver
+          ? { ...source, seed: (at: string) => [...(source.seed?.(at) ?? []), moved] }
+          : source,
+    );
+    const stored = ensureSystemSeed([], before).nodes;
+    const reopened = ensureSystemSeed(stored, foldSeed(after, CONTRACT_AT).nodes);
+    expect({ seeded: reopened.seeded, deletes: reopened.deletes }).toEqual({
+      seeded: false,
+      deletes: [],
+    });
+    const index = new DatascriptIndex(stored, { derived: derivedOf(after) });
+    expect(ownedIn(index, receiver.name)).toContain(moved.id);
+    expect(ownedIn(index, declaration.name)).not.toContain(moved.id);
   });
 }
 
@@ -323,6 +395,7 @@ export function extensionContract(
       ));
 
     defaultViewPromises(declaration);
+    ownershipPromises(declaration);
     switchPromises(declaration, entry, host);
   });
 }

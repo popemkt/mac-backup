@@ -124,9 +124,11 @@ describe("DatascriptIndex", () => {
 
   test("a field a family says carries references feeds the same relation, on both paths", () => {
     // A field whose text value lists ids, as a canvas document lists its cards.
-    const derived = derivedWith([
-      { field: "f.doc", refsOf: (value) => (value.t === "str" ? value.v.split(",") : []) },
-    ]);
+    const derived = derivedWith({
+      fields: [
+        { field: "f.doc", refsOf: (value) => (value.t === "str" ? value.v.split(",") : []) },
+      ],
+    });
     const board = node("a", { props: { "f.doc": [{ t: "str", v: "b,c" }] } });
     const index = new DatascriptIndex([board, node("b")], { derived });
     expect(rows(index, MENTIONS_QUERY)).toEqual([["a", "b"]]);
@@ -143,6 +145,29 @@ describe("DatascriptIndex", () => {
     ).toEqual(rows(index, MENTIONS_QUERY));
     // An index built without the declaration reads the field as plain text.
     expect(fresh([board, node("b"), node("c")], MENTIONS_QUERY)).toEqual([]);
+  });
+
+  test("a seeded node is owned by its family's node, on both paths, never by itself", () => {
+    const OWNER_QUERY = `[:find ?id ?owner :where [?n :node/owner ?o] [?n :node/id ?id] [?o :node/id ?owner]]`;
+    const derived = derivedWith({
+      owners: new Map([
+        ["s.field", "fam"],
+        ["fam", "fam"],
+      ]),
+    });
+    const index = new DatascriptIndex([node("s.field"), node("fam")], { derived });
+    expect(rows(index, OWNER_QUERY)).toEqual([["s.field", "fam"]]);
+    // An owner is a node the seed points at, so the family's References list it.
+    expect(rows(index, MENTIONS_QUERY)).toEqual([["s.field", "fam"]]);
+    // With no family node there is no owner; when it arrives there is, without a rebuild.
+    const late = new DatascriptIndex([node("s.field")], { derived });
+    expect(rows(late, OWNER_QUERY)).toEqual([]);
+    const builds = late.rebuilds;
+    late.applyTx({ upserts: [node("fam")], deletes: [] });
+    expect(late.rebuilds).toBe(builds);
+    expect(rows(late, OWNER_QUERY)).toEqual(rows(index, OWNER_QUERY));
+    // An index handed no owners derives none.
+    expect(fresh([node("s.field"), node("fam")], OWNER_QUERY)).toEqual([]);
   });
 
   test("eids are never reused, so a revived id is never the wrong node", () => {
