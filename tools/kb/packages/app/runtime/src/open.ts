@@ -9,6 +9,7 @@ import type { FileSystem } from "effect/FileSystem";
 import {
   currentIso,
   applyTx,
+  foldSeed,
   diffTx,
   ensureSystemSeed,
   migrateDateValues,
@@ -17,12 +18,13 @@ import {
   type DomainError,
   type KbNode,
 } from "@kb/model";
-import { bundledDerived, bundledSeed } from "@kb/bundled";
+import { derivedOf } from "@kb/bundled";
 import { DatascriptIndex } from "@kb/query";
 import { KbStore, type KbContext } from "@kb/contracts";
 import { StoreTxLog } from "@kb/tx-log";
 import { readLegacyDocsViews } from "@kb/workspace-fs";
 import { noteStoreSynced } from "@kb/operations";
+import { rootFamilies } from "./families.ts";
 import { selectStore } from "./store-selection.ts";
 
 /**
@@ -68,9 +70,14 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   root: string,
 ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
   const store = yield* selectStore(root);
+  const { declarations } = yield* rootFamilies(root);
   const loaded = yield* store.loadEffect;
   const at = yield* currentIso;
-  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(loaded, bundledSeed(at));
+  const {
+    nodes: seeded,
+    seeded: didSeed,
+    deletes,
+  } = ensureSystemSeed(loaded, foldSeed(declarations, at).nodes);
   const typed = migrateFieldTypeValues(seeded);
   const dated = migrateDateValues(typed.nodes);
   let nodes = loaded;
@@ -79,7 +86,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
     nodes = [...applyTx(loaded, commit.tx).values()];
   }
   yield* reportLegacyViews(root, nodes);
-  const index = new DatascriptIndex(nodes, { derived: bundledDerived() });
+  const index = new DatascriptIndex(nodes, { derived: derivedOf(declarations) });
   const ctx: KbContext = {
     root,
     store,

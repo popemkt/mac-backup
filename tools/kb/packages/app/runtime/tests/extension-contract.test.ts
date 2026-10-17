@@ -7,7 +7,7 @@ import { BUNDLED_FAMILIES } from "@kb/bundled";
 import { ActionPoint, ViewKeyPoint, defineExtension } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
 import { definePlugin, makeKernel } from "@kb/plugin";
-import { extensionContract, type SwitchingHost } from "@kb/test-kit";
+import { extensionContract, scratchRoot, type SwitchingHost } from "@kb/test-kit";
 import { BUNDLED_EXTENSIONS, serverEntriesFor } from "../src/bundled.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
 import { invoke } from "../src/invoke.ts";
@@ -22,6 +22,7 @@ const COUNT_ROWS = { mark: "bar", encoding: { y: { aggregate: "count", type: "qu
 function registryHost(name: string): SwitchingHost {
   return {
     source: "registry",
+    root: scratchRoot,
     compose: (nodeOf) =>
       registryFor(null, nodeOf).pipe(
         Effect.map(({ families, kernel }) => ({

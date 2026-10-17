@@ -4,11 +4,21 @@
  * each with the plugin the registry loads for it and where it came from.
  * This is the one list the registry decides from, so a repository
  * extension is switched, reported and loaded by the rule a bundled family
- * is.
+ * is, and the one list the root's store is seeded from (`declarations`), so
+ * its node, its switch and its settings are that store's nodes.
  */
+import { basename } from "node:path";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import { extensionPlugin, type ExtensionEntry, type ExtensionFailure } from "@kb/contracts";
+import { BUNDLED_DECLARATIONS } from "@kb/bundled";
+import {
+  extensionPlugin,
+  type ExtensionDeclaration,
+  type ExtensionEntry,
+  type ExtensionFailure,
+  type LoadedExtension,
+} from "@kb/contracts";
+import { foldSeed } from "@kb/model";
 import { BUNDLED_EXTENSIONS } from "./bundled.ts";
 import { codeTrustLayer } from "@kb/workspace-fs";
 import { discoverExtensions } from "./extension-loader.ts";
@@ -20,6 +30,12 @@ export interface RootFamily extends ExtensionEntry {
 
 export interface RootFamilies {
   readonly families: readonly RootFamily[];
+  /**
+   * What the root's store is seeded from (DESIGN.md → Extension families →
+   * the seed is the root's fold): the bundled declarations, then each of
+   * its repository extensions'.
+   */
+  readonly declarations: readonly ExtensionDeclaration[];
   /** The repository modules discovery refused, each skipped. */
   readonly failures: readonly ExtensionFailure[];
 }
@@ -28,6 +44,36 @@ const BUNDLED: readonly RootFamily[] = BUNDLED_EXTENSIONS.map((family) => ({
   ...family,
   source: "bundled",
 }));
+
+/**
+ * The repository extensions whose declarations fold beside the bundled ones
+ * and those admitted before them, in file order. One that does not (its name
+ * is a bundled family's, so its node is declared twice; a seed id another
+ * declaration holds; a seed that returns something other than nodes) is
+ * refused like a module that fails to load, so it is neither seeded nor
+ * loaded: a repository extension never stops core from opening.
+ */
+function admitted(extensions: readonly LoadedExtension[]): {
+  readonly extensions: readonly LoadedExtension[];
+  readonly failures: readonly ExtensionFailure[];
+} {
+  const accepted: LoadedExtension[] = [];
+  const failures: ExtensionFailure[] = [];
+  for (const extension of extensions) {
+    const declarations = [...accepted, extension].map(({ declaration }) => declaration);
+    try {
+      foldSeed([...BUNDLED_DECLARATIONS, ...declarations]);
+      accepted.push(extension);
+    } catch (error) {
+      const why = error instanceof Error ? error.message : String(error);
+      failures.push({
+        file: basename(extension.source),
+        error: `its declaration does not fold beside the others: ${why}`,
+      });
+    }
+  }
+  return { extensions: accepted, failures };
+}
 
 const discoveryCache = new Map<string, Effect.Effect<RootFamilies, never, FileSystem>>();
 
@@ -39,25 +85,31 @@ const discoveryCache = new Map<string, Effect.Effect<RootFamilies, never, FileSy
 export const rootFamilies = Effect.fn("kb.rootFamilies")(function* (
   root: string | null,
 ): Effect.fn.Return<RootFamilies, never, FileSystem> {
-  if (root === null) return { families: BUNDLED, failures: [] };
+  if (root === null) return { families: BUNDLED, declarations: BUNDLED_DECLARATIONS, failures: [] };
   let discovery = discoveryCache.get(root);
   if (discovery === undefined) {
     discovery = yield* Effect.cached(
       // Which of the root's own extensions a person trusted is the root's record.
       discoverExtensions(root).pipe(
         Effect.provide(codeTrustLayer(root)),
-        Effect.map(({ extensions, failures }) => ({
-          // A repository extension declares nothing, so it reads as a declaration of its name alone.
-          families: [
-            ...BUNDLED,
-            ...extensions.map((extension) => ({
-              declaration: { name: extension.name, label: extension.name },
-              entry: extensionPlugin(extension),
-              source: extension.source,
-            })),
-          ],
-          failures,
-        })),
+        Effect.map((discovered) => {
+          const { extensions, failures } = admitted(discovered.extensions);
+          return {
+            families: [
+              ...BUNDLED,
+              ...extensions.map((extension) => ({
+                declaration: extension.declaration,
+                entry: extensionPlugin(extension),
+                source: extension.source,
+              })),
+            ],
+            declarations: [
+              ...BUNDLED_DECLARATIONS,
+              ...extensions.map(({ declaration }) => declaration),
+            ],
+            failures: [...discovered.failures, ...failures],
+          };
+        }),
       ),
     );
     discoveryCache.set(root, discovery);

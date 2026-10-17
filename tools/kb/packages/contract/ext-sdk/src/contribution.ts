@@ -20,11 +20,12 @@ import {
   type ActionMode,
   type ExtensionAction,
   type ExtensionContribution,
+  type ExtensionDeclaration,
   type ExtensionPromiseHandler,
   type ExtensionTemplate,
   type TemplateFn,
 } from "@kb/contracts";
-import { isActionSchema, type ActionSchema } from "@kb/model";
+import { KbNodeSchema, isActionSchema, type ActionSchema, type KbNode } from "@kb/model";
 
 /** Local ids the registry namespaces as `ext.<file>.<id>`. */
 const LOCAL_ID_RE = /^[\w][\w.-]*$/;
@@ -155,4 +156,53 @@ export function decodeContribution(value: unknown): Result.Result<ExtensionContr
         `${label(isTemplate ? "template" : "action", value)}: ${oneLine(decoded.failure.message)}`,
       )
     : Result.succeed(decoded.success);
+}
+
+type SeedFn = (at: string) => readonly KbNode[];
+
+/**
+ * A module's declaration, checked exactly: a key the contract does not have
+ * (`views`, say, which a repository extension cannot provide) is refused
+ * rather than ignored, so an author is never told it worked.
+ */
+const Declaration = Schema.Struct({
+  name: LocalId,
+  label: Schema.String,
+  optional: Schema.optional(Schema.Struct({ byDefault: Schema.Literals(["on", "off"]) })),
+  seed: Schema.optional(contributedFunction<SeedFn>("SeedFn")),
+});
+
+const decodeDeclarationFields = Schema.decodeUnknownResult(Declaration, {
+  onExcessProperty: "error",
+});
+
+/** What a seed returns, checked as a store checks what it loads: the fold writes it to the store. */
+const decodeSeedNodes = Schema.decodeUnknownSync(Schema.Array(KbNodeSchema));
+
+/**
+ * Decode an extension module's `declaration` export, for the module named
+ * `name` (its file's name without `.ts`). Absent, it is the declaration of
+ * that name alone. Its name must be the file's, which is its namespace and
+ * names its node. Its seed is called by the fold, and each node it returns
+ * is checked then, so a seed that returns something other than nodes
+ * throws there, where its module is refused.
+ */
+export function decodeDeclaration(
+  value: unknown,
+  name: string,
+): Result.Result<ExtensionDeclaration, string> {
+  if (value === undefined) return Result.succeed({ name, label: name });
+  const decoded = decodeDeclarationFields(value);
+  if (Result.isFailure(decoded)) {
+    return Result.fail(`declaration: ${oneLine(decoded.failure.message)}`);
+  }
+  const { seed, ...declared } = decoded.success;
+  if (declared.name !== name) {
+    return Result.fail(`declaration: its name ${declared.name} must be its file's, ${name}`);
+  }
+  return Result.succeed(
+    seed === undefined
+      ? declared
+      : { ...declared, seed: (at: string) => decodeSeedNodes(seed(at)) },
+  );
 }

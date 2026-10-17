@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { ActionMode } from "@kb/contracts";
+import type { ActionMode, ExtensionDeclaration } from "@kb/contracts";
 import type { FailureCode } from "@kb/model";
-import type { ActionMode as SdkActionMode, FailureCode as SdkFailureCode } from "../src/surface.ts";
+import type {
+  ActionMode as SdkActionMode,
+  ExtensionDeclaration as SdkExtensionDeclaration,
+  FailureCode as SdkFailureCode,
+} from "../src/surface.ts";
 
 /**
  * The SDK surface is self-contained so it can be emitted as a standalone
@@ -14,9 +18,19 @@ type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
 const modes: Same<SdkActionMode, ActionMode> = true;
 const codes: Same<SdkFailureCode, FailureCode> = true;
+/**
+ * An author's declaration is one kb reads as its own: every SDK declaration
+ * is a contracts declaration. Not the reverse, since a bundled family may
+ * also declare views a repository extension cannot provide.
+ */
+const declarations: [SdkExtensionDeclaration] extends [ExtensionDeclaration] ? true : false = true;
 
 describe("extension SDK surface", () => {
   test("restates the contracts' mode and failure vocabularies exactly", () => {
     expect([modes, codes]).toEqual([true, true]);
+  });
+
+  test("declares an extension in a shape the contracts read", () => {
+    expect(declarations).toBe(true);
   });
 });

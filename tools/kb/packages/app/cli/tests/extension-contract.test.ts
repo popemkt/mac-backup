@@ -3,7 +3,7 @@ import { DEFAULT_ADAPTER, agentExtension, agentPlugin, scriptedRuntime } from "@
 import { NO_SECRETS, NO_SWITCHES, UiHost, failed, type NodeLookup } from "@kb/contracts";
 import { definePlugin, makeKernel } from "@kb/plugin";
 import { composeHosted, type HostedExtensions } from "@kb/server";
-import { extensionContract, type SwitchingHost } from "@kb/test-kit";
+import { extensionContract, scratchRoot, type SwitchingHost } from "@kb/test-kit";
 
 const AGENT = {
   declaration: agentExtension,
@@ -34,6 +34,7 @@ function uiServerHost(): SwitchingHost {
   });
   return {
     source: "host",
+    root: scratchRoot,
     compose: (nodeOf) =>
       Effect.gen(function* () {
         store = nodeOf;

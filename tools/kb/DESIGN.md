@@ -2083,7 +2083,18 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   `effect(input)`, preferred, or a legacy Promise `handler(ctx, input)`) or a
   render **template** (`{ id, aliases?, template }`, see
   `@kb/contracts/template.ts`). The loader discriminates structurally: a
-  contribution carrying a `template` function is a template.
+  contribution carrying a `template` function is a template. Beside it, the
+  module may export its **declaration** (`export const declaration =
+  {name, label, optional?, seed?}`, the SDK's `ExtensionDeclaration`), as a
+  bundled family declares itself (Extension families): its name must be
+  its file's, a key a repository extension cannot provide (`views`) is
+  refused, and its seed's nodes are checked as a store's are
+  (`decodeDeclaration`, `@kb/ext-sdk`). A module that exports none is
+  declared by its name alone: required, labelled by its name, seeding
+  nothing. So every repository extension is a family: `rootFamilies`
+  (`app/runtime`) lists the bundled families, then each repository
+  extension, and the registry switches, loads and reports them all by the
+  one rule.
 - **Repository extensions** (`.kb/extensions/*.ts`) run with the server's
   reach, so a root's file is imported only once a person has trusted it on
   this machine. Its digest is `extensionDigest` (`@kb/sandbox`, the file's
@@ -2093,7 +2104,8 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   `sandbox.trust`. An untrusted file is skipped and reported with its
   digest; an edited file is new code, untrusted until trusted again. So
   whoever opens a root someone else wrote (a clone, a location an agent
-  asked to open) runs none of its code before they have read it. The file
+  asked to open) runs none of its code before they have read it, and an
+  untrusted module's declaration is neither seeded nor loaded. The file
   is imported from disk after its digest is read
   (GAP [[01M541EP41BTAVD8TJXZGNNPRW]]).
 - **Everything loads as a plugin into one kernel** (`@kb/plugin`,
@@ -2146,8 +2158,8 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   surface without core importing it.
 - **Extension SDK:** external `.kb/extensions/*.ts` authors get types from
   the running binary — `kb ext sdk --write` emits `.kb/sdk.d.ts` (ambient
-  module `kb-ext-sdk`), then `import type { ExtensionAction, ExtensionTemplate }
-from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surface.ts` and
+  module `kb-ext-sdk`), then `import type { ExtensionAction,
+ExtensionDeclaration, ExtensionTemplate } from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surface.ts` and
   embedded in the CLI bundle; `bun packages/contract/ext-sdk/scripts/generate.ts` refreshes the
   committed string (freshness-tested). Prefer Promise `handler`s; schemas
   may be zod, Standard Schema v1, or a bare `{ parse }`. Helper siblings
@@ -2291,10 +2303,13 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   carriers on top of `CORE_DERIVED`, and every index a host builds is built
   with it — the server's (`openKbEffect`), the client's and the page's —
   so References answer alike on both hosts.
-- **The seed is the bundled fold, never a loaded registry.**
+- **The seed is the root's fold, never a loaded registry.**
   `ensureSystemSeed(nodes, seed)` runs at open, before any registry
-  exists. `openKbEffect` passes it `bundledSeed(at)` (`@kb/bundled`, a
-  `scope:shared` package so the page folds the same seed), which is:
+  exists. `openKbEffect` passes it the fold of the root's declarations
+  (`rootFamilies(root).declarations`): the bundled ones, which
+  `bundledSeed(at)` folds alone (`@kb/bundled`, a `scope:shared` package
+  so the page folds the same seed), then each repository extension's. The
+  bundled fold is:
   - core's nodes, then each `BUNDLED_FAMILIES` declaration's `seed`, in
     bundled order, then each `HOSTED_FAMILIES` one's (a family a host
     composes beside the registry, such as `kb ui`'s agent: its code is that
@@ -2314,11 +2329,20 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     options and its own node included), read as `bundledOwners()`. It is
     known only there, where every id is already proven to have one.
 
-  Repository plugins contribute no seed, and a host's own seeds through its
-  declaration in the fold, never through the plugin, so every surface seeds the
-  same set whatever it loads, and a failed extension load never shrinks the
-  seed. Opening a store with a family switched off neither deletes nor
-  rewrites that family's nodes: the data outlives the code.
+  A repository extension's declaration folds after the bundled ones, so
+  the store it lives in carries its node, its switch and its settings as
+  that store's own nodes, and owns them (`:node/owner`), as a bundled
+  family's are every store's. One whose declaration does not fold beside
+  the others (its name a bundled family's, a seed id another holds) is
+  refused at discovery like a module that fails to import: it is neither
+  seeded nor loaded, and the store still opens. A host's own family seeds
+  through its declaration in the fold, never through the plugin, so every
+  surface seeds the same set whatever it loads, and a failed extension load
+  never shrinks the seed. Opening a store with a family switched off
+  neither deletes nor rewrites that family's nodes: the data outlives the
+  code. The page and the client fold and derive ownership from the bundled
+  declarations alone, so a repository extension's seed shows no owner
+  there.
 
 - **A family's footprint is read, never stored.** What a family adds is
   two readings of what already exists (`FootprintRow`, `@kb/contracts`:
@@ -2438,12 +2462,18 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
     empty since the canvas's half became `@kb/canvas-ui`.
 
   One contract suite, `extensionContract` (`@kb/test-kit`), runs over
-  `BUNDLED_EXTENSIONS`, the registry their host, and over the
-  host-composed agent, `kb ui`'s composition its host. A family passes
-  when:
+  `BUNDLED_EXTENSIONS`, the registry their host; over the host-composed
+  agent, `kb ui`'s composition its host; and over a repository fixture (a
+  `.kb/extensions` module that declares a switch and a setting), the
+  registry over a root that holds it its host. Each host hands the suite
+  a root it opens the family in. A family passes when:
   - it loads and unloads cleanly;
   - its entry contributes exactly the views its declaration lists;
-  - its seed ids have one owner;
+  - its seed ids have one owner, it owns them, a store of every backend
+    answers `:node/owner` so when reopened, and an id its seed hands to
+    another declaration answers that one with no write;
+  - its footprint is its seed's rows, loaded or not, and, only while its
+    host holds it, exactly what that host's kernel holds of it;
   - its own node is in the fold, named by its label and filed under
     `sys.extensions`, and switching it writes the switch on that node and
     nothing else;

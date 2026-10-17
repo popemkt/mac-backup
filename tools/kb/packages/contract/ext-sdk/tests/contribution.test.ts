@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
-import { decodeContribution, isTemplateContribution } from "../src/index.ts";
+import type { KbNode } from "@kb/model";
+import { decodeContribution, decodeDeclaration, isTemplateContribution } from "../src/index.ts";
 
 /**
  * The extension contract's red cases. These used to live as hand-rolled
@@ -89,5 +90,44 @@ describe("decodeContribution", () => {
   test("a non-object contribution fails as an action", () => {
     expect(failureOf("nope")).toBe("action: Expected object");
     expect(failureOf(null)).toBe("action: Expected object");
+  });
+});
+
+function node(id: string): KbNode {
+  return { id, text: id, props: {}, children: [], createdAt: "at", updatedAt: "at" };
+}
+
+describe("a module's declaration", () => {
+  test("absent, it is the declaration of the module's name alone", () => {
+    expect(decodeDeclaration(undefined, "hello")).toEqual(
+      Result.succeed({ name: "hello", label: "hello" }),
+    );
+  });
+
+  test("declares a label, a switch and a seed whose nodes it checks when called", () => {
+    const decoded = decodeDeclaration(
+      { name: "hello", label: "Hello", optional: { byDefault: "off" }, seed: () => [node("a")] },
+      "hello",
+    );
+    if (Result.isFailure(decoded)) throw new Error(decoded.failure);
+    expect(decoded.success).toMatchObject({ label: "Hello", optional: { byDefault: "off" } });
+    expect(decoded.success.seed?.("at")).toEqual([node("a")]);
+    const bad = decodeDeclaration(
+      { name: "hello", label: "Hello", seed: () => [{ id: 1 }] },
+      "hello",
+    );
+    if (Result.isFailure(bad)) throw new Error(bad.failure);
+    expect(() => bad.success.seed?.("at")).toThrow();
+  });
+
+  test("is refused when its name is not its file's, or it declares what a repository extension cannot", () => {
+    expect(Result.isFailure(decodeDeclaration({ name: "other", label: "x" }, "hello"))).toBe(true);
+    const views = decodeDeclaration({ name: "hello", label: "x", views: [] }, "hello");
+    expect(Result.isFailure(views) ? views.failure : "").toContain("declaration:");
+    const byDefault = decodeDeclaration(
+      { name: "hello", label: "x", optional: { byDefault: "maybe" } },
+      "hello",
+    );
+    expect(Result.isFailure(byDefault)).toBe(true);
   });
 });

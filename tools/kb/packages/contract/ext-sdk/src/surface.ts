@@ -9,7 +9,7 @@
  * fixture against the emitted module.
  *
  * Authors: `kb ext sdk --write`, then
- * `import type { ExtensionAction, ExtensionTemplate } from "kb-ext-sdk"`.
+ * `import type { ExtensionAction, ExtensionDeclaration, ExtensionTemplate } from "kb-ext-sdk"`.
  * Prefer Promise `handler`s; the `effect` branch is typed for completeness
  * but Effect v4 remains an internal/bundled concern.
  */
@@ -166,11 +166,32 @@ export interface ExtensionTemplate {
 /** One entry of an extension module's default-exported array. */
 export type ExtensionContribution = ExtensionAction | ExtensionTemplate;
 
+/**
+ * What an extension module declares of itself, as its `declaration` export,
+ * the way a bundled family declares itself. The store it lives in seeds its
+ * node, `sys.extension.<name>`, filed under `sys.extensions`, and every node
+ * `seed` returns; a field node whose `sys.f.configures` refers to that node
+ * is one of its settings. With `optional`, it can be switched, and is
+ * `byDefault` in a store where no one has switched it. A module that
+ * exports none is declared by its name alone: required, labelled by its
+ * name, seeding nothing.
+ */
+export interface ExtensionDeclaration {
+  /** The module's file name without `.ts`: its `ext.<name>` namespace and its node's name. */
+  readonly name: string;
+  readonly label: string;
+  readonly optional?: { readonly byDefault: "on" | "off" };
+  /** Its system nodes under frozen ids, stamped `at`. */
+  readonly seed?: (at: string) => readonly KbNode[];
+}
+
 export interface LoadedExtension {
   /** File basename without `.ts`; becomes the `ext.<name>.` namespace. */
   name: string;
   /** "bundled" or the absolute path of the source module. */
   source: string;
+  /** Its `declaration` export, or the declaration of its name alone. */
+  declaration: ExtensionDeclaration;
   /** Actions as authored (ids still local, un-namespaced). */
   actions: readonly ExtensionAction[];
   /** Templates as authored (ids still local, un-namespaced). */

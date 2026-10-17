@@ -3,6 +3,7 @@ import { Point, definePlugin, type Plugin } from "@kb/plugin";
 import type { KbContext } from "./session.ts";
 import type { ActionDefinition, ActionEffectHandler } from "./actions.ts";
 import type { ExtensionTemplate, TemplateFn } from "./template.ts";
+import type { ExtensionDeclaration } from "./declaration.ts";
 
 /**
  * Extension contract: what a TS module in `.kb/extensions/` (repo-local =
@@ -10,7 +11,9 @@ import type { ExtensionTemplate, TemplateFn } from "./template.ts";
  * either an action (an `ActionDefinition` plus an Effect `effect` handler,
  * preferred, or a legacy Promise `handler`) or a render template
  * ({@link ExtensionTemplate}). The registry namespaces both the same way:
- * `ext.<file>.<id>`, with optional bare-id aliases.
+ * `ext.<file>.<id>`, with optional bare-id aliases. Beside it, a module may
+ * export its `declaration` (`ExtensionDeclaration`: label, switch, seed), as
+ * a bundled family declares itself.
  *
  * Such an array is the declarative form of a plugin ({@link extensionPlugin});
  * the loader that discovers, imports and validates the modules lives with the
@@ -40,6 +43,8 @@ export interface LoadedExtension {
   name: string;
   /** "bundled" or the absolute path of the source module. */
   source: string;
+  /** Its `declaration` export, or the declaration of its name alone. */
+  declaration: ExtensionDeclaration;
   /** Actions as authored (ids still local, un-namespaced). */
   actions: readonly ExtensionAction[];
   /** Templates as authored (ids still local, un-namespaced). */

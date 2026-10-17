@@ -45,7 +45,7 @@
  * runs over the page kernel.
  */
 import { describe, expect, test } from "bun:test";
-import { Effect, Result } from "effect";
+import { Effect, Result, type Scope } from "effect";
 import { BUNDLED_DECLARATIONS, derivedOf } from "@kb/bundled";
 import {
   ActionPoint,
@@ -85,6 +85,12 @@ import { CONTRACT_AT, openSession, scratchRoot } from "./store-session.ts";
 export interface SwitchingHost {
   /** The source its kernel's footprint rows carry. */
   readonly source: FamilyKernel["source"];
+  /**
+   * A fresh root the host opens the family in, removed when the scope
+   * closes: any root for a bundled or hosted family, whose seed every store
+   * folds; for a repository extension, one whose `.kb/extensions` holds it.
+   */
+  readonly root: Effect.Effect<string, never, Scope.Scope>;
   readonly compose: (
     nodeOf: NodeLookup,
   ) => Effect.Effect<{ readonly row: ExtensionRow | undefined; readonly kernel: Kernel }>;
@@ -173,7 +179,7 @@ function ownedIn(index: KbIndex, owner: string): readonly string[] {
  * answers it as `:node/owner`, and an id that moves to another declaration
  * changes its answer without a write.
  */
-function ownershipPromises(declaration: ExtensionDeclaration): void {
+function ownershipPromises(declaration: ExtensionDeclaration, host: SwitchingHost): void {
   const own = extensionNodeId(declaration.name);
   const { owners } = foldSeed(foldWith(declaration), CONTRACT_AT);
   const seeded = [...owners].flatMap(([id, owner]) => (owner === declaration.name ? [id] : []));
@@ -184,7 +190,7 @@ function ownershipPromises(declaration: ExtensionDeclaration): void {
         Effect.scoped(
           Effect.gen(function* () {
             expect(seeded).toContain(own);
-            const root = yield* scratchRoot;
+            const root = yield* host.root;
             yield* createStore(root, backend).pipe(Effect.provide(bunFileSystemLayer));
             yield* openSession(root);
             const reopened = yield* openSession(root);
@@ -238,7 +244,7 @@ function footprintPromises(
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const ctx = yield* openSession(yield* scratchRoot);
+          const ctx = yield* openSession(yield* host.root);
           const states = declaration.optional === undefined ? [true] : [false, true, false];
           for (const on of states) {
             const { kernel } = yield* host.compose(switched(declaration, on));
@@ -422,7 +428,7 @@ export function extensionContract(
       ));
 
     defaultViewPromises(declaration);
-    ownershipPromises(declaration);
+    ownershipPromises(declaration, host);
     footprintPromises(declaration, entry, host);
     switchPromises(declaration, entry, host);
   });
