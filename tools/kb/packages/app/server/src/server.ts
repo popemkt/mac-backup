@@ -12,7 +12,13 @@ import {
 } from "@kb/contracts";
 import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
-import { openKbEffect, registerOpenedRoot, writeErr, bunFileSystemLayer } from "@kb/runtime";
+import {
+  bunFileSystemLayer,
+  childProcessEnv,
+  openKbEffect,
+  registerOpenedRoot,
+  writeErr,
+} from "@kb/runtime";
 import { makeKernel } from "@kb/plugin";
 import { clearUiPresence, queriesDir, writeUiPresence } from "@kb/workspace-fs";
 import { ensureUiBuilt, type UiBuildError, type UiEnsureResult } from "./build.ts";
@@ -23,7 +29,7 @@ import {
   type UiDevChild,
   type UiDevSpawn,
 } from "./dev.ts";
-import { childProcessEnv, UI_DIST, UI_ROOT } from "./paths.ts";
+import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { requestGuard, type RequestGuard } from "./guard.ts";
 import { handleHttpRequest } from "./http.ts";
 import { channelsOf, loadServerPlugins } from "./plugins.ts";

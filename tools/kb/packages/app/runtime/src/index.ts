@@ -1,3 +1,4 @@
+export { childProcessEnv } from "./child-env.ts";
 export { discoverExtensions } from "./extension-loader.ts";
 export { invoke } from "./invoke.ts";
 export { kbRuntimeLayer } from "./layers.ts";

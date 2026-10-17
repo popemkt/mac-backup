@@ -1,7 +1,7 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// oxlint-disable-next-line node/no-process-env -- the config seam's single env read; every other module goes through it
+// oxlint-disable-next-line node/no-process-env -- the install layout's single env read; a child's environment is the runtime's childProcessEnv
 const PROCESS_ENV = process.env;
 
 /**
@@ -34,13 +34,4 @@ export const UI_DIST =
 export function kbDataRoot(): string {
   const value = PROCESS_ENV.KB_ROOT;
   return value !== undefined && value !== "" ? value : process.cwd();
-}
-
-/** Forward the process environment into a child, with explicit overrides. */
-export function childProcessEnv(overrides: Record<string, string>): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(PROCESS_ENV)) {
-    if (value !== undefined) env[key] = value;
-  }
-  return { ...env, ...overrides };
 }

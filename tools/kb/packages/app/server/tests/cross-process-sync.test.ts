@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import type { ServerMessage } from "@kb/contracts";
+import { childProcessEnv } from "@kb/runtime";
 import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const CLI = join(import.meta.dir, "..", "..", "cli", "src", "main.ts");
@@ -31,10 +32,8 @@ type TxFrame = Extract<ServerMessage, { op: "tx" }>;
 
 async function kb(root: string, ...args: string[]): Promise<string> {
   const proc = Bun.spawn(["bun", CLI, "--root", root, ...args], {
-    // Bun hands a child the environment the process started with, not the one
-    // it has now; passing it on keeps the run's scratch home store (`KB_HOME`,
-    // test-kit test-home.ts) the child's too.
-    env: { ...process.env },
+    // The run's scratch home store (`KB_HOME`, test-kit test-home.ts) is the child's too.
+    env: childProcessEnv(),
     stdout: "pipe",
     stderr: "pipe",
   });
