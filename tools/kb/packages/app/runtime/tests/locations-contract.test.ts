@@ -21,9 +21,11 @@
  *   nothing; opening what is missing or not a store starts nothing; opening
  *   nothing opens the home store, and makes it when there is none.
  *
- * The contract never starts a real `kb ui`: `serve` is a stand-in that
- * answers for the root as a started server would (the spawn has a test of
- * its own, serve.test.ts).
+ * `serve` is a stand-in that answers for the root as a started server
+ * would, except in one case, which opens a closed root through the real
+ * `serveRoot`: a real `kb ui --port 0` (with no UI package to build, so it
+ * serves its API at once) that answers for the root and ranks it first
+ * itself. How a start fails has a test of its own, serve.test.ts.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink } from "node:fs/promises";
@@ -38,14 +40,18 @@ import {
   LocationRowSchema,
 } from "@kb/locations";
 import { SYSTEM_IDS, domainError, type Actor, type DomainError, type KbNode } from "@kb/model";
-import { writeUiPresence } from "@kb/workspace-fs";
+import { readUiPresence, writeUiPresence } from "@kb/workspace-fs";
 import { CONTRACT_AT, pointHomeAt } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
+import { childProcessEnv } from "../src/child-env.ts";
 import { registerOpenedRoot } from "../src/locations.ts";
 import { invokeReceiptEffect } from "../src/registry.ts";
+import { serveRoot } from "../src/serve.ts";
 import { STORE_BACKENDS, createStore, type StoreBackend } from "../src/store-selection.ts";
+
+const CLI = join(import.meta.dir, "..", "..", "cli", "src", "main.ts");
 
 /** Every file under `dir` with its bytes, so a directory can be compared before and after. */
 const snapshot = Effect.fn("locationsContract.snapshot")(function* (dir: string) {
@@ -95,6 +101,9 @@ function locationsContract(homeBackend: StoreBackend): void {
     let started: string[] = [];
     /** What the stand-in `serve` does: start a server answering for the root, unless told to fail. */
     let startFails = false;
+    /** Whether `serve` is the real one: a `kb ui` child, stopped after the case. */
+    let realServe = false;
+    const children: string[] = [];
 
     /** A server that answers as a `kb ui` serving `root`, named in the root's presence. */
     const answerFor = Effect.fn("locationsContract.answerFor")(function* (root: string) {
@@ -111,6 +120,13 @@ function locationsContract(homeBackend: StoreBackend): void {
 
     const serve = (root: string): Effect.Effect<string, DomainError> => {
       started.push(root);
+      if (realServe) {
+        children.push(root);
+        const env = childProcessEnv("kb", { KB_PKG_ROOT: join(scratch, "pkg"), KB_HOME: home });
+        return serveRoot(root, { command: [process.execPath, CLI], env, timeoutMs: 20_000 }).pipe(
+          Effect.provide(bunFileSystemLayer),
+        );
+      }
       return startFails
         ? domainError("internal", `kb ui for ${root} stopped (exit code 1) before it served`)
         : answerFor(root).pipe(Effect.orDie);
@@ -170,6 +186,8 @@ function locationsContract(homeBackend: StoreBackend): void {
           restoreHome = pointHomeAt(home);
           started = [];
           startFails = false;
+          realServe = false;
+          yield* Effect.promise(() => mkdir(join(scratch, "pkg")));
           yield* Effect.promise(() => mkdir(home));
           yield* createStore(home, homeBackend).pipe(Effect.provide(bunFileSystemLayer));
           session = yield* openRoot(yield* storeRoot("current"));
@@ -177,9 +195,13 @@ function locationsContract(homeBackend: StoreBackend): void {
       ),
     );
 
-    afterEach(() => {
+    afterEach(async () => {
       restoreHome?.();
       for (const server of servers.splice(0)) void server.stop(true);
+      for (const root of children.splice(0)) {
+        const presence = await run(readUiPresence(root).pipe(Effect.provide(bunFileSystemLayer)));
+        if (presence !== null) process.kill(presence.pid, "SIGTERM");
+      }
       return rm(scratch, { recursive: true, force: true });
     });
 
@@ -356,6 +378,30 @@ function locationsContract(homeBackend: StoreBackend): void {
           });
         }),
       ));
+
+    test(
+      "opening a closed root through the real serve starts a kb ui that answers for it",
+      () =>
+        run(
+          Effect.gen(function* () {
+            const a = yield* register(yield* storeRoot("a"));
+            const b = yield* register(yield* storeRoot("b"));
+            realServe = true;
+            const opened = yield* open({ id: a.id });
+            expect(opened.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+            const identity = yield* Effect.promise(() =>
+              fetch(`${opened.url}/api/identity`).then((res) => res.json()),
+            );
+            expect(identity).toEqual({ root: a.path });
+            expect((yield* list()).rows.find((row) => row.id === a.id)).toMatchObject({
+              status: "served",
+              url: opened.url,
+            });
+            expect(yield* order()).toEqual([a.id, b.id]);
+          }),
+        ),
+      30_000,
+    );
 
     test("opening what is missing or not a store fails not_found and starts nothing", () =>
       run(
