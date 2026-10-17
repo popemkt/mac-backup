@@ -11,6 +11,7 @@ import {
   CANVAS_DIRECTIONS,
   arrangeItems,
   canvasMembership,
+  canvasWorld,
   connectItems,
   describeCanvas,
   edgeRoute,
@@ -57,9 +58,10 @@ const item = (d: CanvasDoc, id: string) => {
   return found;
 };
 /** The rules of the lints on `d`, its store holding only node `n.here`. */
-const all = (d: CanvasDoc) => lintCanvas(d, (id) => id === "n.here").map((l) => l.rule);
-/** The store's one node text, for a description. */
-const text = (id: string) => (id === "n.idea" ? "An idea" : undefined);
+const all = (d: CanvasDoc) =>
+  lintCanvas(d, canvasWorld([{ id: "n.here", text: "here" }])).map((l) => l.rule);
+/** A store of one node, for a description. */
+const world = canvasWorld([{ id: "n.idea", text: "An idea" }]);
 const where = (d: CanvasDoc, a: string, b: string) =>
   directionFrom(itemBounds(item(d, a)), itemBounds(item(d, b)));
 
@@ -603,8 +605,8 @@ describe("lints", () => {
   });
 
   test("a diff names the lints a write made and the ones it cleared", () => {
-    const before = lintCanvas(doc(card("a", 0, 0, { z: 90 })), () => true);
-    const after = lintCanvas(doc(card("a", 0, 0), box("b", 0, 0)), () => true);
+    const before = lintCanvas(doc(card("a", 0, 0, { z: 90 })), canvasWorld([]));
+    const after = lintCanvas(doc(card("a", 0, 0), box("b", 0, 0)), canvasWorld([]));
     const diff = lintDiff(before, after);
     expect(diff.new.map((l) => l.rule)).toEqual(["overlap"]);
     expect(diff.resolved.map((l) => l.rule)).toEqual(["floating"]);
@@ -624,7 +626,7 @@ describe("describe", () => {
   };
 
   test("in full: each item's kind, words and box, and how they stand to one another", () => {
-    const told = describeCanvas(d, { nodeText: text });
+    const told = describeCanvas(d, { world });
     expect(told.items.map((i) => [i.id, i.kind, i.words])).toEqual([
       ["f", "frame", "f"],
       ["b", "box", ""],
@@ -656,7 +658,7 @@ describe("describe", () => {
 
   test("focused in full, the rest on screen blurred, what is off screen counted by frame", () => {
     const told = describeCanvas(d, {
-      nodeText: text,
+      world,
       focus: new Set(["idea"]),
       visible: new Set(["f", "b", "on", "idea"]),
     });

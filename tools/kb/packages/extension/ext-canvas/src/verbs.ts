@@ -25,6 +25,7 @@ import {
   CanvasRelationError,
   arrangeItems,
   canvasMembership,
+  canvasWorld,
   connectItems,
   describeCanvas,
   flipItems,
@@ -180,13 +181,12 @@ const canvasDescribeEffect = Effect.fn("ext.canvas.describe")(function* (
   const ctx = yield* KbCtx;
   const doc = yield* readCanvasEffect(input.canvasId);
   const screen = yield* canvasScreenEffect(input.canvasId, input.tab);
-  const texts = new Map(ctx.nodes.map((node) => [node.id, node.text]));
   const chosen =
     input.focus ?? (screen !== null && screen.selection.length > 0 ? screen.selection : null);
   const visible = screen === null ? undefined : new Set(screen.visible);
   const focus = chosen === null ? visible : new Set(chosen);
   const told = describeCanvas(doc, {
-    nodeText: (id) => texts.get(id),
+    world: canvasWorld(ctx.nodes),
     ...(focus === undefined ? {} : { focus }),
     ...(visible === undefined ? {} : { visible }),
   });
@@ -211,8 +211,7 @@ const canvasLintEffect = Effect.fn("ext.canvas.lint")(function* (
 ): Effect.fn.Return<z.infer<typeof lintOutput>, CanvasFail, KbCtx> {
   const ctx = yield* KbCtx;
   const doc = yield* readCanvasEffect(input.canvasId);
-  const known = new Set(ctx.nodes.map((node) => node.id));
-  const lints = lintCanvas(doc, (id) => known.has(id));
+  const lints = lintCanvas(doc, canvasWorld(ctx.nodes));
   return { canvasId: input.canvasId, lints };
 });
 

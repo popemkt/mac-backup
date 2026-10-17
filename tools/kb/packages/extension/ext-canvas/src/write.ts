@@ -26,6 +26,7 @@ import {
 import {
   CANVAS_IDS,
   CanvasRelationError,
+  canvasWorld,
   lintCanvas,
   lintDiff,
   parseCanvasDoc,
@@ -231,9 +232,9 @@ export const commitCanvasEffect = Effect.fn("ext.canvas.commit")(function* (
   canvas.props[CANVAS_IDS.canvasField] = [{ t: "str", v: docStr }];
   canvas.updatedAt = at;
   const also = yield* canvasStep(() => write.also?.(at) ?? []);
-  const known = new Set([...ctx.nodes, ...also].map((node) => node.id));
-  const before = lintCanvas(storedDoc(host), (id) => known.has(id));
-  const after = lintCanvas(write.doc, (id) => known.has(id));
+  const world = canvasWorld([...ctx.nodes, ...also]);
+  const before = lintCanvas(storedDoc(host), world);
+  const after = lintCanvas(write.doc, world);
   yield* persistEffect(ctx, { upserts: [canvas, ...also], deletes: [] });
   return { doc: docStr, lints: lintDiff(before, after) };
 });

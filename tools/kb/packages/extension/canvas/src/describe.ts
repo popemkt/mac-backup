@@ -30,6 +30,7 @@ import {
 } from "./doc.ts";
 import { headOf, routeBends } from "./edges.ts";
 import { lintCanvas, type CanvasLint } from "./lint.ts";
+import type { CanvasWorld } from "./world.ts";
 import { ancestorsOf, canvasMembership } from "./membership.ts";
 import { directionFrom, itemBounds, type CanvasDirection } from "./relations.ts";
 import { restingOn } from "./snap.ts";
@@ -66,10 +67,10 @@ const cut = (text: string) =>
   text.length <= MAX_WORDS ? text : `${text.slice(0, MAX_WORDS - 1)}…`;
 
 /** What an item says: its text, its label, its node's text, or its picture's file. */
-function itemWords(item: CanvasNode, nodeText: (id: string) => string | undefined): string {
+function itemWords(item: CanvasNode, world: CanvasWorld): string {
   if (isTextNode(item)) return item.text;
   if ((isShapeNode(item) || isGroupNode(item)) && item.label !== undefined) return item.label;
-  if (item.nodeId !== undefined) return nodeText(item.nodeId) ?? "";
+  if (item.nodeId !== undefined) return world.textOf(item.nodeId) ?? "";
   if (isFileNode(item)) return item.file;
   return "";
 }
@@ -158,8 +159,8 @@ export interface CanvasDescription {
 }
 
 export interface DescribeOptions {
-  /** A node's text, or undefined when the store does not hold it. */
-  readonly nodeText: (id: string) => string | undefined;
+  /** The kb the canvas reads: its cards' nodes' text. */
+  readonly world: CanvasWorld;
   /** The items in focus, in full; every item when absent. */
   readonly focus?: ReadonlySet<string>;
   /** The items on screen; outside focus they are blurred, off it they are counted. Every item when absent. */
@@ -223,7 +224,7 @@ function describeItems(
       clusters.set(top, cluster);
       continue;
     }
-    const words = cut(itemWords(node, options.nodeText));
+    const words = cut(itemWords(node, options.world));
     const base = { id: node.id, kind, words, box: rounded(itemBounds(node)) };
     if (!focus.has(node.id)) {
       items.push({ ...base, detail: "blurry" });
@@ -323,7 +324,7 @@ export function describeCanvas(doc: CanvasDoc, options: DescribeOptions): Canvas
     items,
     relations: [...placed.filter(touches), ...near],
     peripheral,
-    lints: lintCanvas(doc, (id) => options.nodeText(id) !== undefined),
+    lints: lintCanvas(doc, options.world),
     ...(doc.camera === undefined ? {} : { camera: doc.camera }),
   };
 }

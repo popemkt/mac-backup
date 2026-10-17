@@ -6,6 +6,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
+  canvasWorld,
   CanvasRelationError,
   describeCanvas,
   headOf,
@@ -148,7 +149,7 @@ describe("made", () => {
   test("describe tells a line by its kind", () => {
     const told = describeCanvas(
       { nodes: [line({ toHead: "open" })], edges: [] },
-      { nodeText: () => undefined },
+      { world: canvasWorld([]) },
     );
     expect(told.items[0]).toMatchObject({ id: "p", kind: "arrow" });
   });
@@ -156,7 +157,7 @@ describe("made", () => {
   test("a line is told back in the shape make.line takes: its points, closed or not, its heads", () => {
     const told = describeCanvas(
       { nodes: [line({ toHead: "open" }), line({ id: "q", closed: true })], edges: [] },
-      { nodeText: () => undefined, focus: new Set(["p", "q"]) },
+      { world: canvasWorld([]), focus: new Set(["p", "q"]) },
     );
     expect(told.items.map((item) => item.line)).toEqual([
       {

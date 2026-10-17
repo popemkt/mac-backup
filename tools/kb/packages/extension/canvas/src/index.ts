@@ -149,6 +149,8 @@ export type {
 } from "./describe.ts";
 export { CANVAS_LINT_RULES, lintCanvas, lintDiff } from "./lint.ts";
 export { canvasReferences } from "./references.ts";
+export { canvasWorld } from "./world.ts";
+export type { CanvasWorld, WorldNode } from "./world.ts";
 export type { CanvasLint, CanvasLintDiff, CanvasLintRule } from "./lint.ts";
 export { placeItem } from "./place.ts";
 export type { CanvasWhere } from "./place.ts";

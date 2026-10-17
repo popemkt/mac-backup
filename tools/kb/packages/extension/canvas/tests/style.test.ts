@@ -8,6 +8,7 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import {
+  canvasWorld,
   CANVAS_ALIGNS,
   CANVAS_DASHES,
   CANVAS_FILLS,
@@ -145,7 +146,7 @@ describe("styleOf and withStyle", () => {
     expect(made.style).toEqual({ dash: "dotted", font: "mono" });
     const told = describeCanvas(
       { nodes: [{ ...made, color: "1" }], edges: [] },
-      { nodeText: () => undefined },
+      { world: canvasWorld([]) },
     );
     expect(told.items[0]?.color).toBe("red");
     expect(told.items[0]?.style).toEqual({ dash: "dotted", font: "mono" });

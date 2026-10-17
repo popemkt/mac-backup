@@ -20,6 +20,7 @@ import { canvasMembership, faceHolds } from "./membership.ts";
 import { isSolid, overlaps } from "./relations.ts";
 import { restingOn } from "./snap.ts";
 import { baseOf } from "./transform.ts";
+import type { CanvasWorld } from "./world.ts";
 
 export const CANVAS_LINT_RULES = [
   "overlap",
@@ -54,11 +55,8 @@ function liesOnFace(item: CanvasNode, frame: CanvasNode): boolean {
 
 const round = (v: number) => Math.round(v * 100) / 100;
 
-/**
- * Every lint on `doc`, in a stable order. `nodeExists` says whether the
- * store holds a node an item stands for.
- */
-export function lintCanvas(doc: CanvasDoc, nodeExists: (id: string) => boolean): CanvasLint[] {
+/** Every lint on `doc`, in a stable order, reading kb through `world`. */
+export function lintCanvas(doc: CanvasDoc, world: CanvasWorld): CanvasLint[] {
   const lints: CanvasLint[] = [];
   const membership = canvasMembership(doc.nodes);
   const byId = new Map(doc.nodes.map((node) => [node.id, node]));
@@ -93,7 +91,7 @@ export function lintCanvas(doc: CanvasDoc, nodeExists: (id: string) => boolean):
     }
   }
   for (const node of doc.nodes) {
-    if (node.nodeId !== undefined && !nodeExists(node.nodeId)) {
+    if (node.nodeId !== undefined && world.textOf(node.nodeId) === undefined) {
       lints.push({
         rule: "missing-node",
         ids: [node.id],
