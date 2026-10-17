@@ -41,7 +41,8 @@ export interface KbRootsPort {
    * Start a `kb ui` serving `root` and answer its URL once it says it serves
    * the root. The server outlives the call, as a `kb ui` a person starts
    * does. Fails with what the server said when it stops first or does not
-   * answer in time.
+   * answer in time, and a server that has not served by then is stopped.
+   * Concurrent calls for one root are one start, and each gets its answer.
    */
   readonly serve: (root: string) => Effect.Effect<string, DomainError>;
 }

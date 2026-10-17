@@ -1,22 +1,24 @@
 /**
  * Starting a `kb ui` for a root (`serveRoot`, DESIGN.md → Locations): a real
  * `kb ui --port 0` over a temp root, whose URL in presence answers for that
- * root, and the two ways a start fails, each reported with what the child
- * wrote to stderr.
+ * root, the two ways a start fails, each reported with what the child
+ * wrote to stderr, and a child that never served stopped with its start;
+ * concurrent starts for one root are one start (`oneStartPerRoot`).
  *
  * The child runs with `KB_PKG_ROOT` pointing at an empty directory: there is
  * no UI package there to build, so the server starts at once and serves its
  * API, which is all a start waits for.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Deferred, Effect, Fiber } from "effect";
 import { readUiPresence, servingUi } from "@kb/workspace-fs";
+import { domainError } from "@kb/model";
 import { childProcessEnv } from "../src/child-env.ts";
 import { bunFileSystemLayer } from "../src/platform.ts";
-import { serveRoot, type UiLaunch } from "../src/serve.ts";
+import { oneStartPerRoot, serveRoot, type UiLaunch } from "../src/serve.ts";
 import { createStore } from "../src/store-selection.ts";
 
 const CLI = join(import.meta.dir, "..", "..", "cli", "src", "main.ts");
@@ -35,6 +37,26 @@ function launch(command: UiLaunch["command"], timeoutMs: number): UiLaunch {
     }),
     timeoutMs,
   };
+}
+
+/** Whether `pid` names a running process. */
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether `pid` has exited within `ms`. */
+async function exitsWithin(pid: number, ms: number): Promise<boolean> {
+  const until = Date.now() + ms;
+  while (alive(pid)) {
+    if (Date.now() > until) return false;
+    await Bun.sleep(20);
+  }
+  return true;
 }
 
 /** The message of the failure `effect` ends in. */
@@ -89,17 +111,62 @@ describe("starting a kb ui for a root", () => {
     expect(message).toContain("no store for you");
   });
 
-  test("a child that does not answer in time fails, and says it may still be starting", async () => {
+  test("a child that does not answer in time fails, and is stopped", async () => {
+    const pidFile = join(scratch, "child.pid");
+    const script = [
+      `require("node:fs").writeFileSync(${JSON.stringify(pidFile)}, String(process.pid))`,
+      "console.error('warming up')",
+      "setTimeout(() => {}, 20_000)",
+    ].join("; ");
     const message = await failureOf(
-      serveRoot(
-        root,
-        launch(
-          [process.execPath, "-e", "console.error('warming up'); setTimeout(() => {}, 2000)"],
-          500,
-        ),
-      ).pipe(Effect.provide(bunFileSystemLayer)),
+      serveRoot(root, launch([process.execPath, "-e", script], 500)).pipe(
+        Effect.provide(bunFileSystemLayer),
+      ),
     );
-    expect(message).toContain("did not answer within 0.5s; it may still be starting");
+    expect(message).toContain("did not answer within 0.5s, so it was stopped");
     expect(message).toContain("warming up");
+    expect(await exitsWithin(Number(await readFile(pidFile, "utf8")), 2000)).toBe(true);
+  });
+});
+
+describe("one start per root", () => {
+  test("a start for a root that is already starting waits for it and gets its answer", async () => {
+    const started: string[] = [];
+    const release = Deferred.makeUnsafe<void>();
+    const serve = oneStartPerRoot((at) =>
+      Effect.sync(() => started.push(at)).pipe(
+        Effect.andThen(Deferred.await(release)),
+        Effect.as(`http://127.0.0.1:${started.length}`),
+      ),
+    );
+    const answers = await run(
+      Effect.gen(function* () {
+        const fibers = yield* Effect.forEach(["/a", "/a", "/b"], (at) =>
+          Effect.forkChild(serve(at)),
+        );
+        yield* Effect.yieldNow;
+        yield* Deferred.succeed(release, undefined);
+        return yield* Fiber.joinAll(fibers);
+      }),
+    );
+    expect(started).toEqual(["/a", "/b"]);
+    expect(answers[0]).toBe(answers[1]);
+    expect(answers[2]).not.toBe(answers[0]);
+  });
+
+  test("a root whose start has ended starts again, and a failure reaches every waiter", async () => {
+    let starts = 0;
+    const serve = oneStartPerRoot(() =>
+      Effect.sync(() => ++starts).pipe(
+        Effect.andThen(Effect.sleep(10)),
+        Effect.andThen(Effect.fail(domainError("internal", "no"))),
+      ),
+    );
+    const failures = await run(
+      Effect.forEach([serve("/a"), serve("/a")], Effect.flip, { concurrency: "unbounded" }),
+    );
+    expect(failures.map(({ message }) => message)).toEqual(["no", "no"]);
+    await run(Effect.flip(serve("/a")));
+    expect(starts).toBe(2);
   });
 });

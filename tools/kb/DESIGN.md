@@ -3308,7 +3308,12 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   root's presence names a server answering for it, within about ten
   seconds; that server ranks its root first itself, so a start that fails
   ranks nothing. A start that exits first or does not answer in time fails
-  `internal` with the log's tail. A missing location, or one that is not a
+  `internal` with the log's tail, and a child that has not served by then
+  is stopped with its process group: until it serves it belongs to the
+  start, so a failed or interrupted start leaves no server behind.
+  Concurrent opens of one root in one process are one start
+  (`oneStartPerRoot`); across processes they are not yet
+  (GAP [[01M545PFJ3285JNXYHKVCM50Z7]]). A missing location, or one that is not a
   store, fails `not_found` with its reason and starts nothing. Started
   servers keep running with no supervisor, as a `kb ui` a person starts
   does; `kb locations` shows which are served.

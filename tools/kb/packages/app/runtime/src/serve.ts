@@ -6,14 +6,16 @@
  * is done when that presence names a server answering for the root
  * (`servingUi`).
  *
- * The child outlives the call and this process. Nothing supervises it, just
- * as nothing supervises a `kb ui` a person starts. Its stderr goes to a log
- * file, and a failed start reports the file's tail.
+ * A child that serves outlives the call and this process. Nothing
+ * supervises it, just as nothing supervises a `kb ui` a person starts. Until
+ * it serves it belongs to the start: a start that fails, by timing out or by
+ * being interrupted, stops it, so a failed start leaves no server behind.
+ * Its stderr goes to a log file, and a failed start reports the file's tail.
  */
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
 import { join } from "node:path";
-import { Effect, Option } from "effect";
+import { Deferred, Effect, Exit, Option, type Scope } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { domainError, ensureDomainError, type DomainError } from "@kb/model";
 import { servingUi } from "@kb/workspace-fs";
@@ -54,7 +56,7 @@ function startChild(
   root: string,
   log: string,
   ended: (how: string) => void,
-): void {
+): ChildProcess {
   const [cmd, ...pre] = launch.command;
   const fd = openSync(log, "a", 0o600);
   try {
@@ -66,8 +68,22 @@ function startChild(
     child.once("exit", (code, signal) => ended(signal ?? `exit code ${String(code)}`));
     child.once("error", (err) => ended(err.message));
     child.unref();
+    return child;
   } finally {
     closeSync(fd);
+  }
+}
+
+/**
+ * Stop a child that never served, and whatever it started (a UI build): it
+ * was started detached, so it leads its own process group.
+ */
+function stopChild(child: ChildProcess): void {
+  if (child.pid === undefined) return;
+  try {
+    process.kill(-child.pid, "SIGTERM");
+  } catch {
+    // Already gone.
   }
 }
 
@@ -84,26 +100,31 @@ const logTail = Effect.fn("kb.serve.tail")(function* (
 /**
  * Start a `kb ui` serving `root` and answer its URL once it says it serves
  * the root. Fails `internal` with the tail of its stderr when it exits
- * first, or when it has not answered in time; a server that is only slow
- * (building its UI, say) keeps starting, and a later open finds it.
+ * first, or when it has not answered in time, and then it is stopped: a
+ * start is one attempt, and a server that comes up after its start gave up
+ * is one nobody asked for.
  */
 export const serveRoot = Effect.fn("kb.serve")(function* (
   root: string,
   launch: UiLaunch,
-): Effect.fn.Return<string, DomainError, FileSystem> {
+): Effect.fn.Return<string, DomainError, FileSystem | Scope.Scope> {
   const fs = yield* FileSystem;
   const dir = yield* fs
     .makeTempDirectory({ prefix: "kb-ui-" })
     .pipe(Effect.mapError(ensureDomainError));
   const log = join(dir, "stderr.log");
   let ended: string | null = null;
-  yield* Effect.try({
-    try: () =>
-      startChild(launch, root, log, (how) => {
-        ended = how;
-      }),
-    catch: (err) => domainError("internal", `kb ui could not start for ${root}: ${String(err)}`),
-  });
+  yield* Effect.acquireRelease(
+    Effect.try({
+      try: () =>
+        startChild(launch, root, log, (how) => {
+          ended = how;
+        }),
+      catch: (err) => domainError("internal", `kb ui could not start for ${root}: ${String(err)}`),
+    }),
+    (child, exit) =>
+      Exit.isSuccess(exit) || ended !== null ? Effect.void : Effect.sync(() => stopChild(child)),
+  );
   const answered = yield* Effect.gen(function* () {
     for (;;) {
       const url = yield* servingUi(root);
@@ -117,7 +138,34 @@ export const serveRoot = Effect.fn("kb.serve")(function* (
   const tail = yield* logTail(log);
   const why =
     outcome === null
-      ? `kb ui for ${root} did not answer within ${launch.timeoutMs / 1000}s; it may still be starting`
+      ? `kb ui for ${root} did not answer within ${launch.timeoutMs / 1000}s, so it was stopped`
       : `kb ui for ${root} stopped (${outcome.how}) before it served`;
   return yield* domainError("internal", `${why}: ${tail}`, { root });
-});
+}, Effect.scoped);
+
+type Start = (root: string) => Effect.Effect<string, DomainError>;
+
+/**
+ * `start` with one start per root at a time in this process: a call for a
+ * root that is already starting waits for that start and gets its answer,
+ * its URL or its failure, instead of starting a second server.
+ */
+// GAP [[01M545PFJ3285JNXYHKVCM50Z7]]: one start per root in this process only; two
+// processes starting one root at once can each start a server.
+export function oneStartPerRoot(start: Start): Start {
+  const starting = new Map<string, Deferred.Deferred<string, DomainError>>();
+  return (root) =>
+    Effect.suspend(() => {
+      const joined = starting.get(root);
+      if (joined !== undefined) return Deferred.await(joined);
+      const answer = Deferred.makeUnsafe<string, DomainError>();
+      starting.set(root, answer);
+      return start(root).pipe(
+        Effect.onExit((exit) =>
+          Effect.sync(() => starting.delete(root)).pipe(
+            Effect.andThen(Deferred.done(answer, exit)),
+          ),
+        ),
+      );
+    });
+}
