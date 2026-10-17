@@ -552,6 +552,16 @@ original's text; a context breadcrumb is the obvious next step and is not
 built. There is no global ⌘K entry: a contextual reference needs both a host
 row and a target, and the global palette has no two-step for that.
 
+A References row names each typed relation its referrer holds to the node
+(a non-system ref field pointing here), worded from the node's side: the
+field's inverse label when it names one ("influenced by"), else its label
+read toward the node ("influences →"); a referrer that only mentions the
+node shows none. Typing a mention from its chip ("Type this reference…")
+is not built: a chip has no menu, and the node palette's steps are a closed
+set the outline owns, so another family has no point to contribute one
+through (a recorded gap); `kb relate`, the agent and the graph's "Link as…"
+type relations meanwhile.
+
 ### Field values: one slot grammar
 
 A node's field values are drawn by one component on every surface —
@@ -771,6 +781,32 @@ rather than by navigation.
   port over every layout (2D force, placed, 3D force on the page and through
   its worker protocol), and the render suite drags through both force
   renderers' workers in a browser.
+- **Tracing.** With a node selected, the card's "Trace to…" and then a
+  second node, or a ⇧-click on it, trace from the selection: the page runs
+  `@kb/graph`'s `traceOf` over the nodes drawn and the lens's edge kinds
+  (DESIGN.md → [Trace and suggest](DESIGN.md#trace-and-suggest)), and the
+  paths light in place through the shared emphasis alpha (`traceIds`, beside
+  search, legend and neighbourhood) while everything else dims. The trace
+  card takes the selection card's place and lists each path's hops as
+  sentences, the reason when there is no path, and "Save as perspective",
+  which writes a graph view node whose lens names the trace. The trace is
+  ephemeral, like search, and belongs to the perspective it was begun in;
+  `Escape` and the card's ✕ end it. Trace mode is a renderer capability
+  (`capabilities.trace`), which the 2D renderers declare; a saved trace
+  draws in every renderer, because its node set is extraction's.
+- **Link labels.** `lens.edge-labels` is a perspective setting, the toggle
+  "Label links", enabled where the renderer declares it (2D). On, each link
+  carries its relation's label as sigma's edge label: a typed relation by
+  its field node's text, a mention or containment by its verb, read by the
+  labels a trace's hops are worded with (`relationOfEdge`); a receding
+  link's label recedes with it. 3D draws none yet (a recorded gap, beside
+  its link weight).
+- **Related, not connected.** With the graph family's setting
+  `graph.suggest-relations` on, the selection card lists the drawn nodes
+  `suggestOf` finds for the selection, each with its evidence and a
+  "Link as…" picker of the ref fields that allow it (`relationFieldsFor`);
+  picking one types the relation through `graph.relation.type` as the
+  person's own gesture, so it never asks.
 - **Search and filter compose.** The toolbar search (`/` focuses) does
   case-insensitive substring matching on labels, `Enter` cycles matches with an
   animated camera move; the collapsible tag legend isolates a colour bucket on

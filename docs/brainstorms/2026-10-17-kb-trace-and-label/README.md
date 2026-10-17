@@ -1,6 +1,10 @@
 # Tracing connections and labelling them
 
-Plan of 2026-10-17. Nothing here is built. It builds on
+Plan of 2026-10-17. Built on `feature/kb-trace-label` (T0–T8, except the
+outline's "Type this reference…", deferred); what was built is stated in
+[DESIGN.md → Trace and suggest](../../../tools/kb/DESIGN.md#trace-and-suggest)
+and [DESIGN-UI.md → Graph](../../../tools/kb/DESIGN-UI.md#graph-i2), which
+are canonical. This file stays the plan of record. It builds on
 [DESIGN.md → Query layer](../../../tools/kb/DESIGN.md#query-layer-horizontal),
 on the refs and fields of the Data model, and on
 [DESIGN-UI.md → Graph](../../../tools/kb/DESIGN-UI.md#graph-i2) and

@@ -621,7 +621,13 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   therefore read from its own carrier (`collectEdges` in `@kb/graph`,
   `packages/extension/graph/src/edges.ts`, scans text tokens — `nodeMentions`,
   the same reader the datoms use — children and ref props separately and
-  never queries `:node/mentions`, which would double every prop edge).
+  never queries `:node/mentions`, which would double every prop edge). The
+  one place two carriers meet is a **typed mention**: a source that both
+  mentions a target and holds it in a ref field has said what the mention
+  means, so the projection folds the mention into that relation's edge (its
+  weight rises by the mention's, and it carries `carriers: ["mention",
+  "prop"]`). A lens that draws mentions but not that field keeps the
+  mention; the rule lives in the one projection, never in a renderer.
 
   Optional Logseq-style `:node/path-refs` (ancestor mentions) is backlog —
   add only when a real query needs hierarchy-scoped reach.
@@ -1604,7 +1610,8 @@ same lane. One path to a client, whatever a node's provenance.
   in path length; a lineage of hundreds of hops is seconds, not milliseconds.
   Path reconstruction and a minimum hop count are not in the form: a path is
   not a datalog relation, and a hop counter on the unbounded form would not
-  terminate on a cycle. `reach` is recognised only in a query the subset
+  terminate on a cycle. Paths are the graph family's, over the edge
+  projection ([Trace and suggest](#trace-and-suggest)). `reach` is recognised only in a query the subset
   covers whole; one construct outside it (a predicate, `not`/`or`, `_`,
   `:with`) makes the query `raw`, well-formed or malformed `reach` included,
   and there `reach` is an ordinary rule call that no rules define
@@ -1628,6 +1635,87 @@ same lane. One path to a client, whatever a node's provenance.
   `kb children <id>`, `kb search <text>` — `kb search` delegates to the
   first-class `graph.search` action (case-insensitive substring over node
   text), so the substring policy lives in the action, not the CLI.
+
+## Trace and suggest
+
+The graph family's reads of connections (`@kb/graph`), over the edge
+projection rather than the index: a path is not a datalog relation (Query
+layer), so neither is computed by DataScript. Plan and prior art:
+`docs/brainstorms/2026-10-17-kb-trace-and-label/README.md`.
+
+- **The projection, walked.** `projectionOf(nodes, kinds)` is
+  `collectEdges` over a node set, the tags each node carries (the non-system
+  targets of its `sys.f.type`, read whatever the kinds), and its
+  scaffolding: the nodes the graph elides (`isScaffolding` — `sys.*`
+  nodes, commands, tag and field nodes), one predicate the renderers' node
+  set reads too. Both reads walk its undirected view (`adjacencyOf`) and keep
+  each edge whole, so a hop crosses an edge either way and still says which
+  way it points. A scaffolding node is never an intermediate, or a
+  suggestion, unless the caller asks (`includeSystem`).
+- **Trace** (`trace`) is the k shortest simple paths between two nodes
+  (Yen over a Dijkstra). Cost is hops; a tie goes to the lower sum of
+  `log(degree)` over the intermediates, so a specific connector beats a hub
+  (every `#todo` meets in its tag). `k` (3), `maxHops` (6) and a visit cap
+  bound it; hitting the cap returns the paths found so far with a warning,
+  and no path is a reason (`same-node`, `unreached`), never a failure.
+  Where several edges join a pair the hop names the most specific: a typed
+  relation over a mention over containment, one pointing the walk's way over
+  one pointing back.
+- **Suggest** (`suggest`) is the nodes two hops from one node and not one:
+  Adamic-Adar over the neighbours they share (Σ 1/log deg z), plus the tags
+  they share weighted by rarity (log(1 + tagged / carrying it)), plus
+  co-citation (a shared neighbour pointing at both, Σ 1/log(1 + out z)). A
+  shared tag scores once, as a tag. Each term is non-negative, so a
+  candidate's score never falls as its evidence grows; each carries its
+  reasons (`shared`, `tags`, `citedBy`); the order is score, then id. No
+  text similarity and no embeddings.
+- **A hop in words** (`explainHop`). A built-in kind is a verb ("A mentions
+  B", "B contains C", read back "is mentioned by", "is inside"); a typed
+  relation is its field, drawn as an arrow ("C —influences→ D"), and read
+  against its edge by the field's inverse label when it names one ("E
+  —influences→ D, read back as D ←influenced by— E"). The label of a typed
+  relation is its field node's text; the inverse is `sys.f.relation.inverse`,
+  plain text on the field node that core seeds and `sys.field` templates,
+  read by `@kb/model`'s `relationInverseOf` (the outline's References words
+  a relation from the target's side by it too). No inverse or implied edge
+  is ever written.
+- **One answer on both hosts.** `read.ts`'s `traceOf` and `suggestOf` word
+  every hop and name every node over a node set. The server's actions run
+  them over the store, and the page runs them over its replica (trace mode,
+  "Related, not connected", a saved trace's node set), so the two cannot
+  disagree; `runtime/tests/graph-trace.test.ts` holds the action to the
+  local read.
+- **Actions.** The family's server entry (`graphServerPlugin`) contributes
+  `ext.graph.trace`, `ext.graph.suggest` (reads) and
+  `ext.graph.relation.type` (a write), aliased `graph.trace`,
+  `graph.suggest` and `graph.relation.type` beside core's `graph.query` and
+  `graph.search`. The CLI's `kb trace <a> <b> [--kinds …] [--k n]`,
+  `kb suggest <id> [--kinds …]` and `kb relate <source> <target> <field>`
+  are sugar over them (`cli/src/relations.ts`), as `kb backlinks` is over
+  `graph.query`; MCP, WebMCP and the agent list them as they list every
+  action.
+- **Typing a relation** (`graph.relation.type {source, target, field}`) is
+  saying what a connection means: it adds one ref prop of `field` from
+  source to target in one transaction and leaves the text, mention and all,
+  as it was (`typedRelation`). It refuses a field that is not a ref, a
+  target the field does not allow (through `allowedRefIdsOf`, the one
+  resolver; the write check does not enforce it yet, as Data model records),
+  and a full one-valued field (`conflict`, never a silent replace); typing a
+  relation already held writes nothing. `relationFieldsFor` lists the fields
+  that may type one to a target, by the same rule. The action declares no
+  approval, so the command line and a person's gesture never ask; an agent
+  asks where the repository's policy says so (`#approval-policy` matching
+  `ext.graph.relation.type` for the agent, deciding `ask`), one relation per
+  call, and the surface contract holds every surface to it.
+- **A saved trace is a graph view node.** Its lens params `lens.trace-from`,
+  `lens.trace-to` (refs) and `lens.trace-paths` (a number, the trace's own
+  default when absent) are extraction's, like the query, so every renderer
+  draws one: the node set is the union of the paths within the lens's other
+  narrowing. An unsaved trace is transient selection state (DESIGN-UI.md →
+  Graph).
+- **The family's setting** `graph.suggest-relations` (a checkbox field that
+  configures `sys.extension.graph`, off when absent, read by
+  `suggestsRelations`) decides whether the UI offers relations to type.
 
 ## Ontologies — a lens over the graph
 
