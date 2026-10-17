@@ -1,10 +1,11 @@
 import { Effect } from "effect";
 import { z } from "zod";
 import { WireNodeSchema, type SecretSource, type UiHostService } from "@kb/contracts";
-import { decodeNodeConfig, extensionNodeId, type NodeId } from "@kb/model";
+import { decodeNodeConfig, extensionNodeId, typeRefsOf, type NodeId } from "@kb/model";
 import { agentExtension } from "./extension.ts";
 import {
   AGENT_ADAPTERS,
+  AGENT_IDS,
   DEFAULT_PROVIDER,
   PROVIDER_SLOTS,
   SELECTION_SLOTS,
@@ -72,6 +73,13 @@ export const chooseProvider = Effect.fn("kb.agent.chooseProvider")(function* (
     if (provider === undefined) {
       return yield* new AgentRuntimeError({
         message: `The selected provider ${selected} is not in this kb; choose another, or clear the selection.`,
+      });
+    }
+    // Only a provider is read as one: tagging a node as a provider is the
+    // owner's to approve, so a node nobody made one never configures a turn.
+    if (!typeRefsOf(provider).includes(AGENT_IDS.providerTag)) {
+      return yield* new AgentRuntimeError({
+        message: `The selected node ${selected} is not an #agent-provider; tag it as one, or choose another.`,
       });
     }
     const read = decodeNodeConfig(PROVIDER_SLOTS, provider.props, (warning) =>

@@ -1901,12 +1901,15 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
   - **Writing configuration is the owner's**, whatever the policies say.
     Configuration is what the code runs with, such as the agent's
     provider: its endpoint and the key reference sent there. A write counts
-    when it changes a value of an extension's setting on the node it
-    configures (the switch included). It also counts when it writes a node
-    of a system kind that configures an extension: `#agent-provider`, whose
-    tag carries `sys.f.configures`. That kind may be tagged before or after,
-    so minting, editing, untagging and deleting such a node all count
-    (`writesConfiguration`, `@kb/model`). The same resolver rule weighs it,
+    when it changes a value of a system field that configures an extension
+    (`sys.f.configures`), on whichever node it lands: the switch, the
+    selection, and every field a provider is read from. A value on a node
+    the configuration does not name yet still counts, since a later
+    reference could make it the one that runs. It also counts when it
+    writes a node of a system kind that configures an extension:
+    `#agent-provider`, whose tag carries `sys.f.configures`. That kind may
+    be tagged before or after, so minting, editing, untagging and deleting
+    such a node all count (`writesConfiguration`, `@kb/model`). The same resolver rule weighs it,
     from the same commit writes (`details.writes: "configuration"`). What
     it needs depends on the actor (`configurationDecision`, beside
     `actsAsOwner`):
@@ -3024,9 +3027,10 @@ The sidebar agent lives outside core, in packages that core never imports
     and `model` (text), each single-valued. The agent family seeds the
     kind, its fields and the options; the seed is in the bundled fold
     (`HOSTED_FAMILIES` in `@kb/bundled`), so every store holds them,
-    whichever process opens it. The kind configures the agent
-    (`sys.f.configures` on its tag), so a provider, like the selection, is
-    configuration, and the agent writes neither without the owner's approval
+    whichever process opens it. The kind and each of its fields configure
+    the agent (`sys.f.configures`), so a provider, its settings wherever
+    they are written, and the selection are configuration, and the agent
+    writes none of them without the owner's approval
     ([Action registry](#action-registry) → Approval).
   - The selection is a setting of the agent's own node:
     `sys.f.agent.provider`, a ref to a provider, which configures
@@ -3039,9 +3043,11 @@ The sidebar agent lives outside core, in packages that core never imports
     builds one runtime per provider as written and keeps it, so a `resume`
     handle keeps its meaning. When the provider a conversation ran on
     changes, its selection or any of its settings, the next turn starts
-    afresh and the bridge says so with a `notice`. A selection naming no
-    node, a setting that does not read (each read as its default, with a
-    notice), and an adapter the host lacks are said in the turn, not
+    afresh and the bridge says so with a `notice`. Only a node tagged
+    `#agent-provider` is read as a provider: a selection naming no node, or
+    a node that is not a provider, fails the turn, so settings written on a
+    node nobody made a provider never run. A setting that does not read (each read as its default, with a
+    notice) and an adapter the host lacks are said in the turn too, not
     hidden.
   - An adapter (`AgentAdapter`) turns a provider's settings into a runtime.
     The host's composition implements every id in `AGENT_ADAPTERS`, and its

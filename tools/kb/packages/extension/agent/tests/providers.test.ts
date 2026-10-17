@@ -20,7 +20,7 @@ import {
   type SecretSource,
   type WireNode,
 } from "@kb/contracts";
-import { extensionNodeId } from "@kb/model";
+import { SYSTEM_IDS, extensionNodeId } from "@kb/model";
 import { definePlugin, makeKernel, type Kernel } from "@kb/plugin";
 import {
   AGENT_CHANNEL,
@@ -48,14 +48,19 @@ function node(id: string, text: string, props: WireNode["props"] = {}): WireNode
 const str = (v: string) => [{ t: "str" as const, v }];
 const ref = (v: string) => [{ t: "ref" as const, v }];
 
-/** A provider node as a person writes one. */
-function provider(id: string, text: string, model: string): WireNode {
-  return node(id, text, {
+/** A provider node's settings as a person writes them, with no kind. */
+function settings(model: string): WireNode["props"] {
+  return {
     [AGENT_IDS.adapterField]: ref(adapterOptionId(DEFAULT_ADAPTER)),
     [AGENT_IDS.modelField]: str(model),
     [AGENT_IDS.endpointField]: str("http://127.0.0.1:8317"),
     [AGENT_IDS.credentialField]: str("env:PROXY_KEY"),
-  });
+  };
+}
+
+/** A provider node as a person writes one. */
+function provider(id: string, text: string, model: string): WireNode {
+  return node(id, text, { [SYSTEM_IDS.typeField]: ref(AGENT_IDS.providerTag), ...settings(model) });
 }
 
 /** Select `id` on the agent's node, or clear the selection. */
@@ -212,6 +217,18 @@ describe("the provider a turn runs on", () => {
       message:
         "The selected provider n.gone is not in this kb; choose another, or clear the selection.",
     });
+  });
+
+  test("a node that is no #agent-provider is never read as one, whatever its settings", async () => {
+    const r = rig();
+    r.store.set("n.forged", node("n.forged", "Forged", settings("forged-model")));
+    select(r.store, "n.forged");
+    expect(await new Peer().turn(r.channel, "hi")).toMatchObject({
+      outcome: "failed",
+      message:
+        "The selected node n.forged is not an #agent-provider; tag it as one, or choose another.",
+    });
+    expect(r.built).toEqual([]);
   });
 
   test("a provider whose adapter this host lacks fails the turn, naming the adapter", async () => {

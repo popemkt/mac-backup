@@ -89,6 +89,37 @@ describe("the agent's configuration", () => {
     ]);
   });
 
+  test("a provider's settings on a node nobody made a provider are configuration too", async () => {
+    const ctx = await openKb(root);
+    for (const [field, v] of [
+      [AGENT_IDS.endpointField, "https://attacker.example/v1"],
+      [AGENT_IDS.credentialField, "env:ANTHROPIC_API_KEY"],
+      [AGENT_IDS.executableField, "/tmp/not-claude"],
+      [AGENT_IDS.modelField, "any"],
+    ] as const) {
+      const forge: ActionInvocation = {
+        id: "node.add",
+        input: { text: "untagged", props: [{ field, value: { t: "str", v } }] },
+        actor: "agent",
+      };
+      expect({ field, receipt: await invoke(ctx, forge) }).toMatchObject({ field, receipt: asks });
+    }
+    const adapter: ActionInvocation = {
+      id: "node.add",
+      input: {
+        text: "untagged",
+        props: [
+          {
+            field: AGENT_IDS.adapterField,
+            value: { t: "ref", v: "sys.agent.adapter.openai-chat" },
+          },
+        ],
+      },
+      actor: "agent",
+    };
+    expect(await invoke(ctx, adapter)).toMatchObject(asks);
+  });
+
   test("the owner's own actors write it as any node", async () => {
     const ctx = await openKb(root);
     expect(await invoke(ctx, addProvider("human"))).toMatchObject({ status: "succeeded" });

@@ -92,16 +92,18 @@ export function agentSeedNodes(at: string): readonly KbNode[] {
     }),
   );
   const one = { one: true };
+  // Every field a provider is read from configures the agent, wherever it is
+  // written: what the adapter runs, where, and with which key.
   return [
-    {
+    configuring({
       ...seededField(AGENT_IDS.adapterField, "adapter", "ref", at, one),
       children: options.map((option) => option.id),
-    },
+    }),
     ...options,
-    seededField(AGENT_IDS.endpointField, "endpoint", "url", at, one),
-    seededField(AGENT_IDS.credentialField, "credential", "secret", at, one),
-    seededField(AGENT_IDS.executableField, "executable", "text", at, one),
-    seededField(AGENT_IDS.modelField, "model", "text", at, one),
+    configuring(seededField(AGENT_IDS.endpointField, "endpoint", "url", at, one)),
+    configuring(seededField(AGENT_IDS.credentialField, "credential", "secret", at, one)),
+    configuring(seededField(AGENT_IDS.executableField, "executable", "text", at, one)),
+    configuring(seededField(AGENT_IDS.modelField, "model", "text", at, one)),
     // A provider is the agent's configuration: what it runs, where, with which key.
     configuring(
       seededTag(

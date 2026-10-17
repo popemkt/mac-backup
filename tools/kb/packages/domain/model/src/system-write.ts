@@ -74,21 +74,22 @@ function changedFields(before: KbNode | undefined, after: KbNode | undefined): s
 
 /**
  * Whether a write changes an extension's configuration (DESIGN.md → Action
- * registry → Approval → configuration): a value of one of its settings on
- * the node it configures, or a node of a kind that configures an extension
- * (tagged before or after, so tagging and untagging count, and so does
- * minting or deleting one). `nodeOf` reads the fields and kinds as the
- * graph holds them before the write. What configuration holds decides what
- * the code runs with (a provider's endpoint and the key it is sent), so a
- * caller acting for the owner changes it only with the owner's approval.
+ * registry → Approval → configuration): a value of a field that configures
+ * an extension, on whichever node it is written, or a node of a kind that
+ * configures an extension (tagged before or after, so tagging and untagging
+ * count, and so does minting or deleting one). `nodeOf` reads the fields
+ * and kinds as the graph holds them before the write. What configuration
+ * holds decides what the code runs with (a provider's endpoint and the key
+ * it is sent), so a caller acting for the owner changes it only with the
+ * owner's approval. A field's value counts wherever it lands, not only on
+ * the node the field is a setting of: a node the configuration may later
+ * name (a provider an untagged node could be made into) carries it already.
  */
 export function writesConfiguration(write: NodeWrite, nodeOf: NodeOf): boolean {
   const { before, after } = write;
   const kinds = new Set([...typeRefsOf(before), ...typeRefsOf(after)]);
   if ([...kinds].some((kind) => configuresAnExtension(kind, nodeOf(kind)))) return true;
-  const id = after?.id ?? before?.id;
-  if (id === undefined) return false;
-  return changedFields(before, after).some((field) => configures(field, nodeOf(field), id));
+  return changedFields(before, after).some((field) => configuresAnExtension(field, nodeOf(field)));
 }
 
 /**

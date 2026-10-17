@@ -60,6 +60,16 @@ describe("a write to configuration", () => {
     expect(writesConfiguration(same, nodeOf)).toBe(false);
   });
 
+  test("is a value of a field that configures an extension, on any node", () => {
+    const untagged = node("n.u");
+    const endpoint = { ...untagged, props: { "sys.f.provider": ref("n.p") } };
+    expect(writesConfiguration({ before: untagged, after: endpoint }, nodeOf)).toBe(true);
+    expect(writesConfiguration({ before: undefined, after: endpoint }, nodeOf)).toBe(true);
+    // A field anyone could add declares nothing.
+    const minted = { ...untagged, props: { "f.minted": ref("n.p") } };
+    expect(writesConfiguration({ before: untagged, after: minted }, nodeOf)).toBe(false);
+  });
+
   test("is not a node of a kind anyone could add, nor a plain node", () => {
     expect(writesConfiguration({ before: undefined, after: of("tag.minted") }, nodeOf)).toBe(false);
     expect(writesConfiguration({ before: undefined, after: node("n.q") }, nodeOf)).toBe(false);
