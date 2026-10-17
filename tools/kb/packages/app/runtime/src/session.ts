@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 import type { KbContext } from "@kb/contracts";
-import type { KbNode, StoreTx } from "@kb/model";
-import { persistEffect, reloadEffect } from "@kb/operations";
+import { reloadEffect } from "@kb/operations";
 import { bunFileSystemLayer } from "./platform.ts";
 import { kbRuntimeLayer } from "./layers.ts";
 import { openKbEffect } from "./open.ts";
@@ -16,13 +15,4 @@ export function openKb(root: string): Promise<KbContext> {
 
 export function reload(ctx: KbContext): Promise<void> {
   return Effect.runPromise(reloadEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx))));
-}
-
-export function persist(
-  ctx: KbContext,
-  tx: { upserts: KbNode[]; deletes: string[] } | StoreTx,
-): Promise<void> {
-  return Effect.runPromise(
-    persistEffect(ctx, tx, { systemWrites: "system" }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
-  );
 }

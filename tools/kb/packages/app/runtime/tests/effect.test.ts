@@ -6,7 +6,7 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { runWithKb, kbRuntimeLayer } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
-import { openKb, persist, reload } from "../src/session.ts";
+import { openKb, reload } from "../src/session.ts";
 import { KbCtx, KbStore } from "@kb/contracts";
 import { JsonlStore } from "@kb/store-jsonl";
 import { bunFileSystemLayer } from "../src/platform.ts";
@@ -23,6 +23,7 @@ import {
 import { DocsError, mapRenderErr } from "@kb/operations";
 import { invoke } from "../src/invoke.ts";
 import { invokeEffect, invokeReceiptEffect } from "../src/registry.ts";
+import { persist } from "@kb/test-kit";
 import { z } from "zod";
 
 /** The `at` a test commit records; the tail wants one and none of these assert on it. */

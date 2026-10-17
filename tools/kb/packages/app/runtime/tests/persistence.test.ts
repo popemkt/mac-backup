@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runWithKb } from "../src/layers.ts";
 import { openKbEffect } from "../src/open.ts";
-import { openKb, persist, reload } from "../src/session.ts";
+import { openKb, reload } from "../src/session.ts";
 import { KbStore, kbStoreLayer, staleCommitError, type EffectStore } from "@kb/contracts";
 import { persistEffect, persistPlannedEffect, reloadEffect } from "@kb/operations";
 import { JsonlStore } from "@kb/store-jsonl";
@@ -19,6 +19,7 @@ import {
   type KbNode,
   type StoreTx,
 } from "@kb/model";
+import { persist } from "@kb/test-kit";
 import { MemoryTxTail } from "@kb/tx-log";
 
 /** The `at` a test commit records; the tail wants one and none of these assert on it. */

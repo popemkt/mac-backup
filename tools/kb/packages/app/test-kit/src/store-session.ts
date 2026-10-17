@@ -10,8 +10,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { EffectStore, KbContext } from "@kb/contracts";
-import { canonicalJsonl, type DomainError } from "@kb/model";
-import { bunFileSystemLayer, openKbEffect } from "@kb/runtime";
+import { canonicalJsonl, type DomainError, type StoreTx } from "@kb/model";
+import { persistEffect } from "@kb/operations";
+import { bunFileSystemLayer, kbRuntimeLayer, openKbEffect } from "@kb/runtime";
 
 /** How the suite gets an adapter under test for a scratch root. */
 export type StoreFactory = (root: string) => EffectStore;
@@ -28,6 +29,13 @@ export const scratchRoot = Effect.acquireRelease(
 /** Open a session the way every surface does: select by presence, seed if new. */
 export function openSession(root: string): Effect.Effect<KbContext, DomainError> {
   return openKbEffect(root).pipe(Effect.provide(bunFileSystemLayer));
+}
+
+/** Commit `tx` in `ctx`'s session as kb's own code does, past the system-write rule. */
+export function persist(ctx: KbContext, tx: StoreTx): Promise<unknown> {
+  return Effect.runPromise(
+    persistEffect(ctx, tx, { systemWrites: "system" }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+  );
 }
 
 /** A root the factory's backend owns, so opening it selects that backend. */
