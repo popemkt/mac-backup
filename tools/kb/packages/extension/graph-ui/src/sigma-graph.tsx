@@ -9,12 +9,10 @@ import {
 import type { LensNode } from "./graph-lens";
 import {
   type LensEdge,
-  DEFAULT_THEME,
   edgeKey,
   type LensLayout,
   type LensLabelDensity,
   type LensLinkStyle,
-  type LensTheme,
 } from "@kb/graph";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Graph from "graphology";
@@ -48,7 +46,7 @@ import {
   type GraphNodeBox,
 } from "./sigma-labels";
 import { createBulletProgram, SigmaBullets } from "./sigma-bullets";
-import { GRAPH_THEMES, restingLink, type NodeForm } from "./graph-themes";
+import { DEFAULT_GRAPH_THEME, restingLink, type GraphTheme, type NodeForm } from "./graph-themes";
 import { withGraphAlpha } from "./graph-dim";
 import { clusterHulls } from "./cluster-hulls";
 import { GraphTooltip } from "./graph-tooltip";
@@ -71,7 +69,7 @@ export interface SigmaGraphProps extends GraphEmphasis {
    * The theme (`graph-themes`): 2D draws its node form, its links' tone and
    * its label style; the 3D scene's dress is the 3D graph's alone.
    */
-  theme?: LensTheme;
+  theme?: GraphTheme;
   onControlsReady?: (controls: GraphCameraControls | null) => void;
   /** Shift-click with a node selected: trace from the selection to the clicked node. */
   onTraceTo?: (id: string) => void;
@@ -130,9 +128,9 @@ export function SigmaGraph(props: SigmaGraphProps) {
     showLabels = true,
     labelDensity = "medium",
     linkStyle = "straight",
-    theme = DEFAULT_THEME,
+    theme = DEFAULT_GRAPH_THEME,
   } = props;
-  const { form } = GRAPH_THEMES[theme];
+  const { form } = theme;
   const containerRef = useRef<HTMLDivElement>(null);
   const hullRef = useRef<HTMLCanvasElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
@@ -190,7 +188,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
       labelDensity: 0.7,
       defaultDrawNodeLabel: drawGraphLabel,
       defaultDrawNodeHover: drawGraphHover,
-      defaultNodeType: NODE_PROGRAMS[GRAPH_THEMES[live.current.theme ?? DEFAULT_THEME].form],
+      defaultNodeType: NODE_PROGRAMS[(live.current.theme ?? DEFAULT_GRAPH_THEME).form],
       nodeProgramClasses: { ring: NodeRingProgram, bullet: createBulletProgram(bullets.current) },
       defaultEdgeType: edgeProgram(live.current.linkStyle ?? "straight"),
       edgeProgramClasses: EDGE_PROGRAMS,
@@ -459,7 +457,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     if (!sigma) return;
     // Everything sigma copied out of the tokens is re-read on an appearance
     // change, and what the theme shapes on a new theme.
-    const look = GRAPH_THEMES[theme];
+    const look = theme;
     sigma.setSetting("labelFont", graphLabelFont(look.labels.face));
     const ground = readTokenColor("--background");
     const ink = readTokenColor("--foreground");

@@ -97,6 +97,7 @@ export {
   type Backdrop,
   BackdropPoint,
   chosenDeclared,
+  provideDeclared,
   provideBackdrop,
   type DesignSystem,
   DesignSystemPoint,

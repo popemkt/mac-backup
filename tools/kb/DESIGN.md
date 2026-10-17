@@ -2459,8 +2459,8 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   migrates and opening still never writes. A rename goes through an explicit
   action, never through open.
 - **Declared options are declared as views are.** Some things a family
-  contributes to the page are chosen by a field: page-head backdrops and
-  design systems. Each is a declared option
+  contributes to the page are chosen by a field: page-head backdrops,
+  design systems and a graph's themes. Each is a declared option
   (`declared-option.ts` in `@kb/model`): the declaration lists its key
   (`SeedOption`, an id and a label) under its kind (`declaredOptions:
 [{kind, options}]`), and the fold derives one option node per key, owned
@@ -2472,7 +2472,10 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     ([DESIGN-UI → Page-head backdrops](DESIGN-UI.md#page-head-backdrops));
   - `DESIGN_SYSTEM_OPTIONS` (core) → `sys.f.design-system`, options
     `sys.design-system.<id>`
-    ([DESIGN-UI → Design systems](DESIGN-UI.md#design-systems)).
+    ([DESIGN-UI → Design systems](DESIGN-UI.md#design-systems));
+  - `GRAPH_THEME_OPTIONS` (the graph family) → `lens.theme`, options
+    `sys.graph.theme.<id>`
+    ([DESIGN-UI → Graph](DESIGN-UI.md#graph-i2)).
 
   A key is `<family>.<local id>`; a key of the kind's own owner has no
   family part (core's `kb` design system). The fold files every kind any

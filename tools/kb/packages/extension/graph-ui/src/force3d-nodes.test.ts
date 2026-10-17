@@ -10,7 +10,7 @@ import type { LensNode } from "./graph-lens";
 import { EmphasisFade } from "./graph-fade";
 import { topologyOf } from "./force3d-emphasis";
 import { CUBE_HALF_EDGE, solidLayer } from "./force3d-nodes";
-import { GRAPH_THEMES } from "./graph-themes";
+import { contributedTheme } from "./contributed-themes";
 
 function node(id: string, size: number): LensNode {
   return { id, label: id, color: "#888888", size, clusterKey: "r", tags: [], degree: 1 };
@@ -42,7 +42,7 @@ describe("the solid node layer", () => {
       topology,
       colors: colors(),
       fades,
-      theme: GRAPH_THEMES.matte,
+      theme: contributedTheme("matte"),
       palette: PALETTE,
     });
     const small = layer.radius(0);
@@ -66,8 +66,8 @@ describe("the solid node layer", () => {
       focus: new EmphasisFade(2, 0.2, 0),
     };
     const init = { topology, colors: colors(), fades, palette: PALETTE };
-    const sphere = solidLayer("sphere")({ ...init, theme: GRAPH_THEMES.matte });
-    const cube = solidLayer("cube")({ ...init, theme: GRAPH_THEMES.cube });
+    const sphere = solidLayer("sphere")({ ...init, theme: contributedTheme("matte") });
+    const cube = solidLayer("cube")({ ...init, theme: contributedTheme("cube") });
     // Picked, framed and labelled by the same radius as the sphere it replaces.
     expect(cube.radius(1)).toBe(sphere.radius(1));
     const mesh = cube.mesh as InstancedMesh;

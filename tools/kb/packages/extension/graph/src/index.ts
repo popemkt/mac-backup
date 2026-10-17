@@ -79,7 +79,6 @@ export {
   LENS_LAYOUTS,
   LENS_LINK_STYLES,
   LENS_SETTINGS,
-  LENS_THEMES,
   decodeLensConfig,
   encodeLensConfig,
   sourceValue,
@@ -101,7 +100,6 @@ export {
   GRAPH_SOURCE_KINDS,
   GRAPH_SOURCE_KIND_OPTION_IDS,
   GRAPH_SOURCE_VALUES,
-  GRAPH_THEME_VALUES,
   graphOptionId,
   graphOptionKey,
   graphSourceId,
@@ -135,3 +133,12 @@ export {
   type TracedHop,
   type TracedPath,
 } from "./read.ts";
+export {
+  BULLET_THEME,
+  CEL_THEME,
+  CUBE_THEME,
+  FRESNEL_THEME,
+  GLASS_THEME,
+  GRAPH_THEME_OPTIONS,
+  MATTE_THEME,
+} from "./themes.ts";

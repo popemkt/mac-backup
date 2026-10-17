@@ -29,7 +29,6 @@ import {
   GRAPH_SOURCE_KINDS,
   GRAPH_SOURCE_KIND_OPTION_IDS,
   GRAPH_SOURCE_VALUES,
-  GRAPH_THEME_VALUES,
   graphSourceTargetQuery,
   type GraphSourceField,
 } from "./schema.ts";
@@ -53,9 +52,9 @@ export function graphSeedNodes(at: string): readonly KbNode[] {
       props: { [SYSTEM_IDS.targetQueryField]: [{ t: "str", v: edn }] },
     });
 
-  // Themes and link styles are option sets of one field each, shaped
-  // like the renderers: the field's own children.
-  const themeOptions = Object.values(GRAPH_THEME_VALUES).map((value) => mk(value.id, value.label));
+  // Link styles are an option set of one field, shaped like the renderers:
+  // the field's own children. Themes are declared options: the fold derives
+  // their nodes under `lens.theme` from the declarations (`themes.ts`).
   const linkStyleOptions = Object.values(GRAPH_LINK_STYLE_VALUES).map((value) =>
     mk(value.id, value.label),
   );
@@ -123,8 +122,7 @@ export function graphSeedNodes(at: string): readonly KbNode[] {
     singleField(GRAPH_IDS.lensEdgeLabelsField, "lens.edge-labels", "checkbox"),
     singleField(GRAPH_IDS.lensAutorotateField, "lens.autorotate", "checkbox"),
     singleField(GRAPH_IDS.lensLabelDensityField, "lens.label-density", "text"),
-    optionField(GRAPH_IDS.lensThemeField, "lens.theme", themeOptions),
-    ...themeOptions,
+    optionField(GRAPH_IDS.lensThemeField, "lens.theme", []),
     optionField(GRAPH_IDS.lensLinkStyleField, "lens.link-style", linkStyleOptions),
     ...linkStyleOptions,
     singleField(GRAPH_IDS.lensTraceFromField, "lens.trace-from", "ref"),

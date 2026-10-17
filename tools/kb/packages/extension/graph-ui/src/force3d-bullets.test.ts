@@ -14,7 +14,7 @@ import { EmphasisFade } from "./graph-fade";
 import { topologyOf } from "./force3d-emphasis";
 import { BULLET_UNIFORMS, BulletTable, bulletExtent } from "./bullet-gpu";
 import { bulletLayer } from "./force3d-bullets";
-import { GRAPH_THEMES } from "./graph-themes";
+import { contributedTheme } from "./contributed-themes";
 
 const bullet = (hasChildren: boolean, collapsed: boolean, tagColors: string[] = []) =>
   bulletAppearance({
@@ -76,7 +76,7 @@ describe("the 3D bullet layer", () => {
       topology,
       colors: colors(),
       fades: fades(2),
-      theme: GRAPH_THEMES.bullet,
+      theme: contributedTheme("bullet"),
       palette: PALETTE,
     });
     const dot = bulletExtent(bullet(true, false));
@@ -94,7 +94,7 @@ describe("the 3D bullet layer", () => {
       topology: topologyOf(nodes, []),
       colors: colors(),
       fades: fades(2),
-      theme: GRAPH_THEMES.bullet,
+      theme: contributedTheme("bullet"),
       palette: PALETTE,
     });
     const painted = paint.mock.calls.length;
@@ -116,7 +116,7 @@ describe("the 3D bullet layer", () => {
       topology: topologyOf([node("a")], []),
       colors: colors(),
       fades: fades(1),
-      theme: GRAPH_THEMES.bullet,
+      theme: contributedTheme("bullet"),
       palette: PALETTE,
     });
     const values: number[][] = [];

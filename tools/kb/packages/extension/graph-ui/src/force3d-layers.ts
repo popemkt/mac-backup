@@ -13,7 +13,7 @@ import { EmphasisFade } from "./graph-fade";
 import { graphFocus, type GraphEmphasis } from "./graph-interaction";
 import { approachRate, type Timing } from "@kb/ui-sdk";
 import type { LensNode } from "./graph-lens";
-import type { LensEdge, LensLinkStyle, LensTheme } from "@kb/graph";
+import type { LensEdge, LensLinkStyle } from "@kb/graph";
 import { GraphArrival, hopsFromHubs } from "./graph-arrival";
 import { byLabelPriority } from "./graph-label-layout";
 import { LINK_STYLES } from "./graph-link-styles";
@@ -37,7 +37,7 @@ import {
 } from "./force3d-links";
 import { bulletLayer } from "./force3d-bullets";
 import { solidLayer, type NodeLayer, type NodeLayerInit } from "./force3d-nodes";
-import { GRAPH_THEMES, type NodeForm } from "./graph-themes";
+import type { GraphTheme, NodeForm } from "./graph-themes";
 import type { PickField } from "./force3d-pick";
 import type { DragLayout } from "./graph-drag";
 
@@ -51,8 +51,8 @@ const NODE_FORMS: Record<NodeForm, (init: NodeLayerInit) => NodeLayer> = {
 export interface Force3dSettings {
   readonly spread: number;
   readonly linkDistance: number;
-  /** The scene's theme (`lens.theme`, stated in `graph-themes`). */
-  readonly theme: LensTheme;
+  /** The scene's theme (`lens.theme`), as it is contributed (`graph-themes`). */
+  readonly theme: GraphTheme;
   /** How the links are drawn (`lens.link-style`). */
   readonly linkStyle: LensLinkStyle;
   readonly autorotate: boolean;
@@ -164,7 +164,7 @@ export class GraphLayers {
       this.group,
       this.topology,
       this.palette,
-      GRAPH_THEMES[this.settings.theme].labels,
+      this.settings.theme.labels,
     );
     this.setGraph(init.nodes, init.edges);
   }
@@ -332,7 +332,7 @@ export class GraphLayers {
     this.nodes?.dispose();
     disposeGraph(this.nodeGroup);
     const { colors } = this.stage;
-    const theme = GRAPH_THEMES[this.settings.theme];
+    const { theme } = this.settings;
     this.nodes = NODE_FORMS[theme.form]({
       topology: this.topology,
       colors,
@@ -351,7 +351,7 @@ export class GraphLayers {
     const ambientPeriod = this.timing.ambientPeriod;
     this.links = linkLayer(this.topology, this.fades, {
       ...LINK_STYLES[this.settings.linkStyle],
-      tone: GRAPH_THEMES[this.settings.theme].links,
+      tone: this.settings.theme.links,
       ambientPeriod,
       ...(flowPhase === undefined ? {} : { flowPhase }),
     });
@@ -395,7 +395,7 @@ export class GraphLayers {
     const themed = next.theme !== previous.theme;
     if (themed) {
       this.drawNodes();
-      this.labels.reset(this.topology, this.palette, GRAPH_THEMES[next.theme].labels);
+      this.labels.reset(this.topology, this.palette, next.theme.labels);
     }
     if (themed || next.linkStyle !== previous.linkStyle) {
       this.drawLinks(true);

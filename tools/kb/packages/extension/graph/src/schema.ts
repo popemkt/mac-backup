@@ -16,16 +16,6 @@ import { GRAPH_IDS } from "./ids.ts";
  *   which the seed turns into five `targetQuery`s and the graph page turns into
  *   five option lists.
  */
-/** The graph themes: `lens.theme`'s option children (matte is the default). */
-export const GRAPH_THEME_VALUES = {
-  matte: { id: "sys.graph.theme.matte", label: "Matte" },
-  cel: { id: "sys.graph.theme.cel", label: "Cel" },
-  fresnel: { id: "sys.graph.theme.fresnel", label: "Fresnel" },
-  glass: { id: "sys.graph.theme.glass", label: "Glass" },
-  bullet: { id: "sys.graph.theme.bullet", label: "Bullet" },
-  cube: { id: "sys.graph.theme.cube", label: "Cube" },
-} as const;
-
 /**
  * The link styles, one option set for every renderer that draws links:
  * `lens.link-style`'s option children (straight is the default).

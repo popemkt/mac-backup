@@ -8,13 +8,13 @@
  */
 import { readTiming, readTokenColor, useReducedMotion, type Appearance } from "@kb/ui-sdk";
 import type { LensNode } from "./graph-lens";
-import { type LensEdge, DEFAULT_THEME, type LensLinkStyle, type LensTheme } from "@kb/graph";
+import type { LensEdge, LensLinkStyle } from "@kb/graph";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { showsHoverCard, type GraphEmphasis } from "./graph-interaction";
 import { attachScene, readScenePalette } from "@kb/scene";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
-import { GRAPH_THEMES, variant } from "./graph-themes";
+import { DEFAULT_GRAPH_THEME, variant, type GraphTheme } from "./graph-themes";
 import { GraphTooltip } from "./graph-tooltip";
 import {
   mountForce3d,
@@ -37,7 +37,7 @@ export interface Force3dGraphProps extends GraphEmphasis {
   labelTopN?: number;
   spread?: number;
   linkDistance?: number;
-  theme?: LensTheme;
+  theme?: GraphTheme;
   linkStyle?: LensLinkStyle;
 }
 
@@ -47,8 +47,8 @@ export interface Force3dGraphProps extends GraphEmphasis {
  * falling to the background on a dark page and to the muted surface on a
  * light one, so a light stage has a ground too); ink and accent as the UI's.
  */
-function readGraphPalette(theme: LensTheme, dark: boolean) {
-  const { ground, edge } = GRAPH_THEMES[theme].scene;
+function readGraphPalette(theme: GraphTheme, dark: boolean) {
+  const { ground, edge } = theme.scene;
   return readScenePalette({
     ground: variant(ground, dark),
     edge: variant(edge, dark),
@@ -70,7 +70,7 @@ function settingsOf(p: SettingProps): Force3dSettings {
     autorotate: p.autorotate ?? false,
     showLabels: p.showLabels ?? true,
     labelTopN: p.labelTopN ?? 24,
-    theme: p.theme ?? DEFAULT_THEME,
+    theme: p.theme ?? DEFAULT_GRAPH_THEME,
     linkStyle: p.linkStyle ?? "straight",
   };
 }
@@ -111,7 +111,7 @@ function useMountedScene(
       edges: props.edges,
       settings: settingsOf(props),
       emphasis: emphasisOf(props),
-      palette: readGraphPalette(props.theme ?? DEFAULT_THEME, props.appearance.dark),
+      palette: readGraphPalette(props.theme ?? DEFAULT_GRAPH_THEME, props.appearance.dark),
       link: readTokenColor("--graph-edge"),
       dark: props.appearance.dark,
       reducedMotion,
@@ -184,7 +184,7 @@ export default function Force3dGraph(props: Force3dGraphProps) {
   // `appearance` is a new object exactly when its key changes.
   useEffect(() => {
     scene?.setPalette(
-      readGraphPalette(theme ?? DEFAULT_THEME, appearance.dark),
+      readGraphPalette(theme ?? DEFAULT_GRAPH_THEME, appearance.dark),
       readTokenColor("--graph-edge"),
       appearance.dark,
     );

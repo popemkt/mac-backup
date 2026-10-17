@@ -1,6 +1,7 @@
 /**
  * The graph's themes (`lens.theme`), each stated once as one record every
- * renderer that draws the graph reads: what a node is drawn as, how the
+ * renderer that draws the graph reads, contributed to the graph's theme
+ * point (`GraphThemePoint`) under the key its family declares: what a node is drawn as, how the
  * links take their colour and how the labels are set — which each renderer
  * realises in its own terms — and the 3D scene's dress (the ground and its
  * edge, the backdrop's pool, the fog, the stars, the grain, the bloom, the
@@ -10,10 +11,22 @@
  * Values only, and only tokens for colour (Lab principle L1), so every theme
  * looks like itself in each design system, light and dark (P5). No three.
  */
+import { Effect } from "effect";
 import type { ColorToken } from "@kb/contracts";
-import { toRenderableColor } from "@kb/ui-sdk";
+import {
+  BULLET_THEME,
+  CEL_THEME,
+  CUBE_THEME,
+  FRESNEL_THEME,
+  GLASS_THEME,
+  GRAPH_NAMESPACE,
+  MATTE_THEME,
+  type LensTheme,
+} from "@kb/graph";
+import type { SeedOption } from "@kb/model";
+import { definePlugin, Point, type Contribution } from "@kb/plugin";
+import { chosenDeclared, provideDeclared, toRenderableColor, useContributions } from "@kb/ui-sdk";
 import type { GraphLabelStyle } from "./graph-label-paint";
-import type { LensTheme } from "@kb/graph";
 import type { NodeSurface } from "./force3d-light";
 
 /** One value for a light page and one for a dark one. */
@@ -97,7 +110,12 @@ export interface SceneDress {
   readonly surface: NodeSurface;
 }
 
+/**
+ * A graph theme: its `key`, the theme as its family declares it (`lens.theme`
+ * names its option), and how each renderer draws in it.
+ */
 export interface GraphTheme {
+  readonly key: SeedOption;
   readonly form: NodeForm;
   readonly links: LinkTone;
   readonly labels: GraphLabelStyle;
@@ -111,6 +129,7 @@ export interface GraphTheme {
  * The quiet default the others are measured against.
  */
 const MATTE: GraphTheme = {
+  key: MATTE_THEME,
   form: "sphere",
   links: { strength: 1, source: 0.3, accent: 0 },
   labels: {
@@ -139,6 +158,7 @@ const MATTE: GraphTheme = {
  * labels on a ruled plate. A print does not glow: no bloom.
  */
 const CEL: GraphTheme = {
+  key: CEL_THEME,
   form: "sphere",
   links: { strength: 1.9, source: 1, accent: 0 },
   labels: {
@@ -168,6 +188,7 @@ const CEL: GraphTheme = {
  * set in the monospace face in tracked capitals, and the strongest bloom.
  */
 const FRESNEL: GraphTheme = {
+  key: FRESNEL_THEME,
   form: "sphere",
   links: { strength: 1.25, source: 0.15, accent: 0.45 },
   labels: {
@@ -196,6 +217,7 @@ const FRESNEL: GraphTheme = {
  * body with a tight glint, faint links, light labels on a frosted chip.
  */
 const GLASS: GraphTheme = {
+  key: GLASS_THEME,
   form: "sphere",
   links: { strength: 0.65, source: 0.2, accent: 0.2 },
   labels: {
@@ -226,6 +248,7 @@ const GLASS: GraphTheme = {
  * orbitable 3D scene.
  */
 const BULLET: GraphTheme = {
+  key: BULLET_THEME,
   form: "bullet",
   links: { strength: 0.75, source: 1, accent: 0 },
   labels: {
@@ -256,6 +279,7 @@ const BULLET: GraphTheme = {
  * focus glow, even links, and labels in a firmer weight of the graph face.
  */
 const CUBE: GraphTheme = {
+  key: CUBE_THEME,
   form: "cube",
   links: { strength: 1.1, source: 0.45, accent: 0.1 },
   labels: {
@@ -278,16 +302,51 @@ const CUBE: GraphTheme = {
   },
 };
 
-/** Keyed by the option set, so a new theme fails the build until it is stated. */
-// GAP [[01M54PYCJ6FGCT8SGZDZPVQW7Y]] a closed Record, not contributions to a graph-theme point
-export const GRAPH_THEMES: Readonly<Record<LensTheme, GraphTheme>> = {
-  matte: MATTE,
-  cel: CEL,
-  fresnel: FRESNEL,
-  glass: GLASS,
-  bullet: BULLET,
-  cube: CUBE,
-};
+/**
+ * The graph's theme point (DESIGN-UI.md → Graph → Graph themes): one
+ * contribution per theme, under the key its family declares among the
+ * graph's theme kind (`GRAPH_THEME_OPTIONS`), so its option and its
+ * contribution are one id. Any family's page plugin may contribute one.
+ */
+export const GraphThemePoint = Point<GraphTheme>()("graph.themes");
+
+/** The default theme: the graph family's own matte, contributed first. */
+export const DEFAULT_GRAPH_THEME: GraphTheme = MATTE;
+
+/**
+ * The graph family's own themes, contributed in their declared order,
+ * matte first. Its own plugin, in the family's namespace, so a page and a
+ * test kernel load the same contributions.
+ */
+export const graphThemesPlugin = definePlugin({
+  name: "graph-themes",
+  namespace: GRAPH_NAMESPACE,
+  apply: (ctx) =>
+    Effect.all(
+      [MATTE, CEL, FRESNEL, GLASS, BULLET, CUBE].map((theme) =>
+        ctx.contribute(GraphThemePoint, provideDeclared(theme)),
+      ),
+      { discard: true },
+    ),
+});
+
+/**
+ * The theme `id` names among `contributed`: one nobody contributes now (its
+ * plugin unloaded, its declaration gone) draws the first contributed, the
+ * default (`chosenDeclared`), and a page that holds none draws the default
+ * itself.
+ */
+export function shownGraphTheme(
+  contributed: readonly Contribution<GraphTheme>[],
+  id: LensTheme,
+): GraphTheme {
+  return chosenDeclared(contributed, id)?.value ?? DEFAULT_GRAPH_THEME;
+}
+
+/** The theme `id` names among the page's contributions ({@link shownGraphTheme}). */
+export function useGraphTheme(id: LensTheme): GraphTheme {
+  return shownGraphTheme(useContributions(GraphThemePoint), id);
+}
 
 /** A theme's value for the page's variant. */
 export function variant<T>(values: Variants<T>, dark: boolean): T {

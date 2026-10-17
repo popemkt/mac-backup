@@ -345,17 +345,19 @@ export function provideDesignSystem(
 }
 
 /**
- * A contribution its family names by a key (a backdrop, a design system):
- * it answers to the key's id, `<family>.<local id>`, so it is contributed
- * under the local id and the family's namespace restores the rest, as a
- * view answers to its key. A key of core's, in the root namespace, has no
- * family part and is contributed as it is.
+ * A contribution its family names by a key (a backdrop, a design system, a
+ * graph theme): it answers to the key's id, `<family>.<local id>`, so it is
+ * contributed under the local id and the family's namespace restores the
+ * rest, as a view answers to its key. A key of its kind's own owner (core's,
+ * in the root namespace; the graph's own themes) has no family part and is
+ * contributed as it is. One helper for every keyed point, a family's own
+ * included.
  */
 interface Keyed {
   readonly key: SeedOption;
 }
 
-function provideDeclared<T extends Keyed>(value: T): ContributionEntry<T> {
+export function provideDeclared<T extends Keyed>(value: T): ContributionEntry<T> {
   const { id } = value.key;
   return { id: id.slice(id.indexOf(".") + 1), value };
 }

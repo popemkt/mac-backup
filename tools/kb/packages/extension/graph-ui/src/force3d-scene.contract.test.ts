@@ -6,7 +6,8 @@
 import { vi } from "vitest";
 import { TIMING_FALLBACK } from "@kb/ui-sdk";
 import type { LensNode } from "./graph-lens";
-import { type LensEdge, LENS_THEMES } from "@kb/graph";
+import type { LensEdge } from "@kb/graph";
+import { CONTRIBUTED_GRAPH_THEMES } from "./contributed-themes";
 import type { ScenePalette } from "@kb/scene";
 import { sceneContract, type SceneMount } from "@kb/ui-test-kit";
 import type * as ThreeWebGpu from "three/webgpu";
@@ -38,10 +39,10 @@ const lensEdges: LensEdge[] = [
   { source: "b", target: "c", kind: "mention", weight: 2 },
 ];
 
-/** The 3D graph in each theme. */
-const SCENES: readonly (readonly [string, SceneMount])[] = LENS_THEMES.map(
+/** The 3D graph in each contributed theme. */
+const SCENES: readonly (readonly [string, SceneMount])[] = CONTRIBUTED_GRAPH_THEMES.map(
   (theme): readonly [string, SceneMount] => [
-    `3D graph, ${theme} theme`,
+    `3D graph, ${theme.key.id} theme`,
     async (host, reduced) => {
       const { mountForce3d } = await import("./force3d-scene");
       return mountForce3d(host, {

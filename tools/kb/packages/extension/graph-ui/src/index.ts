@@ -21,4 +21,9 @@ export { GLOW } from "./force3d-emphasis";
 export { peakChannel, shadeNode, type NodeLighting, type Rgb } from "./force3d-light";
 export type { GraphFrame } from "./graph-frame";
 export { extractLensGraph, lensConfig, lensReport, parsePerspective } from "./graph-lens";
-export { GRAPH_THEMES } from "./graph-themes";
+export {
+  DEFAULT_GRAPH_THEME,
+  GraphThemePoint,
+  graphThemesPlugin,
+  type GraphTheme,
+} from "./graph-themes";

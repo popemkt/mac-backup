@@ -961,11 +961,24 @@ looks like itself (P5).
   drawn only while something moves, the device pixel ratio is clamped to 2,
   a hidden tab draws nothing, and a renderer switch or unmount disposes the
   scene, its worker and its listeners (`force3d-graph.lifecycle.test.tsx`).
-- **Graph themes** are data: a perspective's `lens.theme` is one of
-  its option nodes (children of the field, like the renderers), picked in
-  the settings panel and persisted as a ref prop. A theme is a whole scene,
-  not a material: `graph-themes.ts` states each one once, as one record in
-  two parts. The parts any renderer draws — what a node is drawn as (its
+- **Graph themes** are data, and a declared kind (DESIGN.md → Extension
+  families → Declared options): the graph family owns `lens.theme`'s kind
+  (`GRAPH_THEME_OPTIONS`, `@kb/graph` `themes.ts`), a family lists its
+  themes' keys on its declaration, and the seed fold derives each one's
+  option node under the field (`sys.graph.theme.<id>`; the graph's own
+  have no family part). A perspective's `lens.theme` is a ref to one,
+  picked in the settings panel from the contributed themes. Each theme is
+  contributed to the graph's theme point (`GraphThemePoint`, `graph.themes`,
+  in `@kb/graph-ui`) under its key; the graph family's own six come from
+  `graphThemesPlugin`, which its page entry loads. The lens reads any
+  declared id; the page draws the contributed theme it names
+  (`shownGraphTheme`, by `chosenDeclared`), and one nobody contributes now
+  draws the default, matte. Each renderer is handed the theme itself,
+  resolved once where the lens reaches it. `graph-theme-point.contract.test.ts`
+  holds every contributed theme, a test plugin's included, to being
+  declared, seeded, labelled and chosen, and the fallback to the default.
+  A theme is a whole scene, not a material: `graph-themes.ts` states each
+  of the family's own once, as one record in two parts. The parts any renderer draws — what a node is drawn as (its
   `form`), how links take their colour and gradient, and the label's
   face, weight, case, halo and placement — are the theme's, and each
   renderer realises them in its own terms; the label is painted by one
@@ -999,7 +1012,7 @@ looks like itself (P5).
   (key, rim) — a sphere's rings, a cube's whole square (a face may meet
   the key squarely while its edge line is drawn), a bullet's one flat
   fragment — so the proof runs over what that theme's nodes can show. The scene contract and the renderer contract run
-  the 3D graph in every theme.
+  the 3D graph in every contributed theme.
 - **The themes.** Each reads only the design system's tokens (L1), so it
   looks like itself in kb, paper and terminal, light and dark (P5):
   - _Matte_ (the default) — the studio: the card's colour pooled at the

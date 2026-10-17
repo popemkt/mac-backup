@@ -24,17 +24,12 @@ import { Effect, Result } from "effect";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeKernel } from "@kb/plugin";
 import { EmphasisFade } from "./graph-fade";
+import { CONTRIBUTED_GRAPH_THEMES } from "./contributed-themes";
 import type { Force3dScene } from "./force3d-scene";
 import type { GraphFrame } from "./graph-frame";
 import type { Appearance } from "@kb/ui-sdk";
 import type { LensNode } from "./graph-lens";
-import {
-  buildTreeForest,
-  type LensEdge,
-  LENS_THEMES,
-  type LensPerspective,
-  type LensTheme,
-} from "@kb/graph";
+import { buildTreeForest, type LensEdge, type LensPerspective, type LensTheme } from "@kb/graph";
 import type * as UiSdk from "@kb/ui-sdk";
 
 const probes = vi.hoisted(() => ({
@@ -347,9 +342,10 @@ describe("graph renderer contract", () => {
     );
   });
 
-  // The 3D graph copies its theme's tokens: in every theme it reads them again
-  // for a new appearance, and for a new theme.
-  describe.each(LENS_THEMES)("force3d in the %s theme", (theme) => {
+  // The 3D graph copies its theme's tokens: in every contributed theme it
+  // reads them again for a new appearance, and for a new theme.
+  const THEME_IDS = CONTRIBUTED_GRAPH_THEMES.map(({ key }) => key.id);
+  describe.each(THEME_IDS)("force3d in the %s theme", (theme) => {
     it("reads its tokens again for a new appearance and a new theme", async () => {
       await act(async () => root.render(adapter("force3d", LIGHT, null, theme)));
       await until(shownWhen(() => probes.scenes.live > 0));
@@ -357,7 +353,7 @@ describe("graph renderer contract", () => {
       await act(async () => root.render(adapter("force3d", DARK, null, theme)));
       await settle();
       expect(probes.scenes.palettes).toBeGreaterThan(first);
-      const other = LENS_THEMES.find((t) => t !== theme) ?? theme;
+      const other = THEME_IDS.find((t) => t !== theme) ?? theme;
       const second = probes.scenes.palettes;
       await act(async () => root.render(adapter("force3d", DARK, null, other)));
       await settle();

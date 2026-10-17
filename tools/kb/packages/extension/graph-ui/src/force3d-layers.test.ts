@@ -12,6 +12,7 @@ import type { LensNode } from "./graph-lens";
 import type { LensEdge } from "@kb/graph";
 import type { SceneStage } from "@kb/scene-gpu";
 import { GraphLayers, type Force3dSettings } from "./force3d-layers";
+import { contributedTheme } from "./contributed-themes";
 
 const node = (id: string, degree: number): LensNode => ({
   id,
@@ -36,7 +37,7 @@ const SETTINGS: Force3dSettings = {
   autorotate: false,
   showLabels: false,
   labelTopN: 0,
-  theme: "matte",
+  theme: contributedTheme("matte"),
   linkStyle: "straight",
 };
 
@@ -84,7 +85,7 @@ describe("3D graph layers", () => {
     const arrived = [...graph.arrived()];
     expect(arrived.some((v) => v > 0 && v < 1)).toBe(true);
     for (const change of [
-      { theme: "glass" as const },
+      { theme: contributedTheme("glass") },
       { linkStyle: "flow" as const },
       { linkStyle: "curved" as const },
     ]) {
@@ -103,7 +104,7 @@ describe("3D graph layers", () => {
     for (let i = 0; i < 5; i++) graph.frame(0.05, camera, viewport);
     const phase = graph.motion().flowPhase;
     expect(phase).toBeGreaterThan(0);
-    graph.setSettings({ ...graph.settings, theme: "cel" });
+    graph.setSettings({ ...graph.settings, theme: contributedTheme("cel") });
     expect(graph.motion().flowPhase).toBe(phase);
     graph.setSettings({ ...graph.settings, linkStyle: "curved" });
     expect(graph.motion().flowPhase).toBe(phase);
@@ -119,7 +120,7 @@ describe("3D graph layers", () => {
     const before = graph.motion().particles;
     expect(before?.showing ?? 0).toBeGreaterThan(0);
     expect(before?.phase ?? 0).toBeGreaterThan(0);
-    graph.setSettings({ ...graph.settings, theme: "glass" });
+    graph.setSettings({ ...graph.settings, theme: contributedTheme("glass") });
     expect(graph.motion().particles).toEqual(before);
     graph.setSettings({ ...graph.settings, linkStyle: "curved" });
     expect(graph.motion().particles).toEqual(before);

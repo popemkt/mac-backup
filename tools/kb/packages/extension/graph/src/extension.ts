@@ -2,7 +2,8 @@
  * The graph family's declaration and its shared plugin (DESIGN.md →
  * Extension families). The declaration is the one home of the family's
  * name, seed and views: the graph page, its five renderers in the order the
- * renderer switch offers them, and a node's neighbourhood. The bundled seed
+ * renderer switch offers them, and a node's neighbourhood; and of its own
+ * themes, declared options of the kind it owns (`themes.ts`). The bundled seed
  * folds it. The page's entry loads {@link graphPlugin} as a child of
  * `@kb/graph-ui`'s; the server's is {@link graphServerPlugin}, the same views
  * with the family's actions. It is optional and on by default.
@@ -12,6 +13,15 @@ import { declarationPlugin, defineExtension, extensionPlugin, viewDef } from "@k
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { GRAPH_ACTIONS } from "./actions.ts";
 import { graphSeedNodes } from "./seed.ts";
+import {
+  BULLET_THEME,
+  CEL_THEME,
+  CUBE_THEME,
+  FRESNEL_THEME,
+  GLASS_THEME,
+  GRAPH_THEME_OPTIONS,
+  MATTE_THEME,
+} from "./themes.ts";
 import {
   ClusterView,
   Force2dView,
@@ -35,6 +45,12 @@ export const graphExtension = defineExtension({
     viewDef(Force3dView),
     viewDef(TreemapView),
     viewDef(NeighbourhoodView),
+  ],
+  declaredOptions: [
+    {
+      kind: GRAPH_THEME_OPTIONS,
+      options: [MATTE_THEME, CEL_THEME, FRESNEL_THEME, GLASS_THEME, BULLET_THEME, CUBE_THEME],
+    },
   ],
 });
 

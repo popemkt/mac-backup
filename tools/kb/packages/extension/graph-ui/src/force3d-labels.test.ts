@@ -5,7 +5,7 @@ import { EmphasisFade } from "./graph-fade";
 import type { LensNode } from "./graph-lens";
 import { topologyOf } from "./force3d-emphasis";
 import { LabelLayer, focusDisc } from "./force3d-labels";
-import { GRAPH_THEMES } from "./graph-themes";
+import { contributedTheme } from "./contributed-themes";
 
 /** A camera as the WebGPU renderer uses it: WebGPU's coordinate system. */
 function webgpuCamera(): PerspectiveCamera {
@@ -92,7 +92,7 @@ describe("a 3D label and its node's arrival", () => {
         ink: "#fff",
         accent: "#f80",
       },
-      GRAPH_THEMES.matte.labels,
+      contributedTheme("matte").labels,
     );
     const camera = webgpuCamera();
     layer.resize(camera, SIZE.height);

@@ -9,10 +9,9 @@ import {
   type Force2dView,
   type Force3dView,
   type LensEdge,
-  type LensTheme,
   type TreeView,
 } from "@kb/graph";
-import { GRAPH_THEMES } from "./graph-themes";
+import { useGraphTheme, type GraphTheme } from "./graph-themes";
 import { SigmaGraph } from "./sigma-graph";
 import { ClusterGraph } from "./cluster-graph";
 import { TreeGraph } from "./tree-graph";
@@ -40,7 +39,8 @@ export function Force2dAdapter({
     trace,
   },
 }: RendererProps<ParamsOf<typeof Force2dView>>) {
-  const nodes = useOutlineBullets(lensGraph.nodes, settings.theme);
+  const theme = useGraphTheme(settings.theme);
+  const nodes = useOutlineBullets(lensGraph.nodes, theme);
   const edgeLabel = useEdgeLabels(settings.edgeLabels);
   return (
     <SigmaGraph
@@ -52,7 +52,7 @@ export function Force2dAdapter({
       showLabels={settings.showLabels}
       labelDensity={settings.labelDensity}
       linkStyle={settings.linkStyle}
-      theme={settings.theme}
+      theme={theme}
       onNodeOpen={onNodeOpen}
       onSelectionChange={setSelection}
       selectedNodeId={selection?.nodeId ?? null}
@@ -111,7 +111,8 @@ export function ClusterAdapter({
     trace,
   },
 }: RendererProps<ParamsOf<typeof ClusterView>>) {
-  const nodes = useOutlineBullets(lensGraph.nodes, settings.theme);
+  const theme = useGraphTheme(settings.theme);
+  const nodes = useOutlineBullets(lensGraph.nodes, theme);
   const edgeLabel = useEdgeLabels(settings.edgeLabels);
   return (
     <ClusterGraph
@@ -130,7 +131,7 @@ export function ClusterAdapter({
       showLabels={settings.showLabels}
       labelDensity={settings.labelDensity}
       linkStyle={settings.linkStyle}
-      theme={settings.theme}
+      theme={theme}
       onControlsReady={setControls}
     />
   );
@@ -142,8 +143,8 @@ export function ClusterAdapter({
  * the theme draws nodes as the page's rows; otherwise the nodes as they are,
  * so an edit that no drawn node shows redraws nothing.
  */
-function useOutlineBullets(nodes: LensNode[], theme: LensTheme): LensNode[] {
-  const drawsBullets = GRAPH_THEMES[theme].form === "bullet";
+function useOutlineBullets(nodes: LensNode[], theme: GraphTheme): LensNode[] {
+  const drawsBullets = theme.form === "bullet";
   const rows = useNodes();
   const outline = drawsBullets ? rows : null;
   return useMemo(
@@ -172,7 +173,8 @@ export function Force3dAdapter({
     onNodeOpen,
   },
 }: RendererProps<ParamsOf<typeof Force3dView>>) {
-  const nodes = useOutlineBullets(lensGraph.nodes, settings.theme);
+  const theme = useGraphTheme(settings.theme);
+  const nodes = useOutlineBullets(lensGraph.nodes, theme);
   return (
     <WorkspaceBoundary title="Opening the third dimension…">
       <Force3dGraph
@@ -190,7 +192,7 @@ export function Force3dAdapter({
         linkDistance={settings.linkDistance}
         autorotate={settings.autorotate}
         showLabels={settings.showLabels}
-        theme={settings.theme}
+        theme={theme}
         linkStyle={settings.linkStyle}
         labelTopN={
           settings.labelDensity === "low" ? 12 : settings.labelDensity === "high" ? 48 : 24

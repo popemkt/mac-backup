@@ -2,17 +2,18 @@ import { GraphMappings } from "./graph-mappings";
 import { useRef, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
 import { setLensProp } from "./lens-writes";
-import { cn, useDismiss } from "@kb/ui-sdk";
+import { cn, useContributions, useDismiss } from "@kb/ui-sdk";
+import { declaredOptionId } from "@kb/model";
 import {
   LENS_LABEL_DENSITIES,
   LENS_LAYOUTS,
   LENS_LINK_STYLES,
-  LENS_THEMES,
   type LensPerspective,
   GRAPH_IDS,
   GRAPH_LINK_STYLE_VALUES,
-  GRAPH_THEME_VALUES,
+  GRAPH_THEME_OPTIONS,
 } from "@kb/graph";
+import { GraphThemePoint, useGraphTheme } from "./graph-themes";
 import { linkStyleNote, settingDisabledReason } from "./graph-capabilities";
 import { useRenderer } from "./use-renderers";
 
@@ -28,6 +29,8 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const renderer = useRenderer(perspective.renderer);
+  const themes = useContributions(GraphThemePoint);
+  const theme = useGraphTheme(perspective.theme);
 
   // The button is inside: its click toggles the panel.
   useDismiss(open, [panelRef], () => setOpen(false));
@@ -119,12 +122,11 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
           <Choice
             label="Graph theme"
             reason={settingDisabledReason(renderer, "theme")}
-            options={LENS_THEMES.map((look) => ({
-              key: look,
-              label: GRAPH_THEME_VALUES[look].label,
-            }))}
-            value={perspective.theme}
-            onPick={(look) => setRef(GRAPH_IDS.lensThemeField, GRAPH_THEME_VALUES[look].id)}
+            options={themes.map(({ value: { key } }) => ({ key: key.id, label: key.label }))}
+            value={theme.key.id}
+            onPick={(look) =>
+              setRef(GRAPH_IDS.lensThemeField, declaredOptionId(GRAPH_THEME_OPTIONS, look))
+            }
           />
 
           <Choice

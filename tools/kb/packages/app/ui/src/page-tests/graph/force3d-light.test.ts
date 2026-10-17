@@ -6,26 +6,36 @@
  * rest, and under any lift, no fragment passes white, for the unit cube's
  * corners, every pure channel and a seeded spread of colours, under the ink
  * of every contributed design system in both variants (read from their sheets), on
- * the ground each theme stands on, and for every theme: the themes are the
+ * the ground each theme stands on, and for every contributed graph theme: the themes are the
  * implementations, and the bloom rule is their one contract. A theme that
  * blooms lets its hubs pass white; a theme that does not never does. The shader caps a lift at each fragment's own
  * headroom; this checks the cap.
  */
 import { describe, expect, it } from "vitest";
+import { Effect } from "effect";
+import { makeKernel, syncPlugins } from "@kb/plugin";
 import { BLOOM_THRESHOLD, NUMBER_OPS } from "@kb/scene";
 import { oklchToRgb, TAG_PALETTE } from "@kb/ui-sdk";
 import { PAGE_SHEETS as SHEETS } from "@/test-support/design-systems";
-import { LENS_THEMES, type LensTheme } from "@kb/graph";
 import {
   GLOW,
+  GraphThemePoint,
+  graphThemesPlugin,
   peakChannel,
   shadeNode,
+  type GraphTheme,
   type NodeLighting,
   type Rgb,
-  GRAPH_THEMES,
 } from "@kb/graph-ui";
 
 const CONTRIBUTED_IDS = [...SHEETS.systems.keys()];
+
+/** The graph themes the page holds, read from a kernel of their own. */
+const THEMES: readonly GraphTheme[] = (() => {
+  const kernel = makeKernel();
+  Effect.runSync(syncPlugins(kernel, [graphThemesPlugin]));
+  return kernel.contributions(GraphThemePoint).map(({ value }) => value);
+})();
 
 /** An sRGB channel (0–1) as a linear one, as three stores a colour. */
 function linear(c: number): number {
@@ -45,12 +55,12 @@ function tokenRgb(id: string, variant: "light" | "dark", token: string): Rgb {
 }
 
 /** Each appearance's ink (`--foreground`) and the ground a theme stands on in it. */
-const appearances = (theme: LensTheme) =>
+const appearances = (theme: GraphTheme) =>
   CONTRIBUTED_IDS.flatMap((id) =>
     (["light", "dark"] as const).map((variant) => ({
       name: `${id} ${variant}`,
       ink: tokenRgb(id, variant, "--foreground"),
-      ground: tokenRgb(id, variant, GRAPH_THEMES[theme].scene.ground[variant]),
+      ground: tokenRgb(id, variant, theme.scene.ground[variant]),
     })),
   );
 
@@ -68,73 +78,76 @@ const COLOURS: Rgb[] = [...CORNERS, ...NAMED, ...SPREAD, ...TAG_PALETTE.map(hexR
 /** Lifts to try: the two roles', and far past them (the cap must hold whatever the value). */
 const LIFTS = [GLOW.rising, GLOW.neighbour, 0.5, 1, 4];
 
-const lightings = (theme: LensTheme): (NodeLighting & { name: string })[] =>
+const lightings = (theme: GraphTheme): (NodeLighting & { name: string })[] =>
   appearances(theme).map((a) => ({
     ...a,
-    form: GRAPH_THEMES[theme].form,
-    surface: GRAPH_THEMES[theme].scene.surface,
-    glows: GRAPH_THEMES[theme].scene.bloom !== null,
+    form: theme.form,
+    surface: theme.scene.surface,
+    glows: theme.scene.bloom !== null,
   }));
 
-describe.each(LENS_THEMES)("3D light over every storable colour, %s theme", (theme) => {
-  const blooms = GRAPH_THEMES[theme].scene.bloom !== null;
-  for (const lighting of lightings(theme)) {
-    it(`keeps a resting node, and any lift, at or under white in ${lighting.name}`, () => {
-      for (const colour of COLOURS) {
-        expect(peakChannel(colour, lighting, 0), `rest ${colour.join(",")}`).toBeLessThanOrEqual(
-          BLOOM_THRESHOLD + 1e-9,
-        );
-        for (const lift of LIFTS) {
-          expect(
-            peakChannel(colour, lighting, 0, lift),
-            `lift ${lift} ${colour.join(",")}`,
-          ).toBeLessThanOrEqual(BLOOM_THRESHOLD + 1e-9);
+describe.each(THEMES.map((theme) => [theme.key.id, theme] as const))(
+  "3D light over every storable colour, %s theme",
+  (_id, theme) => {
+    const blooms = theme.scene.bloom !== null;
+    for (const lighting of lightings(theme)) {
+      it(`keeps a resting node, and any lift, at or under white in ${lighting.name}`, () => {
+        for (const colour of COLOURS) {
+          expect(peakChannel(colour, lighting, 0), `rest ${colour.join(",")}`).toBeLessThanOrEqual(
+            BLOOM_THRESHOLD + 1e-9,
+          );
+          for (const lift of LIFTS) {
+            expect(
+              peakChannel(colour, lighting, 0, lift),
+              `lift ${lift} ${colour.join(",")}`,
+            ).toBeLessThanOrEqual(BLOOM_THRESHOLD + 1e-9);
+          }
         }
-      }
+      });
+    }
+
+    it("still lifts a colour with headroom: a lift is visible, not zeroed", () => {
+      // Where the node faces the viewer, half lit: a fragment with headroom in every look.
+      const grey: Rgb = [0.2, 0.2, 0.2];
+      const facing = (lighting: NodeLighting, lift: number) =>
+        shadeNode(
+          NUMBER_OPS,
+          {
+            hue: grey,
+            ground: lighting.ground,
+            ink: lighting.ink,
+            key: 0.5,
+            rim: 0,
+            presence: 1,
+            glow: 0,
+            lift,
+          },
+          lighting.surface,
+          lighting.glows,
+        )[0];
+      for (const lighting of lightings(theme))
+        expect(facing(lighting, GLOW.rising)).toBeGreaterThan(facing(lighting, 0));
     });
-  }
 
-  it("still lifts a colour with headroom: a lift is visible, not zeroed", () => {
-    // Where the node faces the viewer, half lit: a fragment with headroom in every look.
-    const grey: Rgb = [0.2, 0.2, 0.2];
-    const facing = (lighting: NodeLighting, lift: number) =>
-      shadeNode(
-        NUMBER_OPS,
-        {
-          hue: grey,
-          ground: lighting.ground,
-          ink: lighting.ink,
-          key: 0.5,
-          rim: 0,
-          presence: 1,
-          glow: 0,
-          lift,
-        },
-        lighting.surface,
-        lighting.glows,
-      )[0];
-    for (const lighting of lightings(theme))
-      expect(facing(lighting, GLOW.rising)).toBeGreaterThan(facing(lighting, 0));
-  });
-
-  it(
-    blooms
-      ? "lets every hub of a tag colour bloom"
-      : "never blooms: no glow, however strong, passes white",
-    () => {
-      for (const lighting of lightings(theme)) {
-        for (const hex of TAG_PALETTE) {
-          const hub = peakChannel(hexRgb(hex), lighting, GLOW.hub);
-          if (blooms) expect(hub).toBeGreaterThan(BLOOM_THRESHOLD);
-          else expect(hub).toBeLessThanOrEqual(BLOOM_THRESHOLD + 1e-9);
+    it(
+      blooms
+        ? "lets every hub of a tag colour bloom"
+        : "never blooms: no glow, however strong, passes white",
+      () => {
+        for (const lighting of lightings(theme)) {
+          for (const hex of TAG_PALETTE) {
+            const hub = peakChannel(hexRgb(hex), lighting, GLOW.hub);
+            if (blooms) expect(hub).toBeGreaterThan(BLOOM_THRESHOLD);
+            else expect(hub).toBeLessThanOrEqual(BLOOM_THRESHOLD + 1e-9);
+          }
+          if (blooms) continue;
+          for (const colour of COLOURS)
+            for (const glow of [1, 4])
+              expect(peakChannel(colour, lighting, glow, 1)).toBeLessThanOrEqual(
+                BLOOM_THRESHOLD + 1e-9,
+              );
         }
-        if (blooms) continue;
-        for (const colour of COLOURS)
-          for (const glow of [1, 4])
-            expect(peakChannel(colour, lighting, glow, 1)).toBeLessThanOrEqual(
-              BLOOM_THRESHOLD + 1e-9,
-            );
-      }
-    },
-  );
-});
+      },
+    );
+  },
+);

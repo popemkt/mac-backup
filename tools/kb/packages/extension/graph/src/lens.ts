@@ -12,6 +12,8 @@
  */
 import { Schema, SchemaGetter } from "effect";
 import {
+  declaredIdOf,
+  declaredOptionId,
   decodeNodeConfig,
   encodeNodeConfig,
   firstBool,
@@ -33,9 +35,9 @@ import {
 } from "@kb/model";
 import { SUBJECT_SLOTS, type ConfigReport } from "@kb/views";
 import { GRAPH_IDS } from "./ids.ts";
+import { GRAPH_THEME_OPTIONS, MATTE_THEME } from "./themes.ts";
 import {
   GRAPH_LINK_STYLE_VALUES,
-  GRAPH_THEME_VALUES,
   graphOptionId,
   graphOptionKey,
   graphSourceId,
@@ -96,7 +98,8 @@ export interface LensPerspective {
   tracePaths: number | null;
 }
 
-export type LensTheme = keyof typeof GRAPH_THEME_VALUES;
+/** A graph theme by its declared id (`themes.ts`): one nobody contributes draws the default. */
+export type LensTheme = string;
 export type LensLinkStyle = keyof typeof GRAPH_LINK_STYLE_VALUES;
 
 export const DEFAULT_EDGE_KINDS: EdgeKind[] = ["mention", "child"];
@@ -118,16 +121,12 @@ export const DEFAULT_SHOW_LABELS = true;
 export const DEFAULT_AUTOROTATE = false;
 export const DEFAULT_EDGE_LABELS = false;
 export const DEFAULT_LABEL_DENSITY: LensLabelDensity = "medium";
-export const DEFAULT_THEME: LensTheme = "matte";
+export const DEFAULT_THEME: LensTheme = MATTE_THEME.id;
 export const DEFAULT_LINK_STYLE: LensLinkStyle = "straight";
 
 export const LENS_LAYOUTS: readonly LensLayout[] = ["force", "radial", "hierarchical", "grid"];
 export const LENS_LABEL_DENSITIES: readonly LensLabelDensity[] = ["low", "medium", "high"];
-/** The option sets' keys, in their declared order (the settings offer them so). */
-// GAP [[01M54PYCJ6FGCT8SGZDZPVQW7Y]] the graph's themes are a closed set, not a declared kind a family contributes
-export const LENS_THEMES = Object.keys(GRAPH_THEME_VALUES).filter(
-  (key): key is LensTheme => key in GRAPH_THEME_VALUES,
-);
+/** The option set's keys, in their declared order (the settings offer them so). */
 export const LENS_LINK_STYLES = Object.keys(GRAPH_LINK_STYLE_VALUES).filter(
   (key): key is LensLinkStyle => key in GRAPH_LINK_STYLE_VALUES,
 );
@@ -170,6 +169,19 @@ const optionKey =
     const first = props[field]?.[0];
     return first?.t === "ref" ? graphOptionKey(values, first.v) : firstStr(field)(props);
   };
+
+/**
+ * The theme `lens.theme` names: the declared id its option node names
+ * (`GRAPH_THEME_OPTIONS`), or the id as a string, as a definition written
+ * before the options were nodes holds it. Which declared ids are
+ * contributed is the page's to know, so any id is read here.
+ */
+const themeKey = (props: NodeProps): string | undefined => {
+  const first = props[GRAPH_IDS.lensThemeField]?.[0];
+  return first?.t === "ref"
+    ? declaredIdOf(GRAPH_THEME_OPTIONS, first.v)
+    : firstStr(GRAPH_IDS.lensThemeField)(props);
+};
 
 /** An option field's value as it is written: the option node, else the key. */
 function optionValue(values: Parameters<typeof graphOptionId>[0], key: string): PropValue {
@@ -251,7 +263,10 @@ export const LENS_SETTINGS = {
   edgeLabels: Schema.Boolean,
   autorotate: Schema.Boolean,
   labelDensity: Schema.Literals(LENS_LABEL_DENSITIES),
-  theme: Schema.Literals(LENS_THEMES),
+  theme: Schema.NonEmptyString.annotate({
+    description:
+      "A graph theme by its declared id (matte, cel, fresnel, glass, bullet, cube, or a family's own); one nobody contributes draws matte",
+  }),
   linkStyle: Schema.Literals(LENS_LINK_STYLES),
 } satisfies { readonly [K in keyof LensPerspective]?: Schema.Decoder<LensPerspective[K]> };
 
@@ -419,8 +434,10 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
   }),
   theme: oneOf({
     fields: [GRAPH_IDS.lensThemeField],
-    read: optionKey(GRAPH_IDS.lensThemeField, GRAPH_THEME_VALUES),
-    write: optionWrite(GRAPH_IDS.lensThemeField, GRAPH_THEME_VALUES),
+    read: themeKey,
+    write: (id) => ({
+      [GRAPH_IDS.lensThemeField]: [{ t: "ref", v: declaredOptionId(GRAPH_THEME_OPTIONS, id) }],
+    }),
     schema: LENS_SETTINGS.theme,
     fallback: DEFAULT_THEME,
   }),

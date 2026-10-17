@@ -16,7 +16,7 @@ import {
   setGraphLabelPaint,
   type GraphNodeBox,
 } from "./sigma-labels";
-import { GRAPH_THEMES } from "./graph-themes";
+import { contributedTheme } from "./contributed-themes";
 
 type LabelData = Parameters<Settings["defaultDrawNodeLabel"]>[1];
 
@@ -79,7 +79,7 @@ function label(x: number): LabelData {
 
 describe("2D label placement samples the drawn frame", () => {
   const INK = { text: "#111", ground: "#fff" };
-  beforeAll(() => setGraphLabelPaint(INK, GRAPH_THEMES.matte.labels));
+  beforeAll(() => setGraphLabelPaint(INK, contributedTheme("matte").labels));
   const g = globalThis as Record<string, unknown>;
   beforeAll(() => {
     g.window = { devicePixelRatio: 1 };
@@ -205,11 +205,11 @@ describe("2D label placement samples the drawn frame", () => {
   it("sets a label in its theme's style: capitals where the theme says so", () => {
     const { ctx, canvas, drawn } = fakeContext();
     const el = canvas as unknown as HTMLCanvasElement;
-    setGraphLabelPaint(INK, GRAPH_THEMES.fresnel.labels);
+    setGraphLabelPaint(INK, contributedTheme("fresnel").labels);
     resetGraphLabels([el], () => {});
     drawGraphLabel(ctx, { ...label(100), label: "Hub" }, settings);
     placeGraphLabels(el);
-    setGraphLabelPaint(INK, GRAPH_THEMES.matte.labels);
+    setGraphLabelPaint(INK, contributedTheme("matte").labels);
     expect(drawn.map((d) => d.text)).toEqual(["HUB"]);
   });
 });

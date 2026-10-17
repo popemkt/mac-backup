@@ -8,8 +8,7 @@ import {
   type GraphLabelInk,
   type GraphLabelStyle,
 } from "./graph-label-paint";
-import { DEFAULT_THEME } from "@kb/graph";
-import { GRAPH_THEMES } from "./graph-themes";
+import { DEFAULT_GRAPH_THEME } from "./graph-themes";
 import {
   byLabelPriority,
   fitGraphLabel,
@@ -80,7 +79,7 @@ export function setGraphLabelPaint(ink: GraphLabelInk, style: GraphLabelStyle): 
 function labelLook(): { ink: GraphLabelInk; style: GraphLabelStyle } {
   look ??= {
     ink: { text: readTokenColor("--foreground"), ground: readTokenColor("--background") },
-    style: GRAPH_THEMES[DEFAULT_THEME].labels,
+    style: DEFAULT_GRAPH_THEME.labels,
   };
   return look;
 }

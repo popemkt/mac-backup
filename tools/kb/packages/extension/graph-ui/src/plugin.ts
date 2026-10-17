@@ -31,6 +31,7 @@ import {
   TreemapView,
 } from "@kb/graph";
 import { NeighbourhoodGraph } from "./neighbourhood-view";
+import { graphThemesPlugin } from "./graph-themes";
 import { lensGraphs } from "./graph-lens";
 import { TYPE_REFERENCE_COMMAND, TYPE_REFERENCE_STEP } from "./type-reference";
 import {
@@ -56,6 +57,9 @@ import {
  * halves that draw the graph without being it, and the node menu's "Type this
  * reference…" with the palette step it opens (`type-reference.tsx`).
  *
+ * It loads the family's own graph themes (`graphThemesPlugin`), contributed
+ * to its theme point under the keys its declaration lists.
+ *
  * It is the graph family's page entry, so it loads the family's shared
  * plugin as a child: the graph views' keys reach the page kernel's catalog
  * from the family, as the server's do.
@@ -67,6 +71,7 @@ export const graphUiPlugin = definePlugin({
     Effect.all(
       [
         ctx.plugin(graphPlugin()),
+        ctx.plugin(graphThemesPlugin),
         ctx.provide(NodeLinkGraphService, lensGraphs),
         ctx.contribute(CommandPoint, TYPE_REFERENCE_COMMAND),
         ctx.contribute(PaletteStepPoint, TYPE_REFERENCE_STEP),
