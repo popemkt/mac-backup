@@ -554,3 +554,23 @@ declared `approval.script-run` denial (d4e1bc68); S-3 the overlay mask
 | S-4 | major | A code view's figure (`codeFigure`, `text.ts`) runs its code on render with no trust check, while `script.run` checks trust. | Verify whether untrusted code may run in the restricted engine with read-only invoke; state the model once, with a contract property, or route both through one trust gate. |
 | S-5 | minor | Nested `ext.code.script.run` calls are unbounded; each step asks for approval. | A bound on how deep a run may start another. |
 | S-6 | minor | Two grant parsers: `scriptOf` decodes with Schema, `CodeView.readGrant` with `JSON.parse`. | One decoder. |
+
+## Review round 5 (GPT-6.1 Sol, 2026-10-17)
+
+A review of batch S as it landed (read at `45aa08e1`): S-2's grant bound
+is not closed, and the export and diagram paths have four minors. Each
+finding is verified against the code before it is fixed, on
+`fix/review-round-5`; the four reach escapes reproduce through the real
+invoke core (`app/runtime/tests/script-reach.test.ts`). P14 comments wait
+for it, and its verb rides the bound it sets.
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| R5-1 | blocker | A script writes a ref onto a node outside its subject: the canvas verbs declare only `canvasId`, while `place` takes `make.nodeId` unchecked and `connect`'s `bind` writes onto the from item's node. | Bound every write a script's call commits, at the commit (`persistEffect`), the one place every write passes: what it writes or deletes, and every node a written node newly points at, must be the subject or under it. |
+| R5-2 | major | `describe` reads any node's text: the canvas world's `textOf` reads every node, so placing a card for N and describing reads N. | A canvas action reads kb through the nodes its call may read: for a script, those under its subject in full and the rest bare. |
+| R5-3 | major | Nested targets are undeclared: `node.add` ignores ref values in `props`, `node.update` ignores them in `setProps` and a move or reorder writes the old parent, `node.delete` detaches a parent outside `["id"]`. | The commit bound of R5-1: it reads what the write plan touches, not what the input names. |
+| R5-4 | major | A call an action makes (`CoreInvoke`) carries no actor, so `scriptRefusal` never runs on it (`ext.canvas.describe` → `ext.code.script.list`). | A call made while a script's call runs is that script's, with its reach, decided in the invoke core. |
+| R5-5 | minor | Mermaid `LINK_SPLIT` is quadratic: `A -- x`, 20k spaces, `y` takes a second; `readBox`/`readLink` re-slice the text. | A linear scan for links, reading in place. |
+| R5-6 | minor | The SVG export's `escapeXml` passes control characters XML 1.0 forbids. | Drop them. |
+| R5-7 | minor | The diagram cap (`MAX_CARDS`) counts only a query's ids; a mermaid text is uncapped. | One cap on the spec, whichever parser made it, for boxes and links. |
+| R5-8 | minor | The SVG export writes an image's `file` as its `href` unchecked. | Only a kb asset path, http(s) or a `data:image` URL. |
