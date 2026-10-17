@@ -11,6 +11,7 @@
 import { Effect } from "effect";
 import { declarationPlugin, defineExtension, extensionPlugin, viewDef } from "@kb/contracts";
 import { definePlugin, type Plugin } from "@kb/plugin";
+import { SCRIPT_LIST } from "./list.ts";
 import { SCRIPT_RUN } from "./run.ts";
 import { codeSeedNodes } from "./seed.ts";
 import { codeText } from "./text.ts";
@@ -27,7 +28,7 @@ export const codeExtension = defineExtension({
 /** The family's actions, `ext.code.*`: running a script once. */
 const codeActions = extensionPlugin({
   name: codeExtension.name,
-  actions: [SCRIPT_RUN],
+  actions: [SCRIPT_LIST, SCRIPT_RUN],
   templates: [],
 });
 

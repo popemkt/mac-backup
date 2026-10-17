@@ -2670,6 +2670,10 @@ transaction, one step of an open canvas's history.
   their bounds stand farthest apart (`directionFrom`), and two items that no
   direction parts overlap (`overlaps`). A flat item at a solid's base is in
   it; one on its top rests on it (`restingOn`, what surface snap stands it on).
+- **`describe` names the scripts that run on the canvas**: its board's, then
+  its own, each with its grant and whether a person trusts it, as the code
+  family lists them (`ext.code.script.list`, asked through `CoreInvoke` as a
+  read). While no family keeps scripts it names none (Sandbox → Scripts).
 - **`place`** makes or moves items `near` another on a side with a gap
   (level with it, its base aligned with the target's), `on` one (centred,
   standing on its top), `in` a frame (row by row, clear of its members; on a
@@ -2767,6 +2771,7 @@ transaction, one step of an open canvas's history.
 | `ext.docs.check` (alias `docs.check`)                                        | read  | materialize to memory, diff vs disk (bundled extension)                                                                                                                           |
 | `ext.canvas.tx.apply`                                                        | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension); answers the lints it made and cleared                                                                    |
 | `ext.canvas.describe` / `ext.canvas.lint`                                    | read  | a canvas in words, at three levels of detail / its lints ([Agent verbs](#agent-verbs))                                                                                            |
+| `ext.code.script.list`                                                       | read  | the `#script` nodes some nodes name, each with its grant and whether a person trusts it (Sandbox → Scripts)                                                                       |
 | `ext.code.script.run`                                                        | write | run a trusted `#script` once against a node until it is quiet, its calls the script's (Sandbox → Scripts); approval required                                                      |
 | `ext.canvas.place` / `arrange` / `connect` / `group` / `ungroup` / `promote` | write | edit a canvas by relation, one write each ([Agent verbs](#agent-verbs))                                                                                                           |
 | `ui.screen`                                                                  | read  | the open UI tabs' screen state, most recently active first ([Screen state](#screen-state))                                                                                        |
@@ -3671,6 +3676,10 @@ system, one runner, one trust.
   It asks approval as a write that requires it: a person's runs, an
   agent's only once approved, and an untrusted script is refused before
   anything runs. The scripts panel's Run once is the person's.
+- **Listed with its trust**: `ext.code.script.list` tells the scripts some
+  nodes name, each with its grant and whether a person trusts it; a view's
+  agent verb says which scripts run on it through it (the canvas's
+  `describe`), so a view never reads a script's fields.
 - **It writes through the view's actions.** A canvas script reads with
   `kb.invoke("ext.canvas.describe", …)` and writes with the canvas verbs,
   within its grant, as the `script` actor: locks, lints, approval and the

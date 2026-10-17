@@ -12,7 +12,7 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { KbCtx, Screens, type ExtensionAction, type KbStore } from "@kb/contracts";
+import { CoreInvoke, KbCtx, Screens, type ExtensionAction, type KbStore } from "@kb/contracts";
 import { planNodeAddEffect } from "@kb/operations";
 import { freshId, isSysPrefixed, resolveFieldId, type KbNode } from "@kb/model";
 import {
@@ -24,6 +24,7 @@ import {
   GRID_STEP,
   CanvasRelationError,
   arrangeItems,
+  boardOf,
   canvasMembership,
   canvasWorld,
   connectItems,
@@ -144,6 +145,36 @@ const describeOutput = z.object({
   lints: z.array(LintSchema).readonly(),
   camera: z.record(z.string(), z.unknown()).optional(),
   screen: ScreenSchema.nullable(),
+  scripts: z
+    .array(z.record(z.string(), z.unknown()))
+    .optional()
+    .describe(
+      "the scripts the board and this page name, as ext.code.script.list tells them (each with its grant and whether a person trusts it); absent while no family keeps scripts",
+    ),
+});
+
+const scriptsSchema = z.object({ scripts: z.array(z.record(z.string(), z.unknown())) });
+
+/** The action that lists the scripts nodes name, which the family that keeps scripts provides. */
+const SCRIPT_LIST = "ext.code.script.list";
+
+/**
+ * The scripts that run on `canvasId` — its board's, then its own — as the
+ * family that keeps scripts lists them, through the host's `CoreInvoke` as
+ * a read; null while no such family answers (or the host has no invoke), so
+ * a canvas needs no scripts to be described.
+ */
+const canvasScriptsEffect = Effect.fn("ext.canvas.scripts")(function* (
+  canvasId: string,
+  board: string,
+) {
+  const invoke = yield* CoreInvoke;
+  if (invoke === null) return null;
+  const subjects = board === canvasId ? [canvasId] : [board, canvasId];
+  const receipt = yield* invoke({ id: SCRIPT_LIST, input: { subjects } }, "read");
+  if (receipt.status === "failed") return null;
+  const listed = scriptsSchema.safeParse(receipt.output);
+  return listed.success ? listed.data.scripts : null;
 });
 
 /**
@@ -186,9 +217,11 @@ const canvasDescribeEffect = Effect.fn("ext.canvas.describe")(function* (
     input.focus ?? (screen !== null && screen.selection.length > 0 ? screen.selection : null);
   const visible = screen === null ? undefined : new Set(screen.visible);
   const focus = chosen === null ? visible : new Set(chosen);
+  const world = canvasWorld(ctx.nodes);
+  const scripts = yield* canvasScriptsEffect(input.canvasId, boardOf(world, input.canvasId));
   const told = describeCanvas(doc, {
     canvasId: input.canvasId,
-    world: canvasWorld(ctx.nodes),
+    world,
     ...(focus === undefined ? {} : { focus }),
     ...(visible === undefined ? {} : { visible }),
   });
@@ -200,6 +233,7 @@ const canvasDescribeEffect = Effect.fn("ext.canvas.describe")(function* (
     lints: told.lints,
     ...(told.camera === undefined ? {} : { camera: { ...told.camera } }),
     screen,
+    ...(scripts === null ? {} : { scripts }),
   };
 });
 
