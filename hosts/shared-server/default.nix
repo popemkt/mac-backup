@@ -90,4 +90,19 @@
       ) config.my.stacks.t3-code.instances;
     };
   };
+
+  # The work Mac's T3 Code, relayed to loopback so agents here can sign in to
+  # its MCP: OAuth refuses plain HTTP off loopback, and T3 names its endpoints
+  # after the host it is reached on.
+  systemd.services.t3-work-relay = {
+    description = "Relay 127.0.0.1:3790 to popemkt-work's T3 Code";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "tailscaled.service" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.socat}/bin/socat TCP-LISTEN:3790,bind=127.0.0.1,fork,reuseaddr TCP:popemkt-work.taild98079.ts.net:3773";
+      DynamicUser = true;
+      Restart = "always";
+      RestartSec = 5;
+    };
+  };
 }
