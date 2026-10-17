@@ -21,6 +21,10 @@
  *   the model, so what 2D draws and hit-tests is each solid's top view —
  *   for turned items too, flat and solid, spun about z and tilted;
  * - a card moved and turned in the document is drawn where it went;
+ * - a set moved in the paint order (`orderItems`) is drawn back to front in
+ *   its new order and hit where it now paints on top; a set mirrored
+ *   (`flipItems`) is drawn where the mirror put it; a locked item is drawn
+ *   and hit as any other, since a lock holds an item and is no look;
  * - nested membership: a frame paints under what belongs to it, at any
  *   depth and whatever the document order, and a frame's transform draws
  *   its members where it carried them.
@@ -38,18 +42,21 @@ import {
   boxToWorld,
   carriedBy,
   directionToLocal,
+  flipItems,
   faceShare,
   facesCamera,
   frameCorners,
   itemFrame,
   itemShape,
   onFootprint,
+  orderItems,
   paintOrder,
   planeCorners,
   selectionPivot,
   stillAbout,
   transformCarried,
   turnAbout,
+  withFlag,
   type CanvasDoc,
   type CanvasNode,
   type CanvasShapeKind,
@@ -69,6 +76,8 @@ import { syncUiPlugins } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
 import { PROBES, PROBE_LOOK, useProbePage } from "./test-support/projection-probes";
+
+type Probe = Awaited<ReturnType<(typeof PROBES)["2d"]>>;
 import type * as ThreeWebGpu from "three/webgpu";
 
 // The canvas reaches the page only through its host: here, a test host.
@@ -355,6 +364,32 @@ const centreOf = (item: CanvasNode) => ({
   z: item.z ?? 0,
 });
 
+/**
+ * Whether `probe` draws `shown` as the model says: every item once, back to
+ * front, each face where the camera model projects it, and on top at every
+ * item's centre and at the overlaps what the model's hit test finds.
+ */
+function expectDrawnAsModel(probe: Probe, shown: CanvasDoc, view: CanvasView): void {
+  const order = paintOrder(shown.nodes);
+  expect(probe.drawn()).toEqual(order.map((n) => n.id));
+  for (const { item, z } of paintPlanes(order)) {
+    const drawn = probe.cornersOf(item.id);
+    cornersOf(item, z, view).forEach((corner, i) => {
+      const model = projectPoint(view, size, corner);
+      expect(drawn?.[i]?.x, `${item.id} corner ${i}`).toBeCloseTo(model?.x ?? Number.NaN, 1);
+      expect(drawn?.[i]?.y, `${item.id} corner ${i}`).toBeCloseTo(model?.y ?? Number.NaN, 1);
+    });
+  }
+  const points = [...shown.nodes.map(centreOf), ...OVERLAPS]
+    .map((p) => projectPoint(view, size, p))
+    .filter((p) => p !== null);
+  for (const at of points) {
+    expect(probe.topAt(at), `at ${at.x.toFixed(0)},${at.y.toFixed(0)}`).toBe(
+      hitTest(order, view, size, at),
+    );
+  }
+}
+
 describe("canvas projection contract", () => {
   useProbePage();
 
@@ -463,6 +498,40 @@ describe("canvas projection contract", () => {
       if (at !== null) {
         expect(probe.topAt(at)).toBe(hitTest(paintOrder(moved.nodes), view, size, at));
       }
+      probe.dispose();
+    });
+
+    it("draws a set moved in the paint order in its new order, and hits what is now on top", async () => {
+      const probe = await mount(view, scene);
+      // low is under twin where they overlap; brought to the front, it is over it.
+      const ordered = orderItems(doc, ["low"], "front");
+      await probe.update(ordered);
+      expectDrawnAsModel(probe, ordered, view);
+      const behind = orderItems(doc, ["raised", "twin"], "back");
+      await probe.update(behind);
+      expectDrawnAsModel(probe, behind, view);
+      probe.dispose();
+    });
+
+    it("draws a mirrored set where the mirror put it", async () => {
+      const probe = await mount(view, scene);
+      for (const axis of ["x", "y"] as const) {
+        const flipped = flipItems(doc, ["spun", "tipped", "sunk", "raised"], axis);
+        await probe.update(flipped);
+        expectDrawnAsModel(probe, flipped, view);
+      }
+      probe.dispose();
+    });
+
+    it("draws and hits a locked item as any other: a lock is no look", async () => {
+      const probe = await mount(view, scene);
+      const held = new Set(["raised", "twin", "ball", "late"]);
+      const locked = {
+        ...doc,
+        nodes: doc.nodes.map((n) => (held.has(n.id) ? withFlag(n, "locked", true) : n)),
+      };
+      await probe.update(locked);
+      expectDrawnAsModel(probe, locked, view);
       probe.dispose();
     });
 

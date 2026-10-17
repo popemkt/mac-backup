@@ -165,6 +165,9 @@ function domColor(css: string | null | undefined, look: CardLook): string | null
 /** How words aligned along a line read back from CSS or a canvas's `textAlign`. */
 const alignOf = (css: string): CanvasAlign | undefined => keyOf(TEXT_ALIGNS, css);
 
+/** How many steps a cubic of SVG path data is flattened in: fine enough for a long, tight curve. */
+const CURVE_STEPS = 64;
+
 /** SVG path data (M, L, C, Z) as a polygon, curves flattened. */
 function pathPolygon(d: string): Point[] {
   const tokens = d.match(/[MLCZ]|-?[\d.]+(?:e-?\d+)?/g) ?? [];
@@ -177,8 +180,8 @@ function pathPolygon(d: string): Point[] {
     else if (op === "C") {
       const from = points.at(-1) ?? { x: 0, y: 0 };
       const [x1, y1, x2, y2, x, y] = [num(), num(), num(), num(), num(), num()];
-      for (let s = 1; s <= 16; s++) {
-        const t = s / 16;
+      for (let s = 1; s <= CURVE_STEPS; s++) {
+        const t = s / CURVE_STEPS;
         const u = 1 - t;
         points.push({
           x: u * u * u * from.x + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x,

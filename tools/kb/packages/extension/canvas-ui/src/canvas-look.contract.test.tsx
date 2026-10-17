@@ -34,12 +34,14 @@ import {
   edgeHead,
   edgeRoute,
   faceStands,
+  flipItems,
   isPathNode,
   itemOutline,
   outlinePoints,
   ownsWords,
   pathHeads,
   routePoints,
+  withFlag,
   type CanvasDoc,
   type CanvasEdge,
   type CanvasNode,
@@ -61,6 +63,8 @@ import {
   type DrawnLook,
 } from "./test-support/projection-probes";
 import type * as ThreeWebGpu from "three/webgpu";
+
+type Probe = Awaited<ReturnType<(typeof PROBES)["2d"]>>;
 
 beforeAll(() => syncUiPlugins([testHostPlugin(testBrowserHost())]));
 afterAll(() => syncUiPlugins([]));
@@ -390,6 +394,55 @@ function modelEdge(edge: CanvasEdge) {
   return { line, opacity: paint.opacity };
 }
 
+/** Whether `probe` draws every line of `shown` through its points, with the heads its open ends wear. */
+function expectLinesAsModel(probe: Probe, shown: CanvasDoc): void {
+  for (const item of shown.nodes.filter(isPathNode)) {
+    const paint = itemPaint(item);
+    const model = outlinePoints(itemOutline(item, item.width, item.height, 0)).map(([x, y]) => ({
+      x,
+      y,
+    }));
+    const drawn = probe.lineOf(item.id);
+    const ring = item.closed === true ? closed : (points: readonly Point[]) => points;
+    alongside(ring(drawn?.line ?? []), ring(model), item.id);
+    const heads = pathHeads(item, item.width, item.height, paint.heads?.length ?? 0);
+    expect(drawn?.heads.length, item.id).toBe(heads.length);
+    heads.forEach(({ end, head }, i) => {
+      const outline = outlinePoints(head.path).map(([x, y]) => ({ x, y }));
+      const shape = head.filled ? closed : (points: readonly Point[]) => points;
+      const got = drawn?.heads[i];
+      alongside(shape(got?.points ?? []), shape(outline), `${item.id} ${end}`);
+      // A head is inked as its line is, drawn or not.
+      const stroke = paint.chrome?.stroke;
+      expect(got?.color, `${item.id} ${end} ink`).toBe(
+        stroke === undefined ? undefined : colorOf(stroke),
+      );
+    });
+  }
+}
+
+/** Whether `probe` draws every edge of `shown` along its route, end to end, with its line and opacity. */
+function expectEdgesAsModel(probe: Probe, shown: CanvasDoc): void {
+  const byId = new Map(shown.nodes.map((n) => [n.id, n]));
+  for (const edge of shown.edges) {
+    const [from, to] = [byId.get(edge.fromNode), byId.get(edge.toNode)];
+    if (from === undefined || to === undefined) throw new Error(`no ends for ${edge.id}`);
+    const model = routePoints(edgeRoute(from, to, edge));
+    const drawn = probe.edgeOf(edge.id);
+    const points = drawn?.points ?? [];
+    for (const [got, want] of [
+      [points[0], model[0]],
+      [points.at(-1), model.at(-1)],
+    ] as const) {
+      // The DOM writes its path to the hundredth.
+      expect(got?.x, edge.id).toBeCloseTo(want?.x ?? Number.NaN, 1);
+      expect(got?.y, edge.id).toBeCloseTo(want?.y ?? Number.NaN, 1);
+    }
+    alongside(points, model, edge.id);
+    expect({ line: drawn?.line, opacity: drawn?.opacity }, edge.id).toEqual(modelEdge(edge));
+  }
+}
+
 describe("canvas look contract", () => {
   useProbePage();
 
@@ -425,24 +478,7 @@ describe("canvas look contract", () => {
 
     it("draws every edge along its route, end to end, with its line and opacity", async () => {
       const probe = await PROBES[kind](view, edgeScene);
-      const byId = new Map(joined.map((n) => [n.id, n]));
-      for (const edge of wired) {
-        const [from, to] = [byId.get(edge.fromNode), byId.get(edge.toNode)];
-        if (from === undefined || to === undefined) throw new Error(`no ends for ${edge.id}`);
-        const model = routePoints(edgeRoute(from, to, edge));
-        const drawn = probe.edgeOf(edge.id);
-        const points = drawn?.points ?? [];
-        for (const [got, want] of [
-          [points[0], model[0]],
-          [points.at(-1), model.at(-1)],
-        ] as const) {
-          // The DOM writes its path to the hundredth.
-          expect(got?.x, edge.id).toBeCloseTo(want?.x ?? Number.NaN, 1);
-          expect(got?.y, edge.id).toBeCloseTo(want?.y ?? Number.NaN, 1);
-        }
-        alongside(points, model, edge.id);
-        expect({ line: drawn?.line, opacity: drawn?.opacity }, edge.id).toEqual(modelEdge(edge));
-      }
+      expectEdgesAsModel(probe, edgeScene.doc);
       probe.dispose();
     });
 
@@ -477,27 +513,32 @@ describe("canvas look contract", () => {
 
     it("draws a line through its points, with the heads its open ends wear", async () => {
       const probe = await PROBES[kind](view, scene);
-      for (const item of doc.nodes.filter(isPathNode)) {
-        const paint = itemPaint(item);
-        const model = outlinePoints(itemOutline(item, item.width, item.height, 0)).map(
-          ([x, y]) => ({ x, y }),
-        );
-        const drawn = probe.lineOf(item.id);
-        const ring = item.closed === true ? closed : (points: readonly Point[]) => points;
-        alongside(ring(drawn?.line ?? []), ring(model), item.id);
-        const heads = pathHeads(item, item.width, item.height, paint.heads?.length ?? 0);
-        expect(drawn?.heads.length, item.id).toBe(heads.length);
-        heads.forEach(({ end, head }, i) => {
-          const outline = outlinePoints(head.path).map(([x, y]) => ({ x, y }));
-          const shape = head.filled ? closed : (points: readonly Point[]) => points;
-          const got = drawn?.heads[i];
-          alongside(shape(got?.points ?? []), shape(outline), `${item.id} ${end}`);
-          // A head is inked as its line is, drawn or not.
-          const stroke = paint.chrome?.stroke;
-          expect(got?.color, `${item.id} ${end} ink`).toBe(
-            stroke === undefined ? undefined : colorOf(stroke),
-          );
-        });
+      expectLinesAsModel(probe, doc);
+      probe.dispose();
+    });
+
+    it("draws a mirrored line and edge as the mirror put them: points, route and heads", async () => {
+      const lines = await PROBES[kind](view, scene);
+      const edges = await PROBES[kind](view, edgeScene);
+      for (const axis of ["x", "y"] as const) {
+        const flippedLines = flipItems(doc, ["line", "arrowed", "closed"], axis);
+        await lines.update(flippedLines);
+        expectLinesAsModel(lines, flippedLines);
+        // b and d mirrored whole bend their arc the mirrored way; the rest meet them where they did.
+        const flippedEdges = flipItems(edgeScene.doc, ["b", "d"], axis);
+        await edges.update(flippedEdges);
+        expectEdgesAsModel(edges, flippedEdges);
+      }
+      lines.dispose();
+      edges.dispose();
+    });
+
+    it("draws a locked item's look as any other's: a lock is no look", async () => {
+      const probe = await PROBES[kind](view, scene);
+      const locked = { ...doc, nodes: doc.nodes.map((n) => withFlag(n, "locked", true)) };
+      await probe.update(locked);
+      for (const item of locked.nodes.filter(looked)) {
+        expect(probe.paintOf(item.id), item.id).toEqual(modelLook(item));
       }
       probe.dispose();
     });
