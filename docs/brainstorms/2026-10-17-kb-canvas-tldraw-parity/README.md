@@ -1,6 +1,8 @@
 # Canvas parity with tldraw offline
 
-Plan of 2026-10-17. Nothing here is built. It builds on
+Plan of 2026-10-17, revised the same day on the owner's direction (below):
+canvas is a generic product, as tldraw is, and what kb adds beyond it is
+the tie-in to the graph. P1–P5 have landed. It builds on
 [DESIGN.md → Canvas documents](../../../tools/kb/DESIGN.md#canvas-documents) and
 → Agent verbs, [DESIGN-UI.md → Canvas](../../../tools/kb/DESIGN-UI.md#canvas-i3),
 the [3D workspace plan](../2026-10-02-kb-3d-workspace/README.md) and the
@@ -13,6 +15,20 @@ family cut.
 ## What the owner asked
 
 > "make canvas feature parity with tldraw offline"
+
+and then, on the plan:
+
+> "we want a generic product like tldraw, with scriptability n stuff, and
+> linking and comments etc, what's more than tldraw we'll have now is the
+> tying in to the main graph (which is already there). Patterns can be just
+> how you use the generic product."
+
+So the plan builds generic primitives — pages, links on items, comments,
+the full toolset, scripts — and adopts none of the owner's own ways of
+using tldraw as a feature. **What kb adds beyond tldraw is the graph
+tie-in:** a card is a node, a link and an edge's `kbLink` are relations,
+References show which canvases show a node, and a query can draw a
+diagram (P13).
 
 ## What tldraw offline is, and how the owner uses it
 
@@ -34,8 +50,10 @@ family cut.
     (each exec answers `lints: {new, resolved}`), `getScreenshot`,
     `getComments`;
   - stable ids, and `meta` on shapes.
-- **The owner's conventions** (`~/.claude/skills/tldraw-conventions`) are what
-  parity has to serve:
+- **The owner's conventions** (`~/.claude/skills/tldraw-conventions`) are how
+  the owner *uses* tldraw. They are usage, not product scope: each is made
+  of the generic primitives this plan builds, and none becomes a feature of
+  its own.
   - every board carries **Agents** and **Audit log** pages;
   - colour goes by concept family, with a visual legend;
   - lines stay black unless the colour or dash carries meaning, for example
@@ -46,6 +64,11 @@ family cut.
     `meta.drill = {to, focus?}`, handled by one board script. Its checks are
     "no dead badges", "a back badge for each page that drills in" and
     "every page reachable from the root".
+
+  In kb a drill-down is a card whose link names a page; a back badge is a
+  card linked back; the ledger is a page, or nodes, written by whoever
+  keeps it; the legend is items. Dead links and unreachable pages are a
+  generic lint (P8).
 
 ## What tldraw's editor offers
 
@@ -164,13 +187,14 @@ parity is recommended at all.
 | Arrow route | arc `bend`, elbow | straight or bezier between sides | `route`: straight, arc, elbow; `bend` | M | yes |
 | Arrowheads | nine kinds | none or arrow | `fromHead`/`toHead` kinds | S | yes |
 | Unbound arrow and line | free ends, points, spline | none: an edge needs two items | `path` item with points | M | yes |
-| Freehand draw and highlight | `draw`, `highlight` | cut on purpose (simplicity rule) | `path` item, `freehand: true` | M | owner question 4 |
+| Freehand draw and highlight | `draw`, `highlight` | cut on purpose (simplicity rule) | `path` item, `freehand: true` | M | yes, later (P17; owner question 4 reversed) |
 | Image | crop, flip | assets, at their aspect | crop, flip | S | later |
 | Video | `video` | none | asset type and face | M | later |
 | Bookmark | URL card | `link` round-trips, not drawn | draw `link` as a URL card, no unfurl fetch | S | yes |
 | Embed | iframe | none | — | — | no (sandbox; DESIGN.md → Sandbox) |
 | Multiple pages | page records, ⌥←/→ | one canvas per node; frames as viewpoints | pages as child canvas nodes and a page strip | M | yes, as nodes |
-| Drill-down navigation | board script over `meta.drill` | a `kb-node` card already opens its node | cards of child canvases; back badges from references | S once pages and references exist | yes, natively |
+| Links on items | a shape's `url` link; a link to a page | a `kb-node` card opens its node | `link` on any item: a URL, a node (a page is a node), or an item; followed on click | S–M | yes |
+| Drill-down (the owner's pattern) | board script over `meta.drill` | — | a card linked to a page; nothing of its own | — | usage, not a feature |
 | Locking | `isLocked`, ⇧L | none | `locked` field; selection, transforms and verbs skip it | S | yes |
 | Align and distribute | seven aligns, distribute, stack, pack | `arrange` verb; no UI | `align`/`distribute` in `arrange.ts`; keys and toolbar | S–M | yes |
 | Flip | ⇧H, ⇧V | none | flip in `transform.ts` | S | yes |
@@ -187,8 +211,9 @@ parity is recommended at all.
 | Diagram from structure | `helpers.mermaid` | none | `ext.canvas.diagram {query \| mermaid}` | M | yes |
 | Lints | `getLints`, `new`/`resolved` | the same shape | `text-crosses-container` | S | yes |
 | Screenshot | `getScreenshot` | `ui.capture` | an image block, not only a path (existing gap) | S | yes |
-| JS exec against the live editor | `/exec` | none | — | — | no (below) |
-| Board scripts, custom shapes | `main.js`, `config.js` | none | — | — | no (below) |
+| JS exec against the live editor | `/exec` | none | a script run once against a canvas, in the sandbox (S3) | S | yes, sandboxed; never the editor's internals |
+| Board scripts | `main.js`, loaded with the file | code views draw; view scripts are a named gap | canvas scripts: `#script` nodes, the sandbox, the canvas's events (S1–S5) | M | yes (owner question 5 reversed) |
+| Custom shapes, tools, overlays | `config.js` | none | overlays drawn by a script (S4); a new item kind stays a typed field | M | overlays yes; custom item kinds no (below) |
 | 3D | none | both projections | — | — | kb ahead |
 
 ## What kb should deliberately not copy
@@ -196,31 +221,26 @@ parity is recommended at all.
 The rule in INSPIRATIONS is "Simplicity beats fidelity". Where parity
 conflicts with it, simplicity wins unless the owner overrides.
 
-- **JS exec against a live editor, and board scripts.** kb's write path is
-  actions, decided by the invoke core with approval policies. Arbitrary code
-  against the editor would be a second write path that bypasses approval, and
-  "code stored as data" is a stance kb refused (the Cordis survey,
-  non-adoptions). Most of the owner's script use, which is drill navigation,
-  needs no script in kb, because a card already opens its node. Behaviour
-  that does need code belongs in a sandboxed code view
-  ([DESIGN.md → Sandbox](../../../tools/kb/DESIGN.md#sandbox)), not inside
-  the canvas.
-- **Custom shapes from `config.js`.** A new kind of item is a typed field or
-  type in `@kb/canvas`, so every surface, every lint and both projections
-  know it.
+- **Code outside the sandbox.** Scripts are in scope (Canvas scripts, below),
+  but only as sandboxed code
+  ([DESIGN.md → Sandbox](../../../tools/kb/DESIGN.md#sandbox)) whose writes
+  are the canvas verbs, decided by the invoke core with approval policies.
+  JavaScript against the editor's internals would be a second write path
+  that bypasses approval, locks, lints and history.
+- **Custom item kinds from `config.js`.** A new kind of item is a typed
+  field or type in `@kb/canvas`, so every surface, every lint and both
+  projections know it. What a script adds on top of the canvas is an
+  overlay (S4), not an item kind.
 - **A separate invisible group.** Decision 12 made groups and frames one
   concept.
 - **The hand-drawn look** (the `draw` dash, the `draw` font). kb's look comes
   from design tokens (DESIGN-UI.md → Design systems).
 - **Embeds.** An iframe of an outside page is an unsandboxed network surface.
 - **Eraser.** Delete covers it.
-- **Freehand drawing.** It was cut for the simplicity rule. Owner question 4,
-  recommended: keep it cut, and add the `path` item for lines and unbound
-  arrows only.
-- **Agents and Audit log pages as canvas pages.** In kb a ledger is data: one
-  `#agent-session` node per session (date, agent, session, a one-line what),
-  with a ref to the canvas, shown in the canvas node's References. It is the
-  same fact, and it is queryable.
+- **The owner's patterns as features.** Drill badges, back badges, Agents and
+  Audit log pages, a legend: each is how a board is used, built from pages,
+  links, references and scripts. None gets a widget, a field or a node type
+  of its own.
 - **tldraw's SDK inside kb.** It would bring a second store model beside
   nodes, and a licence key for production use.
 
@@ -247,8 +267,8 @@ pages are child `#canvas` nodes, each with its own document:
 - the page list is the children's order (sibling ranks);
 - a page's name is its node text, and the breadcrumb is the outline path,
   which is exactly the drill-down pattern's `Overview / Item` naming;
-- a drill badge is a `kb-node` card showing a child canvas, and opening it is
-  the existing gesture;
+- a page is reached from a card by the card's link (below); a drill-down is
+  exactly that, used;
 - moving items between pages is cut on one and paste on the other.
 
 That needs no format change. It is "everything is a node", and the outline
@@ -257,6 +277,17 @@ lists a board's pages for free.
 I am not recommending pages inside one document, the way tldraw keeps page
 records in one store. That would make a page an unaddressable sub-thing of
 one prop.
+
+**Links on items.** Any item may carry `link`, a kb extension field typed in
+`doc.ts` like the others: `{url}` for a web address, or `{node?, item?}`
+for a place in kb — a node (a canvas, so a page, or any other node), and
+optionally an item on that canvas to focus; `node` absent means this
+canvas. Following it is a click (the hand, or ⌘-click while selecting),
+the same gesture a `kb-node` card's open already is. A link to a node is a
+reference: the canvas family declares it a carrier (P8, beside P7's), so
+the target's References show the canvas that links to it, which is what a
+back link reads. JSON Canvas's own `link` *items* (a URL card) stay their
+own kind (P10).
 
 **Pages as view nodes is the 7a/7b question.** Roadmap step 7 makes a canvas
 a view type, and `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]` moves the camera onto
@@ -270,7 +301,8 @@ references. There are two ways (owner question 1):
 
 - **(a) A core reference-carrier seam.** Families declare how a prop's value
   carries references, and the datom build emits `:node/mentions` from them.
-  The canvas family declares `sys.f.canvas` (item `nodeId`s and `kbLink`s).
+  The canvas family declares `sys.f.canvas` (item `nodeId`s and `kbLink`s,
+  and, from P8, item links).
   The build stays the one place, and core names no feature. This is the
   roadmap's "mentions are derived at load" without 7b.
 - **(b) 7b.** Items become nodes, and their references are ordinary ref
@@ -303,8 +335,47 @@ Comments do not; per-item tags would.
 | Lints | `getLints`, `new`/`resolved` | the same shape; `text-crosses-container` added |
 | See it | `getScreenshot` (path) | `ui.capture` (path, open tab); export added |
 | Comments | `getComments`, reply, resolve | **new:** `#comment` nodes, with `comment.canvas` (ref) and `comment.item` (text) |
-| Durable behaviour | `script/main.js`, `config.js` | not adopted: native navigation, or a sandboxed code view |
-| Trust | a digest checked against `script/` and pre-trusted | the sandbox's digest trust (`.kb/trust.json`) for code views |
+| Durable behaviour | `script/main.js`, `config.js` | **new:** canvas scripts — `#script` nodes attached to the canvas, run in the sandbox while it is open (below) |
+| Trust | a digest checked against `script/` and pre-trusted | the sandbox's digest trust (`.kb/trust.json`), the same for code views and scripts |
+
+## Canvas scripts
+
+A canvas script makes a canvas behave like a little app of its own, as a
+tldraw offline file's scripts do. It closes the view-scripts gap
+(`GAP [[01M41DKTE1T51M031N231VGQJR]]`, DESIGN.md → Sandbox → Gaps) for the
+canvas, its first view, and adds no runtime and no trust model:
+
+- **A script is a node.** A `#script` node holds its code and grant in the
+  code family's own fields (`sys.f.code`, `sys.f.code.grant`), and a canvas
+  node names its scripts in `sys.f.scripts` (ref, many), resolved as
+  `sys.f.views` is. Scripts are attached, listed in the outline and found
+  by query like any node.
+- **One sandbox.** It runs through `runGuest` on the same engines: QuickJS
+  while untrusted, the Worker once a person trusts its `codeDigest`. The
+  prelude, the limits, the grant and the `script` actor are the code
+  view's.
+- **The canvas API is the verbs.** `kb.subject` is the canvas node. A script
+  reads with `kb.invoke("ext.canvas.describe", …)` and writes with the
+  canvas verbs and `ext.canvas.tx.apply`, within its grant, as the `script`
+  actor — the agent's path. Locks, lints, approval and one undo step per
+  write hold for a script because they hold for the path.
+- **Hook points are events the canvas declares.** They are `kb/event`
+  types, delivered to `kb.on`:
+  - `canvas.selection` — the ids now selected;
+  - `canvas.change` — the document changed, with the lints made and cleared;
+  - `canvas.item.click` — an item was clicked (what a pattern's badge
+    reacts to);
+  - `canvas.page` — the page shown changed.
+
+  A view declares its event types in its key, so the code view, the board
+  and the graph can declare theirs later through the same field.
+- **Lifetime.** A script runs while its canvas is open in a tab, one run
+  per attached script, and stops when the tab closes or the script ends.
+- **Overlays** (S4): a script may draw, through the drawing allowlist, into
+  an overlay above the canvas, anchored to items, which moves with them.
+- **Not a general hook system.** These hook points are the canvas's. A
+  kernel-wide lifecycle hook system is a separate, parked idea (todo
+  01M540F8MHVT0K9VRDCCE1WHBZ).
 
 ## Steps
 
@@ -322,7 +393,12 @@ itself, beyond the start condition that O3–O5 have landed.
 | P5 | `locked`; align, distribute and flip in `arrange.ts` and `transform.ts`; z-order keys; H as the hand tool; the shortcut table | add | M | no |
 | P6 | The core reference-carrier seam (restructure: `:node/mentions` reads carriers through one table; text tokens and ref props become its first two entries, behaviour unchanged) | restructure | M | no; it touches `@kb/query` beside plan C3 |
 | P7 | The canvas family declares `sys.f.canvas` as a carrier: cards and `kbLink`s become references | add | S | no |
-| P8 | Pages: a board's child canvases; a page strip in `canvas-ui`; ⌥←/→; "new page"; drill cards; back badges from References; a lint for dead or unreachable pages | add | M | O3: the References and outline display of pages are the outline family's |
+| P8 | Pages and links: a board's pages are its child canvases; a page strip in `canvas-ui`, ⌥←/→ between pages and "new page"; `link` on any item (a URL, a node or page, an item), followed on click, and a carrier entry so a link is a reference; a lint for dead links and unreachable pages | add | M | O3: the References and outline display of pages are the outline family's |
+| S1 | Views declare their `kb/event` types in their key, and `sys.f.scripts` names a node's `#script` nodes, resolved as `sys.f.views` is; a script runs on the code view's runner. Code views unchanged | restructure | M | no |
+| S2 | Canvas scripts: an open canvas runs its attached scripts, delivers `canvas.selection`, `canvas.change`, `canvas.item.click` and `canvas.page`, and a script writes through the canvas verbs as the `script` actor | add | M | no |
+| S3 | Run a script once against a canvas, a person's or an agent's (tldraw's exec), on the same runner | add | S | no |
+| S4 | Script overlays: drawings above the canvas, anchored to items, in both projections | add | M | no |
+| S5 | `describe` lists a canvas's scripts and their trust; `sandboxContract` holds a canvas script to the code view's properties | add | S | no |
 | P9 | Geo variants, in batches: triangle, hexagon, star, cloud, arrows, check-box, each with a 3D fill | add | S×n | no |
 | P10 | `link` items drawn as URL cards; frame clipping; notes grow to fit | add | S | no |
 | P11 | `ext.canvas.export {svg \| png \| json-canvas}`, with the SVG painter in the server entry ("a painter belongs to the view that paints with it") | add | M | no |
@@ -331,35 +407,42 @@ itself, beyond the start condition that O3–O5 have landed.
 | P14 | Comments as `#comment` nodes anchored to an item; a canvas pin and a thread panel; `describe` lists them | add | M | O3 for the outline's display |
 | P15 | 7a: the camera and layout onto the canvas view node (closes `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`) | restructure | M | O2 is landed; no |
 | P16 | Laser in present mode; a deeper undo ring; text and SVG paste | add | S | no |
+| P17 | Freehand draw and highlight: `path` items with `freehand: true`, smoothed points, the draw and highlight tools, both projections | add | M | no |
 | — | 7b (items as nodes): decided separately (owner question 1) | — | L | O3 |
 
-Order by the owner's use: P1–P3 (legend and dash semantics, bound arrows) →
-P6–P8 (pages and drill-down) → P5 → P11–P12 (export, bringing tldraw boards
-in) → P13 → P14 → the rest.
+Order: P1–P5 (landed) → P6–P8 (references, pages and links) → S1–S5
+(scripts) → P11–P12 (export, bringing tldraw boards in) → P13 → P14 → the
+rest, P17 among them.
 
 ## Questions for the owner
 
+Answered 2026-10-17 ("canvas yes" to 1–3, then the direction quoted above).
+
 1. **Canvas references now through a reference-carrier seam, with 7b still
-   deferred**, against doing 7b for parity. *Recommended: the seam now, and
-   7b deferred.* Parity needs references, not items as nodes.
-2. **Pages are child `#canvas` nodes of a board.** *Recommended: yes.* Page
+   deferred.** *Decided: the seam now, 7b deferred.* Parity needs
+   references, not items as nodes.
+2. **Pages are child `#canvas` nodes of a board.** *Decided: yes.* Page
    records inside one document would be unaddressable.
 3. **Parity in what it does, not in its look.** There is no hand-drawn dash or
-   font, and the styles map onto kb's tokens. *Recommended: yes.*
-4. **Freehand draw and highlight**, which were cut for simplicity: keep them
-   cut, with lines and unbound arrows added. *Recommended: keep them cut.*
-5. **No JS exec or board scripts.** Behaviour comes from native navigation or
-   sandboxed code views. *Recommended: yes.*
+   font, and the styles map onto kb's tokens. *Decided: yes.*
+4. **Freehand draw and highlight.** *Reversed: in scope*, as P17; the full
+   toolset is the product.
+5. **JS exec and board scripts.** *Reversed: in scope*, as canvas scripts in
+   the sandbox (S1–S5), never code against the editor's internals.
 6. **Bring the existing tldraw boards in by `.tldr` import,** with no export
-   back. *Recommended: import only.*
-7. **The ledger as `#agent-session` nodes** linked to the canvas, rather than
-   Agents and Audit log pages. *Recommended: nodes.*
+   back. *Decided, as recommended: import only.*
+7. **The ledger as `#agent-session` nodes.** *Superseded:* a ledger is usage
+   (a page, or nodes, kept by whoever keeps it), not a feature.
 
 ## Non-adoptions
 
 - **tldraw's SDK, its store, or `.tldraw` (zip and SQLite) as a format.**
-- **Arbitrary JS against the editor; board scripts; `config.js` custom
-  shapes, tools or overlays.**
+- **Code outside the sandbox:** JavaScript against the editor's internals,
+  and `config.js` custom item kinds. (Scripts and their overlays are
+  adopted, sandboxed.)
+- **The owner's tldraw patterns as features:** drill and back badges,
+  ledger pages, legends. They are usage of pages, links, references and
+  scripts.
 - **Embeds; the eraser; the hand-drawn style; a group that is not a frame.**
 - **Page records inside one canvas document.**
 - **LAN sharing of a board.** kb's tabs already share one store live over
