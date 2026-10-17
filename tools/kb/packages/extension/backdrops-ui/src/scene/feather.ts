@@ -23,9 +23,16 @@ function ease(low: number, high: number, value: number): number {
  * side, and a longer one on the side the scene opens into the page (below
  * for a `down` backdrop, above for `up`). The page's reading column is on
  * the left, so the scene also keeps low contrast there: a scene never sits
- * behind the words at full strength.
+ * behind the words at full strength. `presence` (the strength the head asks
+ * for) scales it all: the canvas is never faded by CSS, because the browser
+ * rounds a faded opaque canvas a level off the page.
  */
-export function featherOf(width: number, height: number, direction: BackdropDirection): Feather {
+export function featherOf(
+  width: number,
+  height: number,
+  direction: BackdropDirection,
+  presence = 1,
+): Feather {
   const side = width * 0.24;
   const near = height * 0.22;
   const far = height * 0.5;
@@ -37,6 +44,7 @@ export function featherOf(width: number, height: number, direction: BackdropDire
       ease(width, width - side, x) *
       ease(0, top, y) *
       ease(height, height - bottom, y) *
-      (0.25 + 0.75 * ease(width * 0.1, width * 0.4, x)),
+      (0.25 + 0.75 * ease(width * 0.1, width * 0.4, x)) *
+      presence,
   };
 }

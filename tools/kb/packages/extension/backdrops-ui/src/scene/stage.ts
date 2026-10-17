@@ -20,6 +20,7 @@ export interface Look {
   readonly palette: ScenePalette;
   readonly direction: BackdropDirection;
   readonly strength: BackdropStrength;
+  readonly presence: number;
 }
 
 export interface Stage {

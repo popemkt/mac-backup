@@ -18,6 +18,8 @@ export interface SceneConfig {
   readonly dpr: number;
   readonly direction: BackdropDirection;
   readonly strength: BackdropStrength;
+  /** How present the scene is, 0..1: the head's opacity at this strength, folded into the feather. */
+  readonly presence: number;
   readonly palette: ScenePalette;
   /** 1 at full detail; the stage lowers it when frames run over budget. */
   readonly quality: number;

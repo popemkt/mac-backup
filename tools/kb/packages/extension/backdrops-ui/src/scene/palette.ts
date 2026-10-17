@@ -95,7 +95,8 @@ export function paletteOf(tokens: SceneTokens, tint: Rgb | null, dark: boolean):
     core,
     halo,
     sky: mix(body, mix(tokens.sun, toward, 0.2), 0.2),
-    rim: lift(core, 0.3),
+    // By day the edge light is deeper gold than the bloom, so a pale body reads round against it.
+    rim: mix(core, tokens.sun, 0.7),
     eye: mix(tokens.primary, tokens.foreground, 0.2),
     eyeHot: lift(tokens.sun, 0.4),
     mote: mix(core, body, 0.35),

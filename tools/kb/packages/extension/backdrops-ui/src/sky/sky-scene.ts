@@ -104,7 +104,7 @@ function fliersFor(rng: Rng, config: SceneConfig, glow: GlowSpec, before: World 
 
 function buildWorld(rng: Rng, config: SceneConfig, before: World | null): World {
   const glow = skyLayout(config);
-  const feather = featherOf(config.width, config.height, config.direction);
+  const feather = featherOf(config.width, config.height, config.direction, config.presence);
   const { palette, dpr } = config;
   return {
     config,
@@ -204,7 +204,8 @@ function drawWisps(ctx: CanvasRenderingContext2D, world: World, time: number): v
 function drawLight(ctx: CanvasRenderingContext2D, world: World, time: number): void {
   const { glow, config } = world;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalAlpha = 0.93 + 0.07 * Math.sin(time * 0.37);
+  // The sprite is opaque and the page's own tone at its edge: drawn whole, never faded, or it would differ from the page.
+  ctx.globalAlpha = 1;
   ctx.drawImage(world.glowSprite, 0, 0);
   if (world.rays !== null) {
     const size = glow.reach * 2.2;

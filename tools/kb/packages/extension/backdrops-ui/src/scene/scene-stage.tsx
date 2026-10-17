@@ -36,7 +36,7 @@ export function SceneStage({
   const latest = useRef({ look: null as Look | null, editing });
   useEffect(() => {
     latest.current = {
-      look: { palette: readPalette(appearance, color), direction, strength },
+      look: { palette: readPalette(appearance, color), direction, strength, presence: opacity },
       editing,
     };
   });
@@ -59,8 +59,13 @@ export function SceneStage({
   }, [factory, reducedMotion, seed, pointer]);
 
   useEffect(() => {
-    stage.current?.look({ palette: readPalette(appearance, color), direction, strength });
-  }, [appearance, color, direction, strength]);
+    stage.current?.look({
+      palette: readPalette(appearance, color),
+      direction,
+      strength,
+      presence: opacity,
+    });
+  }, [appearance, color, direction, strength, opacity]);
 
   useEffect(() => {
     const reactions = stage.current?.reactions;
@@ -71,12 +76,5 @@ export function SceneStage({
     reactions.setEditing(editing);
   }, [writes, editing, nodeId]);
 
-  return (
-    <canvas
-      ref={canvas}
-      className="kb-scene-canvas"
-      style={{ opacity }}
-      data-scene-state="loading"
-    />
-  );
+  return <canvas ref={canvas} className="kb-scene-canvas" data-scene-state="loading" />;
 }

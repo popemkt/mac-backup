@@ -8,8 +8,26 @@ import { paletteOf, parseRgb, type Rgb, type ScenePalette, type SceneTokens } fr
 
 const FALLBACK: Rgb = { r: 128, g: 128, b: 128 };
 
-const tokenRgb = (name: Parameters<typeof readTokenColor>[0]): Rgb =>
-  parseRgb(readTokenColor(name)) ?? FALLBACK;
+/**
+ * A token as the browser paints it. The page's tone must match the body of
+ * every actor to the level (a one-level difference over a feathered frame
+ * shows as faint bands), so the token's own colour string goes through the
+ * same parser the compositor uses, not through a conversion of ours.
+ */
+function tokenRgb(name: Parameters<typeof readTokenColor>[0]): Rgb {
+  const element = document.createElement("span");
+  element.style.color = `var(${name})`;
+  element.style.position = "absolute";
+  element.style.visibility = "hidden";
+  document.documentElement.appendChild(element);
+  const painted = getComputedStyle(element).color;
+  document.documentElement.removeChild(element);
+  return (
+    (painted.length > 0 ? resolveColor(painted) : null) ??
+    parseRgb(readTokenColor(name)) ??
+    FALLBACK
+  );
+}
 
 /**
  * Any CSS colour as sRGB. A 1×1 canvas does the conversion, so `color-mix`,

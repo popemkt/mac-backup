@@ -42,10 +42,12 @@ function falloff(distance: number, reach: number, power: number): number {
  * The soft part of the light, computed per pixel in floats and dithered: an
  * 8-bit gradient stepping through very low alphas bands visibly on a dark
  * page, and a transparent canvas cannot be dithered at all (the browser
- * rounds its premultiplied colour), so the glow is never drawn as a canvas
+ * truncates its premultiplied colour, which darkens a feathered edge by half
+ * a level and steps it in bands), so the glow is never drawn as a canvas
  * gradient and never as a faint alpha. It is composited against the page's
  * own tone here, in floats, and the *colour* is rounded with noise; the
- * alpha is only the frame's feather, so the edge dissolves into the page.
+ * sprite is opaque and the frame's feather scales the light itself, so the
+ * edge dissolves into the page's tone, which is the page.
  * Layered like light: the broad wash, the halo, the light's own reach.
  */
 function paintField(
@@ -72,12 +74,14 @@ function paintField(
       0.04 * spec.intensity * falloff(spec.washFrom === "top" ? y : height - y, height, 3);
     for (let x = 0; x < width; x++) {
       const d = Math.hypot(x - spec.x, (y - spec.y) * spec.squash);
-      const aHalo = Math.min(1, 0.72 * spec.intensity * falloff(d, spec.reach, power));
-      const aCore = Math.min(1, heart * spec.intensity * falloff(d, spec.reach * 0.4, power));
+      const fade = feather.at(x, y);
+      const aHalo = Math.min(1, 0.72 * spec.intensity * falloff(d, spec.reach, power)) * fade;
+      const aCore =
+        Math.min(1, heart * spec.intensity * falloff(d, spec.reach * 0.4, power)) * fade;
       // Over, bottom to top, against the page: wash, halo, core.
-      let r = body.r + (sky.r - body.r) * wash;
-      let g = body.g + (sky.g - body.g) * wash;
-      let b = body.b + (sky.b - body.b) * wash;
+      let r = body.r + (sky.r - body.r) * wash * fade;
+      let g = body.g + (sky.g - body.g) * wash * fade;
+      let b = body.b + (sky.b - body.b) * wash * fade;
       r += (halo.r - r) * aHalo;
       g += (halo.g - g) * aHalo;
       b += (halo.b - b) * aHalo;
@@ -88,7 +92,7 @@ function paintField(
       data[i] = Math.floor(r + rng.next());
       data[i + 1] = Math.floor(g + rng.next());
       data[i + 2] = Math.floor(b + rng.next());
-      data[i + 3] = Math.floor(feather.at(x, y) * 255 + rng.next());
+      data[i + 3] = 255;
     }
   }
   ctx.putImageData(image, 0, 0);

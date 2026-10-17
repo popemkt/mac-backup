@@ -81,7 +81,7 @@ function slotsAlong(rng: Rng, house: House, count: number): number[] {
 function buildWorld(rng: Rng, config: SceneConfig, before: World | null, now: number): World {
   const { palette, dpr } = config;
   const house = houseOf(config.width, config.height, config.direction, palette.dark);
-  const feather = featherOf(config.width, config.height, config.direction);
+  const feather = featherOf(config.width, config.height, config.direction, config.presence);
   const count = batCount(config);
   const keep = before !== null && before.config.palette.dark === palette.dark;
   const roosters =
@@ -328,7 +328,7 @@ function drawRooster(
 function drawLight(ctx: CanvasRenderingContext2D, world: World, time: number): void {
   const { house, config } = world;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalAlpha = 0.94 + 0.06 * Math.sin(time * 0.33);
+  ctx.globalAlpha = 1;
   ctx.drawImage(world.glowSprite, 0, 0);
   if (world.rays !== null) {
     const size = house.glow.reach * 1.6;

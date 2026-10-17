@@ -64,7 +64,7 @@ function inkOf(depth: number, at: Placement, lit: Lit): Ink {
     alpha: (1 - (1 - veil) * (0.55 + 0.45 * light)) * fade,
     rim: {
       color: css(lit.palette.rim),
-      strength: clamp01(light * 0.9) * (0.55 - 0.25 * depth) * fade,
+      strength: clamp01(light * 0.9) * (0.55 - 0.25 * depth) * (lit.palette.dark ? 1 : 1.5) * fade,
       dx: (gx / d) * reach,
       dy: (gy / d) * reach,
     },
