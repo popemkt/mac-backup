@@ -8,11 +8,15 @@
  *
  * - a press inside it leaves it open;
  * - a press outside it dismisses it, even one a handler there stops;
- * - Escape dismisses it and reaches nothing else.
+ * - Escape dismisses it and reaches nothing else;
+ * - Escape gives focus back to what had it as the popover opened;
+ * - a popover opened over it is dismissed first: a press in that one
+ *   leaves both open, and Escape dismisses that one, then this one.
  */
-import { act, useState, type ReactElement, type ReactNode } from "react";
+import { act, createElement, useState, type ReactElement, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { useDismiss } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "./dom-globals";
 
 /** A popover rendered open, as the suite reaches it. */
@@ -68,6 +72,29 @@ function press(target: EventTarget): void {
   });
 }
 
+/** Escape pressed where focus is, as the page hears it. */
+function escape(): void {
+  act(() => {
+    (document.activeElement ?? document.body).dispatchEvent(
+      new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    );
+  });
+}
+
+/** A second popover, opened over the one under test. */
+function Over(): ReactNode {
+  const [open, setOpen] = useState(true);
+  useDismiss(open, ["[data-over]"], () => setOpen(false));
+  return open ? createElement("div", { "data-over": "" }) : null;
+}
+
+/** A fresh element on the body to render on. */
+function hostOnBody(): HTMLElement {
+  const host = document.createElement("div");
+  document.body.append(host);
+  return host;
+}
+
 export function dismissContract(popovers: Readonly<Record<string, PopoverMount>>): void {
   let dom: InstalledDom;
   beforeAll(() => {
@@ -79,9 +106,7 @@ export function dismissContract(popovers: Readonly<Record<string, PopoverMount>>
   describe.each(Object.entries(popovers))("%s dismisses as every popover does", (_file, mount) => {
     let shown: OpenPopover | null = null;
     const open = async () => {
-      const host = document.createElement("div");
-      document.body.append(host);
-      shown = await mount(host);
+      shown = await mount(hostOnBody());
       return shown;
     };
     afterEach(() => {
@@ -113,20 +138,45 @@ export function dismissContract(popovers: Readonly<Record<string, PopoverMount>>
       const hear = (e: KeyboardEvent) => heard.push(e.key);
       window.addEventListener("keydown", hear);
       try {
-        act(() => {
-          (document.activeElement ?? document.body).dispatchEvent(
-            new window.KeyboardEvent("keydown", {
-              key: "Escape",
-              bubbles: true,
-              cancelable: true,
-            }),
-          );
-        });
+        escape();
       } finally {
         window.removeEventListener("keydown", hear);
       }
       expect(popover.panel()).toBeNull();
       expect(heard).toEqual([]);
+    });
+
+    it("gives focus back on Escape to what had it as it opened", async () => {
+      const opener = document.createElement("button");
+      document.body.append(opener);
+      opener.focus();
+      panelOf(await open());
+      escape();
+      expect(document.activeElement).toBe(opener);
+    });
+
+    it("is dismissed after a popover opened over it, which a press in leaves both open", async () => {
+      const popover = await open();
+      panelOf(popover);
+      const over = renderPopover(hostOnBody(), createElement(Over), () =>
+        document.querySelector("[data-over]"),
+      );
+      try {
+        press(panelOf(over));
+        expect([popover.panel(), over.panel()].map((panel) => panel !== null)).toEqual([
+          true,
+          true,
+        ]);
+        escape();
+        expect([popover.panel(), over.panel()].map((panel) => panel !== null)).toEqual([
+          true,
+          false,
+        ]);
+        escape();
+        expect(popover.panel()).toBeNull();
+      } finally {
+        act(() => over.unmount());
+      }
     });
   });
 }

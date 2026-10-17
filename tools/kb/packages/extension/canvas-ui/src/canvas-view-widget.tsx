@@ -208,7 +208,7 @@ function ViewMenu({
   selectionEmpty: boolean;
   frames: readonly CanvasGroupNode[];
   onIntent: (intent: CanvasIntent) => void;
-  onClose: (returnFocus: boolean) => void;
+  onClose: () => void;
   anchor: React.RefObject<HTMLElement | null>;
 }) {
   const menu = useRef<HTMLDivElement>(null);
@@ -216,7 +216,7 @@ function ViewMenu({
     ...(menu.current?.querySelectorAll<HTMLButtonElement>("[role^=menuitem]:not(:disabled)") ?? []),
   ];
   // A press on the trigger is its own: its click toggles the menu.
-  useDismiss(true, [menu, anchor], (how) => onClose(how === "escape"));
+  useDismiss(true, [menu, anchor], onClose);
   const onKeyDown = (e: React.KeyboardEvent) => {
     const all = items();
     const at = all.findIndex((item) => item === document.activeElement);
@@ -266,7 +266,7 @@ function ViewMenu({
               className={cn(ROW, checked === true ? "text-foreground" : "text-foreground/70")}
               onClick={() => {
                 onIntent(intent);
-                onClose(false);
+                onClose();
               }}
             >
               <span
@@ -368,10 +368,7 @@ export function CanvasViewWidget({
             frames={frames}
             onIntent={onIntent}
             anchor={trigger}
-            onClose={(returnFocus) => {
-              onMenuOpenChange(false);
-              if (returnFocus) trigger.current?.focus();
-            }}
+            onClose={() => onMenuOpenChange(false)}
           />
         )}
       </div>

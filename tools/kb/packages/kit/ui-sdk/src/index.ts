@@ -170,7 +170,7 @@ export { SidebarToggle } from "./components/sidebar-toggle";
 export { OptionChip, TagChip, TagChipGroup } from "./components/tag-chip";
 export { ThemeIcon } from "./components/theme-icon";
 export { useAnchoredPosition } from "./components/use-anchored-position";
-export { useDismiss, type DismissHow, type DismissInside } from "./components/use-dismiss";
+export { useDismiss, type DismissInside } from "./components/use-dismiss";
 export { useRevealMarkup } from "./components/use-reveal-markup";
 export { ViewErrorBoundary } from "./components/view-error-boundary";
 export { WorkspaceBoundary } from "./components/workspace-boundary";

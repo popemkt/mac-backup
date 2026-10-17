@@ -23,10 +23,13 @@ const TEST_FILE = /\.test\.tsx?$/;
 
 const read = (file: string) => readFileSync(join(WORKSPACE_ROOT, file), "utf8");
 
-/** The workspace files outside tests that call `useDismiss`. */
+/** Test-only packages, whose stand-in popovers the contract itself opens. */
+const TEST_SUPPORT = "packages/test-support/";
+
+/** The production files that call `useDismiss`. */
 function dismissing(): string[] {
   return gitWorkspaceFiles(["packages/*.ts", "packages/*.tsx"])
-    .filter((file) => file !== HOOK && !TEST_FILE.test(file))
+    .filter((file) => file !== HOOK && !TEST_FILE.test(file) && !file.startsWith(TEST_SUPPORT))
     .filter((file) => /\buseDismiss\(/.test(read(file)));
 }
 

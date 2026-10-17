@@ -1626,13 +1626,17 @@ The rules that hold everywhere, so no surface re-invents them:
   view menu, shortcuts sheet and node picker; the graph's settings and
   perspective picker; the outline's frame filter; Preferences, the
   ontology picker, the add-a-ref picker and the pane switcher — dismisses
-  through `@kb/ui-sdk`'s `useDismiss`, never a listener of its own. While
-  open, Escape dismisses it and reaches nothing else, and a press anywhere
-  but what it counts as itself dismisses it: its panel, and its trigger
-  where the trigger's own click toggles it (an element, or a selector for
-  triggers such as the outline's filter buttons). Both are heard on the
-  window in the capture phase, so no handler under a press or a key keeps
-  them from it. One contract holds it over every popover:
+  through `@kb/ui-sdk`'s `useDismiss`, never a listener of its own. The
+  open popovers are a stack, the last opened on top. Escape dismisses the
+  one on top, reaches nothing else, and gives focus back to what had it as
+  that one opened (read in the render that opens it, before an input it
+  renders takes focus). A press dismisses every popover above the one it
+  lands in, so a press in a popover opened from another leaves both open,
+  and one on the page dismisses them all; a popover counts as itself its
+  panel, and its trigger where the trigger's own click toggles it (an
+  element, or a selector for triggers such as the outline's filter
+  buttons). Both are heard on the window in the capture phase, so no
+  handler under a press or a key keeps them from it. One contract holds it over every popover:
   `@kb/ui-test-kit`'s `dismissContract`, which each package runs over the
   popovers it renders, keyed by each one's file; the harness's
   `popover-dismiss-coverage` check fails when a file calls `useDismiss` and
