@@ -2637,8 +2637,8 @@ kb ships three:
     adopts the element. The record is derived from the last paint, and is
     never read as the choice.
 - **A design system is declared, and its option is derived.** A family
-  lists its systems' keys on its declaration (`designSystems`, beside
-  `backdrops`). The seed fold derives one option node per key under
+  lists its systems' keys on its declaration, as declared options of the
+  design-system kind (`declaredOptions`, `DESIGN_SYSTEM_OPTIONS`). The seed fold derives one option node per key under
   `sys.f.design-system` (`designSystemOptionId`), in declaration order and
   owned by the family (DESIGN.md → Extension families → Declared options).
   Core declares its default (`KB_DESIGN_SYSTEM`, `@kb/operations`). A
@@ -2743,7 +2743,8 @@ kb ships three:
 
 **Adding a design system:**
 
-1. Declare its key on the family's declaration (`designSystems`), as
+1. Declare its key on the family's declaration
+   (`declaredOptions: [{kind: DESIGN_SYSTEM_OPTIONS, options: [...]}]`), as
    `<family>.<local id>`.
 2. Write its sheet under the family's `src/design-systems/` with the two
    blocks above. Start from a copy of the default's values: the contract
@@ -2805,7 +2806,8 @@ exist is a plugin point, and the kit names none of them.
   have no head yet, so nothing renders it there
   (gap 01M54CEKJJXNDPYNT55AR6KEV8).
 - **A backdrop is declared, and its option is derived.** A family lists its
-  backdrops' keys on its declaration (`backdrops`, beside `views`). The seed
+  backdrops' keys on its declaration, as declared options of the backdrop
+  kind (`declaredOptions`, `BACKDROP_OPTIONS`). The seed
   fold derives one option node per key under `sys.f.backdrop`
   (`backdropOptionId`), in declaration order and owned by the family, as it
   derives view options under `sys.views` (DESIGN.md → Extension families).

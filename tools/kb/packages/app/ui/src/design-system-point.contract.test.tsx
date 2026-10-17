@@ -25,6 +25,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import { declarationPlugin, defineExtension, type WireNode } from "@kb/contracts";
 import {
+  DESIGN_SYSTEM_OPTIONS,
   SYSTEM_IDS,
   designSystemOptionId,
   extensionNodeId,
@@ -94,7 +95,7 @@ const PLAIN_SHEET =
 const plainExtension = defineExtension({
   name: "plain",
   label: "Plain",
-  designSystems: [PLAIN_KEY],
+  declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [PLAIN_KEY] }],
 });
 const plainPlugin = definePlugin({
   name: "plain",

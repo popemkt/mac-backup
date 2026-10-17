@@ -11,7 +11,7 @@
  * system, and a page painted in one of its systems falls to the default.
  */
 import { declarationPlugin, defineExtension } from "@kb/contracts";
-import type { SeedOption } from "@kb/model";
+import { DESIGN_SYSTEM_OPTIONS, type SeedOption } from "@kb/model";
 import type { Plugin } from "@kb/plugin";
 
 /** Warm off-white and ink, an ink-blue accent and the platform serif. */
@@ -23,7 +23,9 @@ export const themesExtension = defineExtension({
   name: "themes",
   label: "Themes",
   optional: { byDefault: "on" },
-  designSystems: [PAPER_DESIGN_SYSTEM, TERMINAL_DESIGN_SYSTEM],
+  declaredOptions: [
+    { kind: DESIGN_SYSTEM_OPTIONS, options: [PAPER_DESIGN_SYSTEM, TERMINAL_DESIGN_SYSTEM] },
+  ],
 });
 
 /** The themes family's shared plugin: its declaration's, on either host. */

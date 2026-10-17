@@ -17,6 +17,7 @@ import {
   approvalPoliciesOf,
   declaredOptionId,
   defaultViewTypeOf,
+  type DeclaredOptions,
   extensionNodeId,
   foldSeed,
   viewOptionId,
@@ -29,19 +30,25 @@ const declaredKeys = BUNDLED_DECLARATIONS.flatMap((declaration) =>
   (declaration.views ?? []).map((view) => view.key),
 );
 
-/** Each kind of declared option, and where a declaration lists its things. */
+/** Every kind of declared option the bundled declarations name, once each, as `{ kind }` rows. */
 const DECLARED_KINDS = [
-  { kind: BACKDROP_OPTIONS, of: (declaration: ExtensionDeclaration) => declaration.backdrops },
-  {
-    kind: DESIGN_SYSTEM_OPTIONS,
-    of: (declaration: ExtensionDeclaration) => declaration.designSystems,
-  },
-];
+  ...new Map(
+    BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.declaredOptions ?? []).map(
+      ({ kind }) => [kind.field, kind] as const,
+    ),
+  ).values(),
+].map((kind) => ({ kind }));
+
+/** The things of `kind` that `declaration` names. */
+const optionsOf = (declaration: ExtensionDeclaration, kind: DeclaredOptions) =>
+  (declaration.declaredOptions ?? [])
+    .filter((set) => set.kind.field === kind.field)
+    .flatMap((set) => set.options);
 
 /** The option nodes `declaration` owns, of every declared kind. */
 const declaredOptionsOf = (declaration: ExtensionDeclaration) =>
-  DECLARED_KINDS.flatMap(({ kind, of }) =>
-    (of(declaration) ?? []).map((option) => declaredOptionId(kind, option.id)),
+  DECLARED_KINDS.flatMap(({ kind }) =>
+    optionsOf(declaration, kind).map((option) => declaredOptionId(kind, option.id)),
   );
 
 describe("bundled seed", () => {
@@ -64,11 +71,17 @@ describe("bundled seed", () => {
     }
   });
 
+  test("backdrops and design systems are among the declared kinds", () => {
+    expect(DECLARED_KINDS.map(({ kind }) => kind)).toEqual(
+      expect.arrayContaining([BACKDROP_OPTIONS, DESIGN_SYSTEM_OPTIONS]),
+    );
+  });
+
   test.each(DECLARED_KINDS)(
     "$kind.field lists one option per declared thing, labelled, in declaration order",
-    ({ kind, of }) => {
+    ({ kind }) => {
       const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
-      const declared = BUNDLED_DECLARATIONS.flatMap((declaration) => of(declaration) ?? []);
+      const declared = BUNDLED_DECLARATIONS.flatMap((declaration) => optionsOf(declaration, kind));
       expect(declared.length).toBeGreaterThan(0);
       expect(seed.get(kind.field)?.children).toEqual(
         declared.map((option) => declaredOptionId(kind, option.id)),

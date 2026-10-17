@@ -197,8 +197,10 @@ export {
 } from "./design-system.ts";
 export {
   declaredChoice,
+  declaredIdOf,
   declaredOptionId,
   type DeclaredOptions,
+  type DeclaredOptionSet,
   type SeedOption,
 } from "./declared-option.ts";
 export { applyTx, diffTx, txIntegrityError } from "./tx.ts";

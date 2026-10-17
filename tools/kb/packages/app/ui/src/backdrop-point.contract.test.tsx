@@ -25,6 +25,7 @@ import {
   type WireNode,
 } from "@kb/contracts";
 import {
+  BACKDROP_OPTIONS,
   BACKDROP_DIRECTIONS,
   BACKDROP_DIRECTION_OPTION_IDS,
   BACKDROP_STRENGTHS,
@@ -84,7 +85,11 @@ let pointerNow: () => { x: number; y: number } | null = () => null;
 const PLAIN_KEY: SeedBackdrop = { id: "plain.plain", label: "Plain" };
 const PLAIN_OPACITY = { subtle: 0.1, soft: 0.2, vivid: 0.3 };
 /** A family of the test's own: it declares its backdrop, and its page plugin contributes it. */
-const plainExtension = defineExtension({ name: "plain", label: "Plain", backdrops: [PLAIN_KEY] });
+const plainExtension = defineExtension({
+  name: "plain",
+  label: "Plain",
+  declaredOptions: [{ kind: BACKDROP_OPTIONS, options: [PLAIN_KEY] }],
+});
 const plainPlugin = definePlugin({
   name: "plain",
   apply: (ctx) =>

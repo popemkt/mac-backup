@@ -2258,7 +2258,7 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-optional?, seed?, views?, defaultView?, refCarriers?, backdrops?, designSystems?})` in `@kb/<family>` is the one home of its name
+optional?, seed?, views?, defaultView?, refCarriers?, declaredOptions?, policies?})` in `@kb/<family>` is the one home of its name
   and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
   its state in a store where no one has switched it), and, for the one
   family that provides it, of the default view type (View nodes):
@@ -2460,23 +2460,29 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   action, never through open.
 - **Declared options are declared as views are.** Some things a family
   contributes to the page are chosen by a field: page-head backdrops and
-  design systems. Each is a declared option (`declared-option.ts` in
-  `@kb/model`): the declaration lists its key (`SeedOption`, an id and a
-  label), and the fold derives one option node per key, owned by the
-  family, under the field of its kind (`DeclaredOptions`: the field and the
-  prefix of its options' ids). The fold reads one table of kinds:
-  - `backdrops` → `sys.f.backdrop`, options `sys.backdrop.<id>`
+  design systems. Each is a declared option
+  (`declared-option.ts` in `@kb/model`): the declaration lists its key
+  (`SeedOption`, an id and a label) under its kind (`declaredOptions:
+[{kind, options}]`), and the fold derives one option node per key, owned
+  by the family, under the field of its kind (`DeclaredOptions`: the field
+  and the prefix of its options' ids). A kind is owned by whoever seeds its
+  field, which exports it:
+  - `BACKDROP_OPTIONS` (core) → `sys.f.backdrop`, options
+    `sys.backdrop.<id>`
     ([DESIGN-UI → Page-head backdrops](DESIGN-UI.md#page-head-backdrops));
-  - `designSystems` → `sys.f.design-system`, options
+  - `DESIGN_SYSTEM_OPTIONS` (core) → `sys.f.design-system`, options
     `sys.design-system.<id>`
     ([DESIGN-UI → Design systems](DESIGN-UI.md#design-systems)).
 
-  The family's page plugin contributes each one to its point under the same
-  key, so the option and the contribution are one id. A choice is a ref to
-  an option, read by `declaredChoice` nearest source first, and one whose
-  thing nobody contributes now is no choice, so it falls through. A new
-  kind is a row of that table and a field core seeds, not a second
-  mechanism.
+  A key is `<family>.<local id>`; a key of the kind's own owner has no
+  family part (core's `kb` design system). The fold files every kind any
+  source declares (`declaredKinds`), and two prefixes on one field are a
+  bundling defect. The family's page plugin contributes each one to its
+  point under the same key, so the option and the contribution are one id.
+  A choice is a ref to an option, read by `declaredChoice` nearest source
+  first, and one whose thing nobody contributes now is no choice, so it
+  falls through. A new kind is a `DeclaredOptions` its field's owner
+  exports, not a second mechanism.
 
 - **The view catalog is a point.** `ViewKeyPoint` (`kb.views`, in
   `@kb/contracts`) holds one `ViewDef<P> = {key, text?}` per view, keyed by

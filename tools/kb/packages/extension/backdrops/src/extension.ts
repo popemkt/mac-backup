@@ -10,7 +10,7 @@
  * contributes a backdrop, or none.
  */
 import { declarationPlugin, defineExtension } from "@kb/contracts";
-import type { SeedBackdrop } from "@kb/model";
+import { BACKDROP_OPTIONS, type SeedBackdrop } from "@kb/model";
 import type { Plugin } from "@kb/plugin";
 
 /** The Unicorn Studio scene over the tag/accent wash: the one a head shows while none is chosen. */
@@ -28,7 +28,12 @@ export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
   optional: { byDefault: "on" },
-  backdrops: [UNICORN_BACKDROP, GRADIENT_BACKDROP, SKY_BACKDROP, ROOST_BACKDROP],
+  declaredOptions: [
+    {
+      kind: BACKDROP_OPTIONS,
+      options: [UNICORN_BACKDROP, GRADIENT_BACKDROP, SKY_BACKDROP, ROOST_BACKDROP],
+    },
+  ],
 });
 
 /** The backdrops family's shared plugin: its declaration's, on either host. */

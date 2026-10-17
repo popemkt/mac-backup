@@ -8,7 +8,7 @@
  */
 import { Context, Effect } from "effect";
 import { z } from "zod";
-import type { KbNode, SeedBackdrop, SeedOption, SeedPolicy } from "@kb/model";
+import type { DeclaredOptionSet, KbNode, SeedPolicy } from "@kb/model";
 import type { FieldRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
@@ -43,19 +43,14 @@ export interface ExtensionDeclaration {
    */
   readonly defaultView?: ViewKey<unknown>;
   /**
-   * The page-head backdrops the family contributes (DESIGN-UI.md →
-   * Page-head backdrops), each by the id its page contribution answers to:
-   * the seed derives each one's option node under `sys.f.backdrop`, so
-   * choosing one is writing that field.
+   * The declared options the family contributes (DESIGN.md → Extension
+   * families → Declared options), by kind: page-head backdrops
+   * (`BACKDROP_OPTIONS`), design systems (`DESIGN_SYSTEM_OPTIONS`), or the
+   * kind of a field another family seeds. Each is named by the id its page
+   * contribution answers to, and the seed derives its option node under
+   * its kind's field, so choosing one is writing that field.
    */
-  readonly backdrops?: readonly SeedBackdrop[];
-  /**
-   * The design systems the family contributes (DESIGN-UI.md → Design
-   * tokens → Design systems), each by the id its page contribution answers
-   * to: the seed derives each one's option node under
-   * `sys.f.design-system`, so choosing one is writing that field.
-   */
-  readonly designSystems?: readonly SeedOption[];
+  readonly declaredOptions?: readonly DeclaredOptionSet[];
   /**
    * The approval policies the family declares, each a denial (`SeedPolicy`):
    * the seed derives each one's node under the list of every policy. A family

@@ -9,7 +9,7 @@
  * graph's, with its seed, are `@kb/graph`'s.
  */
 import { defineExtension, viewDef } from "@kb/contracts";
-import { systemSeedNodes, type SeedOption } from "@kb/model";
+import { DESIGN_SYSTEM_OPTIONS, systemSeedNodes, type SeedOption } from "@kb/model";
 import {
   DocsMarkdownView,
   LayoutView,
@@ -36,5 +36,5 @@ export const coreExtension = defineExtension({
     viewDef(LayoutView),
     viewDef(NodeView),
   ],
-  designSystems: [KB_DESIGN_SYSTEM],
+  declaredOptions: [{ kind: DESIGN_SYSTEM_OPTIONS, options: [KB_DESIGN_SYSTEM] }],
 });
