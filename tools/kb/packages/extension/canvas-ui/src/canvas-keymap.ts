@@ -118,7 +118,9 @@ export interface CanvasKeyState {
  * is what counts (numpad keys, whatever NumLock and the layout say) or by
  * `key` (letters in either case, unless `cased`), with the modifiers it
  * names. ⌘ and Ctrl are one modifier (`mod`), absent meaning neither;
- * `ctrl` is Ctrl alone. Shift and ⌥ absent take either.
+ * `ctrl` is Ctrl alone. Shift and ⌥ absent take either — but Shift absent
+ * under ⌘ is not held, since ⌘⇧ makes a shortcut of its own (the
+ * browser's, or another of the canvas's).
  */
 interface CanvasChord {
   readonly code?: string;
@@ -401,7 +403,7 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
     { key: "Z", mod: true, cased: true },
     { key: "y", mod: true },
   ]),
-  shortcut("Edit", "Undo", { type: "undo" }, [{ key: "z", mod: true, shift: false }]),
+  shortcut("Edit", "Undo", { type: "undo" }, [{ key: "z", mod: true }]),
   ...CANVAS_VIEW_COMMANDS,
   // ⌃numpad 7 would look from under the floor: there is no such view, so it does nothing.
   shortcut("View", "", null, [{ code: "Numpad7", ctrl: true }]),
@@ -422,15 +424,9 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   shortcut("Edit", "Copy", { type: "copy" }, [{ key: "c", mod: true }], {
     needsSelection: "swallow",
   }),
-  shortcut(
-    "Edit",
-    "Group into a frame",
-    { type: "group" },
-    [{ key: "g", mod: true, shift: false }],
-    {
-      needsSelection: "swallow",
-    },
-  ),
+  shortcut("Edit", "Group into a frame", { type: "group" }, [{ key: "g", mod: true }], {
+    needsSelection: "swallow",
+  }),
   shortcut("Edit", "Ungroup", { type: "ungroup" }, [{ key: "g", mod: true, shift: true }], {
     needsSelection: "swallow",
   }),
@@ -529,7 +525,8 @@ function presses(chord: CanvasChord, event: CanvasKeyEvent): boolean {
   if (chord.code !== undefined ? event.code !== chord.code : !sameKey(chord, event.key)) {
     return false;
   }
-  if (chord.shift !== undefined && chord.shift !== (event.shiftKey === true)) return false;
+  const shift = chord.shift ?? (chord.mod === true ? false : undefined);
+  if (shift !== undefined && shift !== (event.shiftKey === true)) return false;
   if (chord.alt !== undefined && chord.alt !== (event.altKey === true)) return false;
   if (chord.ctrl === true) return event.ctrlKey === true && event.metaKey !== true;
   return chord.mod === "any" || (chord.mod === true) === mod(event);

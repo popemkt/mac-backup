@@ -244,6 +244,19 @@ describe("what the browser still gets", () => {
     });
   });
 
+  test("⌘⇧ is a chord of its own: ⌘⇧A, ⌘⇧C and ⌘⇧D are not select-all, copy and duplicate", () => {
+    for (const key of ["a", "c", "d", "A", "C", "D"]) {
+      const shifted = mapCanvasKey(chord(key, { metaKey: true, shiftKey: true }), withSelection);
+      expect(shifted?.intent, `⌘⇧${key}`).not.toEqual(
+        expect.objectContaining({ type: expect.stringMatching(/^(selectAll|copy|duplicate)$/) }),
+      );
+    }
+    // A chord that names no ⌘ still takes Shift either way: ? is ⇧/ on most layouts.
+    expect(mapCanvasKey(chord("?", { shiftKey: true }), withSelection)?.intent).toEqual({
+      type: "shortcuts",
+    });
+  });
+
   test("⌘V is not claimed, so the browser raises its paste; select-all needs no selection", () => {
     expect(mapCanvasKey(chord("v", { metaKey: true }), empty)).toBeNull();
     expect(mapCanvasKey(chord("a", { metaKey: true }), empty)?.intent).toEqual({
