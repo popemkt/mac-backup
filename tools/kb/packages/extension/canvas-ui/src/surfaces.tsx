@@ -12,6 +12,7 @@ import {
   type ViewProps,
 } from "@kb/ui-sdk";
 import { createCanvasNode, listCanvasNavItems } from "./canvas-api";
+import { CANVAS_LIST_PATH, canvasPath } from "./routes";
 
 const CanvasListPage = lazy(() =>
   import("./canvas-list-page").then((m) => ({ default: m.CanvasListPage })),
@@ -45,7 +46,7 @@ export function CanvasSection({ route }: { readonly route: MatchedRoute | null }
     setCreating(true);
     try {
       const id = await createCanvasNode();
-      if (id !== null) navigate(`/canvas/${id}`);
+      if (id !== null) navigate(canvasPath({ id }));
     } finally {
       setCreating(false);
     }
@@ -56,7 +57,7 @@ export function CanvasSection({ route }: { readonly route: MatchedRoute | null }
         label="Canvases"
         icon={<SquareIcon size={14} />}
         active={paramsOf(route, CanvasListView) !== null}
-        onClick={() => navigate("/canvas")}
+        onClick={() => navigate(CANVAS_LIST_PATH)}
       />
       {canvases.map((c) => (
         <SidebarRow
@@ -64,7 +65,7 @@ export function CanvasSection({ route }: { readonly route: MatchedRoute | null }
           label={c.label}
           indented
           active={open?.id === c.id}
-          onClick={() => navigate(`/canvas/${c.id}`)}
+          onClick={() => navigate(canvasPath({ id: c.id }))}
         />
       ))}
       <SidebarRow

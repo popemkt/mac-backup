@@ -46,6 +46,7 @@ import { useCanvasScreen } from "./use-canvas-screen";
 import { useCanvasCapture } from "./canvas-capture";
 import { useCanvasSelection } from "./use-canvas-selection";
 import { listRefFields } from "./canvas-api";
+import { CANVAS_LIST_PATH } from "./routes";
 import { classifyCardPointer } from "./card-pointer";
 import { placesItem, pressPans, type CanvasChooser, type ToolState } from "./canvas-tool";
 import type { PresentAct } from "./canvas-keymap";
@@ -355,7 +356,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   if (!canvasNode) {
     return (
-      <NotFound what="Canvas" id={canvasId} back={{ label: "All canvases", path: "/canvas" }} />
+      <NotFound
+        what="Canvas"
+        id={canvasId}
+        back={{ label: "All canvases", path: CANVAS_LIST_PATH }}
+      />
     );
   }
 
@@ -365,7 +370,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         <button
           type="button"
           className="text-meta text-foreground/40 hover:text-foreground/70"
-          onClick={() => navigate("/canvas")}
+          onClick={() => navigate(CANVAS_LIST_PATH)}
         >
           ← canvases
         </button>

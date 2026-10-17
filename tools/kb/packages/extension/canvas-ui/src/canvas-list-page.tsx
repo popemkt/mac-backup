@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Bullet, navigate, NodeRow, useNodes, WorkspaceState } from "@kb/ui-sdk";
 import { createCanvasNode, listCanvasNodes } from "./canvas-api";
+import { canvasPath } from "./routes";
 
 export function CanvasListPage() {
   const nodes = useNodes();
@@ -11,7 +12,7 @@ export function CanvasListPage() {
     setBusy(true);
     try {
       const id = await createCanvasNode();
-      if (id !== null) navigate(`/canvas/${id}`);
+      if (id !== null) navigate(canvasPath({ id }));
     } finally {
       setBusy(false);
     }
@@ -52,7 +53,7 @@ export function CanvasListPage() {
               key={n.id}
               type="button"
               className="w-full rounded-md text-left hover:bg-foreground/[0.03]"
-              onClick={() => navigate(`/canvas/${n.id}`)}
+              onClick={() => navigate(canvasPath({ id: n.id }))}
             >
               <NodeRow
                 depth={0}
@@ -62,7 +63,7 @@ export function CanvasListPage() {
                     node={n}
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/canvas/${n.id}`);
+                      navigate(canvasPath({ id: n.id }));
                     }}
                   />
                 }

@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
-import { matchCanvas, matchCanvasList } from "./routes";
+import { CANVAS_LIST_PATH, matchCanvas, matchCanvasList } from "./routes";
 import { CanvasListSurface, CanvasSection, CanvasSurface } from "./surfaces";
 import { CanvasListView, CanvasView, canvasExtension, canvasPlugin } from "@kb/canvas";
 import {
@@ -48,7 +48,7 @@ export const canvasUiPlugin = definePlugin({
           provideRoute({
             view: CanvasListView,
             match: matchCanvasList,
-            entry: "/canvas",
+            entry: CANVAS_LIST_PATH,
             frame: () => "fixed",
             pendingTitle: () => "Opening canvas…",
           }),
