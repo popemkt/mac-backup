@@ -9,6 +9,7 @@
 import { Context, Effect } from "effect";
 import { z } from "zod";
 import type { KbNode } from "@kb/model";
+import type { FieldRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { ViewKeyPoint, type ViewDef } from "./view-catalog.ts";
@@ -41,6 +42,13 @@ export interface ExtensionDeclaration {
    * second provider, so the shell names no view.
    */
   readonly defaultView?: ViewKey<unknown>;
+  /**
+   * The family's fields whose values carry references beyond `[[id]]`
+   * tokens and ref values, each with how to read them: the reference
+   * relation reads them as carriers (`:node/mentions`, `derivedWith` in
+   * `@kb/query`), so a node's References show what points at it this way.
+   */
+  readonly refCarriers?: readonly FieldRefCarrier[];
 }
 
 /** A family's declaration, as written in its shared package. */

@@ -17,7 +17,7 @@ import {
   type DomainError,
   type KbNode,
 } from "@kb/model";
-import { bundledSeed } from "@kb/bundled";
+import { bundledDerived, bundledSeed } from "@kb/bundled";
 import { DatascriptIndex } from "@kb/query";
 import { KbStore, type KbContext } from "@kb/contracts";
 import { StoreTxLog } from "@kb/tx-log";
@@ -79,7 +79,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
     nodes = [...applyTx(loaded, commit.tx).values()];
   }
   yield* reportLegacyViews(root, nodes);
-  const index = new DatascriptIndex(nodes);
+  const index = new DatascriptIndex(nodes, { derived: bundledDerived() });
   const ctx: KbContext = {
     root,
     store,

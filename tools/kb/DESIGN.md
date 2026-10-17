@@ -591,7 +591,9 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   attribute is cardinality-many) — same shape as Logseq `:block/refs`
   (parse-at-transact). A new way of pointing at a node is a carrier added to
   that entry, and a new derived relation is an entry; the build has no
-  second pass beside the table. The UI renders inactive text refs as
+  second pass beside the table. A family adds a carrier by declaring a
+  field whose values carry references (`refCarriers`, `FieldRefCarrier`;
+  Extension families), which `derivedWith` adds to the mention entry. The UI renders inactive text refs as
   accent links (click = zoom, ⌘/Ctrl-click = jump); the relationship itself is
   queryable, not UI-only. Example — nodes that reference a target:
 
@@ -2030,7 +2032,7 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-optional?, seed?, views?, defaultView?})` in `@kb/<family>` is the one home of its name
+optional?, seed?, views?, defaultView?, refCarriers?})` in `@kb/<family>` is the one home of its name
   and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
   its state in a store where no one has switched it), and, for the one
   family that provides it, of the default view type (View nodes):
@@ -2135,6 +2137,14 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
       not built, because no setting needs it. It is built with the first
       setting that does, together with a contract property over the
       registry, the `kb ui` host and the page.
+- **A family's fields can carry references** (`refCarriers`): each names
+  a field and reads the node ids its values point at, beyond `[[id]]`
+  tokens and ref values. The reference relation reads them as carriers
+  (Data model → Refs). Like the seed it is the bundled fold:
+  `bundledDerived()` (`@kb/bundled`) is every bundled declaration's
+  carriers on top of `CORE_DERIVED`, and every index a host builds is built
+  with it — the server's (`openKbEffect`), the client's and the page's —
+  so References answer alike on both hosts.
 - **The seed is the bundled fold, never a loaded registry.**
   `ensureSystemSeed(nodes, seed)` runs at open, before any registry
   exists. `openKbEffect` passes it `bundledSeed(at)` (`@kb/bundled`, a

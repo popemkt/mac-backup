@@ -11,6 +11,7 @@ import {
   txIntegrityError,
   type DomainError,
 } from "@kb/model";
+import { bundledDerived } from "@kb/bundled";
 import { DatascriptIndex, type KbIndex } from "@kb/query";
 import { selectStore, bunFileSystemLayer } from "@kb/runtime";
 import type { KbClient, QueryResult, Snapshot } from "./api.d.ts";
@@ -153,7 +154,10 @@ function run<A>(effect: Effect.Effect<A, DomainError>): Promise<A> {
 }
 
 function clientOver(store: EffectStore): KbClient {
-  const held: HeldIndex = { index: new DatascriptIndex(), revision: null };
+  const held: HeldIndex = {
+    index: new DatascriptIndex([], { derived: bundledDerived() }),
+    revision: null,
+  };
   return {
     snapshot: () => run(readSnapshot(store)),
     query: (edn, inputs = []) => run(runQuery(store, held, edn, inputs)),

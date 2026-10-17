@@ -29,7 +29,15 @@ import { followProvided, portSlot } from "@/stores/port-slot";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { resolveScope } from "@/lib/ontology-scope";
 import { mergeTx } from "@/lib/tx";
+import { bundledDerived } from "@kb/bundled";
 import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
+
+/**
+ * The page's index over `nodes`, deriving what the bundled families declare
+ * (`bundledDerived`), as the server's index does, so References agree.
+ */
+const indexOver = (nodes: readonly WireNode[]) =>
+  new DatascriptIndex(nodes, { derived: bundledDerived() });
 
 const HISTORY_LIMIT = 50;
 
@@ -211,7 +219,7 @@ export function replaceGraph(next: GraphStateData): void {
 
 function hydrateFromWire(wireNodes: WireNode[], rev: number, source: "api" | "fixtures"): void {
   // A fresh load starts unscoped; App re-applies the URL scope after.
-  const index = new DatascriptIndex(wireNodes);
+  const index = indexOver(wireNodes);
   replaceBrowserSession(wireNodes, rev, index, {
     onLocalCommit: syncFromIndex,
     applyServerTx: (tx, txRev) => applyTx(tx.upserts, tx.deletes, { rev: txRev }),
@@ -238,7 +246,7 @@ function applyTx(upserts: WireNode[], deletes: string[], opts?: { rev?: number }
   const prev = now();
   ingestBrowserTx({ upserts, deletes });
   const wireNodes = mergeTx(prev.wireNodes, upserts, deletes);
-  const index = prev.index ?? new DatascriptIndex(wireNodes);
+  const index = prev.index ?? indexOver(wireNodes);
   const scope = scopeFields(wireNodes, prev.ontologyId, index);
   const next = { wireNodes, ontologyId: prev.ontologyId, ...scope };
   moveTo("tx", {
@@ -260,7 +268,7 @@ function syncFromIndex(): void {
 
 function refreshFromWire(wireNodes: WireNode[], rev: number): void {
   const prev = now();
-  const index = prev.index ?? new DatascriptIndex(wireNodes);
+  const index = prev.index ?? indexOver(wireNodes);
   if (prev.index !== null) installBrowserNodes(wireNodes);
   const scope = scopeFields(wireNodes, prev.ontologyId, index);
   const next = { wireNodes, ontologyId: prev.ontologyId, ...scope };
@@ -277,7 +285,7 @@ function setOntologyScope(id: string | null): void {
 
 /** Where scope `id` (or none) puts the page from `st`. */
 function scopeMove(st: GraphStateData, id: string | null): Partial<GraphStateData> {
-  const index = st.index ?? new DatascriptIndex(st.wireNodes);
+  const index = st.index ?? indexOver(st.wireNodes);
   const scope = scopeFields(st.wireNodes, id, index);
   if (id === null) {
     // Leaving: return to the root the user was on before entering.

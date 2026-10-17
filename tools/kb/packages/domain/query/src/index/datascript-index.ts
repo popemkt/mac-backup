@@ -19,6 +19,12 @@ function normalizeRows(raw: unknown): Array<Array<unknown>> {
   return list.map((row) => (Array.isArray(row) ? row : [row]));
 }
 
+/** How an index is built beyond its nodes. */
+export interface IndexOptions {
+  /** The derived ref attributes it builds; `CORE_DERIVED` when absent. */
+  readonly derived?: readonly DerivedRef[];
+}
+
 function byId(a: KbNode, b: KbNode): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
@@ -53,9 +59,15 @@ export class DatascriptIndex implements KbIndex {
   #refsTo = new Map<NodeId, Set<NodeId>>();
   #storedCache: { generation: number; nodes: KbNode[] } | null = null;
   /** The derived ref attributes this index builds (`DerivedRef`). */
-  readonly #derived: readonly DerivedRef[] = CORE_DERIVED;
+  readonly #derived: readonly DerivedRef[];
 
-  constructor(nodes: ReadonlyArray<KbNode> = []) {
+  /**
+   * An index over `nodes`, deriving the ref attributes `derived` names: the
+   * core ones (`CORE_DERIVED`) when none is given. A host builds its index
+   * with what its families declare (`bundledDerived` in `@kb/bundled`).
+   */
+  constructor(nodes: ReadonlyArray<KbNode> = [], options: IndexOptions = {}) {
+    this.#derived = options.derived ?? CORE_DERIVED;
     this.rebuild(nodes);
   }
 

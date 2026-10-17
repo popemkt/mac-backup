@@ -29,6 +29,7 @@ import { locationsExtension } from "@kb/locations";
 import { foldSeed, type KbNode } from "@kb/model";
 import { coreExtension } from "@kb/operations";
 import { outlineExtension } from "@kb/outline";
+import { derivedWith, type DerivedRef } from "@kb/query";
 
 /**
  * Every bundled family, in the order the registry loads them. The order is
@@ -71,4 +72,14 @@ export const BUNDLED_DECLARATIONS: readonly ExtensionDeclaration[] = [
  */
 export function bundledSeed(at?: string): KbNode[] {
   return foldSeed(BUNDLED_DECLARATIONS, at);
+}
+
+/**
+ * The derived ref attributes every index a host builds derives: the core
+ * ones, with the reference relation also fed by each field a bundled
+ * declaration says carries references (`refCarriers`). Pure data, like the
+ * seed, so the server's index and the page's answer References alike.
+ */
+export function bundledDerived(): readonly DerivedRef[] {
+  return derivedWith(BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.refCarriers ?? []));
 }

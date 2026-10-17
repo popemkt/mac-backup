@@ -24,7 +24,8 @@
     "@kb/locations": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
-    "@kb/outline": "workspace:*"
+    "@kb/outline": "workspace:*",
+    "@kb/query": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

@@ -8,7 +8,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode } from "@kb/model";
-import { BACKLINKS_IR, DatascriptIndex, type IrQuery } from "@kb/query";
+import { BACKLINKS_IR, DatascriptIndex, derivedWith, type IrQuery } from "@kb/query";
 
 function node(id: string, over: Partial<KbNode> = {}): KbNode {
   return {
@@ -120,6 +120,29 @@ describe("DatascriptIndex", () => {
     // A ref prop's target that arrives later is mentioned then, as a token's is.
     index.applyTx({ upserts: [node("gone")], deletes: [] });
     expect(rows(index, MENTIONS_QUERY)).toEqual([...expected, ["c", "gone"]]);
+  });
+
+  test("a field a family says carries references feeds the same relation, on both paths", () => {
+    // A field whose text value lists ids, as a canvas document lists its cards.
+    const derived = derivedWith([
+      { field: "f.doc", refsOf: (value) => (value.t === "str" ? value.v.split(",") : []) },
+    ]);
+    const board = node("a", { props: { "f.doc": [{ t: "str", v: "b,c" }] } });
+    const index = new DatascriptIndex([board, node("b")], { derived });
+    expect(rows(index, MENTIONS_QUERY)).toEqual([["a", "b"]]);
+    // c arrives, and the board mentions it then, without a rebuild.
+    const builds = index.rebuilds;
+    index.applyTx({ upserts: [node("c")], deletes: [] });
+    expect(index.rebuilds).toBe(builds);
+    expect(rows(index, MENTIONS_QUERY)).toEqual([
+      ["a", "b"],
+      ["a", "c"],
+    ]);
+    expect(
+      rows(new DatascriptIndex([board, node("b"), node("c")], { derived }), MENTIONS_QUERY),
+    ).toEqual(rows(index, MENTIONS_QUERY));
+    // An index built without the declaration reads the field as plain text.
+    expect(fresh([board, node("b"), node("c")], MENTIONS_QUERY)).toEqual([]);
   });
 
   test("eids are never reused, so a revived id is never the wrong node", () => {

@@ -1,4 +1,4 @@
-import { extractMentions, type KbNode, type NodeId } from "@kb/model";
+import { extractMentions, type KbNode, type NodeId, type PropValue } from "@kb/model";
 
 /**
  * The ref attributes the datom build derives from a node, beside the ones a
@@ -68,3 +68,32 @@ const REF_PROPS: RefCarrier = {
 export const CORE_DERIVED: readonly DerivedRef[] = [
   { attr: ":node/mentions", cardinality: "many", carriers: [TEXT_TOKENS, REF_PROPS] },
 ];
+
+/**
+ * A field whose values carry references a family knows how to read, beyond
+ * `[[id]]` tokens and ref values: a canvas document's cards, say. A family
+ * declares it (`ExtensionDeclaration.refCarriers`), and the reference
+ * relation reads it as one more carrier.
+ */
+export interface FieldRefCarrier {
+  readonly field: NodeId;
+  /** The node ids one of the field's values points at; none for a value it cannot read. */
+  readonly refsOf: (value: PropValue) => Iterable<NodeId>;
+}
+
+/** `carrier` as a node's carrier: what each of its values in the field points at. */
+function fieldCarrier({ field, refsOf }: FieldRefCarrier): RefCarrier {
+  return {
+    id: `field:${field}`,
+    refsOf: (node) => (node.props[field] ?? []).flatMap((value) => [...refsOf(value)]),
+  };
+}
+
+/** `CORE_DERIVED` with the reference relation also fed by each of `fields` (`FieldRefCarrier`). */
+export function derivedWith(fields: readonly FieldRefCarrier[]): readonly DerivedRef[] {
+  return CORE_DERIVED.map((entry) =>
+    entry.attr === ":node/mentions"
+      ? { ...entry, carriers: [...entry.carriers, ...fields.map(fieldCarrier)] }
+      : entry,
+  );
+}
