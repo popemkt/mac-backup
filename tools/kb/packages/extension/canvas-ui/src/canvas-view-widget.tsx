@@ -11,7 +11,7 @@
  * key and a click cannot mean different things; under them, the canvas's
  * frames, each a viewpoint to go to.
  */
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef } from "react";
 import type { CanvasGroupNode, CanvasProjectionKind } from "@kb/canvas";
 import type { CanvasViewPresetName } from "@kb/contracts";
 import {
@@ -26,6 +26,7 @@ import { CANVAS_VIEW_COMMANDS, type CanvasIntent, type CanvasViewCommand } from 
 import { cn, isOutside } from "@kb/ui-sdk";
 import { AXIS_INK } from "./canvas-gizmo";
 import { frameName } from "./canvas-frame-name";
+import { useShownView } from "./use-shown-view";
 
 export interface CanvasViewWidgetProps {
   readonly rig: CanvasCameraRig;
@@ -344,8 +345,7 @@ export function CanvasViewWidget({
   onMenuOpenChange,
   onIntent,
 }: CanvasViewWidgetProps) {
-  const live = useSyncExternalStore(rig.subscribe, () => rig.view);
-  const view = in3d ? live : flatView;
+  const view = useShownView(rig, in3d, flatView);
   const trigger = useRef<HTMLButtonElement>(null);
   return (
     <div

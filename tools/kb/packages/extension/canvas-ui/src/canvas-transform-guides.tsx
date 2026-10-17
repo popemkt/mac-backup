@@ -6,7 +6,6 @@
  * does, what it is held to and its value — the typed text while there is
  * some. In 2D this is the badge an extrude shows its depth in.
  */
-import { useSyncExternalStore } from "react";
 import type { CanvasTransform } from "@kb/canvas";
 import { projectPoint, type CanvasView, type ViewSize } from "./canvas-camera";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
@@ -17,6 +16,7 @@ import {
   type TransformInput,
 } from "./canvas-transform-input";
 import { AXIS_INK } from "./canvas-gizmo";
+import { useShownView } from "./use-shown-view";
 
 export interface CanvasTransformGuidesProps {
   /** The modal transform under way, and the transform its preview shows. */
@@ -58,8 +58,7 @@ export function CanvasTransformGuides({
   flatView,
   size,
 }: CanvasTransformGuidesProps) {
-  const live = useSyncExternalStore(rig.subscribe, () => rig.view);
-  const view = in3d ? live : flatView;
+  const view = useShownView(rig, in3d, flatView);
   const readout = transformReadout(input, applied, view);
   return (
     <>
