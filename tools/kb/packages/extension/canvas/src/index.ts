@@ -76,6 +76,7 @@ export {
   stillAbout,
   transformItem,
   transformItems,
+  withBox,
 } from "./transform.ts";
 export type { CanvasFlipAxis, CanvasTransform } from "./transform.ts";
 export {

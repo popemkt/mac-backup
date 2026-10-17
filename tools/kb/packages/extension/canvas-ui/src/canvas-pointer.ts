@@ -1,7 +1,6 @@
 import {
   anchorNear,
   boxFrame,
-  boxToWorld,
   canvasTop,
   carriedBy,
   connectItems,
@@ -14,7 +13,7 @@ import {
   stillAbout,
   transformCarried,
   upsertCanvasNode,
-  withElevation,
+  withBox,
   type CanvasCarried,
   type CanvasDoc,
   type CanvasMembership,
@@ -396,25 +395,10 @@ function resizeNode(
   const node = ctx.byId.get(drag.id);
   if (!node) return result(state);
   const rect = resizedRect(drag, { world: floorAt(ctx, at.screen), shiftKey: at.shiftKey }, node);
-  // The footprint changed in the item's own frame: its centre moves along its own axes.
   const was = { ...node, x: drag.origX, y: drag.origY, width: drag.origW, height: drag.origH };
-  const centre = boxToWorld(boxFrame(was), {
-    x: rect.x + rect.w / 2 - (drag.origX + drag.origW / 2),
-    y: rect.y + rect.h / 2 - (drag.origY + drag.origH / 2),
-    z: 0,
-  });
   const doc = upsertCanvasNode(
     ctx.doc,
-    withElevation(
-      {
-        ...node,
-        x: centre.x - rect.w / 2,
-        y: centre.y - rect.h / 2,
-        width: rect.w,
-        height: rect.h,
-      },
-      centre.z - boxFrame(was).half.z,
-    ),
+    withBox(was, { x: rect.x, y: rect.y, width: rect.w, height: rect.h }),
   );
   return result(state, { doc, persist: "silent" });
 }

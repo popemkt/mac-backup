@@ -6,7 +6,7 @@
  * `depth` and `rotation`, in world coordinates — so a transform rewrites
  * those numbers and nothing else.
  */
-import { boxCorners, boxFrame, type CanvasBox, type CanvasVec } from "./box.ts";
+import { boxCorners, boxFrame, boxToWorld, type CanvasBox, type CanvasVec } from "./box.ts";
 import {
   isPathNode,
   withDepth,
@@ -247,4 +247,36 @@ export function reflectItem(node: CanvasNode, axis: CanvasFlipAxis, pivot: Canva
 /** A transform that only moves, by `by`, about `pivot`: what a nudge of the arrow keys makes. */
 export function moveBy(pivot: CanvasVec, by: CanvasVec): CanvasTransform {
   return { ...stillAbout(pivot), move: by };
+}
+
+/** A box an item is given, in its own unturned frame: where its `x`, `y`, `width` and `height` are. */
+interface CanvasBoxRect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * `node` given the box `rect`, laid out in its own unturned frame: its
+ * footprint changes in that frame, so a turned item's centre moves along
+ * its own axes and it resizes as it stands, from the side that moved.
+ */
+export function withBox<N extends CanvasNode>(node: N, rect: CanvasBoxRect): N {
+  const frame = boxFrame(node);
+  const centre = boxToWorld(frame, {
+    x: rect.x + rect.width / 2 - (node.x + node.width / 2),
+    y: rect.y + rect.height / 2 - (node.y + node.height / 2),
+    z: 0,
+  });
+  return withElevation(
+    {
+      ...node,
+      x: centre.x - rect.width / 2,
+      y: centre.y - rect.height / 2,
+      width: rect.width,
+      height: rect.height,
+    },
+    centre.z - frame.half.z,
+  );
 }
