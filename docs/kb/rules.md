@@ -518,6 +518,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — E19 of the extension SDK plan, after E13, at a 3D step boundary
 - **node** — `01M43AT0V9HHVS7ZAEPWXEGE7F`
 
+### GAP: dismissing a popover (Escape, outside press) is copied in six places
+
+- **expected** — One ui-sdk dismiss hook owns Escape and outside-press dismissal, and every popover (CanvasPopover included) uses it.
+- **current** — canvas-toolbar, canvas-view-widget, canvas-shortcuts-sheet, graph-settings, preferences-popover and ref-add-popover each carry their own copy; CanvasPopover owns the canvas inspectors' copy.
+- **impact** — Dismissal can drift between popovers: a fix to one (focus return, nested popovers, touch) misses the others.
+- **closes** — Add the hook to ui-sdk, move every popover onto it, and hold it with one shared property over every popover.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M54V6G798RV0P805SMBG64H8`
+
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.
