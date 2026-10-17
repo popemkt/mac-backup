@@ -53,6 +53,11 @@ export {
   type ViewProposal,
 } from "./host";
 export type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "./sandbox";
+// Running sandboxed code the one way: its trust, its ports and the calls
+// waiting on a person, its frame, and the card a person answers them on.
+export { useSandboxPorts, useSandboxTrust, type Asking, type SandboxTrust } from "./sandbox-run";
+export { SandboxFrame } from "./components/sandbox-frame";
+export { SandboxApprovalCard } from "./components/sandbox-approval-card";
 
 // The UI points: routes, views, sidebar sections, docks, node commands, and
 // the slot one view embeds another through.

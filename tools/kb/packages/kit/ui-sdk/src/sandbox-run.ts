@@ -1,18 +1,20 @@
 /**
- * The two things a code view knows about a run beyond its code: whether a
- * person trusts it (by the digest of exactly what runs, computed here from
- * the code the page shows and hands the frame), and the calls it made that
- * wait for the person's answer.
+ * The two things a page knows about a sandbox run beyond its code (DESIGN.md
+ * → Sandbox): whether a person trusts it (by the digest of exactly what
+ * runs, computed here from the code the page shows and hands the frame), and
+ * the calls it made that wait for the person's answer. Every run the page
+ * hosts — a code view's, a script's — is known this one way.
  */
 import { useEffect, useState } from "react";
 import { Effect, Schema } from "effect";
 import type { ActionInvocation } from "@kb/contracts";
 import { CodeGrant, codeDigest } from "@kb/sandbox";
 import { canonicalJson } from "@kb/model";
-import { browserHost, type SandboxPorts } from "@kb/ui-sdk";
+import { browserHost } from "./host";
+import type { SandboxPorts } from "./sandbox";
 
 /** What is known of a run's trust: its digest, and whether it is trusted here. */
-export interface CodeTrustState {
+export interface SandboxTrust {
   readonly digest: string;
   readonly trusted: boolean;
 }
@@ -25,14 +27,14 @@ const decodeGrant = Schema.decodeUnknownSync(Schema.fromJsonString(CodeGrant));
  * canonical JSON: a host decodes a fresh one on every change to the graph,
  * and an edit elsewhere must not stop the run to ask again.
  */
-export function useCodeTrust(
+export function useSandboxTrust(
   code: string,
   grant: CodeGrant,
-): { readonly trust: CodeTrustState | null; readonly refresh: () => void } {
+): { readonly trust: SandboxTrust | null; readonly refresh: () => void } {
   const grantKey = canonicalJson(grant);
   const [round, setRound] = useState(0);
   const [known, setKnown] = useState<
-    | (CodeTrustState & {
+    | (SandboxTrust & {
         readonly code: string;
         readonly grantKey: string;
         readonly round: number;

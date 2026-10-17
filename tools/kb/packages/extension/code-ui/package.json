@@ -11,8 +11,6 @@
   },
   "dependencies": {
     "@kb/code": "workspace:*",
-    "@kb/contracts": "workspace:*",
-    "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/sandbox": "workspace:*",
     "@kb/ui-sdk": "workspace:*",

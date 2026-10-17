@@ -3,7 +3,7 @@
  * sandbox frame that fills the box its host gives it. Above it, which engine
  * runs it, how the run stands and the trust gesture; below it, on demand,
  * the code itself, so a person sees what runs before trusting it. A write the
- * code makes that asks for a person is asked here, as a card.
+ * code makes that asks for a person is asked here, as the sandbox's card.
  */
 import { useMemo, useState } from "react";
 import {
@@ -24,12 +24,15 @@ import {
   toast,
   useGeneration,
   useNode,
+  useSandboxPorts,
+  useSandboxTrust,
+  SandboxApprovalCard,
+  SandboxFrame,
   type SandboxEvents,
+  type SandboxTrust,
   type SandboxRun,
   type ViewProps,
 } from "@kb/ui-sdk";
-import { SandboxFrame } from "./sandbox-frame";
-import { useCodeTrust, useSandboxPorts, type Asking, type CodeTrustState } from "./use-code-run";
 
 const BUTTON = cn(
   "rounded-sm px-2 py-1 text-label font-medium outline-none transition duration-100",
@@ -46,41 +49,6 @@ function statusText(status: RunStatus | null): string {
   if (status === null) return "Starting…";
   if (status.state === "running") return "Running";
   return status.end.message;
-}
-
-function ApprovalCard({ asking }: { readonly asking: Asking }) {
-  const { invocation, answer } = asking;
-  return (
-    <section
-      aria-label="The code asks for approval"
-      className="mx-3 mb-3 shrink-0 rounded-sm border border-foreground/10 bg-card p-3"
-      data-sandbox-approval="true"
-    >
-      <p className="text-ui text-foreground/80">
-        This code asks to run <code className="font-mono">{invocation.id}</code>, which needs your
-        approval.
-      </p>
-      <pre className="mt-2 max-h-32 overflow-auto rounded-sm bg-background p-2 font-mono text-label text-foreground/70">
-        {JSON.stringify(invocation.input, null, 2)}
-      </pre>
-      <div className="mt-2 flex justify-end gap-1">
-        <button
-          type="button"
-          className={cn(BUTTON, "text-foreground/60 hover:bg-foreground/[0.06]")}
-          onClick={() => answer(false)}
-        >
-          Decline
-        </button>
-        <button
-          type="button"
-          className={cn(BUTTON, "bg-primary text-primary-foreground hover:bg-primary/90")}
-          onClick={() => answer(true)}
-        >
-          Approve once
-        </button>
-      </div>
-    </section>
-  );
 }
 
 // GAP [[01M41DKW6PFA4FX6FRNWBV03ED]] The code is shown, not edited here: an editor
@@ -109,7 +77,7 @@ interface HeaderProps {
   readonly title: string;
   readonly engine: EngineKind;
   readonly status: RunStatus | null;
-  readonly trust: CodeTrustState | null;
+  readonly trust: SandboxTrust | null;
   readonly showCode: boolean;
   readonly onTrust: (trusted: boolean) => void;
   readonly onRunAgain: () => void;
@@ -177,7 +145,7 @@ export function CodePage({ params, host }: ViewProps<CodeParams>) {
   const [status, setStatus] = useState<RunStatus | null>(null);
   const [showCode, setShowCode] = useState(false);
   const [round, setRound] = useState(0);
-  const { trust, refresh } = useCodeTrust(params.code, params.grant);
+  const { trust, refresh } = useSandboxTrust(params.code, params.grant);
   const { ports, asking } = useSandboxPorts();
   const [events] = useState<SandboxEvents>(() => ({
     status: setStatus,
@@ -237,7 +205,7 @@ export function CodePage({ params, host }: ViewProps<CodeParams>) {
           />
         )}
       </div>
-      {asking[0] === undefined ? null : <ApprovalCard asking={asking[0]} />}
+      {asking[0] === undefined ? null : <SandboxApprovalCard asking={asking[0]} />}
       {showCode ? <CodePanel params={params} /> : null}
     </div>
   );

@@ -2098,7 +2098,7 @@ placement `page`. It owns no route: a node opens it through
 - **The page is a header and a frame.** The header names the view, which
   engine runs it ("Untrusted · QuickJS" or "Trusted · Worker") and how the
   run stands: running, or the end's sentence ("ran longer than 500 ms in one
-  turn and was interrupted"). The frame (`sandbox-frame.tsx`) is an iframe
+  turn and was interrupted"). The frame (`SandboxFrame`, `@kb/ui-sdk`) is an iframe
   at `/sandbox`, sandboxed with `allow-scripts` alone, filling the box, and
   bound to the page's end of the bridge (`lib/sandbox-host`) while it is
   mounted. A new run is a new frame: the frame is keyed by the engine, the
@@ -2115,7 +2115,10 @@ placement `page`. It owns no route: a node opens it through
   a call of the code `approval_required`, the call waits on a card showing
   the action and its input: Approve once makes the same call as the
   script's with `approved`; Decline makes it without, so the code is told
-  `approval_required` (`use-code-run.ts`). The code's console goes to the
+  `approval_required`. The trust lookup, the ports and that queue, the
+  frame and the card are the page's one way to run sandboxed code
+  (`@kb/ui-sdk` `sandbox-run.ts`, `SandboxFrame`, `SandboxApprovalCard`),
+  which every run it hosts uses. The code's console goes to the
   page's log seam.
 
 ### Optional UI plugins

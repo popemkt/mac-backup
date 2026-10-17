@@ -7,13 +7,8 @@
  */
 import { useEffect, useRef } from "react";
 import { SANDBOX_FRAME_PATH, SANDBOX_IFRAME_FLAGS } from "@kb/sandbox";
-import {
-  browserHost,
-  type HostedFrame,
-  type SandboxEvents,
-  type SandboxPorts,
-  type SandboxRun,
-} from "@kb/ui-sdk";
+import { browserHost } from "../host";
+import type { HostedFrame, SandboxEvents, SandboxPorts, SandboxRun } from "../sandbox";
 
 /** How long the graph must be still before the frame hears that it changed. */
 const CHANGE_SETTLE_MS = 150;
