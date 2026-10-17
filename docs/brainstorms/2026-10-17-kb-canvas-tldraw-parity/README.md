@@ -409,7 +409,7 @@ Each one is read and written through the field tables. Each keeps a value kb can
 
 ## P1–P5 review (GPT-6.1 Sol, 2026-10-17)
 
-Open; queued as todo 01M53HV6AGD0T51E3P414VEF32. No blockers. Each finding names the file and line it was read at, on `59d2a062`.
+Closed: all 17 fixed (todo 01M53HV6AGD0T51E3P414VEF32 done); two body-tone gaps deferred, GAP [[01M540YKDP4WQPSJR41GH0Q90V]] and GAP [[01M540YP8CRGKHPEM3PK19MH1C]]. No blockers. Each finding names the file and line it was read at, on `59d2a062`.
 
 ### Majors
 

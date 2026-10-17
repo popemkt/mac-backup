@@ -98,6 +98,7 @@ function CanvasLiftShadow({ card }: { card: CanvasNode }) {
  * the face covers it exactly; tilted, its sides show round the face, and
  * the pointer takes hold of the item there as on the face.
  */
+// GAP [[01M540YKDP4WQPSJR41GH0Q90V]] canvas solid body tones are still set per projection
 function CanvasItemBody({
   card,
   onPointerDown,

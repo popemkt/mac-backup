@@ -88,6 +88,7 @@ export type CardFace =
  * What `item` shows: a card its node's text and tags (`nodes`), an image the
  * picture at its asset's source (`picture`), anything else its own fields.
  */
+// GAP [[01M540YP8CRGKHPEM3PK19MH1C]] canvas 3D-only face tones are local literals in this file
 export function cardFaceOf(
   item: CanvasNode,
   nodes: ReadonlyMap<string, OutlineNode>,

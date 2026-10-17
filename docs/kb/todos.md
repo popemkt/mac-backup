@@ -101,7 +101,6 @@
 - 3D step 10 · formats: JSON Canvas export, GLB
 - 3D step 9 · connectors
 - bug: graph.query reviveValue turns aggregate results into node ids — [:find ?v (count ?n) …] returns a NodeId where the count should be (any integer 1..N matching an eid is revived). Fix in p1 Phase 2f: typed projection per :find position in the query IR; DataScript adapter revives only ref-typed positions. Found by r3 (docs/kb/waves/2026-09-03/reports/datalog-vs-cypher/README.md §8)
-- Canvas P1–P5 review fixes (Sol, 2026-10-17): 6 majors + 11 minors, no blockers. Findings: docs/brainstorms/2026-10-17-kb-canvas-tldraw-parity/README.md → P1–P5 review
 - canvas.test.ts calls mkdtemp inside packages/app/runtime/tests, so an aborted run leaves kb-canvas-* directories in the tree (seen in the t2 worktree 2026-09-04); use os.tmpdir() or a try/finally rm
 - commander 15 (check the --no-* options)
 - Cordis-level plugin integration, maybe more: config as fields on sys.extension.<name> with re-apply; a graph-driven loader; a plugin view; hot reload; optional injects and lifecycle events. First a Sonnet survey, then an Opus plan (integration.md)
@@ -116,6 +115,7 @@
 - E20 · boundary errors in the editor: an oxlint JS plugin over the harness's matrixViolation (one rule table); after the oxlint upgrade
 - Effect 4.0.0 stable with @effect/tsgo 0.48 (effect-tsgo patch runs in prepare)
 - Extension isolation, the rest (plans: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md, docs/brainstorms/2026-10-04-kb-extension-boundaries/sdk.md)
+- Idea (later, owner 2026-10-17): kernel lifecycle hooks like Claude Code mods — before-write (veto/transform), after-commit (react), before/after action, session start; each a kernel point with a contract suite, landing with its first consumer (e.g. trace's label suggestions). Context: the deleted event seam (Cordis gap 3) was a generic emit/on with no consumer.
 - kb work queue, in order (owner's priority 2026-10-04; resume notes: docs/brainstorms/2026-09-29-kb-genui-canvas-agents/resume.md)
 - O1 follow-up · expansion storage tests (two tabs one id, malformed kb-expansion, legacy first save with a change) and DESIGN-UI wording (memory vs storage merge, mixed-build rule, legacy opens equal to default drop on first save)
 - Open: flaky canvas-camera.test.ts timeout; confirm the test:ui per-package total
@@ -127,6 +127,7 @@
 
 ### done
 
+- Canvas P1–P5 review fixes (Sol, 2026-10-17): 6 majors + 11 minors, no blockers. Findings: docs/brainstorms/2026-10-17-kb-canvas-tldraw-parity/README.md → P1–P5 review
 - Canvas parity with tldraw offline · P1–P5 (styles, edge anchors and routes, path item, lock/align/distribute, shortcut table); P6–P8 wait on the owner's questions. Plan: docs/brainstorms/2026-10-17-kb-canvas-tldraw-parity/README.md
 - E10c · every cleanly extracted family can be switched off through the one extension switch (canvas, chart, code, lab, agent; --no-agent folds into it). Plan: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md
 - Investigate the layers DeepSeek Harness adds on top of Cordis (DESIGN.md names it as the kernel's model): what it layers on, what kb lacks, what is worth taking

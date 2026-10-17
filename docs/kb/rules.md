@@ -291,6 +291,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
+### GAP: a trusted repository extension is imported from disk after its digest is read
+
+- **expected** — The server imports exactly the bytes whose digest a person trusted.
+- **current** — discoverExtensions reads each .kb/extensions/*.ts, digests it and checks CodeTrust, then import()s the file by path, so a write between the read and the import runs code nobody trusted.
+- **impact** — Only someone who can already write the root's .kb/extensions can exploit it, and the window is small; it does not reopen the agent-chosen-root hole (that code is untrusted, so it never loads).
+- **closes** — Importing the verified source itself (a private copy written from the digested bytes, or a loader hook that serves those bytes).
+- **node** — `01M541EP41BTAVD8TJXZGNNPRW`
+
 ### GAP: a view host is placement-only, and Placement is only page
 
 - **expected** — ViewHost carries placement, size, appearanceKey and reducedMotion; Placement includes inline, beside, float, card and hover; ViewSlot measures its box; view-contract checks sizing, disposal of instrumented resources, appearance, reduced motion and bad config (tools/kb/DESIGN-UI.md, UI points: routes and views). Nesting is a separate concern that the slot already owns: MAX_VIEW_DEPTH, checked by view-contract.
@@ -381,6 +389,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Implement an IndexedDB-backed EffectStore with the same generation fingerprint contract.
 - **node** — `01M1R6N8VC3W5P93KABEFZ8CTX`
 
+### GAP: canvas 3D-only face tones are local literals in canvas-card-face.ts
+
+- **expected** — Every tone a canvas face paints is resolved from canvas-style.ts.
+- **current** — 3D-only face tones are literals in canvas-card-face.ts: bullet 0.45, tag 0.13, label pill 0.92 and its hairline 0.14, plain label 0.4.
+- **impact** — Low: only 3D paints those parts, so nothing diverges yet.
+- **closes** — Fold them into canvas-style.ts when the DOM paints those parts from tones.
+- **node** — `01M540YP8CRGKHPEM3PK19MH1C`
+
 ### GAP: canvas camera lives on the canvas document
 
 - **expected** — the projection (2d/3d) and saved pose are settings of the canvas's view node (roadmap decision 6)
@@ -388,6 +404,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — one camera per canvas, written together with its content
 - **closes** — view nodes (roadmap step 2), then canvas as a view type
 - **node** — `01M3S5DD5W4B3BSZMA6DE8ZVP8`
+
+### GAP: canvas solid body tones are still set per projection
+
+- **expected** — CanvasItemBody (2D) and the 3D bodyMaterial/edgeMaterial resolve canvas-style tones.
+- **current** — 2D uses oklab color-mix at 22%/45%; 3D uses over at 0.3/0.42 for the body and 0.75/0.28 for edges.
+- **impact** — A coloured solid's shade differs between 2D and 3D, and bodies are not in the look contract.
+- **closes** — Body tones in canvas-style.ts, both painters resolving them, and a look-contract assertion.
+- **node** — `01M540YKDP4WQPSJR41GH0Q90V`
 
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
 
