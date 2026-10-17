@@ -202,3 +202,4 @@ export {
 } from "./view-migration.ts";
 export type { LegacyDocsView, LegacyViews, ViewMigration } from "./view-migration.ts";
 export { isValidWorkspaceName } from "./workspace-name.ts";
+export { relationInverseOf } from "./relation.ts";
