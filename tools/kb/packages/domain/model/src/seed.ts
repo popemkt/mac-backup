@@ -93,6 +93,22 @@ export function seededTag(id: string, text: string, fields: readonly string[], a
 }
 
 /**
+ * A command as a seed declares it, core's or a family's: a node typed
+ * `sys.command`, which is what ⌘K offers. Its id is the command's, so the
+ * `CommandPoint` contribution that runs it is found by that id.
+ */
+function seededCommand(id: string, text: string, at: string): KbNode {
+  return {
+    id,
+    text,
+    props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.command }] },
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+}
+
+/**
  * Core's system nodes, the seed core's declaration contributes. Idempotent —
  * same ids every time. A store is never seeded with these alone: it is
  * seeded with the fold of every bundled declaration ({@link foldSeed}),
@@ -178,38 +194,36 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
 
   // Command type + palette command instances (W3)
   const command = mk(SYSTEM_IDS.command, "sys.command");
-  const cmdType = {
-    [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: SYSTEM_IDS.command }],
-  };
+  const cmd = (id: string, text: string): KbNode => seededCommand(id, text, at);
   const commands: KbNode[] = [
-    mk(SYSTEM_IDS.cmdAddNode, "Add node", cmdType),
-    mk(SYSTEM_IDS.cmdAddTag, "Add tag", cmdType),
-    mk(SYSTEM_IDS.cmdDefineField, "Define field", cmdType),
-    mk(SYSTEM_IDS.cmdGoQuery, "Saved queries", cmdType),
-    mk(SYSTEM_IDS.cmdNewQuery, "New query node", cmdType),
+    cmd(SYSTEM_IDS.cmdAddNode, "Add node"),
+    cmd(SYSTEM_IDS.cmdAddTag, "Add tag"),
+    cmd(SYSTEM_IDS.cmdDefineField, "Define field"),
+    cmd(SYSTEM_IDS.cmdGoQuery, "Saved queries"),
+    cmd(SYSTEM_IDS.cmdNewQuery, "New query node"),
     // W8a shell commands: device prefs popover + quick toggles
-    mk(SYSTEM_IDS.cmdPreferences, "Preferences", cmdType),
-    mk(SYSTEM_IDS.cmdToggleTheme, "Toggle theme", cmdType),
-    mk(SYSTEM_IDS.cmdSwitchDesignSystem, "Switch design system", cmdType),
-    mk(SYSTEM_IDS.cmdToggleWidth, "Toggle width", cmdType),
-    mk(SYSTEM_IDS.cmdDebugShowFields, "Debug: show all fields", cmdType),
-    mk(SYSTEM_IDS.cmdExpandAll, "Expand all", cmdType),
-    mk(SYSTEM_IDS.cmdCollapseAll, "Collapse all", cmdType),
+    cmd(SYSTEM_IDS.cmdPreferences, "Preferences"),
+    cmd(SYSTEM_IDS.cmdToggleTheme, "Toggle theme"),
+    cmd(SYSTEM_IDS.cmdSwitchDesignSystem, "Switch design system"),
+    cmd(SYSTEM_IDS.cmdToggleWidth, "Toggle width"),
+    cmd(SYSTEM_IDS.cmdDebugShowFields, "Debug: show all fields"),
+    cmd(SYSTEM_IDS.cmdExpandAll, "Expand all"),
+    cmd(SYSTEM_IDS.cmdCollapseAll, "Collapse all"),
     // W7.1 view mode + filter commands. The view-as commands name the
     // outline's and the collections' frame views, which are the families'.
     // GAP [[01M536CGS8JJ7XMG3F738WSNYK]]
-    mk(SYSTEM_IDS.cmdViewAsList, "View as: List", cmdType),
-    mk(SYSTEM_IDS.cmdViewAsTable, "View as: Table", cmdType),
-    mk(SYSTEM_IDS.cmdViewAsBoard, "View as: Board", cmdType),
-    mk(SYSTEM_IDS.cmdViewAsCards, "View as: Cards", cmdType),
-    mk(SYSTEM_IDS.cmdViewFilter, "Filter…", cmdType),
+    cmd(SYSTEM_IDS.cmdViewAsList, "View as: List"),
+    cmd(SYSTEM_IDS.cmdViewAsTable, "View as: Table"),
+    cmd(SYSTEM_IDS.cmdViewAsBoard, "View as: Board"),
+    cmd(SYSTEM_IDS.cmdViewAsCards, "View as: Cards"),
+    cmd(SYSTEM_IDS.cmdViewFilter, "Filter…"),
     // r5 ontology commands
-    mk(SYSTEM_IDS.cmdNewOntology, "New ontology", cmdType),
-    mk(SYSTEM_IDS.cmdEnterOntology, "Enter ontology…", cmdType),
-    mk(SYSTEM_IDS.cmdExitOntology, "Exit ontology", cmdType),
+    cmd(SYSTEM_IDS.cmdNewOntology, "New ontology"),
+    cmd(SYSTEM_IDS.cmdEnterOntology, "Enter ontology…"),
+    cmd(SYSTEM_IDS.cmdExitOntology, "Exit ontology"),
     // Panes and layouts
-    mk(SYSTEM_IDS.cmdSaveWorkspace, "Save workspace", cmdType),
-    mk(SYSTEM_IDS.cmdClosePane, "Close pane", cmdType),
+    cmd(SYSTEM_IDS.cmdSaveWorkspace, "Save workspace"),
+    cmd(SYSTEM_IDS.cmdClosePane, "Close pane"),
   ];
 
   // Query nodes as pure system nodes (W4). A query node is any node carrying
