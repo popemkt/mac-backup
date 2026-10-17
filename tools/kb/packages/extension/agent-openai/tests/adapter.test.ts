@@ -81,11 +81,22 @@ const callsOnce: ModelDouble = ({ step }) =>
 /** An endpoint that refuses the request. */
 const refusing: ChatFetch = () => Promise.resolve(new Response("no such model", { status: 404 }));
 
+/** An endpoint that refuses with a code, and a message echoing what it was sent. */
+const coded: ChatFetch = () =>
+  Promise.resolve(
+    new Response(
+      JSON.stringify({
+        error: { code: "model_not_found", message: "no model; you sent Bearer sk-proxy" },
+      }),
+      { status: 404 },
+    ),
+  );
+
 /** An endpoint that starts a reply, then reports an error event. */
 const erring: ChatFetch = () =>
   Promise.resolve(
     new Response(
-      'data: {"choices":[{"delta":{"content":"par"}}]}\n\ndata: {"error":{"message":"quota exhausted"}}\n\n',
+      'data: {"choices":[{"delta":{"content":"par"}}]}\n\ndata: {"error":{"message":"quota exhausted","code":"insufficient_quota"}}\n\n',
       { status: 200 },
     ),
   );
@@ -153,13 +164,71 @@ describe("the openai-chat adapter's wire", () => {
     expect(chat.requests).toEqual([]);
   });
 
-  test("a failed response fails the turn with its status and what it said", async () => {
+  test("a failed response fails the turn with its origin, status and code, never its body", async () => {
     expect(await turnOver(refusing)).toMatchObject({
-      failure: "http://127.0.0.1:8317/v1/chat/completions answered 404: no such model",
+      failure: "http://127.0.0.1:8317 answered 404",
+    });
+    const ended = await turnOver(coded);
+    expect(ended).toMatchObject({
+      failure: "http://127.0.0.1:8317 answered 404 (model_not_found)",
+    });
+    expect(JSON.stringify(ended)).not.toContain("sk-proxy");
+  });
+
+  test("an error event mid-stream fails the turn with its code, never its message", async () => {
+    expect(await turnOver(erring)).toMatchObject({
+      failure: "the endpoint reported an error (insufficient_quota)",
     });
   });
 
-  test("an error event mid-stream fails the turn with its message", async () => {
-    expect(await turnOver(erring)).toMatchObject({ failure: "quota exhausted" });
+  test("plain http goes only to this machine, and an endpoint holds no credentials", async () => {
+    const chat = fakeChat(() => [{ say: "ok" }]);
+    for (const [endpoint, failure] of [
+      [
+        "http://proxy.example/v1",
+        "An OpenAI-compatible provider's endpoint must be https, or http on this machine (localhost).",
+      ],
+      [
+        "https://me:pw@proxy.example/v1",
+        "An OpenAI-compatible provider's endpoint carries credentials; name a credential instead.",
+      ],
+      ["not a url", "An OpenAI-compatible provider's endpoint is not a URL."],
+    ] as const) {
+      expect(await turnOver(chat.fetch, { ...PROVIDER, endpoint })).toMatchObject({ failure });
+    }
+    expect(chat.requests).toEqual([]);
+    for (const endpoint of [
+      "http://localhost:11434/v1",
+      "http://127.0.0.2:8317/v1",
+      "http://[::1]:8317/v1",
+      "https://proxy.example/v1",
+    ]) {
+      expect(await turnOver(chat.fetch, { ...PROVIDER, endpoint })).toMatchObject({ text: "ok" });
+    }
+  });
+
+  test("an endpoint that never answers ends the step, and its request is aborted", async () => {
+    const signals: AbortSignal[] = [];
+    const silent: ChatFetch = (_url, init) => {
+      signals.push(init.signal);
+      return new Promise(() => undefined);
+    };
+    const runtime = openAiChatAdapter({ fetch: silent, answerTimeoutMs: 20 }).runtime(
+      PROVIDER,
+      NO_SECRETS,
+    );
+    const failure = await Effect.runPromise(
+      Stream.runDrain(
+        runtime.turn({
+          system: "",
+          message: { text: "hi", screen: null },
+          tools: [],
+          resume: undefined,
+          call: (action) => Effect.succeed(succeeded(action, {})),
+        }),
+      ).pipe(Effect.match({ onSuccess: () => null, onFailure: ({ message }) => message })),
+    );
+    expect(failure).toBe("http://127.0.0.1:8317 did not answer within 0.02s");
+    expect(signals.map((signal) => signal.aborted)).toEqual([true]);
   });
 });

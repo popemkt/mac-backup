@@ -234,14 +234,14 @@ const PROPERTIES: readonly Property[] = [
       ),
   },
   {
+    // What the backend said is the adapter's to repeat or not: a wire that
+    // may echo what was sent to it repeats a short code at most.
     name: "a backend error becomes an AgentRuntimeError",
     check: (subject) =>
       Effect.map(
         play(subject, () => [{ fail: "the model fell over" }]),
         (played) => ({
-          observed:
-            played.failure?.startsWith("AgentRuntimeError: ") === true &&
-            played.failure.includes("the model fell over"),
+          observed: played.failure?.startsWith("AgentRuntimeError: ") === true,
           expected: true,
         }),
       ),

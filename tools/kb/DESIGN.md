@@ -2926,8 +2926,17 @@ The sidebar agent lives outside core, in packages that core never imports
   credential that resolves is a bearer token, read as each step starts.
   The server-sent events are decoded with Schema: text is passed on as it
   arrives, a call's pieces are joined by index and handed to the loop when
-  the step ends, and a failed response or an error event ends the turn
-  with what it said. `fetch` is the platform's unless a test hands it one.
+  the step ends, and a failed response or an error event ends the turn.
+  - The endpoint is `https`, or plain `http` only on this machine
+    (`localhost`, `127.0.0.0/8`, `::1`), and it carries no credentials of
+    its own. Otherwise the turn fails before anything is sent, so neither
+    the key nor the conversation crosses a network in the clear.
+  - A failure names the endpoint's origin, the status and, at most, a short
+    error code the server sent (`model_not_found`). It never repeats what
+    the server said, which may echo what it was sent.
+  - A server that does not start answering within 60 s ends the step, and
+    its request is aborted, as it is when the turn is cancelled.
+  - `fetch` is the platform's unless a test hands it one.
 - **Every message carries the sender's screen.** The bridge asks
   `ui.screen` for the tab that the sending connection publishes as. It
   names the nodes that screen mentions (the open view's subject, the
