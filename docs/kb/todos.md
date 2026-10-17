@@ -115,6 +115,7 @@
 - E20 · boundary errors in the editor: an oxlint JS plugin over the harness's matrixViolation (one rule table); after the oxlint upgrade
 - Effect 4.0.0 stable with @effect/tsgo 0.48 (effect-tsgo patch runs in prepare)
 - Extension isolation, the rest (plans: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md, docs/brainstorms/2026-10-04-kb-extension-boundaries/sdk.md)
+- Fix pre-existing test:render failure: projection.e2e "collapse holds the camera; mapped perspectives save…" fails on main (seen at a988d219, reported by the trace builder 2026-10-17); test:render is not in the gate, so nothing else catches it
 - Idea (later, owner 2026-10-17): kernel lifecycle hooks like Claude Code mods — before-write (veto/transform), after-commit (react), before/after action, session start; each a kernel point with a contract suite, landing with its first consumer (e.g. trace's label suggestions). Context: the deleted event seam (Cordis gap 3) was a generic emit/on with no consumer.
 - kb work queue, in order (owner's priority 2026-10-04; resume notes: docs/brainstorms/2026-09-29-kb-genui-canvas-agents/resume.md)
 - O1 follow-up · expansion storage tests (two tabs one id, malformed kb-expansion, legacy first save with a change) and DESIGN-UI wording (memory vs storage merge, mixed-build rule, legacy opens equal to default drop on first save)
