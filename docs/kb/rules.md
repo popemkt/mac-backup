@@ -1297,6 +1297,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A CI runner with a GPU adapter (a self-hosted Apple silicon runner, or a hosted runner that exposes Metal to Chromium), after which the skip condition never holds and can be deleted.
 - **node** — `01M3E6QH4WZFJQTQM96NBZ7VVA`
 
+### GAP: what an approved extension loads when it runs is not closed over
+
+- **expected** — Every file a repository extension loads, at import or when it runs, is one a person approved or one installed outside the root.
+- **current** — Only the static graph is closed: each import the bytes name as a literal resolves outside the root, or the extension is refused. A computed import, a require made from its url, or an import built at runtime loads what it names. Bun 1.4.2's runtime plugin hooks (onLoad, onResolve) are skipped for a specifier whose query holds a colon (./x.ts?a:b), so no in-process hook sees every load.
+- **impact** — An approved extension that computes an import of a file the root carries runs that file as it is on disk, unapproved. Only the bytes the person read show it.
+- **closes** — Run repository extensions where every load is decided, such as a process or Worker whose loader refuses what is not approved, or a Bun whose runtime plugins see every load, plus a property for the colon-query route.
+- **node** — `01M54NXDA4X8VZJ5DCZXX0PRHP`
+
 
 ## Closed
 
