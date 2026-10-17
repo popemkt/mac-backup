@@ -9,14 +9,8 @@
  */
 import { useMemo } from "react";
 import type { WireNode } from "@kb/contracts";
-import {
-  relationFieldsFor,
-  suggestOf,
-  suggestsRelations,
-  type LensPerspective,
-  type SuggestedNode,
-} from "@kb/graph";
-import { extensionNodeId } from "@kb/model";
+import { suggestOf, suggestsRelations, type LensPerspective, type SuggestedNode } from "@kb/graph";
+import { extensionNodeId, relationFieldsFor } from "@kb/model";
 import { browserHost, runQuery, type KbIndex } from "@kb/ui-sdk";
 import type { GraphLens } from "./graph-lens";
 

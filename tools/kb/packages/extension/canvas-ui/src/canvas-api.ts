@@ -186,6 +186,7 @@ export async function createCanvasNode(
   return id;
 }
 
+// GAP [[01M545DD34TP58TEN1Z6MC7ASJ]] canvas and graph each read which ref fields a relation can be typed as
 /** Ref fields only (fieldType=ref), excluding sys.*. */
 export function listRefFields(
   nodes: ReadonlyMap<string, OutlineNode>,

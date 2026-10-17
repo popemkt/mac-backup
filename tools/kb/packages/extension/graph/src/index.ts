@@ -118,12 +118,7 @@ export {
   graphSuggestEffect,
   graphTraceEffect,
 } from "./actions.ts";
-export {
-  relationFieldsFor,
-  typedRelation,
-  type RelationRefusal,
-  type RelationTyping,
-} from "./relation.ts";
+export { typedRelation, type RelationRefusal, type RelationTyping } from "./relation.ts";
 export {
   DEFAULT_TRACE_KINDS,
   edgesAmong,

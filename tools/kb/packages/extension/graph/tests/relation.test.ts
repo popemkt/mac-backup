@@ -1,18 +1,14 @@
 /**
  * Typing a relation (`typedRelation`): one ref prop added, the text left
  * alone, idempotent, and refused for a field that is no ref or a target the
- * field does not allow. Inverse labels read back a typed hop (`hopLabelsOf`).
+ * field does not allow (`@kb/model`'s `relationFieldFit`, whose own test is
+ * `relation.test.ts` there). Inverse labels read back a typed hop
+ * (`hopLabelsOf`).
  */
 import { describe, expect, test } from "bun:test";
 import { Result } from "effect";
 import { SYSTEM_IDS, fieldTypeValue, type KbNode } from "@kb/model";
-import {
-  GRAPH_IDS,
-  hopLabelsOf,
-  relationFieldsFor,
-  suggestsRelations,
-  typedRelation,
-} from "../src/index.ts";
+import { GRAPH_IDS, hopLabelsOf, suggestsRelations, typedRelation } from "../src/index.ts";
 
 const AT = "2026-10-17T00:00:00.000Z";
 
@@ -83,14 +79,6 @@ describe("typedRelation", () => {
       kb({ id: "a", text: "A", props: { "f.owner": [{ t: "ref", v: "c" }] } }),
     );
     expect(code(type("f.owner", "b", owned))).toBe("conflict");
-  });
-});
-
-describe("relationFieldsFor", () => {
-  test("offers the ref fields that allow the target, and only them", () => {
-    const ids = (target: string) => relationFieldsFor(nodes, target, noQuery).map((f) => f.id);
-    expect(ids("b")).toEqual(["f.about", "f.influences", "f.owner"]);
-    expect(ids("c")).toEqual(["f.influences", "f.owner"]);
   });
 });
 
