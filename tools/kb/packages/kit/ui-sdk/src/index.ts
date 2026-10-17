@@ -89,6 +89,7 @@ export {
   type ResolvedRoute,
   RoutePoint,
   SidebarSectionPoint,
+  pageFootprint,
   subscribeUiKernel,
   syncUiPlugins,
   useContributions,

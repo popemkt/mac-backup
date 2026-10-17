@@ -6,21 +6,19 @@
  */
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { makeKernel, syncPlugins, type Contribution, type Kernel } from "@kb/plugin";
+import { makeKernel, syncPlugins } from "@kb/plugin";
 import { BUNDLED_FAMILIES, HOSTED_FAMILIES } from "@kb/bundled";
 import { NO_SWITCHES, extensionRow, familyOn, type ExtensionRow } from "@kb/contracts";
 import { agentExtension } from "@kb/agent";
 import { LAB_SCENE_IDS, labExtension } from "@kb/lab";
 import { LAB_STUDIES, LabStudyPoint } from "@kb/lab-ui";
 import {
-  CommandPoint,
-  DockPoint,
   findView,
   matchRoute,
+  pageFootprint,
   ontologyPath,
   RoutePoint,
   SidebarSectionPoint,
-  ViewPoint,
 } from "@kb/ui-sdk";
 import { NoParams, viewKey, type OntologyView } from "@kb/views";
 import { BROWSER_EXTENSIONS, CORE_UI_PLUGINS, familiesToLoad } from "@/ui-plugins";
@@ -215,20 +213,6 @@ describe("the resolver", () => {
   });
 });
 
-/** Everything `kernel` holds at the points a browser half contributes to, that `name`'s plugins made. */
-function ownedBy(kernel: Kernel, name: string): readonly string[] {
-  const held: readonly Contribution<unknown>[] = [
-    ...kernel.contributions(ViewPoint),
-    ...kernel.contributions(RoutePoint),
-    ...kernel.contributions(SidebarSectionPoint),
-    ...kernel.contributions(DockPoint),
-    ...kernel.contributions(CommandPoint),
-  ];
-  return held
-    .filter(({ owner }) => owner === name || owner.startsWith(`${name}/`))
-    .map(({ id }) => id);
-}
-
 describe("an optional family switched off on the server", () => {
   const SWITCHABLE = [...BUNDLED_FAMILIES, agentExtension].filter(
     ({ name, optional }) => optional !== undefined && BROWSER_EXTENSIONS[name] !== null,
@@ -262,7 +246,10 @@ describe("an optional family switched off on the server", () => {
           syncPlugins(kernel, [...CORE_UI_PLUGINS, ...entries]),
         );
         expect(failures).toEqual([]);
-        expect({ on, holds: ownedBy(kernel, family.name).length > 0 }).toEqual({ on, holds: on });
+        expect({ on, holds: pageFootprint(family.name, kernel).length > 0 }).toEqual({
+          on,
+          holds: on,
+        });
       }
       await Effect.runPromise(kernel.shutdown);
     });
@@ -279,7 +266,7 @@ describe("an optional family switched off on the server", () => {
         syncPlugins(kernel, [...CORE_UI_PLUGINS, ...entries]),
       );
       expect(failures).toEqual([]);
-      expect(ownedBy(kernel, "lab").length).toBeGreaterThan(0);
+      expect(pageFootprint("lab", kernel).length).toBeGreaterThan(0);
       const offered = kernel.contributions(LabStudyPoint).map(({ value }) => value.scene);
       const graphStudies = LAB_SCENE_IDS.filter((id) => LAB_STUDIES[id].readsGraph === true);
       expect(graphStudies).toEqual(["sky"]);
@@ -288,5 +275,27 @@ describe("an optional family switched off on the server", () => {
       );
     }
     await Effect.runPromise(kernel.shutdown);
+  });
+});
+
+describe("a family's footprint on the page", () => {
+  it("is what its browser entry, children included, holds in the page kernel, each row from the page", () => {
+    const kernel = kernelWithBuiltins();
+    for (const name of familiesToLoad(reported(() => true))) {
+      const rows = pageFootprint(name, kernel);
+      expect({ name, rows: rows.map(({ kind, id }) => [kind, id]) }).toEqual({
+        name,
+        rows: kernel.contributionsOf(name).map(({ point, id }) => [point, id]),
+      });
+      expect(rows.every((row) => row.family === name && row.source === "page" && row.enabled)).toBe(
+        true,
+      );
+    }
+    // The canvas's page half: its routes, its sidebar section and its views.
+    const canvas = pageFootprint("canvas", kernel).map(({ kind, id }) => `${kind} ${id}`);
+    expect(canvas).toContain("ui.routes canvas.page");
+    expect(canvas).toContain("ui.sidebar canvas.section");
+    Effect.runSync(kernel.unload("canvas"));
+    expect(pageFootprint("canvas", kernel)).toEqual([]);
   });
 });

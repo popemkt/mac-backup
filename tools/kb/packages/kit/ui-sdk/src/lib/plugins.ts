@@ -22,6 +22,7 @@ import {
 } from "react";
 import type { Icon } from "@phosphor-icons/react";
 import { Cause, Effect } from "effect";
+import { runtimeFootprint, type FootprintRow } from "@kb/contracts";
 import { present } from "@kb/model";
 import {
   Point,
@@ -260,6 +261,16 @@ export function syncUiPlugins(plugins: readonly Plugin[]): void {
 
 /** Called after every change to the page kernel's plugins, services or contributions. */
 export const subscribeUiKernel = uiKernel.subscribe;
+
+/**
+ * A family's footprint on the page (DESIGN.md → Extension families →
+ * footprint): what its browser entry, children included, contributed to
+ * `kernel`, the page's own by default, as rows from `page`. The server's
+ * rows come from `extension.footprint`; the plugin view joins the two.
+ */
+export function pageFootprint(family: string, kernel: Kernel = uiKernel): readonly FootprintRow[] {
+  return runtimeFootprint(family, { source: "page", kernel });
+}
 
 /**
  * A reader for one point that returns the same array until the kernel moves.

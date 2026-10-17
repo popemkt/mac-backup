@@ -2332,7 +2332,9 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     kind (`kb.actions`, `kb.views`, `ui.routes`, …), from each kernel the
     host holds families in (`FamilyKernels`): the registry's
     (`registry`), and the one the `kb ui` server hosts its families in
-    (`host`). A family switched off has none.
+    (`host`). The page reads its own kernel the same way (`page`,
+    `pageFootprint` in `@kb/ui-sdk`), for the plugin view to join with
+    the server's. A family switched off has none.
 
   `extension.footprint {name?}` returns them for every node under
   `sys.extensions`, core's included, or for one; `enabled` says whether a
