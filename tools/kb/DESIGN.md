@@ -2718,13 +2718,13 @@ outline, which shows it as it shows any child; what it is on is its fields.
   no copy of the card's node is kept: the pin is found from the node.
   These are ref and text fields like any other, so the reference relation
   reads the thread through the ref-value carrier every field has, with no
-  carrier of its own. `threadProps` writes a new thread's fields, and the
-  page and the verb write threads with it.
+  carrier of its own.
 - **Resolved** is an option field, `sys.f.comment.state`, whose options
   (`open`, `resolved`) are its children; resolving or reopening is writing
   it, as any option field is written.
 - **Who wrote it** is not recorded, since the store keeps no writer for a
-  node: a comment shows its text and when it was written.
+  node: a comment shows its text and when it was written (gap
+  `01M54GBYH3K67TAW016HFCJHBC`).
 - **Lost pins.** An open thread whose node is on no card of its canvas, or
   whose item is gone, has lost its pin: it stays on the canvas, pinned
   nowhere, and is linted `orphan-comment` until it is pinned again or
@@ -2733,8 +2733,21 @@ outline, which shows it as it shows any child; what it is on is its fields.
   orphan in its `lints.new`.
 - **Reading them.** `CanvasWorld.threadsOn` gives a canvas's threads with
   their pins, state and replies; `describe` lists them (`comments`).
-- **Writing them is an ordinary write**, not configuration: an agent
-  comments, replies and resolves with no approval.
+- **Writing them.** `ext.canvas.comment` writes a comment, as the page's
+  comment gestures and an agent both do: a new thread `on` an item (a
+  card's thread is on its node) or `at` a point, or a reply to any comment
+  of a thread on the canvas (`replyTo`), under the comment it answers.
+  `commentWrite` is the one statement of what that writes — the parent,
+  the fields, the thread — and the verb writes it as `node.add` writes a
+  node. It refuses an item the canvas does not hold and a reply to a
+  comment of no thread on it. Resolving or reopening is `node.update` of
+  `sys.f.comment.state`, as any option field is written. It is an ordinary
+  write, not configuration: an agent comments, replies and resolves with no
+  approval. The verb's `targets` are the canvas and the comment it
+  answers, so a script comments only within its subject
+  ([Grants](#grants-and-the-script-actor)): a thread a person filed
+  elsewhere in the outline is past a script's reach even when it is on the
+  script's canvas.
 
 #### Agent verbs
 
@@ -2808,6 +2821,8 @@ transaction, one step of an open canvas's history.
   **`group`** gathers items into a frame a grid step round them, as ⌘G does;
   **`ungroup`** takes frames apart. **`promote`** makes a node of a text
   card's words (no parent, node first: D6), and the card shows it.
+  **`comment`** starts a thread on an item or at a point, or replies to
+  one ([Comments](#comments)).
   `place` (moving), `arrange`, `group` and `ungroup` refuse an item that is
   `locked`, naming it; `promote` takes a locked card, since it changes what
   the card shows and not where it stands; `describe` reports it

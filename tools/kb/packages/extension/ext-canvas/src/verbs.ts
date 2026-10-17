@@ -55,6 +55,7 @@ import {
   type CanvasEdge,
   type CanvasWhere,
 } from "@kb/canvas";
+import { COMMENT_VERB } from "./comment.ts";
 import { LintDiffSchema, LintSchema } from "./lints.ts";
 import {
   AnchorSchema,
@@ -837,6 +838,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
     outputSchema: ungroupOutput,
     effect: canvasUngroupEffect,
   },
+  COMMENT_VERB,
   {
     id: "promote",
     title: "Promote to node",

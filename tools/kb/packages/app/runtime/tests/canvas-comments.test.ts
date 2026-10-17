@@ -3,14 +3,15 @@
  * is a `#comment` node pinned on a canvas, its replies its children. It is
  * a backlink of its canvas and of the node it is about, `describe` lists it
  * with its pin and whether it is resolved, and an open thread whose pin is
- * gone from the canvas is linted as an orphan.
+ * gone from the canvas is linted as an orphan. Threads and replies are
+ * written through `ext.canvas.comment`, whose reach a script's grant bounds.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CANVAS_IDS, threadProps, type CommentAnchor } from "@kb/canvas";
-import type { ActionReceipt, KbContext } from "@kb/contracts";
+import { CANVAS_IDS } from "@kb/canvas";
+import type { ActionInvocation, ActionReceipt, KbContext } from "@kb/contracts";
 import { backlinksQuery } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
@@ -40,21 +41,21 @@ const shape = (id: string) => ({
   height: 80,
 });
 
-/** Write a thread on `n.canvas` pinned at `anchor`, the way the page and the verb write one. */
-const thread = (ctx: KbContext, id: string, text: string, anchor: CommentAnchor) =>
-  invoke(ctx, {
-    id: "node.add",
-    input: {
-      id,
-      text,
-      tags: ["comment"],
-      parent: "n.canvas",
-      props: Object.entries(threadProps("n.canvas", anchor)).map(([field, value]) => ({
-        field,
-        value,
-      })),
-    },
-  });
+/** Comment on `n.canvas` through the verb: a thread `on` an item or `at` a point, or a reply. */
+const comment = (
+  ctx: KbContext,
+  input: Record<string, unknown>,
+  rest: Partial<ActionInvocation> = {},
+) => invoke(ctx, { id: "ext.canvas.comment", input: { canvasId: "n.canvas", ...input }, ...rest });
+const thread = (ctx: KbContext, id: string, text: string, place: Record<string, unknown>) =>
+  comment(ctx, { id, text, ...place });
+
+/** Why `receipt` failed; it fails the test when it succeeded. */
+async function failed(receipt: Promise<ActionReceipt>): Promise<string> {
+  const told = await receipt;
+  if (told.status !== "failed") throw new Error(JSON.stringify(told));
+  return told.message;
+}
 
 const describeComments = async (ctx: KbContext) =>
   output(await invoke(ctx, { id: "ext.canvas.describe", input: { canvasId: "n.canvas" } }));
@@ -85,15 +86,15 @@ describe("comments on a canvas", () => {
         },
       }),
     );
-    output(await thread(ctx, "k.topic", "Is this right?", { node: "n.topic" }));
-    output(await thread(ctx, "k.shape", "Move this", { item: "s1" }));
+    // On a card, the thread is on its node; on a shape, on the shape.
+    output(await thread(ctx, "k.topic", "Is this right?", { on: "c1" }));
+    output(await thread(ctx, "k.shape", "Move this", { on: "s1" }));
     output(await thread(ctx, "k.point", "Room here", { at: { x: 900, y: 40 } }));
-    output(
-      await invoke(ctx, {
-        id: "node.add",
-        input: { id: "k.reply", text: "Yes", tags: ["comment"], parent: "k.topic" },
-      }),
-    );
+    expect(output(await comment(ctx, { id: "k.reply", text: "Yes", replyTo: "k.topic" }))).toEqual({
+      canvasId: "n.canvas",
+      id: "k.reply",
+      thread: "k.topic",
+    });
 
     const referrers = async (id: string) =>
       (
@@ -155,9 +156,9 @@ describe("comments on a canvas", () => {
         }),
       );
     await write([card("c1", "n.topic"), shape("s1"), shape("s2")]);
-    output(await thread(ctx, "k.topic", "On the topic", { node: "n.topic" }));
-    output(await thread(ctx, "k.shape", "On s1", { item: "s1" }));
-    output(await thread(ctx, "k.done", "On s2, done", { item: "s2" }));
+    output(await thread(ctx, "k.topic", "On the topic", { on: "c1" }));
+    output(await thread(ctx, "k.shape", "On s1", { on: "s1" }));
+    output(await thread(ctx, "k.done", "On s2, done", { on: "s2" }));
     output(await thread(ctx, "k.point", "Here", { at: { x: 0, y: 500 } }));
     output(
       await invoke(ctx, {
@@ -182,5 +183,74 @@ describe("comments on a canvas", () => {
         .filter((lint) => lint.rule === "orphan-comment")
         .map((lint) => lint.ids),
     ).toEqual([["k.topic"], ["k.shape"]]);
+  });
+
+  test("a comment names one place on its canvas, and a script's comments stay on its subject", async () => {
+    const ctx = await openKb(root);
+    for (const id of ["n.canvas", "n.other"]) {
+      await invoke(ctx, { id: "node.add", input: { id, text: id, tags: ["canvas"] } });
+    }
+    output(
+      await invoke(ctx, {
+        id: "ext.canvas.tx.apply",
+        input: { canvasId: "n.canvas", doc: { nodes: [shape("s1")], edges: [] } },
+      }),
+    );
+    output(await thread(ctx, "k.here", "Here", { on: "s1" }));
+    output(
+      await invoke(ctx, {
+        id: "ext.canvas.comment",
+        input: { canvasId: "n.other", id: "k.there", text: "There", at: { x: 0, y: 0 } },
+      }),
+    );
+
+    expect(await failed(thread(ctx, "k.no", "Gone", { on: "s9" }))).toContain("no item s9");
+    expect(await failed(comment(ctx, { text: "Elsewhere", replyTo: "k.there" }))).toContain(
+      "no comment k.there on this canvas",
+    );
+    expect(await failed(comment(ctx, { text: "Both", on: "s1", at: { x: 0, y: 0 } }))).toContain(
+      "exactly one",
+    );
+
+    // A script on n.canvas comments and replies there, and nowhere else.
+    const asScript: Partial<ActionInvocation> = {
+      actor: "script",
+      approved: true,
+      script: { subject: "n.canvas", grant: { reads: "subject", actions: ["ext.canvas.comment"] } },
+    };
+    output(await comment(ctx, { id: "k.answer", text: "Done", replyTo: "k.here" }, asScript));
+    expect(
+      (
+        await invoke(ctx, {
+          id: "ext.canvas.comment",
+          input: { canvasId: "n.other", text: "Over there", at: { x: 1, y: 1 } },
+          ...asScript,
+        })
+      ).status,
+    ).toBe("failed");
+    // A thread on n.canvas a person filed under n.other: a reply there reaches past the subject.
+    output(
+      await invoke(ctx, {
+        id: "node.add",
+        input: {
+          id: "k.filed",
+          text: "Filed away",
+          tags: ["comment"],
+          parent: "n.other",
+          props: [
+            { field: CANVAS_IDS.commentCanvasField, value: { t: "ref", v: "n.canvas" } },
+            { field: CANVAS_IDS.commentAtField, value: { t: "str", v: "0,0" } },
+          ],
+        },
+      }),
+    );
+    expect((await comment(ctx, { text: "Reaching", replyTo: "k.filed" }, asScript)).status).toBe(
+      "failed",
+    );
+    output(await comment(ctx, { id: "k.person", text: "Mine", replyTo: "k.filed" }));
+    expect((await describeComments(ctx)).comments).toEqual([
+      expect.objectContaining({ id: "k.here", replies: [{ id: "k.answer", text: "Done" }] }),
+      expect.objectContaining({ id: "k.filed", replies: [{ id: "k.person", text: "Mine" }] }),
+    ]);
   });
 });

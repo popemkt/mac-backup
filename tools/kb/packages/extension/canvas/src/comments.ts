@@ -19,6 +19,7 @@ import {
 } from "@kb/model";
 import type { CanvasDoc, CanvasNode } from "./doc.ts";
 import { CANVAS_IDS } from "./ids.ts";
+import { CanvasRelationError } from "./relations.ts";
 
 /** Where a thread is pinned on its canvas. */
 export type CommentAnchor =
@@ -118,16 +119,15 @@ export function pinLost(anchor: CommentAnchor | null, doc: CanvasDoc): boolean {
   return !("at" in anchor) && pinnedItems(anchor, doc).length === 0;
 }
 
-/**
- * The fields a new thread on `canvas` is written with, pinned at `anchor`
- * and open: the one statement of a thread's shape, which the verb and the
- * page both write.
- */
-export function threadProps(
+/** A value a comment's fields hold: a ref, or its item or point as text. */
+type CommentValue = Extract<PropValue, { t: "ref" } | { t: "str" }>;
+
+/** The fields a new thread on `canvas` is written with, pinned at `anchor` and open. */
+function threadProps(
   canvas: NodeId,
   anchor: CommentAnchor,
-): Readonly<Record<NodeId, PropValue>> {
-  const pin: Record<NodeId, PropValue> =
+): Readonly<Record<NodeId, CommentValue>> {
+  const pin: Record<NodeId, CommentValue> =
     "node" in anchor
       ? { [CANVAS_IDS.commentNodeField]: { t: "ref", v: anchor.node } }
       : "item" in anchor
@@ -141,6 +141,52 @@ export function threadProps(
 }
 
 /** Where a comment on `item` is pinned: on its node when it is a card, else on it. */
-export function anchorOnItem(item: CanvasNode): CommentAnchor {
+function anchorOnItem(item: CanvasNode): CommentAnchor {
   return item.nodeId === undefined ? { item: item.id } : { node: item.nodeId };
+}
+
+/**
+ * Where a new comment goes: on an item of the canvas (a card's comment is
+ * on its node), at a point on it, or as a reply under a comment of one of
+ * its threads.
+ */
+export type CommentPlace =
+  | { readonly on: string }
+  | { readonly at: { readonly x: number; readonly y: number } }
+  | { readonly replyTo: NodeId };
+
+/** A new comment as it is written: the node it goes under, its fields, and the thread it is in. */
+export interface CommentWrite {
+  readonly parent: NodeId;
+  readonly props: Readonly<Record<NodeId, CommentValue>>;
+  /** The thread it joins; null when it starts one, whose id is its own. */
+  readonly thread: NodeId | null;
+}
+
+/**
+ * How a comment placed at `place` on `canvas` is written, given what the
+ * canvas holds (`doc`) and its threads: the one statement of a comment's
+ * shape. A thread is filed under its canvas, a reply under the comment it
+ * answers. Throws `CanvasRelationError` for an item the canvas does not
+ * hold or a reply to no comment of its threads.
+ */
+export function commentWrite(
+  canvas: NodeId,
+  place: CommentPlace,
+  doc: CanvasDoc,
+  threads: readonly CanvasThread[],
+): CommentWrite {
+  if ("replyTo" in place) {
+    const thread = threads.find(
+      (one) => one.id === place.replyTo || one.replies.some((reply) => reply.id === place.replyTo),
+    );
+    if (thread === undefined) {
+      throw new CanvasRelationError(`no comment ${place.replyTo} on this canvas to reply to`);
+    }
+    return { parent: place.replyTo, props: {}, thread: thread.id };
+  }
+  if ("at" in place) return { parent: canvas, props: threadProps(canvas, place), thread: null };
+  const item = doc.nodes.find((one) => one.id === place.on);
+  if (item === undefined) throw new CanvasRelationError(`no item ${place.on} on this canvas`);
+  return { parent: canvas, props: threadProps(canvas, anchorOnItem(item)), thread: null };
 }
