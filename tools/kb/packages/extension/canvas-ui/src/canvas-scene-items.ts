@@ -175,7 +175,7 @@ function faceVersion(face: CardFace, selected: boolean): string {
     case "note":
       return `n${mark}${look}${fingerprint(face.text)}${face.tags.map((t) => `|${t.name}:${t.color}`).join("")}`;
     case "shape":
-      return `s${mark}${look}${face.shape}:${fingerprint(face.label)}`;
+      return `s${mark}${look}${face.item.shape}:${fingerprint(face.label)}`;
     case "text":
       return `t${mark}${look}${fingerprint(face.text)}`;
     case "image":

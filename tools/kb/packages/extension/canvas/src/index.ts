@@ -265,6 +265,7 @@ export { CANVAS_EVENTS, CanvasListView, CanvasParams, CanvasView, canvasViewIdOf
 export { canvasExtension, canvasPlugin } from "./extension.ts";
 export {
   CANVAS_PRESET_KINDS,
+  CANVAS_SHAPE_PRESETS,
   CANVAS_SOLID_PRESETS,
   imageItem,
   makeItem,

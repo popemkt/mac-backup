@@ -1,8 +1,14 @@
 import { useRef, useState, type ReactNode, type Ref } from "react";
 import {
   ArrowUpRightIcon,
+  ArrowFatDownIcon,
+  ArrowFatLeftIcon,
+  ArrowFatRightIcon,
+  ArrowFatUpIcon,
   CaretRightIcon,
   ChatCircleIcon,
+  CheckSquareIcon,
+  CloudIcon,
   CircleIcon,
   CubeIcon,
   CursorIcon,
@@ -10,6 +16,7 @@ import {
   DiamondIcon,
   FrameCornersIcon,
   HandIcon,
+  HexagonIcon,
   ImageIcon,
   LineSegmentIcon,
   PlusIcon,
@@ -17,6 +24,7 @@ import {
   SphereIcon,
   SquareIcon,
   SquareHalfIcon,
+  StarIcon,
   TagIcon,
   TextTIcon,
   TriangleIcon,
@@ -50,6 +58,15 @@ const TOOL_LOOKS: {
   rect: { label: "Rectangle", icon: <SquareIcon size={16} /> },
   ellipse: { label: "Ellipse", icon: <CircleIcon size={16} /> },
   diamond: { label: "Diamond", icon: <DiamondIcon size={16} /> },
+  triangle: { label: "Triangle", icon: <TriangleIcon size={16} /> },
+  hexagon: { label: "Hexagon", icon: <HexagonIcon size={16} /> },
+  star: { label: "Star", icon: <StarIcon size={16} /> },
+  cloud: { label: "Cloud", icon: <CloudIcon size={16} /> },
+  "arrow-left": { label: "Arrow left", icon: <ArrowFatLeftIcon size={16} /> },
+  "arrow-right": { label: "Arrow right", icon: <ArrowFatRightIcon size={16} /> },
+  "arrow-up": { label: "Arrow up", icon: <ArrowFatUpIcon size={16} /> },
+  "arrow-down": { label: "Arrow down", icon: <ArrowFatDownIcon size={16} /> },
+  "check-box": { label: "Check box", icon: <CheckSquareIcon size={16} /> },
   line: { label: "Line", icon: <LineSegmentIcon size={16} /> },
   arrow: { label: "Arrow", icon: <ArrowUpRightIcon size={16} /> },
   group: { label: "Group / Frame", icon: <FrameCornersIcon size={16} /> },
@@ -63,15 +80,12 @@ const TOOL_LOOKS: {
   wall: { label: "Wall", icon: <WallIcon size={16} /> },
 };
 
-/** The flat tools, in the strip's order; the solids sit behind one button after them. */
+/** The tools that stand alone, in the strip's order; the shapes and the solids each sit behind one button after them. */
 const FLAT_TOOLS: readonly CanvasTool[] = [
   "select",
   "hand",
   "text",
   "label",
-  "rect",
-  "ellipse",
-  "diamond",
   "line",
   "arrow",
   "group",
@@ -150,6 +164,7 @@ function ToolButton({
 
 /** What each family's picker is called. */
 const FAMILY_LOOKS: { readonly [F in CanvasToolFamily]: { readonly label: string } } = {
+  shape: { label: "Shapes" },
   solid: { label: "Solids" },
 };
 
@@ -172,6 +187,7 @@ function FamilyTool({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const last = lastOf(toolState, family);
   const active = familyOf(toolState.tool) === family;
+  const hint = shortcutHint({ type: "tool", tool: family });
   // The tool's button is its trigger: its click toggles the picker.
   useDismiss(open, { inside: [ref], trigger: triggerRef }, () => setOpen(false));
   return (
@@ -221,9 +237,11 @@ function FamilyTool({
               {TOOL_LOOKS[preset].label}
             </button>
           ))}
-          <div className="px-2 pt-1 pb-0.5 text-label text-foreground/35">
-            {shortcutHint({ type: "tool", tool: family })} picks the last one
-          </div>
+          {hint !== "" && (
+            <div className="px-2 pt-1 pb-0.5 text-label text-foreground/35">
+              {hint} picks the last one
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -254,6 +272,12 @@ export function CanvasToolbar({
           onDoubleClick={() => onToolDoubleClick(tool)}
         />
       ))}
+      <FamilyTool
+        family="shape"
+        toolState={toolState}
+        onToolChange={onToolChange}
+        onToolDoubleClick={onToolDoubleClick}
+      />
       <FamilyTool
         family="solid"
         toolState={toolState}

@@ -126,6 +126,15 @@ describe("mermaidDiagram", () => {
     expect(circle?.toHead).toBe("dot");
   });
 
+  test("a hexagon is drawn as kb's hexagon, not its nearest", () => {
+    const { spec, reported } = mermaidDiagram("flowchart TD\nA{{Six}} --> B");
+    expect(spec.boxes.map((b) => [b.key, b.item.preset])).toEqual([
+      ["A", "hexagon"],
+      ["B", "rect"],
+    ]);
+    expect(reported).toEqual([]);
+  });
+
   test("a chain and a group link every box to the next", () => {
     const { spec } = mermaidDiagram("graph TD; A & B --> C --> D");
     expect(spec.links.map((l) => `${l.from}${l.to}`)).toEqual(["AC", "BC", "CD"]);

@@ -4,11 +4,18 @@
  * draws its edges as a diagram would.
  */
 import { describe, expect, test } from "vitest";
-import { Vector3 } from "three/webgpu";
-import type { CanvasShapeKind } from "@kb/canvas";
+import {
+  DoubleSide,
+  Mesh,
+  MeshBasicMaterial,
+  Raycaster,
+  Vector3,
+  type BufferGeometry,
+} from "three/webgpu";
+import { CANVAS_SHAPES, type CanvasShapeKind } from "@kb/canvas";
 import { BODY, FACE, solidGeometry, solidKey, type SolidSpec } from "./canvas-scene-solids";
 
-const SHAPES: readonly CanvasShapeKind[] = ["rect", "ellipse", "diamond", "sphere", "cone"];
+const SHAPES = Object.keys(CANVAS_SHAPES) as CanvasShapeKind[];
 const spec = (shape: CanvasShapeKind, depth: number): SolidSpec => ({
   shape,
   width: 160,
@@ -38,20 +45,65 @@ describe.each(SHAPES)("%s", (shape) => {
     expect(box?.max.y).toBeCloseTo(50, 0);
     expect(box?.min.z).toBeCloseTo(0, 5);
     expect(box?.max.z).toBeCloseTo(60, 5);
-    const position = geometry.getAttribute("position");
-    const normal = geometry.getAttribute("normal");
-    const centre = new Vector3(0, 0, 30);
-    let outward = 0;
-    for (let i = 0; i < position.count; i++) {
-      const p = new Vector3().fromBufferAttribute(position, i).sub(centre);
-      const n = new Vector3().fromBufferAttribute(normal, i);
-      if (p.dot(n) > 0) outward++;
-    }
-    // Normals face away from the middle (a cone's apex normals are the one fuzzy spot).
-    expect(outward / position.count).toBeGreaterThan(0.97);
+    // Each triangle is wound and lit to face out of the solid: just off it is outside, just
+    // behind it inside (a cone's apex triangles are the one fuzzy spot).
+    // Every triangle of a prism; an evenly spread few hundred of a round solid's thousands.
+    const all = trianglesOf(geometry);
+    const stride = Math.ceil(all.length / 240);
+    const triangles = all.filter((_, i) => i % stride === 0);
+    const inside = insideOf(geometry);
+    const outward = triangles.filter(
+      ({ centre, facing, normal }) =>
+        facing.dot(normal) > 0 &&
+        !inside(centre.clone().addScaledVector(facing, 0.05)) &&
+        inside(centre.clone().addScaledVector(facing, -0.05)),
+    );
+    expect(outward.length / triangles.length).toBeGreaterThan(0.97);
     expect(geometry.groups.some((g) => g.materialIndex === BODY)).toBe(true);
   });
 });
+
+/**
+ * Each triangle of `geometry` with an area (a sphere's poles have none): its
+ * centre, the way its winding faces, and the normal its vertices say it has.
+ */
+function trianglesOf(
+  geometry: BufferGeometry,
+): { centre: Vector3; facing: Vector3; normal: Vector3 }[] {
+  const position = geometry.getAttribute("position");
+  const normal = geometry.getAttribute("normal");
+  const index = geometry.index;
+  const vertex = (i: number) => (index === null ? i : index.getX(i));
+  return Array.from({ length: (index?.count ?? position.count) / 3 }, (_, t) => {
+    const corners = [0, 1, 2].map((k) => vertex(t * 3 + k));
+    const [a = new Vector3(), b = new Vector3(), c = new Vector3()] = corners.map((i) =>
+      new Vector3().fromBufferAttribute(position, i),
+    );
+    const facing = new Vector3().subVectors(b, a).cross(new Vector3().subVectors(c, a));
+    const n = corners
+      .map((i) => new Vector3().fromBufferAttribute(normal, i))
+      .reduce((sum, v) => sum.add(v), new Vector3())
+      .normalize();
+    const centre = new Vector3().add(a).add(b).add(c).divideScalar(3);
+    return { centre, facing, normal: n };
+  })
+    .filter(({ facing }) => facing.length() > 1e-6)
+    .map((t) => ({ ...t, facing: t.facing.normalize() }));
+}
+
+/** Askew rays, so most run along no side or seam; the inside is what most of them say. */
+const RAYS = [
+  new Vector3(0.31, 0.47, 0.83),
+  new Vector3(-0.62, 0.19, 0.76),
+  new Vector3(0.11, -0.71, -0.69),
+].map((d) => d.normalize());
+
+/** Whether a point lies inside the closed mesh `geometry`: a ray from it crosses its surface an odd number of times. */
+function insideOf(geometry: BufferGeometry): (p: Vector3) => boolean {
+  const mesh = new Mesh(geometry, new MeshBasicMaterial({ side: DoubleSide }));
+  return (p) =>
+    RAYS.filter((dir) => new Raycaster(p, dir).intersectObject(mesh).length % 2 === 1).length >= 2;
+}
 
 /** How many of `edges`' segments stand upright (pairs of points, x y z each). */
 const uprights = (edges: readonly number[]) =>

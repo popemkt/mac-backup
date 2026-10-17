@@ -57,7 +57,7 @@ interface MermaidShape {
   readonly name: string;
   readonly open: string;
   readonly close: readonly string[];
-  readonly shape: Extract<CanvasPresetKind, "rect" | "ellipse" | "diamond">;
+  readonly shape: Extract<CanvasPresetKind, "rect" | "ellipse" | "diamond" | "hexagon">;
   readonly nearest: boolean;
 }
 
@@ -68,7 +68,7 @@ const SHAPES: readonly MermaidShape[] = [
   { name: "stadium", open: "([", close: ["])"], shape: "rect", nearest: true },
   { name: "subroutine", open: "[[", close: ["]]"], shape: "rect", nearest: true },
   { name: "cylinder", open: "[(", close: [")]"], shape: "rect", nearest: true },
-  { name: "hexagon", open: "{{", close: ["}}"], shape: "diamond", nearest: true },
+  { name: "hexagon", open: "{{", close: ["}}"], shape: "hexagon", nearest: false },
   { name: "trapezoid", open: "[/", close: ["/]", "\\]"], shape: "rect", nearest: true },
   { name: "trapezoid", open: "[\\", close: ["\\]", "/]"], shape: "rect", nearest: true },
   { name: "rectangle", open: "[", close: ["]"], shape: "rect", nearest: false },

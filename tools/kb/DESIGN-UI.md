@@ -1210,9 +1210,14 @@ manipulation feel professional rather than merely functional.
   the same order, up to the solid. A family of tools (`TOOL_FAMILIES`,
   `canvas-tool.ts`) is tldraw's geo-tool pattern: one button wearing the
   tool of the family last picked, with a picker beside it over every tool
-  of it, and picking the family picks that one again. The solids are one
-  (`CANVAS_SOLID_PRESETS`: box, pillar, sphere, cone, shelf, wall), which B
-  picks.
+  of it, and picking the family picks that one again. The flat shapes are
+  one (`CANVAS_SHAPE_PRESETS`: rectangle, ellipse, diamond, triangle,
+  hexagon, star, cloud, the four arrows and the check box), with no key of
+  its own (R, O and D pick theirs); the solids are another
+  (`CANVAS_SOLID_PRESETS`: box, pillar, sphere, cone, shelf, wall), which
+  B picks. A shape is data: its outline is a row of `CANVAS_FOOTPRINTS`,
+  and what it wears inside it (a check box's tick) is a mark every painter
+  draws from `itemMarks`, so a new shape is a row, not a painter's case.
   One table (`TOOL_LOOKS`, typed over every tool) names and marks them. The
   numpad's digits are views, not tools (Projections → view widget). G is
   not a tool: it grabs. The label tool (a text card facing the camera,

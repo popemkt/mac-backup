@@ -30,7 +30,7 @@ import {
   type CanvasPaletteId,
   type CanvasPathCommand,
   type CanvasPathNode,
-  type CanvasShapeKind,
+  type CanvasShapeNode,
   type CanvasVAlign,
   paletteToken,
   FONT_FACES,
@@ -76,7 +76,7 @@ export type CardFace =
   | { readonly kind: "text"; readonly text: string; readonly style: ItemPaint }
   | {
       readonly kind: "shape";
-      readonly shape: CanvasShapeKind;
+      readonly item: CanvasShapeNode;
       readonly label: string;
       readonly style: ItemPaint;
     }
@@ -107,7 +107,7 @@ export function cardFaceOf(
   }
   if (isTextNode(item)) return { kind: "text", text: item.text, style: itemPaint(item) };
   if (isShapeNode(item)) {
-    return { kind: "shape", shape: item.shape, label: item.label ?? "", style: itemPaint(item) };
+    return { kind: "shape", item, label: item.label ?? "", style: itemPaint(item) };
   }
   if (isGroupNode(item)) return { kind: "group", label: item.label ?? "", style: itemPaint(item) };
   if (isPathNode(item)) return { kind: "path", path: item, style: itemPaint(item) };
@@ -545,9 +545,10 @@ function paintShape(
   look: CardLook,
 ) {
   paintChrome(ctx, face.style, box, look, {
-    outline: shapeOutline(face.shape, box.width, box.height, look.shapeRadius),
+    outline: shapeOutline(face.item.shape, box.width, box.height, look.shapeRadius),
     raised: false,
   });
+  paintMarks(ctx, face.item, face.style, box, look);
   paintOwnWords(ctx, face.label, face.style, "Label", {
     box,
     look,

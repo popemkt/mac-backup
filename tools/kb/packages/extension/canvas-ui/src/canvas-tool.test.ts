@@ -24,8 +24,10 @@ const createShapeNode = (kind: "rect" | "ellipse" | "diamond", x: number, y: num
 
 describe("canvas tool reducer", () => {
   test("set-tool switches active tool", () => {
+    // A tool of a family is remembered as the one that family picks next.
     expect(reduceCanvasTool({ tool: "select" }, { type: "set-tool", tool: "rect" })).toEqual({
       tool: "rect",
+      picked: { shape: "rect" },
     });
   });
 
@@ -167,7 +169,7 @@ describe("placing into frames", () => {
     pickTool("ellipse", true, to);
     expect(state).toMatchObject({ tool: "ellipse", sticky: true });
     pickTool("select", true, to);
-    expect(state).toEqual({ tool: "select" });
+    expect(state).toEqual({ tool: "select", picked: { shape: "ellipse" } });
   });
 
   test("an item placed on a frame stood up as a wall lies on its face and belongs to it", () => {

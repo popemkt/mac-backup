@@ -125,7 +125,7 @@ describe("canvas doc (UI alias)", () => {
         {
           id: "s2",
           type: "shape",
-          shape: "star",
+          shape: "heart",
           x: 0,
           y: 0,
           width: 10,
@@ -134,7 +134,7 @@ describe("canvas doc (UI alias)", () => {
       ],
       edges: [],
     });
-    expect(fallback.nodes[0]).toMatchObject({ type: "shape", extra: { shape: "star" } });
+    expect(fallback.nodes[0]).toMatchObject({ type: "shape", extra: { shape: "heart" } });
   });
 });
 

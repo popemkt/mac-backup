@@ -28,6 +28,7 @@ import {
   type CanvasNode,
   type CanvasPathNode,
   type CanvasRoute,
+  type CanvasShapeKind,
   type CanvasSide,
 } from "./doc.ts";
 import { headOf, routeBends } from "./edges.ts";
@@ -40,13 +41,22 @@ import type { CanvasLooks } from "./style-fields.ts";
 import { paintName, styleOf, writtenLooks } from "./style.ts";
 
 /** What a solid of each shape is called; a flat one goes by its shape's own name. */
-const SOLID_NAMES = {
+const SOLID_NAMES: { readonly [K in CanvasShapeKind]: string } = {
   rect: "box",
   ellipse: "cylinder",
   diamond: "prism",
+  triangle: "triangular prism",
+  hexagon: "hexagonal prism",
+  star: "star block",
+  cloud: "cloud block",
+  "arrow-left": "arrow block",
+  "arrow-right": "arrow block",
+  "arrow-up": "arrow block",
+  "arrow-down": "arrow block",
+  "check-box": "check box block",
   sphere: "sphere",
   cone: "cone",
-} as const;
+};
 
 /** What an item is, in a word: what a person would call it. */
 export function itemKind(item: CanvasNode): string {

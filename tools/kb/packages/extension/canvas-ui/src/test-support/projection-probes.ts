@@ -84,7 +84,7 @@ export interface DrawnLook {
 }
 
 /** A line item as drawn, in its box's own units: its line, and each mark it wears with its colour. */
-interface DrawnLine {
+export interface DrawnLine {
   readonly line: readonly Point[];
   readonly marks: readonly { readonly points: readonly Point[]; readonly color: string }[];
 }

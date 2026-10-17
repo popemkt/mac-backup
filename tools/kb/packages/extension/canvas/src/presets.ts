@@ -60,6 +60,15 @@ const CANVAS_PRESETS = {
   rect: shape("rect", { width: 160, height: 100 }),
   ellipse: shape("ellipse", { width: 160, height: 100 }),
   diamond: shape("diamond", { width: 160, height: 100 }),
+  triangle: shape("triangle", { width: 160, height: 140 }),
+  hexagon: shape("hexagon", { width: 160, height: 120 }),
+  star: shape("star", { width: 160, height: 152 }),
+  cloud: shape("cloud", { width: 200, height: 130 }),
+  "arrow-left": shape("arrow-left", { width: 180, height: 100 }),
+  "arrow-right": shape("arrow-right", { width: 180, height: 100 }),
+  "arrow-up": shape("arrow-up", { width: 100, height: 180 }),
+  "arrow-down": shape("arrow-down", { width: 100, height: 180 }),
+  "check-box": shape("check-box", { width: 100, height: 100 }),
   /** A frame. */
   group: { type: "group", width: 300, height: 200 } satisfies Unplaced<CanvasGroupNode>,
   /** A card: a text card showing a node, so it is placed with one. */
@@ -113,6 +122,11 @@ function makesSolid(preset: CanvasPresetKind): boolean {
 
 /** The presets that make solids, in the table's order: what the solid tool picks among. */
 export const CANVAS_SOLID_PRESETS: readonly CanvasPresetKind[] = PRESET_KINDS.filter(makesSolid);
+
+/** The presets that make flat shapes, in the table's order: what the shape tool picks among. */
+export const CANVAS_SHAPE_PRESETS: readonly CanvasPresetKind[] = PRESET_KINDS.filter(
+  (preset) => CANVAS_PRESETS[preset].type === "shape" && !makesSolid(preset),
+);
 
 /**
  * `preset` placed with its top left at `at`, as item `id`; `nodeId` is what

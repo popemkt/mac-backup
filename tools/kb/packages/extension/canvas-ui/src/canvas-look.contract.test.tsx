@@ -38,6 +38,7 @@ import {
   faceStands,
   flipItems,
   isPathNode,
+  isShapeNode,
   itemOutline,
   outlinePoints,
   ownsWords,
@@ -65,6 +66,7 @@ import {
   mountSvg,
   hexOf,
   useProbePage,
+  type DrawnLine,
   type DrawnLook,
   type LookProbe,
   type ProbeScene,
@@ -231,6 +233,30 @@ const doc: CanvasDoc = {
       width: 140,
       height: 100,
       style: { fill: "solid", dash: "dotted" },
+    },
+    // An outline that turns back on itself, and a shape that wears a mark of its own.
+    {
+      id: "star",
+      type: "shape",
+      shape: "star",
+      label: "star",
+      x: 840,
+      y: 0,
+      width: 160,
+      height: 152,
+      color: "3",
+      style: { fill: "solid" },
+    },
+    {
+      id: "check",
+      type: "shape",
+      shape: "check-box",
+      label: "done",
+      x: 840,
+      y: 200,
+      width: 100,
+      height: 100,
+      style: { dash: "dashed", size: "l" },
     },
   ],
   edges: [],
@@ -402,7 +428,6 @@ function modelEdge(edge: CanvasEdge) {
 /** Whether `probe` draws every line of `shown` through its points, with the marks it wears (its heads). */
 function expectLinesAsModel(probe: LookProbe, shown: CanvasDoc): void {
   for (const item of shown.nodes.filter(isPathNode)) {
-    const paint = itemPaint(item);
     const model = outlinePoints(itemOutline(item, item.width, item.height, 0)).map(([x, y]) => ({
       x,
       y,
@@ -410,19 +435,38 @@ function expectLinesAsModel(probe: LookProbe, shown: CanvasDoc): void {
     const drawn = probe.lineOf(item.id);
     const ring = item.closed === true ? closed : (points: readonly Point[]) => points;
     alongside(ring(drawn?.line ?? []), ring(model), item.id);
-    const marks = itemMarks(item, item.width, item.height, paint);
-    expect(drawn?.marks.length, item.id).toBe(marks.length);
-    marks.forEach((mark, i) => {
-      const outline = outlinePoints(mark.path).map(([x, y]) => ({ x, y }));
-      const shape = mark.filled ? closed : (points: readonly Point[]) => points;
-      const got = drawn?.marks[i];
-      alongside(shape(got?.points ?? []), shape(outline), `${item.id} mark ${i}`);
-      // A mark is inked as its outline is, drawn or not.
-      const stroke = paint.chrome?.stroke;
-      expect(got?.color, `${item.id} mark ${i} ink`).toBe(
-        stroke === undefined ? undefined : colorOf(stroke),
-      );
-    });
+    expectMarksAsModel(drawn?.marks ?? [], item);
+  }
+}
+
+/** Whether `drawn` are the marks `item` wears (`itemMarks`), in order, each in its outline's ink. */
+function expectMarksAsModel(drawn: DrawnLine["marks"], item: CanvasNode): void {
+  const paint = itemPaint(item);
+  const marks = itemMarks(item, item.width, item.height, paint);
+  expect(drawn.length, item.id).toBe(marks.length);
+  marks.forEach((mark, i) => {
+    const outline = outlinePoints(mark.path).map(([x, y]) => ({ x, y }));
+    const shape = mark.filled ? closed : (points: readonly Point[]) => points;
+    const got = drawn[i];
+    alongside(shape(got?.points ?? []), shape(outline), `${item.id} mark ${i}`);
+    // A mark is inked as its outline is, drawn or not.
+    const stroke = paint.chrome?.stroke;
+    expect(got?.color, `${item.id} mark ${i} ink`).toBe(
+      stroke === undefined ? undefined : colorOf(stroke),
+    );
+  });
+}
+
+/**
+ * Whether `probe` draws the marks every flat shape of `shown` wears of its
+ * own, after its outline (the projection contract holds the outline). A
+ * probe reads a face's outline as its first stroke, so only shapes whose
+ * outline is drawn are read.
+ */
+function expectShapeMarksAsModel(probe: LookProbe, shown: CanvasDoc): void {
+  for (const item of shown.nodes.filter(isShapeNode)) {
+    if (faceStands(item) || itemPaint(item).chrome?.outline === null) continue;
+    expectMarksAsModel(probe.lineOf(item.id)?.marks ?? [], item);
   }
 }
 
@@ -530,6 +574,12 @@ describe("canvas look contract", () => {
     it("draws a line through its points, with the heads its open ends wear", async () => {
       const probe = await mount(scene);
       expectLinesAsModel(probe, doc);
+      probe.dispose();
+    });
+
+    it("draws the marks a shape wears of its own, as its outline is inked", async () => {
+      const probe = await mount(scene);
+      expectShapeMarksAsModel(probe, doc);
       probe.dispose();
     });
 

@@ -9,6 +9,7 @@ import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import {
   CANVAS_SHAPES,
+  CANVAS_SHAPE_PRESETS,
   CANVAS_SOLID_PRESETS,
   canvasDepth,
   canvasElevation,
@@ -18,6 +19,8 @@ import {
   isKbNode,
   isShapeNode,
   isTextNode,
+  itemMarks,
+  itemPaint,
   itemShape,
   onFootprint,
   paintOrder,
@@ -368,12 +371,14 @@ describe("shapes and presets", () => {
   test("every item is a box its shape fills; a card or a frame is a rectangle", () => {
     expect(itemShape(itemAt("t"))).toBe("rect");
     expect(itemShape(presetItem("sphere", { x: 0, y: 0 }, "s"))).toBe("sphere");
-    expect(Object.values(CANVAS_SHAPES).map((spec) => spec.volume)).toEqual([
-      "prism",
-      "prism",
-      "prism",
-      "ellipsoid",
-      "cone",
+    // Every flat outline stands as a prism; only the round solids are not.
+    expect(
+      Object.entries(CANVAS_SHAPES)
+        .filter(([, spec]) => spec.volume !== "prism")
+        .map(([shape, spec]) => [shape, spec.volume]),
+    ).toEqual([
+      ["sphere", "ellipsoid"],
+      ["cone", "cone"],
     ]);
   });
 
@@ -384,8 +389,21 @@ describe("shapes and presets", () => {
     expect(onFootprint("diamond", 0.6, 0.6)).toBe(false);
     expect(onFootprint("sphere", 0.7, 0.7)).toBe(true);
     expect(onFootprint("cone", 0, 0.99)).toBe(true);
-    // The outline passes through each side's midpoint, where edges anchor.
-    for (const shape of ["rect", "ellipse", "diamond", "sphere", "cone"] as const) {
+    // A star's outline turns back on itself: between two points is off it, its heart on it.
+    expect(onFootprint("star", 0, 0)).toBe(true);
+    expect(onFootprint("star", 0, -0.95)).toBe(true);
+    expect(onFootprint("star", 0.45, -0.6)).toBe(false);
+    // An arrow's head is wider than its shaft, which runs back to the tail.
+    expect(onFootprint("arrow-right", 0.25, 0.8)).toBe(true);
+    expect(onFootprint("arrow-right", -0.7, 0.8)).toBe(false);
+    expect(onFootprint("arrow-up", 0.8, -0.25)).toBe(true);
+    expect(onFootprint("arrow-up", 0.8, 0.7)).toBe(false);
+    expect(onFootprint("triangle", 0, -0.9)).toBe(true);
+    expect(onFootprint("triangle", 0.9, -0.9)).toBe(false);
+    expect(onFootprint("cloud", 0, 0)).toBe(true);
+    expect(onFootprint("cloud", 0.98, 0.98)).toBe(false);
+    // Every outline closes.
+    for (const shape of Object.keys(CANVAS_SHAPES) as (keyof typeof CANVAS_SHAPES)[]) {
       const d = svgPathData(shapeOutline(shape, 100, 60, 8));
       expect(d.startsWith("M "), shape).toBe(true);
       expect(d.endsWith("Z"), shape).toBe(true);
@@ -393,6 +411,40 @@ describe("shapes and presets", () => {
     expect(svgPathData(shapeOutline("diamond", 100, 60, 8))).toBe(
       "M 50 0 L 100 30 L 50 60 L 0 30 Z",
     );
+  });
+
+  test("a check box wears its tick, inked as its outline; no other shape wears a mark", () => {
+    const flat = CANVAS_SHAPE_PRESETS.map((p) => presetItem(p, { x: 0, y: 0 }, p));
+    const marks = flat.map((item) => itemMarks(item, 100, 100, itemPaint(item)));
+    expect(flat.filter((_, i) => marks[i]?.length !== 0).map((item) => item.id)).toEqual([
+      "check-box",
+    ]);
+    const [tick] = marks[CANVAS_SHAPE_PRESETS.indexOf("check-box")] ?? [];
+    expect(tick?.filled).toBe(false);
+    expect(tick?.path.some(([op]) => op === "Z")).toBe(false);
+  });
+
+  test("each flat shape is a preset of its own, in the table's order", () => {
+    expect(CANVAS_SHAPE_PRESETS).toEqual([
+      "rect",
+      "ellipse",
+      "diamond",
+      "triangle",
+      "hexagon",
+      "star",
+      "cloud",
+      "arrow-left",
+      "arrow-right",
+      "arrow-up",
+      "arrow-down",
+      "check-box",
+    ]);
+    for (const preset of CANVAS_SHAPE_PRESETS) {
+      const item = presetItem(preset, { x: 0, y: 0 }, preset);
+      expect<string | false>(isShapeNode(item) && itemShape(item), preset).toBe(preset);
+      const doc = parseCanvasDoc(JSON.parse(stringifyCanvasDoc({ nodes: [item], edges: [] })));
+      expect(doc.nodes, preset).toEqual([item]);
+    }
   });
 
   test("the solid presets are exactly the presets with depth, in the table's order", () => {
@@ -450,7 +502,7 @@ describe("what kb cannot read survives any edit of what it can", () => {
           width: 9,
           height: 9,
         },
-        { id: "h", type: "shape", shape: "hexagon", label: "six", x: 0, y: 0, width: 9, height: 9 },
+        { id: "h", type: "shape", shape: "heart", label: "love", x: 0, y: 0, width: 9, height: 9 },
         { id: "n", type: "text", text: 5, x: 0, y: 0, width: 9, height: 9 },
       ],
       edges: [],

@@ -6,11 +6,13 @@
  *
  * A family of tools shares one button, tldraw's geo-tool pattern
  * (`TOOL_FAMILIES`): picking one of its tools remembers it, and picking the
- * family picks the one last picked — the solids' (B) the solid last made. The
+ * family picks the one last picked — the solids' (B) the solid last made;
+ * the flat shapes' the rectangle, ellipse, diamond or other shape last made. The
  * comment tool (M) places a comment thread rather than an item: on the item
  * it is pressed on, or at the point.
  */
 import {
+  CANVAS_SHAPE_PRESETS,
   CANVAS_SOLID_PRESETS,
   isGroupNode,
   placeItems,
@@ -29,6 +31,7 @@ export type CanvasTool = "select" | "hand" | "comment" | CanvasPresetKind;
 
 /** The tools that share one button and one pick, each family's in its picker's order. */
 export const TOOL_FAMILIES = {
+  shape: CANVAS_SHAPE_PRESETS,
   solid: CANVAS_SOLID_PRESETS,
 } as const satisfies Readonly<Record<string, readonly CanvasPresetKind[]>>;
 

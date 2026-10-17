@@ -178,6 +178,19 @@ const doc: CanvasDoc = {
     { id: "gem", ...solid("diamond"), x: 560, y: 360, width: 120, height: 90, depth: 40 },
     { id: "disc", ...solid("ellipse"), x: 690, y: 260, width: 140, height: 80 },
     { id: "slab", ...solid("rect"), x: -200, y: 120, width: 160, height: 80, z: 100, depth: 12 },
+    // Outlines that turn back on themselves: a flat star, a hexagonal prism, a turned arrow block.
+    { id: "star", ...solid("star"), x: 920, y: 0, width: 140, height: 133 },
+    { id: "hex", ...solid("hexagon"), x: 760, y: 390, width: 120, height: 90, depth: 50 },
+    {
+      id: "pointer",
+      ...solid("arrow-right"),
+      x: 940,
+      y: 380,
+      width: 140,
+      height: 80,
+      depth: 40,
+      rotation: { z: 30 },
+    },
     // Turned items, apart from the rest: spun about z, and tilted, flat and solid.
     {
       id: "spun",

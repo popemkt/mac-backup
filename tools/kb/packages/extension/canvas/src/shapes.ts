@@ -62,6 +62,8 @@ type FootprintOutline = (w: number, h: number, radius: number) => CanvasPathComm
 interface CanvasShapeSpec {
   readonly footprint: CanvasFootprint;
   readonly volume: CanvasVolume;
+  /** What it draws inside its outline, stroked as its outline is and never filled: a check box's tick. */
+  readonly mark?: (w: number, h: number) => CanvasPathCommand[];
 }
 
 /** The ground plans a shape stands on, each its outline. */
@@ -69,6 +71,14 @@ export const CANVAS_FOOTPRINTS = {
   rect: roundedRect,
   ellipse: (w: number, h: number) => ellipse(w, h),
   diamond: (w: number, h: number) => diamond(w, h),
+  triangle: (w: number, h: number) => cornered(w, h, TRIANGLE),
+  hexagon: (w: number, h: number) => cornered(w, h, HEXAGON),
+  star: (w: number, h: number) => fitted(cornered(1, 1, STAR), w, h),
+  cloud: (w: number, h: number) => cloud(w, h),
+  "arrow-left": (w: number, h: number) => cornered(w, h, blockArrow("left")),
+  "arrow-right": (w: number, h: number) => cornered(w, h, blockArrow("right")),
+  "arrow-up": (w: number, h: number) => cornered(w, h, blockArrow("up")),
+  "arrow-down": (w: number, h: number) => cornered(w, h, blockArrow("down")),
 } as const satisfies Readonly<Record<string, FootprintOutline>>;
 
 /** The ground plan a shape stands on, which its outline draws. */
@@ -83,6 +93,15 @@ export const CANVAS_SHAPES: { readonly [K in CanvasShapeKind]: CanvasShapeSpec }
   rect: { footprint: "rect", volume: "prism" },
   ellipse: { footprint: "ellipse", volume: "prism" },
   diamond: { footprint: "diamond", volume: "prism" },
+  triangle: { footprint: "triangle", volume: "prism" },
+  hexagon: { footprint: "hexagon", volume: "prism" },
+  star: { footprint: "star", volume: "prism" },
+  cloud: { footprint: "cloud", volume: "prism" },
+  "arrow-left": { footprint: "arrow-left", volume: "prism" },
+  "arrow-right": { footprint: "arrow-right", volume: "prism" },
+  "arrow-up": { footprint: "arrow-up", volume: "prism" },
+  "arrow-down": { footprint: "arrow-down", volume: "prism" },
+  "check-box": { footprint: "rect", volume: "prism", mark: tick },
   sphere: { footprint: "ellipse", volume: "ellipsoid" },
   cone: { footprint: "ellipse", volume: "cone" },
 };
@@ -249,6 +268,178 @@ function ellipse(w: number, h: number): CanvasPathCommand[] {
 
 function diamond(w: number, h: number): CanvasPathCommand[] {
   return [["M", w / 2, 0], ["L", w, h / 2], ["L", w / 2, h], ["L", 0, h / 2], ["Z"]];
+}
+
+/** A polygon's corners as shares of its box, clockwise from the top view. */
+type Corners = readonly (readonly [number, number])[];
+
+/** The polygon through `corners`, stretched to a `w` × `h` box. */
+function cornered(w: number, h: number, corners: Corners): CanvasPathCommand[] {
+  const [first = [0, 0], ...rest] = corners;
+  return [
+    ["M", first[0] * w, first[1] * h],
+    ...rest.map(([x, y]): CanvasPathCommand => ["L", x * w, y * h]),
+    ["Z"],
+  ];
+}
+
+/** A triangle standing on its base, its apex at the middle of the top. */
+const TRIANGLE: Corners = [
+  [0.5, 0],
+  [1, 1],
+  [0, 1],
+];
+
+/** A hexagon pointing left and right, its top and bottom sides level. */
+const HEXAGON: Corners = [
+  [0.25, 0],
+  [0.75, 0],
+  [1, 0.5],
+  [0.75, 1],
+  [0.25, 1],
+  [0, 0.5],
+];
+
+/** How far in a star's inner corners lie, as a share of the way out to its points. */
+const STAR_DEPTH = 0.42;
+
+/** A five-pointed star, one point straight up, about its centre: `fitted` stretches it to its box. */
+const STAR: Corners = Array.from({ length: 10 }, (_, i) => {
+  const r = i % 2 === 0 ? 1 : STAR_DEPTH;
+  const a = -Math.PI / 2 + (i * Math.PI) / 5;
+  return [Math.cos(a) * r, Math.sin(a) * r] as const;
+});
+
+/** Collects what is traced into it as path commands. */
+class CommandSink implements CanvasPathSink {
+  readonly commands: CanvasPathCommand[] = [];
+
+  moveTo(x: number, y: number): void {
+    this.commands.push(["M", x, y]);
+  }
+
+  lineTo(x: number, y: number): void {
+    this.commands.push(["L", x, y]);
+  }
+
+  // oxlint-disable-next-line max-params -- the canvas 2D context's own signature, which a sink speaks
+  bezierCurveTo(x1: number, y1: number, x2: number, y2: number, x: number, y: number): void {
+    this.commands.push(["C", x1, y1, x2, y2, x, y]);
+  }
+
+  closePath(): void {
+    this.commands.push(["Z"]);
+  }
+}
+
+/** How large an outline is drawn before it is flattened to fit: large enough that its curves flatten finely. */
+const FIT_SCALE = 1000;
+
+/**
+ * `outline`, drawn anywhere, flattened to the points it passes through and
+ * stretched so they fill a `w` × `h` box exactly. A curve's control points
+ * reach past what it draws, so the outline is fitted as the polygon every
+ * painter, mesh and question of it then reads alike.
+ */
+function fitted(outline: readonly CanvasPathCommand[], w: number, h: number): CanvasPathCommand[] {
+  const large = new CommandSink();
+  tracePath(large, outline, (x, y) => [x * FIT_SCALE, y * FIT_SCALE]);
+  const points = outlinePoints(large.commands);
+  const [first, last] = [points[0], points.at(-1)];
+  if (first !== undefined && last !== undefined && first[0] === last[0] && first[1] === last[1]) {
+    points.pop();
+  }
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  const [x0, y0] = [Math.min(...xs), Math.min(...ys)];
+  const [sx, sy] = [Math.max(...xs) - x0 || 1, Math.max(...ys) - y0 || 1];
+  return [
+    ...points.map(
+      ([x, y], i): CanvasPathCommand => [
+        i === 0 ? "M" : "L",
+        ((x - x0) / sx) * w,
+        ((y - y0) / sy) * h,
+      ],
+    ),
+    ["Z"],
+  ];
+}
+
+/** How thick a block arrow's shaft is, and how long its head, as shares of its box. */
+const ARROW_SHAFT = 0.5;
+const ARROW_HEAD = 0.4;
+
+/** A block arrow pointing `way`: a shaft across the box and a head the box's full width. */
+function blockArrow(way: "left" | "right" | "up" | "down"): Corners {
+  const [lo, hi] = [(1 - ARROW_SHAFT) / 2, (1 + ARROW_SHAFT) / 2];
+  const neck = 1 - ARROW_HEAD;
+  // Pointing right, along x across y; every other way is that turned or mirrored.
+  const right: Corners = [
+    [0, lo],
+    [neck, lo],
+    [neck, 0],
+    [1, 0.5],
+    [neck, 1],
+    [neck, hi],
+    [0, hi],
+  ];
+  const turns: { readonly [W in typeof way]: (x: number, y: number) => readonly [number, number] } =
+    {
+      right: (x, y) => [x, y],
+      left: (x, y) => [1 - x, 1 - y],
+      down: (x, y) => [1 - y, x],
+      up: (x, y) => [y, 1 - x],
+    };
+  return right.map(([x, y]) => turns[way](x, y));
+}
+
+/** How many bumps go round a cloud, and how far each swells past the ring they sit on. */
+const CLOUD_BUMPS = 9;
+const CLOUD_SWELL = 0.5;
+
+/**
+ * A cloud: bumps round a ring, each a curve swelling outward from one point
+ * on the ring to the next, stretched so the bumps fill its box. The ring is
+ * spaced unevenly, as a drawn cloud's is, by a fixed wobble: every cloud is
+ * the same cloud.
+ */
+function cloud(w: number, h: number): CanvasPathCommand[] {
+  const ring = Array.from({ length: CLOUD_BUMPS }, (_, i) => {
+    const a = -Math.PI / 2 + ((i + 0.18 * Math.sin(i * 2.3)) / CLOUD_BUMPS) * Math.PI * 2;
+    return [Math.cos(a), Math.sin(a)] as const;
+  });
+  const [start = [0, -1]] = ring;
+  const bumps = ring.map((at, i): CanvasPathCommand => {
+    const next = ring[(i + 1) % ring.length] ?? at;
+    const swell = 1 + Math.hypot(next[0] - at[0], next[1] - at[1]) * CLOUD_SWELL;
+    return ["C", at[0] * swell, at[1] * swell, next[0] * swell, next[1] * swell, next[0], next[1]];
+  });
+  return fitted([["M", start[0], start[1]], ...bumps, ["Z"]], w, h);
+}
+
+/** How a check box's tick runs, as shares of its box: down to its corner, then up and right. */
+const TICK: Corners = [
+  [0.27, 0.52],
+  [0.44, 0.7],
+  [0.75, 0.32],
+];
+
+/** A check box's tick: an open line, stroked and never filled. */
+function tick(w: number, h: number): CanvasPathCommand[] {
+  const [first = [0, 0], ...rest] = TICK;
+  return [
+    ["M", first[0] * w, first[1] * h],
+    ...rest.map(([x, y]): CanvasPathCommand => ["L", x * w, y * h]),
+  ];
+}
+
+/** What `shape` draws inside its outline in a `w` × `h` box (`CanvasShapeSpec.mark`); none for most. */
+export function shapeMark(
+  shape: CanvasShapeKind,
+  w: number,
+  h: number,
+): CanvasPathCommand[] | null {
+  return CANVAS_SHAPES[shape].mark?.(w, h) ?? null;
 }
 
 /**

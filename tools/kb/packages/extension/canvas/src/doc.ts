@@ -191,9 +191,10 @@ export interface CanvasKbNode extends CanvasNodeBase {
 
 /**
  * What fills a shape item's box (`./shapes.ts`): flat, its outline; with
- * depth, a box, an elliptic cylinder, a prism, an ellipsoid or a cone.
+ * depth, that outline carried up (a box, an elliptic cylinder, a prism of
+ * any other), an ellipsoid or a cone. One of `SHAPE_KINDS`.
  */
-export type CanvasShapeKind = "rect" | "ellipse" | "diamond" | "sphere" | "cone";
+export type CanvasShapeKind = (typeof SHAPE_KINDS)[number];
 
 export interface CanvasShapeNode extends CanvasNodeBase {
   type: "shape";
@@ -278,13 +279,23 @@ export function isPathNode(n: CanvasNode): n is CanvasPathNode {
   return n.type === "path" && "points" in n;
 }
 
+/** Every shape an item may fill its box with (`CANVAS_SHAPES`), as the document writes it. */
 const SHAPE_KINDS = [
   "rect",
   "ellipse",
   "diamond",
+  "triangle",
+  "hexagon",
+  "star",
+  "cloud",
+  "arrow-left",
+  "arrow-right",
+  "arrow-up",
+  "arrow-down",
+  "check-box",
   "sphere",
   "cone",
-] as const satisfies readonly CanvasShapeKind[];
+] as const;
 
 export interface CanvasEdge {
   id: string;
