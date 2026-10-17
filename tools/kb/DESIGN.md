@@ -2767,6 +2767,7 @@ transaction, one step of an open canvas's history.
 | `ext.docs.check` (alias `docs.check`)                                        | read  | materialize to memory, diff vs disk (bundled extension)                                                                                                                           |
 | `ext.canvas.tx.apply`                                                        | write | apply a JSON Canvas transaction to a `#canvas` node (bundled extension); answers the lints it made and cleared                                                                    |
 | `ext.canvas.describe` / `ext.canvas.lint`                                    | read  | a canvas in words, at three levels of detail / its lints ([Agent verbs](#agent-verbs))                                                                                            |
+| `ext.code.script.run`                                                        | write | run a trusted `#script` once against a node until it is quiet, its calls the script's (Sandbox → Scripts); approval required                                                      |
 | `ext.canvas.place` / `arrange` / `connect` / `group` / `ungroup` / `promote` | write | edit a canvas by relation, one write each ([Agent verbs](#agent-verbs))                                                                                                           |
 | `ui.screen`                                                                  | read  | the open UI tabs' screen state, most recently active first ([Screen state](#screen-state))                                                                                        |
 | `ui.navigate` / `ui.select`                                                  | write | open a node or route, or point a canvas camera / set the selection or focus in a UI tab ([Screen state](#screen-state))                                                           |
@@ -3652,6 +3653,12 @@ system, one runner, one trust.
   `codeDigest` (and then in a Worker); until then it is listed with its
   code and grant and a Trust gesture, and nothing of it runs. A call that
   asks is the same card as a code view's.
+- **Once, on request** (tldraw's exec): `ext.code.script.run` runs a
+  trusted `#script` against a node until it is quiet (`snapshotRun`, with
+  `CoreInvoke` as `write`), on the host's engine, each call the script's.
+  It asks approval as a write that requires it: a person's runs, an
+  agent's only once approved, and an untrusted script is refused before
+  anything runs. The scripts panel's Run once is the person's.
 - **It writes through the view's actions.** A canvas script reads with
   `kb.invoke("ext.canvas.describe", …)` and writes with the canvas verbs,
   within its grant, as the `script` actor: locks, lints, approval and the

@@ -20,6 +20,7 @@
     "react": "catalog:"
   },
   "devDependencies": {
+    "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/ui-test-kit": "workspace:*",
     "@kb/views": "workspace:*",

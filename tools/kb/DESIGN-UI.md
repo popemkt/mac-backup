@@ -2133,6 +2133,8 @@ name in a small panel at the view's bottom left (`scripts-host.tsx`):
   `sandbox.trust` with the digest of exactly that code and grant, as the
   page's own (human) call, and the script starts; **Stop trusting** stops
   it;
+- **Run once**, on a trusted script, runs it again from the start against
+  its node where kb runs code (`ext.code.script.run`), as the person;
 - a call that asks shows the sandbox's approval card under its row.
 
 The panel is absent when no subject names a script. A trusted script's frame

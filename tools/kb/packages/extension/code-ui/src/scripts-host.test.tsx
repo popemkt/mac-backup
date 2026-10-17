@@ -8,6 +8,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { CODE_IDS } from "@kb/code";
+import { succeeded } from "@kb/contracts";
 import { canonicalJson } from "@kb/model";
 import { codeDigest, type KbEvent } from "@kb/sandbox";
 import {
@@ -69,7 +70,12 @@ describe("the scripts host", () => {
     const trusted = await Effect.runPromise(codeDigest(TRUSTED, GRANT));
     const runs: SandboxRun[] = [];
     const heard: KbEvent[] = [];
+    const invoked: [string, unknown][] = [];
     const host = testBrowserHost({
+      invoke: (id, input) => {
+        invoked.push([id, input]);
+        return Promise.resolve(succeeded(id, {}));
+      },
       sandbox: {
         hostFrame: (_frame, run): HostedFrame => {
           runs.push(run);
@@ -114,6 +120,16 @@ describe("the scripts host", () => {
 
     events.emit({ type: "t.ping", target: null });
     expect(heard).toEqual([{ type: "t.ping", target: null }]);
+
+    // A person runs a trusted script once more, against its node; an untrusted one offers no run.
+    const runOnce = [...container.querySelectorAll("button")].filter(
+      (button) => button.textContent === "Run once",
+    );
+    expect(runOnce).toHaveLength(1);
+    await act(async () => {
+      runOnce[0]?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    });
+    expect(invoked).toEqual([["ext.code.script.run", { script: "s.trusted", subject: "c" }]]);
   });
 
   test("a view whose subjects name no scripts shows nothing", async () => {

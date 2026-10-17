@@ -8,8 +8,10 @@
  * runtime binds them, so on the page it draws the text alone. It is optional
  * and on by default.
  */
-import { declarationPlugin, defineExtension, viewDef } from "@kb/contracts";
-import type { Plugin } from "@kb/plugin";
+import { Effect } from "effect";
+import { declarationPlugin, defineExtension, extensionPlugin, viewDef } from "@kb/contracts";
+import { definePlugin, type Plugin } from "@kb/plugin";
+import { SCRIPT_RUN } from "./run.ts";
 import { codeSeedNodes } from "./seed.ts";
 import { codeText } from "./text.ts";
 import { CodeView } from "./view.ts";
@@ -22,11 +24,25 @@ export const codeExtension = defineExtension({
   views: [viewDef(CodeView, codeText)],
 });
 
+/** The family's actions, `ext.code.*`: running a script once. */
+const codeActions = extensionPlugin({
+  name: codeExtension.name,
+  actions: [SCRIPT_RUN],
+  templates: [],
+});
+
 /**
- * The code family's shared plugin: its declaration's views, text included.
- * It is the server's entry as it is, and the page's entry loads it as a
- * child.
+ * The code family's shared plugin: its actions, and its declaration's
+ * views, text included. It is the server's entry as it is, and the page's
+ * entry loads it as a child; the page sends its actions to the server,
+ * where code runs.
  */
 export function codePlugin(): Plugin {
-  return declarationPlugin(codeExtension);
+  return definePlugin({
+    ...codeActions,
+    apply: (ctx) =>
+      Effect.all([codeActions.apply(ctx), ctx.plugin(declarationPlugin(codeExtension))], {
+        discard: true,
+      }),
+  });
 }

@@ -44,6 +44,31 @@ function stateText(trusted: boolean | null, status: RunStatus | null): string {
   return status.end.message;
 }
 
+/** The quiet button a script row's gestures share. */
+function RowButton({
+  title,
+  onClick,
+  children,
+  ...rest
+}: {
+  readonly title?: string;
+  readonly onClick: () => void;
+  readonly children: string;
+  readonly "aria-expanded"?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className="shrink-0 rounded-sm px-1.5 py-0.5 text-label text-foreground/55 hover:bg-foreground/5"
+      title={title}
+      onClick={onClick}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
 function ScriptRow({
   subject,
   script,
@@ -81,6 +106,14 @@ function ScriptRow({
     setStatus(null);
     refresh();
   };
+  /** Run it once more against its node, where kb runs code (`ext.code.script.run`), as the person. */
+  const runOnce = async () => {
+    const receipt = await browserHost().invoke("ext.code.script.run", {
+      script: script.id,
+      subject,
+    });
+    if (receipt.status === "failed") toast(receipt.message);
+  };
   const { reads, actions } = script.grant;
   return (
     <li
@@ -100,18 +133,19 @@ function ScriptRow({
         >
           {stateText(trust?.trusted ?? null, status)}
         </span>
-        <button
-          type="button"
-          className="shrink-0 rounded-sm px-1.5 py-0.5 text-label text-foreground/55 hover:bg-foreground/5"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-        >
+        <RowButton aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? "Hide" : "Review"}
-        </button>
+        </RowButton>
+        {trust?.trusted === true ? (
+          <RowButton
+            title="Run it once more against this node, from the start"
+            onClick={() => void runOnce()}
+          >
+            Run once
+          </RowButton>
+        ) : null}
         {trust === null ? null : (
-          <button
-            type="button"
-            className="shrink-0 rounded-sm px-1.5 py-0.5 text-label text-foreground/70 hover:bg-foreground/5"
+          <RowButton
             title={
               trust.trusted
                 ? "Stop it, and run it no more until it is trusted again"
@@ -120,7 +154,7 @@ function ScriptRow({
             onClick={() => void setTrusted(!trust.trusted)}
           >
             {trust.trusted ? "Stop trusting" : "Trust"}
-          </button>
+          </RowButton>
         )}
       </div>
       {open ? (
