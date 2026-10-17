@@ -7,7 +7,7 @@
  * re-renders anyone, however the pointer moves, and `now()` reads no layout,
  * so polling it every frame forces none.
  */
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useState } from "react";
 
 export interface PointerPlace {
   /** CSS pixels from the frame's top-left corner. */
@@ -54,9 +54,12 @@ export interface PointerTracker extends PointerSource {
 
 /**
  * Follow the pointer over `frame` until stopped. The frame's box is measured
- * when the pointer moves, when anything scrolls, and when the frame's box
- * changes size, and `now()` reads only that measure. A change of the frame's
- * box also resolves again what covers it, since the layout around it moved.
+ * when the pointer moves, when anything scrolls, and when the size of the
+ * frame, of what covers it or of the page changes, so a shift above it that
+ * moves it (content added, a panel opening) is measured too; `now()` reads
+ * only that measure. A change of size also resolves again what covers it,
+ * since the layout around it moved. A move that changes no size (an
+ * ancestor's transform) is measured at the pointer's next move.
  */
 export function trackPointerOver(frame: HTMLElement): PointerTracker {
   let client: { x: number; y: number } | null = null;
@@ -76,17 +79,6 @@ export function trackPointerOver(frame: HTMLElement): PointerTracker {
     cover?.removeEventListener("pointermove", move);
     cover?.removeEventListener("pointerleave", leave);
   };
-  const listen = () => {
-    const next = coveringAncestor(frame);
-    if (next === cover) return;
-    unlisten();
-    next.addEventListener("pointermove", move, { passive: true });
-    next.addEventListener("pointerleave", leave, { passive: true });
-    cover = next;
-  };
-  listen();
-  const view = frame.ownerDocument.defaultView;
-  view?.addEventListener("scroll", measure, { capture: true, passive: true });
   const observer =
     typeof ResizeObserver === "undefined"
       ? null
@@ -94,7 +86,22 @@ export function trackPointerOver(frame: HTMLElement): PointerTracker {
           measure();
           listen();
         });
+  const listen = () => {
+    const next = coveringAncestor(frame);
+    if (next === cover) return;
+    unlisten();
+    if (cover !== null && cover !== root) observer?.unobserve(cover);
+    next.addEventListener("pointermove", move, { passive: true });
+    next.addEventListener("pointerleave", leave, { passive: true });
+    observer?.observe(next);
+    cover = next;
+  };
+  const root = frame.ownerDocument.documentElement;
   observer?.observe(frame);
+  observer?.observe(root);
+  listen();
+  const view = frame.ownerDocument.defaultView;
+  view?.addEventListener("scroll", measure, { capture: true, passive: true });
   return {
     now: () => (client === null ? null : placeOver(box, client)),
     stop: () => {
@@ -106,21 +113,30 @@ export function trackPointerOver(frame: HTMLElement): PointerTracker {
   };
 }
 
-/** A pointer source over `frame`: one passive listener, on what covers it, while it is mounted. */
-export function usePointerOver(frame: RefObject<HTMLElement | null>): PointerSource {
-  const tracker = useRef<PointerTracker | null>(null);
-  const [source] = useState<PointerSource>(() => ({
-    now: () => tracker.current?.now() ?? null,
-  }));
-  useEffect(() => {
-    const element = frame.current;
-    if (element === null) return undefined;
-    const tracking = trackPointerOver(element);
-    tracker.current = tracking;
-    return () => {
-      tracking.stop();
-      tracker.current = null;
+/**
+ * A pointer source, and `attach`, the ref of the frame it is over: one passive
+ * listener, on what covers it, while the frame is mounted. A callback ref, so
+ * a frame that mounts after the hook first runs (a slot that renders nothing
+ * until a backdrop is contributed) is followed from the moment it attaches.
+ */
+export function usePointerOver(): readonly [
+  source: PointerSource,
+  attach: (frame: HTMLElement | null) => (() => void) | undefined,
+] {
+  // The tracker is the source's own, held in the closure both share.
+  const [pointer] = useState(() => {
+    let tracker: PointerTracker | null = null;
+    const source: PointerSource = { now: () => tracker?.now() ?? null };
+    const attach = (frame: HTMLElement | null) => {
+      if (frame === null) return undefined;
+      const tracking = trackPointerOver(frame);
+      tracker = tracking;
+      return () => {
+        tracking.stop();
+        if (tracker === tracking) tracker = null;
+      };
     };
-  }, [frame]);
-  return source;
+    return [source, attach] as const;
+  });
+  return pointer;
 }

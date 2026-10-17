@@ -1,6 +1,8 @@
+import { act, createElement, useLayoutEffect } from "react";
+import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
-import { placeOver, trackPointerOver } from "./pointer-over";
+import { placeOver, trackPointerOver, usePointerOver, type PointerSource } from "./pointer-over";
 
 const BOX = { left: 100, top: 50, width: 400, height: 200 };
 
@@ -46,17 +48,26 @@ function laidOut(element: Element, box: Box) {
 describe("trackPointerOver", () => {
   let dom: Window;
   let resized: (() => void)[];
+  let observed: Set<unknown>;
   beforeEach(() => {
     dom = new Window();
     resized = [];
+    observed = new Set();
     vi.stubGlobal(
       "ResizeObserver",
       class {
         constructor(changed: () => void) {
           resized.push(changed);
         }
-        observe() {}
-        disconnect() {}
+        observe(element: unknown) {
+          observed.add(element);
+        }
+        unobserve(element: unknown) {
+          observed.delete(element);
+        }
+        disconnect() {
+          observed.clear();
+        }
       },
     );
   });
@@ -118,11 +129,65 @@ describe("trackPointerOver", () => {
     tracker.stop();
   });
 
+  it("measures again when what covers it or the page changes size: a shift above it", () => {
+    const { inner, frame, at, point } = page();
+    const tracker = trackPointerOver(frame);
+    expect(observed).toEqual(new Set([frame, inner, dom.document.documentElement]));
+    point(inner, 130, 90);
+    // Content added above it moves the frame down, its own size the same.
+    at.frame.move({ left: 100, top: 80, width: 400, height: 200 });
+    for (const changed of resized) changed();
+    expect(tracker.now()).toEqual({ x: 30, y: 10 });
+    tracker.stop();
+  });
+
   it("hears nothing once stopped", () => {
     const { inner, frame, point } = page();
     const tracker = trackPointerOver(frame);
     tracker.stop();
     point(inner, 130, 90);
     expect(tracker.now()).toBeNull();
+  });
+});
+
+/** A slot whose frame mounts only once it is `shown`, telling `report` its pointer source. */
+function Slot({ shown, report }: { shown: boolean; report: (source: PointerSource) => void }) {
+  const [source, attach] = usePointerOver();
+  useLayoutEffect(() => report(source), [source, report]);
+  return shown ? createElement("div", { ref: attach, "data-frame": "" }) : null;
+}
+
+describe("usePointerOver", () => {
+  let dom: Window;
+  beforeEach(() => {
+    dom = new Window();
+    vi.stubGlobal("window", dom);
+    vi.stubGlobal("document", dom.document);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("follows a frame that mounts after the hook first runs", () => {
+    const seen: { source: PointerSource | null } = { source: null };
+    const report = (source: PointerSource) => {
+      seen.source = source;
+    };
+    const host = dom.document.createElement("div");
+    dom.document.body.append(host);
+    const root = createRoot(host as unknown as HTMLElement);
+    act(() => root.render(createElement(Slot, { shown: false, report })));
+    act(() => root.render(createElement(Slot, { shown: true, report })));
+    const frame = host.querySelector("[data-frame]");
+    if (frame === null) throw new Error("the frame did not mount");
+    laidOut(frame as unknown as Element, { left: 10, top: 10, width: 100, height: 50 });
+    // The frame measured as it attached, before its box was laid out here: a move measures again.
+    frame.dispatchEvent(
+      new dom.PointerEvent("pointermove", { clientX: 30, clientY: 20, bubbles: true }),
+    );
+    expect(seen.source?.now()).toEqual({ x: 20, y: 10 });
+    act(() => root.unmount());
+    expect(seen.source?.now()).toBeNull();
   });
 });
