@@ -450,7 +450,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — A control a script draws over a canvas (a button or an input anchored to an item) can be pressed, while presses anywhere else still reach the canvas under it.
 - **current** — Each script's frame covers the whole view with pointer-events none, so every gesture passes through to the canvas and overlays are pictures only; the frame hears click, input and change on what it draws, but nothing can reach them.
-- **impact** — A script cannot offer an in-canvas control such as a per-card button; its interaction is limited to canvas events and the scripts panel.
+- **impact** — A script cannot offer an in-canvas control (a per-card button, an input on an item); its interaction is canvas events and the scripts panel. Since batch S, the overlay layer is masked off every item and edge (overlayMask, from the view's ViewLayoutState.interactive), so a script's drawing shows only on open canvas and cannot pass for a control over something a press reaches.
 - **closes** — The frame reports the boxes of its interactive elements (kb/hit-regions) and the page lets pointer events through only there, or the page hit-tests and forwards the gesture as a kb/event.
 - **node** — `01M54DFMDJFYRDM8ZZXQB749PQ`
 
