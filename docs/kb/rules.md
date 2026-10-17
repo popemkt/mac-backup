@@ -388,6 +388,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — an in-page approval prompt shared with the sidebar agent (roadmap step 5)
 - **node** — `01M3S5DDJ7MP2VZ4WJB007RRR5`
 
+### GAP: an exported canvas SVG carries the default design system's tokens
+
+- **expected** — An exported SVG carries the token values of the design system core's setting chooses.
+- **current** — ext.canvas.export runs on the server, where the design-system sheets (browser-only, themes-ui) are not readable; svg.ts tokenRule writes var() with the default system's values (COLOR_TOKEN_FALLBACKS).
+- **impact** — An export from a Paper or Terminal knowledge base looks like kb's default outside a page.
+- **closes** — Each system's sheet moves to the family's shared package (designSystems carrying the sheet), so the server reads core's setting and resolves the tokens.
+- **node** — `01M54QTGRJYJZ7W5SXDP4356QW`
+
 ### GAP: api/live.ts writes straight into the outline and ui stores
 
 - **expected** — api/ speaks to the server and hands results back. Applying a delta to a store is the caller's job — the session runtime or an action.
