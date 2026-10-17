@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
+import { UNDO_DEPTH } from "@kb/ui-sdk";
 import {
   adoptStored,
   canRedo,
@@ -84,14 +85,6 @@ describe("canvas history", () => {
     expect(h2).toBe(h);
   });
 
-  test("respects max history cap", () => {
-    let h = initHistory(d0);
-    for (let i = 0; i < 35; i++) {
-      h = pushHistory(h, { nodes: [], edges: [], extra: { i } });
-    }
-    expect(h.past.length).toBeLessThanOrEqual(30);
-  });
-
   test("multiple undo/redo roundtrip", () => {
     let h = initHistory(d0);
     h = pushHistory(h, d1);
@@ -104,6 +97,21 @@ describe("canvas history", () => {
     expect(h.present).toBe(d1);
     h = redo(h);
     expect(h.present).toBe(d2);
+  });
+});
+
+describe("how far back undo reaches", () => {
+  test("the ring holds UNDO_DEPTH steps, the oldest dropped as a new one comes", () => {
+    const docs = Array.from(
+      { length: UNDO_DEPTH + 5 },
+      (_, i): CanvasDoc => ({
+        nodes: [{ id: `n${String(i)}`, type: "text", text: "", x: 0, y: 0, width: 1, height: 1 }],
+        edges: [],
+      }),
+    );
+    const h = docs.slice(1).reduce(pushHistory, initHistory(docs[0] ?? d0));
+    expect(h.past).toHaveLength(UNDO_DEPTH);
+    expect(h.past[0]).toBe(docs[4]);
   });
 });
 

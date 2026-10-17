@@ -16,6 +16,7 @@ import {
   type PageProjection,
   scopedWireOf,
   SYSTEM_IDS,
+  UNDO_DEPTH,
   wireToOutlineMap,
   WORKSPACE_ROOT_ID,
 } from "@kb/ui-sdk";
@@ -253,9 +254,9 @@ describe("the write history", () => {
     expect(graph().applyRedo()).toBeNull();
   });
 
-  it("keeps at most fifty entries", () => {
-    for (let n = 0; n < 60; n += 1) graph().recordUndo(pair(n));
-    expect(graph().undoStack).toHaveLength(50);
+  it("keeps at most UNDO_DEPTH entries, the oldest dropped first", () => {
+    for (let n = 0; n < UNDO_DEPTH + 10; n += 1) graph().recordUndo(pair(n));
+    expect(graph().undoStack).toHaveLength(UNDO_DEPTH);
     expect(graph().undoStack[0]).toEqual(pair(10));
   });
 });

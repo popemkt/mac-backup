@@ -290,7 +290,7 @@ caret re-placement when a row remounts.
 **Undo/redo is action-level, not keystroke-level.** `actions/mutations.ts`
 `restoreInvocations` compares the graph states before and after a plan and
 derives compensating shared-action invocations. The graph store keeps bounded
-`undoStack` / `redoStack` of `{ undo, redo }` (`HISTORY_LIMIT` = 50).
+`undoStack` / `redoStack` of `{ undo, redo }`, each `UNDO_DEPTH` deep (`@kb/ui-sdk`: the one depth of every undo ring the UI keeps, 200 steps).
 `Cmd/Ctrl+Z` binds outside editable targets, and in api mode compensation uses
 the same local invocation + ordered push lane — there is **no** server-authoritative
 undo journal, and rapid same-node text edits are not coalesced. Structural
@@ -1158,7 +1158,7 @@ manipulation feel professional rather than merely functional.
   faces repainted when it settles, a source no face shows let go). A missing
   asset says so in both; assets are backup-owned and never committed.
 - **Undo/redo.** `canvas-ui/src/canvas-history.ts` is an immutable ring buffer
-  (`MAX_HISTORY` = 30) with reference-equality skip; `Cmd+Z` /
+  (`UNDO_DEPTH`, the one depth every undo ring shares, 200 steps) with reference-equality skip; `Cmd+Z` /
   `Cmd+Shift+Z` / `Cmd+Y`. An edit the store brings from elsewhere —
   another tab's, or an agent's canvas verb, each one canvas write — is one
   step too, which ⌘Z takes back as it takes back the person's own

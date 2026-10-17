@@ -3,8 +3,7 @@
  * Pure — no React deps; unit-tested standalone.
  */
 import { stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
-
-const MAX_HISTORY = 30;
+import { UNDO_DEPTH } from "@kb/ui-sdk";
 
 export interface CanvasHistory {
   past: CanvasDoc[];
@@ -23,7 +22,7 @@ export function initHistory(doc: CanvasDoc): CanvasHistory {
 export function pushHistory(h: CanvasHistory, next: CanvasDoc): CanvasHistory {
   if (next === h.present) return h;
   const past = [...h.past, h.present];
-  if (past.length > MAX_HISTORY) past.shift();
+  if (past.length > UNDO_DEPTH) past.shift();
   return { past, present: next, future: [] };
 }
 

@@ -10,6 +10,8 @@
  * row under the caret, for as long as the caret stays in it.
  */
 
+import { UNDO_DEPTH } from "./undo-depth";
+
 export interface TextState {
   readonly text: string;
   readonly caret: number;
@@ -24,7 +26,6 @@ export interface TextHistory {
 
 /** Keystrokes closer together than this undo as one step. */
 export const TEXT_HISTORY_COALESCE_MS = 800;
-const LIMIT = 200;
 
 export const emptyTextHistory: TextHistory = { undo: [], redo: [], at: Number.NEGATIVE_INFINITY };
 
@@ -36,7 +37,7 @@ export function recordTextEdit(history: TextHistory, before: TextState, now: num
   if (now - history.at < TEXT_HISTORY_COALESCE_MS && history.undo.length > 0) {
     return { undo: history.undo, redo: [], at: now };
   }
-  return { undo: [...history.undo, before].slice(-LIMIT), redo: [], at: now };
+  return { undo: [...history.undo, before].slice(-UNDO_DEPTH), redo: [], at: now };
 }
 
 /** Step back from `current`; null when there is nothing to undo. */

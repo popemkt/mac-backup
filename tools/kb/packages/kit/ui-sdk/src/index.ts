@@ -275,6 +275,7 @@ export {
   type TableColumnSpec,
 } from "./lib/frame-layout";
 export { frameRows, type FrameRowsInput } from "./lib/frame-rows";
+export { UNDO_DEPTH } from "./lib/undo-depth";
 export { type FieldEditorProps, FieldEditorService, useFieldEditor } from "./lib/field-editor";
 export {
   type FrameRowTextProps,

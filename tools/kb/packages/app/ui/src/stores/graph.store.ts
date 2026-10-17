@@ -20,6 +20,7 @@ import {
   PageProjectionService,
   type ScopeSource,
   toast,
+  UNDO_DEPTH,
   WORKSPACE_ROOT_ID,
   type KbIndex,
   type NodeMap,
@@ -39,8 +40,6 @@ import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/s
 const indexOver = (nodes: readonly WireNode[]) =>
   // GAP [[01M549TK1WP4E6T4QHNDRSDYQA]] the page and client derive ownership from the bundled fold only
   new DatascriptIndex(nodes, { derived: bundledDerived() });
-
-const HISTORY_LIMIT = 50;
 
 /** One write, as the inverse-invocation pair that undoes and redoes it. */
 interface UndoEntry {
@@ -382,7 +381,7 @@ function search(query: string): Array<{ id: string; text: string }> {
 
 function recordUndo(entry: UndoEntry): void {
   useGraphStore.setState((s) => ({
-    undoStack: [...s.undoStack.slice(-(HISTORY_LIMIT - 1)), entry],
+    undoStack: [...s.undoStack.slice(-(UNDO_DEPTH - 1)), entry],
     redoStack: [],
   }));
 }
@@ -393,7 +392,7 @@ function applyUndo(): UndoEntry | null {
   if (!entry) return null;
   useGraphStore.setState((s) => ({
     undoStack: s.undoStack.slice(0, -1),
-    redoStack: [...s.redoStack.slice(-(HISTORY_LIMIT - 1)), entry],
+    redoStack: [...s.redoStack.slice(-(UNDO_DEPTH - 1)), entry],
   }));
   return entry;
 }
@@ -404,7 +403,7 @@ function applyRedo(): UndoEntry | null {
   if (!entry) return null;
   useGraphStore.setState((s) => ({
     redoStack: s.redoStack.slice(0, -1),
-    undoStack: [...s.undoStack.slice(-(HISTORY_LIMIT - 1)), entry],
+    undoStack: [...s.undoStack.slice(-(UNDO_DEPTH - 1)), entry],
   }));
   return entry;
 }
