@@ -237,6 +237,26 @@ describe("every contributed page-head backdrop", () => {
     );
   });
 
+  it("a page's stale choice, a backdrop nobody contributes, falls through to core's", () => {
+    // Core's choice is not the first contributed, so falling through differs from defaulting.
+    expect(backdrops()[0]?.value.key.id).not.toBe(PLAIN_KEY.id);
+    useGraphStore
+      .getState()
+      .hydrateFromWire(graphWith(settingsOf(PLAIN_KEY.id, "vivid", "down")), 1, "fixtures");
+    const stale: OutlineNode = {
+      id: "n.page",
+      text: "A page",
+      parentId: null,
+      children: [],
+      collapsed: false,
+      props: { [SYSTEM_IDS.backdropField]: [choosing("backdrops.gone")] },
+      createdAt: AT,
+      updatedAt: AT,
+      tags: [],
+    };
+    expect(slot(stale)?.dataset.backdrop).toBe(PLAIN_KEY.id);
+  });
+
   describe("in Preferences", () => {
     let container: HTMLElement;
     let root: Root;

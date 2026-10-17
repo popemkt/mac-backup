@@ -67,7 +67,10 @@ export interface PageBackdropChoice {
 export function usePageBackdrop(node?: OutlineNode): PageBackdropChoice {
   const backdrops = useContributions(BackdropPoint);
   const core = useNode(extensionNodeId("core"));
-  const choice = backdropChoice([node?.props, core?.props]);
+  const choice = backdropChoice(
+    [node?.props, core?.props],
+    backdrops.map(({ value }) => value.key.id),
+  );
   return {
     backdrop: chosenBackdrop(backdrops, choice.backdrop),
     strength: choice.strength,

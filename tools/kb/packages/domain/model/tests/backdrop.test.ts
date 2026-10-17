@@ -19,9 +19,11 @@ const core: KbNode["props"] = {
   [SYSTEM_IDS.backdropDirectionField]: [{ t: "ref", v: BACKDROP_DIRECTION_OPTION_IDS.up }],
 };
 
+const CONTRIBUTED = ["backdrops.gradient", "backdrops.unicorn"];
+
 describe("backdropChoice", () => {
   test("with no settings: the first contributed, subtle, facing down", () => {
-    expect(backdropChoice([undefined, {}])).toEqual({
+    expect(backdropChoice([undefined, {}], CONTRIBUTED)).toEqual({
       backdrop: null,
       strength: "subtle",
       direction: "down",
@@ -29,7 +31,7 @@ describe("backdropChoice", () => {
   });
 
   test("core's settings choose for every page", () => {
-    expect(backdropChoice([undefined, core])).toEqual({
+    expect(backdropChoice([undefined, core], CONTRIBUTED)).toEqual({
       backdrop: "backdrops.gradient",
       strength: "vivid",
       direction: "up",
@@ -40,7 +42,7 @@ describe("backdropChoice", () => {
     const page = {
       [SYSTEM_IDS.backdropField]: [{ t: "ref" as const, v: backdropOptionId("backdrops.unicorn") }],
     };
-    expect(backdropChoice([page, core])).toEqual({
+    expect(backdropChoice([page, core], CONTRIBUTED)).toEqual({
       backdrop: "backdrops.unicorn",
       strength: "vivid",
       direction: "up",
@@ -52,10 +54,18 @@ describe("backdropChoice", () => {
       [SYSTEM_IDS.backdropField]: [{ t: "str" as const, v: "backdrops.unicorn" }],
       [SYSTEM_IDS.backdropStrengthField]: [{ t: "ref" as const, v: "n.not-an-option" }],
     };
-    expect(backdropChoice([page, core])).toEqual({
+    expect(backdropChoice([page, core], CONTRIBUTED)).toEqual({
       backdrop: "backdrops.gradient",
       strength: "vivid",
       direction: "up",
     });
+  });
+
+  test("a backdrop nobody contributes falls through to the next node, then to the first", () => {
+    const page = {
+      [SYSTEM_IDS.backdropField]: [{ t: "ref" as const, v: backdropOptionId("backdrops.gone") }],
+    };
+    expect(backdropChoice([page, core], CONTRIBUTED).backdrop).toBe("backdrops.gradient");
+    expect(backdropChoice([page, core], ["backdrops.unicorn"]).backdrop).toBeNull();
   });
 });

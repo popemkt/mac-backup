@@ -300,9 +300,9 @@ export function provideBackdrop(
 }
 
 /**
- * The backdrop the declared id `id` names among `backdrops`; the first
- * contributed when it names none of them (unset, or a backdrop whose plugin
- * is not loaded). Null only when nothing is contributed.
+ * The backdrop `id` names among `backdrops` (`backdropChoice` answers only
+ * contributed ids); the first contributed for null. Null only when nothing
+ * is contributed.
  */
 export function chosenBackdrop(
   backdrops: readonly Contribution<Backdrop>[],

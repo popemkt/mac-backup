@@ -55,7 +55,7 @@ export const BACKDROP_DIRECTION_OPTION_IDS: Readonly<Record<BackdropDirection, N
 
 /** A page head's backdrop, as its settings say. */
 export interface BackdropChoice {
-  /** A declared backdrop's id; null, the first contributed. */
+  /** A contributed backdrop's id; null, the first contributed. */
   readonly backdrop: string | null;
   readonly strength: BackdropStrength;
   readonly direction: BackdropDirection;
@@ -73,14 +73,24 @@ function optionOf<V extends string>(
 
 /**
  * The backdrop `sources` choose, nearest first (the page's own node, then
- * core's): each setting is the first one that holds a value it reads, and
- * the first contributed backdrop, `subtle` and `down` where none does.
+ * core's), among the backdrops contributed (`contributed`, by id): each
+ * setting is the first one that holds a value it reads as one of its
+ * options, and the first contributed backdrop, `subtle` and `down` where
+ * none does. A backdrop nobody contributes now (its plugin unloaded, its
+ * declaration gone) is no option, so it falls through as an unknown
+ * strength does.
  */
-export function backdropChoice(sources: readonly (Props | undefined)[]): BackdropChoice {
+export function backdropChoice(
+  sources: readonly (Props | undefined)[],
+  contributed: readonly string[],
+): BackdropChoice {
   const held = sources.filter((props): props is Props => props !== undefined);
   const first = <V>(read: (props: Props) => V | undefined): V | undefined =>
     held.map(read).find((value) => value !== undefined);
-  const backdrop = first((props) => backdropIdOf(firstRef(SYSTEM_IDS.backdropField)(props)));
+  const backdrop = first((props) => {
+    const id = backdropIdOf(firstRef(SYSTEM_IDS.backdropField)(props));
+    return id !== undefined && contributed.includes(id) ? id : undefined;
+  });
   return {
     backdrop: backdrop ?? null,
     strength:

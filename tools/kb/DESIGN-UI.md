@@ -2665,8 +2665,9 @@ exist is a plugin point, and the kit names none of them.
   `@kb/model`, `usePageBackdrop` in `@kb/ui-sdk`).
   - Where neither says, the head shows the first contributed backdrop,
     `subtle`, facing `down`.
-  - A choice whose backdrop is not loaded shows the first contributed
-    backdrop (`chosenBackdrop`).
+  - A choice whose backdrop nobody contributes (its plugin not loaded, its
+    declaration gone) is no choice: it falls through to the next node, as
+    an unknown strength does, so a page's stale choice shows core's.
   - Field rows hide `sys.*` fields, so no gesture writes a page's own choice
     yet (gap 01M54CEM0Z5SMAS7KABS7QZ67C).
   - The three settings were device preferences once (`headerBackdrop`,
