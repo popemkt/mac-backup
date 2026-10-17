@@ -206,7 +206,7 @@ parity is recommended at all.
 | Undo | marks, deep | ring of 30, takes in store edits | a deeper ring | S | yes |
 | Copy and paste | `TLContent` across editors | canvas document JSON, images | text and SVG paste to items; remap ids | S | yes |
 | Copy as PNG, export SVG/PNG | `toImage`, `getSvgString` | `ui.capture` (an open tab, a file path) | `ext.canvas.export`, with an SVG painter in the server entry | M | yes |
-| `.tldr` import | native | none | records to items, bindings to edges | M | yes, import only |
+| `.tldr` import | native | none | — | — | no: no tldraw interoperability (question 6) |
 | Comments | threads anchored to a shape, point, region or page | none | comment nodes anchored by canvas and item id | M | yes, as nodes |
 | Diagram from structure | `helpers.mermaid` | none | `ext.canvas.diagram {query \| mermaid}` | M | yes |
 | Lints | `getLints`, `new`/`resolved` | the same shape | `text-crosses-container` | S | yes |
@@ -402,7 +402,6 @@ itself, beyond the start condition that O3–O5 have landed.
 | P9 | Geo variants, in batches: triangle, hexagon, star, cloud, arrows, check-box, each with a 3D fill | add | S×n | no |
 | P10 | `link` items drawn as URL cards; frame clipping; notes grow to fit | add | S | no |
 | P11 | `ext.canvas.export {svg \| png \| json-canvas}`, with the SVG painter in the server entry ("a painter belongs to the view that paints with it") | add | M | no |
-| P12 | `.tldr` import: geo, text, note, frame, arrow with bindings, image; one canvas per tldraw page, under a board | add | M | no |
 | P13 | `ext.canvas.diagram {query \| mermaid}` | add | M | O4: it reads the graph family's `edgesOf` (trace plan T0) |
 | P14 | Comments as `#comment` nodes anchored to an item; a canvas pin and a thread panel; `describe` lists them | add | M | O3 for the outline's display |
 | P15 | 7a: the camera and layout onto the canvas view node (closes `GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]`) | restructure | M | O2 is landed; no |
@@ -411,8 +410,8 @@ itself, beyond the start condition that O3–O5 have landed.
 | — | 7b (items as nodes): decided separately (owner question 1) | — | L | O3 |
 
 Order: P1–P5 (landed) → P6–P8 (references, pages and links) → S1–S5
-(scripts) → P11–P12 (export, bringing tldraw boards in) → P13 → P14 → the
-rest, P17 among them.
+(scripts) → P11 (export) → P13 → P14 → the rest, P17 among them. There is
+no P12: the `.tldr` import it was is dropped (question 6).
 
 ## Questions for the owner
 
@@ -430,13 +429,16 @@ Answered 2026-10-17 ("canvas yes" to 1–3, then the direction quoted above).
 5. **JS exec and board scripts.** *Reversed: in scope*, as canvas scripts in
    the sandbox (S1–S5), never code against the editor's internals.
 6. **Bring the existing tldraw boards in by `.tldr` import,** with no export
-   back. *Decided, as recommended: import only.*
+   back. *Reversed: no tldraw interoperability, no `.tldr` import or
+   export.* The owner: "parity in feature, built on top of existing
+   features, not interoperable with tldraw." P12 is removed.
 7. **The ledger as `#agent-session` nodes.** *Superseded:* a ledger is usage
    (a page, or nodes, kept by whoever keeps it), not a feature.
 
 ## Non-adoptions
 
-- **tldraw's SDK, its store, or `.tldraw` (zip and SQLite) as a format.**
+- **tldraw's SDK, its store, or `.tldraw` (zip and SQLite) as a format,**
+  and `.tldr` import or export (question 6).
 - **Code outside the sandbox:** JavaScript against the editor's internals,
   and `config.js` custom item kinds. (Scripts and their overlays are
   adopted, sandboxed.)
