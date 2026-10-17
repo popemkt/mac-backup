@@ -1,9 +1,10 @@
 /**
  * What a provider's settings become for Claude Code: its model and binary as
  * options, its endpoint as `ANTHROPIC_BASE_URL`, and its credential resolved
- * when the turn starts and handed over as `ANTHROPIC_API_KEY`. A provider
- * with nothing written leaves Claude Code's environment alone, so it runs
- * under the person's own login.
+ * when the turn starts and handed over as `ANTHROPIC_API_KEY`. Claude Code's
+ * environment is explicit: what a process needs to run, plus the person's
+ * own Claude login only while the provider names neither an endpoint nor a
+ * key, and never anything else of this process's.
  */
 import { describe, expect, test } from "bun:test";
 import { Effect, Stream } from "effect";
@@ -23,13 +24,23 @@ const SECRETS: SecretSource = {
  * Run one turn of `provider`: the options Claude Code was started with, if it
  * was, and the turn's failure, if it failed.
  */
+/** The process environment the adapter chooses from: a login, a runtime path, and a stray key. */
+const INHERITED = {
+  PATH: "/usr/bin",
+  HOME: "/home/me",
+  ANTHROPIC_API_KEY: "sk-login",
+  ANTHROPIC_BASE_URL: "https://gateway.example",
+  AWS_SECRET_ACCESS_KEY: "aws-secret",
+  GITHUB_TOKEN: "ghp-secret",
+};
+
 function startedWith(provider: ProviderConfig, secrets: SecretSource = SECRETS) {
   const seen: Options[] = [];
   const query: ClaudeQuery = ({ options }) => {
     seen.push(options);
     return (async function* () {})();
   };
-  const runtime = claudeAdapter({ cwd: "/kb", query }).runtime(provider, secrets);
+  const runtime = claudeAdapter({ cwd: "/kb", query, env: INHERITED }).runtime(provider, secrets);
   const turn = runtime.turn({
     system: "",
     message: { text: "hi", screen: null },
@@ -45,9 +56,14 @@ function startedWith(provider: ProviderConfig, secrets: SecretSource = SECRETS) 
 }
 
 describe("the claude-agent-sdk adapter", () => {
-  test("a provider with nothing written leaves the environment and the model to Claude Code", async () => {
+  test("a provider with nothing written runs the person's own login, and nothing else of the environment", async () => {
     const { options } = await startedWith({ ...DEFAULT_PROVIDER, executable: "claude" });
-    expect(options?.env).toBeUndefined();
+    expect(options?.env).toEqual({
+      PATH: "/usr/bin",
+      HOME: "/home/me",
+      ANTHROPIC_API_KEY: "sk-login",
+      ANTHROPIC_BASE_URL: "https://gateway.example",
+    });
     expect(options?.model).toBeUndefined();
     expect(options?.pathToClaudeCodeExecutable).toBe("claude");
   });
@@ -62,12 +78,31 @@ describe("the claude-agent-sdk adapter", () => {
     });
     expect(options?.model).toBe("sonnet");
     expect(options?.pathToClaudeCodeExecutable).toBe("/opt/claude");
-    expect(options?.env).toMatchObject({
+    // Exactly what the provider names: none of the person's login, nothing stray.
+    expect(options?.env).toEqual({
+      PATH: "/usr/bin",
+      HOME: "/home/me",
       ANTHROPIC_BASE_URL: "http://127.0.0.1:8317",
       ANTHROPIC_API_KEY: "sk-proxy",
     });
-    // Laid over this process's environment, which the SDK would otherwise replace.
-    expect(options?.env?.["PATH"]).toBe(Bun.env["PATH"]);
+  });
+
+  test("an endpoint without a key never carries the person's login there", async () => {
+    const { options } = await startedWith({ ...DEFAULT_PROVIDER, endpoint: "https://elsewhere" });
+    expect(options?.env).toEqual({
+      PATH: "/usr/bin",
+      HOME: "/home/me",
+      ANTHROPIC_BASE_URL: "https://elsewhere",
+    });
+  });
+
+  test("a key without an endpoint goes to Claude's own default, not the inherited gateway", async () => {
+    const { options } = await startedWith({ ...DEFAULT_PROVIDER, credential: "env:PROXY_KEY" });
+    expect(options?.env).toEqual({
+      PATH: "/usr/bin",
+      HOME: "/home/me",
+      ANTHROPIC_API_KEY: "sk-proxy",
+    });
   });
 
   test("a credential that does not resolve fails the turn before Claude Code starts", async () => {

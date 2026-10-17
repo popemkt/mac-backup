@@ -2976,12 +2976,20 @@ The sidebar agent lives outside core, in packages that core never imports
 - **The `claude-agent-sdk` adapter** (`claudeAdapter`, `@kb/agent-claude`) runs Claude Code
   through the Claude Agent SDK.
   - With nothing written on its provider, it runs under the login the
-    person already has, in this process's environment, and kb reads no
-    key. A provider's `model` and `executable` are Claude Code's; its
-    `endpoint` is `ANTHROPIC_BASE_URL`, a gateway to Claude (Claude Code
-    over another vendor's models is not supported), and its resolved
-    `credential` is `ANTHROPIC_API_KEY`, laid over this process's
-    environment, which the SDK would otherwise replace.
+    person already has, and kb reads no key. A provider's `model` and
+    `executable` are Claude Code's; its `endpoint` is `ANTHROPIC_BASE_URL`,
+    a gateway to Claude (Claude Code over another vendor's models is not
+    supported), and its resolved `credential` is `ANTHROPIC_API_KEY`.
+  - **Claude Code's environment is explicit, never this process's.** It
+    holds what a process needs to run (paths, user, locale, temporary
+    directory, terminal, proxy and CA settings, `CLAUDE_CONFIG_DIR`).
+    It holds the person's own Claude login variables only while the
+    provider names neither an endpoint nor a key. With either named, it
+    holds exactly what the provider names. So no key the owner keeps in
+    the `kb ui` environment reaches Claude Code, and a key goes only to
+    the endpoint the provider names or to Claude's default. Which endpoint
+    that is, is the owner's: a provider is configuration, which an agent
+    writes only with the owner's approval (Action registry → Approval).
   - It uses the provider's `executable`, else the `claude` on PATH.
     Failing that, it uses the SDK's bundled binary, which only a
     checkout's `node_modules` holds.

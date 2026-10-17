@@ -19,7 +19,9 @@ import { KB_TOOL_SERVER, kbToolServer } from "./tool-server.ts";
  * already have, and kb reads no key. A provider may name a model, a `claude`
  * binary, an endpoint (`ANTHROPIC_BASE_URL`, such as a local proxy) and a
  * credential, a secret reference resolved when a turn starts and handed to
- * Claude Code as `ANTHROPIC_API_KEY`. The model's only tools are kb's
+ * Claude Code as `ANTHROPIC_API_KEY`. Claude Code runs with an explicit
+ * environment (`environmentFor`), never this process's whole one. The
+ * model's only tools are kb's
  * actions, served from an in-process MCP server built for each turn; Claude
  * Code's own tools, settings, MCP servers and CLAUDE.md files are all left
  * out.
@@ -53,6 +55,8 @@ interface ClaudeRuntimeOptions {
    * absent, or resolving to nothing, is the person's own login.
    */
   readonly key?: Effect.Effect<string | undefined, AgentRuntimeError>;
+  /** This process's environment, which Claude Code's is chosen from. */
+  readonly inherited: Environment;
   /**
    * How a turn reaches Claude Code: the SDK's `query`, loaded when the first
    * turn runs. The runtime contract hands it a fake that plays a model over
@@ -135,23 +139,79 @@ function executableFor(options: ClaudeRuntimeOptions): string | undefined {
   return options.executable ?? Bun.which("claude") ?? undefined;
 }
 
+/** A process environment, as `process.env` reads. */
+type Environment = Readonly<Record<string, string | undefined>>;
+
 /**
- * The environment Claude Code runs in: this process's, unless the provider
- * names an endpoint or a key. The SDK replaces the environment it is given
- * rather than merging it, so those two are laid over this process's.
+ * What of this process's environment any Claude Code runs with: what a
+ * process needs to run (its paths, user, locale, temporary directory and
+ * terminal), the network it reaches through, and where Claude Code keeps
+ * its own state. Nothing else reaches it, so a key the owner keeps in this
+ * environment for another tool is never handed to a provider.
+ */
+const RUNTIME_VARIABLES = [
+  "PATH",
+  "HOME",
+  "USER",
+  "LOGNAME",
+  "SHELL",
+  "TMPDIR",
+  "LANG",
+  "LC_ALL",
+  "LC_CTYPE",
+  "TERM",
+  "XDG_CONFIG_HOME",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+  "XDG_STATE_HOME",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "NO_PROXY",
+  "NODE_EXTRA_CA_CERTS",
+  "SSL_CERT_FILE",
+  "CLAUDE_CONFIG_DIR",
+] as const;
+
+/**
+ * The person's own Claude login and endpoint, as they set them for Claude
+ * Code. They pass only to a Claude Code whose provider names neither an
+ * endpoint nor a key, which is that same login.
+ */
+const LOGIN_VARIABLES = [
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "CLAUDE_CODE_OAUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+] as const;
+
+function picked(inherited: Environment, names: readonly string[]): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const name of names) {
+    const value = inherited[name];
+    if (value !== undefined) env[name] = value;
+  }
+  return env;
+}
+
+/**
+ * The environment Claude Code runs in, explicit, never this process's whole
+ * one (the SDK replaces the environment it is given rather than merging it).
+ * With a provider that names neither an endpoint nor a key, it is the
+ * person's own login. With one that names either, it is exactly what the
+ * provider names and none of the person's login, so a key goes only to the
+ * endpoint the provider names, or to Claude's own default.
  */
 function environmentFor(
+  inherited: Environment,
   endpoint: string | undefined,
   key: string | undefined,
-): Pick<Options, "env"> {
-  if (endpoint === undefined && key === undefined) return {};
+): Record<string, string> {
+  const own = endpoint === undefined && key === undefined;
   return {
-    env: {
-      // oxlint-disable-next-line node/no-process-env -- Claude Code inherits this process's environment, as it would unconfigured
-      ...process.env,
-      ...(endpoint === undefined ? {} : { ANTHROPIC_BASE_URL: endpoint }),
-      ...(key === undefined ? {} : { ANTHROPIC_API_KEY: key }),
-    },
+    ...picked(inherited, RUNTIME_VARIABLES),
+    ...(own ? picked(inherited, LOGIN_VARIABLES) : {}),
+    ...(endpoint === undefined ? {} : { ANTHROPIC_BASE_URL: endpoint }),
+    ...(key === undefined ? {} : { ANTHROPIC_API_KEY: key }),
   };
 }
 
@@ -164,7 +224,7 @@ function queryOptions(
   const executable = executableFor(options);
   return {
     cwd: options.cwd,
-    ...environmentFor(options.endpoint, key),
+    env: environmentFor(options.inherited, options.endpoint, key),
     ...(options.model === undefined ? {} : { model: options.model }),
     ...(executable === undefined ? {} : { pathToClaudeCodeExecutable: executable }),
     systemPrompt: turn.system,
@@ -237,12 +297,17 @@ function claudeRuntime(options: ClaudeRuntimeOptions): AgentRuntime {
 export function claudeAdapter(options: {
   readonly cwd: string;
   readonly query?: ClaudeQuery;
+  /** The environment Claude Code's is chosen from; absent is this process's. */
+  readonly env?: Environment;
 }): AgentAdapter {
+  // oxlint-disable-next-line node/no-process-env -- the environment Claude Code's own is chosen from, by name
+  const inherited = options.env ?? process.env;
   return {
     id: "claude-agent-sdk",
     runtime: (provider, secrets) =>
       claudeRuntime({
         cwd: options.cwd,
+        inherited,
         ...(options.query === undefined ? {} : { query: options.query }),
         ...(provider.model === null ? {} : { model: provider.model }),
         ...(provider.executable === null ? {} : { executable: provider.executable }),
