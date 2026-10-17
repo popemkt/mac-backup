@@ -9,7 +9,6 @@ import {
   inlineSpanSource,
   parseInlineMd,
   parseInlineSource,
-  textHasAssetRef,
 } from "./md-inline";
 
 function literal(text: string): void {
@@ -111,8 +110,6 @@ describe("parseInlineMd", () => {
       { t: "text", v: "!" },
       { t: "link", href: "https://ex.test/a.png", label: "x" },
     ]);
-    expect(textHasAssetRef("![x](assets/a.png)")).toBe(true);
-    expect(textHasAssetRef("no media")).toBe(false);
     expect(assetSrcUrl("assets/a.png")).toBe("/assets/a.png");
   });
 

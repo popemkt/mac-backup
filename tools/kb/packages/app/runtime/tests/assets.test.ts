@@ -4,12 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runWithKb } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
-import {
-  ASSET_MAX_BYTES,
-  assetUploadEffect,
-  mediaKindFromExt,
-  textHasAssetRef,
-} from "@kb/operations";
+import { ASSET_MAX_BYTES, assetUploadEffect } from "@kb/operations";
 import { resolveAssetFile } from "@kb/workspace-fs";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
@@ -120,15 +115,6 @@ describe("asset.upload action", () => {
       expect(r.status).toBe("failed");
     }
     await rm(root, { recursive: true, force: true });
-  });
-
-  test("mediaKindFromExt + textHasAssetRef helpers", () => {
-    expect(mediaKindFromExt("png")).toBe("image");
-    expect(mediaKindFromExt(".mp4")).toBe("video");
-    expect(mediaKindFromExt("mp3")).toBe("audio");
-    expect(mediaKindFromExt("exe")).toBeNull();
-    expect(textHasAssetRef("see ![x](assets/a.png)")).toBe(true);
-    expect(textHasAssetRef("[x](assets/a.png)")).toBe(false);
   });
 
   test("assetUpload handler returns same shape", async () => {

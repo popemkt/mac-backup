@@ -17,6 +17,7 @@ export {
   isKbNode,
   isNativeEdgeBound,
   isPathNode,
+  isPictureFile,
   isShapeNode,
   isTextNode,
   parseCanvasDoc,

@@ -1,5 +1,3 @@
-import { isAssetPath, mediaKindFromHref } from "@kb/ui-sdk";
-
 /**
  * The pictures image faces are painted with in 3D, decoded once per source
  * and shared by every face that shows it. A picture is asked for by its
@@ -9,17 +7,6 @@ import { isAssetPath, mediaKindFromHref } from "@kb/ui-sdk";
  * shows any more are let go (`keep`), and every load is cancelled on
  * `dispose`.
  */
-
-/**
- * Whether a file item's file is a picture kb draws: one of its own assets
- * (`isAssetPath`), an image by its extension, as markdown media is told
- * apart. Any other file shows its path: a document naming a picture
- * elsewhere would make every viewer fetch it, and in 3D its cross-origin
- * pixels would taint the face's canvas.
- */
-export function isPicture(file: string): boolean {
-  return isAssetPath(file) && mediaKindFromHref(file) === "image";
-}
 
 /** A picture as a face can paint it: still loading, missing, or decoded. */
 export type FacePicture =

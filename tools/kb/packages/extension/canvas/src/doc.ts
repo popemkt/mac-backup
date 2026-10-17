@@ -10,6 +10,7 @@
  * and `camera` on the document (`./camera.ts`). The format, as agents write
  * it, is DESIGN.md → Canvas documents.
  */
+import { isAssetPath, mediaKindFromHref } from "@kb/model";
 import { boxRotation, boxTop } from "./box.ts";
 import { emitCanvasCamera, parseCanvasCamera, type CanvasCamera } from "./camera.ts";
 import { dropExtra } from "./extra.ts";
@@ -210,6 +211,18 @@ export interface CanvasShapeNode extends CanvasNodeBase {
 export interface CanvasFileNode extends CanvasNodeBase {
   type: "file";
   file: string;
+}
+
+/**
+ * Whether a file item's `file` is a picture kb draws: one of its own assets
+ * (`assets/…`), an image by its extension. Any other file is shown by its
+ * path and never fetched — a document naming a picture elsewhere would make
+ * every viewer, and every export, fetch it, and in 3D its cross-origin
+ * pixels would taint the face's canvas. The page and the SVG export both ask
+ * this, by kb's one rule for its media (`@kb/model` `asset.ts`).
+ */
+export function isPictureFile(file: string): boolean {
+  return isAssetPath(file) && mediaKindFromHref(file) === "image";
 }
 
 /**

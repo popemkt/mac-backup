@@ -413,7 +413,7 @@ export {
   serializeEditable,
   setCaretSerializedOffset,
 } from "./lib/md-edit";
-export { assetSrcUrl, isAssetPath, KB_TEXT_CLASS, mediaKindFromHref } from "./lib/md-inline";
+export { assetSrcUrl, KB_TEXT_CLASS } from "./lib/md-inline";
 export { prefersReducedMotion, useReducedMotion } from "./lib/motion";
 export { MAIN_PANE, PaneContext, usePane } from "./lib/pane";
 export {

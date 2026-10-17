@@ -1,7 +1,6 @@
-import { typeRefsOf } from "@kb/model";
+import { textHasAssetRef, typeRefsOf } from "@kb/model";
 import { isSysPrefixed, SYSTEM_IDS, type OutlineNode } from "./types";
 import { nodeTagColors, tagColorFill } from "./tag-color";
-import { textHasAssetRef } from "./md-inline";
 import { hasText } from "./text";
 
 /** Glyph / shape family for the outline bullet (DESIGN-REFINE §2 W1). */

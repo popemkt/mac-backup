@@ -2,36 +2,23 @@ import { Effect } from "effect";
 import { z } from "zod";
 import type { ActionDefinition } from "@kb/contracts";
 import { Assets } from "@kb/contracts";
-import { freshId, ResolveError, domainError, domainFromResolve, type DomainError } from "@kb/model";
+import {
+  MEDIA_EXTENSIONS,
+  freshId,
+  ResolveError,
+  domainError,
+  domainFromResolve,
+  type DomainError,
+} from "@kb/model";
 
 const SAFE_EXT = /^[a-z0-9]{1,12}$/i;
 
-const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp"]);
-const VIDEO_EXT = new Set(["mp4", "webm", "mov", "ogv", "m4v"]);
-const AUDIO_EXT = new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac", "opus"]);
-
-export type AssetMediaKind = "image" | "video" | "audio";
-
-/** Extension (no dot) → media kind for render / MIME hints. */
-export function mediaKindFromExt(ext: string): AssetMediaKind | null {
-  const e = ext.replace(/^\./, "").toLowerCase();
-  if (IMAGE_EXT.has(e)) return "image";
-  if (VIDEO_EXT.has(e)) return "video";
-  if (AUDIO_EXT.has(e)) return "audio";
-  return null;
-}
-
-/**
- * True when node text embeds an asset via markdown image syntax
- * `![alt](assets/...)` (W6a media bullet).
- */
-export function textHasAssetRef(text: string): boolean {
-  return /!\[[^\]]*\]\(assets\/[^)\s]+\)/i.test(text);
-}
-
 /** Upload whitelist: renderable media + pdf. No html/js/… — those would be
  * served same-origin by kb ui and could carry scripts. */
-const UPLOAD_EXT = new Set([...IMAGE_EXT, ...VIDEO_EXT, ...AUDIO_EXT, "pdf"]);
+const UPLOAD_EXT = new Set([
+  ...Object.values(MEDIA_EXTENSIONS).flatMap((exts) => [...exts]),
+  "pdf",
+]);
 
 /**
  * The extension of a filename, without the dot. `node:path`'s `extname` with

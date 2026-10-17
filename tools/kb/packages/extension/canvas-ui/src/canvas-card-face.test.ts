@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
-import type { CanvasNode } from "@kb/canvas";
+import { isPictureFile, type CanvasNode } from "@kb/canvas";
 import type { OutlineNode } from "@kb/ui-sdk";
 import { cardFaceOf, over, type CardLook } from "./canvas-card-face";
-import { isPicture, type FacePicture } from "./canvas-face-pictures";
+import type { FacePicture } from "./canvas-face-pictures";
 
 const look: CardLook = {
   face: "rgb(255, 255, 255)",
@@ -73,13 +73,13 @@ describe("a card's face", () => {
   test("a picture anywhere but kb's own assets is not drawn: it shows its path, and nothing is fetched", () => {
     for (const file of ["https://evil.example/x.png", "/elsewhere/x.png", "../x.png", "x.png"]) {
       const item: CanvasNode = { id: "e", type: "file", file, ...at };
-      expect(isPicture(file)).toBe(false);
+      expect(isPictureFile(file)).toBe(false);
       const face = cardFaceOf(item, new Map(), () => {
         throw new Error("nothing is fetched");
       });
       expect(face).toEqual({ kind: "other", label: file });
     }
-    expect(isPicture("assets/01ABC.png")).toBe(true);
+    expect(isPictureFile("assets/01ABC.png")).toBe(true);
   });
 
   test("a file that is not a picture shows its path, and no picture is asked for", () => {

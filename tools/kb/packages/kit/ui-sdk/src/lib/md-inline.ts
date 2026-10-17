@@ -8,12 +8,10 @@
  * byte, and {@link parseInlineMd} is that result with the markup dropped, for
  * readers that only want the meaning (a graph label).
  */
-import { normalizeUrl } from "@kb/model";
+import { isAssetPath, mediaKindFromHref, normalizeUrl, type AssetMediaKind } from "@kb/model";
 
 /** Shared type-scale class: edit + view must use this for equal line-height. */
 export const KB_TEXT_CLASS = "kb-text";
-
-export type AssetMediaKind = "image" | "video" | "audio";
 
 export type InlineSeg =
   | { t: "text"; v: string }
@@ -77,36 +75,6 @@ const parseCache = new Map<string, InlineSpan[]>();
  * relative paths (assets/… for W6a media) are allowed.
  */
 const SAFE_HREF = /^(https?:\/\/|mailto:|#|\/|\.\/|\.\.\/|assets\/)/i;
-
-const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp"]);
-const VIDEO_EXT = new Set(["mp4", "webm", "mov", "ogv", "m4v"]);
-const AUDIO_EXT = new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac", "opus"]);
-
-/** True when text embeds `![…](assets/…)`. */
-export function textHasAssetRef(text: string): boolean {
-  return /!\[[^\]]*\]\(assets\/[^)\s]+\)/i.test(text);
-}
-
-export function mediaKindFromHref(href: string): AssetMediaKind | null {
-  const m = /\.([a-z0-9]{1,12})(?:$|[?#])/i.exec(href.trim());
-  if (!m) return null;
-  const [, ext] = m;
-  if (ext === undefined) return null;
-  const e = ext.toLowerCase();
-  if (IMAGE_EXT.has(e)) return "image";
-  if (VIDEO_EXT.has(e)) return "video";
-  if (AUDIO_EXT.has(e)) return "audio";
-  return null;
-}
-
-/**
- * Whether `href` names one of kb's own assets (`assets/…`, what
- * `asset.upload` answers with): the only media kb draws, so a document
- * cannot make the page fetch from elsewhere.
- */
-export function isAssetPath(href: string): boolean {
-  return /^assets\/\S/i.test(href.trim());
-}
 
 /** Asset hrefs become /assets/… for the kb ui static route. */
 export function assetSrcUrl(href: string): string {

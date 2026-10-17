@@ -44,6 +44,7 @@ import {
   CORNER_RADII_FALLBACKS,
   type CornerRadii,
   itemPaint,
+  isPictureFile,
   type CanvasTypeStep,
   type ChromePaint,
   type ItemPaint,
@@ -51,7 +52,7 @@ import {
   type ToneSource,
   type WordsPaint,
 } from "@kb/canvas";
-import { isPicture, type FacePicture } from "./canvas-face-pictures";
+import type { FacePicture } from "./canvas-face-pictures";
 import {
   assetSrcUrl,
   graphDisplayText,
@@ -111,7 +112,7 @@ export function cardFaceOf(
   if (isGroupNode(item)) return { kind: "group", label: item.label ?? "", style: itemPaint(item) };
   if (isPathNode(item)) return { kind: "path", path: item, style: itemPaint(item) };
   if (isFileNode(item)) {
-    if (!isPicture(item.file)) return { kind: "other", label: item.file };
+    if (!isPictureFile(item.file)) return { kind: "other", label: item.file };
     const src = assetSrcUrl(item.file);
     return { kind: "image", src, picture: picture(src) };
   }

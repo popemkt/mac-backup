@@ -17,10 +17,10 @@ import {
   paintCss,
   itemPaint,
   cornerRadius,
+  isPictureFile,
 } from "@kb/canvas";
 import { KbNodeCard, TextCard } from "./canvas-card";
 import { ImageCard } from "./canvas-image-card";
-import { isPicture } from "./canvas-face-pictures";
 import { ShapeCard } from "./shape-card";
 import type { CanvasSelection } from "./canvas-selection";
 import type { ResizeCorner } from "./canvas-pointer";
@@ -259,7 +259,7 @@ export function CanvasCardFace({
       </div>
     );
   }
-  if (isFileNode(card) && isPicture(card.file)) {
+  if (isFileNode(card) && isPictureFile(card.file)) {
     return (
       <ImageCard
         card={card}

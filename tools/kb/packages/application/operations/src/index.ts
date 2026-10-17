@@ -22,13 +22,7 @@ export {
 } from "./actions.ts";
 export { KB_DESIGN_SYSTEM, coreExtension } from "./core-extension.ts";
 export { nodeAddTreeDef, nodeAddTreeEffect, planNodeAddTreeEffect } from "./node-add-tree.ts";
-export {
-  ASSET_MAX_BYTES,
-  assetUploadDef,
-  assetUploadEffect,
-  mediaKindFromExt,
-  textHasAssetRef,
-} from "./assets.ts";
+export { ASSET_MAX_BYTES, assetUploadDef, assetUploadEffect } from "./assets.ts";
 export { GENERATED_HEADER } from "./docs/docs.ts";
 export { DocsError } from "./docs/views.ts";
 export {

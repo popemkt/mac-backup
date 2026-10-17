@@ -245,3 +245,11 @@ export {
   type RelationFieldFit,
 } from "./relation.ts";
 export { isVocabulary } from "./vocabulary.ts";
+export {
+  MEDIA_EXTENSIONS,
+  isAssetPath,
+  mediaKindFromExt,
+  mediaKindFromHref,
+  textHasAssetRef,
+  type AssetMediaKind,
+} from "./asset.ts";
