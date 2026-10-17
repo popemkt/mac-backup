@@ -170,6 +170,21 @@ export interface ProvidedRoute {
 export const RoutePoint = Point<ProvidedRoute>()("ui.routes");
 
 /** The `RoutePoint` contribution for `route`, under its view's local id. */
+/**
+ * `route`'s params for `path`, or null when it is not the route's — or when
+ * the route cannot read it: a malformed escape (`/canvas/%E0%A4%A`) makes
+ * `decodeURIComponent` throw, and a path no route can read is no route's,
+ * never a crash of the shell that resolves it.
+ */
+function matchPath<P>(route: Route<P>, path: string): P | null {
+  try {
+    return route.match(path);
+  } catch (error) {
+    if (error instanceof URIError) return null;
+    throw error;
+  }
+}
+
 export function provideRoute<P>(route: Route<P>): ContributionEntry<ProvidedRoute> {
   const { Chrome } = route;
   return {
@@ -179,7 +194,7 @@ export function provideRoute<P>(route: Route<P>): ContributionEntry<ProvidedRout
       frameOf: (params) => route.frame(asParamsOf(route.view, params)),
       ...(route.entry === undefined ? {} : { entry: route.entry }),
       resolve: (path) => {
-        const params = route.match(path);
+        const params = matchPath(route, path);
         if (params === null) return null;
         return {
           view: route.view,

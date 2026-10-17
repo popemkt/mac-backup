@@ -1,4 +1,6 @@
 import { describe, expect, test } from "vitest";
+import { CanvasView } from "@kb/canvas";
+import { provideRoute } from "@kb/ui-sdk";
 import { canvasPath, matchCanvas, matchCanvasList } from "./routes";
 
 describe("canvas routes", () => {
@@ -19,5 +21,17 @@ describe("canvas routes", () => {
     expect(matchCanvasList("/canvas")).toEqual({});
     expect(matchCanvas("/canvas")).toBeNull();
     expect(matchCanvasList(canvasPath({ id: "x" }))).toBeNull();
+  });
+
+  test("a path with a malformed escape is no canvas, and resolving it does not throw", () => {
+    const route = provideRoute({
+      view: CanvasView,
+      match: matchCanvas,
+      frame: () => "fixed",
+      pendingTitle: () => "",
+    });
+    expect(route.value.resolve("/canvas/%E0%A4%A")).toBeNull();
+    expect(route.value.resolve("/canvas/n.board/%E0%A4%A")).toBeNull();
+    expect(route.value.resolve(canvasPath({ id: "n.board" }))?.params).toEqual({ id: "n.board" });
   });
 });
