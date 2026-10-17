@@ -108,7 +108,6 @@ in
         # "zoom"
 
         # Utilities
-        # "alt-tab" # Replaced by vorssaint/tap/vorssaint
         # "snapzy" # Replaced by vorssaint/tap/vorssaint
         # Open-source local dictation app; Parakeet v2/v3/Flash on Apple Silicon.
         "fluidvoice"

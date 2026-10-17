@@ -9,7 +9,6 @@
       engine = icloud
 
       [applications_to_sync]
-      alt-tab
       karabiner-elements
       warp
       zed
