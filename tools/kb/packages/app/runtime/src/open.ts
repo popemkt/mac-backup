@@ -8,7 +8,6 @@ import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
   currentIso,
-  applyTx,
   foldSeed,
   diffTx,
   ensureSystemSeed,
@@ -19,12 +18,10 @@ import {
   type KbNode,
 } from "@kb/model";
 import { derivedOf } from "@kb/bundled";
-import { DatascriptIndex, type DerivedRef } from "@kb/query";
-import { KbStore, type EffectStore, type KbContext } from "@kb/contracts";
-import { StoreTxLog } from "@kb/tx-log";
+import type { KbContext } from "@kb/contracts";
 import { readLegacyDocsViews } from "@kb/workspace-fs";
-import { noteStoreSynced } from "@kb/operations";
 import { rootFamilies } from "./families.ts";
+import { persistOwnWrite, sessionOver } from "./own-write.ts";
 import { selectStore } from "./store-selection.ts";
 
 /**
@@ -51,40 +48,14 @@ const reportLegacyViews = Effect.fn("kb.open.legacyViews")(function* (
 });
 
 /**
- * A session over `store`, the store of `root`, whose nodes are `nodes` as
- * the store holds them now: the index built over them once, with the
- * references the root's families derive (`derived`), the log over the
- * store's tail, and the session marked as caught up. Opening makes one
- * after its migrations; a surface that holds a store of its own (the
- * client) makes one over what it read.
- */
-const sessionOver = Effect.fn("kb.sessionOver")(function* (
-  root: string,
-  store: EffectStore,
-  nodes: readonly KbNode[],
-  derived: readonly DerivedRef[],
-): Effect.fn.Return<KbContext> {
-  const index = new DatascriptIndex([...nodes], { derived });
-  const ctx: KbContext = {
-    root,
-    store,
-    index,
-    log: new StoreTxLog(store.txTail),
-    get nodes(): KbNode[] {
-      return index.storedNodes();
-    },
-  };
-  yield* noteStoreSynced(ctx).pipe(Effect.provideService(KbStore, store));
-  return ctx;
-});
-
-/**
  * Open a session over the root's store.
  *
  * Opening is a read. It writes only when a real migration runs — the
  * system seed adds or retires nodes, a field-type value or a legacy date
  * value is rewritten — and then it
- * commits exactly the nodes that migration changed, never the whole set. Ranks
+ * commits exactly the nodes that migration changed, never the whole set,
+ * as kb's own write (`persistOwnWrite`): the seed is the store's, not the
+ * caller's. Ranks
  * are not a migration: a node without one is ordered by `compareRootOrder`
  * in memory and ranked by the store on the next commit that writes its
  * sibling group (DESIGN.md → Sibling ranks), so reopening a store leaves its
@@ -108,11 +79,10 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   } = ensureSystemSeed(loaded, foldSeed(declarations, at).nodes);
   const typed = migrateFieldTypeValues(seeded);
   const dated = migrateDateValues(typed.nodes);
-  let nodes = loaded;
+  const ctx = yield* sessionOver(root, store, loaded, derivedOf(declarations));
   if (didSeed || deletes.length > 0 || typed.changed || dated.changed) {
-    const commit = yield* store.commitEffect(diffTx(loaded, dated.nodes), { at });
-    nodes = [...applyTx(loaded, commit.tx).values()];
+    yield* persistOwnWrite(ctx, diffTx(loaded, dated.nodes));
   }
-  yield* reportLegacyViews(root, nodes);
-  return yield* sessionOver(root, store, nodes, derivedOf(declarations));
+  yield* reportLegacyViews(root, ctx.nodes);
+  return ctx;
 });

@@ -10,10 +10,11 @@
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
-import { currentIso, domainError, ensureDomainError, type DomainError } from "@kb/model";
+import { domainError, ensureDomainError, type DomainError } from "@kb/model";
 import type { EffectStore } from "@kb/contracts";
 import { JsonlStore } from "@kb/store-jsonl";
 import { SqliteStore, sqliteStoreFiles } from "@kb/store-sqlite";
+import { persistOwnWrite, sessionOver } from "./own-write.ts";
 
 /** The backends a root can be stored in. Also the `--store` / `--to` values. */
 export const STORE_BACKENDS = ["jsonl", "sqlite"] as const;
@@ -149,7 +150,8 @@ export const createStore = Effect.fn("kb.createStore")(function* (
     );
   }
   const opened = BACKENDS[name].open(root);
-  yield* opened.store.commitEffect({ upserts: [], deletes: [] }, { at: yield* currentIso });
+  const session = yield* sessionOver(root, opened.store, [], []);
+  yield* persistOwnWrite(session, { upserts: [], deletes: [] });
   opened.release();
   return undefined;
 });
@@ -190,7 +192,8 @@ export const migrateStore = Effect.fn("kb.migrateStore")(function* (
   const target = BACKENDS[to].open(root);
   const nodes = yield* source.store.loadEffect;
   const tail = source.store.txTail.entries();
-  yield* target.store.commitEffect({ upserts: nodes, deletes: [] }, { at: yield* currentIso });
+  const into = yield* sessionOver(root, target.store, [], []);
+  yield* persistOwnWrite(into, { upserts: nodes, deletes: [] });
   // The tail moves with the nodes, revs and all. The migration changes nothing
   // a client can see, so it must not be the thing that forces every client
   // into a snapshot — and `adopt` re-stamps the store mark, because the marks
