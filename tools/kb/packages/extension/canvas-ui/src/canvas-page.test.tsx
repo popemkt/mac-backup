@@ -466,6 +466,126 @@ describe("CanvasPage pointer interactions", () => {
     expect(placed).toMatchObject({ type: "shape", shape: "rect", parent: "f" });
   });
 
+  describe("comments", () => {
+    const thread: OutlineNode = {
+      ...canvasNode,
+      id: "t1",
+      text: "look here",
+      parentId: "canvas",
+      children: ["r1"],
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: CANVAS_IDS.commentTag }],
+        [CANVAS_IDS.commentCanvasField]: [{ t: "ref", v: "canvas" }],
+        [CANVAS_IDS.commentItemField]: [{ t: "str", v: "b" }],
+        [CANVAS_IDS.commentStateField]: [{ t: "ref", v: CANVAS_IDS.commentOpen }],
+      },
+    };
+    const reply: OutlineNode = {
+      ...canvasNode,
+      id: "r1",
+      text: "agreed",
+      parentId: "t1",
+      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: CANVAS_IDS.commentTag }] },
+    };
+    const panel = () => dom.document.querySelector('[data-testid="comment-panel"]');
+    /** Write `text` into the panel and send it with its button. */
+    const write = async (text: string) => {
+      const area = present(panel()?.querySelector("textarea"), "the panel's field");
+      await act(async () => {
+        // Past React's own record of the value, as typing is.
+        Object.getOwnPropertyDescriptor(dom.HTMLTextAreaElement.prototype, "value")?.set?.call(
+          area,
+          text,
+        );
+        // React-dom came in before this DOM did, so it hears typing by the keys, not `input`.
+        area.dispatchEvent(new dom.KeyboardEvent("keyup", { bubbles: true, key: "e" }));
+      });
+      const send = [...(panel()?.querySelectorAll("button") ?? [])].at(-1);
+      await act(async () => present(send, "the panel's send").click());
+    };
+    const wrote = { status: "succeeded", id: "ext.canvas.comment", output: { id: "t2" } } as const;
+
+    const sides = ["clientWidth", "clientHeight"] as const;
+    let held: (PropertyDescriptor | undefined)[] = [];
+    beforeEach(() => {
+      held = sides.map((side) => Object.getOwnPropertyDescriptor(dom.HTMLElement.prototype, side));
+      // A stage with room: the pins stand on it.
+      for (const side of sides) {
+        Object.defineProperty(dom.HTMLElement.prototype, side, { configurable: true, value: 800 });
+      }
+    });
+    afterEach(() => {
+      sides.forEach((side, i) => {
+        const was = held[i];
+        if (was === undefined) Reflect.deleteProperty(dom.HTMLElement.prototype, side);
+        else Object.defineProperty(dom.HTMLElement.prototype, side, was);
+      });
+    });
+
+    it("the comment tool starts a thread on the item it is pressed on, or at the point", async () => {
+      const invoke = vi.spyOn(host, "invoke").mockResolvedValue(wrote);
+      await act(async () => {
+        root.render(<CanvasPage canvasId="canvas" />);
+      });
+      key({ key: "m" });
+      const cardA = present(container.querySelector('[data-card-id="a"] .group\\/card'), "a");
+      dispatchPointer(cardA, "pointerdown", { button: 0, clientX: 60, clientY: 60 });
+      expect(panel()?.textContent).toContain("New comment");
+      await write("too wide");
+      expect(invoke).toHaveBeenLastCalledWith("ext.canvas.comment", {
+        canvasId: "canvas",
+        text: "too wide",
+        on: "a",
+      });
+      // A comment made, the tool is select again; armed once more, a press on empty canvas comments there.
+      key({ key: "m" });
+      const stage = present(container.querySelector("[data-canvas-stage]"), "stage");
+      dispatchPointer(stage, "pointerdown", { button: 0, clientX: 500, clientY: 400 });
+      await write("room here");
+      expect(invoke.mock.lastCall?.[1]).toMatchObject({ text: "room here", at: {} });
+      await settle();
+      expect(persistCanvasDoc).not.toHaveBeenCalled();
+    });
+
+    it("a thread's pin opens it: its comments, a reply, and resolving it", async () => {
+      host.setNodes([canvasNode, thread, reply]);
+      const invoke = vi.spyOn(host, "invoke").mockResolvedValue(wrote);
+      await act(async () => {
+        root.render(<CanvasPage canvasId="canvas" />);
+      });
+      const pin = present(
+        container.querySelector<HTMLButtonElement>('[data-comment-pin="t1"]'),
+        "the thread's pin, on b",
+      );
+      act(() => pin.click());
+      expect(
+        [...(panel()?.querySelectorAll("[data-comment]") ?? [])].map((p) => p.textContent),
+      ).toEqual(["look here", "agreed"]);
+      await write("done");
+      expect(invoke).toHaveBeenLastCalledWith("ext.canvas.comment", {
+        canvasId: "canvas",
+        text: "done",
+        replyTo: "t1",
+      });
+      const resolve = [...(panel()?.querySelectorAll("button") ?? [])].find(
+        (button) => button.textContent === "Resolve",
+      );
+      await act(async () => present(resolve, "Resolve").click());
+      expect(invoke).toHaveBeenLastCalledWith("node.update", {
+        id: "t1",
+        unsetProps: [{ field: CANVAS_IDS.commentStateField }],
+        setProps: [
+          {
+            field: CANVAS_IDS.commentStateField,
+            value: { t: "ref", v: CANVAS_IDS.commentResolved },
+          },
+        ],
+      });
+      // Its pin is drawn wherever b is: one on the canvas.
+      expect(container.querySelectorAll("[data-comment-pin]")).toHaveLength(1);
+    });
+  });
+
   it("a modal grab follows the pointer, and a press confirms or cancels it, reaching nothing", async () => {
     await act(async () => {
       root.render(<CanvasPage canvasId="canvas" />);

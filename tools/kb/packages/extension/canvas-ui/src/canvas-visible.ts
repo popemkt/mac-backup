@@ -1,9 +1,18 @@
-import { edgeRoute, routeMidpoint, routePoints, type CanvasDoc, type CanvasNode } from "@kb/canvas";
+import {
+  edgeRoute,
+  pinnedItems,
+  routeMidpoint,
+  routePoints,
+  type CanvasDoc,
+  type CanvasNode,
+  type CanvasThread,
+} from "@kb/canvas";
 import type { ScreenRegion } from "@kb/ui-sdk";
 import type { PressChrome } from "./canvas-projections";
 import {
   projectPoint,
   screenBounds,
+  type CanvasPoint,
   type CanvasScreenPoint,
   type CanvasView,
   type ScreenRect,
@@ -27,6 +36,45 @@ export function itemScreenRects(
     if (drawn !== null) rects.set(item.id, drawn);
   }
   return rects;
+}
+
+/** Where a comment thread's pin stands on the stage: the tip it points from. */
+export interface ThreadPin {
+  readonly thread: CanvasThread;
+  /** The item it stands on; null for a thread pinned at a point. */
+  readonly item: string | null;
+  readonly at: CanvasPoint;
+}
+
+/**
+ * Where `view` pins each of `threads` on a stage of `size`: at the top right
+ * of each item the thread is pinned on (`pinnedItems`), as that item is
+ * drawn (its anchor, `itemScreenRects`), or where its point on the floor is
+ * drawn. None where nothing it is pinned on is in front of the eye, and
+ * none for a thread whose pin is lost (the lint's `orphan-comment`).
+ */
+export function threadPins(
+  threads: readonly CanvasThread[],
+  doc: CanvasDoc,
+  view: CanvasView,
+  size: ViewSize,
+): ThreadPin[] {
+  const rects = itemScreenRects(doc.nodes, view, size);
+  return threads.flatMap((thread) => {
+    const { anchor } = thread;
+    if (anchor === null) return [];
+    const tips =
+      "at" in anchor
+        ? [{ item: null, at: projectPoint(view, size, { ...anchor.at, z: 0 }) }]
+        : pinnedItems(anchor, doc).map((item) => {
+            const rect = rects.get(item.id);
+            return {
+              item: item.id,
+              at: rect === undefined ? null : { x: rect.right, y: rect.top },
+            };
+          });
+    return tips.flatMap(({ item, at }) => (at === null ? [] : [{ thread, item, at }]));
+  });
 }
 
 /**

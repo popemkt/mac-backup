@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
-import type { CanvasDoc, CanvasSide } from "@kb/canvas";
+import type { CanvasDoc, CanvasSide, CommentPlace } from "@kb/canvas";
 import { isShapeNode, isTextNode, paintOrder, placeItems, presetItem } from "@kb/canvas";
 import {
   pickTool,
@@ -48,6 +48,8 @@ interface CanvasGestureContext {
   choose: (chooser: CanvasChooser) => void;
   /** Open an item's editor: a text card placed with its tool is typed into at once, as in tldraw. */
   edit: (id: string) => void;
+  /** Start a comment thread at `place`, written in a panel opened at `client`. */
+  comment: (place: CommentPlace, client: { x: number; y: number }) => void;
   setSelection: Dispatch<SetStateAction<CanvasSelection>>;
   setItemInspectorAnchor: Dispatch<SetStateAction<{ x: number; y: number } | null>>;
   setToolState: Dispatch<SetStateAction<ToolState>>;
@@ -69,6 +71,7 @@ type StageGestureContext = Pick<
   | "panning"
   | "toolState"
   | "edit"
+  | "comment"
 >;
 
 type ScreenToWorld = (
@@ -251,9 +254,9 @@ function createCardGestures(dispatchPointer: CanvasGestureContext["dispatchPoint
 
 /**
  * A press with the armed tool, at the spot it landed on in whichever
- * projection saw it (`pressWithTool`): a placing tool drops its item there.
- * False when the tool does nothing there (select), so the press means
- * something else.
+ * projection saw it (`pressWithTool`): a placing tool drops its item there,
+ * the comment tool starts a thread there. False when the tool does nothing
+ * there (select), so the press means something else.
  */
 function createToolPress({
   docRef,
@@ -264,11 +267,16 @@ function createToolPress({
   setToolState,
   toolState,
   edit,
+  comment,
 }: StageGestureContext) {
   return (spot: ToolSpot, client: { x: number; y: number }): boolean => {
     const pressed = pressWithTool(docRef.current, toolState.tool, spot, ulid());
     if (pressed === null) return false;
     setToolState((s) => reduceCanvasTool(s, { type: "used" }));
+    if (pressed.kind === "comment") {
+      comment(pressed.place, client);
+      return true;
+    }
     schedulePersist(pressed.doc);
     setSelection(selNode(pressed.node.id));
     setInspectorAnchor(null);

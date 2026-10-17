@@ -13,7 +13,9 @@ import {
   pickTool,
   placesItem,
   placeWithTool,
+  pressWithTool,
   reduceCanvasTool,
+  toolTakes,
   type ToolState,
 } from "./canvas-tool";
 
@@ -194,5 +196,40 @@ describe("placing into frames", () => {
     expect(placed?.doc.nodes.at(-1)).toMatchObject({ id: "r", parent: "f" });
     const outside = placeWithTool(doc, "rect", { x: 900, y: 900 }, "o");
     expect(outside?.doc.nodes.at(-1)).not.toHaveProperty("parent");
+  });
+});
+
+describe("a press with the armed tool", () => {
+  const frame = { id: "f", type: "group", x: 0, y: 0, width: 600, height: 400 } as const;
+  const card = presetItem("rect", { x: 700, y: 0 }, "c");
+  const doc: CanvasDoc = { nodes: [frame, card], edges: [] };
+  const floor = { at: { x: 40, y: 50, z: 0 }, face: null };
+
+  test("a tool takes the presses it means something on: a placing tool a frame's, the comment tool any item's", () => {
+    expect([toolTakes("rect", frame), toolTakes("rect", card)]).toEqual([true, false]);
+    expect([toolTakes("comment", frame), toolTakes("comment", card)]).toEqual([true, true]);
+    expect([toolTakes("select", frame), toolTakes("hand", card)]).toEqual([false, false]);
+  });
+
+  test("the comment tool starts a thread on the item it is pressed on, or at the point", () => {
+    expect(pressWithTool(doc, "comment", { place: floor, item: card }, "x")).toEqual({
+      kind: "comment",
+      place: { on: "c" },
+    });
+    expect(pressWithTool(doc, "comment", { place: floor, item: null }, "x")).toEqual({
+      kind: "comment",
+      place: { at: { x: 40, y: 50 } },
+    });
+    expect(pressWithTool(doc, "comment", { place: null, item: null }, "x")).toBeNull();
+  });
+
+  test("a placing tool places at the spot, and select does nothing there", () => {
+    const placed = pressWithTool(doc, "rect", { place: floor, item: frame }, "r");
+    expect(placed?.kind === "place" && placed.doc.nodes.at(-1)).toMatchObject({
+      id: "r",
+      parent: "f",
+    });
+    expect(pressWithTool(doc, "select", { place: floor, item: null }, "s")).toBeNull();
+    expect(pressWithTool(doc, "rect", { place: null, item: frame }, "r")).toBeNull();
   });
 });

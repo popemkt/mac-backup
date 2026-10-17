@@ -1175,8 +1175,8 @@ manipulation feel professional rather than merely functional.
   one-shot (it returns to `select` after placing), double-clicking the tool icon
   makes it **sticky** for repeated placement, `Escape` always returns to select.
   Tools: select (V), text (T), rect (R), ellipse (O / C), diamond (D),
-  group (F), kb node (N), solid (B); digits `1`–`8` mirror the same
-  order. The solid tool is tldraw's geo-tool pattern: one button wearing
+  group (F), kb node (N), solid (B), comment (M); digits `1`–`8` mirror
+  the same order, up to the solid. The solid tool is tldraw's geo-tool pattern: one button wearing
   the solid last picked, with a picker beside it over `CANVAS_SOLID_PRESETS`
   (box, pillar, sphere, cone, shelf, wall), and B picks that solid again.
   One table (`TOOL_LOOKS`, typed over every tool) names and marks them. The
@@ -1294,6 +1294,32 @@ manipulation feel professional rather than merely functional.
   committed as one change. A shape opens it where it is pressed, in
   either projection; Inspect opens it for any item. It is a canvas widget,
   not kb's node inspector, until items are nodes (plan 2026-10-02, step 7b).
+  It and the edge inspector open in one anchored panel (`canvas-popover.tsx`:
+  below its point, or above it near the window's foot, closed by Escape or
+  a press outside), and so does a comment thread.
+- **A press with the armed tool** is one spot in both projections
+  (`pressWithTool`, `canvas-tool.ts`): the place under it — on the face of
+  a frame it was pressed on, or the floor — and the item it was pressed on,
+  when the tool takes that item's press (`toolTakes`). A placing tool takes
+  a frame's, and places on it rather than selecting it; the comment tool
+  takes any item's. The 2D stage, the 2D press on an item and the 3D tap
+  each hand the spot over, so no projection decides what a tool means.
+- **Comments** (DESIGN.md → Canvas documents → Comments) are drawn from the
+  threads the canvas's world reads (`threadsOn`), with no store of their
+  own. The comment tool (M) starts a thread where it is pressed: on the
+  item under it (a card's thread is on its node) or at the point on the
+  floor, and returns to select. A pin (`canvas-comments.tsx`) stands at the
+  top right of each item a thread is pinned on as the shown projection
+  draws it, or where its point is drawn (`threadPins`, from the item
+  anchors scripts stand on), faint once resolved, cut off at the stage's
+  edge as the items are; a thread whose pin is lost has none. The pins lie
+  above the scripts' drawing, as the toolbars do. A pin opens the thread's
+  panel: its comments in order, a reply, and Resolve or Reopen. Every write
+  is the agent's: a comment through `ext.canvas.comment`, resolving through
+  `node.update` of `sys.f.comment.state` (`use-canvas-comments.ts`). A
+  comment shows what it says and not who said it
+  (gap `01M54GBYH3K67TAW016HFCJHBC`, marked at the panel). The projection
+  contract holds where each pin stands.
 
 #### Projections
 
@@ -2505,11 +2531,11 @@ beside that set.
 
 ### Layers
 
-| layer              | file                                                                                    | holds                                                                                                                                      | may name    |
-| ------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| 1. design system   | `ui/src/design-system.css` (the default); each contributed system's sheet (the others)  | the values a skin chooses, as plain custom properties, with the colour overrides for dark                                                  | values only |
-| 2. bridge          | `ui/src/index.css`, `@theme inline`                                                     | the mapping from layer 1 into Tailwind's namespaces (`--color-*`, `--text-*`, `--font-*`, …)                                               | layer 1     |
-| 3. component roles | `ui/src/tokens.css`                                                                     | row metrics, and the classes that compose layer 1 into a role (`.kb-text` is body text at the body step, `.kb-tag` a chip at the tag step) | layer 1     |
+| layer              | file                                                                                   | holds                                                                                                                                      | may name    |
+| ------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| 1. design system   | `ui/src/design-system.css` (the default); each contributed system's sheet (the others) | the values a skin chooses, as plain custom properties, with the colour overrides for dark                                                  | values only |
+| 2. bridge          | `ui/src/index.css`, `@theme inline`                                                    | the mapping from layer 1 into Tailwind's namespaces (`--color-*`, `--text-*`, `--font-*`, …)                                               | layer 1     |
+| 3. component roles | `ui/src/tokens.css`                                                                    | row metrics, and the classes that compose layer 1 into a role (`.kb-text` is body text at the body step, `.kb-tag` a chip at the tag step) | layer 1     |
 
 Components use layer-2 utilities (`text-meta`, `bg-popover`) and layer-3
 classes (`kb-text`). The bridge is `inline`, so every utility compiles to a
@@ -2529,11 +2555,11 @@ dark variant. Which systems exist is a plugin point: core contributes its
 default, families contribute the rest, and the page names none of them.
 kb ships three:
 
-| id                | from               | character                                                                                                                                                                                                                                                 |
-| ----------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kb` (default)    | core               | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                |
-| `themes.paper`    | the themes family  | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                      |
-| `themes.terminal` | the themes family  | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white |
+| id                | from              | character                                                                                                                                                                                                                                                 |
+| ----------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kb` (default)    | core              | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners                                                                                                                                                                                |
+| `themes.paper`    | the themes family | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal                                      |
+| `themes.terminal` | the themes family | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white |
 
 - **The point.** `DesignSystemPoint` (`ui.design-systems`, `@kb/ui-sdk`,
   beside `BackdropPoint`) holds one `DesignSystem` per contribution: its
@@ -2560,6 +2586,7 @@ kb ships three:
     `design-system.css` declares its values on `:root, [data-theme="kb"]`
     and its dark set on `.dark, .dark [data-theme="kb"]`, so the default's
     two blocks are layer 1's own.
+
   - No renderer reads a value off a contribution. Canvas and WebGL
     renderers copy token values out of the computed style, and re-read
     them on the one appearance signal (see Radius, borders, faces, colour →
@@ -2777,6 +2804,7 @@ exist is a plugin point, and the kit names none of them.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
+
 - **The choice is fields.** Which backdrop, its strength and its direction
   are three settings of core's node (`sys.extension.core`), since the slot is
   core's and names no backdrop. Core seeds the fields. Each field configures
@@ -2799,6 +2827,7 @@ exist is a plugin point, and the kit names none of them.
   - The three settings were device preferences once (`headerBackdrop`,
     `backdropStrength`, `backdropDirection`). A stale key is ignored on read
     and dropped on the next write.
+
 - **One picker.** Preferences draws core's three settings with the page's
   field editor, as it draws any field, so the backdrop field's own options
   are the one list of backdrops. It draws direction only when the shown

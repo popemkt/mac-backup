@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowUpRightIcon,
   CaretRightIcon,
+  ChatCircleIcon,
   CircleIcon,
   CubeIcon,
   CursorIcon,
@@ -36,6 +37,7 @@ const TOOL_LOOKS: {
 } = {
   select: { label: "Select", icon: <CursorIcon size={16} /> },
   hand: { label: "Hand: a press pans", icon: <HandIcon size={16} /> },
+  comment: { label: "Comment: on an item, or at a point", icon: <ChatCircleIcon size={16} /> },
   text: { label: "Text", icon: <TextTIcon size={16} /> },
   label: { label: "Label: faces you in 3D", icon: <TagIcon size={16} /> },
   rect: { label: "Rectangle", icon: <SquareIcon size={16} /> },
@@ -68,6 +70,7 @@ const FLAT_TOOLS: readonly CanvasTool[] = [
   "group",
   "kb-node",
   "image",
+  "comment",
 ];
 
 /** Each projection's mark on the toggle. */

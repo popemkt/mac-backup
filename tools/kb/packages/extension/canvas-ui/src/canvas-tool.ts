@@ -5,7 +5,9 @@
  * frame it lands in.
  *
  * The solids share one tool, tldraw's geo-tool pattern: picking a solid
- * preset remembers it, and the solid tool (B) picks the one last made.
+ * preset remembers it, and the solid tool (B) picks the one last made. The
+ * comment tool (M) places a comment thread rather than an item: on the item
+ * it is pressed on, or at the point.
  */
 import {
   CANVAS_SOLID_PRESETS,
@@ -17,11 +19,12 @@ import {
   type CanvasFrame,
   type CanvasNode,
   type CanvasPresetKind,
+  type CommentPlace,
 } from "@kb/canvas";
 import type { CanvasPlace } from "./canvas-faces";
 
-/** Select, the hand (a press pans), or a tool that places its preset. */
-export type CanvasTool = "select" | "hand" | CanvasPresetKind;
+/** Select, the hand (a press pans), the comment tool, or a tool that places its preset. */
+export type CanvasTool = "select" | "hand" | "comment" | CanvasPresetKind;
 
 /** What a key or a button picks: a tool, or the solid tool (whichever solid it last made). */
 export type CanvasToolPick = CanvasTool | "solid";
@@ -41,7 +44,7 @@ export type ToolAction =
 
 /** Whether `tool` places a preset, rather than taking hold of what is there. */
 function isPresetTool(tool: CanvasToolPick): tool is CanvasPresetKind {
-  return tool !== "select" && tool !== "hand" && tool !== "solid";
+  return tool !== "select" && tool !== "hand" && tool !== "comment" && tool !== "solid";
 }
 
 /** Whether a press pans, whatever it lands on: Space is held, or the hand tool is armed. */
@@ -166,18 +169,20 @@ export interface ToolSpot {
 
 /**
  * Whether a press with `tool` on `item` is the tool's rather than the
- * item's: a placing tool places on a frame it is pressed on, not into it.
+ * item's: a placing tool places on a frame it is pressed on, not into it;
+ * the comment tool comments on whatever it is pressed on.
  */
 export function toolTakes(tool: CanvasTool, item: CanvasNode): boolean {
-  return placesItem(tool) && isGroupNode(item);
+  return tool === "comment" || (placesItem(tool) && isGroupNode(item));
 }
 
-/** What a press with a tool does where it lands: the item it placed, in the document it placed it in. */
-export interface ToolPress {
-  readonly kind: "place";
-  readonly doc: CanvasDoc;
-  readonly node: CanvasNode;
-}
+/**
+ * What a press with a tool does where it lands: the item it placed, in the
+ * document it placed it in; or where a comment it starts goes (`commentWrite`).
+ */
+export type ToolPress =
+  | { readonly kind: "place"; readonly doc: CanvasDoc; readonly node: CanvasNode }
+  | { readonly kind: "comment"; readonly place: CommentPlace };
 
 /**
  * What a press with `tool` at `spot` does, `id` naming anything it makes;
@@ -190,6 +195,11 @@ export function pressWithTool(
   spot: ToolSpot,
   id: string,
 ): ToolPress | null {
+  if (tool === "comment") {
+    if (spot.item !== null) return { kind: "comment", place: { on: spot.item.id } };
+    if (spot.place === null) return null;
+    return { kind: "comment", place: { at: { x: spot.place.at.x, y: spot.place.at.y } } };
+  }
   if (spot.place === null) return null;
   const placed = placeWithTool(doc, tool, spot.place.at, id, spot.place.face);
   return placed === null ? null : { kind: "place", doc: placed.doc, node: placed.node };

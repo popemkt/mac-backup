@@ -30,7 +30,11 @@
  *   its members where it carried them;
  * - an item's anchor, where a script's drawing stands on it
  *   (`itemScreenRects`), holds every corner of its face as drawn, and a
- *   flat item's face fills it.
+ *   flat item's face fills it;
+ * - a comment thread's pin (`threadPins`) stands at the top right of each
+ *   item it is pinned on as drawn — through its node on every card showing
+ *   it, or on the item — or where its point is drawn, and nowhere once its
+ *   pin is lost.
  *
  * The 2D projection is the real DOM stage; the 3D one is the real scene on
  * the GPU stand-ins (`@kb/ui-test-kit`), each read by its probe
@@ -64,6 +68,7 @@ import {
   type CanvasDoc,
   type CanvasNode,
   type CanvasShapeKind,
+  type CommentAnchor,
 } from "@kb/canvas";
 import {
   cameraPose,
@@ -80,7 +85,7 @@ import type { CanvasSelection } from "./canvas-selection";
 import { syncUiPlugins } from "@kb/ui-sdk";
 import { testBrowserHost, testHostPlugin } from "@kb/ui-test-kit";
 import { CANVAS_PROJECTIONS, canvasProjection } from "./canvas-projections";
-import { itemScreenRects } from "./canvas-visible";
+import { itemScreenRects, threadPins } from "./canvas-visible";
 import { PROBES, PROBE_LOOK, useProbePage } from "./test-support/projection-probes";
 
 type Probe = Awaited<ReturnType<(typeof PROBES)["2d"]>>;
@@ -427,6 +432,16 @@ function expectAnchoredWhereDrawn(
   }
 }
 
+/** An open thread `id` with no replies, pinned at `anchor`. */
+const thread = (id: string, anchor: CommentAnchor) => ({
+  id,
+  text: id,
+  canvas: "canvas",
+  anchor,
+  resolved: false,
+  replies: [],
+});
+
 describe("canvas projection contract", () => {
   useProbePage();
 
@@ -480,6 +495,37 @@ describe("canvas projection contract", () => {
       const anchors = itemScreenRects(doc.nodes, view, size);
       for (const item of doc.nodes) {
         expectAnchoredWhereDrawn(item, probe.cornersOf(item.id) ?? [], anchors.get(item.id));
+      }
+      probe.dispose();
+    });
+
+    it("pins each comment thread at the top right of what it is on as drawn, or at its point", async () => {
+      const probe = await mount(view, scene);
+      const at = { x: 300, y: 600 };
+      const pins = threadPins(
+        [
+          thread("on-node", { node: "no.such.node" }),
+          thread("on-item", { item: "raised" }),
+          thread("at", { at }),
+          thread("lost", { item: "no.such.item" }),
+        ],
+        doc,
+        view,
+        size,
+      );
+      expect(pins.map((pin) => [pin.thread.id, pin.item])).toEqual([
+        ["on-node", "gone"],
+        ["on-item", "raised"],
+        ["at", null],
+      ]);
+      for (const pin of pins) {
+        const drawn = pin.item === null ? [] : (probe.cornersOf(pin.item) ?? []);
+        const tip =
+          pin.item === null
+            ? projectPoint(view, size, { ...at, z: 0 })
+            : { x: Math.max(...drawn.map((p) => p.x)), y: Math.min(...drawn.map((p) => p.y)) };
+        expect(Math.abs(pin.at.x - (tip?.x ?? Number.NaN)), `${pin.thread.id} x`).toBeLessThan(1);
+        expect(Math.abs(pin.at.y - (tip?.y ?? Number.NaN)), `${pin.thread.id} y`).toBeLessThan(1);
       }
       probe.dispose();
     });

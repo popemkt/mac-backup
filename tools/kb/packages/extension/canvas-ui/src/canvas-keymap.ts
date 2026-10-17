@@ -527,6 +527,7 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
   tool("Card for a node", "kb-node", ["n", "6"]),
   tool("Frame", "group", ["f", "7"]),
   tool("Solid (the last one made)", "solid", ["b", "8"]),
+  tool("Comment", "comment", ["m"]),
   shortcut("View", "Zoom in", { type: "zoomBy", factor: ZOOM_STEP }, [
     { key: "=", mod: true },
     { key: "+", mod: true },

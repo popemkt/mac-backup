@@ -65,6 +65,8 @@ import { CanvasPageStrip, type CanvasPageTab } from "./canvas-page-strip";
 import { linkStep } from "./canvas-links";
 import { classifyCardPointer } from "./card-pointer";
 import { pressPans, toolTakes, type CanvasChooser, type ToolState } from "./canvas-tool";
+import { CanvasCommentPanel, CanvasCommentPins } from "./canvas-comments";
+import { useCanvasComments } from "./use-canvas-comments";
 import type { PresentAct } from "./canvas-keymap";
 import { FIRST_GIZMO, NO_GIZMO, type GizmoChoice, type SceneGizmo } from "./canvas-gizmo";
 import { viewOfPan } from "./canvas-camera";
@@ -285,6 +287,9 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
     };
     opens[chooser]();
   };
+  /** What the canvas reads of kb around it: where its links lead, the threads on it. */
+  const world = useMemo(() => canvasWorld(nodes.values()), [nodes]);
+  const comments = useCanvasComments(canvasId, world);
   const {
     addKbNode,
     onDoubleClickStage,
@@ -316,6 +321,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
     setPickerOpen,
     choose,
     edit: (id) => faces.onEdit(id, true),
+    comment: comments.start,
     setSelection,
     setItemInspectorAnchor,
     setToolState,
@@ -342,8 +348,6 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
     viewport,
     capture: drawing.capture,
   });
-  /** What the canvas reads of kb around it: where its links lead. */
-  const world = useMemo(() => canvasWorld(nodes.values()), [nodes]);
   const board = boardOf(world, canvasId);
   /** The nodes whose scripts run here: the board's, across its pages, and this page's. */
   const scripted = useMemo(
@@ -715,6 +719,16 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
           events={scriptEvents}
           layout={scriptLayout}
         />
+        <CanvasCommentPins
+          rig={projection.rig}
+          in3d={in3d}
+          flatView={projection.flatView()}
+          width={projection.camera().size.width}
+          height={projection.camera().size.height}
+          doc={doc}
+          comments={comments}
+        />
+        <CanvasCommentPanel comments={comments} />
         <CanvasOverlays
           transforming={modal}
           scope={scope === null ? null : (byId.get(scope) ?? null)}
