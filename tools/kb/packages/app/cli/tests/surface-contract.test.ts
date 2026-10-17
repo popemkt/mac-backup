@@ -49,7 +49,8 @@ import {
 } from "@kb/test-kit";
 import { ToolCallFailed, WEBMCP_WIRE, startWebMcp, type ModelContextTool } from "@kb/webmcp";
 import { z } from "zod";
-import { ACTION_INVOKE_WIRE, main } from "../src/cli.ts";
+import { main } from "../src/cli.ts";
+import { ACTION_INVOKE_WIRE } from "../src/command.ts";
 
 /** What a listing must say of each action; the mode is decoded by the contracts' own schema. */
 const ListedActionSchema = ManifestEntrySchema.pick({ id: true, mode: true });
