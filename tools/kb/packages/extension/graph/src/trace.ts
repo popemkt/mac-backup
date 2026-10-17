@@ -33,9 +33,11 @@ export interface TracePath {
   readonly hubCost: number;
 }
 
-/** Why a trace found nothing. */
+/** Why a trace found nothing: one node at both ends, no path within the hops, or the visit cap before any path. */
+export const TRACE_REASON_CODES = ["same-node", "unreached", "capped"] as const;
+
 export interface TraceReason {
-  readonly code: "same-node" | "unreached";
+  readonly code: (typeof TRACE_REASON_CODES)[number];
   readonly message: string;
 }
 
@@ -96,14 +98,17 @@ export function trace(
     : [];
   const paths = found.map((nodes) => pathOf(walk.adjacency, nodes));
   if (paths.length > 0) return { paths, reason: null, warnings };
-  return {
-    paths,
-    reason: {
-      code: "unreached",
-      message: `no path of at most ${opts.maxHops} hops joins ${from} to ${to}`,
-    },
-    warnings,
-  };
+  // A capped walk proves nothing about the rest of the graph, so it does not say "no path".
+  const reason: TraceReason = walk.capped
+    ? {
+        code: "capped",
+        message: `stopped after visiting ${opts.visitCap} nodes before finding a path from ${from} to ${to}`,
+      }
+    : {
+        code: "unreached",
+        message: `no path of at most ${opts.maxHops} hops joins ${from} to ${to}`,
+      };
+  return { paths, reason, warnings };
 }
 
 interface Walk {

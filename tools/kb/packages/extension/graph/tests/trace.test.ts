@@ -176,8 +176,21 @@ describe("trace", () => {
         const full = trace(over(edges), ids[0] ?? "", ids[1] ?? "", { k: 5 });
         if (result.warnings.length === 0) expect(result.paths).toEqual(full.paths);
         else expect(full.paths.slice(0, result.paths.length)).toEqual([...result.paths]);
+        // Cut short before any path, the walk says so; it never claims there is none.
+        if (result.paths.length === 0 && result.warnings.length > 0)
+          expect(result.reason?.code).toBe("capped");
       }),
     );
+  });
+
+  test("a cap reached before any path says it was cut short, not that there is none", () => {
+    const edges: LensEdge[] = [
+      { source: "a", target: "m", kind: "mention", weight: 1 },
+      { source: "m", target: "b", kind: "mention", weight: 1 },
+    ];
+    const result = trace(over(edges), "a", "b", { visitCap: 1 });
+    expect(result.paths).toEqual([]);
+    expect(result.reason?.code).toBe("capped");
   });
 
   test("one node at both ends is a reason, not a path", () => {

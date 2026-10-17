@@ -12,7 +12,7 @@ import { EdgeKindSchema, type EdgeKind } from "./lens.ts";
 import { suggestOf, traceOf } from "./read.ts";
 import { typedRelation } from "./relation.ts";
 import { SUGGEST_DEFAULTS } from "./suggest.ts";
-import { TRACE_DEFAULTS } from "./trace.ts";
+import { TRACE_DEFAULTS, TRACE_REASON_CODES } from "./trace.ts";
 
 const isEdgeKind = Schema.is(EdgeKindSchema);
 const edgeKinds = z
@@ -61,7 +61,7 @@ const traceOutput = z.object({
       hubCost: z.number(),
     }),
   ),
-  reason: z.object({ code: z.enum(["same-node", "unreached"]), message: z.string() }).nullable(),
+  reason: z.object({ code: z.enum(TRACE_REASON_CODES), message: z.string() }).nullable(),
   warnings: z.array(z.string()),
 });
 

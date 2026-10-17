@@ -1657,7 +1657,9 @@ layer), so neither is computed by DataScript. Plan and prior art:
   `log(degree)` over the intermediates, so a specific connector beats a hub
   (every `#todo` meets in its tag). `k` (3), `maxHops` (6) and a visit cap
   bound it; hitting the cap returns the paths found so far with a warning,
-  and no path is a reason (`same-node`, `unreached`), never a failure.
+  and no path is a reason (`same-node`, `unreached`, or `capped` when the
+  cap came before any path, which proves nothing about the rest), never a
+  failure.
   Where several edges join a pair the hop names the most specific: a typed
   relation over a mention over containment, one pointing the walk's way over
   one pointing back.
