@@ -11,6 +11,20 @@
 # binaries, which run through nix-ld.
 let
   cfg = config.my.stacks.t3-code;
+
+  # Shell helper for the person who owns an instance, aimed at its own unit.
+  # The web UI's terminal lives in the unit's cgroup, so the restart is handed
+  # to a transient timer outside it. sudo is passwordless for wheel on hosts
+  # that run agents (see hosts/shared-server), and everyone here is in wheel.
+  mkHelpers = unit: ''
+    t3-restart() {
+      sudo systemd-run --quiet --collect --on-active=2 \
+        systemctl restart ${unit}.service || return
+      echo "${unit} restarts in ~2s. The UI will disconnect and reconnect."
+      echo "Any agent turn in progress is lost."
+      echo "After update-npm-globals, run t3-restart to pick up the new version."
+    }
+  '';
 in
 {
   config = lib.mkIf cfg.enable {
@@ -18,6 +32,14 @@ in
       {
         assertion = config.programs.nix-ld.enable;
         message = "my.stacks.t3-code needs programs.nix-ld.enable: t3, claude and codex are prebuilt npm binaries.";
+      }
+    ]
+    ++ [
+      {
+        assertion =
+          lib.length (lib.unique (lib.mapAttrsToList (_: i: i.user) cfg.instances))
+          == lib.length (lib.attrNames cfg.instances);
+        message = "my.stacks.t3-code: each user may own one instance; the t3-restart helper targets a single unit.";
       }
     ]
     ++ lib.mapAttrsToList (name: instance: {
@@ -62,6 +84,13 @@ in
           Restart = "on-failure";
           RestartSec = 10;
         };
+      }
+    ) cfg.instances;
+
+    home-manager.users = lib.mapAttrs' (
+      name: instance:
+      lib.nameValuePair instance.user {
+        programs.zsh.initContent = lib.mkAfter (mkHelpers "t3-code-${name}");
       }
     ) cfg.instances;
   };
