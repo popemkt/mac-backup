@@ -153,6 +153,26 @@ describe("stopping a child that never served", () => {
     expect(message).toContain("so it was stopped");
     expect(await exitsWithin(Number(await readFile(pidFile, "utf8")), 1000)).toBe(true);
   }, 10_000);
+
+  test("what a child started is killed with it, though the child itself exits on SIGTERM", async () => {
+    const pidFile = join(scratch, "grandchild.pid");
+    const grandchild = [
+      `require("node:fs").writeFileSync(${JSON.stringify(pidFile)}, String(process.pid))`,
+      "process.on('SIGTERM', () => {})",
+      "setInterval(() => {}, 1000)",
+    ].join("; ");
+    const script = [
+      `require("node:child_process").spawn(${JSON.stringify(process.execPath)}, ["-e", ${JSON.stringify(grandchild)}], { stdio: "ignore" })`,
+      "setInterval(() => {}, 1000)",
+    ].join("; ");
+    const message = await failureOf(
+      serveRoot(root, launch([process.execPath, "-e", script], 500)).pipe(
+        Effect.provide(bunFileSystemLayer),
+      ),
+    );
+    expect(message).toContain("so it was stopped");
+    expect(await exitsWithin(Number(await readFile(pidFile, "utf8")), 1000)).toBe(true);
+  }, 10_000);
 });
 
 describe("one start per root", () => {

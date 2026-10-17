@@ -76,20 +76,27 @@ function startChild(
   }
 }
 
-/** Send `signal` to the child's process group: it was started detached, so it leads one. */
-function signalGroup(child: ChildProcess, signal: NodeJS.Signals): void {
-  if (child.pid === undefined) return;
+/**
+ * Send `signal` to the child's process group (it was started detached, so it
+ * leads one), and answer whether the group had anyone to receive it; signal
+ * 0 only asks.
+ */
+function signalGroup(child: ChildProcess, signal: NodeJS.Signals | 0): boolean {
+  if (child.pid === undefined) return false;
   try {
     process.kill(-child.pid, signal);
+    return true;
   } catch {
-    // Already gone.
+    return false;
   }
 }
 
 /**
  * Stop a child that never served, and whatever it started (a UI build):
  * SIGTERM, a grace period for it to exit, then SIGKILL for what is left of
- * its group, so a child that ignores SIGTERM does not outlive its start.
+ * its group, so a child that ignores SIGTERM does not outlive its start. A
+ * group with nobody left in it is not signalled again: its id is free, and
+ * by then may be another's.
  */
 const stopChild = Effect.fn("kb.serve.stop")(function* (
   child: ChildProcess,
@@ -99,7 +106,7 @@ const stopChild = Effect.fn("kb.serve.stop")(function* (
   yield* Effect.gen(function* () {
     while (!exited()) yield* Effect.sleep(POLL_MS);
   }).pipe(Effect.timeoutOption(STOP_GRACE_MS));
-  signalGroup(child, "SIGKILL");
+  if (signalGroup(child, 0)) signalGroup(child, "SIGKILL");
 });
 
 /** The end of the log, or a note that there is nothing in it. */
