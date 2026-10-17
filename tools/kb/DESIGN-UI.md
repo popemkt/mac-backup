@@ -653,6 +653,18 @@ which holds one value by its type (`cardinalityOf`) — offers no add.
   (`declaresOptionSet`) — is a chip drawn in the tag chip's box, in the
   option's colour (`optionColorOf`); a field's chips wrap on one line.
 
+**Option previews.** An option of a declared kind (DESIGN.md → Extension
+families → Declared options) may be drawn with a live sample of what it
+names: `OptionPreviewPoint` (`ui.option-previews`, `@kb/ui-sdk`) holds one
+preview per kind (`{kind, Preview}`), and the field editor, for a field it
+draws, asks the point by the field (`useOptionPreview`), hands `Preview`
+the option's declared id, and draws what it returns before the option's
+chip at rest and before its row in the picker (`PickerList`'s `leadOf`, the
+one lead slot a row has, a glyph's included). The editor names no kind:
+core's design-system plugin previews a design system with its swatch, and
+a backdrop or a graph theme would fill the same slot. A preview draws
+nothing for a thing nobody contributes now.
+
 Input a kind cannot read is never dropped: the slot keeps it, marked with the
 reason, and the next edit starts from it.
 
@@ -2633,8 +2645,8 @@ kb ships three:
     The bundle's own stylesheet comes first, so a system's base block beats
     layer 1's `:root` and `.dark` (equal specificity, later source), and its
     dark block beats both (higher specificity).
-  - It adds every sheet, not only the chosen one, because Preferences'
-    swatches are live samples of each system. The selectors are
+  - It adds every sheet, not only the chosen one, because each option's
+    swatch is a live sample of its system. The selectors are
     attributes, not `html[…]`, so the same blocks paint any subtree that
     carries the attribute.
   - A system whose plugin unloads takes its sheet with it, and a page it
@@ -2690,15 +2702,16 @@ kb ships three:
     is ignored on read and dropped on the next write. A device that held
     `paper` or `terminal` holds no option of the field, so it shows the
     default until the setting is written.
-- **Two pickers write the one setting.** Preferences → design draws one
-  live swatch per contributed system, in contribution order, the one
-  painting the page checked, and a click writes core's setting
-  (`chooseDesignSystem`). The palette's _Switch design system_ command
-  (`sys.cmd.switch-design-system`) steps the setting through the
-  contributed systems from the one shown, and wraps. Core's node shows the
-  same field as a field row, as it shows any setting. The swatches are a
-  picker of Preferences' own, where the backdrop's field is drawn by the
-  field editor (gap 01M54PYE750E2GNTTKAVRK7GCK).
+- **The field is drawn as any field is.** Preferences → design draws core's
+  design-system field with the page's field editor, as it draws the
+  backdrop's, and core's node shows the same field row. Each option is
+  previewed by its system's live swatch (Option previews: core's
+  design-system plugin contributes the preview): a sample carrying
+  `data-theme`, so its own sheet paints its ground, ink, accent, face,
+  radius and border, at rest and in the field's picker. The palette's
+  _Switch design system_ command (`sys.cmd.switch-design-system`) steps the
+  setting through the contributed systems from the one shown, and wraps
+  (`chooseDesignSystem`).
 - **The contract** (`app/ui/src/design-system-point.contract.test.tsx`)
   runs over every contributed design system: core's default, the page's
   families' and one from a test plugin, whose sheet restates layer 1 under
@@ -2751,8 +2764,8 @@ kb ships three:
     bound (`force3d-light.test.ts`) run over every system's accent and ink
     in both variants.
   - In a real engine (`design-system.e2e.ts`), choosing each system the
-    picker offers paints the root as that system's own swatch, no two
-    alike, and the choice survives a reload.
+    field's picker offers paints the root as the chosen value's own
+    swatch, no two alike, and the choice survives a reload.
 
 **Adding a design system:**
 

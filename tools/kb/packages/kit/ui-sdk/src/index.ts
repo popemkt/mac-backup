@@ -469,6 +469,7 @@ export {
 } from "./lib/theme";
 export { THEME_GLYPHS } from "./lib/theme-glyphs";
 export { chooseDesignSystem, shownDesignSystem } from "./lib/design-system";
+export { OptionPreviewPoint, useOptionPreview, type OptionPreview } from "./lib/option-preview";
 export {
   approach,
   approachRate,

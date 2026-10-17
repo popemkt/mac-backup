@@ -7,6 +7,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
+import { definePlugin } from "@kb/plugin";
 import type { WireNode } from "@kb/contracts";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
 import {
@@ -14,7 +15,9 @@ import {
   derivedWith,
   fieldContextOf,
   fieldTypeValue,
+  OptionPreviewPoint,
   schemaOfGraph,
+  syncUiPlugins,
   SYSTEM_IDS,
   wireToOutlineMap,
   type FieldContext,
@@ -161,6 +164,33 @@ describe("FieldPicker", () => {
       { text: "Doing", checked: "false", active: false },
       { text: "Done", checked: "true", active: false },
     ]);
+  });
+
+  it("leads each option of a previewed kind with its preview, and no other field's", async () => {
+    const previews = definePlugin({
+      name: "previews",
+      apply: (ctx) =>
+        ctx.contribute(OptionPreviewPoint, {
+          id: "status",
+          value: {
+            kind: { field: "f.status", prefix: "opt." },
+            Preview: ({ id }) => createElement("i", { "data-preview": id }),
+          },
+        }),
+    });
+    syncUiPlugins([previews]);
+    try {
+      await open("f.status", handle([], false));
+      expect(
+        [...container.querySelectorAll('[role="option"]')].map(
+          (row) => row.querySelector("[data-preview]")?.getAttribute("data-preview") ?? null,
+        ),
+      ).toEqual(["todo", "doing", "done"]);
+      await open("f.picked", handle([], false));
+      expect(container.querySelector("[data-preview]")).toBeNull();
+    } finally {
+      syncUiPlugins([]);
+    }
   });
 
   it("filters fuzzily, marks what matched, and offers to create the rest", async () => {

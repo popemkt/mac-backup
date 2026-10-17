@@ -156,9 +156,19 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     item?.scrollIntoView({ block: "nearest" });
   }, [keys.activeIndex]);
 
-  const iconOf = (row: PickerRow): React.ReactNode => {
-    if (row.kind === "create") return <PlusIcon size={12} weight="bold" />;
-    return picker === null ? commands.find((c) => c.id === row.id)?.icon : picker.icon;
+  /** A row's glyph, dimmed so it leads its label rather than competing with it. */
+  const leadOf = (row: PickerRow): React.ReactNode => {
+    const glyph =
+      row.kind === "create" ? (
+        <PlusIcon size={12} weight="bold" />
+      ) : picker === null ? (
+        commands.find((c) => c.id === row.id)?.icon
+      ) : (
+        picker.icon
+      );
+    return glyph === undefined || glyph === null ? null : (
+      <span className="opacity-50">{glyph}</span>
+    );
   };
 
   if (!open || !anchorRect || targetNodeId === null) return null;
@@ -226,7 +236,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
             onHover={keys.setActiveIndex}
             onPick={handleSelect}
             createLabel={picker?.createLabel}
-            iconOf={iconOf}
+            leadOf={leadOf}
             emptyText={query ? "No matches" : "Type to filter…"}
             aria-label={stepLabel ?? "Node commands"}
           />

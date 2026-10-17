@@ -1,8 +1,5 @@
 import { extensionNodeId, SYSTEM_IDS } from "@kb/model";
 import {
-  chooseDesignSystem,
-  cn,
-  DesignSystemPoint,
   type EnumOption,
   EnumSelect,
   type ExtensionSwitch,
@@ -12,17 +9,14 @@ import {
   type PropValue,
   THEME_GLYPHS,
   type ThemePref,
-  useContributions,
   useFieldEditor,
   useGraphRead,
   usePageBackdrop,
   type WidthPref,
   useDismiss,
 } from "@kb/ui-sdk";
-import { useRef } from "react";
-import { ArrowsHorizontalIcon, PuzzlePieceIcon, SwatchesIcon } from "@phosphor-icons/react";
-import { mutations } from "@/actions/mutations";
-import { useDesignSystemStore } from "@/stores/design-system.store";
+import { useRef, type ReactNode } from "react";
+import { ArrowsHorizontalIcon, PuzzlePieceIcon } from "@phosphor-icons/react";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -62,7 +56,7 @@ export function PreferencesPopover({
   return (
     <PopoverShell panelRef={panelRef} title="Preferences" className="absolute right-4 top-11 mt-1">
       <ThemeRow />
-      <DesignSystemRow />
+      <DesignSystemRows />
       <WidthRow />
       <BackdropRows />
       {switches.length > 0 ? (
@@ -94,62 +88,6 @@ function ThemeRow() {
   );
 }
 
-/**
- * One swatch per contributed design system, in contribution order, the one
- * painting the page checked. Each sample is live, not a picture: it
- * carries `data-theme`, so that system's own stylesheet paints its ground,
- * ink, accent, face, radius and border, in the current light or dark. The
- * name under it stays in the popover's face, so it reads as a label.
- */
-// GAP [[01M54PYE750E2GNTTKAVRK7GCK]] its own swatch picker for the field, not the field editor that draws the backdrop's
-function DesignSystemRow() {
-  const systems = useContributions(DesignSystemPoint);
-  const current = useDesignSystemStore((s) => s.painted);
-  return (
-    <PrefFieldRow icon={SwatchesIcon} label="design">
-      <div
-        role="radiogroup"
-        aria-label="design system"
-        className="flex min-w-0 flex-1 gap-1.5 py-1"
-      >
-        {systems.map(({ value: { key: system } }) => {
-          const checked = system.id === current;
-          return (
-            <button
-              key={system.id}
-              type="button"
-              role="radio"
-              aria-checked={checked}
-              data-testid={`design-system-${system.id}`}
-              onClick={() => void chooseDesignSystem(mutations, system.id)}
-              className="group flex min-w-0 flex-1 flex-col items-stretch gap-1"
-            >
-              <span
-                data-theme={system.id}
-                className={cn(
-                  "flex items-center justify-between gap-1 rounded-md border border-border bg-background px-1.5 py-1 font-sans text-ui leading-none text-foreground shadow-edge outline-offset-2",
-                  checked ? "outline-2 outline-primary" : "group-hover:bg-accent",
-                )}
-              >
-                Aa
-                <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
-              </span>
-              <span
-                className={cn(
-                  "truncate text-caption leading-none",
-                  checked ? "text-foreground/80" : "text-foreground/45",
-                )}
-              >
-                {system.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </PrefFieldRow>
-  );
-}
-
 function WidthRow() {
   const width = usePrefsStore((s) => s.width);
   const setWidth = usePrefsStore((s) => s.setWidth);
@@ -169,20 +107,16 @@ const CORE_NODE = extensionNodeId("core");
 const NONE: PropValue[] = [];
 
 /**
- * The page-head backdrop, as core's settings (DESIGN-UI.md → Page-head
- * backdrops): which one, how strong and which way, each an option field
- * drawn with the page's field editor, as any field is drawn. The backdrops
- * are the backdrop field's options, one per declared backdrop, so the
- * field's own picker is the one list of them. The direction is drawn only
- * where the backdrop shown faces a way.
+ * Core's settings as Preferences draws them: each a field of core's node
+ * (`sys.extension.core`), drawn with the page's field editor as any field
+ * is drawn, under its label. Null until core's node has arrived.
  */
-function BackdropRows() {
-  const { backdrop } = usePageBackdrop();
+function useCoreSettings(): ((fieldId: string, label: string) => ReactNode) | null {
   const graph = useGraphRead();
   const Field = useFieldEditor();
   const core = graph.outline.get(CORE_NODE);
-  if (backdrop === null || core === undefined) return null;
-  const setting = (fieldId: string, label: string) => (
+  if (core === undefined) return null;
+  return (fieldId, label) => (
     <Field
       nodeId={CORE_NODE}
       fieldId={fieldId}
@@ -192,6 +126,31 @@ function BackdropRows() {
       depth={-1}
     />
   );
+}
+
+/**
+ * The design system the page is painted in, as core's setting (DESIGN-UI.md
+ * → Design tokens → Design systems): its field, whose options are the
+ * declared systems, each drawn with its live swatch (`OptionPreviewPoint`).
+ */
+function DesignSystemRows() {
+  const setting = useCoreSettings();
+  if (setting === null) return null;
+  return <section aria-label="design">{setting(SYSTEM_IDS.designSystemField, "design")}</section>;
+}
+
+/**
+ * The page-head backdrop, as core's settings (DESIGN-UI.md → Page-head
+ * backdrops): which one, how strong and which way, each an option field
+ * drawn with the page's field editor, as any field is drawn. The backdrops
+ * are the backdrop field's options, one per declared backdrop, so the
+ * field's own picker is the one list of them. The direction is drawn only
+ * where the backdrop shown faces a way.
+ */
+function BackdropRows() {
+  const { backdrop } = usePageBackdrop();
+  const setting = useCoreSettings();
+  if (backdrop === null || setting === null) return null;
   return (
     <section aria-label="backdrop">
       {setting(SYSTEM_IDS.backdropField, "backdrop")}

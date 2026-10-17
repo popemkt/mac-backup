@@ -33,8 +33,11 @@ export function shownDesignSystem(
   return chosenDeclared(contributed, chosen);
 }
 
-/** Choose the design system `id` for the page: core's setting, written as any field is. */
-// GAP [[01M54PYE750E2GNTTKAVRK7GCK]] a write for Preferences' own swatches; the field editor should draw the field
+/**
+ * Choose the design system `id` for the page: core's setting, written as any
+ * field is. The palette's switch command steps through the systems with it;
+ * Preferences draws the field with the page's field editor.
+ */
 export function chooseDesignSystem(writes: PageWrites, id: string): Promise<void> {
   return writes.updateProp(CORE, SYSTEM_IDS.designSystemField, {
     t: "ref",

@@ -11,6 +11,7 @@ import {
   refSearchOf,
   refUses,
   textOr,
+  useOptionPreview,
   usePickerKeys,
   type FieldContext,
   type PickerRow,
@@ -100,6 +101,7 @@ export function FieldPicker({
   const search = refSearchOf(context, fieldId);
   const fieldNode = context.schema.get(fieldId);
   const creation = refCreationOf(context, fieldId);
+  const preview = useOptionPreview(fieldId);
   const selected = useMemo(
     () => new Set(field.values.flatMap((v) => (v.t === "ref" ? [v.v] : []))),
     [field.values],
@@ -173,6 +175,9 @@ export function FieldPicker({
         onHover={keys.setActiveIndex}
         onPick={pick}
         createLabel={(name) => createLabelOf(creation, context, name)}
+        leadOf={
+          preview === null ? undefined : (row) => (row.kind === "item" ? preview(row.id) : null)
+        }
         emptyText={query.trim() === "" ? "Nothing to pick yet" : "No matches"}
         hint={field.many ? "↵ toggle · ⌫ remove last · esc done" : "↵ pick · esc close"}
         aria-label={textOr(fieldNode?.text, "Values")}

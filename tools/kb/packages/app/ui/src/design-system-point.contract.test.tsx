@@ -10,7 +10,8 @@
  * and sets no shared and no unknown token; every layer-1 token resolves for
  * it in light and in dark, and every colour among them parses; the painter
  * adds its sheet after every sheet on the page; choosing it is writing
- * core's setting, in Preferences or anywhere, and the page is then painted
+ * core's setting, which Preferences draws with the page's field editor, each
+ * option previewed by its system's live swatch, and the page is then painted
  * in it; a choice nobody contributes, or a system whose plugin unloads,
  * paints the default.
  *
@@ -41,9 +42,11 @@ import {
   oklchToRgb,
   provideDesignSystem,
   syncUiPlugins,
+  useOptionPreview,
   type DesignSystem,
 } from "@kb/ui-sdk";
 import { installDomGlobals, type InstalledDom } from "@kb/ui-test-kit";
+import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { designSystemsUiPlugin } from "@/design-systems";
@@ -342,34 +345,49 @@ describe("every contributed design system", () => {
       useUiStore.getState().setPrefsOpen(false);
     });
 
-    const swatches = () => [...container.querySelectorAll('[role="radio"]')];
+    const section = () => {
+      const found = container.querySelector('[aria-label="design"]');
+      if (found === null) throw new Error("Preferences draws no design-system setting");
+      return found;
+    };
 
-    it("offers one live swatch per contributed system, in contribution order", () => {
-      expect(swatches().map((swatch) => swatch.getAttribute("data-testid"))).toEqual(
-        contributed().map(({ key }) => `design-system-${key.id}`),
-      );
-      expect(
-        swatches().map((swatch) =>
-          swatch.querySelector("[data-theme]")?.getAttribute("data-theme"),
-        ),
-      ).toEqual(contributed().map(({ key }) => key.id));
+    it("draws core's setting as a field row", () => {
+      expect(section().querySelectorAll("[data-field-row]")).toHaveLength(1);
     });
 
-    it("is chosen there by writing core's setting, which the page and the swatch then show", async () => {
-      const swatch = swatches().find(
-        (candidate) => candidate.getAttribute("data-testid") === `design-system-${PLAIN_KEY.id}`,
-      );
-      await act(async () => {
-        (swatch as HTMLElement | undefined)?.click();
-        // The write settles a task later, as a gesture's does.
-        await new Promise((settle) => setTimeout(settle, 0));
-      });
+    it("is chosen by writing core's setting, which the page, the row and its swatch then show", async () => {
+      const ref = { t: "ref" as const, v: designSystemOptionId(PLAIN_KEY.id) };
+      await act(() => mutations.updateProp(CORE, SYSTEM_IDS.designSystemField, ref));
       const core = useGraphStore.getState().index?.getNode(CORE);
-      expect(core?.props[SYSTEM_IDS.designSystemField]).toEqual([
-        { t: "ref", v: designSystemOptionId(PLAIN_KEY.id) },
-      ]);
+      expect(core?.props[SYSTEM_IDS.designSystemField]).toEqual([ref]);
       expect(html().getAttribute("data-theme")).toBe(PLAIN_KEY.id);
-      expect(swatch?.getAttribute("aria-checked")).toBe("true");
+      expect(section().textContent).toContain(PLAIN_KEY.label);
+      expect(section().querySelector("[data-option-preview]")?.getAttribute("data-theme")).toBe(
+        PLAIN_KEY.id,
+      );
+    });
+
+    it("previews each contributed system's option with its live swatch, and none for one nobody contributes", () => {
+      const ids = [...contributed().map(({ key }) => key.id), "plain.gone"];
+      function Previews() {
+        const preview = useOptionPreview(SYSTEM_IDS.designSystemField);
+        return createElement(
+          "div",
+          null,
+          ids.map((id) =>
+            createElement("p", { key: id, "data-id": id }, preview?.(designSystemOptionId(id))),
+          ),
+        );
+      }
+      const host = document.createElement("div");
+      const previews = createRoot(host);
+      act(() => previews.render(createElement(Previews)));
+      expect(
+        ids.map((id) =>
+          host.querySelector(`[data-id="${id}"] [data-theme]`)?.getAttribute("data-theme"),
+        ),
+      ).toEqual([...contributed().map(({ key }) => key.id), undefined]);
+      act(() => previews.unmount());
     });
   });
 });

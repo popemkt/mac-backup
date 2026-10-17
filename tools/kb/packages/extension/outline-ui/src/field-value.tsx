@@ -12,6 +12,7 @@ import {
   nodeTarget,
   offsetFromPoint,
   OptionChip,
+  useOptionPreview,
   optionColorOf,
   readInlineInput,
   refInkOf,
@@ -792,6 +793,7 @@ export function OptionSurface({
   onEnd,
 }: ValueSurfaceProps) {
   const optionId = spec.text(value);
+  const preview = useOptionPreview(fieldId);
   if (editing) {
     return (
       <FieldPicker
@@ -807,7 +809,8 @@ export function OptionSurface({
   const option = context.schema.get(optionId);
   if (option) {
     return (
-      <span className="flex h-6 items-center px-1">
+      <span className="flex h-6 items-center gap-1 px-1">
+        {preview?.(optionId)}
         <OptionChip
           id={optionId}
           label={option.text || optionId}

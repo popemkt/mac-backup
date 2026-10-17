@@ -20,8 +20,8 @@ export interface PickerListProps {
   anchorRef?: RefObject<HTMLElement | null>;
   /** What the create row says for a name (`Create tag "x"`). */
   createLabel?: (name: string) => string;
-  /** A glyph before a row's label. */
-  iconOf?: (row: PickerRow) => ReactNode;
+  /** What leads a row's label: a glyph, or an option's live preview (`useOptionPreview`). */
+  leadOf?: (row: PickerRow) => ReactNode;
   /** Shown in place of rows when there are none. Absent: an empty list renders nothing. */
   emptyText?: string;
   /** A line of key hints under the rows. */
@@ -48,7 +48,7 @@ export function PickerList({
   placement,
   anchorRef,
   createLabel = defaultCreateLabel,
-  iconOf,
+  leadOf,
   emptyText,
   hint,
   "aria-label": ariaLabel,
@@ -88,7 +88,7 @@ export function PickerList({
             row={row}
             active={i === activeIndex}
             checks={checks}
-            icon={iconOf?.(row)}
+            lead={leadOf?.(row)}
             createLabel={createLabel}
             onHover={() => onHover?.(i)}
             onPick={() => onPick(row)}
@@ -108,7 +108,7 @@ function PickerRowButton({
   row,
   active,
   checks,
-  icon,
+  lead,
   createLabel,
   onHover,
   onPick,
@@ -116,7 +116,7 @@ function PickerRowButton({
   row: PickerRow;
   active: boolean;
   checks: boolean;
-  icon: ReactNode;
+  lead: ReactNode;
   createLabel: (name: string) => string;
   onHover: () => void;
   onPick: () => void;
@@ -155,7 +155,8 @@ function PickerRowButton({
           <PlusIcon size={12} weight="bold" />
         </span>
       ) : (
-        icon !== undefined && icon !== null && <span className="shrink-0 opacity-50">{icon}</span>
+        lead !== undefined &&
+        lead !== null && <span className="flex shrink-0 items-center">{lead}</span>
       )}
       <span className="min-w-0 flex-1 truncate">
         {row.kind === "item" ? <RowLabel row={row} /> : createLabel(row.name)}
