@@ -6,7 +6,7 @@ export {
   DECISION_OPTION_IDS,
   MODE_MATCHES,
   actsAsOwner,
-  configurationDecision,
+  delegatedDecision,
   approvalPoliciesOf,
   approvalPolicyNode,
   matchSpecificity,

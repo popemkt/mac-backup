@@ -23,8 +23,8 @@ export type Actor = (typeof ACTORS)[number];
  * command line, which runs with the owner's own shell, so whoever runs it
  * already holds what the owner holds. An agent and sandboxed code act for
  * the owner and never hold the owner's capabilities: they may not set
- * `force`, and they change configuration only as
- * {@link configurationDecision} says (DESIGN.md → Action registry →
+ * `force`, and they make a governing write only as
+ * {@link delegatedDecision} says (DESIGN.md → Action registry →
  * Approval).
  */
 type OwnerActor = "human" | "cli";
@@ -43,23 +43,24 @@ function isOwnerActor(actor: Actor): actor is OwnerActor {
 }
 
 /**
- * What a write to configuration needs from a caller acting for the owner:
- * an agent asks the owner first, and sandboxed code, which runs what no
- * person wrote for this, never changes it.
+ * What a governing write needs from a caller acting for the owner: an agent
+ * asks the owner first, and sandboxed code, which runs what no person wrote
+ * for this, never makes it.
  */
-const DELEGATE_CONFIGURATION: Readonly<Record<Exclude<Actor, OwnerActor>, ApprovalDecision>> = {
+const DELEGATED: Readonly<Record<Exclude<Actor, OwnerActor>, ApprovalDecision>> = {
   agent: "ask",
   script: "deny",
 };
 
 /**
- * What a write to configuration needs, by who makes it: the owner's own
- * actors make it as any write, and a caller acting for them as
- * `DELEGATE_CONFIGURATION` says.
+ * What a governing write needs, by who makes it: a write to configuration
+ * (what the code runs with), or one that reaches past the store's root. The
+ * owner's own actors make it as any write, and a caller acting for them as
+ * `DELEGATED` says.
  */
-export function configurationDecision(actor: Actor | undefined): ApprovalDecision {
+export function delegatedDecision(actor: Actor | undefined): ApprovalDecision {
   if (actor === undefined || isOwnerActor(actor)) return "allow";
-  return DELEGATE_CONFIGURATION[actor];
+  return DELEGATED[actor];
 }
 
 /**

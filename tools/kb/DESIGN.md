@@ -1911,7 +1911,7 @@ Harman-lite (zod) + Effect-native handlers for owned actions:
     be tagged before or after, so minting, editing, untagging and deleting
     such a node all count (`writesConfiguration`, `@kb/model`). The same resolver rule weighs it,
     from the same commit writes (`details.writes: "configuration"`). What
-    it needs depends on the actor (`configurationDecision`, beside
+    it needs depends on the actor (`delegatedDecision`, beside
     `actsAsOwner`):
     - the owner's own actors (a human, the CLI) write it as any node;
     - an agent asks, so its write reaches the sidebar's approval card, and

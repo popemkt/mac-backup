@@ -2,7 +2,7 @@ import { Context } from "effect";
 import { z } from "zod";
 import {
   APPROVAL_DECISIONS,
-  configurationDecision,
+  delegatedDecision,
   configurationShown,
   matchSpecificity,
   stricterDecision,
@@ -119,7 +119,7 @@ export interface ApprovalResolution {
  *   policy, or the vocabulary policies are written in (otherwise a caller
  *   could allow itself), and a call that writes an extension's
  *   configuration (`writesConfiguration`: what the code runs with, such as
- *   the endpoint a key is sent to), as `configurationDecision` says for its
+ *   the endpoint a key is sent to), as `delegatedDecision` says for its
  *   actor: the owner's make it, an agent asks, sandboxed code is denied.
  *   That is known only from its writes, so the invoke core asks again with
  *   them just before the commit, and nothing is written when it refuses. A
@@ -139,7 +139,7 @@ export function resolveApproval(
   if (nodeOf === undefined || !writes.some((write) => writesConfiguration(write, nodeOf))) {
     return ruled;
   }
-  const decision = configurationDecision(call.actor);
+  const decision = delegatedDecision(call.actor);
   if (decision === "allow") return ruled;
   const shows = configurationShown(writes, nodeOf);
   return { decision, by: { writes: "configuration" }, ...(shows.length > 0 ? { shows } : {}) };
