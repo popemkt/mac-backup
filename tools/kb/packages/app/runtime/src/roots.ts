@@ -1,5 +1,6 @@
 /**
- * The {@link KbRoots} port on this machine's filesystem: a path is probed by
+ * The {@link KbRoots} port on this machine's filesystem: the home store is
+ * where `currentHome` says, a path is probed by
  * what the directory holds (the store chosen by presence, as opening chooses
  * it), a root is served when `.kb/ui.json` names a server that answers for
  * it (`servingUi`), a session over another root is opened exactly as this
@@ -12,7 +13,7 @@ import { Effect, Layer } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { KbRoots, type RootProbe } from "@kb/contracts";
 import { ensureDomainError, type DomainError } from "@kb/model";
-import { canonicalRoot, servingUi } from "@kb/workspace-fs";
+import { canonicalRoot, currentHome, servingUi } from "@kb/workspace-fs";
 import { openKbEffect } from "./open.ts";
 import { oneStartPerRoot, selfLaunch, serveRoot } from "./serve.ts";
 import { createStore, storeBackendAt } from "./store-selection.ts";
@@ -60,6 +61,7 @@ export const kbRootsLayer: Layer.Layer<KbRoots, never, FileSystem> = Layer.effec
     const launch = selfLaunch();
     const serve = oneStartPerRoot((root) => serveRoot(root, launch).pipe(Effect.provide(context)));
     return KbRoots.of({
+      home: currentHome,
       probe: (path) => probeRoot(path).pipe(Effect.provide(context)),
       served: (root) => servingUi(root).pipe(Effect.provide(context)),
       create: (root) => createRoot(root).pipe(Effect.provide(context)),

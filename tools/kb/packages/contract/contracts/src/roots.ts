@@ -29,6 +29,11 @@ export interface RootProbe {
 }
 
 export interface KbRootsPort {
+  /**
+   * Where the person's home store lives on this machine (DESIGN.md →
+   * Locations), whether or not there is one there yet.
+   */
+  readonly home: Effect.Effect<string>;
   /** What is at `path`. Never fails for a path that is absent or not a store: that is its state. */
   readonly probe: (path: string) => Effect.Effect<RootProbe, DomainError>;
   /** The URL of the `kb ui` that serves `root` now, or null (presence, checked by asking it). */

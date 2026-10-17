@@ -19,7 +19,6 @@ import {
   type LocationRow,
   type LocationWrite,
 } from "@kb/locations";
-import { currentHome } from "./home.ts";
 
 /** The one path a location holds, or why it holds none to read. */
 function entryPath(entry: LocationEntry): { readonly path: string } | { readonly reason: string } {
@@ -68,7 +67,7 @@ type Home =
 const openHome = Effect.fn("ext.locations.openHome")(function* (
   roots: KbRootsPort,
 ): Effect.fn.Return<Home, DomainError> {
-  const probe = yield* roots.probe(yield* currentHome);
+  const probe = yield* roots.probe(yield* roots.home);
   if (probe.state.kind !== "store")
     return {
       path: probe.path,
@@ -153,7 +152,7 @@ export const locationRegisterEffect = Effect.fn("ext.locations.register")(functi
       path: target.path,
       status: target.state.kind,
     });
-  const homePath = yield* currentHome;
+  const homePath = yield* roots.home;
   yield* roots.create(homePath);
   const home = yield* openHome(roots);
   if (home.session === null) return yield* domainError("internal", home.reason);
@@ -194,7 +193,7 @@ const openTarget = Effect.fn("ext.locations.openTarget")(function* (
 ): Effect.fn.Return<string, DomainError> {
   if (input.path !== undefined) return input.path;
   if (input.id === undefined) {
-    const home = yield* currentHome;
+    const home = yield* roots.home;
     yield* roots.create(home);
     return home;
   }

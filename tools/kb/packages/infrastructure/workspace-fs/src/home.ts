@@ -31,6 +31,6 @@ export function homePath(
  * say) is answered with it.
  */
 export const currentHome: Effect.Effect<string> = Effect.sync(() =>
-  // oxlint-disable-next-line node/no-process-env -- the family's one read of where the person's home store lives
+  // oxlint-disable-next-line node/no-process-env -- kb's one read of where the person's home store lives
   homePath(process.env, process.platform, homedir()),
 );
