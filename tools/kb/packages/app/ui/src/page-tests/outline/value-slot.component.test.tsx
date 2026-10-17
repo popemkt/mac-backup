@@ -563,6 +563,88 @@ describe("a number value reads in the locale", () => {
   });
 });
 
+describe("a secret value is a reference, never a key", () => {
+  let dom: InstalledDom;
+  let container: HTMLDivElement;
+  let root: Root;
+  let committed: PropValue[];
+
+  beforeAll(() => {
+    dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.restore();
+  });
+
+  beforeEach(() => {
+    committed = [];
+    container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  async function mountSecret(v: string) {
+    await act(async () => {
+      root.render(
+        createElement(ValueSlot, {
+          value: { t: "str", v },
+          fieldType: "secret",
+          fieldId: "f.credential",
+          context,
+          onCommit: (next: PropValue) => committed.push(next),
+          onFollow: () => undefined,
+        }),
+      );
+    });
+    return present(container.querySelector<HTMLElement>('[data-value-slot="secret"]'), "slot");
+  }
+
+  const editable = () =>
+    present(container.querySelector<HTMLElement>('[data-editable-text="true"]'), "editable");
+
+  async function typeAndLeave(text: string) {
+    editable().textContent = text;
+    await act(async () => {
+      editable().dispatchEvent(
+        new dom.window.FocusEvent("focusout", { bubbles: true }) as unknown as Event,
+      );
+    });
+  }
+
+  it("shows its reference as a code chip", async () => {
+    await mountSecret("keychain:kb/openai");
+    const chip = present(container.querySelector('[data-secret-ref="true"]'), "chip");
+    expect(chip.className).toContain("kb-md-code");
+    expect(chip.textContent).toBe("keychain:kb/openai");
+  });
+
+  it("never shows a pasted key back, at rest or when edited again", async () => {
+    const slot = await mountSecret("env:KB_KEY");
+    await act(async () => {
+      slot.click();
+    });
+    await typeAndLeave("sk-live-0123456789");
+    expect(committed).toEqual([]);
+    expect(editable().getAttribute("data-rejected")).toBe("true");
+    expect(container.textContent).not.toContain("sk-live");
+    expect(container.querySelector('[data-secret-ref="true"]')).toBeNull();
+    await act(async () => {
+      slot.click();
+    });
+    // The next edit starts from the stored reference, not from what was refused.
+    expect(editable().textContent).toBe("env:KB_KEY");
+    expect(container.textContent).not.toContain("sk-live");
+  });
+});
+
 describe("a checkbox value", () => {
   let dom: InstalledDom;
   let container: HTMLDivElement;

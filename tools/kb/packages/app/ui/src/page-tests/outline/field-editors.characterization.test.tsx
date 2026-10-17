@@ -113,9 +113,10 @@ describe("every declared type routes to one editor (display)", () => {
     );
   });
 
-  it("a secret shows its reference plainly, and never as a link", () => {
+  it("a secret shows its reference as a code chip, and never as a link", () => {
     const secret = editorHtml("secret", { t: "str", v: "keychain:kb/openai" });
     expect(secret).toContain("keychain:kb/openai");
+    expect(secret).toContain("kb-md-code");
     expect(secret).not.toContain("underline");
   });
 

@@ -114,10 +114,15 @@ const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
 
 /**
  * What a caret surface shows at rest: text's inline markdown, a url's link,
- * a number grouped in the locale's separators, or the plain string (a
- * secret's reference).
+ * a number grouped in the locale's separators, or a secret's reference as a
+ * code chip. A reference is never a key, and what a secret slot refused
+ * (perhaps a pasted key) is never shown back: it rests masked, and the next
+ * edit starts from the stored reference.
  */
-type CaretDisplay = "markdown" | "link" | "number" | "plain";
+type CaretDisplay = "markdown" | "link" | "number" | "reference";
+
+/** What a secret slot shows for input it refused: a mask, never the input. */
+const REFUSED_SECRET = "••••••••";
 
 /**
  * A value that is text, edited in place by the same live preview node text
@@ -151,7 +156,9 @@ function CaretValue({
   const viewRef = useRef<HTMLDivElement>(null);
   const editRef = useRef<HTMLDivElement>(null);
   const stored = spec.text(value);
-  const text = rejected?.text ?? stored;
+  const secret = shownAs === "reference";
+  // A secret slot's refused input is never kept as text to show or edit from.
+  const text = secret ? stored : (rejected?.text ?? stored);
 
   useLayoutEffect(() => {
     const el = editRef.current;
@@ -213,21 +220,32 @@ function CaretValue({
         <CaretRest
           viewRef={viewRef}
           className={cn(textClass, showEmpty && "empty-placeholder")}
-          text={
-            showEmpty
-              ? null
-              : shownAs === "number" && rejected === null && value.t === "num"
-                ? formatNumber(value.v)
-                : text
-          }
+          text={restText(shownAs, value, showEmpty ? null : text, rejected !== null)}
           href={shownAs === "link" && rejected === null ? spec.follow(value) : null}
           markdown={shownAs === "markdown" && rejected === null}
+          chip={secret && rejected === null}
           ink={ink}
           rejected={rejected}
         />
       )}
     </div>
   );
+}
+
+/**
+ * What a caret value shows at rest: nothing while unset (`text` null), a
+ * mask for input a secret slot refused, a number grouped, else the text.
+ */
+function restText(
+  shownAs: CaretDisplay,
+  value: ValueSurfaceProps["value"],
+  text: string | null,
+  refused: boolean,
+): string | null {
+  if (shownAs === "reference" && refused) return REFUSED_SECRET;
+  if (text === null) return null;
+  if (shownAs === "number" && !refused && value.t === "num") return formatNumber(value.v);
+  return text;
 }
 
 /**
@@ -356,6 +374,7 @@ function CaretRest({
   text,
   href,
   markdown,
+  chip,
   ink,
   rejected,
 }: {
@@ -365,6 +384,8 @@ function CaretRest({
   text: string | null;
   href: FollowTarget | null;
   markdown: boolean;
+  /** A secret's reference: shown as a code chip, as inline code is. */
+  chip: boolean;
   ink: RefInk;
   rejected: RejectedInput | null;
 }) {
@@ -386,6 +407,10 @@ function CaretRest({
           <UrlLink href={href.href} />
         ) : markdown ? (
           <InlineMarkdown text={text} ink={ink} />
+        ) : chip ? (
+          <span className={INLINE_TEXT_CLASSES.code} data-secret-ref="true">
+            {text}
+          </span>
         ) : (
           text
         )}
@@ -437,9 +462,9 @@ export function UrlSurface(props: ValueSurfaceProps) {
   return <CaretValue {...props} display="link" />;
 }
 
-/** A secret: the reference to where its key lives, plain; never a key. */
+/** A secret: the reference to where its key lives, as a chip; never a key. */
 export function SecretSurface(props: ValueSurfaceProps) {
-  return <CaretValue {...props} display="plain" />;
+  return <CaretValue {...props} display="reference" />;
 }
 
 /** A number: grouped in the locale's separators at rest. */

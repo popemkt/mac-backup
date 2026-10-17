@@ -628,9 +628,12 @@ which holds one value by its type (`cardinalityOf`) — offers no add.
   preview, over a keyboard-first calendar.
 - **checkbox** is a checkbox, not a switch.
 - **secret** is the reference to where a key lives (`env:NAME`,
-  `keychain:<service>[/<account>]`), plain text under a key glyph. What the
-  slot refuses is a key itself: `parseTypedValue` reads only a reference,
-  as the write check does (DESIGN.md → A written value conforms).
+  `keychain:<service>[/<account>]`), shown as a code chip under a key
+  glyph. What the slot refuses is a key itself: `parseTypedValue` reads only
+  a reference, as the write check does (DESIGN.md → A written value
+  conforms). Refused input is never shown back, unlike every other type's:
+  it rests as a mask with the reason, and the next edit starts from the
+  stored reference, so a pasted key never stays on screen.
 - **ref** is its target's row; the label follows, the rest of the row edits.
 - **option** — a ref field that declares its values by parenting them
   (`declaresOptionSet`) — is a chip drawn in the tag chip's box, in the
